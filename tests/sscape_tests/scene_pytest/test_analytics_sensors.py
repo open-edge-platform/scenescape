@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from controller.analytics.analytics_models import AnalyticsObject
-from controller.analytics.sensors import (
+from analytics.analytics_models import AnalyticsObject
+from analytics.sensors import (
   update_attribute_sensor_events,
   update_environmental_sensor_readings,
 )

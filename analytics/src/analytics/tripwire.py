@@ -4,7 +4,7 @@
 from scene_common import log
 from scene_common.geometry import getTripwireEvents
 
-from controller.analytics.state import DEBOUNCE_DELAY
+from analytics.state import DEBOUNCE_DELAY
 
 
 class TripwireEvent:

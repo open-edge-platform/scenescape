@@ -3,8 +3,8 @@
 
 from scene_common.timestamp import get_iso_time
 
-from controller.analytics.region import update_region_events
-from controller.analytics.tripwire import update_tripwire_events
+from analytics.region import update_region_events
+from analytics.tripwire import update_tripwire_events
 
 # Objects must appear this many times before being passed to region/tripwire
 # analytics.  Mirrors the tracker's frameCount gate without depending on

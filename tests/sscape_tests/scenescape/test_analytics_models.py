@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from controller.analytics.analytics_models import (
+from analytics.analytics_models import (
   AnalyticsEvent,
   AnalyticsFrame,
   AnalyticsObject,

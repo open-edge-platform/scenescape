@@ -5,7 +5,7 @@ from scene_common import log
 from scene_common.geometry import getRegionEvents
 from scene_common.timestamp import get_epoch_time, get_iso_time
 
-from controller.analytics.state import DEBOUNCE_DELAY
+from analytics.state import DEBOUNCE_DELAY
 
 
 def update_region_events(

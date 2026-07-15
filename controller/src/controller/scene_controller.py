@@ -10,7 +10,7 @@ import ntplib
 from scene_common.cache_manager import CacheManager
 from controller.child_scene_controller import ChildSceneController
 from controller.controller_mode import ControllerMode
-from controller.analytics.event_publisher import publish_events
+from analytics.event_publisher import publish_events
 from scene_common.detections_builder import (buildDetectionsList,
                                            computeCameraBounds)
 from controller.scene import Scene

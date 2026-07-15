@@ -5,9 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from controller.analytics.analytics_models import AnalyticsObject
-from controller.analytics.state import AnalyticsStateStore, DEBOUNCE_DELAY
-from controller.analytics.tripwire import (
+from analytics.analytics_models import AnalyticsObject
+from analytics.state import AnalyticsStateStore, DEBOUNCE_DELAY
+from analytics.tripwire import (
   TripwireEvent,
   update_tripwire_events,
 )

@@ -11,8 +11,8 @@ from collections import defaultdict
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
-from controller.analytics.event_publisher import publish_events
-from controller.analytics.state import AnalyticsStateStore
+from analytics.event_publisher import publish_events
+from analytics.state import AnalyticsStateStore
 from controller.scene_controller import SceneController
 
 
@@ -349,11 +349,11 @@ class TestSceneControllerPublishers:
       analytics_state=AnalyticsStateStore(),
     )
 
-    with patch('controller.analytics.event_publisher._build_all_region_objs_list', return_value=({}, 0)), \
-         patch('controller.analytics.event_publisher._build_entered_objs_list'), \
-         patch('controller.analytics.event_publisher._build_exited_objs_list'), \
-         patch('controller.analytics.event_publisher._clear_sensor_values_on_exit'), \
-         patch('controller.analytics.event_publisher.Region', FakeRegion):
+    with patch('analytics.event_publisher._build_all_region_objs_list', return_value=({}, 0)), \
+         patch('analytics.event_publisher._build_entered_objs_list'), \
+         patch('analytics.event_publisher._build_exited_objs_list'), \
+         patch('analytics.event_publisher._clear_sensor_values_on_exit'), \
+         patch('analytics.event_publisher.Region', FakeRegion):
       publish_events(scene, '2026-01-01T00:00:01Z', mock_publish)
 
     assert mock_publish.call_count == 1

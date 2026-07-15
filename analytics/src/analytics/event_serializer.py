@@ -26,7 +26,7 @@ import numpy as np
 from scene_common.geometry import DEFAULTZ, Point
 from scene_common.timestamp import get_epoch_time, get_iso_time
 
-from controller.analytics.tripwire import TripwireEvent
+from analytics.tripwire import TripwireEvent
 
 
 def serialize_for_event(obj, include_sensors=False, include_region_dwell=False, current_time=None):

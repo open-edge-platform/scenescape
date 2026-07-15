@@ -5,10 +5,10 @@ import orjson
 from collections import defaultdict
 from pathlib import Path
 
-from controller.analytics.adapters.scene_model import AnalyticsScene
-from controller.analytics.event_publisher import publish_events
-from controller.cache_manager import CacheManager
-from controller.detections_builder import buildDetectionsList, computeCameraBounds
+from analytics.adapters.scene_model import AnalyticsScene
+from analytics.event_publisher import publish_events
+from scene_common.cache_manager import CacheManager
+from scene_common.detections_builder import buildDetectionsList, computeCameraBounds
 from scene_common import log
 from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation

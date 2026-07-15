@@ -13,14 +13,14 @@ FROM scenescape-common-base AS scenescape-analytics-builder
 USER root
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Build controller package (analytics sub-package lives here)
-COPY ./controller/src/controller /tmp/controller/controller
-COPY ./controller/src/setup.py /tmp/controller/setup.py
-RUN cd /tmp/controller \
+# Build analytics package
+COPY ./analytics/src/analytics /tmp/analytics/analytics
+COPY ./analytics/src/setup.py /tmp/analytics/setup.py
+RUN cd /tmp/analytics \
     && python3 setup.py bdist_wheel \
     && pip3 install --no-cache-dir ./dist/*.whl -vvv \
     && cd \
-    && rm -rf /tmp/controller
+    && rm -rf /tmp/analytics
 
 # -------------- Analytics Runtime Stage --------------
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-analytics-runtime
@@ -72,7 +72,7 @@ RUN pip3 install --break-system-packages --upgrade --no-cache-dir -r /tmp/requir
 # Copy installed packages from builder
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/python${PYTHON_VERSION}/site-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/site-packages/fast_geometry
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/python${PYTHON_VERSION}/site-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/site-packages/scene_common
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/python${PYTHON_VERSION}/site-packages/controller /usr/local/lib/python${PYTHON_VERSION}/site-packages/controller
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/python${PYTHON_VERSION}/site-packages/analytics /usr/local/lib/python${PYTHON_VERSION}/site-packages/analytics
 
 # Schema file consumed by the analytics service at startup
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json

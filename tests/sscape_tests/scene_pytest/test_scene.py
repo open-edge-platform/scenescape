@@ -11,10 +11,10 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import controller.scene as scene_module
-import controller.analytics.region as analytics_region_module
-from controller.analytics.adapters.ingestion import SceneDataIngestion
-from controller.analytics.region import update_region_events
-from controller.analytics.tripwire import update_tripwire_events
+import analytics.region as analytics_region_module
+from analytics.adapters.ingestion import SceneDataIngestion
+from analytics.region import update_region_events
+from analytics.tripwire import update_tripwire_events
 from controller.moving_object import ChainData
 from controller.tracking import Tracking
 
@@ -820,7 +820,7 @@ def test_deserializeTrackedObjects_uses_cached_first_seen(scene_obj):
   assert objs[0].chain_data.publishedLocations[0] == Point(9.0, 8.0, 7.0)
 
 def test_deserializeTrackedObjects_missing_first_seen_uses_current_time(scene_obj, monkeypatch):
-  import controller.analytics.adapters.ingestion as ingestion_module
+  import analytics.adapters.ingestion as ingestion_module
   monkeypatch.setattr(ingestion_module, 'get_epoch_time', lambda *args, **kwargs: 77.0)
 
   objs = scene_obj._deserializeTrackedObjects([

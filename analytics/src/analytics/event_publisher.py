@@ -23,7 +23,7 @@ from scene_common.geometry import Region, Tripwire
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_epoch_time
 
-from controller.analytics.event_serializer import (
+from analytics.event_serializer import (
   build_objects_dict,
   build_objects_list,
 )

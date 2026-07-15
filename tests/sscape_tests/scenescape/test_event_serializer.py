@@ -3,8 +3,8 @@
 
 from types import SimpleNamespace
 
-from controller.analytics.event_serializer import build_objects_dict, build_objects_list, serialize_for_event
-from controller.analytics.tripwire import TripwireEvent
+from analytics.event_serializer import build_objects_dict, build_objects_list, serialize_for_event
+from analytics.tripwire import TripwireEvent
 from controller.moving_object import ChainData
 from scene_common.geometry import Point
 

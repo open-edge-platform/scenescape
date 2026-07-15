@@ -8,7 +8,7 @@ import os
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from controller.analytics.service import AnalyticsService
+from analytics.service import AnalyticsService
 from scene_common import log
 
 

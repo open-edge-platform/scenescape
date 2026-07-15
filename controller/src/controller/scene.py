@@ -16,15 +16,15 @@ from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
-from controller.analytics.adapters.ingestion import SceneDataIngestion
-from controller.analytics.analytics_models import moving_object_to_analytics_object
-from controller.analytics.engine import process_frame
-from controller.analytics.event_publisher import publish_events
-from controller.analytics.sensors import (
+from analytics.adapters.ingestion import SceneDataIngestion
+from analytics.analytics_models import moving_object_to_analytics_object
+from analytics.engine import process_frame
+from analytics.event_publisher import publish_events
+from analytics.sensors import (
   update_attribute_sensor_events,
   update_environmental_sensor_readings,
 )
-from controller.analytics.state import AnalyticsStateStore
+from analytics.state import AnalyticsStateStore
 
 MIN_FRAMES_FOR_RELIABLE_TRACK = 3
 
