@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import shutil
+import sys
 import time
 from selenium.webdriver import Firefox
 from selenium.webdriver.firefox.service import Service
@@ -14,12 +14,20 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from pathlib import Path
 from shutil import which
-from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
 import subprocess
 
 MAX_RETRIES = 5
 RETRY_DELAY = 30
+
+def _is_real_executable(binary):
+  # geckodriver cannot launch shell-script wrappers (e.g. the snap launcher at
+  # /usr/bin/firefox), so require a real ELF/Mach-O executable, not a script.
+  try:
+    with open(binary, "rb") as f:
+      header = f.read(2)
+  except OSError:
+    return False
+  return header != b"#!"
 
 def _validate_firefox(binary):
   result = subprocess.run([binary, "--version"], capture_output=True, text=True)
@@ -28,6 +36,8 @@ def _validate_firefox(binary):
 
 def _find_firefox_binary():
   candidates = [
+    os.environ.get("FIREFOX_BIN"),
+    "/snap/firefox/current/usr/lib/firefox/firefox",
     "/usr/bin/firefox",
     "/usr/bin/firefox-esr",
     which("firefox"),
@@ -38,7 +48,7 @@ def _find_firefox_binary():
     if not candidate:
       continue
     p = Path(candidate)
-    if p.is_file() and p.stat().st_mode & 0o111:
+    if p.is_file() and p.stat().st_mode & 0o111 and _is_real_executable(p):
       return str(p)
 
   raise RuntimeError(
@@ -46,16 +56,43 @@ def _find_firefox_binary():
     "and common system locations."
   )
 
+def _find_geckodriver():
+  candidates = [
+    os.environ.get("GECKODRIVER_BIN"),
+    str(Path(sys.executable).parent / "geckodriver"),
+    which("geckodriver"),
+  ]
+
+  for candidate in candidates:
+    if not candidate:
+      continue
+    p = Path(candidate)
+    if p.is_file() and p.stat().st_mode & 0o111:
+      return str(p)
+
+  raise RuntimeError(
+    "geckodriver not found. Run 'make setup-tests' to install it."
+  )
+
 class Browser(Firefox):
-  def __init__(self, headless=True):
+  def __init__(self, headless=True, webgl=False):
     # Remove proxy settings safely
     for key in list(os.environ):
       if 'proxy' in key.lower():
         os.environ.pop(key, None)
 
-    # Make headless explicit for Firefox in CI
+
+    # Make headless explicit for Firefox in CI.
     if headless:
       os.environ["MOZ_HEADLESS"] = "1"
+    else:
+      os.environ.pop("MOZ_HEADLESS", None)
+
+    # Force Mesa software rendering (llvmpipe/swrast) so a WebGL context can be
+    # created even when the runner has no GPU.
+    if webgl:
+      os.environ["LIBGL_ALWAYS_SOFTWARE"] = "1"
+      os.environ.setdefault("GALLIUM_DRIVER", "llvmpipe")
 
     options = Options()
     if headless:
@@ -63,7 +100,7 @@ class Browser(Firefox):
 
     options.add_argument("--width=1080")
     options.add_argument("--height=1920")
-    options.set_preference("webgl.disabled", True)
+    options.set_preference("webgl.disabled", not webgl)
     options.set_preference("media.hardware-video-decoding.enabled", False)
     options.set_preference("gfx.webrender.software", True)
     options.set_preference("network.proxy.type", 0)
@@ -83,13 +120,7 @@ class Browser(Firefox):
       "vdms.scenescape.intel.com",
     ]
     options.set_preference("network.dns.localDomains", ",".join(_host_aliases))
-    geckodriver_path = shutil.which("geckodriver")
-    if not geckodriver_path:
-      raise RuntimeError(
-        "geckodriver not found. Run 'make setup-tests' to install it."
-      )
-    service = Service(geckodriver_path)
-
+    service = Service(_find_geckodriver())
     super().__init__(options=options, service=service)
 
   def getPage(self, url, expected_title, retries=MAX_RETRIES, delay=RETRY_DELAY):

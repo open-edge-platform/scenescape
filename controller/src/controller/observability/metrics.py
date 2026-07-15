@@ -25,7 +25,9 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from scene_common import log
 
 # Export simplified public API functions only
-__all__ = ['init', 'inc_messages', 'inc_dropped', 'record_object_count', 'time_mqtt_handler', 'time_tracking']
+__all__ = ['init', 'inc_messages', 'inc_dropped', 'record_object_count', 'time_mqtt_handler', 'time_tracking',
+           'inc_time_chunking_duplicated_cameras', 'add_time_chunking_unique_cameras',
+           'inc_time_chunking_non_empty_chunks', 'inc_time_chunking_empty_chunks']
 
 # OpenTelemetry metric name constants
 METRIC_MQTT_MESSAGES_COUNT = "scenescape_controller_mqtt_messages"
@@ -33,6 +35,10 @@ METRIC_MQTT_MESSAGES_DROPPED = "scenescape_controller_mqtt_messages_dropped"
 METRIC_MQTT_HANDLER_DURATION = "scenescape_controller_mqtt_handler_duration"
 METRIC_TRACKING_DURATION = "scenescape_controller_tracking_duration"
 METRIC_MQTT_MESSAGES_OBJECT_COUNT = "scenescape_controller_objects_in_mqtt_message"
+METRIC_TIME_CHUNKING_DUPLICATED_CAMERAS = "scenescape_controller_time_chunking_duplicated_cameras"
+METRIC_TIME_CHUNKING_UNIQUE_CAMERAS = "scenescape_controller_time_chunking_unique_cameras"
+METRIC_TIME_CHUNKING_NON_EMPTY_CHUNKS = "scenescape_controller_time_chunking_non_empty_chunks"
+METRIC_TIME_CHUNKING_EMPTY_CHUNKS = "scenescape_controller_time_chunking_empty_chunks"
 
 METRIC_INSTRUMENTS = [
     {
@@ -64,6 +70,30 @@ METRIC_INSTRUMENTS = [
         "description": "Object count per MQTT message",
         "unit": "1",
         "kind": "histogram"
+    },
+    {
+        "name": METRIC_TIME_CHUNKING_DUPLICATED_CAMERAS,
+        "description": "Time-chunking buffered camera frames overwritten before dispatch",
+        "unit": "1",
+        "kind": "counter"
+    },
+    {
+        "name": METRIC_TIME_CHUNKING_UNIQUE_CAMERAS,
+        "description": "Time-chunking unique cameras dispatched per chunk",
+        "unit": "1",
+        "kind": "counter"
+    },
+    {
+        "name": METRIC_TIME_CHUNKING_NON_EMPTY_CHUNKS,
+        "description": "Time-chunking dispatch intervals with buffered data",
+        "unit": "1",
+        "kind": "counter"
+    },
+    {
+        "name": METRIC_TIME_CHUNKING_EMPTY_CHUNKS,
+        "description": "Time-chunking dispatch intervals with no buffered data",
+        "unit": "1",
+        "kind": "counter"
     }
 ]
 
@@ -116,6 +146,30 @@ def record_object_count(count, attributes=None):
   instance = _metrics_instance
   if instance:
     instance.histogram_record(METRIC_MQTT_MESSAGES_OBJECT_COUNT, count, attributes)
+
+def inc_time_chunking_duplicated_cameras(attributes=None):
+  """Increment count of buffered camera frames overwritten before dispatch."""
+  instance = _metrics_instance
+  if instance:
+    instance.counter_add(METRIC_TIME_CHUNKING_DUPLICATED_CAMERAS, 1, attributes)
+
+def add_time_chunking_unique_cameras(count, attributes=None):
+  """Add the number of unique cameras dispatched in a time-chunk."""
+  instance = _metrics_instance
+  if instance:
+    instance.counter_add(METRIC_TIME_CHUNKING_UNIQUE_CAMERAS, count, attributes)
+
+def inc_time_chunking_non_empty_chunks(attributes=None):
+  """Increment count of dispatch intervals that had buffered data."""
+  instance = _metrics_instance
+  if instance:
+    instance.counter_add(METRIC_TIME_CHUNKING_NON_EMPTY_CHUNKS, 1, attributes)
+
+def inc_time_chunking_empty_chunks(attributes=None):
+  """Increment count of dispatch intervals that had no buffered data."""
+  instance = _metrics_instance
+  if instance:
+    instance.counter_add(METRIC_TIME_CHUNKING_EMPTY_CHUNKS, 1, attributes)
 
 @contextmanager
 def time_mqtt_handler(attributes=None):

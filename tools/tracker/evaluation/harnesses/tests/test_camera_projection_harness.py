@@ -16,7 +16,7 @@ from harnesses.camera_projection_harness import CameraProjectionHarness
 
 @pytest.fixture
 def harness():
-  return CameraProjectionHarness(container_image="scenescape-controller:test")
+  return CameraProjectionHarness(container_image="intel/scenescape-controller:test")
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ def sample_inputs():
 class TestInitialization:
   def test_init_default_image(self):
     h = CameraProjectionHarness()
-    assert h._container_image == "scenescape-controller:latest"
+    assert h._container_image == "intel/scenescape-controller:latest"
 
   def test_init_custom_image(self):
     h = CameraProjectionHarness(container_image="my-image:v1")
