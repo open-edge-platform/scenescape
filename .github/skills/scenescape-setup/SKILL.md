@@ -147,6 +147,22 @@ scene`) to pick up the change:
 | Tracks flicker, vanish during occlusion, or IDs change unexpectedly      | [tuning-tracker.md](./references/tuning-tracker.md) |
 | Re-identification across cameras is missing or matching the wrong person | [tuning-reid.md](./references/tuning-reid.md)       |
 
+## Other optional scene configuration (reactive only)
+
+These are additional manager capabilities beyond the core deploy flow. Like tuning, do not ask
+about them upfront in Step 1 — load the matching reference only when the user's request implies
+one of these needs:
+
+| User need                                                                                      | Reference                                                          |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Keep a **vision/AI-pipeline** attribute (color, license plate, person attributes) from resetting | [attribute-persistence.md](./references/attribute-persistence.md)  |
+| Feed the scene an **external, non-vision** reading or event (temperature, badge swipe, etc.)    | [singleton-sensors.md](./references/singleton-sensors.md)          |
+| Define expected size/shape for a detected object class (Object Library)                        | [object-library.md](./references/object-library.md)                |
+
+If the user says "attribute" without more context, ask whether the value comes from the camera/AI
+pipeline (→ attribute-persistence.md) or from a separate sensor publishing its own MQTT messages
+(→ singleton-sensors.md) — both docs cross-reference each other for this exact ambiguity.
+
 ## Fast Path (repeat or resume deployments)
 
 If `<deploy_dir>/deploy-inputs.json` already exists and the user's new request does not change
@@ -279,6 +295,9 @@ troubleshooting a failure at that step.
 | [phase-scene.md](./references/phase-scene.md)                         | 11–13 (standalone)       | Run/resume only the scene phase                                                            |
 | [tuning-tracker.md](./references/tuning-tracker.md)                   | reactive (post-deploy)   | Diagnose reported tracking-quality issues → `tracker-config.json` motion/timing values     |
 | [tuning-reid.md](./references/tuning-reid.md)                         | reactive (post-deploy)   | Diagnose reported Re-ID issues → `reid-config.json` re-identification values               |
+| [attribute-persistence.md](./references/attribute-persistence.md)     | reactive (post-deploy)   | Keep object attributes from resetting between detections via `persist_attributes`         |
+| [singleton-sensors.md](./references/singleton-sensors.md)             | reactive (post-deploy)   | Add non-perceptual/scalar sensors (environmental or attribute-type) — REST for scene-wide, UI for circle/poly |
+| [object-library.md](./references/object-library.md)                  | reactive (post-deploy)   | Define expected object-class size/shape (Object Library / `Asset3D`) via REST             |
 
 ## Assets
 
@@ -298,7 +317,11 @@ See [example-prompts](./example-prompts) for ready-to-use prompts covering a mul
 deployment, resuming after a camera/stream change, and reactive tracker/Re-ID tuning after a
 deployment is already running. For deploying from an existing blueprint/GLB mesh or a geospatial
 map instead of auto-reconstruction, see
-[scene-map-alternatives.md](./references/scene-map-alternatives.md).
+[scene-map-alternatives.md](./references/scene-map-alternatives.md). For attribute persistence,
+singleton sensors, or Object Library entries after a deployment is running, see
+[attribute-persistence.md](./references/attribute-persistence.md),
+[singleton-sensors.md](./references/singleton-sensors.md), and
+[object-library.md](./references/object-library.md).
 
 ## Quality & Evaluation
 
