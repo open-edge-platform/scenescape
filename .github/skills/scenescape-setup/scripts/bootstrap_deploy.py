@@ -76,7 +76,7 @@ def copy_secrets_scripts(skill_dir: Path, deploy_dir: Path) -> None:
   secrets_dir = deploy_dir / "secrets"
   secrets_dir.mkdir(parents=True, exist_ok=True)
   for name in ("generate_secrets.sh", "openssl.cnf"):
-    shutil.copy2(skill_dir / "references" / name, secrets_dir / name)
+    shutil.copy2(skill_dir / "assets" / name, secrets_dir / name)
   subprocess.run(["chmod", "+x", str(secrets_dir / "generate_secrets.sh")], check=False)
 
 
@@ -84,7 +84,7 @@ def copy_controller_configs(skill_dir: Path, deploy_dir: Path) -> None:
   controller_dir = deploy_dir / "controller"
   controller_dir.mkdir(parents=True, exist_ok=True)
   for name in ("tracker-config.json", "reid-config.json"):
-    shutil.copy2(skill_dir / "references" / name, controller_dir / name)
+    shutil.copy2(skill_dir / "assets" / name, controller_dir / name)
 
 
 def generate_docker_compose(skill_dir: Path, deploy_dir: Path) -> None:

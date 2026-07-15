@@ -1,0 +1,61 @@
+{
+  "skill_name": "scenescape-setup",
+  "evals": [
+    {
+      "id": 1,
+      "prompt_file": "example-prompts/01-single-camera-warehouse.md",
+      "prompt": "Deploy SceneScape in ~/deployments/warehouse-demo with one RTSP camera (cam1) and scene name 'Warehouse Demo'.",
+      "expected_output": "Deployment completes end-to-end (bootstrap, calibrate, scene phases) without asking clarifying questions, and the final response reports DEPLOY COMPLETE with a scene_uid and deployment metrics.",
+      "should_trigger": true,
+      "files": [],
+      "assertions": [
+        "Does not ask clarifying questions since deploy_dir, streams, camera_ids, and scene_name are all explicit in the prompt",
+        "Persists deploy-inputs.json via the Step 1 tooling before invoking the orchestrator",
+        "Launches the orchestrator script (deploy_scenescape.sh) rather than running steps manually",
+        "Final response includes the DEPLOY COMPLETE marker and the Post-Task deployment metrics breakdown"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt_file": "example-prompts/02-multi-camera-retail.md",
+      "prompt": "Deploy SceneScape in ~/deployments/retail-demo with three RTSP cameras and scene name 'Retail Demo'.",
+      "expected_output": "Deployment validates that streams and camera_ids arrays are the same length, deploys all three cameras, and tracking verification confirms objects observed across more than one camera.",
+      "should_trigger": true,
+      "files": [],
+      "assertions": [
+        "Validates that the number of streams matches the number of camera_ids (3 == 3) before proceeding",
+        "Rejects or asks for correction if camera_ids are not unique",
+        "Calibration phase produces one calibration JPEG per camera_id",
+        "Tracking verification (step 13) confirms tracked objects are associated with more than one camera_id"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt_file": "example-prompts/03-resume-unchanged-deployment.md",
+      "prompt": "Continue the SceneScape deployment in ~/deployments/warehouse-demo — it stopped partway through.",
+      "expected_output": "Agent detects the existing deploy-inputs.json, uses the Fast Path (skips Step 1 questions), and resumes the orchestrator from the step recorded in .deploy-state.json.",
+      "should_trigger": true,
+      "files": [],
+      "assertions": [
+        "Detects deploy-inputs.json already exists in the deploy_dir and skips re-asking Step 1 questions",
+        "Shows the existing streams/camera_ids/scene_name to the user for confirmation instead of silently reusing them",
+        "Invokes the orchestrator with only --deploy-dir and --skill-dir (no --fresh)",
+        "Resumes from the step recorded in .deploy-state.json rather than restarting from step 1"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt_file": "example-prompts/04-redeploy-after-camera-change.md",
+      "prompt": "In ~/deployments/warehouse-demo, replace cam1 with a new camera at rtsp://192.168.1.15:8554/cam1-new (ID: cam1-new). Redeploy.",
+      "expected_output": "Agent recognizes the camera/stream change invalidates the Fast Path, re-runs Step 1 in full with the new values, and re-invokes the orchestrator with --fresh.",
+      "should_trigger": true,
+      "files": [],
+      "assertions": [
+        "Recognizes that a changed stream/camera_id set means this cannot use the Fast Path resume",
+        "Re-asks/re-confirms all Step 1 inputs (streams, camera_ids, scene_name) rather than merging partial changes silently",
+        "Invokes the orchestrator with --fresh so .deploy-state.json and the old deploy-inputs.json are cleared",
+        "Re-runs all phases (bootstrap, calibrate, scene) rather than only the calibration step for the changed camera"
+      ]
+    }
+  ]
+}
