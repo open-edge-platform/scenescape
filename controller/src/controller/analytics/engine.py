@@ -6,6 +6,12 @@ from scene_common.timestamp import get_iso_time
 from controller.analytics.region import update_region_events
 from controller.analytics.tripwire import update_tripwire_events
 
+# Objects must appear this many times before being passed to region/tripwire
+# analytics.  Mirrors the tracker's frameCount gate without depending on
+# tracker-specific fields, so both the primary and analytics-only paths
+# apply the same filter.
+MIN_FRAMES_FOR_RELIABLE_TRACK = 3
+
 
 def process_frame(
     detection_type,
@@ -23,8 +29,11 @@ def process_frame(
   This is the single entry point that replaces scene._updateEvents.  The
   caller (Scene) is responsible for:
     - resolving cur_objects from the tracker or analytics cache
-    - pre-filtering objects by reliability (e.g. frameCount gate) if needed
     - converting them to AnalyticsObject via moving_object_to_analytics_object
+
+  Objects are filtered internally by MIN_FRAMES_FOR_RELIABLE_TRACK using
+  publishedLocations length, so the same gate applies to both the primary
+  tracker path and the analytics-only path.
 
   Args:
     detection_type:    Detection category string (e.g. 'person').
@@ -45,15 +54,20 @@ def process_frame(
   for obj in cur_objects:
     obj.chain_data.publishedLocations.insert(0, obj.sceneLoc)
 
+  reliable_objects = [
+    obj for obj in cur_objects
+    if len(obj.chain_data.publishedLocations) > MIN_FRAMES_FOR_RELIABLE_TRACK
+  ]
+
   update_region_events(
-    detection_type, regions, now, now_str, cur_objects, events,
+    detection_type, regions, now, now_str, reliable_objects, events,
     state_store, is_intersecting_fn,
   )
   update_region_events(
-    detection_type, sensors, now, now_str, cur_objects, events,
+    detection_type, sensors, now, now_str, reliable_objects, events,
     state_store, is_intersecting_fn,
   )
 
   update_tripwire_events(
-    detection_type, tripwires, now, cur_objects, events, state_store,
+    detection_type, tripwires, now, reliable_objects, events, state_store,
   )

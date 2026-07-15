@@ -27,6 +27,7 @@ from controller.analytics.sensors import (
 from controller.analytics.state import AnalyticsStateStore
 
 MIN_FRAMES_FOR_RELIABLE_TRACK = 3
+
 from controller.controller_mode import ControllerMode
 from controller.moving_object import ChainData
 from controller.pose_adjustment import (PoseAdjustment,
@@ -482,8 +483,6 @@ class Scene(SceneModel):
         curObjects = self.getTrackedObjects(detectionType)
       else:
         curObjects = self.tracker.currentObjects(detectionType) if self.tracker else []
-    if self.use_tracker:
-      curObjects = [o for o in curObjects if o.frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK]
     curObjects = [moving_object_to_analytics_object(o) for o in curObjects]
     process_frame(
       detectionType, now, curObjects,
