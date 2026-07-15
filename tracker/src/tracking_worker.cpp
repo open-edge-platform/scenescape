@@ -14,6 +14,10 @@
 #include <charconv>
 #include <chrono>
 #include <numeric>
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
+#include <string_view>
 
 namespace tracker {
 
@@ -25,6 +29,43 @@ namespace {
 // (DEFAULT_TRACKING_RADIUS); we keep the same default here so the tracker
 // service produces identical results.
 constexpr double kTrackingDistanceThreshold = 2.0;
+constexpr std::string_view kMetadataPrefix = "metadata.";
+
+std::string metadataJson(const std::unordered_map<std::string, std::string>& attributes) {
+    rapidjson::Document merged;
+    merged.SetObject();
+    auto& allocator = merged.GetAllocator();
+
+    std::vector<std::pair<std::string_view, const std::string*>> fields;
+    for (const auto& [key, value] : attributes) {
+        if (!key.starts_with(kMetadataPrefix)) {
+            continue;
+        }
+        fields.emplace_back(std::string_view(key).substr(kMetadataPrefix.size()), &value);
+    }
+    std::sort(fields.begin(), fields.end(),
+              [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
+
+    for (const auto& [field, json] : fields) {
+        rapidjson::Document value;
+        if (value.Parse(json->c_str()).HasParseError()) {
+            continue;
+        }
+        rapidjson::Value field_name(field.data(), static_cast<rapidjson::SizeType>(field.size()),
+                                    allocator);
+        rapidjson::Value field_value(value, allocator);
+        merged.AddMember(field_name, field_value, allocator);
+    }
+
+    if (merged.ObjectEmpty()) {
+        return {};
+    }
+
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    merged.Accept(writer);
+    return buffer.GetString();
+}
 
 /**
  * @brief Build TrackManagerConfig from TrackingConfig.
@@ -231,16 +272,14 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         track.size = {rv_track.length, rv_track.width, rv_track.height};
         track.rotation = CoordinateTransformer::yawToQuaternion(rv_track.yaw);
 
-        // Retrieve metadata_json stored in attributes by transform_detections().
-        // NOTE: multi-camera last-write-wins — when the same track is observed by
-        // multiple cameras in one time chunk, rv::tracking::TrackedObject::attributes
-        // is overwritten (not merged) for each matched measurement. The camera whose
-        // detections are fed last into the tracker wins, which depends on processing
-        // order in objects_per_camera (i.e., the order of camera_batches in the Chunk).
-        // This is an inherent limitation of the RobotVision attributes API.
-        auto meta_it = rv_track.attributes.find("metadata_json");
-        if (meta_it != rv_track.attributes.end()) {
-            track.metadata_json = std::move(meta_it->second);
+        track.metadata_json = metadataJson(rv_track.attributes);
+
+        // Compatibility fallback for measurements produced by older adapters.
+        if (track.metadata_json.empty()) {
+            auto meta_it = rv_track.attributes.find("metadata_json");
+            if (meta_it != rv_track.attributes.end()) {
+                track.metadata_json = std::move(meta_it->second);
+            }
         }
 
         // Retrieve confidence stored in attributes by transformDetections().
@@ -273,6 +312,7 @@ std::vector<Track> TrackingWorker::match_and_convert(
 
     // Get reliable tracks and map RobotVision int IDs to UUID strings
     auto rv_tracks = tracker_.getReliableTracks();
+
     auto tracks = convert_tracks(std::move(rv_tracks), chunk.category);
 
     LOG_DEBUG("Processed chunk for {}/{}: {} detections -> {} reliable tracks", scope_.scene_id,

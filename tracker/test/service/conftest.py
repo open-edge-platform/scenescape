@@ -187,6 +187,64 @@ def tracker_service_otel(tls_certs):
 
 
 @pytest.fixture(scope="function")
+def tls_tracker_service_with_fusion_scene(tls_certs):
+  """Tracker service with dual-camera identical-extrinsics scene for fusion tests.
+
+  Uses a custom scene where both cameras have identical positions/orientations,
+  guaranteeing same pixel bbox projects to same world location for multi-camera
+  matching and fusion testing.
+
+  The fusion scene is provided via docker-compose volume mount at /test-fixtures/.
+  """
+  service_dir = Path(__file__).parent
+  compose_path = service_dir / "docker-compose.yaml"
+  project_name = f"tracker-fusion-{uuid.uuid4().hex[:8]}"
+
+  env_file = tls_certs.temp_dir / ".env"
+  env_file.write_text(
+      f"TLS_CA_CERT_FILE={tls_certs.ca.cert_path}\n"
+      f"TLS_SERVER_CERT_FILE={tls_certs.server.cert_path}\n"
+      f"TLS_SERVER_KEY_FILE={tls_certs.server.key_path}\n"
+      f"TLS_CLIENT_CERT_FILE={tls_certs.client.cert_path}\n"
+      f"TLS_CLIENT_KEY_FILE={tls_certs.client.key_path}\n"
+      f"TRACKER_MQTT_PORT=8883\n"
+      f"TRACKER_MQTT_INSECURE=false\n"
+      f"TRACKER_MQTT_TLS_CA_CERT=/run/secrets/ca_cert\n"
+      f"TRACKER_MQTT_TLS_CLIENT_CERT=/run/secrets/client_cert\n"
+      f"TRACKER_MQTT_TLS_CLIENT_KEY=/run/secrets/client_key\n"
+      f"TRACKER_SCENES_SOURCE=file\n"
+      f"TRACKER_SCENES_FILE_PATH=/test-fixtures/fusion-test-scene.json\n"
+  )
+
+  docker = DockerClient(
+      compose_files=[compose_path, str(service_dir / "docker-compose.override.yml")],
+      compose_project_name=project_name,
+      compose_project_directory=str(service_dir),
+      compose_env_files=[str(env_file)],
+  )
+
+  try:
+    print(f"\nStarting fusion test environment: {project_name}")
+    docker.compose.up(detach=True, wait=False)
+
+    try:
+      wait_for_readiness(docker, timeout=30)
+    except Exception:
+      print("\nTracker failed to become ready. Logs:")
+      print("--- Tracker logs ---")
+      print(get_container_logs(docker, "tracker"))
+      print("--- Broker logs ---")
+      print(get_container_logs(docker, "broker"))
+      raise
+
+    yield {"docker": docker, "certs": tls_certs}
+
+  finally:
+    print(f"\nCleaning up fusion environment: {project_name}")
+    docker.compose.down(remove_orphans=True, volumes=True)
+
+
+@pytest.fixture(scope="function")
 def tracker_service_api(tls_certs):
   """
   Fixture that starts tracker with mock Manager API for dynamic scene loading.

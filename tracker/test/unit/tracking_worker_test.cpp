@@ -305,7 +305,7 @@ TEST_F(TrackingWorkerTest, EmptyChunk_FlowsThroughTracker) {
     TrackingScope scope{"scene-1", "person"};
     TrackingWorker worker(scope, "Test Scene", 2, callback, tracking_config_, cameras_);
 
-    // Create chunk with empty camera_batches — tracker still advances time for aging
+    // Create chunk with empty camera_batches - tracker still advances time for aging
     Chunk chunk;
     chunk.scene_id = "scene-1";
     chunk.category = "person";
@@ -531,7 +531,7 @@ TEST_F(TrackingWorkerTest, Tracking_MetadataJson_PreservedThroughTracker) {
     // At least one reliable track must have been published; if not, the test
     // isn't validating the metadata passthrough path at all.
     ASSERT_GT(all_published_tracks.size(), 0u)
-        << "No reliable tracks published — metadata passthrough cannot be verified";
+        << "No reliable tracks published - metadata passthrough cannot be verified";
 
     // Every published track must carry the original metadata unchanged
     for (const auto& track : all_published_tracks) {
@@ -595,7 +595,7 @@ TEST_F(TrackingWorkerTest, Tracking_Confidence_PreservedThroughTracker) {
     }
 
     ASSERT_GT(all_published_tracks.size(), 0u)
-        << "No reliable tracks published — confidence passthrough cannot be verified";
+        << "No reliable tracks published - confidence passthrough cannot be verified";
 
     for (const auto& track : all_published_tracks) {
         ASSERT_TRUE(track.confidence.has_value())
@@ -603,6 +603,354 @@ TEST_F(TrackingWorkerTest, Tracking_Confidence_PreservedThroughTracker) {
         EXPECT_NEAR(*track.confidence, expected_confidence, 1e-9)
             << "Track " << track.id << " has wrong confidence";
     }
+}
+
+// -----------------------------------------------------------------
+// Multi-camera metadata fusion tests
+//
+// These regression tests verify per-field fusion, confidence-based winner
+// selection, latest-camera fallback, and clearing across subsequent chunks.
+//
+// Camera setup: both cameras share identical extrinsics (same position,
+// same orientation, looking straight down). The same pixel bounding box
+// therefore projects to the exact same world coordinate, so the Hungarian
+// matcher always assigns both cameras' detections to one shared track.
+// -----------------------------------------------------------------
+
+// Two-camera map: cam-1 and cam-2 at identical positions so the same pixel
+// bbox projects to the same world point, guaranteeing both detections merge
+// into one track.
+std::unordered_map<std::string, Camera> make_two_cameras() {
+    auto cameras = make_test_cameras(); // cam-1 already configured
+    Camera cam2;
+    cam2.uid = "cam-2";
+    cam2.name = "Test Camera 2";
+    cam2.intrinsics = {905.0, 905.0, 640.0, 360.0, {0.0, 0.0, 0.0, 0.0}};
+    cam2.extrinsics.translation = {0.0, 0.0, 3.0}; // identical to cam-1
+    cam2.extrinsics.rotation = {-90.0, 0.0, 0.0};
+    cam2.extrinsics.scale = {1.0, 1.0, 1.0};
+    cameras["cam-2"] = cam2;
+    return cameras;
+}
+
+// Helper: build a single-detection batch for a given camera.
+// receive_time_offset_ms offsets the receive_time from now so that
+// chunk sorting (earliest first) is deterministic.
+DetectionBatch make_batch(const std::string& camera_id, int chunk_index, int receive_time_offset_ms,
+                          const std::string& metadata_json,
+                          std::optional<double> confidence = std::nullopt) {
+    DetectionBatch batch;
+    batch.camera_id = camera_id;
+    batch.receive_time =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(receive_time_offset_ms);
+    batch.timestamp_iso =
+        std::format("2026-01-27T12:00:{:02d}.{:03d}Z", chunk_index, receive_time_offset_ms);
+    Detection det;
+    det.bounding_box_px = cv::Rect2f(100.0f, 200.0f, 50.0f, 100.0f);
+    det.metadata_json = metadata_json;
+    det.confidence = confidence;
+    batch.detections.push_back(std::move(det));
+    return batch;
+}
+
+// Scenario 1 - higher confidence wins over lower confidence for the same field.
+//
+// cam-1 (earlier receive_time, processed first): gender=female  confidence=0.9  <- should WIN
+// cam-2 (later  receive_time, processed last) : gender=male     confidence=0.7
+//
+// Expected behaviour: "female" wins (highest confidence)
+TEST_F(TrackingWorkerTest, Tracking_MultiCamera_HigherConfidenceMetadataWins) {
+    std::vector<Track> all_tracks;
+    std::mutex mtx;
+    std::condition_variable cv;
+    int callback_count = 0;
+    const int kChunksToSend = 4;
+
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        std::lock_guard lock(mtx);
+        all_tracks.insert(all_tracks.end(), tracks.begin(), tracks.end());
+        callback_count++;
+        cv.notify_one();
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0; // tracks become reliable immediately
+
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, callback, config,
+                          make_two_cameras());
+
+    const std::string meta_high =
+        R"({"gender":{"label":"female","confidence":0.9,"model_name":"m1"}})";
+    const std::string meta_low =
+        R"({"gender":{"label":"male","confidence":0.7,"model_name":"m1"}})";
+
+    for (int i = 0; i < kChunksToSend; ++i) {
+        Chunk chunk;
+        chunk.scene_id = "scene-1";
+        chunk.category = "person";
+        chunk.chunk_time = std::chrono::steady_clock::now();
+        // cam-1 offset=0 (earlier), cam-2 offset=1 (later) -> cam-2 is last after sort
+        chunk.camera_batches.push_back(make_batch("cam-1", i, 0, meta_high));
+        chunk.camera_batches.push_back(make_batch("cam-2", i, 1, meta_low));
+        worker.try_enqueue(std::move(chunk));
+    }
+
+    {
+        std::unique_lock lock(mtx);
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(3),
+                                [&] { return callback_count >= kChunksToSend; }));
+    }
+    ASSERT_FALSE(all_tracks.empty()) << "No reliable tracks published";
+
+    for (const auto& track : all_tracks) {
+        if (track.metadata_json.empty())
+            continue; // skip heartbeat frames with no detections
+        EXPECT_NE(track.metadata_json.find("female"), std::string::npos)
+            << "Higher-confidence 'female' should win. Got: " << track.metadata_json;
+        EXPECT_EQ(track.metadata_json.find("\"male\""), std::string::npos)
+            << "Lower-confidence 'male' should be absent. Got: " << track.metadata_json;
+    }
+}
+
+// Scenario 2 - disjoint fields from different cameras must all survive in the merged output.
+//
+// cam-1: plate number only
+// cam-2: gender only
+//
+// Expected behaviour: Track.metadata_json contains both "plate" and "gender"
+TEST_F(TrackingWorkerTest, Tracking_MultiCamera_DisjointMetadataFieldsMerged) {
+    std::vector<Track> all_tracks;
+    std::mutex mtx;
+    std::condition_variable cv;
+    int callback_count = 0;
+    const int kChunksToSend = 4;
+
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        std::lock_guard lock(mtx);
+        all_tracks.insert(all_tracks.end(), tracks.begin(), tracks.end());
+        callback_count++;
+        cv.notify_one();
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+
+    TrackingWorker worker({"scene-1", "vehicle"}, "Test Scene", 10, callback, config,
+                          make_two_cameras());
+
+    const std::string meta_plate = R"({"plate":{"label":"XYZ-789","model_name":"lpr"}})";
+    const std::string meta_gender =
+        R"({"gender":{"label":"female","confidence":0.85,"model_name":"m1"}})";
+
+    for (int i = 0; i < kChunksToSend; ++i) {
+        Chunk chunk;
+        chunk.scene_id = "scene-1";
+        chunk.category = "vehicle";
+        chunk.chunk_time = std::chrono::steady_clock::now();
+        chunk.camera_batches.push_back(make_batch("cam-1", i, 0, meta_plate));
+        chunk.camera_batches.push_back(make_batch("cam-2", i, 1, meta_gender));
+        worker.try_enqueue(std::move(chunk));
+    }
+
+    {
+        std::unique_lock lock(mtx);
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(3),
+                                [&] { return callback_count >= kChunksToSend; }));
+    }
+    ASSERT_FALSE(all_tracks.empty()) << "No reliable tracks published";
+
+    for (const auto& track : all_tracks) {
+        if (track.metadata_json.empty())
+            continue;
+        EXPECT_NE(track.metadata_json.find("plate"), std::string::npos)
+            << "cam-1's 'plate' field should survive merge. Got: " << track.metadata_json;
+        EXPECT_NE(track.metadata_json.find("gender"), std::string::npos)
+            << "cam-2's 'gender' field should survive merge. Got: " << track.metadata_json;
+    }
+}
+
+// Scenario 3 - when no camera provides a confidence score, the latest camera
+// chunk (highest receive_time) wins for a contested field.
+//
+// cam-1 (earlier): age=adult   no confidence
+// cam-2 (later)  : age=senior  no confidence  <- should WIN (latest)
+//
+// "senior" wins because cam-2 is last in the sorted batch.
+// This is the correct fallback, so this test documents and locks in the rule.
+TEST_F(TrackingWorkerTest, Tracking_MultiCamera_FallbackToLatestCameraWhenNoConfidence) {
+    std::vector<Track> all_tracks;
+    std::mutex mtx;
+    std::condition_variable cv;
+    int callback_count = 0;
+    const int kChunksToSend = 4;
+
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        std::lock_guard lock(mtx);
+        all_tracks.insert(all_tracks.end(), tracks.begin(), tracks.end());
+        callback_count++;
+        cv.notify_one();
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, callback, config,
+                          make_two_cameras());
+
+    const std::string meta_earlier = R"({"age":{"label":"adult","model_name":"m1"}})";
+    const std::string meta_later = R"({"age":{"label":"senior","model_name":"m1"}})";
+
+    for (int i = 0; i < kChunksToSend; ++i) {
+        Chunk chunk;
+        chunk.scene_id = "scene-1";
+        chunk.category = "person";
+        chunk.chunk_time = std::chrono::steady_clock::now();
+        chunk.camera_batches.push_back(make_batch("cam-1", i, 0, meta_earlier)); // earlier
+        chunk.camera_batches.push_back(make_batch("cam-2", i, 1, meta_later));   // later
+        worker.try_enqueue(std::move(chunk));
+    }
+
+    {
+        std::unique_lock lock(mtx);
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(3),
+                                [&] { return callback_count >= kChunksToSend; }));
+    }
+    ASSERT_FALSE(all_tracks.empty()) << "No reliable tracks published";
+
+    for (const auto& track : all_tracks) {
+        if (track.metadata_json.empty())
+            continue;
+        EXPECT_NE(track.metadata_json.find("senior"), std::string::npos)
+            << "Latest-camera fallback should pick 'senior'. Got: " << track.metadata_json;
+        EXPECT_EQ(track.metadata_json.find("adult"), std::string::npos)
+            << "'adult' from earlier camera should be absent. Got: " << track.metadata_json;
+    }
+}
+
+// Scenario 4 - result must be deterministic: swapping which camera is "first"
+// in the chunk must not change the winner when confidence values differ.
+//
+// Run A: cam-1 (high conf=0.9 female, earlier) then cam-2 (low conf=0.7 male, later)
+// Run B: cam-1 (low  conf=0.7 male,  earlier) then cam-2 (high conf=0.9 female, later)
+//
+// Both runs must produce "female" as the winner.
+TEST_F(TrackingWorkerTest, Tracking_MultiCamera_WinnerIsDeterministicRegardlessOfCameraOrder) {
+    const std::string meta_high =
+        R"({"gender":{"label":"female","confidence":0.9,"model_name":"m1"}})";
+    const std::string meta_low =
+        R"({"gender":{"label":"male","confidence":0.7,"model_name":"m1"}})";
+
+    auto run_with_order = [&](bool high_conf_camera_is_first) -> std::string {
+        std::vector<Track> all_tracks;
+        std::mutex mtx;
+        std::condition_variable cv;
+        int callback_count = 0;
+        const int kChunksToSend = 4;
+
+        PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                       const std::string&, const std::vector<Track>& tracks) {
+            std::lock_guard lock(mtx);
+            all_tracks.insert(all_tracks.end(), tracks.begin(), tracks.end());
+            callback_count++;
+            cv.notify_one();
+        };
+
+        TrackingConfig config = make_test_tracking_config();
+        config.max_unreliable_time_s = 0.0;
+
+        TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, callback, config,
+                              make_two_cameras());
+
+        for (int i = 0; i < kChunksToSend; ++i) {
+            Chunk chunk;
+            chunk.scene_id = "scene-1";
+            chunk.category = "person";
+            chunk.chunk_time = std::chrono::steady_clock::now();
+            if (high_conf_camera_is_first) {
+                chunk.camera_batches.push_back(make_batch("cam-1", i, 0, meta_high)); // first
+                chunk.camera_batches.push_back(make_batch("cam-2", i, 1, meta_low));  // last
+            } else {
+                chunk.camera_batches.push_back(make_batch("cam-1", i, 0, meta_low));  // first
+                chunk.camera_batches.push_back(make_batch("cam-2", i, 1, meta_high)); // last
+            }
+            worker.try_enqueue(std::move(chunk));
+        }
+
+        {
+            std::unique_lock lock(mtx);
+            EXPECT_TRUE(cv.wait_for(lock, std::chrono::seconds(3),
+                                    [&] { return callback_count >= kChunksToSend; }));
+        }
+
+        // Return the last non-empty metadata seen
+        for (auto it = all_tracks.rbegin(); it != all_tracks.rend(); ++it) {
+            if (!it->metadata_json.empty())
+                return it->metadata_json;
+        }
+        return {};
+    };
+
+    const std::string result_a = run_with_order(true);  // high-conf camera first
+    const std::string result_b = run_with_order(false); // high-conf camera last
+
+    ASSERT_FALSE(result_a.empty()) << "No metadata in run A";
+    ASSERT_FALSE(result_b.empty()) << "No metadata in run B";
+
+    EXPECT_NE(result_a.find("female"), std::string::npos)
+        << "Run A (high-conf first): 'female' should win. Got: " << result_a;
+    EXPECT_NE(result_b.find("female"), std::string::npos)
+        << "Run B (high-conf last): 'female' should still win. Got: " << result_b;
+}
+
+TEST_F(TrackingWorkerTest, Tracking_MultiCamera_FusionDoesNotLeakIntoSingleCameraChunk) {
+    std::vector<std::vector<Track>> published_tracks;
+    std::mutex mtx;
+    std::condition_variable cv;
+
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        std::lock_guard lock(mtx);
+        published_tracks.push_back(tracks);
+        cv.notify_one();
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, callback, config,
+                          make_two_cameras());
+
+    Chunk fused_chunk;
+    fused_chunk.scene_id = "scene-1";
+    fused_chunk.category = "person";
+    fused_chunk.chunk_time = std::chrono::steady_clock::now();
+    fused_chunk.camera_batches.push_back(
+        make_batch("cam-1", 0, 0, R"({"plate":{"label":"XYZ-789"}})"));
+    fused_chunk.camera_batches.push_back(
+        make_batch("cam-2", 0, 1, R"({"gender":{"label":"female"}})"));
+    worker.try_enqueue(std::move(fused_chunk));
+
+    Chunk single_camera_chunk;
+    single_camera_chunk.scene_id = "scene-1";
+    single_camera_chunk.category = "person";
+    single_camera_chunk.chunk_time = std::chrono::steady_clock::now();
+    single_camera_chunk.camera_batches.push_back(
+        make_batch("cam-2", 1, 1, R"({"gender":{"label":"male"}})"));
+    worker.try_enqueue(std::move(single_camera_chunk));
+
+    {
+        std::unique_lock lock(mtx);
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(3),
+                                [&] { return published_tracks.size() >= 2; }));
+    }
+
+    ASSERT_FALSE(published_tracks.back().empty());
+    const auto& metadata = published_tracks.back().front().metadata_json;
+    EXPECT_NE(metadata.find("male"), std::string::npos);
+    EXPECT_EQ(metadata.find("plate"), std::string::npos);
+    EXPECT_EQ(metadata.find("female"), std::string::npos);
 }
 
 } // namespace
