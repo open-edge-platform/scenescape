@@ -39,6 +39,8 @@ def _find_firefox_binary():
     os.environ.get("FIREFOX_BIN"),
     "/usr/bin/firefox",
     "/usr/bin/firefox-esr",
+    "/usr/lib/firefox-esr",
+    "/usr/lib/firefox/firefox",
     which("firefox"),
     which("firefox-esr"),
   ]
