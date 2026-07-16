@@ -519,6 +519,8 @@ class SceneController:
         detection_types = [topic['thing_type']]
         sender_id = topic['scene_id']
         success, scene = self._handleChildSceneObject(sender_id, jdata, detection_types[0], msg_when)
+        if not success:
+          return
       else:
         detection_types = jdata['objects'].keys()
         camera_id = sender_id = topic['camera_id']
@@ -538,7 +540,7 @@ class SceneController:
         success = scene.processCameraData(jdata, when=msg_when)
 
       if not success:
-        log.error("Camera fail", sender_id, scene.name)
+        log.error("Camera fail", sender_id, scene.name if scene is not None else "unknown")
         self.cache_manager.invalidate()
         return
 
@@ -599,7 +601,7 @@ class SceneController:
       remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
         log.error("UNKNOWN SENDER")
-        return
+        return False, None
       else:
         sender = remote_sender
 
@@ -608,6 +610,10 @@ class SceneController:
       return False, sender
 
     scene = self.cache_manager.sceneWithID(sender.parent)
+    if scene is None:
+      log.error("PARENT SCENE NOT FOUND", sender.parent, "for sender", sender.name)
+      return False, None
+
     success = scene.processSceneData(jdata, sender, sender.cameraPose,
                                      detection_type, when=msg_when)
     return success, scene
