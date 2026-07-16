@@ -380,27 +380,35 @@ setup-pytest:
 	fi
 	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision, 'tracking')" 2>/dev/null; then \
 		echo "Building robot_vision C++ extension..."; \
+		for pkg in libopencv-dev libeigen3-dev; do \
+			dpkg -s $$pkg > /dev/null 2>&1 || { echo "ERROR: $$pkg is required to build robot_vision. See tests/README.md for installation instructions."; exit 1; }; \
+		done; \
 		$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir scikit-build-core cmake; \
-		if ! dpkg -s libopencv-dev > /dev/null 2>&1; then \
-			echo "ERROR: libopencv-dev is required to build robot_vision. See tests/README.md for installation instructions."; \
-			exit 1; \
-		fi; \
-		if ! dpkg -s libeigen3-dev > /dev/null 2>&1; then \
-			echo "ERROR: libeigen3-dev is required to build robot_vision. See tests/README.md for installation instructions."; \
-			exit 1; \
-		fi; \
 		OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
 			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(CURDIR)/controller/src/robot_vision; \
 	fi
 	@if ! command -v firefox > /dev/null 2>&1; then \
-		echo "WARNING: Firefox is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
+		echo "ERROR: Firefox is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
+		exit 1; \
+	elif firefox --version 2>&1 | grep -qi snap || [[ "$$(command -v firefox)" == *snap* ]]; then \
+		echo "ERROR: Snap Firefox is incompatible with Selenium. See tests/README.md for installation instructions."; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(CURDIR)/tests/.venv/bin/geckodriver" ]; then \
+		echo "geckodriver not found — downloading v0.36.0 into tests/.venv/bin/..."; \
+		set -e; \
+		BASE_URL=https://github.com/mozilla/geckodriver/releases; \
+		GVERSION=v0.36.0; \
+		curl -fSL "$${BASE_URL}/download/$${GVERSION}/geckodriver-$${GVERSION}-linux64.tar.gz" \
+			| tar xz -C $(CURDIR)/tests/.venv/bin/ geckodriver; \
+		echo "geckodriver installed to tests/.venv/bin/geckodriver"; \
 	fi
 	@if ! command -v Xvfb > /dev/null 2>&1; then \
 		echo "WARNING: Xvfb is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
 	fi
 
 .PHONY: run_tests
-run_tests: setup-tests setup-pytest
+run_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -410,7 +418,7 @@ run_tests: setup-tests setup-pytest
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_standard_tests
-run_standard_tests: setup-tests setup-pytest
+run_standard_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running standard tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -419,7 +427,7 @@ run_standard_tests: setup-tests setup-pytest
 	@echo "DONE ==> Running standard tests"
 
 .PHONY: run_functional_tests
-run_functional_tests: setup-tests setup-pytest
+run_functional_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running functional tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -433,7 +441,7 @@ run_non_functional_tests: init-secrets .env
 	@echo "DONE ==> Running non-functional tests"
 
 .PHONY: run_ui_tests
-run_ui_tests: setup-tests setup-pytest
+run_ui_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running UI tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -441,24 +449,22 @@ run_ui_tests: setup-tests setup-pytest
 	@echo "DONE ==> Running UI tests"
 
 .PHONY: run_unit_tests
-run_unit_tests: setup-tests setup-pytest
+run_unit_tests: init-secrets setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests..."
 	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
 	@echo "DONE ==> Running unit tests"
 
 .PHONY: run_basic_acceptance_tests
-run_basic_acceptance_tests: setup-tests setup-pytest
+run_basic_acceptance_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running basic acceptance tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
-		$(PYTEST) $(TESTS_DIR)/functional/ $(TESTS_DIR)/ui/ \
-		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ \
-		$(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Basic acceptance tests failed" && exit 1)
+		$(PYTEST) $(TESTS_DIR) -m basic_acceptance $(PYTEST_FLAGS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
 .PHONY: run_stability_tests
-run_stability_tests: setup-tests setup-pytest
+run_stability_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	$(eval HOURS ?= 24)
 	@echo "Running stability tests..."
@@ -471,7 +477,7 @@ run_stability_tests: setup-tests setup-pytest
 
 TEST_DATA ?= test_data
 .PHONY: run_performance_tests
-run_performance_tests: setup-tests setup-pytest
+run_performance_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running performance tests..."
 	$(MAKE) _run_performance_tests SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
@@ -497,7 +503,7 @@ geometry-conformance:
 GENERATE_JUNITXML = -o junit_logging=all --junitxml tests/reports/test_reports/$@.xml
 
 .PHONY: run_metric_tests
-run_metric_tests: setup-tests setup-pytest
+run_metric_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running metric tests..."
 	$(MAKE) -j $(NPROCS) _run_metric_tests SUPASS=$(SUPASS) || (echo "Metric tests failed" && exit 1)
