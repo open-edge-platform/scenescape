@@ -21,6 +21,26 @@ forklifts"). A short clarifying question upfront avoids wiring up the wrong topi
 
 The answer determines which of the paths below to take — often more than one applies.
 
+## If the user isn't sure — suggest concrete analytics
+
+Some users know their goal already; others just deployed SceneScape and want ideas for what's
+possible. If they say "I don't know" / "what can I do with this?", offer a few concrete,
+commonly-useful analytics rather than re-asking the same open question:
+
+| Idea                          | How it's built from scene output                                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Footfall / traffic counting   | Tripwire at an entrance; count crossings by `direction` over time                                                |
+| Dwell time / occupancy        | Region around the area of interest; track how long each object ID stays in `objects`                             |
+| Zone utilization / heatmap    | Aggregate `translation` positions from the regulated topic over time, bucketed by area                           |
+| Queue length monitoring       | Region over the queue; alert when `counts` exceeds a threshold                                                   |
+| Cross-camera path tracking    | Follow an object ID's `translation`/`visibility` across the regulated topic over time                            |
+| Loitering / anomaly detection | Region + a time threshold on how long an object ID remains without leaving                                       |
+| Demographic rollups           | Aggregate age/gender/other `metadata` attributes from the regulated topic (if the vision pipeline provides them) |
+
+Suggest picking one or two to prototype first (e.g. "footfall counting via a tripwire" is usually
+the fastest to demo), confirm the topic/event is flowing, then expand from there rather than
+committing to a large integration design upfront.
+
 ## Common paths
 
 | Goal                                                                | What to use                                                                   |
