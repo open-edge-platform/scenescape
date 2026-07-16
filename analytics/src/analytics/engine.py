@@ -7,9 +7,7 @@ from analytics.region import update_region_events
 from analytics.tripwire import update_tripwire_events
 
 # Objects must appear this many times before being passed to region/tripwire
-# analytics.  Mirrors the tracker's frameCount gate without depending on
-# tracker-specific fields, so both the primary and analytics-only paths
-# apply the same filter.
+# analytics.
 MIN_FRAMES_FOR_RELIABLE_TRACK = 3
 
 

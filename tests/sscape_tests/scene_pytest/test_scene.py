@@ -652,6 +652,30 @@ def test_updateRegions_preserves_sensor_cache_and_state(scene_obj):
   assert region.objects == {'person': []}
   assert region.when == 98.0
 
+def test_updateRegions_removes_deleted_region_without_error(scene_obj):
+  """Deleting a region must not raise, even though Scene has no analytics_state."""
+  scene_obj._updateRegions(scene_obj.regions, [{
+    'uid': 'r1',
+    'name': 'r1',
+    'points': [[0, 0], [1, 0], [1, 1], [0, 1]],
+  }])
+  assert 'r1' in scene_obj.regions
+
+  scene_obj._updateRegions(scene_obj.regions, [])
+  assert 'r1' not in scene_obj.regions
+
+def test_updateTripwires_removes_deleted_tripwire_without_error(scene_obj):
+  """Deleting a tripwire must not raise, even though Scene has no analytics_state."""
+  scene_obj._updateTripwires([{
+    'uid': 'tw1',
+    'name': 'tw1',
+    'points': [[0, 0], [10, 0]],
+  }])
+  assert 'tw1' in scene_obj.tripwires
+
+  scene_obj._updateTripwires([])
+  assert 'tw1' not in scene_obj.tripwires
+
 
 
 

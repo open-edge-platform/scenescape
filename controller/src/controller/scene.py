@@ -555,7 +555,6 @@ class Scene(SceneModel):
     deleted = old - new
     for region_uuid in deleted:
       existingRegions.pop(region_uuid)
-      self.analytics_state.remove_region(region_uuid)
     return
 
   def _updateTripwires(self, newTripwires):
@@ -568,7 +567,6 @@ class Scene(SceneModel):
     deleted = old - new
     for tripwireID in deleted:
       self.tripwires.pop(tripwireID)
-      self.analytics_state.remove_tripwire(tripwireID)
     return
 
   @property

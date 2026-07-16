@@ -6,8 +6,6 @@ from types import SimpleNamespace
 import pytest
 
 from analytics.analytics_models import (
-  AnalyticsEvent,
-  AnalyticsFrame,
   AnalyticsObject,
   moving_object_to_analytics_object,
 )
@@ -88,55 +86,6 @@ class TestAnalyticsObject:
         # sceneLoc omitted
         chain_data=_chain_data(),
       )
-
-
-class TestAnalyticsFrame:
-  def test_construction_sets_fields(self):
-    obj = _analytics_object()
-
-    frame = AnalyticsFrame(
-      detection_type='person',
-      timestamp=1234567890.0,
-      objects=[obj],
-    )
-
-    assert frame.detection_type == 'person'
-    assert frame.timestamp == 1234567890.0
-    assert frame.objects == [obj]
-
-  def test_objects_defaults_to_empty_list(self):
-    frame = AnalyticsFrame(detection_type='vehicle', timestamp=0.0)
-
-    assert frame.objects == []
-
-  def test_objects_lists_are_independent_between_instances(self):
-    frame_a = AnalyticsFrame(detection_type='person', timestamp=0.0)
-    frame_b = AnalyticsFrame(detection_type='person', timestamp=0.0)
-
-    frame_a.objects.append(_analytics_object())
-
-    assert frame_b.objects == []
-
-  def test_missing_required_field_raises_type_error(self):
-    with pytest.raises(TypeError):
-      AnalyticsFrame(detection_type='person')
-
-
-class TestAnalyticsEvent:
-  def test_construction_sets_all_fields(self):
-    event = AnalyticsEvent(
-      event_type='region_enter',
-      key='zone-a',
-      timestamp=1234567890.0,
-    )
-
-    assert event.event_type == 'region_enter'
-    assert event.key == 'zone-a'
-    assert event.timestamp == 1234567890.0
-
-  def test_missing_required_field_raises_type_error(self):
-    with pytest.raises(TypeError):
-      AnalyticsEvent(event_type='tripwire_cross', key='wire-1')
 
 
 class TestMovingObjectToAnalyticsObject:

@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from dataclasses import dataclass
+from typing import Any, Optional
 
 from scene_common.chain_data import ChainData
 from scene_common.geometry import Point
@@ -71,23 +71,3 @@ class AnalyticsObject:
   rotation: Optional[Any] = None
   metadata: Optional[Any] = None
   reid: Optional[Any] = None
-
-
-@dataclass
-class AnalyticsFrame:
-  """A batch of AnalyticsObject instances for one detection-type / timestamp cycle."""
-  detection_type: str
-  timestamp: float
-  objects: List[AnalyticsObject] = field(default_factory=list)
-
-
-@dataclass
-class AnalyticsEvent:
-  """A single analytics output event.
-
-  This is a stub for Phase 1.  Fully defined in Phase 2 when event generation
-  is extracted from scene.py into the analytics library.
-  """
-  event_type: str
-  key: str
-  timestamp: float
