@@ -91,13 +91,18 @@ if [ -n "$WAITFORCONTAINERS" ]; then
 fi
 
 if [ "${RUN_TEST}" = 1 ] ; then
-    if [[ "${IMAGE}" == *scenescape-controller-test* ]]; then
-        CMD="$@"
+    # The "PYTHONPATH=... cmd" prefix form is only interpreted as an environment
+    # assignment by the manager-test image's sudo-based entrypoint. Other test
+    # images (controller-test, camcalibration-test, ...) use an exec-based
+    # entrypoint that runs the raw argv, so the prefix must be omitted there;
+    # PYTHONPATH is already exported via -e PYTHONPATH in scenescape-start.
+    if [[ "${IMAGE}" == *scenescape-manager-test* ]]; then
+        CMD=("PYTHONPATH=/home/scenescape/SceneScape/" "$@")
     else
-        CMD="PYTHONPATH=/home/scenescape/SceneScape/ $@"
+        CMD=("$@")
     fi
 
-    tools/scenescape-start --image ${IMAGE} --network ${PROJECT}_${NETWORK} --project ${PROJECT} ${CMD}
+    tools/scenescape-start --image ${IMAGE} --network ${PROJECT}_${NETWORK} --project ${PROJECT} "${CMD[@]}"
     STATUS=$?
 else
     STATUS=3

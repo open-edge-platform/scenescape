@@ -176,6 +176,8 @@ USER $WSUSER
 # Tests expect to run from /workspace where test files are mounted
 WORKDIR /workspace
 
-# Use exec form with bash to properly handle the command string
-ENTRYPOINT ["/bin/bash", "-c"]
+# ENTRYPOINT runs all arguments as a single, properly quoted command.
+# This pattern allows the container to execute any command passed at runtime (e.g., via docker run or a wrapper script),
+# preserving spaces and special characters. The -- makes all following arguments available as $@, and exec "$@" runs them as a command.
+ENTRYPOINT ["/bin/bash", "-c", "exec \"$@\"", "--"]
 CMD ["bash"]
