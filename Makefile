@@ -175,7 +175,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager mapping cluster_analytics: build-common
+autocalibration controller manager analytics mapping cluster_analytics: build-common
 
 # Helper function to build images in parallel
 define parallel-build

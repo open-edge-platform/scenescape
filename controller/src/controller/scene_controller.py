@@ -10,7 +10,6 @@ import ntplib
 from scene_common.cache_manager import CacheManager
 from controller.child_scene_controller import ChildSceneController
 from controller.controller_mode import ControllerMode
-from analytics.event_publisher import publish_events
 from scene_common.detections_builder import (buildDetectionsList,
                                            computeCameraBounds)
 from controller.scene import Scene
@@ -367,7 +366,6 @@ class SceneController:
     jdata['scene_id'] = scene.uid
     jdata['scene_name'] = scene.name
 
-    publish_events(scene, jdata['timestamp'], self.pubsub.publish)
     return
 
   def handleMovingObjectMessage(self, client, userdata, message):
@@ -475,8 +473,6 @@ class SceneController:
 
     analytics_objects = scene.getTrackedObjects(detection_type)
     msg_when = get_epoch_time(jdata.get('timestamp'))
-    scene._updateEvents(detection_type, msg_when, analytics_objects,
-                        publish_fn=self.pubsub.publish)
 
     if ControllerMode.isAnalyticsOnly():
       scene._updateVisible(analytics_objects)

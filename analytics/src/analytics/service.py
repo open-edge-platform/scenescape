@@ -3,7 +3,6 @@
 
 import orjson
 from collections import defaultdict
-from pathlib import Path
 
 from analytics.adapters.scene_model import AnalyticsScene
 from analytics.event_publisher import publish_events
@@ -25,28 +24,16 @@ class AnalyticsService:
   Instantiate and call loopForever() to run.
   """
 
-  def __init__(self, rewrite_bad_time, rewrite_all_time, mqtt_broker,
+  def __init__(self, rewrite_all_time, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert,
-               schema_file, visibility_topic, data_source,
-               scene_data_schema_file=None):
+               schema_file, visibility_topic, data_source):
     self.cert = client_cert
     self.root_cert = root_cert
-    self.rewrite_bad_time = rewrite_bad_time
     self.rewrite_all_time = rewrite_all_time
     self.regulate_cache = {}
     self.mqtt_auth = mqtt_auth
 
     self.schema_val = SchemaValidation(schema_file, is_multi_message=True)
-
-    self.scene_data_schema_validator = None
-    if scene_data_schema_file and Path(scene_data_schema_file).exists():
-      try:
-        self.scene_data_schema_validator = SchemaValidation(
-          scene_data_schema_file, is_multi_message=False,
-        )
-        log.info(f"Scene-data schema validator initialized from {scene_data_schema_file}")
-      except Exception as e:
-        log.error(f"Failed to initialize scene-data schema validator: {e}")
 
     self.pubsub = PubSub(mqtt_auth, client_cert, root_cert, mqtt_broker, keepalive=60)
     self.pubsub.onConnect = self.onConnect
@@ -188,11 +175,6 @@ class AnalyticsService:
     if scene is None:
       log.warning(f"Unknown scene_id={scene_id}")
       return
-
-    if self.scene_data_schema_validator is not None:
-      if not self.scene_data_schema_validator.validate(jdata, check_format=True):
-        log.error(f"Schema validation failed: scene={scene_id}, type={detection_type}")
-        return
 
     scene.updateTrackedObjects(detection_type, jdata.get('objects', []))
     analytics_objects = scene.getTrackedObjects(detection_type)

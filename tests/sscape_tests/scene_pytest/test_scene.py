@@ -12,7 +12,7 @@ from unittest.mock import Mock
 
 import controller.scene as scene_module
 import analytics.region as analytics_region_module
-from analytics.adapters.ingestion import SceneDataIngestion
+from scene_common.ingestion import SceneDataIngestion
 from analytics.region import update_region_events
 from analytics.tripwire import update_tripwire_events
 from controller.moving_object import ChainData
@@ -454,45 +454,7 @@ def test_processSensorData_discards_past_data(scene_obj):
   scene_obj.sensors['sensor1'] = sensor
   assert scene_obj.processSensorData({'id': 'sensor1', 'value': 1}, when=9.0) is True
 
-def test_processSensorData_environmental_sensor_updates_state(scene_obj):
-  sensor = SimpleNamespace(
-    singleton_type='environmental',
-    area=Region.REGION_SCENE,
-    value=None,
-    lastValue=None,
-    lastWhen=None,
-  )
-  scene_obj.sensors['sensor1'] = sensor
-  obj = _make_obj(gid='obj-1', frame_count=4)
-  scene_obj.use_tracker = True
-  scene_obj.tracker = SimpleNamespace(
-    trackers={'person': object()},
-    currentObjects=lambda detection_type: [obj],
-  )
 
-  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 12.5}, when=11.0) is True
-  assert 'sensor1' in obj.chain_data.active_sensors
-  assert obj.chain_data.env_sensor_state['sensor1']['readings'][-1][1] == 12.5
-
-def test_processSensorData_attribute_sensor_updates_events(scene_obj):
-  sensor = SimpleNamespace(
-    singleton_type='attribute',
-    area=Region.REGION_SCENE,
-    value=None,
-    lastValue=None,
-    lastWhen=None,
-  )
-  scene_obj.sensors['sensor1'] = sensor
-  obj = _make_obj(gid='obj-1', frame_count=4)
-  scene_obj.use_tracker = True
-  scene_obj.tracker = SimpleNamespace(
-    trackers={'person': object()},
-    currentObjects=lambda detection_type: [obj],
-  )
-
-  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 'A'}, when=11.0) is True
-  assert 'sensor1' in obj.chain_data.attr_sensor_events
-  assert obj.chain_data.attr_sensor_events['sensor1'][-1][1] == 'A'
 
 def test_processSensorData_scene_wide_skips_immature_objects(scene_obj):
   sensor = SimpleNamespace(
@@ -690,34 +652,8 @@ def test_updateRegions_preserves_sensor_cache_and_state(scene_obj):
   assert region.objects == {'person': []}
   assert region.when == 98.0
 
-def test_updateTripwires_adds_and_removes(scene_obj):
-  scene_obj.tripwires = {'old-id': SimpleNamespace()}
-  scene_obj._updateTripwires([
-    {'uid': 'new-id', 'name': 'trip-1', 'points': [[0, 0], [1, 1]]}
-  ])
-  assert 'new-id' in scene_obj.tripwires
-  assert 'old-id' not in scene_obj.tripwires
 
-def test_updateEvents_inserts_published_locations(scene_obj, monkeypatch):
-  obj = _make_obj(gid='obj-1')
-  scene_obj.tracker = SimpleNamespace(currentObjects=lambda detection_type: [obj])
 
-  scene_obj._updateEvents('person', now=50.0)
-  assert len(obj.chain_data.publishedLocations) == 1
-  assert obj.chain_data.publishedLocations[0] == obj.sceneLoc
-
-def test_updateTripwireEvents_emits_tripwire_event(scene_obj):
-  tripwire = SimpleNamespace(
-    lineCrosses=lambda line: 1,
-  )
-  scene_obj.tripwires = {'tw-1': tripwire}
-  scene_obj.events = {}
-  obj = _make_obj(gid='obj-1', frame_count=5)
-  obj.chain_data.publishedLocations = [Point(1.0, 1.0, 0.0), Point(0.0, 0.0, 0.0)]
-
-  update_tripwire_events('person', scene_obj.tripwires, 2.0, [obj], scene_obj.events, scene_obj.analytics_state)
-  assert 'objects' in scene_obj.events
-  assert scene_obj.events['objects'][0][0] == 'tw-1'
 
 def test_trs_xyz_to_lla_is_cached_and_invalidate_resets(scene_obj, monkeypatch):
   calls = {'count': 0}
@@ -785,24 +721,6 @@ def test_processCameraData_processes_each_detection_type(scene_obj, camera_obj, 
   assert finished[0][1] == ['person']
   assert finished[1][1] == ['vehicle']
 
-def test_processSensorData_invalid_environmental_value_returns_false(scene_obj):
-  sensor = SimpleNamespace(
-    singleton_type='environmental',
-    area=Region.REGION_SCENE,
-    value=None,
-    lastValue=None,
-    lastWhen=None,
-  )
-  scene_obj.sensors['sensor1'] = sensor
-  obj = _make_obj(gid='obj-1', frame_count=4)
-  scene_obj.use_tracker = True
-  scene_obj.tracker = SimpleNamespace(
-    trackers={'person': object()},
-    currentObjects=lambda detection_type: [obj],
-  )
-
-  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 'not-a-number'}, when=11.0) is False
-  assert obj.chain_data.env_sensor_state == {}
 
 def test_deserializeTrackedObjects_uses_cached_first_seen(scene_obj):
   scene_obj.object_history_cache['obj-1'] = {
@@ -820,7 +738,7 @@ def test_deserializeTrackedObjects_uses_cached_first_seen(scene_obj):
   assert objs[0].chain_data.publishedLocations[0] == Point(9.0, 8.0, 7.0)
 
 def test_deserializeTrackedObjects_missing_first_seen_uses_current_time(scene_obj, monkeypatch):
-  import analytics.adapters.ingestion as ingestion_module
+  import scene_common.ingestion as ingestion_module
   monkeypatch.setattr(ingestion_module, 'get_epoch_time', lambda *args, **kwargs: 77.0)
 
   objs = scene_obj._deserializeTrackedObjects([
@@ -832,103 +750,9 @@ def test_deserializeTrackedObjects_missing_first_seen_uses_current_time(scene_ob
   assert objs[0].first_seen == 77.0
   assert scene_obj.object_history_cache['obj-2']['first_seen'] == 77.0
 
-def test_updateRegionEvents_environmental_sensor_exit_clears_state(scene_obj):
-  obj = _make_obj(gid='obj-1', frame_count=4, when=1.0)
-  obj.chain_data.regions['sensor1'] = {'entered': '2026-03-26T20:53:29.761Z'}
-  obj.chain_data.active_sensors.add('sensor1')
-  obj.chain_data.env_sensor_state['sensor1'] = {'readings': [('2026-03-26T20:53:29.761Z', 21.5)]}
-  region = SimpleNamespace(
-    singleton_type='environmental',
-    isPointWithin=lambda scene_loc: False,
-    compute_intersection=False,
-  )
-  scene_obj.analytics_state.region('sensor1').objects['person'] = [obj]
-  scene_obj.events = {}
 
-  updated = update_region_events('person', {'sensor1': region}, 2.0, '2026-03-26T20:53:31.761Z', [], scene_obj.events, scene_obj.analytics_state, scene_obj.isIntersecting)
 
-  assert updated == {'sensor1'}
-  assert 'sensor1' not in obj.chain_data.regions
-  assert 'sensor1' not in obj.chain_data.active_sensors
-  assert 'sensor1' not in obj.chain_data.env_sensor_state
-  assert scene_obj.analytics_state.region('sensor1').objects.get('person', []) == []
-  assert scene_obj.events['objects'][0][0] == 'sensor1'
 
-def test_updateRegionEvents_attribute_sensor_exit_preserves_history(scene_obj):
-  obj = _make_obj(gid='obj-1', frame_count=4, when=1.0)
-  obj.chain_data.regions['sensor1'] = {'entered': '2026-03-26T20:53:29.761Z'}
-  obj.chain_data.active_sensors.add('sensor1')
-  obj.chain_data.attr_sensor_events['sensor1'] = [('2026-03-26T20:53:29.761Z', 'red')]
-  region = SimpleNamespace(
-    singleton_type='attribute',
-    isPointWithin=lambda scene_loc: False,
-    compute_intersection=False,
-  )
-  scene_obj.analytics_state.region('sensor1').objects['person'] = [obj]
-  scene_obj.events = {}
-
-  updated = update_region_events('person', {'sensor1': region}, 2.0, '2026-03-26T20:53:31.761Z', [], scene_obj.events, scene_obj.analytics_state, scene_obj.isIntersecting)
-
-  assert updated == {'sensor1'}
-  assert 'sensor1' not in obj.chain_data.regions
-  assert 'sensor1' not in obj.chain_data.active_sensors
-  assert obj.chain_data.attr_sensor_events['sensor1'] == [('2026-03-26T20:53:29.761Z', 'red')]
-  assert scene_obj.analytics_state.region('sensor1').objects.get('person', []) == []
-
-def test_updateRegionEvents_debounce_preserves_exit_state_until_event_emits(scene_obj, monkeypatch):
-  monkeypatch.setattr(analytics_region_module, 'DEBOUNCE_DELAY', 0.5)
-
-  obj = _make_obj(gid='obj-1', frame_count=4, when=1.0)
-  obj.chain_data.regions['sensor1'] = {'entered': '2026-03-26T20:53:29.761Z'}
-  obj.chain_data.active_sensors.add('sensor1')
-  obj.chain_data.env_sensor_state['sensor1'] = {'readings': [('2026-03-26T20:53:29.761Z', 21.5)]}
-  region = SimpleNamespace(
-    singleton_type='environmental',
-    isPointWithin=lambda scene_loc: False,
-    compute_intersection=False,
-  )
-  scene_obj.analytics_state.region('sensor1').objects['person'] = [obj]
-  scene_obj.analytics_state.region('sensor1').when = 1.9
-  scene_obj.events = {}
-
-  updated = update_region_events('person', {'sensor1': region}, 2.0, '2026-03-26T20:53:31.761Z', [], scene_obj.events, scene_obj.analytics_state, scene_obj.isIntersecting)
-
-  assert updated == set()
-  assert obj.chain_data.regions['sensor1']['entered'] == '2026-03-26T20:53:29.761Z'
-  assert 'sensor1' in obj.chain_data.active_sensors
-  assert 'sensor1' in obj.chain_data.env_sensor_state
-  assert scene_obj.events == {}
-  assert scene_obj.analytics_state.region('sensor1').objects.get('person') == [obj]
-
-def test_updateRegionEvents_emits_delayed_exit_with_dwell_and_then_cleans_up(scene_obj, monkeypatch):
-  monkeypatch.setattr(analytics_region_module, 'DEBOUNCE_DELAY', 0.5)
-
-  obj = _make_obj(gid='obj-1', frame_count=4, when=1.0)
-  entered_ts = '2026-03-26T20:53:29.761Z'
-  obj.chain_data.regions['region1'] = {'entered': entered_ts}
-  region = SimpleNamespace(
-    singleton_type=None,
-    isPointWithin=lambda scene_loc: False,
-    compute_intersection=False,
-  )
-  scene_obj.analytics_state.region('region1').objects['person'] = [obj]
-  scene_obj.analytics_state.region('region1').when = 1.9
-  scene_obj.events = {}
-
-  # Debounce suppresses immediate event emission.
-  updated = update_region_events('person', {'region1': region}, 2.0, '2026-03-26T20:53:31.761Z', [], scene_obj.events, scene_obj.analytics_state, scene_obj.isIntersecting)
-  assert updated == set()
-  assert 'region1' in obj.chain_data.regions
-
-  # Once debounce delay has passed, emit exit and compute dwell from preserved entered timestamp.
-  update_region_events('person', {'region1': region}, 2.6, '2026-03-26T20:53:32.361Z', [], scene_obj.events, scene_obj.analytics_state, scene_obj.isIntersecting)
-
-  assert scene_obj.analytics_state.region('region1').exited.get('person')
-  exited_obj, dwell = scene_obj.analytics_state.region('region1').exited['person'][0]
-  assert exited_obj == obj
-  assert dwell == pytest.approx(2.6 - get_epoch_time(entered_ts))
-  assert 'region1' not in obj.chain_data.regions
-  assert scene_obj.analytics_state.region('region1').objects.get('person', []) == []
 
 def test_isIntersecting_createObjectMesh_value_error_returns_false(scene_obj, monkeypatch):
   def _raise_value_error(obj):

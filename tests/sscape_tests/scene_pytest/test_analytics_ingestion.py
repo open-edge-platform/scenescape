@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 from scene_common.geometry import Point
 
-from analytics.adapters.ingestion import SceneDataIngestion
+from scene_common.ingestion import SceneDataIngestion
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +124,7 @@ def test_first_seen_from_history_used_when_not_in_payload():
 
 
 def test_first_seen_from_current_time_when_no_data(monkeypatch):
-  import analytics.adapters.ingestion as m
+  import scene_common.ingestion as m
   monkeypatch.setattr(m, 'get_epoch_time', lambda *a, **kw: 42.0)
 
   ingestion = SceneDataIngestion()

@@ -9,7 +9,7 @@ from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_iso_time
 from scene_common.transform import CameraPose
 
-from analytics.adapters.ingestion import SceneDataIngestion
+from scene_common.ingestion import SceneDataIngestion
 from analytics.analytics_models import moving_object_to_analytics_object
 from analytics.engine import process_frame
 from analytics.event_publisher import publish_events

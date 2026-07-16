@@ -36,8 +36,6 @@ def start_health_server(port):
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  parser.add_argument("--rewriteBadTime", action="store_true",
-                      help="Rewrite bad timestamps instead of discarding data")
   parser.add_argument("--rewriteAllTime", action="store_true",
                       help="Rewrite all timestamps")
   parser.add_argument("--broker", default="broker.scenescape.intel.com:1883",
@@ -57,9 +55,6 @@ def build_argparser():
   parser.add_argument("--schema_file",
                       help="JSON file with metadata schema",
                       default=os.path.join(os.path.dirname(script_path), "schema/metadata.schema.json"))
-  parser.add_argument("--scene_data_schema_file",
-                      help="JSON file with scene-data schema for tracker output validation",
-                      default=os.path.join(os.path.dirname(script_path), "tracker/schema/scene-data.schema.json"))
   parser.add_argument("--visibility_topic",
                       help="Topic to publish visibility on: 'unregulated', 'regulated', or 'none'",
                       default="regulated")
@@ -75,7 +70,6 @@ def main():
     log.setVerbose()
 
   service = AnalyticsService(
-    rewrite_bad_time=args.rewriteBadTime,
     rewrite_all_time=args.rewriteAllTime,
     mqtt_broker=args.broker,
     mqtt_auth=args.brokerauth,
@@ -86,7 +80,6 @@ def main():
     schema_file=args.schema_file,
     visibility_topic=args.visibility_topic,
     data_source=args.data_source,
-    scene_data_schema_file=args.scene_data_schema_file,
   )
 
   if args.healthcheck_port > 0:

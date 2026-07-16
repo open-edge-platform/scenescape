@@ -15,16 +15,7 @@ from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
-
-from analytics.adapters.ingestion import SceneDataIngestion
-from analytics.analytics_models import moving_object_to_analytics_object
-from analytics.engine import process_frame
-from analytics.event_publisher import publish_events
-from analytics.sensors import (
-  update_attribute_sensor_events,
-  update_environmental_sensor_readings,
-)
-from analytics.state import AnalyticsStateStore
+from scene_common.ingestion import SceneDataIngestion
 
 MIN_FRAMES_FOR_RELIABLE_TRACK = 3
 
@@ -78,9 +69,7 @@ class Scene(SceneModel):
     self.time_chunking_rate_fps = time_chunking_rate_fps
 
     # Ingestion adapter owns per-object identity and location/timestamp history
-    # for the analytics-only MQTT path.  The two aliases below let legacy code
-    # paths and tests that directly access _analytics_objects / object_history_cache
-    # continue to work — they reference the same underlying dicts.
+    # for analytics-only mode (when tracker is disabled). Not used for inline event processing.
     self._ingestion = SceneDataIngestion()
     self._analytics_objects = self._ingestion._objects
     self.object_history_cache = self._ingestion._history
@@ -104,8 +93,6 @@ class Scene(SceneModel):
 
     # FIXME - only for backwards compatibility
     self.scale = scale
-
-    self.analytics_state = AnalyticsStateStore()
 
     return
 
@@ -469,29 +456,6 @@ class Scene(SceneModel):
     compatibility with call sites that use ``scene._deserializeTrackedObjects``.
     """
     return self._ingestion.deserialize(serialized_objects, self.sensors)
-
-  def _isEnvironmentalSensor(self, sensor_id, values):
-    """Delegates to the ingestion adapter's sensor-type resolver."""
-    return SceneDataIngestion._is_environmental_sensor(sensor_id, self.sensors)
-
-  def _updateEvents(self, detectionType, now, curObjects=None, publish_fn=None):
-    # Preserve existing events (e.g., sensor 'value' events) instead of clearing
-    if not hasattr(self, 'events') or self.events is None:
-      self.events = {}
-    if curObjects is None:
-      if ControllerMode.isAnalyticsOnly():
-        curObjects = self.getTrackedObjects(detectionType)
-      else:
-        curObjects = self.tracker.currentObjects(detectionType) if self.tracker else []
-    curObjects = [moving_object_to_analytics_object(o) for o in curObjects]
-    process_frame(
-      detectionType, now, curObjects,
-      self.regions, self.sensors, self.tripwires,
-      self.events, self.analytics_state, self.isIntersecting,
-    )
-    if publish_fn is not None:
-      publish_events(self, get_iso_time(now), publish_fn)
-    return
 
   def isIntersecting(self, obj, region):
     if not region.compute_intersection:
