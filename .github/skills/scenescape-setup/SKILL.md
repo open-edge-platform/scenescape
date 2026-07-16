@@ -298,6 +298,7 @@ troubleshooting a failure at that step.
 | [attribute-persistence.md](./references/attribute-persistence.md)     | reactive (post-deploy)   | Keep object attributes from resetting between detections via `persist_attributes`                             |
 | [singleton-sensors.md](./references/singleton-sensors.md)             | reactive (post-deploy)   | Add non-perceptual/scalar sensors (environmental or attribute-type) — REST for scene-wide, UI for circle/poly |
 | [object-library.md](./references/object-library.md)                   | reactive (post-deploy)   | Define expected object-class size/shape (Object Library / `Asset3D`) via REST                                 |
+| [using-scene-output.md](./references/using-scene-output.md)           | reactive (post-deploy)   | Consume the regulated scene topic; wire up regions/tripwires for event-driven alerting                        |
 
 ## Assets
 
@@ -321,7 +322,8 @@ map instead of auto-reconstruction, see
 singleton sensors, or Object Library entries after a deployment is running, see
 [attribute-persistence.md](./references/attribute-persistence.md),
 [singleton-sensors.md](./references/singleton-sensors.md), and
-[object-library.md](./references/object-library.md).
+[object-library.md](./references/object-library.md). For consuming the scene's output or wiring
+up regions/tripwires, see [using-scene-output.md](./references/using-scene-output.md).
 
 ## Quality & Evaluation
 
@@ -351,6 +353,13 @@ After `DEPLOY COMPLETE`, report a short breakdown in the same response as the co
 3. **Calibration time** — steps 9–10 (calibration frames, mapping health)
 4. **Scene + verification time** — steps 11–13 (reconstruction, finalize, tracking)
 5. **Total wall-clock time** (phases may overlap with user wait time, so total ≠ strict sum)
+
+## After deployment — guide the user toward a goal
+
+A deployment alone rarely is the end goal — ask what the user wants to do with the tracked-object
+data (alert, count, dashboard, integration) in the same response as the metrics report, then load
+only the matching option from [using-scene-output.md](./references/using-scene-output.md). Treat
+the answer as a seed for the user's broader intent across later requests in the session.
 
 ## Prerequisites
 
