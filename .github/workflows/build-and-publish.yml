@@ -34,6 +34,8 @@ jobs:
             scenescape-controller,
             scenescape-manager,
             scenescape-tracker,
+            scenescape-mapping,
+            scenescape-cluster-analytics,
             scenescape-sources,
           ]
     steps:
@@ -67,6 +69,12 @@ jobs:
           elif [[ "${{ matrix.images }}" == "scenescape-tracker" ]]; then
             echo "Building ${{ matrix.images }}"
             make -C tracker
+          elif [[ "${{ matrix.images }}" == "scenescape-mapping" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C mapping build-all
+          elif [[ "${{ matrix.images }}" == "scenescape-cluster-analytics" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C cluster_analytics
           elif [[ "${{ matrix.images }}" == "scenescape-sources" ]]; then
             echo "Building ${{ matrix.images }}"
             make build-sources-image
@@ -77,12 +85,14 @@ jobs:
 
       - name: "Determine Image Tag"
         id: determine-tag
+        env:
+          PUBLISH_IMAGES: ${{ github.event.inputs.publish }}
         run: |
           if [ ! -f version.txt ]; then
             echo "version.txt not found."
             exit 1
           fi
-          if grep -q "dev" version.txt; then
+          if [[ "$PUBLISH_IMAGES" == "true" ]] && grep -q "dev" version.txt; then
             echo "ERROR: version.txt contains 'dev' - publishing dev versions is not allowed."
             exit 1
           fi
@@ -103,9 +113,19 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: "Push images"
-        if: ${{ github.event.inputs.publish == 'true' }}
+        if: ${{ github.event.inputs.publish == 'true' && matrix.images != 'scenescape-mapping'}}
         run: |
           docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          if [[ "${{ steps.determine-tag.outputs.is_release }}" == "true" ]]; then
+            docker push intel/${{ matrix.images }}:latest
+          fi
+
+      - name: "Push images - Mapping"
+        if: ${{ github.event.inputs.publish == 'true' && matrix.images == 'scenescape-mapping' }}
+        run: |
+          docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}-mapanything
+          docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}-vggt
           if [[ "${{ steps.determine-tag.outputs.is_release }}" == "true" ]]; then
             docker push intel/${{ matrix.images }}:latest
           fi
