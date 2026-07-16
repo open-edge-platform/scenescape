@@ -484,16 +484,16 @@ services:
       # - LIDAR_LOOP=true
       # - LIDAR_FRAME_RATE=10
       - LIDAR_DEVICE=GPU
-      - LIDAR_SCORE_THRESHOLD=0.75
+      - LIDAR_SCORE_THRESHOLD=0.70
       # - LIDAR_MODEL_CONFIG=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
-      # - LIDAR_PUBLISH_RAW=true
+      - LIDAR_PUBLISH_RAW=true
       # Camera stream configuration:
       # - CAM_SENSOR_ID=intersection-cam1
       # - CAM_DATA_PATH=/home/pipeline-server/videos/images/%06d.jpg
       # - CAM_START_INDEX=10699
       # - CAM_STOP_INDEX=10699 #10949
       - CAM_DEVICE=CPU
-      - CAM_SCORE_THRESHOLD=0.97
+      - CAM_SCORE_THRESHOLD=0.8
       # - CAM_DETECTION_LABELS=vehicle,cyclist
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
