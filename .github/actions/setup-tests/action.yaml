@@ -71,4 +71,23 @@ runs:
       run: |
         sudo apt remove -y firefox
         sudo snap remove --purge firefox
+
+        sudo install -d -m 0755 /etc/apt/keyrings
+        wget -qO- https://packages.mozilla.org/apt/repo-signing-key.gpg \
+          | sudo tee /etc/apt/keyrings/packages.mozilla.org.asc > /dev/null
+
+        echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" \
+          | sudo tee /etc/apt/sources.list.d/mozilla.list > /dev/null
+
+        sudo tee /etc/apt/preferences.d/mozilla > /dev/null <<'EOF'
+        Package: firefox*
+        Pin: origin packages.mozilla.org
+        Pin-Priority: 1000
+
+        Package: firefox*
+        Pin: release o=Ubuntu
+        Pin-Priority: -1
+        EOF
+
+        sudo apt update
         sudo apt install -y firefox
