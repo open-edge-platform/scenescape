@@ -1,18 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-"""SceneScape custom GStreamer element that captures post-decode timestamps.
-
-Ported from the gvapython class ``PostDecodeTimestampCapture`` in
-``sscape_adapter.py``. It attaches a GVA JSON message to each buffer that
-contains:
-
-  * ``postdecode_timestamp`` - UTC ISO 8601 string (from system time,
-    NTP-offset corrected, or from the RTSP frame's NTP reference meta)
-  * ``timestamp_for_next_block`` - float seconds since the epoch
-  * ``fps`` - smoothed frames-per-second estimate
-
-Downstream gvapython / gvametaconvert elements can consume the message
-via the standard GVA JSON meta API.
+"""
+SceneScape custom GStreamer element that captures post-decode timestamps.
+Designed to be used in a DLStreamer pipeline after a decoder element. It attaches post-decode timestamps and FPS metadata to each buffer, which can be consumed by downstream elements or applications.
 """
 
 import json
@@ -124,10 +114,6 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
     if not self._ntp_caps:
       self._log.error("Failed to build caps for %s", NTP_CAPS_STRING)
 
-  # ------------------------------------------------------------------
-  # GObject property plumbing
-  # ------------------------------------------------------------------
-
   def do_get_property(self, prop):  # pylint: disable=arguments-differ
     name = prop.name
     if name == "ntp-server":
@@ -169,7 +155,7 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
     return Gst.FlowReturn.OK
 
   # ------------------------------------------------------------------
-  # Core logic (mirrors the original gvapython class)
+  # Core logic
   # ------------------------------------------------------------------
 
   def _extract_ntp_timestamp(self, buffer: Gst.Buffer) -> Optional[str]:
@@ -244,7 +230,6 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
     })
 
     # Attach as GVA JSON message so downstream gvapython consumers
-    # (PostInferenceDataPublish) can read it via the standard API.
     frame = VideoFrame(buffer, caps=self._sink_caps)
     frame.add_message(payload)
 

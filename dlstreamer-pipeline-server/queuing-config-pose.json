@@ -8,7 +8,7 @@
       {
         "name": "qcam1",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/public/yolo11n-pose/yolo11n-pose.xml ! queue ! gvainference model=/home/pipeline-server/models/public/mars-small128/mars_small128_fp32.xml device=CPU inference-region=roi-list ! gvatrack tracking-type=deep-sort deepsort-trck-cfg=max_age=60,max_cosine_distance=0.2 ! queue  ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/public/yolo11n-pose/yolo11n-pose.xml ! queue ! gvainference model=/home/pipeline-server/models/public/mars-small128/mars_small128_fp32.xml device=CPU inference-region=roi-list ! gvatrack tracking-type=deep-sort deepsort-trck-cfg=max_age=60,max_cosine_distance=0.2 ! queue  ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
@@ -64,7 +64,9 @@
             "camera_config": {
               "cameraid": "atag-qcam1",
               "metadatagenpolicy": "detectionPolicy",
-              "detection_labels": ["person"]
+              "detection_labels": [
+                "person"
+              ]
             }
           }
         }
@@ -72,7 +74,7 @@
       {
         "name": "qcam2",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam2 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/public/yolo11n-pose/yolo11n-pose.xml ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam2 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/public/yolo11n-pose/yolo11n-pose.xml ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
@@ -128,7 +130,9 @@
             "camera_config": {
               "cameraid": "atag-qcam2",
               "metadatagenpolicy": "detectionPolicy",
-              "detection_labels": ["person"]
+              "detection_labels": [
+                "person"
+              ]
             }
           }
         }
