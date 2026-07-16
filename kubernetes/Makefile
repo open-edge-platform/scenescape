@@ -177,6 +177,7 @@ copy-files:
 	mkdir -p scenescape-chart/files/model-installer
 	mkdir -p scenescape-chart/files/sample-data
 	cp -r ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/* scenescape-chart/files/dlsps/
+	cp ../dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py scenescape-chart/files/dlsps/
 	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/broker/mosquitto-secure.conf
 	cp -r ../model_installer/src/* scenescape-chart/files/model-installer/
 	cp ../model_installer/requirements-runtime.txt scenescape-chart/files/model-installer/requirements-runtime.txt
