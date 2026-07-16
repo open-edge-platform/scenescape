@@ -153,11 +153,11 @@ These are additional manager capabilities beyond the core deploy flow. Like tuni
 about them upfront in Step 1 — load the matching reference only when the user's request implies
 one of these needs:
 
-| User need                                                                                      | Reference                                                          |
-| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Keep a **vision/AI-pipeline** attribute (color, license plate, person attributes) from resetting | [attribute-persistence.md](./references/attribute-persistence.md)  |
-| Feed the scene an **external, non-vision** reading or event (temperature, badge swipe, etc.)    | [singleton-sensors.md](./references/singleton-sensors.md)          |
-| Define expected size/shape for a detected object class (Object Library)                        | [object-library.md](./references/object-library.md)                |
+| User need                                                                                        | Reference                                                         |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| Keep a **vision/AI-pipeline** attribute (color, license plate, person attributes) from resetting | [attribute-persistence.md](./references/attribute-persistence.md) |
+| Feed the scene an **external, non-vision** reading or event (temperature, badge swipe, etc.)     | [singleton-sensors.md](./references/singleton-sensors.md)         |
+| Define expected size/shape for a detected object class (Object Library)                          | [object-library.md](./references/object-library.md)               |
 
 If the user says "attribute" without more context, ask whether the value comes from the camera/AI
 pipeline (→ attribute-persistence.md) or from a separate sensor publishing its own MQTT messages
@@ -279,25 +279,25 @@ changing streams/camera_ids/scene_name.
 Each reference document has one primary step where it should be read; load others only when
 troubleshooting a failure at that step.
 
-| Reference                                                             | Primary step             | Purpose                                                                                    |
-| --------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------ |
-| [pipeline-config.md](./references/pipeline-config.md)                 | 6                        | How `adapt_pipeline_config.py` generates per-camera pipelines                              |
-| [mosquitto-config.md](./references/mosquitto-config.md)               | 6                        | Broker TLS listener layout; optional password file generation                              |
-| [docker-compose-template.md](./references/docker-compose-template.md) | 6 (failure only)         | Full compose template; read only to debug a template bug                                   |
-| [command-templates.md](./references/command-templates.md)             | 7                        | Reusable RTSP gate check and MQTT pub/sub verification commands                            |
-| [runtime-verification.md](./references/runtime-verification.md)       | 7, 9                     | RTSP/service-health failure diagnosis                                                      |
-| [scene-and-cameras.md](./references/scene-and-cameras.md)             | 11–12 (failure only)     | Manual scene/camera REST calls if reconstruction needs inspection                          |
-| [reconstruction.md](./references/reconstruction.md)                   | 11–12                    | Reconstruction and finalization failure diagnosis; supplementing with a walk-through video |
-| [scene-map-alternatives.md](./references/scene-map-alternatives.md)   | after Step 1 (if chosen) | Blueprint/GLB/geospatial scene creation, pixels-per-meter, manual-calibration handoff      |
-| [verify-tracking.md](./references/verify-tracking.md)                 | 13                       | Tracking verification failure diagnosis                                                    |
-| [phase-bootstrap.md](./references/phase-bootstrap.md)                 | 6–8 (standalone)         | Run/resume only the bootstrap phase                                                        |
-| [phase-calibrate.md](./references/phase-calibrate.md)                 | 9–10 (standalone)        | Run/resume only the calibrate phase                                                        |
-| [phase-scene.md](./references/phase-scene.md)                         | 11–13 (standalone)       | Run/resume only the scene phase                                                            |
-| [tuning-tracker.md](./references/tuning-tracker.md)                   | reactive (post-deploy)   | Diagnose reported tracking-quality issues → `tracker-config.json` motion/timing values     |
-| [tuning-reid.md](./references/tuning-reid.md)                         | reactive (post-deploy)   | Diagnose reported Re-ID issues → `reid-config.json` re-identification values               |
-| [attribute-persistence.md](./references/attribute-persistence.md)     | reactive (post-deploy)   | Keep object attributes from resetting between detections via `persist_attributes`         |
+| Reference                                                             | Primary step             | Purpose                                                                                                       |
+| --------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| [pipeline-config.md](./references/pipeline-config.md)                 | 6                        | How `adapt_pipeline_config.py` generates per-camera pipelines                                                 |
+| [mosquitto-config.md](./references/mosquitto-config.md)               | 6                        | Broker TLS listener layout; optional password file generation                                                 |
+| [docker-compose-template.md](./references/docker-compose-template.md) | 6 (failure only)         | Full compose template; read only to debug a template bug                                                      |
+| [command-templates.md](./references/command-templates.md)             | 7                        | Reusable RTSP gate check and MQTT pub/sub verification commands                                               |
+| [runtime-verification.md](./references/runtime-verification.md)       | 7, 9                     | RTSP/service-health failure diagnosis                                                                         |
+| [scene-and-cameras.md](./references/scene-and-cameras.md)             | 11–12 (failure only)     | Manual scene/camera REST calls if reconstruction needs inspection                                             |
+| [reconstruction.md](./references/reconstruction.md)                   | 11–12                    | Reconstruction and finalization failure diagnosis; supplementing with a walk-through video                    |
+| [scene-map-alternatives.md](./references/scene-map-alternatives.md)   | after Step 1 (if chosen) | Blueprint/GLB/geospatial scene creation, pixels-per-meter, manual-calibration handoff                         |
+| [verify-tracking.md](./references/verify-tracking.md)                 | 13                       | Tracking verification failure diagnosis                                                                       |
+| [phase-bootstrap.md](./references/phase-bootstrap.md)                 | 6–8 (standalone)         | Run/resume only the bootstrap phase                                                                           |
+| [phase-calibrate.md](./references/phase-calibrate.md)                 | 9–10 (standalone)        | Run/resume only the calibrate phase                                                                           |
+| [phase-scene.md](./references/phase-scene.md)                         | 11–13 (standalone)       | Run/resume only the scene phase                                                                               |
+| [tuning-tracker.md](./references/tuning-tracker.md)                   | reactive (post-deploy)   | Diagnose reported tracking-quality issues → `tracker-config.json` motion/timing values                        |
+| [tuning-reid.md](./references/tuning-reid.md)                         | reactive (post-deploy)   | Diagnose reported Re-ID issues → `reid-config.json` re-identification values                                  |
+| [attribute-persistence.md](./references/attribute-persistence.md)     | reactive (post-deploy)   | Keep object attributes from resetting between detections via `persist_attributes`                             |
 | [singleton-sensors.md](./references/singleton-sensors.md)             | reactive (post-deploy)   | Add non-perceptual/scalar sensors (environmental or attribute-type) — REST for scene-wide, UI for circle/poly |
-| [object-library.md](./references/object-library.md)                  | reactive (post-deploy)   | Define expected object-class size/shape (Object Library / `Asset3D`) via REST             |
+| [object-library.md](./references/object-library.md)                   | reactive (post-deploy)   | Define expected object-class size/shape (Object Library / `Asset3D`) via REST                                 |
 
 ## Assets
 

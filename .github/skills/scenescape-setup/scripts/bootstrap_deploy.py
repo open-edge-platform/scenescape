@@ -88,19 +88,28 @@ def copy_controller_configs(skill_dir: Path, deploy_dir: Path) -> None:
 
 
 def generate_docker_compose(skill_dir: Path, deploy_dir: Path) -> None:
+  """Extract the ```yaml fenced block from the compose template and substitute
+  ${SECRETSDIR}. Done in pure Python (no shell) since deploy_dir/secrets_dir are
+  user-supplied paths and must never be interpolated into a shell command string."""
   template = skill_dir / "references" / "docker-compose-template.md"
   secrets_dir = deploy_dir / "secrets"
-  awk_cmd = (
-    "awk '/^```yaml$/ {flag=1; next} /^```$/ && flag {exit} flag {print}' "
-    f"\"{template}\" | sed \"s|\\${{SECRETSDIR}}|{secrets_dir}|g\""
-  )
-  compose = subprocess.run(
-    ["bash", "-c", awk_cmd],
-    check=True,
-    capture_output=True,
-    text=True,
-  )
-  (deploy_dir / "docker-compose.yml").write_text(compose.stdout, encoding="utf-8")
+
+  lines: list[str] = []
+  in_block = False
+  for line in template.read_text(encoding="utf-8").splitlines():
+    if not in_block and line.strip() == "```yaml":
+      in_block = True
+      continue
+    if in_block and line.strip() == "```":
+      break
+    if in_block:
+      lines.append(line)
+
+  if not lines:
+    raise ValueError(f"No ```yaml fenced block found in {template}")
+
+  compose_text = "\n".join(lines).replace("${SECRETSDIR}", str(secrets_dir)) + "\n"
+  (deploy_dir / "docker-compose.yml").write_text(compose_text, encoding="utf-8")
 
 
 def generate_secrets_and_env(

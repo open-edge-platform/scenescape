@@ -9,8 +9,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from urllib.parse import urlparse
+
+# RFC 1123 hostname / dotted-IPv4 chars only. Rejects anything else (e.g. stray
+# control characters) that could otherwise flow into the generated .env file's
+# no_proxy value.
+_VALID_HOSTNAME_RE = re.compile(r"^[A-Za-z0-9.-]+$")
 
 from deploy_inputs import load_inputs, validate_camera_streams
 
@@ -112,7 +118,7 @@ def rtsp_no_proxy_hosts(streams: list[str]) -> list[str]:
   seen: set[str] = set()
   for stream in streams:
     host = urlparse(stream).hostname
-    if host and host not in seen:
+    if host and _VALID_HOSTNAME_RE.match(host) and host not in seen:
       seen.add(host)
       hosts.append(host)
   return hosts

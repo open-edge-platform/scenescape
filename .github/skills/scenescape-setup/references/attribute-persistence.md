@@ -10,7 +10,7 @@ attributes (age/gender/PPE) to "stick" to a tracked object even on frames where 
 pipeline didn't re-detect that attribute, instead of the value resetting/disappearing.
 
 **Not to be confused with attribute-type singleton sensors:** this page is about attributes that
-come *from the vision/AI pipeline* (a camera detecting a person's shirt color, for example). If
+come _from the vision/AI pipeline_ (a camera detecting a person's shirt color, for example). If
 the value instead comes from a separate physical or virtual sensor publishing its own MQTT
 messages (e.g. a badge reader), see [singleton-sensors.md](./singleton-sensors.md)'s `attribute`
 sensor type instead.

@@ -17,14 +17,14 @@ described as "scalar sensor readings."
 `singleton_type` has exactly two values. Choosing correctly matters because it changes how the
 value is expected to behave over time:
 
-| Type            | Use when the value...                                                      | Examples                                    |
-| ---------------- | ---------------------------------------------------------------------------- | -------------------------------------------- |
-| `environmental` | varies continuously and should be tagged/updated on every reading           | temperature, humidity, air quality, light level (lux) |
+| Type            | Use when the value...                                                        | Examples                                                    |
+| --------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `environmental` | varies continuously and should be tagged/updated on every reading            | temperature, humidity, air quality, light level (lux)       |
 | `attribute`     | is a discrete identifier or event tied to a presence, published occasionally | badge/RFID read, boolean beam-break or pressure-mat trigger |
 
 **Not to be confused with attribute persistence:** a `singleton_type: attribute` sensor is an
-*external, non-vision* data source (e.g. a badge reader publishing over MQTT). This is unrelated
-to `persist_attributes` in `tracker-config.json`, which keeps *vision-pipeline-detected*
+_external, non-vision_ data source (e.g. a badge reader publishing over MQTT). This is unrelated
+to `persist_attributes` in `tracker-config.json`, which keeps _vision-pipeline-detected_
 attributes (color, license plate, age/gender) from resetting between frames — see
 [attribute-persistence.md](./attribute-persistence.md) for that instead. If the value comes from
 the camera/AI pipeline, use attribute persistence; if it comes from a separate physical or virtual
@@ -79,6 +79,7 @@ Optional color-coded thresholds (for UI visualization of the sensor's reading):
   }
 }
 ```
+
 Add this as an additional key in the same create/update payload.
 
 ## Publishing readings
