@@ -50,6 +50,7 @@ services:
     volumes:
       - ./:/workspace
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - ./dlstreamer-pipeline-server/user_scripts/gstanalytics/sscape/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/python/ # Needs to be mounted to DLStreamer default plugin location, not to override any existing plugins
       - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
