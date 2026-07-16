@@ -165,8 +165,7 @@ tests/test_logs/<group>/<test_id>/<test_id>-<timestamp>.log
 
 Log content depends on the test outcome:
 
-- **Passing test** — only the raw `print()` output from the test body
-  plus any `WARNING` + log records are kept.
+- **Passing test** — only the raw `print()` output from the test body plus any log records are kept.
 - **Failing test** — the full orchestration log is preserved for
   debugging, along with per-container Docker logs in a sibling
   directory (unless `--collect-container-logs=none` is set):
