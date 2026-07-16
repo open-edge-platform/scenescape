@@ -16,15 +16,9 @@
             "ntp_config": {
               "element": {
                 "name": "timesync",
-                "property": "kwarg",
-                "format": "json"
+                "property": "ntp-server"
               },
-              "type": "object",
-              "properties": {
-                "ntpServer": {
-                  "type": "string"
-                }
-              }
+              "type": "string"
             },
             "camera_config": {
               "element": {
@@ -51,9 +45,7 @@
         },
         "payload": {
           "parameters": {
-            "ntp_config": {
-              "ntpServer": "ntpserv"
-            },
+            "ntp_config": "ntpserv",
             "camera_config": {
               "cameraid": "atag-qcam1",
               "metadatagenpolicy": "reidPolicy"
@@ -72,15 +64,9 @@
             "ntp_config": {
               "element": {
                 "name": "timesync",
-                "property": "kwarg",
-                "format": "json"
+                "property": "ntp-server"
               },
-              "type": "object",
-              "properties": {
-                "ntpServer": {
-                  "type": "string"
-                }
-              }
+              "type": "string"
             },
             "camera_config": {
               "element": {
@@ -107,9 +93,7 @@
         },
         "payload": {
           "parameters": {
-            "ntp_config": {
-              "ntpServer": "ntpserv"
-            },
+            "ntp_config": "ntpserv",
             "camera_config": {
               "cameraid": "atag-qcam2",
               "metadatagenpolicy": "reidPolicy"
