@@ -336,6 +336,7 @@ def test_tracking_produces_reliable_tracks(tls_tracker_service):
     client.loop_stop()
     client.disconnect()
 
+TEST_NAME = "NEX-T25896"
 
 def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene):
   """Validate confidence, disjoint-field, and latest-camera fusion over MQTT."""
