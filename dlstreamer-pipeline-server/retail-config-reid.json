@@ -56,9 +56,7 @@
             "camera_config": {
               "cameraid": "camera1",
               "metadatagenpolicy": "reidPolicy",
-              "detection_labels": [
-                "person"
-              ]
+              "detection_labels": ["person"]
             }
           }
         }
@@ -114,9 +112,7 @@
             "camera_config": {
               "cameraid": "camera2",
               "metadatagenpolicy": "reidPolicy",
-              "detection_labels": [
-                "person"
-              ]
+              "detection_labels": ["person"]
             }
           }
         }
