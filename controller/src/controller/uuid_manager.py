@@ -493,7 +493,6 @@ class UUIDManager:
     if minimum_feature_count is None:
       minimum_feature_count = self.minimum_feature_count
     count = len(self.quality_features.get(sscape_object.rv_id, []))
-    log.debug(f"count={count}, minimum_feature_count={minimum_feature_count}")
     return count >= minimum_feature_count
 
   def querySimilarity(self, sscape_object):
@@ -892,8 +891,6 @@ class UUIDManager:
         log.debug(f"assignID: Submitting similarity query for rv_id={sscape_object.rv_id}")
         self.active_query[sscape_object.rv_id] = True
         self.pool.submit(self.querySimilarity, sscape_object)
-      else:
-        log.debug(f"No sufficient features for object rv_id={sscape_object.rv_id}")
 
     # Always pick best ID for the current frame
     self.pickBestID(sscape_object)
