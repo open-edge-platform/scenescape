@@ -9,7 +9,7 @@ from analytics.analytics_models import (
   AnalyticsObject,
   moving_object_to_analytics_object,
 )
-from controller.moving_object import ChainData
+from scene_common.chain_data import ChainData
 from scene_common.geometry import Point
 
 
@@ -133,9 +133,8 @@ class TestMovingObjectToAnalyticsObject:
     assert ao.reid is None
 
   def test_publishing_fields_carried_through_when_present(self):
-    from scene_common.geometry import Point as _Point
     src = self._source_object(
-      velocity=_Point(1.0, 0.0, 0.0),
+      velocity=Point(1.0, 0.0, 0.0),
       info={'category': 'person', 'confidence': 0.9},
       rotation=[0.0, 0.0, 0.0, 1.0],
       metadata={'age': 'adult'},

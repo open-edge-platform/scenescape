@@ -10,7 +10,7 @@ from analytics.sensors import (
   update_attribute_sensor_events,
   update_environmental_sensor_readings,
 )
-from controller.moving_object import ChainData
+from scene_common.chain_data import ChainData
 from scene_common.geometry import Point
 
 

@@ -11,7 +11,7 @@ from analytics.tripwire import (
   TripwireEvent,
   update_tripwire_events,
 )
-from controller.moving_object import ChainData
+from scene_common.chain_data import ChainData
 from scene_common.geometry import Point
 
 
