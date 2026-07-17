@@ -75,6 +75,7 @@ FULL_STACK_WITH_MAPPING = ServiceProfile(
     f"{COMPOSE}/compose-pgserver.yml",
     f"{COMPOSE}/compose-scene.yml",
     f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-analytics.yml",
     f"{COMPOSE}/compose-mapping.yml",
   ),
   wait_for={
@@ -95,6 +96,7 @@ FULL_STACK_WITH_MAPPING_AND_VIDEO = ServiceProfile(
     f"{DLS}/compose-retail_video.yml",
     f"{COMPOSE}/compose-scene.yml",
     f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-analytics.yml",
     f"{COMPOSE}/compose-cams.yml",
     f"{COMPOSE}/compose-mapping.yml",
   ),
@@ -143,6 +145,7 @@ REID = ServiceProfile(
     f"{COMPOSE}/compose-scene_reid.yml",
     f"{COMPOSE}/compose-web_default.yml",
     f"{COMPOSE}/compose-cams.yml",
+    f"{COMPOSE}/compose-analytics.yml",
   ),
   wait_for={
     "broker": _BROKER,
@@ -188,6 +191,7 @@ FULL_STACK_AUTOCALIBRATION = ServiceProfile(
     f"{DLS}/compose-retail_video.yml",
     f"{COMPOSE}/compose-autocalibration.yml",
     f"{COMPOSE}/compose-cams.yml",
+    f"{COMPOSE}/compose-analytics.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -251,6 +255,7 @@ FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS = ServiceProfile(
     f"{COMPOSE}/compose-scene.yml",
     f"{COMPOSE}/compose-web_default.yml",
     f"{COMPOSE}/compose-autocalibration.yml",
+    f"{COMPOSE}/compose-analytics.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
