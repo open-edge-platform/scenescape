@@ -110,7 +110,7 @@ services:
       start_period: 5s
 
   web:
-    image: scenescape-manager:${VERSION:-latest}
+    image: scenescape-manager:latest
     init: true
     networks:
       scenescape:
@@ -167,7 +167,7 @@ services:
     restart: always
 
   scene:
-    image: scenescape-controller:${VERSION:-latest}
+    image: scenescape-controller:latest
     init: true
     networks:
       scenescape:
@@ -205,7 +205,7 @@ services:
     restart: always
 
   video-analytics:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24-rc2
+    image: intel/dlstreamer-pipeline-server:latest
     networks:
       scenescape:
     depends_on:
@@ -232,7 +232,7 @@ services:
     restart: unless-stopped
 
   init-models:
-    image: alpine:3.23
+    image: alpine:latest
     user: root
     volumes:
       - vol-models:/models

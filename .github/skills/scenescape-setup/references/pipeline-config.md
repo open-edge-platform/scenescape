@@ -80,3 +80,6 @@ python3 <skill-dir>/scripts/adapt_pipeline_config.py \
 - Model: `person-detection-retail-0013` via `download_detection_models.sh`
 - External RTSP sources must be reachable from the SceneScape Docker network
 - GPU/WSL2 segfaults with dual pipelines: see repo `queuing-config-gpu.json` / sample compose
+- Local video files (folder or explicit list) instead of live RTSP cameras: see
+  [video-file-input.md](./video-file-input.md) — they are looped through an internal RTSP
+  re-streamer, so this file's spec applies unchanged once `deploy-inputs.json` is written.

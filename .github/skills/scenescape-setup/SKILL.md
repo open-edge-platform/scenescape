@@ -95,12 +95,12 @@ Verify: `ls "$SKILL_DIR/scripts/deploy_scenescape.sh"` must succeed before conti
 
 Ask the user for every new deployment:
 
-| Input        | Rules                                                  |
-| ------------ | ------------------------------------------------------ |
-| `deploy_dir` | Writable directory for generated files                 |
-| `streams`    | One RTSP/RTSPS URL per camera, user-provided, in order |
-| `camera_ids` | Unique IDs (no `/`), same order as `streams`           |
-| `scene_name` | Human-readable scene name chosen by the user           |
+| Input        | Rules                                                                                                |
+| ------------ | ---------------------------------------------------------------------------------------------------- |
+| `deploy_dir` | Writable directory for generated files                                                               |
+| `streams`    | One RTSP/RTSPS URL per camera, user-provided, in order — **or** local video files/folder (see below) |
+| `camera_ids` | Unique IDs (no `/`), same order as `streams`                                                         |
+| `scene_name` | Human-readable scene name chosen by the user                                                         |
 
 Validate: `len(streams) == len(camera_ids)`, ≥1 camera, valid RTSP URLs.
 
@@ -121,6 +121,11 @@ python3 <skill-dir>/scripts/deploy_inputs.py write \
 Writes `<deploy_dir>/deploy-inputs.json` — the source of truth for all later steps.
 Pipeline adaptation reads RTSP URLs from the downloaded template entry per camera; it does not
 hardcode simulator hostnames or camera names.
+
+**No live RTSP cameras available?** If the user instead has a folder of recorded video files, or
+an explicit list of video file paths, use `--video-dir`/`--video-files` in place of `--streams` —
+see [video-file-input.md](./references/video-file-input.md). This covers local file playback
+only; MJPEG and USB camera input are out of scope pending a separate source-discovery service.
 
 ## Scene source: reconstruction vs. blueprint/GLB vs. geospatial map
 

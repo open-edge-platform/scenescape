@@ -5,10 +5,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+from deploy_inputs import load_inputs
 
 DLSTREAMER_FOLDERS = ("model-proc-files", "mosquitto", "user_scripts")
 
@@ -112,6 +115,88 @@ def generate_docker_compose(skill_dir: Path, deploy_dir: Path) -> None:
   (deploy_dir / "docker-compose.yml").write_text(compose_text, encoding="utf-8")
 
 
+def generate_video_file_override(deploy_dir: Path, payload: dict) -> None:
+  """When Step 1 inputs are local video files (payload["source_type"] == "file"),
+  write docker-compose.override.yml with a local RTSP re-streamer (mediamtx + ffmpeg)
+  that loops each file so the rest of the deployment (pipeline generation, RTSP
+  validation, proxy bypass) treats it exactly like a live camera pointed at
+  rtsp://mediaserver:8554/<camera_id>. docker compose auto-merges *.override.yml
+  files with docker-compose.yml, so no other orchestration changes are required.
+  See references/video-file-input.md."""
+  override_path = deploy_dir / "docker-compose.override.yml"
+  if payload.get("source_type") != "file":
+    if override_path.exists():
+      override_path.unlink()
+    return
+
+  camera_ids = payload["camera_ids"]
+  video_paths = payload["video_paths"]
+
+  input_clauses = []
+  map_clauses = []
+  volume_lines = []
+  for index, (camera_id, video_path) in enumerate(zip(camera_ids, video_paths)):
+    container_path = f"/videos/{camera_id}{Path(video_path).suffix}"
+    input_clauses.append(f"-re -stream_loop -1 -i {container_path}")
+    map_clauses.append(
+      f"-map {index}:v -c:v libx264 -preset veryfast -an -f rtsp "
+      f"-rtsp_transport tcp rtsp://mediaserver:8554/{camera_id}"
+    )
+    volume_lines.append(f"      - {video_path}:{container_path}:ro")
+
+  command = "-nostdin " + " ".join(input_clauses) + " " + " ".join(map_clauses)
+  volumes_block = "\n".join(volume_lines)
+
+  override_path.write_text(
+    "# SPDX-FileCopyrightText: (C) 2026 Intel Corporation\n"
+    "# SPDX-License-Identifier: Apache-2.0\n"
+    "#\n"
+    "# Generated because Step 1 inputs were local video files instead of live RTSP\n"
+    "# cameras. Loops each file through a local RTSP server (mediamtx) so the rest of\n"
+    "# the deployment is unchanged from the live-camera path. docker compose\n"
+    "# auto-merges this file with docker-compose.yml; no -f flag is needed.\n"
+    "\n"
+    "networks:\n"
+    "  scenescape:\n"
+    "\n"
+    "services:\n"
+    "  mediaserver:\n"
+    "    image: bluenviron/mediamtx:1.18.1\n"
+    "    networks:\n"
+    "      scenescape:\n"
+    "        aliases:\n"
+    "          - mediaserver\n"
+    "    restart: always\n"
+    "\n"
+    "  video-file-cams:\n"
+    "    image: linuxserver/ffmpeg:version-8.1-cli\n"
+    f"    command: {command}\n"
+    "    volumes:\n"
+    f"{volumes_block}\n"
+    "    networks:\n"
+    "      scenescape:\n"
+    "    depends_on:\n"
+    "      - mediaserver\n"
+    "    restart: always\n",
+    encoding="utf-8",
+  )
+
+
+def load_payload_for_bootstrap(
+  deploy_dir: Path,
+  inputs_file: Path | None,
+  from_deploy_inputs: bool,
+) -> dict | None:
+  """Best-effort load of the full deploy-inputs.json payload (including source_type/
+  video_paths for file-based deployments). Returns None when inputs were provided as
+  bare --camera-ids/--streams args, which carry no video-file metadata."""
+  if inputs_file is not None:
+    return json.loads(inputs_file.read_text(encoding="utf-8"))
+  if from_deploy_inputs:
+    return load_inputs(deploy_dir)
+  return None
+
+
 def generate_secrets_and_env(
   deploy_dir: Path,
   skill_dir: Path,
@@ -162,6 +247,10 @@ def main() -> None:
   copy_secrets_scripts(skill_dir, deploy_dir)
   copy_controller_configs(skill_dir, deploy_dir)
   generate_docker_compose(skill_dir, deploy_dir)
+
+  payload = load_payload_for_bootstrap(deploy_dir, args.inputs_file, args.from_deploy_inputs)
+  if payload is not None:
+    generate_video_file_override(deploy_dir, payload)
 
   adapt_script = Path(__file__).resolve().parent / "adapt_pipeline_config.py"
   adapt_cmd = [

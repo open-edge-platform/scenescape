@@ -33,15 +33,15 @@ wrong person.
 
 ## Parameter reference
 
-| Parameter                           | Default (metric-dependent)                         | Meaning                                                                                                                                                  |
-| ----------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `similarity_metric`                 | `L2` (repo default), `COSINE` (this skill's asset) | `L2` = distance, lower is better. `COSINE` = normalized vectors, higher is better, scores in `[-1, 1]`.                                                  |
-| `similarity_threshold`              | `40.0` for `L2`, `0.7` for `COSINE`                | Match acceptance cutoff, interpreted per the metric above (below for `L2`, above for `COSINE`).                                                          |
-| `feature_accumulation_threshold`    | 12                                                 | Minimum number of quality embeddings collected before a similarity query is even attempted. Higher = more confident matches, slower first-match latency. |
-| `minimum_bbox_area`                 | 5000 (pixels²)                                     | Minimum detection bounding-box area before it contributes an embedding. Too high for a far/high-mounted camera silently disables Re-ID for that camera.  |
-| `stale_feature_timeout_secs`        | 5.0                                                | How long embeddings accumulate in memory before being flushed to VDMS for persistence.                                                                   |
-| `stale_feature_check_interval_secs` | 1.0                                                | How often the background timer checks for stale features to flush.                                                                                       |
-| `feature_slice_size`                | 10                                                 | Persist every Nth accumulated embedding to VDMS (reduces database growth).                                                                               |
+| Parameter                           | Default (metric-dependent)          | Meaning                                                                                                                                                  |
+| ----------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `similarity_metric`                 | `COSINE`                            | `COSINE` = normalized vectors, higher is better, scores in `[-1, 1]`. `L2` = distance, lower is better, remains available as an alternative.             |
+| `similarity_threshold`              | `0.5` for `COSINE`, `40.0` for `L2` | Match acceptance cutoff, interpreted per the metric above (above for `COSINE`, below for `L2`).                                                          |
+| `feature_accumulation_threshold`    | 12                                  | Minimum number of quality embeddings collected before a similarity query is even attempted. Higher = more confident matches, slower first-match latency. |
+| `minimum_bbox_area`                 | 5000 (pixels²)                      | Minimum detection bounding-box area before it contributes an embedding. Too high for a far/high-mounted camera silently disables Re-ID for that camera.  |
+| `stale_feature_timeout_secs`        | 5.0                                 | How long embeddings accumulate in memory before being flushed to VDMS for persistence.                                                                   |
+| `stale_feature_check_interval_secs` | 1.0                                 | How often the background timer checks for stale features to flush.                                                                                       |
+| `feature_slice_size`                | 10                                  | Persist every Nth accumulated embedding to VDMS (reduces database growth).                                                                               |
 
 `VDMS_CONFIDENCE_THRESHOLD` (default `0.8`) is a controller **environment variable**, not a
 `reid-config.json` field — it controls how strict TIER 1 metadata filtering is (age/gender/etc.)
@@ -55,10 +55,11 @@ These are starting points, not guarantees.
 
 1. **Q1 (cross-camera Re-ID needed) →**
    - If **not** needed: leave Re-ID at its shipped defaults; no changes required.
-   - If needed: keep `similarity_metric: "COSINE"` (already the shipped asset default) since it
-     gives bounded, normalized scores that are easier to reason about across cameras. Consider
-     raising `feature_accumulation_threshold` above `12` for higher-confidence cross-camera
-     matches in crowded scenes (trade-off: slower first match).
+   - If needed: keep `similarity_metric: "COSINE"` (already the default, both in the controller
+     and this skill's shipped `reid-config.json`) since it gives bounded, normalized scores that
+     are easier to reason about across cameras. Consider raising `feature_accumulation_threshold`
+     above `12` for higher-confidence cross-camera matches in crowded scenes (trade-off: slower
+     first match).
 
 2. **Q2 (subject size in frame) →** lower `minimum_bbox_area` below `5000` for wide/high-mounted
    overview cameras where subjects appear smaller in pixels; the repo default assumes a
