@@ -5,5 +5,5 @@
   "feature_accumulation_threshold": 12,
   "minimum_bbox_area": 5000,
   "feature_slice_size": 10,
-  "similarity_threshold": 0.7
+  "similarity_threshold": 0.5
 }
