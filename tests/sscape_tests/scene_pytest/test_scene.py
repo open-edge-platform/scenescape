@@ -11,7 +11,6 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import controller.scene as scene_module
-from scene_common.ingestion import SceneDataIngestion
 from controller.moving_object import ChainData
 from controller.tracking import Tracking
 
@@ -225,18 +224,6 @@ def _make_chain_data():
     publishedLocations=[],
   )
 
-def _make_obj(gid="obj-1", frame_count=4, scene_loc=None, when=1.0, category='person'):
-  if scene_loc is None:
-    scene_loc = Point(0.0, 0.0, 0.0)
-  return SimpleNamespace(
-    gid=gid,
-    category=category,
-    frameCount=frame_count,
-    sceneLoc=scene_loc,
-    when=when,
-    chain_data=_make_chain_data(),
-  )
-
 def test_processCameraData_unknown_camera_returns_false(scene_obj):
   payload = {
     'id': 'unknown-camera',
@@ -268,81 +255,6 @@ def test_processCameraData_intrinsics_present_skips_bbox_conversion(scene_obj, c
   }
   assert scene_obj.processCameraData(payload) is True
   convert_mock.assert_not_called()
-
-def test_deserialize_tracked_objects_uses_configured_attribute_singleton_type():
-  """Configured attribute sensors stay in attr_sensor_events even for numeric-like values."""
-  scene = scene_module.Scene.__new__(scene_module.Scene)
-  scene.sensors = {
-    'weight-sensor': SimpleNamespace(singleton_type='attribute')
-  }
-  scene._ingestion = SceneDataIngestion()
-  objects = scene._deserializeTrackedObjects([
-    {
-      'id': 'object-1',
-      'translation': [1, 2, 3],
-      'sensors': {
-        'weight-sensor': {
-          'values': [('2026-03-26T20:53:29.761Z', '48')],
-        }
-      },
-    }
-  ])
-
-  assert len(objects) == 1
-  assert 'weight-sensor' not in objects[0].chain_data.env_sensor_state
-  assert objects[0].chain_data.attr_sensor_events['weight-sensor'] == [
-    ('2026-03-26T20:53:29.761Z', '48')
-  ]
-
-
-def test_deserialize_tracked_objects_defaults_unknown_sensor_to_environmental():
-  """Unknown sensors deserialize as environmental when no metadata is available."""
-  scene = scene_module.Scene.__new__(scene_module.Scene)
-  scene.sensors = {}
-  scene._ingestion = SceneDataIngestion()
-  objects = scene._deserializeTrackedObjects([
-    {
-      'id': 'object-1',
-      'translation': [1, 2, 3],
-      'sensors': {
-        'unknown-sensor': {
-          'values': [('2026-03-26T20:53:29.761Z', '48')],
-        }
-      },
-    }
-  ])
-
-  assert len(objects) == 1
-  assert objects[0].chain_data.env_sensor_state['unknown-sensor'] == {
-    'readings': [('2026-03-26T20:53:29.761Z', '48')]
-  }
-  assert 'unknown-sensor' not in objects[0].chain_data.attr_sensor_events
-
-
-def test_deserialize_tracked_objects_defaults_missing_singleton_type_to_environmental():
-  """Sensors with missing singleton_type also default to environmental storage."""
-  scene = scene_module.Scene.__new__(scene_module.Scene)
-  scene.sensors = {
-    'sensor-without-type': SimpleNamespace(singleton_type=None)
-  }
-  scene._ingestion = SceneDataIngestion()
-  objects = scene._deserializeTrackedObjects([
-    {
-      'id': 'object-1',
-      'translation': [1, 2, 3],
-      'sensors': {
-        'sensor-without-type': {
-          'values': [('2026-03-26T20:53:29.761Z', 'not-a-number')],
-        }
-      },
-    }
-  ])
-
-  assert len(objects) == 1
-  assert objects[0].chain_data.env_sensor_state['sensor-without-type'] == {
-    'readings': [('2026-03-26T20:53:29.761Z', 'not-a-number')]
-  }
-  assert 'sensor-without-type' not in objects[0].chain_data.attr_sensor_events
 
 def test_processCameraData_ignore_time_flag_uses_now(scene_obj, camera_obj, monkeypatch):
   scene_obj.cameras[camera_obj.cameraID] = camera_obj
@@ -442,79 +354,6 @@ def test_finishProcessing_skips_tracker_in_analytics_only(scene_obj, monkeypatch
 
   scene_obj._finishProcessing('person', 10.0, [], [])
   track_mock.assert_not_called()
-
-def test_getTrackedObjects_analytics_mode_uses_cache(scene_obj, monkeypatch):
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
-  scene_obj.updateTrackedObjects('person', [{'id': '1', 'type': 'person', 'translation': [1, 2, 3]}])
-
-  objs = scene_obj.getTrackedObjects('person')
-  assert len(objs) == 1
-  assert objs[0].gid == '1'
-  assert objs[0].category == 'person'
-
-def test_getTrackedObjects_non_analytics_uses_tracker(scene_obj, monkeypatch):
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: False)
-  expected = [_make_obj(gid='direct-1')]
-  scene_obj.tracker = SimpleNamespace(currentObjects=lambda detection_type: expected)
-  assert scene_obj.getTrackedObjects('person') == expected
-
-def test_deserializeTrackedObjects_uses_configured_sensor_types(scene_obj, monkeypatch):
-  """Analytics deserialization uses scene sensor metadata for mixed sensor payloads."""
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
-  scene_obj.sensors = {
-    'temperature': SimpleNamespace(singleton_type='environmental'),
-    'status': SimpleNamespace(singleton_type='attribute'),
-    'humidity': SimpleNamespace(singleton_type='environmental')
-  }
-  obj_data = {
-    'id': 'obj-3',
-    'type': 'person',
-    'translation': [3.0, 4.0, 5.0],
-    'sensors': {
-      'temperature': {
-        'values': [('2026-03-26T20:53:29.761Z', 25.5)]
-      },
-      'status': {
-        'values': [('2026-03-26T20:53:29.761Z', 'active')]
-      },
-      'humidity': {
-        'values': [
-          ('2026-03-26T20:53:29.761Z', 65.0),
-          ('2026-03-26T20:53:30.761Z', 67.0),
-        ]
-      },
-    }
-  }
-  scene_obj.updateTrackedObjects('person', [obj_data])
-
-  objs = scene_obj.getTrackedObjects('person')
-  assert len(objs) == 1
-  assert 'temperature' in objs[0].chain_data.env_sensor_state
-  assert 'humidity' in objs[0].chain_data.env_sensor_state
-  assert 'status' in objs[0].chain_data.attr_sensor_events
-  assert objs[0].chain_data.env_sensor_state['temperature']['readings'][0][1] == 25.5
-  assert objs[0].chain_data.attr_sensor_events['status'][0][1] == 'active'
-  assert len(objs[0].chain_data.env_sensor_state['humidity']['readings']) == 2
-
-def test_deserializeTrackedObjects_empty_sensors(scene_obj, monkeypatch):
-  """Test deserialization with empty sensor values."""
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
-  obj_data = {
-    'id': 'obj-4',
-    'type': 'person',
-    'translation': [4.0, 5.0, 6.0],
-    'sensors': {
-      'empty_sensor': {'values': []},
-      'normal_sensor': {'values': [('2026-03-26T20:53:29.761Z', 10)]}
-    }
-  }
-  scene_obj.updateTrackedObjects('person', [obj_data])
-
-  objs = scene_obj.getTrackedObjects('person')
-  assert len(objs) == 1
-  assert 'empty_sensor' not in objs[0].chain_data.env_sensor_state
-  assert 'empty_sensor' not in objs[0].chain_data.attr_sensor_events
-  assert 'normal_sensor' in objs[0].chain_data.env_sensor_state
 
 def test_deserialize_sets_core_fields(monkeypatch):
   monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: False)
@@ -711,38 +550,6 @@ def test_processCameraData_processes_each_detection_type(scene_obj, camera_obj, 
   assert [call[0] for call in finished] == ['person', 'vehicle']
   assert finished[0][1] == ['person']
   assert finished[1][1] == ['vehicle']
-
-
-def test_deserializeTrackedObjects_uses_cached_first_seen(scene_obj):
-  scene_obj.object_history_cache['obj-1'] = {
-    'first_seen': 12.5,
-    'publishedLocations': [Point(9.0, 8.0, 7.0)],
-  }
-
-  objs = scene_obj._deserializeTrackedObjects([
-    {'id': 'obj-1', 'type': 'person', 'translation': [1.0, 2.0, 3.0]}
-  ])
-
-  assert len(objs) == 1
-  assert objs[0].when == 12.5
-  assert objs[0].first_seen == 12.5
-  assert objs[0].chain_data.publishedLocations[0] == Point(9.0, 8.0, 7.0)
-
-def test_deserializeTrackedObjects_missing_first_seen_uses_current_time(scene_obj, monkeypatch):
-  import scene_common.ingestion as ingestion_module
-  monkeypatch.setattr(ingestion_module, 'get_epoch_time', lambda *args, **kwargs: 77.0)
-
-  objs = scene_obj._deserializeTrackedObjects([
-    {'id': 'obj-2', 'type': 'person', 'translation': [1.0, 2.0, 3.0]}
-  ])
-
-  assert len(objs) == 1
-  assert objs[0].when == 77.0
-  assert objs[0].first_seen == 77.0
-  assert scene_obj.object_history_cache['obj-2']['first_seen'] == 77.0
-
-
-
 
 
 def test_isIntersecting_createObjectMesh_value_error_returns_false(scene_obj, monkeypatch):

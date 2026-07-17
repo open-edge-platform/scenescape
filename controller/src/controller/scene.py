@@ -15,7 +15,6 @@ from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
-from scene_common.ingestion import SceneDataIngestion
 
 from controller.controller_mode import ControllerMode
 from controller.moving_object import ChainData
@@ -66,12 +65,6 @@ class Scene(SceneModel):
     self.persist_attributes = {}
     self.time_chunking_rate_fps = time_chunking_rate_fps
 
-    # Ingestion adapter owns per-object identity and location/timestamp history
-    # for analytics-only mode (when tracker is disabled). Not used for inline event processing.
-    self._ingestion = SceneDataIngestion()
-    self._analytics_objects = self._ingestion._objects
-    self.object_history_cache = self._ingestion._history
-
     if not ControllerMode.isAnalyticsOnly():
       self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
     else:
@@ -79,9 +72,6 @@ class Scene(SceneModel):
 
     self._trs_xyz_to_lla = None
     self.use_tracker = not ControllerMode.isAnalyticsOnly()
-
-    # Cache for tracked objects from MQTT (for analytics)
-    self.tracked_objects_cache = {}
 
     self.pose_adjustment = PoseAdjustment.from_env(
       max_entry_age_seconds=self._get_pose_cache_ttl(),
@@ -325,56 +315,6 @@ class Scene(SceneModel):
                                 self.non_measurement_time_static,
                                 self.use_tracker)
     return
-
-  def syncAnalyticsObjects(self, detection_type, tracked_objects):
-    """
-    Reconcile analytics_objects with a fresh batch of tracked objects
-    for the given detection type: evict stale entries, then deserialize
-    and index the incoming objects.
-    """
-    self._ingestion.ingest(detection_type, tracked_objects, self.sensors)
-    return
-
-  def updateTrackedObjects(self, detection_type, tracked_objects):
-    """
-    Update the cache of tracked objects from MQTT.
-    This is used by Analytics to consume tracked objects published by the Tracker service.
-
-    Args:
-        detection_type: The type of detection (e.g., 'person', 'vehicle')
-        tracked_objects: List of tracked objects for this detection type
-    """
-    self.tracked_objects_cache[detection_type] = tracked_objects
-
-    if ControllerMode.isAnalyticsOnly():
-      self.syncAnalyticsObjects(detection_type, tracked_objects)
-    return
-
-  def getTrackedObjects(self, detection_type):
-    """
-    Get tracked objects from cache (MQTT) or direct tracker call.
-
-    Args:
-        detection_type: The type of detection
-
-    Returns:
-        List of tracked objects (MovingObject instances or deserialized object-like structures)
-    """
-    # If analytics-only mode is enabled, only use MQTT cache (from separate Tracker service)
-    if ControllerMode.isAnalyticsOnly():
-      return self._ingestion.get_objects(detection_type)
-    if self.tracker is not None:
-      return self.tracker.currentObjects(detection_type)
-    return []
-
-  def _deserializeTrackedObjects(self, serialized_objects):
-    """Convert serialized tracked objects to analytics-ready objects.
-
-    Delegates to ``SceneDataIngestion.deserialize`` so the logic lives in the
-    analytics package.  Kept as a thin wrapper to preserve backward
-    compatibility with call sites that use ``scene._deserializeTrackedObjects``.
-    """
-    return self._ingestion.deserialize(serialized_objects, self.sensors)
 
   def isIntersecting(self, obj, region):
     if not region.compute_intersection:

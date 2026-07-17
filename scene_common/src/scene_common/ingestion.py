@@ -6,9 +6,9 @@
 Converts ``scenescape/data/scene/*`` MQTT payloads into analytics-ready
 objects with full ``ChainData`` continuity across frames.
 
-This extracts the deserialization and identity-cache logic that previously
-lived in ``Scene._deserializeTrackedObjects`` / ``Scene.syncAnalyticsObjects``
-so that both controller and analytics can use it independently.
+This extracts the deserialization and identity-cache logic used by the
+Analytics service (``AnalyticsScene``) so that it can be reused
+independently of any particular scene-model implementation.
 """
 
 from types import SimpleNamespace
@@ -34,10 +34,9 @@ class SceneDataIngestion:
       ingestion.ingest(detection_type, raw_objects, sensors)
       live_objects = ingestion.get_objects(detection_type)
 
-  Both ``_objects`` and ``_history`` are plain mutable dicts.  Scene keeps
-  aliased references to them so legacy code paths that access
-  ``scene._analytics_objects`` / ``scene.object_history_cache`` continue to
-  work without modification.
+  Both ``_objects`` and ``_history`` are plain mutable dicts.  ``AnalyticsScene``
+  keeps aliased references to them so its ``_analytics_objects`` /
+  ``object_history_cache`` attributes stay in sync without extra bookkeeping.
   """
 
   def __init__(self):

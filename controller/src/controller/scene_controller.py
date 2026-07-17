@@ -316,8 +316,9 @@ class SceneController:
   def handleSceneDataMessage(self, client, userdata, message):
     """
     Handle scene data messages (tracked objects) published to DATA_SCENE topic.
-    This updates the Analytics cache with tracked objects from the existing topic.
-    When analytics-only mode is enabled, this also publishes analytics results.
+    Only subscribed to in analytics-only mode, where the controller has no local
+    tracker of its own: validates the incoming message against the scene-data
+    schema and records observability metrics for the tracked-object counts.
     """
     topic = PubSub.parseTopic(message.topic)
     jdata = orjson.loads(message.payload.decode('utf-8'))
@@ -331,22 +332,18 @@ class SceneController:
       log.warning(f"Scene not found for tracked objects, ignoring scene_id={scene_id}")
       return
 
-    if ControllerMode.isAnalyticsOnly() and self.scene_data_schema_validator is not None:
+    if self.scene_data_schema_validator is not None:
       if not self.scene_data_schema_validator.validate(jdata, check_format=True):
         log.error(f"Scene data validation failed for scene={scene_id}, type={detection_type}")
         return
 
     tracked_objects = jdata.get('objects', [])
-
-    scene.updateTrackedObjects(detection_type, tracked_objects)
-
-    analytics_objects = scene.getTrackedObjects(detection_type)
-    msg_when = get_epoch_time(jdata.get('timestamp'))
-
-    if ControllerMode.isAnalyticsOnly():
-      scene._updateVisible(analytics_objects)
-      self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
-
+    metric_attributes = {
+      "camera": "unknown",
+      "category": detection_type,
+      "scene": scene.name
+    }
+    metrics.record_object_count(len(tracked_objects), metric_attributes)
     return
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
@@ -490,8 +487,9 @@ class SceneController:
         for camera in scene.cameras:
           need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
                               self.handleMovingObjectMessage))
-      need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
-                          self.handleSceneDataMessage))
+      else:
+        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
+                            self.handleSceneDataMessage))
 
       if hasattr(scene, 'children'):
         child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)
