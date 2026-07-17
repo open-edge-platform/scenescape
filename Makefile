@@ -387,12 +387,17 @@ setup-pytest:
 		OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
 			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(CURDIR)/controller/src/robot_vision; \
 	fi
-	@if ! command -v firefox > /dev/null 2>&1; then \
-		echo "ERROR: Firefox is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
-		exit 1; \
-	elif firefox --version 2>&1 | grep -qi snap || [[ "$$(command -v firefox)" == *snap* ]]; then \
-		echo "ERROR: Snap Firefox is incompatible with Selenium. See tests/README.md for installation instructions."; \
-		exit 1; \
+	@FF_LOCATIONS="$$(which -a firefox 2>/dev/null || true)"; \
+	if [ -z "$$FF_LOCATIONS" ]; then \
+			echo "ERROR: Firefox is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
+			exit 1; \
+	fi; \
+	FF_NON_SNAP="$$(echo "$$FF_LOCATIONS" | grep -v '/snap/' || true)"; \
+	if [ -z "$$FF_NON_SNAP" ]; then \
+			echo "ERROR: All firefox binaries are Snap-based:"; \
+			echo "$$FF_LOCATIONS" | sed 's/^/  /'; \
+			echo "Snap Firefox is incompatible with Selenium. See tests/README.md for installation instructions."; \
+			exit 1; \
 	fi
 	@if [ ! -f "$(CURDIR)/tests/.venv/bin/geckodriver" ]; then \
 		echo "geckodriver not found — downloading v0.36.0 into tests/.venv/bin/..."; \
