@@ -10,8 +10,7 @@ import ntplib
 from scene_common.cache_manager import CacheManager
 from controller.child_scene_controller import ChildSceneController
 from controller.controller_mode import ControllerMode
-from scene_common.detections_builder import (buildDetectionsList,
-                                           computeCameraBounds)
+from scene_common.detections_builder import buildDetectionsList
 from controller.scene import Scene
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
@@ -24,7 +23,6 @@ from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
                                       MINIMAL_CHUNKING_RATE_FPS,
                                       MAXIMAL_CHUNKING_RATE_FPS)
 from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
-AVG_FRAMES = 100
 
 class SceneController:
 
@@ -37,7 +35,6 @@ class SceneController:
     self.rewrite_bad_time = rewrite_bad_time
     self.rewrite_all_time = rewrite_all_time
     self.max_lag = max_lag
-    self.regulate_cache = {}
     self.broker = mqtt_broker
     self.mqtt_auth = mqtt_auth
     self.tracker_config_data = {}
@@ -202,8 +199,6 @@ class SceneController:
 
     if not ControllerMode.isAnalyticsOnly():
       self.publishSceneDetections(scene, objects, otype, jdata)
-    self.publishRegulatedDetections(scene, objects, otype, jdata, camera_id)
-    self.publishRegionDetections(scene, objects, otype, jdata)
     return
 
   def shouldPublish(self, last, now, max_delay):
@@ -222,20 +217,18 @@ class SceneController:
       new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
                                      thing_type=otype)
       self.pubsub.publish(new_topic, jstr)
-      # External detections need sensor data, so pass objects to rebuild
       self.publishExternalDetections(scene, otype, objects, jdata)
       scene.lastPubCount[cid] = olen
     return
 
   def publishExternalDetections(self, scene, otype, objects, jdata_base):
-    # External rate output (0.5fps): include sensor data
+    # External rate output (0.5fps)
     now = get_epoch_time()
     if self.shouldPublish(scene.last_published_detection[otype], now, 1/scene.external_update_rate):
       scene.last_published_detection[otype] = get_epoch_time()
 
-      # Rebuild detections list with sensor data included
       jdata = jdata_base.copy()
-      jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=True)
+      jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=False)
       jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
 
       scene_hierarchy_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL, scene_id=scene.uid,
@@ -243,131 +236,7 @@ class SceneController:
       self.pubsub.publish(scene_hierarchy_topic, jstr)
     return
 
-  def publishRegulatedDetections(self, scene_obj, msg_objects, otype, jdata, camera_id):
-    update_rate = self.calculateRate()
-    scene_uid = scene_obj.uid
-
-    if scene_uid not in self.regulate_cache:
-      self.regulate_cache[scene_uid] = {
-        'objects': {},
-        'rate': {},
-        'last': None
-      }
-    scene = self.regulate_cache[scene_uid]
-    # Regulated rate output (5fps): include sensor data
-    scene['objects'][otype] = buildDetectionsList(msg_objects, scene_obj, self.visibility_topic == 'unregulated', include_sensors=True, include_region_dwell=True)
-    if camera_id is not None:
-      scene['rate'][camera_id] = jdata.get('rate', None)
-    elif ControllerMode.isAnalyticsOnly() and 'rate' in jdata:
-      camera_ids = set()
-      for obj in jdata.get('objects', []):
-        camera_ids.update(obj.get('visibility', []))
-
-      scene_rate = jdata['rate']
-      configured_cameras = set(scene_obj.cameras.keys())
-      for cam_id in camera_ids:
-        if cam_id in configured_cameras:
-          scene['rate'][cam_id] = scene_rate
-
-    now = get_epoch_time()
-    if self.shouldPublish(scene['last'], now, 1/scene_obj.regulated_rate):
-      # If we're doing Regulated visibility, then we need to compute for all
-      # the objects in the cache
-      objects = []
-      is_regulated = self.visibility_topic == 'regulated'
-
-      msg_objects_lookup = {}
-      if is_regulated:
-        for obj in msg_objects:
-          msg_objects_lookup[obj.gid] = obj
-
-      for key in scene['objects']:
-        for obj in scene['objects'][key]:
-          if is_regulated:
-            aobj = msg_objects_lookup.get(obj['id'], None)
-            if aobj is not None:
-              computeCameraBounds(scene_obj, aobj, obj)
-          objects.append(obj)
-      log.debug(f"Publishing regulated: scene={scene_uid}, objects_count={len(objects)}, types={list(scene['objects'].keys())}")
-      new_jdata = {
-        'timestamp': jdata['timestamp'],
-        'objects': objects,
-        'id': jdata['id'],
-        'name': jdata['name'],
-        'scene_rate': round(1 / update_rate, 1),
-        'rate': scene['rate'],
-      }
-      jstr = orjson.dumps(new_jdata, option=orjson.OPT_SERIALIZE_NUMPY)
-      topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid)
-      self.pubsub.publish(topic, jstr)
-      scene['last'] = now
-
-    return
-
-  def publishRegionDetections(self, scene, objects, otype, jdata):
-    current_time = get_epoch_time(jdata['timestamp'])
-    for rname in scene.regions:
-      robjects = []
-      for obj in objects:
-        if rname in obj.chain_data.regions:
-          robjects.append(obj)
-      # Region-specific detections: include sensor data.
-      # Use a local dict so jdata['objects'] (the full scene-level list set by
-      # publishSceneDetections) is not overwritten — shadow mode reads it afterwards.
-      region_objects = buildDetectionsList(
-        robjects, scene, False, include_sensors=True,
-        include_region_dwell=True, current_time=current_time)
-      olen = len(region_objects)
-      rid = scene.name + "/" + rname + "/" + otype
-      if olen > 0 or rid not in scene.lastPubCount or scene.lastPubCount[rid] > 0:
-        region_jdata = dict(jdata)
-        region_jdata['objects'] = region_objects
-        jstr = orjson.dumps(region_jdata, option=orjson.OPT_SERIALIZE_NUMPY)
-        new_topic = PubSub.formatTopic(PubSub.DATA_REGION, scene_id=scene.uid,
-                                       region_id=rname, thing_type=otype)
-        self.pubsub.publish(new_topic, jstr)
-        scene.lastPubCount[rid] = olen
-    return
-
   # Message handling
-  def handleSensorMessage(self, client, userdata, message):
-    """
-    Handle a sensor message such as this
-    MQTT Topic: scenescape/data/sensor/02:42:ac:11:00:05.1
-        {"timestamp": "2018-09-12T19:03:49.600z",
-         "subtype": "humidity",
-         "value": "21.7",
-         "id": "02:42:ac:11:00:05.1",
-         "status": "green" }
-    """
-
-    message = message.payload.decode('utf-8')
-    jdata = orjson.loads(message)
-
-    if not self.schema_val.validateMessage("singleton", jdata, check_format=True):
-      return
-
-    sensor_id = jdata['id']
-    scene = self.cache_manager.sceneWithSensorID(sensor_id)
-    if scene is None:
-      return
-
-    if self.rewrite_all_time:
-      ts = get_epoch_time()
-      jdata['timestamp'] = get_iso_time(ts)
-    else:
-      ts = get_epoch_time(jdata['timestamp'])
-
-    if not scene.processSensorData(jdata, when=ts):
-      log.error("Sensor fail", sensor_id)
-      self.cache_manager.invalidate()
-      return
-
-    jdata['scene_id'] = scene.uid
-    jdata['scene_name'] = scene.name
-
-    return
-
   def handleMovingObjectMessage(self, client, userdata, message):
 
     topic = PubSub.parseTopic(message.topic)
@@ -507,16 +376,6 @@ class SceneController:
           self.cache_manager.updateCamera(cam)
     return
 
-  def updateRegulateCache(self):
-    for scene in list(self.regulate_cache.keys()):
-      if scene not in self.scenes:
-        self.regulate_cache.pop(scene)
-      else:
-        for cam in scene['rate']:
-          if cam not in scene.cameras:
-            scene['rate'].pop(cam)
-    return
-
   def handleDatabaseMessage(self, client, userdata, message):
     command = str(message.payload.decode("utf-8"))
     if command == "update":
@@ -524,23 +383,10 @@ class SceneController:
         self.updateSubscriptions()
         self.updateObjectClasses()
         self.updateCameras()
-        self.updateRegulateCache()
         self.updateTRSMatrix()
       except Exception as e:
         log.warning("Failed to update database: %s", e)
     return
-
-  def calculateRate(self):
-    now = get_epoch_time()
-    if not hasattr(self, "regulate_rate"):
-      self.regulate_last = now
-      self.regulate_rate = 1
-    delta = now - self.regulate_last
-    self.regulate_rate *= AVG_FRAMES
-    self.regulate_rate += delta
-    self.regulate_rate /= AVG_FRAMES + 1
-    self.regulate_last = now
-    return self.regulate_rate
 
   # MQTT callbacks
   def onConnect(self, client, userdata, flags, rc):
@@ -646,10 +492,6 @@ class SceneController:
                               self.handleMovingObjectMessage))
       need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
                           self.handleSceneDataMessage))
-
-      for sensor in scene.sensors:
-        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=sensor),
-                            self.handleSensorMessage))
 
       if hasattr(scene, 'children'):
         child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)

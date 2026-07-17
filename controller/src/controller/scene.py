@@ -17,8 +17,6 @@ from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 from scene_common.ingestion import SceneDataIngestion
 
-MIN_FRAMES_FOR_RELIABLE_TRACK = 3
-
 from controller.controller_mode import ControllerMode
 from controller.moving_object import ChainData
 from controller.pose_adjustment import (PoseAdjustment,
@@ -327,85 +325,6 @@ class Scene(SceneModel):
                                 self.non_measurement_time_static,
                                 self.use_tracker)
     return
-
-  def _isObjectWithinSensor(self, obj, sensor, is_scene_wide):
-    """Return True if obj is within the sensor's coverage area."""
-    return is_scene_wide or sensor.isPointWithin(obj.sceneLoc)
-
-  def processSensorData(self, jdata, when):
-    sensor_id = jdata['id']
-    sensor = None
-
-    if sensor_id in self.sensors:
-      sensor = self.sensors[sensor_id]
-      log.debug("SENSOR DATA RECEIVED", sensor_id, jdata.get('value'), "type:", getattr(sensor, 'singleton_type', 'NONE'))
-    else:
-      log.error("Unknown sensor", sensor_id, self.sensors)
-      return False
-
-    if hasattr(sensor, 'lastWhen') and sensor.lastWhen is not None and when <= sensor.lastWhen:
-      log.debug("DISCARDING PAST DATA", sensor_id, when)
-      return True
-
-    # Initialize events dict if needed, but don't clear existing events
-    if not hasattr(self, 'events') or self.events is None:
-      self.events = {}
-
-    old_value = getattr(sensor, 'value', None)
-    cur_value = jdata['value']
-    # Don't create 'value' event - sensor data is included in object entry/exit events
-    sensor.value = cur_value
-    sensor.lastValue = old_value
-    sensor.lastWhen = when
-
-    timestamp_str = get_iso_time(when)
-    timestamp_epoch = when
-
-    # Find all objects currently in the sensor region across ALL detection types
-    # Optimization: check if scene-wide to avoid redundant isPointWithin calls
-    # TODO: Further optimize for scenes with many objects: spatial indexing (R-tree),
-    # bounding box pre-filtering, or tracking only recently-moved objects
-    is_scene_wide = sensor.area == Region.REGION_SCENE
-    objects_in_sensor = []
-
-    if self.tracker is not None:
-      for detectionType in self.tracker.trackers.keys():
-        for obj in self.tracker.currentObjects(detectionType):
-          if (not self.use_tracker or obj.frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK) and self._isObjectWithinSensor(obj, sensor, is_scene_wide):
-            objects_in_sensor.append(obj)
-            obj.chain_data.active_sensors.add(sensor_id)
-    else:
-      for obj in self._analytics_objects.values():
-        if self._isObjectWithinSensor(obj, sensor, is_scene_wide):
-          objects_in_sensor.append(obj)
-          obj.chain_data.active_sensors.add(sensor_id)
-
-    log.debug("SENSOR OBJECTS FOUND", sensor_id, len(objects_in_sensor), "type:", sensor.singleton_type)
-
-    # Update sensor data on objects based on sensor type
-    if objects_in_sensor:
-      if sensor.singleton_type == "environmental":
-        # Environmental sensors: track timestamped readings with value-change detection
-        # TODO: Implement bounded cache for readings arrays to prevent memory exhaustion
-        # in long-running scenarios. Consider: max size with FIFO eviction, time-based
-        # cleanup, or periodic consolidation. Currently, unchanged values update timestamps
-        # instead of appending, but frequent value changes can still cause unbounded growth.
-        if not self._updateEnvironmentalSensorReadings(objects_in_sensor, sensor_id, cur_value, timestamp_str):
-          return False
-
-      elif sensor.singleton_type == "attribute":
-        # Event history tracking - append discrete events (or update timestamp if value unchanged)
-        # TODO: Implement bounded cache for attr_sensor_events to prevent memory exhaustion
-        # in long-running scenarios with frequent attribute changes.
-        self._updateAttributeSensorEvents(objects_in_sensor, sensor_id, cur_value, timestamp_str)
-
-    return True
-
-  def _updateEnvironmentalSensorReadings(self, objects_in_sensor, sensor_id, cur_value, timestamp_str):
-    return update_environmental_sensor_readings(objects_in_sensor, sensor_id, cur_value, timestamp_str)
-
-  def _updateAttributeSensorEvents(self, objects_in_sensor, sensor_id, cur_value, timestamp_str):
-    update_attribute_sensor_events(objects_in_sensor, sensor_id, cur_value, timestamp_str)
 
   def syncAnalyticsObjects(self, detection_type, tracked_objects):
     """

@@ -11,10 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import controller.scene as scene_module
-import analytics.region as analytics_region_module
 from scene_common.ingestion import SceneDataIngestion
-from analytics.region import update_region_events
-from analytics.tripwire import update_tripwire_events
 from controller.moving_object import ChainData
 from controller.tracking import Tracking
 
@@ -445,36 +442,6 @@ def test_finishProcessing_skips_tracker_in_analytics_only(scene_obj, monkeypatch
 
   scene_obj._finishProcessing('person', 10.0, [], [])
   track_mock.assert_not_called()
-
-def test_processSensorData_unknown_sensor_returns_false(scene_obj):
-  assert scene_obj.processSensorData({'id': 'nope', 'value': 1}, when=1.0) is False
-
-def test_processSensorData_discards_past_data(scene_obj):
-  sensor = SimpleNamespace(lastWhen=10.0)
-  scene_obj.sensors['sensor1'] = sensor
-  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 1}, when=9.0) is True
-
-
-
-def test_processSensorData_scene_wide_skips_immature_objects(scene_obj):
-  sensor = SimpleNamespace(
-    singleton_type='environmental',
-    area=Region.REGION_SCENE,
-    value=None,
-    lastValue=None,
-    lastWhen=None,
-  )
-  scene_obj.sensors['sensor1'] = sensor
-  obj = _make_obj(gid='obj-1', frame_count=3)
-  scene_obj.use_tracker = True
-  scene_obj.tracker = SimpleNamespace(
-    trackers={'person': object()},
-    currentObjects=lambda detection_type: [obj],
-  )
-
-  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 12.5}, when=11.0) is True
-  assert 'sensor1' not in obj.chain_data.active_sensors
-  assert obj.chain_data.env_sensor_state == {}
 
 def test_getTrackedObjects_analytics_mode_uses_cache(scene_obj, monkeypatch):
   monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)

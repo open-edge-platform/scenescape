@@ -18,7 +18,7 @@ edge for multiple use cases.
 
 The Scene Controller Microservice answers the fundamental question of `What, When and Where`. It receives object detections from multimodal inputs (primarily multiple cameras), contextualizes them in a common reference frame, fuses them and tracks objects over time.
 
-The Scene Controller's output provides various insights for the tracked objects in a scene, including location, object visibility across cameras, velocity, rotation, center of mass. Additionally, base analytics like regions of interest, tripwires, and sensor regions are supported out of the box to enable developers to build their applications quickly and realize business goals.
+The Scene Controller's output provides various insights for the tracked objects in a scene, including location, object visibility across cameras, velocity, rotation, center of mass. The Analytics microservice consumes this output to add region-of-interest, tripwire, and sensor-correlation analytics on top of it — see [analytics/README.md](https://github.com/open-edge-platform/scenescape/blob/main/analytics/README.md) for details.
 
 To deploy the scene controller service, refer to the [Get Started](./get-started.md) guide. The service supports configuration through specific arguments and flags, which default to predefined values unless explicitly modified.
 
@@ -86,7 +86,7 @@ Figure 1: Architecture Diagram
 
 ## Sequence Diagram: Scene Controller Workflow
 
-The Client receives regulated scene detections via MQTT, which are the result of processing and filtering raw detections. The pipeline begins when the Scene Controller Microservice receives detections from the camera. It processes these to track moving objects, then publishes scene detections and events through MQTT. These messages may include both regulated (filtered and formatted) and unregulated (raw) scene detections. A Multi Object Tracker Loop is involved in managing detections within MQTT.
+The Scene Controller Microservice receives detections from the camera and processes them to track moving objects, then publishes unregulated (raw) scene detections through MQTT. The Analytics microservice consumes this output to add regulated (filtered and formatted) detections, region/tripwire events, and sensor correlation. A Multi Object Tracker Loop is involved in managing detections within MQTT.
 
 ![Scene controller sequence diagram](./_assets/scene-controller-sequence-diagram.png)
 
