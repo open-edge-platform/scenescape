@@ -17,12 +17,11 @@ Source of truth for parameter semantics:
 
 ## When to run the questionnaire
 
-Ask these questions once, right after Step 1 (inputs are gathered) and before Step 6 (bootstrap)
-runs — but only if the user's request mentions Re-ID/cross-camera tracking, or if their use-case
-description in Step 1 already implies it (e.g. "re-identify people across buildings", "track the
-same vehicle between non-overlapping cameras"). If the user just wants a quick demo/default
-deployment, or has no cross-camera Re-ID need, skip this section entirely and let
-`bootstrap_deploy.py` copy the shipped defaults unmodified.
+Reactive only — per [SKILL.md](../SKILL.md#tuning-trackerre-id-behavior-reactive-only), do **not**
+ask these questions upfront during Step 1. Always deploy first with the shipped
+`reid-config.json` defaults unmodified. Only run this questionnaire **after** a deployment is
+running and the user reports that re-identification across cameras is missing or matching the
+wrong person.
 
 ## Questionnaire
 
@@ -73,20 +72,22 @@ These are starting points, not guarantees.
 
 ## How to apply the tuned values
 
-The shipped `assets/reid-config.json` is copied unmodified into `<deploy_dir>/controller/` by
-`bootstrap_deploy.py` in step 6 (see [pipeline-config.md](./pipeline-config.md) for how step 6
-fits into bootstrap). Edit the **copy** in `<deploy_dir>/controller/`, not the skill's `assets/`
-original:
+Since tuning is reactive (see above), the deployment is normally already running when these
+values are applied. Edit `<deploy_dir>/controller/reid-config.json` (the copy
+`bootstrap_deploy.py` placed there in step 6 — see [pipeline-config.md](./pipeline-config.md) for
+how step 6 fits into bootstrap; never edit the skill's `assets/reid-config.json` original), then
+restart just the `scene` service to pick up the change:
 
 ```bash
-# After step 6 (bootstrap_deploy.py) has run, before step 8 (docker compose up):
 $EDITOR <deploy_dir>/controller/reid-config.json
+docker compose up -d --force-recreate scene
 ```
 
 The file is mounted into the `scene` container as a Docker config (see
-`docker-compose-template.md`) and is only read at container start — editing it before step 8's
-first `docker compose up` is sufficient. If the stack is already running, restart just the `scene`
-service to pick up the change: `docker compose up -d --force-recreate scene`.
+`docker-compose-template.md`) and is only read at container start, so the restart is required. If
+tuning happens to be requested before step 8's first `docker compose up` (e.g. the user already
+knew their Re-ID needs during Step 1, overriding the reactive default), editing the file at that
+point is sufficient and no restart is needed yet.
 
 `VDMS_CONFIDENCE_THRESHOLD` is set via the controller's environment (`docker-compose.yml` or
 `.env`), not a JSON file — only touch it if Q3's answer indicates crowded, metadata-heavy
