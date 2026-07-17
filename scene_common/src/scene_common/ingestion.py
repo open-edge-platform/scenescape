@@ -197,8 +197,8 @@ class SceneDataIngestion:
 
     hist = self._history.get(obj_id, {})
     obj.chain_data.publishedLocations = hist.get('publishedLocations', [])
-    # Seed location history from serialized previous location when starting cold
-    # (e.g. first frame in shadow mode).  This lets tripwire detection work on
+    # Seed location history from serialized previous location when starting cold.
+    # This lets tripwire detection work on
     # the very first frame an object is seen, matching the primary tracker path.
     if not obj.chain_data.publishedLocations and 'prev_translation' in obj_data:
       obj.chain_data.publishedLocations = [Point(obj_data['prev_translation'])]

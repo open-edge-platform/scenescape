@@ -27,8 +27,7 @@ from scene_common import log
 # Export simplified public API functions only
 __all__ = ['init', 'inc_messages', 'inc_dropped', 'record_object_count', 'time_mqtt_handler', 'time_tracking',
            'inc_time_chunking_duplicated_cameras', 'add_time_chunking_unique_cameras',
-           'inc_time_chunking_non_empty_chunks', 'inc_time_chunking_empty_chunks',
-           'inc_shadow_divergence']
+           'inc_time_chunking_non_empty_chunks', 'inc_time_chunking_empty_chunks']
 
 # OpenTelemetry metric name constants
 METRIC_MQTT_MESSAGES_COUNT = "scenescape_controller_mqtt_messages"
@@ -40,7 +39,6 @@ METRIC_TIME_CHUNKING_DUPLICATED_CAMERAS = "scenescape_controller_time_chunking_d
 METRIC_TIME_CHUNKING_UNIQUE_CAMERAS = "scenescape_controller_time_chunking_unique_cameras"
 METRIC_TIME_CHUNKING_NON_EMPTY_CHUNKS = "scenescape_controller_time_chunking_non_empty_chunks"
 METRIC_TIME_CHUNKING_EMPTY_CHUNKS = "scenescape_controller_time_chunking_empty_chunks"
-METRIC_SHADOW_DIVERGENCE = "scenescape_controller_shadow_analytics_divergences"
 
 METRIC_INSTRUMENTS = [
     {
@@ -94,12 +92,6 @@ METRIC_INSTRUMENTS = [
     {
         "name": METRIC_TIME_CHUNKING_EMPTY_CHUNKS,
         "description": "Time-chunking dispatch intervals with no buffered data",
-        "unit": "1",
-        "kind": "counter"
-    },
-    {
-        "name": METRIC_SHADOW_DIVERGENCE,
-        "description": "Shadow analytics divergence count (state + event comparisons)",
         "unit": "1",
         "kind": "counter"
     }
@@ -178,12 +170,6 @@ def inc_time_chunking_empty_chunks(attributes=None):
   instance = _metrics_instance
   if instance:
     instance.counter_add(METRIC_TIME_CHUNKING_EMPTY_CHUNKS, 1, attributes)
-
-def inc_shadow_divergence(detection_type, count=1):
-  """Increment shadow analytics divergence counter."""
-  instance = _metrics_instance
-  if instance:
-    instance.counter_add(METRIC_SHADOW_DIVERGENCE, count, {'detection_type': detection_type})
 
 @contextmanager
 def time_mqtt_handler(attributes=None):
