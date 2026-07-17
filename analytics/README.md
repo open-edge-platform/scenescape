@@ -60,33 +60,33 @@ Tracker service ──MQTT──▶ Analytics service ──MQTT──▶ Manage
 
 ## MQTT Topics
 
-| Direction | Topic | Purpose |
-|---|---|---|
-| Subscribe | `scenescape/data/scene/<scene_id>/<thing_type>` | Tracked-object messages from the Tracker service |
-| Subscribe | `scenescape/data/sensor/<sensor_id>` | Raw sensor readings |
-| Subscribe | `scenescape/cmd/database` | Notification to reload scene configuration |
-| Publish | `scenescape/regulated/scene/<scene_id>` | Rate-limited detections (`--visibility_topic regulated`, default) |
-| Publish | `scenescape/data/region/<scene_id>/<region_id>/<thing_type>` | Objects currently inside a region |
-| Publish | `scenescape/event/<region_type>/<event_type>/<scene_id>/<region_id>` | Region/tripwire/sensor events |
+| Direction | Topic                                                                | Purpose                                                           |
+| --------- | -------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Subscribe | `scenescape/data/scene/<scene_id>/<thing_type>`                      | Tracked-object messages from the Tracker service                  |
+| Subscribe | `scenescape/data/sensor/<sensor_id>`                                 | Raw sensor readings                                               |
+| Subscribe | `scenescape/cmd/database`                                            | Notification to reload scene configuration                        |
+| Publish   | `scenescape/regulated/scene/<scene_id>`                              | Rate-limited detections (`--visibility_topic regulated`, default) |
+| Publish   | `scenescape/data/region/<scene_id>/<region_id>/<thing_type>`         | Objects currently inside a region                                 |
+| Publish   | `scenescape/event/<region_type>/<event_type>/<scene_id>/<region_id>` | Region/tripwire/sensor events                                     |
 
 ## Configuration
 
 The service is configured via CLI flags (see `analytics-cmd --help`):
 
-| Flag | Default | Description |
-|---|---|---|
-| `--broker` | `broker.scenescape.intel.com:1883` | MQTT broker host[:port] |
-| `--brokerauth` | `/run/secrets/controller.auth` | MQTT auth (user:password or JSON file) |
-| `--resturl` | `https://web.scenescape.intel.com/api/v1` | Manager REST API URL |
-| `--restauth` | — | REST auth (user:password or JSON file) |
-| `--rootcert` | `/run/secrets/certs/scenescape-ca.pem` | CA certificate |
-| `--cert` | — | Client certificate |
-| `--data_source` | — | Scene JSON files (bypasses REST for scene config) |
-| `--schema_file` | bundled `metadata.schema.json` | Sensor message schema |
-| `--visibility_topic` | `regulated` | `regulated`, `unregulated`, or `none` |
-| `--rewriteAllTime` | off | Rewrite all timestamps to current time |
-| `--healthcheck_port` | `0` (disabled) | HTTP port for `/healthz` |
-| `--verbose` | off | Verbose debug logging |
+| Flag                 | Default                                   | Description                                       |
+| -------------------- | ----------------------------------------- | ------------------------------------------------- |
+| `--broker`           | `broker.scenescape.intel.com:1883`        | MQTT broker host[:port]                           |
+| `--brokerauth`       | `/run/secrets/controller.auth`            | MQTT auth (user:password or JSON file)            |
+| `--resturl`          | `https://web.scenescape.intel.com/api/v1` | Manager REST API URL                              |
+| `--restauth`         | —                                         | REST auth (user:password or JSON file)            |
+| `--rootcert`         | `/run/secrets/certs/scenescape-ca.pem`    | CA certificate                                    |
+| `--cert`             | —                                         | Client certificate                                |
+| `--data_source`      | —                                         | Scene JSON files (bypasses REST for scene config) |
+| `--schema_file`      | bundled `metadata.schema.json`            | Sensor message schema                             |
+| `--visibility_topic` | `regulated`                               | `regulated`, `unregulated`, or `none`             |
+| `--rewriteAllTime`   | off                                       | Rewrite all timestamps to current time            |
+| `--healthcheck_port` | `0` (disabled)                            | HTTP port for `/healthz`                          |
+| `--verbose`          | off                                       | Verbose debug logging                             |
 
 ## Quick Start
 

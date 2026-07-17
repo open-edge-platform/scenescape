@@ -7,10 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Message Formats Overview
 
-| Message Format                                                                  | Direction | MQTT Topic                                                        |
-| ------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------- |
-| [Camera Input Message Format](#camera-input-message-format)                     | Subscribe | `scenescape/data/camera/{camera_id}`                              |
-| [Data Scene Output Message Format](#data-scene-output-message-format)           | Publish   | `scenescape/data/scene/{scene_id}/{thing_type}`                   |
+| Message Format                                                        | Direction | MQTT Topic                                      |
+| --------------------------------------------------------------------- | --------- | ----------------------------------------------- |
+| [Camera Input Message Format](#camera-input-message-format)           | Subscribe | `scenescape/data/camera/{camera_id}`            |
+| [Data Scene Output Message Format](#data-scene-output-message-format) | Publish   | `scenescape/data/scene/{scene_id}/{thing_type}` |
 
 The Scene Controller only tracks objects and publishes unregulated per-category output. Sensor
 correlation, regulated (rate-controlled) output, and region/tripwire event publishing are owned
@@ -165,8 +165,8 @@ tracked object contains the following fields:
 | `visibility`           | array of string    | Camera IDs currently observing this object                                                                                                                                                                                                                   |
 | `keypoints`            | array of objects   | Pose keypoints propagated from detections when available; each entry uses `{"name": "<keypoint>", "x": <0-1>, "y": <0-1>}` coordinates normalized to frame dimensions                                                                                        |
 | `keypoint_connections` | array of strings   | Flat list of keypoint-name pairs defining the skeleton edges (e.g. `["nose","eye_l","nose","eye_r",...]`); length is always `2 x number_of_connections`                                                                                                      |
-| `regions`              | object             | Map of region/sensor IDs to membership metadata. **Never populated by the Scene Controller** — added by the Analytics microservice when it enriches this data; see note below.                                                                              |
-| `sensors`              | object             | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`). **Never populated by the Scene Controller** — added by the Analytics microservice; see note below.                                                                           |
+| `regions`              | object             | Map of region/sensor IDs to membership metadata. **Never populated by the Scene Controller** — added by the Analytics microservice when it enriches this data; see note below.                                                                               |
+| `sensors`              | object             | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`). **Never populated by the Scene Controller** — added by the Analytics microservice; see note below.                                                                            |
 | `similarity`           | number or null     | Similarity/distance value to the matched ReID embedding in VDMS; higher-is-better for `COSINE`; lower is better for `L2`. `null` when ReID is still collecting embeddings, when no database match was found, or when ReID is disabled.                       |
 | `reid_state`           | string             | Re-ID processing state for the object. One of: `pending_collection`, `query_no_match`, `matched`, `reid_disabled`                                                                                                                                            |
 | `previous_ids_chain`   | array or absent    | History of UUID reassignments for this track. Each element is `{"id": "<uuid>", "timestamp": "<ISO 8601>", "similarity_score": <number or null>}`. Present only when the object has been re-identified at least once; omitted otherwise.                     |
@@ -285,4 +285,3 @@ objects of that category.
 > each object. See [Analytics Service Data Formats](../analytics/data_formats.md) for the
 > `scenescape/regulated/scene/{scene_id}`, `scenescape/event/region/{scene_id}/{region_id}/{event_type}`,
 > and `scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}` message formats.
-

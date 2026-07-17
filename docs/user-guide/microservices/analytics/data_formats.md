@@ -8,12 +8,12 @@ SPDX-License-Identifier: Apache-2.0
 ## Message Formats Overview
 
 | Message Format                                                                  | Direction | MQTT Topic                                                        |
-| -------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------ |
-| [Data Scene Input Message Format](#data-scene-input-message-format)             | Subscribe | `scenescape/data/scene/{scene_id}/{thing_type}`                    |
-| [Sensor Input Message Format](#sensor-input-message-format)                      | Subscribe | `scenescape/data/sensor/{sensor_id}`                                |
-| [Regulated Scene Output Message Format](#regulated-scene-output-message-format) | Publish   | `scenescape/regulated/scene/{scene_id}`                             |
-| [Region Event Output Message Format](#region-event-output-message-format)       | Publish   | `scenescape/event/region/{scene_id}/{region_id}/{event_type}`       |
-| [Tripwire Event Output Message Format](#tripwire-event-output-message-format)   | Publish   | `scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}`   |
+| ------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------- |
+| [Data Scene Input Message Format](#data-scene-input-message-format)             | Subscribe | `scenescape/data/scene/{scene_id}/{thing_type}`                   |
+| [Sensor Input Message Format](#sensor-input-message-format)                     | Subscribe | `scenescape/data/sensor/{sensor_id}`                              |
+| [Regulated Scene Output Message Format](#regulated-scene-output-message-format) | Publish   | `scenescape/regulated/scene/{scene_id}`                           |
+| [Region Event Output Message Format](#region-event-output-message-format)       | Publish   | `scenescape/event/region/{scene_id}/{region_id}/{event_type}`     |
+| [Tripwire Event Output Message Format](#tripwire-event-output-message-format)   | Publish   | `scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}` |
 
 The Analytics service consumes the Scene Controller's unregulated per-category output
 (`scenescape/data/scene/{scene_id}/{thing_type}`, see
@@ -44,7 +44,7 @@ discrete identifier with a presence event.
 ### Sensor Message Fields
 
 | Field       | Type                  | Required | Description                                                           |
-| ----------- | --------------------- | :------: | ----------------------------------------------------------------------- |
+| ----------- | --------------------- | :------: | --------------------------------------------------------------------- |
 | `id`        | string                |   Yes    | Sensor identifier; must match the provisioned sensor ID in Scenescape |
 | `timestamp` | string (ISO 8601 UTC) |   Yes    | Acquisition time of the reading                                       |
 | `value`     | any                   |   Yes    | Sensor reading — numeric scalar, string, boolean, or any JSON value   |
@@ -101,13 +101,13 @@ applications.
 
 ### Regulated Scene Top-Level Fields
 
-| Field        | Type                  | Description                                                                                                  |
-| ------------ | --------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Field        | Type                  | Description                                                                                                 |
+| ------------ | --------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `id`         | string                | Scene identifier (UUID)                                                                                     |
-| `timestamp`  | string (ISO 8601 UTC) | Publication timestamp                                                                                        |
-| `name`       | string                | Scene name                                                                                                   |
-| `scene_rate` | number                | Regulated publication rate in Hz                                                                             |
-| `rate`       | object                | Map of camera IDs to their current framerates (e.g. `{"cam1": 10.0}`)                                        |
+| `timestamp`  | string (ISO 8601 UTC) | Publication timestamp                                                                                       |
+| `name`       | string                | Scene name                                                                                                  |
+| `scene_rate` | number                | Regulated publication rate in Hz                                                                            |
+| `rate`       | object                | Map of camera IDs to their current framerates (e.g. `{"cam1": 10.0}`)                                       |
 | `objects`    | array                 | Tracked objects; see [Common Output Track Fields](../controller/data_formats.md#common-output-track-fields) |
 
 ### Example Regulated Scene Message
@@ -183,18 +183,18 @@ interest changes. The `{event_type}` segment is typically `objects`.
 
 ### Region Event Top-Level Fields
 
-| Field         | Type                  | Description                                                                                                        |
-| ------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `timestamp`   | string (ISO 8601 UTC) | Event timestamp                                                                                                    |
-| `scene_id`    | string                | Scene identifier (UUID)                                                                                            |
-| `scene_name`  | string                | Scene name                                                                                                         |
-| `region_id`   | string                | Region identifier (UUID)                                                                                           |
-| `region_name` | string                | Region name                                                                                                        |
-| `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                                 |
+| Field         | Type                  | Description                                                                                                                              |
+| ------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `timestamp`   | string (ISO 8601 UTC) | Event timestamp                                                                                                                          |
+| `scene_id`    | string                | Scene identifier (UUID)                                                                                                                  |
+| `scene_name`  | string                | Scene name                                                                                                                               |
+| `region_id`   | string                | Region identifier (UUID)                                                                                                                 |
+| `region_name` | string                | Region name                                                                                                                              |
+| `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                                                       |
 | `objects`     | array                 | Tracked objects currently inside the region (see [Common Output Track Fields](../controller/data_formats.md#common-output-track-fields)) |
-| `entered`     | array                 | Objects that entered the region during this cycle; Empty when no entry occurred                                    |
-| `exited`      | array                 | Objects that exited the region during this cycle; Empty when no exit occurred                                      |
-| `metadata`    | object                | Region geometry: `title`, `uuid`, `points` (polygon vertices in metres), `area` (`"poly"`), `fromSensor` (boolean) |
+| `entered`     | array                 | Objects that entered the region during this cycle; Empty when no entry occurred                                                          |
+| `exited`      | array                 | Objects that exited the region during this cycle; Empty when no exit occurred                                                            |
+| `metadata`    | object                | Region geometry: `title`, `uuid`, `points` (polygon vertices in metres), `area` (`"poly"`), `fromSensor` (boolean)                       |
 
 ### Example Region Event Message
 
@@ -309,18 +309,18 @@ field (`1` or `-1`) indicating which side of the wire it crossed toward.
 
 ### Tripwire Event Top-Level Fields
 
-| Field           | Type                  | Description                                                                                                                                 |
-| --------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `timestamp`     | string (ISO 8601 UTC) | Event timestamp                                                                                                                             |
-| `scene_id`      | string                | Scene identifier (UUID)                                                                                                                     |
-| `scene_name`    | string                | Scene name                                                                                                                                  |
-| `tripwire_id`   | string                | Tripwire identifier (UUID)                                                                                                                  |
-| `tripwire_name` | string                | Tripwire name                                                                                                                               |
-| `counts`        | object                | Map of category to crossing object count (e.g. `{"person": 1}`)                                                                             |
+| Field           | Type                  | Description                                                                                                                                                              |
+| --------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `timestamp`     | string (ISO 8601 UTC) | Event timestamp                                                                                                                                                          |
+| `scene_id`      | string                | Scene identifier (UUID)                                                                                                                                                  |
+| `scene_name`    | string                | Scene name                                                                                                                                                               |
+| `tripwire_id`   | string                | Tripwire identifier (UUID)                                                                                                                                               |
+| `tripwire_name` | string                | Tripwire name                                                                                                                                                            |
+| `counts`        | object                | Map of category to crossing object count (e.g. `{"person": 1}`)                                                                                                          |
 | `objects`       | array                 | Objects that triggered the event; each carries a `direction` field in addition to [Common Output Track Fields](../controller/data_formats.md#common-output-track-fields) |
-| `entered`       | array                 | Always empty (`[]`) in tripwire events; crossing objects appear in `objects` with a `direction` field instead                               |
-| `exited`        | array                 | Always empty (`[]`) in tripwire events                                                                                                      |
-| `metadata`      | object                | Tripwire geometry: `title`, `points` (array of `[x, y]` coordinates in metres), `uuid`                                                      |
+| `entered`       | array                 | Always empty (`[]`) in tripwire events; crossing objects appear in `objects` with a `direction` field instead                                                            |
+| `exited`        | array                 | Always empty (`[]`) in tripwire events                                                                                                                                   |
+| `metadata`      | object                | Tripwire geometry: `title`, `points` (array of `[x, y]` coordinates in metres), `uuid`                                                                                   |
 
 ### Example Tripwire Event Message
 
