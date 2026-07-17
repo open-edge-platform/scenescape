@@ -24,12 +24,12 @@ from scene_common.mqtt import PubSub
 from scene_common import log
 import tests.common_test_utils as common
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import FULL_STACK_WITH_ANALYTICS
+from tests.utils.profiles import FULL_STACK
 
 from tests.functional.common_retrack import RetrackTest
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=FULL_STACK_WITH_ANALYTICS,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
