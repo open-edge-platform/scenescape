@@ -15,7 +15,6 @@ ALL_IMAGES=$(CORE_IMAGES) $(EXPERIMENTAL_IMAGES)
 VERSION:=$(shell cat ../version.txt)
 NAMESPACE=scenescape
 WORKINGDIR=$(shell dirname $(shell pwd))
-ORGANIZATION?=intel
 DEPLOYMENT_TEST=
 TEST_FLAGS=
 # it may need to be increased if all models are being downloaded (see values.yaml)
@@ -138,8 +137,8 @@ docker-build-experimental:
 	$(MAKE) -C .. build-experimental CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
 load-image:
-	docker tag $(IMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(IMAGE):$(VERSION)
-	kind load docker-image $(REGISTRY)/$(ORGANIZATION)/$(IMAGE):$(VERSION)
+	docker tag $(IMAGE):$(VERSION) $(REGISTRY)/$(IMAGE):$(VERSION)
+	kind load docker-image $(REGISTRY)/$(IMAGE):$(VERSION)
 
 load-core:
 	$(MAKE) load-image IMAGE=$(MANAGERIMAGE)
