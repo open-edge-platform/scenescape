@@ -21,7 +21,7 @@ requires interactively adding/dragging correspondence points in a browser. Confi
 accepts this tradeoff before proceeding.
 
 Exception: uploading a `.zip` Polycam scan (a mobile 3D scan) instead of a blueprint/GLB enables
-`markerless` auto-calibration — mention this option if the user has a mobile 3D scan rather than a
+`Markerless` auto-calibration — mention this option if the user has a mobile 3D scan rather than a
 static blueprint image or GLB file.
 
 ## Running only bootstrap + calibrate (skip auto-reconstruction)
@@ -92,14 +92,15 @@ curl -sk -X POST https://localhost/api/v1/scene \
   -F "map=@<path-to-blueprint.png-or-mesh.glb>" \
   -F "scale=<pixels_per_meter>" \
   -F "map_type=map_upload" \
-  -F "camera_calibration=manual"
+  -F "camera_calibration=Manual"
 ```
 
 - `scale` is required (and meaningful) for 2D image maps; for `.glb`/`.ply` meshes SceneScape
   auto-computes and overwrites `scale` from an orthographic projection of the mesh — you can omit
   it or pass a placeholder.
-- `camera_calibration=manual` matches the caveat above and is the default; use `markerless` instead
-  if uploading a Polycam `.zip`.
+- `camera_calibration=Manual` matches the caveat above and is the default; use `Markerless` instead
+  if uploading a Polycam `.zip`. (Note the value is capitalized — see the `CameraCalibrationEnum`
+  in the OpenAPI schema.)
 - The response includes `"uid"` — the new `scene_uid`. Save it; camera registration and the
   geospatial steps below need it.
 
@@ -138,10 +139,12 @@ corners (`map_corners_lla`).
 
 Create the scene first (previous section — a blueprint/GLB/mesh map upload is still required;
 this skill does not automate the browser-based "generate a snapshot from an address" flow), then
-PATCH it with the geospatial fields:
+send the geospatial fields with `PUT /api/v1/scene/<scene_uid>` (the manager applies this as a
+partial update — omitted fields like `name`/`map` are left unchanged; the endpoint does not support
+`PATCH`):
 
 ```bash
-curl -sk -X PATCH https://localhost/api/v1/scene/<scene_uid> \
+curl -sk -X PUT https://localhost/api/v1/scene/<scene_uid> \
   -H "Authorization: Token $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -177,8 +180,10 @@ Pass: `.object[].lat_long_alt` is present with plausible latitude/longitude valu
 
 ## Notes
 
-- `map` accepts `.glb`, `.ply`, `.png`, `.jpg`/`.jpeg`, `.zip` (Polycam scan), or video
-  (`.mp4`/`.mov`/`.mkv`/`.webm`/`.avi`) for keyframe extraction.
-- `map_type` is `map_upload` for blueprint/GLB/mesh uploads. `geospatial_map` is only used by the
-  browser-based "generate from address" flow, which cannot be automated by this skill; the manual
-  `map_corners_lla` PATCH above works regardless of `map_type`.
+- Full field reference for `POST`/`PUT /api/v1/scene` (accepted `map` file types, `map_type`,
+  `camera_calibration` enum values, `output_lla`/`map_corners_lla`) is the canonical OpenAPI spec:
+  `docs/user-guide/api-docs/api.yaml` (`Scene` schema), rendered at
+  `docs/user-guide/api-reference.md`. Don't restate its fields here — link to it.
+- The manual `map_corners_lla` update above works regardless of `map_type` — `geospatial_map` is
+  only used by the browser-based "generate from address" flow, which cannot be automated by this
+  skill.

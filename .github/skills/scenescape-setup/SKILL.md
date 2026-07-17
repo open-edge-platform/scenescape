@@ -27,6 +27,19 @@ exception is Step 0's "Extract from git" fallback, which assumes a local SceneSc
 somewhere on disk; skip it and go straight to Step 0.A whenever `$SKILL_DIR/scripts/deploy_scenescape.sh`
 already exists (true for any pre-installed copy of this skill).
 
+References that point at `docs/user-guide/...` in the SceneScape repo (e.g.
+`data_formats.md`, `how-to-configure-tracker.md`, `Extended-ReID.md`) assume that path exists
+relative to a local checkout. **Never copy that documentation's content into a `references/`
+file** — it would create a second copy that silently drifts out of sync as SceneScape evolves.
+When a local checkout isn't available (this skill folder was copied standalone) and the doc path
+doesn't resolve, fall back to the canonical GitHub URL instead of guessing at the content:
+`https://github.com/open-edge-platform/scenescape/blob/main/<path>`. Prefer the local path first
+(works fully offline); only reach for the GitHub URL as a secondary fallback, and if neither is
+reachable, say so rather than fabricating field names/values from memory. Reserve new
+`references/` files for knowledge that has no existing written form anywhere else — e.g. the
+tuning questionnaires' symptom-to-config-value mappings, which aren't documented as a procedure
+in `docs/user-guide/`.
+
 ## Safety rules for autonomous execution
 
 - Before running any command that installs packages, generates secrets, pulls Docker images, or

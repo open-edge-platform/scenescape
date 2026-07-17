@@ -65,22 +65,10 @@ curl -sk -X POST https://localhost/api/v1/sensor \
     }'
 ```
 
-Optional color-coded thresholds (for UI visualization of the sensor's reading):
-
-```json
-{
-  "color_ranges": {
-    "sectors": [
-      { "color": "green", "color_min": "0" },
-      { "color": "yellow", "color_min": "2" },
-      { "color": "red", "color_min": "5" }
-    ],
-    "range_max": 10
-  }
-}
-```
-
-Add this as an additional key in the same create/update payload.
+For the full field reference (`color_ranges` thresholds, `sensor_id` derivation, list/delete), see
+[Use Environmental and Attribute Sensor Types#rest-api-reference](https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/how-to-guides/build-a-scene/use-sensor-types.md#rest-api-reference)
+(or the local path `docs/user-guide/how-to-guides/build-a-scene/use-sensor-types.md` if this repo
+is checked out).
 
 ## Publishing readings
 
@@ -101,6 +89,5 @@ repo for the full message schema.
 
 ## Notes
 
-- If `sensor_id` is omitted on create, it defaults to `name` with spaces replaced by underscores.
 - List existing sensors: `GET https://localhost/api/v1/sensors`.
 - Delete: `curl -sk -X DELETE https://localhost/api/v1/sensor/<sensor_id> -H "Authorization: Token $TOKEN"`.

@@ -46,7 +46,8 @@ python scripts/upload_object_asset.py \
   mismatched name creates an unused library entry rather than an error.
 - The script covers the commonly-needed fields (size, mark color, optional `.glb`, mass,
   static flag). For less common fields (rotation, damping, restitution, tracking radius, buffer
-  sizes), call `POST /api/v1/asset` directly — see the full field list in `Asset3DSerializer`
-  (`manager/src/manager/serializers.py`).
+  sizes), call `POST /api/v1/asset` directly — see the full field reference in
+  [How to Define Object Properties#rest-api-reference](https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/other-topics/how-to-define-object-properties.md#rest-api-reference)
+  (or the local path `docs/user-guide/other-topics/how-to-define-object-properties.md`).
 - Asset names must be unique; creating an entry with a name that already exists returns a 400.
 - List existing entries: `GET https://localhost/api/v1/assets`.

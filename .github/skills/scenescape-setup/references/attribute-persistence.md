@@ -18,34 +18,14 @@ sensor type instead.
 ## What it configures
 
 The scene controller's `persist_attributes` field (in `tracker-config.json`, alongside the
-tracking/timing parameters covered in
-[tuning-tracker.md](./tuning-tracker.md)) tells the tracker which detection-result attributes to
-carry forward on a tracked object between updates. It is read in
-`controller/src/controller/scene_controller.py`, stored per-scene in
-`controller/src/controller/scene.py` (`self.persist_attributes`), and applied per-object in
-`controller/src/controller/tracking.py`'s `createObject()` /
-`controller/src/controller/moving_object.py`'s `setPersistentAttributes()`.
+tracking/timing parameters covered in [tuning-tracker.md](./tuning-tracker.md)) tells the tracker
+which detection-result attributes to carry forward on a tracked object between updates, instead of
+an intermittently-reported value (e.g. a license-plate reader that only reads the plate every few
+frames) flickering in the UI. Default (key absent): `{}` — no attributes are persisted.
 
-Default (key absent): `{}` — no attributes are persisted; every detection overwrites what was
-there before, so intermittent classification (e.g. a license-plate reader that only reads the
-plate every few frames) makes the field flicker in the UI.
-
-## Format
-
-```json
-{
-  "persist_attributes": {
-    "vehicle": ["color", { "license": "plate,state" }],
-    "person": ["age", "gender"]
-  }
-}
-```
-
-- Top-level keys are detection types (must match the object type string the pipeline publishes,
-  e.g. `person`, `vehicle`).
-- List entries are either a plain attribute name (`"color"`) or a `{parent: "sub,fields"}` dict for
-  nested/sub-attributes (e.g. a `license` object with `plate` and `state` fields) — only the listed
-  sub-fields are persisted, not the whole nested object.
+See [How to Configure the Tracker#persisting-object-attributes-across-detection-gaps](https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/microservices/controller/how-to-configure-tracker.md#persisting-object-attributes-across-detection-gaps)
+(or the local path `docs/user-guide/microservices/controller/how-to-configure-tracker.md`) for the
+full field reference and JSON format.
 
 ## How to apply
 
