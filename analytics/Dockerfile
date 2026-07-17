@@ -83,3 +83,6 @@ COPY --chown=$WSUSER:$WSUSER ./analytics/src/analytics-cmd $SCENESCAPE_HOME/anal
 USER $USER_ID:$GROUP_ID
 HEALTHCHECK CMD true
 ENTRYPOINT ["/home/scenescape/Scenescape/analytics-cmd"]
+
+# -------------- Analytics Test Stage --------------
+FROM scenescape-analytics-runtime AS scenescape-analytics-test
