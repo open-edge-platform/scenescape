@@ -22,12 +22,12 @@ from scene_common.timestamp import get_iso_time
 from tests.functional.common_service import ServiceMqttTest
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import FULL_STACK
+from tests.utils.profiles import FULL_STACK_WITH_ANALYTICS
 
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=FULL_STACK,
+  profile=FULL_STACK_WITH_ANALYTICS,
   auth=AUTH_CONTROLLER,
 )
 

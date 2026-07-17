@@ -259,6 +259,30 @@ class ScenescapeEnv:
     except Exception as exc:
       logger.warning("Autocalibration restart failed: %s", exc)
 
+    # Restart the analytics service if it is running (its cached REST auth
+    # session is invalidated by the DB flush/reload above, same as autocalibration).
+    try:
+      from datetime import datetime, timezone
+      import time
+      containers = self.docker.compose.ps()
+      analytics_running = any(
+        c.name and "analytics" in c.name and "cluster" not in c.name
+        for c in containers
+      )
+      if analytics_running:
+        logger.info("Restarting analytics service (auth token refresh)...")
+        restart_time = datetime.now(timezone.utc)
+        self.docker.compose.restart("analytics")
+        time.sleep(0.5)
+        wait_for_services(
+          self.docker, self.project_name,
+          {"analytics": WaitConfig(log_pattern="Subscribed to")},
+          since=restart_time,
+        )
+        logger.info("Analytics service restarted and ready.")
+    except Exception as exc:
+      logger.warning("Analytics restart failed: %s", exc)
+
 
 # ---------------------------------------------------------------------------
 # Session-scoped fixtures

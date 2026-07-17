@@ -11,14 +11,14 @@ from scene_common.mqtt import PubSub
 from tests.functional import FunctionalTest
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import FULL_STACK
+from tests.utils.profiles import FULL_STACK_WITH_ANALYTICS
 import tests.common_test_utils as common
 from scene_common.timestamp import get_iso_time
 
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=FULL_STACK,
+  profile=FULL_STACK_WITH_ANALYTICS,
   auth=AUTH_CONTROLLER,
 )
 

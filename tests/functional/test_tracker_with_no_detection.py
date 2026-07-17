@@ -25,7 +25,7 @@ from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import FULL_STACK
+from tests.utils.profiles import FULL_STACK_WITH_ANALYTICS
 import tests.common_test_utils as common
 
 from tests.functional.common_retrack import RetrackTest
@@ -33,7 +33,7 @@ from tests.functional.common_retrack import RetrackTest
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=FULL_STACK,
+  profile=FULL_STACK_WITH_ANALYTICS,
   auth=AUTH_CONTROLLER,
 )
 

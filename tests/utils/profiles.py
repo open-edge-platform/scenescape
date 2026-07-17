@@ -41,6 +41,7 @@ _WEB = WaitConfig()
 _SCENE = WaitConfig(log_pattern="Subscribed to")
 _AUTOCALIBRATION = WaitConfig(timeout=1200)
 _MAPPING = WaitConfig(timeout=600)
+_ANALYTICS = WaitConfig(log_pattern="Subscribed to")
 
 
 # ---------------------------------------------------------------------------
@@ -61,6 +62,25 @@ FULL_STACK = ServiceProfile(
     "web": _WEB,
     "scene": _SCENE,
     "broker": _BROKER,
+  },
+)
+
+FULL_STACK_WITH_ANALYTICS = ServiceProfile(
+  name="full_stack_with_analytics",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-scene.yml",
+    f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-analytics.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "broker": _BROKER,
+    "analytics": _ANALYTICS,
   },
 )
 
@@ -123,6 +143,29 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
     "queuing-video": WaitConfig(),
     "retail-video": WaitConfig(),
     "scene": _SCENE,
+  },
+)
+
+FULL_STACK_WITH_VIDEO_AND_RETAIL_AND_ANALYTICS = ServiceProfile(
+  name="full_stack_with_video_and_retail_and_analytics",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{DLS}/compose-retail_video.yml",
+    f"{DLS}/compose-queuing_video.yml",
+    f"{COMPOSE}/compose-scene.yml",
+    f"{COMPOSE}/compose-web_default.yml",
+    f"{COMPOSE}/compose-cams.yml",
+    f"{COMPOSE}/compose-analytics.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "queuing-video": WaitConfig(),
+    "retail-video": WaitConfig(),
+    "scene": _SCENE,
+    "analytics": _ANALYTICS,
   },
 )
 
@@ -261,9 +304,11 @@ PROFILE_REGISTRY: dict = {
   p.name: p
   for p in [
     FULL_STACK,
+    FULL_STACK_WITH_ANALYTICS,
     FULL_STACK_WITH_MAPPING,
     FULL_STACK_WITH_MAPPING_AND_VIDEO,
     FULL_STACK_WITH_VIDEO_AND_RETAIL,
+    FULL_STACK_WITH_VIDEO_AND_RETAIL_AND_ANALYTICS,
     REID,
     REID_SEMANTIC,
     FULL_STACK_AUTOCALIBRATION,

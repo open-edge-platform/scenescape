@@ -21,10 +21,10 @@ from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.geometry import Point
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import FULL_STACK
+from tests.utils.profiles import FULL_STACK_WITH_ANALYTICS
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=FULL_STACK,
+  profile=FULL_STACK_WITH_ANALYTICS,
   auth=AUTH_CONTROLLER,
 )
 

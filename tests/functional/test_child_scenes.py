@@ -18,10 +18,10 @@ from controller.tools.analytics.library import metrics
 from scene_common.timestamp import get_iso_time
 import tests.common_test_utils as common
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import FULL_STACK
+from tests.utils.profiles import FULL_STACK_WITH_ANALYTICS
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=FULL_STACK,
+  profile=FULL_STACK_WITH_ANALYTICS,
   auth=AUTH_CONTROLLER,
 )
 
