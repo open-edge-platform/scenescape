@@ -27,15 +27,16 @@ Some users know their goal already; others just deployed SceneScape and want ide
 possible. If they say "I don't know" / "what can I do with this?", offer a few concrete,
 commonly-useful analytics rather than re-asking the same open question:
 
-| Idea                          | How it's built from scene output                                                                                 |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Footfall / traffic counting   | Tripwire at an entrance; count crossings by `direction` over time                                                |
-| Dwell time / occupancy        | Region around the area of interest; track how long each object ID stays in `objects`                             |
-| Zone utilization / heatmap    | Aggregate `translation` positions from the regulated topic over time, bucketed by area                           |
-| Queue length monitoring       | Region over the queue; alert when `counts` exceeds a threshold                                                   |
-| Cross-camera path tracking    | Follow an object ID's `translation`/`visibility` across the regulated topic over time                            |
-| Loitering / anomaly detection | Region + a time threshold on how long an object ID remains without leaving                                       |
-| Demographic rollups           | Aggregate age/gender/other `metadata` attributes from the regulated topic (if the vision pipeline provides them) |
+| Idea                          | How it's built from scene output                                                                                                    |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Footfall / traffic counting   | Tripwire at an entrance; count crossings by `direction` over time                                                                   |
+| Dwell time / occupancy        | Region around the area of interest; track how long each object ID stays in `objects`                                                |
+| Zone utilization / heatmap    | Aggregate `translation` positions from the regulated topic over time, bucketed by area                                              |
+| Queue length monitoring       | Region over the queue; alert when `counts` exceeds a threshold                                                                      |
+| Queue dwell time / spacing    | Region over the queue; average `exited[].dwell` (finalized) and nearest-neighbor `translation` distances between co-present objects |
+| Cross-camera path tracking    | Follow an object ID's `translation`/`visibility` across the regulated topic over time                                               |
+| Loitering / anomaly detection | Region + a time threshold on how long an object ID remains without leaving                                                          |
+| Demographic rollups           | Aggregate age/gender/other `metadata` attributes from the regulated topic (if the vision pipeline provides them)                    |
 
 Suggest picking one or two to prototype first (e.g. "footfall counting via a tripwire" is usually
 the fastest to demo), confirm the topic/event is flowing, then expand from there rather than
@@ -90,7 +91,10 @@ when the goal is "notify me when X happens" rather than "give me continuous stat
 
 - **Region** (`scenescape/event/region/<scene_uid>/<region_id>/objects`) — publishes `counts`,
   `entered`, `exited`, and the current `objects` inside the region whenever membership changes.
-  Good for occupancy/dwell-time/zone-based alerting.
+  Good for occupancy/dwell-time/zone-based alerting. Dwell time doesn't need custom timestamp
+  bookkeeping: each object currently inside carries a live `regions.<region_id>.dwell` (elapsed
+  seconds so far), and each entry in `exited` carries a finalized `dwell` for that visit — both
+  computed server-side by the controller.
 - **Tripwire** (`scenescape/event/tripwire/<scene_uid>/<tripwire_id>/objects`) — publishes once per
   crossing, with a `direction` field (`1`/`-1`) on each crossing object. Good for entry/exit
   counting across a doorway or line.
@@ -99,8 +103,9 @@ when the goal is "notify me when X happens" rather than "give me continuous stat
 (same reasoning as [singleton-sensors.md](./singleton-sensors.md)'s circle/poly guidance — a region
 is a polygon and a tripwire is a line, and both are meant to be drawn on the scene map):
 
-1. Sign in to the manager web UI (`https://web.scenescape.intel.com`, superuser credentials in
-   `secrets/supass`).
+1. Sign in to the manager web UI (`https://localhost`, superuser credentials in
+   `secrets/supass`). Do not use `web.scenescape.intel.com` in a browser - that hostname is only a
+   Docker network alias, not resolvable from the host.
 2. Open the scene's detail page, then use the **Regions** or **Tripwires** panel to draw the
    shape directly on the scene map.
 3. Note the region/tripwire name shown after saving — the `region_id`/`tripwire_id` in the MQTT

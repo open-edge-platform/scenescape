@@ -11,7 +11,7 @@ manually register additional cameras.
 To create an empty scene before reconstruction is available:
 
 ```bash
-curl -sk -X POST https://web.scenescape.intel.com/api/v1/scene \
+curl -sk -X POST https://localhost/api/v1/scene \
     -H "Authorization: Token $TOKEN" \
     -H "Content-Type: application/json" \
     -d '{"name": "my_scene", "transform": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]}'
@@ -27,7 +27,7 @@ Once reconstruction is done, finalize the mesh with
 requires those cameras to exist so it can update them by `camera_id`. To manually register a camera:
 
 ```bash
-curl -sk -X POST https://web.scenescape.intel.com/api/v1/camera \
+curl -sk -X POST https://localhost/api/v1/camera \
     -H "Authorization: Token $TOKEN" \
     -H "Content-Type: application/json" \
     -d '{
@@ -48,5 +48,6 @@ curl -sk -X POST https://web.scenescape.intel.com/api/v1/camera \
 - `intrinsics` must be a JSON object with keys `fx`, `fy`, `cx`, `cy` (not a list).
 - `transform_type` must be `"quaternion"` when providing translation/rotation/scale.
 - If a POST fails with 400 "sensor_id already exists", delete the old camera first:
-  `curl -sk -X DELETE https://web.scenescape.intel.com/api/v1/camera/<uid> -H "Authorization: Token $TOKEN"`
-- The manager URL is `https://web.scenescape.intel.com` (TLS required, service alias).
+  `curl -sk -X DELETE https://localhost/api/v1/camera/<uid> -H "Authorization: Token $TOKEN"`
+- The manager URL from the host is `https://localhost` (TLS required, self-signed cert).
+  `web.scenescape.intel.com` is only a Docker network alias for container-to-container calls.

@@ -4,8 +4,8 @@
     {
       "id": 1,
       "prompt_file": "example-prompts/01-multi-camera-deployment.md",
-      "prompt": "Deploy SceneScape in ~/deployments/retail-demo with three RTSP cameras and scene name 'Retail Demo'.",
-      "expected_output": "Deployment completes end-to-end (bootstrap, calibrate, scene phases) without asking clarifying questions, validates the camera inputs, deploys all three cameras, and the final response reports DEPLOY COMPLETE with a scene_uid, cross-camera tracking confirmation, and deployment metrics.",
+      "prompt": "Deploy SceneScape in ~/deployments/retail-demo with two RTSP cameras and scene name 'Retail Demo'.",
+      "expected_output": "Deployment completes end-to-end (bootstrap, calibrate, scene phases) without asking clarifying questions, validates the camera inputs, deploys both cameras, and the final response reports DEPLOY COMPLETE with a scene_uid, cross-camera tracking confirmation, and deployment metrics.",
       "should_trigger": true,
       "files": [],
       "assertions": [

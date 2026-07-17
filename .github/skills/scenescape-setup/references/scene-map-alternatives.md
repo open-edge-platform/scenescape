@@ -51,7 +51,7 @@ REST calls below need a token from the manager's `admin` account (password in
 
 ```bash
 SUPASS=$(cat <deploy_dir>/secrets/supass)
-TOKEN=$(curl -sk -X POST https://web.scenescape.intel.com/api/v1/auth \
+TOKEN=$(curl -sk -X POST https://localhost/api/v1/auth \
   -H "Content-Type: application/json" \
   -d "{\"username\": \"admin\", \"password\": \"$SUPASS\"}" | \
   python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
@@ -72,9 +72,6 @@ Ask the user for one of:
    scale = image_width_pixels / real_world_width_meters
    ```
 
-   Example: a 960-pixel-wide image that spans 12 meters across the real scene →
-   `960 / 12 = 80` pixels per meter.
-
 2. **Two known reference points** (more accurate when the image isn't a straight-on/orthographic
    view of the whole area): the pixel distance and real-world distance between two identifiable
    landmarks (e.g. parking-line centers, wall corners).
@@ -83,16 +80,13 @@ Ask the user for one of:
    scale = pixel_distance_between_points / real_world_distance_meters
    ```
 
-   Example: two points 475 pixels apart on the image are 18.59 meters apart in reality →
-   `475 / 18.59 ≈ 25.55` pixels per meter.
-
 Confirm the computed `scale` value with the user before creating the scene — an incorrect scale
 causes all tracked positions to be wrong by a constant factor.
 
 ## Creating the scene from a blueprint image or GLB/PLY mesh
 
 ```bash
-curl -sk -X POST https://web.scenescape.intel.com/api/v1/scene \
+curl -sk -X POST https://localhost/api/v1/scene \
   -H "Authorization: Token $TOKEN" \
   -F "name=<scene_name>" \
   -F "map=@<path-to-blueprint.png-or-mesh.glb>" \
@@ -147,7 +141,7 @@ this skill does not automate the browser-based "generate a snapshot from an addr
 PATCH it with the geospatial fields:
 
 ```bash
-curl -sk -X PATCH https://web.scenescape.intel.com/api/v1/scene/<scene_uid> \
+curl -sk -X PATCH https://localhost/api/v1/scene/<scene_uid> \
   -H "Authorization: Token $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

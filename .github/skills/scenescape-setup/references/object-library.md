@@ -49,4 +49,4 @@ python scripts/upload_object_asset.py \
   sizes), call `POST /api/v1/asset` directly — see the full field list in `Asset3DSerializer`
   (`manager/src/manager/serializers.py`).
 - Asset names must be unique; creating an entry with a name that already exists returns a 400.
-- List existing entries: `GET https://web.scenescape.intel.com/api/v1/assets`.
+- List existing entries: `GET https://localhost/api/v1/assets`.

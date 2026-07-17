@@ -354,6 +354,28 @@ After `DEPLOY COMPLETE`, report a short breakdown in the same response as the co
 4. **Scene + verification time** — steps 11–13 (reconstruction, finalize, tracking)
 5. **Total wall-clock time** (phases may overlap with user wait time, so total ≠ strict sum)
 
+## Post-Task — Web UI access
+
+In the same response as `DEPLOY COMPLETE`, always tell the user how to view the scene and live
+tracks in the browser:
+
+- **URL**: `https://localhost` (port 443 on the Docker host — the `web` service publishes
+  `443:443`). Use `localhost` unless the user is browsing from a different machine, in which case
+  substitute the deploy host's IP/hostname. The browser will warn on the self-signed cert; accept/
+  proceed to continue.
+- **Do not** suggest `https://web.scenescape.intel.com` — that hostname is only a Docker network
+  alias resolvable _inside_ the compose network (containers, `curl`/`mosquitto` from within
+  scripts); it has no DNS entry on the host and will fail to resolve in a browser unless the user
+  has manually added it to their `/etc/hosts`.
+- **Username**: `admin`
+- **Password**: read from `<deploy_dir>/secrets/supass` (e.g. `cat <deploy_dir>/secrets/supass`) —
+  never print the password value itself in chat; point the user to the file (or the `supass=`
+  value already echoed by the orchestrator's `DEPLOY COMPLETE` line if the user is looking at that
+  terminal output themselves).
+- After login, the scene created by this deployment (`scene_name` from Step 1) appears on the
+  scenes list; open it to see the live camera feeds and tracked-object overlay on the generated
+  map/mesh.
+
 ## After deployment — guide the user toward a goal
 
 A deployment alone rarely is the end goal — ask what the user wants to do with the tracked-object

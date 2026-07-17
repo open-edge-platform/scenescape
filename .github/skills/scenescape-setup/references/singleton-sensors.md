@@ -38,7 +38,7 @@ A sensor's `area` controls which object tracks get tagged with its readings:
 - **`circle`** / **`poly`** — applies only to objects inside a smaller zone. The shape is drawn
   visually on the scene map, so **guide the user to the web UI** instead of asking them to supply
   raw coordinates:
-  1. Sign in to the manager web UI (`https://web.scenescape.intel.com`, superuser credentials in
+  1. Sign in to the manager web UI (`https://localhost`, superuser credentials in
      `secrets/supass`).
   2. Open **Sensors** in the nav bar (`/singleton_sensor/list/`), then **Create**
      (`/singleton_sensor/create/`).
@@ -54,7 +54,7 @@ A sensor's `area` controls which object tracks get tagged with its readings:
 This is the one case that's fully scriptable without the UI, since there's no shape to draw:
 
 ```bash
-curl -sk -X POST https://web.scenescape.intel.com/api/v1/sensor \
+curl -sk -X POST https://localhost/api/v1/sensor \
     -H "Authorization: Token $TOKEN" \
     -H "Content-Type: application/json" \
     -d '{
@@ -102,5 +102,5 @@ repo for the full message schema.
 ## Notes
 
 - If `sensor_id` is omitted on create, it defaults to `name` with spaces replaced by underscores.
-- List existing sensors: `GET https://web.scenescape.intel.com/api/v1/sensors`.
-- Delete: `curl -sk -X DELETE https://web.scenescape.intel.com/api/v1/sensor/<sensor_id> -H "Authorization: Token $TOKEN"`.
+- List existing sensors: `GET https://localhost/api/v1/sensors`.
+- Delete: `curl -sk -X DELETE https://localhost/api/v1/sensor/<sensor_id> -H "Authorization: Token $TOKEN"`.
