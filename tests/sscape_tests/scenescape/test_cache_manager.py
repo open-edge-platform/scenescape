@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+import threading
 
 import pytest
 from unittest.mock import Mock, MagicMock, patch
@@ -18,6 +19,7 @@ class TestCacheManagerInitialization:
     mock_data_source.getScenes.return_value = {'results': []}
 
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
@@ -33,6 +35,7 @@ class TestCacheManagerInitialization:
     """Test initialization with REST data source."""
     with patch('controller.data_source.RESTClient', return_value=mock_rest_client):
       cache_mgr = CacheManager.__new__(CacheManager)
+      cache_mgr._lock = threading.RLock()
       cache_mgr.cached_scenes_by_uid = {}
       cache_mgr._cached_scenes_by_cameraID = {}
       cache_mgr._cached_scenes_by_sensorID = {}
@@ -63,6 +66,7 @@ class TestCacheManagerInitialization:
     mock_data_source.getScenes.return_value = {'results': []}
 
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
@@ -81,6 +85,7 @@ class TestCacheManagerRefreshScenes:
     mock_data_source.getScenes.return_value = {'results': []}
 
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
@@ -100,6 +105,7 @@ class TestCacheManagerRefreshScenes:
     mock_data_source.getScenes.return_value = mock_response
 
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
@@ -120,6 +126,7 @@ class TestCacheManagerRefreshScenes:
     mock_data_source.getScenes.return_value = {'results': []}
 
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
@@ -147,6 +154,7 @@ class TestCacheManagerRefreshScenes:
     }
 
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
@@ -238,6 +246,7 @@ class TestCacheManagerQueryMethods:
   def test_all_scenes_returns_cached_scenes(self):
     """Test allScenes returns all cached scenes."""
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     mock_scene1 = Mock(spec=Scene)
     mock_scene2 = Mock(spec=Scene)
     cache_mgr.cached_scenes_by_uid = {'scene-1': mock_scene1, 'scene-2': mock_scene2}
@@ -252,6 +261,7 @@ class TestCacheManagerQueryMethods:
   def test_scene_with_id(self):
     """Test retrieving scene by ID."""
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     mock_scene = Mock(spec=Scene)
     mock_scene.uid = 'scene-1'
     cache_mgr.cached_scenes_by_uid = {'scene-1': mock_scene}
@@ -267,6 +277,7 @@ class TestCacheManagerQueryMethods:
   def test_scene_with_invalid_id_returns_none(self):
     """Test that invalid scene ID returns None."""
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr._cache_refreshed = 0
     cache_mgr.data_source = Mock()
@@ -279,6 +290,7 @@ class TestCacheManagerQueryMethods:
   def test_scene_with_camera_id(self):
     """Test retrieving scene by camera ID."""
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     mock_scene = Mock(spec=Scene)
     mock_scene.uid = 'scene-1'
     cache_mgr.cached_scenes_by_uid = {'scene-1': mock_scene}
@@ -295,6 +307,7 @@ class TestCacheManagerQueryMethods:
   def test_scene_with_invalid_camera_id_returns_none(self):
     """Test that invalid camera ID returns None."""
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cache_refreshed = 0
     cache_mgr.data_source = Mock()
@@ -307,6 +320,7 @@ class TestCacheManagerQueryMethods:
   def test_scene_with_sensor_id(self):
     """Test retrieving scene by sensor ID."""
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     mock_scene = Mock(spec=Scene)
     mock_scene.uid = 'scene-1'
     cache_mgr.cached_scenes_by_uid = {'scene-1': mock_scene}
@@ -323,6 +337,7 @@ class TestCacheManagerQueryMethods:
   def test_scene_with_invalid_sensor_id_returns_none(self):
     """Test that invalid sensor ID returns None."""
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     cache_mgr._cached_scenes_by_sensorID = {}
     cache_mgr._cache_refreshed = 0
     cache_mgr.data_source = Mock()
@@ -339,6 +354,7 @@ class TestCacheManagerInvalidation:
   def test_invalidate_clears_cache(self):
     """Test that invalidate clears the scene cache."""
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     mock_scene = Mock(spec=Scene)
     cache_mgr.cached_scenes_by_uid = {'scene-1': mock_scene}
     cache_mgr.cached_child_transforms_by_uid = {}
@@ -350,6 +366,7 @@ class TestCacheManagerInvalidation:
   def test_invalidate_preserves_old_cache(self):
     """Test that invalidate preserves old cache for sensor restoration."""
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     mock_scene = Mock(spec=Scene)
     original_cache = {'scene-1': mock_scene}
     cache_mgr.cached_scenes_by_uid = original_cache.copy()
@@ -367,6 +384,7 @@ class TestCacheManagerInvalidation:
     mock_data_source.getScenes.return_value = {'results': []}
 
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     cache_mgr.cached_scenes_by_uid = None
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
@@ -469,6 +487,7 @@ class TestCacheManagerRefreshCameras:
   def test_refresh_scenes_for_cam_params(self):
     """Test refreshScenesForCamParams updates camera parameters."""
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
 
     mock_scene = Mock(spec=Scene)
     mock_camera = Mock()
@@ -484,6 +503,7 @@ class TestCacheManagerRefreshCameras:
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
     cache_mgr.tracker_config_data = {}
+    cache_mgr._cache_refreshed = 0
 
     jdata = {
       'id': 'cam-1',
@@ -504,6 +524,7 @@ class TestCacheManagerEdgeCases:
     mock_data_source.getScenes.return_value = {'results': []}
 
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
@@ -524,6 +545,7 @@ class TestCacheManagerEdgeCases:
     mock_data_source.getScenes.return_value = {'results': []}
 
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     cache_mgr.cached_scenes_by_uid = None
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
@@ -537,6 +559,7 @@ class TestCacheManagerEdgeCases:
   def test_concurrent_cache_access(self):
     """Test cache can be accessed without errors."""
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     mock_scene = Mock(spec=Scene)
     cache_mgr.cached_scenes_by_uid = {'scene-1': mock_scene, 'scene-2': mock_scene}
     cache_mgr._cache_refreshed = 0
