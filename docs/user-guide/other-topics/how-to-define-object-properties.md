@@ -104,20 +104,7 @@ curl -sk -X POST https://<manager-host>/api/v1/asset \
 attach a `.glb` model, submit `model_3d` as multipart form data (`-F "model_3d=@model.glb"`)
 instead of JSON.
 
-For the full field reference and types, see the canonical OpenAPI spec: [API
+For the full field reference, types, and default values, see the canonical OpenAPI spec: [API
 Reference](../api-reference.md) (source: `docs/user-guide/api-docs/api.yaml`, `Asset3D` schema).
-Defaults for physics properties (not exposed in the UI or captured in the OpenAPI schema):
-
-| Field                        | Default                            |
-| ---------------------------- | ---------------------------------- |
-| `mass`                       | `1.0` kg                           |
-| `is_static`                  | `false`                            |
-| `geometric_center`           | `[0.0, 0.0, 0.0]`                  |
-| `center_of_mass`             | `[0.0, 0.0, 0.0]`                  |
-| `ttl`                        | `0.0` (infinite)                   |
-| `linear_damping`             | `0.05`                             |
-| `angular_damping`            | `0.05`                             |
-| `coefficient_of_restitution` | `0.5`                              |
-| `friction_coefficients`      | `[0.5, 0.4]` (`[static, dynamic]`) |
 
 List existing entries: `GET https://<manager-host>/api/v1/assets`.

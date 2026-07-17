@@ -10,7 +10,7 @@
       "files": [],
       "assertions": [
         "Does not ask clarifying questions since deploy_dir, streams, camera_ids, and scene_name are all explicit in the prompt",
-        "Validates that the number of streams matches the number of camera_ids (3 == 3) and that camera_ids are unique before proceeding",
+        "Validates that the number of streams matches the number of camera_ids (2 == 2) and that camera_ids are unique before proceeding",
         "Persists deploy-inputs.json via the Step 1 tooling before invoking the orchestrator",
         "Launches the orchestrator script (deploy_scenescape.sh) in an async terminal rather than running steps manually or blocking",
         "Calibration phase produces one calibration JPEG per camera_id",
