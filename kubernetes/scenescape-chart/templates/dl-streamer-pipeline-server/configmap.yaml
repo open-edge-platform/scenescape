@@ -9,7 +9,7 @@ metadata:
 data:
   sscape_adapter.py: |
 {{ .Files.Get "files/dlsps/sscape_adapter.py" | indent 4 }}
-  sscape_post_decode_timestamp_capture.py: |
+  sscape_policies: |
 {{ .Files.Get "files/dlsps/sscape_policies.py" | indent 4 }}
   sscape_3d_detector.py: |
 {{ .Files.Get "files/dlsps/sscape_3d_detector.py" | indent 4 }}
