@@ -14,7 +14,7 @@ secrets:
 
 services:
   scene:
-    image: scenescape-controller:${VERSION:-latest}
+    image: intel/scenescape-controller:${VERSION:-latest}
     init: true
     networks:
       scenescape-test:

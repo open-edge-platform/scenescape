@@ -42,7 +42,7 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-mapping.key
 
 x-controller-base: &controller-base
-  image: scenescape-controller:${VERSION:-latest}
+  image: intel/scenescape-controller:${VERSION:-latest}
   init: true
   user: "${UID:-1000}:${GID:-1000}"
   networks:
@@ -166,7 +166,7 @@ services:
       start_period: 5s
 
   web:
-    image: scenescape-manager:${VERSION:-latest}
+    image: intel/scenescape-manager:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -314,7 +314,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260630-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260714-weekly-ubuntu24
     networks:
       scenescape:
     tty: true
@@ -378,7 +378,7 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260630-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260714-weekly-ubuntu24
     networks:
       scenescape:
     tty: true
@@ -451,7 +451,7 @@ services:
       - vol-datasets:/data/datasets
 
   autocalibration:
-    image: scenescape-autocalibration:${VERSION:-latest}
+    image: intel/scenescape-autocalibration:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -503,7 +503,7 @@ services:
     pids_limit: 1000
 
   tracker:
-    image: scenescape-tracker:${VERSION:-latest}
+    image: intel/scenescape-tracker:${VERSION:-latest}
     profiles:
       - tracker
     networks:
@@ -556,7 +556,7 @@ services:
     profiles:
       - experimental
       - mapping
-    image: scenescape-mapping-${MAPPING_MODEL:-mapanything}:${VERSION:-latest}
+    image: intel/scenescape-mapping-${MAPPING_MODEL:-mapanything}:${VERSION:-latest}
     init: true
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:
@@ -602,7 +602,7 @@ services:
       MKL_NUM_THREADS: "2"
     profiles:
       - cluster-analytics
-    image: scenescape-cluster-analytics:${VERSION:-latest}
+    image: intel/scenescape-cluster-analytics:${VERSION:-latest}
     init: true
     networks:
       scenescape:

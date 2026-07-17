@@ -60,7 +60,7 @@ dataset = UnityDataset("path/to/dataset")
 dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
 # Initialize and run harness
-harness = SceneControllerHarness(container_image='scenescape-controller:latest')
+harness = SceneControllerHarness(container_image='intel/scenescape-controller:latest')
 harness.set_scene_config(dataset.get_scene_config())
 harness.set_custom_config({'tracker_config_path': '/path/to/tracker-config.json'})
 tracker_outputs = harness.process_inputs(dataset.get_inputs())
@@ -288,7 +288,7 @@ print(f"Overall mean error: {results['dist_mean_all']:.3f} m")
 harness:
   class: harnesses.camera_projection_harness.CameraProjectionHarness
   config:
-    container_image: scenescape-controller:latest
+    container_image: intel/scenescape-controller:latest
 
 evaluators:
   - class: evaluators.camera_accuracy_evaluator.CameraAccuracyEvaluator

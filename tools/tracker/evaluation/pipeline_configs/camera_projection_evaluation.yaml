@@ -18,7 +18,7 @@ dataset:
 harness:
   class: harnesses.camera_projection_harness.CameraProjectionHarness
   config:
-    container_image: scenescape-controller:2026.1.0-dev
+    container_image: intel/scenescape-controller:2026.1.0-dev
     object_classes:
       - name: person
         shift_type: 1

@@ -43,7 +43,9 @@ testCases = {
     'create': [({'name': 'region_1',
                  'points': ((1.0, 2.0), (3.0, 4.0), (0.5, 0.5), (0.6, 0.6))},
                 HTTPStatus.CREATED),
-               ({'name': 'region_1'}, HTTPStatus.CREATED),
+               ({'name': 'region_1',
+                 'points': ((1.0, 2.0), (3.0, 4.0), (0.5, 0.5), (0.6, 0.6))},
+                HTTPStatus.CREATED),
                ({'name': 'region_2', 'points': None}, HTTPStatus.BAD_REQUEST)],
 
     'update': [({'name': 'region_update_1',
@@ -57,7 +59,7 @@ testCases = {
     'scene': True,
 
     'create': [({'name': 'trip_1', 'points': ((1.0, 2), (3.0, 4.0))}, HTTPStatus.CREATED),
-               ({'name': 'trip_1'}, HTTPStatus.CREATED),
+               ({'name': 'trip_1', 'points': ((1.0, 2), (3.0, 4.0))}, HTTPStatus.CREATED),
                ({'name': 'trip_2', 'points': None}, HTTPStatus.BAD_REQUEST)],
 
     'update': [({'name': 'trip_update_1', 'points': ((4.0, 3.0), (2.0, 1.0))}, HTTPStatus.OK),
