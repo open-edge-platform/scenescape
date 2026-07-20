@@ -197,6 +197,28 @@ class TestExtractNtpTimestamp:
     from datetime import datetime
     datetime.strptime(result, "%Y-%m-%dT%H:%M:%S.%fZ")  # raises if malformed
 
+  def test_returns_utc_timestamp_regardless_of_host_local_timezone(self, element, monkeypatch):
+    """Regression: `_extract_ntp_timestamp` used to construct a naive
+    datetime and then `astimezone`, silently interpreting it as local time.
+    On non-UTC hosts that produced a skewed result."""
+    import os
+    import time as _time
+    import ntplib
+
+    monkeypatch.setenv("TZ", "America/Los_Angeles")
+    if hasattr(_time, "tzset"):
+      _time.tzset()
+
+    buffer = MagicMock()
+    unix_seconds = 1700000000  # 2023-11-14T22:13:20Z
+    ntp_seconds = ntplib.system_to_ntp_time(unix_seconds)
+    buffer.get_reference_timestamp_meta.return_value = SimpleNamespace(
+      timestamp=int(ntp_seconds * 1_000_000_000)
+    )
+
+    result = element._extract_ntp_timestamp(buffer)
+
+    assert result == "2023-11-14T22:13:20.000Z"
 
 class RecordingVideoFrame:
   """Test double that records every constructed instance and its messages,

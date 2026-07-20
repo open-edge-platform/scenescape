@@ -168,12 +168,11 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
       return None
     ntp_seconds = ntp_meta.timestamp / 1e9
     system_ts = ntplib.ntp_to_system_time(ntp_seconds)
-    dt_utc = datetime.fromtimestamp(system_ts)
-    dt_local = dt_utc.astimezone(timezone(TIMEZONE))
+    dt_utc = datetime.fromtimestamp(system_ts, tz=timezone(TIMEZONE))
     self._log.debug(
       f"NTP={dt_utc} delta={time.time() - system_ts} raw={ntp_seconds}"
     )
-    return f"{dt_local.strftime(DATETIME_FORMAT)[:-3]}Z"
+    return f"{dt_utc.strftime(DATETIME_FORMAT)[:-3]}Z"
 
   def _update_fps(self, now: float) -> None:
     self._frame_cnt += 1
