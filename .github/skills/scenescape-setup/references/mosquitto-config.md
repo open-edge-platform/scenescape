@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Mosquitto Broker Config
 
 The deployment uses `dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf`, which enables
