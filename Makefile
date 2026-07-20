@@ -356,7 +356,7 @@ PYTEST_FLAGS := --rootdir=$(CURDIR)/tests -v --tb=short
 TESTS_DIR := $(CURDIR)/tests
 
 .PHONY: setup-tests
-setup-tests: init-secrets .env setup-pytest
+setup-tests: init-secrets .env setup-pytest build-common
 	@echo "Setting up test environment..."
 	for dir in $(TEST_IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir test-build; \
@@ -432,7 +432,7 @@ run_standard_tests: setup-tests
 	@echo "DONE ==> Running standard tests"
 
 .PHONY: run_functional_tests
-run_functional_tests: setup-tests
+run_functional_tests: setup-tests build-core-images
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running functional tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
