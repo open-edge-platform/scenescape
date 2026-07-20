@@ -39,6 +39,46 @@ rv::tracking::MultipleObjectTracker makeTracker()
 
 const auto InitialTimestamp = std::chrono::system_clock::time_point(std::chrono::milliseconds(10));
 
+TEST(MetadataFusionPolicyTest, CoversEveryWinnerSelectionCase)
+{
+  struct Case
+  {
+    const char *name;
+    bool winnerExists;
+    std::optional<double> candidateConfidence;
+    size_t candidateCameraIndex;
+    std::optional<double> winnerConfidence;
+    size_t winnerCameraIndex;
+    bool expected;
+  };
+
+  const std::vector<Case> cases = {
+    {"no winner without confidence", false, std::nullopt, 0, std::nullopt, 0, true},
+    {"no winner with confidence", false, 0.5, 0, std::nullopt, 0, true},
+    {"candidate confidence beats missing winner confidence", true, 0.5, 0, std::nullopt, 1, true},
+    {"missing candidate confidence loses to winner confidence", true, std::nullopt, 1, 0.5, 0, false},
+    {"higher confidence wins", true, 0.9, 0, 0.7, 1, true},
+    {"lower confidence loses", true, 0.7, 1, 0.9, 0, false},
+    {"equal confidence from later camera wins", true, 0.9, 1, 0.9, 0, true},
+    {"equal confidence from same camera loses", true, 0.9, 0, 0.9, 0, false},
+    {"equal confidence from earlier camera loses", true, 0.9, 0, 0.9, 1, false},
+    {"no confidence from later camera wins", true, std::nullopt, 1, std::nullopt, 0, true},
+    {"no confidence from same camera loses", true, std::nullopt, 0, std::nullopt, 0, false},
+    {"no confidence from earlier camera loses", true, std::nullopt, 0, std::nullopt, 1, false},
+  };
+
+  for (const auto &testCase : cases)
+  {
+    SCOPED_TRACE(testCase.name);
+    EXPECT_EQ(rv::tracking::metadata_fusion::shouldReplace(testCase.winnerExists,
+                                                           testCase.candidateConfidence,
+                                                           testCase.candidateCameraIndex,
+                                                           testCase.winnerConfidence,
+                                                           testCase.winnerCameraIndex),
+              testCase.expected);
+  }
+}
+
 TEST(MetadataFusionTest, HighestConfidenceWinsPerField)
 {
   auto tracker = makeTracker();
