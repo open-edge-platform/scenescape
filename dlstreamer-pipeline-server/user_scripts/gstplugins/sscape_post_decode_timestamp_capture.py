@@ -112,7 +112,7 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
     self._sink_caps: Optional[Gst.Caps] = None
     self._ntp_caps = Gst.Caps.from_string(NTP_CAPS_STRING)
     if not self._ntp_caps:
-      self._log.error("Failed to build caps for %s", NTP_CAPS_STRING)
+      self._log.error(f"Failed to build caps for {NTP_CAPS_STRING}")
 
   def do_get_property(self, prop):  # pylint: disable=arguments-differ
     name = prop.name
@@ -143,7 +143,7 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
   # BaseTransform overrides
   # ------------------------------------------------------------------
 
-  def do_set_caps(self, incaps, outcaps):  # pylint: disable=arguments-differ
+  def do_set_caps(self, incaps, _outcaps):  # pylint: disable=arguments-differ
     self._sink_caps = incaps
     return True
 
@@ -171,8 +171,7 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
     dt_utc = datetime.fromtimestamp(system_ts)
     dt_local = dt_utc.astimezone(timezone(TIMEZONE))
     self._log.debug(
-      "NTP=%s delta=%s raw=%s",
-      dt_utc, time.time() - system_ts, ntp_seconds,
+      f"NTP={dt_utc} delta={time.time() - system_ts} raw={ntp_seconds}"
     )
     return f"{dt_local.strftime(DATETIME_FORMAT)[:-3]}Z"
 
@@ -205,7 +204,7 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
       self._last_time_sync = now
     except Exception as exc:  # pylint: disable=broad-except
       self._log.warning(
-        "NTP sync with %s failed: %s", self._ntp_server, exc,
+        f"NTP sync with {self._ntp_server} failed: {exc}"
       )
 
   def _attach_metadata(self, buffer: Gst.Buffer) -> None:
