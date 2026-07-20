@@ -8,10 +8,41 @@
 #include "rv/tracking/TrackedObject.hpp"
 
 #include <chrono>
+#include <optional>
 #include <vector>
 
 namespace rv {
 namespace tracking {
+
+namespace metadata_fusion {
+
+inline bool shouldReplace(bool winnerExists,
+                          const std::optional<double> &candidateConfidence,
+                          size_t candidateCameraIndex,
+                          const std::optional<double> &winnerConfidence,
+                          size_t winnerCameraIndex)
+{
+  if (!winnerExists)
+  {
+    return true;
+  }
+  if (candidateConfidence && !winnerConfidence)
+  {
+    return true;
+  }
+  if (!candidateConfidence && winnerConfidence)
+  {
+    return false;
+  }
+  if (candidateConfidence && winnerConfidence)
+  {
+    return *candidateConfidence > *winnerConfidence
+      || (*candidateConfidence == *winnerConfidence && candidateCameraIndex > winnerCameraIndex);
+  }
+  return candidateCameraIndex > winnerCameraIndex;
+}
+
+} // namespace metadata_fusion
 
 class MultipleObjectTracker
 {

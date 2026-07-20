@@ -82,12 +82,10 @@ void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
       const std::string field = key.substr(std::char_traits<char>::length(MetadataPrefix));
       const auto confidence = metadataConfidence(object, field);
       const auto winner = winners.find(field);
-      const bool replace = winner == winners.end() || (confidence && !winner->second.confidence)
-        || (confidence && winner->second.confidence
-            && (*confidence > *winner->second.confidence
-                || (*confidence == *winner->second.confidence && cameraIndex > winner->second.cameraIndex)))
-        || (!confidence && !winner->second.confidence && cameraIndex > winner->second.cameraIndex);
-      if (!replace)
+      const bool winnerExists = winner != winners.end();
+      const std::optional<double> winnerConfidence = winnerExists ? winner->second.confidence : std::optional<double>{};
+      const size_t winnerCameraIndex = winnerExists ? winner->second.cameraIndex : 0;
+      if (!metadata_fusion::shouldReplace(winnerExists, confidence, cameraIndex, winnerConfidence, winnerCameraIndex))
       {
         continue;
       }
