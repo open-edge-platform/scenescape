@@ -259,13 +259,12 @@ class TestAttachMetadataAndTransform:
     assert payload["postdecode_timestamp"].endswith("Z")
 
   def test_do_transform_ip_never_raises_and_still_returns_ok(self, element, monkeypatch):
-    monkeypatch.setattr(tsmod.time, "time", lambda: 1000.0)
-    broken_buffer = None  # attribute access inside _attach_metadata will raise
+    monkeypatch.setattr(element, "_attach_metadata", MagicMock(side_effect=RuntimeError("boom")))
 
-    result = element.do_transform_ip(broken_buffer)
+    result = element.do_transform_ip(MagicMock())
 
     assert result == tsmod.Gst.FlowReturn.OK
-    assert len(RecordingVideoFrame.instances) == 1  # metadata still attached; buffer=None is fine here
+    assert len(RecordingVideoFrame.instances) == 0
 
   def test_use_frame_ntp_timestamp_overrides_system_clock(self, element, monkeypatch):
     import ntplib
