@@ -239,7 +239,7 @@ class KubeClient():
     volume_mounts = [
       client.V1VolumeMount(name="video-config", mount_path="/home/pipeline-server/config.json", sub_path="config.yaml"),
       client.V1VolumeMount(name="sscape-adapter", mount_path="/home/pipeline-server/user_scripts/gvapython/sscape"),
-      client.V1VolumeMount(name="sscape-post-decode-timestamp-capture", mount_path="/opt/intel/dlstreamer/gstreamer/lib/python", sub_path="sscape_post_decode_timestamp_capture.py"),
+      client.V1VolumeMount(name="sscape-post-decode-timestamp-capture", mount_path="/opt/intel/dlstreamer/gstreamer/lib/python/sscape_post_decode_timestamp_capture.py", sub_path="sscape_post_decode_timestamp_capture.py"),
       client.V1VolumeMount(name="models-storage", mount_path="/home/pipeline-server/models", sub_path="models"),
       client.V1VolumeMount(name="sample-data", mount_path="/home/pipeline-server/videos", sub_path="sample_data"),
       client.V1VolumeMount(name="pipeline-root", mount_path="/var/cache/pipeline_root"),
