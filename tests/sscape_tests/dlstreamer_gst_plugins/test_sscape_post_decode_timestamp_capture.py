@@ -205,21 +205,29 @@ class TestExtractNtpTimestamp:
     import time as _time
     import ntplib
 
+    orig_tz = os.environ.get("TZ")
     monkeypatch.setenv("TZ", "America/Los_Angeles")
     if hasattr(_time, "tzset"):
       _time.tzset()
 
-    buffer = MagicMock()
-    unix_seconds = 1700000000  # 2023-11-14T22:13:20Z
-    ntp_seconds = ntplib.system_to_ntp_time(unix_seconds)
-    buffer.get_reference_timestamp_meta.return_value = SimpleNamespace(
-      timestamp=int(ntp_seconds * 1_000_000_000)
-    )
+    try:
+      buffer = MagicMock()
+      unix_seconds = 1700000000  # 2023-11-14T22:13:20Z
+      ntp_seconds = ntplib.system_to_ntp_time(unix_seconds)
+      buffer.get_reference_timestamp_meta.return_value = SimpleNamespace(
+        timestamp=int(ntp_seconds * 1_000_000_000)
+      )
 
-    result = element._extract_ntp_timestamp(buffer)
+      result = element._extract_ntp_timestamp(buffer)
 
-    assert result == "2023-11-14T22:13:20.000Z"
-
+      assert result == "2023-11-14T22:13:20.000Z"
+    finally:
+      if orig_tz is None:
+        monkeypatch.delenv("TZ", raising=False)
+      else:
+        monkeypatch.setenv("TZ", orig_tz)
+      if hasattr(_time, "tzset"):
+        _time.tzset()
 class RecordingVideoFrame:
   """Test double that records every constructed instance and its messages,
   so assertions can inspect what do_transform_ip published downstream."""
