@@ -191,7 +191,7 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
       self._last_calc_ts = now
       self._frame_cnt = 0
 
-  def _sync_np_if_needed(self, now: float) -> None:
+  def _sync_ntp_if_needed(self, now: float) -> None:
     if not self._ntp_server:
       return
     if (
@@ -215,7 +215,7 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
   def _attach_metadata(self, buffer: Gst.Buffer) -> None:
     now = time.time()
     self._update_fps(now)
-    self._sync_np_if_needed(now)
+    self._sync_ntp_if_needed(now)
 
     adjusted = now + self._time_offset
     postdecode_ts = (
