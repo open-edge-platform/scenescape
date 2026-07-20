@@ -25,7 +25,6 @@ import ntplib
 from pytz import timezone
 from gstgva.video_frame import VideoFrame
 
-Gst.init_python()
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
 TIMEZONE = "UTC"
