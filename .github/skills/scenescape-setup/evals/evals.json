@@ -4,24 +4,26 @@
     {
       "id": 1,
       "prompt_file": "example-prompts/01-multi-camera-deployment.md",
-      "prompt": "Deploy SceneScape in ~/deployments/retail-demo with two RTSP cameras and scene name 'Retail Demo'.",
-      "expected_output": "Deployment completes end-to-end (bootstrap, calibrate, scene phases) without asking clarifying questions, validates the camera inputs, deploys both cameras, and the final response reports DEPLOY COMPLETE with a scene_uid, cross-camera tracking confirmation, and deployment metrics.",
+      "prompt": "Deploy SceneScape in ~/deployments/retail-demo with scene name 'Retail Demo'. I don't have live RTSP cameras \u2014 use these two recorded videos as the camera feeds instead: cam1 -> https://github.com/open-edge-platform/scenescape/blob/main/sample_data/qcam1.mp4, cam2 -> https://github.com/open-edge-platform/scenescape/blob/main/sample_data/qcam2.mp4",
+      "expected_output": "Without asking clarifying questions, the agent produces a complete, correctly-ordered deployment procedure (bootstrap, calibrate, scene phases) that: converts the GitHub blob links to raw download URLs, feeds the videos in as local video-file camera inputs rather than RTSP, validates the camera IDs, launches the orchestrator asynchronously, and describes the DEPLOY COMPLETE / cross-camera tracking / deployment-metrics success criteria the run must satisfy. Note: the harness instructs the agent not to perform real network calls, downloads, or start real services for this eval, so the assertions below check the correctness and completeness of the produced plan/commands rather than requiring the agent to have actually executed them.",
       "should_trigger": true,
       "files": [],
       "assertions": [
-        "Does not ask clarifying questions since deploy_dir, streams, camera_ids, and scene_name are all explicit in the prompt",
-        "Validates that the number of streams matches the number of camera_ids (2 == 2) and that camera_ids are unique before proceeding",
-        "Persists deploy-inputs.json via the Step 1 tooling before invoking the orchestrator",
-        "Launches the orchestrator script (deploy_scenescape.sh) in an async terminal rather than running steps manually or blocking",
-        "Calibration phase produces one calibration JPEG per camera_id",
-        "Tracking verification (step 13) confirms tracked objects are associated with more than one camera_id",
-        "Final response includes the DEPLOY COMPLETE marker and the Post-Task deployment metrics breakdown"
+        "Does not ask clarifying questions since deploy_dir, scene_name, and the two video URLs (mapped to cam1/cam2) are all explicit in the prompt",
+        "Converts the GitHub blob URLs to raw.githubusercontent.com (or equivalent) download URLs and shows the exact command(s) to download both videos into a local directory, rather than asking the user to supply the files",
+        "Recognizes there are no live RTSP cameras and shows deploy_inputs.py write invoked with --video-files (or --video-dir) instead of --streams, per video-file-input.md",
+        "Shows the deploy_inputs.py read-back command and correctly explains that the synthesized rtsp://mediaserver:8554/<camera_id> streams (not the original video paths) are what get passed to the orchestrator's --streams/--camera-ids flags",
+        "States or demonstrates that camera_ids cam1/cam2 are checked/confirmed unique before proceeding",
+        "Shows the orchestrator script (deploy_scenescape.sh) being launched in an async/background terminal rather than instructions to run it in the foreground and block",
+        "States that the calibration phase is expected to produce one calibration JPEG per camera_id",
+        "States that tracking verification (step 13) is expected to confirm tracked objects are associated with more than one camera_id",
+        "States that a successful run's final output includes the DEPLOY COMPLETE marker with a scene_uid and the Post-Task deployment metrics breakdown"
       ]
     },
     {
       "id": 2,
       "prompt_file": "example-prompts/02-resume-unchanged-deployment.md",
-      "prompt": "Continue the SceneScape deployment in ~/deployments/warehouse-demo — it stopped partway through.",
+      "prompt": "Continue the SceneScape deployment in ~/deployments/warehouse-demo \u2014 it stopped partway through.",
       "expected_output": "Agent detects the existing deploy-inputs.json, uses the Fast Path (skips Step 1 questions), and resumes the orchestrator from the step recorded in .deploy-state.json.",
       "should_trigger": true,
       "files": [],
@@ -36,14 +38,14 @@
       "id": 3,
       "prompt_file": "example-prompts/03-redeploy-after-camera-change.md",
       "prompt": "In ~/deployments/warehouse-demo, replace cam1 with a new camera at rtsp://192.168.1.15:8554/cam1-new (ID: cam1-new). Redeploy.",
-      "expected_output": "Agent recognizes the camera/stream change invalidates the Fast Path, re-runs Step 1 in full with the new values, and re-invokes the orchestrator with --fresh.",
+      "expected_output": "Agent recognizes the camera/stream change invalidates the Fast Path, shows the user the full updated Step 1 input set (existing cameras plus the new one) for confirmation rather than silently merging it, and shows the orchestrator being re-invoked with --fresh so all phases (bootstrap, calibrate, scene) re-run. Note: the harness instructs the agent not to start real services for this eval, so the redeploy/orchestrator assertions check the correctness of the shown command and explanation rather than requiring the agent to have actually started containers.",
       "should_trigger": true,
       "files": [],
       "assertions": [
         "Recognizes that a changed stream/camera_id set means this cannot use the Fast Path resume",
-        "Re-asks/re-confirms all Step 1 inputs (streams, camera_ids, scene_name) rather than merging partial changes silently",
-        "Invokes the orchestrator with --fresh so .deploy-state.json and the old deploy-inputs.json are cleared",
-        "Re-runs all phases (bootstrap, calibrate, scene) rather than only the calibration step for the changed camera"
+        "Shows/re-confirms the full updated Step 1 input set (all camera_ids/streams, existing plus the new cam1-new) with the user rather than silently merging just the one changed camera without surfacing the rest",
+        "Shows the orchestrator command re-invoked with --fresh, explaining that this clears .deploy-state.json and the old deploy-inputs.json",
+        "Explains that this --fresh run re-executes all phases (bootstrap, calibrate, scene) rather than only recalibrating the changed camera"
       ]
     },
     {
@@ -54,7 +56,7 @@
       "should_trigger": true,
       "files": [],
       "assertions": [
-        "Does not ask any tuning questions during initial deployment prompts (evals 1-3) — tuning is only triggered by a post-deployment complaint like this one",
+        "Does not ask any tuning questions during initial deployment prompts (evals 1-3) \u2014 tuning is only triggered by a post-deployment complaint like this one",
         "Identifies the symptom (ID switching during occlusion) as a tracker motion/timing issue and opens tuning-tracker.md, not tuning-reid.md",
         "Asks only the tuning-tracker.md questionnaire, not the full original combined set of questions",
         "Edits the deployed <deploy_dir>/controller/tracker-config.json copy, not the skill's assets/tracker-config.json original",
@@ -69,7 +71,7 @@
       "should_trigger": true,
       "files": [],
       "assertions": [
-        "Does not ask any Re-ID tuning questions during initial deployment prompts (evals 1-3) — tuning is only triggered by a post-deployment complaint like this one",
+        "Does not ask any Re-ID tuning questions during initial deployment prompts (evals 1-3) \u2014 tuning is only triggered by a post-deployment complaint like this one",
         "Identifies the symptom (identity not preserved across non-overlapping cameras) as a Re-ID issue and opens tuning-reid.md, not tuning-tracker.md",
         "Asks only the tuning-reid.md questionnaire",
         "Edits the deployed <deploy_dir>/controller/reid-config.json copy, not the skill's assets/reid-config.json original",

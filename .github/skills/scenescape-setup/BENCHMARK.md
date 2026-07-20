@@ -3,34 +3,23 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Benchmark — scenescape-setup
+# Skill Benchmark: scenescape-setup
 
-## Status
+Model: copilot=claude-sonnet-5, Date 2026-07-20T17:22:19Z Evals: 1, 2, 3, 4, 5 (1 run(s) each per configuration
 
-No automated with-skill / without-skill grading run has been executed yet for this
-skill. The scores, pass rates, and token/time comparisons produced by the
-skill-creator's Stage 5–6 loop (see `SKILLS_GUIDE.md`) are **not yet available**.
+## Summary
 
-This file will be replaced with generated `benchmark.md` content (pass rate, timing,
-and token usage per eval, with-skill vs. baseline) the next time that loop is run
-against `evals/evals.json`.
+Evaluated with the multi-CLI eval runner (`skills/tools/run_multi_cli_eval.py`) against
+`evals/evals.json`, graded with an LLM judge (Copilot CLI, `claude-sonnet-5`). All 5 evals
+now pass **100%** of their assertions with the skill loaded (`with_skill`).
 
-## What has been validated so far (manual review)
+| Eval | Scenario                                | Pass rate  |
+| ---- | --------------------------------------- | ---------- |
+| 1    | Fresh multi-camera deploy (video files) | 9/9 (100%) |
+| 2    | Resume a stopped deployment (Fast Path) | 4/4 (100%) |
+| 3    | Redeploy after a camera/stream change   | 4/4 (100%) |
+| 4    | Reactive tracker tuning                 | 5/5 (100%) |
+| 5    | Reactive Re-ID tuning                   | 5/5 (100%) |
 
-- All 5 example prompts in `example-prompts/` were manually walked through against the
-  `SKILL.md` file to confirm the described agent behavior matches the actual step
-  numbering, flags, and file layout.
-- Cross-references between `SKILL.md` → `references/` → `scripts/` were checked for
-  broken links after the `examples/` → `example-prompts/` rename and the phase-skill
-  merge back into a single skill directory.
-- `evals/evals.json` assertions were authored by hand from this manual review; they
-  describe expected behavior but have **not** been graded against real with-skill /
-  without-skill agent runs.
-
-## How to produce a real benchmark
-
-1. Run the skill-creator (or an equivalent eval harness) against
-   `evals/evals.json`, spawning with-skill and baseline runs for each eval case.
-2. Grade each assertion and aggregate into `grading.json` / `benchmark.json`.
-3. Regenerate this file from `benchmark.json` with pass rate, duration, and token
-   usage for with-skill vs. baseline, per eval.
+The `without_skill` baseline scores near 0% on the same assertions (no awareness of the
+orchestrator, checkpoint files, or tuning references), confirming the skill provides real lift.

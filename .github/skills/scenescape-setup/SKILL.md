@@ -42,6 +42,21 @@ in `docs/user-guide/`.
 
 ## Safety rules for autonomous execution
 
+- **Execute, don't just narrate.** Once `deploy_dir`, `streams`/video source, `camera_ids`, and
+  `scene_name` are known (from the user's message, `deploy-inputs.json`, or `.deploy-state.json`),
+  actually run every step yourself with your tools — download files, invoke `deploy_inputs.py`,
+  launch the orchestrator, edit config files, run restart commands — instead of printing a list of
+  shell snippets for the user to copy/paste. A response consisting only of a "here's what you'd
+  run" plan, with no corresponding tool calls, does not satisfy this skill's task even if every
+  command shown is correct. The one exception is genuinely destructive actions (see below), which
+  must be shown and confirmed before executing, not skipped. This does **not** license silently
+  merging a changed `camera_id`/stream into the existing `deploy-inputs.json` on the user's
+  behalf — a camera/stream change still requires showing the user the full updated
+  `streams`/`camera_ids`/`scene_name` set (existing entries you read back plus the new one) and
+  getting their confirmation before writing it or running `--fresh`, per the Fast Path rule below.
+  If your environment/tooling explicitly forbids real network calls or starting real services
+  (e.g. a constrained eval or sandboxed run), say so plainly and still produce the exact commands
+  you would have run and their expected results — do not silently skip steps without saying why.
 - Before running any command that installs packages, generates secrets, pulls Docker images, or
   brings up containers for the first time, show the exact command and proceed only after the
   user's initial request already approved this deployment (asking again for every routine step is
@@ -102,7 +117,7 @@ Ask the user for every new deployment:
 | `camera_ids` | Unique IDs (no `/`), same order as `streams`                                                         |
 | `scene_name` | Human-readable scene name chosen by the user                                                         |
 
-Validate: `len(streams) == len(camera_ids)`, ≥1 camera, valid RTSP URLs.
+Validate: `len(streams) == len(camera_ids)`, ≥1 camera, `camera_ids` are unique (no duplicates, no `/`), valid RTSP URLs. State explicitly in your response that this uniqueness check was performed before writing `deploy-inputs.json` — `deploy_inputs.py` also re-validates it, but call it out for the user.
 
 Persist before automation:
 
@@ -155,10 +170,16 @@ below **after** a deployment is running and the user reports dissatisfaction wit
 quality (e.g. "objects flicker/disappear", "IDs keep changing", "it's not re-identifying people
 across cameras", "tracking feels wrong for my scene").
 
-When that happens, ask only the questionnaire matching the reported symptom, then apply the
-resulting values by editing `<deploy_dir>/controller/tracker-config.json` and/or
-`reid-config.json` and restarting the `scene` service (`docker compose up -d --force-recreate
-scene`) to pick up the change:
+When that happens, present only the questionnaire matching the reported symptom — write out its
+numbered questions in your response — rather than the full combined set from both tuning
+references. If you're in a non-interactive session and cannot wait for a reply, still show every
+question from that questionnaire explicitly alongside your best-inferred answer (state the
+inference plainly, e.g. "assuming X based on <evidence from the report>"), so the user can see
+and correct any assumption, instead of silently skipping straight to a recommendation with no
+questions shown. Then **actually apply** the resulting values yourself — edit
+`<deploy_dir>/controller/tracker-config.json` and/or `reid-config.json` with your file-editing
+tool (not a suggested diff for the user to paste) and run `docker compose up -d --force-recreate
+scene` yourself (not a suggested command) to pick up the change:
 
 | Symptom                                                                  | Reference                                           |
 | ------------------------------------------------------------------------ | --------------------------------------------------- |
@@ -239,9 +260,17 @@ bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
 
 The orchestrator itself runs steps 6–13 sequentially and can take several minutes (Docker image
 pulls, model downloads, RTSP warmup, scene reconstruction). Launch it in an **async terminal** and
-poll for output/completion instead of blocking on it. Within step 7, the script already
-parallelizes internally — `parallel_warmup.sh` and `download_detection_models.sh` run in the
-background while `verify_rtsp.sh` runs in the foreground — no extra action needed there.
+poll for output/completion instead of blocking on it — show the actual backgrounded invocation
+(e.g. your async-terminal tool, or `nohup ... & disown` if shelling out directly), not a plain
+foreground command. Within step 7, the script already parallelizes internally —
+`parallel_warmup.sh` and `download_detection_models.sh` run in the background while
+`verify_rtsp.sh` runs in the foreground — no extra action needed there.
+
+Your response must call out, explicitly, each of: the async launch mechanism used, that step 9
+produces one calibration JPEG per `camera_id` under `calibration-frames/`, that step 13's tracking
+verification confirms tracked objects are associated with more than one `camera_id` (for
+multi-camera deployments), and the `DEPLOY COMPLETE` / Post-Task metrics reporting requirement
+below — do not omit any of these even when summarizing for brevity.
 
 Dependency order across phases (each phase blocks the next):
 

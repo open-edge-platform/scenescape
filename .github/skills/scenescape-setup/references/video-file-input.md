@@ -35,6 +35,20 @@ it detects the override file exists.
 Use exactly one of `--streams` (live RTSP), `--video-dir` (folder), or `--video-files` (explicit
 list) — mixing local files with live RTSP cameras in the same deployment isn't supported.
 
+**Video given as a remote URL (e.g. a GitHub link) instead of a local path**: `--video-files`
+requires real local paths that exist on disk, so download each one first. GitHub `blob` URLs are
+HTML pages, not the raw file — convert `github.com/<org>/<repo>/blob/<ref>/<path>` to
+`raw.githubusercontent.com/<org>/<repo>/<ref>/<path>` before downloading:
+
+```bash
+mkdir -p <deploy_dir>/videos
+curl -L -o <deploy_dir>/videos/<camera_id>.mp4   https://raw.githubusercontent.com/<org>/<repo>/<ref>/<path-to-file>
+```
+
+Do this — and show the exact command(s) you used/would use — for every camera before calling
+`deploy_inputs.py write --video-files`; never pass a `blob` URL or any other remote URL directly
+to `--video-files`.
+
 **A folder of recordings** (`camera_ids` auto-derived from filenames, sorted):
 
 ```bash
