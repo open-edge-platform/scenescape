@@ -1,11 +1,11 @@
 # Model Installer
 
-Model installer provides users with AI models for SceneScape by:
+Model installer provides users with AI models for Scenescape by:
 
 - downloading the configured set of models from OpenVINO Model Zoo
-- downloading/generating necessary configuration files to integrate them with SceneScape services
+- downloading/generating necessary configuration files to integrate them with Scenescape services
 
-The models and configuration files are downloaded into a models volume that is attached to SceneScape services for both Docker and Kubernetes deployments.
+The models and configuration files are downloaded into a models volume that is attached to Scenescape services for both Docker and Kubernetes deployments.
 
 ## Configuration
 

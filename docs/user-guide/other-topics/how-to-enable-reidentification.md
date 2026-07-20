@@ -1,6 +1,6 @@
 # How to Enable Re-identification Using Visual Similarity Search
 
-This guide provides step-by-step instructions to enable or disable re-identification (ReID) using visual similarity search in a Intel® SceneScape deployment. By completing this guide, you will:
+This guide provides step-by-step instructions to enable or disable re-identification (ReID) using visual similarity search in a Scenescape deployment. By completing this guide, you will:
 
 - Enable re-identification using a visual database and feature-matching model.
 - Understand how to track and evaluate unique object identities across frames.
@@ -16,7 +16,7 @@ Before you begin, ensure the following:
 
 - **Docker** is installed and configured.
 - You have access to modify the `docker-compose.yml` file in your deployment.
-- You are familiar with scene and camera configuration in Intel® SceneScape.
+- You are familiar with scene and camera configuration in Scenescape.
 
 ---
 
@@ -39,7 +39,7 @@ vdms:
 
 For information on VDMS, visit the official documentation: https://intellabs.github.io/vdms/.
 
-Intel® SceneScape leverages VDMS to store object vector embeddings for the purpose of reidentifying an object using visual features.
+Scenescape leverages VDMS to store object vector embeddings for the purpose of reidentifying an object using visual features.
 
 2. **Uncomment VDMS dependency in scene config**
    Uncomment the `vdms` dependency:
@@ -67,7 +67,7 @@ retail-config:
 This reidentification-specific configuration uses a vision pipeline that includes anonymous visual feature extraction (also called "visual embeddings") using a person reidentification model:
 
 ```
-"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/apriltag-cam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/apriltag-cam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
 ```
 
 4. **Start the System**
@@ -77,7 +77,7 @@ This reidentification-specific configuration uses a vision pipeline that include
    docker compose --profile controller --profile vdms up
    ```
 
-**Expected Result**: Intel® SceneScape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
+**Expected Result**: Scenescape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
 
 ---
 
@@ -118,14 +118,14 @@ retail-config:
    docker compose --profile controller up --build
    ```
 
-**Expected Result**: Intel® SceneScape runs without ReID and no visual feature matching is performed.
+**Expected Result**: Scenescape runs without ReID and no visual feature matching is performed.
 
 ---
 
 ## Evaluating Re-identification Performance
 
 - **Track Unique IDs**:\
-  Intel® SceneScape publishes `unique_detection_count` via MQTT under the scene category topic. Each object includes an `id` field (UUID) for tracking.
+  Scenescape publishes `unique_detection_count` via MQTT under the scene category topic. Each object includes an `id` field (UUID) for tracking.
 
 - **UI Support**:\
   UUID display in the 3D UI is planned for future releases.

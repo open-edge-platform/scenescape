@@ -338,14 +338,17 @@ class UUIDManager:
     features = self.features_for_database.pop(track_id, None)
     if features:
       features['reid_vectors'] = features['reid_vectors'][::slice_size]
+      persist = features.get('persist', {})
       log.debug(
-        f"_addNewFeaturesToDatabase: Adding {len(features['reid_vectors'])} features for track {track_id} to database (gid={features['gid']}, category={features['category']})")
+        f"_addNewFeaturesToDatabase: Adding {len(features['reid_vectors'])} features for track {track_id} to database "
+        f"(gid={features['gid']}, category={features['category']}, "
+        f"persist_keys={list(persist.keys())})")
 
       # Extract semantic metadata from stored feature data
       metadata = features.get('metadata', {})
 
       self.pool.submit(self.reid_database.addEntry, features['gid'], track_id,
-                       features['category'], features['reid_vectors'], **metadata)
+                       features['category'], features['reid_vectors'], persist=persist, **metadata)
 
   def isNewTrackerID(self, sscape_object):
     """
@@ -696,6 +699,9 @@ class UUIDManager:
     # MATCH FOUND - YES + DB ID ALREADY IN DICT - NO
     if matched_new_id:
       # Query succeeded and found a match -> update state to MATCHED
+      log.debug(f"updateActiveDict: REID MATCH rv_id={sscape_object.rv_id} "
+              f"matched_gid={database_id} similarity={similarity} "
+              f"current_persist={sscape_object.chain_data.persist if sscape_object.chain_data else 'NO CHAIN DATA'}")
       sscape_object.reid_state = ReidState.MATCHED
       sscape_object.gid = database_id
       sscape_object.similarity = similarity
@@ -703,6 +709,14 @@ class UUIDManager:
       if previous_gid is not None and previous_gid != database_id:
         sscape_object.save_previous_object_id(previous_gid, similarity_score=similarity,
                                        timestamp=query_timestamp)
+
+      historical_persist = self.reid_database.getPersistedAttributes(database_id)
+      log.debug(f"updateActiveDict: historical_persist for gid={database_id}: {historical_persist}")
+      if historical_persist and sscape_object.chain_data:
+        for attr, value in historical_persist.items():
+          if sscape_object.chain_data.persist.get(attr) is None:
+            sscape_object.chain_data.persist[attr] = value
+        log.debug(f"updateActiveDict: merged persist={sscape_object.chain_data.persist}")
 
       log.debug(
         f"updateActiveDict: Match found for {sscape_object.rv_id}: {database_id}, similarity={similarity}, state={ReidState.MATCHED.value}")
@@ -751,16 +765,31 @@ class UUIDManager:
 
     self._logLiveGidIntegrity("updateActiveDict", sscape_object.rv_id)
 
-    # Store features with semantic metadata for TIER 1 filtering in future queries
-    num_features = len(self.quality_features.get(sscape_object.rv_id, []))
-    log.debug(f"updateActiveDict: Storing {num_features} features for track {sscape_object.rv_id} to features_for_database")
-    self.features_for_database[sscape_object.rv_id] = {
+    persist_attrs = (
+      sscape_object.chain_data.persist.copy()
+      if sscape_object.chain_data and isinstance(sscape_object.chain_data.persist, dict)
+      else {}
+    )
+
+    entry = {
       'gid': sscape_object.gid,
       'category': sscape_object.category,
       'reid_vectors': self.quality_features[sscape_object.rv_id],
-      'metadata': self._extractSemanticMetadata(sscape_object)
-    }
-    self.features_for_database_timestamps[sscape_object.rv_id] = get_epoch_time()  # Record when added
+      'metadata': self._extractSemanticMetadata(sscape_object),
+      }
+
+    if persist_attrs:
+      entry['persist'] = {**persist_attrs, 'timestamp': sscape_object.when}
+
+    # Store features with semantic metadata for TIER 1 filtering in future queries
+    num_features = len(self.quality_features.get(sscape_object.rv_id, []))
+    log.debug(f"updateActiveDict: Storing {num_features} features for track {sscape_object.rv_id} to features_for_database")
+    self.features_for_database[sscape_object.rv_id] = entry
+    log.debug(f"updateActiveDict: Storing features for rv_id={sscape_object.rv_id} "
+        f"gid={sscape_object.gid} "
+        f"persist_in_features_for_database={'persist' in self.features_for_database[sscape_object.rv_id]}")
+
+    self.features_for_database_timestamps[sscape_object.rv_id] = get_epoch_time()
     return
 
   def isNewID(self, database_id):

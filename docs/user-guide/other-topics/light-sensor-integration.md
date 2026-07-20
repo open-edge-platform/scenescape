@@ -1,12 +1,12 @@
 # Controlling Scene Lighting with Physical Light Sensors
 
-SceneScape automatically adjusts 3D scene lighting based on real-time data from physical light sensors via MQTT, creating a digital twin that reflects actual lighting conditions.
+Scenescape automatically adjusts 3D scene lighting based on real-time data from physical light sensors via MQTT, creating a digital twin that reflects actual lighting conditions.
 
 ## Setup
 
 ### Create a Singleton Sensor
 
-In the SceneScape UI, create a new sensor with:
+In the Scenescape UI, create a new sensor with:
 
 - **Sensor ID**: Must match your publisher config (e.g., `warehouse_01_light`)
 - **Type**: Environmental
@@ -66,7 +66,7 @@ The 3D viewer includes a GUI slider for manual light control:
 
 **Scene not changing:**
 
-- Verify sensor area="scene" in SceneScape UI
+- Verify sensor area="scene" in Scenescape UI
 - Check sensor ID matches publisher exactly (case-sensitive)
 - View browser console (F12) for error messages
 

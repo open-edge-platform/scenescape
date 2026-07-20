@@ -73,14 +73,14 @@ services:
       start_period: 2s
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.151.0
+    image: otel/opentelemetry-collector-contrib:0.153.0
     configs:
       - source: otel-config
         target: /etc/otelcol-contrib/config.yaml
     restart: no
 
   tracker:
-    image: scenescape-tracker:${VERSION:-latest}
+    image: intel/scenescape-tracker:${VERSION:-latest}
     environment:
       - TRACKER_LOG_LEVEL=${TRACKER_LOG_LEVEL:-debug}
       - TRACKER_HEALTHCHECK_PORT=${TRACKER_HEALTHCHECK_PORT:-8080}

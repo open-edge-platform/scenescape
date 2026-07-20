@@ -1,14 +1,14 @@
 # How-to Guides
 
-## Learn How to Use Intel® SceneScape
+## Learn How to Use Scenescape
 
-- [Deployment Guide](./how-to-guides/deploy-scenescape-using-prebuilt-containers.md): Step-by-step guide for deploying Intel® SceneScape using prebuilt containers.
+- [Deployment Guide](./how-to-guides/deploy-scenescape-using-prebuilt-containers.md): Step-by-step guide for deploying Scenescape using prebuilt containers.
 
-- [UI and Online Documentation Tutorial](./how-to-guides/ui-tutorial.md): Become familiar with Intel® SceneScape UI.
+- [UI and Online Documentation Tutorial](./how-to-guides/ui-tutorial.md): Become familiar with Scenescape UI.
 
-## Build a Scene in Intel® SceneScape
+## Build a Scene in Scenescape
 
-- [Create and Configure a New Scene](./how-to-guides/build-a-scene/create-new-scene.md): Step-by-step guide on how to create a live scene in Intel® SceneScape.
+- [Create and Configure a New Scene](./how-to-guides/build-a-scene/create-new-scene.md): Step-by-step guide on how to create a live scene in Scenescape.
 
 - [Use Sensor types](./how-to-guides/build-a-scene/use-sensor-types.md): Step-by-step guide to getting started with sensor types.
 
@@ -22,9 +22,9 @@
 
 - [Configure Spatial Analytics](./how-to-guides/build-a-scene/configure-spatial-analytics.md): Step-by-step guide to set up and use Regions of Interest (ROIs) and Tripwires.
 
-## Integrate and Calibrate Cameras for Intel® SceneScape
+## Integrate and Calibrate Cameras for Scenescape
 
-- [Integrate Cameras and Sensors into Intel® SceneScape](./how-to-guides/integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow.
+- [Integrate Cameras and Sensors into Scenescape](./how-to-guides/integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow.
 
 - [Use 2D UI for manual calibration](./how-to-guides/calibrate-cameras/use-2D-UI-for-calibration.md): Step-by-step guide to using the 2D UI for manual camera calibration.
 
@@ -42,7 +42,7 @@
 :::{toctree}
 :hidden:
 
-Deploy Intel® SceneScape <./how-to-guides/deploy-scenescape-using-prebuilt-containers.md>
+Deploy Scenescape <./how-to-guides/deploy-scenescape-using-prebuilt-containers.md>
 Use the UI and Online Documentation <./how-to-guides/ui-tutorial.md>
 Build a Scene <./how-to-guides/build-a-scene/index.md>
 Integrate Cameras and Sensors <./how-to-guides/integrate-cameras-and-sensors.md>

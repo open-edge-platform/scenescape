@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Intel® SceneScape mapping service supports build-time selection of the underlying 3D reconstruction model: **MapAnything** or **VGGT**. This approach ensures only the chosen model and its dependencies are included, minimizing image size and avoiding dependency conflicts.
+The Scenescape mapping service supports build-time selection of the underlying 3D reconstruction model: **MapAnything** or **VGGT**. This approach ensures only the chosen model and its dependencies are included, minimizing image size and avoiding dependency conflicts.
 
 Each build produces a container image with a single model. The API and runtime are identical, but the model is fixed at build time.
 
@@ -29,7 +29,7 @@ Each build produces a container image with a single model. The API and runtime a
   Clone the repository.
 
   ```bash
-  git clone https://github.com/open-edge-platform/scenescape.git
+  git clone https://github.com/open-edge-platform/scenescape.git -b main
   ```
 
   Note: Adjust the repo link appropriately in case of forked repo.
@@ -75,7 +75,7 @@ docker run -d \
     -v vol-mapping-model-weights:/workspace/model_weights \
     -v vol-mapping-torch-cache:/workspace/.cache/torch \
     -v vol-mapping-hf-cache:/workspace/.cache/huggingface \
-    scenescape-mapping-${MODEL_TYPE:-mapanything}
+    intel/scenescape-mapping-${MODEL_TYPE:-mapanything}
 ```
 
 This command sets up the container with the correct user, network, hostname, ports, and persistent volumes for model weights and caches.
@@ -90,16 +90,15 @@ This command sets up the container with the correct user, network, hostname, por
 }
 ```
 
-The response will include which model was used:
+Example response:
 
 ```json
 {
   "success": true,
-  "model": "mapanything",
   "glb_data": "...",
   "camera_poses": [],
   "intrinsics": [],
-  "message": "Successfully processed 2 images with mapanything"
+  "message": "complete"
 }
 ```
 
@@ -111,10 +110,11 @@ The response will include which model was used:
 curl https://localhost:8444/v1/health
 ```
 
-Response includes model information:
+Example response:
 
 ```json
 {
+  "success": true,
   "status": "healthy",
   "ready": true,
   "model": "mapanything",

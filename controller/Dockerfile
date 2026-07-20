@@ -4,7 +4,7 @@
 ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
 
 # -------------- Controller Builder Stage --------------
-FROM scenescape-common-base AS scenescape-controller-builder
+FROM intel/scenescape-common-base AS scenescape-controller-builder
 
 USER root
 ENV DEBIAN_FRONTEND=noninteractive
@@ -40,7 +40,7 @@ RUN cd /tmp/controller \
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-controller-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Controller Service"
+LABEL org.opencontainers.image.description="Scenescape's Scene Controller Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -53,7 +53,7 @@ ARG PYTHON_VERSION=3.11
 
 ENV PYTHON_VERSION=${PYTHON_VERSION}
 ENV WSUSER=scenescape
-ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
+ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -117,7 +117,7 @@ COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-cmd $SCENESCAPE_HOME/co
 
 USER $USER_ID:$GROUP_ID
 HEALTHCHECK CMD true
-ENTRYPOINT ["/home/scenescape/SceneScape/controller-cmd"]
+ENTRYPOINT ["/home/scenescape/Scenescape/controller-cmd"]
 
 # ---------- Controller Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)

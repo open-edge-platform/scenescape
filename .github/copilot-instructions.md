@@ -1,6 +1,6 @@
-# SceneScape AI Agent Instructions
+# Scenescape AI Agent Instructions
 
-Intel® SceneScape is a microservice-based spatial awareness framework for multimodal sensor fusion. This guide enables AI agents to work effectively in this distributed system.
+Scenescape is a microservice-based spatial awareness framework for multimodal sensor fusion. This guide enables AI agents to work effectively in this distributed system.
 
 **Current Version**: Read from `version.txt` at repository root
 

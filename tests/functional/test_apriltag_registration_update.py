@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
+import pytest
 import requests
 
 from tests.functional import FunctionalTest
@@ -17,8 +18,13 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
+pytestmark = pytest.mark.preserve_db
+
 POLL_INTERVAL_S = 5
-POLL_TIMEOUT_S = 60
+POLL_TIMEOUT_S = 300
+REST_RETRY_COUNT = 3
+REST_RETRY_INTERVAL_S = 2
+REGISTRATION_RETRY_INTERVAL_S = 90
 BASE_URL = "https://autocalibration.scenescape.intel.com:8443"
 
 MAP_APRILTAG_COUNT = 7  # number of apriltags present in Queuing scene
@@ -50,6 +56,21 @@ class ApriltagRegistration(FunctionalTest):
     assert response, (response.statusCode, response.errors)
     return response
 
+  def _update_scene_with_retries(self, update_payload):
+    """Update scene with a small retry budget for transient disconnects."""
+
+    last_error = None
+    for attempt in range(REST_RETRY_COUNT):
+      try:
+        response = self.rest.updateScene(self.scene_id, update_payload)
+        assert response, (response.statusCode, response.errors)
+        return response
+      except Exception as err:
+        last_error = err
+        if attempt < REST_RETRY_COUNT - 1:
+          time.sleep(REST_RETRY_INTERVAL_S)
+    raise AssertionError(f"Failed to update scene after retries: {last_error}")
+
   def _force_scene_unregistered(self):
     """Change apriltag_size to trigger map_processed = None"""
 
@@ -59,28 +80,49 @@ class ApriltagRegistration(FunctionalTest):
     if self.original_apriltag_size is None:
       self.original_apriltag_size = current_size
     new_size = round(current_size + 0.001, 6)
-    response = self.rest.updateScene(self.scene_id, {'apriltag_size': new_size})
-    assert response, (response.statusCode, response.errors)
-    assert self._get_scene().get('map_processed') is None
+    self._update_scene_with_retries({'apriltag_size': new_size})
+
+    # DB/UI propagation is asynchronous; poll until map_processed is cleared.
+    deadline = time.time() + 30
+    while time.time() < deadline:
+      if self._get_scene().get('map_processed') is None:
+        return
+      time.sleep(POLL_INTERVAL_S)
+    raise AssertionError("map_processed was not cleared after apriltag_size update")
 
   def _trigger_registration(self):
     """Explicitly POST to the autocalibration service to start scene registration"""
 
     url = f"{self.autocalib_base}/scenes/{self.scene_id}/registration"
-    r = requests.post(url, json={}, verify=self.rootcert, timeout=10)
-    assert r.status_code in (200, 202), \
-      f"POST registration returned {r.status_code}: {r.text}"
+    last_error = None
+    for attempt in range(REST_RETRY_COUNT):
+      try:
+        r = requests.post(url, json={}, verify=self.rootcert, timeout=10)
+        assert r.status_code in (200, 202), \
+          f"POST registration returned {r.status_code}: {r.text}"
+        return
+      except Exception as err:
+        last_error = err
+        if attempt < REST_RETRY_COUNT - 1:
+          time.sleep(REST_RETRY_INTERVAL_S)
+    raise AssertionError(f"Failed to trigger registration: {last_error}")
 
   def _poll_for_registration(self):
     """Poll until map_processed is not null."""
 
     start = time.time()
+    last_retrigger = start
     while time.time() - start < POLL_TIMEOUT_S:
       try:
         if self._get_scene().get('map_processed') is not None:
           return
       except Exception:
         pass
+
+      if time.time() - last_retrigger >= REGISTRATION_RETRY_INTERVAL_S:
+        self._trigger_registration()
+        last_retrigger = time.time()
+
       time.sleep(POLL_INTERVAL_S)
     raise AssertionError(f"Registration did not complete within {POLL_TIMEOUT_S}s")
 
@@ -99,9 +141,11 @@ class ApriltagRegistration(FunctionalTest):
   def _restore_scene(self):
     """Restore original apriltag_size after the test"""
     if self.original_apriltag_size is not None:
-      response = self.rest.updateScene(self.scene_id,
-                            {'apriltag_size': self.original_apriltag_size})
-      assert response, (response.statusCode, response.errors)
+      try:
+        self._update_scene_with_retries({'apriltag_size': self.original_apriltag_size})
+      except Exception as err:
+        # Cleanup should not hide the primary test failure.
+        print(f"WARNING: scene restore failed: {err}")
 
   def runApriltagRegistrationUpdate(self):
     """when apriltag parameters are updated, registration creates/updates

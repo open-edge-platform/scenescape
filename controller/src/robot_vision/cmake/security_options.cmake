@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # This file is licensed under Apache 2.0 License.
 
-# Create SceneScape security hardening options target.
+# Create Scenescape security hardening options target.
 #
 # This module automatically creates an INTERFACE target (scenescape::security_options)
 # with common security hardening flags for secure coding practices.

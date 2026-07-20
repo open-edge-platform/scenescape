@@ -7,6 +7,8 @@
 Gunicorn configuration file with post_fork hook to initialize model in each worker
 """
 
+import traceback
+
 from scene_common import log
 
 def on_starting(server):

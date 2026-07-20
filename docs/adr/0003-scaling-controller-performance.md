@@ -6,7 +6,7 @@
 
 ## Context
 
-SceneScape's requirement for the next releases is to support real-time tracking of 100-300 objects with 4 cameras at 15 FPS each. The short-term requirement is tracking up to 100 objects of 1 category (people). The long-term requirement is to track at least 300 objects across multiple categories.
+Scenescape's requirement for the next releases is to support real-time tracking of 100-300 objects with 4 cameras at 15 FPS each. The short-term requirement is tracking up to 100 objects of 1 category (people). The long-term requirement is to track at least 300 objects across multiple categories.
 
 Performance test results show that these requirements cannot be met with the current controller implementation, hence performance optimizations are necessary to address the current bottlenecks.
 

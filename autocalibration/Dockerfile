@@ -6,7 +6,7 @@ ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c
 # =========================
 # STAGE 1: BUILD STAGE
 # =========================
-FROM scenescape-common-base AS autocalibration-builder
+FROM intel/scenescape-common-base AS autocalibration-builder
 ENV DEBIAN_FRONTEND=noninteractive
 ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
@@ -95,7 +95,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 FROM ${RUNTIME_OS_IMAGE} AS autocalibration-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
+LABEL org.opencontainers.image.description="Scenescape's Autocalibration Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -108,7 +108,7 @@ ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
-ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
+ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages"
 # Set model directory for on-demand loading
 ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.11/site-packages/third_party/netvlad"
@@ -186,7 +186,7 @@ WORKDIR $SCENESCAPE_HOME
 HEALTHCHECK --interval=30s --timeout=5s --retries=10 \
     CMD pgrep -f python3 || exit 1
 
-ENTRYPOINT ["/usr/local/bin/startup.sh", "/home/scenescape/SceneScape/autocalibration"]
+ENTRYPOINT ["/usr/local/bin/startup.sh", "/home/scenescape/Scenescape/autocalibration"]
 
 # ---------- Cam Calibration Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)

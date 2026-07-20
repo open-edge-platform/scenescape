@@ -6,7 +6,7 @@ ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c
 # =========================
 # STAGE 1: MODEL BUILDER STAGE
 # =========================
-FROM scenescape-common-base AS mapping-builder
+FROM intel/scenescape-common-base AS mapping-builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG MODEL_TYPE=mapanything
@@ -35,7 +35,7 @@ RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
 FROM ${RUNTIME_OS_IMAGE} AS mapping-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's 3D Mapping Service"
+LABEL org.opencontainers.image.description="Scenescape's 3D Mapping Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -47,7 +47,7 @@ ARG MODEL_TYPE=mapanything
 ENV MODEL_TYPE=${MODEL_TYPE}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
-ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
+ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 
 # Update and upgrade base OS packages
 RUN apt update && apt upgrade -y
@@ -168,4 +168,4 @@ COPY --chown=$WSUSER:$WSUSER mapping/tests $SCENESCAPE_HOME/tests
 
 USER $WSUSER
 
-CMD ["python", "-m", "pytest", "/home/scenescape/SceneScape/tests", "-v"]
+CMD ["python", "-m", "pytest", "/home/scenescape/Scenescape/tests", "-v"]

@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Service Overview
 
-The **Scene Controller** is the central runtime state management service for Intel® SceneScape. It maintains real-time tracking of objects, cameras, and scenes through MQTT-based sensor fusion, coordinate transformations, and multi-object tracking algorithms. This is the core orchestrator that integrates all other services.
+The **Scene Controller** is the central runtime state management service for Scenescape. It maintains real-time tracking of objects, cameras, and scenes through MQTT-based sensor fusion, coordinate transformations, and multi-object tracking algorithms. This is the core orchestrator that integrates all other services.
 
 **Primary Purpose**: Maintain real-time scene state by fusing multimodal sensor data, tracking objects across cameras, managing coordinate transformations, and providing unified scene understanding to other services.
 
@@ -518,6 +518,13 @@ Enable with: `CONTROLLER_ENABLE_METRICS=true`
 - `object_count`: Number of tracked objects per scene
 - `tracking_associations`: Successful/failed associations
 - `detection_rate`: Detections per second per camera
+
+**Time-chunking counters** (emitted only when `time_chunking_enabled: true`):
+
+- `scenescape_controller_time_chunking_duplicated_cameras`: buffered camera frames overwritten before dispatch
+- `scenescape_controller_time_chunking_unique_cameras`: distinct cameras dispatched per non-empty chunk
+- `scenescape_controller_time_chunking_non_empty_chunks`: dispatch intervals that had buffered data
+- `scenescape_controller_time_chunking_empty_chunks`: dispatch intervals with no buffered data
 
 ### Tracing (OpenTelemetry)
 

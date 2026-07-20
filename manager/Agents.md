@@ -11,9 +11,9 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Service Overview
 
-The **Manager** service is the Django-based web UI and REST API gateway for Intel® SceneScape. It provides user-facing interfaces for system configuration, scene management, camera setup, and PostgreSQL-backed persistence for metadata and configuration.
+The **Manager** service is the Django-based web UI and REST API gateway for Scenescape. It provides user-facing interfaces for system configuration, scene management, camera setup, and PostgreSQL-backed persistence for metadata and configuration.
 
-**Primary Purpose**: Web interface and REST API for managing SceneScape configuration, user authentication, and metadata persistence.
+**Primary Purpose**: Web interface and REST API for managing Scenescape configuration, user authentication, and metadata persistence.
 
 ## Architecture & Components
 

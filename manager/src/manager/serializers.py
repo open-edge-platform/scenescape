@@ -282,6 +282,12 @@ class CamSerializer(NonNullSerializer):
   scene = serializers.CharField(source="scene.pk", allow_null=True, required=False)
   transform_type = serializers.SerializerMethodField('get_transform_type')
 
+  def validate(self, attrs):
+    # DRF enforces required fields on create; allow PATCH/partial updates to omit them.
+    if self.instance is None and 'name' not in attrs:
+      raise serializers.ValidationError({'name': ['This field is required.']})
+    return attrs
+
   def validate_name(self, value):
     if not self.instance:
       qs = Cam.objects.filter(name=value)
@@ -917,6 +923,8 @@ class Asset3DSerializer(NonNullSerializer):
 
   def validate_name(self, value):
     qs = Asset3D.objects.filter(name=value)
+    if self.instance is not None:
+      qs = qs.exclude(pk=self.instance.pk)
     if qs.exists():
       raise serializers.ValidationError(f"An object library with the name '{value}' already exists.")
     return value

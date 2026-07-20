@@ -1,11 +1,11 @@
 ---
 name: testing
-description: Guide for creating SceneScape test cases — unit, functional, integration, UI, and smoke tests with positive and negative cases.
+description: Guide for creating Scenescape test cases — unit, functional, integration, UI, and smoke tests with positive and negative cases.
 ---
 
-# AI Agent Guide: Creating Test Cases for SceneScape
+# AI Agent Guide: Creating Test Cases for Scenescape
 
-This guide provides comprehensive instructions for AI agents to create high-quality, well-categorized test cases for the SceneScape project.
+This guide provides comprehensive instructions for AI agents to create high-quality, well-categorized test cases for the Scenescape project.
 
 ## Test Philosophy
 

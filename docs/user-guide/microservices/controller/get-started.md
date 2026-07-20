@@ -26,19 +26,19 @@
   docker run --rm \
   --init \
   --network scenescape \
-  -v scenescape_vol-media:/home/scenescape/SceneScape/media \
-  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
-  -v $(pwd)/controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json \
-  -v $(pwd)/controller/config/pose-adjustment-route.json:/home/scenescape/SceneScape/pose-adjustment-route.json \
+  -v scenescape_vol-media:/home/scenescape/Scenescape/media \
+  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json \
+  -v $(pwd)/controller/config/reid-config.json:/home/scenescape/Scenescape/reid-config.json \
+  -v $(pwd)/controller/config/pose-adjustment-route.json:/home/scenescape/Scenescape/pose-adjustment-route.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
-  scenescape-controller \
+  intel/scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
-  --tracker_config_file /home/scenescape/SceneScape/tracker-config.json \
-  --reid_config_file /home/scenescape/SceneScape/reid-config.json \
+  --tracker_config_file /home/scenescape/Scenescape/tracker-config.json \
+  --reid_config_file /home/scenescape/Scenescape/reid-config.json \
   --ntp ntpserv
   ```
 
@@ -78,13 +78,13 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   docker run --rm \
   --init \
   --network scenescape \
-  -v scenescape_vol-media:/home/scenescape/SceneScape/media \
-  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
+  -v scenescape_vol-media:/home/scenescape/Scenescape/media \
+  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
-  scenescape-controller \
+  intel/scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
   --ntp ntpserv \
@@ -98,13 +98,13 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   --init \
   --network scenescape \
   -e CONTROLLER_ENABLE_ANALYTICS_ONLY=true \
-  -v scenescape_vol-media:/home/scenescape/SceneScape/media \
-  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
+  -v scenescape_vol-media:/home/scenescape/Scenescape/media \
+  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
-  scenescape-controller \
+  intel/scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
   --ntp ntpserv
@@ -133,19 +133,19 @@ When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer vide
   docker run --rm \
   --init \
   --network scenescape \
-  -v scenescape_vol-media:/home/scenescape/SceneScape/media \
-  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
-  -v $(pwd)/controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json \
+  -v scenescape_vol-media:/home/scenescape/Scenescape/media \
+  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json \
+  -v $(pwd)/controller/config/reid-config.json:/home/scenescape/Scenescape/reid-config.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
-  scenescape-controller \
+  intel/scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
-  --tracker_config_file /home/scenescape/SceneScape/tracker-config.json \
-  --reid_config_file /home/scenescape/SceneScape/reid-config.json \
-  --pose_adjustment_config_file /home/scenescape/SceneScape/pose-adjustment-route.json \
+  --tracker_config_file /home/scenescape/Scenescape/tracker-config.json \
+  --reid_config_file /home/scenescape/Scenescape/reid-config.json \
+  --pose_adjustment_config_file /home/scenescape/Scenescape/pose-adjustment-route.json \
   --ntp ntpserv \
   --pose-adjustment
   ```
@@ -157,20 +157,20 @@ When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer vide
   --init \
   --network scenescape \
   -e CONTROLLER_ENABLE_POSE_ADJUSTMENT=true \
-  -v scenescape_vol-media:/home/scenescape/SceneScape/media \
-  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
-  -v $(pwd)/controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json \
-  -v $(pwd)/controller/config/pose-adjustment-route.json:/home/scenescape/SceneScape/pose-adjustment-route.json \
+  -v scenescape_vol-media:/home/scenescape/Scenescape/media \
+  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json \
+  -v $(pwd)/controller/config/reid-config.json:/home/scenescape/Scenescape/reid-config.json \
+  -v $(pwd)/controller/config/pose-adjustment-route.json:/home/scenescape/Scenescape/pose-adjustment-route.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
-  scenescape-controller \
+  intel/scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
-  --tracker_config_file /home/scenescape/SceneScape/tracker-config.json \
-  --reid_config_file /home/scenescape/SceneScape/reid-config.json \
-  --pose_adjustment_config_file /home/scenescape/SceneScape/pose-adjustment-route.json \
+  --tracker_config_file /home/scenescape/Scenescape/tracker-config.json \
+  --reid_config_file /home/scenescape/Scenescape/reid-config.json \
+  --pose_adjustment_config_file /home/scenescape/Scenescape/pose-adjustment-route.json \
   --ntp ntpserv
   ```
 

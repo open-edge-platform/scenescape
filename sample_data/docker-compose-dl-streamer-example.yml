@@ -42,7 +42,7 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-mapping.key
 
 x-controller-base: &controller-base
-  image: scenescape-controller:${VERSION:-latest}
+  image: intel/scenescape-controller:${VERSION:-latest}
   init: true
   user: "${UID:-1000}:${GID:-1000}"
   networks:
@@ -70,12 +70,12 @@ x-controller-base: &controller-base
     --ntp ntpserv
   configs:
     - source: tracker-config
-      target: /home/scenescape/SceneScape/tracker-config.json
+      target: /home/scenescape/Scenescape/tracker-config.json
     - source: reid-config
-      target: /home/scenescape/SceneScape/reid-config.json
+      target: /home/scenescape/Scenescape/reid-config.json
   volumes:
-    - vol-media:/home/scenescape/SceneScape/media
-    - vol-sample-data:/home/scenescape/SceneScape/sample_data
+    - vol-media:/home/scenescape/Scenescape/media
+    - vol-sample-data:/home/scenescape/Scenescape/sample_data
   secrets:
     - source: root-cert
       target: certs/scenescape-ca.pem
@@ -90,7 +90,7 @@ x-controller-base: &controller-base
 
 # Profiles:
 # - Default (no profile): Core services including autocalibration
-# - experimental: All services including mapping and cluster-analytics
+# - experimental: All services including mapping
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
 # - vdms: Enable the VDMS service
@@ -167,7 +167,7 @@ services:
       start_period: 5s
 
   web:
-    image: scenescape-manager:${VERSION:-latest}
+    image: intel/scenescape-manager:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -194,7 +194,7 @@ services:
       retries: 10
       start_period: 10s
     environment:
-      - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
+      - EXAMPLEDB=/home/scenescape/Scenescape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
       - DBHOST=pgserver
       - DBPORT=5432
@@ -203,7 +203,7 @@ services:
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-sample-data:/home/scenescape/Scenescape/sample_data
       - vol-migrations:/workspace/migrations
     secrets:
       - source: root-cert
@@ -291,7 +291,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260714-weekly-ubuntu24
     networks:
       scenescape:
     tty: true
@@ -345,6 +345,7 @@ services:
         target: /home/pipeline-server/config.json
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/python/sscape_post_decode_timestamp_capture.py # Needs to be mounted to DLStreamer default plugin location, not to override any existing plugins
       - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
@@ -355,7 +356,7 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260714-weekly-ubuntu24
     networks:
       scenescape:
     tty: true
@@ -409,6 +410,7 @@ services:
         target: /home/pipeline-server/config.json
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/python/sscape_post_decode_timestamp_capture.py # Needs to be mounted to DLStreamer default plugin location, not to override any existing plugins
       - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
@@ -428,7 +430,7 @@ services:
       - vol-datasets:/data/datasets
 
   autocalibration:
-    image: scenescape-autocalibration:${VERSION:-latest}
+    image: intel/scenescape-autocalibration:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -458,8 +460,8 @@ services:
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
       - no_proxy=${no_proxy},.scenescape.intel.com
     volumes:
-      - vol-media:/home/scenescape/SceneScape/media
-      - vol-datasets:/home/scenescape/SceneScape/datasets
+      - vol-media:/home/scenescape/Scenescape/media
+      - vol-datasets:/home/scenescape/Scenescape/datasets
       - vol-netvlad_models:/usr/local/lib/python3.11/site-packages/third_party/netvlad
     secrets:
       - source: root-cert
@@ -480,7 +482,7 @@ services:
     pids_limit: 1000
 
   tracker:
-    image: scenescape-tracker:${VERSION:-latest}
+    image: intel/scenescape-tracker:${VERSION:-latest}
     profiles:
       - tracker
     networks:
@@ -533,7 +535,7 @@ services:
     profiles:
       - experimental
       - mapping
-    image: scenescape-mapping-${MAPPING_MODEL:-mapanything}:${VERSION:-latest}
+    image: intel/scenescape-mapping-${MAPPING_MODEL:-mapanything}:${VERSION:-latest}
     init: true
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:
@@ -548,7 +550,7 @@ services:
       - vol-mapping-hf-cache:/workspace/.cache/huggingface
     environment:
       - MAPPING_CPU_SEC_PER_FRAME=10
-      - GUNICORN_TIMEOUT=300
+      - GUNICORN_TIMEOUT=900
       - PYTHONDONTWRITEBYTECODE=1
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
@@ -573,10 +575,13 @@ services:
     restart: always
 
   cluster-analytics:
+    environment:
+      OPENBLAS_NUM_THREADS: "2"
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
     profiles:
-      - experimental
       - cluster-analytics
-    image: scenescape-cluster-analytics:${VERSION:-latest}
+    image: intel/scenescape-cluster-analytics:${VERSION:-latest}
     init: true
     networks:
       scenescape:

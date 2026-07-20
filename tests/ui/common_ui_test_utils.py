@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
 import cv2
 import json
 import time
+import base64
 import random
 import filecmp
 import tempfile
@@ -29,7 +30,7 @@ from tests.common_test_utils import record_test_result
 from tests.ui.browser import Browser, By, NoSuchElementException
 
 # FIXME - APP_PROPER_NAME is not the right way to validate correct page load
-APP_PROPER_NAME = 'Intel® SceneScape'
+APP_PROPER_NAME = 'Scenescape'
 # from manager.settings import APP_PROPER_NAME
 
 TEST_SCENE_NAME = "Demo"
@@ -372,7 +373,34 @@ def modify_tripwire(browser):
   @param    browser                    Object wrapping the Selenium driver.
   @return   bool                       Boolean representing success.
   """
+  def _clamp_drag_x(handle, requested_dx):
+    """Return an in-viewport horizontal drag delta for a tripwire handle."""
+    viewport = browser.execute_script("return [window.innerWidth, window.innerHeight];")
+    viewport_width = int(viewport[0])
+    handle_rect = handle.rect
+    handle_center_x = float(handle_rect["x"]) + (float(handle_rect["width"]) / 2)
+
+    # Keep a small margin from window edges to avoid MoveTargetOutOfBounds.
+    edge_margin = 10.0
+    max_left_dx = edge_margin - handle_center_x
+    max_right_dx = (viewport_width - edge_margin) - handle_center_x
+    safe_dx = max(min(float(requested_dx), max_right_dx), max_left_dx)
+
+    # If there is no room in the requested direction, take a small step opposite.
+    if abs(safe_dx) < 5:
+      if requested_dx >= 0 and max_left_dx <= -5:
+        safe_dx = max(-50.0, max_left_dx)
+      elif requested_dx < 0 and max_right_dx >= 5:
+        safe_dx = min(50.0, max_right_dx)
+
+    return int(round(safe_dx))
+
   try:
+    wait = WebDriverWait(browser, BROWSER_WAIT)
+    wait.until(EC.element_to_be_clickable((By.ID, "tripwires-tab"))).click()
+    wait.until(EC.visibility_of_all_elements_located((By.CLASS_NAME, "point_0")))
+    wait.until(EC.visibility_of_all_elements_located((By.CLASS_NAME, "point_1")))
+
     # creating a long horizontal tripwire
     points_0 = browser.find_elements(By.CLASS_NAME, "point_0")
     points_1 = browser.find_elements(By.CLASS_NAME, "point_1")
@@ -380,8 +408,13 @@ def modify_tripwire(browser):
     point_1 = points_1[-1]
 
     action = browser.actionChains()
-    action.drag_and_drop_by_offset(point_0, -100, 0).perform()
-    action.drag_and_drop_by_offset(point_1, 200, 0).perform()
+    drag_0_x = _clamp_drag_x(point_0, -100)
+    action.drag_and_drop_by_offset(point_0, drag_0_x, 0).perform()
+
+    # Re-fetch handle after first drag to avoid stale geometry/position.
+    point_1 = browser.find_elements(By.CLASS_NAME, "point_1")[-1]
+    drag_1_x = _clamp_drag_x(point_1, 200)
+    action.drag_and_drop_by_offset(point_1, drag_1_x, 0).perform()
     print("Moved the ends of tripwire")
 
     browser.find_element(By.ID,"save-trips").click()
@@ -1221,6 +1254,77 @@ def are_images_similar(base_image: np.ndarray, image: np.ndarray, comparison_thr
   if ssim_value > comparison_threshold:
     return True
   return False
+
+def wait_for_3d_scene_rendered(browser, canvas_id: str = "scene", timeout: float = 30.0,
+                               poll_interval: float = 0.5,
+                               min_content_ratio: float = 0.01) -> bool:
+  """! Poll the WebGL canvas until the 3D scene has actually painted content.
+
+  Requires the renderer to be created with preserveDrawingBuffer: true so the
+  drawing buffer reflects the last rendered frame.
+
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    canvas_id                  DOM id of the WebGL canvas element.
+  @param    timeout                    Maximum seconds to wait for the scene to render.
+  @param    poll_interval              Seconds between successive checks.
+  @param    min_content_ratio          Minimum fraction of non-background canvas pixels
+                                       that indicates the scene has painted.
+  @return   bool                       True if content was detected, False on timeout.
+  """
+  script = """
+    const canvasId = arguments[0];
+    const c = document.getElementById(canvasId);
+    if (!c) return -1;
+    const gl = c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl');
+    if (!gl) return -2;
+    const w = c.width, h = c.height;
+    if (!w || !h) return -3;
+    const px = new Uint8Array(w * h * 4);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    // Use a corner pixel as the background (clear) color reference.
+    const br = px[0], bg = px[1], bb = px[2];
+    let diff = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      if (Math.abs(px[i] - br) > 10 || Math.abs(px[i + 1] - bg) > 10 || Math.abs(px[i + 2] - bb) > 10) {
+        diff++;
+      }
+    }
+    return diff / (w * h);
+  """
+  deadline = time.monotonic() + timeout
+  while time.monotonic() < deadline:
+    try:
+      ratio = browser.execute_script(script, canvas_id)
+    except Exception:
+      ratio = None
+    if isinstance(ratio, (int, float)) and ratio >= min_content_ratio:
+      return True
+    time.sleep(poll_interval)
+  return False
+
+def capture_3d_canvas(browser, canvas_id: str = "scene") -> np.ndarray:
+  """! Capture the WebGL 3D canvas pixels directly via canvas.toDataURL().
+
+  Requires the three.js renderer to be created with preserveDrawingBuffer: true so
+  the drawing buffer reflects the last rendered frame.
+
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    canvas_id                  DOM id of the WebGL canvas element.
+  @return   np.ndarray                 Canvas image as a BGR numpy array (alpha dropped).
+  """
+  data_url = browser.execute_script(
+    "const c = document.getElementById(arguments[0]);"
+    "return c ? c.toDataURL('image/png') : null;",
+    canvas_id,
+  )
+  if not data_url or not data_url.startswith("data:image/png;base64,"):
+    raise RuntimeError(f"Could not capture canvas #{canvas_id} via toDataURL")
+  raw = base64.b64decode(data_url.split(",", 1)[1])
+  img = Image.open(BytesIO(raw), formats=["PNG"])
+  img_array = np.asarray(img)
+  # Drop alpha channel and convert RGB to BGR to match get_page_screenshot().
+  img_array = img_array[:, :, 0:3]
+  return img_array[:, :, ::-1]
 
 def crop_to_common_shape(img1: np.ndarray, img2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
   """

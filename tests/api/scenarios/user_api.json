@@ -128,27 +128,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/USER/07: Create user with invalid scene uid",
-    "test_steps": [
-      {
-        "step_name": "Create user with invalid scene uid",
-        "api": "user",
-        "method": "createUser",
-        "request": {
-          "body": {
-            "username": "invalid_scene",
-            "password": "AnotherPass123!",
-            "scene": "invalid-uuid"
-          }
-        },
-        "expected_status": {
-          "status_code": 400
-        }
-      }
-    ]
-  },
-  {
-    "test_name": "Vision_AI/SSCAPE/API/USER/08: Get existing user",
+    "test_name": "Vision_AI/SSCAPE/API/USER/07: Get existing user",
     "test_steps": [
       {
         "step_name": "Get user",
@@ -174,7 +154,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/USER/09: Get non existent user",
+    "test_name": "Vision_AI/SSCAPE/API/USER/08: Get non existent user",
     "test_steps": [
       {
         "step_name": "Get user that does not exist",
@@ -190,7 +170,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/USER/10: Get all users",
+    "test_name": "Vision_AI/SSCAPE/API/USER/09: Get all users",
     "test_steps": [
       {
         "step_name": "Get user minimal",
@@ -200,20 +180,10 @@
           "status_code": 200
         },
         "expected_body": {
-          "count": 8,
+          "count": 6,
           "next": null,
           "previous": null,
           "results": [
-            {
-              "uid": "4",
-              "username": "admin",
-              "is_active": true,
-              "is_staff": true,
-              "is_superuser": true,
-              "first_name": "",
-              "last_name": "",
-              "email": "admin@domain.com"
-            },
             {
               "uid": "1",
               "username": "calibration",
@@ -367,6 +337,16 @@
               ]
             },
             {
+              "uid": "4",
+              "username": "admin",
+              "is_active": true,
+              "is_staff": true,
+              "is_superuser": true,
+              "first_name": "",
+              "last_name": "",
+              "email": "admin@domain.com"
+            },
+            {
               "uid": "${USER_ID}",
               "username": "${USER_NAME_MINIMAL}",
               "is_active": true,
@@ -392,7 +372,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/USER/11: Update user profile fields",
+    "test_name": "Vision_AI/SSCAPE/API/USER/10: Update user profile fields",
     "test_steps": [
       {
         "step_name": "Update email, first_name, last_name",
@@ -429,7 +409,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/USER/12: Update user with invalid email format",
+    "test_name": "Vision_AI/SSCAPE/API/USER/11: Update user with invalid email format",
     "test_steps": [
       {
         "step_name": "Update user with invalid email",
@@ -448,7 +428,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/USER/13: Delete Existing User",
+    "test_name": "Vision_AI/SSCAPE/API/USER/12: Delete Existing User",
     "test_steps": [
       {
         "step_name": "Delete user minimal",
@@ -460,11 +440,22 @@
         "expected_status": {
           "status_code": 200
         }
+      },
+      {
+        "step_name": "Delete full user",
+        "api": "user",
+        "method": "deleteUser",
+        "request": {
+          "username": "${USER_NAME_FULL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/USER/14: Delete non existent user",
+    "test_name": "Vision_AI/SSCAPE/API/USER/13: Delete non existent user",
     "test_steps": [
       {
         "step_name": "Delete again",

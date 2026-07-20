@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import time
@@ -26,6 +24,7 @@ def test_camera_status_main(params, record_xml_attribute):
   record_xml_attribute("name", TEST_NAME)
   cameraNumber = 3
   exit_code = 1
+  browser = None
 
   try:
     print("Executing: " + TEST_NAME)
@@ -66,6 +65,7 @@ def test_camera_status_main(params, record_xml_attribute):
     exit_code = 0
 
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0

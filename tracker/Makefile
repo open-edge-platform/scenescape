@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Integration with common.mk for Docker image builds
-IMAGE := scenescape-tracker
+IMAGE := intel/scenescape-tracker
 TARGET ?= runtime
 BUILD_TYPE ?= Release
 HAS_PIP := no
@@ -178,7 +178,7 @@ build-relwithdebinfo: dependencies-relwithdebinfo
 TRACKER_SCHEMA_PATH ?= $(CURDIR)/schema/config.schema.json
 TRACKER_CONFIG_PATH ?= $(CURDIR)/config/tracker.json
 
-# MQTT broker connection - preconfigured for SceneScape demo (docker compose up)
+# MQTT broker connection - preconfigured for Scenescape demo (docker compose up)
 # These variables are exported only in run/run-debug targets to avoid polluting test environment
 TRACKER_MQTT_HOST ?= localhost
 TRACKER_MQTT_PORT ?= $(shell cd test/service && docker compose port broker 1883 2>/dev/null | cut -d: -f2 || echo 1883)
@@ -357,15 +357,15 @@ test-load: build-image
 #####################################################################
 
 build-image-debug:
-	$(MAKE) build-image TARGET=debug BUILD_TYPE=Debug IMAGE=scenescape-tracker-debug
+	$(MAKE) build-image TARGET=debug BUILD_TYPE=Debug IMAGE=$(IMAGE)-debug
 	@mkdir -p build-debug
 	@echo "Extracting debug binary for local symbol loading..."
-	@docker create --name tracker-debug-tmp scenescape-tracker-debug:$(VERSION) >/dev/null 2>&1 || true
+	@docker create --name tracker-debug-tmp $(IMAGE)-debug:$(VERSION) >/dev/null 2>&1 || true
 	@docker cp tracker-debug-tmp:/scenescape/bin/tracker build-debug/tracker 2>/dev/null || true
 	@docker rm tracker-debug-tmp >/dev/null 2>&1 || true
 
 build-image-relwithdebinfo:
-	$(MAKE) build-image TARGET=runtime BUILD_TYPE=RelWithDebInfo IMAGE=scenescape-tracker-relwithdebinfo
+	$(MAKE) build-image TARGET=runtime BUILD_TYPE=RelWithDebInfo IMAGE=$(IMAGE)-relwithdebinfo
 
 # Use host network to reach broker; empty proxy vars for Paho workaround
 # Container uses secure defaults from tracker.json (TLS to broker.scenescape.intel.com)
@@ -382,7 +382,7 @@ run-image-debug: build-image-debug
 		--cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
 		-e http_proxy= -e https_proxy= -e HTTP_PROXY= -e HTTPS_PROXY= \
 		-v $(TRACKER_TLS_CA_CERT_HOST):/run/secrets/certs/scenescape-ca.pem:ro \
-		scenescape-tracker-debug:$(VERSION)
+		$(IMAGE)-debug:$(VERSION)
 	@echo "Debug container started. Attach debugger to localhost:2345"
 
 stop-image-debug:

@@ -1,4 +1,4 @@
-# Using Deep Learning Streamer Pipeline Server with Intel® SceneScape
+# Using Deep Learning Streamer Pipeline Server with Scenescape
 
 - [Getting Started](#getting-started)
 - [Running on GPU](#running-on-gpu)
@@ -12,14 +12,14 @@
 
 ## Getting Started
 
-Below are step-by-step instructions for enabling out-of-the-box scenes in Intel® SceneScape to leverage DL Streamer Pipeline Server for Video Analytics.
+Below are step-by-step instructions for enabling out-of-the-box scenes in Scenescape to leverage DL Streamer Pipeline Server for Video Analytics.
 
 1. **Model Requirements:**
    Ensure the OMZ model `person-detection-retail-0013` is present in the Models Volume in the `models/intel/` subfolder. Refer to the instructions in [How to Manage Files in Volumes](../docs/user-guide/other-topics/how-to-manage-files-in-volumes.md) on how to access the Models Volume.
 
-2. **Start Intel® SceneScape DL Streamer-based demo:**
+2. **Start Scenescape DL Streamer-based demo:**
 
-   If this is the first time running SceneScape, run:
+   If this is the first time running Scenescape, run:
 
    ```sh
    make && make demo
@@ -31,7 +31,7 @@ Below are step-by-step instructions for enabling out-of-the-box scenes in Intel�
    ./deploy.sh
    ```
 
-   If you have already deployed Intel® SceneScape, use:
+   If you have already deployed Scenescape, use:
 
    ```sh
    docker compose --profile controller down --remove-orphans
@@ -40,7 +40,7 @@ Below are step-by-step instructions for enabling out-of-the-box scenes in Intel�
 
 ## Running on GPU
 
-Running the pipelines on GPU is highly recommended when available on the system. This approach efficiently utilizes available CPU cores for other SceneScape services and provides optimal performance for the visual analytics service. Only Intel GPU devices are supported.
+Running the pipelines on GPU is highly recommended when available on the system. This approach efficiently utilizes available CPU cores for other Scenescape services and provides optimal performance for the visual analytics service. Only Intel GPU devices are supported.
 
 To facilitate GPU acceleration, sample configuration files are provided for the out-of-box **Queuing** and **Retail** scenes with the following pipeline optimizations:
 
@@ -83,7 +83,7 @@ The following steps enable the above-mentioned optimizations for:
 
 ### Manual GPU Device Selection (by exposing device to container)
 
-To enable SceneScape pipelines to run on a specific GPU device of your choice (e.g., on a discrete GPU, in case an integrated GPU also exists), follow these steps. These instructions are similar to the "Automatic GPU Device Selection" section, with the key difference being the selection of a specific device (e.g., `renderD129`).
+To enable Scenescape pipelines to run on a specific GPU device of your choice (e.g., on a discrete GPU, in case an integrated GPU also exists), follow these steps. These instructions are similar to the "Automatic GPU Device Selection" section, with the key difference being the selection of a specific device (e.g., `renderD129`).
 
 1. **List Available GPU Devices:**
    Use the following command to list available GPU devices on your system:
@@ -117,11 +117,11 @@ To enable SceneScape pipelines to run on a specific GPU device of your choice (e
 
 By following these steps, only the selected GPU device will be available in the container. As a result, all DL Streamer Pipeline Server pipelines running in the container will use the GPU device of your choice.
 
-> **Note**: This setup cannot run two pipelines in the same container on different GPU devices. To work around that limitation, configure each pipeline as described in the [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html), but be aware that doing so disables cross-stream batching and may deliver lower throughput.
+> **Note**: This setup cannot run two pipelines in the same container on different GPU devices. To work around that limitation, configure each pipeline as described in the [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html), but be aware that doing so disables cross-stream batching and may deliver lower throughput.
 
 ## Running on NPU
 
-Running inference on NPU is recommended when an Intel® NPU is available on the system. This offloads the inference workload to the NPU, freeing up CPU and GPU resources for other SceneScape services.
+Running inference on NPU is recommended when an Intel® NPU is available on the system. This offloads the inference workload to the NPU, freeing up CPU and GPU resources for other Scenescape services.
 
 To facilitate NPU acceleration, sample configuration files are provided for the out-of-box **Queuing** and **Retail** scenes with the following pipeline optimizations:
 
@@ -178,13 +178,13 @@ Following are the step-by-step instructions for enabling person reidentification
 
    Repeat the same step but with [retail-config-reid.json](./retail-config-reid.json) to enable reid for the **Retail** scene.
 
-   If this is the first time running SceneScape, run:
+   If this is the first time running Scenescape, run:
 
    ```sh
    ./deploy.sh
    ```
 
-   If you have already deployed Intel® SceneScape, use:
+   If you have already deployed Scenescape, use:
 
    ```sh
    docker compose down queuing-video retail-video scene
@@ -214,7 +214,7 @@ Following are step-by-step instructions for enabling pose estimation for the out
    ./download_public_models.sh mars-small128
    ```
 
-2. **Copy the downloaded model folders** into the SceneScape models volume (`scenescape_vol-models`):
+2. **Copy the downloaded model folders** into the Scenescape models volume (`scenescape_vol-models`):
 
    ```bash
    docker create --name scenescape-models -v scenescape_vol-models:/models alpine
@@ -243,7 +243,7 @@ Following are short steps to enable NTP timestamp extraction from an RTSP camera
 
 When an RTSP source provides NTP timing in its stream (via RTCP Sender Reports), GStreamer's `rtspsrc` element can
 attach that NTP reference timestamp to each buffer using `add-reference-timestamp-meta=true`. Enabling
-`useFrameNtpTimestamp` in the pipeline configuration causes SceneScape to read that metadata and use it as the frame
+`useFrameNtpTimestamp` in the pipeline configuration causes Scenescape to read that metadata and use it as the frame
 timestamp instead of the post-decode system clock time. This improves timing accuracy when the camera and server are
 synchronized to the same NTP source.
 
@@ -309,5 +309,5 @@ Your new pipeline will now be used by the DL Streamer Pipeline Server on startup
 
 For detailed instructions on further configuring DL Streamer pipelines, refer to:
 
-- [How to Configure DL Streamer Video Pipeline](../docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md) - Step-by-step guide for configuring DL Streamer video pipelines in SceneScape.
+- [How to Configure DL Streamer Video Pipeline](../docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md) - Step-by-step guide for configuring DL Streamer video pipelines in Scenescape.
 - [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/how-to-guides/use-gpu-npu-for-decode-and-inference.html) - How to configure video pipeline to use GPU or NPU.
