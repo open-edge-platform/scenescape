@@ -30,6 +30,7 @@ Gst.init_python()
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
 TIMEZONE = "UTC"
 NTP_RESYNC_INTERVAL_S = 1000
+NTP_REQUEST_TIMEOUT_S = 2
 NTP_CAPS_STRING = "timestamp/x-ntp"
 
 
@@ -198,10 +199,14 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
       and now - self._last_time_sync <= NTP_RESYNC_INTERVAL_S
     ):
       return
+    # Record the attempt before the request so an unreachable server
+    # is throttled by NTP_RESYNC_INTERVAL_S instead of blocking every buffer.
+    self._last_time_sync = now
     try:
-      response = self._ntp_client.request(host=self._ntp_server, port=123)
+      response = self._ntp_client.request(
+        host=self._ntp_server, port=123, timeout=NTP_REQUEST_TIMEOUT_S,
+      )
       self._time_offset = response.offset
-      self._last_time_sync = now
     except Exception as exc:  # pylint: disable=broad-except
       self._log.warning(
         f"NTP sync with {self._ntp_server} failed: {exc}"
