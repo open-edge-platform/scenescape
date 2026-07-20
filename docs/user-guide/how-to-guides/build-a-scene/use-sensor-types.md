@@ -105,6 +105,46 @@ Check updates for the target object:
 
 ---
 
+## REST API Reference
+
+Sensors can also be created, updated, listed, and deleted over the REST API instead of the UI —
+useful for scripting a scene-wide sensor that has no shape to draw.
+
+```bash
+curl -sk -X POST https://<manager-host>/api/v1/sensor \
+    -H "Authorization: Token $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "name": "lobby_temperature",
+        "scene": "<scene-uid>",
+        "area": "scene",
+        "singleton_type": "environmental"
+    }'
+```
+
+For the full field reference (all accepted fields, `area`/`singleton_type` enum values), see the
+canonical OpenAPI spec: [API Reference](../../api-reference.md) (source:
+`docs/user-guide/api-docs/api.yaml`, `Singleton` schema). The API reference doesn't capture these
+validation rules, which only live in server-side logic:
+
+- `center`+`radius` are required when `area` is `circle`; `points` is required when `area` is
+  `poly`.
+- If `sensor_id` isn't supplied on create, it defaults to `name` with spaces replaced by
+  underscores.
+- `color_ranges.sectors[].color` must be one of `green`, `yellow`, or `red`:
+  ```json
+  {
+    "color_ranges": {
+      "sectors": [
+        { "color": "green", "color_min": "0" },
+        { "color": "yellow", "color_min": "2" },
+        { "color": "red", "color_min": "5" }
+      ],
+      "range_max": 10
+    }
+  }
+  ```
+
 ## Supporting Resources
 
 - [Visualize ROI and Sensor Areas](./visualize-regions.md)

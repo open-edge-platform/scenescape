@@ -8,9 +8,17 @@ Implements the specification in references/pipeline-config.md.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
+import re
 from pathlib import Path
 from urllib.parse import urlparse
+
+# RFC 1123 hostname / dotted-IPv4 chars only. Rejects anything else (e.g. stray
+# control characters) that could otherwise flow into the generated .env file's
+# no_proxy value. IPv6 literals (which contain ':') are validated separately
+# via ipaddress, since urlparse().hostname already strips the URL's brackets.
+_VALID_HOSTNAME_RE = re.compile(r"^[A-Za-z0-9.-]+$")
 
 from deploy_inputs import load_inputs, validate_camera_streams
 
@@ -107,12 +115,30 @@ def pipeline_entry(camera_id: str, rtsp_url: str) -> dict:
   }
 
 
+def _is_valid_no_proxy_host(host: str) -> bool:
+  """Accept RFC 1123 hostnames/IPv4 literals, plus IPv6 literals.
+
+  urlparse().hostname strips the URL's '[...]' brackets and lowercases the
+  value, so a bracketed IPv6 RTSP host (e.g. from `rtsp://[2001:db8::1]/x`)
+  arrives here as a bare address like `2001:db8::1`, which `_VALID_HOSTNAME_RE`
+  rejects because it doesn't allow ':'. Fall back to `ipaddress` to recognize
+  those as valid no_proxy entries instead of silently dropping them.
+  """
+  if _VALID_HOSTNAME_RE.match(host):
+    return True
+  try:
+    ipaddress.ip_address(host)
+  except ValueError:
+    return False
+  return True
+
+
 def rtsp_no_proxy_hosts(streams: list[str]) -> list[str]:
   hosts: list[str] = []
   seen: set[str] = set()
   for stream in streams:
     host = urlparse(stream).hostname
-    if host and host not in seen:
+    if host and _is_valid_no_proxy_host(host) and host not in seen:
       seen.add(host)
       hosts.append(host)
   return hosts

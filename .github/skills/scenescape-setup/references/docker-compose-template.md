@@ -239,14 +239,6 @@ services:
     command: chown -R 1000:1000 /models
     restart: "no"
 
-  model_downloader:
-    image: scenescape-model-installer:latest
-    volumes:
-      - vol-models:/home/scenescape/SceneScape/models
-    environment:
-      <<: *proxy_env
-    restart: "no"
-
   mapping-init:
     image: alpine:3.23
     profiles:

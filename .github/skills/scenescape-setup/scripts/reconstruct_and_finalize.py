@@ -19,6 +19,15 @@ Usage:
         --cameras camera1 camera2 \
         --scene-name my_scene
 
+    # Optionally supplement calibration frames with a walk-through video for extra
+    # reconstruction coverage (camera auto-calibration still comes from --frames-dir):
+    python reconstruct_and_finalize.py \
+        --deploy-dir ~/scenescape-deployment \
+        --frames-dir /tmp/frames \
+        --cameras camera1 camera2 \
+        --scene-name my_scene \
+        --video-file ~/walkthrough.mp4
+
 The script exits 0 on success and prints the scene UID.
 """
 
@@ -53,8 +62,18 @@ def manager_session(manager_url: str, verify_tls: bool | str, username: str, pas
   return session, token
 
 
-def submit_reconstruction(mapping_url: str, verify_tls: bool | str, frames_dir: Path, camera_ids: list[str]) -> str:
-  """POST images to the mapping service and return request_id."""
+def submit_reconstruction(
+  mapping_url: str,
+  verify_tls: bool | str,
+  frames_dir: Path,
+  camera_ids: list[str],
+  video_file: Path | None = None,
+) -> str:
+  """POST images and/or a walk-through video to the mapping service and return request_id.
+
+  Video frames are not tagged with a camera_id/camera_location, so they only add extra
+  reconstruction coverage; camera auto-calibration still comes from the per-camera `images`.
+  """
   files = []
   for camera_id in camera_ids:
     frame_path = frames_dir / f"{camera_id}.jpg"
@@ -63,13 +82,25 @@ def submit_reconstruction(mapping_url: str, verify_tls: bool | str, frames_dir: 
     files.append(("images", (f"{camera_id}.jpg", io.BytesIO(frame_path.read_bytes()), "image/jpeg")))
     files.append(("camera_ids", (None, camera_id)))
 
-  resp = requests.post(
-    f"{mapping_url}/reconstruction",
-    data={"output_format": "glb", "mesh_type": "mesh"},
-    files=files,
-    verify=verify_tls,
-    timeout=90,
-  )
+  video_handle = None
+  if video_file is not None:
+    if not video_file.exists():
+      raise FileNotFoundError(f"Missing video file: {video_file}")
+    video_handle = open(video_file, "rb")
+    files.append(("video", (video_file.name, video_handle, "video/mp4")))
+
+  try:
+    resp = requests.post(
+      f"{mapping_url}/reconstruction",
+      data={"output_format": "glb", "mesh_type": "mesh"},
+      files=files,
+      verify=verify_tls,
+      timeout=300 if video_file is not None else 90,
+    )
+  finally:
+    if video_handle is not None:
+      video_handle.close()
+
   resp.raise_for_status()
   request_id = resp.json()["request_id"]
   print(f"Reconstruction queued: {request_id}")
@@ -172,6 +203,10 @@ def main() -> None:
   parser.add_argument("--deploy-dir", required=True, type=Path)
   parser.add_argument("--frames-dir", required=True, type=Path, help="Directory containing per-camera JPEG frames")
   parser.add_argument("--cameras", required=True, nargs="+", metavar="CAMERA_ID")
+  parser.add_argument("--video-file", type=Path, default=None,
+                      help="Optional walk-through video (.mp4/.mov/.mkv/.webm/.avi) to supplement calibration "
+                           "frames with extra reconstruction coverage; frames extracted from it are not tied "
+                           "to any camera_id, so camera auto-calibration still comes from --frames-dir")
   parser.add_argument("--mapping-url", default="https://localhost:8444/v1")
   parser.add_argument("--manager-url", default="https://localhost")
   parser.add_argument("--verify-tls", action="store_true", help="Verify TLS using <deploy-dir>/secrets/certs/scenescape-ca.pem")
@@ -198,7 +233,7 @@ def main() -> None:
     ensure_camera(session, args.manager_url, scene_uid, camera_id)
 
   # Submit reconstruction
-  request_id = submit_reconstruction(args.mapping_url, verify_tls, args.frames_dir, args.cameras)
+  request_id = submit_reconstruction(args.mapping_url, verify_tls, args.frames_dir, args.cameras, args.video_file)
 
   # Finalize via manager (applies alignment automatically)
   finalize_mesh(args.manager_url, verify_tls, "admin", supass, scene_uid, request_id)

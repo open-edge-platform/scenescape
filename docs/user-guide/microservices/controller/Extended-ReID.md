@@ -33,7 +33,7 @@ VDMS Query Flow:
 
 ### Similarity Metric and Score Semantics
 
-The Re-ID metric is configured through `reid-config.json` (`similarity_metric`) and defaults to `L2`.
+The Re-ID metric is configured through `reid-config.json` (`similarity_metric`) and defaults to `COSINE`.
 
 When `similarity_metric` is `COSINE`, Re-ID embedding vectors are normalized to unit length before they are:
 
@@ -170,13 +170,13 @@ controller/config/reid-config.json
 
 ```json
 {
-  "similarity_metric": "L2",
+  "similarity_metric": "COSINE",
   "stale_feature_timeout_secs": 5.0,
   "stale_feature_check_interval_secs": 1.0,
   "feature_accumulation_threshold": 12,
   "minimum_bbox_area": 5000,
   "feature_slice_size": 10,
-  "similarity_threshold": 40.0
+  "similarity_threshold": 0.5
 }
 ```
 
@@ -184,7 +184,7 @@ controller/config/reid-config.json
 
 | Parameter                           | Type   | Default                                                | Description                                                                                                                                                                                                      |
 | ----------------------------------- | ------ | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `similarity_metric`                 | string | `L2`                                                   | Similarity metric for ReID matching. `L2` is the default distance-style metric (lower-is-better). `COSINE` is implemented using normalized vectors with VDMS `IP` (higher-is-better).                            |
+| `similarity_metric`                 | string | `COSINE`                                               | Similarity metric for ReID matching. `COSINE` is the default metric, implemented using normalized vectors with VDMS `IP` (higher-is-better). `L2` is a distance-style alternative (lower-is-better).             |
 | `stale_feature_timeout_secs`        | float  | 5.0                                                    | How long (seconds) to accumulate features in memory before flushing to VDMS. Features older than this threshold are persisted to the database for long-term storage.                                             |
 | `stale_feature_check_interval_secs` | float  | 1.0                                                    | How frequently (seconds) the background timer checks for stale features and flushes them to VDMS. More frequent checks ensure timely database updates.                                                           |
 | `feature_accumulation_threshold`    | int    | 12                                                     | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.                                                |

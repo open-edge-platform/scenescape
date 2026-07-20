@@ -19,10 +19,10 @@ models_volume="${project_name}_vol-models"
 if docker run --rm \
   -v "${models_volume}:/models" \
   scenescape-model-installer:latest \
-  test -f "/models/${MODEL_XML}"; then
+  bash -c "test -f '/models/${MODEL_XML}' && head -c 5 '/models/${MODEL_XML}' | grep -q '<?xml'"; then
   echo "PASS: detection models ready in ${models_volume}"
   exit 0
 fi
 
-echo "FAIL: ${MODEL_XML} not found in ${models_volume}"
+echo "FAIL: ${MODEL_XML} missing or invalid (not a valid OpenVINO IR file) in ${models_volume}"
 exit 1

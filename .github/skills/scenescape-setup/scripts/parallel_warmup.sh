@@ -19,7 +19,12 @@ echo "Starting mapping (init volumes, then download/load MapAnything weights)...
 docker compose --profile mapping up -d mapping
 
 echo "Starting pipeline validation stack (video-analytics deferred until models ready)..."
-docker compose up -d broker ntpserv init-models
+base_services=(broker ntpserv init-models)
+if [[ -f docker-compose.override.yml ]]; then
+  echo "docker-compose.override.yml detected: starting local video-file media server..."
+  base_services+=(mediaserver video-file-cams)
+fi
+docker compose up -d "${base_services[@]}"
 
 echo "Waiting for image pull..."
 wait "$pull_pid" || true

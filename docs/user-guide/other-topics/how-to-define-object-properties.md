@@ -83,3 +83,28 @@ By default, the shape of the object is a cuboid. Instead, the user can provide a
 2. Instead of the default cuboid, the uploaded 3D asset (.glb) will represent the tracked object.
 
 ![Visualize 3D Asset in 3D UI](../_assets/ui/glb-asset-3d-ui.png)
+
+## REST API Reference
+
+Object Library entries can also be created and updated over the REST API instead of the UI:
+
+```bash
+curl -sk -X POST https://<manager-host>/api/v1/asset \
+    -H "Authorization: Token $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "name": "forklift",
+        "x_size": 1.2,
+        "y_size": 2.4,
+        "z_size": 2.0
+    }'
+```
+
+`name` must be unique; creating an entry with a name that already exists returns an error. To
+attach a `.glb` model, submit `model_3d` as multipart form data (`-F "model_3d=@model.glb"`)
+instead of JSON.
+
+For the full field reference, types, and default values, see the canonical OpenAPI spec: [API
+Reference](../api-reference.md) (source: `docs/user-guide/api-docs/api.yaml`, `Asset3D` schema).
+
+List existing entries: `GET https://<manager-host>/api/v1/assets`.

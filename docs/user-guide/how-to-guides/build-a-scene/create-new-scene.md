@@ -174,3 +174,27 @@ Click import to begin the upload.
 ## Additional Resources
 
 - [Generate a Scene Map Using The Mapping Service](./generate-scene-map.md)
+
+## REST API Reference
+
+A scene can also be created without the UI via `POST /api/v1/scene` (multipart form data, since
+`map` is a file upload):
+
+```bash
+curl -sk -X POST https://<manager-host>/api/v1/scene \
+    -H "Authorization: Token $TOKEN" \
+    -F "name=<scene_name>" \
+    -F "map=@<path-to-blueprint.png-or-mesh.glb>" \
+    -F "scale=<pixels_per_meter>" \
+    -F "map_type=map_upload" \
+    -F "camera_calibration=Manual"
+```
+
+The response includes `"uid"` — the scene UID needed to register cameras (`POST /api/v1/camera`)
+and for the geospatial update described in
+[Configure Geospatial Coordinates for a Scene#rest-api-reference](./configure-geospatial-coordinates.md#rest-api-reference).
+
+For the full field reference (accepted `map` file types, `map_type`/`camera_calibration` enum
+values, defaults, and all other scene fields), see the canonical OpenAPI spec: [API
+Reference](../../api-reference.md) (source: `docs/user-guide/api-docs/api.yaml`, `Scene` schema).
+Don't restate those fields elsewhere — link here instead.

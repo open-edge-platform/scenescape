@@ -393,12 +393,18 @@ if [[ "$RESUME_MODE" == "auto" && -f "$DEPLOY_DIR/deploy-inputs.json" && -f "$ST
   }
 fi
 
-python3 "$SKILL_DIR/scripts/deploy_inputs.py" write \
-  --deploy-dir "$DEPLOY_DIR" \
-  --scene-name "$SCENE_NAME" \
-  --camera-ids "${CAMERA_IDS[@]}" \
-  --streams "${STREAMS[@]}" \
-  --skill-dir "$SKILL_DIR" >/dev/null
+if [[ ! -f "$DEPLOY_DIR/deploy-inputs.json" ]]; then
+  # Only write here on a truly fresh deploy. If deploy-inputs.json already exists it
+  # was written directly by Step 1 (possibly via `deploy_inputs.py write --video-dir`
+  # / `--video-files`, which this script's --streams/--camera-ids CLI flags cannot
+  # reconstruct) and must not be clobbered with a plain RTSP-only rewrite.
+  python3 "$SKILL_DIR/scripts/deploy_inputs.py" write \
+    --deploy-dir "$DEPLOY_DIR" \
+    --scene-name "$SCENE_NAME" \
+    --camera-ids "${CAMERA_IDS[@]}" \
+    --streams "${STREAMS[@]}" \
+    --skill-dir "$SKILL_DIR" >/dev/null
+fi
 
 LAST_STEP=0
 if [[ "$RESUME_MODE" == "auto" && -f "$STATE_FILE" ]]; then

@@ -79,3 +79,31 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 1. Open the scene topic at `scenescape/regulated/scene` in the MQTT client and monitor the notifications about detected objects.
 
 **Expected Result**: the `.object[].lat_long_alt` field in the messages contains correct geospatial coordinates of detected objects.
+
+## REST API Reference
+
+Geospatial output can also be configured without the UI by creating the scene first (see
+[Create and Configure a New Scene](./create-new-scene.md#rest-api-reference)) and then updating it
+with `PUT /api/v1/scene/<scene_uid>` (the manager applies this as a partial update, so omitted
+fields are left unchanged; the endpoint does not support `PATCH`):
+
+```bash
+curl -sk -X PUT https://<manager-host>/api/v1/scene/<scene_uid> \
+    -H "Authorization: Token $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "output_lla": true,
+        "map_corners_lla": [
+            [<lat1>, <lon1>, <alt1>],
+            [<lat2>, <lon2>, <alt2>],
+            [<lat3>, <lon3>, <alt3>],
+            [<lat4>, <lon4>, <alt4>]
+        ]
+    }'
+```
+
+- `map_corners_lla` is required whenever `output_lla` is `true` — the request is rejected
+  otherwise.
+- The four corners follow the same counterclockwise-from-lower-left convention described in
+  [Conventions](#conventions) above.
+- Full field reference: [API Reference](../../api-reference.md) (`Scene` schema).

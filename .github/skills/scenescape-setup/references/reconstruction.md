@@ -23,6 +23,27 @@ python scripts/reconstruct_and_finalize.py \
 
 Or `--scene-uid <uid>` for an existing scene.
 
+## Supplementing with a walk-through video
+
+If the user has a pre-recorded walk-through video of the space (recorded while walking through it
+with a phone/camera), pass it with `--video-file` to add extra frames for reconstruction coverage
+on top of the per-camera calibration frames:
+
+```bash
+python scripts/reconstruct_and_finalize.py \
+    --deploy-dir <deploy_dir> \
+    --frames-dir <deploy_dir>/calibration-frames \
+    --cameras camera1 camera2 \
+    --scene-name <scene_name> \
+    --video-file <path-to-walkthrough.mp4>
+```
+
+Frames extracted from the video are not tied to a `camera_id`, so they only improve mesh geometry
+coverage — camera auto-calibration still comes from the per-camera `--frames-dir` images as usual.
+Accepted formats: `.mp4`, `.mov`, `.mkv`, `.webm`, `.avi`. The mapping service extracts keyframes
+from the video automatically (no extra flags needed); a longer or higher-motion video takes more
+processing time but is still bounded by the same finalize-mesh poll timeout (~15 minutes).
+
 ## 3. Confirm controller subscription
 
 ```bash
