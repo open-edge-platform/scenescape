@@ -96,7 +96,7 @@ class TestNtpSync:
 
   def test_sync_skipped_when_no_server_configured(self, element):
     element._ntp_client = MagicMock()
-    element._maybe_sync_ntp(100.0)
+    element._sync_ntp_if_needed(100.0)
     element._ntp_client.request.assert_not_called()
 
   def test_first_sync_sets_offset_and_timestamp(self, element):
@@ -104,9 +104,11 @@ class TestNtpSync:
     element._ntp_client = MagicMock()
     element._ntp_client.request.return_value = SimpleNamespace(offset=1.25)
 
-    element._maybe_sync_ntp(100.0)
+    element._sync_ntp_if_needed(100.0)
 
-    element._ntp_client.request.assert_called_once_with(host="ntpserv", port=123)
+    element._ntp_client.request.assert_called_once_with(
+      host="ntpserv", port=123, timeout=tsmod.NTP_REQUEST_TIMEOUT_S,
+    )
     assert element._time_offset == 1.25
     assert element._last_time_sync == 100.0
 
@@ -114,9 +116,9 @@ class TestNtpSync:
     element._ntp_server = "ntpserv"
     element._ntp_client = MagicMock()
     element._ntp_client.request.return_value = SimpleNamespace(offset=1.0)
-    element._maybe_sync_ntp(0.0)
+    element._sync_ntp_if_needed(0.0)
 
-    element._maybe_sync_ntp(500.0)  # < NTP_RESYNC_INTERVAL_S (1000)
+    element._sync_ntp_if_needed(500.0)  # < NTP_RESYNC_INTERVAL_S (1000)
 
     element._ntp_client.request.assert_called_once()
 
@@ -124,9 +126,9 @@ class TestNtpSync:
     element._ntp_server = "ntpserv"
     element._ntp_client = MagicMock()
     element._ntp_client.request.return_value = SimpleNamespace(offset=1.0)
-    element._maybe_sync_ntp(0.0)
+    element._sync_ntp_if_needed(0.0)
 
-    element._maybe_sync_ntp(1500.0)  # > NTP_RESYNC_INTERVAL_S (1000)
+    element._sync_ntp_if_needed(1500.0)  # > NTP_RESYNC_INTERVAL_S (1000)
 
     assert element._ntp_client.request.call_count == 2
 
@@ -136,27 +138,35 @@ class TestNtpSync:
     element._ntp_client = MagicMock()
     element._ntp_client.request.side_effect = OSError("unreachable")
 
-    element._maybe_sync_ntp(100.0)  # must not raise
+    element._sync_ntp_if_needed(100.0)  # must not raise
 
     assert element._time_offset == 0.42
 
-  def test_failed_sync_leaves_last_sync_unset_causing_retry_every_call(self, element):
-    """Documents current behavior: because `_last_time_sync` is only updated
-    on success, a persistently unreachable NTP host (e.g. an ntp-server value
-    baked into a pipeline where no such host exists) is retried on *every*
-    call to `_maybe_sync_ntp` (i.e. every buffer), not throttled by
-    NTP_RESYNC_INTERVAL_S like a successful sync would be."""
+  def test_failed_sync_is_throttled_like_a_successful_one(self, element):
+    """A persistently unreachable NTP host must not incur a blocking network
+    call on every buffer. `_last_time_sync` is recorded before the request,
+    so subsequent calls within NTP_RESYNC_INTERVAL_S are skipped just as
+    they would be after a successful sync."""
     element._ntp_server = "ntpserv"
     element._ntp_client = MagicMock()
     element._ntp_client.request.side_effect = OSError("unreachable")
 
-    element._maybe_sync_ntp(100.0)
-    element._maybe_sync_ntp(100.1)
-    element._maybe_sync_ntp(100.2)
+    element._sync_ntp_if_needed(100.0)
+    element._sync_ntp_if_needed(100.1)
+    element._sync_ntp_if_needed(100.2)
 
-    assert element._ntp_client.request.call_count == 3
-    assert element._last_time_sync is None
+    assert element._ntp_client.request.call_count == 1
+    assert element._last_time_sync == 100.0
 
+  def test_failed_sync_retries_only_after_interval_elapses(self, element):
+    element._ntp_server = "ntpserv"
+    element._ntp_client = MagicMock()
+    element._ntp_client.request.side_effect = OSError("unreachable")
+
+    element._sync_ntp_if_needed(0.0)
+    element._sync_ntp_if_needed(1500.0)  # > NTP_RESYNC_INTERVAL_S (1000)
+
+    assert element._ntp_client.request.call_count == 2
 
 class TestExtractNtpTimestamp:
 
