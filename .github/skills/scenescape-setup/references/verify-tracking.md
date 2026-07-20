@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Verify End-to-End Object Tracking
 
 Happy path: `scripts/verify_tracking.sh <deploy_dir> <scene_uid>` (orchestrator step 13).

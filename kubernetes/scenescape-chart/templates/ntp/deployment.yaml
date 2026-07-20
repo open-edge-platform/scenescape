@@ -65,7 +65,7 @@ spec:
               command:
               - sh
               - -c
-              - "chronyc tracking | grep -E 'Stratum[[:space:]]+:[[:space:]]+([1-9]|1[0-6])[[:space:]]*$'"
+              - "chronyc tracking | grep -E 'Stratum[[:space:]]+:[[:space:]]+([1-9]|1[0-5])[[:space:]]*$'"
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 5
@@ -75,7 +75,7 @@ spec:
               command:
               - sh
               - -c
-              - "chronyc tracking | grep -E 'Stratum[[:space:]]+:[[:space:]]+([1-9]|1[0-6])[[:space:]]*$'"
+              - "chronyc tracking | grep -E 'Stratum[[:space:]]+:[[:space:]]+([1-9]|1[0-5])[[:space:]]*$'"
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 5

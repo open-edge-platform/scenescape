@@ -286,9 +286,15 @@ class ServiceHealth(APIView):
 
   def get(self, request):
     database_connected = self.checkDatabase()
-    db_status = DatabaseStatus.objects.first() if database_connected else None
+    try:
+      db_status = DatabaseStatus.objects.first() if database_connected else None
+      user_count = User.objects.count() if database_connected else 0
+    except OperationalError:
+      database_connected = False
+      db_status = None
+      user_count = 0
+
     db_status_ready = bool(db_status and db_status.is_ready)
-    user_count = User.objects.count() if database_connected else 0
     ready = bool(database_connected and db_status_ready and user_count > 0)
 
     if ready:

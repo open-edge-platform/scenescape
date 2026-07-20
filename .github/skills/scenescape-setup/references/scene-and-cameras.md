@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Create Scene and Register Cameras via REST API
 
 Scene creation and placeholder camera registration happen automatically when

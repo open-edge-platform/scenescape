@@ -568,6 +568,11 @@ components:
             - type: "null"
           description: Error details when initialization fails
           example: null
+        updated_at:
+          type: number
+          format: float
+          description: Unix epoch seconds when initialization status was last updated
+          example: 1720000000.0
 
     ModelsResponse:
       type: object

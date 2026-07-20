@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # 3D Reconstruction: Capture Frames and Finalize Scene
 
 Scripts are in [`scripts/`](../scripts/). The orchestrator runs these in steps 9 and 11–12.

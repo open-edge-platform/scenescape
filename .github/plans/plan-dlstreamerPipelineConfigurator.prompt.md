@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
 ## Plan: Integrate DLS Pipeline Configurator
 
 Add a new optional pipeline-configuration phase to scenescape-setup that invokes the external dlstreamer-coding-agent only when the user provides a customization prompt, consumes a single generated GStreamer pipeline string, adapts it into SceneScape-compatible pipeline-config.json entries (timestamping, metaconvert, policy constraints, adapter kwargs), and then continues existing deployment gates. Keep current defaults for basic deployments and fail fast only when customization is requested and cannot be satisfied by defaults.

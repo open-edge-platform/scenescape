@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Runtime Verification and Troubleshooting
 
 Load only when Step 7 or Step 9 fails in [SKILL.md](../SKILL.md).
