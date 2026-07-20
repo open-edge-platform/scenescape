@@ -48,9 +48,7 @@
             "camera_config": {
               "cameraid": "atag-qcam1",
               "metadatagenpolicy": "detectionPolicy",
-              "detection_labels": [
-                "person"
-              ]
+              "detection_labels": ["person"]
             }
           }
         }
@@ -98,9 +96,7 @@
             "camera_config": {
               "cameraid": "atag-qcam2",
               "metadatagenpolicy": "detectionPolicy",
-              "detection_labels": [
-                "person"
-              ]
+              "detection_labels": ["person"]
             }
           }
         }
