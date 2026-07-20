@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
 """Generate deployment files (skill steps 2–6)."""
 
 from __future__ import annotations
