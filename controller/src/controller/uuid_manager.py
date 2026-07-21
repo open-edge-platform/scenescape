@@ -104,7 +104,6 @@ class UUIDManager:
     self.reid_enabled = True
     self._applyReidConfig(reid_config_data)
     self._rescheduleStaleFeatureTimer()
-
     self.storage_metric_timer = None
     self._startStorageMetricTimer()
     return
@@ -119,11 +118,15 @@ class UUIDManager:
   def updateReidConfig(self, reid_config_data=None):
     """Update runtime ReID configuration without recreating the UUID manager."""
     old_interval = self.stale_feature_check_interval_secs
+    old_storage_metric_interval = getattr(self, 'storage_metric_interval_secs', None)
     self._applyReidConfig(reid_config_data)
 
     # Timer cadence changes require rescheduling the stale feature timer.
     if old_interval != self.stale_feature_check_interval_secs:
       self._rescheduleStaleFeatureTimer()
+
+    if old_storage_metric_interval != self.storage_metric_interval_secs:
+      self._rescheduleStorageMetricTimer()
 
   def _applyReidConfig(self, reid_config_data=None):
     """Apply ReID config values with defaults."""
@@ -193,6 +196,14 @@ class UUIDManager:
     self.stale_feature_timer.daemon = True
     self.stale_feature_timer.start()
 
+  def _rescheduleStorageMetricTimer(self):
+    """Cancel any existing storage-metric timer and start a new one at the current interval."""
+    timer = getattr(self, 'storage_metric_timer', None)
+    if timer is not None:
+      timer.cancel()
+    self.storage_metric_timer = None
+    self._startStorageMetricTimer()
+
   def _startStorageMetricTimer(self):
     """
     Start a background timer that periodically polls VDMS for the ground-truth
@@ -227,7 +238,7 @@ class UUIDManager:
       return
     if descriptor_count is None:
       return
-    log.info(
+    log.debug(
       "reid_storage_metric "
       f"descriptor_count={descriptor_count} "
       f"shared_vector_bytes={shared_vector_bytes}")
