@@ -281,7 +281,7 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       self._log.error(f"MQTT connect failed, return code {rc}")
 
   def _handle_camera_message(self, _client, _userdata, message):
-    payload = message.payload.decode("utf-8")
+    payload = message.payload.decode("utf-8", errors="replace")
     if payload == "getimage":
       self._publish_image = True
       return
