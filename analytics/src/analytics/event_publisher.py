@@ -144,9 +144,21 @@ def _build_exited_objs_list(region_state, event_data):
 
 
 def _clear_sensor_values_on_exit(scene):
-  """Clear region entered/exited arrays after events have been published."""
+  """Clear region entered/exited arrays and sensor state after events have been published."""
+  cleared_keys = set()
   for event_type in scene.events:
     for key, region in scene.events[event_type]:
-      if not isinstance(region, Tripwire):
-        scene.analytics_state.region(key).clear_frame_state()
+      if isinstance(region, Tripwire):
+        continue
+      rstate = scene.analytics_state.region(key)
+      # Clear env_sensor_state for exited objects exactly once per key.
+      # publish_events may iterate the same key multiple times (once per event
+      # type), so we deduplicate to avoid clearing already-empty state.
+      if key not in cleared_keys and region.singleton_type == "environmental":
+        cleared_keys.add(key)
+        for exited_list in rstate.exited.values():
+          for exited_obj, _ in exited_list:
+            with exited_obj.chain_data._lock:
+              exited_obj.chain_data.env_sensor_state.pop(key, None)
+      rstate.clear_frame_state()
   return

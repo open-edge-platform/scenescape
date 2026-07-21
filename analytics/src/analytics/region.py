@@ -127,6 +127,9 @@ def update_region_events(
 
       # Clean up exited objects only after an exit event can be emitted,
       # so entered timestamps remain available for dwell-time calculation.
+      # NOTE: env_sensor_state[key] is intentionally NOT cleared here — it must
+      # remain available when publish_events serialises the exited objects.
+      # It is cleared in event_publisher._build_exited_objs_list after serialisation.
       for obj in regionObjects:
         if obj.gid in old:
           with obj.chain_data._lock:
@@ -134,9 +137,6 @@ def update_region_events(
 
             if region.singleton_type is not None:
               obj.chain_data.active_sensors.discard(key)
-
-              if region.singleton_type == "environmental":
-                obj.chain_data.env_sensor_state.pop(key, None)
 
               # Attribute sensors: keep event history (data persists after exit)
               # attr_sensor_events[key] intentionally not removed

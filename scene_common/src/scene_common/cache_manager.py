@@ -75,15 +75,18 @@ class CacheManager:
 
       uid = scene_data['uid']
       if uid not in self.cached_scenes_by_uid:
-        scene_cls = getattr(self, '_scene_cls', None)
-        if scene_cls is None:
-          from controller.scene import Scene
-          scene_cls = Scene
-        scene = scene_cls.deserialize(scene_data)
-
         old_scene = self._sensorNeedsRestoring(uid)
-        if old_scene:
-          self._restoreSensorCache(uid, old_scene, scene)
+        if old_scene is not None:
+          # Reuse the existing scene to preserve tracked objects, sensor state,
+          # analytics_state and dwell times across DB-triggered refreshes.
+          scene = old_scene
+          scene.updateScene(scene_data)
+        else:
+          scene_cls = getattr(self, '_scene_cls', None)
+          if scene_cls is None:
+            from controller.scene import Scene
+            scene_cls = Scene
+          scene = scene_cls.deserialize(scene_data)
       else:
         scene = self.cached_scenes_by_uid[uid]
         scene.updateScene(scene_data)
