@@ -24,21 +24,31 @@ The **Auto Camera Calibration** service (formerly `camcalibration`) computes cam
    - Alternative calibration method without physical markers
    - Uses feature detection and matching across frames
 
-3. **`auto_camera_calibration_controller.py`**: Main service controller
+3. **`point_cloud_registration.py`**: Sensor-agnostic point cloud registration engine
+   - Converts a scene mesh (GLB/PLY) into a point cloud, sampled and cached per scene
+   - Registers a sensor point cloud (LiDAR, depth camera, stereo, photogrammetry) against
+     the scene cloud using Open3D Generalized ICP + point-to-plane ICP refinement
+   - Decodes base64 PLY/PCD input; returns a 4x4 transform, fitness, and inlier RMSE
+   - `point_cloud_registration_controller.py` wraps it as a `CameraCalibrationController`
+     strategy (`POINTCLOUD` mode), dispatched independently of a scene's calibration mode
+
+4. **`auto_camera_calibration_controller.py`**: Main service controller
    - Orchestrates calibration workflows
    - Manages MQTT communication with Scene Controller
    - Handles REST API requests
 
-4. **`auto_camera_calibration_api.py`**: REST API endpoints
-   - `/calibrate`: Trigger calibration for specific camera
-   - `/status`: Check calibration status
-   - Health check endpoints
+5. **`auto_camera_calibration_api.py`**: REST API endpoints
+   - `/scenes/{sceneId}/registration`: Register/update a scene for calibration
+   - `/cameras/{cameraId}/calibration`: Trigger and poll camera calibration
+   - `/point-cloud-sensors/{sensorId}/registration`: Register/poll a sensor point cloud
+     against a scene's 3D model
+   - `/status`: Check calibration service status
 
-5. **`auto_camera_calibration_model.py`**: Data models and validation
+6. **`auto_camera_calibration_model.py`**: Data models and validation
    - Calibration request/response structures
    - Camera parameter models
 
-6. **`reloc/`**: Relocalization support
+7. **`reloc/`**: Relocalization support
    - Camera pose estimation refinement
    - Handles camera movement detection
 
@@ -48,6 +58,7 @@ The **Auto Camera Calibration** service (formerly `camcalibration`) computes cam
 - **OpenCV**: Computer vision operations
 - **NumPy/SciPy**: Numerical computations
 - **AprilTag library**: Marker detection (for AprilTag mode)
+- **Open3D** (`open3d-cpu[headless]`): Mesh sampling and point cloud registration (ICP/GICP)
 
 ## Communication Patterns
 

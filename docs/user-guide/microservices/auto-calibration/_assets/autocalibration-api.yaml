@@ -212,6 +212,120 @@ components:
           - [100, 200]
           - [150, 250]
 
+    PointCloudRegistrationRequest:
+      type: object
+      required:
+        - sceneId
+        - pointcloud
+      properties:
+        sceneId:
+          type: string
+          format: uuid
+          description: Unique identifier of the scene to register against
+        pointcloud:
+          type: string
+          format: byte
+          maxLength: 104857600
+          description: Base64 encoded sensor point cloud (PLY or PCD)
+        format:
+          type: string
+          enum: [ply, pcd]
+          description: Optional explicit point cloud format
+        initialTransform:
+          type: array
+          description: Optional 4x4 initial transform guess (sensor to scene)
+          minItems: 4
+          maxItems: 4
+          items:
+            type: array
+            minItems: 4
+            maxItems: 4
+            items:
+              type: number
+              format: float
+      example:
+        sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
+        pointcloud: "cGx5CmZvcm1hdCBhc2NpaSAxLjAK..."
+        format: "ply"
+
+    PointCloudRegistrationTriggerResponse:
+      type: object
+      required:
+        - status
+        - sensorId
+      properties:
+        status:
+          type: string
+          enum: [calibrating, busy, error]
+          description: Registration trigger status
+        sensorId:
+          type: string
+          description: Unique identifier of the point cloud sensor
+        sceneId:
+          type: string
+          format: uuid
+          description: Unique identifier of the scene
+        message:
+          type: string
+          description: Additional information
+      example:
+        status: "calibrating"
+        sensorId: "lidar-1"
+        sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
+        message: "Registration started"
+
+    PointCloudRegistrationStatusResponse:
+      type: object
+      required:
+        - sensorId
+        - status
+      properties:
+        sensorId:
+          type: string
+          description: Unique identifier of the point cloud sensor
+        status:
+          type: string
+          enum: [success, calibrating, error, not_started, busy]
+          description: Registration status
+        message:
+          type: string
+          description: Status or error message
+        scene_name:
+          type: string
+          description: Name of the scene the sensor was registered against (optional)
+        transform:
+          type: array
+          description: Computed 4x4 sensor-to-scene transform (optional)
+          minItems: 4
+          maxItems: 4
+          items:
+            type: array
+            minItems: 4
+            maxItems: 4
+            items:
+              type: number
+              format: float
+        fitness:
+          type: number
+          format: float
+          description: Registration fitness in [0, 1]; higher is better (optional)
+        inlier_rmse:
+          type: number
+          format: float
+          description: Inlier RMSE of the registration in meters (optional)
+      example:
+        sensorId: "lidar-1"
+        status: "success"
+        message: "Registration completed"
+        scene_name: "Demo Scene"
+        transform:
+          - [1.0, 0.0, 0.0, 0.15]
+          - [0.0, 1.0, 0.0, -0.10]
+          - [0.0, 0.0, 1.0, 0.05]
+          - [0.0, 0.0, 0.0, 1.0]
+        fitness: 0.98
+        inlier_rmse: 0.012
+
 paths:
   /status:
     get:
@@ -438,6 +552,90 @@ paths:
                 $ref: "#/components/schemas/CameraCalibrationStatusResponse"
         "404":
           description: Camera or calibration not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /point-cloud-sensors/{sensorId}/registration:
+    post:
+      summary: Register a point cloud sensor
+      description: |
+        Registers a sensor point cloud against a scene's 3D model and computes
+        the sensor-to-scene transform. The point cloud may come from any
+        perceptual sensor (LiDAR, depth camera, stereo, photogrammetry) and is
+        supplied as a base64-encoded PLY or PCD file. Registration runs
+        asynchronously; poll the GET endpoint for the result.
+      operationId: registerPointCloud
+      parameters:
+        - name: sensorId
+          in: path
+          description: Unique identifier of the point cloud sensor
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Point cloud registration request details
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PointCloudRegistrationRequest"
+        required: true
+      responses:
+        "202":
+          description: Registration started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PointCloudRegistrationTriggerResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scene not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    get:
+      summary: Get point cloud registration status
+      description: |
+        Checks the status and result of point cloud registration.
+        On success, returns the 4x4 sensor-to-scene transform, fitness,
+        and inlier RMSE.
+      operationId: getPointCloudRegistrationStatus
+      parameters:
+        - name: sensorId
+          in: path
+          description: Unique identifier of the point cloud sensor
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Registration status and result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PointCloudRegistrationStatusResponse"
+        "404":
+          description: Sensor or registration not found
           content:
             application/json:
               schema:
