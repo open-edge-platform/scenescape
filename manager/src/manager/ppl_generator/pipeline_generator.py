@@ -33,7 +33,7 @@ class PipelineGenerator:
     self.timestamper = [f'sscape_timestamp_capture name=timesync']
     self.undistort = self.add_camera_undistort(camera_settings) if self.camera_settings.get('undistort') else []
     self.adapter = [
-      f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher'
+      f'sscape_post_inference_data_publish name=datapublisher'
     ]
     self.metadata_conversion = ['gvametaconvert add-tensor-data=true name=metaconvert']
     self.sink = ['appsink sync=true']

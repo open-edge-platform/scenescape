@@ -4,9 +4,6 @@
 SceneScape custom GStreamer element that consumes gvametaconvert JSON metadata
 and post-decode timestamps attached upstream and publishes per-frame inference
 data over MQTT (and, on request, JPEG-encoded frame images).
-
-Replaces the legacy gvapython `PostInferenceDataPublish` shim previously loaded
-from `sscape_adapter.py`.
 """
 
 import base64
@@ -35,18 +32,6 @@ from gi.repository import (  # pylint: disable=no-name-in-module
 )
 
 from gstgva.video_frame import VideoFrame
-
-# The scenescape policy/3D-detector helpers still live with the other
-# gvapython sources so we can share them across the pipeline. Expose that
-# directory on sys.path before importing so a container-side deployment does
-# not need to move the files. The path can be overridden with the
-# SSCAPE_MODULE_DIR environment variable if the mount changes.
-_SSCAPE_MODULE_DIR = os.environ.get(
-  "SSCAPE_MODULE_DIR",
-  "/home/pipeline-server/user_scripts/gvapython/sscape",
-)
-if _SSCAPE_MODULE_DIR and _SSCAPE_MODULE_DIR not in sys.path:
-  sys.path.insert(0, _SSCAPE_MODULE_DIR)
 
 from sscape_policies import (  # noqa: E402  pylint: disable=wrong-import-position
   detectionPolicy,
