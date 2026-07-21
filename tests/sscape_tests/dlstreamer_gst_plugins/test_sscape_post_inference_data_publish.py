@@ -12,7 +12,6 @@ PyGObject/GStreamer installation and without any production code changes.
 
 import json
 import os
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
