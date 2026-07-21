@@ -18,24 +18,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# SscapePostInferenceDataPublish loads sscape_policies and sscape_3d_detector
-# from a container-side path via SSCAPE_MODULE_DIR. Point the env var at the
-# in-repo sources before importing so the plugin module can resolve them.
-_REPO_SSCAPE_MODULE_DIR = str(
-  Path(__file__).resolve().parents[3]
-  / "dlstreamer-pipeline-server" / "user_scripts" / "gvapython" / "sscape"
-)
-os.environ["SSCAPE_MODULE_DIR"] = _REPO_SSCAPE_MODULE_DIR
-
 from sscape_post_inference_data_publish import (  # noqa: E402
   SscapePostInferenceDataPublish,
 )
 import sscape_post_inference_data_publish as pubmod  # noqa: E402
 
-
 def make_prop(name):
   return SimpleNamespace(name=name)
-
 
 class RecordingVideoFrame:
   """Test double that records every constructed instance, the GVA JSON
