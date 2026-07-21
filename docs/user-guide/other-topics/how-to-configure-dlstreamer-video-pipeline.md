@@ -255,7 +255,7 @@ Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice.
 The following is the GStreamer command that defines the video processing pipeline. It specifies how video frames are read, processed, and analyzed using various GStreamer elements and plugins. Each element in the pipeline performs a specific task, such as decoding, object detection, metadata conversion, and publishing, to enable video analytics in the Scenescape platform.
 
 ```
-"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
 ```
 
 #### Breakdown of gstreamer command
@@ -265,10 +265,11 @@ The following is the GStreamer command that defines the video processing pipelin
 
 `videoconvert` converts the video stream into a raw format suitable for further processing. In this case, it ensures the video is in the BGR format required by downstream elements.
 
+`sscape_timestamp_capture` is a custom GStreamer element that captures timestamps for each video frame. The `ntp-server` parameter specifies the NTP server to synchronize timestamps, and the `use-frame-ntp-timestamp` parameter determines whether to use the NTP timestamp embedded in the RTSP frame metadata or the post-decode system time.
+
 `gvapython` is a GStreamer element that allows custom Python scripts to process video frames. In this pipeline, it is used twice:
 
-- The first instance, `PostDecodeTimestampCapture`, captures timestamps and processes frames after decoding.
-- The second instance, `PostInferenceDataPublish`, processes frames after inference and publishes metadata in Scenescape detection format as described in [metadata.schema.json](/controller/src/schema/metadata.schema.json)
+- `PostInferenceDataPublish`, processes frames after inference and publishes metadata in Scenescape detection format as described in [metadata.schema.json](/controller/src/schema/metadata.schema.json)
 
 `gvadetect` performs object detection using a pre-trained deep learning model. The `model` parameter specifies the path to the model file, and the `model-proc` parameter points to the model's preprocessing configuration.
 
