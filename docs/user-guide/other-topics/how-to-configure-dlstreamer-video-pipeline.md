@@ -267,7 +267,7 @@ The following is the GStreamer command that defines the video processing pipelin
 
 `sscape_timestamp_capture` is a custom GStreamer element that captures timestamps for each video frame. The `ntp-server` parameter specifies the NTP server to synchronize timestamps, and the `use-frame-ntp-timestamp` parameter determines whether to use the NTP timestamp embedded in the RTSP frame metadata or the post-decode system time.
 
-- `sscape_post_inference_data_publish `, processes frames after inference and publishes metadata in Scenescape detection format as described in [metadata.schema.json](/controller/src/schema/metadata.schema.json)
+`sscape_post_inference_data_publish`, processes frames after inference and publishes metadata in Scenescape detection format as described in [metadata.schema.json](/controller/src/schema/metadata.schema.json)
 
 `gvadetect` performs object detection using a pre-trained deep learning model. The `model` parameter specifies the path to the model file, and the `model-proc` parameter points to the model's preprocessing configuration.
 

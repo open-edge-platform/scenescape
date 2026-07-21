@@ -104,6 +104,7 @@ class PipelineConfigGenerator:
               "undistort_config": "",
               "cameraid": "",
               "metadatagenpolicy": "",
+              "publish_image": False,
               "detection_labels": ""
             }
           }

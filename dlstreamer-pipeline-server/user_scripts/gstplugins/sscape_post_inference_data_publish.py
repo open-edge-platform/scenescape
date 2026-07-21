@@ -10,7 +10,6 @@ import base64
 import json
 import logging
 import os
-import sys
 import time
 from collections import defaultdict
 from datetime import datetime
@@ -415,6 +414,8 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     })
     if "initial_intrinsics" in gvadata:
       self._frame_level_data["initial_intrinsics"] = gvadata["initial_intrinsics"]
+    else:
+      self._frame_level_data.pop("initial_intrinsics", None)
 
     objects = defaultdict(list)
     raw_objects = gvadata.get("objects") or []
@@ -478,6 +479,7 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     return len(existing_objects) + 1
 
   def _process_sub_detections(self, objects: dict) -> None:
+    self._frame_level_data.pop("sub_detections", None)
     if "car" in objects and "license_plate" in objects:
       intrinsics = self._frame_level_data.get("initial_intrinsics")
       sub_detections = self._sub_detector.associateObjects(
