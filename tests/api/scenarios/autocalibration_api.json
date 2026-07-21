@@ -263,5 +263,112 @@
         }
       }
     ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/14: Register a point cloud sensor with required parameters",
+    "test_steps": [
+      {
+        "step_name": "Register point cloud sensor",
+        "api": "autocalibration",
+        "method": "registerPointCloud",
+        "request": {
+          "path_params": {
+            "sensorId": "lidar-1"
+          },
+          "body": {
+            "sceneId": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "pointcloud": "base64:test_media/sample-point-cloud.ply",
+            "format": "ply"
+          }
+        },
+        "expected_status": {
+          "status_code": 202
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/15: Register a point cloud sensor with non existent scene ID",
+    "test_steps": [
+      {
+        "step_name": "Register point cloud sensor",
+        "api": "autocalibration",
+        "method": "registerPointCloud",
+        "request": {
+          "path_params": {
+            "sensorId": "lidar-1"
+          },
+          "body": {
+            "sceneId": "12345678-1234-5678-1234-567812345678",
+            "pointcloud": "base64:test_media/sample-point-cloud.ply",
+            "format": "ply"
+          }
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/16: Register a point cloud sensor with missing point cloud",
+    "test_steps": [
+      {
+        "step_name": "Register point cloud sensor",
+        "api": "autocalibration",
+        "method": "registerPointCloud",
+        "request": {
+          "path_params": {
+            "sensorId": "lidar-1"
+          },
+          "body": {
+            "sceneId": "302cf49a-97ec-402d-a324-c5077b280b7b"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/17: Register a point cloud sensor with invalid point cloud data",
+    "test_steps": [
+      {
+        "step_name": "Register point cloud sensor",
+        "api": "autocalibration",
+        "method": "registerPointCloud",
+        "request": {
+          "path_params": {
+            "sensorId": "lidar-1"
+          },
+          "body": {
+            "sceneId": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "pointcloud": "INVALID_BASE64"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/18: Get point cloud registration status",
+    "test_steps": [
+      {
+        "step_name": "Get point cloud registration status",
+        "api": "autocalibration",
+        "method": "getPointCloudRegistrationStatus",
+        "request": {
+          "path_params": {
+            "sensorId": "lidar-1"
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
   }
 ]
