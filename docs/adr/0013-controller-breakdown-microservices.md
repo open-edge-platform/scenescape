@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - **Author(s)**: [Tomasz Dorau](https://github.com/tdorauintc), [Sarat Poluri](https://github.com/saratpoluri), [Lukasz Talarczyk](https://github.com/ltalarcz), [Rob Watts](https://github.com/rawatts10)
 - **Date**: 2026-06-11
-- **Status**: `Proposed`
+- **Status**: `Accepted`
 
 ## TLDR
 
@@ -196,7 +196,7 @@ flowchart TD
   Transform --> Tracker
   Tracker --> Persistence
   Positioning -->|"Pose"| Persistence
-  Persistence -->|"SceneField Update"| Transform
+  Persistence -->|"SceneField"| Transform
   Persistence -->|"Update"| Subscene
 
   Persistence --> Analytics
