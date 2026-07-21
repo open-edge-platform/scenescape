@@ -7,8 +7,10 @@ import threading
 from atag_camera_calibration_controller import ApriltagCameraCalibrationController
 from auto_camera_calibration_model import CameraCalibrationModel
 from markerless_camera_calibration_controller import MarkerlessCameraCalibrationController
+from point_cloud_registration_controller import PointCloudRegistrationController
 
 from scene_common import log
+from scene_common.options import POINTCLOUD
 
 
 class CameraCalibrationContext:
@@ -19,6 +21,10 @@ class CameraCalibrationContext:
 
     self.scene_strategies["AprilTag"] = ApriltagCameraCalibrationController(calibration_data_interface=self.calibration_data_interface)
     self.scene_strategies["Markerless"] = MarkerlessCameraCalibrationController(calibration_data_interface=self.calibration_data_interface)
+    self.scene_strategies[POINTCLOUD] = PointCloudRegistrationController(calibration_data_interface=self.calibration_data_interface)
+    # Point cloud registration is dispatched directly (independent of the
+    # scene's camera_calibration mode), so keep a direct reference.
+    self.point_cloud_strategy = self.scene_strategies[POINTCLOUD]
 
     self.calibration_results = {}
     self.socket_clients = {}
@@ -122,3 +128,46 @@ class CameraCalibrationContext:
         log.info(f"Sent WebSocket result to {socket_id} for {cameraId}")
       else:
         log.info(f"No socket_id found for {cameraId}, can't send result via WebSocket")
+
+  def register_point_cloud_thread_wrapper(self, sceneobj, sensorId, sensor_frame_data):
+    """
+    Starts a background thread to register a sensor point cloud against a scene.
+    """
+    if not self.calibration_thread_lock.locked():
+      self.socketio.start_background_task(
+          self.process_point_cloud_registration,
+          sceneobj, sensorId, sensor_frame_data
+      )
+      self.calibration_results[sensorId] = {
+          "status": "calibrating",
+          "message": "Registration started"
+      }
+    else:
+      self.calibration_results[sensorId] = {
+          "status": "busy",
+          "message": "Another registration is already in progress"
+      }
+
+  def process_point_cloud_registration(self, sceneobj, sensorId, sensor_frame_data):
+    """
+    Registers a sensor point cloud against a scene in a background thread.
+    Stores the resulting transform and emits it over Socket.IO.
+    """
+    log.info(f"[processPointCloudRegistration] Thread started for sensor {sensorId}")
+    with self.calibration_thread_lock:
+      try:
+        result = self.point_cloud_strategy.generate_calibration(
+            sceneobj, None, sensor_frame_data)
+      except Exception as e:
+        result = {
+            "status": "error",
+            "message": f"Registration failed: {str(e)}"
+        }
+      self.calibration_results[sensorId] = result
+      socket_id = self.socket_clients.get(sensorId)
+      if socket_id:
+        self.socketio.emit("point_cloud_registration_result",
+                           {"sensor_id": sensorId, "result": result}, to=socket_id)
+        log.info(f"Sent WebSocket result to {socket_id} for {sensorId}")
+      else:
+        log.info(f"No socket_id found for {sensorId}, can't send result via WebSocket")
