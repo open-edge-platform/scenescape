@@ -30,3 +30,11 @@ class AutoCalibrationClient(RESTClient):
   def getCameraCalibrationStatus(self, cameraId):
     """Gets camera calibration status."""
     return self._get(f"cameras/{cameraId}/calibration", None)
+
+  def registerPointCloud(self, sensorId, data):
+    """Register a sensor point cloud against a scene."""
+    return self._create(f"point-cloud-sensors/{sensorId}/registration", data)
+
+  def getPointCloudRegistrationStatus(self, sensorId):
+    """Gets point cloud registration status for a sensor."""
+    return self._get(f"point-cloud-sensors/{sensorId}/registration", None)

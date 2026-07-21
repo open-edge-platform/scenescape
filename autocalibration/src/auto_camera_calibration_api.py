@@ -82,6 +82,13 @@ class StrategyNotFoundError(CameraCalibrationError):
     super().__init__("Calibration strategy not found", 500, 500)
 
 
+class InvalidPointCloudError(CameraCalibrationError):
+  """Raised when point cloud input validation fails."""
+
+  def __init__(self, message):
+    super().__init__(message, 400, 400)
+
+
 class CameraCalibrationApi:
   """
   REST API service for automatic camera calibration in Scenescape.
@@ -94,6 +101,8 @@ class CameraCalibrationApi:
   VALID_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_\.]+$')  # Allow alphanumeric, hyphens, underscores, dots
   MAX_IMAGE_SIZE = 20 * 1024 * 1024
   MAX_REQUEST_SIZE = 25 * 1024 * 1024
+  # Point clouds can be large (KPI targets >1M points); allow a bigger payload.
+  MAX_POINTCLOUD_SIZE = 100 * 1024 * 1024
 
   class OpenApi:
     """
@@ -107,6 +116,10 @@ class CameraCalibrationApi:
     CAMERA_ID = "cameraId"
     IMAGE = "image"
     INTRINSICS = "intrinsics"
+    SENSOR_ID = "sensorId"
+    POINTCLOUD = "pointcloud"
+    FORMAT = "format"
+    INITIAL_TRANSFORM = "initialTransform"
 
     class Status:
       BUSY = "busy"
@@ -127,7 +140,8 @@ class CameraCalibrationApi:
     """
     self.app = Flask(__name__)
     # Set maximum content length to prevent huge payloads
-    self.app.config['MAX_CONTENT_LENGTH'] = self.MAX_REQUEST_SIZE
+    self.app.config['MAX_CONTENT_LENGTH'] = max(self.MAX_REQUEST_SIZE,
+                                                self.MAX_POINTCLOUD_SIZE + 5 * 1024 * 1024)
     self.calibrationContext = calibrationContext
 
     self.socketio = SocketIO(self.app, path="/v1/socket.io/", cors_allowed_origins=["*"])
@@ -205,6 +219,41 @@ class CameraCalibrationApi:
       for value in row:
         if not isinstance(value, (int, float)):
           raise ValidationError("Intrinsics values must be numbers")
+
+  def _validate_pointcloud(self, pc_data, fmt=None):
+    """Validate a base64-encoded point cloud payload (PLY or PCD)."""
+    if not isinstance(pc_data, str):
+      raise InvalidPointCloudError("Point cloud must be a string (base64 encoded)")
+    if len(pc_data) == 0:
+      raise InvalidPointCloudError("Point cloud data cannot be empty")
+    if len(pc_data) > self.MAX_POINTCLOUD_SIZE:
+      log.warning(f"Rejecting oversized point cloud data: {len(pc_data)} bytes")
+      raise InvalidPointCloudError("Point cloud data is too large")
+
+    if fmt is not None and (not isinstance(fmt, str) or fmt.lower() not in ("ply", "pcd")):
+      raise InvalidPointCloudError("Point cloud format must be 'ply' or 'pcd'")
+
+    try:
+      decoded = base64.b64decode(pc_data, validate=True)
+    except Exception:
+      raise InvalidPointCloudError("Point cloud must be valid base64-encoded data")
+
+    head = decoded[:64].upper()
+    is_ply = decoded[:3] == b'ply'
+    is_pcd = b'.PCD' in head or head.startswith(b'VERSION') or decoded[:1] == b'#'
+    if not (is_ply or is_pcd):
+      raise InvalidPointCloudError("Point cloud data must be a valid PLY or PCD file")
+
+  def _validate_transform(self, transform):
+    """Validate an optional 4x4 initial transform matrix."""
+    if not isinstance(transform, list) or len(transform) != 4:
+      raise ValidationError("Initial transform must be a 4x4 matrix")
+    for row in transform:
+      if not isinstance(row, list) or len(row) != 4:
+        raise ValidationError("Each initial transform row must contain exactly 4 values")
+      for value in row:
+        if not isinstance(value, (int, float)):
+          raise ValidationError("Initial transform values must be numbers")
 
   def _validate_pose_data(self, data):
     """Validate pose-related data in responses."""
@@ -377,6 +426,20 @@ class CameraCalibrationApi:
       sid = request.sid
       self.calibrationContext.socket_scene_clients[scene_id] = sid
       log.info(f"Registered scene '{scene_id}' with socket id {sid}")
+      return
+
+    @self.socketio.on("register_point_cloud_sensor")
+    def handle_register_point_cloud_sensor(data):
+      log.info(f"handle_register_point_cloud_sensor received: {data}")
+
+      sensor_id = data.get("sensor_id") if isinstance(data, dict) else None
+      if not sensor_id:
+        log.warning("Missing 'sensor_id' in payload")
+        return
+
+      sid = request.sid
+      self.calibrationContext.socket_clients[sensor_id] = sid
+      log.info(f"Registered sensor '{sensor_id}' with socket id {sid}")
       return
 
   def _register_routes(self):
@@ -586,6 +649,99 @@ class CameraCalibrationApi:
         self._validate_pose_data(result)
         response["pose"] = result.get("pose")
         for key in ("quaternion", "translation", "calibration_points_3d", "calibration_points_2d"):
+          if key in result:
+            response[key] = result[key]
+      return jsonify(response), 200
+
+    @app.route(f'{API_PREFIX}/point-cloud-sensors/<sensorId>/registration', methods=['POST'])
+    def register_point_cloud_sensor_calibration(sensorId):
+      """Register a sensor point cloud against a scene point cloud."""
+      log.info(f"POST {API_PREFIX}/point-cloud-sensors/{sensorId}/registration called")
+
+      self._validate_calibration_context()
+      self._validate_id(sensorId, "Sensor ID")
+
+      try:
+        data = request.get_json(force=True)
+      except Exception as e:
+        log.warning(f"Failed to parse JSON for sensor {sensorId}: {e}")
+        raise ValidationError("Invalid JSON in request body")
+
+      if not data:
+        raise ValidationError("Request body cannot be empty")
+
+      scene_id = data.get(self.OpenApi.SCENE_ID)
+      if not scene_id:
+        raise MissingFieldError(self.OpenApi.SCENE_ID)
+      scene = self._get_scene(scene_id)
+
+      pointcloud = data.get(self.OpenApi.POINTCLOUD)
+      if not pointcloud:
+        raise MissingFieldError(self.OpenApi.POINTCLOUD)
+      fmt = data.get(self.OpenApi.FORMAT)
+      self._validate_pointcloud(pointcloud, fmt)
+
+      initial_transform = data.get(self.OpenApi.INITIAL_TRANSFORM)
+      if initial_transform is not None:
+        self._validate_transform(initial_transform)
+
+      sensor_frame_data = {
+          "pointcloud": pointcloud,
+          "format": fmt,
+          "initial_transform": initial_transform,
+          "id": sensorId
+      }
+
+      try:
+        self.calibrationContext.register_point_cloud_thread_wrapper(
+            scene, sensorId, sensor_frame_data
+        )
+        return jsonify({
+            self.OpenApi.STATUS: self.OpenApi.Status.CALIBRATING,
+            self.OpenApi.SENSOR_ID: sensorId,
+            self.OpenApi.SCENE_ID: scene_id,
+            self.OpenApi.MESSAGE: "Registration started"
+        }), 202
+      except Exception as e:
+        log.error(f"Registration failed for sensor {sensorId}: {e}")
+        raise CameraCalibrationError(f"Registration failed: {str(e)}")
+
+    @app.route(f'{API_PREFIX}/point-cloud-sensors/<sensorId>/registration', methods=['GET'])
+    def get_point_cloud_registration_status(sensorId):
+      """Get the current registration status and result for a sensor."""
+      log.info(f"GET {API_PREFIX}/point-cloud-sensors/{sensorId}/registration called")
+
+      self._validate_calibration_context()
+      self._validate_id(sensorId, "Sensor ID")
+
+      if self.calibrationContext.calibration_thread_lock.locked():
+        return jsonify({
+            self.OpenApi.SENSOR_ID: sensorId,
+            self.OpenApi.STATUS: self.OpenApi.Status.BUSY,
+            self.OpenApi.MESSAGE: "Registration is currently in progress"
+        }), 200
+
+      result = self.calibrationContext.calibration_results.get(sensorId)
+      if result is None:
+        return jsonify({
+            self.OpenApi.SENSOR_ID: sensorId,
+            self.OpenApi.STATUS: self.OpenApi.Status.NOT_STARTED,
+            self.OpenApi.MESSAGE: "Registration has not been started for this sensor"
+        }), 200
+      elif result.get("status") == self.OpenApi.Status.CALIBRATING:
+        return jsonify({
+            self.OpenApi.SENSOR_ID: sensorId,
+            self.OpenApi.STATUS: self.OpenApi.Status.CALIBRATING,
+            self.OpenApi.MESSAGE: "Registration in progress"
+        }), 200
+
+      response = {
+          self.OpenApi.SENSOR_ID: sensorId,
+          self.OpenApi.STATUS: result.get("status", self.OpenApi.Status.ERROR),
+          self.OpenApi.MESSAGE: result.get("message", ""),
+      }
+      if result.get("status") == self.OpenApi.Status.SUCCESS:
+        for key in ("transform", "fitness", "inlier_rmse", "scene_name"):
           if key in result:
             response[key] = result[key]
       return jsonify(response), 200
