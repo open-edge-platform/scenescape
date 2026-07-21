@@ -467,3 +467,80 @@ class TestSceneControllerPublishers:
     scene_controller.publishRegulatedDetections.assert_called_once()
     scene_controller.publishRegionDetections.assert_called_once()
 
+
+class TestParseTrustedSources:
+  """Unit tests for the trusted-positioning-source allowlist parser."""
+
+  def test_empty_or_none_value_trusts_nothing(self):
+    """Fails closed: unset/empty config trusts no source."""
+    from controller.scene_controller import _parseTrustedSources
+
+    assert _parseTrustedSources(None) == frozenset()
+    assert _parseTrustedSources('') == frozenset()
+
+  def test_parses_comma_separated_ids_and_trims_whitespace(self):
+    from controller.scene_controller import _parseTrustedSources
+
+    result = _parseTrustedSources(' positioning-svc-1 , positioning-svc-2,,')
+
+    assert result == frozenset({'positioning-svc-1', 'positioning-svc-2'})
+
+
+class TestSceneControllerHandleExternalSourceObject:
+  """Unit tests for SceneController._handleExternalSourceObject."""
+
+  def _build_controller(self):
+    controller = SceneController.__new__(SceneController)
+    controller.external_source_pose_cache = MagicMock()
+    controller.trusted_positioning_sources = frozenset({'positioning-svc-1'})
+    return controller
+
+  def test_ingests_objects_when_pose_resolves(self):
+    """Resolves a pose and delegates ingestion to scene.processSceneData."""
+    scene_controller = self._build_controller()
+    fake_camera_pose = MagicMock()
+    scene_controller.external_source_pose_cache.resolve.return_value = (fake_camera_pose, None)
+    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+    jdata = {
+      'source_id': 'drone-1',
+      'objects': [{'category': 'vehicle', 'translation': [1.0, 2.0, 0.0]}],
+    }
+
+    result = scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
+
+    assert result is True
+    scene_controller.external_source_pose_cache.resolve.assert_called_once_with(
+      scene, 'drone-1', None, 42.0, trusted_scene_pose=False)
+    scene.processSceneData.assert_called_once()
+    args, kwargs = scene.processSceneData.call_args
+    assert args[0] is jdata
+    assert args[1].name == 'drone-1'
+    assert args[1].retrack is True
+    assert args[2] is fake_camera_pose
+    assert args[3] == 'vehicle'
+    assert kwargs == {'when': 42.0}
+
+  def test_trusted_scene_pose_flag_is_passed_through(self):
+    """Only allowlisted source_ids are marked trusted for scene-frame poses."""
+    scene_controller = self._build_controller()
+    scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
+    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+    jdata = {'source_id': 'positioning-svc-1', 'objects': []}
+
+    scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
+
+    scene_controller.external_source_pose_cache.resolve.assert_called_once_with(
+      scene, 'positioning-svc-1', None, 42.0, trusted_scene_pose=True)
+
+  def test_skips_ingestion_without_crashing_when_pose_unavailable(self):
+    """When no transform can be resolved, ingestion is skipped but not treated as failure."""
+    scene_controller = self._build_controller()
+    scene_controller.external_source_pose_cache.resolve.return_value = (None, 'no_pose_available')
+    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock())
+    jdata = {'source_id': 'drone-1', 'objects': []}
+
+    result = scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
+
+    assert result is True
+    scene.processSceneData.assert_not_called()
+

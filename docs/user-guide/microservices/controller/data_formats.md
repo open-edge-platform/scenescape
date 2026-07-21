@@ -11,6 +11,7 @@ SPDX-License-Identifier: Apache-2.0
 | ------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------- |
 | [Camera Input Message Format](#camera-input-message-format)                     | Subscribe | `scenescape/data/camera/{camera_id}`                              |
 | [Sensor Input Message Format](#sensor-input-message-format)                     | Subscribe | `scenescape/data/sensor/{sensor_id}`                              |
+| [External Source Input Message Format](#external-source-input-message-format)  | Subscribe | `scenescape/external/{scene_id}/{thing_type}`                     |
 | [Data Scene Output Message Format](#data-scene-output-message-format)           | Publish   | `scenescape/data/scene/{scene_id}/{thing_type}`                   |
 | [Regulated Scene Output Message Format](#regulated-scene-output-message-format) | Publish   | `scenescape/regulated/scene/{scene_id}`                           |
 | [Region Event Output Message Format](#region-event-output-message-format)       | Publish   | `scenescape/event/region/{scene_id}/{region_id}/{event_type}`     |
@@ -199,6 +200,153 @@ For a broader description of how singleton sensors work and how the tagged data 
 scene objects, see
 [Singleton Sensor Data](../../how-to-guides/integrate-cameras-and-sensors.md#singleton-sensor-data)
 in the integration guide.
+
+## External Source Input Message Format
+
+The Scene Controller subscribes to the MQTT topic `scenescape/external/{scene_id}/{thing_type}`.
+This single topic carries two message contracts, distinguished by the presence of `source_id`
+in the payload:
+
+- **Legacy configured child scene** (no `source_id`): `{scene_id}` is the *sending* child
+  scene's own ID. The controller looks up the child's configured parent scene and its static
+  `cameraPose`, and transforms the child's tracked objects into the parent. This behavior is
+  unchanged.
+- **Unified external source** (`source_id` present): `{scene_id}` is the *target* scene the
+  source is publishing into. `source_id` identifies the publishing source (a physical agent
+  such as a drone or vehicle, the Scenescape positioning service, or a child scene using the
+  new contract). Messages are validated against the `external_source` definition in
+  [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
+
+This section documents the unified external-source contract.
+
+### External Source Top-Level Fields
+
+| Field       | Type                  | Required | Description                                                                                                       |
+| ----------- | --------------------- | :------: | ------------------------------------------------------------------------------------------------------------------ |
+| `timestamp` | string (ISO 8601 UTC) |   Yes    | Time the observations (and pose, if present) were acquired                                                        |
+| `source_id` | string                |   Yes    | Identifier of the publishing source; combined with the topic's `{scene_id}` to key the source's pose cache        |
+| `objects`   | array                 |   Yes    | Observed objects, in the source's local coordinate frame (see [External Detection Object Fields](#external-detection-object-fields-objects)); may be empty for a pose-only update |
+| `pose`      | object                |    No    | Pose of the source's local origin, used to transform `objects` into the target scene (see [External Source Pose Fields](#external-source-pose-fields-pose)); may be omitted to reuse the most recently cached, non-expired pose for this `source_id` |
+
+### External Source Pose Fields (`pose`)
+
+| Field                 | Type               |    Required     | Description                                                                                                                       |
+| --------------------- | ------------------ | :-------------: | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `reference_frame`     | string              |       Yes        | `"wgs84"` or `"scene"` — see below                                                                                                |
+| `rotation`             | array[4] of number |       Yes        | Orientation of the source's local origin, as a quaternion (`x`, `y`, `z`, `w`)                                                    |
+| `lat_long_alt`         | array[3] of number | If `wgs84`       | Global position of the source's local origin (latitude, longitude, altitude in metres)                                           |
+| `translation`          | array[3] of number | If `scene`       | Position of the source's local origin in scene-local coordinates (`x`, `y`, `z`)                                                  |
+| `position_accuracy_m` | number > 0         |       No         | Estimated accuracy of the reported position in metres, if known                                                                   |
+| `provider`             | string             |       No         | Informational label for what produced this pose (e.g. `"agent"`, `"positioning_service"`); not used for authorization              |
+
+`reference_frame` determines how the pose is resolved:
+
+- **`wgs84`** — A global geopose (e.g. from an onboard GNSS/INS). Requires the target scene
+  to have valid four-corner geospatial calibration (`map_corners_lla`); the controller converts
+  `lat_long_alt` to scene-local coordinates via the scene's LLA/ECEF transform. Rejected with
+  `scene_georeference_unavailable` if the scene is not geo-referenced. Any source may publish
+  this frame.
+- **`scene`** — A pose already expressed in the target scene's local coordinates. This is a
+  privileged frame: only accepted from `source_id`s listed in the
+  `CONTROLLER_TRUSTED_POSITIONING_SOURCES` environment variable (comma-separated list),
+  intended for the Scenescape positioning service. Rejected with `untrusted_scene_pose`
+  otherwise. Unset or empty trusts no source (fails closed).
+
+> **Note**: Only position is transformed through the scene's geospatial calibration for
+> `wgs84` poses; `rotation` is passed through unrotated, matching existing camera-detection
+> `lat_long_alt` handling. Full ENU-to-scene orientation alignment is future work.
+
+### External Detection Object Fields (`objects[*]`)
+
+| Field         | Type               | Required | Description                                                                                       |
+| ------------- | ------------------ | :------: | --------------------------------------------------------------------------------------------------- |
+| `category`    | string             |   Yes    | Category or class of the observed object (e.g. `"person"`, `"vehicle"`)                            |
+| `translation` | array[3] of number |   Yes    | Position of the object relative to the source's local origin (`x`, `y`, `z`)                       |
+| `rotation`     | array[4] of number |    No    | Rotation of the object as a quaternion (`x`, `y`, `z`, `w`)                                        |
+| `size`         | array[3] of number |    No    | Object dimensions (`x`, `y`, `z`). Omit for a point observation with no known extent               |
+| `confidence`   | number > 0         |    No    | Source-reported confidence for this observation                                                    |
+| `id`           | string             |    No    | Identifier the source uses to correlate this observation across messages; not a Scenescape global ID |
+| `metadata`     | object             |    No    | Semantic attribute bag; same structure as camera input (see [Semantic Metadata Fields](#semantic-metadata-fields)) |
+
+Unlike camera detections, `size` is optional here: a source that cannot estimate an object's
+extent may report a point observation. Point objects (no `size`) remain eligible for
+position-based ROI, tripwire, and sensor-tagging analytics, but are excluded from
+volume/occupancy/collision analytics.
+
+### Pose Caching and Message Ordering
+
+A resolved pose is cached per `(scene_id, source_id)` for `30` seconds. Subsequent messages
+from the same source may omit `pose` entirely to reuse the cached transform; a message with a
+`pose` and an empty `objects` array updates the cache without ingesting any observations.
+Messages with a `timestamp` older than the currently cached pose are treated as out-of-order
+and ignored in favor of the newer cached transform. If no usable transform can be resolved
+(no pose supplied and nothing cached, or the cached pose has expired), the message is dropped
+without ingesting objects. Rejection reasons (logged, not published) include:
+
+| Reason                            | Cause                                                                              |
+| ---------------------------------- | ----------------------------------------------------------------------------------- |
+| `no_pose_available`               | No `pose` supplied and no prior cached transform for this `(scene_id, source_id)` |
+| `pose_expired`                     | No `pose` supplied and the cached transform is older than the cache TTL           |
+| `scene_georeference_unavailable`   | `reference_frame: wgs84` but the target scene has no valid geospatial calibration |
+| `untrusted_scene_pose`             | `reference_frame: scene` from a `source_id` not in `CONTROLLER_TRUSTED_POSITIONING_SOURCES` |
+| `unsupported_reference_frame`      | `reference_frame` is not `wgs84` or `scene`                                        |
+| `invalid_pose`                     | `pose` failed schema validation or transform construction                         |
+
+### Example: Agent Publishing a Global Pose and Observations
+
+```json
+{
+  "timestamp": "2026-03-26T21:01:31.486Z",
+  "source_id": "drone-1",
+  "pose": {
+    "reference_frame": "wgs84",
+    "lat_long_alt": [37.38688947, -121.96410521, 8.07],
+    "rotation": [0, 0, 0, 1]
+  },
+  "objects": [
+    {
+      "category": "vehicle",
+      "translation": [3.2, -1.4, 0.0],
+      "confidence": 0.91
+    }
+  ]
+}
+```
+
+### Example: Positioning Service Publishing a Scene-Local Pose
+
+Requires `source_id` (e.g. `"positioning-service-1"`) to be listed in
+`CONTROLLER_TRUSTED_POSITIONING_SOURCES`.
+
+```json
+{
+  "timestamp": "2026-03-26T21:01:31.486Z",
+  "source_id": "positioning-service-1",
+  "pose": {
+    "reference_frame": "scene",
+    "translation": [5.0, 2.0, 0.0],
+    "rotation": [0, 0, 0, 1],
+    "provider": "positioning_service"
+  },
+  "objects": [
+    { "category": "person", "translation": [1.0, 0.5, 0.0] }
+  ]
+}
+```
+
+### Example: Pose-Only Update and Point-Object Observation
+
+A pose-only update refreshes the cached transform without ingesting observations:
+
+```json
+{ "timestamp": "2026-03-26T21:01:41.486Z", "source_id": "drone-1", "pose": { "reference_frame": "wgs84", "lat_long_alt": [37.38688947, -121.96410521, 8.07], "rotation": [0, 0, 0, 1] }, "objects": [] }
+```
+
+A subsequent message reuses the cached pose and reports a point object (no `size`):
+
+```json
+{ "timestamp": "2026-03-26T21:01:42.486Z", "source_id": "drone-1", "objects": [{ "category": "person", "translation": [1.0, 0.5, 0.0] }] }
+```
 
 ## Common Output Track Fields
 

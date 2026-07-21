@@ -67,6 +67,12 @@ Example `pose-adjustment-route.json`:
 
 Resolution order is: exact label, then configured route labels. Routes are flattened at startup so message-time dispatch remains a direct lookup.
 
+`CONTROLLER_TRUSTED_POSITIONING_SOURCES`: Comma-separated list of external `source_id`s (see
+[External Source Input Message Format](./data_formats.md#external-source-input-message-format))
+authorized to publish poses already expressed in a target scene's local coordinates (the
+`scene` pose reference frame), intended for the Scenescape positioning service. Unset or empty
+trusts no source. There is no corresponding CLI flag.
+
 ### Configuration
 
 For detailed configuration guidance:

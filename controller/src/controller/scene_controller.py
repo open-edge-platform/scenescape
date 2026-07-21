@@ -4,6 +4,7 @@
 import orjson
 import os
 from collections import defaultdict
+from types import SimpleNamespace
 
 import ntplib
 
@@ -13,6 +14,7 @@ from controller.controller_mode import ControllerMode
 from controller.detections_builder import (buildDetectionsDict,
                                            buildDetectionsList,
                                            computeCameraBounds)
+from controller.external_source import ExternalSourcePoseCache
 from controller.scene import Scene
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
@@ -26,6 +28,17 @@ from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
                                       MAXIMAL_CHUNKING_RATE_FPS)
 from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 AVG_FRAMES = 100
+TRUSTED_POSITIONING_SOURCES_ENV_VAR = 'CONTROLLER_TRUSTED_POSITIONING_SOURCES'
+
+
+def _parseTrustedSources(value):
+  """Parse a comma-separated list of source IDs authorized to publish poses
+  already expressed in scene-local coordinates. Fails closed: an unset or
+  empty value trusts no source."""
+  if not value:
+    return frozenset()
+  return frozenset(item.strip() for item in value.split(',') if item.strip())
+
 
 class SceneController:
 
@@ -102,6 +115,10 @@ class SceneController:
 
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
+
+    self.external_source_pose_cache = ExternalSourcePoseCache()
+    self.trusted_positioning_sources = _parseTrustedSources(
+      os.getenv(TRUSTED_POSITIONING_SOURCES_ENV_VAR))
     return
 
   def extractTrackerConfigData(self, tracker_config_file):
@@ -488,6 +505,10 @@ class SceneController:
       if 'camera_id' in topic and not self.schema_val.validateMessage("detector", jdata):
         return
 
+      if topic['_topic_id'] == PubSub.DATA_EXTERNAL and 'source_id' in jdata \
+          and not self.schema_val.validateMessage("external_source", jdata):
+        return
+
       now = get_epoch_time()
       self.time_offset, self.last_time_sync = adjust_time(now, self.ntp_server, self.ntp_client,
                                                       self.last_time_sync, self.time_offset,
@@ -518,7 +539,14 @@ class SceneController:
       if topic['_topic_id'] == PubSub.DATA_EXTERNAL:
         detection_types = [topic['thing_type']]
         sender_id = topic['scene_id']
-        success, scene = self._handleChildSceneObject(sender_id, jdata, detection_types[0], msg_when)
+        if 'source_id' in jdata:
+          scene = self.cache_manager.sceneWithID(sender_id)
+          if scene is None:
+            log.error("UNKNOWN TARGET SCENE", sender_id)
+            return
+          success = self._handleExternalSourceObject(scene, jdata, detection_types[0], msg_when)
+        else:
+          success, scene = self._handleChildSceneObject(sender_id, jdata, detection_types[0], msg_when)
       else:
         detection_types = jdata['objects'].keys()
         camera_id = sender_id = topic['camera_id']
@@ -611,6 +639,24 @@ class SceneController:
     success = scene.processSceneData(jdata, sender, sender.cameraPose,
                                      detection_type, when=msg_when)
     return success, scene
+
+  def _handleExternalSourceObject(self, scene, jdata, detection_type, msg_when):
+    """Handle a message from a dynamic external source (physical agent or
+    positioning service) publishing directly into a target scene, as
+    distinguished from a configured child scene by the presence of
+    'source_id' in the payload."""
+    source_id = jdata['source_id']
+    trusted = source_id in self.trusted_positioning_sources
+    camera_pose, reason = self.external_source_pose_cache.resolve(
+      scene, source_id, jdata.get('pose'), msg_when, trusted_scene_pose=trusted)
+    if camera_pose is None:
+      log.warning(f"External source pose unavailable for source={source_id} "
+                f"scene={scene.uid}: {reason}")
+      return True
+
+    external_source = SimpleNamespace(name=source_id, retrack=True)
+    return scene.processSceneData(jdata, external_source, camera_pose,
+                                  detection_type, when=msg_when)
 
   def updateCameras(self):
     for scene in self.scenes:
@@ -757,6 +803,13 @@ class SceneController:
         for camera in scene.cameras:
           need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
                               self.handleMovingObjectMessage))
+        # Subscribe on behalf of this scene so external sources (physical
+        # agents, positioning services) can publish observations directly
+        # into it via 'scenescape/external/{scene.uid}/{thing_type}',
+        # identifying themselves with 'source_id' in the payload.
+        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
+                                              scene_id=scene.uid, thing_type="+"),
+                            self.handleMovingObjectMessage))
       else:
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
                             self.handleSceneDataMessage))

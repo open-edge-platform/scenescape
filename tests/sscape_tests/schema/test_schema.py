@@ -65,6 +65,76 @@ def test_validateSingletonMessage(schemaObject, data, expected, format, request)
   assert result == expected
   return
 
+@pytest.mark.parametrize("data, expected, format", [("externalSourceData", True, False),
+                                            ("externalSourceData", False, False),
+                                            ("externalSourceData", True, True),
+                                            ("emptyObjData", False, True)])
+def test_validateExternalSourceMessage(schemaObject, data, expected, format, request):
+  externalSourceData = request.getfixturevalue(data)
+  if externalSourceData and expected == False:
+    del externalSourceData['source_id']
+
+  result = schemaObject.validateMessage("external_source", externalSourceData, format)
+  assert result == expected
+  return
+
+def test_validateExternalSourceMessage_missingLatLongAltForWgs84(schemaObject, externalSourceData):
+  """A wgs84 pose without lat_long_alt must fail validation."""
+  del externalSourceData['pose']['lat_long_alt']
+
+  result = schemaObject.validateMessage("external_source", externalSourceData, True)
+  assert result == False
+  return
+
+def test_validateExternalSourceMessage_scenePoseRequiresTranslation(schemaObject, externalSourceData):
+  """A scene-frame pose without translation must fail validation."""
+  externalSourceData['pose'] = {
+    "reference_frame": "scene",
+    "rotation": [0, 0, 0, 1],
+  }
+
+  result = schemaObject.validateMessage("external_source", externalSourceData, True)
+  assert result == False
+  return
+
+def test_validateExternalSourceMessage_scenePoseWithTranslation(schemaObject, externalSourceData):
+  """A scene-frame pose with translation is valid."""
+  externalSourceData['pose'] = {
+    "reference_frame": "scene",
+    "translation": [1.0, 2.0, 3.0],
+    "rotation": [0, 0, 0, 1],
+  }
+
+  result = schemaObject.validateMessage("external_source", externalSourceData, True)
+  assert result == True
+  return
+
+def test_validateExternalSourceMessage_noPoseWithEmptyObjects(schemaObject):
+  """A message with no pose and no objects (cache reuse / pose-only update) is valid."""
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "objects": [],
+  }
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == True
+  return
+
+def test_validateExternalSourceMessage_objectWithoutSizeIsValid(schemaObject):
+  """A point observation with no size is valid (unlike camera detections)."""
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "objects": [
+      {"category": "person", "translation": [1.0, 2.0, 0.0]},
+    ],
+  }
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == True
+  return
+
 @pytest.mark.parametrize("schemaPath, expected", [(INVALID_SCHEMA_PATH, None),
                                                    (SCHEMA_PATH, True)])
 def test_compileValidators(schemaObject, schemaPath, expected):
