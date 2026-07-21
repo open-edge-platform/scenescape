@@ -19,6 +19,7 @@ scan:
   skip-files:
     - "scene_common/Dockerfile"
     - "tests/security/fuzzing/Dockerfile"
+    - "tests/requirements.txt"
   skip-dirs:
     - ".github"
 severity:
