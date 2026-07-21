@@ -115,10 +115,9 @@ class IntelLabsTracking(Tracking):
     rv_object.classification = self.rv_classification(sscape_object.confidence)
     info = sscape_object.info.copy()
     info['framecount'] = sscape_object.frameCount
-    rv_object.attributes = {
-        'info': sscape_object.uuid,
-    }
-    rv_object.attributes.update(self.metadata_to_attributes(sscape_object.metadata))
+    attributes = {'info': sscape_object.uuid}
+    attributes.update(self.metadata_to_attributes(sscape_object.metadata))
+    rv_object.attributes = attributes
     return rv_object
 
   def update_tracks(self, objects, timestamp):
