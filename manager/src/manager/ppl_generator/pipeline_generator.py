@@ -30,7 +30,7 @@ class PipelineGenerator:
     # Apply device rule set to determine pipeline components
     self._apply_device_rule_set()
 
-    self.timestamper = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
+    self.timestamper = [f'sscape_timestamp_capture name=timesync']
     self.undistort = self.add_camera_undistort(camera_settings) if self.camera_settings.get('undistort') else []
     self.adapter = [
       f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher'

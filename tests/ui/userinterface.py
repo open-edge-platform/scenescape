@@ -100,17 +100,6 @@ class UserInterfaceTest(Diagnostic):
     img_array = img_array[:, :, 0:3]
     return img_array[:, :, ::-1]
 
-  def getCanvasScreenshot(self, canvas_id: str = "scene") -> np.ndarray:
-    return common.get_canvas_screenshot(self.browser, canvas_id)
-
-  def waitFor3dSceneRendered(self, timeout: float = 60.0,
-                             min_unique_colors: int = 50,
-                             poll_interval: float = 0.5,
-                             canvas_id: str = "scene") -> bool:
-    return common.wait_for_3d_scene_rendered(self.browser, timeout,
-                                             min_unique_colors,
-                                             poll_interval, canvas_id)
-
   def navigateDirectlyToPage(self, pagePath):
     return common.navigate_directly_to_page(self.browser, pagePath)
 
