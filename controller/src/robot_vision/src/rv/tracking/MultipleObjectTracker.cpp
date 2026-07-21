@@ -14,8 +14,8 @@ namespace tracking {
 
 namespace {
 
-constexpr const char *MetadataPrefix = "metadata.";
-constexpr const char *MetadataConfidencePrefix = "metadata_confidence.";
+constexpr const char *METADATA_PREFIX = "metadata.";
+constexpr const char *METADATA_CONFIDENCE_PREFIX = "metadata_confidence.";
 
 bool startsWith(const std::string &value, const char *prefix)
 {
@@ -24,7 +24,7 @@ bool startsWith(const std::string &value, const char *prefix)
 
 std::optional<double> metadataConfidence(const TrackedObject &object, const std::string &field)
 {
-  const auto confidence = object.attributes.find(MetadataConfidencePrefix + field);
+  const auto confidence = object.attributes.find(METADATA_CONFIDENCE_PREFIX + field);
   if (confidence == object.attributes.end())
   {
     return std::nullopt;
@@ -45,7 +45,7 @@ void clearMetadataAttributes(TrackedObject &object)
 {
   for (auto attribute = object.attributes.begin(); attribute != object.attributes.end();)
   {
-    if (startsWith(attribute->first, MetadataPrefix) || startsWith(attribute->first, MetadataConfidencePrefix))
+    if (startsWith(attribute->first, METADATA_PREFIX) || startsWith(attribute->first, METADATA_CONFIDENCE_PREFIX))
     {
       attribute = object.attributes.erase(attribute);
     }
@@ -74,12 +74,12 @@ void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
     const auto &object = objectsPerCamera[cameraIndex][objectIndex];
     for (const auto &[key, value] : object.attributes)
     {
-      if (!startsWith(key, MetadataPrefix))
+      if (!startsWith(key, METADATA_PREFIX))
       {
         continue;
       }
 
-      const std::string field = key.substr(std::char_traits<char>::length(MetadataPrefix));
+      const std::string field = key.substr(std::char_traits<char>::length(METADATA_PREFIX));
       const auto confidence = metadataConfidence(object, field);
       const auto winner = winners.find(field);
       const bool winnerExists = winner != winners.end();
@@ -91,7 +91,7 @@ void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
       }
 
       measurement.attributes[key] = value;
-      const std::string confidenceKey = MetadataConfidencePrefix + field;
+      const std::string confidenceKey = METADATA_CONFIDENCE_PREFIX + field;
       if (confidence)
       {
         measurement.attributes[confidenceKey] = object.attributes.at(confidenceKey);
