@@ -209,7 +209,7 @@ class TestUpdateRegionEventsSingletonSensors:
 
     assert 'roi' in obj.chain_data.active_sensors
 
-  def test_exit_discards_active_sensor_and_clears_environmental_state(self, make_region):
+  def test_exit_discards_active_sensor(self, make_region):
     region = make_region(singleton_type='environmental')
     obj = _obj()
     state_store = AnalyticsStateStore()
@@ -218,7 +218,20 @@ class TestUpdateRegionEventsSingletonSensors:
     update_region_events('person', {'roi': region}, 15.0, _iso(15.0), [], {}, state_store)
 
     assert 'roi' not in obj.chain_data.active_sensors
-    assert 'roi' not in obj.chain_data.env_sensor_state
+
+  def test_exit_preserves_environmental_state_until_serialisation(self, make_region):
+    """env_sensor_state is intentionally NOT cleared by update_region_events.
+    It must survive until event_publisher._clear_sensor_values_on_exit has
+    serialised the exited object, after which it pops the key.  Clearing it
+    here would cause exit-event payloads to carry empty sensor readings."""
+    region = make_region(singleton_type='environmental')
+    obj = _obj()
+    state_store = AnalyticsStateStore()
+    update_region_events('person', {'roi': region}, 10.0, _iso(10.0), [obj], {}, state_store)
+
+    update_region_events('person', {'roi': region}, 15.0, _iso(15.0), [], {}, state_store)
+
+    assert 'roi' in obj.chain_data.env_sensor_state
 
   def test_exit_preserves_attribute_sensor_event_history(self, make_region):
     region = make_region(singleton_type='attribute')
