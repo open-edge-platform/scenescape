@@ -53,8 +53,10 @@ scenescape/external/{publisher_id}/{thing_type}
 
 - `{publisher_id}` identifies the **sender** (configured child scene uid, agent id, UWB hub id,
   positioning service id, etc.). It never means “ingest into this scene.”
-- Payload `source_id`, when present, MUST equal `{publisher_id}` (or may be omitted once the topic
-  is treated as fully authoritative).
+- When the payload includes `source_id`, it **MUST equal** `{publisher_id}`. Mismatches are
+  rejected (logged and dropped). Once the topic path is treated as fully authoritative,
+  `source_id` may become optional in a later revision; today it remains required by schema and
+  must match the path.
 - A publisher does not need to know parent or scene topology to publish.
 
 **Relationships are consumer-side bindings**, not destination topics:
@@ -63,20 +65,35 @@ scenescape/external/{publisher_id}/{thing_type}
 (scene_uid, publisher_id) → {
   reason: static_child | spatial | manual,
   transform_policy: child_cameraPose | wgs84_via_scene_trs | trusted_scene_pose,
-  retrack: bool,
+  retrack: bool,   # hierarchy / future only — see below
   last_seen, expires_at
 }
 ```
 
-- **Static (hierarchy today):** parent lists children → controller/binder subscribes to each
-  child’s `external/{child_id}/+` and applies the configured child transform.
+- **Static (hierarchy today):** parent lists children → controller/binder applies the configured
+  child transform. Hierarchy publishes omit `source_id`. Per-child **`retrack` is configurable**
+  on the parent↔child relationship (same as before this ADR).
 - **Manual / ops:** operator or API (or `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`) attaches a
   publisher id to a scene without hierarchy rows.
 - **Spatial (registry-driven):** a scene/service registry decides membership; the binder updates
   its subscription/ingest list accordingly (see below).
 
+**Retrack for dynamic external sources is not binding-configurable today.**
+`_handleExternalSourceObject()` always constructs the sender with `retrack=False` (trusted
+identity by default). The `retrack` field on the binding record above is reserved for hierarchy
+and for a possible future per-object / object-type opt-out (see Future Work); it is **not** read
+for `source_id` publishers in the current implementation.
+
 Agents authenticate to the MQTT broker and publish under their own id. Scene attachment is
 always binder-side.
+
+### Co-observation with cameras and scene sensors (live behavior)
+
+External objects and camera-tracked objects are **independent tracks** in the same scene. If a
+robot and a scene camera both observe the same physical person, the scene may contain both the
+external source’s trusted `id` and a separately assigned camera/ReID `gid`. Both participate in
+ROI, tripwire, and sensor-area analytics once ingested. There is **no** fusion or deduplication
+between camera and external paths today (see Future Work).
 
 ### Scene / service registry (target architecture)
 
@@ -109,11 +126,18 @@ Agent                         Registry                      Binder / Controller
   |-- PUB detections --------------------------------------->|-- ingest into bound scenes
 ```
 
-**Interim runtime (until registry ships).** The controller wildcard-subscribes to `external/+/+`
-and attaches `wgs84` publishers to every geo-calibrated scene (plus optional
-`CONTROLLER_EXTERNAL_SOURCE_BINDINGS`). That interim auto-attach is a stand-in for registry
-spatial resolution, not the long-term multi-scene policy. Root scenes must not emit hierarchy
-echoes onto the external topic.
+**Interim runtime (until registry ships).** The controller **wildcard-subscribes** to
+`external/+/+` (hears every publisher that can authenticate to the broker) and attaches `wgs84`
+publishers to every geo-calibrated scene (plus optional `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`).
+That interim auto-attach is a stand-in for registry spatial resolution, not the long-term
+multi-scene policy. Root scenes must not emit hierarchy echoes onto the external topic.
+
+**Subscription migration (explicit).** The long-term binder should move from the interim
+wildcard to **binding-driven selective subscribe** (only `external/{publisher_id}/+` for
+publishers currently bound to local scenes, plus whatever hierarchy still requires). Wildcard
+remain acceptable only as a transitional convenience; ACL hardening assumes selective publish
+rights on `external/{own_id}/#` and should not depend on every controller instance ingesting the
+entire fabric forever.
 
 **Trust-domain base case (same as parent/child scenes today).** Joining a Scenescape fabric
 means authenticating to an MQTT broker whose certificates were issued by the **same authority**
@@ -216,9 +240,10 @@ advance, which is precisely the scaling problem this revision removes.
 `TimeChunkedIntelLabsTracking.trackObjects()` buckets incoming frames by a `cameraID`/`uid`
 attribute read off each object's `camera`/`child` reference, exactly like it already does for
 camera detections (`cameraID`) and legacy child scenes (`uid`). The `SimpleNamespace` built for
-external sources in `_handleExternalSourceObject()` now also sets `uid=source_id` so that
-time-chunked buckets are keyed per publishing source, consistent with how child scenes already
-key by `uid`.
+external sources in `_handleExternalSourceObject()` sets `uid=source_id`. Because external sources
+always use `retrack=False`, those MovingObjects are passed in `already_tracked_objects` (not
+`objects`); time chunking therefore resolves the bucket id from `already_tracked_objects` when
+`objects` is empty, so per-publisher bucketing still applies.
 
 ### Camera-parameter cache refresh only applies to camera messages
 
@@ -312,22 +337,22 @@ gap. Documented here as a known, intentional scoping decision, not an oversight.
 
 - Publishers must always include a per-observation `id`, even for the simplest single-point-object
   case; this is a small increase in required payload verbosity versus letting it be inferred.
-- Three related but independent silent-failure modes existed at the seams between the new
-  external-source path and code that previously only had to handle camera detections and legacy
-  child scenes: a schema/construction contract mismatch on `id` (`KeyError: 'id'` in
-  `MovingObject.__init__`), a camera-only cache-refresh step invoked unconditionally
-  (`KeyError: 'id'` in `CacheManager.cameraParametersChanged`), and time-chunked tracking silently
-  dropping every external-source frame because its `SimpleNamespace` sender had no `cameraID`/`uid`
-  attribute to bucket by. None of these were caught by unit tests in isolation; only a functional
-  MQTT test exercising the full ingest path against a live controller surfaced them.
+- Early external-source seams with camera-only code required fixes found mainly by end-to-end
+  MQTT tests: schema/`MovingObject` required `id`; camera-parameter cache refresh had to skip
+  `DATA_EXTERNAL`; and time-chunked bucketing initially read only `objects[0].camera`, so
+  `retrack=False` external batches (passed via `already_tracked_objects` even though
+  `uid=source_id` was set) were mis-bucketed under the empty-frame sentinel until
+  `TimeChunkedIntelLabsTracking` also resolved ids from `already_tracked_objects`.
+- Camera and external observations of the same physical object are not fused: deployers may see
+  duplicate tracks and duplicate analytics events until cross-source association lands.
 - The trust boundary for `reference_frame: scene` poses depends on
-  `CONTROLLER_TRUSTED_POSITIONING_SOURCES` being deployed/configured correctly; an empty or unset
-  value fails closed (trusts nothing), which is safe by default but must be understood by
-  deployers who intend to use a scene-local positioning service.
+  `CONTROLLER_TRUSTED_POSITIONING_SOURCES` (and a manual binding) being deployed/configured
+  correctly; an empty or unset trust list fails closed (trusts nothing).
 - Until the registry ships, interim geospatial auto-attach may fan a `wgs84` publisher into every
-  geo-calibrated scene (no footprint/handoff policy yet).
-- Registry discovery, spatial-index choice, and binder↔registry API remain to be specified and
-  implemented.
+  geo-calibrated scene (no footprint/handoff policy yet), and the interim **wildcard** subscribe
+  means every authenticated publisher on the broker is visible to the controller.
+- Registry discovery, spatial-index choice, binder↔registry API, and the move from wildcard to
+  selective subscribe remain to be specified and implemented.
 
 ## Future Work
 
@@ -335,12 +360,13 @@ Carried forward from the original implementation plan's deferred items, plus bin
 trust-domain follow-ons:
 
 - **Scene/service registry + spatial binder.** Replace interim “attach `wgs84` to all
-  geo-calibrated scenes” with a discoverable registry (logical name on the network; DNS-SD /
-  DNS or equivalent) that maintains a multi-scene catalog and spatial index, and drives the
-  binder’s subscription updates (footprint tests, hysteresis, overlap/handoff/priority). Agents
-  continue to publish only under their own id; the registry never retargets the MQTT path to a
-  scene inbox. Specify binder↔registry API and whether the binder queries the registry or the
-  registry pushes membership events.
+  geo-calibrated scenes” **and** the interim `external/+/+` wildcard with a discoverable
+  registry (logical name on the network; DNS-SD / DNS or equivalent) that maintains a
+  multi-scene catalog and spatial index, and drives the binder’s **selective** subscription
+  updates (footprint tests, hysteresis, overlap/handoff/priority). Agents continue to publish
+  only under their own id; the registry never retargets the MQTT path to a scene inbox. Specify
+  binder↔registry API and whether the binder queries the registry or the registry pushes
+  membership events.
 - **Trust-domain join hardening (discuss with security).** Base case remains: same issuing
   authority as parent/child MQTT today. Stronger guarantees are explicitly out of current
   scope and should be reviewed with a security expert before adoption, including for example:
@@ -383,8 +409,9 @@ trust-domain follow-ons:
   extension to `UUIDManager`/`MovingObject`, not a change to the current retrack routing.
 - **Cross-source association/deduplication.** Fusing or deduplicating observations of the same
   physical object reported by multiple independent external sources (or by an external source and
-  a camera) is out of scope; covariance-aware tracking/ROI boundaries and uncertainty-aware
-  volume/collision/occupancy calculations are deferred.
+  a camera) is out of scope; until that lands, co-observed people/vehicles may appear as parallel
+  tracks and may each fire ROI/tripwire/sensor analytics. Covariance-aware tracking/ROI
+  boundaries and uncertainty-aware volume/collision/occupancy calculations are also deferred.
 - **Trusted object-library size lookup.** No default object size is synthesized when `size` is
   omitted; a future trusted-library lookup (for example resolving `category` to a canonical
   bounding size) could reduce how often external sources fall back to point-object-only analytics
@@ -405,11 +432,13 @@ trust-domain follow-ons:
   `IdentityClaimRegistry`)
 - `controller/src/controller/scene_controller.py`
   (`handleMovingObjectMessage`, `_handleExternalSourceObject`, `_handleChildSceneObject`,
-  `updateSubscriptions`, `_parseTrustedSources`)
+  `_scenesForExternalPublisher`, `updateSubscriptions`, `_parseTrustedSources`,
+  `_parseExternalSourceBindings`)
 - `controller/src/controller/moving_object.py` (`MovingObject.__init__`, `oid`/`gid` distinction)
 - `controller/src/controller/ilabs_tracking.py` (`mergeAlreadyTrackedObjects`, the retrack=False
   identity-passthrough path trusted external-source objects always use)
-- `controller/src/controller/time_chunking.py` (`TimeChunkedIntelLabsTracking.trackObjects`)
+- `controller/src/controller/time_chunking.py` (`TimeChunkedIntelLabsTracking.trackObjects`,
+  `_sourceIdForTimeChunking` — buckets `already_tracked_objects` by `uid`/`cameraID`)
 - `controller/src/controller/cache_manager.py` (`refreshScenesForCamParams`,
   `cameraParametersChanged`)
 - `controller/src/controller/uuid_manager.py` (global ID assignment, ReID)
@@ -419,16 +448,20 @@ trust-domain follow-ons:
   procedure only — links to `data_formats.md` for the contract)
 - `.github/skills/external-source-adapter/SKILL.md` (agent checklist for writing converters;
   anti-drift pointers to the how-to and `data_formats.md`)
-- `docs/user-guide/microservices/controller/controller.md` (`CONTROLLER_TRUSTED_POSITIONING_SOURCES`
-  reference and pointer to the no-configuration-required identity trust model)
+- `docs/user-guide/microservices/controller/controller.md`
+  (`CONTROLLER_TRUSTED_POSITIONING_SOURCES`, `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`)
 - `docs/user-guide/how-to-guides/build-a-scene/configure-hierarchy-of-scenes.md` (parent/child
   hierarchy; static binding precursor)
-- `tests/functional/test_external_source_ingest.py` (end-to-end MQTT ingest coverage)
+- `tests/functional/test_external_source_ingest.py` (MQTT ingest, geo accuracy, pose cache reuse, source_id/topic mismatch, identity collision, untrusted scene pose)
+- `tests/functional/test_external_source_analytics.py` (ROI / tripwire with external objects)
 - `tests/sscape_tests/schema/test_schema.py`, `tests/sscape_tests/schema/conftest.py`
 - `tests/sscape_tests/scenescape/test_external_source.py`
   (`TestIdentityClaimRegistry` collision-detection unit coverage)
 - `tests/sscape_tests/scenescape/test_scene_controller.py`
-  (`TestSceneControllerHandleExternalSourceObject` retrack/trust routing coverage)
+  (`TestSceneControllerHandleExternalSourceObject`, publisher binding / multi-geo fan-out,
+  wildcard SUB, mismatch drop, root-hierarchy)
+- `tests/sscape_tests/scene_pytest/test_time_chunking_child_scene.py`
+  (time-chunk bucketing for child/`uid` and already-tracked external sources)
 - [ADR 11 — Configurable ReID Similarity Metric and Track Lineage Output](0011-inner-product-reid-state-and-id-lineage.md)
   (the `gid`/UUID lineage machinery that external-source objects also flow through)
 - [ADR 13 (proposed, PR #1526) — Controller Breakdown into Functionality-Aligned Microservices](https://github.com/open-edge-platform/scenescape/pull/1526/files)

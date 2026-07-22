@@ -13,6 +13,7 @@ from unittest.mock import patch, MagicMock
 
 from controller.scene_controller import SceneController
 from controller.external_source import IdentityClaimRegistry
+from scene_common.mqtt import PubSub
 
 
 class TestSceneControllerExtractTrackerRate:
@@ -729,3 +730,143 @@ class TestSceneControllerHandleChildSceneObject:
 
     assert success is False
     assert scene is None
+
+
+class TestScenesForExternalPublisherAdditional:
+  """Extra binding / fan-out cases for publisher-centric attach."""
+
+  def _build_controller(self, bindings=None):
+    controller = SceneController.__new__(SceneController)
+    controller.external_source_bindings = bindings or {}
+    controller.external_source_pose_cache = MagicMock()
+    controller.cache_manager = MagicMock()
+    return controller
+
+  def test_wgs84_fans_out_to_all_geo_scenes(self):
+    geo1 = SimpleNamespace(uid='g1', trs_xyz_to_lla=object())
+    geo2 = SimpleNamespace(uid='g2', trs_xyz_to_lla=object())
+    plain = SimpleNamespace(uid='plain', trs_xyz_to_lla=None)
+    controller = self._build_controller()
+    controller.cache_manager.allScenes.return_value = [geo1, plain, geo2]
+
+    scenes = controller._scenesForExternalPublisher(
+      'drone-1', {'pose': {'reference_frame': 'wgs84'}}, 1.0)
+
+    assert scenes == [geo1, geo2]
+
+  def test_pose_omit_uses_live_cache_scenes(self):
+    scene = SimpleNamespace(uid='cached-scene')
+    controller = self._build_controller()
+    controller.external_source_pose_cache.scenesWithLiveCache.return_value = [
+      'cached-scene']
+    controller.cache_manager.sceneWithID.return_value = scene
+
+    scenes = controller._scenesForExternalPublisher('drone-1', {}, 10.0)
+
+    assert scenes == [scene]
+    controller.external_source_pose_cache.scenesWithLiveCache.assert_called_once_with(
+      'drone-1', 10.0)
+
+
+class TestTrustedScenePoseWithManualBinding:
+  """Manual binding + trusted positioning source enables scene-frame ingest."""
+
+  def test_bound_trusted_source_reaches_process_scene_data(self):
+    controller = SceneController.__new__(SceneController)
+    controller.external_source_bindings = {'pos-1': frozenset({'scene-a'})}
+    controller.trusted_positioning_sources = frozenset({'pos-1'})
+    controller.identity_claim_registry = IdentityClaimRegistry()
+    fake_pose = MagicMock()
+    controller.external_source_pose_cache = MagicMock()
+    controller.external_source_pose_cache.resolve.return_value = (fake_pose, None)
+    scene = SimpleNamespace(uid='scene-a', processSceneData=MagicMock(return_value=True))
+    controller.cache_manager = MagicMock()
+    controller.cache_manager.sceneWithID.return_value = scene
+
+    jdata = {
+      'source_id': 'pos-1',
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [1.0, 2.0, 0.0],
+        'rotation': [0, 0, 0, 1],
+      },
+      'objects': [{'id': 't1', 'category': 'person', 'translation': [0, 0, 0]}],
+    }
+    scenes = controller._scenesForExternalPublisher('pos-1', jdata, 5.0)
+    assert scenes == [scene]
+
+    assert controller._handleExternalSourceObject(scene, jdata, 'person', 5.0) is True
+    controller.external_source_pose_cache.resolve.assert_called_once_with(
+      scene, 'pos-1', jdata['pose'], 5.0, trusted_scene_pose=True)
+    scene.processSceneData.assert_called_once()
+
+
+class TestHandleMovingObjectExternalMismatch:
+  """Reject publisher_id / source_id mismatches on DATA_EXTERNAL."""
+
+  def _build_controller(self):
+    controller = SceneController.__new__(SceneController)
+    controller.schema_val = MagicMock()
+    controller.schema_val.validateMessage.return_value = True
+    controller.ntp_server = 'ntp'
+    controller.ntp_client = MagicMock()
+    controller.last_time_sync = None
+    controller.time_offset = 0
+    controller.max_lag = 3600
+    controller.rewrite_all_time = False
+    controller.rewrite_bad_time = False
+    controller.cache_manager = MagicMock()
+    controller.external_source_bindings = {}
+    controller._handleExternalSourceObject = MagicMock(return_value=True)
+    controller._scenesForExternalPublisher = MagicMock(return_value=[MagicMock()])
+    return controller
+
+  @patch('controller.scene_controller.metrics')
+  @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
+  @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
+  def test_source_id_topic_mismatch_is_dropped(
+    self, _mock_epoch, _mock_adjust, _mock_metrics
+  ):
+    controller = self._build_controller()
+    topic = PubSub.formatTopic(
+      PubSub.DATA_EXTERNAL, scene_id='drone-1', thing_type='person')
+    payload = {
+      'timestamp': '2026-01-01T00:00:00Z',
+      'source_id': 'other-drone',
+      'objects': [],
+    }
+    message = MagicMock()
+    message.topic = topic
+    message.payload = json.dumps(payload).encode('utf-8')
+
+    controller.handleMovingObjectMessage(None, None, message)
+
+    controller._scenesForExternalPublisher.assert_not_called()
+    controller._handleExternalSourceObject.assert_not_called()
+    controller.cache_manager.invalidate.assert_not_called()
+
+
+class TestUpdateSubscriptionsExternalWildcard:
+  """Publisher-centric interim subscribe uses one external wildcard."""
+
+  @patch('controller.scene_controller.ControllerMode')
+  def test_subscribes_external_wildcard_once(self, mock_mode):
+    mock_mode.isAnalyticsOnly.return_value = False
+    controller = SceneController.__new__(SceneController)
+    controller.cache_manager = MagicMock()
+    scene = SimpleNamespace(uid='scene-1', cameras={}, sensors={})
+    controller.cache_manager.allScenes.return_value = [scene]
+    controller.pubsub = MagicMock()
+    controller.subscribed = set()
+    controller.subscribed_children = {}
+    controller.root_cert = None
+
+    controller.updateSubscriptions()
+
+    expected = PubSub.formatTopic(
+      PubSub.DATA_EXTERNAL, scene_id='+', thing_type='+')
+    topics = {topic for topic, _cb in controller.subscribed}
+    assert expected in topics
+    # No per-scene inbox subscribe.
+    assert PubSub.formatTopic(
+      PubSub.DATA_EXTERNAL, scene_id='scene-1', thing_type='+') not in topics

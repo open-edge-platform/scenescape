@@ -10,7 +10,8 @@ Complements tests/sscape_tests/scenescape/test_external_source.py (unit,
 ExternalSourcePoseCache) and test_scene_controller.py (unit, routing) by
 exercising the full MQTT ingestion path against a running controller: a
 wgs84-pose agent publish, scene-location accuracy against the 4-corner
-geospatial fixture, pose-only cache reuse, and rejection of an untrusted
+geospatial fixture, pose-only cache reuse, source_id/topic mismatch rejection,
+identity collision across publishers, and rejection of an untrusted
 scene-frame pose.
 
 Publishes at a fixed 10 Hz. Variable-rate coverage is deferred.
@@ -289,6 +290,87 @@ class ExternalSourceIngest(FunctionalTest):
     )
     return
 
+  def verifySourceIdTopicMismatchRejected(self):
+    """Payload source_id must match the publisher id in the MQTT topic path."""
+    mismatched_id = "mismatch-track-1"
+    jdata = {
+      "source_id": "not-the-topic-publisher",
+      "pose": {
+        "reference_frame": "wgs84",
+        "lat_long_alt": AGENT_LAT_LONG_ALT,
+        "rotation": IDENTITY_ROTATION,
+      },
+      "objects": [
+        {
+          "id": mismatched_id,
+          "category": THING_TYPE,
+          "translation": [0.0, 0.0, 0.0],
+          "size": [0.5, 0.5, 1.8],
+        },
+      ],
+    }
+    # Publish on AGENT_SOURCE_ID topic while claiming a different source_id.
+    topic = self.externalSourceTopic(AGENT_SOURCE_ID)
+    self.seenObjectIds = set()
+    start = time.time()
+    while time.time() - start < 5.0:
+      jdata['timestamp'] = get_iso_time()
+      self.pubsub.publish(topic, json.dumps(jdata))
+      time.sleep(1 / FRAMES_PER_SECOND)
+    assert mismatched_id not in self.seenObjectIds, (
+      "source_id/topic mismatch unexpectedly produced tracked output "
+      f"for id={mismatched_id}"
+    )
+    return
+
+  def verifyIdentityCollisionDropsSecondSource(self):
+    """A second publisher reclaiming a live id is dropped; a non-colliding id is kept.
+
+    Wait specifically for the non-colliding id: scene publishes are async to
+    the tracker queue, so the first DATA_SCENE after drone-2 publishes may
+    still only contain the earlier drone-1 track.
+    """
+    colliding_id = OBJECT_ID  # still claimed by AGENT_SOURCE_ID from earlier steps
+    unique_id = "drone-2-unique-track"
+    other_source = "drone-2"
+    jdata = {
+      "source_id": other_source,
+      "pose": {
+        "reference_frame": "wgs84",
+        "lat_long_alt": AGENT_LAT_LONG_ALT,
+        "rotation": IDENTITY_ROTATION,
+      },
+      "objects": [
+        {
+          "id": colliding_id,
+          "category": THING_TYPE,
+          "translation": [0.2, 0.2, 0.0],
+          "size": [0.5, 0.5, 1.8],
+        },
+        {
+          "id": unique_id,
+          "category": THING_TYPE,
+          "translation": [-0.2, -0.2, 0.0],
+          "size": [0.5, 0.5, 1.8],
+        },
+      ],
+    }
+    topic = self.externalSourceTopic(other_source)
+    self.lastObjects = None
+    start = time.time()
+    ids = set()
+    while time.time() - start < MAX_WAIT_TIMEOUT_S:
+      jdata['timestamp'] = get_iso_time()
+      self.pubsub.publish(topic, json.dumps(jdata))
+      time.sleep(1 / FRAMES_PER_SECOND)
+      ids = {obj.get('id') for obj in (self.lastObjects or [])}
+      if unique_id in ids:
+        # Colliding id may still appear from the first publisher's live track;
+        # presence of unique_id shows the batch was not fail-closed on collision.
+        return
+    raise AssertionError(
+      f"Non-colliding id missing from scene output after {MAX_WAIT_TIMEOUT_S}s: {ids}")
+
   def verifyFunction(self):
     if self.testName and self.recordXMLAttribute:
       self.recordXMLAttribute("name", self.testName)
@@ -297,6 +379,8 @@ class ExternalSourceIngest(FunctionalTest):
       self.prepareScene()
       self.verifyWgs84PoseIngestAndLocationAccuracy()
       self.verifyPoseReuseFromCache()
+      self.verifySourceIdTopicMismatchRejected()
+      self.verifyIdentityCollisionDropsSecondSource()
       self.verifyUntrustedScenePoseRejected()
       self.exitCode = 0
     finally:
