@@ -55,6 +55,10 @@ _controller_src = _REPO_ROOT / "controller" / "src"
 if str(_controller_src) not in sys.path:
   sys.path.insert(0, str(_controller_src))
 
+_analytics_src = _REPO_ROOT / "analytics" / "src"
+if str(_analytics_src) not in sys.path:
+  sys.path.insert(0, str(_analytics_src))
+
 try:
   from controller.controller_mode import ControllerMode
   _controller_mode_available = True
