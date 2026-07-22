@@ -14,7 +14,7 @@ pytz==2026.2
 PyYAML==6.0.3
 scikit-learn==1.9.0
 scipy==1.17.1
-torch==2.11.0+cpu
+torch==2.13.0
 torchvision==0.26.0+cpu
 trimesh==4.11.5
 gdown==5.2.2
