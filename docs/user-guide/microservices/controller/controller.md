@@ -73,6 +73,10 @@ authorized to publish poses already expressed in a target scene's local coordina
 `scene` pose reference frame), intended for the Scenescape positioning service. Unset or empty
 trusts no source. There is no corresponding CLI flag.
 
+`CONTROLLER_EXTERNAL_SOURCE_BINDINGS`: Optional manual publisher→scene bindings
+(`publisher_id:scene_uid,publisher_id:scene_uid2,...`). Required for `reference_frame: scene`
+poses. For `wgs84`, unset means geospatial auto-attach to every geo-calibrated scene.
+
 External-source object identity (`objects[*].id`) requires no environment variable or
 per-source configuration: every external source's `id` is trusted directly as global track
 identity by default, protected at runtime by automatic identity-collision detection. See

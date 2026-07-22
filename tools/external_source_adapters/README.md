@@ -38,10 +38,10 @@ pip install -r tools/external_source_adapters/requirements.txt
 
 | Variable                 | Required | Description                                                                 |
 | ------------------------ | :------: | --------------------------------------------------------------------------- |
-| `SCENESCAPE_SCENE_ID`    |   Yes    | Target scene id (topic segment)                                             |
-| `SCENESCAPE_SOURCE_ID`   |   Yes    | Persistent publisher id (serial, MAC, or deployer-assigned; not a boot UUID) |
+| `SCENESCAPE_SOURCE_ID`   |   Yes    | Persistent publisher id (topic path + payload `source_id`)                  |
 | `SCENESCAPE_MQTT_AUTH`   |   Yes    | `user:password` or path to PubSub JSON auth file                            |
 | `SCENESCAPE_ROOT_CERT`   |   Yes    | Path to Scenescape CA certificate                                           |
+| `SCENESCAPE_SCENE_ID`    |    No    | Optional scene hint for ops / manual `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`  |
 | `SCENESCAPE_THING_TYPE`  |    No    | MQTT `{thing_type}` segment (default `vehicle`)                             |
 | `SCENESCAPE_OBJECT_CATEGORY` | No   | Object `category` when publishing self (default = thing type)               |
 | `SCENESCAPE_BROKER`      |    No    | Broker host (default `localhost`)                                           |
@@ -56,11 +56,11 @@ pip install -r tools/external_source_adapters/requirements.txt
 ### Usage
 
 ```bash
-export SCENESCAPE_SCENE_ID="<scene-uid>"
 export SCENESCAPE_SOURCE_ID="drone-1"   # prefer hardware/MAC-based id in production
 export SCENESCAPE_MQTT_AUTH="user:password"
 export SCENESCAPE_ROOT_CERT="/path/to/scenescape-ca.pem"
 export MAVLINK_CONNECTION="udp:0.0.0.0:14550"
+# Optional: export SCENESCAPE_SCENE_ID="<scene-uid>" for binding docs only
 
 python tools/external_source_adapters/mavlink_to_external_source.py
 ```
@@ -75,7 +75,7 @@ Examples of `--connection` / `MAVLINK_CONNECTION` values:
 ### Validate
 
 1. Confirm the target scene has valid geospatial calibration.
-2. Watch `scenescape/external/{scene_id}/{thing_type}` for published JSON.
+2. Watch `scenescape/external/{publisher_id}/{thing_type}` for published JSON.
 3. Watch `scenescape/data/scene/{scene_id}/{thing_type}` (or the 3D UI) for the
    object whose `id` matches `SCENESCAPE_SOURCE_ID`.
 4. Check Scene Controller logs for pose rejection reasons if nothing appears

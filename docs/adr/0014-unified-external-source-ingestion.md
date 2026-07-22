@@ -4,7 +4,8 @@
 # ADR 14: Unified External-Source Ingestion Contract for the Scene Controller
 
 - **Author(s)**: Sarat Poluri, GitHub Copilot
-- **Date**: 2026-07-21
+- **Date**: 2026-07-21 (publisher-centric binding and scene/service registry target updated
+  2026-07-22)
 - **Status**: `Accepted`
 - **Related**: [ADR 13 (proposed, PR #1526) — Controller Breakdown into Functionality-Aligned Microservices](https://github.com/open-edge-platform/scenescape/pull/1526/files) (see [Relationship to ADR 13](#relationship-to-adr-13-controller-breakdown-and-known-deviation) below)
 
@@ -21,9 +22,10 @@ preconfigured static camera pose and are not modeled as child scenes.
 We needed a single, versioned contract that:
 
 - Lets dynamic sources publish object observations, expressed in their own local frame, into a
-  target scene, alongside a pose that lets the controller resolve source-local coordinates into
+  scene, alongside a pose that lets the controller resolve source-local coordinates into
   scene-local coordinates.
-- Preserves the legacy configured-child-scene behavior unchanged.
+- Preserves the legacy configured-child-scene behavior and aligns dynamic agents with the same
+  **publisher-centric** topic rule (publish under own id; consumers bind relationships).
 - Does **not** require the Scene Controller to maintain a per-publisher lookup/translation cache
   mapping each source's native ID scheme, coordinate convention, or track-continuity semantics
   into a canonical form. That translation burden belongs on the publishing side (the agent or an
@@ -32,22 +34,98 @@ We needed a single, versioned contract that:
 - Reuses the existing tracking, persistent-attribute, sensor, ROI, and analytics pipeline instead
   of building a parallel path for external sources.
 
-The full implementation plan, decisions, and progress log for this effort are tracked in session
-notes; this ADR captures the resulting architecture and the specific correctness issues found
-while exercising the contract end-to-end.
+An early shipping shape also treated the topic as a **scene inbox** (`{scene_id}` = target scene,
+every scene self-subscribes). That conflicts with hierarchy (same path, publisher id) and cannot
+grow into proximity-based attachment without forcing every agent to choose a scene. This ADR
+records the payload/identity contract, **publisher-centric topics**, and **consumer-side binding**,
+including the target architecture in which a discoverable **scene/service registry** (spatial
+index) tells the **binder** which scenes to attach — without changing the agent publish path.
 
 ## Decision
 
-### Single topic, dual contract, disambiguated by `source_id`
+### Publisher-centric topics and consumer-side binding
 
-`scenescape/external/{scene_id}/{thing_type}` continues to carry both contracts:
+Canonical external topic:
 
-- **Legacy child scene** (no `source_id`): unchanged. `{scene_id}` is the sending child; the
-  controller resolves its configured parent and static `cameraPose`.
-- **Unified external source** (`source_id` present): `{scene_id}` is the _target_ scene. Messages
-  are validated against a new `external_source` schema definition
-  (`controller/src/schema/metadata.schema.json`) with nested `external_pose` and
-  `external_detection` definitions, rather than reusing/weakening the camera `detector` schema.
+```text
+scenescape/external/{publisher_id}/{thing_type}
+```
+
+- `{publisher_id}` identifies the **sender** (configured child scene uid, agent id, UWB hub id,
+  positioning service id, etc.). It never means “ingest into this scene.”
+- Payload `source_id`, when present, MUST equal `{publisher_id}` (or may be omitted once the topic
+  is treated as fully authoritative).
+- A publisher does not need to know parent or scene topology to publish.
+
+**Relationships are consumer-side bindings**, not destination topics:
+
+```text
+(scene_uid, publisher_id) → {
+  reason: static_child | spatial | manual,
+  transform_policy: child_cameraPose | wgs84_via_scene_trs | trusted_scene_pose,
+  retrack: bool,
+  last_seen, expires_at
+}
+```
+
+- **Static (hierarchy today):** parent lists children → controller/binder subscribes to each
+  child’s `external/{child_id}/+` and applies the configured child transform.
+- **Manual / ops:** operator or API (or `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`) attaches a
+  publisher id to a scene without hierarchy rows.
+- **Spatial (registry-driven):** a scene/service registry decides membership; the binder updates
+  its subscription/ingest list accordingly (see below).
+
+Agents authenticate to the MQTT broker and publish under their own id. Scene attachment is
+always binder-side.
+
+### Scene / service registry (target architecture)
+
+The **registry** is a logically named, network-discoverable service (for example via DNS-SD /
+mDNS or site DNS — concrete discovery mechanism is deployment choice). It is aware of multiple
+scenes and their geospatial footprints, and uses **spatial indexing** to answer: given a
+publisher’s geopose (and policy), which scene(s) should be bound?
+
+Critical split of responsibility:
+
+| Component | Does | Does not |
+| --------- | ---- | -------- |
+| **Agent / publisher** | Discovers the fabric (broker and/or registry by logical name); authenticates (same-CA base case); publishes only under `external/{its_id}/…` | Choose a scene topic path; encode scene membership in MQTT destination |
+| **Registry** | Holds scene catalog + spatial index; resolves publisher pose → candidate scene set (overlap, handoff, priority policy) | Require the agent to republish to a different topic |
+| **Binder** (controller today, or dedicated component) | Applies registry (or static/manual) results: upsert/drop bindings; update MQTT subscription / ingest routing | Invent scene topology independently of registry once registry is present |
+
+The registry therefore determines **which scenes the binder should interact with** to keep its
+subscription list correct. It does **not** tell the agent “publish to scene X’s inbox.”
+
+Non-normative target flow:
+
+```text
+Agent                         Registry                      Binder / Controller
+  |-- discover logical name -->|                              |
+  |-- auth (same CA) --------->|                              |
+  |-- PUB external/{me}/+ (pose+objects) -------------------->|
+  |                            |<-- pose / membership query --|
+  |                            |-- scene set (spatial index)->|
+  |                            |                              |-- update bindings / SUBs
+  |-- PUB detections --------------------------------------->|-- ingest into bound scenes
+```
+
+**Interim runtime (until registry ships).** The controller wildcard-subscribes to `external/+/+`
+and attaches `wgs84` publishers to every geo-calibrated scene (plus optional
+`CONTROLLER_EXTERNAL_SOURCE_BINDINGS`). That interim auto-attach is a stand-in for registry
+spatial resolution, not the long-term multi-scene policy. Root scenes must not emit hierarchy
+echoes onto the external topic.
+
+**Trust-domain base case (same as parent/child scenes today).** Joining a Scenescape fabric
+means authenticating to an MQTT broker whose certificates were issued by the **same authority**
+the deployment trusts. Stronger isolation, discovery hardening, and ACL options are deferred —
+see [Future Work](#future-work) — and are not required for the base case.
+
+### Payload contract: `external_source` disambiguated by `source_id`
+
+Messages on the external topic use the `external_source` schema
+(`controller/src/schema/metadata.schema.json`) with nested `external_pose` and
+`external_detection` definitions when `source_id` is present. Legacy child hierarchy publishes
+(no `source_id`) remain unchanged in payload shape and parent lookup.
 
 ### Pose resolution and caching
 
@@ -55,7 +133,7 @@ A new `ExternalSourcePoseCache` (`controller/src/controller/external_source.py`)
 caches the source-to-scene transform, keyed by `(scene.uid, source_id)`, with a default 30 s TTL:
 
 - `reference_frame: wgs84` — a global geopose. Any source may publish it, but it is only
-  resolvable when the target scene has valid four-corner geospatial calibration
+  resolvable when the bound scene has valid four-corner geospatial calibration
   (`Scene.trs_xyz_to_lla`); otherwise the message is rejected with
   `scene_georeference_unavailable` rather than approximated.
 - `reference_frame: scene` — a pose already expressed in scene-local coordinates. This is
@@ -157,9 +235,9 @@ fully decomposed architecture: a recursive **Scene Graph** in which every sub-sc
 camera, SLAM-localized robot/drone, sensor) presents its output through the same interface a scene
 exposes to its own external sources — **pose + observations**. This ADR's `external_source`
 contract is a direct, present-day instance of exactly that pattern: any dynamic source publishes
-`(pose, objects)` into a target scene through one uniform interface, ahead of the full
-microservice split. In that sense this work is aligned with, and a concrete step toward, ADR 13's
-target hierarchy contract, implemented within the still-monolithic Controller rather than as a
+`(pose, objects)` through one uniform interface, ahead of the full microservice split. Publisher-
+centric topics plus consumer-side binding keep that recursive model without requiring the
+publisher to know its parent. Implemented within the still-monolithic Controller rather than as a
 separate Positioning/Transform/Persistence service split.
 
 **Known deviation, now mostly addressed — trust is automatic and collision-checked, not yet
@@ -201,27 +279,34 @@ gap. Documented here as a known, intentional scoping decision, not an oversight.
   constraint for this work — the controller must not take on the responsibility of tracking every
   publisher's local ID namespace; that translation belongs in a source-side adapter, not in the
   shared controller.
-- **Let the source-supplied `id` drive global track continuity directly**, bypassing the internal
-  tracker/ReID association for external sources. Rejected: source ID lifecycle semantics are
-  heterogeneous and untrusted (resettable local counters vs. permanent hardware IDs); accepting
-  them directly as global identity would produce inconsistent re-identification guarantees across
-  source types and would reintroduce the exact problem controller-assigned UUIDs were adopted to
-  solve.
+- **Keep target-scene-in-topic as the long-term model; add a scene-discovery API for agents.**
+  Rejected: every publisher must learn topology and re-target topics on handoff; hierarchy and
+  dynamic agents stay on different models; proximity logic is duplicated at the edge.
+- **Registry that tells the agent which scene topic to publish to.** Rejected: conflates
+  discovery with destination addressing and reintroduces scene-inbox semantics. The agreed model
+  is registry → **binder subscription updates**, while the agent keeps publishing under its own
+  id.
+- **Separate topic trees forever** (`external/scene/{id}/…` vs `external/source/{id}/…`).
+  Rejected as the sole end state: preserves dual semantics. A temporary alias during migration is
+  acceptable.
+- **Agent publishes once and binder republishes into scene inboxes.** Rejected as end state:
+  binder should drive **subscriptions** into ingest, not rewrite destination topics.
+- **Let the source-supplied `id` drive global track continuity by always retracking** (historical
+  first revision). Superseded by default trusted identity plus collision detection.
 
 ## Consequences
 
 ### Positive
 
-- One documented contract lets any dynamic external source — physical agent, positioning service,
-  or new-style child scene — publish into a target scene without the controller special-casing
-  publisher types beyond pose-trust and geo-reference checks.
-- Global identity assignment stays exclusively inside the controller's existing tracker/ReID path,
-  so re-identification guarantees are uniform regardless of what ID scheme (if any) a source's
-  hardware or firmware uses.
-- Point observations (no `size`) remain eligible for ROI/tripwire/sensor-tagging analytics while
-  being excluded from volume/occupancy/collision analytics, matching camera-detection semantics.
-- Multiple simultaneous objects from one source (for example several UWB tags in one message) are
-  disambiguated safely because `id` is required and per-object.
+- One payload contract for dynamic external sources (pose + objects, trusted `id` with collision
+  detection) reused by the existing analytics pipeline.
+- One topic rule for children and dynamic agents; publishers need not know parents; multi-scene
+  attachment lives in binder policy (eventually registry-driven) without changing agent publish
+  paths.
+- Removes the structural cause of root-scene self-echo (no scene inbox self-subscribe).
+- Trust-domain base case matches existing parent/child MQTT (same issuing authority).
+- Clear separation: discoverable registry (spatial index) vs binder (subscriptions) vs publisher
+  (own-id telemetry) aligns with common service-discovery + geo-directory practice.
 
 ### Negative
 
@@ -239,22 +324,34 @@ gap. Documented here as a known, intentional scoping decision, not an oversight.
   `CONTROLLER_TRUSTED_POSITIONING_SOURCES` being deployed/configured correctly; an empty or unset
   value fails closed (trusts nothing), which is safe by default but must be understood by
   deployers who intend to use a scene-local positioning service.
+- Until the registry ships, interim geospatial auto-attach may fan a `wgs84` publisher into every
+  geo-calibrated scene (no footprint/handoff policy yet).
+- Registry discovery, spatial-index choice, and binder↔registry API remain to be specified and
+  implemented.
 
 ## Future Work
 
-Carried forward from the original implementation plan's deferred items, plus documentation gaps
-identified while closing out this contract:
+Carried forward from the original implementation plan's deferred items, plus binding and
+trust-domain follow-ons:
 
-- **Done — Publisher/adapter converter-script documentation.** Guide:
-  [`docs/user-guide/how-to-guides/publish-external-source-adapter.md`](../user-guide/how-to-guides/publish-external-source-adapter.md);
-  agent skill:
-  [`.github/skills/external-source-adapter/SKILL.md`](../../.github/skills/external-source-adapter/SKILL.md).
-  Both point at the canonical contract in
-  `docs/user-guide/microservices/controller/data_formats.md` rather than duplicating field
-  tables. Remaining Future Work items below are unchanged.
-- **Multi-scene discovery/fan-out.** Scene discovery, boundary arbitration, agent handoff between
-  overlapping scenes, and priority rules when a source is in range of more than one scene are all
-  deferred; sources choose their target scene explicitly for now.
+- **Scene/service registry + spatial binder.** Replace interim “attach `wgs84` to all
+  geo-calibrated scenes” with a discoverable registry (logical name on the network; DNS-SD /
+  DNS or equivalent) that maintains a multi-scene catalog and spatial index, and drives the
+  binder’s subscription updates (footprint tests, hysteresis, overlap/handoff/priority). Agents
+  continue to publish only under their own id; the registry never retargets the MQTT path to a
+  scene inbox. Specify binder↔registry API and whether the binder queries the registry or the
+  registry pushes membership events.
+- **Trust-domain join hardening (discuss with security).** Base case remains: same issuing
+  authority as parent/child MQTT today. Stronger guarantees are explicitly out of current
+  scope and should be reviewed with a security expert before adoption, including for example:
+  - LAN/broker (and registry) discovery subordinate to pinned CA authentication
+  - Per-site or per-coalition intermediate CAs (finer than one shared product CA)
+  - MQTT ACLs binding client identity to `publish` on `external/{own_id}/#` only
+  - Short-lived certs, revocation, device attestation / enrollment
+  - Network isolation and explicit cross-domain federation/bridging (never auto-merge trust
+    domains)
+  - Keeping **trust-domain join** (which broker/fabric) separate from **scene binding** (which
+    scenes ingest a publisher — registry + binder)
 - **Object-type-aware trusted identity (tracks ADR 13's open "Retracking redesign" question,
   remaining gap after the default-trust-plus-collision-detection revision above).** Trust and
   collision detection are currently applied per `(scene, category)`, not per
@@ -292,9 +389,10 @@ identified while closing out this contract:
   omitted; a future trusted-library lookup (for example resolving `category` to a canonical
   bounding size) could reduce how often external sources fall back to point-object-only analytics
   eligibility.
-- **Fully enforced MQTT mTLS/ACL policy.** Binding credentials to allowed `source_id`s and target
-  scenes, and enforcing externally owned UUID authorization as a separately authorized extension,
-  is reserved for the broader security integration and not implemented as part of this contract.
+- **Fully enforced MQTT mTLS/ACL policy.** Binding credentials to allowed publisher ids, and
+  enforcing externally owned UUID authorization as a separately authorized extension, is reserved
+  for the broader security integration (see trust-domain join hardening above) and not implemented
+  as part of this contract's base case.
 - **Cache interpolation/quality gating.** The pose cache currently permits reuse of any
   non-expired cached transform; pose interpolation and stricter age/quality gating beyond the TTL
   are deferred.
@@ -323,6 +421,8 @@ identified while closing out this contract:
   anti-drift pointers to the how-to and `data_formats.md`)
 - `docs/user-guide/microservices/controller/controller.md` (`CONTROLLER_TRUSTED_POSITIONING_SOURCES`
   reference and pointer to the no-configuration-required identity trust model)
+- `docs/user-guide/how-to-guides/build-a-scene/configure-hierarchy-of-scenes.md` (parent/child
+  hierarchy; static binding precursor)
 - `tests/functional/test_external_source_ingest.py` (end-to-end MQTT ingest coverage)
 - `tests/sscape_tests/schema/test_schema.py`, `tests/sscape_tests/schema/conftest.py`
 - `tests/sscape_tests/scenescape/test_external_source.py`

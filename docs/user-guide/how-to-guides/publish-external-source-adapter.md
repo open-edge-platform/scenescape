@@ -22,24 +22,29 @@ schema.
 Native source  -->  converter script  -->  MQTT broker
                          |                      |
                          |                      v
-                         |           scenescape/external/{scene_id}/{thing_type}
+                         |           scenescape/external/{publisher_id}/{thing_type}
                          |                      |
                          |                      v
-                         +------------->  Scene Controller
+                         +------------->  Scene Controller (binds to scenes)
 ```
 
 The converter owns all translation from the source's ID scheme, units, and
 coordinate frame into the Scenescape contract. The Scene Controller does not
 maintain a per-publisher ID-mapping cache.
 
+Publish under your persistent `source_id` (topic path = publisher id). Scene
+membership is consumer-side binding (`wgs84` geospatial auto-attach, or
+`CONTROLLER_EXTERNAL_SOURCE_BINDINGS`). See
+[ADR 14](../../adr/0014-unified-external-source-ingestion.md).
+
 ## Prerequisites
 
 - A running Scenescape deployment with MQTT broker reachability.
-- The target scene's ID (`scene_id`) and the object category topic segment
+- A persistent publisher id (`source_id`) and the object category topic segment
   (`thing_type`, for example `person` or `vehicle`).
 - MQTT credentials and the Scenescape CA certificate used by the broker.
-- If the converter will publish `reference_frame: wgs84` poses: the target scene
-  must have valid four-corner geospatial calibration. See
+- If the converter will publish `reference_frame: wgs84` poses: at least one
+  scene must have valid four-corner geospatial calibration. See
   [Configure Geospatial Coordinates](./build-a-scene/configure-geospatial-coordinates.md).
 - If the converter will publish `reference_frame: scene` poses: the converter's
   `source_id` must appear in `CONTROLLER_TRUSTED_POSITIONING_SOURCES` (see
@@ -89,7 +94,7 @@ fields and examples; do not invent alternate shapes.
 
 ## Pose Reuse
 
-After a successful pose is cached for `(scene_id, source_id)`, later messages may
+After a successful pose is cached for `(bound_scene_uid, source_id)`, later messages may
 omit `pose` and reuse the cached transform. A message with `pose` and an empty
 `objects` array refreshes the cache without ingesting observations.
 
@@ -122,7 +127,7 @@ import time
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
 
-SCENE_ID = os.environ["SCENESCAPE_SCENE_ID"]
+SCENE_ID = os.environ.get("SCENESCAPE_SCENE_ID", "")  # optional; for ops notes / manual bindings
 THING_TYPE = os.environ.get("SCENESCAPE_THING_TYPE", "person")
 SOURCE_ID = os.environ["SCENESCAPE_SOURCE_ID"]
 BROKER = os.environ.get("SCENESCAPE_BROKER", "localhost")
@@ -146,7 +151,7 @@ def main():
   pubsub.connect()
   pubsub.loopStart()
   topic = PubSub.formatTopic(
-    PubSub.DATA_EXTERNAL, scene_id=SCENE_ID, thing_type=THING_TYPE)
+    PubSub.DATA_EXTERNAL, scene_id=SOURCE_ID, thing_type=THING_TYPE)
 
   while True:
     native = read_next_native_sample()  # your source I/O
@@ -165,15 +170,18 @@ if __name__ == "__main__":
   main()
 ```
 
-Environment variables keep credentials and scene targeting out of source. Never
-hard-code passwords or certificates in the converter.
+Environment variables keep credentials out of source. Never hard-code passwords
+or certificates in the converter. Topic path uses `SOURCE_ID`; optional
+`SCENE_ID` is only for documenting manual
+`CONTROLLER_EXTERNAL_SOURCE_BINDINGS` entries.
 
 ## Validate the Integration
 
-1. Start the converter against a known geo-calibrated scene (for `wgs84`) or with
-   a trusted positioning `source_id` (for `scene`).
+1. Start the converter against a deployment that has a geo-calibrated scene
+   (for `wgs84`) or a manual binding plus trusted positioning `source_id`
+   (for `scene`).
 2. Confirm messages arrive on
-   `scenescape/external/{scene_id}/{thing_type}` (MQTT client or broker logs).
+   `scenescape/external/{publisher_id}/{thing_type}` (MQTT client or broker logs).
 3. Watch `scenescape/data/scene/{scene_id}/{thing_type}` (or the 3D UI) for
    ingested objects whose `id` matches what the converter published.
 4. If nothing appears, check Scene Controller logs for pose/identity rejection
@@ -187,14 +195,11 @@ End-to-end MQTT coverage that exercises this path lives in
 
 The adapter and this guide do **not** cover:
 
-- Scene discovery or choosing among overlapping scenes
-- Multi-scene fan-out or agent handoff
+- Footprint-based multi-scene handoff policy (platform **binding** Future Work,
+  [ADR 14](../../adr/0014-unified-external-source-ingestion.md))
 - Cross-source fusion or camera/external deduplication
-- Broker ACLs that bind credentials to individual `source_id`s (see ADR 14
-  Future Work)
-
-Those remain deployer or future-platform concerns. The converter always targets
-an explicit `scene_id`.
+- Stronger trust-domain join / MQTT ACL hardening beyond same-authority certs
+  (ADR 14 Future Work — discuss with security)
 
 ## See Also
 

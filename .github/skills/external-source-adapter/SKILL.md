@@ -6,7 +6,8 @@ description: Write or review Scenescape external-source converter/adapter script
 # External-Source Adapter Skill
 
 Help a user or agent write a small converter that publishes into
-`scenescape/external/{scene_id}/{thing_type}` with a `source_id` payload.
+`scenescape/external/{publisher_id}/{thing_type}` with `source_id` equal to
+`{publisher_id}` (publisher-centric; scenes bind separately).
 
 ## Mandatory Reads (In Order)
 
@@ -46,8 +47,8 @@ guidance, rejection reasons, and full JSON examples are defined only in
 - Keep protocol-specific dependencies in that directory's `requirements.txt`
   (for example `pymavlink`). Do **not** add them to core Scenescape runtime
   requirements unless the product explicitly adopts the protocol.
-- Follow the how-to's `SCENESCAPE_*` environment-variable naming for scene id,
-  source id, broker, MQTT auth, and root cert.
+- Follow the how-to's `SCENESCAPE_*` environment-variable naming for source id,
+  broker, MQTT auth, and root cert. Topic path uses `SCENESCAPE_SOURCE_ID`.
 - Reuse `scene_common.mqtt.PubSub` and `PubSub.DATA_EXTERNAL` rather than a
   one-off MQTT client, unless the user requires otherwise.
 - When adding or renaming an example adapter, update
@@ -56,7 +57,10 @@ guidance, rejection reasons, and full JSON examples are defined only in
 
 ## Agent Checklist When Writing a Converter
 
-1. Target an explicit `scene_id` and `thing_type`; do not invent scene discovery.
+1. Publish to `external/{source_id}/{thing_type}` with matching payload
+   `source_id`. Do not put a scene uid in the topic path. Prefer `wgs84` for
+   mobile agents (geospatial auto-attach); use
+   `CONTROLLER_EXTERNAL_SOURCE_BINDINGS` for `scene`-frame poses.
 2. Choose a persistent `source_id` and per-object `id` (see Choosing a
    `source_id` in `data_formats.md`); never mint fresh UUIDs on each restart.
 3. Map native observations into source-local `translation` (metres) relative to
@@ -85,13 +89,14 @@ guidance, rejection reasons, and full JSON examples are defined only in
 
 Do not implement or imply as part of an adapter task:
 
-- Multi-scene discovery, fan-out, or boundary arbitration
+- Footprint handoff / overlap policy for the spatial binder (ADR 14 Future Work)
 - Cross-source fusion or camera/external deduplication
 - Per-source identity trust allowlists (identity is trusted by default with
   collision detection — see `data_formats.md`)
 - Changes to Scene Controller pose cache, identity registry, or schema unless
   the user explicitly requested a contract change
-- Broker mTLS/ACL binding of credentials to `source_id`s
+- Broker mTLS/ACL binding of credentials to publisher ids, or other trust-domain
+  hardening beyond same-authority certs (ADR 14 Future Work)
 - Promoting a protocol library into core Scenescape dependencies "for
   convenience"
 

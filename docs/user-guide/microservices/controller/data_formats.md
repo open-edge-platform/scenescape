@@ -11,7 +11,7 @@ SPDX-License-Identifier: Apache-2.0
 | ------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------- |
 | [Camera Input Message Format](#camera-input-message-format)                     | Subscribe | `scenescape/data/camera/{camera_id}`                              |
 | [Sensor Input Message Format](#sensor-input-message-format)                     | Subscribe | `scenescape/data/sensor/{sensor_id}`                              |
-| [External Source Input Message Format](#external-source-input-message-format)   | Subscribe | `scenescape/external/{scene_id}/{thing_type}`                     |
+| [External Source Input Message Format](#external-source-input-message-format)   | Subscribe | `scenescape/external/{publisher_id}/{thing_type}`                 |
 | [Data Scene Output Message Format](#data-scene-output-message-format)           | Publish   | `scenescape/data/scene/{scene_id}/{thing_type}`                   |
 | [Regulated Scene Output Message Format](#regulated-scene-output-message-format) | Publish   | `scenescape/regulated/scene/{scene_id}`                           |
 | [Region Event Output Message Format](#region-event-output-message-format)       | Publish   | `scenescape/event/region/{scene_id}/{region_id}/{event_type}`     |
@@ -203,21 +203,32 @@ in the integration guide.
 
 ## External Source Input Message Format
 
-The Scene Controller subscribes to the MQTT topic `scenescape/external/{scene_id}/{thing_type}`.
-This single topic carries two message contracts, distinguished by the presence of `source_id`
-in the payload:
+The Scene Controller subscribes to `scenescape/external/{publisher_id}/{thing_type}`
+(MQTT template parameter name remains `scene_id` in `PubSub` APIs). The path id is
+always the **publisher** (configured child scene uid or agent `source_id`). Scenes
+attach via consumer-side **bindings**, not by addressing a scene inbox. See
+[ADR 14](../../../adr/0014-unified-external-source-ingestion.md).
 
-- **Legacy configured child scene** (no `source_id`): `{scene_id}` is the _sending_ child
-  scene's own ID. The controller looks up the child's configured parent scene and its static
-  `cameraPose`, and transforms the child's tracked objects into the parent. This behavior is
-  unchanged.
-- **Unified external source** (`source_id` present): `{scene_id}` is the _target_ scene the
-  source is publishing into. `source_id` identifies the publishing source (a physical agent
-  such as a drone or vehicle, the Scenescape positioning service, or a child scene using the
-  new contract). Messages are validated against the `external_source` definition in
-  [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
+Two payload contracts share the topic, distinguished by `source_id`:
 
-This section documents the unified external-source contract.
+- **Configured child scene** (no `source_id`): `{publisher_id}` is the sending child's
+  own id. The controller looks up the child's configured parent and static `cameraPose`.
+  Only scenes with a parent publish this hierarchy form; roots do not emit hierarchy
+  echoes onto the external topic.
+- **Unified external source** (`source_id` present): `{publisher_id}` must equal
+  `source_id`. The controller binds the publisher to one or more scenes:
+  - **Manual:** `CONTROLLER_EXTERNAL_SOURCE_BINDINGS=publisher_id:scene_uid,...`
+  - **Geospatial auto-attach (interim):** `reference_frame: wgs84` attaches to every
+    scene with four-corner geospatial calibration (until a footprint/handoff binder)
+  - **Cache reuse:** pose omitted → scenes that still hold a live cached pose for
+    this publisher
+  - **Scene-frame poses:** require a manual binding (and
+    `CONTROLLER_TRUSTED_POSITIONING_SOURCES` for acceptance)
+
+Messages with `source_id` are validated against the `external_source` definition in
+[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
+
+This section documents the unified external-source **payload** contract.
 
 To write a converter that maps a source's native output into this contract and
 publishes over authenticated MQTT, see
@@ -228,9 +239,9 @@ publishes over authenticated MQTT, see
 | Field       | Type                  | Required | Description                                                                                                                                                                                                                                          |
 | ----------- | --------------------- | :------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `timestamp` | string (ISO 8601 UTC) |   Yes    | Time the observations (and pose, if present) were acquired                                                                                                                                                                                           |
-| `source_id` | string                |   Yes    | Identifier of the publishing source; combined with the topic's `{scene_id}` to key the source's pose cache                                                                                                                                           |
+| `source_id` | string                |   Yes    | Publisher id; must match the topic `{publisher_id}` segment; combined with the bound scene uid to key the pose cache                                                                                                                                 |
 | `objects`   | array                 |   Yes    | Observed objects, in the source's local coordinate frame (see [External Detection Object Fields](#external-detection-object-fields-objects)); may be empty for a pose-only update                                                                    |
-| `pose`      | object                |    No    | Pose of the source's local origin, used to transform `objects` into the target scene (see [External Source Pose Fields](#external-source-pose-fields-pose)); may be omitted to reuse the most recently cached, non-expired pose for this `source_id` |
+| `pose`      | object                |    No    | Pose of the source's local origin, used to transform `objects` into the bound scene (see [External Source Pose Fields](#external-source-pose-fields-pose)); may be omitted to reuse the most recently cached, non-expired pose for this `source_id` |
 
 ### External Source Pose Fields (`pose`)
 

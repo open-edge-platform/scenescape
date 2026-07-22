@@ -4,7 +4,8 @@
 """MAVLink → Scenescape external_source MQTT adapter.
 
 Reads GLOBAL_POSITION_INT and ATTITUDE from a MAVLink connection and publishes
-authenticated MQTT messages on scenescape/external/{scene_id}/{thing_type}.
+authenticated MQTT messages on scenescape/external/{publisher_id}/{thing_type}
+where publisher_id is SCENESCAPE_SOURCE_ID.
 
 Contract fields and examples:
   docs/user-guide/microservices/controller/data_formats.md
@@ -159,7 +160,7 @@ def main(argv=None):
 
   args = parse_args(argv)
 
-  scene_id = _env("SCENESCAPE_SCENE_ID", required=True)
+  scene_id = _env("SCENESCAPE_SCENE_ID", default="")
   thing_type = _env("SCENESCAPE_THING_TYPE", "vehicle")
   source_id = _env("SCENESCAPE_SOURCE_ID", required=True)
   category = _env("SCENESCAPE_OBJECT_CATEGORY", thing_type)
@@ -182,9 +183,13 @@ def main(argv=None):
   pubsub = PubSub(mqtt_auth, None, root_cert, broker, port=broker_port)
   pubsub.connect()
   pubsub.loopStart()
+  # Publisher-centric: topic path is source_id. Optional SCENESCAPE_SCENE_ID is
+  # only for operator notes / manual CONTROLLER_EXTERNAL_SOURCE_BINDINGS.
   topic = PubSub.formatTopic(
-    PubSub.DATA_EXTERNAL, scene_id=scene_id, thing_type=thing_type)
-  logger.info("Publishing to MQTT topic %s as source_id=%s", topic, source_id)
+    PubSub.DATA_EXTERNAL, scene_id=source_id, thing_type=thing_type)
+  logger.info(
+    "Publishing to MQTT topic %s (publisher id=%s); optional scene hint=%s",
+    topic, source_id, scene_id)
 
   state = MavlinkState()
   interval = 1.0 / args.publish_hz

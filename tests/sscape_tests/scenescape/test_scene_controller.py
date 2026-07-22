@@ -407,10 +407,11 @@ class TestSceneControllerPublishers:
     assert jdata['debug_hmo_processing_time'] == 5.0
 
   def test_publish_external_detections_publishes_with_sensor_enriched_objects(self):
-    """External publish emits when shouldPublish allows and does not mutate base payload."""
+    """External publish emits when scene has a parent and shouldPublish allows."""
     scene_controller = self._build_controller('unregulated')
     scene = SimpleNamespace(
       uid='scene-1',
+      parent='parent-1',
       external_update_rate=2,
       last_published_detection=defaultdict(lambda: None),
     )
@@ -424,6 +425,23 @@ class TestSceneControllerPublishers:
     assert scene_controller.pubsub.publish.call_count == 1
     assert scene.last_published_detection['person'] == 101.0
     assert jdata_base['objects'] == ['unchanged']
+
+  def test_publish_external_detections_skips_root_scene_without_parent(self):
+    """Root scenes must not publish hierarchy echoes onto their own external topic."""
+    scene_controller = self._build_controller('unregulated')
+    scene = SimpleNamespace(
+      uid='scene-1',
+      parent=None,
+      external_update_rate=2,
+      last_published_detection=defaultdict(lambda: None),
+    )
+    jdata_base = {'timestamp': '2026-01-01T00:00:01Z', 'objects': ['unchanged']}
+    scene_controller.shouldPublish = MagicMock(return_value=True)
+
+    scene_controller.publishExternalDetections(scene, 'person', [object()], jdata_base)
+
+    scene_controller.pubsub.publish.assert_not_called()
+    scene_controller.shouldPublish.assert_not_called()
 
   @patch('controller.scene_controller.metrics')
   @patch('controller.scene_controller.ControllerMode')
@@ -609,3 +627,105 @@ class TestSceneControllerHandleExternalSourceObject:
     assert args[0]['objects'][0]['id'] == 'tag-aa:bb:cc'
     assert args[1].uid == 'uwb-hub-1'
 
+
+class TestParseExternalSourceBindings:
+  """Unit tests for CONTROLLER_EXTERNAL_SOURCE_BINDINGS parsing."""
+
+  def test_parses_publisher_to_scene_pairs(self):
+    from controller.scene_controller import _parseExternalSourceBindings
+    result = _parseExternalSourceBindings(
+      'drone-1:scene-a,drone-1:scene-b,pos-1:scene-a')
+    assert result['drone-1'] == frozenset({'scene-a', 'scene-b'})
+    assert result['pos-1'] == frozenset({'scene-a'})
+
+  def test_empty_is_no_bindings(self):
+    from controller.scene_controller import _parseExternalSourceBindings
+    assert _parseExternalSourceBindings(None) == {}
+    assert _parseExternalSourceBindings('') == {}
+
+
+class TestScenesForExternalPublisher:
+  """Unit tests for SceneController._scenesForExternalPublisher."""
+
+  def _build_controller(self, bindings=None):
+    controller = SceneController.__new__(SceneController)
+    controller.external_source_bindings = bindings or {}
+    controller.external_source_pose_cache = MagicMock()
+    controller.cache_manager = MagicMock()
+    return controller
+
+  def test_manual_binding_wins(self):
+    scene = SimpleNamespace(uid='scene-a', trs_xyz_to_lla=None)
+    controller = self._build_controller({'drone-1': frozenset({'scene-a'})})
+    controller.cache_manager.sceneWithID.return_value = scene
+
+    scenes = controller._scenesForExternalPublisher(
+      'drone-1', {'pose': {'reference_frame': 'scene'}}, 1.0)
+
+    assert scenes == [scene]
+
+  def test_wgs84_auto_attaches_geo_scenes(self):
+    geo = SimpleNamespace(uid='geo', trs_xyz_to_lla=object())
+    plain = SimpleNamespace(uid='plain', trs_xyz_to_lla=None)
+    controller = self._build_controller()
+    controller.cache_manager.allScenes.return_value = [geo, plain]
+
+    scenes = controller._scenesForExternalPublisher(
+      'drone-1', {'pose': {'reference_frame': 'wgs84'}}, 1.0)
+
+    assert scenes == [geo]
+
+  def test_scene_frame_without_binding_is_empty(self):
+    controller = self._build_controller()
+    scenes = controller._scenesForExternalPublisher(
+      'pos-1', {'pose': {'reference_frame': 'scene', 'translation': [0, 0, 0]}}, 1.0)
+    assert scenes == []
+
+
+class TestSceneControllerHandleChildSceneObject:
+  """Unit tests for SceneController._handleChildSceneObject."""
+
+  def _build_controller(self):
+    controller = SceneController.__new__(SceneController)
+    controller.cache_manager = MagicMock()
+    return controller
+
+  def test_root_scene_hierarchy_echo_is_ignored(self):
+    """Hierarchy publishes from a root scene (no parent) return None, not failure."""
+    scene_controller = self._build_controller()
+    root = SimpleNamespace(uid='root-1', parent=None)
+    scene_controller.cache_manager.sceneWithID.return_value = root
+
+    result = scene_controller._handleChildSceneObject(
+      'root-1', {'objects': []}, 'person', 42.0)
+
+    assert result is None
+    scene_controller.cache_manager.sceneWithRemoteChildID.assert_not_called()
+
+  def test_child_scene_forwards_to_parent(self):
+    """Configured child scenes still transform into the parent scene."""
+    scene_controller = self._build_controller()
+    child = SimpleNamespace(uid='child-1', parent='parent-1', cameraPose=MagicMock())
+    parent = SimpleNamespace(uid='parent-1', processSceneData=MagicMock(return_value=True))
+    scene_controller.cache_manager.sceneWithID.side_effect = lambda uid: {
+      'child-1': child, 'parent-1': parent,
+    }.get(uid)
+
+    success, scene = scene_controller._handleChildSceneObject(
+      'child-1', {'objects': [{'id': 'o1'}]}, 'person', 42.0)
+
+    assert success is True
+    assert scene is parent
+    parent.processSceneData.assert_called_once()
+
+  def test_unknown_sender_returns_failure_tuple(self):
+    """Unknown hierarchy senders fail closed without raising."""
+    scene_controller = self._build_controller()
+    scene_controller.cache_manager.sceneWithID.return_value = None
+    scene_controller.cache_manager.sceneWithRemoteChildID.return_value = None
+
+    success, scene = scene_controller._handleChildSceneObject(
+      'missing', {'objects': []}, 'person', 42.0)
+
+    assert success is False
+    assert scene is None

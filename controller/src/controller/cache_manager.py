@@ -147,6 +147,9 @@ class CacheManager:
     return
 
   def refreshScenesForCamParams(self, jdata):
+    if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
+      return
+
     intrinsics_changed = self.cameraParametersChanged(jdata, 'intrinsics')
     distortion_changed = self.cameraParametersChanged(jdata, 'distortion')
 

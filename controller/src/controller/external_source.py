@@ -5,9 +5,9 @@
 
 External sources (configured child scenes, physical agents such as drones or
 vehicles, and the Scenescape positioning service) publish observations
-expressed in their own local frame on the existing
-``scenescape/external/{scene_id}/{thing_type}`` topic. This module resolves
-the transform that maps that local frame into the target scene:
+expressed in their own local frame on
+``scenescape/external/{publisher_id}/{thing_type}``. This module resolves
+the transform that maps that local frame into a bound scene:
 
 - Static child scenes populate the cache from their configured
   ``Scene.cameraPose`` (handled by callers, not this module).
@@ -162,6 +162,14 @@ class ExternalSourcePoseCache:
          (source_id is None or key[1] == source_id):
         self._cache.pop(key, None)
     return
+
+  def scenesWithLiveCache(self, source_id, when):
+    """Return scene uids that still hold a non-expired pose for source_id."""
+    scene_uids = []
+    for (scene_uid, cached_source_id), cached in self._cache.items():
+      if cached_source_id == source_id and when <= cached.expires_at:
+        scene_uids.append(scene_uid)
+    return scene_uids
 
 
 @dataclass

@@ -413,7 +413,7 @@
     },
     "external_source": {
       "title": "External Source Metadata",
-      "description": "Unified contract for object observations published by external sources (configured child scenes, physical agents such as drones or vehicles, and the Scenescape positioning service) into a target scene, on the existing scenescape/external/{scene_id}/{thing_type} topic.",
+      "description": "Unified contract for object observations published by external sources (physical agents such as drones or vehicles, and the Scenescape positioning service) under scenescape/external/{publisher_id}/{thing_type}, where publisher_id matches source_id. Scene membership is via consumer-side binding.",
       "type": "object",
       "additionalProperties": true,
       "meta:extensible": true,
@@ -424,7 +424,7 @@
         "source_id": {
           "title": "Source ID",
           "type": "string",
-          "description": "Identifier of the publishing source (child scene ID, agent UUID, etc). Combined with the topic's scene_id to key the source's pose cache."
+          "description": "Identifier of the publishing source; must match the topic publisher_id segment. Combined with the bound scene uid to key the source's pose cache."
         },
         "pose": {
           "$ref": "#/definitions/external_pose",

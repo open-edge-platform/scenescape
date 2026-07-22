@@ -4,18 +4,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Functional coverage for the unified external-source ingestion contract
-(scenescape/external/{scene_id}/{thing_type} with 'source_id' in the payload).
+(scenescape/external/{publisher_id}/{thing_type} with 'source_id' in the payload).
 
 Complements tests/sscape_tests/scenescape/test_external_source.py (unit,
 ExternalSourcePoseCache) and test_scene_controller.py (unit, routing) by
 exercising the full MQTT ingestion path against a running controller: a
-wgs84-pose agent publish, pose-only cache reuse, and rejection of an
-untrusted scene-frame pose.
+wgs84-pose agent publish, scene-location accuracy against the 4-corner
+geospatial fixture, pose-only cache reuse, and rejection of an untrusted
+scene-frame pose.
+
+Publishes at a fixed 10 Hz. Variable-rate coverage is deferred.
 """
 
 import json
 import os
 import time
+
+import numpy as np
 
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
@@ -37,14 +42,21 @@ TEST_NAME = "external-source-ingest"
 THING_TYPE = "person"
 FRAMES_PER_SECOND = 10
 MAX_WAIT_TIMEOUT_S = 30
+CONTROLLER_SETTLE_S = 2.0
 AGENT_SOURCE_ID = "drone-1"
 UNTRUSTED_POSITIONING_SOURCE_ID = "positioning-service-untrusted"
+OBJECT_ID = "agent-track-1"
 
 # Same verified geospatial calibration fixture as
 # tests/functional/test_geospatial_ingest_publish.py.
 MAP_CORNERS_LLA = [[ 37.38685435, -121.96408120, 8.0], [ 37.38693520, -121.96408120, 8.0],
       [ 37.38693520, -121.96413896, 8.0], [ 37.38685435, -121.96413896, 8.0]]
 AGENT_LAT_LONG_ALT = [37.38688947231117, -121.96410520894621, 8.068826778282563]
+# Scene-local XYZ corresponding to AGENT_LAT_LONG_ALT under the 4-corner TRS
+# (verified by unit ExternalSourcePoseCache and geospatial constants checks).
+EXPECTED_SCENE_XYZ = [3.8679791719486474, 2.7517397452609087, 1.1225254457301852e-19]
+SCENE_XYZ_ATOL_M = 0.05
+SCENE_LLA_RTOL = 1e-5
 IDENTITY_ROTATION = [0, 0, 0, 1]
 
 
@@ -88,47 +100,77 @@ class ExternalSourceIngest(FunctionalTest):
     return
 
   def prepareScene(self):
+    """Enable geospatial calibration on the demo scene.
+
+    After inter-test DB restore, the controller may compute TRS locally while
+    REST briefly omits ``trs_matrix`` (same flake class as
+    test_geospatial_ingest_publish / test_external_source_analytics). Prefer
+    corners on the existing demo map; fall back to map re-upload. Readiness
+    is confirmed by a successful external-source publish on DATA_SCENE when
+    REST does not expose ``trs_matrix``.
+    """
     map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
     with open(map_image, "rb") as f:
-      map_data = f.read()
-    res = self.rest.updateScene(self.sceneUID, {
-      'output_lla': True,
-      'map_corners_lla': json.dumps(MAP_CORNERS_LLA),
-      'map': (map_image, map_data),
-    })
-    assert res, (res.statusCode, res.errors)
-    scene = self.waitForSceneCondition(
-      lambda s: bool(s.get('trs_matrix')),
-      "trs_matrix to be computed for external-source geospatial ingest",
-    )
-    assert scene.get('trs_matrix'), "trs_matrix not populated; scene is not geo-referenced"
+      map_bytes = f.read()
+
+    updates = [
+      {'output_lla': True, 'map_corners_lla': MAP_CORNERS_LLA},
+      {
+        'output_lla': True,
+        'map_corners_lla': json.dumps(MAP_CORNERS_LLA),
+        'map': (map_image, map_bytes),
+      },
+    ]
+    for attempt, update in enumerate(updates, start=1):
+      res = self.rest.updateScene(self.sceneUID, update)
+      assert res, (res.statusCode, res.errors)
+      time.sleep(CONTROLLER_SETTLE_S)
+      scene = self.rest.getScene(self.sceneUID)
+      if scene.get('trs_matrix'):
+        log.info("trs_matrix visible via REST after geo-update attempt %s", attempt)
+        return
+      if self._probeExternalIngest():
+        log.info(
+          "Geo ingest probe succeeded after attempt %s "
+          "(trs_matrix may be absent from REST)", attempt)
+        return
+
+    scene = self.rest.getScene(self.sceneUID)
+    assert self._probeExternalIngest(), (
+      "Scene geo calibration failed: external wgs84 ingest produced no "
+      f"scene output. REST output_lla={scene.get('output_lla')} "
+      f"map_corners={bool(scene.get('map_corners_lla'))} "
+      f"trs_matrix={scene.get('trs_matrix') is not None}")
     return
 
-  def waitForSceneCondition(self, predicate, description,
-                            timeout=MAX_WAIT_TIMEOUT_S, interval=1.0):
-    start = time.time()
-    scene = self.rest.getScene(self.sceneUID)
-    while True:
-      scene = self.rest.getScene(self.sceneUID)
-      try:
-        if predicate(scene):
-          return scene
-      except Exception as e:
-        log.debug("Predicate raised while waiting for %s: %s", description, e)
-      if time.time() - start >= timeout:
-        break
-      time.sleep(interval)
-    log.error("Timed out after %ss waiting for %s", timeout, description)
-    return scene
+  def _probeExternalIngest(self):
+    """Return True if a wgs84 external-source publish yields DATA_SCENE objects."""
+    jdata = {
+      "timestamp": get_iso_time(),
+      "source_id": AGENT_SOURCE_ID,
+      "pose": {
+        "reference_frame": "wgs84",
+        "lat_long_alt": AGENT_LAT_LONG_ALT,
+        "rotation": IDENTITY_ROTATION,
+      },
+      "objects": [{
+        "id": OBJECT_ID,
+        "category": THING_TYPE,
+        "translation": [0.0, 0.0, 0.0],
+        "size": [0.5, 0.5, 1.8],
+      }],
+    }
+    return self.publishAndWait(jdata, timeout=10.0) is not None
 
-  def externalSourceTopic(self):
-    return PubSub.formatTopic(PubSub.DATA_EXTERNAL, scene_id=self.sceneUID,
+  def externalSourceTopic(self, publisher_id=AGENT_SOURCE_ID):
+    # Publisher-centric: topic path id is the agent source_id, not the scene.
+    return PubSub.formatTopic(PubSub.DATA_EXTERNAL, scene_id=publisher_id,
                               thing_type=THING_TYPE)
 
   def publishAndWait(self, jdata, timeout=MAX_WAIT_TIMEOUT_S):
     self.outputReceived = False
     self.lastObjects = None
-    topic = self.externalSourceTopic()
+    topic = self.externalSourceTopic(jdata.get('source_id', AGENT_SOURCE_ID))
     start = time.time()
     count = 0
     while not self.outputReceived and time.time() - start < timeout:
@@ -148,7 +190,7 @@ class ExternalSourceIngest(FunctionalTest):
     topic silence is not a valid test for rejection of one specific object.
     """
     self.seenObjectIds = set()
-    topic = self.externalSourceTopic()
+    topic = self.externalSourceTopic(jdata.get('source_id', AGENT_SOURCE_ID))
     start = time.time()
     while time.time() - start < timeout:
       jdata['timestamp'] = get_iso_time()
@@ -156,9 +198,19 @@ class ExternalSourceIngest(FunctionalTest):
       time.sleep(1 / FRAMES_PER_SECOND)
     return forbidden_id not in self.seenObjectIds
 
-  def verifyWgs84PoseIngest(self):
-    """A wgs84-frame agent pose plus an object observation is transformed
-    into the scene and produces tracked output."""
+  def _findObject(self, object_id):
+    assert self.lastObjects, "No scene objects received"
+    for obj in self.lastObjects:
+      if obj.get('id') == object_id:
+        return obj
+    raise AssertionError(
+      f"Object id={object_id} not found in scene output: "
+      f"{[o.get('id') for o in self.lastObjects]}")
+
+  def verifyWgs84PoseIngestAndLocationAccuracy(self):
+    """A wgs84-frame agent pose plus an object at the source origin is
+    transformed into the geo-calibrated scene at the expected XYZ (and LLA
+    when output_lla is enabled)."""
     jdata = {
       "source_id": AGENT_SOURCE_ID,
       "pose": {
@@ -167,12 +219,32 @@ class ExternalSourceIngest(FunctionalTest):
         "rotation": IDENTITY_ROTATION,
       },
       "objects": [
-        {"id": "agent-track-1", "category": THING_TYPE, "translation": [0.0, 0.0, 0.0], "size": [0.5, 0.5, 1.8]},
+        {
+          "id": OBJECT_ID,
+          "category": THING_TYPE,
+          "translation": [0.0, 0.0, 0.0],
+          "size": [0.5, 0.5, 1.8],
+        },
       ],
     }
     count = self.publishAndWait(jdata)
     assert count, "External source (wgs84 pose) message did not produce tracked output"
-    assert self.lastObjects and len(self.lastObjects) > 0
+    obj = self._findObject(OBJECT_ID)
+    assert "translation" in obj, f"Scene object missing translation: {obj}"
+    np.testing.assert_allclose(
+      obj["translation"], EXPECTED_SCENE_XYZ, atol=SCENE_XYZ_ATOL_M,
+      err_msg=(
+        f"External-source scene XYZ inaccurate: got {obj['translation']}, "
+        f"expected {EXPECTED_SCENE_XYZ} (atol={SCENE_XYZ_ATOL_M} m)"))
+    assert "lat_long_alt" in obj, f"Scene object missing lat_long_alt: {obj}"
+    np.testing.assert_allclose(
+      obj["lat_long_alt"], AGENT_LAT_LONG_ALT, rtol=SCENE_LLA_RTOL,
+      err_msg=(
+        f"External-source scene LLA inaccurate: got {obj['lat_long_alt']}, "
+        f"expected {AGENT_LAT_LONG_ALT}"))
+    log.info(
+      "PASS: wgs84 external-source location accuracy xyz=%s lla=%s",
+      obj["translation"], obj["lat_long_alt"])
     return
 
   def verifyPoseReuseFromCache(self):
@@ -180,7 +252,12 @@ class ExternalSourceIngest(FunctionalTest):
     jdata = {
       "source_id": AGENT_SOURCE_ID,
       "objects": [
-        {"id": "agent-track-1", "category": THING_TYPE, "translation": [0.5, 0.5, 0.0], "size": [0.5, 0.5, 1.8]},
+        {
+          "id": OBJECT_ID,
+          "category": THING_TYPE,
+          "translation": [0.5, 0.5, 0.0],
+          "size": [0.5, 0.5, 1.8],
+        },
       ],
     }
     count = self.publishAndWait(jdata)
@@ -218,7 +295,7 @@ class ExternalSourceIngest(FunctionalTest):
 
     try:
       self.prepareScene()
-      self.verifyWgs84PoseIngest()
+      self.verifyWgs84PoseIngestAndLocationAccuracy()
       self.verifyPoseReuseFromCache()
       self.verifyUntrustedScenePoseRejected()
       self.exitCode = 0
