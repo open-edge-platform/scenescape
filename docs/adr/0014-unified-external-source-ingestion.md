@@ -245,16 +245,13 @@ gap. Documented here as a known, intentional scoping decision, not an oversight.
 Carried forward from the original implementation plan's deferred items, plus documentation gaps
 identified while closing out this contract:
 
-- **Publisher/adapter converter-script documentation.** Add a guide (and, if warranted, a
-  reusable skill) that helps a user or an agent write a small converter script that takes a
-  specific source's raw native output (for example MAVLink, ROS 2, NMEA, CAN, a vendor's UWB/RTLS
-  JSON, or a robot's proprietary telemetry format) and maps it into the
-  `external_source`/`external_pose`/`external_detection` schema documented in
-  `docs/user-guide/microservices/controller/data_formats.md` — covering required fields
-  (`timestamp`, `source_id`, per-object `id`), coordinate/quaternion/body-frame conventions, the
-  `wgs84` vs. `scene` pose-trust distinction, and publishing over authenticated MQTT. This
-  explicitly does not include scene discovery, cross-source fusion, or multi-scene routing, which
-  remain out of scope for the adapter/converter and for the controller.
+- **Done — Publisher/adapter converter-script documentation.** Guide:
+  [`docs/user-guide/how-to-guides/publish-external-source-adapter.md`](../user-guide/how-to-guides/publish-external-source-adapter.md);
+  agent skill:
+  [`.github/skills/external-source-adapter/SKILL.md`](../../.github/skills/external-source-adapter/SKILL.md).
+  Both point at the canonical contract in
+  `docs/user-guide/microservices/controller/data_formats.md` rather than duplicating field
+  tables. Remaining Future Work items below are unchanged.
 - **Multi-scene discovery/fan-out.** Scene discovery, boundary arbitration, agent handoff between
   overlapping scenes, and priority rules when a source is in range of more than one scene are all
   deferred; sources choose their target scene explicitly for now.
@@ -320,6 +317,10 @@ identified while closing out this contract:
 - `controller/src/controller/uuid_manager.py` (global ID assignment, ReID)
 - `docs/user-guide/microservices/controller/data_formats.md` (external-source contract reference,
   Trusted Identity by Default with Collision Detection, `source_id` self-identification guidance)
+- `docs/user-guide/how-to-guides/publish-external-source-adapter.md` (converter/adapter how-to;
+  procedure only — links to `data_formats.md` for the contract)
+- `.github/skills/external-source-adapter/SKILL.md` (agent checklist for writing converters;
+  anti-drift pointers to the how-to and `data_formats.md`)
 - `docs/user-guide/microservices/controller/controller.md` (`CONTROLLER_TRUSTED_POSITIONING_SOURCES`
   reference and pointer to the no-configuration-required identity trust model)
 - `tests/functional/test_external_source_ingest.py` (end-to-end MQTT ingest coverage)

@@ -110,6 +110,7 @@ _Figure 2: Scene Controller Sequence diagram_
 - [How to Configure the Tracker](./how-to-configure-tracker.md)
 - [Extended Re-ID](./Extended-ReID.md)
 - [Data Formats](./data_formats.md)
+- [Publish Observations from an External Source Adapter](../../how-to-guides/publish-external-source-adapter.md)
 - [API Reference](./api-reference.md)
 
 <!--hide_directive

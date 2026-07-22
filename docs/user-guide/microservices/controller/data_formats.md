@@ -219,6 +219,10 @@ in the payload:
 
 This section documents the unified external-source contract.
 
+To write a converter that maps a source's native output into this contract and
+publishes over authenticated MQTT, see
+[Publish Observations from an External Source Adapter](../../how-to-guides/publish-external-source-adapter.md).
+
 ### External Source Top-Level Fields
 
 | Field       | Type                  | Required | Description                                                                                                                                                                                                                                          |
