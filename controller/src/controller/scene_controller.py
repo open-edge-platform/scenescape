@@ -14,7 +14,7 @@ from controller.controller_mode import ControllerMode
 from controller.detections_builder import (buildDetectionsDict,
                                            buildDetectionsList,
                                            computeCameraBounds)
-from controller.external_source import ExternalSourcePoseCache
+from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
 from controller.scene import Scene
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
@@ -117,6 +117,7 @@ class SceneController:
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
 
     self.external_source_pose_cache = ExternalSourcePoseCache()
+    self.identity_claim_registry = IdentityClaimRegistry()
     self.trusted_positioning_sources = _parseTrustedSources(
       os.getenv(TRUSTED_POSITIONING_SOURCES_ENV_VAR))
     return
@@ -518,7 +519,11 @@ class SceneController:
         return
 
       jdata['debug_hmo_start_time'] = now
-      self.cache_manager.refreshScenesForCamParams(jdata)
+      # Camera intrinsics/distortion refresh only applies to camera-originated
+      # messages (keyed by 'id'); external-source messages are keyed by
+      # 'source_id' and have no camera parameters to refresh.
+      if topic['_topic_id'] != PubSub.DATA_EXTERNAL:
+        self.cache_manager.refreshScenesForCamParams(jdata)
 
       if self.rewrite_all_time:
         msg_when = now
@@ -531,7 +536,8 @@ class SceneController:
         if not self.rewrite_bad_time:
           metric_attributes["reason"] = "fell_behind"
           metrics.inc_dropped(metric_attributes)
-          log.warning("{} FELL BEHIND by {}. SKIPPING {}".format(message.topic, lag, jdata['id']))
+          log.warning("{} FELL BEHIND by {}. SKIPPING {}".format(
+            message.topic, lag, jdata.get('id', jdata.get('source_id', 'unknown'))))
           return
         msg_when = now
 
@@ -654,7 +660,33 @@ class SceneController:
                 f"scene={scene.uid}: {reason}")
       return True
 
-    external_source = SimpleNamespace(name=source_id, retrack=True)
+    # Every external-source object's 'id' is trusted directly as global
+    # track identity by default (no source allowlist to configure): the
+    # object bypasses Scenescape's kinematic tracker/ReID association and
+    # keeps the source-assigned id as its gid for as long as the source
+    # keeps reporting that same id. This is safe for sources like a UWB/RTLS
+    # tag whose id is already a permanent hardware identifier. To keep this
+    # safe without requiring per-source configuration, each id is claimed
+    # exclusively per (scene, category): if a different source is already
+    # using the same id at the same time -- a genuine identity collision --
+    # the newly arriving, colliding object is dropped rather than silently
+    # merged into an unrelated track. See IdentityClaimRegistry for the one
+    # case this does not solve (a single source reusing a stale id for a
+    # new physical object after its previous claim has expired).
+    accepted_objects = []
+    for obj in jdata.get('objects', []):
+      obj_id = obj.get('id')
+      ok, collision_reason = self.identity_claim_registry.claim(
+        scene.uid, detection_type, source_id, obj_id, msg_when)
+      if ok:
+        accepted_objects.append(obj)
+      else:
+        log.warning(
+          f"Rejecting external-source object: id={obj_id} from source={source_id} "
+          f"scene={scene.uid} category={detection_type}: {collision_reason}")
+    jdata['objects'] = accepted_objects
+
+    external_source = SimpleNamespace(name=source_id, uid=source_id, retrack=False)
     return scene.processSceneData(jdata, external_source, camera_pose,
                                   detection_type, when=msg_when)
 

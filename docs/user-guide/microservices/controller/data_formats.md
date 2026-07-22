@@ -11,7 +11,7 @@ SPDX-License-Identifier: Apache-2.0
 | ------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------- |
 | [Camera Input Message Format](#camera-input-message-format)                     | Subscribe | `scenescape/data/camera/{camera_id}`                              |
 | [Sensor Input Message Format](#sensor-input-message-format)                     | Subscribe | `scenescape/data/sensor/{sensor_id}`                              |
-| [External Source Input Message Format](#external-source-input-message-format)  | Subscribe | `scenescape/external/{scene_id}/{thing_type}`                     |
+| [External Source Input Message Format](#external-source-input-message-format)   | Subscribe | `scenescape/external/{scene_id}/{thing_type}`                     |
 | [Data Scene Output Message Format](#data-scene-output-message-format)           | Publish   | `scenescape/data/scene/{scene_id}/{thing_type}`                   |
 | [Regulated Scene Output Message Format](#regulated-scene-output-message-format) | Publish   | `scenescape/regulated/scene/{scene_id}`                           |
 | [Region Event Output Message Format](#region-event-output-message-format)       | Publish   | `scenescape/event/region/{scene_id}/{region_id}/{event_type}`     |
@@ -207,11 +207,11 @@ The Scene Controller subscribes to the MQTT topic `scenescape/external/{scene_id
 This single topic carries two message contracts, distinguished by the presence of `source_id`
 in the payload:
 
-- **Legacy configured child scene** (no `source_id`): `{scene_id}` is the *sending* child
+- **Legacy configured child scene** (no `source_id`): `{scene_id}` is the _sending_ child
   scene's own ID. The controller looks up the child's configured parent scene and its static
   `cameraPose`, and transforms the child's tracked objects into the parent. This behavior is
   unchanged.
-- **Unified external source** (`source_id` present): `{scene_id}` is the *target* scene the
+- **Unified external source** (`source_id` present): `{scene_id}` is the _target_ scene the
   source is publishing into. `source_id` identifies the publishing source (a physical agent
   such as a drone or vehicle, the Scenescape positioning service, or a child scene using the
   new contract). Messages are validated against the `external_source` definition in
@@ -221,23 +221,23 @@ This section documents the unified external-source contract.
 
 ### External Source Top-Level Fields
 
-| Field       | Type                  | Required | Description                                                                                                       |
-| ----------- | --------------------- | :------: | ------------------------------------------------------------------------------------------------------------------ |
-| `timestamp` | string (ISO 8601 UTC) |   Yes    | Time the observations (and pose, if present) were acquired                                                        |
-| `source_id` | string                |   Yes    | Identifier of the publishing source; combined with the topic's `{scene_id}` to key the source's pose cache        |
-| `objects`   | array                 |   Yes    | Observed objects, in the source's local coordinate frame (see [External Detection Object Fields](#external-detection-object-fields-objects)); may be empty for a pose-only update |
+| Field       | Type                  | Required | Description                                                                                                                                                                                                                                          |
+| ----------- | --------------------- | :------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `timestamp` | string (ISO 8601 UTC) |   Yes    | Time the observations (and pose, if present) were acquired                                                                                                                                                                                           |
+| `source_id` | string                |   Yes    | Identifier of the publishing source; combined with the topic's `{scene_id}` to key the source's pose cache                                                                                                                                           |
+| `objects`   | array                 |   Yes    | Observed objects, in the source's local coordinate frame (see [External Detection Object Fields](#external-detection-object-fields-objects)); may be empty for a pose-only update                                                                    |
 | `pose`      | object                |    No    | Pose of the source's local origin, used to transform `objects` into the target scene (see [External Source Pose Fields](#external-source-pose-fields-pose)); may be omitted to reuse the most recently cached, non-expired pose for this `source_id` |
 
 ### External Source Pose Fields (`pose`)
 
-| Field                 | Type               |    Required     | Description                                                                                                                       |
-| --------------------- | ------------------ | :-------------: | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `reference_frame`     | string              |       Yes        | `"wgs84"` or `"scene"` — see below                                                                                                |
-| `rotation`             | array[4] of number |       Yes        | Orientation of the source's local origin, as a quaternion (`x`, `y`, `z`, `w`)                                                    |
-| `lat_long_alt`         | array[3] of number | If `wgs84`       | Global position of the source's local origin (latitude, longitude, altitude in metres)                                           |
-| `translation`          | array[3] of number | If `scene`       | Position of the source's local origin in scene-local coordinates (`x`, `y`, `z`)                                                  |
-| `position_accuracy_m` | number > 0         |       No         | Estimated accuracy of the reported position in metres, if known                                                                   |
-| `provider`             | string             |       No         | Informational label for what produced this pose (e.g. `"agent"`, `"positioning_service"`); not used for authorization              |
+| Field                 | Type               |  Required  | Description                                                                                                           |
+| --------------------- | ------------------ | :--------: | --------------------------------------------------------------------------------------------------------------------- |
+| `reference_frame`     | string             |    Yes     | `"wgs84"` or `"scene"` — see below                                                                                    |
+| `rotation`            | array[4] of number |    Yes     | Orientation of the source's local origin, as a quaternion (`x`, `y`, `z`, `w`)                                        |
+| `lat_long_alt`        | array[3] of number | If `wgs84` | Global position of the source's local origin (latitude, longitude, altitude in metres)                                |
+| `translation`         | array[3] of number | If `scene` | Position of the source's local origin in scene-local coordinates (`x`, `y`, `z`)                                      |
+| `position_accuracy_m` | number > 0         |     No     | Estimated accuracy of the reported position in metres, if known                                                       |
+| `provider`            | string             |     No     | Informational label for what produced this pose (e.g. `"agent"`, `"positioning_service"`); not used for authorization |
 
 `reference_frame` determines how the pose is resolved:
 
@@ -258,15 +258,15 @@ This section documents the unified external-source contract.
 
 ### External Detection Object Fields (`objects[*]`)
 
-| Field         | Type               | Required | Description                                                                                       |
-| ------------- | ------------------ | :------: | --------------------------------------------------------------------------------------------------- |
-| `category`    | string             |   Yes    | Category or class of the observed object (e.g. `"person"`, `"vehicle"`)                            |
-| `translation` | array[3] of number |   Yes    | Position of the object relative to the source's local origin (`x`, `y`, `z`)                       |
-| `rotation`     | array[4] of number |    No    | Rotation of the object as a quaternion (`x`, `y`, `z`, `w`)                                        |
-| `size`         | array[3] of number |    No    | Object dimensions (`x`, `y`, `z`). Omit for a point observation with no known extent               |
-| `confidence`   | number > 0         |    No    | Source-reported confidence for this observation                                                    |
-| `id`           | string             |    No    | Identifier the source uses to correlate this observation across messages; not a Scenescape global ID |
-| `metadata`     | object             |    No    | Semantic attribute bag; same structure as camera input (see [Semantic Metadata Fields](#semantic-metadata-fields)) |
+| Field         | Type               | Required | Description                                                                                                                                                                                                     |
+| ------------- | ------------------ | :------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `category`    | string             |   Yes    | Category or class of the observed object (e.g. `"person"`, `"vehicle"`)                                                                                                                                         |
+| `translation` | array[3] of number |   Yes    | Position of the object relative to the source's local origin (`x`, `y`, `z`)                                                                                                                                    |
+| `id`          | string             |   Yes    | Identifier the source uses to correlate this observation across messages; not a Scenescape global ID, and the controller does not map or look it up — it is passed through as the observation's local reference |
+| `rotation`    | array[4] of number |    No    | Rotation of the object as a quaternion (`x`, `y`, `z`, `w`)                                                                                                                                                     |
+| `size`        | array[3] of number |    No    | Object dimensions (`x`, `y`, `z`). Omit for a point observation with no known extent                                                                                                                            |
+| `confidence`  | number > 0         |    No    | Source-reported confidence for this observation                                                                                                                                                                 |
+| `metadata`    | object             |    No    | Semantic attribute bag; same structure as camera input (see [Semantic Metadata Fields](#semantic-metadata-fields))                                                                                              |
 
 Unlike camera detections, `size` is optional here: a source that cannot estimate an object's
 extent may report a point observation. Point objects (no `size`) remain eligible for
@@ -283,14 +283,104 @@ and ignored in favor of the newer cached transform. If no usable transform can b
 (no pose supplied and nothing cached, or the cached pose has expired), the message is dropped
 without ingesting objects. Rejection reasons (logged, not published) include:
 
-| Reason                            | Cause                                                                              |
-| ---------------------------------- | ----------------------------------------------------------------------------------- |
-| `no_pose_available`               | No `pose` supplied and no prior cached transform for this `(scene_id, source_id)` |
-| `pose_expired`                     | No `pose` supplied and the cached transform is older than the cache TTL           |
-| `scene_georeference_unavailable`   | `reference_frame: wgs84` but the target scene has no valid geospatial calibration |
-| `untrusted_scene_pose`             | `reference_frame: scene` from a `source_id` not in `CONTROLLER_TRUSTED_POSITIONING_SOURCES` |
-| `unsupported_reference_frame`      | `reference_frame` is not `wgs84` or `scene`                                        |
-| `invalid_pose`                     | `pose` failed schema validation or transform construction                         |
+| Reason                           | Cause                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------- |
+| `no_pose_available`              | No `pose` supplied and no prior cached transform for this `(scene_id, source_id)`           |
+| `pose_expired`                   | No `pose` supplied and the cached transform is older than the cache TTL                     |
+| `scene_georeference_unavailable` | `reference_frame: wgs84` but the target scene has no valid geospatial calibration           |
+| `untrusted_scene_pose`           | `reference_frame: scene` from a `source_id` not in `CONTROLLER_TRUSTED_POSITIONING_SOURCES` |
+| `unsupported_reference_frame`    | `reference_frame` is not `wgs84` or `scene`                                                 |
+| `invalid_pose`                   | `pose` failed schema validation or transform construction                                   |
+
+### Trusted Identity by Default, with Collision Detection
+
+Every external-source object's `id` (see
+[External Detection Object Fields](#external-detection-object-fields-objects)) is trusted
+directly as its global track identity (`gid`) by default. There is no allowlist or environment
+variable to configure, and no per-source registration step: any `source_id` may publish and have
+its objects' `id`s trusted immediately. This is deliberate — requiring an operator to
+pre-configure which sources are safe to trust does not scale as the number of external
+sources/integrations grows.
+
+Trusting `id` directly means the object bypasses Scenescape's kinematic multi-object tracker/ReID
+association entirely for that object: the source-supplied `id` becomes `gid` and stays `gid` for
+as long as the source keeps reporting that same `id` in subsequent messages, exactly matching how
+a UWB/RTLS tag's own permanent hardware identifier is meant to be used. If the source stops
+reporting an `id`, that track ages out and is dropped after the same staleness window used for
+any other track that stops receiving updates — there is no special cleanup required.
+
+**Collision detection.** Trusting every source's `id` unconditionally would let two different
+sources that happen to report the same `id` value silently merge two distinct physical objects
+under one identity. To prevent that without requiring configuration, each `id` is claimed
+exclusively per `(scene, category)`: only one `source_id` may hold a live claim on a given `id`
+at a time. If a second source publishes the same `id` while another source's claim on it is still
+live, the newly arriving, colliding object is dropped — logged as a rejection, not merged or
+substituted — while any other, non-colliding objects in the same message are still ingested
+normally. A claim goes stale (and can be reclaimed by a different source) after the same
+identity-claim TTL used for pose-cache reuse; a source that legitimately stops publishing an
+`id` and a different source later reusing that same `id` value is therefore not permanently
+blocked.
+
+**What collision detection does _not_ cover.** It only detects two _different_ sources colliding
+on the same `id` at the same time. It cannot detect — and does not attempt to detect — a single
+source reusing one of its _own_ previously-claimed `id`s for a genuinely different physical
+object once its earlier claim has gone stale (for example, a robot restarting and reissuing small
+integer track-slot numbers that a previous, now-stale claim also used). For a source with that
+kind of unstable/resettable local `id` scheme, a reused `id` will be silently accepted as if it
+were a continuation of the previous object's identity. See
+[Choosing a `source_id`](#choosing-a-source_id-self-identification-for-agents) below for how to
+avoid this by choosing a genuinely persistent, unique identifier.
+
+**Security note:** identity is trusted based on the `source_id`/`id` values present in the
+message payload, not a cryptographically verified per-device credential — Scenescape's current
+MQTT authentication does not yet bind individual publishers to individual `source_id`s (see
+[ADR 14](../../../adr/0014-unified-external-source-ingestion.md#future-work)). A publisher that
+can reach the broker can claim any `source_id`/`id` it chooses, subject only to the collision
+check above.
+
+### Choosing a `source_id` (Self-Identification for Agents)
+
+`source_id` is not provisioned or registered anywhere in Scenescape ahead of time — unlike a
+camera or sensor `id`, which must match a scene/sensor already configured in the database, an
+external source simply announces itself by choosing a `source_id` string and publishing with it.
+Because every external source's `objects[*].id` is trusted as global identity by default (see
+above), choosing a persistent, unique `source_id` and per-object `id` matters more here than for
+most other Scenescape identifiers: the deployer/integrator is responsible for choosing values
+that are:
+
+- **Persistent** — stable across process restarts and reboots, so a track's identity (and any
+  cached pose) is recognized as the same source/object next time it publishes, rather than
+  treated as a brand-new one.
+- **Unique** — will not collide with another source's identifier on the same scene/broker.
+
+Recommended choices, in order of preference:
+
+1. **A hardware-rooted identifier already unique to the device** — a serial number, a
+   TPM-backed device UUID, or (for a UWB/RTLS tag) the tag's own hardware/network ID. This is
+   the strongest option because it is normally immutable and cannot be trivially changed by
+   reconfiguring software.
+2. **The primary network interface's MAC address** — a practical, widely available choice for
+   robots, drones, and other networked devices; it is unique per interface and typically stable
+   across reboots. This mirrors the convention already used for sensor identifiers elsewhere in
+   Scenescape (see the [Sensor Input Message Format](#sensor-input-message-format) example,
+   `02:42:ac:11:00:05.1`).
+3. **A deployer-assigned static name** (for example `"drone-1"`, `"forklift-north-3"`) — acceptable
+   as long as it is provisioned once per physical device and not regenerated on every boot or
+   process restart.
+
+**Do not** use a randomly generated value (for example a fresh UUID minted at process startup)
+as `source_id` or as an object's `id`: it defeats pose-cache reuse across restarts and, since
+every object's `id` is trusted directly as identity, means each restart creates a brand-new
+identity for what should be the same physical object. Worse, for a source whose local `id`
+scheme resets or recycles (for example, small integer track-slot numbers reissued after a
+reboot), a reused `id` is silently treated as a continuation of the previous object's identity
+once the earlier claim has gone stale — see the collision-detection limitation above. Prefer a
+hardware-rooted or MAC-based identifier specifically to avoid this.
+
+**If a robot or drone reports itself as a tracked object** (for example, to visualize the
+platform itself in the scene alongside objects it observes), use the same persistent identifier
+described above for that object's `id` — typically the platform's own MAC address, serial
+number, or device UUID — rather than a value tied to the current process/session.
 
 ### Example: Agent Publishing a Global Pose and Observations
 
@@ -305,6 +395,7 @@ without ingesting objects. Rejection reasons (logged, not published) include:
   },
   "objects": [
     {
+      "id": "track-42",
       "category": "vehicle",
       "translation": [3.2, -1.4, 0.0],
       "confidence": 0.91
@@ -329,7 +420,7 @@ Requires `source_id` (e.g. `"positioning-service-1"`) to be listed in
     "provider": "positioning_service"
   },
   "objects": [
-    { "category": "person", "translation": [1.0, 0.5, 0.0] }
+    { "id": "person-7", "category": "person", "translation": [1.0, 0.5, 0.0] }
   ]
 }
 ```
@@ -339,13 +430,28 @@ Requires `source_id` (e.g. `"positioning-service-1"`) to be listed in
 A pose-only update refreshes the cached transform without ingesting observations:
 
 ```json
-{ "timestamp": "2026-03-26T21:01:41.486Z", "source_id": "drone-1", "pose": { "reference_frame": "wgs84", "lat_long_alt": [37.38688947, -121.96410521, 8.07], "rotation": [0, 0, 0, 1] }, "objects": [] }
+{
+  "timestamp": "2026-03-26T21:01:41.486Z",
+  "source_id": "drone-1",
+  "pose": {
+    "reference_frame": "wgs84",
+    "lat_long_alt": [37.38688947, -121.96410521, 8.07],
+    "rotation": [0, 0, 0, 1]
+  },
+  "objects": []
+}
 ```
 
 A subsequent message reuses the cached pose and reports a point object (no `size`):
 
 ```json
-{ "timestamp": "2026-03-26T21:01:42.486Z", "source_id": "drone-1", "objects": [{ "category": "person", "translation": [1.0, 0.5, 0.0] }] }
+{
+  "timestamp": "2026-03-26T21:01:42.486Z",
+  "source_id": "drone-1",
+  "objects": [
+    { "id": "person-3", "category": "person", "translation": [1.0, 0.5, 0.0] }
+  ]
+}
 ```
 
 ## Common Output Track Fields

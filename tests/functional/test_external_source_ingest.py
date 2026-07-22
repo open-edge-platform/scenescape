@@ -70,6 +70,7 @@ class ExternalSourceIngest(FunctionalTest):
     self.pubsub.connect()
     self.pubsub.loopStart()
     self.lastObjects = None
+    self.seenObjectIds = set()
     return
 
   def pubsubConnected(self, client, userdata, flags, rc):
@@ -81,6 +82,9 @@ class ExternalSourceIngest(FunctionalTest):
     if data.get('objects'):
       self.lastObjects = data['objects']
       self.outputReceived = True
+      for obj in data['objects']:
+        if 'id' in obj:
+          self.seenObjectIds.add(obj['id'])
     return
 
   def prepareScene(self):
@@ -134,6 +138,24 @@ class ExternalSourceIngest(FunctionalTest):
       count += 1
     return count if self.outputReceived else None
 
+  def publishAndCheckIdAbsent(self, jdata, forbidden_id, timeout):
+    """Publish for the full duration of timeout (unlike publishAndWait, this
+    does not stop early on the first received message) and assert that
+    forbidden_id never appears in any scene output observed during the
+    window. The scene may legitimately keep republishing other, previously
+    admitted, still-active tracks on every incoming message regardless of
+    whether that message's own payload was accepted, so checking for total
+    topic silence is not a valid test for rejection of one specific object.
+    """
+    self.seenObjectIds = set()
+    topic = self.externalSourceTopic()
+    start = time.time()
+    while time.time() - start < timeout:
+      jdata['timestamp'] = get_iso_time()
+      self.pubsub.publish(topic, json.dumps(jdata))
+      time.sleep(1 / FRAMES_PER_SECOND)
+    return forbidden_id not in self.seenObjectIds
+
   def verifyWgs84PoseIngest(self):
     """A wgs84-frame agent pose plus an object observation is transformed
     into the scene and produces tracked output."""
@@ -145,7 +167,7 @@ class ExternalSourceIngest(FunctionalTest):
         "rotation": IDENTITY_ROTATION,
       },
       "objects": [
-        {"category": THING_TYPE, "translation": [0.0, 0.0, 0.0], "size": [0.5, 0.5, 1.8]},
+        {"id": "agent-track-1", "category": THING_TYPE, "translation": [0.0, 0.0, 0.0], "size": [0.5, 0.5, 1.8]},
       ],
     }
     count = self.publishAndWait(jdata)
@@ -158,7 +180,7 @@ class ExternalSourceIngest(FunctionalTest):
     jdata = {
       "source_id": AGENT_SOURCE_ID,
       "objects": [
-        {"category": THING_TYPE, "translation": [0.5, 0.5, 0.0], "size": [0.5, 0.5, 1.8]},
+        {"id": "agent-track-1", "category": THING_TYPE, "translation": [0.5, 0.5, 0.0], "size": [0.5, 0.5, 1.8]},
       ],
     }
     count = self.publishAndWait(jdata)
@@ -167,7 +189,11 @@ class ExternalSourceIngest(FunctionalTest):
 
   def verifyUntrustedScenePoseRejected(self):
     """A scene-frame pose from a source not in CONTROLLER_TRUSTED_POSITIONING_SOURCES
-    must be rejected: no tracked output is produced for this source."""
+    must be rejected: the untrusted source's object never appears in tracked
+    output for this scene, even though the scene may continue to legitimately
+    republish other, already-admitted, still-active tracks (e.g. agent-track-1
+    from the earlier sub-tests) on every message it receives."""
+    untrusted_object_id = "positioning-track-1"
     jdata = {
       "source_id": UNTRUSTED_POSITIONING_SOURCE_ID,
       "pose": {
@@ -176,12 +202,13 @@ class ExternalSourceIngest(FunctionalTest):
         "rotation": IDENTITY_ROTATION,
       },
       "objects": [
-        {"category": THING_TYPE, "translation": [0.0, 0.0, 0.0], "size": [0.5, 0.5, 1.8]},
+        {"id": untrusted_object_id, "category": THING_TYPE, "translation": [0.0, 0.0, 0.0], "size": [0.5, 0.5, 1.8]},
       ],
     }
-    count = self.publishAndWait(jdata, timeout=5)
-    assert count is None, (
-      "Untrusted scene-frame pose unexpectedly produced tracked output"
+    is_absent = self.publishAndCheckIdAbsent(jdata, untrusted_object_id, timeout=5)
+    assert is_absent, (
+      "Untrusted scene-frame pose unexpectedly produced tracked output "
+      f"for id={untrusted_object_id}"
     )
     return
 

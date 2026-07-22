@@ -438,6 +438,24 @@ def test_finishProcessing_tracks_when_not_analytics_only(scene_obj, monkeypatch)
   track_mock.assert_called_once()
   update_events_mock.assert_called_once_with('person', 10.0)
 
+def test_finishProcessing_computes_visibility_for_both_retracked_and_already_tracked_objects(scene_obj, monkeypatch):
+  """Regression test: objects merged in via retrack=False (e.g. a configured
+  child scene with retrack disabled, or an external source whose id is
+  trusted as identity) must still get camera visibility computed, or
+  downstream regulated-output serialization (computeCameraBounds) crashes
+  with KeyError('visibility') when visibility_topic='regulated' (default)."""
+  update_visible_mock = Mock()
+  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: False)
+  monkeypatch.setattr(scene_obj, '_updateVisible', update_visible_mock)
+  monkeypatch.setattr(scene_obj, '_updateEvents', Mock())
+  scene_obj.tracker = SimpleNamespace(trackObjects=Mock())
+  retracked = ['retracked-obj']
+  already_tracked = ['already-tracked-obj']
+
+  scene_obj._finishProcessing('person', 10.0, retracked, already_tracked)
+
+  update_visible_mock.assert_called_once_with(retracked + already_tracked)
+
 def test_finishProcessing_skips_tracker_in_analytics_only(scene_obj, monkeypatch):
   update_events_mock = Mock()
   track_mock = Mock()

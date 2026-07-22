@@ -34,6 +34,7 @@ from scene_common.earth_lla import convertLLAToECEF
 from scene_common.transform import CameraPose
 
 DEFAULT_POSE_CACHE_TTL_SECONDS = 30.0
+DEFAULT_IDENTITY_CLAIM_TTL_SECONDS = 30.0
 
 POSE_REFERENCE_FRAME_WGS84 = "wgs84"
 POSE_REFERENCE_FRAME_SCENE = "scene"
@@ -46,6 +47,10 @@ REASON_SCENE_GEOREFERENCE_UNAVAILABLE = "scene_georeference_unavailable"
 REASON_UNTRUSTED_SCENE_POSE = "untrusted_scene_pose"
 REASON_UNSUPPORTED_REFERENCE_FRAME = "unsupported_reference_frame"
 REASON_INVALID_POSE = "invalid_pose"
+
+# Reason returned by IdentityClaimRegistry.claim() when a different source
+# currently holds a live claim on the requested id.
+REASON_IDENTITY_COLLISION = "identity_collision"
 
 
 @dataclass
@@ -156,4 +161,79 @@ class ExternalSourcePoseCache:
       if (scene_uid is None or key[0] == scene_uid) and \
          (source_id is None or key[1] == source_id):
         self._cache.pop(key, None)
+    return
+
+
+@dataclass
+class _IdentityClaim:
+  source_id: str
+  when: float
+  expires_at: float
+
+
+class IdentityClaimRegistry:
+  """Arbitrates ownership of external-source ``objects[*].id`` values used
+  directly as global track identity (``gid``).
+
+  External sources are not pre-registered or centrally provisioned: any
+  source may publish observations carrying whatever per-object ``id`` it
+  chooses (see the ``external_detection`` schema definition). Requiring an
+  operator to pre-configure, per deployment, which sources' ids are safe to
+  trust does not scale with the number of sources/integrations. Instead,
+  every external-source object's ``id`` is trusted as its global track
+  identity by default -- used directly as ``gid``, bypassing Scenescape's
+  kinematic tracker/ReID association -- as long as no other source
+  currently holds a live claim on that same id within the same scene and
+  object category.
+
+  If two different sources publish the same id concurrently, accepting both
+  would silently merge two distinct physical objects under one identity.
+  This registry detects exactly that case; the caller is expected to reject
+  (drop) the newly arriving, colliding object rather than corrupt the
+  existing track.
+
+  Scope and limitation: this only protects against two *different* sources
+  colliding on the same id at the same time. It does not, and cannot,
+  protect against a single source reusing one of its own previously-claimed
+  ids for a genuinely different physical object once that earlier claim has
+  expired (for example, a robot restarting and reissuing small integer
+  track-slot numbers). Sources with unstable/resettable local id schemes
+  should still avoid relying on this trust; see the Scene Controller data
+  format documentation for source_id/id selection guidance.
+  """
+
+  def __init__(self, ttl_seconds: float = DEFAULT_IDENTITY_CLAIM_TTL_SECONDS):
+    self._ttl_seconds = ttl_seconds
+    self._claims = {}
+    return
+
+  def claim(self, scene_uid, category, source_id, obj_id, when):
+    """Attempt to claim ``obj_id`` as global identity for ``source_id``.
+
+    @param  scene_uid   Target scene's UID.
+    @param  category    Object category/thing_type (the message's detection type).
+    @param  source_id   Identifier of the publishing source.
+    @param  obj_id      The object's source-local ``id`` from the payload.
+    @param  when        Epoch timestamp of the message.
+    @returns  (bool ok, reason or None) tuple. ``ok`` is False only when a
+              different source currently holds a live (non-expired) claim
+              on this id; ``reason`` is set in that case.
+    """
+    key = (scene_uid, category, obj_id)
+    existing = self._claims.get(key)
+    if existing is not None and existing.source_id != source_id and when <= existing.expires_at:
+      return False, REASON_IDENTITY_COLLISION
+    self._claims[key] = _IdentityClaim(
+      source_id=source_id, when=when, expires_at=when + self._ttl_seconds)
+    return True, None
+
+  def invalidate(self, scene_uid=None, source_id=None):
+    """Clear identity claims, optionally scoped to a scene and/or source."""
+    if scene_uid is None and source_id is None:
+      self._claims.clear()
+      return
+    for key, claim in list(self._claims.items()):
+      if (scene_uid is None or key[0] == scene_uid) and \
+         (source_id is None or claim.source_id == source_id):
+        self._claims.pop(key, None)
     return

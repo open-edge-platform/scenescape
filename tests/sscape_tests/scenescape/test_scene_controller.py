@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
 from controller.scene_controller import SceneController
+from controller.external_source import IdentityClaimRegistry
 
 
 class TestSceneControllerExtractTrackerRate:
@@ -492,18 +493,21 @@ class TestSceneControllerHandleExternalSourceObject:
   def _build_controller(self):
     controller = SceneController.__new__(SceneController)
     controller.external_source_pose_cache = MagicMock()
+    controller.identity_claim_registry = IdentityClaimRegistry()
     controller.trusted_positioning_sources = frozenset({'positioning-svc-1'})
     return controller
 
   def test_ingests_objects_when_pose_resolves(self):
-    """Resolves a pose and delegates ingestion to scene.processSceneData."""
+    """Resolves a pose and delegates ingestion to scene.processSceneData. Every
+    external-source object's id is trusted as global identity by default (no
+    source allowlist required), so retrack is always disabled."""
     scene_controller = self._build_controller()
     fake_camera_pose = MagicMock()
     scene_controller.external_source_pose_cache.resolve.return_value = (fake_camera_pose, None)
     scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
     jdata = {
       'source_id': 'drone-1',
-      'objects': [{'category': 'vehicle', 'translation': [1.0, 2.0, 0.0]}],
+      'objects': [{'id': 'agent-track-1', 'category': 'vehicle', 'translation': [1.0, 2.0, 0.0]}],
     }
 
     result = scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
@@ -514,8 +518,9 @@ class TestSceneControllerHandleExternalSourceObject:
     scene.processSceneData.assert_called_once()
     args, kwargs = scene.processSceneData.call_args
     assert args[0] is jdata
+    assert args[0]['objects'] == jdata['objects']
     assert args[1].name == 'drone-1'
-    assert args[1].retrack is True
+    assert args[1].retrack is False
     assert args[2] is fake_camera_pose
     assert args[3] == 'vehicle'
     assert kwargs == {'when': 42.0}
@@ -543,4 +548,64 @@ class TestSceneControllerHandleExternalSourceObject:
 
     assert result is True
     scene.processSceneData.assert_not_called()
+
+  def test_no_source_allowlist_required_for_identity_trust(self):
+    """Any source_id, with no prior configuration, has its object ids trusted as
+    global identity: retrack is False regardless of source_id."""
+    scene_controller = self._build_controller()
+    scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
+    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+    jdata = {'source_id': 'never-before-seen-source', 'objects': [
+      {'id': 'tag-1', 'category': 'person', 'translation': [1.0, 2.0, 0.0]},
+    ]}
+
+    scene_controller._handleExternalSourceObject(scene, jdata, 'person', 42.0)
+
+    args, _ = scene.processSceneData.call_args
+    assert args[1].retrack is False
+    assert len(args[0]['objects']) == 1
+
+  def test_colliding_id_from_different_source_is_dropped(self):
+    """If a different source_id is already using the same id in the same scene and
+    category, the newly arriving, colliding object is dropped rather than merged
+    into an unrelated track; non-colliding objects in the same message still pass."""
+    scene_controller = self._build_controller()
+    scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
+    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+
+    first_jdata = {'source_id': 'source-a', 'objects': [
+      {'id': 'tag-1', 'category': 'person', 'translation': [0.0, 0.0, 0.0]},
+    ]}
+    scene_controller._handleExternalSourceObject(scene, first_jdata, 'person', 10.0)
+
+    second_jdata = {'source_id': 'source-b', 'objects': [
+      {'id': 'tag-1', 'category': 'person', 'translation': [1.0, 1.0, 0.0]},
+      {'id': 'tag-2', 'category': 'person', 'translation': [2.0, 2.0, 0.0]},
+    ]}
+    scene_controller._handleExternalSourceObject(scene, second_jdata, 'person', 11.0)
+
+    args, _ = scene.processSceneData.call_args
+    accepted_ids = [obj['id'] for obj in args[0]['objects']]
+    assert accepted_ids == ['tag-2']
+
+  def test_same_source_reclaiming_its_own_id_is_not_a_collision(self):
+    """A source repeatedly reporting the same id for the same object is not a
+    collision; the object is accepted on every message."""
+    scene_controller = self._build_controller()
+    scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
+    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+    jdata_1 = {'source_id': 'uwb-hub-1', 'objects': [
+      {'id': 'tag-aa:bb:cc', 'category': 'person', 'translation': [1.0, 2.0, 0.0]},
+    ]}
+    jdata_2 = {'source_id': 'uwb-hub-1', 'objects': [
+      {'id': 'tag-aa:bb:cc', 'category': 'person', 'translation': [1.1, 2.1, 0.0]},
+    ]}
+
+    scene_controller._handleExternalSourceObject(scene, jdata_1, 'person', 10.0)
+    scene_controller._handleExternalSourceObject(scene, jdata_2, 'person', 11.0)
+
+    args, _ = scene.processSceneData.call_args
+    assert len(args[0]['objects']) == 1
+    assert args[0]['objects'][0]['id'] == 'tag-aa:bb:cc'
+    assert args[1].uid == 'uwb-hub-1'
 

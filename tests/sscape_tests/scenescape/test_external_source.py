@@ -9,6 +9,8 @@ from types import SimpleNamespace
 
 from controller.external_source import (
   ExternalSourcePoseCache,
+  IdentityClaimRegistry,
+  REASON_IDENTITY_COLLISION,
   REASON_INVALID_POSE,
   REASON_NO_POSE_AVAILABLE,
   REASON_POSE_EXPIRED,
@@ -197,6 +199,88 @@ class TestExternalSourcePoseCacheReuse:
 
     assert reason is None
     np.testing.assert_allclose(camera_pose.pose_mat[:3, 3], [9.0, 9.0, 0.0])
+
+
+class TestIdentityClaimRegistry:
+  """Unit tests for IdentityClaimRegistry, the collision-detection safety net
+  behind default (no-allowlist-required) trust of external-source ids."""
+
+  def test_first_claim_on_an_id_succeeds(self):
+    registry = IdentityClaimRegistry()
+
+    ok, reason = registry.claim('scene-1', 'person', 'source-a', 'tag-1', when=10.0)
+
+    assert ok is True
+    assert reason is None
+
+  def test_same_source_reclaiming_same_id_succeeds(self):
+    registry = IdentityClaimRegistry()
+    registry.claim('scene-1', 'person', 'source-a', 'tag-1', when=10.0)
+
+    ok, reason = registry.claim('scene-1', 'person', 'source-a', 'tag-1', when=11.0)
+
+    assert ok is True
+    assert reason is None
+
+  def test_different_source_claiming_live_id_is_rejected(self):
+    registry = IdentityClaimRegistry()
+    registry.claim('scene-1', 'person', 'source-a', 'tag-1', when=10.0)
+
+    ok, reason = registry.claim('scene-1', 'person', 'source-b', 'tag-1', when=11.0)
+
+    assert ok is False
+    assert reason == REASON_IDENTITY_COLLISION
+
+  def test_different_source_can_reclaim_after_ttl_expires(self):
+    registry = IdentityClaimRegistry(ttl_seconds=5.0)
+    registry.claim('scene-1', 'person', 'source-a', 'tag-1', when=10.0)
+
+    ok, reason = registry.claim('scene-1', 'person', 'source-b', 'tag-1', when=20.0)
+
+    assert ok is True
+    assert reason is None
+
+  def test_same_id_in_different_scenes_does_not_collide(self):
+    registry = IdentityClaimRegistry()
+    registry.claim('scene-1', 'person', 'source-a', 'tag-1', when=10.0)
+
+    ok, reason = registry.claim('scene-2', 'person', 'source-b', 'tag-1', when=10.0)
+
+    assert ok is True
+    assert reason is None
+
+  def test_same_id_in_different_categories_does_not_collide(self):
+    registry = IdentityClaimRegistry()
+    registry.claim('scene-1', 'person', 'source-a', 'tag-1', when=10.0)
+
+    ok, reason = registry.claim('scene-1', 'vehicle', 'source-b', 'tag-1', when=10.0)
+
+    assert ok is True
+    assert reason is None
+
+  def test_invalidate_all_clears_every_claim(self):
+    registry = IdentityClaimRegistry()
+    registry.claim('scene-1', 'person', 'source-a', 'tag-1', when=10.0)
+
+    registry.invalidate()
+
+    ok, reason = registry.claim('scene-1', 'person', 'source-b', 'tag-1', when=10.0)
+    assert ok is True
+
+  def test_invalidate_scoped_to_source_only_clears_that_sources_claims(self):
+    registry = IdentityClaimRegistry()
+    registry.claim('scene-1', 'person', 'source-a', 'tag-1', when=10.0)
+    registry.claim('scene-1', 'person', 'source-c', 'tag-2', when=10.0)
+
+    registry.invalidate(source_id='source-a')
+
+    # source-a's claim was cleared: a different source can now claim tag-1.
+    ok, _ = registry.claim('scene-1', 'person', 'source-b', 'tag-1', when=11.0)
+    assert ok is True
+    # source-c's claim on tag-2 is untouched: a different source colliding is rejected.
+    ok, reason = registry.claim('scene-1', 'person', 'source-d', 'tag-2', when=11.0)
+    assert ok is False
+    assert reason == REASON_IDENTITY_COLLISION
 
   def test_cache_is_keyed_per_scene_and_source(self):
     cache = ExternalSourcePoseCache()

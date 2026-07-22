@@ -334,14 +334,14 @@
         "id": {
           "title": "Source-Local Object ID",
           "type": "string",
-          "description": "Identifier the source uses to correlate this observation across messages. Not a Scenescape global ID."
+          "description": "Identifier the source uses to correlate this observation across messages. Not a Scenescape global ID; the controller does not map or look up this value, it is used only as the observation's local reference."
         },
         "metadata": {
           "$ref": "#/definitions/semantic_metadata",
           "description": "Semantic metadata describing what an object is (age, gender, clothing, embedding vectors, etc)."
         }
       },
-      "required": ["category", "translation"]
+      "required": ["category", "translation", "id"]
     },
     "external_pose": {
       "type": "object",

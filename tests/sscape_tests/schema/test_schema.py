@@ -127,12 +127,26 @@ def test_validateExternalSourceMessage_objectWithoutSizeIsValid(schemaObject):
     "timestamp": "1970-01-01T00:00:00.000Z",
     "source_id": "drone-1",
     "objects": [
-      {"category": "person", "translation": [1.0, 2.0, 0.0]},
+      {"id": "obj-1", "category": "person", "translation": [1.0, 2.0, 0.0]},
     ],
   }
 
   result = schemaObject.validateMessage("external_source", jdata, True)
   assert result == True
+  return
+
+def test_validateExternalSourceMessage_objectWithoutIdIsInvalid(schemaObject):
+  """An object observation missing the required 'id' field must fail validation."""
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "objects": [
+      {"category": "person", "translation": [1.0, 2.0, 0.0]},
+    ],
+  }
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == False
   return
 
 @pytest.mark.parametrize("schemaPath, expected", [(INVALID_SCHEMA_PATH, None),

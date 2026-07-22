@@ -77,7 +77,7 @@ def externalSourceData():
       "rotation": [0, 0, 0, 1],
     },
     "objects": [
-      {"category": "vehicle", "translation": [1.0, 2.0, 0.0]},
+      {"id": "obj-1", "category": "vehicle", "translation": [1.0, 2.0, 0.0]},
     ],
   }
   return jdata
