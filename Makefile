@@ -38,6 +38,7 @@ CERTDOMAIN ?= scenescape.intel.com
 # Demo variables
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
+DEMO_WAIT_SECONDS ?= 0
 
 # Test variables
 TESTS_FOLDER := tests
@@ -684,7 +685,14 @@ define start_demo
 		echo "Updating docker-compose.yml with custom HTTPS port: $$HTTPS_PORT"; \
 		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
 	fi
-	docker compose $(1) up -d
+	@echo "$(1)" > .scenescape-profile
+	@if [ "$$DEMO_WAIT_SECONDS" != "0" ]; then \
+		echo "Waiting for Scenescape services to be ready..."; \
+		docker compose $(1) up -d --wait --wait-timeout $$DEMO_WAIT_SECONDS; \
+	else \
+		echo "Starting Scenescape services in detached mode..."; \
+		docker compose $(1) up -d; \
+	fi
 	@echo "$(1)" > .scenescape-profile
 	@echo ""
 	@echo "To stop Scenescape, type:"

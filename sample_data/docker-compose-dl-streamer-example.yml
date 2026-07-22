@@ -477,7 +477,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 60s
     restart: always
     pids_limit: 1000
 
@@ -568,10 +568,10 @@ services:
     healthcheck:
       test:
         ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8444/v1/health"]
-      interval: 10s
-      timeout: 60s
+      interval: 15s
+      timeout: 10s
       retries: 5
-      start_period: 10s
+      start_period: 600s # Allow time for model download and initialization
     restart: always
 
   cluster-analytics:
