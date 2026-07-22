@@ -106,7 +106,7 @@ void MessageHandler::start() {
         routeMessage(topic, payload);
     });
 
-        // In dynamic mode, subscribe to database update topic for config change notifications
+    // In dynamic mode, subscribe to database update topic for config change notifications
     if (dynamic_mode_) {
         mqtt_client_->subscribe(TOPIC_DATABASE_UPDATE);
         LOG_INFO_ENTRY(LogEntry("Queued database update subscription")
