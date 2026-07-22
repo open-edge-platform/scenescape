@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -47,6 +47,8 @@ function main() {
     canvas: canvas,
     alpha: true,
     antialias: true,
+    // Retain the drawing buffer when running under WebDriver (Selenium)
+    preserveDrawingBuffer: navigator.webdriver === true,
   });
   renderer.toneMapping = THREE.ACESFilmicToneMapping; // Enable tone mapping
   renderer.toneMappingExposure = 1.0; // Default exposure for renderer

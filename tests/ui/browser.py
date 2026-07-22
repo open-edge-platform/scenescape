@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import shutil
+import sys
 import time
 from selenium.webdriver import Firefox
 from selenium.webdriver.firefox.service import Service
@@ -14,8 +14,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from pathlib import Path
 from shutil import which
-from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
 import subprocess
 
 MAX_RETRIES = 5
@@ -38,9 +36,11 @@ def _validate_firefox(binary):
 
 def _find_firefox_binary():
   candidates = [
-    "/snap/firefox/current/usr/lib/firefox/firefox",
+    os.environ.get("FIREFOX_BIN"),
     "/usr/bin/firefox",
     "/usr/bin/firefox-esr",
+    "/usr/lib/firefox-esr",
+    "/usr/lib/firefox/firefox",
     which("firefox"),
     which("firefox-esr"),
   ]
@@ -57,6 +57,24 @@ def _find_firefox_binary():
     "and common system locations."
   )
 
+def _find_geckodriver():
+  candidates = [
+    os.environ.get("GECKODRIVER_BIN"),
+    str(Path(sys.executable).parent / "geckodriver"),
+    which("geckodriver"),
+  ]
+
+  for candidate in candidates:
+    if not candidate:
+      continue
+    p = Path(candidate)
+    if p.is_file() and p.stat().st_mode & 0o111:
+      return str(p)
+
+  raise RuntimeError(
+    "geckodriver not found. Run 'make setup-tests' to install it."
+  )
+
 class Browser(Firefox):
   def __init__(self, headless=True, webgl=False):
     # Remove proxy settings safely
@@ -64,9 +82,18 @@ class Browser(Firefox):
       if 'proxy' in key.lower():
         os.environ.pop(key, None)
 
-    # Make headless explicit for Firefox in CI
+
+    # Make headless explicit for Firefox in CI.
     if headless:
       os.environ["MOZ_HEADLESS"] = "1"
+    else:
+      os.environ.pop("MOZ_HEADLESS", None)
+
+    # Force Mesa software rendering (llvmpipe/swrast) so a WebGL context can be
+    # created even when the runner has no GPU.
+    if webgl:
+      os.environ["LIBGL_ALWAYS_SOFTWARE"] = "1"
+      os.environ.setdefault("GALLIUM_DRIVER", "llvmpipe")
 
     options = Options()
     if headless:
@@ -94,13 +121,7 @@ class Browser(Firefox):
       "vdms.scenescape.intel.com",
     ]
     options.set_preference("network.dns.localDomains", ",".join(_host_aliases))
-    geckodriver_path = shutil.which("geckodriver")
-    if not geckodriver_path:
-      raise RuntimeError(
-        "geckodriver not found. Run 'make setup-tests' to install it."
-      )
-    service = Service(geckodriver_path)
-
+    service = Service(_find_geckodriver())
     super().__init__(options=options, service=service)
 
   def getPage(self, url, expected_title, retries=MAX_RETRIES, delay=RETRY_DELAY):

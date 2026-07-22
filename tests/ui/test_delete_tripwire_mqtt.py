@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
 import time
 import json
+import pytest
+import threading
 import tests.ui.common_ui_test_utils as common
 from tests.ui.browser import Browser, By
 from scene_common.rest_client import RESTClient
@@ -23,7 +25,9 @@ SCENESCAPE_SPEC = FuncTestSpec(
 GOOD_DATA_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "test_media/good_data.txt")
 TW_NAME = "Tripwire_to_be_Deleted"
 OBJECT_CATEGORY = "custom_object"
-is_receiving_message = False
+MESSAGE_WAIT_TIMEOUT_S = 15.0
+POST_DELETE_SETTLE_S = 2.0
+tripwire_event_received = threading.Event()
 
 def on_connect(mqttc, obj, flags, rc):
   """! Call back which subscribes to topic
@@ -41,14 +45,12 @@ def eventReceived(pahoClient, userdata, message):
   @param    obj       the private user data
   @param    msg       the instance of MQTTMessage
   """
-  global is_receiving_message
   print('Message received from Tripwire!')
-  is_receiving_message = True
+  tripwire_event_received.set()
   return
 
-def verify_message_mqtt(client):
-  global is_receiving_message
-  is_receiving_message = False
+def verify_message_mqtt(client, timeout_s=MESSAGE_WAIT_TIMEOUT_S):
+  tripwire_event_received.clear()
   current_line = 0
   data = open(GOOD_DATA_PATH, 'r')
   g_data = data.readlines()
@@ -70,7 +72,7 @@ def verify_message_mqtt(client):
       current_line += 1
 
   data.close()
-  return is_receiving_message
+  return tripwire_event_received.wait(timeout_s)
 
 def getTripwireUid(rest, tw_name):
   res = rest.getTripwires({'name': tw_name})
@@ -78,6 +80,7 @@ def getTripwireUid(rest, tw_name):
   # Get the uid of the first result
   return res["results"][0]['uid']
 
+@pytest.mark.fresh_stack
 def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
   """! This function creates Trip wire horizontally and the data is published
   such that the object (category ["custom_person"]) moves vertically across the
@@ -108,13 +111,16 @@ def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
     print("Logged in")
 
     assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
-    assert common.create_tripwire(browser, TW_NAME)
+    tw_points = common.create_tripwire(browser, TW_NAME)
+    print(f"Tripwire created at points: {tw_points}")
 
     # Subscribe the newly created tripwire
     tw_uid = getTripwireUid(rest, TW_NAME)
     topic = PubSub.formatTopic(PubSub.EVENT, event_type="+", region_type="tripwire",
                               scene_id=common.TEST_SCENE_ID, region_id=tw_uid)
     client.addCallback(topic, eventReceived)
+    # Give the broker/client callback registration a short window before publishing.
+    time.sleep(1)
 
     assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
     assert common.verify_tripwire_persistence(browser, TW_NAME)
@@ -125,7 +131,9 @@ def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
 
     tw_uid_check = getTripwireUid(rest, TW_NAME)
     assert tw_uid_check == tw_uid, f"The tripwire UUID after the modification doesn't match!" \
-      " Before: {tw_uid} - After: {tw_uid_check}"
+      f" Before: {tw_uid} - After: {tw_uid_check}"
+    # Allow the controller to finish reloading the tripwire after modification.
+    time.sleep(3)
     print("Events should be received from the sensor...")
     message_received = verify_message_mqtt(client)
     assert message_received, "The scene hasn't processed any event from the tripwire!"
@@ -135,6 +143,8 @@ def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
     common.delete_tripwire(browser, tw_uid)
     # Make sure that the tripwire does not exist
     assert not common.verify_tripwire_persistence(browser, TW_NAME)
+    # Allow backend state/cache to settle after tripwire deletion.
+    time.sleep(POST_DELETE_SETTLE_S)
     print("Events should not be received from the tripwire because it was deleted...")
     message_received = verify_message_mqtt(client)
     # Test should fail if scene processed any of the sensors tested

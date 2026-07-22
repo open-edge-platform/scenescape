@@ -42,6 +42,7 @@ aiofiles==25.1.0
 orjson==3.11.6
 ntplib==0.4.0
 openapi-spec-validator==0.8.5
+pytz==2026.2
 
 # Build dependencies for fast_geometry C++ extension
 pybind11==3.0.4

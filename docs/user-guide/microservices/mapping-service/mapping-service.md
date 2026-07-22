@@ -8,8 +8,10 @@ hide_directive-->
 
 # Mapping Service
 
-This Docker container provides a Flask REST API interface for 3D reconstruction with build-time
-model selection, enabling generation of meshes and camera parameters from captured frames.
+The Mapping Service generates 3D scene reconstructions — meshes, point clouds, and camera parameters (poses and intrinsics) — from a set of captured images or video frames. It exposes a REST API so other microservices can request reconstructions on demand.
+
+## Models
+
 Each container is built with one of two state-of-the-art models:
 
 - **MapAnything**: Universal Feed-Forward Metric 3D Reconstruction
@@ -17,13 +19,12 @@ Each container is built with one of two state-of-the-art models:
 
 ## Features
 
-- **Flask** based REST API with JSON responses
+- **REST API** with JSON responses
 - **Build-Time Model Selection**: Single model per container, no dependency conflicts
-- **Multi-image Input**: Process multiple images simultaneously
-- **GLB Output**: Generate 3D models in GLB format
-- **Camera Data**: Extract camera poses and intrinsics
+- **Flexible Input**: Multiple images, video files, or both in a single request
+- **Multiple Output Formats**: GLB meshes or point clouds
+- **Camera Data**: Extracts camera poses and intrinsics alongside geometry
 - **Image Enhancement**: Automatic CLAHE preprocessing for improved contrast
-- **Containerized**: Model-specific containers for clean deployment
 
 ## Scenescape Integration
 
