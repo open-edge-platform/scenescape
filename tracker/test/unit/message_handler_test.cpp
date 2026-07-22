@@ -865,7 +865,7 @@ TEST_F(MessageHandlerTest, DynamicMode_SubscribesToDatabaseUpdateTopic) {
     handler.start();
 }
 
-// Test that but the database update subscription still happens when no cameras are registered
+// Test that database update subscription still happens when no cameras are registered
 TEST_F(MessageHandlerTest, DynamicMode_SubscribesToDatabaseUpdateTopicWithEmptyRegistry) {
     SceneRegistry empty_registry;
 
