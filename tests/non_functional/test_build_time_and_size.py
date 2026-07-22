@@ -47,7 +47,7 @@ def build_image_check(image : ImageBuildRequirements) -> None:
     f"{TEST_NAME}: Building {image.name} took {duration:.2f}s (limit is {image.time_limit_seconds}s)"
   )
 
-  built_image = docker.image.inspect(f"scenescape-{image.name}")
+  built_image = docker.image.inspect(f"intel/scenescape-{image.name}")
 
   assert (built_image.size / 10**6) <= image.size_limit_megabytes, (
     f"{TEST_NAME}: Built {image.name} image size is {(built_image.size / 10**6):.2f}MB (limit is {image.size_limit_megabytes}MB)"
