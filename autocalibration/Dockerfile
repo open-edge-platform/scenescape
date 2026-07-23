@@ -113,13 +113,14 @@ ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages"
 # Set model directory for on-demand loading
 ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.11/site-packages/third_party/netvlad"
 
-# Upgrade base OS packages and install runtime dependencies in one layer
-# Note: python3/pip/wget/curl omitted - base image already provides Python/pip,
-# and the model loader uses Python requests (no wget/curl needed at runtime)
+# Update and upgrade base OS packages
+RUN apt update && apt upgrade -y
+
+# Install runtime dependencies in one layer
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
-    libgl1 libegl1 libglib2.0-0 libgomp1 && \
+     apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-pip wget curl && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
