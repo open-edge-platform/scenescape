@@ -87,6 +87,14 @@ def test_register_recovers_known_transform(registration, source_cloud,
   assert np.allclose(recovered, known_transform, atol=0.05)
 
 
+def test_register_identical_clouds_returns_identity(registration, target_cloud):
+  """! Registering a cloud against itself returns a near-identity transform. """
+  result = registration.register(target_cloud, target_cloud)
+  recovered = np.asarray(result["transform"])
+  assert result["fitness"] > 0.9
+  assert np.allclose(recovered, np.eye(4), atol=0.05)
+
+
 def test_register_with_initial_transform(registration, source_cloud,
                                          target_cloud, known_transform):
   """! Providing a good initial guess still recovers the known transform. """
