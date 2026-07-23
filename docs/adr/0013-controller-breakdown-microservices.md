@@ -220,8 +220,7 @@ architecture diagram.
   subscene-provided pose/observation updates.
 - **Outputs**: pose-enriched context (pose + observations/measurements) for the
   Spatial Transform & Projection Service.
-- **Communication**: synchronous request/response for pose retrieval and
-  updates.
+- **Communication**: request/response for pose retrieval and updates.
 - **Technology**: Python for orchestration and integration with existing
   calibration tooling (`autocalibration/`); native math paths where throughput
   requires it.
