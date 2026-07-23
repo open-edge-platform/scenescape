@@ -16,7 +16,7 @@ class PointCloudRegistrationController(CameraCalibrationController):
   The scene 3D mesh is converted to a point cloud (lazily, on first use) and
   cached per scene. Incoming sensor point clouds are registered against the
   cached scene cloud. The strategy is sensor-agnostic: any perceptual sensor
-  producing a PLY/PCD point cloud is supported.
+  producing a PCD/PLY point cloud is supported.
   """
 
   def __init__(self, calibration_data_interface):

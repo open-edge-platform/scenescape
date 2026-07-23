@@ -14,10 +14,11 @@ from scene_common.mesh_util import extractTriangleMesh
 # orientation used across the calibration pipeline.
 GLB_ZUP_ROTATION = [90.0, 0.0, 0.0]
 
-# Supported point cloud serialization formats.
-PLY_FORMAT = "ply"
+# Supported point cloud serialization formats. PCD is the default / first-class
+# format; PLY is accepted for interoperability.
 PCD_FORMAT = "pcd"
-SUPPORTED_FORMATS = (PLY_FORMAT, PCD_FORMAT)
+PLY_FORMAT = "ply"
+SUPPORTED_FORMATS = (PCD_FORMAT, PLY_FORMAT)
 
 
 class PointCloudRegistrationError(Exception):
@@ -55,7 +56,7 @@ class PointCloudRegistration:
 
     @param   raw_bytes   Raw (decoded) point cloud file bytes.
 
-    @return  "ply" or "pcd".
+    @return  "pcd" or "ply".
     """
     if raw_bytes[:3] == b'ply':
       return PLY_FORMAT
@@ -63,14 +64,14 @@ class PointCloudRegistration:
     if b'.PCD' in head or head.startswith(b'VERSION') or raw_bytes[:1] == b'#':
       return PCD_FORMAT
     raise PointCloudRegistrationError(
-        "Point cloud data does not appear to be a valid PLY or PCD file")
+        "Point cloud data does not appear to be a valid PCD or PLY file")
 
   @classmethod
   def decode_point_cloud(cls, raw_bytes, fmt=None):
-    """Decode raw PLY/PCD bytes into an Open3D point cloud.
+    """Decode raw PCD/PLY bytes into an Open3D point cloud.
 
     @param   raw_bytes   Raw point cloud file bytes.
-    @param   fmt         Optional explicit format ("ply" or "pcd").
+    @param   fmt         Optional explicit format ("pcd" or "ply").
 
     @return  o3d.geometry.PointCloud
     """

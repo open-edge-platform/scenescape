@@ -277,8 +277,8 @@
           },
           "body": {
             "sceneId": "302cf49a-97ec-402d-a324-c5077b280b7b",
-            "pointcloud": "base64:test_media/sample-point-cloud.ply",
-            "format": "ply"
+            "pointcloud": "base64:test_media/sample-point-cloud.pcd",
+            "format": "pcd"
           }
         },
         "expected_status": {
@@ -300,8 +300,8 @@
           },
           "body": {
             "sceneId": "12345678-1234-5678-1234-567812345678",
-            "pointcloud": "base64:test_media/sample-point-cloud.ply",
-            "format": "ply"
+            "pointcloud": "base64:test_media/sample-point-cloud.pcd",
+            "format": "pcd"
           }
         },
         "expected_status": {

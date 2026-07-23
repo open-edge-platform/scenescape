@@ -34,8 +34,9 @@ For implementation-level details of markerless calibration using NetVLAD, quadtr
 In addition to camera calibration, the service supports **sensor-agnostic point cloud registration**.
 A point cloud produced by any perceptual sensor (LiDAR, depth camera, stereo, photogrammetry) is
 registered against the scene's 3D model to compute the sensor-to-scene transform. The client sends a
-base64-encoded PLY or PCD point cloud together with the target `sceneId` to
-`/v1/point-cloud-sensors/{sensorId}/registration`. The service samples a point cloud from the scene
+base64-encoded point cloud together with the target `sceneId` to
+`/v1/point-cloud-sensors/{sensorId}/registration`. **PCD is the default point cloud format** (PLY is
+also accepted for interoperability). The service samples a point cloud from the scene
 mesh (cached per scene), aligns the sensor cloud using Open3D Generalized ICP with a point-to-plane
 refinement pass, and returns a 4x4 transform along with fitness and inlier RMSE metrics. Registration
 runs asynchronously and results are delivered over WebSocket or by polling the GET endpoint.

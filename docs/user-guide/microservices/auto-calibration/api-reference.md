@@ -27,7 +27,7 @@ sensor (LiDAR, depth camera, stereo, photogrammetry) to a scene's 3D model.
 
 ### Point Cloud Sensor Registration
 
-- `POST /point-cloud-sensors/{sensorId}/registration` — Register a sensor point cloud (base64-encoded PLY or PCD) against a scene's 3D model and compute the sensor-to-scene transform.
+- `POST /point-cloud-sensors/{sensorId}/registration` — Register a sensor point cloud (base64-encoded; PCD by default, PLY also accepted) against a scene's 3D model and compute the sensor-to-scene transform.
 - `GET /point-cloud-sensors/{sensorId}/registration` — Get the status and result of point cloud registration, including the 4x4 transform, fitness, and inlier RMSE.
 
 ## Schemas

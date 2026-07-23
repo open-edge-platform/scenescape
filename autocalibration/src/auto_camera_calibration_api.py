@@ -230,8 +230,8 @@ class CameraCalibrationApi:
       log.warning(f"Rejecting oversized point cloud data: {len(pc_data)} bytes")
       raise InvalidPointCloudError("Point cloud data is too large")
 
-    if fmt is not None and (not isinstance(fmt, str) or fmt.lower() not in ("ply", "pcd")):
-      raise InvalidPointCloudError("Point cloud format must be 'ply' or 'pcd'")
+    if fmt is not None and (not isinstance(fmt, str) or fmt.lower() not in ("pcd", "ply")):
+      raise InvalidPointCloudError("Point cloud format must be 'pcd' or 'ply'")
 
     try:
       decoded = base64.b64decode(pc_data, validate=True)
@@ -242,7 +242,7 @@ class CameraCalibrationApi:
     is_ply = decoded[:3] == b'ply'
     is_pcd = b'.PCD' in head or head.startswith(b'VERSION') or decoded[:1] == b'#'
     if not (is_ply or is_pcd):
-      raise InvalidPointCloudError("Point cloud data must be a valid PLY or PCD file")
+      raise InvalidPointCloudError("Point cloud data must be a valid PCD or PLY file")
 
   def _validate_transform(self, transform):
     """Validate an optional 4x4 initial transform matrix."""

@@ -28,7 +28,7 @@ The **Auto Camera Calibration** service (formerly `camcalibration`) computes cam
    - Converts a scene mesh (GLB/PLY) into a point cloud, sampled and cached per scene
    - Registers a sensor point cloud (LiDAR, depth camera, stereo, photogrammetry) against
      the scene cloud using Open3D Generalized ICP + point-to-plane ICP refinement
-   - Decodes base64 PLY/PCD input; returns a 4x4 transform, fitness, and inlier RMSE
+   - Decodes base64 PCD/PLY input; returns a 4x4 transform, fitness, and inlier RMSE
    - `point_cloud_registration_controller.py` wraps it as a `CameraCalibrationController`
      strategy (`POINTCLOUD` mode), dispatched independently of a scene's calibration mode
 

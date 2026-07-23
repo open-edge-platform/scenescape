@@ -104,18 +104,40 @@ def source_cloud(target_cloud, known_transform):
 
 
 @pytest.fixture(scope="module")
-def ply_bytes(target_cloud, tmp_path_factory):
-  """! Returns a valid point cloud serialized as binary PLY bytes. """
-  path = str(tmp_path_factory.mktemp("pcd") / "cloud.ply")
-  o3d.io.write_point_cloud(path, target_cloud, write_ascii=False)
+def pcd_bytes(target_cloud, tmp_path_factory):
+  """! Returns a valid point cloud serialized as compressed binary PCD bytes.
+
+  PCD is the default / first-class point cloud format. """
+  path = str(tmp_path_factory.mktemp("pcd") / "cloud.pcd")
+  o3d.io.write_point_cloud(path, target_cloud, write_ascii=False, compressed=True)
   with open(path, "rb") as handle:
     return handle.read()
 
 
 @pytest.fixture(scope="module")
-def pcd_bytes(target_cloud, tmp_path_factory):
-  """! Returns a valid point cloud serialized as compressed binary PCD bytes. """
-  path = str(tmp_path_factory.mktemp("pcd") / "cloud.pcd")
-  o3d.io.write_point_cloud(path, target_cloud, write_ascii=False, compressed=True)
+def pcd_ascii_bytes(target_cloud, tmp_path_factory):
+  """! Returns a valid point cloud serialized as uncompressed ASCII PCD bytes. """
+  path = str(tmp_path_factory.mktemp("pcd_ascii") / "cloud.pcd")
+  o3d.io.write_point_cloud(path, target_cloud, write_ascii=True)
+  with open(path, "rb") as handle:
+    return handle.read()
+
+
+@pytest.fixture(scope="module")
+def pcd_binary_bytes(target_cloud, tmp_path_factory):
+  """! Returns a valid point cloud serialized as uncompressed binary PCD bytes. """
+  path = str(tmp_path_factory.mktemp("pcd_binary") / "cloud.pcd")
+  o3d.io.write_point_cloud(path, target_cloud, write_ascii=False, compressed=False)
+  with open(path, "rb") as handle:
+    return handle.read()
+
+
+@pytest.fixture(scope="module")
+def ply_bytes(target_cloud, tmp_path_factory):
+  """! Returns a valid point cloud serialized as binary PLY bytes.
+
+  PLY is retained only to cover the interoperability path. """
+  path = str(tmp_path_factory.mktemp("ply") / "cloud.ply")
+  o3d.io.write_point_cloud(path, target_cloud, write_ascii=False)
   with open(path, "rb") as handle:
     return handle.read()

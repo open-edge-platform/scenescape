@@ -26,6 +26,16 @@ def test_detect_format_pcd(pcd_bytes):
   assert PointCloudRegistration.detect_format(pcd_bytes) == PCD_FORMAT
 
 
+def test_detect_format_pcd_ascii(pcd_ascii_bytes):
+  """! Uncompressed ASCII PCD bytes are detected as the PCD format. """
+  assert PointCloudRegistration.detect_format(pcd_ascii_bytes) == PCD_FORMAT
+
+
+def test_detect_format_pcd_binary(pcd_binary_bytes):
+  """! Uncompressed binary PCD bytes are detected as the PCD format. """
+  assert PointCloudRegistration.detect_format(pcd_binary_bytes) == PCD_FORMAT
+
+
 def test_detect_format_invalid():
   """! Non point cloud bytes raise PointCloudRegistrationError. """
   with pytest.raises(PointCloudRegistrationError):
@@ -41,6 +51,24 @@ def test_decode_point_cloud_ply(ply_bytes):
 def test_decode_point_cloud_pcd(pcd_bytes):
   """! Valid PCD bytes decode into a non-empty point cloud. """
   pcd = PointCloudRegistration.decode_point_cloud(pcd_bytes)
+  assert not pcd.is_empty()
+
+
+def test_decode_point_cloud_pcd_ascii(pcd_ascii_bytes):
+  """! Uncompressed ASCII PCD bytes decode into a non-empty point cloud. """
+  pcd = PointCloudRegistration.decode_point_cloud(pcd_ascii_bytes)
+  assert not pcd.is_empty()
+
+
+def test_decode_point_cloud_pcd_ascii_explicit_format(pcd_ascii_bytes):
+  """! Uncompressed ASCII PCD decodes when the pcd format is declared. """
+  pcd = PointCloudRegistration.decode_point_cloud(pcd_ascii_bytes, fmt=PCD_FORMAT)
+  assert not pcd.is_empty()
+
+
+def test_decode_point_cloud_pcd_binary(pcd_binary_bytes):
+  """! Uncompressed binary PCD bytes decode into a non-empty point cloud. """
+  pcd = PointCloudRegistration.decode_point_cloud(pcd_binary_bytes)
   assert not pcd.is_empty()
 
 
