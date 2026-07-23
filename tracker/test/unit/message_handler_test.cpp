@@ -865,6 +865,21 @@ TEST_F(MessageHandlerTest, DynamicMode_SubscribesToDatabaseUpdateTopic) {
     handler.start();
 }
 
+// Test that database update subscription still happens when no cameras are registered
+TEST_F(MessageHandlerTest, DynamicMode_SubscribesToDatabaseUpdateTopicWithEmptyRegistry) {
+    SceneRegistry empty_registry;
+
+    MessageHandler handler(mock_client_, empty_registry, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([]() {});
+
+    // No cameras are registered, so no camera topic subscriptions should occur, but the
+    // database update subscription must still happen.
+    EXPECT_CALL(*mock_client_, subscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(1);
+
+    handler.start();
+}
+
 // Test that static mode does NOT subscribe to database update topic
 TEST_F(MessageHandlerTest, StaticMode_NoDatabaseUpdateSubscription) {
     // Only camera subscription expected, no database update subscription
