@@ -431,6 +431,7 @@ def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene,
         sleep_seconds=POLL_INTERVAL
     )
 
+    candidate_message = None
     candidate_track = None
     for msg in received_messages:
       for obj in msg.get("objects", []):
@@ -440,6 +441,7 @@ def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene,
         if (metadata.get("plate", {}).get("label") == "XYZ-789" and
             metadata.get("gender", {}).get("label") == "female" and
                 metadata.get("age", {}).get("label") == "senior"):
+          candidate_message = msg
           candidate_track = obj
           break
       if candidate_track is not None:
@@ -451,12 +453,8 @@ def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene,
     assert metadata["gender"]["label"] == "female"
     assert metadata["age"]["label"] == "senior"
 
-    validate_scene_output({
-        "id": scene_id,
-        "name": "Fusion Test Scene",
-        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
-        "objects": [candidate_track]
-    })
+    assert candidate_message is not None
+    validate_scene_output(candidate_message)
 
   finally:
     client.loop_stop()
