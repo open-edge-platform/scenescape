@@ -118,7 +118,7 @@ flowchart TD
   end
 
   subgraph Tracker["Tracker Service (C++) — already extracted (ADR 7)"]
-    TRK["parse • transform/project • track"]
+    TRK["parse • transform • track"]
   end
 
   subgraph Controller["Controller (Python) — still monolithic"]
@@ -126,7 +126,6 @@ flowchart TD
     AN["scene analytics • events"]
     REID["re-id • uuid manager"]
     HIER["scene hierarchy (child/parent)"]
-    PERS["scene state persistence"]
   end
 
   CAM --> TRK
@@ -134,7 +133,6 @@ flowchart TD
   TRK -->|"data/scene/{scene_id}/{category}"| AN
   AN --> REID
   AN --> HIER
-  AN --> PERS
   AN -->|"regulated/scene/{scene_id}"| REG["📤 regulated / events"]
   HIER -->|"external/scene/{parent_id}"| AN
 
@@ -143,7 +141,6 @@ flowchart TD
   style AN fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
   style REID fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
   style HIER fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
-  style PERS fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
 ```
 
 > Note: projection currently runs inside the Tracker path; the diagram groups
@@ -188,7 +185,7 @@ flowchart TD
 
   Subscene -->|"Pose, Observations"| Positioning
   Sensor -->|"Measurements"| Positioning
-  PerceptionSensor -->|"Detections, Observations"| Positioning
+  PerceptionSensor -->|"Detections"| Positioning
 
   Positioning -->|"Pose + Observations"| Transform
   Positioning -->|"Measurements & Detections"| Transform
@@ -220,12 +217,11 @@ architecture diagram.
 - **Role**: normalize and supply pose context for all incoming observations and
   measurements so that downstream services operate in a shared spatial frame.
 - **Inputs**: perceptual sensor observations, sensor measurements,
-  subscene-provided pose/observation updates, and state-driven updates from
-  Scene State Persistence.
+  subscene-provided pose/observation updates.
 - **Outputs**: pose-enriched context (pose + observations/measurements) for the
   Spatial Transform & Projection Service.
 - **Communication**: synchronous request/response for pose retrieval and
-  updates; event-driven updates from persistence-backed state.
+  updates.
 - **Technology**: Python for orchestration and integration with existing
   calibration tooling (`autocalibration/`); native math paths where throughput
   requires it.
@@ -273,7 +269,7 @@ architecture diagram.
 - **Inputs**: streaming track updates from the Tracker; pose from Positioning;
   identity features and track context for Re-ID match/store; state-query requests
   from downstream consumers.
-- **Outputs**: SceneField updates to the Spatial Transform & Projection Service;
+- **Outputs**: SceneField to the Spatial Transform & Projection Service;
   scene state updates to the Subscene layer; identity-enriched state to the
   Analytics Service (see
   [ADR 10](./0010-reid-metadata-storage-architecture.md),
