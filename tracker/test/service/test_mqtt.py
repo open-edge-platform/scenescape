@@ -432,7 +432,9 @@ def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene):
     candidate_track = None
     for msg in received_messages:
       for obj in msg.get("objects", []):
-        metadata = obj.get("metadata")
+        metadata = obj.get("metadata", {})
+        if not isinstance(metadata, dict):
+          continue
         if (metadata.get("plate", {}).get("label") == "XYZ-789" and
             metadata.get("gender", {}).get("label") == "female" and
                 metadata.get("age", {}).get("label") == "senior"):
