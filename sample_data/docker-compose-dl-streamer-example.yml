@@ -104,7 +104,7 @@ services:
     networks:
       scenescape:
     # ports:
-    #  - 123:123/udp
+    #   - 123:123/udp
     restart: unless-stopped
     pids_limit: 1000
     environment:
@@ -127,8 +127,8 @@ services:
 
   broker:
     image: eclipse-mosquitto:2.0.22
-    ports:
-     - "1883:1883"
+    # ports:
+    #  - "1883:1883"
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
