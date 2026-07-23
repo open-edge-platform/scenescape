@@ -186,6 +186,66 @@
           "results": [
             {
               "uid": "1",
+              "username": "webuser",
+              "is_active": true,
+              "is_staff": false,
+              "is_superuser": true,
+              "first_name": "",
+              "last_name": "",
+              "email": "",
+              "acls": [
+                {
+                  "topic": "DATA_CAMERA",
+                  "access": 1
+                },
+                {
+                  "topic": "CHANNEL",
+                  "access": 1
+                },
+                {
+                  "topic": "IMAGE_CAMERA",
+                  "access": 1
+                },
+                {
+                  "topic": "IMAGE_CALIBRATE",
+                  "access": 1
+                },
+                {
+                  "topic": "CMD_DATABASE",
+                  "access": 3
+                },
+                {
+                  "topic": "CMD_CAMERA",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_AUTOCALIB_CAM_POSE",
+                  "access": 1
+                },
+                {
+                  "topic": "CMD_KUBECLIENT",
+                  "access": 3
+                },
+                {
+                  "topic": "EVENT",
+                  "access": 1
+                },
+                {
+                  "topic": "SYS_CHILDSCENE_STATUS",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_REGULATED",
+                  "access": 1
+                },
+                {
+                  "topic": "DATA_EXTERNAL",
+                  "access": 1
+                }
+              ]
+            },
+            {
+              "uid": "2",
               "username": "calibration",
               "is_active": true,
               "is_staff": false,
@@ -209,7 +269,7 @@
               ]
             },
             {
-              "uid": "2",
+              "uid": "3",
               "username": "scenectrl",
               "is_active": true,
               "is_staff": false,
@@ -272,66 +332,6 @@
                 },
                 {
                   "topic": "DATA_CAMERA",
-                  "access": 1
-                }
-              ]
-            },
-            {
-              "uid": "3",
-              "username": "webuser",
-              "is_active": true,
-              "is_staff": false,
-              "is_superuser": true,
-              "first_name": "",
-              "last_name": "",
-              "email": "",
-              "acls": [
-                {
-                  "topic": "DATA_CAMERA",
-                  "access": 1
-                },
-                {
-                  "topic": "CHANNEL",
-                  "access": 1
-                },
-                {
-                  "topic": "IMAGE_CAMERA",
-                  "access": 1
-                },
-                {
-                  "topic": "IMAGE_CALIBRATE",
-                  "access": 1
-                },
-                {
-                  "topic": "CMD_DATABASE",
-                  "access": 3
-                },
-                {
-                  "topic": "CMD_CAMERA",
-                  "access": 3
-                },
-                {
-                  "topic": "DATA_AUTOCALIB_CAM_POSE",
-                  "access": 1
-                },
-                {
-                  "topic": "CMD_KUBECLIENT",
-                  "access": 3
-                },
-                {
-                  "topic": "EVENT",
-                  "access": 1
-                },
-                {
-                  "topic": "SYS_CHILDSCENE_STATUS",
-                  "access": 3
-                },
-                {
-                  "topic": "DATA_REGULATED",
-                  "access": 1
-                },
-                {
-                  "topic": "DATA_EXTERNAL",
                   "access": 1
                 }
               ]
