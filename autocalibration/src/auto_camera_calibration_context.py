@@ -33,6 +33,7 @@ class CameraCalibrationContext:
 
     self.register_thread_lock = threading.Lock()
     self.calibration_thread_lock = threading.Lock()
+    self.point_cloud_thread_lock = threading.Lock()
     self.current_processing_scene = None
 
     return
@@ -132,12 +133,19 @@ class CameraCalibrationContext:
   def register_point_cloud_thread_wrapper(self, sceneobj, sensorId, sensor_frame_data):
     """
     Starts a background thread to register a sensor point cloud against a scene.
+    Atomically claims the point-cloud lock so concurrent requests get a
+    deterministic "busy" response. The lock is released by
+    process_point_cloud_registration once the job finishes.
     """
-    if not self.calibration_thread_lock.locked():
-      self.socketio.start_background_task(
-          self.process_point_cloud_registration,
-          sceneobj, sensorId, sensor_frame_data
-      )
+    if self.point_cloud_thread_lock.acquire(blocking=False):
+      try:
+        self.socketio.start_background_task(
+            self.process_point_cloud_registration,
+            sceneobj, sensorId, sensor_frame_data
+        )
+      except Exception:
+        self.point_cloud_thread_lock.release()
+        raise
       self.calibration_results[sensorId] = {
           "status": "calibrating",
           "message": "Registration started"
@@ -152,9 +160,11 @@ class CameraCalibrationContext:
     """
     Registers a sensor point cloud against a scene in a background thread.
     Stores the resulting transform and emits it over Socket.IO.
+    The point_cloud_thread_lock is acquired by the caller
+    (register_point_cloud_thread_wrapper) and released here when done.
     """
     log.info(f"[processPointCloudRegistration] Thread started for sensor {sensorId}")
-    with self.calibration_thread_lock:
+    try:
       try:
         result = self.point_cloud_strategy.generate_calibration(
             sceneobj, None, sensor_frame_data)
@@ -171,3 +181,5 @@ class CameraCalibrationContext:
         log.info(f"Sent WebSocket result to {socket_id} for {sensorId}")
       else:
         log.info(f"No socket_id found for {sensorId}, can't send result via WebSocket")
+    finally:
+      self.point_cloud_thread_lock.release()

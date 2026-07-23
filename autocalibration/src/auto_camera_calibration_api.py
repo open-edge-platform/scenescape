@@ -714,7 +714,7 @@ class CameraCalibrationApi:
       self._validate_calibration_context()
       self._validate_id(sensorId, "Sensor ID")
 
-      if self.calibrationContext.calibration_thread_lock.locked():
+      if self.calibrationContext.point_cloud_thread_lock.locked():
         return jsonify({
             self.OpenApi.SENSOR_ID: sensorId,
             self.OpenApi.STATUS: self.OpenApi.Status.BUSY,
