@@ -88,9 +88,10 @@ class IntelLabsTracking(Tracking):
   def metadata_from_attributes(attributes):
     """Decode metadata fields selected by RobotVision."""
     metadata = {}
-    for key, value in attributes.items():
+    for key in sorted(attributes):
       if not key.startswith('metadata.'):
         continue
+      value = attributes[key]
       field = key.removeprefix('metadata.')
       try:
         metadata[field] = json.loads(value)

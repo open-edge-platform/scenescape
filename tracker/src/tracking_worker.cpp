@@ -36,19 +36,19 @@ std::string metadataJson(const std::unordered_map<std::string, std::string>& att
     merged.SetObject();
     auto& allocator = merged.GetAllocator();
 
-    std::vector<std::pair<std::string_view, const std::string*>> fields;
+    std::vector<std::pair<std::string_view, std::string_view>> fields;
     for (const auto& [key, value] : attributes) {
         if (!key.starts_with(kMetadataPrefix)) {
             continue;
         }
-        fields.emplace_back(std::string_view(key).substr(kMetadataPrefix.size()), &value);
+        fields.emplace_back(std::string_view(key).substr(kMetadataPrefix.size()), value);
     }
     std::sort(fields.begin(), fields.end(),
               [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
 
     for (const auto& [field, json] : fields) {
         rapidjson::Document value;
-        if (value.Parse(json->c_str()).HasParseError()) {
+        if (value.Parse(json.data(), json.size()).HasParseError()) {
             continue;
         }
         rapidjson::Value field_name(field.data(), static_cast<rapidjson::SizeType>(field.size()),

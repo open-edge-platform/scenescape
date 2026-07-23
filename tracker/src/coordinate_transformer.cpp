@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include <omp.h>
@@ -15,6 +17,43 @@
 #include <rapidjson/writer.h>
 
 namespace tracker {
+
+namespace {
+
+void addMetadataAttributes(std::string_view metadataJson,
+                           std::unordered_map<std::string, std::string>& attributes) {
+    attributes["metadata_json"] = metadataJson;
+
+    rapidjson::Document metadata;
+    if (metadata.Parse(metadataJson.data(), metadataJson.size()).HasParseError() ||
+        !metadata.IsObject()) {
+        return;
+    }
+
+    for (auto member = metadata.MemberBegin(); member != metadata.MemberEnd(); ++member) {
+        rapidjson::StringBuffer value_buffer;
+        rapidjson::Writer<rapidjson::StringBuffer> value_writer(value_buffer);
+        member->value.Accept(value_writer);
+
+        const std::string field(member->name.GetString(), member->name.GetStringLength());
+        attributes["metadata." + field] = value_buffer.GetString();
+
+        if (!member->value.IsObject() || !member->value.HasMember("confidence") ||
+            !member->value["confidence"].IsNumber()) {
+            continue;
+        }
+
+        char confidence_buffer[32];
+        const auto confidence = member->value["confidence"].GetDouble();
+        auto [ptr, ec] = std::to_chars(confidence_buffer,
+                                       confidence_buffer + sizeof(confidence_buffer), confidence);
+        if (ec == std::errc{}) {
+            attributes["metadata_confidence." + field] = std::string(confidence_buffer, ptr);
+        }
+    }
+}
+
+} // namespace
 
 CoordinateTransformer::CoordinateTransformer(const CameraIntrinsics& intrinsics,
                                              const CameraExtrinsics& extrinsics) {
@@ -214,35 +253,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         obj.width = width_m;
         obj.height = height_m;
         if (!detections[i].metadata_json.empty()) {
-            obj.attributes["metadata_json"] = detections[i].metadata_json;
-
-            rapidjson::Document metadata;
-            if (!metadata.Parse(detections[i].metadata_json.c_str()).HasParseError() &&
-                metadata.IsObject()) {
-                for (auto member = metadata.MemberBegin(); member != metadata.MemberEnd();
-                     ++member) {
-                    rapidjson::StringBuffer value_buffer;
-                    rapidjson::Writer<rapidjson::StringBuffer> value_writer(value_buffer);
-                    member->value.Accept(value_writer);
-
-                    const std::string field(member->name.GetString(),
-                                            member->name.GetStringLength());
-                    obj.attributes["metadata." + field] = value_buffer.GetString();
-
-                    if (member->value.IsObject() && member->value.HasMember("confidence") &&
-                        member->value["confidence"].IsNumber()) {
-                        char confidence_buffer[32];
-                        const auto confidence = member->value["confidence"].GetDouble();
-                        auto [ptr, ec] = std::to_chars(
-                            confidence_buffer, confidence_buffer + sizeof(confidence_buffer),
-                            confidence);
-                        if (ec == std::errc{}) {
-                            obj.attributes["metadata_confidence." + field] =
-                                std::string(confidence_buffer, ptr);
-                        }
-                    }
-                }
-            }
+            addMetadataAttributes(detections[i].metadata_json, obj.attributes);
         }
         if (detections[i].confidence.has_value()) {
             char buf[32];

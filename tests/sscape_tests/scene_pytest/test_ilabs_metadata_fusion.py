@@ -24,10 +24,12 @@ def test_metadata_attributes_round_trip():
   }
 
   attributes = IntelLabsTracking.metadata_to_attributes(metadata)
+  decoded_metadata = IntelLabsTracking.metadata_from_attributes(attributes)
 
   assert attributes['metadata_confidence.gender'] == '0.9'
   assert 'metadata_confidence.plate' not in attributes
-  assert IntelLabsTracking.metadata_from_attributes(attributes) == metadata
+  assert decoded_metadata == metadata
+  assert list(decoded_metadata) == ['gender', 'plate']
 
 
 def test_invalid_metadata_field_does_not_hide_valid_fields():
