@@ -70,52 +70,52 @@ def registration():
 
 
 @pytest.fixture(scope="module")
-def glbFile():
+def glb_file():
   """! Returns the path to a valid GLB scene mesh. """
   return GLB_PATH
 
 
 @pytest.fixture(scope="module")
-def badGlbFile():
+def bad_glb_file():
   """! Returns the path to an invalid GLB file. """
   return BAD_GLB_PATH
 
 
 @pytest.fixture(scope="module")
-def targetCloud():
+def target_cloud():
   """! Returns a synthetic target (scene) point cloud. """
   return _make_box_cloud(40000, seed=1)
 
 
 @pytest.fixture(scope="module")
-def knownTransform():
+def known_transform():
   """! Returns the known 4x4 transform used to displace the source cloud. """
   return _known_transform()
 
 
 @pytest.fixture(scope="module")
-def sourceCloud(targetCloud, knownTransform):
+def source_cloud(target_cloud, known_transform):
   """! Returns the target cloud displaced by the inverse of the known
        transform, so that registering source onto target should recover the
        known transform. """
-  source = o3d.geometry.PointCloud(targetCloud)
-  source.transform(np.linalg.inv(knownTransform))
+  source = o3d.geometry.PointCloud(target_cloud)
+  source.transform(np.linalg.inv(known_transform))
   return source
 
 
 @pytest.fixture(scope="module")
-def plyBytes(targetCloud, tmp_path_factory):
+def ply_bytes(target_cloud, tmp_path_factory):
   """! Returns a valid point cloud serialized as binary PLY bytes. """
   path = str(tmp_path_factory.mktemp("pcd") / "cloud.ply")
-  o3d.io.write_point_cloud(path, targetCloud, write_ascii=False)
+  o3d.io.write_point_cloud(path, target_cloud, write_ascii=False)
   with open(path, "rb") as handle:
     return handle.read()
 
 
 @pytest.fixture(scope="module")
-def pcdBytes(targetCloud, tmp_path_factory):
+def pcd_bytes(target_cloud, tmp_path_factory):
   """! Returns a valid point cloud serialized as compressed binary PCD bytes. """
   path = str(tmp_path_factory.mktemp("pcd") / "cloud.pcd")
-  o3d.io.write_point_cloud(path, targetCloud, write_ascii=False, compressed=True)
+  o3d.io.write_point_cloud(path, target_cloud, write_ascii=False, compressed=True)
   with open(path, "rb") as handle:
     return handle.read()
