@@ -70,9 +70,13 @@ export default function AssetManager(
     return mark.id;
   }
 
-  function hideMarks() {
+  // Switch object visibility to current 'tracked object' button's value
+  function setMarksVisibility(shouldShow) {
     for (const mark of Object.values(marks)) {
-      scene.getObjectById(mark.id).visible = false;
+      const obj = scene.getObjectById(mark.id);
+      if (obj) {
+        obj.visible = shouldShow;
+      }
     }
   }
 
@@ -282,5 +286,5 @@ export default function AssetManager(
       });
   }
 
-  return { loadAssets, plot, hideMarks, renderLabels, setLabelMode, setCamera };
+  return { loadAssets, plot, setMarksVisibility, renderLabels, setLabelMode, setCamera };
 }
