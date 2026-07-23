@@ -96,12 +96,12 @@ class PointCloudRegistrationController(CameraCalibrationController):
       scene_cloud = self._ensure_scene_cloud(sceneobj)
       registration = self.scene_registrations[sceneobj.id]
 
-      raw_bytes = base64.b64decode(msg['pointcloud'])
+      raw_bytes = base64.b64decode(msg['pointcloud'], validate=True)
       sensor_cloud = registration.decode_point_cloud(raw_bytes, msg.get('format'))
 
       result = registration.register(sensor_cloud, scene_cloud,
                                      msg.get('initial_transform'))
-    except (KeyError, ValueError, PointCloudRegistrationError, FileNotFoundError) as e:
+    except (KeyError, TypeError, ValueError, PointCloudRegistrationError, FileNotFoundError) as e:
       log.error(f"Point cloud registration failed for sensor {sensor_id}: {e}")
       return {"status": "error", "message": f"Registration failed: {e}"}
 
