@@ -14,6 +14,7 @@ Tests tracker's MQTT functionality including:
 
 import json
 import uuid
+import time
 from datetime import datetime, timezone
 
 import paho.mqtt.client as mqtt
@@ -340,8 +341,10 @@ def test_tracking_produces_reliable_tracks(tls_tracker_service):
 TEST_NAME = "NEX-T25896"
 
 
-def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene):
+def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene,
+                                         record_xml_attribute):
   """Validate confidence, disjoint-field, and latest-camera fusion over MQTT."""
+  record_xml_attribute("name", TEST_NAME)
   docker = tls_tracker_service_with_fusion_scene["docker"]
   certs = tls_tracker_service_with_fusion_scene["certs"]
   host, port = get_broker_host(docker, port=8883)
@@ -410,7 +413,6 @@ def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene):
       res2.wait_for_publish()
 
       if i < 19:
-        import time
         time.sleep(0.067)
 
     def has_fused_metadata():
