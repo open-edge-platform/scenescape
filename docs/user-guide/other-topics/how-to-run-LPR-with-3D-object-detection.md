@@ -78,15 +78,9 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
             "ntp_config": {
               "element": {
                 "name": "timesync",
-                "property": "kwarg",
-                "format": "json"
+                "property": "ntp-server"
               },
-              "type": "object",
-              "properties": {
-                "ntpServer": {
-                  "type": "string"
-                }
-              }
+              "type": "string"
             },
             "deepscenario_config": {
               "element": {
@@ -106,26 +100,28 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
                 }
               }
             },
-            "camera_config": {
+            "cameraid": {
               "element": {
                 "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
+                "property": "cameraid"
               },
-              "type": "object",
-              "properties": {
-                "cameraid": {
-                  "type": "string"
-                },
-                "metadatagenpolicy": {
-                  "type": "string",
-                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
-                }
-              }
+              "type": "string"
+            },
+            "metadatagenpolicy": {
+              "element": {
+                "name": "datapublisher",
+                "property": "metadatagenpolicy"
+              },
+              "type": "string",
+              "description": "One of detectionPolicy (default), detection3DPolicy, reidPolicy, classificationPolicy, ocrPolicy"
+            },
+            "publish_image": {
+              "element": {
+                "name": "datapublisher",
+                "property": "publish-image"
+              },
+              "type": "boolean",
+              "description": "Publish frame to mqtt"
             }
           }
         },
@@ -137,17 +133,13 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
             }
           },
           "parameters": {
-            "ntp_config": {
-              "ntpServer": "ntpserv"
-            },
+            "ntp_config": "ntpserv",
             "deepscenario_config": {
               "intrinsics_path": "/home/pipeline-server/user_scripts/intrinsics.json",
               "max_distance": 28.0
             },
-            "camera_config": {
-              "cameraid": "lpr",
-              "metadatagenpolicy": "ocrPolicy"
-            }
+            "cameraid": "lpr",
+            "metadatagenpolicy": "ocrPolicy"
           }
         }
       }
