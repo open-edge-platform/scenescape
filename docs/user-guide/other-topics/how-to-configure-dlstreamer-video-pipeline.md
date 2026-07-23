@@ -346,16 +346,16 @@ This section describes the metadata schema and the format that the payload needs
 
 - **ntp_config** (string): Specifies the NTP server to synchronize time with.
 - **frame_ntp_config** (boolean): Configuration for using the NTP timestamp embedded in RTSP frame metadata as the frame timestamp. This is an alternative to using the post-decode system clock timestamp. When the RTSP source is configured with `add-reference-timestamp-meta=true`, GStreamer attaches NTP reference timestamp metadata to each buffer.
-When `true`, the NTP timestamp extracted from the RTSP frame metadata
-(`GstReferenceTimestampMeta`, caps `timestamp/x-ntp`) is used as the frame timestamp instead of the post-decode
-system time. This can improve timing accuracy when camera and server clocks are synchronized to the same NTP server.
-Defaults to `false`. If the metadata is absent on a given frame, the pipeline falls back to the
-system clock automatically.
+  When `true`, the NTP timestamp extracted from the RTSP frame metadata
+  (`GstReferenceTimestampMeta`, caps `timestamp/x-ntp`) is used as the frame timestamp instead of the post-decode
+  system time. This can improve timing accuracy when camera and server clocks are synchronized to the same NTP server.
+  Defaults to `false`. If the metadata is absent on a given frame, the pipeline falls back to the
+  system clock automatically.
 - **cameraid** (string): Unique identifier for the camera.
 - **metadatagenpolicy** (string): Policy for generating metadata. Possible values:
-    - `detectionPolicy` (default): Metadata for object detection. When a pose estimation model is used (e.g. `yolo11n-pose`), also includes `keypoints` (e.g. joints) with normalized x/y coordinates and `keypoint_connections` (e.g. skeleton bone pairs) in each detection object.
-    - `reidPolicy`: Metadata for re-identification.
-    - `classificationPolicy`: Metadata for classification.
+  - `detectionPolicy` (default): Metadata for object detection. When a pose estimation model is used (e.g. `yolo11n-pose`), also includes `keypoints` (e.g. joints) with normalized x/y coordinates and `keypoint_connections` (e.g. skeleton bone pairs) in each detection object.
+  - `reidPolicy`: Metadata for re-identification.
+  - `classificationPolicy`: Metadata for classification.
 - **publish_frame** (boolean): Indicates whether to publish the video frame to MQTT.
 - **detection_labels** (array of strings): Optional list of detection labels to filter. When specified, only detected objects matching these labels will be published. If omitted or empty, all detected objects are published. In the UI, labels can be provided as newline-separated, space-separated, or comma-separated values. In JSON configuration, provide as an array. Example: `["person", "car"]`.
 
