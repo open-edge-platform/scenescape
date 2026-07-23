@@ -106,11 +106,19 @@ void MessageHandler::start() {
         routeMessage(topic, payload);
     });
 
+    // In dynamic mode, subscribe to database update topic for config change notifications
+    if (dynamic_mode_) {
+        mqtt_client_->subscribe(TOPIC_DATABASE_UPDATE);
+        LOG_INFO_ENTRY(LogEntry("Queued database update subscription")
+                           .component("mqtt")
+                           .operation(TOPIC_DATABASE_UPDATE));
+    }
+
     // Subscribe to each registered camera's topic
     auto camera_ids = scene_registry_.get_all_camera_ids();
     if (camera_ids.empty()) {
         LOG_WARN_ENTRY(
-            LogEntry("No cameras registered - not subscribing to any topics").component("mqtt"));
+            LogEntry("No cameras registered - not subscribing to camera topics").component("mqtt"));
         return;
     }
 
@@ -134,14 +142,6 @@ void MessageHandler::start() {
     LOG_INFO_ENTRY(LogEntry("Queued camera subscriptions")
                        .component("mqtt")
                        .operation(std::format("{} cameras", camera_ids.size())));
-
-    // In dynamic mode, subscribe to database update topic for config change notifications
-    if (dynamic_mode_) {
-        mqtt_client_->subscribe(TOPIC_DATABASE_UPDATE);
-        LOG_INFO_ENTRY(LogEntry("Queued database update subscription")
-                           .component("mqtt")
-                           .operation(TOPIC_DATABASE_UPDATE));
-    }
 }
 
 void MessageHandler::stop() {
