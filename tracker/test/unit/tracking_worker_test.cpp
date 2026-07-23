@@ -830,8 +830,8 @@ TEST_F(TrackingWorkerTest, Tracking_MultiCamera_FallbackToLatestCameraWhenNoConf
     }
 }
 
-// Scenario 4 - result must be deterministic: swapping which camera is "first"
-// in the chunk must not change the winner when confidence values differ.
+// Scenario 4 - result must be deterministic: whether the higher-confidence value comes from the
+// earlier or later camera batch must not change the winner when confidence values differ.
 //
 // Run A: cam-1 (high conf=0.9 female, earlier) then cam-2 (low conf=0.7 male, later)
 // Run B: cam-1 (low  conf=0.7 male,  earlier) then cam-2 (high conf=0.9 female, later)
