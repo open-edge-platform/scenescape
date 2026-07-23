@@ -286,5 +286,12 @@ export default function AssetManager(
       });
   }
 
-  return { loadAssets, plot, setMarksVisibility, renderLabels, setLabelMode, setCamera };
+  return {
+    loadAssets,
+    plot,
+    setMarksVisibility,
+    renderLabels,
+    setLabelMode,
+    setCamera,
+  };
 }
