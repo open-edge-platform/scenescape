@@ -307,9 +307,13 @@ class Scene(SceneModel):
       translation = np.matmul(cameraPose.pose_mat, translation)
       info['translation'] = translation[:3]
 
-      # Remove reid vector from the object info as tracker does not support reid from scene hierarchy
-      if 'reid' in info:
-        info.pop('reid')
+      # Remove reid vector from the object info as tracker does not support reid from scene hierarchy.
+      # The child already ran its own reid quality-gating/matching/storage for this track using its
+      # real pixel bbox; reid is serialized nested under metadata (see detections_builder.prepareObjDict),
+      # not as a top-level 'reid' key, so it must be stripped from there.
+      metadata = info.get('metadata')
+      if isinstance(metadata, dict):
+        metadata.pop('reid', None)
 
       mobj = self.tracker.createObject(detectionType, info, when, child, self.persist_attributes.get(detectionType, {}))
       log.debug("RX SCENE OBJECT",

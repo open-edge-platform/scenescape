@@ -17,7 +17,6 @@ DEFAULT_DATABASE = "VDMS"
 DEFAULT_SIMILARITY_THRESHOLD_L2 = 40.0
 DEFAULT_SIMILARITY_THRESHOLD_COSINE = 0.5
 DEFAULT_MINIMUM_BBOX_AREA = 5000
-DEFAULT_MINIMUM_BBOX_AREA_M2 = 0.15  # width_m * height_m; ~0.5m x 0.3m minimum footprint
 DEFAULT_MINIMUM_FEATURE_COUNT = 12
 DEFAULT_FEATURE_SLICE_SIZE = 10
 DEFAULT_MAX_QUERY_TIME = 4
@@ -143,8 +142,6 @@ class UUIDManager:
       configured_similarity_threshold, self.similarity_metric)
     self.minimum_bbox_area = reid_config_data.get(
       'minimum_bbox_area', DEFAULT_MINIMUM_BBOX_AREA)
-    self.minimum_bbox_area_m2 = reid_config_data.get(
-      'minimum_bbox_area_m2', DEFAULT_MINIMUM_BBOX_AREA_M2)
     self.feature_slice_size = reid_config_data.get(
       'feature_slice_size', DEFAULT_FEATURE_SLICE_SIZE)
     if hasattr(self, 'reid_database') and self.reid_database is not None:
@@ -363,51 +360,26 @@ class UUIDManager:
     # Track is new only if not yet in active_ids dictionary
     return result is None
 
-  def _metricFootprintArea(self, sscape_object):
-    """
-    Compute a width x height footprint area in square meters from sscape_object.size,
-    for objects that have no pixel-space bounding box (e.g. objects reconstructed from
-    a remote child scene, which are already in world/metric coordinates).
-
-    size is expected to be [width_m, width_m, height_m] (see MovingObject._projectBounds).
-
-    @param   sscape_object  The Scenescape object to compute a footprint area for
-    @return  float or None  Footprint area in m^2, or None if size is missing/malformed
-    """
-    size = getattr(sscape_object, 'size', None)
-    if size is None:
-      return None
-    try:
-      width = float(size[0])
-      height = float(size[2])
-    except (TypeError, ValueError, IndexError):
-      return None
-    if not (math.isfinite(width) and math.isfinite(height)):
-      return None
-    return width * height
-
   def gatherQualityVisualFeatures(self, sscape_object,
-                                  minimum_bbox_area=None,
-                                  minimum_bbox_area_m2=None):
+                                  minimum_bbox_area=None):
     """
     This function gathers quality visual features for identifying newly detected objects.
     It currently only uses re-id vectors but can be expanded to include more features.
 
-    Objects reconstructed from a remote child scene (parent/child hierarchy) never have
-    a pixel-space bounding box -- the child already converts to metric/world coordinates
-    and strips bounding_box_px/bounding_box before forwarding (see MovingObject.__init__
-    and detections_builder.prepareObjDict). For those objects we fall back to a metric-space
-    footprint-area gate (width_m * height_m from sscape_object.size) instead of silently
-    discarding every embedding.
+    Quality is gated on the real pixel-space bounding box only. Objects reconstructed
+    from a child scene (parent/child hierarchy) never carry a reid embedding here at all --
+    the child already ran its own quality gate against its real pixel bbox, plus matching
+    and storage, before the track was forwarded (see Scene.processSceneData, which strips
+    metadata.reid from every object crossing the child->parent boundary). If an object
+    reaches here without a pixel bbox, there is no reliable quality signal to gate on, so
+    the embedding is discarded rather than substituting a weaker proxy -- that decision was
+    already made, correctly, by the child.
 
     @param  sscape_object          The Scenescape object to gather features from
     @param  minimum_bbox_area      Optional override for minimum pixel bbox area (px^2)
-    @param  minimum_bbox_area_m2   Optional override for minimum metric footprint area (m^2)
     """
     if minimum_bbox_area is None:
       minimum_bbox_area = self.minimum_bbox_area
-    if minimum_bbox_area_m2 is None:
-      minimum_bbox_area_m2 = self.minimum_bbox_area_m2
 
     reid_embedding = self._extractReidEmbedding(sscape_object)
 
@@ -417,28 +389,21 @@ class UUIDManager:
 
       has_pixel_bbox = hasattr(sscape_object, 'boundingBoxPixels') and sscape_object.boundingBoxPixels is not None
 
-      if has_pixel_bbox:
-        area = sscape_object.boundingBoxPixels.area
-        threshold = minimum_bbox_area
-        area_kind = "px^2"
-      else:
-        area = self._metricFootprintArea(sscape_object)
-        threshold = minimum_bbox_area_m2
-        area_kind = "m^2"
-        if area is None:
-          log.debug(
-            f"gatherQualityVisualFeatures: No boundingBoxPixels or usable size for "
-            f"rv_id={sscape_object.rv_id}; discarding embedding (no quality signal available).")
-          return
+      if not has_pixel_bbox:
+        log.debug(
+          f"gatherQualityVisualFeatures: No boundingBoxPixels for rv_id={sscape_object.rv_id}; "
+          "discarding embedding (no reliable quality signal available at this scope).")
+        return
 
-      if area > threshold:
+      area = sscape_object.boundingBoxPixels.area
+      if area > minimum_bbox_area:
         if sscape_object.rv_id in self.quality_features:
           self.quality_features[sscape_object.rv_id].append(reid_embedding)
         else:
           self.quality_features[sscape_object.rv_id] = [reid_embedding]
-        log.debug(f"gatherQualityVisualFeatures: Accepted embedding for rv_id={sscape_object.rv_id} (area={area:.4f} {area_kind})")
+        log.debug(f"gatherQualityVisualFeatures: Accepted embedding for rv_id={sscape_object.rv_id} (area={area:.4f} px^2)")
       else:
-        log.debug(f"gatherQualityVisualFeatures: Area too small for rv_id={sscape_object.rv_id} (area={area:.4f} {area_kind} <= {threshold})")
+        log.debug(f"gatherQualityVisualFeatures: Area too small for rv_id={sscape_object.rv_id} (area={area:.4f} px^2 <= {minimum_bbox_area})")
     return
 
   def pickBestID(self, sscape_object):
