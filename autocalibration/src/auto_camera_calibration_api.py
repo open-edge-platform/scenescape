@@ -696,15 +696,20 @@ class CameraCalibrationApi:
         self.calibrationContext.register_point_cloud_thread_wrapper(
             scene, sensorId, sensor_frame_data
         )
-        return jsonify({
-            self.OpenApi.STATUS: self.OpenApi.Status.CALIBRATING,
-            self.OpenApi.SENSOR_ID: sensorId,
-            self.OpenApi.SCENE_ID: scene_id,
-            self.OpenApi.MESSAGE: "Registration started"
-        }), 202
       except Exception as e:
         log.error(f"Registration failed for sensor {sensorId}: {e}")
         raise CameraCalibrationError(f"Registration failed: {str(e)}")
+
+      # Reflect the actual outcome recorded by the wrapper (e.g. "busy" when
+      # another registration is already in progress) instead of assuming the
+      # request was accepted.
+      result = self.calibrationContext.calibration_results.get(sensorId, {})
+      return jsonify({
+          self.OpenApi.STATUS: result.get("status", self.OpenApi.Status.CALIBRATING),
+          self.OpenApi.SENSOR_ID: sensorId,
+          self.OpenApi.SCENE_ID: scene_id,
+          self.OpenApi.MESSAGE: result.get("message", "Registration started")
+      }), 202
 
     @app.route(f'{API_PREFIX}/point-cloud-sensors/<sensorId>/registration', methods=['GET'])
     def get_point_cloud_registration_status(sensorId):
@@ -713,13 +718,6 @@ class CameraCalibrationApi:
 
       self._validate_calibration_context()
       self._validate_id(sensorId, "Sensor ID")
-
-      if self.calibrationContext.point_cloud_thread_lock.locked():
-        return jsonify({
-            self.OpenApi.SENSOR_ID: sensorId,
-            self.OpenApi.STATUS: self.OpenApi.Status.BUSY,
-            self.OpenApi.MESSAGE: "Registration is currently in progress"
-        }), 200
 
       result = self.calibrationContext.calibration_results.get(sensorId)
       if result is None:
