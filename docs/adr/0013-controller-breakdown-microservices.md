@@ -269,9 +269,9 @@ architecture diagram.
 - **Inputs**: streaming track updates from the Tracker; pose from Positioning;
   identity features and track context for Re-ID match/store; state-query requests
   from downstream consumers.
-- **Outputs**: SceneField to the Spatial Transform & Projection Service;
-  scene state updates to the Subscene layer; identity-enriched state to the
-  Analytics Service (see
+- **Outputs**: SceneField (scene reconstruction (geometry + texture)) to the
+  Spatial Transform & Projection Service; scene state updates to the Subscene
+  layer; identity-enriched state to the Analytics Service (see
   [ADR 10](./0010-reid-metadata-storage-architecture.md),
   [ADR 11](./0011-inner-product-reid-state-and-id-lineage.md)).
 - **Communication**: MQTT for track stream ingest; gRPC/REST for state and
