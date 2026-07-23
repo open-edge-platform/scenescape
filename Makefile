@@ -354,7 +354,7 @@ build-sources-image: sources.Dockerfile
 
 .PHONY: install-models
 install-models:
-	@$(MAKE) -C model_installer install-models
+	@$(MAKE) -C model_download install-models
 
 # =========================== Run Tests ==============================
 
