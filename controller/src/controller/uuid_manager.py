@@ -10,6 +10,9 @@ import numpy as np
 
 from controller.vdms_adapter import VDMSDatabase, COSINE_SIMILARITY_TOLERANCE
 from controller.moving_object import ReidState, MovingObject
+from controller.latency_metrics import MatchLatencyTracker
+from controller.camera_registry import CameraRegistry
+
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
 
@@ -87,6 +90,7 @@ class UUIDManager:
     self.quality_features = {}
     self.unique_id_count = 0
     self.stale_feature_timer = None
+    self.scene_id = None
 
     self.unique_id_count_lock = threading.Lock()
     # ReID embedding dimensions are inferred from the first observed embedding.
@@ -100,6 +104,10 @@ class UUIDManager:
     self.similarity_query_times = collections.deque(
       maxlen=DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED)
     self.similarity_query_times_lock = threading.Lock()
+    # Per-match latency: elapsed time from a track's first appearance to its
+    # match/no-match decision. See MatchLatencyTracker for details.
+    self.match_latency_tracker = MatchLatencyTracker()
+
     self.reid_enabled = True
     self._applyReidConfig(reid_config_data)
     self._rescheduleStaleFeatureTimer()
@@ -165,6 +173,8 @@ class UUIDManager:
     if self.stale_feature_timer is not None:
       self.stale_feature_timer.cancel()
       self.stale_feature_timer = None
+    if hasattr(self, 'match_latency_tracker') and self.match_latency_tracker is not None:
+      self.match_latency_tracker.shutdown()
     if hasattr(self, 'pool') and self.pool is not None:
       self.pool.shutdown(wait=False)
 
@@ -292,6 +302,21 @@ class UUIDManager:
       log.debug(f"_extractSemanticMetadata: No semantic metadata")
       return {}
 
+  def _extractCameraId(self, sscape_object):
+    """
+    Extract the camera ID string from a Scenescape object. sscape_object.camera
+    holds a Camera or child-Scene object, NOT a plain ID string -- the actual
+    identifier is Camera.cameraID or child Scene.uid (mirrors the extraction
+    used in TimeChunkedIntelLabsTracking.trackObjects()).
+
+    @param   sscape_object  The current Scenescape object
+    @return  str|None       The camera/source ID string, or None if unavailable
+    """
+    source = getattr(sscape_object, 'camera', None)
+    if source is None:
+      return None
+    return getattr(source, 'cameraID', None) or getattr(source, 'uid', None)
+
   def pruneInactiveTracks(self, tracked_objects):
     """
     Removes inactive tracks from the active_ids dict.
@@ -316,6 +341,9 @@ class UUIDManager:
       self.active_query.pop(track_id, None)
       self.quality_features.pop(track_id, None)
       self.features_for_database_timestamps.pop(track_id, None)
+      # Track never reached a match decision (e.g. reid disabled, insufficient
+      # features); discard its start time rather than leaking it forever.
+      self.match_latency_tracker.discardTrackStart(track_id)
       self._addNewFeaturesToDatabase(track_id)
     return
 
@@ -463,6 +491,12 @@ class UUIDManager:
         active_snapshot, _ = self._activeIdsSnapshot()
         if database_id is None:
           self._incrementUniqueIdCount()
+        # Track left the scene before updateActiveDict could run, but a real
+        # match decision was still computed here -- record its latency now
+        # rather than silently dropping the measurement.
+        camera_count = self._getTotalCameraCount()
+        self.match_latency_tracker.recordMatchLatency(sscape_object.rv_id, camera_count=camera_count)
+        log.info(f"querySimilarity: match latency stats={self.match_latency_tracker.getStats()}")
         log.warning(
           f"Track {sscape_object.rv_id} left scene before ID query finished "
           f"query_result_gid={database_id} similarity={similarity} "
@@ -666,6 +700,18 @@ class UUIDManager:
     duplicate_gids = {gid: rv_ids for gid, rv_ids in gid_index.items() if len(rv_ids) > 1}
     return snapshot, duplicate_gids
 
+  def _getTotalCameraCount(self):
+    """
+    Return the current total camera count for this UUIDManager's scene,
+    from the shared CameraRegistry (see camera_registry.py). True and
+    dynamic -- reflects additions and deletions immediately, since Scene
+    writes into the registry directly whenever its camera list changes.
+
+    @return  int  Current camera count for this scene, or 0 if this
+                  UUIDManager hasn't been assigned a scene_id yet
+    """
+    return CameraRegistry.getInstance().getCameraCount(self.scene_id)
+
   def updateActiveDict(self, sscape_object, database_id, similarity, query_timestamp=None):
     """
     Updates the dictionary tracking the active tracker IDs and their corresponding database
@@ -679,6 +725,11 @@ class UUIDManager:
     """
     if query_timestamp is None:
       query_timestamp = get_epoch_time()
+    # Record the end-to-end per-match latency now that a real decision has
+    # been reached for this track (matched or not).
+    camera_count = self._getTotalCameraCount()
+    self.match_latency_tracker.recordMatchLatency(sscape_object.rv_id, query_timestamp, camera_count=camera_count)
+    log.info(f"updateActiveDict: match latency stats={self.match_latency_tracker.getStats()}")
     previous_gid = sscape_object.gid
     gid_index = self._activeGidIndex()
     current_holders = gid_index.get(database_id, []) if database_id is not None else []
@@ -792,6 +843,15 @@ class UUIDManager:
     self.features_for_database_timestamps[sscape_object.rv_id] = get_epoch_time()
     return
 
+  def getMatchLatencyStats(self):
+    """
+    Return summary stats over the most recently recorded per-match latencies,
+    for downstream metrics consumers (e.g. dashboards, exporters, health checks).
+
+    @return  dict  {'count': int, 'average': float|None, 'min': float|None, 'max': float|None}
+    """
+    return self.match_latency_tracker.getStats()
+
   def isNewID(self, database_id):
     """
     Checks if the specified database ID already is matched with an existing tracker ID
@@ -810,9 +870,14 @@ class UUIDManager:
     """
     is_new = self.isNewTrackerID(sscape_object)
 
+    reid_embedding = self._extractReidEmbedding(sscape_object)
+    if reid_embedding is not None:
+      CameraRegistry.getInstance().recordEmbeddingObserved(
+        self.scene_id, self._extractCameraId(sscape_object))
+
     # Initialize tracking entry for new tracks
     if is_new:
-      has_reid_embedding = self._extractReidEmbedding(sscape_object) is not None
+      has_reid_embedding = reid_embedding is not None
 
       # Case for incrementing the counter when there is no re-id vector
       # When reid is disabled, or there is no usable embedding vector,
@@ -821,6 +886,8 @@ class UUIDManager:
         self._incrementUniqueIdCount()
       with self.active_ids_lock:
         self.active_ids.setdefault(sscape_object.rv_id, [None, None])
+      # Start the per-match latency clock for this track.
+      self.match_latency_tracker.markTrackStart(sscape_object.rv_id)
 
     # If reid is disabled, mark object state immediately (no query will be made)
     if not self.reid_enabled:
