@@ -10,7 +10,12 @@ import json
 import os
 import sys
 import time
+<<<<<<< HEAD
 from urllib import error, request
+=======
+from typing import Dict, List
+from urllib import error, parse, request
+>>>>>>> f2b61d68 (switching downloading models to model-downlader, modifying demo configuration to work with it)
 
 _JOB_POLL_INTERVAL_S = 5.0
 _PROGRESS_UPDATE_INTERVAL_S = 30.0
