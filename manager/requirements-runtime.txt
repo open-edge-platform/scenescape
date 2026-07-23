@@ -6,7 +6,7 @@
 aiofiles==25.1.0
 setuptools==81.0.0
 wheel==0.47.0
-Django==5.2.14
+Django==5.2.15
 django-axes==8.0.0
 django-debug-toolbar==6.0.0
 django-session-timeout==0.1.0
