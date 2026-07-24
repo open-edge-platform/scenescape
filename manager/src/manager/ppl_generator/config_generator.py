@@ -66,44 +66,46 @@ class PipelineConfigGenerator:
                 },
                 "type": "string"
               },
-              "camera_config": {
+              "cameraid": {
                 "element": {
                   "name": "datapublisher",
-                  "property": "kwarg",
-                  "format": "json"
+                  "property": "cameraid"
                 },
-                "type": "object",
-                "properties": {
-                  "cameraid": {
-                    "type": "string"
-                  },
-                  "metadatagenpolicy": {
-                    "type": "string",
-                    "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                  },
-                  "publish_frame": {
-                    "type": "boolean",
-                    "description": "Publish frame to mqtt"
-                  },
-                  "detection_labels": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "List of detection labels to filter (e.g., [\"person\", \"car\"]). If empty or omitted, all labels are published."
-                  }
-                }
+                "type": "string"
+              },
+              "metadatagenpolicy": {
+                "element": {
+                  "name": "datapublisher",
+                  "property": "metadatagenpolicy"
+                },
+                "type": "string",
+                "description": "Meta data generation policy, one of detectionPolicy(default), detection3DPolicy, reidPolicy, classificationPolicy, ocrPolicy"
+              },
+              "publish_image": {
+                "element": {
+                  "name": "datapublisher",
+                  "property": "publish-image"
+                },
+                "type": "boolean",
+                "description": "Publish annotated JPEG frames to scenescape/image/camera/<cameraid> each frame"
+              },
+              "detection_labels": {
+                "element": {
+                  "name": "datapublisher",
+                  "property": "detection-labels"
+                },
+                "type": "string",
+                "description": "Comma-separated allow-list of detection categories (e.g. \"person,car\"). Empty publishes all."
               }
             }
           },
           "payload": {
             "parameters": {
               "undistort_config": "",
-              "camera_config": {
-                "cameraid": "",
-                "metadatagenpolicy": "",
-                "detection_labels": []
-              }
+              "cameraid": "",
+              "metadatagenpolicy": "",
+              "publish_image": False,
+              "detection_labels": ""
             }
           }
         }
@@ -134,14 +136,15 @@ class PipelineConfigGenerator:
       pipeline_cfg["payload"]["parameters"]["undistort_config"] = self.generate_undistort_config_xml(
         intrinsics, dist_coeffs)
 
-    pipeline_cfg["payload"]["parameters"]["camera_config"]["cameraid"] = self.camera_id
-    pipeline_cfg["payload"]["parameters"]["camera_config"]["metadatagenpolicy"] = self.metadata_policy
+    pipeline_cfg["payload"]["parameters"]["cameraid"] = self.camera_id
+    pipeline_cfg["payload"]["parameters"]["metadatagenpolicy"] = self.metadata_policy
 
-    # Add detection_labels if provided in camera_settings
+    # Add detection_labels if provided in camera_settings.
+    # The new sscape_post_inference_data_publish element takes a comma-separated string;
+    # it splits on comma+whitespace internally.
     if 'detection_labels' in camera_settings and camera_settings['detection_labels']:
-      # Split by newlines, commas, and spaces; filter out empty strings
       labels_list = [label for label in re.split(r'[\n,\s]+', camera_settings['detection_labels']) if label]
-      pipeline_cfg["payload"]["parameters"]["camera_config"]["detection_labels"] = labels_list
+      pipeline_cfg["payload"]["parameters"]["detection_labels"] = ",".join(labels_list)
 
   def generate_undistort_config_xml(self,
                    camera_intrinsics: list[list[float]],
