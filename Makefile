@@ -693,7 +693,6 @@ define start_demo
 		echo "Starting Scenescape services in detached mode..."; \
 		docker compose $(1) up -d; \
 	fi
-	@echo "$(1)" > .scenescape-profile
 	@echo ""
 	@echo "To stop Scenescape, type:"
 	@echo "    docker compose $(1) down"
