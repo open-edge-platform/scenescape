@@ -412,17 +412,22 @@ class TestSceneControllerPublishers:
       uid='scene-1',
       external_update_rate=2,
       last_published_detection=defaultdict(lambda: None),
+      reid_config_data={'minimum_bbox_area': 5000},
     )
     jdata_base = {'timestamp': '2026-01-01T00:00:01Z', 'objects': ['unchanged']}
 
     scene_controller.shouldPublish = MagicMock(return_value=True)
     with patch('controller.scene_controller.get_epoch_time', side_effect=[100.0, 101.0]), \
-         patch('controller.scene_controller.buildDetectionsList', return_value=[{'id': 'o1'}]):
+         patch('controller.scene_controller.buildDetectionsList', return_value=[{'id': 'o1'}]) as mock_build:
       scene_controller.publishExternalDetections(scene, 'person', [object()], jdata_base)
 
     assert scene_controller.pubsub.publish.call_count == 1
     assert scene.last_published_detection['person'] == 101.0
     assert jdata_base['objects'] == ['unchanged']
+    # Confirm the new reid quality gate is actually wired through to buildDetectionsList
+    _, call_kwargs = mock_build.call_args
+    assert call_kwargs['gate_reid_quality'] is True
+    assert call_kwargs['minimum_bbox_area'] == 5000
 
   @patch('controller.scene_controller.metrics')
   @patch('controller.scene_controller.ControllerMode')

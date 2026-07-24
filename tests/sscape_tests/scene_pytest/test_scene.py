@@ -407,7 +407,10 @@ def test_processSceneData_splits_retracked_vs_child_objects(scene_obj, monkeypat
   calls = []
 
   def _create_object(detection_type, info, when, child_obj, persist):
-    assert 'reid' not in info
+    # reid is nested under metadata (see detections_builder.prepareObjDict) -- for a
+    # retrack=False child, Scene.processSceneData should strip it from there before
+    # construction, since these objects never reach uuid_manager.assignID.
+    assert 'metadata' not in info or 'reid' not in info.get('metadata', {})
     return SimpleNamespace(oid='oid-1', sceneLoc=Point(1.0, 2.0, 0.0), chain_data=_make_chain_data())
 
   def _capture_finish(detection_type, when, objects, child_objects):
@@ -417,12 +420,33 @@ def test_processSceneData_splits_retracked_vs_child_objects(scene_obj, monkeypat
   monkeypatch.setattr(scene_obj, '_finishProcessing', _capture_finish)
   child = SimpleNamespace(name='child', retrack=False)
   camera_pose = SimpleNamespace(pose_mat=np.eye(4))
-  payload = {'objects': [{'translation': [1, 2, 3], 'reid': [0.1, 0.2]}]}
+  payload = {'objects': [{'translation': [1, 2, 3], 'metadata': {'reid': {'embedding_vector': [0.1, 0.2]}}}]}
 
   assert scene_obj.processSceneData(payload, child, camera_pose, 'person', when=1.0) is True
   assert len(calls) == 1
   assert len(calls[0][0]) == 0
   assert len(calls[0][1]) == 1
+
+def test_processSceneData_retrack_true_preserves_reid(scene_obj, monkeypatch):
+  calls = []
+
+  def _create_object(detection_type, info, when, child_obj, persist):
+    assert info.get('metadata', {}).get('reid') == {'embedding_vector': [0.1, 0.2]}
+    return SimpleNamespace(oid='oid-1', sceneLoc=Point(1.0, 2.0, 0.0), chain_data=_make_chain_data())
+
+  def _capture_finish(detection_type, when, objects, child_objects):
+    calls.append((objects, child_objects))
+
+  scene_obj.tracker = SimpleNamespace(createObject=_create_object)
+  monkeypatch.setattr(scene_obj, '_finishProcessing', _capture_finish)
+  child = SimpleNamespace(name='child', retrack=True)
+  camera_pose = SimpleNamespace(pose_mat=np.eye(4))
+  payload = {'objects': [{'translation': [1, 2, 3], 'metadata': {'reid': {'embedding_vector': [0.1, 0.2]}}}]}
+
+  assert scene_obj.processSceneData(payload, child, camera_pose, 'person', when=1.0) is True
+  assert len(calls) == 1
+  assert len(calls[0][0]) == 1
+  assert len(calls[0][1]) == 0
 
 def test_finishProcessing_tracks_when_not_analytics_only(scene_obj, monkeypatch):
   update_visible_mock = Mock()
