@@ -62,7 +62,7 @@ def _classify_model_type(model_name: str) -> Tuple[str, str]:
 
   Returns:
     model_type: 'detect', 'inference', or 'classify'
-    metadata_policy: One of the policies from sscape_adapter.py
+    metadata_policy: One of the policies from sscape_post_inference_data_publish.py
   """
   model_name_lower = model_name.lower()
 
