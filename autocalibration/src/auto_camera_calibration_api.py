@@ -10,6 +10,8 @@ from flask import Flask, jsonify, request
 from flask_socketio import SocketIO
 from werkzeug.exceptions import BadRequest, NotFound, InternalServerError, RequestEntityTooLarge
 
+from point_cloud_registration import PointCloudRegistration, PointCloudRegistrationError
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("autocalibration-rest")
 
@@ -100,9 +102,13 @@ class CameraCalibrationApi:
   MIN_ID_LENGTH = 1
   VALID_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_\.]+$')  # Allow alphanumeric, hyphens, underscores, dots
   MAX_IMAGE_SIZE = 20 * 1024 * 1024
-  MAX_REQUEST_SIZE = 25 * 1024 * 1024
-  # Point clouds can be large (KPI targets >1M points); allow a bigger payload.
-  MAX_POINTCLOUD_SIZE = 100 * 1024 * 1024
+  # Tighter body-size limit for legacy / image routes (enforced per request).
+  MAX_IMAGE_REQUEST_SIZE = 25 * 1024 * 1024
+  # Perceptual-sensor calibration payloads (e.g. point clouds) can be large;
+  # sized by transport bytes, not by point count.
+  MAX_PERCEPTUAL_SENSOR_REQUEST_SIZE = 100 * 1024 * 1024
+  # Route prefix that is allowed the larger payload limit.
+  PERCEPTUAL_SENSOR_ROUTE_PREFIX = "/v1/perceptual-sensors/"
 
   class OpenApi:
     """
@@ -119,6 +125,7 @@ class CameraCalibrationApi:
     SENSOR_ID = "sensorId"
     POINTCLOUD = "pointcloud"
     FORMAT = "format"
+    MODALITY = "modality"
     INITIAL_TRANSFORM = "initialTransform"
 
     class Status:
@@ -139,9 +146,9 @@ class CameraCalibrationApi:
                            to scene and camera calibration logic.
     """
     self.app = Flask(__name__)
-    # Set maximum content length to prevent huge payloads
-    self.app.config['MAX_CONTENT_LENGTH'] = max(self.MAX_REQUEST_SIZE,
-                                                self.MAX_POINTCLOUD_SIZE + 5 * 1024 * 1024)
+    # Allow large perceptual-sensor payloads globally; a per-request guard
+    # enforces a tighter limit on all other (legacy / image) routes.
+    self.app.config['MAX_CONTENT_LENGTH'] = self.MAX_PERCEPTUAL_SENSOR_REQUEST_SIZE
     self.calibrationContext = calibrationContext
 
     self.socketio = SocketIO(self.app, path="/v1/socket.io/", cors_allowed_origins=["*"])
@@ -150,6 +157,7 @@ class CameraCalibrationApi:
     self.socket_client = {}
 
     self._register_error_handlers()
+    self._register_request_guards()
     self._register_routes()
     self._register_socket_events()
 
@@ -220,28 +228,27 @@ class CameraCalibrationApi:
         if not isinstance(value, (int, float)):
           raise ValidationError("Intrinsics values must be numbers")
 
-  def _validate_pointcloud(self, pc_data, fmt=None):
-    """Validate a base64-encoded point cloud payload (PLY or PCD)."""
+  def _validate_pointcloud(self, pc_data):
+    """Validate a base64-encoded point cloud payload (PLY or PCD).
+
+    Body-size limits are enforced by the global ``MAX_CONTENT_LENGTH`` and the
+    per-request guard, so only encoding and format are validated here. The
+    serialization format is detected from the payload's magic bytes using the
+    engine's single-source ``detect_format`` (no separate format hint needed).
+    """
     if not isinstance(pc_data, str):
       raise InvalidPointCloudError("Point cloud must be a string (base64 encoded)")
     if len(pc_data) == 0:
       raise InvalidPointCloudError("Point cloud data cannot be empty")
-    if len(pc_data) > self.MAX_POINTCLOUD_SIZE:
-      log.warning(f"Rejecting oversized point cloud data: {len(pc_data)} bytes")
-      raise InvalidPointCloudError("Point cloud data is too large")
-
-    if fmt is not None and (not isinstance(fmt, str) or fmt.lower() not in ("pcd", "ply")):
-      raise InvalidPointCloudError("Point cloud format must be 'pcd' or 'ply'")
 
     try:
       decoded = base64.b64decode(pc_data, validate=True)
     except Exception:
       raise InvalidPointCloudError("Point cloud must be valid base64-encoded data")
 
-    head = decoded[:64].upper()
-    is_ply = decoded[:3] == b'ply'
-    is_pcd = b'.PCD' in head or head.startswith(b'VERSION') or decoded[:1] == b'#'
-    if not (is_ply or is_pcd):
+    try:
+      PointCloudRegistration.detect_format(decoded)
+    except PointCloudRegistrationError:
       raise InvalidPointCloudError("Point cloud data must be a valid PCD or PLY file")
 
   def _validate_transform(self, transform):
@@ -272,6 +279,25 @@ class CameraCalibrationApi:
       for value in trans:
         if not isinstance(value, (int, float)):
           raise ValidationError("Translation values must be numbers")
+
+  def _register_request_guards(self):
+    """Enforce a tighter body-size limit on non perceptual-sensor routes.
+
+    The global ``MAX_CONTENT_LENGTH`` is sized for large perceptual-sensor
+    payloads; this guard prevents legacy / image routes from accepting oversized
+    request bodies before endpoint-level validation runs.
+    """
+
+    @self.app.before_request
+    def _enforce_request_size():
+      path = request.path or ""
+      if path.startswith(self.PERCEPTUAL_SENSOR_ROUTE_PREFIX):
+        return None
+      content_length = request.content_length
+      if content_length is not None and content_length > self.MAX_IMAGE_REQUEST_SIZE:
+        log.warning(f"Rejecting oversized request body: {content_length} bytes for {path}")
+        raise RequestEntityTooLarge()
+      return None
 
   def _register_error_handlers(self):
     """Register global error handlers for consistent error responses."""
@@ -428,9 +454,9 @@ class CameraCalibrationApi:
       log.info(f"Registered scene '{scene_id}' with socket id {sid}")
       return
 
-    @self.socketio.on("register_point_cloud_sensor")
-    def handle_register_point_cloud_sensor(data):
-      log.info(f"handle_register_point_cloud_sensor received: {data}")
+    @self.socketio.on("register_perceptual_sensor")
+    def handle_register_perceptual_sensor(data):
+      log.info(f"handle_register_perceptual_sensor received: {data}")
 
       sensor_id = data.get("sensor_id") if isinstance(data, dict) else None
       if not sensor_id:
@@ -653,10 +679,15 @@ class CameraCalibrationApi:
             response[key] = result[key]
       return jsonify(response), 200
 
-    @app.route(f'{API_PREFIX}/point-cloud-sensors/<sensorId>/registration', methods=['POST'])
-    def register_point_cloud_sensor_calibration(sensorId):
-      """Register a sensor point cloud against a scene point cloud."""
-      log.info(f"POST {API_PREFIX}/point-cloud-sensors/{sensorId}/registration called")
+    @app.route(f'{API_PREFIX}/perceptual-sensors/<sensorId>/calibration', methods=['POST'])
+    def calibrate_perceptual_sensor(sensorId):
+      """Calibrate (localize) a perceptual sensor against a scene.
+
+      Currently only point-cloud input is supported; the request `modality`
+      selects the calibration strategy so future modalities can be added
+      without changing this handler.
+      """
+      log.info(f"POST {API_PREFIX}/perceptual-sensors/{sensorId}/calibration called")
 
       self._validate_calibration_context()
       self._validate_id(sensorId, "Sensor ID")
@@ -679,7 +710,9 @@ class CameraCalibrationApi:
       if not pointcloud:
         raise MissingFieldError(self.OpenApi.POINTCLOUD)
       fmt = data.get(self.OpenApi.FORMAT)
-      self._validate_pointcloud(pointcloud, fmt)
+      if fmt is not None and (not isinstance(fmt, str) or fmt.lower() not in ("pcd", "ply")):
+        raise InvalidPointCloudError("Point cloud format must be 'pcd' or 'ply'")
+      self._validate_pointcloud(pointcloud)
 
       initial_transform = data.get(self.OpenApi.INITIAL_TRANSFORM)
       if initial_transform is not None:
@@ -689,6 +722,7 @@ class CameraCalibrationApi:
           "pointcloud": pointcloud,
           "format": fmt,
           "initial_transform": initial_transform,
+          "modality": data.get(self.OpenApi.MODALITY),
           "id": sensorId
       }
 
@@ -697,24 +731,24 @@ class CameraCalibrationApi:
             scene, sensorId, sensor_frame_data
         )
       except Exception as e:
-        log.error(f"Registration failed for sensor {sensorId}: {e}")
-        raise CameraCalibrationError(f"Registration failed: {str(e)}")
+        log.error(f"Calibration failed for sensor {sensorId}: {e}")
+        raise CameraCalibrationError(f"Calibration failed: {str(e)}")
 
       # Reflect the actual outcome recorded by the wrapper (e.g. "busy" when
-      # another registration is already in progress) instead of assuming the
+      # another calibration is already in progress) instead of assuming the
       # request was accepted.
       result = self.calibrationContext.calibration_results.get(sensorId, {})
       return jsonify({
           self.OpenApi.STATUS: result.get("status", self.OpenApi.Status.CALIBRATING),
           self.OpenApi.SENSOR_ID: sensorId,
           self.OpenApi.SCENE_ID: scene_id,
-          self.OpenApi.MESSAGE: result.get("message", "Registration started")
+          self.OpenApi.MESSAGE: result.get("message", "Calibration started")
       }), 202
 
-    @app.route(f'{API_PREFIX}/point-cloud-sensors/<sensorId>/registration', methods=['GET'])
-    def get_point_cloud_registration_status(sensorId):
-      """Get the current registration status and result for a sensor."""
-      log.info(f"GET {API_PREFIX}/point-cloud-sensors/{sensorId}/registration called")
+    @app.route(f'{API_PREFIX}/perceptual-sensors/<sensorId>/calibration', methods=['GET'])
+    def get_perceptual_sensor_calibration_status(sensorId):
+      """Get the current calibration status and result for a perceptual sensor."""
+      log.info(f"GET {API_PREFIX}/perceptual-sensors/{sensorId}/calibration called")
 
       self._validate_calibration_context()
       self._validate_id(sensorId, "Sensor ID")
@@ -724,13 +758,13 @@ class CameraCalibrationApi:
         return jsonify({
             self.OpenApi.SENSOR_ID: sensorId,
             self.OpenApi.STATUS: self.OpenApi.Status.NOT_STARTED,
-            self.OpenApi.MESSAGE: "Registration has not been started for this sensor"
+            self.OpenApi.MESSAGE: "Calibration has not been started for this sensor"
         }), 200
       elif result.get("status") == self.OpenApi.Status.CALIBRATING:
         return jsonify({
             self.OpenApi.SENSOR_ID: sensorId,
             self.OpenApi.STATUS: self.OpenApi.Status.CALIBRATING,
-            self.OpenApi.MESSAGE: "Registration in progress"
+            self.OpenApi.MESSAGE: "Calibration in progress"
         }), 200
 
       response = {
