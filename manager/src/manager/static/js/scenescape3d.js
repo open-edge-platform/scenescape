@@ -104,7 +104,7 @@ function main() {
     .add(panelSettings, "show tracked objects")
     .onChange(function (visibility) {
       showTrackedObjects = visibility;
-      assetManager.hideMarks();
+      assetManager.setMarksVisibility(visibility);
     }).$widget.id = "tracked-objects-button";
 
   // Add light intensity control
