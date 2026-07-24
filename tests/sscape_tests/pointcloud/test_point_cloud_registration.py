@@ -3,6 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import time
 
 import numpy as np
@@ -148,6 +149,9 @@ def test_register_empty_cloud(registration, target_cloud):
 
 
 @pytest.mark.slow
+@pytest.mark.skipif(
+  not os.environ.get("RUN_POINTCLOUD_KPI"),
+  reason="Set RUN_POINTCLOUD_KPI=1 to run the >1M point registration KPI benchmark.")
 def test_register_million_point_kpi():
   """! Registration of two >1M point clouds completes in under 30 seconds. """
   registration = PointCloudRegistration(voxel_size=0.05)

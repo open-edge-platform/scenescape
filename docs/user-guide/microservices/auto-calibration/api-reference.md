@@ -3,7 +3,7 @@
 **Version: v1.0.0**
 
 This API enables automatic camera calibration in Scenescape, supporting both AprilTag and markerless methods.
-It also supports sensor-agnostic point cloud registration, aligning a point cloud from any perceptual
+It also supports sensor-agnostic perceptual sensor calibration, aligning a point cloud from any perceptual
 sensor (LiDAR, depth camera, stereo, photogrammetry) to a scene's 3D model.
 
 **Base URL:** `https://localhost:8443/v1`
@@ -25,10 +25,10 @@ sensor (LiDAR, depth camera, stereo, photogrammetry) to a scene's 3D model.
 - `POST /cameras/{cameraId}/calibration` — Start camera calibration by uploading an image and (optionally) camera intrinsics.
 - `GET /cameras/{cameraId}/calibration` — Get the status and result of camera calibration, including pose and calibration data.
 
-### Point Cloud Sensor Registration
+### Perceptual Sensor Calibration
 
-- `POST /point-cloud-sensors/{sensorId}/registration` — Register a sensor point cloud (base64-encoded; PCD by default, PLY also accepted) against a scene's 3D model and compute the sensor-to-scene transform.
-- `GET /point-cloud-sensors/{sensorId}/registration` — Get the status and result of point cloud registration, including the 4x4 transform, fitness, and inlier RMSE.
+- `POST /perceptual-sensors/{sensorId}/calibration` — Calibrate a perceptual sensor by supplying a point cloud (base64-encoded; PCD by default, PLY also accepted) to align against a scene's 3D model and compute the sensor-to-scene transform.
+- `GET /perceptual-sensors/{sensorId}/calibration` — Get the status and result of perceptual sensor calibration, including the 4x4 transform, fitness, and inlier RMSE.
 
 ## Schemas
 
@@ -40,9 +40,9 @@ The API uses structured request and response schemas, including:
 - `CameraCalibrationRequest`
 - `CameraCalibrationTriggerResponse`
 - `CameraCalibrationStatusResponse`
-- `PointCloudRegistrationRequest`
-- `PointCloudRegistrationTriggerResponse`
-- `PointCloudRegistrationStatusResponse`
+- `PerceptualSensorCalibrationRequest`
+- `PerceptualSensorCalibrationTriggerResponse`
+- `PerceptualSensorCalibrationStatusResponse`
 - `Error`
 
 For full schema details and example payloads, see the OpenAPI YAML file below.

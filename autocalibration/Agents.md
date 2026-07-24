@@ -29,8 +29,9 @@ The **Auto Camera Calibration** service (formerly `camcalibration`) computes cam
    - Registers a sensor point cloud (LiDAR, depth camera, stereo, photogrammetry) against
      the scene cloud using Open3D Generalized ICP + point-to-plane ICP refinement
    - Decodes base64 PCD/PLY input; returns a 4x4 transform, fitness, and inlier RMSE
-   - `point_cloud_registration_controller.py` wraps it as a `CameraCalibrationController`
-     strategy (`POINTCLOUD` mode), dispatched independently of a scene's calibration mode
+   - `point_cloud_calibration_controller.py` wraps it as a `PerceptualSensorCalibrationController`
+     strategy (`POINTCLOUD` modality), routed by sensor modality independently of a scene's
+     calibration mode
 
 4. **`auto_camera_calibration_controller.py`**: Main service controller
    - Orchestrates calibration workflows
@@ -40,7 +41,7 @@ The **Auto Camera Calibration** service (formerly `camcalibration`) computes cam
 5. **`auto_camera_calibration_api.py`**: REST API endpoints
    - `/scenes/{sceneId}/registration`: Register/update a scene for calibration
    - `/cameras/{cameraId}/calibration`: Trigger and poll camera calibration
-   - `/point-cloud-sensors/{sensorId}/registration`: Register/poll a sensor point cloud
+   - `/perceptual-sensors/{sensorId}/calibration`: Calibrate/poll a perceptual sensor
      against a scene's 3D model
    - `/status`: Check calibration service status
 

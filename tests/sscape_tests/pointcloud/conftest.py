@@ -3,7 +3,6 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 import sys
 from pathlib import Path
 
@@ -20,7 +19,7 @@ import pytest
 
 from point_cloud_registration import PointCloudRegistration
 
-TEST_MEDIA_PATH = os.path.abspath(os.path.join(__file__, "../../../ui/test_media/"))
+TEST_MEDIA_PATH = str(Path(__file__).resolve().parents[2] / "ui" / "test_media")
 GLB_PATH = TEST_MEDIA_PATH + "/box.glb"
 BAD_GLB_PATH = TEST_MEDIA_PATH + "/box_invalid.glb"
 
