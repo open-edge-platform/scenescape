@@ -119,9 +119,12 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
     @return   (current_bytes, limit_bytes); either value may be None.
     """
     cmd = (
-      "cat /sys/fs/cgroup/memory.current /sys/fs/cgroup/memory.max 2>/dev/null "
-      "|| cat /sys/fs/cgroup/memory/memory.usage_in_bytes "
-      "/sys/fs/cgroup/memory/memory.limit_in_bytes"
+      "if [ -f /sys/fs/cgroup/memory.current ]; then "
+      "cat /sys/fs/cgroup/memory.current /sys/fs/cgroup/memory.max; "
+      "else "
+      "cat /sys/fs/cgroup/memory/memory.usage_in_bytes "
+      "/sys/fs/cgroup/memory/memory.limit_in_bytes; "
+      "fi"
     )
     try:
       out = self.docker.compose.execute(service, ["sh", "-c", cmd], tty=False)
