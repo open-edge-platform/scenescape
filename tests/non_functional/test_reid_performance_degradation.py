@@ -316,8 +316,8 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
     try:
       self.docker.compose.stop(list(INGEST_SERVICES))
     except Exception as exc:
-      log.warning(f"Could not stop ingestion services: {exc}")
-      return True
+      log.error(f"Could not stop ingestion services: {exc}")
+      return False
 
     probes = max(2, FREE_SETTLE_S // FREE_POLL_S)
     series = {svc: [] for svc in RETAINED_SERVICES}
