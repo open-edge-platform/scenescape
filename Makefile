@@ -38,6 +38,7 @@ CERTDOMAIN ?= scenescape.intel.com
 # Demo variables
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
+DEMO_WAIT_SECONDS ?= 0
 
 # Test variables
 TESTS_FOLDER := tests
@@ -387,12 +388,17 @@ setup-pytest:
 		OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
 			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(CURDIR)/controller/src/robot_vision; \
 	fi
-	@if ! command -v firefox > /dev/null 2>&1; then \
-		echo "ERROR: Firefox is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
-		exit 1; \
-	elif firefox --version 2>&1 | grep -qi snap || [[ "$$(command -v firefox)" == *snap* ]]; then \
-		echo "ERROR: Snap Firefox is incompatible with Selenium. See tests/README.md for installation instructions."; \
-		exit 1; \
+	@FF_LOCATIONS="$$(which -a firefox 2>/dev/null || true)"; \
+	if [ -z "$$FF_LOCATIONS" ]; then \
+			echo "ERROR: Firefox is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
+			exit 1; \
+	fi; \
+	FF_NON_SNAP="$$(echo "$$FF_LOCATIONS" | grep -v '/snap/' || true)"; \
+	if [ -z "$$FF_NON_SNAP" ]; then \
+			echo "ERROR: All firefox binaries are Snap-based:"; \
+			echo "$$FF_LOCATIONS" | sed 's/^/  /'; \
+			echo "Snap Firefox is incompatible with Selenium. See tests/README.md for installation instructions."; \
+			exit 1; \
 	fi
 	@if [ ! -f "$(CURDIR)/tests/.venv/bin/geckodriver" ]; then \
 		echo "geckodriver not found — downloading v0.36.0 into tests/.venv/bin/..."; \
@@ -408,7 +414,7 @@ setup-pytest:
 	fi
 
 .PHONY: run_tests
-run_tests: setup-tests setup-pytest
+run_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -418,7 +424,7 @@ run_tests: setup-tests setup-pytest
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_standard_tests
-run_standard_tests: setup-tests setup-pytest
+run_standard_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running standard tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -427,7 +433,7 @@ run_standard_tests: setup-tests setup-pytest
 	@echo "DONE ==> Running standard tests"
 
 .PHONY: run_functional_tests
-run_functional_tests: setup-tests setup-pytest
+run_functional_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running functional tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -441,7 +447,7 @@ run_non_functional_tests: init-secrets .env
 	@echo "DONE ==> Running non-functional tests"
 
 .PHONY: run_ui_tests
-run_ui_tests: setup-tests setup-pytest
+run_ui_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running UI tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -449,24 +455,22 @@ run_ui_tests: setup-tests setup-pytest
 	@echo "DONE ==> Running UI tests"
 
 .PHONY: run_unit_tests
-run_unit_tests: setup-tests setup-pytest
+run_unit_tests: init-secrets setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests..."
 	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
 	@echo "DONE ==> Running unit tests"
 
 .PHONY: run_basic_acceptance_tests
-run_basic_acceptance_tests: setup-tests setup-pytest
+run_basic_acceptance_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running basic acceptance tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
-		$(PYTEST) $(TESTS_DIR)/functional/ $(TESTS_DIR)/ui/ \
-		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ \
-		$(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Basic acceptance tests failed" && exit 1)
+		$(PYTEST) $(TESTS_DIR) -m basic_acceptance $(PYTEST_FLAGS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
 .PHONY: run_stability_tests
-run_stability_tests: setup-tests setup-pytest
+run_stability_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	$(eval HOURS ?= 24)
 	@echo "Running stability tests..."
@@ -479,7 +483,7 @@ run_stability_tests: setup-tests setup-pytest
 
 TEST_DATA ?= test_data
 .PHONY: run_performance_tests
-run_performance_tests: setup-tests setup-pytest
+run_performance_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running performance tests..."
 	$(MAKE) _run_performance_tests SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
@@ -505,7 +509,7 @@ geometry-conformance:
 GENERATE_JUNITXML = -o junit_logging=all --junitxml tests/reports/test_reports/$@.xml
 
 .PHONY: run_metric_tests
-run_metric_tests: setup-tests setup-pytest
+run_metric_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running metric tests..."
 	$(MAKE) -j $(NPROCS) _run_metric_tests SUPASS=$(SUPASS) || (echo "Metric tests failed" && exit 1)
@@ -681,8 +685,14 @@ define start_demo
 		echo "Updating docker-compose.yml with custom HTTPS port: $$HTTPS_PORT"; \
 		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
 	fi
-	docker compose $(1) up -d
 	@echo "$(1)" > .scenescape-profile
+	@if [ "$$DEMO_WAIT_SECONDS" != "0" ]; then \
+		echo "Waiting for Scenescape services to be ready..."; \
+		docker compose $(1) up -d --wait --wait-timeout $$DEMO_WAIT_SECONDS; \
+	else \
+		echo "Starting Scenescape services in detached mode..."; \
+		docker compose $(1) up -d; \
+	fi
 	@echo ""
 	@echo "To stop Scenescape, type:"
 	@echo "    docker compose $(1) down"
