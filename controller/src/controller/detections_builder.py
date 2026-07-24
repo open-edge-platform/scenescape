@@ -8,7 +8,7 @@ from scene_common import log
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
 from scene_common.timestamp import get_epoch_time, get_iso_time
-
+from controller.uuid_manager import DEFAULT_MINIMUM_BBOX_AREA
 
 def buildDetectionsDict(objects, scene, include_sensors=False, include_region_dwell=False, current_time=None):
   result_dict = {}
@@ -18,11 +18,14 @@ def buildDetectionsDict(objects, scene, include_sensors=False, include_region_dw
   return result_dict
 
 def buildDetectionsList(objects, scene, update_visibility=False, include_sensors=False,
-                        include_region_dwell=False, current_time=None):
+                        include_region_dwell=False, current_time=None,
+                        gate_reid_quality=False, minimum_bbox_area=None):
   result_list = []
   for obj in objects:
     obj_dict = prepareObjDict(scene, obj, update_visibility, include_sensors,
-                              include_region_dwell, current_time)
+                              include_region_dwell, current_time,
+                              gate_reid_quality=gate_reid_quality,
+                              minimum_bbox_area=minimum_bbox_area)
     result_list.append(obj_dict)
   return result_list
 
@@ -59,7 +62,8 @@ def _serializePreviousIdsChain(previous_ids_chain):
   return serialized_chain
 
 def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
-                   include_region_dwell=False, current_time=None):
+                   include_region_dwell=False, current_time=None,
+                   gate_reid_quality=False, minimum_bbox_area=None):
   aobj = obj
   if isinstance(obj, TripwireEvent):
     aobj = obj.object
@@ -106,7 +110,23 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
   # embedding_vector is always a (1, N) ndarray after decodeReIDEmbeddingVector.
   if aobj.reid and 'embedding_vector' in aobj.reid:
     reid_embedding = aobj.reid['embedding_vector']
-    if reid_embedding is not None:
+    reid_is_reliable = True
+    if gate_reid_quality:
+      has_pixel_bbox = getattr(aobj, 'boundingBoxPixels', None) is not None
+      if has_pixel_bbox:
+        threshold = minimum_bbox_area if minimum_bbox_area is not None else DEFAULT_MINIMUM_BBOX_AREA
+        reid_is_reliable = aobj.boundingBoxPixels.area > threshold
+        if not reid_is_reliable:
+          log.debug(
+            f"prepareObjDict: excluding reid for gid={aobj.gid} before forwarding "
+            f"(bbox area {aobj.boundingBoxPixels.area:.4f} <= {threshold})")
+      else:
+        # No real pixel bbox available at this scope to judge quality by (e.g. this object
+        # was itself reconstructed from a further-upstream forward). There is no fresh
+        # information here to decide reliability with, so do not propagate an embedding
+        # this scope cannot vouch for.
+        reid_is_reliable = False
+    if reid_embedding is not None and reid_is_reliable:
       if 'metadata' not in obj_dict:
         obj_dict['metadata'] = {}
       reid_vec = np.asarray(reid_embedding, dtype=np.float32)

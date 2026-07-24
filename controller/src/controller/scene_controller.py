@@ -236,7 +236,10 @@ class SceneController:
 
       # Rebuild detections list with sensor data included
       jdata = jdata_base.copy()
-      jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=True)
+      jdata['objects'] = buildDetectionsList(
+        objects, scene, self.visibility_topic == 'unregulated', include_sensors=True,
+        gate_reid_quality=True,
+        minimum_bbox_area=scene.reid_config_data.get('minimum_bbox_area'))
       jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
 
       scene_hierarchy_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL, scene_id=scene.uid,

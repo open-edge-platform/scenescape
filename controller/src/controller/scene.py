@@ -307,13 +307,22 @@ class Scene(SceneModel):
       translation = np.matmul(cameraPose.pose_mat, translation)
       info['translation'] = translation[:3]
 
-      # Remove reid vector from the object info as tracker does not support reid from scene hierarchy.
-      # The child already ran its own reid quality-gating/matching/storage for this track using its
-      # real pixel bbox; reid is serialized nested under metadata (see detections_builder.prepareObjDict),
-      # not as a top-level 'reid' key, so it must be stripped from there.
-      metadata = info.get('metadata')
-      if isinstance(metadata, dict):
-        metadata.pop('reid', None)
+      if not child.retrack:
+        # retrack=False: the child's own gid/identity resolution is trusted as-is and carried
+        # forward via setGID/setPrevious in mergeAlreadyTrackedObjects -- these objects never
+        # reach uuid_manager.assignID, so any reid embedding forwarded here would be unused at
+        # best, or (before this fix) leak into quality/storage bookkeeping it should never touch.
+        # reid is serialized nested under metadata (see detections_builder.prepareObjDict), not
+        # as a top-level 'reid' key, so strip it from there rather than the nonexistent top level,
+        # and strip it before construction since MovingObject.__init__ decodes and consumes it.
+        metadata = info.get('metadata')
+        if isinstance(metadata, dict):
+          metadata.pop('reid', None)
+      # retrack=True: leave metadata.reid intact. The parent re-runs its own tracker/UUIDManager
+      # on these forwarded detections from scratch (see IntelLabsTracking.trackCategory ->
+      # from_tracked_object -> uuid_manager.assignID). There is no pixel bbox at this point (the
+      # child already converted to world/metric coordinates), so the reid embedding the child
+      # collected is the only identity signal the parent has to work with here.
 
       mobj = self.tracker.createObject(detectionType, info, when, child, self.persist_attributes.get(detectionType, {}))
       log.debug("RX SCENE OBJECT",

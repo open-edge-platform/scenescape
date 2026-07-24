@@ -360,20 +360,22 @@ class UUIDManager:
     # Track is new only if not yet in active_ids dictionary
     return result is None
 
-  def gatherQualityVisualFeatures(self, sscape_object,
-                                  minimum_bbox_area=None):
+  def gatherQualityVisualFeatures(self, sscape_object, minimum_bbox_area=None):
     """
     This function gathers quality visual features for identifying newly detected objects.
     It currently only uses re-id vectors but can be expanded to include more features.
 
-    Quality is gated on the real pixel-space bounding box only. Objects reconstructed
-    from a child scene (parent/child hierarchy) never carry a reid embedding here at all --
-    the child already ran its own quality gate against its real pixel bbox, plus matching
-    and storage, before the track was forwarded (see Scene.processSceneData, which strips
-    metadata.reid from every object crossing the child->parent boundary). If an object
-    reaches here without a pixel bbox, there is no reliable quality signal to gate on, so
-    the embedding is discarded rather than substituting a weaker proxy -- that decision was
-    already made, correctly, by the child.
+    Quality is decided on real pixel-space bounding box only, and only ever at the scope that
+    actually has one. Objects forwarded from a retrack=True child scene never carry a pixel
+    bbox here (the child already converts to metric/world coordinates before forwarding --
+    see Scene.processSceneData). Rather than recovering a substitute quality signal for a bbox
+    that no longer exists at this scope, the child makes that call itself, using its own real
+    bbox, before the embedding is ever included in the forwarded payload (see
+    detections_builder.prepareObjDict's gate_reid_quality path, wired in for the external
+    detections topic in SceneController.publishExternalDetections). So if a reid embedding
+    reaches this method without a pixel bbox, its reliability was already vetted upstream by
+    whichever scope actually had the bbox to judge it with -- there is nothing left to check
+    here, so it is trusted and accumulated directly.
 
     @param  sscape_object          The Scenescape object to gather features from
     @param  minimum_bbox_area      Optional override for minimum pixel bbox area (px^2)
@@ -389,21 +391,21 @@ class UUIDManager:
 
       has_pixel_bbox = hasattr(sscape_object, 'boundingBoxPixels') and sscape_object.boundingBoxPixels is not None
 
-      if not has_pixel_bbox:
-        log.debug(
-          f"gatherQualityVisualFeatures: No boundingBoxPixels for rv_id={sscape_object.rv_id}; "
-          "discarding embedding (no reliable quality signal available at this scope).")
-        return
-
-      area = sscape_object.boundingBoxPixels.area
-      if area > minimum_bbox_area:
-        if sscape_object.rv_id in self.quality_features:
-          self.quality_features[sscape_object.rv_id].append(reid_embedding)
-        else:
-          self.quality_features[sscape_object.rv_id] = [reid_embedding]
+      if has_pixel_bbox:
+        area = sscape_object.boundingBoxPixels.area
+        if area <= minimum_bbox_area:
+          log.debug(f"gatherQualityVisualFeatures: Area too small for rv_id={sscape_object.rv_id} (area={area:.4f} px^2 <= {minimum_bbox_area})")
+          return
         log.debug(f"gatherQualityVisualFeatures: Accepted embedding for rv_id={sscape_object.rv_id} (area={area:.4f} px^2)")
       else:
-        log.debug(f"gatherQualityVisualFeatures: Area too small for rv_id={sscape_object.rv_id} (area={area:.4f} px^2 <= {minimum_bbox_area})")
+        log.debug(
+          f"gatherQualityVisualFeatures: Accepted embedding for rv_id={sscape_object.rv_id} "
+          "(no pixel bbox at this scope; already quality-gated upstream before forwarding)")
+
+      if sscape_object.rv_id in self.quality_features:
+        self.quality_features[sscape_object.rv_id].append(reid_embedding)
+      else:
+        self.quality_features[sscape_object.rv_id] = [reid_embedding]
     return
 
   def pickBestID(self, sscape_object):
