@@ -16,8 +16,6 @@ services:
     entrypoint: ["./run.sh"]
     ports:
       - "8080:8080"
-    devices:
-      - "/dev/dri:/dev/dri"
     depends_on:
       broker:
         condition: service_started

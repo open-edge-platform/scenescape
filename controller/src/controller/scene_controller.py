@@ -282,11 +282,9 @@ class SceneController:
     return
 
   def publishExternalDetections(self, scene, otype, objects, jdata_base):
-    # Hierarchy output for parent scenes. Root scenes (no parent) must not
-    # publish here: every scene also subscribes to its own
-    # scenescape/external/{scene_id}/+ topic for external-source ingest, so a
-    # root scene publishing to that topic would loop its own message back and
-    # be mis-handled as a child-scene publish (UNKNOWN PARENT → cache wipe).
+    # Hierarchy output for parent scenes. Root scenes (no parent) have no
+    # hierarchy consumer for this path — skip rather than publishing onto
+    # scenescape/external/{scene_uid}/+ (publisher id = this scene).
     if not getattr(scene, 'parent', None):
       return
 

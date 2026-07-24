@@ -518,7 +518,10 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
 
   os.environ["SECRETSDIR"] = secrets_dir
 
-  compose_file_paths = [os.path.join(repo_root, cf) for cf in profile.compose_files]
+  from tests.utils.profiles import resolve_compose_files
+  compose_file_paths = [
+    os.path.join(repo_root, cf) for cf in resolve_compose_files(profile.compose_files)
+  ]
 
   controller_auth_path = os.path.join(secrets_dir, "controller.auth")
   try:
