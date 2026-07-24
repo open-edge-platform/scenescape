@@ -345,8 +345,10 @@ services:
       - source: retail-config
         target: /home/pipeline-server/config.json
     volumes:
-      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/python/sscape_post_decode_timestamp_capture.py # Needs to be mounted to DLStreamer default plugin location, not to override any existing plugins
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_decode_timestamp_capture.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_inference_data_publish.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_inference_data_publish.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_policies.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_3d_detector.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_3d_detector.py
       - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
@@ -410,8 +412,10 @@ services:
       - source: queuing-config
         target: /home/pipeline-server/config.json
     volumes:
-      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/python/sscape_post_decode_timestamp_capture.py # Needs to be mounted to DLStreamer default plugin location, not to override any existing plugins
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_decode_timestamp_capture.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_inference_data_publish.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_inference_data_publish.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_policies.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_3d_detector.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_3d_detector.py
       - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
@@ -478,7 +482,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 30s
     restart: always
     pids_limit: 1000
 
@@ -569,10 +573,10 @@ services:
     healthcheck:
       test:
         ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8444/v1/health"]
-      interval: 10s
-      timeout: 60s
+      interval: 15s
+      timeout: 10s
       retries: 5
-      start_period: 10s
+      start_period: 600s # Allow time for model download and initialization
     restart: always
 
   cluster-analytics:
