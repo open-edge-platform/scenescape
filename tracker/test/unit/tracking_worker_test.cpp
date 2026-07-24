@@ -952,7 +952,7 @@ TEST_F(TrackingWorkerTest, Tracking_MetadataMaximumPersistsAcrossChunks) {
     EXPECT_NE(metadata.find("XYZ-789"), std::string::npos);
     EXPECT_NE(metadata.find("female"), std::string::npos);
     EXPECT_NE(metadata.find("0.9"), std::string::npos);
-    EXPECT_EQ(metadata.find("male"), std::string::npos);
+    EXPECT_EQ(metadata.find(R"("label":"male")"), std::string::npos);
 }
 
 } // namespace
