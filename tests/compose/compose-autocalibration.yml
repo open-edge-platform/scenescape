@@ -76,7 +76,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 60s
+      start_period: 10s
     restart: always
     pids_limit: 1000
 
