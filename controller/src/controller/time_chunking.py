@@ -162,22 +162,34 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     if not categories:
       categories = self.trackers.keys()
 
-    # Extract camera_id from objects - required for time chunking.
-    # Objects come from either a Camera (cameraID) or a child Scene (uid).
-    if len(objects) > 0:
-      source = getattr(objects[0], 'camera', None)
-      source_id = getattr(source, 'cameraID', None) or getattr(source, 'uid', None)
-      if source_id is None:
-        log.warning("No source ID found in objects, skipping time chunking processing")
-        return
-    else:
-      # Keep retirement moving when a camera/category has no detections.
-      source_id = self.EMPTY_FRAME_CAMERA_ID
+    # Extract source id for time-chunk buckets. Detections may arrive as:
+    # - camera frames in ``objects`` (Camera.cameraID)
+    # - hierarchy / external-source frames in ``objects`` when retrack=True
+    #   (Scene/SimpleNamespace.uid)
+    # - already-tracked frames in ``already_tracked_objects`` when retrack=False
+    #   (child scenes and all external sources — ADR 14 sets uid=source_id)
+    source_id = self._sourceIdForTimeChunking(objects, already_tracked_objects)
+    if source_id is None:
+      log.warning("No source ID found in objects, skipping time chunking processing")
+      return
 
     for category in categories:
       # Use time chunking
       self.time_chunk_processor.add_message(
           source_id, category, objects, when, already_tracked_objects)
+
+  @staticmethod
+  def _sourceIdForTimeChunking(objects, already_tracked_objects):
+    """Return cameraID/uid for the batch, or EMPTY_FRAME_CAMERA_ID if empty."""
+    for candidate in (objects, already_tracked_objects):
+      if not candidate:
+        continue
+      source = getattr(candidate[0], 'camera', None)
+      source_id = getattr(source, 'cameraID', None) or getattr(source, 'uid', None)
+      if source_id is not None:
+        return source_id
+      return None
+    return TimeChunkedIntelLabsTracking.EMPTY_FRAME_CAMERA_ID
 
   def _createIlabsTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
     """Create IntelLabs tracker object for each category"""

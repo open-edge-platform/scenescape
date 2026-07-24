@@ -10,10 +10,16 @@ Each profile encodes the Docker Compose file combination and container
 readiness checks that a group of tests requires.
 """
 
+import os
 from dataclasses import dataclass, field
 
 COMPOSE = "tests/compose"
 DLS = f"{COMPOSE}/dlstreamer"
+# Mounted only when the host has /dev/dri (see resolve_compose_files).
+_GPU_DRI_OVERRIDES = (
+  ("compose-retail_video", f"{DLS}/compose-gpu-dri-retail.yml"),
+  ("compose-queuing_video", f"{DLS}/compose-gpu-dri-queuing.yml"),
+)
 
 
 @dataclass(frozen=True)
@@ -29,6 +35,24 @@ class ServiceProfile:
   name: str
   compose_files: tuple[str, ...]
   wait_for: dict[str, WaitConfig] = field(default_factory=dict)
+
+
+def resolve_compose_files(compose_files, dri_path="/dev/dri"):
+  """Return compose files, appending GPU DRI overrides when available.
+
+  Docker Compose fails hard if ``devices: [/dev/dri:/dev/dri]`` is declared
+  but the host path is missing (common on WSL / VMs without GPU passthrough).
+  Keep DRI out of the base video compose files and only merge matching
+  per-service overrides when the device exists so CPU-only hosts can still
+  start video profiles.
+  """
+  files = list(compose_files)
+  if not os.path.exists(dri_path):
+    return tuple(files)
+  for marker, override in _GPU_DRI_OVERRIDES:
+    if any(marker in path for path in files) and override not in files:
+      files.append(override)
+  return tuple(files)
 
 
 # Common wait configs reused across profiles
@@ -102,6 +126,28 @@ FULL_STACK_WITH_MAPPING_AND_VIDEO = ServiceProfile(
     "broker": _BROKER,
     "retail-video": WaitConfig(),
     "mapping": _MAPPING,
+  },
+)
+
+# Retail video + core stack without mapping (mapanything). Use when tests need
+# camera detections but not the mapping service.
+FULL_STACK_WITH_RETAIL_VIDEO = ServiceProfile(
+  name="full_stack_with_retail_video",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{DLS}/compose-retail_video.yml",
+    f"{COMPOSE}/compose-scene.yml",
+    f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-cams.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "broker": _BROKER,
+    "retail-video": WaitConfig(),
   },
 )
 
@@ -263,6 +309,7 @@ PROFILE_REGISTRY: dict = {
     FULL_STACK,
     FULL_STACK_WITH_MAPPING,
     FULL_STACK_WITH_MAPPING_AND_VIDEO,
+    FULL_STACK_WITH_RETAIL_VIDEO,
     FULL_STACK_WITH_VIDEO_AND_RETAIL,
     REID,
     REID_SEMANTIC,

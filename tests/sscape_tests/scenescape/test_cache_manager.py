@@ -494,6 +494,19 @@ class TestCacheManagerRefreshCameras:
 
     # Should not raise any errors
 
+  def test_refresh_scenes_for_cam_params_tolerates_invalidated_cache(self):
+    """After invalidate(), refreshScenesForCamParams must not touch None.values()."""
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr.cached_scenes_by_uid = None
+    cache_mgr.camera_parameters = {}
+
+    cache_mgr.refreshScenesForCamParams({
+      'id': 'cam-1',
+      'intrinsics': {'cx': 320, 'cy': 240, 'fx': 500, 'fy': 500},
+    })
+
+    assert cache_mgr.cached_scenes_by_uid is None
+
 
 class TestCacheManagerEdgeCases:
   """Test edge cases and error conditions."""

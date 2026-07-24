@@ -26,6 +26,8 @@
 
 - [Integrate Cameras and Sensors into Scenescape](./how-to-guides/integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow.
 
+- [Publish Observations from an External Source Adapter](./how-to-guides/publish-external-source-adapter.md): Step-by-step guide to writing a converter that maps native source output into the Scene Controller `external_source` MQTT contract.
+
 - [Use 2D UI for manual calibration](./how-to-guides/calibrate-cameras/use-2D-UI-for-calibration.md): Step-by-step guide to using the 2D UI for manual camera calibration.
 
 - [Use 3D UI for calibration](./how-to-guides/calibrate-cameras/use-3D-UI-for-calibration.md): Step-by-step guide to using the 3D UI for camera calibration.
@@ -46,6 +48,7 @@ Deploy Scenescape <./how-to-guides/deploy-scenescape-using-prebuilt-containers.m
 Use the UI and Online Documentation <./how-to-guides/ui-tutorial.md>
 Build a Scene <./how-to-guides/build-a-scene/index.md>
 Integrate Cameras and Sensors <./how-to-guides/integrate-cameras-and-sensors.md>
+Publish External Source Adapter <./how-to-guides/publish-external-source-adapter.md>
 Calibrate Cameras <./how-to-guides/calibrate-cameras/index.md>
 Work with Spatial Analytics Data <./how-to-guides/work-with-spatial-analytics-data.md>
 

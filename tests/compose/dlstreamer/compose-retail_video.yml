@@ -17,8 +17,6 @@ services:
     entrypoint: ["./run.sh"]
     ports:
       - "8080:8080"
-    devices:
-      - "/dev/dri:/dev/dri"
     group_add:
       - "109"
       - "110"
