@@ -26,7 +26,7 @@ SIMILARITY_METRIC = "L2"
 # float32 rounding errors from VDMS normalization and inner-product computation.
 COSINE_SIMILARITY_TOLERANCE = 1e-6
 SCHEMA_MARKER_CLASS = "ReidSchemaMarker"
-DEFAULT_DESCRIPTOR_TTL_SECS = int(os.getenv("DEFAULT_DESCRIPTOR_TTL_SECS", "60")) # 60 seconds
+DEFAULT_DESCRIPTOR_TTL_SECS = int(os.getenv("DEFAULT_DESCRIPTOR_TTL_SECS", "86400")) #24 hours
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
