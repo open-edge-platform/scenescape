@@ -24,7 +24,6 @@ _gstplugins_src = (
 if str(_gstplugins_src) not in sys.path:
   sys.path.insert(0, str(_gstplugins_src))
 
-
 class FakeBaseTransform:
   """Minimal, subclassable stand-in for GstBase.BaseTransform.
 
