@@ -51,10 +51,10 @@ services:
     healthcheck:
       test:
         ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8444/v1/health"]
-      interval: 15s
-      timeout: 10s
+      interval: 10s
+      timeout: 60s
       retries: 5
-      start_period: 600s # Allow time for model download and initialization
+      start_period: 10s
     restart: always
 
 volumes:
