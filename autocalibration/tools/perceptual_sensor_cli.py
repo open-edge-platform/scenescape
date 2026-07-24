@@ -27,6 +27,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 import numpy as np
 import open3d as o3d
@@ -43,7 +44,7 @@ from point_cloud_registration import (PointCloudRegistration,  # noqa: E402
                                        PointCloudRegistrationError,
                                        SUPPORTED_FORMATS)
 
-DEFAULT_API_URL = "https://localhost:8443/v1"
+DEFAULT_API_URL = "https://localhost/api/v1/autocalibration"
 DEFAULT_SCENE_SAMPLE_POINTS = 200000
 DEFAULT_POLL_INTERVAL = 2.0
 DEFAULT_POLL_TIMEOUT = 120.0
@@ -126,17 +127,75 @@ def load_matrix(path):
 # REST client helpers
 # ---------------------------------------------------------------------------
 
-def build_client(url, auth=None, token=None, cacert=None, timeout=10):
+def _parse_credentials(auth):
+  """Return (user, password) from an auth JSON file or a 'user:password' string."""
+  if os.path.exists(auth):
+    with open(auth, encoding="utf-8") as handle:
+      data = json.load(handle)
+    return data["user"], data["password"]
+  sep = auth.find(":")
+  if sep < 0:
+    raise SystemExit(
+        "error: --auth must be 'user:password' or a path to an auth JSON file")
+  return auth[:sep], auth[sep + 1:]
+
+
+def _derive_auth_url(api_url):
+  """Return the manager auth endpoint (scheme://host/api/v1/auth) for an API URL."""
+  parts = urlsplit(api_url)
+  return urlunsplit((parts.scheme, parts.netloc, "/api/v1/auth", "", ""))
+
+
+def resolve_token(api_url, auth=None, token=None, auth_url=None, cacert=None,
+                  timeout=10):
+  """Obtain an API token.
+
+  Authentication is handled by the manager service (not the autocalibration
+  service), so credentials are exchanged for a token at the manager's auth
+  endpoint before talking to the calibration API. A pre-issued `token` is used
+  as-is; without credentials or a token, `None` is returned (anonymous).
+  """
+  if token:
+    return token
+  if not auth:
+    return None
+  user, password = _parse_credentials(auth)
+  endpoint = auth_url or _derive_auth_url(api_url)
+  verify = cacert if cacert else False
+  try:
+    reply = requests.post(
+        endpoint, data={"username": user, "password": password},
+        verify=verify, timeout=timeout)
+  except requests.exceptions.RequestException as err:
+    raise SystemExit(f"error: authentication request to {endpoint} failed: {err}")
+  if reply.status_code != 200:
+    raise SystemExit(
+        f"error: authentication failed ({reply.status_code}) at {endpoint}: "
+        f"{reply.text}")
+  try:
+    return reply.json()["token"]
+  except (ValueError, KeyError):
+    raise SystemExit(
+        f"error: unexpected auth response from {endpoint}: {reply.text}")
+
+
+def build_client(url, auth=None, token=None, auth_url=None, cacert=None,
+                 timeout=10):
   """Construct an AutoCalibrationClient for the perceptual-sensor endpoints.
 
-  TLS verification is disabled by default (self-signed localhost); pass a CA
-  certificate path via `cacert` to enable it.
+  Credentials are exchanged for a token at the manager's auth endpoint first,
+  then the token is attached to the autocalibration client. TLS verification is
+  disabled by default (self-signed localhost); pass a CA certificate path via
+  `cacert` to enable it.
   """
   from autocalibration_client import AutoCalibrationClient  # noqa: E402
 
+  resolved = resolve_token(
+      url, auth=auth, token=token, auth_url=auth_url, cacert=cacert,
+      timeout=timeout)
   verify_ssl = cacert if cacert else False
   return AutoCalibrationClient(
-      url=url, token=token, auth=auth, verify_ssl=verify_ssl, timeout=timeout)
+      url=url, token=resolved, verify_ssl=verify_ssl, timeout=timeout)
 
 
 def _do_request(client, method, path, **kwargs):
@@ -209,8 +268,8 @@ def cmd_calibrate(args):
     body["initialTransform"] = load_matrix(args.initial_transform).tolist()
 
   client = build_client(
-      args.url, auth=args.auth, token=args.token, cacert=args.cacert,
-      timeout=args.timeout)
+      args.url, auth=args.auth, token=args.token, auth_url=args.auth_url,
+      cacert=args.cacert, timeout=args.timeout)
   resp = _do_request(
       client, "POST", f"perceptual-sensors/{args.sensor_id}/calibration", json=body)
   body = _print_response(resp)
@@ -222,8 +281,8 @@ def cmd_calibrate(args):
 def cmd_status(args):
   """GET (optionally poll) the calibration status for a sensor."""
   client = build_client(
-      args.url, auth=args.auth, token=args.token, cacert=args.cacert,
-      timeout=args.timeout)
+      args.url, auth=args.auth, token=args.token, auth_url=args.auth_url,
+      cacert=args.cacert, timeout=args.timeout)
   path = f"perceptual-sensors/{args.sensor_id}/calibration"
 
   deadline = time.monotonic() + args.timeout_poll
@@ -252,6 +311,9 @@ def _add_client_arguments(parser):
       help=f"Base API URL (default: {DEFAULT_API_URL})")
   parser.add_argument(
       "--auth", help="user:password or path to an auth JSON file")
+  parser.add_argument(
+      "--auth-url",
+      help="Manager auth endpoint (default: derived as scheme://host/api/v1/auth)")
   parser.add_argument("--token", help="Pre-issued API token")
   parser.add_argument(
       "--cacert", help="CA certificate path to enable TLS verification")
