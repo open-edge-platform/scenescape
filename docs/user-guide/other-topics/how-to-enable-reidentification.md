@@ -67,7 +67,7 @@ retail-config:
 This reidentification-specific configuration uses a vision pipeline that includes anonymous visual feature extraction (also called "visual embeddings") using a person reidentification model:
 
 ```
-"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/apriltag-cam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/apriltag-cam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
 ```
 
 4. **Start the System**
@@ -143,7 +143,22 @@ When an object is first detected, it is assigned a UUID and no similarity score.
 
 The scene output includes `reid_state` for each tracked object. For canonical state definitions and lifecycle transitions, see [2-Tier Hybrid Search Implementation](../microservices/controller/Extended-ReID.md#reid-object-states). For output field contract details, see [Scene Controller Data Formats](../microservices/controller/data_formats.md#common-output-track-fields).
 
-> **Known Issue**: Current VDMS implementation does not support feature expiration, leading to degraded performance over time. This will be addressed in a future release.
+Descriptors written to VDMS now carry a time-to-live (`descriptor_ttl_secs`) so stored feature vectors expire automatically instead of accumulating indefinitely. See **Storage Bounding** below for details.
+
+---
+
+## Storage Bounding
+
+To prevent unbounded growth of the VDMS descriptor store, each descriptor written for ReID matching is tagged with an expiration (VDMS's native `_expiration` property), and VDMS is configured to sweep for expired descriptors on a regular interval.
+
+- **`descriptor_ttl_secs`** (client-side, set on the controller/adapter) — the lifetime, in seconds, assigned to each descriptor when it's written to VDMS. Once a descriptor's age exceeds this value, VDMS marks it eligible for auto-deletion. Defaults to `86400` (24 hours); configurable via the `DEFAULT_DESCRIPTOR_TTL_SECS` environment variable.
+- **`OVERRIDE_autodelete_interval_s`** (VDMS server-side, Docker env var) — how often, in seconds, the VDMS server sweeps for and removes expired descriptors. This does not change _when_ a descriptor expires, only how promptly expired descriptors are cleaned up after the fact. Set on the `vdms` container, e.g.:
+
+  ```bash
+  docker run -d --net=host -e OVERRIDE_autodelete_interval_s=60 intellabs/vdms:v2.12.0
+  ```
+
+> **Note**: Both settings are time-based only. Storage is bounded by descriptor age, not by actual memory/storage usage — under heavy ingest, storage can still grow within the TTL window. Choose `descriptor_ttl_secs` conservatively for your expected peak ingest rate.
 
 ---
 
@@ -155,6 +170,8 @@ The scene output includes `reid_state` for each tracked object. For canonical st
 | `DEFAULT_MINIMUM_BBOX_AREA`                                               | Minimum bounding box size to consider a valid feature.                                                                                                                                           | Pixel area (e.g., 400–1600)                                                                                                                             |
 | `DEFAULT_MINIMUM_FEATURE_COUNT`                                           | Minimum features needed before querying DB.                                                                                                                                                      | Integer (e.g., 5–20)                                                                                                                                    |
 | `DEFAULT_MAX_FEATURE_SLICE_SIZE`                                          | Proportion of features stored to improve DB performance.                                                                                                                                         | Float (e.g., 0.1–1.0)                                                                                                                                   |
+| `descriptor_ttl_secs`                                                     | Lifetime, in seconds, assigned to each descriptor written to VDMS before it becomes eligible for auto-deletion. Set via `DEFAULT_DESCRIPTOR_TTL_SECS` env var.                                   | Integer seconds (e.g., `86400` for 24 hours)                                                                                                            |
+| `OVERRIDE_autodelete_interval_s`                                          | VDMS server-side Docker env var controlling how often (seconds) the server sweeps for and removes expired descriptors.                                                                           | Integer seconds (e.g., `60`)                                                                                                                            |
 
 To apply changes (include `--profile vdms` if ReID is enabled; see [Docker Compose Profiles](../get-started.md#docker-compose-profiles)):
 
