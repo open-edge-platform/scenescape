@@ -88,7 +88,7 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
 
   video-pipeline:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260707-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260714-weekly-ubuntu24
     networks:
       ppl_runner:
     tty: true
@@ -130,6 +130,7 @@ services:
       # Uncomment the line below to enable latency tracing
       # - "/tmp/latency_tracer:/tmp"
       - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/python/sscape_post_decode_timestamp_capture.py # Needs to be mounted to DLStreamer default plugin location, not to override any existing plugins
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
       - ${OUTPUT_DIR}:/home/pipeline-server/output

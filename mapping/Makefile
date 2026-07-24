@@ -9,6 +9,7 @@ TEST_IMAGE := intel/scenescape-mapping-$(MODEL_TYPE)-test
 TARGET = mapping-runtime
 TEST_TARGET = mapping-test
 USES_SCENE_COMMON := yes
+VERSION := $(shell cat ../version.txt)
 
 include ../common.mk
 
@@ -21,14 +22,16 @@ test-build:
 
 .PHONY: build-vggt
 build-vggt:
-	$(MAKE) MODEL_TYPE=vggt IMAGE="intel/scenescape-mapping-vggt"
+	$(MAKE) MODEL_TYPE=vggt IMAGE="intel/scenescape-mapping" VERSION=$(VERSION)-vggt
 
 .PHONY: build-mapanything
 build-mapanything:
-	$(MAKE) MODEL_TYPE=mapanything IMAGE="intel/scenescape-mapping-mapanything"
+	$(MAKE) MODEL_TYPE=mapanything IMAGE="intel/scenescape-mapping" VERSION=$(VERSION)-mapanything
 
 .PHONY: build-all
 build-all: build-vggt build-mapanything
+	docker tag intel/scenescape-mapping:$(VERSION)-mapanything intel/scenescape-mapping:latest
+	docker tag intel/scenescape-mapping:$(VERSION)-mapanything intel/scenescape-mapping:$(VERSION)
 
 # Convenience targets
 .PHONY: vggt mapanything
