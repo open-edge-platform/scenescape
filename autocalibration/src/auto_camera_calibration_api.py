@@ -727,7 +727,7 @@ class CameraCalibrationApi:
       }
 
       try:
-        self.calibrationContext.register_point_cloud_thread_wrapper(
+        self.calibrationContext.calibrate_perceptual_sensor_thread_wrapper(
             scene, sensorId, sensor_frame_data
         )
       except Exception as e:

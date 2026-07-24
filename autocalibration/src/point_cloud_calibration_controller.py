@@ -6,11 +6,11 @@ import base64
 from scene_common import log
 from scene_common.timestamp import get_iso_time
 
-from auto_camera_calibration_controller import CameraCalibrationController
+from perceptual_sensor_calibration_controller import PerceptualSensorCalibrationController
 from point_cloud_registration import PointCloudRegistration, PointCloudRegistrationError
 
 
-class PointCloudRegistrationController(CameraCalibrationController):
+class PointCloudCalibrationController(PerceptualSensorCalibrationController):
   """Strategy that localizes a sensor point cloud against a scene.
 
   The scene 3D mesh is converted to a point cloud (lazily, on first use) and
@@ -21,8 +21,8 @@ class PointCloudRegistrationController(CameraCalibrationController):
 
   def __init__(self, calibration_data_interface):
     super().__init__(calibration_data_interface)
-    # Per-scene caches, kept on the instance to avoid colliding with the
-    # class-level cam_calib_objs shared by other calibration strategies.
+    # Per-scene caches, kept on the instance to avoid colliding with other
+    # calibration strategies.
     self.scene_clouds = {}
     self.scene_registrations = {}
     return
@@ -81,15 +81,15 @@ class PointCloudRegistrationController(CameraCalibrationController):
       return False
     return sceneobj.map_processed is None
 
-  def generate_calibration(self, sceneobj, camera_intrinsics, msg):
+  def generate_calibration(self, sceneobj, sensor_config, msg):
     """Register a sensor point cloud against the scene point cloud.
 
-    @param   sceneobj           Scene object.
-    @param   camera_intrinsics  Unused for point cloud registration.
-    @param   msg                Payload with keys "id", "pointcloud" (base64),
-                                 optional "format" and "initial_transform".
+    @param   sceneobj        Scene object.
+    @param   sensor_config   Unused for point cloud calibration.
+    @param   msg             Payload with keys "id", "pointcloud" (base64),
+                             optional "format" and "initial_transform".
 
-    @return  dict with the registration transform or error info.
+    @return  dict with the calibration transform or error info.
     """
     sensor_id = msg.get('id')
     try:

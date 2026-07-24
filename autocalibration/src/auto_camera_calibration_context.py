@@ -7,7 +7,7 @@ import threading
 from atag_camera_calibration_controller import ApriltagCameraCalibrationController
 from auto_camera_calibration_model import CameraCalibrationModel
 from markerless_camera_calibration_controller import MarkerlessCameraCalibrationController
-from point_cloud_registration_controller import PointCloudRegistrationController
+from point_cloud_calibration_controller import PointCloudCalibrationController
 
 from scene_common import log
 from scene_common.options import POINTCLOUD
@@ -16,15 +16,37 @@ from scene_common.options import POINTCLOUD
 class CameraCalibrationContext:
   scene_strategies = {}
 
+  # Modality keys (and aliases) that route to the point-cloud calibration
+  # strategy. Point-cloud calibration is sensor-agnostic, so any point-cloud
+  # producing modality maps to it.
+  DEFAULT_SENSOR_MODALITY = POINTCLOUD
+  SENSOR_MODALITY_ALIASES = {
+      "pointcloud": POINTCLOUD,
+      "point_cloud": POINTCLOUD,
+      "point-cloud": POINTCLOUD,
+      "lidar": POINTCLOUD,
+      "depth": POINTCLOUD,
+      "depth_camera": POINTCLOUD,
+      "stereo": POINTCLOUD,
+      "photogrammetry": POINTCLOUD,
+  }
+
   def __init__(self, cert, root_cert, rest_url, rest_auth):
     self.calibration_data_interface = CameraCalibrationModel(root_cert, rest_url, rest_auth)
 
     self.scene_strategies["AprilTag"] = ApriltagCameraCalibrationController(calibration_data_interface=self.calibration_data_interface)
     self.scene_strategies["Markerless"] = MarkerlessCameraCalibrationController(calibration_data_interface=self.calibration_data_interface)
-    self.scene_strategies[POINTCLOUD] = PointCloudRegistrationController(calibration_data_interface=self.calibration_data_interface)
-    # Point cloud registration is dispatched directly (independent of the
-    # scene's camera_calibration mode), so keep a direct reference.
-    self.point_cloud_strategy = self.scene_strategies[POINTCLOUD]
+
+    # Perceptual-sensor calibration strategies are routed by modality,
+    # independently of a scene's camera_calibration mode. Each modality owns its
+    # strategy and its own lock so a long job for one modality never reports
+    # another modality busy.
+    self.sensor_calibration_strategies = {
+        POINTCLOUD: PointCloudCalibrationController(calibration_data_interface=self.calibration_data_interface),
+    }
+    self.sensor_calibration_locks = {
+        modality: threading.Lock() for modality in self.sensor_calibration_strategies
+    }
 
     self.calibration_results = {}
     self.socket_clients = {}
@@ -33,7 +55,6 @@ class CameraCalibrationContext:
 
     self.register_thread_lock = threading.Lock()
     self.calibration_thread_lock = threading.Lock()
-    self.point_cloud_thread_lock = threading.Lock()
     self.current_processing_scene = None
 
     return
@@ -130,56 +151,81 @@ class CameraCalibrationContext:
       else:
         log.info(f"No socket_id found for {cameraId}, can't send result via WebSocket")
 
-  def register_point_cloud_thread_wrapper(self, sceneobj, sensorId, sensor_frame_data):
+  def calibrate_perceptual_sensor_thread_wrapper(self, sceneobj, sensorId, sensor_frame_data):
     """
-    Starts a background thread to register a sensor point cloud against a scene.
-    Atomically claims the point-cloud lock so concurrent requests get a
-    deterministic "busy" response. The lock is released by
-    process_point_cloud_registration once the job finishes.
+    Starts a background thread to calibrate a perceptual sensor against a scene.
+    Routes by modality to the per-modality strategy and lock, and atomically
+    claims that lock so concurrent requests get a deterministic "busy" response.
+    The lock is released by process_perceptual_sensor_calibration once done.
     """
-    if self.point_cloud_thread_lock.acquire(blocking=False):
+    modality = self._resolve_sensor_modality(sensor_frame_data.get("modality"))
+    if modality is None:
+      self.calibration_results[sensorId] = {
+          "status": "error",
+          "message": f"Unsupported sensor modality: {sensor_frame_data.get('modality')}"
+      }
+      return
+
+    lock = self.sensor_calibration_locks[modality]
+    if lock.acquire(blocking=False):
       try:
         self.socketio.start_background_task(
-            self.process_point_cloud_registration,
-            sceneobj, sensorId, sensor_frame_data
+            self.process_perceptual_sensor_calibration,
+            sceneobj, sensorId, sensor_frame_data, modality
         )
       except Exception:
-        self.point_cloud_thread_lock.release()
+        lock.release()
         raise
       self.calibration_results[sensorId] = {
           "status": "calibrating",
-          "message": "Registration started"
+          "message": "Calibration started"
       }
     else:
       self.calibration_results[sensorId] = {
           "status": "busy",
-          "message": "Another registration is already in progress"
+          "message": "Another calibration is already in progress"
       }
 
-  def process_point_cloud_registration(self, sceneobj, sensorId, sensor_frame_data):
+  def _resolve_sensor_modality(self, modality):
+    """Resolve a request modality to a registered calibration strategy key.
+
+    @param   modality   Modality string from the request, or None.
+
+    @return  A strategy key registered in sensor_calibration_strategies, or
+             None when the modality is not supported.
     """
-    Registers a sensor point cloud against a scene in a background thread.
+    if modality is None:
+      return self.DEFAULT_SENSOR_MODALITY
+    key = self.SENSOR_MODALITY_ALIASES.get(str(modality).strip().lower())
+    if key in self.sensor_calibration_strategies:
+      return key
+    return None
+
+  def process_perceptual_sensor_calibration(self, sceneobj, sensorId, sensor_frame_data, modality):
+    """
+    Calibrates a perceptual sensor against a scene in a background thread.
     Stores the resulting transform and emits it over Socket.IO.
-    The point_cloud_thread_lock is acquired by the caller
-    (register_point_cloud_thread_wrapper) and released here when done.
+    The modality lock is acquired by the caller
+    (calibrate_perceptual_sensor_thread_wrapper) and released here when done.
     """
-    log.info(f"[processPointCloudRegistration] Thread started for sensor {sensorId}")
+    log.info(f"[processPerceptualSensorCalibration] Thread started for sensor {sensorId}")
+    lock = self.sensor_calibration_locks[modality]
     try:
       try:
-        result = self.point_cloud_strategy.generate_calibration(
-            sceneobj, None, sensor_frame_data)
+        strategy = self.sensor_calibration_strategies[modality]
+        result = strategy.generate_calibration(sceneobj, None, sensor_frame_data)
       except Exception as e:
         result = {
             "status": "error",
-            "message": f"Registration failed: {str(e)}"
+            "message": f"Calibration failed: {str(e)}"
         }
       self.calibration_results[sensorId] = result
       socket_id = self.socket_clients.get(sensorId)
       if socket_id:
-        self.socketio.emit("point_cloud_registration_result",
+        self.socketio.emit("perceptual_sensor_calibration_result",
                            {"sensor_id": sensorId, "result": result}, to=socket_id)
         log.info(f"Sent WebSocket result to {socket_id} for {sensorId}")
       else:
         log.info(f"No socket_id found for {sensorId}, can't send result via WebSocket")
     finally:
-      self.point_cloud_thread_lock.release()
+      lock.release()
