@@ -8,7 +8,6 @@ the model_download volume."""
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 _MODEL_NAME_MAP = {
   "age-gender-recognition-retail-0013": "agegender",
@@ -20,14 +19,14 @@ _MODEL_NAME_MAP = {
 }
 
 
-def _parse_subfolders(subfolders_raw: str) -> List[str]:
+def _parse_subfolders(subfolders_raw: str) -> list[str]:
   subfolders = [item.strip() for item in subfolders_raw.split(",") if item.strip()]
   if not subfolders:
     raise ValueError("At least one subfolder must be provided")
   return subfolders
 
 
-def _get_available_models(models_path: str, subfolders: List[str]) -> List[Tuple[str, str, str]]:
+def _get_available_models(models_path: str, subfolders: list[str]) -> list[tuple[str, str, str]]:
   """
   Get list of available models in the folder structure.
   Returns list of tuples: (model_path, model_name, precision)
@@ -51,7 +50,7 @@ def _get_available_models(models_path: str, subfolders: List[str]) -> List[Tuple
   return models
 
 
-def _classify_model_type(model_name: str) -> Tuple[str, str]:
+def _classify_model_type(model_name: str) -> tuple[str, str]:
   """
   Classify model type and return (model_type, metadata_policy).
   """
@@ -95,8 +94,8 @@ def generate_model_config(
     models_path: str,
     output_file: str,
     prefer_precision: str = "FP16",
-    subfolders: List[str] = None,
-) -> Dict:
+    subfolders: list[str] | None = None,
+) -> dict:
   """
   Generate the model configuration dictionary and save it to model_configs subfolder.
   """
