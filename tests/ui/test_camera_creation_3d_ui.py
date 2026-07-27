@@ -3,15 +3,16 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import time
 
 import pytest
-from tests.ui.browser import By, Browser
-from selenium.webdriver.support.ui import Select
 import tests.ui.common_ui_test_utils as common
-from tests.utils.spec import FuncTestSpec
+from tests.ui import UserInterfaceTest
+from tests.ui.browser import By
 from tests.utils.log import get_logger
 from tests.utils.profiles import FULL_STACK
+from tests.utils.spec import FuncTestSpec
 
 log = get_logger(__name__)
 
@@ -20,80 +21,136 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
+WAIT_SEC = 1
+PANEL_WAIT_SEC = 100
+
+class Scene3dUserInterfaceTest(UserInterfaceTest):
+  BROWSER_WEBGL = True
+
+  def __init__(self, testName, request, recordXMLAttribute):
+    super().__init__(testName, request, recordXMLAttribute)
+    self.createdCameraName = ""
+
+    if self.testName and self.recordXMLAttribute:
+      self.recordXMLAttribute("name", self.testName)
+
+    return
+
+  def getCameraPanelIds(self):
+    panels = self.browser.find_elements(By.CSS_SELECTOR, "[id$='-control-panel']")
+    return [panel.get_attribute("id") for panel in panels]
+
+  def cleanupCreatedCamera(self):
+    if not self.createdCameraName:
+      return
+
+    log.info(f"Cleaning up test camera: {self.createdCameraName}")
+    assert common.navigate_directly_to_page(self.browser, "/cam/list/")
+
+    rows_to_delete = self.browser.find_elements(
+      By.XPATH,
+      "//td[text()='" + self.createdCameraName + "']/parent::tr",
+    )
+    for _ in rows_to_delete:
+      self.browser.find_element(
+        By.XPATH,
+        "//td[text()='" + self.createdCameraName + "']/parent::tr//a[contains(@href,'cam/delete/')]",
+      ).click()
+      self.browser.find_element(By.XPATH, "//*[@type = 'submit']").click()
+      assert common.navigate_directly_to_page(self.browser, "/cam/list/")
+
+    assert self.createdCameraName not in self.browser.page_source
+
+  def checkCameraCreation(self):
+    try:
+      assert self.login()
+
+      log.info("Navigate to the Scene detail page.")
+      common.navigate_directly_to_page(self.browser, f"/scene/detail/{common.TEST_SCENE_ID}/")
+
+      log.info("Expand camera1 controls to follow known-good 3D UI initialization path.")
+      self.clickOnElement("camera1-control-panel", delay=PANEL_WAIT_SEC)
+      time.sleep(WAIT_SEC)
+
+      add_camera_button_xpath = "//div[@id='panel-3d-controls']//div[contains(@class,'name') and normalize-space()='add camera']/ancestor::button[1]"
+      assert common.wait_for_elements(
+        self.browser,
+        add_camera_button_xpath,
+        findBy=By.XPATH,
+        maxWait=30,
+        refreshPage=False,
+      ), "3D UI add camera button not found"
+
+      camera_panel_ids_before = self.getCameraPanelIds()
+      log.info(f"Camera control panels before creation: {camera_panel_ids_before}")
+
+      timestamp = int(time.time())
+      self.createdCameraName = f"Test_Cam_{timestamp}"
+      log.info(f"Create camera from 3D UI with name {self.createdCameraName}")
+
+      self.browser.find_element(By.XPATH, add_camera_button_xpath).click()
+
+      log.info("Wait for temporary new-camera control panel")
+      assert common.wait_for_elements(
+        self.browser,
+        "new-camera-control-panel",
+        findBy=By.ID,
+        maxWait=30,
+        refreshPage=False,
+      ), "Temporary new-camera control panel was not created"
+      self.clickOnElement("new-camera-control-panel", delay=10)
+
+      log.info("Set camera name and save from 3D camera controls")
+      name_input = self.browser.find_element(By.ID, "new-camera-name")
+      name_input.clear()
+      name_input.send_keys(self.createdCameraName)
+      self.clickOnElement("new-camera-save-camera", delay=10)
+
+      created_panel_id = f"{self.createdCameraName}-control-panel"
+      log.info(f"Wait for created camera control panel: {created_panel_id}")
+      assert common.wait_for_elements(
+        self.browser,
+        created_panel_id,
+        findBy=By.ID,
+        maxWait=30,
+        refreshPage=False,
+      ), f"Created camera control panel not found: {created_panel_id}"
+
+      camera_panel_ids_after = self.getCameraPanelIds()
+      log.info(f"Camera control panels after creation: {camera_panel_ids_after}")
+      assert created_panel_id in camera_panel_ids_after
+
+      self.exitCode = 0
+    finally:
+      if self.createdCameraName:
+        self.cleanupCreatedCamera()
+      self.recordTestResult()
+    return
+
+@pytest.mark.fresh_stack
+@common.mock_display
 @pytest.mark.test_name("NEX-T10558")
-def test_camera_creation_3d_ui(params, record_xml_attribute, repo_root):
+def test_camera_creation_3d_ui(scenescape_env, request, record_xml_attribute):
   """! Test that the user is able to create a camera in the 3D UI interface.
-  @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @return   exit_code               Indicates test success or failure.
+  @param    request                 List of test parameters.
+  @param    record_xml_attribute    Function for recording test name.
+  @return   exit_code               Boolean representing whether the test passed or failed.
   """
+  log.info("Executing: NEX-T10558")
+  log.info("Test that the user is able to create a camera in the 3D UI interface.")
 
-  exit_code = 1
-  camera_name = ""
-  browser = None
+  test = Scene3dUserInterfaceTest("NEX-T10558", request, record_xml_attribute)
   try:
-    log.info("Executing: NEX-T10558")
-    log.info("Test that the user is able to create a camera in the 3D UI interface.")
-    log.info("Starting browser session")
-    browser = Browser()
-    assert common.check_page_login(browser, params)
-    log.info("Login successful")
-    assert common.check_db_status(browser)
-    log.info("Database status check passed")
-
-    # Navigate to the 3D UI page through scene name to avoid brittle DB-specific UUID assumptions.
-    log.info(f"Navigating to scene details for scene: {common.TEST_SCENE_NAME}")
-    assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
-    common.selenium_wait_for_elements(browser, (By.ID, "new-camera"), 20)
-    log.info("3D scene controls loaded and new camera button is visible")
-
-    # Verify camera can be created from the 3D scene page.
-    available_cameras_before = browser.find_elements(By.CSS_SELECTOR, ".card.count-item.camera-card > .card-header")
-    camera_names_before = [name.text.replace("--\n", "") for name in available_cameras_before]
-    num_cameras_before = len(camera_names_before)
-    log.info(f"Available cameras before creation: {camera_names_before}")
-
-    timestamp = int(time.time())
-    camera_name = f"Test_Cam_{timestamp}"
-    camera_id = f"test-cam-{timestamp}"
-    log.info(f"Creating camera with name={camera_name}, id={camera_id}")
-
-    log.info("Opening new camera form")
-    browser.find_element(By.ID, "new-camera").click()
-    browser.find_element(By.ID, "id_sensor_id").send_keys(camera_id)
-    browser.find_element(By.ID, "id_name").send_keys(camera_name)
-    select = Select(browser.find_element(By.ID, "id_scene"))
-    select.select_by_visible_text(common.TEST_SCENE_NAME)
-    log.info("Submitting camera creation form")
-    browser.find_element(By.XPATH, "//input[@value = 'Add New Camera']").click()
-
-    # The app redirects after add; navigate back to scene details and verify camera panel count increased.
-    log.info("Navigating back to scene details to verify camera creation")
-    assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
-
-    cameras_added = False
-    camera_names_after = []
-    log.info("Polling camera cards for newly created camera")
-    for _ in range(20):
-      available_cameras_after = browser.find_elements(By.CSS_SELECTOR, ".card.count-item.camera-card > .card-header")
-      camera_names_after = [name.text.replace("--\n", "") for name in available_cameras_after]
-      if len(camera_names_after) == (num_cameras_before + 1) and camera_name in camera_names_after:
-        cameras_added = True
-        break
-      time.sleep(1)
-    log.info(f"Available cameras after creation attempt: {camera_names_after}")
-    assert cameras_added, "Camera panel count did not increase after creating a camera in 3D UI"
-    log.info(f"Camera creation verified successfully for {camera_name}")
-
-    exit_code = 0
-
+    test.checkCameraCreation()
   finally:
+    browser = getattr(test, "browser", None)
     if browser is not None:
-      if camera_name:
-        log.info(f"Cleaning up test camera: {camera_name}")
-        common.delete_camera(browser, camera_name)
-      log.info("Closing browser session")
-      browser.close()
-    log.info(f"Recording test result with exit_code={exit_code}")
-    common.record_test_result("NEX-T10558", exit_code)
-  assert exit_code == 0
+      browser.quit()
+
+  assert test.exitCode == 0
+
+def main():
+  return test_camera_creation_3d_ui(None, None, None)
+
+if __name__ == '__main__':
+  os._exit(main() or 0)
