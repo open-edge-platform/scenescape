@@ -230,7 +230,10 @@ export default class Scene {
 
           // Create the scene floor using a PlaneGeometry
           // The size in meters is based on the scale as defined by the user and the image size
-          const floorGeometry = new THREE.PlaneGeometry(floorWidth, floorHeight);
+          const floorGeometry = new THREE.PlaneGeometry(
+            floorWidth,
+            floorHeight,
+          );
           const floorMaterial = new THREE.MeshLambertMaterial({
             map: tex,
             opacity: 0.8,
