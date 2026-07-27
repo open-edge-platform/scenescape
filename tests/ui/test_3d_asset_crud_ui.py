@@ -61,7 +61,7 @@ def test_3d_asset_crud_ui(params, record_xml_attribute, repo_root):
     browser.find_element(By.CSS_SELECTOR, "input[value='Add New Object']").click()
     assert browser.find_elements(By.XPATH, "//td[text()='{0}']".format(OBJECT_NAME)), \
       f"Object '{OBJECT_NAME}' not found in object library after creation"
-    log.info(f" Case 2: Object '{OBJECT_NAME}' saved successfully - PASS")
+    log.info(f"  Case 2: Object '{OBJECT_NAME}' saved successfully - PASS")
 
     log.info("Step 2. Verify the fields in object / asset 3D form toggle on condition")
 
