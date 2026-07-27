@@ -687,12 +687,9 @@ define start_demo
 	fi
 	@echo "$(1)" > .scenescape-profile
 	@if [ "$(DEMO_WAIT_SECONDS)" != "0" ]; then \
-    echo "Waiting for Scenescape services to be ready..."; \
-    docker compose $(1) up -d --wait --wait-timeout $(DEMO_WAIT_SECONDS); \
+		echo "Waiting for Scenescape services to be ready..."; \
+		docker compose $(1) up -d --wait --wait-timeout $(DEMO_WAIT_SECONDS); \
 	else \
-			echo "Starting Scenescape services in detached mode..."; \
-			docker compose $(1) up -d; \
-	fi
 		echo "Starting Scenescape services in detached mode..."; \
 		docker compose $(1) up -d; \
 	fi
