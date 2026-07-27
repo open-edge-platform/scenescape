@@ -23,7 +23,7 @@ import trimesh
 
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
-from scene_common.mesh_util import mergeMesh
+from scene_common.mesh_util import mergeMesh, checkMeshConnectivity
 from scene_common.options import QUATERNION
 from scene_common import log
 from manager.serializers import CamSerializer
@@ -379,6 +379,23 @@ class MeshGenerator:
           tmp.write(chunk)
         return tmp.name, True
 
+  def _checkMeshConnectivity(self, glb_data_base64):
+    """
+    Return an error message when the reconstructed mesh is split into
+    multiple dominant, spatially separate surfaces, otherwise None.
+    """
+    try:
+      glb_bytes = base64.b64decode(glb_data_base64)
+      mesh = trimesh.load(BytesIO(glb_bytes), file_type='glb')
+      merged_mesh = mergeMesh(mesh)
+    except Exception as e:
+      # If the mesh cannot be analyzed, do not block here; the subsequent save
+      # path will surface any genuine load/format errors.
+      log.warning(f"Could not analyze mesh connectivity: {e}")
+      return None
+
+    return checkMeshConnectivity(merged_mesh)
+
   def startMeshGeneration(self, scene, mesh_type='mesh', uploaded_map=None):
     """
     Generate a 3D mesh from all cameras in a scene.
@@ -500,12 +517,21 @@ class MeshGenerator:
     cameras = scene.sensor_set.filter(type="camera").order_by("id")
 
     if mapping_result.get("success"):
+      glb_data = mapping_result.get("glb_data")
+      if not glb_data:
+        return {"success": False, "error": "Mapping service did not return GLB data"}
+
+      # Validate the reconstructed mesh is a single connected scene before
+      # mutating any camera poses, so a rejected mesh leaves the scene untouched.
+      connectivity_error = self._checkMeshConnectivity(glb_data)
+      if connectivity_error is not None:
+        return {"success": False, "error": connectivity_error}
+
       self._updateSceneCamerasWithMappingResult(mapping_result, cameras)
-      if mapping_result.get("glb_data"):
-        mesh_transform = self._saveMeshToScene(scene, mapping_result["glb_data"])
-        if mesh_transform is not None:
-          self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
-        return {"success": True}
+      mesh_transform = self._saveMeshToScene(scene, glb_data)
+      if mesh_transform is not None:
+        self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
+      return {"success": True}
 
     return {"success": False, "error": "Mapping service did not return GLB data"}
 
