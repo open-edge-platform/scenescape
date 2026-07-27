@@ -133,7 +133,7 @@ still stored to VDMS via the metadata path).
 
 **Expected results:**
 
-- Log shows `IGNORED: gender (confidence ... < 0.8 ...)`.
+- Log shows `[VDMS] ✗ IGNORED: gender (confidence=0.63 < 0.8, will use TIER 2)`.
 - Match still succeeds via vector similarity (not blocked by gender mismatch).
 
 ---
