@@ -10,8 +10,7 @@ import json
 import os
 import sys
 import time
-from typing import Dict, List
-from urllib import error, parse, request
+from urllib import error, request
 
 _JOB_POLL_INTERVAL_S = 5.0
 _PROGRESS_UPDATE_INTERVAL_S = 30.0
@@ -31,21 +30,21 @@ def _parse_bool(value: str) -> bool:
   return normalized in {'1', 'true', 'yes', 'on'}
 
 
-def _get_job_ids(response_body: str) -> List[str]:
+def _get_job_ids(response_body: str) -> list[str]:
   data = json.loads(response_body)
   job_ids = data.get('job_ids', [])
 
   if not isinstance(job_ids, list):
-    raise ValueError('job_ids must be a list')
+    raise TypeError('job_ids must be a list')
 
   for job_id in job_ids:
     if not isinstance(job_id, str):
-      raise ValueError('Each job_id must be a string')
+      raise TypeError('Each job_id must be a string')
 
   return job_ids
 
 
-def _get_tracked_jobs(response_body: str, job_ids: List[str]) -> Dict[str, Dict[str, object]]:
+def _get_tracked_jobs(response_body: str, job_ids: list[str]) -> dict[str, dict[str, object]]:
   """
   Extracts and returns a dictionary of tracked jobs from the API response.
   The keys are job IDs and the values are the corresponding job objects.
@@ -53,13 +52,13 @@ def _get_tracked_jobs(response_body: str, job_ids: List[str]) -> Dict[str, Dict[
   data = json.loads(response_body)
   jobs = data.get('jobs', [])
   if not isinstance(jobs, list):
-    raise ValueError('jobs must be a list')
+    raise TypeError('jobs must be a list')
 
   tracked_job_ids = set(job_ids)
   tracked_jobs = {}
   for job in jobs:
     if not isinstance(job, dict):
-      raise ValueError('Each job entry must be an object')
+      raise TypeError('Each job entry must be an object')
 
     job_id = job.get('id')
     if not isinstance(job_id, str):
@@ -71,7 +70,7 @@ def _get_tracked_jobs(response_body: str, job_ids: List[str]) -> Dict[str, Dict[
   return tracked_jobs
 
 
-def _get_job_outcome(job: Dict[str, object]) -> str:
+def _get_job_outcome(job: dict[str, object]) -> str:
   """
   Determines the outcome of a job based on its status and result.
   Returns one of the following strings:
@@ -102,7 +101,7 @@ def _get_job_outcome(job: Dict[str, object]) -> str:
 
 def _wait_for_jobs(
     api_url: str,
-    job_ids: List[str],
+    job_ids: list[str],
     wait_timeout_s: int,
     poll_interval_s: float = _JOB_POLL_INTERVAL_S,
 ) -> None:
@@ -169,10 +168,10 @@ def _wait_for_jobs(
 
 def _post_download_request(
     api_url: str,
-    models: List[Dict[str, str]],
+    models: list[dict[str, str]],
     parallel_downloads: bool,
     wait_timeout_s: int,
-) -> List[str]:
+) -> list[str]:
   """
   Posts a download request to the downloader API and returns the list of IDs of jobs used by
   model downloader to download models.
@@ -180,7 +179,7 @@ def _post_download_request(
   """
   endpoint = (
     f"{api_url.rstrip('/')}/api/v1/models/download"
-    f"?download_path=/models"
+    f"?download_path=."
   )
   payload = {
     'models': models,
@@ -260,7 +259,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
   return parser
 
 
-def _resolve_models(args: argparse.Namespace) -> List[Dict[str, str]]:
+def _resolve_models(args: argparse.Namespace) -> list[dict[str, str]]:
   """
   Resolves the list of models to download based on command-line arguments or environment variables.
   Returns a list of dictionaries, each containing 'name' and 'hub' keys for the models to download.
