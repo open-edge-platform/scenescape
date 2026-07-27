@@ -8,10 +8,55 @@
 #include "rv/tracking/TrackedObject.hpp"
 
 #include <chrono>
+#include <optional>
 #include <vector>
 
 namespace rv {
 namespace tracking {
+
+namespace metadata_fusion {
+
+/**
+ * @brief Decide whether a metadata candidate should replace the current winner.
+ *
+ * A candidate with confidence takes precedence over a winner without confidence.
+ * When both values have confidence, the greater confidence wins and camera order
+ * breaks ties. When neither has confidence, the later camera wins.
+ *
+ * @param winnerExists Whether a winner has already been selected for the field.
+ * @param candidateConfidence Confidence reported by the candidate, if available.
+ * @param candidateCameraIndex Camera-order index of the candidate.
+ * @param winnerConfidence Confidence reported by the current winner, if available.
+ * @param winnerCameraIndex Camera-order index of the current winner.
+ * @return true when the candidate should replace the current winner.
+ */
+inline bool shouldReplace(bool winnerExists,
+                          const std::optional<double> &candidateConfidence,
+                          size_t candidateCameraIndex,
+                          const std::optional<double> &winnerConfidence,
+                          size_t winnerCameraIndex)
+{
+  if (!winnerExists)
+  {
+    return true;
+  }
+  if (candidateConfidence && !winnerConfidence)
+  {
+    return true;
+  }
+  if (!candidateConfidence && winnerConfidence)
+  {
+    return false;
+  }
+  if (candidateConfidence && winnerConfidence)
+  {
+    return *candidateConfidence > *winnerConfidence
+      || (*candidateConfidence == *winnerConfidence && candidateCameraIndex > winnerCameraIndex);
+  }
+  return candidateCameraIndex > winnerCameraIndex;
+}
+
+} // namespace metadata_fusion
 
 class MultipleObjectTracker
 {
