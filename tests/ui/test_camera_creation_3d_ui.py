@@ -68,7 +68,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       log.info("Navigate to the Scene detail page.")
       common.navigate_directly_to_page(self.browser, f"/scene/detail/{common.TEST_SCENE_ID}/")
 
-      log.info("Expand camera1 controls to follow known-good 3D UI initialization path.")
+      log.info("Expand camera1 controls.")
       self.clickOnElement("camera1-control-panel", delay=PANEL_WAIT_SEC)
       time.sleep(WAIT_SEC)
 

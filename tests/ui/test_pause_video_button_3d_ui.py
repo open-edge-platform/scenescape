@@ -100,7 +100,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       pause_button_id = f"{camera_name}-pause-video"
       tracked_objects_button_id = "tracked-objects-button"
 
-      log.info(f"Disable tracked objects before expanding camera panel: {tracked_objects_button_id}")
+      log.info(f"Disable tracked objects drawing: {tracked_objects_button_id}")
       tracked_objects_widget = self.browser.find_element(By.ID, tracked_objects_button_id)
       tracked_objects_input = tracked_objects_widget.find_element(By.CSS_SELECTOR, "input[type='checkbox']")
       if tracked_objects_input.is_selected():
