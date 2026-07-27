@@ -95,8 +95,7 @@ the similarity query.
 
 **Expected results:**
 
-- Log shows `ADDED: gender=Male` in TIER-1 constraints, match returns the
-  same UUID.
+- Log shows `[VDMS] ✓ ADDED: gender=Male (confidence=... >= 0.8)` in TIER-1 constraints, match returns the same UUID.
 
 ---
 
