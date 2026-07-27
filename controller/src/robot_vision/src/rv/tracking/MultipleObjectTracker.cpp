@@ -1,15 +1,114 @@
 // SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-#include <algorithm>
-#include "rv/Utils.hpp"
 #include "rv/tracking/MultipleObjectTracker.hpp"
+#include <algorithm>
+#include <charconv>
+#include <cmath>
+#include <optional>
+#include "rv/Utils.hpp"
 #include "rv/tracking/Classification.hpp"
 
 namespace rv {
 namespace tracking {
 
-template <class ElementType> std::vector<ElementType> filterByIndex(const std::vector<ElementType> &elements, const std::vector<size_t> indexToKeep)
+namespace {
+
+constexpr const char *METADATA_PREFIX = "metadata.";
+constexpr const char *METADATA_CONFIDENCE_PREFIX = "metadata_confidence.";
+
+bool startsWith(const std::string &value, const char *prefix)
+{
+  return value.rfind(prefix, 0) == 0;
+}
+
+std::optional<double> metadataConfidence(const TrackedObject &object, const std::string &field)
+{
+  const auto confidence = object.attributes.find(METADATA_CONFIDENCE_PREFIX + field);
+  if (confidence == object.attributes.end())
+  {
+    return std::nullopt;
+  }
+
+  double value{};
+  const auto *begin = confidence->second.data();
+  const auto *end = begin + confidence->second.size();
+  const auto [ptr, error] = std::from_chars(begin, end, value);
+  if (error != std::errc{} || ptr != end || !std::isfinite(value))
+  {
+    return std::nullopt;
+  }
+  return value;
+}
+
+void clearMetadataAttributes(TrackedObject &object)
+{
+  for (auto attribute = object.attributes.begin(); attribute != object.attributes.end();)
+  {
+    if (startsWith(attribute->first, METADATA_PREFIX) || startsWith(attribute->first, METADATA_CONFIDENCE_PREFIX))
+    {
+      attribute = object.attributes.erase(attribute);
+    }
+    else
+    {
+      ++attribute;
+    }
+  }
+}
+
+void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
+                  const std::vector<std::vector<TrackedObject>> &objectsPerCamera,
+                  TrackedObject &measurement)
+{
+  struct Winner
+  {
+    std::optional<double> confidence;
+    size_t cameraIndex;
+  };
+
+  std::unordered_map<std::string, Winner> winners;
+  clearMetadataAttributes(measurement);
+
+  for (const auto &[cameraIndex, objectIndex] : matches)
+  {
+    const auto &object = objectsPerCamera[cameraIndex][objectIndex];
+    for (const auto &[key, value] : object.attributes)
+    {
+      if (!startsWith(key, METADATA_PREFIX))
+      {
+        continue;
+      }
+
+      const std::string field = key.substr(std::char_traits<char>::length(METADATA_PREFIX));
+      const auto confidence = metadataConfidence(object, field);
+      const auto winner = winners.find(field);
+      const bool winnerExists = winner != winners.end();
+      const std::optional<double> winnerConfidence = winnerExists ? winner->second.confidence : std::optional<double>{};
+      const size_t winnerCameraIndex = winnerExists ? winner->second.cameraIndex : 0;
+      if (!metadata_fusion::shouldReplace(winnerExists, confidence, cameraIndex, winnerConfidence, winnerCameraIndex))
+      {
+        continue;
+      }
+
+      measurement.attributes[key] = value;
+      const std::string confidenceKey = METADATA_CONFIDENCE_PREFIX + field;
+      if (confidence)
+      {
+        measurement.attributes[confidenceKey] = object.attributes.at(confidenceKey);
+      }
+      else
+      {
+        measurement.attributes.erase(confidenceKey);
+      }
+      winners[field] = Winner{confidence, cameraIndex};
+    }
+  }
+}
+
+} // namespace
+
+template <class ElementType>
+std::vector<ElementType> filterByIndex(const std::vector<ElementType> &elements, const std::vector<size_t> indexToKeep)
 {
   std::vector<ElementType> filtered;
   filtered.reserve(indexToKeep.size());
@@ -38,12 +137,12 @@ void splitByThreshold(std::vector<tracking::TrackedObject> &objects,
   objects.erase(it, objects.end());
 }
 
-std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndAssignMeasurements(
-    const std::vector<tracking::TrackedObject> &tracks,
-    const std::vector<tracking::TrackedObject> &objects,
-    const DistanceType &distanceType,
-    double distanceThreshold,
-    std::vector<size_t> &unassignedObjects)
+std::vector<tracking::TrackedObject>
+MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::TrackedObject> &tracks,
+                                                  const std::vector<tracking::TrackedObject> &objects,
+                                                  const DistanceType &distanceType,
+                                                  double distanceThreshold,
+                                                  std::vector<size_t> &unassignedObjects)
 {
   std::vector<std::pair<size_t, size_t>> assignments;
   std::vector<size_t> unassignedTracks;
@@ -62,14 +161,18 @@ std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndAssignMeasur
   return filterByIndex(tracks, unassignedTracks);
 }
 
-void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects, const std::chrono::system_clock::time_point &timestamp,
+void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects,
+                                  const std::chrono::system_clock::time_point &timestamp,
                                   double scoreThreshold)
 {
   track(objects, timestamp, mDistanceType, mDistanceThreshold, scoreThreshold);
 }
 
-void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects, const std::chrono::system_clock::time_point &timestamp,
-                                  const DistanceType & distanceType, double distanceThreshold, double scoreThreshold)
+void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects,
+                                  const std::chrono::system_clock::time_point &timestamp,
+                                  const DistanceType &distanceType,
+                                  double distanceThreshold,
+                                  double scoreThreshold)
 {
   if (objects.empty())
   {
@@ -92,7 +195,8 @@ void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects, 
   tracks = matchAndAssignMeasurements(tracks, objects, distanceType, distanceThreshold, unassignedObjects);
 
   std::vector<size_t> unassignedLowScoreObjects;
-  tracks = matchAndAssignMeasurements(tracks, lowScoreObjects, distanceType, distanceThreshold, unassignedLowScoreObjects);
+  tracks
+    = matchAndAssignMeasurements(tracks, lowScoreObjects, distanceType, distanceThreshold, unassignedLowScoreObjects);
 
   // 3.1 Update measurements - Match to unreliable objects first and then suspended tracks.
   // Remove objects already assigned to tracks
@@ -121,11 +225,11 @@ void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects, 
   mLastTimestamp = timestamp;
 }
 
-std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndAssignMeasurements(
-    const std::vector<tracking::TrackedObject> &tracks,
-    std::vector<std::vector<tracking::TrackedObject>> &objectsPerCamera,
-    const DistanceType &distanceType,
-    double distanceThreshold)
+std::vector<tracking::TrackedObject>
+MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::TrackedObject> &tracks,
+                                                  std::vector<std::vector<tracking::TrackedObject>> &objectsPerCamera,
+                                                  const DistanceType &distanceType,
+                                                  double distanceThreshold)
 {
   const size_t numCameras = objectsPerCamera.size();
   if (numCameras == 0 || tracks.empty())
@@ -140,26 +244,46 @@ std::vector<tracking::TrackedObject> MultipleObjectTracker::matchAndAssignMeasur
   std::vector<std::vector<std::pair<size_t, size_t>>> assignments(numCameras);
   std::vector<std::vector<size_t>> unassignedObjectsPerCamera(numCameras);
 
-  // Parallelizable matching phase
-  #pragma omp parallel for
+// Parallelizable matching phase
+#pragma omp parallel for
   for (size_t i = 0; i < numCameras; ++i)
   {
     std::vector<size_t> unassignedTracks;
-    match(tracks, objectsPerCamera[i], assignments[i], unassignedTracks, unassignedObjectsPerCamera[i], distanceType, distanceThreshold);
+    match(tracks,
+          objectsPerCamera[i],
+          assignments[i],
+          unassignedTracks,
+          unassignedObjectsPerCamera[i],
+          distanceType,
+          distanceThreshold);
+  }
+
+  // Group all camera matches per track index so each track gets one fused measurement.
+  std::vector<std::vector<std::pair<size_t, size_t>>> matchesPerTrack(tracks.size());
+  for (size_t cameraIdx = 0; cameraIdx < numCameras; ++cameraIdx)
+  {
+    for (const auto &assignment : assignments[cameraIdx])
+    {
+      matchesPerTrack[assignment.first].push_back(std::make_pair(cameraIdx, assignment.second));
+    }
   }
 
   // Sequential assignment phase to avoid race conditions
-  for (size_t i = 0; i < numCameras; ++i)
+  for (size_t trackIdx = 0; trackIdx < tracks.size(); ++trackIdx)
   {
-    for (const auto &assignment : assignments[i])
+    const auto &matches = matchesPerTrack[trackIdx];
+    if (matches.empty())
     {
-      const auto &track = tracks[assignment.first];
-      const auto &object = objectsPerCamera[i][assignment.second];
-      mTrackManager.setMeasurement(track.id, object);
-
-      // Mark track as assigned
-      isTrackAssigned[assignment.first] = true;
+      continue;
     }
+
+    // Keep geometry/measurement from the latest matched camera for compatibility.
+    const auto &lastMatch = matches.back();
+    auto fusedObject = objectsPerCamera[lastMatch.first][lastMatch.second];
+    fuseMetadata(matches, objectsPerCamera, fusedObject);
+
+    mTrackManager.setMeasurement(tracks[trackIdx].id, fusedObject);
+    isTrackAssigned[trackIdx] = true;
   }
 
   // Remove assigned objects from each camera's object list using filterByIndex
@@ -193,7 +317,8 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
 
 void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
                                   const std::chrono::system_clock::time_point &timestamp,
-                                  const DistanceType & distanceType, double distanceThreshold,
+                                  const DistanceType &distanceType,
+                                  double distanceThreshold,
                                   double scoreThreshold)
 {
   if (objectsPerCamera.empty())
@@ -233,34 +358,46 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
   // 3.2 Update measurements - Correct measurements
   mTrackManager.correct();
 
-  // 4. - Create new tracks sequentially for each camera
-  std::vector<tracking::TrackedObject> newTracks;
+  // 4. - Group unmatched detections across cameras before creating tracks.
+  std::vector<tracking::TrackedObject> newObjects;
   size_t totalUnassignedObjects = 0;
   for (auto &cameraObjects : objectsPerCamera)
   {
     totalUnassignedObjects += cameraObjects.size();
   }
-  newTracks.reserve(totalUnassignedObjects);
+  newObjects.reserve(totalUnassignedObjects);
 
-  // Process cameras in reverse order to prioritize latest camera's objects for accuracy
-  for (auto it = objectsPerCamera.rbegin(); it != objectsPerCamera.rend(); ++it)
+  for (auto &cameraObjects : objectsPerCamera)
   {
-    auto &cameraObjects = *it;
-    // first assign objects to already created new tracks (in case multiple cameras see the same new object)
-    if (!newTracks.empty())
+    if (newObjects.empty())
     {
-      std::vector<size_t> unassignedObjects;
-      // the goal of this step is to filter out objects matching existing new tracks, the assignment will be skipped
-      matchAndAssignMeasurements(newTracks, cameraObjects, distanceType, distanceThreshold, unassignedObjects);
-      cameraObjects = filterByIndex(cameraObjects, unassignedObjects);
+      newObjects.insert(newObjects.end(), cameraObjects.begin(), cameraObjects.end());
+      continue;
     }
 
-    // Create new tracks for remaining unmatched objects
-    for (const auto &object : cameraObjects)
+    std::vector<std::pair<size_t, size_t>> assignments;
+    std::vector<size_t> unassignedTracks;
+    std::vector<size_t> unassignedObjects;
+    match(newObjects, cameraObjects, assignments, unassignedTracks, unassignedObjects, distanceType, distanceThreshold);
+
+    for (const auto &[newObjectIndex, cameraObjectIndex] : assignments)
     {
-      Id newTrackId = mTrackManager.createTrack(object, timestamp);
-      newTracks.push_back(mTrackManager.getTrack(newTrackId));
+      auto fusedObject = cameraObjects[cameraObjectIndex];
+      const std::vector<std::vector<TrackedObject>> candidates = {{newObjects[newObjectIndex]}, {fusedObject}};
+      const std::vector<std::pair<size_t, size_t>> matches = {{0, 0}, {1, 0}};
+      fuseMetadata(matches, candidates, fusedObject);
+      newObjects[newObjectIndex] = std::move(fusedObject);
     }
+
+    for (const auto objectIndex : unassignedObjects)
+    {
+      newObjects.push_back(cameraObjects[objectIndex]);
+    }
+  }
+
+  for (const auto &newObject : newObjects)
+  {
+    mTrackManager.createTrack(newObject, timestamp);
   }
 
   mLastTimestamp = timestamp;
