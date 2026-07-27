@@ -101,15 +101,14 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       tracked_objects_button_id = "tracked-objects-button"
 
       log.info(f"Disable tracked objects before expanding camera panel: {tracked_objects_button_id}")
-      tracked_objects_button = self.browser.find_element(By.ID, tracked_objects_button_id)
-      tracked_objects_selected_before = tracked_objects_button.is_selected()
-      if tracked_objects_selected_before:
-        self.clickOnElement(tracked_objects_button_id, delay=WAIT_SEC)
+      tracked_objects_widget = self.browser.find_element(By.ID, tracked_objects_button_id)
+      tracked_objects_input = tracked_objects_widget.find_element(By.CSS_SELECTOR, "input[type='checkbox']")
+      if tracked_objects_input.is_selected():
+        self.executeScript("arguments[0].click();", tracked_objects_widget)
         time.sleep(WAIT_SEC)
 
-      tracked_objects_button = self.browser.find_element(By.ID, tracked_objects_button_id)
-      tracked_objects_selected_after = tracked_objects_button.is_selected()
-      assert not tracked_objects_selected_after, "Tracked objects toggle did not turn off"
+      tracked_objects_input = tracked_objects_widget.find_element(By.CSS_SELECTOR, "input[type='checkbox']")
+      assert not tracked_objects_input.is_selected(), "Tracked objects toggle did not turn off"
 
       log.info(f"Expand camera control panel: {camera_panel_id}")
       self.clickOnElement(camera_panel_id, delay=PANEL_WAIT_SEC)
