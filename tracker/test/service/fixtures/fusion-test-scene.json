@@ -1,0 +1,70 @@
+[
+  {
+    "uid": "fusion-test-scene",
+    "name": "Fusion Test Scene",
+    "map_type": "map_upload",
+    "use_tracker": true,
+    "output_lla": false,
+    "map": "https://localhost:443/media/scene.png",
+    "cameras": [
+      {
+        "uid": "fusion-cam-1",
+        "name": "Fusion Camera 1",
+        "intrinsics": {
+          "fx": 905.0,
+          "fy": 905.0,
+          "cx": 640.0,
+          "cy": 360.0,
+          "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
+        },
+        "extrinsics": {
+          "translation": [
+            2.985857104493509, 0.2054078898442529, 2.7150546825598902
+          ],
+          "rotation": [
+            -135.08718965001765, 12.682032394455131, 19.24508172546946
+          ],
+          "scale": [1.0, 1.0, 1.0]
+        }
+      },
+      {
+        "uid": "fusion-cam-2",
+        "name": "Fusion Camera 2",
+        "intrinsics": {
+          "fx": 905.0,
+          "fy": 905.0,
+          "cx": 640.0,
+          "cy": 360.0,
+          "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
+        },
+        "extrinsics": {
+          "translation": [
+            2.985857104493509, 0.2054078898442529, 2.7150546825598902
+          ],
+          "rotation": [
+            -135.08718965001765, 12.682032394455131, 19.24508172546946
+          ],
+          "scale": [1.0, 1.0, 1.0]
+        }
+      }
+    ],
+    "mesh_translation": [0, 0, 0],
+    "mesh_rotation": [0, 0, 0],
+    "mesh_scale": [1.0, 1.0, 1.0],
+    "scale": 157.0,
+    "regulated_rate": 30.0,
+    "external_update_rate": 30.0,
+    "camera_calibration": "AprilTag",
+    "apriltag_size": 0.318471338,
+    "map_processed": "2023-06-08T13:54:27.922000Z",
+    "number_of_localizations": 50,
+    "global_feature": "netvlad",
+    "local_feature": { "sift": {} },
+    "matcher": { "NN-ratio": {} },
+    "minimum_number_of_matches": 20,
+    "inlier_threshold": 0.5,
+    "geospatial_provider": "google",
+    "map_zoom": 15.0,
+    "map_bearing": 0.0
+  }
+]
