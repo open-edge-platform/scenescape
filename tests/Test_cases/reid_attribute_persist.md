@@ -70,8 +70,8 @@ omit it.
 
 **Steps:**
 
-1. Feed a continuous track where gender is present in frame 1, absent in
-   frames 2-5, present again later.
+1. Feed a continuous track where gender is present in frame 1, present but null/empty in
+   frames 2-5 (key still present, e.g., `{"label": null}`), present again later.
 
 **Expected results:**
 
