@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # This file is licensed under Apache 2.0 License.
 
-setuptools==81.0.0
+setuptools==83.0.0
 wheel==0.47.0
 addict==2.4.0
 kornia==0.8.3
