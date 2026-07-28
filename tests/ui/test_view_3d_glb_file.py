@@ -6,15 +6,9 @@
 import tests.ui.common_ui_test_utils as common
 import os
 import cv2
-from urllib.parse import urlparse
-from tests.ui.browser import By
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.support.ui import WebDriverWait
-from tests.utils.log import get_logger
+import pytest
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
-
-log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -47,53 +41,16 @@ def upload_3D_scene_asset(browser, file_name, file_path):
 
 @common.mock_display
 @common.scenescape_login_headed
-def check_3D_scene_asset_in_3D_scene(browser, base_screenshot, file_name, file_path, DEBUG, timeout_s=10):
+def check_3D_scene_asset_in_3D_scene(browser, base_screenshot, file_name, file_path, DEBUG):
   '''! This function verifies that a user can view a file in the 3D scene view.
   @param    browser                 Object wrapping the Selenium webdriver.
   @param    base_screenshot         Screenshot to validate the 3D file visibility against.
   @param    file_name               Filename of the 3D file to be uploaded.
   @param    file_path               Path for the 3D file to be uploaded.
   @param    DEBUG                   Boolean representing whether this function is running in debug mode.
-  @param    timeout_s               Maximum seconds to wait for the scene detail map URL element.
   @return   BOOL                    Boolean representing whether the 3D file is visible.
   '''
-
-  if not common.navigate_directly_to_page(browser, f"/scene/detail/{common.TEST_SCENE_ID}/"):
-    log.error("Failed to navigate to scene detail page.")
-    return False
-
-  try:
-    map_url = WebDriverWait(browser, timeout_s).until(
-      lambda drv: (
-        drv.find_element(By.CSS_SELECTOR, "#map-url").get_attribute("value") or ""
-      ).strip() or False
-    )
-  except TimeoutException:
-    log.error(f"Timed out after {timeout_s}s waiting for #map-url to have a non-empty value.")
-    return False
-
-  expected_base_name, ext = os.path.splitext(file_name)
-  expected_base_name = expected_base_name.lower()
-  expected_ext = ext.lower()
-  parsed_map_url = urlparse(map_url or "")
-  actual_file_name = os.path.basename(parsed_map_url.path).lower()
-
-  has_expected_ext = actual_file_name.endswith(expected_ext)
-  stem_matches = False
-  if has_expected_ext:
-    actual_stem = actual_file_name[:-len(expected_ext)]
-    stem_matches = (
-      actual_stem == expected_base_name or
-      actual_stem.startswith(f"{expected_base_name}_")
-    )
-
-  if not actual_file_name or not has_expected_ext or not stem_matches:
-    log.error(
-      f"Unexpected map URL {map_url!r}. Expected file named '{expected_base_name}{expected_ext}' or '{expected_base_name}_*{expected_ext}'."
-    )
-    return False
-
-  scene_3D_params = common.InteractionParams(map_url, file_path, f"/scene/detail/{common.TEST_SCENE_ID}/", "", "", element_location="#map-url", \
+  scene_3D_params = common.InteractionParams("/media/" + file_name, file_path, f"/scene/detail/{common.TEST_SCENE_ID}/", "", "", element_location="#map-url", \
                                       element_type="attribute", screenshot_threshold=0.85, debug=DEBUG)
   scene_3D_params.add_screenshot(base_screenshot)
   scene_3D_page = common.InteractWith3DScene(browser, scene_3D_params)
@@ -117,33 +74,22 @@ def file_visibility_test(params, file_name, base_screenshot, DEBUG):
 
   return upload_success, object_visible_success
 
-def test_3D_file_upload_visibility(params, record_xml_attribute):
+@pytest.mark.fresh_stack
+@pytest.mark.test_name("NEX-T10427")
+def test_3D_file_upload_visibility(params, result_recorder):
   """! This test checks that an uploaded .glb file uploaded as a 3D map is visible in Scenescape's 3D view.
   @param    params                  List of test parameters.
-  @param    record_xml_attribute    Function for recording test name.
-  @return   exit_code               Boolean representing whether the test passed or failed.
+  @param    result_recorder         Pytest fixture recording the test result.
   """
-  TEST_NAME = "NEX-T10427"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
   DEBUG = False
-  success_1 = False
-  success_2 = False
 
-  try:
-    base_screenshot = get_baseline_screenshot(params)
-    if DEBUG:
-      cv2.imwrite("test_view_3d_glb_screenshot_base.png", base_screenshot)
+  base_screenshot = get_baseline_screenshot(params)
+  if DEBUG:
+    cv2.imwrite("test_view_3d_glb_screenshot_base.png", base_screenshot)
 
-    # glb test
-    success_1, success_2 = file_visibility_test(params, "box.glb", base_screenshot, DEBUG)
-    assert success_1
-    assert success_2
+  # glb test
+  success_1, success_2 = file_visibility_test(params, "box.glb", base_screenshot, DEBUG)
+  assert success_1
+  assert success_2
 
-  finally:
-    if (success_1 and success_2):
-      exit_code = 0
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
-  return
+  result_recorder.success()
