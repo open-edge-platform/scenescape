@@ -46,7 +46,7 @@ jobs:
             git fetch origin main:main
             echo "Fetched main branch"
           fi
-          changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.yml' '*.yaml' '*.sh' '*.java' '*.ts' '*.h' '*.cpp' || true)
+          changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.yml' '*.yaml' '*.sh' '*.java' '*.ts' '*.h' '*.c' '*.cpp' '*.hpp' || true)
           echo "Performed git diff"
 
           if [ -z "$changed_files" ]; then
