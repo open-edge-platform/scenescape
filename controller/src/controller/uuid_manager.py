@@ -12,6 +12,8 @@ from controller.vdms_adapter import VDMSDatabase, COSINE_SIMILARITY_TOLERANCE
 from controller.moving_object import ReidState, MovingObject
 from controller.latency_metrics import MatchLatencyTracker
 from controller.camera_registry import CameraRegistry
+from controller.tracking_object_registry import TrackedObjectRegistry
+from controller.observability import metrics
 
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
@@ -109,6 +111,14 @@ class UUIDManager:
     self.match_latency_tracker = MatchLatencyTracker()
 
     self.reid_enabled = True
+    # Sticky flag: once any object tracked by this (per-category) instance
+    # has produced a valid decoded embedding, this category is confirmed to
+    # support ReID (e.g. "person"), unlike categories such as "apriltag"
+    # that never carry a .reid field. Never reset -- individual frames/
+    # objects only carry a decoded embedding sparsely/intermittently, so a
+    # per-frame check is not a reliable "does this category do ReID" signal.
+    self._category_has_embeddings = False
+    self._category = None
     self._applyReidConfig(reid_config_data)
     self._rescheduleStaleFeatureTimer()
     return
@@ -177,6 +187,10 @@ class UUIDManager:
       self.match_latency_tracker.shutdown()
     if hasattr(self, 'pool') and self.pool is not None:
       self.pool.shutdown(wait=False)
+    # Stop contributing this category to the scene-wide tracked-object
+    # total immediately, rather than lingering at its last-reported count.
+    if getattr(self, '_category', None) is not None:
+      TrackedObjectRegistry.getInstance().removeCategory(self.scene_id, self._category)
 
   def _startStaleFeatureTimer(self):
     """Start a background timer to periodically check for and flush stale features"""
@@ -326,6 +340,30 @@ class UUIDManager:
     @param  tracked_objects  The objects currently tracked by the tracker
     """
     active_tracks = [tracked_object.id for tracked_object in tracked_objects]
+
+    # Metrics: count of currently active tracked objects/persons, but only
+    # for categories confirmed to produce ReID embeddings (e.g. excludes
+    # apriltag). Gated on the sticky _category_has_embeddings flag rather
+    # than checking each object for a decoded embedding on this exact
+    # frame -- embeddings are only attached intermittently per object, so a
+    # per-frame check would almost always read as empty even while this
+    # category is actively producing embeddings and being matched. Tagged
+    # with category so multiple tracked categories (e.g. person + car)
+    # don't overwrite each other's values on the same unlabeled series.
+    tracked_object_attributes = {'category': self._category} if self._category is not None else None
+    category_count = len(active_tracks) if self._category_has_embeddings else 0
+    metrics.record_reid_tracked_object_count(category_count, tracked_object_attributes)
+
+    # Report this category's count into the shared registry, then emit the
+    # scene-wide total across every category (e.g. person + car combined).
+    # Every category-tracker instance does this each cycle, so the total
+    # always reflects the latest count from all of them, not just this one.
+    if self._category is not None:
+      TrackedObjectRegistry.getInstance().updateCategoryCount(
+        self.scene_id, self._category, category_count)
+      metrics.record_reid_total_tracked_object_count(
+        TrackedObjectRegistry.getInstance().getTotalCount(self.scene_id))
+
     # Normal pruning based on tracker's active tracks
     inactive_tracks = []
     new_active_ids = {}
@@ -495,8 +533,8 @@ class UUIDManager:
         # match decision was still computed here -- record its latency now
         # rather than silently dropping the measurement.
         camera_count = self._getTotalCameraCount()
-        self.match_latency_tracker.recordMatchLatency(sscape_object.rv_id, camera_count=camera_count)
-        log.info(f"querySimilarity: match latency stats={self.match_latency_tracker.getStats()}")
+        self.match_latency_tracker.recordMatchLatency(
+          sscape_object.rv_id, camera_count=camera_count, category=sscape_object.category)
         log.warning(
           f"Track {sscape_object.rv_id} left scene before ID query finished "
           f"query_result_gid={database_id} similarity={similarity} "
@@ -728,8 +766,8 @@ class UUIDManager:
     # Record the end-to-end per-match latency now that a real decision has
     # been reached for this track (matched or not).
     camera_count = self._getTotalCameraCount()
-    self.match_latency_tracker.recordMatchLatency(sscape_object.rv_id, query_timestamp, camera_count=camera_count)
-    log.info(f"updateActiveDict: match latency stats={self.match_latency_tracker.getStats()}")
+    self.match_latency_tracker.recordMatchLatency(
+      sscape_object.rv_id, query_timestamp, camera_count=camera_count, category=sscape_object.category)
     previous_gid = sscape_object.gid
     gid_index = self._activeGidIndex()
     current_holders = gid_index.get(database_id, []) if database_id is not None else []
@@ -869,9 +907,11 @@ class UUIDManager:
     @param  sscape_object  The current Scenescape object
     """
     is_new = self.isNewTrackerID(sscape_object)
+    self._category = sscape_object.category
 
     reid_embedding = self._extractReidEmbedding(sscape_object)
     if reid_embedding is not None:
+      self._category_has_embeddings = True
       CameraRegistry.getInstance().recordEmbeddingObserved(
         self.scene_id, self._extractCameraId(sscape_object))
 

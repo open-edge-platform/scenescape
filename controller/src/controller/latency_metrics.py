@@ -6,6 +6,7 @@ import threading
 
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
+from controller.observability import metrics
 
 DEFAULT_MAX_MATCH_LATENCIES_TRACKED = 10
 
@@ -17,11 +18,20 @@ class MatchLatencyTracker:
   exporters, health checks) can be derived from real measurements rather
   than estimates.
 
-  Each recorded sample can be tagged with a camera_count supplied by the
-  caller (see recordMatchLatency) -- this class has no camera knowledge of
-  its own. UUIDManager derives that count locally from the distinct
-  sscape_object.camera values among its currently active tracks, so no
-  external plumbing (Scene/Tracking propagation) or REST calls are needed.
+  Every sample is also pushed as a raw value to an OTel histogram
+  (record_reid_match_latency), so P95/P99 can be computed rigorously
+  downstream (e.g. Prometheus histogram_quantile()) over whatever time
+  range is queried -- not estimated in-process over a fixed sample count.
+
+  Each recorded sample can be tagged with a camera_count and category
+  supplied by the caller (see recordMatchLatency) -- this class has no
+  camera or category knowledge of its own. UUIDManager derives camera_count
+  locally from the distinct sscape_object.camera values among its currently
+  active tracks, and passes through sscape_object.category, so no external
+  plumbing (Scene/Tracking propagation) or REST calls are needed. category
+  matters because a single controller process runs one MatchLatencyTracker
+  per tracked category (e.g. "person", "car") -- without tagging, two
+  categories' metrics would collide on the same unlabeled OTel time series.
 
   Thread-safe: intended to be shared across the tracker thread and the
   ThreadPoolExecutor worker threads that resolve similarity queries.
@@ -51,7 +61,7 @@ class MatchLatencyTracker:
     with self._start_times_lock:
       self._start_times.setdefault(track_id, timestamp)
 
-  def recordMatchLatency(self, track_id, decision_timestamp=None, camera_count=None):
+  def recordMatchLatency(self, track_id, decision_timestamp=None, camera_count=None, category=None):
     """
     Compute and record the elapsed time between a track's first appearance
     and its match/no-match decision. Pops the start time so it is only
@@ -61,6 +71,10 @@ class MatchLatencyTracker:
     @param   decision_timestamp  Epoch time of the match decision; defaults to now
     @param   camera_count        Number of active cameras at decision time, as
                                  determined by the caller. None if unknown.
+    @param   category            The tracked object category (e.g. "person",
+                                 "car") this sample belongs to. None if unknown.
+                                 Used to tag exported metrics so multiple
+                                 categories don't collide on the same series.
     @return  bool                True if a latency was recorded, False if there
                                  was no matching start time or the measurement
                                  was discarded (e.g. negative latency)
@@ -82,7 +96,30 @@ class MatchLatencyTracker:
       return False
 
     with self._latencies_lock:
-      self._latencies.append({'latency': latency, 'camera_count': camera_count})
+      self._latencies.append({'latency': latency, 'camera_count': camera_count, 'category': category})
+
+    otel_attributes = {'category': category} if category is not None else None
+
+    # Raw sample straight to the histogram -- this is what makes rigorous
+    # P95/P99 possible downstream (e.g. Prometheus histogram_quantile()),
+    # aggregated over whatever time range is queried rather than a fixed
+    # in-process sample count.
+    metrics.record_reid_match_latency(latency, otel_attributes)
+
+    # Push the rolling-window (last DEFAULT_MAX_MATCH_LATENCIES_TRACKED
+    # samples) summary stats as gauges, in seconds (native unit of the
+    # latency values already stored in self._latencies). Tagged with
+    # category so multiple tracked categories (e.g. person + car) don't
+    # overwrite each other's values on the same unlabeled time series.
+    # camera_count is reported separately via record_reid_current_camera_count
+    # rather than as an attribute here.
+    rolling_stats = self.getStats()
+    if rolling_stats['average'] is not None:
+      metrics.record_reid_rolling_avg_match_latency(rolling_stats['average'], otel_attributes)
+      metrics.record_reid_rolling_min_match_latency(rolling_stats['min'], otel_attributes)
+      metrics.record_reid_rolling_max_match_latency(rolling_stats['max'], otel_attributes)
+    if rolling_stats['camera_count'] is not None:
+      metrics.record_reid_current_camera_count(rolling_stats['camera_count'], otel_attributes)
 
     return True
 
