@@ -27,6 +27,8 @@ quill::LogLevel to_quill_level(std::string_view level_str) {
         return quill::LogLevel::Warning;
     if (lower == "error")
         return quill::LogLevel::Error;
+    if (lower == "nothing")
+        return quill::LogLevel::Info;
 
     return quill::LogLevel::Info; // Default
 }
