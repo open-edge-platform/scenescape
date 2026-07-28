@@ -13,7 +13,6 @@ class PipelineGenerator:
 
   # the paths in the DLSPS container, to be mounted
   models_folder = '/home/pipeline-server/models'
-  gva_python_path = '/home/pipeline-server/user_scripts/gvapython/sscape'
   video_path = '/home/pipeline-server/videos'
 
   def __init__(self, camera_settings: dict, model_config: dict):
@@ -33,7 +32,7 @@ class PipelineGenerator:
     self.timestamper = [f'sscape_timestamp_capture name=timesync']
     self.undistort = self.add_camera_undistort(camera_settings) if self.camera_settings.get('undistort') else []
     self.adapter = [
-      f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher'
+      f'sscape_post_inference_data_publish name=datapublisher'
     ]
     self.metadata_conversion = ['gvametaconvert add-tensor-data=true name=metaconvert']
     self.sink = ['appsink sync=true']
