@@ -289,7 +289,7 @@ clean-secrets:
 clean-tests:
 	@echo "==> Cleaning test artifacts..."
 	@-rm -rf test_data/
-	@-rm -rf tests/test_logs tests/.venv
+	@-rm -rf tests/.test_logs tests/.venv
 	@echo "Cleaning fast_geometry build artifacts..."
 	@-rm -f scene_common/src/fast_geometry/*.oxx scene_common/src/fast_geometry/*.so
 	@-rm -rf scene_common/src/scene_common.egg-info

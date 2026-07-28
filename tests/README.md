@@ -160,7 +160,7 @@ pytest tests/functional --collect-container-logs none
 Per-test log files are saved automatically:
 
 ```
-tests/test_logs/<group>/<test_id>/<test_id>-<timestamp>.log
+tests/.test_logs/<group>/<test_id>/<test_id>-<timestamp>.log
 ```
 
 Log content depends on the test outcome:
@@ -171,7 +171,7 @@ Log content depends on the test outcome:
   directory (unless `--collect-container-logs=none` is set):
 
   ```
-  tests/test_logs/<group>/<test_id>/<test_id>-<timestamp>-containers/<service>.log
+  tests/.test_logs/<group>/<test_id>/<test_id>-<timestamp>-containers/<service>.log
   ```
 
 Container log collection modes (`--collect-container-logs`):

@@ -6,7 +6,7 @@
 """Logging setup for end-to-end test orchestration.
 
 Each call to ``setup()`` writes one log file at
-``tests/test_logs/<group>/<test_id>/<test_id>-<timestamp>.log``,
+``tests/.test_logs/<group>/<test_id>/<test_id>-<timestamp>.log``,
 tees ``sys.stdout``/``sys.stderr`` into it, and attaches a console
 handler for the terminal. ``finalize(passed)`` closes everything and,
 for passing tests, strips INFO/DEBUG chatter from infrastructure
@@ -86,7 +86,7 @@ def setup(test_name: str, group: str = "functional", log_base: Path | None = Non
   """Attach console+file handlers and tee stdout/stderr into the log file."""
   _teardown()
 
-  log_base = Path(log_base) if log_base else Path(__file__).parents[1] / "test_logs"
+  log_base = Path(log_base) if log_base else Path(__file__).parents[1] / ".test_logs"
   timestamp = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
   stem = f"{test_name}-{timestamp}"
   test_dir = log_base / group / test_name
