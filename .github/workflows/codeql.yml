@@ -147,6 +147,8 @@ jobs:
         if: ${{ matrix.language == 'c-cpp' }}
         working-directory: tracker
         run: |
+          make install-tools
+          make install-deps
           make build
 
       - name: "Perform CodeQL Analysis"
