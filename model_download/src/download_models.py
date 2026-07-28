@@ -100,10 +100,10 @@ def _get_job_outcome(job: dict[str, object]) -> str:
 
 
 def _wait_for_jobs(
-    api_url: str,
-    job_ids: list[str],
-    wait_timeout_s: int,
-    poll_interval_s: float = _JOB_POLL_INTERVAL_S,
+  api_url: str,
+  job_ids: list[str],
+  wait_timeout_s: int,
+  poll_interval_s: float = _JOB_POLL_INTERVAL_S,
 ) -> None:
   """
   Waits for the specified download jobs to complete by polling the downloader API.
@@ -167,10 +167,10 @@ def _wait_for_jobs(
 
 
 def _post_download_request(
-    api_url: str,
-    models: list[dict[str, str]],
-    parallel_downloads: bool,
-    wait_timeout_s: int,
+  api_url: str,
+  models: list[dict[str, str]],
+  parallel_downloads: bool,
+  wait_timeout_s: int,
 ) -> list[str]:
   """
   Posts a download request to the downloader API and returns the list of IDs of jobs used by
