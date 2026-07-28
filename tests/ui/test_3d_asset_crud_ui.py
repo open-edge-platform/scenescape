@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
 from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
@@ -13,23 +14,21 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def test_3d_asset_crud_ui(params, record_xml_attribute, repo_root):
+@pytest.mark.test_name("NEX-T10554")
+def test_3d_asset_crud_ui(params, repo_root, result_recorder):
   """! Verify the CRUD of object library via GUI.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @return   exit_code               Indicates test success or failure.
+  @param    result_recorder         Pytest fixture recording the test result.
   """
-  TEST_NAME = "NEX-T10554"
-  record_xml_attribute("name", TEST_NAME)
+
   PAGE_NAME = "Object Library"
   OBJECT_NAME = 'Test Object'
   FILE_TO_UPLOAD = f"{repo_root}/tests/ui/test_media/box.glb"
   SPECIFIC_3D_ELEMENTS = "#id_rotation_x, #id_rotation_y, #id_rotation_z, [id^=id_translation], #id_scale"
-  exit_code = 1
   browser = None
 
   try:
-    log.info("Executing: " + TEST_NAME)
+    log.info("Executing: NEX-T10554")
     log.info("Verify the CRUD of object library via GUI.")
     browser = Browser()
     assert common.check_page_login(browser, params)
@@ -137,11 +136,9 @@ def test_3d_asset_crud_ui(params, record_xml_attribute, repo_root):
     assert common.delete_object_library(browser, OBJECT_NAME)
     log.info(f"Object '{OBJECT_NAME}' deleted - PASS")
 
-    exit_code = 0
+    result_recorder.success()
 
   finally:
     if browser is not None:
       browser.close()
-    common.record_test_result(TEST_NAME, exit_code)
-  assert exit_code == 0
   return
