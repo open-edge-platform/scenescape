@@ -38,6 +38,7 @@ CHART_DEBUG?=0
 
 # Demo mode variable for Kubernetes deployments (core or all)
 DEMO_K8S_MODE?=core
+MODEL_DOWNLOAD?=0
 
 # Proxy settings: if http_proxy, https_proxy, or no_proxy environment variables are set,
 # they will be automatically passed to the Helm chart during installation
@@ -174,15 +175,21 @@ copy-files:
 	mkdir -p scenescape-chart/files/dlsps
 	mkdir -p scenescape-chart/files/broker
 	mkdir -p scenescape-chart/files/model-installer
+	mkdir -p scenescape-chart/files/model-download
 	mkdir -p scenescape-chart/files/sample-data
 	cp -r ../dlstreamer-pipeline-server/user_scripts/gstplugins/* scenescape-chart/files/dlsps/
 	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/broker/mosquitto-secure.conf
 	cp -r ../model_installer/src/* scenescape-chart/files/model-installer/
 	cp ../model_installer/requirements-runtime.txt scenescape-chart/files/model-installer/requirements-runtime.txt
-	cp ../dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json scenescape-chart/files/model-installer/person-detection-retail-0013.json
+	cp -r ../model_installer/src/* scenescape-chart/files/model-installer/
+	cp ../model_installer/requirements-runtime.txt scenescape-chart/files/model-installer/requirements-runtime.txt
 	cp ../dlstreamer-pipeline-server/model_config.json scenescape-chart/files/model-installer/model_config.json
 	cp ../controller/config/tracker-config.json scenescape-chart/files/model-installer/tracker-config.json
 	cp ../controller/config/reid-config.json scenescape-chart/files/model-installer/reid-config.json
+	cp ../model_download/src/download_models.py scenescape-chart/files/model-download/download_models.py
+	cp ../model_download/src/generate_model_config_from_models.py scenescape-chart/files/model-download/generate_model_config_from_models.py
+	cp ../model_download/src/entrypoint-k8s.sh scenescape-chart/files/model-download/entrypoint-k8s.sh
+	cp ../model_download/models.json scenescape-chart/files/model-download/models.json
 	cp ../sample_data/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
 	cp ../sample_data/convert-videos-k8s.sh scenescape-chart/files/sample-data/convert-videos-k8s.sh
 

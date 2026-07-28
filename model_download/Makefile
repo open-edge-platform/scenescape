@@ -25,8 +25,7 @@ install-models: create-models-volume start-model-downloader
 	trap '$(MAKE) stop-model-downloader' EXIT; \
 	$(MAKE) download-models && \
 	$(MAKE) generate-model-config && \
-	$(MAKE) list-model-files && \
-	$(MAKE) copy-config-files
+	$(MAKE) list-model-files
 
 .PHONY: create-models-volume
 create-models-volume:
@@ -82,7 +81,7 @@ generate-model-config:
 		-v "$(abspath src)":/work/src \
 		-v "$(abspath $(MODEL_CONFIG_FILE))":/work/models.json:ro \
 		python:3.11-slim \
-		python /work/src/generate_model_config_from_models.py \
+		python /work/src/generate_model_config.py \
 			--models-path /models \
 			--config-file /work/models.json
 
@@ -95,15 +94,3 @@ list-model-files:
 stop-model-downloader:
 	@docker rm -f "$(MODEL_DOWNLOADER_CONTAINER)" >/dev/null 2>&1 || true
 	@echo "Stopped $(MODEL_DOWNLOADER_CONTAINER) if it existed."
-
-copy-config-files:
-	@echo "==> Copying config files..."
-	@cd .. \
-	; COMPOSE_PROJECT_NAME=$${COMPOSE_PROJECT_NAME:-scenescape} \
-	; APPDIR=/workspace \
-	; HOSTDIR=$$PWD \
-	; docker run --rm -v $$HOSTDIR:$$APPDIR:z \
-	                  -v $${COMPOSE_PROJECT_NAME}_vol-models:/models \
-					   python:3.12-slim \
-					  python3 /workspace/model_download/src/copy-config-files /workspace /models
-	@echo "DONE ==> Copying config files"

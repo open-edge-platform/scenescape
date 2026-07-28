@@ -17,6 +17,19 @@
           "adapter-params": {
             "metadatagenpolicy": "detectionPolicy"
           }
+        },
+        "model_proc": {
+          "path": "object_detection/person/person-detection-retail-0013.json",
+          "content": {
+            "json_schema_version": "2.0.0",
+            "input_preproc": [],
+            "output_postproc": [
+              {
+                "labels": ["", "person"],
+                "converter": "tensor_to_bbox_ssd"
+              }
+            ]
+          }
         }
       }
     },
@@ -102,7 +115,7 @@
         "config": {
           "type": "classify",
           "params": {
-            "model": "\"omz/vehicle-attributes-recognition-barrier-0042/FP16/vehicle-attributes-recognition-barrier-0042.xml"
+            "model": "omz/vehicle-attributes-recognition-barrier-0042/FP16/vehicle-attributes-recognition-barrier-0042.xml"
           },
           "adapter-params": {
             "metadatagenpolicy": "classificationPolicy"

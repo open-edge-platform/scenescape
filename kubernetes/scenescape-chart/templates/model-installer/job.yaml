@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-{{- if .Values.hooks.enabled }}
+{{- if and .Values.hooks.enabled .Values.initModels.enabled (not .Values.modelDownload.enabled) }}
 {{- if not (kindIs "bool" .Values.initModels.modelProc) }}
 {{- fail "initModels.modelProc must be a boolean (true or false)" }}
 {{- end }}
