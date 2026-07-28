@@ -358,7 +358,6 @@
               "uid": "${USER_ID_FULL}",
               "username": "${USER_NAME_FULL}",
               "is_active": true,
-gs
               "is_staff": false,
               "is_superuser": false,
               "first_name": "John",
