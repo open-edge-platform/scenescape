@@ -32,7 +32,7 @@ pytestmark = pytest.mark.preserve_db
 _TEST_USER = "general_user"
 _TEST_PASS = "general_pass"
 
-POST_ENTITIES = [
+POST_ENTITIES_SINGULAR = [
   "/asset",
   "/auth",
   "/calibrationmarker",
@@ -45,6 +45,18 @@ POST_ENTITIES = [
   "/user",
   "/calculateintrinsics",
   "/save-geospatial-snapshot/",
+]
+
+POST_ENTITIES_PLURAL = [
+  "/assets",
+  "/calibrationmarkers",
+  "/cameras",
+  "/regions",
+  "/scenes",
+  "/sensors",
+  "/tripwires",
+  "/users",
+  "/scenes/child",
 ]
 
 GET_ENTITIES = [
@@ -100,7 +112,7 @@ def test_authz_non_superuser_cannot_create_entities(non_superuser_client, params
   and receives HTTP 403 for requests like POST /scene, /camera, /user, ...etc"""
 
   failures = []
-  for endpoint in POST_ENTITIES:
+  for endpoint in POST_ENTITIES_SINGULAR:
     response = requests.post(
       f"{params['resturl']}{endpoint}",
       headers={"Authorization": f"Token {non_superuser_client.token}"},
@@ -117,6 +129,28 @@ def test_authz_non_superuser_cannot_create_entities(non_superuser_client, params
         )
 
   assert not failures, "Non-superuser access checks failed:\n" + "\n".join(failures)
+
+  result_recorder.success()
+
+
+@pytest.mark.test_name("NEX-T26178")
+def test_authz_non_superuser_cannot_create_via_plural_endpoints(non_superuser_client, params, result_recorder):
+  """Verify that an authenticated non-superuser receives HTTP 403 when attempting
+  to create entities via plural endpoints (POST /scenes, /cameras, /users, etc.)."""
+
+  failures = []
+  for endpoint in POST_ENTITIES_PLURAL:
+    response = requests.post(
+      f"{params['resturl']}{endpoint}",
+      headers={"Authorization": f"Token {non_superuser_client.token}"},
+      json={},
+      verify=params["rootcert"],
+    )
+    if response.status_code != HTTPStatus.METHOD_NOT_ALLOWED:
+      failures.append(
+        f"POST {endpoint}: expected 405 Method Not Allowed, got {response.status_code}"
+      )
+  assert not failures, "Non-superuser plural endpoint access checks failed:\n" + "\n".join(failures)
 
   result_recorder.success()
 
@@ -179,19 +213,6 @@ def test_authz_non_superuser_cannot_create_user(non_superuser_client, params, re
   )
   assert response.status_code == HTTPStatus.FORBIDDEN, \
     f"Expected 403 Forbidden for non-superuser user creation, got {response.status_code}"
-
-  response = requests.post(
-    f"{params['resturl']}/users",
-    headers={"Authorization": f"Token {non_superuser_client.token}"},
-    json={
-      "username": "new_user",
-      "password": "new_password",
-      "is_superuser": True,
-    },
-    verify=params["rootcert"],
-  )
-  assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED, \
-    f"Expected 405 Method Not Allowed for POST /users, got {response.status_code}"
 
   result_recorder.success()
 
