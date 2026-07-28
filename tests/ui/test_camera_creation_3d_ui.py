@@ -59,7 +59,11 @@ class Scene3dCameraCreationTest(UserInterfaceTest):
       self.browser.find_element(By.XPATH, "//*[@type = 'submit']").click()
       assert common.navigate_directly_to_page(self.browser, "/cam/list/")
 
-    assert self.createdCameraName not in self.browser.page_source
+    remaining_rows = self.browser.find_elements(
+      By.XPATH,
+      "//td[text()='" + self.createdCameraName + "']/parent::tr",
+    )
+    assert len(remaining_rows) == 0, f"Camera '{self.createdCameraName}' still exists in table after deletion"
 
   def checkCameraCreation(self):
     try:
@@ -84,7 +88,7 @@ class Scene3dCameraCreationTest(UserInterfaceTest):
       camera_panel_ids_before = self.getCameraPanelIds()
       log.info(f"Camera control panels before creation: {camera_panel_ids_before}")
 
-      timestamp = int(time.time())
+      timestamp = time.time()
       self.createdCameraName = f"Test_Cam_{timestamp}"
       log.info(f"Create camera from 3D UI with name {self.createdCameraName}")
 
