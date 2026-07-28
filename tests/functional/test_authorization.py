@@ -180,6 +180,19 @@ def test_authz_non_superuser_cannot_create_user(non_superuser_client, params, re
   assert response.status_code == HTTPStatus.FORBIDDEN, \
     f"Expected 403 Forbidden for non-superuser user creation, got {response.status_code}"
 
+  response = requests.post(
+    f"{params['resturl']}/users",
+    headers={"Authorization": f"Token {non_superuser_client.token}"},
+    json={
+      "username": "new_user",
+      "password": "new_password",
+      "is_superuser": True,
+    },
+    verify=params["rootcert"],
+  )
+  assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED, \
+    f"Expected 405 Method Not Allowed for POST /users, got {response.status_code}"
+
   result_recorder.success()
 
 
