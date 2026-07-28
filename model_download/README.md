@@ -42,6 +42,7 @@ MODEL_LIST_JSON='[{"name":"person-detection-retail-0013","hub":"omz"},{"name":"p
 ## Downloading Models from Different Sources
 
 To add another model source one has to:
+
 - add new model with its source to `MODEL_LIST` (for example `MODEL_LIST='[{"name":"person-detection-retail-0013","hub":"omz"},{"name":"my-custom-model","hub":"huggingface"}]'`)
 - extend list of plugins installed in the `model_downloader` container - by modifying the following line in the `Makefile`:
 
@@ -49,7 +50,7 @@ To add another model source one has to:
 MODEL_DOWNLOADER_CMD ?= --plugins omz,huggingface
 ```
 
-- if, except of just downloading, the model needs some postprocessing - like generating model-config file for omz models - add this step in 
+- if, except of just downloading, the model needs some postprocessing - like generating model-config file for omz models - add this step in
   the `Makefile` - in similar way to the `generate-model-config` or `copy-config-files` targets.
 
 > [!NOTE] list of available plugins and their configuration can be found in the `model_downloader` [documentation](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/microservices/model-download/README.md).
