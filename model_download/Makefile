@@ -12,20 +12,17 @@ MODEL_DOWNLOADER_URL ?= http://127.0.0.1:$(MODEL_DOWNLOADER_HOST_PORT)
 MODEL_DOWNLOADER_WAIT_TIMEOUT ?= 120
 
 PARALLEL_DOWNLOADS ?= false
-MODEL_CONFIG_OUTPUT_FILE ?= model_config.json
-MODEL_CONFIG_PREFER_PRECISION ?= FP16
-MODEL_CONFIG_SUBFOLDERS ?= omz,intel,public
+MODEL_CONFIG_FILE ?= models.json
+MODEL_LIST ?=
 
 # if models should be taken from other sources - add those sources here, e.g. --plugins omz,huggingface
 # bear in mind that some sources may require additional configuration - check the model_downloader documentation for details
 MODEL_DOWNLOADER_CMD ?= --plugins omz
 MODEL_DOWNLOADER_RUN_ARGS ?=
 
-MODEL_LIST ?= [{"name": "person-detection-retail-0013", "hub": "omz"},{"name": "person-vehicle-bike-detection-crossroad-1016", "hub": "omz"},{"name": "person-reidentification-retail-0277", "hub": "omz"},{"name": "age-gender-recognition-retail-0013", "hub": "omz"},{"name": "person-attributes-recognition-crossroad-0238", "hub": "omz"},{"name": "vehicle-attributes-recognition-barrier-0042", "hub": "omz"}]
-
 .PHONY: install-models
 install-models: create-models-volume start-model-downloader
-	trap 'make stop-model-downloader' EXIT; \
+	trap '$(MAKE) stop-model-downloader' EXIT; \
 	$(MAKE) download-models && \
 	$(MAKE) generate-model-config && \
 	$(MAKE) list-model-files && \
@@ -71,6 +68,7 @@ start-model-downloader:
 download-models:
 	@echo "Requesting model download from $(MODEL_DOWNLOADER_URL)..."
 	@MODEL_DOWNLOADER_URL="$(MODEL_DOWNLOADER_URL)" \
+	MODEL_CONFIG_FILE="$(abspath $(MODEL_CONFIG_FILE))" \
 	MODEL_LIST='$(MODEL_LIST)' \
 	PARALLEL_DOWNLOADS="$(PARALLEL_DOWNLOADS)" \
 	MODEL_DOWNLOADER_WAIT_TIMEOUT="$(MODEL_DOWNLOADER_WAIT_TIMEOUT)" \
@@ -82,12 +80,11 @@ generate-model-config:
 	@docker run --rm \
 		-v "$(MODEL_VOLUME)":/models \
 		-v "$(abspath src)":/work/src \
+		-v "$(abspath $(MODEL_CONFIG_FILE))":/work/models.json:ro \
 		python:3.11-slim \
-		python /work/src/generate_model_config.py \
+		python /work/src/generate_model_config_from_models.py \
 			--models-path /models \
-			--output-file "$(MODEL_CONFIG_OUTPUT_FILE)" \
-			--prefer-precision "$(MODEL_CONFIG_PREFER_PRECISION)" \
-			--subfolders "$(MODEL_CONFIG_SUBFOLDERS)"
+			--config-file /work/models.json
 
 .PHONY: list-model-files
 list-model-files:

@@ -10,24 +10,13 @@ import json
 import os
 import sys
 import time
-<<<<<<< HEAD
+from pathlib import Path
 from urllib import error, request
-=======
-from typing import Dict, List
-from urllib import error, parse, request
->>>>>>> f2b61d68 (switching downloading models to model-downlader, modifying demo configuration to work with it)
+
 
 _JOB_POLL_INTERVAL_S = 5.0
 _PROGRESS_UPDATE_INTERVAL_S = 30.0
-
-_DEFAULT_MODELS = [
-  {'name': 'person-detection-retail-0013', 'hub': 'omz'},
-  {'name': 'person-vehicle-bike-detection-crossroad-1016', 'hub': 'omz'},
-  {'name': 'person-reidentification-retail-0277', 'hub': 'omz'},
-  {'name': 'age-gender-recognition-retail-0013', 'hub': 'omz'},
-  {'name': 'person-attributes-recognition-crossroad-0238', 'hub': 'omz'},
-  {'name': 'vehicle-attributes-recognition-barrier-0042', 'hub': 'omz'},
-]
+_DEFAULT_MODELS_CONFIG_FILE = Path(__file__).resolve().parents[1] / 'models.json'
 
 
 def _parse_bool(value: str) -> bool:
@@ -173,7 +162,7 @@ def _wait_for_jobs(
 
 def _post_download_request(
     api_url: str,
-    models: list[dict[str, str]],
+    models: list[dict[str, object]],
     parallel_downloads: bool,
     wait_timeout_s: int,
 ) -> list[str]:
@@ -231,17 +220,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser()
   parser.add_argument('--api-url', type=str, default=os.getenv('MODEL_DOWNLOADER_URL', 'http://127.0.0.1:8200'))
   parser.add_argument(
+    '--models-config',
+    type=str,
+    default=os.getenv('MODEL_CONFIG_FILE', str(_DEFAULT_MODELS_CONFIG_FILE)),
+    help='Path to JSON config containing descriptions of models which should be downloaded.',
+  )
+  parser.add_argument(
     "--destination-path",
     type=str,
     default=os.getenv("MODEL_DESTINATION_PATH", ""),
     help="Optional path to copy downloaded models to after download.",
-  )
-  parser.add_argument(
-    '--models',
-    type=str,
-    default=os.getenv('MODEL_LIST', ''),
-    help='JSON array of objects in format expected by model-downloader. '
-         'Example: [{"name": "model1", "hub": "hub1"}, {"name": "model2", "hub": "hub2"}]'
   )
   parser.add_argument(
     '--parallel-downloads',
@@ -264,21 +252,52 @@ def _build_arg_parser() -> argparse.ArgumentParser:
   return parser
 
 
-def _resolve_models(args: argparse.Namespace) -> list[dict[str, str]]:
-  """
-  Resolves the list of models to download based on command-line arguments or environment variables.
-  Returns a list of dictionaries, each containing 'name' and 'hub' keys for the models to download.
-  Raises ValueError if the input is invalid or if required fields are missing.
-  """
-  if args.models:
-    models = json.loads(args.models)
-    if not isinstance(models, list):
-      raise ValueError('models-json must be a JSON array')
+def _validate_downloader_models(models: object) -> list[dict[str, object]]:
+  if not isinstance(models, list):
+    raise ValueError('models must be a JSON array')
 
-    if models:
-      return models
+  if not models:
+    raise ValueError('models must not be empty')
 
-  return _DEFAULT_MODELS
+  validated_models = []
+  for index, model in enumerate(models):
+    if not isinstance(model, dict):
+      raise ValueError(f'models[{index}] must be an object')
+
+    name = model.get('name')
+    if not isinstance(name, str) or not name:
+      raise ValueError(f'models[{index}].name must be a non-empty string')
+
+    validated_models.append(model)
+
+  return validated_models
+
+
+def _extract_downloader_models(config_models: object) -> list[dict[str, object]]:
+  if not isinstance(config_models, list):
+    raise ValueError('models must be a JSON array')
+
+  downloader_models = []
+  for index, model in enumerate(config_models):
+    if not isinstance(model, dict):
+      raise ValueError(f'models[{index}] must be an object')
+
+    downloader_model = model.get('model_downloader')
+    if not isinstance(downloader_model, dict):
+      raise ValueError(f'models[{index}].model_downloader must be an object')
+    downloader_models.append(downloader_model)
+
+  return _validate_downloader_models(downloader_models)
+
+
+def _load_models_from_config(config_file: str) -> list[dict[str, object]]:
+  with open(config_file, 'r', encoding='utf-8') as handle:
+    config = json.load(handle)
+
+  if not isinstance(config, dict):
+    raise ValueError('models config must be a JSON object')
+
+  return _extract_downloader_models(config.get('models'))
 
 
 def main() -> int:
@@ -286,9 +305,9 @@ def main() -> int:
   args = parser.parse_args()
 
   try:
-    models = _resolve_models(args)
+    models = _load_models_from_config(args.models_config)
     parallel_downloads = _parse_bool(args.parallel_downloads)
-  except (ValueError, json.JSONDecodeError) as exc:
+  except (OSError, ValueError, json.JSONDecodeError) as exc:
     print(f'Invalid input: {exc}', file=sys.stderr)
     return 2
 
