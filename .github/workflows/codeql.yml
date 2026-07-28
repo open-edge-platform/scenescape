@@ -149,6 +149,11 @@ jobs:
         run: |
           sudo make install-deps
           make install-tools
+          # Ensure pipx-installed tools (conan, cmake, ninja) are on PATH
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          # Create default Conan profile (required before `conan install`)
+          conan profile detect --force
           make build
 
       - name: "Perform CodeQL Analysis"
