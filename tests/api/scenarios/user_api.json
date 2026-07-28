@@ -35,8 +35,6 @@
             "password": "FullPassword123!",
             "email": "user_full@example.com",
             "is_active": true,
-            "is_staff": true,
-            "is_superuser": false,
             "first_name": "John",
             "last_name": "Doe",
             "scene": "16fd2706-8baf-433b-82eb-8c7fada847da"
@@ -360,7 +358,8 @@
               "uid": "${USER_ID_FULL}",
               "username": "${USER_NAME_FULL}",
               "is_active": true,
-              "is_staff": true,
+gs
+              "is_staff": false,
               "is_superuser": false,
               "first_name": "John",
               "last_name": "Doe",
