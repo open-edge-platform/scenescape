@@ -135,7 +135,7 @@ def test_authz_non_superuser_cannot_create_entities(non_superuser_client, params
 
 @pytest.mark.test_name("NEX-T26178")
 def test_authz_non_superuser_cannot_create_via_plural_endpoints(non_superuser_client, params, result_recorder):
-  """Verify that an authenticated non-superuser receives HTTP 403 when attempting
+  """Verify that an authenticated non-superuser receives HTTP 405 when attempting
   to create entities via plural endpoints (POST /scenes, /cameras, /users, etc.)."""
 
   failures = []
