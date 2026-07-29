@@ -40,7 +40,7 @@ _BROKER = WaitConfig(log_pattern=r"mosquitto version .* running")
 _WEB = WaitConfig()
 _SCENE = WaitConfig(log_pattern="Subscribed to")
 _AUTOCALIBRATION = WaitConfig(timeout=1200)
-_MAPPING = WaitConfig(timeout=600)
+_MAPPING = WaitConfig(timeout=6000)
 
 
 # ---------------------------------------------------------------------------

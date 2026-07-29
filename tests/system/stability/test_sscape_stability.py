@@ -545,14 +545,19 @@ def get_current_fps_stats(model_list, state):
   @return   cur_fps                 Dict fps over the last MQTT message collection period in the form [model][sensor].
   @return   state                   Updated TestState object.
   """
+  global sensor_list
   cur_fps = {}
   for model in model_list:
     cur_fps[model] = {}
     for sensor in model_list[model]:
       model_sensor_count = model_list[model][sensor]
       cur_fps[model][sensor] = (model_sensor_count) / TEST_WAIT_TIME
-      state.update_min_max_fps(model_sensor_count)
       model_list[model][sensor] = 0
+
+  # Min/max message checks use raw camera-frame message counts
+  for sensor in sensor_list:
+    state.update_min_max_fps(sensor_list[sensor])
+    sensor_list[sensor] = 0
   return cur_fps, state
 
 def collect_mqtt_msgs(client):
@@ -588,12 +593,19 @@ def on_message(mqttc, obj, msg):
   @return   None.
   """
   global objects_detected
+  global sensor_list
   global test_started
   if test_started == False :
     print( "First msg received (Topic {})".format( msg.topic ) )
     test_started = True
   topic = PubSub.parseTopic(msg.topic)
   if topic['_topic_id'] == PubSub.DATA_CAMERA:
+    topic_split = msg.topic.split('/')
+    if len(topic_split) > 3:
+      sensor = topic_split[3]
+      if sensor not in sensor_list:
+        sensor_list[sensor] = 0
+      sensor_list[sensor] += 1
     handle_mqtt_sensor_topic(msg)
   objects_detected += 1
   return
