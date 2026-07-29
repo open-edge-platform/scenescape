@@ -10,7 +10,7 @@ This task is important for enabling persistent object tracking across different 
 
 ---
 
-## Prerequisites
+## Prerequisites for Re-identification
 
 Before you begin, ensure the following:
 
