@@ -46,7 +46,7 @@ jobs:
             git fetch origin main:main
             echo "Fetched main branch"
           fi
-          changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.yml' '*.yaml' '*.sh' '*.java' '*.ts' '*.h' '*.c' '*.cpp' '*.hpp' || true)
+          changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.yml' '*.yaml' '*.js' '*.ts' '*.h' '*.c' '*.hpp' '*.cpp' '*.py' || true)
           echo "Performed git diff"
 
           if [ -z "$changed_files" ]; then
@@ -54,7 +54,7 @@ jobs:
             echo "langs=[]" >> $GITHUB_OUTPUT
             exit 0
           fi
-          declare -A langmap=( ["yaml"]=actions ["yml"]=actions ["java"]=java-kotlin ["ts"]=javascript-typescript ["h"]=cpp ["cpp"]=cpp )
+          declare -A langmap=( ["yaml"]=actions ["yml"]=actions ["js"]=javascript-typescript ["ts"]=javascript-typescript ["h"]=c-cpp ["c"]=c-cpp ["hpp"]=c-cpp ["cpp"]=c-cpp ["py"]=python )
           declare -A langs
 
           for file in $changed_files; do
