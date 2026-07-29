@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+import pytest
 
 from tests.utils.log import get_logger
 import time
@@ -19,14 +21,14 @@ log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
-  require_password=True, auth="",
-)
+  require_password=True, auth="")
 
 TEST_WAIT_TIME = 5
 TEST_NAME = "NEX-T10426"
 TEST_SSIM_THRESHOLD = 0.98 # 98% similarity
 
-@common.mock_display
+# @common.mock_display
+@pytest.mark.fresh_stack
 def test_manual_camera_calibration(params, record_xml_attribute):
   """! Checks that the camera calibration can be set manually and saved.
   @param    params                  Dict of test parameters.
@@ -36,11 +38,10 @@ def test_manual_camera_calibration(params, record_xml_attribute):
   if record_xml_attribute is not None:
     record_xml_attribute("name", TEST_NAME)
   exit_code = 1
-  browser = None
   try:
     log.info("Executing: " + TEST_NAME)
     log.info("Test that camera pose can be be set manually")
-    browser = Browser()
+    browser = Browser(webgl=True)
     assert common.check_page_login(browser, params)
     assert common.check_db_status(browser)
 
@@ -79,6 +80,7 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     initial_cam_x = cam_values_init[0][0]
     initial_map_x = map_values_init[0][0]
     log.info("Take_screenshot before manual calibration")
+    assert common.render_calibration_preview(browser, 'initial-id_transforms')
     camera_view_before = browser.find_element(By.ID, 'camera_img_canvas')
     map_view_before = browser.find_element(By.ID, 'map_canvas_3D')
     cam_pic_before = common.get_element_screenshot(camera_view_before)
@@ -89,11 +91,6 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     log.info("Change calibration settings")
     assert common.change_cam_calibration(browser, initial_cam_x * 2, initial_map_x * 10)
     log.info("Calibrating Camera...Saving Camera...")
-    log.info(
-      "Verifying calibration changed from baseline: cam p0=%s, map p0=%s",
-      cam_values_init[0],
-      map_values_init[0]
-    )
     assert common.check_cam_calibration(browser, cam_values_init[0], map_values_init[0])
     log.info("Calibration Saved")
 
@@ -102,6 +99,7 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     time.sleep(TEST_WAIT_TIME)
 
     log.info("Take_screenshot after saving manual calibration")
+    assert common.render_calibration_preview(browser, 'initial-id_transforms')
     camera_view_after = browser.find_element(By.ID, 'camera_img_canvas')
     map_view_after = browser.find_element(By.ID, 'map_canvas_3D')
     cam_pic_after = common.get_element_screenshot(camera_view_after)
@@ -112,11 +110,6 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     log.info("Revert to initial calibration settings")
     assert common.change_cam_calibration(browser, initial_cam_x, initial_map_x)
     log.info("Calibrating Camera...Saving Camera...")
-    log.info(
-      "Verifying calibration reverted to baseline: cam p0=%s, map p0=%s",
-      cam_values_init[0],
-      map_values_init[0]
-    )
     assert common.check_calibration_initialization(browser, [cam_values_init[0]], [map_values_init[0]])
     log.info("Calibration Saved")
 
@@ -125,18 +118,19 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     time.sleep(TEST_WAIT_TIME)
 
     log.info("Take_screenshot after reverting to the previous calibration settings")
+    assert common.render_calibration_preview(browser, 'initial-id_transforms')
     camera_view_after = browser.find_element(By.ID, 'camera_img_canvas')
     map_view_after = browser.find_element(By.ID, 'map_canvas_3D')
     cam_pic_after_revert = common.get_element_screenshot(camera_view_after)
     map_pic_after_revert = common.get_element_screenshot(map_view_after)
     log.info("Screenshot taken after reverting to the previous calibration setting")
 
-    log.info("Diagnostic screenshot comparison after calibration (non-blocking)")
+    log.info("Validating of difference in screenshots after calibration")
 
-    if np.array_equal(cam_pic_before, cam_pic_after):
-      log.warning("Camera screenshots are identical after calibration update")
-    if np.array_equal(map_pic_before, map_pic_after):
-      log.warning("Map screenshots are identical after calibration update")
+    assert not np.array_equal(cam_pic_before, cam_pic_after), \
+    "Expected camera images to be different, but they are the same"
+    assert not np.array_equal(map_pic_before, map_pic_after), \
+    "Expected map images to be different, but they are the same"
 
     cropped_cam_before, cropped_cam_after_revert = common.crop_to_common_shape(cam_pic_before, cam_pic_after_revert)
     cropped_map_before, cropped_map_after_revert = common.crop_to_common_shape(map_pic_before, map_pic_after_revert)
@@ -144,20 +138,12 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     ssim_cam = common.get_images_similarity(cropped_cam_before, cropped_cam_after_revert)
     ssim_map = common.get_images_similarity(cropped_map_before, cropped_map_after_revert)
 
-    log.info(
-      "Revert similarity check (threshold=%.2f): cam_ssim=%.5f, map_ssim=%.5f",
-      TEST_SSIM_THRESHOLD,
-      ssim_cam,
-      ssim_map
-    )
-
     assert ssim_cam >= TEST_SSIM_THRESHOLD
     assert ssim_map >= TEST_SSIM_THRESHOLD
 
     exit_code = 0
   finally:
-    if browser is not None:
-      browser.close()
+    browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
   return exit_code
