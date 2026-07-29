@@ -85,6 +85,7 @@ The default configuration lives in `model_download/models.json`. Its top-level `
 `scenescape.name` is the convenient key written to generated `model_config.json`. `scenescape.config` is copied into the generated entry. `scenescape.config.params.model` must point to the model XML path relative to the models volume.
 
 `scenescape.model_proc` is optional. When present:
+
 - `path` is the model-proc JSON path relative to the models volume. It must be a relative `.json` path inside the models directory.
 - `content` is the DL Streamer model-proc JSON object to write at that path.
 - the generator adds `params.model_proc` with the same relative path to generated `model_config.json`.
@@ -100,6 +101,7 @@ make -C model_download install-models MODEL_CONFIG_FILE=/path/to/models.json
 ## Downloading Models from Different Sources
 
 To add another model source one has to:
+
 - add the new model with its source to `models[].model_downloader` in `MODEL_CONFIG_FILE` (for example `{"name":"my-custom-model","hub":"huggingface"}`)
 - add `scenescape.name` and `scenescape.config` to that model object when it should appear in generated `model_config.json`
 - extend list of plugins installed in the `model_downloader` container - by modifying the following line in the `Makefile`:
