@@ -130,7 +130,8 @@ services:
     volumes:
       # Uncomment the line below to enable latency tracing
       # - "/tmp/latency_tracer:/tmp"
-      - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python- vol-sample-data:/home/pipeline-server/videos
+      - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python
+      - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
       - ${OUTPUT_DIR}:/home/pipeline-server/output
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
