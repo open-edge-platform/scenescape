@@ -887,7 +887,7 @@ def _derive_marker(item):
 # Pytest hooks
 # ---------------------------------------------------------------------------
 
-# Log directory: tests/.test_logs/{group}/{test_name}-{timestamp}.log
+# Log directory: tests/.test_logs/{group}/{test_id}/{test_id}-{timestamp}.log
 _LOG_BASE = _TESTS_DIR / ".test_logs"
 
 def pytest_generate_tests(metafunc):

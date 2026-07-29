@@ -21,10 +21,10 @@ from pathlib import Path
 
 _ROOT = "test"
 
-# INFO/DEBUG from infrastructure loggers ("test.<utility>") modules.
+# INFO/DEBUG from infrastructure loggers (orchestration utilities).
 # Used to trim noise from passing logs.
 _NOISE_RE = re.compile(
-  r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} test\.(?!test_)\S+ \[(INFO|DEBUG)\] "
+  r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} test\.(?:conftest|containers|profiles|spec|k8s|runner) \[(INFO|DEBUG)\] "
 )
 
 # Silence the "last resort" stderr handler for our hierarchy so records
