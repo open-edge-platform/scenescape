@@ -141,4 +141,3 @@ def test_3d_asset_crud_ui(params, repo_root, result_recorder):
   finally:
     if browser is not None:
       browser.close()
-  return
