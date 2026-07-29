@@ -24,22 +24,18 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="")
 
 TEST_WAIT_TIME = 5
-TEST_NAME = "NEX-T10426"
 TEST_SSIM_THRESHOLD = 0.98 # 98% similarity
 
-# @common.mock_display
 @pytest.mark.fresh_stack
-def test_manual_camera_calibration(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T10426")
+def test_manual_camera_calibration(params, result_recorder):
   """! Checks that the camera calibration can be set manually and saved.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @return   exit_code               Indicates test success or failure.
+  @param    result_recorder         Pytest fixture recording the test result.
   """
-  if record_xml_attribute is not None:
-    record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
+  browser = None
   try:
-    log.info("Executing: " + TEST_NAME)
+    log.info("Executing: NEX-T10426")
     log.info("Test that camera pose can be be set manually")
     browser = Browser(webgl=True)
     assert common.check_page_login(browser, params)
@@ -141,9 +137,7 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     assert ssim_cam >= TEST_SSIM_THRESHOLD
     assert ssim_map >= TEST_SSIM_THRESHOLD
 
-    exit_code = 0
+    result_recorder.success()
   finally:
-    browser.close()
-    common.record_test_result(TEST_NAME, exit_code)
-  assert exit_code == 0
-  return exit_code
+    if browser is not None:
+      browser.close()
