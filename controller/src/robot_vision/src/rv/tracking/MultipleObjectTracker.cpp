@@ -173,7 +173,7 @@ void splitByThreshold(std::vector<tracking::TrackedObject> &objects,
 
 std::vector<tracking::TrackedObject>
 MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::TrackedObject> &tracks,
-                                                  const std::vector<tracking::TrackedObject> &objects,
+                                                  std::vector<tracking::TrackedObject> &objects,
                                                   const DistanceType &distanceType,
                                                   double distanceThreshold,
                                                   std::vector<size_t> &unassignedObjects)
@@ -187,8 +187,7 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
   for (const auto &assignment : assignments)
   {
     auto const &track = tracks[assignment.first];
-    auto const &object = objects[assignment.second];
-    auto measurement = object;
+    auto &measurement = objects[assignment.second];
     mergeHistoricalMetadata(track, measurement);
     mTrackManager.setMeasurement(track.id, measurement);
   }
