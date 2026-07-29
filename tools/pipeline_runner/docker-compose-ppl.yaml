@@ -118,6 +118,7 @@ services:
       - GST_TRACERS=${GST_TRACERS:-}
       - GST_DEBUG_FILE=${GST_DEBUG_FILE:-}
       #      - GST_DEBUG=1,gencamsrc:2
+      - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
@@ -129,11 +130,7 @@ services:
     volumes:
       # Uncomment the line below to enable latency tracing
       # - "/tmp/latency_tracer:/tmp"
-      - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_decode_timestamp_capture.py
-      - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_inference_data_publish.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_inference_data_publish.py
-      - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_policies.py
-      - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_3d_detector.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_3d_detector.py
-      - vol-sample-data:/home/pipeline-server/videos
+      - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python- vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
       - ${OUTPUT_DIR}:/home/pipeline-server/output
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
