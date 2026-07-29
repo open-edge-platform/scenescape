@@ -24,6 +24,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, replace
 from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
 from skimage.metrics import structural_similarity as ssim
 
 from tests.common_test_utils import record_test_result
@@ -47,6 +48,28 @@ DEFAULT_SENSOR_TRIANGLE_HEIGHT = 600
 DEFAULT_SENSOR_TRIANGLE_LENGTH = 800
 DEFAULT_SENSOR_TRIANGLE_UPPER_LEFT_POINT = (-400, -300)
 BROWSER_WAIT = 5
+
+def click_when_clickable(browser, locator, timeout_s=10):
+  """Click an element after ensuring it is interactable and not obscured."""
+  try:
+    element = WebDriverWait(browser, timeout_s).until(
+      EC.element_to_be_clickable(locator)
+    )
+  except TimeoutException:
+    return False
+
+  # Keep fixed overlays from intercepting clicks near viewport edges.
+  browser.execute_script(
+    "arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});",
+    element,
+  )
+
+  try:
+    element.click()
+  except ElementClickInterceptedException:
+    browser.execute_script("arguments[0].click();", element)
+
+  return True
 
 def check_page_login(browser, params):
   """! Logs into the Scenescape web UI.
@@ -1440,11 +1463,10 @@ def mock_display(func):
   def wrapper_mock_display(*args, **kwargs):
     display = Display(visible=0, size=(1920, 1080))
     display.start()
-
-    return_val = func(*args, **kwargs)
-
-    display.stop()
-    return return_val
+    try:
+      return func(*args, **kwargs)
+    finally:
+      display.stop()
   return wrapper_mock_display
 
 def scenescape_login_headed(func):
@@ -1454,15 +1476,14 @@ def scenescape_login_headed(func):
   """
   @functools.wraps(func)
   def wrapper_scenescape_login(*args, **kwargs):
-    browser = Browser(headless=False)
-    params = args[0]
-    assert check_page_login(browser, params)
-    assert check_db_status(browser)
-
-    return_val = func(browser, *args[1:], **kwargs)
-
-    browser.close()
-    return return_val
+    browser = Browser(headless=False, webgl=True)
+    try:
+      params = args[0]
+      assert check_page_login(browser, params)
+      assert check_db_status(browser)
+      return func(browser, *args[1:], **kwargs)
+    finally:
+      browser.close()
   return wrapper_scenescape_login
 
 ######################################################################################
@@ -1642,21 +1663,37 @@ class InteractWithPage(ABC):
     return upload_success
 
   def check_screenshots_differ(self) -> bool:
-    """! Tests that screenshot 1 differs from screenshot 2 by a given MSE threshold.
-    @return   bool                     Boolean which is True if the screenshots differ more than the MSE threshold.
+    """! Tests that screenshot 1 differs from screenshot 2 by a given SSIM threshold.
+    @return   bool                     Boolean which is True if the screenshots differ enough to
+                                       produce SSIM below the configured threshold.
     """
     navigate_directly_to_page(self.browser, self.interaction_params.page_path)
     time.sleep(5)
-    screenshot = self.get_page_screenshot()
+
+    # For 3D scene checks, compare the rendered canvas directly instead of the
+    # full page so static UI chrome does not dominate SSIM.
+    if self.interaction_params.page_path.startswith("/scene/detail/"):
+      wait_for_3d_scene_rendered(self.browser)
+      screenshot = capture_3d_canvas(self.browser)
+    else:
+      screenshot = self.get_page_screenshot()
+
     self.interaction_params.add_screenshot(screenshot)
     if self.interaction_params.debug:
       fname = self.interaction_params.file_name.replace(".", "_")
       fname = fname.split("/")[-1]
       cv2.imwrite("screenshot_" + fname + ".png", screenshot)
 
-    return are_images_similar(self.interaction_params.screenshots[1],
-                          self.interaction_params.screenshots[2],
-                          self.interaction_params.screenshot_threshold)
+    similarity = get_images_similarity(
+      self.interaction_params.screenshots[1],
+      self.interaction_params.screenshots[2],
+    )
+    threshold = self.interaction_params.screenshot_threshold
+    screenshots_differ = similarity < threshold
+    print(
+      f"SSIM difference check: {similarity:.4f} < {threshold:.4f} => {screenshots_differ}"
+    )
+    return screenshots_differ
 
   def check_file_uploaded_name(self) -> bool:
     """! Check that uploaded filename is in the expected html page at the expected location.
