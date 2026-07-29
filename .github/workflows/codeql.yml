@@ -23,7 +23,7 @@ permissions: {}
 
 jobs:
   detect-languages:
-    name: "Detect Changed Languages (except Python and JavaScript)"
+    name: "Detect Changed Languages"
     runs-on: ubuntu-latest
     if: github.event_name != 'push' && github.event_name != 'workflow_dispatch'
     permissions:
