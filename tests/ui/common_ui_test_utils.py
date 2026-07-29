@@ -24,6 +24,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, replace
 from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
 from skimage.metrics import structural_similarity as ssim
 
 from tests.common_test_utils import record_test_result
@@ -47,6 +48,28 @@ DEFAULT_SENSOR_TRIANGLE_HEIGHT = 600
 DEFAULT_SENSOR_TRIANGLE_LENGTH = 800
 DEFAULT_SENSOR_TRIANGLE_UPPER_LEFT_POINT = (-400, -300)
 BROWSER_WAIT = 5
+
+def click_when_clickable(browser, locator, timeout_s=10):
+  """Click an element after ensuring it is interactable and not obscured."""
+  try:
+    element = WebDriverWait(browser, timeout_s).until(
+      EC.element_to_be_clickable(locator)
+    )
+  except TimeoutException:
+    return False
+
+  # Keep fixed overlays from intercepting clicks near viewport edges.
+  browser.execute_script(
+    "arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});",
+    element,
+  )
+
+  try:
+    element.click()
+  except ElementClickInterceptedException:
+    browser.execute_script("arguments[0].click();", element)
+
+  return True
 
 def check_page_login(browser, params):
   """! Logs into the Scenescape web UI.
