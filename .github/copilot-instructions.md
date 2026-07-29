@@ -131,7 +131,7 @@ make rebuild-core                  # Clean + build (useful after code changes)
 
 Testing guidance is intentionally centralized in skills to avoid duplication.
 
-- Canonical test authoring and categorization guidance: `.github/skills/testing/SKILL.md`
+- Canonical test authoring and categorization guidance: `.github/skills/testing/SKILL.md` (category details in `testing/references/`)
 - Canonical runtime verification and completion rules: `.github/skills/test-verification-gate/SKILL.md`
 
 At this level, only rely on high-level routing:
