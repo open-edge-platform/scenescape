@@ -243,7 +243,7 @@ Following are short steps to enable NTP timestamp extraction from an RTSP camera
 
 When an RTSP source provides NTP timing in its stream (via RTCP Sender Reports), GStreamer's `rtspsrc` element can
 attach that NTP reference timestamp to each buffer using `add-reference-timestamp-meta=true`. Enabling
-`useFrameNtpTimestamp` in the pipeline configuration causes Scenescape to read that metadata and use it as the frame
+`use-frame-ntp-timestamp` in the pipeline configuration causes Scenescape to read that metadata and use it as the frame
 timestamp instead of the post-decode system clock time. This improves timing accuracy when the camera and server are
 synchronized to the same NTP source.
 
@@ -253,14 +253,12 @@ synchronized to the same NTP source.
 1. Ensure the `rtspsrc` element in your pipeline string includes `add-reference-timestamp-meta=true`. The out-of-box
    [queuing-config.json](./queuing-config.json) already includes this setting.
 
-2. Set `useFrameNtpTimestamp` to `true` in the `frame_ntp_config` section of your pipeline payload. In
-   `queuing-config.json` this is the `payload.parameters.frame_ntp_config` block:
+2. Set `frame_ntp_config` to `true` in your pipeline payload. In
+   `queuing-config.json` this is the `payload.parameters` block:
 
 ```json
 {
-  "frame_ntp_config": {
-    "useFrameNtpTimestamp": true
-  }
+  "frame_ntp_config": true
 }
 ```
 
@@ -279,7 +277,7 @@ To create a new pipeline, follow these steps:
 1. **Create a New Config File:**
    Use the existing `config.json` as a template to create your new pipeline configuration file (e.g., `my_pipeline_config.json`). Adjust the parameters as needed for your use case.
 
-   > **Note:** The `detection_policy` parameter specifies the type of inference model used in the pipeline. For example, use `detection_policy` for detection models, `reid_policy` for re-identification models, and `classification_policy` for classification models. Currently, only these policies are supported. To add a custom policy, refer to the implementation in [sscape_adapter.py](./user_scripts/gvapython/sscape/sscape_adapter.py).
+   > **Note:** The `detection_policy` parameter specifies the type of inference model used in the pipeline. For example, use `detection_policy` for detection models, `reid_policy` for re-identification models, and `classification_policy` for classification models. Currently, only these policies are supported. To add a custom policy, refer to the implementation in [sscape_post_inference_data_publish.py](./user_scripts/gstplugins/sscape_post_inference_data_publish.py).
 
 2. **Mount the Config File:**
    In your `docker-compose.yml`, update the DL Streamer Pipeline Server service to mount your new config file. For example:
@@ -303,7 +301,7 @@ Your new pipeline will now be used by the DL Streamer Pipeline Server on startup
 
 ## Using Authenticated MQTT Broker
 
-- The current DL Streamer Pipeline Server does not support Mosquitto connections with authentication by default. If authentication is required, configure a custom MQTT client with authentication support in [sscape_adapter.py](./user_scripts/gvapython/sscape/sscape_adapter.py).
+- The current DL Streamer Pipeline Server does not support Mosquitto connections with authentication by default. If authentication is required, configure a custom MQTT client with authentication support in [sscape_post_inference_data_publish.py](./user_scripts/gstplugins/sscape_post_inference_data_publish.py).
 
 ## Additional Resources
 
