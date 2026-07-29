@@ -103,7 +103,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       assert not common.are_images_similar(screen_3d, screen_scene_camera, 0.8)
 
       log.info("Toggle scene camera again (to turn off scene camera and return to 3D plane view)")
-      self.clickOnElement("camera1-scene-cameraa", delay=10)
+      self.clickOnElement("camera1-scene-camera", delay=10)
 
       log.info("Take 3D plane screenshot")
       screen_3d_2 = self.captureScreenshot()
