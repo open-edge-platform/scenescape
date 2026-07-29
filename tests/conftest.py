@@ -307,6 +307,39 @@ def params(request, scenescape_env):
     'expect_exceed_max': request.config.getoption('--expect_exceed_max'),
   }
 
+def pytest_runtest_makereport(item, call):
+  """Hook that runs after each test phase (setup/call/teardown).
+
+  Used to detect when we're in a single-test run (or the last test in a session)
+  and clean up the compose stack immediately.
+  """
+  if not _ORCHESTRATION_AVAILABLE:
+    return
+
+  # Only act after the test teardown phase has completed
+  if call.when != "teardown":
+    return
+
+  # Check if this test used scenescape_env
+  if not getattr(item.session, "_scenescape_test_ran", False):
+    return
+
+  # Reset the marker for the next test
+  item.session._scenescape_test_ran = False
+
+  # If this is the last test in the session (or only one),
+  # tear down the compose stack immediately to avoid container leakage.
+  remaining_items = [i for i in item.session.items if i != item]
+  if not remaining_items:
+    if hasattr(item.session, "_compose_manager"):
+      manager = item.session._compose_manager
+      try:
+        manager._stop_current()
+        logger.info("Cleaned up compose stack after final test")
+      except Exception as exc:
+        logger.warning("Failed to clean up compose stack: %s", exc)
+
+
 def pytest_report_teststatus(report, config):
   if report.when == "call":
     return report.outcome, "", ""
@@ -847,10 +880,10 @@ def scenescape_env(request, _compose_manager, secrets_dir, supass,
           logger.warning("Pre-test DB restore failed: %s", exc)
         request.session._scenescape_db_preserved = None
 
-  yield env
+  # Track that this test used the environment for cleanup scheduling.
+  request.session._scenescape_test_ran = True
 
-  # Collect container logs based on outcome and mode while the stack is still running.
-  _collect_container_logs_if_configured(env, request)
+  yield env
 
   # Restore database after every test so each test starts from an identical
   # baseline. Only applies to profiles that include a web/database service.
@@ -977,52 +1010,67 @@ def pytest_runtest_setup(item):
   test_name = _derive_marker(item)
   log_path = _testlog.setup(test_name, group=group, log_base=_LOG_BASE)
   logger.info("Test log: %s", log_path)
-  logger.info("Test: %s", item.nodeid)
 
-def _collect_container_logs_if_configured(env, request):
-  """Collect container logs from env if outcome+mode warrant it.
-
-  Called from the scenescape_env fixture teardown before any stack cleanup
-  so the containers are still running.
-  """
-  if not _ORCHESTRATION_AVAILABLE or env is None or not hasattr(env, "docker"):
+def pytest_runtest_call(item):
+  """Switch file logging from setup log to per-test log for call/teardown."""
+  if not _ORCHESTRATION_AVAILABLE or _testlog is None:
     return
-  mode = request.config.getoption("collect_container_logs", default="failed")
+  spec = getattr(item, "_scenescape_spec", None)
+  is_k8s_only = item.get_closest_marker("kubernetes_only") is not None
+  if spec is None and not is_k8s_only:
+    return
+  _testlog.begin_test_phase()
+
+def _collect_container_logs_if_configured(item):
+  """Collect container logs for an item based on configured mode and outcome.
+
+  This runs after teardown report is available so teardown/finalizer failures
+  are included in mode=failed decisions.
+  """
+  if not _ORCHESTRATION_AVAILABLE:
+    return
+
+  mode = item.config.getoption("collect_container_logs", default="failed")
   if mode == "none":
     return
-  node = request.node
-  rep_setup = getattr(node, "rep_setup", None)
-  rep_call = getattr(node, "rep_call", None)
+
+  env = getattr(item, "_scenescape_env", None)
+  if env is None and hasattr(item, "funcargs"):
+    env = item.funcargs.get("scenescape_env")
+  if env is None:
+    return
+  setattr(item, "_scenescape_env", env)
+
+  rep_setup = getattr(item, "rep_setup", None)
+  rep_call = getattr(item, "rep_call", None)
+  rep_teardown = getattr(item, "rep_teardown", None)
   failed = bool(
     (rep_setup is not None and rep_setup.failed)
     or (rep_call is not None and rep_call.failed)
+    or (rep_teardown is not None and rep_teardown.failed)
   )
   if mode == "failed" and not failed:
     return
+
   if mode == "all":
-    logger.info("Collecting container logs (mode=all): %s", node.nodeid)
+    logger.info("Collecting container logs (mode=all): %s", item.nodeid)
   else:
-    logger.info("Collecting container logs for failed test: %s", node.nodeid)
+    logger.info("Collecting container logs for failed test: %s", item.nodeid)
   if _testlog is not None:
     _testlog.silence_console()
-  collect_logs(env.docker, scan_for_tracebacks=True)
+  if hasattr(env, 'docker'):
+    collect_logs(env.docker, scan_for_tracebacks=True)
+  else:
+    logger.info("Skipping container log collection (non-Docker backend)")
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-  """Attach setup/call/teardown reports and finalize the per-test log."""
+  """Attach setup/call/teardown reports and collect logs after teardown."""
   outcome = yield
   rep = outcome.get_result()
   setattr(item, f"rep_{rep.when}", rep)
-  if rep.when == "teardown" and _testlog is not None:
-    rep_setup = getattr(item, "rep_setup", None)
-    rep_call = getattr(item, "rep_call", None)
-    rep_teardown = getattr(item, "rep_teardown", None)
-    failed = bool(
-      (rep_setup is not None and rep_setup.failed)
-      or (rep_call is not None and rep_call.failed)
-      or (rep_teardown is not None and rep_teardown.failed)
-    )
-    _testlog.finalize(passed=not failed)
+  if rep.when == "teardown":
+    _collect_container_logs_if_configured(item)
 
 def pytest_runtest_logreport(report):
   """Log test phase results to the per-test log file."""
