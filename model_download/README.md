@@ -113,3 +113,17 @@ MODEL_DOWNLOADER_CMD ?= --plugins omz,huggingface
 - if the model needs DL Streamer post-processing metadata, add `scenescape.model_proc` to the model entry so the generator creates the model-proc file in the models volume.
 
 > [!NOTE] list of available plugins and their configuration can be found in the `model_downloader` [documentation](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/microservices/model-download/README.md).
+
+## Unit Tests
+
+Unit tests (no Docker required) are located in `tests/sscape_tests/model_download/` and cover:
+
+- `models.json` parsing and validation (`generate_model_config.py`): schema checks for `model_downloader`/`scenescape` entries, `scenescape.model_proc` path/content validation, duplicate name/path detection, and end-to-end generation of `model_config.json`. A regression test also parses the repo's real `model_download/models.json`.
+- Non-trivial logic in `download_models.py`: job status/outcome resolution, filtering tracked jobs, downloader model validation, and the download-request/poll loops (with `urllib.request.urlopen` mocked).
+
+Run from repo root:
+
+```bash
+pytest tests/sscape_tests/model_download/ -v -p no:django
+```
+
