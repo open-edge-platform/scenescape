@@ -2804,10 +2804,12 @@ components:
           type: boolean
           title: Staff status
           description: Designates whether the user can log into this admin site.
+          readOnly: true
         is_superuser:
           type: boolean
           title: Superuser status
           description: Designates that this user has all permissions without explicitly assigning them.
+          readOnly: true
         first_name:
           type: string
           maxLength: 150
