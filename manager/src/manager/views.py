@@ -119,7 +119,13 @@ def protected_media(request, path, media_root):
 
 def list_resources(request, folder_name):
   """! List files in folder_name inside MEDIA_ROOT and return them as JSON."""
-  base_path = os.path.join(settings.MEDIA_ROOT, folder_name)
+  media_root = os.path.realpath(settings.MEDIA_ROOT)
+  base_path = os.path.realpath(os.path.join(media_root, folder_name))
+
+  # Ensure the resolved path stays within MEDIA_ROOT.
+  if os.path.commonpath([media_root, base_path]) != media_root:
+    return JsonResponse({"error": "Invalid folder"}, status=400)
+
   if not os.path.exists(base_path) or not os.path.isdir(base_path):
     return JsonResponse({"error": "Invalid folder"}, status=400)
   files = [f for f in os.listdir(base_path) if os.path.isfile(os.path.join(base_path, f))]
