@@ -384,7 +384,7 @@ up regions/tripwires, see [using-scene-output.md](./references/using-scene-outpu
 ## Quality & Evaluation
 
 Automated eval cases live in [evals/evals.json](./evals/evals.json), one entry per
-`example-prompts/` file (`prompt_file` links the two together). See [BENCHMARK.md](./BENCHMARK.md)
+`example-prompts/` file (`prompt_file` links the two together). See [benchmark.md](./benchmark.md)
 for current benchmark status.
 
 ## Writing an effective prompt

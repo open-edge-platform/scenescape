@@ -11,7 +11,7 @@ Model: copilot=claude-sonnet-5, Date 2026-07-20T17:22:19Z Evals: 1, 2, 3, 4, 5 (
 
 Evaluated with the multi-CLI eval runner (`skills/tools/run_multi_cli_eval.py`) against
 `evals/evals.json`, graded with an LLM judge (Copilot CLI, `claude-sonnet-5`). All 5 evals
-now pass **100%** of their assertions with the skill loaded (`with_skill`).
+now pass **100%** of their expectations with the skill loaded (`with_skill`).
 
 | Eval | Scenario                                | Pass rate  |
 | ---- | --------------------------------------- | ---------- |
@@ -21,5 +21,5 @@ now pass **100%** of their assertions with the skill loaded (`with_skill`).
 | 4    | Reactive tracker tuning                 | 5/5 (100%) |
 | 5    | Reactive Re-ID tuning                   | 5/5 (100%) |
 
-The `without_skill` baseline scores near 0% on the same assertions (no awareness of the
+The `without_skill` baseline scores near 0% on the same expectations (no awareness of the
 orchestrator, checkpoint files, or tuning references), confirming the skill provides real lift.
