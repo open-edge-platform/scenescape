@@ -448,4 +448,4 @@ for step in 6 7 8 9 10 12 13; do
 done
 
 scene_uid=$(state_read scene_uid)
-log "=== DEPLOY COMPLETE scene_uid=${scene_uid:-n/a} supass=$(cat "$DEPLOY_DIR/secrets/supass" 2>/dev/null || echo n/a) ==="
+log "=== DEPLOY COMPLETE scene_uid=${scene_uid:-n/a} (admin password stored in $DEPLOY_DIR/secrets/supass) ==="
