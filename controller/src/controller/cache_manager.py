@@ -264,6 +264,8 @@ class CacheManager:
     with self._lock:
       self._old_scene_cache = self.cached_scenes_by_uid if hasattr(self, 'cached_scenes_by_uid') else {}
       self.cached_scenes_by_uid = None
+      self._cached_scenes_by_cameraID = {}
+      self._cached_scenes_by_sensorID = {}
       if not hasattr(self, 'cached_child_transforms_by_uid') or self.cached_child_transforms_by_uid is None:
         self.cached_child_transforms_by_uid = {}
     return

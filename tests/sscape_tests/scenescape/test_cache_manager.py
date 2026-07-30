@@ -352,16 +352,22 @@ class TestCacheManagerInvalidation:
   """Test cache invalidation."""
 
   def test_invalidate_clears_cache(self):
-    """Test that invalidate clears the scene cache."""
+    """Test that invalidate clears the scene cache and secondary indexes."""
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr._lock = threading.RLock()
     mock_scene = Mock(spec=Scene)
+    mock_remote_child = Mock(spec=Scene)
     cache_mgr.cached_scenes_by_uid = {'scene-1': mock_scene}
-    cache_mgr.cached_child_transforms_by_uid = {}
+    cache_mgr._cached_scenes_by_cameraID = {'camera-1': mock_scene}
+    cache_mgr._cached_scenes_by_sensorID = {'sensor-1': mock_scene}
+    cache_mgr.cached_child_transforms_by_uid = {'remote-child-1': mock_remote_child}
 
     cache_mgr.invalidate()
 
     assert cache_mgr.cached_scenes_by_uid is None
+    assert cache_mgr._cached_scenes_by_cameraID == {}
+    assert cache_mgr._cached_scenes_by_sensorID == {}
+    assert cache_mgr.cached_child_transforms_by_uid == {'remote-child-1': mock_remote_child}
 
   def test_invalidate_preserves_old_cache(self):
     """Test that invalidate preserves old cache for sensor restoration."""
