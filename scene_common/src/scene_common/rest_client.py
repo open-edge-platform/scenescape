@@ -33,16 +33,21 @@ class RESTResult(dict):
 
 class RESTClient:
   def __init__(self, url=None, token=None, auth=None,
-               rootcert=None, verify_ssl=False, timeout=10):
+               rootcert=None, verify_ssl=True, timeout=10):
     self.url = url
 
     if self.url and not self.url.endswith("/"):
       self.url = self.url + "/"
 
-    # Handle SSL verification (support both bool and path)
-    self.verify_ssl = verify_ssl if verify_ssl is not False else False
+    # Handle SSL verification. Precedence:
+    #   1. rootcert (path to a CA bundle) is used to verify the peer.
+    #   2. Otherwise fall back to ``verify_ssl`` (defaults to True to be
+    #      secure-by-default). Callers must opt into disabling TLS
+    #      verification explicitly by passing ``verify_ssl=False``.
     if rootcert:
       self.verify_ssl = rootcert
+    else:
+      self.verify_ssl = verify_ssl
 
     self.timeout = timeout
     self.session = requests.session()

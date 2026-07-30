@@ -11,6 +11,7 @@ and are marked kubernetes_only so they're skipped when --backend=docker.
 
 import json
 import logging
+import os
 import socket
 import subprocess
 import time
@@ -99,7 +100,12 @@ def test_scenescape_web_app_accessible(_k8s_manager):
   """Verify the web application responds with HTTP 200."""
   url = f"https://localhost:{_k8s_manager.web_port}"
   logger.info("Checking web app accessibility at %s", url)
-  response = requests.get(url, verify=False)
+  # Verify TLS against the deployment's CA bundle when available; otherwise
+  # fall back to the system trust store so the request always performs
+  # certificate validation.
+  cert = os.environ.get("ROOT_CERT", "/run/secrets/certs/scenescape-ca.pem")
+  verify = cert if isinstance(cert, str) and cert and os.path.exists(cert) else True
+  response = requests.get(url, verify=verify, timeout=30)
   logger.info("Web app response: HTTP %d", response.status_code)
   assert response.status_code == 200
 

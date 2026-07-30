@@ -38,7 +38,7 @@ def create_scenescape_clients(
     base_url,
     token=None,
     auth=None,
-    verify_ssl=False,
+    verify_ssl=True,
     timeout=10,
     include_autocalibration=True,
     include_mapping=True,

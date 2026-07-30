@@ -79,6 +79,7 @@ Optional:
 
 import json
 import os
+import secrets
 import shutil
 import socket
 import tempfile
@@ -124,9 +125,12 @@ _TRACKER_SVC_CONFIG        = _CONTAINER_WORKSPACE + "/tracker_svc_config.json"
 _TRACKER_SVC_AUTH          = _CONTAINER_WORKSPACE + "/manager_auth.json"
 _TRACKER_SVC_SCHEMA        = "/scenescape/schema/config.schema.json"
 
-# Mock Manager REST credentials (arbitrary — server accepts any)
-_MOCK_MANAGER_USER         = "harness"
-_MOCK_MANAGER_PASSWORD     = "harness"
+# Mock Manager REST credentials. The mock server accepts any username/password
+# — these values only need to be self-consistent between the harness and the
+# containers it launches. Generating them at import time with a cryptographic
+# RNG avoids embedding a hard-coded credential in the repository.
+_MOCK_MANAGER_USER         = f"harness-{secrets.token_hex(4)}"
+_MOCK_MANAGER_TOKEN       = secrets.token_urlsafe(24)  # nosec B105  # not a credential; mock only
 _MOCK_MANAGER_PORT         = 8888  # internal Docker-network port
 
 # Container type constants
@@ -717,7 +721,7 @@ class BlackBoxHarness(TrackerHarness):
         Running controller container.
     """
     manager_url = f"http://{manager_name}:{manager_port}/api/v1"
-    rest_auth   = f"{_MOCK_MANAGER_USER}:{_MOCK_MANAGER_PASSWORD}"
+    rest_auth   = f"{_MOCK_MANAGER_USER}:{_MOCK_MANAGER_TOKEN}"
 
     envs: Dict[str, str] = {}
     if collector_name:
@@ -773,7 +777,7 @@ class BlackBoxHarness(TrackerHarness):
     auth_file = tmp_dir / "manager_auth.json"
     auth_file.write_text(json.dumps({
         "user": _MOCK_MANAGER_USER,
-        "password": _MOCK_MANAGER_PASSWORD,
+        "password": _MOCK_MANAGER_TOKEN,
     }))
 
     svc_config = _build_tracker_service_config(
@@ -881,9 +885,12 @@ class BlackBoxHarness(TrackerHarness):
     """Start the OTEL Collector sidecar that captures OTLP metrics to a file."""
     out_dir = tmp_dir / "collector_out"
     out_dir.mkdir(parents=True, exist_ok=True)
-    # The collector image runs as a non-root UID; make the bind-mounted output
-    # directory writable so it can write the metrics file.
-    os.chmod(out_dir, 0o1777)
+    # The collector image runs as a non-root UID; the bind-mounted output
+    # directory must be writable by that UID. Restrict permissions to the
+    # owner (rwx) and rely on Docker's `--user=<host uid:gid>` runtime flag
+    # (added below via `user=`) so the container writes as the current host
+    # user rather than requiring group- or world-permissions on the host dir.
+    out_dir.chmod(0o700)
     self._metrics_out_dir = out_dir
 
     cfg_path = self._build_collector_config(tmp_dir)
@@ -892,6 +899,7 @@ class BlackBoxHarness(TrackerHarness):
         command=["--config", _COLLECTOR_CONFIG],
         name=collector_name,
         networks=[net_name],
+        user=f"{os.getuid()}:{os.getgid()}",
         volumes=[
             (str(cfg_path), _COLLECTOR_CONFIG, "ro"),
             (str(out_dir),  _COLLECTOR_OUTPUT_DIR, "rw"),

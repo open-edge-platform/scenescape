@@ -64,12 +64,27 @@ def password():
   return os.environ.get("SUPASS", "admin")
 
 @pytest.fixture(scope='session')
-def token(base_url, username, password):
+def rootcert():
+  """CA certificate path used for TLS verification in local test runs.
+
+  Defaults to the SceneScape CA bundle inside the manager container. Tests
+  running against a deployment with a different CA can override via the
+  ``ROOT_CERT`` environment variable. When the path does not exist we fall
+  back to the system trust store to keep TLS verification enabled by
+  default.
+  """
+  cert = os.environ.get("ROOT_CERT", "/run/secrets/certs/scenescape-ca.pem")
+  if isinstance(cert, str) and cert and os.path.exists(cert):
+    return cert
+  return True
+
+@pytest.fixture(scope='session')
+def token(base_url, username, password, rootcert):
   """Fetch authentication token from the Scenescape API"""
   response = requests.post(
     f"{base_url}/api/v1/auth",
     data={"username": username, "password": password},
-    verify=False,
+    verify=rootcert,
     timeout=10,
   )
   response.raise_for_status()
@@ -77,11 +92,11 @@ def token(base_url, username, password):
   return api_token
 
 @pytest.fixture(scope='session')
-def service_clients(token, base_url):
+def service_clients(token, base_url, rootcert):
   return create_scenescape_clients(
       base_url=base_url,
       token=token,
-      verify_ssl=False,
+      verify_ssl=rootcert,
       service_src_dirs=[AUTOCALIB_SRC_DIR, MAPPING_SRC_DIR],
       strict_imports=True,
   )

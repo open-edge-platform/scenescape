@@ -45,10 +45,16 @@ class Image:
     if parsed.scheme == "rtsp":
       return self.getRTSP()
 
+    # Prefer the configured root certificate when supplied so that the
+    # request performs proper TLS verification. Fall back to enabling
+    # verification against the system trust store; callers that need to
+    # talk to devices with self-signed certificates should provide the CA
+    # via ``rootCert``.
+    verify = self.rootCert if self.rootCert else True
     response = None
     try:
       log.debug("Fetch try 1", self.url)
-      response = requests.get(self.url, verify=False) # nosec B501 - bandit scan ignore
+      response = requests.get(self.url, verify=verify, timeout=30)
     except (urllib3.exceptions.MaxRetryError, requests.exceptions.SSLError):
       log.debug("Failed to fetch image try 1", self.url)
       pass
@@ -60,7 +66,8 @@ class Image:
         response = requests.get(self.url,
                                 auth=requests.auth.HTTPDigestAuth(parsed['user'],
                                                                   parsed['password']),
-                                verify=False) # nosec B501 - bandit scan ignore
+                                verify=verify,
+                                timeout=30)
       except (urllib3.exceptions.MaxRetryError, requests.exceptions.SSLError):
         log.debug("Failed to fetch image try 2", self.url)
         pass

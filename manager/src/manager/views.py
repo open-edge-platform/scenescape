@@ -4,6 +4,7 @@
 import json
 import os
 import random
+import re
 import time
 import traceback
 import uuid
@@ -108,21 +109,42 @@ def index(request):
   return render(request, 'sscape/index.html', context)
 
 def protected_media(request, path, media_root):
-  if request.user.is_authenticated:
-    if path != "":
-      file = os.path.join(media_root, path)
-      if os.path.exists(file):
-        response = FileResponse(open(file, 'rb'))
-        return response
+  if not request.user.is_authenticated:
+    return HttpResponse("401 Unauthorized", status=401)
+  if path == "":
     return HttpResponseNotFound()
-  return HttpResponse("401 Unauthorized", status=401)
+  # Reject obvious traversal / absolute-path payloads up front. The path
+  # value comes from the URL and must resolve to a file *inside* the
+  # media_root directory.
+  if os.path.isabs(path) or ".." in path.replace("\\", "/").split("/"):
+    return HttpResponseNotFound()
+  base_real = os.path.realpath(media_root)
+  base_prefix = base_real if base_real.endswith(os.sep) else base_real + os.sep
+  candidate = os.path.realpath(os.path.join(base_real, path))
+  # ``str.startswith`` is recognized as a path-injection safe-access check
+  # by CodeQL, so the sanitized ``candidate`` only reaches the ``open`` call
+  # when it is genuinely contained within ``base_real``.
+  if not candidate.startswith(base_prefix):
+    return HttpResponseNotFound()
+  if not os.path.isfile(candidate):
+    return HttpResponseNotFound()
+  return FileResponse(open(candidate, 'rb'))
 
 def list_resources(request, folder_name):
   """! List files in folder_name inside MEDIA_ROOT and return them as JSON."""
-  base_path = os.path.join(settings.MEDIA_ROOT, folder_name)
-  if not os.path.exists(base_path) or not os.path.isdir(base_path):
+  # ``folder_name`` is captured by Django's ``<str:...>`` converter and
+  # cannot contain '/'. Additionally restrict it to a safe character set to
+  # rule out other traversal payloads (e.g. bare '..').
+  if not re.fullmatch(r"[A-Za-z0-9._-]+", folder_name) or folder_name in ("", ".", ".."):
     return JsonResponse({"error": "Invalid folder"}, status=400)
-  files = [f for f in os.listdir(base_path) if os.path.isfile(os.path.join(base_path, f))]
+  base_real = os.path.realpath(settings.MEDIA_ROOT)
+  base_prefix = base_real if base_real.endswith(os.sep) else base_real + os.sep
+  candidate = os.path.realpath(os.path.join(base_real, folder_name))
+  if not candidate.startswith(base_prefix):
+    return JsonResponse({"error": "Invalid folder"}, status=400)
+  if not os.path.isdir(candidate):
+    return JsonResponse({"error": "Invalid folder"}, status=400)
+  files = [f for f in os.listdir(candidate) if os.path.isfile(os.path.join(candidate, f))]
   return JsonResponse({"files": files})
 
 @login_required(login_url="sign_in")
@@ -896,6 +918,13 @@ def generate_mesh_status(request, pk):
   request_id = request.GET.get("request_id")
   if not request_id:
     return JsonResponse({"success": False, "error": "missing request_id"}, status=400)
+
+  # The mapping service generates request_id via uuid.uuid4().hex (32 lowercase
+  # hex chars). Validating the format here prevents Server-Side Request
+  # Forgery (SSRF) via a crafted request_id that could otherwise inject
+  # path/query components into the URL used by getReconstructionStatus().
+  if not re.fullmatch(r"[0-9a-fA-F]{32}", request_id):
+    return JsonResponse({"success": False, "error": "invalid request_id"}, status=400)
 
   try:
     from .mesh_generator import MeshGenerator

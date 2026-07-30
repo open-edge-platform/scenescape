@@ -367,8 +367,17 @@ class MeshGenerator:
     if not self.isValidVideo(uploaded_file):
       raise ValueError("Uploaded file does not look like a valid video")
 
-    filename = getattr(uploaded_file, "name", "") or ""
-    suffix = Path(filename).suffix
+    # Map the uploaded MIME type to a constant, hard-coded suffix. Never
+    # embed the raw filename suffix into the temp-file path, which would
+    # constitute a path-injection sink.
+    _MIME_TO_SUFFIX = {
+        "video/mp4": ".mp4",
+        "video/quicktime": ".mov",
+        "video/x-matroska": ".mkv",
+        "video/webm": ".webm",
+        "video/x-msvideo": ".avi",
+    }
+    suffix = _MIME_TO_SUFFIX[content_type]
 
     try:
       path = uploaded_file.temporary_file_path()
