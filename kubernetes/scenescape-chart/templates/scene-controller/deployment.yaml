@@ -56,6 +56,12 @@ spec:
           {{- if .Values.reid.enabled }}
           - name: REID_DATABASE
             value: {{ include "reid.backend" . | upper | quote }}
+          # `default` is not used here: it would turn an explicit 0 (retention
+          # disabled) back into the chart default.
+          - name: REID_DESCRIPTOR_TTL_SECS
+            value: {{ .Values.reid.descriptorTtlSecs | quote }}
+          - name: REID_PURGE_INTERVAL_SECS
+            value: {{ .Values.reid.purgeIntervalSecs | quote }}
           {{- end }}
             {{ include "proxy_envs" . | indent 10 }}
           ports:
