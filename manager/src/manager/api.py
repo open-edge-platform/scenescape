@@ -58,7 +58,7 @@ def get_class_and_serializer(thing_type):
   return None, None, None
 
 
-class ListThings(generics.ListCreateAPIView):
+class ListThings(generics.ListAPIView):
   authentication_classes = [authentication.TokenAuthentication]
   permission_classes = [permissions.IsAuthenticated]
 
