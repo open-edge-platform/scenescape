@@ -18,6 +18,7 @@ from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegio
 
 from controller.controller_mode import ControllerMode
 from controller.moving_object import ChainData
+from controller.reid_constants import REID_PROVENANCE_KEY
 from controller.pose_adjustment import (PoseAdjustment,
                                         MIN_POSE_CACHE_TTL,
                                         POSE_CACHE_TTL_MULTIPLIER)
@@ -32,6 +33,24 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
 DEBOUNCE_DELAY = 0.5
 MIN_FRAMES_FOR_RELIABLE_TRACK = 3
 
+
+def stripReidProvenance(detections):
+  """
+  Remove claimed embedding provenance from detections arriving on a camera topic.
+
+  Provenance means "another scene vetted this crop with a pixel bbox before forwarding
+  it". A detector is judged by the bbox it sends, so honoring such a claim from one
+  would only let it skip the quality gate it exists to satisfy.
+
+  @param  detections  List of detection dicts, modified in place
+  """
+  for detection in detections:
+    metadata = detection.get('metadata')
+    if isinstance(metadata, dict):
+      reid = metadata.get('reid')
+      if isinstance(reid, dict):
+        reid.pop(REID_PROVENANCE_KEY, None)
+  return
 
 class TripwireEvent:
   def __init__(self, object, direction):
@@ -225,6 +244,7 @@ class Scene(SceneModel):
       return True
 
     for detection_type, detections in jdata['objects'].items():
+      stripReidProvenance(detections)
       self.pose_adjustment.adjust_detections(
         detection_type,
         detections,
@@ -307,22 +327,24 @@ class Scene(SceneModel):
       translation = np.matmul(cameraPose.pose_mat, translation)
       info['translation'] = translation[:3]
 
+      # Embeddings travel nested under metadata (see detections_builder.prepareObjDict);
+      # a top-level 'reid' key is never produced by a child scene and would bypass the
+      # provenance the receiving scope relies on, so drop it.
+      info.pop('reid', None)
+
       if not child.retrack:
         # retrack=False: the child's own gid/identity resolution is trusted as-is and carried
-        # forward via setGID/setPrevious in mergeAlreadyTrackedObjects -- these objects never
-        # reach uuid_manager.assignID, so any reid embedding forwarded here would be unused at
-        # best, or (before this fix) leak into quality/storage bookkeeping it should never touch.
-        # reid is serialized nested under metadata (see detections_builder.prepareObjDict), not
-        # as a top-level 'reid' key, so strip it from there rather than the nonexistent top level,
-        # and strip it before construction since MovingObject.__init__ decodes and consumes it.
+        # forward via setGID/setPrevious in mergeAlreadyTrackedObjects. These objects never
+        # reach uuid_manager.assignID, so a forwarded embedding would be dead weight here.
         metadata = info.get('metadata')
         if isinstance(metadata, dict):
           metadata.pop('reid', None)
-      # retrack=True: leave metadata.reid intact. The parent re-runs its own tracker/UUIDManager
-      # on these forwarded detections from scratch (see IntelLabsTracking.trackCategory ->
-      # from_tracked_object -> uuid_manager.assignID). There is no pixel bbox at this point (the
-      # child already converted to world/metric coordinates), so the reid embedding the child
-      # collected is the only identity signal the parent has to work with here.
+      # retrack=True: leave metadata.reid intact. The parent re-runs its own tracker and
+      # UUIDManager over these detections so that observations of one person arriving from
+      # several children (and from the parent's own cameras) collapse into a single track.
+      # The forwarded embedding is what makes that merge possible, and its provenance says
+      # which camera vetted it -- the parent queries with it but never enrolls it, since the
+      # originating scene already owns that crop's contribution to the shared database.
 
       mobj = self.tracker.createObject(detectionType, info, when, child, self.persist_attributes.get(detectionType, {}))
       log.debug("RX SCENE OBJECT",

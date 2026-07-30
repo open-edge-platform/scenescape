@@ -10,9 +10,11 @@ import numpy as np
 
 from controller.reid_constants import (
   DEFAULT_CONFIG_SIMILARITY_METRIC,
+  DEFAULT_MINIMUM_BBOX_AREA,
   SUPPORTED_CONFIG_SIMILARITY_METRICS,
   is_higher_better_metric,
   is_similarity_match,
+  is_vetted_provenance,
   normalize_config_similarity_metric,
   normalize_similarity_score,
   pick_best_metric_value,
@@ -25,7 +27,6 @@ from scene_common.timestamp import get_epoch_time
 
 DEFAULT_SIMILARITY_THRESHOLD_L2 = 40.0
 DEFAULT_SIMILARITY_THRESHOLD_COSINE = 0.5
-DEFAULT_MINIMUM_BBOX_AREA = 5000
 DEFAULT_MINIMUM_FEATURE_COUNT = 12
 DEFAULT_FEATURE_SLICE_SIZE = 10
 DEFAULT_MAX_QUERY_TIME = 4
@@ -86,7 +87,11 @@ class UUIDManager:
     self.active_query = {}
     self.features_for_database = {}
     self.features_for_database_timestamps = {}  # Track when features were added
+    # Embeddings this scope may query the shared database with: its own camera crops plus
+    # crops another scope vetted before forwarding them.
     self.quality_features = {}
+    # Embeddings this scope may contribute to the shared database: local camera crops only.
+    self.enrollment_features = {}
     self.unique_id_count = 0
     self.stale_feature_timer = None
 
@@ -326,6 +331,7 @@ class UUIDManager:
     for track_id, data in inactive_tracks:
       self.active_query.pop(track_id, None)
       self.quality_features.pop(track_id, None)
+      self.enrollment_features.pop(track_id, None)
       self.features_for_database_timestamps.pop(track_id, None)
       self._addNewFeaturesToDatabase(track_id)
     return
@@ -347,7 +353,7 @@ class UUIDManager:
     if slice_size is None:
       slice_size = self.feature_slice_size
     features = self.features_for_database.pop(track_id, None)
-    if features:
+    if features and features['reid_vectors']:
       features['reid_vectors'] = features['reid_vectors'][::slice_size]
       persist = features.get('persist', {})
       log.debug(
@@ -371,52 +377,101 @@ class UUIDManager:
     # Track is new only if not yet in active_ids dictionary
     return result is None
 
+  def isEnrollableObservation(self, sscape_object, minimum_bbox_area=None):
+    """
+    Check whether this scope observed the object well enough to enroll its embedding.
+
+    Enrollment requires a pixel-space bounding box, which exists only for detections
+    from a camera belonging to this scene. Objects forwarded from a child scene arrive
+    in world coordinates with no bbox, so the crop they came from belongs to -- and is
+    contributed to the shared database by -- the scene that owns that camera. Claimed
+    provenance never substitutes for a local bbox here; otherwise an upstream producer
+    could write into the database on this scene's behalf.
+
+    @param   sscape_object      The Scenescape object to evaluate
+    @param   minimum_bbox_area  Optional override for minimum pixel bbox area (px^2)
+    @return  bool               True when the embedding may be stored in the database
+    """
+    if minimum_bbox_area is None:
+      minimum_bbox_area = self.minimum_bbox_area
+
+    bounding_box_pixels = getattr(sscape_object, 'boundingBoxPixels', None)
+    if bounding_box_pixels is None:
+      return False
+    return bounding_box_pixels.area > minimum_bbox_area
+
+  def isQueryableObservation(self, sscape_object, minimum_bbox_area=None):
+    """
+    Check whether an embedding may be used to resolve this object's identity.
+
+    Beyond locally observed crops, a scene accepts embeddings a child vetted with its
+    own pixel bbox before forwarding them: without those, a parent that re-tracks its
+    children has no visual signal at all to merge one person's observations across
+    scenes with. An embedding carrying neither a local bbox nor vetted provenance is
+    one nobody has vouched for, so it is dropped.
+
+    @param   sscape_object      The Scenescape object to evaluate
+    @param   minimum_bbox_area  Optional override for minimum pixel bbox area (px^2)
+    @return  bool               True when the embedding may be used for a query
+    """
+    if self.isEnrollableObservation(sscape_object, minimum_bbox_area):
+      return True
+    if getattr(sscape_object, 'boundingBoxPixels', None) is not None:
+      # Local crop that failed the area gate; forwarding provenance cannot rescue it.
+      return False
+    return is_vetted_provenance(getattr(sscape_object, 'reid_provenance', None))
+
   def gatherQualityVisualFeatures(self, sscape_object, minimum_bbox_area=None):
     """
     This function gathers quality visual features for identifying newly detected objects.
     It currently only uses re-id vectors but can be expanded to include more features.
 
-    Quality is decided on real pixel-space bounding box only, and only ever at the scope that
-    actually has one. Objects forwarded from a retrack=True child scene never carry a pixel
-    bbox here (the child already converts to metric/world coordinates before forwarding --
-    see Scene.processSceneData). Rather than recovering a substitute quality signal for a bbox
-    that no longer exists at this scope, the child makes that call itself, using its own real
-    bbox, before the embedding is ever included in the forwarded payload (see
-    detections_builder.prepareObjDict's gate_reid_quality path, wired in for the external
-    detections topic in SceneController.publishExternalDetections). So if a reid embedding
-    reaches this method without a pixel bbox, its reliability was already vetted upstream by
-    whichever scope actually had the bbox to judge it with -- there is nothing left to check
-    here, so it is trusted and accumulated directly.
+    Features are split by what this scope is entitled to do with them: everything usable
+    goes to quality_features, which drives the similarity query, while only locally
+    observed crops go to enrollment_features, which is what gets written back to the
+    shared database. Keeping the two apart is what stops the same crop from being
+    enrolled once per scene in a hierarchy under a different identity each time.
 
     @param  sscape_object          The Scenescape object to gather features from
     @param  minimum_bbox_area      Optional override for minimum pixel bbox area (px^2)
     """
-    if minimum_bbox_area is None:
-      minimum_bbox_area = self.minimum_bbox_area
-
     reid_embedding = self._extractReidEmbedding(sscape_object)
+    if reid_embedding is None or not self.reid_enabled:
+      return
 
-    if reid_embedding is not None and self.reid_enabled:
-      if not self._ensureReIDDimensions(reid_embedding):
-        return
+    if not self._ensureReIDDimensions(reid_embedding):
+      return
 
-      has_pixel_bbox = hasattr(sscape_object, 'boundingBoxPixels') and sscape_object.boundingBoxPixels is not None
+    if not self.isQueryableObservation(sscape_object, minimum_bbox_area):
+      log.debug(
+        f"gatherQualityVisualFeatures: Rejected embedding for rv_id={sscape_object.rv_id} "
+        f"(no usable pixel bbox and no vetted provenance)")
+      return
 
-      if has_pixel_bbox:
-        area = sscape_object.boundingBoxPixels.area
-        if area <= minimum_bbox_area:
-          log.debug(f"gatherQualityVisualFeatures: Area too small for rv_id={sscape_object.rv_id} (area={area:.4f} px^2 <= {minimum_bbox_area})")
-          return
-        log.debug(f"gatherQualityVisualFeatures: Accepted embedding for rv_id={sscape_object.rv_id} (area={area:.4f} px^2)")
-      else:
-        log.debug(
-          f"gatherQualityVisualFeatures: Accepted embedding for rv_id={sscape_object.rv_id} "
-          "(no pixel bbox at this scope; already quality-gated upstream before forwarding)")
+    self.quality_features.setdefault(sscape_object.rv_id, []).append(reid_embedding)
+    if self.isEnrollableObservation(sscape_object, minimum_bbox_area):
+      self.enrollment_features.setdefault(sscape_object.rv_id, []).append(reid_embedding)
+      log.debug(
+        f"gatherQualityVisualFeatures: Accepted local embedding for rv_id={sscape_object.rv_id} "
+        f"(area={sscape_object.boundingBoxPixels.area:.4f} px^2)")
+    else:
+      log.debug(
+        f"gatherQualityVisualFeatures: Accepted forwarded embedding for rv_id={sscape_object.rv_id} "
+        f"(query only, provenance={getattr(sscape_object, 'reid_provenance', None)})")
+    return
 
-      if sscape_object.rv_id in self.quality_features:
-        self.quality_features[sscape_object.rv_id].append(reid_embedding)
-      else:
-        self.quality_features[sscape_object.rv_id] = [reid_embedding]
+  def _appendEnrollmentEmbedding(self, sscape_object, reid_embedding):
+    """
+    Add a locally observed embedding to the database entry pending for this track.
+
+    @param  sscape_object   The Scenescape object the embedding was taken from
+    @param  reid_embedding  The decoded embedding to store
+    """
+    if not self.isEnrollableObservation(sscape_object):
+      return
+    entry = self.features_for_database.get(sscape_object.rv_id)
+    if entry is not None:
+      entry['reid_vectors'].append(reid_embedding)
     return
 
   def pickBestID(self, sscape_object):
@@ -450,9 +505,7 @@ class UUIDManager:
       reid_embedding = self._extractReidEmbedding(sscape_object)
 
       if reid_embedding is not None and self._ensureReIDDimensions(reid_embedding):
-        if sscape_object.rv_id in self.features_for_database:
-          self.features_for_database[sscape_object.rv_id]['reid_vectors'].append(
-            reid_embedding)
+        self._appendEnrollmentEmbedding(sscape_object, reid_embedding)
     # DATABASE ID IS NULL (query not yet made or active_ids not yet initialized)
     else:
       sscape_object.similarity = None
@@ -741,9 +794,7 @@ class UUIDManager:
 
       reid_embedding = self._extractReidEmbedding(sscape_object)
       if reid_embedding is not None:
-        if sscape_object.rv_id in self.features_for_database:
-          self.features_for_database[sscape_object.rv_id]['reid_vectors'].append(
-            reid_embedding)
+        self._appendEnrollmentEmbedding(sscape_object, reid_embedding)
 
     # MATCH FOUND - NO / NEW OBJECT
     else:
@@ -788,10 +839,12 @@ class UUIDManager:
       else {}
     )
 
+    # Only crops this scene observed itself are contributed back to the shared database;
+    # embeddings forwarded from a child are the originating scene's to enroll.
     entry = {
       'gid': sscape_object.gid,
       'category': sscape_object.category,
-      'reid_vectors': self.quality_features[sscape_object.rv_id],
+      'reid_vectors': self.enrollment_features.setdefault(sscape_object.rv_id, []),
       'metadata': self._extractSemanticMetadata(sscape_object),
       }
 
@@ -799,8 +852,9 @@ class UUIDManager:
       entry['persist'] = {**persist_attrs, 'timestamp': sscape_object.when}
 
     # Store features with semantic metadata for TIER 1 filtering in future queries
-    num_features = len(self.quality_features.get(sscape_object.rv_id, []))
-    log.debug(f"updateActiveDict: Storing {num_features} features for track {sscape_object.rv_id} to features_for_database")
+    num_features = len(entry['reid_vectors'])
+    log.debug(f"updateActiveDict: Storing {num_features} locally observed features for track "
+              f"{sscape_object.rv_id} to features_for_database")
     self.features_for_database[sscape_object.rv_id] = entry
     log.debug(f"updateActiveDict: Storing features for rv_id={sscape_object.rv_id} "
         f"gid={sscape_object.gid} "

@@ -8,7 +8,11 @@ from scene_common import log
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
 from scene_common.timestamp import get_epoch_time, get_iso_time
-from controller.uuid_manager import DEFAULT_MINIMUM_BBOX_AREA
+from controller.reid_constants import (
+  DEFAULT_MINIMUM_BBOX_AREA,
+  REID_PROVENANCE_KEY,
+  is_vetted_provenance,
+)
 
 def buildDetectionsDict(objects, scene, include_sensors=False, include_region_dwell=False, current_time=None):
   result_dict = {}
@@ -19,12 +23,12 @@ def buildDetectionsDict(objects, scene, include_sensors=False, include_region_dw
 
 def buildDetectionsList(objects, scene, update_visibility=False, include_sensors=False,
                         include_region_dwell=False, current_time=None,
-                        gate_reid_quality=False, minimum_bbox_area=None):
+                        attach_reid_provenance=False, minimum_bbox_area=None):
   result_list = []
   for obj in objects:
     obj_dict = prepareObjDict(scene, obj, update_visibility, include_sensors,
                               include_region_dwell, current_time,
-                              gate_reid_quality=gate_reid_quality,
+                              attach_reid_provenance=attach_reid_provenance,
                               minimum_bbox_area=minimum_bbox_area)
     result_list.append(obj_dict)
   return result_list
@@ -61,9 +65,57 @@ def _serializePreviousIdsChain(previous_ids_chain):
 
   return serialized_chain
 
+def _sourceCameraID(aobj):
+  """Return the id of the camera whose pixels produced this detection, if known."""
+  vectors = getattr(aobj, 'vectors', None)
+  if vectors:
+    camera_id = getattr(getattr(vectors[0], 'camera', None), 'cameraID', None)
+    if camera_id is not None:
+      return camera_id
+  return getattr(getattr(aobj, 'camera', None), 'cameraID', None)
+
+def _reidProvenance(scene, aobj, minimum_bbox_area):
+  """
+  Describe where an embedding came from, or None when this scope cannot vouch for it.
+
+  Only the scope owning the source camera has a pixel bbox to judge crop quality with,
+  so that is the only scope allowed to mark an embedding as vetted. An embedding that
+  arrives already vetted keeps its original origin instead of being re-attributed, so
+  the receiving scope still knows which camera produced it after any number of hops.
+
+  @param   scene              Scene serializing the object
+  @param   aobj               The object whose embedding is being forwarded
+  @param   minimum_bbox_area  Minimum pixel bbox area (px^2), or None for the default
+  @return  dict               Provenance to attach, or None to withhold the embedding
+  """
+  inherited = getattr(aobj, 'reid_provenance', None)
+  if is_vetted_provenance(inherited):
+    return dict(inherited)
+
+  bounding_box_pixels = getattr(aobj, 'boundingBoxPixels', None)
+  if bounding_box_pixels is None:
+    return None
+
+  origin_scene_id = getattr(scene, 'uid', None) if scene is not None else None
+  if origin_scene_id is None:
+    return None
+
+  threshold = minimum_bbox_area if minimum_bbox_area is not None else DEFAULT_MINIMUM_BBOX_AREA
+  if bounding_box_pixels.area <= threshold:
+    log.debug(
+      f"_reidProvenance: withholding reid for gid={aobj.gid} "
+      f"(bbox area {bounding_box_pixels.area:.4f} <= {threshold})")
+    return None
+
+  return {
+    'origin_scene_id': origin_scene_id,
+    'origin_camera_id': _sourceCameraID(aobj),
+    'quality_vetted': True,
+  }
+
 def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
                    include_region_dwell=False, current_time=None,
-                   gate_reid_quality=False, minimum_bbox_area=None):
+                   attach_reid_provenance=False, minimum_bbox_area=None):
   aobj = obj
   if isinstance(obj, TripwireEvent):
     aobj = obj.object
@@ -110,23 +162,14 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
   # embedding_vector is always a (1, N) ndarray after decodeReIDEmbeddingVector.
   if aobj.reid and 'embedding_vector' in aobj.reid:
     reid_embedding = aobj.reid['embedding_vector']
-    reid_is_reliable = True
-    if gate_reid_quality:
-      has_pixel_bbox = getattr(aobj, 'boundingBoxPixels', None) is not None
-      if has_pixel_bbox:
-        threshold = minimum_bbox_area if minimum_bbox_area is not None else DEFAULT_MINIMUM_BBOX_AREA
-        reid_is_reliable = aobj.boundingBoxPixels.area > threshold
-        if not reid_is_reliable:
-          log.debug(
-            f"prepareObjDict: excluding reid for gid={aobj.gid} before forwarding "
-            f"(bbox area {aobj.boundingBoxPixels.area:.4f} <= {threshold})")
-      else:
-        # No real pixel bbox available at this scope to judge quality by (e.g. this object
-        # was itself reconstructed from a further-upstream forward). There is no fresh
-        # information here to decide reliability with, so do not propagate an embedding
-        # this scope cannot vouch for.
-        reid_is_reliable = False
-    if reid_embedding is not None and reid_is_reliable:
+    provenance = None
+    if attach_reid_provenance:
+      # Hierarchy output: a receiving scene has no pixel bbox of its own to judge the
+      # crop by, so it can only use embeddings that state where they were vetted.
+      provenance = _reidProvenance(scene, aobj, minimum_bbox_area)
+      if provenance is None:
+        reid_embedding = None
+    if reid_embedding is not None:
       if 'metadata' not in obj_dict:
         obj_dict['metadata'] = {}
       reid_vec = np.asarray(reid_embedding, dtype=np.float32)
@@ -136,6 +179,8 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
       }
       if 'model_name' in aobj.reid:
         obj_dict['metadata']['reid']['model_name'] = aobj.reid['model_name']
+      if provenance is not None:
+        obj_dict['metadata']['reid'][REID_PROVENANCE_KEY] = provenance
 
   if hasattr(aobj, 'visibility'):
     obj_dict['visibility'] = aobj.visibility

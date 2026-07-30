@@ -9,6 +9,7 @@ These tests run inside the controller container where all dependencies are avail
 """
 
 import numpy as np
+from types import SimpleNamespace
 from unittest.mock import Mock, MagicMock, patch
 
 import pytest
@@ -869,3 +870,160 @@ class TestDimensionInference:
 
     assert "track_1" in manager.quality_features, "64-dim embedding should be accepted"
     assert "track_2" not in manager.quality_features, "128-dim embedding should be rejected after 64 inferred"
+
+
+def _make_reid_object(rv_id, *, bbox_area=None, provenance=None):
+  """Build a detection whose embedding is either locally observed or forwarded to us."""
+  obj = MagicMock()
+  obj.rv_id = rv_id
+  obj.category = "Person"
+  obj.gid = None
+  obj.metadata = {}
+  obj.reid = {"embedding_vector": np.arange(64, dtype=np.float32).tolist()}
+  obj.boundingBoxPixels = None if bbox_area is None else SimpleNamespace(area=bbox_area)
+  obj.reid_provenance = provenance
+  return obj
+
+
+VETTED_PROVENANCE = {
+  'origin_scene_id': 'scene-child',
+  'origin_camera_id': 'cam-1',
+  'quality_vetted': True,
+}
+
+
+class TestReidObservationTrust:
+  """Separate what a scene may query the shared database with from what it may write to it."""
+
+  def test_local_crop_feeds_both_query_and_enrollment(self, mock_vdms_db):
+    """A crop from this scene's own camera is usable for matching and for enrollment."""
+    manager = UUIDManager()
+    obj = _make_reid_object("local-track", bbox_area=10000)
+
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert len(manager.quality_features["local-track"]) == 1
+    assert len(manager.enrollment_features["local-track"]) == 1
+
+  def test_small_local_crop_is_rejected_entirely(self, mock_vdms_db):
+    """A crop below the area gate is too unreliable to match with or to store."""
+    manager = UUIDManager()
+    obj = _make_reid_object("tiny-track", bbox_area=10)
+
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert "tiny-track" not in manager.quality_features
+    assert "tiny-track" not in manager.enrollment_features
+
+  def test_crop_exactly_at_minimum_area_is_rejected(self, mock_vdms_db):
+    """The area gate is exclusive, matching what the forwarding side enforces."""
+    manager = UUIDManager(reid_config_data={'minimum_bbox_area': 5000})
+    obj = _make_reid_object("boundary-track", bbox_area=5000)
+
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert "boundary-track" not in manager.quality_features
+
+  def test_vetted_forwarded_embedding_is_queried_but_never_enrolled(self, mock_vdms_db):
+    """A child's vetted crop lets the parent merge identities without re-enrolling it."""
+    manager = UUIDManager()
+    obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
+
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert len(manager.quality_features["forwarded-track"]) == 1
+    assert "forwarded-track" not in manager.enrollment_features
+
+  def test_embedding_without_bbox_or_provenance_is_dropped(self, mock_vdms_db):
+    """Nothing vouches for an embedding that arrives with neither, so it is unusable."""
+    manager = UUIDManager()
+    obj = _make_reid_object("orphan-track")
+
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert "orphan-track" not in manager.quality_features
+    assert "orphan-track" not in manager.enrollment_features
+
+  def test_provenance_without_origin_scene_is_not_trusted(self, mock_vdms_db):
+    """A vetting claim that names no origin cannot be attributed to anyone."""
+    manager = UUIDManager()
+    obj = _make_reid_object("anonymous-track", provenance={'quality_vetted': True})
+
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert "anonymous-track" not in manager.quality_features
+
+  def test_provenance_cannot_rescue_a_small_local_crop(self, mock_vdms_db):
+    """A claim from upstream never overrides the bbox this scope can measure itself."""
+    manager = UUIDManager()
+    obj = _make_reid_object("claimed-track", bbox_area=10, provenance=VETTED_PROVENANCE)
+
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert "claimed-track" not in manager.quality_features
+    assert "claimed-track" not in manager.enrollment_features
+
+  def test_provenance_cannot_make_a_forwarded_embedding_enrollable(self, mock_vdms_db):
+    """Only a measurable local bbox authorizes writing into the shared database."""
+    manager = UUIDManager()
+    obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
+
+    assert manager.isQueryableObservation(obj) is True
+    assert manager.isEnrollableObservation(obj) is False
+
+  def test_database_entry_holds_only_locally_observed_features(self, mock_vdms_db):
+    """Forwarded embeddings help resolve identity but are not this scene's to store."""
+    manager = UUIDManager()
+    local = _make_reid_object("mixed-track", bbox_area=10000)
+    forwarded = _make_reid_object("mixed-track", provenance=VETTED_PROVENANCE)
+    forwarded.chain_data = None
+
+    manager.gatherQualityVisualFeatures(local)
+    manager.gatherQualityVisualFeatures(forwarded)
+    manager.gatherQualityVisualFeatures(forwarded)
+    call_update_active_dict_locked(manager, local, database_id=None, similarity=None)
+
+    assert len(manager.quality_features["mixed-track"]) == 3
+    assert manager.features_for_database["mixed-track"]['reid_vectors'] == \
+      manager.enrollment_features["mixed-track"]
+    assert len(manager.features_for_database["mixed-track"]['reid_vectors']) == 1
+
+  def test_forwarded_only_track_contributes_nothing_to_the_database(self, mock_vdms_db):
+    """A parent that only ever sees forwarded crops never writes to the shared database."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
+    obj.chain_data = None
+
+    manager.gatherQualityVisualFeatures(obj)
+    call_update_active_dict_locked(manager, obj, database_id=None, similarity=None)
+    manager._addNewFeaturesToDatabase("forwarded-track")
+
+    assert manager.pool.submit.call_count == 0
+
+  def test_matched_forwarded_detection_does_not_append_to_pending_entry(self, mock_vdms_db):
+    """Once matched, only locally observed embeddings keep growing the pending entry."""
+    manager = UUIDManager()
+    local = _make_reid_object("mixed-track", bbox_area=10000)
+    local.chain_data = None
+    forwarded = _make_reid_object("mixed-track", provenance=VETTED_PROVENANCE)
+
+    manager.gatherQualityVisualFeatures(local)
+    call_update_active_dict_locked(manager, local, database_id=None, similarity=None)
+    stored = len(manager.features_for_database["mixed-track"]['reid_vectors'])
+    manager.pickBestID(forwarded)
+
+    assert len(manager.features_for_database["mixed-track"]['reid_vectors']) == stored
+
+  def test_pruning_a_track_clears_its_enrollment_features(self, mock_vdms_db):
+    """Track teardown must not leave one track's crops behind for the next one."""
+    manager = UUIDManager()
+    obj = _make_reid_object("local-track", bbox_area=10000)
+    manager.gatherQualityVisualFeatures(obj)
+    with manager.active_ids_lock:
+      manager.active_ids["local-track"] = [None, None]
+
+    manager.pruneInactiveTracks([])
+
+    assert "local-track" not in manager.enrollment_features
+    assert "local-track" not in manager.quality_features

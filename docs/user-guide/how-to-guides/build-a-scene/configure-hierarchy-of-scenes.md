@@ -163,8 +163,18 @@ _Figure 8: Set Regulate and External Update rate in scene config._
 
 ## Re-identification Support in Hierarchy
 
-- Re-identification is **scene-local** only.
-- Child scene objects retain UUIDs within their own scene.
-- Parent scene does **not** re-identify child objects.
+How a parent scene handles identity depends on the **Retrack** setting of each child link:
+
+- **Retrack disabled**: the child's identities are taken as final. The parent forwards child
+  objects with the UUIDs the child assigned and does not re-identify them.
+- **Retrack enabled**: the parent runs its own tracker and re-identification over the child's
+  detections, so observations of the same person arriving from several children (and from the
+  parent's own cameras) collapse into one track with a single parent-assigned UUID.
+
+Embeddings a child forwards carry the id of the scene and camera that produced them, along with
+confirmation that the crop passed the `minimum_bbox_area` quality gate where it was measured. A
+parent uses those embeddings to match identities, but only the scene that owns the source camera
+contributes them to the re-identification database, so one crop is never enrolled twice under
+different identities.
 
 > Refer to [Re-identification Guide](../../other-topics/how-to-enable-reidentification.md) for more details.

@@ -52,6 +52,28 @@ class TestMovingObject:
     assert np.allclose(obj.reid['embedding_vector'], np.array([[0.1, 0.2]], dtype=np.float32))
     assert 'metadata' not in obj.info
 
+  def test_init_keeps_reid_provenance_separate_from_the_embedding(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    provenance = {'origin_scene_id': 'scene-child', 'origin_camera_id': 'cam-9',
+                  'quality_vetted': True}
+    metadata = {
+      'reid': {'embedding_vector': [0.1, 0.2], 'model_name': 'reid-v1',
+               'provenance': provenance}
+    }
+
+    obj = MovingObject(_base_info(metadata=metadata), when, _camera())
+
+    assert obj.reid_provenance == provenance
+    assert 'provenance' not in obj.reid
+
+  def test_init_leaves_reid_provenance_unset_for_local_detections(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    metadata = {'reid': {'embedding_vector': [0.1, 0.2], 'model_name': 'reid-v1'}}
+
+    obj = MovingObject(_base_info(metadata=metadata), when, _camera())
+
+    assert obj.reid_provenance is None
+
   def test_init_decodes_base64_reid_vector_with_runtime_length(self):
     when = datetime.datetime.now(datetime.timezone.utc)
     vector = np.arange(192, dtype=np.float32)

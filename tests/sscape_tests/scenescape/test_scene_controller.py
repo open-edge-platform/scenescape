@@ -424,9 +424,9 @@ class TestSceneControllerPublishers:
     assert scene_controller.pubsub.publish.call_count == 1
     assert scene.last_published_detection['person'] == 101.0
     assert jdata_base['objects'] == ['unchanged']
-    # Confirm the new reid quality gate is actually wired through to buildDetectionsList
+    # Confirm reid provenance stamping is actually wired through to buildDetectionsList
     _, call_kwargs = mock_build.call_args
-    assert call_kwargs['gate_reid_quality'] is True
+    assert call_kwargs['attach_reid_provenance'] is True
     assert call_kwargs['minimum_bbox_area'] == 5000
 
   @patch('controller.scene_controller.metrics')

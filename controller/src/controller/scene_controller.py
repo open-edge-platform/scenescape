@@ -238,7 +238,7 @@ class SceneController:
       jdata = jdata_base.copy()
       jdata['objects'] = buildDetectionsList(
         objects, scene, self.visibility_topic == 'unregulated', include_sensors=True,
-        gate_reid_quality=True,
+        attach_reid_provenance=True,
         minimum_bbox_area=scene.reid_config_data.get('minimum_bbox_area'))
       jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
 

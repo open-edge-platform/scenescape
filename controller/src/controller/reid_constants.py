@@ -21,6 +21,27 @@ RESERVED_ENTRY_KEYS = frozenset({
 })
 DEFAULT_CONFIG_SIMILARITY_METRIC = "COSINE"
 SUPPORTED_CONFIG_SIMILARITY_METRICS = frozenset({"COSINE", "L2"})
+# Minimum pixel-space bounding box area (px^2) a crop must have for its embedding to
+# be considered reliable. Only the scope that owns the source camera has a pixel bbox
+# to measure, so this gate can only ever be applied there.
+DEFAULT_MINIMUM_BBOX_AREA = 5000
+# Key under which embedding origin travels inside the serialized metadata.reid payload.
+REID_PROVENANCE_KEY = "provenance"
+
+
+def is_vetted_provenance(provenance):
+  """
+  Return True when provenance identifies an origin that vetted the embedding.
+
+  An embedding without a pixel bbox at the receiving scope is usable only if some
+  upstream scope that did have the bbox says it passed the quality gate. A claimed
+  provenance is enough to query with, never enough to enroll into the database.
+  """
+  if not isinstance(provenance, dict):
+    return False
+  if provenance.get("quality_vetted") is not True:
+    return False
+  return bool(provenance.get("origin_scene_id"))
 
 
 def is_inner_product_metric(metric):
