@@ -5,10 +5,6 @@
 
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
-from selenium.common.exceptions import ElementClickInterceptedException
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
@@ -20,28 +16,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def click_when_clickable(browser, locator, timeout_s=10):
-  """Click an element after ensuring it is interactable and not obscured."""
-  try:
-    button = WebDriverWait(browser, timeout_s).until(
-      EC.element_to_be_clickable(locator)
-    )
-  except TimeoutException:
-    return False
-
-  # Keep fixed-top navigation from intercepting clicks near the viewport top.
-  browser.execute_script(
-    "arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});",
-    button,
-  )
-
-  try:
-    button.click()
-  except ElementClickInterceptedException:
-    browser.execute_script("arguments[0].click();", button)
-
-  return True
-
 def enter_and_validate_parameters(browser, button_id, initial_value, step):
   """! Enters camera intrinsic and distortion parameters into the web UI.
   @param    browser             Object wrapping the Selenium driver.
@@ -52,7 +26,7 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
   """
   camera1_element_id = "//a[@href = '/cam/calibrate/1']"
   assert common.wait_for_elements(browser, camera1_element_id)
-  assert click_when_clickable(browser, (By.XPATH, camera1_element_id)), (
+  assert common.click_when_clickable(browser, (By.XPATH, camera1_element_id)), (
     f"Timed out waiting for camera link {camera1_element_id!r} to become clickable."
   )
 
@@ -69,12 +43,12 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
     value += step
 
   log.info("Saving changes...")
-  assert click_when_clickable(browser, (By.ID, button_id)), (
+  assert common.click_when_clickable(browser, (By.ID, button_id)), (
     f"Timed out waiting for button {button_id!r} to become clickable."
   )
 
   assert common.wait_for_elements(browser, camera1_element_id)
-  assert click_when_clickable(browser, (By.XPATH, camera1_element_id)), (
+  assert common.click_when_clickable(browser, (By.XPATH, camera1_element_id)), (
     f"Timed out waiting for camera link {camera1_element_id!r} to become clickable."
   )
 
