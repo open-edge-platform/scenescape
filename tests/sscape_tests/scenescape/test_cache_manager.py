@@ -577,3 +577,354 @@ class TestCacheManagerEdgeCases:
     scenes2 = list(cache_mgr.allScenes())
 
     assert len(scenes1) == len(scenes2)
+
+  def test_concurrent_refresh_is_single_flight(self):
+    """Concurrent refreshScenes callers share one in-flight REST fetch."""
+    fetch_started = threading.Event()
+    waiter_blocked = threading.Event()
+    release_fetch = threading.Event()
+    mock_data_source = Mock()
+
+    def blocking_get_scenes():
+      fetch_started.set()
+      assert release_fetch.wait(timeout=5), "timed out waiting to release getScenes"
+      return {'results': []}
+
+    mock_data_source.getScenes.side_effect = blocking_get_scenes
+
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
+    cache_mgr._refresh_done = threading.Condition(cache_mgr._lock)
+    cache_mgr.cached_scenes_by_uid = {}
+    cache_mgr._cached_scenes_by_cameraID = {}
+    cache_mgr._cached_scenes_by_sensorID = {}
+    cache_mgr.tracker_config_data = {}
+    cache_mgr.camera_parameters = {}
+    cache_mgr.data_source = mock_data_source
+
+    original_wait = cache_mgr._refresh_done.wait
+
+    def wait_and_signal(timeout=None):
+      waiter_blocked.set()
+      return original_wait(timeout)
+
+    cache_mgr._refresh_done.wait = wait_and_signal
+
+    errors = []
+
+    def worker():
+      try:
+        cache_mgr.refreshScenes()
+      except Exception as exc:
+        errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for thread in threads:
+      thread.start()
+
+    assert fetch_started.wait(timeout=5), "leader never started getScenes"
+    assert waiter_blocked.wait(timeout=5), "waiter never blocked on in-flight refresh"
+    release_fetch.set()
+    for thread in threads:
+      thread.join(timeout=5)
+      assert not thread.is_alive()
+
+    assert not errors
+    assert mock_data_source.getScenes.call_count == 1
+
+  def test_invalidate_discards_stale_in_flight_refresh(self):
+    """invalidate() bumps generation so an older in-flight fetch does not apply."""
+    fetch_started = threading.Event()
+    release_fetch = threading.Event()
+    mock_data_source = Mock()
+    stale_results = {
+      'results': [
+        {
+          'uid': 'scene-stale',
+          'name': 'stale',
+          'map': None,
+          'cameras': [],
+          'sensors': [],
+        }
+      ]
+    }
+    fresh_results = {
+      'results': [
+        {
+          'uid': 'scene-fresh',
+          'name': 'fresh',
+          'map': None,
+          'cameras': [],
+          'sensors': [],
+        }
+      ]
+    }
+    responses = [stale_results, fresh_results]
+
+    def ordered_get_scenes():
+      result = responses.pop(0)
+      if result is stale_results:
+        fetch_started.set()
+        assert release_fetch.wait(timeout=5), "timed out waiting to release stale getScenes"
+      return result
+
+    mock_data_source.getScenes.side_effect = ordered_get_scenes
+
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
+    cache_mgr._refresh_done = threading.Condition(cache_mgr._lock)
+    cache_mgr.cached_scenes_by_uid = {}
+    cache_mgr._cached_scenes_by_cameraID = {}
+    cache_mgr._cached_scenes_by_sensorID = {}
+    cache_mgr.cached_child_transforms_by_uid = {}
+    cache_mgr.tracker_config_data = {}
+    cache_mgr.reid_config_data = {}
+    cache_mgr.pose_adjustment_config_data = {}
+    cache_mgr.camera_parameters = {}
+    cache_mgr.data_source = mock_data_source
+
+    errors = []
+
+    def stale_refresh():
+      try:
+        cache_mgr.refreshScenes()
+      except Exception as exc:
+        errors.append(exc)
+
+    stale_thread = threading.Thread(target=stale_refresh)
+    stale_thread.start()
+    assert fetch_started.wait(timeout=5), "stale refresh never started getScenes"
+
+    cache_mgr.invalidate()
+    release_fetch.set()
+    stale_thread.join(timeout=5)
+    assert not stale_thread.is_alive()
+    assert not errors
+    assert cache_mgr.cached_scenes_by_uid is None
+
+    with patch('controller.cache_manager.Scene.deserialize') as mock_deserialize:
+      fresh_scene = MagicMock(spec=Scene)
+      fresh_scene.uid = 'scene-fresh'
+      fresh_scene.cameras = {}
+      fresh_scene.sensors = {}
+      mock_deserialize.return_value = fresh_scene
+
+      cache_mgr.refreshScenes()
+
+    assert list(cache_mgr.cached_scenes_by_uid.keys()) == ['scene-fresh']
+    assert mock_data_source.getScenes.call_count == 2
+
+  def test_waiter_after_invalidate_does_not_share_discarded_refresh(self):
+    """A waiter joining after invalidate must not treat a discarded fetch as done."""
+    fetch_started = threading.Event()
+    invalidate_done = threading.Event()
+    release_fetch = threading.Event()
+    mock_data_source = Mock()
+    responses = [
+      {
+        'results': [
+          {
+            'uid': 'scene-stale',
+            'name': 'stale',
+            'map': None,
+            'cameras': [],
+            'sensors': [],
+          }
+        ]
+      },
+      {
+        'results': [
+          {
+            'uid': 'scene-fresh',
+            'name': 'fresh',
+            'map': None,
+            'cameras': [],
+            'sensors': [],
+          }
+        ]
+      },
+    ]
+
+    def ordered_get_scenes():
+      result = responses.pop(0)
+      if fetch_started.is_set() is False:
+        fetch_started.set()
+        assert invalidate_done.wait(timeout=5), "timed out waiting for invalidate before release"
+        assert release_fetch.wait(timeout=5), "timed out waiting to release stale getScenes"
+      return result
+
+    mock_data_source.getScenes.side_effect = ordered_get_scenes
+
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
+    cache_mgr._refresh_done = threading.Condition(cache_mgr._lock)
+    cache_mgr.cached_scenes_by_uid = {'scene-old': Mock(spec=Scene)}
+    cache_mgr._cached_scenes_by_cameraID = {}
+    cache_mgr._cached_scenes_by_sensorID = {}
+    cache_mgr.cached_child_transforms_by_uid = {}
+    cache_mgr.tracker_config_data = {}
+    cache_mgr.reid_config_data = {}
+    cache_mgr.pose_adjustment_config_data = {}
+    cache_mgr.camera_parameters = {}
+    cache_mgr.data_source = mock_data_source
+
+    errors = []
+
+    def leader():
+      try:
+        cache_mgr.refreshScenes()
+      except Exception as exc:
+        errors.append(exc)
+
+    leader_thread = threading.Thread(target=leader)
+    leader_thread.start()
+    assert fetch_started.wait(timeout=5), "leader never started getScenes"
+
+    cache_mgr.invalidate()
+    invalidate_done.set()
+
+    with patch('controller.cache_manager.Scene.deserialize') as mock_deserialize:
+      fresh_scene = MagicMock(spec=Scene)
+      fresh_scene.uid = 'scene-fresh'
+      fresh_scene.cameras = {}
+      fresh_scene.sensors = {}
+      mock_deserialize.return_value = fresh_scene
+
+      def waiter():
+        try:
+          # Joins after invalidate while the superseded fetch is still in flight.
+          cache_mgr.refreshScenes()
+        except Exception as exc:
+          errors.append(exc)
+
+      waiter_thread = threading.Thread(target=waiter)
+      waiter_thread.start()
+      # Allow the waiter to observe in-flight state after invalidate.
+      assert waiter_thread.is_alive() or mock_data_source.getScenes.call_count >= 1
+      release_fetch.set()
+      leader_thread.join(timeout=5)
+      waiter_thread.join(timeout=5)
+      assert not leader_thread.is_alive()
+      assert not waiter_thread.is_alive()
+
+    assert not errors
+    assert list(cache_mgr.cached_scenes_by_uid.keys()) == ['scene-fresh']
+    assert mock_data_source.getScenes.call_count == 2
+
+  def test_force_refresh_does_not_share_stale_in_flight_fetch(self):
+    """force=True waits for in-flight work, then performs a new fetch."""
+    fetch_started = threading.Event()
+    waiter_blocked = threading.Event()
+    release_fetch = threading.Event()
+    mock_data_source = Mock()
+    responses = [
+      {
+        'results': [
+          {
+            'uid': 'scene-stale',
+            'name': 'stale',
+            'map': None,
+            'cameras': [],
+            'sensors': [],
+          }
+        ]
+      },
+      {
+        'results': [
+          {
+            'uid': 'scene-fresh',
+            'name': 'fresh',
+            'map': None,
+            'cameras': [],
+            'sensors': [],
+          }
+        ]
+      },
+    ]
+
+    def ordered_get_scenes():
+      result = responses.pop(0)
+      if not fetch_started.is_set():
+        fetch_started.set()
+        assert release_fetch.wait(timeout=5), "timed out waiting to release stale getScenes"
+      return result
+
+    mock_data_source.getScenes.side_effect = ordered_get_scenes
+
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
+    cache_mgr._refresh_done = threading.Condition(cache_mgr._lock)
+    cache_mgr.cached_scenes_by_uid = {}
+    cache_mgr._cached_scenes_by_cameraID = {}
+    cache_mgr._cached_scenes_by_sensorID = {}
+    cache_mgr.tracker_config_data = {}
+    cache_mgr.reid_config_data = {}
+    cache_mgr.pose_adjustment_config_data = {}
+    cache_mgr.camera_parameters = {}
+    cache_mgr.data_source = mock_data_source
+
+    original_wait = cache_mgr._refresh_done.wait
+
+    def wait_and_signal(timeout=None):
+      waiter_blocked.set()
+      return original_wait(timeout)
+
+    cache_mgr._refresh_done.wait = wait_and_signal
+
+    errors = []
+
+    def leader():
+      try:
+        cache_mgr.refreshScenes()
+      except Exception as exc:
+        errors.append(exc)
+
+    with patch('controller.cache_manager.Scene.deserialize') as mock_deserialize:
+      def make_scene(data):
+        scene = MagicMock(spec=Scene)
+        scene.uid = data['uid']
+        scene.cameras = {}
+        scene.sensors = {}
+        return scene
+
+      mock_deserialize.side_effect = make_scene
+
+      leader_thread = threading.Thread(target=leader)
+      leader_thread.start()
+      assert fetch_started.wait(timeout=5), "leader never started getScenes"
+
+      def forced_waiter():
+        try:
+          cache_mgr.refreshScenes(force=True)
+        except Exception as exc:
+          errors.append(exc)
+
+      force_thread = threading.Thread(target=forced_waiter)
+      force_thread.start()
+      assert waiter_blocked.wait(timeout=5), "forced waiter never blocked"
+      release_fetch.set()
+      leader_thread.join(timeout=5)
+      force_thread.join(timeout=5)
+      assert not leader_thread.is_alive()
+      assert not force_thread.is_alive()
+
+    assert not errors
+    assert list(cache_mgr.cached_scenes_by_uid.keys()) == ['scene-fresh']
+    assert mock_data_source.getScenes.call_count == 2
+
+  def test_invalidate_preserves_old_cache_across_repeated_calls(self):
+    """A second invalidate before refresh must not wipe the preserved scene cache."""
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
+    mock_scene = Mock(spec=Scene)
+    cache_mgr.cached_scenes_by_uid = {'scene-1': mock_scene}
+    cache_mgr._cached_scenes_by_cameraID = {}
+    cache_mgr._cached_scenes_by_sensorID = {}
+    cache_mgr.cached_child_transforms_by_uid = {}
+
+    cache_mgr.invalidate()
+    first_old = cache_mgr._old_scene_cache
+    cache_mgr.invalidate()
+
+    assert cache_mgr._old_scene_cache is first_old
+    assert cache_mgr._old_scene_cache == {'scene-1': mock_scene}
