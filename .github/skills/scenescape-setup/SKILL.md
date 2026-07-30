@@ -230,6 +230,8 @@ Generated files under `<deploy_dir>` after a full run:
 │   ├── model-proc-files/
 │   ├── mosquitto/
 │   └── user_scripts/
+│       └── gstplugins/             # Native GST elements (timestamp + datapublish); compose-mounted
+│                                   # into /opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/
 └── calibration-frames/             # Step 9 — one JPEG per user camera ID
 ```
 
@@ -328,7 +330,7 @@ troubleshooting a failure at that step.
 
 | Reference                                                             | Primary step             | Purpose                                                                                                       |
 | --------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| [pipeline-config.md](./references/pipeline-config.md)                 | 6                        | How `adapt_pipeline_config.py` generates per-camera pipelines                                                 |
+| [pipeline-config.md](./references/pipeline-config.md)                 | 6                        | How `adapt_pipeline_config.py` generates per-camera pipelines (native `sscape_*` GST elements) |
 | [mosquitto-config.md](./references/mosquitto-config.md)               | 6                        | Broker TLS listener layout; optional password file generation                                                 |
 | [docker-compose-template.md](./references/docker-compose-template.md) | 6 (failure only)         | Full compose template; read only to debug a template bug                                                      |
 | [command-templates.md](./references/command-templates.md)             | 7                        | Reusable RTSP gate check and MQTT pub/sub verification commands                                               |

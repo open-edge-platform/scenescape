@@ -27,54 +27,47 @@ MODEL_XML = (
   "person-detection-retail-0013.xml"
 )
 MODEL_PROC = "/home/pipeline-server/model-proc-files/person-detection-retail-0013.json"
-SSCAPE_ADAPTER = "/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py"
 
+# Native GST elements from user_scripts/gstplugins/ (mounted into the DLStreamer
+# GStreamer python plugin path by docker-compose). Replaces the former
+# gvapython + sscape_adapter.py path.
 PIPELINE_PARAMETERS = {
   "type": "object",
   "properties": {
     "ntp_config": {
-      "element": {"name": "timesync", "property": "kwarg", "format": "json"},
-      "type": "object",
-      "properties": {"ntpServer": {"type": "string"}},
+      "element": {"name": "timesync", "property": "ntp-server"},
+      "type": "string",
     },
     "frame_ntp_config": {
-      "element": {"name": "timesync", "property": "kwarg", "format": "json"},
-      "type": "object",
-      "properties": {
-        "useFrameNtpTimestamp": {
-          "type": "boolean",
-          "description": (
-            "When true, use the NTP timestamp embedded in the RTSP frame metadata "
-            "instead of the post-decode system time."
-          ),
-        },
-      },
+      "element": {"name": "timesync", "property": "use-frame-ntp-timestamp"},
+      "type": "boolean",
     },
-    "camera_config": {
-      "element": {"name": "datapublisher", "property": "kwarg", "format": "json"},
-      "type": "object",
-      "properties": {
-        "cameraid": {"type": "string"},
-        "metadatagenpolicy": {
-          "type": "string",
-          "description": (
-            "Meta data generation policy, one of "
-            "detectionPolicy(default),reidPolicy,classificationPolicy"
-          ),
-        },
-        "publish_frame": {
-          "type": "boolean",
-          "description": "Publish frame to mqtt",
-        },
-        "detection_labels": {
-          "type": "array",
-          "items": {"type": "string"},
-          "description": (
-            "List of detection labels to filter (e.g., [\"person\", \"car\"]). "
-            "If empty, all labels are published."
-          ),
-        },
-      },
+    "cameraid": {
+      "element": {"name": "datapublisher", "property": "cameraid"},
+      "type": "string",
+    },
+    "metadatagenpolicy": {
+      "element": {"name": "datapublisher", "property": "metadatagenpolicy"},
+      "type": "string",
+      "description": (
+        "One of detectionPolicy (default), detection3DPolicy, reidPolicy, "
+        "classificationPolicy, ocrPolicy"
+      ),
+    },
+    "publish_image": {
+      "element": {"name": "datapublisher", "property": "publish-image"},
+      "type": "boolean",
+      "description": (
+        "Publish annotated JPEG to scenescape/image/camera/<cameraid> each frame"
+      ),
+    },
+    "detection_labels": {
+      "element": {"name": "datapublisher", "property": "detection-labels"},
+      "type": "string",
+      "description": (
+        "Comma-separated allow-list of detection categories (e.g. \"person,car\"). "
+        "Empty publishes all."
+      ),
     },
   },
 }
@@ -84,12 +77,10 @@ def gstreamer_pipeline(rtsp_url: str) -> str:
   return (
     f"rtspsrc location={rtsp_url} add-reference-timestamp-meta=true latency=200 "
     f"! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR "
-    f"! gvapython class=PostDecodeTimestampCapture function=processFrame "
-    f"module={SSCAPE_ADAPTER} name=timesync "
+    f"! sscape_timestamp_capture name=timesync ntp-server=ntpserv "
     f"! gvadetect model={MODEL_XML} model-proc={MODEL_PROC} "
     f"! gvametaconvert add-tensor-data=true name=metaconvert "
-    f"! gvapython class=PostInferenceDataPublish function=processFrame "
-    f"module={SSCAPE_ADAPTER} name=datapublisher "
+    f"! sscape_post_inference_data_publish name=datapublisher "
     f"! gvametapublish name=destination ! appsink sync=true"
   )
 
@@ -103,13 +94,11 @@ def pipeline_entry(camera_id: str, rtsp_url: str) -> dict:
     "parameters": PIPELINE_PARAMETERS,
     "payload": {
       "parameters": {
-        "ntp_config": {"ntpServer": "ntpserv"},
-        "frame_ntp_config": {"useFrameNtpTimestamp": False},
-        "camera_config": {
-          "cameraid": camera_id,
-          "metadatagenpolicy": "detectionPolicy",
-          "detection_labels": ["person"],
-        },
+        "ntp_config": "ntpserv",
+        "frame_ntp_config": False,
+        "cameraid": camera_id,
+        "metadatagenpolicy": "detectionPolicy",
+        "detection_labels": "person",
       },
     },
   }

@@ -19,14 +19,10 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-web.crt
   web-key:
     file: ${SECRETSDIR}/certs/scenescape-web.key
-  vdms-client-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
-  vdms-client-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
-  vdms-server-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms.crt
-  vdms-server-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms.key
+  reid-client-cert:
+    file: ${SECRETSDIR}/certs/scenescape-reid.crt
+  reid-client-key:
+    file: ${SECRETSDIR}/certs/scenescape-reid.key
   django:
     file: ${SECRETSDIR}/django/secrets.py
   controller.auth:
@@ -160,10 +156,6 @@ services:
       - browser.auth
       - calibration.auth
       - controller.auth
-      - source: vdms-client-cert
-        target: certs/scenescape-vdms-c.crt
-      - source: vdms-client-key
-        target: certs/scenescape-vdms-c.key
     restart: always
 
   scene:
@@ -198,18 +190,20 @@ services:
       - source: django
         target: django/secrets.py
       - controller.auth
-      - source: vdms-client-key
-        target: certs/scenescape-vdms-c.key
-      - source: vdms-client-cert
-        target: certs/scenescape-vdms-c.crt
+      - source: reid-client-key
+        target: certs/scenescape-reid.key
+      - source: reid-client-cert
+        target: certs/scenescape-reid.crt
     restart: always
 
   video-analytics:
-    image: intel/dlstreamer-pipeline-server:latest
+    image: intel/dlstreamer-pipeline-server:2026.2.0-20260728-weekly-ubuntu24
     networks:
       scenescape:
     depends_on:
       broker:
+        condition: service_started
+      ntpserv:
         condition: service_started
     environment:
       MQTT_HOST: broker.scenescape.intel.com
@@ -222,7 +216,12 @@ services:
     volumes:
       - ./dlstreamer-pipeline-server/pipeline-config.json:/home/pipeline-server/config.json:ro
       - vol-models:/home/pipeline-server/models:ro
-      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts:ro
+      # Native GST plugins (sscape_timestamp_capture / sscape_post_inference_data_publish)
+      # must live on the GStreamer python plugin path — not under /home/pipeline-server/user_scripts.
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_decode_timestamp_capture.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_inference_data_publish.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_inference_data_publish.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_policies.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_3d_detector.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_3d_detector.py
       - ./dlstreamer-pipeline-server/model-proc-files:/home/pipeline-server/model-proc-files:ro
     secrets:
       - source: root-cert

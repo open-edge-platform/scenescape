@@ -27,7 +27,17 @@ def skill_dir_from_arg(value: Path) -> Path:
 def fetch_dlstreamer_assets(deploy_dir: Path) -> None:
   """Sparse-checkout pipeline support folders from the upstream repo."""
   dl_dir = deploy_dir / "dlstreamer-pipeline-server"
-  if (dl_dir / "model-proc-files" / "person-detection-retail-0013.json").is_file():
+  gstplugins = dl_dir / "user_scripts" / "gstplugins"
+  required_plugins = (
+    "sscape_post_decode_timestamp_capture.py",
+    "sscape_post_inference_data_publish.py",
+    "sscape_policies.py",
+    "sscape_3d_detector.py",
+  )
+  if (
+    (dl_dir / "model-proc-files" / "person-detection-retail-0013.json").is_file()
+    and all((gstplugins / name).is_file() for name in required_plugins)
+  ):
     return
 
   tmp = deploy_dir / "_scenescape-tmp"
@@ -63,6 +73,13 @@ def fetch_dlstreamer_assets(deploy_dir: Path) -> None:
       shutil.rmtree(dst)
     shutil.copytree(src, dst)
   shutil.rmtree(tmp)
+
+  missing = [name for name in required_plugins if not (gstplugins / name).is_file()]
+  if missing:
+    raise FileNotFoundError(
+      "Sparse checkout of user_scripts is missing required gstplugins: "
+      + ", ".join(missing)
+    )
 
 
 def copy_skill_assets(skill_dir: Path, deploy_dir: Path) -> None:

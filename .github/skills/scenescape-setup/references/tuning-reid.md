@@ -29,7 +29,7 @@ wrong person.
 | --- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | 1   | Do you need to re-identify the same person/vehicle across non-overlapping cameras (cross-camera Re-ID)?  | `similarity_metric`, `similarity_threshold`, `feature_accumulation_threshold`                      |
 | 2   | How close/large do subjects appear in frame (near-field close-up vs. wide/high-mounted overview camera)? | `minimum_bbox_area`                                                                                |
-| 3   | How many distinct people/vehicles are expected in the scene at once (sparse vs. crowded)?                | `feature_accumulation_threshold`, `VDMS_CONFIDENCE_THRESHOLD` (env var, not in `reid-config.json`) |
+| 3   | How many distinct people/vehicles are expected in the scene at once (sparse vs. crowded)?                | `feature_accumulation_threshold`, `REID_CONFIDENCE_THRESHOLD` (env var, not in `reid-config.json`) |
 
 ## Parameter reference
 
@@ -39,14 +39,20 @@ wrong person.
 | `similarity_threshold`              | `0.5` for `COSINE`, `40.0` for `L2` | Match acceptance cutoff, interpreted per the metric above (above for `COSINE`, below for `L2`).                                                          |
 | `feature_accumulation_threshold`    | 12                                  | Minimum number of quality embeddings collected before a similarity query is even attempted. Higher = more confident matches, slower first-match latency. |
 | `minimum_bbox_area`                 | 5000 (pixels²)                      | Minimum detection bounding-box area before it contributes an embedding. Too high for a far/high-mounted camera silently disables Re-ID for that camera.  |
-| `stale_feature_timeout_secs`        | 5.0                                 | How long embeddings accumulate in memory before being flushed to VDMS for persistence.                                                                   |
+| `stale_feature_timeout_secs`        | 5.0                                 | How long embeddings accumulate in memory before being flushed to the ReID vector DB for persistence.                                                     |
 | `stale_feature_check_interval_secs` | 1.0                                 | How often the background timer checks for stale features to flush.                                                                                       |
-| `feature_slice_size`                | 10                                  | Persist every Nth accumulated embedding to VDMS (reduces database growth).                                                                               |
+| `feature_slice_size`                | 10                                  | Persist every Nth accumulated embedding to the ReID vector DB (reduces database growth).                                                                 |
 
-`VDMS_CONFIDENCE_THRESHOLD` (default `0.8`) is a controller **environment variable**, not a
+`REID_CONFIDENCE_THRESHOLD` (default `0.8`) is a controller **environment variable**, not a
 `reid-config.json` field — it controls how strict TIER 1 metadata filtering is (age/gender/etc.)
 before TIER 2 vector similarity runs. Lower it (e.g. `0.7`) for more aggressive metadata
-filtering, raise it (e.g. `0.9`) to rely more on vector similarity alone.
+filtering, raise it (e.g. `0.9`) to rely more on vector similarity alone. The former
+`VDMS_CONFIDENCE_THRESHOLD` name is no longer read.
+
+ReID vector storage is backend-agnostic via `REID_DATABASE` (`VDMS` default, or `QDRANT`). Both
+backends share hostname/port/TLS defaults (`reid.scenescape.intel.com:55555`, `scenescape-reid*`
+certs). Enabling a backend is out of scope for this questionnaire — see
+`docs/user-guide/other-topics/how-to-enable-reidentification.md`.
 
 ## Recommendation logic
 
@@ -67,7 +73,7 @@ These are starting points, not guarantees.
    start contributing noisy embeddings.
 
 3. **Q3 (scene density) →** for crowded scenes, prefer raising `feature_accumulation_threshold`
-   (more confidence before matching) over lowering `VDMS_CONFIDENCE_THRESHOLD`, since the latter
+   (more confidence before matching) over lowering `REID_CONFIDENCE_THRESHOLD`, since the latter
    affects TIER 1 metadata filtering strictness across the whole controller, not just this
    scene's tracks.
 
@@ -90,6 +96,6 @@ tuning happens to be requested before step 8's first `docker compose up` (e.g. t
 knew their Re-ID needs during Step 1, overriding the reactive default), editing the file at that
 point is sufficient and no restart is needed yet.
 
-`VDMS_CONFIDENCE_THRESHOLD` is set via the controller's environment (`docker-compose.yml` or
+`REID_CONFIDENCE_THRESHOLD` is set via the controller's environment (`docker-compose.yml` or
 `.env`), not a JSON file — only touch it if Q3's answer indicates crowded, metadata-heavy
 scenarios need adjustment.

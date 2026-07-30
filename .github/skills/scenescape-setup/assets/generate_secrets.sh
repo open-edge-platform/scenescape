@@ -38,15 +38,18 @@ openssl req -passin pass:"$CERTPASS" -x509 -new \
 chmod 0644 "$SECRETSDIR/certs/scenescape-ca.pem"
 
 # ── Helper: issue a service certificate using openssl.cnf template ────────────
+# HOST is used for CN/SAN (e.g. reid → reid.scenescape.intel.com). Optional
+# FILEHOST overrides the on-disk basename (e.g. reid-s → scenescape-reid-s.crt)
+# while keeping the same CN/SAN — matches tools/certificates reid / reid-s.
 issue_cert() {
-  local HOST="$1" USAGE="$2"
-  local KEYFILE="$SECRETSDIR/certs/scenescape-${HOST}.key"
-  local CSRFILE="$SECRETSDIR/certs/scenescape-${HOST}.csr"
-  local CRTFILE="$SECRETSDIR/certs/scenescape-${HOST}.crt"
+  local HOST="$1" USAGE="$2" FILEHOST="${3:-$1}"
+  local KEYFILE="$SECRETSDIR/certs/scenescape-${FILEHOST}.key"
+  local CSRFILE="$SECRETSDIR/certs/scenescape-${FILEHOST}.csr"
+  local CRTFILE="$SECRETSDIR/certs/scenescape-${FILEHOST}.crt"
   local SAN="DNS.1=${HOST}.${CERTDOMAIN}"
   local CN="${HOST}.${CERTDOMAIN}"
 
-  echo "Generating ${HOST}.key..."
+  echo "Generating ${FILEHOST}.key..."
   openssl ecparam -name secp384r1 -genkey -noout -out "$KEYFILE"
   chmod 0644 "$KEYFILE"
 
@@ -54,7 +57,7 @@ issue_cert() {
     -config <(sed -e "s/##CN##/$CN/" -e "s/##SAN##/$SAN/" \
               -e "s/##KEYUSAGE##/$USAGE/" "$EXEC_PATH/openssl.cnf")
 
-  echo "Generating certificate for $CN..."
+  echo "Generating certificate for $CN (file: ${FILEHOST})..."
   openssl x509 -passin pass:"$CERTPASS" -req \
     -in "$CSRFILE" \
     -CA "$SECRETSDIR/certs/scenescape-ca.pem" \
@@ -68,8 +71,8 @@ issue_cert() {
 
 issue_cert broker          serverAuth
 issue_cert web             serverAuth
-issue_cert vdms-c          clientAuth
-issue_cert vdms            serverAuth
+issue_cert reid            clientAuth
+issue_cert reid            serverAuth reid-s
 issue_cert autocalibration serverAuth
 issue_cert mapping         serverAuth
 
