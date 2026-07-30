@@ -10,6 +10,7 @@ from controller.reid_constants import (
   K_NEIGHBORS,
   SCHEMA_NAME,
   SIMILARITY_METRIC,
+  VDMS_EXPIRATION_KEY,
 )
 from controller.reid_env import (
   get_reid_ca_cert,
@@ -30,12 +31,14 @@ class VDMSDatabase(ReIDDatabase):
                similarity_metric=SIMILARITY_METRIC, dimensions=None,
                confidence_threshold=None,
                ca_cert=None, client_cert=None,
-               client_key=None, use_tls=None):
+               client_key=None, use_tls=None,
+               descriptor_ttl_secs=None):
     super().__init__(
       set_name=set_name,
       similarity_metric=similarity_metric,
       dimensions=dimensions,
-      confidence_threshold=confidence_threshold)
+      confidence_threshold=confidence_threshold,
+      descriptor_ttl_secs=descriptor_ttl_secs)
     resolved_ca_cert = get_reid_ca_cert() if ca_cert is None else ca_cert
     resolved_client_cert = (
       get_reid_client_cert() if client_cert is None else client_cert)
@@ -209,6 +212,39 @@ class VDMSDatabase(ReIDDatabase):
     else:
       log.error(f"addEntry: No response from VDMS when adding {len(add_query)} vectors")
     return
+
+  def _applyRetentionProperties(self, properties):
+    """
+    Stamp VDMS-native _expiration as a TTL duration in seconds.
+
+    VDMS computes expiry as (server insert time) + (_expiration duration).
+    Pass the TTL duration itself — never an absolute timestamp.
+    """
+    if not self.retentionEnabled():
+      return
+    properties[VDMS_EXPIRATION_KEY] = int(self.descriptor_ttl_secs)
+    return
+
+  def purgeExpired(self):
+    """
+    Ask VDMS to delete descriptors whose native expiration timestamp is past.
+
+    Invoked by the shared controller purge timer (REID_PURGE_INTERVAL_SECS).
+    Descriptors remain matchable until this reclaim runs.
+    """
+    if not self.retentionEnabled():
+      return 0
+    response, _ = self.sendQuery([{"DeleteExpired": {}}])
+    if not response:
+      log.warning("purgeExpired: No response from VDMS for DeleteExpired")
+      return None
+    if response[0].get('status') != 0:
+      log.warning(
+        f"purgeExpired: DeleteExpired failed. Response: {response[0]}")
+      return None
+    deleted = response[0].get('deleted', response[0].get('returned'))
+    log.debug(f"purgeExpired: VDMS DeleteExpired completed deleted={deleted}")
+    return deleted if deleted is not None else 0
 
   def getPersistedAttributes(self, uuid, set_name=None):
     """

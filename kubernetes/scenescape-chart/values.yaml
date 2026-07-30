@@ -121,6 +121,11 @@ reid:
   # Vector database backend for re-identification: vdms or qdrant.
   # The backends are alternatives; exactly one is deployed as the "reid" service.
   backend: vdms
+  # Descriptor lifetime in seconds; 0 disables retention (REID_DESCRIPTOR_TTL_SECS).
+  descriptorTtlSecs: 86400
+  # How often the controller asks the backend to purge expired descriptors
+  # (REID_PURGE_INTERVAL_SECS).
+  purgeIntervalSecs: 300
   vdms:
     image:
       repository: docker.io

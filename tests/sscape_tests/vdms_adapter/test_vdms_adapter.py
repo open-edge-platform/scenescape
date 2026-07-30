@@ -14,6 +14,7 @@ import numpy as np
 from unittest.mock import Mock, MagicMock, patch
 
 from controller.vdms_adapter import VDMSDatabase, SCHEMA_NAME, DIMENSIONS, K_NEIGHBORS, SCHEMA_MARKER_CLASS
+from controller.reid_constants import VDMS_EXPIRATION_KEY
 from controller.reid import ReIDDatabase
 
 
@@ -2310,3 +2311,54 @@ class TestSchemaMarker:
       db._writeSchemaMarker(256, 'L2', skip_exists_check=True)
 
     assert db.sendQuery.call_count == 1
+
+
+class TestDescriptorRetention:
+  """Shared retention contract as applied by the VDMS adapter."""
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_sets_vdms_expiration_to_ttl_duration(self, mock_vdms_class):
+    mock_vdms_class.return_value = MagicMock()
+    db = VDMSDatabase(descriptor_ttl_secs=60)
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    db.addEntry("test-uuid", "rvid", "Person", [np.random.randn(256).astype(np.float32)])
+
+    properties = db.sendQuery.call_args[0][0][0]['AddDescriptor']['properties']
+    assert properties[VDMS_EXPIRATION_KEY] == 60
+    assert "expires_at" not in properties
+    assert "added_at" not in properties
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_skips_expiration_when_ttl_disabled(self, mock_vdms_class):
+    mock_vdms_class.return_value = MagicMock()
+    db = VDMSDatabase(descriptor_ttl_secs=0)
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    db.addEntry("test-uuid", "rvid", "Person", [np.random.randn(256).astype(np.float32)])
+
+    properties = db.sendQuery.call_args[0][0][0]['AddDescriptor']['properties']
+    assert VDMS_EXPIRATION_KEY not in properties
+    assert "expires_at" not in properties
+    assert "added_at" not in properties
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_purge_expired_sends_delete_expired(self, mock_vdms_class):
+    mock_vdms_class.return_value = MagicMock()
+    db = VDMSDatabase(descriptor_ttl_secs=60)
+    db.sendQuery = Mock(return_value=([{'status': 0, 'deleted': 3}], []))
+
+    assert db.purgeExpired() == 3
+    assert db.sendQuery.call_args[0][0] == [{"DeleteExpired": {}}]
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_purge_expired_noop_when_retention_disabled(self, mock_vdms_class):
+    mock_vdms_class.return_value = MagicMock()
+    db = VDMSDatabase(descriptor_ttl_secs=0)
+    db.sendQuery = Mock()
+
+    assert db.purgeExpired() == 0
+    db.sendQuery.assert_not_called()
+
