@@ -389,12 +389,16 @@ class MeshGenerator:
       mesh = trimesh.load(BytesIO(glb_bytes), file_type='glb')
       merged_mesh = mergeMesh(mesh)
     except Exception as e:
-      # If the mesh cannot be analyzed, do not block here; the subsequent save
-      # path will surface any genuine load/format errors.
+      # Decode/load errors will also break mesh saving; fail early before any scene mutation.
+      log.error(f"Failed to decode/load reconstructed mesh: {e}")
+      return "Mapping service returned invalid GLB data"
+
+    try:
+      return checkMeshConnectivity(merged_mesh)
+    except Exception as e:
+      # Connectivity analysis failure should not block the reconstruction pipeline.
       log.warning(f"Could not analyze mesh connectivity: {e}")
       return None
-
-    return checkMeshConnectivity(merged_mesh)
 
   def startMeshGeneration(self, scene, mesh_type='mesh', uploaded_map=None):
     """
