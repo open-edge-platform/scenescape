@@ -5,14 +5,14 @@
 
 # Import the shared test infrastructure from test_reid_unique_count
 from tests.functional.test_reid_unique_count import run_test, get_scene_count_bounds
+from tests.functional.reid_backend import get_reid_profile_module
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import REID_SEMANTIC
 from tests.utils.log import get_logger
 
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=REID_SEMANTIC,
+  profile=get_reid_profile_module(semantic=True),
 )
 
 def test_reid_semantic_unique_count(params, record_xml_attribute):

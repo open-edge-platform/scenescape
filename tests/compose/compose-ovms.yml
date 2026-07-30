@@ -14,7 +14,7 @@ secrets:
 
 services:
   ovms:
-    image: openvino/model_server:2022.2-gpu
+    image: openvino/model_server:2026.2.1-gpu
     init: true
     user: "${UID}:${GID}"
     networks:
