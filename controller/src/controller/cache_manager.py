@@ -162,6 +162,7 @@ class CacheManager:
     # Make sure the cache is populated (it may be None right after invalidate())
     # before we try to iterate it below.
     self.checkRefresh()
+    cameras_to_update = []
     with self._lock:
       if self.cached_scenes_by_uid is None:
         log.warning("refreshScenesForCamParams: cache still None after refresh attempt, skipping")
@@ -179,7 +180,11 @@ class CacheManager:
               current_resolution = scene.cameras[camera].pose.resolution if hasattr(scene.cameras[camera].pose, 'resolution') else None
               if current_resolution != [width, height]:
                 self.camera_parameters[camera]['resolution'] = [width, height]
-                self.updateCamera(scene.cameras[camera])
+                cameras_to_update.append(scene.cameras[camera])
+
+    # updateCamera does REST; keep it outside the lock so lookups aren't blocked.
+    for cam in cameras_to_update:
+      self.updateCamera(cam)
 
     if intrinsics_changed or distortion_changed:
       self.refreshScenes()

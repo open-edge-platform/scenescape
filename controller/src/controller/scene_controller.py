@@ -529,7 +529,7 @@ class SceneController:
         camera_id = sender_id = topic['camera_id']
         sender = self.cache_manager.sceneWithCameraID(sender_id)
         if sender is None:
-          log.error("UNKNOWN SENDER", sender_id)
+          log.error(f"UNKNOWN SENDER: {sender_id}")
           return
         scene = sender
 
@@ -603,7 +603,7 @@ class SceneController:
     if sender is None:
       remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
-        log.error("UNKNOWN SENDER")
+        log.error(f"UNKNOWN SENDER: {sender_id}")
         return False, None
       else:
         sender = remote_sender
@@ -712,7 +712,7 @@ class SceneController:
     if sender is None:
       remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
-        log.error("UNKNOWN SENDER")
+        log.error(f"UNKNOWN SENDER: {sender_id}")
         return
       else:
         sender = remote_sender
