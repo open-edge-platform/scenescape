@@ -31,6 +31,8 @@
   -v $(pwd)/controller/config/reid-config.json:/home/scenescape/Scenescape/reid-config.json \
   -v $(pwd)/controller/config/pose-adjustment-route.json:/home/scenescape/Scenescape/pose-adjustment-route.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
+  -v $(pwd)/manager/secrets/certs/scenescape-reid.crt:/run/secrets/certs/scenescape-reid.crt:ro \
+  -v $(pwd)/manager/secrets/certs/scenescape-reid.key:/run/secrets/certs/scenescape-reid.key:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
@@ -48,6 +50,7 @@
   - The **broker** service at `broker.scenescape.intel.com` is up and reachable.
   - The **web** service at `https://web.scenescape.intel.com:443` is accessible.
   - The **ntpserv** service at `udp://<host-ip>:123` whihc maps to port `123/udp` inside the container.
+  - For Extended ReID, a vector database is reachable at the shared defaults (`reid.scenescape.intel.com:55555`, TLS). Mount the shared `scenescape-reid` client certs as shown above. Select the backend with `REID_DATABASE` (`VDMS` or `QDRANT`). See [How to enable re-identification](../../other-topics/how-to-enable-reidentification.md).
 
 - **Verify the service**:
   Check that the service is running:
@@ -135,6 +138,8 @@ When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer vide
   -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json \
   -v $(pwd)/controller/config/reid-config.json:/home/scenescape/Scenescape/reid-config.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
+  -v $(pwd)/manager/secrets/certs/scenescape-reid.crt:/run/secrets/certs/scenescape-reid.crt:ro \
+  -v $(pwd)/manager/secrets/certs/scenescape-reid.key:/run/secrets/certs/scenescape-reid.key:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
@@ -160,6 +165,8 @@ When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer vide
   -v $(pwd)/controller/config/reid-config.json:/home/scenescape/Scenescape/reid-config.json \
   -v $(pwd)/controller/config/pose-adjustment-route.json:/home/scenescape/Scenescape/pose-adjustment-route.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
+  -v $(pwd)/manager/secrets/certs/scenescape-reid.crt:/run/secrets/certs/scenescape-reid.crt:ro \
+  -v $(pwd)/manager/secrets/certs/scenescape-reid.key:/run/secrets/certs/scenescape-reid.key:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \

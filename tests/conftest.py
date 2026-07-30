@@ -388,7 +388,7 @@ _HOST_ALIASES = [
   "broker.scenescape.intel.com",
   "web.scenescape.intel.com",
   "autocalibration.scenescape.intel.com",
-  "vdms.scenescape.intel.com",
+  "reid.scenescape.intel.com",
 ]
 
 @pytest.fixture(scope="session")

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 SHELL=/bin/bash
@@ -12,15 +12,15 @@ default: deploy-certificates
 
 #.PHONY targets won't be skipped if files with these names happen to exist
 .PHONY: default ca deploy-certificates deploy-csr
-.PHONY: broker-cert web-cert vdms-c-cert vdms-s-cert autocalibration-cert mapping-cert
-.PHONY: broker-csr web-csr vdms-c-csr vdms-s-csr autocalibration-csr mapping-csr
+.PHONY: broker-cert web-cert reid-cert reid-s-cert autocalibration-cert mapping-cert
+.PHONY: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr
 
 #.SECONDARY prevents make from deleting files created by intermediate targets
 .SECONDARY:
 
-deploy-certificates: ca broker-cert web-cert vdms-c-cert vdms-s-cert autocalibration-cert mapping-cert
+deploy-certificates: ca broker-cert web-cert reid-cert reid-s-cert autocalibration-cert mapping-cert
 
-deploy-csr: broker-csr web-csr vdms-c-csr vdms-s-csr autocalibration-csr mapping-csr
+deploy-csr: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr
 
 broker-cert: HOST=broker
 broker-cert: KEY_USAGE=serverAuth
@@ -34,17 +34,17 @@ web-cert: \
 	$(SECRETSDIR)/certs/scenescape-web.key \
 	$(SECRETSDIR)/certs/scenescape-web.crt \
 
-vdms-c-cert: HOST=vdms-c
-vdms-c-cert: KEY_USAGE=clientAuth
-vdms-c-cert: \
-	$(SECRETSDIR)/certs/scenescape-vdms-c.key \
-	$(SECRETSDIR)/certs/scenescape-vdms-c.crt \
+reid-cert: HOST=reid
+reid-cert: KEY_USAGE=clientAuth
+reid-cert: \
+	$(SECRETSDIR)/certs/scenescape-reid.key \
+	$(SECRETSDIR)/certs/scenescape-reid.crt \
 
-vdms-s-cert: HOST=vdms
-vdms-s-cert: KEY_USAGE=serverAuth
-vdms-s-cert: \
-	$(SECRETSDIR)/certs/scenescape-vdms-s.key \
-	$(SECRETSDIR)/certs/scenescape-vdms-s.crt \
+reid-s-cert: HOST=reid
+reid-s-cert: KEY_USAGE=serverAuth
+reid-s-cert: \
+	$(SECRETSDIR)/certs/scenescape-reid-s.key \
+	$(SECRETSDIR)/certs/scenescape-reid-s.crt \
 
 autocalibration-cert: HOST=autocalibration
 autocalibration-cert: KEY_USAGE=serverAuth
@@ -70,17 +70,17 @@ web-csr: \
 	$(SECRETSDIR)/certs/scenescape-web.key \
 	$(SECRETSDIR)/certs/scenescape-web.csr \
 
-vdms-c-csr: HOST=vdms-c
-vdms-c-csr: KEY_USAGE=clientAuth
-vdms-c-csr: \
-	$(SECRETSDIR)/certs/scenescape-vdms-c.key \
-	$(SECRETSDIR)/certs/scenescape-vdms-c.csr \
+reid-csr: HOST=reid
+reid-csr: KEY_USAGE=clientAuth
+reid-csr: \
+	$(SECRETSDIR)/certs/scenescape-reid.key \
+	$(SECRETSDIR)/certs/scenescape-reid.csr \
 
-vdms-s-csr: HOST=vdms
-vdms-s-csr: KEY_USAGE=serverAuth
-vdms-s-csr: \
-	$(SECRETSDIR)/certs/scenescape-vdms-s.key \
-	$(SECRETSDIR)/certs/scenescape-vdms-s.csr \
+reid-s-csr: HOST=reid
+reid-s-csr: KEY_USAGE=serverAuth
+reid-s-csr: \
+	$(SECRETSDIR)/certs/scenescape-reid-s.key \
+	$(SECRETSDIR)/certs/scenescape-reid-s.csr \
 
 autocalibration-csr: HOST=autocalibration
 autocalibration-csr: KEY_USAGE=serverAuth
