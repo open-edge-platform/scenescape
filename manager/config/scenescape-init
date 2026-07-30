@@ -301,9 +301,9 @@ if [ -n "$DBTYPE" ]; then
     ./manage.py updatedbstatus --not-ready
 
     if [ -z "${OVERWRITE_USER_AUTH}" ]; then
-        find -L ${RUNSECRETS} -name "*.auth" -print0 | sort -z | xargs -0 -I {} bash -c '(./manage.py createuser --skip-existing "{}")'
+        find -L ${RUNSECRETS} -name "*.auth" -print0 | LC_ALL=C sort -z | xargs -0 -I {} ./manage.py createuser --skip-existing "{}"
     else
-        find -L ${RUNSECRETS} -name "*.auth" -print0 | sort -z | xargs -0 -I {} bash -c '(./manage.py createuser "{}")'
+        find -L ${RUNSECRETS} -name "*.auth" -print0 | LC_ALL=C sort -z | xargs -0 -I {} ./manage.py createuser "{}"
     fi
     echo ''
     echo '#############'
