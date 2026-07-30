@@ -6,11 +6,11 @@ networks:
 
 secrets:
   root-cert:
-    file: ./manager/secrets/certs/scenescape-ca.pem
-  vdms-server-cert:
-    file: ./manager/secrets/certs/scenescape-vdms-s.crt
-  vdms-server-key:
-    file: ./manager/secrets/certs/scenescape-vdms-s.key
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+  reid-server-cert:
+    file: ${SECRETSDIR}/certs/scenescape-reid-s.crt
+  reid-server-key:
+    file: ${SECRETSDIR}/certs/scenescape-reid-s.key
 
 services:
   vdms:
@@ -21,18 +21,17 @@ services:
     networks:
       scenescape-test:
         aliases:
-          - vdms.scenescape.intel.com
+          - reid.scenescape.intel.com
     environment:
       - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
-      - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
-      - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
-      - OVERRIDE_autodelete_interval_s=300
+      - OVERRIDE_cert_file=/run/secrets/certs/scenescape-reid-s.crt
+      - OVERRIDE_key_file=/run/secrets/certs/scenescape-reid-s.key
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
-      - source: vdms-server-cert
-        target: certs/scenescape-vdms-s.crt
-      - source: vdms-server-key
-        target: certs/scenescape-vdms-s.key
+      - source: reid-server-cert
+        target: certs/scenescape-reid-s.crt
+      - source: reid-server-key
+        target: certs/scenescape-reid-s.key
     restart: always
     pids_limit: 1000

@@ -35,13 +35,11 @@ def call_update_active_dict_locked(manager, sscape_object, database_id, similari
 
 @pytest.fixture(autouse=True)
 def mock_vdms_db():
-  """Patch UUIDManager database mapping so all tests use a fake VDMS backend."""
+  """Patch the backend registry lookup so all tests use a fake backend."""
   mock_vdms_db = MagicMock()
 
-  def fake_constructor(**kwargs):
-    return mock_vdms_db
-
-  with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_constructor}):
+  with patch('controller.uuid_manager.create_reid_database',
+             return_value=mock_vdms_db):
     yield mock_vdms_db
 
 
@@ -83,6 +81,15 @@ class TestUUIDManagerInitialization:
     assert hasattr(manager, 'active_ids')
     assert isinstance(manager.active_ids, dict)
     assert len(manager.active_ids) == 0
+
+  def test_default_similarity_configuration_uses_cosine(self, mock_vdms_db):
+    """Unconfigured ReID should use cosine matching and its threshold."""
+
+    manager = UUIDManager()
+
+    assert manager.similarity_metric == 'COSINE'
+    assert manager.similarity_threshold == DEFAULT_SIMILARITY_THRESHOLD_COSINE
+    assert manager.reid_database.similarity_metric == 'IP'
 
   def test_default_similarity_threshold_uses_l2_value_when_metric_is_l2(self, mock_vdms_db):
     """L2 metric should use the L2-specific default threshold when not configured."""
@@ -563,11 +570,8 @@ class TestDataTypes:
 class TestUUIDManagerMetricAwareMatching:
   """Verify parseQueryResults follows descriptor metric semantics."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_rejects_single_dimension_entity_list(self, mock_vdms_class):
+  def test_parse_query_results_rejects_single_dimension_entity_list(self):
     """Flat entity lists violate contract and should be treated as no-match."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "L2"
 
@@ -582,11 +586,8 @@ class TestUUIDManagerMetricAwareMatching:
     assert database_id is None
     assert similarity is None
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_ip_uses_higher_is_better(self, mock_vdms_class):
+  def test_parse_query_results_ip_uses_higher_is_better(self):
     """IP metric should select max `_distance` and require values above threshold."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "IP"
 
@@ -606,11 +607,8 @@ class TestUUIDManagerMetricAwareMatching:
     assert database_id == 'a'
     assert similarity == 0.8
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_l2_uses_lower_is_better(self, mock_vdms_class):
+  def test_parse_query_results_l2_uses_lower_is_better(self):
     """L2 metric should select min `_distance` and require values below threshold."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "L2"
 
@@ -630,11 +628,8 @@ class TestUUIDManagerMetricAwareMatching:
     assert database_id == 'a'
     assert similarity == 0.2
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_ip_ignores_out_of_range_scores(self, mock_vdms_class):
+  def test_parse_query_results_ip_ignores_out_of_range_scores(self):
     """IP matching must ignore candidates with `_distance` outside [-1, 1]."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "IP"
 
@@ -654,11 +649,8 @@ class TestUUIDManagerMetricAwareMatching:
     assert database_id == 'b'
     assert similarity == 0.9
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_ip_returns_no_match_when_all_scores_invalid(self, mock_vdms_class):
+  def test_parse_query_results_ip_returns_no_match_when_all_scores_invalid(self):
     """IP matching must return no match if all candidate scores are out of range."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "IP"
 
@@ -677,11 +669,8 @@ class TestUUIDManagerMetricAwareMatching:
     assert database_id is None
     assert similarity is None
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_ip_threshold_boundary_requires_strictly_greater(self, mock_vdms_class):
+  def test_parse_query_results_ip_threshold_boundary_requires_strictly_greater(self):
     """IP matching should not accept values exactly equal to threshold."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.8})
     manager.reid_database.similarity_metric = "IP"
 
@@ -697,11 +686,8 @@ class TestUUIDManagerMetricAwareMatching:
     assert database_id is None
     assert similarity is None
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_l2_threshold_boundary_requires_strictly_less(self, mock_vdms_class):
+  def test_parse_query_results_l2_threshold_boundary_requires_strictly_less(self):
     """L2 matching should not accept values exactly equal to threshold."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.2})
     manager.reid_database.similarity_metric = "L2"
 
@@ -721,13 +707,11 @@ class TestUUIDManagerMetricAwareMatching:
 class TestUUIDManagerMetricAwareUpdateFlow:
   """Verify parse->update flow produces correct states for both metric paths."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_cosine_path_match_transitions_to_matched(self, mock_vdms_class):
+  def test_cosine_path_match_transitions_to_matched(self):
     """COSINE (mapped to IP) should produce MATCHED when best score is above threshold."""
     from controller.moving_object import MovingObject, ReidState
     import time
 
-    mock_vdms_class.return_value = MagicMock()
     manager = UUIDManager(reid_config_data={'similarity_metric': 'COSINE', 'similarity_threshold': 0.8})
     manager.reid_database.similarity_metric = "IP"
 
@@ -755,13 +739,11 @@ class TestUUIDManagerMetricAwareUpdateFlow:
     assert obj.gid == 'db_match_1'
     assert obj.similarity == 0.92
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_l2_path_equal_threshold_transitions_to_query_no_match(self, mock_vdms_class):
+  def test_l2_path_equal_threshold_transitions_to_query_no_match(self):
     """L2 should produce QUERY_NO_MATCH when best score is equal to threshold."""
     from controller.moving_object import MovingObject, ReidState
     import time
 
-    mock_vdms_class.return_value = MagicMock()
     manager = UUIDManager(reid_config_data={'similarity_metric': 'L2', 'similarity_threshold': 0.2})
     manager.reid_database.similarity_metric = "L2"
 
@@ -887,97 +869,3 @@ class TestDimensionInference:
 
     assert "track_1" in manager.quality_features, "64-dim embedding should be accepted"
     assert "track_2" not in manager.quality_features, "128-dim embedding should be rejected after 64 inferred"
-
-class TestStorageMetricTimer:
-  """
-  Test the periodic storage-metric polling (descriptor_count / shared_vector_bytes),
-  which queries the shared VDMS store directly so it reflects growth across all
-  controller instances, not just this process.
-  """
-
-  def test_storage_metric_timer_starts_on_init(self, mock_vdms_db):
-    """Verify the storage-metric timer is created during initialization."""
-    manager = UUIDManager()
-
-    assert manager.storage_metric_timer is not None
-    manager.shutdown()
-
-  def test_default_storage_metric_interval(self, mock_vdms_db):
-    """Verify the default polling interval matches DEFAULT_STORAGE_METRIC_INTERVAL_SECS."""
-    manager = UUIDManager()
-
-    assert manager.storage_metric_interval_secs == 60.0
-    manager.shutdown()
-
-  def test_custom_storage_metric_interval_from_config(self, mock_vdms_db):
-    """Verify storage_metric_interval_secs is configurable via reid_config_data."""
-    manager = UUIDManager(reid_config_data={'storage_metric_interval_secs': 10})
-
-    assert manager.storage_metric_interval_secs == 10
-    manager.shutdown()
-
-  def test_report_storage_metric_queries_descriptor_count_and_bytes(self, mock_vdms_db):
-    """Verify _reportStorageMetric queries both the count and the vector-bytes methods."""
-    manager = UUIDManager()
-    mock_vdms_db.getDescriptorCount.return_value = 42
-    mock_vdms_db.getDescriptorSetVectorBytes.return_value = 43008
-
-    manager._reportStorageMetric()
-
-    mock_vdms_db.getDescriptorCount.assert_called_once()
-    mock_vdms_db.getDescriptorSetVectorBytes.assert_called_once()
-    manager.shutdown()
-
-  def test_report_storage_metric_skips_cleanly_when_count_is_none(self, mock_vdms_db):
-    """Verify no exception when the shared count query fails and returns None."""
-    manager = UUIDManager()
-    mock_vdms_db.getDescriptorCount.return_value = None
-    mock_vdms_db.getDescriptorSetVectorBytes.return_value = None
-
-    manager._reportStorageMetric()  # should not raise
-
-    manager.shutdown()
-
-  def test_report_storage_metric_handles_exception_gracefully(self, mock_vdms_db):
-    """Verify an exception from the database layer doesn't propagate out of the report call."""
-    manager = UUIDManager()
-    mock_vdms_db.getDescriptorCount.side_effect = Exception("VDMS connection lost")
-
-    manager._reportStorageMetric()  # should not raise
-
-    manager.shutdown()
-
-  def test_shutdown_cancels_storage_metric_timer(self, mock_vdms_db):
-    """Verify shutdown() cancels the storage-metric timer and clears the reference."""
-    manager = UUIDManager()
-    timer = manager.storage_metric_timer
-
-    manager.shutdown()
-
-    assert manager.storage_metric_timer is None
-    # Timer.cancel() synchronously sets the internal 'finished' event; the underlying
-    # thread may take a moment longer to actually terminate, so check the event
-    # rather than is_alive() (which is racy immediately after cancel()).
-    assert timer.finished.is_set()
-
-  def test_update_reid_config_reschedules_timer_when_interval_changes(self, mock_vdms_db):
-    """Verify changing storage_metric_interval_secs via config triggers a reschedule."""
-    manager = UUIDManager(reid_config_data={'storage_metric_interval_secs': 60})
-    original_timer = manager.storage_metric_timer
-
-    manager.updateReidConfig({'storage_metric_interval_secs': 5})
-
-    assert manager.storage_metric_interval_secs == 5
-    assert manager.storage_metric_timer is not original_timer
-    assert original_timer.finished.is_set()
-    manager.shutdown()
-
-  def test_update_reid_config_does_not_reschedule_when_interval_unchanged(self, mock_vdms_db):
-    """Verify the timer is left alone when storage_metric_interval_secs doesn't change."""
-    manager = UUIDManager(reid_config_data={'storage_metric_interval_secs': 60})
-    original_timer = manager.storage_metric_timer
-
-    manager.updateReidConfig({'storage_metric_interval_secs': 60})
-
-    assert manager.storage_metric_timer is original_timer
-    manager.shutdown()

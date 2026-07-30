@@ -8,12 +8,21 @@ import math
 
 import numpy as np
 
-from controller.vdms_adapter import VDMSDatabase, COSINE_SIMILARITY_TOLERANCE
+from controller.reid_constants import (
+  DEFAULT_CONFIG_SIMILARITY_METRIC,
+  SUPPORTED_CONFIG_SIMILARITY_METRICS,
+  is_higher_better_metric,
+  is_similarity_match,
+  normalize_config_similarity_metric,
+  normalize_similarity_score,
+  pick_best_metric_value,
+  resolve_database_similarity_metric,
+)
+from controller.reid_registry import create_reid_database
 from controller.moving_object import ReidState, MovingObject
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
 
-DEFAULT_DATABASE = "VDMS"
 DEFAULT_SIMILARITY_THRESHOLD_L2 = 40.0
 DEFAULT_SIMILARITY_THRESHOLD_COSINE = 0.5
 DEFAULT_MINIMUM_BBOX_AREA = 5000
@@ -23,32 +32,24 @@ DEFAULT_MAX_QUERY_TIME = 4
 DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED = 10
 DEFAULT_STALE_FEATURE_TIMEOUT_SECS = 5.0
 DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS = 1.0
-DEFAULT_STORAGE_METRIC_INTERVAL_SECS = 60.0
-DEFAULT_SIMILARITY_METRIC = "L2"
-SUPPORTED_SIMILARITY_METRICS = {"COSINE", "L2"}
-# Tolerance applied to the theoretical [-1, 1] IP score bounds to absorb
-# float32 rounding errors from VDMS normalization and inner-product computation.
-available_databases = {
-  "VDMS": VDMSDatabase,
-}
+DEFAULT_SIMILARITY_METRIC = DEFAULT_CONFIG_SIMILARITY_METRIC
+SUPPORTED_SIMILARITY_METRICS = SUPPORTED_CONFIG_SIMILARITY_METRICS
 
 class UUIDManager:
   def _normalizeSimilarityMetric(self, metric):
-    normalized_metric = str(metric).strip().upper()
-    if normalized_metric not in SUPPORTED_SIMILARITY_METRICS:
+    normalized_metric = normalize_config_similarity_metric(
+      metric, default=DEFAULT_SIMILARITY_METRIC)
+    if str(metric).strip().upper() != normalized_metric and (
+        str(metric).strip().upper() not in SUPPORTED_SIMILARITY_METRICS):
       log.warning(
         f"Unsupported similarity_metric '{metric}', "
         f"supported values are {sorted(SUPPORTED_SIMILARITY_METRICS)}; "
         f"falling back to {DEFAULT_SIMILARITY_METRIC}")
-      return DEFAULT_SIMILARITY_METRIC
     return normalized_metric
 
   def _resolveDatabaseSimilarityMetric(self, configured_metric):
-    """Translate controller-facing similarity metric to the VDMS descriptor metric."""
-    metric = self._normalizeSimilarityMetric(configured_metric)
-    if metric == "COSINE":
-      return "IP"
-    return metric
+    """Translate controller-facing similarity metric to the backend descriptor metric."""
+    return resolve_database_similarity_metric(configured_metric)
 
   def _resolveDefaultSimilarityThreshold(self, similarity_metric):
     """Return the default threshold for the configured similarity metric."""
@@ -79,7 +80,7 @@ class UUIDManager:
       raise ValueError("similarity_threshold for L2 must be non-negative")
     return normalized_threshold
 
-  def __init__(self, database=DEFAULT_DATABASE, reid_config_data=None):
+  def __init__(self, database=None, reid_config_data=None):
     self.active_ids = {}
     self.active_ids_lock = threading.Lock()
     self.active_query = {}
@@ -95,7 +96,7 @@ class UUIDManager:
       reid_config_data = {}
     self._inferred_dimensions = None
     self._dimensions_lock = threading.Lock()
-    self.reid_database = available_databases[database](dimensions=None)
+    self.reid_database = create_reid_database(database, dimensions=None)
 
     self.pool = concurrent.futures.ThreadPoolExecutor()
     self.similarity_query_times = collections.deque(
@@ -104,8 +105,6 @@ class UUIDManager:
     self.reid_enabled = True
     self._applyReidConfig(reid_config_data)
     self._rescheduleStaleFeatureTimer()
-    self.storage_metric_timer = None
-    self._startStorageMetricTimer()
     return
 
   def _incrementUniqueIdCount(self):
@@ -118,15 +117,11 @@ class UUIDManager:
   def updateReidConfig(self, reid_config_data=None):
     """Update runtime ReID configuration without recreating the UUID manager."""
     old_interval = self.stale_feature_check_interval_secs
-    old_storage_metric_interval = getattr(self, 'storage_metric_interval_secs', None)
     self._applyReidConfig(reid_config_data)
 
     # Timer cadence changes require rescheduling the stale feature timer.
     if old_interval != self.stale_feature_check_interval_secs:
       self._rescheduleStaleFeatureTimer()
-
-    if old_storage_metric_interval != self.storage_metric_interval_secs:
-      self._rescheduleStorageMetricTimer()
 
   def _applyReidConfig(self, reid_config_data=None):
     """Apply ReID config values with defaults."""
@@ -151,11 +146,18 @@ class UUIDManager:
       'minimum_bbox_area', DEFAULT_MINIMUM_BBOX_AREA)
     self.feature_slice_size = reid_config_data.get(
       'feature_slice_size', DEFAULT_FEATURE_SLICE_SIZE)
-    self.storage_metric_interval_secs = reid_config_data.get(
-      'storage_metric_interval_secs', DEFAULT_STORAGE_METRIC_INTERVAL_SECS)
     if hasattr(self, 'reid_database') and self.reid_database is not None:
-      self.reid_database.similarity_metric = self._resolveDatabaseSimilarityMetric(
-        self.similarity_metric)
+      new_db_metric = self._resolveDatabaseSimilarityMetric(self.similarity_metric)
+      current_db_metric = getattr(self.reid_database, 'similarity_metric', None)
+      schema_ready = getattr(self.reid_database, '_schema_ready', False) is True
+      if (schema_ready and
+          current_db_metric is not None and
+          str(current_db_metric).strip().upper() != new_db_metric):
+        raise ValueError(
+          f"Cannot change ReID similarity metric from {current_db_metric} to "
+          f"{new_db_metric} after schema initialization; restart the controller "
+          f"and flush the {self.reid_database._schemaResourceLabel()}.")
+      self.reid_database.similarity_metric = new_db_metric
 
   def _rescheduleStaleFeatureTimer(self):
     """Cancel any existing stale-feature timer and start a new one."""
@@ -174,9 +176,6 @@ class UUIDManager:
     if self.stale_feature_timer is not None:
       self.stale_feature_timer.cancel()
       self.stale_feature_timer = None
-    if getattr(self, 'storage_metric_timer', None) is not None:
-      self.storage_metric_timer.cancel()
-      self.storage_metric_timer = None
     if hasattr(self, 'pool') and self.pool is not None:
       self.pool.shutdown(wait=False)
 
@@ -195,54 +194,6 @@ class UUIDManager:
     self.stale_feature_timer = threading.Timer(self.stale_feature_check_interval_secs, callback)
     self.stale_feature_timer.daemon = True
     self.stale_feature_timer.start()
-
-  def _rescheduleStorageMetricTimer(self):
-    """Cancel any existing storage-metric timer and start a new one at the current interval."""
-    timer = getattr(self, 'storage_metric_timer', None)
-    if timer is not None:
-      timer.cancel()
-    self.storage_metric_timer = None
-    self._startStorageMetricTimer()
-
-  def _startStorageMetricTimer(self):
-    """
-    Start a background timer that periodically polls VDMS for the ground-truth
-    descriptor count and logs it. Unlike the per-instance write counter in
-    VDMSDatabase, this queries the shared store directly, so it reflects the
-    combined effect of every controller instance writing to the same set.
-    """
-    def report_and_reschedule():
-      self.pool.submit(self._reportStorageMetric)
-      self.storage_metric_timer = threading.Timer(
-        self.storage_metric_interval_secs, report_and_reschedule)
-      self.storage_metric_timer.daemon = True
-      self.storage_metric_timer.start()
-
-    self.storage_metric_timer = threading.Timer(
-      self.storage_metric_interval_secs, report_and_reschedule)
-    self.storage_metric_timer.daemon = True
-    self.storage_metric_timer.start()
-
-  def _reportStorageMetric(self):
-    """
-    Query the shared descriptor count and exact vector-storage bytes from VDMS
-    and log them for charting. Both are ground truth: the same value regardless
-    of which (or how many) controller instances are polling, since they come
-    directly from the shared VDMS store rather than from local counters.
-    """
-    try:
-      descriptor_count = self.reid_database.getDescriptorCount()
-      shared_vector_bytes = self.reid_database.getDescriptorSetVectorBytes()
-    except Exception as e:
-      log.warning(f"_reportStorageMetric: Failed to query descriptor storage metrics: {e}")
-      return
-    if descriptor_count is None:
-      return
-    log.debug(
-      "reid_storage_metric "
-      f"descriptor_count={descriptor_count} "
-      f"shared_vector_bytes={shared_vector_bytes}")
-    return
 
   def _flushStaleFeatures(self):
     """Check for features older than the configured timeout (from reid-config.json) and flush them to VDMS"""
@@ -627,31 +578,17 @@ class UUIDManager:
     metric = getattr(self.reid_database, 'similarity_metric', None)
     if metric is None:
       return False
-    return str(metric).strip().upper() == "IP"
+    return is_higher_better_metric(metric)
 
   def _isSimilarityMatch(self, metric_value, threshold):
     """Evaluate threshold semantics according to the active descriptor metric."""
-    if metric_value is None:
-      return False
-
-    if not math.isfinite(metric_value):
-      return False
-
-    if self._isHigherBetterMetric():
-      # For IP metrics, scores must lie within [-1, 1] (normalized embeddings).
-      # Allow a small tolerance to absorb float32 rounding from VDMS computation.
-      if metric_value < -(1.0 + COSINE_SIMILARITY_TOLERANCE) or metric_value > (1.0 + COSINE_SIMILARITY_TOLERANCE):
-        return False
-      return metric_value > threshold
-    return metric_value < threshold
+    metric = getattr(self.reid_database, 'similarity_metric', None)
+    return is_similarity_match(metric_value, threshold, metric)
 
   def _pickBestMetricValue(self, metric_values):
     """Pick best metric value according to descriptor metric semantics."""
-    if not metric_values:
-      return None
-    if self._isHigherBetterMetric():
-      return max(metric_values)
-    return min(metric_values)
+    metric = getattr(self.reid_database, 'similarity_metric', None)
+    return pick_best_metric_value(metric_values, metric)
 
   def _findBestMetricCandidate(self, entities):
     """
@@ -664,19 +601,19 @@ class UUIDManager:
     Structure of entities:
     [{'uuid': <UUID>, 'rvid': <TRACKER_ID>, '_distance': <SIMILARITY_SCORE>}, ...]
     """
-    is_higher_better = self._isHigherBetterMetric()
+    metric = getattr(self.reid_database, 'similarity_metric', None)
+    is_higher_better = is_higher_better_metric(metric)
     if entities:
       filtered_entities = []
       for entity in entities:
-        metric_value = entity.get('_distance')
-        if metric_value is None or not math.isfinite(metric_value):
+        metric_value = normalize_similarity_score(entity.get('_distance'), metric)
+        if metric_value is None:
+          if is_higher_better and entity.get('_distance') is not None:
+            log.warning(
+              f"Ignoring out-of-range IP similarity score {entity.get('_distance')} "
+              f"for uuid={entity.get('uuid')}")
           continue
-        if is_higher_better and (metric_value < -(1.0 + COSINE_SIMILARITY_TOLERANCE) or metric_value > (1.0 + COSINE_SIMILARITY_TOLERANCE)):
-          log.warning(
-            f"Ignoring out-of-range IP similarity score {metric_value} "
-            f"for uuid={entity.get('uuid')}")
-          continue
-        filtered_entities.append(entity)
+        filtered_entities.append({**entity, '_distance': metric_value})
 
       if not filtered_entities:
         return (None, None)
