@@ -516,24 +516,21 @@ class MeshGenerator:
 
     cameras = scene.sensor_set.filter(type="camera").order_by("id")
 
-    if mapping_result.get("success"):
-      glb_data = mapping_result.get("glb_data")
-      if not glb_data:
-        return {"success": False, "error": "Mapping service did not return GLB data"}
+    glb_data = mapping_result.get("glb_data")
+    if not glb_data:
+      return {"success": False, "error": "Mapping service did not return GLB data"}
 
-      # Validate the reconstructed mesh is a single connected scene before
-      # mutating any camera poses, so a rejected mesh leaves the scene untouched.
-      connectivity_error = self._checkMeshConnectivity(glb_data)
-      if connectivity_error is not None:
-        return {"success": False, "error": connectivity_error}
+    # Validate the reconstructed mesh is a single connected scene before
+    # mutating any camera poses, so a rejected mesh leaves the scene untouched.
+    connectivity_error = self._checkMeshConnectivity(glb_data)
+    if connectivity_error is not None:
+      return {"success": False, "error": connectivity_error}
 
-      self._updateSceneCamerasWithMappingResult(mapping_result, cameras)
-      mesh_transform = self._saveMeshToScene(scene, glb_data)
-      if mesh_transform is not None:
-        self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
-      return {"success": True}
-
-    return {"success": False, "error": "Mapping service did not return GLB data"}
+    self._updateSceneCamerasWithMappingResult(mapping_result, cameras)
+    mesh_transform = self._saveMeshToScene(scene, glb_data)
+    if mesh_transform is not None:
+      self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
+    return {"success": True}
 
   def _updateSceneCamerasWithMappingResult(self, mapping_result, cameras):
     """
