@@ -5,86 +5,98 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Plan: Integrate DLS Pipeline Configurator
 
-Add a new optional pipeline-configuration phase to scenescape-setup that invokes the external dlstreamer-coding-agent only when the user provides a customization prompt, consumes a single generated GStreamer pipeline string, adapts it into SceneScape-compatible pipeline-config.json entries (timestamping, metaconvert, policy constraints, adapter kwargs), and then continues existing deployment gates. Keep current defaults for basic deployments and fail fast only when customization is requested and cannot be satisfied by defaults.
+Add an optional pipeline-customization path to scenescape-setup that invokes the external dlstreamer-coding-agent only when the user supplies a customization prompt, consumes a single generated GStreamer pipeline string, normalizes it into SceneScape-compatible `pipeline-config.json` entries (timestamp capture, metaconvert, data-publish element names, policy constraints), and then continues the existing deployment gates. Basic deployments keep today's `adapt_pipeline_config.py` defaults with no external dependency; fail fast only when customization was requested and cannot be satisfied.
+
+This revision reflects the current skill: the `gvapython` + `sscape_adapter.py` path is gone and replaced by native GStreamer Python plugins under `dlstreamer-pipeline-server/user_scripts/gstplugins/`, phases live as `references/phase-*.md` inside one skill rather than separate skill folders, and orchestrator step numbers are already in use from 6 through 13.
 
 **Steps**
 
-1. Phase 1: Discovery hardening and interface contract
-1. Define the external invocation contract in scenescape-setup references: required input payload (camera_ids, streams, user prompt, optional model/device hints), expected output (single pipeline string), and error shape.
-1. Add explicit guardrail that external skill invocation is conditional: run only when a new user input field (pipeline_customization_prompt) is non-empty. If empty, preserve current adapt_pipeline_config flow. _blocks all later logic_
-1. Decide invocation mechanism abstraction (remote command wrapper) so setup scripts do not hardcode network/repo assumptions. Add environment-configurable command path and timeout/retry behavior. _depends on previous step_
-1. Phase 2: Setup input model updates
-1. Extend deploy input persistence in .github/skills/scenescape-setup/scripts/deploy_inputs.py to include optional pipeline_customization_prompt and optional pipeline_customization_mode metadata.
-1. Update .github/skills/scenescape-setup/SKILL.md and phase skill docs to require asking for the optional prompt during Step 1 and to document when external invocation occurs. _parallel with next step_
-1. Update argument parsing and resume semantics in .github/skills/scenescape-setup/scripts/deploy_scenescape.sh so prompt state is loaded from deploy-inputs.json on resume and compared in consistency checks. _depends on deploy_inputs.py changes_
-1. Phase 3: Pipeline configurator skill and script
-1. Add new skill folder .github/skills/scenescape-setup-pipeline-config with SKILL.md describing step purpose, prerequisites, and failure handling.
-1. Add a new script .github/skills/scenescape-setup/scripts/configure_pipeline.py that:
-1. Reads generated pipeline-config.json from deploy dir.
-1. If prompt missing: no-op with explicit log that defaults are retained.
-1. If prompt present: invokes external dlstreamer-coding-agent wrapper and obtains one pipeline string.
-1. Validates string contains required SceneScape-compatible elements or can be normalized.
-1. Applies/normalizes SceneScape requirements: rtspsrc timestamp metadata support, gvametaconvert add-tensor-data=true, gvapython adapter module/class/function names, payload camera_config consistency, policy whitelist for v1 (detectionPolicy, reidPolicy, classificationPolicy).
-1. Writes updated per-camera pipeline entries while keeping DLS config envelope structure unchanged.
-1. Add strict validation + fail-fast behavior only for customized mode when generated pipeline cannot be normalized and defaults cannot satisfy request.
-1. Phase 4: Orchestrator step integration
-1. Insert a new step in .github/skills/scenescape-setup/scripts/deploy_scenescape.sh between current bootstrap and warmup gates (new step 7), then renumber downstream step state bookkeeping and phase boundaries.
-1. Add a new phase selector value pipeline_config in phase_start_step/phase_end_step and include it in usage/help text.
-1. Ensure existing phases still map correctly:
-1. bootstrap now ends after pipeline configuration.
-1. calibrate and scene start-step logic reflects renumbering.
-1. resume logic and .deploy-state.json compatibility remain intact.
-1. Phase 5: Policy and schema consistency safeguards
-1. In configure_pipeline.py, validate metadatagenpolicy against adapter-supported policies from dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py and reject unsupported policy names.
-1. Add schema-aware checks so modified payload fields still conform to parameter schema shape emitted by adapt_pipeline_config.py.
-1. Keep camera-data compatibility assumptions explicit (do not alter MQTT payload contract in this task).
-1. Phase 6: Documentation updates
-1. Update .github/skills/scenescape-setup/SKILL.md:
-1. Step map includes new step 7 pipeline-configurator.
-1. Inputs table includes optional pipeline customization prompt.
-1. Phased sub-skill table includes scenescape-setup-pipeline-config.
-1. Update .github/skills/scenescape-setup-bootstrap/SKILL.md to reflect revised step range.
-1. Update .github/skills/scenescape-setup-calibrate/SKILL.md and .github/skills/scenescape-setup-scene/SKILL.md step numbers only where required.
-1. Update .github/skills/scenescape-setup/references/pipeline-config.md with new conditional generation path and normalization rules.
-1. Add user-guide docs under docs/user-guide/other-topics if setup behavior is user-visible beyond skill docs.
-1. Phase 7: Verification plan
-1. Static validation: run shell and python lint/format checks used by repository standards for touched files.
-1. Behavioral validation A (default mode): run bootstrap flow without prompt and verify generated pipeline-config.json is unchanged from baseline behavior.
-1. Behavioral validation B (custom mode success): provide prompt requesting reid/classification policy; verify configure step updates pipeline string and payload policy while preserving timestamp and metaconvert requirements.
-1. Behavioral validation C (custom mode failure): provide incompatible prompt and verify deployment stops at pipeline configuration step with actionable error.
-1. Resume/regression validation: checkpoint after step 6, rerun with --resume and ensure step 7 executes correctly; verify phase pipeline_config can run in isolation.
+1. Phase 1 — Discovery hardening and interface contract
+   - Define the external invocation contract in a new `references/pipeline-customization.md`: input payload (camera_ids, streams, user prompt, optional model/device hints), expected output (a single GStreamer pipeline string), and error shape.
+   - Add the guardrail that external invocation is conditional: run only when a new input field `pipeline_customization_prompt` is non-empty, otherwise preserve the current `adapt_pipeline_config.py` flow unchanged. _blocks all later logic_
+   - Abstract the invocation mechanism behind an environment-configurable command with JSON on stdin/stdout, plus timeout and retry behavior, so setup scripts hardcode no network or repo assumptions. _depends on previous step_
+
+2. Phase 2 — Setup input model updates
+   - Extend `inputs_payload()` in `scripts/deploy_inputs.py` with optional `pipeline_customization_prompt` and `pipeline_customization_mode`, leaving the existing keys (`scene_name`, `camera_ids`, `streams`, `source_type`, optional `video_paths`, `skill_dir`) untouched.
+   - Decide explicitly whether the new field participates in `inputs_match()`. It currently compares only scene_name, camera_ids, and streams, and the `check` subcommand builds its candidate payload without the new field, so changing one side without the other silently breaks resume. _depends on previous step_
+   - Update Step 1 in `SKILL.md` to ask for the optional prompt and document when external invocation occurs. _parallel with next step_
+   - Load prompt state from `deploy-inputs.json` on resume in `scripts/deploy_scenescape.sh` and include it in the consistency check. _depends on deploy_inputs.py changes_
+
+3. Phase 3 — Pipeline configurator script
+   - Add `scripts/configure_pipeline.py` that reads `<deploy_dir>/dlstreamer-pipeline-server/pipeline-config.json`, no-ops with an explicit log when no prompt is present, invokes the external wrapper for a single pipeline string when one is, validates and normalizes that string, and writes updated per-camera entries while keeping the `config.logging` / `config.pipelines` envelope unchanged.
+   - Normalize against the native element pipeline, not gvapython: `rtspsrc add-reference-timestamp-meta=true`, `sscape_timestamp_capture name=timesync ntp-server=…`, `gvametaconvert add-tensor-data=true name=metaconvert`, `sscape_post_inference_data_publish name=datapublisher`, and the terminal `gvametapublish name=destination ! appsink sync=true`.
+   - Treat element names as load-bearing: `payload.parameters` bind to elements by name (`timesync`, `datapublisher`) through the `parameters` schema, so a generated pipeline that renames or omits either element must be rejected or renamed during normalization.
+   - Apply strict fail-fast behavior only in customized mode, when the generated pipeline cannot be normalized and defaults cannot satisfy the request.
+   - Do not add a separate `scenescape-setup-pipeline-config` skill folder; document the step as a reference inside the existing skill, matching how phases are organized today.
+
+4. Phase 4 — Orchestrator integration without renumbering
+   - Run the configurator inside existing step 6, immediately after `adapt_pipeline_config.py` generates the config within `bootstrap_deploy.py`.
+   - Rationale for dropping the original "insert step 7 and renumber" approach: steps are currently 6 bootstrap, 7 warmup/RTSP/models, 8 full stack, 9 calibration frames, 10 mapping health, 11–12 reconstruct, 13 tracking, with `phase_start_step`/`phase_end_step` mapping bootstrap to 6–8, calibrate to 9–10, and scene to 12–13. Inserting a new integer step shifts every downstream number and invalidates existing `.deploy-state.json` checkpoints, which contradicts this plan's own compatibility requirement.
+   - Expose standalone re-runs as a documented direct script invocation rather than a new `--phase` value, keeping `--phase all|bootstrap|calibrate|scene` and its usage text unchanged.
+   - If a dedicated phase is still wanted later, add it as a named phase mapped onto step 6 instead of a new step number.
+
+5. Phase 5 — Policy and schema consistency safeguards
+   - Validate `metadatagenpolicy` against `dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py`, which defines `detectionPolicy`, `detection3DPolicy`, `reidPolicy`, `classificationPolicy`, and `ocrPolicy`. The former source of truth, `sscape_adapter.py`, no longer exists.
+   - Note that `sscape_post_inference_data_publish.py` already rejects unknown values via its `METADATA_POLICIES` check in `do_set_property`, so the script's role is to fail at configuration time rather than at container start.
+   - Keep the `parameters` schema in the element/property form emitted by `adapt_pipeline_config.py` (`{"element": {"name": …, "property": …}, "type": …}`) rather than the former nested kwarg blobs.
+   - Keep camera-data compatibility assumptions explicit and do not alter the MQTT payload contract in this task.
+
+6. Phase 6 — Documentation updates
+   - Update `SKILL.md`: add the optional prompt to the inputs table, note in the step map that customization runs inside step 6, and add the new reference to the reference-lookup table.
+   - Update `references/pipeline-config.md` with the dual default/customized path and the normalization rules, alongside the existing plugin table.
+   - Update `references/phase-bootstrap.md` to mention that bootstrap can now invoke the configurator.
+   - No step-number edits are needed in `references/phase-calibrate.md` or `references/phase-scene.md`, since numbering is unchanged.
+   - Keep new tables compact. `.github/skills/` is now prettier-ignored, so alignment padding is not reintroduced automatically and wide tables only cost context.
+   - Add user-guide docs under `docs/user-guide/other-topics/` only if the behavior is user-visible beyond the skill docs.
+
+7. Phase 7 — Verification plan
+   - Static validation: run the repository's Python and shell lint targets for touched files, plus `make prettier-check` for any docs outside `.github/skills/`.
+   - Security re-scan: run `skillspector scan .github/skills/scenescape-setup --no-llm --baseline .skillspector-baseline.yaml`. `configure_pipeline.py` will introduce new AST4 subprocess findings that must be reviewed and, if accepted, appended to the baseline.
+   - Behavioral validation A (default mode): run the bootstrap flow with no prompt and verify the generated `pipeline-config.json` is unchanged from baseline behavior.
+   - Behavioral validation B (custom mode success): supply a prompt requesting a reid or classification policy and verify the pipeline string and payload policy are updated while timestamp capture and metaconvert requirements survive.
+   - Behavioral validation C (custom mode failure): supply an incompatible prompt and verify deployment stops with an actionable error.
+   - Resume validation: checkpoint after step 6, rerun with `--resume`, and confirm no drift now that step numbering is untouched.
 
 **Relevant files**
 
-- /home/spoluri/open-edge-platform/geospatial-map/scenescape/.github/skills/scenescape-setup/SKILL.md — add optional prompt input, step map changes, sub-skill links.
-- /home/spoluri/open-edge-platform/geospatial-map/scenescape/.github/skills/scenescape-setup-bootstrap/SKILL.md — adjust phase scope and invocation guidance.
-- /home/spoluri/open-edge-platform/geospatial-map/scenescape/.github/skills/scenescape-setup-calibrate/SKILL.md — step-number alignment after insertion.
-- /home/spoluri/open-edge-platform/geospatial-map/scenescape/.github/skills/scenescape-setup-scene/SKILL.md — step-number alignment and prerequisites text.
-- /home/spoluri/open-edge-platform/geospatial-map/scenescape/.github/skills/scenescape-setup/scripts/deploy_scenescape.sh — new step function, renumbering, phase mapping, resume behavior.
-- /home/spoluri/open-edge-platform/geospatial-map/scenescape/.github/skills/scenescape-setup/scripts/deploy_inputs.py — persist/validate optional customization prompt.
-- /home/spoluri/open-edge-platform/geospatial-map/scenescape/.github/skills/scenescape-setup/scripts/adapt_pipeline_config.py — keep baseline defaults path; optionally expose reusable helpers for configure script.
-- /home/spoluri/open-edge-platform/geospatial-map/scenescape/.github/skills/scenescape-setup/scripts/configure_pipeline.py — new customization + external invocation orchestrator.
-- /home/spoluri/open-edge-platform/geospatial-map/scenescape/.github/skills/scenescape-setup/references/pipeline-config.md — document dual path (default/customized) and policy constraints.
-- /home/spoluri/open-edge-platform/geospatial-map/scenescape/dlstreamer-pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py — source of truth for supported metadata policies to validate against.
+Paths are repo-relative to the SceneScape checkout. Note that `.cursor/skills/scenescape-setup` is a symlink to `.github/skills/scenescape-setup`, so there is a single canonical copy to edit.
+
+- `.github/skills/scenescape-setup/SKILL.md` — optional prompt input, step-map note, reference-table entry.
+- `.github/skills/scenescape-setup/references/phase-bootstrap.md` — bootstrap scope and invocation guidance.
+- `.github/skills/scenescape-setup/references/pipeline-config.md` — document the default and customized paths plus policy constraints.
+- `.github/skills/scenescape-setup/references/pipeline-customization.md` — new: external invocation contract, error shape, standalone re-run command.
+- `.github/skills/scenescape-setup/scripts/deploy_scenescape.sh` — resume/consistency handling for the new input; no step renumbering.
+- `.github/skills/scenescape-setup/scripts/deploy_inputs.py` — persist and validate the optional customization prompt.
+- `.github/skills/scenescape-setup/scripts/bootstrap_deploy.py` — call the configurator after pipeline generation inside step 6.
+- `.github/skills/scenescape-setup/scripts/adapt_pipeline_config.py` — keep the baseline defaults path; optionally expose reusable helpers for the configurator.
+- `.github/skills/scenescape-setup/scripts/configure_pipeline.py` — new: customization and external-invocation orchestrator.
+- `.github/skills/scenescape-setup/.skillspector-baseline.yaml` — update if the new script adds accepted findings.
+- `dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py` — source of truth for supported metadata policies.
+- `dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_inference_data_publish.py` — element properties and runtime policy validation.
+- `dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py` — timestamp-capture element properties.
 
 **Verification**
 
-1. Run targeted script-level checks for .github/skills/scenescape-setup/scripts/deploy_inputs.py, .github/skills/scenescape-setup/scripts/configure_pipeline.py, and .github/skills/scenescape-setup/scripts/adapt_pipeline_config.py.
-1. Execute orchestrator in bootstrap phase without prompt and confirm no behavioral drift in pipeline-config.json.
-1. Execute new pipeline_config phase with a prompt and confirm per-camera pipeline entries are updated and valid.
-1. Validate fail-fast path by using a prompt that requests unsupported policy output; confirm non-zero exit and clear diagnostics.
-1. Validate resume and phase boundaries by replaying from checkpoint with --resume and --phase pipeline_config.
+1. Run targeted script-level checks for `deploy_inputs.py`, `configure_pipeline.py`, and `adapt_pipeline_config.py`.
+2. Execute the bootstrap phase without a prompt and confirm no behavioral drift in `pipeline-config.json`.
+3. Execute bootstrap with a prompt and confirm per-camera pipeline entries are updated and valid.
+4. Validate the fail-fast path with a prompt requesting an unsupported policy and confirm a non-zero exit with clear diagnostics.
+5. Validate resume by replaying from a step 6 checkpoint with `--resume`.
+6. Re-run skillspector with the committed baseline and confirm no unreviewed findings.
 
 **Decisions**
 
 - External invocation is conditional, not mandatory.
-- Contract from external agent is a single GStreamer pipeline string.
-- v1 supported policies are detectionPolicy, reidPolicy, classificationPolicy.
-- Failure behavior: if user requested customization and defaults cannot satisfy request, stop deployment.
-- Basic deployments continue using adapt_pipeline_config defaults with no external dependency.
+- The contract from the external agent is a single GStreamer pipeline string.
+- Supported policies are those the native publish element accepts: `detectionPolicy`, `detection3DPolicy`, `reidPolicy`, `classificationPolicy`, and `ocrPolicy`. This supersedes the earlier three-policy v1 list, which predated the native plugins.
+- Customization runs inside existing step 6 rather than as a new numbered step, to preserve `.deploy-state.json` compatibility. This supersedes the earlier "insert step 7 and renumber" decision.
+- Phase documentation stays inside the single scenescape-setup skill as `references/phase-*.md`; no new sibling skill folders. This supersedes the earlier `scenescape-setup-pipeline-config` folder decision.
+- If the user requested customization and defaults cannot satisfy it, stop the deployment.
+- Basic deployments continue using `adapt_pipeline_config.py` defaults with no external dependency.
 
 **Further Considerations**
 
-1. Invocation transport recommendation: implement a thin adapter command interface first (environment-driven command + JSON stdin/stdout) to avoid coupling setup skill logic to one remote execution path.
-2. Compatibility recommendation: keep configure_pipeline.py strictly additive to pipeline-config.json and avoid changing tracker/schema payload structure in this iteration.
-3. Future enhancement: add structured output contract support (pipeline string + policy hints) once external skill can reliably emit it; current v1 remains string-only per decision.
+1. Invocation transport: implement a thin adapter command interface first (environment-driven command with JSON stdin/stdout) to avoid coupling setup logic to one remote execution path.
+2. Compatibility: keep `configure_pipeline.py` strictly additive to `pipeline-config.json` and avoid changing tracker or schema payload structure in this iteration.
+3. Future enhancement: support a structured output contract (pipeline string plus policy hints) once the external skill can reliably emit it; v1 remains string-only.
+4. Open question: the sparse checkout in `bootstrap_deploy.py` pins branch `feature/sscape-app-skill` and verifies required gstplugins are present. Decide whether a customized pipeline may reference plugins outside that verified set, and reject them during normalization if not.
