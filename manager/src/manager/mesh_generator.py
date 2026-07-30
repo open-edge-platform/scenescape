@@ -381,8 +381,13 @@ class MeshGenerator:
 
   def _checkMeshConnectivity(self, glb_data_base64):
     """
-    Return an error message when the reconstructed mesh is split into
-    multiple dominant, spatially separate surfaces, otherwise None.
+    Decode/load/merge the reconstructed mesh once and validate connectivity.
+
+    Returns:
+      tuple: (error_message, merged_mesh). error_message is a string when the
+        mesh is split into multiple dominant, spatially separate surfaces or
+        cannot be decoded, otherwise None. merged_mesh is the loaded trimesh
+        object to reuse downstream, or None when decode/load failed.
     """
     try:
       glb_bytes = base64.b64decode(glb_data_base64)
@@ -391,14 +396,14 @@ class MeshGenerator:
     except Exception as e:
       # Decode/load errors will also break mesh saving; fail early before any scene mutation.
       log.error(f"Failed to decode/load reconstructed mesh: {e}")
-      return "Mapping service returned invalid GLB data"
+      return "Mapping service returned invalid GLB data", None
 
     try:
-      return checkMeshConnectivity(merged_mesh)
+      return checkMeshConnectivity(merged_mesh), merged_mesh
     except Exception as e:
       # Connectivity analysis failure should not block the reconstruction pipeline.
       log.warning(f"Could not analyze mesh connectivity: {e}")
-      return None
+      return None, merged_mesh
 
   def startMeshGeneration(self, scene, mesh_type='mesh', uploaded_map=None):
     """
@@ -526,12 +531,12 @@ class MeshGenerator:
 
     # Validate the reconstructed mesh is a single connected scene before
     # mutating any camera poses, so a rejected mesh leaves the scene untouched.
-    connectivity_error = self._checkMeshConnectivity(glb_data)
+    connectivity_error, merged_mesh = self._checkMeshConnectivity(glb_data)
     if connectivity_error is not None:
       return {"success": False, "error": connectivity_error}
 
     self._updateSceneCamerasWithMappingResult(mapping_result, cameras)
-    mesh_transform = self._saveMeshToScene(scene, glb_data)
+    mesh_transform = self._saveMeshToScene(scene, merged_mesh)
     if mesh_transform is not None:
       self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
     return {"success": True}
@@ -644,22 +649,18 @@ class MeshGenerator:
       log.error(f"Error updating camera {camera.sensor_id}: {e}")
       raise
 
-  def _saveMeshToScene(self, scene, glb_data_base64):
+  def _saveMeshToScene(self, scene, merged_mesh):
     """
     Save the generated GLB mesh to the scene's map field.
 
     Args:
       scene: Scene object to update
-      glb_data_base64: Base64 encoded GLB file data
+      merged_mesh: Pre-loaded, merged trimesh object from _checkMeshConnectivity
 
     Returns:
       dict: Transformation applied to mesh (rotation matrix, translation, center_offset)
     """
     try:
-      # Decode base64 GLB data
-      glb_bytes = base64.b64decode(glb_data_base64)
-      mesh = trimesh.load(BytesIO(glb_bytes), file_type='glb')
-      merged_mesh = mergeMesh(mesh)
 
       # Align the mesh to XY plane with largest bottom face flat and in first quadrant
       log.info(f"Aligning mesh to XY plane in first quadrant")
