@@ -14,14 +14,10 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-web.crt
   web-key:
     file: ${SECRETSDIR}/certs/scenescape-web.key
-  vdms-client-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
-  vdms-client-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
-  vdms-server-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-s.crt
-  vdms-server-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-s.key
+  reid-client-cert:
+    file: ${SECRETSDIR}/certs/scenescape-reid.crt
+  reid-client-key:
+    file: ${SECRETSDIR}/certs/scenescape-reid.key
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
@@ -30,10 +26,10 @@ secrets:
     file: ${SECRETSDIR}/browser.auth
   calibration.auth:
     file: ${SECRETSDIR}/calibration.auth
-  camcalibration-cert:
-    file: ${SECRETSDIR}/certs/scenescape-camcalibration.crt
-  camcalibration-key:
-    file: ${SECRETSDIR}/certs/scenescape-camcalibration.key
+  autocalibration-cert:
+    file: ${SECRETSDIR}/certs/scenescape-autocalibration.crt
+  autocalibration-key:
+    file: ${SECRETSDIR}/certs/scenescape-autocalibration.key
 
 services:
   ntpserv:
@@ -155,8 +151,6 @@ services:
         condition: service_started
       ntpserv:
         condition: service_started
-      # vdms:
-      #   condition: service_started
     environment:
       - CONTROLLER_ENABLE_METRICS
       - CONTROLLER_METRICS_ENDPOINT
@@ -182,34 +176,14 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
-      - source: vdms-client-key
-        target: certs/scenescape-vdms-c.key
-      - source: vdms-client-cert
-        target: certs/scenescape-vdms-c.crt
+      - source: reid-client-key
+        target: certs/scenescape-reid.key
+      - source: reid-client-cert
+        target: certs/scenescape-reid.crt
       - django
       - controller.auth
     restart: always
     pids_limit: 1000
-
-  # vdms:
-  #   image: intellabs/vdms:v2.12.0
-  #   init: true
-  #   networks:
-  #     scenescape:
-  #       aliases:
-  #         - vdms.scenescape.intel.com
-  #   environment:
-  #     - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
-  #     - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
-  #     - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
-  #   secrets:
-  #     - source: root-cert
-  #       target: certs/scenescape-ca.pem
-  #     - source: vdms-server-cert
-  #       target: certs/scenescape-vdms-s.crt
-  #     - source: vdms-server-key
-  #       target: certs/scenescape-vdms-s.key
-  #   restart: always
 
   mediaserver:
     image: bluenviron/mediamtx:1.18.1
