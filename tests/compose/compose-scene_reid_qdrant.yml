@@ -7,10 +7,6 @@ networks:
 secrets:
   root-cert:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
-  reid-client-cert:
-    file: ${SECRETSDIR}/certs/scenescape-reid.crt
-  reid-client-key:
-    file: ${SECRETSDIR}/certs/scenescape-reid.key
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
@@ -29,8 +25,10 @@ services:
         condition: service_started
       ntpserv:
         condition: service_started
-      vdms:
+      qdrant:
         condition: service_started
+    environment:
+      REID_DATABASE: QDRANT
     command: >
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
@@ -39,15 +37,11 @@ services:
     volumes:
       - ./:/workspace
       - ./${DBROOT}/media:/workspace/media
-      - ./controller/config/tracker-config-immediate.json:/home/scenescape/Scenescape/tracker-config.json
+      - ./controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json
       - ${REID_CONFIG_FILE:-./controller/config/reid-config.json}:/home/scenescape/Scenescape/reid-config.json
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
-      - source: reid-client-key
-        target: certs/scenescape-reid.key
-      - source: reid-client-cert
-        target: certs/scenescape-reid.crt
       - django
       - controller.auth
     restart: on-failure
