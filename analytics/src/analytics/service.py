@@ -269,7 +269,8 @@ class AnalyticsService:
     return
 
   def updateRegulateCache(self):
-    for scene in list(self.regulate_cache.keys()):
-      if scene not in self.scenes:
-        self.regulate_cache.pop(scene)
+    scene_ids = {s.uid for s in self.scenes}
+    for scene_id in list(self.regulate_cache.keys()):
+      if scene_id not in scene_ids:
+        self.regulate_cache.pop(scene_id)
     return
