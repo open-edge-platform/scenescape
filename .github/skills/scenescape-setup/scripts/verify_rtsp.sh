@@ -25,7 +25,7 @@ fi
 failed=0
 for url in "$@"; do
   echo "RTSP check: $url"
-  if docker run --rm --network "$NET_NAME" \
+  if docker container run --rm --network "$NET_NAME" \
     linuxserver/ffmpeg:version-8.1-cli \
     -nostdin -v error -rtsp_transport tcp \
     -i "$url" \

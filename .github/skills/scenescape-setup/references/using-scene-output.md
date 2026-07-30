@@ -66,9 +66,9 @@ sensor readings). This is the right starting point for most integrations (dashbo
 custom alerting logic) since it needs no additional scene configuration.
 
 ```bash
-docker run --rm --network <project>_scenescape \
+docker container run --rm --network <project>_scenescape \
   -v <deploy_dir>/secrets/certs/scenescape-ca.pem:/ca.pem:ro \
-  eclipse-mosquitto:2 \
+  eclipse-mosquitto:2.0.22 \
   mosquitto_sub -h broker.scenescape.intel.com -p 1883 \
   --cafile /ca.pem --insecure \
   -t 'scenescape/regulated/scene/<scene_uid>' -C 1 -W 120

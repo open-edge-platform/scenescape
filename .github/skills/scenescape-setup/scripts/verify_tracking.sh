@@ -27,9 +27,9 @@ fi
 
 echo "Waiting up to ${timeout_s}s for objects on $topic"
 payload=$(
-  docker run --rm --network "$NET_NAME" \
+  docker container run --rm --network "$NET_NAME" \
     -v "$ca_file:/ca.pem:ro" \
-    eclipse-mosquitto:2 \
+    eclipse-mosquitto:2.0.22 \
     mosquitto_sub -h broker.scenescape.intel.com -p 1883 \
     --cafile /ca.pem --insecure \
     -t "$topic" -C 1 -W "$timeout_s"

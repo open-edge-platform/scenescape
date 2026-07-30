@@ -128,7 +128,13 @@ services:
       --brokerauth /run/secrets/browser.auth
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
     healthcheck:
-      test: 'curl --insecure -s https://localhost:443/api/v1/health | python3 -c ''import json,sys; data=json.load(sys.stdin); raise SystemExit(0 if data.get("ready") is True else 1)'''
+      # Trust the deployment CA (mounted secret) and use the compose network alias so
+      # the certificate hostname matches.
+      test:
+        [
+          "CMD-SHELL",
+          "curl --cacert /run/secrets/certs/scenescape-ca.pem -fsS https://web.scenescape.intel.com:443/api/v1/health | grep -Eq '\"ready\"[[:space:]]*:[[:space:]]*true'",
+        ]
       interval: 10s
       timeout: 120s
       retries: 10
@@ -284,7 +290,14 @@ services:
         target: certs/scenescape-ca.pem
     healthcheck:
       test:
-        ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8444/v1/health"]
+        [
+          "CMD",
+          "curl",
+          "--cacert",
+          "/run/secrets/certs/scenescape-ca.pem",
+          "-fsSI",
+          "https://mapping.scenescape.intel.com:8444/v1/health",
+        ]
       interval: 15s
       timeout: 60s
       retries: 20

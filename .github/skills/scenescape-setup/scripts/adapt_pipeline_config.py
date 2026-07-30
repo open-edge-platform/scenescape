@@ -15,8 +15,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 # RFC 1123 hostname / dotted-IPv4 chars only. Rejects anything else (e.g. stray
-# control characters) that could otherwise flow into the generated .env file's
-# no_proxy value. IPv6 literals (which contain ':') are validated separately
+# control characters) that could otherwise flow into the generated environment
+# file's no_proxy value. IPv6 literals (which contain ':') are validated separately
 # via ipaddress, since urlparse().hostname already strips the URL's brackets.
 _VALID_HOSTNAME_RE = re.compile(r"^[A-Za-z0-9.-]+$")
 

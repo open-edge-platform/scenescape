@@ -16,7 +16,7 @@ NET_NAME=$(docker network ls --format '{{.Name}}' | grep '_scenescape$' | head -
 ## RTSP Gate Check
 
 ```bash
-docker run --rm --network "$NET_NAME" \
+docker container run --rm --network "$NET_NAME" \
   linuxserver/ffmpeg:version-8.1-cli \
   -nostdin -v error -rtsp_transport tcp \
   -i '<rtsp_url>' \
@@ -30,9 +30,9 @@ The broker uses `mosquitto-secure.conf` with TLS on listener 1883. Mount the Sce
 use `--insecure` because the broker certificate is issued for `broker.scenescape.intel.com`.
 
 ```bash
-docker run --rm --network <project>_scenescape \
+docker container run --rm --network <project>_scenescape \
   -v <deploy_dir>/secrets/certs/scenescape-ca.pem:/ca.pem:ro \
-  eclipse-mosquitto:2 \
+  eclipse-mosquitto:2.0.22 \
   mosquitto_sub -h broker.scenescape.intel.com -p 1883 \
   --cafile /ca.pem --insecure \
   -t '<topic>' -C 1 -W 120
@@ -41,9 +41,9 @@ docker run --rm --network <project>_scenescape \
 ## MQTT Publish (TLS 1883)
 
 ```bash
-docker run --rm --network <project>_scenescape \
+docker container run --rm --network <project>_scenescape \
   -v <deploy_dir>/secrets/certs/scenescape-ca.pem:/ca.pem:ro \
-  eclipse-mosquitto:2 \
+  eclipse-mosquitto:2.0.22 \
   mosquitto_pub -h broker.scenescape.intel.com -p 1883 \
   --cafile /ca.pem --insecure \
   -t '<topic>' -m '<payload>'

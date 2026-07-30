@@ -16,7 +16,7 @@ project_name=$(docker compose config --format json \
   | python3 -c "import json,sys; print(json.load(sys.stdin).get('name', 'scenescape'))")
 models_volume="${project_name}_vol-models"
 
-if docker run --rm \
+if docker container run --rm \
   -v "${models_volume}:/models" \
   scenescape-model-installer:latest \
   bash -c "test -f '/models/${MODEL_XML}' && head -c 5 '/models/${MODEL_XML}' | grep -q '<?xml'"; then

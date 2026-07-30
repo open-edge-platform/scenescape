@@ -37,7 +37,7 @@ SECRETSDIR=<deploy_dir>/secrets
 for AUTH in controller.auth browser.auth calibration.auth; do
   USER=$(python3 -c "import json; d=json.load(open('$SECRETSDIR/$AUTH')); print(d['user'])")
   PASS=$(python3 -c "import json; d=json.load(open('$SECRETSDIR/$AUTH')); print(d['password'])")
-  docker run --rm -v "$SECRETSDIR:/work" eclipse-mosquitto:2.0.22 \
+  docker container run --rm -v "$SECRETSDIR:/work" eclipse-mosquitto:2.0.22 \
     sh -lc "mosquitto_passwd -b /work/mosquitto.passwd '$USER' '$PASS'"
 done
 ```

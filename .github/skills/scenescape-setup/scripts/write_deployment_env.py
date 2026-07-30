@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Write deployment .env from generated SceneScape secrets.
+"""Write the deployment environment file from generated SceneScape secrets.
 
 Usage:
   python write_deployment_env.py --deploy-dir <deploy_dir>
@@ -37,7 +37,9 @@ def join_no_proxy(*parts: str) -> str:
 
 
 def main() -> None:
-  parser = argparse.ArgumentParser(description="Write deployment .env from generated secrets")
+  parser = argparse.ArgumentParser(
+    description="Write the deployment environment file from generated secrets",
+  )
   parser.add_argument("--deploy-dir", required=True, type=Path)
   parser.add_argument(
     "--append-no-proxy",
@@ -69,7 +71,13 @@ def main() -> None:
       "",
     ]
   )
-  (deploy_dir / ".env").write_text(env_text, encoding="utf-8")
+  # Holds DATABASE_PASSWORD and SUPASS, so create it owner-only before writing
+  # and re-apply the mode in case the file already existed.
+  env_path = deploy_dir / ".env"
+  descriptor = os.open(env_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+  with os.fdopen(descriptor, "w", encoding="utf-8") as env_file:
+    env_file.write(env_text)
+  os.chmod(env_path, 0o600)
 
 
 if __name__ == "__main__":
