@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+  reid-server-cert:
+    file: ${SECRETSDIR}/certs/scenescape-reid-s.crt
+  reid-server-key:
+    file: ${SECRETSDIR}/certs/scenescape-reid-s.key
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.13.2
+    init: true
+    ports:
+      - "55555:55555"
+    networks:
+      scenescape-test:
+        aliases:
+          - reid.scenescape.intel.com
+    environment:
+      QDRANT__SERVICE__HTTP_PORT: "55555"
+      QDRANT__SERVICE__ENABLE_TLS: "true"
+      QDRANT__TLS__CERT: /qdrant/tls/cert.pem
+      QDRANT__TLS__KEY: /qdrant/tls/key.pem
+      QDRANT__TLS__CA_CERT: /qdrant/tls/cacert.pem
+    volumes:
+      - type: bind
+        source: ${SECRETSDIR}/certs/scenescape-reid-s.crt
+        target: /qdrant/tls/cert.pem
+        read_only: true
+      - type: bind
+        source: ${SECRETSDIR}/certs/scenescape-reid-s.key
+        target: /qdrant/tls/key.pem
+        read_only: true
+      - type: bind
+        source: ${SECRETSDIR}/certs/scenescape-ca.pem
+        target: /qdrant/tls/cacert.pem
+        read_only: true
+    restart: always

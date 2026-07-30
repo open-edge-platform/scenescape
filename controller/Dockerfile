@@ -49,9 +49,9 @@ LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platf
 ARG USER_ID=1001
 ARG GROUP_ID=1001
 ARG CERTDOMAIN=scenescape.intel.com
-ARG PYTHON_VERSION=3.11
-
-ENV PYTHON_VERSION=${PYTHON_VERSION}
+# Base python image exports PYTHON_VERSION as a full semver (e.g. 3.11.14).
+# Use PY_LIB_DIR for site-packages paths copied from the builder stage.
+ARG PY_LIB_DIR=python3.11
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 ENV DEBIAN_FRONTEND=noninteractive
@@ -102,10 +102,10 @@ RUN : \
 RUN pip3 install --break-system-packages --upgrade --no-cache-dir 'protobuf>=4.25.8'
 
 # copy installed scenescape packages from the previous stages
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/python${PYTHON_VERSION}/site-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/site-packages/fast_geometry
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/python${PYTHON_VERSION}/site-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/site-packages/scene_common
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/python${PYTHON_VERSION}/site-packages/controller /usr/local/lib/python${PYTHON_VERSION}/site-packages/controller
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/python${PYTHON_VERSION}/site-packages/robot_vision /usr/local/lib/python${PYTHON_VERSION}/site-packages/robot_vision
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/scene_common /usr/local/lib/${PY_LIB_DIR}/site-packages/scene_common
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/controller /usr/local/lib/${PY_LIB_DIR}/site-packages/controller
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/robot_vision /usr/local/lib/${PY_LIB_DIR}/site-packages/robot_vision
 
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json
 COPY --chown=$WSUSER:$WSUSER ./tracker/schema/scene-data.schema.json $SCENESCAPE_HOME/tracker/schema/scene-data.schema.json
