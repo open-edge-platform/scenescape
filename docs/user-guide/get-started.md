@@ -122,12 +122,12 @@ Scenescape uses [Docker Compose profiles](https://docs.docker.com/compose/how-to
 
 The following profiles are available:
 
-| Profile             | Description                                                                   |
-| ------------------- | ----------------------------------------------------------------------------- |
-| `controller`        | Scene Controller (tracking) + Analytics service. Used by `make demo`.         |
-| `experimental`      | Enables mapping and cluster-analytics services.                               |
-| `mapping`           | Enables mapping service only.                                                 |
-| `cluster-analytics` | Enables cluster-analytics service only.                                       |
+| Profile             | Description                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| `controller`        | Scene Controller (tracking) + Analytics service. Used by `make demo`.                   |
+| `experimental`      | Enables mapping and cluster-analytics services.                                         |
+| `mapping`           | Enables mapping service only.                                                           |
+| `cluster-analytics` | Enables cluster-analytics service only.                                                 |
 | `tracker`           | Tracker service + Analytics service (no Scene Controller). Used by `make demo-tracker`. |
 
 > **ReID backends:** The `demo-reid` and `demo-all` targets default to VDMS (`REID_BACKEND=vdms`); set `REID_BACKEND=qdrant` to switch. For raw Compose, add exactly one of `sample_data/docker-compose.vdms-override.yml` or `sample_data/docker-compose.qdrant-override.yml`. Both overrides provide the same logical `reid` service, shared host `reid.scenescape.intel.com`, port `55555`, TLS settings, and certificates. See [Selecting the ReID Vector Database Backend](./other-topics/how-to-enable-reidentification.md#selecting-the-reid-vector-database-backend).

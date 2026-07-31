@@ -65,13 +65,7 @@
   "$defs": {
     "tracked_object": {
       "type": "object",
-      "required": [
-        "id",
-        "translation",
-        "velocity",
-        "size",
-        "rotation"
-      ],
+      "required": ["id", "translation", "velocity", "size", "rotation"],
       "properties": {
         "id": {
           "type": "string",

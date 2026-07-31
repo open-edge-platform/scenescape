@@ -39,12 +39,12 @@ Ensure every track and every analytics event can answer:
 
 Ownership model (agreed):
 
-| Concern | Owner |
-| ------- | ----- |
-| Compute track-time FOV `visibility` | Track producer (Controller today; Tracker when at parity) |
-| Prefer pass-through; fill only when missing | Analytics |
-| Assemble events / regulated; must not drop `visibility` | Analytics |
-| `camera_bounds` on regulated (and events when needed) | Analytics when `visibility_topic=regulated`; Controller when `unregulated` on its own topics |
+| Concern                                                 | Owner                                                                                        |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Compute track-time FOV `visibility`                     | Track producer (Controller today; Tracker when at parity)                                    |
+| Prefer pass-through; fill only when missing             | Analytics                                                                                    |
+| Assemble events / regulated; must not drop `visibility` | Analytics                                                                                    |
+| `camera_bounds` on regulated (and events when needed)   | Analytics when `visibility_topic=regulated`; Controller when `unregulated` on its own topics |
 
 ADRs list camera visibility under Analytics capabilities. They do **not**
 redefine publish order or drop `visibility` from events.
@@ -59,9 +59,9 @@ policy into the analytics engine for **all** paths, using
 `len(publishedLocations) > 3` as a tracker-independent proxy so MQTT analytics
 and the old in-process path share one filter.
 
-| Baseline | Verdict |
-| -------- | ------- |
-| vs analytics-only (skipped the gate) | **Not a bug** — analytics-only was transitional |
+| Baseline                                | Verdict                                                          |
+| --------------------------------------- | ---------------------------------------------------------------- |
+| vs analytics-only (skipped the gate)    | **Not a bug** — analytics-only was transitional                  |
 | vs Controller-proper (`frameCount > 3`) | **Policy aligned**; proxy may differ from producer `frame_count` |
 
 **Optional polish (not a P0 fix):** when MQTT supplies `frame_count`, prefer it
@@ -102,17 +102,17 @@ present.
 
 ### Status
 
-| Item | Status |
-| ---- | ------ |
-| `AnalyticsObject.visibility` + adapter copy | Done |
-| `_updateVisible` only when `visibility is None` (preserve `[]`) | Done |
-| Order: `_updateVisible` → `_updateEvents` → regulated publish | Done |
-| `scene-data.schema.json` allows `visibility` / Controller extras | Done |
-| Scene-data schema validation restored on Analytics ingest | Done |
-| Event payloads include `visibility` via serializer `hasattr` | Done (depends on model + order) |
-| `camera_bounds` on event payloads | Not done (regulated path only today) |
-| Docs: analytics data formats note pass-through / fallback | Not done |
-| Functional test: event MQTT contains `visibility` | Not done |
+| Item                                                             | Status                               |
+| ---------------------------------------------------------------- | ------------------------------------ |
+| `AnalyticsObject.visibility` + adapter copy                      | Done                                 |
+| `_updateVisible` only when `visibility is None` (preserve `[]`)  | Done                                 |
+| Order: `_updateVisible` → `_updateEvents` → regulated publish    | Done                                 |
+| `scene-data.schema.json` allows `visibility` / Controller extras | Done                                 |
+| Scene-data schema validation restored on Analytics ingest        | Done                                 |
+| Event payloads include `visibility` via serializer `hasattr`     | Done (depends on model + order)      |
+| `camera_bounds` on event payloads                                | Not done (regulated path only today) |
+| Docs: analytics data formats note pass-through / fallback        | Not done                             |
+| Functional test: event MQTT contains `visibility`                | Not done                             |
 
 ### Remaining Analytics work
 
@@ -203,10 +203,10 @@ contract — semantic drift vs Controller-proper.
 
 ### Estimate
 
-| Scope | Effort |
-| ----- | ------ |
-| Resolution parse + FOV helper + emit + unit tests | **~2–4 engineer-days** |
-| Plus `camera_bounds` on Tracker output (optional, not required for pass-through of IDs) | **+1–2 days** |
+| Scope                                                                                   | Effort                 |
+| --------------------------------------------------------------------------------------- | ---------------------- |
+| Resolution parse + FOV helper + emit + unit tests                                       | **~2–4 engineer-days** |
+| Plus `camera_bounds` on Tracker output (optional, not required for pass-through of IDs) | **+1–2 days**          |
 
 Risk: matching Python horizon / missing-resolution edge cases. Mitigate with
 shared golden fixtures (same camera pose → same visibility IDs as Controller
@@ -227,14 +227,14 @@ shared golden fixtures (same camera pose → same visibility IDs as Controller
 
 ## Phasing
 
-| Phase | Work | Depends on |
-| ----- | ---- | ---------- |
-| **P0 (done on branch)** | Analytics pass-through, order fix, schema ingest looseness, schema validation | — |
-| **P1** | Analytics docs + functional event `visibility` check; optional event `camera_bounds` | P0 |
-| **P2** | Tracker Controller-proper FOV emit | P0 (schema ready) |
-| **P3 (optional)** | Incident field for region covering cameras (semantics B) | P1/P2 |
-| **P4 (optional)** | Tracker or Analytics `camera_bounds` enrichment for shape reconstruction | Product need |
-| **P5 (optional)** | Reliability gate prefers MQTT `frame_count` when present | Product / polish |
+| Phase                   | Work                                                                                 | Depends on        |
+| ----------------------- | ------------------------------------------------------------------------------------ | ----------------- |
+| **P0 (done on branch)** | Analytics pass-through, order fix, schema ingest looseness, schema validation        | —                 |
+| **P1**                  | Analytics docs + functional event `visibility` check; optional event `camera_bounds` | P0                |
+| **P2**                  | Tracker Controller-proper FOV emit                                                   | P0 (schema ready) |
+| **P3 (optional)**       | Incident field for region covering cameras (semantics B)                             | P1/P2             |
+| **P4 (optional)**       | Tracker or Analytics `camera_bounds` enrichment for shape reconstruction             | Product need      |
+| **P5 (optional)**       | Reliability gate prefers MQTT `frame_count` when present                             | Product / polish  |
 
 Suggested merge strategy: land P0/P1 with Analytics branch; Tracker P2 as a
 follow-up PR against Tracker + schema/docs.
