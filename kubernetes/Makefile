@@ -181,13 +181,11 @@ copy-files:
 	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/broker/mosquitto-secure.conf
 	cp -r ../model_installer/src/* scenescape-chart/files/model-installer/
 	cp ../model_installer/requirements-runtime.txt scenescape-chart/files/model-installer/requirements-runtime.txt
-	cp -r ../model_installer/src/* scenescape-chart/files/model-installer/
-	cp ../model_installer/requirements-runtime.txt scenescape-chart/files/model-installer/requirements-runtime.txt
 	cp ../dlstreamer-pipeline-server/model_config.json scenescape-chart/files/model-installer/model_config.json
 	cp ../controller/config/tracker-config.json scenescape-chart/files/model-installer/tracker-config.json
 	cp ../controller/config/reid-config.json scenescape-chart/files/model-installer/reid-config.json
 	cp ../model_download/src/download_models.py scenescape-chart/files/model-download/download_models.py
-	cp ../model_download/src/generate_model_config_from_models.py scenescape-chart/files/model-download/generate_model_config_from_models.py
+	cp ../model_download/src/generate_model_config_from_models.py scenescape-chart/files/model-download/generate_model_config.py
 	cp ../model_download/src/entrypoint-k8s.sh scenescape-chart/files/model-download/entrypoint-k8s.sh
 	cp ../model_download/models.json scenescape-chart/files/model-download/models.json
 	cp ../sample_data/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
