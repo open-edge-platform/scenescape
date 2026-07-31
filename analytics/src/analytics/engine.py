@@ -7,7 +7,8 @@ from analytics.region import update_region_events
 from analytics.tripwire import update_tripwire_events
 
 # Objects must appear this many times before being passed to region/tripwire
-# analytics.
+# analytics. Mirrors Controller-proper track maturity (frameCount gate) using
+# publishedLocations so MQTT-fed analytics does not depend on tracker-only fields.
 MIN_FRAMES_FOR_RELIABLE_TRACK = 3
 
 
@@ -30,8 +31,7 @@ def process_frame(
     - converting them to AnalyticsObject via moving_object_to_analytics_object
 
   Objects are filtered internally by MIN_FRAMES_FOR_RELIABLE_TRACK using
-  publishedLocations length, so the same gate applies to both the primary
-  tracker path and the analytics-only path.
+  publishedLocations length (Controller-proper maturity policy).
 
   Args:
     detection_type:    Detection category string (e.g. 'person').

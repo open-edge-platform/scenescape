@@ -26,13 +26,14 @@ def _tripwire(uid='tw-1', name='Tripwire'):
   return Tripwire(uid, name, {'points': [[0.0, 0.0], [10.0, 0.0]]})
 
 
-def _analytics_object(gid='obj-1'):
+def _analytics_object(gid='obj-1', visibility=None):
   return AnalyticsObject(
     gid=gid,
     category='person',
     frameCount=5,
     sceneLoc=Point(1.0, 1.0, 0.0),
     chain_data=ChainData(regions={}, publishedLocations=[], persist={}),
+    visibility=visibility,
   )
 
 
@@ -163,6 +164,38 @@ class TestEventPublisher:
     payload = orjson.loads(mock_publish.call_args.args[1])
     assert payload['exited'][0]['object']['id'] == 'obj-1'
     assert payload['exited'][0]['dwell'] == 12.5
+
+  def test_region_event_objects_include_visibility(self):
+    region = _region()
+    obj = _analytics_object('obj-1', visibility=['cam1', 'cam2'])
+    state_store = AnalyticsStateStore()
+    rstate = state_store.region('roi-1')
+    rstate.objects['person'] = [obj]
+    rstate.entered['person'] = [obj]
+    rstate.exited['person'] = [(obj, 3.0)]
+    mock_publish = MagicMock()
+    scene = _scene({'objects': [('roi-1', region)]}, state_store)
+
+    publish_events(scene, '2026-01-01T00:00:01.000Z', mock_publish)
+
+    payload = orjson.loads(mock_publish.call_args.args[1])
+    assert payload['objects'][0]['visibility'] == ['cam1', 'cam2']
+    assert payload['entered'][0]['visibility'] == ['cam1', 'cam2']
+    assert payload['exited'][0]['object']['visibility'] == ['cam1', 'cam2']
+
+  def test_tripwire_event_objects_include_visibility(self):
+    tripwire = _tripwire()
+    state_store = AnalyticsStateStore()
+    state_store.tripwire('tw-1').objects['person'] = [
+      TripwireEvent(_analytics_object('obj-1', visibility=['cam-a']), 'forward'),
+    ]
+    mock_publish = MagicMock()
+    scene = _scene({'objects': [('tw-1', tripwire)]}, state_store)
+
+    publish_events(scene, '2026-01-01T00:00:01.000Z', mock_publish)
+
+    payload = orjson.loads(mock_publish.call_args.args[1])
+    assert payload['objects'][0]['visibility'] == ['cam-a']
 
   def test_clear_frame_state_only_applied_to_regions_not_tripwires(self):
     """_clear_sensor_values_on_exit must not touch Tripwire state (no clear_frame_state on it)."""

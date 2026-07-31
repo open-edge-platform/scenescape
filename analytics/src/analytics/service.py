@@ -20,9 +20,10 @@ AVG_FRAMES = 100
 class AnalyticsService:
   """MQTT controller for the standalone analytics service.
 
-  Equivalent to SceneController in analytics-only mode, but with all
-  tracker, Re-ID, pose-adjustment, NTP, and camera-data paths removed.
-  Instantiate and call loopForever() to run.
+  Successor to Controller-proper scene analytics (regions, tripwires, sensors,
+  regulated publish). Consumes tracked objects over MQTT instead of an
+  in-process tracker. Tracker, Re-ID, pose-adjustment, NTP, and camera-data
+  paths are not included. Instantiate and call loopForever() to run.
   """
 
   def __init__(self, rewrite_all_time, mqtt_broker,

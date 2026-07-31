@@ -129,7 +129,7 @@ def update_region_events(
       # so entered timestamps remain available for dwell-time calculation.
       # NOTE: env_sensor_state[key] is intentionally NOT cleared here — it must
       # remain available when publish_events serialises the exited objects.
-      # It is cleared in event_publisher._build_exited_objs_list after serialisation.
+      # It is cleared in event_publisher._clear_sensor_values_on_exit after serialisation.
       for obj in regionObjects:
         if obj.gid in old:
           with obj.chain_data._lock:

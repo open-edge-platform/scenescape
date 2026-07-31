@@ -187,7 +187,7 @@ class SceneDataIngestion:
     self._resolve_timestamps(obj, obj_id, obj_data)
 
     # Only seed regions for new objects; existing objects have their region state
-    # (including 'entered' timestamps) managed by shadow's update_region_events.
+    # (including 'entered' timestamps) managed by analytics update_region_events.
     # Overwriting from MQTT would erase the key before the exit-path dwell check runs.
     if is_new:
       obj.chain_data.regions = obj_data.get('regions', {})
@@ -198,8 +198,7 @@ class SceneDataIngestion:
     hist = self._history.get(obj_id, {})
     obj.chain_data.publishedLocations = hist.get('publishedLocations', [])
     # Seed location history from serialized previous location when starting cold.
-    # This lets tripwire detection work on
-    # the very first frame an object is seen, matching the primary tracker path.
+    # This lets tripwire detection work on the first analytics frame an object is seen.
     if not obj.chain_data.publishedLocations and 'prev_translation' in obj_data:
       obj.chain_data.publishedLocations = [Point(obj_data['prev_translation'])]
     self._history.setdefault(obj_id, {})['publishedLocations'] = (

@@ -81,7 +81,7 @@ def publish_events(scene, ts_str, publish_fn):
 
   _clear_sensor_values_on_exit(scene)
 
-  # Clear objects and count events after publishing (but preserve 'value' events for sensors)
+  # Clear per-frame region/tripwire queues after publishing.
   scene.events.pop('objects', None)
   scene.events.pop('count', None)
   return

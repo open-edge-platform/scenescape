@@ -195,6 +195,38 @@ class TestEventSerializer:
     assert result['sensors']['temp-1']['values'] == [('t0', 21.5)]
     assert result['sensors']['badge-1']['values'] == [('t0', 'authorized')]
 
+  def test_empty_environmental_sensor_readings_still_emit_key(self):
+    obj = _make_obj()
+    obj.chain_data.env_sensor_state = {'temp-1': {'readings': []}}
+
+    result = serialize_for_event(obj, include_sensors=True)
+
+    assert result['sensors']['temp-1']['values'] == []
+
+  def test_visibility_included_when_present(self):
+    obj = _make_obj()
+    obj.visibility = ['cam1', 'cam2']
+
+    result = serialize_for_event(obj)
+
+    assert result['visibility'] == ['cam1', 'cam2']
+
+  def test_visibility_included_when_empty_list(self):
+    obj = _make_obj()
+    obj.visibility = []
+
+    result = serialize_for_event(obj)
+
+    assert result['visibility'] == []
+
+  def test_visibility_absent_when_attribute_missing(self):
+    obj = _make_obj()
+    del obj.visibility
+
+    result = serialize_for_event(obj)
+
+    assert 'visibility' not in result
+
   def test_persistent_data_included_when_present(self):
     obj = _make_obj()
     obj.chain_data.persist = {'visit_count': 3}

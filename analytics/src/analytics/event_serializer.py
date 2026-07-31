@@ -166,10 +166,10 @@ def _build_sensors_output(chain_data):
     env_state_copy = dict(chain_data.env_sensor_state)
     attr_events_copy = dict(chain_data.attr_sensor_events)
 
+  # Always include environmental sensor keys so consumers know the sensor was active,
+  # even when the readings list is temporarily empty.
   for sensor_id, state in env_state_copy.items():
-    values = state.get('readings', [])
-    if values or True:  # always include key so consumer knows sensor was active
-      sensors_output[sensor_id] = {'values': values}
+    sensors_output[sensor_id] = {'values': state.get('readings', [])}
 
   for sensor_id, events in attr_events_copy.items():
     if events:

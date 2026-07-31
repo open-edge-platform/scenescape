@@ -509,7 +509,7 @@ class TestUpdateRegulateCache:
   def test_keeps_scenes_still_present(self):
     service = _service()
     service.regulate_cache = {'scene1': {}}
-    service.scenes = ['scene1']
+    service.scenes = [SimpleNamespace(uid='scene1')]
 
     service.updateRegulateCache()
 
