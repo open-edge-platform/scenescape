@@ -18,7 +18,7 @@ WORKINGDIR=$(shell dirname $(shell pwd))
 DEPLOYMENT_TEST=
 TEST_FLAGS=
 # it may need to be increased if all models are being downloaded (see values.yaml)
-INSTALL_TIMEOUT?=600s
+INSTALL_TIMEOUT?=1800s
 
 ifeq ($(DEPLOYMENT_TEST), 1)
     TEST_FLAGS=--wait --timeout $(INSTALL_TIMEOUT) --debug
@@ -38,7 +38,6 @@ CHART_DEBUG?=0
 
 # Demo mode variable for Kubernetes deployments (core, reid or all)
 DEMO_K8S_MODE?=core
-MODEL_DOWNLOAD?=0
 # ReID vector database backend used when ReID is deployed: vdms (default) or qdrant
 REID_BACKEND?=vdms
 
@@ -187,7 +186,7 @@ copy-files:
 	cp ../controller/config/tracker-config.json scenescape-chart/files/model-installer/tracker-config.json
 	cp ../controller/config/reid-config.json scenescape-chart/files/model-installer/reid-config.json
 	cp ../model_download/src/download_models.py scenescape-chart/files/model-download/download_models.py
-	cp ../model_download/src/generate_model_config_from_models.py scenescape-chart/files/model-download/generate_model_config.py
+	cp ../model_download/src/generate_model_config.py scenescape-chart/files/model-download/generate_model_config.py
 	cp ../model_download/src/entrypoint-k8s.sh scenescape-chart/files/model-download/entrypoint-k8s.sh
 	cp ../model_download/models.json scenescape-chart/files/model-download/models.json
 	cp ../sample_data/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
