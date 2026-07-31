@@ -15,7 +15,7 @@ from controller.moving_object import ChainData
 from controller.tracking import Tracking
 
 from scene_common.timestamp import get_epoch_time
-from scene_common.geometry import Region, Point
+from scene_common.geometry import Point
 
 from tests.sscape_tests.scene_pytest.config import *
 
@@ -65,58 +65,6 @@ def test_visible(scene_obj, camera_obj, detectionType, jdata, when):
   moving_objects = [mobj]
   scene_obj._updateVisible(moving_objects)
   assert moving_objects[0].visibility[0] == camera_obj.cameraID
-  return
-
-def test_isIntersecting(scene_obj):
-  """! Verifies the 'Scene.isIntersecting' method.
-
-  @param    scene_obj    Scene class object
-  """
-  # Create a region with volumetric set to True
-  region_data = {
-    'uid': 'test_region',
-    'name': 'Test Region',
-    'points': [[0, 0], [10, 0], [10, 10], [0, 10]],
-    'volumetric': True,
-    'height': 1.0,
-    'buffer_size': 0.0
-  }
-  region = Region('test_region', 'Test Region', region_data)
-
-  # Create a mock object that intersects with the region
-  class MockObject:
-    def __init__(self):
-      self.sceneLoc = None
-      self.size = None
-      self.mesh = None
-      self.rotation = None
-
-  # Create an object with mesh that intersects
-  intersecting_obj = MockObject()
-  # Assuming a simple box object at position inside the region
-  intersecting_obj.sceneLoc = Point(1.0, 1.0, 0.0)
-  intersecting_obj.size = [4.0, 4.0, 1.0]
-  intersecting_obj.rotation = [0, 0, 0, 1]
-
-  assert scene_obj.isIntersecting(intersecting_obj, region) is True
-
-  # Test case: Object doesn't intersect with region
-  non_intersecting_obj = MockObject()
-  non_intersecting_obj.sceneLoc = Point(20.0, 20.0, 0.0)
-  non_intersecting_obj.size = [4.0, 4.0, 1.0]
-  non_intersecting_obj.rotation = [0, 0, 0, 1]
-
-  assert scene_obj.isIntersecting(non_intersecting_obj, region) is False
-
-  # Test case: compute_intersection is False
-  region.compute_intersection = False
-  assert scene_obj.isIntersecting(intersecting_obj, region) is False
-
-  region.compute_intersection = True
-  error_obj = MockObject()
-  error_obj.sceneLoc = None
-  assert scene_obj.isIntersecting(error_obj, region) is False
-
   return
 
 @pytest.mark.parametrize("objects", [
@@ -335,10 +283,9 @@ def test_processSceneData_splits_retracked_vs_child_objects(scene_obj, monkeypat
   assert len(calls[0][0]) == 0
   assert len(calls[0][1]) == 1
 
-def test_finishProcessing_tracks_when_not_analytics_only(scene_obj, monkeypatch):
+def test_finishProcessing_tracks_objects(scene_obj, monkeypatch):
   update_visible_mock = Mock()
   track_mock = Mock()
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: False)
   monkeypatch.setattr(scene_obj, '_updateVisible', update_visible_mock)
   scene_obj.tracker = SimpleNamespace(trackObjects=track_mock)
 
@@ -346,17 +293,7 @@ def test_finishProcessing_tracks_when_not_analytics_only(scene_obj, monkeypatch)
   update_visible_mock.assert_called_once()
   track_mock.assert_called_once()
 
-def test_finishProcessing_skips_tracker_in_analytics_only(scene_obj, monkeypatch):
-  track_mock = Mock()
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
-  monkeypatch.setattr(scene_obj, '_updateVisible', lambda objects: None)
-  scene_obj.tracker = SimpleNamespace(trackObjects=track_mock)
-
-  scene_obj._finishProcessing('person', 10.0, [], [])
-  track_mock.assert_not_called()
-
 def test_deserialize_sets_core_fields(monkeypatch):
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: False)
   data = {
     'uid': 'scene-1',
     'name': 'scene-name',
@@ -375,15 +312,11 @@ def test_deserialize_sets_core_fields(monkeypatch):
 def test_updateScene_updates_fields_and_invokes_helpers(scene_obj, monkeypatch):
   update_children_mock = Mock()
   update_cameras_mock = Mock()
-  update_regions_mock = Mock()
-  update_tripwires_mock = Mock()
   update_tracker_mock = Mock()
   invalidate_mock = Mock()
 
   monkeypatch.setattr(scene_obj, '_updateChildren', update_children_mock)
   monkeypatch.setattr(scene_obj, 'updateCameras', update_cameras_mock)
-  monkeypatch.setattr(scene_obj, '_updateRegions', update_regions_mock)
-  monkeypatch.setattr(scene_obj, '_updateTripwires', update_tripwires_mock)
   monkeypatch.setattr(scene_obj, 'updateTracker', update_tracker_mock)
   monkeypatch.setattr(scene_obj, '_invalidate_trs_xyz_to_lla', invalidate_mock)
 
@@ -410,79 +343,14 @@ def test_updateScene_updates_fields_and_invokes_helpers(scene_obj, monkeypatch):
   assert scene_obj.regulated_rate == 12
   assert scene_obj.external_update_rate == 34
   assert scene_obj.use_tracker is False
+  # ROI geometry is ignored by Controller; Analytics owns regions/tripwires/sensors.
+  assert scene_obj.regions == {}
+  assert scene_obj.tripwires == {}
+  assert scene_obj.sensors == {}
   update_children_mock.assert_called_once()
   update_cameras_mock.assert_called_once()
-  assert update_regions_mock.call_count == 2
-  update_tripwires_mock.assert_called_once()
   update_tracker_mock.assert_called_once_with(4.0, 5.0, 6.0)
   invalidate_mock.assert_called_once()
-
-def test_updateRegions_preserves_sensor_cache_and_state(scene_obj):
-  class FakeRegion:
-    def __init__(self):
-      self.name = 'old-name'
-      self.value = 10
-      self.lastValue = None
-      self.lastWhen = 99.0
-      self.entered = {'person': []}
-      self.exited = {'person': []}
-      self.objects = {'person': []}
-      self.when = 98.0
-      self.singleton_type = 'environmental'
-
-    def updatePoints(self, region_data):
-      self.points = region_data['points']
-
-    def updateSingletonType(self, region_data):
-      self.singleton_type = region_data.get('singleton_type', None)
-
-    def updateVolumetricInfo(self, region_data):
-      self.volumetric = region_data.get('volumetric', False)
-
-  existing = {'region-1': FakeRegion()}
-  new_regions = [{
-    'uid': 'region-1',
-    'name': 'new-name',
-    'points': [[0, 0], [1, 0], [1, 1], [0, 1]],
-    'singleton_type': 'attribute',
-  }]
-
-  scene_obj._updateRegions(existing, new_regions)
-  region = existing['region-1']
-  assert region.name == 'new-name'
-  assert region.value == 10
-  assert region.lastValue is None
-  assert region.lastWhen == 99.0
-  assert region.entered == {'person': []}
-  assert region.exited == {'person': []}
-  assert region.objects == {'person': []}
-  assert region.when == 98.0
-
-def test_updateRegions_removes_deleted_region_without_error(scene_obj):
-  """Deleting a region must not raise, even though Scene has no analytics_state."""
-  scene_obj._updateRegions(scene_obj.regions, [{
-    'uid': 'r1',
-    'name': 'r1',
-    'points': [[0, 0], [1, 0], [1, 1], [0, 1]],
-  }])
-  assert 'r1' in scene_obj.regions
-
-  scene_obj._updateRegions(scene_obj.regions, [])
-  assert 'r1' not in scene_obj.regions
-
-def test_updateTripwires_removes_deleted_tripwire_without_error(scene_obj):
-  """Deleting a tripwire must not raise, even though Scene has no analytics_state."""
-  scene_obj._updateTripwires([{
-    'uid': 'tw1',
-    'name': 'tw1',
-    'points': [[0, 0], [10, 0]],
-  }])
-  assert 'tw1' in scene_obj.tripwires
-
-  scene_obj._updateTripwires([])
-  assert 'tw1' not in scene_obj.tripwires
-
-
 
 
 def test_trs_xyz_to_lla_is_cached_and_invalidate_resets(scene_obj, monkeypatch):
@@ -550,14 +418,3 @@ def test_processCameraData_processes_each_detection_type(scene_obj, camera_obj, 
   assert [call[0] for call in finished] == ['person', 'vehicle']
   assert finished[0][1] == ['person']
   assert finished[1][1] == ['vehicle']
-
-
-def test_isIntersecting_createObjectMesh_value_error_returns_false(scene_obj, monkeypatch):
-  def _raise_value_error(obj):
-    raise ValueError('invalid object geometry')
-
-  monkeypatch.setattr(scene_module, 'createObjectMesh', _raise_value_error)
-  region = SimpleNamespace(compute_intersection=True, mesh=object())
-  obj = SimpleNamespace()
-
-  assert scene_obj.isIntersecting(obj, region) is False

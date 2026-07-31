@@ -9,7 +9,6 @@ import ntplib
 
 from scene_common.cache_manager import CacheManager
 from controller.child_scene_controller import ChildSceneController
-from controller.controller_mode import ControllerMode
 from scene_common.detections_builder import buildDetectionsList
 from controller.scene import Scene
 from scene_common import log
@@ -44,20 +43,14 @@ class SceneController:
     self.pose_adjustment_config_data = {}
     self.pose_adjustment_config_file = pose_adjustment_config_file
 
-    if tracker_config_file is not None and not ControllerMode.isAnalyticsOnly():
+    if tracker_config_file is not None:
       self.extractTrackerConfigData(tracker_config_file)
-    elif ControllerMode.isAnalyticsOnly():
-      log.info("Analytics-only mode: Skipping tracker configuration file loading")
 
-    if reid_config_file is not None and not ControllerMode.isAnalyticsOnly():
+    if reid_config_file is not None:
       self.extractReidConfigData(reid_config_file)
-    elif ControllerMode.isAnalyticsOnly():
-      log.info("Analytics-only mode: Skipping reid configuration file loading")
 
-    if pose_adjustment_config_file is not None and not ControllerMode.isAnalyticsOnly():
+    if pose_adjustment_config_file is not None:
       self.extractPoseAdjustmentConfigData(pose_adjustment_config_file)
-    elif ControllerMode.isAnalyticsOnly():
-      log.info("Analytics-only mode: Skipping pose adjustment configuration file loading")
 
     self.last_time_sync = None
     self.ntp_server = ntp_server
@@ -65,22 +58,6 @@ class SceneController:
     self.time_offset = 0
 
     self.schema_val = SchemaValidation(schema_file, is_multi_message=True)
-
-    # Initialize scene-data schema validator for analytics-only mode
-    self.scene_data_schema_validator = None
-    if ControllerMode.isAnalyticsOnly():
-      from pathlib import Path
-      schema_filename = 'scene-data.schema.json'
-      schema_path = Path(os.environ.get('SCENESCAPE_HOME')) / 'tracker' / 'schema' / schema_filename
-      if schema_path.exists():
-        try:
-          log.info(f"Loading scene-data schema from: {schema_path}")
-          self.scene_data_schema_validator = SchemaValidation(str(schema_path), is_multi_message=False)
-          log.info("Scene-data schema validator initialized")
-        except Exception as e:
-          log.error(f"Failed to initialize scene-data schema validator from {schema_path}: {e}")
-      else:
-        log.error(f"Scene-data schema file not found at: {schema_path}")
 
     self.pubsub = PubSub(mqtt_auth, client_cert, root_cert, mqtt_broker, keepalive=60)
     self.pubsub.onConnect = self.onConnect
@@ -197,8 +174,7 @@ class SceneController:
     }
     metrics.record_object_count(len(objects), metric_attributes)
 
-    if not ControllerMode.isAnalyticsOnly():
-      self.publishSceneDetections(scene, objects, otype, jdata)
+    self.publishSceneDetections(scene, objects, otype, jdata)
     return
 
   def shouldPublish(self, last, now, max_delay):
@@ -312,39 +288,6 @@ class SceneController:
         self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
                               msg_when, detection_type, jdata, camera_id)
       return
-
-  def handleSceneDataMessage(self, client, userdata, message):
-    """
-    Handle scene data messages (tracked objects) published to DATA_SCENE topic.
-    Only subscribed to in analytics-only mode, where the controller has no local
-    tracker of its own: validates the incoming message against the scene-data
-    schema and records observability metrics for the tracked-object counts.
-    """
-    topic = PubSub.parseTopic(message.topic)
-    jdata = orjson.loads(message.payload.decode('utf-8'))
-
-    scene_id = topic['scene_id']
-    detection_type = topic['thing_type']
-    log.debug(f"Received scene data message: scene={scene_id}, type={detection_type}, objects={len(jdata.get('objects', []))}")
-
-    scene = self.cache_manager.sceneWithID(scene_id)
-    if scene is None:
-      log.warning(f"Scene not found for tracked objects, ignoring scene_id={scene_id}")
-      return
-
-    if self.scene_data_schema_validator is not None:
-      if not self.scene_data_schema_validator.validate(jdata, check_format=True):
-        log.error(f"Scene data validation failed for scene={scene_id}, type={detection_type}")
-        return
-
-    tracked_objects = jdata.get('objects', [])
-    metric_attributes = {
-      "camera": "unknown",
-      "category": detection_type,
-      "scene": scene.name
-    }
-    metrics.record_object_count(len(tracked_objects), metric_attributes)
-    return
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
     sender = self.cache_manager.sceneWithID(sender_id)
@@ -483,36 +426,31 @@ class SceneController:
 
     self.scenes = self.cache_manager.allScenes()
     for scene in self.scenes:
-      if not ControllerMode.isAnalyticsOnly():
-        for camera in scene.cameras:
-          need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
-                              self.handleMovingObjectMessage))
-      else:
-        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
-                            self.handleSceneDataMessage))
+      for camera in scene.cameras:
+        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
+                            self.handleMovingObjectMessage))
 
       if hasattr(scene, 'children'):
         child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)
 
-        if not ControllerMode.isAnalyticsOnly():
-          for info in child_scenes.get('results', []):
-            if info['child_type'] == 'local':
-              self.cache_manager.sceneWithID(info['child']).retrack = info['retrack']
+        for info in child_scenes.get('results', []):
+          if info['child_type'] == 'local':
+            self.cache_manager.sceneWithID(info['child']).retrack = info['retrack']
 
-              need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
-                                                     scene_id=info['child'], thing_type="+"),
-                                  self.handleMovingObjectMessage))
+            need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
+                                                   scene_id=info['child'], thing_type="+"),
+                                self.handleMovingObjectMessage))
 
-              need_subscribe.add((PubSub.formatTopic(PubSub.EVENT, region_type="+",
-                                                    event_type="+",
-                                                    scene_id=info['child'],
-                                                    region_id="+"),
-                                  self.republishEvents))
-            else:
-              child_obj = ChildSceneController(self.root_cert, info, self)
-              self.cache_manager.cached_child_transforms_by_uid[info['remote_child_id']] = Scene.deserialize(info)
-              need_subscribe_child[info['remote_child_id']] = child_obj
-              need_subscribe.add((PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS, scene_id=info['remote_child_id']), child_obj.publishStatus))
+            need_subscribe.add((PubSub.formatTopic(PubSub.EVENT, region_type="+",
+                                                  event_type="+",
+                                                  scene_id=info['child'],
+                                                  region_id="+"),
+                                self.republishEvents))
+          else:
+            child_obj = ChildSceneController(self.root_cert, info, self)
+            self.cache_manager.cached_child_transforms_by_uid[info['remote_child_id']] = Scene.deserialize(info)
+            need_subscribe_child[info['remote_child_id']] = child_obj
+            need_subscribe.add((PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS, scene_id=info['remote_child_id']), child_obj.publishStatus))
 
     # disconnect old children clients
     for old_child, cobj in self.subscribed_children.items():

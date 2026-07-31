@@ -3,9 +3,10 @@
 This document guides users and developers on configuring the tracker for specific use cases
 during Scenescape deployment.
 
-> **Note:** Tracker configuration is not needed when running the Scene Controller in
-> analytics-only mode (`--analytics-only` flag or `CONTROLLER_ENABLE_ANALYTICS_ONLY=true`), as
-> tracking is performed by a separate Tracker service.
+> **Note:** When using the separate Tracker microservice (`--profile tracker` /
+> `make demo-tracker`), configure the Tracker service rather than the Scene
+> Controller's `tracker-config.json`. Scene Controller tracker configuration
+> applies to Controller-proper deployments (`--profile controller`).
 
 ## Tracker Configuration with Time-Based Parameters
 

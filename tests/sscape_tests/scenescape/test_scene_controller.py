@@ -223,14 +223,11 @@ class TestSceneControllerExtractPoseAdjustmentConfigData:
 class TestSceneDeserializeReidConfigPropagation:
   """Regression tests: Scene.deserialize must propagate reid_config_data to the tracker."""
 
-  @patch('controller.scene.ControllerMode')
   @patch('controller.scene.IntelLabsTracking')
   def test_deserialize_without_reid_config_key_gives_empty_dict(
-    self, mock_tracking, mock_mode
+    self, mock_tracking
   ):
     """Scene.deserialize with no reid_config_data key results in empty dict on the scene."""
-    mock_mode.isAnalyticsOnly.return_value = False
-
     mock_tracker_instance = MagicMock()
     mock_tracking.return_value = mock_tracker_instance
 
@@ -246,13 +243,11 @@ class TestSceneDeserializeReidConfigPropagation:
 
     assert scene.reid_config_data == {}
 
-  @patch('controller.scene.ControllerMode')
   @patch('controller.scene.TimeChunkedIntelLabsTracking')
   def test_deserialize_with_reid_config_stores_config_on_scene(
-    self, mock_tracking, mock_mode
+    self, mock_tracking
   ):
     """Scene deserialized with reid_config_data stores it on the scene object."""
-    mock_mode.isAnalyticsOnly.return_value = False
     mock_tracking.return_value = MagicMock()
 
     from controller.scene import Scene
@@ -270,13 +265,11 @@ class TestSceneDeserializeReidConfigPropagation:
 
     assert scene.reid_config_data == reid_config
 
-  @patch('controller.scene.ControllerMode')
   @patch('controller.scene.IntelLabsTracking')
   def test_deserialize_with_pose_adjustment_config_stores_routing_on_scene(
-    self, mock_tracking, mock_mode
+    self, mock_tracking
   ):
     """Scene deserialized with pose adjustment config applies configured label routes."""
-    mock_mode.isAnalyticsOnly.return_value = False
     mock_tracking.return_value = MagicMock()
 
     from controller.scene import Scene
@@ -342,15 +335,12 @@ class TestSceneControllerPublishers:
     assert jdata_base['objects'] == ['unchanged']
 
   @patch('controller.scene_controller.metrics')
-  @patch('controller.scene_controller.ControllerMode')
   def test_publish_detections_initializes_scene_state_and_calls_all_publish_paths(
-    self, mock_mode, mock_metrics
+    self, mock_metrics
   ):
     """publishDetections initializes state and calls the scene publisher."""
     scene_controller = self._build_controller()
     scene_controller.publishSceneDetections = MagicMock()
-
-    mock_mode.isAnalyticsOnly.return_value = False
 
     scene = SimpleNamespace(uid='scene-1', name='Test Scene')
     objects = [object()]
@@ -362,17 +352,4 @@ class TestSceneControllerPublishers:
     assert hasattr(scene, 'last_published_detection')
     scene_controller.publishSceneDetections.assert_called_once_with(scene, objects, 'person', jdata)
     mock_metrics.record_object_count.assert_called_once()
-
-  @patch('controller.scene_controller.ControllerMode')
-  def test_publish_detections_skips_scene_publish_in_analytics_only_mode(self, mock_mode):
-    """publishDetections skips Scene topic output when analytics-only mode is enabled."""
-    scene_controller = self._build_controller()
-    scene_controller.publishSceneDetections = MagicMock()
-
-    mock_mode.isAnalyticsOnly.return_value = True
-    scene = SimpleNamespace(uid='scene-1', name='Test Scene')
-
-    scene_controller.publishDetections(scene, [], 10.0, 'person', {'timestamp': '2026-01-01T00:00:01Z'}, None)
-
-    scene_controller.publishSceneDetections.assert_not_called()
 
