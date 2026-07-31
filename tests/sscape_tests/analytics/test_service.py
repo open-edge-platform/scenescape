@@ -263,6 +263,28 @@ class TestHandleSceneDataMessage:
 
     service.cache_manager.sceneWithID.assert_called_once_with('scene1')
 
+  def test_invalid_json_returns_early(self):
+    service = _service()
+    message = SimpleNamespace(
+      topic='scenescape/data/scene/scene1/person',
+      payload=b'not-json',
+    )
+
+    service.handleSceneDataMessage(None, None, message)
+
+    service.cache_manager.sceneWithID.assert_not_called()
+
+  def test_invalid_utf8_returns_early(self):
+    service = _service()
+    message = SimpleNamespace(
+      topic='scenescape/data/scene/scene1/person',
+      payload=b'\xff\xfe',
+    )
+
+    service.handleSceneDataMessage(None, None, message)
+
+    service.cache_manager.sceneWithID.assert_not_called()
+
   def test_known_scene_processes_and_publishes(self):
     service = _service()
     scene = MagicMock()

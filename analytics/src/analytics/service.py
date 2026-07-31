@@ -162,9 +162,13 @@ class AnalyticsService:
   # ------------------------------------------------------------------
 
   def handleSceneDataMessage(self, client, userdata, message):
-    """Handle tracked-object messages published by the Tracker service."""
+    """Handle tracked-object messages from Tracker or Scene Controller."""
     topic = PubSub.parseTopic(message.topic)
-    jdata = orjson.loads(message.payload.decode('utf-8'))
+    try:
+      jdata = orjson.loads(message.payload.decode('utf-8'))
+    except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
+      log.error(f"Invalid scene data payload on {message.topic}: {e}")
+      return
 
     scene_id = topic['scene_id']
     detection_type = topic['thing_type']
