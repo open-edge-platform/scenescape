@@ -16,9 +16,9 @@ def moving_object_to_analytics_object(obj) -> "AnalyticsObject":
   source object and persist across frames.
 
   Optional fields (mesh, bbMeters, size, velocity, info, rotation, metadata,
-  reid) are carried through via getattr so the function works identically for
-  MovingObject instances and the lightweight SimpleNamespace wrappers produced
-  by SceneDataIngestion.
+  reid, visibility) are carried through via getattr so the function works
+  identically for MovingObject instances and the lightweight SimpleNamespace
+  wrappers produced by SceneDataIngestion.
   """
   return AnalyticsObject(
     gid=obj.gid,
@@ -34,6 +34,7 @@ def moving_object_to_analytics_object(obj) -> "AnalyticsObject":
     rotation=getattr(obj, 'rotation', None),
     metadata=getattr(obj, 'metadata', None),
     reid=getattr(obj, 'reid', None),
+    visibility=getattr(obj, 'visibility', None),
   )
 
 
@@ -49,9 +50,9 @@ class AnalyticsObject:
   Required fields reflect the minimum surface accessed by region, tripwire,
   and sensor analytics.  Optional fields (mesh, bbMeters, size) are used only
   by the 3-D mesh-intersection path.  Publishing fields (velocity, info,
-  rotation, metadata, reid) are carried through from the source object so that
-  detections_builder can serialise AnalyticsObject instances directly without
-  any unwrapping step.
+  rotation, metadata, reid, visibility) are carried through from the source
+  object so that detections_builder / event_serializer can serialise
+  AnalyticsObject instances directly without any unwrapping step.
 
   chain_data is always a shared reference — analytics mutates it in-place to
   record region entry/exit timestamps, sensor state, and location history.
@@ -71,3 +72,6 @@ class AnalyticsObject:
   rotation: Optional[Any] = None
   metadata: Optional[Any] = None
   reid: Optional[Any] = None
+  # Camera IDs whose FOV contains this object. Prefer pass-through from the
+  # track producer; AnalyticsScene._updateVisible fills only when missing.
+  visibility: Optional[Any] = None

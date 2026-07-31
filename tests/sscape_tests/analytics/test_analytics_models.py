@@ -59,6 +59,7 @@ class TestAnalyticsObject:
     assert obj.rotation is None
     assert obj.metadata is None
     assert obj.reid is None
+    assert obj.visibility is None
 
   def test_optional_fields_accept_arbitrary_values(self):
     sentinel = object()
@@ -131,6 +132,7 @@ class TestMovingObjectToAnalyticsObject:
     assert ao.rotation is None
     assert ao.metadata is None
     assert ao.reid is None
+    assert ao.visibility is None
 
   def test_publishing_fields_carried_through_when_present(self):
     src = self._source_object(
@@ -139,6 +141,7 @@ class TestMovingObjectToAnalyticsObject:
       rotation=[0.0, 0.0, 0.0, 1.0],
       metadata={'age': 'adult'},
       reid={'embedding_vector': [0.1, 0.2]},
+      visibility=['cam1', 'cam2'],
     )
 
     ao = moving_object_to_analytics_object(src)
@@ -148,6 +151,7 @@ class TestMovingObjectToAnalyticsObject:
     assert ao.rotation == [0.0, 0.0, 0.0, 1.0]
     assert ao.metadata == {'age': 'adult'}
     assert ao.reid == {'embedding_vector': [0.1, 0.2]}
+    assert ao.visibility == ['cam1', 'cam2']
 
   def test_optional_fields_carried_through_when_present(self):
     sentinel = object()

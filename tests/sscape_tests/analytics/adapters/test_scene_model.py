@@ -430,6 +430,32 @@ class TestUpdateVisible:
 
     assert obj.visibility == []
 
+  def test_producer_visibility_is_passed_through(self):
+    scene = _scene()
+    camera = SimpleNamespace(
+      cameraID='cam1',
+      pose=SimpleNamespace(regionOfView=SimpleNamespace(isPointWithin=lambda pt: True)),
+    )
+    scene.cameras['cam1'] = camera
+    obj = SimpleNamespace(sceneLoc=Point(1.0, 1.0, 0.0), visibility=['producer-cam'])
+
+    scene._updateVisible([obj])
+
+    assert obj.visibility == ['producer-cam']
+
+  def test_empty_producer_visibility_is_preserved(self):
+    scene = _scene()
+    camera = SimpleNamespace(
+      cameraID='cam1',
+      pose=SimpleNamespace(regionOfView=SimpleNamespace(isPointWithin=lambda pt: True)),
+    )
+    scene.cameras['cam1'] = camera
+    obj = SimpleNamespace(sceneLoc=Point(1.0, 1.0, 0.0), visibility=[])
+
+    scene._updateVisible([obj])
+
+    assert obj.visibility == []
+
 
 class TestDeserialize:
 

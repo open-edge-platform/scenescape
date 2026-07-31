@@ -336,12 +336,14 @@ class TestHandleSceneDataMessage:
 
     scene.updateTrackedObjects.assert_called_once_with('person', [])
     scene.getTrackedObjects.assert_called_once_with('person')
+    scene._updateVisible.assert_called_once_with(['analytics-obj'])
     scene._updateEvents.assert_called_once()
+    method_names = [name for name, _, _ in scene.method_calls]
+    assert method_names.index('_updateVisible') < method_names.index('_updateEvents')
     args, kwargs = scene._updateEvents.call_args
     assert args[0] == 'person'
     assert args[2] == ['analytics-obj']
     assert kwargs['publish_fn'] == service.pubsub.publish
-    scene._updateVisible.assert_called_once_with(['analytics-obj'])
     service.publishDetections.assert_called_once()
 
 

@@ -201,9 +201,11 @@ class AnalyticsService:
     analytics_objects = scene.getTrackedObjects(detection_type)
     msg_when = get_epoch_time(jdata.get('timestamp'))
 
+    # Prefer producer-supplied visibility; fill gaps before events so event
+    # payloads and regulated output share the same camera ID lists.
+    scene._updateVisible(analytics_objects)
     scene._updateEvents(detection_type, msg_when, analytics_objects,
                         publish_fn=self.pubsub.publish)
-    scene._updateVisible(analytics_objects)
     self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
     return
 

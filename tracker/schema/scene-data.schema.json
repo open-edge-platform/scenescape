@@ -50,7 +50,6 @@
       "type": "object",
       "required": [
         "id",
-        "category",
         "translation",
         "velocity",
         "size",
@@ -64,7 +63,11 @@
         },
         "category": {
           "type": "string",
-          "description": "Object category (e.g., person, vehicle)"
+          "description": "Object category (e.g., person, vehicle). Tracker output uses this field."
+        },
+        "type": {
+          "type": "string",
+          "description": "Object category alias used by Scene Controller output (same meaning as category)"
         },
         "translation": {
           "type": "array",
@@ -104,9 +107,36 @@
           "description": "Optional detection confidence score in [0, 1], passed through from the originating detection",
           "minimum": 0,
           "maximum": 1
+        },
+        "visibility": {
+          "type": "array",
+          "description": "Camera IDs whose field of view currently contains this track (pass-through from track producer)",
+          "items": { "type": "string" }
+        },
+        "camera_bounds": {
+          "type": "object",
+          "description": "Optional per-camera pixel bounding boxes when the producer supplies them",
+          "additionalProperties": true
+        },
+        "prev_translation": {
+          "type": "array",
+          "description": "Previous world position [x, y, z] in meters when available",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "first_seen": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp when the track was first observed"
+        },
+        "frame_count": {
+          "type": "integer",
+          "description": "Number of frames this track has been observed",
+          "minimum": 0
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     }
   }
 }

@@ -218,7 +218,16 @@ class AnalyticsScene(SceneModel):
     return obj.mesh.is_intersecting(region.mesh)
 
   def _updateVisible(self, curObjects):
+    """Fill camera visibility only when the track producer did not supply it.
+
+    Prefer pass-through of ``visibility`` from ``data/scene`` (Controller or
+    Tracker). Recompute FOV containment only for objects that arrive without
+    a visibility list so events and regulated output still carry camera IDs.
+    """
     for obj in curObjects:
+      existing = getattr(obj, 'visibility', None)
+      if existing is not None:
+        continue
       vis = []
       for sname in self.cameras:
         camera = self.cameras[sname]
