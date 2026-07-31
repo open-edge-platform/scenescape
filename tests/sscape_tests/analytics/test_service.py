@@ -19,6 +19,7 @@ def _service(visibility_topic='regulated', rewrite_all_time=False):
   service.regulate_cache = {}
   service.mqtt_auth = None
   service.schema_val = MagicMock()
+  service.scene_data_schema_validator = None
   service.pubsub = MagicMock()
   service.cache_manager = MagicMock()
   service.visibility_topic = visibility_topic
@@ -47,6 +48,29 @@ class TestInit:
     mock_pubsub_instance.connect.assert_called_once()
     mock_cache_cls.assert_called_once()
     assert service.visibility_topic == 'regulated'
+    assert service.scene_data_schema_validator is None
+
+  def test_init_loads_scene_data_schema_when_file_exists(self):
+    with patch('analytics.service.SchemaValidation') as mock_schema, \
+         patch('analytics.service.PubSub'), \
+         patch('analytics.service.CacheManager'), \
+         patch('analytics.service.Path') as mock_path_cls:
+      mock_path_cls.return_value.exists.return_value = True
+      meta_validator = MagicMock(name='meta')
+      scene_validator = MagicMock(name='scene')
+      mock_schema.side_effect = [meta_validator, scene_validator]
+
+      service = AnalyticsService(
+        rewrite_all_time=False, mqtt_broker='broker', mqtt_auth='auth',
+        rest_url='rest', rest_auth='rest-auth', client_cert='cert',
+        root_cert='root', schema_file='schema.json',
+        visibility_topic='regulated', data_source='rest',
+        scene_data_schema_file='scene-data.schema.json',
+      )
+
+    assert mock_schema.call_count == 2
+    mock_schema.assert_any_call('scene-data.schema.json', is_multi_message=False)
+    assert service.scene_data_schema_validator is scene_validator
 
 
 class TestShouldPublish:
@@ -284,6 +308,21 @@ class TestHandleSceneDataMessage:
     service.handleSceneDataMessage(None, None, message)
 
     service.cache_manager.sceneWithID.assert_not_called()
+
+  def test_invalid_scene_data_schema_returns_early(self):
+    service = _service()
+    service.scene_data_schema_validator = MagicMock()
+    service.scene_data_schema_validator.validate.return_value = False
+    scene = MagicMock()
+    service.cache_manager.sceneWithID.return_value = scene
+    service.publishDetections = MagicMock()
+    message = self._message()
+
+    service.handleSceneDataMessage(None, None, message)
+
+    service.scene_data_schema_validator.validate.assert_called_once()
+    scene.updateTrackedObjects.assert_not_called()
+    service.publishDetections.assert_not_called()
 
   def test_known_scene_processes_and_publishes(self):
     service = _service()

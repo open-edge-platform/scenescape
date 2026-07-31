@@ -55,6 +55,10 @@ def build_argparser():
   parser.add_argument("--schema_file",
                       help="JSON file with metadata schema",
                       default=os.path.join(os.path.dirname(script_path), "schema/metadata.schema.json"))
+  parser.add_argument("--scene_data_schema_file",
+                      help="JSON file with scene-data schema for tracker/controller output validation",
+                      default=os.path.join(os.path.dirname(script_path),
+                                           "tracker/schema/scene-data.schema.json"))
   parser.add_argument("--visibility_topic",
                       help="Topic to publish visibility on: 'unregulated', 'regulated', or 'none'",
                       default="regulated")
@@ -80,6 +84,7 @@ def main():
     schema_file=args.schema_file,
     visibility_topic=args.visibility_topic,
     data_source=args.data_source,
+    scene_data_schema_file=args.scene_data_schema_file,
   )
 
   if args.healthcheck_port > 0:
