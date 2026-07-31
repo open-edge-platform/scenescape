@@ -23,9 +23,14 @@ DEFAULT_CA_CERT = "/run/secrets/certs/scenescape-ca.pem"
 DEFAULT_CLIENT_CERT = "/run/secrets/certs/scenescape-reid.crt"
 DEFAULT_CLIENT_KEY = "/run/secrets/certs/scenescape-reid.key"
 # Descriptor lifetime in seconds (0 disables retention). 86400 = 24 hours.
-DEFAULT_DESCRIPTOR_TTL_SECS = 86400
+DEFAULT_DESCRIPTOR_TTL_SECS = int(
+    os.getenv("DEFAULT_DESCRIPTOR_TTL_SECS", "86400")
+)
+
 # How often the controller asks the active backend to purge expired descriptors.
-DEFAULT_PURGE_INTERVAL_SECS = 300
+DEFAULT_PURGE_INTERVAL_SECS = int(
+    os.getenv("DEFAULT_PURGE_INTERVAL_SECS", "300")
+)
 
 PORT_RANGE = (1, 65535)
 CONFIDENCE_THRESHOLD_RANGE = (0.0, 1.0)

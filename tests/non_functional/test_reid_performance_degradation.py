@@ -71,7 +71,7 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
                docker=None, project_name=None,
                duration=SMOKE_DURATION_S, mode="smoke"):
     super().__init__(testName, request, recordXMLAttribute)
-    self.vdms_connect()
+    self.reid_connect(use_tls=False)
 
     self.docker = docker
     self.project_name = project_name
