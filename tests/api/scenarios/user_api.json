@@ -35,8 +35,6 @@
             "password": "FullPassword123!",
             "email": "user_full@example.com",
             "is_active": true,
-            "is_staff": true,
-            "is_superuser": false,
             "first_name": "John",
             "last_name": "Doe",
             "scene": "16fd2706-8baf-433b-82eb-8c7fada847da"
@@ -360,7 +358,7 @@
               "uid": "${USER_ID_FULL}",
               "username": "${USER_NAME_FULL}",
               "is_active": true,
-              "is_staff": true,
+              "is_staff": false,
               "is_superuser": false,
               "first_name": "John",
               "last_name": "Doe",
@@ -428,7 +426,89 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/USER/12: Delete Existing User",
+    "test_name": "Vision_AI/SSCAPE/API/USER/12: Create user with is_staff and is_superuser true",
+    "test_steps": [
+      {
+        "step_name": "Create user with privilege fields in body",
+        "api": "user",
+        "method": "createUser",
+        "request": {
+          "body": {
+            "username": "user_privileged",
+            "password": "Privileged123!",
+            "is_staff": true,
+            "is_superuser": true
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        }
+      },
+      {
+        "step_name": "Verify privilege fields were ignored",
+        "api": "user",
+        "method": "getUser",
+        "request": {
+          "username": "user_privileged"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "is_staff": false,
+          "is_superuser": false
+        }
+      },
+      {
+        "step_name": "Cleanup created user",
+        "api": "user",
+        "method": "deleteUser",
+        "request": {
+          "username": "user_privileged"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/13: Update user with is_staff and is_superuser true",
+    "test_steps": [
+      {
+        "step_name": "Update user with privilege fields in body",
+        "api": "user",
+        "method": "updateUser",
+        "request": {
+          "username": "${USER_NAME_MINIMAL}",
+          "body": {
+            "is_staff": true,
+            "is_superuser": true
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify privilege fields were not changed",
+        "api": "user",
+        "method": "getUser",
+        "request": {
+          "username": "${USER_NAME_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "is_staff": false,
+          "is_superuser": false
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/14: Delete Existing User",
     "test_steps": [
       {
         "step_name": "Delete user minimal",
@@ -455,7 +535,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/USER/13: Delete non existent user",
+    "test_name": "Vision_AI/SSCAPE/API/USER/15: Delete non existent user",
     "test_steps": [
       {
         "step_name": "Delete again",

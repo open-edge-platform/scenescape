@@ -1,15 +1,15 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-{{- if .Values.vdms.enabled }}
+{{- if .Values.reid.enabled }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: vdms
+  name: reid
 spec:
   selector:
-    app: {{ .Release.Name }}-vdms
+    app: {{ .Release.Name }}-reid
   ports:
   - name: "55555"
     protocol: TCP
