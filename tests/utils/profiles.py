@@ -313,6 +313,26 @@ FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS = ServiceProfile(
   },
 )
 
+# Analytics + Manager only (no Scene Controller / Tracker). Used to inject
+# Tracker-shaped DATA_SCENE over MQTT and assert Analytics events without
+# duplicating Controller tracking coverage in FULL_STACK.
+ANALYTICS_MQTT = ServiceProfile(
+  name="analytics_mqtt",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-analytics.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "broker": _BROKER,
+    "analytics": _ANALYTICS,
+  },
+)
+
 # Registry: maps profile name -> ServiceProfile for CLI lookup
 PROFILE_REGISTRY: dict = {
   p.name: p
@@ -330,5 +350,6 @@ PROFILE_REGISTRY: dict = {
     SCENE_NO_DB,
     MARKERLESS,
     INFERENCE_PERF,
+    ANALYTICS_MQTT,
   ]
 }

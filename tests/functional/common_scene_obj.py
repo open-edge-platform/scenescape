@@ -11,7 +11,7 @@ from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time, get_epoch_time
 
-from tests.common_test_utils import check_event_contains_data
+from tests.functional.event_asserts import check_event_contains_data
 from tests.functional import FunctionalTest
 from tests.utils.log import get_logger
 

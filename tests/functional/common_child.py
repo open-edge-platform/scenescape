@@ -65,6 +65,7 @@ class ChildSceneTest:
     self.roi_uid = None
     self.tripwire_uid = None
     self.sensor_uid = None
+    self.attribute_sensor_uid = None
 
     # Tracks whether the child has already been unlinked (so teardown skips it)
     self.child_unlinked = False
@@ -76,9 +77,11 @@ class ChildSceneTest:
     self.parent_roi_events = []
     self.parent_tripwire_events = []
     self.parent_sensor_events = []
+    self.parent_attribute_sensor_events = []
     self.child_roi_events = []
     self.child_tripwire_events = []
     self.child_sensor_events = []
+    self.child_attribute_sensor_events = []
 
     # Monotonic timestamp of the first event received into each accumulator
     self._first_received_at = {}
@@ -174,6 +177,23 @@ class ChildSceneTest:
     self.sensor_uid = sensor_res["uid"]
     log.info(f"[SETUP] Sensor uid={self.sensor_uid}")
 
+  def create_attribute_sensor(self, rest_client):
+    """Create an attribute singleton in the child scene for discrete value events."""
+    sensor_res = rest_client.createSensor({
+      "scene": self.child_id,
+      "name": "TestAttrSensor_child",
+      "sensor_id": "TestAttrSensor_child",
+      "area": "circle",
+      "radius": 3.21,
+      "center": (4.5, 3.22),
+      "singleton_type": "attribute",
+    })
+    assert sensor_res.statusCode == 201, (
+      f"Expected 201 creating attribute sensor, got {sensor_res.statusCode}: "
+      f"{sensor_res.errors}")
+    self.attribute_sensor_uid = sensor_res["uid"]
+    log.info(f"[SETUP] Attribute sensor uid={self.attribute_sensor_uid}")
+
   def teardown_scenes(self, rest_client):
     """Remove created analytics objects, unlink child, and delete parent scene.
 
@@ -188,6 +208,7 @@ class ChildSceneTest:
       (self.roi_uid, "ROI", rest_client.deleteRegion),
       (self.tripwire_uid, "Tripwire", rest_client.deleteTripwire),
       (self.sensor_uid, "Sensor", rest_client.deleteSensor),
+      (self.attribute_sensor_uid, "AttributeSensor", rest_client.deleteSensor),
     ]:
       if uid:
         res = fn(uid)
@@ -245,12 +266,20 @@ class ChildSceneTest:
     self._subscribe_event(mqttc, "child tripwire events", self._TRIPWIRE, self.child_id, self.tripwire_uid)
     if self.sensor_uid:
       self._subscribe_event(mqttc, "child sensor events", self._REGION, self.child_id, self.sensor_uid)
+    if self.attribute_sensor_uid:
+      self._subscribe_event(
+        mqttc, "child attribute sensor events", self._REGION,
+        self.child_id, self.attribute_sensor_uid)
 
     # Parent equivalents (republished by controller)
     self._subscribe_event(mqttc, "parent ROI events", self._REGION, self.parent_id, self.roi_uid)
     self._subscribe_event(mqttc, "parent tripwire events", self._TRIPWIRE, self.parent_id, self.tripwire_uid)
     if self.sensor_uid:
       self._subscribe_event(mqttc, "parent sensor events", self._REGION, self.parent_id, self.sensor_uid)
+    if self.attribute_sensor_uid:
+      self._subscribe_event(
+        mqttc, "parent attribute sensor events", self._REGION,
+        self.parent_id, self.attribute_sensor_uid)
 
   def _on_message(self, mqttc, obj, msg):
     """Route incoming MQTT messages to the correct accumulator list."""
@@ -284,6 +313,13 @@ class ChildSceneTest:
         self.child_sensor_events.append(data)
         self._first_received_at.setdefault("child_sensor_events", time.monotonic())
         log.info(f"Child sensor event received: {len(self.child_sensor_events)} total")
+      elif (self.attribute_sensor_uid and region_id == self.attribute_sensor_uid
+            and region_type == self._REGION):
+        self.child_attribute_sensor_events.append(data)
+        self._first_received_at.setdefault(
+          "child_attribute_sensor_events", time.monotonic())
+        log.info(f"Child attribute sensor event received: "
+                 f"{len(self.child_attribute_sensor_events)} total")
 
     elif scene_id == self.parent_id:
       if region_id == self.roi_uid and region_type == self._REGION:
@@ -298,6 +334,13 @@ class ChildSceneTest:
         self.parent_sensor_events.append(data)
         self._first_received_at.setdefault("parent_sensor_events", time.monotonic())
         log.info(f"Parent sensor event received: {len(self.parent_sensor_events)} total")
+      elif (self.attribute_sensor_uid and region_id == self.attribute_sensor_uid
+            and region_type == self._REGION):
+        self.parent_attribute_sensor_events.append(data)
+        self._first_received_at.setdefault(
+          "parent_attribute_sensor_events", time.monotonic())
+        log.info(f"Parent attribute sensor event received: "
+                 f"{len(self.parent_attribute_sensor_events)} total")
 
   def connect_mqtt(self):
     """Create a :class:`PubSub` client, attach callbacks, connect, and wait.
@@ -339,9 +382,12 @@ class ChildSceneTest:
       region_uids = _uids(scene.get('regions'))
       tripwire_uids = _uids(scene.get('tripwires'))
       sensor_uids = _uids(scene.get('sensors'))
+      sensors_ready = self.sensor_uid in sensor_uids
+      if self.attribute_sensor_uid:
+        sensors_ready = sensors_ready and self.attribute_sensor_uid in sensor_uids
       if (self.roi_uid in region_uids
           and self.tripwire_uid in tripwire_uids
-          and self.sensor_uid in sensor_uids):
+          and sensors_ready):
         break
       time.sleep(0.5)
     else:

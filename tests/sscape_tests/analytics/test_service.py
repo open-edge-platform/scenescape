@@ -3,12 +3,14 @@
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+from pathlib import Path
 
 import orjson
 import pytest
 
 from analytics.service import AnalyticsService
 from scene_common.mqtt import PubSub
+from scene_common.schema import SchemaValidation
 
 
 def _service(visibility_topic='regulated', rewrite_all_time=False):
@@ -200,6 +202,19 @@ class TestPublishRegulatedDetections:
 
     mock_bounds.assert_not_called()
 
+  def test_none_topic_does_not_compute_camera_bounds(self):
+    service = _service(visibility_topic='none')
+    scene_obj = self._scene_obj()
+    msg_obj = SimpleNamespace(gid='obj-1')
+    jdata = {'timestamp': 'ts', 'id': 'scene1', 'name': 'Scene 1'}
+
+    with patch('analytics.service.buildDetectionsList', return_value=[{'id': 'obj-1'}]), \
+         patch('analytics.service.computeCameraBounds') as mock_bounds, \
+         patch('analytics.service.get_epoch_time', return_value=100.0):
+      service.publishRegulatedDetections(scene_obj, [msg_obj], 'person', jdata, None)
+
+    mock_bounds.assert_not_called()
+
   def test_camera_rate_recorded_when_camera_configured(self):
     service = _service()
     scene_obj = self._scene_obj(cameras={'cam1': object()})
@@ -322,6 +337,8 @@ class TestHandleSceneDataMessage:
 
     service.scene_data_schema_validator.validate.assert_called_once()
     scene.updateTrackedObjects.assert_not_called()
+    scene._updateVisible.assert_not_called()
+    scene._updateEvents.assert_not_called()
     service.publishDetections.assert_not_called()
 
   def test_known_scene_processes_and_publishes(self):
@@ -541,3 +558,120 @@ class TestUpdateRegulateCache:
     service.updateRegulateCache()
 
     assert 'scene1' in service.regulate_cache
+
+
+_SCENE_DATA_SCHEMA = (
+  Path(__file__).resolve().parents[3]
+  / "tracker"
+  / "schema"
+  / "scene-data.schema.json"
+)
+
+
+class TestHandleSceneDataMessageSchemaAndVisibility:
+
+  def _message(self, payload_dict, scene_id='scene1', thing_type='person'):
+    return SimpleNamespace(
+      topic=f'scenescape/data/scene/{scene_id}/{thing_type}',
+      payload=orjson.dumps(payload_dict),
+    )
+
+  def test_controller_shaped_payload_passes_real_schema_and_processes(self):
+    service = _service()
+    service.scene_data_schema_validator = SchemaValidation(
+      str(_SCENE_DATA_SCHEMA), is_multi_message=False)
+    scene = MagicMock()
+    scene.getTrackedObjects.return_value = []
+    service.cache_manager.sceneWithID.return_value = scene
+    service.publishDetections = MagicMock()
+    payload = {
+      'id': 'scene1',
+      'name': 'Demo',
+      'timestamp': '2026-01-20T10:05:01.590Z',
+      'unique_detection_count': 1,
+      'rate': 10.0,
+      'objects': [{
+        'id': 'track-1',
+        'type': 'person',
+        'translation': [1.0, 2.0, 0.0],
+        'velocity': [0.0, 0.0, 0.0],
+        'size': [0.5, 0.5, 1.8],
+        'rotation': [0, 0, 0, 1],
+        'confidence': None,
+      }],
+    }
+
+    service.handleSceneDataMessage(None, None, self._message(payload))
+
+    scene.updateTrackedObjects.assert_called_once()
+    scene._updateVisible.assert_called_once()
+    scene._updateEvents.assert_called_once()
+    service.publishDetections.assert_called_once()
+
+  def test_tracker_shaped_payload_passes_real_schema_and_processes(self):
+    service = _service()
+    service.scene_data_schema_validator = SchemaValidation(
+      str(_SCENE_DATA_SCHEMA), is_multi_message=False)
+    scene = MagicMock()
+    scene.getTrackedObjects.return_value = []
+    service.cache_manager.sceneWithID.return_value = scene
+    service.publishDetections = MagicMock()
+    payload = {
+      'id': '3bc091c7-e449-46a0-9540-29c499bca18c',
+      'name': 'Retail',
+      'timestamp': '2026-01-20T10:05:01.590Z',
+      'objects': [{
+        'id': '8cce2bc7-51fc-4a6e-8c5d-a73ac72d3eb2',
+        'category': 'person',
+        'translation': [-0.33, 2.48, 0.0],
+        'velocity': [-0.04, 0.2, 0.0],
+        'size': [0.5, 0.5, 1.85],
+        'rotation': [0, 0, 0, 1],
+      }],
+    }
+
+    service.handleSceneDataMessage(None, None, self._message(payload))
+
+    scene.updateTrackedObjects.assert_called_once()
+    service.publishDetections.assert_called_once()
+
+  def test_omitted_visibility_filled_before_events_on_real_scene(self):
+    """Glue: ingest None visibility → FOV fill → events see non-empty list."""
+    from analytics.adapters.scene_model import AnalyticsScene
+
+    service = _service()
+    scene = AnalyticsScene('Demo', None)
+    scene.uid = 'scene1'
+    scene.cameras['cam1'] = SimpleNamespace(
+      cameraID='cam1',
+      pose=SimpleNamespace(
+        regionOfView=SimpleNamespace(isPointWithin=lambda pt: True)),
+    )
+    service.cache_manager.sceneWithID.return_value = scene
+    service.publishDetections = MagicMock()
+
+    captured = {}
+
+    def _capture_events(detection_type, when, objects, publish_fn=None):
+      captured['visibility'] = [getattr(o, 'visibility', None) for o in objects]
+
+    scene._updateEvents = _capture_events
+
+    payload = {
+      'id': 'scene1',
+      'name': 'Demo',
+      'timestamp': '2026-01-20T10:05:01.590Z',
+      'objects': [{
+        'id': 'obj-1',
+        'category': 'person',
+        'translation': [1.0, 1.0, 0.0],
+        'velocity': [0.0, 0.0, 0.0],
+        'size': [0.5, 0.5, 1.8],
+        'rotation': [0, 0, 0, 1],
+      }],
+    }
+
+    service.handleSceneDataMessage(None, None, self._message(payload))
+
+    assert captured.get('visibility') == [['cam1']]
+    service.publishDetections.assert_called_once()

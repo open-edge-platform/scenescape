@@ -6,7 +6,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-import tests.common_test_utils as common
 from scene_common.scene_model import SceneModel as Scene
 from controller.scene import Scene
 from scene_common.camera import Camera

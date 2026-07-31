@@ -11,7 +11,10 @@ import threading
 import time
 
 import tests.common_test_utils as common
-from tests.common_test_utils import check_event_contains_data
+from tests.functional.event_asserts import (
+  assert_event_objects_have_visibility,
+  check_event_contains_data,
+)
 from tests.functional.common_child import (
   ChildSceneTest,
   EVENT_WAIT,
@@ -66,6 +69,7 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
     # Validate event schema
     for event in parent_events:
       check_event_contains_data(event, "region")
+      assert_event_objects_have_visibility(event)
 
     # Analytics republishes on the parent MQTT topic but preserves the
     # original child scene_id in the payload. Routing to parent_roi_events
@@ -136,6 +140,7 @@ def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute
 
     for event in parent_events:
       check_event_contains_data(event, "tripwire")
+      assert_event_objects_have_visibility(event)
 
     for event in parent_events:
       assert event["scene_id"] == helper.child_id, (
@@ -237,6 +242,66 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
   assert exit_code == 0
 
 
+def test_child_attribute_sensor_event_propagated_to_parent(
+    objData, record_xml_attribute, params):
+  """! Verify attribute singleton events from a child scene reach the parent.
+
+  Distinct from the environmental sensor case and from
+  test_sensors_send_mqtt_messages (which does not cover parent republish).
+
+  @param    objData                 Pytest fixture with detection data.
+  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    params                  Dict of test parameters.
+  """
+  TEST_NAME = "NEX-T21482"
+  record_xml_attribute("name", TEST_NAME)
+  log.info(f"Executing: {TEST_NAME}")
+  exit_code = 1
+
+  helper = ChildSceneTest(params)
+  rest_client = helper.make_rest_client()
+  client = None
+  stop_event = threading.Event()
+  send_thread = None
+  try:
+    helper.setup_scenes(rest_client)
+    helper.create_attribute_sensor(rest_client)
+    client = helper.connect_mqtt()
+    helper.wait_for_analytics_geometry(client, rest_client)
+    send_thread = helper.start_detection_thread(client, objData, stop_event)
+
+    obj_tracked = helper.wait_for_events("child_roi_events")
+    assert obj_tracked, (
+      f"Object not tracked within {EVENT_WAIT}s – cannot trigger attribute events")
+
+    for i in range(5):
+      helper.send_sensor_value(client, "TestAttrSensor_child", f"badge-{i}")
+      time.sleep(0.2)
+
+    sensor_appeared = helper.wait_for_events("parent_attribute_sensor_events")
+    assert sensor_appeared, (
+      f"Timed out after {EVENT_WAIT}s: no attribute sensor events on parent topic")
+
+    for event in helper.parent_attribute_sensor_events:
+      check_event_contains_data(event, "region")
+      assert event["scene_id"] == helper.child_id
+      assert event.get("region_id") == helper.attribute_sensor_uid
+
+    log.info(f"PASS: {len(helper.parent_attribute_sensor_events)} attribute "
+             "sensor events propagated to parent")
+    exit_code = 0
+  finally:
+    stop_event.set()
+    if send_thread:
+      send_thread.join()
+    if client:
+      client.loopStop()
+    helper.teardown_scenes(rest_client)
+    common.record_test_result(TEST_NAME, exit_code)
+
+  assert exit_code == 0
+
+
 def test_parent_event_attributes_match_child_event(objData, record_xml_attribute, params):
   """! Verify that region_id, region_name, count category keys and values, and
   the from_child_scene metadata attribution in the parent's republished event
@@ -271,6 +336,8 @@ def test_parent_event_attributes_match_child_event(objData, record_xml_attribute
 
     child_evt = helper.child_roi_events[0]
     parent_evt = helper.parent_roi_events[0]
+    assert_event_objects_have_visibility(child_evt)
+    assert_event_objects_have_visibility(parent_evt)
 
     # The region UID and name must be identical
     assert child_evt.get("region_id") == parent_evt.get("region_id"), (
