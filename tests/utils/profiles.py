@@ -152,6 +152,29 @@ REID = ServiceProfile(
   },
 )
 
+# ReID controller + vector DB without DLStreamer/GPU video. Used by hierarchy
+# enrollment tests that inject camera MQTT detections instead of live streams.
+REID_CORE = ServiceProfile(
+  name="reid_core",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-vdms.yml",
+    f"{COMPOSE}/compose-scene_reid.yml",
+    # Use compose-web.yml (testdb / Demo) so hierarchy helpers can link Demo.
+    f"{COMPOSE}/compose-web.yml",
+  ),
+  wait_for={
+    "broker": _BROKER,
+    "ntpserv": WaitConfig(),
+    "pgserver": _PGSERVER,
+    "vdms": WaitConfig(),
+    "web": _WEB,
+    "scene": _SCENE,
+  },
+)
+
 REID_QDRANT = ServiceProfile(
   name="reid_qdrant",
   compose_files=(
@@ -173,6 +196,26 @@ REID_QDRANT = ServiceProfile(
     "web": _WEB,
     "queuing-video": WaitConfig(),
     "retail-video": WaitConfig(),
+    "scene": _SCENE,
+  },
+)
+
+REID_CORE_QDRANT = ServiceProfile(
+  name="reid_core_qdrant",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-qdrant.yml",
+    f"{COMPOSE}/compose-scene_reid_qdrant.yml",
+    f"{COMPOSE}/compose-web.yml",
+  ),
+  wait_for={
+    "broker": _BROKER,
+    "ntpserv": WaitConfig(),
+    "pgserver": _PGSERVER,
+    "qdrant": _QDRANT,
+    "web": _WEB,
     "scene": _SCENE,
   },
 )
@@ -312,7 +355,9 @@ PROFILE_REGISTRY: dict = {
     FULL_STACK_WITH_MAPPING_AND_VIDEO,
     FULL_STACK_WITH_VIDEO_AND_RETAIL,
     REID,
+    REID_CORE,
     REID_QDRANT,
+    REID_CORE_QDRANT,
     REID_SEMANTIC,
     REID_SEMANTIC_QDRANT,
     FULL_STACK_AUTOCALIBRATION,
