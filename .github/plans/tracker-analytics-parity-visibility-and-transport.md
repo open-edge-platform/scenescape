@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Plan: Camera Visibility Pass-Through and Tracker FOV Parity
+# Plan: Tracker–Analytics Parity (Visibility, FOV, and Local Transport)
 
 ## Canonical baseline
 
@@ -16,14 +16,18 @@ run while analytics still lived in the Controller. It is **not** the product
 contract. Do not treat analytics-only bypasses (e.g. skipping the `frameCount`
 reliability gate) as regressions to restore.
 
-Standalone Analytics should match **Controller-proper** semantics, with MQTT
-track input replacing the in-process tracker.
+Standalone Analytics should match **Controller-proper** semantics, with a
+**track-ingest adapter** replacing the in-process tracker. Default ingest is
+MQTT (`data/scene`); a local transport (UDS/gRPC) is an optional later switch
+for hop latency — same `AnalyticsObject` contract either way (see
+[Part 3](#part-3--trackeranalytics-transport-switch-latency-option-b)).
 
 ADRs ([ADR 7](../../docs/adr/0007-tracker-service.md),
 [ADR 13](../../docs/adr/0013-controller-breakdown-microservices.md)) call for
 analytics/events **parity** with that Controller-proper behavior as
 responsibilities move out of the monolith — not parity with analytics-only
-quirks.
+quirks. Analytics remains its own process; ADR 13 already allows choosing
+transport per hop when latency is measured.
 
 ---
 
@@ -225,6 +229,98 @@ shared golden fixtures (same camera pose → same visibility IDs as Controller
 
 ---
 
+## Part 3 — Tracker↔Analytics transport switch (latency, option B)
+
+### Why it belongs with this plan
+
+Parts 1–2 lock the **semantic** contract: Tracker owns FOV `visibility`,
+Analytics pass-through + events/regulated assembly. That contract is payload-
+shaped (`AnalyticsObject` / scene-data JSON), not MQTT-shaped.
+
+The remaining latency concern vs in-Controller analytics is the **extra hop**:
+serialize → MQTT broker → deserialize (plus schema validate). Debounce and
+`regulated_rate` are unchanged either way.
+
+**Option B:** keep Tracker (C++) and Analytics (Python) as separate processes,
+but make track ingest **switch-flippable** between MQTT (default) and a local
+transport (UDS or gRPC) so co-located deployments can drop the broker from the
+critical track→analytics path. Downstream `regulated` / `event` stay on MQTT.
+
+This is **not** in-process merge (option C) and **not** mere pod colocation with
+MQTT to localhost (option A). ADR 13 already anticipates per-hop transport
+choice when latency is measured.
+
+### Prerequisite
+
+P0–P2 first so local and MQTT paths share one golden track payload (including
+`visibility`). Do not invent a second FOV or event contract for the local path.
+
+### Approach
+
+1. **Peel MQTT from the analytics core**
+   - Extract an `AnalyticsRuntime` (name TBD) from `AnalyticsService`: scene
+     cache, `handleSceneData`-equivalent processing, regulated/region/event
+     publish via injected `publish_fn`.
+   - `AnalyticsService` becomes the MQTT ingest + outbound MQTT adapter only.
+   - Keep `process_frame` / region / tripwire / sensors free of transport.
+
+2. **Add a second ingest adapter**
+   - Local listener: Unix domain socket **or** localhost gRPC carrying the
+     same scene-data JSON (or Protobuf equivalent of that schema).
+   - One code path into `AnalyticsRuntime` after bytes → `jdata` /
+     `AnalyticsObject`.
+
+3. **Tracker publish dual-path**
+   - Flag (e.g. `TRACK_ANALYTICS_TRANSPORT=mqtt|local`): after building the
+     track message, publish to MQTT and/or write to the local socket/gRPC.
+   - Default remains MQTT-only for compatibility with Manager, child scenes,
+     and tools that already subscribe to `data/scene`.
+
+4. **Deploy switch**
+   - Compose/Helm: when `local`, co-locate Tracker + Analytics (sidecar / same
+     host), wire socket path or gRPC port; Analytics still publishes
+     `regulated` / `event` on the shared broker.
+   - Remote / multi-host stays on MQTT.
+
+5. **Measure before mandating**
+   - Instrument p50/p99: Tracker publish complete → Analytics runtime entry
+     (and → first event publish) under MQTT vs local.
+   - Adopt `local` as a supported profile only if the hop tax is material vs
+     Tracker chunking / camera rate.
+
+### Estimate
+
+| Scope                                                                 | Effort                    |
+| --------------------------------------------------------------------- | ------------------------- |
+| AnalyticsRuntime peel + MQTT adapter unchanged                        | **~1–2 engineer-days**    |
+| Local ingest (UDS *or* gRPC) + Tracker dual publish + compose flag    | **~3–5 engineer-days**    |
+| Parity tests (same events MQTT vs local) + latency smoke              | **~1–2 engineer-days**    |
+| **Total (optional follow-up)**                                        | **~1–1.5 engineer-weeks** |
+
+Prefer **UDS + JSON** first (smallest delta from today’s `orjson` path); move
+to gRPC/Protobuf only if profiling shows serialize cost dominates broker RTT.
+
+### Acceptance criteria (transport)
+
+- [ ] Flag selects `mqtt` (default) vs `local` without changing event/regulated
+      payload semantics (including `visibility` pass-through).
+- [ ] With `local`, track→Analytics path does not require the MQTT broker;
+      outbound analytics topics still use MQTT.
+- [ ] Functional parity: one scene fixture produces equivalent region/tripwire
+      events under both transports.
+- [ ] Documented compose/profile example for co-located `local` mode.
+- [ ] Latency note or metric: hop delta MQTT vs local recorded in Tracker or
+      Analytics docs (even if only a one-time bench in the PR).
+
+### Non-goals for Part 3
+
+- Single binary / embed Python in Tracker (option C).
+- Putting analytics back into Scene Controller.
+- Replacing MQTT for `regulated` / `event` fan-out.
+- Making `local` the default in production without measured need.
+
+---
+
 ## Phasing
 
 | Phase                   | Work                                                                                 | Depends on        |
@@ -235,9 +331,11 @@ shared golden fixtures (same camera pose → same visibility IDs as Controller
 | **P3 (optional)**       | Incident field for region covering cameras (semantics B)                             | P1/P2             |
 | **P4 (optional)**       | Tracker or Analytics `camera_bounds` enrichment for shape reconstruction             | Product need      |
 | **P5 (optional)**       | Reliability gate prefers MQTT `frame_count` when present                             | Product / polish  |
+| **P6 (optional)**       | Tracker↔Analytics local transport switch (Part 3 / option B)                         | P0–P2; measured need |
 
 Suggested merge strategy: land P0/P1 with Analytics branch; Tracker P2 as a
-follow-up PR against Tracker + schema/docs.
+follow-up PR against Tracker + schema/docs; P6 only after P2 and a hop
+measurement that justifies the work.
 
 ---
 
@@ -249,6 +347,8 @@ follow-up PR against Tracker + schema/docs.
   when that service exists; until then producer + Analytics fallback.
 - Changing default `visibility_topic` away from `regulated`.
 - Unbounded `publishedLocations` growth (separate hygiene item).
+- In-process Tracker+Analytics merge (option C) or Controller re-absorption.
+- Changing default track transport away from MQTT without a measured hop need.
 
 ---
 
@@ -258,6 +358,10 @@ follow-up PR against Tracker + schema/docs.
 - Controller FOV geometry: `scene_common/.../transform.py` (`_calculateRegionOfView`)
 - Analytics pass-through: `analytics/.../adapters/scene_model.py` (`_updateVisible`)
 - Analytics handler order: `analytics/.../service.py` (`handleSceneDataMessage`)
+- Analytics library boundary: `analytics/.../engine.py` (`process_frame`),
+  `analytics_models.py` (`AnalyticsObject`)
 - Reliability unify: commit `8d927d12` (`bugfix: reliable tracks moved to engine`)
 - Ingest schema: `tracker/schema/scene-data.schema.json`
-- ADR 13 Analytics role: camera visibility + events parity with Controller-proper
+- ADR 13 Analytics role: camera visibility + events parity with Controller-proper;
+  per-hop gRPC vs MQTT when latency is measured
+- ADR 13 open question: transport selection per interface
