@@ -92,7 +92,7 @@ pose+marsreid
 
 > **Note**: To enable pose-based bounding box adjustment in the Scene Controller, set the `--pose-adjustment` flag or `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable. See the [Scene Controller documentation](../microservices/controller/controller.md) for details.
 
-> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `pose+marsreid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--pose-adjustment` controller flag is also incompatible with Extended ReID (VDMS-based cross-camera re-identification).
+> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `pose+marsreid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--pose-adjustment` controller flag is also incompatible with Extended ReID (cross-camera re-identification via the configured vector backend).
 
 **Vehicle Analytics Workflows:**
 

@@ -162,11 +162,18 @@ NPU performance metrics can be monitored using [NPU System Monitoring Tool](http
 Following are the step-by-step instructions for enabling person reidentification for the out-of-box **Queuing** scene.
 
 1. **Enable the ReID Database Container**\
-   Launch scenescape using vdms profile
+   Launch Scenescape with exactly one ReID backend override. This example selects VDMS:
 
    ```bash
-   docker compose -f docker-compose.yml -f sample_data/docker-compose.vdms-override.yml --profile vdms up -d
+   docker compose -f docker-compose.yml \
+     -f sample_data/docker-compose.vdms-override.yml \
+     --profile controller up -d
    ```
+
+   To use Qdrant instead, replace `docker-compose.vdms-override.yml` with
+   `docker-compose.qdrant-override.yml`. Do not combine the two overrides.
+   From the repository root, `make demo-reid` does the same and defaults to
+   VDMS; use `make demo-reid REID_BACKEND=qdrant` for Qdrant.
 
 2. Use the predefined [queuing-config-reid.json](./queuing-config-reid.json) to enable vector embedding metadata from the DL Streamer service:
 
@@ -187,8 +194,12 @@ Following are the step-by-step instructions for enabling person reidentification
    If you have already deployed Scenescape, use:
 
    ```sh
-   docker compose down queuing-video retail-video scene
-   docker compose -f docker-compose.yml -f sample_data/docker-compose.vdms-override.yml --profile vdms up queuing-video retail-video vdms scene -d
+   docker compose -f docker-compose.yml \
+     -f sample_data/docker-compose.vdms-override.yml \
+     --profile controller down
+   docker compose -f docker-compose.yml \
+     -f sample_data/docker-compose.vdms-override.yml \
+     --profile controller up queuing-video retail-video reid scene -d
    ```
 
    Ensure the OMZ model `person-reidentification-retail-0277` is available in `omz/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/intel`.
@@ -235,7 +246,7 @@ Following are step-by-step instructions for enabling pose estimation for the out
 
    To enable improved localization using pose keypoints, pass the `--pose-adjustment` flag or set the `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable on the `scene` service. This feature is disabled by default. See the [Scene Controller documentation](../docs/user-guide/microservices/controller/controller.md) for details.
 
-> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128` for deep-sort tracking) must use `detectionPolicy` as the metadata generation policy — `reidPolicy` is not supported for these pipelines. Additionally, the `--pose-adjustment` controller flag cannot be used together with Extended ReID (VDMS-based cross-camera re-identification).
+> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128` for deep-sort tracking) must use `detectionPolicy` as the metadata generation policy — `reidPolicy` is not supported for these pipelines. Additionally, the `--pose-adjustment` controller flag cannot be used together with Extended ReID (cross-camera re-identification via the configured vector backend).
 
 ## Enable Frame NTP Timestamp Extraction
 
