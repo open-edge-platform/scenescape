@@ -3,7 +3,7 @@
 
 # ADR 14: Unified TTL Retention for ReID Descriptor Store Growth
 
-- **Author(s)**: Derrick Addo, Sarat Poluri
+- **Author(s)**: Sarat Poluri, Derrick Addo
 - **Date**: 2026-07-30
 - **Status**: `Proposed`
 - **Related**: [ADR-0010](./0010-reid-metadata-storage-architecture.md)
