@@ -53,7 +53,7 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
   try:
     helper.setup_scenes(rest_client)
     client = helper.connect_mqtt()
-    helper.wait_for_analytics_geometry(client)
+    helper.wait_for_analytics_geometry(client, rest_client)
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
     roi_appeared = helper.wait_for_events("parent_roi_events")
@@ -115,7 +115,7 @@ def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute
   try:
     helper.setup_scenes(rest_client)
     client = helper.connect_mqtt()
-    helper.wait_for_analytics_geometry(client)
+    helper.wait_for_analytics_geometry(client, rest_client)
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
     # Tripwire crossings need the y-sweep to reach the centre line and enough
@@ -186,7 +186,7 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
   try:
     helper.setup_scenes(rest_client)
     client = helper.connect_mqtt()
-    helper.wait_for_analytics_geometry(client)
+    helper.wait_for_analytics_geometry(client, rest_client)
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
     # Wait until Analytics has processed the child scene (ROI event) before
@@ -259,7 +259,7 @@ def test_parent_event_attributes_match_child_event(objData, record_xml_attribute
   try:
     helper.setup_scenes(rest_client)
     client = helper.connect_mqtt()
-    helper.wait_for_analytics_geometry(client)
+    helper.wait_for_analytics_geometry(client, rest_client)
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
     # Wait for both child and parent events.
@@ -324,7 +324,7 @@ def test_child_event_propagation_is_timely(objData, record_xml_attribute, params
   try:
     helper.setup_scenes(rest_client)
     client = helper.connect_mqtt()
-    helper.wait_for_analytics_geometry(client)
+    helper.wait_for_analytics_geometry(client, rest_client)
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
     child_appeared = helper.wait_for_events("child_roi_events")
@@ -376,7 +376,7 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
   try:
     helper.setup_scenes(rest_client, link=False)
     client = helper.connect_mqtt()
-    helper.wait_for_analytics_geometry(client)
+    helper.wait_for_analytics_geometry(client, rest_client)
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
     time.sleep(NEGATIVE_OBSERVE)
@@ -421,7 +421,7 @@ def test_event_region_id_matches_child_definition(objData, record_xml_attribute,
   try:
     helper.setup_scenes(rest_client)
     client = helper.connect_mqtt()
-    helper.wait_for_analytics_geometry(client)
+    helper.wait_for_analytics_geometry(client, rest_client)
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
     ok = helper.wait_for_events("parent_roi_events")
@@ -467,7 +467,7 @@ def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params)
   try:
     helper.setup_scenes(rest_client)
     client = helper.connect_mqtt()
-    helper.wait_for_analytics_geometry(client)
+    helper.wait_for_analytics_geometry(client, rest_client)
 
     # Phase-1: confirm events propagate while linked
     send_thread = helper.start_detection_thread(client, objData, stop_event)

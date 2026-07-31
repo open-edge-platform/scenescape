@@ -222,8 +222,11 @@ class AnalyticsScene(SceneModel):
 
     Prefer pass-through of non-empty ``visibility`` from ``data/scene``
     (Controller or Tracker). Missing or empty lists are treated as "not
-    supplied" — ingestion defaults omitted fields to ``[]``, which must not
-    block FOV fill-in — so events and regulated output still carry camera IDs.
+    supplied" (ingestion leaves omitted fields as ``None``; empty ``[]`` is
+    also fill-eligible because producers often omit the field and older paths
+    defaulted to ``[]``). An authoritative empty list from a producer that
+    already computed FOV is therefore overwritten by Analytics FOV containment
+    so events and regulated output still carry camera IDs when cameras are known.
     """
     for obj in curObjects:
       existing = getattr(obj, 'visibility', None)

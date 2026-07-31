@@ -16,11 +16,12 @@ from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
 
 # Ceiling for waiting on ROI/tripwire/sensor events after geometry is ready.
-# One y-sweep pass is ~11s at 10fps; reliability gate adds a few frames.
-EVENT_WAIT = 15
+# One y-sweep pass is ~11s at 10fps; leave margin for reliability gate + MQTT lag.
+EVENT_WAIT = 20
 CONNECT_WAIT = 10
-# After REST creates ROI/tripwire/sensor, wait for CMD_DATABASE → Analytics
-# cache refresh before publishing detections.
+# How long to wait for REST to show newly created ROI/tripwire/sensor.
+GEOMETRY_READY_WAIT = 10
+# After CMD_DATABASE, allow Analytics cache refresh before detections.
 GEOMETRY_SETTLE = 3
 # Once a child event is observed, parent republish should be near-immediate.
 PROPAGATION_LIMIT = 5
@@ -316,16 +317,42 @@ class ChildSceneTest:
     assert self.connected, "MQTT client failed to connect within timeout"
     return client
 
-  def wait_for_analytics_geometry(self, client):
-    """Nudge Analytics to reload scene geometry after REST creates ROI/etc.
+  def wait_for_analytics_geometry(self, client, rest_client):
+    """Wait until child ROI/tripwire/sensor are visible via REST, then refresh Analytics.
 
-    Manager already publishes CMD_DATABASE on create; re-publish and settle so
-    detections are not sent against a stale Analytics cache.
+    Polls ``getScene`` until the created geometry UIDs appear (DB readiness),
+    then publishes CMD_DATABASE at QoS 1 (same as Manager) and settles so
+    Analytics is not still holding a stale cache when detections start.
     """
+    assert self.child_id and self.roi_uid and self.tripwire_uid and self.sensor_uid, (
+      "setup_scenes() must run before wait_for_analytics_geometry()")
+
+    def _uids(entries):
+      return {entry.get('uid') for entry in (entries or []) if entry.get('uid')}
+
+    start = time.time()
+    while time.time() - start < GEOMETRY_READY_WAIT:
+      scene = rest_client.getScene(self.child_id)
+      if scene.statusCode != 200:
+        time.sleep(0.5)
+        continue
+      region_uids = _uids(scene.get('regions'))
+      tripwire_uids = _uids(scene.get('tripwires'))
+      sensor_uids = _uids(scene.get('sensors'))
+      if (self.roi_uid in region_uids
+          and self.tripwire_uid in tripwire_uids
+          and self.sensor_uid in sensor_uids):
+        break
+      time.sleep(0.5)
+    else:
+      raise AssertionError(
+        f"Child scene geometry not visible via REST within {GEOMETRY_READY_WAIT}s "
+        f"(roi={self.roi_uid}, tripwire={self.tripwire_uid}, sensor={self.sensor_uid})")
+
     topic = PubSub.formatTopic(PubSub.CMD_DATABASE)
-    client.publish(topic, "update")
-    log.info(f"[SETUP] Published {topic}=update; settling {GEOMETRY_SETTLE}s "
-             "for Analytics cache refresh")
+    client.publish(topic, "update", qos=1)
+    log.info(f"[SETUP] Geometry ready; published {topic}=update (qos=1); "
+             f"settling {GEOMETRY_SETTLE}s for Analytics cache refresh")
     time.sleep(GEOMETRY_SETTLE)
 
   def _send_detections(self, client, obj_data, y_locations, stop_event):

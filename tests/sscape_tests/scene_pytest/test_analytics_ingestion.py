@@ -46,6 +46,25 @@ def test_ingest_single_object_sets_core_fields():
   assert obj.sceneLoc == Point(1.0, 2.0, 0.0)
 
 
+def test_ingest_omitted_visibility_is_none():
+  """Omitted visibility must stay None so Analytics can FOV-fill."""
+  ingestion = SceneDataIngestion()
+  ingestion.ingest('person', [_person()], {})
+  assert ingestion._objects['obj-1'].visibility is None
+
+
+def test_ingest_explicit_visibility_is_preserved():
+  ingestion = SceneDataIngestion()
+  ingestion.ingest('person', [_person(visibility=['cam1'])], {})
+  assert ingestion._objects['obj-1'].visibility == ['cam1']
+
+
+def test_ingest_explicit_empty_visibility_is_preserved():
+  ingestion = SceneDataIngestion()
+  ingestion.ingest('person', [_person(visibility=[])], {})
+  assert ingestion._objects['obj-1'].visibility == []
+
+
 def test_ingest_preserves_identity_across_frames():
   """ChainData is preserved when the same object id reappears."""
   ingestion = SceneDataIngestion()

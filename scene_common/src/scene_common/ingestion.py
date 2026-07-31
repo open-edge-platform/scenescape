@@ -162,8 +162,8 @@ class SceneDataIngestion:
     obj.boundingBox = None
     obj.boundingBoxPixels = None
     obj.intersected = False
-    # None when omitted so Analytics can FOV-fill; explicit [] still means
-    # "producer supplied empty" and is also treated as fill-eligible upstream.
+    # None when omitted so Analytics can FOV-fill. Explicit [] is preserved here
+    # but Analytics _updateVisible also treats empty as fill-eligible.
     obj.visibility = obj_data.get('visibility')
     obj.info = {'category': obj.category, 'confidence': obj.confidence}
 
