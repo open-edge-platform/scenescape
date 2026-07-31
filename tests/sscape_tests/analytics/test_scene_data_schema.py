@@ -70,3 +70,75 @@ def test_schema_accepts_controller_proper_data_scene_fields(validator):
     ],
   }
   validator.validate(payload)
+
+
+def test_schema_accepts_detection_passthrough_extra_fields(validator):
+  """Detection metadata may extend the envelope without schema churn."""
+  payload = {
+    "id": "scene-1",
+    "name": "Retail",
+    "timestamp": "2026-01-20T10:05:01.590Z",
+    "detector_custom_metric": 42,
+    "objects": [
+      {
+        "id": "track-1",
+        "category": "person",
+        "translation": [0.0, 0.0, 0.0],
+        "velocity": [0.0, 0.0, 0.0],
+        "size": [0.5, 0.5, 1.8],
+        "rotation": [0, 0, 0, 1],
+        "custom_detector_field": {"foo": "bar"},
+      }
+    ],
+  }
+  validator.validate(payload)
+
+
+def test_schema_rejects_missing_required_top_level_fields(validator):
+  payload = {
+    "id": "scene-1",
+    "name": "Retail",
+    "objects": [],
+  }
+  errors = list(validator.iter_errors(payload))
+  assert errors
+  assert any("timestamp" in e.message for e in errors)
+
+
+def test_schema_rejects_object_missing_translation(validator):
+  payload = {
+    "id": "scene-1",
+    "name": "Retail",
+    "timestamp": "2026-01-20T10:05:01.590Z",
+    "objects": [
+      {
+        "id": "track-1",
+        "velocity": [0.0, 0.0, 0.0],
+        "size": [0.5, 0.5, 1.8],
+        "rotation": [0, 0, 0, 1],
+      }
+    ],
+  }
+  errors = list(validator.iter_errors(payload))
+  assert errors
+  assert any("translation" in e.message for e in errors)
+
+
+def test_schema_rejects_confidence_out_of_range(validator):
+  payload = {
+    "id": "scene-1",
+    "name": "Retail",
+    "timestamp": "2026-01-20T10:05:01.590Z",
+    "objects": [
+      {
+        "id": "track-1",
+        "translation": [0.0, 0.0, 0.0],
+        "velocity": [0.0, 0.0, 0.0],
+        "size": [0.5, 0.5, 1.8],
+        "rotation": [0, 0, 0, 1],
+        "confidence": 1.5,
+      }
+    ],
+  }
+  errors = list(validator.iter_errors(payload))
+  assert errors

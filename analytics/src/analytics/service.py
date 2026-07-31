@@ -212,7 +212,11 @@ class AnalyticsService:
 
   def handleSensorMessage(self, client, userdata, message):
     """Handle sensor data messages."""
-    jdata = orjson.loads(message.payload.decode('utf-8'))
+    try:
+      jdata = orjson.loads(message.payload.decode('utf-8'))
+    except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
+      log.error(f"Invalid sensor payload on {message.topic}: {e}")
+      return
 
     if not self.schema_val.validateMessage("singleton", jdata, check_format=True):
       return

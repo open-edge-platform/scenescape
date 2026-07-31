@@ -15,10 +15,13 @@ from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
 
-# Positive waits for events must cover Controller+Analytics pipeline warmup,
-# track reliability gate, and the y-sweep reaching ROI/tripwire/sensor geometry.
-EVENT_WAIT = 30
+# Ceiling for waiting on ROI/tripwire/sensor events after geometry is ready.
+# One y-sweep pass is ~11s at 10fps; reliability gate adds a few frames.
+EVENT_WAIT = 15
 CONNECT_WAIT = 10
+# After REST creates ROI/tripwire/sensor, wait for CMD_DATABASE → Analytics
+# cache refresh before publishing detections.
+GEOMETRY_SETTLE = 3
 # Once a child event is observed, parent republish should be near-immediate.
 PROPAGATION_LIMIT = 5
 # How long negative tests watch to ensure events stay absent.
@@ -36,7 +39,8 @@ class ChildSceneTest:
   """
 
   _FRAME_RATE = 10
-  _NUM_PUBLISH_ITERATIONS = 3
+  # One pass is enough once Analytics has hydrated geometry.
+  _NUM_PUBLISH_ITERATIONS = 1
   _PERSON = "person"
   _REGION = "region"
   _TRIPWIRE = "tripwire"
@@ -151,7 +155,10 @@ class ChildSceneTest:
     self.tripwire_uid = tw_res["uid"]
     log.info(f"[SETUP] Tripwire uid={self.tripwire_uid}")
 
-    # Create sensor in child scene (environmental singleton for value events)
+    # Create sensor in child scene (environmental singleton for value events).
+    # singleton_type must be "environmental" or Analytics will not emit value
+    # events. sensor_id is the MQTT/API id (also the scene.sensors dict key);
+    # if omitted, the API falls back to name.
     sensor_res = rest_client.createSensor({
       "scene": self.child_id,
       "name": "TestSensor_child",
@@ -308,6 +315,18 @@ class ChildSceneTest:
       time.sleep(0.5)
     assert self.connected, "MQTT client failed to connect within timeout"
     return client
+
+  def wait_for_analytics_geometry(self, client):
+    """Nudge Analytics to reload scene geometry after REST creates ROI/etc.
+
+    Manager already publishes CMD_DATABASE on create; re-publish and settle so
+    detections are not sent against a stale Analytics cache.
+    """
+    topic = PubSub.formatTopic(PubSub.CMD_DATABASE)
+    client.publish(topic, "update")
+    log.info(f"[SETUP] Published {topic}=update; settling {GEOMETRY_SETTLE}s "
+             "for Analytics cache refresh")
+    time.sleep(GEOMETRY_SETTLE)
 
   def _send_detections(self, client, obj_data, y_locations, stop_event):
     """Publish person detections through a y-sweep to trigger enter/exit events.

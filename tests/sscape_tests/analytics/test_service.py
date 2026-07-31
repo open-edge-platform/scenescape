@@ -350,7 +350,34 @@ class TestHandleSceneDataMessage:
 class TestHandleSensorMessage:
 
   def _message(self, payload_dict):
-    return SimpleNamespace(payload=orjson.dumps(payload_dict))
+    return SimpleNamespace(
+      topic='scenescape/data/sensor/sensor1',
+      payload=orjson.dumps(payload_dict),
+    )
+
+  def test_invalid_json_returns_early(self):
+    service = _service()
+    message = SimpleNamespace(
+      topic='scenescape/data/sensor/sensor1',
+      payload=b'not-json',
+    )
+
+    service.handleSensorMessage(None, None, message)
+
+    service.schema_val.validateMessage.assert_not_called()
+    service.cache_manager.sceneWithSensorID.assert_not_called()
+
+  def test_invalid_utf8_returns_early(self):
+    service = _service()
+    message = SimpleNamespace(
+      topic='scenescape/data/sensor/sensor1',
+      payload=b'\xff\xfe',
+    )
+
+    service.handleSensorMessage(None, None, message)
+
+    service.schema_val.validateMessage.assert_not_called()
+    service.cache_manager.sceneWithSensorID.assert_not_called()
 
   def test_invalid_schema_returns_early(self):
     service = _service()

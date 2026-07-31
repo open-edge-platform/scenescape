@@ -162,7 +162,9 @@ class SceneDataIngestion:
     obj.boundingBox = None
     obj.boundingBoxPixels = None
     obj.intersected = False
-    obj.visibility = obj_data.get('visibility', [])
+    # None when omitted so Analytics can FOV-fill; explicit [] still means
+    # "producer supplied empty" and is also treated as fill-eligible upstream.
+    obj.visibility = obj_data.get('visibility')
     obj.info = {'category': obj.category, 'confidence': obj.confidence}
 
     # Reconstruct bbMeters from size when available

@@ -5,7 +5,7 @@
 
 """Functional tests validating that parent scene MQTT EVENT topic correctly
 receives and republishes events (ROIs, tripwires, sensors) originating from
-a linked child scene via SceneController.republishEvents."""
+a linked child scene via Analytics event republish to the parent."""
 
 import threading
 import time
@@ -32,9 +32,9 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
   """! Verify that ROI entry/exit events from a child scene are republished on
   the parent scene's MQTT EVENT topic.
 
-  The controller republishes on the parent MQTT topic but preserves the
-  original child scene_id in the payload (republishEvents does not rewrite it).
-  Proof of propagation is routing to parent_roi_events via the parent-scoped topic.
+  The Analytics service republishes on the parent MQTT topic but preserves the
+  original child scene_id in the payload. Proof of propagation is routing to
+  parent_roi_events via the parent-scoped topic.
 
   @param    objData                 Pytest fixture with detection data.
   @param    record_xml_attribute    Pytest fixture recording the test name.
@@ -53,6 +53,7 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
   try:
     helper.setup_scenes(rest_client)
     client = helper.connect_mqtt()
+    helper.wait_for_analytics_geometry(client)
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
     roi_appeared = helper.wait_for_events("parent_roi_events")
@@ -66,10 +67,9 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
     for event in parent_events:
       check_event_contains_data(event, "region")
 
-    # The controller republishes on the parent MQTT topic but preserves the
-    # original child scene_id in the payload (republishEvents does not rewrite
-    # it).  Routing to parent_roi_events via the parent-scoped topic is the
-    # proof of propagation.  Assert the payload scene_id equals the child uid.
+    # Analytics republishes on the parent MQTT topic but preserves the
+    # original child scene_id in the payload. Routing to parent_roi_events
+    # via the parent-scoped topic is the proof of propagation.
     for event in parent_events:
       assert event["scene_id"] == helper.child_id, (
         f"Event scene_id {event['scene_id']} must equal child_id {helper.child_id}")
@@ -115,6 +115,7 @@ def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute
   try:
     helper.setup_scenes(rest_client)
     client = helper.connect_mqtt()
+    helper.wait_for_analytics_geometry(client)
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
     # Tripwire crossings need the y-sweep to reach the centre line and enough
@@ -164,9 +165,9 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
   republished on the parent scene's MQTT EVENT topic.
 
   A sensor is an area-bounded singleton.  When a sensor value is published
-  while a tracked object is within the sensor area, the controller emits a
-  region-type EVENT.  That event must be republished by republishEvents on
-  the parent scene's EVENT topic.
+  while a tracked object is within the sensor area, Analytics emits a
+  region-type EVENT.  That event must be republished on the parent scene's
+  EVENT topic.
 
   @param    objData                 Pytest fixture with detection data.
   @param    record_xml_attribute    Pytest fixture recording the test name.
@@ -185,10 +186,11 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
   try:
     helper.setup_scenes(rest_client)
     client = helper.connect_mqtt()
+    helper.wait_for_analytics_geometry(client)
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
-    # Wait until analytics has processed the child scene (ROI event) before
-    # publishing sensor readings; track maturity + scene refresh can exceed 5s.
+    # Wait until Analytics has processed the child scene (ROI event) before
+    # publishing sensor readings.
     obj_tracked = helper.wait_for_events("child_roi_events")
     assert obj_tracked, (
       f"Object not tracked within {EVENT_WAIT}s – cannot trigger sensor events")
@@ -211,7 +213,7 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
     for event in parent_events:
       check_event_contains_data(event, "region")
 
-    # The controller preserves the child scene_id in the republished payload
+    # Republish preserves the child scene_id in the payload
     for event in parent_events:
       assert event["scene_id"] == helper.child_id, (
         f"Event scene_id {event['scene_id']} must equal child_id {helper.child_id}")
@@ -257,6 +259,7 @@ def test_parent_event_attributes_match_child_event(objData, record_xml_attribute
   try:
     helper.setup_scenes(rest_client)
     client = helper.connect_mqtt()
+    helper.wait_for_analytics_geometry(client)
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
     # Wait for both child and parent events.
@@ -321,6 +324,7 @@ def test_child_event_propagation_is_timely(objData, record_xml_attribute, params
   try:
     helper.setup_scenes(rest_client)
     client = helper.connect_mqtt()
+    helper.wait_for_analytics_geometry(client)
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
     child_appeared = helper.wait_for_events("child_roi_events")
@@ -372,6 +376,7 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
   try:
     helper.setup_scenes(rest_client, link=False)
     client = helper.connect_mqtt()
+    helper.wait_for_analytics_geometry(client)
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
     time.sleep(NEGATIVE_OBSERVE)
@@ -416,6 +421,7 @@ def test_event_region_id_matches_child_definition(objData, record_xml_attribute,
   try:
     helper.setup_scenes(rest_client)
     client = helper.connect_mqtt()
+    helper.wait_for_analytics_geometry(client)
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
     ok = helper.wait_for_events("parent_roi_events")
@@ -461,6 +467,7 @@ def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params)
   try:
     helper.setup_scenes(rest_client)
     client = helper.connect_mqtt()
+    helper.wait_for_analytics_geometry(client)
 
     # Phase-1: confirm events propagate while linked
     send_thread = helper.start_detection_thread(client, objData, stop_event)

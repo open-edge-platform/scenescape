@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://scenescape.intel.com/tracker/schema/scene-data.schema.json",
   "title": "Scene Data Message",
-  "description": "Track output payload for MQTT topic scenescape/data/scene/{scene_id}/{thing_type}. Accepts Tracker envelopes and Scene Controller DATA_SCENE messages (Controller may include extra top-level metrics/debug fields).",
+  "description": "Track output payload for MQTT topic scenescape/data/scene/{scene_id}/{thing_type}. Accepts Tracker envelopes and Scene Controller DATA_SCENE messages. Top-level and per-object additionalProperties remain open so detection passthrough metadata and producer-specific metrics can extend the envelope without schema churn.",
   "type": "object",
   "required": ["id", "name", "timestamp", "objects"],
   "examples": [

@@ -237,10 +237,12 @@ services:
     environment:
       no_proxy: ${no_proxy},.scenescape.intel.com
       NO_PROXY: ${NO_PROXY},.scenescape.intel.com
+      VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
     command: >
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
+      --visibility_topic "$VISIBILITY_TOPIC"
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

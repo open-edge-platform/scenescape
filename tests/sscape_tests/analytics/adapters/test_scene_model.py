@@ -443,7 +443,8 @@ class TestUpdateVisible:
 
     assert obj.visibility == ['producer-cam']
 
-  def test_empty_producer_visibility_is_preserved(self):
+  def test_empty_producer_visibility_triggers_fov_fill(self):
+    """Empty list is indistinguishable from omitted (ingestion default)."""
     scene = _scene()
     camera = SimpleNamespace(
       cameraID='cam1',
@@ -454,7 +455,7 @@ class TestUpdateVisible:
 
     scene._updateVisible([obj])
 
-    assert obj.visibility == []
+    assert obj.visibility == ['cam1']
 
 
 class TestDeserialize:

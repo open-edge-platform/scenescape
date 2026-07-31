@@ -25,9 +25,12 @@ services:
         condition: service_started
       ntpserv:
         condition: service_started
+    environment:
+      VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
     command: --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
+      --visibility_topic "$VISIBILITY_TOPIC"
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
