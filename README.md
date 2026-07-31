@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/open-edge-platform/scenescape/badge)](https://scorecard.dev/viewer/?uri=github.com/open-edge-platform/scenescape)
 
-Scenescape makes writing applications based on sensor data faster, easier and better by reaching beyond vision-based AI to realize spatial awareness through contextualization of multimodal sensor data in a common reference frame. It provides a collection of microservices, tools and supporting containers to quickly move from single sensor analytics to a multimodal aggregated scene view.
+Scenescape makes writing applications based on sensor data faster, easier and better by reaching beyond vision-based AI to realize spatial awareness through contextualization of multimodal sensor data in a common reference frame. It is a reference architecture which provides a collection of microservices, tools and supporting containers to quickly move from single sensor analytics to a multimodal aggregated scene view.
 
 ## Documentation
 
