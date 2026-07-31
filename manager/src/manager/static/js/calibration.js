@@ -118,7 +118,7 @@ async function registerAutoCameraCalibration(scene_id, socket) {
   }
 
   socket.on("register_result", async (notification) => {
-    manageCalibrationState(notification.data, scene_id);
+    await manageCalibrationState(notification.data, scene_id);
   });
 
   // The registration POST resolves synchronously with an error when the scene
@@ -162,7 +162,17 @@ async function manageCalibrationState(msg, scene_id) {
           "Click to calibrate the camera automatically";
       }
     } else if (msg.status == "re-register") {
-      const response = await registerScene(scene_id);
+      try {
+        const response = await registerScene(scene_id);
+        if (response) {
+          await manageCalibrationState(response, scene_id);
+        }
+      } catch (error) {
+        await manageCalibrationState(
+          { status: "error", message: error.message },
+          scene_id,
+        );
+      }
     } else if (msg.status == "error") {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
       document.getElementById("auto-autocalibration").disabled = true;

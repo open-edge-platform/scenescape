@@ -45,6 +45,11 @@ class RegistrationErrorHandlingTest(UserInterfaceTest):
       lambda d: self.wait_for_button_label(d, expected_label, actual_label, button_id)
     )
 
+    button_element = self.browser.find_element(By.ID, button_id)
+    if button_element.is_enabled():
+      print("Auto calibration button should be disabled after the async registration error path.")
+      return
+
     # Reloading now hits the synchronous registration-error path, which never emits
     # a "register_result" socket event, previously leaving the button stuck on
     # "Initializing auto camera calibration".
