@@ -89,8 +89,8 @@ x-controller-base: &controller-base
 # - experimental: All services including mapping
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
-# - controller: Enable the Controller service in Default mode (analytics + tracking)
-# - tracker: Enable tracker service
+# - controller: Scene Controller (tracking) + Analytics service
+# - tracker: Tracker service + Analytics service (no Scene Controller)
 
 services:
   ntpserv:

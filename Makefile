@@ -99,7 +99,7 @@ help:
 	@echo "  demo-cluster-analytics      Start the Scenescape demo with cluster analytics service using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Scenescape)"
-	@echo "  demo-tracker                Start the Scenescape demo with Tracker service + Controller in analytics only mode using Docker Compose"
+	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
 	@echo ""
@@ -725,7 +725,7 @@ demo-cluster-analytics: build-all init-sample-data
 
 .PHONY: demo-tracker
 demo-tracker: build-all init-sample-data
-	$(call start_demo,--profile analytics --profile tracker)
+	$(call start_demo,--profile tracker)
 
 .PHONY: demo-close
 demo-close:
