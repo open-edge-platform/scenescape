@@ -6,6 +6,10 @@
 **/.reuse/templates/template.jinja2
 .venv
 
+# Agent plan drafts (not product formatting surface)
+# This ignore file lives in .github/resources/, so plans is ../plans/.
+../plans/
+
 # Build directories (CMake/Conan generated)
 **/build/
 **/build-*/
