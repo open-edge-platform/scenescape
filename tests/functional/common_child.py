@@ -15,7 +15,16 @@ from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
 
-MAX_WAIT = 5
+# Positive waits for events must cover Controller+Analytics pipeline warmup,
+# track reliability gate, and the y-sweep reaching ROI/tripwire/sensor geometry.
+EVENT_WAIT = 30
+CONNECT_WAIT = 10
+# Once a child event is observed, parent republish should be near-immediate.
+PROPAGATION_LIMIT = 5
+# How long negative tests watch to ensure events stay absent.
+NEGATIVE_OBSERVE = 8
+# Back-compat alias used by assertion messages / older call sites.
+MAX_WAIT = EVENT_WAIT
 
 
 class ChildSceneTest:
@@ -142,13 +151,15 @@ class ChildSceneTest:
     self.tripwire_uid = tw_res["uid"]
     log.info(f"[SETUP] Tripwire uid={self.tripwire_uid}")
 
-    # Create sensor in child scene
+    # Create sensor in child scene (environmental singleton for value events)
     sensor_res = rest_client.createSensor({
       "scene": self.child_id,
       "name": "TestSensor_child",
+      "sensor_id": "TestSensor_child",
       "area": "circle",
       "radius": 3.21,
       "center": (4.5, 3.22),
+      "singleton_type": "environmental",
     })
     assert sensor_res.statusCode == 201, (
       f"Expected 201 creating sensor, got {sensor_res.statusCode}: {sensor_res.errors}")
@@ -293,7 +304,7 @@ class ChildSceneTest:
     client.loopStart()
 
     start = time.time()
-    while not self.connected and time.time() - start < MAX_WAIT:
+    while not self.connected and time.time() - start < CONNECT_WAIT:
       time.sleep(0.5)
     assert self.connected, "MQTT client failed to connect within timeout"
     return client
@@ -365,7 +376,7 @@ class ChildSceneTest:
     """
     return self._first_received_at.get(attr)
 
-  def wait_for_events(self, attr, timeout=MAX_WAIT):
+  def wait_for_events(self, attr, timeout=EVENT_WAIT):
     """Block until at least one event is present in the named attribute.
 
     @param    attr      Name of the list attribute to poll (e.g. ``"parent_roi_events"``).

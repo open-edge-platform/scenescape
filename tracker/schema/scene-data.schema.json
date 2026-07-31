@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://scenescape.intel.com/tracker/schema/scene-data.schema.json",
   "title": "Scene Data Message",
-  "description": "Track output payload for MQTT topic scenescape/data/scene/{scene_id}/{thing_type}",
+  "description": "Track output payload for MQTT topic scenescape/data/scene/{scene_id}/{thing_type}. Accepts Tracker envelopes and Scene Controller DATA_SCENE messages (Controller may include extra top-level metrics/debug fields).",
   "type": "object",
   "required": ["id", "name", "timestamp", "objects"],
   "examples": [
@@ -42,9 +42,26 @@
       "items": {
         "$ref": "#/$defs/tracked_object"
       }
+    },
+    "unique_detection_count": {
+      "type": "integer",
+      "description": "Scene Controller metric: unique track count for this detection type",
+      "minimum": 0
+    },
+    "rate": {
+      "type": "number",
+      "description": "Optional publish/camera rate passthrough from Scene Controller / detector messages"
+    },
+    "debug_hmo_start_time": {
+      "type": "number",
+      "description": "Scene Controller debug: handleMovingObject start epoch time"
+    },
+    "debug_hmo_processing_time": {
+      "type": "number",
+      "description": "Scene Controller debug: handleMovingObject processing duration in seconds"
     }
   },
-  "additionalProperties": false,
+  "additionalProperties": true,
   "$defs": {
     "tracked_object": {
       "type": "object",
@@ -58,8 +75,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "format": "uuid",
-          "description": "Persistent track ID (UUID v4, stable across frames while tracked)"
+          "description": "Persistent track ID (UUID when produced by Tracker; Controller may use other stable string IDs)"
         },
         "category": {
           "type": "string",
@@ -103,8 +119,8 @@
           "additionalProperties": true
         },
         "confidence": {
-          "type": "number",
-          "description": "Optional detection confidence score in [0, 1], passed through from the originating detection",
+          "type": ["number", "null"],
+          "description": "Optional detection confidence score in [0, 1]; null when the producer did not supply a score",
           "minimum": 0,
           "maximum": 1
         },

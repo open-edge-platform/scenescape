@@ -12,7 +12,12 @@ import time
 
 import tests.common_test_utils as common
 from tests.common_test_utils import check_event_contains_data
-from tests.functional.common_child import ChildSceneTest, MAX_WAIT
+from tests.functional.common_child import (
+  ChildSceneTest,
+  EVENT_WAIT,
+  NEGATIVE_OBSERVE,
+  PROPAGATION_LIMIT,
+)
 from scene_common import log
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
@@ -52,7 +57,7 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
 
     roi_appeared = helper.wait_for_events("parent_roi_events")
     assert roi_appeared, (
-      f"Timed out after {MAX_WAIT}s: no ROI events arrived on parent scene topic")
+      f"Timed out after {EVENT_WAIT}s: no ROI events arrived on parent scene topic")
 
     parent_events = helper.parent_roi_events
     assert len(parent_events) > 0, "Parent scene should have ROI events from child"
@@ -112,9 +117,18 @@ def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute
     client = helper.connect_mqtt()
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
-    tw_appeared = helper.wait_for_events("parent_tripwire_events")
+    # Tripwire crossings need the y-sweep to reach the centre line and enough
+    # frames for the analytics reliability gate — wait for child first, then
+    # confirm parent republish.
+    child_tw = helper.wait_for_events("child_tripwire_events")
+    assert child_tw, (
+      f"Timed out after {EVENT_WAIT}s: no tripwire events on child scene topic")
+
+    tw_appeared = helper.wait_for_events(
+      "parent_tripwire_events", timeout=PROPAGATION_LIMIT)
     assert tw_appeared, (
-      f"Timed out after {MAX_WAIT}s: no tripwire events arrived on parent scene topic")
+      f"Timed out after {PROPAGATION_LIMIT}s: no tripwire events arrived on "
+      "parent scene topic after child events")
 
     parent_events = helper.parent_tripwire_events
     assert len(parent_events) > 0, "Parent scene should have tripwire events from child"
@@ -173,13 +187,14 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
     client = helper.connect_mqtt()
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
-    # Wait until an object is being tracked (child ROI event confirms controller
-    # has processed at least one frame) before publishing sensor readings.
+    # Wait until analytics has processed the child scene (ROI event) before
+    # publishing sensor readings; track maturity + scene refresh can exceed 5s.
     obj_tracked = helper.wait_for_events("child_roi_events")
-    assert obj_tracked, f"Object not tracked within {MAX_WAIT}s – cannot trigger sensor events"
+    assert obj_tracked, (
+      f"Object not tracked within {EVENT_WAIT}s – cannot trigger sensor events")
 
-    # Publish several sensor readings, the controller emits a region EVENT each
-    # time a value is received while objects are present.
+    # Publish several sensor readings; Analytics emits a region EVENT each time
+    # a value is received while objects are present in the sensor area.
     sensor_name = "TestSensor_child"
     for i in range(5):
       helper.send_sensor_value(client, sensor_name, 100 + i)
@@ -187,7 +202,7 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
 
     sensor_appeared = helper.wait_for_events("parent_sensor_events")
     assert sensor_appeared, (
-      f"Timed out after {MAX_WAIT}s: no sensor events arrived on parent scene topic")
+      f"Timed out after {EVENT_WAIT}s: no sensor events arrived on parent scene topic")
 
     parent_events = helper.parent_sensor_events
     assert len(parent_events) > 0, "Parent scene should have sensor events from child"
@@ -287,7 +302,7 @@ def test_parent_event_attributes_match_child_event(objData, record_xml_attribute
 
 def test_child_event_propagation_is_timely(objData, record_xml_attribute, params):
   """! Verify that event propagation from child to parent occurs with minimal
-  delay (within MAX_WAIT seconds of the first child event).
+  delay (within PROPAGATION_LIMIT seconds of the first child event).
 
   @param    objData                 Pytest fixture with detection data.
   @param    record_xml_attribute    Pytest fixture recording the test name.
@@ -308,18 +323,20 @@ def test_child_event_propagation_is_timely(objData, record_xml_attribute, params
     client = helper.connect_mqtt()
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
-    child_appeared = helper.wait_for_events("child_roi_events", timeout=MAX_WAIT)
-    assert child_appeared, f"No child ROI events received within {MAX_WAIT}s"
+    child_appeared = helper.wait_for_events("child_roi_events")
+    assert child_appeared, f"No child ROI events received within {EVENT_WAIT}s"
 
-    parent_appeared = helper.wait_for_events("parent_roi_events", timeout=MAX_WAIT)
+    parent_appeared = helper.wait_for_events(
+      "parent_roi_events", timeout=PROPAGATION_LIMIT)
     assert parent_appeared, (
-      f"No parent ROI events received within {MAX_WAIT}s of child events")
+      f"No parent ROI events received within {PROPAGATION_LIMIT}s of child events")
 
     propagation_delay = (helper.first_received_at("parent_roi_events")
                          - helper.first_received_at("child_roi_events"))
     log.info(f"Propagation delay: {propagation_delay:.2f}s")
-    assert propagation_delay <= MAX_WAIT, (
-      f"Event propagation delay {propagation_delay:.2f}s exceeds limit {MAX_WAIT}s")
+    assert propagation_delay <= PROPAGATION_LIMIT, (
+      f"Event propagation delay {propagation_delay:.2f}s exceeds "
+      f"limit {PROPAGATION_LIMIT}s")
 
     exit_code = 0
   finally:
@@ -357,7 +374,7 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
     client = helper.connect_mqtt()
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
-    time.sleep(MAX_WAIT)
+    time.sleep(NEGATIVE_OBSERVE)
 
     assert len(helper.parent_roi_events) == 0, (
       "ROI events must NOT appear on parent topic when no parent link exists")
@@ -402,7 +419,7 @@ def test_event_region_id_matches_child_definition(objData, record_xml_attribute,
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
     ok = helper.wait_for_events("parent_roi_events")
-    assert ok, f"No parent ROI events within {MAX_WAIT}s"
+    assert ok, f"No parent ROI events within {EVENT_WAIT}s"
 
     for event in helper.parent_roi_events:
       assert event.get("region_id") == helper.roi_uid, (
@@ -459,7 +476,7 @@ def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params)
     log.info("Step 2: Unlinking child from parent")
     helper.unlink_child(rest_client)
 
-    time.sleep(MAX_WAIT)
+    time.sleep(NEGATIVE_OBSERVE)
 
     # Clear accumulators then resume sending detections, events must not arrive
     # on the parent topic.
@@ -470,7 +487,7 @@ def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params)
     stop_event = threading.Event()
     send_thread = helper.start_detection_thread(client, objData, stop_event)
 
-    time.sleep(MAX_WAIT)
+    time.sleep(NEGATIVE_OBSERVE)
 
     assert len(helper.parent_roi_events) == 0, (
       "ROI events must NOT propagate to parent after child is unlinked")
