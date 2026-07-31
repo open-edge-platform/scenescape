@@ -34,10 +34,10 @@ Scenescape repository is licensed under [APACHE 2.0 LICENSE](./LICENSES/Apache-2
 
 ## Disclaimers
 
-Depending on your deployment, Scenescape may utilize FFmpeg and/or GStreamer.
+- This reference implementation focuses on functional service decomposition and API contracts. Production deployments are expected to integrate with organization-specific identity, certificate, secret management, monitoring and security solutions. The provided deployment examples are not intended to represent a complete production-grade security configuration.
 
-Scenescape provides microservices and a reference configuration intended to demonstrate integration patterns and platform capabilities. It is the responsibility of the developer or system integrator to harden production deployments, including secure service-to-service communication, authentication and authorization controls, secrets and certificate management, and appropriate observability measures (for example logging, metrics, tracing, and alerting) based on the target environment and risk profile.
+- Depending on your deployment, Scenescape may utilize FFmpeg and/or GStreamer.
 
-FFmpeg is an open source project licensed under LGPL and GPL. See [https://www.ffmpeg.org/legal.html](https://www.ffmpeg.org/legal.html). You are solely responsible for determining if your use of FFmpeg requires any additional licenses. Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of FFmpeg.
+- FFmpeg is an open source project licensed under LGPL and GPL. See [https://www.ffmpeg.org/legal.html](https://www.ffmpeg.org/legal.html). You are solely responsible for determining if your use of FFmpeg requires any additional licenses. Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of FFmpeg.
 
-GStreamer is an open source framework licensed under LGPL. See [https://gstreamer.freedesktop.org/documentation/frequently-asked-questions/licensing.html](https://gstreamer.freedesktop.org/documentation/frequently-asked-questions/licensing.html). You are solely responsible for determining if your use of GStreamer requires any additional licenses. Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of GStreamer.
+- GStreamer is an open source framework licensed under LGPL. See [https://gstreamer.freedesktop.org/documentation/frequently-asked-questions/licensing.html](https://gstreamer.freedesktop.org/documentation/frequently-asked-questions/licensing.html). You are solely responsible for determining if your use of GStreamer requires any additional licenses. Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of GStreamer.
