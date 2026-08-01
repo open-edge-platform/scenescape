@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 
 COMPOSE = "tests/compose"
 DLS = f"{COMPOSE}/dlstreamer"
+HIER = f"{COMPOSE}/hierarchy"
 
 
 @dataclass(frozen=True)
@@ -220,6 +221,95 @@ REID_CORE_QDRANT = ServiceProfile(
   },
 )
 
+_HIER_BASE = (
+  f"{HIER}/compose-common.yml",
+  f"{HIER}/compose-parent-base.yml",
+  f"{HIER}/compose-child1-base.yml",
+  f"{HIER}/compose-child2-base.yml",
+)
+
+_HIER_WAIT = {
+  "parent-broker": _BROKER,
+  "child1-broker": _BROKER,
+  "child2-broker": _BROKER,
+  "parent-ntpserv": WaitConfig(),
+  "parent-pgserver": _PGSERVER,
+  "child1-pgserver": _PGSERVER,
+  "child2-pgserver": _PGSERVER,
+  "parent-web": _WEB,
+  "child1-web": _WEB,
+  "child2-web": _WEB,
+  "parent-scene": _SCENE,
+  "child1-scene": _SCENE,
+  "child2-scene": _SCENE,
+}
+
+# All three controllers share one VDMS (priority 1).
+REID_HIER_SHARED = ServiceProfile(
+  name="reid_hier_shared",
+  compose_files=_HIER_BASE + (
+    f"{HIER}/compose-vdms-shared.yml",
+    f"{HIER}/compose-parent-scene-reid.yml",
+    f"{HIER}/compose-child1-scene-reid.yml",
+    f"{HIER}/compose-child2-scene-reid.yml",
+    f"{HIER}/compose-deps-vdms-shared.yml",
+  ),
+  wait_for={**_HIER_WAIT, "vdms-shared": WaitConfig()},
+)
+
+# Children share VDMS; parent has no ReID (priority 2).
+REID_HIER_CHILDREN_ONLY = ServiceProfile(
+  name="reid_hier_children_only",
+  compose_files=_HIER_BASE + (
+    f"{HIER}/compose-vdms-shared.yml",
+    f"{HIER}/compose-parent-scene.yml",
+    f"{HIER}/compose-child1-scene-reid.yml",
+    f"{HIER}/compose-child2-scene-reid.yml",
+    f"{HIER}/compose-deps-vdms-shared-children.yml",
+  ),
+  wait_for={**_HIER_WAIT, "vdms-shared": WaitConfig()},
+)
+
+# Parent has VDMS; children have no ReID (priority 3).
+REID_HIER_PARENT_ONLY = ServiceProfile(
+  name="reid_hier_parent_only",
+  compose_files=_HIER_BASE + (
+    f"{HIER}/compose-vdms-shared.yml",
+    f"{HIER}/compose-parent-scene-reid.yml",
+    f"{HIER}/compose-child1-scene.yml",
+    f"{HIER}/compose-child2-scene.yml",
+    f"{HIER}/compose-deps-vdms-shared-parent.yml",
+  ),
+  wait_for={**_HIER_WAIT, "vdms-shared": WaitConfig()},
+)
+
+# Parent+child1 share reid-a; child2 has no ReID (priority 4).
+REID_HIER_PARTIAL = ServiceProfile(
+  name="reid_hier_partial",
+  compose_files=_HIER_BASE + (
+    f"{HIER}/compose-vdms-a.yml",
+    f"{HIER}/compose-parent-scene-reid.yml",
+    f"{HIER}/compose-child1-scene-reid.yml",
+    f"{HIER}/compose-child2-scene.yml",
+    f"{HIER}/compose-deps-partial.yml",
+  ),
+  wait_for={**_HIER_WAIT, "vdms-a": WaitConfig()},
+)
+
+# Parent+child1 on reid-a; child2 on reid-b (priority 5 negative).
+REID_HIER_SPLIT = ServiceProfile(
+  name="reid_hier_split",
+  compose_files=_HIER_BASE + (
+    f"{HIER}/compose-vdms-a.yml",
+    f"{HIER}/compose-vdms-b.yml",
+    f"{HIER}/compose-parent-scene-reid.yml",
+    f"{HIER}/compose-child1-scene-reid.yml",
+    f"{HIER}/compose-child2-scene-reid.yml",
+    f"{HIER}/compose-deps-split.yml",
+  ),
+  wait_for={**_HIER_WAIT, "vdms-a": WaitConfig(), "vdms-b": WaitConfig()},
+)
+
 REID_SEMANTIC = ServiceProfile(
   name="reid_semantic",
   compose_files=(
@@ -358,6 +448,11 @@ PROFILE_REGISTRY: dict = {
     REID_CORE,
     REID_QDRANT,
     REID_CORE_QDRANT,
+    REID_HIER_SHARED,
+    REID_HIER_CHILDREN_ONLY,
+    REID_HIER_PARENT_ONLY,
+    REID_HIER_PARTIAL,
+    REID_HIER_SPLIT,
     REID_SEMANTIC,
     REID_SEMANTIC_QDRANT,
     FULL_STACK_AUTOCALIBRATION,

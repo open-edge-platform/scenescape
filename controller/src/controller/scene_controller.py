@@ -609,8 +609,13 @@ class SceneController:
         sender = remote_sender
 
     if not hasattr(sender, 'parent') or sender.parent is None:
-      log.error("UNKNOWN PARENT", sender_id)
-      return False, sender
+      recovered = self._parentUidForRemoteChild(sender_id)
+      if recovered:
+        sender.parent = recovered
+        log.info(f"Recovered parent={recovered} for remote child {sender_id}")
+      else:
+        log.error("UNKNOWN PARENT", sender_id)
+        return False, sender
 
     scene = self.cache_manager.sceneWithID(sender.parent)
     if scene is None:
@@ -620,6 +625,15 @@ class SceneController:
     success = scene.processSceneData(jdata, sender, sender.cameraPose,
                                      detection_type, when=msg_when)
     return success, scene
+
+  def _parentUidForRemoteChild(self, remote_child_id):
+    """Return the parent scene uid that links *remote_child_id*, or None."""
+    for scene in self.cache_manager.allScenes():
+      results = self.cache_manager.data_source.getChildScenes(scene.uid)
+      for info in (results or {}).get('results', []):
+        if str(info.get('remote_child_id')) == str(remote_child_id):
+          return scene.uid
+    return None
 
   def updateCameras(self):
     for scene in self.scenes:
@@ -792,10 +806,18 @@ class SceneController:
                                                     region_id="+"),
                                   self.republishEvents))
             else:
-              child_obj = ChildSceneController(self.root_cert, info, self)
-              self.cache_manager.cached_child_transforms_by_uid[info['remote_child_id']] = Scene.deserialize(info)
-              need_subscribe_child[info['remote_child_id']] = child_obj
-              need_subscribe.add((PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS, scene_id=info['remote_child_id']), child_obj.publishStatus))
+              # Remote child payloads may omit parent (or leave it null). The
+              # enclosing scene is the parent by construction of this query.
+              remote_info = dict(info)
+              if not remote_info.get('parent'):
+                remote_info['parent'] = scene.uid
+              child_obj = ChildSceneController(self.root_cert, remote_info, self)
+              self.cache_manager.cached_child_transforms_by_uid[remote_info['remote_child_id']] = \
+                Scene.deserialize(remote_info)
+              need_subscribe_child[remote_info['remote_child_id']] = child_obj
+              need_subscribe.add((PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
+                                                     scene_id=remote_info['remote_child_id']),
+                                  child_obj.publishStatus))
 
     # disconnect old children clients
     for old_child, cobj in self.subscribed_children.items():

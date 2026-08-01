@@ -177,6 +177,7 @@ class ScenescapeEnv:
   repo_root: str
   secrets_dir: str
   supass: str
+  hierarchy_ports: dict = None
 
   def restore_db(self):
     """Reload the database from the original test archive.
@@ -361,6 +362,15 @@ _HOST_ALIASES = [
   "web.scenescape.intel.com",
   "autocalibration.scenescape.intel.com",
   "reid.scenescape.intel.com",
+  "parent-web.scenescape.intel.com",
+  "parent-broker.scenescape.intel.com",
+  "child1-web.scenescape.intel.com",
+  "child1-broker.scenescape.intel.com",
+  "child2-web.scenescape.intel.com",
+  "child2-broker.scenescape.intel.com",
+  "reid-shared.scenescape.intel.com",
+  "reid-a.scenescape.intel.com",
+  "reid-b.scenescape.intel.com",
 ]
 
 @pytest.fixture(scope="session")
@@ -555,8 +565,24 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
   # Only set DLSTREAMER_VERSION when detected; omitting lets compose defaults apply.
   if dlstreamer_version:
     env_lines += f"DLSTREAMER_VERSION={dlstreamer_version}\n"
+
+  hierarchy_ports = None
+  if profile.name.startswith("reid_hier"):
+    from tests.functional.hierarchy_ports import allocate_hierarchy_ports
+    hierarchy_ports = allocate_hierarchy_ports()
+    for key, value in hierarchy_ports.items():
+      env_lines += f"{key}={value}\n"
+      # Compose prefers the process environment over --env-file for
+      # interpolation; keep os.environ in sync so stale shell exports cannot
+      # override the freshly allocated host ports.
+      os.environ[key] = value
+    logger.info("Allocated hierarchy host ports: %s", hierarchy_ports)
+
   env_file.write_text(env_lines)
   (tmp_path / "db").mkdir(exist_ok=True)
+  if hierarchy_ports:
+    for role in ("parent", "child1", "child2"):
+      (tmp_path / "db" / role / "media").mkdir(parents=True, exist_ok=True)
 
   docker = DockerClient(
     compose_files=compose_file_paths,
@@ -598,6 +624,7 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       repo_root=repo_root,
       secrets_dir=secrets_dir,
       supass=supass,
+      hierarchy_ports=hierarchy_ports,
     )
 
   except Exception:

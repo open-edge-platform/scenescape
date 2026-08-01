@@ -22,14 +22,18 @@ deploy-certificates: ca broker-cert web-cert reid-cert reid-s-cert autocalibrati
 
 deploy-csr: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr
 
+# EXTRA_HOSTS: additional DNS SANs (space-separated host labels, no domain).
+# Used by multi-controller hierarchy tests (parent-/child*-web/broker, reid-*).
 broker-cert: HOST=broker
 broker-cert: KEY_USAGE=serverAuth
+broker-cert: EXTRA_HOSTS=parent-broker child1-broker child2-broker
 broker-cert: \
 	$(SECRETSDIR)/certs/scenescape-broker.key \
 	$(SECRETSDIR)/certs/scenescape-broker.crt \
 
 web-cert: HOST=web
 web-cert: KEY_USAGE=serverAuth
+web-cert: EXTRA_HOSTS=parent-web child1-web child2-web
 web-cert: \
 	$(SECRETSDIR)/certs/scenescape-web.key \
 	$(SECRETSDIR)/certs/scenescape-web.crt \
@@ -42,6 +46,7 @@ reid-cert: \
 
 reid-s-cert: HOST=reid
 reid-s-cert: KEY_USAGE=serverAuth
+reid-s-cert: EXTRA_HOSTS=reid-shared reid-a reid-b
 reid-s-cert: \
 	$(SECRETSDIR)/certs/scenescape-reid-s.key \
 	$(SECRETSDIR)/certs/scenescape-reid-s.crt \
@@ -119,6 +124,10 @@ $(SECRETSDIR)/certs/%.key:
 
 $(SECRETSDIR)/certs/%.csr: $(SECRETSDIR)/certs/%.key
 	@SUBJECT_ALT_NAMES="DNS.1=$(HOST)$(HOSTSUFFIX).$(CERTDOMAIN)" ; \
+	i=2 ; for h in $(EXTRA_HOSTS) ; do \
+	  SUBJECT_ALT_NAMES="$${SUBJECT_ALT_NAMES}\nDNS.$${i}=$${h}.$(CERTDOMAIN)" ; \
+	  i=$$((i+1)) ; \
+	done ; \
 	if [ -n "$(IP_SAN)" ] ; then SUBJECT_ALT_NAMES="$${SUBJECT_ALT_NAMES}\nIP.1=$(IP_SAN)"; fi ; \
 	echo Generating CSR for $(HOST)$(HOSTSUFFIX).$(CERTDOMAIN) ; \
 	mkdir -p $(SECRETSDIR)/certs ; \
@@ -131,6 +140,10 @@ $(SECRETSDIR)/certs/%.csr: $(SECRETSDIR)/certs/%.key
 
 $(SECRETSDIR)/certs/%.crt: $(SECRETSDIR)/certs/%.csr
 	@SUBJECT_ALT_NAMES="DNS.1=$(HOST)$(HOSTSUFFIX).$(CERTDOMAIN)" ; \
+	i=2 ; for h in $(EXTRA_HOSTS) ; do \
+	  SUBJECT_ALT_NAMES="$${SUBJECT_ALT_NAMES}\nDNS.$${i}=$${h}.$(CERTDOMAIN)" ; \
+	  i=$$((i+1)) ; \
+	done ; \
 	if [ -n "$(IP_SAN)" ] ; then SUBJECT_ALT_NAMES="$${SUBJECT_ALT_NAMES}\nIP.1=$(IP_SAN)" ; fi ; \
 	echo Generating certificate for $(HOST)$(HOSTSUFFIX).$(CERTDOMAIN) ; \
 	mkdir -p $(SECRETSDIR)/certs ; \
