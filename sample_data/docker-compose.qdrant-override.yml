@@ -11,7 +11,7 @@
 
 services:
   reid:
-    image: qdrant/qdrant:v1.13.2
+    image: qdrant/qdrant:v1.18.3
     init: true
     networks:
       scenescape:
