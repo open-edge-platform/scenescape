@@ -40,12 +40,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Run Bandit scan
         if: github.event_name == 'pull_request'
-        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@af6d3ab68ed04ec1b3111392ec0844e8e1ac83a5
+        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@3becec0457a560bc60640a44e245cb3e85c683d6
         with:
           scan-scope: "changed"
           severity-level: "HIGH"
@@ -54,7 +54,7 @@ jobs:
           fail-on-findings: "true"
       - name: Run Bandit scan
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@af6d3ab68ed04ec1b3111392ec0844e8e1ac83a5
+        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@3becec0457a560bc60640a44e245cb3e85c683d6
         with:
           scan-scope: "all"
           severity-level: "HIGH"
