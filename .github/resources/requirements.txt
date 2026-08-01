@@ -5,7 +5,7 @@
 pip == 26.1
 pytest == 9.0.3
 numpy == 2.2.6
-selenium == 4.43.0
+selenium == 4.46.0
 selenium-wire == 5.1.0
 blinker == 1.9.0
 pyvirtualdisplay == 3.0
