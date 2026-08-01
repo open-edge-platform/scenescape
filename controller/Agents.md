@@ -615,10 +615,26 @@ logger.warning(f"Low confidence detection: {conf}")  # Potential issues
 logger.error(f"Tracking failed for object {obj_id}") # Errors
 ```
 
+## Hierarchy and remote children
+
+- `child_scene_controller.py` + `scene.py`: local vs remote children, retrack,
+  transform application, forwarded ReID provenance handling.
+- Remote REST payloads may omit `parent`. When creating remote
+  `ChildSceneController` instances, inject the enclosing scene uid; at message
+  time `_parentUidForRemoteChild` recovers parent if still missing
+  (`scene_controller.py`).
+- Deployment / single-host multi-controller setup (ports, shared secrets, shared
+  or split ReID): [Deploy Multiple Controllers on One Host](../docs/user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md).
+- Functional fixtures for that topology: testing skill
+  [Multi-controller hierarchy fixtures](../.github/skills/testing/references/functional-tests.md#multi-controller-hierarchy-fixtures).
+
 ## Related Documentation
 
 - [User Guide](../docs/user-guide/microservices/controller/controller.md): High-level architecture overview
 - [API Reference](../docs/user-guide/microservices/controller/_assets/scene-controller-api.yaml): OpenAPI specification
+- [Deploy Multiple Controllers on One Host](../docs/user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md): Single-host remote hierarchy + shared ReID
+- [Configure Hierarchy of Scenes](../docs/user-guide/how-to-guides/build-a-scene/configure-hierarchy-of-scenes.md): Local/remote child linking
+- [Extended ReID](../docs/user-guide/microservices/controller/Extended-ReID.md): Provenance and enrollment scope
 - [Scene Common](../scene_common/): Shared library documentation (geometry, MQTT, etc.)
 - [Fast Geometry](../scene_common/src/fast_geometry/): C++ extension documentation
 - [Testing Guide](../.github/skills/testing/SKILL.md): Test creation patterns

@@ -265,6 +265,11 @@ The scene output includes `reid_state` for each tracked object. For canonical st
 
 In a scene hierarchy, a parent scene can match identities using embeddings its children forward, but only the scene that owns the source camera adds them to the database. See [Embeddings in a Scene Hierarchy](../microservices/controller/Extended-ReID.md#embeddings-in-a-scene-hierarchy).
 
+When each floor or site runs its **own** Scene Controller on the same machine,
+point every participating controller at one vector DB hostname to share
+identity space, or use separate DB services to isolate it. See
+[Sharing a ReID Backend Across Controllers](../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#sharing-a-reid-backend-across-controllers).
+
 > **Known Issue**: Current VDMS implementation does not support feature expiration, leading to degraded performance over time. This will be addressed in a future release.
 
 ---

@@ -321,13 +321,15 @@ The ReID design is covered by:
 - moving-object and scene-controller tests for provenance decoding and
   hierarchy publishing.
 
-End-to-end ReID assertions for a live multi-scene `retrack` hierarchy remain
-to be added.
+End-to-end ReID assertions for a live multi-controller remote hierarchy are in
+`tests/functional/test_hierarchy_reid_db_scope.py` (shared / children-only /
+parent-only / partial / split DB profiles).
 
 ## References
 
 - [Extended ReID](../user-guide/microservices/controller/Extended-ReID.md)
 - [Create and Manage a Scene Hierarchy](../user-guide/how-to-guides/build-a-scene/configure-hierarchy-of-scenes.md)
+- [Deploy Multiple Controllers on One Host](../user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md)
 - [Enable Re-identification](../user-guide/other-topics/how-to-enable-reidentification.md)
 - `controller/src/controller/detections_builder.py`
 - `controller/src/controller/moving_object.py`

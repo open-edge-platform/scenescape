@@ -214,8 +214,13 @@ controller/config/reid-config.json
 
 ### Embeddings in a Scene Hierarchy
 
-Scenes in a [hierarchy](../../how-to-guides/build-a-scene/configure-hierarchy-of-scenes.md) share
-one ReID database, so each embedding has to be attributable to exactly one scene:
+Scenes in a [hierarchy](../../how-to-guides/build-a-scene/configure-hierarchy-of-scenes.md)
+are intended to share one ReID database when you want cross-child identity
+matching. With **local** children that is automatic (one controller process).
+With **remote** children—including several controllers on one
+[host](../../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md)—each
+controller opts in by setting the same `REID_HOSTNAME` / backend. Each embedding
+still has to be attributable to exactly one scene:
 
 - **Quality is judged once, where the pixels are.** A scene applies `minimum_bbox_area` to
   detections from its own cameras. Objects forwarded from a child arrive in world coordinates

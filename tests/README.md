@@ -208,6 +208,13 @@ pytest tests/sscape_tests
 | `kubernetes_only` | Test runs only with `--backend=kubernetes` or `--backend=all`; skipped for Docker |
 | `preserve_db`     | Skip post-test DB restore so the next test can verify persistence                 |
 
+## Multi-controller hierarchy (functional)
+
+Literal parent + child Scene Controllers on one host use Compose fragments under
+`tests/compose/hierarchy/` and `REID_HIER_*` profiles. Agent-oriented fixture
+notes: [multi-controller hierarchy fixtures](../.github/skills/testing/references/functional-tests.md#multi-controller-hierarchy-fixtures).
+Deployment guide: [Deploy Multiple Controllers on One Host](../docs/user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md).
+
 ## Using the VS Code Test Extension
 
 The workspace is pre-configured for the **Python Testing** extension

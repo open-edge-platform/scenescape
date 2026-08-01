@@ -2,6 +2,11 @@
 
 A hierarchy of scenes can be created using a parent-child relationship, enabling scene analytics from multiple scenes — whether on the [same system](#steps-to-add-a-local-child-scene) or [different systems in same network](#steps-to-add-a-remote-child-scene) running Scenescape — to be visualized within a single parent scene. This hierarchy is not limited to a single level of relationship; it can be scaled upwards, allowing for multi-level parent-child configurations. By subscribing to the parent scene's events, you can observe the base analytics (such as regions of interest, tripwires, and sensors) of the parent scene, along with the transformed base analytics of all its child scenes, directly within the parent scene.
 
+> **Same host, multiple Scene Controllers:** Local children share one controller.
+> To run several controllers on one machine and link them as remote children
+> (including sharing or splitting a ReID database), see
+> [Deploy Multiple Controllers on One Host](./deploy-multi-controller-on-one-host.md).
+
 This guide provides step-by-step instructions to add local and remote child scenes, configure connections, and manage object tracking and update fidelity in a scene hierarchy. By completing this guide, you will:
 
 - Add and validate child scene links (local and remote).
@@ -178,3 +183,5 @@ contributes them to the re-identification database, so one crop is never enrolle
 different identities.
 
 > Refer to [Re-identification Guide](../../other-topics/how-to-enable-reidentification.md) for more details.
+> For co-located controllers that share or split a ReID backend, see
+> [Deploy Multiple Controllers on One Host](./deploy-multi-controller-on-one-host.md#sharing-a-reid-backend-across-controllers).

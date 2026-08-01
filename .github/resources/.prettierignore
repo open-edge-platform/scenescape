@@ -6,6 +6,10 @@
 **/.reuse/templates/template.jinja2
 .venv
 
+# Agent skill docs — not formatted by Prettier
+# (patterns are relative to this file under .github/resources/)
+../skills/**
+
 # Build directories (CMake/Conan generated)
 **/build/
 **/build-*/

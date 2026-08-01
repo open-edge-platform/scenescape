@@ -53,3 +53,32 @@ Defined in `tests/utils/spec.py`:
 ## Integration-style tests
 
 Same `SCENESCAPE_SPEC` + live services pattern. Use when asserting cross-service flows (MQTT → controller → REST/DB). Prefer existing helpers (`SceneObjectMqtt`, `RESTClient`) over duplicating boilerplate.
+
+## Multi-controller hierarchy fixtures
+
+Use when a functional test needs **literal** remote children (separate Scene
+Controller processes) on one host—for example shared vs split ReID backends.
+Local child scenes on one controller are not enough when ReID is per process.
+
+**Customer / deployment procedure** (ports, secrets, NTP, shared ReID):
+[Deploy Multiple Controllers on One Host](../../../../docs/user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md)
+
+**Test harness pieces:**
+
+| Piece | Role |
+| ----- | ---- |
+| `tests/compose/hierarchy/` | Prefixed parent/child1/child2 + VDMS fragments; unique host ports via env |
+| `REID_HIER_*` in `tests/utils/profiles.py` | Shared / children-only / parent-only / partial / split topologies |
+| `hierarchy_ports.py` + `scenescape_env.hierarchy_ports` | Allocate free host ports; sync `.env` **and** `os.environ` (process env wins over `--env-file`) |
+| `hierarchy_env` in `tests/functional/conftest.py` | `params_parent` / `params_child1` / `params_child2` |
+| `common_remote_child.RemoteHierarchySetup` | Create unique child scenes, remote links, wait for child status, parent regulated snapshots |
+| `reid_backend.py` hostname/port overrides | Per-VDMS `count_near_exact_uuids` / schema helpers for split DBs |
+| `test_hierarchy_reid_db_scope.py` | Matrix NEX-T21928–21932 |
+
+**Agent pitfalls:**
+
+- Share one `SECRETSDIR`; broker/web/reid-s certs need SANs for hierarchy aliases (`EXTRA_HOSTS` in `tools/certificates/Makefile`).
+- Children should NTP to the parent NTP service (`--rewriteBadTime` / maxlag help absorb residual skew in tests).
+- Demo fixture UUID collides across child stacks—create a dedicated scene (+ camera) per child before linking.
+- Prefer `@pytest.mark.preserve_db` for multi-controller matrices (each profile brings its own PG volumes).
+- Controller product notes (remote `parent` recovery): `controller/Agents.md` hierarchy section.
