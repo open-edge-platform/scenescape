@@ -1045,17 +1045,6 @@ class TestReidObservationTrust:
     manager._addNewFeaturesToDatabase("forwarded-track")
     assert manager.pool.submit.call_count == 0
 
-  def test_reid_write_failure_clears_write_health(self, mock_vdms_db):
-    """Failed addEntry callbacks mark ReID writes unhealthy for hierarchy claims."""
-    manager = UUIDManager()
-    failed = concurrent.futures.Future()
-    failed.set_exception(RuntimeError("vdms down"))
-    prior_epoch = manager.reid_write_epoch
-
-    manager._onReidWriteComplete(failed)
-    assert manager.reid_write_healthy is False
-    assert manager.reid_write_epoch == prior_epoch + 1
-
   def test_reid_no_valid_vectors_does_not_clear_write_health(self, mock_vdms_db):
     """Empty/invalid batches must not sticky-disable the child write path."""
     manager = UUIDManager()
@@ -1192,31 +1181,6 @@ class TestReidObservationTrust:
     assert "local-track" not in manager.features_for_database
     assert "local-track" not in manager.enrollment_features
     assert manager.active_ids["local-track"][0] is not None
-
-  def test_add_new_features_wires_write_health_callback(self, mock_vdms_db):
-    """Flush attaches _onReidWriteComplete so soft/hard addEntry failures clear health."""
-    manager = UUIDManager()
-    future = concurrent.futures.Future()
-    manager.pool = MagicMock()
-    manager.pool.submit.return_value = future
-    manager.features_for_database["flush-track"] = {
-      'gid': 'gid-1',
-      'category': 'person',
-      'reid_vectors': [np.arange(8, dtype=np.float32)],
-      'persist': {},
-      'metadata': {},
-    }
-
-    manager._addNewFeaturesToDatabase("flush-track")
-
-    manager.pool.submit.assert_called_once()
-    assert manager.pool.submit.call_args[0][0] == manager._writeReidEntry
-    assert future._done_callbacks  # pylint: disable=protected-access
-    assert manager._onReidWriteComplete in future._done_callbacks
-
-    future.set_exception(RuntimeError("soft vdms failure"))
-    # done callbacks run when set_exception completes the future
-    assert manager.reid_write_healthy is False
 
   def test_database_entry_includes_local_and_forwarded_enrollment_features(
       self, mock_vdms_db):

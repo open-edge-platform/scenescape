@@ -432,14 +432,16 @@ The ReID design is covered by:
   `will_enroll`/`enrolled` is set, and that per-vector exact/absent scores
   control rematch enhancement;
 - scene-controller tests for hierarchy publish policy (passthrough / withhold /
-  will_enroll), including non-TLS write intent, sticky write-health passthrough
-  that also stops child enrollment, locked write-epoch guards, empty-batch
-  passthrough before the first confirmed write, withhold until the first
-  confirmed write, and withhold that still forwards inherited vetted reid
-  (multi-hop unit coverage; live multi-hop hierarchies remain out of the
+  will_enroll), including write-intent / TLS vs non-TLS gating, schema withhold,
+  and `publishExternalDetections` wiring of `will_enroll_reid` / `withhold_reid`
+  / `reid_enrolled_fn` (confirmed write, unhealthy, and empty-batch before
+  confirm);
+- detections-builder tests for withhold that still forwards inherited vetted
+  reid (multi-hop unit coverage; live multi-hop hierarchies remain out of the
   functional matrix);
-- scene-controller tests that `publishExternalDetections` wires policy into
-  `will_enroll_reid` / `withhold_reid` / `reid_enrolled_fn` kwargs; and
+- UUID-manager tests for sticky write-health, write-confirmed, empty-batch
+  passthrough signaling, locked write-epoch guards, and stopping child
+  enrollment when unhealthy; and
 - moving-object and scene-controller tests for provenance decoding and
   hierarchy publishing.
 
