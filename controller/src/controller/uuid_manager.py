@@ -24,7 +24,11 @@ from controller.reid_constants import (
   resolve_database_similarity_metric,
 )
 from controller.reid_registry import create_reid_database
-from controller.reid import ReidNoValidVectorsError
+from controller.reid import (
+  ReidNoValidVectorsError,
+  ReidPartialWriteError,
+  ReidWriteSupersededError,
+)
 from controller.moving_object import ReidState, MovingObject
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
@@ -118,21 +122,40 @@ class UUIDManager:
       maxlen=DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED)
     self.similarity_query_times_lock = threading.Lock()
     self.reid_enabled = True
-    # When False, hierarchy publish drops will_enroll and local enrollment stops
-    # so a parent may sole-enroll without a dual-writer race.
+    # When False, hierarchy publish drops will_enroll (unless already confirmed)
+    # and local enrollment stops so a parent may sole-enroll without a dual-writer race.
     self.reid_write_healthy = True
     # True after at least one successful addEntry; will_enroll waits on this so
     # parents are not asked to skip writes before the child has proven it can.
     self.reid_write_confirmed = False
-    # Bumped when write-health clears so in-flight pool workers drop superseded writes.
+    # Bumped when write-health clears / empty-batch handoff / reid disable so
+    # in-flight pool workers drop superseded writes.
     self.reid_write_epoch = 0
     # Serializes enrollment workers so epoch/health checks cannot race addEntry.
     self._reid_write_lock = threading.Lock()
     # True after an empty/invalid batch before the first confirmed write — publish
-    # passthrough so a parent can sole-enroll instead of forever withholding.
+    # passthrough and stop local enrollment so a parent can sole-enroll instead of
+    # forever withholding or racing a continuing child writer.
     self.reid_empty_batch_before_confirm = False
     self._applyReidConfig(reid_config_data)
     self._rescheduleStaleFeatureTimer()
+    return
+
+  def _localEnrollmentAllowed(self):
+    """True when this process may still stage/flush local ReID database writes."""
+    return (
+      self.reid_enabled
+      and self.reid_write_healthy
+      and not self.reid_empty_batch_before_confirm
+    )
+
+  def _disableReidWrites(self, reason):
+    """Stop local enrollment and drop in-flight workers (parent may sole-enroll)."""
+    with self._reid_write_lock:
+      if self.reid_enabled:
+        log.error(f"Disabling reid writes: {reason}")
+      self.reid_enabled = False
+      self.reid_write_epoch += 1
     return
 
   def _incrementUniqueIdCount(self):
@@ -380,10 +403,12 @@ class UUIDManager:
     features = self.features_for_database.pop(track_id, None)
     if not features or not features['reid_vectors']:
       return
-    if not self.reid_write_healthy:
+    if not self._localEnrollmentAllowed():
       log.warning(
         f"_addNewFeaturesToDatabase: Discarding {len(features['reid_vectors'])} "
-        f"features for track {track_id}; ReID writes unhealthy (parent sole-enroll)")
+        f"features for track {track_id}; local ReID enrollment not allowed "
+        f"(enabled={self.reid_enabled}, healthy={self.reid_write_healthy}, "
+        f"empty_batch={self.reid_empty_batch_before_confirm})")
       return
     features['reid_vectors'] = features['reid_vectors'][::slice_size]
     persist = features.get('persist', {})
@@ -405,12 +430,17 @@ class UUIDManager:
                       persist, metadata):
     """Worker: skip superseded flushes after write-health clears mid-flight."""
     with self._reid_write_lock:
-      if write_epoch != self.reid_write_epoch or not self.reid_write_healthy:
+      if (write_epoch != self.reid_write_epoch
+          or not self.reid_write_healthy
+          or not self.reid_enabled
+          or self.reid_empty_batch_before_confirm):
         log.warning(
           f"_writeReidEntry: Skipping superseded ReID write for track {track_id} "
           f"(epoch={write_epoch}, current={self.reid_write_epoch}, "
-          f"healthy={self.reid_write_healthy})")
-        return
+          f"healthy={self.reid_write_healthy}, enabled={self.reid_enabled}, "
+          f"empty_batch={self.reid_empty_batch_before_confirm})")
+        raise ReidWriteSupersededError(
+          f"superseded ReID write for track {track_id}")
       self.reid_database.addEntry(
         gid, track_id, category, reid_vectors, persist=persist, **metadata)
 
@@ -418,27 +448,41 @@ class UUIDManager:
     """Track whether database writes are succeeding for hierarchy will_enroll claims.
 
     Write-health is sticky once cleared: a later success must not reclaim
-    will_enroll after the parent may already have sole-enrolled under passthrough.
+    healthy writes after the parent may already have sole-enrolled under passthrough.
     A first success sets reid_write_confirmed so will_enroll is only claimed after
-    the child has proven it can write. Empty/invalid vector batches do not clear
-    write-health (per-batch data errors, not DB path failure); before the first
-    confirmed write they flip hierarchy publish to passthrough so a parent can
-    sole-enroll instead of forever withholding. Cancelled pool futures leave
-    write-health unchanged.
+    the child has proven it can write (confirmed survives later unhealthy so parents
+    do not dual-enroll crops already stored). Empty/invalid vector batches before
+    the first confirmed write hand off to the parent (passthrough + stop local
+    enrollment) instead of forever withholding or racing. Cancelled or superseded
+    pool futures leave write-health/confirmed unchanged.
     """
     if future.cancelled():
       log.warning("ReID database write cancelled; leaving write-health unchanged")
       return
     try:
       future.result()
+    except ReidWriteSupersededError:
+      return
     except ReidNoValidVectorsError as err:
       log.warning(f"ReID database write skipped (no valid vectors): {err}")
       with self._reid_write_lock:
         if not self.reid_write_confirmed:
           self.reid_empty_batch_before_confirm = True
+          self.reid_write_epoch += 1
       return
     except concurrent.futures.CancelledError:
       log.warning("ReID database write cancelled; leaving write-health unchanged")
+      return
+    except ReidPartialWriteError as err:
+      with self._reid_write_lock:
+        self.reid_write_confirmed = True
+        self.reid_empty_batch_before_confirm = False
+        if self.reid_write_healthy:
+          log.error(
+            f"ReID database partial write; confirming stored vectors and "
+            f"clearing write-health for hierarchy claims: {err}")
+        self.reid_write_healthy = False
+        self.reid_write_epoch += 1
       return
     except Exception as err:
       with self._reid_write_lock:
@@ -449,9 +493,11 @@ class UUIDManager:
         self.reid_write_epoch += 1
       return
     with self._reid_write_lock:
-      if self.reid_write_healthy:
-        self.reid_write_confirmed = True
-        self.reid_empty_batch_before_confirm = False
+      # Always record a successful write, even if a sibling failure already
+      # cleared health — confirmed publish mode prevents parent sole-enroll of
+      # crops already stored.
+      self.reid_write_confirmed = True
+      self.reid_empty_batch_before_confirm = False
 
   def isNewTrackerID(self, sscape_object):
     """
@@ -512,14 +558,15 @@ class UUIDManager:
     Queryable observations may be written unless upstream provenance claims that
     another ReID-enabled scope already enrolled (or will enroll) the crop. Kept as
     a named write-path helper so call sites read as enrollment policy.
-    Local enrollment also stops when reid_write_healthy is False so a parent
-    sole-enrolling under passthrough is not racing a recovering child writer.
+    Local enrollment also stops when local enrollment is not allowed
+    (unhealthy, empty-batch handoff, or reid disabled) so a parent
+    sole-enrolling under passthrough is not racing a continuing child writer.
 
     @param   sscape_object      The Scenescape object to evaluate
     @param   minimum_bbox_area  Optional override for minimum pixel bbox area (px^2)
     @return  bool               True when the embedding may be written for a UUID
     """
-    if not self.reid_write_healthy:
+    if not self._localEnrollmentAllowed():
       return False
     if not self.isQueryableObservation(sscape_object, minimum_bbox_area):
       return False
@@ -737,8 +784,8 @@ class UUIDManager:
       self.similarity_query_times.append(query_time)
       average_query_time = sum(self.similarity_query_times) / len(self.similarity_query_times)
     if average_query_time > max_query_time:
-      self.reid_enabled = False
-      log.error("Disabling reid due to average query time exceeding the maximum threshold")
+      self._disableReidWrites(
+        "average query time exceeding the maximum threshold")
 
     return scores
 

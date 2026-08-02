@@ -5,7 +5,7 @@ import socket
 
 import vdms
 
-from controller.reid import ReIDDatabase, ReidNoValidVectorsError
+from controller.reid import ReIDDatabase, ReidNoValidVectorsError, ReidPartialWriteError
 from controller.reid_constants import (
   K_NEIGHBORS,
   SCHEMA_NAME,
@@ -205,9 +205,13 @@ class VDMSDatabase(ReIDDatabase):
         f"addEntry: No response from VDMS when adding {len(add_query)} vectors")
     failures = [item for item in response if item.get('status') != 0]
     if failures:
-      raise RuntimeError(
+      successes = len(response) - len(failures)
+      detail = (
         f"addEntry: Failed to add {len(failures)}/{len(response)} descriptor(s) "
         f"to VDMS. First failure: {failures[0]}")
+      if successes > 0:
+        raise ReidPartialWriteError(detail)
+      raise RuntimeError(detail)
     return
 
   def getPersistedAttributes(self, uuid, set_name=None):

@@ -26,7 +26,9 @@ their vector schema is ready **and** at least one database write has succeeded,
 so parents neither race-enroll early frames nor honor a write claim the child
 cannot fulfill; inherited vetted embeddings still relay. If child writes later
 fail, hierarchy publish drops to passthrough and the child stops enrolling so
-the parent can sole-enroll without a dual-writer race.
+the parent can sole-enroll without a dual-writer race. After a confirmed write,
+will_enroll mode is retained (per-track stamps) even if later writes fail, so
+parents do not dual-enroll crops already stored.
 
 The policy for using a child's already-resolved global ID when a parent
 retracks the child remains open. Until that policy is decided, a retracking
@@ -133,39 +135,40 @@ but it is not currently required for trust.
 `will_enroll` / `enrolled` are optional **write-authority** claims, stronger than
 `quality_vetted` alone: a parent that sees either flag may still **query** with
 the embedding but must not **write** it (no sole enrollment on miss, no enhance
-on match). Within the existing child-scene MQTT trust model these flags are as
-spoofable as other provenance fields; a forged `will_enroll` can suppress parent
+on match). Claims without vetted origin metadata are ignored. Within the existing
+child-scene MQTT trust model a forged **vetted** claim can still suppress parent
 enrollment (an enrollment DoS) even when the publisher never writes the DB.
 
 Publishing policy for a ReID-enabled scene:
 
-- **Schema ready + write intent + at least one successful write** — forward
-  local vetted crops with `will_enroll: true`. Also set `enrolled: true` when
-  the track already has a database id or pending enrollment vectors. Until the
-  first successful `addEntry`, hierarchy publish stays in withhold even when the
-  schema is ready so parents are not asked to skip writes before the child has
-  proven it can enroll.
+- **Schema ready + write intent + at least one successful write** — enable
+  will_enroll **mode**. Stamp `will_enroll` / `enrolled` only on tracks that own
+  or are accumulating a local write (pending flush, gathering features, active
+  query, or database id). Short-lived crops without enrollment activity stay
+  parent-enrollable. Until the first successful `addEntry`, hierarchy publish
+  stays in withhold even when the schema is ready.
 - **Write intent but schema not ready** (TLS client certs present, or
   `REID_USE_TLS=false` for non-mTLS ReID) — **withhold local**
   `metadata.reid` from hierarchy output until the schema is ready. Already-vetted
-  **inherited** embeddings still forward so multi-hop relays keep working. This
-  prevents the parent from sole-enrolling early local frames and avoids claiming
-  `will_enroll` when the child cannot yet enroll.
+  **inherited** embeddings still forward so multi-hop relays keep working.
 - **No write intent** (typical parent-only children: TLS default on, no ReID
   client certs) — forward vetted crops without `will_enroll` so the parent may
   sole-enroll.
-- **Write path unhealthy** — after a failed ReID database write (including soft
-  backend errors), hierarchy publish drops to passthrough (no `will_enroll`) and
-  the child stops local enrollment writes for the process lifetime so the parent
-  sole-enrolls without a dual-writer race. In-flight flushes submitted before
-  the failure are dropped via a write-epoch guard held across the enrollment
-  write. Empty/invalid vector batches raise without sticky-clearing write-health;
-  if they occur before the first confirmed write, hierarchy publish uses
-  passthrough so a parent can sole-enroll instead of forever withholding.
-  Cancelled pool futures leave write-health unchanged.
+- **Write path unhealthy before any confirmed write** — passthrough and stop
+  local enrollment for the process lifetime. In-flight flushes are dropped via a
+  write-epoch guard (`ReidWriteSupersededError`, not a silent success).
+- **Confirmed write, then later unhealthy / reid disable** — keep will_enroll
+  **mode** so parents do not sole-enroll crops already stored; per-track stamps
+  still limit claims. Local enrollment stays stopped while unhealthy/disabled.
+- **Empty/invalid vector batches before the first confirmed write** — passthrough
+  **and** stop local enrollment (epoch bump) so the parent can sole-enroll
+  without a dual-writer race. Partial adapter successes (`ReidPartialWriteError`)
+  confirm stored vectors and clear write-health. Cancelled pool futures leave
+  write-health unchanged.
 
-Relays preserve inherited provenance (including write-authority flags) rather
-than re-attributing the embedding. Controllers without ReID write intent leave
+Relays preserve origin attribution on inherited provenance, but an intermediate
+ReID scope may merge its own `will_enroll` / `enrolled` claims onto that dict so
+grandparents skip dual enrollment. Controllers without ReID write intent leave
 the flags unset so parent-only passthrough enrollment still works.
 
 `REID_USE_TLS=false` is treated as an explicit non-mTLS ReID deployment choice
@@ -433,15 +436,16 @@ The ReID design is covered by:
   control rematch enhancement;
 - scene-controller tests for hierarchy publish policy (passthrough / withhold /
   will_enroll), including write-intent / TLS vs non-TLS gating, schema withhold,
-  and `publishExternalDetections` wiring of `will_enroll_reid` / `withhold_reid`
-  / `reid_enrolled_fn` (confirmed write, unhealthy, and empty-batch before
-  confirm);
-- detections-builder tests for withhold that still forwards inherited vetted
-  reid (multi-hop unit coverage; live multi-hop hierarchies remain out of the
-  functional matrix);
-- UUID-manager tests for sticky write-health, write-confirmed, empty-batch
-  passthrough signaling, locked write-epoch guards, and stopping child
-  enrollment when unhealthy; and
+  confirmed-overrides-unhealthy/disabled, and `publishExternalDetections` wiring
+  of `will_enroll_reid` / `withhold_reid` / `reid_enrolled_fn`;
+- detections-builder tests for per-track will_enroll claims, withhold that still
+  forwards inherited vetted reid, and merging local write claims onto inherited
+  provenance (multi-hop unit coverage; live multi-hop hierarchies remain out of
+  the functional matrix);
+- UUID-manager tests for sticky write-health, write-confirmed (including after
+  unhealthy sibling / partial write), empty-batch handoff that stops enrollment,
+  reid-disable epoch bump, superseded in-flight workers, locked write-epoch
+  guards, and ignoring unvetted enrollment claims; and
 - moving-object and scene-controller tests for provenance decoding and
   hierarchy publishing.
 

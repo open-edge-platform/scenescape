@@ -214,13 +214,20 @@ sole-enroll that forwarded crop after a miss, and after a rematch may keep
 
 When a child Scene Controller runs ReID (TLS client certs mounted, or
 `REID_USE_TLS=false` for an explicit non-mTLS ReID deployment), it publishes
-write-authority flags on hierarchy reid provenance:
+write-authority flags on hierarchy reid provenance.
+
+**Deploy note:** keep parent-only / passthrough children on the TLS default
+(`REID_USE_TLS=true`) **without** mounting ReID client certs. Setting
+`REID_USE_TLS=false` is treated as write intent even with default hostname/DB
+env vars.
 
 | Child publish state | Local `metadata.reid` on hierarchy | Parent write behavior |
 |---------------------|------------------------------------|------------------------|
 | Schema not ready, or no successful DB write yet | **Withheld** (inherited vetted reid still relays) | Cannot sole-enroll those early local frames |
-| Schema ready **and** at least one successful `addEntry` | Forwarded with `will_enroll: true` (and `enrolled: true` once the track owns a DB id or pending vectors) | Query yes; **skip** sole-enroll / enhance for that crop |
-| ReID DB writes failing (sticky for the process) | Forwarded **without** `will_enroll` (passthrough); child **stops** local enrollment | Parent may sole-enroll |
+| Schema ready **and** at least one successful `addEntry` | Forwarded; `will_enroll` / `enrolled` stamped **per track** that owns or is accumulating a write | Query yes; **skip** sole-enroll / enhance for claimed crops; short tracks without a claim remain parent-enrollable |
+| ReID DB writes failing **before** any confirmed write | Forwarded **without** `will_enroll` (passthrough); child **stops** local enrollment | Parent may sole-enroll |
+| Confirmed write, then later write failures / reid disable | Keep will_enroll **mode**; per-track claims only for tracks that still own a write | Skip claimed crops; may sole-enroll unclaimed ones |
+| Empty/invalid vector batch **before** first confirm | Passthrough; child **stops** local enrollment | Parent may sole-enroll |
 | No ReID write intent (typical parent-only child: TLS default on, **no** ReID client certs) | Forwarded without `will_enroll` | Parent may sole-enroll |
 
 Details and edge cases (empty vector batches, cancelled flushes, multi-hop

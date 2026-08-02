@@ -474,7 +474,7 @@ class TestSceneControllerPublishers:
     assert kwargs['reid_enrolled_fn'] is None
 
   def test_publish_external_wires_passthrough_when_writes_unhealthy(self):
-    """Unhealthy writes forward without will_enroll so parents may sole-enroll."""
+    """Unhealthy writes before confirm forward without will_enroll so parents may sole-enroll."""
     database = SimpleNamespace(_schema_ready=True)
     uuid_manager = SimpleNamespace(
       reid_enabled=True, reid_database=database, reid_write_healthy=False,
@@ -483,6 +483,17 @@ class TestSceneControllerPublishers:
     assert kwargs['will_enroll_reid'] is False
     assert kwargs['withhold_reid'] is False
     assert kwargs['reid_enrolled_fn'] is None
+
+  def test_publish_external_wires_will_enroll_when_confirmed_even_if_unhealthy(self):
+    """After a confirmed write, keep will_enroll mode so parents do not dual-enroll."""
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=False,
+      reid_write_confirmed=True, reid_empty_batch_before_confirm=False)
+    kwargs = self._publish_external_with_reid_manager(uuid_manager)
+    assert kwargs['will_enroll_reid'] is True
+    assert kwargs['withhold_reid'] is False
+    assert kwargs['reid_enrolled_fn'] is not None
 
   def test_publish_external_wires_passthrough_on_empty_batch_before_confirm(self):
     """Empty batches before confirm must not withhold forever on the wire."""
@@ -495,6 +506,17 @@ class TestSceneControllerPublishers:
     assert kwargs['withhold_reid'] is False
     assert kwargs['reid_enrolled_fn'] is None
 
+  def test_hierarchy_reid_policy_will_enroll_when_confirmed_even_if_reid_disabled(self):
+    """Confirmed writes keep will_enroll mode after slow-query reid disable."""
+    scene_controller = SceneController.__new__(SceneController)
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=False, reid_database=database, reid_write_healthy=True,
+      reid_write_confirmed=True, reid_empty_batch_before_confirm=False)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+
+    with patch.object(scene_controller, '_sceneHasReidWriteIntent', return_value=True):
+      assert scene_controller._hierarchyReidPublishPolicy(scene) == 'will_enroll'
   def test_hierarchy_reid_policy_withholds_when_write_intent_before_schema(self):
     """TLS ReID certs without a ready schema withhold embeddings instead of racing."""
     scene_controller = SceneController.__new__(SceneController)
@@ -545,10 +567,14 @@ class TestSceneControllerPublishers:
       assert scene_controller._hierarchyReidPublishPolicy(scene) == 'passthrough'
 
   def test_track_has_reid_enrollment_for_pending_vectors_or_database_id(self):
-    """Enrollment advertising covers pending writes and rematched database ids."""
+    """Enrollment advertising covers pending writes, gathering, and rematched database ids."""
     scene_controller = SceneController.__new__(SceneController)
     uuid_manager = SimpleNamespace(
       features_for_database={},
+      enrollment_features={},
+      local_enrollment_features={},
+      quality_features={},
+      active_query={},
       active_ids={},
       active_ids_lock=MagicMock())
     uuid_manager.active_ids_lock.__enter__ = MagicMock(return_value=None)
@@ -562,9 +588,12 @@ class TestSceneControllerPublishers:
     assert scene_controller._trackHasReidEnrollment(scene, obj) is True
 
     uuid_manager.features_for_database.clear()
-    uuid_manager.active_ids['track-1'] = ['db-uuid', 0.9]
+    uuid_manager.quality_features['track-1'] = [[0.1]]
     assert scene_controller._trackHasReidEnrollment(scene, obj) is True
 
+    uuid_manager.quality_features.clear()
+    uuid_manager.active_ids['track-1'] = ['db-uuid', 0.9]
+    assert scene_controller._trackHasReidEnrollment(scene, obj) is True
   @patch('controller.scene_controller.metrics')
   @patch('controller.scene_controller.ControllerMode')
   def test_publish_detections_initializes_scene_state_and_calls_all_publish_paths(

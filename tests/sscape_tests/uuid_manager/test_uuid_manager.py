@@ -21,7 +21,7 @@ from controller.uuid_manager import (
   DEFAULT_SIMILARITY_THRESHOLD_COSINE,
 )
 
-from controller.reid import ReidNoValidVectorsError
+from controller.reid import ReidNoValidVectorsError, ReidPartialWriteError, ReidWriteSupersededError
 from controller.moving_object import MovingObject, ReidState, Chronoloc
 from scene_common.geometry import Point, Rectangle
 import time
@@ -1029,6 +1029,28 @@ class TestReidObservationTrust:
     assert manager.isQueryableObservation(obj) is True
     assert manager.mayContributeEnrollmentEmbedding(obj) is False
 
+  def test_unvetted_enrollment_claim_is_ignored(self, mock_vdms_db):
+    """Bare will_enroll without vetted origin must not suppress parent enrollment."""
+    manager = UUIDManager()
+    obj = _make_reid_object(
+      "forwarded-track", provenance={'will_enroll': True})
+
+    assert manager.isQueryableObservation(obj) is False
+    assert manager.mayContributeEnrollmentEmbedding(obj) is False
+
+    vetted_enough_to_query = _make_reid_object(
+      "forwarded-track",
+      provenance={'quality_vetted': True, 'origin_scene_id': 'child',
+                  'will_enroll': True})
+    assert manager.mayContributeEnrollmentEmbedding(vetted_enough_to_query) is False
+
+    spoof_without_origin = _make_reid_object(
+      "local-track", bbox_area=10000,
+      provenance={'will_enroll': True, 'quality_vetted': True})
+    # Local bbox makes it queryable; claim without origin_scene_id is not vetted.
+    assert manager.isQueryableObservation(spoof_without_origin) is True
+    assert manager.mayContributeEnrollmentEmbedding(spoof_without_origin) is True
+
   def test_will_enroll_no_match_does_not_enroll(self, mock_vdms_db):
     """Query miss must not sole-enroll when upstream claimed will_enroll."""
     manager = UUIDManager()
@@ -1046,7 +1068,7 @@ class TestReidObservationTrust:
     assert manager.pool.submit.call_count == 0
 
   def test_reid_no_valid_vectors_does_not_clear_write_health(self, mock_vdms_db):
-    """Empty/invalid batches must not sticky-disable the child write path."""
+    """Empty/invalid batches hand off without sticky-disabling write-health."""
     manager = UUIDManager()
     prior_epoch = manager.reid_write_epoch
     skipped = concurrent.futures.Future()
@@ -1055,8 +1077,41 @@ class TestReidObservationTrust:
     manager._onReidWriteComplete(skipped)
     assert manager.reid_write_healthy is True
     assert manager.reid_write_confirmed is False
-    assert manager.reid_write_epoch == prior_epoch
+    assert manager.reid_write_epoch == prior_epoch + 1
     assert manager.reid_empty_batch_before_confirm is True
+
+  def test_empty_batch_before_confirm_stops_local_enrollment(self, mock_vdms_db):
+    """Empty-batch passthrough must not leave the child writing beside the parent."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    manager.reid_empty_batch_before_confirm = True
+    obj = _make_reid_object("local-track", bbox_area=10000)
+
+    manager.gatherQualityVisualFeatures(obj)
+    assert "local-track" not in manager.enrollment_features
+
+    manager.features_for_database["local-track"] = {
+      'gid': 'gid-1',
+      'category': 'person',
+      'reid_vectors': [np.arange(8, dtype=np.float32)],
+      'persist': {},
+      'metadata': {},
+    }
+    manager._addNewFeaturesToDatabase("local-track")
+    assert manager.pool.submit.call_count == 0
+
+  def test_reid_disabled_stops_local_enrollment_and_bumps_epoch(self, mock_vdms_db):
+    """Slow-query disable must drop in-flight writes and stop enrollment."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    prior_epoch = manager.reid_write_epoch
+    manager._disableReidWrites("test disable")
+    assert manager.reid_enabled is False
+    assert manager.reid_write_epoch == prior_epoch + 1
+
+    obj = _make_reid_object("local-track", bbox_area=10000)
+    manager.gatherQualityVisualFeatures(obj)
+    assert "local-track" not in manager.enrollment_features
 
   def test_reid_write_cancelled_leaves_write_health(self, mock_vdms_db):
     """Pool cancellation must not sticky-clear hierarchy write-health."""
@@ -1082,8 +1137,8 @@ class TestReidObservationTrust:
     assert manager.reid_write_confirmed is True
     assert manager.reid_empty_batch_before_confirm is False
 
-  def test_reid_write_health_stays_cleared_after_later_success(self, mock_vdms_db):
-    """After a write failure, success must not reclaim will_enroll (sticky unhealthy)."""
+  def test_reid_write_success_confirms_even_when_unhealthy(self, mock_vdms_db):
+    """A landed write must confirm even if a sibling failure already cleared health."""
     manager = UUIDManager()
     failed = concurrent.futures.Future()
     failed.set_exception(RuntimeError("vdms down"))
@@ -1094,7 +1149,17 @@ class TestReidObservationTrust:
     recovered.set_result(None)
     manager._onReidWriteComplete(recovered)
     assert manager.reid_write_healthy is False
-    assert manager.reid_write_confirmed is False
+    assert manager.reid_write_confirmed is True
+
+  def test_reid_partial_write_confirms_and_clears_health(self, mock_vdms_db):
+    """Partial adapter success must confirm stored vectors and stop further writes."""
+    manager = UUIDManager()
+    partial = concurrent.futures.Future()
+    partial.set_exception(ReidPartialWriteError("1/2 failed"))
+    manager._onReidWriteComplete(partial)
+    assert manager.reid_write_confirmed is True
+    assert manager.reid_write_healthy is False
+    assert manager.reid_empty_batch_before_confirm is False
 
   def test_unhealthy_writes_skip_enrollment_and_discard_flush(self, mock_vdms_db):
     """Passthrough recovery must not leave the child writing alongside the parent."""
@@ -1125,10 +1190,20 @@ class TestReidObservationTrust:
     manager.reid_write_healthy = False
     manager.reid_write_epoch = epoch + 1
 
-    manager._writeReidEntry(
-      epoch, 'gid-1', 'track-1', 'person', [np.arange(4, dtype=np.float32)],
-      {}, {})
+    with pytest.raises(ReidWriteSupersededError):
+      manager._writeReidEntry(
+        epoch, 'gid-1', 'track-1', 'person', [np.arange(4, dtype=np.float32)],
+        {}, {})
     manager.reid_database.addEntry.assert_not_called()
+
+  def test_superseded_write_callback_does_not_confirm(self, mock_vdms_db):
+    """Skipped in-flight workers must not falsely set reid_write_confirmed."""
+    manager = UUIDManager()
+    superseded = concurrent.futures.Future()
+    superseded.set_exception(ReidWriteSupersededError("dropped"))
+    manager._onReidWriteComplete(superseded)
+    assert manager.reid_write_confirmed is False
+    assert manager.reid_write_healthy is True
 
   def test_write_reid_entry_success_calls_add_entry(self, mock_vdms_db):
     """Healthy matching-epoch workers must reach the database adapter."""

@@ -374,15 +374,32 @@ class TestDetectionsBuilder:
 
     detection = prepareObjDict(
       scene, obj, update_visibility=False, attach_reid_provenance=True,
-      minimum_bbox_area=5000, will_enroll_reid=True)
+      minimum_bbox_area=5000, will_enroll_reid=True,
+      reid_enrolled_fn=lambda _aobj: True)
 
     assert detection['metadata']['reid']['provenance'] == {
       'origin_scene_id': 'scene-child',
       'origin_camera_id': 'cam-1',
       'quality_vetted': True,
       'will_enroll': True,
+      'enrolled': True,
     }
 
+  def test_reid_omits_will_enroll_without_track_enrollment_activity(self):
+    """Process will_enroll mode alone must not claim short tracks the child will not write."""
+    obj = _build_reid_object(bbox_area=9000)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(
+      scene, obj, update_visibility=False, attach_reid_provenance=True,
+      minimum_bbox_area=5000, will_enroll_reid=True,
+      reid_enrolled_fn=lambda _aobj: False)
+
+    assert detection['metadata']['reid']['provenance'] == {
+      'origin_scene_id': 'scene-child',
+      'origin_camera_id': 'cam-1',
+      'quality_vetted': True,
+    }
   def test_reid_stamps_enrolled_when_track_already_owns_a_write(self):
     """Pending or completed enrollment is advertised so parents skip writes."""
     obj = _build_reid_object(bbox_area=9000)
@@ -425,6 +442,28 @@ class TestDetectionsBuilder:
     assert detection['metadata']['reid']['provenance'] == original
     assert detection['metadata']['reid']['embedding_vector'] == pytest.approx([0.1, 0.2])
 
+  def test_reid_merges_local_write_claims_onto_inherited_provenance(self):
+    """Intermediate ReID scopes must advertise write authority on relayed crops."""
+    original = {
+      'origin_scene_id': 'scene-grandchild',
+      'origin_camera_id': 'cam-9',
+      'quality_vetted': True,
+    }
+    obj = _build_reid_object(bbox_area=None, provenance=original)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(
+      scene, obj, update_visibility=False, attach_reid_provenance=True,
+      minimum_bbox_area=5000, will_enroll_reid=True,
+      reid_enrolled_fn=lambda _aobj: True)
+
+    assert detection['metadata']['reid']['provenance'] == {
+      'origin_scene_id': 'scene-grandchild',
+      'origin_camera_id': 'cam-9',
+      'quality_vetted': True,
+      'will_enroll': True,
+      'enrolled': True,
+    }
   def test_reid_withheld_when_local_crop_only_matches_minimum_area(self):
     """The area gate is exclusive, so a crop exactly at the minimum is not forwarded."""
     obj = _build_reid_object(bbox_area=5000)

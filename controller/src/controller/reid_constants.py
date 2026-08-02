@@ -54,9 +54,10 @@ def is_upstream_enrollment_claim(provenance):
   responsibility for this embedding.
 
   Used so a parent does not sole-enroll the same crop under a second UUID while a
-  ReID-enabled child is still flushing.
+  ReID-enabled child is still flushing. Claims without vetted origin metadata are
+  ignored so a bare will_enroll/enrolled flag cannot suppress parent enrollment.
   """
-  if not isinstance(provenance, dict):
+  if not is_vetted_provenance(provenance):
     return False
   return provenance.get("will_enroll") is True or provenance.get("enrolled") is True
 
