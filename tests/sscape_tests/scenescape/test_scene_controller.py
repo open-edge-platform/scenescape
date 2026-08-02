@@ -450,11 +450,23 @@ class TestSceneControllerPublishers:
     database = SimpleNamespace(_schema_ready=True)
     uuid_manager = SimpleNamespace(
       reid_enabled=True, reid_database=database, reid_write_healthy=True,
-      reid_write_confirmed=False)
+      reid_write_confirmed=False, reid_empty_batch_before_confirm=False)
     scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
 
     with patch.object(scene_controller, '_sceneHasReidWriteIntent', return_value=True):
       assert scene_controller._hierarchyReidPublishPolicy(scene) == 'withhold'
+
+  def test_hierarchy_reid_policy_passthrough_on_empty_batch_before_confirm(self):
+    """Empty batches before a confirmed write must not forever withhold local reid."""
+    scene_controller = SceneController.__new__(SceneController)
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True,
+      reid_write_confirmed=False, reid_empty_batch_before_confirm=True)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+
+    with patch.object(scene_controller, '_sceneHasReidWriteIntent', return_value=True):
+      assert scene_controller._hierarchyReidPublishPolicy(scene) == 'passthrough'
 
   def test_hierarchy_reid_policy_withholds_when_write_intent_before_schema(self):
     """TLS ReID certs without a ready schema withhold embeddings instead of racing."""

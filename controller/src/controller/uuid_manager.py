@@ -126,6 +126,11 @@ class UUIDManager:
     self.reid_write_confirmed = False
     # Bumped when write-health clears so in-flight pool workers drop superseded writes.
     self.reid_write_epoch = 0
+    # Serializes enrollment workers so epoch/health checks cannot race addEntry.
+    self._reid_write_lock = threading.Lock()
+    # True after an empty/invalid batch before the first confirmed write — publish
+    # passthrough so a parent can sole-enroll instead of forever withholding.
+    self.reid_empty_batch_before_confirm = False
     self._applyReidConfig(reid_config_data)
     self._rescheduleStaleFeatureTimer()
     return
@@ -399,14 +404,15 @@ class UUIDManager:
   def _writeReidEntry(self, write_epoch, gid, track_id, category, reid_vectors,
                       persist, metadata):
     """Worker: skip superseded flushes after write-health clears mid-flight."""
-    if write_epoch != self.reid_write_epoch or not self.reid_write_healthy:
-      log.warning(
-        f"_writeReidEntry: Skipping superseded ReID write for track {track_id} "
-        f"(epoch={write_epoch}, current={self.reid_write_epoch}, "
-        f"healthy={self.reid_write_healthy})")
-      return
-    self.reid_database.addEntry(
-      gid, track_id, category, reid_vectors, persist=persist, **metadata)
+    with self._reid_write_lock:
+      if write_epoch != self.reid_write_epoch or not self.reid_write_healthy:
+        log.warning(
+          f"_writeReidEntry: Skipping superseded ReID write for track {track_id} "
+          f"(epoch={write_epoch}, current={self.reid_write_epoch}, "
+          f"healthy={self.reid_write_healthy})")
+        return
+      self.reid_database.addEntry(
+        gid, track_id, category, reid_vectors, persist=persist, **metadata)
 
   def _onReidWriteComplete(self, future):
     """Track whether database writes are succeeding for hierarchy will_enroll claims.
@@ -415,22 +421,37 @@ class UUIDManager:
     will_enroll after the parent may already have sole-enrolled under passthrough.
     A first success sets reid_write_confirmed so will_enroll is only claimed after
     the child has proven it can write. Empty/invalid vector batches do not clear
-    write-health (per-batch data errors, not DB path failure).
+    write-health (per-batch data errors, not DB path failure); before the first
+    confirmed write they flip hierarchy publish to passthrough so a parent can
+    sole-enroll instead of forever withholding. Cancelled pool futures leave
+    write-health unchanged.
     """
+    if future.cancelled():
+      log.warning("ReID database write cancelled; leaving write-health unchanged")
+      return
     try:
       future.result()
     except ReidNoValidVectorsError as err:
       log.warning(f"ReID database write skipped (no valid vectors): {err}")
+      with self._reid_write_lock:
+        if not self.reid_write_confirmed:
+          self.reid_empty_batch_before_confirm = True
+      return
+    except concurrent.futures.CancelledError:
+      log.warning("ReID database write cancelled; leaving write-health unchanged")
       return
     except Exception as err:
-      if self.reid_write_healthy:
-        log.error(
-          f"ReID database write failed; clearing write-health for hierarchy claims: {err}")
-      self.reid_write_healthy = False
-      self.reid_write_epoch += 1
+      with self._reid_write_lock:
+        if self.reid_write_healthy:
+          log.error(
+            f"ReID database write failed; clearing write-health for hierarchy claims: {err}")
+        self.reid_write_healthy = False
+        self.reid_write_epoch += 1
       return
-    if self.reid_write_healthy:
-      self.reid_write_confirmed = True
+    with self._reid_write_lock:
+      if self.reid_write_healthy:
+        self.reid_write_confirmed = True
+        self.reid_empty_batch_before_confirm = False
 
   def isNewTrackerID(self, sscape_object):
     """

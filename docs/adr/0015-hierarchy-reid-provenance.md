@@ -155,8 +155,11 @@ Publishing policy for a ReID-enabled scene:
   backend errors), hierarchy publish drops to passthrough (no `will_enroll`) and
   the child stops local enrollment writes for the process lifetime so the parent
   sole-enrolls without a dual-writer race. In-flight flushes submitted before
-  the failure are dropped via a write-epoch guard. Empty/invalid vector batches
-  raise without sticky-clearing write-health.
+  the failure are dropped via a write-epoch guard held across the enrollment
+  write. Empty/invalid vector batches raise without sticky-clearing write-health;
+  if they occur before the first confirmed write, hierarchy publish uses
+  passthrough so a parent can sole-enroll instead of forever withholding.
+  Cancelled pool futures leave write-health unchanged.
 
 Relays preserve inherited provenance (including write-authority flags) rather
 than re-attributing the embedding. Controllers without ReID write intent leave
@@ -427,9 +430,11 @@ The ReID design is covered by:
   control rematch enhancement;
 - scene-controller tests for hierarchy publish policy (passthrough / withhold /
   will_enroll), including non-TLS write intent, sticky write-health passthrough
-  that also stops child enrollment, withhold until the first confirmed write,
-  and withhold that still forwards inherited vetted reid (multi-hop unit
-  coverage; live multi-hop hierarchies remain out of the functional matrix); and
+  that also stops child enrollment, locked write-epoch guards, empty-batch
+  passthrough before the first confirmed write, withhold until the first
+  confirmed write, and withhold that still forwards inherited vetted reid
+  (multi-hop unit coverage; live multi-hop hierarchies remain out of the
+  functional matrix); and
 - moving-object and scene-controller tests for provenance decoding and
   hierarchy publishing.
 

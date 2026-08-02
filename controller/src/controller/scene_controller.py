@@ -281,14 +281,15 @@ class SceneController:
       - 'will_enroll': schema ready, write intent, writes healthy, and at least one
         successful write confirmed — stamp will_enroll so parents skip writes
       - 'withhold': ReID write intent exists but schema is not ready yet, or no
-        successful write has been confirmed yet — do not forward *local*
-        embeddings (avoids parent sole-enroll before the child can write, and
-        avoids claiming will_enroll when the child cannot enroll).
-        Inherited vetted embeddings still forward.
-      - 'passthrough': no local ReID write path, or writes are failing — forward
-        vetted crops without will_enroll so the parent may sole-enroll.
+        successful write has been confirmed yet (and no empty-batch fallback) —
+        do not forward *local* embeddings (avoids parent sole-enroll before the
+        child can write, and avoids claiming will_enroll when the child cannot
+        enroll). Inherited vetted embeddings still forward.
+      - 'passthrough': no local ReID write path, writes are failing, or empty
+        batches occurred before the first confirmed write — forward vetted crops
+        without will_enroll so the parent may sole-enroll.
         Write-health is sticky once cleared (process lifetime); local enrollment
-        also stops so the child does not keep writing under passthrough.
+        also stops so the child does not keep writing under unhealthy passthrough.
     """
     tracker = getattr(scene, 'tracker', None)
     uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
@@ -301,9 +302,11 @@ class SceneController:
     database = getattr(uuid_manager, 'reid_database', None)
     if getattr(database, '_schema_ready', False) is not True:
       return 'withhold'
-    if not getattr(uuid_manager, 'reid_write_confirmed', False):
-      return 'withhold'
-    return 'will_enroll'
+    if getattr(uuid_manager, 'reid_write_confirmed', False):
+      return 'will_enroll'
+    if getattr(uuid_manager, 'reid_empty_batch_before_confirm', False):
+      return 'passthrough'
+    return 'withhold'
 
   def _trackHasReidEnrollment(self, scene, aobj):
     """True when this track already has a DB id or pending enrollment vectors."""

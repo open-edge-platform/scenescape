@@ -1067,16 +1067,31 @@ class TestReidObservationTrust:
     assert manager.reid_write_healthy is True
     assert manager.reid_write_confirmed is False
     assert manager.reid_write_epoch == prior_epoch
+    assert manager.reid_empty_batch_before_confirm is True
+
+  def test_reid_write_cancelled_leaves_write_health(self, mock_vdms_db):
+    """Pool cancellation must not sticky-clear hierarchy write-health."""
+    manager = UUIDManager()
+    prior_epoch = manager.reid_write_epoch
+    cancelled = concurrent.futures.Future()
+    cancelled.cancel()
+
+    manager._onReidWriteComplete(cancelled)
+    assert manager.reid_write_healthy is True
+    assert manager.reid_write_confirmed is False
+    assert manager.reid_write_epoch == prior_epoch
 
   def test_reid_write_success_sets_confirmed(self, mock_vdms_db):
     """First successful addEntry unlocks will_enroll via reid_write_confirmed."""
     manager = UUIDManager()
+    manager.reid_empty_batch_before_confirm = True
     assert manager.reid_write_confirmed is False
     ok = concurrent.futures.Future()
     ok.set_result(None)
     manager._onReidWriteComplete(ok)
     assert manager.reid_write_healthy is True
     assert manager.reid_write_confirmed is True
+    assert manager.reid_empty_batch_before_confirm is False
 
   def test_reid_write_health_stays_cleared_after_later_success(self, mock_vdms_db):
     """After a write failure, success must not reclaim will_enroll (sticky unhealthy)."""
