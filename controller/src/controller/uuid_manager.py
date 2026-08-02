@@ -117,8 +117,12 @@ class UUIDManager:
       maxlen=DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED)
     self.similarity_query_times_lock = threading.Lock()
     self.reid_enabled = True
-    # When False, hierarchy publish drops will_enroll so a parent may sole-enroll.
+    # When False, hierarchy publish drops will_enroll and local enrollment stops
+    # so a parent may sole-enroll without a dual-writer race.
     self.reid_write_healthy = True
+    # True after at least one successful addEntry; will_enroll waits on this so
+    # parents are not asked to skip writes before the child has proven it can.
+    self.reid_write_confirmed = False
     self._applyReidConfig(reid_config_data)
     self._rescheduleStaleFeatureTimer()
     return
@@ -366,27 +370,35 @@ class UUIDManager:
     if slice_size is None:
       slice_size = self.feature_slice_size
     features = self.features_for_database.pop(track_id, None)
-    if features and features['reid_vectors']:
-      features['reid_vectors'] = features['reid_vectors'][::slice_size]
-      persist = features.get('persist', {})
-      log.debug(
-        f"_addNewFeaturesToDatabase: Adding {len(features['reid_vectors'])} features for track {track_id} to database "
-        f"(gid={features['gid']}, category={features['category']}, "
-        f"persist_keys={list(persist.keys())})")
+    if not features or not features['reid_vectors']:
+      return
+    if not self.reid_write_healthy:
+      log.warning(
+        f"_addNewFeaturesToDatabase: Discarding {len(features['reid_vectors'])} "
+        f"features for track {track_id}; ReID writes unhealthy (parent sole-enroll)")
+      return
+    features['reid_vectors'] = features['reid_vectors'][::slice_size]
+    persist = features.get('persist', {})
+    log.debug(
+      f"_addNewFeaturesToDatabase: Adding {len(features['reid_vectors'])} features for track {track_id} to database "
+      f"(gid={features['gid']}, category={features['category']}, "
+      f"persist_keys={list(persist.keys())})")
 
-      # Extract semantic metadata from stored feature data
-      metadata = features.get('metadata', {})
+    # Extract semantic metadata from stored feature data
+    metadata = features.get('metadata', {})
 
-      future = self.pool.submit(
-        self.reid_database.addEntry, features['gid'], track_id,
-        features['category'], features['reid_vectors'], persist=persist, **metadata)
-      future.add_done_callback(self._onReidWriteComplete)
+    future = self.pool.submit(
+      self.reid_database.addEntry, features['gid'], track_id,
+      features['category'], features['reid_vectors'], persist=persist, **metadata)
+    future.add_done_callback(self._onReidWriteComplete)
 
   def _onReidWriteComplete(self, future):
     """Track whether database writes are succeeding for hierarchy will_enroll claims.
 
     Write-health is sticky once cleared: a later success must not reclaim
     will_enroll after the parent may already have sole-enrolled under passthrough.
+    A first success sets reid_write_confirmed so will_enroll is only claimed after
+    the child has proven it can write.
     """
     try:
       future.result()
@@ -395,6 +407,9 @@ class UUIDManager:
         log.error(
           f"ReID database write failed; clearing write-health for hierarchy claims: {err}")
       self.reid_write_healthy = False
+      return
+    if self.reid_write_healthy:
+      self.reid_write_confirmed = True
 
   def isNewTrackerID(self, sscape_object):
     """
@@ -455,11 +470,15 @@ class UUIDManager:
     Queryable observations may be written unless upstream provenance claims that
     another ReID-enabled scope already enrolled (or will enroll) the crop. Kept as
     a named write-path helper so call sites read as enrollment policy.
+    Local enrollment also stops when reid_write_healthy is False so a parent
+    sole-enrolling under passthrough is not racing a recovering child writer.
 
     @param   sscape_object      The Scenescape object to evaluate
     @param   minimum_bbox_area  Optional override for minimum pixel bbox area (px^2)
     @return  bool               True when the embedding may be written for a UUID
     """
+    if not self.reid_write_healthy:
+      return False
     if not self.isQueryableObservation(sscape_object, minimum_bbox_area):
       return False
     if is_upstream_enrollment_claim(getattr(sscape_object, 'reid_provenance', None)):

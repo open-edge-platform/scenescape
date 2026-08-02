@@ -237,10 +237,9 @@ class QdrantDatabase(ReIDDatabase):
       ))
 
     if not points:
-      log.warning(
+      raise RuntimeError(
         "addEntry: No valid vectors to add (all skipped due to dimension mismatch "
         "or uninitialized dimensions)")
-      return
 
     try:
       with self.lock:

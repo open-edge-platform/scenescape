@@ -136,9 +136,12 @@ enrollment (an enrollment DoS) even when the publisher never writes the DB.
 
 Publishing policy for a ReID-enabled scene:
 
-- **Schema ready + write intent** — forward local vetted crops with
-  `will_enroll: true`. Also set `enrolled: true` when the track already has a
-  database id or pending enrollment vectors.
+- **Schema ready + write intent + at least one successful write** — forward
+  local vetted crops with `will_enroll: true`. Also set `enrolled: true` when
+  the track already has a database id or pending enrollment vectors. Until the
+  first successful `addEntry`, hierarchy publish stays in withhold even when the
+  schema is ready so parents are not asked to skip writes before the child has
+  proven it can enroll.
 - **Write intent but schema not ready** (TLS client certs present, or
   `REID_USE_TLS=false` for non-mTLS ReID) — **withhold local**
   `metadata.reid` from hierarchy output until the schema is ready. Already-vetted
@@ -148,9 +151,10 @@ Publishing policy for a ReID-enabled scene:
 - **No write intent** (typical parent-only children: TLS default on, no ReID
   client certs) — forward vetted crops without `will_enroll` so the parent may
   sole-enroll.
-- **Write path unhealthy** — after a failed ReID database write, hierarchy
-  publish drops back to passthrough (no `will_enroll`) so the parent may
-  sole-enroll instead of leaving a permanent “nobody enrolls” gap.
+- **Write path unhealthy** — after a failed ReID database write (including soft
+  backend errors and empty/invalid vector batches), hierarchy publish drops to
+  passthrough (no `will_enroll`) and the child stops local enrollment writes for
+  the process lifetime so the parent sole-enrolls without a dual-writer race.
 
 Relays preserve inherited provenance (including write-authority flags) rather
 than re-attributing the embedding. Controllers without ReID write intent leave
@@ -284,8 +288,10 @@ direct assignment.
   is visible. If child database writes fail (including soft backend errors
   that previously only logged), hierarchy publish clears `will_enroll`
   (passthrough) so the parent can sole-enroll; write-health stays cleared
-  for the process lifetime so the child does not reclaim `will_enroll`
-  after the parent may already have enrolled.
+  for the process lifetime and the child stops local enrollment writes so it
+  does not keep writing while the parent sole-enrolls. `will_enroll` is also
+  withheld until the first successful write so parents are not asked to skip
+  enrollment before the child has proven it can write.
 - The same minimum-area rule is evaluated in both publishing and receiving
   code paths. Configuration differences between scenes can produce different
   local acceptance standards.
@@ -419,9 +425,9 @@ The ReID design is covered by:
   control rematch enhancement;
 - scene-controller tests for hierarchy publish policy (passthrough / withhold /
   will_enroll), including non-TLS write intent, sticky write-health passthrough
-  after soft or hard write failures, and withhold that still forwards inherited
-  vetted reid (multi-hop unit coverage; live multi-hop hierarchies remain out
-  of the functional matrix); and
+  that also stops child enrollment, withhold until the first confirmed write,
+  and withhold that still forwards inherited vetted reid (multi-hop unit
+  coverage; live multi-hop hierarchies remain out of the functional matrix); and
 - moving-object and scene-controller tests for provenance decoding and
   hierarchy publishing.
 

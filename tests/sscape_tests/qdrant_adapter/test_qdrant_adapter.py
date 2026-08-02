@@ -144,6 +144,17 @@ class TestQdrantDataOperations:
     with pytest.raises(RuntimeError, match="qdrant unavailable"):
       db.addEntry("uuid-1", "track-1", "person", [vector])
 
+  def test_add_entry_raises_when_no_valid_vectors(self):
+    """Empty prepared batches must raise so hierarchy write-health can clear."""
+    db = QdrantDatabase(dimensions=4)
+    db.client = MagicMock()
+    db.connected = True
+    wrong = np.array([0.1, 0.2], dtype="float32")
+
+    with pytest.raises(RuntimeError, match="No valid vectors"):
+      db.addEntry("uuid-1", "track-1", "person", [wrong])
+    db.client.upsert.assert_not_called()
+
   def test_get_persisted_attributes_uses_ordered_scroll(self):
     db = QdrantDatabase()
     db.client = MagicMock()

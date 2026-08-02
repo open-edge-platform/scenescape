@@ -1053,6 +1053,16 @@ class TestReidObservationTrust:
     manager._onReidWriteComplete(failed)
     assert manager.reid_write_healthy is False
 
+  def test_reid_write_success_sets_confirmed(self, mock_vdms_db):
+    """First successful addEntry unlocks will_enroll via reid_write_confirmed."""
+    manager = UUIDManager()
+    assert manager.reid_write_confirmed is False
+    ok = concurrent.futures.Future()
+    ok.set_result(None)
+    manager._onReidWriteComplete(ok)
+    assert manager.reid_write_healthy is True
+    assert manager.reid_write_confirmed is True
+
   def test_reid_write_health_stays_cleared_after_later_success(self, mock_vdms_db):
     """After a write failure, success must not reclaim will_enroll (sticky unhealthy)."""
     manager = UUIDManager()
@@ -1065,6 +1075,28 @@ class TestReidObservationTrust:
     recovered.set_result(None)
     manager._onReidWriteComplete(recovered)
     assert manager.reid_write_healthy is False
+    assert manager.reid_write_confirmed is False
+
+  def test_unhealthy_writes_skip_enrollment_and_discard_flush(self, mock_vdms_db):
+    """Passthrough recovery must not leave the child writing alongside the parent."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    manager.reid_write_healthy = False
+    obj = _make_reid_object("local-track", bbox_area=10000)
+
+    manager.gatherQualityVisualFeatures(obj)
+    assert "local-track" not in manager.enrollment_features
+
+    manager.features_for_database["local-track"] = {
+      'gid': 'gid-1',
+      'category': 'person',
+      'reid_vectors': [np.arange(8, dtype=np.float32)],
+      'persist': {},
+      'metadata': {},
+    }
+    manager._addNewFeaturesToDatabase("local-track")
+    assert manager.pool.submit.call_count == 0
+    assert "local-track" not in manager.features_for_database
 
   def test_add_new_features_wires_write_health_callback(self, mock_vdms_db):
     """Flush attaches _onReidWriteComplete so soft/hard addEntry failures clear health."""

@@ -278,15 +278,17 @@ class SceneController:
     Decide how hierarchy output should treat ReID embeddings for this scene.
 
     Returns one of:
-      - 'will_enroll': schema is ready, write intent exists, and writes are healthy;
-        stamp will_enroll so parents skip writes
-      - 'withhold': ReID write intent exists but schema is not ready yet — do not
-        forward *local* embeddings (avoids parent sole-enroll before the child can
-        write, and avoids claiming will_enroll when the child cannot enroll).
+      - 'will_enroll': schema ready, write intent, writes healthy, and at least one
+        successful write confirmed — stamp will_enroll so parents skip writes
+      - 'withhold': ReID write intent exists but schema is not ready yet, or no
+        successful write has been confirmed yet — do not forward *local*
+        embeddings (avoids parent sole-enroll before the child can write, and
+        avoids claiming will_enroll when the child cannot enroll).
         Inherited vetted embeddings still forward.
       - 'passthrough': no local ReID write path, or writes are failing — forward
         vetted crops without will_enroll so the parent may sole-enroll.
-        Write-health is sticky once cleared (process lifetime).
+        Write-health is sticky once cleared (process lifetime); local enrollment
+        also stops so the child does not keep writing under passthrough.
     """
     tracker = getattr(scene, 'tracker', None)
     uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
@@ -297,9 +299,11 @@ class SceneController:
     if not getattr(uuid_manager, 'reid_write_healthy', True):
       return 'passthrough'
     database = getattr(uuid_manager, 'reid_database', None)
-    if getattr(database, '_schema_ready', False) is True:
-      return 'will_enroll'
-    return 'withhold'
+    if getattr(database, '_schema_ready', False) is not True:
+      return 'withhold'
+    if not getattr(uuid_manager, 'reid_write_confirmed', False):
+      return 'withhold'
+    return 'will_enroll'
 
   def _trackHasReidEnrollment(self, scene, aobj):
     """True when this track already has a DB id or pending enrollment vectors."""

@@ -1422,7 +1422,8 @@ class TestDimensionInferenceAndArbitraryDimensions:
 
     # Try to add 256-dimension vector to 128-dimension adapter
     wrong_vec = np.random.randn(256).astype(np.float32)
-    db.addEntry("uuid", "rvid", "Person", [wrong_vec])
+    with pytest.raises(RuntimeError, match="No valid vectors"):
+      db.addEntry("uuid", "rvid", "Person", [wrong_vec])
 
     # Should not have sent query (vector was rejected)
     db.sendQuery.assert_not_called()
@@ -1438,7 +1439,8 @@ class TestDimensionInferenceAndArbitraryDimensions:
 
     # Try to add 256-dimension vector to 512-dimension adapter
     wrong_vec = np.random.randn(256).astype(np.float32)
-    db.addEntry("uuid", "rvid", "Person", [wrong_vec])
+    with pytest.raises(RuntimeError, match="No valid vectors"):
+      db.addEntry("uuid", "rvid", "Person", [wrong_vec])
 
     # Should not have sent query (vector was rejected)
     db.sendQuery.assert_not_called()

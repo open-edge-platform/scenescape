@@ -433,15 +433,28 @@ class TestSceneControllerPublishers:
     assert call_kwargs['reid_enrolled_fn'] is None
 
   def test_hierarchy_reid_policy_will_enroll_when_schema_ready(self):
-    """Schema-ready ReID scenes with write intent advertise will_enroll."""
+    """Schema-ready ReID scenes with write intent advertise will_enroll after a confirmed write."""
     scene_controller = SceneController.__new__(SceneController)
     database = SimpleNamespace(_schema_ready=True)
     uuid_manager = SimpleNamespace(
-      reid_enabled=True, reid_database=database, reid_write_healthy=True)
+      reid_enabled=True, reid_database=database, reid_write_healthy=True,
+      reid_write_confirmed=True)
     scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
 
     with patch.object(scene_controller, '_sceneHasReidWriteIntent', return_value=True):
       assert scene_controller._hierarchyReidPublishPolicy(scene) == 'will_enroll'
+
+  def test_hierarchy_reid_policy_withholds_until_write_confirmed(self):
+    """Schema ready alone is not enough; wait for a successful addEntry first."""
+    scene_controller = SceneController.__new__(SceneController)
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True,
+      reid_write_confirmed=False)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+
+    with patch.object(scene_controller, '_sceneHasReidWriteIntent', return_value=True):
+      assert scene_controller._hierarchyReidPublishPolicy(scene) == 'withhold'
 
   def test_hierarchy_reid_policy_withholds_when_write_intent_before_schema(self):
     """TLS ReID certs without a ready schema withhold embeddings instead of racing."""
