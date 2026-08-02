@@ -152,9 +152,11 @@ Publishing policy for a ReID-enabled scene:
   client certs) — forward vetted crops without `will_enroll` so the parent may
   sole-enroll.
 - **Write path unhealthy** — after a failed ReID database write (including soft
-  backend errors and empty/invalid vector batches), hierarchy publish drops to
-  passthrough (no `will_enroll`) and the child stops local enrollment writes for
-  the process lifetime so the parent sole-enrolls without a dual-writer race.
+  backend errors), hierarchy publish drops to passthrough (no `will_enroll`) and
+  the child stops local enrollment writes for the process lifetime so the parent
+  sole-enrolls without a dual-writer race. In-flight flushes submitted before
+  the failure are dropped via a write-epoch guard. Empty/invalid vector batches
+  raise without sticky-clearing write-health.
 
 Relays preserve inherited provenance (including write-authority flags) rather
 than re-attributing the embedding. Controllers without ReID write intent leave

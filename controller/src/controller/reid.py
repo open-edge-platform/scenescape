@@ -18,6 +18,15 @@ from controller.reid_constraints import build_query_constraints
 from controller.reid_env import get_reid_confidence_threshold
 from scene_common import log
 
+
+class ReidNoValidVectorsError(ValueError):
+  """Raised when addEntry has nothing valid to write (e.g. all vectors skipped).
+
+  Hierarchy write-health must not sticky-clear on this — it is a per-batch data
+  problem, not proof that the database write path is down.
+  """
+
+
 class ReIDDatabase(ABC):
   def __init__(self, set_name=SCHEMA_NAME, similarity_metric=SIMILARITY_METRIC,
                dimensions=None, confidence_threshold=None):
@@ -443,6 +452,8 @@ class ReIDDatabase(ABC):
     @param   persist      Optional dict with required 'timestamp' plus attributes
     @param   metadata     Optional semantic attributes (age, gender, color, etc.)
     @return  None
+    @raises  ReidNoValidVectorsError when every input vector is skipped (callers
+             should not treat this as sticky write-unhealthy)
     @raises  Exception when a database write is attempted and fails (callers /
              Future callbacks treat this as write-unhealthy for hierarchy claims)
     """

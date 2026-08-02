@@ -7,7 +7,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.exceptions import UnexpectedResponse
 
-from controller.reid import ReIDDatabase
+from controller.reid import ReIDDatabase, ReidNoValidVectorsError
 from controller.reid_constants import (
   K_NEIGHBORS,
   SCHEMA_MARKER_COLLECTION,
@@ -237,7 +237,7 @@ class QdrantDatabase(ReIDDatabase):
       ))
 
     if not points:
-      raise RuntimeError(
+      raise ReidNoValidVectorsError(
         "addEntry: No valid vectors to add (all skipped due to dimension mismatch "
         "or uninitialized dimensions)")
 

@@ -21,6 +21,7 @@ from controller.uuid_manager import (
   DEFAULT_SIMILARITY_THRESHOLD_COSINE,
 )
 
+from controller.reid import ReidNoValidVectorsError
 from controller.moving_object import MovingObject, ReidState, Chronoloc
 from scene_common.geometry import Point, Rectangle
 import time
@@ -1049,9 +1050,23 @@ class TestReidObservationTrust:
     manager = UUIDManager()
     failed = concurrent.futures.Future()
     failed.set_exception(RuntimeError("vdms down"))
+    prior_epoch = manager.reid_write_epoch
 
     manager._onReidWriteComplete(failed)
     assert manager.reid_write_healthy is False
+    assert manager.reid_write_epoch == prior_epoch + 1
+
+  def test_reid_no_valid_vectors_does_not_clear_write_health(self, mock_vdms_db):
+    """Empty/invalid batches must not sticky-disable the child write path."""
+    manager = UUIDManager()
+    prior_epoch = manager.reid_write_epoch
+    skipped = concurrent.futures.Future()
+    skipped.set_exception(ReidNoValidVectorsError("no vectors"))
+
+    manager._onReidWriteComplete(skipped)
+    assert manager.reid_write_healthy is True
+    assert manager.reid_write_confirmed is False
+    assert manager.reid_write_epoch == prior_epoch
 
   def test_reid_write_success_sets_confirmed(self, mock_vdms_db):
     """First successful addEntry unlocks will_enroll via reid_write_confirmed."""
@@ -1098,6 +1113,33 @@ class TestReidObservationTrust:
     assert manager.pool.submit.call_count == 0
     assert "local-track" not in manager.features_for_database
 
+  def test_in_flight_write_skipped_after_health_clears(self, mock_vdms_db):
+    """Epoch guard drops superseded workers so parent sole-enroll is not raced."""
+    manager = UUIDManager()
+    manager.reid_database = MagicMock()
+    epoch = manager.reid_write_epoch
+    manager.reid_write_healthy = False
+    manager.reid_write_epoch = epoch + 1
+
+    manager._writeReidEntry(
+      epoch, 'gid-1', 'track-1', 'person', [np.arange(4, dtype=np.float32)],
+      {}, {})
+    manager.reid_database.addEntry.assert_not_called()
+
+  def test_unhealthy_update_active_dict_does_not_stage_enrollment(self, mock_vdms_db):
+    """Identity updates continue, but features_for_database is not staged when unhealthy."""
+    manager = UUIDManager()
+    manager.reid_write_healthy = False
+    obj = _make_reid_object("local-track", bbox_area=10000)
+    manager.gatherQualityVisualFeatures(obj)
+    assert "local-track" in manager.quality_features
+    assert "local-track" not in manager.enrollment_features
+
+    call_update_active_dict_locked(manager, obj, database_id=None, similarity=None)
+    assert "local-track" not in manager.features_for_database
+    assert "local-track" not in manager.enrollment_features
+    assert manager.active_ids["local-track"][0] is not None
+
   def test_add_new_features_wires_write_health_callback(self, mock_vdms_db):
     """Flush attaches _onReidWriteComplete so soft/hard addEntry failures clear health."""
     manager = UUIDManager()
@@ -1115,6 +1157,7 @@ class TestReidObservationTrust:
     manager._addNewFeaturesToDatabase("flush-track")
 
     manager.pool.submit.assert_called_once()
+    assert manager.pool.submit.call_args[0][0] == manager._writeReidEntry
     assert future._done_callbacks  # pylint: disable=protected-access
     assert manager._onReidWriteComplete in future._done_callbacks
 

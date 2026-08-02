@@ -5,7 +5,7 @@ import socket
 
 import vdms
 
-from controller.reid import ReIDDatabase
+from controller.reid import ReIDDatabase, ReidNoValidVectorsError
 from controller.reid_constants import (
   K_NEIGHBORS,
   SCHEMA_NAME,
@@ -195,7 +195,7 @@ class VDMSDatabase(ReIDDatabase):
       })
 
     if not add_query:
-      raise RuntimeError(
+      raise ReidNoValidVectorsError(
         "addEntry: No valid vectors to add (all skipped due to dimension mismatch "
         "or uninitialized dimensions)")
 

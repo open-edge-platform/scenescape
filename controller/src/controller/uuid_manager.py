@@ -24,6 +24,7 @@ from controller.reid_constants import (
   resolve_database_similarity_metric,
 )
 from controller.reid_registry import create_reid_database
+from controller.reid import ReidNoValidVectorsError
 from controller.moving_object import ReidState, MovingObject
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
@@ -123,6 +124,8 @@ class UUIDManager:
     # True after at least one successful addEntry; will_enroll waits on this so
     # parents are not asked to skip writes before the child has proven it can.
     self.reid_write_confirmed = False
+    # Bumped when write-health clears so in-flight pool workers drop superseded writes.
+    self.reid_write_epoch = 0
     self._applyReidConfig(reid_config_data)
     self._rescheduleStaleFeatureTimer()
     return
@@ -386,11 +389,24 @@ class UUIDManager:
 
     # Extract semantic metadata from stored feature data
     metadata = features.get('metadata', {})
+    write_epoch = self.reid_write_epoch
 
     future = self.pool.submit(
-      self.reid_database.addEntry, features['gid'], track_id,
-      features['category'], features['reid_vectors'], persist=persist, **metadata)
+      self._writeReidEntry, write_epoch, features['gid'], track_id,
+      features['category'], features['reid_vectors'], persist, metadata)
     future.add_done_callback(self._onReidWriteComplete)
+
+  def _writeReidEntry(self, write_epoch, gid, track_id, category, reid_vectors,
+                      persist, metadata):
+    """Worker: skip superseded flushes after write-health clears mid-flight."""
+    if write_epoch != self.reid_write_epoch or not self.reid_write_healthy:
+      log.warning(
+        f"_writeReidEntry: Skipping superseded ReID write for track {track_id} "
+        f"(epoch={write_epoch}, current={self.reid_write_epoch}, "
+        f"healthy={self.reid_write_healthy})")
+      return
+    self.reid_database.addEntry(
+      gid, track_id, category, reid_vectors, persist=persist, **metadata)
 
   def _onReidWriteComplete(self, future):
     """Track whether database writes are succeeding for hierarchy will_enroll claims.
@@ -398,15 +414,20 @@ class UUIDManager:
     Write-health is sticky once cleared: a later success must not reclaim
     will_enroll after the parent may already have sole-enrolled under passthrough.
     A first success sets reid_write_confirmed so will_enroll is only claimed after
-    the child has proven it can write.
+    the child has proven it can write. Empty/invalid vector batches do not clear
+    write-health (per-batch data errors, not DB path failure).
     """
     try:
       future.result()
+    except ReidNoValidVectorsError as err:
+      log.warning(f"ReID database write skipped (no valid vectors): {err}")
+      return
     except Exception as err:
       if self.reid_write_healthy:
         log.error(
           f"ReID database write failed; clearing write-health for hierarchy claims: {err}")
       self.reid_write_healthy = False
+      self.reid_write_epoch += 1
       return
     if self.reid_write_healthy:
       self.reid_write_confirmed = True
@@ -1024,6 +1045,9 @@ class UUIDManager:
       if sscape_object.chain_data and isinstance(sscape_object.chain_data.persist, dict)
       else {}
     )
+
+    if not self.reid_write_healthy:
+      return
 
     # Local and vetted forwarded crops land in enrollment_features at gather time.
     # On no-match with an empty set, promote quality_features so sole enrollment

@@ -14,7 +14,7 @@ import numpy as np
 from unittest.mock import Mock, MagicMock, patch
 
 from controller.vdms_adapter import VDMSDatabase, SCHEMA_NAME, DIMENSIONS, K_NEIGHBORS, SCHEMA_MARKER_CLASS
-from controller.reid import ReIDDatabase
+from controller.reid import ReIDDatabase, ReidNoValidVectorsError
 
 
 class TestVDMSDatabaseInterface:
@@ -1422,7 +1422,7 @@ class TestDimensionInferenceAndArbitraryDimensions:
 
     # Try to add 256-dimension vector to 128-dimension adapter
     wrong_vec = np.random.randn(256).astype(np.float32)
-    with pytest.raises(RuntimeError, match="No valid vectors"):
+    with pytest.raises(ReidNoValidVectorsError, match="No valid vectors"):
       db.addEntry("uuid", "rvid", "Person", [wrong_vec])
 
     # Should not have sent query (vector was rejected)
@@ -1439,7 +1439,7 @@ class TestDimensionInferenceAndArbitraryDimensions:
 
     # Try to add 256-dimension vector to 512-dimension adapter
     wrong_vec = np.random.randn(256).astype(np.float32)
-    with pytest.raises(RuntimeError, match="No valid vectors"):
+    with pytest.raises(ReidNoValidVectorsError, match="No valid vectors"):
       db.addEntry("uuid", "rvid", "Person", [wrong_vec])
 
     # Should not have sent query (vector was rejected)

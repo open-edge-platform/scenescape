@@ -10,7 +10,7 @@ import numpy as np
 from unittest.mock import MagicMock, patch
 
 from controller.qdrant_adapter import QdrantDatabase
-from controller.reid import ReIDDatabase
+from controller.reid import ReIDDatabase, ReidNoValidVectorsError
 from controller.reid_constants import SCHEMA_NAME
 
 
@@ -151,7 +151,7 @@ class TestQdrantDataOperations:
     db.connected = True
     wrong = np.array([0.1, 0.2], dtype="float32")
 
-    with pytest.raises(RuntimeError, match="No valid vectors"):
+    with pytest.raises(ReidNoValidVectorsError, match="No valid vectors"):
       db.addEntry("uuid-1", "track-1", "person", [wrong])
     db.client.upsert.assert_not_called()
 
