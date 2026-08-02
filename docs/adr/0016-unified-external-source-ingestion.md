@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# ADR 14: Unified External-Source Ingestion Contract for the Scene Controller
+# ADR 16: Unified External-Source Ingestion Contract for the Scene Controller
 
 - **Author(s)**: Sarat Poluri, GitHub Copilot
 - **Date**: 2026-07-21 (publisher-centric binding and scene/service registry target updated
@@ -398,15 +398,35 @@ trust-domain follow-ons:
   requiring some minimum silence period or an explicit "new object" flag before a stale `id` can
   be reclaimed at all), but this is deferred pending real-world evidence that guidance alone is
   insufficient.
-- **Trusted-identity objects currently bypass the shared UUID-manager/ReID path entirely, rather
-  than being recorded through it.** When retrack is disabled, `Scene.processSceneData()` routes
-  objects through `already_tracked_objects`/`mergeAlreadyTrackedObjects()`, which sets
-  `gid = oid` directly and never calls `UUIDManager.assignID()` — so `reid_state` and
-  `previous_ids_chain` (ADR 11) are never populated for these objects (there is nothing to
-  record, since identity never transitions). If a future need arises to give trusted-identity
-  objects the same structured `reid_state`/lineage _reporting_ as tracked objects — without
-  actually querying ReID or reassigning `gid` — that would require a deliberate, minimal
-  extension to `UUIDManager`/`MovingObject`, not a change to the current retrack routing.
+- **Gap: trusted-identity objects are routed through an entirely separate code path instead of
+  the shared UUID-manager/ReID pipeline, rather than through the same pipeline with
+  provenance-driven nuance.** When retrack is disabled, `Scene.processSceneData()` forks objects
+  into `already_tracked_objects`/`mergeAlreadyTrackedObjects()`, which sets `gid = oid` directly
+  and never calls `UUIDManager.assignID()`. `reid_state` defaults to `ReidState.PENDING_COLLECTION`
+  at construction (`MovingObject.__init__`) and, because `assignID()` is never called for these
+  objects, is never resolved to `MATCHED`/`QUERY_NO_MATCH`/`REID_DISABLED` — it stays permanently
+  stuck at `PENDING_COLLECTION` for the object's entire lifetime, since `setPrevious()` just
+  copies that same unresolved state forward on every subsequent frame. `previous_ids_chain` stays
+  empty for the same reason (only `assignID()`'s query path appends to it).
+  **`PENDING_COLLECTION` is actively misleading here, not merely incomplete**: it implies an
+  embedding-collection/query is in progress and will eventually resolve, which is never true for a
+  trusted-identity object — no query will ever be made. Existing `ReidState` values do not cover
+  this case either: `REID_DISABLED` means the ReID _subsystem_ is off for every object, not that
+  one specific object's identity was externally asserted and doesn't need ReID. Correctly
+  representing this state would require a new `ReidState` value (for example `TRUSTED_EXTERNAL` or
+  `IDENTITY_ASSERTED`) meaning "identity was asserted by a trusted external source; no ReID query
+  applies to this object," distinct from both "query pending" and "ReID disabled system-wide."
+  This is a structural gap, not just a reporting omission: the current design treats "trusted
+  identity" as a fork at ingestion (two disjoint object pipelines) rather than as one attribute of
+  a single pipeline. The eventual direction is to treat all objects — camera-tracked and
+  external-source alike — the same way through one object pipeline, with per-object _nuance_
+  applied based on provenance/trust (for example: skip the ReID query and don't reassign `gid` for
+  a trusted object, but still route it through `UUIDManager`, set the new `ReidState` value, and
+  populate `previous_ids_chain` consistently for every object regardless of source). Realizing
+  that would require a deliberate, minimal extension to `UUIDManager`/`MovingObject` — a new
+  `ReidState` value plus accepting an externally-asserted `gid` as an input rather than only ever
+  computing one — instead of the current all-or-nothing retrack-routing
+  fork. Deferred.
 - **Cross-source association/deduplication.** Fusing or deduplicating observations of the same
   physical object reported by multiple independent external sources (or by an external source and
   a camera) is out of scope; until that lands, co-observed people/vehicles may appear as parallel
