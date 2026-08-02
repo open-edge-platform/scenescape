@@ -91,7 +91,10 @@ class UUIDManager:
     # Embeddings this scope may query the shared database with: its own camera crops plus
     # crops another scope vetted before forwarding them.
     self.quality_features = {}
-    # Embeddings this scope may contribute to the shared database: local camera crops only.
+    # Frame/observation count toward the query threshold (includes exact repeats).
+    self.quality_observation_counts = {}
+    # Embeddings this scope may contribute to the shared database: local camera crops
+    # plus vetted forwarded crops (exact-deduped).
     self.enrollment_features = {}
     # Local-camera subset of enrollment_features; preserved on exact rematch when
     # forwarded query evidence is skipped as already stored.
@@ -335,6 +338,7 @@ class UUIDManager:
     for track_id, data in inactive_tracks:
       self.active_query.pop(track_id, None)
       self.quality_features.pop(track_id, None)
+      self.quality_observation_counts.pop(track_id, None)
       self.enrollment_features.pop(track_id, None)
       self.local_enrollment_features.pop(track_id, None)
       self.features_for_database_timestamps.pop(track_id, None)
@@ -428,18 +432,14 @@ class UUIDManager:
     """
     Check whether an embedding may be stored against a UUID in the shared database.
 
-    Local camera crops always may. Vetted forwarded embeddings may as well when this
-    scene runs ReID on retracked children: sole enrollment on query-no-match, and
-    cluster enhancement after a rematch (same idea as accumulating multi-camera
-    vectors). Retrack-off paths strip reid before UUIDManager, so they never reach
-    here.
+    Same gate as isQueryableObservation: local crops that pass the area threshold,
+    or bbox-less embeddings with vetted provenance. Kept as a named write-path
+    helper so call sites read as enrollment policy rather than query policy.
 
     @param   sscape_object      The Scenescape object to evaluate
     @param   minimum_bbox_area  Optional override for minimum pixel bbox area (px^2)
     @return  bool               True when the embedding may be written for a UUID
     """
-    if self.isEnrollableObservation(sscape_object, minimum_bbox_area):
-      return True
     return self.isQueryableObservation(sscape_object, minimum_bbox_area)
 
   def _isExactRematchScore(self, similarity):
@@ -476,10 +476,10 @@ class UUIDManager:
     This function gathers quality visual features for identifying newly detected objects.
     It currently only uses re-id vectors but can be expanded to include more features.
 
-    Usable embeddings go to quality_features (similarity query). Embeddings this scene
-    may write — local crops and vetted forwarded crops — also go to enrollment_features
-    so a parent can sole-enroll on no-match and keep enhancing a matched UUID's cluster.
-    Exact duplicate enrollment vectors are skipped.
+    Usable embeddings go to quality_features (similarity query; exact duplicates
+    omitted so majority vote is not biased). A separate observation count still
+    tracks frames toward the query threshold, including repeats of the same vector.
+    Embeddings this scene may write also go to enrollment_features (exact-deduped).
 
     @param  sscape_object          The Scenescape object to gather features from
     @param  minimum_bbox_area      Optional override for minimum pixel bbox area (px^2)
@@ -497,7 +497,10 @@ class UUIDManager:
         f"(no usable pixel bbox and no vetted provenance)")
       return
 
-    self.quality_features.setdefault(sscape_object.rv_id, []).append(reid_embedding)
+    self.quality_observation_counts[sscape_object.rv_id] = (
+      self.quality_observation_counts.get(sscape_object.rv_id, 0) + 1)
+    quality = self.quality_features.setdefault(sscape_object.rv_id, [])
+    self._appendUniqueEnrollmentEmbedding(quality, reid_embedding)
     if self.mayContributeEnrollmentEmbedding(sscape_object, minimum_bbox_area):
       enrollment = self.enrollment_features.setdefault(sscape_object.rv_id, [])
       if self._appendUniqueEnrollmentEmbedding(enrollment, reid_embedding):
@@ -581,7 +584,7 @@ class UUIDManager:
     """
     if minimum_feature_count is None:
       minimum_feature_count = self.minimum_feature_count
-    count = len(self.quality_features.get(sscape_object.rv_id, []))
+    count = self.quality_observation_counts.get(sscape_object.rv_id, 0)
     return count >= minimum_feature_count
 
   def querySimilarity(self, sscape_object):
@@ -1055,8 +1058,11 @@ class UUIDManager:
     if sscape_object.rv_id not in self.active_query and self.reid_enabled:
       self.gatherQualityVisualFeatures(sscape_object)
       sufficient_features = self.haveSufficientVisualFeatures(sscape_object)
-      feature_count = len(self.quality_features.get(sscape_object.rv_id, []))
-      log.debug(f"assignID: rv_id={sscape_object.rv_id}, sufficient_features={sufficient_features}")
+      feature_count = self.quality_observation_counts.get(sscape_object.rv_id, 0)
+      log.debug(
+        f"assignID: rv_id={sscape_object.rv_id}, sufficient_features={sufficient_features}, "
+        f"observation_count={feature_count}, unique_query_vectors="
+        f"{len(self.quality_features.get(sscape_object.rv_id, []))}")
 
       # Submit query once we have enough features
       if sufficient_features:

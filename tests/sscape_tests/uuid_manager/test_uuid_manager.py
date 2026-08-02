@@ -472,10 +472,11 @@ class TestAssignID:
     obj.boundingBoxPixels.area = 10000
     obj.metadata = {}
 
-    # Manually add sufficient features to trigger query submission
+    # Manually add sufficient observations to trigger query submission
     manager.quality_features["tracker_many_features"] = [
-      np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist() for _ in range(15)
+      np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist()
     ]
+    manager.quality_observation_counts["tracker_many_features"] = 15
 
     manager.assignID(obj)
 
@@ -975,6 +976,7 @@ class TestReidObservationTrust:
     assert manager.isQueryableObservation(obj) is True
     assert manager.isEnrollableObservation(obj) is False
     assert manager.mayContributeEnrollmentEmbedding(obj) is True
+    assert manager.mayContributeEnrollmentEmbedding(obj) == manager.isQueryableObservation(obj)
 
   def test_database_entry_includes_local_and_forwarded_enrollment_features(
       self, mock_vdms_db):
@@ -991,21 +993,36 @@ class TestReidObservationTrust:
     manager.gatherQualityVisualFeatures(forwarded)
     call_update_active_dict_locked(manager, local, database_id=None, similarity=None)
 
-    assert len(manager.quality_features["mixed-track"]) == 3
+    assert len(manager.quality_features["mixed-track"]) == 2
     assert manager.features_for_database["mixed-track"]['reid_vectors'] == \
       manager.enrollment_features["mixed-track"]
     assert len(manager.features_for_database["mixed-track"]['reid_vectors']) == 2
 
   def test_exact_duplicate_enrollment_vectors_are_skipped(self, mock_vdms_db):
-    """Repeating the same forwarded embedding does not grow the enrollment list."""
+    """Repeating the same embedding does not grow unique query/enrollment lists."""
     manager = UUIDManager()
     obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
 
     manager.gatherQualityVisualFeatures(obj)
     manager.gatherQualityVisualFeatures(obj)
 
-    assert len(manager.quality_features["forwarded-track"]) == 2
+    assert manager.quality_observation_counts["forwarded-track"] == 2
+    assert len(manager.quality_features["forwarded-track"]) == 1
     assert len(manager.enrollment_features["forwarded-track"]) == 1
+
+  def test_repeated_identical_embeddings_still_count_toward_query_threshold(
+      self, mock_vdms_db):
+    """Exact-deduped quality lists must not block the frame-count query gate."""
+    manager = UUIDManager(reid_config_data={'feature_accumulation_threshold': 3})
+    obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
+
+    manager.gatherQualityVisualFeatures(obj)
+    manager.gatherQualityVisualFeatures(obj)
+    assert manager.haveSufficientVisualFeatures(obj) is False
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert manager.haveSufficientVisualFeatures(obj) is True
+    assert len(manager.quality_features["forwarded-track"]) == 1
 
   def test_forwarded_only_no_match_enrolls(self, mock_vdms_db):
     """Parent-only ReID: no prior enrollment → parent enrolls vetted forwarded crops."""
@@ -1146,3 +1163,4 @@ class TestReidObservationTrust:
     assert "local-track" not in manager.enrollment_features
     assert "local-track" not in manager.local_enrollment_features
     assert "local-track" not in manager.quality_features
+    assert "local-track" not in manager.quality_observation_counts
