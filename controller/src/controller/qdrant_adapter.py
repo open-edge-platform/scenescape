@@ -247,6 +247,7 @@ class QdrantDatabase(ReIDDatabase):
         self.client.upsert(collection_name=set_name, points=points, wait=True)
     except Exception as e:
       log.error(f"addEntry: Failed to upsert {len(points)} vectors to Qdrant: {e}")
+      raise
     return
 
   def _scrollMatchingPoints(self, collection_name, query_filter, page_size=100):

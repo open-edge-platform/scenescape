@@ -383,14 +383,18 @@ class UUIDManager:
       future.add_done_callback(self._onReidWriteComplete)
 
   def _onReidWriteComplete(self, future):
-    """Track whether database writes are succeeding for hierarchy will_enroll claims."""
+    """Track whether database writes are succeeding for hierarchy will_enroll claims.
+
+    Write-health is sticky once cleared: a later success must not reclaim
+    will_enroll after the parent may already have sole-enrolled under passthrough.
+    """
     try:
       future.result()
     except Exception as err:
+      if self.reid_write_healthy:
+        log.error(
+          f"ReID database write failed; clearing write-health for hierarchy claims: {err}")
       self.reid_write_healthy = False
-      log.error(f"ReID database write failed; clearing write-health for hierarchy claims: {err}")
-      return
-    self.reid_write_healthy = True
 
   def isNewTrackerID(self, sscape_object):
     """

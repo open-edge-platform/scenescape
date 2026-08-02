@@ -201,13 +201,14 @@ class VDMSDatabase(ReIDDatabase):
       return
 
     response, _ = self.sendQuery(add_query, descriptor_blobs)
-    if response:
-      for item in response:
-        if item.get('status') != 0:
-          log.warning(
-            f"Failed to add the descriptor to the database. Received response {item}")
-    else:
-      log.error(f"addEntry: No response from VDMS when adding {len(add_query)} vectors")
+    if not response:
+      raise RuntimeError(
+        f"addEntry: No response from VDMS when adding {len(add_query)} vectors")
+    failures = [item for item in response if item.get('status') != 0]
+    if failures:
+      raise RuntimeError(
+        f"addEntry: Failed to add {len(failures)}/{len(response)} descriptor(s) "
+        f"to VDMS. First failure: {failures[0]}")
     return
 
   def getPersistedAttributes(self, uuid, set_name=None):

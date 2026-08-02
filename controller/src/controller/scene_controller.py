@@ -285,7 +285,8 @@ class SceneController:
         write, and avoids claiming will_enroll when the child cannot enroll).
         Inherited vetted embeddings still forward.
       - 'passthrough': no local ReID write path, or writes are failing — forward
-        vetted crops without will_enroll so the parent may sole-enroll
+        vetted crops without will_enroll so the parent may sole-enroll.
+        Write-health is sticky once cleared (process lifetime).
     """
     tracker = getattr(scene, 'tracker', None)
     uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None

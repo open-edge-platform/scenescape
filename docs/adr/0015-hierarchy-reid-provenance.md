@@ -281,8 +281,11 @@ direct assignment.
   schema ready (inherited vetted embeddings still relay), then stamp
   `will_enroll` (and `enrolled` once the track owns a write) so the parent
   skips promotion even on a query miss; rematch proceeds once the child row
-  is visible. If child database writes fail, hierarchy publish clears
-  `will_enroll` (passthrough) so the parent can sole-enroll.
+  is visible. If child database writes fail (including soft backend errors
+  that previously only logged), hierarchy publish clears `will_enroll`
+  (passthrough) so the parent can sole-enroll; write-health stays cleared
+  for the process lifetime so the child does not reclaim `will_enroll`
+  after the parent may already have enrolled.
 - The same minimum-area rule is evaluated in both publishing and receiving
   code paths. Configuration differences between scenes can produce different
   local acceptance standards.
@@ -415,9 +418,10 @@ The ReID design is covered by:
   `will_enroll`/`enrolled` is set, and that per-vector exact/absent scores
   control rematch enhancement;
 - scene-controller tests for hierarchy publish policy (passthrough / withhold /
-  will_enroll), including non-TLS write intent, write-health passthrough, and
-  withhold that still forwards inherited vetted reid (multi-hop unit coverage;
-  live multi-hop hierarchies remain out of the functional matrix); and
+  will_enroll), including non-TLS write intent, sticky write-health passthrough
+  after soft or hard write failures, and withhold that still forwards inherited
+  vetted reid (multi-hop unit coverage; live multi-hop hierarchies remain out
+  of the functional matrix); and
 - moving-object and scene-controller tests for provenance decoding and
   hierarchy publishing.
 

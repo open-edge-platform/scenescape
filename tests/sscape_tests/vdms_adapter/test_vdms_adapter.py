@@ -482,6 +482,30 @@ class TestAddEntry:
     query_list = call_args[0][0]
     assert len(query_list) == 3, "Should have one query per vector"
 
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_raises_on_non_zero_status(self, mock_vdms_class):
+    """Soft VDMS failures must raise so hierarchy write-health can clear."""
+    mock_vdms_class.return_value = MagicMock()
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 1, 'info': 'rejected'}], []))
+    vec = np.random.randn(256).astype(np.float32)
+
+    with pytest.raises(RuntimeError, match="Failed to add"):
+      db.addEntry("uuid", "rvid", "Person", [vec])
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_raises_on_empty_response(self, mock_vdms_class):
+    """Missing VDMS responses must raise so hierarchy write-health can clear."""
+    mock_vdms_class.return_value = MagicMock()
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=(None, []))
+    vec = np.random.randn(256).astype(np.float32)
+
+    with pytest.raises(RuntimeError, match="No response from VDMS"):
+      db.addEntry("uuid", "rvid", "Person", [vec])
+
 
 class TestFindMatches:
   """Test finding similar entries (2-tier hybrid search)."""

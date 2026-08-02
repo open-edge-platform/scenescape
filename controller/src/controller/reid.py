@@ -443,6 +443,8 @@ class ReIDDatabase(ABC):
     @param   persist      Optional dict with required 'timestamp' plus attributes
     @param   metadata     Optional semantic attributes (age, gender, color, etc.)
     @return  None
+    @raises  Exception when a database write is attempted and fails (callers /
+             Future callbacks treat this as write-unhealthy for hierarchy claims)
     """
     return
 
