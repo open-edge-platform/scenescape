@@ -117,6 +117,8 @@ class UUIDManager:
       maxlen=DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED)
     self.similarity_query_times_lock = threading.Lock()
     self.reid_enabled = True
+    # When False, hierarchy publish drops will_enroll so a parent may sole-enroll.
+    self.reid_write_healthy = True
     self._applyReidConfig(reid_config_data)
     self._rescheduleStaleFeatureTimer()
     return
@@ -375,8 +377,20 @@ class UUIDManager:
       # Extract semantic metadata from stored feature data
       metadata = features.get('metadata', {})
 
-      self.pool.submit(self.reid_database.addEntry, features['gid'], track_id,
-                       features['category'], features['reid_vectors'], persist=persist, **metadata)
+      future = self.pool.submit(
+        self.reid_database.addEntry, features['gid'], track_id,
+        features['category'], features['reid_vectors'], persist=persist, **metadata)
+      future.add_done_callback(self._onReidWriteComplete)
+
+  def _onReidWriteComplete(self, future):
+    """Track whether database writes are succeeding for hierarchy will_enroll claims."""
+    try:
+      future.result()
+    except Exception as err:
+      self.reid_write_healthy = False
+      log.error(f"ReID database write failed; clearing write-health for hierarchy claims: {err}")
+      return
+    self.reid_write_healthy = True
 
   def isNewTrackerID(self, sscape_object):
     """

@@ -9,6 +9,7 @@ These tests run inside the controller container where all dependencies are avail
 """
 
 import numpy as np
+import concurrent.futures
 from types import SimpleNamespace
 from unittest.mock import Mock, MagicMock, patch
 
@@ -1042,6 +1043,20 @@ class TestReidObservationTrust:
     assert manager.features_for_database["forwarded-track"]['reid_vectors'] == []
     manager._addNewFeaturesToDatabase("forwarded-track")
     assert manager.pool.submit.call_count == 0
+
+  def test_reid_write_failure_clears_write_health(self, mock_vdms_db):
+    """Failed addEntry callbacks mark ReID writes unhealthy for hierarchy claims."""
+    manager = UUIDManager()
+    failed = concurrent.futures.Future()
+    failed.set_exception(RuntimeError("vdms down"))
+
+    manager._onReidWriteComplete(failed)
+    assert manager.reid_write_healthy is False
+
+    recovered = concurrent.futures.Future()
+    recovered.set_result(None)
+    manager._onReidWriteComplete(recovered)
+    assert manager.reid_write_healthy is True
 
   def test_database_entry_includes_local_and_forwarded_enrollment_features(
       self, mock_vdms_db):

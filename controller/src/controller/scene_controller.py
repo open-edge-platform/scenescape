@@ -25,7 +25,6 @@ from controller.reid_env import (
   get_reid_client_cert,
   get_reid_client_key,
   get_reid_use_tls,
-  has_explicit_reid_endpoint,
 )
 from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
                                       MINIMAL_CHUNKING_RATE_FPS,
@@ -264,28 +263,28 @@ class SceneController:
     """
     True when this controller is configured to own ReID database writes.
 
-    TLS deployments mount client certs only on ReID-enabled compose profiles.
-    Non-TLS ReID deployments set REID_HOSTNAME and/or REID_DATABASE explicitly;
-    controllers that only inherit built-in defaults are treated as passthrough
-    so parent-only children are not stuck withholding forever.
+    TLS deployments mount client certs only on ReID-enabled compose profiles;
+    parent-only / passthrough children keep the TLS default and omit those certs.
+    Setting REID_USE_TLS=false is an explicit non-mTLS ReID choice and implies
+    write intent even when hostname/database env vars use built-in defaults.
     """
     if get_reid_use_tls():
       return (os.path.exists(get_reid_client_cert())
               and os.path.exists(get_reid_client_key()))
-    return has_explicit_reid_endpoint()
+    return True
 
   def _hierarchyReidPublishPolicy(self, scene):
     """
     Decide how hierarchy output should treat ReID embeddings for this scene.
 
     Returns one of:
-      - 'will_enroll': schema is ready and write intent exists; stamp will_enroll
-        so parents skip writes
+      - 'will_enroll': schema is ready, write intent exists, and writes are healthy;
+        stamp will_enroll so parents skip writes
       - 'withhold': ReID write intent exists but schema is not ready yet — do not
         forward *local* embeddings (avoids parent sole-enroll before the child can
         write, and avoids claiming will_enroll when the child cannot enroll).
         Inherited vetted embeddings still forward.
-      - 'passthrough': no local ReID write path (e.g. parent-only children); forward
+      - 'passthrough': no local ReID write path, or writes are failing — forward
         vetted crops without will_enroll so the parent may sole-enroll
     """
     tracker = getattr(scene, 'tracker', None)
@@ -293,6 +292,8 @@ class SceneController:
     if uuid_manager is None or not getattr(uuid_manager, 'reid_enabled', False):
       return 'passthrough'
     if not self._sceneHasReidWriteIntent():
+      return 'passthrough'
+    if not getattr(uuid_manager, 'reid_write_healthy', True):
       return 'passthrough'
     database = getattr(uuid_manager, 'reid_database', None)
     if getattr(database, '_schema_ready', False) is True:

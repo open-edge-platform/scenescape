@@ -436,7 +436,8 @@ class TestSceneControllerPublishers:
     """Schema-ready ReID scenes with write intent advertise will_enroll."""
     scene_controller = SceneController.__new__(SceneController)
     database = SimpleNamespace(_schema_ready=True)
-    uuid_manager = SimpleNamespace(reid_enabled=True, reid_database=database)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True)
     scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
 
     with patch.object(scene_controller, '_sceneHasReidWriteIntent', return_value=True):
@@ -446,7 +447,8 @@ class TestSceneControllerPublishers:
     """TLS ReID certs without a ready schema withhold embeddings instead of racing."""
     scene_controller = SceneController.__new__(SceneController)
     database = SimpleNamespace(_schema_ready=False)
-    uuid_manager = SimpleNamespace(reid_enabled=True, reid_database=database)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True)
     scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
 
     with patch('controller.scene_controller.get_reid_use_tls', return_value=True), \
@@ -469,32 +471,33 @@ class TestSceneControllerPublishers:
       assert scene_controller._hierarchyReidPublishPolicy(scene) == 'passthrough'
 
   def test_hierarchy_reid_policy_withholds_non_tls_until_schema_ready(self):
-    """Non-TLS ReID with explicit endpoint env withholds early local frames."""
+    """REID_USE_TLS=false implies write intent even with default endpoint env."""
     scene_controller = SceneController.__new__(SceneController)
     database = SimpleNamespace(_schema_ready=False)
-    uuid_manager = SimpleNamespace(reid_enabled=True, reid_database=database)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True)
     scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
 
-    with patch('controller.scene_controller.get_reid_use_tls', return_value=False), \
-         patch('controller.scene_controller.has_explicit_reid_endpoint', return_value=True):
+    with patch('controller.scene_controller.get_reid_use_tls', return_value=False):
       assert scene_controller._hierarchyReidPublishPolicy(scene) == 'withhold'
 
-  def test_hierarchy_reid_policy_passthrough_non_tls_without_explicit_endpoint(self):
-    """Non-TLS without REID_* endpoint env must not withhold parent-only passthrough."""
+  def test_hierarchy_reid_policy_passthrough_when_writes_are_unhealthy(self):
+    """Failed child DB writes must drop will_enroll so the parent can sole-enroll."""
     scene_controller = SceneController.__new__(SceneController)
-    database = SimpleNamespace(_schema_ready=False)
-    uuid_manager = SimpleNamespace(reid_enabled=True, reid_database=database)
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=False)
     scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
 
-    with patch('controller.scene_controller.get_reid_use_tls', return_value=False), \
-         patch('controller.scene_controller.has_explicit_reid_endpoint', return_value=False):
+    with patch.object(scene_controller, '_sceneHasReidWriteIntent', return_value=True):
       assert scene_controller._hierarchyReidPublishPolicy(scene) == 'passthrough'
 
   def test_hierarchy_reid_policy_requires_write_intent_even_when_schema_ready(self):
     """Schema alone without write intent stays passthrough (no false will_enroll)."""
     scene_controller = SceneController.__new__(SceneController)
     database = SimpleNamespace(_schema_ready=True)
-    uuid_manager = SimpleNamespace(reid_enabled=True, reid_database=database)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True)
     scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
 
     with patch.object(scene_controller, '_sceneHasReidWriteIntent', return_value=False):

@@ -139,24 +139,26 @@ Publishing policy for a ReID-enabled scene:
 - **Schema ready + write intent** — forward local vetted crops with
   `will_enroll: true`. Also set `enrolled: true` when the track already has a
   database id or pending enrollment vectors.
-- **Write intent but schema not ready** (TLS client certs present, or non-TLS
-  with explicit `REID_HOSTNAME` / `REID_DATABASE`) — **withhold local**
+- **Write intent but schema not ready** (TLS client certs present, or
+  `REID_USE_TLS=false` for non-mTLS ReID) — **withhold local**
   `metadata.reid` from hierarchy output until the schema is ready. Already-vetted
   **inherited** embeddings still forward so multi-hop relays keep working. This
   prevents the parent from sole-enrolling early local frames and avoids claiming
   `will_enroll` when the child cannot yet enroll.
-- **No write intent** (typical parent-only children without ReID certs or
-  explicit ReID endpoint env) — forward vetted crops without `will_enroll` so
-  the parent may sole-enroll.
+- **No write intent** (typical parent-only children: TLS default on, no ReID
+  client certs) — forward vetted crops without `will_enroll` so the parent may
+  sole-enroll.
+- **Write path unhealthy** — after a failed ReID database write, hierarchy
+  publish drops back to passthrough (no `will_enroll`) so the parent may
+  sole-enroll instead of leaving a permanent “nobody enrolls” gap.
 
 Relays preserve inherited provenance (including write-authority flags) rather
 than re-attributing the embedding. Controllers without ReID write intent leave
 the flags unset so parent-only passthrough enrollment still works.
 
-If schema initialization succeeds but later database writes fail (or ReID is
-disabled after slow queries), a parent may still honor `will_enroll` and skip
-sole enrollment while the child never flushes — a residual “nobody enrolls”
-failure mode under a broken write path.
+`REID_USE_TLS=false` is treated as an explicit non-mTLS ReID deployment choice
+and implies write intent even when hostname/database env vars use built-in
+defaults. Parent-only / passthrough children should keep the TLS default.
 
 The scene that first has a qualifying pixel bounding box stamps the
 provenance. Relaying scenes preserve the original provenance rather than
@@ -279,7 +281,8 @@ direct assignment.
   schema ready (inherited vetted embeddings still relay), then stamp
   `will_enroll` (and `enrolled` once the track owns a write) so the parent
   skips promotion even on a query miss; rematch proceeds once the child row
-  is visible. Residual risk remains if schema is ready but child writes fail.
+  is visible. If child database writes fail, hierarchy publish clears
+  `will_enroll` (passthrough) so the parent can sole-enroll.
 - The same minimum-area rule is evaluated in both publishing and receiving
   code paths. Configuration differences between scenes can produce different
   local acceptance standards.
@@ -411,8 +414,10 @@ The ReID design is covered by:
   on no-match, used to enhance a matched UUID's cluster, skipped for writes when
   `will_enroll`/`enrolled` is set, and that per-vector exact/absent scores
   control rematch enhancement;
-- scene tests proving that camera-provided provenance and top-level child
-  `reid` fields are discarded; and
+- scene-controller tests for hierarchy publish policy (passthrough / withhold /
+  will_enroll), including non-TLS write intent, write-health passthrough, and
+  withhold that still forwards inherited vetted reid (multi-hop unit coverage;
+  live multi-hop hierarchies remain out of the functional matrix); and
 - moving-object and scene-controller tests for provenance decoding and
   hierarchy publishing.
 
