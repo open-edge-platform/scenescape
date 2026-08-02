@@ -93,6 +93,9 @@ class UUIDManager:
     self.quality_features = {}
     # Embeddings this scope may contribute to the shared database: local camera crops only.
     self.enrollment_features = {}
+    # Local-camera subset of enrollment_features; preserved on exact rematch when
+    # forwarded query evidence is skipped as already stored.
+    self.local_enrollment_features = {}
     self.unique_id_count = 0
     self.stale_feature_timer = None
 
@@ -333,6 +336,7 @@ class UUIDManager:
       self.active_query.pop(track_id, None)
       self.quality_features.pop(track_id, None)
       self.enrollment_features.pop(track_id, None)
+      self.local_enrollment_features.pop(track_id, None)
       self.features_for_database_timestamps.pop(track_id, None)
       self._addNewFeaturesToDatabase(track_id)
     return
@@ -498,6 +502,8 @@ class UUIDManager:
       enrollment = self.enrollment_features.setdefault(sscape_object.rv_id, [])
       if self._appendUniqueEnrollmentEmbedding(enrollment, reid_embedding):
         if self.isEnrollableObservation(sscape_object, minimum_bbox_area):
+          local = self.local_enrollment_features.setdefault(sscape_object.rv_id, [])
+          self._appendUniqueEnrollmentEmbedding(local, reid_embedding)
           log.debug(
             f"gatherQualityVisualFeatures: Accepted local embedding for rv_id={sscape_object.rv_id} "
             f"(area={sscape_object.boundingBoxPixels.area:.4f} px^2)")
@@ -518,6 +524,9 @@ class UUIDManager:
     """
     if not self.mayContributeEnrollmentEmbedding(sscape_object):
       return
+    if self.isEnrollableObservation(sscape_object):
+      local = self.local_enrollment_features.setdefault(sscape_object.rv_id, [])
+      self._appendUniqueEnrollmentEmbedding(local, reid_embedding)
     entry = self.features_for_database.get(sscape_object.rv_id)
     if entry is not None:
       self._appendUniqueEnrollmentEmbedding(entry['reid_vectors'], reid_embedding)
@@ -586,12 +595,14 @@ class UUIDManager:
     # This allows downstream logic to distinguish "never queried" from "query made"
     start_time = get_epoch_time()
     similarity_scores = self.sendSimilarityQuery(sscape_object)
-    database_id, similarity = self.parseQueryResults(similarity_scores)
+    database_id, similarity, query_vector_scores = self.parseQueryResults(similarity_scores)
     with self.active_ids_lock:
       # Make sure object is still in active_ids before updating since there is a chance
       # that the similiarity search does not complete until after the object leaves
       if sscape_object.rv_id in self.active_ids:
-        self.updateActiveDict(sscape_object, database_id, similarity, query_timestamp=start_time)
+        self.updateActiveDict(
+          sscape_object, database_id, similarity, query_timestamp=start_time,
+          query_vector_scores=query_vector_scores)
       else:
         active_snapshot, _ = self._activeIdsSnapshot()
         if database_id is None:
@@ -650,14 +661,18 @@ class UUIDManager:
     When multiple candidates qualify, the one with the best metric value is returned
     according to descriptor semantics (highest for IP/COSINE, lowest for L2).
 
+    Also returns per-vector scores against the winning UUID (parallel to the query
+    vector list) so enrollment can skip only exact hits and still enhance with
+    near-duplicate views from the same query window.
+
     @param   similarity_scores  The similarity scores obtained from the database query
     @param   threshold          Similarity threshold interpreted according to metric semantics:
                   - L2-style distance: lower is better, candidate must be < threshold
                   - IP-style score: higher is better, candidate must be > threshold
-    @return  database_id        Returns the ID of the matched entry from the database if one
-                                is found; otherwise, returns None
-    @return  similarity         Similarity value returned by VDMS (`_distance` field) for
-                  the matched entry if one is found; otherwise, return None
+    @return  database_id           Matched database ID, or None
+    @return  similarity            Best score for the matched UUID, or None
+    @return  query_vector_scores   Per-query-vector score vs the matched UUID (or None
+                                   entries); None when there is no match
     """
     if threshold is None:
       threshold = self.similarity_threshold
@@ -666,7 +681,7 @@ class UUIDManager:
       log.warning(
         "parseQueryResults: Invalid similarity_scores shape; expected list[list[entity]]. "
         f"Received type={type(similarity_scores)}")
-      return None, None
+      return None, None, None
 
     if similarity_scores:
       metric_candidates = [self._findBestMetricCandidate(entities)
@@ -681,9 +696,33 @@ class UUIDManager:
         if count >= (len(metric_candidates) / 2):
           similarity = self._pickBestMetricValue(
             [item[1] for item in qualifying_candidates if item[0] == most_common_uuid])
-          return most_common_uuid, similarity
+          query_vector_scores = [
+            self._bestScoreForUuid(entities, most_common_uuid)
+            for entities in similarity_scores]
+          return most_common_uuid, similarity, query_vector_scores
 
-    return None, None
+    return None, None, None
+
+  def _bestScoreForUuid(self, entities, target_uuid):
+    """Best metric score among entities for target_uuid, or None if absent."""
+    if not entities or target_uuid is None:
+      return None
+    metric = getattr(self.reid_database, 'similarity_metric', None)
+    best = None
+    for entity in entities:
+      if str(entity.get('uuid')) != str(target_uuid):
+        continue
+      score = normalize_similarity_score(entity.get('_distance'), metric)
+      if score is None:
+        continue
+      if best is None:
+        best = score
+      elif is_higher_better_metric(metric):
+        if score > best:
+          best = score
+      elif score < best:
+        best = score
+    return best
 
   def _hasValidSimilarityScoreShape(self, similarity_scores):
     """Validate that query results follow the strict list-of-lists contract."""
@@ -785,16 +824,61 @@ class UUIDManager:
     duplicate_gids = {gid: rv_ids for gid, rv_ids in gid_index.items() if len(rv_ids) > 1}
     return snapshot, duplicate_gids
 
-  def updateActiveDict(self, sscape_object, database_id, similarity, query_timestamp=None):
+  def _queryEmbeddingIsExactHit(self, rv_id, reid_embedding, query_vector_scores, similarity):
+    """True when reid_embedding's aligned query score is exact (or aggregate fallback)."""
+    if query_vector_scores is not None:
+      quality = self.quality_features.get(rv_id, [])
+      candidate = np.asarray(reid_embedding, dtype=np.float32).reshape(-1)
+      for idx, vec in enumerate(quality):
+        if idx >= len(query_vector_scores):
+          break
+        if np.array_equal(np.asarray(vec, dtype=np.float32).reshape(-1), candidate):
+          return self._isExactRematchScore(query_vector_scores[idx])
+      return False
+    return self._isExactRematchScore(similarity)
+
+  def _enrollmentVectorsForMatch(self, rv_id, similarity, query_vector_scores):
+    """
+    Build the pending write list after a rematch.
+
+    Always keep local camera crops. Skip only query vectors whose per-vector score
+    against the matched UUID is exact; near matches still enhance. When per-vector
+    scores are unavailable, fall back to aggregate exact → locals only.
+    """
+    reid_vectors = []
+    for local_vec in self.local_enrollment_features.get(rv_id, []):
+      self._appendUniqueEnrollmentEmbedding(reid_vectors, local_vec)
+
+    enrollment = self.enrollment_features.get(rv_id, [])
+    if query_vector_scores is not None:
+      quality = self.quality_features.get(rv_id, [])
+      for idx, vec in enumerate(quality):
+        score = query_vector_scores[idx] if idx < len(query_vector_scores) else None
+        if self._isExactRematchScore(score):
+          continue
+        if not self._hasExactEnrollmentEmbedding(enrollment, vec):
+          continue
+        self._appendUniqueEnrollmentEmbedding(reid_vectors, vec)
+      return reid_vectors
+
+    if self._isExactRematchScore(similarity):
+      return reid_vectors
+    for vec in enrollment:
+      self._appendUniqueEnrollmentEmbedding(reid_vectors, vec)
+    return reid_vectors
+
+  def updateActiveDict(self, sscape_object, database_id, similarity, query_timestamp=None,
+                       query_vector_scores=None):
     """
     Updates the dictionary tracking the active tracker IDs and their corresponding database
     IDs. Also creates an entry in the features_for_database dictionary with semantic metadata
     to be added to the database when the track leaves the scene.
 
-    @param  sscape_object    The current Scenescape object
-    @param  database_id      The ID from the database (or newly generated if no match)
-    @param  similarity       The similarity score from the database (None if no match)
-    @param  query_timestamp  When the query was initiated
+    @param  sscape_object         The current Scenescape object
+    @param  database_id           The ID from the database (or newly generated if no match)
+    @param  similarity            The similarity score from the database (None if no match)
+    @param  query_timestamp       When the query was initiated
+    @param  query_vector_scores   Per-query-vector scores vs the matched UUID (optional)
     """
     if query_timestamp is None:
       query_timestamp = get_epoch_time()
@@ -841,12 +925,13 @@ class UUIDManager:
         f"updateActiveDict: Match found for {sscape_object.rv_id}: {database_id}, similarity={similarity}, state={ReidState.MATCHED.value}")
       self.active_ids[sscape_object.rv_id] = [database_id, similarity]
 
-      # Exact rematch: DB already holds this visual evidence — do not re-write it.
-      # Near matches still enhance the cluster (same idea as more camera views).
-      if not self._isExactRematchScore(similarity):
-        reid_embedding = self._extractReidEmbedding(sscape_object)
-        if reid_embedding is not None:
-          self._appendEnrollmentEmbedding(sscape_object, reid_embedding)
+      reid_embedding = self._extractReidEmbedding(sscape_object)
+      if (
+          reid_embedding is not None
+          and not self._queryEmbeddingIsExactHit(
+            sscape_object.rv_id, reid_embedding, query_vector_scores, similarity)
+      ):
+        self._appendEnrollmentEmbedding(sscape_object, reid_embedding)
 
     # MATCH FOUND - NO / NEW OBJECT
     else:
@@ -893,16 +978,16 @@ class UUIDManager:
 
     # Local and vetted forwarded crops land in enrollment_features at gather time.
     # On no-match with an empty set, promote quality_features so sole enrollment
-    # still works. On near-match, those vectors enhance the rematched UUID's cluster.
-    # On exact rematch, the query score already proves the evidence is stored — skip
-    # flushing that batch (no extra DB lookup).
+    # still works. On rematch, keep locals and any non-exact query vectors so one
+    # exact hit in a multi-vector query does not drop near-duplicate enhancements.
     reid_vectors = self.enrollment_features.setdefault(sscape_object.rv_id, [])
-    if matched_new_id and self._isExactRematchScore(similarity):
-      reid_vectors = []
+    if matched_new_id:
+      reid_vectors = self._enrollmentVectorsForMatch(
+        sscape_object.rv_id, similarity, query_vector_scores)
       log.debug(
-        f"updateActiveDict: Exact rematch for track {sscape_object.rv_id}; "
-        f"skipping re-write of query evidence already in the database")
-    elif not matched_new_id and not reid_vectors:
+        f"updateActiveDict: Rematch enrollment for track {sscape_object.rv_id}: "
+        f"{len(reid_vectors)} vector(s) after per-vector exact skip")
+    elif not reid_vectors:
       for promoted in self.quality_features.get(sscape_object.rv_id, []):
         self._appendUniqueEnrollmentEmbedding(reid_vectors, promoted)
       if reid_vectors:

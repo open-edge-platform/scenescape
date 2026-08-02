@@ -85,11 +85,12 @@ scene runs ReID on retracked children:
 - **Match** — rematch that UUID and **enhance** its embedding cluster with the
   vetted forwarded vectors (same idea as accumulating more camera views).
 
-Exact duplicate vectors are skipped while accumulating a track's pending
-enrollment list and within each `addEntry` batch (byte identity). When a rematch
-score is already exact, that query evidence is not written again — using the
-score from the query that just ran, with no extra backend lookup. Near-duplicate
-views still enhance the cluster.
+Exact rematch skips only query vectors whose **per-vector** score against the
+matched UUID is exact (from the query that just ran — no extra lookup). Local
+camera crops are always kept, and near-duplicate views from the same query
+window still enhance the cluster. When per-vector scores are unavailable, fall
+back to aggregate exact → locals only. In-memory and within-batch exact vector
+dedupe remains cheap.
 
 `isEnrollableObservation` remains the local-bbox gate; `mayContributeEnrollmentEmbedding`
 covers local crops and vetted forwarded crops for database writes. A future

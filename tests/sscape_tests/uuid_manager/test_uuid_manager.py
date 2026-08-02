@@ -24,7 +24,8 @@ from controller.moving_object import MovingObject, ReidState, Chronoloc
 from scene_common.geometry import Point, Rectangle
 import time
 
-def call_update_active_dict_locked(manager, sscape_object, database_id, similarity, query_timestamp=None):
+def call_update_active_dict_locked(manager, sscape_object, database_id, similarity,
+                                   query_timestamp=None, query_vector_scores=None):
   """Call updateActiveDict while holding active_ids_lock, matching production call pattern."""
   with manager.active_ids_lock:
     manager.updateActiveDict(
@@ -32,6 +33,7 @@ def call_update_active_dict_locked(manager, sscape_object, database_id, similari
       database_id=database_id,
       similarity=similarity,
       query_timestamp=query_timestamp,
+      query_vector_scores=query_vector_scores,
     )
 
 @pytest.fixture(autouse=True)
@@ -582,7 +584,7 @@ class TestUUIDManagerMetricAwareMatching:
       {'uuid': 'b', 'rvid': '2', '_distance': 0.6},
     ]
 
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
 
     assert database_id is None
     assert similarity is None
@@ -603,7 +605,7 @@ class TestUUIDManagerMetricAwareMatching:
       ],
     ]
 
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
 
     assert database_id == 'a'
     assert similarity == 0.8
@@ -624,7 +626,7 @@ class TestUUIDManagerMetricAwareMatching:
       ],
     ]
 
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
 
     assert database_id == 'a'
     assert similarity == 0.2
@@ -645,7 +647,7 @@ class TestUUIDManagerMetricAwareMatching:
       ],
     ]
 
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
 
     assert database_id == 'b'
     assert similarity == 0.9
@@ -665,7 +667,7 @@ class TestUUIDManagerMetricAwareMatching:
       ],
     ]
 
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
 
     assert database_id is None
     assert similarity is None
@@ -682,7 +684,7 @@ class TestUUIDManagerMetricAwareMatching:
       ]
     ]
 
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
 
     assert database_id is None
     assert similarity is None
@@ -699,7 +701,7 @@ class TestUUIDManagerMetricAwareMatching:
       ]
     ]
 
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
 
     assert database_id is None
     assert similarity is None
@@ -733,7 +735,7 @@ class TestUUIDManagerMetricAwareUpdateFlow:
     manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
 
     similarity_scores = [[{'uuid': 'db_match_1', 'rvid': '1', '_distance': 0.92}]]
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
     call_update_active_dict_locked(manager, obj, database_id=database_id, similarity=similarity)
 
     assert obj.reid_state == ReidState.MATCHED
@@ -765,7 +767,7 @@ class TestUUIDManagerMetricAwareUpdateFlow:
     manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
 
     similarity_scores = [[{'uuid': 'db_match_2', 'rvid': '2', '_distance': 0.2}]]
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
     call_update_active_dict_locked(manager, obj, database_id=database_id, similarity=similarity)
 
     assert database_id is None
@@ -1035,7 +1037,7 @@ class TestReidObservationTrust:
     assert manager.pool.submit.call_count == 1
 
   def test_exact_rematch_skips_rewriting_query_evidence(self, mock_vdms_db):
-    """Exact rematch score means the vector is already stored — no flush rewrite."""
+    """Exact rematch score means forwarded query evidence is already stored."""
     manager = UUIDManager()
     manager.pool = MagicMock()
     obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
@@ -1048,6 +1050,58 @@ class TestReidObservationTrust:
     assert manager.features_for_database["forwarded-track"]['reid_vectors'] == []
     manager._addNewFeaturesToDatabase("forwarded-track")
     assert manager.pool.submit.call_count == 0
+
+  def test_exact_rematch_keeps_local_camera_enrollment(self, mock_vdms_db):
+    """Exact rematch must not drop pending local camera crops still needing a write."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    local = _make_reid_object(
+      "mixed-track", bbox_area=10000,
+      embedding=np.arange(64, dtype=np.float32).tolist())
+    local.chain_data = None
+    forwarded = _make_reid_object(
+      "mixed-track", provenance=VETTED_PROVENANCE,
+      embedding=(np.arange(64, dtype=np.float32) + 10).tolist())
+
+    manager.gatherQualityVisualFeatures(local)
+    manager.gatherQualityVisualFeatures(forwarded)
+    call_update_active_dict_locked(
+      manager, local, database_id=42, similarity=1.0)
+
+    pending = manager.features_for_database["mixed-track"]['reid_vectors']
+    assert len(pending) == 1
+    assert np.array_equal(
+      np.asarray(pending[0], dtype=np.float32),
+      np.arange(64, dtype=np.float32))
+    manager._addNewFeaturesToDatabase("mixed-track")
+    assert manager.pool.submit.call_count == 1
+
+  def test_rematch_skips_only_exact_query_vectors(self, mock_vdms_db):
+    """One exact hit in a multi-vector query must not drop near-duplicate enhancements."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    exact_vec = np.arange(64, dtype=np.float32).tolist()
+    near_vec = (np.arange(64, dtype=np.float32) + 3).tolist()
+    first = _make_reid_object(
+      "forwarded-track", provenance=VETTED_PROVENANCE, embedding=exact_vec)
+    first.chain_data = None
+    second = _make_reid_object(
+      "forwarded-track", provenance=VETTED_PROVENANCE, embedding=near_vec)
+
+    manager.gatherQualityVisualFeatures(first)
+    manager.gatherQualityVisualFeatures(second)
+    # Aggregate best score is exact, but only the first query vector is exact.
+    call_update_active_dict_locked(
+      manager, second, database_id=42, similarity=1.0,
+      query_vector_scores=[1.0, 0.95])
+
+    pending = manager.features_for_database["forwarded-track"]['reid_vectors']
+    assert len(pending) == 1
+    assert np.array_equal(
+      np.asarray(pending[0], dtype=np.float32),
+      np.asarray(near_vec, dtype=np.float32))
+    manager._addNewFeaturesToDatabase("forwarded-track")
+    assert manager.pool.submit.call_count == 1
 
   def test_matched_forwarded_detection_appends_to_pending_entry(self, mock_vdms_db):
     """After rematch, a distinct vetted forwarded frame grows the pending entry."""
@@ -1090,4 +1144,5 @@ class TestReidObservationTrust:
     manager.pruneInactiveTracks([])
 
     assert "local-track" not in manager.enrollment_features
+    assert "local-track" not in manager.local_enrollment_features
     assert "local-track" not in manager.quality_features
