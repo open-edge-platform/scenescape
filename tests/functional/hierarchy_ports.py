@@ -5,6 +5,7 @@
 
 """Host-port allocation for multi-controller hierarchy ReID compose profiles."""
 
+import os
 import socket
 from contextlib import closing
 
@@ -20,6 +21,18 @@ _REID_ENDPOINTS = {
   "b": ("reid-b.scenescape.intel.com", "REID_B_PORT"),
 }
 
+HIERARCHY_PORT_ENV_KEYS = (
+  "PARENT_WEB_PORT",
+  "PARENT_BROKER_PORT",
+  "CHILD1_WEB_PORT",
+  "CHILD1_BROKER_PORT",
+  "CHILD2_WEB_PORT",
+  "CHILD2_BROKER_PORT",
+  "REID_SHARED_PORT",
+  "REID_A_PORT",
+  "REID_B_PORT",
+)
+
 
 def _free_port():
   with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
@@ -30,17 +43,14 @@ def _free_port():
 
 def allocate_hierarchy_ports():
   """Return env dict of unique host ports for parent/child1/child2/VDMS services."""
-  return {
-    "PARENT_WEB_PORT": str(_free_port()),
-    "PARENT_BROKER_PORT": str(_free_port()),
-    "CHILD1_WEB_PORT": str(_free_port()),
-    "CHILD1_BROKER_PORT": str(_free_port()),
-    "CHILD2_WEB_PORT": str(_free_port()),
-    "CHILD2_BROKER_PORT": str(_free_port()),
-    "REID_SHARED_PORT": str(_free_port()),
-    "REID_A_PORT": str(_free_port()),
-    "REID_B_PORT": str(_free_port()),
-  }
+  return {key: str(_free_port()) for key in HIERARCHY_PORT_ENV_KEYS}
+
+
+def clear_hierarchy_port_env(environ=None):
+  """Remove hierarchy host-port keys from *environ* (default ``os.environ``)."""
+  env = os.environ if environ is None else environ
+  for key in HIERARCHY_PORT_ENV_KEYS:
+    env.pop(key, None)
 
 
 def hierarchy_params(secrets_dir, supass, ports, role):

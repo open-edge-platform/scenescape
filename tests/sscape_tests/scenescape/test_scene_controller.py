@@ -472,3 +472,91 @@ class TestSceneControllerPublishers:
     scene_controller.publishRegulatedDetections.assert_called_once()
     scene_controller.publishRegionDetections.assert_called_once()
 
+
+class TestSceneControllerRemoteChildParent:
+  """Unit tests for remote-child parent injection and recovery (NEX-T21933)."""
+
+  TEST_NAME = "NEX-T21933"
+
+  def test_with_remote_child_parent_injects_when_missing(self):
+    """Omits or null parent are filled from the enclosing scene uid."""
+    info = {'remote_child_id': 'child-1', 'child_type': 'remote'}
+    assert SceneController._withRemoteChildParent(info, 'parent-uid')['parent'] == 'parent-uid'
+    assert SceneController._withRemoteChildParent(
+      {'remote_child_id': 'child-1', 'parent': None}, 'parent-uid')['parent'] == 'parent-uid'
+
+  def test_with_remote_child_parent_preserves_existing_parent(self):
+    """Existing parent values are left unchanged."""
+    info = {'remote_child_id': 'child-1', 'parent': 'already-set'}
+    assert SceneController._withRemoteChildParent(info, 'other')['parent'] == 'already-set'
+
+  def test_parent_uid_for_remote_child_finds_link(self):
+    """Positive: scan of child-scene links returns the enclosing parent uid."""
+    scene_controller = SceneController.__new__(SceneController)
+    parent = SimpleNamespace(uid='parent-1')
+    other = SimpleNamespace(uid='other-1')
+    scene_controller.cache_manager = MagicMock()
+    scene_controller.cache_manager.allScenes.return_value = [other, parent]
+    scene_controller.cache_manager.data_source.getChildScenes.side_effect = (
+      lambda uid: {
+        'other-1': {'results': []},
+        'parent-1': {'results': [
+          {'remote_child_id': 'remote-abc', 'child_type': 'remote'},
+        ]},
+      }[uid]
+    )
+
+    assert scene_controller._parentUidForRemoteChild('remote-abc') == 'parent-1'
+
+  def test_parent_uid_for_remote_child_returns_none_when_unlinked(self):
+    """Negative: unknown remote_child_id yields None."""
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.cache_manager = MagicMock()
+    scene_controller.cache_manager.allScenes.return_value = [
+      SimpleNamespace(uid='parent-1')]
+    scene_controller.cache_manager.data_source.getChildScenes.return_value = {
+      'results': [{'remote_child_id': 'someone-else', 'child_type': 'remote'}],
+    }
+
+    assert scene_controller._parentUidForRemoteChild('missing') is None
+
+  def test_handle_child_scene_object_recovers_missing_parent(self):
+    """Positive: DATA_EXTERNAL path recovers parent onto the cached remote scene."""
+    scene_controller = SceneController.__new__(SceneController)
+    parent_scene = MagicMock()
+    parent_scene.processSceneData.return_value = True
+    remote_sender = SimpleNamespace(
+      parent=None, name='remote', cameraPose=object())
+
+    scene_controller.cache_manager = MagicMock()
+    scene_controller.cache_manager.sceneWithID.side_effect = (
+      lambda uid: None if uid == 'remote-1' else parent_scene)
+    scene_controller.cache_manager.sceneWithRemoteChildID.return_value = remote_sender
+    scene_controller._parentUidForRemoteChild = MagicMock(return_value='parent-1')
+
+    success, scene = scene_controller._handleChildSceneObject(
+      'remote-1', {'objects': {}}, 'person', 1.0)
+
+    assert success is True
+    assert scene is parent_scene
+    assert remote_sender.parent == 'parent-1'
+    parent_scene.processSceneData.assert_called_once()
+
+  def test_handle_child_scene_object_fails_when_parent_unrecoverable(self):
+    """Negative: still errors when no parent link can be recovered."""
+    scene_controller = SceneController.__new__(SceneController)
+    remote_sender = SimpleNamespace(
+      parent=None, name='remote', cameraPose=object())
+
+    scene_controller.cache_manager = MagicMock()
+    scene_controller.cache_manager.sceneWithID.return_value = None
+    scene_controller.cache_manager.sceneWithRemoteChildID.return_value = remote_sender
+    scene_controller._parentUidForRemoteChild = MagicMock(return_value=None)
+
+    success, scene = scene_controller._handleChildSceneObject(
+      'remote-1', {'objects': {}}, 'person', 1.0)
+
+    assert success is False
+    assert scene is remote_sender
+    assert remote_sender.parent is None
+

@@ -872,14 +872,16 @@ class TestDimensionInference:
     assert "track_2" not in manager.quality_features, "128-dim embedding should be rejected after 64 inferred"
 
 
-def _make_reid_object(rv_id, *, bbox_area=None, provenance=None):
+def _make_reid_object(rv_id, *, bbox_area=None, provenance=None, embedding=None):
   """Build a detection whose embedding is either locally observed or forwarded to us."""
   obj = MagicMock()
   obj.rv_id = rv_id
   obj.category = "Person"
   obj.gid = None
   obj.metadata = {}
-  obj.reid = {"embedding_vector": np.arange(64, dtype=np.float32).tolist()}
+  if embedding is None:
+    embedding = np.arange(64, dtype=np.float32).tolist()
+  obj.reid = {"embedding_vector": list(embedding)}
   obj.boundingBoxPixels = None if bbox_area is None else SimpleNamespace(area=bbox_area)
   obj.reid_provenance = provenance
   return obj
@@ -924,15 +926,15 @@ class TestReidObservationTrust:
 
     assert "boundary-track" not in manager.quality_features
 
-  def test_vetted_forwarded_embedding_is_queried_but_never_enrolled(self, mock_vdms_db):
-    """A child's vetted crop lets the parent merge identities without re-enrolling it."""
+  def test_vetted_forwarded_embedding_feeds_query_and_enrollment(self, mock_vdms_db):
+    """Vetted forwarded crops query and may be written (sole enroll / cluster enhance)."""
     manager = UUIDManager()
     obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
 
     manager.gatherQualityVisualFeatures(obj)
 
     assert len(manager.quality_features["forwarded-track"]) == 1
-    assert "forwarded-track" not in manager.enrollment_features
+    assert len(manager.enrollment_features["forwarded-track"]) == 1
 
   def test_embedding_without_bbox_or_provenance_is_dropped(self, mock_vdms_db):
     """Nothing vouches for an embedding that arrives with neither, so it is unusable."""
@@ -963,19 +965,23 @@ class TestReidObservationTrust:
     assert "claimed-track" not in manager.quality_features
     assert "claimed-track" not in manager.enrollment_features
 
-  def test_provenance_cannot_make_a_forwarded_embedding_enrollable(self, mock_vdms_db):
-    """Only a measurable local bbox authorizes writing into the shared database."""
+  def test_forwarded_is_not_locally_enrollable_but_may_contribute_writes(self, mock_vdms_db):
+    """Local-bbox gate stays false; vetted forward still may contribute to a UUID write."""
     manager = UUIDManager()
     obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
 
     assert manager.isQueryableObservation(obj) is True
     assert manager.isEnrollableObservation(obj) is False
+    assert manager.mayContributeEnrollmentEmbedding(obj) is True
 
-  def test_database_entry_holds_only_locally_observed_features(self, mock_vdms_db):
-    """Forwarded embeddings help resolve identity but are not this scene's to store."""
+  def test_database_entry_includes_local_and_forwarded_enrollment_features(
+      self, mock_vdms_db):
+    """Mixed tracks accumulate distinct local and vetted forwarded vectors."""
     manager = UUIDManager()
     local = _make_reid_object("mixed-track", bbox_area=10000)
-    forwarded = _make_reid_object("mixed-track", provenance=VETTED_PROVENANCE)
+    forwarded = _make_reid_object(
+      "mixed-track", provenance=VETTED_PROVENANCE,
+      embedding=(np.arange(64, dtype=np.float32) + 10).tolist())
     forwarded.chain_data = None
 
     manager.gatherQualityVisualFeatures(local)
@@ -986,10 +992,21 @@ class TestReidObservationTrust:
     assert len(manager.quality_features["mixed-track"]) == 3
     assert manager.features_for_database["mixed-track"]['reid_vectors'] == \
       manager.enrollment_features["mixed-track"]
-    assert len(manager.features_for_database["mixed-track"]['reid_vectors']) == 1
+    assert len(manager.features_for_database["mixed-track"]['reid_vectors']) == 2
 
-  def test_forwarded_only_track_contributes_nothing_to_the_database(self, mock_vdms_db):
-    """A parent that only ever sees forwarded crops never writes to the shared database."""
+  def test_exact_duplicate_enrollment_vectors_are_skipped(self, mock_vdms_db):
+    """Repeating the same forwarded embedding does not grow the enrollment list."""
+    manager = UUIDManager()
+    obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
+
+    manager.gatherQualityVisualFeatures(obj)
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert len(manager.quality_features["forwarded-track"]) == 2
+    assert len(manager.enrollment_features["forwarded-track"]) == 1
+
+  def test_forwarded_only_no_match_enrolls(self, mock_vdms_db):
+    """Parent-only ReID: no prior enrollment → parent enrolls vetted forwarded crops."""
     manager = UUIDManager()
     manager.pool = MagicMock()
     obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
@@ -997,12 +1014,59 @@ class TestReidObservationTrust:
 
     manager.gatherQualityVisualFeatures(obj)
     call_update_active_dict_locked(manager, obj, database_id=None, similarity=None)
-    manager._addNewFeaturesToDatabase("forwarded-track")
 
+    assert len(manager.features_for_database["forwarded-track"]['reid_vectors']) == 1
+    manager._addNewFeaturesToDatabase("forwarded-track")
+    assert manager.pool.submit.call_count == 1
+
+  def test_forwarded_only_match_enhances_cluster(self, mock_vdms_db):
+    """Near rematch still writes vetted forwarded vectors under the matched UUID."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
+    obj.chain_data = None
+
+    manager.gatherQualityVisualFeatures(obj)
+    call_update_active_dict_locked(
+      manager, obj, database_id=42, similarity=0.99)
+
+    assert len(manager.features_for_database["forwarded-track"]['reid_vectors']) == 1
+    manager._addNewFeaturesToDatabase("forwarded-track")
+    assert manager.pool.submit.call_count == 1
+
+  def test_exact_rematch_skips_rewriting_query_evidence(self, mock_vdms_db):
+    """Exact rematch score means the vector is already stored — no flush rewrite."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
+    obj.chain_data = None
+
+    manager.gatherQualityVisualFeatures(obj)
+    call_update_active_dict_locked(
+      manager, obj, database_id=42, similarity=1.0)
+
+    assert manager.features_for_database["forwarded-track"]['reid_vectors'] == []
+    manager._addNewFeaturesToDatabase("forwarded-track")
     assert manager.pool.submit.call_count == 0
 
-  def test_matched_forwarded_detection_does_not_append_to_pending_entry(self, mock_vdms_db):
-    """Once matched, only locally observed embeddings keep growing the pending entry."""
+  def test_matched_forwarded_detection_appends_to_pending_entry(self, mock_vdms_db):
+    """After rematch, a distinct vetted forwarded frame grows the pending entry."""
+    manager = UUIDManager()
+    local = _make_reid_object("mixed-track", bbox_area=10000)
+    local.chain_data = None
+    forwarded = _make_reid_object(
+      "mixed-track", provenance=VETTED_PROVENANCE,
+      embedding=(np.arange(64, dtype=np.float32) + 5).tolist())
+
+    manager.gatherQualityVisualFeatures(local)
+    call_update_active_dict_locked(manager, local, database_id=None, similarity=None)
+    stored = len(manager.features_for_database["mixed-track"]['reid_vectors'])
+    manager.pickBestID(forwarded)
+
+    assert len(manager.features_for_database["mixed-track"]['reid_vectors']) == stored + 1
+
+  def test_matched_exact_duplicate_forwarded_detection_does_not_append(self, mock_vdms_db):
+    """Exact same vector already pending is not appended again after rematch."""
     manager = UUIDManager()
     local = _make_reid_object("mixed-track", bbox_area=10000)
     local.chain_data = None

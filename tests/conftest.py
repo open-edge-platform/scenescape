@@ -655,6 +655,10 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     except Exception as exc:
       logger.warning("compose down failed: %s", exc)
 
+    if hierarchy_ports:
+      from tests.functional.hierarchy_ports import clear_hierarchy_port_env
+      clear_hierarchy_port_env()
+
     bare_docker = DockerClient()
     for vol in [
       f"{project_name}_vol-models",

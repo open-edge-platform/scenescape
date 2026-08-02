@@ -263,12 +263,14 @@ When an object is first detected, it is assigned a UUID and no similarity score.
 
 The scene output includes `reid_state` for each tracked object. For canonical state definitions and lifecycle transitions, see [2-Tier Hybrid Search Implementation](../microservices/controller/Extended-ReID.md#reid-object-states). For output field contract details, see [Scene Controller Data Formats](../microservices/controller/data_formats.md#common-output-track-fields).
 
-In a scene hierarchy, a parent scene can match identities using embeddings its children forward, but only the scene that owns the source camera adds them to the database. See [Embeddings in a Scene Hierarchy](../microservices/controller/Extended-ReID.md#embeddings-in-a-scene-hierarchy).
+In a scene hierarchy, a parent scene can match identities using embeddings its children forward. Query first: if the crop is already enrolled, rematch only; if not (for example parent-only ReID), the parent may enroll under its UUID. See [Embeddings in a Scene Hierarchy](../microservices/controller/Extended-ReID.md#embeddings-in-a-scene-hierarchy).
 
-When each floor or site runs its **own** Scene Controller on the same machine,
-point every participating controller at one vector DB hostname to share
-identity space, or use separate DB services to isolate it. See
-[Sharing a ReID Backend Across Controllers](../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#sharing-a-reid-backend-across-controllers).
+For multi-controller setups: **unrelated** scenes may **share** one ReID backend
+or use **separate** instances. In a **hierarchy**, do not split backends across
+children when you expect one identity space. **Parent-only ReID** with children
+forwarding embeddings (no local child ReID) is supported—parent enrolls on
+query-no-match; see
+[ReID across controllers](../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#reid-across-controllers-what-is-supported).
 
 > **Known Issue**: Current VDMS implementation does not support feature expiration, leading to degraded performance over time. This will be addressed in a future release.
 

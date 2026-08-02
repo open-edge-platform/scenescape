@@ -626,6 +626,14 @@ class SceneController:
                                      detection_type, when=msg_when)
     return success, scene
 
+  @staticmethod
+  def _withRemoteChildParent(info, parent_uid):
+    """Copy remote-child REST *info* and ensure ``parent`` is set to *parent_uid*."""
+    remote_info = dict(info)
+    if not remote_info.get('parent'):
+      remote_info['parent'] = parent_uid
+    return remote_info
+
   def _parentUidForRemoteChild(self, remote_child_id):
     """Return the parent scene uid that links *remote_child_id*, or None."""
     for scene in self.cache_manager.allScenes():
@@ -808,9 +816,7 @@ class SceneController:
             else:
               # Remote child payloads may omit parent (or leave it null). The
               # enclosing scene is the parent by construction of this query.
-              remote_info = dict(info)
-              if not remote_info.get('parent'):
-                remote_info['parent'] = scene.uid
+              remote_info = self._withRemoteChildParent(info, scene.uid)
               child_obj = ChildSceneController(self.root_cert, remote_info, self)
               self.cache_manager.cached_child_transforms_by_uid[remote_info['remote_child_id']] = \
                 Scene.deserialize(remote_info)

@@ -22,18 +22,24 @@ deploy-certificates: ca broker-cert web-cert reid-cert reid-s-cert autocalibrati
 
 deploy-csr: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr
 
-# EXTRA_HOSTS: additional DNS SANs (space-separated host labels, no domain).
-# Used by multi-controller hierarchy tests (parent-/child*-web/broker, reid-*).
+# EXTRA_HOSTS: optional additional DNS SANs (space-separated host labels, no
+# domain). Empty by default. Hierarchy tests pass values via the root
+# `certificates` target (BROKER_EXTRA_HOSTS / WEB_EXTRA_HOSTS / REID_S_EXTRA_HOSTS).
+EXTRA_HOSTS ?=
+BROKER_EXTRA_HOSTS ?=
+WEB_EXTRA_HOSTS ?=
+REID_S_EXTRA_HOSTS ?=
+
 broker-cert: HOST=broker
 broker-cert: KEY_USAGE=serverAuth
-broker-cert: EXTRA_HOSTS=parent-broker child1-broker child2-broker
+broker-cert: EXTRA_HOSTS=$(BROKER_EXTRA_HOSTS)
 broker-cert: \
 	$(SECRETSDIR)/certs/scenescape-broker.key \
 	$(SECRETSDIR)/certs/scenescape-broker.crt \
 
 web-cert: HOST=web
 web-cert: KEY_USAGE=serverAuth
-web-cert: EXTRA_HOSTS=parent-web child1-web child2-web
+web-cert: EXTRA_HOSTS=$(WEB_EXTRA_HOSTS)
 web-cert: \
 	$(SECRETSDIR)/certs/scenescape-web.key \
 	$(SECRETSDIR)/certs/scenescape-web.crt \
@@ -46,7 +52,7 @@ reid-cert: \
 
 reid-s-cert: HOST=reid
 reid-s-cert: KEY_USAGE=serverAuth
-reid-s-cert: EXTRA_HOSTS=reid-shared reid-a reid-b
+reid-s-cert: EXTRA_HOSTS=$(REID_S_EXTRA_HOSTS)
 reid-s-cert: \
 	$(SECRETSDIR)/certs/scenescape-reid-s.key \
 	$(SECRETSDIR)/certs/scenescape-reid-s.crt \

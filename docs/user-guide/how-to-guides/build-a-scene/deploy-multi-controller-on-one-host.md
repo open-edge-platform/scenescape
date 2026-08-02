@@ -9,8 +9,9 @@ By completing this guide, you will:
 
 - Understand when you need more than one Scene Controller on one host.
 - Co-locate parent and child stacks without port or certificate collisions.
-- Optionally share one ReID vector database across controllers, or keep split
-  backends when identities must not merge.
+- Apply the **supported** ReID rules: unrelated scenes may share a DB or use
+  separate instances; in a hierarchy avoid split backends, allow parent-only
+  ReID when children only passthrough embeddings.
 
 ---
 
@@ -18,9 +19,12 @@ By completing this guide, you will:
 
 | Goal | Use |
 |------|-----|
-| Nested floor plans / ROIs under one tracker and one ReID process | **Local** child scenes on one controller |
-| Independent Manager databases, MQTT brokers, or ReID backends per site/floor | **Remote** children (separate controllers) |
-| Reproduce “parent has ReID / child does not” (or split DBs) literally | **Remote** children — ReID is per Scene Controller process, not per scene |
+| Nested floor plans / ROIs under one tracker and one ReID process | **Local** child scenes on one controller (preferred) |
+| Separate Manager DBs / brokers per site while one parent aggregates | **Remote** children; share one ReID if children enroll, or parent-only ReID if children only forward embeddings |
+
+Prefer **local** children whenever a single controller can own the hierarchy.
+Use remote children only for operational isolation (separate stacks), not to
+invent mixed ReID topologies.
 
 On one host, remote children still use the same remote-child link UI and MQTT
 `DATA_EXTERNAL` path as controllers on different machines. The only difference
@@ -40,7 +44,7 @@ flowchart LR
       CBroker[child-broker]
       CScene[child-scene]
     end
-    VDMS[(ReID DB optional shared)]
+    VDMS[(One shared ReID DB)]
   end
   PScene -->|"remote MQTT DATA_EXTERNAL"| CBroker
   PScene --> VDMS
@@ -111,12 +115,24 @@ all controllers:
 - One `controller.auth` / `browser.auth` for MQTT and REST automation
 - Shared ReID client/server certs when any controller uses ReID
 
-Generate certificates with extra hostnames via `EXTRA_HOSTS` in
-`tools/certificates/Makefile` (broker/web/reid-s targets already support
-parent/child/reid aliases used by the hierarchy tests):
+Generate certificates with extra hostnames via `BROKER_EXTRA_HOSTS` /
+`WEB_EXTRA_HOSTS` / `REID_S_EXTRA_HOSTS` (empty by default in
+`tools/certificates`; the repo root `make certificates` / `init-secrets`
+passes hierarchy aliases for tests):
 
 ```bash
-make -C tools/certificates deploy-certificates CERTPASS=<passphrase>
+make certificates
+# Or explicitly:
+make -C tools/certificates deploy-certificates CERTPASS=<passphrase> \
+  BROKER_EXTRA_HOSTS='parent-broker child1-broker child2-broker' \
+  WEB_EXTRA_HOSTS='parent-web child1-web child2-web' \
+  REID_S_EXTRA_HOSTS='reid-shared reid-a reid-b'
+```
+
+For minimal SANs without hierarchy names:
+
+```bash
+make certificates BROKER_EXTRA_HOSTS= WEB_EXTRA_HOSTS= REID_S_EXTRA_HOSTS=
 ```
 
 Regenerate after changing SAN lists so TLS hostname checks succeed for every
@@ -164,67 +180,111 @@ Full UI steps: [Add a remote child scene](./configure-hierarchy-of-scenes.md#ste
 
 ---
 
-## Sharing a ReID Backend Across Controllers
+## ReID Across Controllers (What Is Supported)
 
-ReID runs **inside each Scene Controller** that was started with ReID enabled
-(`REID_DATABASE`, client certs, and a reachable vector DB). Controllers do not
-inherit ReID from their parent scene link.
+ReID runs **inside each Scene Controller** (`REID_DATABASE`, client certs, vector
+DB). Controllers do not inherit ReID from a parent scene link.
 
-### Shared database (recommended for cross-child identity)
+### Unrelated scenes: share a DB or use separate instances
 
-Run **one** VDMS or Qdrant instance and point every participating controller at
-it:
+Two scenes (or two Scene Controllers) that are **not** linked as parent/child
+may:
+
+- **Share** one vector database — common identity pool across independent
+  floors/buildings/demos; each scene enrolls from its own cameras; or
+- **Use separate ReID instances** — fully isolated identity spaces.
+
+Neither choice requires a hierarchy link. Hierarchy rules below apply only when
+scenes **are** parent/child and you care how identity moves across that link.
+
+### Who enrolls vs who only queries
+
+| Observation | Enrolls into the ReID DB? | May query the ReID DB? |
+|-------------|---------------------------|-------------------------|
+| Detection from a **camera on this controller** (pixel bbox passes `minimum_bbox_area`) | **Yes** (this scene owns the crop) | Yes |
+| Detection **forwarded from a child** (`retrack=True`) with vetted provenance | **Yes** when this scene has ReID: sole enroll on query-no-match; **enhance** the matched UUID's cluster after rematch. A future `enrolled` flag may skip writes when a child already committed enrollment | Yes, if this controller has ReID |
+| Forwarded child detection with `retrack=False` | No | No (reid stripped; child id kept) |
+
+So a **parent camera** always enrolls on the parent. A **child camera** crop is
+enrolled by a child with ReID when present; otherwise a parent with ReID may
+sole-enroll that forwarded crop after a miss, and after a rematch may keep
+**enhancing** that UUID's embedding cluster (like additional camera views).
+
+### Retrack when using ReID in a hierarchy
+
+Children assign each track its own object UUID before forwarding. What the
+parent does with that depends on **Retrack**:
+
+| Retrack | Parent behavior | Identity outcome with ReID |
+|---------|-----------------|----------------------------|
+| **Off** | Keeps the child’s UUID; **strips** forwarded reid; does not run parent UUID/ReID on that object | **No fusion.** If the child also enrolled under that UUID and the parent later enrolls the same person from a **parent camera**, the shared DB can hold **separate UUIDs** for one person. |
+| **On** | Re-tracks; **queries** with provenance; sole-enrolls on no-match; enhances matched UUID clusters with further forwarded vectors | Parent rematches IDs already in the DB, or becomes sole enroller when children have no ReID. |
+
+**Recommendation:** if the hierarchy uses ReID and you care about a single
+identity space across children and parent cameras, **enable Retrack** on those
+child links. Leaving Retrack off is appropriate when you want the child’s IDs
+authoritative and do **not** expect parent-level ReID fusion.
+
+### Hierarchy: supported ReID layouts
+
+| Configuration | When to use |
+|---------------|-------------|
+| **No ReID anywhere** in the hierarchy | Tracking / ROIs only |
+| **Shared ReID on parent and every camera-owning child** | Children rematch locally **and** enroll; parent queries the same DB (and must not re-enroll on match) |
+| **ReID on parent only; children forward embeddings** (no child ReID) | Children passthrough detector embeddings + provenance; parent queries and **enrolls on no-match** under parent UUIDs |
+| **Local** children on one controller with that controller’s ReID | Preferred single-process hierarchy |
+
+**Parent-only ReID (children as passthrough)** is supported when:
+
+- Each child still publishes hierarchy reid with vetted provenance for
+  qualifying crops (embedding passthrough — not a child vector-DB client); and
+- **Retrack** is on so the parent runs UUID/ReID on forwarded objects. The
+  parent enrolls child-only crops when the DB has no row yet, then rematches
+  siblings sequentially to that UUID.
+
+When children **do** need local rematch/enrollment, put them on the **same**
+shared backend as the parent so sibling enrollments do not fork into separate
+identity spaces.
+
+Supported shared-DB wiring (every controller that uses that instance):
 
 ```yaml
 environment:
-  REID_DATABASE: VDMS          # or QDRANT
+  REID_DATABASE: VDMS          # or QDRANT — same value for that shared instance
   REID_HOSTNAME: reid.scenescape.intel.com
   REID_PORT: "55555"
   REID_USE_TLS: "true"
 ```
 
-Mount the same ReID client certificates on each scene service. The DB service
-needs a network alias matching `REID_HOSTNAME` and the shared server cert SANs.
+Mount matching ReID client certificates. The DB needs a network alias matching
+`REID_HOSTNAME` and matching server-cert SANs.
 
-Behavior with a shared DB and hierarchy provenance:
+For hierarchy rematch with a shared backend, **enable Retrack** (see
+[above](#retrack-when-using-reid-in-a-hierarchy)). Durable continuity across
+children that enroll is primarily **sequential** rematch
+([ADR 0015](../../../adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity)).
 
-- The scene that owns the camera **enrolls** qualifying crops.
-- A parent with **Retrack** enabled may **query** using forwarded embeddings
-  (with provenance) but must not enroll the same crop again.
-- Controllers without ReID still forward objects; they simply do not enroll or
-  query.
+### Hierarchy: unsupported ReID mixes
 
-See [Embeddings in a Scene Hierarchy](../../microservices/controller/Extended-ReID.md#embeddings-in-a-scene-hierarchy)
-and [Re-identification in hierarchy](./configure-hierarchy-of-scenes.md#re-identification-support-in-hierarchy).
+| Avoid **inside one hierarchy** | Why |
+|--------------------------------|-----|
+| **Split ReID databases** on different children (or child vs parent) when you expect one identity space | Enrollments do not join; parent cannot rematch across DBs |
+| **Some children on DB A, others on DB B** (or only some children on a DB) while expecting unified people at the parent | Competing / partial identity spaces |
+| **Children with ReID, parent without**, when you expect the parent to rematch via the DB | Parent never queries |
+| **Retrack off** on ReID hierarchies when you also expect parent cameras and children to share one durable UUID | No fusion; child enrollments and parent-camera enrollments can fork into separate DB UUIDs |
+| Mixing **VDMS and Qdrant** among controllers that should share one identity space | Not one backend |
 
-### Partial sharing
-
-Examples:
-
-- Children enroll into a shared DB; parent has no ReID → parent shows tracks but
-  cannot rematch via the vector DB.
-- Parent + some children share a DB; another child has no ReID → that child
-  does not contribute enrollments and will not merge via ReID at the parent.
-
-Wire this by enabling ReID only on the controllers that should participate and
-pointing those at the same `REID_HOSTNAME`.
-
-### Split databases (no cross-merge)
-
-Give each group its own vector DB service and hostname (for example
-`reid-a.scenescape.intel.com` and `reid-b.scenescape.intel.com`), each with a
-unique host port if exposed. Controllers in different groups will not see each
-other’s enrollments, so parent-level ReID cannot merge identities across those
-groups even when embeddings match.
-
-Use split DBs when you intentionally want isolated identity spaces.
+Isolated identity for unrelated sites: give them **separate** ReID instances (or
+share one deliberately)—no hierarchy required either way.
 
 ### Backend choice
 
-VDMS and Qdrant remain mutually exclusive **per controller**. For a shared DB,
-every controller that connects should use the same `REID_DATABASE` value and
-the same logical service. Switching backends:
+VDMS and Qdrant remain mutually exclusive **per vector-database instance**. Every
+controller that shares one instance must use the same `REID_DATABASE` value and
+hostname for that instance.
 [Selecting the ReID vector database backend](../../other-topics/how-to-enable-reidentification.md#selecting-the-reid-vector-database-backend).
+
+See also [Embeddings in a Scene Hierarchy](../../microservices/controller/Extended-ReID.md#embeddings-in-a-scene-hierarchy).
 
 ---
 
@@ -250,8 +310,13 @@ machine.
 - [ ] Each broker accepts MQTT with the expected auth and CA.
 - [ ] Parent remote-child status is connected for every child.
 - [ ] Parent regulated MQTT shows child objects after transform.
-- [ ] If ReID is shared: one vector DB; camera-owning scenes enroll once;
-      retracking parents query without double-enrolling.
+- [ ] ReID for unrelated stacks: shared DB **or** separate instances, as needed.
+- [ ] Inside a hierarchy: no split backends across children when unifying
+      identity; parent-only ReID (children passthrough) enrolls child-only crops
+      on query-no-match; when children need local rematch, share one backend.
+- [ ] If the hierarchy uses ReID and you want one identity space, **Retrack is
+      on** for those child links (Retrack off → no fusion; risk of separate DB
+      UUIDs from child vs parent-camera enrollments).
 - [ ] Clocks stay aligned (single NTP or equivalent).
 
 ---

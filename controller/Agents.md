@@ -620,9 +620,11 @@ logger.error(f"Tracking failed for object {obj_id}") # Errors
 - `child_scene_controller.py` + `scene.py`: local vs remote children, retrack,
   transform application, forwarded ReID provenance handling.
 - Remote REST payloads may omit `parent`. When creating remote
-  `ChildSceneController` instances, inject the enclosing scene uid; at message
-  time `_parentUidForRemoteChild` recovers parent if still missing
-  (`scene_controller.py`).
+  `ChildSceneController` instances, inject the enclosing scene uid
+  (`_withRemoteChildParent`); at message time `_parentUidForRemoteChild`
+  recovers parent if still missing (`scene_controller.py`). Unit coverage:
+  `TestSceneControllerRemoteChildParent` in
+  `tests/sscape_tests/scenescape/test_scene_controller.py` (NEX-T21933).
 - Deployment / single-host multi-controller setup (ports, shared secrets, shared
   or split ReID): [Deploy Multiple Controllers on One Host](../docs/user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md).
 - Functional fixtures for that topology: testing skill

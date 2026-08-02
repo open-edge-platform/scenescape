@@ -168,20 +168,50 @@ _Figure 8: Set Regulate and External Update rate in scene config._
 
 ## Re-identification Support in Hierarchy
 
+**Hierarchy ReID rules (short):**
+
+- Prefer local children on one controller when practical.
+- **Unrelated** controllers may **share** one ReID DB or run **separate**
+  instances.
+- Under one parent, do **not** give different children (or child vs parent)
+  **different** ReID databases if you expect one identity space.
+- **Parent-owned cameras:** parent enrolls. **Child-forwarded** embeddings
+  (`retrack=True`): parent queries with provenance; sole-enrolls on
+  query-no-match when the child has no ReID; after rematch, enhances that
+  UUID's embedding cluster with further vetted forwarded vectors.
+- When using ReID in a hierarchy and you want one identity space across
+  children and parent cameras, **enable Retrack**. With Retrack **off**, the
+  parent keeps child UUIDs and strips reid—no fusion—so child enrollments and
+  parent-camera enrollments can land in the DB under **different** UUIDs.
+- **Parent ReID + children without ReID** (embedding passthrough) is
+  [supported](./deploy-multi-controller-on-one-host.md#hierarchy-supported-reid-layouts):
+  parent enrolls child-only crops on no-match and rematches siblings to that UUID.
+- When children need local rematch, put parent and those children on the
+  **same** shared backend.
+
+Scenes that are **not** in a parent/child relationship:
+[share or separate ReID](./deploy-multi-controller-on-one-host.md#unrelated-scenes-share-a-db-or-use-separate-instances).
+
 How a parent scene handles identity depends on the **Retrack** setting of each child link:
 
-- **Retrack disabled**: the child's identities are taken as final. The parent forwards child
-  objects with the UUIDs the child assigned and does not re-identify them.
-- **Retrack enabled**: the parent runs its own tracker and re-identification over the child's
-  detections, so observations of the same person arriving from several children (and from the
-  parent's own cameras) collapse into one track with a single parent-assigned UUID.
+- **Retrack disabled**: the child's identities are taken as final. The parent
+  forwards child objects with the UUIDs the child assigned, strips forwarded
+  reid, and does not re-identify them. **Do not use this with ReID** if you
+  expect parent cameras and children to share one durable UUID—enable Retrack
+  instead ([details](./deploy-multi-controller-on-one-host.md#retrack-when-using-reid-in-a-hierarchy)).
+- **Retrack enabled**: the parent runs its own tracker, queries its ReID
+  database with forwarded embeddings (when present and provenance-vetted), and
+  enrolls those crops only on query-no-match. Durable rematch to enrolled IDs
+  is reliable when tracks rematch **sequentially**; two live parent tracks will
+  not both adopt the same database UUID
+  ([ADR 0015](../../../adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity)).
+  Geometric tracker merge can still collapse detections that project to the same place.
 
 Embeddings a child forwards carry the id of the scene and camera that produced them, along with
 confirmation that the crop passed the `minimum_bbox_area` quality gate where it was measured. A
 parent uses those embeddings to match identities, but only the scene that owns the source camera
-contributes them to the re-identification database, so one crop is never enrolled twice under
-different identities.
+(and has ReID enrollment enabled) contributes them to the re-identification database.
 
 > Refer to [Re-identification Guide](../../other-topics/how-to-enable-reidentification.md) for more details.
-> For co-located controllers that share or split a ReID backend, see
-> [Deploy Multiple Controllers on One Host](./deploy-multi-controller-on-one-host.md#sharing-a-reid-backend-across-controllers).
+> Full matrix:
+> [ReID Across Controllers](./deploy-multi-controller-on-one-host.md#reid-across-controllers-what-is-supported).

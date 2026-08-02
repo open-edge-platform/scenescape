@@ -9,6 +9,7 @@ import math
 import numpy as np
 
 from controller.reid_constants import (
+  COSINE_SIMILARITY_TOLERANCE,
   DEFAULT_CONFIG_SIMILARITY_METRIC,
   DEFAULT_MINIMUM_BBOX_AREA,
   SUPPORTED_CONFIG_SIMILARITY_METRICS,
@@ -379,18 +380,16 @@ class UUIDManager:
 
   def isEnrollableObservation(self, sscape_object, minimum_bbox_area=None):
     """
-    Check whether this scope observed the object well enough to enroll its embedding.
+    Check whether this scope observed the object via a local camera crop.
 
-    Enrollment requires a pixel-space bounding box, which exists only for detections
-    from a camera belonging to this scene. Objects forwarded from a child scene arrive
-    in world coordinates with no bbox, so the crop they came from belongs to -- and is
-    contributed to the shared database by -- the scene that owns that camera. Claimed
-    provenance never substitutes for a local bbox here; otherwise an upstream producer
-    could write into the database on this scene's behalf.
+    A qualifying pixel-space bounding box marks a detection from a camera on this
+    scene. Forwarded embeddings are not locally enrollable by this gate; they may
+    still be written through mayContributeEnrollmentEmbedding when vetted (sole
+    enrollment on no-match, or cluster enhancement after rematch).
 
     @param   sscape_object      The Scenescape object to evaluate
     @param   minimum_bbox_area  Optional override for minimum pixel bbox area (px^2)
-    @return  bool               True when the embedding may be stored in the database
+    @return  bool               True when the embedding is a local enrollable crop
     """
     if minimum_bbox_area is None:
       minimum_bbox_area = self.minimum_bbox_area
@@ -421,16 +420,62 @@ class UUIDManager:
       return False
     return is_vetted_provenance(getattr(sscape_object, 'reid_provenance', None))
 
+  def mayContributeEnrollmentEmbedding(self, sscape_object, minimum_bbox_area=None):
+    """
+    Check whether an embedding may be stored against a UUID in the shared database.
+
+    Local camera crops always may. Vetted forwarded embeddings may as well when this
+    scene runs ReID on retracked children: sole enrollment on query-no-match, and
+    cluster enhancement after a rematch (same idea as accumulating multi-camera
+    vectors). Retrack-off paths strip reid before UUIDManager, so they never reach
+    here.
+
+    @param   sscape_object      The Scenescape object to evaluate
+    @param   minimum_bbox_area  Optional override for minimum pixel bbox area (px^2)
+    @return  bool               True when the embedding may be written for a UUID
+    """
+    if self.isEnrollableObservation(sscape_object, minimum_bbox_area):
+      return True
+    return self.isQueryableObservation(sscape_object, minimum_bbox_area)
+
+  def _isExactRematchScore(self, similarity):
+    """True when a rematch score means the query vector(s) are already stored."""
+    if similarity is None:
+      return False
+    try:
+      score = float(similarity)
+    except (TypeError, ValueError):
+      return False
+    if not math.isfinite(score):
+      return False
+    if self._isHigherBetterMetric():
+      return math.isclose(score, 1.0, rel_tol=0.0, abs_tol=COSINE_SIMILARITY_TOLERANCE)
+    return score <= COSINE_SIMILARITY_TOLERANCE
+
+  def _hasExactEnrollmentEmbedding(self, embeddings, reid_embedding):
+    """True when reid_embedding is already present as an exact float32 vector."""
+    candidate = np.asarray(reid_embedding, dtype=np.float32).reshape(-1)
+    for existing in embeddings:
+      if np.array_equal(np.asarray(existing, dtype=np.float32).reshape(-1), candidate):
+        return True
+    return False
+
+  def _appendUniqueEnrollmentEmbedding(self, embeddings, reid_embedding):
+    """Append reid_embedding unless an exact duplicate is already in the list."""
+    if self._hasExactEnrollmentEmbedding(embeddings, reid_embedding):
+      return False
+    embeddings.append(reid_embedding)
+    return True
+
   def gatherQualityVisualFeatures(self, sscape_object, minimum_bbox_area=None):
     """
     This function gathers quality visual features for identifying newly detected objects.
     It currently only uses re-id vectors but can be expanded to include more features.
 
-    Features are split by what this scope is entitled to do with them: everything usable
-    goes to quality_features, which drives the similarity query, while only locally
-    observed crops go to enrollment_features, which is what gets written back to the
-    shared database. Keeping the two apart is what stops the same crop from being
-    enrolled once per scene in a hierarchy under a different identity each time.
+    Usable embeddings go to quality_features (similarity query). Embeddings this scene
+    may write — local crops and vetted forwarded crops — also go to enrollment_features
+    so a parent can sole-enroll on no-match and keep enhancing a matched UUID's cluster.
+    Exact duplicate enrollment vectors are skipped.
 
     @param  sscape_object          The Scenescape object to gather features from
     @param  minimum_bbox_area      Optional override for minimum pixel bbox area (px^2)
@@ -449,29 +494,33 @@ class UUIDManager:
       return
 
     self.quality_features.setdefault(sscape_object.rv_id, []).append(reid_embedding)
-    if self.isEnrollableObservation(sscape_object, minimum_bbox_area):
-      self.enrollment_features.setdefault(sscape_object.rv_id, []).append(reid_embedding)
-      log.debug(
-        f"gatherQualityVisualFeatures: Accepted local embedding for rv_id={sscape_object.rv_id} "
-        f"(area={sscape_object.boundingBoxPixels.area:.4f} px^2)")
-    else:
-      log.debug(
-        f"gatherQualityVisualFeatures: Accepted forwarded embedding for rv_id={sscape_object.rv_id} "
-        f"(query only, provenance={getattr(sscape_object, 'reid_provenance', None)})")
+    if self.mayContributeEnrollmentEmbedding(sscape_object, minimum_bbox_area):
+      enrollment = self.enrollment_features.setdefault(sscape_object.rv_id, [])
+      if self._appendUniqueEnrollmentEmbedding(enrollment, reid_embedding):
+        if self.isEnrollableObservation(sscape_object, minimum_bbox_area):
+          log.debug(
+            f"gatherQualityVisualFeatures: Accepted local embedding for rv_id={sscape_object.rv_id} "
+            f"(area={sscape_object.boundingBoxPixels.area:.4f} px^2)")
+        else:
+          log.debug(
+            f"gatherQualityVisualFeatures: Accepted forwarded embedding for rv_id={sscape_object.rv_id} "
+            f"(enroll/enhance, provenance={getattr(sscape_object, 'reid_provenance', None)})")
     return
 
   def _appendEnrollmentEmbedding(self, sscape_object, reid_embedding):
     """
-    Add a locally observed embedding to the database entry pending for this track.
+    Add an embedding to the pending database entry for this track (local or vetted
+    forwarded), matching multi-camera cluster accumulation after rematch. Exact
+    duplicates already pending for the track are skipped.
 
     @param  sscape_object   The Scenescape object the embedding was taken from
     @param  reid_embedding  The decoded embedding to store
     """
-    if not self.isEnrollableObservation(sscape_object):
+    if not self.mayContributeEnrollmentEmbedding(sscape_object):
       return
     entry = self.features_for_database.get(sscape_object.rv_id)
     if entry is not None:
-      entry['reid_vectors'].append(reid_embedding)
+      self._appendUniqueEnrollmentEmbedding(entry['reid_vectors'], reid_embedding)
     return
 
   def pickBestID(self, sscape_object):
@@ -792,9 +841,12 @@ class UUIDManager:
         f"updateActiveDict: Match found for {sscape_object.rv_id}: {database_id}, similarity={similarity}, state={ReidState.MATCHED.value}")
       self.active_ids[sscape_object.rv_id] = [database_id, similarity]
 
-      reid_embedding = self._extractReidEmbedding(sscape_object)
-      if reid_embedding is not None:
-        self._appendEnrollmentEmbedding(sscape_object, reid_embedding)
+      # Exact rematch: DB already holds this visual evidence — do not re-write it.
+      # Near matches still enhance the cluster (same idea as more camera views).
+      if not self._isExactRematchScore(similarity):
+        reid_embedding = self._extractReidEmbedding(sscape_object)
+        if reid_embedding is not None:
+          self._appendEnrollmentEmbedding(sscape_object, reid_embedding)
 
     # MATCH FOUND - NO / NEW OBJECT
     else:
@@ -839,12 +891,29 @@ class UUIDManager:
       else {}
     )
 
-    # Only crops this scene observed itself are contributed back to the shared database;
-    # embeddings forwarded from a child are the originating scene's to enroll.
+    # Local and vetted forwarded crops land in enrollment_features at gather time.
+    # On no-match with an empty set, promote quality_features so sole enrollment
+    # still works. On near-match, those vectors enhance the rematched UUID's cluster.
+    # On exact rematch, the query score already proves the evidence is stored — skip
+    # flushing that batch (no extra DB lookup).
+    reid_vectors = self.enrollment_features.setdefault(sscape_object.rv_id, [])
+    if matched_new_id and self._isExactRematchScore(similarity):
+      reid_vectors = []
+      log.debug(
+        f"updateActiveDict: Exact rematch for track {sscape_object.rv_id}; "
+        f"skipping re-write of query evidence already in the database")
+    elif not matched_new_id and not reid_vectors:
+      for promoted in self.quality_features.get(sscape_object.rv_id, []):
+        self._appendUniqueEnrollmentEmbedding(reid_vectors, promoted)
+      if reid_vectors:
+        log.debug(
+          f"updateActiveDict: Promoted {len(reid_vectors)} unique query feature(s) "
+          f"for enrollment on no-match track {sscape_object.rv_id}")
+
     entry = {
       'gid': sscape_object.gid,
       'category': sscape_object.category,
-      'reid_vectors': self.enrollment_features.setdefault(sscape_object.rv_id, []),
+      'reid_vectors': reid_vectors,
       'metadata': self._extractSemanticMetadata(sscape_object),
       }
 
@@ -853,7 +922,7 @@ class UUIDManager:
 
     # Store features with semantic metadata for TIER 1 filtering in future queries
     num_features = len(entry['reid_vectors'])
-    log.debug(f"updateActiveDict: Storing {num_features} locally observed features for track "
+    log.debug(f"updateActiveDict: Storing {num_features} enrollment feature(s) for track "
               f"{sscape_object.rv_id} to features_for_database")
     self.features_for_database[sscape_object.rv_id] = entry
     log.debug(f"updateActiveDict: Storing features for rv_id={sscape_object.rv_id} "

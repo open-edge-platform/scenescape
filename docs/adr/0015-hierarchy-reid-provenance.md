@@ -16,8 +16,11 @@ SPDX-License-Identifier: Apache-2.0
 This decision makes ReID usable in a multi-scene hierarchy without allowing
 the same camera crop to be enrolled repeatedly at every hierarchy level.
 Embeddings forwarded between scenes carry explicit provenance. A receiving
-scene may use a vetted forwarded embedding to query the shared ReID database,
-but only the scene that owns the source camera may enroll that embedding.
+scene may use a vetted forwarded embedding to **query** the shared ReID
+database. With Retrack and parent ReID it may also **write** that embedding:
+sole enrollment on query-no-match (e.g. children without ReID), and cluster
+**enhancement** after rematch. A future `enrolled` flag may skip parent writes
+when a child has already committed enrollment.
 
 The policy for using a child's already-resolved global ID when a parent
 retracks the child remains open. Until that policy is decided, a retracking
@@ -64,8 +67,8 @@ attributable to exactly one scene. Earlier approaches failed in two ways:
 - `enrollment_features`: embeddings this scene is authorized to add to the
   shared ReID database.
 
-An observation is **enrollable** only when this scene has a pixel-space
-bounding box whose area is greater than `minimum_bbox_area`.
+An observation is **enrollable at gather time** only when this scene has a
+pixel-space bounding box whose area is greater than `minimum_bbox_area`.
 
 An observation is **queryable** when either:
 
@@ -74,10 +77,24 @@ An observation is **queryable** when either:
   from an upstream scene.
 
 A local crop that fails the area threshold cannot be rescued by a provenance
-claim. Forwarded embeddings may be queryable but are never enrollable by the
-receiving scene. Pending database entries and post-match feature accumulation
-therefore contain only `enrollment_features`. A forwarded-only parent track
-does not submit an empty database insertion.
+claim. Forwarded embeddings that are queryable may also be written when this
+scene runs ReID on retracked children:
+
+- **No match** — sole enrollment under the parent-assigned UUID (parent-only /
+  passthrough when no upstream scene wrote the crop).
+- **Match** — rematch that UUID and **enhance** its embedding cluster with the
+  vetted forwarded vectors (same idea as accumulating more camera views).
+
+Exact duplicate vectors are skipped while accumulating a track's pending
+enrollment list and within each `addEntry` batch (byte identity). When a rematch
+score is already exact, that query evidence is not written again — using the
+score from the query that just ran, with no extra backend lookup. Near-duplicate
+views still enhance the cluster.
+
+`isEnrollableObservation` remains the local-bbox gate; `mayContributeEnrollmentEmbedding`
+covers local crops and vetted forwarded crops for database writes. A future
+`enrolled` / `will_enroll` flag may skip parent writes when a child has already
+committed enrollment (race mitigation).
 
 The default minimum area is shared from `reid_constants.py`, and the quality
 gate remains exclusive: `area > minimum_bbox_area`.
@@ -135,8 +152,8 @@ because the child identity is accepted directly and the parent does not call
 its UUID manager for that object.
 
 For `retrack` enabled children, the parent preserves the embedding and its
-provenance so the parent's UUID manager can use it as query evidence while
-preventing parent-side enrollment.
+provenance so the parent's UUID manager can query, sole-enroll on no-match, and
+enhance a rematched UUID's cluster with further vetted forwarded vectors.
 
 ## Alternatives Considered
 
@@ -169,12 +186,12 @@ quality and can vary with calibration, projection, object-size assumptions,
 and viewing geometry. Quality is decided once in the scene that owns the
 source pixels.
 
-### Allow vetted forwarded embeddings to be enrolled by parents
+### Allow vetted forwarded embeddings to be enrolled by parents unconditionally
 
-This would give forwarded-only parent tracks a database contribution, but it
-would also let multiple hierarchy levels enroll the same crop and would make
-the receiving parent write on behalf of an upstream producer. It is rejected
-for the current design.
+Always writing forwarded crops at the parent would give forwarded-only tracks a
+database contribution, but would also double-enroll whenever a child (or peer)
+had already written the same crop. Rejected in favor of **query first**: enroll
+forwarded features only on no-match with an empty local enrollment set.
 
 ### Re-attribute provenance at every hierarchy hop
 
@@ -202,7 +219,8 @@ direct assignment.
 ### Positive
 
 - A `retrack` enabled parent can query ReID with vetted child observations.
-- Each source camera crop has one scene responsible for database enrollment.
+- Each crop is enrolled at most once under the query-first rule: child enrolls
+  when it has ReID; otherwise the parent may enroll on no-match.
 - Missing pixel bounding boxes are no longer treated as implicit evidence of
   quality.
 - Provenance remains attributable across multiple hierarchy hops.
@@ -215,8 +233,12 @@ direct assignment.
 - Trust currently depends on a provenance claim from the child-scene topic;
   the claim is not yet authenticated against the configured child and camera
   hierarchy beyond the existing MQTT sender lookup.
-- A forwarded-only parent track contributes no embeddings to the database.
-  Its parent-level ID may therefore be non-durable after the track expires.
+- If a child with ReID enrolls after the parent already no-match-enrolled the
+  same crop, the shared DB can hold two UUIDs until operators align flush
+  timing or prefer children-on-shared-DB when both levels have ReID.
+  **Planned mitigation if observed:** provenance `enrolled` / `will_enroll`
+  flag so the parent skips promotion even on a query miss (see hierarchy ReID
+  plan follow-up).
 - The same minimum-area rule is evaluated in both publishing and receiving
   code paths. Configuration differences between scenes can produce different
   local acceptance standards.
@@ -251,8 +273,9 @@ children and its own cameras, but creates several unresolved behaviors:
 - The child's database entry might not be available until its track is
   inactive, so the parent cannot immediately rediscover that identity through
   a database query.
-- A forwarded-only parent track is not enrolled and may not recover the same
-  parent identity after it expires.
+- A forwarded-only parent track may enroll on no-match so the parent UUID can
+  remain durable after the track expires; if the child already enrolled,
+  rematch recovers that identity without a second write.
 
 Options for a future decision include:
 
@@ -265,6 +288,35 @@ Options for a future decision include:
    resolution.
 4. Adopt a child ID only when it represents a successful ReID match, not a
    child-local provisional ID.
+
+### How should two live parent tracks share one ReID database identity?
+
+`UUIDManager.updateActiveDict` refuses to assign a database gid that is already
+held by another **live** track (collision → treat as no-match and mint a new
+provisional id). That protects `unique_detection_count` and avoids duplicate
+live holders of one durable UUID, but it blocks **concurrent** cross-child
+convergence: two remote children publishing the same embedding at the same time
+keep two parent IDs even when both would match the same enrolled UUID.
+
+**Current verified behavior (follow-up scope):** identity continuity across
+children is asserted **sequentially** — child A enrolls and rematches at the
+parent, its parent track leaves `active_ids`, then child B rematches to the
+same database UUID (`tests/functional/test_hierarchy_reid_db_scope.py`,
+NEX-T21928). Simultaneous two-child merge is not covered.
+
+Options for a future decision include:
+
+1. Keep collision-as-no-match and document sequential rematch (plus geometric
+   tracker merge when world poses coincide) as the supported convergence paths.
+2. Allow multiple live tracks to share a matched database gid, and define how
+   regulated output / `unique_detection_count` / `previous_ids_chain` behave.
+3. Prefer tracker-level association of concurrent child detections into one
+   track before ReID assignment, so a single track owns the matched gid.
+4. When a second live track matches an occupied gid, retarget or merge into the
+   existing holder instead of minting a new provisional id.
+
+Until one of these is chosen, do not treat “both children live → one parent ID
+via ReID alone” as a guaranteed product contract.
 
 ### How should conflicting identity hints be resolved?
 
@@ -314,16 +366,24 @@ The ReID design is covered by:
 
 - forwarding tests for the minimum-area boundary, missing or invalid
   provenance, origin stamping, and multi-hop preservation;
-- UUID-manager tests proving that forwarded embeddings are queryable but not
-  enrollable;
+- UUID-manager tests proving that forwarded embeddings are queryable, enrolled
+  on no-match, and used to enhance a matched UUID's cluster;
 - scene tests proving that camera-provided provenance and top-level child
   `reid` fields are discarded; and
 - moving-object and scene-controller tests for provenance decoding and
   hierarchy publishing.
 
 End-to-end ReID assertions for a live multi-controller remote hierarchy are in
-`tests/functional/test_hierarchy_reid_db_scope.py` (shared / children-only /
-parent-only / partial / split DB profiles).
+`tests/functional/test_hierarchy_reid_db_scope.py`. Supported layouts include
+shared ReID on parent and children (NEX-T21928) and parent-only ReID with
+passthrough children (NEX-T21930). Other profiles act as guards that unsupported
+mixes do not falsely merge or double-enroll. Cross-child identity is covered via
+**sequential** rematch; concurrent two-child merge via ReID alone remains an
+[open question](#how-should-two-live-parent-tracks-share-one-reid-database-identity).
+Product docs: unrelated scenes may share **or** use separate ReID DBs; under one
+parent, avoid split backends when unifying identity; parent-only ReID with
+children as embedding passthrough enrolls on query-no-match—see
+[ReID across controllers](../user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#reid-across-controllers-what-is-supported).
 
 ## References
 

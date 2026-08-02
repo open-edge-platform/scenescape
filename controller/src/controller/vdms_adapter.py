@@ -185,7 +185,7 @@ class VDMSDatabase(ReIDDatabase):
     # VDMS API expects: query([q1, q2, ...], [blob1, blob2, ...])
     descriptor_blobs = []
     add_query = []
-    for vec_array in self._prepareReidVectors(reid_vectors):
+    for vec_array in self._prepareVectorsForAddEntry(reid_vectors):
       descriptor_blobs.append(vec_array.tobytes())
       add_query.append({
         "AddDescriptor": {

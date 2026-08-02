@@ -197,6 +197,8 @@ def test_hierarchy_shared_db_cross_child_merge(
 
   Sequential (C1 leave, then C2) is required: UUIDManager refuses to assign the
   same live database gid to two concurrent tracks (collision → no-match).
+  Concurrent two-child merge via ReID alone is a documented product follow-up
+  (ADR 0015 open question on live-gid sharing).
   """
   TEST_NAME = "NEX-T21928"
   record_xml_attribute("name", TEST_NAME)
@@ -362,8 +364,12 @@ def test_hierarchy_children_share_db_parent_none(
 )
 def test_hierarchy_parent_has_db_children_none(
     objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
-  """! NEX-T21930: children have no ReID (no enrollment); parent DB must not
-  gain a UUID for forwarded child crops; parent still shows objects.
+  """! NEX-T21930: children have no ReID; parent enrolls forwarded crops on
+  query-no-match, then rematches C2 to the same UUID (sequential).
+
+  Scope: parent-only ReID with embedding passthrough. Children never write the
+  DB; the parent is the sole enroller when the query finds no prior row. If a
+  crop were already enrolled (not this profile), rematch would skip re-enroll.
   """
   TEST_NAME = "NEX-T21930"
   record_xml_attribute("name", TEST_NAME)
@@ -385,26 +391,47 @@ def test_hierarchy_parent_has_db_children_none(
     assert before == 0, f"Embedding already in parent DB ({before} uuid(s))"
 
     _publish_child(hier, "child1", objData, embedding, BBOX_C1)
-    _publish_child(hier, "child2", objData, embedding, BBOX_C2)
     time.sleep(FLUSH_WAIT_SECS)
-
-    uuid_count, matched = count_near_exact_uuids(
-      embedding, score_threshold=NEAR_EXACT_SCORE,
-      hostname=hostname, port=port)
-    assert uuid_count == 0, (
-      "Children without ReID must not enroll, and parent must not enroll "
-      f"forwarded crops; got uuid_count={uuid_count}, matches={matched}")
+    total = query_reid_count("person", hostname=hostname, port=port)
+    uuid_count, matched = _wait_uuid_count(embedding, hostname, port, expected_min=1)
+    if uuid_count != 1:
+      snippet = _scene_log_snippet(
+        hierarchy_env["env"], "parent-scene",
+        needles=["reid", "vdms", "error", "enroll", "fail", "Promoted"])
+      raise AssertionError(
+        f"Expected parent enrollment after C1, got {uuid_count} "
+        f"(total person descriptors={total}, matches={matched}). "
+        f"parent-scene logs:\n{snippet}")
 
     hier.reset_parent_received()
-    ids_final = _parent_ids_while_publishing(
+    ids_after_c1 = _parent_ids_while_publishing(
       hier,
-      [
-        _ChildPublisher(hier, "child1", objData, embedding, BBOX_C1),
-        _ChildPublisher(hier, "child2", objData, embedding, BBOX_C2),
-      ],
+      [_ChildPublisher(hier, "child1", objData, embedding, BBOX_C1)],
+      settle_secs=10,
       env=hierarchy_env)
-    assert ids_final, "Parent should show forwarded child objects"
-    log.info(f"PASS: no enrollment, parent ids={ids_final}")
+    assert len(ids_after_c1) == 1, (
+      f"Expected one parent ID after C1; got {ids_after_c1}")
+    c1_id = next(iter(ids_after_c1))
+
+    time.sleep(TRACK_CLEAR_SECS)
+
+    _publish_child(hier, "child2", objData, embedding, BBOX_C2)
+    time.sleep(FLUSH_WAIT_SECS)
+    uuid_count, _ = _wait_uuid_count(embedding, hostname, port, expected_min=1)
+    assert uuid_count == 1, (
+      f"Parent must not double-enroll after C2 rematch; got {uuid_count}")
+
+    hier.reset_parent_received()
+    ids_after_c2 = _parent_ids_while_publishing(
+      hier,
+      [_ChildPublisher(hier, "child2", objData, embedding, BBOX_C2)],
+      settle_secs=10,
+      env=hierarchy_env)
+    assert ids_after_c2 == {c1_id}, (
+      f"Parent should rematch C2 to C1's parent-enrolled ID; "
+      f"c1_id={c1_id}, c2_ids={ids_after_c2}")
+
+    log.info(f"PASS: parent-only enroll uuid_count=1, parent id={c1_id}")
     exit_code = 0
   finally:
     if parent_client is not None:

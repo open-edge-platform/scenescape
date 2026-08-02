@@ -57,28 +57,32 @@ Same `SCENESCAPE_SPEC` + live services pattern. Use when asserting cross-service
 ## Multi-controller hierarchy fixtures
 
 Use when a functional test needs **literal** remote children (separate Scene
-Controller processes) on one host—for example shared vs split ReID backends.
-Local child scenes on one controller are not enough when ReID is per process.
+Controller processes) on one host.
 
-**Customer / deployment procedure** (ports, secrets, NTP, shared ReID):
-[Deploy Multiple Controllers on One Host](../../../../docs/user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md)
+**Customer / deployment procedure** (unrelated: share or separate DBs; hierarchy:
+shared with children, parent-only passthrough, or none):  
+[ReID Across Controllers](../../../../docs/user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#reid-across-controllers-what-is-supported)
 
 **Test harness pieces:**
 
 | Piece | Role |
 | ----- | ---- |
 | `tests/compose/hierarchy/` | Prefixed parent/child1/child2 + VDMS fragments; unique host ports via env |
-| `REID_HIER_*` in `tests/utils/profiles.py` | Shared / children-only / parent-only / partial / split topologies |
-| `hierarchy_ports.py` + `scenescape_env.hierarchy_ports` | Allocate free host ports; sync `.env` **and** `os.environ` (process env wins over `--env-file`) |
+| `REID_HIER_*` in `tests/utils/profiles.py` | `REID_HIER_SHARED` / `REID_HIER_PARENT_ONLY` = supported happy paths (shared enroll+rematch; parent enrolls on no-match); `CHILDREN_ONLY` / `PARTIAL` / `SPLIT` = **unsupported-config guards** (assert no false merge / no double enroll) |
+| `hierarchy_ports.py` + `scenescape_env.hierarchy_ports` | Allocate free host ports; sync `.env` **and** `os.environ` (process env wins over `--env-file`); clear on teardown |
 | `hierarchy_env` in `tests/functional/conftest.py` | `params_parent` / `params_child1` / `params_child2` |
 | `common_remote_child.RemoteHierarchySetup` | Create unique child scenes, remote links, wait for child status, parent regulated snapshots |
-| `reid_backend.py` hostname/port overrides | Per-VDMS `count_near_exact_uuids` / schema helpers for split DBs |
+| `reid_backend.py` hostname/port overrides | Per-VDMS helpers for split-DB **negative** tests |
 | `test_hierarchy_reid_db_scope.py` | Matrix NEX-T21928–21932 |
 
 **Agent pitfalls:**
 
-- Share one `SECRETSDIR`; broker/web/reid-s certs need SANs for hierarchy aliases (`EXTRA_HOSTS` in `tools/certificates/Makefile`).
+- Share one `SECRETSDIR`; broker/web/reid-s certs need SANs for hierarchy aliases
+  (`BROKER_EXTRA_HOSTS` / `WEB_EXTRA_HOSTS` / `REID_S_EXTRA_HOSTS` via root
+  `make certificates`).
 - Children should NTP to the parent NTP service (`--rewriteBadTime` / maxlag help absorb residual skew in tests).
 - Demo fixture UUID collides across child stacks—create a dedicated scene (+ camera) per child before linking.
 - Prefer `@pytest.mark.preserve_db` for multi-controller matrices (each profile brings its own PG volumes).
+- Hierarchy host ports are written to `os.environ` for Compose interpolation and
+  cleared on stack teardown (`clear_hierarchy_port_env`).
 - Controller product notes (remote `parent` recovery): `controller/Agents.md` hierarchy section.

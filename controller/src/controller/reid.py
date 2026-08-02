@@ -145,6 +145,22 @@ class ReIDDatabase(ABC):
       prepared.append(vec_array)
     return prepared
 
+  def _dedupePreparedVectors(self, prepared_vectors):
+    """Drop exact byte-identical prepared vectors while preserving order."""
+    seen = set()
+    unique = []
+    for vec in prepared_vectors:
+      key = vec.tobytes()
+      if key in seen:
+        continue
+      seen.add(key)
+      unique.append(vec)
+    return unique
+
+  def _prepareVectorsForAddEntry(self, reid_vectors):
+    """Prepare vectors and drop exact duplicates within this add batch."""
+    return self._dedupePreparedVectors(self._prepareReidVectors(reid_vectors))
+
   def _buildEntryProperties(self, uuid_value, rvid, object_type, persist=None, **metadata):
     """Build shared entry properties with reserved-key protection."""
     properties = {

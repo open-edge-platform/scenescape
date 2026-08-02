@@ -229,7 +229,7 @@ class QdrantDatabase(ReIDDatabase):
       uuid, rvid, object_type, persist=persist, **metadata)
     points = []
 
-    for vec_array in self._prepareReidVectors(reid_vectors):
+    for vec_array in self._prepareVectorsForAddEntry(reid_vectors):
       points.append(models.PointStruct(
         id=str(uuid_lib.uuid4()),
         vector=vec_array.tolist(),
