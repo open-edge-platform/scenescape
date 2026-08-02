@@ -383,6 +383,30 @@ class TestDetectionsBuilder:
       'will_enroll': True,
     }
 
+  def test_reid_stamps_enrolled_when_track_already_owns_a_write(self):
+    """Pending or completed enrollment is advertised so parents skip writes."""
+    obj = _build_reid_object(bbox_area=9000)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(
+      scene, obj, update_visibility=False, attach_reid_provenance=True,
+      minimum_bbox_area=5000, will_enroll_reid=True,
+      reid_enrolled_fn=lambda _aobj: True)
+
+    assert detection['metadata']['reid']['provenance']['will_enroll'] is True
+    assert detection['metadata']['reid']['provenance']['enrolled'] is True
+
+  def test_reid_withheld_entirely_when_publisher_not_ready_to_enroll(self):
+    """ReID write intent without a ready schema must not forward embeddings."""
+    obj = _build_reid_object(bbox_area=9000)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(
+      scene, obj, update_visibility=False, attach_reid_provenance=True,
+      minimum_bbox_area=5000, withhold_reid=True)
+
+    assert 'reid' not in detection.get('metadata', {})
+
   def test_reid_withheld_when_local_crop_only_matches_minimum_area(self):
     """The area gate is exclusive, so a crop exactly at the minimum is not forwarded."""
     obj = _build_reid_object(bbox_area=5000)

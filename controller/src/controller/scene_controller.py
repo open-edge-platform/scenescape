@@ -240,12 +240,18 @@ class SceneController:
       scene.last_published_detection[otype] = get_epoch_time()
 
       # Rebuild detections list with sensor data included
+      reid_policy = self._hierarchyReidPublishPolicy(scene)
+      will_enroll = reid_policy == 'will_enroll'
       jdata = jdata_base.copy()
       jdata['objects'] = buildDetectionsList(
         objects, scene, self.visibility_topic == 'unregulated', include_sensors=True,
         attach_reid_provenance=True,
         minimum_bbox_area=scene.reid_config_data.get('minimum_bbox_area'),
-        will_enroll_reid=self._sceneWillEnrollReid(scene))
+        will_enroll_reid=will_enroll,
+        withhold_reid=(reid_policy == 'withhold'),
+        reid_enrolled_fn=(
+          (lambda aobj, _scene=scene: self._trackHasReidEnrollment(_scene, aobj))
+          if will_enroll else None))
       jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
 
       scene_hierarchy_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL, scene_id=scene.uid,
@@ -253,26 +259,57 @@ class SceneController:
       self.pubsub.publish(scene_hierarchy_topic, jstr)
     return
 
-  def _sceneWillEnrollReid(self, scene):
+  def _sceneHasReidWriteIntent(self):
     """
-    True when this scene will write vetted crops into the shared ReID database.
+    True when this controller is configured to own ReID database writes.
 
-    Prefer a live schema, but also claim ownership as soon as ReID client material
-    is present so early hierarchy frames do not let a parent sole-enroll the same
-    crop before the child's first flush. Controllers without ReID compose do not
-    mount those certs, so parent-only passthrough children stay unset.
+    TLS deployments mount client certs only on ReID-enabled compose profiles.
+    Non-TLS ReID deployments skip mTLS material, so write intent is assumed once
+    ReID is enabled (callers still gate on reid_enabled / schema readiness).
+    """
+    if get_reid_use_tls():
+      return (os.path.exists(get_reid_client_cert())
+              and os.path.exists(get_reid_client_key()))
+    return True
+
+  def _hierarchyReidPublishPolicy(self, scene):
+    """
+    Decide how hierarchy output should treat ReID embeddings for this scene.
+
+    Returns one of:
+      - 'will_enroll': schema is ready; stamp will_enroll so parents skip writes
+      - 'withhold': ReID write intent exists but schema is not ready yet — do not
+        forward embeddings (avoids parent sole-enroll before the child can write,
+        and avoids claiming will_enroll when the child cannot enroll)
+      - 'passthrough': no local ReID write path (e.g. parent-only children); forward
+        vetted crops without will_enroll so the parent may sole-enroll
     """
     tracker = getattr(scene, 'tracker', None)
     uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
     if uuid_manager is None or not getattr(uuid_manager, 'reid_enabled', False):
-      return False
+      return 'passthrough'
     database = getattr(uuid_manager, 'reid_database', None)
     if getattr(database, '_schema_ready', False) is True:
+      return 'will_enroll'
+    if self._sceneHasReidWriteIntent():
+      return 'withhold'
+    return 'passthrough'
+
+  def _trackHasReidEnrollment(self, scene, aobj):
+    """True when this track already has a DB id or pending enrollment vectors."""
+    tracker = getattr(scene, 'tracker', None)
+    uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
+    if uuid_manager is None:
+      return False
+    rv_id = getattr(aobj, 'rv_id', None)
+    if rv_id is None:
+      return False
+    entry = uuid_manager.features_for_database.get(rv_id)
+    if entry and entry.get('reid_vectors'):
       return True
-    if get_reid_use_tls():
-      return (os.path.exists(get_reid_client_cert())
-              and os.path.exists(get_reid_client_key()))
-    return False
+    with uuid_manager.active_ids_lock:
+      values = uuid_manager.active_ids.get(rv_id)
+    return bool(values and values[0] is not None)
 
   def publishRegulatedDetections(self, scene_obj, msg_objects, otype, jdata, camera_id):
     update_rate = self.calculateRate()

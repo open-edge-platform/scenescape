@@ -428,7 +428,75 @@ class TestSceneControllerPublishers:
     _, call_kwargs = mock_build.call_args
     assert call_kwargs['attach_reid_provenance'] is True
     assert call_kwargs['minimum_bbox_area'] == 5000
-    assert 'will_enroll_reid' in call_kwargs
+    assert call_kwargs['will_enroll_reid'] is False
+    assert call_kwargs['withhold_reid'] is False
+    assert call_kwargs['reid_enrolled_fn'] is None
+
+  def test_hierarchy_reid_policy_will_enroll_when_schema_ready(self):
+    """Schema-ready ReID scenes advertise will_enroll on hierarchy output."""
+    scene_controller = SceneController.__new__(SceneController)
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(reid_enabled=True, reid_database=database)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+
+    assert scene_controller._hierarchyReidPublishPolicy(scene) == 'will_enroll'
+
+  def test_hierarchy_reid_policy_withholds_when_write_intent_before_schema(self):
+    """TLS ReID certs without a ready schema withhold embeddings instead of racing."""
+    scene_controller = SceneController.__new__(SceneController)
+    database = SimpleNamespace(_schema_ready=False)
+    uuid_manager = SimpleNamespace(reid_enabled=True, reid_database=database)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+
+    with patch('controller.scene_controller.get_reid_use_tls', return_value=True), \
+         patch('controller.scene_controller.get_reid_client_cert', return_value='/tmp/reid.crt'), \
+         patch('controller.scene_controller.get_reid_client_key', return_value='/tmp/reid.key'), \
+         patch('controller.scene_controller.os.path.exists', return_value=True):
+      assert scene_controller._hierarchyReidPublishPolicy(scene) == 'withhold'
+
+  def test_hierarchy_reid_policy_passthrough_without_write_intent(self):
+    """Children without ReID client material keep parent-only passthrough enrollment."""
+    scene_controller = SceneController.__new__(SceneController)
+    database = SimpleNamespace(_schema_ready=False)
+    uuid_manager = SimpleNamespace(reid_enabled=True, reid_database=database)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+
+    with patch('controller.scene_controller.get_reid_use_tls', return_value=True), \
+         patch('controller.scene_controller.get_reid_client_cert', return_value='/missing/reid.crt'), \
+         patch('controller.scene_controller.get_reid_client_key', return_value='/missing/reid.key'), \
+         patch('controller.scene_controller.os.path.exists', return_value=False):
+      assert scene_controller._hierarchyReidPublishPolicy(scene) == 'passthrough'
+
+  def test_hierarchy_reid_policy_withholds_non_tls_until_schema_ready(self):
+    """Non-TLS ReID still withholds early frames so parents cannot sole-enroll first."""
+    scene_controller = SceneController.__new__(SceneController)
+    database = SimpleNamespace(_schema_ready=False)
+    uuid_manager = SimpleNamespace(reid_enabled=True, reid_database=database)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+
+    with patch('controller.scene_controller.get_reid_use_tls', return_value=False):
+      assert scene_controller._hierarchyReidPublishPolicy(scene) == 'withhold'
+
+  def test_track_has_reid_enrollment_for_pending_vectors_or_database_id(self):
+    """Enrollment advertising covers pending writes and rematched database ids."""
+    scene_controller = SceneController.__new__(SceneController)
+    uuid_manager = SimpleNamespace(
+      features_for_database={},
+      active_ids={},
+      active_ids_lock=MagicMock())
+    uuid_manager.active_ids_lock.__enter__ = MagicMock(return_value=None)
+    uuid_manager.active_ids_lock.__exit__ = MagicMock(return_value=False)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+    obj = SimpleNamespace(rv_id='track-1')
+
+    assert scene_controller._trackHasReidEnrollment(scene, obj) is False
+
+    uuid_manager.features_for_database['track-1'] = {'reid_vectors': [[0.1]]}
+    assert scene_controller._trackHasReidEnrollment(scene, obj) is True
+
+    uuid_manager.features_for_database.clear()
+    uuid_manager.active_ids['track-1'] = ['db-uuid', 0.9]
+    assert scene_controller._trackHasReidEnrollment(scene, obj) is True
 
   @patch('controller.scene_controller.metrics')
   @patch('controller.scene_controller.ControllerMode')

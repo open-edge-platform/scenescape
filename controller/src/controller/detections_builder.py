@@ -24,14 +24,17 @@ def buildDetectionsDict(objects, scene, include_sensors=False, include_region_dw
 def buildDetectionsList(objects, scene, update_visibility=False, include_sensors=False,
                         include_region_dwell=False, current_time=None,
                         attach_reid_provenance=False, minimum_bbox_area=None,
-                        will_enroll_reid=False):
+                        will_enroll_reid=False, withhold_reid=False,
+                        reid_enrolled_fn=None):
   result_list = []
   for obj in objects:
     obj_dict = prepareObjDict(scene, obj, update_visibility, include_sensors,
                               include_region_dwell, current_time,
                               attach_reid_provenance=attach_reid_provenance,
                               minimum_bbox_area=minimum_bbox_area,
-                              will_enroll_reid=will_enroll_reid)
+                              will_enroll_reid=will_enroll_reid,
+                              withhold_reid=withhold_reid,
+                              reid_enrolled_fn=reid_enrolled_fn)
     result_list.append(obj_dict)
   return result_list
 
@@ -76,7 +79,7 @@ def _sourceCameraID(aobj):
       return camera_id
   return getattr(getattr(aobj, 'camera', None), 'cameraID', None)
 
-def _reidProvenance(scene, aobj, minimum_bbox_area, will_enroll=False):
+def _reidProvenance(scene, aobj, minimum_bbox_area, will_enroll=False, enrolled=False):
   """
   Describe where an embedding came from, or None when this scope cannot vouch for it.
 
@@ -86,12 +89,14 @@ def _reidProvenance(scene, aobj, minimum_bbox_area, will_enroll=False):
   the receiving scope still knows which camera produced it after any number of hops.
 
   When this scope runs ReID and will write the crop, set will_enroll so parents query
-  without sole-enrolling a second UUID for the same embedding.
+  without sole-enrolling a second UUID for the same embedding. Set enrolled when this
+  track already has a database id or pending enrollment vectors.
 
   @param   scene              Scene serializing the object
   @param   aobj               The object whose embedding is being forwarded
   @param   minimum_bbox_area  Minimum pixel bbox area (px^2), or None for the default
   @param   will_enroll        True when this scope's ReID path will enroll/enhance
+  @param   enrolled           True when this track already owns a write or DB id
   @return  dict               Provenance to attach, or None to withhold the embedding
   """
   inherited = getattr(aobj, 'reid_provenance', None)
@@ -120,12 +125,15 @@ def _reidProvenance(scene, aobj, minimum_bbox_area, will_enroll=False):
   }
   if will_enroll:
     provenance['will_enroll'] = True
+  if enrolled:
+    provenance['enrolled'] = True
   return provenance
 
 def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
                    include_region_dwell=False, current_time=None,
                    attach_reid_provenance=False, minimum_bbox_area=None,
-                   will_enroll_reid=False):
+                   will_enroll_reid=False, withhold_reid=False,
+                   reid_enrolled_fn=None):
   aobj = obj
   if isinstance(obj, TripwireEvent):
     aobj = obj.object
@@ -176,10 +184,18 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
     if attach_reid_provenance:
       # Hierarchy output: a receiving scene has no pixel bbox of its own to judge the
       # crop by, so it can only use embeddings that state where they were vetted.
-      provenance = _reidProvenance(
-        scene, aobj, minimum_bbox_area, will_enroll=will_enroll_reid)
-      if provenance is None:
+      # ReID-enabled publishers withhold until schema ready so parents neither race
+      # sole-enroll nor honor a will_enroll claim the child cannot fulfill.
+      if withhold_reid:
+        provenance = None
         reid_embedding = None
+      else:
+        enrolled = bool(reid_enrolled_fn(aobj)) if reid_enrolled_fn is not None else False
+        provenance = _reidProvenance(
+          scene, aobj, minimum_bbox_area,
+          will_enroll=will_enroll_reid, enrolled=enrolled)
+        if provenance is None:
+          reid_embedding = None
     if reid_embedding is not None:
       if 'metadata' not in obj_dict:
         obj_dict['metadata'] = {}

@@ -19,9 +19,11 @@ Embeddings forwarded between scenes carry explicit provenance. A receiving
 scene may use a vetted forwarded embedding to **query** the shared ReID
 database. With Retrack and parent ReID it may also **write** that embedding:
 sole enrollment on query-no-match (e.g. children without ReID), and cluster
-**enhancement** after rematch. When a ReID-enabled child stamps
-`will_enroll` / `enrolled`, the parent still queries but skips writes so the
-same crop is not enrolled under a second UUID while the child flushes.
+**enhancement** after rematch. When a ReID-enabled child stamps `will_enroll` / `enrolled`, the parent still
+queries but skips writes so the same crop is not enrolled under a second UUID
+while the child flushes. ReID children withhold hierarchy embeddings until
+their vector schema is ready so parents neither race-enroll early frames nor
+honor a write claim the child cannot fulfill.
 
 The policy for using a child's already-resolved global ID when a parent
 retracks the child remains open. Until that policy is decided, a retracking
@@ -112,7 +114,8 @@ Embeddings published on the external scene-hierarchy topic carry a
   "origin_scene_id": "<scene UUID>",
   "origin_camera_id": "<camera ID or null>",
   "quality_vetted": true,
-  "will_enroll": true
+  "will_enroll": true,
+  "enrolled": true
 }
 ```
 
@@ -124,14 +127,28 @@ The current validity contract requires:
 `origin_camera_id` is retained when known for diagnostics and future policy,
 but it is not currently required for trust.
 
-`will_enroll` / `enrolled` are optional write-ownership claims. A ReID-enabled
-publishing scene stamps `will_enroll: true` on newly vetted local crops once its
-vector database schema is ready, or earlier when TLS ReID client credentials are
-present (so parents do not sole-enroll before the child's first flush). Relays
-preserve those flags with the rest of the provenance. A parent that sees either
-flag may still **query** with the embedding but must not **write** it (no sole
-enrollment on miss, no enhance on match). Controllers without ReID credentials
-leave the flag unset so parent-only passthrough enrollment still works.
+`will_enroll` / `enrolled` are optional **write-authority** claims, stronger than
+`quality_vetted` alone: a parent that sees either flag may still **query** with
+the embedding but must not **write** it (no sole enrollment on miss, no enhance
+on match). Within the existing child-scene MQTT trust model these flags are as
+spoofable as other provenance fields; a forged `will_enroll` can suppress parent
+enrollment (an enrollment DoS) even when the publisher never writes the DB.
+
+Publishing policy for a ReID-enabled scene:
+
+- **Schema ready** — forward vetted crops with `will_enroll: true`. Also set
+  `enrolled: true` when the track already has a database id or pending
+  enrollment vectors.
+- **Write intent but schema not ready** (TLS client certs present, or non-TLS
+  ReID) — **withhold** the entire `metadata.reid` payload from hierarchy output
+  until the schema is ready. This prevents the parent from sole-enrolling early
+  frames and avoids claiming `will_enroll` when the child cannot yet enroll.
+- **No write intent** (typical parent-only children without ReID certs) —
+  forward vetted crops without `will_enroll` so the parent may sole-enroll.
+
+Relays preserve inherited provenance (including write-authority flags) rather
+than re-attributing the embedding. Controllers without ReID write intent leave
+the flags unset so parent-only passthrough enrollment still works.
 
 The scene that first has a qualifying pixel bounding box stamps the
 provenance. Relaying scenes preserve the original provenance rather than
@@ -245,13 +262,15 @@ direct assignment.
 - The hierarchy wire payload gains a `metadata.reid.provenance` object.
 - Trust currently depends on a provenance claim from the child-scene topic;
   the claim is not yet authenticated against the configured child and camera
-  hierarchy beyond the existing MQTT sender lookup.
+  hierarchy beyond the existing MQTT sender lookup. A forged `will_enroll` /
+  `enrolled` flag is write-authority and can block parent enrollment.
 - If a child with ReID enrolls after the parent already no-match-enrolled the
   same crop, the shared DB can hold two UUIDs until operators align flush
   timing or prefer children-on-shared-DB when both levels have ReID.
-  **Mitigation:** ReID-enabled children stamp provenance `will_enroll` so the
-  parent skips promotion even on a query miss; rematch proceeds once the child
-  row is visible.
+  **Mitigation:** ReID-enabled children withhold hierarchy reid until schema
+  ready, then stamp `will_enroll` (and `enrolled` once the track owns a write)
+  so the parent skips promotion even on a query miss; rematch proceeds once
+  the child row is visible.
 - The same minimum-area rule is evaluated in both publishing and receiving
   code paths. Configuration differences between scenes can produce different
   local acceptance standards.
