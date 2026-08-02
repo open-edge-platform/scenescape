@@ -5,7 +5,6 @@
 
 import json
 import time
-import os
 from tests.functional.backend_functional import BackendFunctionalTest
 from scene_common.mqtt import PubSub
 from tests.utils.log import get_logger
@@ -21,14 +20,14 @@ except ImportError:
   from importlib import reload
   reload(site)
   import psutil
+from tests.functional.reid_backend import get_reid_profile_module
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import REID
 import pytest
 
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=REID,
+  profile=get_reid_profile_module(),
 )
 
 TEST_NAME = "NEX-T10541"
@@ -37,7 +36,7 @@ TEST_WAIT_TIME = 2 * 60 * 60  # 2 hours in seconds
 class REIDPerformanceDegradation(BackendFunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
-    self.vdms_connect()
+    self.reid_connect()
 
     self.connected = False
     self.scenes_updates = {
@@ -79,7 +78,7 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
     disk_usage = psutil.disk_usage('/').percent
     return cpu_usage, memory_usage, disk_usage
 
-  def get_vdms_time(self):
+  def get_reid_query_time(self):
     start_time = time.time()
     self.get_similarity_comparison(20)
     end_time = time.time()
@@ -87,9 +86,9 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
 
   def store_performance_results(self, test_time):
     cpu_usage, memory_usage, disk_usage = self.get_sys_info()
-    vdms_time = self.get_vdms_time()
-    self.performance_db.append([test_time, cpu_usage, memory_usage, disk_usage, vdms_time])
-    log.info(f"{test_time}, {cpu_usage}, {memory_usage}, {disk_usage}, {vdms_time}")
+    reid_time = self.get_reid_query_time()
+    self.performance_db.append([test_time, cpu_usage, memory_usage, disk_usage, reid_time])
+    log.info(f"{test_time}, {cpu_usage}, {memory_usage}, {disk_usage}, {reid_time}")
     return
 
   def on_scene_message(self, mqttc, condlock, msg):

@@ -116,10 +116,10 @@ ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.11/site-packages/third_party/netvl
 # Update and upgrade base OS packages
 RUN apt update && apt upgrade -y
 
-# Install runtime dependencies first (these change less frequently)
+# Install runtime dependencies in one layer
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
+     apt-get update && apt-get install -y --no-install-recommends \
     libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-pip wget curl && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
@@ -142,9 +142,8 @@ COPY --from=autocalibration-builder /usr/local/lib/python3.11/site-packages/scen
 # Copy AprilTag shared library
 COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.11/site-packages/dt_apriltags/
 
-# Upgrade pip, wheel and setuptools to latest versions
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --upgrade setuptools wheel
+# Upgrade pip to latest version
+RUN pip install --no-cache-dir --upgrade pip
 
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/
