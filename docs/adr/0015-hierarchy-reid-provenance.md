@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# ADR 14: Hierarchy ReID Provenance and Enrollment Scope
+# ADR 15: Hierarchy ReID Provenance and Enrollment Scope
 
 - **Author(s)**: Sarat Poluri, Derrick Addo
 - **Date**: 2026-07-30

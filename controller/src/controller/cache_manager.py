@@ -12,16 +12,15 @@ from scene_common.timestamp import get_epoch_time
 REFRESH_TIME = 60
 
 class CacheManager:
-  # Bumped by invalidate() to supersede an in-flight refresh. Class defaults let
-  # instances built without __init__ (unit tests) coordinate the same way.
-  _cache_epoch = 0
-  _refresh_in_progress = False
-
   def __init__(self, data_source=None, rest_url=None, rest_auth=None,
                root_cert=None, tracker_config_data={}, reid_config_data={},
                pose_adjustment_config_data=None):
     self._lock = threading.RLock()
     self._refresh_done = threading.Condition(self._lock)
+    # Per-instance refresh coordination (not class state — multiple managers
+    # in one process must not block or supersede each other).
+    self._cache_epoch = 0
+    self._refresh_in_progress = False
     self.cached_child_transforms_by_uid = {}
     self.camera_parameters = {}
     self.tracker_config_data = tracker_config_data
@@ -48,6 +47,10 @@ class CacheManager:
       self._lock = threading.RLock()
     if not hasattr(self, '_refresh_done'):
       self._refresh_done = threading.Condition(self._lock)
+    if not hasattr(self, '_cache_epoch'):
+      self._cache_epoch = 0
+    if not hasattr(self, '_refresh_in_progress'):
+      self._refresh_in_progress = False
     return self._lock
 
   def _cacheNeedsRefresh(self):
