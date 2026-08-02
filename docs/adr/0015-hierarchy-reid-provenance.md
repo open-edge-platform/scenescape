@@ -21,9 +21,12 @@ database. With Retrack and parent ReID it may also **write** that embedding:
 sole enrollment on query-no-match (e.g. children without ReID), and cluster
 **enhancement** after rematch. When a ReID-enabled child stamps `will_enroll` / `enrolled`, the parent still
 queries but skips writes so the same crop is not enrolled under a second UUID
-while the child flushes. ReID children withhold **local** hierarchy embeddings until their vector schema
-is ready so parents neither race-enroll early frames nor honor a write claim
-the child cannot fulfill; inherited vetted embeddings still relay.
+while the child flushes. ReID children withhold **local** hierarchy embeddings until
+their vector schema is ready **and** at least one database write has succeeded,
+so parents neither race-enroll early frames nor honor a write claim the child
+cannot fulfill; inherited vetted embeddings still relay. If child writes later
+fail, hierarchy publish drops to passthrough and the child stops enrolling so
+the parent can sole-enroll without a dual-writer race.
 
 The policy for using a child's already-resolved global ID when a parent
 retracks the child remains open. Until that policy is decided, a retracking
@@ -287,16 +290,16 @@ direct assignment.
   same crop, the shared DB can hold two UUIDs until operators align flush
   timing or prefer children-on-shared-DB when both levels have ReID.
   **Mitigation:** ReID-enabled children withhold **local** hierarchy reid until
-  schema ready (inherited vetted embeddings still relay), then stamp
-  `will_enroll` (and `enrolled` once the track owns a write) so the parent
-  skips promotion even on a query miss; rematch proceeds once the child row
-  is visible. If child database writes fail (including soft backend errors
-  that previously only logged), hierarchy publish clears `will_enroll`
-  (passthrough) so the parent can sole-enroll; write-health stays cleared
-  for the process lifetime and the child stops local enrollment writes so it
-  does not keep writing while the parent sole-enrolls. `will_enroll` is also
-  withheld until the first successful write so parents are not asked to skip
-  enrollment before the child has proven it can write.
+  schema ready **and** the first successful write (inherited vetted embeddings
+  still relay), then stamp `will_enroll` (and `enrolled` once the track owns a
+  write) so the parent skips promotion even on a query miss; rematch proceeds
+  once the child row is visible. If child database writes fail (including soft
+  backend errors that previously only logged), hierarchy publish clears
+  `will_enroll` (passthrough) so the parent can sole-enroll; write-health stays
+  cleared for the process lifetime and the child stops local enrollment writes
+  so it does not keep writing while the parent sole-enrolls. Empty/invalid
+  vector batches do not sticky-clear write-health; before the first confirmed
+  write they use passthrough instead of forever withholding.
 - The same minimum-area rule is evaluated in both publishing and receiving
   code paths. Configuration differences between scenes can produce different
   local acceptance standards.
@@ -434,7 +437,9 @@ The ReID design is covered by:
   passthrough before the first confirmed write, withhold until the first
   confirmed write, and withhold that still forwards inherited vetted reid
   (multi-hop unit coverage; live multi-hop hierarchies remain out of the
-  functional matrix); and
+  functional matrix);
+- scene-controller tests that `publishExternalDetections` wires policy into
+  `will_enroll_reid` / `withhold_reid` / `reid_enrolled_fn` kwargs; and
 - moving-object and scene-controller tests for provenance decoding and
   hierarchy publishing.
 
@@ -445,6 +450,11 @@ passthrough children (NEX-T21930). Other profiles act as guards that unsupported
 mixes do not falsely merge or double-enroll. Cross-child identity is covered via
 **sequential** rematch; concurrent two-child merge via ReID alone remains an
 [open question](#how-should-two-live-parent-tracks-share-one-reid-database-identity).
+Single-controller hierarchy enrollment and wire `will_enroll` after a confirmed
+child write are covered by `tests/functional/test_hierarchy_reid_enrollment.py`
+(NEX-T21925–21927). Write-failure → parent sole-enroll recovery is covered at
+unit level (sticky write-health / epoch / enrollment stop); live fault injection
+is not part of the functional matrix.
 Product docs: unrelated scenes may share **or** use separate ReID DBs; under one
 parent, avoid split backends when unifying identity; parent-only ReID with
 children as embedding passthrough enrolls on query-no-match—see

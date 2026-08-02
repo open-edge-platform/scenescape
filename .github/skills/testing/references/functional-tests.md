@@ -74,6 +74,7 @@ shared with children, parent-only passthrough, or none):
 | `common_remote_child.RemoteHierarchySetup` | Create unique child scenes, remote links, wait for child status, parent regulated snapshots |
 | `reid_backend.py` hostname/port overrides | Per-VDMS helpers for split-DB **negative** tests |
 | `test_hierarchy_reid_db_scope.py` | Matrix NEX-T21928–21932 |
+| `test_hierarchy_reid_enrollment.py` | Single-controller hierarchy enroll + no double-enroll; NEX-T21925 asserts `will_enroll` on child `DATA_EXTERNAL` after a confirmed write |
 
 **Agent pitfalls:**
 

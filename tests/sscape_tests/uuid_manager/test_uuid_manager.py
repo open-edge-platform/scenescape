@@ -1141,6 +1141,44 @@ class TestReidObservationTrust:
       {}, {})
     manager.reid_database.addEntry.assert_not_called()
 
+  def test_write_reid_entry_success_calls_add_entry(self, mock_vdms_db):
+    """Healthy matching-epoch workers must reach the database adapter."""
+    manager = UUIDManager()
+    manager.reid_database = MagicMock()
+    vectors = [np.arange(4, dtype=np.float32)]
+
+    manager._writeReidEntry(
+      manager.reid_write_epoch, 'gid-1', 'track-1', 'person', vectors,
+      {'timestamp': 1.0}, {'age': 'adult'})
+
+    manager.reid_database.addEntry.assert_called_once_with(
+      'gid-1', 'track-1', 'person', vectors, persist={'timestamp': 1.0}, age='adult')
+
+  def test_flush_add_entry_failure_clears_health_end_to_end(self, mock_vdms_db):
+    """Raising addEntry through the real pool callback sticky-clears write-health."""
+    manager = UUIDManager()
+    manager.reid_database = MagicMock()
+    manager.reid_database.addEntry.side_effect = RuntimeError("vdms down")
+    manager.pool.shutdown(wait=False)
+    manager.pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    manager.features_for_database["flush-track"] = {
+      'gid': 'gid-1',
+      'category': 'person',
+      'reid_vectors': [np.arange(8, dtype=np.float32)],
+      'persist': {},
+      'metadata': {},
+    }
+
+    try:
+      manager._addNewFeaturesToDatabase("flush-track")
+      manager.pool.shutdown(wait=True)
+    finally:
+      manager.pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+    assert manager.reid_write_healthy is False
+    assert manager.reid_write_confirmed is False
+    assert manager.reid_write_epoch == 1
+
   def test_unhealthy_update_active_dict_does_not_stage_enrollment(self, mock_vdms_db):
     """Identity updates continue, but features_for_database is not staged when unhealthy."""
     manager = UUIDManager()

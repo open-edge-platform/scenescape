@@ -177,8 +177,10 @@ _Figure 8: Set Regulate and External Update rate in scene config._
   **different** ReID databases if you expect one identity space.
 - **Parent-owned cameras:** parent enrolls. **Child-forwarded** embeddings
   (`retrack=True`): parent queries with provenance; sole-enrolls on
-  query-no-match when the child has no ReID; after rematch, enhances that
-  UUID's embedding cluster with further vetted forwarded vectors.
+  query-no-match when the child has no ReID (or child writes have failed and
+  provenance has no `will_enroll`); after rematch, enhances that UUID's
+  embedding cluster with further vetted forwarded vectors **unless** the child
+  claimed `will_enroll` / `enrolled`.
 - When using ReID in a hierarchy and you want one identity space across
   children and parent cameras, **enable Retrack**. With Retrack **off**, the
   parent keeps child UUIDs and strips reid—no fusion—so child enrollments and
@@ -186,6 +188,10 @@ _Figure 8: Set Regulate and External Update rate in scene config._
 - **Parent ReID + children without ReID** (embedding passthrough) is
   [supported](./deploy-multi-controller-on-one-host.md#hierarchy-supported-reid-layouts):
   parent enrolls child-only crops on no-match and rematches siblings to that UUID.
+- **Shared ReID on parent and children:** children withhold local hierarchy reid
+  until the schema is ready and the first DB write succeeds, then stamp
+  `will_enroll` so the parent does not double-enroll. See
+  [write authority](./deploy-multi-controller-on-one-host.md#write-authority-on-the-hierarchy-wire-will_enroll--enrolled).
 - When children need local rematch, put parent and those children on the
   **same** shared backend.
 
@@ -201,16 +207,19 @@ How a parent scene handles identity depends on the **Retrack** setting of each c
   instead ([details](./deploy-multi-controller-on-one-host.md#retrack-when-using-reid-in-a-hierarchy)).
 - **Retrack enabled**: the parent runs its own tracker, queries its ReID
   database with forwarded embeddings (when present and provenance-vetted), and
-  enrolls those crops only on query-no-match. Durable rematch to enrolled IDs
-  is reliable when tracks rematch **sequentially**; two live parent tracks will
-  not both adopt the same database UUID
+  enrolls those crops only on query-no-match when the child did not claim
+  `will_enroll` / `enrolled`. Durable rematch to enrolled IDs is reliable when
+  tracks rematch **sequentially**; two live parent tracks will not both adopt
+  the same database UUID
   ([ADR 0015](../../../adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity)).
   Geometric tracker merge can still collapse detections that project to the same place.
 
 Embeddings a child forwards carry the id of the scene and camera that produced them, along with
 confirmation that the crop passed the `minimum_bbox_area` quality gate where it was measured. A
-parent uses those embeddings to match identities, but only the scene that owns the source camera
-(and has ReID enrollment enabled) contributes them to the re-identification database.
+parent uses those embeddings to match identities. The camera-owning scene with ReID enrolls the
+crop; when it stamps `will_enroll` / `enrolled`, the parent still queries but does not write a
+second UUID for the same embedding. Parent-only ReID (children without write intent) leaves those
+flags unset so the parent may sole-enroll on no-match.
 
 > Refer to [Re-identification Guide](../../other-topics/how-to-enable-reidentification.md) for more details.
 > Full matrix:

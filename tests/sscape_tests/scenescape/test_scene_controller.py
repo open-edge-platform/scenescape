@@ -432,6 +432,69 @@ class TestSceneControllerPublishers:
     assert call_kwargs['withhold_reid'] is False
     assert call_kwargs['reid_enrolled_fn'] is None
 
+  def _publish_external_with_reid_manager(self, uuid_manager, write_intent=True):
+    """Publish external detections for a scene whose tracker owns uuid_manager."""
+    scene_controller = self._build_controller('unregulated')
+    scene_controller.shouldPublish = MagicMock(return_value=True)
+    scene = SimpleNamespace(
+      uid='scene-1',
+      external_update_rate=2,
+      last_published_detection=defaultdict(lambda: None),
+      reid_config_data={'minimum_bbox_area': 5000},
+      tracker=SimpleNamespace(uuid_manager=uuid_manager),
+    )
+    jdata_base = {'timestamp': '2026-01-01T00:00:01Z', 'objects': []}
+    with patch.object(scene_controller, '_sceneHasReidWriteIntent', return_value=write_intent), \
+         patch('controller.scene_controller.get_epoch_time', side_effect=[100.0, 101.0]), \
+         patch('controller.scene_controller.buildDetectionsList',
+               return_value=[{'id': 'o1'}]) as mock_build:
+      scene_controller.publishExternalDetections(scene, 'person', [object()], jdata_base)
+    return mock_build.call_args.kwargs
+
+  def test_publish_external_wires_will_enroll_when_policy_confirms(self):
+    """Confirmed healthy writes must stamp will_enroll on hierarchy output."""
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True,
+      reid_write_confirmed=True, reid_empty_batch_before_confirm=False)
+    kwargs = self._publish_external_with_reid_manager(uuid_manager)
+    assert kwargs['will_enroll_reid'] is True
+    assert kwargs['withhold_reid'] is False
+    assert kwargs['reid_enrolled_fn'] is not None
+
+  def test_publish_external_wires_withhold_before_confirmed_write(self):
+    """Schema-ready but unconfirmed writes must withhold local hierarchy reid."""
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True,
+      reid_write_confirmed=False, reid_empty_batch_before_confirm=False)
+    kwargs = self._publish_external_with_reid_manager(uuid_manager)
+    assert kwargs['will_enroll_reid'] is False
+    assert kwargs['withhold_reid'] is True
+    assert kwargs['reid_enrolled_fn'] is None
+
+  def test_publish_external_wires_passthrough_when_writes_unhealthy(self):
+    """Unhealthy writes forward without will_enroll so parents may sole-enroll."""
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=False,
+      reid_write_confirmed=False, reid_empty_batch_before_confirm=False)
+    kwargs = self._publish_external_with_reid_manager(uuid_manager)
+    assert kwargs['will_enroll_reid'] is False
+    assert kwargs['withhold_reid'] is False
+    assert kwargs['reid_enrolled_fn'] is None
+
+  def test_publish_external_wires_passthrough_on_empty_batch_before_confirm(self):
+    """Empty batches before confirm must not withhold forever on the wire."""
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True,
+      reid_write_confirmed=False, reid_empty_batch_before_confirm=True)
+    kwargs = self._publish_external_with_reid_manager(uuid_manager)
+    assert kwargs['will_enroll_reid'] is False
+    assert kwargs['withhold_reid'] is False
+    assert kwargs['reid_enrolled_fn'] is None
+
   def test_hierarchy_reid_policy_will_enroll_when_schema_ready(self):
     """Schema-ready ReID scenes with write intent advertise will_enroll after a confirmed write."""
     scene_controller = SceneController.__new__(SceneController)

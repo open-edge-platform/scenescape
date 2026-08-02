@@ -7,13 +7,17 @@
 
 Validates ADR 0015 enrollment policy end-to-end:
   - A child scene that owns the source camera enrolls a local vetted crop
+  - After the first confirmed write, child DATA_EXTERNAL stamps will_enroll
   - A retrack=True parent may query with the forwarded embedding but must not
     create a second enrolled UUID for the same crop
 """
 
+import json
+import queue
 import time
 
 import pytest
+from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 from scene_common import log
 import tests.common_test_utils as common
@@ -106,7 +110,48 @@ def test_hierarchy_child_enrolls_local_crop(
       "Child camera crop was not enrolled in the ReID backend; "
       f"near-exact uuid_count={uuid_count}, matches={matched}")
 
-    log.info(f"PASS: child enrolled {uuid_count} unique uuid(s) for local crop")
+    # Process-level write confirmation unlocks will_enroll on hierarchy output.
+    ext_queue = queue.Queue()
+
+    def _on_ext(mqttc, obj, msg):
+      try:
+        data = json.loads(msg.payload.decode("utf-8"))
+      except Exception:
+        return
+      if data.get("objects"):
+        ext_queue.put(data)
+
+    ext_client = h.make_client(
+      topics=[PubSub.formatTopic(
+        PubSub.DATA_EXTERNAL, scene_id=h.child_id, thing_type="+")],
+      on_msg=_on_ext)
+    try:
+      RetrackTest.publish_reid_frames(payload, client, num_frames=20)
+      deadline = time.time() + 15
+      messages = []
+      while time.time() < deadline and not messages:
+        try:
+          messages.append(ext_queue.get(timeout=1.0))
+        except queue.Empty:
+          continue
+      while True:
+        try:
+          messages.append(ext_queue.get_nowait())
+        except queue.Empty:
+          break
+      reid_payloads = RetrackTest.collect_reid_payloads(messages)
+      assert reid_payloads, (
+        "Expected metadata.reid on child DATA_EXTERNAL after confirmed enrollment")
+      assert any(
+        (reid.get("provenance") or {}).get("will_enroll") is True
+        for _, reid in reid_payloads), (
+        "After a confirmed child write, DATA_EXTERNAL provenance must stamp "
+        f"will_enroll; got {[reid.get('provenance') for _, reid in reid_payloads]}")
+    finally:
+      ext_client.loopStop()
+
+    log.info(f"PASS: child enrolled {uuid_count} unique uuid(s) for local crop "
+             "and stamped will_enroll on DATA_EXTERNAL")
     exit_code = 0
 
   finally:
