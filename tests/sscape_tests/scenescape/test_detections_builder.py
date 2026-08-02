@@ -397,7 +397,7 @@ class TestDetectionsBuilder:
     assert detection['metadata']['reid']['provenance']['enrolled'] is True
 
   def test_reid_withheld_entirely_when_publisher_not_ready_to_enroll(self):
-    """ReID write intent without a ready schema must not forward embeddings."""
+    """ReID write intent without a ready schema must not forward local embeddings."""
     obj = _build_reid_object(bbox_area=9000)
     scene = SimpleNamespace(output_lla=False, uid='scene-child')
 
@@ -406,6 +406,24 @@ class TestDetectionsBuilder:
       minimum_bbox_area=5000, withhold_reid=True)
 
     assert 'reid' not in detection.get('metadata', {})
+
+  def test_reid_withhold_still_forwards_inherited_vetted_provenance(self):
+    """Multi-hop relays must not drop already-vetted embeddings while local reid waits."""
+    original = {
+      'origin_scene_id': 'scene-grandchild',
+      'origin_camera_id': 'cam-9',
+      'quality_vetted': True,
+      'will_enroll': True,
+    }
+    obj = _build_reid_object(bbox_area=None, provenance=original)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(
+      scene, obj, update_visibility=False, attach_reid_provenance=True,
+      minimum_bbox_area=5000, withhold_reid=True)
+
+    assert detection['metadata']['reid']['provenance'] == original
+    assert detection['metadata']['reid']['embedding_vector'] == pytest.approx([0.1, 0.2])
 
   def test_reid_withheld_when_local_crop_only_matches_minimum_area(self):
     """The area gate is exclusive, so a crop exactly at the minimum is not forwarded."""

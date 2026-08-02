@@ -433,13 +433,14 @@ class TestSceneControllerPublishers:
     assert call_kwargs['reid_enrolled_fn'] is None
 
   def test_hierarchy_reid_policy_will_enroll_when_schema_ready(self):
-    """Schema-ready ReID scenes advertise will_enroll on hierarchy output."""
+    """Schema-ready ReID scenes with write intent advertise will_enroll."""
     scene_controller = SceneController.__new__(SceneController)
     database = SimpleNamespace(_schema_ready=True)
     uuid_manager = SimpleNamespace(reid_enabled=True, reid_database=database)
     scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
 
-    assert scene_controller._hierarchyReidPublishPolicy(scene) == 'will_enroll'
+    with patch.object(scene_controller, '_sceneHasReidWriteIntent', return_value=True):
+      assert scene_controller._hierarchyReidPublishPolicy(scene) == 'will_enroll'
 
   def test_hierarchy_reid_policy_withholds_when_write_intent_before_schema(self):
     """TLS ReID certs without a ready schema withhold embeddings instead of racing."""
@@ -468,14 +469,36 @@ class TestSceneControllerPublishers:
       assert scene_controller._hierarchyReidPublishPolicy(scene) == 'passthrough'
 
   def test_hierarchy_reid_policy_withholds_non_tls_until_schema_ready(self):
-    """Non-TLS ReID still withholds early frames so parents cannot sole-enroll first."""
+    """Non-TLS ReID with explicit endpoint env withholds early local frames."""
     scene_controller = SceneController.__new__(SceneController)
     database = SimpleNamespace(_schema_ready=False)
     uuid_manager = SimpleNamespace(reid_enabled=True, reid_database=database)
     scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
 
-    with patch('controller.scene_controller.get_reid_use_tls', return_value=False):
+    with patch('controller.scene_controller.get_reid_use_tls', return_value=False), \
+         patch('controller.scene_controller.has_explicit_reid_endpoint', return_value=True):
       assert scene_controller._hierarchyReidPublishPolicy(scene) == 'withhold'
+
+  def test_hierarchy_reid_policy_passthrough_non_tls_without_explicit_endpoint(self):
+    """Non-TLS without REID_* endpoint env must not withhold parent-only passthrough."""
+    scene_controller = SceneController.__new__(SceneController)
+    database = SimpleNamespace(_schema_ready=False)
+    uuid_manager = SimpleNamespace(reid_enabled=True, reid_database=database)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+
+    with patch('controller.scene_controller.get_reid_use_tls', return_value=False), \
+         patch('controller.scene_controller.has_explicit_reid_endpoint', return_value=False):
+      assert scene_controller._hierarchyReidPublishPolicy(scene) == 'passthrough'
+
+  def test_hierarchy_reid_policy_requires_write_intent_even_when_schema_ready(self):
+    """Schema alone without write intent stays passthrough (no false will_enroll)."""
+    scene_controller = SceneController.__new__(SceneController)
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(reid_enabled=True, reid_database=database)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+
+    with patch.object(scene_controller, '_sceneHasReidWriteIntent', return_value=False):
+      assert scene_controller._hierarchyReidPublishPolicy(scene) == 'passthrough'
 
   def test_track_has_reid_enrollment_for_pending_vectors_or_database_id(self):
     """Enrollment advertising covers pending writes and rematched database ids."""

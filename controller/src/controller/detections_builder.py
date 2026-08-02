@@ -184,9 +184,11 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
     if attach_reid_provenance:
       # Hierarchy output: a receiving scene has no pixel bbox of its own to judge the
       # crop by, so it can only use embeddings that state where they were vetted.
-      # ReID-enabled publishers withhold until schema ready so parents neither race
-      # sole-enroll nor honor a will_enroll claim the child cannot fulfill.
-      if withhold_reid:
+      # ReID-enabled publishers withhold *local* crops until schema ready so parents
+      # neither race sole-enroll nor honor a will_enroll claim the child cannot fulfill.
+      # Already-vetted inherited embeddings still forward (multi-hop relays).
+      if withhold_reid and not is_vetted_provenance(
+          getattr(aobj, 'reid_provenance', None)):
         provenance = None
         reid_embedding = None
       else:

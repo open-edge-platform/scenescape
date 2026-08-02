@@ -48,6 +48,18 @@ class TestReidEnvDefaults:
   def test_api_key_defaults_to_none(self):
     assert reid_env.get_reid_api_key() is None
 
+  def test_has_explicit_reid_endpoint_false_when_unset(self):
+    assert reid_env.has_explicit_reid_endpoint() is False
+
+  def test_has_explicit_reid_endpoint_true_for_hostname_or_database(self, monkeypatch):
+    monkeypatch.setenv("REID_HOSTNAME", "custom.example.com")
+    assert reid_env.has_explicit_reid_endpoint() is True
+    monkeypatch.delenv("REID_HOSTNAME")
+    monkeypatch.setenv("REID_DATABASE", "QDRANT")
+    assert reid_env.has_explicit_reid_endpoint() is True
+    monkeypatch.setenv("REID_DATABASE", "   ")
+    assert reid_env.has_explicit_reid_endpoint() is False
+
 
 class TestReidEnvCanonicalNames:
   def test_reid_hostname_override(self, monkeypatch):

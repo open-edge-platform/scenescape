@@ -21,9 +21,9 @@ database. With Retrack and parent ReID it may also **write** that embedding:
 sole enrollment on query-no-match (e.g. children without ReID), and cluster
 **enhancement** after rematch. When a ReID-enabled child stamps `will_enroll` / `enrolled`, the parent still
 queries but skips writes so the same crop is not enrolled under a second UUID
-while the child flushes. ReID children withhold hierarchy embeddings until
-their vector schema is ready so parents neither race-enroll early frames nor
-honor a write claim the child cannot fulfill.
+while the child flushes. ReID children withhold **local** hierarchy embeddings until their vector schema
+is ready so parents neither race-enroll early frames nor honor a write claim
+the child cannot fulfill; inherited vetted embeddings still relay.
 
 The policy for using a child's already-resolved global ID when a parent
 retracks the child remains open. Until that policy is decided, a retracking
@@ -136,19 +136,27 @@ enrollment (an enrollment DoS) even when the publisher never writes the DB.
 
 Publishing policy for a ReID-enabled scene:
 
-- **Schema ready** — forward vetted crops with `will_enroll: true`. Also set
-  `enrolled: true` when the track already has a database id or pending
-  enrollment vectors.
+- **Schema ready + write intent** — forward local vetted crops with
+  `will_enroll: true`. Also set `enrolled: true` when the track already has a
+  database id or pending enrollment vectors.
 - **Write intent but schema not ready** (TLS client certs present, or non-TLS
-  ReID) — **withhold** the entire `metadata.reid` payload from hierarchy output
-  until the schema is ready. This prevents the parent from sole-enrolling early
-  frames and avoids claiming `will_enroll` when the child cannot yet enroll.
-- **No write intent** (typical parent-only children without ReID certs) —
-  forward vetted crops without `will_enroll` so the parent may sole-enroll.
+  with explicit `REID_HOSTNAME` / `REID_DATABASE`) — **withhold local**
+  `metadata.reid` from hierarchy output until the schema is ready. Already-vetted
+  **inherited** embeddings still forward so multi-hop relays keep working. This
+  prevents the parent from sole-enrolling early local frames and avoids claiming
+  `will_enroll` when the child cannot yet enroll.
+- **No write intent** (typical parent-only children without ReID certs or
+  explicit ReID endpoint env) — forward vetted crops without `will_enroll` so
+  the parent may sole-enroll.
 
 Relays preserve inherited provenance (including write-authority flags) rather
 than re-attributing the embedding. Controllers without ReID write intent leave
 the flags unset so parent-only passthrough enrollment still works.
+
+If schema initialization succeeds but later database writes fail (or ReID is
+disabled after slow queries), a parent may still honor `will_enroll` and skip
+sole enrollment while the child never flushes — a residual “nobody enrolls”
+failure mode under a broken write path.
 
 The scene that first has a qualifying pixel bounding box stamps the
 provenance. Relaying scenes preserve the original provenance rather than
@@ -267,10 +275,11 @@ direct assignment.
 - If a child with ReID enrolls after the parent already no-match-enrolled the
   same crop, the shared DB can hold two UUIDs until operators align flush
   timing or prefer children-on-shared-DB when both levels have ReID.
-  **Mitigation:** ReID-enabled children withhold hierarchy reid until schema
-  ready, then stamp `will_enroll` (and `enrolled` once the track owns a write)
-  so the parent skips promotion even on a query miss; rematch proceeds once
-  the child row is visible.
+  **Mitigation:** ReID-enabled children withhold **local** hierarchy reid until
+  schema ready (inherited vetted embeddings still relay), then stamp
+  `will_enroll` (and `enrolled` once the track owns a write) so the parent
+  skips promotion even on a query miss; rematch proceeds once the child row
+  is visible. Residual risk remains if schema is ready but child writes fail.
 - The same minimum-area rule is evaluated in both publishing and receiving
   code paths. Configuration differences between scenes can produce different
   local acceptance standards.

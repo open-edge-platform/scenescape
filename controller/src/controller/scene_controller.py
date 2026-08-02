@@ -25,6 +25,7 @@ from controller.reid_env import (
   get_reid_client_cert,
   get_reid_client_key,
   get_reid_use_tls,
+  has_explicit_reid_endpoint,
 )
 from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
                                       MINIMAL_CHUNKING_RATE_FPS,
@@ -264,23 +265,26 @@ class SceneController:
     True when this controller is configured to own ReID database writes.
 
     TLS deployments mount client certs only on ReID-enabled compose profiles.
-    Non-TLS ReID deployments skip mTLS material, so write intent is assumed once
-    ReID is enabled (callers still gate on reid_enabled / schema readiness).
+    Non-TLS ReID deployments set REID_HOSTNAME and/or REID_DATABASE explicitly;
+    controllers that only inherit built-in defaults are treated as passthrough
+    so parent-only children are not stuck withholding forever.
     """
     if get_reid_use_tls():
       return (os.path.exists(get_reid_client_cert())
               and os.path.exists(get_reid_client_key()))
-    return True
+    return has_explicit_reid_endpoint()
 
   def _hierarchyReidPublishPolicy(self, scene):
     """
     Decide how hierarchy output should treat ReID embeddings for this scene.
 
     Returns one of:
-      - 'will_enroll': schema is ready; stamp will_enroll so parents skip writes
+      - 'will_enroll': schema is ready and write intent exists; stamp will_enroll
+        so parents skip writes
       - 'withhold': ReID write intent exists but schema is not ready yet — do not
-        forward embeddings (avoids parent sole-enroll before the child can write,
-        and avoids claiming will_enroll when the child cannot enroll)
+        forward *local* embeddings (avoids parent sole-enroll before the child can
+        write, and avoids claiming will_enroll when the child cannot enroll).
+        Inherited vetted embeddings still forward.
       - 'passthrough': no local ReID write path (e.g. parent-only children); forward
         vetted crops without will_enroll so the parent may sole-enroll
     """
@@ -288,12 +292,12 @@ class SceneController:
     uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
     if uuid_manager is None or not getattr(uuid_manager, 'reid_enabled', False):
       return 'passthrough'
+    if not self._sceneHasReidWriteIntent():
+      return 'passthrough'
     database = getattr(uuid_manager, 'reid_database', None)
     if getattr(database, '_schema_ready', False) is True:
       return 'will_enroll'
-    if self._sceneHasReidWriteIntent():
-      return 'withhold'
-    return 'passthrough'
+    return 'withhold'
 
   def _trackHasReidEnrollment(self, scene, aobj):
     """True when this track already has a DB id or pending enrollment vectors."""
