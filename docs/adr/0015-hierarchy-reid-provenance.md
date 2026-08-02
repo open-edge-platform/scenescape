@@ -19,8 +19,9 @@ Embeddings forwarded between scenes carry explicit provenance. A receiving
 scene may use a vetted forwarded embedding to **query** the shared ReID
 database. With Retrack and parent ReID it may also **write** that embedding:
 sole enrollment on query-no-match (e.g. children without ReID), and cluster
-**enhancement** after rematch. A future `enrolled` flag may skip parent writes
-when a child has already committed enrollment.
+**enhancement** after rematch. When a ReID-enabled child stamps
+`will_enroll` / `enrolled`, the parent still queries but skips writes so the
+same crop is not enrolled under a second UUID while the child flushes.
 
 The policy for using a child's already-resolved global ID when a parent
 retracks the child remains open. Until that policy is decided, a retracking
@@ -86,16 +87,17 @@ scene runs ReID on retracked children:
   vetted forwarded vectors (same idea as accumulating more camera views).
 
 Exact rematch skips only query vectors whose **per-vector** score against the
-matched UUID is exact (from the query that just ran — no extra lookup). Local
-camera crops are always kept, and near-duplicate views from the same query
-window still enhance the cluster. When per-vector scores are unavailable, fall
-back to aggregate exact → locals only. In-memory and within-batch exact vector
-dedupe remains cheap.
+matched UUID is exact (from the query that just ran — no extra lookup). Vectors
+with no score against the matched UUID (absent from the neighbor list) are also
+skipped so they cannot pollute another identity's cluster. Local camera crops
+are always kept, and near-duplicate views from the same query window still
+enhance the cluster. When per-vector scores are unavailable, fall back to
+aggregate exact → locals only. In-memory and within-batch exact vector dedupe
+remains cheap.
 
 `isEnrollableObservation` remains the local-bbox gate; `mayContributeEnrollmentEmbedding`
-covers local crops and vetted forwarded crops for database writes. A future
-`enrolled` / `will_enroll` flag may skip parent writes when a child has already
-committed enrollment (race mitigation).
+covers local crops and vetted forwarded crops for database writes, except when
+upstream provenance claims `will_enroll` or `enrolled`.
 
 The default minimum area is shared from `reid_constants.py`, and the quality
 gate remains exclusive: `area > minimum_bbox_area`.
@@ -109,7 +111,8 @@ Embeddings published on the external scene-hierarchy topic carry a
 {
   "origin_scene_id": "<scene UUID>",
   "origin_camera_id": "<camera ID or null>",
-  "quality_vetted": true
+  "quality_vetted": true,
+  "will_enroll": true
 }
 ```
 
@@ -120,6 +123,15 @@ The current validity contract requires:
 
 `origin_camera_id` is retained when known for diagnostics and future policy,
 but it is not currently required for trust.
+
+`will_enroll` / `enrolled` are optional write-ownership claims. A ReID-enabled
+publishing scene stamps `will_enroll: true` on newly vetted local crops once its
+vector database schema is ready, or earlier when TLS ReID client credentials are
+present (so parents do not sole-enroll before the child's first flush). Relays
+preserve those flags with the rest of the provenance. A parent that sees either
+flag may still **query** with the embedding but must not **write** it (no sole
+enrollment on miss, no enhance on match). Controllers without ReID credentials
+leave the flag unset so parent-only passthrough enrollment still works.
 
 The scene that first has a qualifying pixel bounding box stamps the
 provenance. Relaying scenes preserve the original provenance rather than
@@ -237,9 +249,9 @@ direct assignment.
 - If a child with ReID enrolls after the parent already no-match-enrolled the
   same crop, the shared DB can hold two UUIDs until operators align flush
   timing or prefer children-on-shared-DB when both levels have ReID.
-  **Planned mitigation if observed:** provenance `enrolled` / `will_enroll`
-  flag so the parent skips promotion even on a query miss (see hierarchy ReID
-  plan follow-up).
+  **Mitigation:** ReID-enabled children stamp provenance `will_enroll` so the
+  parent skips promotion even on a query miss; rematch proceeds once the child
+  row is visible.
 - The same minimum-area rule is evaluated in both publishing and receiving
   code paths. Configuration differences between scenes can produce different
   local acceptance standards.
@@ -368,7 +380,9 @@ The ReID design is covered by:
 - forwarding tests for the minimum-area boundary, missing or invalid
   provenance, origin stamping, and multi-hop preservation;
 - UUID-manager tests proving that forwarded embeddings are queryable, enrolled
-  on no-match, and used to enhance a matched UUID's cluster;
+  on no-match, used to enhance a matched UUID's cluster, skipped for writes when
+  `will_enroll`/`enrolled` is set, and that per-vector exact/absent scores
+  control rematch enhancement;
 - scene tests proving that camera-provided provenance and top-level child
   `reid` fields are discarded; and
 - moving-object and scene-controller tests for provenance decoding and

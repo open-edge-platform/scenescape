@@ -367,6 +367,22 @@ class TestDetectionsBuilder:
       'quality_vetted': True,
     }
 
+  def test_reid_stamps_will_enroll_when_publisher_owns_database_writes(self):
+    """ReID-enabled publishers mark crops they will enroll so parents skip sole enroll."""
+    obj = _build_reid_object(bbox_area=9000)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(
+      scene, obj, update_visibility=False, attach_reid_provenance=True,
+      minimum_bbox_area=5000, will_enroll_reid=True)
+
+    assert detection['metadata']['reid']['provenance'] == {
+      'origin_scene_id': 'scene-child',
+      'origin_camera_id': 'cam-1',
+      'quality_vetted': True,
+      'will_enroll': True,
+    }
+
   def test_reid_withheld_when_local_crop_only_matches_minimum_area(self):
     """The area gate is exclusive, so a crop exactly at the minimum is not forwarded."""
     obj = _build_reid_object(bbox_area=5000)
@@ -397,12 +413,14 @@ class TestDetectionsBuilder:
       'origin_scene_id': 'scene-grandchild',
       'origin_camera_id': 'cam-9',
       'quality_vetted': True,
+      'will_enroll': True,
     }
     obj = _build_reid_object(bbox_area=None, provenance=original)
     scene = SimpleNamespace(output_lla=False, uid='scene-child')
 
     detection = prepareObjDict(scene, obj, update_visibility=False,
-                               attach_reid_provenance=True, minimum_bbox_area=5000)
+                               attach_reid_provenance=True, minimum_bbox_area=5000,
+                               will_enroll_reid=True)
 
     assert detection['metadata']['reid']['provenance'] == original
 

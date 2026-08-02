@@ -21,6 +21,11 @@ from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
 from controller.observability import metrics
+from controller.reid_env import (
+  get_reid_client_cert,
+  get_reid_client_key,
+  get_reid_use_tls,
+)
 from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
                                       MINIMAL_CHUNKING_RATE_FPS,
                                       MAXIMAL_CHUNKING_RATE_FPS)
@@ -239,13 +244,35 @@ class SceneController:
       jdata['objects'] = buildDetectionsList(
         objects, scene, self.visibility_topic == 'unregulated', include_sensors=True,
         attach_reid_provenance=True,
-        minimum_bbox_area=scene.reid_config_data.get('minimum_bbox_area'))
+        minimum_bbox_area=scene.reid_config_data.get('minimum_bbox_area'),
+        will_enroll_reid=self._sceneWillEnrollReid(scene))
       jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
 
       scene_hierarchy_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL, scene_id=scene.uid,
                                                  thing_type=otype)
       self.pubsub.publish(scene_hierarchy_topic, jstr)
     return
+
+  def _sceneWillEnrollReid(self, scene):
+    """
+    True when this scene will write vetted crops into the shared ReID database.
+
+    Prefer a live schema, but also claim ownership as soon as ReID client material
+    is present so early hierarchy frames do not let a parent sole-enroll the same
+    crop before the child's first flush. Controllers without ReID compose do not
+    mount those certs, so parent-only passthrough children stay unset.
+    """
+    tracker = getattr(scene, 'tracker', None)
+    uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
+    if uuid_manager is None or not getattr(uuid_manager, 'reid_enabled', False):
+      return False
+    database = getattr(uuid_manager, 'reid_database', None)
+    if getattr(database, '_schema_ready', False) is True:
+      return True
+    if get_reid_use_tls():
+      return (os.path.exists(get_reid_client_cert())
+              and os.path.exists(get_reid_client_key()))
+    return False
 
   def publishRegulatedDetections(self, scene_obj, msg_objects, otype, jdata, camera_id):
     update_rate = self.calculateRate()

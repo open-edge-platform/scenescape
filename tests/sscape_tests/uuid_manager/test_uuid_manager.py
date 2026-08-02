@@ -690,6 +690,32 @@ class TestUUIDManagerMetricAwareMatching:
     assert database_id is None
     assert similarity is None
 
+  def test_parse_query_results_builds_per_vector_scores_vs_winning_uuid(self):
+    """query_vector_scores align to the majority UUID, with None when absent."""
+    manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
+    manager.reid_database.similarity_metric = "IP"
+
+    similarity_scores = [
+      [
+        {'uuid': 'winner', 'rvid': '1', '_distance': 0.95},
+        {'uuid': 'other', 'rvid': '2', '_distance': 0.9},
+      ],
+      [
+        {'uuid': 'winner', 'rvid': '3', '_distance': 0.91},
+        {'uuid': 'other', 'rvid': '4', '_distance': 0.8},
+      ],
+      [
+        {'uuid': 'other', 'rvid': '5', '_distance': 0.99},
+      ],
+    ]
+
+    database_id, similarity, query_vector_scores = manager.parseQueryResults(
+      similarity_scores)
+
+    assert database_id == 'winner'
+    assert similarity == 0.95
+    assert query_vector_scores == [0.95, 0.91, None]
+
   def test_parse_query_results_l2_threshold_boundary_requires_strictly_less(self):
     """L2 matching should not accept values exactly equal to threshold."""
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.2})
@@ -976,7 +1002,46 @@ class TestReidObservationTrust:
     assert manager.isQueryableObservation(obj) is True
     assert manager.isEnrollableObservation(obj) is False
     assert manager.mayContributeEnrollmentEmbedding(obj) is True
-    assert manager.mayContributeEnrollmentEmbedding(obj) == manager.isQueryableObservation(obj)
+
+  def test_will_enroll_provenance_is_queryable_but_not_writable(self, mock_vdms_db):
+    """Child ReID ownership claim: parent may query, must not enroll/enhance."""
+    manager = UUIDManager()
+    provenance = dict(VETTED_PROVENANCE)
+    provenance['will_enroll'] = True
+    obj = _make_reid_object("forwarded-track", provenance=provenance)
+
+    assert manager.isQueryableObservation(obj) is True
+    assert manager.mayContributeEnrollmentEmbedding(obj) is False
+
+    manager.gatherQualityVisualFeatures(obj)
+    assert len(manager.quality_features["forwarded-track"]) == 1
+    assert "forwarded-track" not in manager.enrollment_features
+
+  def test_enrolled_provenance_blocks_parent_writes(self, mock_vdms_db):
+    """Explicit enrolled claim also blocks parent database contribution."""
+    manager = UUIDManager()
+    provenance = dict(VETTED_PROVENANCE)
+    provenance['enrolled'] = True
+    obj = _make_reid_object("forwarded-track", provenance=provenance)
+
+    assert manager.isQueryableObservation(obj) is True
+    assert manager.mayContributeEnrollmentEmbedding(obj) is False
+
+  def test_will_enroll_no_match_does_not_enroll(self, mock_vdms_db):
+    """Query miss must not sole-enroll when upstream claimed will_enroll."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    provenance = dict(VETTED_PROVENANCE)
+    provenance['will_enroll'] = True
+    obj = _make_reid_object("forwarded-track", provenance=provenance)
+    obj.chain_data = None
+
+    manager.gatherQualityVisualFeatures(obj)
+    call_update_active_dict_locked(manager, obj, database_id=None, similarity=None)
+
+    assert manager.features_for_database["forwarded-track"]['reid_vectors'] == []
+    manager._addNewFeaturesToDatabase("forwarded-track")
+    assert manager.pool.submit.call_count == 0
 
   def test_database_entry_includes_local_and_forwarded_enrollment_features(
       self, mock_vdms_db):
@@ -1119,6 +1184,30 @@ class TestReidObservationTrust:
       np.asarray(near_vec, dtype=np.float32))
     manager._addNewFeaturesToDatabase("forwarded-track")
     assert manager.pool.submit.call_count == 1
+
+  def test_rematch_skips_query_vectors_missing_winner_score(self, mock_vdms_db):
+    """A vector whose neighbors omit the matched UUID must not enhance that cluster."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    near_vec = np.arange(64, dtype=np.float32).tolist()
+    other_vec = (np.arange(64, dtype=np.float32) + 7).tolist()
+    first = _make_reid_object(
+      "forwarded-track", provenance=VETTED_PROVENANCE, embedding=near_vec)
+    first.chain_data = None
+    second = _make_reid_object(
+      "forwarded-track", provenance=VETTED_PROVENANCE, embedding=other_vec)
+
+    manager.gatherQualityVisualFeatures(first)
+    manager.gatherQualityVisualFeatures(second)
+    call_update_active_dict_locked(
+      manager, second, database_id=42, similarity=0.95,
+      query_vector_scores=[0.95, None])
+
+    pending = manager.features_for_database["forwarded-track"]['reid_vectors']
+    assert len(pending) == 1
+    assert np.array_equal(
+      np.asarray(pending[0], dtype=np.float32),
+      np.asarray(near_vec, dtype=np.float32))
 
   def test_matched_forwarded_detection_appends_to_pending_entry(self, mock_vdms_db):
     """After rematch, a distinct vetted forwarded frame grows the pending entry."""

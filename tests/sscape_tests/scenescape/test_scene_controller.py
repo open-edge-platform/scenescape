@@ -428,6 +428,7 @@ class TestSceneControllerPublishers:
     _, call_kwargs = mock_build.call_args
     assert call_kwargs['attach_reid_provenance'] is True
     assert call_kwargs['minimum_bbox_area'] == 5000
+    assert 'will_enroll_reid' in call_kwargs
 
   @patch('controller.scene_controller.metrics')
   @patch('controller.scene_controller.ControllerMode')

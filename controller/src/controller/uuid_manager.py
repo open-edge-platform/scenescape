@@ -12,9 +12,11 @@ from controller.reid_constants import (
   COSINE_SIMILARITY_TOLERANCE,
   DEFAULT_CONFIG_SIMILARITY_METRIC,
   DEFAULT_MINIMUM_BBOX_AREA,
+  QUERY_K_NEIGHBORS,
   SUPPORTED_CONFIG_SIMILARITY_METRICS,
   is_higher_better_metric,
   is_similarity_match,
+  is_upstream_enrollment_claim,
   is_vetted_provenance,
   normalize_config_similarity_metric,
   normalize_similarity_score,
@@ -432,15 +434,19 @@ class UUIDManager:
     """
     Check whether an embedding may be stored against a UUID in the shared database.
 
-    Same gate as isQueryableObservation: local crops that pass the area threshold,
-    or bbox-less embeddings with vetted provenance. Kept as a named write-path
-    helper so call sites read as enrollment policy rather than query policy.
+    Queryable observations may be written unless upstream provenance claims that
+    another ReID-enabled scope already enrolled (or will enroll) the crop. Kept as
+    a named write-path helper so call sites read as enrollment policy.
 
     @param   sscape_object      The Scenescape object to evaluate
     @param   minimum_bbox_area  Optional override for minimum pixel bbox area (px^2)
     @return  bool               True when the embedding may be written for a UUID
     """
-    return self.isQueryableObservation(sscape_object, minimum_bbox_area)
+    if not self.isQueryableObservation(sscape_object, minimum_bbox_area):
+      return False
+    if is_upstream_enrollment_claim(getattr(sscape_object, 'reid_provenance', None)):
+      return False
+    return True
 
   def _isExactRematchScore(self, similarity):
     """True when a rematch score means the query vector(s) are already stored."""
@@ -639,7 +645,8 @@ class UUIDManager:
     log.debug(f"sendSimilarityQuery: Calling reid_database.findMatches for track {sscape_object.rv_id}")
     try:
       scores = self.reid_database.findMatches(
-        sscape_object.category, reid_vectors, **metadata_constraints)
+        sscape_object.category, reid_vectors,
+        k_neighbors=QUERY_K_NEIGHBORS, **metadata_constraints)
       query_time = get_epoch_time() - start_time
       log.debug(f"sendSimilarityQuery: Query completed for track {sscape_object.rv_id} in {query_time:.3f}s, scores={scores}")
     except Exception as e:
@@ -844,9 +851,11 @@ class UUIDManager:
     """
     Build the pending write list after a rematch.
 
-    Always keep local camera crops. Skip only query vectors whose per-vector score
-    against the matched UUID is exact; near matches still enhance. When per-vector
-    scores are unavailable, fall back to aggregate exact → locals only.
+    Always keep local camera crops. Skip query vectors with no score against the
+    matched UUID (absent from the neighbor list) so they cannot pollute another
+    identity's cluster. Skip exact per-vector hits; near matches still enhance.
+    When per-vector scores are unavailable, fall back to aggregate exact → locals
+    only.
     """
     reid_vectors = []
     for local_vec in self.local_enrollment_features.get(rv_id, []):
@@ -857,7 +866,7 @@ class UUIDManager:
       quality = self.quality_features.get(rv_id, [])
       for idx, vec in enumerate(quality):
         score = query_vector_scores[idx] if idx < len(query_vector_scores) else None
-        if self._isExactRematchScore(score):
+        if score is None or self._isExactRematchScore(score):
           continue
         if not self._hasExactEnrollmentEmbedding(enrollment, vec):
           continue
@@ -981,7 +990,8 @@ class UUIDManager:
 
     # Local and vetted forwarded crops land in enrollment_features at gather time.
     # On no-match with an empty set, promote quality_features so sole enrollment
-    # still works. On rematch, keep locals and any non-exact query vectors so one
+    # still works — unless upstream claimed will_enroll/enrolled (child owns the write).
+    # On rematch, keep locals and any non-exact query vectors so one
     # exact hit in a multi-vector query does not drop near-duplicate enhancements.
     reid_vectors = self.enrollment_features.setdefault(sscape_object.rv_id, [])
     if matched_new_id:
@@ -990,7 +1000,8 @@ class UUIDManager:
       log.debug(
         f"updateActiveDict: Rematch enrollment for track {sscape_object.rv_id}: "
         f"{len(reid_vectors)} vector(s) after per-vector exact skip")
-    elif not reid_vectors:
+    elif not reid_vectors and not is_upstream_enrollment_claim(
+        getattr(sscape_object, 'reid_provenance', None)):
       for promoted in self.quality_features.get(sscape_object.rv_id, []):
         self._appendUniqueEnrollmentEmbedding(reid_vectors, promoted)
       if reid_vectors:
