@@ -6,7 +6,7 @@
 coverage==7.13.5
 django-debug-toolbar==6.3.0
 pupil-apriltags==1.0.4.post11
-pytest==9.0.3
+pytest==9.1.1
 pytest-django==4.12.0
 pytest-html==4.2.0
 pytest-metadata==3.1.1
