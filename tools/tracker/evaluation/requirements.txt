@@ -18,7 +18,7 @@ pyarrow==23.0.1
 python-on-whales==0.81.0
 
 # Testing dependencies
-pytest==9.0.3
+pytest==9.1.1
 pytest-cov==4.1.0
 
 # Evaluation toolkit
