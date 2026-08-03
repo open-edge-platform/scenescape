@@ -284,9 +284,33 @@ paths:
               example:
                 success: true
                 status: "healthy"
+                ready: true
+                model: "mapanything"
                 model_loaded: true
-        "503":
-          description: Service unhealthy - model not loaded
+                device: "cpu"
+                initialization:
+                  state: "ready"
+                  stage: "model_loaded"
+                  progress: 100.0
+                  message: "model loaded"
+                  error: null
+
+  /models:
+    get:
+      tags:
+        - models
+      summary: List available models and their status
+      description: |
+        Returns information about the 3D reconstruction model in this container.
+
+        Provides:
+        - Current model type (determined at build time)
+        - Loading status and model information
+        - Model description and capabilities
+      operationId: listModels
+      responses:
+        "200":
+          description: Models information retrieved successfully
           content:
             application/json:
               schema:
@@ -497,10 +521,108 @@ components:
           enum: [healthy, unhealthy]
           description: Overall health status
           example: "healthy"
+        ready:
+          type: boolean
+          description: True when the mapping model is loaded and ready for requests
+          example: true
+        model:
+          type: string
+          description: The model available in this container
+          example: "mapanything"
         model_loaded:
           type: boolean
           description: Whether the model is loaded and ready to accept requests
           example: true
+        device:
+          type: string
+          description: Compute device being used (cpu or cuda)
+          example: "cpu"
+        initialization:
+          $ref: "#/components/schemas/InitializationStatus"
+
+    InitializationStatus:
+      type: object
+      properties:
+        state:
+          type: string
+          description: High-level initialization state (starting, ready, failed)
+          example: "starting"
+        stage:
+          type: string
+          description: Most recent initialization stage marker
+          example: "model_initializing"
+        progress:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Coarse initialization progress percentage
+          example: 65.0
+        message:
+          type: string
+          description: Human-readable initialization status message
+          example: "loading mapping model"
+        error:
+          oneOf:
+            - type: string
+            - type: "null"
+          description: Error details when initialization fails
+          example: null
+        updated_at:
+          type: number
+          format: float
+          description: Unix epoch seconds when initialization status was last updated
+          example: 1720000000.0
+
+    ModelsResponse:
+      type: object
+      properties:
+        model:
+          type: string
+          description: The model available in this container
+          example: "mapanything"
+        model_info:
+          $ref: "#/components/schemas/ModelInfo"
+          description: Information about the loaded model
+        camera_pose_format:
+          type: object
+          description: Format description for camera poses
+          properties:
+            rotation:
+              type: string
+              example: "quaternion [x, y, z, w]"
+            translation:
+              type: string
+              example: "vector [x, y, z]"
+            coordinate_system:
+              type: string
+              example: "OpenCV (camera-to-world transformation, standard CV coordinates)"
+
+    ModelInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Model identifier
+          example: "mapanything"
+        description:
+          type: string
+          description: Human-readable description of the model
+          example: "MapAnything - Apache 2.0 licensed model for metric 3D reconstruction"
+        loaded:
+          type: boolean
+          description: Whether the model is currently loaded and available
+          example: true
+        native_output:
+          type: string
+          description: The preferred output format for this model
+          example: "mesh"
+        supported_outputs:
+          type: array
+          items:
+            type: string
+          description: List of supported output formats
+          example: ["mesh", "pointcloud"]
 
     ErrorResponse:
       type: object
