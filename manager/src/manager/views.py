@@ -110,8 +110,10 @@ def index(request):
 def protected_media(request, path, media_root):
   if request.user.is_authenticated:
     if path != "":
-      file = os.path.join(media_root, path)
-      if os.path.exists(file):
+      media_root_real = os.path.realpath(media_root)
+      file = os.path.realpath(os.path.join(media_root, path))
+      # Reject paths that escape media_root via ".." segments or an absolute path
+      if os.path.commonpath([media_root_real, file]) == media_root_real and os.path.isfile(file):
         response = FileResponse(open(file, 'rb'))
         return response
     return HttpResponseNotFound()
@@ -119,8 +121,10 @@ def protected_media(request, path, media_root):
 
 def list_resources(request, folder_name):
   """! List files in folder_name inside MEDIA_ROOT and return them as JSON."""
-  base_path = os.path.join(settings.MEDIA_ROOT, folder_name)
-  if not os.path.exists(base_path) or not os.path.isdir(base_path):
+  media_root_real = os.path.realpath(settings.MEDIA_ROOT)
+  base_path = os.path.realpath(os.path.join(settings.MEDIA_ROOT, folder_name))
+  # Reject paths that escape MEDIA_ROOT via ".." segments or an absolute path
+  if os.path.commonpath([media_root_real, base_path]) != media_root_real or not os.path.isdir(base_path):
     return JsonResponse({"error": "Invalid folder"}, status=400)
   files = [f for f in os.listdir(base_path) if os.path.isfile(os.path.join(base_path, f))]
   return JsonResponse({"files": files})

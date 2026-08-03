@@ -368,7 +368,10 @@ class MeshGenerator:
       raise ValueError("Uploaded file does not look like a valid video")
 
     filename = getattr(uploaded_file, "name", "") or ""
-    suffix = Path(filename).suffix
+    suffix = Path(filename).suffix.lower()
+
+    if suffix not in ALLOWED_VIDEO_EXTENSIONS:
+      raise ValueError(f"Unsupported video file extension: {suffix or 'none'}")
 
     try:
       path = uploaded_file.temporary_file_path()
