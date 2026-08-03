@@ -351,6 +351,40 @@ class TestCacheManagerQueryMethods:
 class TestCacheManagerInvalidation:
   """Test cache invalidation."""
 
+  def test_refresh_state_is_per_instance(self):
+    """Multiple CacheManager instances must not share epoch or in-flight flags."""
+    first = CacheManager.__new__(CacheManager)
+    second = CacheManager.__new__(CacheManager)
+    first._refreshLock()
+    second._refreshLock()
+
+    first._refresh_in_progress = True
+    first._cache_epoch = 7
+
+    assert second._refresh_in_progress is False
+    assert second._cache_epoch == 0
+    assert CacheManager.__dict__.get('_refresh_in_progress') is None
+    assert CacheManager.__dict__.get('_cache_epoch') is None
+
+  def test_invalidate_bumps_only_this_instance_epoch(self):
+    """invalidate() must not supersede another manager's in-flight refresh."""
+    first = CacheManager.__new__(CacheManager)
+    second = CacheManager.__new__(CacheManager)
+    first._refreshLock()
+    second._refreshLock()
+    first.cached_scenes_by_uid = {}
+    first.cached_child_transforms_by_uid = {}
+    second_scene = Mock(spec=Scene)
+    second.cached_scenes_by_uid = {'scene-2': second_scene}
+    second.cached_child_transforms_by_uid = {}
+    second_epoch = second._cache_epoch
+
+    first.invalidate()
+
+    assert first._cache_epoch == 1
+    assert second._cache_epoch == second_epoch
+    assert second.cached_scenes_by_uid == {'scene-2': second_scene}
+
   def test_invalidate_clears_cache(self):
     """Test that invalidate clears the scene cache and secondary indexes."""
     cache_mgr = CacheManager.__new__(CacheManager)

@@ -202,13 +202,36 @@ scenes **are** parent/child and you care how identity moves across that link.
 | Observation | Enrolls into the ReID DB? | May query the ReID DB? |
 |-------------|---------------------------|-------------------------|
 | Detection from a **camera on this controller** (pixel bbox passes `minimum_bbox_area`) | **Yes** (this scene owns the crop) | Yes |
-| Detection **forwarded from a child** (`retrack=True`) with vetted provenance | **Yes** when this scene has ReID: sole enroll on query-no-match; **enhance** the matched UUID's cluster after rematch. A future `enrolled` flag may skip writes when a child already committed enrollment | Yes, if this controller has ReID |
+| Detection **forwarded from a child** (`retrack=True`) with vetted provenance | **Yes** when this scene has ReID **and** upstream did **not** claim `will_enroll` / `enrolled`: sole enroll on query-no-match; **enhance** the matched UUID's cluster after rematch. When the child stamps those write-authority flags, the parent still **queries** but must **not** write | Yes, if this controller has ReID |
 | Forwarded child detection with `retrack=False` | No | No (reid stripped; child id kept) |
 
 So a **parent camera** always enrolls on the parent. A **child camera** crop is
 enrolled by a child with ReID when present; otherwise a parent with ReID may
 sole-enroll that forwarded crop after a miss, and after a rematch may keep
 **enhancing** that UUID's embedding cluster (like additional camera views).
+
+### Write authority on the hierarchy wire (`will_enroll` / `enrolled`)
+
+When a child Scene Controller runs ReID (TLS client certs mounted, or
+`REID_USE_TLS=false` for an explicit non-mTLS ReID deployment), it publishes
+write-authority flags on hierarchy reid provenance.
+
+**Deploy note:** keep parent-only / passthrough children on the TLS default
+(`REID_USE_TLS=true`) **without** mounting ReID client certs. Setting
+`REID_USE_TLS=false` is treated as write intent even with default hostname/DB
+env vars.
+
+| Child publish state | Local `metadata.reid` on hierarchy | Parent write behavior |
+|---------------------|------------------------------------|------------------------|
+| Schema not ready, or no successful DB write yet | **Withheld** (inherited vetted reid still relays) | Cannot sole-enroll those early local frames |
+| Schema ready **and** at least one successful `addEntry` | Forwarded; `will_enroll` / `enrolled` stamped **per track** that owns or is accumulating a write | Query yes; **skip** sole-enroll / enhance for claimed crops; short tracks without a claim remain parent-enrollable |
+| ReID DB writes failing **before** any confirmed write | Forwarded **without** `will_enroll` (passthrough); child **stops** local enrollment | Parent may sole-enroll |
+| Confirmed write, then later write failures / reid disable | Keep will_enroll **mode**; per-track claims only for tracks that still own a write | Skip claimed crops; may sole-enroll unclaimed ones |
+| Empty/invalid vector batch **before** first confirm | Passthrough; child **stops** local enrollment | Parent may sole-enroll |
+| No ReID write intent (typical parent-only child: TLS default on, **no** ReID client certs) | Forwarded without `will_enroll` | Parent may sole-enroll |
+
+Details and edge cases (empty vector batches, cancelled flushes, multi-hop
+relays): [ADR 0015](../../../adr/0015-hierarchy-reid-provenance.md).
 
 ### Retrack when using ReID in a hierarchy
 
@@ -230,8 +253,8 @@ authoritative and do **not** expect parent-level ReID fusion.
 | Configuration | When to use |
 |---------------|-------------|
 | **No ReID anywhere** in the hierarchy | Tracking / ROIs only |
-| **Shared ReID on parent and every camera-owning child** | Children rematch locally **and** enroll; parent queries the same DB (and must not re-enroll on match) |
-| **ReID on parent only; children forward embeddings** (no child ReID) | Children passthrough detector embeddings + provenance; parent queries and **enrolls on no-match** under parent UUIDs |
+| **Shared ReID on parent and every camera-owning child** | Children rematch locally **and** enroll; they stamp `will_enroll` after the first successful write so the parent queries the same DB **without** re-enrolling the same crop |
+| **ReID on parent only; children forward embeddings** (no child ReID) | Children passthrough detector embeddings + provenance (no `will_enroll`); parent queries and **enrolls on no-match** under parent UUIDs |
 | **Local** children on one controller with that controller’s ReID | Preferred single-process hierarchy |
 
 **Parent-only ReID (children as passthrough)** is supported when:
@@ -313,7 +336,9 @@ machine.
 - [ ] ReID for unrelated stacks: shared DB **or** separate instances, as needed.
 - [ ] Inside a hierarchy: no split backends across children when unifying
       identity; parent-only ReID (children passthrough) enrolls child-only crops
-      on query-no-match; when children need local rematch, share one backend.
+      on query-no-match; when children need local rematch, share one backend and
+      confirm children stamp `will_enroll` after they can write (parent must not
+      double-enroll the same crop).
 - [ ] If the hierarchy uses ReID and you want one identity space, **Retrack is
       on** for those child links (Retrack off → no fusion; risk of separate DB
       UUIDs from child vs parent-camera enrollments).

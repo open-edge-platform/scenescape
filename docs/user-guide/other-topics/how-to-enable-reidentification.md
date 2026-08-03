@@ -263,7 +263,7 @@ When an object is first detected, it is assigned a UUID and no similarity score.
 
 The scene output includes `reid_state` for each tracked object. For canonical state definitions and lifecycle transitions, see [2-Tier Hybrid Search Implementation](../microservices/controller/Extended-ReID.md#reid-object-states). For output field contract details, see [Scene Controller Data Formats](../microservices/controller/data_formats.md#common-output-track-fields).
 
-In a scene hierarchy, a parent scene can match identities using embeddings its children forward. Query first: if the crop is already enrolled, rematch only; if not (for example parent-only ReID), the parent may enroll under its UUID. See [Embeddings in a Scene Hierarchy](../microservices/controller/Extended-ReID.md#embeddings-in-a-scene-hierarchy).
+In a scene hierarchy, a parent scene can match identities using embeddings its children forward. Query first: if the crop is already enrolled, rematch only; if not (for example parent-only ReID), the parent may enroll under its UUID. When a ReID-enabled child stamps `will_enroll` / `enrolled` on hierarchy provenance, the parent still queries but does not write a second UUID for that crop. See [Embeddings in a Scene Hierarchy](../microservices/controller/Extended-ReID.md#embeddings-in-a-scene-hierarchy) and [write authority](../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#write-authority-on-the-hierarchy-wire-will_enroll--enrolled).
 
 For multi-controller setups: **unrelated** scenes may **share** one ReID backend
 or use **separate** instances. In a **hierarchy**, do not split backends across

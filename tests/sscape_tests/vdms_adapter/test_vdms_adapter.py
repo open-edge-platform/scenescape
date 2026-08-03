@@ -495,6 +495,25 @@ class TestAddEntry:
       db.addEntry("uuid", "rvid", "Person", [vec])
 
   @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_raises_partial_write_when_some_descriptors_succeed(
+      self, mock_vdms_class):
+    """Mixed VDMS status must signal partial success for confirm+unhealthy handoff."""
+    from controller.reid import ReidPartialWriteError
+    mock_vdms_class.return_value = MagicMock()
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([
+      {'status': 0},
+      {'status': 1, 'info': 'rejected'},
+    ], []))
+    vectors = [
+      np.random.randn(256).astype(np.float32),
+      np.random.randn(256).astype(np.float32),
+    ]
+
+    with pytest.raises(ReidPartialWriteError, match="Failed to add"):
+      db.addEntry("uuid", "rvid", "Person", vectors)
+  @patch('controller.vdms_adapter.vdms.vdms')
   def test_add_entry_raises_on_empty_response(self, mock_vdms_class):
     """Missing VDMS responses must raise so hierarchy write-health can clear."""
     mock_vdms_class.return_value = MagicMock()

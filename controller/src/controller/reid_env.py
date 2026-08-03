@@ -167,15 +167,3 @@ def get_reid_client_cert():
 def get_reid_client_key():
   """Return client key path for mTLS backends."""
   return _env_value("REID_CLIENT_KEY", DEFAULT_CLIENT_KEY)
-
-
-def has_explicit_reid_endpoint():
-  """
-  Return True when the operator set REID_HOSTNAME and/or REID_DATABASE.
-
-  Unset variables fall back to built-in defaults in the getters; this helper
-  distinguishes "ReID was configured" from "defaults alone" so hierarchy
-  publish policy can withhold only for real ReID write intent.
-  """
-  return (_env_value("REID_HOSTNAME") is not None
-          or _env_value("REID_DATABASE") is not None)

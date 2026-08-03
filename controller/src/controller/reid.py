@@ -27,6 +27,14 @@ class ReidNoValidVectorsError(ValueError):
   """
 
 
+class ReidWriteSupersededError(RuntimeError):
+  """In-flight enrollment dropped after write-epoch/health changed; do not confirm."""
+
+
+class ReidPartialWriteError(RuntimeError):
+  """Some vectors landed before others failed; treat as confirmed + unhealthy."""
+
+
 class ReIDDatabase(ABC):
   def __init__(self, set_name=SCHEMA_NAME, similarity_metric=SIMILARITY_METRIC,
                dimensions=None, confidence_threshold=None):

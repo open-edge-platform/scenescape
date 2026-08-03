@@ -101,7 +101,14 @@ def _reidProvenance(scene, aobj, minimum_bbox_area, will_enroll=False, enrolled=
   """
   inherited = getattr(aobj, 'reid_provenance', None)
   if is_vetted_provenance(inherited):
-    return dict(inherited)
+    # Preserve origin attribution for multi-hop relays, but let an intermediate
+    # ReID scope advertise its own write authority so grandparents skip dual enroll.
+    provenance = dict(inherited)
+    if will_enroll:
+      provenance['will_enroll'] = True
+    if enrolled:
+      provenance['enrolled'] = True
+    return provenance
 
   bounding_box_pixels = getattr(aobj, 'boundingBoxPixels', None)
   if bounding_box_pixels is None:
@@ -192,10 +199,13 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
         provenance = None
         reid_embedding = None
       else:
+        # Process-level will_enroll_reid only enables claims; stamp will_enroll when
+        # this track actually owns (or is accumulating) a write so short-lived crops
+        # without enrollment activity remain parent-enrollable.
         enrolled = bool(reid_enrolled_fn(aobj)) if reid_enrolled_fn is not None else False
         provenance = _reidProvenance(
           scene, aobj, minimum_bbox_area,
-          will_enroll=will_enroll_reid, enrolled=enrolled)
+          will_enroll=bool(will_enroll_reid and enrolled), enrolled=enrolled)
         if provenance is None:
           reid_embedding = None
     if reid_embedding is not None:

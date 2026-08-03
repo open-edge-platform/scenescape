@@ -236,10 +236,20 @@ Each embedding still has to be attributable to exactly one enrollment:
 - **Query first, then write under one UUID.** A detection from a camera on this
   controller may be enrolled when the bbox passes `minimum_bbox_area`. A parent
   with `Retrack` enabled may **query** with forwarded embeddings that carry
-  vetted provenance. On no-match it may sole-enroll those features (parent-only
-  ReID).   On match it rematches and may **enhance** that UUID's embedding cluster
-  with further forwarded vectors. Exact duplicate vectors are not stored again.
-  Parent-owned cameras still enroll on the parent as usual.
+  vetted provenance. On no-match it may sole-enroll those features when the
+  child did **not** claim write authority (parent-only ReID / passthrough). On
+  match it rematches and may **enhance** that UUID's embedding cluster with
+  further forwarded vectors unless upstream stamped `will_enroll` / `enrolled`.
+  Exact duplicate vectors are not stored again. Parent-owned cameras still
+  enroll on the parent as usual.
+- **Write authority on hierarchy output.** A ReID-enabled publisher withholds
+  **local** hierarchy reid until the vector schema is ready **and** at least one
+  database write has succeeded, then stamps `will_enroll` (and `enrolled` once
+  the track owns a write). If database writes later fail, publish drops to
+  passthrough and local enrollment stops so a parent can sole-enroll without
+  racing the child. Children without ReID write intent never set those flags.
+  See
+  [write authority](../../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#write-authority-on-the-hierarchy-wire-will_enroll--enrolled).
 - **Live-gid collision limits concurrent Rematch.** A parent will not assign the same database
   UUID to two concurrent live tracks. Cross-child identity continuity via ReID is therefore
   verified for **sequential** rematch today; concurrent two-child merge via ReID alone is a

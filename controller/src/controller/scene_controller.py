@@ -278,35 +278,44 @@ class SceneController:
     Decide how hierarchy output should treat ReID embeddings for this scene.
 
     Returns one of:
-      - 'will_enroll': schema ready, write intent, writes healthy, and at least one
-        successful write confirmed — stamp will_enroll so parents skip writes
+      - 'will_enroll': write intent exists and at least one successful write was
+        confirmed — enable per-track will_enroll/enrolled stamps so parents skip
+        writes for tracks this child owns. Survives later write-health or
+        reid_enabled clears so parents do not sole-enroll crops already stored.
       - 'withhold': ReID write intent exists but schema is not ready yet, or no
-        successful write has been confirmed yet — do not forward *local*
-        embeddings (avoids parent sole-enroll before the child can write, and
-        avoids claiming will_enroll when the child cannot enroll).
-        Inherited vetted embeddings still forward.
-      - 'passthrough': no local ReID write path, or writes are failing — forward
-        vetted crops without will_enroll so the parent may sole-enroll.
-        Write-health is sticky once cleared (process lifetime); local enrollment
-        also stops so the child does not keep writing under passthrough.
+        successful write has been confirmed yet (and no empty-batch fallback) —
+        do not forward *local* embeddings (avoids parent sole-enroll before the
+        child can write, and avoids claiming will_enroll when the child cannot
+        enroll). Inherited vetted embeddings still forward.
+      - 'passthrough': no local ReID write path, writes are failing before the
+        first confirm, or empty batches occurred before the first confirmed write
+        — forward vetted crops without will_enroll so the parent may sole-enroll.
+        Local enrollment also stops in those handoff modes so the child does not
+        keep writing under passthrough.
     """
     tracker = getattr(scene, 'tracker', None)
     uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
-    if uuid_manager is None or not getattr(uuid_manager, 'reid_enabled', False):
+    if uuid_manager is None:
       return 'passthrough'
     if not self._sceneHasReidWriteIntent():
       return 'passthrough'
+    # Confirmed writes keep will_enroll mode even if reid later disables or
+    # write-health clears — per-track stamps limit claims to owned tracks.
+    if getattr(uuid_manager, 'reid_write_confirmed', False):
+      return 'will_enroll'
+    if not getattr(uuid_manager, 'reid_enabled', False):
+      return 'passthrough'
     if not getattr(uuid_manager, 'reid_write_healthy', True):
+      return 'passthrough'
+    if getattr(uuid_manager, 'reid_empty_batch_before_confirm', False):
       return 'passthrough'
     database = getattr(uuid_manager, 'reid_database', None)
     if getattr(database, '_schema_ready', False) is not True:
       return 'withhold'
-    if not getattr(uuid_manager, 'reid_write_confirmed', False):
-      return 'withhold'
-    return 'will_enroll'
+    return 'withhold'
 
   def _trackHasReidEnrollment(self, scene, aobj):
-    """True when this track already has a DB id or pending enrollment vectors."""
+    """True when this track owns or is accumulating a local ReID write."""
     tracker = getattr(scene, 'tracker', None)
     uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
     if uuid_manager is None:
@@ -316,6 +325,14 @@ class SceneController:
       return False
     entry = uuid_manager.features_for_database.get(rv_id)
     if entry and entry.get('reid_vectors'):
+      return True
+    if uuid_manager.enrollment_features.get(rv_id):
+      return True
+    if uuid_manager.local_enrollment_features.get(rv_id):
+      return True
+    if uuid_manager.quality_features.get(rv_id):
+      return True
+    if rv_id in uuid_manager.active_query:
       return True
     with uuid_manager.active_ids_lock:
       values = uuid_manager.active_ids.get(rv_id)

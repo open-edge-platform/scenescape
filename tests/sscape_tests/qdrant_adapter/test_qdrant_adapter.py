@@ -145,7 +145,7 @@ class TestQdrantDataOperations:
       db.addEntry("uuid-1", "track-1", "person", [vector])
 
   def test_add_entry_raises_when_no_valid_vectors(self):
-    """Empty prepared batches must raise so hierarchy write-health can clear."""
+    """Empty prepared batches must raise ReidNoValidVectorsError (non-sticky)."""
     db = QdrantDatabase(dimensions=4)
     db.client = MagicMock()
     db.connected = True

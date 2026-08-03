@@ -16,7 +16,8 @@ from scene_common.rest_client import RESTClient
 
 def load_controller_mqtt_creds(auth_path):
   """Return (username, password) from a controller.auth JSON file."""
-  data = json.loads(open(auth_path, encoding="utf-8").read())
+  with open(auth_path, encoding="utf-8") as auth_file:
+    data = json.load(auth_file)
   return data["user"], data["password"]
 
 
