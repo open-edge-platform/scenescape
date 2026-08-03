@@ -314,6 +314,9 @@ $(document).ready(function () {
       if (path == "") {
         path = "root";
       }
+      // path is read from a DOM attribute, so it must be escaped before being
+      // inserted back into the DOM as HTML
+      path = escapeHTML(path);
 
       const $modal = $(".model-prompt-container");
       const $confirmBtn = $modal.find(".prompt-confirm-button");
