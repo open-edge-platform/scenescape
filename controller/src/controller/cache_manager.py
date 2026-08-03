@@ -3,6 +3,8 @@
 
 from controller.scene import Scene
 from controller.data_source import RestSceneDataSource, FileSceneDataSource
+from controller.camera_registry import CameraRegistry
+from controller.tracking_object_registry import TrackedObjectRegistry
 
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
@@ -49,7 +51,7 @@ class CacheManager:
     new = set(x['uid'] for x in found)
     deleted = old - new
     for uid in deleted:
-      self.cached_scenes_by_uid.pop(uid, None)
+      self._teardownScene(self.cached_scenes_by_uid.pop(uid, None))
 
     for scene_data in found:
       self._refreshCameras(scene_data)
@@ -89,6 +91,28 @@ class CacheManager:
       self._old_scene_cache = None
 
     self._cache_refreshed = get_epoch_time()
+    return
+
+  def _teardownScene(self, scene):
+    """
+    Fully tear down a Scene that has been deleted (no longer present in the
+    data source). Stops its tracker thread(s) -- which in turn shuts down
+    each category's UUIDManager (thread pool, stale-feature timer) -- and
+    clears its process-wide registry state, so a deleted scene doesn't leak
+    threads or linger in CameraRegistry/TrackedObjectRegistry indefinitely.
+    Must run in this order: join the tracker before clearing the registries,
+    since an in-flight detection could otherwise repopulate registry state
+    for a scene_id that's about to disappear.
+
+    @param  scene  The Scene instance being removed, or None (safe no-op --
+                   pop(uid, None) returns None if uid was somehow already gone)
+    """
+    if scene is None:
+      return
+    if scene.tracker is not None:
+      scene.tracker.join()
+    CameraRegistry.getInstance().removeScene(scene.name)
+    TrackedObjectRegistry.getInstance().removeScene(scene.name)
     return
 
   def _sensorNeedsRestoring(self, uid):

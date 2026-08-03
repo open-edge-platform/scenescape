@@ -124,6 +124,13 @@ class Scene(SceneModel):
     return
 
   def _hydrateFromSceneData(self, scene_data, reid_runtime_update=True):
+    # Rename must happen before anything below that keys process-wide state
+    # (CameraRegistry via updateCameras(), UUIDManager.scene_id via
+    # updateTracker()/_setTracker()) off of self.name -- otherwise a rename
+    # applied in the same update as a camera/tracker-config change gets
+    # recorded under the stale, pre-rename scene name.
+    self.name = scene_data['name']
+
     reid_config_changed = False
     if 'reid_config_data' in scene_data:
       new_reid_config_data = scene_data['reid_config_data']
@@ -156,7 +163,6 @@ class Scene(SceneModel):
       log.info(f"ReID config changed for scene={self.uid}; updating tracker ReID runtime config")
       self.tracker.updateReidConfig(self.reid_config_data)
 
-    self.name = scene_data['name']
     if 'scale' in scene_data:
       self.scale = scene_data['scale']
     if 'regulated_rate' in scene_data:
