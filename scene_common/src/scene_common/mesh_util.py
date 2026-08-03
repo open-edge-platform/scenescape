@@ -8,12 +8,28 @@ from typing import Tuple
 import numpy as np
 import open3d as o3d
 import trimesh
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import connected_components
+from scipy.spatial import cKDTree
 from scene_common import log
 
 MESH_FLATTEN_Z_SCALE = 1000 # This is a calibrated value, used to make mesh look like a flat map.
 VECTOR_PROPERTIES = ['base_color', 'emissive_color']
 SCALAR_PROPERTIES = ['metallic', 'roughness', 'reflectance']
 POISSON_DEPTH = 8
+
+# Fraction of a reconstructed mesh's faces a connected component must contain to
+# count as a distinct "surface" rather than incidental debris.
+MESH_SIGNIFICANT_COMPONENT_FRACTION = 0.15
+
+# Two significant components are treated as the same physical surface when the
+# minimum distance between them is within this fraction of the mesh's overall
+# bounding-box diagonal.
+MESH_COMPONENT_SEPARATION_FRACTION = 0.01
+
+# Number of vertices sampled per component when measuring inter-component
+# distances, to keep the KD-tree queries fast on large reconstructions.
+MESH_DISTANCE_SAMPLE_SIZE = 4000
 
 def materialRecordToMaterial(mat_record):
   mat = o3d.visualization.Material('defaultLit')
@@ -103,6 +119,126 @@ def mergeMesh(scene):
   merged_mesh.fix_normals()
   merged_mesh.metadata['name'] = 'mesh_0'
   return merged_mesh
+
+def _connectedComponentLabels(mesh):
+  """Label each vertex of a Trimesh with the index of its connected component.
+
+  Returns (component_count, labels) or (0, None) when the mesh has no faces.
+  Uses sparse graph connected-components over the mesh's unique edges.
+  """
+  faces = getattr(mesh, 'faces', None)
+  vertices = getattr(mesh, 'vertices', None)
+  if faces is None or vertices is None or len(faces) == 0:
+    return 0, None
+
+  edges = mesh.edges_unique
+  n_vertices = len(vertices)
+  graph = csr_matrix(
+    (np.ones(len(edges), dtype=np.uint8), (edges[:, 0], edges[:, 1])),
+    shape=(n_vertices, n_vertices))
+  return connected_components(graph, directed=False)
+
+def _minComponentDistance(points_a, points_b, sample_size=MESH_DISTANCE_SAMPLE_SIZE):
+  """Return the minimum distance between two vertex point sets.
+
+  Both sets are randomly subsampled to at most sample_size points (with a fixed
+  seed for determinism) so the KD-tree query stays fast on large components.
+  Subsampling can only over-estimate the true minimum, which is safe here: it
+  makes the check err toward reporting a separation rather than hiding one.
+  """
+  rng = np.random.default_rng(0)
+  def subsample(points):
+    if len(points) <= sample_size:
+      return points
+    idx = rng.choice(len(points), sample_size, replace=False)
+    return points[idx]
+
+  a = subsample(points_a)
+  b = subsample(points_b)
+  distances, _ = cKDTree(b).query(a, k=1)
+  return float(distances.min())
+
+def checkMeshConnectivity(mesh, significant_fraction=MESH_SIGNIFICANT_COMPONENT_FRACTION,
+                          separation_fraction=MESH_COMPONENT_SEPARATION_FRACTION):
+  """Return an error message when a reconstructed mesh contains dominant
+  surfaces separated by a real spatial gap, otherwise None.
+
+  The check proceeds in two stages: find the connected components that
+  carry a significant share of the mesh, then group those that are spatially
+  close (overlapping sheets collapse into one group). More than one group means
+  the mesh is genuinely fragmented.
+
+  Args:
+    mesh: a trimesh.Trimesh
+    significant_fraction: minimum fraction of the mesh's faces a component must
+      contain to count as a distinct surface.
+    separation_fraction: components whose minimum separation is within this
+      fraction of the mesh bounding-box diagonal are treated as one surface.
+
+  Returns:
+    A human-readable error string describing the disjoint regions, or None when
+    the mesh is a single connected surface.
+  """
+  n_components, labels = _connectedComponentLabels(mesh)
+  if labels is None or n_components <= 1:
+    return None
+
+  face_labels = labels[mesh.faces[:, 0]]
+  face_counts = np.bincount(face_labels, minlength=n_components)
+  total_faces = face_counts.sum()
+  if total_faces == 0:
+    return None
+
+  significant = [int(c) for c in np.argsort(face_counts)[::-1]
+                 if face_counts[c] >= significant_fraction * total_faces]
+  if len(significant) <= 1:
+    return None
+
+  vertices = np.asarray(mesh.vertices)
+  component_points = {c: vertices[labels == c] for c in significant}
+
+  # Group spatially-close components: link two significant components when the
+  # minimum distance between them is within separation_fraction of the mesh
+  # diagonal. Overlapping-but-unwelded sheets of the same scene collapse into a
+  # single group; a component observing a different space stays on its own.
+  diagonal = float(np.linalg.norm(vertices.max(axis=0) - vertices.min(axis=0)))
+  gap_threshold = separation_fraction * diagonal
+
+  group_of = {c: i for i, c in enumerate(significant)}
+  for i in range(len(significant)):
+    for j in range(i + 1, len(significant)):
+      ci, cj = significant[i], significant[j]
+      if group_of[ci] == group_of[cj]:
+        continue
+      distance = _minComponentDistance(component_points[ci], component_points[cj])
+      if distance <= gap_threshold:
+        merged, absorbed = group_of[ci], group_of[cj]
+        for c in significant:
+          if group_of[c] == absorbed:
+            group_of[c] = merged
+
+  groups = {}
+  for c in significant:
+    groups.setdefault(group_of[c], []).append(c)
+  if len(groups) <= 1:
+    return None
+
+  regions = []
+  for members in groups.values():
+    pts = np.concatenate([component_points[c] for c in members], axis=0)
+    mn = np.round(pts.min(axis=0), 2)
+    mx = np.round(pts.max(axis=0), 2)
+    pct = 100.0 * sum(face_counts[c] for c in members) / total_faces
+    regions.append(
+      f"~{pct:.0f}% at x[{mn[0]}, {mx[0]}] y[{mn[1]}, {mx[1]}] z[{mn[2]}, {mx[2]}]")
+
+  return (
+    f"The reconstructed mesh is split into {len(groups)} spatially separate "
+    "surfaces, which means the cameras do not all observe the same physical "
+    "scene. Disjoint regions (share of mesh and bounding box in meters): "
+    + "; ".join(regions)
+    + ". Ensure every camera shares an overlapping view with the others and "
+    "regenerate the mesh.")
 
 def extractMeshFromPointCloud(ply_input, colors=None, voxel_size=0.01, depth=8):
   try:
