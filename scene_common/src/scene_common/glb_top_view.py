@@ -124,7 +124,7 @@ def generateOrthoView(scene_obj, glb_file):
   rotation_vector = np.float64([scene_obj.rotation_x,
                                 scene_obj.rotation_y,
                                 scene_obj.rotation_z])
-  triangle_mesh, tensor_mesh = extractMeshFromGLB(glb_file, rotation_vector)
+  triangle_mesh, tensor_mesh = extractMeshFromGLB(glb_file, rotation_vector, persist_merged=False)
   triangle_mesh.translate((scene_obj.translation_x, scene_obj.translation_y, 0.0))
 
   glb_size = getMeshSize(triangle_mesh)

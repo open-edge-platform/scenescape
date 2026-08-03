@@ -309,6 +309,7 @@ class CamSerializer(NonNullSerializer):
     self.map_distortion_fields(validated_data)
     self.map_transform_fields(validated_data)
     self.map_resolution_fields(validated_data)
+    validated_data.pop('cam', None)
 
     if not is_update:
       sensor_id = validated_data.get('sensor_id', None)
@@ -562,6 +563,7 @@ class TransformSerializerField(serializers.DictField):
 
 class SceneSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
+  skip_auto_align = serializers.BooleanField(write_only=True, required=False, default=False)
   uid = serializers.SerializerMethodField('get_uid')
   cameras = serializers.SerializerMethodField('get_cameras')
   sensors = serializers.SerializerMethodField('get_sensors')
@@ -726,6 +728,7 @@ class SceneSerializer(NonNullSerializer):
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
+    skip_auto_align = bool(validated_data.pop('skip_auto_align', False))
 
     parent_uid = None
     transform = None
@@ -750,6 +753,10 @@ class SceneSerializer(NonNullSerializer):
         Scene.objects.bulk_create([instance])
         instance.refresh_from_db()
 
+    # Reuse existing model guard to suppress y-up auto-align for opted-in uploads.
+    if skip_auto_align:
+      instance._from_generate_mesh = True
+
     if output_lla:
       instance.scenescapeScene.output_lla = output_lla
     map_corners_lla = validated_data.get('map_corners_lla', None)
@@ -763,8 +770,11 @@ class SceneSerializer(NonNullSerializer):
       instance.trs_matrix = trs_matrix
 
     if map_path:
-      map_path = '/media/' + map_path.name
-      ext = os.path.splitext(map_path)[1].lower()
+      # Partial updates must attach the uploaded file before thumbnail/alignment
+      # helpers read instance.map.path (create path already sets map via bulk_create).
+      if is_update:
+        instance.map = map_path
+      ext = os.path.splitext(map_path.name)[1].lower()
 
       if ext == ".ply":
         glb_file = instance.map.path.replace(".ply", ".glb")
@@ -836,7 +846,7 @@ class SceneSerializer(NonNullSerializer):
 
   class Meta:
     model = Scene
-    fields = ['uid', 'name', 'map_type', 'use_tracker', 'output_lla', 'trs_matrix', 'map_corners_lla', 'map', 'thumbnail', 'cameras', 'sensors', 'regions',
+    fields = ['uid', 'name', 'skip_auto_align', 'map_type', 'use_tracker', 'output_lla', 'trs_matrix', 'map_corners_lla', 'map', 'thumbnail', 'cameras', 'sensors', 'regions',
               'tripwires', 'parent', 'transform', 'mesh_translation', 'mesh_rotation',
               'mesh_scale', 'scale', 'children', 'regulated_rate', 'external_update_rate',
               'camera_calibration', 'apriltag_size', 'map_processed', 'polycam_data',

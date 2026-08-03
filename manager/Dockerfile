@@ -22,34 +22,26 @@ RUN : \
         libglib2.0 \
         python3-dev \
         libassimp-dev \
-        wget \
-        libssl3 \
+        dpkg-dev \
+        libpcre3-dev \
         libssl-dev \
-        libpcre2-dev \
-        apache2-dev \
         apache2 \
+        apache2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # mod_qos library is broken on debian 12, so we build it from source.
-# Use multiple download endpoints and dynamic extraction path to avoid pin-breakage.
-ARG MOD_QOS_VERSION=11.79
+# Build mod_qos from Debian source package to avoid SourceForge fetches and
+# ensure module ABI compatibility with the in-image Apache build.
 RUN : \
-        ; MOD_QOS_ARCHIVE="/tmp/mod_qos-${MOD_QOS_VERSION}.tar.gz" \
-        ; for URL in \
-                "https://downloads.sourceforge.net/project/mod-qos/mod_qos-${MOD_QOS_VERSION}.tar.gz" \
-                "https://sourceforge.net/projects/mod-qos/files/mod_qos-${MOD_QOS_VERSION}.tar.gz/download" \
-                "https://sourceforge.net/projects/mod-qos/files/latest/download" \
-            ; do \
-                wget --tries=3 --waitretry=2 "$URL" -O "$MOD_QOS_ARCHIVE" && break || true; \
-            done \
-        ; test -s "$MOD_QOS_ARCHIVE" \
-        ; tar -xzf "$MOD_QOS_ARCHIVE" -C /tmp \
-        ; rm -f "$MOD_QOS_ARCHIVE" \
-        ; MOD_QOS_SRC_DIR="$(find /tmp -maxdepth 1 -type d -name 'mod_qos-*' | head -n1)" \
-        ; test -n "$MOD_QOS_SRC_DIR" \
-        ; cd "$MOD_QOS_SRC_DIR/apache2" \
-        ; apxs2 -i -a -c -lssl -lcrypto mod_qos.c \
-        ; rm -rf "$MOD_QOS_SRC_DIR"
+    && echo "deb-src http://deb.debian.org/debian bookworm main" > /etc/apt/sources.list.d/debian-src.list \
+    && apt-get update \
+    && mkdir -p /tmp/mod_qos_src \
+    && cd /tmp/mod_qos_src \
+    && apt-get source --download-only libapache2-mod-qos \
+    && tar -xzf libapache2-mod-qos_*.orig.tar.gz \
+    && cd mod_qos-*/apache2 \
+    && apxs2 -i -a -c -lpcre -lssl -lcrypto mod_qos.c \
+    && rm -rf /tmp/mod_qos_src /var/lib/apt/lists/*
 
 # ---------- Manager Runtime Stage ------------------
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-manager-runtime
@@ -82,6 +74,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         ca-certificates \
         libegl1 \
         libgl1 \
+        libpcre3 \
         libapache2-mod-wsgi-py3 \
         libglib2.0-0 \
         libgomp1 \
@@ -159,6 +152,7 @@ COPY ./manager/src/manage.py $SCENESCAPE_HOME/manage.py
 COPY ./version.txt $SCENESCAPE_HOME/manager/
 COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/fast_geometry /usr/local/lib/python3.11/site-packages/fast_geometry
 COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/scene_common /usr/local/lib/python3.11/site-packages/scene_common
+COPY --from=scenescape-manager-builder /usr/lib/x86_64-linux-gnu/libpcre.so.3* /usr/lib/x86_64-linux-gnu/
 
 # Install Scenescape
 RUN : \

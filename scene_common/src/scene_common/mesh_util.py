@@ -3,6 +3,7 @@
 
 import os
 import math
+import tempfile
 
 from typing import Tuple
 import numpy as np
@@ -341,10 +342,13 @@ def getTensorMeshesFromModel(model):
     tensor_tmeshes.append(t_mesh)
   return tensor_tmeshes
 
-def extractMeshFromGLB(glb_file, rotation=None):
+def extractMeshFromGLB(glb_file, rotation=None, persist_merged=True):
   """! Generate a triangular mesh from the .glb transformed with rotation
   @param  glb_file  GLB file path
   @param  rotation  rotation in degrees
+  @param  persist_merged  when True, replace multi-mesh GLBs in-place with a
+                          merged mesh; when False, merge via a temporary file
+                          and keep the original GLB unchanged.
 
   @return
   """
@@ -359,8 +363,19 @@ def extractMeshFromGLB(glb_file, rotation=None):
   if len(mesh.meshes) > 1:
     scene = trimesh.load(glb_file)
     merged_mesh = mergeMesh(scene)
-    merged_mesh.export(glb_file)
-    mesh =  o3d.io.read_triangle_model(glb_file)
+    if persist_merged:
+      merged_mesh.export(glb_file)
+      mesh =  o3d.io.read_triangle_model(glb_file)
+    else:
+      temp_glb = None
+      try:
+        fd, temp_glb = tempfile.mkstemp(suffix=".glb", prefix="thumbnail_merge_")
+        os.close(fd)
+        merged_mesh.export(temp_glb)
+        mesh = o3d.io.read_triangle_model(temp_glb)
+      finally:
+        if temp_glb and os.path.exists(temp_glb):
+          os.remove(temp_glb)
 
   tensor_mesh = getTensorMeshesFromModel(mesh)
 
