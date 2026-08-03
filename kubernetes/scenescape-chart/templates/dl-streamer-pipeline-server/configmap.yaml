@@ -15,3 +15,7 @@ data:
 {{ .Files.Get "files/dlsps/sscape_policies.py" | indent 4 }}
   sscape_3d_detector.py: |
 {{ .Files.Get "files/dlsps/sscape_3d_detector.py" | indent 4 }}
+  sscape_3d_detector_postprocess.py: |
+{{ .Files.Get "files/dlsps/sscape_3d_detector_postprocess.py" | indent 4 }}
+  sscape_gst_log.py: |
+{{ .Files.Get "files/dlsps/sscape_gst_log.py" | indent 4 }}
