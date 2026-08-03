@@ -370,7 +370,10 @@ class MeshGenerator:
     filename = getattr(uploaded_file, "name", "") or ""
     suffix = Path(filename).suffix.lower()
 
-    if suffix not in ALLOWED_VIDEO_EXTENSIONS:
+    # The extension check must be an inline literal set (not a reference to
+    # ALLOWED_VIDEO_EXTENSIONS) for CodeQL's path-injection analysis to treat
+    # it as sanitizing suffix before it reaches NamedTemporaryFile below.
+    if suffix not in {".mp4", ".mov", ".mkv", ".webm", ".avi"}:
       raise ValueError(f"Unsupported video file extension: {suffix or 'none'}")
 
     try:

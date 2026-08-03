@@ -270,16 +270,6 @@ $(document).ready(function () {
     $elements.detach().appendTo($container);
   }
 
-  // Helper function to escape HTML special characters
-  function escapeHTML(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
-
   // Function to show the prompt modal to confirm the action
   function showModelPromptModal(action, path, filenames) {
     return new Promise((resolve, reject) => {
@@ -291,51 +281,53 @@ $(document).ready(function () {
       else if (filenames === null) {
         return resolve(true);
       }
-      // Multiple files to overwrite/delete -> join with <br> for better readability
+
+      // Normalize filenames into a plain array of raw (unescaped) strings
+      let fileNameList;
       if (Array.isArray(filenames)) {
-        if (filenames.length > 0) {
-          filenames = filenames.map(escapeHTML).join("<br>");
-        }
         // No files to overwrite/delete -> no need prompt
-        else {
+        if (filenames.length === 0) {
           return resolve(true);
         }
+        fileNameList = filenames;
       }
       // No files to overwrite/delete -> no need prompt
       else if (filenames.toString() === "") {
         return resolve(true);
-      }
-      // Single file to overwrite/delete -> convert to string
-      else {
-        filenames = escapeHTML(filenames.toString());
+      } else {
+        fileNameList = [filenames.toString()];
       }
 
       // Set the path to "root" if it is empty
       if (path == "") {
         path = "root";
       }
-      // path is read from a DOM attribute, so it must be escaped before being
-      // inserted back into the DOM as HTML
-      path = escapeHTML(path);
 
       const $modal = $(".model-prompt-container");
       const $confirmBtn = $modal.find(".prompt-confirm-button");
       const $cancelBtn = $modal.find(".prompt-cancel-button");
       const $message = $modal.find(".prompt-body");
 
-      // Construct the message to be displayed in the modal
-      var htmlMessage =
-        "<b>Are you sure want to " +
-        action +
-        " the following files?</b><br>" +
-        "<br>" +
-        "<b>Directory:</b> " +
-        path +
-        "<br>" +
-        "<br>" +
-        "<b>Files:</b><br>" +
-        filenames;
-      $message.html(htmlMessage);
+      // path and filenames are read from DOM attributes / user-supplied file
+      // names, so they are inserted as text nodes rather than concatenated
+      // into an HTML string, which avoids HTML/script injection regardless
+      // of their content.
+      $message.empty();
+      $message.append(
+        $("<b>").text(`Are you sure want to ${action} the following files?`),
+      );
+      $message.append("<br><br>");
+      $message.append($("<b>").text("Directory:"));
+      $message.append(document.createTextNode(" " + path));
+      $message.append("<br><br>");
+      $message.append($("<b>").text("Files:"));
+      $message.append("<br>");
+      fileNameList.forEach((name, index) => {
+        if (index > 0) {
+          $message.append("<br>");
+        }
+        $message.append(document.createTextNode(name));
+      });
 
       // Show the modal
       $modal.css("display", "block");
