@@ -116,6 +116,59 @@ Example response:
 {
   "success": true,
   "status": "healthy",
-  "model_loaded": true
+  "ready": true,
+  "model": "mapanything",
+  "model_loaded": true,
+  "device": "cpu",
+  "initialization": {
+    "state": "ready",
+    "stage": "model_loaded",
+    "progress": 100.0,
+    "message": "model loaded",
+    "error": null
+  }
+}
+```
+
+During startup, this endpoint may return HTTP `202` with:
+
+- `status: "degraded"`
+- `ready: false`
+- `initialization.state: "starting"`
+
+If startup fails permanently, this endpoint returns HTTP `503` with:
+
+- `status: "unhealthy"`
+- `ready: false`
+- `initialization.state: "failed"`
+
+You can poll startup progress without reading logs:
+
+```bash
+while true; do
+  curl -ks https://localhost:8444/v1/health | jq '.status, .ready, .initialization'
+  sleep 2
+done
+```
+
+### Model Information
+
+```bash
+curl https://localhost:8444/v1/models
+```
+
+Response shows single model details:
+
+```json
+{
+  "model": "mapanything",
+  "model_info": {
+    "name": "mapanything",
+    "description": "Universal Feed-Forward Metric 3D Reconstruction",
+    "loaded": true,
+    "native_output": "pointcloud",
+    "supported_outputs": ["pointcloud", "mesh"]
+  },
+  "camera_pose_format": {}
 }
 ```
