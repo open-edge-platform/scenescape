@@ -12,9 +12,8 @@ source of truth for both the downloader and the generated model_config.json.
 import copy
 import json
 
-import pytest
-
 import generate_model_config as gmc
+import pytest
 
 
 class TestValidateRelativeJsonPath:

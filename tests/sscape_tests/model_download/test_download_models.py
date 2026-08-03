@@ -6,9 +6,8 @@
 import json
 from urllib import error
 
-import pytest
-
 import download_models as dm
+import pytest
 
 
 class TestGetJobOutcome:

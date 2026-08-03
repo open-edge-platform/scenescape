@@ -14,10 +14,6 @@ from pathlib import Path
 
 import pytest
 
-import tests.common_test_utils as common
-
-TEST_NAME = "NEX-T10500"
-
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _MODEL_DOWNLOAD_SRC = _REPO_ROOT / "model_download" / "src"
 
@@ -25,18 +21,6 @@ if str(_MODEL_DOWNLOAD_SRC) not in sys.path:
   sys.path.insert(0, str(_MODEL_DOWNLOAD_SRC))
 
 REAL_MODELS_JSON_PATH = _REPO_ROOT / "model_download" / "models.json"
-
-
-def pytest_sessionstart():
-  """! Executes at the beginning of the test session. """
-  print(f"Executing: {TEST_NAME}")
-  return
-
-
-def pytest_sessionfinish(exitstatus):
-  """! Executes at the end of the test session. """
-  common.record_test_result(TEST_NAME, exitstatus)
-  return
 
 
 @pytest.fixture
