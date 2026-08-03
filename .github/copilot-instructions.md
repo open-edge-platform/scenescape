@@ -233,7 +233,8 @@ pubsub.publish(topic, json_payload)
 
 - Helm chart: `kubernetes/scenescape-chart/`
 - Reference: `kubernetes/README.md` for K8s-specific patterns
-- Test via `make demo-k8s DEMO_K8S_MODE=core|all`
+- Test via `make demo-k8s DEMO_K8S_MODE=core|reid|all`
+- ReID backend selected by `reid.backend` (`vdms`|`qdrant`), or `REID_BACKEND` for the make targets
 
 ## File Organization Essentials
 
