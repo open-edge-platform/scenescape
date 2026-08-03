@@ -4,19 +4,21 @@
 
 # Keep package list in alphabetical order
 aiofiles==25.1.0
-Django==5.2.14
+setuptools==81.0.0
+wheel==0.47.0
+Django==5.2.15
 django-axes==8.0.0
 django-debug-toolbar==6.0.0
 django-session-timeout==0.1.0
 djangorestframework==3.16.1
 jsonschema==4.25.1
-kubernetes==33.1.0
+kubernetes==36.0.2
 numpy==2.2.6
 onvif-zeep==0.2.12
 open3d-cpu==0.19.0
 opencv-python-headless==4.13.0.92
 paho-mqtt==2.1.0
-pillow==12.2.0
+pillow==12.3.0
 plyfile==1.0.3
 psycopg2-binary==2.9.11
 PyYAML==6.0.3
