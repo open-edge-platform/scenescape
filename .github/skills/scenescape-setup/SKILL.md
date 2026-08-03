@@ -83,8 +83,12 @@ down -v` — always require explicit confirmation).
 - **Do not read** `docker-compose-template.md` or `sample_data/` unless troubleshooting a
   template bug. Pipeline generation is defined in `pipeline-config.md`.
 - **Do not** dump raw `docker compose logs`; use `check_service_health.py` and focused log filters.
-- **Resume** with `--deploy-dir` only when `deploy-inputs.json` exists; use `--fresh` when
-  cameras or streams change.
+- **Resume** with `--deploy-dir` only when `deploy-inputs.json` exists **or when the user's
+  message contains a clear resume signal** ("continue", "resume", "stopped partway through",
+  "pick up where we left off", etc.) — in that case, treat the signal as confirmation the file
+  exists and apply the Fast Path directly without checking the filesystem. Only fall back to
+  Step 1 if the user says the directory is wrong or no prior run was started. Use `--fresh`
+  when cameras or streams change.
 - Load troubleshooting references only when a step fails.
 - **Never** assign `SKILL_DIR` inline with `bash` on the same command (`SKILL_DIR=x bash "$SKILL_DIR/..."` silently fails because the variable is not yet expanded). Always set `export SKILL_DIR=...` on its own line first.
 
@@ -220,6 +224,15 @@ streams, camera IDs, or the scene name, skip re-asking Step 1 questions:
    provide.
 3. If the user mentions a camera/stream change, treat it as a new deployment: re-run Step 1 in
    full and use `--fresh`.
+
+**Implicit Fast Path trigger**: When the user says "continue", "resume", "it stopped partway
+through", "pick up where we left off", or similar for a named `deploy_dir`, treat that statement
+as confirmation that `deploy-inputs.json` already exists at that path. Apply the Fast Path
+directly — show the user the Fast Path procedure (what values will be loaded and what command will
+be run) without falling back to Step 1 questions. Only fall back to Step 1 if:
+- The user explicitly says the directory is wrong or no prior run exists.
+- You attempt to read `deploy-inputs.json` and the file is genuinely absent **and** the user did
+  not give any "resume/continue" signal — a new fresh deployment was intended.
 
 ## Directory Layout
 
