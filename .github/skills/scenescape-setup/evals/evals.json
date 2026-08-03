@@ -1,0 +1,82 @@
+{
+  "skill_name": "scenescape-setup",
+  "evals": [
+    {
+      "id": 1,
+      "prompt_file": "example-prompts/01-multi-camera-deployment.md",
+      "prompt": "Deploy SceneScape in ~/deployments/retail-demo with scene name 'Retail Demo'. I don't have live RTSP cameras \u2014 use these two recorded videos as the camera feeds instead: cam1 -> https://github.com/open-edge-platform/scenescape/blob/main/sample_data/qcam1.mp4, cam2 -> https://github.com/open-edge-platform/scenescape/blob/main/sample_data/qcam2.mp4",
+      "expected_output": "Without asking clarifying questions, the agent produces a complete, correctly-ordered deployment procedure (bootstrap, calibrate, scene phases) that: converts the GitHub blob links to raw download URLs, feeds the videos in as local video-file camera inputs rather than RTSP, validates the camera IDs, launches the orchestrator asynchronously, and describes the DEPLOY COMPLETE / cross-camera tracking / deployment-metrics success criteria the run must satisfy. Note: the harness instructs the agent not to perform real network calls, downloads, or start real services for this eval, so the expectations below check the correctness and completeness of the produced plan/commands rather than requiring the agent to have actually executed them.",
+      "should_trigger": true,
+      "files": [],
+      "expectations": [
+        "Does not ask clarifying questions since deploy_dir, scene_name, and the two video URLs (mapped to cam1/cam2) are all explicit in the prompt",
+        "Converts the GitHub blob URLs to raw.githubusercontent.com (or equivalent) download URLs and shows the exact command(s) to download both videos into a local directory, rather than asking the user to supply the files",
+        "Recognizes there are no live RTSP cameras and shows deploy_inputs.py write invoked with --video-files (or --video-dir) instead of --streams, per video-file-input.md",
+        "Shows the deploy_inputs.py read-back command and correctly explains that the synthesized rtsp://mediaserver:8554/<camera_id> streams (not the original video paths) are what get passed to the orchestrator's --streams/--camera-ids flags",
+        "States or demonstrates that camera_ids cam1/cam2 are checked/confirmed unique before proceeding",
+        "Shows the orchestrator script (deploy_scenescape.sh) being launched in an async/background terminal rather than instructions to run it in the foreground and block",
+        "States that the calibration phase is expected to produce one calibration JPEG per camera_id",
+        "States that tracking verification (step 13) is expected to confirm tracked objects are associated with more than one camera_id",
+        "States that a successful run's final output includes the DEPLOY COMPLETE marker with a scene_uid and the Post-Task deployment metrics breakdown"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt_file": "example-prompts/02-resume-unchanged-deployment.md",
+      "prompt": "Continue the SceneScape deployment in ~/deployments/warehouse-demo \u2014 it stopped partway through.",
+      "expected_output": "Agent detects the existing deploy-inputs.json, uses the Fast Path (skips Step 1 questions), and resumes the orchestrator from the step recorded in .deploy-state.json.",
+      "should_trigger": true,
+      "files": [],
+      "expectations": [
+        "Detects deploy-inputs.json already exists in the deploy_dir and skips re-asking Step 1 questions",
+        "Shows the existing streams/camera_ids/scene_name to the user for confirmation instead of silently reusing them",
+        "Invokes the orchestrator with only --deploy-dir and --skill-dir (no --fresh)",
+        "Resumes from the step recorded in .deploy-state.json rather than restarting from step 1"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt_file": "example-prompts/03-redeploy-after-camera-change.md",
+      "prompt": "In ~/deployments/warehouse-demo, replace cam1 with a new camera at rtsp://192.168.1.15:8554/cam1-new (ID: cam1-new). Redeploy.",
+      "expected_output": "Agent recognizes the camera/stream change invalidates the Fast Path, shows the user the full updated Step 1 input set (existing cameras plus the new one) for confirmation rather than silently merging it, and shows the orchestrator being re-invoked with --fresh so all phases (bootstrap, calibrate, scene) re-run. Note: the harness instructs the agent not to start real services for this eval, so the redeploy/orchestrator expectations check the correctness of the shown command and explanation rather than requiring the agent to have actually started containers.",
+      "should_trigger": true,
+      "files": [],
+      "expectations": [
+        "Recognizes that a changed stream/camera_id set means this cannot use the Fast Path resume",
+        "Attempts to read deploy-inputs.json from the deploy_dir to surface the full existing camera list; either shows the complete merged input set (existing cameras with cam1 replaced by cam1-new) if the file is readable, or explicitly describes the merged set it would produce and asks the user to confirm or supply the existing camera list rather than silently proceeding with only the changed camera",
+        "Shows the orchestrator command re-invoked with --fresh, explaining that this clears .deploy-state.json and the old deploy-inputs.json",
+        "Explains that this --fresh run re-executes all phases (bootstrap, calibrate, scene) rather than only recalibrating the changed camera"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt_file": "example-prompts/04-reactive-tracking-tuning.md",
+      "prompt": "The SceneScape deployment in ~/deployments/warehouse-demo is up, but tracked people keep disappearing and getting new IDs whenever they walk behind a shelf. Can you fix this?",
+      "expected_output": "Agent recognizes this as a post-deployment tracking-quality complaint, opens only tuning-tracker.md (not tuning-reid.md), asks its questionnaire, then edits tracker-config.json in the deploy_dir and restarts the scene service.",
+      "should_trigger": true,
+      "files": [],
+      "expectations": [
+        "Does not ask any tuning questions during initial deployment prompts (evals 1-3) \u2014 tuning is only triggered by a post-deployment complaint like this one",
+        "Identifies the symptom (ID switching during occlusion) as a tracker motion/timing issue and opens tuning-tracker.md, not tuning-reid.md",
+        "Asks only the tuning-tracker.md questionnaire, not the full original combined set of questions",
+        "Edits the deployed <deploy_dir>/controller/tracker-config.json copy, not the skill's assets/tracker-config.json original",
+        "Restarts only the scene service (docker compose up -d --force-recreate scene) rather than re-running the full orchestrator or redeploying from scratch"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt_file": "example-prompts/05-reactive-reid-tuning.md",
+      "prompt": "The SceneScape deployment in ~/deployments/retail-demo is up, but the same shopper walking from cam1 to cam3 keeps getting a new ID instead of being recognized as the same person. Can you fix this?",
+      "expected_output": "Agent recognizes this as a post-deployment cross-camera Re-ID complaint, opens only tuning-reid.md (not tuning-tracker.md), asks its questionnaire, then edits reid-config.json in the deploy_dir and restarts the scene service.",
+      "should_trigger": true,
+      "files": [],
+      "expectations": [
+        "Does not ask any Re-ID tuning questions during initial deployment prompts (evals 1-3) \u2014 tuning is only triggered by a post-deployment complaint like this one",
+        "Identifies the symptom (identity not preserved across non-overlapping cameras) as a Re-ID issue and opens tuning-reid.md, not tuning-tracker.md",
+        "Asks only the tuning-reid.md questionnaire",
+        "Shows the exact path of the deployed copy it would edit (`<deploy_dir>/controller/reid-config.json`) and presents the specific JSON changes to apply, making clear this is the deployed copy \u2014 not the skill's assets/reid-config.json original",
+        "Shows the exact command to restart only the scene service (`docker compose up -d --force-recreate scene`) rather than the full orchestrator or a full redeploy command"
+      ]
+    }
+  ]
+}
