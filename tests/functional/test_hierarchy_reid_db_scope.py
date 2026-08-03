@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Multi-controller hierarchy ReID DB-scope priority tests (NEX-T21928–21932).
+"""Multi-controller hierarchy ReID DB-scope priority tests (NEX-T27151-NEX-T27155).
 
 Literal parent/child1/child2 Scene Controllers (and optional split VDMS) linked
 as remote children. Each scenario uses a distinct REID_HIER_* compose profile.
@@ -192,7 +192,7 @@ def _assert_distinct_parent_ids(ids_final, context, hier):
 )
 def test_hierarchy_shared_db_cross_child_merge(
     objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
-  """! NEX-T21928: shared DB + retrack → same embedding on C1 then C2 converges
+  """! NEX-T27151: shared DB + retrack → same embedding on C1 then C2 converges
   to one parent ID via shared-DB rematch; shared DB has uuid_count(E)==1.
 
   Sequential (C1 leave, then C2) is required: UUIDManager refuses to assign the
@@ -200,7 +200,7 @@ def test_hierarchy_shared_db_cross_child_merge(
   Concurrent two-child merge via ReID alone is a documented product follow-up
   (ADR 0015 open question on live-gid sharing).
   """
-  TEST_NAME = "NEX-T21928"
+  TEST_NAME = "NEX-T27151"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
@@ -280,10 +280,10 @@ def test_hierarchy_shared_db_cross_child_merge(
 )
 def test_hierarchy_children_share_db_parent_none(
     objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
-  """! NEX-T21929: children share DB (enroll once); parent has no ReID so
+  """! NEX-T27152: children share DB (enroll once); parent has no ReID so
   C1↔C2 do not merge via ReID at parent.
   """
-  TEST_NAME = "NEX-T21929"
+  TEST_NAME = "NEX-T27152"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
@@ -364,14 +364,14 @@ def test_hierarchy_children_share_db_parent_none(
 )
 def test_hierarchy_parent_has_db_children_none(
     objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
-  """! NEX-T21930: children have no ReID; parent enrolls forwarded crops on
+  """! NEX-T27153: children have no ReID; parent enrolls forwarded crops on
   query-no-match, then rematches C2 to the same UUID (sequential).
 
   Scope: parent-only ReID with embedding passthrough. Children never write the
   DB; the parent is the sole enroller when the query finds no prior row. If a
   crop were already enrolled (not this profile), rematch would skip re-enroll.
   """
-  TEST_NAME = "NEX-T21930"
+  TEST_NAME = "NEX-T27153"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
@@ -450,10 +450,10 @@ def test_hierarchy_parent_has_db_children_none(
 )
 def test_hierarchy_partial_db_no_cross_merge(
     objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
-  """! NEX-T21931: parent+child1 share reid-a; child2 has no DB → C2 does not
+  """! NEX-T27154: parent+child1 share reid-a; child2 has no DB → C2 does not
   merge into C1's parent UUID via ReID.
   """
-  TEST_NAME = "NEX-T21931"
+  TEST_NAME = "NEX-T27154"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
@@ -527,10 +527,10 @@ def test_hierarchy_partial_db_no_cross_merge(
 )
 def test_hierarchy_split_dbs_no_cross_merge(
     objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
-  """! NEX-T21932 (negative): child1→reid-a, child2→reid-b; each DB enrolls
+  """! NEX-T27155 (negative): child1→reid-a, child2→reid-b; each DB enrolls
   once; parent IDs for C1 vs C2 differ.
   """
-  TEST_NAME = "NEX-T21932"
+  TEST_NAME = "NEX-T27155"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1

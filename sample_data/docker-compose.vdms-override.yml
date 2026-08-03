@@ -22,6 +22,8 @@ services:
       scenescape:
         aliases:
           - reid.scenescape.intel.com
+    ports:
+      - "55555:55555"
     environment:
       - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
       - OVERRIDE_cert_file=/run/secrets/certs/scenescape-reid-s.crt

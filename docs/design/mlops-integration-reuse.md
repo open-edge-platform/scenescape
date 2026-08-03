@@ -65,7 +65,6 @@ This subsection defines the Scenescape-internal vocabulary used in the rest of t
 #### Scenescape components in scope of (or possibly in scope of) MLOps integration
 
 - **Manager** — today a single Django service ([`manager/`](../../manager/)) combining multiple responsibilities. In subsequent phases, it is recommended (but not required) to split it into three distinct services (or at least containers):
-
   - **Manager (UI)** — A thin front-end that consumes the backend REST APIs.
   - **Manager (Backend)** — Manages the **scene configuration**, including cameras, scene maps, and persistence. It handles scene import/export, provides the primary REST API for the UI, and is responsible for fetching pipeline definitions from ViPPET to store within the scene configuration.
   - **Pipeline Orchestrator** — A dedicated service responsible for the pipeline lifecycle and interaction with DLSPS. It monitors the database for changes to scene and pipeline configurations and orchestrates the runtime state accordingly (e.g., starting, stopping, or updating pipelines in DLSPS).
