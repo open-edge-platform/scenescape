@@ -1695,28 +1695,34 @@ components:
           type: number
           format: double
           minimum: 0.0
+          default: 1.0
           title: Object size in x-axis
         y_size:
           type: number
           format: double
           minimum: 0.0
+          default: 1.0
           title: Object size in y-axis
         z_size:
           type: number
           format: double
           minimum: 0.0
+          default: 1.0
           title: Object size in z-axis
         tracking_radius:
           type: number
           format: double
+          default: 2.0
           title: Tracking radius (meters)
         shift_type:
           oneOf:
             - $ref: "#/components/schemas/ShiftTypeEnum"
             - $ref: "#/components/schemas/NullEnum"
+          default: 1
         mark_color:
           type: string
           maxLength: 20
+          default: "#888888"
         model_3d:
           type: string
           format: uri
@@ -1726,55 +1732,67 @@ components:
           type: number
           format: double
           nullable: true
+          default: 1.0
         project_to_map:
           oneOf:
             - $ref: "#/components/schemas/OutputLlaEnum"
             - $ref: "#/components/schemas/NullEnum"
+          default: false
         rotation_from_velocity:
           oneOf:
             - $ref: "#/components/schemas/OutputLlaEnum"
             - $ref: "#/components/schemas/NullEnum"
+          default: false
         rotation_x:
           type: number
           format: double
           nullable: true
+          default: 0.0
           title: X Rotation (degrees)
         rotation_y:
           type: number
           format: double
           nullable: true
+          default: 0.0
           title: Y Rotation (degrees)
         rotation_z:
           type: number
           format: double
           nullable: true
+          default: 0.0
           title: Z Rotation (degrees)
         translation_x:
           type: number
           format: double
           nullable: true
+          default: 0.0
           title: X Translation (meters)
         translation_y:
           type: number
           format: double
           nullable: true
+          default: 0.0
           title: Y Translation (meters)
         translation_z:
           type: number
           format: double
           nullable: true
+          default: 0.0
           title: Z Translation (meters)
         x_buffer_size:
           type: number
           format: double
+          default: 0.0
           title: Object buffer size in x-axis
         y_buffer_size:
           type: number
           format: double
+          default: 0.0
           title: Object buffer size in y-axis
         z_buffer_size:
           type: number
           format: double
+          default: 0.0
           title: Object buffer size in z-axis
         geometric_center:
           type: array
@@ -1782,12 +1800,14 @@ components:
             type: number
             format: double
           nullable: true
+          default: [0.0, 0.0, 0.0]
           description: Geometric center offset [x, y, z] in meters from bottom center
         mass:
           type: number
           format: double
           minimum: 0.0
           nullable: true
+          default: 1.0
           title: Mass (kg)
         center_of_mass:
           type: array
@@ -1795,6 +1815,7 @@ components:
             type: number
             format: double
           nullable: true
+          default: [0.0, 0.0, 0.0]
           description: Center of mass offset [x, y, z] in meters from geometric center
         is_static:
           description: |-
@@ -1805,11 +1826,13 @@ components:
           oneOf:
             - $ref: "#/components/schemas/OutputLlaEnum"
             - $ref: "#/components/schemas/NullEnum"
+          default: false
         ttl:
           type: number
           format: double
           minimum: 0.0
           nullable: true
+          default: 0.0
           title: Time to Live (seconds)
           description: Time to live for track expiration (0 = infinite)
         linear_damping:
@@ -1818,6 +1841,7 @@ components:
           maximum: 1.0
           minimum: 0.0
           nullable: true
+          default: 0.05
           description: Resistance to linear motion (0.0 - 1.0)
         angular_damping:
           type: number
@@ -1825,6 +1849,7 @@ components:
           maximum: 1.0
           minimum: 0.0
           nullable: true
+          default: 0.05
           description: Resistance to angular motion (0.0 - 1.0)
         coefficient_of_restitution:
           type: number
@@ -1832,6 +1857,7 @@ components:
           maximum: 1.0
           minimum: 0.0
           nullable: true
+          default: 0.5
           description: Bounciness for collisions (0.0 - 1.0)
         friction_coefficients:
           type: array
@@ -1839,6 +1865,7 @@ components:
             type: number
             format: double
           nullable: true
+          default: [0.5, 0.4]
           description: Friction coefficients [static, dynamic]
       required:
         - name
@@ -1866,6 +1893,7 @@ components:
           items:
             type: number
             format: double
+          default: []
         scene:
           type: string
           format: uuid
@@ -1969,16 +1997,20 @@ components:
           oneOf:
             - $ref: "#/components/schemas/CvSubsystemEnum"
             - $ref: "#/components/schemas/NullEnum"
+          default: AUTO
         undistort:
           type: boolean
+          default: false
         modelconfig:
           type: string
           nullable: true
           title: Model Config
           maxLength: 512
+          default: model_config.json
         use_camera_pipeline:
           type: boolean
           nullable: true
+          default: false
           description: Enable to directly apply the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings.
         detection_labels:
           type: string
@@ -2024,6 +2056,7 @@ components:
           readOnly: true
         child_type:
           type: string
+          default: local
           maxLength: 15
         transform:
           type: object
@@ -2062,73 +2095,91 @@ components:
         retrack:
           allOf:
             - $ref: "#/components/schemas/OutputLlaEnum"
+          default: true
           title: Retrack objects
         transform_type:
           $ref: "#/components/schemas/TransformTypeEnum"
+          default: matrix
         transform1:
           type: number
           format: double
           nullable: true
+          default: 1.0
         transform2:
           type: number
           format: double
           nullable: true
+          default: 0.0
         transform3:
           type: number
           format: double
           nullable: true
+          default: 0.0
         transform4:
           type: number
           format: double
           nullable: true
+          default: 0.0
         transform5:
           type: number
           format: double
           nullable: true
+          default: 0.0
         transform6:
           type: number
           format: double
           nullable: true
+          default: 1.0
         transform7:
           type: number
           format: double
           nullable: true
+          default: 0.0
         transform8:
           type: number
           format: double
           nullable: true
+          default: 0.0
         transform9:
           type: number
           format: double
           nullable: true
+          default: 0.0
         transform10:
           type: number
           format: double
           nullable: true
+          default: 0.0
         transform11:
           type: number
           format: double
           nullable: true
+          default: 1.0
         transform12:
           type: number
           format: double
           nullable: true
+          default: 0.0
         transform13:
           type: number
           format: double
           nullable: true
+          default: 0.0
         transform14:
           type: number
           format: double
           nullable: true
+          default: 0.0
         transform15:
           type: number
           format: double
           nullable: true
+          default: 0.0
         transform16:
           type: number
           format: double
           nullable: true
+          default: 1.0
       required:
         - parent
     CustomAuthToken:
@@ -2395,6 +2446,7 @@ components:
         access:
           allOf:
             - $ref: "#/components/schemas/AccessEnum"
+          default: 0
       required:
         - topic
     Region:
@@ -2419,14 +2471,17 @@ components:
           type: number
           format: double
           minimum: 0
+          default: 0.0
         height:
           type: number
           format: double
           minimum: 0.001
+          default: 1.0
         volumetric:
           oneOf:
             - $ref: "#/components/schemas/OutputLlaEnum"
             - $ref: "#/components/schemas/NullEnum"
+          default: false
         color_ranges:
           $ref: "#/components/schemas/RegionOccupancyThreshold"
       required:
@@ -2456,13 +2511,16 @@ components:
           oneOf:
             - $ref: "#/components/schemas/MapTypeEnum"
             - $ref: "#/components/schemas/NullEnum"
+          default: map_upload
         use_tracker:
           $ref: "#/components/schemas/OutputLlaEnum"
+          default: true
         output_lla:
           title: Output geospatial coordinates
           oneOf:
             - $ref: "#/components/schemas/OutputLlaEnum"
             - $ref: "#/components/schemas/NullEnum"
+          default: false
         trs_matrix:
           type: array
           nullable: true
@@ -2549,20 +2607,24 @@ components:
           type: number
           format: double
           minimum: 0.001
+          default: 30
           title: Regulate Rate (Hz)
         external_update_rate:
           type: number
           format: double
           minimum: 0.001
+          default: 30
           title: Max External Update Rate (Hz)
         camera_calibration:
           allOf:
             - $ref: "#/components/schemas/CameraCalibrationEnum"
+          default: Manual
           title: Calibration Type
         apriltag_size:
           type: number
           format: double
           nullable: true
+          default: 0.162
           title: AprilTag Size (meters)
         map_processed:
           type: string
@@ -2578,25 +2640,31 @@ components:
           maximum: 2147483647
           minimum: -2147483648
           nullable: true
+          default: 50
         global_feature:
           type: string
+          default: netvlad
           title: Global Feature Matching Algorithm
           maxLength: 200
         local_feature:
           type: string
           nullable: true
+          default: '{"sift": {}}'
         matcher:
           type: string
           nullable: true
+          default: '{"NN-ratio": {}}'
         minimum_number_of_matches:
           type: integer
           maximum: 2147483647
           minimum: -2147483648
           nullable: true
+          default: 20
         inlier_threshold:
           type: number
           format: double
           minimum: 0.0
+          default: 0.5
           title: Feature Match Confidence Threshold
         geospatial_provider:
           title: Geospatial Map Provider
@@ -2609,11 +2677,13 @@ components:
             - $ref: "#/components/schemas/GeospatialProviderEnum"
             - $ref: "#/components/schemas/BlankEnum"
             - $ref: "#/components/schemas/NullEnum"
+          default: google
         map_zoom:
           type: number
           format: double
           minimum: 0.0
           nullable: true
+          default: 15.0
           title: Map Zoom Level
           description: Zoom level for the geospatial map view
         map_center_lat:
@@ -2632,6 +2702,7 @@ components:
           type: number
           format: double
           nullable: true
+          default: 0.0
           title: Map Bearing/Rotation (degrees)
           description: Rotation angle for the geospatial map view in degrees
       required:
@@ -2662,6 +2733,7 @@ components:
           maxLength: 150
         area:
           $ref: "#/components/schemas/AreaEnum"
+          default: scene
         points:
           type: array
           items:
@@ -2686,6 +2758,7 @@ components:
         singleton_type:
           allOf:
             - $ref: "#/components/schemas/SingletonTypeEnum"
+          default: environmental
           title: Type of Sensor
         color_ranges:
           $ref: "#/components/schemas/SingletonScalarThreshold"
@@ -2774,6 +2847,7 @@ components:
         height:
           type: number
           format: double
+          default: 1.0
         scene:
           type: string
           format: uuid
@@ -2798,15 +2872,18 @@ components:
           maxLength: 128
         is_active:
           type: boolean
+          default: true
           title: Active
           description: Designates whether this user should be treated as active. Unselect this instead of deleting accounts.
         is_staff:
           type: boolean
+          default: false
           title: Staff status
           description: Designates whether the user can log into this admin site.
           readOnly: true
         is_superuser:
           type: boolean
+          default: false
           title: Superuser status
           description: Designates that this user has all permissions without explicitly assigning them.
           readOnly: true
