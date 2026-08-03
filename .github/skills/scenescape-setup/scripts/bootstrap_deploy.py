@@ -163,10 +163,12 @@ def generate_video_file_override(deploy_dir: Path, payload: dict) -> None:
 
   command = "-nostdin " + " ".join(input_clauses) + " " + " ".join(map_clauses)
   volumes_block = "\n".join(volume_lines)
+  spdx_file_copyright = "SPDX-FileCopyrightText"
+  spdx_license_identifier = "SPDX-License-Identifier"
 
   override_path.write_text(
-    "# SPDX-FileCopyrightText: (C) 2026 Intel Corporation\n"
-    "# SPDX-License-Identifier: Apache-2.0\n"
+    f"# {spdx_file_copyright}: (C) 2026 Intel Corporation\n"
+    f"# {spdx_license_identifier}: Apache-2.0\n"
     "#\n"
     "# Generated because Step 1 inputs were local video files instead of live RTSP\n"
     "# cameras. Loops each file through a local RTSP server (mediamtx) so the rest of\n"
