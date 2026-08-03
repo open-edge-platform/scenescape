@@ -14,43 +14,116 @@ models from various sources for purpose of demonstration.
 make -C model_download install-models
 ```
 
+For Kubernetes deployments, the same flow can be selected in the Helm chart with
+`--set modelDownload.enabled=true`. The chart runs the model downloader service and this folder's Python orchestration
+inside a pre-install hook, writing outputs to the models PVC.
+
 ## Key variables
 
 - `COMPOSE_PROJECT_NAME` (default: `scenescape`)
 - `MODEL_DOWNLOADER_IMAGE` (default: `intel/model-download:latest`)
 - `MODEL_DOWNLOADER_URL` (default: `http://127.0.0.1:8200`)
-- `MODEL_DOWNLOAD_PATH` (default: `models`)
-- `MODEL_LIST` (JSON array override; supports the format required by model_downloader REST API)
-- `MODEL_DOWNLOAD_PLUGIN` (list of plugins describing available sources of models, default: `omz`)
-- `MODEL_CONFIG_OUTPUT_FILE` (default: `model_config.json`)
-- `MODEL_CONFIG_PREFER_PRECISION` (default: `FP16`)
-- `MODEL_CONFIG_SUBFOLDERS` (default: `omz,intel,public`)
+- `MODEL_CONFIG_FILE` (default: `models.json`; shared model download and Scenescape config metadata)
+- `MODEL_DOWNLOADER_CMD` (model_downloader startup arguments; default: `--plugins omz`)
 
 The downloader submits model download jobs, then polls `/api/v1/jobs` until every returned job reaches a terminal state.
 
 - Exit code `0`: all tracked download jobs completed successfully.
 - Exit code `1`: at least one tracked job failed, no job IDs were returned, polling timed out, or the status API returned an invalid response.
 
-After downloads finish, `make -C model_download install-models` also generates `model_config.json` in `/models/model_configs/` by calling the shared Scenescape generator through the wrapper script.
+After downloads finish, `make -C model_download install-models` also generates `model_config.json` in `/models/model_configs/` from `MODEL_CONFIG_FILE`. If a model entry contains `scenescape.model_proc`, the same generation step writes that DL Streamer model-proc JSON file into the models volume and references it from generated `model_config.json`.
 
-Example `MODEL_LIST`:
+## Shared model configuration
+
+The default configuration lives in `model_download/models.json`. Its top-level `models` array is the single source for downloads and generated DL Streamer configuration. Each model entry has separate namespaces so downloader fields cannot collide with Scenescape fields:
+
+- `model_downloader`: passed to the `model_downloader` REST API as-is.
+- `scenescape`: optional Scenescape metadata used only to generate `model_config.json`.
+
+```json
+{
+  "models": [
+    {
+      "model_downloader": {
+        "name": "person-detection-retail-0013",
+        "hub": "omz"
+      },
+      "scenescape": {
+        "name": "retail",
+        "config": {
+          "type": "detect",
+          "params": {
+            "model": "omz/person-detection-retail-0013/FP16/person-detection-retail-0013.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+          }
+        },
+        "model_proc": {
+          "path": "object_detection/person/person-detection-retail-0013.json",
+          "content": {
+            "json_schema_version": "2.0.0",
+            "input_preproc": [],
+            "output_postproc": [
+              {
+                "labels": ["", "person"],
+                "converter": "tensor_to_bbox_ssd"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "model_config": {
+    "output_file": "model_config.json",
+    "prefer_precision": "FP16"
+  }
+}
+```
+
+`scenescape.name` is the convenient key written to generated `model_config.json`. `scenescape.config` is copied into the generated entry. `scenescape.config.params.model` must point to the model XML path relative to the models volume.
+
+`scenescape.model_proc` is optional. When present:
+
+- `path` is the model-proc JSON path relative to the models volume. It must be a relative `.json` path inside the models directory.
+- `content` is the DL Streamer model-proc JSON object to write at that path.
+- the generator adds `params.model_proc` with the same relative path to generated `model_config.json`.
+
+Models without the `scenescape` section are downloaded but skipped when generating `model_config.json`.
+
+Use a different configuration file with:
 
 ```bash
-MODEL_LIST_JSON='[{"name":"person-detection-retail-0013","hub":"omz"},{"name":"person-attributes-recognition-crossroad-0230","hub":"omz"}]'
+make -C model_download install-models MODEL_CONFIG_FILE=/path/to/models.json
 ```
 
 ## Downloading Models from Different Sources
 
 To add another model source one has to:
 
-- add new model with its source to `MODEL_LIST` (for example `MODEL_LIST='[{"name":"person-detection-retail-0013","hub":"omz"},{"name":"my-custom-model","hub":"huggingface"}]'`)
+- add the new model with its source to `models[].model_downloader` in `MODEL_CONFIG_FILE` (for example `{"name":"my-custom-model","hub":"huggingface"}`)
+- add `scenescape.name` and `scenescape.config` to that model object when it should appear in generated `model_config.json`
 - extend list of plugins installed in the `model_downloader` container - by modifying the following line in the `Makefile`:
 
 ```makefile
 MODEL_DOWNLOADER_CMD ?= --plugins omz,huggingface
 ```
 
-- if, except of just downloading, the model needs some postprocessing - like generating model-config file for omz models - add this step in
-  the `Makefile` - in similar way to the `generate-model-config` or `copy-config-files` targets.
+- if the model needs DL Streamer post-processing metadata, add `scenescape.model_proc` to the model entry so the generator creates the model-proc file in the models volume.
 
 > [!NOTE] list of available plugins and their configuration can be found in the `model_downloader` [documentation](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/microservices/model-download/README.md).
+
+## Unit Tests
+
+Unit tests (no Docker required) are located in `tests/sscape_tests/model_download/` and cover:
+
+- `models.json` parsing and validation (`generate_model_config.py`): schema checks for `model_downloader`/`scenescape` entries, `scenescape.model_proc` path/content validation, duplicate name/path detection, and end-to-end generation of `model_config.json`. A regression test also parses the repo's real `model_download/models.json`.
+- Non-trivial logic in `download_models.py`: job status/outcome resolution, filtering tracked jobs, downloader model validation, and the download-request/poll loops (with `urllib.request.urlopen` mocked).
+
+Run from repo root:
+
+```bash
+pytest tests/sscape_tests/model_download/ -v -p no:django
+```
+
