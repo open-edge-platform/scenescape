@@ -134,4 +134,3 @@ Run from repo root:
 ```bash
 pytest tests/sscape_tests/model_download/ -v -p no:django
 ```
-

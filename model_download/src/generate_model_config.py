@@ -56,12 +56,12 @@ def _write_model_proc_file(
     content: dict[str, object],
 ) -> None:
   output_path = models_path / relative_path
-  models_root = models_path.resolve()
+  models_root = models_path.resolve()
   resolved_output_path = output_path.resolve()
 
-  if not resolved_output_path.is_relative_to(models_root):
-    raise ValueError(f'model_proc path escapes models directory: {relative_path}')
-
+  if not resolved_output_path.is_relative_to(models_root):
+    raise ValueError(f'model_proc path escapes models directory: {relative_path}')
+
   resolved_output_path.parent.mkdir(parents=True, exist_ok=True)
   with open(resolved_output_path, 'w', encoding='utf-8') as handle:
     json.dump(content, handle, indent=2)
