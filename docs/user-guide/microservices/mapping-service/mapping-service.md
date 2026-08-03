@@ -188,6 +188,12 @@ python client_example.py --images image1.jpg image2.jpg --mesh-type pointcloud -
 # Health check
 curl https://localhost:8444/v1/health --insecure
 
+# Startup progress (poll initialization state)
+while true; do
+  curl -ks https://localhost:8444/v1/health | jq '{status, ready, initialization}'
+  sleep 2
+done
+
 # List models
 curl https://localhost:8444/v1/models --insecure
 
