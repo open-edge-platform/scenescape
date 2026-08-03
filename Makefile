@@ -38,6 +38,11 @@ CERTDOMAIN ?= scenescape.intel.com
 # Demo variables
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
+DEMO_WAIT_SECONDS ?= "0"
+# ReID vector backend used by the ReID demo targets: vdms (default) or qdrant
+REID_BACKEND ?= vdms
+REID_OVERRIDE_FILE = sample_data/docker-compose.$(strip $(REID_BACKEND))-override.yml
+REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE)
 
 # Test variables
 TESTS_FOLDER := tests
@@ -88,14 +93,15 @@ help:
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
-	@echo "  demo                        (default) Start the Scenescape demo with core services using Docker Compose"
-	@echo "  demo-all                    Start the Scenescape demo with all services using Docker Compose"
+	@echo "  demo                        (default) Start the Scenescape demo with core services (tracking, no ReID)"
+	@echo "  demo-reid                   Start the core demo plus the ReID vector database"
+	@echo "  demo-all                    Start demo-reid plus cluster analytics and experimental services"
 	@echo "  demo-cluster-analytics      Start the Scenescape demo with cluster analytics service using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Scenescape)"
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker service + Controller in analytics only mode using Docker Compose"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
-	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
+	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -153,6 +159,8 @@ help:
 	@echo "  - Use 'make JOBS=N' to build Scenescape images using N parallel processes."
 	@echo "  - Use 'make FOLDERS=\"<list of image folders>\"' to build specific image folders."
 	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
+	@echo "  - ReID demo targets (demo-reid, demo-all, demo-k8s with DEMO_K8S_MODE=reid|all)"
+	@echo "    default to REID_BACKEND=vdms. Set REID_BACKEND=qdrant to use Qdrant instead."
 	@echo ""
 
 # ========================= Build Images =============================
@@ -387,12 +395,17 @@ setup-pytest:
 		OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
 			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(CURDIR)/controller/src/robot_vision; \
 	fi
-	@if ! command -v firefox > /dev/null 2>&1; then \
-		echo "ERROR: Firefox is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
-		exit 1; \
-	elif firefox --version 2>&1 | grep -qi snap || [[ "$$(command -v firefox)" == *snap* ]]; then \
-		echo "ERROR: Snap Firefox is incompatible with Selenium. See tests/README.md for installation instructions."; \
-		exit 1; \
+	@FF_LOCATIONS="$$(which -a firefox 2>/dev/null || true)"; \
+	if [ -z "$$FF_LOCATIONS" ]; then \
+			echo "ERROR: Firefox is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
+			exit 1; \
+	fi; \
+	FF_NON_SNAP="$$(echo "$$FF_LOCATIONS" | grep -v '/snap/' || true)"; \
+	if [ -z "$$FF_NON_SNAP" ]; then \
+			echo "ERROR: All firefox binaries are Snap-based:"; \
+			echo "$$FF_LOCATIONS" | sed 's/^/  /'; \
+			echo "Snap Firefox is incompatible with Selenium. See tests/README.md for installation instructions."; \
+			exit 1; \
 	fi
 	@if [ ! -f "$(CURDIR)/tests/.venv/bin/geckodriver" ]; then \
 		echo "geckodriver not found — downloading v0.36.0 into tests/.venv/bin/..."; \
@@ -630,12 +643,6 @@ prettier-write:
 add-licensing:
 	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="Apache-2.0" $(FILE) || (echo "Adding license failed" && exit 1)
 
-# =========================== Coverity ==============================
-.PHONY: build-coverity
-build-coverity:
-	$(MAKE) -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
-	@export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" && pip3 install --no-cache-dir scikit-build-core && cd controller/src/robot_vision && pip3 install --no-cache-dir --no-build-isolation . || (echo "robot vision build failed" && exit 1)
-	$(MAKE) -C tracker build || (echo "tracker build failed" && exit 1)
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: convert-dls-videos
@@ -679,21 +686,38 @@ define start_demo
 		echo "Updating docker-compose.yml with custom HTTPS port: $$HTTPS_PORT"; \
 		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
 	fi
-	docker compose $(1) up -d
 	@echo "$(1)" > .scenescape-profile
+	@if [ "$(DEMO_WAIT_SECONDS)" != "0" ]; then \
+		echo "Waiting for Scenescape services to be ready..."; \
+		docker compose $(1) up -d --wait --wait-timeout $(DEMO_WAIT_SECONDS); \
+	else \
+		echo "Starting Scenescape services in detached mode..."; \
+		docker compose $(1) up -d; \
+	fi
 	@echo ""
 	@echo "To stop Scenescape, type:"
 	@echo "    docker compose $(1) down"
 	@echo "Or use: make demo-close"
 endef
 
+.PHONY: check-reid-backend
+check-reid-backend:
+	@case "$(strip $(REID_BACKEND))" in \
+		vdms|qdrant) ;; \
+		*) echo "REID_BACKEND must be 'vdms' (default) or 'qdrant'"; exit 1 ;; \
+	esac
+
 .PHONY: demo
 demo: build-core init-sample-data
 	$(call start_demo,--profile controller)
 
+.PHONY: demo-reid
+demo-reid: check-reid-backend build-core init-sample-data
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller))
+
 .PHONY: demo-all
-demo-all: build-all init-sample-data
-	$(call start_demo,--profile controller --profile cluster-analytics --profile experimental)
+demo-all: check-reid-backend build-all init-sample-data
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile experimental))
 
 .PHONY: demo-cluster-analytics
 demo-cluster-analytics: build-all init-sample-data
@@ -713,8 +737,8 @@ demo-close:
 	@rm -f .scenescape-profile
 
 .PHONY: demo-k8s
-demo-k8s:
-	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST) DEMO_K8S_MODE=$(DEMO_K8S_MODE)
+demo-k8s: check-reid-backend
+	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST) DEMO_K8S_MODE=$(DEMO_K8S_MODE) REID_BACKEND=$(strip $(REID_BACKEND))
 
 .PHONY: docker-compose.yml
 docker-compose.yml:

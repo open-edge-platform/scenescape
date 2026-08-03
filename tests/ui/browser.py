@@ -37,9 +37,10 @@ def _validate_firefox(binary):
 def _find_firefox_binary():
   candidates = [
     os.environ.get("FIREFOX_BIN"),
-    "/snap/firefox/current/usr/lib/firefox/firefox",
     "/usr/bin/firefox",
     "/usr/bin/firefox-esr",
+    "/usr/lib/firefox-esr",
+    "/usr/lib/firefox/firefox",
     which("firefox"),
     which("firefox-esr"),
   ]
@@ -117,7 +118,7 @@ class Browser(Firefox):
       "broker.scenescape.intel.com",
       "web.scenescape.intel.com",
       "autocalibration.scenescape.intel.com",
-      "vdms.scenescape.intel.com",
+      "reid.scenescape.intel.com",
     ]
     options.set_preference("network.dns.localDomains", ",".join(_host_aliases))
     service = Service(_find_geckodriver())

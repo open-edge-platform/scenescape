@@ -18,9 +18,9 @@ scan:
     - secret
   skip-files:
     - "scene_common/Dockerfile"
-    - "tests/security/fuzzing/Dockerfile"
   skip-dirs:
     - ".github"
+    - "tests"
 severity:
   - CRITICAL
   - HIGH

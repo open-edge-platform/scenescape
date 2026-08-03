@@ -92,7 +92,7 @@ pose+marsreid
 
 > **Note**: To enable pose-based bounding box adjustment in the Scene Controller, set the `--pose-adjustment` flag or `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable. See the [Scene Controller documentation](../microservices/controller/controller.md) for details.
 
-> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `pose+marsreid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--pose-adjustment` controller flag is also incompatible with Extended ReID (VDMS-based cross-camera re-identification).
+> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `pose+marsreid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--pose-adjustment` controller flag is also incompatible with Extended ReID (cross-camera re-identification via the configured vector backend).
 
 **Vehicle Analytics Workflows:**
 
@@ -255,7 +255,7 @@ Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice.
 The following is the GStreamer command that defines the video processing pipeline. It specifies how video frames are read, processed, and analyzed using various GStreamer elements and plugins. Each element in the pipeline performs a specific task, such as decoding, object detection, metadata conversion, and publishing, to enable video analytics in the Scenescape platform.
 
 ```
-"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
 ```
 
 #### Breakdown of gstreamer command
@@ -265,10 +265,9 @@ The following is the GStreamer command that defines the video processing pipelin
 
 `videoconvert` converts the video stream into a raw format suitable for further processing. In this case, it ensures the video is in the BGR format required by downstream elements.
 
-`gvapython` is a GStreamer element that allows custom Python scripts to process video frames. In this pipeline, it is used twice:
+`sscape_timestamp_capture` is a custom GStreamer element that captures timestamps for each video frame. The `ntp-server` parameter specifies the NTP server to synchronize timestamps, and the `use-frame-ntp-timestamp` parameter determines whether to use the NTP timestamp embedded in the RTSP frame metadata or the post-decode system time.
 
-- The first instance, `PostDecodeTimestampCapture`, captures timestamps and processes frames after decoding.
-- The second instance, `PostInferenceDataPublish`, processes frames after inference and publishes metadata in Scenescape detection format as described in [metadata.schema.json](/controller/src/schema/metadata.schema.json)
+`sscape_post_inference_data_publish`, processes frames after inference and publishes metadata in Scenescape detection format as described in [metadata.schema.json](/controller/src/schema/metadata.schema.json)
 
 `gvadetect` performs object detection using a pre-trained deep learning model. The `model` parameter specifies the path to the model file, and the `model-proc` parameter points to the model's preprocessing configuration.
 
@@ -297,57 +296,47 @@ This section describes the metadata schema and the format that the payload needs
         "ntp_config": {
             "element": {
                 "name": "timesync",
-                "property": "kwarg",
-                "format": "json"
+                "property": "ntp-server"
             },
-            "type": "object",
-            "properties": {
-                "ntpServer": {
-                    "type": "string"
-                }
-            }
+            "type": "string"
         },
         "frame_ntp_config": {
             "element": {
                 "name": "timesync",
-                "property": "kwarg",
-                "format": "json"
+                "property": "use-frame-ntp-timestamp"
             },
-            "type": "object",
-            "properties": {
-                "useFrameNtpTimestamp": {
-                    "type": "boolean",
-                    "description": "When true, use the NTP timestamp embedded in the RTSP frame metadata instead of the post-decode system time."
-                }
-            }
+            "type": "boolean"
         },
-        "camera_config": {
+        "cameraid": {
+              "element": {
+                "name": "datapublisher",
+                "property": "cameraid"
+              },
+              "type": "string"
+            },
+        "metadatagenpolicy": {
             "element": {
                 "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
+                "property": "metadatagenpolicy"
             },
-            "type": "object",
-            "properties": {
-                "cameraid": {
-                    "type": "string"
-                },
-                "metadatagenpolicy": {
-                    "type": "string",
-                    "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                    "type": "boolean",
-                    "description": "Publish frame to mqtt"
-                },
-                "detection_labels": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of detection labels to filter (e.g., [\"person\", \"car\"]). If empty or omitted, all labels are published."
-                }
-            }
+            "type": "string",
+            "description": "One of detectionPolicy (default), detection3DPolicy, reidPolicy, classificationPolicy, ocrPolicy"
+        },
+        "publish_image": {
+            "element": {
+                "name": "datapublisher",
+                "property": "publish-image"
+            },
+            "type": "boolean",
+            "description": "Publish annotated JPEG to scenescape/image/camera/<cameraid> each frame"
+        },
+        "detection_labels": {
+            "element": {
+                "name": "datapublisher",
+                "property": "detection-labels"
+            },
+            "type": "string",
+            "description": "Comma-separated allow-list of detection categories (e.g. \"person,car\"). Empty publishes all."
         }
     }
 },
@@ -355,26 +344,20 @@ This section describes the metadata schema and the format that the payload needs
 
 ##### Breakdown of parameters
 
-- **ntp_config**: Configuration for time synchronization.
-  - **ntpServer** (string): Specifies the NTP server to synchronize time with.
-- **frame_ntp_config**: Configuration for using the NTP timestamp embedded in RTSP frame metadata as the frame timestamp. This is an alternative to using the post-decode system clock timestamp. When the RTSP source is configured with `add-reference-timestamp-meta=true`, GStreamer attaches NTP reference timestamp metadata to each buffer.
-  - **useFrameNtpTimestamp** (boolean): When `true`, the NTP timestamp extracted from the RTSP frame metadata
-    (`GstReferenceTimestampMeta`, caps `timestamp/x-ntp`) is used as the frame timestamp instead of the post-decode
-    system time. This can improve timing accuracy when camera and server clocks are synchronized to the same NTP server.
-    Defaults to `false`. If the metadata is absent on a given frame, the pipeline falls back to the
-    system clock automatically.
-- **camera_config**: Configuration for the camera and its metadata publishing.
-  - **intrinsics** (array of numbers): Defines the camera intrinsics. This can be specified as:
-    - `[diagonal_fov]` (diagonal field of view),
-    - `[horizontal_fov, vertical_fov]` (horizontal and vertical field of view), or
-    - `[fx, fy, cx, cy]` (focal lengths and principal point coordinates).
-  - **cameraid** (string): Unique identifier for the camera.
-  - **metadatagenpolicy** (string): Policy for generating metadata. Possible values:
-    - `detectionPolicy` (default): Metadata for object detection. When a pose estimation model is used (e.g. `yolo11n-pose`), also includes `keypoints` (e.g. joints) with normalized x/y coordinates and `keypoint_connections` (e.g. skeleton bone pairs) in each detection object.
-    - `reidPolicy`: Metadata for re-identification.
-    - `classificationPolicy`: Metadata for classification.
-  - **publish_frame** (boolean): Indicates whether to publish the video frame to MQTT.
-  - **detection_labels** (array of strings): Optional list of detection labels to filter. When specified, only detected objects matching these labels will be published. If omitted or empty, all detected objects are published. In the UI, labels can be provided as newline-separated, space-separated, or comma-separated values. In JSON configuration, provide as an array. Example: `["person", "car"]`.
+- **ntp_config** (string): Specifies the NTP server to synchronize time with.
+- **frame_ntp_config** (boolean): Configuration for using the NTP timestamp embedded in RTSP frame metadata as the frame timestamp. This is an alternative to using the post-decode system clock timestamp. When the RTSP source is configured with `add-reference-timestamp-meta=true`, GStreamer attaches NTP reference timestamp metadata to each buffer.
+  When `true`, the NTP timestamp extracted from the RTSP frame metadata
+  (`GstReferenceTimestampMeta`, caps `timestamp/x-ntp`) is used as the frame timestamp instead of the post-decode
+  system time. This can improve timing accuracy when camera and server clocks are synchronized to the same NTP server.
+  Defaults to `false`. If the metadata is absent on a given frame, the pipeline falls back to the
+  system clock automatically.
+- **cameraid** (string): Unique identifier for the camera.
+- **metadatagenpolicy** (string): Policy for generating metadata. Possible values:
+  - `detectionPolicy` (default): Metadata for object detection. When a pose estimation model is used (e.g. `yolo11n-pose`), also includes `keypoints` (e.g. joints) with normalized x/y coordinates and `keypoint_connections` (e.g. skeleton bone pairs) in each detection object.
+  - `reidPolicy`: Metadata for re-identification.
+  - `classificationPolicy`: Metadata for classification.
+- **publish_frame** (boolean): Indicates whether to publish the video frame to MQTT.
+- **detection_labels** (array of strings): Optional list of detection labels to filter. When specified, only detected objects matching these labels will be published. If omitted or empty, all detected objects are published. In the UI, labels can be provided as newline-separated, space-separated, or comma-separated values. In JSON configuration, provide as an array. Example: `["person", "car"]`.
 
 The payload section is the actual values for the specific pipeline being configured:
 
@@ -387,17 +370,11 @@ The payload section is the actual values for the specific pipeline being configu
         }
     },
     "parameters": {
-        "ntp_config": {
-            "ntpServer": "ntpserv"
-        },
-        "frame_ntp_config": {
-            "useFrameNtpTimestamp": false
-        },
-        "camera_config": {
-            "cameraid": "atag-qcam1",
-            "metadatagenpolicy": "detectionPolicy",
-            "detection_labels": ["person"]
-        }
+        "ntp_config": "ntpserv",
+        "frame_ntp_config": false,
+        "cameraid": "atag-qcam1",
+        "metadatagenpolicy": "detectionPolicy",
+        "detection_labels": "person"
     }
 }
 ```

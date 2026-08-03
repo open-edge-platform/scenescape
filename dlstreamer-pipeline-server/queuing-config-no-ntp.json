@@ -8,96 +8,98 @@
       {
         "name": "qcam1",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
           "properties": {
-            "camera_config": {
+            "cameraid": {
               "element": {
                 "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
+                "property": "cameraid"
               },
-              "type": "object",
-              "properties": {
-                "cameraid": {
-                  "type": "string"
-                },
-                "metadatagenpolicy": {
-                  "type": "string",
-                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
-                },
-                "detection_labels": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "description": "List of detection labels to filter (e.g., [\"person\", \"car\"]). If empty, all labels are published."
-                }
-              }
+              "type": "string"
+            },
+            "metadatagenpolicy": {
+              "element": {
+                "name": "datapublisher",
+                "property": "metadatagenpolicy"
+              },
+              "type": "string",
+              "description": "One of detectionPolicy (default), detection3DPolicy, reidPolicy, classificationPolicy, ocrPolicy"
+            },
+            "publish_image": {
+              "element": {
+                "name": "datapublisher",
+                "property": "publish-image"
+              },
+              "type": "boolean",
+              "description": "Publish annotated JPEG to scenescape/image/camera/<cameraid> each frame"
+            },
+            "detection_labels": {
+              "element": {
+                "name": "datapublisher",
+                "property": "detection-labels"
+              },
+              "type": "string",
+              "description": "Comma-separated allow-list of detection categories (e.g. \"person,car\"). Empty publishes all."
             }
           }
         },
         "payload": {
           "parameters": {
-            "camera_config": {
-              "cameraid": "atag-qcam1",
-              "metadatagenpolicy": "detectionPolicy",
-              "detection_labels": ["person"]
-            }
+            "cameraid": "atag-qcam1",
+            "metadatagenpolicy": "detectionPolicy",
+            "detection_labels": "person"
           }
         }
       },
       {
         "name": "qcam2",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam2 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam2 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
           "properties": {
-            "camera_config": {
+            "cameraid": {
               "element": {
                 "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
+                "property": "cameraid"
               },
-              "type": "object",
-              "properties": {
-                "cameraid": {
-                  "type": "string"
-                },
-                "metadatagenpolicy": {
-                  "type": "string",
-                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
-                },
-                "detection_labels": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "description": "List of detection labels to filter (e.g., [\"person\", \"car\"]). If empty, all labels are published."
-                }
-              }
+              "type": "string"
+            },
+            "metadatagenpolicy": {
+              "element": {
+                "name": "datapublisher",
+                "property": "metadatagenpolicy"
+              },
+              "type": "string",
+              "description": "One of detectionPolicy (default), detection3DPolicy, reidPolicy, classificationPolicy, ocrPolicy"
+            },
+            "publish_image": {
+              "element": {
+                "name": "datapublisher",
+                "property": "publish-image"
+              },
+              "type": "boolean",
+              "description": "Publish annotated JPEG to scenescape/image/camera/<cameraid> each frame"
+            },
+            "detection_labels": {
+              "element": {
+                "name": "datapublisher",
+                "property": "detection-labels"
+              },
+              "type": "string",
+              "description": "Comma-separated allow-list of detection categories (e.g. \"person,car\"). Empty publishes all."
             }
           }
         },
         "payload": {
           "parameters": {
-            "camera_config": {
-              "cameraid": "atag-qcam2",
-              "metadatagenpolicy": "detectionPolicy",
-              "detection_labels": ["person"]
-            }
+            "cameraid": "atag-qcam2",
+            "metadatagenpolicy": "detectionPolicy",
+            "detection_labels": "person"
           }
         }
       }
