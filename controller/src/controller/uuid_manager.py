@@ -883,7 +883,7 @@ class UUIDManager:
     Return summary stats over the most recently recorded per-match latencies,
     for downstream metrics consumers (e.g. dashboards, exporters, health checks).
 
-    @return  dict  {'count': int, 'average': float|None, 'min': float|None, 'max': float|None}
+    @return  dict  {'average': float|None, 'min': float|None, 'max': float|None, 'camera_count': int|None}
     """
     return self.match_latency_tracker.getStats()
 

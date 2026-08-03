@@ -20,7 +20,6 @@ from controller.uuid_manager import (
 )
 
 from controller.moving_object import MovingObject, ReidState, Chronoloc
-from controller.tracking_object_registry import TrackedObjectRegistry
 from scene_common.geometry import Point, Rectangle
 import time
 

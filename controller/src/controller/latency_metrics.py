@@ -26,9 +26,9 @@ class MatchLatencyTracker:
   Each recorded sample can be tagged with a camera_count and category
   supplied by the caller (see recordMatchLatency) -- this class has no
   camera or category knowledge of its own. UUIDManager derives camera_count
-  locally from the distinct sscape_object.camera values among its currently
-  active tracks, and passes through sscape_object.category, so no external
-  plumbing (Scene/Tracking propagation) or REST calls are needed. category
+  via CameraRegistry (configured cameras that have produced embeddings for
+  this scene) and passes through sscape_object.category, so no REST calls are
+  needed. category
   matters because a single controller process runs one MatchLatencyTracker
   per tracked category (e.g. "person", "car") -- without tagging, two
   categories' metrics would collide on the same unlabeled OTel time series.
