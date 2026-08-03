@@ -38,6 +38,7 @@ opentelemetry-api==1.38.0
 opentelemetry-sdk==1.38.0
 opentelemetry-exporter-otlp-proto-grpc==1.38.0
 vdms==0.0.22
+qdrant-client==1.18.0
 aiofiles==25.1.0
 orjson==3.11.6
 ntplib==0.4.0

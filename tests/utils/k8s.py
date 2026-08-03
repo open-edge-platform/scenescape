@@ -384,6 +384,9 @@ class K8sManager:
       f'  password: "{self._supass}"\n'
       f'hooks:\n'
       f'  enabled: true\n'
+      f'reid:\n'
+      f'  enabled: true\n'
+      f'  backend: "{os.getenv("REID_BACKEND", "vdms")}"\n'
       f'httpProxy: "{os.getenv("HTTP_PROXY", "")}"\n'
       f'httpsProxy: "{os.getenv("HTTPS_PROXY", "")}"\n'
       f'noProxy: "{os.getenv("NO_PROXY", "")}"\n'
@@ -425,7 +428,7 @@ class K8sManager:
       f"deployment/{_RELEASE_NAME}-web-dep",
       f"deployment/{_RELEASE_NAME}-scene-dep",
       f"deployment/{_RELEASE_NAME}-autocalibration-dep",
-      f"deployment/{_RELEASE_NAME}-vdms-dep",
+      f"deployment/{_RELEASE_NAME}-reid-dep",
       f"deployment/{_RELEASE_NAME}-mediaserver-dep",
       f"deployment/{_RELEASE_NAME}-broker",
       f"statefulset/{_RELEASE_NAME}-pgserver",
