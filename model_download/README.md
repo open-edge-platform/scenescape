@@ -26,6 +26,14 @@ inside a pre-install hook, writing outputs to the models PVC.
 - `MODEL_CONFIG_FILE` (default: `models.json`; shared model download and Scenescape config metadata)
 - `MODEL_DOWNLOADER_CMD` (model_downloader startup arguments; default: `--plugins omz`)
 
+> [!NOTE]
+> In proxy-enabled environments, set explicit loopback hosts in `NO_PROXY` / `no_proxy`.
+> CIDR-style entries such as `127.0.0.1/8` or `127.0.0.0/8` are not reliably recognized by all clients
+> (including common Python HTTP stacks), so requests to `http://127.0.0.1:8200` can still be sent through
+> corporate proxies and fail with HTTP 403.
+>
+> Use explicit host entries instead - `127.0.0.1`, `localhost` and `::1`
+
 The downloader submits model download jobs, then polls `/api/v1/jobs` until every returned job reaches a terminal state.
 
 - Exit code `0`: all tracked download jobs completed successfully.
