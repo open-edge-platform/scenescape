@@ -18,7 +18,7 @@ This revision reflects the current skill: the `gvapython` + `sscape_adapter.py` 
 
 2. Phase 2 — Setup input model updates
    - Extend `inputs_payload()` in `scripts/deploy_inputs.py` with optional `pipeline_customization_prompt` and `pipeline_customization_mode`, leaving the existing keys (`scene_name`, `camera_ids`, `streams`, `source_type`, optional `video_paths`, `skill_dir`) untouched.
-   - Decide explicitly whether the new field participates in `inputs_match()`. It currently compares only scene_name, camera_ids, and streams, and the `check` subcommand builds its candidate payload without the new field, so changing one side without the other silently breaks resume. _depends on previous step_
+   - Decide explicitly whether the new field participates in `inputs_match()`. It currently compares only scene*name, camera_ids, and streams, and the `check` subcommand builds its candidate payload without the new field, so changing one side without the other silently breaks resume. \_depends on previous step*
    - Update Step 1 in `SKILL.md` to ask for the optional prompt and document when external invocation occurs. _parallel with next step_
    - Load prompt state from `deploy-inputs.json` on resume in `scripts/deploy_scenescape.sh` and include it in the consistency check. _depends on deploy_inputs.py changes_
 

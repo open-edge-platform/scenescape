@@ -108,3 +108,5 @@ python3 <skill-dir>/scripts/adapt_pipeline_config.py \
   re-streamer, so this file's spec applies unchanged once `deploy-inputs.json` is written.
 - Canonical upstream examples: `dlstreamer-pipeline-server/queuing-config.json` and
   `docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md`
+- **Planned**: `download_detection_models.sh` will be replaced by the Model Download Microservice;
+  see `.github/plans/plan-modelDownloaderMigration.prompt.md`.
