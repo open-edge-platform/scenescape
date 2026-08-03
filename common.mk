@@ -41,14 +41,14 @@ build-image: $(BUILD_DIR) Dockerfile
 		fi; \
 		TARGET_ARG=""; \
 		if [ -n "$(TARGET)" ]; then TARGET_ARG="--target $(TARGET)"; fi; \
-		if env BUILDKIT_PROGRESS=plain docker build $(REBUILDFLAGS) $$TARGET_ARG \
+		if env BUILDKIT_PROGRESS=plain docker buildx build --load $(REBUILDFLAGS) $$TARGET_ARG \
 			--build-arg http_proxy=$(http_proxy) \
 			--build-arg https_proxy=$(https_proxy) \
 			--build-arg no_proxy=$(no_proxy) \
 			--build-arg CERTDOMAIN=$(CERTDOMAIN) \
 			--build-arg FORCE_VAAPI=$(FORCE_VAAPI) \
 			$$EXTRA_BUILD_ARGS \
-			--rm -t $(IMAGE):$(VERSION) \
+			-t $(IMAGE):$(VERSION) \
 			-f ./Dockerfile .. 2>&1 | tee $(LOG_FILE); \
 		then \
 			docker tag $(IMAGE):$(VERSION) $(IMAGE):latest; \
