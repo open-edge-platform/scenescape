@@ -181,13 +181,16 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   @staticmethod
   def _sourceIdForTimeChunking(objects, already_tracked_objects):
     """Return cameraID/uid for the batch, or EMPTY_FRAME_CAMERA_ID if empty."""
+    any_non_empty = False
     for candidate in (objects, already_tracked_objects):
       if not candidate:
         continue
+      any_non_empty = True
       source = getattr(candidate[0], 'camera', None)
       source_id = getattr(source, 'cameraID', None) or getattr(source, 'uid', None)
       if source_id is not None:
         return source_id
+    if any_non_empty:
       return None
     return TimeChunkedIntelLabsTracking.EMPTY_FRAME_CAMERA_ID
 

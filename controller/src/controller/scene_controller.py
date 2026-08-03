@@ -601,7 +601,7 @@ class SceneController:
             success = self._handleExternalSourceObject(
               scene, jdata_scene, detection_types[0], msg_when)
             if not success:
-              log.error("Camera fail", publisher_id, getattr(scene, 'name', None))
+              log.error("Camera fail publisher_id=%s scene=%s", publisher_id, getattr(scene, 'name', None))
               self.cache_manager.invalidate()
               return
             jdata_scene['id'] = scene.uid
@@ -961,13 +961,7 @@ class SceneController:
         for camera in scene.cameras:
           need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
                               self.handleMovingObjectMessage))
-        # Subscribe on behalf of this scene so external sources (physical
-        # agents, positioning services) can publish observations directly
-        # into it via 'scenescape/external/{scene.uid}/{thing_type}',
-        # identifying themselves with 'source_id' in the payload.
-        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
-                                              scene_id=scene.uid, thing_type="+"),
-                            self.handleMovingObjectMessage))
+        # External publisher-centric ingest is covered by the wildcard subscribe above.
       else:
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
                             self.handleSceneDataMessage))
