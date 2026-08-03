@@ -202,7 +202,7 @@ Following are the step-by-step instructions for enabling person reidentification
      --profile controller up queuing-video retail-video reid scene -d
    ```
 
-   Ensure the OMZ model `person-reidentification-retail-0277` is available in `omz/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/intel`.
+   Ensure the OMZ model `person-reidentification-retail-0277` is available in `omz/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/omz`.
 
 ## Enable Pose Estimation
 
