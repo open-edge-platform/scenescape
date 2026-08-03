@@ -7,6 +7,7 @@ import socket
 import threading
 import uuid
 import asyncio
+from datetime import datetime, timezone
 
 from django.contrib.auth.models import User
 from django.db import IntegrityError, OperationalError, connection
@@ -260,7 +261,7 @@ class CustomAuthToken(ObtainAuthToken):
 class DatabaseReady(APIView):
   def checkDatabase(self):
     try:
-      connection.cursor()
+      connection.ensure_connection()
       return True
     except OperationalError:
       return False
@@ -273,6 +274,57 @@ class DatabaseReady(APIView):
     user_count = User.objects.count()
     database_ready = user_count > 0
     return Response({'databaseReady': database_ready}, status=status.HTTP_200_OK)
+
+
+class ServiceHealth(APIView):
+  def checkDatabase(self):
+    try:
+      connection.ensure_connection()
+      return True
+    except OperationalError:
+      return False
+
+  def get(self, request):
+    database_connected = self.checkDatabase()
+    try:
+      db_status = DatabaseStatus.objects.first() if database_connected else None
+      user_count = User.objects.count() if database_connected else 0
+    except OperationalError:
+      database_connected = False
+      db_status = None
+      user_count = 0
+
+    db_status_ready = bool(db_status and db_status.is_ready)
+    ready = bool(database_connected and db_status_ready and user_count > 0)
+
+    if ready:
+      health_status = "healthy"
+      http_status = status.HTTP_200_OK
+    elif database_connected:
+      health_status = "degraded"
+      http_status = status.HTTP_202_ACCEPTED
+    else:
+      health_status = "unhealthy"
+      http_status = status.HTTP_503_SERVICE_UNAVAILABLE
+
+    payload = {
+      "status": health_status,
+      "ready": ready,
+      "component": "manager",
+      "timestamp": datetime.now(timezone.utc).isoformat(),
+      "version": "1.0",
+      "details": {
+        "database": {
+          "connected": database_connected,
+          "schema_ready": db_status_ready,
+        },
+        "users": {
+          "count": user_count,
+        },
+      },
+    }
+
+    return Response(payload, status=http_status)
 
 
 class CameraManager(APIView):
