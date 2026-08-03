@@ -350,7 +350,7 @@ class TestParseNamedKeypoints:
     assert parse_named_keypoints(raw) == {}
 
   def test_alias_name_is_canonicalized(self):
-    raw = [{'name': 'ankle_r', 'x': 0.5, 'y': 0.9}]
+    raw = [{'name': 'ankle_r', 'x': 0.5, 'y': 0.9, 'confidence': 0.9}]
     result = parse_named_keypoints(raw)
     assert 'right_ankle' in result
 
@@ -367,7 +367,20 @@ class TestParseNamedKeypoints:
     assert parse_named_keypoints(raw) == {}
 
   def test_non_dict_item_in_list_skipped(self):
-    raw = ['bad', {'name': 'nose', 'x': 0.5, 'y': 0.1}]
+    raw = ['bad', {'name': 'nose', 'x': 0.5, 'y': 0.1, 'confidence': 0.9}]
+    result = parse_named_keypoints(raw)
+    assert 'nose' in result
+
+  def test_missing_confidence_skipped(self):
+    raw = [{'name': 'nose', 'x': 0.5, 'y': 0.1}]
+    assert parse_named_keypoints(raw) == {}
+
+  def test_low_confidence_skipped(self):
+    raw = [{'name': 'nose', 'x': 0.5, 'y': 0.1, 'confidence': 0.01}]
+    assert parse_named_keypoints(raw) == {}
+
+  def test_at_threshold_confidence_included(self):
+    raw = [{'name': 'nose', 'x': 0.5, 'y': 0.1, 'confidence': 0.5}]
     result = parse_named_keypoints(raw)
     assert 'nose' in result
 

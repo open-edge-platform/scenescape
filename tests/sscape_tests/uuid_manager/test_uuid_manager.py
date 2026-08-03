@@ -19,6 +19,9 @@ from controller.uuid_manager import (
   DEFAULT_SIMILARITY_THRESHOLD_COSINE,
 )
 
+from controller.moving_object import MovingObject, ReidState, Chronoloc
+from scene_common.geometry import Point, Rectangle
+import time
 
 def call_update_active_dict_locked(manager, sscape_object, database_id, similarity, query_timestamp=None):
   """Call updateActiveDict while holding active_ids_lock, matching production call pattern."""
@@ -32,13 +35,11 @@ def call_update_active_dict_locked(manager, sscape_object, database_id, similari
 
 @pytest.fixture(autouse=True)
 def mock_vdms_db():
-  """Patch UUIDManager database mapping so all tests use a fake VDMS backend."""
+  """Patch the backend registry lookup so all tests use a fake backend."""
   mock_vdms_db = MagicMock()
 
-  def fake_constructor(**kwargs):
-    return mock_vdms_db
-
-  with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_constructor}):
+  with patch('controller.uuid_manager.create_reid_database',
+             return_value=mock_vdms_db):
     yield mock_vdms_db
 
 
@@ -80,6 +81,15 @@ class TestUUIDManagerInitialization:
     assert hasattr(manager, 'active_ids')
     assert isinstance(manager.active_ids, dict)
     assert len(manager.active_ids) == 0
+
+  def test_default_similarity_configuration_uses_cosine(self, mock_vdms_db):
+    """Unconfigured ReID should use cosine matching and its threshold."""
+
+    manager = UUIDManager()
+
+    assert manager.similarity_metric == 'COSINE'
+    assert manager.similarity_threshold == DEFAULT_SIMILARITY_THRESHOLD_COSINE
+    assert manager.reid_database.similarity_metric == 'IP'
 
   def test_default_similarity_threshold_uses_l2_value_when_metric_is_l2(self, mock_vdms_db):
     """L2 metric should use the L2-specific default threshold when not configured."""
@@ -560,11 +570,8 @@ class TestDataTypes:
 class TestUUIDManagerMetricAwareMatching:
   """Verify parseQueryResults follows descriptor metric semantics."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_rejects_single_dimension_entity_list(self, mock_vdms_class):
+  def test_parse_query_results_rejects_single_dimension_entity_list(self):
     """Flat entity lists violate contract and should be treated as no-match."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "L2"
 
@@ -579,11 +586,8 @@ class TestUUIDManagerMetricAwareMatching:
     assert database_id is None
     assert similarity is None
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_ip_uses_higher_is_better(self, mock_vdms_class):
+  def test_parse_query_results_ip_uses_higher_is_better(self):
     """IP metric should select max `_distance` and require values above threshold."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "IP"
 
@@ -603,11 +607,8 @@ class TestUUIDManagerMetricAwareMatching:
     assert database_id == 'a'
     assert similarity == 0.8
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_l2_uses_lower_is_better(self, mock_vdms_class):
+  def test_parse_query_results_l2_uses_lower_is_better(self):
     """L2 metric should select min `_distance` and require values below threshold."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "L2"
 
@@ -627,11 +628,8 @@ class TestUUIDManagerMetricAwareMatching:
     assert database_id == 'a'
     assert similarity == 0.2
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_ip_ignores_out_of_range_scores(self, mock_vdms_class):
+  def test_parse_query_results_ip_ignores_out_of_range_scores(self):
     """IP matching must ignore candidates with `_distance` outside [-1, 1]."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "IP"
 
@@ -651,11 +649,8 @@ class TestUUIDManagerMetricAwareMatching:
     assert database_id == 'b'
     assert similarity == 0.9
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_ip_returns_no_match_when_all_scores_invalid(self, mock_vdms_class):
+  def test_parse_query_results_ip_returns_no_match_when_all_scores_invalid(self):
     """IP matching must return no match if all candidate scores are out of range."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "IP"
 
@@ -674,11 +669,8 @@ class TestUUIDManagerMetricAwareMatching:
     assert database_id is None
     assert similarity is None
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_ip_threshold_boundary_requires_strictly_greater(self, mock_vdms_class):
+  def test_parse_query_results_ip_threshold_boundary_requires_strictly_greater(self):
     """IP matching should not accept values exactly equal to threshold."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.8})
     manager.reid_database.similarity_metric = "IP"
 
@@ -694,11 +686,8 @@ class TestUUIDManagerMetricAwareMatching:
     assert database_id is None
     assert similarity is None
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_l2_threshold_boundary_requires_strictly_less(self, mock_vdms_class):
+  def test_parse_query_results_l2_threshold_boundary_requires_strictly_less(self):
     """L2 matching should not accept values exactly equal to threshold."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.2})
     manager.reid_database.similarity_metric = "L2"
 
@@ -718,21 +707,25 @@ class TestUUIDManagerMetricAwareMatching:
 class TestUUIDManagerMetricAwareUpdateFlow:
   """Verify parse->update flow produces correct states for both metric paths."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_cosine_path_match_transitions_to_matched(self, mock_vdms_class):
+  def test_cosine_path_match_transitions_to_matched(self):
     """COSINE (mapped to IP) should produce MATCHED when best score is above threshold."""
     from controller.moving_object import MovingObject, ReidState
     import time
 
-    mock_vdms_class.return_value = MagicMock()
     manager = UUIDManager(reid_config_data={'similarity_metric': 'COSINE', 'similarity_threshold': 0.8})
     manager.reid_database.similarity_metric = "IP"
 
     info = {'id': '1', 'confidence': 0.95}
+    now = time.time()
     obj = MovingObject(info, time.time(), None)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
+    obj.chain_data = MagicMock()
+    obj.chain_data.persist = {}
+
+    mock_bounds = MagicMock()
+    obj.location = [Chronoloc(Point(0, 0, 0), now, mock_bounds)]
 
     with manager.active_ids_lock:
       manager.active_ids[obj.rv_id] = [None, None]
@@ -746,21 +739,25 @@ class TestUUIDManagerMetricAwareUpdateFlow:
     assert obj.gid == 'db_match_1'
     assert obj.similarity == 0.92
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_l2_path_equal_threshold_transitions_to_query_no_match(self, mock_vdms_class):
+  def test_l2_path_equal_threshold_transitions_to_query_no_match(self):
     """L2 should produce QUERY_NO_MATCH when best score is equal to threshold."""
     from controller.moving_object import MovingObject, ReidState
     import time
 
-    mock_vdms_class.return_value = MagicMock()
     manager = UUIDManager(reid_config_data={'similarity_metric': 'L2', 'similarity_threshold': 0.2})
     manager.reid_database.similarity_metric = "L2"
 
     info = {'id': '1', 'confidence': 0.95}
+    now = time.time()
     obj = MovingObject(info, time.time(), None)
     obj.rv_id = 2
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
+    obj.chain_data = MagicMock()
+    obj.chain_data.persist = {}
+
+    mock_bounds = MagicMock()
+    obj.location = [Chronoloc(Point(0, 0, 0), now, mock_bounds)]
 
     with manager.active_ids_lock:
       manager.active_ids[obj.rv_id] = [None, None]

@@ -10,9 +10,9 @@ Split Controller into two services: **Tracker Service** (pure C++) handles real-
 
 ## Context
 
-The SceneScape Controller must process multiple scenes with 4 cameras at 15 FPS (67ms frame intervals) with 1000 objects per frame while providing both real-time tracking and rich analytics capabilities. Long-term scale requirements will likely increase across all dimensions: cameras, FPS, scene and object counts.
+The Scenescape Controller must process multiple scenes with 4 cameras at 15 FPS (67ms frame intervals) with 1000 objects per frame while providing both real-time tracking and rich analytics capabilities. Long-term scale requirements will likely increase across all dimensions: cameras, FPS, scene and object counts.
 
-SceneScape v2025.2 Controller runs as a single Python microservice that calls C++ via pybind11 for performance-critical operations like positioning, tracking and spatial analytics. However, analysis shows the Python orchestration layer and analytics processing stages create overhead that prevents meeting real-time constraints at target scale
+Scenescape v2025.2 Controller runs as a single Python microservice that calls C++ via pybind11 for performance-critical operations like positioning, tracking and spatial analytics. However, analysis shows the Python orchestration layer and analytics processing stages create overhead that prevents meeting real-time constraints at target scale
 
 The current hybrid implementation (Python + C++ pybind11) cannot utilize modern hardware efficiently due to:
 

@@ -1,6 +1,6 @@
 ---
 name: security
-description: On-demand security review skill for SceneScape — code and configuration security guidance.
+description: On-demand security review skill for Scenescape — code and configuration security guidance.
 ---
 
 # Security Review Skill (On-Demand)

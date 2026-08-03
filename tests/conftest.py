@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Pytest configuration for SceneScape tests.
+Pytest configuration for Scenescape tests.
 
 Tests are collected directly from their source directories.
 Each test file declares a module-level SCENESCAPE_SPEC (FuncTestSpec)
@@ -360,12 +360,12 @@ _HOST_ALIASES = [
   "broker.scenescape.intel.com",
   "web.scenescape.intel.com",
   "autocalibration.scenescape.intel.com",
-  "vdms.scenescape.intel.com",
+  "reid.scenescape.intel.com",
 ]
 
 @pytest.fixture(scope="session")
 def loopback_hosts():
-  """Resolve SceneScape service hostnames to loopback in this test process.
+  """Resolve Scenescape service hostnames to loopback in this test process.
 
   Patches both socket.getaddrinfo (for high-level callers) and
   socket.socket.connect (for low-level callers like ssl.SSLSocket that call
@@ -477,8 +477,18 @@ def _inject_options(config, spec, secrets_dir, supass, env=None):
 # Compose lifecycle helper (used by session-scoped profile fixtures)
 # ---------------------------------------------------------------------------
 
+def _spec_visibility_topic(spec):
+  """Extract the controller visibility_topic from a spec's extra_args (default regulated)."""
+  args = spec.extra_args or []
+  for i, arg in enumerate(args):
+    if arg == "--visibility_topic" and i + 1 < len(args):
+      return args[i + 1]
+  return "regulated"
+
+
 def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory,
-                       exampledb="", collect_container_logs_mode="failed"):
+                       exampledb="", collect_container_logs_mode="failed",
+                       visibility_topic="regulated"):
   """Start a Docker Compose stack for a profile; yield ScenescapeEnv; tear down.
 
   This is a generator meant to be called via ``yield from`` in
@@ -539,8 +549,8 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     f"DATABASE_PASSWORD={database_password}\n"
     f"UID={os.getuid()}\n"
     f"GID={os.getgid()}\n"
-    f"VISIBILITY=regulated\n"
-    f"VISIBILITY_TOPIC=regulated\n"
+    f"VISIBILITY={visibility_topic}\n"
+    f"VISIBILITY_TOPIC={visibility_topic}\n"
   )
   # Only set DLSTREAMER_VERSION when detected; omitting lets compose defaults apply.
   if dlstreamer_version:
@@ -662,15 +672,23 @@ class _ComposeManager:
     self._current_gen = None  # active _compose_lifecycle generator
     self._failed_profiles = {}  # profile name -> exception message
 
-  def get_env(self, profile):
-    """Return a ScenescapeEnv for *profile*, reusing or restarting as needed."""
-    if profile.name in self._failed_profiles:
+  def get_env(self, profile, visibility_topic="regulated", fresh=False):
+    """Return a ScenescapeEnv for *profile*, reusing or restarting as needed.
+
+    When *fresh* is True the currently running stack is always torn down and
+    a brand-new stack is started, even if the requested profile matches the
+    active one. This reproduces the pristine single-test condition for tests
+    that are sensitive to resource accumulation in the long-lived shared
+    stack (e.g. WebGL/3D UI tests).
+    """
+    profile_key = f"{profile.name}:{visibility_topic}"
+    if profile_key in self._failed_profiles:
       pytest.fail(
-        f"Profile {profile.name!r} already failed to start: "
-        f"{self._failed_profiles[profile.name]}"
+        f"Profile {profile_key!r} already failed to start: "
+        f"{self._failed_profiles[profile_key]}"
       )
 
-    if self._current_profile_name == profile.name:
+    if self._current_profile_name == profile_key and not fresh:
       return self._current_env
 
     self._stop_current()
@@ -679,17 +697,18 @@ class _ComposeManager:
     gen = _compose_lifecycle(
       profile, self._repo_root, self._secrets_dir,
       self._supass, self._tmp_path_factory, exampledb=exampledb,
+      visibility_topic=visibility_topic,
     )
     try:
       env = next(gen)
     except Exception as exc:
       gen.close()
-      self._failed_profiles[profile.name] = str(exc)
+      self._failed_profiles[profile_key] = str(exc)
       raise
 
     self._current_gen = gen
     self._current_env = env
-    self._current_profile_name = profile.name
+    self._current_profile_name = profile_key
     return env
 
   def _stop_current(self):
@@ -829,24 +848,60 @@ def scenescape_env(request, _compose_manager, secrets_dir, supass,
       pytest.skip("python-on-whales not installed; run from host venv")
     if _compose_manager is None:
       pytest.skip("Docker Compose manager not available")
-    env = _compose_manager.get_env(spec.profile)
+    # Tests marked @pytest.mark.fresh_stack get a brand-new stack so they run
+    # against a pristine environment rather than a long-lived stack.
+    fresh = request.node.get_closest_marker("fresh_stack") is not None
+    env = _compose_manager.get_env(
+      spec.profile, _spec_visibility_topic(spec), fresh=fresh)
     _inject_options(request.config, spec, secrets_dir, supass, env=env)
+
+  # If a previous test preserved the database (skipped its post-test restore)
+  # and it lived in a different module, restore now so this test starts from the
+  # baseline snapshot. Restores are scoped to the running stack: a profile change
+  # already restarts the stack with a fresh database, and within-module
+  # persistence chains (multiple tests in one file relying on carried-over state)
+  # are intentionally left untouched.
+  if "web" in spec.profile.wait_for and hasattr(env, "restore_db"):
+    preserved = getattr(request.session, "_scenescape_db_preserved", None)
+    if preserved is not None:
+      preserved_module, preserved_profile_key = preserved
+      current_profile_key = f"{spec.profile.name}:{_spec_visibility_topic(spec)}"
+      if preserved_profile_key != current_profile_key:
+        # Stack was restarted on the profile switch; database is already fresh.
+        request.session._scenescape_db_preserved = None
+      elif preserved_module != request.module.__name__:
+        logger.info(
+          "Restoring database before %s: previous module %s preserved it",
+          request.module.__name__, preserved_module,
+        )
+        try:
+          env.restore_db()
+        except Exception as exc:
+          logger.warning("Pre-test DB restore failed: %s", exc)
+        request.session._scenescape_db_preserved = None
 
   # Track that this test used the environment for cleanup scheduling.
   request.session._scenescape_test_ran = True
 
   yield env
 
-  # Restore database after every test.
-  # Only applies to profiles that include a web/database service.
-  # Tests marked with @pytest.mark.preserve_db skip the restore so that
-  # a subsequent test can verify data survives.
+  # Restore database after every test so each test starts from an identical
+  # baseline. Only applies to profiles that include a web/database service.
+  # Tests marked with @pytest.mark.preserve_db skip this restore so a following
+  # test in the same module can verify data survives; the preserved state is
+  # recorded so the next test in a different module restores before running.
   if "web" in spec.profile.wait_for:
-    if not request.node.get_closest_marker("preserve_db"):
+    if request.node.get_closest_marker("preserve_db"):
+      request.session._scenescape_db_preserved = (
+        request.module.__name__,
+        f"{spec.profile.name}:{_spec_visibility_topic(spec)}",
+      )
+    else:
       try:
         env.restore_db()
       except Exception as exc:
         logger.warning("Post-test DB restore failed: %s", exc)
+      request.session._scenescape_db_preserved = None
 
 
 # ---------------------------------------------------------------------------
@@ -1033,6 +1088,7 @@ def pytest_runtest_logreport(report):
 def pytest_configure(config):
   config.addinivalue_line("markers", "test_name(name): sets the XML test name attribute")
   config.addinivalue_line("markers", "kubernetes_only: test only runs with --backend=kubernetes or --backend=all")
+  config.addinivalue_line("markers", "fresh_stack: start a brand-new compose stack for this test instead of reusing the shared one")
 
 
 # ---------------------------------------------------------------------------

@@ -77,7 +77,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
   # sensors do not leak between scene, regulated, and external outputs.
   obj_dict = dict(aobj.info)
   obj_dict.update({
-    'id': aobj.gid, # gid is the global ID - computed by SceneScape server.
+    'id': aobj.gid, # gid is the global ID - computed by Scenescape server.
     'type': otype,
     'translation': scene_loc_vector,
     'size': aobj.size,

@@ -1,9 +1,9 @@
 ---
 name: makefile
-description: Makefile standards for SceneScape — build targets, conventions, and patterns.
+description: Makefile standards for Scenescape — build targets, conventions, and patterns.
 ---
 
-# Makefile Standards for SceneScape
+# Makefile Standards for Scenescape
 
 ## Organization
 
@@ -21,7 +21,7 @@ scenescape/
 │   └── Makefile          # Manager-specific targets
 └── tests/
     ├── Makefile          # Test orchestrator
-    └── Makefile.sscape   # SceneScape-specific test targets
+    └── Makefile.sscape   # Scenescape-specific test targets
 ```
 
 ### Common.mk Inclusion
@@ -35,7 +35,7 @@ Service Makefiles include `common.mk`:
 include ../common.mk
 
 # Service-specific variables and targets
-IMAGE_NAME := scenescape-controller
+IMAGE_NAME := intel/scenescape-controller
 ```
 
 ## Variables
@@ -143,7 +143,7 @@ help:
 
 ### Standard Targets
 
-Common phony targets in SceneScape:
+Common phony targets in Scenescape:
 
 ```makefile
 .PHONY: build build-core build-all build-experimental
@@ -514,7 +514,7 @@ clean: ## Remove build artifacts
 
 ```makefile
 help:
-	@echo "$(BLUE)SceneScape Makefile$(RESET)"
+	@echo "$(BLUE)Scenescape Makefile$(RESET)"
 	@echo ""
 	@echo "$(YELLOW)Build targets:$(RESET)"
 	@echo "  build              - Build core services"
@@ -585,7 +585,7 @@ $(SERVICES):
 ```makefile
 # Bad
 build:
-	docker build -t scenescape-controller:2026.0.0 controller/
+	docker build -t intel/scenescape-controller:2026.0.0 controller/
 
 # Good
 VERSION := $(shell cat version.txt)
@@ -663,7 +663,7 @@ rebuild: clean build
 build-controller:
 	docker build \
 		--build-arg VERSION=$(VERSION) \
-		-t scenescape-controller:$(VERSION) \
+		-t intel/scenescape-controller:$(VERSION) \
 		controller/
 ```
 

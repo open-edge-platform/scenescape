@@ -1,10 +1,10 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
 Model Configuration Generator
 
-This module provides functionality to generate model_config.json files for Intel SceneScape
+This module provides functionality to generate model_config.json files for Scenescape
 from available AI models in intel/ and public/ subfolders.
 
 The main function generate_model_config() automatically discovers models, classifies them
@@ -62,7 +62,7 @@ def _classify_model_type(model_name: str) -> Tuple[str, str]:
 
   Returns:
     model_type: 'detect', 'inference', or 'classify'
-    metadata_policy: One of the policies from sscape_adapter.py
+    metadata_policy: One of the policies from sscape_post_inference_data_publish.py
   """
   model_name_lower = model_name.lower()
 

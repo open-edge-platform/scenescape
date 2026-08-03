@@ -1,10 +1,10 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 openapi: 3.0.0
 info:
-  title: "SceneScape API fuzz spec"
-  description: "OpenAPI spec for fuzz testing the SceneScape REST API"
+  title: "Scenescape API fuzz spec"
+  description: "OpenAPI spec for fuzz testing the Scenescape REST API"
   version: "1.0.0"
 
 servers:

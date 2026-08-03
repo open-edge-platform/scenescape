@@ -13,7 +13,7 @@ This document defines a simple REST API and supporting functionality for connect
 
 A **domain expert** in this context is a consumer of the video analytics pipeline who has expertise in a given field that is not computer vision. They understand their domain-specific requirements and goals but prefer to focus on their area of expertise rather than the technical complexities of computer vision implementation.
 
-The vision pipeline API abstracts away technical complexity while providing reliable object detection metadata that feeds into downstream systems like Intel SceneScape for multi-camera tracking and scene analytics.
+The vision pipeline API abstracts away technical complexity while providing reliable object detection metadata that feeds into downstream systems like Scenescape for multi-camera tracking and scene analytics.
 
 ## Core Operating Principles
 
@@ -32,12 +32,12 @@ The vision pipeline API is built on three fundamental principles:
 - **Source Frame Access**: On-demand access to original camera frames regardless of input type or source
 - **Performance Optimization**: Easy configuration of hardware acceleration targets (CPU, iGPU, GPU, NPU) for optimal utilization with automatic but configurable hardware acceleration for all operations where possible
 - **Abstracted Complexity**: Hide AI model management, pipeline optimization details, and video processing complexity from domain experts
-- **API-First Design**: Enable development of reference UIs for managing pipelines and sensor sources, supporting integration with SceneScape UI, VIPPET, or customer-implemented interfaces
+- **API-First Design**: Enable development of reference UIs for managing pipelines and sensor sources, supporting integration with Scenescape UI, VIPPET, or customer-implemented interfaces
 
 ## Non-Goals
 
 - Advanced computer vision research or custom model training
-- Multi-camera tracking and scene analytics (handled by downstream systems like SceneScape)
+- Multi-camera tracking and scene analytics (handled by downstream systems like Scenescape)
 - Complex video processing workflows or custom pipeline development
 
 ## Design Context
@@ -55,7 +55,7 @@ The vision pipeline API is built on three fundamental principles:
 
 ### Use Case: "Vision Pipeline API for Traffic Monitoring"
 
-A traffic operations expert wants to deploy vision analytics at a busy intersection to feed object detection metadata into their Intel SceneScape system for multi-camera tracking and scene analytics.
+A traffic operations expert wants to deploy vision analytics at a busy intersection to feed object detection metadata into their Scenescape system for multi-camera tracking and scene analytics.
 
 **API Requirements:**
 
@@ -67,7 +67,7 @@ A traffic operations expert wants to deploy vision analytics at a busy intersect
    - General object detection → vehicle classification
    - Custom combinations based on specific needs
 
-3. **Metadata Output**: Send pipeline results to MQTT broker for SceneScape processing:
+3. **Metadata Output**: Send pipeline results to MQTT broker for Scenescape processing:
    - JSON format with validated schema structure
    - Batched messages to minimize network chatter
    - Preserved frame timestamps and camera source IDs
@@ -75,7 +75,7 @@ A traffic operations expert wants to deploy vision analytics at a busy intersect
 
 4. **Source Frame Access**: Provide on-demand access to original camera frames for debugging, validation, and manual review - regardless of camera type or connection method
 
-They want to say: Connect these cameras, run vehicle and person detection, send metadata to SceneScape via MQTT and have a simple API that handles all the technical complexity - without needing to understand AI model formats, video decoding, or pipeline optimization.
+They want to say: Connect these cameras, run vehicle and person detection, send metadata to Scenescape via MQTT and have a simple API that handles all the technical complexity - without needing to understand AI model formats, video decoding, or pipeline optimization.
 
 The vision pipeline interface enables this by providing:
 
@@ -468,7 +468,7 @@ This DAG-based approach enables domain experts to create sophisticated analytics
 
 ## Metadata Output
 
-**MQTT-focused metadata publishing for SceneScape integration:**
+**MQTT-focused metadata publishing for Scenescape integration:**
 
 - **MQTT Publishing**: All detection metadata published to MQTT brokers in JSON format
 - **Batch Processing**: Minimized chatter with one message per batch to reduce network overhead and improve performance
@@ -507,7 +507,7 @@ sequenceDiagram
 
 ### Add Single Pipeline Stage and Verify Results
 
-**Purpose**: Add analytics processing to connected cameras and verify output in SceneScape.
+**Purpose**: Add analytics processing to connected cameras and verify output in Scenescape.
 
 ```mermaid
 sequenceDiagram
@@ -515,18 +515,18 @@ sequenceDiagram
     participant API as Vision Pipeline API
     participant Server as Pipeline Server
     participant MQTT as MQTT Broker
-    participant SceneScape as SceneScape System
+    participant Scenescape as Scenescape System
 
     User->>API: POST /pipelines
     Note over User,API: Configure pipeline:<br/>- Camera ID<br/>- Stage: Vehicle Detection<br/>- Hardware: GPU
     API->>Server: Create pipeline with detection stage
     Server->>Server: Start analytics processing
     Server->>MQTT: Publish detection metadata
-    MQTT->>SceneScape: Forward detection data
-    SceneScape->>SceneScape: Process multi-camera tracking
-    SceneScape->>MQTT: Publish tracks and properties
+    MQTT->>Scenescape: Forward detection data
+    Scenescape->>Scenescape: Process multi-camera tracking
+    Scenescape->>MQTT: Publish tracks and properties
     MQTT-->>User: Track data available for consumption
-    SceneScape-->>User: Visual verification in SceneScape UI
+    Scenescape-->>User: Visual verification in Scenescape UI
 
     User->>API: Request decorated frames for camera
     API-->>User: Stream frames with detection overlays
@@ -666,7 +666,7 @@ sequenceDiagram
     participant API as Vision Pipeline API
     participant Server as Pipeline Server
     participant MQTT as MQTT Broker
-    participant SceneScape as SceneScape System
+    participant Scenescape as Scenescape System
 
     Note over User: Existing pipeline processing Camera 1<br/>with Vehicle Detection + Classification
 
@@ -683,7 +683,7 @@ sequenceDiagram
     Server->>MQTT: Publish aggregated batch
     Note over Server,MQTT: Single MQTT message containing:<br/>- Camera 1 detections (ID + timestamp)<br/>- Camera 2 detections (ID + timestamp)<br/>- Preserved individual metadata
 
-    MQTT->>SceneScape: Process batched multi-camera data
+    MQTT->>Scenescape: Process batched multi-camera data
     API-->>User: Camera addition confirmation
 ```
 
@@ -723,7 +723,7 @@ sequenceDiagram
 
 **Considerations:**
 
-- **World Coordinate Transformation**: External responsibility using extrinsic calibration data (handled by downstream systems like SceneScape)
+- **World Coordinate Transformation**: External responsibility using extrinsic calibration data (handled by downstream systems like Scenescape)
 - **Multi-Sensor Fusion**: Requires external coordinate system reconciliation and cross-sensor tracking (also typically handled by downstream systems)
 
 ### Time Coordination
@@ -821,4 +821,4 @@ This principled approach delivers significant customer benefits that accelerate 
 
 The modular composability of pipeline components also enables automated optimization of hardware platforms. Since cameras, analytics stages, and acceleration targets are independently configurable, optimization systems can dynamically reassign workloads across CPU, GPU, and NPU resources based on real-time performance metrics and system load, maximizing throughput while maintaining quality of service guarantees.
 
-By focusing on interface definitions rather than implementation details, this specification enables technology-agnostic pipeline development while supporting debugging, validation, and gradual enhancement of existing robust pipeline technologies. The interface is motivated by SceneScape's architectural needs but designed as a reusable specification for any computer vision application requiring clear, maintainable pipeline boundaries built on proven technologies.
+By focusing on interface definitions rather than implementation details, this specification enables technology-agnostic pipeline development while supporting debugging, validation, and gradual enhancement of existing robust pipeline technologies. The interface is motivated by Scenescape's architectural needs but designed as a reusable specification for any computer vision application requiring clear, maintainable pipeline boundaries built on proven technologies.

@@ -1,6 +1,6 @@
 ---
 name: documentation-how
-description: Procedures for updating SceneScape documentation — where to make changes and what to update for each type of modification.
+description: Procedures for updating Scenescape documentation — where to make changes and what to update for each type of modification.
 ---
 
 # Documentation Update Procedures

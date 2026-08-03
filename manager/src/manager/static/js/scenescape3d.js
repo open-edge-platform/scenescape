@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -47,6 +47,8 @@ function main() {
     canvas: canvas,
     alpha: true,
     antialias: true,
+    // Retain the drawing buffer when running under WebDriver (Selenium)
+    preserveDrawingBuffer: navigator.webdriver === true,
   });
   renderer.toneMapping = THREE.ACESFilmicToneMapping; // Enable tone mapping
   renderer.toneMappingExposure = 1.0; // Default exposure for renderer
@@ -102,7 +104,7 @@ function main() {
     .add(panelSettings, "show tracked objects")
     .onChange(function (visibility) {
       showTrackedObjects = visibility;
-      assetManager.hideMarks();
+      assetManager.setMarksVisibility(visibility);
     }).$widget.id = "tracked-objects-button";
 
   // Add light intensity control
@@ -361,7 +363,12 @@ function main() {
       console.log("MQTT error: " + e);
     });
 
-    assetManager = AssetManager(scene, subscribeToTracking);
+    assetManager = AssetManager(
+      scene,
+      subscribeToTracking,
+      sceneViewCamera,
+      renderer.domElement,
+    );
     assetManager.loadAssets(gltfLoader);
     enableLiveView();
   }
@@ -609,6 +616,7 @@ function main() {
 
     stats.update();
     renderer.render(scene, sceneViewCamera);
+    if (assetManager) assetManager.renderLabels();
     requestAnimationFrame(render);
   }
 
@@ -636,6 +644,7 @@ function main() {
 
     orbitControls.enabled = false;
     sceneViewCamera = orthographicCamera;
+    if (assetManager) assetManager.setCamera(orthographicCamera);
   }
 
   // Set the camera to 3D perspective view
@@ -650,6 +659,7 @@ function main() {
 
     orbitControls.enabled = true;
     sceneViewCamera = perspectiveCamera;
+    if (assetManager) assetManager.setCamera(perspectiveCamera);
   }
 
   // Reset the view to the default position (set with controls.saveState())

@@ -1,4 +1,4 @@
-# ADR 4: DBSCAN-based Cluster Analytics Service for Intel® SceneScape
+# ADR 4: DBSCAN-based Cluster Analytics Service for Scenescape
 
 - **Author(s)**: [Dmytro Yermolenko](https://github.com/dmytroye)
 - **Date**: 2025-10-14
@@ -46,7 +46,7 @@ Choosing implementation in Python we want to be flexible and nimble in our desig
 
 #### Related Pull Request
 
-- [Object clustering is available in SceneScape](https://github.com/open-edge-platform/scenescape/pull/443)
+- [Object clustering is available in Scenescape](https://github.com/open-edge-platform/scenescape/pull/443)
 
 #### Implementation Architecture
 

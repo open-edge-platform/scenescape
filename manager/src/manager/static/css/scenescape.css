@@ -282,3 +282,39 @@ body {
   float: right;
   margin-top: 6px;
 }
+
+/* Asset Labels */
+.asset-label {
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 5px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.asset-label.visible {
+  opacity: 1;
+}
+
+.asset-label-id {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.asset-label-row {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 11px;
+}
+
+.asset-label-row span {
+  color: #fff;
+  font-weight: 500;
+}

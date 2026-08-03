@@ -152,13 +152,13 @@ discrete identifier with a presence event.
 
 ### Sensor Message Fields
 
-| Field       | Type                  | Required | Description                                                                  |
-| ----------- | --------------------- | :------: | ---------------------------------------------------------------------------- |
-| `id`        | string                |   Yes    | Sensor identifier; must match the provisioned sensor ID in Intel® SceneScape |
-| `timestamp` | string (ISO 8601 UTC) |   Yes    | Acquisition time of the reading                                              |
-| `value`     | any                   |   Yes    | Sensor reading — numeric scalar, string, boolean, or any JSON value          |
-| `subtype`   | string                |    No    | Sensor subtype hint (e.g. `"temperature"`, `"humidity"`)                     |
-| `rate`      | number ≥ 0            |    No    | Rate at which the sensor is producing readings (readings per second)         |
+| Field       | Type                  | Required | Description                                                           |
+| ----------- | --------------------- | :------: | --------------------------------------------------------------------- |
+| `id`        | string                |   Yes    | Sensor identifier; must match the provisioned sensor ID in Scenescape |
+| `timestamp` | string (ISO 8601 UTC) |   Yes    | Acquisition time of the reading                                       |
+| `value`     | any                   |   Yes    | Sensor reading — numeric scalar, string, boolean, or any JSON value   |
+| `subtype`   | string                |    No    | Sensor subtype hint (e.g. `"temperature"`, `"humidity"`)              |
+| `rate`      | number ≥ 0            |    No    | Rate at which the sensor is producing readings (readings per second)  |
 
 The `id` field must match the last path segment of the MQTT topic:
 `scenescape/data/sensor/{sensor_id}`.
@@ -205,27 +205,27 @@ in the integration guide.
 All Scene Controller output messages include an `objects` array of tracked objects. Each
 tracked object contains the following fields:
 
-| Field                  | Type               | Description                                                                                                                                                                                                                                                  |
-| ---------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `id`                   | string (UUID)      | Persistent track identifier assigned by the controller                                                                                                                                                                                                       |
-| `type`                 | string             | Object type label; same value as `category` (e.g. `"person"`)                                                                                                                                                                                                |
-| `category`             | string             | Object class label (e.g. `"person"`)                                                                                                                                                                                                                         |
-| `confidence`           | number             | Inference confidence of the most recent contributing detection                                                                                                                                                                                               |
-| `translation`          | array[3] of number | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                                                                                                  |
-| `size`                 | array[3] of number | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                                                                                                               |
-| `velocity`             | array[3] of number | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                                                                                         |
-| `rotation`             | array[4] of number | Orientation quaternion                                                                                                                                                                                                                                       |
-| `visibility`           | array of string    | Camera IDs currently observing this object                                                                                                                                                                                                                   |
-| `keypoints`            | array of objects   | Pose keypoints propagated from detections when available; each entry uses `{"name": "<keypoint>", "x": <0-1>, "y": <0-1>}` coordinates normalized to frame dimensions                                                                                        |
-| `keypoint_connections` | array of strings   | Flat list of keypoint-name pairs defining the skeleton edges (e.g. `["nose","eye_l","nose","eye_r",...]`); length is always `2 x number_of_connections`                                                                                                      |
-| `regions`              | object             | Map of region/sensor IDs to membership metadata. By default this is `{id: {entered: timestamp}}`. In region-scoped outputs, objects currently inside a region also include a live dwell time as `{id: {entered: timestamp, dwell: seconds}}`.                |
-| `sensors`              | object             | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`)                                                                                                                                                                                |
-| `similarity`           | number or null     | Similarity/distance value to the matched ReID embedding in VDMS; higher-is-better for `COSINE`; lower is better for `L2`. `null` when ReID is still collecting embeddings, when no database match was found, or when ReID is disabled.                       |
-| `reid_state`           | string             | Re-ID processing state for the object. One of: `pending_collection`, `query_no_match`, `matched`, `reid_disabled`                                                                                                                                            |
-| `previous_ids_chain`   | array or absent    | History of UUID reassignments for this track. Each element is `{"id": "<uuid>", "timestamp": "<ISO 8601>", "similarity_score": <number or null>}`. Present only when the object has been re-identified at least once; omitted otherwise.                     |
-| `first_seen`           | string (ISO 8601)  | Timestamp when the track was first created                                                                                                                                                                                                                   |
-| `metadata`             | object             | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below.                                                                     |
-| `camera_bounds`        | object             | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height, projected}}`) where `projected=false` means detector-provided pixel bbox and `projected=true` means computed projection; may be empty (`{}`) when no camera currently observes the track |
+| Field                  | Type               | Description                                                                                                                                                                                                                                                      |
+| ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                   | string (UUID)      | Persistent track identifier assigned by the controller                                                                                                                                                                                                           |
+| `type`                 | string             | Object type label; same value as `category` (e.g. `"person"`)                                                                                                                                                                                                    |
+| `category`             | string             | Object class label (e.g. `"person"`)                                                                                                                                                                                                                             |
+| `confidence`           | number             | Inference confidence of the most recent contributing detection                                                                                                                                                                                                   |
+| `translation`          | array[3] of number | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                                                                                                      |
+| `size`                 | array[3] of number | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                                                                                                                   |
+| `velocity`             | array[3] of number | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                                                                                             |
+| `rotation`             | array[4] of number | Orientation quaternion                                                                                                                                                                                                                                           |
+| `visibility`           | array of string    | Camera IDs currently observing this object                                                                                                                                                                                                                       |
+| `keypoints`            | array of objects   | Pose keypoints propagated from detections when available; each entry uses `{"name": "<keypoint>", "x": <0-1>, "y": <0-1>}` coordinates normalized to frame dimensions                                                                                            |
+| `keypoint_connections` | array of strings   | Flat list of keypoint-name pairs defining the skeleton edges (e.g. `["nose","eye_l","nose","eye_r",...]`); length is always `2 x number_of_connections`                                                                                                          |
+| `regions`              | object             | Map of region/sensor IDs to membership metadata. By default this is `{id: {entered: timestamp}}`. In region-scoped outputs, objects currently inside a region also include a live dwell time as `{id: {entered: timestamp, dwell: seconds}}`.                    |
+| `sensors`              | object             | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`)                                                                                                                                                                                    |
+| `similarity`           | number or null     | Similarity/distance value to the matched ReID embedding in the configured vector database; higher-is-better for `COSINE`; lower is better for `L2`. `null` when ReID is still collecting embeddings, when no database match was found, or when ReID is disabled. |
+| `reid_state`           | string             | Re-ID processing state for the object. One of: `pending_collection`, `query_no_match`, `matched`, `reid_disabled`                                                                                                                                                |
+| `previous_ids_chain`   | array or absent    | History of UUID reassignments for this track. Each element is `{"id": "<uuid>", "timestamp": "<ISO 8601>", "similarity_score": <number or null>}`. Present only when the object has been re-identified at least once; omitted otherwise.                         |
+| `first_seen`           | string (ISO 8601)  | Timestamp when the track was first created                                                                                                                                                                                                                       |
+| `metadata`             | object             | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below.                                                                         |
+| `camera_bounds`        | object             | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height, projected}}`) where `projected=false` means detector-provided pixel bbox and `projected=true` means computed projection; may be empty (`{}`) when no camera currently observes the track     |
 
 > **Note on `metadata` in track objects**: Each attribute follows the structure
 > `{label, model_name, confidence?}` — identical to [Semantic Metadata Fields](#semantic-metadata-fields)
@@ -238,9 +238,9 @@ tracked object contains the following fields:
 > optional pass-through fields from object detections. They are included in output
 > objects when present on the contributing detection data.
 
-> **Note on `similarity`**: This field holds the metric value returned by VDMS
-> in `_distance` and is evaluated by the controller using configured metric semantics.
-> For `COSINE` (implemented via VDMS `IP`), value must be above `similarity_threshold`; for distance-style metrics such as `L2`,
+> **Note on `similarity`**: This field holds the metric value returned by the ReID
+> backend in `_distance` and is evaluated by the controller using configured metric semantics.
+> For `COSINE` (normalized vectors with backend IP/DOT), value must be above `similarity_threshold`; for distance-style metrics such as `L2`,
 > value must be below `similarity_threshold`.
 > A value of `null` means either the ReID query has not been submitted yet
 > (`pending_collection`), the query found no match below the configured

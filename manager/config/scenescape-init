@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 set -e
@@ -8,31 +8,13 @@ set -e
 WSUSER=${WSUSER:-scenescape}
 WORKSPACE=${WORKSPACE:-/workspace}
 SECRETSDIR=${SECRETSDIR:-${WORKSPACE}/secrets}
-MANAGERDIR=SceneScape
-SAMPLEDATADIR=/home/scenescape/SceneScape/sample_data
+MANAGERDIR=Scenescape
+SAMPLEDATADIR=/home/scenescape/Scenescape/sample_data
 
 RUNSECRETS=/run/secrets
 EGL_PLATFORM=${EGL_PLATFORM:-surfaceless}
 
 export EGL_PLATFORM
-
-map_dir()
-{
-    SRC=$1
-    DEST=$2
-    DUID=$3
-    DGID=$4
-
-    SUID=$(stat -c '%u' "${SRC}")
-    SGID=$(stat -c '%g' "${SRC}")
-
-    mkdir -p ${DEST}
-    echo "map_dir chown ${DUID}:${DGID} ${DEST}"
-    chown ${DUID}:${DGID} ${DEST}
-    echo "map_dir bindfs ${SRC} to ${DEST} with ${DUID}:${DGID}"
-    bindfs -o nonempty --map=${SUID}/${DUID}:@${SGID}/@${DGID} ${SRC} ${DEST}
-    echo "map_dir done ${SRC} to ${DEST}"
-}
 
 # Resolve WSUSER home safely without eval.
 WSHOME=$(getent passwd "${WSUSER}" | cut -d: -f6)
@@ -319,9 +301,9 @@ if [ -n "$DBTYPE" ]; then
     ./manage.py updatedbstatus --not-ready
 
     if [ -z "${OVERWRITE_USER_AUTH}" ]; then
-        find -L ${RUNSECRETS} -name "*.auth" -print0 | xargs -0 -I {} bash -c '(./manage.py createuser --skip-existing "{}")'
+        find -L ${RUNSECRETS} -name "*.auth" -print0 | LC_ALL=C sort -z | xargs -0 -I {} ./manage.py createuser --skip-existing "{}"
     else
-        find -L ${RUNSECRETS} -name "*.auth" -print0 | xargs -0 -I {} bash -c '(./manage.py createuser "{}")'
+        find -L ${RUNSECRETS} -name "*.auth" -print0 | LC_ALL=C sort -z | xargs -0 -I {} ./manage.py createuser "{}"
     fi
     echo ''
     echo '#############'

@@ -1,4 +1,4 @@
-# Running tests for Intel® SceneScape
+# Running tests for Scenescape
 
 Tests support two deployment backends controlled by the `--backend` flag:
 
@@ -12,21 +12,39 @@ Tests support two deployment backends controlled by the `--backend` flag:
 
 ### Host system packages
 
-The following packages must be installed on the host before running `make setup-tests`.
-Install them with `apt-get` (or equivalent for your distribution):
+Install all required packages:
 
-| Package         | Minimum version | Required for         | Install command                              |
-| --------------- | --------------- | -------------------- | -------------------------------------------- |
-| `firefox`       | 150.0.2         | UI / Selenium tests  | `sudo apt-get install -y firefox`            |
-| `geckodriver`   | 0.36.0          | UI / Selenium tests  | Check https://github.com/mozilla/geckodriver |
-| `xvfb`          | 21.1            | UI / Selenium tests  | `sudo apt-get install -y xvfb`               |
-| `libopencv-dev` | 4.6             | `robot_vision` build | `sudo apt-get install -y libopencv-dev`      |
-| `libeigen3-dev` | 3.4             | `robot_vision` build | `sudo apt-get install -y libeigen3-dev`      |
+```bash
+sudo apt-get update && sudo apt-get install -y \
+  build-essential \
+  python3.12-dev \
+  python3.12-venv \
+  xvfb \
+  libopencv-dev \
+  libeigen3-dev
+```
 
-> **Note**: `firefox` and `xvfb` are only needed when running UI/Selenium tests.
-> `libopencv-dev` and `libeigen3-dev` are required to compile the `robot_vision`
-> C++ extension used by tracker metric and scene tests.
-> On Ubuntu, Firefox must be installed via apt — the snap version is not compatible with Selenium.
+**Note:** Firefox must be set up separately (see [Firefox Setup](#firefox-setup) below).
+
+### Firefox Setup
+
+Firefox **must** be installed as a real binary (not snap), as snap Firefox is incompatible with Selenium.
+
+**Manual setup**
+
+For Ubuntu 24.04+:
+
+```bash
+sudo add-apt-repository -y ppa:mozillateam/ppa
+sudo apt-get update && sudo apt-get install -y firefox-esr
+sudo ln -sf /usr/bin/firefox-esr /usr/bin/firefox
+```
+
+Verify Firefox is installed correctly:
+
+```bash
+firefox --version  # Should show Mozilla Firefox (not snap)
+```
 
 ### Docker backend
 
@@ -44,12 +62,12 @@ and available on `PATH`:
 | --------- | ------------------------------ |
 | `kind`    | Creates the local KinD cluster |
 | `kubectl` | Manages Kubernetes resources   |
-| `helm`    | Deploys the SceneScape chart   |
+| `helm`    | Deploys the Scenescape chart   |
 
 The Python dependencies are installed automatically by `make setup-pytest`.
 
 The Kubernetes backend creates a fully self-contained KinD cluster, deploys
-SceneScape via the Helm chart, and tears the cluster down at the end of the
+Scenescape via the Helm chart, and tears the cluster down at the end of the
 test session.
 
 ## Running tests
@@ -129,11 +147,13 @@ pytest tests/functional --collect-container-logs none
 
 ### Environment variables
 
-| Variable        | Default            | Backend | Description                                 |
-| --------------- | ------------------ | ------- | ------------------------------------------- |
-| `SUPASS`        | random             | both    | Superuser password for the test deployment  |
-| `SECRETSDIR`    | `manager/secrets/` | docker  | Path to the secrets directory               |
-| `IMAGE_VERSION` | `latest`           | docker  | Docker image tag to use for test containers |
+| Variable          | Default                   | Backend  | Description                                 |
+| ----------------- | ------------------------- | -------- | ------------------------------------------- |
+| `SUPASS`          | random                    | both     | Superuser password for the test deployment  |
+| `SECRETSDIR`      | `manager/secrets/`        | docker   | Path to the secrets directory               |
+| `IMAGE_VERSION`   | `latest`                  | docker   | Docker image tag to use for test containers |
+| `FIREFOX_BIN`     | `firefox` (from PATH)     | UI tests | Path to Firefox binary for Selenium tests   |
+| `GECKODRIVER_BIN` | `geckodriver` (from PATH) | UI tests | Path to geckodriver binary for Selenium     |
 
 ### Log files
 

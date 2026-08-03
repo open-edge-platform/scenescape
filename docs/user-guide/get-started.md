@@ -1,4 +1,4 @@
-# Get Started with Intel® SceneScape
+# Get Started with Scenescape
 
 - **Time to Complete:** 30-45 minutes
 
@@ -10,7 +10,7 @@
 
 - Install [Prerequisites](./get-started/prerequisites.md) such as Docker and other required software.
 
-### Step 1: Get Intel® SceneScape
+### Step 1: Get Scenescape
 
 <!--hide_directive
 ::::{tab-set}
@@ -18,9 +18,9 @@
 
 Note that these operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
 
-1. Download the Intel® SceneScape software archive from <https://github.com/open-edge-platform/scenescape/releases>.
+1. Download the Scenescape software archive from <https://github.com/open-edge-platform/scenescape/releases>.
 
-2. Extract the Intel® SceneScape archive on the target Ubuntu system. Change directories to the extracted Intel® SceneScape folder.
+2. Extract the Scenescape archive on the target Ubuntu system. Change directories to the extracted Scenescape folder.
 
    ```bash
    cd scenescape-<version>
@@ -33,7 +33,7 @@ Note that these operations must be executed when logged in as a standard (non-ro
 Clone the repository and change directories to the cloned repository:
 
 ```bash
-git clone https://github.com/open-edge-platform/scenescape.git &&
+git clone https://github.com/open-edge-platform/scenescape.git -b main
 cd scenescape/
 ```
 
@@ -49,7 +49,7 @@ git checkout <tag-version>
 ::::
 hide_directive-->
 
-### Step 2: Build Intel® SceneScape container images
+### Step 2: Build Scenescape container images
 
 Build container images:
 
@@ -67,7 +67,7 @@ Optionally, the number of jobs can be adjusted by setting the `JOBS` variable, e
 make JOBS=1
 ```
 
-#### (Optional): Build dependency list of Intel® SceneScape container images
+#### (Optional): Build dependency list of Scenescape container images
 
 ```bash
 make list-dependencies
@@ -75,9 +75,9 @@ make list-dependencies
 
 This step generates dependency lists. Two separate files are created for system packages and Python packages per each microservice image.
 
-### Step 3: Deploy Intel® SceneScape demo to the target system
+### Step 3: Deploy Scenescape demo to the target system
 
-Before deploying the demo of Intel® SceneScape for the first time, please set the environment variable SUPASS with the super user password for logging into Intel® SceneScape.
+Before deploying the demo of Scenescape for the first time, please set the environment variable SUPASS with the super user password for logging into Scenescape.
 Important: This should be different than the password for your system user.
 
 ```bash
@@ -88,9 +88,27 @@ export SUPASS=<password>
 make demo
 ```
 
+The Docker Compose demo targets are tiered, each building on the previous one:
+
+| Target      | Includes                                                     |
+| ----------- | ------------------------------------------------------------ |
+| `demo`      | Core services with tracking, without ReID                    |
+| `demo-reid` | `demo` plus the ReID vector database                         |
+| `demo-all`  | `demo-reid` plus cluster analytics and experimental services |
+
+The ReID targets use VDMS by default. Set `REID_BACKEND=qdrant` to use Qdrant:
+
+```bash
+make demo-reid
+make demo-reid REID_BACKEND=qdrant
+```
+
+`make demo-close` remembers the selected override and stops the matching
+deployment.
+
 ### Step 4: Verify a successful deployment
 
-If you are running remotely, connect using `https://<ip_address>` or `https://<hostname>`, using the correct IP address or hostname of the remote Intel® SceneScape system. If accessing on a local system use `https://localhost`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
+If you are running remotely, connect using `https://<ip_address>` or `https://<hostname>`, using the correct IP address or hostname of the remote Scenescape system. If accessing on a local system use `https://localhost`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
 
 > **Note:** These certificate warnings are expected due to the use of a self-signed certificate for initial deployment purposes. This certificate is generated at deploy time and is unique to the instance.
 
@@ -100,7 +118,7 @@ Enter "admin" for the user name and the value you typed earlier for SUPASS.
 
 #### Docker Compose Profiles
 
-Intel® SceneScape uses [Docker Compose profiles](https://docs.docker.com/compose/how-tos/profiles/) to organize services into logical groups. When starting or stopping services, you must specify the same profile(s) used during deployment.
+Scenescape uses [Docker Compose profiles](https://docs.docker.com/compose/how-tos/profiles/) to organize services into logical groups. When starting or stopping services, you must specify the same profile(s) used during deployment.
 
 The following profiles are available:
 
@@ -111,8 +129,9 @@ The following profiles are available:
 | `experimental`      | Enables mapping and cluster-analytics services.                               |
 | `mapping`           | Enables mapping service only.                                                 |
 | `cluster-analytics` | Enables cluster-analytics service only.                                       |
-| `vdms`              | Enables the VDMS visual database service (used for re-identification).        |
 | `tracker`           | Enables the tracker service.                                                  |
+
+> **ReID backends:** The `demo-reid` and `demo-all` targets default to VDMS (`REID_BACKEND=vdms`); set `REID_BACKEND=qdrant` to switch. For raw Compose, add exactly one of `sample_data/docker-compose.vdms-override.yml` or `sample_data/docker-compose.qdrant-override.yml`. Both overrides provide the same logical `reid` service, shared host `reid.scenescape.intel.com`, port `55555`, TLS settings, and certificates. See [Selecting the ReID Vector Database Backend](./other-topics/how-to-enable-reidentification.md#selecting-the-reid-vector-database-backend).
 
 Profiles can be specified on the command line with `--profile`:
 
@@ -162,15 +181,15 @@ docker compose --profile controller up -d
 
 ## Summary
 
-Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system. Using the web user interface, Intel® SceneScape provides two scenes by default that can be explored running from stored video data.
+Scenescape was downloaded, built and deployed onto a fresh Ubuntu system. Using the web user interface, Scenescape provides two scenes by default that can be explored running from stored video data.
 
-![SceneScape WebUI Homepage](./_assets/ui/homepage.png "scenescape web ui homepage")
+![Scenescape WebUI Homepage](./_assets/ui/homepage.png "scenescape web ui homepage")
 
-> **Note:** The “Documentation” menu option allows you to view Intel® SceneScape HTML version of the documentation in the browser.
+> **Note:** The “Documentation” menu option allows you to view Scenescape HTML version of the documentation in the browser.
 
 ## Next Steps
 
-- Check the [How-to Guides](./how-to-guides.md) for step-by-step instructions on how to perform specific tasks in Intel® SceneScape.
+- Check the [How-to Guides](./how-to-guides.md) for step-by-step instructions on how to perform specific tasks in Scenescape.
 
 ### Explore other topics
 
@@ -178,7 +197,7 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 - [How to enable reidentification](./other-topics/how-to-enable-reidentification.md): Step-by-step guide to enable reidentification.
 
-- [Geti AI model integration](./other-topics/how-to-integrate-geti-trained-model.md): Step-by-step guide for integrating a Geti trained AI model with Intel® SceneScape.
+- [Geti AI model integration](./other-topics/how-to-integrate-geti-trained-model.md): Step-by-step guide for integrating a Geti trained AI model with Scenescape.
 
 - [Running License Plate Recognition with 3D Object Detection](./other-topics/how-to-run-LPR-with-3D-object-detection.md): Step-by-step guide for running license plate recognition with 3D object detection.
 
@@ -190,11 +209,11 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 ## Additional Resources
 
-- [How to upgrade Intel® SceneScape](./additional-resources/how-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
+- [How to upgrade Scenescape](./additional-resources/how-to-upgrade.md): Step-by-step guide for upgrading from an older version of Scenescape.
 
-- [How Intel® SceneScape converts Pixel-Based Bounding Boxes to Normalized Image Space](./additional-resources/convert-object-detections-to-normalized-image-space.md)
+- [How Scenescape converts Pixel-Based Bounding Boxes to Normalized Image Space](./additional-resources/convert-object-detections-to-normalized-image-space.md)
 
-- [Hardening Guide for Custom TLS](./additional-resources/hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation.
+- [Hardening Guide for Custom TLS](./additional-resources/hardening-guide.md): Optimizing security posture for a Scenescape installation.
 
 - [Release Notes](./release-notes.md)
 

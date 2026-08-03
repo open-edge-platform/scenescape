@@ -25,6 +25,8 @@ import trimesh
 import shutil
 from scene_common.mesh_util import image_mesh
 
+import traceback
+
 from scene_common import log
 
 from model_interface import ReconstructionModel
@@ -80,7 +82,7 @@ class VGGTModel(ReconstructionModel):
       log.info("VGGT model loaded successfully")
 
     except Exception as e:
-      log.error(f"Failed to load VGGT model: {e}")
+      log.error(f"Failed to load VGGT model: {e}\n{traceback.format_exc()}")
       raise RuntimeError(f"VGGT model loading failed: {e}")
 
   def run_inference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -131,7 +133,7 @@ class VGGTModel(ReconstructionModel):
       return result
 
     except Exception as e:
-      log.error(f"VGGT inference failed: {e}")
+      log.error(f"VGGT inference failed: {e}\n{traceback.format_exc()}")
       raise RuntimeError(f"VGGT inference failed: {e}")
 
   def get_supported_outputs(self) -> List[str]:

@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import time
@@ -56,7 +54,40 @@ def wait_for_image(browser, wait_time, image_id):
     time.sleep(iter_time)
   return False
 
+# Timeouts for autocalibration-specific waits.
+AUTOCAL_RESULT_TIMEOUT_S = 120
+SAVE_TIMEOUT_S = 30
+RELOAD_TIMEOUT_S = 30
+
+def wait_for_calibration_points(browser, wait_time, min_points=4):
+  """! Polls camCanvas until at least min_points calibration points appear.
+  @param    browser     Object wrapping the Selenium driver.
+  @param    wait_time   Int seconds to wait.
+  @param    min_points  Minimum point count required to return True.
+  @return   BOOL        True if enough points appeared within the timeout.
+  """
+  script = (
+    "return Object.keys("
+    "window.camera_calibration?.camCanvas?.getCalibrationPoints?.() || {}"
+    ").length;"
+  )
+  deadline = time.time() + wait_time
+  count = 0
+  while time.time() < deadline:
+    try:
+      count = browser.execute_script(script) or 0
+    except Exception:
+      count = 0
+    if count >= min_points:
+      return True
+    time.sleep(1)
+  print(f"wait_for_calibration_points: only {count} of {min_points} required")
+  return False
+
 class AprilTagCalibrationTest(UserInterfaceTest):
+  # The camera calibration page constructs a THREE.WebGLRenderer
+  BROWSER_WEBGL = True
+
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
     self.sceneName = self.params['scene']
@@ -145,13 +176,35 @@ class AprilTagCalibrationTest(UserInterfaceTest):
     autocal_button = wait_for_calibration(self.browser, wait_time)
     assert autocal_button.is_enabled()
     self.click_button_by_id("reset_points")
-    time.sleep(wait_time)
+    time.sleep(1)
+    # Snapshot current transforms so we can detect that save actually persisted.
+    pre_save_transforms = self.browser.execute_script(
+      "return document.getElementById('id_transforms')?.value;"
+    )
+    save_page_url = self.browser.current_url
     autocal_button.click()
-    time.sleep(wait_time)
+    # Wait for the autocalibration result to populate camCanvas.
+    assert wait_for_calibration_points(self.browser, AUTOCAL_RESULT_TIMEOUT_S, min_points=4), (
+      f"Auto-calibration produced no points within {AUTOCAL_RESULT_TIMEOUT_S}s"
+    )
     self.click_button_by_id("top_save")
-    time.sleep(wait_time)
+    # Save dispatches form submit only after an alert("Camera updated") and an
+    # async MQTT round trip. Accept the alert and wait for the navigation.
+    assert common.wait_for_save_complete(self.browser, SAVE_TIMEOUT_S, save_page_url), (
+      "Save did not complete within timeout (alert or navigation missing)"
+    )
     self.navigateDirectlyToPage(cam_url)
-    time.sleep(wait_time)
+    # On reload, wait for the persisted points to be re-rendered to camCanvas.
+    assert wait_for_calibration_points(self.browser, RELOAD_TIMEOUT_S, min_points=4), (
+      f"Persisted calibration points did not appear on reload within {RELOAD_TIMEOUT_S}s"
+    )
+    # Sanity check: the persisted transforms differ from the seed value.
+    post_save_transforms = self.browser.execute_script(
+      "return document.getElementById('id_transforms')?.value;"
+    )
+    assert post_save_transforms and post_save_transforms != pre_save_transforms, (
+      f"Save did not persist: transforms unchanged ({post_save_transforms!r})"
+    )
     points = get_calibration_points_from_js(self.browser, "camera")
     print("Actual points:", points)
 

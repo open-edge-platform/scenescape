@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 SHELL := /bin/bash
-VERSION := $(shell cat ../version.txt)
+VERSION ?= $(shell cat ../version.txt)
 BUILD_DIR ?= $(PWD)/build
 ROOT_DIR := $(PWD)
 LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
@@ -15,8 +15,9 @@ RUNTIME_OS_IMAGE ?= $(shell sed -n 's/^ARG RUNTIME_OS_IMAGE=//p' Dockerfile)
 
 default: build-image
 
+.PHONY: $(BUILD_DIR)
 $(BUILD_DIR):
-	mkdir -p $@
+	mkdir -p $@/intel
 
 # ANSI color codes
 RED    := \033[0;31m

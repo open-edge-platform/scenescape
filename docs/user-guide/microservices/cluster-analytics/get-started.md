@@ -38,7 +38,7 @@ docker run --rm \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/calibration.auth:/run/secrets/calibration.auth:ro \
   --name cluster_analytics_manual \
-  scenescape-cluster-analytics \
+  intel/scenescape-cluster-analytics \
   --broker broker.scenescape.intel.com
 ```
 
@@ -60,7 +60,7 @@ docker run --rm \
 
 ## Suporting Resources
 
-- Learn how to [Configure Spatial Analytics in Intel® SceneScape](../../how-to-guides/build-a-scene/configure-spatial-analytics.md).
+- Learn how to [Configure Spatial Analytics in Scenescape](../../how-to-guides/build-a-scene/configure-spatial-analytics.md).
 - Learn how to [Work with Spatial Analytics Data](../../how-to-guides/work-with-spatial-analytics-data.md).
 
 <!--hide_directive

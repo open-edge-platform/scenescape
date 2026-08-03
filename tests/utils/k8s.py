@@ -7,7 +7,7 @@
 Kubernetes backend for end-to-end tests.
 
 Provides K8sManager (parallel to _ComposeManager) that creates a KinD cluster,
-deploys SceneScape via Helm, sets up port-forwarding, and extracts secrets so
+deploys Scenescape via Helm, sets up port-forwarding, and extracts secrets so
 tests can connect to the cluster using the same params dict as Docker tests.
 """
 
@@ -44,11 +44,11 @@ _RELEASE_NAME = "scenescape"
 _NAMESPACE = "scenescape"
 
 _SCENESCAPE_IMAGES = [
-  "scenescape-manager",
-  "scenescape-autocalibration",
-  "scenescape-controller",
-  "scenescape-cluster-analytics",
-  "scenescape-mapping-mapanything",
+  "intel/scenescape-manager",
+  "intel/scenescape-autocalibration",
+  "intel/scenescape-controller",
+  "intel/scenescape-cluster-analytics",
+  "intel/scenescape-mapping-mapanything",
 ]
 
 def _run(cmd, **kwargs):
@@ -157,7 +157,7 @@ def _image_exists(ref: str) -> bool:
 class K8sManager:
   """Manages a KinD Kubernetes cluster lifecycle for test sessions.
 
-  Parallel to _ComposeManager: creates a KinD cluster, deploys SceneScape
+  Parallel to _ComposeManager: creates a KinD cluster, deploys Scenescape
   via Helm, sets up port-forwarding, and extracts secrets. Session-scoped:
   the cluster is created once and reused for all tests.
   """
@@ -228,8 +228,8 @@ class K8sManager:
     self._cluster.apply(_CERTMANAGER_URL)
     self._wait_for_cert_manager()
 
-    # Load SceneScape images into KinD
-    logger.info("Loading SceneScape images into KinD...")
+    # Load Scenescape images into KinD
+    logger.info("Loading Scenescape images into KinD...")
     self._load_images()
 
     # Populate kubernetes/scenescape-chart/files/ from source tree.
@@ -328,13 +328,13 @@ class K8sManager:
     time.sleep(5)
 
   def _load_images(self):
-    """Tag and load SceneScape + external images into the KinD cluster."""
+    """Tag and load Scenescape + external images into the KinD cluster."""
     version_file = Path(self._repo_root) / "version.txt"
     version = version_file.read_text().strip()
 
     for image_name in _SCENESCAPE_IMAGES:
       old_tag = f"{image_name}:latest"
-      new_tag = f"intel/{image_name}:{version}"
+      new_tag = f"{image_name}:{version}"
 
       if not _image_exists(old_tag):
         raise RuntimeError(
@@ -384,6 +384,9 @@ class K8sManager:
       f'  password: "{self._supass}"\n'
       f'hooks:\n'
       f'  enabled: true\n'
+      f'reid:\n'
+      f'  enabled: true\n'
+      f'  backend: "{os.getenv("REID_BACKEND", "vdms")}"\n'
       f'httpProxy: "{os.getenv("HTTP_PROXY", "")}"\n'
       f'httpsProxy: "{os.getenv("HTTPS_PROXY", "")}"\n'
       f'noProxy: "{os.getenv("NO_PROXY", "")}"\n'
@@ -415,7 +418,7 @@ class K8sManager:
     logger.info("Helm chart deployed successfully.")
 
   def _wait_for_core_services(self):
-    """Wait for core SceneScape services to be ready.
+    """Wait for core Scenescape services to be ready.
 
     NTP (chrony) is excluded because it needs the SYS_TIME capability
     which is not available in KinD. All other services including
@@ -425,7 +428,7 @@ class K8sManager:
       f"deployment/{_RELEASE_NAME}-web-dep",
       f"deployment/{_RELEASE_NAME}-scene-dep",
       f"deployment/{_RELEASE_NAME}-autocalibration-dep",
-      f"deployment/{_RELEASE_NAME}-vdms-dep",
+      f"deployment/{_RELEASE_NAME}-reid-dep",
       f"deployment/{_RELEASE_NAME}-mediaserver-dep",
       f"deployment/{_RELEASE_NAME}-broker",
       f"statefulset/{_RELEASE_NAME}-pgserver",

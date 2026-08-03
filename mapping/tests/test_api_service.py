@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
@@ -28,7 +26,7 @@ class TestAPIService:
   def client(self):
     """Create Flask test client with mock model"""
     # Import here to avoid issues with model initialization
-    from api_service_base import app
+    from api_service_base import app, API_PREFIX
 
     # Create mock model
     mock_model = Mock()
@@ -55,6 +53,20 @@ class TestAPIService:
       with patch('api_service_base.model_name', 'test_model'):
         app.config['TESTING'] = True
         with app.test_client() as client:
+          # Routes are registered under API_PREFIX ("/v1")
+          original_open = client.open
+
+          def open_with_prefix(*args, **kwargs):
+            path = args[0] if args else kwargs.get('path')
+            if isinstance(path, str) and path.startswith("/") and not path.startswith(API_PREFIX):
+              prefixed_path = f"{API_PREFIX}{path}"
+              if args:
+                args = (prefixed_path,) + args[1:]
+              else:
+                kwargs['path'] = prefixed_path
+            return original_open(*args, **kwargs)
+
+          client.open = open_with_prefix
           yield client
 
   def create_test_image_base64(self, size=(100, 100), color=(255, 0, 0)):
@@ -71,20 +83,11 @@ class TestAPIService:
 
     assert response.status_code == 200
     data = json.loads(response.data)
+    assert data['success'] is True
     assert data['status'] == 'healthy'
-    assert 'model' in data
-    assert 'model_loaded' in data
-    assert 'device' in data
-
-  def test_list_models(self, client):
-    """Test /models endpoint"""
-    response = client.get('/models')
-
-    assert response.status_code == 200
-    data = json.loads(response.data)
-    assert 'model' in data
-    assert 'model_info' in data
-    assert 'camera_pose_format' in data
+    assert data['model_loaded'] is True
+    assert 'model' not in data
+    assert 'device' not in data
 
   def test_reconstruction_success(self, client):
     """Test successful reconstruction request"""
@@ -359,6 +362,35 @@ class TestAPIService:
     assert response.status_code == 405
     data = json.loads(response.data)
     assert 'error' in data
+
+  def test_request_too_large_returns_413_and_drains_body(self):
+    """Test that oversized requests return 413 and drain the request body.
+
+    Without draining, a reverse proxy (e.g., Apache) sees a connection reset
+    when the backend closes without consuming the uploaded bytes, and returns
+    502 instead of forwarding the 413.
+    """
+    from api_service_base import app, request_entity_too_large
+    from werkzeug.exceptions import RequestEntityTooLarge
+    from unittest.mock import MagicMock
+
+    mock_stream = MagicMock()
+    mock_stream.read.return_value = b''
+
+    with app.test_request_context(
+      '/v1/reconstruction',
+      method='POST',
+      content_type='multipart/form-data',
+      environ_overrides={
+        'wsgi.input': mock_stream,
+        'CONTENT_LENGTH': '100',
+      }
+    ):
+      response, status_code = request_entity_too_large(RequestEntityTooLarge())
+
+    assert status_code == 413
+    assert 'error' in json.loads(response.get_data())
+    mock_stream.read.assert_called()
 
 
 class TestRequestValidation:

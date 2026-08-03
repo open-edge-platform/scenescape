@@ -16,13 +16,14 @@ paho-mqtt==2.1.0
 numpy==2.2.6
 requests==2.33.0
 selenium==4.43.0
-Pillow==12.2.0
+Pillow==12.3.0
 scikit-image==0.26.0
+scikit-learn==1.8.0
 opencv-python==4.13.0.92
 pyvirtualdisplay==3.0
 psutil==5.9.0
 pupil-apriltags==1.0.4.post11
-Django==5.2.13
+Django==5.2.15
 django-axes==8.0.0
 django-session-timeout==0.1.0
 djangorestframework==3.16.1
@@ -37,15 +38,17 @@ opentelemetry-api==1.38.0
 opentelemetry-sdk==1.38.0
 opentelemetry-exporter-otlp-proto-grpc==1.38.0
 vdms==0.0.22
+qdrant-client==1.18.0
 aiofiles==25.1.0
 orjson==3.11.6
 ntplib==0.4.0
 openapi-spec-validator==0.8.5
+pytz==2026.2
 
 # Build dependencies for fast_geometry C++ extension
 pybind11==3.0.4
 
-# SceneScape shared library (installed as editable from repo)
+# Scenescape shared library (installed as editable from repo)
 -e ../scene_common/src
 
 # Tracker black-box evaluation pipeline dependencies (packages not already listed above)

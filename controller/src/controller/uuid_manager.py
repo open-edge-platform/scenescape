@@ -8,12 +8,21 @@ import math
 
 import numpy as np
 
-from controller.vdms_adapter import VDMSDatabase, COSINE_SIMILARITY_TOLERANCE
+from controller.reid_constants import (
+  DEFAULT_CONFIG_SIMILARITY_METRIC,
+  SUPPORTED_CONFIG_SIMILARITY_METRICS,
+  is_higher_better_metric,
+  is_similarity_match,
+  normalize_config_similarity_metric,
+  normalize_similarity_score,
+  pick_best_metric_value,
+  resolve_database_similarity_metric,
+)
+from controller.reid_registry import create_reid_database
 from controller.moving_object import ReidState, MovingObject
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
 
-DEFAULT_DATABASE = "VDMS"
 DEFAULT_SIMILARITY_THRESHOLD_L2 = 40.0
 DEFAULT_SIMILARITY_THRESHOLD_COSINE = 0.5
 DEFAULT_MINIMUM_BBOX_AREA = 5000
@@ -23,31 +32,24 @@ DEFAULT_MAX_QUERY_TIME = 4
 DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED = 10
 DEFAULT_STALE_FEATURE_TIMEOUT_SECS = 5.0
 DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS = 1.0
-DEFAULT_SIMILARITY_METRIC = "L2"
-SUPPORTED_SIMILARITY_METRICS = {"COSINE", "L2"}
-# Tolerance applied to the theoretical [-1, 1] IP score bounds to absorb
-# float32 rounding errors from VDMS normalization and inner-product computation.
-available_databases = {
-  "VDMS": VDMSDatabase,
-}
+DEFAULT_SIMILARITY_METRIC = DEFAULT_CONFIG_SIMILARITY_METRIC
+SUPPORTED_SIMILARITY_METRICS = SUPPORTED_CONFIG_SIMILARITY_METRICS
 
 class UUIDManager:
   def _normalizeSimilarityMetric(self, metric):
-    normalized_metric = str(metric).strip().upper()
-    if normalized_metric not in SUPPORTED_SIMILARITY_METRICS:
+    normalized_metric = normalize_config_similarity_metric(
+      metric, default=DEFAULT_SIMILARITY_METRIC)
+    if str(metric).strip().upper() != normalized_metric and (
+        str(metric).strip().upper() not in SUPPORTED_SIMILARITY_METRICS):
       log.warning(
         f"Unsupported similarity_metric '{metric}', "
         f"supported values are {sorted(SUPPORTED_SIMILARITY_METRICS)}; "
         f"falling back to {DEFAULT_SIMILARITY_METRIC}")
-      return DEFAULT_SIMILARITY_METRIC
     return normalized_metric
 
   def _resolveDatabaseSimilarityMetric(self, configured_metric):
-    """Translate controller-facing similarity metric to the VDMS descriptor metric."""
-    metric = self._normalizeSimilarityMetric(configured_metric)
-    if metric == "COSINE":
-      return "IP"
-    return metric
+    """Translate controller-facing similarity metric to the backend descriptor metric."""
+    return resolve_database_similarity_metric(configured_metric)
 
   def _resolveDefaultSimilarityThreshold(self, similarity_metric):
     """Return the default threshold for the configured similarity metric."""
@@ -78,7 +80,7 @@ class UUIDManager:
       raise ValueError("similarity_threshold for L2 must be non-negative")
     return normalized_threshold
 
-  def __init__(self, database=DEFAULT_DATABASE, reid_config_data=None):
+  def __init__(self, database=None, reid_config_data=None):
     self.active_ids = {}
     self.active_ids_lock = threading.Lock()
     self.active_query = {}
@@ -94,7 +96,7 @@ class UUIDManager:
       reid_config_data = {}
     self._inferred_dimensions = None
     self._dimensions_lock = threading.Lock()
-    self.reid_database = available_databases[database](dimensions=None)
+    self.reid_database = create_reid_database(database, dimensions=None)
 
     self.pool = concurrent.futures.ThreadPoolExecutor()
     self.similarity_query_times = collections.deque(
@@ -145,8 +147,17 @@ class UUIDManager:
     self.feature_slice_size = reid_config_data.get(
       'feature_slice_size', DEFAULT_FEATURE_SLICE_SIZE)
     if hasattr(self, 'reid_database') and self.reid_database is not None:
-      self.reid_database.similarity_metric = self._resolveDatabaseSimilarityMetric(
-        self.similarity_metric)
+      new_db_metric = self._resolveDatabaseSimilarityMetric(self.similarity_metric)
+      current_db_metric = getattr(self.reid_database, 'similarity_metric', None)
+      schema_ready = getattr(self.reid_database, '_schema_ready', False) is True
+      if (schema_ready and
+          current_db_metric is not None and
+          str(current_db_metric).strip().upper() != new_db_metric):
+        raise ValueError(
+          f"Cannot change ReID similarity metric from {current_db_metric} to "
+          f"{new_db_metric} after schema initialization; restart the controller "
+          f"and flush the {self.reid_database._schemaResourceLabel()}.")
+      self.reid_database.similarity_metric = new_db_metric
 
   def _rescheduleStaleFeatureTimer(self):
     """Cancel any existing stale-feature timer and start a new one."""
@@ -338,14 +349,17 @@ class UUIDManager:
     features = self.features_for_database.pop(track_id, None)
     if features:
       features['reid_vectors'] = features['reid_vectors'][::slice_size]
+      persist = features.get('persist', {})
       log.debug(
-        f"_addNewFeaturesToDatabase: Adding {len(features['reid_vectors'])} features for track {track_id} to database (gid={features['gid']}, category={features['category']})")
+        f"_addNewFeaturesToDatabase: Adding {len(features['reid_vectors'])} features for track {track_id} to database "
+        f"(gid={features['gid']}, category={features['category']}, "
+        f"persist_keys={list(persist.keys())})")
 
       # Extract semantic metadata from stored feature data
       metadata = features.get('metadata', {})
 
       self.pool.submit(self.reid_database.addEntry, features['gid'], track_id,
-                       features['category'], features['reid_vectors'], **metadata)
+                       features['category'], features['reid_vectors'], persist=persist, **metadata)
 
   def isNewTrackerID(self, sscape_object):
     """
@@ -564,31 +578,17 @@ class UUIDManager:
     metric = getattr(self.reid_database, 'similarity_metric', None)
     if metric is None:
       return False
-    return str(metric).strip().upper() == "IP"
+    return is_higher_better_metric(metric)
 
   def _isSimilarityMatch(self, metric_value, threshold):
     """Evaluate threshold semantics according to the active descriptor metric."""
-    if metric_value is None:
-      return False
-
-    if not math.isfinite(metric_value):
-      return False
-
-    if self._isHigherBetterMetric():
-      # For IP metrics, scores must lie within [-1, 1] (normalized embeddings).
-      # Allow a small tolerance to absorb float32 rounding from VDMS computation.
-      if metric_value < -(1.0 + COSINE_SIMILARITY_TOLERANCE) or metric_value > (1.0 + COSINE_SIMILARITY_TOLERANCE):
-        return False
-      return metric_value > threshold
-    return metric_value < threshold
+    metric = getattr(self.reid_database, 'similarity_metric', None)
+    return is_similarity_match(metric_value, threshold, metric)
 
   def _pickBestMetricValue(self, metric_values):
     """Pick best metric value according to descriptor metric semantics."""
-    if not metric_values:
-      return None
-    if self._isHigherBetterMetric():
-      return max(metric_values)
-    return min(metric_values)
+    metric = getattr(self.reid_database, 'similarity_metric', None)
+    return pick_best_metric_value(metric_values, metric)
 
   def _findBestMetricCandidate(self, entities):
     """
@@ -601,19 +601,19 @@ class UUIDManager:
     Structure of entities:
     [{'uuid': <UUID>, 'rvid': <TRACKER_ID>, '_distance': <SIMILARITY_SCORE>}, ...]
     """
-    is_higher_better = self._isHigherBetterMetric()
+    metric = getattr(self.reid_database, 'similarity_metric', None)
+    is_higher_better = is_higher_better_metric(metric)
     if entities:
       filtered_entities = []
       for entity in entities:
-        metric_value = entity.get('_distance')
-        if metric_value is None or not math.isfinite(metric_value):
+        metric_value = normalize_similarity_score(entity.get('_distance'), metric)
+        if metric_value is None:
+          if is_higher_better and entity.get('_distance') is not None:
+            log.warning(
+              f"Ignoring out-of-range IP similarity score {entity.get('_distance')} "
+              f"for uuid={entity.get('uuid')}")
           continue
-        if is_higher_better and (metric_value < -(1.0 + COSINE_SIMILARITY_TOLERANCE) or metric_value > (1.0 + COSINE_SIMILARITY_TOLERANCE)):
-          log.warning(
-            f"Ignoring out-of-range IP similarity score {metric_value} "
-            f"for uuid={entity.get('uuid')}")
-          continue
-        filtered_entities.append(entity)
+        filtered_entities.append({**entity, '_distance': metric_value})
 
       if not filtered_entities:
         return (None, None)
@@ -696,6 +696,9 @@ class UUIDManager:
     # MATCH FOUND - YES + DB ID ALREADY IN DICT - NO
     if matched_new_id:
       # Query succeeded and found a match -> update state to MATCHED
+      log.debug(f"updateActiveDict: REID MATCH rv_id={sscape_object.rv_id} "
+              f"matched_gid={database_id} similarity={similarity} "
+              f"current_persist={sscape_object.chain_data.persist if sscape_object.chain_data else 'NO CHAIN DATA'}")
       sscape_object.reid_state = ReidState.MATCHED
       sscape_object.gid = database_id
       sscape_object.similarity = similarity
@@ -703,6 +706,14 @@ class UUIDManager:
       if previous_gid is not None and previous_gid != database_id:
         sscape_object.save_previous_object_id(previous_gid, similarity_score=similarity,
                                        timestamp=query_timestamp)
+
+      historical_persist = self.reid_database.getPersistedAttributes(database_id)
+      log.debug(f"updateActiveDict: historical_persist for gid={database_id}: {historical_persist}")
+      if historical_persist and sscape_object.chain_data:
+        for attr, value in historical_persist.items():
+          if sscape_object.chain_data.persist.get(attr) is None:
+            sscape_object.chain_data.persist[attr] = value
+        log.debug(f"updateActiveDict: merged persist={sscape_object.chain_data.persist}")
 
       log.debug(
         f"updateActiveDict: Match found for {sscape_object.rv_id}: {database_id}, similarity={similarity}, state={ReidState.MATCHED.value}")
@@ -751,16 +762,31 @@ class UUIDManager:
 
     self._logLiveGidIntegrity("updateActiveDict", sscape_object.rv_id)
 
-    # Store features with semantic metadata for TIER 1 filtering in future queries
-    num_features = len(self.quality_features.get(sscape_object.rv_id, []))
-    log.debug(f"updateActiveDict: Storing {num_features} features for track {sscape_object.rv_id} to features_for_database")
-    self.features_for_database[sscape_object.rv_id] = {
+    persist_attrs = (
+      sscape_object.chain_data.persist.copy()
+      if sscape_object.chain_data and isinstance(sscape_object.chain_data.persist, dict)
+      else {}
+    )
+
+    entry = {
       'gid': sscape_object.gid,
       'category': sscape_object.category,
       'reid_vectors': self.quality_features[sscape_object.rv_id],
-      'metadata': self._extractSemanticMetadata(sscape_object)
-    }
-    self.features_for_database_timestamps[sscape_object.rv_id] = get_epoch_time()  # Record when added
+      'metadata': self._extractSemanticMetadata(sscape_object),
+      }
+
+    if persist_attrs:
+      entry['persist'] = {**persist_attrs, 'timestamp': sscape_object.when}
+
+    # Store features with semantic metadata for TIER 1 filtering in future queries
+    num_features = len(self.quality_features.get(sscape_object.rv_id, []))
+    log.debug(f"updateActiveDict: Storing {num_features} features for track {sscape_object.rv_id} to features_for_database")
+    self.features_for_database[sscape_object.rv_id] = entry
+    log.debug(f"updateActiveDict: Storing features for rv_id={sscape_object.rv_id} "
+        f"gid={sscape_object.gid} "
+        f"persist_in_features_for_database={'persist' in self.features_for_database[sscape_object.rv_id]}")
+
+    self.features_for_database_timestamps[sscape_object.rv_id] = get_epoch_time()
     return
 
   def isNewID(self, database_id):

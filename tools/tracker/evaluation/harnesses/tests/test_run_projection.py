@@ -4,7 +4,7 @@
 """Unit tests for run_projection.py pure-Python helpers.
 
 ``run_projection.py`` imports ``scene_common`` at module level, which is only
-available inside the SceneScape Docker container.  The helper function tested
+available inside the Scenescape Docker container.  The helper function tested
 here — ``_build_class_map`` — is pure Python and has no runtime dependency on
 ``scene_common``.  We mock the module during import so the tests can run in
 the regular dev venv.

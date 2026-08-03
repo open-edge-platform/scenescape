@@ -22,6 +22,10 @@ spec:
       securityContext:
         runAsNonRoot: true
       shareProcessNamespace: true
+      # The "reid" Service would otherwise inject REID_PORT=tcp://<ip>:<port>,
+      # colliding with the controller's own REID_* settings. All dependencies
+      # are addressed by DNS, so the service-link variables are not needed.
+      enableServiceLinks: false
       initContainers:
       - name: wait-for-web-initcontainer
         image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
@@ -47,8 +51,12 @@ spec:
           env:
           - name: CONTROLLER_ENABLE_ANALYTICS_ONLY
             value: {{ .Values.scene.analyticsOnly | quote }}
-          - name: VDMS_HOSTNAME
-            value: vdms.{{ .Release.Namespace }}.svc.cluster.local
+          - name: REID_HOSTNAME
+            value: reid.{{ .Release.Namespace }}.svc.cluster.local
+          {{- if .Values.reid.enabled }}
+          - name: REID_DATABASE
+            value: {{ include "reid.backend" . | upper | quote }}
+          {{- end }}
             {{ include "proxy_envs" . | indent 10 }}
           ports:
           - containerPort: 8080
@@ -72,14 +80,16 @@ spec:
             subPath: scenescape-ca.pem
             name: certs
             readOnly: true
-          - mountPath: /run/secrets/certs/scenescape-vdms-c.key
-            subPath: scenescape-vdms-c.key
+          {{- if .Values.reid.enabled }}
+          - mountPath: /run/secrets/certs/scenescape-reid.key
+            subPath: scenescape-reid.key
             name: certs
             readOnly: true
-          - mountPath: /run/secrets/certs/scenescape-vdms-c.crt
-            subPath: scenescape-vdms-c.crt
+          - mountPath: /run/secrets/certs/scenescape-reid.crt
+            subPath: scenescape-reid.crt
             name: certs
             readOnly: true
+          {{- end }}
           - mountPath: /run/secrets/django/secrets.py
             subPath: secrets.py
             name: secrets-py
@@ -88,12 +98,12 @@ spec:
             name: controller-auth
             readOnly: true
             subPath: controller.auth
-          - mountPath: /home/scenescape/SceneScape/media
+          - mountPath: /home/scenescape/Scenescape/media
             name: media-storage
-          - mountPath: /home/scenescape/SceneScape/tracker-config.json
+          - mountPath: /home/scenescape/Scenescape/tracker-config.json
             name: tracker-config
             subPath: tracker-config.json
-          - mountPath: /home/scenescape/SceneScape/reid-config.json
+          - mountPath: /home/scenescape/Scenescape/reid-config.json
             name: reid-config
             subPath: reid-config.json
       restartPolicy: Always

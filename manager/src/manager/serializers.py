@@ -484,6 +484,8 @@ class CamSerializer(NonNullSerializer):
     return camera.pose.scale if camera and hasattr(camera, 'pose') else None
 
   def validate(self, data):
+    if 'name' not in data:
+      raise serializers.ValidationError({'name': ['This field is required.']})
     _validate_scene_exists(data)
     if data.get('use_camera_pipeline') and not data.get('camera_pipeline'):
       raise serializers.ValidationError({
@@ -908,7 +910,9 @@ class UserSerializer(NonNullSerializer):
               'email', 'acls']
 
     extra_kwargs = {
-      'password': {'write_only': True}
+      'password': {'write_only': True},
+      'is_staff': {'read_only': True},
+      'is_superuser': {'read_only': True}
     }
 
 class Asset3DSerializer(NonNullSerializer):
@@ -917,6 +921,8 @@ class Asset3DSerializer(NonNullSerializer):
 
   def validate_name(self, value):
     qs = Asset3D.objects.filter(name=value)
+    if self.instance is not None:
+      qs = qs.exclude(pk=self.instance.pk)
     if qs.exists():
       raise serializers.ValidationError(f"An object library with the name '{value}' already exists.")
     return value

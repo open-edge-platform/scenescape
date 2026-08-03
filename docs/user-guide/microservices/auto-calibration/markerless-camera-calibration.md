@@ -16,7 +16,7 @@ The markerless calibration path uses a Hierarchical Localization (HLoc) workflow
 
 ## How quadtree attention is used
 
-- SceneScape integrates a custom HLoc matcher based on **QTA-LoFTR** (`qta_loftr.py`) that loads the QuadTreeAttention implementation.
+- Scenescape integrates a custom HLoc matcher based on **QTA-LoFTR** (`qta_loftr.py`) that loads the QuadTreeAttention implementation.
 - In this matcher, LoFTR coarse matching is configured with `BLOCK_TYPE = "quadtree"` (with `ATTN_TYPE = "B"` and tuned `TOPKS`) to reduce attention cost while preserving long-range correspondences.
 - Dense matching is selected when a local feature entry is `"-"`; otherwise, the service runs sparse extraction and matching.
 
@@ -33,7 +33,7 @@ The markerless calibration path uses a Hierarchical Localization (HLoc) workflow
 
 ```mermaid
 flowchart TD
-    A[Polycam zip uploaded] --> B[Preprocess dataset and transform to SceneScape layout]
+    A[Polycam zip uploaded] --> B[Preprocess dataset and transform to Scenescape layout]
     B --> C[Registration start]
     C --> D[Extract NetVLAD descriptors for DB images]
     D --> E[Save DB global descriptors<br/>global-feats-netvlad.h5]
