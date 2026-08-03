@@ -121,12 +121,12 @@ Verify: `ls "$SKILL_DIR/scripts/deploy_scenescape.sh"` must succeed before conti
 
 Ask the user for every new deployment:
 
-| Input | Rules |
-| --- | --- |
-| `deploy_dir` | Writable directory for generated files |
-| `streams` | One RTSP/RTSPS URL per camera, user-provided, in order — **or** local video files/folder (see below) |
-| `camera_ids` | Unique IDs (no `/`), same order as `streams` |
-| `scene_name` | Human-readable scene name chosen by the user |
+| Input        | Rules                                                                                                |
+| ------------ | ---------------------------------------------------------------------------------------------------- |
+| `deploy_dir` | Writable directory for generated files                                                               |
+| `streams`    | One RTSP/RTSPS URL per camera, user-provided, in order — **or** local video files/folder (see below) |
+| `camera_ids` | Unique IDs (no `/`), same order as `streams`                                                         |
+| `scene_name` | Human-readable scene name chosen by the user                                                         |
 
 Validate: `len(streams) == len(camera_ids)`, ≥1 camera, `camera_ids` are unique (no duplicates, no `/`), valid RTSP URLs. State explicitly in your response that this uniqueness check was performed before writing `deploy-inputs.json` — `deploy_inputs.py` also re-validates it, but call it out for the user.
 
@@ -192,10 +192,10 @@ questions shown. Then **actually apply** the resulting values yourself — edit
 tool (not a suggested diff for the user to paste) and run `docker compose up -d --force-recreate
 scene` yourself (not a suggested command) to pick up the change:
 
-| Symptom | Reference |
-| --- | --- |
-| Tracks flicker, vanish during occlusion, or IDs change unexpectedly | [tuning-tracker.md](./references/tuning-tracker.md) |
-| Re-identification across cameras is missing or matching the wrong person | [tuning-reid.md](./references/tuning-reid.md) |
+| Symptom                                                                  | Reference                                           |
+| ------------------------------------------------------------------------ | --------------------------------------------------- |
+| Tracks flicker, vanish during occlusion, or IDs change unexpectedly      | [tuning-tracker.md](./references/tuning-tracker.md) |
+| Re-identification across cameras is missing or matching the wrong person | [tuning-reid.md](./references/tuning-reid.md)       |
 
 ## Other optional scene configuration (reactive only)
 
@@ -203,11 +203,11 @@ These are additional manager capabilities beyond the core deploy flow. Like tuni
 about them upfront in Step 1 — load the matching reference only when the user's request implies
 one of these needs:
 
-| User need | Reference |
-| --- | --- |
+| User need                                                                                        | Reference                                                         |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
 | Keep a **vision/AI-pipeline** attribute (color, license plate, person attributes) from resetting | [attribute-persistence.md](./references/attribute-persistence.md) |
-| Feed the scene an **external, non-vision** reading or event (temperature, badge swipe, etc.) | [singleton-sensors.md](./references/singleton-sensors.md) |
-| Define expected size/shape for a detected object class (Object Library) | [object-library.md](./references/object-library.md) |
+| Feed the scene an **external, non-vision** reading or event (temperature, badge swipe, etc.)     | [singleton-sensors.md](./references/singleton-sensors.md)         |
+| Define expected size/shape for a detected object class (Object Library)                          | [object-library.md](./references/object-library.md)               |
 
 If the user says "attribute" without more context, ask whether the value comes from the camera/AI
 pipeline (→ attribute-persistence.md) or from a separate sensor publishing its own MQTT messages
@@ -230,6 +230,7 @@ through", "pick up where we left off", or similar for a named `deploy_dir`, trea
 as confirmation that `deploy-inputs.json` already exists at that path. Apply the Fast Path
 directly — show the user the Fast Path procedure (what values will be loaded and what command will
 be run) without falling back to Step 1 questions. Only fall back to Step 1 if:
+
 - The user explicitly says the directory is wrong or no prior run exists.
 - You attempt to read `deploy-inputs.json` and the file is genuinely absent **and** the user did
   not give any "resume/continue" signal — a new fresh deployment was intended.
@@ -303,26 +304,26 @@ Step 1 (gather + persist inputs)
               └─► scene (11–13: reconstruction, finalize, tracking verification)
 ```
 
-| Flag | Purpose |
-| --- | --- |
-| `--phase all\|bootstrap\|calibrate\|scene` | Limit steps (default `all`) |
-| `--resume` | Continue from `.deploy-state.json` (default) |
-| `--fresh` | Clear checkpoint and `deploy-inputs.json`; requires new Step 1 inputs |
+| Flag                                       | Purpose                                                               |
+| ------------------------------------------ | --------------------------------------------------------------------- |
+| `--phase all\|bootstrap\|calibrate\|scene` | Limit steps (default `all`)                                           |
+| `--resume`                                 | Continue from `.deploy-state.json` (default)                          |
+| `--fresh`                                  | Clear checkpoint and `deploy-inputs.json`; requires new Step 1 inputs |
 
 **Pass:** `DEPLOY COMPLETE` with `scene_uid`. **Fail:** `deploy.log` + step reference below.
 
 ### Step map
 
-| Step | Action | Pass |
-| --- | --- | --- |
-| 1 | `deploy_inputs.py write` | `deploy-inputs.json` valid |
-| 6 | `bootstrap_deploy.py --from-deploy-inputs` | secrets, compose, pipeline config |
-| 7 | warmup, `verify_rtsp.sh`, `check_service_health.py` (video-analytics) | RTSP + pipelines |
-| 8 | full stack `up` | core services running |
-| 9 | `capture_calibration_frames.py` | JPEG per **user** camera ID |
-| 10 | `check_service_health.py` (mapping endpoint + model_loaded) | mapping healthy |
-| 11–12 | `reconstruct_and_finalize.py --scene-name` | scene UID |
-| 13 | `verify_tracking.sh` | objects on regulated topic |
+| Step  | Action                                                                | Pass                              |
+| ----- | --------------------------------------------------------------------- | --------------------------------- |
+| 1     | `deploy_inputs.py write`                                              | `deploy-inputs.json` valid        |
+| 6     | `bootstrap_deploy.py --from-deploy-inputs`                            | secrets, compose, pipeline config |
+| 7     | warmup, `verify_rtsp.sh`, `check_service_health.py` (video-analytics) | RTSP + pipelines                  |
+| 8     | full stack `up`                                                       | core services running             |
+| 9     | `capture_calibration_frames.py`                                       | JPEG per **user** camera ID       |
+| 10    | `check_service_health.py` (mapping endpoint + model_loaded)           | mapping healthy                   |
+| 11–12 | `reconstruct_and_finalize.py --scene-name`                            | scene UID                         |
+| 13    | `verify_tracking.sh`                                                  | objects on regulated topic        |
 
 Checkpoints: `.deploy-state.json` (progress), `deploy-inputs.json` (user inputs).
 
@@ -333,11 +334,11 @@ If the user asks to (re)run, resume, or redo just one phase of an already-starte
 omitting it (see flags table above). Load the matching reference **only** for that request — it
 has the phase's prerequisites, narrower safety rules, and standalone `Run` command:
 
-| Phase | Steps | Reference |
-| --- | --- | --- |
-| bootstrap | 6–8 | [phase-bootstrap.md](./references/phase-bootstrap.md) |
-| calibrate | 9–10 | [phase-calibrate.md](./references/phase-calibrate.md) |
-| scene | 11–13 | [phase-scene.md](./references/phase-scene.md) |
+| Phase     | Steps | Reference                                             |
+| --------- | ----- | ----------------------------------------------------- |
+| bootstrap | 6–8   | [phase-bootstrap.md](./references/phase-bootstrap.md) |
+| calibrate | 9–10  | [phase-calibrate.md](./references/phase-calibrate.md) |
+| scene     | 11–13 | [phase-scene.md](./references/phase-scene.md)         |
 
 A single-phase request still requires `deploy-inputs.json` to already exist for that
 `deploy_dir` (from a prior Step 1) — do not re-ask Step 1 questions unless the user is also
@@ -348,38 +349,38 @@ changing streams/camera_ids/scene_name.
 Each reference document has one primary step where it should be read; load others only when
 troubleshooting a failure at that step.
 
-| Reference | Primary step | Purpose |
-| --- | --- | --- |
-| [pipeline-config.md](./references/pipeline-config.md) | 6 | How `adapt_pipeline_config.py` generates per-camera pipelines (native `sscape_*` GST elements) |
-| [mosquitto-config.md](./references/mosquitto-config.md) | 6 | Broker TLS listener layout; optional password file generation |
-| [docker-compose-template.md](./references/docker-compose-template.md) | 6 (failure only) | Full compose template; read only to debug a template bug |
-| [command-templates.md](./references/command-templates.md) | 7 | Reusable RTSP gate check and MQTT pub/sub verification commands |
-| [runtime-verification.md](./references/runtime-verification.md) | 7, 9 | RTSP/service-health failure diagnosis |
-| [scene-and-cameras.md](./references/scene-and-cameras.md) | 11–12 (failure only) | Manual scene/camera REST calls if reconstruction needs inspection |
-| [reconstruction.md](./references/reconstruction.md) | 11–12 | Reconstruction and finalization failure diagnosis; supplementing with a walk-through video |
-| [scene-map-alternatives.md](./references/scene-map-alternatives.md) | after Step 1 (if chosen) | Blueprint/GLB/geospatial scene creation, pixels-per-meter, manual-calibration handoff |
-| [verify-tracking.md](./references/verify-tracking.md) | 13 | Tracking verification failure diagnosis |
-| [phase-bootstrap.md](./references/phase-bootstrap.md) | 6–8 (standalone) | Run/resume only the bootstrap phase |
-| [phase-calibrate.md](./references/phase-calibrate.md) | 9–10 (standalone) | Run/resume only the calibrate phase |
-| [phase-scene.md](./references/phase-scene.md) | 11–13 (standalone) | Run/resume only the scene phase |
-| [tuning-tracker.md](./references/tuning-tracker.md) | reactive (post-deploy) | Diagnose reported tracking-quality issues → `tracker-config.json` motion/timing values |
-| [tuning-reid.md](./references/tuning-reid.md) | reactive (post-deploy) | Diagnose reported Re-ID issues → `reid-config.json` re-identification values |
-| [attribute-persistence.md](./references/attribute-persistence.md) | reactive (post-deploy) | Keep object attributes from resetting between detections via `persist_attributes` |
-| [singleton-sensors.md](./references/singleton-sensors.md) | reactive (post-deploy) | Add non-perceptual/scalar sensors (environmental or attribute-type) — REST for scene-wide, UI for circle/poly |
-| [object-library.md](./references/object-library.md) | reactive (post-deploy) | Define expected object-class size/shape (Object Library / `Asset3D`) via REST |
-| [using-scene-output.md](./references/using-scene-output.md) | reactive (post-deploy) | Consume the regulated scene topic; wire up regions/tripwires for event-driven alerting |
+| Reference                                                             | Primary step             | Purpose                                                                                                       |
+| --------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| [pipeline-config.md](./references/pipeline-config.md)                 | 6                        | How `adapt_pipeline_config.py` generates per-camera pipelines (native `sscape_*` GST elements)                |
+| [mosquitto-config.md](./references/mosquitto-config.md)               | 6                        | Broker TLS listener layout; optional password file generation                                                 |
+| [docker-compose-template.md](./references/docker-compose-template.md) | 6 (failure only)         | Full compose template; read only to debug a template bug                                                      |
+| [command-templates.md](./references/command-templates.md)             | 7                        | Reusable RTSP gate check and MQTT pub/sub verification commands                                               |
+| [runtime-verification.md](./references/runtime-verification.md)       | 7, 9                     | RTSP/service-health failure diagnosis                                                                         |
+| [scene-and-cameras.md](./references/scene-and-cameras.md)             | 11–12 (failure only)     | Manual scene/camera REST calls if reconstruction needs inspection                                             |
+| [reconstruction.md](./references/reconstruction.md)                   | 11–12                    | Reconstruction and finalization failure diagnosis; supplementing with a walk-through video                    |
+| [scene-map-alternatives.md](./references/scene-map-alternatives.md)   | after Step 1 (if chosen) | Blueprint/GLB/geospatial scene creation, pixels-per-meter, manual-calibration handoff                         |
+| [verify-tracking.md](./references/verify-tracking.md)                 | 13                       | Tracking verification failure diagnosis                                                                       |
+| [phase-bootstrap.md](./references/phase-bootstrap.md)                 | 6–8 (standalone)         | Run/resume only the bootstrap phase                                                                           |
+| [phase-calibrate.md](./references/phase-calibrate.md)                 | 9–10 (standalone)        | Run/resume only the calibrate phase                                                                           |
+| [phase-scene.md](./references/phase-scene.md)                         | 11–13 (standalone)       | Run/resume only the scene phase                                                                               |
+| [tuning-tracker.md](./references/tuning-tracker.md)                   | reactive (post-deploy)   | Diagnose reported tracking-quality issues → `tracker-config.json` motion/timing values                        |
+| [tuning-reid.md](./references/tuning-reid.md)                         | reactive (post-deploy)   | Diagnose reported Re-ID issues → `reid-config.json` re-identification values                                  |
+| [attribute-persistence.md](./references/attribute-persistence.md)     | reactive (post-deploy)   | Keep object attributes from resetting between detections via `persist_attributes`                             |
+| [singleton-sensors.md](./references/singleton-sensors.md)             | reactive (post-deploy)   | Add non-perceptual/scalar sensors (environmental or attribute-type) — REST for scene-wide, UI for circle/poly |
+| [object-library.md](./references/object-library.md)                   | reactive (post-deploy)   | Define expected object-class size/shape (Object Library / `Asset3D`) via REST                                 |
+| [using-scene-output.md](./references/using-scene-output.md)           | reactive (post-deploy)   | Consume the regulated scene topic; wire up regions/tripwires for event-driven alerting                        |
 
 ## Assets
 
 `assets/` holds files copied verbatim into `<deploy_dir>` by `bootstrap_deploy.py` (step 2) — the
 agent never runs these directly; the generated deployment does.
 
-| Asset | Copied to | Purpose |
-| --- | --- | --- |
-| [generate_secrets.sh](./assets/generate_secrets.sh) | `<deploy_dir>/secrets/` | Generates TLS certs and service auth JSON files |
-| [openssl.cnf](./assets/openssl.cnf) | `<deploy_dir>/secrets/` | Certificate extension template used by `generate_secrets.sh` |
-| [tracker-config.json](./assets/tracker-config.json) | `<deploy_dir>/controller/` | Scene Controller tracker behavior config — tunable if the user reports tracking issues, see [tuning-tracker.md](./references/tuning-tracker.md) |
-| [reid-config.json](./assets/reid-config.json) | `<deploy_dir>/controller/` | Re-identification model config for multi-camera tracking — tunable if the user reports Re-ID issues, see [tuning-reid.md](./references/tuning-reid.md) |
+| Asset                                               | Copied to                  | Purpose                                                                                                                                                |
+| --------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [generate_secrets.sh](./assets/generate_secrets.sh) | `<deploy_dir>/secrets/`    | Generates TLS certs and service auth JSON files                                                                                                        |
+| [openssl.cnf](./assets/openssl.cnf)                 | `<deploy_dir>/secrets/`    | Certificate extension template used by `generate_secrets.sh`                                                                                           |
+| [tracker-config.json](./assets/tracker-config.json) | `<deploy_dir>/controller/` | Scene Controller tracker behavior config — tunable if the user reports tracking issues, see [tuning-tracker.md](./references/tuning-tracker.md)        |
+| [reid-config.json](./assets/reid-config.json)       | `<deploy_dir>/controller/` | Re-identification model config for multi-camera tracking — tunable if the user reports Re-ID issues, see [tuning-reid.md](./references/tuning-reid.md) |
 
 ## Examples
 
@@ -404,12 +405,12 @@ for current benchmark status.
 
 A good initial request answers these up front so Step 1 can be skipped or confirmed in one pass:
 
-| Field | Example |
-| --- | --- |
-| `deploy_dir` | `~/deployments/warehouse-demo` |
-| `streams` | `rtsp://192.168.1.10:8554/cam1` |
+| Field        | Example                                        |
+| ------------ | ---------------------------------------------- |
+| `deploy_dir` | `~/deployments/warehouse-demo`                 |
+| `streams`    | `rtsp://192.168.1.10:8554/cam1`                |
 | `camera_ids` | `cam1` (unique, no `/`, same order as streams) |
-| `scene_name` | `Warehouse Floor 1` |
+| `scene_name` | `Warehouse Floor 1`                            |
 
 If any field is missing, the agent asks for it (Step 1) before running the orchestrator.
 
