@@ -196,7 +196,7 @@ def _build_config_entry(
     raise ValueError(f'model_config entry {model_name} config.params must be an object')
 
   adapter_params = output_config.get('adapter-params')
-  if not isinstance(adapter_params, dict):
+  if adapter_params is not None and not isinstance(adapter_params, dict):
     raise ValueError(f'model_config entry {model_name} config.adapter-params must be an object')
 
   model_path = params.get('model')

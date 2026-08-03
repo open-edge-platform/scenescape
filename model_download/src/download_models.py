@@ -226,12 +226,6 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     help='Path to JSON config containing descriptions of models which should be downloaded.',
   )
   parser.add_argument(
-    "--destination-path",
-    type=str,
-    default=os.getenv("MODEL_DESTINATION_PATH", ""),
-    help="Optional path to copy downloaded models to after download.",
-  )
-  parser.add_argument(
     '--parallel-downloads',
     type=str,
     default=os.getenv('PARALLEL_DOWNLOADS', 'false'),

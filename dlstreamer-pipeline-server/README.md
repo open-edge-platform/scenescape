@@ -15,7 +15,7 @@
 Below are step-by-step instructions for enabling out-of-the-box scenes in Scenescape to leverage DL Streamer Pipeline Server for Video Analytics.
 
 1. **Model Requirements:**
-   Ensure the OMZ model `person-detection-retail-0013` is present in the Models Volume in the `omz/intel/` subfolder. Refer to the instructions in [How to Manage Files in Volumes](../docs/user-guide/other-topics/how-to-manage-files-in-volumes.md) on how to access the Models Volume.
+   Ensure the OMZ model `person-detection-retail-0013` is present in the Models Volume in the `omz/` subfolder. Refer to the instructions in [How to Manage Files in Volumes](../docs/user-guide/other-topics/how-to-manage-files-in-volumes.md) on how to access the Models Volume.
 
 2. **Start Scenescape DL Streamer-based demo:**
 
