@@ -88,7 +88,7 @@ def test_registration_error_status_handled(request, record_xml_attribute, scenes
   @param    record_xml_attribute    Pytest fixture recording the test name.
   @return   exit_code               Indicates test success or failure.
   """
-  TEST_NAME = "NEX-T#####"
+  TEST_NAME = "NEX-T27164"
   record_xml_attribute("name", TEST_NAME)
 
   test = RegistrationErrorHandlingTest(TEST_NAME, request, record_xml_attribute)
