@@ -6,18 +6,14 @@ description: >
   verification via scripts/deploy_scenescape.sh. Also handles re-running or resuming a single
   phase of an existing deployment on request (e.g. "recalibrate", "redo scene reconstruction",
   "resume bootstrap only") via the orchestrator's --phase flag.
-argument-hint: "<deploy_dir> — always gather streams, camera_ids, scene_name from the user first"
 license: Apache-2.0
 compatibility: >-
   Requires Docker, docker-compose, and Python 3.10+ with `requests` on the host. GitHub access
   for sparse checkout of dlstreamer-pipeline-server. Network access to RTSP camera streams.
-permissions:
-  - shell
-  - network
-  - file_read
-  - file_write
-  - env
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch
+metadata:
+  argument-hint: "<deploy_dir> — always gather streams, camera_ids, scene_name from the user first"
+  permissions: shell, network, file_read, file_write, env
 ---
 
 # SceneScape End-to-End Setup
