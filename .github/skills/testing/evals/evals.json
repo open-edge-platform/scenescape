@@ -4,10 +4,10 @@
     {
       "id": 1,
       "prompt": "Add a functional pytest that verifies an MQTT detection publish produces a tracking message on the live Scenescape stack. Put it under tests/functional/. Include a happy path and a failure/negative case. Use Zephyr ID NEX-T20999.",
-      "expected_output": "Agent treats this as functional test authoring: reads testing skill references for functional tests, places the file under tests/functional/, declares SCENESCAPE_SPEC with FuncTestSpec and a ServiceProfile (e.g. FULL_STACK) plus AUTH_CONTROLLER, sets TEST_NAME via @pytest.mark.test_name, uses scenescape_env/params (not mocks for MQTT/REST), Uses the result_recorder fixture for Zephyr result reporting, includes positive and negative cases, and plans narrow pytest verification via the test-verification-gate (not lint-only). Note: if the harness forbids starting containers, assertions grade the proposed test module and verification command rather than requiring a live pass.",
+      "expected_output": "Agent treats this as functional test authoring: reads testing skill references for functional tests, places the file under tests/functional/, declares SCENESCAPE_SPEC with FuncTestSpec and a ServiceProfile (e.g. FULL_STACK) plus AUTH_CONTROLLER, sets TEST_NAME via @pytest.mark.test_name, uses scenescape_env/params (not mocks for MQTT/REST), Uses the result_recorder fixture for Zephyr result reporting, includes positive and negative cases, and plans narrow pytest verification via the test-verification-gate (not lint-only). Note: if the harness forbids starting containers, expectations grade the proposed test module and verification command rather than requiring a live pass.",
       "should_trigger": true,
       "files": [],
-      "assertions": [
+      "expectations": [
         "Places the new test under tests/functional/ with a test_*.py filename",
         "Declares module-level SCENESCAPE_SPEC = FuncTestSpec(...) with a ServiceProfile from tests/utils/profiles.py and auth=AUTH_CONTROLLER (or equivalent controller auth)",
         "Sets Zephyr tracking via @pytest.mark.test_name(\"NEX-T#####\")",
@@ -25,7 +25,7 @@
       "expected_output": "Agent classifies this as a unit test: places it under tests/sscape_tests/geometry/, uses mocks only if needed for externals (geometry needs none), does not declare SCENESCAPE_SPEC or start containers, includes positive and negative cases, and verifies with a narrow host pytest path.",
       "should_trigger": true,
       "files": [],
-      "assertions": [
+      "expectations": [
         "Places the test under tests/sscape_tests/geometry/ (or an existing geometry unit-test path), not tests/functional/ or tests/ui/",
         "Does not declare SCENESCAPE_SPEC / FuncTestSpec / scenescape_env for this unit test",
         "Does not instruct rebuilding controller/manager images or starting Docker Compose for verification",
@@ -39,7 +39,7 @@
       "expected_output": "Agent refuses the per-file sys.path.insert request, checks tests/conftest.py and nearest local conftest first, and either uses already-bootstrapped imports or proposes path setup in shared conftest.py. Reports that conftest was checked and no unnecessary per-file sys.path.insert was added.",
       "should_trigger": true,
       "files": [],
-      "assertions": [
+      "expectations": [
         "Does not add (or recommend as the solution) a sys.path.insert(...) block in the individual test module when shared conftest bootstrap can provide the path",
         "Explicitly checks or cites tests/conftest.py and/or the nearest local conftest.py before deciding how imports should work",
         "Prefers direct imports (e.g. from controller...) when existing pytest bootstrap already establishes paths, or proposes adding setup once to the nearest conftest.py",
@@ -52,7 +52,7 @@
       "expected_output": "Agent applies testing + test-verification-gate guidance: choose the narrowest pytest invocation for that file, do not treat unit-target success or lint as validation for a functional change, and report the exact command plus pass/fail (or blocker) expectations.",
       "should_trigger": true,
       "files": [],
-      "assertions": [
+      "expectations": [
         "Recommends a narrow command targeting the changed file, e.g. pytest tests/functional/test_roi_mqtt.py",
         "Does not treat make run_unit_tests or pytest tests/sscape_tests as sufficient verification for this functional change",
         "Does not recommend a broad aggregate target (make run_standard_tests / make run_functional_tests) as the primary verification when a single-file pytest path exists",
@@ -66,7 +66,7 @@
       "expected_output": "Agent authors a UI test under tests/ui/ with SCENESCAPE_SPEC using AUTH_BROWSER, Selenium helpers from tests/ui/, @pytest.mark.basic_acceptance, Zephyr NEX-T21000, and a narrow pytest verification path for the new UI file.",
       "should_trigger": true,
       "files": [],
-      "assertions": [
+      "expectations": [
         "Places the test under tests/ui/ with a test_*.py filename",
         "Declares SCENESCAPE_SPEC with auth=AUTH_BROWSER (not AUTH_CONTROLLER)",
         "Uses Browser / common_ui_test_utils (or equivalent existing UI helpers) rather than inventing a new browser stack",
@@ -81,7 +81,7 @@
       "expected_output": "Agent handles a docs-only task and does not load or apply the testing skill's authoring checklist, SCENESCAPE_SPEC rules, or Zephyr requirements.",
       "should_trigger": false,
       "files": [],
-      "assertions": [
+      "expectations": [
         "Does not create or modify files under tests/",
         "Does not require SCENESCAPE_SPEC, Zephyr NEX-T IDs, or pytest verification for this docs-only change",
         "Does not claim the testing skill authoring checklist must be completed for this task"
