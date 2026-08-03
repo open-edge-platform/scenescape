@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Multi-controller hierarchy ReID DB-scope priority tests (NEX-T27151-NEX-T27155).
+"""Multi-controller hierarchy ReID DB-scope priority tests (NEX-T27151-T27155).
 
 Literal parent/child1/child2 Scene Controllers (and optional split VDMS) linked
 as remote children. Each scenario uses a distinct REID_HIER_* compose profile.
