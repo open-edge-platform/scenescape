@@ -74,10 +74,10 @@ _libgst.gst_debug_category_get_threshold.argtypes = [ctypes.c_void_p]
 _libgst.gst_debug_category_get_threshold.restype = ctypes.c_int
 
 
-def _threshold_from_gst_debug_env(name: str) -> int | None:
+def _threshold_from_gst_debug_env(name: str):
   """Return the level `GST_DEBUG` assigns to `name`; last match wins."""
   raw = os.environ.get("GST_DEBUG", "")
-  chosen: int | None = None
+  chosen = None
   for entry in raw.split(","):
     entry = entry.strip()
     if not entry:
