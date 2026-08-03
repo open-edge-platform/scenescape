@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-pytest==9.0.3
+pytest==9.1.1
 python-on-whales==0.81.0
 waiting==1.5.0
 paho-mqtt==2.1.0
