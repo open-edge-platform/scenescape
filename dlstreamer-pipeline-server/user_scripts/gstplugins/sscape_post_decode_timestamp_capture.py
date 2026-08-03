@@ -239,6 +239,8 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
       "fps": self._fps,
     })
 
+    self._log.debug(f"attached ts={postdecode_ts} fps={self._fps:.2f}")
+
     # Attach as GstGVAJSONMeta so the downstream post-inference publisher
     # (and any other GVA-aware element) can read it via VideoFrame.messages().
     frame = VideoFrame(buffer, caps=self._sink_caps)

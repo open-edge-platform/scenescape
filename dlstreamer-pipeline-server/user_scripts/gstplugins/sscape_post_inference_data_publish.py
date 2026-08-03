@@ -368,6 +368,13 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     self._client.publish(f"scenescape/data/camera/{self._cameraid}", payload)
     frame.add_message(payload)
 
+    self._log.debug(
+      f"published cam={self._cameraid} "
+      f"objs={len(self._frame_level_data.get('objects', []))} "
+      f"ts={self._frame_level_data.get('timestamp')} "
+      f"bytes={len(payload)}"
+    )
+
   @staticmethod
   def _collect_gva_messages(frame, out: dict) -> None:
     """Merge all GVA JSON messages attached to the frame into `out`."""

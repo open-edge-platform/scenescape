@@ -18,6 +18,8 @@ exactly like any built-in category and is controlled by `GST_DEBUG`.
 """
 
 import ctypes
+import fnmatch
+import os
 import traceback
 from ctypes.util import find_library
 
@@ -63,6 +65,36 @@ _libgst.gst_debug_log_literal.argtypes = [
 ]
 _libgst.gst_debug_log_literal.restype = None
 
+# void gst_debug_category_set_threshold (GstDebugCategory *category,
+#                                        GstDebugLevel level);
+_libgst.gst_debug_category_set_threshold.argtypes = [ctypes.c_void_p, ctypes.c_int]
+_libgst.gst_debug_category_set_threshold.restype = None
+# int gst_debug_category_get_threshold (GstDebugCategory *category);
+_libgst.gst_debug_category_get_threshold.argtypes = [ctypes.c_void_p]
+_libgst.gst_debug_category_get_threshold.restype = ctypes.c_int
+
+
+def _threshold_from_gst_debug_env(name: str) -> int | None:
+  """Return the level `GST_DEBUG` assigns to `name`; last match wins."""
+  raw = os.environ.get("GST_DEBUG", "")
+  chosen: int | None = None
+  for entry in raw.split(","):
+    entry = entry.strip()
+    if not entry:
+      continue
+    if ":" in entry:
+      pattern, _, lvl = entry.rpartition(":")
+      pattern = pattern.strip() or "*"
+    else:
+      pattern, lvl = "*", entry
+    try:
+      level = int(lvl)
+    except ValueError:
+      continue
+    if fnmatch.fnmatchcase(name, pattern):
+      chosen = level
+  return chosen
+
 
 _FILE_TAG = b"sscape"
 _FUNC_TAG = b""
@@ -82,6 +114,12 @@ class GstCategoryLogger:
       int(color),
       description.encode("utf-8"),
     )
+    # Bypassing `GST_DEBUG_CATEGORY_INIT` skips the threshold apply the macro
+    # normally does, so replay GST_DEBUG's match for this name explicitly.
+    if self._cat:
+      level = _threshold_from_gst_debug_env(name)
+      if level is not None:
+        _libgst.gst_debug_category_set_threshold(self._cat, int(level))
 
   def _emit(self, level: Gst.DebugLevel, msg: str) -> None:
     # `_cat` is NULL when GStreamer was built with `--disable-gst-debug`; in
