@@ -253,12 +253,12 @@ synchronized to the same NTP source.
 1. Ensure the `rtspsrc` element in your pipeline string includes `add-reference-timestamp-meta=true`. The out-of-box
    [queuing-config.json](./queuing-config.json) already includes this setting.
 
-2. Set `frame_ntp_config` to `true` in your pipeline payload. In
+2. Set `use_frame_ntp_timestamp` to `true` in your pipeline payload. In
    `queuing-config.json` this is the `payload.parameters` block:
 
 ```json
 {
-  "frame_ntp_config": true
+  "use_frame_ntp_timestamp": true
 }
 ```
 

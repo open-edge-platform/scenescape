@@ -75,7 +75,7 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
         "parameters": {
           "type": "object",
           "properties": {
-            "ntp_config": {
+            "ntp_server": {
               "element": {
                 "name": "timesync",
                 "property": "ntp-server"
@@ -133,7 +133,7 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
             }
           },
           "parameters": {
-            "ntp_config": "ntpserv",
+            "ntp_server": "ntpserv",
             "deepscenario_config": {
               "intrinsics_path": "/home/pipeline-server/user_scripts/intrinsics.json",
               "max_distance": 28.0
@@ -228,7 +228,7 @@ deepscenario:
     - MQTT_PORT=1883
   volumes:
     - ./dlstreamer-pipeline-server/deepscenario-lpr-config.json:/home/pipeline-server/config.json
-    - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python
+    - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
     - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
     - ./sample_data:/home/pipeline-server/videos
     - ./model_installer/models/public/ch_PP-OCRv4_rec_infer/FP32:/home/pipeline-server/models/ch_PP-OCRv4_rec_infer
