@@ -12,7 +12,7 @@
         "config": {
           "type": "detect",
           "params": {
-            "model": "omz/person-detection-retail-0013/FP16/person-detection-retail-0013.xml"
+            "model": "omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml"
           },
           "adapter-params": {
             "metadatagenpolicy": "detectionPolicy"
@@ -43,7 +43,7 @@
         "config": {
           "type": "detect",
           "params": {
-            "model": "omz/person-vehicle-bike-detection-crossroad-1016/FP16/person-vehicle-bike-detection-crossroad-1016.xml"
+            "model": "omz/person-vehicle-bike-detection-crossroad-1016/FP32/person-vehicle-bike-detection-crossroad-1016.xml"
           },
           "adapter-params": {
             "metadatagenpolicy": "detectionPolicy"
@@ -61,7 +61,7 @@
         "config": {
           "type": "inference",
           "params": {
-            "model": "omz/person-reidentification-retail-0277/FP16/person-reidentification-retail-0277.xml"
+            "model": "omz/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml"
           },
           "adapter-params": {
             "metadatagenpolicy": "reidPolicy"
@@ -79,7 +79,7 @@
         "config": {
           "type": "classify",
           "params": {
-            "model": "omz/age-gender-recognition-retail-0013/FP16/age-gender-recognition-retail-0013.xml"
+            "model": "omz/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml"
           },
           "adapter-params": {
             "metadatagenpolicy": "classificationPolicy"
@@ -97,7 +97,7 @@
         "config": {
           "type": "classify",
           "params": {
-            "model": "omz/person-attributes-recognition-crossroad-0238/FP16/person-attributes-recognition-crossroad-0238.xml"
+            "model": "omz/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.xml"
           },
           "adapter-params": {
             "metadatagenpolicy": "classificationPolicy"
@@ -115,7 +115,7 @@
         "config": {
           "type": "classify",
           "params": {
-            "model": "omz/vehicle-attributes-recognition-barrier-0042/FP16/vehicle-attributes-recognition-barrier-0042.xml"
+            "model": "omz/vehicle-attributes-recognition-barrier-0042/FP32/vehicle-attributes-recognition-barrier-0042.xml"
           },
           "adapter-params": {
             "metadatagenpolicy": "classificationPolicy"

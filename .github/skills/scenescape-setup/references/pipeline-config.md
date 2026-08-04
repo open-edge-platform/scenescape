@@ -60,7 +60,7 @@ rtspsrc location={rtsp_url} add-reference-timestamp-meta=true latency=200
 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR
 ! sscape_timestamp_capture name=timesync ntp-server=ntpserv
 ! gvadetect
-  model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml
+  model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml
   model-proc=/home/pipeline-server/model-proc-files/person-detection-retail-0013.json
 ! gvametaconvert add-tensor-data=true name=metaconvert
 ! sscape_post_inference_data_publish name=datapublisher
