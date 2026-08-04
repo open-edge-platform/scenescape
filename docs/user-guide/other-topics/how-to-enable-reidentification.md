@@ -18,6 +18,8 @@ Before you begin, ensure the following:
 - You have access to modify the `docker-compose.yml` file in your deployment.
 - You are familiar with scene and camera configuration in Scenescape.
 
+Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md) for exposing match-latency, camera-count, and tracked-object-count metrics for monitoring and hardware-sizing purposes.
+
 ---
 
 ## Steps to Enable Reidentification (ReID) for Out of Box Experience
@@ -250,6 +252,9 @@ retail-config:
 - **UI Support**:\
   UUID display in the 3D UI is planned for future releases.
 
+- **Latency Metrics**:\
+  For match-latency trends and correlating them against camera count and tracked-object count (e.g. for hardware sizing or monitoring degradation as a deployment scales), see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md).
+
 > **Note**: The default ReID model is tuned for the 'person' category and may not generalize well to other object types.
 
 ---
@@ -316,3 +321,7 @@ docker compose -f docker-compose-dl-streamer-example.yml \
 3. **Issue: Backend switch appears to “lose” identities**
    - **Cause**: VDMS and Qdrant do not share stored embeddings.
    - **Resolution**: Expected after switching `REID_DATABASE`. Re-accumulate features in the new backend, or restore the previous backend and its data volume.
+
+4. **Issue: No `reid_*` metrics showing up when checking latency/camera-count metrics**
+   - **Cause**: Most commonly, ReID isn't actually enabled yet (feature-extraction pipeline / `reid-config.json` not applied — see [Steps to Enable Reidentification](#steps-to-enable-reidentification-reid-for-out-of-box-experience) above), rather than a metrics-pipeline problem.
+   - **Resolution**: Confirm ReID is enabled and objects are being detected/tracked first; then see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md#troubleshooting) for metrics-specific troubleshooting.
