@@ -25,10 +25,10 @@ sensor (LiDAR, depth camera, stereo, photogrammetry) to a scene's 3D model.
 - `POST /cameras/{cameraId}/calibration` — Start camera calibration by uploading an image and (optionally) camera intrinsics.
 - `GET /cameras/{cameraId}/calibration` — Get the status and result of camera calibration, including pose and calibration data.
 
-### Perceptual Sensor Calibration
+### Perceptual Sensor Localization
 
-- `POST /perceptual-sensors/{sensorId}/calibration` — Calibrate a perceptual sensor by supplying a point cloud (base64-encoded; PCD by default, PLY also accepted) to align against a scene's 3D model and compute the sensor-to-scene transform.
-- `GET /perceptual-sensors/{sensorId}/calibration` — Get the status and result of perceptual sensor calibration, including the 4x4 transform, fitness, and inlier RMSE.
+- `POST /perceptual-sensors/{sensorId}/localization` — Localize a perceptual sensor by supplying a point cloud (base64-encoded; PCD by default, PLY also accepted) to align against a scene's 3D model and compute the sensor-to-scene transform.
+- `GET /perceptual-sensors/{sensorId}/localization` — Get the status and result of perceptual sensor localization, including the 4x4 transform, fitness, and inlier RMSE.
 
 ## Schemas
 
@@ -40,9 +40,9 @@ The API uses structured request and response schemas, including:
 - `CameraCalibrationRequest`
 - `CameraCalibrationTriggerResponse`
 - `CameraCalibrationStatusResponse`
-- `PerceptualSensorCalibrationRequest`
-- `PerceptualSensorCalibrationTriggerResponse`
-- `PerceptualSensorCalibrationStatusResponse`
+- `PerceptualSensorLocalizationRequest`
+- `PerceptualSensorLocalizationTriggerResponse`
+- `PerceptualSensorLocalizationStatusResponse`
 - `Error`
 
 For full schema details and example payloads, see the OpenAPI YAML file below.

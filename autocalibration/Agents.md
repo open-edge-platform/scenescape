@@ -41,8 +41,9 @@ The **Auto Camera Calibration** service (formerly `camcalibration`) computes cam
 5. **`auto_camera_calibration_api.py`**: REST API endpoints
    - `/scenes/{sceneId}/registration`: Register/update a scene for calibration
    - `/cameras/{cameraId}/calibration`: Trigger and poll camera calibration
-   - `/perceptual-sensors/{sensorId}/calibration`: Calibrate/poll a perceptual sensor
-     against a scene's 3D model
+   - `/perceptual-sensors/{sensorId}/localization`: Localize/poll a perceptual sensor
+     against a scene's 3D model (named distinctly from scene `registration` and camera
+     `calibration` to avoid endpoint-name confusion)
    - `/status`: Check calibration service status
 
 6. **`auto_camera_calibration_model.py`**: Data models and validation

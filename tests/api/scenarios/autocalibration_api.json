@@ -270,7 +270,7 @@
       {
         "step_name": "Register point cloud sensor",
         "api": "autocalibration",
-        "method": "calibratePerceptualSensor",
+        "method": "localizePerceptualSensor",
         "request": {
           "path_params": {
             "sensorId": "lidar-1"
@@ -293,7 +293,7 @@
       {
         "step_name": "Register point cloud sensor",
         "api": "autocalibration",
-        "method": "calibratePerceptualSensor",
+        "method": "localizePerceptualSensor",
         "request": {
           "path_params": {
             "sensorId": "lidar-1"
@@ -316,7 +316,7 @@
       {
         "step_name": "Register point cloud sensor",
         "api": "autocalibration",
-        "method": "calibratePerceptualSensor",
+        "method": "localizePerceptualSensor",
         "request": {
           "path_params": {
             "sensorId": "lidar-1"
@@ -337,7 +337,7 @@
       {
         "step_name": "Register point cloud sensor",
         "api": "autocalibration",
-        "method": "calibratePerceptualSensor",
+        "method": "localizePerceptualSensor",
         "request": {
           "path_params": {
             "sensorId": "lidar-1"
@@ -359,7 +359,7 @@
       {
         "step_name": "Get point cloud registration status",
         "api": "autocalibration",
-        "method": "getPerceptualSensorCalibrationStatus",
+        "method": "getPerceptualSensorLocalizationStatus",
         "request": {
           "path_params": {
             "sensorId": "lidar-1"

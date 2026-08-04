@@ -153,7 +153,7 @@ class CameraCalibrationContext:
 
   def calibrate_perceptual_sensor_thread_wrapper(self, sceneobj, sensorId, sensor_frame_data):
     """
-    Starts a background thread to calibrate a perceptual sensor against a scene.
+    Starts a background thread to localize a perceptual sensor against a scene.
     Routes by modality to the per-modality strategy and lock, and atomically
     claims that lock so concurrent requests get a deterministic "busy" response.
     The lock is released by process_perceptual_sensor_calibration once done.
@@ -178,12 +178,12 @@ class CameraCalibrationContext:
         raise
       self.calibration_results[sensorId] = {
           "status": "calibrating",
-          "message": "Calibration started"
+          "message": "Localization started"
       }
     else:
       self.calibration_results[sensorId] = {
           "status": "busy",
-          "message": "Another calibration is already in progress"
+          "message": "Another localization is already in progress"
       }
 
   def _resolve_sensor_modality(self, modality):
@@ -217,7 +217,7 @@ class CameraCalibrationContext:
       except Exception as e:
         result = {
             "status": "error",
-            "message": f"Calibration failed: {str(e)}"
+            "message": f"Localization failed: {str(e)}"
         }
       self.calibration_results[sensorId] = result
       socket_id = self.socket_clients.get(sensorId)
