@@ -31,8 +31,8 @@ from controller.reid import (
 )
 from controller.moving_object import ReidState, MovingObject
 from controller.latency_metrics import MatchLatencyTracker
-from controller.camera_registry import CameraRegistry
-from controller.tracking_object_registry import TrackedObjectRegistry
+from scene_common.camera_registry import CameraRegistry
+from scene_common.tracking_object_registry import TrackedObjectRegistry
 from controller.observability import metrics
 
 from scene_common import log

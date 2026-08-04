@@ -31,7 +31,7 @@ services:
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
       --ntp ntpserv
-      --visibility_topic "$VISIBILITY_TOPIC"
+      --visibility_topic ${VISIBILITY:-regulated}
     volumes:
       - vol-media:/home/scenescape/Scenescape/media
       - ./controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json

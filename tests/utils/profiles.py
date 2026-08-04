@@ -43,6 +43,7 @@ _WEB = WaitConfig()
 _SCENE = WaitConfig(log_pattern="Subscribed to")
 _AUTOCALIBRATION = WaitConfig(timeout=1200)
 _MAPPING = WaitConfig(timeout=600)
+_ANALYTICS = WaitConfig(log_pattern="Subscribed to")
 
 
 # ---------------------------------------------------------------------------
@@ -57,12 +58,14 @@ FULL_STACK = ServiceProfile(
     f"{COMPOSE}/compose-pgserver.yml",
     f"{COMPOSE}/compose-scene.yml",
     f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-analytics.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
     "web": _WEB,
     "scene": _SCENE,
     "broker": _BROKER,
+    "analytics": _ANALYTICS,
   },
 )
 
@@ -74,6 +77,7 @@ FULL_STACK_WITH_MAPPING = ServiceProfile(
     f"{COMPOSE}/compose-pgserver.yml",
     f"{COMPOSE}/compose-scene.yml",
     f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-analytics.yml",
     f"{COMPOSE}/compose-mapping.yml",
   ),
   wait_for={
@@ -94,6 +98,7 @@ FULL_STACK_WITH_MAPPING_AND_VIDEO = ServiceProfile(
     f"{DLS}/compose-retail_video.yml",
     f"{COMPOSE}/compose-scene.yml",
     f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-analytics.yml",
     f"{COMPOSE}/compose-cams.yml",
     f"{COMPOSE}/compose-mapping.yml",
   ),
@@ -118,6 +123,7 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
     f"{COMPOSE}/compose-scene.yml",
     f"{COMPOSE}/compose-web_default.yml",
     f"{COMPOSE}/compose-cams.yml",
+    f"{COMPOSE}/compose-analytics.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -125,6 +131,7 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
     "queuing-video": WaitConfig(),
     "retail-video": WaitConfig(),
     "scene": _SCENE,
+    "analytics": _ANALYTICS,
   },
 )
 
@@ -140,6 +147,7 @@ REID = ServiceProfile(
     f"{COMPOSE}/compose-scene_reid.yml",
     f"{COMPOSE}/compose-web_default.yml",
     f"{COMPOSE}/compose-cams.yml",
+    f"{COMPOSE}/compose-analytics.yml",
   ),
   wait_for={
     "broker": _BROKER,
@@ -363,6 +371,7 @@ FULL_STACK_AUTOCALIBRATION = ServiceProfile(
     f"{DLS}/compose-retail_video.yml",
     f"{COMPOSE}/compose-autocalibration.yml",
     f"{COMPOSE}/compose-cams.yml",
+    f"{COMPOSE}/compose-analytics.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -426,6 +435,7 @@ FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS = ServiceProfile(
     f"{COMPOSE}/compose-scene.yml",
     f"{COMPOSE}/compose-web_default.yml",
     f"{COMPOSE}/compose-autocalibration.yml",
+    f"{COMPOSE}/compose-analytics.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -433,6 +443,26 @@ FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS = ServiceProfile(
     "scene": _SCENE,
     "autocalibration": _AUTOCALIBRATION,
     "web": _WEB,
+  },
+)
+
+# Analytics + Manager only (no Scene Controller / Tracker). Used to inject
+# Tracker-shaped DATA_SCENE over MQTT and assert Analytics events without
+# duplicating Controller tracking coverage in FULL_STACK.
+ANALYTICS_MQTT = ServiceProfile(
+  name="analytics_mqtt",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-analytics.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "broker": _BROKER,
+    "analytics": _ANALYTICS,
   },
 )
 
@@ -460,5 +490,6 @@ PROFILE_REGISTRY: dict = {
     SCENE_NO_DB,
     MARKERLESS,
     INFERENCE_PERF,
+    ANALYTICS_MQTT,
   ]
 }

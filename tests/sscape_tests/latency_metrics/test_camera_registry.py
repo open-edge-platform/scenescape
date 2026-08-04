@@ -13,7 +13,7 @@ are available.
 
 import pytest
 
-from controller.camera_registry import CameraRegistry
+from scene_common.camera_registry import CameraRegistry
 
 
 @pytest.fixture

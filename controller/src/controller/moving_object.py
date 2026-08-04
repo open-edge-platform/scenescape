@@ -6,10 +6,8 @@ import binascii
 import datetime
 import uuid
 import warnings
-from dataclasses import dataclass, field
 from enum import Enum
 from threading import Lock
-from typing import Dict, List
 
 import cv2
 import numpy as np
@@ -17,6 +15,7 @@ import open3d as o3d
 from scipy.spatial.transform import Rotation
 
 from controller.reid_constants import REID_PROVENANCE_KEY
+from scene_common.chain_data import ChainData
 from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2
 from scene_common.timestamp import get_epoch_time
@@ -126,16 +125,6 @@ class ReidState(Enum):
   QUERY_NO_MATCH = "query_no_match"
   MATCHED = "matched"
   REID_DISABLED = "reid_disabled"
-
-@dataclass
-class ChainData:
-  regions: Dict
-  publishedLocations: List[Point]
-  persist: Dict
-  active_sensors: set = field(default_factory=set)
-  env_sensor_state: Dict = field(default_factory=dict)  # {'sensor_id': {'readings': [(ts, val), ...]}}
-  attr_sensor_events: Dict = field(default_factory=dict)  # {'sensor_id': [(ts, val), ...]}
-  _lock: Lock = field(default_factory=Lock)
 
 class Chronoloc:
   def __init__(self, point: Point, when: datetime, bounds: Rectangle):

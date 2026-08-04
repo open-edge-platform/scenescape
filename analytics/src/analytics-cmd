@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+import argparse
+import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+from analytics.service import AnalyticsService
+from scene_common import log
+
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
+  def do_GET(self):
+    if self.path in ('/healthz', '/health'):
+      self.send_response(200)
+      self.send_header('Content-type', 'text/plain')
+      self.end_headers()
+      self.wfile.write(b'OK')
+    else:
+      self.send_response(404)
+      self.end_headers()
+
+  def log_message(self, format, *args):
+    pass
+
+
+def start_health_server(port):
+  server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+  thread = threading.Thread(target=server.serve_forever, daemon=True)
+  thread.start()
+  return server
+
+
+def build_argparser():
+  parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  parser.add_argument("--rewriteAllTime", action="store_true",
+                      help="Rewrite all timestamps")
+  parser.add_argument("--broker", default="broker.scenescape.intel.com:1883",
+                      help="hostname or IP of MQTT broker, optional :port")
+  parser.add_argument("--brokerauth", default="/run/secrets/controller.auth",
+                      help="user:password or JSON file for MQTT authentication")
+  parser.add_argument("--resturl", default="https://web.scenescape.intel.com/api/v1",
+                      help="URL of REST server")
+  parser.add_argument("--restauth", help="user:password or JSON file for REST authentication")
+  parser.add_argument("--rootcert", default="/run/secrets/certs/scenescape-ca.pem",
+                      help="path to CA certificate")
+  parser.add_argument("--cert", help="path to client certificate")
+  parser.add_argument("--data_source", nargs="+", help="List of scene JSON files")
+  parser.add_argument("--verbose", action="store_true",
+                      help="verbose debug output")
+  script_path = os.path.abspath(__file__)
+  parser.add_argument("--schema_file",
+                      help="JSON file with metadata schema",
+                      default=os.path.join(os.path.dirname(script_path), "schema/metadata.schema.json"))
+  parser.add_argument("--scene_data_schema_file",
+                      help="JSON file with scene-data schema for tracker/controller output validation",
+                      default=os.path.join(os.path.dirname(script_path),
+                                           "tracker/schema/scene-data.schema.json"))
+  parser.add_argument("--visibility_topic",
+                      help="Topic to publish visibility on: 'unregulated', 'regulated', or 'none'",
+                      default="regulated")
+  parser.add_argument("--healthcheck_port", type=int, default=0,
+                      help="Port for HTTP health check endpoint (0 to disable)")
+  return parser
+
+
+def main():
+  args = build_argparser().parse_args()
+
+  if args.verbose:
+    log.setVerbose()
+
+  service = AnalyticsService(
+    rewrite_all_time=args.rewriteAllTime,
+    mqtt_broker=args.broker,
+    mqtt_auth=args.brokerauth,
+    rest_url=args.resturl,
+    rest_auth=args.restauth,
+    client_cert=args.cert,
+    root_cert=args.rootcert,
+    schema_file=args.schema_file,
+    visibility_topic=args.visibility_topic,
+    data_source=args.data_source,
+    scene_data_schema_file=args.scene_data_schema_file,
+  )
+
+  if args.healthcheck_port > 0:
+    start_health_server(args.healthcheck_port)
+
+  service.loopForever()
+  return
+
+
+if __name__ == '__main__':
+  exit(main() or 0)
