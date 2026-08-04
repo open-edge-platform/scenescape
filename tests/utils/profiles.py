@@ -32,6 +32,7 @@ class ServiceProfile:
 
 
 # Common wait configs reused across profiles
+_QDRANT = WaitConfig(log_pattern=r"Qdrant HTTP listening on 55555")
 _PGSERVER = WaitConfig(
   log_pattern="database system is ready to accept connections",
   timeout=300,
@@ -151,6 +152,31 @@ REID = ServiceProfile(
   },
 )
 
+REID_QDRANT = ServiceProfile(
+  name="reid_qdrant",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-qdrant.yml",
+    f"{DLS}/compose-retail_video_reid.yml",
+    f"{DLS}/compose-queuing_video_reid.yml",
+    f"{COMPOSE}/compose-scene_reid_qdrant.yml",
+    f"{COMPOSE}/compose-web_default.yml",
+    f"{COMPOSE}/compose-cams.yml",
+  ),
+  wait_for={
+    "broker": _BROKER,
+    "ntpserv": WaitConfig(),
+    "pgserver": _PGSERVER,
+    "qdrant": _QDRANT,
+    "web": _WEB,
+    "queuing-video": WaitConfig(),
+    "retail-video": WaitConfig(),
+    "scene": _SCENE,
+  },
+)
+
 REID_SEMANTIC = ServiceProfile(
   name="reid_semantic",
   compose_files=(
@@ -166,6 +192,27 @@ REID_SEMANTIC = ServiceProfile(
   wait_for={
     "pgserver": _PGSERVER,
     "web": _WEB,
+    "queuing-video": WaitConfig(),
+    "scene": _SCENE,
+  },
+)
+
+REID_SEMANTIC_QDRANT = ServiceProfile(
+  name="reid_semantic_qdrant",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-qdrant.yml",
+    f"{DLS}/compose-queuing_video_reid_semantic.yml",
+    f"{COMPOSE}/compose-scene_reid_qdrant.yml",
+    f"{COMPOSE}/compose-web_default.yml",
+    f"{COMPOSE}/compose-cams.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "qdrant": _QDRANT,
     "queuing-video": WaitConfig(),
     "scene": _SCENE,
   },
@@ -265,7 +312,9 @@ PROFILE_REGISTRY: dict = {
     FULL_STACK_WITH_MAPPING_AND_VIDEO,
     FULL_STACK_WITH_VIDEO_AND_RETAIL,
     REID,
+    REID_QDRANT,
     REID_SEMANTIC,
+    REID_SEMANTIC_QDRANT,
     FULL_STACK_AUTOCALIBRATION,
     FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS,
     SCENE_NO_DB,

@@ -9,7 +9,7 @@
 
 ## Context
 
-The controller now supports choosing the ReID similarity metric via runtime configuration (`reid-config.json`, `similarity_metric`). The configuration default is `L2`.
+The controller supports choosing the ReID similarity metric via runtime configuration (`reid-config.json`, `similarity_metric`). The configuration default is `COSINE`.
 
 Because VDMS descriptor search uses Inner Product (`IP`) for this flow, the controller maps configured `COSINE` to VDMS `IP` at the database boundary.
 
@@ -40,7 +40,7 @@ For post-mortem stitching analysis, operators also need more than the current `i
 
 We will make three related changes.
 
-1. Make ReID similarity metric **configurable**, with `L2` as the configuration default.
+1. Make ReID similarity metric **configurable**, with `COSINE` as the configuration default.
 2. Expose explicit **ReID state** on tracked objects so scene output distinguishes query lifecycle from match outcome.
 3. Persist and publish a **previous_ids_chain** for each track so identity transitions can be reconstructed after the fact.
 
@@ -48,7 +48,7 @@ We will make three related changes.
 
 - Similarity metric is configured at runtime (`similarity_metric`) and propagated into VDMS operations.
 - Supported configured metrics are `COSINE` and `L2`.
-- Unsupported configured metric values fall back to `L2`.
+- Unsupported configured metric values fall back to `COSINE`.
 - Configured `COSINE` is translated to VDMS `IP` at the adapter boundary so configuration semantics stay model-friendly while database semantics stay VDMS-compatible.
 - For `IP`, ReID vectors are normalized before storage/query and returned values are expected to be finite in `[-1, 1]`.
 - For non-`IP` metrics (for example `L2`), vectors are not force-normalized by this controller path, and `[-1, 1]` range validation is not applied.
@@ -56,7 +56,7 @@ We will make three related changes.
   - `IP`/similarity-style metrics: higher values are better, match when value > threshold.
   - Distance-style metrics (for example `L2`): lower values are better, match when value < threshold.
 
-### Why Keep `COSINE` Available (with `IP` in VDMS)
+### Why Default to `COSINE` (with `IP` in VDMS)
 
 - With normalized embeddings, `IP` is equivalent to cosine similarity, which matches how visual ReID embeddings are typically interpreted.
 - L2 and `IP` produce the same neighbor ordering after normalization, but `IP` yields a score where:
@@ -64,9 +64,9 @@ We will make three related changes.
   - `0` means orthogonal / unrelated,
   - `-1` means maximally opposed.
 - That bounded and signed score is easier to reason about than L2 distance, where **smaller is better** and the practical range depends on normalization assumptions.
-- The controller already exposes a `similarity` field and applies a `similarity_threshold`. `L2` uses distance-style (lower-is-better) interpretation by default, while `COSINE` remains available and is executed via equivalent VDMS `IP`.
+- The controller exposes a `similarity` field and applies a `similarity_threshold`. `COSINE` uses similarity-style (higher-is-better) interpretation by default and is executed via equivalent backend `IP`/DOT operations; `L2` remains available with distance-style semantics.
 - `IP` gives a stable contract for downstream systems, logs, tests, and operators: higher is always better, the range is bounded, and invalid values can be rejected with a simple `[-1, 1]` check.
-- Because ranking can be equivalent under normalization, allowing configuration supports experimentation while keeping `L2` as the stable default contract and `COSINE` as an explicit opt-in path executed via VDMS `IP`.
+- Because ranking can be equivalent under normalization, configuration still supports `L2` experimentation while `COSINE` provides the default bounded, higher-is-better score contract.
 
 ### ReID State Decision
 

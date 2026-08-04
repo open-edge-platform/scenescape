@@ -26,7 +26,8 @@ class TestVDMSDatabaseInterface:
 
   def test_required_methods_exist(self):
     """Verify all required ReIDDatabase methods are implemented."""
-    required_methods = ['addSchema', 'addEntry', 'findSchema', 'findMatches', 'getPersistedAttributes']
+    required_methods = [
+      'addEntry', 'findSchema', 'findMatches', 'getPersistedAttributes', 'ensureSchema']
 
     with patch('controller.vdms_adapter.vdms.vdms'):
       db = VDMSDatabase()
@@ -47,7 +48,7 @@ class TestVDMSDatabaseInitialization:
     db = VDMSDatabase()
 
     assert db.db is not None
-    assert db.similarity_metric == "L2"
+    assert db.similarity_metric == "IP"
     mock_vdms.assert_called()
 
   @patch('controller.vdms_adapter.vdms.vdms')
@@ -157,7 +158,7 @@ class TestSchemaValidation:
     marker = second_query[0]['AddEntity']
     assert marker['properties']['set_name'] == SCHEMA_NAME
     assert marker['properties']['dimensions'] == 256
-    assert marker['properties']['metric'] == 'L2'
+    assert marker['properties']['metric'] == 'IP'
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_ensure_schema_raises_on_existing_dimension_mismatch(self, mock_vdms_class):
     """Verify fallback metadata check fails when existing descriptor dimensions differ."""
@@ -171,7 +172,7 @@ class TestSchemaValidation:
         'status': 0,
         'returned': 1,
         'dimensions': 128,
-        'metric': 'L2'
+        'metric': 'IP'
       }], []),
     ])
 
@@ -242,7 +243,7 @@ class TestSchemaValidation:
         'status': 0,
         'returned': 1,
         'dimensions': 256,
-        'metric': 'L2'
+        'metric': 'IP'
       }], []),
     ])
 
@@ -756,7 +757,7 @@ class TestFindMatches:
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_keeps_out_of_range_scores_for_l2_metric(self, mock_vdms_class):
-    """Verify L2 path does not filter scores by the IP-only [-1, 1] rule."""
+    """Verify L2 keeps large positive distances but rejects negative distances."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
@@ -775,13 +776,13 @@ class TestFindMatches:
 
     assert result is not None
     assert len(result) == 1
-    assert len(result[0]) == 2
+    assert len(result[0]) == 1
     assert result[0][0]['uuid'] == 'dist-high'
-    assert result[0][1]['uuid'] == 'dist-negative'
+    assert result[0][0]['_distance'] == 1.4
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_handles_no_results(self, mock_vdms_class):
-    """Verify findMatches handles case with no matches."""
+    """Verify findMatches preserves one empty slot when a query returns nothing."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
@@ -794,7 +795,7 @@ class TestFindMatches:
     test_vectors = [np.random.randn(256).astype(np.float32)]
     result = db.findMatches("Person", test_vectors)
 
-    assert result is None or (isinstance(result, list) and len(result) == 0)
+    assert result == [[]]
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_respects_k_neighbors_parameter(self, mock_vdms_class):
@@ -1069,7 +1070,8 @@ class TestConfigurationParameters:
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_default_parameters_initialization(self, mock_vdms_class):
     """Verify VDMSDatabase initializes with expected defaults."""
-    from controller.vdms_adapter import SCHEMA_NAME, DIMENSIONS, K_NEIGHBORS, SIMILARITY_METRIC, DEFAULT_CONFIDENCE_THRESHOLD
+    from controller.vdms_adapter import SCHEMA_NAME, SIMILARITY_METRIC
+    from controller.reid_env import DEFAULT_CONFIDENCE_THRESHOLD
 
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
@@ -1077,7 +1079,7 @@ class TestConfigurationParameters:
     db = VDMSDatabase()
 
     assert db.set_name == SCHEMA_NAME, f"Expected set_name={SCHEMA_NAME}, got {db.set_name}"
-    assert db.dimensions == DIMENSIONS, f"Expected dimensions={DIMENSIONS}, got {db.dimensions}"
+    assert db.dimensions is None, f"Expected dimensions=None, got {db.dimensions}"
     assert db.similarity_metric == SIMILARITY_METRIC, f"Expected metric={SIMILARITY_METRIC}, got {db.similarity_metric}"
     assert db.confidence_threshold == DEFAULT_CONFIDENCE_THRESHOLD, f"Expected threshold={DEFAULT_CONFIDENCE_THRESHOLD}, got {db.confidence_threshold}"
 
@@ -2284,25 +2286,27 @@ class TestSchemaMarker:
     assert 'FindEntity' in query[0]
 
   @patch('controller.vdms_adapter.vdms.vdms')
-  def test_write_schema_marker_logs_warning_on_failed_write(self, mock_vdms_class):
-    """Verify a failed AddEntity write is handled gracefully (no exception raised)."""
+  def test_write_schema_marker_raises_on_failed_write(self, mock_vdms_class):
+    """Verify a failed AddEntity write raises rather than leaving a half-ready schema."""
     mock_vdms_class.return_value = MagicMock()
 
     db = VDMSDatabase()
     db.sendQuery = Mock(return_value=([{'status': 1}], []))
 
-    db._writeSchemaMarker(256, 'L2', skip_exists_check=True)
+    with pytest.raises(RuntimeError, match="Failed to write schema marker"):
+      db._writeSchemaMarker(256, 'L2', skip_exists_check=True)
 
     assert db.sendQuery.call_count == 1
 
   @patch('controller.vdms_adapter.vdms.vdms')
-  def test_write_schema_marker_logs_warning_on_no_response(self, mock_vdms_class):
-    """Verify a missing response from VDMS on write is handled gracefully (no exception raised)."""
+  def test_write_schema_marker_raises_on_no_response(self, mock_vdms_class):
+    """Verify a missing response from VDMS on write raises."""
     mock_vdms_class.return_value = MagicMock()
 
     db = VDMSDatabase()
     db.sendQuery = Mock(return_value=([], []))
 
-    db._writeSchemaMarker(256, 'L2', skip_exists_check=True)
+    with pytest.raises(RuntimeError, match="Failed to write schema marker"):
+      db._writeSchemaMarker(256, 'L2', skip_exists_check=True)
 
     assert db.sendQuery.call_count == 1
