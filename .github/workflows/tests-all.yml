@@ -6,7 +6,7 @@
 # stability test for validation on the current branch. Restore the full
 # job set before merging.
 name: "[Tests] All Tests"
-run-name: "[Tests] All Tests"
+run-name: "[Tests] Stability Test"
 
 on:
   workflow_dispatch:
