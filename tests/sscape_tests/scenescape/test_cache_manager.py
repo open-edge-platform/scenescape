@@ -919,8 +919,10 @@ class TestCacheManagerEdgeCases:
       def make_scene(data):
         scene = MagicMock(spec=Scene)
         scene.uid = data['uid']
+        scene.name = data['name']
         scene.cameras = {}
         scene.sensors = {}
+        scene.tracker = None
         return scene
 
       mock_deserialize.side_effect = make_scene
