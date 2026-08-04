@@ -4,6 +4,7 @@ These articles describe all topics concerning Scenescape, that were not covered 
 
 - [Defining Object Properties](./how-to-define-object-properties.md)
 - [Enabling Re-identification](./how-to-enable-reidentification.md)
+- [Enabling Observability (Experimental)](./how-to-enable-observability.md)
 - [Integrating Intel® Geti™ AI Models](./how-to-integrate-geti-trained-model.md)
 - [Configuring DL Streamer Video Pipeline](./how-to-configure-dlstreamer-video-pipeline.md)
 - [Model configuration file format](./model-configuration-file-format.md)
@@ -19,6 +20,7 @@ These articles describe all topics concerning Scenescape, that were not covered 
 
 Defining Object Properties <how-to-define-object-properties.md>
 Enabling Re-identification <how-to-enable-reidentification.md>
+Enabling Observability (Experimental) <how-to-enable-observability.md>
 Integrating Intel® Geti™ AI Models <how-to-integrate-geti-trained-model.md>
 Configuring DL Streamer Video Pipeline <how-to-configure-dlstreamer-video-pipeline.md>
 Model configuration file format <model-configuration-file-format.md>
