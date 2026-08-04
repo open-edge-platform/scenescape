@@ -3,7 +3,6 @@
 
 import numpy as np
 
-from controller.scene import TripwireEvent
 from scene_common import log
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
@@ -61,8 +60,6 @@ def _serializePreviousIdsChain(previous_ids_chain):
 def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
                    include_region_dwell=False, current_time=None):
   aobj = obj
-  if isinstance(obj, TripwireEvent):
-    aobj = obj.object
   otype = aobj.category
 
   scene_loc_vector = aobj.sceneLoc.asCartesianVector
@@ -75,7 +72,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
   # Build a fresh top-level dict per serialization so optional fields like
   # sensors do not leak between scene, regulated, and external outputs.
-  obj_dict = dict(aobj.info)
+  obj_dict = dict(aobj.info or {})
   obj_dict.update({
     'id': aobj.gid, # gid is the global ID - computed by Scenescape server.
     'type': otype,
@@ -124,6 +121,8 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
   if hasattr(aobj, 'chain_data'):
     chain_data = aobj.chain_data
+    if len(chain_data.publishedLocations) > 1:
+      obj_dict['prev_translation'] = chain_data.publishedLocations[1].asCartesianVector
     if len(chain_data.regions):
       if include_region_dwell:
         if current_time is None:
@@ -173,8 +172,6 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
   if hasattr(aobj, 'previous_ids_chain') and aobj.previous_ids_chain:
     obj_dict['previous_ids_chain'] = _serializePreviousIdsChain(aobj.previous_ids_chain)
 
-  if isinstance(obj, TripwireEvent):
-    obj_dict['direction'] = obj.direction
   if hasattr(aobj, 'asset_scale'):
     obj_dict['asset_scale'] = aobj.asset_scale
   if len(aobj.chain_data.persist):
