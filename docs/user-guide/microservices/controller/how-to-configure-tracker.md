@@ -246,3 +246,35 @@ The tracker may accumulate suspended tracks for some time for re-tracking purpos
 - **How to set it:**
   - Add `"suspended_track_timeout_secs": <value>` to `controller/config/tracker-config.json` (or `tracker-config-immediate.json` for immediate mode).
   - The parameter follows the same configuration flow as other tracker parameters like `max_unreliable_time_s` and `non_measurement_time_dynamic_s`.
+
+## Persisting Object Attributes Across Detection Gaps
+
+Detection pipelines don't always re-report every attribute (e.g. shirt color, license plate,
+age/gender) on every frame. By default, an attribute that's missing from the current detection is
+cleared on the tracked object. The `persist_attributes` field carries specific attributes forward
+between updates instead of letting them flicker or disappear.
+
+- **Parameter:** `persist_attributes` (object, keyed by detection type)
+- **Default:** `{}` (not set) — no attributes are persisted; every detection overwrites what was there before.
+- **Format:**
+
+  ```json
+  {
+    "persist_attributes": {
+      "vehicle": ["color", { "license": "plate,state" }],
+      "person": ["age", "gender"]
+    }
+  }
+  ```
+
+  - Top-level keys are detection types and must match the object type string the pipeline
+    publishes (e.g. `person`, `vehicle`).
+  - List entries are either a plain attribute name (`"color"`) or a `{parent: "sub,fields"}` dict
+    for nested/sub-attributes (e.g. a `license` object with `plate` and `state` fields) — only the
+    listed sub-fields are persisted, not the whole nested object.
+  - Only list attributes that actually appear in the detection pipeline's output metadata;
+    persisting a key that never appears has no effect.
+
+- **How to set it:** Add the `persist_attributes` key to `controller/config/tracker-config.json`
+  (or `tracker-config-immediate.json`), alongside the timing/motion parameters above, and restart
+  the scene controller (`docker compose up -d --force-recreate scene`) to pick up the change.
