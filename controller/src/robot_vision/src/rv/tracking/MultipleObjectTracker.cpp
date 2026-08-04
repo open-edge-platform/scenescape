@@ -105,6 +105,40 @@ void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
   }
 }
 
+void mergeHistoricalMetadata(const TrackedObject &track, TrackedObject &measurement)
+{
+  for (const auto &[key, value] : track.attributes)
+  {
+    if (!startsWith(key, METADATA_PREFIX))
+    {
+      continue;
+    }
+
+    const std::string field = key.substr(std::char_traits<char>::length(METADATA_PREFIX));
+    const auto storedConfidence = metadataConfidence(track, field);
+    const auto currentValue = measurement.attributes.find(key);
+    const auto currentConfidence = metadataConfidence(measurement, field);
+
+    const bool currentIsHigher = currentValue != measurement.attributes.end() && currentConfidence
+      && (!storedConfidence || *currentConfidence > *storedConfidence);
+    if (currentIsHigher)
+    {
+      continue;
+    }
+
+    measurement.attributes[key] = value;
+    const std::string confidenceKey = METADATA_CONFIDENCE_PREFIX + field;
+    if (storedConfidence)
+    {
+      measurement.attributes[confidenceKey] = track.attributes.at(confidenceKey);
+    }
+    else
+    {
+      measurement.attributes.erase(confidenceKey);
+    }
+  }
+}
+
 } // namespace
 
 template <class ElementType>
@@ -139,7 +173,7 @@ void splitByThreshold(std::vector<tracking::TrackedObject> &objects,
 
 std::vector<tracking::TrackedObject>
 MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::TrackedObject> &tracks,
-                                                  const std::vector<tracking::TrackedObject> &objects,
+                                                  std::vector<tracking::TrackedObject> &objects,
                                                   const DistanceType &distanceType,
                                                   double distanceThreshold,
                                                   std::vector<size_t> &unassignedObjects)
@@ -153,8 +187,9 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
   for (const auto &assignment : assignments)
   {
     auto const &track = tracks[assignment.first];
-    auto const &object = objects[assignment.second];
-    mTrackManager.setMeasurement(track.id, object);
+    auto &measurement = objects[assignment.second];
+    mergeHistoricalMetadata(track, measurement);
+    mTrackManager.setMeasurement(track.id, measurement);
   }
 
   // Remove tracks already assigned
@@ -281,6 +316,7 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
     const auto &lastMatch = matches.back();
     auto fusedObject = objectsPerCamera[lastMatch.first][lastMatch.second];
     fuseMetadata(matches, objectsPerCamera, fusedObject);
+    mergeHistoricalMetadata(tracks[trackIdx], fusedObject);
 
     mTrackManager.setMeasurement(tracks[trackIdx].id, fusedObject);
     isTrackAssigned[trackIdx] = true;
