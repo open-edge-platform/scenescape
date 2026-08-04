@@ -440,8 +440,8 @@ class K8sManager:
       self._cluster.kubectl([
         "rollout", "status", resource,
         "-n", _NAMESPACE,
-        "--timeout=700s",
-      ], as_dict=False, timeout=760)
+        "--timeout=720s",
+      ], as_dict=False, timeout=780)
     logger.info("All core services are ready.")
 
     # Wait for kubeclient so it can create camera pipeline pods.
