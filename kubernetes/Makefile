@@ -178,8 +178,11 @@ copy-files:
 	mkdir -p scenescape-chart/files/model-installer
 	mkdir -p scenescape-chart/files/model-download
 	mkdir -p scenescape-chart/files/sample-data
+	mkdir -p scenescape-chart/files/scene-controller
 	cp -r ../dlstreamer-pipeline-server/user_scripts/gstplugins/* scenescape-chart/files/dlsps/
 	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/broker/mosquitto-secure.conf
+	cp ../controller/config/tracker-config.json scenescape-chart/files/scene-controller/tracker-config.json
+	cp ../controller/config/reid-config.json scenescape-chart/files/scene-controller/reid-config.json
 	cp ../model_download/src/download_models.py scenescape-chart/files/model-download/download_models.py
 	cp ../model_download/src/generate_model_config.py scenescape-chart/files/model-download/generate_model_config.py
 	cp ../model_download/src/entrypoint-k8s.sh scenescape-chart/files/model-download/entrypoint-k8s.sh
