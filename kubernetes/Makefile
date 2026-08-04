@@ -175,7 +175,6 @@ package: copy-files chart.yaml
 copy-files:
 	mkdir -p scenescape-chart/files/dlsps
 	mkdir -p scenescape-chart/files/broker
-	mkdir -p scenescape-chart/files/model-installer
 	mkdir -p scenescape-chart/files/model-download
 	mkdir -p scenescape-chart/files/sample-data
 	mkdir -p scenescape-chart/files/scene-controller

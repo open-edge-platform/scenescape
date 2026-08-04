@@ -33,7 +33,7 @@ modelDownload:
   image:
     repository: docker.io
     name: intel/model-download
-    tag: latest
+    tag: 2026.2.0-ww32
     pullPolicy: IfNotPresent
   commandArgs: "--plugins omz"
   parallelDownloads: false
