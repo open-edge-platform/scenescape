@@ -109,7 +109,7 @@ class CacheManager:
     """
     if scene is None:
       return
-    if scene.tracker is not None:
+    if getattr(scene, "tracker", None) is not None:
       scene.tracker.join()
     CameraRegistry.getInstance().removeScene(scene.name)
     TrackedObjectRegistry.getInstance().removeScene(scene.name)
