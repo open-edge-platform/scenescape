@@ -905,7 +905,7 @@ TEST_F(TrackingWorkerTest, Tracking_MultiCamera_WinnerIsDeterministicRegardlessO
         << "Run B (high-conf last): 'female' should still win. Got: " << result_b;
 }
 
-TEST_F(TrackingWorkerTest, Tracking_MultiCamera_FusionDoesNotLeakIntoSingleCameraChunk) {
+TEST_F(TrackingWorkerTest, Tracking_MetadataMaximumPersistsAcrossChunks) {
     std::vector<std::vector<Track>> published_tracks;
     std::mutex mtx;
     std::condition_variable cv;
@@ -927,9 +927,9 @@ TEST_F(TrackingWorkerTest, Tracking_MultiCamera_FusionDoesNotLeakIntoSingleCamer
     fused_chunk.category = "person";
     fused_chunk.chunk_time = std::chrono::steady_clock::now();
     fused_chunk.camera_batches.push_back(
-        make_batch("cam-1", 0, 0, R"({"plate":{"label":"XYZ-789"}})"));
+        make_batch("cam-1", 0, 0, R"({"plate":{"label":"XYZ-789","confidence":0.8}})"));
     fused_chunk.camera_batches.push_back(
-        make_batch("cam-2", 0, 1, R"({"gender":{"label":"female"}})"));
+        make_batch("cam-2", 0, 1, R"({"gender":{"label":"female","confidence":0.9}})"));
     worker.try_enqueue(std::move(fused_chunk));
 
     Chunk single_camera_chunk;
@@ -937,7 +937,7 @@ TEST_F(TrackingWorkerTest, Tracking_MultiCamera_FusionDoesNotLeakIntoSingleCamer
     single_camera_chunk.category = "person";
     single_camera_chunk.chunk_time = std::chrono::steady_clock::now();
     single_camera_chunk.camera_batches.push_back(
-        make_batch("cam-2", 1, 1, R"({"gender":{"label":"male"}})"));
+        make_batch("cam-2", 1, 1, R"({"gender":{"label":"male","confidence":0.7}})"));
     worker.try_enqueue(std::move(single_camera_chunk));
 
     {
@@ -948,9 +948,11 @@ TEST_F(TrackingWorkerTest, Tracking_MultiCamera_FusionDoesNotLeakIntoSingleCamer
 
     ASSERT_FALSE(published_tracks.back().empty());
     const auto& metadata = published_tracks.back().front().metadata_json;
-    EXPECT_NE(metadata.find("male"), std::string::npos);
-    EXPECT_EQ(metadata.find("plate"), std::string::npos);
-    EXPECT_EQ(metadata.find("female"), std::string::npos);
+    EXPECT_NE(metadata.find("plate"), std::string::npos);
+    EXPECT_NE(metadata.find("XYZ-789"), std::string::npos);
+    EXPECT_NE(metadata.find("female"), std::string::npos);
+    EXPECT_NE(metadata.find("0.9"), std::string::npos);
+    EXPECT_EQ(metadata.find(R"("label":"male")"), std::string::npos);
 }
 
 } // namespace
