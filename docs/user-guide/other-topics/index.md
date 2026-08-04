@@ -10,6 +10,7 @@ These articles describe all topics concerning Scenescape, that were not covered 
 - [Running License Plate Recognition with 3D Object Detection](./how-to-run-LPR-with-3D-object-detection.md)
 - [Managing Files in Volumes](./how-to-manage-files-in-volumes.md)
 - [Controlling Scene Lighting with Physical Light Sensors](./light-sensor-integration.md)
+- [Viewing Re-identification Metrics](./how-to-view-reid-metrics.md)
 
 <!--hide_directive
 :::{toctree}
@@ -24,5 +25,6 @@ Model configuration file format <model-configuration-file-format.md>
 Running License Plate Recognition with 3D Object Detection <how-to-run-LPR-with-3D-object-detection.md>
 Managing Files in Volumes <how-to-manage-files-in-volumes.md>
 Controlling Scene Lighting with Physical Light Sensors <light-sensor-integration.md>
+Viewing Re-identification Metrics <how-to-view-reid-metrics.md>
 :::
 hide_directive-->
