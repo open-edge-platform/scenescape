@@ -3,6 +3,8 @@
 
 # Scenescape
 
+_Part of [Edge AI Libraries](https://docs.openedgeplatform.intel.com/dev/ai-libraries.html)_
+
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape">
@@ -79,7 +81,7 @@ PostgreSQL database server which stores static information used by the web UI an
 
 ## Supporting Resources
 
-- [Get Started](./get-started.md)
+- [Installation](./get-started/installation.md)
 - [API Reference](./api-reference.md)
 - [Camera normalization](./additional-resources/convert-object-detections-to-normalized-image-space.md)
 - [Troubleshooting](./troubleshooting.md)
@@ -89,12 +91,76 @@ PostgreSQL database server which stores static information used by the web UI an
 :::{toctree}
 :hidden:
 
-Get Started <./get-started.md>
-How to Guides <./how-to-guides.md>
-Other Topics <other-topics/index.md>
-Additional Resources <additional-resources/index.md>
-Microservices <./microservices/microservices.md>
-./api-reference.md
+Scenescape Home Page <https://docs.openedgeplatform.intel.com/dev/scenescape/index.html>
+
+:::
+
+:::{toctree}
+:hidden:
+:caption: Get Started
+
+Installation <./get-started/installation.md>
+System Requirements <./get-started/system-requirements.md>
+
+:::
+
+:::{toctree}
+:hidden:
+:caption: How-to Guides
+
+Deploy Scenescape <./how-to-guides/deploy-scenescape-using-prebuilt-containers.md>
+Use the UI and Online Documentation <./how-to-guides/ui-tutorial.md>
+Build a Scene <./how-to-guides/build-a-scene/index.md>
+Integrate Cameras and Sensors <./how-to-guides/integrate-cameras-and-sensors.md>
+Calibrate Cameras <./how-to-guides/calibrate-cameras/index.md>
+Work with Spatial Analytics Data <./how-to-guides/work-with-spatial-analytics-data.md>
+
+:::
+
+:::{toctree}
+:hidden:
+:caption: Microservices
+
+Analytics <./microservices/analytics/analytics.md>
+Auto Camera Calibration <./microservices/auto-calibration/auto-calibration.md>
+Cluster Analytics <./microservices/cluster-analytics/cluster-analytics.md>
+Scene Controller <./microservices/controller/controller.md>
+Mapping Service <./microservices/mapping-service/mapping-service.md>
+API Reference <./api-reference.md>
+
+:::
+
+:::{toctree}
+:hidden:
+:caption: Other Topics
+
+Defining Object Properties <./other-topics/how-to-define-object-properties.md>
+Enabling Re-identification <./other-topics/how-to-enable-reidentification.md>
+Enabling Observability (Experimental) <./other-topics/how-to-enable-observability.md>
+Integrating Intel® Geti™ AI Models <./other-topics/how-to-integrate-geti-trained-model.md>
+Configuring DL Streamer Video Pipeline <./other-topics/how-to-configure-dlstreamer-video-pipeline.md>
+Model configuration file format <./other-topics/model-configuration-file-format.md>
+Running License Plate Recognition with 3D Object Detection <./other-topics/how-to-run-LPR-with-3D-object-detection.md>
+Managing Files in Volumes <./other-topics/how-to-manage-files-in-volumes.md>
+Controlling Scene Lighting with Physical Light Sensors <./other-topics/light-sensor-integration.md>
+Viewing Re-identification Metrics <./other-topics/how-to-view-reid-metrics.md>
+
+:::
+
+:::{toctree}
+:hidden:
+:caption: Additional Resources
+
+Hardening Guide <./additional-resources/hardening-guide.md>
+How to Upgrade <./additional-resources/how-to-upgrade.md>
+Converting Bounding Boxes to Normalized Image Space <./additional-resources/convert-object-detections-to-normalized-image-space.md>
+
+:::
+
+:::{toctree}
+:hidden:
+:caption: ----------------------
+
 ./troubleshooting.md
 Release Notes <./release-notes.md>
 
