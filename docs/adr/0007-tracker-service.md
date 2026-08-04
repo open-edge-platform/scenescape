@@ -244,9 +244,12 @@ This is a gradual migration using feature flags to maintain backward compatibili
 
 **Phase 2: Migration**
 
-1. Enable Tracker Service as default, Controller in analytics-only mode
-2. Refactor Controller analytics into Analytics Service
-3. Enable Analytics Service as default and retire Controller
+1. Enable Tracker Service as default with the Analytics microservice for
+   regions/events/regulated output (Controller analytics-only mode has been
+   retired; do not run Controller without a local tracker for that purpose)
+2. Refactor remaining Controller responsibilities per
+   [ADR 13](./0013-controller-breakdown-microservices.md)
+3. Enable Analytics Service as default and continue retiring monolith paths
 
 ### References
 
