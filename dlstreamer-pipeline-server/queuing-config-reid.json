@@ -13,7 +13,7 @@
         "parameters": {
           "type": "object",
           "properties": {
-            "ntp_config": {
+            "ntp_server": {
               "element": {
                 "name": "timesync",
                 "property": "ntp-server"
@@ -55,7 +55,7 @@
         },
         "payload": {
           "parameters": {
-            "ntp_config": "ntpserv",
+            "ntp_server": "ntpserv",
             "cameraid": "atag-qcam1",
             "metadatagenpolicy": "reidPolicy",
             "detection_labels": "person"
@@ -70,7 +70,7 @@
         "parameters": {
           "type": "object",
           "properties": {
-            "ntp_config": {
+            "ntp_server": {
               "element": {
                 "name": "timesync",
                 "property": "ntp-server"
@@ -112,7 +112,7 @@
         },
         "payload": {
           "parameters": {
-            "ntp_config": "ntpserv",
+            "ntp_server": "ntpserv",
             "cameraid": "atag-qcam2",
             "metadatagenpolicy": "reidPolicy",
             "detection_labels": "person"

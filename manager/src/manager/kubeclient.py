@@ -238,10 +238,7 @@ class KubeClient():
     # volume mounts and volumes for the container
     volume_mounts = [
       client.V1VolumeMount(name="video-config", mount_path="/home/pipeline-server/config.json", sub_path="config.yaml"),
-      client.V1VolumeMount(name="sscape-gstplugins", mount_path="/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_decode_timestamp_capture.py", sub_path="sscape_post_decode_timestamp_capture.py"),
-      client.V1VolumeMount(name="sscape-gstplugins", mount_path="/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_inference_data_publish.py", sub_path="sscape_post_inference_data_publish.py"),
-      client.V1VolumeMount(name="sscape-gstplugins", mount_path="/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_policies.py", sub_path="sscape_policies.py"),
-      client.V1VolumeMount(name="sscape-gstplugins", mount_path="/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_3d_detector.py", sub_path="sscape_3d_detector.py"),
+      client.V1VolumeMount(name="sscape-gstplugins", mount_path="/home/sscape/python", read_only=True),
       client.V1VolumeMount(name="models-storage", mount_path="/home/pipeline-server/models", sub_path="models"),
       client.V1VolumeMount(name="sample-data", mount_path="/home/pipeline-server/videos", sub_path="sample_data"),
       client.V1VolumeMount(name="pipeline-root", mount_path="/var/cache/pipeline_root"),
@@ -269,6 +266,7 @@ class KubeClient():
       client.V1EnvVar(name="GENICAM", value="Balluff"),
 #      client.V1EnvVar(name="GST_DEBUG", value="1,gencamsrc:2"),
       client.V1EnvVar(name="GST_DEBUG", value="3"),
+      client.V1EnvVar(name="ADDITIONAL_GST_PLUGIN_PATH", value="/home/sscape"),
       client.V1EnvVar(name="ADD_UTCTIME_TO_METADATA", value="true"),
       client.V1EnvVar(name="APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC", value="false"),
       client.V1EnvVar(name="MQTT_HOST", value="broker." + self.ns + ".svc.cluster.local"),
