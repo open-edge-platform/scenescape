@@ -48,6 +48,7 @@ def test_to_rv_object_converts_quaternion_to_yaw():
     confidence=0.9,
     info={},
     frameCount=1,
+    metadata={},
   )
   tracker = IntelLabsTracking.__new__(IntelLabsTracking)
 
