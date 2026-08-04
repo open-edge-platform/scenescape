@@ -3,6 +3,8 @@
 Here you can find a reference for the available Scenescape microservices, covering the
 various aspects of the tool's capabilites.
 
+- [Analytics Service](./analytics/analytics.md) - region, tripwire, and sensor analytics
+  computed from tracked-object data.
 - [Auto Camera Calibration Service](./auto-calibration/auto-calibration.md) - automatic camera
   parameters computation.
 - [Cluster Analytics Service](./cluster-analytics/cluster-analytics.md) - advanced object
@@ -15,6 +17,7 @@ various aspects of the tool's capabilites.
 :::{toctree}
 :hidden:
 
+Analytics <./analytics/analytics.md>
 Auto Camera Calibration <./auto-calibration/auto-calibration.md>
 Cluster Analytics <./cluster-analytics/cluster-analytics.md>
 Scene Controller <./controller/controller.md>

@@ -100,13 +100,12 @@ class FileSceneDataSource(SceneDataSource):
     return []
 
   def updateCamera(self, camera_id, payload):
-    log.info(f"[JSON mode] updateCamera ignored for {camera_id}")
-    return None
+    log.info("[JSON mode] updateCamera not supported")
+    return False
 
   def getCamera(self, camera_id):
     for scene in self.scenes:
       for camera in scene.get("cameras", []):
-        if camera.get("uid") == camera_id:
+        if camera['uid'] == camera_id:
           return camera
-    log.info(f"[JSON mode] camera {camera_id} not found in file(s)")
     return None

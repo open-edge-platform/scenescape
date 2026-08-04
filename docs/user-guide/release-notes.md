@@ -61,7 +61,7 @@
 - Extended Re-identification with a 2-tier architecture to improve Re-ID quality and scalability.
 - Mapping service enhancements: Video-Based Mapping, CLAHE pre-processing to improve mesh appearance
 - Controller outputs augmented to work with a physics engine
-- Controller Analytics Mode: New analytics-only mode for the controller with schema validation
+- Controller Analytics Mode: New analytics-only mode for the controller with schema validation (retired; use the Analytics microservice)
 
 **Improved**
 
