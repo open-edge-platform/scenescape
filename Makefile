@@ -8,7 +8,7 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-CORE_IMAGE_FOLDERS := autocalibration controller manager
+CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
 IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker
 
 # Image variables
@@ -47,8 +47,8 @@ REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE)
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
-TEST_IMAGE_FOLDERS := autocalibration controller manager mapping cluster_analytics
-TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping cluster_analytics)
+TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics
+TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics)
 DEPLOYMENT_TEST ?= 0
 
 # Kubernetes demo variables
@@ -61,7 +61,6 @@ CONTROLLER_METRICS_EXPORT_INTERVAL_S ?= 60
 CONTROLLER_ENABLE_TRACING ?= false
 CONTROLLER_TRACING_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
 CONTROLLER_TRACING_SAMPLE_RATIO ?= 1.0
-CONTROLLER_ENABLE_ANALYTICS_ONLY ?= false
 
 # ========================= Default Target ===========================
 
@@ -99,7 +98,7 @@ help:
 	@echo "  demo-cluster-analytics      Start the Scenescape demo with cluster analytics service using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Scenescape)"
-	@echo "  demo-tracker                Start the Scenescape demo with Tracker service + Controller in analytics only mode using Docker Compose"
+	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
 	@echo ""
@@ -183,7 +182,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager mapping cluster_analytics: build-common
+autocalibration controller manager analytics mapping cluster_analytics: build-common
 
 # Helper function to build images in parallel
 define parallel-build
@@ -364,7 +363,7 @@ PYTEST_FLAGS := --rootdir=$(CURDIR)/tests -v --tb=short
 TESTS_DIR := $(CURDIR)/tests
 
 .PHONY: setup-tests
-setup-tests: init-secrets .env setup-pytest
+setup-tests: init-secrets .env setup-pytest build-common
 	@echo "Setting up test environment..."
 	for dir in $(TEST_IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir test-build; \
@@ -440,7 +439,7 @@ run_standard_tests: setup-tests
 	@echo "DONE ==> Running standard tests"
 
 .PHONY: run_functional_tests
-run_functional_tests: setup-tests
+run_functional_tests: setup-tests build-core-images
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running functional tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -725,7 +724,7 @@ demo-cluster-analytics: build-all init-sample-data
 
 .PHONY: demo-tracker
 demo-tracker: build-all init-sample-data
-	$(call start_demo,--profile analytics --profile tracker)
+	$(call start_demo,--profile tracker)
 
 .PHONY: demo-close
 demo-close:
@@ -764,7 +763,6 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "CONTROLLER_ENABLE_TRACING=$(CONTROLLER_ENABLE_TRACING)" >> $@
 	@echo "CONTROLLER_TRACING_ENDPOINT=$(CONTROLLER_TRACING_ENDPOINT)" >> $@
 	@echo "CONTROLLER_TRACING_SAMPLE_RATIO=$(CONTROLLER_TRACING_SAMPLE_RATIO)" >> $@
-	@echo "CONTROLLER_ENABLE_ANALYTICS_ONLY=$(CONTROLLER_ENABLE_ANALYTICS_ONLY)" >> $@
 # ======================= Secrets Management =========================
 
 .PHONY: init-secrets

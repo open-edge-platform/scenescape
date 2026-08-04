@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from controller.scene import Scene
-from controller.data_source import RestSceneDataSource, FileSceneDataSource
-from controller.camera_registry import CameraRegistry
-from controller.tracking_object_registry import TrackedObjectRegistry
+# The controller package (and robot_vision, imported by controller.scene at
+# module level) isn't installed in the analytics image, so keep all
+# controller.* imports lazy to allow CacheManager (and therefore
+# AnalyticsService) to be imported there.
+from scene_common.data_source import RestSceneDataSource, FileSceneDataSource
 
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
@@ -14,7 +15,7 @@ REFRESH_TIME = 60
 class CacheManager:
   def __init__(self, data_source=None, rest_url=None, rest_auth=None,
                root_cert=None, tracker_config_data={}, reid_config_data={},
-               pose_adjustment_config_data=None):
+               pose_adjustment_config_data=None, scene_cls=None):
     self.cached_child_transforms_by_uid = {}
     self.camera_parameters = {}
     self.tracker_config_data = tracker_config_data
@@ -22,6 +23,10 @@ class CacheManager:
     self.pose_adjustment_config_data = (
       pose_adjustment_config_data if pose_adjustment_config_data else {}
     )
+    self._scene_cls = scene_cls
+    if self._scene_cls is None:
+      from controller.scene import Scene
+      self._scene_cls = Scene
     self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
@@ -71,11 +76,18 @@ class CacheManager:
 
       uid = scene_data['uid']
       if uid not in self.cached_scenes_by_uid:
-        scene = Scene.deserialize(scene_data)
-
         old_scene = self._sensorNeedsRestoring(uid)
-        if old_scene:
-          self._restoreSensorCache(uid, old_scene, scene)
+        if old_scene is not None:
+          # Reuse the existing scene to preserve tracked objects, sensor state,
+          # analytics_state and dwell times across DB-triggered refreshes.
+          scene = old_scene
+          scene.updateScene(scene_data)
+        else:
+          scene_cls = getattr(self, '_scene_cls', None)
+          if scene_cls is None:
+            from controller.scene import Scene
+            scene_cls = Scene
+          scene = scene_cls.deserialize(scene_data)
       else:
         scene = self.cached_scenes_by_uid[uid]
         scene.updateScene(scene_data)
@@ -111,6 +123,13 @@ class CacheManager:
       return
     if getattr(scene, "tracker", None) is not None:
       scene.tracker.join()
+    try:
+      from controller.camera_registry import CameraRegistry
+      from controller.tracking_object_registry import TrackedObjectRegistry
+    except ModuleNotFoundError:
+      # controller isn't installed in the analytics-only image; there's no
+      # process-local registry state there to clean up.
+      return
     CameraRegistry.getInstance().removeScene(scene.name)
     TrackedObjectRegistry.getInstance().removeScene(scene.name)
     return
