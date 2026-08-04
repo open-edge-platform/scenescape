@@ -110,8 +110,11 @@ def index(request):
 def protected_media(request, path, media_root):
   if request.user.is_authenticated:
     if path != "":
-      file = os.path.join(media_root, path)
-      if os.path.exists(file):
+      media_root_real = os.path.realpath(media_root)
+      file = os.path.realpath(os.path.join(media_root, path))
+      # startswith (not commonpath) is required here: it's the check CodeQL's
+      # path-injection analysis recognizes as sanitizing the path below.
+      if file.startswith(media_root_real + os.sep) and os.path.isfile(file):
         response = FileResponse(open(file, 'rb'))
         return response
     return HttpResponseNotFound()
@@ -119,11 +122,14 @@ def protected_media(request, path, media_root):
 
 def list_resources(request, folder_name):
   """! List files in folder_name inside MEDIA_ROOT and return them as JSON."""
-  base_path = os.path.join(settings.MEDIA_ROOT, folder_name)
-  if not os.path.exists(base_path) or not os.path.isdir(base_path):
-    return JsonResponse({"error": "Invalid folder"}, status=400)
-  files = [f for f in os.listdir(base_path) if os.path.isfile(os.path.join(base_path, f))]
-  return JsonResponse({"files": files})
+  media_root_real = os.path.realpath(settings.MEDIA_ROOT)
+  base_path = os.path.realpath(os.path.join(settings.MEDIA_ROOT, folder_name))
+  # startswith (not commonpath) is required here: it's the check CodeQL's
+  # path-injection analysis recognizes as sanitizing the path below.
+  if base_path.startswith(media_root_real + os.sep) and os.path.isdir(base_path):
+    files = [f for f in os.listdir(base_path) if os.path.isfile(os.path.join(base_path, f))]
+    return JsonResponse({"files": files})
+  return JsonResponse({"error": "Invalid folder"}, status=400)
 
 @login_required(login_url="sign_in")
 def sceneDetail(request, scene_id):
