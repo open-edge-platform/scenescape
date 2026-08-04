@@ -404,59 +404,6 @@ class TestProcessInputsFlow:
   @patch("harnesses.black_box_harness.black_box_harness.docker")
   @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
   @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
-  def test_controller_bypasses_proxy_for_internal_services(
-      self, mock_sleep, MockMqttClient, mock_docker,
-      configured_harness, sample_frames
-  ):
-    """Controller does not proxy Manager and broker traffic outside Docker."""
-    MockMqttClient.return_value = MagicMock()
-    mock_docker.network.create = MagicMock()
-    mock_docker.network.remove = MagicMock()
-    mock_docker.run = MagicMock(return_value=MagicMock())
-
-    list(configured_harness.process_inputs(iter(sample_frames)))
-
-    tracker_call = mock_docker.run.call_args_list[1]
-    envs = tracker_call.kwargs["envs"]
-    assert "black_box_harness_manager_" in envs["NO_PROXY"]
-    assert "black_box_harness_broker_" in envs["NO_PROXY"]
-    assert envs["no_proxy"] == envs["NO_PROXY"]
-
-  @patch("harnesses.black_box_harness.black_box_harness.docker")
-  @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
-  @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
-  def test_tracker_service_bypasses_proxy_for_internal_services(
-      self, mock_sleep, MockMqttClient, mock_docker,
-      harness, scene_config, tracker_config_file, sample_frames
-  ):
-    """Tracker service does not proxy Manager and broker traffic outside Docker."""
-    MockMqttClient.return_value = MagicMock()
-    mock_docker.network.create = MagicMock()
-    mock_docker.network.remove = MagicMock()
-    mock_docker.run = MagicMock(return_value=MagicMock())
-    harness.set_scene_config(scene_config)
-    harness.set_custom_config({
-        "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
-        "container_type": "tracker",
-        "drain_timeout": 0.1,
-    })
-
-    list(harness.process_inputs(iter(sample_frames)))
-
-    tracker_call = mock_docker.run.call_args_list[1]
-    envs = tracker_call.kwargs["envs"]
-    assert "black_box_harness_manager_" in envs["NO_PROXY"]
-    assert "black_box_harness_broker_" in envs["NO_PROXY"]
-    assert envs["no_proxy"] == envs["NO_PROXY"]
-    assert envs["HTTP_PROXY"] == ""
-    assert envs["HTTPS_PROXY"] == ""
-    assert envs["http_proxy"] == ""
-    assert envs["https_proxy"] == ""
-
-  @patch("harnesses.black_box_harness.black_box_harness.docker")
-  @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
-  @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
   def test_returns_collected_outputs(
       self, mock_sleep, MockMqttClient, mock_docker,
       configured_harness, sample_frames

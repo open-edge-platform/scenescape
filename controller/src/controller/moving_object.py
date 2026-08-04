@@ -318,7 +318,7 @@ class MovingObject:
     self.frameCount = otherObj.frameCount + 1
     if self.rotation_from_velocity and not self.has_detection_rotation:
       self.rotation = list(otherObj.rotation)
-    self._rotation_from_velocity_active = getattr(otherObj, '_rotation_from_velocity_active', False)
+    self._rotation_from_velocity_active = otherObj._rotation_from_velocity_active
     self.reid_state = otherObj.reid_state
     self.similarity = otherObj.similarity
     self.previous_ids_chain = otherObj.get_previous_ids()
