@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 networks:
@@ -13,8 +13,8 @@ secrets:
     environment: CONTROLLER_AUTH
 
 services:
-  controller-analytics:
-    image: intel/scenescape-controller:${VERSION:-latest}
+  analytics:
+    image: scenescape-analytics:${VERSION:-latest}
     init: true
     networks:
       scenescape-test:
@@ -27,21 +27,13 @@ services:
         condition: service_started
     environment:
       VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
-      CONTROLLER_ENABLE_ANALYTICS_ONLY: "true"
     command: --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
-      --ntp ntpserv
-      --visibility_topic "$VISIBILITY_TOPIC"
-    volumes:
-      - vol-media:/home/scenescape/Scenescape/media
-      - ./controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json
+      --visibility_topic ${VISIBILITY:-regulated}
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
       - django
       - controller.auth
     restart: on-failure
-
-volumes:
-  vol-media:
