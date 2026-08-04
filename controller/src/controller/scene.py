@@ -17,6 +17,7 @@ from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
 from controller.controller_mode import ControllerMode
+from controller.camera_registry import CameraRegistry
 from controller.moving_object import ChainData
 from controller.pose_adjustment import (PoseAdjustment,
                                         MIN_POSE_CACHE_TTL,
@@ -119,9 +120,17 @@ class Scene(SceneModel):
     elif trackerType == "time_chunked_intel_labs":
       args += (self.time_chunking_rate_fps, self.suspended_track_timeout_secs, self.reid_config_data)
     self.tracker = self.available_trackers[self.trackerType](*args)
+    self.tracker.uuid_manager.scene_id = self.name
     return
 
   def _hydrateFromSceneData(self, scene_data, reid_runtime_update=True):
+    # Rename must happen before anything below that keys process-wide state
+    # (CameraRegistry via updateCameras(), UUIDManager.scene_id via
+    # updateTracker()/_setTracker()) off of self.name -- otherwise a rename
+    # applied in the same update as a camera/tracker-config change gets
+    # recorded under the stale, pre-rename scene name.
+    self.name = scene_data['name']
+
     reid_config_changed = False
     if 'reid_config_data' in scene_data:
       new_reid_config_data = scene_data['reid_config_data']
@@ -154,7 +163,6 @@ class Scene(SceneModel):
       log.info(f"ReID config changed for scene={self.uid}; updating tracker ReID runtime config")
       self.tracker.updateReidConfig(self.reid_config_data)
 
-    self.name = scene_data['name']
     if 'scale' in scene_data:
       self.scale = scene_data['scale']
     if 'regulated_rate' in scene_data:
@@ -860,6 +868,7 @@ class Scene(SceneModel):
     deleted = old - new
     for camID in deleted:
       self.cameras.pop(camID)
+    CameraRegistry.getInstance().updateCameras(self.name, self.cameras.keys())
     return
 
   def _updateRegions(self, existingRegions, newRegions):
