@@ -72,3 +72,4 @@ docker compose --profile analytics --profile tracker up -d
 - [Tracker Service Architecture](../../docs/design/tracker-service.md)
 - [Controller User Guide](../../docs/user-guide/microservices/controller/controller.md)
 - [Controller Analytics-Only Mode](../../docs/user-guide/microservices/controller/get-started.md#running-in-analytics-only-mode)
+- [How to Enable Observability (Experimental)](../../docs/user-guide/other-topics/how-to-enable-observability.md) — enabling OpenTelemetry metrics and tracing for the tracker service.
