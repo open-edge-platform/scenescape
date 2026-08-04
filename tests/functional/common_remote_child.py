@@ -128,7 +128,6 @@ class RemoteHierarchySetup:
   @staticmethod
   def _create_child_scene_with_camera(rest, scene_name, camera_id, move_demo=True):
     """Create a unique scene; optionally move Demo camera1 onto it."""
-    time.sleep(5)
     demos = rest.getScenes({"name": "Demo"})
     assert demos.get("count", 0) > 0, "Demo scene missing on child stack"
     demo = demos["results"][0]
