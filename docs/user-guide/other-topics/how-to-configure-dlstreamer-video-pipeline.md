@@ -293,14 +293,14 @@ This section describes the metadata schema and the format that the payload needs
 "parameters": {
     "type": "object",
     "properties": {
-        "ntp_config": {
+        "ntp_server": {
             "element": {
                 "name": "timesync",
                 "property": "ntp-server"
             },
             "type": "string"
         },
-        "frame_ntp_config": {
+        "use_frame_ntp_timestamp": {
             "element": {
                 "name": "timesync",
                 "property": "use-frame-ntp-timestamp"
@@ -344,8 +344,8 @@ This section describes the metadata schema and the format that the payload needs
 
 ##### Breakdown of parameters
 
-- **ntp_config** (string): Specifies the NTP server to synchronize time with.
-- **frame_ntp_config** (boolean): Configuration for using the NTP timestamp embedded in RTSP frame metadata as the frame timestamp. This is an alternative to using the post-decode system clock timestamp. When the RTSP source is configured with `add-reference-timestamp-meta=true`, GStreamer attaches NTP reference timestamp metadata to each buffer.
+- **ntp_server** (string): Specifies the NTP server to synchronize time with.
+- **use_frame_ntp_timestamp** (boolean): Configuration for using the NTP timestamp embedded in RTSP frame metadata as the frame timestamp. This is an alternative to using the post-decode system clock timestamp. When the RTSP source is configured with `add-reference-timestamp-meta=true`, GStreamer attaches NTP reference timestamp metadata to each buffer.
   When `true`, the NTP timestamp extracted from the RTSP frame metadata
   (`GstReferenceTimestampMeta`, caps `timestamp/x-ntp`) is used as the frame timestamp instead of the post-decode
   system time. This can improve timing accuracy when camera and server clocks are synchronized to the same NTP server.
@@ -370,8 +370,8 @@ The payload section is the actual values for the specific pipeline being configu
         }
     },
     "parameters": {
-        "ntp_config": "ntpserv",
-        "frame_ntp_config": false,
+        "ntp_server": "ntpserv",
+        "use_frame_ntp_timestamp": false,
         "cameraid": "atag-qcam1",
         "metadatagenpolicy": "detectionPolicy",
         "detection_labels": "person"
