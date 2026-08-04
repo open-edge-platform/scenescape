@@ -64,14 +64,14 @@ variables at startup. Metrics and tracing are **disabled by default**.
 
 ### Environment Variables
 
-| Variable                               | Applies to | Default        | Description                                                                                                     |
-| -------------------------------------- | ---------- | -------------- | --------------------------------------------------------------------------------------------------------------- |
-| `CONTROLLER_ENABLE_METRICS`            | metrics    | `false`        | Set to `true` (or `1`/`yes`) to enable OpenTelemetry metrics export.                                            |
-| `CONTROLLER_METRICS_ENDPOINT`          | metrics    | *(none)*       | OTLP/gRPC endpoint for metrics, e.g. `otel-collector:4317`. Required when `CONTROLLER_ENABLE_METRICS` is `true`. |
-| `CONTROLLER_METRICS_EXPORT_INTERVAL_S` | metrics    | `60`           | Metrics export interval in seconds. Must be a positive integer.                                                 |
-| `CONTROLLER_ENABLE_TRACING`            | tracing    | `false`        | Set to `true` to enable OpenTelemetry distributed tracing.                                                      |
-| `CONTROLLER_TRACING_ENDPOINT`          | tracing    | `localhost:4317` | OTLP/gRPC endpoint for traces, e.g. `otel-collector:4317`.                                                    |
-| `CONTROLLER_TRACING_SAMPLE_RATIO`      | tracing    | `1.0`          | Trace sampling ratio (`0.0`–`1.0`). Use e.g. `0.1` for 10 % or `0.01` for 1 % sampling.                         |
+| Variable                               | Applies to | Default          | Description                                                                                                      |
+| -------------------------------------- | ---------- | ---------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `CONTROLLER_ENABLE_METRICS`            | metrics    | `false`          | Set to `true` (or `1`/`yes`) to enable OpenTelemetry metrics export.                                             |
+| `CONTROLLER_METRICS_ENDPOINT`          | metrics    | _(none)_         | OTLP/gRPC endpoint for metrics, e.g. `otel-collector:4317`. Required when `CONTROLLER_ENABLE_METRICS` is `true`. |
+| `CONTROLLER_METRICS_EXPORT_INTERVAL_S` | metrics    | `60`             | Metrics export interval in seconds. Must be a positive integer.                                                  |
+| `CONTROLLER_ENABLE_TRACING`            | tracing    | `false`          | Set to `true` to enable OpenTelemetry distributed tracing.                                                       |
+| `CONTROLLER_TRACING_ENDPOINT`          | tracing    | `localhost:4317` | OTLP/gRPC endpoint for traces, e.g. `otel-collector:4317`.                                                       |
+| `CONTROLLER_TRACING_SAMPLE_RATIO`      | tracing    | `1.0`            | Trace sampling ratio (`0.0`–`1.0`). Use e.g. `0.1` for 10 % or `0.01` for 1 % sampling.                          |
 
 If `CONTROLLER_ENABLE_METRICS=true` is set but `CONTROLLER_METRICS_ENDPOINT`
 is empty, the controller logs a warning and disables metrics. Invalid values
@@ -207,13 +207,13 @@ Any of the settings above can be overridden without editing the
 configuration file. The service uses these variables (defined in
 [`tracker/inc/env_vars.hpp`](https://github.com/open-edge-platform/scenescape/blob/main/tracker/inc/env_vars.hpp)):
 
-| Variable                            | Description                                                              |
-| ----------------------------------- | ------------------------------------------------------------------------ |
-| `TRACKER_OTLP_ENDPOINT`             | OTLP/gRPC endpoint, e.g. `otel-collector:4317`.                          |
-| `TRACKER_METRICS_ENABLED`           | `true`/`false` — enable metrics export.                                  |
-| `TRACKER_TRACING_ENABLED`           | `true`/`false` — enable distributed tracing.                             |
-| `TRACKER_METRICS_EXPORT_INTERVAL_S` | Metrics export interval (seconds, ≥ 1).                                  |
-| `TRACKER_TRACING_EXPORT_INTERVAL_S` | Batch span processor schedule delay (seconds, ≥ 1).                      |
+| Variable                            | Description                                         |
+| ----------------------------------- | --------------------------------------------------- |
+| `TRACKER_OTLP_ENDPOINT`             | OTLP/gRPC endpoint, e.g. `otel-collector:4317`.     |
+| `TRACKER_METRICS_ENABLED`           | `true`/`false` — enable metrics export.             |
+| `TRACKER_TRACING_ENABLED`           | `true`/`false` — enable distributed tracing.        |
+| `TRACKER_METRICS_EXPORT_INTERVAL_S` | Metrics export interval (seconds, ≥ 1).             |
+| `TRACKER_TRACING_EXPORT_INTERVAL_S` | Batch span processor schedule delay (seconds, ≥ 1). |
 
 Example (adapted from the tracker load-test Compose file):
 
