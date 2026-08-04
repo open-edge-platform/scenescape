@@ -107,7 +107,8 @@ class CameraCalibrationApi:
   # Perceptual-sensor calibration payloads (e.g. point clouds) can be large;
   # sized by transport bytes, not by point count.
   MAX_PERCEPTUAL_SENSOR_REQUEST_SIZE = 100 * 1024 * 1024
-  # Route prefix that is allowed the larger payload limit.
+  # Route prefix that is allowed the larger payload limit (covers the
+  # perceptual-sensor localization endpoint).
   PERCEPTUAL_SENSOR_ROUTE_PREFIX = "/v1/perceptual-sensors/"
 
   class OpenApi:
@@ -679,15 +680,15 @@ class CameraCalibrationApi:
             response[key] = result[key]
       return jsonify(response), 200
 
-    @app.route(f'{API_PREFIX}/perceptual-sensors/<sensorId>/calibration', methods=['POST'])
-    def calibrate_perceptual_sensor(sensorId):
-      """Calibrate (localize) a perceptual sensor against a scene.
+    @app.route(f'{API_PREFIX}/perceptual-sensors/<sensorId>/localization', methods=['POST'])
+    def localize_perceptual_sensor(sensorId):
+      """Localize a perceptual sensor against a scene.
 
       Currently only point-cloud input is supported; the request `modality`
       selects the calibration strategy so future modalities can be added
       without changing this handler.
       """
-      log.info(f"POST {API_PREFIX}/perceptual-sensors/{sensorId}/calibration called")
+      log.info(f"POST {API_PREFIX}/perceptual-sensors/{sensorId}/localization called")
 
       self._validate_calibration_context()
       self._validate_id(sensorId, "Sensor ID")
@@ -731,24 +732,24 @@ class CameraCalibrationApi:
             scene, sensorId, sensor_frame_data
         )
       except Exception as e:
-        log.error(f"Calibration failed for sensor {sensorId}: {e}")
-        raise CameraCalibrationError(f"Calibration failed: {str(e)}")
+        log.error(f"Localization failed for sensor {sensorId}: {e}")
+        raise CameraCalibrationError(f"Localization failed: {str(e)}")
 
       # Reflect the actual outcome recorded by the wrapper (e.g. "busy" when
-      # another calibration is already in progress) instead of assuming the
+      # another localization is already in progress) instead of assuming the
       # request was accepted.
       result = self.calibrationContext.calibration_results.get(sensorId, {})
       return jsonify({
           self.OpenApi.STATUS: result.get("status", self.OpenApi.Status.CALIBRATING),
           self.OpenApi.SENSOR_ID: sensorId,
           self.OpenApi.SCENE_ID: scene_id,
-          self.OpenApi.MESSAGE: result.get("message", "Calibration started")
+          self.OpenApi.MESSAGE: result.get("message", "Localization started")
       }), 202
 
-    @app.route(f'{API_PREFIX}/perceptual-sensors/<sensorId>/calibration', methods=['GET'])
-    def get_perceptual_sensor_calibration_status(sensorId):
-      """Get the current calibration status and result for a perceptual sensor."""
-      log.info(f"GET {API_PREFIX}/perceptual-sensors/{sensorId}/calibration called")
+    @app.route(f'{API_PREFIX}/perceptual-sensors/<sensorId>/localization', methods=['GET'])
+    def get_perceptual_sensor_localization_status(sensorId):
+      """Get the current localization status and result for a perceptual sensor."""
+      log.info(f"GET {API_PREFIX}/perceptual-sensors/{sensorId}/localization called")
 
       self._validate_calibration_context()
       self._validate_id(sensorId, "Sensor ID")
@@ -758,13 +759,13 @@ class CameraCalibrationApi:
         return jsonify({
             self.OpenApi.SENSOR_ID: sensorId,
             self.OpenApi.STATUS: self.OpenApi.Status.NOT_STARTED,
-            self.OpenApi.MESSAGE: "Calibration has not been started for this sensor"
+            self.OpenApi.MESSAGE: "Localization has not been started for this sensor"
         }), 200
       elif result.get("status") == self.OpenApi.Status.CALIBRATING:
         return jsonify({
             self.OpenApi.SENSOR_ID: sensorId,
             self.OpenApi.STATUS: self.OpenApi.Status.CALIBRATING,
-            self.OpenApi.MESSAGE: "Calibration in progress"
+            self.OpenApi.MESSAGE: "Localization in progress"
         }), 200
 
       response = {

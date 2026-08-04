@@ -6,17 +6,17 @@
 """Generic CLI for point-cloud test and verification workflows.
 
 The tool bundles a small set of composable commands that are useful for
-exercising and validating the AutoCalibration perceptual-sensor calibration
+exercising and validating the AutoCalibration perceptual-sensor localization
 feature (and point-cloud tooling in general):
 
   glb-to-cloud   Sample a point cloud (PCD/PLY) from a mesh (GLB/PLY).
   transform      Apply a 4x4 rigid transform to a point-cloud file.
-  calibrate      POST a point cloud to the perceptual-sensor calibration API.
-  status         GET (optionally poll) the calibration status for a sensor.
+  localize       POST a point cloud to the perceptual-sensor localization API.
+  status         GET (optionally poll) the localization status for a sensor.
 
 Each command reads from and writes to files so the steps can be chained, e.g.
 generate a scene cloud, transform it by a known matrix to emulate a sensor, POST
-it for calibration, and poll for the recovered transform as verification
+it for localization, and poll for the recovered transform as verification
 evidence.
 """
 
@@ -48,7 +48,7 @@ DEFAULT_API_URL = "https://localhost/api/v1/autocalibration"
 DEFAULT_SCENE_SAMPLE_POINTS = 200000
 DEFAULT_POLL_INTERVAL = 2.0
 DEFAULT_POLL_TIMEOUT = 120.0
-# Statuses that indicate the calibration has finished (successfully or not).
+# Statuses that indicate the localization has finished (successfully or not).
 TERMINAL_STATUSES = ("success", "error")
 
 
@@ -152,7 +152,7 @@ def resolve_token(api_url, auth=None, token=None, auth_url=None, cacert=None,
 
   Authentication is handled by the manager service (not the autocalibration
   service), so credentials are exchanged for a token at the manager's auth
-  endpoint before talking to the calibration API. A pre-issued `token` is used
+  endpoint before talking to the localization API. A pre-issued `token` is used
   as-is; without credentials or a token, `None` is returned (anonymous).
   """
   if token:
@@ -253,8 +253,8 @@ def cmd_transform(args):
   return 0
 
 
-def cmd_calibrate(args):
-  """POST a point cloud to the perceptual-sensor calibration endpoint."""
+def cmd_localize(args):
+  """POST a point cloud to the perceptual-sensor localization endpoint."""
   raw = Path(args.pointcloud).read_bytes()
   body = {
       "sceneId": args.scene_id,
@@ -271,7 +271,7 @@ def cmd_calibrate(args):
       args.url, auth=args.auth, token=args.token, auth_url=args.auth_url,
       cacert=args.cacert, timeout=args.timeout)
   resp = _do_request(
-      client, "POST", f"perceptual-sensors/{args.sensor_id}/calibration", json=body)
+      client, "POST", f"perceptual-sensors/{args.sensor_id}/localization", json=body)
   body = _print_response(resp)
   ok = resp.status_code in (200, 202)
   status = body.get("status") if isinstance(body, dict) else None
@@ -279,11 +279,11 @@ def cmd_calibrate(args):
 
 
 def cmd_status(args):
-  """GET (optionally poll) the calibration status for a sensor."""
+  """GET (optionally poll) the localization status for a sensor."""
   client = build_client(
       args.url, auth=args.auth, token=args.token, auth_url=args.auth_url,
       cacert=args.cacert, timeout=args.timeout)
-  path = f"perceptual-sensors/{args.sensor_id}/calibration"
+  path = f"perceptual-sensors/{args.sensor_id}/localization"
 
   deadline = time.monotonic() + args.timeout_poll
   while True:
@@ -360,24 +360,24 @@ def build_parser():
       "--ascii", action="store_true", help="Write ASCII instead of binary")
   xform.set_defaults(func=cmd_transform)
 
-  calib = subparsers.add_parser(
-      "calibrate", help="POST a point cloud to the calibration endpoint.")
-  calib.add_argument("--sensor-id", required=True, help="Perceptual sensor id")
-  calib.add_argument("--scene-id", required=True, help="Target scene id (UUID)")
-  calib.add_argument(
+  localize = subparsers.add_parser(
+      "localize", help="POST a point cloud to the localization endpoint.")
+  localize.add_argument("--sensor-id", required=True, help="Perceptual sensor id")
+  localize.add_argument("--scene-id", required=True, help="Target scene id (UUID)")
+  localize.add_argument(
       "--pointcloud", required=True, help="Point cloud file to send (.pcd/.ply)")
-  calib.add_argument(
+  localize.add_argument(
       "--format", choices=SUPPORTED_FORMATS,
       help="Explicit point cloud format (default: server auto-detect)")
-  calib.add_argument("--modality", help="Optional sensor modality hint")
-  calib.add_argument(
+  localize.add_argument("--modality", help="Optional sensor modality hint")
+  localize.add_argument(
       "--initial-transform",
       help="Optional initial 4x4 transform guess (matrix file)")
-  _add_client_arguments(calib)
-  calib.set_defaults(func=cmd_calibrate)
+  _add_client_arguments(localize)
+  localize.set_defaults(func=cmd_localize)
 
   status = subparsers.add_parser(
-      "status", help="GET (optionally poll) calibration status.")
+      "status", help="GET (optionally poll) localization status.")
   status.add_argument("--sensor-id", required=True, help="Perceptual sensor id")
   status.add_argument(
       "--poll", action="store_true",

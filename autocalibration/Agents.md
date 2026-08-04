@@ -41,8 +41,9 @@ The **Auto Camera Calibration** service (formerly `camcalibration`) computes cam
 5. **`auto_camera_calibration_api.py`**: REST API endpoints
    - `/scenes/{sceneId}/registration`: Register/update a scene for calibration
    - `/cameras/{cameraId}/calibration`: Trigger and poll camera calibration
-   - `/perceptual-sensors/{sensorId}/calibration`: Calibrate/poll a perceptual sensor
-     against a scene's 3D model
+   - `/perceptual-sensors/{sensorId}/localization`: Localize/poll a perceptual sensor
+     against a scene's 3D model (named distinctly from scene `registration` and camera
+     `calibration` to avoid endpoint-name confusion)
    - `/status`: Check calibration service status
 
 6. **`auto_camera_calibration_model.py`**: Data models and validation
@@ -177,7 +178,7 @@ pubsub.publish(f"calibration/result/{camera_id}", json.dumps(calibration_result)
 3. Inspect frames: Save detection images to volume for manual review
 4. Verify AprilTag detection: Check tag sizes, lighting, camera resolution
 
-### Exercising Perceptual-Sensor Calibration
+### Exercising Perceptual-Sensor Localization
 
 `tools/perceptual_sensor_cli.py` is a standalone CLI for point-cloud test and
 verification workflows (reuses the `point_cloud_registration` engine and
@@ -185,8 +186,8 @@ verification workflows (reuses the `point_cloud_registration` engine and
 
 - `glb-to-cloud <mesh> <out.pcd|out.ply>` — sample a point cloud from a GLB/PLY mesh
 - `transform <in> <out> --matrix <file>` — apply a 4x4 transform to a cloud
-- `calibrate --sensor-id <id> --scene-id <uuid> --pointcloud <file>` — POST to the calibration endpoint
-- `status --sensor-id <id> [--poll]` — GET/poll calibration status
+- `localize --sensor-id <id> --scene-id <uuid> --pointcloud <file>` — POST to the localization endpoint
+- `status --sensor-id <id> [--poll]` — GET/poll localization status
 
 Typical KPI/evidence flow: sample a scene cloud, transform it by a known matrix
 to emulate a sensor, POST it, then poll for the recovered transform.
