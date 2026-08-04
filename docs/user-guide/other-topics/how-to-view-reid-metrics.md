@@ -67,15 +67,15 @@ real Collector path above.
 
 ## Metrics reference
 
-| Metric | Kind | Unit | Tagged with | Meaning |
-|---|---|---|---|---|
-| `scenescape_controller_reid_match_latency` | histogram | s | `category` | Raw per-match latency samples; source for rigorous P95/P99 downstream |
-| `scenescape_controller_reid_rolling_avg_match_latency` | gauge | s | `category` | Average over the last 10 matches |
-| `scenescape_controller_reid_rolling_min_match_latency` | gauge | s | `category` | Min over the last 10 matches |
-| `scenescape_controller_reid_rolling_max_match_latency` | gauge | s | `category` | Max over the last 10 matches |
-| `scenescape_controller_reid_current_camera_count` | gauge | count | `category` | Cameras configured *and* confirmed producing embeddings |
-| `scenescape_controller_reid_tracked_object_count` | gauge | count | `category` | Active tracked objects/persons for one category |
-| `scenescape_controller_reid_total_tracked_object_count` | gauge | count | — | Sum of tracked-object count across every category |
+| Metric                                                  | Kind      | Unit  | Tagged with | Meaning                                                               |
+| ------------------------------------------------------- | --------- | ----- | ----------- | --------------------------------------------------------------------- |
+| `scenescape_controller_reid_match_latency`              | histogram | s     | `category`  | Raw per-match latency samples; source for rigorous P95/P99 downstream |
+| `scenescape_controller_reid_rolling_avg_match_latency`  | gauge     | s     | `category`  | Average over the last 10 matches                                      |
+| `scenescape_controller_reid_rolling_min_match_latency`  | gauge     | s     | `category`  | Min over the last 10 matches                                          |
+| `scenescape_controller_reid_rolling_max_match_latency`  | gauge     | s     | `category`  | Max over the last 10 matches                                          |
+| `scenescape_controller_reid_current_camera_count`       | gauge     | count | `category`  | Cameras configured _and_ confirmed producing embeddings               |
+| `scenescape_controller_reid_tracked_object_count`       | gauge     | count | `category`  | Active tracked objects/persons for one category                       |
+| `scenescape_controller_reid_total_tracked_object_count` | gauge     | count | —           | Sum of tracked-object count across every category                     |
 
 All ReID gauges and the histogram carry the same `category` attribute
 (e.g. `person` vs `car`) so multiple tracked categories don't collide on
@@ -104,7 +104,7 @@ histogram_quantile(0.99,
 ## Troubleshooting
 
 - **No data reaching the Collector/receiver at all**: confirm
-  `CONTROLLER_ENABLE_METRICS=true` *and* `CONTROLLER_METRICS_ENDPOINT` is
+  `CONTROLLER_ENABLE_METRICS=true` _and_ `CONTROLLER_METRICS_ENDPOINT` is
   set — if the endpoint is empty, metrics init silently disables itself
   even with the flag on. Also confirm the controller can actually reach the
   receiver's host:port (same Docker network, correct alias/hostname, port

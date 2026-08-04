@@ -106,7 +106,6 @@ material, and controller connection settings. The selected override sets
    ```
 
    The override ([docker-compose.qdrant-override.yml](/sample_data/docker-compose.qdrant-override.yml)):
-
    - Starts the logical `reid` service using Qdrant, with TLS on shared host `reid.scenescape.intel.com` and port `55555`
    - Sets `REID_DATABASE=QDRANT` on the `scene` service
    - Connection defaults (hostname, port, TLS=`true`, cert paths) are shared via `REID_*` settings
