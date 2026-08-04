@@ -91,9 +91,25 @@ spec:
           readinessProbe:
             exec:
               command:
-              - cat
-              - /tmp/healthy
-            periodSeconds: 1
+              - sh
+              - -c
+              - >
+                curl --insecure -s https://localhost:443/api/v1/health |
+                python3 -c 'import json,sys; data=json.load(sys.stdin); raise SystemExit(0 if data.get("ready") is True else 1)'
+            periodSeconds: 10
+            timeoutSeconds: 60
+            failureThreshold: 5
+            initialDelaySeconds: 10
+          livenessProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - curl --insecure -fsS https://localhost:443/api/v1/health >/dev/null
+            periodSeconds: 10
+            timeoutSeconds: 60
+            failureThreshold: 5
+            initialDelaySeconds: 20
           resources: {}
           volumeMounts:
           - mountPath: /run/secrets/certs/scenescape-ca.pem

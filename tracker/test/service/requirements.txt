@@ -6,7 +6,7 @@ python-on-whales==0.81.0
 waiting==1.5.0
 paho-mqtt==2.1.0
 requests==2.33.0
-cryptography==48.0.1
+cryptography==50.0.0
 PyYAML==6.0.3
 jsonschema==4.25.1
 ntplib==0.4.0

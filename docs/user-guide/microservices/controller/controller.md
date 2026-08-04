@@ -44,7 +44,11 @@ To deploy the scene controller service, refer to the [Get Started](./get-started
 
 `--reid_config_file`: Path to the JSON file containing Re-ID (Re-Identification) configuration. This file controls Re-ID specific settings such as stale feature timeout, feature accumulation thresholds, similarity metric selection, and similarity scoring. See [Extended Re-ID](./Extended-ReID.md) for details.
 
-When `similarity_metric` is `L2` (default), Re-ID vectors follow distance-style matching semantics (lower values are better). When `similarity_metric` is `COSINE`, Re-ID vectors are normalized before write/query and Scenescape uses VDMS `IP` internally; similarity scores are expected in `[-1, 1]`.
+By default, `similarity_metric` is `COSINE` with a threshold of `0.5`. Re-ID
+vectors are normalized before write/query and Scenescape uses an inner-product
+backend path (VDMS `IP` / Qdrant DOT); similarity scores are expected in
+`[-1, 1]`. Set the metric to `L2` for distance-style matching, where lower
+values are better.
 
 `--schema_file`: Specifies the path to the JSON file that contains the metadata schema. By default, it uses [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json). This schema outlines the structure and format of the messages processed by the service.
 
@@ -52,7 +56,7 @@ When `similarity_metric` is `L2` (default), Re-ID vectors follow distance-style 
 
 `--analytics-only`: Enables analytics-only mode (experimental feature). In this mode, the Scene Controller consumes tracked objects from a separate Tracker service via MQTT instead of performing tracking internally. The tracker is not initialized, and camera/scene data processing is skipped. Child scenes are not supported. Note: `--pose-adjustment` has no effect in this mode, since pose adjustment is applied during camera data processing which is skipped in analytics-only mode. This mode can also be enabled via the `CONTROLLER_ENABLE_ANALYTICS_ONLY` environment variable set to `true`.
 
-`--pose-adjustment`: Enables pose-based bounding box adjustment before world projection. When enabled, the controller uses pose keypoints (e.g. from a `yolo11n-pose` model) to refine the bounding box used for projecting detections into world coordinates. This is disabled by default. Not supported in `--analytics-only` mode. Cannot be used together with Extended ReID (VDMS-based cross-camera re-identification); see [Extended Re-ID](./Extended-ReID.md) for details. Can also be enabled via the `CONTROLLER_ENABLE_POSE_ADJUSTMENT` environment variable set to `true`. Requires the DL Streamer video pipeline to use a pose estimation model that provides keypoint data. See the [DL Streamer Pipeline Server documentation](https://github.com/open-edge-platform/scenescape/blob/main/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for pipeline setup.
+`--pose-adjustment`: Enables pose-based bounding box adjustment before world projection. When enabled, the controller uses pose keypoints (e.g. from a `yolo11n-pose` model) to refine the bounding box used for projecting detections into world coordinates. This is disabled by default. Not supported in `--analytics-only` mode. Cannot be used together with Extended ReID (cross-camera re-identification via the configured vector backend); see [Extended Re-ID](./Extended-ReID.md) for details. Can also be enabled via the `CONTROLLER_ENABLE_POSE_ADJUSTMENT` environment variable set to `true`. Requires the DL Streamer video pipeline to use a pose estimation model that provides keypoint data. See the [DL Streamer Pipeline Server documentation](https://github.com/open-edge-platform/scenescape/blob/main/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for pipeline setup.
 
 `--pose_adjustment_config_file`: JSON file that defines pose-adjustment label routing. The default file is `pose-adjustment-route.json` next to the controller executable. Use this file to map each registered pose-adjustment strategy label to the incoming labels that should dispatch to it.
 
@@ -73,6 +77,25 @@ For detailed configuration guidance:
 
 - Tracker configuration: See [How to Configure the Tracker](./how-to-configure-tracker.md)
 - Re-ID configuration: See [Extended Re-ID](./Extended-ReID.md)
+- Observability (experimental): See [How to Enable Observability](../../other-topics/how-to-enable-observability.md)
+
+### Observability (Experimental)
+
+The Scene Controller ships with **experimental** OpenTelemetry
+instrumentation that can export metrics and distributed traces to an
+OpenTelemetry Collector over insecure OTLP/gRPC. Both signals are disabled
+by default and are toggled with the `CONTROLLER_ENABLE_METRICS` and
+`CONTROLLER_ENABLE_TRACING` environment variables (endpoints are configured
+via `CONTROLLER_METRICS_ENDPOINT` and `CONTROLLER_TRACING_ENDPOINT`).
+
+> **⚠️ Experimental.** Metric names, span names, attributes, and
+> configuration keys may change between releases, and the current
+> implementation supports only insecure OTLP export. Do not enable on
+> untrusted networks or rely on this instrumentation for long-lived
+> dashboards without pinning versions.
+
+For the full list of variables, exported instruments, and setup steps see
+[How to Enable Observability](../../other-topics/how-to-enable-observability.md).
 
 ## Input/Output Message Formats
 
@@ -99,6 +122,7 @@ _Figure 2: Scene Controller Sequence diagram_
 - [Extended Re-ID](./Extended-ReID.md)
 - [Data Formats](./data_formats.md)
 - [API Reference](./api-reference.md)
+- [How to Enable Observability (Experimental)](../../other-topics/how-to-enable-observability.md)
 
 <!--hide_directive
 :::{toctree}

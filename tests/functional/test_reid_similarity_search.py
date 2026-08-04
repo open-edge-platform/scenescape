@@ -4,33 +4,42 @@
 import uuid
 import numpy as np
 from tests.functional.backend_functional import BackendFunctionalTest
+from tests.functional.reid_backend import REID_DATABASE, get_reid_profile_module
 from tests.utils.log import get_logger
 
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import REID
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=REID,
+  profile=get_reid_profile_module(),
   auth=AUTH_CONTROLLER,
 )
 
 TEST_NAME = "NEX-T10516"
-TEST_SET_NAME = "test_similarity_search"
 
-class VDMSSimilaritySearch(BackendFunctionalTest):
+class ReidSimilaritySearch(BackendFunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
     self.thing_1 = self.generate_random_vector()
     self.thing_2 = self.generate_random_vector()
     self.thing_2_match = self.generate_random_vector()
     # Per-run identifiers keep this test isolated from descriptors left behind
-    # by earlier runs sharing the same VDMS instance.
+    # by earlier runs sharing the same ReID backend instance.
     self.run_id = uuid.uuid4().hex
     self.set_name = f"reid_vector_{self.run_id[:8]}"
 
   def descriptor_set_reid(self):
     log.info("Add the descriptor set for RE-ID data")
+    if REID_DATABASE == "QDRANT":
+      from controller.qdrant_adapter import QdrantDatabase
+      from tests.functional.reid_backend import connect_reid_database
+      # Use a dedicated adapter bound to this run's collection and L2 metric so
+      # ensureSchema initializes the custom set rather than the default IP schema.
+      self.vdb = QdrantDatabase(set_name=self.set_name, similarity_metric="L2")
+      connect_reid_database(self.vdb, use_tls=True)
+      self.vdb.ensureSchema(256)
+      return
+
     descriptor_set = {
       "AddDescriptorSet": {
         "name": self.set_name,
@@ -48,6 +57,21 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
 
   def descriptor_objects(self):
     log.info("Add descriptors for two distinct objects")
+    if REID_DATABASE == "QDRANT":
+      self.vdb.addEntry(
+        "person-1",
+        "track-1",
+        "person",
+        [self.thing_1],
+        run_id=self.run_id)
+      self.vdb.addEntry(
+        "person-2",
+        "track-2",
+        "person",
+        [self.thing_2],
+        run_id=self.run_id)
+      return
+
     blob_1 = np.array(self.thing_1, dtype="float32")
     blob_2 = np.array(self.thing_2, dtype="float32")
 
@@ -86,20 +110,24 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
     log.info("Pass a third RE-ID vector from one of the two initial objects and get a similarity search comparison. It should have low distance from one of the entries.")
     response, res_arr = self.get_similarity_comparison([self.thing_2_match], set_name=self.set_name)
     log.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
+    if REID_DATABASE == "QDRANT":
+      assert response[0]['returned'] >= 1, \
+        "There should be at least one entity returned!"
+      return
     assert response[0]['returned'] == 2, \
       "There should be only 2 entities returned!"
     return
 
-def test_vdms_similarity_search(scenescape_env, request, record_xml_attribute):
-  """! Verify similarity search with RE-ID vectors using VDMS.
+def test_reid_similarity_search(scenescape_env, request, record_xml_attribute):
+  """! Verify similarity search with RE-ID vectors on the configured backend.
   @param    request                 Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.
   @return   exit_code               Indicates test success or failure.
   """
 
-  test = VDMSSimilaritySearch(TEST_NAME, request, record_xml_attribute)
+  test = ReidSimilaritySearch(TEST_NAME, request, record_xml_attribute)
   try:
-    test.vdms_connect()
+    test.reid_connect()
     test.descriptor_set_reid()
     test.descriptor_objects()
     test.get_similarity()
