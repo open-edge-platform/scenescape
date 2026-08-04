@@ -77,6 +77,25 @@ For detailed configuration guidance:
 
 - Tracker configuration: See [How to Configure the Tracker](./how-to-configure-tracker.md)
 - Re-ID configuration: See [Extended Re-ID](./Extended-ReID.md)
+- Observability (experimental): See [How to Enable Observability](../../other-topics/how-to-enable-observability.md)
+
+### Observability (Experimental)
+
+The Scene Controller ships with **experimental** OpenTelemetry
+instrumentation that can export metrics and distributed traces to an
+OpenTelemetry Collector over insecure OTLP/gRPC. Both signals are disabled
+by default and are toggled with the `CONTROLLER_ENABLE_METRICS` and
+`CONTROLLER_ENABLE_TRACING` environment variables (endpoints are configured
+via `CONTROLLER_METRICS_ENDPOINT` and `CONTROLLER_TRACING_ENDPOINT`).
+
+> **⚠️ Experimental.** Metric names, span names, attributes, and
+> configuration keys may change between releases, and the current
+> implementation supports only insecure OTLP export. Do not enable on
+> untrusted networks or rely on this instrumentation for long-lived
+> dashboards without pinning versions.
+
+For the full list of variables, exported instruments, and setup steps see
+[How to Enable Observability](../../other-topics/how-to-enable-observability.md).
 
 ## Input/Output Message Formats
 
@@ -103,6 +122,7 @@ _Figure 2: Scene Controller Sequence diagram_
 - [Extended Re-ID](./Extended-ReID.md)
 - [Data Formats](./data_formats.md)
 - [API Reference](./api-reference.md)
+- [How to Enable Observability (Experimental)](../../other-topics/how-to-enable-observability.md)
 
 <!--hide_directive
 :::{toctree}
