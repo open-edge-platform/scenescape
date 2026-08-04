@@ -5,7 +5,7 @@
 # TEMPORARY: This workflow has been temporarily reduced to only run the
 # stability test for validation on the current branch. Restore the full
 # job set before merging.
-name: "[Tests] All Tests"
+name: "[Tests] Stability Test"
 run-name: "[Tests] Stability Test"
 
 on:
