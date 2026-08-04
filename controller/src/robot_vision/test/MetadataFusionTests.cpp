@@ -131,17 +131,20 @@ TEST(MetadataFusionTest, LatestCameraWinsWithoutConfidence)
   EXPECT_EQ(tracks[0].attributes.at("metadata.age"), R"({"label":"senior"})");
 }
 
-TEST(MetadataFusionTest, CurrentSingleCameraMeasurementClearsPreviousFusion)
+TEST(MetadataFusionTest, CurrentSingleCameraMeasurementPreservesPreviousFusion)
 {
   auto tracker = makeTracker();
-  auto plate = makeObject(0.0, {{"metadata.plate", R"({"label":"XYZ-789"})"}});
-  auto gender = makeObject(0.0, {{"metadata.gender", R"({"label":"female"})"}});
+  auto plate = makeObject(
+    0.0, {{"metadata.plate", R"({"label":"XYZ-789","confidence":0.8})"}, {"metadata_confidence.plate", "0.8"}});
+  auto gender = makeObject(
+    0.0, {{"metadata.gender", R"({"label":"female","confidence":0.9})"}, {"metadata_confidence.gender", "0.9"}});
   tracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{plate}, {gender}},
                 InitialTimestamp,
                 rv::tracking::DistanceType::Euclidean,
                 2.0);
 
-  auto current = makeObject(0.1, {{"metadata.gender", R"({"label":"male"})"}});
+  auto current = makeObject(
+    0.1, {{"metadata.gender", R"({"label":"male","confidence":0.7})"}, {"metadata_confidence.gender", "0.7"}});
   tracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{current}},
                 InitialTimestamp + std::chrono::milliseconds(100),
                 rv::tracking::DistanceType::Euclidean,
@@ -149,8 +152,173 @@ TEST(MetadataFusionTest, CurrentSingleCameraMeasurementClearsPreviousFusion)
 
   const auto tracks = tracker.getTracks();
   ASSERT_EQ(tracks.size(), 1);
-  EXPECT_EQ(tracks[0].attributes.at("metadata.gender"), R"({"label":"male"})");
+  EXPECT_EQ(tracks[0].attributes.at("metadata.plate"), R"({"label":"XYZ-789","confidence":0.8})");
+  EXPECT_EQ(tracks[0].attributes.at("metadata.gender"), R"({"label":"female","confidence":0.9})");
+  EXPECT_EQ(tracks[0].attributes.at("metadata_confidence.plate"), "0.8");
+  EXPECT_EQ(tracks[0].attributes.at("metadata_confidence.gender"), "0.9");
+}
+
+TEST(MetadataFusionTest, MetadataPersistsAndOnlyHigherConfidenceReplacesIt)
+{
+  struct Case
+  {
+    const char *name;
+    std::unordered_map<std::string, std::string> initialAttributes;
+    std::unordered_map<std::string, std::string> currentAttributes;
+    std::string expectedValue;
+    std::optional<std::string> expectedConfidence;
+  };
+
+  const std::vector<Case> cases = {
+    {"missing current field",
+     {{"metadata.gender", R"({"label":"female","confidence":0.9})"}, {"metadata_confidence.gender", "0.9"}},
+     {},
+     R"({"label":"female","confidence":0.9})",
+     "0.9"},
+    {"higher confidence",
+     {{"metadata.gender", R"({"label":"female","confidence":0.9})"}, {"metadata_confidence.gender", "0.9"}},
+     {{"metadata.gender", R"({"label":"male","confidence":0.95})"}, {"metadata_confidence.gender", "0.95"}},
+     R"({"label":"male","confidence":0.95})",
+     "0.95"},
+    {"lower confidence",
+     {{"metadata.gender", R"({"label":"female","confidence":0.9})"}, {"metadata_confidence.gender", "0.9"}},
+     {{"metadata.gender", R"({"label":"male","confidence":0.7})"}, {"metadata_confidence.gender", "0.7"}},
+     R"({"label":"female","confidence":0.9})",
+     "0.9"},
+    {"equal confidence",
+     {{"metadata.gender", R"({"label":"female","confidence":0.9})"}, {"metadata_confidence.gender", "0.9"}},
+     {{"metadata.gender", R"({"label":"male","confidence":0.9})"}, {"metadata_confidence.gender", "0.9"}},
+     R"({"label":"female","confidence":0.9})",
+     "0.9"},
+    {"new confidence replaces missing confidence",
+     {{"metadata.gender", R"({"label":"female"})"}},
+     {{"metadata.gender", R"({"label":"male","confidence":0.7})"}, {"metadata_confidence.gender", "0.7"}},
+     R"({"label":"male","confidence":0.7})",
+     "0.7"},
+    {"missing new confidence does not replace confidence",
+     {{"metadata.gender", R"({"label":"female","confidence":0.9})"}, {"metadata_confidence.gender", "0.9"}},
+     {{"metadata.gender", R"({"label":"male"})"}},
+     R"({"label":"female","confidence":0.9})",
+     "0.9"},
+    {"missing confidence retains stored value",
+     {{"metadata.gender", R"({"label":"female"})"}},
+     {{"metadata.gender", R"({"label":"male"})"}},
+     R"({"label":"female"})",
+     std::nullopt},
+  };
+
+  for (const auto &testCase : cases)
+  {
+    SCOPED_TRACE(testCase.name);
+    auto tracker = makeTracker();
+    tracker.track(std::vector<rv::tracking::TrackedObject>{makeObject(0.0, testCase.initialAttributes)},
+                  InitialTimestamp,
+                  rv::tracking::DistanceType::Euclidean,
+                  2.0);
+    tracker.track(std::vector<rv::tracking::TrackedObject>{makeObject(0.1, testCase.currentAttributes)},
+                  InitialTimestamp + std::chrono::milliseconds(100),
+                  rv::tracking::DistanceType::Euclidean,
+                  2.0);
+
+    const auto tracks = tracker.getTracks();
+    ASSERT_EQ(tracks.size(), 1);
+    const auto value = tracks[0].attributes.find("metadata.gender");
+    EXPECT_NE(value, tracks[0].attributes.end());
+    if (value != tracks[0].attributes.end())
+    {
+      EXPECT_EQ(value->second, testCase.expectedValue);
+    }
+    if (testCase.expectedConfidence)
+    {
+      const auto confidence = tracks[0].attributes.find("metadata_confidence.gender");
+      EXPECT_NE(confidence, tracks[0].attributes.end());
+      if (confidence != tracks[0].attributes.end())
+      {
+        EXPECT_EQ(confidence->second, *testCase.expectedConfidence);
+      }
+    }
+    else
+    {
+      EXPECT_EQ(tracks[0].attributes.count("metadata_confidence.gender"), 0);
+    }
+  }
+}
+
+TEST(MetadataFusionTest, MetadataFieldsAccumulateAcrossFrames)
+{
+  auto tracker = makeTracker();
+  auto plate = makeObject(
+    0.0, {{"metadata.plate", R"({"label":"XYZ-789","confidence":0.8})"}, {"metadata_confidence.plate", "0.8"}});
+  tracker.track(
+    std::vector<rv::tracking::TrackedObject>{plate}, InitialTimestamp, rv::tracking::DistanceType::Euclidean, 2.0);
+
+  auto gender = makeObject(
+    0.1, {{"metadata.gender", R"({"label":"female","confidence":0.9})"}, {"metadata_confidence.gender", "0.9"}});
+  tracker.track(std::vector<rv::tracking::TrackedObject>{gender},
+                InitialTimestamp + std::chrono::milliseconds(100),
+                rv::tracking::DistanceType::Euclidean,
+                2.0);
+
+  const auto tracks = tracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1);
+  EXPECT_EQ(tracks[0].attributes.at("metadata.plate"), R"({"label":"XYZ-789","confidence":0.8})");
+  EXPECT_EQ(tracks[0].attributes.at("metadata.gender"), R"({"label":"female","confidence":0.9})");
+}
+
+TEST(MetadataFusionTest, StoredMaximumBeatsCurrentMultiCameraFusion)
+{
+  auto tracker = makeTracker();
+  auto stored = makeObject(
+    0.0, {{"metadata.gender", R"({"label":"female","confidence":0.95})"}, {"metadata_confidence.gender", "0.95"}});
+  tracker.track(
+    std::vector<rv::tracking::TrackedObject>{stored}, InitialTimestamp, rv::tracking::DistanceType::Euclidean, 2.0);
+
+  auto cameraOne = makeObject(
+    0.1, {{"metadata.gender", R"({"label":"male","confidence":0.8})"}, {"metadata_confidence.gender", "0.8"}});
+  auto cameraTwo = makeObject(
+    0.1, {{"metadata.gender", R"({"label":"senior","confidence":0.9})"}, {"metadata_confidence.gender", "0.9"}});
+  tracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{cameraOne}, {cameraTwo}},
+                InitialTimestamp + std::chrono::milliseconds(100),
+                rv::tracking::DistanceType::Euclidean,
+                2.0);
+
+  const auto tracks = tracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1);
+  EXPECT_EQ(tracks[0].attributes.at("metadata.gender"), R"({"label":"female","confidence":0.95})");
+  EXPECT_EQ(tracks[0].attributes.at("metadata_confidence.gender"), "0.95");
+}
+
+TEST(MetadataFusionTest, MetadataStateDoesNotSurviveTrackExpiration)
+{
+  rv::tracking::TrackManagerConfig config;
+  config.mMaxNumberOfUnreliableFrames = 0;
+  config.mNonMeasurementFramesDynamic = 0;
+  config.mDefaultProcessNoise = 1e-4;
+  config.mDefaultMeasurementNoise = 1e-4;
+  rv::tracking::MultipleObjectTracker tracker(config);
+
+  auto expired = makeObject(
+    0.0, {{"metadata.plate", R"({"label":"XYZ-789","confidence":0.8})"}, {"metadata_confidence.plate", "0.8"}});
+  expired.vx = 2.0;
+  tracker.track(
+    std::vector<rv::tracking::TrackedObject>{expired}, InitialTimestamp, rv::tracking::DistanceType::Euclidean, 2.0);
+  tracker.track(std::vector<rv::tracking::TrackedObject>{},
+                InitialTimestamp + std::chrono::milliseconds(100),
+                rv::tracking::DistanceType::Euclidean,
+                2.0);
+  ASSERT_TRUE(tracker.getTracks().empty());
+
+  auto replacement = makeObject(
+    0.0, {{"metadata.gender", R"({"label":"female","confidence":0.9})"}, {"metadata_confidence.gender", "0.9"}});
+  tracker.track(std::vector<rv::tracking::TrackedObject>{replacement},
+                InitialTimestamp + std::chrono::milliseconds(200),
+                rv::tracking::DistanceType::Euclidean,
+                2.0);
+
+  const auto tracks = tracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1);
   EXPECT_EQ(tracks[0].attributes.count("metadata.plate"), 0);
+  EXPECT_EQ(tracks[0].attributes.at("metadata.gender"), R"({"label":"female","confidence":0.9})");
 }
 
 TEST(MetadataFusionTest, MetadataDoesNotBypassSingleCameraCorrection)
