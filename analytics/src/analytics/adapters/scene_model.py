@@ -1,10 +1,15 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Optional
+
+import numpy as np
+
 from scene_common import log
 from scene_common.camera import Camera
+from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints
 from scene_common.geometry import Point, Region, Tripwire
-from scene_common.mesh_util import createObjectMesh, createRegionMesh
+from scene_common.mesh_util import createObjectMesh, createRegionMesh, getMeshAxisAlignedProjectionToXY
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_iso_time
 from scene_common.transform import CameraPose
@@ -41,6 +46,7 @@ class AnalyticsScene(SceneModel):
     self.analytics_state = AnalyticsStateStore()
     self.regulated_rate = 30
     self.external_update_rate = 30
+    self._trs_xyz_to_lla = None
     return
 
   def _hydrateFromSceneData(self, scene_data):
@@ -65,10 +71,33 @@ class AnalyticsScene(SceneModel):
       self.regulated_rate = scene_data['regulated_rate']
     if 'external_update_rate' in scene_data:
       self.external_update_rate = scene_data['external_update_rate']
+    self._invalidate_trs_xyz_to_lla()
+    # Access the property to trigger initialization
+    _ = self.trs_xyz_to_lla
     return
 
   def updateScene(self, scene_data):
     self._hydrateFromSceneData(scene_data)
+    return
+
+  @property
+  def trs_xyz_to_lla(self) -> Optional[np.ndarray]:
+    """
+    Get the transformation matrix from TRS (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude) coordinates.
+
+    The matrix is calculated lazily on first access and cached for subsequent calls.
+    """
+    if self._trs_xyz_to_lla is None and self.output_lla and self.map_corners_lla is not None:
+      mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
+      self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
+    return self._trs_xyz_to_lla
+
+  def _invalidate_trs_xyz_to_lla(self):
+    """
+    Invalidate the cached transformation matrix from TRS to LLA coordinates.
+    This method should be called when the scene geospatial mapping parameters change.
+    """
+    self._trs_xyz_to_lla = None
     return
 
   def _updateChildren(self, newChildren):
