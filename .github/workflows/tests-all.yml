@@ -57,7 +57,7 @@ permissions:
 
 jobs:
   run_stability_test:
-    runs-on: [all]
+    runs-on: [stability]
     name: "Stability Test"
     permissions:
       packages: write # For using GHCR as cache registry
