@@ -18,6 +18,8 @@ Before you begin, ensure the following:
 - You have access to modify the `docker-compose.yml` file in your deployment.
 - You are familiar with scene and camera configuration in Scenescape.
 
+Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md) for exposing match-latency, camera-count, and tracked-object-count metrics for monitoring and hardware-sizing purposes.
+
 ---
 
 ## Steps to Enable Reidentification (ReID) for Out of Box Experience
@@ -65,7 +67,7 @@ retail-config:
 This reidentification-specific configuration uses a vision pipeline that includes anonymous visual feature extraction (also called "visual embeddings") using a person reidentification model:
 
 ```
-"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/apriltag-cam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/apriltag-cam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
 ```
 
 **Expected Result**: Scenescape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
@@ -104,7 +106,6 @@ material, and controller connection settings. The selected override sets
    ```
 
    The override ([docker-compose.qdrant-override.yml](/sample_data/docker-compose.qdrant-override.yml)):
-
    - Starts the logical `reid` service using Qdrant, with TLS on shared host `reid.scenescape.intel.com` and port `55555`
    - Sets `REID_DATABASE=QDRANT` on the `scene` service
    - Connection defaults (hostname, port, TLS=`true`, cert paths) are shared via `REID_*` settings
@@ -250,6 +251,9 @@ retail-config:
 - **UI Support**:\
   UUID display in the 3D UI is planned for future releases.
 
+- **Latency Metrics**:\
+  For match-latency trends and correlating them against camera count and tracked-object count (e.g. for hardware sizing or monitoring degradation as a deployment scales), see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md).
+
 > **Note**: The default ReID model is tuned for the 'person' category and may not generalize well to other object types.
 
 ---
@@ -325,3 +329,7 @@ docker compose -f docker-compose-dl-streamer-example.yml \
 3. **Issue: Backend switch appears to “lose” identities**
    - **Cause**: VDMS and Qdrant do not share stored embeddings.
    - **Resolution**: Expected after switching `REID_DATABASE`. Re-accumulate features in the new backend, or restore the previous backend and its data volume.
+
+4. **Issue: No `reid_*` metrics showing up when checking latency/camera-count metrics**
+   - **Cause**: Most commonly, ReID isn't actually enabled yet (feature-extraction pipeline / `reid-config.json` not applied — see [Steps to Enable Reidentification](#steps-to-enable-reidentification-reid-for-out-of-box-experience) above), rather than a metrics-pipeline problem.
+   - **Resolution**: Confirm ReID is enabled and objects are being detected/tracked first; then see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md#troubleshooting) for metrics-specific troubleshooting.
