@@ -478,6 +478,8 @@ class TestCacheManagerRefreshCameras:
 
     mock_scene.cameras = {'cam-1': mock_camera}
     cache_mgr.cached_scenes_by_uid = {'scene-1': mock_scene}
+    mock_scene.tracker = None
+    mock_scene.name = 'scene-1'
     cache_mgr.camera_parameters = {}
     cache_mgr.data_source = Mock()
     cache_mgr.data_source.getScenes.return_value = {'results': []}

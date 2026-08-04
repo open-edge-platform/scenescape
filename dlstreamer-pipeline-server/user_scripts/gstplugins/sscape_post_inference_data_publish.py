@@ -8,7 +8,6 @@ data over MQTT (and, on request, JPEG-encoded frame images).
 
 import base64
 import json
-import logging
 import os
 import time
 from collections import defaultdict
@@ -42,6 +41,9 @@ from sscape_policies import (  # noqa: E402  pylint: disable=wrong-import-positi
 from sscape_3d_detector import (  # noqa: E402  pylint: disable=wrong-import-position
   Object3DChainedDataProcessor,
 )
+from sscape_gst_log import (  # noqa: E402  pylint: disable=wrong-import-position
+  GstCategoryLogger,
+)
 
 ROOT_CA = os.environ.get("ROOT_CA", "/run/secrets/certs/scenescape-ca.pem")
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
@@ -62,6 +64,13 @@ CONVERSION_MAP = {
   "GST_VIDEO_FORMAT_RGB": cv2.COLOR_RGB2BGR,
 }
 
+# GstDebugCategory registered at module load so `GST_DEBUG=sscape_post_inference:2`
+# (or any level) toggles this plugin's verbosity like any built-in category.
+_GST_LOG = GstCategoryLogger(
+  "sscape_post_inference",
+  "SceneScape post-inference MQTT publisher element",
+)
+
 
 def _get_mac_address() -> str:
   if "MACADDR" in os.environ:
@@ -72,7 +81,13 @@ def _get_mac_address() -> str:
 
 
 class SscapePostInferenceDataPublish(GstBase.BaseTransform):
-  """Publish per-frame SceneScape metadata to MQTT and gvametapublish."""
+  """Publish per-frame SceneScape metadata to MQTT.
+
+  Consumes `GstGVAJSONMeta` attached upstream (by `gvametaconvert` and by
+  `sscape_timestamp_capture`), builds the SceneScape per-frame payload, and
+  publishes it directly over MQTT via paho-mqtt. Also re-attaches the final
+  payload as `GstGVAJSONMeta` for any downstream GVA-aware element.
+  """
 
   __gstmetadata__ = (
     "SceneScape Post-Inference Data Publish",
@@ -144,7 +159,7 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     self.set_in_place(True)
     self.set_passthrough(False)
 
-    self._log = logging.getLogger("SSCAPE_POST_INFERENCE")
+    self._log = _GST_LOG
 
     # Properties (defaults)
     self._cameraid: str = ""
@@ -352,6 +367,13 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     payload = json.dumps(self._frame_level_data)
     self._client.publish(f"scenescape/data/camera/{self._cameraid}", payload)
     frame.add_message(payload)
+
+    self._log.debug(
+      f"published cam={self._cameraid} "
+      f"objs={len(self._frame_level_data.get('objects', []))} "
+      f"ts={self._frame_level_data.get('timestamp')} "
+      f"bytes={len(payload)}"
+    )
 
   @staticmethod
   def _collect_gva_messages(frame, out: dict) -> None:
