@@ -8,15 +8,8 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-<<<<<<< HEAD
-CORE_IMAGE_FOLDERS := autocalibration controller manager model_installer
-# analytics: not merged yet (PR #1644) - folder-iterating targets below skip it
-# gracefully until it lands, so it's safe to list here ahead of the merge.
-IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker scene_common analytics
-=======
 CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
-IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker
->>>>>>> origin/main
+IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker scene_common
 
 # Image variables
 IMAGE_PREFIX := scenescape
@@ -184,20 +177,12 @@ build-common:
 # Build targets for each service folder
 .PHONY: $(IMAGE_FOLDERS)
 $(IMAGE_FOLDERS):
-	@if [ ! -f $@/Makefile ]; then \
-		echo "====> Skipping folder $@ (no Makefile found yet)"; \
-	else \
-		echo "====> Building folder $@..."; \
-		$(MAKE) -C $@ BUILD_DIR=$(BUILD_DIR) http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy); \
-		echo "DONE ====> Building folder $@"; \
-	fi
+	@echo "====> Building folder $@..."
+	@$(MAKE) -C $@ BUILD_DIR=$(BUILD_DIR) http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy)
+	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-<<<<<<< HEAD
-autocalibration controller manager mapping cluster_analytics analytics: build-common
-=======
 autocalibration controller manager analytics mapping cluster_analytics: build-common
->>>>>>> origin/main
 
 # Helper function to build images in parallel
 define parallel-build
@@ -245,9 +230,7 @@ rebuild-all: clean-all build-all
 define clean-image-folders
 	@echo "==> Cleaning up all build artifacts..."
 	@for dir in $(1); do \
-		if [ -f $$dir/Makefile ]; then \
-			$(MAKE) -C $$dir clean 2>/dev/null; \
-		fi; \
+		$(MAKE) -C $$dir clean 2>/dev/null; \
 	done
 	@echo "Cleaning common folder..."
 	@$(MAKE) -C $(COMMON_FOLDER) clean 2>/dev/null
@@ -329,10 +312,6 @@ list-dependencies: $(BUILD_DIR)
 	@echo "==> Listing dependencies for all microservices..."
 	@set -e; \
 	for dir in $(IMAGE_FOLDERS); do \
-		if [ ! -f $$dir/Makefile ]; then \
-			echo "Skipping $$dir (no Makefile found yet)"; \
-			continue; \
-		fi; \
 		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) list-dependencies; \
 	done
 	@echo "The following dependency lists have been generated:"
@@ -352,10 +331,6 @@ generate-sboms: $(BUILD_DIR)
 		--driver-opt=env.http_proxy=$(http_proxy),env.https_proxy=$(https_proxy),env.HTTP_PROXY=$(HTTP_PROXY),env.HTTPS_PROXY=$(HTTPS_PROXY),default-load=true
 	@set -e; trap 'docker buildx rm $(BUILDKIT_BUILDER_NAME) 2>/dev/null || true' EXIT; \
 	for dir in $(IMAGE_FOLDERS); do \
-		if [ ! -f $$dir/Makefile ]; then \
-			echo "Skipping $$dir (no Makefile found yet)"; \
-			continue; \
-		fi; \
 		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) generate-sbom; \
 	done
 	@echo "The following SBOMs have been generated in $(BUILD_DIR)/sboms:"
