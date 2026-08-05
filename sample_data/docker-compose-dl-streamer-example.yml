@@ -219,7 +219,7 @@ services:
       - controller
 
   analytics:
-    image: scenescape-analytics:${VERSION:-latest}
+    image: intel/scenescape-analytics:${VERSION:-latest}
     init: true
     user: "${UID:-1000}:${GID:-1000}"
     networks:
