@@ -10,7 +10,7 @@ set -euo pipefail
 deploy_dir=${1:-.}
 cd "$deploy_dir"
 
-MODEL_XML="intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml"
+MODEL_XML="omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml"
 
 project_name=$(docker compose config --format json \
   | python3 -c "import json,sys; print(json.load(sys.stdin).get('name', 'scenescape'))")
