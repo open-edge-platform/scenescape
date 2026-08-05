@@ -8,19 +8,19 @@
       {
         "name": "qcam1",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
           "properties": {
-            "ntp_config": {
+            "ntp_server": {
               "element": {
                 "name": "timesync",
                 "property": "ntp-server"
               },
               "type": "string"
             },
-            "frame_ntp_config": {
+            "use_frame_ntp_timestamp": {
               "element": {
                 "name": "timesync",
                 "property": "use-frame-ntp-timestamp"
@@ -62,8 +62,8 @@
         },
         "payload": {
           "parameters": {
-            "ntp_config": "ntpserv",
-            "frame_ntp_config": false,
+            "ntp_server": "ntpserv",
+            "use_frame_ntp_timestamp": false,
             "cameraid": "atag-qcam1",
             "metadatagenpolicy": "detectionPolicy",
             "detection_labels": "person"
@@ -73,19 +73,19 @@
       {
         "name": "qcam2",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam2 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam2 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
           "properties": {
-            "ntp_config": {
+            "ntp_server": {
               "element": {
                 "name": "timesync",
                 "property": "ntp-server"
               },
               "type": "string"
             },
-            "frame_ntp_config": {
+            "use_frame_ntp_timestamp": {
               "element": {
                 "name": "timesync",
                 "property": "use-frame-ntp-timestamp"
@@ -127,8 +127,8 @@
         },
         "payload": {
           "parameters": {
-            "ntp_config": "ntpserv",
-            "frame_ntp_config": false,
+            "ntp_server": "ntpserv",
+            "use_frame_ntp_timestamp": false,
             "cameraid": "atag-qcam2",
             "metadatagenpolicy": "detectionPolicy",
             "detection_labels": "person"

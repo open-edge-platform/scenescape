@@ -292,12 +292,21 @@ class MappingServiceClient:
         verify=self.rootcert
       )
 
-      if response.status_code == 200:
+      if response.status_code in (200, 202):
         health_data = response.json()
+        details = health_data.get('details', {})
+        models = details.get('models', {})
+        if not models and 'model_loaded' in health_data:
+          models = {
+            'loaded': health_data.get('model_loaded', False),
+            'active': health_data.get('model', 'unknown'),
+          }
+
         return {
           'available': True,
           'status': health_data.get('status', 'unknown'),
-          'models': health_data.get('models', {})
+          'ready': bool(health_data.get('ready', False)),
+          'models': models,
         }
       else:
         return {
@@ -368,7 +377,13 @@ class MeshGenerator:
       raise ValueError("Uploaded file does not look like a valid video")
 
     filename = getattr(uploaded_file, "name", "") or ""
-    suffix = Path(filename).suffix
+    suffix = Path(filename).suffix.lower()
+
+    # The extension check must be an inline literal set (not a reference to
+    # ALLOWED_VIDEO_EXTENSIONS) for CodeQL's path-injection analysis to treat
+    # it as sanitizing suffix before it reaches NamedTemporaryFile below.
+    if suffix not in {".mp4", ".mov", ".mkv", ".webm", ".avi"}:
+      raise ValueError(f"Unsupported video file extension: {suffix or 'none'}")
 
     try:
       path = uploaded_file.temporary_file_path()
