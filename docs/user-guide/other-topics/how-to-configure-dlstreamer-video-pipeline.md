@@ -255,7 +255,7 @@ Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice.
 The following is the GStreamer command that defines the video processing pipeline. It specifies how video frames are read, processed, and analyzed using various GStreamer elements and plugins. Each element in the pipeline performs a specific task, such as decoding, object detection, metadata conversion, and publishing, to enable video analytics in the Scenescape platform.
 
 ```
-"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
+"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
 ```
 
 #### Breakdown of gstreamer command
@@ -293,14 +293,14 @@ This section describes the metadata schema and the format that the payload needs
 "parameters": {
     "type": "object",
     "properties": {
-        "ntp_config": {
+        "ntp_server": {
             "element": {
                 "name": "timesync",
                 "property": "ntp-server"
             },
             "type": "string"
         },
-        "frame_ntp_config": {
+        "use_frame_ntp_timestamp": {
             "element": {
                 "name": "timesync",
                 "property": "use-frame-ntp-timestamp"
@@ -344,8 +344,8 @@ This section describes the metadata schema and the format that the payload needs
 
 ##### Breakdown of parameters
 
-- **ntp_config** (string): Specifies the NTP server to synchronize time with.
-- **frame_ntp_config** (boolean): Configuration for using the NTP timestamp embedded in RTSP frame metadata as the frame timestamp. This is an alternative to using the post-decode system clock timestamp. When the RTSP source is configured with `add-reference-timestamp-meta=true`, GStreamer attaches NTP reference timestamp metadata to each buffer.
+- **ntp_server** (string): Specifies the NTP server to synchronize time with.
+- **use_frame_ntp_timestamp** (boolean): Configuration for using the NTP timestamp embedded in RTSP frame metadata as the frame timestamp. This is an alternative to using the post-decode system clock timestamp. When the RTSP source is configured with `add-reference-timestamp-meta=true`, GStreamer attaches NTP reference timestamp metadata to each buffer.
   When `true`, the NTP timestamp extracted from the RTSP frame metadata
   (`GstReferenceTimestampMeta`, caps `timestamp/x-ntp`) is used as the frame timestamp instead of the post-decode
   system time. This can improve timing accuracy when camera and server clocks are synchronized to the same NTP server.
@@ -370,8 +370,8 @@ The payload section is the actual values for the specific pipeline being configu
         }
     },
     "parameters": {
-        "ntp_config": "ntpserv",
-        "frame_ntp_config": false,
+        "ntp_server": "ntpserv",
+        "use_frame_ntp_timestamp": false,
         "cameraid": "atag-qcam1",
         "metadatagenpolicy": "detectionPolicy",
         "detection_labels": "person"

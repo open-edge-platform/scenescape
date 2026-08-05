@@ -15,7 +15,7 @@
 Below are step-by-step instructions for enabling out-of-the-box scenes in Scenescape to leverage DL Streamer Pipeline Server for Video Analytics.
 
 1. **Model Requirements:**
-   Ensure the OMZ model `person-detection-retail-0013` is present in the Models Volume in the `models/intel/` subfolder. Refer to the instructions in [How to Manage Files in Volumes](../docs/user-guide/other-topics/how-to-manage-files-in-volumes.md) on how to access the Models Volume.
+   Ensure the OMZ model `person-detection-retail-0013` is present in the Models Volume in the `omz/` subfolder. Refer to the instructions in [How to Manage Files in Volumes](../docs/user-guide/other-topics/how-to-manage-files-in-volumes.md) on how to access the Models Volume.
 
 2. **Start Scenescape DL Streamer-based demo:**
 
@@ -202,7 +202,7 @@ Following are the step-by-step instructions for enabling person reidentification
      --profile controller up queuing-video retail-video reid scene -d
    ```
 
-   Ensure the OMZ model `person-reidentification-retail-0277` is available in `intel/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/intel`.
+   Ensure the OMZ model `person-reidentification-retail-0277` is available in `omz/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/omz`.
 
 ## Enable Pose Estimation
 
@@ -264,12 +264,12 @@ synchronized to the same NTP source.
 1. Ensure the `rtspsrc` element in your pipeline string includes `add-reference-timestamp-meta=true`. The out-of-box
    [queuing-config.json](./queuing-config.json) already includes this setting.
 
-2. Set `frame_ntp_config` to `true` in your pipeline payload. In
+2. Set `use_frame_ntp_timestamp` to `true` in your pipeline payload. In
    `queuing-config.json` this is the `payload.parameters` block:
 
 ```json
 {
-  "frame_ntp_config": true
+  "use_frame_ntp_timestamp": true
 }
 ```
 

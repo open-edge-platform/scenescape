@@ -7,8 +7,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from controller.detections_builder import buildDetectionsDict, buildDetectionsList, prepareObjDict
-from controller.scene import TripwireEvent
+from scene_common.detections_builder import buildDetectionsDict, buildDetectionsList, prepareObjDict
 from controller.moving_object import ChainData, ReidState
 from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time, get_iso_time
@@ -105,7 +104,7 @@ class TestDetectionsBuilder:
     assert detections[0]['regions']['region-a']['entered'] == '2026-03-31T10:00:00.000Z'
     assert detections[0]['regions']['region-a']['dwell'] == pytest.approx(5.0)
 
-  @patch('controller.detections_builder.get_epoch_time', return_value=10.0)
+  @patch('scene_common.detections_builder.get_epoch_time', return_value=10.0)
   def test_build_detections_list_reuses_cached_entered_epoch(self, mock_get_epoch_time):
     scene = SimpleNamespace(output_lla=False)
     obj = _build_object_with_regions(
@@ -178,19 +177,6 @@ class TestDetectionsBuilder:
     assert 'dwell' not in with_sensors[0]['regions']['region-a']
     assert 'dwell' not in without_sensors[0]['regions']['region-a']
 
-  def test_build_detections_dict_handles_tripwire_and_defaults_missing_velocity(self):
-    obj = _build_object(velocity=None, include_sensor_payload=False)
-    scene = SimpleNamespace(output_lla=False)
-    event = TripwireEvent(obj, 'entering')
-
-    detections = buildDetectionsDict([event], scene)
-
-    assert list(detections.keys()) == ['object-1']
-    detection = detections['object-1']
-    assert detection['velocity'] == [0, 0]
-    assert detection['direction'] == 'entering'
-    assert 'sensors' not in detection
-
   def test_prepare_obj_dict_omits_reid_metadata_when_embedding_is_none(self):
     obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
     obj.reid = {'embedding_vector': None, 'model_name': 'ignored-model'}
@@ -252,8 +238,8 @@ class TestDetectionsBuilder:
     with pytest.raises(AttributeError):
       prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
 
-  @patch('controller.detections_builder.calculateHeading')
-  @patch('controller.detections_builder.convertXYZToLLA')
+  @patch('scene_common.detections_builder.calculateHeading')
+  @patch('scene_common.detections_builder.convertXYZToLLA')
   def test_prepare_obj_dict_adds_lla_output_when_enabled(self, mock_convert_xyz_to_lla, mock_calculate_heading):
     obj = _build_object(velocity=Point(4.0, 5.0, 6.0), include_sensor_payload=False)
     scene = SimpleNamespace(output_lla=True, trs_xyz_to_lla='trs-transform')

@@ -42,7 +42,7 @@ switching to the microservice path is gated on the user supplying a supported hu
 
 3. Phase 3 — Pipeline config generalization
    - Update `scripts/adapt_pipeline_config.py` to read `model_id` from `deploy-inputs.json`
-     (defaulting to `intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml`)
+     (defaulting to `omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml`)
      and substitute it into the GStreamer pipeline string, removing the hardcoded model path.
    - Update `references/pipeline-config.md` to document the configurable model field alongside
      the existing pipeline spec.

@@ -6,7 +6,6 @@ Designed to be used in a DLStreamer pipeline after a decoder element. It attache
 """
 
 import json
-import logging
 import time
 from datetime import datetime
 from typing import Optional
@@ -25,12 +24,21 @@ import ntplib
 from pytz import timezone
 from gstgva.video_frame import VideoFrame
 
+from sscape_gst_log import GstCategoryLogger  # noqa: E402  pylint: disable=wrong-import-position
+
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
 TIMEZONE = "UTC"
 NTP_RESYNC_INTERVAL_S = 1000
 NTP_REQUEST_TIMEOUT_S = 2
 NTP_CAPS_STRING = "timestamp/x-ntp"
+
+# GstDebugCategory registered at module load so `GST_DEBUG=sscape_ts_capture:2`
+# (or any level) toggles this plugin's verbosity like any built-in category.
+_GST_LOG = GstCategoryLogger(
+  "sscape_ts_capture",
+  "SceneScape post-decode timestamp capture element",
+)
 
 
 class PostDecodeTimestampCapture(GstBase.BaseTransform):
@@ -92,7 +100,7 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
     self.set_in_place(True)
     self.set_passthrough(False)
 
-    self._log = logging.getLogger("SSCAPE_TS_CAPTURE")
+    self._log = _GST_LOG
 
     # Properties (defaults)
     self._ntp_server: Optional[str] = None
@@ -231,7 +239,10 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
       "fps": self._fps,
     })
 
-    # Attach as GVA JSON message so downstream gvapython consumers
+    self._log.debug(f"attached ts={postdecode_ts} fps={self._fps:.2f}")
+
+    # Attach as GstGVAJSONMeta so the downstream post-inference publisher
+    # (and any other GVA-aware element) can read it via VideoFrame.messages().
     frame = VideoFrame(buffer, caps=self._sink_caps)
     frame.add_message(payload)
 
