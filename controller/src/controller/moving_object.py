@@ -6,16 +6,15 @@ import binascii
 import datetime
 import uuid
 import warnings
-from dataclasses import dataclass, field
 from enum import Enum
 from threading import Lock
-from typing import Dict, List
 
 import cv2
 import numpy as np
 import open3d as o3d
 from scipy.spatial.transform import Rotation
 
+from scene_common.chain_data import ChainData
 from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2
 from scene_common.timestamp import get_epoch_time
@@ -28,7 +27,8 @@ APRILTAG_HOVER_DISTANCE = 0.5
 DEFAULT_EDGE_LENGTH = 1.0
 DEFAULT_TRACKING_RADIUS = 2.0
 LOCATION_LIMIT = 20
-SPEED_THRESHOLD = 0.1
+SPEED_THRESHOLD_ON = 1.0
+SPEED_THRESHOLD_OFF = 0.5
 REID_FLOAT_SIZE_BYTES = np.dtype(np.float32).itemsize
 REID_EMBEDDING_DIMENSIONS_KEY = 'embedding_dimensions'
 
@@ -126,16 +126,6 @@ class ReidState(Enum):
   MATCHED = "matched"
   REID_DISABLED = "reid_disabled"
 
-@dataclass
-class ChainData:
-  regions: Dict
-  publishedLocations: List[Point]
-  persist: Dict
-  active_sensors: set = field(default_factory=set)
-  env_sensor_state: Dict = field(default_factory=dict)  # {'sensor_id': {'readings': [(ts, val), ...]}}
-  attr_sensor_events: Dict = field(default_factory=dict)  # {'sensor_id': [(ts, val), ...]}
-  _lock: Lock = field(default_factory=Lock)
-
 class Chronoloc:
   def __init__(self, point: Point, when: datetime, bounds: Rectangle):
     if not point.is3D:
@@ -184,11 +174,13 @@ class MovingObject:
     self.map_translation = None
     self.map_rotation = None
     self.rotation_from_velocity = False
+    self._rotation_from_velocity_active = False
 
     self.first_seen = when
     self.last_seen = None
     self.camera = camera
     self.info = info.copy()
+    self.has_detection_rotation = 'rotation' in self.info
 
     self.category = self.info.get('category', 'object')
     self.boundingBox = None
@@ -313,6 +305,9 @@ class MovingObject:
     self.gid = otherObj.gid
     self.first_seen = otherObj.first_seen
     self.frameCount = otherObj.frameCount + 1
+    if self.rotation_from_velocity and not self.has_detection_rotation:
+      self.rotation = list(otherObj.rotation)
+    self._rotation_from_velocity_active = otherObj._rotation_from_velocity_active
     self.reid_state = otherObj.reid_state
     self.similarity = otherObj.similarity
     self.previous_ids_chain = otherObj.get_previous_ids()
@@ -322,13 +317,20 @@ class MovingObject:
     return
 
   def inferRotationFromVelocity(self):
-    if self.rotation_from_velocity and self.velocity:
+    if not self.has_detection_rotation and self.rotation_from_velocity and self.velocity:
       speed = np.linalg.norm([self.velocity.x, self.velocity.y, self.velocity.z])
-      if speed > SPEED_THRESHOLD:
+      if self._rotation_from_velocity_active:
+        self._rotation_from_velocity_active = speed > SPEED_THRESHOLD_OFF
+      else:
+        self._rotation_from_velocity_active = speed > SPEED_THRESHOLD_ON
+
+      if self._rotation_from_velocity_active:
         velocity = np.array([self.velocity.x, self.velocity.y, self.velocity.z])
         velocity = normalize(velocity)
         direction = np.array([1, 0, 0])
         self.rotation = rotationToTarget(direction, velocity).as_quat().tolist()
+    else:
+      self._rotation_from_velocity_active = False
     return
 
   @property

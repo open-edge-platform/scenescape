@@ -281,8 +281,8 @@ architecture diagram.
 #### Analytics Service
 
 - **Role**: compute scene analytics and generate events (regions, tripwires,
-  dwell time, camera visibility) using identity-enriched scene state; the
-  successor to the Controller operating in analytics-only mode.
+  dwell time, camera visibility); successor to in-Controller analytics (the
+  transitional Controller analytics-only mode has been removed).
 - **Inputs**: identity-enriched state updates from Scene State Persistence.
 - **Outputs**: `regulated/scene/{scene_id}` and `events/+` for downstream
   consumers.

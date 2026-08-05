@@ -225,14 +225,11 @@ class TestSceneControllerExtractPoseAdjustmentConfigData:
 class TestSceneDeserializeReidConfigPropagation:
   """Regression tests: Scene.deserialize must propagate reid_config_data to the tracker."""
 
-  @patch('controller.scene.ControllerMode')
   @patch('controller.scene.IntelLabsTracking')
   def test_deserialize_without_reid_config_key_gives_empty_dict(
-    self, mock_tracking, mock_mode
+    self, mock_tracking
   ):
     """Scene.deserialize with no reid_config_data key results in empty dict on the scene."""
-    mock_mode.isAnalyticsOnly.return_value = False
-
     mock_tracker_instance = MagicMock()
     mock_tracking.return_value = mock_tracker_instance
 
@@ -248,13 +245,11 @@ class TestSceneDeserializeReidConfigPropagation:
 
     assert scene.reid_config_data == {}
 
-  @patch('controller.scene.ControllerMode')
   @patch('controller.scene.TimeChunkedIntelLabsTracking')
   def test_deserialize_with_reid_config_stores_config_on_scene(
-    self, mock_tracking, mock_mode
+    self, mock_tracking
   ):
     """Scene deserialized with reid_config_data stores it on the scene object."""
-    mock_mode.isAnalyticsOnly.return_value = False
     mock_tracking.return_value = MagicMock()
 
     from controller.scene import Scene
@@ -272,13 +267,11 @@ class TestSceneDeserializeReidConfigPropagation:
 
     assert scene.reid_config_data == reid_config
 
-  @patch('controller.scene.ControllerMode')
   @patch('controller.scene.IntelLabsTracking')
   def test_deserialize_with_pose_adjustment_config_stores_routing_on_scene(
-    self, mock_tracking, mock_mode
+    self, mock_tracking
   ):
     """Scene deserialized with pose adjustment config applies configured label routes."""
-    mock_mode.isAnalyticsOnly.return_value = False
     mock_tracking.return_value = MagicMock()
 
     from controller.scene import Scene
@@ -305,90 +298,7 @@ class TestSceneControllerPublishers:
     controller = SceneController.__new__(SceneController)
     controller.pubsub = MagicMock()
     controller.visibility_topic = visibility_topic
-    controller.regulate_cache = {}
     return controller
-
-  def test_publish_region_detections_publishes_each_cycle_while_region_non_empty(self):
-    """Region detections publish every invocation while objects remain in region."""
-    scene_controller = self._build_controller()
-    scene = SimpleNamespace(
-      uid='scene-1',
-      name='Test Scene',
-      regions=['roi-1'],
-      lastPubCount={},
-    )
-    obj = SimpleNamespace(chain_data=SimpleNamespace(regions={'roi-1': {'entered': '2026-01-01T00:00:00Z'}}))
-    jdata = {'timestamp': '2026-01-01T00:00:01Z'}
-
-    with patch('controller.scene_controller.get_epoch_time', return_value=10.0), \
-         patch('controller.scene_controller.buildDetectionsList', return_value=[{'id': 'o1'}]):
-      scene_controller.publishRegionDetections(scene, [obj], 'person', dict(jdata))
-      scene_controller.publishRegionDetections(scene, [obj], 'person', dict(jdata))
-
-    assert scene_controller.pubsub.publish.call_count == 2
-    assert scene.lastPubCount['Test Scene/roi-1/person'] == 1
-
-  def test_publish_events_publishes_region_events_and_clears_transient_event_lists(self):
-    """Region events are published and objects/count queues are cleared afterward."""
-    scene_controller = self._build_controller()
-
-    class FakeRegion:
-      def __init__(self):
-        self.uuid = 'roi-1'
-        self.name = 'ROI'
-        self.singleton_type = None
-
-      def serialize(self):
-        return {'name': self.name}
-
-    region = FakeRegion()
-    scene = SimpleNamespace(
-      uid='scene-1',
-      name='Test Scene',
-      events={'objects': [('roi-1', region)]},
-    )
-
-    scene_controller._buildAllRegionObjsList = MagicMock(return_value=({}, 0))
-    scene_controller._buildEnteredObjsList = MagicMock()
-    scene_controller._buildExitedObjsList = MagicMock()
-    scene_controller._clearSensorValuesOnExit = MagicMock()
-
-    with patch('controller.scene_controller.Region', FakeRegion):
-      scene_controller.publishEvents(scene, '2026-01-01T00:00:01Z')
-
-    assert scene_controller.pubsub.publish.call_count == 1
-    assert 'objects' not in scene.events
-    assert 'count' not in scene.events
-    scene_controller._clearSensorValuesOnExit.assert_called_once_with(scene)
-
-  def test_publish_regulated_detections_publishes_cached_payload_when_rate_allows(self):
-    """Regulated payload publishes with cached objects and scene rate metadata."""
-    scene_controller = self._build_controller('unregulated')
-    scene_obj = SimpleNamespace(
-      uid='scene-1',
-      regulated_rate=5,
-      cameras={'cam-1': object()},
-    )
-    msg_object = SimpleNamespace(gid='obj-1')
-    jdata = {
-      'timestamp': '2026-01-01T00:00:01Z',
-      'id': 'scene-1',
-      'name': 'Test Scene',
-      'rate': 7,
-      'objects': [],
-    }
-
-    scene_controller.calculateRate = MagicMock(return_value=0.5)
-    scene_controller.shouldPublish = MagicMock(return_value=True)
-
-    with patch('controller.scene_controller.buildDetectionsList', return_value=[{'id': 'obj-1'}]), \
-         patch('controller.scene_controller.get_epoch_time', return_value=42.0):
-      scene_controller.publishRegulatedDetections(scene_obj, [msg_object], 'person', jdata, 'cam-1')
-
-    assert scene_controller.pubsub.publish.call_count == 1
-    cached = scene_controller.regulate_cache['scene-1']
-    assert cached['rate']['cam-1'] == 7
-    assert cached['last'] == 42.0
 
   def test_publish_scene_detections_publishes_and_invokes_external_builder(self):
     """Scene publish emits DATA_SCENE and triggers external publish path."""
@@ -445,17 +355,12 @@ class TestSceneControllerPublishers:
     scene_controller.shouldPublish.assert_not_called()
 
   @patch('controller.scene_controller.metrics')
-  @patch('controller.scene_controller.ControllerMode')
   def test_publish_detections_initializes_scene_state_and_calls_all_publish_paths(
-    self, mock_mode, mock_metrics
+    self, mock_metrics
   ):
-    """publishDetections initializes state and calls scene/regulated/region publishers."""
+    """publishDetections initializes state and calls the scene publisher."""
     scene_controller = self._build_controller()
     scene_controller.publishSceneDetections = MagicMock()
-    scene_controller.publishRegulatedDetections = MagicMock()
-    scene_controller.publishRegionDetections = MagicMock()
-
-    mock_mode.isAnalyticsOnly.return_value = False
 
     scene = SimpleNamespace(uid='scene-1', name='Test Scene')
     objects = [object()]
@@ -466,27 +371,7 @@ class TestSceneControllerPublishers:
     assert hasattr(scene, 'lastPubCount')
     assert hasattr(scene, 'last_published_detection')
     scene_controller.publishSceneDetections.assert_called_once_with(scene, objects, 'person', jdata)
-    scene_controller.publishRegulatedDetections.assert_called_once_with(scene, objects, 'person', jdata, 'cam-1')
-    scene_controller.publishRegionDetections.assert_called_once_with(scene, objects, 'person', jdata)
     mock_metrics.record_object_count.assert_called_once()
-
-  @patch('controller.scene_controller.ControllerMode')
-  def test_publish_detections_skips_scene_publish_in_analytics_only_mode(self, mock_mode):
-    """publishDetections skips Scene topic output when analytics-only mode is enabled."""
-    scene_controller = self._build_controller()
-    scene_controller.publishSceneDetections = MagicMock()
-    scene_controller.publishRegulatedDetections = MagicMock()
-    scene_controller.publishRegionDetections = MagicMock()
-
-    mock_mode.isAnalyticsOnly.return_value = True
-    scene = SimpleNamespace(uid='scene-1', name='Test Scene')
-
-    scene_controller.publishDetections(scene, [], 10.0, 'person', {'timestamp': '2026-01-01T00:00:01Z'}, None)
-
-    scene_controller.publishSceneDetections.assert_not_called()
-    scene_controller.publishRegulatedDetections.assert_called_once()
-    scene_controller.publishRegionDetections.assert_called_once()
-
 
 class TestParseTrustedSources:
   """Unit tests for the trusted-positioning-source allowlist parser."""
@@ -849,9 +734,7 @@ class TestHandleMovingObjectExternalMismatch:
 class TestUpdateSubscriptionsExternalWildcard:
   """Publisher-centric interim subscribe uses one external wildcard."""
 
-  @patch('controller.scene_controller.ControllerMode')
-  def test_subscribes_external_wildcard_once(self, mock_mode):
-    mock_mode.isAnalyticsOnly.return_value = False
+  def test_subscribes_external_wildcard_once(self):
     controller = SceneController.__new__(SceneController)
     controller.cache_manager = MagicMock()
     scene = SimpleNamespace(uid='scene-1', cameras={}, sensors={})

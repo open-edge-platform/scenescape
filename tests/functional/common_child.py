@@ -15,7 +15,20 @@ from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
 
-MAX_WAIT = 5
+# Ceiling for waiting on ROI/tripwire/sensor events after geometry is ready.
+# One y-sweep pass is ~11s at 10fps; leave margin for reliability gate + MQTT lag.
+EVENT_WAIT = 20
+CONNECT_WAIT = 10
+# How long to wait for REST to show newly created ROI/tripwire/sensor.
+GEOMETRY_READY_WAIT = 10
+# After CMD_DATABASE, allow Analytics cache refresh before detections.
+GEOMETRY_SETTLE = 3
+# Once a child event is observed, parent republish should be near-immediate.
+PROPAGATION_LIMIT = 5
+# How long negative tests watch to ensure events stay absent.
+NEGATIVE_OBSERVE = 8
+# Back-compat alias used by assertion messages / older call sites.
+MAX_WAIT = EVENT_WAIT
 
 
 class ChildSceneTest:
@@ -27,7 +40,8 @@ class ChildSceneTest:
   """
 
   _FRAME_RATE = 10
-  _NUM_PUBLISH_ITERATIONS = 3
+  # One pass is enough once Analytics has hydrated geometry.
+  _NUM_PUBLISH_ITERATIONS = 1
   _PERSON = "person"
   _REGION = "region"
   _TRIPWIRE = "tripwire"
@@ -51,6 +65,7 @@ class ChildSceneTest:
     self.roi_uid = None
     self.tripwire_uid = None
     self.sensor_uid = None
+    self.attribute_sensor_uid = None
 
     # Tracks whether the child has already been unlinked (so teardown skips it)
     self.child_unlinked = False
@@ -62,9 +77,11 @@ class ChildSceneTest:
     self.parent_roi_events = []
     self.parent_tripwire_events = []
     self.parent_sensor_events = []
+    self.parent_attribute_sensor_events = []
     self.child_roi_events = []
     self.child_tripwire_events = []
     self.child_sensor_events = []
+    self.child_attribute_sensor_events = []
 
     # Monotonic timestamp of the first event received into each accumulator
     self._first_received_at = {}
@@ -142,18 +159,40 @@ class ChildSceneTest:
     self.tripwire_uid = tw_res["uid"]
     log.info(f"[SETUP] Tripwire uid={self.tripwire_uid}")
 
-    # Create sensor in child scene
+    # Create sensor in child scene (environmental singleton for value events).
+    # singleton_type must be "environmental" or Analytics will not emit value
+    # events. sensor_id is the MQTT/API id (also the scene.sensors dict key);
+    # if omitted, the API falls back to name.
     sensor_res = rest_client.createSensor({
       "scene": self.child_id,
       "name": "TestSensor_child",
+      "sensor_id": "TestSensor_child",
       "area": "circle",
       "radius": 3.21,
       "center": (4.5, 3.22),
+      "singleton_type": "environmental",
     })
     assert sensor_res.statusCode == 201, (
       f"Expected 201 creating sensor, got {sensor_res.statusCode}: {sensor_res.errors}")
     self.sensor_uid = sensor_res["uid"]
     log.info(f"[SETUP] Sensor uid={self.sensor_uid}")
+
+  def create_attribute_sensor(self, rest_client):
+    """Create an attribute singleton in the child scene for discrete value events."""
+    sensor_res = rest_client.createSensor({
+      "scene": self.child_id,
+      "name": "TestAttrSensor_child",
+      "sensor_id": "TestAttrSensor_child",
+      "area": "circle",
+      "radius": 3.21,
+      "center": (4.5, 3.22),
+      "singleton_type": "attribute",
+    })
+    assert sensor_res.statusCode == 201, (
+      f"Expected 201 creating attribute sensor, got {sensor_res.statusCode}: "
+      f"{sensor_res.errors}")
+    self.attribute_sensor_uid = sensor_res["uid"]
+    log.info(f"[SETUP] Attribute sensor uid={self.attribute_sensor_uid}")
 
   def teardown_scenes(self, rest_client):
     """Remove created analytics objects, unlink child, and delete parent scene.
@@ -169,6 +208,7 @@ class ChildSceneTest:
       (self.roi_uid, "ROI", rest_client.deleteRegion),
       (self.tripwire_uid, "Tripwire", rest_client.deleteTripwire),
       (self.sensor_uid, "Sensor", rest_client.deleteSensor),
+      (self.attribute_sensor_uid, "AttributeSensor", rest_client.deleteSensor),
     ]:
       if uid:
         res = fn(uid)
@@ -226,12 +266,20 @@ class ChildSceneTest:
     self._subscribe_event(mqttc, "child tripwire events", self._TRIPWIRE, self.child_id, self.tripwire_uid)
     if self.sensor_uid:
       self._subscribe_event(mqttc, "child sensor events", self._REGION, self.child_id, self.sensor_uid)
+    if self.attribute_sensor_uid:
+      self._subscribe_event(
+        mqttc, "child attribute sensor events", self._REGION,
+        self.child_id, self.attribute_sensor_uid)
 
     # Parent equivalents (republished by controller)
     self._subscribe_event(mqttc, "parent ROI events", self._REGION, self.parent_id, self.roi_uid)
     self._subscribe_event(mqttc, "parent tripwire events", self._TRIPWIRE, self.parent_id, self.tripwire_uid)
     if self.sensor_uid:
       self._subscribe_event(mqttc, "parent sensor events", self._REGION, self.parent_id, self.sensor_uid)
+    if self.attribute_sensor_uid:
+      self._subscribe_event(
+        mqttc, "parent attribute sensor events", self._REGION,
+        self.parent_id, self.attribute_sensor_uid)
 
   def _on_message(self, mqttc, obj, msg):
     """Route incoming MQTT messages to the correct accumulator list."""
@@ -265,6 +313,13 @@ class ChildSceneTest:
         self.child_sensor_events.append(data)
         self._first_received_at.setdefault("child_sensor_events", time.monotonic())
         log.info(f"Child sensor event received: {len(self.child_sensor_events)} total")
+      elif (self.attribute_sensor_uid and region_id == self.attribute_sensor_uid
+            and region_type == self._REGION):
+        self.child_attribute_sensor_events.append(data)
+        self._first_received_at.setdefault(
+          "child_attribute_sensor_events", time.monotonic())
+        log.info(f"Child attribute sensor event received: "
+                 f"{len(self.child_attribute_sensor_events)} total")
 
     elif scene_id == self.parent_id:
       if region_id == self.roi_uid and region_type == self._REGION:
@@ -279,6 +334,13 @@ class ChildSceneTest:
         self.parent_sensor_events.append(data)
         self._first_received_at.setdefault("parent_sensor_events", time.monotonic())
         log.info(f"Parent sensor event received: {len(self.parent_sensor_events)} total")
+      elif (self.attribute_sensor_uid and region_id == self.attribute_sensor_uid
+            and region_type == self._REGION):
+        self.parent_attribute_sensor_events.append(data)
+        self._first_received_at.setdefault(
+          "parent_attribute_sensor_events", time.monotonic())
+        log.info(f"Parent attribute sensor event received: "
+                 f"{len(self.parent_attribute_sensor_events)} total")
 
   def connect_mqtt(self):
     """Create a :class:`PubSub` client, attach callbacks, connect, and wait.
@@ -293,10 +355,51 @@ class ChildSceneTest:
     client.loopStart()
 
     start = time.time()
-    while not self.connected and time.time() - start < MAX_WAIT:
+    while not self.connected and time.time() - start < CONNECT_WAIT:
       time.sleep(0.5)
     assert self.connected, "MQTT client failed to connect within timeout"
     return client
+
+  def wait_for_analytics_geometry(self, client, rest_client):
+    """Wait until child ROI/tripwire/sensor are visible via REST, then refresh Analytics.
+
+    Polls ``getScene`` until the created geometry UIDs appear (DB readiness),
+    then publishes CMD_DATABASE at QoS 1 (same as Manager) and settles so
+    Analytics is not still holding a stale cache when detections start.
+    """
+    assert self.child_id and self.roi_uid and self.tripwire_uid and self.sensor_uid, (
+      "setup_scenes() must run before wait_for_analytics_geometry()")
+
+    def _uids(entries):
+      return {entry.get('uid') for entry in (entries or []) if entry.get('uid')}
+
+    start = time.time()
+    while time.time() - start < GEOMETRY_READY_WAIT:
+      scene = rest_client.getScene(self.child_id)
+      if scene.statusCode != 200:
+        time.sleep(0.5)
+        continue
+      region_uids = _uids(scene.get('regions'))
+      tripwire_uids = _uids(scene.get('tripwires'))
+      sensor_uids = _uids(scene.get('sensors'))
+      sensors_ready = self.sensor_uid in sensor_uids
+      if self.attribute_sensor_uid:
+        sensors_ready = sensors_ready and self.attribute_sensor_uid in sensor_uids
+      if (self.roi_uid in region_uids
+          and self.tripwire_uid in tripwire_uids
+          and sensors_ready):
+        break
+      time.sleep(0.5)
+    else:
+      raise AssertionError(
+        f"Child scene geometry not visible via REST within {GEOMETRY_READY_WAIT}s "
+        f"(roi={self.roi_uid}, tripwire={self.tripwire_uid}, sensor={self.sensor_uid})")
+
+    topic = PubSub.formatTopic(PubSub.CMD_DATABASE)
+    client.publish(topic, "update", qos=1)
+    log.info(f"[SETUP] Geometry ready; published {topic}=update (qos=1); "
+             f"settling {GEOMETRY_SETTLE}s for Analytics cache refresh")
+    time.sleep(GEOMETRY_SETTLE)
 
   def _send_detections(self, client, obj_data, y_locations, stop_event):
     """Publish person detections through a y-sweep to trigger enter/exit events.
@@ -365,7 +468,7 @@ class ChildSceneTest:
     """
     return self._first_received_at.get(attr)
 
-  def wait_for_events(self, attr, timeout=MAX_WAIT):
+  def wait_for_events(self, attr, timeout=EVENT_WAIT):
     """Block until at least one event is present in the named attribute.
 
     @param    attr      Name of the list attribute to poll (e.g. ``"parent_roi_events"``).

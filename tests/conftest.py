@@ -49,17 +49,15 @@ collect_ignore_glob = [
 ]
 
 # ---------------------------------------------------------------------------
-# In-container: controller module (optional)
+# In-container: controller / analytics module paths
 # ---------------------------------------------------------------------------
 _controller_src = _REPO_ROOT / "controller" / "src"
 if str(_controller_src) not in sys.path:
   sys.path.insert(0, str(_controller_src))
 
-try:
-  from controller.controller_mode import ControllerMode
-  _controller_mode_available = True
-except ImportError:
-  _controller_mode_available = False
+_analytics_src = _REPO_ROOT / "analytics" / "src"
+if str(_analytics_src) not in sys.path:
+  sys.path.insert(0, str(_analytics_src))
 
 # ---------------------------------------------------------------------------
 # Environmental dependencies (host-only)
@@ -90,25 +88,6 @@ if _testlog is not None:
   logger = _testlog.get_logger("conftest")
 else:
   logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# In-container fixtures (ControllerMode)
-# ---------------------------------------------------------------------------
-
-@pytest.fixture(scope="session")
-def initialize_controller_mode(request):
-  """Initialize ControllerMode before any tests run.
-
-  No-ops gracefully when running outside the Docker environment.
-  """
-  if not _controller_mode_available:
-    yield
-    return
-  analytics_only = request.config.getoption("analytics_only", default=False)
-  ControllerMode.initialize(analytics_only=analytics_only)
-  yield
-  ControllerMode.reset()
 
 
 # ---------------------------------------------------------------------------
@@ -144,8 +123,6 @@ def pytest_addoption(parser):
                                 help="Visibility policy: regulated, unregulated, none")),
     ("--hours",            dict(default="24",
                                 help="stability test duration in hours")),
-    ("--analytics-only",   dict(action="store_true", default=False,
-                                help="Enable analytics-only mode for tests")),
     ("--env-profiles",     dict(default=None,
                                 help="Comma-separated list of env profile names to run tests against")),
     ("--collect-container-logs", dict(default="failed", choices=["failed", "all", "none"],
@@ -258,6 +235,30 @@ class ScenescapeEnv:
         logger.info("Autocalibration service restarted and ready.")
     except Exception as exc:
       logger.warning("Autocalibration restart failed: %s", exc)
+
+    # Restart the analytics service if it is running (its cached REST auth
+    # session is invalidated by the DB flush/reload above, same as autocalibration).
+    try:
+      from datetime import datetime, timezone
+      import time
+      containers = self.docker.compose.ps()
+      analytics_running = any(
+        c.name and "analytics" in c.name and "cluster" not in c.name
+        for c in containers
+      )
+      if analytics_running:
+        logger.info("Restarting analytics service (auth token refresh)...")
+        restart_time = datetime.now(timezone.utc)
+        self.docker.compose.restart("analytics")
+        time.sleep(0.5)
+        wait_for_services(
+          self.docker, self.project_name,
+          {"analytics": WaitConfig(log_pattern="Subscribed to")},
+          since=restart_time,
+        )
+        logger.info("Analytics service restarted and ready.")
+    except Exception as exc:
+      logger.warning("Analytics restart failed: %s", exc)
 
 
 # ---------------------------------------------------------------------------

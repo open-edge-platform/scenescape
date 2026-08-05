@@ -50,8 +50,8 @@ For basic usage of the models downloaded by the model installer, no changes are 
   "retail": {
     "type": "detect",
     "params": {
-      "model": "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
-      "model_proc": "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json",
+      "model": "omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
+      "model_proc": "object_detection/person/person-detection-retail-0013.json",
       "scheduling-policy": "latency",
       "threshold": "0.75"
     },
