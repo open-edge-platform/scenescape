@@ -282,8 +282,12 @@ pulls, model downloads, RTSP warmup, scene reconstruction). Launch it in an **as
 poll for output/completion instead of blocking on it — show the actual backgrounded invocation
 (e.g. your async-terminal tool, or `nohup ... & disown` if shelling out directly), not a plain
 foreground command. Within step 7, the script already parallelizes internally —
-`parallel_warmup.sh` and `download_detection_models.sh` run in the background while
-`verify_rtsp.sh` runs in the foreground — no extra action needed there.
+`parallel_warmup.sh` and `download_model.py` run in the background while `verify_rtsp.sh` runs in
+the foreground — no extra action needed there.
+`download_model.py` fetches `person-detection-retail-0013` (OMZ hub) via the **Model Download
+microservice** (`intel/model-download` container + its REST API), run ephemerally (start
+container, request download, poll `/api/v1/jobs`, stop container) so the skill works standalone
+without a full repo checkout of `model_download/`.
 
 Your response must call out, explicitly, each of: the async launch mechanism used, that step 9
 produces one calibration JPEG per `camera_id` under `calibration-frames/`, that step 13's tracking

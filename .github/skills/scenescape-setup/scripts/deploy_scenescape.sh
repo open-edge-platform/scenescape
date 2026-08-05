@@ -147,7 +147,7 @@ step_warmup_rtsp() {
   cd "$DEPLOY_DIR"
   bash scripts/parallel_warmup.sh >>"$LOG_FILE" 2>&1
 
-  bash scripts/download_detection_models.sh >>"$LOG_FILE" 2>&1 &
+  python3 scripts/download_model.py "$DEPLOY_DIR" >>"$LOG_FILE" 2>&1 &
   DETECTION_MODELS_PID=$!
 
   connect_rtsp_hosts_to_network

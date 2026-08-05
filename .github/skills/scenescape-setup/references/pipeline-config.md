@@ -100,7 +100,7 @@ python3 <skill-dir>/scripts/adapt_pipeline_config.py \
 
 ## Notes
 
-- Model: `person-detection-retail-0013` via `download_detection_models.sh`
+- Model: `person-detection-retail-0013` via `scripts/download_model.py`
 - External RTSP sources must be reachable from the SceneScape Docker network
 - GPU/WSL2 segfaults with dual pipelines: see repo `queuing-config-gpu.json` / sample compose
 - Local video files (folder or explicit list) instead of live RTSP cameras: see
@@ -108,5 +108,8 @@ python3 <skill-dir>/scripts/adapt_pipeline_config.py \
   re-streamer, so this file's spec applies unchanged once `deploy-inputs.json` is written.
 - Canonical upstream examples: `dlstreamer-pipeline-server/queuing-config.json` and
   `docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md`
-- **Planned**: `download_detection_models.sh` will be replaced by the Model Download Microservice;
-  see `.github/plans/plan-modelDownloaderMigration.prompt.md`.
+- `scripts/download_model.py` fetches the model via the **Model Download Microservice**
+  (`intel/model-download` container REST API). The model name/hub
+  (`person-detection-retail-0013`/`omz`) is still hardcoded; making it configurable via a
+  `model_id`/`model_hub` deploy input is tracked in
+  `.github/plans/plan-modelDownloaderMigration.prompt.md`.
