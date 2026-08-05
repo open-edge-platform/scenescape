@@ -257,8 +257,9 @@ class CacheManager:
     intrinsics_changed = self.cameraParametersChanged(jdata, 'intrinsics')
     distortion_changed = self.cameraParametersChanged(jdata, 'distortion')
 
-    # Make sure the cache is populated (it may be None right after invalidate())
-    # before we try to iterate it below.
+    if not (intrinsics_changed or distortion_changed):
+      return
+
     self.checkRefresh()
     cameras_to_update = []
     with self._lock:
@@ -284,9 +285,7 @@ class CacheManager:
     for cam in cameras_to_update:
       self.updateCamera(cam)
 
-    if intrinsics_changed or distortion_changed:
-      # Force a new fetch so we do not adopt an older in-flight refresh.
-      self.refreshScenes(force=True)
+    self.refreshScenes(force=True)
     return
 
   def updateCamera(self, cam):
