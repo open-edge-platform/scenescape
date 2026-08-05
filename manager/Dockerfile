@@ -30,13 +30,26 @@ RUN : \
         apache2 \
     && rm -rf /var/lib/apt/lists/*
 
-# mod_qos library is broken on debian 12, so we build it from source
-RUN wget https://sourceforge.net/projects/mod-qos/files/mod_qos-11.79.tar.gz/download -O /tmp/mod_qos-11.79.tar.gz && \
-    tar -xzf /tmp/mod_qos-11.79.tar.gz -C /tmp && \
-    rm /tmp/mod_qos-11.79.tar.gz && \
-    cd /tmp/mod_qos-11.79/apache2 && \
-    apxs2 -i -a -c -lssl -l crypto mod_qos.c && \
-    rm -rf /tmp/mod_qos-11.79
+# mod_qos library is broken on debian 12, so we build it from source.
+# Use multiple download endpoints and dynamic extraction path to avoid pin-breakage.
+ARG MOD_QOS_VERSION=11.79
+RUN : \
+        ; MOD_QOS_ARCHIVE="/tmp/mod_qos-${MOD_QOS_VERSION}.tar.gz" \
+        ; for URL in \
+                "https://downloads.sourceforge.net/project/mod-qos/mod_qos-${MOD_QOS_VERSION}.tar.gz" \
+                "https://sourceforge.net/projects/mod-qos/files/mod_qos-${MOD_QOS_VERSION}.tar.gz/download" \
+                "https://sourceforge.net/projects/mod-qos/files/latest/download" \
+            ; do \
+                wget --tries=3 --waitretry=2 "$URL" -O "$MOD_QOS_ARCHIVE" && break || true; \
+            done \
+        ; test -s "$MOD_QOS_ARCHIVE" \
+        ; tar -xzf "$MOD_QOS_ARCHIVE" -C /tmp \
+        ; rm -f "$MOD_QOS_ARCHIVE" \
+        ; MOD_QOS_SRC_DIR="$(find /tmp -maxdepth 1 -type d -name 'mod_qos-*' | head -n1)" \
+        ; test -n "$MOD_QOS_SRC_DIR" \
+        ; cd "$MOD_QOS_SRC_DIR/apache2" \
+        ; apxs2 -i -a -c -lssl -lcrypto mod_qos.c \
+        ; rm -rf "$MOD_QOS_SRC_DIR"
 
 # ---------- Manager Runtime Stage ------------------
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-manager-runtime

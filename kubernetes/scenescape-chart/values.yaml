@@ -11,7 +11,7 @@ imagePullSecrets: {}
 
 # Service values
 initModels:
-  enabled: true
+  enabled: false
   image:
     repository: docker.io
     name: python
@@ -27,6 +27,25 @@ initModels:
     limits:
       memory: "2Gi"
       cpu: "1000m"
+
+modelDownload:
+  enabled: true
+  image:
+    repository: docker.io
+    name: intel/model-download
+    tag: 2026.2.0-ww32
+    pullPolicy: IfNotPresent
+  commandArgs: "--plugins omz"
+  parallelDownloads: false
+  initialWaitTimeout: 720
+  waitTimeout: 720
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "100m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
 
 ntpserv:
   image:
