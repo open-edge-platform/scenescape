@@ -6,7 +6,7 @@ import socket
 import vdms
 
 from controller.reid import ReIDDatabase, ReidNoValidVectorsError, ReidPartialWriteError
-from controller.reid_constants import (
+from scene_common.reid_constants import (
   K_NEIGHBORS,
   SCHEMA_NAME,
   SIMILARITY_METRIC,

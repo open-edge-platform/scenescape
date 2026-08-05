@@ -7,7 +7,7 @@ from scene_common import log
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
 from scene_common.timestamp import get_epoch_time, get_iso_time
-from controller.reid_constants import (
+from scene_common.reid_constants import (
   DEFAULT_MINIMUM_BBOX_AREA,
   REID_PROVENANCE_KEY,
   is_vetted_provenance,

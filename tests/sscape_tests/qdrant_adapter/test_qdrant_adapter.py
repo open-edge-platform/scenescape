@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 from controller.qdrant_adapter import QdrantDatabase
 from controller.reid import ReIDDatabase, ReidNoValidVectorsError
-from controller.reid_constants import SCHEMA_NAME
+from scene_common.reid_constants import SCHEMA_NAME
 
 
 class TestQdrantDatabaseInterface:

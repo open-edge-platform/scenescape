@@ -6,7 +6,7 @@ networks:
 
 services:
   child1-scene:
-    image: intel/scenescape-controller:${VERSION:-latest}
+    image: intel/scenescape-analytics:${VERSION:-latest}
     init: true
     networks:
       scenescape-test:

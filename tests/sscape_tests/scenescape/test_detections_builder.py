@@ -9,7 +9,7 @@ import pytest
 
 from scene_common.detections_builder import buildDetectionsDict, buildDetectionsList, prepareObjDict
 from controller.moving_object import ChainData, ReidState
-from controller.reid_constants import DEFAULT_MINIMUM_BBOX_AREA
+from scene_common.reid_constants import DEFAULT_MINIMUM_BBOX_AREA
 from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time, get_iso_time
 

@@ -474,7 +474,7 @@ children as embedding passthrough enrolls on query-no-match—see
 - [Enable Re-identification](../user-guide/other-topics/how-to-enable-reidentification.md)
 - `controller/src/controller/detections_builder.py`
 - `controller/src/controller/moving_object.py`
-- `controller/src/controller/reid_constants.py`
+- `scene_common/src/scene_common/reid_constants.py`
 - `controller/src/controller/scene.py`
 - `controller/src/controller/scene_controller.py`
 - `controller/src/controller/uuid_manager.py`

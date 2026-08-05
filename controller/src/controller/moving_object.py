@@ -14,7 +14,7 @@ import numpy as np
 import open3d as o3d
 from scipy.spatial.transform import Rotation
 
-from controller.reid_constants import REID_PROVENANCE_KEY
+from scene_common.reid_constants import REID_PROVENANCE_KEY
 from scene_common.chain_data import ChainData
 from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2

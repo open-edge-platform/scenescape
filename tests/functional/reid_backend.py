@@ -9,7 +9,7 @@ import os
 import time
 from pathlib import Path
 
-from controller.reid_constants import SCHEMA_NAME
+from scene_common.reid_constants import SCHEMA_NAME
 from controller.reid_registry import create_reid_database, normalize_backend_name
 from tests.utils.log import get_logger
 
@@ -179,7 +179,7 @@ def count_near_exact_uuids(embedding, object_type="person",
   @return  Tuple (unique_uuid_count, matching_entities)
   """
   import numpy as np
-  from controller.reid_constants import is_higher_better_metric
+  from scene_common.reid_constants import is_higher_better_metric
 
   configure_host_reid_certs()
   db = create_reid_database()

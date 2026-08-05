@@ -7,7 +7,7 @@ import threading
 
 import numpy as np
 
-from controller.reid_constants import (
+from scene_common.reid_constants import (
   RESERVED_ENTRY_KEYS,
   SCHEMA_NAME,
   SIMILARITY_METRIC,

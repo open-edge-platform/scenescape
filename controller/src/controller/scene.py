@@ -16,7 +16,7 @@ from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY
 
 from scene_common.camera_registry import CameraRegistry
-from controller.reid_constants import REID_PROVENANCE_KEY
+from scene_common.reid_constants import REID_PROVENANCE_KEY
 from controller.pose_adjustment import (PoseAdjustment,
                                         MIN_POSE_CACHE_TTL,
                                         POSE_CACHE_TTL_MULTIPLIER)

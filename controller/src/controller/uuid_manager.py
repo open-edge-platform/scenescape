@@ -8,7 +8,7 @@ import math
 
 import numpy as np
 
-from controller.reid_constants import (
+from scene_common.reid_constants import (
   COSINE_SIMILARITY_TOLERANCE,
   DEFAULT_CONFIG_SIMILARITY_METRIC,
   DEFAULT_MINIMUM_BBOX_AREA,
