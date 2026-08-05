@@ -140,13 +140,14 @@ generate-sbom: $(BUILD_DIR) check-buildkit
 	  echo "Error: RUNTIME_OS_IMAGE is not set for $(IMAGE). Ensure 'ARG RUNTIME_OS_IMAGE=<image>' is present in $(CURDIR)/Dockerfile."; \
 	  exit 1; \
 	fi
+	@mkdir -p $(dir $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile) $(dir $(BUILD_DIR)/sboms/$(IMAGE).tar)
 	@if [[ "$(USES_SCENE_COMMON)" == "yes" ]]; then \
 	  echo "ARG RUNTIME_OS_IMAGE=${RUNTIME_OS_IMAGE}" > $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	  cat $(ROOT_DIR)/scene_common/Dockerfile ./Dockerfile >> $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
+	  sed -i 's|^FROM intel/scenescape-common-base|FROM scenescape-common-base|' $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	else \
 	  cp ./Dockerfile $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	fi
-	@mkdir -p $(BUILD_DIR)/sboms
 	docker buildx build \
 	--sbom=true \
 	--build-arg http_proxy=$(http_proxy) \
