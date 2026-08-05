@@ -241,10 +241,10 @@ class Tracking(Thread):
       project_to_map = oclass.get('project_to_map', project_to_map)
       shift_type = oclass.get('shift_type', shift_type)
       rotation_from_velocity = oclass.get('rotation_from_velocity', rotation_from_velocity)
-      mobj.setPersistentAttributes(info, persist_attributes)
+      mobj.setPersistentAttributes(mobj.metadata, persist_attributes)
     else:
       mobj = MovingObject(info, when, sensor)
-      mobj.setPersistentAttributes(info, persist_attributes)
+      mobj.setPersistentAttributes(mobj.metadata, persist_attributes)
 
     mobj.project_to_map = project_to_map
     mobj.rotation_from_velocity = rotation_from_velocity
