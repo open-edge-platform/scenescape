@@ -3,7 +3,7 @@
 
 IMAGE=intel/scenescape-common-base
 
-# Not templated via ARG in the Dockerfile; pinned here for common.mk's dependency diff.
-RUNTIME_OS_IMAGE := python:3.11-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba
+# No ARG RUNTIME_OS_IMAGE in the Dockerfile, so parse it straight from the FROM line for list-dependencies to work properly.
+RUNTIME_OS_IMAGE := $(shell awk '/^FROM /{print $$2; exit}' Dockerfile)
 
 include ../common.mk
