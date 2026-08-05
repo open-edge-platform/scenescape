@@ -442,8 +442,9 @@ mqtt-publish:
 # Uses ldd on the tracker binary (same approach as in the Dockerfile) to identify only the OS libraries
 # that are actually distributed with the image, then maps each back to its dpkg package.
 # Conan-managed packages are collected separately via 'conan graph info' and written to conan-deps.txt.
+# Upstream URL scraping is shared with common.mk via the 'upstream-deps' prerequisite.
 .PHONY: list-dependencies
-list-dependencies: $(BUILD_DIR)
+list-dependencies: $(BUILD_DIR) upstream-deps
 	@if [[ -z $$(docker images | grep "^$(IMAGE)" | grep $(VERSION)) ]]; then \
 	  echo "Error: the image $(IMAGE):$(VERSION) does not exist! Cannot generate dependency list."; \
 	  echo "Please build the image first."; \
@@ -482,35 +483,6 @@ list-dependencies: $(BUILD_DIR)
 	    > $(BUILD_DIR)/$(IMAGE)-conan-deps.txt
 	@echo "Conan dependencies listed in $(BUILD_DIR)/$(IMAGE)-conan-deps.txt"
 	@docker rmi $(BUILDER_IMAGE):$(VERSION) > /dev/null 2>&1 || true
-	@if [[ -f "$(CURDIR)/Dockerfile" ]]; then \
-	  { \
-	    grep -E 'git clone' "$(CURDIR)/Dockerfile" \
-	      | grep -oE 'https?://[^ ]+' \
-	      | sed 's/[\\.]$$//' \
-	      | awk '{print "git-clone: " $$1}'; \
-	    grep -E '(wget|curl).*https?://' "$(CURDIR)/Dockerfile" \
-	      | grep -vE '\.(gpg|asc)' \
-	      | grep -oE 'https?://[^ ]+' \
-	      | sed 's/[\\;|&.]$$//' \
-	      | awk '{print "wget/curl: " $$1}'; \
-	    grep -E 'index-url' "$(CURDIR)/Dockerfile" \
-	      | grep -oE 'https?://[^ ]+' \
-	      | sed 's/[\\]$$//' \
-	      | awk '{print "pip-index: " $$1}'; \
-	    grep -E '"deb .*https?://' "$(CURDIR)/Dockerfile" \
-	      | grep -oE 'https?://[^ ]+' \
-	      | sed 's/["\\]$$//' \
-	      | awk '{print "apt-repo: " $$1}'; \
-	    grep -E '(wget|curl).*\.(gpg|asc)' "$(CURDIR)/Dockerfile" \
-	      | grep -oE 'https?://[^ |]+' \
-	      | awk '{print "apt-key: " $$1}'; \
-	  } | sort -u > "$(BUILD_DIR)/$(IMAGE)-upstream-deps.txt"; \
-	  if [[ -s "$(BUILD_DIR)/$(IMAGE)-upstream-deps.txt" ]]; then \
-	    echo "Upstream dependencies listed in $(BUILD_DIR)/$(IMAGE)-upstream-deps.txt"; \
-	  else \
-	    rm -f "$(BUILD_DIR)/$(IMAGE)-upstream-deps.txt"; \
-	  fi; \
-	fi
 
 # Override common.mk clean to also remove local build directories
 clean:

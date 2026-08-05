@@ -65,28 +65,11 @@ build-image: $(BUILD_DIR) Dockerfile
 rebuild:
 	$(MAKE) REBUILDFLAGS="--no-cache"
 
-.PHONY: list-dependencies
-list-dependencies: $(BUILD_DIR)
-	@if [[ -z $$(docker images | grep "^$(IMAGE)" | grep $(VERSION)) ]]; then \
-	  echo "Error: the image $(IMAGE):$(VERSION) does not exist! Cannot generate dependency list."; \
-	  echo "Please build the image first."; \
-	  exit 1; \
-	fi
-	@if [[ "$(HAS_PIP)" == "yes" ]]; then \
-	  docker run --rm --entrypoint pip $(IMAGE):$(VERSION) freeze --all > $(BUILD_DIR)/$(IMAGE)-pip-deps.txt; \
-	  echo "Python dependencies listed in $(BUILD_DIR)/$(IMAGE)-pip-deps.txt"; \
-	fi
-	@if [[ "$(HAS_DPKG)" == "yes" ]]; then \
-	  if [[ -z "$(RUNTIME_OS_IMAGE)" ]]; then \
-	    echo "Error: RUNTIME_OS_IMAGE is not set for $(IMAGE). Ensure 'ARG RUNTIME_OS_IMAGE=<image>' is present in $(CURDIR)/Dockerfile."; \
-	    exit 1; \
-	  fi; \
-	  docker run --rm $(RUNTIME_OS_IMAGE) dpkg -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-system-packages.txt; \
-	  docker run --rm --entrypoint dpkg $(IMAGE):$(VERSION) -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-packages.txt; \
-	  grep -Fxv -f $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt || true; \
-	  rm -rf $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt; \
-	  echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"; \
-	fi
+# Scrapes upstream URLs (git clone, wget/curl, pip index, apt repo/key) referenced directly in the
+# Dockerfile. Factored out as its own target so overridden list-dependencies recipes (e.g. tracker)
+# can depend on it instead of duplicating the parsing rules.
+.PHONY: upstream-deps
+upstream-deps: $(BUILD_DIR)
 	@if [[ -f "$(CURDIR)/Dockerfile" ]]; then \
 	  { \
 	    grep -E 'git clone' "$(CURDIR)/Dockerfile" \
@@ -115,6 +98,29 @@ list-dependencies: $(BUILD_DIR)
 	  else \
 	    rm -f "$(BUILD_DIR)/$(IMAGE)-upstream-deps.txt"; \
 	  fi; \
+	fi
+
+.PHONY: list-dependencies
+list-dependencies: $(BUILD_DIR) upstream-deps
+	@if [[ -z $$(docker images | grep "^$(IMAGE)" | grep $(VERSION)) ]]; then \
+	  echo "Error: the image $(IMAGE):$(VERSION) does not exist! Cannot generate dependency list."; \
+	  echo "Please build the image first."; \
+	  exit 1; \
+	fi
+	@if [[ "$(HAS_PIP)" == "yes" ]]; then \
+	  docker run --rm --entrypoint pip $(IMAGE):$(VERSION) freeze --all > $(BUILD_DIR)/$(IMAGE)-pip-deps.txt; \
+	  echo "Python dependencies listed in $(BUILD_DIR)/$(IMAGE)-pip-deps.txt"; \
+	fi
+	@if [[ "$(HAS_DPKG)" == "yes" ]]; then \
+	  if [[ -z "$(RUNTIME_OS_IMAGE)" ]]; then \
+	    echo "Error: RUNTIME_OS_IMAGE is not set for $(IMAGE). Ensure 'ARG RUNTIME_OS_IMAGE=<image>' is present in $(CURDIR)/Dockerfile."; \
+	    exit 1; \
+	  fi; \
+	  docker run --rm $(RUNTIME_OS_IMAGE) dpkg -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-system-packages.txt; \
+	  docker run --rm --entrypoint dpkg $(IMAGE):$(VERSION) -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-packages.txt; \
+	  grep -Fxv -f $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt || true; \
+	  rm -rf $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt; \
+	  echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"; \
 	fi
 
 .PHONY: check-buildkit
