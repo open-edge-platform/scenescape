@@ -8,7 +8,7 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-CORE_IMAGE_FOLDERS := autocalibration controller manager model_installer analytics
+CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
 IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker
 
 # Image variables
@@ -353,7 +353,7 @@ build-sources-image: sources.Dockerfile
 
 .PHONY: install-models
 install-models:
-	@$(MAKE) -C model_installer install-models
+	@$(MAKE) -C model_download install-models
 
 # =========================== Run Tests ==============================
 
@@ -379,7 +379,10 @@ setup-pytest:
 	@echo "Installing venv dependencies..."; \
 	$(CURDIR)/tests/.venv/bin/pip install --progress-bar on --upgrade pip; \
 	cd $(CURDIR)/tests && $(CURDIR)/tests/.venv/bin/pip install --progress-bar on -r requirements.txt; \
-	cd $(CURDIR)/tests && $(CURDIR)/tests/.venv/bin/pip install --no-deps -r requirements-no-deps.txt;
+	cd $(CURDIR)/tests && $(CURDIR)/tests/.venv/bin/pip install --progress-bar on pycocotools tabulate; \
+	cd $(CURDIR)/tests && ( $(CURDIR)/tests/.venv/bin/pip install --no-deps -r requirements-no-deps.txt 2>&1 \
+		| sed '/trackeval 1.0.1 requires numpy>=2.3.2; python_version >= "3.11", but you have numpy 2.2.6 which is incompatible\./d' ); \
+	test $${PIPESTATUS[0]} -eq 0;
 	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "from fast_geometry import Point" 2>/dev/null; then \
 		echo "Building fast_geometry C++ extension..."; \
 		PATH="$(CURDIR)/tests/.venv/bin:$$PATH" \
