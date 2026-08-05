@@ -198,6 +198,7 @@ jobs:
     permissions:
       packages: write # For using GHCR as cache registry
     needs: [filter, check-pr-state]
+    timeout-minutes: 90
     if: ${{ (needs.filter.outputs.code_changed == 'true' || needs.filter.outputs.bat_workflow_changed == 'true') && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
       - name: Checkout
