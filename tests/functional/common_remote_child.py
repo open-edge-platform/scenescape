@@ -126,9 +126,27 @@ class RemoteHierarchySetup:
     return self
 
   @staticmethod
+  def _wait_for_demo_scene(rest, timeout=30, interval=1.0):
+    """Poll until the Demo scene fixture has been seeded on this child stack.
+
+    Scene-service "ready" only confirms the web API is answering — not that
+    the Demo fixture load has committed to that stack's DB yet. child1 and
+    child2 can both report ready in the same second while one is still a
+    beat behind on seeding.
+    """
+    deadline = time.time() + timeout
+    demos = rest.getScenes({"name": "Demo"})
+    while demos.get("count", 0) == 0 and time.time() < deadline:
+      time.sleep(interval)
+      demos = rest.getScenes({"name": "Demo"})
+    assert demos.get("count", 0) > 0, \
+      f"Demo scene missing on child stack after {timeout}s"
+    return demos
+
+  @staticmethod
   def _create_child_scene_with_camera(rest, scene_name, camera_id, move_demo=True):
     """Create a unique scene; optionally move Demo camera1 onto it."""
-    demos = rest.getScenes({"name": "Demo"})
+    demos = RemoteHierarchySetup._wait_for_demo_scene(rest)
     assert demos.get("count", 0) > 0, "Demo scene missing on child stack"
     demo = demos["results"][0]
     demo_uid = demo["uid"]

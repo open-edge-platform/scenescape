@@ -234,6 +234,7 @@ _HIER_BASE = (
   f"{HIER}/compose-parent-base.yml",
   f"{HIER}/compose-child1-base.yml",
   f"{HIER}/compose-child2-base.yml",
+  f"{HIER}/compose-parent-analytics.yml",
 )
 
 _HIER_WAIT = {
@@ -250,6 +251,7 @@ _HIER_WAIT = {
   "parent-scene": _SCENE,
   "child1-scene": _SCENE,
   "child2-scene": _SCENE,
+  "parent-analytics": _ANALYTICS,
 }
 
 # All three controllers share one VDMS (priority 1).
