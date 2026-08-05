@@ -165,7 +165,7 @@ private:
    * @brief Helper function to match tracks with objects and update measurements
    *
    * @param tracks Vector of tracks to match
-   * @param objects Vector of objects to match
+   * @param[inout] objects Vector of objects to match. Assigned measurements may be updated with historical metadata.
    * @param distanceType Distance calculation method
    * @param distanceThreshold Maximum distance for matching
    * @param[out] unassignedObjects Indices of objects that were not assigned to any track
@@ -173,7 +173,7 @@ private:
    */
   std::vector<tracking::TrackedObject> matchAndAssignMeasurements(
     const std::vector<tracking::TrackedObject> &tracks,
-    const std::vector<tracking::TrackedObject> &objects,
+    std::vector<tracking::TrackedObject> &objects,
     const DistanceType &distanceType,
     double distanceThreshold,
     std::vector<size_t> &unassignedObjects);

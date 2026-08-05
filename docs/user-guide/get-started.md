@@ -88,6 +88,24 @@ export SUPASS=<password>
 make demo
 ```
 
+The Docker Compose demo targets are tiered, each building on the previous one:
+
+| Target      | Includes                                                     |
+| ----------- | ------------------------------------------------------------ |
+| `demo`      | Core services with tracking, without ReID                    |
+| `demo-reid` | `demo` plus the ReID vector database                         |
+| `demo-all`  | `demo-reid` plus cluster analytics and experimental services |
+
+The ReID targets use VDMS by default. Set `REID_BACKEND=qdrant` to use Qdrant:
+
+```bash
+make demo-reid
+make demo-reid REID_BACKEND=qdrant
+```
+
+`make demo-close` remembers the selected override and stops the matching
+deployment.
+
 ### Step 4: Verify a successful deployment
 
 If you are running remotely, connect using `https://<ip_address>` or `https://<hostname>`, using the correct IP address or hostname of the remote Scenescape system. If accessing on a local system use `https://localhost`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
@@ -104,15 +122,15 @@ Scenescape uses [Docker Compose profiles](https://docs.docker.com/compose/how-to
 
 The following profiles are available:
 
-| Profile             | Description                                                                   |
-| ------------------- | ----------------------------------------------------------------------------- |
-| `controller`        | Scene Controller in default mode (analytics + tracking). Used by `make demo`. |
-| `analytics`         | Scene Controller in analytics-only mode (without tracking).                   |
-| `experimental`      | Enables mapping and cluster-analytics services.                               |
-| `mapping`           | Enables mapping service only.                                                 |
-| `cluster-analytics` | Enables cluster-analytics service only.                                       |
-| `vdms`              | Enables the VDMS visual database service (used for re-identification).        |
-| `tracker`           | Enables the tracker service.                                                  |
+| Profile             | Description                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| `controller`        | Scene Controller (tracking) + Analytics service. Used by `make demo`.                   |
+| `experimental`      | Enables mapping and cluster-analytics services.                                         |
+| `mapping`           | Enables mapping service only.                                                           |
+| `cluster-analytics` | Enables cluster-analytics service only.                                                 |
+| `tracker`           | Tracker service + Analytics service (no Scene Controller). Used by `make demo-tracker`. |
+
+> **ReID backends:** The `demo-reid` and `demo-all` targets default to VDMS (`REID_BACKEND=vdms`); set `REID_BACKEND=qdrant` to switch. For raw Compose, add exactly one of `sample_data/docker-compose.vdms-override.yml` or `sample_data/docker-compose.qdrant-override.yml`. Both overrides provide the same logical `reid` service, shared host `reid.scenescape.intel.com`, port `55555`, TLS settings, and certificates. See [Selecting the ReID Vector Database Backend](./other-topics/how-to-enable-reidentification.md#selecting-the-reid-vector-database-backend).
 
 Profiles can be specified on the command line with `--profile`:
 

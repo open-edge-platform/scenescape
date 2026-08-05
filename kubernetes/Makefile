@@ -18,7 +18,7 @@ WORKINGDIR=$(shell dirname $(shell pwd))
 DEPLOYMENT_TEST=
 TEST_FLAGS=
 # it may need to be increased if all models are being downloaded (see values.yaml)
-INSTALL_TIMEOUT?=600s
+INSTALL_TIMEOUT?=1800s
 
 ifeq ($(DEPLOYMENT_TEST), 1)
     TEST_FLAGS=--wait --timeout $(INSTALL_TIMEOUT) --debug
@@ -36,8 +36,10 @@ RELEASE=scenescape-release-1
 FORCE_VAAPI?=0
 CHART_DEBUG?=0
 
-# Demo mode variable for Kubernetes deployments (core or all)
+# Demo mode variable for Kubernetes deployments (core, reid or all)
 DEMO_K8S_MODE?=core
+# ReID vector database backend used when ReID is deployed: vdms (default) or qdrant
+REID_BACKEND?=vdms
 
 # Proxy settings: if http_proxy, https_proxy, or no_proxy environment variables are set,
 # they will be automatically passed to the Helm chart during installation
@@ -173,24 +175,35 @@ package: copy-files chart.yaml
 copy-files:
 	mkdir -p scenescape-chart/files/dlsps
 	mkdir -p scenescape-chart/files/broker
-	mkdir -p scenescape-chart/files/model-installer
+	mkdir -p scenescape-chart/files/model-download
 	mkdir -p scenescape-chart/files/sample-data
+	mkdir -p scenescape-chart/files/scene-controller
 	cp -r ../dlstreamer-pipeline-server/user_scripts/gstplugins/* scenescape-chart/files/dlsps/
 	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/broker/mosquitto-secure.conf
-	cp -r ../model_installer/src/* scenescape-chart/files/model-installer/
-	cp ../model_installer/requirements-runtime.txt scenescape-chart/files/model-installer/requirements-runtime.txt
-	cp ../dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json scenescape-chart/files/model-installer/person-detection-retail-0013.json
-	cp ../dlstreamer-pipeline-server/model_config.json scenescape-chart/files/model-installer/model_config.json
-	cp ../controller/config/tracker-config.json scenescape-chart/files/model-installer/tracker-config.json
-	cp ../controller/config/reid-config.json scenescape-chart/files/model-installer/reid-config.json
+	cp ../controller/config/tracker-config.json scenescape-chart/files/scene-controller/tracker-config.json
+	cp ../controller/config/reid-config.json scenescape-chart/files/scene-controller/reid-config.json
+	cp ../model_download/src/download_models.py scenescape-chart/files/model-download/download_models.py
+	cp ../model_download/src/generate_model_config.py scenescape-chart/files/model-download/generate_model_config.py
+	cp ../model_download/src/entrypoint-k8s.sh scenescape-chart/files/model-download/entrypoint-k8s.sh
+	cp ../model_download/models.json scenescape-chart/files/model-download/models.json
 	cp ../sample_data/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
 	cp ../sample_data/convert-videos-k8s.sh scenescape-chart/files/sample-data/convert-videos-k8s.sh
 
 
+check-demo-k8s-mode:
+	@case "$(DEMO_K8S_MODE)" in \
+	  core|reid|all) ;; \
+	  *) echo "Invalid DEMO_K8S_MODE '$(DEMO_K8S_MODE)'. Use core, reid or all."; exit 1 ;; \
+	esac
+	@case "$(REID_BACKEND)" in \
+	  vdms|qdrant) ;; \
+	  *) echo "Invalid REID_BACKEND '$(REID_BACKEND)'. Use vdms or qdrant."; exit 1 ;; \
+	esac
+
 # to test template rendering
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
-install: copy-files chart.yaml
+install: check-demo-k8s-mode copy-files chart.yaml
 	@VALUES_FILE=""; \
 	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
 		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \
@@ -217,9 +230,11 @@ install: copy-files chart.yaml
 	if [ -n "$${PGPASS}" ]; then \
 		PGPASS_ARG="--set pgserver.password=$${PGPASS}"; \
 	fi; \
-	MODE_ARG=""; \
-	if [ "$(DEMO_K8S_MODE)" = "all" ]; then \
-		MODE_ARG="--set mapping.enabled=true --set clusterAnalytics.enabled=true"; \
+	MODE_ARG="--set reid.enabled=false"; \
+	if [ "$(DEMO_K8S_MODE)" = "reid" ]; then \
+		MODE_ARG="--set reid.enabled=true --set reid.backend=$(REID_BACKEND)"; \
+	elif [ "$(DEMO_K8S_MODE)" = "all" ]; then \
+		MODE_ARG="--set reid.enabled=true --set reid.backend=$(REID_BACKEND) --set mapping.enabled=true --set clusterAnalytics.enabled=true"; \
 	fi; \
 	REPOSITORY_ARG="--set repository=$(REGISTRY)"; \
 	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${SUPASS_ARG} $${PGPASS_ARG} $${MODE_ARG} $${VALUES_FILE} $(TEST_FLAGS);

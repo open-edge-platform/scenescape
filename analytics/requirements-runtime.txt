@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# This file is licensed under Apache 2.0 License.
+
+# Core analytics runtime — subset of controller requirements.
+# robot_vision (C++ tracker extension) is intentionally excluded.
+
+mapbox_earcut==1.0.3
+numpy==2.2.6
+open3d-cpu==0.19.0
+opencv-python-headless==4.13.0.92
+orjson==3.11.6
+paho-mqtt==2.1.0
+scipy==1.17.1
+shapely==2.1.1
+trimesh==4.11.5
+opentelemetry-api==1.38.0
+opentelemetry-sdk==1.38.0
+opentelemetry-exporter-otlp-proto-grpc==1.38.0

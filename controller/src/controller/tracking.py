@@ -105,6 +105,7 @@ class Tracking(Thread):
           ref_camera_frame_rate,
           reid_config_data=self.reid_config_data,
         )
+        tracker.uuid_manager.scene_id = self.uuid_manager.scene_id
         self.trackers[category] = tracker
         tracker.start()
     return

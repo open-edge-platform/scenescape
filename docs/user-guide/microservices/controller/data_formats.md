@@ -7,14 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Message Formats Overview
 
-| Message Format                                                                  | Direction | MQTT Topic                                                        |
-| ------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------- |
-| [Camera Input Message Format](#camera-input-message-format)                     | Subscribe | `scenescape/data/camera/{camera_id}`                              |
-| [Sensor Input Message Format](#sensor-input-message-format)                     | Subscribe | `scenescape/data/sensor/{sensor_id}`                              |
-| [Data Scene Output Message Format](#data-scene-output-message-format)           | Publish   | `scenescape/data/scene/{scene_id}/{thing_type}`                   |
-| [Regulated Scene Output Message Format](#regulated-scene-output-message-format) | Publish   | `scenescape/regulated/scene/{scene_id}`                           |
-| [Region Event Output Message Format](#region-event-output-message-format)       | Publish   | `scenescape/event/region/{scene_id}/{region_id}/{event_type}`     |
-| [Tripwire Event Output Message Format](#tripwire-event-output-message-format)   | Publish   | `scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}` |
+| Message Format                                                        | Direction | MQTT Topic                                      |
+| --------------------------------------------------------------------- | --------- | ----------------------------------------------- |
+| [Camera Input Message Format](#camera-input-message-format)           | Subscribe | `scenescape/data/camera/{camera_id}`            |
+| [Data Scene Output Message Format](#data-scene-output-message-format) | Publish   | `scenescape/data/scene/{scene_id}/{thing_type}` |
+
+The Scene Controller only tracks objects and publishes unregulated per-category output. Sensor
+correlation, regulated (rate-controlled) output, and region/tripwire event publishing are owned
+by the **Analytics** microservice — see
+[Analytics Service Data Formats](../analytics/data_formats.md) for those message formats
+(`scenescape/data/sensor/{sensor_id}`, `scenescape/regulated/scene/{scene_id}`,
+`scenescape/event/region/{scene_id}/{region_id}/{event_type}`, `scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}`).
 
 ## Camera Input Message Format
 
@@ -138,94 +141,38 @@ omitted; `embedding_vector` truncated for readability):
 For the full schema definition, see
 [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
 
-## Sensor Input Message Format
-
-The Scene Controller subscribes to the MQTT topic `scenescape/data/sensor/{sensor_id}` and
-receives scalar sensor readings from physical or virtual sensors. Messages are validated against
-the `singleton` definition in
-[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
-
-Sensor data is used to tag tracked objects that are within the sensor's configured measurement
-area. A wide variety of sensor types are supported — environmental sensors (temperature,
-humidity, air quality), as well as attribute sensors such as badge readers that associate a
-discrete identifier with a presence event.
-
-### Sensor Message Fields
-
-| Field       | Type                  | Required | Description                                                           |
-| ----------- | --------------------- | :------: | --------------------------------------------------------------------- |
-| `id`        | string                |   Yes    | Sensor identifier; must match the provisioned sensor ID in Scenescape |
-| `timestamp` | string (ISO 8601 UTC) |   Yes    | Acquisition time of the reading                                       |
-| `value`     | any                   |   Yes    | Sensor reading — numeric scalar, string, boolean, or any JSON value   |
-| `subtype`   | string                |    No    | Sensor subtype hint (e.g. `"temperature"`, `"humidity"`)              |
-| `rate`      | number ≥ 0            |    No    | Rate at which the sensor is producing readings (readings per second)  |
-
-The `id` field must match the last path segment of the MQTT topic:
-`scenescape/data/sensor/{sensor_id}`.
-
-### Example Sensor Input Message
-
-**Environmental Sensor (Temperature Reading)**
-
-```json
-{
-  "id": "temperature1",
-  "timestamp": "2022-09-19T21:33:09.832Z",
-  "value": 22.5
-}
-```
-
-Published to topic: `scenescape/data/sensor/temperature1`
-
-The `value` field carries the scalar reading (degrees Celsius in this case). Other
-environmental sensors such as humidity or air-quality monitors follow the same structure,
-differing only in the `id` and the unit of the `value`.
-
-**Other Sensor Types**
-
-The `singleton` schema is intentionally generic — `value` is untyped and accepts any JSON
-value. This makes it suitable for attribute sensors beyond simple scalars. For example:
-
-- **Badge / access-control sensors** — `value` holds a string badge identifier (e.g.
-  `"BADGE-00421"`), allowing the controller to associate a personnel ID with an object track
-  inside the sensor's measurement area.
-- **Boolean presence sensors** — `value` is `true`/`false` (e.g. a beam-break or pressure
-  mat).
-- **Light sensors** — `value` is a numeric lux reading; see
-  [Controlling Scene Lighting with Physical Light Sensors](../../other-topics/light-sensor-integration.md)
-  for a complete integration guide.
-
-For a broader description of how singleton sensors work and how the tagged data appears on
-scene objects, see
-[Singleton Sensor Data](../../how-to-guides/integrate-cameras-and-sensors.md#singleton-sensor-data)
-in the integration guide.
-
 ## Common Output Track Fields
+
+> **Note**: Sensor input (`scenescape/data/sensor/{sensor_id}`) is no longer consumed by the
+> Scene Controller. Sensor correlation is owned by the **Analytics** microservice — see
+> [Sensor Input Message Format](../analytics/data_formats.md#sensor-input-message-format)
+> and [Singleton Sensor Data](../../how-to-guides/integrate-cameras-and-sensors.md#singleton-sensor-data)
+> for the sensor input message format and how tagged data appears on scene objects.
 
 All Scene Controller output messages include an `objects` array of tracked objects. Each
 tracked object contains the following fields:
 
-| Field                  | Type               | Description                                                                                                                                                                                                                                                  |
-| ---------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `id`                   | string (UUID)      | Persistent track identifier assigned by the controller                                                                                                                                                                                                       |
-| `type`                 | string             | Object type label; same value as `category` (e.g. `"person"`)                                                                                                                                                                                                |
-| `category`             | string             | Object class label (e.g. `"person"`)                                                                                                                                                                                                                         |
-| `confidence`           | number             | Inference confidence of the most recent contributing detection                                                                                                                                                                                               |
-| `translation`          | array[3] of number | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                                                                                                  |
-| `size`                 | array[3] of number | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                                                                                                               |
-| `velocity`             | array[3] of number | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                                                                                         |
-| `rotation`             | array[4] of number | Orientation quaternion                                                                                                                                                                                                                                       |
-| `visibility`           | array of string    | Camera IDs currently observing this object                                                                                                                                                                                                                   |
-| `keypoints`            | array of objects   | Pose keypoints propagated from detections when available; each entry uses `{"name": "<keypoint>", "x": <0-1>, "y": <0-1>}` coordinates normalized to frame dimensions                                                                                        |
-| `keypoint_connections` | array of strings   | Flat list of keypoint-name pairs defining the skeleton edges (e.g. `["nose","eye_l","nose","eye_r",...]`); length is always `2 x number_of_connections`                                                                                                      |
-| `regions`              | object             | Map of region/sensor IDs to membership metadata. By default this is `{id: {entered: timestamp}}`. In region-scoped outputs, objects currently inside a region also include a live dwell time as `{id: {entered: timestamp, dwell: seconds}}`.                |
-| `sensors`              | object             | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`)                                                                                                                                                                                |
-| `similarity`           | number or null     | Similarity/distance value to the matched ReID embedding in VDMS; higher-is-better for `COSINE`; lower is better for `L2`. `null` when ReID is still collecting embeddings, when no database match was found, or when ReID is disabled.                       |
-| `reid_state`           | string             | Re-ID processing state for the object. One of: `pending_collection`, `query_no_match`, `matched`, `reid_disabled`                                                                                                                                            |
-| `previous_ids_chain`   | array or absent    | History of UUID reassignments for this track. Each element is `{"id": "<uuid>", "timestamp": "<ISO 8601>", "similarity_score": <number or null>}`. Present only when the object has been re-identified at least once; omitted otherwise.                     |
-| `first_seen`           | string (ISO 8601)  | Timestamp when the track was first created                                                                                                                                                                                                                   |
-| `metadata`             | object             | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below.                                                                     |
-| `camera_bounds`        | object             | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height, projected}}`) where `projected=false` means detector-provided pixel bbox and `projected=true` means computed projection; may be empty (`{}`) when no camera currently observes the track |
+| Field                  | Type               | Description                                                                                                                                                                                                                                                      |
+| ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                   | string (UUID)      | Persistent track identifier assigned by the controller                                                                                                                                                                                                           |
+| `type`                 | string             | Object type label; same value as `category` (e.g. `"person"`)                                                                                                                                                                                                    |
+| `category`             | string             | Object class label (e.g. `"person"`)                                                                                                                                                                                                                             |
+| `confidence`           | number             | Inference confidence of the most recent contributing detection                                                                                                                                                                                                   |
+| `translation`          | array[3] of number | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                                                                                                      |
+| `size`                 | array[3] of number | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                                                                                                                   |
+| `velocity`             | array[3] of number | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                                                                                             |
+| `rotation`             | array[4] of number | Orientation quaternion                                                                                                                                                                                                                                           |
+| `visibility`           | array of string    | Camera IDs currently observing this object                                                                                                                                                                                                                       |
+| `keypoints`            | array of objects   | Pose keypoints propagated from detections when available; each entry uses `{"name": "<keypoint>", "x": <0-1>, "y": <0-1>}` coordinates normalized to frame dimensions                                                                                            |
+| `keypoint_connections` | array of strings   | Flat list of keypoint-name pairs defining the skeleton edges (e.g. `["nose","eye_l","nose","eye_r",...]`); length is always `2 x number_of_connections`                                                                                                          |
+| `regions`              | object             | Map of region/sensor IDs to membership metadata. **Never populated by the Scene Controller** — added by the Analytics microservice when it enriches this data; see note below.                                                                                   |
+| `sensors`              | object             | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`). **Never populated by the Scene Controller** — added by the Analytics microservice; see note below.                                                                                |
+| `similarity`           | number or null     | Similarity/distance value to the matched ReID embedding in the configured vector database; higher-is-better for `COSINE`; lower is better for `L2`. `null` when ReID is still collecting embeddings, when no database match was found, or when ReID is disabled. |
+| `reid_state`           | string             | Re-ID processing state for the object. One of: `pending_collection`, `query_no_match`, `matched`, `reid_disabled`                                                                                                                                                |
+| `previous_ids_chain`   | array or absent    | History of UUID reassignments for this track. Each element is `{"id": "<uuid>", "timestamp": "<ISO 8601>", "similarity_score": <number or null>}`. Present only when the object has been re-identified at least once; omitted otherwise.                         |
+| `first_seen`           | string (ISO 8601)  | Timestamp when the track was first created                                                                                                                                                                                                                       |
+| `metadata`             | object             | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below.                                                                         |
+| `camera_bounds`        | object             | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height, projected}}`) where `projected=false` means detector-provided pixel bbox and `projected=true` means computed projection; may be empty (`{}`) when no camera currently observes the track     |
 
 > **Note on `metadata` in track objects**: Each attribute follows the structure
 > `{label, model_name, confidence?}` — identical to [Semantic Metadata Fields](#semantic-metadata-fields)
@@ -238,9 +185,9 @@ tracked object contains the following fields:
 > optional pass-through fields from object detections. They are included in output
 > objects when present on the contributing detection data.
 
-> **Note on `similarity`**: This field holds the metric value returned by VDMS
-> in `_distance` and is evaluated by the controller using configured metric semantics.
-> For `COSINE` (implemented via VDMS `IP`), value must be above `similarity_threshold`; for distance-style metrics such as `L2`,
+> **Note on `similarity`**: This field holds the metric value returned by the ReID
+> backend in `_distance` and is evaluated by the controller using configured metric semantics.
+> For `COSINE` (normalized vectors with backend IP/DOT), value must be above `similarity_threshold`; for distance-style metrics such as `L2`,
 > value must be below `similarity_threshold`.
 > A value of `null` means either the ReID query has not been submitted yet
 > (`pending_collection`), the query found no match below the configured
@@ -253,11 +200,14 @@ tracked object contains the following fields:
 > - `matched`: Query found a database match and the object was re-identified.
 > - `reid_disabled`: Re-ID is disabled for this object lifecycle (for example due to runtime disablement).
 
-> **Note on live region dwell**: In region data and region event payloads, objects that are
-> still inside a region include `regions.<region_id>.dwell`, which is the current elapsed
-> time in seconds since that object entered the region. Exit records continue to expose the
-> final dwell time separately as `{"object": <track>, "dwell": <seconds>}` in the
-> top-level `exited` array.
+> **Note on `regions`/`sensors`**: These fields are added by the Analytics microservice
+> when it consumes `scenescape/data/scene/{scene_id}/{thing_type}` and republishes enriched,
+> regulated, and region/tripwire-event output. `regions` defaults to `{id: {entered: timestamp}}`
+> and gains a live `dwell` value for objects currently inside a region:
+> `{id: {entered: timestamp, dwell: seconds}}`. Exit records expose the final dwell time
+> separately as `{"object": <track>, "dwell": <seconds>}` in the top-level `exited` array.
+> See [Regulated Scene Output Message Format](../analytics/data_formats.md#regulated-scene-output-message-format)
+> for full format details.
 
 ## Data Scene Output Message Format
 
@@ -320,14 +270,6 @@ objects of that category.
           "projected": false
         }
       },
-      "regions": {
-        "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
-          "entered": "2026-03-26T20:49:51.349Z"
-        }
-      },
-      "sensors": {
-        "temperature_1": [["2026-03-26T20:49:53.661Z", 70]]
-      },
       "similarity": null,
       "reid_state": "pending_collection",
       "first_seen": "2026-03-26T20:49:49.339Z"
@@ -336,283 +278,10 @@ objects of that category.
 }
 ```
 
-## Regulated Scene Output Message Format
-
-Published on MQTT topic: `scenescape/regulated/scene/{scene_id}`
-
-The Scene Controller publishes regulated (rate-controlled) tracking results aggregating all
-object categories into a single message. This is the primary output topic for downstream
-applications.
-
-### Regulated Scene Top-Level Fields
-
-| Field        | Type                  | Description                                                                     |
-| ------------ | --------------------- | ------------------------------------------------------------------------------- |
-| `id`         | string                | Scene identifier (UUID)                                                         |
-| `timestamp`  | string (ISO 8601 UTC) | Publication timestamp                                                           |
-| `name`       | string                | Scene name                                                                      |
-| `scene_rate` | number                | Regulated publication rate in Hz                                                |
-| `rate`       | object                | Map of camera IDs to their current framerates (e.g. `{"cam1": 10.0}`)           |
-| `objects`    | array                 | Tracked objects (see [Common Output Track Fields](#common-output-track-fields)) |
-
-### Example Regulated Scene Message
-
-```json
-{
-  "id": "302cf49a-97ec-402d-a324-c5077b280b7b",
-  "timestamp": "2026-03-26T20:48:50.149Z",
-  "name": "Queuing",
-  "scene_rate": 38.8,
-  "rate": {
-    "atag-qcam1": 9.998,
-    "atag-qcam2": 10.018
-  },
-  "objects": [
-    {
-      "id": "0c373dbf-2a1d-49b7-ba2d-48711d189971",
-      "category": "person",
-      "type": "person",
-      "confidence": 0.998,
-      "translation": [2.204, 3.29, 0.0],
-      "size": [0.5, 0.5, 1.85],
-      "velocity": [-0.489, 0.25, 0.0],
-      "rotation": [0, 0, 0, 1],
-      "visibility": ["atag-qcam1", "atag-qcam2"],
-      "metadata": {
-        "age": { "label": "41", "model_name": "age_gender" },
-        "gender": {
-          "label": "Male",
-          "model_name": "age_gender",
-          "confidence": 0.963
-        },
-        "reid": {
-          "embedding_vector": "<embedding_dimensions-element float array>",
-          "embedding_dimensions": 256,
-          "model_name": "torch-jit-export"
-        }
-      },
-      "camera_bounds": {
-        "atag-qcam2": {
-          "x": 760,
-          "y": 49,
-          "width": 191,
-          "height": 375,
-          "projected": false
-        }
-      },
-      "regions": {
-        "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
-          "entered": "2026-03-26T20:48:46.344Z"
-        }
-      },
-      "sensors": {
-        "temperature_1": [
-          ["2026-03-26T20:48:45.629Z", 79],
-          ["2026-03-26T20:48:46.630Z", 14]
-        ]
-      },
-      "similarity": null,
-      "reid_state": "pending_collection",
-      "first_seen": "2026-03-26T20:48:42.857Z"
-    }
-  ]
-}
-```
-
-## Region Event Output Message Format
-
-Published on MQTT topic: `scenescape/event/region/{scene_id}/{region_id}/{event_type}`
-
-The Scene Controller publishes an event when the set of tracked objects inside a region of
-interest changes. The `{event_type}` segment is typically `objects`.
-
-### Region Event Top-Level Fields
-
-| Field         | Type                  | Description                                                                                                        |
-| ------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `timestamp`   | string (ISO 8601 UTC) | Event timestamp                                                                                                    |
-| `scene_id`    | string                | Scene identifier (UUID)                                                                                            |
-| `scene_name`  | string                | Scene name                                                                                                         |
-| `region_id`   | string                | Region identifier (UUID)                                                                                           |
-| `region_name` | string                | Region name                                                                                                        |
-| `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                                 |
-| `objects`     | array                 | Tracked objects currently inside the region (#common-output-track-fields)                                          |
-| `entered`     | array                 | Objects that entered the region during this cycle; Empty when no entry occurred                                    |
-| `exited`      | array                 | Objects that exited the region during this cycle; Empty when no exit occurred                                      |
-| `metadata`    | object                | Region geometry: `title`, `uuid`, `points` (polygon vertices in metres), `area` (`"poly"`), `fromSensor` (boolean) |
-
-### Example Region Event Message
-
-```json
-{
-  "timestamp": "2026-03-26T20:53:32.045Z",
-  "scene_id": "302cf49a-97ec-402d-a324-c5077b280b7b",
-  "scene_name": "Queuing",
-  "region_id": "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4",
-  "region_name": "region_2",
-  "counts": {
-    "person": 2
-  },
-  "objects": [
-    {
-      "id": "2d3c96d9-24bd-498b-ba1f-2fd54ab6c25b",
-      "category": "person",
-      "type": "person",
-      "confidence": 0.999,
-      "translation": [2.557, 3.678, 0.0],
-      "size": [0.5, 0.5, 1.85],
-      "velocity": [-0.118, 0.186, 0.0],
-      "rotation": [0, 0, 0, 1],
-      "visibility": ["atag-qcam1", "atag-qcam2"],
-      "camera_bounds": {
-        "atag-qcam2": {
-          "x": 799,
-          "y": 14,
-          "width": 169,
-          "height": 397,
-          "projected": false
-        }
-      },
-      "sensors": {
-        "temperature_1": [["2026-03-26T20:53:29.761Z", 48]]
-      },
-      "similarity": null,
-      "first_seen": "2026-03-26T20:53:25.339Z"
-    }
-  ],
-  "entered": [
-    {
-      "id": "2d3c96d9-24bd-498b-ba1f-2fd54ab6c25b",
-      "category": "person",
-      "type": "person",
-      "confidence": 0.999,
-      "translation": [2.557, 3.678, 0.0],
-      "size": [0.5, 0.5, 1.85],
-      "velocity": [-0.118, 0.186, 0.0],
-      "rotation": [0, 0, 0, 1],
-      "visibility": ["atag-qcam1", "atag-qcam2"],
-      "similarity": null,
-      "first_seen": "2026-03-26T20:53:25.339Z"
-    }
-  ],
-  "exited": [
-    {
-      "object": {
-        "id": "bbd07321-dbb9-4384-bf1b-4eb5d9a0aa05",
-        "category": "person",
-        "type": "person",
-        "confidence": 0.98,
-        "translation": [0.893, 5.709, 0.0],
-        "size": [0.5, 0.5, 1.85],
-        "velocity": [0.005, -0.012, 0.0],
-        "rotation": [0, 0, 0, 1],
-        "visibility": ["atag-qcam2"],
-        "regions": {},
-        "similarity": null,
-        "first_seen": "2026-03-26T20:53:06.647Z",
-        "camera_bounds": {
-          "atag-qcam2": {
-            "x": 180,
-            "y": 115,
-            "width": 166,
-            "height": 400,
-            "projected": false
-          }
-        }
-      },
-      "dwell": 5.297
-    }
-  ],
-  "metadata": {
-    "title": "region_2",
-    "uuid": "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4",
-    "points": [
-      [0.77, 6.528],
-      [1.286, 2.363],
-      [4.961, 1.101],
-      [3.394, 4.828],
-      [1.923, 6.261]
-    ],
-    "area": "poly",
-    "fromSensor": false
-  }
-}
-```
-
-> **Note on `entered` vs `exited` element shape**: In region events, `entered` elements
-> are bare track objects, while `exited` elements are wrapped as
-> `{"object": <track>, "dwell": <seconds>}` where `dwell` is the time in seconds the
-> object spent inside the region.
-
-## Tripwire Event Output Message Format
-
-Published on MQTT topic: `scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}`
-
-The Scene Controller publishes an event when a tracked object crosses a tripwire. The
-`{event_type}` segment is typically `objects`. Each crossing object carries a `direction`
-field (`1` or `-1`) indicating which side of the wire it crossed toward.
-
-### Tripwire Event Top-Level Fields
-
-| Field           | Type                  | Description                                                                                                                                 |
-| --------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `timestamp`     | string (ISO 8601 UTC) | Event timestamp                                                                                                                             |
-| `scene_id`      | string                | Scene identifier (UUID)                                                                                                                     |
-| `scene_name`    | string                | Scene name                                                                                                                                  |
-| `tripwire_id`   | string                | Tripwire identifier (UUID)                                                                                                                  |
-| `tripwire_name` | string                | Tripwire name                                                                                                                               |
-| `counts`        | object                | Map of category to crossing object count (e.g. `{"person": 1}`)                                                                             |
-| `objects`       | array                 | Objects that triggered the event; each carries a `direction` field in addition to [Common Output Track Fields](#common-output-track-fields) |
-| `entered`       | array                 | Always empty (`[]`) in tripwire events; crossing objects appear in `objects` with a `direction` field instead                               |
-| `exited`        | array                 | Always empty (`[]`) in tripwire events                                                                                                      |
-| `metadata`      | object                | Tripwire geometry: `title`, `points` (array of `[x, y]` coordinates in metres), `uuid`                                                      |
-
-### Example Tripwire Event Message
-
-```json
-{
-  "timestamp": "2026-03-26T20:51:39.241Z",
-  "scene_id": "302cf49a-97ec-402d-a324-c5077b280b7b",
-  "scene_name": "Queuing",
-  "tripwire_id": "5fc8df22-0497-411c-9a62-90218cb20d7d",
-  "tripwire_name": "tripwire_1",
-  "counts": {
-    "person": 1
-  },
-  "objects": [
-    {
-      "id": "d62d8bbf-9008-40f5-84f8-9faca9e03d90",
-      "category": "person",
-      "type": "person",
-      "confidence": 0.999,
-      "translation": [1.043, 3.542, 0.0],
-      "size": [0.5, 0.5, 1.85],
-      "velocity": [0.374, -0.824, 0.0],
-      "rotation": [0, 0, 0, 1],
-      "visibility": ["atag-qcam1", "atag-qcam2"],
-      "camera_bounds": {
-        "atag-qcam2": {
-          "x": 796,
-          "y": 175,
-          "width": 257,
-          "height": 504,
-          "projected": false
-        }
-      },
-      "similarity": null,
-      "first_seen": "2026-03-26T20:51:37.336Z",
-      "direction": -1
-    }
-  ],
-  "entered": [],
-  "exited": [],
-  "metadata": {
-    "title": "tripwire_1",
-    "points": [
-      [3.745, 6.082],
-      [0.878, 3.573]
-    ],
-    "uuid": "5fc8df22-0497-411c-9a62-90218cb20d7d"
-  }
-}
-```
+> **Note**: The example above omits `regions` and `sensors`, which the Scene Controller never
+> populates on this topic (see [Common Output Track Fields](#common-output-track-fields) above).
+> The Analytics microservice consumes this topic and republishes enriched, regulated
+> (rate-controlled), and region/tripwire-event output — including `regions` and `sensors` on
+> each object. See [Analytics Service Data Formats](../analytics/data_formats.md) for the
+> `scenescape/regulated/scene/{scene_id}`, `scenescape/event/region/{scene_id}/{region_id}/{event_type}`,
+> and `scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}` message formats.
