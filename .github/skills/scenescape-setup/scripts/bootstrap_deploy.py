@@ -45,7 +45,7 @@ def fetch_dlstreamer_assets(deploy_dir: Path) -> None:
 
   subprocess.run(
     [
-      "git", "clone", "--filter=blob:none", "--sparse", "--branch", "feature/sscape-app-skill",
+      "git", "clone", "--filter=blob:none", "--sparse", "--branch", "main",
       "https://github.com/open-edge-platform/scenescape.git",
       str(tmp),
     ],

@@ -104,9 +104,9 @@ export SKILL_DIR=<path-to-scenescape-checkout>/.github/skills/scenescape-setup
 # Find any local scenescape clone
 SCENESCAPE_REPO=$(find ~ -maxdepth 5 -type d -name scenescape 2>/dev/null | head -1)
 # Archive just the skill directory from the feature branch
-git -C "$SCENESCAPE_REPO" fetch origin feature/sscape-app-skill
+git -C "$SCENESCAPE_REPO" fetch origin main
 mkdir -p /tmp/scenescape-skill
-git -C "$SCENESCAPE_REPO" archive origin/feature/sscape-app-skill \
+git -C "$SCENESCAPE_REPO" archive origin/main \
   -- .github/skills/scenescape-setup | tar -x -C /tmp/scenescape-skill
 export SKILL_DIR=/tmp/scenescape-skill/.github/skills/scenescape-setup
 ```
