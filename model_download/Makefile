@@ -55,6 +55,7 @@ start-model-downloader:
 		--name "$(MODEL_DOWNLOADER_CONTAINER)" \
 		-p "$(MODEL_DOWNLOADER_HOST_PORT):$(MODEL_DOWNLOADER_CONTAINER_PORT)" \
 		-v "$(MODEL_VOLUME)":/opt/models \
+        -e HF_HUB_ENABLE_HF_TRANSFER=1 \
 		-e HTTP_PROXY="$(HTTP_PROXY)" \
 		-e HTTPS_PROXY="$(HTTPS_PROXY)" \
 		-e NO_PROXY="$(NO_PROXY)" \
