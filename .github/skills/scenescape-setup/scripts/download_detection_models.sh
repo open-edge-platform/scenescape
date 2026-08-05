@@ -12,8 +12,8 @@ set -euo pipefail
 deploy_dir=${1:-.}
 cd "$deploy_dir"
 
-MODEL_XML="intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml"
-MODEL_BIN="intel/person-detection-retail-0013/FP32/person-detection-retail-0013.bin"
+MODEL_XML="omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml"
+MODEL_BIN="omz/person-detection-retail-0013/FP32/person-detection-retail-0013.bin"
 # NOTE: the upstream bucket does not have an "intel/" path segment (unlike the
 # local /models layout used above) - including it silently returns a small HTML
 # placeholder page instead of a 404.

@@ -89,9 +89,8 @@ x-controller-base: &controller-base
 # - experimental: All services including mapping
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
-# - controller: Enable the Controller service in Default mode (analytics + tracking)
-# - analytics: Enable the Controller service in Analytics Only mode (without tracking)
-# - tracker: Enable tracker service
+# - controller: Scene Controller (tracking) + Analytics service
+# - tracker: Tracker service + Analytics service (no Scene Controller)
 
 services:
   ntpserv:
@@ -123,7 +122,7 @@ services:
   broker:
     image: eclipse-mosquitto:2.0.22
     # ports:
-    #  - "1883:1883"
+    #   - "1883:1883"
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
@@ -219,12 +218,38 @@ services:
     profiles:
       - controller
 
-  controller-analytics:
-    <<: *controller-base
+  analytics:
+    image: scenescape-analytics:${VERSION:-latest}
+    init: true
+    user: "${UID:-1000}:${GID:-1000}"
+    networks:
+      scenescape:
     profiles:
-      - analytics
+      - controller
+      - tracker
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
     environment:
-      CONTROLLER_ENABLE_ANALYTICS_ONLY: "true"
+      no_proxy: ${no_proxy},.scenescape.intel.com
+      NO_PROXY: ${NO_PROXY},.scenescape.intel.com
+      VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --visibility_topic ${VISIBILITY:-regulated}
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - django
+      - controller.auth
+    restart: always
+    pids_limit: 1000
 
   mediaserver:
     image: bluenviron/mediamtx:1.18.1
@@ -300,6 +325,7 @@ services:
       - RUN_MODE=EVA
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
+      - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
@@ -315,10 +341,7 @@ services:
       - source: retail-config
         target: /home/pipeline-server/config.json
     volumes:
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_decode_timestamp_capture.py
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_inference_data_publish.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_inference_data_publish.py
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_policies.py
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_3d_detector.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_3d_detector.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
@@ -367,6 +390,7 @@ services:
       - RUN_MODE=EVA
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
+      - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
@@ -382,10 +406,7 @@ services:
       - source: queuing-config
         target: /home/pipeline-server/config.json
     volumes:
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_decode_timestamp_capture.py
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_inference_data_publish.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_inference_data_publish.py
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_policies.py
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_3d_detector.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_3d_detector.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models

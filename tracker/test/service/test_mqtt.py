@@ -13,6 +13,7 @@ Tests tracker's MQTT functionality including:
 """
 
 import json
+import threading
 import uuid
 import time
 from datetime import datetime, timezone
@@ -85,7 +86,6 @@ def send_detection_sequence(client, count=5, interval_ms=67):
   Returns:
       List of timestamps sent
   """
-  import time
   timestamps = []
   for i in range(count):
     detection = create_camera_detection_message(object_id=1)
@@ -357,9 +357,13 @@ def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene,
   assert is_tracker_ready(docker), "Tracker should be ready"
 
   received_messages = []
+  subscribed = threading.Event()
 
-  def on_message(client, userdata, msg):
+  def on_message(_client, _userdata, msg):
     received_messages.append(json.loads(msg.payload.decode()))
+
+  def on_subscribe(_client, _userdata, _mid, _reason_codes, _properties):
+    subscribed.set()
 
   client = mqtt.Client(
       callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
@@ -371,11 +375,13 @@ def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene,
       keyfile=str(certs.client.key_path),
   )
   client.on_message = on_message
+  client.on_subscribe = on_subscribe
   client.connect(host, port, keepalive=60)
   client.loop_start()
 
   try:
     client.subscribe(topic_scene_output, qos=1)
+    assert subscribed.wait(timeout=5), "MQTT scene-output subscription was not acknowledged"
 
     # Send detections to real dual-camera scene
     metadata_qcam1 = {
@@ -388,7 +394,9 @@ def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene,
         "age": {"label": "senior", "model_name": "m1"}
     }
 
-    for i in range(20):
+    # The scheduler dispatches every 66 ms. Publish both cameras back-to-back
+    # and repeat faster than the dispatch period so each chunk sees both feeds.
+    for i in range(40):
       timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
       det_qcam1 = create_camera_detection_message(
@@ -408,12 +416,12 @@ def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene,
       validate_camera_input(det_qcam2)
 
       res1 = client.publish(topic_camera_input_1, json.dumps(det_qcam1), qos=1)
-      res1.wait_for_publish()
       res2 = client.publish(topic_camera_input_2, json.dumps(det_qcam2), qos=1)
+      res1.wait_for_publish()
       res2.wait_for_publish()
 
-      if i < 19:
-        time.sleep(0.067)
+      if i < 39:
+        time.sleep(0.04)
 
     def has_fused_metadata():
       for msg in received_messages:
@@ -425,11 +433,21 @@ def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene,
             return True
       return False
 
-    wait(
-        has_fused_metadata,
-        timeout_seconds=10,
-        sleep_seconds=POLL_INTERVAL
-    )
+    try:
+      wait(
+          has_fused_metadata,
+          timeout_seconds=DEFAULT_TIMEOUT,
+          sleep_seconds=POLL_INTERVAL
+      )
+    except TimeoutExpired:
+      observed_metadata = [
+          obj.get("metadata", {})
+          for msg in received_messages
+          for obj in msg.get("objects", [])
+      ]
+      pytest.fail(
+          f"No fused metadata received; last observed metadata: {observed_metadata[-10:]}"
+      )
 
     candidate_message = None
     candidate_track = None

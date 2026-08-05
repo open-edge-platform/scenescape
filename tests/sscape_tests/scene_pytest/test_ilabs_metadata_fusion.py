@@ -3,6 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -69,3 +70,49 @@ def test_to_rv_object_assigns_complete_attributes_dict(monkeypatch):
   assert attributes['metadata.plate'] == '{"label":"XYZ-789"}'
   assert attributes['metadata.gender'] == '{"label":"female","confidence":0.9}'
   assert attributes['metadata_confidence.gender'] == '0.9'
+
+
+def test_legacy_tracker_preserves_maximum_metadata_across_frames(monkeypatch):
+  """Legacy tracking keeps metadata with the highest confidence across frames."""
+  monkeypatch.setattr(ilabs_tracking.rv.tracking, 'TrackedObject', RealTrackedObject)
+  tracker_adapter = object.__new__(IntelLabsTracking)
+  rv_tracker = robot_vision.tracking.MultipleObjectTracker()
+
+  def detection(metadata):
+    return SimpleNamespace(
+        uuid=None,
+        sceneLoc=Point(1.0, 2.0, 0.0),
+        size=[1.0, 1.0, 2.0],
+        rotation=None,
+        confidence=0.8,
+        info={},
+        frameCount=1,
+        metadata=metadata,
+    )
+
+  first = tracker_adapter.to_rv_object(detection({
+      'plate': {'label': 'XYZ-789', 'confidence': 0.8},
+      'gender': {'label': 'female', 'confidence': 0.9},
+  }))
+  rv_tracker.track(
+      [first], datetime.fromtimestamp(1),
+      distance_type=robot_vision.tracking.DistanceType.Euclidean,
+      distance_threshold=2.0,
+  )
+
+  second = tracker_adapter.to_rv_object(detection({
+      'gender': {'label': 'male', 'confidence': 0.7},
+  }))
+  rv_tracker.track(
+      [second], datetime.fromtimestamp(1) + timedelta(milliseconds=100),
+      distance_type=robot_vision.tracking.DistanceType.Euclidean,
+      distance_threshold=2.0,
+  )
+
+  tracks = rv_tracker.get_tracks()
+  assert len(tracks) == 1
+  metadata = IntelLabsTracking.metadata_from_attributes(tracks[0].attributes)
+  assert metadata == {
+      'plate': {'label': 'XYZ-789', 'confidence': 0.8},
+      'gender': {'label': 'female', 'confidence': 0.9},
+  }
