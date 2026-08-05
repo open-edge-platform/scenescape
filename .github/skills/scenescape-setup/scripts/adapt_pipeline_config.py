@@ -23,7 +23,7 @@ _VALID_HOSTNAME_RE = re.compile(r"^[A-Za-z0-9.-]+$")
 from deploy_inputs import load_inputs, validate_camera_streams
 
 MODEL_XML = (
-  "/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/"
+  "/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/"
   "person-detection-retail-0013.xml"
 )
 MODEL_PROC = "/home/pipeline-server/model-proc-files/person-detection-retail-0013.json"
