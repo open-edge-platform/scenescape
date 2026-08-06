@@ -25,41 +25,6 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 - **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another). For details on chaining syntax, available models, and usage examples, see the [Model Chaining](#model-chaining) section below.
 - **Camera Pipeline**: The generated or custom GStreamer pipeline string
 
-#### Using Custom Video Files
-
-If you need to use your own video files instead of the provided sample videos, they must be converted to MPEG-TS (.ts) format. This requirement exists because looping video streams can cause visual artifacts at loop boundaries unless the video is pre-encoded with proper keyframe alignment.
-
-**Steps to prepare your own video files:**
-
-1. **Place your source video** in the `sample_data/` directory on your Scenescape host machine (e.g., `sample_data/myvideo.mp4`).
-
-2. **Convert the video to .ts format** using the provided conversion script:
-   ```bash
-   cd /path/to/scenescape
-   bash dlstreamer-pipeline-server/convert_video_to_ts.sh
-   ```
-   This script automatically converts all `.mp4` files in `sample_data/` to `.ts` format with proper H.264 encoding and keyframe alignment to prevent loop-boundary artifacts.
-
-3. **Copy the .ts file to the Docker Sample-Data Volume:**
-   ```bash
-   VOLUME=$(docker volume ls --format "{{.Name}}" | grep "scenescape_vol-sample-data" | head -n 1)
-   docker run --rm -v "$PWD/sample_data:/host:ro" -v "$VOLUME:/vol" \
-     alpine cp /host/myvideo.ts /vol/
-   ```
-   (If using Kubernetes, see [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) for instructions on copying files to Persistent Volumes.)
-
-4. **Restart streaming containers** to load the new files:
-   ```bash
-   docker compose restart *-cams retail-video queuing-video
-   ```
-
-5. **Use the video in your pipeline** by specifying the filename:
-   ```
-   file://myvideo.ts
-   ```
-
-**Why MPEG-TS format?** When video files loop continuously via ffmpeg's `-stream_loop` mechanism, the decoder's H.264 reference-frame state is not reset between loops. Videos encoded with regular IDR keyframes (as the conversion script does) ensure that each loop boundary hits a clean decoder reset point, eliminating visual corruption/artifacts that would otherwise appear every ~1-2 seconds of looping.
-
 #### Model Chaining
 
 Model chaining allows you to combine multiple AI models in a single pipeline to create more sophisticated video analytics workflows. For example, you can chain a person detection model with a re-identification model to first detect people in the video and then generate unique identifiers for tracking.
