@@ -60,7 +60,11 @@ class OrphanedCameraTest(FunctionalTest):
       assert newScene, (newScene.statusCode, newScene.errors)
 
       log.info(f"Generating a new camera: {self.newCameraName} and adding it to scene: {newScene['uid']}")
-      newCamera = self.rest.createCamera({'name': self.newCameraName, 'scene': newScene['uid']})
+      newCamera = self.rest.createCamera({
+        'name': self.newCameraName,
+        'sensor_id': self.newCameraName,
+        'scene': newScene['uid']
+      })
       assert newCamera, (newCamera.statusCode, newCamera.errors)
 
       log.info(f"Delete the newly created scene: {newScene['uid']}")
@@ -75,7 +79,15 @@ class OrphanedCameraTest(FunctionalTest):
       existingScene = self.rest.getScenes({'id': self.existingSceneUID})
       assert existingScene['results'], (existingScene.statusCode, existingScene.errors)
       sceneID = existingScene['results'][0]['uid']
-      updateNewCamera = self.rest.updateCamera(newCamera['uid'], {'scene': sceneID})
+      cameraData = self.rest.getCamera(newCamera['uid'])
+      assert cameraData, (cameraData.statusCode, cameraData.errors)
+      updatePayload = {
+        'name': cameraData['name'],
+        'scene': sceneID,
+      }
+      if cameraData.get('sensor_id') is not None:
+        updatePayload['sensor_id'] = cameraData['sensor_id']
+      updateNewCamera = self.rest.updateCamera(newCamera['uid'], updatePayload)
       assert updateNewCamera and updateNewCamera['scene'] == sceneID, \
         (updateNewCamera.statusCode, updateNewCamera.errors)
 
