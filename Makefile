@@ -311,6 +311,7 @@ clean-tests:
 list-dependencies: $(BUILD_DIR)
 	@echo "==> Listing dependencies for all microservices..."
 	@set -e; \
+	$(MAKE) -C $(COMMON_FOLDER) BUILD_DIR=$(BUILD_DIR) list-dependencies; \
 	for dir in $(IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) list-dependencies; \
 	done
