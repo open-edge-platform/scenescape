@@ -22,9 +22,13 @@ log = get_logger(__name__)
 
 
 def _get_log_dir():
-  """Return per-test log directory created by utils.log.setup()."""
+  """Return the per-test container-log directory."""
   root_logger = get_logger()
-  return getattr(root_logger, "_log_dir", None)
+  container_dir = getattr(root_logger, "_container_log_dir", None)
+  if container_dir is None:
+    return None
+  container_dir.mkdir(parents=True, exist_ok=True)
+  return container_dir
 
 
 def container_is_ready(docker, project_name, service, log_pattern, since=None):
