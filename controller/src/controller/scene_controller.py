@@ -118,8 +118,17 @@ class SceneController:
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
 
-    self.external_source_pose_cache = ExternalSourcePoseCache()
-    self.identity_claim_registry = IdentityClaimRegistry()
+    self.external_source_pose_cache = ExternalSourcePoseCache(
+      sweep_grace_seconds=self.max_lag,
+      sweep_time_provider=self._getExternalSourceSweepTime)
+    self.identity_claim_registry = IdentityClaimRegistry(
+      sweep_grace_seconds=self.max_lag,
+      sweep_time_provider=self._getExternalSourceSweepTime)
+    # Expired-entry cleanup runs on a background daemon timer rather than
+    # inline on the MQTT message-handling thread, so a burst of accumulated
+    # entries never stalls ingestion (see external_source.py).
+    self.external_source_pose_cache.startBackgroundSweep()
+    self.identity_claim_registry.startBackgroundSweep()
     self.trusted_positioning_sources = _parseTrustedSources(
       os.getenv(TRUSTED_POSITIONING_SOURCES_ENV_VAR))
     self.external_source_bindings = _parseExternalSourceBindings(
@@ -212,6 +221,22 @@ class SceneController:
 
   def loopForever(self):
     return self.pubsub.loopForever()
+
+  def _getExternalSourceSweepTime(self):
+    """Return the NTP-corrected time used to accept external-source events."""
+    return get_epoch_time() + self.time_offset
+
+  def shutdown(self):
+    """Stop background maintenance threads owned by this controller.
+
+    Safe to call multiple times. The MQTT/tracker threads are not joined
+    here since ``loopForever()`` normally only returns on process exit, at
+    which point these daemon threads are torn down anyway; this exists for
+    graceful cleanup paths (tests, future signal handling).
+    """
+    self.external_source_pose_cache.stopBackgroundSweep()
+    self.identity_claim_registry.stopBackgroundSweep()
+    return
 
   def publishDetections(self, scene, objects, ts, otype, jdata, camera_id):
     if not hasattr(scene, 'lastPubCount'):

@@ -24,8 +24,11 @@ reused. A message with a pose and an empty ``objects`` list updates the
 cache without ingesting any observations.
 """
 
+import threading
+import time
+from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -35,6 +38,15 @@ from scene_common.transform import CameraPose
 
 DEFAULT_POSE_CACHE_TTL_SECONDS = 30.0
 DEFAULT_IDENTITY_CLAIM_TTL_SECONDS = 30.0
+
+# Upper bound on entries examined/evicted per sweep tick, so a single
+# background-sweep lock acquisition never blocks the ingestion critical
+# path (resolve()/claim()) for more than a small, constant amount of time --
+# even after a large backlog of expired entries has accumulated (e.g. the
+# process was descheduled for a while). Entries are stored oldest-touched
+# first (see _touch()), so a capped sweep still makes steady, bounded
+# progress every tick rather than doing all the work in one shot.
+DEFAULT_SWEEP_CHUNK_SIZE = 500
 
 POSE_REFERENCE_FRAME_WGS84 = "wgs84"
 POSE_REFERENCE_FRAME_SCENE = "scene"
@@ -63,11 +75,41 @@ class _CachedPose:
 
 
 class ExternalSourcePoseCache:
-  """Resolves and caches source-to-scene transforms for external sources."""
+  """Resolves and caches source-to-scene transforms for external sources.
 
-  def __init__(self, ttl_seconds: float = DEFAULT_POSE_CACHE_TTL_SECONDS):
+  ``resolve()`` runs on the MQTT message-handling thread (the ingestion
+  critical path) and must stay O(1): it only ever touches the single entry
+  for its own ``key``, and holds ``_lock`` only for that brief dict access.
+  Expired-entry cleanup is handled separately by a background daemon timer
+  (``startBackgroundSweep()``); each tick evicts at most
+  ``DEFAULT_SWEEP_CHUNK_SIZE`` entries so a sweep's lock acquisition is
+  itself bounded and never makes ``resolve()`` wait on a large O(n) pass --
+  see ``sweepExpired()``.
+  """
+
+  def __init__(self, ttl_seconds: float = DEFAULT_POSE_CACHE_TTL_SECONDS,
+               sweep_interval_seconds: Optional[float] = None,
+               sweep_chunk_size: int = DEFAULT_SWEEP_CHUNK_SIZE,
+               sweep_grace_seconds: float = 0.0,
+               sweep_time_provider: Optional[Callable[[], float]] = None):
     self._ttl_seconds = ttl_seconds
-    self._cache = {}
+    self._sweep_interval_seconds = sweep_interval_seconds or ttl_seconds
+    self._sweep_chunk_size = sweep_chunk_size
+    self._sweep_grace_seconds = sweep_grace_seconds
+    self._sweep_time_provider = sweep_time_provider or time.time
+    # OrderedDict, oldest-touched entry first: resolve() moves an entry to
+    # the end on every touch (see _resolveFromPose()), so sweepExpired()
+    # can evict from the front and stop as soon as it hits a live entry --
+    # everything behind it is guaranteed to be at least as fresh, modulo
+    # the small clock-skew slack documented on sweepExpired().
+    self._cache = OrderedDict()
+    self._lock = threading.Lock()
+    self._sweep_timer = None
+    # Separate from `_lock` (which only guards `_cache`): protects the
+    # timer lifecycle (`_sweep_timer`, `_sweep_stop`) across the thread
+    # that calls start/stopBackgroundSweep() and the timer thread itself.
+    self._sweep_lifecycle_lock = threading.Lock()
+    self._sweep_stop = threading.Event()
     return
 
   def resolve(self, scene, source_id, pose_data, when, trusted_scene_pose=False):
@@ -84,9 +126,10 @@ class ExternalSourcePoseCache:
               set when the returned transform is None.
     """
     key = (scene.uid, source_id)
-    if pose_data is not None:
-      return self._resolveFromPose(scene, key, pose_data, when, trusted_scene_pose)
-    return self._resolveFromCache(key, when)
+    with self._lock:
+      if pose_data is not None:
+        return self._resolveFromPose(scene, key, pose_data, when, trusted_scene_pose)
+      return self._resolveFromCache(key, when)
 
   def _resolveFromPose(self, scene, key, pose_data, when, trusted_scene_pose):
     reference_frame = pose_data.get('reference_frame')
@@ -127,6 +170,11 @@ class ExternalSourcePoseCache:
       provider=pose_data.get('provider'),
       when=when,
       expires_at=when + self._ttl_seconds)
+    # Move to the end so `_cache` stays ordered oldest-expiring-first, even
+    # when refreshing an existing key (dict/OrderedDict assignment alone
+    # does not reorder an already-present key). This is what lets
+    # sweepExpired() safely stop at the first live entry.
+    self._cache.move_to_end(key)
     return camera_pose, None
 
   def _resolveFromCache(self, key, when):
@@ -154,22 +202,116 @@ class ExternalSourcePoseCache:
 
   def invalidate(self, scene_uid=None, source_id=None):
     """Clear cached transforms, optionally scoped to a scene and/or source."""
-    if scene_uid is None and source_id is None:
-      self._cache.clear()
-      return
-    for key in list(self._cache.keys()):
-      if (scene_uid is None or key[0] == scene_uid) and \
-         (source_id is None or key[1] == source_id):
-        self._cache.pop(key, None)
+    with self._lock:
+      if scene_uid is None and source_id is None:
+        self._cache.clear()
+        return
+      for key in list(self._cache.keys()):
+        if (scene_uid is None or key[0] == scene_uid) and \
+           (source_id is None or key[1] == source_id):
+          self._cache.pop(key, None)
     return
 
   def scenesWithLiveCache(self, source_id, when):
     """Return scene uids that still hold a non-expired pose for source_id."""
     scene_uids = []
-    for (scene_uid, cached_source_id), cached in self._cache.items():
-      if cached_source_id == source_id and when <= cached.expires_at:
-        scene_uids.append(scene_uid)
+    with self._lock:
+      for (scene_uid, cached_source_id), cached in self._cache.items():
+        if cached_source_id == source_id and when <= cached.expires_at:
+          scene_uids.append(scene_uid)
     return scene_uids
+
+  def sweepExpired(self, now):
+    """Evict expired entries, oldest-touched first, bounded to at most
+    ``self._sweep_chunk_size`` per call.
+
+    Called only from the background sweep timer, never from the
+    ``resolve()`` critical path. Because ``_cache`` is an OrderedDict kept
+    in touch order (see ``_resolveFromPose``'s ``move_to_end`` call), the
+    front entry's ``expires_at`` is normally the smallest, so once it is
+    not yet expired nothing behind it is either and it's safe to stop
+    early. Entries remain eligible for ``_sweep_grace_seconds`` after
+    their event-time TTL so a message delayed by up to the controller's
+    accepted ``max_lag`` can still resolve its pose. The chunk cap
+    additionally bounds the worst case (e.g. a large backlog after the
+    process was descheduled) so a single lock acquisition here can never
+    block a concurrent ``resolve()``/``claim()`` call for more than a
+    small, constant amount of time -- unlike sweeping the whole dict in one
+    shot.
+    """
+    with self._lock:
+      evicted = 0
+      while self._cache and evicted < self._sweep_chunk_size:
+        oldest_key, oldest = next(iter(self._cache.items()))
+        if now <= oldest.expires_at + self._sweep_grace_seconds:
+          break
+        del self._cache[oldest_key]
+        evicted += 1
+    return evicted
+
+  def startBackgroundSweep(self):
+    """Start a daemon timer thread that periodically evicts expired cache
+    entries using the configured controller clock. Source ids are
+    publisher-controlled and not pre-registered, so without this, a source
+    that keeps publishing under fresh/rotating source ids would grow
+    ``_cache`` without bound for the life of the process. Idempotent; safe
+    to call multiple times.
+    """
+    with self._sweep_lifecycle_lock:
+      if self._sweep_timer is not None:
+        return
+      self._sweep_stop.clear()
+      self._scheduleSweep()
+    return
+
+  def stopBackgroundSweep(self):
+    """Cancel the background sweep timer, if running.
+
+    ``Timer.cancel()`` alone is not sufficient: it only prevents a timer
+    that hasn't fired yet from firing, but does nothing if ``_sweepTick``
+    is already running (e.g. mid-chunk-loop under a large backlog) --
+    without the ``_sweep_stop`` event, that in-flight tick would just
+    unconditionally reschedule itself at the end, silently undoing the
+    stop. Setting ``_sweep_stop`` first ensures an in-flight tick sees it
+    and does not reschedule.
+    """
+    with self._sweep_lifecycle_lock:
+      self._sweep_stop.set()
+      if self._sweep_timer is not None:
+        self._sweep_timer.cancel()
+        self._sweep_timer = None
+    return
+
+  def _scheduleSweep(self):
+    # Caller must hold self._sweep_lifecycle_lock.
+    timer = threading.Timer(self._sweep_interval_seconds, self._sweepTick)
+    timer.daemon = True
+    self._sweep_timer = timer
+    timer.start()
+    return
+
+  def _sweepTick(self):
+    # Repeat bounded chunks (each its own brief lock acquisition, so a
+    # waiting resolve()/claim() call can always interleave between chunks)
+    # until a chunk comes back under-full, meaning the backlog is drained
+    # for now. This lets one tick keep up with a burst larger than a single
+    # chunk without ever holding the lock for more than one chunk at a time.
+    # The brief sleep between chunks matters: immediately re-acquiring the
+    # lock after releasing it tends to win the race against another thread
+    # that's still being scheduled to acquire it (Python's Lock is not
+    # FIFO-fair), so without a yield a multi-chunk drain can still starve a
+    # waiting resolve()/claim() call for the whole drain, not just one chunk.
+    now = self._sweep_time_provider()
+    while self.sweepExpired(now) >= self._sweep_chunk_size:
+      if self._sweep_stop.is_set():
+        return
+      time.sleep(0)
+      now = self._sweep_time_provider()
+    with self._sweep_lifecycle_lock:
+      if self._sweep_stop.is_set():
+        return
+      self._scheduleSweep()
+    return
 
 
 @dataclass
@@ -208,11 +350,39 @@ class IdentityClaimRegistry:
   track-slot numbers). Sources with unstable/resettable local id schemes
   should still avoid relying on this trust; see the Scene Controller data
   format documentation for source_id/id selection guidance.
+
+  ``claim()`` runs on the MQTT message-handling thread (the ingestion
+  critical path) and must stay O(1): it only ever touches the single entry
+  for its own ``key``, and holds ``_lock`` only for that brief dict access.
+  Expired-claim cleanup is handled separately by a background daemon timer
+  (``startBackgroundSweep()``); each tick evicts at most
+  ``DEFAULT_SWEEP_CHUNK_SIZE`` entries so a sweep's lock acquisition is
+  itself bounded and never makes ``claim()`` wait on a large O(n) pass --
+  see ``sweepExpired()``.
   """
 
-  def __init__(self, ttl_seconds: float = DEFAULT_IDENTITY_CLAIM_TTL_SECONDS):
+  def __init__(self, ttl_seconds: float = DEFAULT_IDENTITY_CLAIM_TTL_SECONDS,
+               sweep_interval_seconds: Optional[float] = None,
+               sweep_chunk_size: int = DEFAULT_SWEEP_CHUNK_SIZE,
+               sweep_grace_seconds: float = 0.0,
+               sweep_time_provider: Optional[Callable[[], float]] = None):
     self._ttl_seconds = ttl_seconds
-    self._claims = {}
+    self._sweep_interval_seconds = sweep_interval_seconds or ttl_seconds
+    self._sweep_chunk_size = sweep_chunk_size
+    self._sweep_grace_seconds = sweep_grace_seconds
+    self._sweep_time_provider = sweep_time_provider or time.time
+    # OrderedDict, oldest-touched entry first: claim() moves an entry to
+    # the end on every touch (see claim()), so sweepExpired() can evict
+    # from the front and stop as soon as it hits a live entry -- everything
+    # behind it is guaranteed to be at least as fresh (see sweepExpired()).
+    self._claims = OrderedDict()
+    self._lock = threading.Lock()
+    self._sweep_timer = None
+    # Separate from `_lock` (which only guards `_claims`): protects the
+    # timer lifecycle (`_sweep_timer`, `_sweep_stop`) across the thread
+    # that calls start/stopBackgroundSweep() and the timer thread itself.
+    self._sweep_lifecycle_lock = threading.Lock()
+    self._sweep_stop = threading.Event()
     return
 
   def claim(self, scene_uid, category, source_id, obj_id, when):
@@ -228,20 +398,118 @@ class IdentityClaimRegistry:
               on this id; ``reason`` is set in that case.
     """
     key = (scene_uid, category, obj_id)
-    existing = self._claims.get(key)
-    if existing is not None and existing.source_id != source_id and when <= existing.expires_at:
-      return False, REASON_IDENTITY_COLLISION
-    self._claims[key] = _IdentityClaim(
-      source_id=source_id, when=when, expires_at=when + self._ttl_seconds)
-    return True, None
+    with self._lock:
+      existing = self._claims.get(key)
+      if existing is not None and existing.source_id != source_id and when <= existing.expires_at:
+        return False, REASON_IDENTITY_COLLISION
+      self._claims[key] = _IdentityClaim(
+        source_id=source_id, when=when, expires_at=when + self._ttl_seconds)
+      # Move to the end so `_claims` stays ordered oldest-expiring-first,
+      # even when refreshing an existing key (dict/OrderedDict assignment
+      # alone does not reorder an already-present key). This is what lets
+      # sweepExpired() safely stop at the first live entry.
+      self._claims.move_to_end(key)
+      return True, None
 
   def invalidate(self, scene_uid=None, source_id=None):
     """Clear identity claims, optionally scoped to a scene and/or source."""
-    if scene_uid is None and source_id is None:
-      self._claims.clear()
-      return
-    for key, claim in list(self._claims.items()):
-      if (scene_uid is None or key[0] == scene_uid) and \
-         (source_id is None or claim.source_id == source_id):
-        self._claims.pop(key, None)
+    with self._lock:
+      if scene_uid is None and source_id is None:
+        self._claims.clear()
+        return
+      for key, claim in list(self._claims.items()):
+        if (scene_uid is None or key[0] == scene_uid) and \
+           (source_id is None or claim.source_id == source_id):
+          self._claims.pop(key, None)
+    return
+
+  def sweepExpired(self, now):
+    """Evict expired claims, oldest-touched first, bounded to at most
+    ``self._sweep_chunk_size`` per call.
+
+    Called only from the background sweep timer, never from the
+    ``claim()`` critical path. Because ``_claims`` is an OrderedDict kept
+    in touch order (see ``claim()``'s ``move_to_end`` call), the front
+    entry's ``expires_at`` is normally the smallest, so once it is not yet
+    expired nothing behind it is either and it's safe to stop early. Claims
+    remain eligible for ``_sweep_grace_seconds`` after their event-time TTL
+    so a message delayed by up to the controller's accepted ``max_lag`` is
+    still collision-checked. The chunk cap additionally bounds the worst
+    case (e.g. a large backlog after the process was descheduled) so a
+    single lock acquisition here can never block a concurrent ``claim()``
+    call for more than a small, constant amount of time -- unlike sweeping
+    the whole dict in one shot.
+    """
+    with self._lock:
+      evicted = 0
+      while self._claims and evicted < self._sweep_chunk_size:
+        oldest_key, oldest = next(iter(self._claims.items()))
+        if now <= oldest.expires_at + self._sweep_grace_seconds:
+          break
+        del self._claims[oldest_key]
+        evicted += 1
+    return evicted
+
+  def startBackgroundSweep(self):
+    """Start a daemon timer thread that periodically evicts expired claims
+    using the configured controller clock. ``obj_id`` values are
+    publisher-controlled and unbounded (see class docstring), so without
+    this, a source that keeps publishing new ids would grow ``_claims``
+    without bound for the life of the process. Idempotent; safe to call
+    multiple times.
+    """
+    with self._sweep_lifecycle_lock:
+      if self._sweep_timer is not None:
+        return
+      self._sweep_stop.clear()
+      self._scheduleSweep()
+    return
+
+  def stopBackgroundSweep(self):
+    """Cancel the background sweep timer, if running.
+
+    ``Timer.cancel()`` alone is not sufficient: it only prevents a timer
+    that hasn't fired yet from firing, but does nothing if ``_sweepTick``
+    is already running (e.g. mid-chunk-loop under a large backlog) --
+    without the ``_sweep_stop`` event, that in-flight tick would just
+    unconditionally reschedule itself at the end, silently undoing the
+    stop. Setting ``_sweep_stop`` first ensures an in-flight tick sees it
+    and does not reschedule.
+    """
+    with self._sweep_lifecycle_lock:
+      self._sweep_stop.set()
+      if self._sweep_timer is not None:
+        self._sweep_timer.cancel()
+        self._sweep_timer = None
+    return
+
+  def _scheduleSweep(self):
+    # Caller must hold self._sweep_lifecycle_lock.
+    timer = threading.Timer(self._sweep_interval_seconds, self._sweepTick)
+    timer.daemon = True
+    self._sweep_timer = timer
+    timer.start()
+    return
+
+  def _sweepTick(self):
+    # Repeat bounded chunks (each its own brief lock acquisition, so a
+    # waiting claim() call can always interleave between chunks) until a
+    # chunk comes back under-full, meaning the backlog is drained for now.
+    # This lets one tick keep up with a burst larger than a single chunk
+    # without ever holding the lock for more than one chunk at a time. The
+    # brief sleep between chunks matters: immediately re-acquiring the lock
+    # after releasing it tends to win the race against another thread
+    # that's still being scheduled to acquire it (Python's Lock is not
+    # FIFO-fair), so without a yield a multi-chunk drain can still starve a
+    # waiting claim() call for the whole drain, not just one chunk.
+    now = self._sweep_time_provider()
+    while self.sweepExpired(now) >= self._sweep_chunk_size:
+      if self._sweep_stop.is_set():
+        return
+      time.sleep(0)
+      now = self._sweep_time_provider()
+    with self._sweep_lifecycle_lock:
+      if self._sweep_stop.is_set():
+        return
+      self._scheduleSweep()
     return

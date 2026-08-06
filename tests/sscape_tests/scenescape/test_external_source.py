@@ -179,6 +179,23 @@ class TestExternalSourcePoseCacheReuse:
     assert camera_pose is None
     assert reason == REASON_POSE_EXPIRED
 
+  def test_sweep_keeps_pose_for_accepted_delayed_message(self):
+    cache = ExternalSourcePoseCache(ttl_seconds=30.0, sweep_grace_seconds=5.0)
+    scene = _makeScene()
+    pose_data = {
+      'reference_frame': 'scene',
+      'translation': [5.0, 6.0, 0.0],
+      'rotation': IDENTITY_ROTATION,
+    }
+    cache.resolve(scene, 'drone-1', pose_data, when=100.0, trusted_scene_pose=True)
+
+    assert cache.sweepExpired(130.1) == 0
+
+    camera_pose, reason = cache.resolve(scene, 'drone-1', None, when=129.9)
+    assert reason is None
+    assert camera_pose is not None
+    assert cache.sweepExpired(135.1) == 1
+
   def test_out_of_order_pose_update_keeps_newer_cached_transform(self):
     cache = ExternalSourcePoseCache(ttl_seconds=30.0)
     scene = _makeScene()
@@ -239,6 +256,17 @@ class TestIdentityClaimRegistry:
 
     assert ok is True
     assert reason is None
+
+  def test_sweep_keeps_claim_for_accepted_delayed_message(self):
+    registry = IdentityClaimRegistry(ttl_seconds=30.0, sweep_grace_seconds=5.0)
+    registry.claim('scene-1', 'person', 'source-a', 'tag-1', when=100.0)
+
+    assert registry.sweepExpired(130.1) == 0
+
+    ok, reason = registry.claim('scene-1', 'person', 'source-b', 'tag-1', when=129.9)
+    assert ok is False
+    assert reason == REASON_IDENTITY_COLLISION
+    assert registry.sweepExpired(135.1) == 1
 
   def test_same_id_in_different_scenes_does_not_collide(self):
     registry = IdentityClaimRegistry()
