@@ -3,176 +3,145 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Logging configuration for end-to-end test orchestration.
+"""Logging setup for end-to-end test orchestration.
 
-All test orchestration code should obtain loggers via get_logger() so
-that their records flow through the single "test" hierarchy and are
-handled by exactly one console handler and phase-specific file handlers.
-
-Typical usage in fixtures / utilities::
-
-    from utils.log import get_logger
-    log = get_logger(__name__)   # e.g. "test.containers"
-
-In conftest pytest_runtest_setup hook::
-
-    import utils.log as testlog
-    testlog.setup(test_id, group="functional")
-
-At the start of teardown (finally block)::
-
-    testlog.silence_console()
+Each call to ``setup()`` writes one log file at
+``tests/.test_logs/<group>/<test_id>/<test_id>-<timestamp>.log``,
+tees ``sys.stdout``/``sys.stderr`` into it, and attaches a console
+handler for the terminal. ``finalize(passed)`` closes everything and,
+for passing tests, strips INFO/DEBUG chatter from infrastructure
+loggers so the log shows only the test's own progress messages.
 """
 
 import logging
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
 
-LVL_CRITICAL = logging.CRITICAL
-LVL_ERR = logging.ERROR
-LVL_WARN = logging.WARNING
-LVL_INFO = logging.INFO
-LVL_DEBUG = logging.DEBUG
-
-# Root logger name for all end-to-end orchestration output
 _ROOT = "test"
 
-_console_handler: logging.Handler | None = None
-_setup_file_handler: logging.Handler | None = None
-_file_handler: logging.Handler | None = None
+# INFO/DEBUG from infrastructure loggers (orchestration utilities).
+# Used to trim noise from passing logs.
+_NOISE_RE = re.compile(
+  r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} test\.(?:conftest|containers|profiles|spec|k8s|runner) \[(INFO|DEBUG)\] "
+)
 
-# Silence the Python "last resort" stderr handler for our hierarchy so
-# records don't leak to the terminal before setup() is called.
+# Silence the "last resort" stderr handler for our hierarchy so records
+# don't leak to the terminal before setup() is called.
 logging.getLogger(_ROOT).addHandler(logging.NullHandler())
 logging.getLogger(_ROOT).propagate = False
 
+_state: dict = {}
+
+
+class _Tee:
+  """Write to two streams; flush primary each write for real-time output."""
+
+  def __init__(self, primary, mirror):
+    self._primary = primary
+    self._mirror = mirror
+
+  def write(self, data):
+    self._mirror.write(data)
+    n = self._primary.write(data)
+    self._primary.flush()
+    return n
+
+  def flush(self):
+    self._mirror.flush()
+    self._primary.flush()
+
+  def isatty(self):
+    return getattr(self._primary, "isatty", lambda: False)()
+
+  def fileno(self):
+    return self._primary.fileno()
+
 
 def get_logger(name: str | None = None) -> logging.Logger:
-  """Return a logger in the 'test.*' hierarchy.
+  """Return a logger in the 'test.*' hierarchy."""
+  if not name:
+    return logging.getLogger(_ROOT)
+  return logging.getLogger(f"{_ROOT}.{name.rsplit('.', 1)[-1]}")
 
-  Args:
-    name: Dot-separated suffix appended to 'test.', e.g. "containers".
-          Pass None to get the root 'test' logger.
-  """
-  if name:
-    # Strip leading package path so "tests.utils.containers" → "test.containers"
-    leaf = name.rsplit(".", 1)[-1]
-    return logging.getLogger(f"{_ROOT}.{leaf}")
-  return logging.getLogger(_ROOT)
+
+def _teardown() -> None:
+  """Undo whatever setup() installed."""
+  if "stdout" in _state:
+    sys.stdout = _state.pop("stdout")
+  if "stderr" in _state:
+    sys.stderr = _state.pop("stderr")
+  if "tee_file" in _state:
+    _state.pop("tee_file").close()
+  root = logging.getLogger(_ROOT)
+  for h in list(root.handlers):
+    if not isinstance(h, logging.NullHandler):
+      root.removeHandler(h)
+      h.close()
+  _state.pop("console", None)
 
 
 def setup(test_name: str, group: str = "functional", log_base: Path | None = None) -> Path:
-  """Configure console + file logging for one test run.
+  """Attach console+file handlers and tee stdout/stderr into the log file."""
+  _teardown()
 
-  Must be called once before the test starts (e.g. from
-  pytest_runtest_setup). Creates:
+  log_base = Path(log_base) if log_base else Path(__file__).parents[1] / ".test_logs"
+  timestamp = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+  stem = f"{test_name}-{timestamp}"
+  test_dir = log_base / group / test_name
+  test_dir.mkdir(parents=True, exist_ok=True)
+  log_path = test_dir / f"{stem}.log"
 
-  - A **console handler** at INFO level so setup and execution output
-    appears in the terminal during the test.
-  - A **setup file handler** at DEBUG level writing to
-    ``test_setup.log`` in the per-test directory.
-  - A **test file handler** at DEBUG level for runtime + teardown
-    output. This handler is attached when begin_test_phase() is called
-    from pytest_runtest_call.
+  root = logging.getLogger(_ROOT)
+  root.setLevel(logging.DEBUG)
+  # Container-log dir is created lazily by utils.containers on failure.
+  root._container_log_dir = test_dir / f"{stem}-containers"
 
-  Args:
-    test_name: Test identifier used as the log file stem (e.g. "mqtt_roi").
-    group: Sub-directory under log_base (e.g. "functional", "unit").
-    log_base: Root log directory. Defaults to tests/test_logs/ (relative
-              to this file's location).
-
-  Returns:
-    Path to the newly created log file.
-  """
-  global _console_handler, _setup_file_handler, _file_handler
-
-  root_log = logging.getLogger(_ROOT)
-  root_log.setLevel(logging.DEBUG)
-
-  if _setup_file_handler is not None:
-    _setup_file_handler.close()
-    _setup_file_handler = None
-  if _file_handler is not None:
-    _file_handler.close()
-    _file_handler = None
-
-  # Remove handlers left over from the previous test
-  for h in list(root_log.handlers):
-    if not isinstance(h, logging.NullHandler):
-      root_log.removeHandler(h)
-      h.close()
-
-  # ── Console handler (INFO+, terminal only during setup/execution) ───────
-  _console_handler = logging.StreamHandler(sys.stdout)
-  _console_handler.setLevel(logging.INFO)
-  _console_handler.setFormatter(
+  console = logging.StreamHandler(sys.stdout)
+  console.setLevel(logging.INFO)
+  console.setFormatter(
     logging.Formatter("%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
   )
-  root_log.addHandler(_console_handler)
+  root.addHandler(console)
 
-  # ── File handlers (DEBUG+, split by setup vs test phase) ────────────────
-  if log_base is None:
-    # tests/utils/log.py → parents[1] = tests/, then test_logs/
-    log_base = Path(__file__).parents[1] / "test_logs"
-  else:
-    log_base = Path(log_base)
-
-  timestamp = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
-  log_dir = log_base / group / f"{test_name}-{timestamp}"
-  log_dir.mkdir(parents=True, exist_ok=True)
-  root_log._log_dir = log_dir
-  root_log._setup_log_path = log_dir / "test_setup.log"
-
-  log_path = log_dir / f"{test_name}-{timestamp}.log"
-  root_log._test_log_path = log_path
-
-  _setup_file_handler = logging.FileHandler(str(root_log._setup_log_path))
-  _setup_file_handler.setLevel(logging.DEBUG)
-  _setup_file_handler.setFormatter(
+  fh = logging.FileHandler(str(log_path))
+  fh.setLevel(logging.DEBUG)
+  fh.setFormatter(
     logging.Formatter(
       "%(asctime)s %(name)s [%(levelname)s] %(message)s",
       datefmt="%Y-%m-%d %H:%M:%S",
     )
   )
-  root_log.addHandler(_setup_file_handler)
+  root.addHandler(fh)
 
-  _file_handler = logging.FileHandler(str(log_path))
-  _file_handler.setLevel(logging.DEBUG)
-  _file_handler.setFormatter(
-    logging.Formatter(
-      "%(asctime)s %(name)s [%(levelname)s] %(message)s",
-      datefmt="%Y-%m-%d %H:%M:%S",
-    )
-  )
-
+  tee_file = open(str(log_path), "a", encoding="utf-8", buffering=1)
+  _state["stdout"] = sys.stdout
+  _state["stderr"] = sys.stderr
+  _state["tee_file"] = tee_file
+  _state["console"] = console
+  _state["log_path"] = log_path
+  sys.stdout = _Tee(_state["stdout"], tee_file)
+  sys.stderr = _Tee(_state["stderr"], tee_file)
   return log_path
 
 
-def begin_test_phase() -> None:
-  """Switch file logging from setup log to test log for call/teardown."""
-  global _setup_file_handler
-
-  root_log = logging.getLogger(_ROOT)
-
-  if _setup_file_handler is not None and _setup_file_handler in root_log.handlers:
-    root_log.removeHandler(_setup_file_handler)
-    _setup_file_handler.close()
-    _setup_file_handler = None
-
-  if _file_handler is not None and _file_handler not in root_log.handlers:
-    root_log.addHandler(_file_handler)
+def finalize(passed: bool) -> None:
+  """Close handlers; for passing tests strip infrastructure INFO/DEBUG."""
+  log_path = _state.get("log_path")
+  _state.pop("log_path", None)
+  _teardown()
+  if not passed or not log_path or not log_path.exists():
+    return
+  kept = [
+    ln for ln in log_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    if not _NOISE_RE.match(ln)
+  ]
+  log_path.write_text("".join(kept), encoding="utf-8")
 
 
 def silence_console() -> None:
-  """Suppress console output for the remainder of the current test.
-
-  Call this as the very first line of the teardown block (finally) to
-  ensure container-log collection and cleanup messages are written to
-  the log file only and do not appear on the terminal.
-
-  The file handler is unaffected.
-  """
-  if _console_handler is not None:
-    _console_handler.setLevel(logging.CRITICAL + 1)
+  """Suppress console output for the remainder of the current test."""
+  console = _state.get("console")
+  if console is not None:
+    console.setLevel(logging.CRITICAL + 1)
