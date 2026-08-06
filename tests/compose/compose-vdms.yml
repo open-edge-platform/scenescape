@@ -24,8 +24,8 @@ services:
           - reid.scenescape.intel.com
     environment:
       - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
-      - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
-      - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
+      - OVERRIDE_cert_file=/run/secrets/certs/scenescape-reid-s.crt
+      - OVERRIDE_key_file=/run/secrets/certs/scenescape-reid-s.key
       - OVERRIDE_autodelete_interval_s=300
     secrets:
       - source: root-cert
