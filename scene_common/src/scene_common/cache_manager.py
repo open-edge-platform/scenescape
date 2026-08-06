@@ -364,7 +364,6 @@ class CacheManager:
       return self.cached_child_transforms_by_uid.get(childID, None)
 
   def invalidate(self):
-    # Preserve old scene cache for sensor value restoration
     self._refreshLock()
     with self._lock:
       if self.cached_scenes_by_uid is not None:
@@ -372,9 +371,6 @@ class CacheManager:
       elif not hasattr(self, '_old_scene_cache'):
         self._old_scene_cache = {}
       self.cached_scenes_by_uid = None
-      self._cached_scenes_by_cameraID = {}
-      self._cached_scenes_by_sensorID = {}
-      # Supersede any in-flight refresh so its results are discarded.
       self._cache_epoch += 1
       if not hasattr(self, 'cached_child_transforms_by_uid') or self.cached_child_transforms_by_uid is None:
         self.cached_child_transforms_by_uid = {}
