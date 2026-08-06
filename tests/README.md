@@ -165,12 +165,21 @@ pytest tests/functional --collect-container-logs none
 Per-test log files are saved automatically:
 
 ```
-tests/test_logs/functional/<test_id>-<timestamp>.log
-tests/test_logs/unit/<test_id>-<timestamp>.log
-tests/test_logs/ui/<test_id>-<timestamp>.log
+tests/.test_logs/<group>/<test_id>/<test_id>-<timestamp>.log
 ```
 
-Container log collection supports:
+Log content depends on the test outcome:
+
+- **Passing test** — only the raw `print()` output from the test body plus any log records are kept.
+- **Failing test** — the full orchestration log is preserved for
+  debugging, along with per-container Docker logs in a sibling
+  directory (unless `--collect-container-logs=none` is set):
+
+  ```
+  tests/.test_logs/<group>/<test_id>/<test_id>-<timestamp>-containers/<service>.log
+  ```
+
+Container log collection modes (`--collect-container-logs`):
 
 - `failed` (default): collect container logs only for failed tests.
 - `all`: collect container logs for every test.
