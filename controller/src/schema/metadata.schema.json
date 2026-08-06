@@ -400,7 +400,7 @@
           "examples": ["agent", "positioning_service"]
         }
       },
-      "required": ["reference_frame", "rotation"],
+      "required": ["reference_frame"],
       "if": {
         "properties": { "reference_frame": { "const": "wgs84" } }
       },
