@@ -79,6 +79,11 @@ only for failed tests. Use `--collect-container-logs {failed,all,none}` to
 change this behavior. Test specs are defined in the individual test
 modules as Python dataclasses.
 
+### Residual resource cleanup
+
+Before any setup work, each session removes the containers, networks and volumes of any
+`test-<id>-<profile>` compose project left over from a previous run.
+
 ### Running tests via make
 
 Use make targets from the repository root.
