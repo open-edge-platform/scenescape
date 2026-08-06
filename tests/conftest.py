@@ -308,6 +308,35 @@ def params(request, scenescape_env):
     'expect_exceed_max': request.config.getoption('--expect_exceed_max'),
   }
 
+def _is_final_test(node):
+  """True when *node* is the last collected test of the session."""
+  items = getattr(node.session, "items", None)
+  return bool(items) and items[-1] is node
+
+
+def _stop_stack_after_final_test(item):
+  """Tear the compose stack down as soon as the last test finished."""
+  if not _ORCHESTRATION_AVAILABLE:
+    return
+
+  # Only act for tests that actually used the environment.
+  if not getattr(item.session, "_scenescape_test_ran", False):
+    return
+  item.session._scenescape_test_ran = False
+
+  if not _is_final_test(item):
+    return
+
+  manager = getattr(item.session, "_compose_manager", None)
+  if manager is None:
+    return
+  try:
+    manager._stop_current()
+    logger.info("Cleaned up compose stack after final test")
+  except Exception as exc:
+    logger.warning("Failed to clean up compose stack: %s", exc)
+
+
 def pytest_report_teststatus(report, config):
   if report.when == "call":
     return report.outcome, "", ""
@@ -452,6 +481,61 @@ def _spec_visibility_topic(spec):
     if arg == "--visibility_topic" and i + 1 < len(args):
       return args[i + 1]
   return "regulated"
+
+
+# Compose project names created by _compose_lifecycle: "test-<4 hex chars>-<spec>".
+_TEST_PROJECT_RE = re.compile(r"^test-[0-9a-f]{4}-")
+
+
+def _compose_project_of(resource):
+  """Return the compose project label of *resource*, or "" when absent."""
+  labels = getattr(resource, "labels", None)
+  if labels is None:
+    labels = getattr(getattr(resource, "config", None), "labels", None) or {}
+  return labels.get("com.docker.compose.project", "")
+
+
+def cleanup_residual_test_resources():
+  """Remove stacks left behind by test runs that were aborted before teardown."""
+  try:
+    docker = DockerClient()
+    containers = [c for c in docker.container.list(all=True)
+                  if _TEST_PROJECT_RE.match(_compose_project_of(c))]
+    networks = [n for n in docker.network.list()
+                if _TEST_PROJECT_RE.match(n.name or "")]
+    volumes = [v for v in docker.volume.list()
+               if _TEST_PROJECT_RE.match(str(v.name or ""))]
+  except Exception as exc:
+    logger.warning("Residual test resource scan failed: %s", exc)
+    return
+
+  if not (containers or networks or volumes):
+    return
+
+  logger.info(
+    "Removing residual resources from aborted test runs: "
+    "%d container(s), %d network(s), %d volume(s)",
+    len(containers), len(networks), len(volumes),
+  )
+
+  # Containers first: networks and volumes stay in use until they are gone.
+  for container in containers:
+    try:
+      docker.container.remove(container, force=True, volumes=True)
+    except Exception as exc:
+      logger.warning("Failed to remove residual container %s: %s", container.name, exc)
+
+  for network in networks:
+    try:
+      docker.network.remove(network)
+    except Exception as exc:
+      logger.warning("Failed to remove residual network %s: %s", network.name, exc)
+
+  for volume in volumes:
+    try:
+      docker.volume.remove(volume)
+    except Exception as exc:
+      logger.warning("Failed to remove residual volume %s: %s", volume.name, exc)
 
 
 def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory,
@@ -862,7 +946,10 @@ def scenescape_env(request, _compose_manager, secrets_dir, supass,
   # test in the same module can verify data survives; the preserved state is
   # recorded so the next test in a different module restores before running.
   if "web" in spec.profile.wait_for:
-    if request.node.get_closest_marker("preserve_db"):
+    if _is_final_test(request.node):
+      logger.info("Skipping post-test DB restore: last test of the session")
+      request.session._scenescape_db_preserved = None
+    elif request.node.get_closest_marker("preserve_db"):
       request.session._scenescape_db_preserved = (
         request.module.__name__,
         f"{spec.profile.name}:{_spec_visibility_topic(spec)}",
@@ -893,6 +980,21 @@ def _derive_marker(item):
 
 # Log directory: tests/.test_logs/{group}/{test_id}/{test_id}-{timestamp}.log
 _LOG_BASE = _TESTS_DIR / ".test_logs"
+
+def pytest_sessionstart(session):
+  """Clean up residual stacks left behind by previously aborted test runs.
+
+  Runs before any fixture setup so an interrupted session cannot leak its
+  containers, networks and volumes into the next one.
+  """
+  if not _ORCHESTRATION_AVAILABLE:
+    return
+  config = session.config
+  if getattr(config.option, "collectonly", False):
+    return
+  if config.getoption("--backend") not in ("docker", "all"):
+    return
+  cleanup_residual_test_resources()
 
 def pytest_generate_tests(metafunc):
   """Parametrize tests across backends when --backend=all.
@@ -1017,16 +1119,18 @@ def pytest_runtest_makereport(item, call):
   outcome = yield
   rep = outcome.get_result()
   setattr(item, f"rep_{rep.when}", rep)
-  if rep.when == "teardown" and _testlog is not None:
-    rep_setup = getattr(item, "rep_setup", None)
-    rep_call = getattr(item, "rep_call", None)
-    rep_teardown = getattr(item, "rep_teardown", None)
-    failed = bool(
-      (rep_setup is not None and rep_setup.failed)
-      or (rep_call is not None and rep_call.failed)
-      or (rep_teardown is not None and rep_teardown.failed)
-    )
-    _testlog.finalize(passed=not failed)
+  if rep.when == "teardown":
+    _stop_stack_after_final_test(item)
+    if _testlog is not None:
+      rep_setup = getattr(item, "rep_setup", None)
+      rep_call = getattr(item, "rep_call", None)
+      rep_teardown = getattr(item, "rep_teardown", None)
+      failed = bool(
+        (rep_setup is not None and rep_setup.failed)
+        or (rep_call is not None and rep_call.failed)
+        or (rep_teardown is not None and rep_teardown.failed)
+      )
+      _testlog.finalize(passed=not failed)
 
 def pytest_runtest_logreport(report):
   """Log test phase results to the per-test log file."""
