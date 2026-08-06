@@ -148,7 +148,7 @@ The Scene Controller subscribes to `scenescape/external/{publisher_id}/{thing_ty
 (MQTT template parameter name remains `scene_id` in `PubSub` APIs). The path id is
 always the **publisher** (configured child scene uid or agent `source_id`). Scenes
 attach via consumer-side **bindings**, not by addressing a scene inbox. See
-[ADR 14](../../../adr/0014-unified-external-source-ingestion.md).
+[ADR 16](../../../adr/0016-unified-external-source-ingestion.md).
 
 Two payload contracts share the topic, distinguished by `source_id`:
 
@@ -290,7 +290,7 @@ avoid this by choosing a genuinely persistent, unique identifier.
 **Security note:** identity is trusted based on the `source_id`/`id` values present in the
 message payload, not a cryptographically verified per-device credential — Scenescape's current
 MQTT authentication does not yet bind individual publishers to individual `source_id`s (see
-[ADR 14](../../../adr/0014-unified-external-source-ingestion.md#future-work)). A publisher that
+[ADR 16](../../../adr/0016-unified-external-source-ingestion.md#future-work)). A publisher that
 can reach the broker can claim any `source_id`/`id` it chooses, subject only to the collision
 check above.
 

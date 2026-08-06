@@ -27,7 +27,7 @@ Before writing or changing converter code or docs:
    `tools/external_source_adapters/` (for example `mavlink_to_external_source.py`).
 
 Architecture background (optional):
-`docs/adr/0014-unified-external-source-ingestion.md`.
+`docs/adr/0016-unified-external-source-ingestion.md`.
 
 ## Hard Rule — No Contract Duplication
 

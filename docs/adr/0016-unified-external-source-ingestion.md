@@ -3,7 +3,7 @@
 
 # ADR 16: Unified External-Source Ingestion Contract for the Scene Controller
 
-- **Author(s)**: Sarat Poluri, GitHub Copilot
+- **Author(s)**: Sarat Poluri
 - **Date**: 2026-07-21 (publisher-centric binding and scene/service registry target updated
   2026-07-22)
 - **Status**: `Accepted`

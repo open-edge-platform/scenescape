@@ -35,7 +35,7 @@ maintain a per-publisher ID-mapping cache.
 Publish under your persistent `source_id` (topic path = publisher id). Scene
 membership is consumer-side binding (`wgs84` geospatial auto-attach, or
 `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`). See
-[ADR 14](../../adr/0014-unified-external-source-ingestion.md).
+[ADR 16](../../adr/0016-unified-external-source-ingestion.md).
 
 ## Prerequisites
 
@@ -52,7 +52,7 @@ membership is consumer-side binding (`wgs84` geospatial auto-attach, or
 
 Familiarity with the source protocol and with JSON/MQTT is assumed. Architecture
 background:
-[ADR 14 — Unified External-Source Ingestion](../../adr/0014-unified-external-source-ingestion.md).
+[ADR 14 — Unified External-Source Ingestion](../../adr/0016-unified-external-source-ingestion.md).
 
 ## Mapping Checklist
 
@@ -196,7 +196,7 @@ End-to-end MQTT coverage that exercises this path lives in
 The adapter and this guide do **not** cover:
 
 - Footprint-based multi-scene handoff policy (platform **binding** Future Work,
-  [ADR 14](../../adr/0014-unified-external-source-ingestion.md))
+  [ADR 16](../../adr/0016-unified-external-source-ingestion.md))
 - Cross-source fusion or camera/external deduplication
 - Stronger trust-domain join / MQTT ACL hardening beyond same-authority certs
   (ADR 14 Future Work — discuss with security)
@@ -205,7 +205,7 @@ The adapter and this guide do **not** cover:
 
 - [External Source Input Message Format](../microservices/controller/data_formats.md#external-source-input-message-format)
 - [Scene Controller](../microservices/controller/controller.md)
-- [ADR 14 — Unified External-Source Ingestion](../../adr/0014-unified-external-source-ingestion.md)
+- [ADR 14 — Unified External-Source Ingestion](../../adr/0016-unified-external-source-ingestion.md)
 - [Integrate Cameras and Sensors](./integrate-cameras-and-sensors.md)
 - Example MAVLink adapter:
   [`tools/external_source_adapters/`](../../../tools/external_source_adapters/README.md)
