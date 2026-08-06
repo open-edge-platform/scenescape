@@ -78,6 +78,8 @@ services:
       scenescape:
         aliases:
           - broker.scenescape.intel.com
+    # Match host UID so mosquitto can read 0600 secrets generated on the host.
+    user: "${UID:-1000}:${GID:-1000}"
     environment:
       <<: *proxy_env
     restart: always
@@ -200,6 +202,37 @@ services:
         target: certs/scenescape-reid.key
       - source: reid-client-cert
         target: certs/scenescape-reid.crt
+    restart: always
+
+  # Publishes regulated scene output + region/tripwire/sensor events. Consumes
+  # unregulated per-category tracks from `scene` on scenescape/data/scene/...
+  analytics:
+    image: scenescape-analytics:${VERSION:-latest}
+    init: true
+    user: "${UID:-1000}:${GID:-1000}"
+    networks:
+      scenescape:
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+    environment:
+      VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
+      <<: *proxy_env
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --visibility_topic ${VISIBILITY:-regulated}
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: django
+        target: django/secrets.py
+      - controller.auth
     restart: always
 
   video-analytics:
@@ -344,4 +377,6 @@ GID=$(id -g)
 
 `write_deployment_env.py` (Step 6) writes `VERSION` and `MAPPING_MODEL` automatically.
 Mapping runs as UID **1001** inside the container; `mapping-init` fixes volume ownership
-before the mapping service starts.
+before the mapping service starts. `analytics` (and `broker`) run as `${UID:-1000}:${GID:-1000}`
+so they can read host-generated 0600 secrets — export `UID`/`GID` (or rely on the defaults)
+when bringing the stack up.

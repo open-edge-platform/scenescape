@@ -191,7 +191,7 @@ step_full_stack() {
   docker compose --profile mapping up -d >>"$LOG_FILE" 2>&1
   docker compose restart video-analytics >>"$LOG_FILE" 2>&1
 
-  for svc in broker scene; do
+  for svc in broker scene analytics; do
     python3 scripts/check_service_health.py \
       --deploy-dir "$DEPLOY_DIR" \
       --service "$svc" \

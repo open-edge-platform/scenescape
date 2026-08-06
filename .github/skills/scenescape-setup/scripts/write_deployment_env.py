@@ -64,6 +64,8 @@ def main() -> None:
       f"SUPASS={supass}",
       f"VERSION={os.getenv('VERSION', 'latest')}",
       f"MAPPING_MODEL={os.getenv('MAPPING_MODEL', 'mapanything')}",
+      f"UID={os.getenv('UID', str(os.getuid()))}",
+      f"GID={os.getenv('GID', str(os.getgid()))}",
       f"http_proxy={os.getenv('http_proxy', '')}",
       f"https_proxy={os.getenv('https_proxy', '')}",
       f"no_proxy={no_proxy}",
