@@ -1,0 +1,132 @@
+# SkillSpector baseline — findings listed here are suppressed on future scans.
+# Edit 'reason' fields and add glob 'rules' as needed. See docs/SUPPRESSION.md.
+version: 2
+scanner_version: 2.5.1
+rules: []
+fingerprints:
+- hash: sha256:9efe9e317fd2280f56acfc4f404c6c1a2bdf7d326764accc00e01a62c46594a2
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:ea0918f77d5782f7e4b5ff8a38502556b1fd023d0eaece34ce6c97d74cdb9c76
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:3699ddec28cee199d7528c07e781c93721df5e7b16eaf5cf0b12da9c1dad6a36
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:5485582be296ff5e190335f90adae7597616d74685a4f384b17947de094afb80
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:38c3f76b02c0c21d8471102ececb52627420fb7e52222c358ae8416b84793085
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:a3c096809f0f313b784c4f6bf81b0182803b59c7bd31e523c06cc280ad37e815
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:65fd04d1885e2bb1bad74a0a786589afdce9240eb903fe4629880ee2ad93daad
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:f7f39621db3a308d0323685e6d2a82d561775594276d11da6438386d2fbd31c4
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:efb67b32f053527ae0083ee634d5eff808cdfc7e49d58f60482e88c965e0fb29
+  rule_id: AST4
+  file: scripts/capture_calibration_frames.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:c7b59400a1e36f7b6f724761fdf18a1a066d8e5d65e330a5b6c8f44f55c59056
+  rule_id: AST4
+  file: scripts/capture_calibration_frames.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:c8965174441e9cdb09a9b3169c35f4eff085dd2929afe68f7c7e68c762b40603
+  rule_id: AST4
+  file: scripts/check_service_health.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:47d8123aaaa205c5669e97f6f643707ef032094976c06fc7e962015ba845e1df
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:ced759a9ee126e074c7e96887c46c8759c40cc7ec1bcc7fe085cdbcd58431084
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:4bc6a50cb452a55cc763f39148c0f6dda30aa55f83a9c89105f5f17af448ada2
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:297a1b7d4a612cf230b68c6f0395a55641a92ce4f2c45e78034fa0d1872c6948
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:6b432b2538d8777b140bd055269579267f89bf4727dac10431487ccaf0c85a57
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:ee12487d859a4132ecf5a9a178c0d96746250fa72a01bcb726ff34711d035b7a
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:717861f0399f2c7c6f49a09b4fb607197ab24268e10f02bd8ef9833c25f59b36
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:5b696d1cd5006e047c56bb93f32a9f0669783fd34d8ffbea339a40cf2009a100
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:0ec44086d8efb0495b0887db2638445ac0d10146581ef9fa733f530b7b218b45
+  rule_id: EA2
+  file: SKILL.md
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:34f3be6051112bea1cd12ea14162685abc9bb5b6807e936a3b9b3aae1ddfe416
+  rule_id: PE3
+  file: scripts/write_deployment_env.py
+  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
+    secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'

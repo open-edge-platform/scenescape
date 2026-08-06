@@ -10,10 +10,9 @@ license: Apache-2.0
 compatibility: >-
   Requires Docker, docker-compose, and Python 3.10+ with `requests` on the host. GitHub access
   for sparse checkout of dlstreamer-pipeline-server. Network access to RTSP camera streams.
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, Env
 metadata:
   argument-hint: "<deploy_dir> — always gather streams, camera_ids, scene_name from the user first"
-  permissions: shell, network, file_read, file_write, env
 ---
 
 # SceneScape End-to-End Setup
@@ -45,14 +44,12 @@ in `docs/user-guide/`.
 
 ## Safety rules for autonomous execution
 
-- **Execute, don't just narrate.** Once `deploy_dir`, `streams`/video source, `camera_ids`, and
-  `scene_name` are known (from the user's message, `deploy-inputs.json`, or `.deploy-state.json`),
-  actually run every step yourself with your tools — download files, invoke `deploy_inputs.py`,
-  launch the orchestrator, edit config files, run restart commands — instead of printing a list of
-  shell snippets for the user to copy/paste. A response consisting only of a "here's what you'd
-  run" plan, with no corresponding tool calls, does not satisfy this skill's task even if every
-  command shown is correct. The one exception is genuinely destructive actions (see below), which
-  must be shown and confirmed before executing, not skipped. This does **not** license silently
+- **Execute approved deployment work, don't just narrate.** After the user explicitly requests a
+  deployment and `deploy_dir`, `streams`/video source, `camera_ids`, and `scene_name` are known
+  (from the user's message, `deploy-inputs.json`, or `.deploy-state.json`), use tools to perform
+  the approved non-destructive steps instead of providing shell snippets alone. Show and obtain
+  confirmation for genuinely destructive actions (see below) before executing them. This does
+  **not** license silently
   merging a changed `camera_id`/stream into the existing `deploy-inputs.json` on the user's
   behalf — a camera/stream change still requires showing the user the full updated
   `streams`/`camera_ids`/`scene_name` set (existing entries you read back plus the new one) and
