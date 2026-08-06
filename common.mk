@@ -65,8 +65,43 @@ build-image: $(BUILD_DIR) Dockerfile
 rebuild:
 	$(MAKE) REBUILDFLAGS="--no-cache"
 
+# Scrapes upstream URLs (git clone, wget/curl, pip index, apt repo/key) referenced directly in the
+# Dockerfile. Factored out as its own target so overridden list-dependencies recipes (e.g. tracker)
+# can depend on it instead of duplicating the parsing rules.
+.PHONY: upstream-deps
+upstream-deps: $(BUILD_DIR)
+	@if [[ -f "$(CURDIR)/Dockerfile" ]]; then \
+	  { \
+	    grep -E 'git clone' "$(CURDIR)/Dockerfile" \
+	      | grep -oE 'https?://[^ ]+' \
+	      | sed 's/[\\.]$$//' \
+	      | awk '{print "git-clone: " $$1}'; \
+	    grep -E '(wget|curl).*https?://' "$(CURDIR)/Dockerfile" \
+	      | grep -vE '\.(gpg|asc)' \
+	      | grep -oE 'https?://[^ ]+' \
+	      | sed 's/[\\;|&.]$$//' \
+	      | awk '{print "wget/curl: " $$1}'; \
+	    grep -E 'index-url' "$(CURDIR)/Dockerfile" \
+	      | grep -oE 'https?://[^ ]+' \
+	      | sed 's/[\\]$$//' \
+	      | awk '{print "pip-index: " $$1}'; \
+	    grep -E '"deb .*https?://' "$(CURDIR)/Dockerfile" \
+	      | grep -oE 'https?://[^ ]+' \
+	      | sed 's/["\\]$$//' \
+	      | awk '{print "apt-repo: " $$1}'; \
+	    grep -E '(wget|curl).*\.(gpg|asc)' "$(CURDIR)/Dockerfile" \
+	      | grep -oE 'https?://[^ |]+' \
+	      | awk '{print "apt-key: " $$1}'; \
+	  } | sort -u > "$(BUILD_DIR)/$(IMAGE)-upstream-deps.txt"; \
+	  if [[ -s "$(BUILD_DIR)/$(IMAGE)-upstream-deps.txt" ]]; then \
+	    echo "Upstream dependencies listed in $(BUILD_DIR)/$(IMAGE)-upstream-deps.txt"; \
+	  else \
+	    rm -f "$(BUILD_DIR)/$(IMAGE)-upstream-deps.txt"; \
+	  fi; \
+	fi
+
 .PHONY: list-dependencies
-list-dependencies: $(BUILD_DIR)
+list-dependencies: $(BUILD_DIR) upstream-deps
 	@if [[ -z $$(docker images | grep "^$(IMAGE)" | grep $(VERSION)) ]]; then \
 	  echo "Error: the image $(IMAGE):$(VERSION) does not exist! Cannot generate dependency list."; \
 	  echo "Please build the image first."; \
@@ -105,13 +140,14 @@ generate-sbom: $(BUILD_DIR) check-buildkit
 	  echo "Error: RUNTIME_OS_IMAGE is not set for $(IMAGE). Ensure 'ARG RUNTIME_OS_IMAGE=<image>' is present in $(CURDIR)/Dockerfile."; \
 	  exit 1; \
 	fi
+	@mkdir -p $(dir $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile) $(dir $(BUILD_DIR)/sboms/$(IMAGE).tar)
 	@if [[ "$(USES_SCENE_COMMON)" == "yes" ]]; then \
 	  echo "ARG RUNTIME_OS_IMAGE=${RUNTIME_OS_IMAGE}" > $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	  cat $(ROOT_DIR)/scene_common/Dockerfile ./Dockerfile >> $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
+	  sed -i 's|^FROM intel/scenescape-common-base|FROM scenescape-common-base|' $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	else \
 	  cp ./Dockerfile $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	fi
-	@mkdir -p $(BUILD_DIR)/sboms
 	docker buildx build \
 	--sbom=true \
 	--build-arg http_proxy=$(http_proxy) \
