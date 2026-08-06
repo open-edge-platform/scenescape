@@ -78,6 +78,12 @@ scene:
   image: intel/scenescape-controller
   pullPolicy: IfNotPresent
 
+analytics:
+  image: intel/scenescape-analytics
+  pullPolicy: IfNotPresent
+  # regulated, unregulated, or none
+  visibilityTopic: regulated
+
 autocalibration:
   image: intel/scenescape-autocalibration
   pullPolicy: IfNotPresent
@@ -89,12 +95,12 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "2026.2.0-20260728-weekly-ubuntu24"
+    tag: "2026.2.0-ubuntu24-rc1"
     pullPolicy: IfNotPresent
 
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
-  tag: "2026.2.0-20260728-weekly-ubuntu24"
+  tag: "2026.2.0-ubuntu24-rc1"
   pullPolicy: IfNotPresent
   storageClassName: ""
   cameras:
@@ -108,7 +114,7 @@ retail:
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
-  tag: "2026.2.0-20260728-weekly-ubuntu24"
+  tag: "2026.2.0-ubuntu24-rc1"
   storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg

@@ -6,9 +6,10 @@ CAMCALIBIMAGE=intel/scenescape-autocalibration
 CONTROLLERIMAGE=intel/scenescape-controller
 CLUSTERANALYTICSIMAGE=intel/scenescape-cluster-analytics
 MAPPINGIMAGE=intel/scenescape-mapping
+ANALYTICSIMAGE=intel/scenescape-analytics
 
 # Image groupings for flexible builds
-CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE)
+CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE) $(ANALYTICSIMAGE)
 EXPERIMENTAL_IMAGES=$(CLUSTERANALYTICSIMAGE) $(MAPPINGIMAGE)
 ALL_IMAGES=$(CORE_IMAGES) $(EXPERIMENTAL_IMAGES)
 
@@ -146,6 +147,7 @@ load-core:
 	$(MAKE) load-image IMAGE=$(MANAGERIMAGE)
 	$(MAKE) load-image IMAGE=$(CAMCALIBIMAGE)
 	$(MAKE) load-image IMAGE=$(CONTROLLERIMAGE)
+	$(MAKE) load-image IMAGE=$(ANALYTICSIMAGE)
 
 load-experimental:
 	# optional images for cluster analytics and mapping components

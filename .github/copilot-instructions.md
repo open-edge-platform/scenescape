@@ -205,7 +205,8 @@ pubsub.publish(topic, json_payload)
 **Debugging Tests**:
 
 - Run specific test: `pytest tests/sscape_tests/geometry/test_point.py::TestPoint::test_constructor`
-- Per-test logs: `tests/test_logs/<category>/<test_name>-<timestamp>/` (includes container logs)
+- Per-test logs: `tests/.test_logs/<group>/<test_id>/<test_id>-<timestamp>.log`
+  (container logs for failures are written to a `...-containers/` sibling directory)
 - Container log collection: `--collect-container-logs {failed,all,none}` (default: `failed`)
 - Multi-backend: `--backend=docker` (default), `--backend=kubernetes`, `--backend=all`
 
