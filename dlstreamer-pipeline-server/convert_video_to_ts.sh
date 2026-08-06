@@ -26,7 +26,7 @@ for mfile in "$SAMPLE_DATA_DIRECTORY"/$PATTERN; do
     if [ -f $tsfile ]; then
         echo "skipping $basefile as $tsfile is available already"
     else
-        ffmpegcmd="/opt/build/bin/ffmpeg -i ${FFMPEG_DIR}/${basefile}.${EXTENSION} -c copy ${FFMPEG_DIR}/${basefile}.ts"
+        ffmpegcmd="/opt/build/bin/ffmpeg -i ${FFMPEG_DIR}/${basefile}.${EXTENSION} -c:v libx264 -preset medium -crf 33 -x264opts keyint=12:min-keyint=12:scenecut=0 -forced-idr 1 -fflags +genpts -pix_fmt yuv420p -c:a copy ${FFMPEG_DIR}/${basefile}.ts"
         cmd="$DOCKER_RUN_CMD_PREFIX -c '$ffmpegcmd'"
         eval $cmd
     fi
