@@ -30,3 +30,11 @@ class AutoCalibrationClient(RESTClient):
   def getCameraCalibrationStatus(self, cameraId):
     """Gets camera calibration status."""
     return self._get(f"cameras/{cameraId}/calibration", None)
+
+  def localizePerceptualSensor(self, sensorId, data):
+    """Localize a perceptual sensor against a scene."""
+    return self._create(f"perceptual-sensors/{sensorId}/localization", data)
+
+  def getPerceptualSensorLocalizationStatus(self, sensorId):
+    """Gets perceptual sensor localization status."""
+    return self._get(f"perceptual-sensors/{sensorId}/localization", None)
