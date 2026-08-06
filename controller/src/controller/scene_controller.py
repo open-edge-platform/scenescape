@@ -351,7 +351,6 @@ class SceneController:
               self.publishDetections(
                 scene, scene.tracker.currentObjects(detection_type),
                 msg_when, detection_type, jdata_scene, camera_id)
-              self.publishEvents(scene, jdata_scene['timestamp'])
           return
 
         handled = self._handleChildSceneObject(

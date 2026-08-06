@@ -27,10 +27,18 @@ services:
         condition: service_started
     environment:
       VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      no_proxy: 127.0.0.1,localhost,${no_proxy},.scenescape.intel.com
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      NO_PROXY: 127.0.0.1,localhost,${NO_PROXY},.scenescape.intel.com
     command: --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
       --visibility_topic ${VISIBILITY:-regulated}
+    volumes:
+      - vol-media:/home/scenescape/Scenescape/media
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

@@ -52,8 +52,8 @@ services:
       - https_proxy=${https_proxy}
       - HTTP_PROXY=${HTTP_PROXY}
       - http_proxy=${http_proxy}
-      - NO_PROXY=mediaserver,${NO_PROXY}
-      - no_proxy=mediaserver,${no_proxy}
+      - NO_PROXY=mediaserver,127.0.0.1,localhost,${NO_PROXY}
+      - no_proxy=mediaserver,127.0.0.1,localhost,${no_proxy}
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
