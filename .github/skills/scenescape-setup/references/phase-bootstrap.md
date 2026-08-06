@@ -9,6 +9,12 @@ Use this when the user asks to run, redo, or resume **only** the bootstrap phase
 RTSP/pipeline validation, full stack) for a deployment that already has (or is about to get)
 `deploy-inputs.json` — not a full end-to-end deploy.
 
+Bootstrap (step 6) always runs `adapt_pipeline_config.py`. When
+`pipeline_customization_prompt` is set in `deploy-inputs.json`, the agent must first follow
+[dlstreamer-coding-agent](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent)
+and write `pipeline-customization/result.json`; bootstrap then runs `configure_pipeline.py`
+to merge it (see [pipeline-customization.md](./pipeline-customization.md)).
+
 ## Prerequisite
 
 On a new deploy, Step 1 (gather `streams`, `camera_ids`, `scene_name`) must run first — do not
@@ -45,6 +51,7 @@ an async terminal and poll for completion rather than blocking.
 | Reference                                            | Purpose                                           |
 | ---------------------------------------------------- | ------------------------------------------------- |
 | [pipeline-config.md](./pipeline-config.md)           | How per-camera pipelines are generated (step 6)   |
+| [pipeline-customization.md](./pipeline-customization.md) | Optional external-agent customization inside step 6 |
 | [mosquitto-config.md](./mosquitto-config.md)         | Broker TLS listener layout (step 6)               |
 | [command-templates.md](./command-templates.md)       | RTSP gate check / MQTT pub-sub commands (step 7)  |
 | [runtime-verification.md](./runtime-verification.md) | RTSP/service-health failure diagnosis (steps 7–8) |

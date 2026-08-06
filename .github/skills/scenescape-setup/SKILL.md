@@ -1,15 +1,23 @@
 ---
 name: scenescape-setup
 description: >
-  Deploy a working Intel® SceneScape installation from scratch (outside the repo). Gathers
-  user-provided streams, camera IDs, and scene name, then runs bootstrap through tracking
+  Deploy a working Intel® SceneScape installation from scratch (outside the repo), or build a
+  custom multi-camera spatial analytics application on SceneScape from a use-case description
+  (scene/spatial tracking, cross-camera alerts, regions/tripwires). Gathers user-provided
+  streams, camera IDs, and scene name, optionally a pipeline_customization_prompt; when set,
+  follows the upstream dlstreamer-coding-agent skill for pipeline authoring/validation, then
+  merges into SceneScape via configure_pipeline.py. Runs bootstrap through tracking
   verification via scripts/deploy_scenescape.sh. Also handles re-running or resuming a single
   phase of an existing deployment on request (e.g. "recalibrate", "redo scene reconstruction",
-  "resume bootstrap only") via the orchestrator's --phase flag.
+  "resume bootstrap only") via the orchestrator's --phase flag. Prefer this skill for
+  SceneScape multi-camera scene deployments; use dlstreamer-coding-agent alone for sample
+  apps/scripts that do not need SceneScape scene tracking.
 license: Apache-2.0
 compatibility: >-
   Requires Docker, docker-compose, and Python 3.10+ with `requests` on the host. GitHub access
   for sparse checkout of dlstreamer-pipeline-server. Network access to RTSP camera streams.
+  Optional pipeline customization follows the upstream dlstreamer-coding-agent skill, then
+  merges via configure_pipeline.py.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch
 metadata:
   argument-hint: "<deploy_dir> — always gather streams, camera_ids, scene_name from the user first"
@@ -117,12 +125,13 @@ Verify: `ls "$SKILL_DIR/scripts/deploy_scenescape.sh"` must succeed before conti
 
 Ask the user for every new deployment:
 
-| Input        | Rules                                                                                                |
-| ------------ | ---------------------------------------------------------------------------------------------------- |
-| `deploy_dir` | Writable directory for generated files                                                               |
-| `streams`    | One RTSP/RTSPS URL per camera, user-provided, in order — **or** local video files/folder (see below) |
-| `camera_ids` | Unique IDs (no `/`), same order as `streams`                                                         |
-| `scene_name` | Human-readable scene name chosen by the user                                                         |
+| Input | Rules |
+| --- | --- |
+| `deploy_dir` | Writable directory for generated files |
+| `streams` | One RTSP/RTSPS URL per camera, user-provided, in order — **or** local video files/folder (see below) |
+| `camera_ids` | Unique IDs (no `/`), same order as `streams` |
+| `scene_name` | Human-readable scene name chosen by the user |
+| `pipeline_customization_prompt` | Optional. Natural-language request for a custom DL Streamer pipeline. Empty/omitted → default `adapt_pipeline_config.py` pipelines; non-empty → **read and follow** [dlstreamer-coding-agent](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent), write `<deploy_dir>/pipeline-customization/result.json`, then let step 6 merge via `configure_pipeline.py` (see [pipeline-customization.md](./references/pipeline-customization.md)) |
 
 Validate: `len(streams) == len(camera_ids)`, ≥1 camera, `camera_ids` are unique (no duplicates, no `/`), valid RTSP URLs. State explicitly in your response that this uniqueness check was performed before writing `deploy-inputs.json` — `deploy_inputs.py` also re-validates it, but call it out for the user.
 
@@ -137,12 +146,23 @@ python3 <skill-dir>/scripts/deploy_inputs.py write \
   --scene-name <scene_name> \
   --camera-ids <id> [<id> ...] \
   --streams <rtsp_url> [<rtsp_url> ...] \
-  --skill-dir <skill-dir>
+  --skill-dir <skill-dir> \
+  [--pipeline-customization-prompt "<optional prompt>"]
 ```
 
 Writes `<deploy_dir>/deploy-inputs.json` — the source of truth for all later steps.
 Pipeline adaptation reads RTSP URLs from the downloaded template entry per camera; it does not
 hardcode simulator hostnames or camera names.
+
+**When `pipeline_customization_prompt` is set:** before bootstrap step 6 can succeed, load the
+upstream **dlstreamer-coding-agent** skill (local dlstreamer checkout under
+`.github/skills/dlstreamer-coding-agent/`, or
+https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent),
+run its procedure through validation, and write
+`<deploy_dir>/pipeline-customization/result.json`. Do **not** re-implement that skill’s
+pipeline-construction or Docker validation steps inside scenescape-setup. Then continue the
+orchestrator; `configure_pipeline.py` only performs SceneScape structural merge (rtspsrc +
+native element names).
 
 **No live RTSP cameras available?** If the user instead has a folder of recorded video files, or
 an explicit list of video file paths, use `--video-dir`/`--video-files` in place of `--streams` —
@@ -317,7 +337,7 @@ Step 1 (gather + persist inputs)
 | Step  | Action                                                                | Pass                              |
 | ----- | --------------------------------------------------------------------- | --------------------------------- |
 | 1     | `deploy_inputs.py write`                                              | `deploy-inputs.json` valid        |
-| 6     | `bootstrap_deploy.py --from-deploy-inputs`                            | secrets, compose, pipeline config |
+| 6     | `bootstrap_deploy.py` (+ optional `configure_pipeline.py` if prompt)  | secrets, compose, pipeline config |
 | 7     | warmup, `verify_rtsp.sh`, `check_service_health.py` (video-analytics) | RTSP + pipelines                  |
 | 8     | full stack `up`                                                       | core services running             |
 | 9     | `capture_calibration_frames.py`                                       | JPEG per **user** camera ID       |
@@ -352,6 +372,7 @@ troubleshooting a failure at that step.
 | Reference                                                             | Primary step             | Purpose                                                                                                       |
 | --------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | [pipeline-config.md](./references/pipeline-config.md)                 | 6                        | How `adapt_pipeline_config.py` generates per-camera pipelines (native `sscape_*` GST elements)                |
+| [pipeline-customization.md](./references/pipeline-customization.md)   | 6 (when prompt set)      | External agent contract, normalization, fail-fast customization path                                          |
 | [mosquitto-config.md](./references/mosquitto-config.md)               | 6                        | Broker TLS listener layout; optional password file generation                                                 |
 | [docker-compose-template.md](./references/docker-compose-template.md) | 6 (failure only)         | Full compose template; read only to debug a template bug                                                      |
 | [command-templates.md](./references/command-templates.md)             | 7                        | Reusable RTSP gate check and MQTT pub/sub verification commands                                               |
@@ -385,9 +406,13 @@ agent never runs these directly; the generated deployment does.
 ## Examples
 
 See [example-prompts](./example-prompts) for ready-to-use prompts covering a multi-camera
-deployment, resuming after a camera/stream change, and reactive tracker/Re-ID tuning after a
-deployment is already running. For deploying from an existing blueprint/GLB mesh or a geospatial
-map instead of auto-reconstruction, see
+deployment, resuming after a camera/stream change, reactive tracker/Re-ID tuning after a
+deployment is already running, and Metro AI Suite-style custom pipelines with downloadable
+datasets (`06-smart-parking-custom-pipeline.md` ≈5 MB clip;
+`07-smart-intersection-custom-pipeline.md` four ~300 MB views — both from
+[edge-ai-suites](https://github.com/open-edge-platform/edge-ai-suites) /
+[edge-ai-resources](https://github.com/open-edge-platform/edge-ai-resources)). For deploying from
+an existing blueprint/GLB mesh or a geospatial map instead of auto-reconstruction, see
 [scene-map-alternatives.md](./references/scene-map-alternatives.md). For attribute persistence,
 singleton sensors, or Object Library entries after a deployment is running, see
 [attribute-persistence.md](./references/attribute-persistence.md),
@@ -411,6 +436,7 @@ A good initial request answers these up front so Step 1 can be skipped or confir
 | `streams`    | `rtsp://192.168.1.10:8554/cam1`                |
 | `camera_ids` | `cam1` (unique, no `/`, same order as streams) |
 | `scene_name` | `Warehouse Floor 1`                            |
+| `pipeline_customization_prompt` | (optional) `use reidPolicy for person tracks` |
 
 If any field is missing, the agent asks for it (Step 1) before running the orchestrator.
 

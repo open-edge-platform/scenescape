@@ -25,6 +25,13 @@ elements — see [docker-compose-template.md](./docker-compose-template.md).
 from `deploy-inputs.json` using the specification below. No upstream `queuing-config.json` is
 fetched or required.
 
+When `pipeline_customization_prompt` is non-empty, the agent follows
+[dlstreamer-coding-agent](https://github.com/open-edge-platform/dlstreamer/tree/main/.github/skills/dlstreamer-coding-agent)
+and writes `pipeline-customization/result.json`. Step 6 then runs
+`configure_pipeline.py`, which **structurally normalizes** that handoff into the same
+envelope (see [pipeline-customization.md](./pipeline-customization.md)). Without a prompt,
+customization is skipped and these defaults remain unchanged.
+
 ## Output
 
 Top-level shape:
@@ -86,11 +93,30 @@ Parameters map directly to native GST element properties (no nested `kwarg` JSON
 | `ntp_config`         | `timesync`     | `ntp-server`                 | string; matches `ntpserv` compose service  |
 | `frame_ntp_config`   | `timesync`     | `use-frame-ntp-timestamp`    | boolean                                    |
 | `cameraid`           | `datapublisher`| `cameraid`                   | string                                     |
-| `metadatagenpolicy`  | `datapublisher`| `metadatagenpolicy`          | string                                     |
+| `metadatagenpolicy`  | `datapublisher`| `metadatagenpolicy`          | One of `detectionPolicy` (default), `detection3DPolicy`, `reidPolicy`, `classificationPolicy`, `ocrPolicy` — see `sscape_policies.py` / `METADATA_POLICIES` |
 | `publish_image`      | `datapublisher`| `publish-image`              | boolean (optional; default false)          |
 | `detection_labels`   | `datapublisher`| `detection-labels`           | comma-separated string, not a JSON array   |
 
+### Customization normalization rules
+
+After a validated dlstreamer-coding-agent handoff, `configure_pipeline.py` **converts**
+the pipeline into SceneScape DPS form (inject/rewrite, not merely check):
+
+1. Rewrites the leading source to `rtspsrc location={rtsp_url} add-reference-timestamp-meta=true latency=200`.
+2. Replaces file/`decodebin` decode with `rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR` when no RTSP depay chain is present.
+3. Injects `sscape_timestamp_capture name=timesync ntp-server=ntpserv` before the first inference element.
+4. Ensures `gvametaconvert add-tensor-data=true name=metaconvert` after inference.
+5. Injects `sscape_post_inference_data_publish name=datapublisher` after metaconvert.
+6. Strips UI sinks / `gvapython` and appends `gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true`.
+7. Validates optional `metadatagenpolicy` against the supported set above.
+
+Fail-fast applies when the handoff is unvalidated, has no inference element, or names an
+unsupported policy — not when SceneScape elements were simply absent from the coding-agent
+pipeline.
+
 ## Manual re-run
+
+Default generation:
 
 ```bash
 python3 <skill-dir>/scripts/adapt_pipeline_config.py \
@@ -98,6 +124,13 @@ python3 <skill-dir>/scripts/adapt_pipeline_config.py \
   --from-deploy-inputs
 ```
 
+Optional customization (after dlstreamer-coding-agent wrote `pipeline-customization/result.json`):
+
+```bash
+python3 <skill-dir>/scripts/configure_pipeline.py \
+  --deploy-dir <deploy_dir> \
+  --from-deploy-inputs
+```
 ## Notes
 
 - Model: `person-detection-retail-0013` via `scripts/download_model.py`

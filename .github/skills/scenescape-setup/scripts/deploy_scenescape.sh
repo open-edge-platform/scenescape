@@ -383,11 +383,23 @@ fi
 [[ ${#STREAMS[@]} -eq ${#CAMERA_IDS[@]} ]] || { echo "streams and camera-ids length mismatch" >&2; exit 2; }
 
 if [[ "$RESUME_MODE" == "auto" && -f "$DEPLOY_DIR/deploy-inputs.json" && -f "$STATE_FILE" ]]; then
-  python3 "$SKILL_DIR/scripts/deploy_inputs.py" check \
-    --deploy-dir "$DEPLOY_DIR" \
-    --scene-name "$SCENE_NAME" \
-    --camera-ids "${CAMERA_IDS[@]}" \
-    --streams "${STREAMS[@]}" 2>/dev/null || {
+  PIPELINE_PROMPT=$(LOADED_JSON="$(cat "$DEPLOY_DIR/deploy-inputs.json")" python3 -c \
+    'import json,os; print(json.loads(os.environ["LOADED_JSON"]).get("pipeline_customization_prompt") or "")')
+  PIPELINE_MODE=$(LOADED_JSON="$(cat "$DEPLOY_DIR/deploy-inputs.json")" python3 -c \
+    'import json,os; print(json.loads(os.environ["LOADED_JSON"]).get("pipeline_customization_mode") or "")')
+  check_args=(
+    --deploy-dir "$DEPLOY_DIR"
+    --scene-name "$SCENE_NAME"
+    --camera-ids "${CAMERA_IDS[@]}"
+    --streams "${STREAMS[@]}"
+  )
+  if [[ -n "$PIPELINE_PROMPT" ]]; then
+    check_args+=(--pipeline-customization-prompt "$PIPELINE_PROMPT")
+  fi
+  if [[ -n "$PIPELINE_MODE" ]]; then
+    check_args+=(--pipeline-customization-mode "$PIPELINE_MODE")
+  fi
+  python3 "$SKILL_DIR/scripts/deploy_inputs.py" check "${check_args[@]}" 2>/dev/null || {
     echo "ERROR: inputs differ from deploy-inputs.json; use --fresh to redeploy with new cameras" >&2
     exit 2
   }

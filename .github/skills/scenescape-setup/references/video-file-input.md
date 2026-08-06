@@ -42,13 +42,23 @@ list) — mixing local files with live RTSP cameras in the same deployment isn't
 
 **Video given as a remote URL (e.g. a GitHub link) instead of a local path**: `--video-files`
 requires real local paths that exist on disk, so download each one first. GitHub `blob` URLs are
-HTML pages, not the raw file — convert `github.com/<org>/<repo>/blob/<ref>/<path>` to
-`raw.githubusercontent.com/<org>/<repo>/<ref>/<path>` before downloading:
+HTML pages, not the raw file — never pass them to `--video-files`.
+
+Prefer the GitHub “raw” download form that Metro helm charts use for
+[edge-ai-resources](https://github.com/open-edge-platform/edge-ai-resources) videos (works for
+ordinary files and Git LFS payloads such as the Smart Intersection `.ts` clips):
 
 ```bash
 mkdir -p <deploy_dir>/videos
-curl -L -o <deploy_dir>/videos/<camera_id>.mp4   https://raw.githubusercontent.com/<org>/<repo>/<ref>/<path-to-file>
+# Ordinary file or LFS (Smart Parking / Smart Intersection, etc.):
+curl -L -o <deploy_dir>/videos/<camera_id>.mp4 \
+  https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos/<filename>
 ```
+
+`raw.githubusercontent.com/...` is fine for non-LFS assets, but for Git LFS videos it may return
+a tiny pointer file instead of the media — if the downloaded size is only a few hundred bytes,
+retry with the `github.com/.../raw/refs/heads/...` URL above (same base as smart-intersection
+`externalUrls.videosRepo`).
 
 Do this — and show the exact command(s) you used/would use — for every camera before calling
 `deploy_inputs.py write --video-files`; never pass a `blob` URL or any other remote URL directly

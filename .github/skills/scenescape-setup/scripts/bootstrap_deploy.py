@@ -297,6 +297,23 @@ def main() -> None:
   for line in adapt.stdout.splitlines():
     if line.startswith("no_proxy_hosts="):
       no_proxy_hosts = [h for h in line.split("=", 1)[1].split(",") if h]
+
+  configure_script = Path(__file__).resolve().parent / "configure_pipeline.py"
+  configure_cmd = [
+    sys.executable, str(configure_script),
+    "--deploy-dir", str(deploy_dir),
+  ]
+  if args.inputs_file:
+    configure_cmd.extend(["--inputs-file", str(args.inputs_file)])
+  else:
+    configure_cmd.append("--from-deploy-inputs")
+  configure = subprocess.run(configure_cmd, check=False, capture_output=True, text=True)
+  if configure.returncode != 0:
+    detail = (configure.stderr or configure.stdout or "").strip()
+    raise SystemExit(detail or f"configure_pipeline.py failed with exit {configure.returncode}")
+  if configure.stdout.strip():
+    print(configure.stdout.strip())
+
   generate_secrets_and_env(deploy_dir, skill_dir, no_proxy_hosts)
 
   print(f"Bootstrap complete: {deploy_dir}")

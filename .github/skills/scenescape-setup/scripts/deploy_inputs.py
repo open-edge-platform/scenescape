@@ -98,6 +98,8 @@ def inputs_payload(
   scene_name: str,
   skill_dir: str | None = None,
   video_paths: list[str] | None = None,
+  pipeline_customization_prompt: str | None = None,
+  pipeline_customization_mode: str | None = None,
 ) -> dict[str, Any]:
   if not scene_name or not scene_name.strip():
     raise ValueError("scene_name is required")
@@ -130,6 +132,13 @@ def inputs_payload(
 
   if skill_dir:
     payload["skill_dir"] = skill_dir
+
+  prompt = (pipeline_customization_prompt or "").strip()
+  if prompt:
+    payload["pipeline_customization_prompt"] = prompt
+  mode = (pipeline_customization_mode or "").strip()
+  if mode:
+    payload["pipeline_customization_mode"] = mode
   return payload
 
 
@@ -156,6 +165,8 @@ def load_inputs(deploy_dir: Path) -> dict[str, Any]:
       "camera_ids": state["camera_ids"],
       "streams": state["streams"],
       "skill_dir": state.get("skill_dir"),
+      "pipeline_customization_prompt": state.get("pipeline_customization_prompt"),
+      "pipeline_customization_mode": state.get("pipeline_customization_mode"),
     }
 
   raise FileNotFoundError(
@@ -164,10 +175,20 @@ def load_inputs(deploy_dir: Path) -> dict[str, Any]:
 
 
 def inputs_match(saved: dict[str, Any], candidate: dict[str, Any]) -> bool:
+  """Compare identity fields plus optional customization prompt/mode.
+
+  Prompt/mode participate so resume detects a changed customization request. The
+  check CLI and orchestrator must pass the same fields when present in
+  deploy-inputs.json (empty/missing on both sides still matches).
+  """
   return (
     saved.get("scene_name") == candidate.get("scene_name")
     and saved.get("camera_ids") == candidate.get("camera_ids")
     and saved.get("streams") == candidate.get("streams")
+    and (saved.get("pipeline_customization_prompt") or "")
+    == (candidate.get("pipeline_customization_prompt") or "")
+    and (saved.get("pipeline_customization_mode") or "")
+    == (candidate.get("pipeline_customization_mode") or "")
   )
 
 
@@ -193,6 +214,16 @@ def main() -> None:
     help="Explicit list of local video file paths, one per camera, in order",
   )
   write.add_argument("--skill-dir", default=None)
+  write.add_argument(
+    "--pipeline-customization-prompt",
+    default=None,
+    help="Optional natural-language pipeline customization request for the external agent",
+  )
+  write.add_argument(
+    "--pipeline-customization-mode",
+    default=None,
+    help="Optional mode hint passed through to the external pipeline agent",
+  )
 
   read = sub.add_parser("read", help="Print deploy-inputs.json or checkpoint inputs as JSON")
   read.add_argument("--deploy-dir", required=True, type=Path)
@@ -202,21 +233,28 @@ def main() -> None:
   check.add_argument("--scene-name", required=True)
   check.add_argument("--camera-ids", required=True, nargs="+")
   check.add_argument("--streams", required=True, nargs="+")
+  check.add_argument("--pipeline-customization-prompt", default=None)
+  check.add_argument("--pipeline-customization-mode", default=None)
 
   args = parser.parse_args()
 
   if args.command == "write":
+    common_kwargs = {
+      "skill_dir": args.skill_dir,
+      "pipeline_customization_prompt": args.pipeline_customization_prompt,
+      "pipeline_customization_mode": args.pipeline_customization_mode,
+    }
     if args.video_dir is not None:
       video_paths = [str(path) for path in discover_video_files(args.video_dir)]
       payload = inputs_payload(
-        args.camera_ids, None, args.scene_name, args.skill_dir, video_paths=video_paths
+        args.camera_ids, None, args.scene_name, video_paths=video_paths, **common_kwargs
       )
     elif args.video_files is not None:
       payload = inputs_payload(
-        args.camera_ids, None, args.scene_name, args.skill_dir, video_paths=args.video_files
+        args.camera_ids, None, args.scene_name, video_paths=args.video_files, **common_kwargs
       )
     else:
-      payload = inputs_payload(args.camera_ids, args.streams, args.scene_name, args.skill_dir)
+      payload = inputs_payload(args.camera_ids, args.streams, args.scene_name, **common_kwargs)
     path = save_inputs(args.deploy_dir, payload)
     print(path)
     return
@@ -227,7 +265,13 @@ def main() -> None:
     return
 
   saved = json.loads((args.deploy_dir / INPUTS_FILE).read_text(encoding="utf-8"))
-  candidate = inputs_payload(args.camera_ids, args.streams, args.scene_name)
+  candidate = inputs_payload(
+    args.camera_ids,
+    args.streams,
+    args.scene_name,
+    pipeline_customization_prompt=args.pipeline_customization_prompt,
+    pipeline_customization_mode=args.pipeline_customization_mode,
+  )
   if inputs_match(saved, candidate):
     return
   raise SystemExit("inputs differ from deploy-inputs.json; use --fresh to redeploy with new values")
