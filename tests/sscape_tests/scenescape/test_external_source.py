@@ -3,10 +3,11 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import numpy as np
 import pytest
+import threading
 from types import SimpleNamespace
 
+import numpy as np
 from controller.external_source import (
   ExternalSourcePoseCache,
   IdentityClaimRegistry,
@@ -196,6 +197,26 @@ class TestExternalSourcePoseCacheReuse:
     assert camera_pose is not None
     assert cache.sweepExpired(135.1) == 1
 
+  def test_sweep_evicts_expired_pose_behind_live_pose(self):
+    cache = ExternalSourcePoseCache(ttl_seconds=30.0, sweep_chunk_size=2)
+    scene = _makeScene()
+    pose_data = {
+      'reference_frame': 'scene',
+      'translation': [5.0, 6.0, 0.0],
+      'rotation': IDENTITY_ROTATION,
+    }
+    cache.resolve(scene, 'newer', pose_data, when=105.0, trusted_scene_pose=True)
+    cache.resolve(scene, 'older', pose_data, when=95.0, trusted_scene_pose=True)
+
+    assert cache.sweepExpired(131.0) == 1
+
+    camera_pose, reason = cache.resolve(scene, 'older', None, when=120.0)
+    assert camera_pose is None
+    assert reason == REASON_NO_POSE_AVAILABLE
+    camera_pose, reason = cache.resolve(scene, 'newer', None, when=131.0)
+    assert camera_pose is not None
+    assert reason is None
+
   def test_out_of_order_pose_update_keeps_newer_cached_transform(self):
     cache = ExternalSourcePoseCache(ttl_seconds=30.0)
     scene = _makeScene()
@@ -267,6 +288,30 @@ class TestIdentityClaimRegistry:
     assert ok is False
     assert reason == REASON_IDENTITY_COLLISION
     assert registry.sweepExpired(135.1) == 1
+
+  def test_sweep_evicts_expired_claim_behind_live_claim(self):
+    registry = IdentityClaimRegistry(ttl_seconds=30.0, sweep_chunk_size=2)
+    registry.claim('scene-1', 'person', 'source-a', 'newer', when=105.0)
+    registry.claim('scene-1', 'person', 'source-a', 'older', when=95.0)
+
+    assert registry.sweepExpired(131.0) == 1
+
+    ok, reason = registry.claim('scene-1', 'person', 'source-b', 'older', when=120.0)
+    assert ok is True
+    assert reason is None
+    ok, reason = registry.claim('scene-1', 'person', 'source-b', 'newer', when=131.0)
+    assert ok is False
+    assert reason == REASON_IDENTITY_COLLISION
+
+  def test_out_of_order_same_source_claim_preserves_newer_expiry(self):
+    registry = IdentityClaimRegistry(ttl_seconds=30.0)
+    registry.claim('scene-1', 'person', 'source-a', 'tag-1', when=100.0)
+    registry.claim('scene-1', 'person', 'source-a', 'tag-1', when=96.0)
+
+    ok, reason = registry.claim('scene-1', 'person', 'source-b', 'tag-1', when=128.0)
+
+    assert ok is False
+    assert reason == REASON_IDENTITY_COLLISION
 
   def test_same_id_in_different_scenes_does_not_collide(self):
     registry = IdentityClaimRegistry()
@@ -341,3 +386,40 @@ class TestIdentityClaimRegistry:
 
     assert camera_pose is None
     assert reason == REASON_NO_POSE_AVAILABLE
+
+
+class TestExternalSourceSweepLifecycle:
+  """Background sweep callbacks must not survive a stop/start cycle."""
+
+  @pytest.mark.parametrize(
+    'factory',
+    [
+      lambda: ExternalSourcePoseCache(sweep_interval_seconds=60.0),
+      lambda: IdentityClaimRegistry(sweep_interval_seconds=60.0),
+    ],
+    ids=['pose-cache', 'identity-claims'])
+  def test_stopped_callback_does_not_schedule_after_restart(self, factory):
+    cache = factory()
+    cache.startBackgroundSweep()
+    stopped_event = cache._sweep_stop
+    cache.stopBackgroundSweep()
+    cache.startBackgroundSweep()
+    restarted_timer = cache._sweep_timer
+
+    cache._sweepTick(stopped_event)
+
+    assert cache._sweep_timer is restarted_timer
+    cache.stopBackgroundSweep()
+
+  def test_tick_stops_after_one_full_chunked_pass(self):
+    registry = IdentityClaimRegistry(
+      sweep_chunk_size=2, sweep_interval_seconds=60.0, sweep_time_provider=lambda: 0.0)
+    for obj_id in range(4):
+      registry.claim('scene-1', 'person', 'source-a', str(obj_id), when=0.0)
+    stop_event = threading.Event()
+    registry._sweep_stop = stop_event
+
+    registry._sweepTick(stop_event)
+
+    assert registry._sweep_timer is not None
+    registry.stopBackgroundSweep()
