@@ -108,7 +108,7 @@ services:
       start_period: 5s
 
   web:
-    image: scenescape-manager:latest
+    image: intel/scenescape-manager:latest
     init: true
     networks:
       scenescape:
@@ -167,7 +167,7 @@ services:
     restart: always
 
   scene:
-    image: scenescape-controller:latest
+    image: intel/scenescape-controller:latest
     init: true
     # Match host UID so the controller can read 0600 secrets generated on the host.
     user: "${UID:-1000}:${GID:-1000}"
@@ -209,7 +209,7 @@ services:
   # Publishes regulated scene output + region/tripwire/sensor events. Consumes
   # unregulated per-category tracks from `scene` on scenescape/data/scene/...
   analytics:
-    image: scenescape-analytics:${VERSION:-latest}
+    image: intel/scenescape-analytics:${VERSION:-latest}
     init: true
     user: "${UID:-1000}:${GID:-1000}"
     networks:
@@ -294,7 +294,7 @@ services:
     restart: "no"
 
   mapping:
-    image: scenescape-mapping:${VERSION:-latest}
+    image: intel/scenescape-mapping:${VERSION:-latest}
     profiles:
       - mapping
     init: true
@@ -373,12 +373,13 @@ print(re.search(r\"DATABASE_PASSWORD='([^']+)'\", txt).group(1))
 ")
 SUPASS=$(cat secrets/supass)
 VERSION=latest
-MAPPING_MODEL=mapanything
 UID=$(id -u)
 GID=$(id -g)
 ```
 
-`write_deployment_env.py` (Step 6) writes `VERSION` and `MAPPING_MODEL` automatically.
+`write_deployment_env.py` (Step 6) writes `VERSION`, `UID`, and `GID` automatically.
+The published `intel/scenescape-mapping` image already embeds MapAnything (`MODEL_TYPE`
+defaults to `mapanything` in the image); no deploy-time model selector is required.
 Mapping runs as UID **1001** inside the container; `mapping-init` fixes volume ownership
 before the mapping service starts. `analytics` (and `broker`) run as `${UID:-1000}:${GID:-1000}`
 so they can read host-generated 0600 secrets — export `UID`/`GID` (or rely on the defaults)
