@@ -32,6 +32,7 @@ def fetch_dlstreamer_assets(deploy_dir: Path) -> None:
     "sscape_post_inference_data_publish.py",
     "sscape_policies.py",
     "sscape_3d_detector.py",
+    "sscape_gst_log.py",
   )
   if (
     (dl_dir / "model-proc-files" / "person-detection-retail-0013.json").is_file()

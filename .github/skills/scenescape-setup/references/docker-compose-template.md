@@ -169,6 +169,8 @@ services:
   scene:
     image: scenescape-controller:latest
     init: true
+    # Match host UID so the controller can read 0600 secrets generated on the host.
+    user: "${UID:-1000}:${GID:-1000}"
     networks:
       scenescape:
     depends_on:
@@ -261,6 +263,7 @@ services:
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_inference_data_publish.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_inference_data_publish.py
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_policies.py
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_3d_detector.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_3d_detector.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_gst_log.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_gst_log.py
       - ./dlstreamer-pipeline-server/model-proc-files:/home/pipeline-server/model-proc-files:ro
     secrets:
       - source: root-cert
@@ -291,7 +294,7 @@ services:
     restart: "no"
 
   mapping:
-    image: scenescape-mapping-${MAPPING_MODEL:-mapanything}:${VERSION:-latest}
+    image: scenescape-mapping:${VERSION:-latest}
     profiles:
       - mapping
     init: true
