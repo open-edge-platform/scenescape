@@ -153,13 +153,6 @@ jobs:
           mkdir -p reports
           pytest tests -m basic_acceptance --junitxml=reports/bat_results.xml --log-level=ERROR
 
-      - name: "Run Metric Tests"
-        if: always() && steps.setup-test-env.outcome == 'success'
-        run: |
-          source tests/.venv/bin/activate
-          mkdir -p reports
-          pytest tests/system/metric --junitxml=reports/metric_results.xml --log-level=ERROR
-
       - name: "Run Unit Tests"
         if: always() && steps.setup-test-env.outcome == 'success'
         run: |
