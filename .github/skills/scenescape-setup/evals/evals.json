@@ -81,36 +81,34 @@
     {
       "id": 6,
       "prompt_file": "example-prompts/06-smart-parking-custom-pipeline.md",
-      "prompt": "Build a SceneScape spatial analytics app for a parking deck at ~/deployments/smart-parking (scene name: Parking Deck B) — not a VA-only dashboard clone. Borrow the Metro smart-parking dataset https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos/smart_parking_720p_30fps.mp4 as cam_entry/cam_aisle (new_video_1/2.mp4). Customize VA: YOLO vehicle detect + color classification via dlstreamer-coding-agent, detectionPolicy. Spatial goals: scene map, cross-camera vehicle tracks, stall/no-parking via regions/tripwires.",
-      "expected_output": "Agent treats this as a SceneScape spatial deploy that reuses the Metro VA sample's clip/pipeline, not a recreate of VA-only smart-parking. Downloads the clip, wires two video-file cameras, persists pipeline_customization_prompt, follows dlstreamer-coding-agent into result.json, merges via configure_pipeline, and runs the full SceneScape orchestrator (map/tracking), mentioning regions for stall logic. Note: the harness may forbid real network/service execution — expectations check plan/command correctness.",
+      "prompt": "Build a SceneScape spatial parking app at ~/deployments/smart-parking (Parking Deck B), not a VA-only Metro smart-parking clone. Spatial unlocks: stall/no-parking regions on a deck map, utilization from scene translations, color attributes on scene-tracked vehicles. detectionPolicy only — do not enable Re-ID. Dataset https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos/smart_parking_720p_30fps.mp4 as cam_entry/cam_aisle. VA: YOLO vehicle detect + color classification via dlstreamer-coding-agent.",
+      "expected_output": "Agent frames spatial unlocks (map regions/dwell/regulated scene) vs per-camera VA, keeps detectionPolicy and does not enable reidPolicy, downloads the Metro clip, wires two video-file cameras, follows dlstreamer-coding-agent into result.json, merges via configure_pipeline, runs the full SceneScape orchestrator, and points at post-deploy regions/MQTT. Note: harness may forbid real network/service execution.",
       "should_trigger": true,
       "files": [],
       "expectations": [
-        "Frames the task as a SceneScape spatial parking app (scene map / cross-camera tracks / regions), not a port of the Metro VA-only smart-parking sample",
+        "Frames the task as a SceneScape spatial parking app whose unlock is map regions / dwell / regulated scene output — not a port of Metro VA-only smart-parking",
+        "Uses detectionPolicy only and does not enable Re-ID / reidPolicy (notes duplicated-clip caveat when relevant)",
         "Does not ask clarifying questions since deploy_dir, scene_name, dataset URL, camera IDs, and the customization request are all explicit",
-        "Shows exact curl/wget (or equivalent) download of the edge-ai-resources smart_parking_720p_30fps.mp4 URL into a local videos directory, plus creating new_video_1.mp4 and new_video_2.mp4 copies/symlinks",
-        "Shows deploy_inputs.py write with --video-files (local paths) and --camera-ids cam_entry cam_aisle, not --streams with live RTSP",
-        "Shows --pipeline-customization-prompt capturing vehicle detection and color classification / detectionPolicy",
-        "States that dlstreamer-coding-agent must be followed and pipeline-customization/result.json written with validation.ran_successfully true before bootstrap step 6",
-        "Mentions configure_pipeline.py / SceneScape structural merge after the coding-agent handoff, then the full SceneScape orchestrator (not a VA-only compose stack)",
-        "States DEPLOY COMPLETE / scene_uid / metrics success criteria and that stall or no-parking logic is scene-region/tripwire based rather than per-camera boxes alone"
+        "Shows download of smart_parking_720p_30fps.mp4 plus new_video_1.mp4 / new_video_2.mp4 copies, then deploy_inputs.py write with --video-files and --camera-ids cam_entry cam_aisle",
+        "Shows --pipeline-customization-prompt for vehicle detect + color classification with detectionPolicy",
+        "States dlstreamer-coding-agent → pipeline-customization/result.json, then configure_pipeline merge and full SceneScape orchestrator",
+        "States DEPLOY COMPLETE / scene_uid / metrics and post-deploy stall or no-parking regions plus regulated/region MQTT as the app surface"
       ]
     },
     {
       "id": 7,
       "prompt_file": "example-prompts/07-smart-intersection-custom-pipeline.md",
-      "prompt": "Deploy SceneScape for a smart intersection at ~/deployments/smart-intersection. Scene name: Intersection 1122. Download the four Metro smart-intersection videos from https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos (1122east/west/north/south_h264.ts) as cam_east/west/north/south. Customize for vehicle+pedestrian multi-class detection; validate via dlstreamer-coding-agent against a downloaded .ts; prefer GPU else CPU; detectionPolicy; default reconstruction.",
-      "expected_output": "Without asking clarifying questions, the agent produces a complete four-camera deployment procedure that downloads the Metro smart-intersection LFS video set via the helm videosRepo URL form, wires --video-files, persists pipeline_customization_prompt, follows dlstreamer-coding-agent into result.json, then SceneScape merge and async orchestrator completion. Note: the harness may forbid real network/service execution — expectations check plan/command correctness.",
+      "prompt": "Build a SceneScape spatial traffic app at ~/deployments/smart-intersection (Intersection 1122) on the Metro four-camera dataset. Spatial unlocks: approach tripwires, crosswalk/conflict regions, vehicle-pedestrian proximity in scene metres, path continuity across FOVs. Download 1122east/west/north/south_h264.ts from https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/main/videos as cam_east/west/north/south. VA: multi-class vehicle+pedestrian via dlstreamer-coding-agent; GPU else CPU; detectionPolicy.",
+      "expected_output": "Agent frames spatial traffic analytics (tripwires/regions/multi-class scene positions/path continuity), downloads all four LFS videos via videosRepo URLs, wires --video-files, follows dlstreamer-coding-agent into result.json, merges via configure_pipeline, runs async SceneScape orchestrator, and points at post-deploy regions/tripwires/MQTT. Note: harness may forbid real network/service execution.",
       "should_trigger": true,
       "files": [],
       "expectations": [
+        "Frames the task as a spatial traffic app (approach tripwires, conflict/crosswalk regions, multi-class scene positions, cross-camera path continuity) — not four independent detect feeds",
         "Does not ask clarifying questions since deploy_dir, scene_name, four dataset URLs, camera IDs, and the customization request are all explicit",
-        "Shows download commands for all four 1122*_h264.ts files using the github.com/.../raw/refs/heads/... videosRepo URLs (not blob pages), into a local videos directory",
-        "Shows deploy_inputs.py write with --video-files for the four local .ts paths and --camera-ids cam_east cam_west cam_north cam_south",
-        "Shows --pipeline-customization-prompt covering vehicle and pedestrian detection (and GPU/CPU preference when stated)",
-        "States that dlstreamer-coding-agent must be followed and pipeline-customization/result.json written with successful validation before bootstrap step 6",
-        "Mentions configure_pipeline.py / SceneScape structural merge after the coding-agent handoff",
-        "Shows async orchestrator launch and states that tracking verification should see objects across more than one camera, plus DEPLOY COMPLETE / scene_uid / metrics"
+        "Shows download commands for all four 1122*_h264.ts files using github.com/.../raw/refs/heads/... videosRepo URLs into a local videos directory",
+        "Shows deploy_inputs.py write with --video-files and --camera-ids cam_east cam_west cam_north cam_south plus --pipeline-customization-prompt for vehicle+pedestrian detect",
+        "States dlstreamer-coding-agent → pipeline-customization/result.json, then configure_pipeline merge",
+        "Shows async orchestrator launch; tracking across more than one camera; DEPLOY COMPLETE / scene_uid / metrics; post-deploy tripwires/regions and regulated/event MQTT"
       ]
     }
   ]
