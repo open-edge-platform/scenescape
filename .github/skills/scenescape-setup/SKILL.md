@@ -85,6 +85,10 @@ down -v` — always require explicit confirmation).
   exists and apply the Fast Path directly without checking the filesystem. Only fall back to
   Step 1 if the user says the directory is wrong or no prior run was started. Use `--fresh`
   when cameras or streams change.
+- For a resume response, run `deploy_inputs.py read` before the launch and explicitly label the
+  loaded `streams`, `camera_ids`, and `scene_name` as the values the user is confirming. Use the
+  exact resume invocation in the Fast Path; do **not** add `--resume`, because resume is already
+  the orchestrator default and the command must contain only `--deploy-dir` and `--skill-dir`.
 - Load troubleshooting references only when a step fails.
 - **Never** assign `SKILL_DIR` inline with `bash` on the same command (`SKILL_DIR=x bash "$SKILL_DIR/..."` silently fails because the variable is not yet expanded). Always set `export SKILL_DIR=...` on its own line first.
 
@@ -188,10 +192,27 @@ questions shown. Then **actually apply** the resulting values yourself — edit
 tool (not a suggested diff for the user to paste) and run `docker compose up -d --force-recreate
 scene` yourself (not a suggested command) to pick up the change:
 
+For tracker tuning, the first response must render these five numbered questions before proposing
+any configuration values: highest camera FPS; camera field-of-view overlap; whether objects are
+mostly moving or static; expected occlusion duration/frequency; and whether UI stability matters
+more than brief flicker. In a non-interactive environment, include each question with its stated
+assumed answer; do not replace the questionnaire with a prose assumption.
+
 | Symptom                                                                  | Reference                                           |
 | ------------------------------------------------------------------------ | --------------------------------------------------- |
 | Tracks flicker, vanish during occlusion, or IDs change unexpectedly      | [tuning-tracker.md](./references/tuning-tracker.md) |
 | Re-identification across cameras is missing or matching the wrong person | [tuning-reid.md](./references/tuning-reid.md)       |
+
+Before diagnosing a reactive tuning request, use the file-reading tool to load exactly one
+matching reference: load `references/tuning-tracker.md` for occlusion, flicker, disappearing
+tracks, or unexpected IDs in the same camera path; load `references/tuning-reid.md` for
+identity failures between cameras. Do not load the other tuning reference. State which reference
+you used in the response so the user can see whether the problem was treated as tracker timing
+or cross-camera Re-ID.
+
+Name the edited target as the deployed `<deploy_dir>/controller/tracker-config.json` or
+`<deploy_dir>/controller/reid-config.json` copy and explicitly distinguish it from the matching
+`assets/` file in the skill, which must remain unchanged.
 
 ## Other optional scene configuration (reactive only)
 
@@ -221,6 +242,11 @@ streams, camera IDs, or the scene name, skip re-asking Step 1 questions:
 3. If the user mentions a camera/stream change, treat it as a new deployment: re-run Step 1 in
    full and use `--fresh`.
 
+For a restricted environment where the read-back cannot expose the file's contents, still show a
+three-field confirmation block for the persisted `streams`, `camera_ids`, and `scene_name`; say
+they are loaded from `deploy-inputs.json` rather than inventing replacement inputs. A resume
+command must omit `--resume`, `--streams`, `--camera-ids`, and `--scene-name`.
+
 **Implicit Fast Path trigger**: When the user says "continue", "resume", "it stopped partway
 through", "pick up where we left off", or similar for a named `deploy_dir`, treat that statement
 as confirmation that `deploy-inputs.json` already exists at that path. Apply the Fast Path
@@ -230,6 +256,16 @@ be run) without falling back to Step 1 questions. Only fall back to Step 1 if:
 - The user explicitly says the directory is wrong or no prior run exists.
 - You attempt to read `deploy-inputs.json` and the file is genuinely absent **and** the user did
   not give any "resume/continue" signal — a new fresh deployment was intended.
+
+For a camera or stream change, read the existing inputs before creating the replacement set. If
+the read-back is unavailable, say that the new set replaces only the named camera/stream while
+retaining every other persisted camera, stream, and the scene name, then explicitly ask the user
+to confirm or provide that existing list. Do not proceed with only the changed camera.
+
+In that unavailable-read-back case, stop before presenting a write or `--fresh` launch command
+and say: "I could not read the existing deployment inputs. Please provide or confirm the retained
+camera IDs, streams, and scene name so I can show the complete replacement set before the fresh
+redeploy." Never present retained-camera placeholders as values that can be run.
 
 ## Directory Layout
 
@@ -294,6 +330,9 @@ produces one calibration JPEG per `camera_id` under `calibration-frames/`, that 
 verification confirms tracked objects are associated with more than one `camera_id` (for
 multi-camera deployments), and the `DEPLOY COMPLETE` / Post-Task metrics reporting requirement
 below — do not omit any of these even when summarizing for brevity.
+
+For a `--fresh` redeploy caused by changed cameras or streams, say explicitly that it re-runs the
+**bootstrap**, **calibrate**, and **scene** phases, not only calibration for the changed camera.
 
 Dependency order across phases (each phase blocks the next):
 
@@ -423,6 +462,9 @@ After `DEPLOY COMPLETE`, report a short breakdown in the same response as the co
 3. **Calibration time** — steps 9–10 (calibration frames, mapping health)
 4. **Scene + verification time** — steps 11–13 (reconstruction, finalize, tracking)
 5. **Total wall-clock time** (phases may overlap with user wait time, so total ≠ strict sum)
+
+When describing the expected completion before it happens, list all five metric labels above;
+do not shorten this to "per-phase metrics" or omit requirements gathering.
 
 ## Post-Task — Web UI access
 
