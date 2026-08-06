@@ -14,40 +14,23 @@ make init-secrets install-models
 
 ## 3. Use Prebuilt Images for Scenescape Deployment
 
-Prebuilt containers can be found here:
+Prebuilt containers are published on Docker Hub:
 
 - [Scenescape Manager](https://hub.docker.com/r/intel/scenescape-manager)
 - [Scenescape Controller](https://hub.docker.com/r/intel/scenescape-controller)
+- [Scenescape Analytics](https://hub.docker.com/r/intel/scenescape-analytics)
 - [Scenescape Autocalibration](https://hub.docker.com/r/intel/scenescape-autocalibration)
 - [Scenescape Tracker](https://hub.docker.com/r/intel/scenescape-tracker)
+- [Scenescape Cluster Analytics](https://hub.docker.com/r/intel/scenescape-cluster-analytics)
+- [Scenescape Mapping](https://hub.docker.com/r/intel/scenescape-mapping)
 
-### 3.1 Configure Docker Compose to use prebuilt images
-
-Update `sample_data/docker-compose-dl-streamer-example.yml` to use the above prebuilt images. Example:
-
-```yaml
-scene:
-  image: docker.io/intel/scenescape-controller:latest
-  # ... other service configurations ...
-web:
-  image: docker.io/intel/scenescape-manager:latest
-  # ... other service configurations ...
-autocalibration:
-  image: docker.io/intel/scenescape-autocalibration:latest
-  # ... other service configurations ...
-tracker:
-  image: docker.io/intel/scenescape-tracker:latest
-  # ... other service configurations ...
-```
-
-### 3.2 Configure preloaded scenes at deployment
+### 4. Configure preloaded scenes at deployment
 
 - **Skip preloading:** Do not set the `EXAMPLEDB` environment variable.
-- **Preload database:** Set the `EXAMPLEDB` environment variable to the path of your database tar file and ensure the folder is mounted. Example:
+- **Preload database:** Set `EXAMPLEDB` to the path of your database tar file and ensure the folder is mounted. Example override:
 
   ```yaml
   web:
-    image: docker.io/intel/scenescape-manager:latest
     environment:
       - EXAMPLEDB=/home/scenescape/Scenescape/sample_data/exampledb.tar.bz2
       - SUPASS=<password>
@@ -55,13 +38,15 @@ tracker:
       - vol-sample-data:/home/scenescape/Scenescape/sample_data
   ```
 
-## 4. Start Services
+## 5. Start Services
 
-Start the demo services:
+Start the demo without rebuilding local images (relies entirely on the prebuilt containers):
 
 ```bash
-SUPASS=<password> make demo
+SUPASS=<password> DEMO_REBUILD_IMAGES=false make demo
 ```
+
+> `DEMO_REBUILD_IMAGES=false` skips the re-building images locally from source.
 
 Verify that all containers are running:
 
@@ -69,11 +54,11 @@ Verify that all containers are running:
 docker ps
 ```
 
-## 5. Import Scenes
+## 6. Import Scenes
 
 After the services are up, scenes can be imported either via API (`curl`) or the Web UI.
 
-### 5.1 Using `curl`
+### 6.1 Using `curl`
 
 1. Obtain an authentication token:
 
@@ -92,7 +77,7 @@ After the services are up, scenes can be imported either via API (`curl`) or the
      https://<ip_address>/api/v1/import-scene/
    ```
 
-### 5.2 Using the Web UI
+### 6.2 Using the Web UI
 
 1. Log in with admin credentials.
 2. Navigate to **Import Scene**.

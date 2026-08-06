@@ -4,7 +4,7 @@
 # Model selection - can be overridden with MODEL_TYPE=vggt or MODEL_TYPE=mapanything
 MODEL_TYPE ?= mapanything
 
-IMAGE := intel/scenescape-mapping-$(MODEL_TYPE)
+IMAGE := intel/scenescape-mapping
 TEST_IMAGE := intel/scenescape-mapping-$(MODEL_TYPE)-test
 TARGET = mapping-runtime
 TEST_TARGET = mapping-test
