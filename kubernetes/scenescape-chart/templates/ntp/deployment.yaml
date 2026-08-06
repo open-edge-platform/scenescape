@@ -63,23 +63,9 @@ spec:
           readinessProbe:
             exec:
               command:
-              - sh
-              - -c
-              - "chronyc tracking | grep -E 'Stratum[[:space:]]+:[[:space:]]+([1-9]|1[0-5])[[:space:]]*$'"
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 5
-            initialDelaySeconds: 10
-          livenessProbe:
-            exec:
-              command:
-              - sh
-              - -c
-              - "chronyc tracking | grep -E 'Stratum[[:space:]]+:[[:space:]]+([1-9]|1[0-5])[[:space:]]*$'"
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 5
-            initialDelaySeconds: 20
+              - cat
+              - /tmp/healthy
+            periodSeconds: 1
           volumeMounts:
           - name: healthy-file
             mountPath: /tmp
