@@ -16,9 +16,9 @@ PARALLEL_DOWNLOADS ?= false
 MODEL_CONFIG_FILE ?= models.json
 MODEL_LIST ?=
 
-# Skip the (slow, network-bound) download flow when the volume already has a generated
-# model_config.json from a previous run. Set to true to force re-running it.
-FORCE_MODEL_DOWNLOAD ?= false
+# Skip the (slow, network-bound) download flow. By default, skips if the volume already
+# has a generated model_config.json from a previous run. Set to true to force skipping.
+SKIP_MODEL_DOWNLOAD ?= false
 MODEL_CONFIG_MARKER := /model_configs/model_config.json
 
 # UID/GID the model_downloader image runs as internally (fixed "appuser" baked into
@@ -34,9 +34,9 @@ MODEL_DOWNLOADER_RUN_ARGS ?=
 
 .PHONY: install-models
 install-models:
-	@if [ "$(FORCE_MODEL_DOWNLOAD)" != "true" ] && \
+	@if [ "$(SKIP_MODEL_DOWNLOAD)" == "true" ] || \
 		docker run --rm -v "$(MODEL_VOLUME)":/models alpine:3.23 test -f "/models$(MODEL_CONFIG_MARKER)" >/dev/null 2>&1; then \
-		echo "Models already installed in $(MODEL_VOLUME), skipping download (set FORCE_MODEL_DOWNLOAD=true to re-run)."; \
+		echo "Models already installed in $(MODEL_VOLUME), skipping download (set SKIP_MODEL_DOWNLOAD=false to force re-run)."; \
 	else \
 		$(MAKE) create-models-volume start-model-downloader; \
 		trap '$(MAKE) stop-model-downloader' EXIT; \
