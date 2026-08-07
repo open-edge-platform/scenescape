@@ -123,8 +123,18 @@ list-dependencies: $(BUILD_DIR) upstream-deps
 	  echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"; \
 	fi
 
+.PHONY: check-buildkit
+check-buildkit:
+	@if ! docker buildx inspect 2>&1 | grep -q "Driver:.*docker-container"; then \
+	  echo "Error: generate-sbom requires a BuildKit container builder (current builder uses an incompatible driver)."; \
+	  echo "Create one with:"; \
+	  echo "  docker buildx create --use --name=scenescape-buildkit-container --driver=docker-container \\"; \
+	  echo "    --driver-opt=env.http_proxy=\$$http_proxy,env.https_proxy=\$$https_proxy,env.HTTP_PROXY=\$$HTTP_PROXY,env.HTTPS_PROXY=\$$HTTPS_PROXY,default-load=true"; \
+	  exit 1; \
+	fi
+
 .PHONY: generate-sbom
-generate-sbom: $(BUILD_DIR)
+generate-sbom: $(BUILD_DIR) check-buildkit
 # if the Dockerfile is based on scene_common/Dockerfile, prepend it to get the full context as a work-around for docker buildx limitations
 	@if [[ -z "$(RUNTIME_OS_IMAGE)" ]]; then \
 	  echo "Error: RUNTIME_OS_IMAGE is not set for $(IMAGE). Ensure 'ARG RUNTIME_OS_IMAGE=<image>' is present in $(CURDIR)/Dockerfile."; \
@@ -134,6 +144,7 @@ generate-sbom: $(BUILD_DIR)
 	@if [[ "$(USES_SCENE_COMMON)" == "yes" ]]; then \
 	  echo "ARG RUNTIME_OS_IMAGE=${RUNTIME_OS_IMAGE}" > $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	  cat $(ROOT_DIR)/scene_common/Dockerfile ./Dockerfile >> $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
+		sed -i 's|^FROM intel/scenescape-common-base|FROM scenescape-common-base|' $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	else \
 	  cp ./Dockerfile $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	fi
