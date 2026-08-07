@@ -49,7 +49,7 @@ _SCENESCAPE_IMAGES = [
   "intel/scenescape-cluster-analytics",
   "intel/scenescape-controller",
   "intel/scenescape-manager",
-  "intel/scenescape-mapping-mapanything",
+  "intel/scenescape-mapping",
 ]
 
 def _run(cmd, **kwargs):
