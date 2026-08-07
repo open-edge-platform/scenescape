@@ -182,7 +182,7 @@ Scenescape was downloaded, built and deployed onto a fresh Ubuntu system. Using 
 
 ## Next Steps
 
-- Check the [Deploy Scenescape](../how-to-guides/deploy-scenescape-using-prebuilt-containers.md) for step-by-step instructions on how to deploy Scenescape using prebuilt Docker images.
+- Check [Deploy Scenescape](../how-to-guides/deploy-scenescape-using-prebuilt-containers.md) for step-by-step instructions on how to deploy Scenescape using prebuilt Docker images.
 
 ### Explore other topics
 
