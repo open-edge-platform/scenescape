@@ -14,7 +14,7 @@ secrets:
 
 services:
   analytics:
-    image: scenescape-analytics:${VERSION:-latest}
+    image: intel/scenescape-analytics:${VERSION:-latest}
     init: true
     networks:
       scenescape-test:

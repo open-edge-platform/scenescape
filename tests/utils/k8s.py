@@ -44,11 +44,12 @@ _RELEASE_NAME = "scenescape"
 _NAMESPACE = "scenescape"
 
 _SCENESCAPE_IMAGES = [
-  "intel/scenescape-manager",
+  "intel/scenescape-analytics",
   "intel/scenescape-autocalibration",
-  "intel/scenescape-controller",
   "intel/scenescape-cluster-analytics",
-  "intel/scenescape-mapping-mapanything",
+  "intel/scenescape-controller",
+  "intel/scenescape-manager",
+  "intel/scenescape-mapping",
 ]
 
 def _run(cmd, **kwargs):
@@ -440,8 +441,8 @@ class K8sManager:
       self._cluster.kubectl([
         "rollout", "status", resource,
         "-n", _NAMESPACE,
-        "--timeout=720s",
-      ], as_dict=False, timeout=780)
+        "--timeout=1200s",
+      ], as_dict=False, timeout=1260)
     logger.info("All core services are ready.")
 
     # Wait for kubeclient so it can create camera pipeline pods.

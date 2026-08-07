@@ -75,7 +75,7 @@ docker run -d \
     -v vol-mapping-model-weights:/workspace/model_weights \
     -v vol-mapping-torch-cache:/workspace/.cache/torch \
     -v vol-mapping-hf-cache:/workspace/.cache/huggingface \
-    intel/scenescape-mapping-${MODEL_TYPE:-mapanything}
+    intel/scenescape-mapping
 ```
 
 This command sets up the container with the correct user, network, hostname, ports, and persistent volumes for model weights and caches.

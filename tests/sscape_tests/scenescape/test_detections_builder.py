@@ -9,6 +9,7 @@ import pytest
 
 from scene_common.detections_builder import buildDetectionsDict, buildDetectionsList, prepareObjDict
 from controller.moving_object import ChainData, ReidState
+from scene_common.reid_constants import DEFAULT_MINIMUM_BBOX_AREA
 from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time, get_iso_time
 
@@ -49,6 +50,18 @@ def _build_object_with_regions(gid, regions, *, velocity=None):
   obj = _build_object(velocity=velocity, include_sensor_payload=False)
   obj.gid = gid
   obj.chain_data.regions = regions
+  return obj
+
+
+def _build_reid_object(*, bbox_area=None, provenance=None):
+  """Build an object whose embedding either came from a local crop or from a child scene."""
+  obj = _build_object(velocity=Point(1.0, 0.0), include_sensor_payload=False)
+  if bbox_area is None:
+    obj.boundingBoxPixels = None
+  else:
+    obj.boundingBoxPixels = SimpleNamespace(
+      area=bbox_area, asDict={'x': 10, 'y': 20, 'width': 30, 'height': 40})
+  obj.reid_provenance = provenance
   return obj
 
 
@@ -324,6 +337,191 @@ class TestDetectionsBuilder:
     detection = prepareObjDict(scene, obj, update_visibility=False)
 
     assert 'previous_ids_chain' not in detection
+
+  def test_reid_forwarded_with_provenance_naming_the_vetting_scene_and_camera(self):
+    """A crop large enough to trust is forwarded stamped with where it was vetted."""
+    obj = _build_reid_object(bbox_area=9000)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(scene, obj, update_visibility=False,
+                               attach_reid_provenance=True, minimum_bbox_area=5000)
+
+    assert detection['metadata']['reid']['embedding_vector'] == pytest.approx([0.1, 0.2])
+    assert detection['metadata']['reid']['provenance'] == {
+      'origin_scene_id': 'scene-child',
+      'origin_camera_id': 'cam-1',
+      'quality_vetted': True,
+    }
+
+  def test_reid_stamps_will_enroll_when_publisher_owns_database_writes(self):
+    """ReID-enabled publishers mark crops they will enroll so parents skip sole enroll."""
+    obj = _build_reid_object(bbox_area=9000)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(
+      scene, obj, update_visibility=False, attach_reid_provenance=True,
+      minimum_bbox_area=5000, will_enroll_reid=True,
+      reid_enrolled_fn=lambda _aobj: True)
+
+    assert detection['metadata']['reid']['provenance'] == {
+      'origin_scene_id': 'scene-child',
+      'origin_camera_id': 'cam-1',
+      'quality_vetted': True,
+      'will_enroll': True,
+      'enrolled': True,
+    }
+
+  def test_reid_omits_will_enroll_without_track_enrollment_activity(self):
+    """Process will_enroll mode alone must not claim short tracks the child will not write."""
+    obj = _build_reid_object(bbox_area=9000)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(
+      scene, obj, update_visibility=False, attach_reid_provenance=True,
+      minimum_bbox_area=5000, will_enroll_reid=True,
+      reid_enrolled_fn=lambda _aobj: False)
+
+    assert detection['metadata']['reid']['provenance'] == {
+      'origin_scene_id': 'scene-child',
+      'origin_camera_id': 'cam-1',
+      'quality_vetted': True,
+    }
+  def test_reid_stamps_enrolled_when_track_already_owns_a_write(self):
+    """Pending or completed enrollment is advertised so parents skip writes."""
+    obj = _build_reid_object(bbox_area=9000)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(
+      scene, obj, update_visibility=False, attach_reid_provenance=True,
+      minimum_bbox_area=5000, will_enroll_reid=True,
+      reid_enrolled_fn=lambda _aobj: True)
+
+    assert detection['metadata']['reid']['provenance']['will_enroll'] is True
+    assert detection['metadata']['reid']['provenance']['enrolled'] is True
+
+  def test_reid_withheld_entirely_when_publisher_not_ready_to_enroll(self):
+    """ReID write intent without a ready schema must not forward local embeddings."""
+    obj = _build_reid_object(bbox_area=9000)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(
+      scene, obj, update_visibility=False, attach_reid_provenance=True,
+      minimum_bbox_area=5000, withhold_reid=True)
+
+    assert 'reid' not in detection.get('metadata', {})
+
+  def test_reid_withhold_still_forwards_inherited_vetted_provenance(self):
+    """Multi-hop relays must not drop already-vetted embeddings while local reid waits."""
+    original = {
+      'origin_scene_id': 'scene-grandchild',
+      'origin_camera_id': 'cam-9',
+      'quality_vetted': True,
+      'will_enroll': True,
+    }
+    obj = _build_reid_object(bbox_area=None, provenance=original)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(
+      scene, obj, update_visibility=False, attach_reid_provenance=True,
+      minimum_bbox_area=5000, withhold_reid=True)
+
+    assert detection['metadata']['reid']['provenance'] == original
+    assert detection['metadata']['reid']['embedding_vector'] == pytest.approx([0.1, 0.2])
+
+  def test_reid_merges_local_write_claims_onto_inherited_provenance(self):
+    """Intermediate ReID scopes must advertise write authority on relayed crops."""
+    original = {
+      'origin_scene_id': 'scene-grandchild',
+      'origin_camera_id': 'cam-9',
+      'quality_vetted': True,
+    }
+    obj = _build_reid_object(bbox_area=None, provenance=original)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(
+      scene, obj, update_visibility=False, attach_reid_provenance=True,
+      minimum_bbox_area=5000, will_enroll_reid=True,
+      reid_enrolled_fn=lambda _aobj: True)
+
+    assert detection['metadata']['reid']['provenance'] == {
+      'origin_scene_id': 'scene-grandchild',
+      'origin_camera_id': 'cam-9',
+      'quality_vetted': True,
+      'will_enroll': True,
+      'enrolled': True,
+    }
+  def test_reid_withheld_when_local_crop_only_matches_minimum_area(self):
+    """The area gate is exclusive, so a crop exactly at the minimum is not forwarded."""
+    obj = _build_reid_object(bbox_area=5000)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(scene, obj, update_visibility=False,
+                               attach_reid_provenance=True, minimum_bbox_area=5000)
+
+    assert 'reid' not in detection['metadata']
+
+  def test_reid_withheld_when_local_crop_is_below_default_minimum_area(self):
+    """Without a configured minimum, the shared default decides which crops are trusted."""
+    small = _build_reid_object(bbox_area=DEFAULT_MINIMUM_BBOX_AREA - 1)
+    large = _build_reid_object(bbox_area=DEFAULT_MINIMUM_BBOX_AREA + 1)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    small_detection = prepareObjDict(scene, small, update_visibility=False,
+                                     attach_reid_provenance=True)
+    large_detection = prepareObjDict(scene, large, update_visibility=False,
+                                     attach_reid_provenance=True)
+
+    assert 'reid' not in small_detection['metadata']
+    assert 'reid' in large_detection['metadata']
+
+  def test_reid_keeps_original_provenance_across_another_hop(self):
+    """A scene relaying an already vetted embedding must not claim it as its own."""
+    original = {
+      'origin_scene_id': 'scene-grandchild',
+      'origin_camera_id': 'cam-9',
+      'quality_vetted': True,
+      'will_enroll': True,
+    }
+    obj = _build_reid_object(bbox_area=None, provenance=original)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(scene, obj, update_visibility=False,
+                               attach_reid_provenance=True, minimum_bbox_area=5000,
+                               will_enroll_reid=True)
+
+    assert detection['metadata']['reid']['provenance'] == original
+
+  def test_reid_withheld_when_nothing_vouches_for_the_embedding(self):
+    """No local bbox and no provenance means no scope can speak for the crop."""
+    obj = _build_reid_object(bbox_area=None, provenance=None)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(scene, obj, update_visibility=False,
+                               attach_reid_provenance=True, minimum_bbox_area=5000)
+
+    assert 'reid' not in detection['metadata']
+
+  def test_reid_withheld_when_provenance_does_not_claim_vetting(self):
+    """Provenance that never asserts quality is not a substitute for the bbox gate."""
+    obj = _build_reid_object(
+      bbox_area=None,
+      provenance={'origin_scene_id': 'scene-grandchild', 'quality_vetted': False})
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(scene, obj, update_visibility=False,
+                               attach_reid_provenance=True, minimum_bbox_area=5000)
+
+    assert 'reid' not in detection['metadata']
+
+  def test_reid_emitted_without_provenance_on_non_hierarchy_output(self):
+    """Scene and regulated topics keep publishing embeddings untouched."""
+    obj = _build_reid_object(bbox_area=10)
+    scene = SimpleNamespace(output_lla=False, uid='scene-child')
+
+    detection = prepareObjDict(scene, obj, update_visibility=False)
+
+    assert detection['metadata']['reid']['embedding_vector'] == pytest.approx([0.1, 0.2])
+    assert 'provenance' not in detection['metadata']['reid']
 
   def test_region_dwell_increases_while_object_in_region(self):
     """Functional test verifying dwell time updates continuously while object remains in region."""

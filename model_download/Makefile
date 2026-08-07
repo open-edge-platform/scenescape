@@ -16,17 +16,34 @@ PARALLEL_DOWNLOADS ?= false
 MODEL_CONFIG_FILE ?= models.json
 MODEL_LIST ?=
 
+# Skip the (slow, network-bound) download flow. By default, skips if the volume already
+# has a generated model_config.json from a previous run. Set to true to force skipping.
+SKIP_MODEL_DOWNLOAD ?= false
+MODEL_CONFIG_MARKER := /model_configs/model_config.json
+
+# UID/GID the model_downloader image runs as internally (fixed "appuser" baked into
+# $(MODEL_DOWNLOADER_IMAGE)) - the models volume must be writable by this user, which may
+# differ from the host user's UID/GID.
+MODEL_DOWNLOADER_UID ?= 1000
+MODEL_DOWNLOADER_GID ?= 1000
+
 # if models should be taken from other sources - add those sources here, e.g. --plugins omz,huggingface
 # bear in mind that some sources may require additional configuration - check the model_downloader documentation for details
 MODEL_DOWNLOADER_CMD ?= --plugins omz
 MODEL_DOWNLOADER_RUN_ARGS ?=
 
 .PHONY: install-models
-install-models: create-models-volume start-model-downloader
-	trap '$(MAKE) stop-model-downloader' EXIT; \
-	$(MAKE) download-models && \
-	$(MAKE) generate-model-config && \
-	$(MAKE) list-model-files
+install-models:
+	@if [ "$(SKIP_MODEL_DOWNLOAD)" == "true" ] || \
+		docker run --rm -v "$(MODEL_VOLUME)":/models alpine:3.23 test -f "/models$(MODEL_CONFIG_MARKER)" >/dev/null 2>&1; then \
+		echo "Models already installed in $(MODEL_VOLUME), skipping download (set SKIP_MODEL_DOWNLOAD=false to force re-run)."; \
+	else \
+		$(MAKE) create-models-volume start-model-downloader; \
+		trap '$(MAKE) stop-model-downloader' EXIT; \
+		$(MAKE) download-models && \
+		$(MAKE) generate-model-config && \
+		$(MAKE) list-model-files; \
+	fi
 
 .PHONY: create-models-volume
 create-models-volume:
@@ -38,7 +55,7 @@ create-models-volume:
 		docker volume create "$(MODEL_VOLUME)" >/dev/null; \
 	fi
 	@echo "Setting volume permissions..."
-	@docker run --rm -v "$(MODEL_VOLUME)":/dest alpine:3.23 chown -R $(shell id -u):$(shell id -g) /dest
+	@docker run --rm -v "$(MODEL_VOLUME)":/dest alpine:3.23 chown -R $(MODEL_DOWNLOADER_UID):$(MODEL_DOWNLOADER_GID) /dest
 
 .PHONY: start-model-downloader
 start-model-downloader:
@@ -55,6 +72,7 @@ start-model-downloader:
 		--name "$(MODEL_DOWNLOADER_CONTAINER)" \
 		-p "$(MODEL_DOWNLOADER_HOST_PORT):$(MODEL_DOWNLOADER_CONTAINER_PORT)" \
 		-v "$(MODEL_VOLUME)":/opt/models \
+        -e HF_HUB_ENABLE_HF_TRANSFER=1 \
 		-e HTTP_PROXY="$(HTTP_PROXY)" \
 		-e HTTPS_PROXY="$(HTTPS_PROXY)" \
 		-e NO_PROXY="$(NO_PROXY)" \

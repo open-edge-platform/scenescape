@@ -201,7 +201,7 @@ controller/config/reid-config.json
 | `stale_feature_timeout_secs`        | float  | 5.0                                                    | How long (seconds) to accumulate features in memory before flushing to the ReID database. Features older than this threshold are persisted for long-term storage.                                                |
 | `stale_feature_check_interval_secs` | float  | 1.0                                                    | How frequently (seconds) the background timer checks for stale features and flushes them to the ReID database. More frequent checks ensure timely database updates.                                              |
 | `feature_accumulation_threshold`    | int    | 12                                                     | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.                                                |
-| `minimum_bbox_area`                 | int    | 5000                                                   | Minimum bounding-box area in pixels required before a detected object contributes a ReID embedding to quality feature accumulation.                                                                              |
+| `minimum_bbox_area`                 | int    | 5000                                                   | Minimum pixel-space bounding-box area a detection must have for its ReID embedding to be used. Applied by the scene that owns the camera, since it is the only scope that has the source crop to measure.        |
 | `feature_slice_size`                | int    | 10                                                     | When persisting features to the ReID database, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector.                               |
 | `similarity_threshold`              | float  | metric-dependent (`40.0` for `L2`, `0.5` for `COSINE`) | Match acceptance threshold interpreted using the configured metric semantics: for `COSINE`, candidates **above** the threshold match; for `L2`-style distance metrics, candidates **below** the threshold match. |
 
@@ -211,6 +211,51 @@ controller/config/reid-config.json
 > are not compatible with the new `COSINE` default. Recreate the backend data
 > store before starting the controller, or explicitly keep
 > `"similarity_metric": "L2"` with an L2 threshold.
+
+### Embeddings in a Scene Hierarchy
+
+Independent scenes that are **not** linked as parent/child may **share** one
+ReID database or use **separate** instances.
+
+Scenes in a [hierarchy](../../how-to-guides/build-a-scene/configure-hierarchy-of-scenes.md)
+must not use **split** ReID databases across children (or child vs parent) when
+the parent should unify people. Supported layouts include shared ReID on parent
+and children, **parent-only ReID** with children forwarding embeddings (parent
+enrolls on query-no-match), or no ReID. See
+[ReID across controllers](../../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#reid-across-controllers-what-is-supported).
+With **local** children, one controller owns ReID for the whole hierarchy.
+Each embedding still has to be attributable to exactly one enrollment:
+
+- **Quality is judged once, where the pixels are.** A scene applies `minimum_bbox_area` to
+  detections from its own cameras. Objects forwarded from a child arrive in world coordinates
+  with no pixel bounding box, so there is nothing left to measure at the parent.
+- **Forwarded embeddings state their origin.** When a child publishes to its parent, an embedding
+  that passed the gate travels with the id of the originating scene and camera and a
+  `quality_vetted` flag. Embeddings that failed the gate, or that no scope can vouch for, are not
+  forwarded at all.
+- **Query first, then write under one UUID.** A detection from a camera on this
+  controller may be enrolled when the bbox passes `minimum_bbox_area`. A parent
+  with `Retrack` enabled may **query** with forwarded embeddings that carry
+  vetted provenance. On no-match it may sole-enroll those features when the
+  child did **not** claim write authority (parent-only ReID / passthrough). On
+  match it rematches and may **enhance** that UUID's embedding cluster with
+  further forwarded vectors unless upstream stamped `will_enroll` / `enrolled`.
+  Exact duplicate vectors are not stored again. Parent-owned cameras still
+  enroll on the parent as usual.
+- **Write authority on hierarchy output.** A ReID-enabled publisher withholds
+  **local** hierarchy reid until the vector schema is ready **and** at least one
+  database write has succeeded, then stamps `will_enroll` (and `enrolled` once
+  the track owns a write). If database writes later fail, publish drops to
+  passthrough and local enrollment stops so a parent can sole-enroll without
+  racing the child. Children without ReID write intent never set those flags.
+  See
+  [write authority](../../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#write-authority-on-the-hierarchy-wire-will_enroll--enrolled).
+- **Live-gid collision limits concurrent Rematch.** A parent will not assign the same database
+  UUID to two concurrent live tracks. Cross-child identity continuity via ReID is therefore
+  verified for **sequential** rematch today; concurrent two-child merge via ReID alone is a
+  [product follow-up](../../../adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity).
+- **Provenance is not accepted from detectors.** Origin claims arriving on a camera topic are
+  discarded, so a detector cannot bypass the bounding-box quality gate.
 
 ### Embedding Dimension Inference
 
