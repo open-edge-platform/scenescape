@@ -755,12 +755,16 @@ class TestSceneControllerHandleChildSceneObject:
     scene_controller = self._build_controller()
     root = SimpleNamespace(uid='root-1', parent=None)
     scene_controller.cache_manager.sceneWithID.return_value = root
+    # Local roots must not consult remote-child parent recovery.
+    scene_controller._parentUidForRemoteChild = MagicMock()
 
     result = scene_controller._handleChildSceneObject(
       'root-1', {'objects': []}, 'person', 42.0)
 
     assert result is None
+    assert root.parent is None
     scene_controller.cache_manager.sceneWithRemoteChildID.assert_not_called()
+    scene_controller._parentUidForRemoteChild.assert_not_called()
 
   def test_child_scene_forwards_to_parent(self):
     """Configured child scenes still transform into the parent scene."""
@@ -860,8 +864,8 @@ class TestTrustedScenePoseWithManualBinding:
     scene.processSceneData.assert_called_once()
 
 
-class TestHandleMovingObjectExternalMismatch:
-  """Reject publisher_id / source_id mismatches on DATA_EXTERNAL."""
+class TestHandleMovingObjectExternal:
+  """DATA_EXTERNAL wiring in handleMovingObjectMessage (helpers tested elsewhere)."""
 
   def _build_controller(self):
     controller = SceneController.__new__(SceneController)
@@ -878,7 +882,15 @@ class TestHandleMovingObjectExternalMismatch:
     controller.external_source_bindings = {}
     controller._handleExternalSourceObject = MagicMock(return_value=True)
     controller._scenesForExternalPublisher = MagicMock(return_value=[MagicMock()])
+    controller.publishDetections = MagicMock()
     return controller
+
+  def _external_message(self, scene_id, payload):
+    message = MagicMock()
+    message.topic = PubSub.formatTopic(
+      PubSub.DATA_EXTERNAL, scene_id=scene_id, thing_type='person')
+    message.payload = json.dumps(payload).encode('utf-8')
+    return message
 
   @patch('controller.scene_controller.metrics')
   @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
@@ -887,22 +899,121 @@ class TestHandleMovingObjectExternalMismatch:
     self, _mock_epoch, _mock_adjust, _mock_metrics
   ):
     controller = self._build_controller()
-    topic = PubSub.formatTopic(
-      PubSub.DATA_EXTERNAL, scene_id='drone-1', thing_type='person')
-    payload = {
+    message = self._external_message('drone-1', {
       'timestamp': '2026-01-01T00:00:00Z',
       'source_id': 'other-drone',
       'objects': [],
-    }
-    message = MagicMock()
-    message.topic = topic
-    message.payload = json.dumps(payload).encode('utf-8')
+    })
 
     controller.handleMovingObjectMessage(None, None, message)
 
     controller._scenesForExternalPublisher.assert_not_called()
     controller._handleExternalSourceObject.assert_not_called()
     controller.cache_manager.invalidate.assert_not_called()
+
+  @patch('controller.scene_controller.metrics')
+  @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
+  @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
+  def test_matching_source_id_ingests_and_publishes(
+    self, _mock_epoch, _mock_adjust, _mock_metrics
+  ):
+    controller = self._build_controller()
+    scene = MagicMock()
+    scene.uid = 'scene-a'
+    scene.name = 'Scene A'
+    scene.tracker.getUniqueIDCount.return_value = 1
+    scene.tracker.currentObjects.return_value = ['obj']
+    controller._scenesForExternalPublisher.return_value = [scene]
+    message = self._external_message('drone-1', {
+      'timestamp': '2026-01-01T00:00:00Z',
+      'source_id': 'drone-1',
+      'objects': [{'id': 't1'}],
+    })
+
+    controller.handleMovingObjectMessage(None, None, message)
+
+    controller._scenesForExternalPublisher.assert_called_once()
+    controller._handleExternalSourceObject.assert_called_once()
+    controller.publishDetections.assert_called_once()
+    controller.cache_manager.invalidate.assert_not_called()
+
+  @patch('controller.scene_controller.metrics')
+  @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
+  @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
+  def test_no_scene_binding_returns_without_invalidate(
+    self, _mock_epoch, _mock_adjust, _mock_metrics
+  ):
+    controller = self._build_controller()
+    controller._scenesForExternalPublisher.return_value = []
+    message = self._external_message('drone-1', {
+      'timestamp': '2026-01-01T00:00:00Z',
+      'source_id': 'drone-1',
+      'objects': [],
+    })
+
+    controller.handleMovingObjectMessage(None, None, message)
+
+    controller._handleExternalSourceObject.assert_not_called()
+    controller.publishDetections.assert_not_called()
+    controller.cache_manager.invalidate.assert_not_called()
+
+  @patch('controller.scene_controller.metrics')
+  @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
+  @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
+  def test_ingest_failure_invalidates_cache(
+    self, _mock_epoch, _mock_adjust, _mock_metrics
+  ):
+    controller = self._build_controller()
+    scene = MagicMock()
+    scene.name = 'Scene A'
+    controller._scenesForExternalPublisher.return_value = [scene]
+    controller._handleExternalSourceObject.return_value = False
+    message = self._external_message('drone-1', {
+      'timestamp': '2026-01-01T00:00:00Z',
+      'source_id': 'drone-1',
+      'objects': [],
+    })
+
+    controller.handleMovingObjectMessage(None, None, message)
+
+    controller.cache_manager.invalidate.assert_called_once()
+    controller.publishDetections.assert_not_called()
+
+  @patch('controller.scene_controller.metrics')
+  @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
+  @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
+  def test_hierarchy_root_echo_none_is_ignored(
+    self, _mock_epoch, _mock_adjust, _mock_metrics
+  ):
+    """Hierarchy messages (no source_id) that return None must not invalidate."""
+    controller = self._build_controller()
+    controller._handleChildSceneObject = MagicMock(return_value=None)
+    message = self._external_message('root-1', {
+      'timestamp': '2026-01-01T00:00:00Z',
+      'objects': [],
+    })
+
+    controller.handleMovingObjectMessage(None, None, message)
+
+    controller._handleChildSceneObject.assert_called_once()
+    controller._scenesForExternalPublisher.assert_not_called()
+    controller.cache_manager.invalidate.assert_not_called()
+    controller.publishDetections.assert_not_called()
+
+
+class TestSceneControllerShutdown:
+  """Controller owns pose/identity sweep threads; shutdown must stop both."""
+
+  def test_shutdown_stops_external_source_background_sweeps(self):
+    controller = SceneController.__new__(SceneController)
+    controller.external_source_pose_cache = MagicMock()
+    controller.identity_claim_registry = MagicMock()
+
+    controller.shutdown()
+    controller.shutdown()  # idempotent
+
+    assert controller.external_source_pose_cache.stopBackgroundSweep.call_count == 2
+    assert controller.identity_claim_registry.stopBackgroundSweep.call_count == 2
 
 
 class TestUpdateSubscriptionsExternalWildcard:
@@ -927,6 +1038,7 @@ class TestUpdateSubscriptionsExternalWildcard:
     # No per-scene inbox subscribe.
     assert PubSub.formatTopic(
       PubSub.DATA_EXTERNAL, scene_id='scene-1', thing_type='+') not in topics
+
 
 class TestSceneControllerRemoteChildParent:
   """Unit tests for remote-child parent injection and recovery (NEX-T21933)."""

@@ -522,13 +522,14 @@ class SceneController:
       is_remote = True
 
     if not hasattr(sender, 'parent') or sender.parent is None:
-      recovered = self._parentUidForRemoteChild(sender_id)
-      if recovered:
-        sender.parent = recovered
-        log.info(f"Recovered parent={recovered} for remote child {sender_id}")
-      elif is_remote:
-        log.error("UNKNOWN PARENT", sender_id)
-        return False, sender
+      if is_remote:
+        recovered = self._parentUidForRemoteChild(sender_id)
+        if recovered:
+          sender.parent = recovered
+          log.info(f"Recovered parent={recovered} for remote child {sender_id}")
+        else:
+          log.error("UNKNOWN PARENT", sender_id)
+          return False, sender
       else:
         # Hierarchy publishes (no source_id) from a root scene are not destined
         # for a parent — ignore them rather than failing closed and invalidating

@@ -635,10 +635,9 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
 
   env_file.write_text(env_lines)
   # Compose prefers the process environment over --env-file for variable
-  # pass-through (e.g. environment: [SUPASS]). An empty SUPASS from
-  # `make ... SUPASS=$(SUPASS)` would otherwise override the env-file value
-  # and create the django admin with a blank password.
-  os.environ["SUPASS"] = supass
+  # pass-through (e.g. environment: [SUPASS]). Keep them in sync.
+  from tests.utils.compose_env import sync_supass_for_compose
+  sync_supass_for_compose(supass)
   (tmp_path / "db").mkdir(exist_ok=True)
   if hierarchy_ports:
     for role in ("parent", "child1", "child2"):

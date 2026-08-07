@@ -74,6 +74,22 @@ class TestExternalSourcePoseCacheSceneFrame:
     assert camera_pose is None
     assert reason == REASON_INVALID_POSE
 
+  def test_trusted_scene_pose_defaults_missing_rotation_to_identity(self):
+    """Rotation is optional; omitted poses use identity quaternion."""
+    cache = ExternalSourcePoseCache()
+    scene = _makeScene()
+    pose_data = {
+      'reference_frame': 'scene',
+      'translation': [1.0, 2.0, 3.0],
+    }
+
+    camera_pose, reason = cache.resolve(
+      scene, 'drone-1', pose_data, when=100.0, trusted_scene_pose=True)
+
+    assert reason is None
+    assert camera_pose is not None
+    np.testing.assert_allclose(camera_pose.pose_mat[:3, 3], [1.0, 2.0, 3.0])
+
 
 class TestExternalSourcePoseCacheWgs84Frame:
   """Global poses require the target scene to be geospatially calibrated."""
@@ -237,6 +253,23 @@ class TestExternalSourcePoseCacheReuse:
 
     assert reason is None
     np.testing.assert_allclose(camera_pose.pose_mat[:3, 3], [9.0, 9.0, 0.0])
+
+  def test_scenes_with_live_cache_lists_non_expired_scenes_for_source(self):
+    cache = ExternalSourcePoseCache(ttl_seconds=30.0)
+    scene_a = _makeScene(uid='scene-a')
+    scene_b = _makeScene(uid='scene-b')
+    pose_data = {
+      'reference_frame': 'scene',
+      'translation': [1.0, 0.0, 0.0],
+      'rotation': IDENTITY_ROTATION,
+    }
+    cache.resolve(scene_a, 'drone-1', pose_data, when=100.0, trusted_scene_pose=True)
+    cache.resolve(scene_b, 'drone-1', pose_data, when=100.0, trusted_scene_pose=True)
+    cache.resolve(scene_a, 'other', pose_data, when=100.0, trusted_scene_pose=True)
+
+    assert set(cache.scenesWithLiveCache('drone-1', when=110.0)) == {'scene-a', 'scene-b'}
+    assert cache.scenesWithLiveCache('drone-1', when=200.0) == []
+    assert cache.scenesWithLiveCache('missing', when=110.0) == []
 
 
 class TestIdentityClaimRegistry:

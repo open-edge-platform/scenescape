@@ -98,11 +98,10 @@ def test_validateExternalSourceMessage_scenePoseRequiresTranslation(schemaObject
   return
 
 def test_validateExternalSourceMessage_scenePoseWithTranslation(schemaObject, externalSourceData):
-  """A scene-frame pose with translation is valid."""
+  """A scene-frame pose with translation is valid; rotation is optional."""
   externalSourceData['pose'] = {
     "reference_frame": "scene",
     "translation": [1.0, 2.0, 3.0],
-    "rotation": [0, 0, 0, 1],
   }
 
   result = schemaObject.validateMessage("external_source", externalSourceData, True)
