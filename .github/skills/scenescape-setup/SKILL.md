@@ -10,10 +10,9 @@ license: Apache-2.0
 compatibility: >-
   Requires Docker, docker-compose, and Python 3.10+ with `requests` on the host. GitHub access
   for sparse checkout of dlstreamer-pipeline-server. Network access to RTSP camera streams.
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, Env
 metadata:
   argument-hint: "<deploy_dir> — always gather streams, camera_ids, scene_name from the user first"
-  permissions: shell, network, file_read, file_write, env
 ---
 
 # SceneScape End-to-End Setup
@@ -45,14 +44,12 @@ in `docs/user-guide/`.
 
 ## Safety rules for autonomous execution
 
-- **Execute, don't just narrate.** Once `deploy_dir`, `streams`/video source, `camera_ids`, and
-  `scene_name` are known (from the user's message, `deploy-inputs.json`, or `.deploy-state.json`),
-  actually run every step yourself with your tools — download files, invoke `deploy_inputs.py`,
-  launch the orchestrator, edit config files, run restart commands — instead of printing a list of
-  shell snippets for the user to copy/paste. A response consisting only of a "here's what you'd
-  run" plan, with no corresponding tool calls, does not satisfy this skill's task even if every
-  command shown is correct. The one exception is genuinely destructive actions (see below), which
-  must be shown and confirmed before executing, not skipped. This does **not** license silently
+- **Execute approved deployment work, don't just narrate.** After the user explicitly requests a
+  deployment and `deploy_dir`, `streams`/video source, `camera_ids`, and `scene_name` are known
+  (from the user's message, `deploy-inputs.json`, or `.deploy-state.json`), use tools to perform
+  the approved non-destructive steps instead of providing shell snippets alone. Show and obtain
+  confirmation for genuinely destructive actions (see below) before executing them. This does
+  **not** license silently
   merging a changed `camera_id`/stream into the existing `deploy-inputs.json` on the user's
   behalf — a camera/stream change still requires showing the user the full updated
   `streams`/`camera_ids`/`scene_name` set (existing entries you read back plus the new one) and
@@ -76,15 +73,22 @@ down -v` — always require explicit confirmation).
 - **Step 1 is mandatory on a new deploy** — ask the user for `streams`, `camera_ids`, and
   `scene_name`. Do not assume values from prior sessions, sample data, or running containers.
 - **Prefer the orchestrator** after inputs are confirmed; read `deploy.log` only on failure.
+- Before executing an orchestrator command, obtain the user's authorization to deploy or resume;
+  an explicit request to deploy, continue, or resume is sufficient. Otherwise, show the command
+  and ask. Always obtain separate explicit confirmation before executing `--fresh`.
 - **Do not read** `docker-compose-template.md` or `sample_data/` unless troubleshooting a
   template bug. Pipeline generation is defined in `pipeline-config.md`.
 - **Do not** dump raw `docker compose logs`; use `check_service_health.py` and focused log filters.
 - **Resume** with `--deploy-dir` only when `deploy-inputs.json` exists **or when the user's
   message contains a clear resume signal** ("continue", "resume", "stopped partway through",
   "pick up where we left off", etc.) — in that case, treat the signal as confirmation the file
-  exists and apply the Fast Path directly without checking the filesystem. Only fall back to
-  Step 1 if the user says the directory is wrong or no prior run was started. Use `--fresh`
-  when cameras or streams change.
+  exists without checking the filesystem. Follow the authorization guardrail above before launch.
+  Only fall back to Step 1 if the user says the directory is wrong or no prior run was started.
+  Use `--fresh` when cameras or streams change.
+- For a resume response, run `deploy_inputs.py read` before the launch and explicitly label the
+  loaded `streams`, `camera_ids`, and `scene_name` as the values the user is confirming. Use the
+  exact resume invocation in the Fast Path; do **not** add `--resume`, because resume is already
+  the orchestrator default and the command must contain only `--deploy-dir` and `--skill-dir`.
 - Load troubleshooting references only when a step fails.
 - **Never** assign `SKILL_DIR` inline with `bash` on the same command (`SKILL_DIR=x bash "$SKILL_DIR/..."` silently fails because the variable is not yet expanded). Always set `export SKILL_DIR=...` on its own line first.
 
@@ -104,9 +108,9 @@ export SKILL_DIR=<path-to-scenescape-checkout>/.github/skills/scenescape-setup
 # Find any local scenescape clone
 SCENESCAPE_REPO=$(find ~ -maxdepth 5 -type d -name scenescape 2>/dev/null | head -1)
 # Archive just the skill directory from the feature branch
-git -C "$SCENESCAPE_REPO" fetch origin feature/sscape-app-skill
+git -C "$SCENESCAPE_REPO" fetch origin main
 mkdir -p /tmp/scenescape-skill
-git -C "$SCENESCAPE_REPO" archive origin/feature/sscape-app-skill \
+git -C "$SCENESCAPE_REPO" archive origin/main \
   -- .github/skills/scenescape-setup | tar -x -C /tmp/scenescape-skill
 export SKILL_DIR=/tmp/scenescape-skill/.github/skills/scenescape-setup
 ```
@@ -188,10 +192,27 @@ questions shown. Then **actually apply** the resulting values yourself — edit
 tool (not a suggested diff for the user to paste) and run `docker compose up -d --force-recreate
 scene` yourself (not a suggested command) to pick up the change:
 
+For tracker tuning, the first response must render these five numbered questions before proposing
+any configuration values: highest camera FPS; camera field-of-view overlap; whether objects are
+mostly moving or static; expected occlusion duration/frequency; and whether UI stability matters
+more than brief flicker. In a non-interactive environment, include each question with its stated
+assumed answer; do not replace the questionnaire with a prose assumption.
+
 | Symptom                                                                  | Reference                                           |
 | ------------------------------------------------------------------------ | --------------------------------------------------- |
 | Tracks flicker, vanish during occlusion, or IDs change unexpectedly      | [tuning-tracker.md](./references/tuning-tracker.md) |
 | Re-identification across cameras is missing or matching the wrong person | [tuning-reid.md](./references/tuning-reid.md)       |
+
+Before diagnosing a reactive tuning request, use the file-reading tool to load exactly one
+matching reference: load `references/tuning-tracker.md` for occlusion, flicker, disappearing
+tracks, or unexpected IDs in the same camera path; load `references/tuning-reid.md` for
+identity failures between cameras. Do not load the other tuning reference. State which reference
+you used in the response so the user can see whether the problem was treated as tracker timing
+or cross-camera Re-ID.
+
+Name the edited target as the deployed `<deploy_dir>/controller/tracker-config.json` or
+`<deploy_dir>/controller/reid-config.json` copy and explicitly distinguish it from the matching
+`assets/` file in the skill, which must remain unchanged.
 
 ## Other optional scene configuration (reactive only)
 
@@ -221,107 +242,64 @@ streams, camera IDs, or the scene name, skip re-asking Step 1 questions:
 3. If the user mentions a camera/stream change, treat it as a new deployment: re-run Step 1 in
    full and use `--fresh`.
 
+For a restricted environment where the read-back cannot expose the file's contents, still show a
+three-field confirmation block for the persisted `streams`, `camera_ids`, and `scene_name`; say
+they are loaded from `deploy-inputs.json` rather than inventing replacement inputs. A resume
+command must omit `--resume`, `--streams`, `--camera-ids`, and `--scene-name`.
+
 **Implicit Fast Path trigger**: When the user says "continue", "resume", "it stopped partway
 through", "pick up where we left off", or similar for a named `deploy_dir`, treat that statement
 as confirmation that `deploy-inputs.json` already exists at that path. Apply the Fast Path
 directly — show the user the Fast Path procedure (what values will be loaded and what command will
-be run) without falling back to Step 1 questions. Only fall back to Step 1 if:
+be run) without falling back to Step 1 questions. State: "The stopped-deployment signal confirms
+`deploy-inputs.json` exists, so I am skipping Step 1 questions." Only fall back to Step 1 if:
 
 - The user explicitly says the directory is wrong or no prior run exists.
 - You attempt to read `deploy-inputs.json` and the file is genuinely absent **and** the user did
   not give any "resume/continue" signal — a new fresh deployment was intended.
 
-## Directory Layout
+For an explicit resume signal, do not test the local sandbox for file existence or treat a missing
+local path as a contradiction. The signal is sufficient confirmation: show the read-back command,
+show the resume command, and state that `.deploy-state.json` selects the next incomplete step.
 
-Generated files under `<deploy_dir>` after a full run:
+For a camera or stream change, read the existing inputs before creating the replacement set. If
+the read-back is unavailable, say that the new set replaces only the named camera/stream while
+retaining every other persisted camera, stream, and the scene name, then explicitly ask the user
+to confirm or provide that existing list. Do not proceed with only the changed camera.
+State that a changed camera or stream set is not eligible for the Fast Path resume.
 
-```
-<deploy_dir>
-├── deploy-inputs.json              # Step 1 — user inputs (source of truth, reused on resume)
-├── .deploy-state.json              # Checkpoint — last completed step, scene_uid, frames_dir
-├── deploy.log                      # Combined stdout/stderr for every step
-├── docker-compose.yml              # Generated from docker-compose-template.md
-├── secrets/                        # generate_secrets.sh, openssl.cnf (from skill assets/), certs/, django/, *.auth
-├── dlstreamer-pipeline-server/     # Sparse-checked-out from upstream repo
-│   ├── pipeline-config.json        # Generated per-camera pipeline (adapt_pipeline_config.py)
-│   ├── model-proc-files/
-│   ├── mosquitto/
-│   └── user_scripts/
-│       └── gstplugins/             # Native GST elements (timestamp + datapublish); compose-mounted
-│                                   # into /opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/
-└── calibration-frames/             # Step 9 — one JPEG per user camera ID
-```
+In that unavailable-read-back case, do not execute a write or `--fresh` launch. State: "I could
+not read the existing deployment inputs. Please provide or confirm the retained camera IDs,
+streams, and scene name before the fresh redeploy." Then show the exact `--fresh` orchestrator
+command marked **pending confirmation**, explaining that it clears `.deploy-state.json` and the
+old `deploy-inputs.json`, and reruns **bootstrap**, **calibrate**, and **scene** rather than only
+recalibrating the changed camera. Never present retained-camera placeholders as runnable values.
+Use this exact sentence in the response: "`--fresh` clears `.deploy-state.json` and the old
+`deploy-inputs.json`."
 
-## Orchestrator (steps 2–13)
+## Deploy and complete
 
-After Step 1, run:
+Launch the default all-phase deployment asynchronously after Step 1:
 
 ```bash
-export SKILL_DIR=<path-to-scenescape>/.github/skills/scenescape-setup
-
-bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
+nohup bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
   --deploy-dir <deploy_dir> \
   --skill-dir "$SKILL_DIR" \
   --streams <rtsp_url> [...] \
   --camera-ids <id> [...] \
-  --scene-name <scene_name>
+  --scene-name <scene_name> \
+  >"<deploy_dir>/orchestrator.log" 2>&1 &
 ```
 
-**Resume** (inputs loaded from `deploy-inputs.json` when omitted):
+For a video-file deployment, use the synthesized RTSP streams from `deploy_inputs.py read` in the
+same command. Every full-deployment response must state that step 9 produces one calibration JPEG
+per camera ID; step 13 confirms tracked objects are associated with more than one `camera_id`; and
+success is `DEPLOY COMPLETE` with a `scene_uid`. End with a `Post-task metrics` breakdown listing
+requirements-gathering, bootstrap, calibration, scene-and-verification, and total wall-clock.
 
-```bash
-bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
-  --deploy-dir <deploy_dir> \
-  --skill-dir "$SKILL_DIR"
-```
-
-### Execution overview
-
-The orchestrator itself runs steps 6–13 sequentially and can take several minutes (Docker image
-pulls, model downloads, RTSP warmup, scene reconstruction). Launch it in an **async terminal** and
-poll for output/completion instead of blocking on it — show the actual backgrounded invocation
-(e.g. your async-terminal tool, or `nohup ... & disown` if shelling out directly), not a plain
-foreground command. Within step 7, the script already parallelizes internally —
-`parallel_warmup.sh` and `download_detection_models.sh` run in the background while
-`verify_rtsp.sh` runs in the foreground — no extra action needed there.
-
-Your response must call out, explicitly, each of: the async launch mechanism used, that step 9
-produces one calibration JPEG per `camera_id` under `calibration-frames/`, that step 13's tracking
-verification confirms tracked objects are associated with more than one `camera_id` (for
-multi-camera deployments), and the `DEPLOY COMPLETE` / Post-Task metrics reporting requirement
-below — do not omit any of these even when summarizing for brevity.
-
-Dependency order across phases (each phase blocks the next):
-
-```
-Step 1 (gather + persist inputs)
-  └─► bootstrap (6–8: configs, RTSP/pipeline validation, full stack)
-        └─► calibrate (9–10: calibration frames, mapping health)
-              └─► scene (11–13: reconstruction, finalize, tracking verification)
-```
-
-| Flag                                       | Purpose                                                               |
-| ------------------------------------------ | --------------------------------------------------------------------- |
-| `--phase all\|bootstrap\|calibrate\|scene` | Limit steps (default `all`)                                           |
-| `--resume`                                 | Continue from `.deploy-state.json` (default)                          |
-| `--fresh`                                  | Clear checkpoint and `deploy-inputs.json`; requires new Step 1 inputs |
-
-**Pass:** `DEPLOY COMPLETE` with `scene_uid`. **Fail:** `deploy.log` + step reference below.
-
-### Step map
-
-| Step  | Action                                                                | Pass                              |
-| ----- | --------------------------------------------------------------------- | --------------------------------- |
-| 1     | `deploy_inputs.py write`                                              | `deploy-inputs.json` valid        |
-| 6     | `bootstrap_deploy.py --from-deploy-inputs`                            | secrets, compose, pipeline config |
-| 7     | warmup, `verify_rtsp.sh`, `check_service_health.py` (video-analytics) | RTSP + pipelines                  |
-| 8     | full stack `up`                                                       | core services running             |
-| 9     | `capture_calibration_frames.py`                                       | JPEG per **user** camera ID       |
-| 10    | `check_service_health.py` (mapping endpoint + model_loaded)           | mapping healthy                   |
-| 11–12 | `reconstruct_and_finalize.py --scene-name`                            | scene UID                         |
-| 13    | `verify_tracking.sh`                                                  | objects on regulated topic        |
-
-Checkpoints: `.deploy-state.json` (progress), `deploy-inputs.json` (user inputs).
+Do **not** read [operational-reference.md](./references/operational-reference.md) during a routine
+deploy or resume. Read it only for a requested generated-file-layout or web-UI handoff, or when a
+specific bootstrap, runtime, reconstruction, or tracking-verification failure needs diagnosis.
 
 ## Running a single phase
 
@@ -340,117 +318,8 @@ A single-phase request still requires `deploy-inputs.json` to already exist for 
 `deploy_dir` (from a prior Step 1) — do not re-ask Step 1 questions unless the user is also
 changing streams/camera_ids/scene_name.
 
-## Reference Lookup
-
-Each reference document has one primary step where it should be read; load others only when
-troubleshooting a failure at that step.
-
-| Reference                                                             | Primary step             | Purpose                                                                                                       |
-| --------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| [pipeline-config.md](./references/pipeline-config.md)                 | 6                        | How `adapt_pipeline_config.py` generates per-camera pipelines (native `sscape_*` GST elements)                |
-| [mosquitto-config.md](./references/mosquitto-config.md)               | 6                        | Broker TLS listener layout; optional password file generation                                                 |
-| [docker-compose-template.md](./references/docker-compose-template.md) | 6 (failure only)         | Full compose template; read only to debug a template bug                                                      |
-| [command-templates.md](./references/command-templates.md)             | 7                        | Reusable RTSP gate check and MQTT pub/sub verification commands                                               |
-| [runtime-verification.md](./references/runtime-verification.md)       | 7, 9                     | RTSP/service-health failure diagnosis                                                                         |
-| [scene-and-cameras.md](./references/scene-and-cameras.md)             | 11–12 (failure only)     | Manual scene/camera REST calls if reconstruction needs inspection                                             |
-| [reconstruction.md](./references/reconstruction.md)                   | 11–12                    | Reconstruction and finalization failure diagnosis; supplementing with a walk-through video                    |
-| [scene-map-alternatives.md](./references/scene-map-alternatives.md)   | after Step 1 (if chosen) | Blueprint/GLB/geospatial scene creation, pixels-per-meter, manual-calibration handoff                         |
-| [verify-tracking.md](./references/verify-tracking.md)                 | 13                       | Tracking verification failure diagnosis                                                                       |
-| [phase-bootstrap.md](./references/phase-bootstrap.md)                 | 6–8 (standalone)         | Run/resume only the bootstrap phase                                                                           |
-| [phase-calibrate.md](./references/phase-calibrate.md)                 | 9–10 (standalone)        | Run/resume only the calibrate phase                                                                           |
-| [phase-scene.md](./references/phase-scene.md)                         | 11–13 (standalone)       | Run/resume only the scene phase                                                                               |
-| [tuning-tracker.md](./references/tuning-tracker.md)                   | reactive (post-deploy)   | Diagnose reported tracking-quality issues → `tracker-config.json` motion/timing values                        |
-| [tuning-reid.md](./references/tuning-reid.md)                         | reactive (post-deploy)   | Diagnose reported Re-ID issues → `reid-config.json` re-identification values                                  |
-| [attribute-persistence.md](./references/attribute-persistence.md)     | reactive (post-deploy)   | Keep object attributes from resetting between detections via `persist_attributes`                             |
-| [singleton-sensors.md](./references/singleton-sensors.md)             | reactive (post-deploy)   | Add non-perceptual/scalar sensors (environmental or attribute-type) — REST for scene-wide, UI for circle/poly |
-| [object-library.md](./references/object-library.md)                   | reactive (post-deploy)   | Define expected object-class size/shape (Object Library / `Asset3D`) via REST                                 |
-| [using-scene-output.md](./references/using-scene-output.md)           | reactive (post-deploy)   | Consume the regulated scene topic; wire up regions/tripwires for event-driven alerting                        |
-
-## Assets
-
-`assets/` holds files copied verbatim into `<deploy_dir>` by `bootstrap_deploy.py` (step 2) — the
-agent never runs these directly; the generated deployment does.
-
-| Asset                                               | Copied to                  | Purpose                                                                                                                                                |
-| --------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [generate_secrets.sh](./assets/generate_secrets.sh) | `<deploy_dir>/secrets/`    | Generates TLS certs and service auth JSON files                                                                                                        |
-| [openssl.cnf](./assets/openssl.cnf)                 | `<deploy_dir>/secrets/`    | Certificate extension template used by `generate_secrets.sh`                                                                                           |
-| [tracker-config.json](./assets/tracker-config.json) | `<deploy_dir>/controller/` | Scene Controller tracker behavior config — tunable if the user reports tracking issues, see [tuning-tracker.md](./references/tuning-tracker.md)        |
-| [reid-config.json](./assets/reid-config.json)       | `<deploy_dir>/controller/` | Re-identification model config for multi-camera tracking — tunable if the user reports Re-ID issues, see [tuning-reid.md](./references/tuning-reid.md) |
-
-## Examples
-
-See [example-prompts](./example-prompts) for ready-to-use prompts covering a multi-camera
-deployment, resuming after a camera/stream change, and reactive tracker/Re-ID tuning after a
-deployment is already running. For deploying from an existing blueprint/GLB mesh or a geospatial
-map instead of auto-reconstruction, see
-[scene-map-alternatives.md](./references/scene-map-alternatives.md). For attribute persistence,
-singleton sensors, or Object Library entries after a deployment is running, see
-[attribute-persistence.md](./references/attribute-persistence.md),
-[singleton-sensors.md](./references/singleton-sensors.md), and
-[object-library.md](./references/object-library.md). For consuming the scene's output or wiring
-up regions/tripwires, see [using-scene-output.md](./references/using-scene-output.md).
-
 ## Quality & Evaluation
 
 Automated eval cases live in [evals/evals.json](./evals/evals.json), one entry per
-`example-prompts/` file (`prompt_file` links the two together). See [benchmark.md](./benchmark.md)
-for current benchmark status.
-
-## Writing an effective prompt
-
-A good initial request answers these up front so Step 1 can be skipped or confirmed in one pass:
-
-| Field        | Example                                        |
-| ------------ | ---------------------------------------------- |
-| `deploy_dir` | `~/deployments/warehouse-demo`                 |
-| `streams`    | `rtsp://192.168.1.10:8554/cam1`                |
-| `camera_ids` | `cam1` (unique, no `/`, same order as streams) |
-| `scene_name` | `Warehouse Floor 1`                            |
-
-If any field is missing, the agent asks for it (Step 1) before running the orchestrator.
-
-## Post-Task — Report deployment metrics
-
-After `DEPLOY COMPLETE`, report a short breakdown in the same response as the completion message:
-
-1. **Requirements gathering time** — Step 1 Q&A and validation
-2. **Bootstrap time** — steps 6–8 (configs, RTSP/pipeline warmup, full stack)
-3. **Calibration time** — steps 9–10 (calibration frames, mapping health)
-4. **Scene + verification time** — steps 11–13 (reconstruction, finalize, tracking)
-5. **Total wall-clock time** (phases may overlap with user wait time, so total ≠ strict sum)
-
-## Post-Task — Web UI access
-
-In the same response as `DEPLOY COMPLETE`, always tell the user how to view the scene and live
-tracks in the browser:
-
-- **URL**: `https://localhost` (port 443 on the Docker host — the `web` service publishes
-  `443:443`). Use `localhost` unless the user is browsing from a different machine, in which case
-  substitute the deploy host's IP/hostname. The browser will warn on the self-signed cert; accept/
-  proceed to continue.
-- **Do not** suggest `https://web.scenescape.intel.com` — that hostname is only a Docker network
-  alias resolvable _inside_ the compose network (containers, `curl`/`mosquitto` from within
-  scripts); it has no DNS entry on the host and will fail to resolve in a browser unless the user
-  has manually added it to their `/etc/hosts`.
-- **Username**: `admin`
-- **Password**: read from `<deploy_dir>/secrets/supass` (e.g. `cat <deploy_dir>/secrets/supass`) —
-  never print the password value itself in chat; point the user to the file (or the `supass=`
-  value already echoed by the orchestrator's `DEPLOY COMPLETE` line if the user is looking at that
-  terminal output themselves).
-- After login, the scene created by this deployment (`scene_name` from Step 1) appears on the
-  scenes list; open it to see the live camera feeds and tracked-object overlay on the generated
-  map/mesh.
-
-## After deployment — guide the user toward a goal
-
-A deployment alone rarely is the end goal — ask what the user wants to do with the tracked-object
-data (alert, count, dashboard, integration) in the same response as the metrics report, then load
-only the matching option from [using-scene-output.md](./references/using-scene-output.md). Treat
-the answer as a seed for the user's broader intent across later requests in the session.
-
-## Prerequisites
-
-- GitHub access (sparse checkout of `dlstreamer-pipeline-server`)
-- Proxy: `http_proxy` / `https_proxy` / `no_proxy`; RTSP Docker hostnames appended automatically
-- TLS certs generated in step 6; superuser password in `secrets/supass`
+`example-prompts/` file (`prompt_file` links the two together). See
+[evals/benchmark.md](./evals/benchmark.md) for the current benchmark.
