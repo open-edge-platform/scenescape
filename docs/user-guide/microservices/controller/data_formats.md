@@ -186,14 +186,14 @@ publishes over authenticated MQTT, see
 
 ### External Source Pose Fields (`pose`)
 
-| Field                 | Type               |  Required  | Description                                                                                                           |
-| --------------------- | ------------------ | :--------: | --------------------------------------------------------------------------------------------------------------------- |
-| `reference_frame`     | string             |    Yes     | `"wgs84"` or `"scene"` — see below                                                                                    |
+| Field                 | Type               |  Required  | Description                                                                                                                      |
+| --------------------- | ------------------ | :--------: | -------------------------------------------------------------------------------------------------------------------------------- |
+| `reference_frame`     | string             |    Yes     | `"wgs84"` or `"scene"` — see below                                                                                               |
 | `rotation`            | array[4] of number |     No     | Orientation of the source's local origin, as a quaternion (`x`, `y`, `z`, `w`); defaults to identity (`[0, 0, 0, 1]`) if omitted |
-| `lat_long_alt`        | array[3] of number | If `wgs84` | Global position of the source's local origin (latitude, longitude, altitude in metres)                                |
-| `translation`         | array[3] of number | If `scene` | Position of the source's local origin in scene-local coordinates (`x`, `y`, `z`)                                      |
-| `position_accuracy_m` | number > 0         |     No     | Estimated accuracy of the reported position in metres, if known                                                       |
-| `provider`            | string             |     No     | Informational label for what produced this pose (e.g. `"agent"`, `"positioning_service"`); not used for authorization |
+| `lat_long_alt`        | array[3] of number | If `wgs84` | Global position of the source's local origin (latitude, longitude, altitude in metres)                                           |
+| `translation`         | array[3] of number | If `scene` | Position of the source's local origin in scene-local coordinates (`x`, `y`, `z`)                                                 |
+| `position_accuracy_m` | number > 0         |     No     | Estimated accuracy of the reported position in metres, if known                                                                  |
+| `provider`            | string             |     No     | Informational label for what produced this pose (e.g. `"agent"`, `"positioning_service"`); not used for authorization            |
 
 `reference_frame` determines how the pose is resolved:
 
