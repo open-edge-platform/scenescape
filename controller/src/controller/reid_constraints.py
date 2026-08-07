@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from controller.reid_constants import RESERVED_ENTRY_KEYS
+from scene_common.reid_constants import RESERVED_ENTRY_KEYS
 from controller.reid_env import DEFAULT_CONFIDENCE_THRESHOLD
 from scene_common import log
 

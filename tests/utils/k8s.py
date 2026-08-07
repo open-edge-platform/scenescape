@@ -44,13 +44,12 @@ _RELEASE_NAME = "scenescape"
 _NAMESPACE = "scenescape"
 
 _SCENESCAPE_IMAGES = [
-  "intel/scenescape-manager",
-  "intel/scenescape-autocalibration",
-  "intel/scenescape-controller",
-  "intel/scenescape-cluster-analytics",
-  "intel/scenescape-mapping",
   "intel/scenescape-analytics",
-  "intel/scenescape-tracker",
+  "intel/scenescape-autocalibration",
+  "intel/scenescape-cluster-analytics",
+  "intel/scenescape-controller",
+  "intel/scenescape-manager",
+  "intel/scenescape-mapping",
 ]
 
 def _run(cmd, **kwargs):

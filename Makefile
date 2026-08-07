@@ -314,6 +314,7 @@ clean-tests:
 list-dependencies: $(BUILD_DIR)
 	@echo "==> Listing dependencies for all microservices..."
 	@set -e; \
+	$(MAKE) -C $(COMMON_FOLDER) BUILD_DIR=$(BUILD_DIR) list-dependencies; \
 	for dir in $(IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) list-dependencies; \
 	done
@@ -785,8 +786,18 @@ $(SECRETSDIR):
 	fi
 
 .PHONY: $(SECRETSDIR) certificates
+# Hierarchy functional tests need SANs for parent-/child*-web/broker and reid-*.
+# Override with empty values for minimal production-like certs, e.g.
+#   make certificates BROKER_EXTRA_HOSTS= WEB_EXTRA_HOSTS= REID_S_EXTRA_HOSTS=
+BROKER_EXTRA_HOSTS ?= parent-broker child1-broker child2-broker
+WEB_EXTRA_HOSTS ?= parent-web child1-web child2-web
+REID_S_EXTRA_HOSTS ?= reid-shared reid-a reid-b
 certificates:
-	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12) SECRETSDIR=$(SECRETSDIR) CERTDOMAIN=$(CERTDOMAIN)
+	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12) \
+		SECRETSDIR=$(SECRETSDIR) CERTDOMAIN=$(CERTDOMAIN) \
+		BROKER_EXTRA_HOSTS="$(BROKER_EXTRA_HOSTS)" \
+		WEB_EXTRA_HOSTS="$(WEB_EXTRA_HOSTS)" \
+		REID_S_EXTRA_HOSTS="$(REID_S_EXTRA_HOSTS)"
 
 .PHONY: auth-secrets
 auth-secrets:

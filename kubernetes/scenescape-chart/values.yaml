@@ -37,8 +37,8 @@ modelDownload:
     pullPolicy: IfNotPresent
   commandArgs: "--plugins omz"
   parallelDownloads: false
-  initialWaitTimeout: 720
-  waitTimeout: 720
+  initialWaitTimeout: 1800
+  waitTimeout: 1800
   resources:
     requests:
       memory: "512Mi"
@@ -77,6 +77,12 @@ web:
 scene:
   image: intel/scenescape-controller
   pullPolicy: IfNotPresent
+
+analytics:
+  image: intel/scenescape-analytics
+  pullPolicy: IfNotPresent
+  # regulated, unregulated, or none
+  visibilityTopic: regulated
 
 autocalibration:
   image: intel/scenescape-autocalibration

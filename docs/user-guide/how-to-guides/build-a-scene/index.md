@@ -7,6 +7,7 @@ These articles will teach you how to build a scene in Scenescape.
 - [Use Different Sensor Types](./use-sensor-types.md)
 - [Visualize ROIs and Regions](./visualize-regions.md)
 - [Configure a Hierarchy of Scenes](./configure-hierarchy-of-scenes.md)
+- [Deploy Multiple Controllers on One Host](./deploy-multi-controller-on-one-host.md)
 - [Configure Geospatial Coordinates](./configure-geospatial-coordinates.md)
 - [Configure Geospatial Map Service API Keys](./configure-geospatial-map-service-api-keys.md)
 - [Configure Spatial Analytics](./configure-spatial-analytics.md)
@@ -21,6 +22,7 @@ Generate a Scene Map <./generate-scene-map.md>
 Use Different Sensor Types <./use-sensor-types.md>
 Visualize ROIs and Regions <./visualize-regions.md>
 Configure a Hierarchy of Scenes <./configure-hierarchy-of-scenes.md>
+Deploy Multiple Controllers on One Host <./deploy-multi-controller-on-one-host.md>
 Configure Geospatial Coordinates <./configure-geospatial-coordinates.md>
 Configure Geospatial Map Service API Keys <./configure-geospatial-map-service-api-keys.md>
 Configure Spatial Analytics <./configure-spatial-analytics.md>
