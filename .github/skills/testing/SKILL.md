@@ -79,6 +79,7 @@ Before marking a test-authoring task complete:
 
 - [Unit tests](references/unit-tests.md)
 - [Functional and integration tests](references/functional-tests.md)
+  (includes [multi-controller hierarchy fixtures](references/functional-tests.md#multi-controller-hierarchy-fixtures))
 - [UI and BAT tests](references/ui-and-bat-tests.md)
 - [Conftest and Zephyr](references/conftest-and-zephyr.md)
 - [Running tests](references/running-tests.md)

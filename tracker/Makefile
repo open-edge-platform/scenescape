@@ -442,8 +442,9 @@ mqtt-publish:
 # Uses ldd on the tracker binary (same approach as in the Dockerfile) to identify only the OS libraries
 # that are actually distributed with the image, then maps each back to its dpkg package.
 # Conan-managed packages are collected separately via 'conan graph info' and written to conan-deps.txt.
+# Upstream URL scraping is shared with common.mk via the 'upstream-deps' prerequisite.
 .PHONY: list-dependencies
-list-dependencies: $(BUILD_DIR)
+list-dependencies: $(BUILD_DIR) upstream-deps
 	@if [[ -z $$(docker images | grep "^$(IMAGE)" | grep $(VERSION)) ]]; then \
 	  echo "Error: the image $(IMAGE):$(VERSION) does not exist! Cannot generate dependency list."; \
 	  echo "Please build the image first."; \

@@ -212,6 +212,127 @@ components:
           - [100, 200]
           - [150, 250]
 
+    PerceptualSensorLocalizationRequest:
+      type: object
+      required:
+        - sceneId
+        - pointcloud
+      properties:
+        sceneId:
+          type: string
+          format: uuid
+          description: Unique identifier of the scene to calibrate against
+        pointcloud:
+          type: string
+          format: byte
+          maxLength: 104857600
+          description: Base64 encoded sensor point cloud (PCD or PLY)
+        format:
+          type: string
+          enum: [pcd, ply]
+          default: pcd
+          description: Point cloud format; defaults to PCD (PLY also accepted)
+        modality:
+          type: string
+          description: |
+            Optional perceptual sensor modality hint used to route the
+            calibration request to the matching strategy. Defaults to the
+            point cloud modality when omitted.
+        initialTransform:
+          type: array
+          description: Optional 4x4 initial transform guess (sensor to scene)
+          minItems: 4
+          maxItems: 4
+          items:
+            type: array
+            minItems: 4
+            maxItems: 4
+            items:
+              type: number
+              format: float
+      example:
+        sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
+        pointcloud: "IyAuUENEIHYwLjcgLSBQb2ludCBDbG91ZCBEYXRhIGZpbGUgZm9ybQ..."
+        format: "pcd"
+
+    PerceptualSensorLocalizationTriggerResponse:
+      type: object
+      required:
+        - status
+        - sensorId
+      properties:
+        status:
+          type: string
+          enum: [calibrating, busy, error]
+          description: Localization trigger status
+        sensorId:
+          type: string
+          description: Unique identifier of the perceptual sensor
+        sceneId:
+          type: string
+          format: uuid
+          description: Unique identifier of the scene
+        message:
+          type: string
+          description: Additional information
+      example:
+        status: "calibrating"
+        sensorId: "lidar-1"
+        sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
+        message: "Localization started"
+
+    PerceptualSensorLocalizationStatusResponse:
+      type: object
+      required:
+        - sensorId
+        - status
+      properties:
+        sensorId:
+          type: string
+          description: Unique identifier of the perceptual sensor
+        status:
+          type: string
+          enum: [success, calibrating, error, not_started, busy]
+          description: Localization status
+        message:
+          type: string
+          description: Status or error message
+        scene_name:
+          type: string
+          description: Name of the scene the sensor was localized against (optional)
+        transform:
+          type: array
+          description: Computed 4x4 sensor-to-scene transform (optional)
+          minItems: 4
+          maxItems: 4
+          items:
+            type: array
+            minItems: 4
+            maxItems: 4
+            items:
+              type: number
+              format: float
+        fitness:
+          type: number
+          format: float
+          description: Registration fitness in [0, 1]; higher is better (optional)
+        inlier_rmse:
+          type: number
+          format: float
+          description: Inlier RMSE of the registration in meters (optional)
+      example:
+        sensorId: "lidar-1"
+        status: "success"
+        message: "Localization completed"
+        scene_name: "Demo Scene"
+        transform:
+          - [1.0, 0.0, 0.0, 0.15]
+          - [0.0, 1.0, 0.0, -0.10]
+          - [0.0, 0.0, 1.0, 0.05]
+          - [0.0, 0.0, 0.0, 1.0]
+        fitness: 0.98
+        inlier_rmse: 0.012
+
 paths:
   /status:
     get:
@@ -438,6 +559,90 @@ paths:
                 $ref: "#/components/schemas/CameraCalibrationStatusResponse"
         "404":
           description: Camera or calibration not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /perceptual-sensors/{sensorId}/localization:
+    post:
+      summary: Localize a perceptual sensor
+      description: |
+        Localizes a perceptual sensor against a scene's 3D model and computes
+        the sensor-to-scene transform. The sensor data may come from any
+        perceptual sensor (LiDAR, depth camera, stereo, photogrammetry) and is
+        supplied as a base64-encoded PLY or PCD point cloud. Localization runs
+        asynchronously; poll the GET endpoint for the result.
+      operationId: localizePerceptualSensor
+      parameters:
+        - name: sensorId
+          in: path
+          description: Unique identifier of the perceptual sensor
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Perceptual sensor localization request details
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PerceptualSensorLocalizationRequest"
+        required: true
+      responses:
+        "202":
+          description: Localization started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerceptualSensorLocalizationTriggerResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Scene not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    get:
+      summary: Get perceptual sensor localization status
+      description: |
+        Checks the status and result of perceptual sensor localization.
+        On success, returns the 4x4 sensor-to-scene transform, fitness,
+        and inlier RMSE.
+      operationId: getPerceptualSensorLocalizationStatus
+      parameters:
+        - name: sensorId
+          in: path
+          description: Unique identifier of the perceptual sensor
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Localization status and result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerceptualSensorLocalizationStatusResponse"
+        "404":
+          description: Sensor or localization not found
           content:
             application/json:
               schema:
