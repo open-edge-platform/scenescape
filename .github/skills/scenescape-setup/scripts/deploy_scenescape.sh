@@ -147,7 +147,7 @@ step_warmup_rtsp() {
   cd "$DEPLOY_DIR"
   bash scripts/parallel_warmup.sh >>"$LOG_FILE" 2>&1
 
-  bash scripts/download_detection_models.sh >>"$LOG_FILE" 2>&1 &
+  python3 scripts/download_model.py "$DEPLOY_DIR" >>"$LOG_FILE" 2>&1 &
   DETECTION_MODELS_PID=$!
 
   connect_rtsp_hosts_to_network
@@ -191,7 +191,7 @@ step_full_stack() {
   docker compose --profile mapping up -d >>"$LOG_FILE" 2>&1
   docker compose restart video-analytics >>"$LOG_FILE" 2>&1
 
-  for svc in broker scene; do
+  for svc in broker scene analytics; do
     python3 scripts/check_service_health.py \
       --deploy-dir "$DEPLOY_DIR" \
       --service "$svc" \
