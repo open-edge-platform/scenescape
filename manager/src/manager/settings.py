@@ -155,8 +155,8 @@ DOCS_URL = '/docs/'
 
 # File Upload Settings
 # Increase limits for geospatial snapshot uploads (1280x1280 PNG base64 can be ~7MB)
-DATA_UPLOAD_MAX_MEMORY_SIZE = 132 * 1024 * 1024  # 132MB
-FILE_UPLOAD_MAX_MEMORY_SIZE = 132 * 1024 * 1024  # 132MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('DATA_UPLOAD_MAX_MEMORY_SIZE_MB', '132')) * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('FILE_UPLOAD_MAX_MEMORY_SIZE_MB', '132')) * 1024 * 1024
 
 # Geospatial API Keys
 GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', '')
