@@ -44,10 +44,11 @@ _RELEASE_NAME = "scenescape"
 _NAMESPACE = "scenescape"
 
 _SCENESCAPE_IMAGES = [
-  "intel/scenescape-manager",
+  "intel/scenescape-analytics",
   "intel/scenescape-autocalibration",
-  "intel/scenescape-controller",
   "intel/scenescape-cluster-analytics",
+  "intel/scenescape-controller",
+  "intel/scenescape-manager",
   "intel/scenescape-mapping-mapanything",
 ]
 
