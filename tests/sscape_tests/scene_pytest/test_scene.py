@@ -15,7 +15,7 @@ from controller.moving_object import ChainData
 from controller.tracking import Tracking
 
 from scene_common.timestamp import get_epoch_time
-from scene_common.geometry import Region, Point
+from scene_common.geometry import Point
 
 from tests.sscape_tests.scene_pytest.config import *
 
@@ -65,58 +65,6 @@ def test_visible(scene_obj, camera_obj, detectionType, jdata, when):
   moving_objects = [mobj]
   scene_obj._updateVisible(moving_objects)
   assert moving_objects[0].visibility[0] == camera_obj.cameraID
-  return
-
-def test_isIntersecting(scene_obj):
-  """! Verifies the 'Scene.isIntersecting' method.
-
-  @param    scene_obj    Scene class object
-  """
-  # Create a region with volumetric set to True
-  region_data = {
-    'uid': 'test_region',
-    'name': 'Test Region',
-    'points': [[0, 0], [10, 0], [10, 10], [0, 10]],
-    'volumetric': True,
-    'height': 1.0,
-    'buffer_size': 0.0
-  }
-  region = Region('test_region', 'Test Region', region_data)
-
-  # Create a mock object that intersects with the region
-  class MockObject:
-    def __init__(self):
-      self.sceneLoc = None
-      self.size = None
-      self.mesh = None
-      self.rotation = None
-
-  # Create an object with mesh that intersects
-  intersecting_obj = MockObject()
-  # Assuming a simple box object at position inside the region
-  intersecting_obj.sceneLoc = Point(1.0, 1.0, 0.0)
-  intersecting_obj.size = [4.0, 4.0, 1.0]
-  intersecting_obj.rotation = [0, 0, 0, 1]
-
-  assert scene_obj.isIntersecting(intersecting_obj, region) is True
-
-  # Test case: Object doesn't intersect with region
-  non_intersecting_obj = MockObject()
-  non_intersecting_obj.sceneLoc = Point(20.0, 20.0, 0.0)
-  non_intersecting_obj.size = [4.0, 4.0, 1.0]
-  non_intersecting_obj.rotation = [0, 0, 0, 1]
-
-  assert scene_obj.isIntersecting(non_intersecting_obj, region) is False
-
-  # Test case: compute_intersection is False
-  region.compute_intersection = False
-  assert scene_obj.isIntersecting(intersecting_obj, region) is False
-
-  region.compute_intersection = True
-  error_obj = MockObject()
-  error_obj.sceneLoc = None
-  assert scene_obj.isIntersecting(error_obj, region) is False
-
   return
 
 @pytest.mark.parametrize("objects", [
@@ -224,17 +172,6 @@ def _make_chain_data():
     publishedLocations=[],
   )
 
-def _make_obj(gid="obj-1", frame_count=4, scene_loc=None, when=1.0):
-  if scene_loc is None:
-    scene_loc = Point(0.0, 0.0, 0.0)
-  return SimpleNamespace(
-    gid=gid,
-    frameCount=frame_count,
-    sceneLoc=scene_loc,
-    when=when,
-    chain_data=_make_chain_data(),
-  )
-
 def test_processCameraData_unknown_camera_returns_false(scene_obj):
   payload = {
     'id': 'unknown-camera',
@@ -266,84 +203,6 @@ def test_processCameraData_intrinsics_present_skips_bbox_conversion(scene_obj, c
   }
   assert scene_obj.processCameraData(payload) is True
   convert_mock.assert_not_called()
-
-def test_deserialize_tracked_objects_uses_configured_attribute_singleton_type():
-  """Configured attribute sensors stay in attr_sensor_events even for numeric-like values."""
-  scene = scene_module.Scene.__new__(scene_module.Scene)
-  scene.sensors = {
-    'weight-sensor': SimpleNamespace(singleton_type='attribute')
-  }
-  scene.object_history_cache = {}
-  scene._analytics_objects = {}
-  objects = scene._deserializeTrackedObjects([
-    {
-      'id': 'object-1',
-      'translation': [1, 2, 3],
-      'sensors': {
-        'weight-sensor': {
-          'values': [('2026-03-26T20:53:29.761Z', '48')],
-        }
-      },
-    }
-  ])
-
-  assert len(objects) == 1
-  assert 'weight-sensor' not in objects[0].chain_data.env_sensor_state
-  assert objects[0].chain_data.attr_sensor_events['weight-sensor'] == [
-    ('2026-03-26T20:53:29.761Z', '48')
-  ]
-
-
-def test_deserialize_tracked_objects_defaults_unknown_sensor_to_environmental():
-  """Unknown sensors deserialize as environmental when no metadata is available."""
-  scene = scene_module.Scene.__new__(scene_module.Scene)
-  scene.sensors = {}
-  scene.object_history_cache = {}
-  scene._analytics_objects = {}
-  objects = scene._deserializeTrackedObjects([
-    {
-      'id': 'object-1',
-      'translation': [1, 2, 3],
-      'sensors': {
-        'unknown-sensor': {
-          'values': [('2026-03-26T20:53:29.761Z', '48')],
-        }
-      },
-    }
-  ])
-
-  assert len(objects) == 1
-  assert objects[0].chain_data.env_sensor_state['unknown-sensor'] == {
-    'readings': [('2026-03-26T20:53:29.761Z', '48')]
-  }
-  assert 'unknown-sensor' not in objects[0].chain_data.attr_sensor_events
-
-
-def test_deserialize_tracked_objects_defaults_missing_singleton_type_to_environmental():
-  """Sensors with missing singleton_type also default to environmental storage."""
-  scene = scene_module.Scene.__new__(scene_module.Scene)
-  scene.sensors = {
-    'sensor-without-type': SimpleNamespace(singleton_type=None)
-  }
-  scene.object_history_cache = {}
-  scene._analytics_objects = {}
-  objects = scene._deserializeTrackedObjects([
-    {
-      'id': 'object-1',
-      'translation': [1, 2, 3],
-      'sensors': {
-        'sensor-without-type': {
-          'values': [('2026-03-26T20:53:29.761Z', 'not-a-number')],
-        }
-      },
-    }
-  ])
-
-  assert len(objects) == 1
-  assert objects[0].chain_data.env_sensor_state['sensor-without-type'] == {
-    'readings': [('2026-03-26T20:53:29.761Z', 'not-a-number')]
-  }
-  assert 'sensor-without-type' not in objects[0].chain_data.attr_sensor_events
 
 def test_processCameraData_ignore_time_flag_uses_now(scene_obj, camera_obj, monkeypatch):
   scene_obj.cameras[camera_obj.cameraID] = camera_obj
@@ -407,7 +266,10 @@ def test_processSceneData_splits_retracked_vs_child_objects(scene_obj, monkeypat
   calls = []
 
   def _create_object(detection_type, info, when, child_obj, persist):
-    assert 'reid' not in info
+    # reid is nested under metadata (see detections_builder.prepareObjDict) -- for a
+    # retrack=False child, Scene.processSceneData should strip it from there before
+    # construction, since these objects never reach uuid_manager.assignID.
+    assert 'metadata' not in info or 'reid' not in info.get('metadata', {})
     return SimpleNamespace(oid='oid-1', sceneLoc=Point(1.0, 2.0, 0.0), chain_data=_make_chain_data())
 
   def _capture_finish(detection_type, when, objects, child_objects):
@@ -417,182 +279,88 @@ def test_processSceneData_splits_retracked_vs_child_objects(scene_obj, monkeypat
   monkeypatch.setattr(scene_obj, '_finishProcessing', _capture_finish)
   child = SimpleNamespace(name='child', retrack=False)
   camera_pose = SimpleNamespace(pose_mat=np.eye(4))
-  payload = {'objects': [{'translation': [1, 2, 3], 'reid': [0.1, 0.2]}]}
+  payload = {'objects': [{'translation': [1, 2, 3], 'metadata': {'reid': {'embedding_vector': [0.1, 0.2]}}}]}
 
   assert scene_obj.processSceneData(payload, child, camera_pose, 'person', when=1.0) is True
   assert len(calls) == 1
   assert len(calls[0][0]) == 0
   assert len(calls[0][1]) == 1
 
+def test_processSceneData_retrack_true_preserves_reid(scene_obj, monkeypatch):
+  calls = []
+
+  def _create_object(detection_type, info, when, child_obj, persist):
+    assert info.get('metadata', {}).get('reid') == {'embedding_vector': [0.1, 0.2]}
+    return SimpleNamespace(oid='oid-1', sceneLoc=Point(1.0, 2.0, 0.0), chain_data=_make_chain_data())
+
+  def _capture_finish(detection_type, when, objects, child_objects):
+    calls.append((objects, child_objects))
+
+  scene_obj.tracker = SimpleNamespace(createObject=_create_object)
+  monkeypatch.setattr(scene_obj, '_finishProcessing', _capture_finish)
+  child = SimpleNamespace(name='child', retrack=True)
+  camera_pose = SimpleNamespace(pose_mat=np.eye(4))
+  payload = {'objects': [{'translation': [1, 2, 3], 'metadata': {'reid': {'embedding_vector': [0.1, 0.2]}}}]}
+
+  assert scene_obj.processSceneData(payload, child, camera_pose, 'person', when=1.0) is True
+  assert len(calls) == 1
+  assert len(calls[0][0]) == 1
+  assert len(calls[0][1]) == 0
+
+def test_processSceneData_drops_top_level_reid(scene_obj, monkeypatch):
+  """Embeddings are only accepted nested under metadata, where provenance travels with them."""
+  seen = []
+
+  def _create_object(detection_type, info, when, child_obj, persist):
+    seen.append(info)
+    return SimpleNamespace(oid='oid-1', sceneLoc=Point(1.0, 2.0, 0.0), chain_data=_make_chain_data())
+
+  scene_obj.tracker = SimpleNamespace(createObject=_create_object)
+  monkeypatch.setattr(scene_obj, '_finishProcessing', Mock())
+  child = SimpleNamespace(name='child', retrack=True)
+  camera_pose = SimpleNamespace(pose_mat=np.eye(4))
+  payload = {'objects': [{'translation': [1, 2, 3], 'reid': {'embedding_vector': [0.1, 0.2]}}]}
+
+  assert scene_obj.processSceneData(payload, child, camera_pose, 'person', when=1.0) is True
+  assert 'reid' not in seen[0]
+
+def test_processCameraData_strips_claimed_reid_provenance(scene_obj, camera_obj, monkeypatch):
+  """A detector cannot claim its crop was vetted elsewhere to skip the pixel bbox gate."""
+  scene_obj.cameras[camera_obj.cameraID] = camera_obj
+  monkeypatch.setattr(scene_obj, '_convertPixelBoundingBoxesToMeters', Mock())
+  monkeypatch.setattr(scene_obj, '_createMovingObjectsForDetection', Mock(return_value=[]))
+  monkeypatch.setattr(scene_obj, '_finishProcessing', Mock())
+
+  detection = {
+    'id': 'p-1',
+    'metadata': {
+      'reid': {
+        'embedding_vector': [0.1, 0.2],
+        'provenance': {'origin_scene_id': 'spoofed', 'quality_vetted': True},
+      },
+    },
+  }
+  payload = {
+    'id': camera_obj.cameraID,
+    'timestamp': '2023-05-16T21:22:58.388Z',
+    'objects': {'person': [detection]},
+  }
+
+  assert scene_obj.processCameraData(payload) is True
+  assert 'provenance' not in detection['metadata']['reid']
+  assert detection['metadata']['reid']['embedding_vector'] == [0.1, 0.2]
+
 def test_finishProcessing_tracks_when_not_analytics_only(scene_obj, monkeypatch):
   update_visible_mock = Mock()
-  update_events_mock = Mock()
   track_mock = Mock()
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: False)
   monkeypatch.setattr(scene_obj, '_updateVisible', update_visible_mock)
-  monkeypatch.setattr(scene_obj, '_updateEvents', update_events_mock)
   scene_obj.tracker = SimpleNamespace(trackObjects=track_mock)
 
   scene_obj._finishProcessing('person', 10.0, [], [])
   update_visible_mock.assert_called_once()
   track_mock.assert_called_once()
-  update_events_mock.assert_called_once_with('person', 10.0)
-
-def test_finishProcessing_skips_tracker_in_analytics_only(scene_obj, monkeypatch):
-  update_events_mock = Mock()
-  track_mock = Mock()
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
-  monkeypatch.setattr(scene_obj, '_updateVisible', lambda objects: None)
-  monkeypatch.setattr(scene_obj, '_updateEvents', update_events_mock)
-  scene_obj.tracker = SimpleNamespace(trackObjects=track_mock)
-
-  scene_obj._finishProcessing('person', 10.0, [], [])
-  track_mock.assert_not_called()
-  update_events_mock.assert_called_once_with('person', 10.0)
-
-def test_processSensorData_unknown_sensor_returns_false(scene_obj):
-  assert scene_obj.processSensorData({'id': 'nope', 'value': 1}, when=1.0) is False
-
-def test_processSensorData_discards_past_data(scene_obj):
-  sensor = SimpleNamespace(lastWhen=10.0)
-  scene_obj.sensors['sensor1'] = sensor
-  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 1}, when=9.0) is True
-
-def test_processSensorData_environmental_sensor_updates_state(scene_obj):
-  sensor = SimpleNamespace(
-    singleton_type='environmental',
-    area=Region.REGION_SCENE,
-    value=None,
-    lastValue=None,
-    lastWhen=None,
-  )
-  scene_obj.sensors['sensor1'] = sensor
-  obj = _make_obj(gid='obj-1', frame_count=4)
-  scene_obj.use_tracker = True
-  scene_obj.tracker = SimpleNamespace(
-    trackers={'person': object()},
-    currentObjects=lambda detection_type: [obj],
-  )
-
-  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 12.5}, when=11.0) is True
-  assert 'sensor1' in obj.chain_data.active_sensors
-  assert obj.chain_data.env_sensor_state['sensor1']['readings'][-1][1] == 12.5
-
-def test_processSensorData_attribute_sensor_updates_events(scene_obj):
-  sensor = SimpleNamespace(
-    singleton_type='attribute',
-    area=Region.REGION_SCENE,
-    value=None,
-    lastValue=None,
-    lastWhen=None,
-  )
-  scene_obj.sensors['sensor1'] = sensor
-  obj = _make_obj(gid='obj-1', frame_count=4)
-  scene_obj.use_tracker = True
-  scene_obj.tracker = SimpleNamespace(
-    trackers={'person': object()},
-    currentObjects=lambda detection_type: [obj],
-  )
-
-  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 'A'}, when=11.0) is True
-  assert 'sensor1' in obj.chain_data.attr_sensor_events
-  assert obj.chain_data.attr_sensor_events['sensor1'][-1][1] == 'A'
-
-def test_processSensorData_scene_wide_skips_immature_objects(scene_obj):
-  sensor = SimpleNamespace(
-    singleton_type='environmental',
-    area=Region.REGION_SCENE,
-    value=None,
-    lastValue=None,
-    lastWhen=None,
-  )
-  scene_obj.sensors['sensor1'] = sensor
-  obj = _make_obj(gid='obj-1', frame_count=3)
-  scene_obj.use_tracker = True
-  scene_obj.tracker = SimpleNamespace(
-    trackers={'person': object()},
-    currentObjects=lambda detection_type: [obj],
-  )
-
-  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 12.5}, when=11.0) is True
-  assert 'sensor1' not in obj.chain_data.active_sensors
-  assert obj.chain_data.env_sensor_state == {}
-
-def test_getTrackedObjects_analytics_mode_uses_cache(scene_obj, monkeypatch):
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
-  scene_obj.updateTrackedObjects('person', [{'id': '1', 'type': 'person', 'translation': [1, 2, 3]}])
-
-  objs = scene_obj.getTrackedObjects('person')
-  assert len(objs) == 1
-  assert objs[0].gid == '1'
-  assert objs[0].category == 'person'
-
-def test_getTrackedObjects_non_analytics_uses_tracker(scene_obj, monkeypatch):
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: False)
-  expected = [_make_obj(gid='direct-1')]
-  scene_obj.tracker = SimpleNamespace(currentObjects=lambda detection_type: expected)
-  assert scene_obj.getTrackedObjects('person') == expected
-
-def test_deserializeTrackedObjects_uses_configured_sensor_types(scene_obj, monkeypatch):
-  """Analytics deserialization uses scene sensor metadata for mixed sensor payloads."""
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
-  scene_obj.sensors = {
-    'temperature': SimpleNamespace(singleton_type='environmental'),
-    'status': SimpleNamespace(singleton_type='attribute'),
-    'humidity': SimpleNamespace(singleton_type='environmental')
-  }
-  obj_data = {
-    'id': 'obj-3',
-    'type': 'person',
-    'translation': [3.0, 4.0, 5.0],
-    'sensors': {
-      'temperature': {
-        'values': [('2026-03-26T20:53:29.761Z', 25.5)]
-      },
-      'status': {
-        'values': [('2026-03-26T20:53:29.761Z', 'active')]
-      },
-      'humidity': {
-        'values': [
-          ('2026-03-26T20:53:29.761Z', 65.0),
-          ('2026-03-26T20:53:30.761Z', 67.0),
-        ]
-      },
-    }
-  }
-  scene_obj.updateTrackedObjects('person', [obj_data])
-
-  objs = scene_obj.getTrackedObjects('person')
-  assert len(objs) == 1
-  assert 'temperature' in objs[0].chain_data.env_sensor_state
-  assert 'humidity' in objs[0].chain_data.env_sensor_state
-  assert 'status' in objs[0].chain_data.attr_sensor_events
-  assert objs[0].chain_data.env_sensor_state['temperature']['readings'][0][1] == 25.5
-  assert objs[0].chain_data.attr_sensor_events['status'][0][1] == 'active'
-  assert len(objs[0].chain_data.env_sensor_state['humidity']['readings']) == 2
-
-def test_deserializeTrackedObjects_empty_sensors(scene_obj, monkeypatch):
-  """Test deserialization with empty sensor values."""
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
-  obj_data = {
-    'id': 'obj-4',
-    'type': 'person',
-    'translation': [4.0, 5.0, 6.0],
-    'sensors': {
-      'empty_sensor': {'values': []},
-      'normal_sensor': {'values': [('2026-03-26T20:53:29.761Z', 10)]}
-    }
-  }
-  scene_obj.updateTrackedObjects('person', [obj_data])
-
-  objs = scene_obj.getTrackedObjects('person')
-  assert len(objs) == 1
-  assert 'empty_sensor' not in objs[0].chain_data.env_sensor_state
-  assert 'empty_sensor' not in objs[0].chain_data.attr_sensor_events
-  assert 'normal_sensor' in objs[0].chain_data.env_sensor_state
 
 def test_deserialize_sets_core_fields(monkeypatch):
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: False)
   data = {
     'uid': 'scene-1',
     'name': 'scene-name',
@@ -611,15 +379,11 @@ def test_deserialize_sets_core_fields(monkeypatch):
 def test_updateScene_updates_fields_and_invokes_helpers(scene_obj, monkeypatch):
   update_children_mock = Mock()
   update_cameras_mock = Mock()
-  update_regions_mock = Mock()
-  update_tripwires_mock = Mock()
   update_tracker_mock = Mock()
   invalidate_mock = Mock()
 
   monkeypatch.setattr(scene_obj, '_updateChildren', update_children_mock)
   monkeypatch.setattr(scene_obj, 'updateCameras', update_cameras_mock)
-  monkeypatch.setattr(scene_obj, '_updateRegions', update_regions_mock)
-  monkeypatch.setattr(scene_obj, '_updateTripwires', update_tripwires_mock)
   monkeypatch.setattr(scene_obj, 'updateTracker', update_tracker_mock)
   monkeypatch.setattr(scene_obj, '_invalidate_trs_xyz_to_lla', invalidate_mock)
 
@@ -646,86 +410,15 @@ def test_updateScene_updates_fields_and_invokes_helpers(scene_obj, monkeypatch):
   assert scene_obj.regulated_rate == 12
   assert scene_obj.external_update_rate == 34
   assert scene_obj.use_tracker is False
+  # ROI geometry is ignored by Controller; Analytics owns regions/tripwires/sensors.
+  assert scene_obj.regions == {}
+  assert scene_obj.tripwires == {}
+  assert scene_obj.sensors == {}
   update_children_mock.assert_called_once()
   update_cameras_mock.assert_called_once()
-  assert update_regions_mock.call_count == 2
-  update_tripwires_mock.assert_called_once()
   update_tracker_mock.assert_called_once_with(4.0, 5.0, 6.0)
   invalidate_mock.assert_called_once()
 
-def test_updateRegions_preserves_sensor_cache_and_state(scene_obj):
-  class FakeRegion:
-    def __init__(self):
-      self.name = 'old-name'
-      self.value = 10
-      self.lastValue = None
-      self.lastWhen = 99.0
-      self.entered = {'person': []}
-      self.exited = {'person': []}
-      self.objects = {'person': []}
-      self.when = 98.0
-      self.singleton_type = 'environmental'
-
-    def updatePoints(self, region_data):
-      self.points = region_data['points']
-
-    def updateSingletonType(self, region_data):
-      self.singleton_type = region_data.get('singleton_type', None)
-
-    def updateVolumetricInfo(self, region_data):
-      self.volumetric = region_data.get('volumetric', False)
-
-  existing = {'region-1': FakeRegion()}
-  new_regions = [{
-    'uid': 'region-1',
-    'name': 'new-name',
-    'points': [[0, 0], [1, 0], [1, 1], [0, 1]],
-    'singleton_type': 'attribute',
-  }]
-
-  scene_obj._updateRegions(existing, new_regions)
-  region = existing['region-1']
-  assert region.name == 'new-name'
-  assert region.value == 10
-  assert region.lastValue is None
-  assert region.lastWhen == 99.0
-  assert region.entered == {'person': []}
-  assert region.exited == {'person': []}
-  assert region.objects == {'person': []}
-  assert region.when == 98.0
-
-def test_updateTripwires_adds_and_removes(scene_obj):
-  scene_obj.tripwires = {'old-id': SimpleNamespace()}
-  scene_obj._updateTripwires([
-    {'uid': 'new-id', 'name': 'trip-1', 'points': [[0, 0], [1, 1]]}
-  ])
-  assert 'new-id' in scene_obj.tripwires
-  assert 'old-id' not in scene_obj.tripwires
-
-def test_updateEvents_inserts_published_locations(scene_obj, monkeypatch):
-  obj = _make_obj(gid='obj-1')
-  monkeypatch.setattr(scene_obj, '_updateRegionEvents', lambda *args, **kwargs: set())
-  monkeypatch.setattr(scene_obj, '_updateTripwireEvents', lambda *args, **kwargs: None)
-  scene_obj.tracker = SimpleNamespace(currentObjects=lambda detection_type: [obj])
-
-  scene_obj._updateEvents('person', now=50.0)
-  assert len(obj.chain_data.publishedLocations) == 1
-  assert obj.chain_data.publishedLocations[0] == obj.sceneLoc
-
-def test_updateTripwireEvents_emits_tripwire_event(scene_obj):
-  tripwire = SimpleNamespace(
-    objects={},
-    when=0.0,
-    lineCrosses=lambda line: 1,
-  )
-  scene_obj.tripwires = {'tw-1': tripwire}
-  scene_obj.events = {}
-  obj = _make_obj(gid='obj-1', frame_count=5)
-  obj.chain_data.publishedLocations = [Point(1.0, 1.0, 0.0), Point(0.0, 0.0, 0.0)]
-
-  scene_obj._updateTripwireEvents('person', now=2.0, curObjects=[obj])
-  assert 'objects' in scene_obj.events
-  assert scene_obj.events['objects'][0][0] == 'tw-1'
 
 def test_trs_xyz_to_lla_is_cached_and_invalidate_resets(scene_obj, monkeypatch):
   calls = {'count': 0}
@@ -792,167 +485,3 @@ def test_processCameraData_processes_each_detection_type(scene_obj, camera_obj, 
   assert [call[0] for call in finished] == ['person', 'vehicle']
   assert finished[0][1] == ['person']
   assert finished[1][1] == ['vehicle']
-
-def test_processSensorData_invalid_environmental_value_returns_false(scene_obj):
-  sensor = SimpleNamespace(
-    singleton_type='environmental',
-    area=Region.REGION_SCENE,
-    value=None,
-    lastValue=None,
-    lastWhen=None,
-  )
-  scene_obj.sensors['sensor1'] = sensor
-  obj = _make_obj(gid='obj-1', frame_count=4)
-  scene_obj.use_tracker = True
-  scene_obj.tracker = SimpleNamespace(
-    trackers={'person': object()},
-    currentObjects=lambda detection_type: [obj],
-  )
-
-  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 'not-a-number'}, when=11.0) is False
-  assert obj.chain_data.env_sensor_state == {}
-
-def test_deserializeTrackedObjects_uses_cached_first_seen(scene_obj):
-  scene_obj.object_history_cache['obj-1'] = {
-    'first_seen': 12.5,
-    'publishedLocations': [Point(9.0, 8.0, 7.0)],
-  }
-
-  objs = scene_obj._deserializeTrackedObjects([
-    {'id': 'obj-1', 'type': 'person', 'translation': [1.0, 2.0, 3.0]}
-  ])
-
-  assert len(objs) == 1
-  assert objs[0].when == 12.5
-  assert objs[0].first_seen == 12.5
-  assert objs[0].chain_data.publishedLocations[0] == Point(9.0, 8.0, 7.0)
-
-def test_deserializeTrackedObjects_missing_first_seen_uses_current_time(scene_obj, monkeypatch):
-  monkeypatch.setattr(scene_module, 'get_epoch_time', lambda *args, **kwargs: 77.0)
-
-  objs = scene_obj._deserializeTrackedObjects([
-    {'id': 'obj-2', 'type': 'person', 'translation': [1.0, 2.0, 3.0]}
-  ])
-
-  assert len(objs) == 1
-  assert objs[0].when == 77.0
-  assert objs[0].first_seen == 77.0
-  assert scene_obj.object_history_cache['obj-2']['first_seen'] == 77.0
-
-def test_updateRegionEvents_environmental_sensor_exit_clears_state(scene_obj):
-  obj = _make_obj(gid='obj-1', frame_count=4, when=1.0)
-  obj.chain_data.regions['sensor1'] = {'entered': '2026-03-26T20:53:29.761Z'}
-  obj.chain_data.active_sensors.add('sensor1')
-  obj.chain_data.env_sensor_state['sensor1'] = {'readings': [('2026-03-26T20:53:29.761Z', 21.5)]}
-  region = SimpleNamespace(
-    objects={'person': [obj]},
-    when=0.0,
-    singleton_type='environmental',
-    entered={},
-    exited={},
-    isPointWithin=lambda scene_loc: False,
-    compute_intersection=False,
-  )
-  scene_obj.events = {}
-
-  updated = scene_obj._updateRegionEvents('person', {'sensor1': region}, 2.0, '2026-03-26T20:53:31.761Z', [])
-
-  assert updated == {'sensor1'}
-  assert 'sensor1' not in obj.chain_data.regions
-  assert 'sensor1' not in obj.chain_data.active_sensors
-  assert 'sensor1' not in obj.chain_data.env_sensor_state
-  assert region.objects['person'] == []
-  assert scene_obj.events['objects'][0][0] == 'sensor1'
-
-def test_updateRegionEvents_attribute_sensor_exit_preserves_history(scene_obj):
-  obj = _make_obj(gid='obj-1', frame_count=4, when=1.0)
-  obj.chain_data.regions['sensor1'] = {'entered': '2026-03-26T20:53:29.761Z'}
-  obj.chain_data.active_sensors.add('sensor1')
-  obj.chain_data.attr_sensor_events['sensor1'] = [('2026-03-26T20:53:29.761Z', 'red')]
-  region = SimpleNamespace(
-    objects={'person': [obj]},
-    when=0.0,
-    singleton_type='attribute',
-    entered={},
-    exited={},
-    isPointWithin=lambda scene_loc: False,
-    compute_intersection=False,
-  )
-  scene_obj.events = {}
-
-  updated = scene_obj._updateRegionEvents('person', {'sensor1': region}, 2.0, '2026-03-26T20:53:31.761Z', [])
-
-  assert updated == {'sensor1'}
-  assert 'sensor1' not in obj.chain_data.regions
-  assert 'sensor1' not in obj.chain_data.active_sensors
-  assert obj.chain_data.attr_sensor_events['sensor1'] == [('2026-03-26T20:53:29.761Z', 'red')]
-  assert region.objects['person'] == []
-
-def test_updateRegionEvents_debounce_preserves_exit_state_until_event_emits(scene_obj, monkeypatch):
-  monkeypatch.setattr(scene_module, 'DEBOUNCE_DELAY', 0.5)
-
-  obj = _make_obj(gid='obj-1', frame_count=4, when=1.0)
-  obj.chain_data.regions['sensor1'] = {'entered': '2026-03-26T20:53:29.761Z'}
-  obj.chain_data.active_sensors.add('sensor1')
-  obj.chain_data.env_sensor_state['sensor1'] = {'readings': [('2026-03-26T20:53:29.761Z', 21.5)]}
-  region = SimpleNamespace(
-    objects={'person': [obj]},
-    when=1.9,
-    singleton_type='environmental',
-    entered={},
-    exited={},
-    isPointWithin=lambda scene_loc: False,
-    compute_intersection=False,
-  )
-  scene_obj.events = {}
-
-  updated = scene_obj._updateRegionEvents('person', {'sensor1': region}, 2.0, '2026-03-26T20:53:31.761Z', [])
-
-  assert updated == set()
-  assert obj.chain_data.regions['sensor1']['entered'] == '2026-03-26T20:53:29.761Z'
-  assert 'sensor1' in obj.chain_data.active_sensors
-  assert 'sensor1' in obj.chain_data.env_sensor_state
-  assert scene_obj.events == {}
-  assert region.objects['person'] == [obj]
-
-def test_updateRegionEvents_emits_delayed_exit_with_dwell_and_then_cleans_up(scene_obj, monkeypatch):
-  monkeypatch.setattr(scene_module, 'DEBOUNCE_DELAY', 0.5)
-
-  obj = _make_obj(gid='obj-1', frame_count=4, when=1.0)
-  entered_ts = '2026-03-26T20:53:29.761Z'
-  obj.chain_data.regions['region1'] = {'entered': entered_ts}
-  region = SimpleNamespace(
-    objects={'person': [obj]},
-    when=1.9,
-    singleton_type=None,
-    entered={},
-    exited={},
-    isPointWithin=lambda scene_loc: False,
-    compute_intersection=False,
-  )
-  scene_obj.events = {}
-
-  # Debounce suppresses immediate event emission.
-  updated = scene_obj._updateRegionEvents('person', {'region1': region}, 2.0, '2026-03-26T20:53:31.761Z', [])
-  assert updated == set()
-  assert 'region1' in obj.chain_data.regions
-
-  # Once debounce delay has passed, emit exit and compute dwell from preserved entered timestamp.
-  scene_obj._updateRegionEvents('person', {'region1': region}, 2.6, '2026-03-26T20:53:32.361Z', [])
-
-  assert region.exited['person']
-  exited_obj, dwell = region.exited['person'][0]
-  assert exited_obj == obj
-  assert dwell == pytest.approx(2.6 - get_epoch_time(entered_ts))
-  assert 'region1' not in obj.chain_data.regions
-  assert region.objects['person'] == []
-
-def test_isIntersecting_createObjectMesh_value_error_returns_false(scene_obj, monkeypatch):
-  def _raise_value_error(obj):
-    raise ValueError('invalid object geometry')
-
-  monkeypatch.setattr(scene_module, 'createObjectMesh', _raise_value_error)
-  region = SimpleNamespace(compute_intersection=True, mesh=object())
-  obj = SimpleNamespace()
-
-  assert scene_obj.isIntersecting(obj, region) is False

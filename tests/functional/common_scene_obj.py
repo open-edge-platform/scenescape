@@ -11,7 +11,7 @@ from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time, get_epoch_time
 
-from tests.common_test_utils import check_event_contains_data
+from tests.functional.event_asserts import check_event_contains_data
 from tests.functional import FunctionalTest
 from tests.utils.log import get_logger
 
@@ -221,6 +221,14 @@ class SceneObjectMqtt(FunctionalTest):
       obj_id = obj.get('id')
       if not obj_id or obj_id not in self.objectEntryTimes:
         continue
+
+      current_regions = set((obj.get('regions') or {}).keys())
+
+      # Reset dwell tracking for regions the object has left so that a
+      # re-entry (dwell starting at 0) does not trigger a false decrease.
+      for key in list(self.previousDwellTimes.keys()):
+        if key[0] == obj_id and key[1] not in current_regions:
+          del self.previousDwellTimes[key]
 
       # Check that dwell data is present for objects known to be in regions
       if 'regions' in obj and obj['regions']:

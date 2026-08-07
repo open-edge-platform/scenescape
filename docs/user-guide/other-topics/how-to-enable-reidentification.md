@@ -67,7 +67,7 @@ retail-config:
 This reidentification-specific configuration uses a vision pipeline that includes anonymous visual feature extraction (also called "visual embeddings") using a person reidentification model:
 
 ```
-"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/apriltag-cam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
+"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/apriltag-cam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/omz/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
 ```
 
 **Expected Result**: Scenescape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
@@ -266,6 +266,15 @@ When an object is first detected, it is assigned a UUID and no similarity score.
 - **No Match**: The object retains its original UUID.
 
 The scene output includes `reid_state` for each tracked object. For canonical state definitions and lifecycle transitions, see [2-Tier Hybrid Search Implementation](../microservices/controller/Extended-ReID.md#reid-object-states). For output field contract details, see [Scene Controller Data Formats](../microservices/controller/data_formats.md#common-output-track-fields).
+
+In a scene hierarchy, a parent scene can match identities using embeddings its children forward. Query first: if the crop is already enrolled, rematch only; if not (for example parent-only ReID), the parent may enroll under its UUID. When a ReID-enabled child stamps `will_enroll` / `enrolled` on hierarchy provenance, the parent still queries but does not write a second UUID for that crop. See [Embeddings in a Scene Hierarchy](../microservices/controller/Extended-ReID.md#embeddings-in-a-scene-hierarchy) and [write authority](../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#write-authority-on-the-hierarchy-wire-will_enroll--enrolled).
+
+For multi-controller setups: **unrelated** scenes may **share** one ReID backend
+or use **separate** instances. In a **hierarchy**, do not split backends across
+children when you expect one identity space. **Parent-only ReID** with children
+forwarding embeddings (no local child ReID) is supported—parent enrolls on
+query-no-match; see
+[ReID across controllers](../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#reid-across-controllers-what-is-supported).
 
 > **Known Issue**: Current VDMS implementation does not support feature expiration, leading to degraded performance over time. This will be addressed in a future release.
 

@@ -158,7 +158,6 @@ services:
       - CONTROLLER_ENABLE_TRACING
       - CONTROLLER_TRACING_ENDPOINT
       - CONTROLLER_TRACING_SAMPLE_RATIO
-      - CONTROLLER_ENABLE_ANALYTICS_ONLY
     command: >
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
@@ -216,7 +215,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260728-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc1
     privileged: true
     networks:
       scenescape:

@@ -89,9 +89,8 @@ x-controller-base: &controller-base
 # - experimental: All services including mapping
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
-# - controller: Enable the Controller service in Default mode (analytics + tracking)
-# - analytics: Enable the Controller service in Analytics Only mode (without tracking)
-# - tracker: Enable tracker service
+# - controller: Scene Controller (tracking) + Analytics service
+# - tracker: Tracker service + Analytics service (no Scene Controller)
 
 services:
   ntpserv:
@@ -123,7 +122,7 @@ services:
   broker:
     image: eclipse-mosquitto:2.0.22
     # ports:
-    #  - "1883:1883"
+    #   - "1883:1883"
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
@@ -219,12 +218,38 @@ services:
     profiles:
       - controller
 
-  controller-analytics:
-    <<: *controller-base
+  analytics:
+    image: intel/scenescape-analytics:${VERSION:-latest}
+    init: true
+    user: "${UID:-1000}:${GID:-1000}"
+    networks:
+      scenescape:
     profiles:
-      - analytics
+      - controller
+      - tracker
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
     environment:
-      CONTROLLER_ENABLE_ANALYTICS_ONLY: "true"
+      no_proxy: ${no_proxy},.scenescape.intel.com
+      NO_PROXY: ${NO_PROXY},.scenescape.intel.com
+      VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --visibility_topic ${VISIBILITY:-regulated}
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - django
+      - controller.auth
+    restart: always
+    pids_limit: 1000
 
   mediaserver:
     image: bluenviron/mediamtx:1.18.1
@@ -262,7 +287,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260728-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc1
     networks:
       scenescape:
     tty: true
@@ -327,7 +352,7 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260728-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc1
     networks:
       scenescape:
     tty: true

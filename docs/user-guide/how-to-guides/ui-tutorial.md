@@ -12,7 +12,7 @@ By default, Scenescape provides two scenes that you can explore that are running
 
 ### Prerequisites For Exploring User Interface
 
-Complete all steps in the [Get Started](../get-started.md) section.
+Complete all steps in the [Installation](../get-started/installation.md) section.
 
 ### Explore User Interface
 
@@ -38,7 +38,7 @@ Scenescape provides an html version of the documentation via the WebUI service.
 
 ### Prerequisites For Viewing Documentation
 
-Complete all steps in the [Get Started](../get-started.md) section.
+Complete all steps in the [Installation](../get-started/installation.md) section.
 
 ### Explore Documentation
 

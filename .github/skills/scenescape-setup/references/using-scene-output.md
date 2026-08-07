@@ -62,8 +62,10 @@ entry/exit events).
 
 `scenescape/regulated/scene/<scene_uid>` is the primary output topic — one rate-controlled message
 per scene update containing every tracked object (position, velocity, size, attributes, any tagged
-sensor readings). This is the right starting point for most integrations (dashboards, counting,
-custom alerting logic) since it needs no additional scene configuration.
+sensor readings). The **analytics** service publishes this topic (and region/tripwire events);
+the scene controller publishes unregulated per-category tracks that analytics consumes. This is
+the right starting point for most integrations (dashboards, counting, custom alerting logic)
+since it needs no additional scene configuration.
 
 ```bash
 docker container run --rm --network <project>_scenescape \
@@ -77,7 +79,7 @@ docker container run --rm --network <project>_scenescape \
 Each message's `objects` array has one entry per tracked object: `category`/`type`, `translation`
 (scene-metre position), `velocity`, `visibility` (which cameras see it), and a `metadata` map for
 any pipeline-detected attributes (age, gender, license plate, etc. depending on the model). See
-`docs/user-guide/microservices/controller/data_formats.md` in the SceneScape repo (section
+`docs/user-guide/microservices/analytics/data_formats.md` in the SceneScape repo (section
 "Regulated Scene Output Message Format") for the full field reference.
 
 For a one-off application, poll this topic directly; for anything long-running, have the consumer
@@ -87,7 +89,9 @@ app subscribe persistently rather than re-invoking `mosquitto_sub -C 1` in a loo
 
 Regions and tripwires publish their own event topics (only when something crosses/enters/exits,
 not on every tick), which is usually a better fit than filtering the full regulated topic yourself
-when the goal is "notify me when X happens" rather than "give me continuous state."
+when the goal is "notify me when X happens" rather than "give me continuous state." The
+**analytics** service owns these event topics — confirm `docker compose ps analytics` shows the
+service Up before debugging empty region/tripwire traffic.
 
 - **Region** (`scenescape/event/region/<scene_uid>/<region_id>/objects`) — publishes `counts`,
   `entered`, `exited`, and the current `objects` inside the region whenever membership changes.

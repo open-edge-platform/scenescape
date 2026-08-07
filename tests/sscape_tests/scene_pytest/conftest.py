@@ -6,24 +6,15 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-import tests.common_test_utils as common
 from scene_common.scene_model import SceneModel as Scene
 from controller.scene import Scene
 from scene_common.camera import Camera
-from controller.controller_mode import ControllerMode
 from controller.tracking import Tracking
 import controller.scene as scene_module
 
 ################################################################
 # Methods
 ################################################################
-@pytest.fixture(scope='session', autouse=True)
-def initialize_controller_mode():
-  """Initialize ControllerMode before any tests run."""
-  ControllerMode.initialize(analytics_only=False)
-  yield
-  ControllerMode.reset()
-
 class _StubTracking(Tracking):
   """Lightweight tracker that skips robot_vision dependency."""
 

@@ -223,14 +223,11 @@ class TestSceneControllerExtractPoseAdjustmentConfigData:
 class TestSceneDeserializeReidConfigPropagation:
   """Regression tests: Scene.deserialize must propagate reid_config_data to the tracker."""
 
-  @patch('controller.scene.ControllerMode')
   @patch('controller.scene.IntelLabsTracking')
   def test_deserialize_without_reid_config_key_gives_empty_dict(
-    self, mock_tracking, mock_mode
+    self, mock_tracking
   ):
     """Scene.deserialize with no reid_config_data key results in empty dict on the scene."""
-    mock_mode.isAnalyticsOnly.return_value = False
-
     mock_tracker_instance = MagicMock()
     mock_tracking.return_value = mock_tracker_instance
 
@@ -246,13 +243,11 @@ class TestSceneDeserializeReidConfigPropagation:
 
     assert scene.reid_config_data == {}
 
-  @patch('controller.scene.ControllerMode')
   @patch('controller.scene.TimeChunkedIntelLabsTracking')
   def test_deserialize_with_reid_config_stores_config_on_scene(
-    self, mock_tracking, mock_mode
+    self, mock_tracking
   ):
     """Scene deserialized with reid_config_data stores it on the scene object."""
-    mock_mode.isAnalyticsOnly.return_value = False
     mock_tracking.return_value = MagicMock()
 
     from controller.scene import Scene
@@ -270,13 +265,11 @@ class TestSceneDeserializeReidConfigPropagation:
 
     assert scene.reid_config_data == reid_config
 
-  @patch('controller.scene.ControllerMode')
   @patch('controller.scene.IntelLabsTracking')
   def test_deserialize_with_pose_adjustment_config_stores_routing_on_scene(
-    self, mock_tracking, mock_mode
+    self, mock_tracking
   ):
     """Scene deserialized with pose adjustment config applies configured label routes."""
-    mock_mode.isAnalyticsOnly.return_value = False
     mock_tracking.return_value = MagicMock()
 
     from controller.scene import Scene
@@ -303,90 +296,7 @@ class TestSceneControllerPublishers:
     controller = SceneController.__new__(SceneController)
     controller.pubsub = MagicMock()
     controller.visibility_topic = visibility_topic
-    controller.regulate_cache = {}
     return controller
-
-  def test_publish_region_detections_publishes_each_cycle_while_region_non_empty(self):
-    """Region detections publish every invocation while objects remain in region."""
-    scene_controller = self._build_controller()
-    scene = SimpleNamespace(
-      uid='scene-1',
-      name='Test Scene',
-      regions=['roi-1'],
-      lastPubCount={},
-    )
-    obj = SimpleNamespace(chain_data=SimpleNamespace(regions={'roi-1': {'entered': '2026-01-01T00:00:00Z'}}))
-    jdata = {'timestamp': '2026-01-01T00:00:01Z'}
-
-    with patch('controller.scene_controller.get_epoch_time', return_value=10.0), \
-         patch('controller.scene_controller.buildDetectionsList', return_value=[{'id': 'o1'}]):
-      scene_controller.publishRegionDetections(scene, [obj], 'person', dict(jdata))
-      scene_controller.publishRegionDetections(scene, [obj], 'person', dict(jdata))
-
-    assert scene_controller.pubsub.publish.call_count == 2
-    assert scene.lastPubCount['Test Scene/roi-1/person'] == 1
-
-  def test_publish_events_publishes_region_events_and_clears_transient_event_lists(self):
-    """Region events are published and objects/count queues are cleared afterward."""
-    scene_controller = self._build_controller()
-
-    class FakeRegion:
-      def __init__(self):
-        self.uuid = 'roi-1'
-        self.name = 'ROI'
-        self.singleton_type = None
-
-      def serialize(self):
-        return {'name': self.name}
-
-    region = FakeRegion()
-    scene = SimpleNamespace(
-      uid='scene-1',
-      name='Test Scene',
-      events={'objects': [('roi-1', region)]},
-    )
-
-    scene_controller._buildAllRegionObjsList = MagicMock(return_value=({}, 0))
-    scene_controller._buildEnteredObjsList = MagicMock()
-    scene_controller._buildExitedObjsList = MagicMock()
-    scene_controller._clearSensorValuesOnExit = MagicMock()
-
-    with patch('controller.scene_controller.Region', FakeRegion):
-      scene_controller.publishEvents(scene, '2026-01-01T00:00:01Z')
-
-    assert scene_controller.pubsub.publish.call_count == 1
-    assert 'objects' not in scene.events
-    assert 'count' not in scene.events
-    scene_controller._clearSensorValuesOnExit.assert_called_once_with(scene)
-
-  def test_publish_regulated_detections_publishes_cached_payload_when_rate_allows(self):
-    """Regulated payload publishes with cached objects and scene rate metadata."""
-    scene_controller = self._build_controller('unregulated')
-    scene_obj = SimpleNamespace(
-      uid='scene-1',
-      regulated_rate=5,
-      cameras={'cam-1': object()},
-    )
-    msg_object = SimpleNamespace(gid='obj-1')
-    jdata = {
-      'timestamp': '2026-01-01T00:00:01Z',
-      'id': 'scene-1',
-      'name': 'Test Scene',
-      'rate': 7,
-      'objects': [],
-    }
-
-    scene_controller.calculateRate = MagicMock(return_value=0.5)
-    scene_controller.shouldPublish = MagicMock(return_value=True)
-
-    with patch('controller.scene_controller.buildDetectionsList', return_value=[{'id': 'obj-1'}]), \
-         patch('controller.scene_controller.get_epoch_time', return_value=42.0):
-      scene_controller.publishRegulatedDetections(scene_obj, [msg_object], 'person', jdata, 'cam-1')
-
-    assert scene_controller.pubsub.publish.call_count == 1
-    cached = scene_controller.regulate_cache['scene-1']
-    assert cached['rate']['cam-1'] == 7
-    assert cached['last'] == 42.0
 
   def test_publish_scene_detections_publishes_and_invokes_external_builder(self):
     """Scene publish emits DATA_SCENE and triggers external publish path."""
@@ -412,30 +322,195 @@ class TestSceneControllerPublishers:
       uid='scene-1',
       external_update_rate=2,
       last_published_detection=defaultdict(lambda: None),
+      reid_config_data={'minimum_bbox_area': 5000},
     )
     jdata_base = {'timestamp': '2026-01-01T00:00:01Z', 'objects': ['unchanged']}
 
     scene_controller.shouldPublish = MagicMock(return_value=True)
     with patch('controller.scene_controller.get_epoch_time', side_effect=[100.0, 101.0]), \
-         patch('controller.scene_controller.buildDetectionsList', return_value=[{'id': 'o1'}]):
+         patch('controller.scene_controller.buildDetectionsList', return_value=[{'id': 'o1'}]) as mock_build:
       scene_controller.publishExternalDetections(scene, 'person', [object()], jdata_base)
 
     assert scene_controller.pubsub.publish.call_count == 1
     assert scene.last_published_detection['person'] == 101.0
     assert jdata_base['objects'] == ['unchanged']
+    # Confirm reid provenance stamping is actually wired through to buildDetectionsList
+    _, call_kwargs = mock_build.call_args
+    assert call_kwargs['attach_reid_provenance'] is True
+    assert call_kwargs['minimum_bbox_area'] == 5000
+    assert call_kwargs['will_enroll_reid'] is False
+    assert call_kwargs['withhold_reid'] is False
+    assert call_kwargs['reid_enrolled_fn'] is None
 
+  def _publish_external_with_reid_manager(self, uuid_manager, write_intent=True):
+    """Publish external detections for a scene whose tracker owns uuid_manager."""
+    scene_controller = self._build_controller('unregulated')
+    scene_controller.shouldPublish = MagicMock(return_value=True)
+    scene = SimpleNamespace(
+      uid='scene-1',
+      external_update_rate=2,
+      last_published_detection=defaultdict(lambda: None),
+      reid_config_data={'minimum_bbox_area': 5000},
+      tracker=SimpleNamespace(uuid_manager=uuid_manager),
+    )
+    jdata_base = {'timestamp': '2026-01-01T00:00:01Z', 'objects': []}
+    with patch.object(scene_controller, '_sceneHasReidWriteIntent', return_value=write_intent), \
+         patch('controller.scene_controller.get_epoch_time', side_effect=[100.0, 101.0]), \
+         patch('controller.scene_controller.buildDetectionsList',
+               return_value=[{'id': 'o1'}]) as mock_build:
+      scene_controller.publishExternalDetections(scene, 'person', [object()], jdata_base)
+    return mock_build.call_args.kwargs
+
+  def test_publish_external_wires_will_enroll_when_policy_confirms(self):
+    """Confirmed healthy writes must stamp will_enroll on hierarchy output."""
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True,
+      reid_write_confirmed=True, reid_empty_batch_before_confirm=False)
+    kwargs = self._publish_external_with_reid_manager(uuid_manager)
+    assert kwargs['will_enroll_reid'] is True
+    assert kwargs['withhold_reid'] is False
+    assert kwargs['reid_enrolled_fn'] is not None
+
+  def test_publish_external_wires_withhold_before_confirmed_write(self):
+    """Schema-ready but unconfirmed writes must withhold local hierarchy reid."""
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True,
+      reid_write_confirmed=False, reid_empty_batch_before_confirm=False)
+    kwargs = self._publish_external_with_reid_manager(uuid_manager)
+    assert kwargs['will_enroll_reid'] is False
+    assert kwargs['withhold_reid'] is True
+    assert kwargs['reid_enrolled_fn'] is None
+
+  def test_publish_external_wires_passthrough_when_writes_unhealthy(self):
+    """Unhealthy writes before confirm forward without will_enroll so parents may sole-enroll."""
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=False,
+      reid_write_confirmed=False, reid_empty_batch_before_confirm=False)
+    kwargs = self._publish_external_with_reid_manager(uuid_manager)
+    assert kwargs['will_enroll_reid'] is False
+    assert kwargs['withhold_reid'] is False
+    assert kwargs['reid_enrolled_fn'] is None
+
+  def test_publish_external_wires_will_enroll_when_confirmed_even_if_unhealthy(self):
+    """After a confirmed write, keep will_enroll mode so parents do not dual-enroll."""
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=False,
+      reid_write_confirmed=True, reid_empty_batch_before_confirm=False)
+    kwargs = self._publish_external_with_reid_manager(uuid_manager)
+    assert kwargs['will_enroll_reid'] is True
+    assert kwargs['withhold_reid'] is False
+    assert kwargs['reid_enrolled_fn'] is not None
+
+  def test_publish_external_wires_passthrough_on_empty_batch_before_confirm(self):
+    """Empty batches before confirm must not withhold forever on the wire."""
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True,
+      reid_write_confirmed=False, reid_empty_batch_before_confirm=True)
+    kwargs = self._publish_external_with_reid_manager(uuid_manager)
+    assert kwargs['will_enroll_reid'] is False
+    assert kwargs['withhold_reid'] is False
+    assert kwargs['reid_enrolled_fn'] is None
+
+  def test_hierarchy_reid_policy_will_enroll_when_confirmed_even_if_reid_disabled(self):
+    """Confirmed writes keep will_enroll mode after slow-query reid disable."""
+    scene_controller = SceneController.__new__(SceneController)
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=False, reid_database=database, reid_write_healthy=True,
+      reid_write_confirmed=True, reid_empty_batch_before_confirm=False)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+
+    with patch.object(scene_controller, '_sceneHasReidWriteIntent', return_value=True):
+      assert scene_controller._hierarchyReidPublishPolicy(scene) == 'will_enroll'
+  def test_hierarchy_reid_policy_withholds_when_write_intent_before_schema(self):
+    """TLS ReID certs without a ready schema withhold embeddings instead of racing."""
+    scene_controller = SceneController.__new__(SceneController)
+    database = SimpleNamespace(_schema_ready=False)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+
+    with patch('controller.scene_controller.get_reid_use_tls', return_value=True), \
+         patch('controller.scene_controller.get_reid_client_cert', return_value='/tmp/reid.crt'), \
+         patch('controller.scene_controller.get_reid_client_key', return_value='/tmp/reid.key'), \
+         patch('controller.scene_controller.os.path.exists', return_value=True):
+      assert scene_controller._hierarchyReidPublishPolicy(scene) == 'withhold'
+
+  def test_hierarchy_reid_policy_passthrough_without_write_intent(self):
+    """Children without ReID client material keep parent-only passthrough enrollment."""
+    scene_controller = SceneController.__new__(SceneController)
+    database = SimpleNamespace(_schema_ready=False)
+    uuid_manager = SimpleNamespace(reid_enabled=True, reid_database=database)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+
+    with patch('controller.scene_controller.get_reid_use_tls', return_value=True), \
+         patch('controller.scene_controller.get_reid_client_cert', return_value='/missing/reid.crt'), \
+         patch('controller.scene_controller.get_reid_client_key', return_value='/missing/reid.key'), \
+         patch('controller.scene_controller.os.path.exists', return_value=False):
+      assert scene_controller._hierarchyReidPublishPolicy(scene) == 'passthrough'
+
+  def test_hierarchy_reid_policy_withholds_non_tls_until_schema_ready(self):
+    """REID_USE_TLS=false implies write intent even with default endpoint env."""
+    scene_controller = SceneController.__new__(SceneController)
+    database = SimpleNamespace(_schema_ready=False)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+
+    with patch('controller.scene_controller.get_reid_use_tls', return_value=False):
+      assert scene_controller._hierarchyReidPublishPolicy(scene) == 'withhold'
+
+  def test_hierarchy_reid_policy_requires_write_intent_even_when_schema_ready(self):
+    """Schema alone without write intent stays passthrough (no false will_enroll)."""
+    scene_controller = SceneController.__new__(SceneController)
+    database = SimpleNamespace(_schema_ready=True)
+    uuid_manager = SimpleNamespace(
+      reid_enabled=True, reid_database=database, reid_write_healthy=True)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+
+    with patch.object(scene_controller, '_sceneHasReidWriteIntent', return_value=False):
+      assert scene_controller._hierarchyReidPublishPolicy(scene) == 'passthrough'
+
+  def test_track_has_reid_enrollment_for_pending_vectors_or_database_id(self):
+    """Enrollment advertising covers pending writes, gathering, and rematched database ids."""
+    scene_controller = SceneController.__new__(SceneController)
+    uuid_manager = SimpleNamespace(
+      features_for_database={},
+      enrollment_features={},
+      local_enrollment_features={},
+      quality_features={},
+      active_query={},
+      active_ids={},
+      active_ids_lock=MagicMock())
+    uuid_manager.active_ids_lock.__enter__ = MagicMock(return_value=None)
+    uuid_manager.active_ids_lock.__exit__ = MagicMock(return_value=False)
+    scene = SimpleNamespace(tracker=SimpleNamespace(uuid_manager=uuid_manager))
+    obj = SimpleNamespace(rv_id='track-1')
+
+    assert scene_controller._trackHasReidEnrollment(scene, obj) is False
+
+    uuid_manager.features_for_database['track-1'] = {'reid_vectors': [[0.1]]}
+    assert scene_controller._trackHasReidEnrollment(scene, obj) is True
+
+    uuid_manager.features_for_database.clear()
+    uuid_manager.quality_features['track-1'] = [[0.1]]
+    assert scene_controller._trackHasReidEnrollment(scene, obj) is True
+
+    uuid_manager.quality_features.clear()
+    uuid_manager.active_ids['track-1'] = ['db-uuid', 0.9]
+    assert scene_controller._trackHasReidEnrollment(scene, obj) is True
   @patch('controller.scene_controller.metrics')
-  @patch('controller.scene_controller.ControllerMode')
   def test_publish_detections_initializes_scene_state_and_calls_all_publish_paths(
-    self, mock_mode, mock_metrics
+    self, mock_metrics
   ):
-    """publishDetections initializes state and calls scene/regulated/region publishers."""
+    """publishDetections initializes state and calls the scene publisher."""
     scene_controller = self._build_controller()
     scene_controller.publishSceneDetections = MagicMock()
-    scene_controller.publishRegulatedDetections = MagicMock()
-    scene_controller.publishRegionDetections = MagicMock()
-
-    mock_mode.isAnalyticsOnly.return_value = False
 
     scene = SimpleNamespace(uid='scene-1', name='Test Scene')
     objects = [object()]
@@ -446,24 +521,93 @@ class TestSceneControllerPublishers:
     assert hasattr(scene, 'lastPubCount')
     assert hasattr(scene, 'last_published_detection')
     scene_controller.publishSceneDetections.assert_called_once_with(scene, objects, 'person', jdata)
-    scene_controller.publishRegulatedDetections.assert_called_once_with(scene, objects, 'person', jdata, 'cam-1')
-    scene_controller.publishRegionDetections.assert_called_once_with(scene, objects, 'person', jdata)
     mock_metrics.record_object_count.assert_called_once()
 
-  @patch('controller.scene_controller.ControllerMode')
-  def test_publish_detections_skips_scene_publish_in_analytics_only_mode(self, mock_mode):
-    """publishDetections skips Scene topic output when analytics-only mode is enabled."""
-    scene_controller = self._build_controller()
-    scene_controller.publishSceneDetections = MagicMock()
-    scene_controller.publishRegulatedDetections = MagicMock()
-    scene_controller.publishRegionDetections = MagicMock()
 
-    mock_mode.isAnalyticsOnly.return_value = True
-    scene = SimpleNamespace(uid='scene-1', name='Test Scene')
+class TestSceneControllerRemoteChildParent:
+  """Unit tests for remote-child parent injection and recovery (NEX-T21933)."""
 
-    scene_controller.publishDetections(scene, [], 10.0, 'person', {'timestamp': '2026-01-01T00:00:01Z'}, None)
+  TEST_NAME = "NEX-T21933"
 
-    scene_controller.publishSceneDetections.assert_not_called()
-    scene_controller.publishRegulatedDetections.assert_called_once()
-    scene_controller.publishRegionDetections.assert_called_once()
+  def test_with_remote_child_parent_injects_when_missing(self):
+    """Omits or null parent are filled from the enclosing scene uid."""
+    info = {'remote_child_id': 'child-1', 'child_type': 'remote'}
+    assert SceneController._withRemoteChildParent(info, 'parent-uid')['parent'] == 'parent-uid'
+    assert SceneController._withRemoteChildParent(
+      {'remote_child_id': 'child-1', 'parent': None}, 'parent-uid')['parent'] == 'parent-uid'
+
+  def test_with_remote_child_parent_preserves_existing_parent(self):
+    """Existing parent values are left unchanged."""
+    info = {'remote_child_id': 'child-1', 'parent': 'already-set'}
+    assert SceneController._withRemoteChildParent(info, 'other')['parent'] == 'already-set'
+
+  def test_parent_uid_for_remote_child_finds_link(self):
+    """Positive: scan of child-scene links returns the enclosing parent uid."""
+    scene_controller = SceneController.__new__(SceneController)
+    parent = SimpleNamespace(uid='parent-1')
+    other = SimpleNamespace(uid='other-1')
+    scene_controller.cache_manager = MagicMock()
+    scene_controller.cache_manager.allScenes.return_value = [other, parent]
+    scene_controller.cache_manager.data_source.getChildScenes.side_effect = (
+      lambda uid: {
+        'other-1': {'results': []},
+        'parent-1': {'results': [
+          {'remote_child_id': 'remote-abc', 'child_type': 'remote'},
+        ]},
+      }[uid]
+    )
+
+    assert scene_controller._parentUidForRemoteChild('remote-abc') == 'parent-1'
+
+  def test_parent_uid_for_remote_child_returns_none_when_unlinked(self):
+    """Negative: unknown remote_child_id yields None."""
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.cache_manager = MagicMock()
+    scene_controller.cache_manager.allScenes.return_value = [
+      SimpleNamespace(uid='parent-1')]
+    scene_controller.cache_manager.data_source.getChildScenes.return_value = {
+      'results': [{'remote_child_id': 'someone-else', 'child_type': 'remote'}],
+    }
+
+    assert scene_controller._parentUidForRemoteChild('missing') is None
+
+  def test_handle_child_scene_object_recovers_missing_parent(self):
+    """Positive: DATA_EXTERNAL path recovers parent onto the cached remote scene."""
+    scene_controller = SceneController.__new__(SceneController)
+    parent_scene = MagicMock()
+    parent_scene.processSceneData.return_value = True
+    remote_sender = SimpleNamespace(
+      parent=None, name='remote', cameraPose=object())
+
+    scene_controller.cache_manager = MagicMock()
+    scene_controller.cache_manager.sceneWithID.side_effect = (
+      lambda uid: None if uid == 'remote-1' else parent_scene)
+    scene_controller.cache_manager.sceneWithRemoteChildID.return_value = remote_sender
+    scene_controller._parentUidForRemoteChild = MagicMock(return_value='parent-1')
+
+    success, scene = scene_controller._handleChildSceneObject(
+      'remote-1', {'objects': {}}, 'person', 1.0)
+
+    assert success is True
+    assert scene is parent_scene
+    assert remote_sender.parent == 'parent-1'
+    parent_scene.processSceneData.assert_called_once()
+
+  def test_handle_child_scene_object_fails_when_parent_unrecoverable(self):
+    """Negative: still errors when no parent link can be recovered."""
+    scene_controller = SceneController.__new__(SceneController)
+    remote_sender = SimpleNamespace(
+      parent=None, name='remote', cameraPose=object())
+
+    scene_controller.cache_manager = MagicMock()
+    scene_controller.cache_manager.sceneWithID.return_value = None
+    scene_controller.cache_manager.sceneWithRemoteChildID.return_value = remote_sender
+    scene_controller._parentUidForRemoteChild = MagicMock(return_value=None)
+
+    success, scene = scene_controller._handleChildSceneObject(
+      'remote-1', {'objects': {}}, 'person', 1.0)
+
+    assert success is False
+    assert scene is remote_sender
+    assert remote_sender.parent is None
 

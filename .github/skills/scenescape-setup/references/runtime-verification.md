@@ -32,7 +32,7 @@ docker network connect "$NET" <mediaserver-container> 2>/dev/null || true
 
 | Symptom                         | Fix                                                                                                                                |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `model file ... does not exist` | `bash scripts/download_detection_models.sh`, `bash scripts/check_detection_models.sh`, then `docker compose up -d video-analytics` |
+| `model file ... does not exist` | Re-run `python3 scripts/download_model.py <deploy_dir>` (drives the `intel/model-download` container's REST API), then `bash scripts/check_detection_models.sh`, then `docker compose up -d video-analytics`. Alternatively, from a full SceneScape repo checkout: `make -C model_download install-models COMPOSE_PROJECT_NAME=<name>`. |
 | RTSP connection errors          | Fix URL or network; re-run `verify_rtsp.sh`                                                                                        |
 | Segfault with dual pipelines    | See repo `queuing-config-gpu.json` / sample compose (GPU/WSL2) — template issue only                                               |
 

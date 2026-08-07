@@ -79,6 +79,11 @@ only for failed tests. Use `--collect-container-logs {failed,all,none}` to
 change this behavior. Test specs are defined in the individual test
 modules as Python dataclasses.
 
+### Residual resource cleanup
+
+Before any setup work, each session removes the containers, networks and volumes of any
+`test-<id>-<profile>` compose project left over from a previous run.
+
 ### Running tests via make
 
 Use make targets from the repository root.
@@ -160,12 +165,21 @@ pytest tests/functional --collect-container-logs none
 Per-test log files are saved automatically:
 
 ```
-tests/test_logs/functional/<test_id>-<timestamp>.log
-tests/test_logs/unit/<test_id>-<timestamp>.log
-tests/test_logs/ui/<test_id>-<timestamp>.log
+tests/.test_logs/<group>/<test_id>/<test_id>-<timestamp>.log
 ```
 
-Container log collection supports:
+Log content depends on the test outcome:
+
+- **Passing test** — only the raw `print()` output from the test body plus any log records are kept.
+- **Failing test** — the full orchestration log is preserved for
+  debugging, along with per-container Docker logs in a sibling
+  directory (unless `--collect-container-logs=none` is set):
+
+  ```
+  tests/.test_logs/<group>/<test_id>/<test_id>-<timestamp>-containers/<service>.log
+  ```
+
+Container log collection modes (`--collect-container-logs`):
 
 - `failed` (default): collect container logs only for failed tests.
 - `all`: collect container logs for every test.
@@ -207,6 +221,13 @@ pytest tests/sscape_tests
 | ----------------- | --------------------------------------------------------------------------------- |
 | `kubernetes_only` | Test runs only with `--backend=kubernetes` or `--backend=all`; skipped for Docker |
 | `preserve_db`     | Skip post-test DB restore so the next test can verify persistence                 |
+
+## Multi-controller hierarchy (functional)
+
+Literal parent + child Scene Controllers on one host use Compose fragments under
+`tests/compose/hierarchy/` and `REID_HIER_*` profiles. Agent-oriented fixture
+notes: [multi-controller hierarchy fixtures](../.github/skills/testing/references/functional-tests.md#multi-controller-hierarchy-fixtures).
+Deployment guide: [Deploy Multiple Controllers on One Host](../docs/user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md).
 
 ## Using the VS Code Test Extension
 
