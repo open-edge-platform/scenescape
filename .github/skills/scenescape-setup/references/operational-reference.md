@@ -5,8 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 
 # Deployment operational reference
 
-Read this after Step 1 for the launch command, phase details, generated-file layout, and
-completion handoff. Read a linked troubleshooting reference only when its phase fails.
+Read this only when the user asks about generated deployment files or the web-UI handoff, or when
+a bootstrap, runtime, reconstruction, or tracking-verification failure needs diagnosis. Do not
+read it for a routine deploy or resume; the core skill contains those commands and criteria.
 
 ## Orchestrator
 

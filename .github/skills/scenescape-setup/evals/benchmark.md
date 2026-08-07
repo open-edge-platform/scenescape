@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 # Skill Benchmark: scenescape-setup
 
 **Model**: gpt-5.6-terra
-**Date**: 2026-08-06T23:37:15Z
+**Date**: 2026-08-07T02:46:09Z
 **Evals**: 1, 2, 3, 4, 5 (1 run(s) each per configuration)
 
 ## Summary
@@ -15,6 +15,6 @@ SPDX-License-Identifier: Apache-2.0
 
 | Metric | Avg +/- Std Dev (With Skill) | Avg +/- Std Dev (Without Skill) | Skill Lift (Delta) |
 |--------|-------------------------------|----------------------------------|--------------------|
-| Pass Rate (% correct) | 100% avg, +/-0% spread (consistent) | 4% avg, +/-10% spread (unreliable) | +96pp |
-| Time (s / question) | 24.7s avg, +/-1.1s spread (consistent) | 11.3s avg, +/-3.6s spread (variable) | +13.4s |
-| Tokens (context cost) | 149k avg, +/-21k spread (consistent) | 20k avg, +/-454 spread (consistent) | +128k |
+| Pass Rate (% correct) | 100% avg, +/-0% spread (consistent) | 2% avg, +/-5% spread (unreliable) | +98pp |
+| Time (s / question) | 24.9s avg, +/-3.2s spread (consistent) | 12.1s avg, +/-3.9s spread (variable) | +12.8s |
+| Tokens (context cost) | 135k avg, +/-22k spread (variable) | 20k avg, +/-522 spread (consistent) | +114k |

@@ -73,15 +73,18 @@ down -v` — always require explicit confirmation).
 - **Step 1 is mandatory on a new deploy** — ask the user for `streams`, `camera_ids`, and
   `scene_name`. Do not assume values from prior sessions, sample data, or running containers.
 - **Prefer the orchestrator** after inputs are confirmed; read `deploy.log` only on failure.
+- Before executing an orchestrator command, obtain the user's authorization to deploy or resume;
+  an explicit request to deploy, continue, or resume is sufficient. Otherwise, show the command
+  and ask. Always obtain separate explicit confirmation before executing `--fresh`.
 - **Do not read** `docker-compose-template.md` or `sample_data/` unless troubleshooting a
   template bug. Pipeline generation is defined in `pipeline-config.md`.
 - **Do not** dump raw `docker compose logs`; use `check_service_health.py` and focused log filters.
 - **Resume** with `--deploy-dir` only when `deploy-inputs.json` exists **or when the user's
   message contains a clear resume signal** ("continue", "resume", "stopped partway through",
   "pick up where we left off", etc.) — in that case, treat the signal as confirmation the file
-  exists and apply the Fast Path directly without checking the filesystem. Only fall back to
-  Step 1 if the user says the directory is wrong or no prior run was started. Use `--fresh`
-  when cameras or streams change.
+  exists without checking the filesystem. Follow the authorization guardrail above before launch.
+  Only fall back to Step 1 if the user says the directory is wrong or no prior run was started.
+  Use `--fresh` when cameras or streams change.
 - For a resume response, run `deploy_inputs.py read` before the launch and explicitly label the
   loaded `streams`, `camera_ids`, and `scene_name` as the values the user is confirming. Use the
   exact resume invocation in the Fast Path; do **not** add `--resume`, because resume is already
@@ -248,7 +251,8 @@ command must omit `--resume`, `--streams`, `--camera-ids`, and `--scene-name`.
 through", "pick up where we left off", or similar for a named `deploy_dir`, treat that statement
 as confirmation that `deploy-inputs.json` already exists at that path. Apply the Fast Path
 directly — show the user the Fast Path procedure (what values will be loaded and what command will
-be run) without falling back to Step 1 questions. Only fall back to Step 1 if:
+be run) without falling back to Step 1 questions. State: "The stopped-deployment signal confirms
+`deploy-inputs.json` exists, so I am skipping Step 1 questions." Only fall back to Step 1 if:
 
 - The user explicitly says the directory is wrong or no prior run exists.
 - You attempt to read `deploy-inputs.json` and the file is genuinely absent **and** the user did
@@ -262,6 +266,7 @@ For a camera or stream change, read the existing inputs before creating the repl
 the read-back is unavailable, say that the new set replaces only the named camera/stream while
 retaining every other persisted camera, stream, and the scene name, then explicitly ask the user
 to confirm or provide that existing list. Do not proceed with only the changed camera.
+State that a changed camera or stream set is not eligible for the Fast Path resume.
 
 In that unavailable-read-back case, do not execute a write or `--fresh` launch. State: "I could
 not read the existing deployment inputs. Please provide or confirm the retained camera IDs,
@@ -274,14 +279,27 @@ Use this exact sentence in the response: "`--fresh` clears `.deploy-state.json` 
 
 ## Deploy and complete
 
-After Step 1, read [operational-reference.md](./references/operational-reference.md) for the
-orchestrator command, generated-file layout, phase sequence, troubleshooting references, and
-completion handoff. Launch the orchestrator asynchronously. Every full-deployment response must
-state that step 9 produces one calibration JPEG per camera ID; step 13 confirms tracked objects
-are associated with more than one `camera_id`; and success is `DEPLOY COMPLETE` with a `scene_uid`.
-It must also enumerate requirements-gathering, bootstrap, calibration, scene-and-verification,
-and total wall-clock metrics. The launch command itself must be backgrounded (for example,
-`nohup ... >"$DEPLOY_DIR/orchestrator.log" 2>&1 &`), not merely described as asynchronous.
+Launch the default all-phase deployment asynchronously after Step 1:
+
+```bash
+nohup bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
+  --deploy-dir <deploy_dir> \
+  --skill-dir "$SKILL_DIR" \
+  --streams <rtsp_url> [...] \
+  --camera-ids <id> [...] \
+  --scene-name <scene_name> \
+  >"<deploy_dir>/orchestrator.log" 2>&1 &
+```
+
+For a video-file deployment, use the synthesized RTSP streams from `deploy_inputs.py read` in the
+same command. Every full-deployment response must state that step 9 produces one calibration JPEG
+per camera ID; step 13 confirms tracked objects are associated with more than one `camera_id`; and
+success is `DEPLOY COMPLETE` with a `scene_uid`. End with a `Post-task metrics` breakdown listing
+requirements-gathering, bootstrap, calibration, scene-and-verification, and total wall-clock.
+
+Do **not** read [operational-reference.md](./references/operational-reference.md) during a routine
+deploy or resume. Read it only for a requested generated-file-layout or web-UI handoff, or when a
+specific bootstrap, runtime, reconstruction, or tracking-verification failure needs diagnosis.
 
 ## Running a single phase
 
