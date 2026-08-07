@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+services:
+  vdms-a:
+    image: intellabs/vdms:v2.12.0
+    init: true
+    ports:
+      - "${REID_A_PORT}:55555"
+    networks:
+      scenescape-test:
+        aliases:
+          - reid-a.scenescape.intel.com
+    environment:
+      - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
+      - OVERRIDE_cert_file=/run/secrets/certs/scenescape-reid-s.crt
+      - OVERRIDE_key_file=/run/secrets/certs/scenescape-reid-s.key
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: reid-server-cert
+        target: certs/scenescape-reid-s.crt
+      - source: reid-server-key
+        target: certs/scenescape-reid-s.key
+    restart: always
+    pids_limit: 1000
