@@ -24,7 +24,7 @@ Prebuilt containers are published on Docker Hub:
 - [Scenescape Cluster Analytics](https://hub.docker.com/r/intel/scenescape-cluster-analytics)
 - [Scenescape Mapping](https://hub.docker.com/r/intel/scenescape-mapping)
 
-### 4. Configure preloaded scenes at deployment
+## 4. Configure preloaded scenes at deployment
 
 - **Skip preloading:** Do not set the `EXAMPLEDB` environment variable.
 - **Preload database:** Set `EXAMPLEDB` to the path of your database tar file and ensure the folder is mounted. Example override:
