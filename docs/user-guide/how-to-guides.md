@@ -16,6 +16,8 @@
 
 - [Configure a hierarchy of scenes](./how-to-guides/build-a-scene/configure-hierarchy-of-scenes.md): Step-by-step guide to configuring a hierarchy of scenes.
 
+- [Deploy multiple controllers on one host](./how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md): Co-locate parent and child Scene Controllers on a single machine with the supported shared-ReID layout.
+
 - [Configure Geospatial Coordinates for a Scene](./how-to-guides/build-a-scene/configure-geospatial-coordinates.md): Step-by-step guide for configuring geographic coordinates output in object detections.
 
 - [Configure Geospatial Map Service API Keys](./how-to-guides/build-a-scene/configure-geospatial-map-service-api-keys.md): Step-by-step guide for configuring Google Maps or Mapbox API keys for geospatial mapping functionality.

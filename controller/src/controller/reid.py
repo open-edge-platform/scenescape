@@ -7,7 +7,7 @@ import threading
 
 import numpy as np
 
-from controller.reid_constants import (
+from scene_common.reid_constants import (
   RESERVED_ENTRY_KEYS,
   SCHEMA_NAME,
   SIMILARITY_METRIC,
@@ -17,6 +17,23 @@ from controller.reid_constants import (
 from controller.reid_constraints import build_query_constraints
 from controller.reid_env import get_reid_confidence_threshold
 from scene_common import log
+
+
+class ReidNoValidVectorsError(ValueError):
+  """Raised when addEntry has nothing valid to write (e.g. all vectors skipped).
+
+  Hierarchy write-health must not sticky-clear on this — it is a per-batch data
+  problem, not proof that the database write path is down.
+  """
+
+
+class ReidWriteSupersededError(RuntimeError):
+  """In-flight enrollment dropped after write-epoch/health changed; do not confirm."""
+
+
+class ReidPartialWriteError(RuntimeError):
+  """Some vectors landed before others failed; treat as confirmed + unhealthy."""
+
 
 class ReIDDatabase(ABC):
   def __init__(self, set_name=SCHEMA_NAME, similarity_metric=SIMILARITY_METRIC,
@@ -144,6 +161,22 @@ class ReIDDatabase(ABC):
         continue
       prepared.append(vec_array)
     return prepared
+
+  def _dedupePreparedVectors(self, prepared_vectors):
+    """Drop exact byte-identical prepared vectors while preserving order."""
+    seen = set()
+    unique = []
+    for vec in prepared_vectors:
+      key = vec.tobytes()
+      if key in seen:
+        continue
+      seen.add(key)
+      unique.append(vec)
+    return unique
+
+  def _prepareVectorsForAddEntry(self, reid_vectors):
+    """Prepare vectors and drop exact duplicates within this add batch."""
+    return self._dedupePreparedVectors(self._prepareReidVectors(reid_vectors))
 
   def _buildEntryProperties(self, uuid_value, rvid, object_type, persist=None, **metadata):
     """Build shared entry properties with reserved-key protection."""
@@ -427,6 +460,10 @@ class ReIDDatabase(ABC):
     @param   persist      Optional dict with required 'timestamp' plus attributes
     @param   metadata     Optional semantic attributes (age, gender, color, etc.)
     @return  None
+    @raises  ReidNoValidVectorsError when every input vector is skipped (callers
+             should not treat this as sticky write-unhealthy)
+    @raises  Exception when a database write is attempted and fails (callers /
+             Future callbacks treat this as write-unhealthy for hierarchy claims)
     """
     return
 
