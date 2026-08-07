@@ -18,7 +18,7 @@ edge for multiple use cases.
 
 The Scene Controller Microservice answers the fundamental question of `What, When and Where`. It receives object detections from multimodal inputs (primarily multiple cameras), contextualizes them in a common reference frame, fuses them and tracks objects over time.
 
-The Scene Controller's output provides various insights for the tracked objects in a scene, including location, object visibility across cameras, velocity, rotation, center of mass. The Analytics microservice consumes this output to add region-of-interest, tripwire, and sensor-correlation analytics on top of it — see [analytics/README.md](https://github.com/open-edge-platform/scenescape/blob/main/analytics/README.md) for details.
+The Scene Controller's output provides various insights for the tracked objects in a scene, including location, object visibility across cameras, velocity, rotation, center of mass. The Analytics microservice consumes this output to add region-of-interest, tripwire, and sensor-correlation analytics on top of it — see [Analytics Service](../analytics/analytics.md) for details.
 
 To deploy the scene controller service, refer to the [Get Started](./get-started.md) guide. The service supports configuration through specific arguments and flags, which default to predefined values unless explicitly modified.
 
@@ -137,6 +137,7 @@ _Figure 2: Scene Controller Sequence diagram_
 - [Data Formats](./data_formats.md)
 - [Publish Observations from an External Source Adapter](../../how-to-guides/publish-external-source-adapter.md)
 - [API Reference](./api-reference.md)
+- [Analytics Service](../analytics/analytics.md)
 - [How to Enable Observability (Experimental)](../../other-topics/how-to-enable-observability.md)
 
 <!--hide_directive

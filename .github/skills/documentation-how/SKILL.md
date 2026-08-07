@@ -85,7 +85,7 @@ still resolve. Do not restate field tables in the how-to or skill.
 ### Manager Service
 
 - **Overview** (`docs/user-guide/using-intel-scenescape/` and related guides): Web UI features, REST API, database schema
-- **Build** (`docs/user-guide/get-started.md` and root build guides): Django setup, migrations, static files
+- **Build** (`docs/user-guide/get-started/installation.md` and root build guides): Django setup, migrations, static files
 - **API Spec** (`docs/user-guide/api-reference.md`): REST endpoint definitions
 - **Tests** (`manager/tests/README.md`): UI tests, functional tests, API tests
 

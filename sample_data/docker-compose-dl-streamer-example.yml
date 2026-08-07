@@ -533,7 +533,7 @@ services:
     profiles:
       - experimental
       - mapping
-    image: intel/scenescape-mapping-${MAPPING_MODEL:-mapanything}:${VERSION:-latest}
+    image: intel/scenescape-mapping:${VERSION:-latest}
     init: true
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:

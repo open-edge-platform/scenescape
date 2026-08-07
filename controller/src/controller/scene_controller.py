@@ -20,6 +20,11 @@ from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
 from controller.observability import metrics
+from controller.reid_env import (
+  get_reid_client_cert,
+  get_reid_client_key,
+  get_reid_use_tls,
+)
 from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
                                       MINIMAL_CHUNKING_RATE_FPS,
                                       MAXIMAL_CHUNKING_RATE_FPS)
@@ -286,8 +291,19 @@ class SceneController:
     if self.shouldPublish(scene.last_published_detection[otype], now, 1/scene.external_update_rate):
       scene.last_published_detection[otype] = get_epoch_time()
 
+      # Rebuild detections list with sensor data included
+      reid_policy = self._hierarchyReidPublishPolicy(scene)
+      will_enroll = reid_policy == 'will_enroll'
       jdata = jdata_base.copy()
-      jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=False)
+      jdata['objects'] = buildDetectionsList(
+        objects, scene, self.visibility_topic == 'unregulated', include_sensors=True,
+        attach_reid_provenance=True,
+        minimum_bbox_area=scene.reid_config_data.get('minimum_bbox_area'),
+        will_enroll_reid=will_enroll,
+        withhold_reid=(reid_policy == 'withhold'),
+        reid_enrolled_fn=(
+          (lambda aobj, _scene=scene: self._trackHasReidEnrollment(_scene, aobj))
+          if will_enroll else None))
       jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
 
       scene_hierarchy_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL, scene_id=scene.uid,
@@ -295,6 +311,84 @@ class SceneController:
       self.pubsub.publish(scene_hierarchy_topic, jstr)
     return
 
+  def _sceneHasReidWriteIntent(self):
+    """
+    True when this controller is configured to own ReID database writes.
+
+    TLS deployments mount client certs only on ReID-enabled compose profiles;
+    parent-only / passthrough children keep the TLS default and omit those certs.
+    Setting REID_USE_TLS=false is an explicit non-mTLS ReID choice and implies
+    write intent even when hostname/database env vars use built-in defaults.
+    """
+    if get_reid_use_tls():
+      return (os.path.exists(get_reid_client_cert())
+              and os.path.exists(get_reid_client_key()))
+    return True
+
+  def _hierarchyReidPublishPolicy(self, scene):
+    """
+    Decide how hierarchy output should treat ReID embeddings for this scene.
+
+    Returns one of:
+      - 'will_enroll': write intent exists and at least one successful write was
+        confirmed — enable per-track will_enroll/enrolled stamps so parents skip
+        writes for tracks this child owns. Survives later write-health or
+        reid_enabled clears so parents do not sole-enroll crops already stored.
+      - 'withhold': ReID write intent exists but schema is not ready yet, or no
+        successful write has been confirmed yet (and no empty-batch fallback) —
+        do not forward *local* embeddings (avoids parent sole-enroll before the
+        child can write, and avoids claiming will_enroll when the child cannot
+        enroll). Inherited vetted embeddings still forward.
+      - 'passthrough': no local ReID write path, writes are failing before the
+        first confirm, or empty batches occurred before the first confirmed write
+        — forward vetted crops without will_enroll so the parent may sole-enroll.
+        Local enrollment also stops in those handoff modes so the child does not
+        keep writing under passthrough.
+    """
+    tracker = getattr(scene, 'tracker', None)
+    uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
+    if uuid_manager is None:
+      return 'passthrough'
+    if not self._sceneHasReidWriteIntent():
+      return 'passthrough'
+    # Confirmed writes keep will_enroll mode even if reid later disables or
+    # write-health clears — per-track stamps limit claims to owned tracks.
+    if getattr(uuid_manager, 'reid_write_confirmed', False):
+      return 'will_enroll'
+    if not getattr(uuid_manager, 'reid_enabled', False):
+      return 'passthrough'
+    if not getattr(uuid_manager, 'reid_write_healthy', True):
+      return 'passthrough'
+    if getattr(uuid_manager, 'reid_empty_batch_before_confirm', False):
+      return 'passthrough'
+    database = getattr(uuid_manager, 'reid_database', None)
+    if getattr(database, '_schema_ready', False) is not True:
+      return 'withhold'
+    return 'withhold'
+
+  def _trackHasReidEnrollment(self, scene, aobj):
+    """True when this track owns or is accumulating a local ReID write."""
+    tracker = getattr(scene, 'tracker', None)
+    uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
+    if uuid_manager is None:
+      return False
+    rv_id = getattr(aobj, 'rv_id', None)
+    if rv_id is None:
+      return False
+    entry = uuid_manager.features_for_database.get(rv_id)
+    if entry and entry.get('reid_vectors'):
+      return True
+    if uuid_manager.enrollment_features.get(rv_id):
+      return True
+    if uuid_manager.local_enrollment_features.get(rv_id):
+      return True
+    if uuid_manager.quality_features.get(rv_id):
+      return True
+    if rv_id in uuid_manager.active_query:
+      return True
+    with uuid_manager.active_ids_lock:
+      values = uuid_manager.active_ids.get(rv_id)
+    return bool(values and values[0] is not None)
   # Message handling
   def handleMovingObjectMessage(self, client, userdata, message):
 
@@ -390,7 +484,7 @@ class SceneController:
         camera_id = sender_id = topic['camera_id']
         sender = self.cache_manager.sceneWithCameraID(sender_id)
         if sender is None:
-          log.error("UNKNOWN SENDER", sender_id)
+          log.error(f"UNKNOWN SENDER: {sender_id}")
           return
         scene = sender
 
@@ -404,7 +498,7 @@ class SceneController:
         success = scene.processCameraData(jdata, when=msg_when)
 
       if not success:
-        log.error("Camera fail", sender_id, getattr(scene, 'name', None))
+        log.error("Camera fail", sender_id, scene.name if scene is not None else "unknown")
         self.cache_manager.invalidate()
         return
 
@@ -417,24 +511,37 @@ class SceneController:
       return
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
+    is_remote = False
     sender = self.cache_manager.sceneWithID(sender_id)
     if sender is None:
       remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
-        log.error("UNKNOWN SENDER")
+        log.error(f"UNKNOWN SENDER: {sender_id}")
         return False, None
-      else:
-        sender = remote_sender
+      sender = remote_sender
+      is_remote = True
 
     if not hasattr(sender, 'parent') or sender.parent is None:
-      # Hierarchy publishes (no source_id) from a root scene are not destined
-      # for a parent — ignore them rather than failing closed and invalidating
-      # the scene cache. (Root scenes no longer self-subscribe for ingest.)
-      log.debug("Ignoring hierarchy publish from root scene %s (no parent)",
-                sender_id)
-      return None
+      recovered = self._parentUidForRemoteChild(sender_id)
+      if recovered:
+        sender.parent = recovered
+        log.info(f"Recovered parent={recovered} for remote child {sender_id}")
+      elif is_remote:
+        log.error("UNKNOWN PARENT", sender_id)
+        return False, sender
+      else:
+        # Hierarchy publishes (no source_id) from a root scene are not destined
+        # for a parent — ignore them rather than failing closed and invalidating
+        # the scene cache. (Root scenes no longer self-subscribe for ingest.)
+        log.debug("Ignoring hierarchy publish from root scene %s (no parent)",
+                  sender_id)
+        return None
 
     scene = self.cache_manager.sceneWithID(sender.parent)
+    if scene is None:
+      log.error("PARENT SCENE NOT FOUND", sender.parent, "for sender", sender.name)
+      return False, None
+
     success = scene.processSceneData(jdata, sender, sender.cameraPose,
                                      detection_type, when=msg_when)
     return success, scene
@@ -529,6 +636,23 @@ class SceneController:
     return scene.processSceneData(jdata, external_source, camera_pose,
                                   detection_type, when=msg_when)
 
+  @staticmethod
+  def _withRemoteChildParent(info, parent_uid):
+    """Copy remote-child REST *info* and ensure ``parent`` is set to *parent_uid*."""
+    remote_info = dict(info)
+    if not remote_info.get('parent'):
+      remote_info['parent'] = parent_uid
+    return remote_info
+
+  def _parentUidForRemoteChild(self, remote_child_id):
+    """Return the parent scene uid that links *remote_child_id*, or None."""
+    for scene in self.cache_manager.allScenes():
+      results = self.cache_manager.data_source.getChildScenes(scene.uid)
+      for info in (results or {}).get('results', []):
+        if str(info.get('remote_child_id')) == str(remote_child_id):
+          return scene.uid
+    return None
+
   def updateCameras(self):
     for scene in self.scenes:
       for camera in scene.cameras:
@@ -597,7 +721,7 @@ class SceneController:
     if sender is None:
       remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
-        log.error("UNKNOWN SENDER")
+        log.error(f"UNKNOWN SENDER: {sender_id}")
         return
       else:
         sender = remote_sender
@@ -671,10 +795,16 @@ class SceneController:
                                                   region_id="+"),
                                 self.republishEvents))
           else:
-            child_obj = ChildSceneController(self.root_cert, info, self)
-            self.cache_manager.cached_child_transforms_by_uid[info['remote_child_id']] = Scene.deserialize(info)
-            need_subscribe_child[info['remote_child_id']] = child_obj
-            need_subscribe.add((PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS, scene_id=info['remote_child_id']), child_obj.publishStatus))
+            # Remote child payloads may omit parent (or leave it null). The
+            # enclosing scene is the parent by construction of this query.
+            remote_info = self._withRemoteChildParent(info, scene.uid)
+            child_obj = ChildSceneController(self.root_cert, remote_info, self)
+            self.cache_manager.cached_child_transforms_by_uid[remote_info['remote_child_id']] = \
+              Scene.deserialize(remote_info)
+            need_subscribe_child[remote_info['remote_child_id']] = child_obj
+            need_subscribe.add((PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
+                                                    scene_id=remote_info['remote_child_id']),
+                                child_obj.publishStatus))
 
     # disconnect old children clients
     for old_child, cobj in self.subscribed_children.items():

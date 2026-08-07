@@ -4,7 +4,7 @@
 SHELL := /bin/bash
 VERSION ?= $(shell cat ../version.txt)
 BUILD_DIR ?= $(PWD)/build
-ROOT_DIR := $(PWD)
+ROOT_DIR ?= $(PWD)
 LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
 HAS_PIP ?= yes
 HAS_DPKG ?= yes
@@ -144,7 +144,7 @@ generate-sbom: $(BUILD_DIR) check-buildkit
 	@if [[ "$(USES_SCENE_COMMON)" == "yes" ]]; then \
 	  echo "ARG RUNTIME_OS_IMAGE=${RUNTIME_OS_IMAGE}" > $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	  cat $(ROOT_DIR)/scene_common/Dockerfile ./Dockerfile >> $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
-	  sed -i 's|^FROM intel/scenescape-common-base|FROM scenescape-common-base|' $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
+		sed -i 's|^FROM intel/scenescape-common-base|FROM scenescape-common-base|' $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	else \
 	  cp ./Dockerfile $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	fi
