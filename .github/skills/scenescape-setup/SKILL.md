@@ -254,23 +254,34 @@ be run) without falling back to Step 1 questions. Only fall back to Step 1 if:
 - You attempt to read `deploy-inputs.json` and the file is genuinely absent **and** the user did
   not give any "resume/continue" signal — a new fresh deployment was intended.
 
+For an explicit resume signal, do not test the local sandbox for file existence or treat a missing
+local path as a contradiction. The signal is sufficient confirmation: show the read-back command,
+show the resume command, and state that `.deploy-state.json` selects the next incomplete step.
+
 For a camera or stream change, read the existing inputs before creating the replacement set. If
 the read-back is unavailable, say that the new set replaces only the named camera/stream while
 retaining every other persisted camera, stream, and the scene name, then explicitly ask the user
 to confirm or provide that existing list. Do not proceed with only the changed camera.
 
-In that unavailable-read-back case, stop before presenting a write or `--fresh` launch command
-and say: "I could not read the existing deployment inputs. Please provide or confirm the retained
-camera IDs, streams, and scene name so I can show the complete replacement set before the fresh
-redeploy." Never present retained-camera placeholders as values that can be run.
+In that unavailable-read-back case, do not execute a write or `--fresh` launch. State: "I could
+not read the existing deployment inputs. Please provide or confirm the retained camera IDs,
+streams, and scene name before the fresh redeploy." Then show the exact `--fresh` orchestrator
+command marked **pending confirmation**, explaining that it clears `.deploy-state.json` and the
+old `deploy-inputs.json`, and reruns **bootstrap**, **calibrate**, and **scene** rather than only
+recalibrating the changed camera. Never present retained-camera placeholders as runnable values.
+Use this exact sentence in the response: "`--fresh` clears `.deploy-state.json` and the old
+`deploy-inputs.json`."
 
 ## Deploy and complete
 
 After Step 1, read [operational-reference.md](./references/operational-reference.md) for the
 orchestrator command, generated-file layout, phase sequence, troubleshooting references, and
-completion handoff. Launch the orchestrator asynchronously. The response must state that step 9
-produces one calibration JPEG per camera ID, step 13 verifies multi-camera associations, and
-success is `DEPLOY COMPLETE` with a `scene_uid`.
+completion handoff. Launch the orchestrator asynchronously. Every full-deployment response must
+state that step 9 produces one calibration JPEG per camera ID; step 13 confirms tracked objects
+are associated with more than one `camera_id`; and success is `DEPLOY COMPLETE` with a `scene_uid`.
+It must also enumerate requirements-gathering, bootstrap, calibration, scene-and-verification,
+and total wall-clock metrics. The launch command itself must be backgrounded (for example,
+`nohup ... >"$DEPLOY_DIR/orchestrator.log" 2>&1 &`), not merely described as asynchronous.
 
 ## Running a single phase
 
