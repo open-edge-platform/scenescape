@@ -18,8 +18,8 @@ models_volume="${project_name}_vol-models"
 
 if docker container run --rm \
   -v "${models_volume}:/models" \
-  scenescape-model-installer:latest \
-  bash -c "test -f '/models/${MODEL_XML}' && head -c 5 '/models/${MODEL_XML}' | grep -q '<?xml'"; then
+  alpine:3.23 \
+  sh -c "test -f '/models/${MODEL_XML}' && head -c 5 '/models/${MODEL_XML}' | grep -q '<?xml'"; then
   echo "PASS: detection models ready in ${models_volume}"
   exit 0
 fi

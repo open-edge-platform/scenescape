@@ -14,7 +14,7 @@ import numpy as np
 from unittest.mock import Mock, MagicMock, patch
 
 from controller.vdms_adapter import VDMSDatabase, SCHEMA_NAME, DIMENSIONS, K_NEIGHBORS, SCHEMA_MARKER_CLASS
-from controller.reid import ReIDDatabase
+from controller.reid import ReIDDatabase, ReidNoValidVectorsError
 
 
 class TestVDMSDatabaseInterface:
@@ -481,6 +481,49 @@ class TestAddEntry:
     call_args = db.sendQuery.call_args
     query_list = call_args[0][0]
     assert len(query_list) == 3, "Should have one query per vector"
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_raises_on_non_zero_status(self, mock_vdms_class):
+    """Soft VDMS failures must raise so hierarchy write-health can clear."""
+    mock_vdms_class.return_value = MagicMock()
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 1, 'info': 'rejected'}], []))
+    vec = np.random.randn(256).astype(np.float32)
+
+    with pytest.raises(RuntimeError, match="Failed to add"):
+      db.addEntry("uuid", "rvid", "Person", [vec])
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_raises_partial_write_when_some_descriptors_succeed(
+      self, mock_vdms_class):
+    """Mixed VDMS status must signal partial success for confirm+unhealthy handoff."""
+    from controller.reid import ReidPartialWriteError
+    mock_vdms_class.return_value = MagicMock()
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([
+      {'status': 0},
+      {'status': 1, 'info': 'rejected'},
+    ], []))
+    vectors = [
+      np.random.randn(256).astype(np.float32),
+      np.random.randn(256).astype(np.float32),
+    ]
+
+    with pytest.raises(ReidPartialWriteError, match="Failed to add"):
+      db.addEntry("uuid", "rvid", "Person", vectors)
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_raises_on_empty_response(self, mock_vdms_class):
+    """Missing VDMS responses must raise so hierarchy write-health can clear."""
+    mock_vdms_class.return_value = MagicMock()
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=(None, []))
+    vec = np.random.randn(256).astype(np.float32)
+
+    with pytest.raises(RuntimeError, match="No response from VDMS"):
+      db.addEntry("uuid", "rvid", "Person", [vec])
 
 
 class TestFindMatches:
@@ -1398,7 +1441,8 @@ class TestDimensionInferenceAndArbitraryDimensions:
 
     # Try to add 256-dimension vector to 128-dimension adapter
     wrong_vec = np.random.randn(256).astype(np.float32)
-    db.addEntry("uuid", "rvid", "Person", [wrong_vec])
+    with pytest.raises(ReidNoValidVectorsError, match="No valid vectors"):
+      db.addEntry("uuid", "rvid", "Person", [wrong_vec])
 
     # Should not have sent query (vector was rejected)
     db.sendQuery.assert_not_called()
@@ -1414,7 +1458,8 @@ class TestDimensionInferenceAndArbitraryDimensions:
 
     # Try to add 256-dimension vector to 512-dimension adapter
     wrong_vec = np.random.randn(256).astype(np.float32)
-    db.addEntry("uuid", "rvid", "Person", [wrong_vec])
+    with pytest.raises(ReidNoValidVectorsError, match="No valid vectors"):
+      db.addEntry("uuid", "rvid", "Person", [wrong_vec])
 
     # Should not have sent query (vector was rejected)
     db.sendQuery.assert_not_called()
