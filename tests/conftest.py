@@ -278,7 +278,7 @@ def version(repo_root):
 @pytest.fixture(scope="session")
 def secrets_dir(repo_root):
   """Path to the secrets directory."""
-  sdir = os.path.join(repo_root, "manager", "secrets")
+  sdir = os.environ.get("SECRETSDIR") or os.path.join(repo_root, "manager", "secrets")
   assert os.path.isdir(sdir), f"Secrets directory not found: {sdir}"
   return sdir
 
