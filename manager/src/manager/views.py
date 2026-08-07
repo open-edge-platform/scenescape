@@ -33,7 +33,7 @@ from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
 from django.urls import reverse
 from rest_framework.views import APIView
-from rest_framework.authentication import TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 
 from manager.api import IsAdminOrReadOnly
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
@@ -816,7 +816,8 @@ def getAllChildrenMetaData(scene_id):
 
 class SaveGeospatialSnapshot(APIView):
   """Save geospatial snapshot as PNG and return filename for map field."""
-  authentication_classes = [TokenAuthentication]
+  # Called from an authenticated browser session, not an external API client
+  authentication_classes = [SessionAuthentication]
   permission_classes = [IsAdminOrReadOnly]
 
   def post(self, request):
