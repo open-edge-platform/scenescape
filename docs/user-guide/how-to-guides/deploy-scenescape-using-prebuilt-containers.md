@@ -4,7 +4,7 @@ This guide explains how to deploy Scenescape using prebuilt Docker images, prima
 
 ## 1. Set Up Docker Environment
 
-Ensure Docker is installed and running on your system. For help, refer to [Installing Docker on your system](../get-started/prerequisites.md#installing-docker-on-your-system).
+Ensure Docker is installed and running on your system. For help, refer to [Installing Docker on your system](../get-started/system-requirements.md#installing-docker-on-your-system).
 
 ## 2. Generate secrets and download OpenVINO Model Zoo models
 
