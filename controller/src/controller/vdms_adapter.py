@@ -269,7 +269,7 @@ class VDMSDatabase(ReIDDatabase):
         payloads.extend(item for item in value if isinstance(item, dict))
 
     for payload in payloads:
-      for key in ['dimensions', 'dimension']:
+      for key in ['dimensions', 'dimension', 'VD:dimensions', 'VD:dimension']:
         if key in payload:
           try:
             return int(payload[key])
@@ -290,7 +290,8 @@ class VDMSDatabase(ReIDDatabase):
         payloads.extend(item for item in value if isinstance(item, dict))
 
     for payload in payloads:
-      for key in ['metric', 'distance_metric', 'similarity_metric']:
+      for key in ['metric', 'distance_metric', 'similarity_metric',
+                  'VD:metric', 'VD:distance_metric', 'VD:similarity_metric']:
         if key in payload and payload[key] is not None:
           return str(payload[key])
     return None
