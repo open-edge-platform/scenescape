@@ -12,7 +12,7 @@ are available.
 
 import pytest
 
-from controller.tracking_object_registry import TrackedObjectRegistry
+from scene_common.tracking_object_registry import TrackedObjectRegistry
 
 @pytest.fixture
 def registry():

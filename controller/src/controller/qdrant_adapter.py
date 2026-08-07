@@ -7,8 +7,8 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.exceptions import UnexpectedResponse
 
-from controller.reid import ReIDDatabase
-from controller.reid_constants import (
+from controller.reid import ReIDDatabase, ReidNoValidVectorsError
+from scene_common.reid_constants import (
   K_NEIGHBORS,
   SCHEMA_MARKER_COLLECTION,
   SCHEMA_NAME,
@@ -229,7 +229,7 @@ class QdrantDatabase(ReIDDatabase):
       uuid, rvid, object_type, persist=persist, **metadata)
     points = []
 
-    for vec_array in self._prepareReidVectors(reid_vectors):
+    for vec_array in self._prepareVectorsForAddEntry(reid_vectors):
       points.append(models.PointStruct(
         id=str(uuid_lib.uuid4()),
         vector=vec_array.tolist(),
@@ -237,16 +237,16 @@ class QdrantDatabase(ReIDDatabase):
       ))
 
     if not points:
-      log.warning(
+      raise ReidNoValidVectorsError(
         "addEntry: No valid vectors to add (all skipped due to dimension mismatch "
         "or uninitialized dimensions)")
-      return
 
     try:
       with self.lock:
         self.client.upsert(collection_name=set_name, points=points, wait=True)
     except Exception as e:
       log.error(f"addEntry: Failed to upsert {len(points)} vectors to Qdrant: {e}")
+      raise
     return
 
   def _scrollMatchingPoints(self, collection_name, query_filter, page_size=100):

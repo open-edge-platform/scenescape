@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+services:
+  parent-scene:
+    image: intel/scenescape-controller:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape-test:
+    depends_on:
+      parent-web:
+        condition: service_healthy
+      parent-broker:
+        condition: service_started
+      parent-ntpserv:
+        condition: service_started
+    environment:
+      VISIBILITY_TOPIC: regulated
+    command: >
+      --restauth /run/secrets/controller.auth
+      --resturl https://parent-web.scenescape.intel.com/api/v1
+      --brokerauth /run/secrets/controller.auth
+      --broker parent-broker.scenescape.intel.com
+      --ntp parent-ntpserv
+      --visibility_topic regulated
+      --rewriteBadTime
+      --maxlag 10
+    volumes:
+      - ./:/workspace
+      - ./${DBROOT}/parent/media:/workspace/media
+      - ./controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - django
+      - controller.auth
+    restart: on-failure
