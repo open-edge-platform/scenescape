@@ -14,6 +14,7 @@ import numpy as np
 import open3d as o3d
 from scipy.spatial.transform import Rotation
 
+from scene_common.reid_constants import REID_PROVENANCE_KEY
 from scene_common.chain_data import ChainData
 from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2
@@ -203,6 +204,7 @@ class MovingObject:
     self.rotation = np.array([0, 0, 0, 1]).tolist()
     self.intersected = False
     self.reid = {}  # Initialize reid as empty dict
+    self.reid_provenance = None  # Origin of a reid embedding forwarded from another scope
     self.metadata = {}  # Initialize metadata as empty dict
     self.reid_state = ReidState.PENDING_COLLECTION  # Track reID state
     self.similarity = None  # Similarity score from last reID match
@@ -225,15 +227,24 @@ class MovingObject:
     New format: dict with 'embedding_vector' (base64 or list) and 'model_name'
     Legacy format: base64-encoded string or direct list of floats
 
+    Provenance, when present, is kept apart from the embedding itself: it describes
+    where the embedding came from rather than what it contains, and downstream ReID
+    gating consults it directly.
+
     @param  reid  The reid data in one of the supported formats
     """
     try:
       self.reid = {}
+      self.reid_provenance = None
 
       # Handle new format: dict with embedding_vector and model_name
       if isinstance(reid, dict) and 'embedding_vector' in reid:
         embedding_data = reid['embedding_vector']
-        self.reid.update({k: v for k, v in reid.items() if k != 'embedding_vector'})
+        self.reid.update({k: v for k, v in reid.items()
+                          if k not in ('embedding_vector', REID_PROVENANCE_KEY)})
+        provenance = reid.get(REID_PROVENANCE_KEY)
+        if isinstance(provenance, dict):
+          self.reid_provenance = dict(provenance)
         embedding_dimensions = _getReIDEmbeddingDimensions(reid)
       else:
         embedding_data = reid

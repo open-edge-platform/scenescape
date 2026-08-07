@@ -11,7 +11,7 @@ Scenescape makes writing applications based on sensor data faster, easier and be
   - [Overview and Architecture](docs/user-guide/index.md): A high-level introduction.
 
 - **Getting Started**
-  - [Get Started](docs/user-guide/get-started.md): Step-by-step guide to getting started with the Scenescape.
+  - [Installation](docs/user-guide/get-started/installation.md): Step-by-step guide to getting started with the Scenescape.
 
 - **API Reference**
   - [API Reference](docs/user-guide/api-reference.md): Comprehensive OpenAPI (Swagger) documentation for the Scenescape REST API, including endpoints, schemas, and usage examples.

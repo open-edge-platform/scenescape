@@ -10,7 +10,7 @@ This guide provides step-by-step instructions to set up and use Regions of Inter
 
 ## Prerequisites
 
-Follow the steps in the [Get Started Guide](../../get-started.md) to bring up an instance of Scenescape with out-of-box demo scenes.
+Follow the steps in the [Installation Guide](../../get-started/installation.md) to bring up an instance of Scenescape with out-of-box demo scenes.
 
 ## Steps to Configure Regions of Interest
 
