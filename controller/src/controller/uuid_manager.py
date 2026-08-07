@@ -95,6 +95,7 @@ class UUIDManager:
     self.unique_id_count = 0
     self.stale_feature_timer = None
     self.scene_id = None
+    self._shutdown_complete = False
 
     self.unique_id_count_lock = threading.Lock()
     # ReID embedding dimensions are inferred from the first observed embedding.
@@ -191,6 +192,12 @@ class UUIDManager:
 
   def shutdown(self):
     """Explicitly stop the stale feature timer and clean up resources"""
+    # shutdown() can be called both explicitly and via __del__. Make it
+    # idempotent to avoid duplicate cleanup side effects.
+    if getattr(self, '_shutdown_complete', False):
+      return
+    self._shutdown_complete = True
+
     if self.stale_feature_timer is not None:
       self.stale_feature_timer.cancel()
       self.stale_feature_timer = None
