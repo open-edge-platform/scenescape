@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 # SkillSpector baseline — findings listed here are suppressed on future scans.
 # Edit 'reason' fields and add glob 'rules' as needed. See docs/SUPPRESSION.md.
 version: 2
@@ -123,6 +126,12 @@ fingerprints:
   file: SKILL.md
   reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
     secrets are required and written owner-only; destructive deployment actions require
+    confirmation.'
+- hash: sha256:8012ec56460be72c9cdb1234cbf37e2a780b2bd6e1ccbbacc9321752184c37a3
+  rule_id: EA2
+  file: SKILL.md
+  reason: 'Reviewed: an explicit resume signal establishes persisted input availability only;
+    orchestrator launch still requires user authorization and --fresh requires separate
     confirmation.'
 - hash: sha256:34f3be6051112bea1cd12ea14162685abc9bb5b6807e936a3b9b3aae1ddfe416
   rule_id: PE3
