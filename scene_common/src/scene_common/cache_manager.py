@@ -371,6 +371,8 @@ class CacheManager:
       elif not hasattr(self, '_old_scene_cache'):
         self._old_scene_cache = {}
       self.cached_scenes_by_uid = None
+      self._cached_scenes_by_cameraID = {}
+      self._cached_scenes_by_sensorID = {}
       self._cache_epoch += 1
       if not hasattr(self, 'cached_child_transforms_by_uid') or self.cached_child_transforms_by_uid is None:
         self.cached_child_transforms_by_uid = {}
