@@ -11,12 +11,13 @@ readiness checks that a group of tests requires.
 """
 
 import os
+import stat
 from dataclasses import dataclass, field
 
 COMPOSE = "tests/compose"
 DLS = f"{COMPOSE}/dlstreamer"
 HIER = f"{COMPOSE}/hierarchy"
-# Mounted only when the host has /dev/dri (see resolve_compose_files).
+# Mounted only when the host has usable DRM nodes (see resolve_compose_files).
 _GPU_DRI_OVERRIDES = (
   ("compose-retail_video", f"{DLS}/compose-gpu-dri-retail.yml"),
   ("compose-queuing_video", f"{DLS}/compose-gpu-dri-queuing.yml"),
@@ -38,17 +39,39 @@ class ServiceProfile:
   wait_for: dict[str, WaitConfig] = field(default_factory=dict)
 
 
+def _host_has_dri(dri_path="/dev/dri"):
+  """True when *dri_path* contains at least one DRM character device.
+
+  WSL and some VMs expose an empty ``/dev/dri`` directory. Docker still fails
+  with ``not a device node`` if compose mounts that path, so existence alone
+  is not enough.
+  """
+  if not os.path.isdir(dri_path):
+    return False
+  try:
+    for name in os.listdir(dri_path):
+      path = os.path.join(dri_path, name)
+      try:
+        if stat.S_ISCHR(os.stat(path).st_mode):
+          return True
+      except OSError:
+        continue
+  except OSError:
+    return False
+  return False
+
+
 def resolve_compose_files(compose_files, dri_path="/dev/dri"):
   """Return compose files, appending GPU DRI overrides when available.
 
   Docker Compose fails hard if ``devices: [/dev/dri:/dev/dri]`` is declared
-  but the host path is missing (common on WSL / VMs without GPU passthrough).
-  Keep DRI out of the base video compose files and only merge matching
-  per-service overrides when the device exists so CPU-only hosts can still
-  start video profiles.
+  but the host has no usable DRM nodes (missing path, or empty ``/dev/dri``
+  on WSL / VMs without GPU passthrough). Keep DRI out of the base video
+  compose files and only merge matching per-service overrides when a real
+  device node exists so CPU-only hosts can still start video profiles.
   """
   files = list(compose_files)
-  if not os.path.exists(dri_path):
+  if not _host_has_dri(dri_path):
     return tuple(files)
   for marker, override in _GPU_DRI_OVERRIDES:
     if any(marker in path for path in files) and override not in files:
