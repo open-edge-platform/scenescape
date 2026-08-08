@@ -829,11 +829,12 @@ ul.errorlist {
   position: relative;
   padding: 0.75rem 2.25rem;
   margin-right: 1rem;
-  border: 1px solid transparent;
-  border-radius: 0.25rem;
-  color: #721c24;
-  background-color: #ffeff0;
-  border-color: #f5c6cb;
+  border: 1px solid color-mix(in srgb, var(--ss-status-bad) 32%, #fff);
+  border-radius: var(--ss-radius);
+  color: #8a1838;
+  background-color: color-mix(in srgb, var(--ss-status-bad) 10%, #fff);
+  font-family: var(--ss-font-sans);
+  font-size: 0.875rem;
 }
 
 .display-none {
@@ -978,9 +979,80 @@ ul.errorlist {
   text-overflow: ellipsis;
 }
 
+.alert {
+  font-family: var(--ss-font-sans);
+  font-size: 0.875rem;
+  border-radius: var(--ss-radius);
+  border-width: 1px;
+  border-style: solid;
+}
+
 .alert-default {
   background-color: black;
   color: white;
+  border-color: black;
+}
+
+.alert-success {
+  background-color: color-mix(in srgb, var(--ss-status-ok) 12%, #fff);
+  border-color: color-mix(in srgb, var(--ss-status-ok) 35%, #fff);
+  color: #0b5a0b;
+}
+
+.alert-danger,
+.login-error.alert-danger {
+  background-color: color-mix(in srgb, var(--ss-status-bad) 10%, #fff);
+  border-color: color-mix(in srgb, var(--ss-status-bad) 32%, #fff);
+  color: #8a1838;
+}
+
+.alert-warning {
+  background-color: color-mix(in srgb, #edb200 14%, #fff);
+  border-color: color-mix(in srgb, #edb200 40%, #fff);
+  color: #7a5a00;
+}
+
+.alert-info {
+  background-color: color-mix(in srgb, var(--ss-brand) 10%, #fff);
+  border-color: color-mix(in srgb, var(--ss-brand) 28%, #fff);
+  color: var(--ss-brand-hover);
+}
+
+/* Keep 3D scene toasts on the original Bootstrap alert look */
+.toast .alert-default {
+  background-color: black;
+  border-color: black;
+  color: white;
+}
+
+.toast .alert-success {
+  color: #155724;
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+}
+
+.toast .alert-danger {
+  color: #721c24;
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+}
+
+.toast .alert-warning {
+  color: #856404;
+  background-color: #fff3cd;
+  border-color: #ffeeba;
+}
+
+.toast .alert-info {
+  color: #0c5460;
+  background-color: #d1ecf1;
+  border-color: #bee5eb;
+}
+
+.model-directory-success-notice,
+.model-directory-danger-notice {
+  border-radius: var(--ss-radius);
+  box-shadow: 0 4px 16px rgba(0, 30, 80, 0.12);
 }
 
 .blank-map-svgout {
@@ -1187,6 +1259,10 @@ ul.errorlist {
   z-index: 100;
   justify-content: center;
   left: 50%;
+  font-family: var(--ss-font-sans);
+  font-size: 0.875rem;
+  border-radius: var(--ss-radius);
+  box-shadow: 0 4px 16px rgba(0, 30, 80, 0.12);
   -webkit-animation: notice 2s forwards;
   animation: notice 2s forwards;
 }

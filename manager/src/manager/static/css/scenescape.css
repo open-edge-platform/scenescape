@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+ * SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -13,6 +13,21 @@ body {
 body {
   padding-top: 0;
   padding-bottom: 5rem;
+  /* Keep 3D UI on the original stack; do not inherit 2D OEP fonts/colors */
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  color: #fff;
+  background-color: #222;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: inherit;
 }
 
 #scene {
