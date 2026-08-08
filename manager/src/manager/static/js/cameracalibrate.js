@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -53,6 +53,8 @@ export class ConvergedCameraCalibration {
     });
 
     this.textureLoader = new THREE.TextureLoader();
+    this.expandedPane = null;
+    this.#initializePaneExpandControls();
   }
 
   /**
@@ -661,5 +663,98 @@ export class ConvergedCameraCalibration {
     } else {
       this.projectImage(image, cameraMatrix);
     }
+  }
+
+  #initializePaneExpandControls() {
+    const backdrop = document.getElementById("cal-pane-backdrop");
+    const buttons = document.querySelectorAll("[data-cal-expand]");
+    if (!backdrop || !buttons.length) {
+      return;
+    }
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        const pane = button.closest(".cal-pane");
+        if (!pane) {
+          return;
+        }
+        if (pane.classList.contains("is-expanded")) {
+          this.collapseCalibrationPane();
+        } else {
+          this.expandCalibrationPane(pane);
+        }
+      });
+    });
+
+    backdrop.addEventListener("click", () => {
+      this.collapseCalibrationPane();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && this.expandedPane) {
+        this.collapseCalibrationPane();
+      }
+    });
+  }
+
+  #setExpandButtonState(pane, expanded) {
+    const button = pane.querySelector("[data-cal-expand]");
+    if (!button) {
+      return;
+    }
+    const icon = button.querySelector("i");
+    const label = button.querySelector(".sr-only");
+    const title = pane.getAttribute("aria-label") || "view";
+    button.setAttribute("aria-expanded", expanded ? "true" : "false");
+    button.title = expanded ? `Collapse ${title}` : `Expand ${title}`;
+    if (icon) {
+      icon.className = expanded ? "bi bi-fullscreen-exit" : "bi bi-fullscreen";
+    }
+    if (label) {
+      label.textContent = expanded
+        ? `Collapse ${title}`
+        : `Expand ${title}`;
+    }
+  }
+
+  expandCalibrationPane(pane) {
+    if (this.expandedPane && this.expandedPane !== pane) {
+      this.collapseCalibrationPane();
+    }
+
+    const backdrop = document.getElementById("cal-pane-backdrop");
+    pane.classList.add("is-expanded");
+    this.expandedPane = pane;
+    this.#setExpandButtonState(pane, true);
+    if (backdrop) {
+      backdrop.hidden = false;
+    }
+    document.body.classList.add("cal-pane-expanded");
+
+    // Allow layout to settle before canvas resize observers run
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+  }
+
+  collapseCalibrationPane() {
+    if (!this.expandedPane) {
+      return;
+    }
+
+    const pane = this.expandedPane;
+    const backdrop = document.getElementById("cal-pane-backdrop");
+    pane.classList.remove("is-expanded");
+    this.#setExpandButtonState(pane, false);
+    this.expandedPane = null;
+    if (backdrop) {
+      backdrop.hidden = true;
+    }
+    document.body.classList.remove("cal-pane-expanded");
+
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
   }
 }

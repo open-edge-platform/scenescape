@@ -112,8 +112,25 @@ SPDX-License-Identifier: Apache-2.0
           {% endif %}
 
           <div class="cameraCalContainer">
+            <div
+              class="cal-pane-backdrop"
+              id="cal-pane-backdrop"
+              hidden
+            ></div>
             <section class="cal-pane" aria-label="Camera view">
-              <header class="cal-pane-header">Camera</header>
+              <header class="cal-pane-header">
+                <span class="cal-pane-title">Camera</span>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-light cal-pane-expand"
+                  data-cal-expand
+                  aria-expanded="false"
+                  title="Expand camera view"
+                >
+                  <i class="bi bi-fullscreen" aria-hidden="true"></i>
+                  <span class="sr-only">Expand camera view</span>
+                </button>
+              </header>
               <div class="cal-pane-viewport">
                 <img
                   id="camera_img"
@@ -125,7 +142,19 @@ SPDX-License-Identifier: Apache-2.0
               </div>
             </section>
             <section class="cal-pane" aria-label="Scene map view">
-              <header class="cal-pane-header">Scene</header>
+              <header class="cal-pane-header">
+                <span class="cal-pane-title">Scene</span>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-light cal-pane-expand"
+                  data-cal-expand
+                  aria-expanded="false"
+                  title="Expand scene view"
+                >
+                  <i class="bi bi-fullscreen" aria-hidden="true"></i>
+                  <span class="sr-only">Expand scene view</span>
+                </button>
+              </header>
               <div class="cal-pane-viewport">
                 {% if caminst.scene.thumbnail %}
                   <img

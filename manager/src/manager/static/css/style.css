@@ -157,8 +157,12 @@ a:hover {
 }
 
 .cal-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   flex: 0 0 auto;
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.65rem 0.4rem 0.75rem;
   font-family: var(--ss-font-heading);
   font-size: 0.8125rem;
   font-weight: 600;
@@ -166,6 +170,57 @@ a:hover {
   color: var(--ss-nav-fg);
   background-color: var(--ss-nav-bg);
   border-bottom: 1px solid var(--ss-card-border);
+}
+
+.cal-pane-title {
+  min-width: 0;
+}
+
+.cal-pane-expand {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.4rem;
+  line-height: 1;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.cal-pane-expand:hover,
+.cal-pane-expand:focus {
+  color: var(--ss-nav-bg);
+  background-color: #fff;
+  border-color: #fff;
+}
+
+.cal-pane-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1040;
+  background-color: rgba(0, 30, 80, 0.5);
+}
+
+.cal-pane-backdrop[hidden] {
+  display: none !important;
+}
+
+.cal-pane.is-expanded {
+  position: fixed;
+  z-index: 1050;
+  top: 4.75rem;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  width: auto;
+  max-width: none;
+  box-shadow: 0 12px 40px rgba(0, 30, 80, 0.35);
+}
+
+.cal-pane.is-expanded .cal-pane-viewport {
+  height: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+body.cal-pane-expanded {
+  overflow: hidden;
 }
 
 .cal-pane-viewport {
