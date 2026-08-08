@@ -4,22 +4,41 @@
  */
 
 :root {
-  --ss-brand: #0068b5;
-  --ss-brand-hover: #005291;
-  --ss-nav-bg: #1a2332;
-  --ss-nav-fg: #f8f9fa;
-  --ss-surface: #f7f8fa;
+  /* Aligned with ViPPET Open Edge Platform Intel palette (light mode) */
+  --ss-brand: #0054ae;
+  --ss-brand-hover: #004a9d;
+  --ss-brand-soft: #0099ec;
+  --ss-nav-bg: #001e50;
+  --ss-nav-fg: #ffffff;
+  --ss-surface: #f4f5f5;
   --ss-card-bg: #ffffff;
-  --ss-card-border: #e2e5ea;
-  --ss-text-muted: #5c6570;
-  --ss-status-ok: #2e7d32;
-  --ss-status-bad: #c62828;
+  --ss-card-border: #e9e9e9;
+  --ss-text: #000000;
+  --ss-text-muted: #808080;
+  --ss-status-ok: #008a00;
+  --ss-status-bad: #da2e56;
+  --ss-input-border: #aeaeae;
+  --ss-input-border-subtle: #e9e9e9;
+  --ss-font-sans: "Open Sans", "Montserrat", system-ui, -apple-system, sans-serif;
+  --ss-font-heading: "Montserrat", "Open Sans", system-ui, -apple-system, sans-serif;
+  --ss-radius: 0.625rem;
 }
 
 body {
   padding-top: 5rem;
   padding-bottom: 5rem;
   background-color: var(--ss-surface);
+  color: var(--ss-text);
+  font-family: var(--ss-font-sans);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--ss-font-heading);
 }
 
 .navbar.bg-dark {
@@ -38,7 +57,7 @@ body {
   float: right;
   display: inline-block;
   margin-bottom: 0;
-  color: rgba(248, 249, 250, 0.65) !important;
+  color: rgba(255, 255, 255, 0.65) !important;
 }
 
 .navbar-info strong {
@@ -66,6 +85,26 @@ body {
 .show > .btn-primary.dropdown-toggle {
   background-color: var(--ss-brand-hover);
   border-color: var(--ss-brand-hover);
+}
+
+.btn-outline-primary {
+  color: var(--ss-brand);
+  border-color: var(--ss-brand);
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus {
+  background-color: var(--ss-brand);
+  border-color: var(--ss-brand);
+  color: #fff;
+}
+
+a {
+  color: var(--ss-brand);
+}
+
+a:hover {
+  color: var(--ss-brand-hover);
 }
 
 .draggable {
@@ -349,8 +388,8 @@ polygon {
   float: left;
   background-color: var(--ss-card-bg);
   border: 1px solid var(--ss-card-border);
-  border-radius: 0.25rem;
-  box-shadow: 0 1px 2px rgba(26, 35, 50, 0.05);
+  border-radius: var(--ss-radius);
+  box-shadow: 0 1px 2px rgba(0, 30, 80, 0.06);
   overflow: hidden;
 }
 
@@ -437,9 +476,95 @@ polygon {
   padding-top: 3px;
 }
 
-.form-group label {
-  font-weight: bold;
+.form-group label,
+.col-form-label {
+  font-weight: 500;
+  font-family: var(--ss-font-sans);
+  color: var(--ss-text-muted);
+  text-align: left;
+}
+
+.form-group.row > .col-form-label,
+.form-group.row > label.col-sm-2 {
   text-align: right;
+  padding-top: 0.5rem;
+}
+
+.form-control,
+select.form-control,
+textarea.form-control,
+.custom-select {
+  height: auto;
+  min-height: 2.25rem;
+  padding: 0.375rem 0.75rem;
+  font-family: var(--ss-font-sans);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--ss-text);
+  background-color: var(--ss-card-bg);
+  border: 1px solid var(--ss-input-border);
+  border-radius: var(--ss-radius);
+  box-shadow: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+textarea.form-control {
+  min-height: 5rem;
+}
+
+.form-control:focus,
+select.form-control:focus,
+textarea.form-control:focus,
+.custom-select:focus {
+  color: var(--ss-text);
+  background-color: var(--ss-card-bg);
+  border-color: var(--ss-brand);
+  outline: 0;
+  box-shadow: 0 0 0 0.1875rem rgba(0, 84, 174, 0.2);
+}
+
+.form-control::placeholder {
+  color: var(--ss-text-muted);
+  opacity: 0.8;
+}
+
+.form-control:disabled,
+.form-control[readonly] {
+  background-color: var(--ss-surface);
+  border-color: var(--ss-input-border-subtle);
+  color: var(--ss-text-muted);
+  opacity: 1;
+}
+
+.form-control-file {
+  font-family: var(--ss-font-sans);
+  font-size: 0.875rem;
+  color: var(--ss-text-muted);
+}
+
+.custom-control-label {
+  font-family: var(--ss-font-sans);
+  color: var(--ss-text);
+}
+
+.custom-control-input:checked ~ .custom-control-label::before {
+  background-color: var(--ss-brand);
+  border-color: var(--ss-brand);
+}
+
+.custom-control-input:focus ~ .custom-control-label::before {
+  box-shadow: 0 0 0 0.1875rem rgba(0, 84, 174, 0.2);
+}
+
+.input-group-text {
+  font-family: var(--ss-font-sans);
+  font-size: 0.875rem;
+  color: var(--ss-text-muted);
+  background-color: var(--ss-surface);
+  border: 1px solid var(--ss-input-border);
+  border-radius: var(--ss-radius);
 }
 
 .login-error ul {
@@ -553,6 +678,9 @@ ul.errorlist {
 
 .form-label {
   width: 10rem;
+  font-weight: 500;
+  color: var(--ss-text-muted);
+  font-family: var(--ss-font-sans);
 }
 
 .hide-spinner {
