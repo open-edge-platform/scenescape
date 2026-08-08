@@ -144,6 +144,11 @@ function main() {
   const regionsFolder = panel.addFolder("Regions Settings");
   const sensorsFolder = panel.addFolder("Sensors Settings");
 
+  // Match Scene Settings: only Camera Settings starts expanded
+  tripwiresFolder.close();
+  regionsFolder.close();
+  sensorsFolder.close();
+
   camerasFolder.setSelectedCamera = interactions.setSelectedCamera;
   camerasFolder.unsetSelectedCamera = interactions.unsetSelectedCamera;
   let cameraManager = null;
