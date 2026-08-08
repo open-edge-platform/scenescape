@@ -160,6 +160,124 @@ h6 {
   font-weight: 600;
 }
 
+/* Modals / confirms — OEP */
+.modal-backdrop.show {
+  opacity: 0.45;
+  background-color: var(--ss-nav-bg);
+}
+
+.modal-content {
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+  box-shadow: 0 12px 40px rgba(0, 30, 80, 0.18);
+  font-family: var(--ss-font-sans);
+  color: var(--ss-text);
+  overflow: hidden;
+}
+
+.modal-header {
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--ss-card-border);
+  background-color: var(--ss-surface);
+}
+
+.modal-title {
+  margin: 0;
+  font-family: var(--ss-font-heading);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--ss-nav-bg);
+}
+
+.modal-header .close {
+  padding: 0.5rem;
+  margin: -0.5rem -0.25rem -0.5rem auto;
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--ss-text-muted);
+  text-shadow: none;
+  opacity: 0.7;
+}
+
+.modal-header .close:hover {
+  color: var(--ss-nav-bg);
+  opacity: 1;
+}
+
+.modal-body {
+  padding: 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--ss-text);
+}
+
+.modal-body ol,
+.modal-body ul {
+  margin-bottom: 0;
+  padding-left: 1.25rem;
+}
+
+.modal-body li + li {
+  margin-top: 0.5rem;
+}
+
+.modal-footer {
+  padding: 0.875rem 1.25rem;
+  border-top: 1px solid var(--ss-card-border);
+  background-color: var(--ss-card-bg);
+}
+
+/* Quiet dismiss actions in modal footers (scoped; global secondary is #1) */
+.modal-footer .btn-secondary,
+.modal-footer .btn-dark,
+.modal-footer .btn-outline-secondary {
+  color: var(--ss-brand);
+  background-color: transparent;
+  border: 1px solid var(--ss-brand);
+  font-weight: 500;
+}
+
+.modal-footer .btn-secondary:hover,
+.modal-footer .btn-secondary:focus,
+.modal-footer .btn-dark:hover,
+.modal-footer .btn-dark:focus,
+.modal-footer .btn-outline-secondary:hover,
+.modal-footer .btn-outline-secondary:focus {
+  color: #fff;
+  background-color: var(--ss-brand);
+  border-color: var(--ss-brand);
+}
+
+.modal-footer .btn-outline-danger {
+  color: var(--ss-status-bad);
+  background-color: transparent;
+  border: 1px solid var(--ss-status-bad);
+  font-weight: 500;
+}
+
+.modal-footer .btn-outline-danger:hover,
+.modal-footer .btn-outline-danger:focus {
+  color: #fff;
+  background-color: var(--ss-status-bad);
+  border-color: var(--ss-status-bad);
+}
+
+.modal-footer .btn-outline-primary {
+  color: var(--ss-brand);
+  background-color: transparent;
+  border: 1px solid var(--ss-brand);
+  font-weight: 500;
+}
+
+.modal-footer .btn-outline-primary:hover,
+.modal-footer .btn-outline-primary:focus {
+  color: #fff;
+  background-color: var(--ss-brand);
+  border-color: var(--ss-brand);
+}
+
 .ss-table-card {
   background-color: var(--ss-card-bg);
   border: 1px solid var(--ss-card-border);
@@ -1157,7 +1275,7 @@ ul.errorlist {
 }
 
 .model-prompt-container {
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: color-mix(in srgb, var(--ss-nav-bg) 45%, transparent);
 }
 
 .model-prompt-container .prompt-dialog {
@@ -1166,15 +1284,24 @@ ul.errorlist {
   transform: translateY(-50%);
 }
 
-.model-prompt-container .prompt-body {
-  padding-top: 32px;
-  padding-left: 32px;
-  padding-right: 32px;
-  padding-bottom: 16px;
+.model-prompt-container .prompt-content {
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+  box-shadow: 0 12px 40px rgba(0, 30, 80, 0.18);
 }
 
-.model-prompt-container .prompt-button-list button {
-  border: none;
+.model-prompt-container .prompt-body {
+  padding: 1.25rem;
+  font-family: var(--ss-font-sans);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--ss-text);
+}
+
+.guidance-modal-button:hover,
+.guidance-modal-button:focus {
+  color: var(--ss-brand-hover);
+  outline: none;
 }
 
 .loading-background-container {

@@ -306,7 +306,21 @@ $(document).ready(function () {
       const $modal = $(".model-prompt-container");
       const $confirmBtn = $modal.find(".prompt-confirm-button");
       const $cancelBtn = $modal.find(".prompt-cancel-button");
+      const $title = $modal.find(".prompt-title");
       const $message = $modal.find(".prompt-body");
+      const actionLabel = action.charAt(0).toUpperCase() + action.slice(1);
+
+      $title.text(`${actionLabel} files`);
+      $confirmBtn.text(actionLabel);
+      if (action === "delete") {
+        $confirmBtn
+          .removeClass("btn-outline-primary")
+          .addClass("btn-outline-danger");
+      } else {
+        $confirmBtn
+          .removeClass("btn-outline-danger")
+          .addClass("btn-outline-primary");
+      }
 
       // path and filenames are read from DOM attributes / user-supplied file
       // names, so they are inserted as text nodes rather than concatenated
@@ -332,16 +346,15 @@ $(document).ready(function () {
       // Show the modal
       $modal.css("display", "block");
 
-      // Event listener for confirm button
-      $confirmBtn.click(() => {
+      // Replace handlers each open so repeated prompts do not stack listeners
+      $confirmBtn.off("click.modelPrompt").on("click.modelPrompt", () => {
         $modal.css("display", "none");
-        resolve(true); // Resolve the promise with true
+        resolve(true);
       });
 
-      // Event listener for cancel button
-      $cancelBtn.click(() => {
+      $cancelBtn.off("click.modelPrompt").on("click.modelPrompt", () => {
         $modal.css("display", "none");
-        resolve(false); // Resolve the promise with true
+        resolve(false);
       });
     });
   }

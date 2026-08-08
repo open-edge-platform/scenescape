@@ -25,19 +25,21 @@ SPDX-License-Identifier: Apache-2.0
     id="model-directory-guidance"
     tabindex="-1"
     role="dialog"
-    aria-labelledby="exampleModalLabel"
+    aria-labelledby="model-directory-guidance-title"
   >
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog modal-dialog-centered" role="document">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="exampleModalLabel">Guidance</h5>
+          <h5 class="modal-title" id="model-directory-guidance-title">
+            Guidance
+          </h5>
           <button
             type="button"
             class="close"
             data-dismiss="modal"
             aria-label="Close"
           >
-            <span>&times;</span>
+            <span aria-hidden="true">&times;</span>
           </button>
         </div>
         <div class="modal-body">
@@ -68,7 +70,11 @@ SPDX-License-Identifier: Apache-2.0
           </ol>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-dark" data-dismiss="modal">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            data-dismiss="modal"
+          >
             Close
           </button>
         </div>
@@ -80,27 +86,42 @@ SPDX-License-Identifier: Apache-2.0
     {% csrf_token %}
 
     {# Delete/Overwrite prompt container #}
-    <div class="model-prompt-container modal" tabindex="-1" role="dialog">
-      <div class="modal-dialog prompt-dialog" role="document">
+    <div
+      class="model-prompt-container modal"
+      tabindex="-1"
+      role="dialog"
+      aria-labelledby="model-prompt-title"
+      aria-modal="true"
+    >
+      <div class="modal-dialog prompt-dialog modal-dialog-centered" role="document">
         <div class="modal-content prompt-content">
-          {# Body - Prompt Message #}
+          <div class="modal-header">
+            <h5 class="modal-title prompt-title" id="model-prompt-title">
+              Confirm
+            </h5>
+            <button
+              type="button"
+              class="close prompt-cancel-button"
+              aria-label="Close"
+            >
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
           <div class="modal-body prompt-body">
             Are you sure to delete the content?
           </div>
-          {# Footer - Button list #}
           <div class="modal-footer prompt-button-list">
+            <button
+              type="button"
+              class="btn btn-outline-secondary prompt-cancel-button"
+            >
+              Cancel
+            </button>
             <button
               type="button"
               class="btn btn-outline-danger prompt-confirm-button"
             >
               Delete
-            </button>
-            <button
-              type="button"
-              class="btn btn-outline-secondary prompt-cancel-button"
-              data-dismiss="modal"
-            >
-              Close
             </button>
           </div>
         </div>
