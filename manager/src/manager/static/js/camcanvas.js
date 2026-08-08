@@ -39,6 +39,9 @@ class CamCanvas {
     this.startY = 0;
     this.draggingPoint = null;
     this.calibrationUpdated = false;
+    this.viewInitialized = false;
+    this.lastImageWidth = 0;
+    this.lastImageHeight = 0;
 
     this.image.onload = () => {
       this.handleImageLoad();
@@ -296,9 +299,29 @@ class CamCanvas {
       requestAnimationFrame(() => this.handleImageLoad());
       return;
     }
+
+    const resolutionChanged =
+      this.image.width !== this.lastImageWidth ||
+      this.image.height !== this.lastImageHeight;
+    const previousFactor = this.camScaleFactor;
+
     this.camScaleFactor = this.#computeFitScale();
     this.#updatePointSize();
-    this.#centerImage();
+
+    if (!this.viewInitialized) {
+      // First frame: fit and center once.
+      this.#centerImage();
+      this.viewInitialized = true;
+    } else if (resolutionChanged && previousFactor > 0) {
+      // Keep the same view center when the stream resolution changes.
+      const ratio = this.camScaleFactor / previousFactor;
+      this.panX = paneW / 2 - (paneW / 2 - this.panX) * ratio;
+      this.panY = paneH / 2 - (paneH / 2 - this.panY) * ratio;
+    }
+    // Same resolution live updates: preserve pan/zoom and only redraw pixels.
+
+    this.lastImageWidth = this.image.width;
+    this.lastImageHeight = this.image.height;
     this.drawImage();
   }
 
@@ -311,6 +334,7 @@ class CamCanvas {
     this.camScaleFactor = this.#computeFitScale();
     this.#updatePointSize();
     this.#centerImage();
+    this.viewInitialized = true;
     this.drawImage();
   }
 
