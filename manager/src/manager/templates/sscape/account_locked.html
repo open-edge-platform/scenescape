@@ -7,22 +7,32 @@ SPDX-License-Identifier: Apache-2.0
 {% load static %}
 
 {% block content %}
-  <div class="d-flex justify-content-center h-100">
-    <div class="card width-auto">
-      <div class="card-header">
-        <img
-          src="{% static 'images/logo-color.png' %}"
-          alt="Scenescape"
-          width="300"
-        />
-      </div>
+  <div class="sign-in-page">
+    <div class="sign-in-shell">
+      <div class="sign-in-card">
+        <div class="sign-in-brand">
+          <span class="ss-wordmark ss-wordmark-lg">{{ APP_PROPER_NAME }}</span>
+          <p class="sign-in-version">Version {{ APP_VERSION_NUMBER }}</p>
+        </div>
 
-      <div class="card-footer">
-        <div class="d-flex justify-content-center">
+        <div class="sign-in-card-body">
           <div class="alert alert-danger login-error" role="alert">
-            Your account is locked due to multiple failed attempts. <br />
+            Your account is locked due to multiple failed attempts.
+            <br />
             Please try again in 30 seconds or contact the system administrator
             for sign in help.
+          </div>
+          <p class="sign-in-help">
+            <a href="{% url 'sign_in' %}">Return to sign in</a>
+          </p>
+
+          <div class="sign-in-powered-by" title="Powered by Intel">
+            <span class="powered-by-label">Powered by</span>
+            <img
+              class="intel-logo"
+              src="{% static 'images/intel-logo.svg' %}"
+              alt="Intel"
+            />
           </div>
         </div>
       </div>

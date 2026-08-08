@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -7,39 +7,39 @@ SPDX-License-Identifier: Apache-2.0
 {% load static %}
 
 {% block content %}
-  {% if messages %}
-    <p class="text-info text-center">
-      {% for message in messages %}
-        {{ message }}
-      {% endfor %}
-    </p>
-  {% endif %}
+  <div class="sign-in-page">
+    <div class="sign-in-shell">
+      <div class="sign-in-card">
+        <div class="sign-in-brand">
+          <span class="ss-wordmark ss-wordmark-lg">{{ APP_PROPER_NAME }}</span>
+          <p class="sign-in-version">Version {{ APP_VERSION_NUMBER }}</p>
+        </div>
 
-  {% if form.non_field_errors %}
-    <div class="alert alert-danger login-error" role="alert">
-      {{ form.non_field_errors }}
-    </div>
-  {% endif %}
+        <div class="sign-in-card-body">
+          {% if messages %}
+            <div class="sign-in-messages" role="status">
+              {% for message in messages %}
+                <p>{{ message }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
 
-  <div class="d-flex justify-content-center h-100">
-    <div class="card width-auto">
-      <div class="card-header">
-        <h2>{{ APP_PROPER_NAME }}</h2>
-        <small>Version {{ APP_VERSION_NUMBER }}</small>
-      </div>
-      <div class="card-body">
-        <form enctype="multipart/form-data" method="POST">
-          {% csrf_token %}
-          <div class="form-group">
-            <div class="input-group mb-3">
-              <div class="input-group-prepend">
-                <label
-                  class="input-group-text sign-in-form"
-                  for="username"
-                  id="label-username"
-                  >User Name</label
-                >
-              </div>
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger login-error" role="alert">
+              {{ form.non_field_errors }}
+            </div>
+          {% endif %}
+
+          <form
+            enctype="multipart/form-data"
+            method="POST"
+            class="sign-in-form-fields"
+          >
+            {% csrf_token %}
+            <div class="form-group">
+              <label class="sign-in-label" for="username" id="label-username"
+                >User Name</label
+              >
               <input
                 type="text"
                 class="form-control"
@@ -47,20 +47,15 @@ SPDX-License-Identifier: Apache-2.0
                 name="username"
                 aria-labelledby="label-username"
                 value=""
-                autocomplete="off"
+                autocomplete="username"
               />
+              {{ form.username.errors }}
             </div>
-            {{ form.username.errors }}
 
-            <div class="input-group mb-3">
-              <div class="input-group-prepend">
-                <label
-                  class="input-group-text sign-in-form"
-                  for="password"
-                  id="label-password"
-                  >Password</label
-                >
-              </div>
+            <div class="form-group">
+              <label class="sign-in-label" for="password" id="label-password"
+                >Password</label
+              >
               <input
                 type="password"
                 class="form-control"
@@ -68,29 +63,39 @@ SPDX-License-Identifier: Apache-2.0
                 name="password"
                 aria-labelledby="label-password"
                 value=""
+                autocomplete="current-password"
               />
+              {{ form.password.errors }}
             </div>
-            {{ form.password.errors }}
+
+            <button
+              type="submit"
+              id="login-submit"
+              class="btn btn-primary btn-block sign-in-submit"
+              disabled
+            >
+              <span
+                class="spinner-border spinner-border-sm hide-spinner"
+                role="status"
+                aria-hidden="true"
+                id="login-spinner"
+              ></span>
+              <span id="login-text">Sign In</span>
+            </button>
+          </form>
+
+          <p class="sign-in-help">
+            Contact the system administrator for sign in help.
+          </p>
+
+          <div class="sign-in-powered-by" title="Powered by Intel">
+            <span class="powered-by-label">Powered by</span>
+            <img
+              class="intel-logo"
+              src="{% static 'images/intel-logo.svg' %}"
+              alt="Intel"
+            />
           </div>
-          <button
-            type="submit"
-            id="login-submit"
-            class="btn btn-primary btn-block"
-            disabled
-          >
-            <span
-              class="spinner-border spinner-border-sm hide-spinner"
-              role="status"
-              aria-hidden="true"
-              id="login-spinner"
-            ></span>
-            <span id="login-text">Sign In</span>
-          </button>
-        </form>
-      </div>
-      <div class="card-footer">
-        <div class="d-flex justify-content-center">
-          <small>Contact the system administrator for sign in help.</small>
         </div>
       </div>
     </div>

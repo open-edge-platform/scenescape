@@ -46,7 +46,7 @@ SPDX-License-Identifier: Apache-2.0
     >
       <div id="scenescape-logo">
         <a class="navbar-brand" href="/" id="home">
-          <img src="/static/images/logo.png" alt="{{ APP_PROPER_NAME }} Logo" />
+          <span class="ss-wordmark">{{ APP_PROPER_NAME }}</span>
         </a>
       </div>
       <div class="card-body">
@@ -159,6 +159,14 @@ SPDX-License-Identifier: Apache-2.0
       aria-controls="scene-controls-3d"
     ></a>
     <canvas id="scene"></canvas>
+    <div class="scene-3d-powered-by" title="Powered by Intel">
+      <span class="powered-by-label">Powered by</span>
+      <img
+        class="intel-logo"
+        src="/static/images/intel-logo.svg"
+        alt="Intel"
+      />
+    </div>
   </div>
   <input type="hidden" id="broker" value="{{ scene.wssConnection }}" />
   <input

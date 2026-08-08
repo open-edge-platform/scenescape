@@ -82,7 +82,7 @@ SPDX-License-Identifier: Apache-2.0
         <span class="navbar-toggler-icon"></span>
       </button>
       <a class="navbar-brand" href="/" id="home">
-        <img src="/static/images/logo.png" alt="{{ APP_PROPER_NAME }} Logo" />
+        <span class="ss-wordmark">{{ APP_PROPER_NAME }}</span>
       </a>
 
       {% if user.is_authenticated %}
@@ -163,6 +163,15 @@ SPDX-License-Identifier: Apache-2.0
           </ul>
         </div>
       {% endif %}
+
+      <div class="navbar-powered-by" title="Powered by Intel">
+        <span class="powered-by-label">Powered by</span>
+        <img
+          class="intel-logo"
+          src="{% static 'images/intel-logo.svg' %}"
+          alt="Intel"
+        />
+      </div>
     </nav>
 
     <div class="container-fluid wrapper">

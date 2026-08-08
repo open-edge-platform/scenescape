@@ -1200,15 +1200,216 @@ ul.errorlist {
   width: 6.5em;
 }
 
-
-.navbar-brand {
-  margin-top: -10px;
+/* Sign-in page shell (OEP / ViPPET) */
+body:has(.sign-in-page) {
+  min-height: 100vh;
+  padding-top: 0;
+  padding-bottom: 0;
+  background:
+    radial-gradient(
+      120% 80% at 50% -10%,
+      color-mix(in srgb, var(--ss-brand-soft) 22%, transparent),
+      transparent 55%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--ss-nav-bg) 6%, var(--ss-surface)) 0%,
+      var(--ss-surface) 42%,
+      var(--ss-surface) 100%
+    );
 }
 
-.navbar-brand img {
-  width: 100px;
-  height: 33px;
-  object-fit: cover;
+body:has(.sign-in-page) .navbar {
+  display: none;
+}
+
+body:has(.sign-in-page) .wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
+}
+
+body:has(.sign-in-page) .content {
+  width: 100%;
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+.sign-in-page {
+  width: 100%;
+}
+
+.sign-in-shell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1rem;
+}
+
+.sign-in-brand {
+  text-align: center;
+  padding: 1.75rem 1.5rem 1.35rem;
+  background: var(--ss-nav-bg);
+  border-radius: var(--ss-radius) var(--ss-radius) 0 0;
+}
+
+.sign-in-version {
+  margin: 0.65rem 0 0;
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.sign-in-powered-by {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--ss-card-border);
+}
+
+.sign-in-messages {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+  background: color-mix(in srgb, var(--ss-brand) 8%, #fff);
+  color: var(--ss-brand);
+  font-family: var(--ss-font-sans);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.sign-in-messages p {
+  margin: 0;
+}
+
+.sign-in-card {
+  width: 100%;
+  padding: 0;
+  background: var(--ss-card-bg);
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+  box-shadow: 0 8px 28px rgba(0, 30, 80, 0.08);
+  overflow: hidden;
+}
+
+.sign-in-card-body {
+  padding: 1.5rem 1.5rem 1.25rem;
+}
+
+.sign-in-form-fields .form-group {
+  margin-bottom: 1rem;
+}
+
+.sign-in-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ss-text-muted);
+}
+
+.sign-in-form-fields .form-control {
+  border-color: var(--ss-input-border);
+  border-radius: var(--ss-radius);
+  font-family: var(--ss-font-sans);
+}
+
+.sign-in-form-fields .form-control:focus {
+  border-color: var(--ss-brand);
+  box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--ss-brand) 25%, transparent);
+}
+
+.sign-in-submit {
+  margin-top: 0.35rem;
+  padding: 0.55rem 1rem;
+  font-family: var(--ss-font-sans);
+  font-weight: 600;
+}
+
+.sign-in-help {
+  margin: 1rem 0 0;
+  text-align: center;
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  color: var(--ss-text-muted);
+}
+
+.sign-in-help a {
+  color: var(--ss-brand);
+  font-weight: 600;
+}
+
+.sign-in-page .login-error {
+  margin-bottom: 0;
+}
+
+.sign-in-card .login-error {
+  margin-bottom: 0.75rem;
+}
+
+.navbar-brand {
+  margin-top: 0;
+  display: inline-flex;
+  align-items: center;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+
+/* Product wordmark — geometric sans to echo Intel logo typography */
+.ss-wordmark {
+  display: inline-block;
+  font-family: var(--ss-font-heading);
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--ss-nav-fg);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ss-wordmark-lg {
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+}
+
+.navbar-powered-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  flex-shrink: 0;
+}
+
+.powered-by-label {
+  font-family: var(--ss-font-sans);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+}
+
+.intel-logo {
+  display: block;
+  height: 1.15rem;
+  width: auto;
+}
+
+.sign-in-powered-by .powered-by-label {
+  color: var(--ss-text-muted);
+}
+
+.sign-in-powered-by .intel-logo {
+  height: 1.35rem;
 }
 
 .navbar-none {
