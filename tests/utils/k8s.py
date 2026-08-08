@@ -43,13 +43,13 @@ _CERTMANAGER_URL = (
 _RELEASE_NAME = "scenescape"
 _NAMESPACE = "scenescape"
 
+# Core images required by the default k8s test Helm values (reid enabled;
+# mapping / clusterAnalytics remain disabled). Matches `make build-core`.
 _SCENESCAPE_IMAGES = [
   "intel/scenescape-analytics",
   "intel/scenescape-autocalibration",
-  "intel/scenescape-cluster-analytics",
   "intel/scenescape-controller",
   "intel/scenescape-manager",
-  "intel/scenescape-mapping",
 ]
 
 def _run(cmd, **kwargs):
