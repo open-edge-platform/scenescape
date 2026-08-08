@@ -9,6 +9,9 @@
   --ss-nav-bg: #1a2332;
   --ss-nav-fg: #f8f9fa;
   --ss-surface: #f7f8fa;
+  --ss-card-bg: #ffffff;
+  --ss-card-border: #e2e5ea;
+  --ss-text-muted: #5c6570;
   --ss-status-ok: #2e7d32;
   --ss-status-bad: #c62828;
 }
@@ -26,6 +29,25 @@ body {
 .navbar-dark .navbar-nav .nav-link,
 .navbar-dark .navbar-text {
   color: var(--ss-nav-fg);
+}
+
+.navbar-info {
+  font-size: 0.75rem;
+  line-height: 1.25;
+  padding: 0 0.75rem 0 0;
+  float: right;
+  display: inline-block;
+  margin-bottom: 0;
+  color: rgba(248, 249, 250, 0.65) !important;
+}
+
+.navbar-info strong {
+  color: var(--ss-nav-fg);
+  font-weight: 600;
+}
+
+.navbar-btn {
+  vertical-align: middle;
 }
 
 .btn-primary {
@@ -146,12 +168,19 @@ body {
 
 #mqtt_status,
 .child_mqtt_status {
-  background-color: var(--ss-status-bad);
+  background-color: transparent;
+  color: var(--ss-status-bad);
+  border: 1px solid var(--ss-status-bad);
   cursor: default;
+  border-radius: 1rem;
+  padding: 0.1rem 0.45rem;
+  line-height: 1.2;
 }
 
 .connected {
-  background-color: var(--ss-status-ok) !important;
+  background-color: transparent !important;
+  color: var(--ss-status-ok) !important;
+  border-color: var(--ss-status-ok) !important;
 }
 
 #camera_img {
@@ -318,6 +347,16 @@ polygon {
   width: 330px;
   margin: 0 20px 20px 0;
   float: left;
+  background-color: var(--ss-card-bg);
+  border: 1px solid var(--ss-card-border);
+  border-radius: 0.25rem;
+  box-shadow: 0 1px 2px rgba(26, 35, 50, 0.05);
+  overflow: hidden;
+}
+
+.card .card-header {
+  background-color: var(--ss-card-bg);
+  border-bottom: 1px solid var(--ss-card-border);
 }
 
 .card-image a {
@@ -469,16 +508,38 @@ ul.errorlist {
   object-fit: cover;
 }
 
-.navbar-info {
-  font-size: 0.8em;
-  padding: 0 0.5rem;
-  float: right;
-  display: inline-block;
-  margin-bottom: -1rem;
-}
-
 .navbar-none {
   display: none;
+}
+
+.scene-detail-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.scene-detail-header h2 {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 8rem;
+}
+
+.scene-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.scene-toolbar .scene-rate {
+  margin-right: 0.35rem;
+  font-size: 0.875rem;
+  color: var(--ss-text-muted);
+  white-space: nowrap;
 }
 
 .nav-tabs {

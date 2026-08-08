@@ -15,43 +15,45 @@ SPDX-License-Identifier: Apache-2.0
       </ol>
     </nav>
   </div>
-  <div class="hide-fullscreen">
-    {% if user.is_superuser %}
-      <a
-        class="btn btn-secondary btn-sm float-right"
-        id="scene-delete"
-        href="{% url 'scene_delete' scene.id %}"
-        title="Delete {{ scene.name }}"
-      >
-        <i class="bi bi-trash"></i>
-      </a>
-      <a
-        class="btn btn-secondary btn-sm float-right right-buffer"
-        id="scene-edit"
-        href="{% url 'scene_update' scene.id %}"
-        title="Edit {{ scene.name }}"
-      >
-        <i class="bi bi-pencil"></i>
-      </a>
-    {% endif %}
-    <a
-      class="btn btn-secondary btn-sm float-right right-buffer"
-      id="3d-view"
-      href="{% url 'scene_detail' scene.id %}"
-      title="View {{ scene.name }} in 3D"
-      >3D</a
-    >
-    <a
-      class="btn btn-secondary btn-sm float-right right-buffer"
-      id="export-scene"
-      title="Export {{ scene.name }}"
-    >
-      <i class="bi bi-box-arrow-up"></i>
-    </a>
-    <div class="float-right text-muted right-buffer">
-      Rate: <span id="scene-rate">--</span> Hz
-    </div>
+  <div class="hide-fullscreen scene-detail-header">
     <h2 id="scene_name">{{ scene.name }}</h2>
+    <div class="scene-toolbar">
+      <div class="scene-rate">
+        Rate: <span id="scene-rate">--</span> Hz
+      </div>
+      <a
+        class="btn btn-secondary btn-sm"
+        id="export-scene"
+        title="Export {{ scene.name }}"
+      >
+        <i class="bi bi-box-arrow-up"></i>
+      </a>
+      <a
+        class="btn btn-secondary btn-sm"
+        id="3d-view"
+        href="{% url 'scene_detail' scene.id %}"
+        title="View {{ scene.name }} in 3D"
+        >3D</a
+      >
+      {% if user.is_superuser %}
+        <a
+          class="btn btn-secondary btn-sm"
+          id="scene-edit"
+          href="{% url 'scene_update' scene.id %}"
+          title="Edit {{ scene.name }}"
+        >
+          <i class="bi bi-pencil"></i>
+        </a>
+        <a
+          class="btn btn-secondary btn-sm"
+          id="scene-delete"
+          href="{% url 'scene_delete' scene.id %}"
+          title="Delete {{ scene.name }}"
+        >
+          <i class="bi bi-trash"></i>
+        </a>
+      {% endif %}
+    </div>
   </div>
   <div class="scene-map">
     <div id="map">
