@@ -124,6 +124,42 @@ h6 {
   align-items: center;
 }
 
+.breadcrumb {
+  margin-bottom: 0.75rem;
+  padding: 0;
+  background-color: transparent;
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.breadcrumb-item,
+.breadcrumb-item + .breadcrumb-item {
+  color: var(--ss-text-muted);
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+  color: var(--ss-input-border);
+  content: "/";
+  padding-right: 0.5rem;
+}
+
+.breadcrumb-item a {
+  color: var(--ss-brand);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.breadcrumb-item a:hover {
+  color: var(--ss-brand-hover);
+  text-decoration: underline;
+}
+
+.breadcrumb-item.active {
+  color: var(--ss-nav-bg);
+  font-weight: 600;
+}
+
 .ss-table-card {
   background-color: var(--ss-card-bg);
   border: 1px solid var(--ss-card-border);
