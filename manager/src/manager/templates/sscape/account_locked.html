@@ -26,14 +26,20 @@ SPDX-License-Identifier: Apache-2.0
             <a href="{% url 'sign_in' %}">Return to sign in</a>
           </p>
 
-          <div class="sign-in-powered-by" title="Powered by Intel">
+          <a
+            class="sign-in-powered-by"
+            href="https://www.intel.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Powered by Intel"
+          >
             <span class="powered-by-label">Powered by</span>
             <img
               class="intel-logo"
               src="{% static 'images/intel-logo.svg' %}"
               alt="Intel"
             />
-          </div>
+          </a>
         </div>
       </div>
     </div>

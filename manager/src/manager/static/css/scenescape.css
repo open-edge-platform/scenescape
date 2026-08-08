@@ -48,7 +48,16 @@ h6 {
   border-radius: 0.375rem;
   background: rgba(0, 0, 0, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  pointer-events: none;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.scene-3d-powered-by:hover,
+.scene-3d-powered-by:focus {
+  text-decoration: none;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.7);
 }
 
 .scene-3d-powered-by .powered-by-label {

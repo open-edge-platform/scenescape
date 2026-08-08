@@ -50,11 +50,17 @@ h6 {
   color: var(--ss-nav-fg);
 }
 
+.btn-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .navbar-info {
   font-size: 0.75rem;
   line-height: 1.25;
-  padding: 0 0.75rem 0 0;
-  float: right;
+  padding: 0;
+  float: none;
   display: inline-block;
   margin-bottom: 0;
   color: rgba(255, 255, 255, 0.65) !important;
@@ -67,6 +73,7 @@ h6 {
 
 .navbar-btn {
   vertical-align: middle;
+  margin-left: 0;
 }
 
 .btn-primary {
@@ -888,6 +895,77 @@ polygon {
   object-fit: contain;
 }
 
+/* Scenes home — flex gallery; same card size, quieter meta (no labeled rewrite) */
+.scene-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.scene-gallery .scene-card {
+  float: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.scene-gallery .scene-card:hover {
+  border-color: color-mix(in srgb, var(--ss-brand) 28%, var(--ss-card-border));
+  box-shadow: 0 4px 12px rgba(0, 30, 80, 0.1);
+}
+
+.scene-gallery .scene-card .card-header {
+  font-family: var(--ss-font-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ss-nav-bg);
+  padding: 0.75rem 1rem;
+}
+
+.scene-gallery .scene-card .card-body {
+  padding: 0.75rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.scene-gallery .scene-card-meta {
+  margin-bottom: 0.75rem;
+  color: var(--ss-text-muted);
+  font-size: 0.8125rem;
+}
+
+.scene-gallery .scene-card-meta td {
+  border-top: none;
+  padding: 0.2rem 0;
+}
+
+.scene-gallery .scene-card-meta td:last-child {
+  text-align: right;
+  font-weight: 600;
+  color: var(--ss-nav-bg);
+}
+
+.scene-gallery .scene-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  margin-top: auto;
+}
+
+.scene-gallery .blank-container {
+  background-color: var(--ss-surface);
+  border-color: var(--ss-card-border) !important;
+}
+
+.scene-gallery-empty {
+  color: var(--ss-text-muted);
+  font-size: 0.9375rem;
+}
+
 .cam-offline {
   width: 234px;
   height: 188px;
@@ -1419,12 +1497,27 @@ body:has(.sign-in-page) .content {
   font-size: clamp(1.75rem, 4vw, 2.25rem);
 }
 
+.navbar-powered-by,
+.sign-in-powered-by {
+  text-decoration: none;
+  color: inherit;
+}
+
+.navbar-powered-by:hover,
+.navbar-powered-by:focus,
+.sign-in-powered-by:hover,
+.sign-in-powered-by:focus {
+  text-decoration: none;
+  color: inherit;
+  opacity: 0.9;
+}
+
 .navbar-powered-by {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   margin-left: auto;
-  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  padding: 0.25rem 0.5rem 0.25rem 1rem;
   flex-shrink: 0;
 }
 

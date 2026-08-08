@@ -159,14 +159,20 @@ SPDX-License-Identifier: Apache-2.0
       aria-controls="scene-controls-3d"
     ></a>
     <canvas id="scene"></canvas>
-    <div class="scene-3d-powered-by" title="Powered by Intel">
+    <a
+      class="scene-3d-powered-by"
+      href="https://www.intel.com/"
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Powered by Intel"
+    >
       <span class="powered-by-label">Powered by</span>
       <img
         class="intel-logo"
         src="/static/images/intel-logo.svg"
         alt="Intel"
       />
-    </div>
+    </a>
   </div>
   <input type="hidden" id="broker" value="{{ scene.wssConnection }}" />
   <input

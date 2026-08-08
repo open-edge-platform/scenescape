@@ -119,26 +119,33 @@ SPDX-License-Identifier: Apache-2.0
                   ><br /><span id="navbar-version"
                     >Version {{ APP_VERSION_NUMBER }}</span
                   >
-                  <a
-                    class="btn btn-primary btn-small navbar-btn"
-                    href="/sign_out"
-                    >Log Out</a
-                  >
                 </div>
+                <a
+                  class="btn btn-sm btn-outline-light navbar-btn"
+                  id="nav-sign-out"
+                  href="/sign_out"
+                  >Log Out</a
+                >
               </div>
             </li>
           </ul>
         </div>
       {% endif %}
 
-      <div class="navbar-powered-by" title="Powered by Intel">
+      <a
+        class="navbar-powered-by"
+        href="https://www.intel.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Powered by Intel"
+      >
         <span class="powered-by-label">Powered by</span>
         <img
           class="intel-logo"
           src="{% static 'images/intel-logo.svg' %}"
           alt="Intel"
         />
-      </div>
+      </a>
     </nav>
     {% block content %}
     {% endblock %}
