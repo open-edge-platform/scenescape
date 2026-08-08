@@ -130,8 +130,9 @@ SPDX-License-Identifier: Apache-2.0
     />
   {% endif %}
 
-  <div class="hide-fullscreen hide-print" id="scene-controls">
-    <div class="center">
+  <div class="scene-detail-panels hide-fullscreen">
+  <div class="hide-print" id="scene-controls">
+    <div class="scene-detail-toggles">
       <div class="custom-control custom-switch switch">
         <input
           type="checkbox"
@@ -207,7 +208,7 @@ SPDX-License-Identifier: Apache-2.0
     </div>
   </div>
 
-  <ul class="nav nav-tabs hide-fullscreen hide-live" id="myTab" role="tablist">
+  <ul class="nav nav-tabs hide-live" id="myTab" role="tablist">
     <li class="nav-item">
       <a
         class="nav-link active"
@@ -218,8 +219,9 @@ SPDX-License-Identifier: Apache-2.0
         aria-controls="cameras"
         aria-selected="true"
         title="Cameras Tab"
-        ><i class="bi bi-camera-video"></i> Cameras <span class="show-count"
-      /></a>
+        ><i class="bi bi-camera-video" aria-hidden="true"></i> Cameras
+        <span class="show-count"></span
+      ></a>
     </li>
 
     <li class="nav-item">
@@ -232,8 +234,9 @@ SPDX-License-Identifier: Apache-2.0
         aria-controls="sensors"
         aria-selected="false"
         title="Sensors Tab"
-        ><i class="bi bi-thermometer"></i> Sensors <span class="show-count"
-      /></a>
+        ><i class="bi bi-thermometer" aria-hidden="true"></i> Sensors
+        <span class="show-count"></span
+      ></a>
     </li>
 
     <li class="nav-item">
@@ -246,8 +249,9 @@ SPDX-License-Identifier: Apache-2.0
         aria-controls="regions"
         aria-selected="false"
         title="Regions Tab"
-        ><i class="bi bi-layout-wtf"></i> Regions <span class="show-count"
-      /></a>
+        ><i class="bi bi-layout-wtf" aria-hidden="true"></i> Regions
+        <span class="show-count"></span
+      ></a>
     </li>
 
     <li class="nav-item">
@@ -260,9 +264,9 @@ SPDX-License-Identifier: Apache-2.0
         aria-controls="trips"
         aria-selected="false"
         title="Tripwires Tab"
-        ><i class="bi bi-arrow-bar-left"></i> Tripwires
-        <span class="show-count"
-      /></a>
+        ><i class="bi bi-arrow-bar-left" aria-hidden="true"></i> Tripwires
+        <span class="show-count"></span
+      ></a>
     </li>
 
     <li class="nav-item">
@@ -275,8 +279,10 @@ SPDX-License-Identifier: Apache-2.0
         aria-controls="children"
         aria-selected="false"
         title="Children Tab"
-        ><i class="bi bi-diagram-2"></i> Children
-        ({{ scene.children.count }})</a
+        ><i class="bi bi-diagram-2" aria-hidden="true"></i> Children
+        <span class="scene-detail-tab-count"
+          >({{ scene.children.count }})</span
+        ></a
       >
     </li>
 
@@ -290,43 +296,47 @@ SPDX-License-Identifier: Apache-2.0
         aria-controls="mqtt"
         aria-selected="false"
         title="MQTT Tab"
-        ><span id="mqtt_status" class="btn-sm btn"
-          ><i class="bi bi-arrow-down-up"></i
+        ><span id="mqtt_status" class="scene-detail-mqtt-pill" title="MQTT status"
+          ><i class="bi bi-arrow-down-up" aria-hidden="true"></i
         ></span>
         MQTT</a
       >
     </li>
   </ul>
 
-  <div class="tab-content hide-fullscreen" id="myTabContent">
+  <div class="tab-content" id="myTabContent">
     <div
       class="tab-pane fade show active"
       id="cameras"
       role="tabpanel"
       aria-labelledby="cameras-tab"
     >
-      <div class="card width-100">
-        <h5 class="noselect card-header hide-live">
-          Cameras
-          <button
-            type="button"
-            title="Camera Help"
-            class="btn btn-primary btn-sm float-right"
-            id="camera-help"
-            data-toggle="modal"
-            data-target="#cameraHelpModal"
-          >
-            <i class="bi bi-info-square"></i>
-          </button>
-          {% if user.is_superuser %}
-            <a
+      <div class="card width-100 scene-detail-panel">
+        <h5 class="noselect card-header scene-detail-panel-header hide-live">
+          <span class="scene-detail-panel-heading">
+            Cameras
+            <button
               type="button"
-              class="btn btn-primary btn-sm float-right right-buffer"
-              id="new-camera"
-              title="Add a new camera"
-              href="{% url 'cam_create' %}?scene={{ scene.id }}"
-              >+ New Camera</a
+              class="scene-detail-help"
+              id="camera-help"
+              data-toggle="modal"
+              data-target="#cameraHelpModal"
+              title="How cameras work in this scene"
+              aria-label="How cameras work in this scene"
             >
+              <i class="bi bi-question-circle" aria-hidden="true"></i>
+            </button>
+          </span>
+          {% if user.is_superuser %}
+            <span class="scene-detail-panel-actions">
+              <a
+                class="btn btn-primary btn-sm"
+                id="new-camera"
+                title="Add a new camera"
+                href="{% url 'cam_create' %}?scene={{ scene.id }}"
+                >+ New Camera</a
+              >
+            </span>
           {% endif %}
         </h5>
         <div class="card-body">
@@ -414,28 +424,32 @@ SPDX-License-Identifier: Apache-2.0
       role="tabpanel"
       aria-labelledby="sensors-tab"
     >
-      <div class="card width-100">
-        <h5 class="noselect card-header">
-          Sensors
-          {% if user.is_superuser %}
+      <div class="card width-100 scene-detail-panel">
+        <h5 class="noselect card-header scene-detail-panel-header">
+          <span class="scene-detail-panel-heading">
+            Sensors
             <button
               type="button"
-              title="Sensor Help"
-              class="btn btn-primary btn-sm float-right"
+              class="scene-detail-help"
               id="sensor-help"
               data-toggle="modal"
               data-target="#sensorHelpModal"
+              title="How sensors work in this scene"
+              aria-label="How sensors work in this scene"
             >
-              <i class="bi bi-info-square"></i>
+              <i class="bi bi-question-circle" aria-hidden="true"></i>
             </button>
-            <a
-              type="button"
-              class="btn btn-primary btn-sm float-right right-buffer"
-              id="new-sensor"
-              title="Add a new sensor"
-              href="{% url 'singleton_sensor_create' %}?scene={{ scene.id }}"
-              >+ New Sensor</a
-            >
+          </span>
+          {% if user.is_superuser %}
+            <span class="scene-detail-panel-actions">
+              <a
+                class="btn btn-primary btn-sm"
+                id="new-sensor"
+                title="Add a new sensor"
+                href="{% url 'singleton_sensor_create' %}?scene={{ scene.id }}"
+                >+ New Sensor</a
+              >
+            </span>
           {% endif %}
         </h5>
         <div class="card-body">
@@ -501,34 +515,39 @@ SPDX-License-Identifier: Apache-2.0
       role="tabpanel"
       aria-labelledby="regions-tab"
     >
-      <div class="card width-100">
-        <h5 class="noselect card-header">
-          Regions of Interest
-          {% if user.is_superuser %}
+      <div class="card width-100 scene-detail-panel">
+        <h5 class="noselect card-header scene-detail-panel-header">
+          <span class="scene-detail-panel-heading">
+            Regions of Interest
             <button
               type="button"
-              title="ROI Help"
-              class="btn btn-primary btn-sm float-right"
+              class="scene-detail-help"
               id="roi-help"
               data-toggle="modal"
               data-target="#roiHelpModal"
+              title="How regions of interest work"
+              aria-label="How regions of interest work"
             >
-              <i class="bi bi-info-square"></i>
+              <i class="bi bi-question-circle" aria-hidden="true"></i>
             </button>
-            <button
-              type="button"
-              class="btn btn-primary btn-sm float-right right-buffer"
-              id="new-roi"
-              title="Create a new ROI"
-            >
-              + New Region
-            </button>
-            <input
-              type="button"
-              class="btn btn-sm btn-primary float-right right-buffer"
-              id="save-rois"
-              value="Save Regions and Tripwires"
-            />
+          </span>
+          {% if user.is_superuser %}
+            <span class="scene-detail-panel-actions">
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                id="new-roi"
+                title="Create a new ROI"
+              >
+                + New Region
+              </button>
+              <input
+                type="button"
+                class="btn btn-sm btn-primary"
+                id="save-rois"
+                value="Save Regions and Tripwires"
+              />
+            </span>
           {% endif %}
         </h5>
         <div class="card-body">
@@ -546,34 +565,39 @@ SPDX-License-Identifier: Apache-2.0
       role="tabpanel"
       aria-labelledby="tripwires-tab"
     >
-      <div class="card width-100">
-        <h5 class="noselect card-header">
-          Tripwires
-          {% if user.is_superuser %}
+      <div class="card width-100 scene-detail-panel">
+        <h5 class="noselect card-header scene-detail-panel-header">
+          <span class="scene-detail-panel-heading">
+            Tripwires
             <button
               type="button"
-              title="Tripwire Help"
-              class="btn btn-primary btn-sm float-right"
+              class="scene-detail-help"
               id="tripwire-help"
               data-toggle="modal"
               data-target="#tripwireHelpModal"
+              title="How tripwires work"
+              aria-label="How tripwires work"
             >
-              <i class="bi bi-info-square"></i>
+              <i class="bi bi-question-circle" aria-hidden="true"></i>
             </button>
-            <button
-              type="button"
-              class="btn btn-primary btn-sm float-right right-buffer"
-              id="new-tripwire"
-              title="Create a new tripwire"
-            >
-              + New Tripwire
-            </button>
-            <input
-              type="button"
-              class="btn btn-sm btn-primary float-right right-buffer"
-              id="save-trips"
-              value="Save Regions and Tripwires"
-            />
+          </span>
+          {% if user.is_superuser %}
+            <span class="scene-detail-panel-actions">
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                id="new-tripwire"
+                title="Create a new tripwire"
+              >
+                + New Tripwire
+              </button>
+              <input
+                type="button"
+                class="btn btn-sm btn-primary"
+                id="save-trips"
+                value="Save Regions and Tripwires"
+              />
+            </span>
           {% endif %}
         </h5>
         <div class="card-body">
@@ -591,28 +615,32 @@ SPDX-License-Identifier: Apache-2.0
       role="tabpanel"
       aria-labelledby="children-tab"
     >
-      <div class="card width-100">
-        <h5 class="noselect card-header hide-live">
-          Children
-          <button
-            type="button"
-            title="Children Help"
-            class="btn btn-primary btn-sm float-right"
-            id="children-help"
-            data-toggle="modal"
-            data-target="#childrenHelpModal"
-          >
-            <i class="bi bi-info-square"></i>
-          </button>
-          {% if user.is_superuser %}
-            <a
+      <div class="card width-100 scene-detail-panel">
+        <h5 class="noselect card-header scene-detail-panel-header hide-live">
+          <span class="scene-detail-panel-heading">
+            Children
+            <button
               type="button"
-              class="btn btn-primary btn-sm float-right right-buffer"
-              id="new-child"
-              title="Add a new child scene"
-              href="{% url 'child_create' %}?scene={{ scene.id }}"
-              >+ Link Child Scene</a
+              class="scene-detail-help"
+              id="children-help"
+              data-toggle="modal"
+              data-target="#childrenHelpModal"
+              title="How child scenes work"
+              aria-label="How child scenes work"
             >
+              <i class="bi bi-question-circle" aria-hidden="true"></i>
+            </button>
+          </span>
+          {% if user.is_superuser %}
+            <span class="scene-detail-panel-actions">
+              <a
+                class="btn btn-primary btn-sm"
+                id="new-child"
+                title="Add a new child scene"
+                href="{% url 'child_create' %}?scene={{ scene.id }}"
+                >+ Link Child Scene</a
+              >
+            </span>
           {% endif %}
         </h5>
         <div id="childrenlist" class="card-body">
@@ -693,8 +721,10 @@ SPDX-License-Identifier: Apache-2.0
       role="tabpanel"
       aria-labelledby="mqtt-tab"
     >
-      <div class="card width-100">
-        <h5 class="noselect card-header">MQTT Settings</h5>
+      <div class="card width-100 scene-detail-panel">
+        <h5 class="noselect card-header scene-detail-panel-header">
+          <span class="scene-detail-panel-heading">MQTT Settings</span>
+        </h5>
         <div class="card-body">
           <div class="row">
             <div class="col-sm">
@@ -768,6 +798,7 @@ SPDX-License-Identifier: Apache-2.0
         </div>
       </div>
     </div>
+  </div>
   </div>
 
   <!-- Camera Help Modal -->

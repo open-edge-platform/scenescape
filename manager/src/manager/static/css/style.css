@@ -642,6 +642,7 @@ body.cal-pane-expanded {
 }
 
 #mqtt_status,
+.scene-detail-mqtt-pill,
 .child_mqtt_status {
   background-color: transparent;
   color: var(--ss-status-bad);
@@ -1047,15 +1048,6 @@ ul.errorlist {
   width: 6.5em;
 }
 
-#scene-controls {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-#scene-controls > div {
-  margin: 0 auto;
-}
-
 #scene-controls .custom-control {
   display: inline-block;
 }
@@ -1102,6 +1094,202 @@ ul.errorlist {
   font-size: 0.875rem;
   color: var(--ss-text-muted);
   white-space: nowrap;
+}
+
+/* Scene detail tabs + panel chrome (OEP / ViPPET) */
+.scene-detail-panels {
+  clear: both;
+  margin-top: 1rem;
+  background: var(--ss-card-bg);
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+  box-shadow: 0 1px 2px rgba(0, 30, 80, 0.06);
+  overflow: hidden;
+}
+
+.scene-detail-panels > .nav-tabs {
+  clear: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 0;
+  padding: 0 0.5rem;
+  border-bottom: 1px solid var(--ss-card-border);
+  background: color-mix(in srgb, var(--ss-surface) 65%, #fff);
+}
+
+.scene-detail-panels > .nav-tabs .nav-item {
+  margin-bottom: 0;
+}
+
+.scene-detail-panels > .nav-tabs .nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ss-text-muted);
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.scene-detail-panels > .nav-tabs .nav-link:hover {
+  border-color: transparent;
+  color: var(--ss-nav-bg);
+  background: transparent;
+}
+
+.scene-detail-panels > .nav-tabs .nav-link.active {
+  color: var(--ss-brand);
+  background: transparent;
+  border-color: transparent transparent var(--ss-brand);
+}
+
+.scene-detail-panels > .nav-tabs .nav-link .show-count,
+.scene-detail-panels > .nav-tabs .nav-link .scene-detail-tab-count {
+  font-weight: 500;
+  color: inherit;
+  opacity: 0.8;
+}
+
+.scene-detail-mqtt-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.3rem;
+  border-radius: 1rem;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.scene-detail-panels > .tab-content {
+  padding: 0;
+}
+
+.scene-detail-panel {
+  float: none !important;
+  width: 100% !important;
+  max-width: none;
+  margin: 0 !important;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.scene-detail-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  margin: 0;
+  padding: 0.9rem 1.15rem;
+  background: transparent;
+  border-bottom: 1px solid var(--ss-card-border);
+  font-family: var(--ss-font-heading);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ss-nav-bg);
+}
+
+.scene-detail-panel-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.scene-detail-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ss-text-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.scene-detail-help:hover,
+.scene-detail-help:focus {
+  color: var(--ss-brand);
+  outline: none;
+}
+
+.scene-detail-help:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ss-brand) 35%, transparent);
+}
+
+.scene-detail-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  margin-left: auto;
+}
+
+.scene-detail-panel-actions .btn {
+  margin: 0;
+}
+
+.scene-detail-panel > .card-body {
+  padding: 1rem 1.15rem 1.25rem;
+}
+
+.scene-detail-panels > #scene-controls {
+  clear: none;
+  margin: 0;
+  padding: 0.65rem 1.15rem;
+  background: color-mix(in srgb, var(--ss-surface) 65%, #fff);
+  border: 0;
+  border-bottom: 1px solid var(--ss-card-border);
+  border-radius: 0;
+}
+
+.scene-detail-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 1.5rem;
+}
+
+.scene-detail-panels > #scene-controls .switch {
+  padding: 0.15rem 0;
+  margin: 0;
+}
+
+.scene-detail-panels > #scene-controls .custom-control {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  padding-left: 2.15rem;
+  margin: 0;
+}
+
+.scene-detail-panels > #scene-controls .custom-control-label {
+  padding-top: 0.1rem;
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--ss-text);
 }
 
 .nav-tabs {
