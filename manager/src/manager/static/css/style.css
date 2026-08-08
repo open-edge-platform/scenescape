@@ -1,11 +1,49 @@
 /*
- * SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+ * SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
  * SPDX-License-Identifier: Apache-2.0
  */
+
+:root {
+  --ss-brand: #0068b5;
+  --ss-brand-hover: #005291;
+  --ss-nav-bg: #1a2332;
+  --ss-nav-fg: #f8f9fa;
+  --ss-surface: #f7f8fa;
+  --ss-status-ok: #2e7d32;
+  --ss-status-bad: #c62828;
+}
 
 body {
   padding-top: 5rem;
   padding-bottom: 5rem;
+  background-color: var(--ss-surface);
+}
+
+.navbar.bg-dark {
+  background-color: var(--ss-nav-bg) !important;
+}
+
+.navbar-dark .navbar-nav .nav-link,
+.navbar-dark .navbar-text {
+  color: var(--ss-nav-fg);
+}
+
+.btn-primary {
+  background-color: var(--ss-brand);
+  border-color: var(--ss-brand);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--ss-brand-hover);
+  border-color: var(--ss-brand-hover);
+}
+
+.btn-primary:not(:disabled):not(.disabled):active,
+.btn-primary:not(:disabled):not(.disabled).active,
+.show > .btn-primary.dropdown-toggle {
+  background-color: var(--ss-brand-hover);
+  border-color: var(--ss-brand-hover);
 }
 
 .draggable {
@@ -108,12 +146,12 @@ body {
 
 #mqtt_status,
 .child_mqtt_status {
-  background-color: red;
+  background-color: var(--ss-status-bad);
   cursor: default;
 }
 
 .connected {
-  background-color: #1de71d !important;
+  background-color: var(--ss-status-ok) !important;
 }
 
 #camera_img {
