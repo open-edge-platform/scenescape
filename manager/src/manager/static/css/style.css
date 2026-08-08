@@ -99,6 +99,45 @@ h6 {
   color: #fff;
 }
 
+/* Secondary — quiet OEP outline (not Bootstrap gray fill) */
+.btn-secondary,
+.btn-outline-secondary {
+  color: var(--ss-nav-bg);
+  background-color: transparent;
+  border: 1px solid var(--ss-input-border);
+  font-weight: 500;
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus,
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus {
+  color: var(--ss-brand);
+  background-color: color-mix(in srgb, var(--ss-brand) 8%, #fff);
+  border-color: var(--ss-brand);
+}
+
+.btn-secondary:not(:disabled):not(.disabled):active,
+.btn-secondary:not(:disabled):not(.disabled).active,
+.show > .btn-secondary.dropdown-toggle,
+.btn-outline-secondary:not(:disabled):not(.disabled):active,
+.btn-outline-secondary:not(:disabled):not(.disabled).active,
+.show > .btn-outline-secondary.dropdown-toggle {
+  color: #fff;
+  background-color: var(--ss-brand);
+  border-color: var(--ss-brand);
+}
+
+.btn-secondary:disabled,
+.btn-secondary.disabled,
+.btn-outline-secondary:disabled,
+.btn-outline-secondary.disabled {
+  color: var(--ss-text-muted);
+  background-color: transparent;
+  border-color: var(--ss-card-border);
+  opacity: 0.65;
+}
+
 .page-header {
   display: flex;
   flex-wrap: wrap;
