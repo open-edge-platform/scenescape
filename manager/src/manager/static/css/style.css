@@ -138,26 +138,64 @@ a:hover {
 }
 
 .cameraCalContainer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: stretch;
+  margin: 0.5rem 0 1.25rem;
+}
+
+.cal-pane {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  flex-direction: column;
+  min-width: 0;
+  background-color: var(--ss-card-bg);
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 30, 80, 0.06);
+}
+
+.cal-pane-header {
+  flex: 0 0 auto;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--ss-font-heading);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ss-nav-fg);
+  background-color: var(--ss-nav-bg);
+  border-bottom: 1px solid var(--ss-card-border);
+}
+
+.cal-pane-viewport {
+  position: relative;
+  flex: 1 1 auto;
+  height: min(55vh, 640px);
+  min-height: 280px;
+  background-color: #808080;
+  overflow: hidden;
 }
 
 .cameraCal {
-  margin: 15px 0;
-  position: relative;
-  overflow: hidden;
+  position: absolute;
+  inset: 0;
+  margin: 0;
   display: block;
-  max-width: 100%;
-  width: 50% !important;
+  width: 100% !important;
   height: 100% !important;
+  max-width: none;
   box-sizing: border-box;
+  border: 0;
 }
 
-@media (max-width: 1440px) {
-  .cameraCal {
-    width: 100% !important;
-    min-width: 0;
+@media (max-width: 900px) {
+  .cameraCalContainer {
+    grid-template-columns: 1fr;
+  }
+
+  .cal-pane-viewport {
+    height: min(45vh, 480px);
   }
 }
 

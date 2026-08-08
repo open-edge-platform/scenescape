@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -45,6 +45,7 @@ class CamCanvas {
     };
 
     this.initializeEventListeners();
+    this.#observePaneResize();
     this.updateImageSrc(initialImageSrc);
   }
 
@@ -68,6 +69,66 @@ class CamCanvas {
     this.canvas.addEventListener("contextmenu", (event) =>
       this.onRightClick(event),
     );
+  }
+
+  #observePaneResize() {
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+    this.resizeObserver = new ResizeObserver(() => {
+      if (!this.image.width) {
+        return;
+      }
+      this.#refitToPane();
+    });
+    this.resizeObserver.observe(this.canvas);
+  }
+
+  #paneSize() {
+    return [this.canvas.clientWidth || 0, this.canvas.clientHeight || 0];
+  }
+
+  #computeFitScale() {
+    const [paneW, paneH] = this.#paneSize();
+    if (!paneW || !paneH || !this.image.width || !this.image.height) {
+      return CAMERA_SCALE_FACTOR;
+    }
+    return Math.min(paneW / this.image.width, paneH / this.image.height);
+  }
+
+  #updatePointSize() {
+    const [paneW, paneH] = this.#paneSize();
+    const basis = Math.min(paneW || 1, paneH || 1);
+    this.calibrationPointSize = (basis * CALIBRATION_POINT_SCALE) / this.scale;
+  }
+
+  #centerImage() {
+    const [paneW, paneH] = this.#paneSize();
+    const displayW = this.image.width * this.camScaleFactor * this.scale;
+    const displayH = this.image.height * this.camScaleFactor * this.scale;
+    this.panX = (paneW - displayW) / 2;
+    this.panY = (paneH - displayH) / 2;
+  }
+
+  #refitToPane() {
+    const [paneW, paneH] = this.#paneSize();
+    if (!paneW || !paneH) {
+      return;
+    }
+    const oldFactor = this.camScaleFactor;
+    const oldW = this.canvas.width;
+    const oldH = this.canvas.height;
+    this.camScaleFactor = this.#computeFitScale();
+    this.#updatePointSize();
+
+    if (oldFactor > 0 && oldW > 0 && oldH > 0) {
+      const ratio = this.camScaleFactor / oldFactor;
+      this.panX = paneW / 2 - (oldW / 2 - this.panX) * ratio;
+      this.panY = paneH / 2 - (oldH / 2 - this.panY) * ratio;
+    } else {
+      this.#centerImage();
+    }
+    this.drawImage();
   }
 
   #getImageCoordinates(x, y) {
@@ -160,8 +221,7 @@ class CamCanvas {
     this.panX = mouseX - (mouseX - this.panX) * scaleFactor;
     this.panY = mouseY - (mouseY - this.panY) * scaleFactor;
 
-    this.calibrationPointSize =
-      (this.canvas.clientWidth * CALIBRATION_POINT_SCALE) / this.scale;
+    this.#updatePointSize();
     this.drawImage();
   }
 
@@ -197,15 +257,28 @@ class CamCanvas {
 
   // Image drawing functions
 
-  drawImage(width = this.canvas.width, height = this.canvas.height) {
+  drawImage() {
+    const [width, height] = this.#paneSize();
+    if (!width || !height) {
+      return;
+    }
+
     this.canvas.width = width;
     this.canvas.height = height;
     this.ctx.fillStyle = CALIBRATION_BACKGROUND_COLOR;
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillRect(0, 0, width, height);
+
+    if (!this.image.width || !this.image.height) {
+      return;
+    }
+
+    const displayW = this.image.width * this.camScaleFactor;
+    const displayH = this.image.height * this.camScaleFactor;
+
     this.ctx.save();
     this.ctx.translate(this.panX, this.panY);
     this.ctx.scale(this.scale, this.scale);
-    this.ctx.drawImage(this.image, 0, 0, width, height);
+    this.ctx.drawImage(this.image, 0, 0, displayW, displayH);
     for (const point of this.calibrationPoints) {
       this.drawPoint(
         point.x * this.camScaleFactor,
@@ -218,14 +291,15 @@ class CamCanvas {
   }
 
   handleImageLoad() {
-    // Do resizing and find the new width and height
-    const aspectRatio = this.image.width / this.image.height;
-    this.camScaleFactor = this.canvas.clientWidth / this.image.width;
-    this.calibrationPointSize =
-      (this.canvas.clientWidth * CALIBRATION_POINT_SCALE) / this.scale;
-    let newWidth = this.canvas.clientWidth;
-    let newHeight = this.canvas.clientWidth / aspectRatio;
-    this.drawImage(newWidth, newHeight);
+    const [paneW, paneH] = this.#paneSize();
+    if (!paneW || !paneH) {
+      requestAnimationFrame(() => this.handleImageLoad());
+      return;
+    }
+    this.camScaleFactor = this.#computeFitScale();
+    this.#updatePointSize();
+    this.#centerImage();
+    this.drawImage();
   }
 
   updateImageSrc(base64Image) {
@@ -234,8 +308,9 @@ class CamCanvas {
 
   resetCameraView() {
     this.scale = 1;
-    this.panX = 0;
-    this.panY = 0;
+    this.camScaleFactor = this.#computeFitScale();
+    this.#updatePointSize();
+    this.#centerImage();
     this.drawImage();
   }
 
