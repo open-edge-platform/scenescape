@@ -1,32 +1,55 @@
 <!--
-SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
 {% extends 'sscape/base.html' %}
 {% block content %}
-  <h2 class="form-title">Scene</h2>
+  <div class="page-header">
+    <h2 class="form-title">Scenes</h2>
+    <div class="page-header-actions">
+      <a class="btn btn-primary" href="{% url 'scene_create' %}">+ New Scene</a>
+    </div>
+  </div>
 
-  <table class="table table-fluid">
-    <thead>
-      <tr>
-        <th>Scene</th>
-        <th>View</th>
-        <th>Edit</th>
-        <th>Delete</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for Scene in object_list %}
-        <tr>
-          <td>{{ Scene }}</td>
-          <td><a href="{% url 'scene_detail' Scene.id %}">view</a></td>
-          <td><a href="{% url 'scene_update' Scene.id %}">edit</a></td>
-          <td><a href="{% url 'scene_delete' Scene.id %}">delete</a></td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  <a href="{% url 'scene_create' %}">New</a>
+  <div class="ss-table-card">
+    {% if object_list %}
+      <table class="table table-fluid">
+        <thead>
+          <tr>
+            <th>Scene</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for Scene in object_list %}
+            <tr>
+              <td>{{ Scene }}</td>
+              <td>
+                <div class="ss-table-actions">
+                  <a
+                    class="ss-table-action"
+                    href="{% url 'scene_detail' Scene.id %}"
+                    >View</a
+                  >
+                  <a
+                    class="ss-table-action"
+                    href="{% url 'scene_update' Scene.id %}"
+                    >Edit</a
+                  >
+                  <a
+                    class="ss-table-action is-danger"
+                    href="{% url 'scene_delete' Scene.id %}"
+                    >Delete</a
+                  >
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="ss-table-empty">No scenes are available.</p>
+    {% endif %}
+  </div>
 {% endblock %}

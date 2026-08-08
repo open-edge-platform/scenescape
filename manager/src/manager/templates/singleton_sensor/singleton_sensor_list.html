@@ -1,75 +1,93 @@
 <!--
-SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
 {% extends 'sscape/base.html' %}
 {% block content %}
-  {% if user.is_superuser %}
-    <a
-      class="btn btn-primary float-right"
-      href="{% url "singleton_sensor_create" %}"
-      >+ New Sensor</a
-    >
-  {% endif %}
-  <h2 class="form-title">Sensors</h2>
+  <div class="page-header">
+    <h2 class="form-title">Sensors</h2>
+    {% if user.is_superuser %}
+      <div class="page-header-actions">
+        <a
+          class="btn btn-primary"
+          href="{% url "singleton_sensor_create" %}"
+          >+ New Sensor</a
+        >
+      </div>
+    {% endif %}
+  </div>
 
-  <table class="table table-fluid">
-    <thead>
-      <tr>
-        <th>Sensor Name</th>
-        <th>Sensor ID</th>
-        <th>Scene</th>
-        {% if user.is_superuser %}
-          <th>Manage</th>
-          <th>Delete</th>
-        {% endif %}
-      </tr>
-    </thead>
-    <tbody>
-      {% for SingletonSensor in object_list %}
-        <tr>
-          <td>{{ SingletonSensor }}</td>
-          <td>{{ SingletonSensor.sensor_id }}</td>
-          {% if SingletonSensor.scene %}
-            <td>
-              <a href="{% url 'sceneDetail' SingletonSensor.scene.id %}"
-                >{{ SingletonSensor.scene }}</a
-              >
-            </td>
+  <div class="ss-table-card">
+    {% if object_list %}
+      <table class="table table-fluid">
+        <thead>
+          <tr>
+            <th>Sensor Name</th>
+            <th>Sensor ID</th>
+            <th>Scene</th>
             {% if user.is_superuser %}
-              <td>
-                <a
-                  href="{% url 'singleton_sensor_calibrate' SingletonSensor.id %}"
-                  ><i class="bi bi-wrench"></i
-                ></a>
-              </td>
-              <td>
-                <a href="{% url 'singleton_sensor_delete' SingletonSensor.id %}"
-                  ><i class="bi bi-trash"></i
-                ></a>
-              </td>
+              <th>Actions</th>
             {% endif %}
-          {% else %}
-            <!-- Orphaned sensor -->
-            <td>--</td>
-            {% if user.is_superuser %}
-              <td>
-                <a
-                  href="{% url 'singleton_sensor_update' SingletonSensor.id %}"
-                  title="Edit"
-                  ><i class="bi bi-pencil"></i
-                ></a>
-              </td>
-              <td>
-                <a href="{% url 'singleton_sensor_delete' SingletonSensor.id %}"
-                  ><i class="bi bi-trash"></i
-                ></a>
-              </td>
-            {% endif %}
-          {% endif %}
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+          </tr>
+        </thead>
+        <tbody>
+          {% for SingletonSensor in object_list %}
+            <tr>
+              <td>{{ SingletonSensor }}</td>
+              <td>{{ SingletonSensor.sensor_id }}</td>
+              {% if SingletonSensor.scene %}
+                <td>
+                  <a href="{% url 'sceneDetail' SingletonSensor.scene.id %}"
+                    >{{ SingletonSensor.scene }}</a
+                  >
+                </td>
+                {% if user.is_superuser %}
+                  <td>
+                    <div class="ss-table-actions">
+                      <a
+                        class="ss-table-action"
+                        href="{% url 'singleton_sensor_calibrate' SingletonSensor.id %}"
+                        title="Manage"
+                        ><i class="bi bi-wrench"></i><span>Manage</span></a
+                      >
+                      <a
+                        class="ss-table-action is-danger"
+                        href="{% url 'singleton_sensor_delete' SingletonSensor.id %}"
+                        title="Delete"
+                        ><i class="bi bi-trash"></i><span>Delete</span></a
+                      >
+                    </div>
+                  </td>
+                {% endif %}
+              {% else %}
+                <!-- Orphaned sensor -->
+                <td>--</td>
+                {% if user.is_superuser %}
+                  <td>
+                    <div class="ss-table-actions">
+                      <a
+                        class="ss-table-action"
+                        href="{% url 'singleton_sensor_update' SingletonSensor.id %}"
+                        title="Edit"
+                        ><i class="bi bi-pencil"></i><span>Edit</span></a
+                      >
+                      <a
+                        class="ss-table-action is-danger"
+                        href="{% url 'singleton_sensor_delete' SingletonSensor.id %}"
+                        title="Delete"
+                        ><i class="bi bi-trash"></i><span>Delete</span></a
+                      >
+                    </div>
+                  </td>
+                {% endif %}
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="ss-table-empty">No sensors are available.</p>
+    {% endif %}
+  </div>
 {% endblock %}

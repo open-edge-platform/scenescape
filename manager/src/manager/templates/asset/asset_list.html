@@ -1,47 +1,61 @@
 <!--
-SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
 {% extends 'sscape/base.html' %}
 {% block content %}
-  {% if user.is_superuser %}
-    <a class="btn btn-primary float-right" href="{% url "asset_create" %}"
-      >+ New Object</a
-    >
-  {% endif %}
-  <h2 class="form-title">Object Library</h2>
+  <div class="page-header">
+    <h2 class="form-title">Object Library</h2>
+    {% if user.is_superuser %}
+      <div class="page-header-actions">
+        <a class="btn btn-primary" href="{% url "asset_create" %}"
+          >+ New Object</a
+        >
+      </div>
+    {% endif %}
+  </div>
 
-  <table class="table table-fluid">
-    <thead>
-      <tr>
-        <th>Name</th>
-        {% if user.is_superuser %}
-          <th>Update</th>
-          <th>Delete</th>
-        {% endif %}
-      </tr>
-    </thead>
-    <tbody>
-      {% for asset in object_list %}
-        <tr>
-          <td>{{ asset.name }}</td>
-          {% if user.is_superuser %}
-            <td>
-              <a
-                href="{% url 'asset_update' asset.id %}"
-                id="obj-manage-{{ asset.name }}"
-                ><i class="bi bi-wrench"></i
-              ></a>
-            </td>
-            <td>
-              <a href="{% url 'asset_delete' asset.id %}"
-                ><i class="bi bi-trash"></i
-              ></a>
-            </td>
-          {% endif %}
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="ss-table-card">
+    {% if object_list %}
+      <table class="table table-fluid">
+        <thead>
+          <tr>
+            <th>Name</th>
+            {% if user.is_superuser %}
+              <th>Actions</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for asset in object_list %}
+            <tr>
+              <td>{{ asset.name }}</td>
+              {% if user.is_superuser %}
+                <td>
+                  <div class="ss-table-actions">
+                    <a
+                      class="ss-table-action"
+                      href="{% url 'asset_update' asset.id %}"
+                      id="obj-manage-{{ asset.name }}"
+                      title="Update"
+                      ><i class="bi bi-wrench"></i><span>Update</span></a
+                    >
+                    <a
+                      class="ss-table-action is-danger"
+                      href="{% url 'asset_delete' asset.id %}"
+                      title="Delete"
+                      ><i class="bi bi-trash"></i><span>Delete</span></a
+                    >
+                  </div>
+                </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="ss-table-empty">No objects are available.</p>
+    {% endif %}
+  </div>
 {% endblock %}

@@ -6,16 +6,18 @@ SPDX-License-Identifier: Apache-2.0
 {% extends 'sscape/base.html' %}
 {% load static %}
 {% block content %}
-  <h2 class="form-title d-flex align-items-center">
-    Model Directory {# Button to display the guidance #}
-    <button
-      class="guidance-modal-button"
-      data-toggle="modal"
-      data-target="#model-directory-guidance"
-    >
-      <i class="bi bi-info-circle"></i>
-    </button>
-  </h2>
+  <div class="page-header">
+    <h2 class="form-title d-flex align-items-center">
+      Model Directory {# Button to display the guidance #}
+      <button
+        class="guidance-modal-button"
+        data-toggle="modal"
+        data-target="#model-directory-guidance"
+      >
+        <i class="bi bi-info-circle"></i>
+      </button>
+    </h2>
+  </div>
 
   {# User modal guidance #}
   <div
@@ -146,7 +148,7 @@ SPDX-License-Identifier: Apache-2.0
     </div>
 
     {# Model directory container #}
-    <div id="model-directory" class="tree-explorer">
+    <div id="model-directory" class="tree-explorer ss-table-card">
       {# Root directory #}
       <ul class="root-directory" path="">
         <li
