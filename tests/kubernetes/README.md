@@ -9,11 +9,11 @@ separately-running cluster is required.
 
 Install the following tools and make them available on `PATH`:
 
-| Tool      | Installation                                                 |
-| --------- | ------------------------------------------------------------ |
+| Tool      | Installation                                                                                                                                                                                                |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `kind`    | >= v0.31 (v0.32.0 recommended); older binaries fail `kind load` against `kindest/node:v1.35.x` with `failed to detect containerd snapshotter`. https://kind.sigs.k8s.io/docs/user/quick-start/#installation |
-| `kubectl` | https://kubernetes.io/docs/tasks/tools/ (v1.35.x recommended for the pinned node image) |
-| `helm`    | https://helm.sh/docs/intro/install/                          |
+| `kubectl` | https://kubernetes.io/docs/tasks/tools/ (v1.35.x recommended for the pinned node image)                                                                                                                     |
+| `helm`    | https://helm.sh/docs/intro/install/                                                                                                                                                                         |
 
 Python dependencies (`pytest-kubernetes`, `python-on-whales`) are installed
 automatically by `make setup-tests`.
