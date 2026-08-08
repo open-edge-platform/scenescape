@@ -124,6 +124,82 @@ h6 {
   align-items: center;
 }
 
+/* Form page chrome — create / update / delete */
+.ss-form-card {
+  width: 100%;
+  float: none;
+  margin: 0 0 1.5rem;
+  background-color: var(--ss-card-bg);
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+  box-shadow: 0 1px 2px rgba(0, 30, 80, 0.06);
+  overflow: hidden;
+}
+
+.ss-form-body {
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.ss-form-body > form > .form-group.row:last-child {
+  margin-bottom: 0;
+}
+
+.ss-form-actions {
+  margin-top: 0.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--ss-card-border);
+}
+
+.ss-form-actions-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ss-form-notes {
+  flex: 1 1 100%;
+  margin: 0.15rem 0 0;
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--ss-text-muted);
+}
+
+.ss-form-notes ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.ss-form-confirm {
+  margin-bottom: 0;
+  font-family: var(--ss-font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--ss-text);
+}
+
+.ss-form-confirm + ul {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--ss-text-muted);
+}
+
+.ss-form-actions .btn-outline-danger {
+  color: var(--ss-status-bad);
+  background-color: transparent;
+  border: 1px solid var(--ss-status-bad);
+  font-weight: 500;
+}
+
+.ss-form-actions .btn-outline-danger:hover,
+.ss-form-actions .btn-outline-danger:focus {
+  color: #fff;
+  background-color: var(--ss-status-bad);
+  border-color: var(--ss-status-bad);
+}
+
 .breadcrumb {
   margin-bottom: 0.75rem;
   padding: 0;

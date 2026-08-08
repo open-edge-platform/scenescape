@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -15,18 +15,34 @@ SPDX-License-Identifier: Apache-2.0
     </ol>
   </nav>
 
-  <div class="card width-100">
-    <h5 class="noselect card-header">Delete Object</h5>
-    <div class="card-body">
-      <form enctype="multipart/form-data" class="" method="post">
-        {% csrf_token %}
-        <p>Are you sure you want to delete the "{{ object }}" object?</p>
+  <div class="page-header">
+    <h2 class="form-title">Delete Object</h2>
+  </div>
 
-        <input
-          class="btn btn-primary"
-          type="submit"
-          value="Yes, Delete the Object!"
-        />
+  <div class="ss-form-card">
+    <div class="ss-form-body">
+      <form enctype="multipart/form-data" method="post">
+        {% csrf_token %}
+        <div class="form-group row">
+          <div class="col-sm-2"></div>
+          <div class="col-sm-10">
+            <p class="ss-form-confirm">
+          Are you sure you want to delete the "{{ object }}" object?
+        </p>
+          </div>
+        </div>
+        <div class="form-group row ss-form-actions">
+          <div class="col-sm-2"></div>
+          <div class="col-sm-10">
+            <div class="ss-form-actions-inner">
+              <input
+                class="btn btn-outline-danger"
+                type="submit"
+                value="Yes, Delete the Object!"
+              />
+            </div>
+          </div>
+        </div>
       </form>
     </div>
   </div>

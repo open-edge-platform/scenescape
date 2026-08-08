@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -17,18 +17,20 @@ SPDX-License-Identifier: Apache-2.0
     </ol>
   </nav>
 
-  <div class="card width-100">
-    <h5 class="noselect card-header">
+  <div class="page-header">
+    <h2 class="form-title">Update Sensor</h2>
+    <div class="page-header-actions">
       <a
-        class="btn btn-secondary btn-sm float-right"
+        class="ss-table-action is-danger"
         href="{% url 'singleton_sensor_delete' object.id %}"
         title="Delete"
+        ><i class="bi bi-trash"></i><span>Delete</span></a
       >
-        <i class="bi bi-trash"></i>
-      </a>
-      Update Sensor
-    </h5>
-    <div class="card-body">
+    </div>
+  </div>
+
+  <div class="ss-form-card">
+    <div class="ss-form-body">
       <form enctype="multipart/form-data" method="post">
         {% csrf_token %}
         {% for field in form %}
@@ -45,14 +47,16 @@ SPDX-License-Identifier: Apache-2.0
             </div>
           </div>
         {% endfor %}
-        <div class="form-group row">
+        <div class="form-group row ss-form-actions">
           <div class="col-sm-2"></div>
           <div class="col-sm-10">
-            <input
-              class="btn btn-primary"
-              type="submit"
-              value="Update Sensor"
-            />
+            <div class="ss-form-actions-inner">
+              <input
+                class="btn btn-primary"
+                type="submit"
+                value="Update Sensor"
+              />
+            </div>
           </div>
         </div>
       </form>

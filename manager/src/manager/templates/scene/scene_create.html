@@ -17,9 +17,12 @@ SPDX-License-Identifier: Apache-2.0
     </ol>
   </nav>
 
-  <div id="createSceneForm" class="card width-100">
-    <h5 class="noselect card-header">New Scene</h5>
-    <div class="card-body">
+  <div class="page-header">
+    <h2 class="form-title">New Scene</h2>
+  </div>
+
+  <div id="createSceneForm" class="ss-form-card">
+    <div class="ss-form-body">
       <form enctype="multipart/form-data" method="post">
         {% csrf_token %}
         <!-- Name field - always visible -->
@@ -225,15 +228,17 @@ SPDX-License-Identifier: Apache-2.0
           <!-- Geospatial Map Body End -->
         </div>
 
-        <div class="form-group row" id="save_scene_create">
+        <div class="form-group row ss-form-actions" id="save_scene_create">
           <div class="col-sm-2"></div>
           <div class="col-sm-10">
-            <input
-              class="btn btn-primary"
-              id="save"
-              type="submit"
-              value="Save New Scene"
-            />
+            <div class="ss-form-actions-inner">
+              <input
+                class="btn btn-primary"
+                id="save"
+                type="submit"
+                value="Save New Scene"
+              />
+            </div>
           </div>
         </div>
       </form>

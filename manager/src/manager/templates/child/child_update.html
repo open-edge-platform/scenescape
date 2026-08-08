@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -23,18 +23,21 @@ SPDX-License-Identifier: Apache-2.0
   </nav>
 
   <input type="hidden" id="view_parent_id" value="{{ object.parent.id }}" />
-  <div class="card width-100" id="manage_child">
-    <h5 class="noselect card-header">
+
+  <div class="page-header">
+    <h2 class="form-title">Update Child Link</h2>
+    <div class="page-header-actions">
       <a
-        class="btn btn-secondary btn-sm float-right"
+        class="ss-table-action is-danger"
         href="{% url 'child_delete' object.id %}"
         title="Delete"
+        ><i class="bi bi-trash"></i><span>Delete</span></a
       >
-        <i class="bi bi-trash"></i>
-      </a>
-      Update Child Link
-    </h5>
-    <div class="card-body">
+    </div>
+  </div>
+
+  <div class="ss-form-card" id="manage_child">
+    <div class="ss-form-body">
       <form enctype="multipart/form-data" method="post">
         {% csrf_token %}
         {% for field in form %}
@@ -54,15 +57,17 @@ SPDX-License-Identifier: Apache-2.0
             </div>
           </div>
         {% endfor %}
-        <div class="form-group row">
+        <div class="form-group row ss-form-actions">
           <div class="col-sm-2"></div>
           <div class="col-sm-10">
-            <input
-              class="btn btn-primary"
-              type="submit"
-              value="Update Child Link"
-              id="update-child"
-            />
+            <div class="ss-form-actions-inner">
+              <input
+                class="btn btn-primary"
+                type="submit"
+                value="Update Child Link"
+                id="update-child"
+              />
+            </div>
           </div>
         </div>
       </form>
