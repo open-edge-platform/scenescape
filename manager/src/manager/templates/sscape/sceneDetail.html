@@ -56,32 +56,84 @@ SPDX-License-Identifier: Apache-2.0
     </div>
   </div>
   <div class="scene-map">
-    <div id="map">
-      {% if scene.thumbnail %}
-        <img src="{{ scene.thumbnail.url }}" alt="{{ scene.name }}" />
-      {% elif scene.map %}
-        <img src="{{ scene.map.url }}" alt="{{ scene.name }}" />
-      {% endif %}
-      <input type="hidden" name="scale" id="scale" value="{{ scene.scale }}" />
-      <input type="hidden" name="scene" id="scene" value="{{ scene.id }}" />
-    </div>
-    <svg
-      id="svgout"
-      class="display-none {% if not scene.thumbnail or not scene.map %}blank-map-svgout{% endif %}"
-    >
-      <title>{{ scene.name }} View</title>
-      <desc>
-        Graphical view of the scene map and objects moving within the scene.
-      </desc>
-    </svg>
-    <div id="map-controls">
-      <input
+    <div class="scene-map-stage">
+      <div id="map">
+        {% if scene.thumbnail %}
+          <img src="{{ scene.thumbnail.url }}" alt="{{ scene.name }}" />
+        {% elif scene.map %}
+          <img src="{{ scene.map.url }}" alt="{{ scene.name }}" />
+        {% endif %}
+        <input type="hidden" name="scale" id="scale" value="{{ scene.scale }}" />
+        <input type="hidden" name="scene" id="scene" value="{{ scene.id }}" />
+      </div>
+      <svg
+        id="svgout"
+        class="display-none {% if not scene.thumbnail or not scene.map %}blank-map-svgout{% endif %}"
+      >
+        <title>{{ scene.name }} View</title>
+        <desc>
+          Graphical view of the scene map and objects moving within the scene.
+        </desc>
+      </svg>
+      <button
         type="button"
-        class="btn btn-sm btn-secondary"
+        class="btn btn-sm btn-secondary scene-map-fullscreen-btn hide-print"
         id="fullscreen"
-        value="^"
-        title="View fullscreen"
-      />
+        title="Full screen map view"
+        aria-pressed="false"
+      >
+        <i class="bi bi-arrows-fullscreen" aria-hidden="true"></i>
+        <span class="sr-only">Full screen map view</span>
+      </button>
+    </div>
+    <div id="map-controls" class="hide-print">
+      <div class="map-view-toggles">
+        <div class="custom-control custom-switch switch">
+          <input
+            type="checkbox"
+            class="custom-control-input"
+            id="show-trails"
+            aria-labelledby="show-trails-label"
+          />
+          <label
+            class="custom-control-label"
+            for="show-trails"
+            title="Toggle Show Trails"
+            id="show-trails-label"
+            >Show&nbsp;Trails</label
+          >
+        </div>
+        <div class="custom-control custom-switch switch">
+          <input
+            type="checkbox"
+            class="custom-control-input"
+            id="show-telemetry"
+            aria-labelledby="show-telemetry-label"
+          />
+          <label
+            class="custom-control-label"
+            for="show-telemetry"
+            title="Toggle Show Telemetry"
+            id="show-telemetry-label"
+            >Show&nbsp;Telemetry</label
+          >
+        </div>
+        <div class="custom-control custom-switch switch">
+          <input
+            type="checkbox"
+            class="custom-control-input"
+            id="coloring-switch"
+            aria-labelledby="coloring-switch-label"
+          />
+          <label
+            class="custom-control-label"
+            for="coloring-switch"
+            title="Toggle Coloring"
+            id="coloring-switch-label"
+            >Visualize ROIs</label
+          >
+        </div>
+      </div>
     </div>
   </div>
 
@@ -130,84 +182,10 @@ SPDX-License-Identifier: Apache-2.0
     />
   {% endif %}
 
-  <div class="scene-detail-panels hide-fullscreen">
-  <div class="hide-print" id="scene-controls">
-    <div class="scene-detail-toggles">
-      <div class="custom-control custom-switch switch">
-        <input
-          type="checkbox"
-          class="custom-control-input"
-          id="live-view"
-          aria-labelledby="live-view-label"
-        />
-        <label
-          class="custom-control-label"
-          for="live-view"
-          title="Toggle Live View"
-          id="live-view-label"
-          >Live&nbsp;View</label
-        >
-      </div>
-      <div class="custom-control custom-switch switch">
-        <input
-          type="checkbox"
-          class="custom-control-input"
-          id="show-trails"
-          aria-labelledby="show-trails-label"
-        />
-        <label
-          class="custom-control-label"
-          for="show-trails"
-          title="Toggle Show Trails"
-          id="show-trails-label"
-          >Show&nbsp;Trails</label
-        >
-      </div>
-      <!--
-         <div class="custom-control custom-switch switch">
-           <input type="checkbox" class="custom-control-input" id="show-heatmap" aria-labelledby="show-heatmap-label">
-           <label class="custom-control-label" for="show-heatmap" title="Toggle Show Heatmap" id="show-heatmap-label">Show&nbsp;Heatmap</label>
-         </div>
-         -->
-      <div class="custom-control custom-switch switch">
-        <input
-          type="checkbox"
-          class="custom-control-input"
-          id="show-telemetry"
-          aria-labelledby="show-telemetry-label"
-        />
-        <label
-          class="custom-control-label"
-          for="show-telemetry"
-          title="Toggle Show Telemetry"
-          id="show-telemetry-label"
-          >Show&nbsp;Telemetry</label
-        >
-      </div>
-      <div class="custom-control custom-switch switch">
-        <input
-          type="checkbox"
-          class="custom-control-input"
-          id="coloring-switch"
-          aria-labelledby="coloring-switch-label"
-        />
-        <label
-          class="custom-control-label"
-          for="coloring-switch"
-          title="Toggle Coloring"
-          id="coloring-switch-label"
-          >Visualize ROIs</label
-        >
-      </div>
-      <!-- Disabled for performance reasons
-         <div class="custom-control custom-switch switch">
-           <input type="checkbox" class="custom-control-input" id="show-velocity" aria-labelledby="show-velocity-label">
-           <label class="custom-control-label" for="show-velocity" title="Toggle Show Velocity" id="show-velocity-label">Show&nbsp;Velocity</label>
-         </div>
-         -->
-    </div>
-  </div>
-
+  <div
+    class="scene-detail-panels hide-fullscreen"
+    id="scene-detail-panels"
+  >
   <ul class="nav nav-tabs hide-live" id="myTab" role="tablist">
     <li class="nav-item">
       <a
@@ -327,8 +305,23 @@ SPDX-License-Identifier: Apache-2.0
               <i class="bi bi-question-circle" aria-hidden="true"></i>
             </button>
           </span>
-          {% if user.is_superuser %}
-            <span class="scene-detail-panel-actions">
+          <span class="scene-detail-panel-actions">
+            <div class="custom-control custom-switch switch scene-detail-live-toggle">
+              <input
+                type="checkbox"
+                class="custom-control-input"
+                id="live-view"
+                aria-labelledby="live-view-label"
+              />
+              <label
+                class="custom-control-label"
+                for="live-view"
+                title="Toggle Live View"
+                id="live-view-label"
+                >Live&nbsp;View</label
+              >
+            </div>
+            {% if user.is_superuser %}
               <a
                 class="btn btn-primary btn-sm"
                 id="new-camera"
@@ -336,8 +329,8 @@ SPDX-License-Identifier: Apache-2.0
                 href="{% url 'cam_create' %}?scene={{ scene.id }}"
                 >+ New Camera</a
               >
-            </span>
-          {% endif %}
+            {% endif %}
+          </span>
         </h5>
         <div class="card-body">
           {% if scene.sensor_set.count %}

@@ -191,7 +191,13 @@ async function checkBrokerConnections() {
         if (show_telemetry) {
           // Show the FPS for each camera
           for (const [key, value] of Object.entries(msg.rate)) {
-            document.getElementById("rate-" + key).innerText = value + " FPS";
+            var rateEl = document.getElementById("rate-" + key);
+            if (!rateEl) {
+              continue;
+            }
+            var fps = Number(value);
+            rateEl.innerText =
+              (Number.isFinite(fps) ? fps.toFixed(2) : "--") + " FPS";
           }
 
           // Show the scene controller update rate
@@ -278,7 +284,10 @@ async function checkBrokerConnections() {
         }
       } else if (topic.includes(DATA_CAMERA)) {
         var id = topic.slice(topic.lastIndexOf("/") + 1);
-        $("#rate-" + id).text(msg.rate + " FPS");
+        var camFps = Number(msg.rate);
+        $("#rate-" + id).text(
+          (Number.isFinite(camFps) ? camFps.toFixed(2) : "--") + " FPS",
+        );
         $("#updated-" + id).text(msg.timestamp);
       } else if (topic.includes("/child/status")) {
         var child = topic.slice(topic.lastIndexOf("/") + 1);
@@ -2201,25 +2210,33 @@ $(document).ready(function () {
   });
 
   $("#fullscreen").on("click", function () {
+    var $btn = $(this);
+    var $icon = $btn.find("i");
     if (fullscreen) {
-      $(".scene-map, .wrapper").addClass("container-fluid");
+      $("body").removeClass("is-map-fullscreen");
       $("#svgout").removeClass("fullscreen");
-      $("body").css({
-        "padding-top": "5rem",
-        "padding-bottom": "5rem",
-      });
       $(".hide-fullscreen").show();
-      $(this).val("^");
+      $btn.attr({
+        title: "Full screen map view",
+        "aria-pressed": "false",
+      });
+      $icon
+        .removeClass("bi-fullscreen-exit")
+        .addClass("bi-arrows-fullscreen");
+      $btn.find(".sr-only").text("Full screen map view");
       fullscreen = false;
     } else {
-      $(".scene-map, .wrapper").removeClass("container-fluid");
-      $("body").css({
-        "padding-top": "0",
-        "padding-bottom": "0",
-      });
+      $("body").addClass("is-map-fullscreen");
       $("#svgout").addClass("fullscreen");
       $(".hide-fullscreen").hide();
-      $(this).val("v");
+      $btn.attr({
+        title: "Exit full screen map view",
+        "aria-pressed": "true",
+      });
+      $icon
+        .removeClass("bi-arrows-fullscreen")
+        .addClass("bi-fullscreen-exit");
+      $btn.find(".sr-only").text("Exit full screen map view");
       fullscreen = true;
     }
   });
