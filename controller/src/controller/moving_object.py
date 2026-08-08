@@ -130,7 +130,7 @@ class ReidState(Enum):
 class Chronoloc:
   def __init__(self, point: Point, when: datetime, bounds: Rectangle):
     if not point.is3D:
-      point = Point(point.x, point.y, DEFAULTZ)
+      point = Point([point.x, point.y, DEFAULTZ])
     self.point = point
     self.when = when
     self.bounds = bounds
@@ -139,7 +139,7 @@ class Chronoloc:
 class Vector:
   def __init__(self, camera, point, when):
     if not point.is3D:
-      point = Point(point.x, point.y, DEFAULTZ)
+      point = Point([point.x, point.y, DEFAULTZ])
     self.camera = camera
     self.point = point
     self.last_seen = when
@@ -547,7 +547,7 @@ class MovingObject:
       if self.intersected:
         self.adjusted = [info['adjusted']['gid'], Point(info['adjusted']['point'])]
         if not self.adjusted[1].is3D:
-          self.adjusted[1] = Point(self.adjusted[1].x, self.adjusted[1].y, DEFAULTZ)
+          self.adjusted[1] = Point([self.adjusted[1].x, self.adjusted[1].y, DEFAULTZ])
     return
 
 class ATagObject(MovingObject):

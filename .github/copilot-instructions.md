@@ -28,6 +28,7 @@ Consult these based on the code you're working with:
 - **Shell** (`.github/skills/shell/SKILL.md`): Bash scripting guidelines
 - **Makefile** (`.github/skills/makefile/SKILL.md`): Build system conventions
 - **Testing** (`.github/skills/testing/SKILL.md`): Test creation frameworks
+- **External-source adapters** (`.github/skills/external-source-adapter/SKILL.md`): Converter scripts for the Scene Controller `external_source` MQTT contract (read the skill before writing publishers)
 
 ### Skills Caching Strategy
 

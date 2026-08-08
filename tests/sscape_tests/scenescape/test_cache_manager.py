@@ -3,6 +3,7 @@
 import threading
 
 import pytest
+from types import SimpleNamespace
 from unittest.mock import Mock, MagicMock, patch
 
 from scene_common.cache_manager import CacheManager
@@ -478,15 +479,45 @@ class TestCacheManagerSensorRestoration:
     assert result is None
 
   def test_sensor_needs_restoring_returns_old_scene(self):
-    """Test that sensorNeedsRestoring returns old scene when available."""
+    """Test that sensorNeedsRestoring returns old scene when it has sensors
+    with cached values worth restoring."""
     cache_mgr = CacheManager.__new__(CacheManager)
 
     old_scene = Mock()
+    old_scene.sensors = {'sensor-1': Mock(value=42)}
     cache_mgr._old_scene_cache = {'scene-uid': old_scene}
 
     result = cache_mgr._sensorNeedsRestoring('scene-uid')
 
     assert result == old_scene
+
+  def test_sensor_needs_restoring_returns_none_when_no_sensor_values(self):
+    """Test that sensorNeedsRestoring returns None when the old scene has no
+    sensors, or none with a cached value, so a fresh Scene is deserialized
+    instead of silently reusing stale tracked-object identities."""
+    cache_mgr = CacheManager.__new__(CacheManager)
+
+    old_scene = Mock()
+    old_scene.sensors = {}
+    cache_mgr._old_scene_cache = {'scene-uid': old_scene}
+
+    result = cache_mgr._sensorNeedsRestoring('scene-uid')
+
+    assert result is None
+
+  def test_sensor_needs_restoring_returns_old_scene_when_no_tracker(self):
+    """Test that a scene with no ``tracker`` attribute (e.g. AnalyticsScene)
+    is always reused, since it owns no tracked-object identity of its own
+    and instead needs its ingestion/region/dwell state preserved across the
+    frequent invalidate() calls REST config changes trigger."""
+    cache_mgr = CacheManager.__new__(CacheManager)
+
+    old_scene = SimpleNamespace(sensors={})
+    cache_mgr._old_scene_cache = {'scene-uid': old_scene}
+
+    result = cache_mgr._sensorNeedsRestoring('scene-uid')
+
+    assert result is old_scene
 
 
 class TestCacheManagerRefreshCameras:
@@ -555,6 +586,19 @@ class TestCacheManagerRefreshCameras:
     cache_mgr.refreshScenesForCamParams(jdata)
 
     # Should not raise any errors
+
+  def test_refresh_scenes_for_cam_params_tolerates_invalidated_cache(self):
+    """After invalidate(), refreshScenesForCamParams must not touch None.values()."""
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr.cached_scenes_by_uid = None
+    cache_mgr.camera_parameters = {}
+
+    cache_mgr.refreshScenesForCamParams({
+      'id': 'cam-1',
+      'intrinsics': {'cx': 320, 'cy': 240, 'fx': 500, 'fy': 500},
+    })
+
+    assert cache_mgr.cached_scenes_by_uid is None
 
 
 class TestCacheManagerEdgeCases:

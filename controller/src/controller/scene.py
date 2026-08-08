@@ -344,7 +344,13 @@ class Scene(SceneModel):
     return True
 
   def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
-    self._updateVisible(objects)
+    # Compute camera visibility for both retracked objects (fed into this
+    # scene's own tracker) and already-tracked/retrack=False objects (merged
+    # in as-is): both are published on this scene's output topics and can be
+    # looked up by computeCameraBounds() when visibility_topic is 'regulated',
+    # which requires obj.visibility (and therefore obj_dict['visibility']) to
+    # be set regardless of which path an object came from.
+    self._updateVisible(objects + already_tracked_objects)
     self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
                               self.ref_camera_frame_rate,
                               self.max_unreliable_time,

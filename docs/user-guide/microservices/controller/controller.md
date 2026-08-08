@@ -69,6 +69,22 @@ Example `pose-adjustment-route.json`:
 
 Resolution order is: exact label, then configured route labels. Routes are flattened at startup so message-time dispatch remains a direct lookup.
 
+`CONTROLLER_TRUSTED_POSITIONING_SOURCES`: Comma-separated list of external `source_id`s (see
+[External Source Input Message Format](./data_formats.md#external-source-input-message-format))
+authorized to publish poses already expressed in a target scene's local coordinates (the
+`scene` pose reference frame), intended for the Scenescape positioning service. Unset or empty
+trusts no source. There is no corresponding CLI flag.
+
+`CONTROLLER_EXTERNAL_SOURCE_BINDINGS`: Optional manual publisher→scene bindings
+(`publisher_id:scene_uid,publisher_id:scene_uid2,...`). Required for `reference_frame: scene`
+poses. For `wgs84`, unset means geospatial auto-attach to every geo-calibrated scene.
+
+External-source object identity (`objects[*].id`) requires no environment variable or
+per-source configuration: every external source's `id` is trusted directly as global track
+identity by default, protected at runtime by automatic identity-collision detection. See
+[Trusted Identity by Default, with Collision Detection](./data_formats.md#trusted-identity-by-default-with-collision-detection)
+for details and guidance on choosing a `source_id`/`id`.
+
 ### Configuration
 
 For detailed configuration guidance:
@@ -119,6 +135,7 @@ _Figure 2: Scene Controller Sequence diagram_
 - [How to Configure the Tracker](./how-to-configure-tracker.md)
 - [Extended Re-ID](./Extended-ReID.md)
 - [Data Formats](./data_formats.md)
+- [Publish Observations from an External Source Adapter](../../how-to-guides/publish-external-source-adapter.md)
 - [API Reference](./api-reference.md)
 - [Analytics Service](../analytics/analytics.md)
 - [How to Enable Observability (Experimental)](../../other-topics/how-to-enable-observability.md)
