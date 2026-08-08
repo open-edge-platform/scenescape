@@ -40,18 +40,116 @@ h6 {
   position: absolute;
   top: 0.25rem;
   left: 0.25rem;
-  margin: 0 0;
-  background-color: #000;
+  z-index: 10;
+  width: 220px;
+  margin: 0;
+  float: none;
+  overflow: hidden;
+  background-color: rgba(0, 0, 0, 0.82);
   color: #fff;
-  opacity: 0.8;
+  opacity: 1;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.375rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* Keep Bootstrap collapse working: id+display:flex was overriding hide */
+#scene-controls-3d.collapse:not(.show) {
+  display: none;
+}
+
+#scene-controls-3d.collapse.show {
+  display: flex;
+  flex-direction: column;
+}
+
+#scene-controls-3d .card-body {
+  padding: 0.65rem 0.75rem 0.75rem;
+  background: transparent;
+  color: #fff;
+}
+
+#scene-controls-3d .card-title {
+  margin: 0 0 0.5rem;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+#scene-controls-3d .btn,
+#toggle-scene-controls-3d.btn {
+  font-family: inherit;
+  border-radius: 0.25rem;
+  border-width: 1px;
+  box-shadow: none;
+}
+
+#scene-controls-3d .btn-secondary,
+#toggle-scene-controls-3d.btn-secondary {
+  color: #f0f0f0;
+  background-color: #2a2a2a;
+  border-color: #4a4a4a;
+}
+
+#scene-controls-3d .btn-secondary:hover,
+#scene-controls-3d .btn-secondary:focus,
+#toggle-scene-controls-3d.btn-secondary:hover,
+#toggle-scene-controls-3d.btn-secondary:focus {
+  color: #fff;
+  background-color: #3a3a3a;
+  border-color: #6a6a6a;
+}
+
+#scene-controls-3d .btn-primary {
+  color: #111;
+  background-color: #e8e8e8;
+  border-color: #e8e8e8;
+}
+
+#scene-controls-3d .btn-primary:hover,
+#scene-controls-3d .btn-primary:focus {
+  color: #000;
+  background-color: #fff;
+  border-color: #fff;
+}
+
+#scene-controls-3d .custom-control-label,
+#scene-controls-3d .switch label {
+  color: #e6e6e6;
+  font-weight: 500;
+}
+
+#scene-controls-3d .progress {
+  margin-top: 0.65rem;
+  background-color: #2a2a2a;
+  height: 0.4rem;
+}
+
+#scene-controls-3d .progress-bar {
+  background-color: #16a085;
 }
 
 #toggle-scene-controls-3d {
   position: absolute;
-  top: 0.25rem;
-  left: 0.25rem;
+  top: 0.35rem;
+  left: 0.35rem;
+  z-index: 11;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: x-small;
-  padding: 0.1rem 0.3rem;
+  line-height: 1;
+  padding: 0;
+  color: #f0f0f0;
+  background-color: rgba(0, 0, 0, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.25rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
 #toggle-scene-controls-3d::before {
@@ -70,10 +168,12 @@ h6 {
 
 #plane-control {
   margin-left: 15px;
+  margin-top: 0.5rem;
 }
 
 #scenescape-logo {
-  margin-left: 30px;
+  /* Clear the collapse control that sits at the panel's top-left */
+  margin: 0.45rem 0.75rem 0 2.1rem;
 }
 
 .navbar-brand {
@@ -84,10 +184,6 @@ h6 {
   width: 100px;
   height: 33px;
   object-fit: cover;
-}
-
-#scene-controls-3d {
-  width: 220px;
 }
 
 #cameras {
