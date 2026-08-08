@@ -160,6 +160,9 @@ pytest tests/functional --collect-container-logs none
 | `FIREFOX_BIN`     | `firefox` (from PATH)     | UI tests | Path to Firefox binary for Selenium tests   |
 | `GECKODRIVER_BIN` | `geckodriver` (from PATH) | UI tests | Path to geckodriver binary for Selenium     |
 
+`SECRETSDIR` can be overridden for CI or other constrained filesystems when the
+default repo-local `manager/secrets/` path is not writable.
+
 ### Log files
 
 Per-test log files are saved automatically:

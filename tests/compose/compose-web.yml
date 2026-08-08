@@ -49,6 +49,12 @@ services:
       - "DBPORT=5432"
       - "DBTYPE=postgres"
       - "SUPASS"
+      - "http_proxy=${http_proxy}"
+      - "https_proxy=${https_proxy}"
+      - "no_proxy=${no_proxy},.scenescape.intel.com"
+      - "HTTP_PROXY=${HTTP_PROXY}"
+      - "HTTPS_PROXY=${HTTPS_PROXY}"
+      - "NO_PROXY=${NO_PROXY},.scenescape.intel.com"
     # web interface needs access to the media files
     volumes:
       - ./tests/testdb.tar.bz2:/home/scenescape/Scenescape/tests/testdb.tar.bz2
