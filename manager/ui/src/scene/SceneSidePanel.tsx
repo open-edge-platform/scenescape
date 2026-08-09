@@ -50,13 +50,14 @@ function resolveNode(id: string): HTMLElement | null {
 
 type Props = {
   tabs: TabItem[];
+  cameraRates?: Record<string, string>;
 };
 
 /**
  * Scene control tabs: active-tab toolbar hosts help + New (+ live toggles / save)
  * on the same row as the tab labels. Legacy panel headers stay in DOM for parking.
  */
-export function SceneSidePanel({ tabs }: Props) {
+export function SceneSidePanel({ tabs, cameraRates = {} }: Props) {
   const [activeId, setActiveId] = useState("cameras");
   const [panelsReady, setPanelsReady] = useState(false);
   const slotRef = useRef<HTMLDivElement>(null);
@@ -163,7 +164,9 @@ export function SceneSidePanel({ tabs }: Props) {
             className="ss-tabs-toolbar"
             data-active-tab={activeId}
           />
-          {activeId === "cameras" ? <CameraStripEnhancer /> : null}
+          {activeId === "cameras" ? (
+            <CameraStripEnhancer rates={cameraRates} />
+          ) : null}
         </div>
         <div className="ss-tabs-panels">
           <div ref={slotRef} className="ss-legacy-panels-slot" />

@@ -110,6 +110,24 @@
   white-space: nowrap;
 }
 
+.ss-scene-detail--workspace .scene-detail-mqtt-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ss-scene-detail--workspace .ss-mqtt-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ss-scene-detail--workspace .ss-scene-rate #scene-rate {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--ss-nav-bg);
+}
+
 .ss-workspace-body {
   flex: 1 1 auto;
   min-width: 0;

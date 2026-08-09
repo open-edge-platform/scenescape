@@ -15,6 +15,7 @@ import { useWorkspaceLayout } from "./useWorkspaceLayout";
 import type { WorkspaceLayoutMode } from "./useWorkspaceLayout";
 import { useWorkspaceDensity } from "./useWorkspaceDensity";
 import { WorkspaceSplitter } from "./WorkspaceSplitter";
+import { useMqttConnected, useCameraRates } from "./useLiveChrome";
 import type { SceneDetailBootstrap } from "./types";
 import type { TabItem } from "../components/Tabs";
 import "./SceneDetailPage.css";
@@ -66,6 +67,8 @@ function SceneDetailInner({ bootstrap }: Props) {
   const [sceneDeleteOpen, setSceneDeleteOpen] = useState(false);
   const [sceneDeleteBusy, setSceneDeleteBusy] = useState(false);
   const [sceneDeleteError, setSceneDeleteError] = useState<string | null>(null);
+  const mqttConnected = useMqttConnected();
+  const cameraRates = useCameraRates();
 
   useEffect(() => {
     const setSceneRateCb = (hz: string) => setSceneRate(hz || "--");
@@ -136,10 +139,14 @@ function SceneDetailInner({ bootstrap }: Props) {
       extra: (
         <span
           id="mqtt_status"
-          className="scene-detail-mqtt-pill"
-          title="MQTT status"
+          className={`scene-detail-mqtt-pill${mqttConnected ? " connected" : ""}`}
+          title={mqttConnected ? "MQTT connected" : "MQTT disconnected"}
+          data-ss-mqtt={mqttConnected ? "connected" : "disconnected"}
         >
           <i className="bi bi-arrow-down-up" aria-hidden="true" />
+          <span className="ss-mqtt-label">
+            {mqttConnected ? "MQTT" : "MQTT"}
+          </span>
         </span>
       ),
     },
@@ -264,7 +271,7 @@ function SceneDetailInner({ bootstrap }: Props) {
           onResize={setPanelSizePx}
           disabled={mapFocus}
         />
-        <SceneSidePanel tabs={tabs} />
+        <SceneSidePanel tabs={tabs} cameraRates={cameraRates} />
       </div>
       <RoiTripwireEditors
         sceneId={scene.id}

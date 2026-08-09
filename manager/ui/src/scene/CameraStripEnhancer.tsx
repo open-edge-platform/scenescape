@@ -8,6 +8,10 @@ const FIT_KEY = "ss-camera-strip-fit";
 
 export type CameraStripFit = "contain" | "cover";
 
+type Props = {
+  rates?: Record<string, string>;
+};
+
 function readFit(): CameraStripFit {
   try {
     const v = window.localStorage.getItem(FIT_KEY);
@@ -41,7 +45,7 @@ function applyCardState(card: HTMLElement): void {
     (img!.naturalWidth > 0 || Boolean(img!.currentSrc || img!.src));
   const online =
     hasFrame ||
-    (rateText !== "" && rateText !== "--" && !Number.isNaN(Number(rateText)));
+    (rateText !== "" && rateText !== "--" && !rateText.startsWith("--"));
 
   card.classList.toggle("is-online", online);
   card.classList.toggle("is-offline", !online);
@@ -67,7 +71,7 @@ function applyCardState(card: HTMLElement): void {
 /**
  * Reactive camera strip: fit mode + live/offline badges over legacy cards.
  */
-export function CameraStripEnhancer() {
+export function CameraStripEnhancer({ rates = {} }: Props) {
   const [fit, setFit] = useState<CameraStripFit>(() =>
     typeof window !== "undefined" ? readFit() : "contain",
   );
@@ -82,6 +86,21 @@ export function CameraStripEnhancer() {
       pane.classList.add("ss-camera-strip");
     }
   }, [fit]);
+
+  useEffect(() => {
+    Object.entries(rates).forEach(([sensorId, text]) => {
+      const rateEl = document.getElementById(`rate-${sensorId}`);
+      if (rateEl && rateEl.textContent !== text) {
+        rateEl.textContent = text;
+      }
+      const card = document
+        .querySelector(`[data-ss-card-sensor="${sensorId}"]`)
+        ?.closest(".camera-card") as HTMLElement | null;
+      if (card) {
+        applyCardState(card);
+      }
+    });
+  }, [rates]);
 
   useEffect(() => {
     const pane = document.getElementById("cameras");
