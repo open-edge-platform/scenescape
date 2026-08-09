@@ -5,7 +5,6 @@ from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
 from django.test.client import RequestFactory
-from django.test.client import RequestFactory
 
 class SceneCreateTestCase(TestCase):
   def setUp(self):
@@ -16,5 +15,5 @@ class SceneCreateTestCase(TestCase):
 
   def test_scene_create_page(self):
     response = self.client.get(reverse('scene_create'), data = {'name': 'test_scene'})
-    self.assertEqual(response.status_code, 200)
-    self.assertTemplateUsed(response, 'scene/scene_create.html')
+    self.assertEqual(response.status_code, 302)
+    self.assertIn('ss=scene-create', response.url)

@@ -16,5 +16,5 @@ class SingletonSensorCreateTestCase(TestCase):
 
   def test_singleton_sensor_create_page(self):
     response = self.client.get(reverse('singleton_sensor_create'), data = {'sensor_id': '100', 'name': 'test_sensor', 'scene': str(uuid.uuid4())})
-    self.assertEqual(response.status_code, 200)
-    self.assertTemplateUsed(response, 'singleton_sensor/singleton_sensor_create.html')
+    self.assertEqual(response.status_code, 302)
+    self.assertIn('ss=sensor-create', response.url)

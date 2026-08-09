@@ -60,4 +60,4 @@ does not depend on global stylesheet load order for its own chrome.
 
 **Mirror** token values and API-shaped primitives under `manager/ui`. Do not add
 a ViPPET/OEP design-system npm dependency until license and versioning are
-confirmed (see plan §4 Phase 0 / §9).
+confirmed.

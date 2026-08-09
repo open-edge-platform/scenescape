@@ -14,7 +14,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         "scene-detail": path.resolve(__dirname, "src/main.tsx"),
-        "admin-form": path.resolve(__dirname, "src/admin-form-main.tsx"),
         "admin-list": path.resolve(__dirname, "src/admin-list-main.tsx"),
         "destructive-actions": path.resolve(
           __dirname,

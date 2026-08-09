@@ -29,8 +29,10 @@ Outputs under `manager/src/manager/static/ui/`:
 | ----- | ----- | ------- |
 | shared CSS | `manager-ui.css` | All islands |
 | `scene-detail` | `scene-detail.js` | Scene detail |
-| `admin-form` | `admin-form.js` | Camera / sensor create |
-| `admin-list` | `admin-list.js` | Camera / sensor lists |
+| `scenes-home` | `scenes-home.js` | Scenes gallery |
+| `list-sheets` | `list-sheets.js` | Cam / sensor / asset lists |
+| `admin-list` | `admin-list.js` | Camera / sensor list chrome |
+| `destructive-actions` | `destructive-actions.js` | In-page delete confirms |
 
 
 Set `SKIP_UI=1` to skip the UI build when running `make -C manager build-image`

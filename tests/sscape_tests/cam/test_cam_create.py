@@ -17,4 +17,5 @@ class CamCreateTestCase(TestCase):
 
   def test_cam_create_page(self):
     response = self.client.post(reverse('cam_create'), data = {'sensor_id': '100', 'name': 'test_camera', 'scene': 'test_scene'})
-    self.assertEqual(response.status_code, 200)
+    self.assertEqual(response.status_code, 302)
+    self.assertIn('ss=cam-create', response.url)

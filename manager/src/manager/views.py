@@ -364,36 +364,20 @@ def saveRegionData(scene, form):
 class CamCreateView(SuperUserCheck, CreateView):
   model = Cam
   form_class = CamCreateForm
+  # Create UX is React drawers; this URL only redirects into ?ss=cam-create.
   template_name = "cam/cam_create.html"
 
-  def get(self, request, *args, **kwargs):
-    scene_id = request.GET.get('scene')
+  def _sheet(self, request):
+    scene_id = request.GET.get('scene') or request.POST.get('scene')
     if scene_id:
       return sheet_redirect(scene_path(scene_id), 'cam-create')
     return sheet_redirect(reverse('cam_list'), 'cam-create')
 
-  def get_initial(self):
-    initial = super().get_initial()
-    scene_id = self.request.GET.get('scene')
-    if scene_id:
-      try:
-        scene = Scene.objects.get(id=scene_id)
-        initial['scene'] = scene
-      except Scene.DoesNotExist:
-        pass
-    return initial
+  def get(self, request, *args, **kwargs):
+    return self._sheet(request)
 
-  def get_context_data(self, **kwargs):
-    context = super().get_context_data(**kwargs)
-    context['admin_form_bootstrap'] = {
-      'title': 'New Camera',
-      'breadcrumbs': [
-        {'label': 'Cameras', 'href': reverse('cam_list')},
-        {'label': 'New Camera'},
-      ],
-      'wide': False,
-    }
-    return context
+  def post(self, request, *args, **kwargs):
+    return self._sheet(request)
 
   def form_valid(self, form):
     form.instance.type = 'camera'
@@ -404,7 +388,6 @@ class CamCreateView(SuperUserCheck, CreateView):
       scene_id = self.object.scene.id
       return '/' + str(scene_id)
     return reverse_lazy('cam_list')
-
 class CamDeleteView(SuperUserCheck, DeleteView):
   model = Cam
   template_name = "cam/cam_delete.html"
@@ -485,26 +468,21 @@ class SceneCreateView(SuperUserCheck, CreateView):
   model = Scene
   fields = ['name', 'map_type', 'map', 'scale', 'output_lla', 'map_corners_lla',
             'geospatial_provider', 'map_zoom', 'map_center_lat', 'map_center_lng', 'map_bearing']
+  # Create UX is React sheets; this URL only redirects into ?ss=scene-create.
   template_name = "scene/scene_create.html"
   success_url = reverse_lazy('index')
 
   def get(self, request, *args, **kwargs):
     return sheet_redirect(reverse('index'), 'scene-create')
 
-  def get_context_data(self, **kwargs):
-    context = super().get_context_data(**kwargs)
-    context['google_maps_api_key'] = settings.GOOGLE_MAPS_API_KEY
-    context['mapbox_api_key'] = settings.MAPBOX_API_KEY
-    return context
+  def post(self, request, *args, **kwargs):
+    return sheet_redirect(reverse('index'), 'scene-create')
 
   def form_valid(self, form):
-    # Check if a generated map filename was provided
     generated_filename = self.request.POST.get('generated_map_filename')
     if generated_filename:
-      # Set the map field to the generated file
       form.instance.map = generated_filename
     return super().form_valid(form)
-
 class SceneDeleteView(SuperUserCheck, DeleteView):
   model = Scene
   template_name = "scene/scene_delete.html"
@@ -561,47 +539,35 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
 class SceneImportView(SuperUserCheck, CreateView):
   model = SceneImport
   form_class = SceneImportForm
+  # Import UX is a React modal; this URL only redirects into ?ss=scene-import.
   template_name = "scene/scene_import.html"
   success_url = reverse_lazy('index')
 
   def get(self, request, *args, **kwargs):
     return sheet_redirect(reverse('index'), 'scene-import')
 
+  def post(self, request, *args, **kwargs):
+    return sheet_redirect(reverse('index'), 'scene-import')
+
 #Singleton Sensor CRUD
 class SingletonSensorCreateView(SuperUserCheck, CreateView):
   model = SingletonSensor
   form_class = SingletonCreateForm
+  # Create UX is React drawers; this URL only redirects into ?ss=sensor-create.
   template_name = "singleton_sensor/singleton_sensor_create.html"
   success_url = reverse_lazy('singleton_sensor_list')
 
-  def get(self, request, *args, **kwargs):
-    scene_id = request.GET.get('scene')
+  def _sheet(self, request):
+    scene_id = request.GET.get('scene') or request.POST.get('scene')
     if scene_id:
       return sheet_redirect(scene_path(scene_id), 'sensor-create')
     return sheet_redirect(reverse('singleton_sensor_list'), 'sensor-create')
 
-  def get_initial(self):
-    initial = super().get_initial()
-    scene_id = self.request.GET.get('scene')
-    if scene_id:
-      try:
-        scene = Scene.objects.get(id=scene_id)
-        initial['scene'] = scene
-      except Scene.DoesNotExist:
-        pass
-    return initial
+  def get(self, request, *args, **kwargs):
+    return self._sheet(request)
 
-  def get_context_data(self, **kwargs):
-    context = super().get_context_data(**kwargs)
-    context['admin_form_bootstrap'] = {
-      'title': 'New Sensor',
-      'breadcrumbs': [
-        {'label': 'Sensors', 'href': reverse('singleton_sensor_list')},
-        {'label': 'New Sensor'},
-      ],
-      'wide': False,
-    }
-    return context
+  def post(self, request, *args, **kwargs):
+    return self._sheet(request)
 
   def form_valid(self, form):
     form.instance.type = 'generic'
@@ -694,16 +660,19 @@ class AssetCreateView(SuperUserCheck, CreateView):
   fields = ['name', 'x_size', 'y_size', 'z_size', 'mark_color', 'model_3d', 'scale', 'tracking_radius', 'shift_type',
             'geometric_center', 'mass', 'center_of_mass', 'is_static', 'ttl',
             'linear_damping', 'angular_damping', 'coefficient_of_restitution', 'friction_coefficients']
+  # Create UX is React drawers; this URL only redirects into ?ss=asset-create.
   template_name = "asset/asset_create.html"
   success_url = reverse_lazy('asset_list')
 
   def get(self, request, *args, **kwargs):
     return sheet_redirect(reverse('asset_list'), 'asset-create')
 
+  def post(self, request, *args, **kwargs):
+    return sheet_redirect(reverse('asset_list'), 'asset-create')
+
   def form_valid(self, form):
     form.instance.type = 'generic'
     return super(AssetCreateView, self).form_valid(form)
-
 class AssetDeleteView(SuperUserCheck, DeleteView):
   model = Asset3D
   template_name = "asset/asset_delete.html"
@@ -758,13 +727,20 @@ class AssetUpdateView(SuperUserCheck, UpdateView):
 class ChildCreateView(SuperUserCheck, CreateView):
   model = ChildScene
   form_class = ChildSceneForm
+  # Create UX is React drawers; this URL only redirects into ?ss=child-create.
   template_name = "child/child_create.html"
 
-  def get(self, request, *args, **kwargs):
-    scene_id = request.GET.get('scene')
+  def _sheet(self, request):
+    scene_id = request.GET.get('scene') or request.POST.get('scene')
     if scene_id:
       return sheet_redirect(scene_path(scene_id), 'child-create')
     return sheet_redirect(reverse('index'), 'child-create')
+
+  def get(self, request, *args, **kwargs):
+    return self._sheet(request)
+
+  def post(self, request, *args, **kwargs):
+    return self._sheet(request)
 
   def get_initial(self):
     initial = super().get_initial()
