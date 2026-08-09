@@ -1,0 +1,55 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-form-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+
+.ss-form-shell-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ss-form-shell-error {
+  margin: 0 0 0.85rem;
+  color: var(--ss-status-bad);
+  font-size: 0.8125rem;
+}
+
+.ss-form-shell-hint {
+  margin: 0 0 0.85rem;
+  color: var(--ss-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.ss-form-shell--sticky .ss-form-shell-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding: 0.75rem 0 0.15rem;
+  background: linear-gradient(
+    to top,
+    var(--ss-surface, #f4f5f5) 70%,
+    color-mix(in srgb, var(--ss-surface, #f4f5f5) 40%, transparent)
+  );
+  border-top: 1px solid var(--ss-card-border);
+}
+
+.ss-drawer-form.ss-form-shell--sticky .ss-form-shell-actions {
+  background: linear-gradient(
+    to top,
+    var(--ss-card-bg, #fff) 70%,
+    color-mix(in srgb, var(--ss-card-bg, #fff) 40%, transparent)
+  );
+}

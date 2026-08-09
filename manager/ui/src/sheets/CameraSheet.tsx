@@ -7,6 +7,8 @@ import { TextField } from "../components/TextField";
 import { SelectField } from "../components/SelectField";
 import { Button } from "../components/Button";
 import { FormSection } from "../components/FormSection";
+import { FormShell } from "../components/FormShell";
+import { useFormDirty } from "../components/useFormDirty";
 import { api, type RestError } from "../lib/rest";
 import { useAppToast } from "../components/ToastProvider";
 
@@ -40,6 +42,8 @@ export function CameraSheet({
   const [scene, setScene] = useState(sceneId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(mode === "create");
+  const { markDirty, resetDirty } = useFormDirty(loaded);
 
   useEffect(() => {
     if (!open) {
@@ -47,11 +51,14 @@ export function CameraSheet({
     }
     setError(null);
     setScene(sceneId);
+    resetDirty();
     if (mode === "create") {
       setSensorId("");
       setName("");
+      setLoaded(true);
       return;
     }
+    setLoaded(false);
     if (!sensorUid) {
       return;
     }
@@ -68,6 +75,8 @@ export function CameraSheet({
         if (cam.scene) {
           setScene(String(cam.scene));
         }
+        setLoaded(true);
+        resetDirty();
       })
       .catch((e: RestError) => {
         if (!cancelled) {
@@ -82,7 +91,7 @@ export function CameraSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, mode, sensorUid, authToken, sceneId]);
+  }, [open, mode, sensorUid, authToken, sceneId, resetDirty]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -108,6 +117,7 @@ export function CameraSheet({
         });
         toast.show("Camera updated", "ok");
       }
+      resetDirty();
       onSaved();
       onClose();
     } catch (err) {
@@ -139,11 +149,16 @@ export function CameraSheet({
         </>
       }
     >
-      <form id="ss-cam-sheet-form" className="ss-drawer-form" onSubmit={submit}>
-        {error ? <p className="ss-drawer-error">{error}</p> : null}
-        {busy && mode === "edit" && !name ? (
-          <p className="ss-drawer-hint">Loading camera…</p>
-        ) : null}
+      <FormShell
+        id="ss-cam-sheet-form"
+        className="ss-drawer-form"
+        error={error}
+        hint={
+          busy && mode === "edit" && !loaded ? "Loading camera…" : null
+        }
+        busy={busy}
+        onSubmit={submit}
+      >
         {scenes.length > 0 ? (
           <FormSection
             id="ss-cam-placement"
@@ -154,7 +169,10 @@ export function CameraSheet({
               id="ss-cam-scene"
               label="Scene"
               value={scene}
-              onChange={(ev) => setScene(ev.target.value)}
+              onChange={(ev) => {
+                setScene(ev.target.value);
+                markDirty();
+              }}
               required
               disabled={busy}
             >
@@ -176,7 +194,10 @@ export function CameraSheet({
             id="ss-cam-sensor-id"
             label="Camera ID"
             value={sensorId}
-            onChange={(ev) => setSensorId(ev.target.value)}
+            onChange={(ev) => {
+              setSensorId(ev.target.value);
+              markDirty();
+            }}
             required
             disabled={busy}
           />
@@ -184,7 +205,10 @@ export function CameraSheet({
             id="ss-cam-name"
             label="Name"
             value={name}
-            onChange={(ev) => setName(ev.target.value)}
+            onChange={(ev) => {
+              setName(ev.target.value);
+              markDirty();
+            }}
             required
             disabled={busy}
           />
@@ -192,7 +216,7 @@ export function CameraSheet({
             Calibrate after creating so detections land correctly on the map.
           </p>
         </FormSection>
-      </form>
+      </FormShell>
     </Drawer>
   );
 }

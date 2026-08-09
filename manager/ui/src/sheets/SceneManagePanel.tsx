@@ -12,6 +12,7 @@ import { FormSection } from "../components/FormSection";
 import { TextField } from "../components/TextField";
 import { SelectField } from "../components/SelectField";
 import { Button } from "../components/Button";
+import { FormShell } from "../components/FormShell";
 import { api, type RestError } from "../lib/rest";
 import { useAppToast } from "../components/ToastProvider";
 
@@ -400,15 +401,14 @@ export function SceneManagePanel({
         </Button>
       }
     >
-      <form
+      <FormShell
         id={FORM_ID}
         className="ss-workspace-panel-form ss-workspace-panel-form--bleed"
+        error={error}
+        hint={loading ? "Loading scene…" : null}
+        busy={busy || loading}
         onSubmit={submit}
       >
-        {error ? <p className="ss-workspace-panel-error">{error}</p> : null}
-        {loading ? (
-          <p className="ss-workspace-panel-hint">Loading scene…</p>
-        ) : null}
 
         <FormSection
           id="ss-scene-manage-identity"
@@ -766,7 +766,7 @@ export function SceneManagePanel({
             disabled={busy}
           />
         </FormSection>
-      </form>
+      </FormShell>
     </WorkspacePanel>
   );
 }
