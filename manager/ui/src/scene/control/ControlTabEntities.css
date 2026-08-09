@@ -1,0 +1,32 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-entity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+#ss-cameras-mount,
+#ss-sensors-mount,
+#ss-children-mount {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: 100%;
+  min-width: 0;
+}
+
+#ss-cameras-mount {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: flex-start;
+}
+
+.ss-workspace--stack #ss-cameras-mount {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}

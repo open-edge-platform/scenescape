@@ -117,6 +117,16 @@
   margin-bottom: 0.85rem;
 }
 
+.ss-check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.5rem 0 0.75rem;
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  color: var(--ss-text);
+}
+
 .ss-drawer-error {
   margin: 0 0 0.75rem;
   color: var(--ss-status-bad);

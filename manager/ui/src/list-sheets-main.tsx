@@ -20,14 +20,17 @@ type ListBootstrap = {
   scenes?: { id: string; name: string }[];
 };
 
-const CREATE_ACTIONS = new Set([
+const SHEET_ACTIONS = new Set([
   "cam-create",
+  "cam-edit",
   "sensor-create",
+  "sensor-edit",
   "asset-create",
+  "asset-edit",
 ]);
 
-function isCreateAction(v: string | null): v is Exclude<SheetAction, null> {
-  return Boolean(v && CREATE_ACTIONS.has(v));
+function isSheetAction(v: string | null): v is Exclude<SheetAction, null> {
+  return Boolean(v && SHEET_ACTIONS.has(v));
 }
 
 function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
@@ -48,7 +51,7 @@ function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
         return;
       }
       const ss = url.searchParams.get("ss");
-      if (ss && isCreateAction(ss)) {
+      if (ss && isSheetAction(ss)) {
         ev.preventDefault();
         open(ss, url.searchParams.get("id"));
         return;
@@ -69,6 +72,7 @@ function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
   const reload = () => window.location.reload();
   const sceneId = bootstrap.defaultSceneId || "";
   const scenes = bootstrap.scenes || [];
+  const action = sheet.action;
 
   if (!bootstrap.isSuperuser) {
     return null;
@@ -78,11 +82,11 @@ function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
     <>
       {bootstrap.kind === "cam" && (
         <CameraSheet
-          open={sheet.action === "cam-create"}
-          mode="create"
+          open={action === "cam-create" || action === "cam-edit"}
+          mode={action === "cam-edit" ? "edit" : "create"}
           sceneId={sceneId}
           scenes={scenes}
-          sensorUid={null}
+          sensorUid={action === "cam-edit" ? sheet.id : null}
           authToken={bootstrap.authToken}
           onClose={close}
           onSaved={reload}
@@ -90,11 +94,11 @@ function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
       )}
       {bootstrap.kind === "sensor" && (
         <SensorSheet
-          open={sheet.action === "sensor-create"}
-          mode="create"
+          open={action === "sensor-create" || action === "sensor-edit"}
+          mode={action === "sensor-edit" ? "edit" : "create"}
           sceneId={sceneId}
           scenes={scenes}
-          sensorUid={null}
+          sensorUid={action === "sensor-edit" ? sheet.id : null}
           authToken={bootstrap.authToken}
           onClose={close}
           onSaved={reload}
@@ -102,9 +106,9 @@ function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
       )}
       {bootstrap.kind === "asset" && (
         <AssetSheet
-          open={sheet.action === "asset-create"}
-          mode="create"
-          assetUid={null}
+          open={action === "asset-create" || action === "asset-edit"}
+          mode={action === "asset-edit" ? "edit" : "create"}
+          assetUid={action === "asset-edit" ? sheet.id : null}
           authToken={bootstrap.authToken}
           onClose={close}
           onSaved={reload}

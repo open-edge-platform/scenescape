@@ -3,6 +3,117 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-.ss-scenes-home-root {
-  display: none;
+.ss-scenes-home {
+  width: 100%;
+  min-width: 0;
+}
+
+.ss-scenes-home .ss-page-header {
+  margin-bottom: 1.25rem;
+}
+
+.ss-scene-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.ss-scene-card {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  overflow: hidden;
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+  animation: ss-scene-card-in 180ms ease both;
+}
+
+@keyframes ss-scene-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.3rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ss-scene-card:hover {
+  border-color: color-mix(in srgb, var(--ss-brand) 28%, var(--ss-card-border));
+  box-shadow: 0 4px 12px rgba(0, 30, 80, 0.1);
+}
+
+.ss-scene-card > .card-header {
+  font-family: var(--ss-font-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ss-nav-bg);
+  padding: 0.75rem 1rem;
+  margin: 0;
+  background: var(--ss-card-bg);
+  border-bottom: 1px solid var(--ss-card-border);
+}
+
+.ss-scene-card .card-image {
+  background: color-mix(in srgb, var(--ss-surface) 80%, #fff);
+}
+
+.ss-scene-card .card-image a {
+  display: block;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+}
+
+.ss-scene-card .card-image img.cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ss-scene-card .blank-container {
+  width: 100%;
+  height: 100%;
+  min-height: 8rem;
+  background: color-mix(in srgb, var(--ss-surface) 70%, #dfe3e8);
+}
+
+.ss-scene-card .card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.ss-scene-card .scene-card-meta {
+  margin-bottom: 0;
+  color: var(--ss-text-muted);
+  font-size: 0.8125rem;
+}
+
+.ss-scene-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: auto;
+}
+
+.ss-scene-gallery-empty {
+  color: var(--ss-text-muted);
+  font-size: 0.9375rem;
+}
+
+.ss-text-link {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--ss-brand);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
 }

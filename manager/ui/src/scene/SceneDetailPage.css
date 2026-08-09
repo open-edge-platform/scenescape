@@ -482,8 +482,8 @@ body.ss-workspace-resizing {
 }
 
 /*
- * Control-tab cards: neutralize gallery .card { width:330px; float:left }.
- * Applies to both Below (stack) and Side (row) so cards stay inside the panel.
+ * Control tab entity list — intentional workspace chrome.
+ * Cards fill the panel; cameras are the compact media strip exception.
  */
 .ss-scene-detail--workspace .ss-scene-side {
   overflow: hidden;
@@ -498,39 +498,43 @@ body.ss-workspace-resizing {
 .ss-scene-detail--workspace .ss-scene-side .scene-detail-panel {
   max-width: 100%;
   min-width: 0;
-  box-sizing: border-box;
 }
 
 .ss-scene-detail--workspace .ss-scene-side .scene-detail-panel.card {
-  float: none;
   width: 100%;
-  max-width: 100%;
-  min-width: 0;
   margin: 0;
-  box-sizing: border-box;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .ss-scene-detail--workspace .ss-scene-side .scene-detail-panel > .card-body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.5rem;
-  max-width: 100%;
+  gap: 0.55rem;
   min-width: 0;
+  max-width: 100%;
   overflow-x: hidden;
   overflow-y: auto;
-  box-sizing: border-box;
+  padding: 0.45rem 0.55rem 0.65rem;
 }
 
-/* Cameras keep a horizontal strip (stack) / stacked thumbs (row) — see below */
+.ss-workspace--stack .ss-scene-side .scene-detail-panel > .card-body {
+  padding: 0.15rem 0.35rem 0.35rem;
+}
+
+/* Camera strip: Below = horizontal scroller; Side = vertical stack */
 .ss-scene-detail--workspace
   .ss-scene-side
   .scene-detail-panel
   > .card-body:has(.camera-card) {
   flex-direction: row;
   flex-wrap: nowrap;
+  gap: 0.35rem;
   overflow-x: auto;
   overflow-y: hidden;
+  padding-bottom: 0.25rem;
 }
 
 .ss-workspace--row
@@ -542,151 +546,173 @@ body.ss-workspace-resizing {
   overflow-y: auto;
 }
 
-.ss-scene-detail--workspace
-  .ss-scene-side
-  .card:not(.camera-card):not(.scene-detail-panel),
-.ss-scene-detail--workspace .ss-scene-side .singleton.count-item,
+/* Entity cards (sensors, children, …) */
+.ss-scene-detail--workspace .ss-scene-side .singleton,
 .ss-scene-detail--workspace .ss-scene-side #childrenlist > .card {
-  float: none !important;
-  display: block;
-  width: 100% !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-  margin: 0 !important;
-  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  border-radius: var(--ss-radius);
+  background: var(--ss-card-bg);
+  border: 1px solid var(--ss-card-border);
+  box-shadow: none;
 }
 
+.ss-scene-detail--workspace .ss-scene-side .singleton > .card-header,
+.ss-scene-detail--workspace .ss-scene-side #childrenlist > .card > .card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.7rem;
+  font-family: var(--ss-font-heading);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ss-nav-bg);
+  background: color-mix(in srgb, var(--ss-surface) 55%, #fff);
+  border-bottom: 1px solid var(--ss-card-border);
+}
+
+.ss-scene-detail--workspace .ss-scene-side .singleton > .card-body,
+.ss-scene-detail--workspace .ss-scene-side #childrenlist > .card > .card-body {
+  padding: 0.55rem 0.7rem 0.7rem;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .singleton .table,
+.ss-scene-detail--workspace .ss-scene-side #childrenlist .table,
+.ss-scene-detail--workspace .ss-scene-side #mqtt .table {
+  width: 100%;
+  margin: 0 0 0.55rem;
+  table-layout: fixed;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .singleton .table th,
+.ss-scene-detail--workspace .ss-scene-side .singleton .table td,
+.ss-scene-detail--workspace .ss-scene-side #mqtt .table th,
+.ss-scene-detail--workspace .ss-scene-side #mqtt .table td {
+  padding: 0.2rem 0.15rem;
+  font-size: 0.75rem;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  border-top: 0;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .singleton .table th {
+  width: 3.25rem;
+  color: var(--ss-text-muted);
+  font-weight: 600;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .singleton .text-right,
+.ss-scene-detail--workspace .ss-scene-side #childrenlist .text-right {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.3rem;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .sensor-icon {
+  float: none;
+  margin-left: auto;
+}
+
+/* Region / tripwire editors */
 .ss-scene-detail--workspace .ss-scene-side #roi-fields,
 .ss-scene-detail--workspace .ss-scene-side #tripwire-fields,
-.ss-scene-detail--workspace .ss-scene-side #childrenlist,
+.ss-scene-detail--workspace .ss-scene-side #childrenlist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: 100%;
+  min-width: 0;
+}
+
 .ss-scene-detail--workspace .ss-scene-side .form-roi,
 .ss-scene-detail--workspace .ss-scene-side .form-tripwire {
   width: 100%;
-  max-width: 100%;
   min-width: 0;
-  box-sizing: border-box;
+  margin: 0;
 }
 
 .ss-scene-detail--workspace .ss-scene-side .ss-editor-card,
+.ss-scene-detail--workspace .ss-scene-side .ss-editor-card.col,
 .ss-scene-detail--workspace .ss-scene-side .form-roi .col,
-.ss-scene-detail--workspace .ss-scene-side .form-tripwire .col,
-.ss-scene-detail--workspace .ss-scene-side .ss-editor-card.col {
-  float: none;
+.ss-scene-detail--workspace .ss-scene-side .form-tripwire .col {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  flex: 1 1 auto;
-  padding-left: 0;
-  padding-right: 0;
-  box-sizing: border-box;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  flex: none;
 }
 
 .ss-scene-detail--workspace .ss-scene-side .input-group {
   flex-wrap: wrap;
-  max-width: 100%;
+  width: 100%;
   min-width: 0;
 }
 
 .ss-scene-detail--workspace .ss-scene-side .input-group > .form-control {
   min-width: 0;
-  flex: 1 1 8rem;
+  flex: 1 1 7rem;
 }
 
 .ss-scene-detail--workspace .ss-scene-side .input-group > .form-text,
 .ss-scene-detail--workspace .ss-scene-side .input-group > .col.form-text {
   flex: 1 1 100%;
-  max-width: 100%;
   width: 100%;
+  max-width: 100%;
   padding-left: 0;
   margin-top: 0.35rem;
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
-.ss-scene-detail--workspace .ss-scene-side .ss-editor-card-meta,
-.ss-scene-detail--workspace .ss-scene-side .ss-editor-sectors {
-  max-width: 100%;
-}
-
-.ss-scene-detail--workspace .ss-scene-side .ss-editor-sectors {
-  overflow-x: auto;
-}
-
-.ss-scene-detail--workspace .ss-scene-side .card-image,
-.ss-scene-detail--workspace .ss-scene-side .card-image a {
+.ss-scene-detail--workspace .ss-scene-side #childrenlist .card-image img,
+.ss-scene-detail--workspace .ss-scene-side #childrenlist .blank-container {
   width: 100%;
-  max-width: 100%;
-}
-
-.ss-scene-detail--workspace
-  .ss-scene-side
-  .card:not(.camera-card)
-  .card-image
-  img,
-.ss-scene-detail--workspace
-  .ss-scene-side
-  .card:not(.camera-card)
-  .blank-container {
-  width: 100% !important;
-  max-width: 100%;
-  height: auto !important;
-  max-height: 10rem;
+  max-height: 8.5rem;
   object-fit: cover;
 }
 
 .ss-scene-detail--workspace .ss-scene-side .row {
   margin-left: 0;
   margin-right: 0;
+  width: 100%;
   max-width: 100%;
 }
 
 .ss-scene-detail--workspace .ss-scene-side [class*="col-"] {
   min-width: 0;
   max-width: 100%;
-  padding-left: 0.35rem;
-  padding-right: 0.35rem;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
 }
 
-.ss-scene-detail--workspace .ss-scene-side .table {
-  table-layout: fixed;
-  width: 100%;
-  max-width: 100%;
-}
-
-.ss-scene-detail--workspace .ss-scene-side .table td,
-.ss-scene-detail--workspace .ss-scene-side .table th {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.ss-scene-detail--workspace .ss-scene-side .scene-detail-panel-header,
-.ss-scene-detail--workspace .ss-scene-side .scene-detail-panel-actions {
-  max-width: 100%;
-  min-width: 0;
+.ss-scene-detail--workspace .ss-scene-side .scene-detail-panel-header {
+  padding: 0.55rem 0.65rem;
+  gap: 0.45rem;
 }
 
 .ss-scene-detail--workspace .ss-scene-side .scene-detail-panel-actions {
   flex-wrap: wrap;
+  gap: 0.3rem;
 }
 
 .ss-scene-detail--workspace .ss-scene-side .scene-detail-panel > .card-body > .ss-empty-state {
-  flex: 0 0 auto;
-  padding: 0.35rem 0.5rem;
+  margin: 0.25rem 0;
+  padding: 0.5rem 0.25rem;
 }
 
 .ss-scene-detail--workspace .camera-card {
-  width: 200px;
-  margin: 0.25rem;
+  flex: 0 0 auto;
+  width: min(12.5rem, 100%);
+  margin: 0;
   overflow: hidden;
 }
 
 .ss-workspace--stack .camera-card {
   display: flex;
   flex-direction: column;
-  float: none;
-  flex: 0 0 auto;
   width: 9.75rem;
-  margin: 0;
   height: 100%;
   max-height: 100%;
 }
@@ -701,7 +727,7 @@ body.ss-workspace-resizing {
 .ss-workspace--row .camera-card {
   width: 100%;
   max-width: 100%;
-  margin: 0 0 0.5rem;
+  margin: 0;
 }
 
 .ss-scene-detail--workspace .camera-card .card-header {

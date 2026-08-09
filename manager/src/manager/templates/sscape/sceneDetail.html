@@ -135,137 +135,10 @@ SPDX-License-Identifier: Apache-2.0
       role="tabpanel"
       aria-labelledby="cameras-tab"
     >
-      <div class="card width-100 scene-detail-panel">
-        <h5 class="noselect card-header scene-detail-panel-header hide-live">
-          <span class="scene-detail-panel-heading">
-            Cameras
-            <button
-              type="button"
-              class="scene-detail-help"
-              id="camera-help"
-              data-toggle="modal"
-              data-target="#cameraHelpModal"
-              title="How cameras work in this scene"
-              aria-label="How cameras work in this scene"
-            >
-              <i class="bi bi-question-circle" aria-hidden="true"></i>
-            </button>
-          </span>
-          <span class="scene-detail-panel-actions">
-            <div class="custom-control custom-switch switch scene-detail-live-toggle">
-              <input
-                type="checkbox"
-                class="custom-control-input"
-                id="live-view"
-                aria-labelledby="live-view-label"
-              />
-              <label
-                class="custom-control-label"
-                for="live-view"
-                title="Toggle Live View"
-                id="live-view-label"
-                >Live&nbsp;View</label
-              >
-            </div>
-            <div class="custom-control custom-switch switch scene-detail-live-toggle">
-              <input
-                type="checkbox"
-                class="custom-control-input"
-                id="show-telemetry"
-                aria-labelledby="show-telemetry-label"
-              />
-              <label
-                class="custom-control-label"
-                for="show-telemetry"
-                title="Toggle Show Telemetry"
-                id="show-telemetry-label"
-                >Show&nbsp;Telemetry</label
-              >
-            </div>
-            {% if user.is_superuser %}
-              <a
-                class="btn btn-primary btn-sm"
-                id="new-camera"
-                title="Add a new camera"
-                href="?ss=cam-create"
-                >+ New Camera</a
-              >
-            {% endif %}
-          </span>
-        </h5>
-        <div class="card-body">
-          <div class="ss-empty-state">
-            <p>No cameras in this scene yet.</p>
-            {% if user.is_superuser %}
-              <a class="btn btn-primary btn-sm" href="?ss=cam-create"
-                >+ New Camera</a
-              >
-            {% endif %}
-          </div>
-          {% if scene.sensor_set.count %}
-            {% for s in scene.sensor_set.all|dictsort:"name" %}
-              {% if s.type == "camera" %}
-                <div class="card count-item camera-card">
-                  <h6 class="card-header">
-                    <span class="float-right rate" id="rate-{{ s.sensor_id }}"
-                      >--</span
-                    >
-                    {{ s.name }}
-                  </h6>
-                  <div class="card-image">
-                    {% if user.is_superuser %}
-                      <a
-                        class="snapshot-image"
-                        topic="scenescape/cmd/camera/{{ s.sensor_id }}"
-                        href="?ss=calibrate-cam&id={{ s.id }}"
-                        id="cam_calibrate_{{ s.id }}"
-                      >
-                        <div class="cam-offline">Camera Offline</div>
-                        <img
-                          id="card-preview-{{ s.sensor_id }}"
-                          class="display-none"
-                          alt="{{ s.name }} View"
-                          data-ss-card-sensor="{{ s.sensor_id }}"
-                        />
-                      </a>
-                    {% else %}
-                      <a
-                        class="snapshot-image"
-                        topic="scenescape/cmd/camera/{{ s.sensor_id }}"
-                        id="cam_calibrate_{{ s.id }}"
-                      >
-                        <div class="cam-offline">Camera Offline</div>
-                        <img
-                          id="card-preview-{{ s.sensor_id }}"
-                          class="display-none"
-                          alt="{{ s.name }} View"
-                          data-ss-card-sensor="{{ s.sensor_id }}"
-                        />
-                      </a>
-                    {% endif %}
-                  </div>
-                  <div class="card-body hide-live">
-                    {% if user.is_superuser %}
-                      <div class="text-right">
-                        <a
-                          class="btn btn-secondary btn-sm"
-                          href="?ss=calibrate-cam&id={{ s.id }}"
-                          title="Manage {{ s.name }}"
-                          ><i class="bi bi-wrench"></i
-                        ></a>
-                        <a
-                          class="btn btn-secondary btn-sm"
-                          href="{% url 'cam_delete' s.id %}"
-                          title="Delete {{ s.name }}"
-                          ><i class="bi bi-trash"></i
-                        ></a>
-                      </div>
-                    {% endif %}
-                  </div>
-                </div>
-              {% endif %}
-            {% endfor %}
-          {% endif %}
+      <div class="card scene-detail-panel">
+        
+        <div class="card-body" id="ss-cameras-mount">
+          {# React ControlTabEntities #}
         </div>
       </div>
     </div>
@@ -276,101 +149,10 @@ SPDX-License-Identifier: Apache-2.0
       role="tabpanel"
       aria-labelledby="sensors-tab"
     >
-      <div class="card width-100 scene-detail-panel">
-        <h5 class="noselect card-header scene-detail-panel-header">
-          <span class="scene-detail-panel-heading">
-            Sensors
-            <button
-              type="button"
-              class="scene-detail-help"
-              id="sensor-help"
-              data-toggle="modal"
-              data-target="#sensorHelpModal"
-              title="How sensors work in this scene"
-              aria-label="How sensors work in this scene"
-            >
-              <i class="bi bi-question-circle" aria-hidden="true"></i>
-            </button>
-          </span>
-          {% if user.is_superuser %}
-            <span class="scene-detail-panel-actions">
-              <a
-                class="btn btn-primary btn-sm"
-                id="new-sensor"
-                title="Add a new sensor"
-                href="?ss=sensor-create"
-                >+ New Sensor</a
-              >
-            </span>
-          {% endif %}
-        </h5>
-        <div class="card-body">
-          <div class="ss-empty-state">
-            <p>No sensors in this scene yet.</p>
-            {% if user.is_superuser %}
-              <a class="btn btn-primary btn-sm" href="?ss=sensor-create"
-                >+ New Sensor</a
-              >
-            {% endif %}
-          </div>
-          {% if scene.sensor_set.count %}
-            {% for s in scene.sensor_set.all|dictsort:"name" %}
-              {% if s.type == "generic" %}
-                <div class="card singleton count-item">
-                  <h5 class="card-header">
-                    {% if s.icon %}
-                      <img
-                        type="hidden"
-                        class="sensor-icon float-right"
-                        width="24"
-                        height="24"
-                        src="{{ s.icon.url }}"
-                        alt="{{ s.name }} Icon"
-                      />
-                    {% endif %}
-                    {{ s.name }}
-                  </h5>
-                  <div class="card-body">
-                    <table class="table table-sm">
-                      <tr>
-                        <th>ID</th>
-                        <td class="small sensor-id">{{ s.sensor_id }}</td>
-                      </tr>
-                    </table>
-                    <input
-                      type="hidden"
-                      class="area-json"
-                      value="{{ s.areaJSON }}"
-                    />
-                    {% if user.is_superuser %}
-                      <div class="text-right">
-                        <a
-                          class="btn btn-secondary btn-sm sensor_calibrate"
-                          href="?ss=calibrate-sensor&id={{ s.id }}"
-                          id="sensor_calibrate_{{ s.id }}"
-                          title="Manage"
-                        >
-                          <i class="bi bi-wrench"></i>
-                        </a>
-                        <a
-                          class="btn btn-secondary btn-sm"
-                          href="{% url 'singleton_sensor_update' s.id %}"
-                          title="Edit"
-                          ><i class="bi bi-pencil"></i
-                        ></a>
-                        <a
-                          class="btn btn-secondary btn-sm"
-                          href="{% url 'singleton_sensor_delete' s.id %}"
-                          title="Delete"
-                          ><i class="bi bi-trash"></i
-                        ></a>
-                      </div>
-                    {% endif %}
-                  </div>
-                </div>
-              {% endif %}
-            {% endfor %}
-          {% endif %}
+      <div class="card scene-detail-panel">
+        
+        <div class="card-body" id="ss-sensors-mount">
+          {# React ControlTabEntities #}
         </div>
       </div>
     </div>
@@ -381,53 +163,11 @@ SPDX-License-Identifier: Apache-2.0
       role="tabpanel"
       aria-labelledby="regions-tab"
     >
-      <div class="card width-100 scene-detail-panel">
-        <h5 class="noselect card-header scene-detail-panel-header">
-          <span class="scene-detail-panel-heading">
-            Regions of Interest
-            <button
-              type="button"
-              class="scene-detail-help"
-              id="roi-help"
-              data-toggle="modal"
-              data-target="#roiHelpModal"
-              title="How regions of interest work"
-              aria-label="How regions of interest work"
-            >
-              <i class="bi bi-question-circle" aria-hidden="true"></i>
-            </button>
-          </span>
-          {% if user.is_superuser %}
-            <span class="scene-detail-panel-actions">
-              <button
-                type="button"
-                class="btn btn-primary btn-sm"
-                id="new-roi"
-                title="Create a new region"
-              >
-                + New
-              </button>
-              <input
-                type="button"
-                class="btn btn-sm btn-primary ss-save-clean"
-                id="save-rois"
-                value="Save"
-                title="No unsaved changes"
-                disabled
-              />
-            </span>
-          {% endif %}
-        </h5>
+      <div class="card scene-detail-panel">
+        
         <div class="card-body">
           <div id="roi-fields" class="top-buffer"></div>
-          <div id="no-regions" class="ss-empty-state">
-            <p>No regions of interest defined.</p>
-            {% if user.is_superuser %}
-              <button type="button" class="btn btn-primary btn-sm" id="empty-new-roi">
-                + New
-              </button>
-            {% endif %}
-          </div>
+          <div id="no-regions" class="ss-empty-state" hidden></div>
         </div>
       </div>
     </div>
@@ -438,57 +178,11 @@ SPDX-License-Identifier: Apache-2.0
       role="tabpanel"
       aria-labelledby="tripwires-tab"
     >
-      <div class="card width-100 scene-detail-panel">
-        <h5 class="noselect card-header scene-detail-panel-header">
-          <span class="scene-detail-panel-heading">
-            Tripwires
-            <button
-              type="button"
-              class="scene-detail-help"
-              id="tripwire-help"
-              data-toggle="modal"
-              data-target="#tripwireHelpModal"
-              title="How tripwires work"
-              aria-label="How tripwires work"
-            >
-              <i class="bi bi-question-circle" aria-hidden="true"></i>
-            </button>
-          </span>
-          {% if user.is_superuser %}
-            <span class="scene-detail-panel-actions">
-              <button
-                type="button"
-                class="btn btn-primary btn-sm"
-                id="new-tripwire"
-                title="Create a new tripwire"
-              >
-                + New
-              </button>
-              <input
-                type="button"
-                class="btn btn-sm btn-primary ss-save-clean"
-                id="save-trips"
-                value="Save"
-                title="No unsaved changes"
-                disabled
-              />
-            </span>
-          {% endif %}
-        </h5>
+      <div class="card scene-detail-panel">
+        
         <div class="card-body">
           <div id="tripwire-fields" class="top-buffer"></div>
-          <div id="no-tripwires" class="ss-empty-state">
-            <p>No tripwires defined.</p>
-            {% if user.is_superuser %}
-              <button
-                type="button"
-                class="btn btn-primary btn-sm"
-                id="empty-new-tripwire"
-              >
-                + New
-              </button>
-            {% endif %}
-          </div>
+          <div id="no-tripwires" class="ss-empty-state" hidden></div>
         </div>
       </div>
     </div>
@@ -499,110 +193,18 @@ SPDX-License-Identifier: Apache-2.0
       role="tabpanel"
       aria-labelledby="children-tab"
     >
-      <div class="card width-100 scene-detail-panel">
-        <h5 class="noselect card-header scene-detail-panel-header hide-live">
-          <span class="scene-detail-panel-heading">
-            Children
-            <button
-              type="button"
-              class="scene-detail-help"
-              id="children-help"
-              data-toggle="modal"
-              data-target="#childrenHelpModal"
-              title="How child scenes work"
-              aria-label="How child scenes work"
-            >
-              <i class="bi bi-question-circle" aria-hidden="true"></i>
-            </button>
-          </span>
-          {% if user.is_superuser %}
-            <span class="scene-detail-panel-actions">
-              <a
-                class="btn btn-primary btn-sm"
-                id="new-child"
-                title="Add a new child scene"
-                href="?ss=child-create"
-                >+ Link Child</a
-              >
-            </span>
-          {% endif %}
-        </h5>
+      <div class="card scene-detail-panel">
+        
         <div id="childrenlist" class="card-body">
-          <div class="ss-empty-state">
-            <p>No child scenes linked yet.</p>
-            {% if user.is_superuser %}
-              <a class="btn btn-primary btn-sm" href="?ss=child-create"
-                >+ Link Child</a
-              >
-            {% endif %}
-          </div>
           <input
             type="hidden"
             name="children"
             id="scene_children"
             value="{{ scene.children.all|length }}"
           />
-          {% for c in scene.children.all %}
-            <div class="card">
-              <h6 class="card-header">
-                {{ c.child.name|default:c.child_name }}
-              </h6>
-              <div class="card-image">
-                {% if c.child.thumbnail %}
-                  <a href="{% url 'sceneDetail' c.child.id %}">
-                    <img
-                      class="cover"
-                      src="{{ c.child.thumbnail.url }}"
-                      alt="{{ c.child.name }}"
-                    />
-                  </a>
-                {% elif c.child.map %}
-                  <a href="{% url 'sceneDetail' c.child.id %}">
-                    <img
-                      class="cover"
-                      src="{{ c.child.map.url }}"
-                      alt="{{ c.child.name }}"
-                    />
-                  </a>
-                {% endif %}
-              </div>
-              <div class="card-body">
-                <div class="text-right">
-                  {% if c.child_type == 'remote' %}
-                    <span
-                      id="mqtt_status_remote_{{ c.remote_child_id }}"
-                      class="child_mqtt_status btn-sm btn"
-                      ><i class="bi bi-arrow-down-up"></i
-                    ></span>
-                  {% endif %}
-                  {% if c.child %}
-                    <a
-                      class="btn btn-secondary btn-sm"
-                      href="{% url 'sceneDetail' c.child.id %}"
-                      title="View Scene"
-                      ><i class="bi bi-search"></i
-                    ></a>
-                  {% endif %}
-                  {% if user.is_superuser %}
-                    <a
-                      class="btn btn-secondary btn-sm"
-                      href="{% url 'child_update' c.id %}"
-                      title="Manage {{ c.child.name }}"
-                      id="child-update-{{ c.child.name }}"
-                      ><i class="bi bi-wrench"></i
-                    ></a>
-                    <a
-                      class="btn btn-secondary btn-sm"
-                      href="{% url 'child_delete' c.id %}"
-                      title="Delete {{ c.child.name }}"
-                      id="child-delete-{{ c.child.name }}"
-                      ><i class="bi bi-trash"></i
-                    ></a>
-                  {% endif %}
-                </div>
-              </div>
-            </div>
-          {% endfor %}
+          <div id="ss-children-mount">
+            {# React ControlTabEntities #}
+          </div>
         </div>
       </div>
     </div>
@@ -613,80 +215,10 @@ SPDX-License-Identifier: Apache-2.0
       role="tabpanel"
       aria-labelledby="mqtt-tab"
     >
-      <div class="card width-100 scene-detail-panel">
-        <h5 class="noselect card-header scene-detail-panel-header">
-          <span class="scene-detail-panel-heading">MQTT Settings</span>
-        </h5>
-        <div class="card-body">
-          <div class="row">
-            <div class="col-sm">
-              <div class="input-group mb-3">
-                <div class="input-group-prepend">
-                  <label class="input-group-text" for="broker" id="label-broker"
-                    >WSS Connection</label
-                  >
-                </div>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="broker"
-                  aria-labelledby="label-broker"
-                  value="{{ scene.wssConnection }}"
-                />
-              </div>
-              <div class="input-group mb-3">
-                <div class="input-group-prepend">
-                  <label class="input-group-text" for="topic" id="label-topic"
-                    >Scene Data Topic</label
-                  >
-                </div>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="topic"
-                  aria-labelledby="label-topic"
-                  value="scenescape/regulated/scene/{{ scene.id }}"
-                />
-              </div>
-              <button class="btn btn-secondary btn-sm" id="connect">
-                Connect
-              </button>
-              <button class="btn btn-secondary btn-sm" id="disconnect">
-                Disconnect
-              </button>
-            </div>
-            <div class="col-sm">
-              <table class="table table-bordered table-sm">
-                <thead class="thead-dark">
-                  <tr>
-                    <th colspan="2">Client Settings</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <th scope="row">Broker</th>
-                    <td id="broker-address"></td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Validate Certificate</th>
-                    <td>Off</td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Encryption (TLS)</th>
-                    <td>On</td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Protocol</th>
-                    <td>mqtt://</td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Port</th>
-                    <td>1883</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+      <div class="card scene-detail-panel">
+        
+        <div class="card-body" id="ss-mqtt-mount">
+          {# React MqttSettingsPanel #}
         </div>
       </div>
     </div>
@@ -694,259 +226,7 @@ SPDX-License-Identifier: Apache-2.0
   </div>
   </div>
 
-  <!-- Camera Help Modal -->
-  <div
-    class="modal fade"
-    id="cameraHelpModal"
-    tabindex="-1"
-    role="dialog"
-    aria-labelledby="Camera Help"
-    aria-hidden="true"
-  >
-    <div class="modal-dialog modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="exampleModalLongTitle">Camera Help</h5>
-          <button
-            type="button"
-            class="close"
-            data-dismiss="modal"
-            aria-label="Close"
-          >
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <ul>
-            <li>All cameras and sensors must be associated with a scene.</li>
-            <li>
-              Cameras must be carefully calibrated against the scene floor plan,
-              so verify the calibration if you are seeing odd behavior.
-            </li>
-            <li>
-              After adding a camera to a scene, the scene is prepared to start
-              receiving metadata from Video Analytics microservice.
-            </li>
-            <li>
-              In order to see the camera view in the Scenescape UI, the
-              vision-based system must send image frames on request.
-            </li>
-            <li>
-              See the "MQTT" tab in the camera management interface for more
-              information.
-            </li>
-          </ul>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- Sensor Help Modal -->
-  <div
-    class="modal fade"
-    id="sensorHelpModal"
-    tabindex="-1"
-    role="dialog"
-    aria-labelledby="Sensor Help"
-    aria-hidden="true"
-  >
-    <div class="modal-dialog modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="exampleModalLongTitle">Sensor Help</h5>
-          <button
-            type="button"
-            class="close"
-            data-dismiss="modal"
-            aria-label="Close"
-          >
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <ul>
-            <li>Like cameras, all sensors must be associated with a scene.</li>
-            <li>
-              Use the sensor calibration interface to place the sensor in the
-              scene and set the measurement area the sensor applies to.
-            </li>
-            <li>
-              See the Scenescape documentation for details on publishing sensor
-              data into Scenescape.
-            </li>
-          </ul>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ROI Help Modal -->
-  <div
-    class="modal fade"
-    id="roiHelpModal"
-    tabindex="-1"
-    role="dialog"
-    aria-labelledby="ROI Help"
-    aria-hidden="true"
-  >
-    <div class="modal-dialog modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="exampleModalLongTitle">ROI Help</h5>
-          <button
-            type="button"
-            class="close"
-            data-dismiss="modal"
-            aria-label="Close"
-          >
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <ul>
-            <li>
-              Click "New" and then click a spot on the map for each
-              vertex of your region of interest (ROI)
-            </li>
-            <li>To close the ROI polygon, click on the green starting dot</li>
-            <li>Be sure to give your new ROI a unique name</li>
-            <li>
-              To edit an ROI, double click on it and drag its vertices, then
-              double-click again to finish editing
-            </li>
-            <li>
-              Be sure to click "Save" when you are finished
-            </li>
-            <li>
-              Polygon with
-              <svg height="20" width="50" class="roi-help">
-                <line x1="0" y1="10" x2="50" y2="10" />
-              </svg>
-              represents an ROI of the scene.
-            </li>
-            <li>
-              Polygon with
-              <svg height="20" width="50" class="roi-help">
-                <line class="dotted-line" x1="0" y1="10" x2="50" y2="10" />
-              </svg>
-              represents an ROI from the child scene hierarchy.
-            </li>
-          </ul>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Tripwire Help Modal -->
-  <div
-    class="modal fade"
-    id="tripwireHelpModal"
-    tabindex="-1"
-    role="dialog"
-    aria-labelledby="Tripwire Help"
-    aria-hidden="true"
-  >
-    <div class="modal-dialog modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="exampleModalLongTitle">Tripwire Help</h5>
-          <button
-            type="button"
-            class="close"
-            data-dismiss="modal"
-            aria-label="Close"
-          >
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <ul>
-            <li>
-              To create a tripwire, click "New" and click on the map
-              once
-            </li>
-            <li>Drag the ends of the tripwire as needed</li>
-            <li>The arrow indicates the direction of the tripwire</li>
-            <li>
-              Objects crossing in the tripwire direction will be a +1 event, and
-              objects crossing the opposite direction will be a -1 event
-            </li>
-            <li>Be sure to give your tripwire a unique name</li>
-            <li>
-              To edit a tripwire, just drag its vertices and click Save
-            </li>
-          </ul>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Children Help Modal -->
-  <div
-    class="modal fade"
-    id="childrenHelpModal"
-    tabindex="-1"
-    role="dialog"
-    aria-labelledby="Children Help"
-    aria-hidden="true"
-  >
-    <div class="modal-dialog modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="exampleModalLongTitle">Children Help</h5>
-          <button
-            type="button"
-            class="close"
-            data-dismiss="modal"
-            aria-label="Close"
-          >
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <ul>
-            <li>
-              Defining children scenes allows for aggregating multiple scenes
-              together
-            </li>
-            <li>A scene may have any number of children but only one parent</li>
-            <li>
-              The child scene must already exist in order to create the
-              parent/child link
-            </li>
-          </ul>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {{ scene_detail_bootstrap|json_script:"ss-scene-detail-bootstrap" }}
-  <input type="hidden" id="auth-token" value="{{ user.auth_token }}" />
 {% endblock %}
 {% block scripts %}
   <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}" />

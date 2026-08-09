@@ -15,6 +15,11 @@ import { Button } from "../components/Button";
 import { FormShell } from "../components/FormShell";
 import { api, type RestError } from "../lib/rest";
 import { useAppToast } from "../components/ToastProvider";
+import {
+  checkMappingServiceAvailable,
+  pollMeshStatus,
+  startMeshGeneration,
+} from "../lib/meshGeneration";
 
 type Props = {
   open: boolean;
@@ -136,6 +141,9 @@ export function SceneManagePanel({
   const [minimumNumberOfMatches, setMinimumNumberOfMatches] = useState("20");
   const [inlierThreshold, setInlierThreshold] = useState("0.5");
 
+  const [meshAvailable, setMeshAvailable] = useState(false);
+  const [meshBusy, setMeshBusy] = useState(false);
+
   const markDirty = () => setDirty(true);
 
   const poseNonDefault =
@@ -158,6 +166,44 @@ export function SceneManagePanel({
     /calibration|apriltag|localization|feature|inlier|match/i.test(error || "");
 
   const sectionKey = loading ? "loading" : "ready";
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    let cancelled = false;
+    checkMappingServiceAvailable(authToken).then((ok) => {
+      if (!cancelled) {
+        setMeshAvailable(ok);
+      }
+    });
+    const timer = window.setInterval(() => {
+      checkMappingServiceAvailable(authToken).then((ok) => {
+        if (!cancelled) {
+          setMeshAvailable(ok);
+        }
+      });
+    }, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [open, authToken]);
+
+  const runGenerateMesh = async () => {
+    setMeshBusy(true);
+    setError(null);
+    try {
+      const requestId = await startMeshGeneration(sceneId);
+      await pollMeshStatus(sceneId, requestId);
+      toast.show("Mesh generated — map updated", "ok");
+      onSaved();
+    } catch (err) {
+      setError((err as Error).message || "Mesh generation failed");
+    } finally {
+      setMeshBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!open || !sceneId) {
@@ -392,16 +438,30 @@ export function SceneManagePanel({
       dirty={dirty}
       onClose={onClose}
       actions={
-        <Button
-          variant="primary"
-          type="submit"
-          form={FORM_ID}
-          disabled={busy || loading || !dirty}
-          title={dirty ? "Save changes" : "No unsaved changes"}
-          className={dirty ? "ss-btn--dirty" : undefined}
-        >
-          {busy && !loading ? "Saving…" : dirty ? "Save" : "Saved"}
-        </Button>
+        <>
+          {meshAvailable ? (
+            <Button
+              variant="secondary"
+              type="button"
+              id="generate_mesh"
+              disabled={busy || loading || meshBusy}
+              onClick={() => void runGenerateMesh()}
+              title="Generate 3D mesh from camera images using mapping service"
+            >
+              {meshBusy ? "Generating…" : "Generate Mesh"}
+            </Button>
+          ) : null}
+          <Button
+            variant="primary"
+            type="submit"
+            form={FORM_ID}
+            disabled={busy || loading || !dirty || meshBusy}
+            title={dirty ? "Save changes" : "No unsaved changes"}
+            className={dirty ? "ss-btn--dirty" : undefined}
+          >
+            {busy && !loading ? "Saving…" : dirty ? "Save" : "Saved"}
+          </Button>
+        </>
       }
     >
       <FormShell

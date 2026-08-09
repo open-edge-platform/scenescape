@@ -147,6 +147,18 @@ class ManageThing(APIView):
 
     return uid
 
+  def _resolve_thing(self, thing_class, thing_type, uid_field, uid):
+    thing = thing_class.objects.filter(**{uid_field: uid}).first()
+    if thing is not None:
+      return thing
+    if thing_type in ("child",) and uid is not None:
+      thing = thing_class.objects.filter(remote_child_id=uid).first()
+      if thing is None:
+        thing = thing_class.objects.filter(child_id=uid).first()
+      if thing is None and isinstance(uid, int):
+        thing = thing_class.objects.filter(pk=uid).first()
+    return thing
+
   def get(self, request, thing_type, uid=None):
     thing_class, thing_serializer, uid_field = get_class_and_serializer(thing_type)
 
@@ -163,9 +175,8 @@ class ManageThing(APIView):
     except ValidationError as e:
       return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
-    try:
-      thing = thing_class.objects.get(**{uid_field: uid})
-    except thing_class.DoesNotExist:
+    thing = self._resolve_thing(thing_class, thing_type, uid_field, uid)
+    if thing is None:
       return Response(status=status.HTTP_404_NOT_FOUND)
 
     serializer = thing_serializer(thing)
@@ -184,7 +195,7 @@ class ManageThing(APIView):
       except ValidationError as e:
         return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
-      thing = thing_class.objects.filter(**{uid_field: uid}).first()
+      thing = self._resolve_thing(thing_class, thing_type, uid_field, uid)
 
       if thing is None:
         return Response(status=status.HTTP_404_NOT_FOUND)
@@ -233,7 +244,7 @@ class ManageThing(APIView):
     except ValidationError as e:
       return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
-    obj = thing_class.objects.filter(**{uid_field: uid}).first()
+    obj = self._resolve_thing(thing_class, thing_type, uid_field, uid)
 
     if not obj:
       return Response(status=status.HTTP_404_NOT_FOUND)

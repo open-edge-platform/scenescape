@@ -40,6 +40,7 @@ export function ChildSheet({
   const [hostName, setHostName] = useState("");
   const [mqttUsername, setMqttUsername] = useState("");
   const [mqttPassword, setMqttPassword] = useState("");
+  const [retrack, setRetrack] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,6 +57,7 @@ export function ChildSheet({
       setHostName("");
       setMqttUsername("");
       setMqttPassword("");
+      setRetrack(true);
       return;
     }
     if (!childUid) {
@@ -76,6 +78,7 @@ export function ChildSheet({
         setRemoteChildId(String(c.remote_child_id || ""));
         setHostName(String(c.host_name || ""));
         setMqttUsername(String(c.mqtt_username || ""));
+        setRetrack(c.retrack !== false && c.retrack !== "false");
       })
       .catch((e: RestError) => {
         if (!cancelled) {
@@ -99,6 +102,7 @@ export function ChildSheet({
     const payload: Record<string, unknown> = {
       parent: parentSceneId,
       child_type: childType,
+      retrack,
     };
     if (childType === "local") {
       payload.child = childSceneId;
@@ -227,6 +231,15 @@ export function ChildSheet({
             />
           </>
         )}
+        <label className="ss-check-row">
+          <input
+            type="checkbox"
+            checked={retrack}
+            disabled={busy}
+            onChange={(ev) => setRetrack(ev.target.checked)}
+          />
+          Retrack objects when they enter this parent
+        </label>
         <p className="ss-drawer-hint">
           Transform pose can still be refined from the map after linking.
         </p>

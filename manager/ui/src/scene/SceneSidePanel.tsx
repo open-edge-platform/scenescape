@@ -4,6 +4,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { TabItem } from "../components/Tabs";
 import { CameraStripEnhancer } from "./CameraStripEnhancer";
+import { ControlTabEntities } from "./control/ControlTabEntities";
+import { MqttSettingsPanel } from "./MqttSettingsPanel";
+import { SceneHelpModals } from "./SceneHelpModals";
+import { TabToolbar } from "./TabToolbar";
+import type {
+  SceneCameraBootstrap,
+  SceneChildBootstrap,
+  SceneSensorBootstrap,
+} from "./types";
 import "../components/Tabs.css";
 import "./SceneSidePanel.css";
 
@@ -25,44 +34,33 @@ const LEGACY_TAB_LINK: Record<string, string> = {
   mqtt: "settings-tab",
 };
 
-/** Legacy control ids adopted into the active-tab toolbar (keeps jQuery handlers). */
-const TAB_TOOLBAR_IDS: Record<string, string[]> = {
-  cameras: ["camera-help", "live-view", "show-telemetry", "new-camera"],
-  sensors: ["sensor-help", "new-sensor"],
-  regions: ["roi-help", "new-roi", "save-rois"],
-  tripwires: ["tripwire-help", "new-tripwire", "save-trips"],
-  children: ["children-help", "new-child"],
-  mqtt: [],
-};
-
-type HomeSlot = { parent: Node; next: ChildNode | null };
-
-function resolveNode(id: string): HTMLElement | null {
-  const el = document.getElementById(id);
-  if (!el) {
-    return null;
-  }
-  if (id === "live-view" || id === "show-telemetry") {
-    return (el.closest(".scene-detail-live-toggle") as HTMLElement) || el;
-  }
-  return el;
-}
-
 type Props = {
   tabs: TabItem[];
   cameraRates?: Record<string, string>;
+  cameras?: SceneCameraBootstrap[];
+  sensors?: SceneSensorBootstrap[];
+  childrenLinks?: SceneChildBootstrap[];
+  isSuperuser?: boolean;
+  sceneId?: string;
+  wssConnection?: string;
 };
 
 /**
- * Scene control tabs: active-tab toolbar hosts help + New (+ live toggles / save)
- * on the same row as the tab labels. Legacy panel headers stay in DOM for parking.
+ * Scene control tabs with React-owned toolbar (stable ids for sscape.js).
  */
-export function SceneSidePanel({ tabs, cameraRates = {} }: Props) {
+export function SceneSidePanel({
+  tabs,
+  cameraRates = {},
+  cameras = [],
+  sensors = [],
+  childrenLinks = [],
+  isSuperuser = false,
+  sceneId = "",
+  wssConnection = "",
+}: Props) {
   const [activeId, setActiveId] = useState("cameras");
   const [panelsReady, setPanelsReady] = useState(false);
   const slotRef = useRef<HTMLDivElement>(null);
-  const toolbarRef = useRef<HTMLDivElement>(null);
-  const homeRef = useRef<Map<string, HomeSlot>>(new Map());
 
   useEffect(() => {
     const slot = slotRef.current;
@@ -96,41 +94,6 @@ export function SceneSidePanel({ tabs, cameraRates = {} }: Props) {
     });
   }, [activeId]);
 
-  useEffect(() => {
-    if (!panelsReady) {
-      return;
-    }
-    const toolbar = toolbarRef.current;
-    const home = homeRef.current;
-
-    const restore = () => {
-      home.forEach(({ parent, next }, id) => {
-        const node = resolveNode(id);
-        if (node && parent) {
-          parent.insertBefore(node, next);
-        }
-      });
-      home.clear();
-    };
-
-    restore();
-    if (!toolbar) {
-      return restore;
-    }
-
-    const ids = TAB_TOOLBAR_IDS[activeId] || [];
-    ids.forEach((id) => {
-      const node = resolveNode(id);
-      if (!node || !node.parentNode) {
-        return;
-      }
-      home.set(id, { parent: node.parentNode, next: node.nextSibling });
-      toolbar.appendChild(node);
-    });
-
-    return restore;
-  }, [activeId, panelsReady]);
-
   return (
     <aside className="ss-scene-side hide-fullscreen">
       <div className="ss-tabs">
@@ -159,11 +122,9 @@ export function SceneSidePanel({ tabs, cameraRates = {} }: Props) {
               );
             })}
           </div>
-          <div
-            ref={toolbarRef}
-            className="ss-tabs-toolbar"
-            data-active-tab={activeId}
-          />
+          <div className="ss-tabs-toolbar" data-active-tab={activeId}>
+            <TabToolbar activeTab={activeId} isSuperuser={isSuperuser} />
+          </div>
           {activeId === "cameras" ? (
             <CameraStripEnhancer rates={cameraRates} />
           ) : null}
@@ -172,6 +133,19 @@ export function SceneSidePanel({ tabs, cameraRates = {} }: Props) {
           <div ref={slotRef} className="ss-legacy-panels-slot" />
         </div>
       </div>
+      <ControlTabEntities
+        cameras={cameras}
+        sensors={sensors}
+        childrenLinks={childrenLinks}
+        isSuperuser={isSuperuser}
+        panelsReady={panelsReady}
+      />
+      <MqttSettingsPanel
+        wssConnection={wssConnection}
+        sceneId={sceneId}
+        panelsReady={panelsReady}
+      />
+      <SceneHelpModals />
     </aside>
   );
 }

@@ -24,6 +24,12 @@ SPDX-License-Identifier: Apache-2.0
       <h2 class="form-title">Update Sensor</h2>
     </div>
     <div class="page-header-actions">
+      <input
+        class="btn btn-primary"
+        type="submit"
+        form="sensor_update_form"
+        value="Update Sensor"
+      />
       <a
         class="ss-table-action is-danger"
         href="{% url 'singleton_sensor_delete' object.id %}"
@@ -35,7 +41,11 @@ SPDX-License-Identifier: Apache-2.0
 
   <div class="ss-form-card">
     <div class="ss-form-body">
-      <form enctype="multipart/form-data" method="post">
+      <form
+        enctype="multipart/form-data"
+        method="post"
+        id="sensor_update_form"
+      >
         {% csrf_token %}
         {% for field in form %}
           <div class="form-group row">
@@ -51,18 +61,6 @@ SPDX-License-Identifier: Apache-2.0
             </div>
           </div>
         {% endfor %}
-        <div class="form-group row ss-form-actions">
-          <div class="col-sm-2"></div>
-          <div class="col-sm-10">
-            <div class="ss-form-actions-inner">
-              <input
-                class="btn btn-primary"
-                type="submit"
-                value="Update Sensor"
-              />
-            </div>
-          </div>
-        </div>
       </form>
     </div>
   </div>

@@ -3,6 +3,46 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-.ss-admin-list-chrome {
-  margin-bottom: 0.75rem;
+.ss-admin-list {
+  width: 100%;
+  min-width: 0;
+}
+
+.ss-admin-list .ss-page-header {
+  margin-bottom: 1rem;
+}
+
+.ss-admin-table-card {
+  width: 100%;
+  overflow: auto;
+  background: var(--ss-card-bg);
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+  box-shadow: 0 1px 2px rgba(0, 30, 80, 0.06);
+}
+
+.ss-admin-table {
+  margin: 0;
+}
+
+.ss-admin-table thead th {
+  font-family: var(--ss-font-heading);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ss-text-muted);
+  border-bottom-color: var(--ss-card-border);
+  background: color-mix(in srgb, var(--ss-surface) 65%, #fff);
+  white-space: nowrap;
+}
+
+.ss-admin-table tbody tr:hover {
+  background: color-mix(in srgb, var(--ss-brand) 4%, #fff);
+}
+
+.ss-table-empty {
+  margin: 0;
+  padding: 1.5rem 1.25rem;
+  color: var(--ss-text-muted);
 }

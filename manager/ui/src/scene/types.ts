@@ -6,7 +6,34 @@ export type SceneCameraBootstrap = {
   sensorId: string;
   name: string;
   calibrateUrl: string;
+  calibrateHref: string;
   cmdTopic: string;
+  deleteUrl: string | null;
+};
+
+export type SceneSensorBootstrap = {
+  id: string;
+  sensorId: string;
+  name: string;
+  iconUrl: string | null;
+  areaJson: string;
+  calibrateHref: string;
+  editHref: string;
+  deleteUrl: string | null;
+};
+
+export type SceneChildBootstrap = {
+  id: string;
+  name: string;
+  childType: string;
+  remoteChildId: string | null;
+  detailUrl: string | null;
+  thumbnailUrl: string | null;
+  mapUrl: string | null;
+  /** REST ManageThing uid (local: child scene UUID; remote: remote_child_id). */
+  restUid: string;
+  editHref: string;
+  deleteUrl: string | null;
 };
 
 export type SceneDetailBootstrap = {
@@ -16,8 +43,11 @@ export type SceneDetailBootstrap = {
     scale: number | null;
     mapUrl: string | null;
     thumbnailUrl: string | null;
+    wssConnection?: string | null;
   };
   cameras: SceneCameraBootstrap[];
+  sensors: SceneSensorBootstrap[];
+  children: SceneChildBootstrap[];
   regions: import("./editors/types").RoiLoadJson[];
   tripwires: import("./editors/types").TripwireLoadJson[];
   counts: {

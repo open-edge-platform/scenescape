@@ -6,62 +6,13 @@ SPDX-License-Identifier: Apache-2.0
 {% extends 'sscape/base.html' %}
 {% load static %}
 {% block content %}
-  <div class="page-header">
-    <h2 class="form-title">Object Library</h2>
-    {% if user.is_superuser %}
-      <div class="page-header-actions">
-        <a class="btn btn-primary" id="new-asset" href="?ss=asset-create"
-          >+ New Object</a
-        >
-      </div>
-    {% endif %}
-  </div>
-
-  <div class="ss-table-card">
-    {% if object_list %}
-      <table class="table table-fluid">
-        <thead>
-          <tr>
-            <th>Name</th>
-            {% if user.is_superuser %}
-              <th>Actions</th>
-            {% endif %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for asset in object_list %}
-            <tr>
-              <td>{{ asset.name }}</td>
-              {% if user.is_superuser %}
-                <td>
-                  <div class="ss-table-actions">
-                    <a
-                      class="ss-table-action"
-                      href="{% url 'asset_update' asset.id %}"
-                      id="obj-manage-{{ asset.name }}"
-                      title="Update"
-                      ><i class="bi bi-wrench"></i><span>Update</span></a
-                    >
-                    <a
-                      class="ss-table-action is-danger"
-                      href="{% url 'asset_delete' asset.id %}"
-                      title="Delete"
-                      ><i class="bi bi-trash"></i><span>Delete</span></a
-                    >
-                  </div>
-                </td>
-              {% endif %}
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <p class="ss-table-empty">No objects are available.</p>
-    {% endif %}
-  </div>
+  <div id="ss-admin-list-root"></div>
+  {{ admin_list_bootstrap|json_script:"ss-admin-list-bootstrap" }}
+  <form class="d-none" aria-hidden="true">{% csrf_token %}</form>
 {% endblock %}
 {% block scripts %}
   <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}" />
+  <script type="module" src="{% static 'ui/admin-list.js' %}"></script>
   {{ list_sheets_bootstrap|json_script:"ss-list-sheets-bootstrap" }}
   <script type="module" src="{% static 'ui/list-sheets.js' %}"></script>
 {% endblock %}

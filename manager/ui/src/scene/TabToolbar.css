@@ -1,0 +1,15 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-tab-toolbar-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.55rem;
+}
+
+.ss-tabs-toolbar .scene-detail-help {
+  margin: 0;
+}

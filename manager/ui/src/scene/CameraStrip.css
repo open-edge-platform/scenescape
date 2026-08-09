@@ -149,11 +149,11 @@
   .camera-card
   .snapshot-image
   img {
-  object-fit: contain !important;
-  width: 100% !important;
-  height: 100% !important;
-  max-width: none !important;
-  max-height: none !important;
+  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
 }
 
 .ss-scene-detail--workspace
@@ -166,11 +166,11 @@
   .camera-card
   .snapshot-image
   img {
-  object-fit: cover !important;
-  width: 100% !important;
-  height: 100% !important;
-  max-width: none !important;
-  max-height: none !important;
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
 }
 
 /* Below (vertical strip): same framed image box as Side */

@@ -1,0 +1,52 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-mqtt-settings {
+  width: 100%;
+  min-width: 0;
+}
+
+.ss-mqtt-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+@media (max-width: 900px) {
+  .ss-mqtt-settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ss-mqtt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+
+.ss-mqtt-label {
+  font-family: var(--ss-font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ss-text-muted);
+}
+
+.ss-mqtt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ss-mqtt-client-table {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.ss-mqtt-client-table thead th {
+  font-family: var(--ss-font-heading);
+  font-size: 0.75rem;
+  background: color-mix(in srgb, var(--ss-surface) 70%, #fff);
+}

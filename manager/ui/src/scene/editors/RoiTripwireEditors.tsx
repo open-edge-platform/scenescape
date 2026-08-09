@@ -200,6 +200,50 @@ export function RoiTripwireEditors({
     }
   }, [tripwires.length]);
 
+  useEffect(() => {
+    const empty = document.getElementById("no-regions");
+    if (!empty) {
+      return;
+    }
+    empty.hidden = rois.length > 0;
+    if (rois.length === 0) {
+      empty.innerHTML = "";
+      const p = document.createElement("p");
+      p.textContent = "No regions of interest defined.";
+      empty.appendChild(p);
+      if (isSuperuser) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn-primary btn-sm";
+        btn.id = "empty-new-roi";
+        btn.textContent = "+ New";
+        empty.appendChild(btn);
+      }
+    }
+  }, [rois.length, isSuperuser]);
+
+  useEffect(() => {
+    const empty = document.getElementById("no-tripwires");
+    if (!empty) {
+      return;
+    }
+    empty.hidden = tripwires.length > 0;
+    if (tripwires.length === 0) {
+      empty.innerHTML = "";
+      const p = document.createElement("p");
+      p.textContent = "No tripwires defined.";
+      empty.appendChild(p);
+      if (isSuperuser) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn-primary btn-sm";
+        btn.id = "empty-new-tripwire";
+        btn.textContent = "+ New";
+        empty.appendChild(btn);
+      }
+    }
+  }, [tripwires.length, isSuperuser]);
+
   const removeRoi = async (svgId: string) => {
     const ok = window.ssConfirm
       ? await window.ssConfirm({

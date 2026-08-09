@@ -274,7 +274,16 @@ function SceneDetailInner({ bootstrap }: Props) {
           onResize={setPanelSizePx}
           disabled={mapFocus}
         />
-        <SceneSidePanel tabs={tabs} cameraRates={cameraRates} />
+        <SceneSidePanel
+          tabs={tabs}
+          cameraRates={cameraRates}
+          cameras={bootstrap.cameras}
+          sensors={bootstrap.sensors || []}
+          childrenLinks={bootstrap.children || []}
+          isSuperuser={isSuperuser}
+          sceneId={scene.id}
+          wssConnection={bootstrap.scene.wssConnection || ""}
+        />
       </div>
       <RoiTripwireEditors
         sceneId={scene.id}

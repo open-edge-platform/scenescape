@@ -13,8 +13,8 @@ import { CameraCalibratePanel } from "./CameraCalibratePanel";
 import { SensorCalibratePanel } from "./SensorCalibratePanel";
 
 /**
- * Command surfaces: create sheets use Drawer (`chooseCommandSurface("simple")`);
- * manage/calibrate use WorkspacePanel (`chooseCommandSurface("complex")`).
+ * Command surfaces: create/edit sheets use Drawer; manage/calibrate use
+ * WorkspacePanel.
  */
 
 type Props = {
@@ -26,11 +26,13 @@ type Props = {
   cameras: SceneCameraBootstrap[];
 };
 
-/** Same-page sheet/panel actions hosted on the scene workspace. */
 const WORKSPACE_ACTIONS = new Set([
   "cam-create",
+  "cam-edit",
   "sensor-create",
+  "sensor-edit",
   "child-create",
+  "child-edit",
   "calibrate-cam",
   "calibrate-sensor",
   "scene-manage",
@@ -41,8 +43,8 @@ function isWorkspaceAction(v: string | null): v is Exclude<SheetAction, null> {
 }
 
 /**
- * Intercepts same-page ?ss= create/calibrate/manage links; hosts drawers +
- * full-viewport React workspace panels (no Django iframe chrome).
+ * Intercepts same-page ?ss= create/edit/calibrate/manage links; hosts drawers +
+ * full-viewport React workspace panels.
  */
 export function SceneWorkspaceSheets({
   sceneId,
@@ -101,6 +103,12 @@ export function SceneWorkspaceSheets({
     return map;
   }, [cameras]);
 
+  const camBySensorId = useMemo(() => {
+    const map = new Map<string, SceneCameraBootstrap>();
+    cameras.forEach((c) => map.set(String(c.sensorId), c));
+    return map;
+  }, [cameras]);
+
   if (!isSuperuser) {
     return null;
   }
@@ -111,30 +119,38 @@ export function SceneWorkspaceSheets({
       ? camByPk.get(String(sheet.id))
       : null;
 
+  const camEditUid =
+    action === "cam-edit" && sheet.id
+      ? camBySensorId.get(String(sheet.id))?.sensorId || String(sheet.id)
+      : null;
+
   return (
     <>
       <CameraSheet
-        open={action === "cam-create"}
-        mode="create"
+        open={action === "cam-create" || action === "cam-edit"}
+        mode={action === "cam-edit" ? "edit" : "create"}
         sceneId={sceneId}
         scenes={scenes}
+        sensorUid={action === "cam-edit" ? camEditUid : null}
         authToken={authToken}
         onClose={close}
         onSaved={reload}
       />
       <SensorSheet
-        open={action === "sensor-create"}
-        mode="create"
+        open={action === "sensor-create" || action === "sensor-edit"}
+        mode={action === "sensor-edit" ? "edit" : "create"}
         sceneId={sceneId}
         scenes={scenes}
+        sensorUid={action === "sensor-edit" ? sheet.id : null}
         authToken={authToken}
         onClose={close}
         onSaved={reload}
       />
       <ChildSheet
-        open={action === "child-create"}
-        mode="create"
+        open={action === "child-create" || action === "child-edit"}
+        mode={action === "child-edit" ? "edit" : "create"}
         parentSceneId={sceneId}
+        childUid={action === "child-edit" ? sheet.id : null}
         scenes={scenes}
         authToken={authToken}
         onClose={close}

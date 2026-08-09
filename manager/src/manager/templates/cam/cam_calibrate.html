@@ -50,43 +50,45 @@ SPDX-License-Identifier: Apache-2.0
   <form enctype="multipart/form-data" id="calibration_form" method="post">
     {% csrf_token %}
     <div id="calibrate">
-      <div class="card width-100">
-        <h5 class="noselect card-header hide-live">
-          <input
-            type="submit"
-            name="calibrate_save"
-            id="top_save"
-            class="btn btn-primary btn-sm float-right"
-            value="Save Camera"
-          />
-          <button
-            type="button"
-            class="btn btn-primary btn-sm float-right right-buffer"
-            id="auto-autocalibration"
-            disabled
-            value="Auto Calibrate"
-            title="Auto Calibrate system not available for this scene"
-          >
-            <div id="calib-spinner" class="button-spinner hide-spinner"></div>
-            <span>Auto Calibrate</span>
-          </button>
-          {% if caminst.scene.thumbnail or caminst.scene.map %}
-            <input
+      <div class="card cal-workspace-card">
+        <h5 class="noselect card-header hide-live cal-toolbar">
+          <span class="cal-toolbar-title">Calibration workspace</span>
+          <div class="cal-toolbar-actions">
+            {% if caminst.scene.thumbnail or caminst.scene.map %}
+              <input
+                type="button"
+                class="btn btn-secondary btn-sm"
+                value="Reset View"
+                id="reset_view"
+                title="Reset views to the default view"
+              />
+              <input
+                type="button"
+                class="btn btn-secondary btn-sm"
+                value="Reset Points"
+                id="reset_points"
+                title="Remove all currently placed points"
+              />
+            {% endif %}
+            <button
               type="button"
-              class="btn btn-secondary btn-sm float-right right-buffer"
-              value="Reset Points"
-              id="reset_points"
-              title="Remove all currently placed points"
-            />
+              class="btn btn-primary btn-sm"
+              id="auto-autocalibration"
+              disabled
+              value="Auto Calibrate"
+              title="Auto Calibrate system not available for this scene"
+            >
+              <div id="calib-spinner" class="button-spinner hide-spinner"></div>
+              <span>Auto Calibrate</span>
+            </button>
             <input
-              type="button"
-              class="btn btn-secondary btn-sm float-right right-buffer"
-              value="Reset View"
-              id="reset_view"
-              title="Reset views to the default view"
+              type="submit"
+              name="calibrate_save"
+              id="top_save"
+              class="btn btn-primary btn-sm"
+              value="Save Camera"
             />
-          {% endif %}
-          Calibration workspace
+          </div>
         </h5>
 
         {% if form.non_field_errors %}

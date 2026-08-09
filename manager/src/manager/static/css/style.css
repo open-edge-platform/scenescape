@@ -856,6 +856,34 @@ a:hover {
   margin: 0.5rem 0 1.25rem;
 }
 
+.cal-workspace-card {
+  width: 100%;
+  max-width: 100%;
+  float: none;
+  margin: 0;
+}
+
+.cal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+}
+
+.cal-toolbar-title {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.cal-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
 .cal-pane {
   display: flex;
   flex-direction: column;
@@ -1187,107 +1215,23 @@ polygon {
   display: none;
 }
 
+/*
+ * Base card: fluid control surface.
+ * Fixed gallery tiles opt in via .scene-gallery / list .camera-card.
+ */
 .card {
-  width: 330px;
-  margin: 0 20px 20px 0;
-  float: left;
+  display: block;
+  float: none;
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0 0 0.75rem;
   background-color: var(--ss-card-bg);
   border: 1px solid var(--ss-card-border);
   border-radius: var(--ss-radius);
   box-shadow: 0 1px 2px rgba(0, 30, 80, 0.06);
   overflow: hidden;
-}
-
-/*
- * Scene workspace control tabs (Cameras / Sensors / Regions / …):
- * cards must stay inside the panel. The gallery .card rule above is for
- * list/home tiles only — never for the adaptive workspace chrome.
- */
-body.ss-scene-workspace #scene-detail-panels,
-body.ss-scene-workspace #myTabContent {
-  max-width: 100%;
-  min-width: 0;
-  overflow-x: hidden;
   box-sizing: border-box;
-}
-
-body.ss-scene-workspace #scene-detail-panels .card:not(.camera-card):not(.scene-detail-panel),
-body.ss-scene-workspace #myTabContent .card:not(.camera-card):not(.scene-detail-panel) {
-  float: none !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-  margin: 0 0 0.5rem !important;
-  box-sizing: border-box;
-}
-
-body.ss-scene-workspace #scene-detail-panels .card:not(.camera-card) .card-image,
-body.ss-scene-workspace #myTabContent .card:not(.camera-card) .card-image,
-body.ss-scene-workspace #scene-detail-panels .card:not(.camera-card) .card-image a,
-body.ss-scene-workspace #myTabContent .card:not(.camera-card) .card-image a {
-  width: 100%;
-  max-width: 100%;
-}
-
-body.ss-scene-workspace #scene-detail-panels .card:not(.camera-card) .card-image img,
-body.ss-scene-workspace #myTabContent .card:not(.camera-card) .card-image img,
-body.ss-scene-workspace #scene-detail-panels .card:not(.camera-card) .blank-container,
-body.ss-scene-workspace #myTabContent .card:not(.camera-card) .blank-container {
-  width: 100% !important;
-  max-width: 100%;
-  height: auto !important;
-  max-height: 10rem;
-  object-fit: cover;
-}
-
-body.ss-scene-workspace #roi-fields,
-body.ss-scene-workspace #tripwire-fields,
-body.ss-scene-workspace #childrenlist,
-body.ss-scene-workspace .form-roi,
-body.ss-scene-workspace .form-tripwire,
-body.ss-scene-workspace .ss-editor-card {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-body.ss-scene-workspace .ss-editor-card.col,
-body.ss-scene-workspace .form-roi .col,
-body.ss-scene-workspace .form-tripwire .col {
-  float: none;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  padding-left: 0;
-  padding-right: 0;
-}
-
-body.ss-scene-workspace #scene-detail-panels .input-group,
-body.ss-scene-workspace #myTabContent .input-group {
-  max-width: 100%;
-  min-width: 0;
-  flex-wrap: wrap;
-}
-
-body.ss-scene-workspace #scene-detail-panels .input-group > .form-control,
-body.ss-scene-workspace #myTabContent .input-group > .form-control {
-  min-width: 0;
-}
-
-body.ss-scene-workspace #scene-detail-panels .table,
-body.ss-scene-workspace #myTabContent .table {
-  width: 100%;
-  max-width: 100%;
-  table-layout: fixed;
-}
-
-body.ss-scene-workspace #scene-detail-panels .table td,
-body.ss-scene-workspace #scene-detail-panels .table th,
-body.ss-scene-workspace #myTabContent .table td,
-body.ss-scene-workspace #myTabContent .table th {
-  overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 .card .card-header {
@@ -1304,12 +1248,14 @@ body.ss-scene-workspace #myTabContent .table th {
 
 .card-image img,
 .blank-container {
-  width: 328px;
-  height: 239px;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
   object-fit: contain;
 }
 
-/* Scenes home — flex gallery; same card size, quieter meta (no labeled rewrite) */
+/* Scenes home — flex gallery tiles */
 .scene-gallery {
   display: flex;
   flex-wrap: wrap;
@@ -1319,6 +1265,8 @@ body.ss-scene-workspace #myTabContent .table th {
 
 .scene-gallery .scene-card {
   float: none;
+  width: 20.625rem;
+  max-width: 100%;
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -1370,6 +1318,13 @@ body.ss-scene-workspace #myTabContent .table th {
   margin-top: auto;
 }
 
+.scene-gallery .card-image img,
+.scene-gallery .blank-container {
+  width: 100%;
+  height: 14.9rem;
+  object-fit: cover;
+}
+
 .scene-gallery .blank-container {
   background-color: var(--ss-surface);
   border-color: var(--ss-card-border) !important;
@@ -1381,26 +1336,35 @@ body.ss-scene-workspace #myTabContent .table th {
 }
 
 .cam-offline {
-  width: 234px;
-  height: 188px;
-  padding-top: 78px;
+  width: 100%;
+  min-height: 8rem;
+  padding: 2.5rem 0.75rem;
   text-align: center;
   background-color: #ddd;
   color: #fff;
+  box-sizing: border-box;
 }
 
 .snapshot-image img {
-  height: 184px;
-  width: 329px;
+  width: 100%;
+  height: auto;
 }
 
 .camera-card .card-header {
   padding: 0.5rem 0.5rem;
 }
 
-.camera-card .cam-offline,
-.camera-card {
-  width: 329px;
+/* Camera tiles on list pages only — workspace owns its own strip sizing */
+.cam-list .camera-card,
+.camera-list .camera-card,
+#cam_list .camera-card {
+  width: min(20.5rem, 100%);
+}
+
+.cam-list .camera-card .cam-offline,
+.camera-list .camera-card .cam-offline,
+#cam_list .camera-card .cam-offline {
+  min-height: 11.75rem;
 }
 
 .switch {
@@ -2080,14 +2044,16 @@ body:has(.sign-in-page) .content {
 }
 
 .scene-detail-panel {
-  float: none !important;
-  width: 100% !important;
-  max-width: none;
-  margin: 0 !important;
+  float: none;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
   border: 0;
   border-radius: 0;
   box-shadow: none;
   background: transparent;
+  overflow: visible;
 }
 
 .scene-detail-panel-header {

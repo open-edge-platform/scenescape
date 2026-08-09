@@ -217,6 +217,57 @@ function fitSceneMapDisplay() {
 
 window.fitSceneMapDisplay = fitSceneMapDisplay;
 
+/** Re-request camera strip snapshots (React cards may mount after MQTT connect). */
+window.ssRefreshCameraSnapshots = function () {
+  var client = window.ssMqttClient;
+  if (!client) {
+    return;
+  }
+  if (!$(".snapshot-image").length) {
+    return;
+  }
+  if (!window.location.href.includes("/cam/calibrate/")) {
+    try {
+      client.subscribe(APP_NAME + IMAGE_CAMERA + "+");
+    } catch (e) {
+      /* already subscribed */
+    }
+  }
+  $(".snapshot-image").each(function () {
+    var topic = $(this).attr("topic");
+    if (topic) {
+      client.publish(topic, "getimage");
+    }
+  });
+};
+
+/** Draw / refresh singleton sensors from React-rendered .singleton cards. */
+window.ssDrawSingletonSensors = function () {
+  if (typeof svgCanvas === "undefined" || !svgCanvas) {
+    return;
+  }
+  $(".singleton").each(function () {
+    var raw = $(".area-json", this).val();
+    if (!raw) {
+      return;
+    }
+    var sensor;
+    try {
+      sensor = $.parseJSON(raw);
+    } catch (e) {
+      return;
+    }
+    var i = $(".sensor-id", this).text();
+    if (!i) {
+      return;
+    }
+    drawSensor(sensor, i, "sensor");
+    if (sensor.sectors && sensor.sectors.thresholds.length > 0) {
+      singleton_color_sectors[i] = sensor.sectors;
+    }
+  });
+};
+
 if (window.location.href.includes("/cam/calibrate/")) {
   // distortion available only for supporting video analytics microservice
   initializeCalibration(scene_id, socket);
@@ -258,6 +309,7 @@ async function checkBrokerConnections() {
   $("#connect").on("click", function () {
     console.log("Attempting to connect to " + broker.value);
     var client = mqtt.connect(broker.value);
+    window.ssMqttClient = client;
     sessionStorage.setItem("connectToMqtt", true);
 
     client.on("connect", function () {
@@ -288,31 +340,22 @@ async function checkBrokerConnections() {
 
       $("#mqtt_status").addClass("connected");
 
-      // Capture thumbnail snapshots
-      if ($(".snapshot-image").length) {
-        // Only subscribe to regular camera images if NOT on calibration page
-        if (!window.location.href.includes("/cam/calibrate/")) {
-          client.subscribe(APP_NAME + IMAGE_CAMERA + "+");
-        }
-
-        $(".snapshot-image").each(function () {
-          client.publish($(this).attr("topic"), "getimage");
-        });
-
-        $("input#live-view").on("change", function () {
+      // Camera strip may mount via React after connect — always wire live-view + subscribe.
+      if (!window.location.href.includes("/cam/calibrate/")) {
+        client.subscribe(APP_NAME + IMAGE_CAMERA + "+");
+      }
+      window.ssRefreshCameraSnapshots();
+      $("input#live-view")
+        .off("change.ssLiveView")
+        .on("change.ssLiveView", function () {
           if ($(this).is(":checked")) {
-            $(".snapshot-image").each(function () {
-              client.publish($(this).attr("topic"), "getimage");
-            });
-            $("#cameras-tab").click(); // Select the cameras tab
+            window.ssRefreshCameraSnapshots();
+            $("#cameras-tab").click();
             $(".camera-card").addClass("live-view");
-            // $(".hide-live").hide();
           } else {
             $(".camera-card").removeClass("live-view");
-            // $(".hide-live").show();
           }
         });
-      }
     });
 
     client.on("close", function () {
@@ -1233,13 +1276,15 @@ function toggleAsset3D() {
   var assetForm =
     document.getElementById("asset_create_form") ||
     document.getElementById("asset_update_form");
-  var saveButton = document.getElementById("save_asset");
-  saveButton.remove();
-  savedElements.push(saveButton);
-  savedElements.forEach((element) => {
-    assetForm.append(element);
-  });
-  savedElements = [];
+  if (assetForm) {
+    /* Save lives in the page header (form=); only restore hidden field wrappers. */
+    savedElements.forEach((element) => {
+      if (element) {
+        assetForm.append(element);
+      }
+    });
+    savedElements = [];
+  }
 
   var asset_fields_with_no_model = ["mark_color"];
   var asset_fields_with_model = [
@@ -1271,11 +1316,14 @@ function toggleAsset3D() {
 
 function addSavedCalibrationFields() {
   var sceneUpdateForm = document.getElementById("scene_update_form");
-  var saveButton = document.getElementById("save_scene_updates");
-  saveButton.remove();
-  savedElements.push(saveButton);
+  if (!sceneUpdateForm) {
+    return;
+  }
+  /* Save lives in the page header (form=); only restore hidden field wrappers. */
   savedElements.forEach((element) => {
-    sceneUpdateForm.append(element);
+    if (element) {
+      sceneUpdateForm.append(element);
+    }
   });
   savedElements = [];
 }
@@ -1312,13 +1360,48 @@ function setupCalibrationType() {
   return;
 }
 
-// Function to save roi and tripwires
-function saveRois(roi_values) {
+// Function to save roi and tripwires (async fetch — no full navigation)
+async function saveRois(roi_values) {
   var duplicates = find_duplicates(roi_values);
   if (duplicates.length > 0) {
     alert(duplicates.toString() + " already exists. Try a different name");
-  } else {
-    $("#roi-form").submit();
+    return;
+  }
+  var form = document.getElementById("roi-form");
+  if (!form) {
+    return;
+  }
+  if (typeof stringifyRois === "function") {
+    stringifyRois();
+  }
+  if (typeof stringifyTripwires === "function") {
+    stringifyTripwires();
+  }
+  var formData = new FormData(form);
+  var csrf =
+    document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+    getCookie("csrftoken");
+  try {
+    var resp = await fetch(form.action, {
+      method: "POST",
+      body: formData,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRFToken": csrf || "",
+        Accept: "text/html",
+      },
+      redirect: "follow",
+    });
+    if (!resp.ok && !resp.redirected) {
+      throw new Error("Save failed (HTTP " + resp.status + ")");
+    }
+    if (window.ssToast && typeof window.ssToast.show === "function") {
+      window.ssToast.show("Regions saved", "ok");
+    }
+    window.location.reload();
+  } catch (err) {
+    console.error(err);
+    alert("Failed to save regions: " + (err?.message || String(err)));
   }
 }
 
@@ -2271,6 +2354,8 @@ $(document).ready(function () {
           singleton_color_sectors[i] = sensor.sectors;
         }
       });
+      /* React may finish mounting cards after this; allow a late pass. */
+      window.ssDrawSingletonSensors();
 
       // ROI Management //
       if ($rois.val()) {
@@ -2330,34 +2415,38 @@ $(document).ready(function () {
           numberTripwires();
         }
 
-        // Save ROI / tripwire from the active tab (form still persists both)
-        $("#save-rois, #save-trips").on("click", function (event) {
-          var values;
-          if (event.target.id === "save-trips") {
-            values = getRoiValues(
-              "form-control tripwire-title",
-              "tripwire",
-            );
-          } else {
-            values = getRoiValues("form-control roi-title", "roi");
-          }
-          saveRois(values);
-        });
+        // Save ROI / tripwire — delegated so React toolbar remounts keep working
+        $(document)
+          .off("click.ssRoiSave", "#save-rois, #save-trips")
+          .on("click.ssRoiSave", "#save-rois, #save-trips", function (event) {
+            var values;
+            if (event.target.id === "save-trips") {
+              values = getRoiValues(
+                "form-control tripwire-title",
+                "tripwire",
+              );
+            } else {
+              values = getRoiValues("form-control roi-title", "roi");
+            }
+            saveRois(values);
+          });
       }
 
-      $("#new-roi").on("click", function () {
-        addPoly();
-      });
-      $("#empty-new-roi").on("click", function () {
-        $("#new-roi").trigger("click");
-      });
+      $(document)
+        .off("click.ssNewRoi", "#new-roi, #empty-new-roi")
+        .on("click.ssNewRoi", "#new-roi, #empty-new-roi", function () {
+          addPoly();
+        });
 
-      $("#new-tripwire").on("click", function () {
-        addTripwire();
-      });
-      $("#empty-new-tripwire").on("click", function () {
-        $("#new-tripwire").trigger("click");
-      });
+      $(document)
+        .off("click.ssNewTrip", "#new-tripwire, #empty-new-tripwire")
+        .on(
+          "click.ssNewTrip",
+          "#new-tripwire, #empty-new-tripwire",
+          function () {
+            addTripwire();
+          },
+        );
 
       $(".roi-remove").on("click", async function () {
         var $group = $(this).closest(".form-roi");
@@ -2500,7 +2589,9 @@ $(document).ready(function () {
     else show_trails = false;
   });
 
-  $("input#show-telemetry").on("change", function () {
+  $(document)
+    .off("change.ssTelemetry", "input#show-telemetry")
+    .on("change.ssTelemetry", "input#show-telemetry", function () {
     show_telemetry = $(this).is(":checked");
     if (!show_telemetry) {
       $("#scene-rate").text("--");

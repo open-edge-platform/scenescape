@@ -126,11 +126,32 @@ def superuser_required(view_func=None, redirect_field_name=REDIRECT_FIELD_NAME,
 @login_required(login_url="sign_in")
 def index(request):
   scenes = Scene.objects.order_by('name')
+  scenes_payload = []
+  for scene in scenes:
+    scenes_payload.append({
+      'id': str(scene.id),
+      'name': scene.name,
+      'thumbnailUrl': scene.thumbnail.url if scene.thumbnail else None,
+      'mapUrl': scene.map.url if scene.map else None,
+      'detailUrl': reverse('sceneDetail', args=[scene.id]),
+      'detail3dUrl': reverse('scene_detail', args=[scene.id]),
+      'manageUrl': f"{scene_path(scene.id)}?ss=scene-manage",
+      'deleteUrl': (
+        reverse('scene_delete', args=[scene.id])
+        if request.user.is_superuser else None
+      ),
+      'counts': {
+        'sensors': scene.sensor_set.count(),
+        'regions': scene.regions.count(),
+        'tripwires': scene.tripwires.count(),
+      },
+    })
   context = {
     'scenes': scenes,
     'scenes_home_bootstrap': {
       'authToken': _user_auth_token(request.user),
       'isSuperuser': request.user.is_superuser,
+      'scenes': scenes_payload,
     },
   }
   return render(request, 'sscape/index.html', context)
@@ -166,7 +187,7 @@ def sceneDetail(request, scene_id):
   # FIXME add rest api call to remote child using child scene api token
 
   cameras = []
-  sensor_count = 0
+  sensors = []
   for sensor in scene.sensor_set.all().order_by("name"):
     if sensor.type == "camera":
       cameras.append({
@@ -174,10 +195,57 @@ def sceneDetail(request, scene_id):
         "sensorId": sensor.sensor_id,
         "name": sensor.name,
         "calibrateUrl": reverse("cam_calibrate", args=[sensor.id]),
+        "calibrateHref": f"?ss=calibrate-cam&id={sensor.id}",
         "cmdTopic": f"scenescape/cmd/camera/{sensor.sensor_id}",
+        "deleteUrl": (
+          reverse("cam_delete", args=[sensor.id])
+          if request.user.is_superuser else None
+        ),
       })
+    elif sensor.type == "generic":
+      sensors.append({
+        "id": str(sensor.id),
+        "sensorId": sensor.sensor_id,
+        "name": sensor.name,
+        "iconUrl": sensor.icon.url if sensor.icon else None,
+        "areaJson": sensor.areaJSON(),
+        "calibrateHref": f"?ss=calibrate-sensor&id={sensor.id}",
+        "editHref": f"?ss=sensor-edit&id={sensor.sensor_id}",
+        "deleteUrl": (
+          reverse("singleton_sensor_delete", args=[sensor.id])
+          if request.user.is_superuser else None
+        ),
+      })
+
+  children = []
+  for link in scene.children.all():
+    child = link.child
+    child_name = child.name if child else (link.child_name or "Child")
+    if child is not None:
+      rest_uid = str(child.id)
+    elif link.remote_child_id:
+      rest_uid = str(link.remote_child_id)
     else:
-      sensor_count += 1
+      rest_uid = str(link.id)
+    children.append({
+      "id": str(link.id),
+      "name": child_name,
+      "childType": link.child_type,
+      "remoteChildId": (
+        str(link.remote_child_id) if link.remote_child_id else None
+      ),
+      "detailUrl": reverse("sceneDetail", args=[child.id]) if child else None,
+      "thumbnailUrl": (
+        child.thumbnail.url if child and child.thumbnail else None
+      ),
+      "mapUrl": child.map.url if child and child.map else None,
+      "restUid": rest_uid,
+      "editHref": f"?ss=child-edit&id={rest_uid}",
+      "deleteUrl": (
+        reverse("child_delete", args=[link.id])
+        if request.user.is_superuser else None
+      ),
+    })
 
   auth_token = ""
   if hasattr(request.user, "auth_token") and request.user.auth_token:
@@ -202,15 +270,18 @@ def sceneDetail(request, scene_id):
       "scale": scene.scale,
       "mapUrl": map_url,
       "thumbnailUrl": thumb_url,
+      "wssConnection": scene.wssConnection(),
     },
     "cameras": cameras,
+    "sensors": sensors,
+    "children": children,
     "regions": regions if isinstance(regions, list) else [],
     "tripwires": tripwires if isinstance(tripwires, list) else [],
     "counts": {
-      "sensors": sensor_count,
+      "sensors": len(sensors),
       "regions": len(regions) if isinstance(regions, list) else 0,
       "tripwires": len(tripwires) if isinstance(tripwires, list) else 0,
-      "children": scene.children.count(),
+      "children": len(children),
     },
     "urls": {
       "scenesHome": reverse("index"),
@@ -422,10 +493,46 @@ class CamListView(LoginRequiredMixin, ListView):
         'href': f"{reverse('cam_list')}?ss=cam-create",
         'id': 'new-camera',
       }
+    rows = []
+    for cam in context['object_list']:
+      scene = cam.scene
+      actions = []
+      if self.request.user.is_superuser:
+        if scene:
+          actions.append({
+            'label': 'Manage',
+            'href': reverse('cam_calibrate', args=[cam.id]),
+          })
+        else:
+          actions.append({
+            'label': 'Edit',
+            'href': f"{reverse('cam_list')}?ss=cam-edit&id={cam.sensor_id}",
+          })
+        actions.append({
+          'label': 'Delete',
+          'href': reverse('cam_delete', args=[cam.id]),
+          'tone': 'danger',
+        })
+      rows.append({
+        'id': str(cam.id),
+        'cells': [
+          {'text': str(cam)},
+          {'text': cam.sensor_id},
+          {
+            'text': str(scene) if scene else '--',
+            'href': reverse('sceneDetail', args=[scene.id]) if scene else None,
+          },
+        ],
+        'actions': actions,
+      })
     context['admin_list_bootstrap'] = {
       'title': 'Cameras',
       'breadcrumbs': [{'label': 'Cameras'}],
       'primaryAction': primary,
+      'columns': ['Camera Name', 'Camera ID', 'Scene'],
+      'rows': rows,
+      'emptyMessage': 'No cameras are available.',
+      'isSuperuser': self.request.user.is_superuser,
     }
     context['list_sheets_bootstrap'] = {
       'authToken': _user_auth_token(self.request.user),
@@ -443,6 +550,12 @@ class CamUpdateView(SuperUserCheck, UpdateView):
   model = Cam
   fields = ['sensor_id', 'name', 'scene']
   template_name = "cam/cam_update.html"
+
+  def get(self, request, *args, **kwargs):
+    self.object = self.get_object()
+    return sheet_redirect(
+      reverse('cam_list'), 'cam-edit', self.object.sensor_id
+    )
 
   def get_success_url(self):
     if self.object.scene is not None:
@@ -499,6 +612,13 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
   model = Scene
   form_class = SceneUpdateForm
   template_name = "scene/scene_update.html"
+
+  def get(self, request, *args, **kwargs):
+    self.object = self.get_object()
+    # Embed mode still serves the Django form (calibrate/mesh tooling).
+    if _is_embed(request):
+      return super().get(request, *args, **kwargs)
+    return sheet_redirect(scene_path(self.object.pk), 'scene-manage')
 
   def get_context_data(self, **kwargs):
     context = super().get_context_data(**kwargs)
@@ -590,10 +710,49 @@ class SingletonSensorListView(LoginRequiredMixin, ListView):
         'href': f"{reverse('singleton_sensor_list')}?ss=sensor-create",
         'id': 'new-sensor',
       }
+    rows = []
+    for sensor in context['object_list']:
+      scene = sensor.scene
+      actions = []
+      if self.request.user.is_superuser:
+        if scene:
+          actions.append({
+            'label': 'Manage',
+            'href': reverse('singleton_sensor_calibrate', args=[sensor.id]),
+          })
+        else:
+          actions.append({
+            'label': 'Edit',
+            'href': (
+              f"{reverse('singleton_sensor_list')}"
+              f"?ss=sensor-edit&id={sensor.sensor_id}"
+            ),
+          })
+        actions.append({
+          'label': 'Delete',
+          'href': reverse('singleton_sensor_delete', args=[sensor.id]),
+          'tone': 'danger',
+        })
+      rows.append({
+        'id': str(sensor.id),
+        'cells': [
+          {'text': str(sensor)},
+          {'text': sensor.sensor_id},
+          {
+            'text': str(scene) if scene else '--',
+            'href': reverse('sceneDetail', args=[scene.id]) if scene else None,
+          },
+        ],
+        'actions': actions,
+      })
     context['admin_list_bootstrap'] = {
       'title': 'Sensors',
       'breadcrumbs': [{'label': 'Sensors'}],
       'primaryAction': primary,
+      'columns': ['Sensor Name', 'Sensor ID', 'Scene'],
+      'rows': rows,
+      'emptyMessage': 'No sensors are available.',
+      'isSuperuser': self.request.user.is_superuser,
     }
     context['list_sheets_bootstrap'] = {
       'authToken': _user_auth_token(self.request.user),
@@ -611,6 +770,12 @@ class SingletonSensorUpdateView(SuperUserCheck, UpdateView):
   model = SingletonSensor
   fields = ['sensor_id', 'name', 'scene']
   template_name = "singleton_sensor/singleton_sensor_update.html"
+
+  def get(self, request, *args, **kwargs):
+    self.object = self.get_object()
+    return sheet_redirect(
+      reverse('singleton_sensor_list'), 'sensor-edit', self.object.sensor_id
+    )
 
   def get_success_url(self):
     if self.object.scene is not None:
@@ -651,6 +816,41 @@ class AssetListView(LoginRequiredMixin, ListView):
 
   def get_context_data(self, **kwargs):
     context = super().get_context_data(**kwargs)
+    primary = None
+    if self.request.user.is_superuser:
+      primary = {
+        'label': '+ New Object',
+        'href': f"{reverse('asset_list')}?ss=asset-create",
+        'id': 'new-asset',
+      }
+    rows = []
+    for asset in context['object_list']:
+      actions = []
+      if self.request.user.is_superuser:
+        actions.append({
+          'label': 'Update',
+          'href': f"{reverse('asset_list')}?ss=asset-edit&id={asset.id}",
+          'id': f'obj-manage-{asset.name}',
+        })
+        actions.append({
+          'label': 'Delete',
+          'href': reverse('asset_delete', args=[asset.id]),
+          'tone': 'danger',
+        })
+      rows.append({
+        'id': str(asset.id),
+        'cells': [{'text': asset.name}],
+        'actions': actions,
+      })
+    context['admin_list_bootstrap'] = {
+      'title': 'Object Library',
+      'breadcrumbs': [{'label': 'Object Library'}],
+      'primaryAction': primary,
+      'columns': ['Name'],
+      'rows': rows,
+      'emptyMessage': 'No objects are available.',
+      'isSuperuser': self.request.user.is_superuser,
+    }
     context['list_sheets_bootstrap'] = {
       'authToken': _user_auth_token(self.request.user),
       'isSuperuser': self.request.user.is_superuser,
@@ -672,6 +872,10 @@ class AssetUpdateView(SuperUserCheck, UpdateView):
     'linear_damping', 'angular_damping', 'coefficient_of_restitution', 'friction_coefficients']
   template_name = "asset/asset_update.html"
   success_url = reverse_lazy('asset_list')
+
+  def get(self, request, *args, **kwargs):
+    self.object = self.get_object()
+    return sheet_redirect(reverse('asset_list'), 'asset-edit', self.object.pk)
 
 # Scene Child CRUD
 class ChildCreateView(SuperUserCheck, CreateView):
@@ -727,6 +931,19 @@ class ChildUpdateView(SuperUserCheck, UpdateView):
   model = ChildScene
   form_class = ChildSceneForm
   template_name = "child/child_update.html"
+
+  def get(self, request, *args, **kwargs):
+    self.object = self.get_object()
+    parent = self.object.parent
+    if parent is None:
+      return redirect(reverse('index'))
+    if self.object.child_id:
+      rest_uid = str(self.object.child_id)
+    elif self.object.remote_child_id:
+      rest_uid = str(self.object.remote_child_id)
+    else:
+      rest_uid = str(self.object.pk)
+    return sheet_redirect(scene_path(parent.id), 'child-edit', rest_uid)
 
   def get_success_url(self):
     if self.object.parent is not None:

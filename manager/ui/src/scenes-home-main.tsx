@@ -23,9 +23,18 @@ function readBootstrap(): ScenesHomeBootstrap | null {
 }
 
 const bootstrap = readBootstrap();
-const host = document.createElement("div");
-host.id = "ss-scenes-home-root";
-document.body.appendChild(host);
+const host =
+  document.getElementById("ss-scenes-home-app") ||
+  (() => {
+    const el = document.createElement("div");
+    el.id = "ss-scenes-home-app";
+    const main =
+      document.querySelector("main") ||
+      document.querySelector(".container") ||
+      document.body;
+    main.appendChild(el);
+    return el;
+  })();
 
 if (bootstrap) {
   createRoot(host).render(

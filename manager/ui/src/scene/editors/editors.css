@@ -4,32 +4,38 @@
  */
 
 .ss-editor-card {
-  padding: 0.65rem 0.75rem;
-  margin-bottom: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.7rem 0.8rem;
+  margin: 0;
   border: 1px solid var(--ss-card-border);
   border-radius: var(--ss-radius);
-  background: color-mix(in srgb, var(--ss-surface) 40%, #fff);
+  background: var(--ss-card-bg);
+  box-shadow: none;
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
 }
 
 .ss-editor-card-row {
+  display: flex;
   flex-wrap: wrap;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
 }
 
 .ss-editor-card-row > .form-control {
   min-width: 0;
+  flex: 1 1 8rem;
 }
 
 .ss-editor-card-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.65rem 0.85rem;
-  margin-top: 0.55rem;
+  gap: 0.55rem 0.85rem;
   max-width: 100%;
 }
 
@@ -62,7 +68,9 @@
 }
 
 .ss-editor-sectors {
-  margin-top: 0.55rem;
+  margin-top: 0.15rem;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .ss-editor-empty {
