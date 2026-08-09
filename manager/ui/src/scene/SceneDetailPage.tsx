@@ -92,9 +92,12 @@ function SceneDetailInner({ bootstrap }: Props) {
   }, []);
 
   useEffect(() => {
-    if (typeof window.fitSceneMapDisplay === "function") {
-      window.fitSceneMapDisplay();
-    }
+    const id = window.requestAnimationFrame(() => {
+      if (typeof window.fitSceneMapDisplay === "function") {
+        window.fitSceneMapDisplay();
+      }
+    });
+    return () => window.cancelAnimationFrame(id);
   }, [mapFocus, panelSizePx, layout]);
 
   const confirmSceneDelete = useCallback(async () => {

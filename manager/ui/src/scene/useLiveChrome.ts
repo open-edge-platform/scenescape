@@ -12,7 +12,8 @@ export function useMqttConnected(): boolean {
   useEffect(() => {
     const sync = () => {
       const el = document.getElementById("mqtt_status");
-      setConnected(Boolean(el?.classList.contains("connected")));
+      const next = Boolean(el?.classList.contains("connected"));
+      setConnected((prev) => (prev === next ? prev : next));
     };
     sync();
     const el = document.getElementById("mqtt_status");
@@ -24,7 +25,9 @@ export function useMqttConnected(): boolean {
     const onEvt = (ev: Event) => {
       const detail = (ev as CustomEvent<{ connected?: boolean }>).detail;
       if (typeof detail?.connected === "boolean") {
-        setConnected(detail.connected);
+        setConnected((prev) =>
+          prev === detail.connected ? prev : Boolean(detail.connected),
+        );
       } else {
         sync();
       }

@@ -5,6 +5,12 @@ import { useEffect, useRef } from "react";
 import { LEGACY_MAP_IDS, notifyMapHostReady } from "../map/legacyMapHost";
 import "./SceneMapPane.css";
 
+function refitMap(): void {
+  if (typeof window.fitSceneMapDisplay === "function") {
+    window.fitSceneMapDisplay();
+  }
+}
+
 /**
  * Adopts the Django-rendered map host into the React layout without remounting
  * the Snap.svg subtree (ids stay stable for sscape.js).
@@ -22,26 +28,42 @@ export function SceneMapPane() {
     host.hidden = false;
     notifyMapHostReady();
 
-    const refit = () => {
-      if (typeof window.fitSceneMapDisplay === "function") {
-        window.fitSceneMapDisplay();
+    let raf = 0;
+    let lastW = -1;
+    let lastH = -1;
+    const scheduleRefit = () => {
+      if (raf) {
+        return;
       }
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        const w = Math.round(slot.clientWidth);
+        const h = Math.round(slot.clientHeight);
+        // Skip no-op fits — ResizeObserver + fitSceneMapDisplay can feedback.
+        if (w === lastW && h === lastH && lastW >= 0) {
+          return;
+        }
+        lastW = w;
+        lastH = h;
+        refitMap();
+      });
     };
-    const onResize = () => refit();
-    window.addEventListener("resize", onResize);
+
+    window.addEventListener("resize", scheduleRefit);
 
     let observer: ResizeObserver | null = null;
     if (typeof ResizeObserver !== "undefined") {
-      observer = new ResizeObserver(() => refit());
+      observer = new ResizeObserver(() => scheduleRefit());
       observer.observe(slot);
     }
 
-    // Layout may settle after adopt; refit once more on next frame.
-    const raf = window.requestAnimationFrame(refit);
+    scheduleRefit();
 
     return () => {
-      window.cancelAnimationFrame(raf);
-      window.removeEventListener("resize", onResize);
+      if (raf) {
+        window.cancelAnimationFrame(raf);
+      }
+      window.removeEventListener("resize", scheduleRefit);
       observer?.disconnect();
       const parking = document.getElementById("ss-legacy-map-parking");
       if (parking && host.parentElement === slot) {

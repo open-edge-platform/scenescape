@@ -32,6 +32,10 @@ function writeFit(fit: CameraStripFit): void {
   }
 }
 
+/**
+ * Update card live/offline chrome only when values change.
+ * Must not write DOM unconditionally — MutationObservers watch this subtree.
+ */
 function applyCardState(card: HTMLElement): void {
   const img = card.querySelector(
     "img[data-ss-card-sensor], img[id^='card-preview-']",
@@ -47,9 +51,16 @@ function applyCardState(card: HTMLElement): void {
     hasFrame ||
     (rateText !== "" && rateText !== "--" && !rateText.startsWith("--"));
 
-  card.classList.toggle("is-online", online);
-  card.classList.toggle("is-offline", !online);
-  card.dataset.ssRate = rateText || "--";
+  const nextOnline = online ? "1" : "0";
+  if (card.dataset.ssOnline !== nextOnline) {
+    card.dataset.ssOnline = nextOnline;
+    card.classList.toggle("is-online", online);
+    card.classList.toggle("is-offline", !online);
+  }
+
+  if (card.dataset.ssRate !== (rateText || "--")) {
+    card.dataset.ssRate = rateText || "--";
+  }
 
   let badge = card.querySelector(".ss-camera-strip-badge") as HTMLElement | null;
   if (!badge) {
@@ -59,11 +70,14 @@ function applyCardState(card: HTMLElement): void {
     const header = card.querySelector(".card-header") || card;
     header.appendChild(badge);
   }
-  badge.textContent = online ? "Live" : "Offline";
+  const label = online ? "Live" : "Offline";
+  if (badge.textContent !== label) {
+    badge.textContent = label;
+  }
   badge.classList.toggle("is-online", online);
   badge.classList.toggle("is-offline", !online);
 
-  if (offline) {
+  if (offline && offline.hidden !== online) {
     offline.hidden = online;
   }
 }
@@ -109,24 +123,48 @@ export function CameraStripEnhancer({ rates = {} }: Props) {
     }
     pane.classList.add("ss-camera-strip");
 
+    let scheduled = 0;
+    let applying = false;
     const refresh = () => {
-      pane.querySelectorAll<HTMLElement>(".camera-card").forEach(applyCardState);
+      if (applying) {
+        return;
+      }
+      applying = true;
+      try {
+        pane
+          .querySelectorAll<HTMLElement>(".camera-card")
+          .forEach(applyCardState);
+      } finally {
+        applying = false;
+      }
     };
+    const scheduleRefresh = () => {
+      if (scheduled) {
+        return;
+      }
+      scheduled = window.requestAnimationFrame(() => {
+        scheduled = 0;
+        refresh();
+      });
+    };
+
     refresh();
 
-    const mo = new MutationObserver(() => refresh());
+    const mo = new MutationObserver(scheduleRefresh);
     mo.observe(pane, {
       subtree: true,
       childList: true,
       attributes: true,
-      characterData: true,
-      attributeFilter: ["class", "src", "style"],
+      attributeFilter: ["class", "src"],
     });
-    const poll = window.setInterval(refresh, 1500);
+    const poll = window.setInterval(refresh, 2000);
 
     return () => {
       mo.disconnect();
       window.clearInterval(poll);
+      if (scheduled) {
+        window.cancelAnimationFrame(scheduled);
+      }
     };
   }, []);
 

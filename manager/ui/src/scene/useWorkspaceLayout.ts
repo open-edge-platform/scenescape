@@ -162,6 +162,7 @@ export function useWorkspaceLayout(
 
   useEffect(() => {
     let frame = 0;
+    let lastAuto: WorkspaceLayout | null = null;
     const recompute = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
@@ -170,10 +171,12 @@ export function useWorkspaceLayout(
           readMapIntrinsicSize(),
           chrome,
         );
-        setAutoLayout((prev) => (prev === nextAuto ? prev : nextAuto));
-        if (typeof window.fitSceneMapDisplay === "function") {
-          window.fitSceneMapDisplay();
+        if (lastAuto !== nextAuto) {
+          lastAuto = nextAuto;
+          setAutoLayout((prev) => (prev === nextAuto ? prev : nextAuto));
         }
+        // Do not call fitSceneMapDisplay here — SceneMapPane owns fit on resize.
+        // Calling it from a ResizeObserver on #ss-map-host caused a main-thread loop.
       });
     };
 
