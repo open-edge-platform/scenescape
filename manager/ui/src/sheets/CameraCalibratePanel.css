@@ -1,0 +1,100 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-cal-workspace {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ss-cal-workspace--row {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.ss-cal-workspace--stack {
+  flex-direction: column;
+}
+
+.ss-cal-workspace-main {
+  flex: 1.4 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ss-cal-workspace--stack .ss-cal-workspace-main {
+  flex: 1.6 1 0;
+}
+
+.ss-cal-workspace-aside {
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--ss-card-bg);
+  box-sizing: border-box;
+}
+
+.ss-cal-workspace--row .ss-cal-workspace-aside {
+  width: min(28rem, 38vw);
+  border-left: 1px solid var(--ss-card-border);
+  padding: 1rem 1.1rem 1.5rem;
+}
+
+.ss-cal-workspace--stack .ss-cal-workspace-aside {
+  width: 100%;
+  max-height: min(42vh, 28rem);
+  border-top: 1px solid var(--ss-card-border);
+  padding: 0.75rem 1rem 1.25rem;
+}
+
+.ss-cal-workspace .ss-workspace-cal-preview {
+  height: 100%;
+}
+
+.ss-cal-workspace .ss-workspace-cal-preview-frame {
+  min-height: 0;
+}
+
+.ss-cal-workspace .ss-workspace-cal-preview-frame iframe {
+  min-height: 0;
+  height: 100%;
+}
+
+.ss-cal-layout-toggle {
+  margin-right: 0.35rem;
+}
+
+.ss-cal-layout-toggle .ss-layout-toggle-btn {
+  color: rgba(255, 255, 255, 0.75);
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.ss-cal-layout-toggle .ss-layout-toggle-btn.is-active {
+  color: var(--ss-nav-bg);
+  background: #fff;
+}
+
+.ss-cal-layout-toggle .ss-layout-toggle-btn:hover,
+.ss-cal-layout-toggle .ss-layout-toggle-btn:focus-visible {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 720px) {
+  .ss-cal-workspace--row {
+    flex-direction: column;
+  }
+
+  .ss-cal-workspace--row .ss-cal-workspace-aside {
+    width: 100%;
+    max-height: min(42vh, 28rem);
+    border-left: 0;
+    border-top: 1px solid var(--ss-card-border);
+  }
+}

@@ -67,6 +67,74 @@ import {
   };
 })();
 
+/** Push live optics values to the React calibrate panel (embed only). */
+function notifyParentCalibrationFields() {
+  if (!window.parent || window.parent === window) {
+    return;
+  }
+  if (!document.body.classList.contains("ss-embed")) {
+    return;
+  }
+  const read = (name) => {
+    const el = document.querySelector(`[name="${name}"]`);
+    return el && "value" in el ? String(el.value) : "";
+  };
+  window.parent.postMessage(
+    {
+      type: "ss-calibrate-optics",
+      intrinsics: {
+        fx: read("intrinsics_fx"),
+        fy: read("intrinsics_fy"),
+        cx: read("intrinsics_cx"),
+        cy: read("intrinsics_cy"),
+      },
+      distortion: {
+        k1: read("distortion_k1"),
+        k2: read("distortion_k2"),
+        p1: read("distortion_p1"),
+        p2: read("distortion_p2"),
+        k3: read("distortion_k3"),
+      },
+    },
+    window.location.origin,
+  );
+}
+
+window.addEventListener("message", (ev) => {
+  if (ev.origin !== window.location.origin) {
+    return;
+  }
+  if (!ev.data || typeof ev.data !== "object") {
+    return;
+  }
+  if (ev.data.type === "ss-calibrate-save-points") {
+    const form = document.getElementById("calibration_form");
+    if (form) {
+      form.requestSubmit ? form.requestSubmit() : form.submit();
+    }
+  }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (!document.body.classList.contains("ss-embed")) {
+    return;
+  }
+  const root = document.getElementById("calibration_form");
+  if (!root) {
+    return;
+  }
+  root.addEventListener("input", (ev) => {
+    const t = ev.target;
+    if (
+      t &&
+      t.name &&
+      (t.name.startsWith("intrinsics_") || t.name.startsWith("distortion_"))
+    ) {
+      notifyParentCalibrationFields();
+    }
+  });
+});
+
 export class ConvergedCameraCalibration {
   constructor() {
     this.camCanvas = null;
@@ -337,6 +405,7 @@ export class ConvergedCameraCalibration {
                 this.value = response["dist"][K3];
             }
           });
+          notifyParentCalibrationFields();
         },
         error: function (error) {
           // If invalid values are passed, print the error text

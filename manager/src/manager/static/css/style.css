@@ -51,6 +51,40 @@ body.ss-embed #calibrate > .card {
   box-shadow: none;
 }
 
+/* React hosts settings — embed is point-picking + calibration tools only */
+body.ss-embed .page-header,
+body.ss-embed .breadcrumb,
+body.ss-embed #calibrate-info,
+body.ss-embed #top_save,
+body.ss-embed #bottom_save,
+body.ss-embed .ss-form-actions,
+body.ss-embed details.ss-form-section--collapsible,
+body.ss-embed section[aria-labelledby="ss-cam-sec-identity-title"] {
+  display: none !important;
+}
+
+/* Keep intrinsic/distortion inputs in DOM for JS; hide from the embed UI */
+body.ss-embed section[aria-labelledby="ss-cam-sec-optics-title"] {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+body.ss-embed .cal-pane-viewport {
+  height: min(52vh, 560px);
+}
+
+body.ss-embed #calibrate > .card > .card-header {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
 h1,
 h2,
 h3,

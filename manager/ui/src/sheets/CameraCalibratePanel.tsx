@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { WorkspacePanel } from "../components/WorkspacePanel";
 import { FormSection } from "../components/FormSection";
 import { TextField } from "../components/TextField";
@@ -9,6 +9,7 @@ import { SelectField } from "../components/SelectField";
 import { Button } from "../components/Button";
 import { api, type RestError } from "../lib/rest";
 import { useAppToast } from "../components/ToastProvider";
+import "./CameraCalibratePanel.css";
 
 type Props = {
   open: boolean;
@@ -23,6 +24,52 @@ type Props = {
 };
 
 type NumMap = Record<string, string>;
+type CalLayoutMode = "auto" | "stack" | "row";
+type CalLayout = "stack" | "row";
+
+const CAL_LAYOUT_KEY = "ss-calibrate-layout-mode";
+
+const LAYOUT_OPTIONS: {
+  mode: CalLayoutMode;
+  label: string;
+  title: string;
+  icon: string;
+}[] = [
+  {
+    mode: "auto",
+    label: "Auto",
+    title: "Automatic layout from viewport size",
+    icon: "bi-magic",
+  },
+  {
+    mode: "stack",
+    label: "Below",
+    title: "Settings below point picking (watch intrinsics while calibrating)",
+    icon: "bi-distribute-vertical",
+  },
+  {
+    mode: "row",
+    label: "Side",
+    title: "Settings beside point picking",
+    icon: "bi-layout-sidebar-reverse",
+  },
+];
+
+function readCalLayoutMode(): CalLayoutMode {
+  try {
+    const raw = window.localStorage.getItem(CAL_LAYOUT_KEY);
+    if (raw === "auto" || raw === "stack" || raw === "row") {
+      return raw;
+    }
+  } catch {
+    /* ignore */
+  }
+  return "auto";
+}
+
+function chooseAutoCalLayout(): CalLayout {
+  return window.innerWidth >= 1200 ? "row" : "stack";
+}
 
 function numStr(v: unknown, fallback = ""): string {
   if (v === null || v === undefined || v === "") {
@@ -65,6 +112,13 @@ export function CameraCalibratePanel({
   onSaved,
 }: Props) {
   const toast = useAppToast();
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [layoutMode, setLayoutMode] = useState<CalLayoutMode>(() =>
+    typeof window !== "undefined" ? readCalLayoutMode() : "auto",
+  );
+  const [autoLayout, setAutoLayout] = useState<CalLayout>(() =>
+    typeof window !== "undefined" ? chooseAutoCalLayout() : "stack",
+  );
   const [name, setName] = useState("");
   const [sensorIdEdit, setSensorIdEdit] = useState(sensorId);
   const [intrinsics, setIntrinsics] = useState<NumMap>({
@@ -174,15 +228,49 @@ export function CameraCalibratePanel({
       if (ev.origin !== window.location.origin) {
         return;
       }
-      if (ev.data && ev.data.type === "ss-calibrate-done") {
+      if (!ev.data || typeof ev.data !== "object") {
+        return;
+      }
+      if (ev.data.type === "ss-calibrate-done") {
         toast.show("Camera calibration saved", "ok");
         onSaved();
         onClose();
+        return;
+      }
+      if (ev.data.type === "ss-calibrate-optics") {
+        const nextIn = ev.data.intrinsics as NumMap | undefined;
+        const nextDist = ev.data.distortion as NumMap | undefined;
+        if (nextIn) {
+          setIntrinsics((prev) => ({ ...prev, ...nextIn }));
+        }
+        if (nextDist) {
+          setDistortion((prev) => ({ ...prev, ...nextDist }));
+        }
+        setDirty(true);
       }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [open, onClose, onSaved, toast]);
+
+  useEffect(() => {
+    const recompute = () => setAutoLayout(chooseAutoCalLayout());
+    recompute();
+    window.addEventListener("resize", recompute);
+    return () => window.removeEventListener("resize", recompute);
+  }, []);
+
+  const setCalLayoutMode = useCallback((mode: CalLayoutMode) => {
+    setLayoutMode(mode);
+    try {
+      window.localStorage.setItem(CAL_LAYOUT_KEY, mode);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const resolvedLayout: CalLayout =
+    layoutMode === "auto" ? autoLayout : layoutMode;
 
   const setIntrinsic = (key: string, value: string) => {
     setIntrinsics((prev) => ({ ...prev, [key]: value }));
@@ -228,6 +316,10 @@ export function CameraCalibratePanel({
       payload.use_camera_pipeline = useCameraPipeline;
     }
     try {
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: "ss-calibrate-save-points" },
+        window.location.origin,
+      );
       await api.updateCamera(authToken, sensorId, payload);
       toast.show("Camera saved", "ok");
       setDirty(false);
@@ -421,54 +513,79 @@ export function CameraCalibratePanel({
     <WorkspacePanel
       open={open}
       title="Calibrate camera"
-      layout="split"
+      layout="bleed"
       dirty={dirty}
       leaveTitle="Leave calibration?"
       leaveBody="You may have unsaved calibration changes. Leave without saving?"
       onClose={onClose}
       actions={
-        <Button
-          variant="primary"
-          disabled={busy || !loaded || !dirty}
-          form="ss-cam-calibrate-form"
-          type="submit"
-          title={dirty ? "Save changes" : "No unsaved changes"}
-          className={dirty ? "ss-btn--dirty" : undefined}
-        >
-          {busy ? "Saving…" : dirty ? "Save" : "Saved"}
-        </Button>
+        <>
+          <div
+            className="ss-layout-toggle ss-cal-layout-toggle"
+            role="group"
+            aria-label="Calibration panel layout"
+          >
+            {LAYOUT_OPTIONS.map((opt) => {
+              const active = layoutMode === opt.mode;
+              const hint =
+                opt.mode === "auto" ? ` (now ${autoLayout})` : "";
+              return (
+                <button
+                  key={opt.mode}
+                  type="button"
+                  className={`ss-layout-toggle-btn${active ? " is-active" : ""}`}
+                  title={`${opt.title}${hint}`}
+                  aria-pressed={active}
+                  onClick={() => setCalLayoutMode(opt.mode)}
+                >
+                  <i className={`bi ${opt.icon}`} aria-hidden="true" />
+                  <span className="ss-layout-toggle-label">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <Button
+            variant="primary"
+            disabled={busy || !loaded || !dirty}
+            form="ss-cam-calibrate-form"
+            type="submit"
+            title={dirty ? "Save changes" : "No unsaved changes"}
+            className={dirty ? "ss-btn--dirty" : undefined}
+          >
+            {busy ? "Saving…" : dirty ? "Save" : "Saved"}
+          </Button>
+        </>
       }
     >
-      <div className="ss-workspace-panel-main ss-workspace-cal-preview">
-        <div className="ss-workspace-cal-preview-meta">
-          <h3 className="ss-form-section-title">Point correspondence</h3>
-          <p className="ss-workspace-panel-hint" style={{ marginBottom: 0 }}>
-            Pick matching points on the camera frame and scene map.{" "}
-            {cameraPk ? (
-              <a
-                href={`/cam/calibrate/${cameraPk}?embed=1`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open calibrator in a new tab
-              </a>
-            ) : null}
-          </p>
-        </div>
-        {cameraPk ? (
-          <div className="ss-workspace-cal-preview-frame">
-            <iframe
-              title="Point calibrator"
-              src={`/cam/calibrate/${cameraPk}?embed=1`}
-            />
+      <div
+        className={`ss-cal-workspace ss-cal-workspace--${resolvedLayout}`}
+        data-cal-layout={resolvedLayout}
+        data-cal-layout-mode={layoutMode}
+      >
+        <div className="ss-cal-workspace-main ss-workspace-cal-preview">
+          <div className="ss-workspace-cal-preview-meta">
+            <h3 className="ss-form-section-title">Point correspondence</h3>
+            <p className="ss-workspace-panel-hint" style={{ marginBottom: 0 }}>
+              Place matching points on the camera frame and scene map. Intrinsics
+              update in the settings panel as calibration runs.
+            </p>
           </div>
-        ) : (
-          <p className="ss-workspace-panel-hint">
-            Camera primary key is missing; point calibrator cannot load.
-          </p>
-        )}
+          {cameraPk ? (
+            <div className="ss-workspace-cal-preview-frame">
+              <iframe
+                ref={iframeRef}
+                title="Point calibrator"
+                src={`/cam/calibrate/${cameraPk}?embed=1`}
+              />
+            </div>
+          ) : (
+            <p className="ss-workspace-panel-hint">
+              Camera primary key is missing; point calibrator cannot load.
+            </p>
+          )}
+        </div>
+        <aside className="ss-cal-workspace-aside">{formBody}</aside>
       </div>
-      <aside className="ss-workspace-panel-aside">{formBody}</aside>
     </WorkspacePanel>
   );
 }
