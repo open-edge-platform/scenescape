@@ -9,10 +9,19 @@
   border: 1px solid var(--ss-card-border);
   border-radius: var(--ss-radius);
   background: color-mix(in srgb, var(--ss-surface) 40%, #fff);
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .ss-editor-card-row {
   flex-wrap: wrap;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.ss-editor-card-row > .form-control {
+  min-width: 0;
 }
 
 .ss-editor-card-meta {
@@ -21,6 +30,7 @@
   align-items: center;
   gap: 0.65rem 0.85rem;
   margin-top: 0.55rem;
+  max-width: 100%;
 }
 
 .ss-editor-inline-field {

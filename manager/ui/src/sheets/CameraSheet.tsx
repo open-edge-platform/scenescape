@@ -152,11 +152,6 @@ export function CameraSheet({
                 : "Saved"}
         </Button>
       }
-      footer={
-        <Button variant="secondary" disabled={busy} onClick={onClose}>
-          Cancel
-        </Button>
-      }
     >
       <FormShell
         id="ss-cam-sheet-form"

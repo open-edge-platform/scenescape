@@ -146,11 +146,6 @@ export function ChildSheet({
           {busy ? "Saving…" : "Save"}
         </Button>
       }
-      footer={
-        <Button variant="secondary" disabled={busy} onClick={onClose}>
-          Cancel
-        </Button>
-      }
     >
       <form
         id="ss-child-sheet-form"

@@ -155,11 +155,6 @@ export function SensorSheet({
                 : "Saved"}
         </Button>
       }
-      footer={
-        <Button variant="secondary" disabled={busy} onClick={onClose}>
-          Cancel
-        </Button>
-      }
     >
       <form
         id="ss-sensor-sheet-form"

@@ -11,16 +11,21 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { Button } from "./Button";
 import "./Drawer.css";
-import "./Button.css";
 
 type Props = {
   open: boolean;
   title: string;
   children: ReactNode;
-  /** Primary actions (Save) — trailing edge of the header, like WorkspacePanel. */
+  /** Primary actions (Save) — shown next to Cancel in the header. */
   actions?: ReactNode;
-  /** Secondary actions (Cancel) — bottom bar. */
+  /**
+   * Show Cancel beside header actions. Defaults to true when `actions` is set.
+   * Uses the same dirty-leave confirm as the close control.
+   */
+  showCancel?: boolean;
+  /** Optional extra bottom bar (prefer header Cancel + Save instead). */
   footer?: ReactNode;
   wide?: boolean;
   dirty?: boolean;
@@ -31,7 +36,7 @@ type Props = {
 
 /**
  * Right-side command surface for simple create/edit sheets.
- * Save lives in the header (trailing); Cancel stays in the footer.
+ * Cancel and Save sit together in the header (trailing edge).
  * Shares Escape / dirty-leave confirm with WorkspacePanel.
  */
 export function Drawer({
@@ -39,6 +44,7 @@ export function Drawer({
   title,
   children,
   actions,
+  showCancel,
   footer,
   wide = false,
   dirty = false,
@@ -49,6 +55,7 @@ export function Drawer({
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
   const [confirmClose, setConfirmClose] = useState(false);
+  const cancelVisible = showCancel ?? Boolean(actions);
 
   const requestClose = useCallback(() => {
     if (dirty) {
@@ -118,8 +125,15 @@ export function Drawer({
             {title}
           </h2>
           <div className="ss-drawer-header-end">
-            {actions ? (
-              <div className="ss-drawer-header-actions">{actions}</div>
+            {cancelVisible || actions ? (
+              <div className="ss-drawer-header-actions">
+                {cancelVisible ? (
+                  <Button variant="secondary" onClick={requestClose}>
+                    Cancel
+                  </Button>
+                ) : null}
+                {actions}
+              </div>
             ) : null}
             <button
               ref={closeRef}

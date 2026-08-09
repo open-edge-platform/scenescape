@@ -1,9 +1,19 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { WorkspacePanel } from "../components/WorkspacePanel";
+import { Button } from "../components/Button";
+import {
+  PanelLayoutToggle,
+  chooseAutoPanelLayout,
+  readPanelLayoutMode,
+  writePanelLayoutMode,
+  type PanelLayout,
+  type PanelLayoutMode,
+} from "../components/PanelLayoutToggle";
 import { useAppToast } from "../components/ToastProvider";
+import "../components/PanelLayoutToggle.css";
 
 type Props = {
   open: boolean;
@@ -15,7 +25,7 @@ type Props = {
 
 /**
  * Full-viewport sensor calibrate panel.
- * ROI / area drawing stays in the legacy Django embed until a native editor exists.
+ * Map / ROI stay in the Django embed; panel layout mirrors camera calibrate.
  */
 export function SensorCalibratePanel({
   open,
@@ -24,11 +34,48 @@ export function SensorCalibratePanel({
   onSaved,
 }: Props) {
   const toast = useAppToast();
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [iframeReady, setIframeReady] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<PanelLayoutMode>(() =>
+    typeof window !== "undefined" ? readPanelLayoutMode() : "auto",
+  );
+  const [autoLayout, setAutoLayout] = useState<PanelLayout>(() =>
+    typeof window !== "undefined" ? chooseAutoPanelLayout() : "stack",
+  );
+
+  const resolvedLayout: PanelLayout =
+    layoutMode === "auto" ? autoLayout : layoutMode;
+
+  const setPanelLayoutMode = useCallback((mode: PanelLayoutMode) => {
+    setLayoutMode(mode);
+    writePanelLayoutMode(mode);
+  }, []);
+
+  const pushLayoutToIframe = useCallback((layout: PanelLayout) => {
+    const win = iframeRef.current?.contentWindow;
+    if (!win) {
+      return;
+    }
+    win.postMessage(
+      { type: "ss-calibrate-layout", layout },
+      window.location.origin,
+    );
+  }, []);
+
+  useEffect(() => {
+    const recompute = () => setAutoLayout(chooseAutoPanelLayout());
+    recompute();
+    window.addEventListener("resize", recompute);
+    return () => window.removeEventListener("resize", recompute);
+  }, []);
 
   useEffect(() => {
     if (!open) {
       setDirty(false);
+      setBusy(false);
+      setIframeReady(false);
       return;
     }
     const onMessage = (ev: MessageEvent) => {
@@ -49,6 +96,8 @@ export function SensorCalibratePanel({
       }
       if (type === "ss-calibrate-done") {
         toast.show("Sensor calibration saved", "ok");
+        setBusy(false);
+        setDirty(false);
         onSaved();
         onClose();
       }
@@ -56,6 +105,21 @@ export function SensorCalibratePanel({
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [open, onClose, onSaved, toast]);
+
+  useEffect(() => {
+    if (!open || !iframeReady) {
+      return;
+    }
+    pushLayoutToIframe(resolvedLayout);
+  }, [open, iframeReady, resolvedLayout, pushLayoutToIframe]);
+
+  const save = () => {
+    setBusy(true);
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: "ss-calibrate-save-points" },
+      window.location.origin,
+    );
+  };
 
   return (
     <WorkspacePanel
@@ -66,18 +130,33 @@ export function SensorCalibratePanel({
       leaveTitle="Leave calibration?"
       leaveBody="You may have unsaved calibration changes. Leave without saving?"
       onClose={onClose}
+      actions={
+        <>
+          <PanelLayoutToggle
+            layoutMode={layoutMode}
+            onChange={setPanelLayoutMode}
+          />
+          <Button
+            variant="primary"
+            disabled={busy || !dirty}
+            onClick={save}
+            title={dirty ? "Save changes" : "No unsaved changes"}
+            className={dirty ? "ss-btn--dirty" : undefined}
+          >
+            {busy ? "Saving…" : dirty ? "Save" : "Saved"}
+          </Button>
+        </>
+      }
     >
-      <iframe
-        title="Sensor calibrator"
-        src={`/singleton_sensor/calibrate/${sensorPk}?embed=1`}
-        style={{
-          flex: 1,
-          width: "100%",
-          minHeight: 0,
-          border: 0,
-          display: "block",
-        }}
-      />
+      {sensorPk ? (
+        <iframe
+          ref={iframeRef}
+          className="ss-cal-workspace--bleed-iframe"
+          title="Sensor calibrator"
+          src={`/singleton_sensor/calibrate/${sensorPk}?embed=1`}
+          onLoad={() => setIframeReady(true)}
+        />
+      ) : null}
     </WorkspacePanel>
   );
 }

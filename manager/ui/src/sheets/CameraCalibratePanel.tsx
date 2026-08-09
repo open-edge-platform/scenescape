@@ -7,9 +7,18 @@ import { FormSection } from "../components/FormSection";
 import { TextField } from "../components/TextField";
 import { SelectField } from "../components/SelectField";
 import { Button } from "../components/Button";
+import {
+  PanelLayoutToggle,
+  chooseAutoPanelLayout,
+  readPanelLayoutMode,
+  writePanelLayoutMode,
+  type PanelLayout,
+  type PanelLayoutMode,
+} from "../components/PanelLayoutToggle";
 import { api, type RestError } from "../lib/rest";
 import { useAppToast } from "../components/ToastProvider";
 import "./CameraCalibratePanel.css";
+import "../components/PanelLayoutToggle.css";
 
 type Props = {
   open: boolean;
@@ -19,57 +28,13 @@ type Props = {
   sensorId: string;
   sceneId: string;
   authToken: string;
+  /** Advanced pipeline fields only exist on Kubernetes deploys (matches CamCalibrateForm). */
+  isKubernetes: boolean;
   onClose: () => void;
   onSaved: () => void;
 };
 
 type NumMap = Record<string, string>;
-type CalLayoutMode = "auto" | "stack" | "row";
-type CalLayout = "stack" | "row";
-
-const CAL_LAYOUT_KEY = "ss-calibrate-layout-mode";
-
-const LAYOUT_OPTIONS: {
-  mode: CalLayoutMode;
-  label: string;
-  title: string;
-  icon: string;
-}[] = [
-  {
-    mode: "auto",
-    label: "Auto",
-    title: "Automatic layout from viewport size",
-    icon: "bi-magic",
-  },
-  {
-    mode: "stack",
-    label: "Below",
-    title: "Settings below point picking (watch intrinsics while calibrating)",
-    icon: "bi-distribute-vertical",
-  },
-  {
-    mode: "row",
-    label: "Side",
-    title: "Settings beside point picking",
-    icon: "bi-layout-sidebar-reverse",
-  },
-];
-
-function readCalLayoutMode(): CalLayoutMode {
-  try {
-    const raw = window.localStorage.getItem(CAL_LAYOUT_KEY);
-    if (raw === "auto" || raw === "stack" || raw === "row") {
-      return raw;
-    }
-  } catch {
-    /* ignore */
-  }
-  return "auto";
-}
-
-function chooseAutoCalLayout(): CalLayout {
-  return window.innerWidth >= 1200 ? "row" : "stack";
-}
 
 function numStr(v: unknown, fallback = ""): string {
   if (v === null || v === undefined || v === "") {
@@ -108,16 +73,18 @@ export function CameraCalibratePanel({
   sensorId,
   sceneId,
   authToken,
+  isKubernetes,
   onClose,
   onSaved,
 }: Props) {
   const toast = useAppToast();
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [layoutMode, setLayoutMode] = useState<CalLayoutMode>(() =>
-    typeof window !== "undefined" ? readCalLayoutMode() : "auto",
+  const lockFocalRef = useRef(true);
+  const [layoutMode, setLayoutMode] = useState<PanelLayoutMode>(() =>
+    typeof window !== "undefined" ? readPanelLayoutMode() : "auto",
   );
-  const [autoLayout, setAutoLayout] = useState<CalLayout>(() =>
-    typeof window !== "undefined" ? chooseAutoCalLayout() : "stack",
+  const [autoLayout, setAutoLayout] = useState<PanelLayout>(() =>
+    typeof window !== "undefined" ? chooseAutoPanelLayout() : "stack",
   );
   const [name, setName] = useState("");
   const [sensorIdEdit, setSensorIdEdit] = useState(sensorId);
@@ -134,23 +101,48 @@ export function CameraCalibratePanel({
     p2: "",
     k3: "",
   });
+  /** When true, fx/fy are known constraints (not estimated). Matches main Lock value. */
+  const [lockFocal, setLockFocal] = useState(true);
   const [width, setWidth] = useState("");
   const [height, setHeight] = useState("");
   const [cvSubsystem, setCvSubsystem] = useState("AUTO");
   const [undistort, setUndistort] = useState(false);
   const [modelconfig, setModelconfig] = useState("model_config.json");
   const [useCameraPipeline, setUseCameraPipeline] = useState(false);
-  const [hasAdvanced, setHasAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [iframeReady, setIframeReady] = useState(false);
+
+  lockFocalRef.current = lockFocal;
+  const hasAdvanced = isKubernetes;
+  const distortionEditable = isKubernetes;
 
   const markDirty = useCallback(() => {
     if (loaded) {
       setDirty(true);
     }
   }, [loaded]);
+
+  const pushOpticsToIframe = useCallback(
+    (nextIn: NumMap, nextDist: NumMap, locked: boolean) => {
+      const win = iframeRef.current?.contentWindow;
+      if (!win) {
+        return;
+      }
+      win.postMessage(
+        {
+          type: "ss-calibrate-optics-set",
+          intrinsics: nextIn,
+          distortion: nextDist,
+          fixIntrinsics: { fx: locked, fy: locked },
+        },
+        window.location.origin,
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!open || !sensorId) {
@@ -161,6 +153,8 @@ export function CameraCalibratePanel({
     setError(null);
     setDirty(false);
     setLoaded(false);
+    setLockFocal(true);
+    setIframeReady(false);
     api
       .getCamera(authToken, sensorId)
       .then((cam) => {
@@ -193,16 +187,12 @@ export function CameraCalibratePanel({
         const res = resolutionParts(cam.resolution);
         setWidth(res.width);
         setHeight(res.height);
-        const advancedPresent =
-          "cv_subsystem" in cam ||
-          "undistort" in cam ||
-          "modelconfig" in cam ||
-          "use_camera_pipeline" in cam;
-        setHasAdvanced(advancedPresent);
-        setCvSubsystem(String(cam.cv_subsystem || "AUTO"));
-        setUndistort(Boolean(cam.undistort));
-        setModelconfig(String(cam.modelconfig || "model_config.json"));
-        setUseCameraPipeline(Boolean(cam.use_camera_pipeline));
+        if (hasAdvanced) {
+          setCvSubsystem(String(cam.cv_subsystem || "AUTO"));
+          setUndistort(Boolean(cam.undistort));
+          setModelconfig(String(cam.modelconfig || "model_config.json"));
+          setUseCameraPipeline(Boolean(cam.use_camera_pipeline));
+        }
         setLoaded(true);
       })
       .catch((e: RestError) => {
@@ -218,7 +208,7 @@ export function CameraCalibratePanel({
     return () => {
       cancelled = true;
     };
-  }, [open, sensorId, authToken]);
+  }, [open, sensorId, authToken, hasAdvanced]);
 
   useEffect(() => {
     if (!open) {
@@ -240,10 +230,20 @@ export function CameraCalibratePanel({
       if (ev.data.type === "ss-calibrate-optics") {
         const nextIn = ev.data.intrinsics as NumMap | undefined;
         const nextDist = ev.data.distortion as NumMap | undefined;
+        const locked = lockFocalRef.current;
         if (nextIn) {
-          setIntrinsics((prev) => ({ ...prev, ...nextIn }));
+          setIntrinsics((prev) => {
+            if (locked) {
+              return {
+                ...prev,
+                cx: nextIn.cx ?? prev.cx,
+                cy: nextIn.cy ?? prev.cy,
+              };
+            }
+            return { ...prev, ...nextIn };
+          });
         }
-        if (nextDist) {
+        if (nextDist && distortionEditable) {
           setDistortion((prev) => ({ ...prev, ...nextDist }));
         }
         setDirty(true);
@@ -251,34 +251,69 @@ export function CameraCalibratePanel({
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [open, onClose, onSaved, toast]);
+  }, [open, onClose, onSaved, toast, distortionEditable]);
 
   useEffect(() => {
-    const recompute = () => setAutoLayout(chooseAutoCalLayout());
+    if (!open || !loaded || !iframeReady) {
+      return;
+    }
+    pushOpticsToIframe(intrinsics, distortion, lockFocal);
+  }, [
+    open,
+    loaded,
+    iframeReady,
+    intrinsics,
+    distortion,
+    lockFocal,
+    pushOpticsToIframe,
+  ]);
+
+  useEffect(() => {
+    const recompute = () => setAutoLayout(chooseAutoPanelLayout());
     recompute();
     window.addEventListener("resize", recompute);
     return () => window.removeEventListener("resize", recompute);
   }, []);
 
-  const setCalLayoutMode = useCallback((mode: CalLayoutMode) => {
+  const setCalLayoutMode = useCallback((mode: PanelLayoutMode) => {
     setLayoutMode(mode);
-    try {
-      window.localStorage.setItem(CAL_LAYOUT_KEY, mode);
-    } catch {
-      /* ignore */
-    }
+    writePanelLayoutMode(mode);
   }, []);
 
-  const resolvedLayout: CalLayout =
+  const resolvedLayout: PanelLayout =
     layoutMode === "auto" ? autoLayout : layoutMode;
 
-  const setIntrinsic = (key: string, value: string) => {
+  const setFocal = (key: "fx" | "fy", value: string) => {
+    if (lockFocal) {
+      return;
+    }
     setIntrinsics((prev) => ({ ...prev, [key]: value }));
     markDirty();
   };
 
   const setDistort = (key: string, value: string) => {
+    if (!distortionEditable) {
+      return;
+    }
     setDistortion((prev) => ({ ...prev, [key]: value }));
+    markDirty();
+  };
+
+  const setResolution = (dim: "width" | "height", value: string) => {
+    const nextW = dim === "width" ? value : width;
+    const nextH = dim === "height" ? value : height;
+    if (dim === "width") {
+      setWidth(value);
+    } else {
+      setHeight(value);
+    }
+    const w = parseNum(nextW);
+    const h = parseNum(nextH);
+    setIntrinsics((prev) => ({
+      ...prev,
+      cx: w !== undefined ? String(w / 2) : prev.cx,
+      cy: h !== undefined ? String(h / 2) : prev.cy,
+    }));
     markDirty();
   };
 
@@ -381,26 +416,80 @@ export function CameraCalibratePanel({
       <FormSection
         id="ss-cam-cal-intrinsics"
         title="Intrinsics"
-        description="Focal length and principal point."
+        description="Lock fx and fy when focal length is known so calibration treats them as constraints. Unlock to estimate them (6+ point pairs). cx and cy follow resolution."
         className="ss-form-section--columns"
       >
-        {(["fx", "fy", "cx", "cy"] as const).map((key) => (
-          <TextField
-            key={key}
-            id={`ss-cam-cal-${key}`}
-            label={key}
-            inputMode="decimal"
-            value={intrinsics[key]}
-            onChange={(ev) => setIntrinsic(key, ev.target.value)}
+        <div className="ss-cal-focal-lock">
+          <input
+            type="checkbox"
+            id="ss-cam-cal-lock-focal"
+            checked={lockFocal}
             disabled={busy}
+            onChange={(ev) => {
+              setLockFocal(ev.target.checked);
+              markDirty();
+            }}
           />
-        ))}
+          <label htmlFor="ss-cam-cal-lock-focal">
+            Lock fx &amp; fy (known intrinsics)
+          </label>
+        </div>
+        <TextField
+          id="ss-cam-cal-fx"
+          label="fx"
+          inputMode="decimal"
+          value={intrinsics.fx}
+          onChange={(ev) => setFocal("fx", ev.target.value)}
+          disabled={busy || lockFocal}
+          readOnly={lockFocal}
+          title={
+            lockFocal
+              ? "Unlock fx & fy to edit or estimate focal length"
+              : "Focal length x"
+          }
+        />
+        <TextField
+          id="ss-cam-cal-fy"
+          label="fy"
+          inputMode="decimal"
+          value={intrinsics.fy}
+          onChange={(ev) => setFocal("fy", ev.target.value)}
+          disabled={busy || lockFocal}
+          readOnly={lockFocal}
+          title={
+            lockFocal
+              ? "Unlock fx & fy to edit or estimate focal length"
+              : "Focal length y"
+          }
+        />
+        <TextField
+          id="ss-cam-cal-cx"
+          label="cx"
+          inputMode="decimal"
+          value={intrinsics.cx}
+          readOnly
+          disabled
+          title="Principal point x (derived from frame width)"
+        />
+        <TextField
+          id="ss-cam-cal-cy"
+          label="cy"
+          inputMode="decimal"
+          value={intrinsics.cy}
+          readOnly
+          disabled
+          title="Principal point y (derived from frame height)"
+        />
       </FormSection>
 
       <FormSection
         id="ss-cam-cal-distortion"
         title="Distortion"
-        description="Radial and tangential coefficients."
+        description={
+          distortionEditable
+            ? "Radial and tangential coefficients."
+            : "Distortion is read-only on Docker deploys (matches Manager form)."
+        }
         className="ss-form-section--columns"
       >
         {(["k1", "k2", "p1", "p2", "k3"] as const).map((key) => (
@@ -411,7 +500,8 @@ export function CameraCalibratePanel({
             inputMode="decimal"
             value={distortion[key]}
             onChange={(ev) => setDistort(key, ev.target.value)}
-            disabled={busy}
+            disabled={busy || !distortionEditable}
+            readOnly={!distortionEditable}
           />
         ))}
       </FormSection>
@@ -419,7 +509,7 @@ export function CameraCalibratePanel({
       <FormSection
         id="ss-cam-cal-resolution"
         title="Resolution"
-        description="Frame size in pixels."
+        description="Frame size in pixels. Changing size updates cx/cy to the image center."
         className="ss-form-section--columns"
       >
         <TextField
@@ -427,10 +517,7 @@ export function CameraCalibratePanel({
           label="Width"
           inputMode="numeric"
           value={width}
-          onChange={(ev) => {
-            setWidth(ev.target.value);
-            markDirty();
-          }}
+          onChange={(ev) => setResolution("width", ev.target.value)}
           disabled={busy}
         />
         <TextField
@@ -438,10 +525,7 @@ export function CameraCalibratePanel({
           label="Height"
           inputMode="numeric"
           value={height}
-          onChange={(ev) => {
-            setHeight(ev.target.value);
-            markDirty();
-          }}
+          onChange={(ev) => setResolution("height", ev.target.value)}
           disabled={busy}
         />
       </FormSection>
@@ -450,7 +534,7 @@ export function CameraCalibratePanel({
         <FormSection
           id="ss-cam-cal-advanced"
           title="Advanced"
-          description="Pipeline and decode options."
+          description="Pipeline and decode options (Kubernetes only)."
           collapsible
           defaultOpen={false}
         >
@@ -476,7 +560,8 @@ export function CameraCalibratePanel({
               setUndistort(ev.target.value === "true");
               markDirty();
             }}
-            disabled={busy}
+            disabled
+            title="Undistort is disabled until DLSPS supports cameraundistort"
           >
             <option value="false">No</option>
             <option value="true">Yes</option>
@@ -520,30 +605,10 @@ export function CameraCalibratePanel({
       onClose={onClose}
       actions={
         <>
-          <div
-            className="ss-layout-toggle ss-cal-layout-toggle"
-            role="group"
-            aria-label="Calibration panel layout"
-          >
-            {LAYOUT_OPTIONS.map((opt) => {
-              const active = layoutMode === opt.mode;
-              const hint =
-                opt.mode === "auto" ? ` (now ${autoLayout})` : "";
-              return (
-                <button
-                  key={opt.mode}
-                  type="button"
-                  className={`ss-layout-toggle-btn${active ? " is-active" : ""}`}
-                  title={`${opt.title}${hint}`}
-                  aria-pressed={active}
-                  onClick={() => setCalLayoutMode(opt.mode)}
-                >
-                  <i className={`bi ${opt.icon}`} aria-hidden="true" />
-                  <span className="ss-layout-toggle-label">{opt.label}</span>
-                </button>
-              );
-            })}
-          </div>
+          <PanelLayoutToggle
+            layoutMode={layoutMode}
+            onChange={setCalLayoutMode}
+          />
           <Button
             variant="primary"
             disabled={busy || !loaded || !dirty}
@@ -566,8 +631,9 @@ export function CameraCalibratePanel({
           <div className="ss-workspace-cal-preview-meta">
             <h3 className="ss-form-section-title">Point correspondence</h3>
             <p className="ss-workspace-panel-hint" style={{ marginBottom: 0 }}>
-              Place matching points on the camera frame and scene map. Intrinsics
-              update in the settings panel as calibration runs.
+              Place matching points on the camera frame and scene map. With fx/fy
+              unlocked and 6+ pairs, focal length can be estimated into the
+              settings panel.
             </p>
           </div>
           {cameraPk ? (
@@ -576,6 +642,7 @@ export function CameraCalibratePanel({
                 ref={iframeRef}
                 title="Point calibrator"
                 src={`/cam/calibrate/${cameraPk}?embed=1`}
+                onLoad={() => setIframeReady(true)}
               />
             </div>
           ) : (

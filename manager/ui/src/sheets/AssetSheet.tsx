@@ -114,11 +114,6 @@ export function AssetSheet({
           {busy ? "Saving…" : "Save"}
         </Button>
       }
-      footer={
-        <Button variant="secondary" disabled={busy} onClick={onClose}>
-          Cancel
-        </Button>
-      }
     >
       <form
         id="ss-asset-sheet-form"

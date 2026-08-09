@@ -286,6 +286,7 @@ function SceneDetailInner({ bootstrap }: Props) {
         sceneId={scene.id}
         authToken={bootstrap.authToken}
         isSuperuser={isSuperuser}
+        isKubernetes={Boolean(bootstrap.isKubernetes)}
         scenes={bootstrap.scenes || []}
         cameras={cameras}
       />

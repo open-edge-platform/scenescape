@@ -24,6 +24,12 @@ SPDX-License-Identifier: Apache-2.0
       <h2 class="form-title">Update Object</h2>
     </div>
     <div class="page-header-actions">
+      <input
+        class="btn btn-primary"
+        type="submit"
+        form="asset_update_form"
+        value="Update Object"
+      />
       <a
         class="ss-table-action is-danger"
         href="{% url 'asset_delete' object.id %}"
@@ -260,19 +266,6 @@ SPDX-License-Identifier: Apache-2.0
             {% endfor %}
           </div>
         </details>
-
-        <div class="form-group row ss-form-actions" id="save_asset">
-          <div class="col-sm-2"></div>
-          <div class="col-sm-10">
-            <div class="ss-form-actions-inner">
-              <input
-                class="btn btn-primary"
-                type="submit"
-                value="Update Object"
-              />
-            </div>
-          </div>
-        </div>
       </form>
     </div>
   </div>

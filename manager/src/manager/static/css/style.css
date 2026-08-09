@@ -85,6 +85,82 @@ body.ss-embed #calibrate > .card > .card-header {
   font-size: 0.8125rem;
 }
 
+/* Sensor calibrate: map + settings respond to React panel layout messages */
+.ss-sensor-cal-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+}
+
+.ss-sensor-cal-workspace--row {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.ss-sensor-cal-workspace--stack {
+  flex-direction: column;
+}
+
+.ss-sensor-cal-main {
+  flex: 1.4 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ss-sensor-cal-aside {
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: auto;
+  box-sizing: border-box;
+}
+
+.ss-sensor-cal-workspace--row .ss-sensor-cal-aside {
+  width: min(28rem, 38vw);
+  border-left: 1px solid var(--ss-card-border);
+  padding: 0.75rem 1rem 1rem;
+}
+
+.ss-sensor-cal-workspace--stack .ss-sensor-cal-aside {
+  width: 100%;
+  border-top: 1px solid var(--ss-card-border);
+  padding: 0.75rem 0 0;
+  margin-top: 0.75rem;
+}
+
+body.ss-embed .ss-sensor-cal-workspace {
+  height: calc(100vh - 3rem);
+  max-height: calc(100vh - 3rem);
+}
+
+body.ss-embed .ss-sensor-cal-main {
+  overflow: auto;
+}
+
+body.ss-embed .ss-sensor-cal-workspace--row .ss-sensor-cal-aside {
+  max-height: 100%;
+}
+
+body.ss-embed .ss-sensor-cal-workspace--stack .ss-sensor-cal-aside {
+  max-height: min(42vh, 28rem);
+}
+
+body.ss-embed #roi-form-calibrate > .card > .card-header {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .ss-sensor-cal-workspace--row {
+    flex-direction: column;
+  }
+
+  .ss-sensor-cal-workspace--row .ss-sensor-cal-aside {
+    width: 100%;
+    border-left: 0;
+    border-top: 1px solid var(--ss-card-border);
+  }
+}
+
 h1,
 h2,
 h3,
@@ -1120,6 +1196,98 @@ polygon {
   border-radius: var(--ss-radius);
   box-shadow: 0 1px 2px rgba(0, 30, 80, 0.06);
   overflow: hidden;
+}
+
+/*
+ * Scene workspace control tabs (Cameras / Sensors / Regions / …):
+ * cards must stay inside the panel. The gallery .card rule above is for
+ * list/home tiles only — never for the adaptive workspace chrome.
+ */
+body.ss-scene-workspace #scene-detail-panels,
+body.ss-scene-workspace #myTabContent {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+body.ss-scene-workspace #scene-detail-panels .card:not(.camera-card):not(.scene-detail-panel),
+body.ss-scene-workspace #myTabContent .card:not(.camera-card):not(.scene-detail-panel) {
+  float: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 0 0.5rem !important;
+  box-sizing: border-box;
+}
+
+body.ss-scene-workspace #scene-detail-panels .card:not(.camera-card) .card-image,
+body.ss-scene-workspace #myTabContent .card:not(.camera-card) .card-image,
+body.ss-scene-workspace #scene-detail-panels .card:not(.camera-card) .card-image a,
+body.ss-scene-workspace #myTabContent .card:not(.camera-card) .card-image a {
+  width: 100%;
+  max-width: 100%;
+}
+
+body.ss-scene-workspace #scene-detail-panels .card:not(.camera-card) .card-image img,
+body.ss-scene-workspace #myTabContent .card:not(.camera-card) .card-image img,
+body.ss-scene-workspace #scene-detail-panels .card:not(.camera-card) .blank-container,
+body.ss-scene-workspace #myTabContent .card:not(.camera-card) .blank-container {
+  width: 100% !important;
+  max-width: 100%;
+  height: auto !important;
+  max-height: 10rem;
+  object-fit: cover;
+}
+
+body.ss-scene-workspace #roi-fields,
+body.ss-scene-workspace #tripwire-fields,
+body.ss-scene-workspace #childrenlist,
+body.ss-scene-workspace .form-roi,
+body.ss-scene-workspace .form-tripwire,
+body.ss-scene-workspace .ss-editor-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+body.ss-scene-workspace .ss-editor-card.col,
+body.ss-scene-workspace .form-roi .col,
+body.ss-scene-workspace .form-tripwire .col {
+  float: none;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+body.ss-scene-workspace #scene-detail-panels .input-group,
+body.ss-scene-workspace #myTabContent .input-group {
+  max-width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+body.ss-scene-workspace #scene-detail-panels .input-group > .form-control,
+body.ss-scene-workspace #myTabContent .input-group > .form-control {
+  min-width: 0;
+}
+
+body.ss-scene-workspace #scene-detail-panels .table,
+body.ss-scene-workspace #myTabContent .table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+}
+
+body.ss-scene-workspace #scene-detail-panels .table td,
+body.ss-scene-workspace #scene-detail-panels .table th,
+body.ss-scene-workspace #myTabContent .table td,
+body.ss-scene-workspace #myTabContent .table th {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .card .card-header {

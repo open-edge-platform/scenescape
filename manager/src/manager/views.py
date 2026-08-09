@@ -223,6 +223,7 @@ def sceneDetail(request, scene_id):
     },
     "authToken": auth_token,
     "isSuperuser": request.user.is_superuser,
+    "isKubernetes": bool(settings.KUBERNETES_SERVICE_HOST),
     "appVersion": getattr(settings, "APP_VERSION_NUMBER", None),
     "deleteImpact": {
       "sensors": scene.sensor_set.count(),

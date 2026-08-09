@@ -41,6 +41,8 @@ export type SceneDetailBootstrap = {
   scenes?: { id: string; name: string }[];
   authToken: string;
   isSuperuser: boolean;
+  /** True when Manager runs in Kubernetes; advanced camera pipeline fields apply. */
+  isKubernetes: boolean;
   appVersion: string | null;
 };
 

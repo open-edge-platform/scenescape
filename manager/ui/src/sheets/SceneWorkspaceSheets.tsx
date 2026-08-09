@@ -21,6 +21,7 @@ type Props = {
   sceneId: string;
   authToken: string;
   isSuperuser: boolean;
+  isKubernetes: boolean;
   scenes: SceneOption[];
   cameras: SceneCameraBootstrap[];
 };
@@ -47,6 +48,7 @@ export function SceneWorkspaceSheets({
   sceneId,
   authToken,
   isSuperuser,
+  isKubernetes,
   scenes,
   cameras,
 }: Props) {
@@ -151,6 +153,7 @@ export function SceneWorkspaceSheets({
         sensorId={calibrateCam?.sensorId || ""}
         sceneId={sceneId}
         authToken={authToken}
+        isKubernetes={isKubernetes}
         onClose={close}
         onSaved={reload}
       />

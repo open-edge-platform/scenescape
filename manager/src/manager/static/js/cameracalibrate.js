@@ -112,8 +112,50 @@ window.addEventListener("message", (ev) => {
     if (form) {
       form.requestSubmit ? form.requestSubmit() : form.submit();
     }
+    return;
+  }
+  if (ev.data.type === "ss-calibrate-optics-set") {
+    applyParentOptics(ev.data);
   }
 });
+
+function applyParentOptics(data) {
+  const inn = data.intrinsics || {};
+  const dist = data.distortion || {};
+  const fix = data.fixIntrinsics || {};
+
+  const setVal = (name, value) => {
+    if (value === undefined || value === null) {
+      return;
+    }
+    const el = document.getElementById(`id_${name}`);
+    if (el) {
+      el.value = value;
+    }
+  };
+
+  setVal("intrinsics_fx", inn.fx);
+  setVal("intrinsics_fy", inn.fy);
+  setVal("intrinsics_cx", inn.cx);
+  setVal("intrinsics_cy", inn.cy);
+  setVal("distortion_k1", dist.k1);
+  setVal("distortion_k2", dist.k2);
+  setVal("distortion_p1", dist.p1);
+  setVal("distortion_p2", dist.p2);
+  setVal("distortion_k3", dist.k3);
+
+  ["fx", "fy"].forEach((key) => {
+    const locked = Boolean(fix[key]);
+    const box = document.getElementById(`enabled_intrinsics_${key}`);
+    const input = document.getElementById(`id_intrinsics_${key}`);
+    if (box) {
+      box.checked = locked;
+    }
+    if (input) {
+      input.disabled = locked;
+    }
+  });
+}
 
 document.addEventListener("DOMContentLoaded", () => {
   if (!document.body.classList.contains("ss-embed")) {
@@ -123,6 +165,20 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!root) {
     return;
   }
+
+  // Match CamCalibrateForm defaults: lock checkboxes constrain fx/fy.
+  ["fx", "fy"].forEach((key) => {
+    const box = document.getElementById(`enabled_intrinsics_${key}`);
+    const input = document.getElementById(`id_intrinsics_${key}`);
+    if (box && input) {
+      input.disabled = box.checked;
+      box.addEventListener("change", () => {
+        input.disabled = box.checked;
+        notifyParentCalibrationFields();
+      });
+    }
+  });
+
   root.addEventListener("input", (ev) => {
     const t = ev.target;
     if (

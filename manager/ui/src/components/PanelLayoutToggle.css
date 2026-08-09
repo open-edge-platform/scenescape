@@ -1,0 +1,154 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-cal-workspace {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ss-cal-workspace--row {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.ss-cal-workspace--stack {
+  flex-direction: column;
+}
+
+.ss-cal-workspace-main {
+  flex: 1.4 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ss-cal-workspace--stack .ss-cal-workspace-main {
+  flex: 1.6 1 0;
+}
+
+.ss-cal-workspace-aside {
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--ss-card-bg);
+  box-sizing: border-box;
+}
+
+.ss-cal-workspace--row .ss-cal-workspace-aside {
+  width: min(28rem, 38vw);
+  border-left: 1px solid var(--ss-card-border);
+  padding: 1rem 1.1rem 1.5rem;
+}
+
+.ss-cal-workspace--stack .ss-cal-workspace-aside {
+  width: 100%;
+  max-height: min(42vh, 28rem);
+  border-top: 1px solid var(--ss-card-border);
+  padding: 0.75rem 1rem 1.25rem;
+}
+
+.ss-cal-workspace .ss-workspace-cal-preview {
+  height: 100%;
+}
+
+.ss-cal-workspace .ss-workspace-cal-preview-frame {
+  min-height: 0;
+}
+
+.ss-cal-workspace .ss-workspace-cal-preview-frame iframe {
+  min-height: 0;
+  height: 100%;
+}
+
+.ss-cal-workspace--bleed-iframe {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  border: 0;
+  display: block;
+}
+
+/* Self-contained control for the dark workspace bar (no Bootstrap Icons). */
+.ss-cal-layout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-right: 0.15rem;
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+.ss-cal-layout-caption {
+  color: rgba(255, 255, 255, 0.72);
+  font-family: var(--ss-font-sans);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ss-cal-layout-toggle {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--ss-radius);
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.ss-cal-layout-btn {
+  appearance: none;
+  margin: 0;
+  padding: 0.28rem 0.55rem;
+  border: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.22);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  font-family: var(--ss-font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ss-cal-layout-btn:last-child {
+  border-right: 0;
+}
+
+.ss-cal-layout-btn:hover,
+.ss-cal-layout-btn:focus-visible {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  outline: none;
+}
+
+.ss-cal-layout-btn.is-active {
+  color: var(--ss-nav-bg, #1a1f2e);
+  background: #fff;
+}
+
+.ss-cal-layout-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+@media (max-width: 720px) {
+  .ss-cal-workspace--row {
+    flex-direction: column;
+  }
+
+  .ss-cal-workspace--row .ss-cal-workspace-aside {
+    width: 100%;
+    max-height: min(42vh, 28rem);
+    border-left: 0;
+    border-top: 1px solid var(--ss-card-border);
+  }
+}

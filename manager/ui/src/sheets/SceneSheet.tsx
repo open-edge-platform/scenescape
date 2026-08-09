@@ -121,11 +121,6 @@ export function SceneSheet({
           {busy ? "Saving…" : mode === "create" ? "Create scene" : "Save"}
         </Button>
       }
-      footer={
-        <Button variant="secondary" disabled={busy} onClick={onClose}>
-          Cancel
-        </Button>
-      }
     >
       <form
         id="ss-scene-sheet-form"
