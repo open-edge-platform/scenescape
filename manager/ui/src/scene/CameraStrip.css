@@ -59,13 +59,6 @@
   background: var(--ss-brand);
 }
 
-.ss-camera-strip .camera-card {
-  position: relative;
-  border: 1px solid var(--ss-card-border);
-  box-shadow: none;
-  background: var(--ss-card-bg);
-}
-
 .ss-camera-strip .camera-card .card-header {
   display: flex;
   align-items: center;
