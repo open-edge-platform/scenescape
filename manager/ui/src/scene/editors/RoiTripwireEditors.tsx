@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { RegionEditorCard } from "./RegionEditorCard";
 import { TripwireEditorCard } from "./TripwireEditorCard";
+import { persistSceneGeometry } from "../../lib/roiPersist";
+import { useAppToast } from "../../components/ToastProvider";
 import {
   roiFromLoad,
   tripwireFromLoad,
@@ -18,6 +20,7 @@ import "./editors.css";
 type Props = {
   sceneId: string;
   isSuperuser: boolean;
+  authToken: string;
   initialRegions: RoiLoadJson[];
   initialTripwires: TripwireLoadJson[];
 };
@@ -43,9 +46,11 @@ function syncLegacySave(id: string, dirty: boolean): void {
 export function RoiTripwireEditors({
   sceneId,
   isSuperuser,
+  authToken,
   initialRegions,
   initialTripwires,
 }: Props) {
+  const toast = useAppToast();
   const [rois, setRois] = useState<RoiEntity[]>(() =>
     initialRegions
       .map((r) => roiFromLoad(r, sceneId))
@@ -63,6 +68,20 @@ export function RoiTripwireEditors({
   const tripsRef = useRef(tripwires);
   roisRef.current = rois;
   tripsRef.current = tripwires;
+
+  useEffect(() => {
+    const persist = async () => {
+      await persistSceneGeometry(authToken, sceneId);
+      toast.show("Regions saved", "ok");
+      window.location.reload();
+    };
+    window.ssPersistGeometry = persist;
+    return () => {
+      if (window.ssPersistGeometry === persist) {
+        delete window.ssPersistGeometry;
+      }
+    };
+  }, [authToken, sceneId, toast]);
 
   useEffect(() => {
     syncLegacySave("save-rois", roiDirty);

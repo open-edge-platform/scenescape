@@ -138,6 +138,9 @@ export function SceneManagePanel({
   const [apriltagSize, setApriltagSize] = useState("0.162");
   const [numberOfLocalizations, setNumberOfLocalizations] = useState("50");
   const [globalFeature, setGlobalFeature] = useState("netvlad");
+  const [localFeature, setLocalFeature] = useState('{"sift": {}}');
+  const [matcher, setMatcher] = useState('{"NN-ratio": {}}');
+  const [polycamFile, setPolycamFile] = useState<File | null>(null);
   const [minimumNumberOfMatches, setMinimumNumberOfMatches] = useState("20");
   const [inlierThreshold, setInlierThreshold] = useState("0.5");
 
@@ -213,6 +216,7 @@ export function SceneManagePanel({
     setError(null);
     setDirty(false);
     setMapFile(null);
+    setPolycamFile(null);
     setLoading(true);
     setBusy(true);
     api
@@ -265,6 +269,16 @@ export function SceneManagePanel({
             : "50",
         );
         setGlobalFeature(str(s.global_feature, "netvlad"));
+        setLocalFeature(
+          s.local_feature != null
+            ? cornersToText(s.local_feature) || '{"sift": {}}'
+            : '{"sift": {}}',
+        );
+        setMatcher(
+          s.matcher != null
+            ? cornersToText(s.matcher) || '{"NN-ratio": {}}'
+            : '{"NN-ratio": {}}',
+        );
         setMinimumNumberOfMatches(
           s.minimum_number_of_matches != null
             ? str(s.minimum_number_of_matches)
@@ -323,6 +337,10 @@ export function SceneManagePanel({
         ? Number(numberOfLocalizations)
         : null,
       global_feature: globalFeature.trim(),
+      local_feature: localFeature.trim()
+        ? (JSON.parse(localFeature) as unknown)
+        : null,
+      matcher: matcher.trim() ? (JSON.parse(matcher) as unknown) : null,
       minimum_number_of_matches: minimumNumberOfMatches.trim()
         ? Number(minimumNumberOfMatches)
         : null,
@@ -382,6 +400,12 @@ export function SceneManagePanel({
       form.append("number_of_localizations", numberOfLocalizations.trim());
     }
     form.append("global_feature", globalFeature.trim());
+    if (localFeature.trim()) {
+      form.append("local_feature", localFeature.trim());
+    }
+    if (matcher.trim()) {
+      form.append("matcher", matcher.trim());
+    }
     if (minimumNumberOfMatches.trim()) {
       form.append("minimum_number_of_matches", minimumNumberOfMatches.trim());
     }
@@ -390,6 +414,9 @@ export function SceneManagePanel({
     }
     if (mapFile) {
       form.append("map", mapFile);
+    }
+    if (polycamFile) {
+      form.append("polycam_data", polycamFile);
     }
     return form;
   };
@@ -402,9 +429,15 @@ export function SceneManagePanel({
       if (mapCornersLla.trim()) {
         parseCorners(mapCornersLla);
       }
-      if (mapFile) {
+      if (localFeature.trim()) {
+        JSON.parse(localFeature);
+      }
+      if (matcher.trim()) {
+        JSON.parse(matcher);
+      }
+      if (mapFile || polycamFile) {
         await api.updateScene(authToken, sceneId, buildFormData());
-        // mesh_* lists only work over JSON; apply pose after multipart map upload
+        // mesh_* lists only work over JSON; apply pose after multipart upload
         await api.updateSceneJson(authToken, sceneId, {
           name: name.trim(),
           mesh_translation: parseVec3(meshTranslation),
@@ -421,7 +454,7 @@ export function SceneManagePanel({
     } catch (err) {
       const re = err as RestError & { message?: string };
       if (err instanceof SyntaxError) {
-        setError("map_corners_lla must be valid JSON");
+        setError("JSON fields must be valid (corners / local feature / matcher)");
       } else {
         setError(re.message || "Save failed");
       }
@@ -810,6 +843,66 @@ export function SceneManagePanel({
             }}
             disabled={busy}
           />
+          <div className="ss-text-field">
+            <label
+              className="ss-text-field-label"
+              htmlFor="ss-scene-manage-local-feature"
+            >
+              Local feature (JSON)
+            </label>
+            <div className="ss-text-field-control">
+              <textarea
+                id="ss-scene-manage-local-feature"
+                rows={3}
+                value={localFeature}
+                disabled={busy}
+                onChange={(ev) => {
+                  setLocalFeature(ev.target.value);
+                  markDirty();
+                }}
+              />
+            </div>
+          </div>
+          <div className="ss-text-field">
+            <label
+              className="ss-text-field-label"
+              htmlFor="ss-scene-manage-matcher"
+            >
+              Matcher (JSON)
+            </label>
+            <div className="ss-text-field-control">
+              <textarea
+                id="ss-scene-manage-matcher"
+                rows={3}
+                value={matcher}
+                disabled={busy}
+                onChange={(ev) => {
+                  setMatcher(ev.target.value);
+                  markDirty();
+                }}
+              />
+            </div>
+          </div>
+          <div className="ss-text-field">
+            <label
+              className="ss-text-field-label"
+              htmlFor="ss-scene-manage-polycam"
+            >
+              Polycam dataset (.zip)
+            </label>
+            <div className="ss-text-field-control">
+              <input
+                id="ss-scene-manage-polycam"
+                type="file"
+                accept=".zip,application/zip"
+                disabled={busy}
+                onChange={(ev) => {
+                  setPolycamFile(ev.target.files?.[0] || null);
+                  markDirty();
+                }}
+              />
+            </div>
+          </div>
           <TextField
             id="ss-scene-manage-min-matches"
             label="Minimum number of matches"

@@ -28,7 +28,7 @@ from django.http import FileResponse, HttpResponse, HttpResponseNotFound, HttpRe
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.generic import DetailView, ListView, TemplateView
+from django.views.generic import DetailView, ListView, RedirectView, TemplateView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
 from django.urls import reverse
@@ -604,9 +604,12 @@ class SceneDetailView(LoginRequiredMixin, DetailView):
 
     return context
 
-class SceneListView(LoginRequiredMixin, ListView):
-  model = Scene
-  template_name = "scene/scene_list.html"
+class SceneListView(LoginRequiredMixin, RedirectView):
+  """Scenes home is React on index; keep URL for bookmarks."""
+  permanent = False
+
+  def get_redirect_url(self, *args, **kwargs):
+    return reverse('index')
 
 class SceneUpdateView(SuperUserCheck, UpdateView):
   model = Scene

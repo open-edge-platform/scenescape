@@ -1360,12 +1360,22 @@ function setupCalibrationType() {
   return;
 }
 
-// Function to save roi and tripwires (async fetch — no full navigation)
+// Function to save roi and tripwires (React REST persist preferred; form POST fallback)
 async function saveRois(roi_values) {
   var duplicates = find_duplicates(roi_values);
   if (duplicates.length > 0) {
     alert(duplicates.toString() + " already exists. Try a different name");
     return;
+  }
+  if (typeof window.ssPersistGeometry === "function") {
+    try {
+      await window.ssPersistGeometry(roi_values);
+      return;
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save regions: " + (err?.message || String(err)));
+      return;
+    }
   }
   var form = document.getElementById("roi-form");
   if (!form) {

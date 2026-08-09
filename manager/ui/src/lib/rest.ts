@@ -145,4 +145,38 @@ export const api = {
       `/asset/${encodeURIComponent(uid)}`,
       token,
     ),
+  getRegions: (token: string, sceneId: string) =>
+    restJson<{ results?: unknown[] } | unknown[]>(
+      "GET",
+      `/regions?scene=${encodeURIComponent(sceneId)}`,
+      token,
+    ),
+  createRegion: (token: string, data: unknown) =>
+    restJson<Record<string, unknown>>("POST", "/region", token, data),
+  updateRegion: (token: string, uid: string, data: unknown) =>
+    restJson<Record<string, unknown>>(
+      "PUT",
+      `/region/${encodeURIComponent(uid)}`,
+      token,
+      data,
+    ),
+  deleteRegion: (token: string, uid: string) =>
+    restJson("DELETE", `/region/${encodeURIComponent(uid)}`, token),
+  getTripwires: (token: string, sceneId: string) =>
+    restJson<{ results?: unknown[] } | unknown[]>(
+      "GET",
+      `/tripwires?scene=${encodeURIComponent(sceneId)}`,
+      token,
+    ),
+  createTripwire: (token: string, data: unknown) =>
+    restJson<Record<string, unknown>>("POST", "/tripwire", token, data),
+  updateTripwire: (token: string, uid: string, data: unknown) =>
+    restJson<Record<string, unknown>>(
+      "PUT",
+      `/tripwire/${encodeURIComponent(uid)}`,
+      token,
+      data,
+    ),
+  deleteTripwire: (token: string, uid: string) =>
+    restJson("DELETE", `/tripwire/${encodeURIComponent(uid)}`, token),
 };

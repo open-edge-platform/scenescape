@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useSheetFromQuery } from "../hooks/useSheetFromQuery";
 import type { SheetAction } from "../lib/sheetQuery";
-import type { SceneCameraBootstrap } from "../scene/types";
+import type { SceneCameraBootstrap, SceneSensorBootstrap } from "../scene/types";
 import { CameraSheet } from "./CameraSheet";
 import { SensorSheet } from "./SensorSheet";
 import { ChildSheet, type SceneOption } from "./ChildSheet";
@@ -24,6 +24,7 @@ type Props = {
   isKubernetes: boolean;
   scenes: SceneOption[];
   cameras: SceneCameraBootstrap[];
+  sensors?: SceneSensorBootstrap[];
 };
 
 const WORKSPACE_ACTIONS = new Set([
@@ -53,6 +54,7 @@ export function SceneWorkspaceSheets({
   isKubernetes,
   scenes,
   cameras,
+  sensors = [],
 }: Props) {
   const { sheet, open, close } = useSheetFromQuery();
 
@@ -109,6 +111,12 @@ export function SceneWorkspaceSheets({
     return map;
   }, [cameras]);
 
+  const sensorByPk = useMemo(() => {
+    const map = new Map<string, SceneSensorBootstrap>();
+    sensors.forEach((s) => map.set(String(s.id), s));
+    return map;
+  }, [sensors]);
+
   if (!isSuperuser) {
     return null;
   }
@@ -117,6 +125,10 @@ export function SceneWorkspaceSheets({
   const calibrateCam =
     action === "calibrate-cam" && sheet.id
       ? camByPk.get(String(sheet.id))
+      : null;
+  const calibrateSensor =
+    action === "calibrate-sensor" && sheet.id
+      ? sensorByPk.get(String(sheet.id))
       : null;
 
   const camEditUid =
@@ -174,8 +186,11 @@ export function SceneWorkspaceSheets({
         onSaved={reload}
       />
       <SensorCalibratePanel
-        open={action === "calibrate-sensor"}
-        sensorPk={sheet.id || ""}
+        open={Boolean(calibrateSensor) || action === "calibrate-sensor"}
+        sensorPk={calibrateSensor?.id || sheet.id || ""}
+        sensorId={calibrateSensor?.sensorId || ""}
+        sceneId={sceneId}
+        authToken={authToken}
         onClose={close}
         onSaved={reload}
       />

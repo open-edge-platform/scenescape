@@ -288,6 +288,7 @@ function SceneDetailInner({ bootstrap }: Props) {
       <RoiTripwireEditors
         sceneId={scene.id}
         isSuperuser={isSuperuser}
+        authToken={bootstrap.authToken}
         initialRegions={bootstrap.regions || []}
         initialTripwires={bootstrap.tripwires || []}
       />
@@ -298,6 +299,7 @@ function SceneDetailInner({ bootstrap }: Props) {
         isKubernetes={Boolean(bootstrap.isKubernetes)}
         scenes={bootstrap.scenes || []}
         cameras={cameras}
+        sensors={bootstrap.sensors || []}
       />
       <ConfirmDialog
         open={sceneDeleteOpen}
