@@ -91,21 +91,25 @@ export function WorkspacePanel({
         aria-labelledby={titleId}
       >
         <div className="ss-workspace-panel-bar">
-          <button
-            type="button"
-            className="ss-workspace-panel-back"
-            aria-label={`Back from ${title}`}
-            onClick={requestClose}
-          >
-            <span aria-hidden="true">←</span>
-            Back
-          </button>
-          <h2 className="ss-workspace-panel-title" id={titleId}>
-            {title}
-          </h2>
+          <div className="ss-workspace-panel-bar-start">
+            <button
+              type="button"
+              className="ss-workspace-panel-back"
+              aria-label={`Back from ${title}`}
+              onClick={requestClose}
+            >
+              <span aria-hidden="true">←</span>
+              Back
+            </button>
+            <h2 className="ss-workspace-panel-title" id={titleId}>
+              {title}
+            </h2>
+          </div>
           {actions ? (
             <div className="ss-workspace-panel-actions">{actions}</div>
-          ) : null}
+          ) : (
+            <div className="ss-workspace-panel-actions" aria-hidden="true" />
+          )}
         </div>
         <div className={bodyClass}>{children}</div>
       </div>

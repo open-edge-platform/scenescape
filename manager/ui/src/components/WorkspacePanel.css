@@ -39,12 +39,20 @@
 .ss-workspace-panel-bar {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 0.75rem;
-  padding: 0.55rem 0.85rem;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 1.25rem;
   background: var(--ss-nav-bg, #001e50);
   color: #fff;
   flex: 0 0 auto;
+}
+
+.ss-workspace-panel-bar-start {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .ss-workspace-panel-back {
@@ -76,11 +84,18 @@
 }
 
 .ss-workspace-panel-actions {
-  margin-left: auto;
+  margin-left: 0;
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0.4rem;
   align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+/* Keep primary actions readable on the dark bar */
+.ss-workspace-panel-actions .ss-btn--primary {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
 }
 
 .ss-workspace-panel-body {
