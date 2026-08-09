@@ -1,0 +1,29 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--ss-card-border);
+  font-family: var(--ss-font-sans);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ss-text-muted);
+  background: #fff;
+}
+
+.ss-status-chip--ok {
+  color: var(--ss-status-ok);
+  border-color: color-mix(in srgb, var(--ss-status-ok) 40%, var(--ss-card-border));
+}
+
+.ss-status-chip--bad {
+  color: var(--ss-status-bad);
+  border-color: color-mix(in srgb, var(--ss-status-bad) 40%, var(--ss-card-border));
+}

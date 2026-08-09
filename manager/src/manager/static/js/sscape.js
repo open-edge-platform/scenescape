@@ -32,15 +32,71 @@ import {
 var svgCanvas = Snap("#svgout");
 import RESTClient from "/static/js/restclient.js";
 
-// Prefer React toast host when present (ViPPET in-page flows).
+// Prefer React toast/confirm hosts when present (ViPPET in-page flows).
+function ssToastApi() {
+  return (
+    (window.ssToast && typeof window.ssToast.show === "function"
+      ? window.ssToast
+      : null) ||
+    (window.parent &&
+    window.parent !== window &&
+    window.parent.ssToast &&
+    typeof window.parent.ssToast.show === "function"
+      ? window.parent.ssToast
+      : null)
+  );
+}
+
+function ssShowToast(msg, tone) {
+  const api = ssToastApi();
+  if (api) {
+    api.show(String(msg), tone || "info");
+    return;
+  }
+  window.__ssNativeAlert
+    ? window.__ssNativeAlert(String(msg))
+    : window.alert(String(msg));
+}
+
+function ssAskConfirm(message, options) {
+  const opts = options || {};
+  const req = {
+    title: opts.title || "Confirm",
+    message: String(message),
+    confirmLabel: opts.confirmLabel || "OK",
+    cancelLabel: opts.cancelLabel || "Cancel",
+    danger: opts.danger !== false,
+  };
+  const confirmFn =
+    (typeof window.ssConfirm === "function" && window.ssConfirm) ||
+    (window.parent &&
+      window.parent !== window &&
+      typeof window.parent.ssConfirm === "function" &&
+      window.parent.ssConfirm);
+  if (confirmFn) {
+    return confirmFn(req);
+  }
+  return Promise.resolve(
+    window.__ssNativeConfirm
+      ? window.__ssNativeConfirm(req.message)
+      : window.confirm(req.message),
+  );
+}
+
 (function bridgeAlertToToast() {
-  const nativeAlert = window.alert.bind(window);
+  if (!window.__ssNativeAlert) {
+    window.__ssNativeAlert = window.alert.bind(window);
+  }
+  if (!window.__ssNativeConfirm) {
+    window.__ssNativeConfirm = window.confirm.bind(window);
+  }
   window.alert = function (msg) {
-    if (window.ssToast && typeof window.ssToast.show === "function") {
-      window.ssToast.show(String(msg), "info");
-      return;
-    }
-    nativeAlert(msg);
+    const text = String(msg);
+    const bad =
+      /fail|error|invalid|not found|unable|cannot|must/i.test(text) &&
+      !/successfully/i.test(text);
+    const ok = /success|updated|generated successfully/i.test(text);
+    ssShowToast(text, bad ? "bad" : ok ? "ok" : "info");
   };
 })();
 
@@ -137,9 +193,14 @@ function fitSceneMapDisplay() {
     maxW = Math.max(stage.clientWidth || window.innerWidth - 24, 100);
     maxH = Math.max(window.innerHeight - 96, 200);
   } else {
-    // Scene detail (Django or React classic shell): ~80vh map peek.
+    // Prefer the laid-out stage box so the map never overflows into tabs/controls.
     maxW = Math.max(stage.clientWidth || window.innerWidth - 48, 100);
-    maxH = Math.round(window.innerHeight * 0.8);
+    var stageH = stage.clientHeight;
+    if (stageH >= 80) {
+      maxH = stageH;
+    } else {
+      maxH = Math.round(window.innerHeight * 0.55);
+    }
   }
 
   var scaleFit = Math.min(maxW / scene_map_width, maxH / scene_y_max);
@@ -288,11 +349,15 @@ async function checkBrokerConnections() {
           if (msg.rate && typeof msg.rate === "object") {
             for (const [key, value] of Object.entries(msg.rate)) {
               var rateEl = document.getElementById("rate-" + key);
+              var rateFilmEl = document.getElementById("rate-film-" + key);
               var fps = Number(value);
               var rateText =
                 (Number.isFinite(fps) ? fps.toFixed(2) : "--") + " FPS";
               if (rateEl) {
                 rateEl.innerText = rateText;
+              }
+              if (rateFilmEl) {
+                rateFilmEl.innerText = rateText;
               }
               if (
                 window.ssSceneTelemetry &&
@@ -389,30 +454,30 @@ async function checkBrokerConnections() {
         // Use native JS since jQuery.load() pukes on data URI's
         if ($(".snapshot-image").length) {
           var id = topic.split("camera/")[1];
-          img = document.getElementById(id);
-          if (img !== undefined && img !== null) {
+          var previewImgs = document.querySelectorAll(
+            "[id='" + id + "'], [data-ss-card-sensor='" + id + "']",
+          );
+          previewImgs.forEach(function (img) {
             img.setAttribute("src", "data:image/jpeg;base64," + msg.image);
-          }
+            img.classList.remove("display-none");
+            var offline = img.parentElement
+              ? img.parentElement.querySelectorAll(".cam-offline")
+              : [];
+            offline.forEach(function (el) {
+              el.style.display = "none";
+            });
+          });
 
           if ($("input#live-view").is(":checked")) {
             client.publish(APP_NAME + CMD_CAMERA + id, "getimage");
           }
-
-          // If ID contains special characters, selector $("#" + id) fails
-          $("[id='" + id + "']")
-            .stop()
-            .show()
-            .css("opacity", 1)
-            .animate({ opacity: 0.6 }, 5000, function () {})
-            .prevAll(".cam-offline")
-            .hide();
         }
       } else if (topic.includes(DATA_CAMERA)) {
         var id = topic.slice(topic.lastIndexOf("/") + 1);
         var camFps = Number(msg.rate);
         var camRateText =
           (Number.isFinite(camFps) ? camFps.toFixed(2) : "--") + " FPS";
-        $("#rate-" + id).text(camRateText);
+        $("#rate-" + id + ", #rate-film-" + id).text(camRateText);
         if (
           window.ssSceneTelemetry &&
           typeof window.ssSceneTelemetry.setCameraRate === "function"
@@ -868,17 +933,10 @@ function closePolygon() {
       typeof window.ssRoiEditors.addRoi === "function"
     ) {
       window.ssRoiEditors.addRoi(roiFormPayload);
-    } else if (document.getElementById("ss-scene-detail-root")) {
+    } else {
       window.dispatchEvent(
         new CustomEvent("ss-roi-form-add", { detail: roiFormPayload }),
       );
-    } else {
-      $("#roi-template")
-        .clone(true)
-        .removeAttr("id")
-        .attr("id", "form-" + i)
-        .attr("for", i)
-        .appendTo("#roi-fields");
     }
 
     numberRois();
@@ -1060,56 +1118,29 @@ function newTripwire(e, index, type = "tripwire") {
     updateArrow(g);
 
     if (type == "tripwire") {
-      if (document.getElementById("ss-scene-detail-root")) {
-        if (
-          window.ssRoiEditors &&
-          typeof window.ssRoiEditors.addTripwire === "function" &&
-          (!window.ssRoiEditors.hasTripwire ||
-            !window.ssRoiEditors.hasTripwire(i))
-        ) {
-          window.ssRoiEditors.addTripwire({
-            svgId: i,
-            uuid: String(index),
-            title: e.title || "",
-            topic:
-              APP_NAME +
-              "/event/tripwire/" +
-              scene_id +
-              "/" +
-              index +
-              "/objects",
-          });
-        }
+      var tripPayload = {
+        svgId: i,
+        uuid: String(index),
+        title: e.title || "",
+        topic:
+          APP_NAME +
+          "/event/tripwire/" +
+          scene_id +
+          "/" +
+          index +
+          "/objects",
+      };
+      if (
+        window.ssRoiEditors &&
+        typeof window.ssRoiEditors.addTripwire === "function" &&
+        (!window.ssRoiEditors.hasTripwire ||
+          !window.ssRoiEditors.hasTripwire(i))
+      ) {
+        window.ssRoiEditors.addTripwire(tripPayload);
       } else {
-        $("#tripwire-template")
-          .clone(true)
-          .attr({
-            id: "form-" + i,
-            for: i,
-          })
-          .appendTo("#tripwire-fields")
-          .find("input.tripwire-title")
-          .val(e.title)
-          .attr({
-            id: "input-" + i,
-            "aria-labelledby": "label-" + i,
-          })
-          .closest(".input-group")
-          .find("label")
-          .attr({
-            id: "label-" + i,
-            for: "input-" + i,
-          })
-          .closest(".input-group")
-          .find(".topic")
-          .text(
-            APP_NAME +
-              "/event/tripwire/" +
-              scene_id +
-              "/" +
-              index +
-              "/objects",
-          );
+        window.dispatchEvent(
+          new CustomEvent("ss-tripwire-form-add", { detail: tripPayload }),
+        );
       }
     } else {
       var text = g.select("text");
@@ -1435,117 +1466,51 @@ function drawRoi(e, index, type) {
 
     if (type == "roi") {
       // React scene-detail island owns editor cards (hydrated from bootstrap).
-      if (document.getElementById("ss-scene-detail-root")) {
-        if (
-          window.ssRoiEditors &&
-          typeof window.ssRoiEditors.addRoi === "function" &&
-          (!window.ssRoiEditors.hasRoi || !window.ssRoiEditors.hasRoi(i))
-        ) {
-          var greenMin = 0;
-          var yellowMin = 2;
-          var redMin = 5;
-          var rangeMax = 10;
-          if (e.sectors && e.sectors.thresholds) {
-            e.sectors.thresholds.forEach(function (sector) {
-              if (sector.color === "green") greenMin = Number(sector.color_min);
-              if (sector.color === "yellow")
-                yellowMin = Number(sector.color_min);
-              if (sector.color === "red") redMin = Number(sector.color_min);
-            });
-            if (e.sectors.range_max !== undefined) {
-              rangeMax = Number(e.sectors.range_max);
-            }
-          }
-          window.ssRoiEditors.addRoi({
-            svgId: i,
-            uuid: index,
-            title: e.title || "",
-            volumetric: Boolean(e.volumetric),
-            height: e.height !== undefined ? Number(e.height) : 1.0,
-            buffer_size:
-              e.buffer_size !== undefined ? Number(e.buffer_size) : 0.0,
-            greenMin: greenMin,
-            yellowMin: yellowMin,
-            redMin: redMin,
-            rangeMax: rangeMax,
-            topic:
-              APP_NAME +
-              "/event/region/" +
-              scene_id +
-              "/" +
-              index +
-              "/count",
-          });
-        }
-      } else {
-        $("#roi-template")
-          .clone(true)
-          .attr({
-            id: "form-" + i,
-            for: i,
-          })
-          .appendTo("#roi-fields")
-          .find("input.roi-title")
-          .val(e.title)
-          .attr({
-            id: "input-" + i,
-            "aria-labelledby": "label-" + i,
-          })
-          .closest(".input-group")
-          .find("label")
-          .attr({
-            id: "label-" + i,
-            for: "input-" + i,
-          });
-
-        $("#form-" + i)
-          .find(".roi-topic > label")
-          .text("Topic:  ");
-        $("#form-" + i)
-          .find(".roi-topic > .topic-text")
-          .text(
-            APP_NAME + "/event/region/" + scene_id + "/" + index + "/count",
-          );
-
-        // Set volumetric checkbox and related fields
-        if (e.volumetric !== undefined) {
-          $("#form-" + i)
-            .find(".roi-volumetric")
-            .prop("checked", e.volumetric);
-        }
-
-        // Set height field
-        if (e.height !== undefined) {
-          $("#form-" + i)
-            .find(".roi-height")
-            .val(e.height);
-        }
-
-        // Set buffer size field
-        if (e.buffer_size !== undefined) {
-          $("#form-" + i)
-            .find(".roi-buffer")
-            .val(e.buffer_size);
-        }
-        for (var sector in e.sectors.thresholds) {
-          var color = e.sectors.thresholds[sector].color;
-          var min = e.sectors.thresholds[sector].color_min;
-          $("#form-" + i)
-            .find("input." + color + "_min")
-            .val(min);
-        }
-        $("#form-" + i)
-          .find("input." + "range_max")
-          .val(e.sectors.range_max);
-
-        document.querySelectorAll(".topic-text").forEach((element) => {
-          element.addEventListener("click", () => {
-            const text = element.textContent;
-            if (navigator.clipboard !== undefined) {
-              navigator.clipboard.writeText(text);
-            }
-          });
+      var greenMin = 0;
+      var yellowMin = 2;
+      var redMin = 5;
+      var rangeMax = 10;
+      if (e.sectors && e.sectors.thresholds) {
+        e.sectors.thresholds.forEach(function (sector) {
+          if (sector.color === "green") greenMin = Number(sector.color_min);
+          if (sector.color === "yellow")
+            yellowMin = Number(sector.color_min);
+          if (sector.color === "red") redMin = Number(sector.color_min);
         });
+        if (e.sectors.range_max !== undefined) {
+          rangeMax = Number(e.sectors.range_max);
+        }
+      }
+      var roiPayload = {
+        svgId: i,
+        uuid: index,
+        title: e.title || "",
+        volumetric: Boolean(e.volumetric),
+        height: e.height !== undefined ? Number(e.height) : 1.0,
+        buffer_size:
+          e.buffer_size !== undefined ? Number(e.buffer_size) : 0.0,
+        greenMin: greenMin,
+        yellowMin: yellowMin,
+        redMin: redMin,
+        rangeMax: rangeMax,
+        topic:
+          APP_NAME +
+          "/event/region/" +
+          scene_id +
+          "/" +
+          index +
+          "/count",
+      };
+      if (
+        window.ssRoiEditors &&
+        typeof window.ssRoiEditors.addRoi === "function" &&
+        (!window.ssRoiEditors.hasRoi || !window.ssRoiEditors.hasRoi(i))
+      ) {
+        window.ssRoiEditors.addRoi(roiPayload);
+      } else {
+        window.dispatchEvent(
+          new CustomEvent("ss-roi-form-add", { detail: roiPayload }),
+        );
       }
     } else {
       var center = polyCenter(roi_points);
@@ -1693,11 +1658,11 @@ function setupSceneRotationTranslationFields(event = null) {
     }
   }
   var uploaded_file_ext = map_file_name.split(".").pop();
-  if (uploaded_file_ext == "glb" || uploaded_file_ext == "zip") {
-    scene_rotation_translation_config = false;
-  } else {
-    scene_rotation_translation_config = true;
-  }
+  // Track 3D map uploads for mesh tooling; Pose accordion always exposes
+  // translation / rotation / scale (no longer hide for image maps).
+  scene_rotation_translation_config = !(
+    uploaded_file_ext == "glb" || uploaded_file_ext == "zip"
+  );
 
   var rotation_translation_elements = [
     "rotation_x_wrapper",
@@ -1707,11 +1672,7 @@ function setupSceneRotationTranslationFields(event = null) {
     "translation_y_wrapper",
     "translation_z_wrapper",
   ];
-  updateElements(
-    rotation_translation_elements,
-    "hidden",
-    scene_rotation_translation_config,
-  );
+  updateElements(rotation_translation_elements, "hidden", false);
 }
 
 function setupGenerateMesh() {
@@ -1991,8 +1952,13 @@ $(document).ready(function () {
                 )
               ) {
                 const isCamera = key === "cameras";
-                const userConfirmed = confirm(
+                const userConfirmed = await ssAskConfirm(
                   `Do you want to orphan "${msg[1].name}" to the imported scene?`,
+                  {
+                    title: "Orphan entity?",
+                    confirmLabel: "Orphan",
+                    danger: true,
+                  },
                 );
                 if (userConfirmed) {
                   try {
@@ -2364,33 +2330,45 @@ $(document).ready(function () {
           numberTripwires();
         }
 
-        // Save ROI's
+        // Save ROI / tripwire from the active tab (form still persists both)
         $("#save-rois, #save-trips").on("click", function (event) {
-          var tripwire_values = getRoiValues(
-            "form-control tripwire-title",
-            "tripwire",
-          );
-          var rois_values = getRoiValues("form-control roi-title", "roi");
-          rois_values = rois_values.concat(tripwire_values);
-          if (event.target.id == "save-trips") {
-            saveRois(rois_values);
-          } else if (event.target.id == "save-rois") {
-            saveRois(rois_values);
+          var values;
+          if (event.target.id === "save-trips") {
+            values = getRoiValues(
+              "form-control tripwire-title",
+              "tripwire",
+            );
+          } else {
+            values = getRoiValues("form-control roi-title", "roi");
           }
+          saveRois(values);
         });
       }
 
       $("#new-roi").on("click", function () {
         addPoly();
       });
+      $("#empty-new-roi").on("click", function () {
+        $("#new-roi").trigger("click");
+      });
 
       $("#new-tripwire").on("click", function () {
         addTripwire();
       });
+      $("#empty-new-tripwire").on("click", function () {
+        $("#new-tripwire").trigger("click");
+      });
 
-      $(".roi-remove").on("click", function () {
+      $(".roi-remove").on("click", async function () {
         var $group = $(this).closest(".form-roi");
-        var r = confirm("Are you sure you wish to remove this ROI?");
+        var r = await ssAskConfirm(
+          "Are you sure you wish to remove this ROI?",
+          {
+            title: "Remove region?",
+            confirmLabel: "Remove",
+            danger: true,
+          },
+        );
 
         if (r == true) {
           $("#" + $group.attr("for")).remove();
@@ -2400,9 +2378,16 @@ $(document).ready(function () {
         }
       });
 
-      $(".tripwire-remove").on("click", function () {
+      $(".tripwire-remove").on("click", async function () {
         var $group = $(this).closest(".form-tripwire");
-        var r = confirm("Are you sure you wish to remove this tripwire?");
+        var r = await ssAskConfirm(
+          "Are you sure you wish to remove this tripwire?",
+          {
+            title: "Remove tripwire?",
+            confirmLabel: "Remove",
+            danger: true,
+          },
+        );
 
         if (r == true) {
           $("#" + $group.attr("for")).remove();

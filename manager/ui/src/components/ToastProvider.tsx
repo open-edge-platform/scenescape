@@ -5,6 +5,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -25,6 +26,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setMessage({ id: String(Date.now()), text, tone });
   }, []);
   const api = useMemo(() => ({ show, dismiss }), [show, dismiss]);
+
+  useEffect(() => {
+    return installLegacyToastBridge(api);
+  }, [api]);
 
   return (
     <ToastCtx.Provider value={api}>

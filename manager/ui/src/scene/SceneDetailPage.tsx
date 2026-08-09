@@ -4,16 +4,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "../components/PageHeader";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import {
-  ToastProvider,
-  useAppToast,
-  installLegacyToastBridge,
-} from "../components/ToastProvider";
+import { ToastProvider } from "../components/ToastProvider";
+import { LegacyConfirmHost } from "../components/LegacyConfirmHost";
 import { SceneMapPane } from "./SceneMapPane";
 import { SceneSidePanel } from "./SceneSidePanel";
 import { RoiTripwireEditors } from "./editors/RoiTripwireEditors";
 import { SceneWorkspaceSheets } from "../sheets/SceneWorkspaceSheets";
 import { postDjangoDelete } from "../lib/djangoDelete";
+import { useWorkspaceLayout } from "./useWorkspaceLayout";
+import type { WorkspaceLayoutMode } from "./useWorkspaceLayout";
 import type { SceneDetailBootstrap } from "./types";
 import type { TabItem } from "../components/Tabs";
 import "./SceneDetailPage.css";
@@ -26,15 +25,39 @@ function countLabel(n: number): string {
   return String(n);
 }
 
+const LAYOUT_OPTIONS: {
+  mode: WorkspaceLayoutMode;
+  label: string;
+  title: string;
+  icon: string;
+}[] = [
+  {
+    mode: "auto",
+    label: "Auto",
+    title: "Automatic tab layout from map and screen size",
+    icon: "bi-magic",
+  },
+  {
+    mode: "stack",
+    label: "Below",
+    title: "Tabs below the map",
+    icon: "bi-distribute-vertical",
+  },
+  {
+    mode: "row",
+    label: "Side",
+    title: "Tabs beside the map",
+    icon: "bi-layout-sidebar-reverse",
+  },
+];
+
 function SceneDetailInner({ bootstrap }: Props) {
   const { scene, cameras, urls, isSuperuser } = bootstrap;
-  const toast = useAppToast();
+  const { layout, mode, setMode, autoLayout } = useWorkspaceLayout();
   const [sceneRate, setSceneRate] = useState("--");
   const [sceneDeleteOpen, setSceneDeleteOpen] = useState(false);
   const [sceneDeleteBusy, setSceneDeleteBusy] = useState(false);
   const [sceneDeleteError, setSceneDeleteError] = useState<string | null>(null);
-
-  useEffect(() => installLegacyToastBridge(toast), [toast]);
 
   useEffect(() => {
     const setSceneRateCb = (hz: string) => setSceneRate(hz || "--");
@@ -113,6 +136,30 @@ function SceneDetailInner({ bootstrap }: Props) {
       <div className="scene-rate ss-scene-rate">
         Rate: <span id="scene-rate">{sceneRate}</span> Hz
       </div>
+      <div
+        className="ss-layout-toggle"
+        role="group"
+        aria-label="Control panel layout"
+      >
+        {LAYOUT_OPTIONS.map((opt) => {
+          const active = mode === opt.mode;
+          const hint =
+            opt.mode === "auto" ? ` (now ${autoLayout})` : "";
+          return (
+            <button
+              key={opt.mode}
+              type="button"
+              className={`ss-layout-toggle-btn${active ? " is-active" : ""}`}
+              title={`${opt.title}${hint}`}
+              aria-pressed={active}
+              onClick={() => setMode(opt.mode)}
+            >
+              <i className={`bi ${opt.icon}`} aria-hidden="true" />
+              <span className="ss-layout-toggle-label">{opt.label}</span>
+            </button>
+          );
+        })}
+      </div>
       <a
         className="btn btn-secondary btn-sm"
         id="export-scene"
@@ -133,7 +180,7 @@ function SceneDetailInner({ bootstrap }: Props) {
         <a
           className="btn btn-secondary btn-sm"
           id="scene-edit"
-          href={`?ss=scene-edit&id=${scene.id}`}
+          href="?ss=scene-manage"
           title={`Edit ${scene.name}`}
         >
           <i className="bi bi-pencil" aria-hidden="true" />
@@ -159,7 +206,11 @@ function SceneDetailInner({ bootstrap }: Props) {
   const deleteImpact = bootstrap.deleteImpact;
 
   return (
-    <div className="ss-scene-detail ss-scene-detail--classic">
+    <div
+      className={`ss-scene-detail ss-scene-detail--workspace ss-workspace--${layout}`}
+      data-workspace-layout={layout}
+      data-workspace-mode={mode}
+    >
       <PageHeader
         title={scene.name}
         breadcrumbs={[
@@ -168,8 +219,12 @@ function SceneDetailInner({ bootstrap }: Props) {
         ]}
         actions={actions}
       />
-      <SceneMapPane />
-      <SceneSidePanel tabs={tabs} />
+      <div className="ss-workspace-body">
+        <div className="ss-workspace-main">
+          <SceneMapPane />
+        </div>
+        <SceneSidePanel tabs={tabs} />
+      </div>
       <RoiTripwireEditors
         sceneId={scene.id}
         isSuperuser={isSuperuser}
@@ -225,7 +280,9 @@ function SceneDetailInner({ bootstrap }: Props) {
 export function SceneDetailPage({ bootstrap }: Props) {
   return (
     <ToastProvider>
-      <SceneDetailInner bootstrap={bootstrap} />
+      <LegacyConfirmHost>
+        <SceneDetailInner bootstrap={bootstrap} />
+      </LegacyConfirmHost>
     </ToastProvider>
   );
 }

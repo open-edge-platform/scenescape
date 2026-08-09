@@ -18,7 +18,11 @@ SPDX-License-Identifier: Apache-2.0
   </nav>
 
   <div class="page-header">
-    <h2 class="form-title">Update Sensor</h2>
+    <div class="page-header-main">
+      {% url 'singleton_sensor_list' as sensor_back_href %}
+      {% include 'sscape/form_back.html' with back_href=sensor_back_href %}
+      <h2 class="form-title">Update Sensor</h2>
+    </div>
     <div class="page-header-actions">
       <a
         class="ss-table-action is-danger"

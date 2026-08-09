@@ -18,7 +18,11 @@ SPDX-License-Identifier: Apache-2.0
   </nav>
 
   <div class="page-header">
-    <h2 class="form-title">Update Camera</h2>
+    <div class="page-header-main">
+      {% url 'cam_list' as cam_list_back_href %}
+      {% include 'sscape/form_back.html' with back_href=cam_list_back_href %}
+      <h2 class="form-title">Update Camera</h2>
+    </div>
     <div class="page-header-actions">
       <a
         class="ss-table-action is-danger"

@@ -18,9 +18,25 @@
   overflow: hidden;
 }
 
+.ss-tabs-chrome {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  border-bottom: 1px solid var(--ss-card-border);
+  background: color-mix(in srgb, var(--ss-surface) 65%, #fff);
+}
+
 .ss-scene-side .ss-tabs-list {
+  flex: 1 1 auto;
   flex-wrap: wrap;
   overflow: visible;
+  margin: 0;
+  padding: 0 0.35rem;
+  border-bottom: 0;
+  background: transparent;
 }
 
 .ss-scene-side .ss-tabs-panels {
@@ -62,4 +78,44 @@
 .ss-legacy-panels-slot .tab-pane.active.show {
   display: block;
   height: auto;
+}
+
+/* Default (stack / below): actions share the tab row */
+.ss-tabs-toolbar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem 0.5rem;
+  margin-left: auto;
+  padding: 0.3rem 0.5rem;
+  min-width: 0;
+}
+
+.ss-tabs-toolbar > * {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.ss-tabs-toolbar .scene-detail-help {
+  margin: 0;
+}
+
+.ss-tabs-toolbar .scene-detail-live-toggle {
+  margin: 0;
+}
+
+.ss-tabs-toolbar .btn,
+.ss-tabs-toolbar a.btn,
+.ss-tabs-toolbar input.btn,
+.ss-tabs-toolbar button.btn {
+  margin: 0;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.ss-tabs-toolbar input.btn {
+  width: auto;
+  height: auto;
+  line-height: inherit;
 }

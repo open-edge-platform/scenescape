@@ -144,8 +144,16 @@ export function RoiTripwireEditors({
     }
   }, [tripwires.length]);
 
-  const removeRoi = (svgId: string) => {
-    if (!window.confirm("Are you sure you wish to remove this ROI?")) {
+  const removeRoi = async (svgId: string) => {
+    const ok = window.ssConfirm
+      ? await window.ssConfirm({
+          title: "Remove region?",
+          message: "Are you sure you wish to remove this ROI?",
+          confirmLabel: "Remove",
+          danger: true,
+        })
+      : window.confirm("Are you sure you wish to remove this ROI?");
+    if (!ok) {
       return;
     }
     document.getElementById(svgId)?.remove();
@@ -163,8 +171,16 @@ export function RoiTripwireEditors({
     });
   };
 
-  const removeTripwire = (svgId: string) => {
-    if (!window.confirm("Are you sure you wish to remove this tripwire?")) {
+  const removeTripwire = async (svgId: string) => {
+    const ok = window.ssConfirm
+      ? await window.ssConfirm({
+          title: "Remove tripwire?",
+          message: "Are you sure you wish to remove this tripwire?",
+          confirmLabel: "Remove",
+          danger: true,
+        })
+      : window.confirm("Are you sure you wish to remove this tripwire?");
+    if (!ok) {
       return;
     }
     document.getElementById(svgId)?.remove();

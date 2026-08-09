@@ -28,7 +28,7 @@ def test_upload_glb_main(params, record_xml_attribute):
 
   file_name = "box.glb"
   file_path = common.TEST_MEDIA_PATH + file_name
-  scene_update_params = common.InteractionParams(file_name, file_path, f"/scene/update/{common.TEST_SCENE_ID}/", "" ,"#id_map", "#map_wrapper a")
+  scene_update_params = common.InteractionParams(file_name, file_path, f"/scene/detail/{common.TEST_SCENE_ID}/", "" ,"#ss-scene-map", "#map_wrapper a")
   upload_checks = common.CheckInteraction(file_name_in_page=True, file_on_server=True)
   scene_update_page = common.InteractWithSceneUpdate(browser, scene_update_params)
 

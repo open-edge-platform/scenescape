@@ -34,7 +34,7 @@ To customize thresholds:
 
 1. Navigate to the ROI settings.
 2. Enter desired min-max values for each color category.
-3. Click **Save Regions and Tripwires**.
+3. Click **Save**.
 
 **Expected Output**: The values update in the Scenescape UI and apply to visualizations.
 
@@ -119,7 +119,7 @@ To enable visualization:
 
 2. **Apply Changes**:
 
-   Click **Save Regions and Tripwires** or **Save Sensor** depending on the context.
+   Click **Save** (regions tab) or **Save Sensor** depending on the context.
 
 ## Supporting Resources
 

@@ -3,6 +3,8 @@
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { ToastProvider } from "./components/ToastProvider";
+import { LegacyConfirmHost } from "./components/LegacyConfirmHost";
 import { useDeleteLinkInterceptor } from "./hooks/useDeleteLinkInterceptor";
 import "./tokens/tokens.css";
 import "./components/ConfirmDialog.css";
@@ -21,6 +23,10 @@ document.body.appendChild(host);
 
 createRoot(host).render(
   <StrictMode>
-    <DestructiveActionsApp />
+    <ToastProvider>
+      <LegacyConfirmHost>
+        <DestructiveActionsApp />
+      </LegacyConfirmHost>
+    </ToastProvider>
   </StrictMode>,
 );

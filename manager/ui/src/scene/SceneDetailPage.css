@@ -3,51 +3,553 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/* Classic vertical scene detail: header → map → full-width tabs (pre-React composition) */
-.ss-scene-detail--classic {
-  display: block;
-  height: auto;
-  min-height: 0;
+/*
+ * Adaptive workspace: stack (map above tabs) or row (map beside tabs).
+ * Mode is chosen in React from viewport + map intrinsic aspect.
+ */
+.ss-scene-detail--workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  height: calc(100vh - 7rem);
+  max-height: calc(100vh - 7rem);
+  min-height: 28rem;
   max-width: 100%;
+  overflow: hidden;
 }
 
-.ss-scene-detail--classic .ss-page-header {
-  display: block;
-  margin-bottom: 0.75rem;
+.ss-scene-detail--workspace .ss-page-header {
+  flex: 0 0 auto;
+  margin-bottom: 0;
 }
 
-.ss-scene-detail--classic .ss-page-header-row {
+.ss-scene-detail--workspace .ss-page-header-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.5rem;
   width: 100%;
 }
 
-.ss-scene-detail--classic .ss-page-title {
-  font-size: 1.75rem;
+.ss-scene-detail--workspace .ss-page-title {
+  font-size: 1.35rem;
 }
 
-.ss-scene-detail--classic .ss-page-header-actions {
+.ss-scene-detail--workspace .ss-page-header-actions {
   margin-left: auto;
 }
 
-.ss-scene-detail--classic .ss-scene-rate,
-.ss-scene-detail--classic .scene-rate {
+.ss-layout-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  margin-right: 0.25rem;
+  border: 1px solid var(--ss-input-border);
+  border-radius: var(--ss-radius);
+  overflow: hidden;
+  background: #fff;
+}
+
+.ss-layout-toggle-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0.25rem 0.45rem;
+  border: 0;
+  border-right: 1px solid var(--ss-input-border);
+  background: transparent;
+  color: var(--ss-text-muted);
+  font-family: var(--ss-font-sans);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.ss-layout-toggle-btn:last-child {
+  border-right: 0;
+}
+
+.ss-layout-toggle-btn:hover,
+.ss-layout-toggle-btn:focus-visible {
+  color: var(--ss-brand);
+  background: color-mix(in srgb, var(--ss-brand) 8%, #fff);
+  outline: none;
+}
+
+.ss-layout-toggle-btn.is-active {
+  color: #fff;
+  background: var(--ss-brand);
+}
+
+.ss-layout-toggle-btn .bi {
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+@media (max-width: 720px) {
+  .ss-layout-toggle-label {
+    display: none;
+  }
+}
+
+.ss-scene-detail--workspace .ss-scene-rate,
+.ss-scene-detail--workspace .scene-rate {
   margin-right: 0.35rem;
   padding: 0;
   border: 0;
   background: transparent;
   font-family: var(--ss-font-sans);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 400;
   color: var(--ss-text-muted);
   white-space: nowrap;
 }
 
-.ss-scene-detail--classic .ss-scene-rate #scene-rate,
-.ss-scene-detail--classic .scene-rate #scene-rate {
-  font-weight: 400;
-  color: inherit;
+.ss-workspace-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  gap: 0.4rem;
+  overflow: hidden;
+}
+
+/* stack: map on top, tabs peek below */
+.ss-workspace--stack .ss-workspace-body {
+  flex-direction: column;
+}
+
+/* row: map on the left/main, tabs peek on the side */
+.ss-workspace--row .ss-workspace-body {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.ss-scene-detail--workspace .ss-workspace-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1.5 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ss-workspace--stack .ss-workspace-main {
+  flex: 2.4 1 0;
+}
+
+.ss-scene-detail--workspace .ss-scene-map-pane,
+.ss-scene-detail--workspace .ss-scene-map-slot {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ss-scene-detail--workspace .ss-scene-map-slot #ss-map-host.scene-map {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.ss-scene-detail--workspace .ss-scene-map-slot .scene-map-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.ss-scene-detail--workspace .ss-scene-map-slot .scene-map-stage #map img {
+  max-height: 100%;
+  max-width: 100%;
+}
+
+.ss-scene-detail--workspace
+  .ss-scene-map-slot
+  .scene-map-stage
+  #svgout:not(.display-none) {
+  max-height: 100%;
+  max-width: 100%;
+}
+
+.ss-scene-detail--workspace .ss-scene-map-slot #map-controls {
+  flex: 0 0 auto;
+  position: static;
+  z-index: auto;
+  margin: 0.3rem auto 0;
+  width: 100%;
+}
+
+.ss-scene-detail--workspace .ss-scene-map-slot .map-view-toggles {
+  gap: 0.1rem 0.85rem;
+  padding: 0.3rem 0.65rem;
+}
+
+.ss-scene-detail--workspace .ss-scene-side {
+  margin: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  /* Grow into leftover space after the map’s flex share */
+  flex: 1 1 0;
+}
+
+.ss-workspace--stack .ss-scene-side {
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 0;
+  /* Tab chrome + one compact camera card (name + thumb + controls) */
+  height: 14rem;
+  max-height: 14rem;
+}
+
+.ss-workspace--row .ss-scene-side {
+  min-width: 16rem;
+  width: auto;
+  max-width: min(26rem, 42vw);
+  height: auto;
+  max-height: none;
+  align-self: stretch;
+}
+
+/* Panel headers emptied into the tab toolbar — hide leftover chrome */
+.ss-scene-detail--workspace .scene-detail-panel-header {
+  display: none;
+}
+
+/* Empty-state New CTAs duplicate the toolbar action */
+.ss-scene-detail--workspace .ss-empty-state > a.btn-primary,
+.ss-scene-detail--workspace .ss-empty-state > button.btn-primary {
+  display: none;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-list {
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  overflow: visible;
+  padding: 0.15rem 0.35rem;
+  gap: 0;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-tab {
+  padding: 0.45rem 0.65rem;
+  font-size: 0.75rem;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-chrome {
+  flex: 0 0 auto;
+}
+
+/* Vertical (side) layout: controls on their own row under the tabs */
+.ss-workspace--row .ss-tabs-chrome {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+}
+
+.ss-workspace--row .ss-tabs-list {
+  width: 100%;
+  margin-left: 0;
+  border-bottom: 1px solid var(--ss-card-border);
+}
+
+.ss-workspace--row .ss-tabs-toolbar {
+  display: flex;
+  width: 100%;
+  margin-left: 0;
+  justify-content: flex-start;
+  gap: 0.4rem 0.55rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--ss-card-bg);
+  border-bottom: 1px solid var(--ss-card-border);
+}
+
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-toolbar {
+  flex: 0 0 auto;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-panels {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  margin-top: 0;
+  padding: 0.4rem 0.5rem 0.5rem;
+}
+
+/* Below layout: slight gap under tabs before cards; thumbs still fill height */
+.ss-workspace--stack .ss-scene-side .ss-tabs-panels {
+  display: flex;
+  flex-direction: column;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.35rem 0.35rem 0.25rem;
+}
+
+.ss-workspace--stack .ss-scene-side .ss-tabs-tab {
+  padding: 0.35rem 0.55rem;
+}
+
+.ss-workspace--stack .ss-tabs-toolbar {
+  padding: 0.2rem 0.4rem;
+}
+
+.ss-workspace--stack .ss-legacy-panels-slot,
+.ss-workspace--stack .ss-legacy-panels-slot #scene-detail-panels,
+.ss-workspace--stack .ss-legacy-panels-slot #myTabContent,
+.ss-workspace--stack .ss-legacy-panels-slot .tab-pane.active.show,
+.ss-workspace--stack .scene-detail-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.ss-scene-detail--workspace .scene-detail-panel > .card-body {
+  padding: 0.45rem 0.55rem 0.55rem;
+}
+
+.ss-workspace--stack .scene-detail-panel > .card-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.35rem;
+  min-height: 0;
+  height: 100%;
+  padding: 0 0.15rem 0;
+  overflow: visible;
+}
+
+.ss-workspace--stack .scene-detail-panel > .card-body > .ss-empty-state {
+  flex: 1 1 auto;
+  padding: 0.35rem 0.5rem;
+}
+
+.ss-scene-detail--workspace .camera-card {
+  width: 200px;
+  margin: 0.25rem;
+  overflow: hidden;
+}
+
+.ss-workspace--stack .camera-card {
+  display: flex;
+  flex-direction: column;
+  float: none;
+  flex: 0 0 auto;
+  width: 9.75rem;
+  margin: 0;
+  height: 100%;
+  max-height: 100%;
+}
+
+.ss-scene-detail--workspace .camera-card .cam-offline {
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 5rem;
+}
+
+.ss-workspace--row .camera-card {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 0.5rem;
+}
+
+.ss-scene-detail--workspace .camera-card .card-header {
+  padding: 0.3rem 0.4rem;
+  font-size: 0.75rem;
+}
+
+.ss-workspace--stack .camera-card .card-header {
+  flex: 0 0 auto;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ss-workspace--stack .camera-card .card-header .rate {
+  font-size: 0.625rem;
+}
+
+/* Fill available strip height without cropping the frame */
+.ss-scene-detail--workspace .camera-card .card-image {
+  margin: 0;
+  padding: 0;
+  line-height: 0;
+  background: transparent;
+}
+
+.ss-scene-detail--workspace .camera-card .card-image a.snapshot-image,
+.ss-scene-detail--workspace .camera-card .card-image a {
+  margin: 0;
+  padding: 0;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+}
+
+.ss-scene-detail--workspace .camera-card .card-image img,
+.ss-scene-detail--workspace .camera-card .snapshot-image img,
+.ss-scene-detail--workspace .camera-card .blank-container {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: auto !important;
+  aspect-ratio: auto;
+  object-fit: unset;
+  object-position: center;
+  margin: 0;
+  background: transparent;
+}
+
+.ss-workspace--stack .camera-card .card-image {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ss-surface) 70%, #fff);
+}
+
+.ss-workspace--stack .camera-card .card-image a.snapshot-image,
+.ss-workspace--stack .camera-card .card-image a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ss-workspace--stack .camera-card .card-image img,
+.ss-workspace--stack .camera-card .snapshot-image img,
+.ss-workspace--stack .camera-card .blank-container,
+.ss-workspace--stack .camera-card .cam-offline {
+  width: auto;
+  height: auto !important;
+  max-width: 100%;
+  max-height: 100%;
+  min-height: 0;
+  padding: 0;
+  object-fit: contain;
+  object-position: center;
+}
+
+.ss-workspace--stack .camera-card .cam-offline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+.ss-scene-detail--workspace .camera-card .card-body {
+  padding: 0.35rem 0.4rem 0.4rem;
+}
+
+.ss-workspace--stack .camera-card .card-body {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.3rem 0.15rem;
+}
+
+.ss-workspace--stack .camera-card .card-body .btn-sm {
+  padding: 0.1rem 0.35rem;
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
+
+.ss-scene-detail--workspace .camera-card .card-body .table {
+  margin-bottom: 0.25rem;
+}
+
+.ss-scene-detail--workspace .camera-card .card-body .table td,
+.ss-scene-detail--workspace .camera-card .card-body .table th {
+  padding: 0.15rem 0.25rem;
+  font-size: 0.7rem;
+}
+
+@media (max-width: 719px) {
+  .ss-scene-detail--workspace {
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .ss-workspace-body,
+  .ss-workspace--row .ss-workspace-body,
+  .ss-workspace--stack .ss-workspace-body {
+    flex-direction: column;
+    overflow: visible;
+    height: auto;
+  }
+
+  .ss-scene-detail--workspace .ss-workspace-main,
+  .ss-scene-detail--workspace .ss-scene-side,
+  .ss-workspace--stack .ss-scene-side,
+  .ss-workspace--row .ss-scene-side {
+    flex: none;
+    height: auto;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .ss-scene-detail--workspace .ss-scene-map-pane,
+  .ss-scene-detail--workspace .ss-scene-map-slot,
+  .ss-scene-detail--workspace .ss-scene-map-slot #ss-map-host.scene-map,
+  .ss-scene-detail--workspace .ss-scene-map-slot .scene-map-stage {
+    overflow: visible;
+    flex: none;
+    height: auto;
+  }
+
+  .ss-scene-detail--workspace .ss-scene-side .ss-tabs-panels {
+    overflow: visible;
+  }
 }

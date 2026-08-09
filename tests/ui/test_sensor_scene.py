@@ -40,7 +40,7 @@ def test_sensor_scene_main(params, record_xml_attribute):
 
     # Create sensor without assigning a scene
     common.create_sensor(browser, sensor_id, sensor_name)
-    print("Clicked on 'Add New Sensor' without assigning a scene")
+    print("Clicked on sensor create without assigning a scene")
 
     # Navigate back to sensor list page (if needed)
     browser.find_element(By.CSS_SELECTOR, ".navbar-nav > .nav-item:nth-child(3) > .nav-link").click()

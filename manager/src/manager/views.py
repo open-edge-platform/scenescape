@@ -392,6 +392,12 @@ class CamDeleteView(SuperUserCheck, DeleteView):
   model = Cam
   template_name = "cam/cam_delete.html"
 
+  def get(self, request, *args, **kwargs):
+    self.object = self.get_object()
+    if self.object.scene_id:
+      return redirect(scene_path(self.object.scene_id))
+    return redirect(reverse('cam_list'))
+
   def get_success_url(self):
     if self.object.scene is not None:
       scene_id = self.object.scene.id
@@ -437,26 +443,6 @@ class CamUpdateView(SuperUserCheck, UpdateView):
   fields = ['sensor_id', 'name', 'scene']
   template_name = "cam/cam_update.html"
 
-  def get(self, request, *args, **kwargs):
-    self.object = self.get_object()
-    if _is_embed(request):
-      return super().get(request, *args, **kwargs)
-    if self.object.scene_id:
-      return sheet_redirect(
-        scene_path(self.object.scene_id), 'cam-edit', self.object.pk)
-    return sheet_redirect(reverse('cam_list'), 'cam-edit', self.object.pk)
-
-  def get_context_data(self, **kwargs):
-    context = super().get_context_data(**kwargs)
-    context['embed'] = _is_embed(self.request)
-    return context
-
-  def form_valid(self, form):
-    response = super().form_valid(form)
-    if _is_embed(self.request):
-      return _embed_done(self.request)
-    return response
-
   def get_success_url(self):
     if self.object.scene is not None:
       scene_id = self.object.scene.id
@@ -488,6 +474,9 @@ class SceneDeleteView(SuperUserCheck, DeleteView):
   template_name = "scene/scene_delete.html"
   success_url = reverse_lazy('index')
 
+  def get(self, request, *args, **kwargs):
+    return redirect(reverse('index'))
+
 class SceneDetailView(LoginRequiredMixin, DetailView):
   model = Scene
   template_name = "scene/scene_detail.html"
@@ -509,32 +498,20 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
   model = Scene
   form_class = SceneUpdateForm
   template_name = "scene/scene_update.html"
-  success_url = reverse_lazy('index')
-
-  def get(self, request, *args, **kwargs):
-    self.object = self.get_object()
-    if _is_embed(request):
-      return super().get(request, *args, **kwargs)
-    # Prefer opening on the scene workspace
-    return sheet_redirect(scene_path(self.object.id), 'scene-edit', self.object.id)
 
   def get_context_data(self, **kwargs):
     context = super().get_context_data(**kwargs)
-    context['google_maps_api_key'] = settings.GOOGLE_MAPS_API_KEY
-    context['mapbox_api_key'] = settings.MAPBOX_API_KEY
     context['embed'] = _is_embed(self.request)
     return context
 
   def form_valid(self, form):
-    # Check if a generated map filename was provided
-    generated_filename = self.request.POST.get('generated_map_filename')
-    if generated_filename:
-      # Set the map field to the generated file
-      form.instance.map = generated_filename
-    response = super().form_valid(form)
+    self.object = form.save()
     if _is_embed(self.request):
       return _embed_done(self.request)
-    return response
+    return redirect(scene_path(self.object.pk))
+
+  def get_success_url(self):
+    return scene_path(self.object.pk)
 
 class SceneImportView(SuperUserCheck, CreateView):
   model = SceneImport
@@ -582,6 +559,13 @@ class SingletonSensorCreateView(SuperUserCheck, CreateView):
 class SingletonSensorDeleteView(SuperUserCheck, DeleteView):
   model = SingletonSensor
   template_name = "singleton_sensor/singleton_sensor_delete.html"
+
+  def get(self, request, *args, **kwargs):
+    self.object = self.get_object()
+    if self.object.scene_id:
+      return redirect(scene_path(self.object.scene_id))
+    return redirect(reverse('singleton_sensor_list'))
+
   def get_success_url(self):
     if self.object.scene is not None:
       scene_id = self.object.scene.id
@@ -627,27 +611,6 @@ class SingletonSensorUpdateView(SuperUserCheck, UpdateView):
   fields = ['sensor_id', 'name', 'scene']
   template_name = "singleton_sensor/singleton_sensor_update.html"
 
-  def get(self, request, *args, **kwargs):
-    self.object = self.get_object()
-    if _is_embed(request):
-      return super().get(request, *args, **kwargs)
-    if self.object.scene_id:
-      return sheet_redirect(
-        scene_path(self.object.scene_id), 'sensor-edit', self.object.pk)
-    return sheet_redirect(
-      reverse('singleton_sensor_list'), 'sensor-edit', self.object.pk)
-
-  def get_context_data(self, **kwargs):
-    context = super().get_context_data(**kwargs)
-    context['embed'] = _is_embed(self.request)
-    return context
-
-  def form_valid(self, form):
-    response = super().form_valid(form)
-    if _is_embed(self.request):
-      return _embed_done(self.request)
-    return response
-
   def get_success_url(self):
     if self.object.scene is not None:
       scene_id = self.object.scene.id
@@ -678,6 +641,9 @@ class AssetDeleteView(SuperUserCheck, DeleteView):
   template_name = "asset/asset_delete.html"
   success_url = reverse_lazy('asset_list')
 
+  def get(self, request, *args, **kwargs):
+    return redirect(reverse('asset_list'))
+
 class AssetListView(LoginRequiredMixin, ListView):
   model = Asset3D
   template_name = "asset/asset_list.html"
@@ -705,23 +671,6 @@ class AssetUpdateView(SuperUserCheck, UpdateView):
     'linear_damping', 'angular_damping', 'coefficient_of_restitution', 'friction_coefficients']
   template_name = "asset/asset_update.html"
   success_url = reverse_lazy('asset_list')
-
-  def get(self, request, *args, **kwargs):
-    self.object = self.get_object()
-    if _is_embed(request):
-      return super().get(request, *args, **kwargs)
-    return sheet_redirect(reverse('asset_list'), 'asset-edit', self.object.pk)
-
-  def get_context_data(self, **kwargs):
-    context = super().get_context_data(**kwargs)
-    context['embed'] = _is_embed(self.request)
-    return context
-
-  def form_valid(self, form):
-    response = super().form_valid(form)
-    if _is_embed(self.request):
-      return _embed_done(self.request)
-    return response
 
 # Scene Child CRUD
 class ChildCreateView(SuperUserCheck, CreateView):
@@ -767,30 +716,16 @@ class ChildDeleteView(SuperUserCheck, DeleteView):
   template_name = "child/child_delete.html"
   success_url = reverse_lazy('index')
 
+  def get(self, request, *args, **kwargs):
+    self.object = self.get_object()
+    if self.object.parent_id:
+      return redirect(scene_path(self.object.parent_id))
+    return redirect(reverse('index'))
+
 class ChildUpdateView(SuperUserCheck, UpdateView):
   model = ChildScene
   form_class = ChildSceneForm
   template_name = "child/child_update.html"
-
-  def get(self, request, *args, **kwargs):
-    self.object = self.get_object()
-    if _is_embed(request):
-      return super().get(request, *args, **kwargs)
-    parent_id = self.object.parent_id
-    if parent_id:
-      return sheet_redirect(scene_path(parent_id), 'child-edit', self.object.pk)
-    return sheet_redirect(reverse('index'), 'child-edit', self.object.pk)
-
-  def get_context_data(self, **kwargs):
-    context = super().get_context_data(**kwargs)
-    context['embed'] = _is_embed(self.request)
-    return context
-
-  def form_valid(self, form):
-    response = super().form_valid(form)
-    if _is_embed(self.request):
-      return _embed_done(self.request)
-    return response
 
   def get_success_url(self):
     if self.object.parent is not None:

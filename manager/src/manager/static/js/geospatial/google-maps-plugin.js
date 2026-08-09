@@ -379,6 +379,11 @@ class GoogleMapsPlugin extends MapInterface {
             const mapTypeField = document.getElementById("id_map_type");
             if (mapTypeField) {
               mapTypeField.value = "geospatial_map";
+              mapTypeField.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            const geoSection = document.getElementById("ss-form-sec-geo");
+            if (geoSection) {
+              geoSection.open = true;
             }
 
             // Save current map settings to form fields

@@ -194,6 +194,14 @@ SPDX-License-Identifier: Apache-2.0
           </span>
         </h5>
         <div class="card-body">
+          <div class="ss-empty-state">
+            <p>No cameras in this scene yet.</p>
+            {% if user.is_superuser %}
+              <a class="btn btn-primary btn-sm" href="?ss=cam-create"
+                >+ New Camera</a
+              >
+            {% endif %}
+          </div>
           {% if scene.sensor_set.count %}
             {% for s in scene.sensor_set.all|dictsort:"name" %}
               {% if s.type == "camera" %}
@@ -214,9 +222,10 @@ SPDX-License-Identifier: Apache-2.0
                       >
                         <div class="cam-offline">Camera Offline</div>
                         <img
-                          id="{{ s.sensor_id }}"
+                          id="card-preview-{{ s.sensor_id }}"
                           class="display-none"
                           alt="{{ s.name }} View"
+                          data-ss-card-sensor="{{ s.sensor_id }}"
                         />
                       </a>
                     {% else %}
@@ -227,26 +236,15 @@ SPDX-License-Identifier: Apache-2.0
                       >
                         <div class="cam-offline">Camera Offline</div>
                         <img
-                          id="{{ s.sensor_id }}"
+                          id="card-preview-{{ s.sensor_id }}"
                           class="display-none"
                           alt="{{ s.name }} View"
+                          data-ss-card-sensor="{{ s.sensor_id }}"
                         />
                       </a>
                     {% endif %}
                   </div>
                   <div class="card-body hide-live">
-                    <table class="table table-sm">
-                      <tr>
-                        <th>ID</th>
-                        <td class="small sensor-id">{{ s.sensor_id }}</td>
-                      </tr>
-                      <!-- Disabled for performance reasons
-              <tr>
-                <th>Updated</th>
-                <td class="small" id="updated-{{ s.sensor_id }}">--</td>
-              </tr>
-              -->
-                    </table>
                     {% if user.is_superuser %}
                       <div class="text-right">
                         <a
@@ -307,6 +305,14 @@ SPDX-License-Identifier: Apache-2.0
           {% endif %}
         </h5>
         <div class="card-body">
+          <div class="ss-empty-state">
+            <p>No sensors in this scene yet.</p>
+            {% if user.is_superuser %}
+              <a class="btn btn-primary btn-sm" href="?ss=sensor-create"
+                >+ New Sensor</a
+              >
+            {% endif %}
+          </div>
           {% if scene.sensor_set.count %}
             {% for s in scene.sensor_set.all|dictsort:"name" %}
               {% if s.type == "generic" %}
@@ -348,7 +354,7 @@ SPDX-License-Identifier: Apache-2.0
                         </a>
                         <a
                           class="btn btn-secondary btn-sm"
-                          href="?ss=sensor-edit&id={{ s.id }}"
+                          href="{% url 'singleton_sensor_update' s.id %}"
                           title="Edit"
                           ><i class="bi bi-pencil"></i
                         ></a>
@@ -397,23 +403,29 @@ SPDX-License-Identifier: Apache-2.0
                 type="button"
                 class="btn btn-primary btn-sm"
                 id="new-roi"
-                title="Create a new ROI"
+                title="Create a new region"
               >
-                + New Region
+                + New
               </button>
               <input
                 type="button"
                 class="btn btn-sm btn-primary"
                 id="save-rois"
-                value="Save Regions and Tripwires"
+                value="Save"
+                title="Save"
               />
             </span>
           {% endif %}
         </h5>
         <div class="card-body">
           <div id="roi-fields" class="top-buffer"></div>
-          <div id="no-regions">
-            No Regions of Interest defined. Click "+ New Region" to create one.
+          <div id="no-regions" class="ss-empty-state">
+            <p>No regions of interest defined.</p>
+            {% if user.is_superuser %}
+              <button type="button" class="btn btn-primary btn-sm" id="empty-new-roi">
+                + New
+              </button>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -449,21 +461,31 @@ SPDX-License-Identifier: Apache-2.0
                 id="new-tripwire"
                 title="Create a new tripwire"
               >
-                + New Tripwire
+                + New
               </button>
               <input
                 type="button"
                 class="btn btn-sm btn-primary"
                 id="save-trips"
-                value="Save Regions and Tripwires"
+                value="Save"
+                title="Save"
               />
             </span>
           {% endif %}
         </h5>
         <div class="card-body">
           <div id="tripwire-fields" class="top-buffer"></div>
-          <div id="no-tripwires">
-            No Tripwires defined. Click "+ New Tripwire" to create one.
+          <div id="no-tripwires" class="ss-empty-state">
+            <p>No tripwires defined.</p>
+            {% if user.is_superuser %}
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                id="empty-new-tripwire"
+              >
+                + New
+              </button>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -498,12 +520,20 @@ SPDX-License-Identifier: Apache-2.0
                 id="new-child"
                 title="Add a new child scene"
                 href="?ss=child-create"
-                >+ Link Child Scene</a
+                >+ Link Child</a
               >
             </span>
           {% endif %}
         </h5>
         <div id="childrenlist" class="card-body">
+          <div class="ss-empty-state">
+            <p>No child scenes linked yet.</p>
+            {% if user.is_superuser %}
+              <a class="btn btn-primary btn-sm" href="?ss=child-create"
+                >+ Link Child</a
+              >
+            {% endif %}
+          </div>
           <input
             type="hidden"
             name="children"
@@ -554,7 +584,7 @@ SPDX-License-Identifier: Apache-2.0
                   {% if user.is_superuser %}
                     <a
                       class="btn btn-secondary btn-sm"
-                      href="?ss=child-edit&id={{ c.id }}"
+                      href="{% url 'child_update' c.id %}"
                       title="Manage {{ c.child.name }}"
                       id="child-update-{{ c.child.name }}"
                       ><i class="bi bi-wrench"></i
@@ -783,7 +813,7 @@ SPDX-License-Identifier: Apache-2.0
         <div class="modal-body">
           <ul>
             <li>
-              Click "New Region" and then click a spot on the map for each
+              Click "New" and then click a spot on the map for each
               vertex of your region of interest (ROI)
             </li>
             <li>To close the ROI polygon, click on the green starting dot</li>
@@ -793,8 +823,7 @@ SPDX-License-Identifier: Apache-2.0
               double-click again to finish editing
             </li>
             <li>
-              Be sure to click "Save Regions and Tripwires" when you are
-              finished
+              Be sure to click "Save" when you are finished
             </li>
             <li>
               Polygon with
@@ -846,7 +875,7 @@ SPDX-License-Identifier: Apache-2.0
         <div class="modal-body">
           <ul>
             <li>
-              To create a tripwire, click "New Tripwire" and click on the map
+              To create a tripwire, click "New" and click on the map
               once
             </li>
             <li>Drag the ends of the tripwire as needed</li>
@@ -857,8 +886,7 @@ SPDX-License-Identifier: Apache-2.0
             </li>
             <li>Be sure to give your tripwire a unique name</li>
             <li>
-              To edit a tripwire, just drag its vertices and click Save Regions
-              and Tripwires
+              To edit a tripwire, just drag its vertices and click Save
             </li>
           </ul>
         </div>
@@ -915,204 +943,6 @@ SPDX-License-Identifier: Apache-2.0
     </div>
   </div>
 
-  <div class="display-none">
-    <div id="roi-template" class="form-roi">
-      <div class="d-flex flex-column mb-3 count-item col">
-        {% if user.is_superuser %}
-          <div class="input-group">
-            <div class="input-group-prepend">
-              <label class="input-group-text roi-number"></label>
-            </div>
-            <input
-              type="text"
-              class="form-control roi-title"
-              placeholder="ROI Name"
-              required
-              maxlength="100"
-            />
-            <div class="input-group-append">
-              <button
-                class="btn btn-secondary roi-remove"
-                type="button"
-                title="Remove this ROI"
-              >
-                <i class="bi bi-trash"></i>
-              </button>
-            </div>
-            <div class="input-group-append ml-2">
-              <div class="form-check form-check-inline">
-                <input
-                  class="form-check-input roi-volumetric"
-                  type="checkbox"
-                  id="volumetric-check"
-                />
-                <label class="form-check-label" for="volumetric-check"
-                  >Volumetric</label
-                >
-              </div>
-              <div class="input-group-prepend">
-                <span class="input-group-text">Height</span>
-              </div>
-              <input
-                type="number"
-                class="form-control roi-height"
-                placeholder="Height"
-                value="1.0"
-                min="0.1"
-                style="width: 80px;"
-              />
-              <div class="input-group-prepend ml-2">
-                <span class="input-group-text">Buffer Size</span>
-              </div>
-              <input
-                type="number"
-                class="form-control roi-buffer"
-                placeholder="Buffer"
-                value="0.0"
-                min="0.0"
-                style="width: 80px;"
-              />
-            </div>
-            <div class="roi-visualization ml-auto">
-              <div class="sector-container" id="roi_sectors">
-                <div class="color-range">Color Range:</div>
-                <div class="sector-config">
-                  <input
-                    type="number"
-                    class="green_min"
-                    style="width: 50px;"
-                    value="0"
-                  />
-                  <div class="green-sec">--</div>
-                  <input
-                    type="number"
-                    class="yellow_min"
-                    style="width: 50px;"
-                    value="2"
-                  />
-                  <div class="yellow-sec">--</div>
-                  <input
-                    type="number"
-                    class="red_min"
-                    style="width: 50px;"
-                    value="5"
-                  />
-                  <div class="red-sec">--</div>
-                  <input
-                    type="number"
-                    class="range_max"
-                    style="width: 50px;"
-                    value="10"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col form-text text-muted roi-topic">
-            <label for="topic-text"></label>
-            <i class="topic-text" title="Click to copy the topic!"
-              >Save regions to view the topic</i
-            >
-          </div>
-        {% else %}
-          <div class="input-group">
-            <div class="input-group-prepend">
-              <label class="input-group-text roi-number"></label>
-            </div>
-            <input
-              disabled
-              type="text"
-              class="form-control roi-title"
-              placeholder="ROI Name"
-              required
-              maxlength="200"
-            />
-            <div class="roi-visualization ml-auto">
-              <div class="sector-container" id="roi_sectors">
-                <div class="color-range">Color Range:</div>
-                <div class="sector-config">
-                  <input
-                    disabled
-                    type="number"
-                    class="green_min"
-                    style="width: 50px;"
-                    value="0"
-                  />
-                  <div class="green-sec">--</div>
-                  <input
-                    disabled
-                    type="number"
-                    class="yellow_min"
-                    style="width: 50px;"
-                    value="2"
-                  />
-                  <div class="yellow-sec">--</div>
-                  <input
-                    disabled
-                    type="number"
-                    class="red_min"
-                    style="width: 50px;"
-                    value="5"
-                  />
-                  <div class="red-sec">--</div>
-                  <input
-                    disabled
-                    type="number"
-                    class="range_max"
-                    style="width: 50px;"
-                    value="10"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col form-text text-muted roi-topic">
-            <label for="topic-text"></label>
-            <i class="topic-text" title="Click to copy the topic!"
-              >Save regions to view the topic</i
-            >
-          </div>
-        {% endif %}
-      </div>
-    </div>
-
-    <div id="tripwire-template" class="form-tripwire">
-      <div class="input-group mb-3 count-item col">
-        <div class="input-group-prepend">
-          <label class="input-group-text tripwire-number"></label>
-        </div>
-        {% if user.is_superuser %}
-          <input
-            type="text"
-            class="form-control tripwire-title"
-            placeholder="Tripwire Name"
-            required
-          />
-          <div class="input-group-append">
-            <button
-              class="btn btn-secondary tripwire-remove"
-              type="button"
-              title="Remove this Tripwire"
-            >
-              <i class="bi bi-trash"></i>
-            </button>
-          </div>
-          <div class="col form-text text-muted topic">
-            <i>Save tripwires to view the topic</i>
-          </div>
-        {% else %}
-          <input
-            type="text"
-            disabled
-            class="form-control tripwire-title"
-            placeholder="Tripwire Name"
-            required
-          />
-          <div class="col form-text text-muted topic"></div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
   {{ scene_detail_bootstrap|json_script:"ss-scene-detail-bootstrap" }}
   <input type="hidden" id="auth-token" value="{{ user.auth_token }}" />
 {% endblock %}

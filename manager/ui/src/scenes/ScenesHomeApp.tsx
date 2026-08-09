@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect } from "react";
-import { ToastProvider, useAppToast, installLegacyToastBridge } from "../components/ToastProvider";
+import { ToastProvider, useAppToast } from "../components/ToastProvider";
+import { LegacyConfirmHost } from "../components/LegacyConfirmHost";
 import { useSheetFromQuery } from "../hooks/useSheetFromQuery";
 import type { SheetAction } from "../lib/sheetQuery";
 import { SceneSheet } from "../sheets/SceneSheet";
 import { SceneImportDialog } from "../sheets/SceneImportDialog";
-import { EmbedFormOverlay, embedFormUrl } from "../sheets/EmbedFormOverlay";
 import "./ScenesHomeApp.css";
 
 export type ScenesHomeBootstrap = {
@@ -19,15 +19,15 @@ type Props = {
   bootstrap: ScenesHomeBootstrap;
 };
 
-function isAction(v: string | null): v is Exclude<SheetAction, null> {
-  return Boolean(v);
+const HOME_ACTIONS = new Set(["scene-create", "scene-import"]);
+
+function isHomeAction(v: string | null): v is Exclude<SheetAction, null> {
+  return Boolean(v && HOME_ACTIONS.has(v));
 }
 
 function ScenesHomeInner({ bootstrap }: Props) {
   const { sheet, open, close } = useSheetFromQuery();
-  const toast = useAppToast();
-
-  useEffect(() => installLegacyToastBridge(toast), [toast]);
+  useAppToast();
 
   useEffect(() => {
     const onClick = (ev: Event) => {
@@ -43,7 +43,7 @@ function ScenesHomeInner({ bootstrap }: Props) {
         return;
       }
       const ss = url.searchParams.get("ss");
-      if (!ss || !isAction(ss)) {
+      if (!ss || !isHomeAction(ss)) {
         if (link.id === "new_scene") {
           ev.preventDefault();
           open("scene-create");
@@ -53,13 +53,6 @@ function ScenesHomeInner({ bootstrap }: Props) {
           ev.preventDefault();
           open("scene-import");
           return;
-        }
-        if (/\/scene\/update\//.test(url.pathname)) {
-          const m = url.pathname.match(/\/scene\/update\/([^/]+)/);
-          if (m) {
-            ev.preventDefault();
-            open("scene-edit", m[1]);
-          }
         }
         return;
       }
@@ -85,6 +78,7 @@ function ScenesHomeInner({ bootstrap }: Props) {
       <SceneSheet
         open={sheet.action === "scene-create"}
         mode="create"
+        sceneUid={null}
         authToken={bootstrap.authToken}
         onClose={close}
         onSaved={(uid) => {
@@ -94,16 +88,6 @@ function ScenesHomeInner({ bootstrap }: Props) {
           }
           reload();
         }}
-      />
-      <EmbedFormOverlay
-        open={sheet.action === "scene-edit"}
-        src={
-          sheet.action === "scene-edit" && sheet.id
-            ? embedFormUrl(`/scene/update/${sheet.id}/`)
-            : null
-        }
-        title="Edit scene"
-        onClose={close}
       />
       <SceneImportDialog
         open={sheet.action === "scene-import"}
@@ -118,8 +102,10 @@ function ScenesHomeInner({ bootstrap }: Props) {
 export function ScenesHomeApp({ bootstrap }: Props) {
   return (
     <ToastProvider>
-      <div className="ss-scenes-home-root" hidden />
-      <ScenesHomeInner bootstrap={bootstrap} />
+      <LegacyConfirmHost>
+        <div className="ss-scenes-home-root" hidden />
+        <ScenesHomeInner bootstrap={bootstrap} />
+      </LegacyConfirmHost>
     </ToastProvider>
   );
 }

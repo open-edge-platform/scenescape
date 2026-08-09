@@ -18,7 +18,11 @@ SPDX-License-Identifier: Apache-2.0
   </nav>
 
   <div class="page-header">
-    <h2 class="form-title">Update Object</h2>
+    <div class="page-header-main">
+      {% url 'asset_list' as asset_back_href %}
+      {% include 'sscape/form_back.html' with back_href=asset_back_href %}
+      <h2 class="form-title">Update Object</h2>
+    </div>
     <div class="page-header-actions">
       <a
         class="ss-table-action is-danger"
@@ -33,20 +37,230 @@ SPDX-License-Identifier: Apache-2.0
     <div class="ss-form-body">
       <form enctype="multipart/form-data" method="post" id="asset_update_form">
         {% csrf_token %}
-        {% for field in form %}
-          <div class="form-group row" id="{{ field.name }}_wrapper">
-            <label
-              class="col-sm-2 col-form-label"
-              id="label_{{ field.name }}"
-              for="id_{{ field.name }}"
-              >{{ field.label }}</label
+
+        <section
+          class="ss-form-section"
+          aria-labelledby="ss-asset-sec-identity-title"
+        >
+          <h3 class="ss-form-section-title" id="ss-asset-sec-identity-title">
+            Identity
+          </h3>
+          <p class="ss-form-section-desc">
+            Class name, 3D model, mark color, and display scale.
+          </p>
+          <div class="ss-form-section-body">
+            {% for field in form %}
+              {% if field.name == 'name' or field.name == 'model_3d' or field.name == 'mark_color' or field.name == 'scale' %}
+                <div class="form-group row" id="{{ field.name }}_wrapper">
+                  <label
+                    class="col-sm-2 col-form-label"
+                    id="label_{{ field.name }}"
+                    for="id_{{ field.name }}"
+                    >{{ field.label }}</label
+                  >
+                  <div class="col-sm-10">
+                    {{ field.errors }}
+                    {{ field }}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </section>
+
+        <section
+          class="ss-form-section"
+          aria-labelledby="ss-asset-sec-size-title"
+        >
+          <h3 class="ss-form-section-title" id="ss-asset-sec-size-title">
+            Size
+          </h3>
+          <p class="ss-form-section-desc">
+            Object extents and optional tracking buffers (meters).
+          </p>
+          <div class="ss-form-section-body">
+            <div
+              class="ss-form-field-group"
+              role="group"
+              aria-labelledby="ss-asset-group-extent"
             >
-            <div class="col-sm-10">
-              {{ field.errors }}
-              {{ field }}
+              <div class="ss-form-field-group-label" id="ss-asset-group-extent">
+                Extent
+              </div>
+              {% for field in form %}
+                {% if field.name == 'x_size' or field.name == 'y_size' or field.name == 'z_size' %}
+                  <div class="form-group row" id="{{ field.name }}_wrapper">
+                    <label
+                      class="col-sm-2 col-form-label"
+                      id="label_{{ field.name }}"
+                      for="id_{{ field.name }}"
+                      >{{ field.label }}</label
+                    >
+                    <div class="col-sm-10">
+                      {{ field.errors }}
+                      {{ field }}
+                    </div>
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+            <div
+              class="ss-form-field-group"
+              role="group"
+              aria-labelledby="ss-asset-group-buffer"
+            >
+              <div class="ss-form-field-group-label" id="ss-asset-group-buffer">
+                Buffer
+              </div>
+              {% for field in form %}
+                {% if field.name == 'x_buffer_size' or field.name == 'y_buffer_size' or field.name == 'z_buffer_size' %}
+                  <div class="form-group row" id="{{ field.name }}_wrapper">
+                    <label
+                      class="col-sm-2 col-form-label"
+                      id="label_{{ field.name }}"
+                      for="id_{{ field.name }}"
+                      >{{ field.label }}</label
+                    >
+                    <div class="col-sm-10">
+                      {{ field.errors }}
+                      {{ field }}
+                    </div>
+                  </div>
+                {% endif %}
+              {% endfor %}
             </div>
           </div>
-        {% endfor %}
+        </section>
+
+        <details class="ss-form-section ss-form-section--collapsible">
+          <summary class="ss-form-section-summary">
+            <span class="ss-form-section-title">Pose</span>
+            <span class="ss-form-section-desc">
+              Default translation and rotation for this object class.
+            </span>
+          </summary>
+          <div class="ss-form-section-body">
+            <div
+              class="ss-form-field-group"
+              role="group"
+              aria-labelledby="ss-asset-group-translation"
+            >
+              <div
+                class="ss-form-field-group-label"
+                id="ss-asset-group-translation"
+              >
+                Translation
+              </div>
+              {% for field in form %}
+                {% if field.name == 'translation_x' or field.name == 'translation_y' or field.name == 'translation_z' %}
+                  <div class="form-group row" id="{{ field.name }}_wrapper">
+                    <label
+                      class="col-sm-2 col-form-label"
+                      id="label_{{ field.name }}"
+                      for="id_{{ field.name }}"
+                      >{{ field.label }}</label
+                    >
+                    <div class="col-sm-10">
+                      {{ field.errors }}
+                      {{ field }}
+                    </div>
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+            <div
+              class="ss-form-field-group"
+              role="group"
+              aria-labelledby="ss-asset-group-rotation"
+            >
+              <div
+                class="ss-form-field-group-label"
+                id="ss-asset-group-rotation"
+              >
+                Rotation
+              </div>
+              {% for field in form %}
+                {% if field.name == 'rotation_x' or field.name == 'rotation_y' or field.name == 'rotation_z' %}
+                  <div class="form-group row" id="{{ field.name }}_wrapper">
+                    <label
+                      class="col-sm-2 col-form-label"
+                      id="label_{{ field.name }}"
+                      for="id_{{ field.name }}"
+                      >{{ field.label }}</label
+                    >
+                    <div class="col-sm-10">
+                      {{ field.errors }}
+                      {{ field }}
+                    </div>
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        </details>
+
+        <section
+          class="ss-form-section"
+          aria-labelledby="ss-asset-sec-tracking-title"
+        >
+          <h3 class="ss-form-section-title" id="ss-asset-sec-tracking-title">
+            Tracking
+          </h3>
+          <p class="ss-form-section-desc">
+            How detections of this class are tracked and projected on the map.
+          </p>
+          <div class="ss-form-section-body">
+            {% for field in form %}
+              {% if field.name == 'tracking_radius' or field.name == 'shift_type' or field.name == 'project_to_map' or field.name == 'rotation_from_velocity' %}
+                <div class="form-group row" id="{{ field.name }}_wrapper">
+                  <label
+                    class="col-sm-2 col-form-label"
+                    id="label_{{ field.name }}"
+                    for="id_{{ field.name }}"
+                    >{{ field.label }}</label
+                  >
+                  <div class="col-sm-10">
+                    {{ field.errors }}
+                    {{ field }}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </section>
+
+        <details class="ss-form-section ss-form-section--collapsible">
+          <summary class="ss-form-section-summary">
+            <span class="ss-form-section-title">Physics</span>
+            <span class="ss-form-section-desc">
+              Mass, damping, friction, and related simulation properties.
+            </span>
+          </summary>
+          <div class="ss-form-section-body">
+            {% for field in form %}
+              {% if field.name == 'geometric_center' or field.name == 'mass' or field.name == 'center_of_mass' or field.name == 'is_static' or field.name == 'ttl' or field.name == 'linear_damping' or field.name == 'angular_damping' or field.name == 'coefficient_of_restitution' or field.name == 'friction_coefficients' %}
+                <div class="form-group row" id="{{ field.name }}_wrapper">
+                  <label
+                    class="col-sm-2 col-form-label"
+                    id="label_{{ field.name }}"
+                    for="id_{{ field.name }}"
+                    >{{ field.label }}</label
+                  >
+                  <div class="col-sm-10">
+                    {{ field.errors }}
+                    {{ field }}
+                    {% if field.help_text %}
+                      <small class="form-text text-muted"
+                        >{{ field.help_text }}</small
+                      >
+                    {% endif %}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </details>
+
         <div class="form-group row ss-form-actions" id="save_asset">
           <div class="col-sm-2"></div>
           <div class="col-sm-10">

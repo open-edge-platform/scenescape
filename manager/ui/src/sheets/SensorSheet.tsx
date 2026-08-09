@@ -6,6 +6,7 @@ import { Drawer } from "../components/Drawer";
 import { TextField } from "../components/TextField";
 import { SelectField } from "../components/SelectField";
 import { Button } from "../components/Button";
+import { FormSection } from "../components/FormSection";
 import { api, type RestError } from "../lib/rest";
 import { useAppToast } from "../components/ToastProvider";
 
@@ -149,51 +150,63 @@ export function SensorSheet({
       >
         {error ? <p className="ss-drawer-error">{error}</p> : null}
         {scenes.length > 0 ? (
-          <SelectField
-            id="ss-sensor-scene"
-            label="Scene"
-            value={scene}
-            onChange={(ev) => setScene(ev.target.value)}
+          <FormSection
+            id="ss-sensor-placement"
+            title="Placement"
+            description="Scene that owns this sensor."
+          >
+            <SelectField
+              id="ss-sensor-scene"
+              label="Scene"
+              value={scene}
+              onChange={(ev) => setScene(ev.target.value)}
+              required
+              disabled={busy}
+            >
+              <option value="">Select scene…</option>
+              {scenes.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </SelectField>
+          </FormSection>
+        ) : null}
+        <FormSection
+          id="ss-sensor-identity"
+          title="Identity"
+          description="Must match the telemetry source id."
+        >
+          <TextField
+            id="ss-sensor-id"
+            label="Sensor ID"
+            value={sensorId}
+            onChange={(ev) => setSensorId(ev.target.value)}
             required
             disabled={busy}
+          />
+          <TextField
+            id="ss-sensor-name"
+            label="Name"
+            value={name}
+            onChange={(ev) => setName(ev.target.value)}
+            required
+            disabled={busy}
+          />
+          <SelectField
+            id="ss-sensor-type"
+            label="Type"
+            value={singletonType}
+            onChange={(ev) => setSingletonType(ev.target.value)}
+            disabled={busy}
           >
-            <option value="">Select scene…</option>
-            {scenes.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
+            {TYPES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
               </option>
             ))}
           </SelectField>
-        ) : null}
-        <TextField
-          id="ss-sensor-id"
-          label="Sensor ID"
-          value={sensorId}
-          onChange={(ev) => setSensorId(ev.target.value)}
-          required
-          disabled={busy}
-        />
-        <TextField
-          id="ss-sensor-name"
-          label="Name"
-          value={name}
-          onChange={(ev) => setName(ev.target.value)}
-          required
-          disabled={busy}
-        />
-        <SelectField
-          id="ss-sensor-type"
-          label="Type"
-          value={singletonType}
-          onChange={(ev) => setSingletonType(ev.target.value)}
-          disabled={busy}
-        >
-          {TYPES.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
-            </option>
-          ))}
-        </SelectField>
+        </FormSection>
       </form>
     </Drawer>
   );

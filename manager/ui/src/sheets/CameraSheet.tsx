@@ -6,6 +6,7 @@ import { Drawer } from "../components/Drawer";
 import { TextField } from "../components/TextField";
 import { SelectField } from "../components/SelectField";
 import { Button } from "../components/Button";
+import { FormSection } from "../components/FormSection";
 import { api, type RestError } from "../lib/rest";
 import { useAppToast } from "../components/ToastProvider";
 
@@ -140,43 +141,57 @@ export function CameraSheet({
     >
       <form id="ss-cam-sheet-form" className="ss-drawer-form" onSubmit={submit}>
         {error ? <p className="ss-drawer-error">{error}</p> : null}
+        {busy && mode === "edit" && !name ? (
+          <p className="ss-drawer-hint">Loading camera…</p>
+        ) : null}
         {scenes.length > 0 ? (
-          <SelectField
-            id="ss-cam-scene"
-            label="Scene"
-            value={scene}
-            onChange={(ev) => setScene(ev.target.value)}
+          <FormSection
+            id="ss-cam-placement"
+            title="Placement"
+            description="Scene that owns this camera."
+          >
+            <SelectField
+              id="ss-cam-scene"
+              label="Scene"
+              value={scene}
+              onChange={(ev) => setScene(ev.target.value)}
+              required
+              disabled={busy}
+            >
+              <option value="">Select scene…</option>
+              {scenes.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </SelectField>
+          </FormSection>
+        ) : null}
+        <FormSection
+          id="ss-cam-identity"
+          title="Identity"
+          description="Must match the analytics pipeline camera id."
+        >
+          <TextField
+            id="ss-cam-sensor-id"
+            label="Camera ID"
+            value={sensorId}
+            onChange={(ev) => setSensorId(ev.target.value)}
             required
             disabled={busy}
-          >
-            <option value="">Select scene…</option>
-            {scenes.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </SelectField>
-        ) : null}
-        <TextField
-          id="ss-cam-sensor-id"
-          label="Camera ID"
-          value={sensorId}
-          onChange={(ev) => setSensorId(ev.target.value)}
-          required
-          disabled={busy}
-        />
-        <TextField
-          id="ss-cam-name"
-          label="Name"
-          value={name}
-          onChange={(ev) => setName(ev.target.value)}
-          required
-          disabled={busy}
-        />
-        <p className="ss-drawer-hint">
-          Camera ID must match the analytics pipeline camera id. Calibrate after
-          creating.
-        </p>
+          />
+          <TextField
+            id="ss-cam-name"
+            label="Name"
+            value={name}
+            onChange={(ev) => setName(ev.target.value)}
+            required
+            disabled={busy}
+          />
+          <p className="ss-drawer-hint">
+            Calibrate after creating so detections land correctly on the map.
+          </p>
+        </FormSection>
       </form>
     </Drawer>
   );

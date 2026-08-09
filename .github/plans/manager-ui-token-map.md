@@ -34,6 +34,7 @@ ad hoc.
 | `--ss-radius` | `radius.control` | `0.625rem` |
 | Form card max | `layout.formCard.maxWidth` | `48rem` |
 | Form card wide | `layout.formCard.maxWidthWide` | `64rem` |
+| Form card map editor | `layout.formCard.maxWidthMapEditor` | `min(100%, 1280px + 16rem)` |
 | Field max | `layout.field.maxWidth` | `28rem` |
 | Label track | `layout.form.labelTrack` | `10.5–12.5rem` |
 
@@ -50,10 +51,15 @@ does not depend on global stylesheet load order for its own chrome.
 | `PageHeader` | Phase 2–4 (landed) | Title + actions |
 | `Tabs` | Phase 2 (landed) | Scene side panel / classic strip |
 | `Breadcrumb` | Phase 2 (landed) | Scenes → name (in PageHeader) |
-| `Card` | Later | Filmstrip / list cards |
+| `Card` | Phase 7 (landed) | Shared surface; `--ss-card-*` tokens |
+| `StatusChip` | Phase 7 (landed) | Neutral / ok / bad status labels |
+| `TableActions` | Phase 7 (landed) | CSS for list row action clusters |
 | `TextField` | Phase 4 (landed) | Label + capped control |
 | `FormCard` | Phase 4 (landed) | Capped admin forms |
+| `FormSection` | Phase 4 (landed) | Topic blocks + collapsible advanced; field groups |
 | `Modal` | Phase 4 (landed) | Bootstrap-compatible chrome |
+| `Drawer` | Phase 4–7 (landed) | Create/edit sheets; Tab focus trap |
+| `ConfirmDialog` | Phase 4–7 (landed) | Deletes + dirty leave; focus trap |
 | `Toast` | Phase 4 (landed) | Quiet status toast |
 
 ## Package strategy

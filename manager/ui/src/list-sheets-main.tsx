@@ -3,12 +3,12 @@
 
 import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { ToastProvider, useAppToast, installLegacyToastBridge } from "./components/ToastProvider";
+import { ToastProvider } from "./components/ToastProvider";
+import { LegacyConfirmHost } from "./components/LegacyConfirmHost";
 import { useSheetFromQuery } from "./hooks/useSheetFromQuery";
 import { CameraSheet } from "./sheets/CameraSheet";
 import { SensorSheet } from "./sheets/SensorSheet";
 import { AssetSheet } from "./sheets/AssetSheet";
-import { EmbedFormOverlay, embedFormUrl } from "./sheets/EmbedFormOverlay";
 import type { SheetAction } from "./lib/sheetQuery";
 import "./tokens/tokens.css";
 
@@ -20,14 +20,18 @@ type ListBootstrap = {
   scenes?: { id: string; name: string }[];
 };
 
-function isAction(v: string | null): v is Exclude<SheetAction, null> {
-  return Boolean(v);
+const CREATE_ACTIONS = new Set([
+  "cam-create",
+  "sensor-create",
+  "asset-create",
+]);
+
+function isCreateAction(v: string | null): v is Exclude<SheetAction, null> {
+  return Boolean(v && CREATE_ACTIONS.has(v));
 }
 
 function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
   const { sheet, open, close } = useSheetFromQuery();
-  const toast = useAppToast();
-  useEffect(() => installLegacyToastBridge(toast), [toast]);
 
   useEffect(() => {
     const onClick = (ev: Event) => {
@@ -44,7 +48,7 @@ function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
         return;
       }
       const ss = url.searchParams.get("ss");
-      if (ss && isAction(ss)) {
+      if (ss && isCreateAction(ss)) {
         ev.preventDefault();
         open(ss, url.searchParams.get("id"));
         return;
@@ -56,23 +60,6 @@ function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
       if (link.id === "new-asset" || /\/asset\/create\/?$/.test(url.pathname)) {
         ev.preventDefault();
         open("asset-create");
-      }
-      const camEdit = url.pathname.match(/\/cam\/update\/(\d+)/);
-      if (camEdit) {
-        ev.preventDefault();
-        open("cam-edit", camEdit[1]);
-      }
-      const sensorEdit = url.pathname.match(
-        /\/singleton_sensor\/update\/(\d+)/,
-      );
-      if (sensorEdit) {
-        ev.preventDefault();
-        open("sensor-edit", sensorEdit[1]);
-      }
-      const assetEdit = url.pathname.match(/\/asset\/update\/(\d+)/);
-      if (assetEdit) {
-        ev.preventDefault();
-        open("asset-edit", assetEdit[1]);
       }
     };
     document.addEventListener("click", onClick, true);
@@ -87,24 +74,6 @@ function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
     return null;
   }
 
-  const editSrc =
-    sheet.action === "cam-edit" && sheet.id
-      ? embedFormUrl(`/cam/update/${sheet.id}/`)
-      : sheet.action === "sensor-edit" && sheet.id
-        ? embedFormUrl(`/singleton_sensor/update/${sheet.id}/`)
-        : sheet.action === "asset-edit" && sheet.id
-          ? embedFormUrl(`/asset/update/${sheet.id}/`)
-          : null;
-
-  const editTitle =
-    sheet.action === "cam-edit"
-      ? "Edit camera"
-      : sheet.action === "sensor-edit"
-        ? "Edit sensor"
-        : sheet.action === "asset-edit"
-          ? "Edit asset"
-          : "Edit";
-
   return (
     <>
       {bootstrap.kind === "cam" && (
@@ -113,6 +82,7 @@ function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
           mode="create"
           sceneId={sceneId}
           scenes={scenes}
+          sensorUid={null}
           authToken={bootstrap.authToken}
           onClose={close}
           onSaved={reload}
@@ -124,6 +94,7 @@ function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
           mode="create"
           sceneId={sceneId}
           scenes={scenes}
+          sensorUid={null}
           authToken={bootstrap.authToken}
           onClose={close}
           onSaved={reload}
@@ -133,17 +104,12 @@ function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
         <AssetSheet
           open={sheet.action === "asset-create"}
           mode="create"
+          assetUid={null}
           authToken={bootstrap.authToken}
           onClose={close}
           onSaved={reload}
         />
       )}
-      <EmbedFormOverlay
-        open={Boolean(editSrc)}
-        src={editSrc}
-        title={editTitle}
-        onClose={close}
-      />
     </>
   );
 }
@@ -168,7 +134,9 @@ if (bootstrap) {
   createRoot(host).render(
     <StrictMode>
       <ToastProvider>
-        <ListSheetsApp bootstrap={bootstrap} />
+        <LegacyConfirmHost>
+          <ListSheetsApp bootstrap={bootstrap} />
+        </LegacyConfirmHost>
       </ToastProvider>
     </StrictMode>,
   );

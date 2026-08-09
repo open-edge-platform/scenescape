@@ -28,16 +28,16 @@ Follow the steps in the [Installation Guide](../../get-started/installation.md) 
 1. Log in to Scenescape.
 2. Click on a scene.
 3. Click on the `Regions` tab below the scene map view.
-4. Click `New Region` button to create a region.
+4. Click `New` to create a region.
 5. Draw the region on the scene by clicking points on the scene map to form a polygon. Be sure to click on the starting point to close the polygon.
 6. **Optional**: Add a user-defined name for the ROI in the text box.
-7. Click `Save Regions and Tripwires` to save the newly created region.
+7. Click `Save` to save the newly created region.
 
 #### Modify a Region of Interest
 
 1. Click on `Regions` at the bottom of the page.
 2. Find your region in the Scene and double click on the polygon to edit its shape. Drag the vertices to refine their positions.
-3. Click `Save Regions and Tripwires` to persist your changes.
+3. Click `Save` to persist your changes.
 
 #### Verify the Results
 
@@ -223,7 +223,7 @@ By default, Regions of Interest trigger events when the center point of each obj
 1. Click on the `Regions` tab tab below the scene map view.
 1. Find the specific region in the list and click on "volumetric" checkbox to enable intersection detection.
 1. **Optional**: you can add a uniform buffer around the region and vary the height of the region.
-1. Click `Save Regions and Tripwires` to persist your changes.
+1. Click `Save` to persist your changes.
 
 #### Verify the Results
 
@@ -404,18 +404,18 @@ By default, Regions of Interest trigger events when the center point of each obj
 1. Log in to Scenescape.
 2. Click on a scene.
 3. Click on the `Tripwires` tab below the scene map view.
-4. Click `New Tripwire` to create a tripwire.
+4. Click `New` to create a tripwire.
 5. Click on the Scene and a green line with two moveable endpoints will appear.
 6. Click and drag each endpoint to get the right orientation and position for the tripwire (the flag line indicates the direction of positive flow)..
 7. **Optional**: Add a user-defined name for the tripwire in the textbox
-8. Click `Save Regions and Tripwires` to create the tripwire.
+8. Click `Save` to create the tripwire.
 
 #### Modify a Tripwire
 
 1. Click on the `Tripwires` tab below the scene map view.
 2. Double click on the tripwire to edit on the scene.
 3. Click and drag to change position and orientation.
-4. Click `Save Regions and Tripwires` to persist your changes.
+4. Click `Save` to persist your changes.
 
 #### Verify the Results
 

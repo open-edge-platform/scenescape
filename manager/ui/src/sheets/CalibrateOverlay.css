@@ -15,7 +15,7 @@
 .ss-calibrate-overlay-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.75rem;
   padding: 0.55rem 0.85rem;
   background: var(--ss-nav-bg, #001e50);
@@ -23,22 +23,48 @@
   flex: 0 0 auto;
 }
 
-.ss-calibrate-overlay-title {
-  margin: 0;
-  font-family: var(--ss-font-heading);
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-.ss-calibrate-overlay-close {
+.ss-calibrate-overlay-back {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   border: 1px solid rgba(255, 255, 255, 0.35);
   background: transparent;
   color: #fff;
   border-radius: var(--ss-radius);
   padding: 0.25rem 0.65rem;
+  font-family: var(--ss-font-sans);
   font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
   cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.ss-calibrate-overlay-back:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+.ss-calibrate-overlay-back:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.ss-calibrate-overlay-back-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.ss-calibrate-overlay-title {
+  margin: 0;
+  font-family: var(--ss-font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ss-calibrate-overlay-frame {

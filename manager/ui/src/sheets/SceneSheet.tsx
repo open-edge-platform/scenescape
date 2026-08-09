@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Drawer } from "../components/Drawer";
 import { TextField } from "../components/TextField";
 import { Button } from "../components/Button";
+import { FormSection } from "../components/FormSection";
 import { api, type RestError } from "../lib/rest";
 import { useAppToast } from "../components/ToastProvider";
 
@@ -132,39 +133,51 @@ export function SceneSheet({
         onSubmit={submit}
       >
         {error ? <p className="ss-drawer-error">{error}</p> : null}
-        <TextField
-          id="ss-scene-name"
-          label="Name"
-          value={name}
-          onChange={(ev) => setName(ev.target.value)}
-          required
-          disabled={busy}
-        />
-        <TextField
-          id="ss-scene-scale"
-          label="Scale (px per meter)"
-          value={scale}
-          onChange={(ev) => setScale(ev.target.value)}
-          disabled={busy}
-        />
-        <div className="ss-text-field">
-          <label className="ss-text-field-label" htmlFor="ss-scene-map">
-            Map image
-          </label>
-          <div className="ss-text-field-control">
-            <input
-              id="ss-scene-map"
-              type="file"
-              accept="image/*,.pdf,.svg"
-              disabled={busy}
-              onChange={(ev) => setMapFile(ev.target.files?.[0] || null)}
-            />
+        <FormSection
+          id="ss-scene-identity"
+          title="Identity"
+          description="How this scene appears in the gallery."
+        >
+          <TextField
+            id="ss-scene-name"
+            label="Name"
+            value={name}
+            onChange={(ev) => setName(ev.target.value)}
+            required
+            disabled={busy}
+          />
+        </FormSection>
+        <FormSection
+          id="ss-scene-map"
+          title="Map"
+          description="Floor plan and scale for the common create path."
+        >
+          <TextField
+            id="ss-scene-scale"
+            label="Scale (px per meter)"
+            value={scale}
+            onChange={(ev) => setScale(ev.target.value)}
+            disabled={busy}
+          />
+          <div className="ss-text-field">
+            <label className="ss-text-field-label" htmlFor="ss-scene-map">
+              Map image
+            </label>
+            <div className="ss-text-field-control">
+              <input
+                id="ss-scene-map"
+                type="file"
+                accept="image/*,.pdf,.svg,.glb,.gltf"
+                disabled={busy}
+                onChange={(ev) => setMapFile(ev.target.files?.[0] || null)}
+              />
+            </div>
           </div>
-        </div>
-        <p className="ss-drawer-hint">
-          Geospatial map providers remain available from advanced scene tools;
-          this sheet covers the common name / scale / map path.
-        </p>
+          <p className="ss-drawer-hint">
+            Geospatial providers and advanced calibration live under Manage
+            Scene after create.
+          </p>
+        </FormSection>
       </form>
     </Drawer>
   );

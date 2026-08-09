@@ -1,0 +1,11 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+{# Embed overlays own the Back control in React chrome; skip duplicate here. #}
+{% if not embed %}
+  <a class="ss-form-back" href="{{ back_href }}">
+    <span class="ss-form-back-icon" aria-hidden="true">←</span>
+    Back
+  </a>
+{% endif %}

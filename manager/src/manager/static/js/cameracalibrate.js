@@ -36,6 +36,37 @@ import {
   waitUntil,
 } from "/static/js/utils.js";
 
+(function bridgeAlertToParentToast() {
+  if (window.__ssNativeAlert) {
+    return;
+  }
+  window.__ssNativeAlert = window.alert.bind(window);
+  window.alert = function (msg) {
+    const text = String(msg);
+    const parentToast =
+      window.parent && window.parent !== window
+        ? window.parent.ssToast
+        : null;
+    const toast =
+      (window.ssToast && typeof window.ssToast.show === "function"
+        ? window.ssToast
+        : null) ||
+      (parentToast && typeof parentToast.show === "function"
+        ? parentToast
+        : null);
+    if (toast) {
+      const bad =
+        /fail|error|invalid|not found|unable|cannot|must|requires/i.test(
+          text,
+        ) && !/successfully|updated\. Ensure/i.test(text);
+      const ok = /success|updated|Camera updated/i.test(text);
+      toast.show(text, bad ? "bad" : ok ? "ok" : "info");
+      return;
+    }
+    window.__ssNativeAlert(text);
+  };
+})();
+
 export class ConvergedCameraCalibration {
   constructor() {
     this.camCanvas = null;

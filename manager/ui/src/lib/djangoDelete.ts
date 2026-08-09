@@ -44,18 +44,38 @@ export async function postDjangoDelete(
 }
 
 export function inferDeleteLabel(href: string, linkText: string): string {
-  const text = linkText.trim().toLowerCase();
-  if (text.includes("camera") || href.includes("/cam/")) {
+  // Prefer URL path — link title/text often includes entity names that
+  // collide with kind keywords (e.g. a scene named "… Camera …").
+  if (href.includes("/cam/")) {
     return "camera";
   }
-  if (text.includes("sensor") || href.includes("/singleton_sensor/")) {
+  if (href.includes("/singleton_sensor/")) {
     return "sensor";
   }
-  if (text.includes("child") || href.includes("/child/")) {
+  if (href.includes("/child/")) {
     return "child scene link";
   }
-  if (text.includes("scene") || /\/scene\/delete\//.test(href)) {
+  if (/\/scene\/delete\//.test(href)) {
     return "scene";
+  }
+  if (href.includes("/asset/")) {
+    return "asset";
+  }
+  const text = linkText.trim().toLowerCase();
+  if (text.includes("camera")) {
+    return "camera";
+  }
+  if (text.includes("sensor")) {
+    return "sensor";
+  }
+  if (text.includes("child")) {
+    return "child scene link";
+  }
+  if (text.includes("scene")) {
+    return "scene";
+  }
+  if (text.includes("asset")) {
+    return "asset";
   }
   return "item";
 }

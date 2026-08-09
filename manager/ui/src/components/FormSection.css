@@ -1,0 +1,124 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* Topic blocks inside FormCard / drawers — ViPPET-aligned hierarchy */
+
+.ss-form-section {
+  margin: 0;
+  padding: 0 0 1.15rem;
+  border: 0;
+  border-bottom: 1px solid var(--ss-card-border);
+}
+
+.ss-form-section:last-of-type {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.ss-form-section + .ss-form-section,
+.ss-form-section + details.ss-form-section,
+details.ss-form-section + .ss-form-section,
+details.ss-form-section + details.ss-form-section {
+  margin-top: 1.15rem;
+  padding-top: 0.15rem;
+}
+
+.ss-form-section-title {
+  margin: 0;
+  font-family: var(--ss-font-heading);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ss-nav-bg);
+}
+
+.ss-form-section-desc {
+  margin: 0.25rem 0 0;
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--ss-text-muted);
+}
+
+.ss-form-section-body {
+  margin-top: 0.85rem;
+}
+
+.ss-form-section-body > .form-group.row:last-child,
+.ss-form-section-body > .ss-form-field-group:last-child,
+.ss-form-section-body > .ss-text-field:last-child,
+.ss-form-section-body > .ss-drawer-hint:last-child {
+  margin-bottom: 0;
+}
+
+/* Collapsible advanced sections (native disclosure) */
+details.ss-form-section {
+  padding-bottom: 0.85rem;
+}
+
+details.ss-form-section[open] {
+  padding-bottom: 1.15rem;
+}
+
+.ss-form-section-summary {
+  display: list-item;
+  cursor: pointer;
+  list-style-position: outside;
+  margin: 0;
+  padding: 0.1rem 0;
+}
+
+.ss-form-section-summary::-webkit-details-marker {
+  color: var(--ss-text-muted);
+}
+
+.ss-form-section-summary .ss-form-section-title {
+  display: inline;
+}
+
+.ss-form-section-summary .ss-form-section-desc {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+details.ss-form-section > .ss-form-section-body {
+  margin-top: 0.85rem;
+}
+
+/* Tight cluster of related fields (e.g. translation X/Y/Z) */
+.ss-form-field-group {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.75rem 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--ss-card-border) 85%, var(--ss-nav-bg));
+  border-radius: var(--ss-radius);
+  background: color-mix(in srgb, var(--ss-surface) 55%, #fff);
+}
+
+.ss-form-field-group-label {
+  margin: 0 0 0.5rem;
+  font-family: var(--ss-font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ss-text-muted);
+}
+
+.ss-form-field-group > .form-group.row:last-child {
+  margin-bottom: 0.35rem;
+}
+
+/* Drawer sheets: slightly tighter section rhythm */
+.ss-drawer-form .ss-form-section {
+  padding-bottom: 0.9rem;
+}
+
+.ss-drawer-form .ss-form-section + .ss-form-section {
+  margin-top: 0.9rem;
+}
+
+.ss-drawer-form .ss-form-section-body {
+  margin-top: 0.65rem;
+}

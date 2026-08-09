@@ -23,6 +23,25 @@ SPDX-License-Identifier: Apache-2.0
     </ol>
   </nav>
 
+  <div class="page-header">
+    <div class="page-header-main">
+      {% url 'sceneDetail' caminst.scene.id as cam_back_href %}
+      {% include 'sscape/form_back.html' with back_href=cam_back_href %}
+      <h2 class="form-title">Manage Camera: {{ caminst.name }}</h2>
+    </div>
+    <div class="page-header-actions">
+      <div id="mqtt_status" class="btn btn-sm btn-secondary" title="MQTT status">
+        <i class="bi bi-arrow-down-up"></i>
+      </div>
+      <a
+        class="ss-table-action is-danger"
+        href="{% url 'cam_delete' caminst.id %}"
+        title="Delete"
+        ><i class="bi bi-trash"></i><span>Delete</span></a
+      >
+    </div>
+  </div>
+
   <div class="display-none">
     <button class="btn btn-secondary" id="connect">Connect</button>
     <button class="btn btn-secondary" id="disconnect">Disconnect</button>
@@ -67,17 +86,7 @@ SPDX-License-Identifier: Apache-2.0
               title="Reset views to the default view"
             />
           {% endif %}
-          <a
-            class="btn btn-secondary btn-sm float-right right-buffer"
-            href="{% url 'cam_delete' caminst.id %}"
-            title="Delete"
-            ><i class="bi bi-trash"></i
-          ></a>
-          <div id="mqtt_status" class="float-right right-buffer btn-sm btn">
-            <i class="bi bi-arrow-down-up"></i>
-          </div>
-
-          Manage Camera: {{ caminst.name }}
+          Calibration workspace
         </h5>
 
         {% if form.non_field_errors %}
@@ -179,129 +188,188 @@ SPDX-License-Identifier: Apache-2.0
           </div>
 
           {% if caminst.scene.thumbnail or caminst.scene.map %}
-            <div class="form-group row">
-              <label
-                class="col-form-label form-label"
-                id="label_overlay_opacity"
-                for="overlay_opacity"
-                >Overlay Opacity</label
-              >
-              <div class="col-sm-3">
-                <input
-                  type="range"
-                  class="form-control-range top-buffer"
-                  id="overlay_opacity"
-                  value="0"
-                  aria-labelledby="label_overlay_opacity"
-                />
-                <small class="form-text text-muted"
-                  >Increase the opacity to view the projection of scene onto
-                  camera and vice versa.</small
-                >
+            <div class="ss-form-section">
+              <h3 class="ss-form-section-title">Projection overlay</h3>
+              <p class="ss-form-section-desc">
+                Blend camera and scene views while placing calibration points.
+              </p>
+              <div class="ss-form-section-body">
+                <div class="form-group row">
+                  <label
+                    class="col-form-label form-label"
+                    id="label_overlay_opacity"
+                    for="overlay_opacity"
+                    >Overlay Opacity</label
+                  >
+                  <div class="col-sm-3">
+                    <input
+                      type="range"
+                      class="form-control-range top-buffer"
+                      id="overlay_opacity"
+                      value="0"
+                      aria-labelledby="label_overlay_opacity"
+                    />
+                    <small class="form-text text-muted"
+                      >Increase the opacity to view the projection of scene onto
+                      camera and vice versa.</small
+                    >
+                  </div>
+                </div>
               </div>
             </div>
           {% endif %}
 
-          {% for field in form %}
-            {% if field.name in "name sensor_id scene command camerachain" %}
-              <div class="form-group row" id="{{ field.name }}_wrapper">
-                <label
-                  class="col-form-label form-label"
-                  id="label_{{ field.name }}"
-                  for="id_{{ field.name }}"
-                  >{{ field.label }}</label
-                >
-                <div class="col-sm-3">
-                  {{ field.errors }}
-                  {{ field }}
-                </div>
-              </div>
-            {% elif field.name == "camera_pipeline" %}
-              <div class="form-group row" id="{{ field.name }}_wrapper">
-                <label
-                  class="col-form-label form-label"
-                  id="label_{{ field.name }}"
-                  for="id_{{ field.name }}"
-                  >{{ field.label }}</label
-                >
-                <div class="col-sm-6">
-                  <div class="mb-2">
-                    <button
-                      type="button"
-                      class="btn btn-info btn-sm"
-                      id="generate-pipeline-preview"
-                      title="Generate camera pipeline preview based on current form values"
+          <section
+            class="ss-form-section"
+            aria-labelledby="ss-cam-sec-identity-title"
+          >
+            <h3 class="ss-form-section-title" id="ss-cam-sec-identity-title">
+              Identity &amp; stream
+            </h3>
+            <p class="ss-form-section-desc">
+              Camera id, scene assignment, and capture / pipeline settings.
+            </p>
+            <div class="ss-form-section-body">
+              {% for field in form %}
+                {% if field.name == 'name' or field.name == 'sensor_id' or field.name == 'scene' or field.name == 'command' or field.name == 'camerachain' %}
+                  <div class="form-group row" id="{{ field.name }}_wrapper">
+                    <label
+                      class="col-form-label form-label"
+                      id="label_{{ field.name }}"
+                      for="id_{{ field.name }}"
+                      >{{ field.label }}</label
                     >
-                      Generate Pipeline Preview
-                    </button>
+                    <div class="col-sm-3">
+                      {{ field.errors }}
+                      {{ field }}
+                    </div>
                   </div>
-                  {{ field.errors }}
-                  {{ field }}
-                  {% if field.help_text %}
-                    <small class="form-text text-muted"
-                      >{{ field.help_text }}</small
+                {% elif field.name == 'camera_pipeline' %}
+                  <div class="form-group row" id="{{ field.name }}_wrapper">
+                    <label
+                      class="col-form-label form-label"
+                      id="label_{{ field.name }}"
+                      for="id_{{ field.name }}"
+                      >{{ field.label }}</label
                     >
-                  {% endif %}
-                </div>
-              </div>
-            {% elif "coord" in field.name %}
-              <div class="display-none coordinate">{{ field }}</div>
-            {% elif "intrinsic" in field.name or "distortion" in field.name %}
-              <div class="form-group row">
-                <label
-                  class="col-form-label form-label"
-                  id="label_{{ field.name }}"
-                  for="id_{{ field.name }}"
-                  >{{ field.label }}</label
-                >
-                <div class="col-sm-3">
-                  {{ field.errors }}
-                  {{ field }}
-                </div>
-                {% if field.name == "intrinsics_fx" or field.name == "intrinsics_fy" %}
-                  <div
-                    class="col-sm-1 d-flex align-items-center"
-                    id="lock_{{ field.name }}"
-                  >
-                    <input
-                      type="checkbox"
-                      name="enabled_{{ field.name }}"
-                      id="enabled_{{ field.name }}"
-                      checked
-                    />
-                    <label class="checkbox-text" for="enabled_{{ field.name }}"
-                      >Lock value</label
-                    >
+                    <div class="col-sm-6">
+                      <div class="mb-2">
+                        <button
+                          type="button"
+                          class="btn btn-info btn-sm"
+                          id="generate-pipeline-preview"
+                          title="Generate camera pipeline preview based on current form values"
+                        >
+                          Generate Pipeline Preview
+                        </button>
+                      </div>
+                      {{ field.errors }}
+                      {{ field }}
+                      {% if field.help_text %}
+                        <small class="form-text text-muted"
+                          >{{ field.help_text }}</small
+                        >
+                      {% endif %}
+                    </div>
                   </div>
                 {% endif %}
-              </div>
-            {% elif field.name in form.advanced_fields %}
-              <div
-                class="form-group row advanced-options"
-                title="Optional advanced parameter"
-                id="{{ field.name }}_wrapper"
-              >
-                <label
-                  class="col-form-label form-label"
-                  id="label_{{ field.name }}"
-                  for="id_{{ field.name }}"
-                  >(Advanced) {{ field.label }}</label
-                >
-                <div class="col-sm-3">
-                  {{ field.errors }}
-                  {{ field }}
-                  {% if field.help_text %}
-                    <small class="form-text text-muted"
-                      >{{ field.help_text }}</small
+              {% endfor %}
+            </div>
+          </section>
+
+          <section
+            class="ss-form-section"
+            aria-labelledby="ss-cam-sec-optics-title"
+          >
+            <h3 class="ss-form-section-title" id="ss-cam-sec-optics-title">
+              Intrinsics &amp; distortion
+            </h3>
+            <p class="ss-form-section-desc">
+              Focal length and lens parameters used by calibration.
+            </p>
+            <div class="ss-form-section-body">
+              {% for field in form %}
+                {% if 'intrinsic' in field.name or 'distortion' in field.name %}
+                  <div class="form-group row">
+                    <label
+                      class="col-form-label form-label"
+                      id="label_{{ field.name }}"
+                      for="id_{{ field.name }}"
+                      >{{ field.label }}</label
                     >
-                  {% endif %}
-                </div>
-              </div>
-            {% else %}
+                    <div class="col-sm-3">
+                      {{ field.errors }}
+                      {{ field }}
+                    </div>
+                    {% if field.name == 'intrinsics_fx' or field.name == 'intrinsics_fy' %}
+                      <div
+                        class="col-sm-1 d-flex align-items-center"
+                        id="lock_{{ field.name }}"
+                      >
+                        <input
+                          type="checkbox"
+                          name="enabled_{{ field.name }}"
+                          id="enabled_{{ field.name }}"
+                          checked
+                        />
+                        <label
+                          class="checkbox-text"
+                          for="enabled_{{ field.name }}"
+                          >Lock value</label
+                        >
+                      </div>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </section>
+
+          <details class="ss-form-section ss-form-section--collapsible">
+            <summary class="ss-form-section-summary">
+              <span class="ss-form-section-title">Advanced</span>
+              <span class="ss-form-section-desc">
+                Optional deployment and detection parameters.
+              </span>
+            </summary>
+            <div class="ss-form-section-body">
+              {% for field in form %}
+                {% if field.name in form.advanced_fields %}
+                  <div
+                    class="form-group row advanced-options"
+                    title="Optional advanced parameter"
+                    id="{{ field.name }}_wrapper"
+                  >
+                    <label
+                      class="col-form-label form-label"
+                      id="label_{{ field.name }}"
+                      for="id_{{ field.name }}"
+                      >{{ field.label }}</label
+                    >
+                    <div class="col-sm-3">
+                      {{ field.errors }}
+                      {{ field }}
+                      {% if field.help_text %}
+                        <small class="form-text text-muted"
+                          >{{ field.help_text }}</small
+                        >
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </details>
+
+          {% for field in form %}
+            {% if 'coord' in field.name %}
+              <div class="display-none coordinate">{{ field }}</div>
+            {% elif field.name != 'name' and field.name != 'sensor_id' and field.name != 'scene' and field.name != 'command' and field.name != 'camerachain' and field.name != 'camera_pipeline' and 'intrinsic' not in field.name and 'distortion' not in field.name and field.name not in form.advanced_fields %}
               <div class="display-none">{{ field }}</div>
             {% endif %}
           {% endfor %}
-          <div class="form-group row">
+
+          <div class="form-group row ss-form-actions">
             <div class="form-label"></div>
             <div class="col-sm-3">
               <input

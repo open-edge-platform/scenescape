@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/* Shared action/table chrome available to Django list pages via manager-ui.css */
+@import "../components/TableActions.css";
+@import "../components/Card.css";
+@import "../components/StatusChip.css";
+@import "../components/FormSection.css";
+
 /* Mirrored from manager style.css :root — see .github/plans/manager-ui-token-map.md */
 :root {
   --ss-brand: #0054ae;

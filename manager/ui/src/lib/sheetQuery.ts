@@ -12,6 +12,7 @@ export type SheetAction =
   | "child-edit"
   | "scene-create"
   | "scene-edit"
+  | "scene-manage"
   | "scene-import"
   | "asset-create"
   | "asset-edit"
@@ -33,6 +34,7 @@ const ACTIONS = new Set<string>([
   "child-edit",
   "scene-create",
   "scene-edit",
+  "scene-manage",
   "scene-import",
   "asset-create",
   "asset-edit",

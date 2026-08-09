@@ -144,19 +144,45 @@ def delete_object_library(browser, object_name):
   print('Object Library asset "{0}" deleted!'.format(object_name))
   return True
 
+def wait_ss_drawer_closed(browser, timeout=None):
+  """! Wait until the React drawer backdrop is gone.
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    timeout                    Optional wait seconds (defaults to BROWSER_WAIT).
+  @return   None
+  """
+  wait = WebDriverWait(browser, timeout if timeout is not None else BROWSER_WAIT)
+  wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, ".ss-drawer-backdrop")))
+
+
+def confirm_ss_dialog(browser, label="Delete"):
+  """! Confirm an in-page React ConfirmDialog (ss-confirm).
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    label                      Confirm button label (default Delete).
+  @return   None
+  """
+  wait = WebDriverWait(browser, BROWSER_WAIT)
+  xpath = (
+    "//div[contains(@class,'ss-confirm-footer')]"
+    f"//button[normalize-space()='{label}']"
+  )
+  wait.until(EC.element_to_be_clickable((By.XPATH, xpath))).click()
+
+
 def delete_scene(browser, scene_name):
   """! Delete named Scenescape scene.
   @param    browser                    Object wrapping the Selenium driver.
   @param    scene_name                 Name of the scene to be deleted.
   @return   bool                       Boolean representing success.
   """
+  wait = WebDriverWait(browser, 30)
   browser.find_element(By.ID, "nav-scenes").click()
-  time.sleep(1)
-  browser.find_element(By.NAME, scene_name).find_element(By.NAME, "Delete",).click()
-  time.sleep(1)
-  print("Confirmation appeared: " + str(browser.find_element(By.XPATH, "//*[@type = 'submit']").get_attribute("value")))
-  browser.find_element(By.XPATH, "//*[@type = 'submit']").click()
-  time.sleep(1)
+  wait.until(EC.presence_of_element_located((By.NAME, scene_name)))
+  browser.find_element(By.NAME, scene_name).find_element(By.NAME, "Delete").click()
+  confirm_ss_dialog(browser, "Delete")
+  wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, ".ss-confirm")))
+  wait.until(EC.presence_of_element_located((By.ID, "nav-scenes")))
+  # Scene card must leave the gallery after a successful delete
+  wait.until(EC.invisibility_of_element_located((By.NAME, scene_name)))
   if scene_name not in browser.page_source:
     print(scene_name + " deleted")
     return True
@@ -279,22 +305,29 @@ def create_scene(browser, scene_name, scale, map_image):
   @param    map_image                  Path to the scene map.
   @return   bool                       Boolean representing success.
   """
+  wait = WebDriverWait(browser, BROWSER_WAIT)
   browser.find_element(By.ID, "nav-scenes").click()
   if scene_name in browser.page_source:
     print("Scene already exists, deleting it before proceeding ...")
     if not delete_scene(browser, scene_name):
       return False
 
-  browser.find_element(By.ID, "new_scene").click()
-  browser.find_element(By.ID, "id_name").click()
-  browser.find_element(By.ID, "id_name").send_keys(scene_name)
-  time.sleep(1)
-  browser.find_element(By.ID, "id_map").send_keys(map_image)
-  browser.find_element(By.ID, "id_scale").click()
-  browser.find_element(By.ID, "id_scale").send_keys(scale)
-  browser.find_element(By.ID, "save").click()
-  time.sleep(1)
-  browser.find_element(By.NAME, scene_name)
+  wait.until(EC.element_to_be_clickable((By.ID, "new_scene"))).click()
+  wait.until(EC.visibility_of_element_located((By.ID, "ss-scene-name")))
+  name_field = browser.find_element(By.ID, "ss-scene-name")
+  name_field.clear()
+  name_field.send_keys(scene_name)
+  scale_field = browser.find_element(By.ID, "ss-scene-scale")
+  scale_field.clear()
+  scale_field.send_keys(str(scale))
+  browser.find_element(By.ID, "ss-scene-map").send_keys(map_image)
+  browser.find_element(
+    By.CSS_SELECTOR, ".ss-drawer-footer .ss-btn--primary"
+  ).click()
+  # Create navigates to the new scene; wait for the drawer to leave first
+  wait_ss_drawer_closed(browser, timeout=30)
+  wait.until(EC.element_to_be_clickable((By.ID, "nav-scenes"))).click()
+  wait.until(EC.presence_of_element_located((By.NAME, scene_name)))
   return True
 
 def inject_json(input_text, browser, element, form_id):
@@ -385,7 +418,7 @@ def create_tripwire(browser, tw_name):
     tripwire_name.send_keys(tw_name)
     print("Updated name of the tripwire to ", tw_name)
     browser.find_element(By.ID,"save-trips").click()
-    print("clicked 'Save Regions and Tripwires'")
+    print("clicked 'Save' (tripwires)")
     return tripwire_points
   except Exception as e:
     print("Failed creating and saving new tripwire!!!, error: ", e)
@@ -441,7 +474,7 @@ def modify_tripwire(browser):
     print("Moved the ends of tripwire")
 
     browser.find_element(By.ID,"save-trips").click()
-    print("clicked 'Save Regions and Tripwires'")
+    print("clicked 'Save' (tripwires)")
 
   except Exception as e:
     print("Failed modifying tripwire!, error: ", e)
@@ -869,16 +902,20 @@ def add_camera_to_scene(browser, scene_name, camera_id, camera_name):
   @param    camera_name                Name of the camera to be added.
   @return   bool                       Boolean representing success.
   """
+  wait = WebDriverWait(browser, BROWSER_WAIT)
   try:
     if scene_name in browser.page_source:
       browser.find_element(By.XPATH, "//*[text()='" + scene_name + "']/parent::*/div[2]/div/a[1]").click()
-      browser.find_element(By.ID, "new-camera").click()
-      browser.find_element(By.ID, "id_sensor_id").send_keys(camera_id)
-      browser.find_element(By.ID, "id_name").send_keys(camera_name)
-      browser.find_element(By.ID, "id_scene").click()
-      dropdown = browser.find_element(By.ID, "id_scene")
-      dropdown.find_element(By.XPATH, "//option[. = '"+scene_name+"']").click()
-      browser.find_element(By.CSS_SELECTOR, ".btn:nth-child(1)").click()
+      wait.until(EC.element_to_be_clickable((By.ID, "new-camera"))).click()
+      wait.until(EC.visibility_of_element_located((By.ID, "ss-cam-sensor-id")))
+      browser.find_element(By.ID, "ss-cam-sensor-id").clear()
+      browser.find_element(By.ID, "ss-cam-sensor-id").send_keys(camera_id)
+      browser.find_element(By.ID, "ss-cam-name").clear()
+      browser.find_element(By.ID, "ss-cam-name").send_keys(camera_name)
+      browser.find_element(
+        By.CSS_SELECTOR, ".ss-drawer-footer .ss-btn--primary"
+      ).click()
+      wait_ss_drawer_closed(browser, timeout=30)
       print("Camera " + camera_name + " added to scene " + scene_name)
       return True
   except Exception as e:
@@ -891,11 +928,13 @@ def delete_camera(browser, camera_name):
   @param    camera_name                Name of the camera to be added.
   @return   bool                       Boolean representing success.
   """
+  wait = WebDriverWait(browser, BROWSER_WAIT)
   browser.find_element(By.LINK_TEXT, "Cameras").click()
   rows_to_delete = browser.find_elements(By.XPATH, "//td[text()='"+ camera_name +"']/parent::tr")
   for r in rows_to_delete:
     browser.find_element(By.XPATH, "//td[text()='"+ camera_name +"']/parent::tr//a[contains(@href,'cam/delete/')]").click()
-    browser.find_element(By.XPATH, "//*[@type = 'submit']").click()
+    confirm_ss_dialog(browser, "Delete")
+    wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Cameras")))
     browser.find_element(By.LINK_TEXT, "Cameras").click()
 
   # Page is redirected to respective scene page verify the absence of the camera in that page
@@ -913,16 +952,21 @@ def create_sensor(browser, sensor_id, sensor_name, scene_name=None):
   @param    scene_name                 (Optional) Name of the scene to assign the sensor to.
   @return   None
   """
-  browser.find_element(By.ID, "id_sensor_id").send_keys(sensor_id)
-  browser.find_element(By.ID, "id_name").send_keys(sensor_name)
+  wait = WebDriverWait(browser, BROWSER_WAIT)
+  wait.until(EC.visibility_of_element_located((By.ID, "ss-sensor-id")))
+  browser.find_element(By.ID, "ss-sensor-id").clear()
+  browser.find_element(By.ID, "ss-sensor-id").send_keys(sensor_id)
+  browser.find_element(By.ID, "ss-sensor-name").clear()
+  browser.find_element(By.ID, "ss-sensor-name").send_keys(sensor_name)
 
-  if scene_name:
-    browser.find_element(By.ID, "id_scene").click()
-    dropdown = browser.find_element(By.ID, "id_scene")
-    dropdown.find_element(By.XPATH, f"//option[. = '{scene_name}']").click()
+  if scene_name and browser.find_elements(By.ID, "ss-sensor-scene"):
+    select = Select(browser.find_element(By.ID, "ss-sensor-scene"))
+    select.select_by_visible_text(scene_name)
 
-  add_button_xpath = "//input[@value = 'Add New Sensor']"
-  browser.find_element(By.XPATH, add_button_xpath).click()
+  browser.find_element(
+    By.CSS_SELECTOR, ".ss-drawer-footer .ss-btn--primary"
+  ).click()
+  wait_ss_drawer_closed(browser, timeout=30)
   return
 
 def create_sensor_from_scene(browser, sensor_id, sensor_name, scene_name):
@@ -1013,9 +1057,12 @@ def delete_sensor(browser, sensor_name):
   @return   bool                       Boolean representing a success.
   """
   browser.find_element(By.LINK_TEXT, "Sensors").click()
-  browser.find_element(By.XPATH, "//td[text()='" + sensor_name
-                       + "']/parent::tr/td[5]/a").click()
-  browser.find_element(By.XPATH, "//*[@type = 'submit']").click()
+  browser.find_element(
+    By.XPATH,
+    "//td[text()='" + sensor_name + "']/parent::tr"
+    "//a[contains(@href,'singleton_sensor/delete/')]",
+  ).click()
+  confirm_ss_dialog(browser, "Delete")
 
   # verify the absence of the sensor
   if sensor_name not in browser.page_source:
@@ -1262,41 +1309,41 @@ def create_camera(browser, camera_name, camera_id, scene_name):
   @param    scene_name                 Name of the scene being checked.
   @return   bool                       Boolean representing success.
   """
-  #Navigate to camera menu
+  wait = WebDriverWait(browser, BROWSER_WAIT)
   camera_menu_xpath = "//a[@href = '/cam/list/']"
   browser.find_element(By.XPATH, camera_menu_xpath).click()
 
-  # New camera button
-  new_camera_xpath = "//a[@href = '/cam/create/']"
-  browser.find_element(By.XPATH, new_camera_xpath).click()
+  wait.until(EC.element_to_be_clickable((By.ID, "new-camera"))).click()
+  wait.until(EC.visibility_of_element_located((By.ID, "ss-cam-sensor-id")))
+  browser.find_element(By.ID, "ss-cam-sensor-id").clear()
+  browser.find_element(By.ID, "ss-cam-sensor-id").send_keys(camera_id)
+  browser.find_element(By.ID, "ss-cam-name").clear()
+  browser.find_element(By.ID, "ss-cam-name").send_keys(camera_name)
+  if browser.find_elements(By.ID, "ss-cam-scene"):
+    select = Select(browser.find_element(By.ID, "ss-cam-scene"))
+    select.select_by_visible_text(scene_name)
 
-  # Update the Camera details
-  browser.find_element(By.ID, "id_sensor_id").click()
-  browser.find_element(By.ID, "id_sensor_id").send_keys(camera_id)
-  browser.find_element(By.ID, "id_name").click()
-  browser.find_element(By.ID, "id_name").send_keys(camera_name)
-  browser.find_element(By.ID, "id_scene").click()
-  select = Select(browser.find_element(By.ID, "id_scene"))
-  select.select_by_visible_text(scene_name)
+  browser.find_element(
+    By.CSS_SELECTOR, ".ss-drawer-footer .ss-btn--primary"
+  ).click()
+  wait_ss_drawer_closed(browser, timeout=30)
+  wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "body")))
 
-  add_button_xpath = "//input[@value = 'Add New Camera']"
-  browser.find_element(By.XPATH, add_button_xpath).click()
-
-  # Page is redirected to respective scene page verify the presence of the camera in that page
   if camera_name in browser.page_source:
     print(f"Added {camera_name} to the scene {scene_name}")
     return True
   print("Error while creating camera:",camera_name)
   return False
 
-def check_db_status(browser):
+def check_db_status(browser, scene_name=None):
   """! The purpose of this function is to make sure database is
   up before running the tests. This function will return true if
-  it's able to navigate to the 'Demo' scene page.
+  it's able to navigate to the named scene page.
   @param    browser                    Object wrapping the Selenium driver.
+  @param    scene_name                 Scene to open (default: TEST_SCENE_NAME).
   @return   bool                       Boolean representing success.
   """
-  return navigate_to_scene(browser, TEST_SCENE_NAME)
+  return navigate_to_scene(browser, scene_name or TEST_SCENE_NAME)
 
 def navigate_to_scene(browser, scene_name):
   """! This function navigates to the 'Scenes' page, then waits for the Scene 'scene_name'
@@ -1621,13 +1668,17 @@ def upload_scene_file(browser, scene_name, file):
   @param    file                       File object
   @return   bool                       Boolean representing successful upload.
   """
+  wait = WebDriverWait(browser, BROWSER_WAIT)
   assert scene_name in browser.page_source
-  browser.find_element(By.ID, file.upload_element_id).send_keys(file.file_path)
+  wait.until(EC.visibility_of_element_located((By.ID, "ss-scene-map")))
+  browser.find_element(By.ID, "ss-scene-map").send_keys(file.file_path)
 
-  # Saves uploaded images and goes back to the page listing all the scenes
-  browser.find_element(By.ID, "save").click()
+  # Saves uploaded map via React scene sheet
+  browser.find_element(
+    By.CSS_SELECTOR, ".ss-drawer-footer .ss-btn--primary"
+  ).click()
 
-  page_path = f"/scene/update/{TEST_SCENE_ID}/"
+  page_path = f"/scene/detail/{TEST_SCENE_ID}/"
   selector_type = By.CSS_SELECTOR
   return check_filename_in_page(browser, page_path, selector_type, file)
 
@@ -2021,7 +2072,7 @@ class InteractWith3DScene(InteractWithPage):
     return True
 
 class InteractWithSceneUpdate(InteractWithPage):
-  """! Class for interacting with the scene update page. """
+  """! Class for interacting with the scene update drawer. """
 
   def __init__(self, browser: Browser, interaction_params: InteractionParams=None):
     """! Initiate the class.
@@ -2033,13 +2084,38 @@ class InteractWithSceneUpdate(InteractWithPage):
     return
 
   def navigate_to_page(self, expected_path: str) -> bool:
-    """! Navigates to page via the web interface.
-    @param    expected_path            Expected path of the page.
+    """! Opens the scene edit drawer from the scenes home page.
+    @param    expected_path            Unused (legacy Django update path).
     @return   bool                     Boolean representing success.
     """
+    wait = WebDriverWait(self.browser, BROWSER_WAIT)
     self.click_element_css_selector("#home")
-    self.click_element_css_selector(f"#scene-edit-{TEST_SCENE_ID}")
-    return check_current_address(self.browser, expected_path)
+    wait.until(
+      EC.element_to_be_clickable((By.ID, f"scene-edit-{TEST_SCENE_ID}"))
+    ).click()
+    wait.until(EC.visibility_of_element_located((By.ID, "ss-scene-map")))
+    return True
+
+  def upload_file(self) -> bool:
+    """! Uploads a map file via the React scene edit drawer.
+    @return   correct_address          True when the drawer opened and save clicked.
+    """
+    wait = WebDriverWait(self.browser, BROWSER_WAIT)
+    correct_address = self.navigate_to_page(self.interaction_params.page_path)
+    field_selector = self.interaction_params.field_selector or "#ss-scene-map"
+    wait.until(
+      EC.presence_of_element_located((By.CSS_SELECTOR, field_selector))
+    ).send_keys(self.interaction_params.file_path)
+    self.browser.find_element(
+      By.CSS_SELECTOR, ".ss-drawer-footer .ss-btn--primary"
+    ).click()
+    if correct_address:
+      success_str = "Submitting upload {fname} succeeded: {fpath}".format(
+        fname=self.interaction_params.field_name,
+        fpath=self.interaction_params.file_path,
+      )
+      print(success_str)
+    return correct_address
 
   def upload_scene_file(self, checks: CheckInteraction) -> bool:
     """! Upload a scene map file.
@@ -2048,8 +2124,8 @@ class InteractWithSceneUpdate(InteractWithPage):
     upload_success = False
     correct_address = self.upload_file()
 
-    # Wait for redirect to resolve back to the Scenes page
-    selenium_wait_for_elements(self.browser, (By.LINK_TEXT, "+ New Scene"), 5)
+    # Wait for drawer save to complete and scenes home chrome to return
+    selenium_wait_for_elements(self.browser, (By.ID, "new_scene"), 5)
     successful_checks = self.check_successful_interaction(checks)
     if successful_checks and correct_address:
       upload_success = True

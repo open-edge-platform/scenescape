@@ -8,7 +8,6 @@ import { CameraSheet } from "./CameraSheet";
 import { SensorSheet } from "./SensorSheet";
 import { ChildSheet, type SceneOption } from "./ChildSheet";
 import { CalibrateOverlay } from "./CalibrateOverlay";
-import { EmbedFormOverlay, embedFormUrl } from "./EmbedFormOverlay";
 
 type Props = {
   sceneId: string;
@@ -17,45 +16,22 @@ type Props = {
   scenes: SceneOption[];
 };
 
-function isAction(v: string | null): v is Exclude<SheetAction, null> {
-  return Boolean(v);
-}
+/** Same-page sheet/overlay actions hosted on the scene workspace. */
+const WORKSPACE_ACTIONS = new Set([
+  "cam-create",
+  "sensor-create",
+  "child-create",
+  "calibrate-cam",
+  "calibrate-sensor",
+  "scene-manage",
+]);
 
-function editOverlay(
-  action: SheetAction,
-  id: string | null,
-): { src: string; title: string } | null {
-  if (!id) {
-    return null;
-  }
-  switch (action) {
-    case "scene-edit":
-      return {
-        src: embedFormUrl(`/scene/update/${id}/`),
-        title: "Edit scene",
-      };
-    case "cam-edit":
-      return {
-        src: embedFormUrl(`/cam/update/${id}/`),
-        title: "Edit camera",
-      };
-    case "sensor-edit":
-      return {
-        src: embedFormUrl(`/singleton_sensor/update/${id}/`),
-        title: "Edit sensor",
-      };
-    case "child-edit":
-      return {
-        src: embedFormUrl(`/child/update/${id}/`),
-        title: "Edit child link",
-      };
-    default:
-      return null;
-  }
+function isWorkspaceAction(v: string | null): v is Exclude<SheetAction, null> {
+  return Boolean(v && WORKSPACE_ACTIONS.has(v));
 }
 
 /**
- * Intercepts same-page ?ss= links and hosts create drawers + edit/calibrate overlays.
+ * Intercepts same-page ?ss= create/calibrate/manage links; hosts drawers + overlays.
  */
 export function SceneWorkspaceSheets({
   sceneId,
@@ -85,7 +61,7 @@ export function SceneWorkspaceSheets({
         return;
       }
       const ss = url.searchParams.get("ss");
-      if (!ss) {
+      if (!ss || !isWorkspaceAction(ss)) {
         return;
       }
       if (
@@ -93,9 +69,6 @@ export function SceneWorkspaceSheets({
         url.pathname === `/${sceneId}/` ||
         url.pathname === `/${sceneId}`
       ) {
-        if (!isAction(ss)) {
-          return;
-        }
         ev.preventDefault();
         ev.stopPropagation();
         open(ss, url.searchParams.get("id"));
@@ -114,7 +87,6 @@ export function SceneWorkspaceSheets({
   }
 
   const action = sheet.action;
-  const edit = editOverlay(action, sheet.id);
 
   return (
     <>
@@ -122,6 +94,7 @@ export function SceneWorkspaceSheets({
         open={action === "cam-create"}
         mode="create"
         sceneId={sceneId}
+        scenes={scenes}
         authToken={authToken}
         onClose={close}
         onSaved={reload}
@@ -130,6 +103,7 @@ export function SceneWorkspaceSheets({
         open={action === "sensor-create"}
         mode="create"
         sceneId={sceneId}
+        scenes={scenes}
         authToken={authToken}
         onClose={close}
         onSaved={reload}
@@ -143,16 +117,16 @@ export function SceneWorkspaceSheets({
         onClose={close}
         onSaved={reload}
       />
-      <EmbedFormOverlay
-        open={Boolean(edit)}
-        src={edit?.src || null}
-        title={edit?.title || "Edit"}
-        onClose={close}
-      />
       <CalibrateOverlay
         open={action === "calibrate-cam" || action === "calibrate-sensor"}
         kind={action === "calibrate-sensor" ? "sensor" : "cam"}
         entityPk={sheet.id || ""}
+        onClose={close}
+      />
+      <CalibrateOverlay
+        open={action === "scene-manage"}
+        kind="scene"
+        entityPk={sceneId}
         onClose={close}
       />
     </>

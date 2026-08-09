@@ -11,48 +11,7 @@
   display: none !important;
 }
 
-/* Classic mode: let legacy .scene-map sizing win (centered, ~80vh peek) */
-.ss-scene-detail--classic .ss-scene-map-pane,
-.ss-scene-detail--classic .ss-scene-map-slot {
-  display: block;
-  min-height: 0;
-  flex: none;
-  height: auto;
-}
-
-.ss-scene-detail--classic .ss-scene-map-slot #ss-map-host.scene-map {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: fit-content;
-  max-width: 100%;
-  height: auto;
-  min-height: 0;
-  margin-left: auto;
-  margin-right: auto;
-  text-align: center;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  overflow: visible;
-}
-
-.ss-scene-detail--classic .ss-scene-map-slot .scene-map-stage {
-  position: relative;
-  flex: 0 0 auto;
-  display: block;
-  width: auto;
-  max-width: 100%;
-  min-height: 0;
-  background: transparent;
-}
-
-.ss-scene-detail--classic .ss-scene-map-slot #map-controls {
-  flex: 0 0 auto;
-  width: 100%;
-  margin-top: 0.35rem;
-  padding: 0;
-  border: 0;
-  background: transparent;
+.ss-scene-detail--workspace .ss-scene-map-pane,
+.ss-scene-detail--workspace .ss-scene-map-slot {
+  min-width: 0;
 }

@@ -25,6 +25,18 @@ async function toggleMapFields() {
   document.getElementById("uploadFields").style.display =
     type === "upload" ? "" : "none";
 
+  // Widen Manage Scene card so the 1280×1280 bounds map is not clipped
+  const formCard = document.getElementById("updateSceneForm");
+  if (formCard) {
+    formCard.classList.toggle("ss-form-card--map-editor", type === "geospatial");
+  }
+
+  // Geospatial settings accordion — open for Mapbox / Google map creation
+  const geoSection = document.getElementById("ss-form-sec-geo");
+  if (geoSection) {
+    geoSection.open = type === "geospatial";
+  }
+
   // Toggle geospatial fields - support both create and update page structures
   const geospatialFields = document.getElementById("geospatialFields");
   if (geospatialFields) {

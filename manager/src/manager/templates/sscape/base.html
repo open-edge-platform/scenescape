@@ -225,7 +225,29 @@ SPDX-License-Identifier: Apache-2.0
     {% endif %}
     {% if embed %}
       <script>
-        document.addEventListener("DOMContentLoaded", function () {
+        (function () {
+          function bindEmbedBack() {
+            document
+              .querySelectorAll("[data-ss-embed-back]")
+              .forEach(function (btn) {
+                if (btn.getAttribute("data-ss-bound") === "1") {
+                  return;
+                }
+                btn.setAttribute("data-ss-bound", "1");
+                btn.addEventListener("click", function (ev) {
+                  ev.preventDefault();
+                  var href = btn.getAttribute("data-ss-back-href") || "/";
+                  if (window.parent && window.parent !== window) {
+                    window.parent.postMessage(
+                      { type: "ss-calibrate-cancel" },
+                      "*",
+                    );
+                    return;
+                  }
+                  window.location.assign(href);
+                });
+              });
+          }
           document
             .querySelectorAll("form[method='post'], form[method='POST']")
             .forEach(function (form) {
@@ -237,7 +259,12 @@ SPDX-License-Identifier: Apache-2.0
                 form.appendChild(input);
               }
             });
-        });
+          if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", bindEmbedBack);
+          } else {
+            bindEmbedBack();
+          }
+        })();
       </script>
     {% endif %}
     {% block scripts %}

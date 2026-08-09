@@ -21,6 +21,14 @@ SPDX-License-Identifier: Apache-2.0
     </ol>
   </nav>
 
+  <div class="page-header">
+    <div class="page-header-main">
+      {% url 'sceneDetail' objinst.scene.id as sensor_cal_back_href %}
+      {% include 'sscape/form_back.html' with back_href=sensor_cal_back_href %}
+      <h2 class="form-title">Manage Sensor: {{ objinst.name }}</h2>
+    </div>
+  </div>
+
   <div id="calibrate">
     <form
       enctype="multipart/form-data"

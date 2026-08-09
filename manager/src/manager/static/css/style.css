@@ -199,6 +199,53 @@ h6 {
   margin-bottom: 1.25rem;
 }
 
+.page-header-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.85rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ss-form-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+  padding: 0.28rem 0.65rem;
+  border: 1px solid var(--ss-input-border);
+  border-radius: var(--ss-radius);
+  background: #fff;
+  color: var(--ss-nav-bg);
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ss-form-back:hover {
+  color: var(--ss-brand);
+  border-color: var(--ss-brand);
+  text-decoration: none;
+}
+
+.ss-form-back:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ss-brand) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.ss-form-back-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+body.ss-embed .ss-form-back {
+  border-color: color-mix(in srgb, var(--ss-input-border) 70%, var(--ss-nav-bg));
+}
+
 /* Match form-card column so Delete/actions sit with the title, not viewport-right */
 .page-header:has(+ .ss-form-card) {
   max-width: 48rem;
@@ -244,11 +291,47 @@ h6 {
   max-width: 64rem;
 }
 
+/*
+ * Geospatial map bounds picker needs a fixed 1280×1280 interactive map
+ * (snapshot stitch size). Widen past --wide and allow horizontal scroll
+ * when the viewport is narrower than the map + chrome.
+ */
+.page-header:has(+ .ss-form-card--map-editor) {
+  max-width: min(100%, calc(1280px + 16rem));
+}
+
+.ss-form-card--map-editor {
+  max-width: min(100%, calc(1280px + 16rem));
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+/* Stack map label above the canvas so the full 1280px width is usable */
+.ss-form-card--map-editor #mapViewRow.form-group.row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.ss-form-card--map-editor #mapViewRow > .col-form-label,
+.ss-form-card--map-editor #mapViewRow > [class*="col-"] {
+  width: auto;
+  max-width: none;
+  flex: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.ss-form-card--map-editor #mapViewRow > .col-form-label {
+  padding-top: 0;
+}
+
 .ss-form-body {
   padding: 1.25rem 1.5rem 1.5rem;
 }
 
-.ss-form-body form > .form-group.row {
+.ss-form-body form .form-group.row {
   display: grid;
   grid-template-columns: minmax(10.5rem, 12.5rem) minmax(0, 1fr);
   column-gap: 1rem;
@@ -257,7 +340,7 @@ h6 {
   margin-right: 0;
 }
 
-.ss-form-body form > .form-group.row > [class*="col-"] {
+.ss-form-body form .form-group.row > [class*="col-"] {
   width: auto;
   max-width: none;
   flex: none;
@@ -265,8 +348,8 @@ h6 {
   padding-right: 0;
 }
 
-.ss-form-body form > .form-group.row > .col-form-label,
-.ss-form-body form > .form-group.row > label.col-sm-2 {
+.ss-form-body form .form-group.row > .col-form-label,
+.ss-form-body form .form-group.row > label.col-sm-2 {
   text-align: left;
   line-height: 1.35;
   padding-top: 0.5rem;
@@ -285,7 +368,7 @@ h6 {
   max-width: 100%;
 }
 
-.ss-form-card--wide .ss-form-body form > .form-group.row {
+.ss-form-card--wide .ss-form-body form .form-group.row {
   grid-template-columns: minmax(11rem, 13rem) minmax(0, 1fr);
 }
 
@@ -312,7 +395,9 @@ h6 {
   max-width: min(48rem, 100%);
 }
 
-.ss-form-body > form > .form-group.row:last-child {
+.ss-form-body > form > .form-group.row:last-child,
+.ss-form-body > form > .ss-form-section:last-child,
+.ss-form-body > form > details.ss-form-section:last-child {
   margin-bottom: 0;
 }
 
@@ -1816,6 +1901,30 @@ body:has(.sign-in-page) .content {
   font-size: 1.05rem;
   font-weight: 600;
   color: var(--ss-nav-bg);
+}
+
+.ss-empty-state {
+  margin: 0.35rem 0 0.75rem;
+  padding: 1rem 0.25rem;
+  color: var(--ss-text-muted);
+  font-family: var(--ss-font-sans);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.ss-empty-state p {
+  margin: 0 0 0.65rem;
+}
+
+.card-body:has(.camera-card) > .ss-empty-state,
+.card-body:has(.singleton) > .ss-empty-state,
+#childrenlist:has(.card) > .ss-empty-state {
+  display: none;
+}
+
+#no-regions:not([style*="display: none"]),
+#no-tripwires:not([style*="display: none"]) {
+  display: block;
 }
 
 .scene-detail-panel-heading {
