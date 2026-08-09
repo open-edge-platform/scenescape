@@ -1118,16 +1118,25 @@ polygon {
   overflow: hidden;
 }
 
-.scene-map-stage #map img,
-.scene-map-stage #svgout:not(.display-none) {
+/* Cap map so ~80% of viewport is map; leave a peek of tabs/content below */
+.scene-map-stage #map img {
   display: block;
   max-width: 100%;
+  max-height: 75vh;
+  width: auto;
   height: auto;
+  object-fit: contain;
   vertical-align: top;
   background: transparent;
 }
 
 .scene-map-stage #svgout:not(.display-none) {
+  display: block;
+  max-width: 100%;
+  /* Pixel size comes from JS after measuring the capped img — keep 1:1 for clicks */
+  height: auto;
+  vertical-align: top;
+  background: transparent;
   outline: none;
 }
 
@@ -1183,8 +1192,6 @@ body.is-map-fullscreen .scene-map-stage {
 body.is-map-fullscreen .scene-map-stage #svgout:not(.display-none) {
   max-width: 100%;
   max-height: calc(100vh - 5.5rem);
-  width: auto !important;
-  height: auto !important;
 }
 
 body.is-map-fullscreen #map-controls {
@@ -1662,7 +1669,8 @@ body:has(.sign-in-page) .content {
 /* Scene detail tabs + panel chrome (OEP / ViPPET) */
 .scene-detail-panels {
   clear: both;
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
+  margin-bottom: 1.5rem;
   background: var(--ss-card-bg);
   border: 1px solid var(--ss-card-border);
   border-radius: var(--ss-radius);

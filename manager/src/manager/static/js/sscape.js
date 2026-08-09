@@ -40,7 +40,8 @@ var scene_id = $("#scene").val();
 var icon_size = 24;
 var show_telemetry = false;
 var show_trails = false;
-var scene_y_max = 480; // Scene image height in pixels
+var scene_y_max = 480; // Scene image height in SVG user units
+var scene_map_width = 0; // Scene image width in SVG user units
 var savedElements = [];
 var is_coloring_enabled = false; // Default state of the coloring feature
 var roi_color_sectors = {};
@@ -72,6 +73,71 @@ socket.on("calibration_result", async (notification) => {
 // Force page reload on back button press
 if (window.performance && window.performance.navigation.type == 2) {
   location.reload();
+}
+
+function isSceneDetailMap() {
+  return (
+    !!document.querySelector(".scene-map-stage") &&
+    !$("#map").hasClass("singletonCal")
+  );
+}
+
+function svgPointerToScene(e) {
+  var svg = document.getElementById("svgout");
+  if (!svg) {
+    return [0, 0];
+  }
+  var ctm = svg.getScreenCTM();
+  if (ctm) {
+    var pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    pt = pt.matrixTransform(ctm.inverse());
+    return [Math.round(pt.x), Math.round(pt.y)];
+  }
+  var offset = $("#svgout").offset();
+  return [
+    parseInt(e.pageX - offset.left),
+    parseInt(e.pageY - offset.top),
+  ];
+}
+
+function fitSceneMapDisplay() {
+  var svg = document.getElementById("svgout");
+  var stage = document.querySelector(".scene-map-stage");
+  if (!svg || !stage || !isSceneDetailMap()) {
+    return;
+  }
+  if (!scene_map_width || !scene_y_max) {
+    return;
+  }
+
+  svg.setAttribute(
+    "viewBox",
+    "0 0 " + scene_map_width + " " + scene_y_max,
+  );
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+  var maxW;
+  var maxH;
+  if (document.body.classList.contains("is-map-fullscreen")) {
+    maxW = Math.max(stage.clientWidth || window.innerWidth - 24, 100);
+    maxH = Math.max(window.innerHeight - 96, 200);
+  } else {
+    maxW = Math.max(stage.clientWidth || window.innerWidth - 48, 100);
+    maxH = Math.round(window.innerHeight * 0.8);
+  }
+
+  var scaleFit = Math.min(maxW / scene_map_width, maxH / scene_y_max);
+  if (!Number.isFinite(scaleFit) || scaleFit <= 0) {
+    return;
+  }
+
+  var displayW = Math.round(scene_map_width * scaleFit);
+  var displayH = Math.round(scene_y_max * scaleFit);
+  svg.setAttribute("width", displayW);
+  svg.setAttribute("height", displayH);
+  $(svg).width(displayW).height(displayH);
 }
 
 if (window.location.href.includes("/cam/calibrate/")) {
@@ -1112,11 +1178,7 @@ if (svgCanvas) {
     if (dragging || !adding) return;
     drawing = true;
 
-    var offset = $("#svgout").offset();
-    var thisPoint = [
-      parseInt(e.pageX - offset.left),
-      parseInt(e.pageY - offset.top),
-    ];
+    var thisPoint = svgPointerToScene(e);
 
     var circle;
 
@@ -1961,7 +2023,8 @@ $(document).ready(function () {
     // SVG scene implementation
     if (svgCanvas) {
       var $image = $("#map img");
-      var image_w = $image.width();
+      var imgEl = $image[0];
+      var image_w;
       var $rois = $("#id_rois");
       var $tripwires = $("#tripwires");
       var $child_rois = $("#id_child_rois");
@@ -1970,14 +2033,38 @@ $(document).ready(function () {
 
       var image_src = $image.attr("src");
 
-      // Save image height as global for use in plotting
-      scene_y_max = $image.height();
+      // Scene detail: keep SVG user units in native map pixels so metersToPixels
+      // (scene.scale) stays correct. Display size is handled by fitSceneMapDisplay().
+      if (
+        $image.closest(".scene-map-stage").length &&
+        !$("#map").hasClass("singletonCal") &&
+        imgEl &&
+        imgEl.naturalWidth > 0 &&
+        imgEl.naturalHeight > 0
+      ) {
+        image_w = imgEl.naturalWidth;
+        scene_y_max = imgEl.naturalHeight;
+      } else {
+        image_w = $image.width();
+        scene_y_max = $image.height();
+      }
+
+      scene_map_width = image_w;
       $image.remove();
 
       $("#svgout").width(image_w).height(scene_y_max);
+      if (isSceneDetailMap()) {
+        document
+          .getElementById("svgout")
+          .setAttribute("viewBox", "0 0 " + image_w + " " + scene_y_max);
+        document
+          .getElementById("svgout")
+          .setAttribute("preserveAspectRatio", "xMidYMid meet");
+      }
       var image = svgCanvas.image(image_src, 0, 0, image_w, scene_y_max);
 
       $("#svgout").show();
+      fitSceneMapDisplay();
 
       // Add circle for singleton sensors
       if ($("#map").hasClass("singletonCal")) {
@@ -2243,6 +2330,15 @@ $(document).ready(function () {
         .addClass("bi-fullscreen-exit");
       $btn.find(".sr-only").text("Exit full screen map view");
       fullscreen = true;
+    }
+    requestAnimationFrame(function () {
+      fitSceneMapDisplay();
+    });
+  });
+
+  $(window).on("resize", function () {
+    if (isSceneDetailMap()) {
+      fitSceneMapDisplay();
     }
   });
 
