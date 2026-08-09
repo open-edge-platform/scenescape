@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { TabItem } from "../components/Tabs";
+import { CameraStripEnhancer } from "./CameraStripEnhancer";
 import "../components/Tabs.css";
 import "./SceneSidePanel.css";
 
@@ -162,6 +163,7 @@ export function SceneSidePanel({ tabs }: Props) {
             className="ss-tabs-toolbar"
             data-active-tab={activeId}
           />
+          {activeId === "cameras" ? <CameraStripEnhancer /> : null}
         </div>
         <div className="ss-tabs-panels">
           <div ref={slotRef} className="ss-legacy-panels-slot" />
