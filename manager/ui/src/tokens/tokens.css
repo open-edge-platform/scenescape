@@ -32,4 +32,17 @@
   --ss-form-card-max: 48rem;
   --ss-form-card-max-wide: 64rem;
   --ss-field-max: 28rem;
+
+  /* Workspace type ramp (denser than marketing/home) */
+  --ss-type-workspace-title: 1.2rem;
+  --ss-type-workspace-section: 0.875rem;
+  --ss-type-workspace-body: 0.8125rem;
+  --ss-type-workspace-meta: 0.6875rem;
+  --ss-type-workspace-micro: 0.625rem;
+
+  /* Intentional motion (panel / strip / map focus) */
+  --ss-motion-fast: 120ms;
+  --ss-motion-base: 180ms;
+  --ss-motion-slow: 240ms;
+  --ss-motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }

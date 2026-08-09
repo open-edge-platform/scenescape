@@ -3,6 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+@keyframes ss-workspace-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .ss-workspace-panel {
   position: fixed;
   inset: 0;
@@ -10,18 +21,19 @@
   display: flex;
   flex-direction: column;
   background: var(--ss-surface, #f4f5f5);
-  animation: ss-workspace-panel-in 0.18s ease;
+  animation: ss-workspace-panel-in var(--ss-motion-base, 180ms)
+    var(--ss-motion-ease, ease) both;
 }
 
-@keyframes ss-workspace-panel-in {
-  from {
-    opacity: 0;
-    transform: translateY(0.35rem);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.ss-workspace-panel-title {
+  margin: 0;
+  font-family: var(--ss-font-heading);
+  font-size: var(--ss-type-workspace-title, 0.95rem);
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ss-workspace-panel-bar {
@@ -61,17 +73,6 @@
 .ss-workspace-panel-back:focus-visible {
   outline: 2px solid #fff;
   outline-offset: 2px;
-}
-
-.ss-workspace-panel-title {
-  margin: 0;
-  font-family: var(--ss-font-heading);
-  font-size: 0.95rem;
-  font-weight: 600;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .ss-workspace-panel-actions {

@@ -34,7 +34,8 @@
 }
 
 .ss-scene-detail--workspace .ss-page-title {
-  font-size: 1.35rem;
+  font-size: var(--ss-type-workspace-title, 1.2rem);
+  letter-spacing: -0.01em;
 }
 
 .ss-scene-detail--workspace .ss-page-header-actions {
@@ -239,6 +240,10 @@
   min-height: 0;
   height: var(--ss-panel-size, 14rem);
   max-height: var(--ss-panel-size, 14rem);
+  transition:
+    height var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease),
+    max-height var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease),
+    opacity var(--ss-motion-fast, 120ms) ease;
 }
 
 .ss-workspace--row .ss-scene-side {
@@ -249,6 +254,20 @@
   height: auto;
   max-height: none;
   align-self: stretch;
+  transition:
+    width var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease),
+    max-width var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease),
+    opacity var(--ss-motion-fast, 120ms) ease;
+}
+
+.ss-workspace-main {
+  transition: flex-basis var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease);
+}
+
+body.ss-workspace-resizing .ss-workspace--stack .ss-scene-side,
+body.ss-workspace-resizing .ss-workspace--row .ss-scene-side,
+body.ss-workspace-resizing .ss-workspace-main {
+  transition: none;
 }
 
 .ss-workspace-splitter {
