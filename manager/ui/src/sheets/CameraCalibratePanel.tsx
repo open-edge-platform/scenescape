@@ -360,7 +360,8 @@ export function CameraCalibratePanel({
           title="Advanced"
           description="Pipeline and decode options."
           collapsible
-          defaultOpen={false}
+          defaultOpen={hasAdvanced}
+          open={hasAdvanced}
         >
           <SelectField
             id="ss-cam-cal-cv"

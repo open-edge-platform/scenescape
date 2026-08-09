@@ -83,8 +83,8 @@ details.ss-form-section[open] {
   margin-top: 0.2rem;
 }
 
-details.ss-form-section > .ss-form-section-body {
-  margin-top: 0.85rem;
+details.ss-form-section.is-forced-open > .ss-form-section-summary .ss-form-section-title {
+  color: var(--ss-status-bad);
 }
 
 /* Tight cluster of related fields (e.g. translation X/Y/Z) */

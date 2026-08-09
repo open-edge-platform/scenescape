@@ -137,6 +137,26 @@ export function SceneManagePanel({
 
   const markDirty = () => setDirty(true);
 
+  const poseNonDefault =
+    meshTranslation.join(",") !== "0,0,0" ||
+    meshRotation.join(",") !== "0,0,0" ||
+    meshScale.join(",") !== "1,1,1";
+  const autoCalActive = cameraCalibration !== "Manual";
+  const geoRelevant =
+    mapType === "geospatial_map" ||
+    outputLla === "true" ||
+    Boolean(mapCornersLla.trim()) ||
+    Boolean(mapCenterLat.trim()) ||
+    Boolean(mapCenterLng.trim());
+  const geoError =
+    Boolean(error) &&
+    /corner|lla|geo|map.?center|bearing|provider/i.test(error || "");
+  const poseError =
+    Boolean(error) && /translation|rotation|mesh|pose|scale_[xyz]/i.test(error || "");
+  const autoCalError =
+    Boolean(error) &&
+    /calibration|apriltag|localization|feature|inlier|match/i.test(error || "");
+
   useEffect(() => {
     if (!open || !sceneId) {
       return;
@@ -504,7 +524,8 @@ export function SceneManagePanel({
           title="Geospatial settings"
           description="WGS84 corners and LLA output for Mapbox / Google Maps scenes."
           collapsible
-          defaultOpen={mapType === "geospatial_map"}
+          open={geoRelevant || geoError}
+          forceOpen={geoError}
           className="ss-form-section--columns"
         >
           <SelectField
@@ -601,6 +622,8 @@ export function SceneManagePanel({
           title="Pose"
           description="Translation, rotation, and scale applied to the scene map mesh (.glb)."
           collapsible
+          open={poseNonDefault || poseError}
+          forceOpen={poseError}
           className="ss-form-section--columns"
         >
           <TextField
@@ -673,6 +696,8 @@ export function SceneManagePanel({
           title="Auto-calibration"
           description="Feature matching and marker settings for camera auto-calibration."
           collapsible
+          open={autoCalActive || autoCalError}
+          forceOpen={autoCalError}
         >
           <SelectField
             id="ss-scene-manage-cal-type"
