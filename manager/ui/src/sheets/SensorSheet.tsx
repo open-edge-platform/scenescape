@@ -7,6 +7,7 @@ import { TextField } from "../components/TextField";
 import { SelectField } from "../components/SelectField";
 import { Button } from "../components/Button";
 import { FormSection } from "../components/FormSection";
+import { useFormDirty } from "../components/useFormDirty";
 import { api, type RestError } from "../lib/rest";
 import { useAppToast } from "../components/ToastProvider";
 
@@ -45,6 +46,8 @@ export function SensorSheet({
   const [singletonType, setSingletonType] = useState("environmental");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(mode === "create");
+  const { dirty, markDirty, resetDirty } = useFormDirty(loaded);
 
   useEffect(() => {
     if (!open) {
@@ -52,12 +55,15 @@ export function SensorSheet({
     }
     setError(null);
     setScene(sceneId);
+    resetDirty();
     if (mode === "create") {
       setSensorId("");
       setName("");
       setSingletonType("environmental");
+      setLoaded(true);
       return;
     }
+    setLoaded(false);
     if (!sensorUid) {
       return;
     }
@@ -75,6 +81,8 @@ export function SensorSheet({
         if (s.scene) {
           setScene(String(s.scene));
         }
+        setLoaded(true);
+        resetDirty();
       })
       .catch((e: RestError) => {
         if (!cancelled) {
@@ -89,7 +97,7 @@ export function SensorSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, mode, sensorUid, authToken, sceneId]);
+  }, [open, mode, sensorUid, authToken, sceneId, resetDirty]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -113,6 +121,7 @@ export function SensorSheet({
         await api.updateSensor(authToken, sensorUid, payload);
         toast.show("Sensor updated", "ok");
       }
+      resetDirty();
       onSaved();
       onClose();
     } catch (err) {
@@ -127,6 +136,7 @@ export function SensorSheet({
       open={open}
       title={mode === "create" ? "New sensor" : "Edit sensor"}
       onClose={onClose}
+      dirty={dirty}
       footer={
         <>
           <Button variant="secondary" disabled={busy} onClick={onClose}>
@@ -134,11 +144,19 @@ export function SensorSheet({
           </Button>
           <Button
             variant="primary"
-            disabled={busy}
+            disabled={busy || !dirty}
             form="ss-sensor-sheet-form"
             type="submit"
+            title={dirty ? "Save changes" : "No unsaved changes"}
+            className={dirty ? "ss-btn--dirty" : undefined}
           >
-            {busy ? "Saving…" : mode === "create" ? "Add sensor" : "Save"}
+            {busy
+              ? "Saving…"
+              : mode === "create"
+                ? "Add sensor"
+                : dirty
+                  ? "Save"
+                  : "Saved"}
           </Button>
         </>
       }
@@ -159,7 +177,10 @@ export function SensorSheet({
               id="ss-sensor-scene"
               label="Scene"
               value={scene}
-              onChange={(ev) => setScene(ev.target.value)}
+              onChange={(ev) => {
+                setScene(ev.target.value);
+                markDirty();
+              }}
               required
               disabled={busy}
             >
@@ -181,7 +202,10 @@ export function SensorSheet({
             id="ss-sensor-id"
             label="Sensor ID"
             value={sensorId}
-            onChange={(ev) => setSensorId(ev.target.value)}
+            onChange={(ev) => {
+              setSensorId(ev.target.value);
+              markDirty();
+            }}
             required
             disabled={busy}
           />
@@ -189,7 +213,10 @@ export function SensorSheet({
             id="ss-sensor-name"
             label="Name"
             value={name}
-            onChange={(ev) => setName(ev.target.value)}
+            onChange={(ev) => {
+              setName(ev.target.value);
+              markDirty();
+            }}
             required
             disabled={busy}
           />
@@ -197,7 +224,10 @@ export function SensorSheet({
             id="ss-sensor-type"
             label="Type"
             value={singletonType}
-            onChange={(ev) => setSingletonType(ev.target.value)}
+            onChange={(ev) => {
+              setSingletonType(ev.target.value);
+              markDirty();
+            }}
             disabled={busy}
           >
             {TYPES.map((t) => (

@@ -360,8 +360,7 @@ export function CameraCalibratePanel({
           title="Advanced"
           description="Pipeline and decode options."
           collapsible
-          defaultOpen={hasAdvanced}
-          open={hasAdvanced}
+          defaultOpen={false}
         >
           <SelectField
             id="ss-cam-cal-cv"
@@ -430,11 +429,13 @@ export function CameraCalibratePanel({
       actions={
         <Button
           variant="primary"
-          disabled={busy || !loaded}
+          disabled={busy || !loaded || !dirty}
           form="ss-cam-calibrate-form"
           type="submit"
+          title={dirty ? "Save changes" : "No unsaved changes"}
+          className={dirty ? "ss-btn--dirty" : undefined}
         >
-          {busy ? "Saving…" : "Save"}
+          {busy ? "Saving…" : dirty ? "Save" : "Saved"}
         </Button>
       }
     >

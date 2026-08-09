@@ -26,7 +26,7 @@ export function SelectField({
       <div className="ss-text-field-control">
         <select
           id={id}
-          className={`ss-select-field ${className}`.trim()}
+          className={`form-control ss-select-field ${className}`.trim()}
           {...rest}
         >
           {children}

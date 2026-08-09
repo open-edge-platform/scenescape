@@ -142,7 +142,6 @@ export function SceneManagePanel({
     meshTranslation.join(",") !== "0,0,0" ||
     meshRotation.join(",") !== "0,0,0" ||
     meshScale.join(",") !== "1,1,1";
-  const autoCalActive = cameraCalibration !== "Manual";
   const geoRelevant =
     mapType === "geospatial_map" ||
     outputLla === "true" ||
@@ -157,6 +156,8 @@ export function SceneManagePanel({
   const autoCalError =
     Boolean(error) &&
     /calibration|apriltag|localization|feature|inlier|match/i.test(error || "");
+
+  const sectionKey = loading ? "loading" : "ready";
 
   useEffect(() => {
     if (!open || !sceneId) {
@@ -395,9 +396,11 @@ export function SceneManagePanel({
           variant="primary"
           type="submit"
           form={FORM_ID}
-          disabled={busy || loading}
+          disabled={busy || loading || !dirty}
+          title={dirty ? "Save changes" : "No unsaved changes"}
+          className={dirty ? "ss-btn--dirty" : undefined}
         >
-          {busy && !loading ? "Saving…" : "Save"}
+          {busy && !loading ? "Saving…" : dirty ? "Save" : "Saved"}
         </Button>
       }
     >
@@ -519,12 +522,12 @@ export function SceneManagePanel({
         </FormSection>
 
         <FormSection
-          key={`geo-${mapType}`}
+          key={`geo-${sectionKey}-${mapType}`}
           id="ss-scene-manage-geo"
           title="Geospatial settings"
           description="WGS84 corners and LLA output for Mapbox / Google Maps scenes."
           collapsible
-          open={geoRelevant || geoError}
+          defaultOpen={!loading && geoRelevant}
           forceOpen={geoError}
           className="ss-form-section--columns"
         >
@@ -618,11 +621,12 @@ export function SceneManagePanel({
         </FormSection>
 
         <FormSection
+          key={`pose-${sectionKey}`}
           id="ss-scene-manage-pose"
           title="Pose"
           description="Translation, rotation, and scale applied to the scene map mesh (.glb)."
           collapsible
-          open={poseNonDefault || poseError}
+          defaultOpen={!loading && poseNonDefault}
           forceOpen={poseError}
           className="ss-form-section--columns"
         >
@@ -692,11 +696,12 @@ export function SceneManagePanel({
         </FormSection>
 
         <FormSection
+          key={`autocal-${sectionKey}`}
           id="ss-scene-manage-autocal"
           title="Auto-calibration"
           description="Feature matching and marker settings for camera auto-calibration."
           collapsible
-          open={autoCalActive || autoCalError}
+          defaultOpen={false}
           forceOpen={autoCalError}
         >
           <SelectField

@@ -22,6 +22,24 @@ type Props = {
   initialTripwires: TripwireLoadJson[];
 };
 
+function syncLegacySave(id: string, dirty: boolean): void {
+  const el = document.getElementById(id) as
+    | HTMLButtonElement
+    | HTMLInputElement
+    | null;
+  if (!el) {
+    return;
+  }
+  el.disabled = !dirty;
+  el.setAttribute("aria-disabled", dirty ? "false" : "true");
+  el.title = dirty ? "Save unsaved changes" : "No unsaved changes";
+  el.classList.toggle("ss-save-clean", !dirty);
+  el.classList.toggle("ss-save-dirty", dirty);
+}
+
+/**
+ * React ROI / tripwire field cards. Tracks dirty state for legacy Save buttons.
+ */
 export function RoiTripwireEditors({
   sceneId,
   isSuperuser,
@@ -38,11 +56,47 @@ export function RoiTripwireEditors({
       .map((t) => tripwireFromLoad(t, sceneId))
       .filter((t): t is TripwireEntity => Boolean(t)),
   );
+  const [roiDirty, setRoiDirty] = useState(false);
+  const [tripDirty, setTripDirty] = useState(false);
 
   const roisRef = useRef(rois);
   const tripsRef = useRef(tripwires);
   roisRef.current = rois;
   tripsRef.current = tripwires;
+
+  useEffect(() => {
+    syncLegacySave("save-rois", roiDirty);
+  }, [roiDirty]);
+
+  useEffect(() => {
+    syncLegacySave("save-trips", tripDirty);
+  }, [tripDirty]);
+
+  useEffect(() => {
+    /* Baseline hidden JSON after legacy map init; then watch for geometry edits. */
+    const roiInput = document.getElementById("id_rois") as HTMLInputElement | null;
+    const tripInput = document.getElementById(
+      "tripwires",
+    ) as HTMLInputElement | null;
+    let roiBase = roiInput?.value ?? "";
+    let tripBase = tripInput?.value ?? "";
+    const arm = window.setTimeout(() => {
+      roiBase = roiInput?.value ?? "";
+      tripBase = tripInput?.value ?? "";
+    }, 1200);
+    const poll = window.setInterval(() => {
+      if (roiInput && roiInput.value !== roiBase) {
+        setRoiDirty(true);
+      }
+      if (tripInput && tripInput.value !== tripBase) {
+        setTripDirty(true);
+      }
+    }, 600);
+    return () => {
+      window.clearTimeout(arm);
+      window.clearInterval(poll);
+    };
+  }, []);
 
   useEffect(() => {
     const addRoi = (payload: Partial<RoiEntity> & { svgId: string; uuid: string }) => {
@@ -69,6 +123,7 @@ export function RoiTripwireEditors({
           },
         ];
       });
+      setRoiDirty(true);
       window.requestAnimationFrame(() => {
         window.numberRois?.();
       });
@@ -93,6 +148,7 @@ export function RoiTripwireEditors({
           },
         ];
       });
+      setTripDirty(true);
       window.requestAnimationFrame(() => {
         window.numberTripwires?.();
       });
@@ -212,11 +268,12 @@ export function RoiTripwireEditors({
                   roi={roi}
                   index={index}
                   isSuperuser={isSuperuser}
-                  onChange={(next) =>
+                  onChange={(next) => {
+                    setRoiDirty(true);
                     setRois((prev) =>
                       prev.map((r) => (r.svgId === next.svgId ? next : r)),
-                    )
-                  }
+                    );
+                  }}
                   onRemove={removeRoi}
                 />
               ))}
@@ -233,11 +290,12 @@ export function RoiTripwireEditors({
                   tripwire={trip}
                   index={index}
                   isSuperuser={isSuperuser}
-                  onChange={(next) =>
+                  onChange={(next) => {
+                    setTripDirty(true);
                     setTripwires((prev) =>
                       prev.map((t) => (t.svgId === next.svgId ? next : t)),
-                    )
-                  }
+                    );
+                  }}
                   onRemove={removeTripwire}
                 />
               ))}

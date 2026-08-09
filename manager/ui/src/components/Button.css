@@ -74,3 +74,23 @@
   background: transparent;
   border-color: transparent;
 }
+
+.ss-btn:disabled,
+.ss-btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.ss-btn--dirty:not(:disabled) {
+  box-shadow: 0 0 0 1px color-mix(in srgb, #fff 35%, transparent);
+}
+
+.ss-btn--dirty:not(:disabled)::after {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: 0.15rem;
+  border-radius: 50%;
+  background: #ffcc33;
+}

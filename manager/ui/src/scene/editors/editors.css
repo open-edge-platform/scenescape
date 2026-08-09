@@ -37,6 +37,20 @@
   display: inline-block;
 }
 
+/* Legacy ROI/tripwire Save — gated until dirty */
+#save-rois.ss-save-clean,
+#save-trips.ss-save-clean,
+#save-rois:disabled,
+#save-trips:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#save-rois.ss-save-dirty,
+#save-trips.ss-save-dirty {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ss-brand) 35%, transparent);
+}
+
 .ss-editor-sectors {
   margin-top: 0.55rem;
 }

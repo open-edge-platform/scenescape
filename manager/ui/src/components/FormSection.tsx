@@ -10,10 +10,9 @@ type Props = {
   children: ReactNode;
   /** When true, renders a native <details> disclosure (advanced / optional). */
   collapsible?: boolean;
+  /** Initial open state only — user can still collapse/expand afterward. */
   defaultOpen?: boolean;
-  /** Controlled open state (wins over defaultOpen when provided). */
-  open?: boolean;
-  /** Expand when true (e.g. validation errors in this section). */
+  /** Expand when true (e.g. validation errors). Does not lock the section open. */
   forceOpen?: boolean;
   className?: string;
   id?: string;
@@ -29,7 +28,6 @@ export function FormSection({
   children,
   collapsible = false,
   defaultOpen = false,
-  open,
   forceOpen = false,
   className = "",
   id,
@@ -38,20 +36,31 @@ export function FormSection({
   const descId = id && description ? `${id}-desc` : undefined;
   const extra = className.trim();
   const detailsRef = useRef<HTMLDetailsElement>(null);
-
-  const resolvedOpen =
-    forceOpen || (open !== undefined ? open : defaultOpen || undefined);
+  const forcedRef = useRef(false);
 
   useEffect(() => {
     if (!collapsible || !detailsRef.current) {
       return;
     }
-    if (forceOpen) {
+    /* Uncontrolled <details>: set initial open via DOM, not a React `open` prop
+     * (a persistent open={true} prop locks the accordion open). */
+    if (defaultOpen) {
       detailsRef.current.open = true;
-    } else if (open !== undefined) {
-      detailsRef.current.open = open;
     }
-  }, [collapsible, forceOpen, open]);
+  }, [collapsible, defaultOpen]);
+
+  useEffect(() => {
+    if (!collapsible || !detailsRef.current) {
+      return;
+    }
+    if (forceOpen && !forcedRef.current) {
+      detailsRef.current.open = true;
+      forcedRef.current = true;
+    }
+    if (!forceOpen) {
+      forcedRef.current = false;
+    }
+  }, [collapsible, forceOpen]);
 
   if (collapsible) {
     return (
@@ -59,7 +68,6 @@ export function FormSection({
         ref={detailsRef}
         id={id}
         className={`ss-form-section ss-form-section--collapsible${extra ? ` ${extra}` : ""}${forceOpen ? " is-forced-open" : ""}`}
-        open={resolvedOpen || undefined}
       >
         <summary className="ss-form-section-summary">
           <span className="ss-form-section-title" id={titleId}>

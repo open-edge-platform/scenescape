@@ -141,11 +141,19 @@ export function CameraSheet({
           </Button>
           <Button
             variant="primary"
-            disabled={busy}
+            disabled={busy || !dirty}
             form="ss-cam-sheet-form"
             type="submit"
+            title={dirty ? "Save changes" : "No unsaved changes"}
+            className={dirty ? "ss-btn--dirty" : undefined}
           >
-            {busy ? "Saving…" : mode === "create" ? "Add camera" : "Save"}
+            {busy
+              ? "Saving…"
+              : mode === "create"
+                ? "Add camera"
+                : dirty
+                  ? "Save"
+                  : "Saved"}
           </Button>
         </>
       }
