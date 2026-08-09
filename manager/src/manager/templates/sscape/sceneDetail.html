@@ -107,21 +107,6 @@ SPDX-License-Identifier: Apache-2.0
           <input
             type="checkbox"
             class="custom-control-input"
-            id="show-telemetry"
-            aria-labelledby="show-telemetry-label"
-          />
-          <label
-            class="custom-control-label"
-            for="show-telemetry"
-            title="Toggle Show Telemetry"
-            id="show-telemetry-label"
-            >Show&nbsp;Telemetry</label
-          >
-        </div>
-        <div class="custom-control custom-switch switch">
-          <input
-            type="checkbox"
-            class="custom-control-input"
             id="coloring-switch"
             aria-labelledby="coloring-switch-label"
           />
@@ -319,6 +304,21 @@ SPDX-License-Identifier: Apache-2.0
                 title="Toggle Live View"
                 id="live-view-label"
                 >Live&nbsp;View</label
+              >
+            </div>
+            <div class="custom-control custom-switch switch scene-detail-live-toggle">
+              <input
+                type="checkbox"
+                class="custom-control-input"
+                id="show-telemetry"
+                aria-labelledby="show-telemetry-label"
+              />
+              <label
+                class="custom-control-label"
+                for="show-telemetry"
+                title="Toggle Show Telemetry"
+                id="show-telemetry-label"
+                >Show&nbsp;Telemetry</label
               >
             </div>
             {% if user.is_superuser %}

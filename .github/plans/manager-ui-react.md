@@ -60,6 +60,24 @@ token names during the React extraction) so theming stays one-way syncable.
 - **Toasts / notices**: quiet, consistent 2D treatment (do not restyle 3D toasts
   under this plan).
 
+### 2.2.1 Form field width (ViPPET / Geti practice)
+
+Neither ViPPET nor Geti (Adobe Spectrum) stretch short text fields across the
+full viewport. Forms live in a **readable content column**; field width tracks
+expected content, not browser width.
+
+| Cue | Direction |
+| --- | --------- |
+| Default form card | Cap at ~`48rem` (`.ss-form-card`) — room for label track + field |
+| Label column | Fixed track (~`10.5–12.5rem`), left-aligned; do **not** rely on Bootstrap `col-sm-2` percentages inside a capped card (they scrunch labels) |
+| Short fields (name, ID, selects) | Cap inputs at ~`28rem` inside the card |
+| Wide editors (maps, geospatial, long pipelines) | Opt in with `.ss-form-card--wide` (~`64rem`); textareas may use the card width |
+| Geti / Spectrum reference | Form `maxWidth` ~`300–320px` / `size-3000` for simple stacks; Scenescape side-label rows need a wider card + dedicated label track, **not** fluid full-bleed |
+| Anti-pattern | Uncapped `col-sm-10` inputs across `container-fluid`, or percentage label cols inside a narrow max-width card |
+
+React forms should use the same caps via tokens / layout primitives (`FormCard`
+default vs `wide`), not page-level `width: 100%` on every `TextField`.
+
 ### 2.3 Scene detail workspace (canonical 2D layout)
 
 The scene detail page is the reference composition for live 2D work:
@@ -100,6 +118,7 @@ The scene detail page is the reference composition for live 2D work:
 - Cards in the filmstrip should be readable (comfortable preview height/width),
   not postage stamps — horizontal scroll is acceptable; crushing the preview is not.
 - Do not import 3D “glass / lil-gui” aesthetics into 2D Manager.
+- Do not stretch admin form inputs to the viewport edge (§2.2.1).
 
 ### 2.5 What we are aligning *to*
 
@@ -235,6 +254,7 @@ Use on Manager 2D changes (React or transitional CSS):
 - [ ] Uses platform tokens (no one-off purple/cream/dark themes).
 - [ ] Primary button reserved for primary actions.
 - [ ] Help is quiet (icon/link), not a competing CTA.
+- [ ] Form cards/fields use capped readable widths (§2.2.1); wide opt-in only when needed.
 - [ ] Scene workspace: single scroll in side tab body on desktop.
 - [ ] Filmstrip cameras remain correlated under the map.
 - [ ] Side editors are vertical-first; no horizontal control strips that clip.

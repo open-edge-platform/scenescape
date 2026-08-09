@@ -154,6 +154,15 @@ h6 {
   margin-bottom: 1.25rem;
 }
 
+/* Match form-card column so Delete/actions sit with the title, not viewport-right */
+.page-header:has(+ .ss-form-card) {
+  max-width: 48rem;
+}
+
+.page-header:has(+ .ss-form-card--wide) {
+  max-width: 64rem;
+}
+
 .page-header h2,
 .page-header .form-title {
   margin: 0;
@@ -170,9 +179,12 @@ h6 {
   align-items: center;
 }
 
-/* Form page chrome — create / update / delete */
+/* Form page chrome — create / update / delete
+   Cap column width like ViPPET / Geti (Spectrum) admin forms — not full viewport.
+   Use a fixed label track so Bootstrap col-sm-2 does not scrunch labels in the cap. */
 .ss-form-card {
   width: 100%;
+  max-width: 48rem;
   float: none;
   margin: 0 0 1.5rem;
   background-color: var(--ss-card-bg);
@@ -182,8 +194,77 @@ h6 {
   overflow: hidden;
 }
 
+/* Maps / geospatial / long pipeline-style editors that need more room */
+.ss-form-card--wide {
+  max-width: 64rem;
+}
+
 .ss-form-body {
   padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.ss-form-body form > .form-group.row {
+  display: grid;
+  grid-template-columns: minmax(10.5rem, 12.5rem) minmax(0, 1fr);
+  column-gap: 1rem;
+  align-items: start;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.ss-form-body form > .form-group.row > [class*="col-"] {
+  width: auto;
+  max-width: none;
+  flex: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.ss-form-body form > .form-group.row > .col-form-label,
+.ss-form-body form > .form-group.row > label.col-sm-2 {
+  text-align: left;
+  line-height: 1.35;
+  padding-top: 0.5rem;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.ss-form-body .form-control,
+.ss-form-body select.form-control,
+.ss-form-body .custom-select {
+  max-width: 28rem;
+  width: 100%;
+}
+
+.ss-form-body textarea.form-control {
+  max-width: 100%;
+}
+
+.ss-form-card--wide .ss-form-body form > .form-group.row {
+  grid-template-columns: minmax(11rem, 13rem) minmax(0, 1fr);
+}
+
+.ss-form-card--wide .ss-form-body .form-control,
+.ss-form-card--wide .ss-form-body select.form-control,
+.ss-form-card--wide .ss-form-body .custom-select {
+  max-width: 36rem;
+}
+
+.ss-form-card--wide .ss-form-body textarea.form-control {
+  max-width: 100%;
+}
+
+/* Camera / sensor calibrate metadata fields — same readable cap */
+#calibrate .card-body .form-control,
+#calibrate .card-body select.form-control,
+#calibrate .card-body .custom-select,
+#calibrate .sensor-cal-controls-body .form-control,
+#calibrate .sensor-cal-controls-body select.form-control {
+  max-width: 28rem;
+}
+
+#calibrate .card-body textarea.form-control {
+  max-width: min(48rem, 100%);
 }
 
 .ss-form-body > form > .form-group.row:last-child {
