@@ -219,18 +219,94 @@
   flex: 0 0 auto;
   width: 100%;
   min-height: 0;
-  /* Tab chrome + one compact camera card (name + thumb + controls) */
-  height: 14rem;
-  max-height: 14rem;
+  height: var(--ss-panel-size, 14rem);
+  max-height: var(--ss-panel-size, 14rem);
 }
 
 .ss-workspace--row .ss-scene-side {
-  min-width: 16rem;
-  width: auto;
-  max-width: min(26rem, 42vw);
+  flex: 0 0 auto;
+  min-width: 0;
+  width: var(--ss-panel-size, 20rem);
+  max-width: min(var(--ss-panel-size, 20rem), 48vw);
   height: auto;
   max-height: none;
   align-self: stretch;
+}
+
+.ss-workspace-splitter {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+  background: transparent;
+  touch-action: none;
+}
+
+.ss-workspace-splitter--stack {
+  height: 0.35rem;
+  margin: -0.05rem 0;
+  cursor: row-resize;
+}
+
+.ss-workspace-splitter--row {
+  width: 0.35rem;
+  margin: 0 -0.05rem;
+  cursor: col-resize;
+}
+
+.ss-workspace-splitter::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ss-input-border) 70%, transparent);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.ss-workspace-splitter:hover::after,
+.ss-workspace-splitter:focus-visible::after,
+body.ss-workspace-resizing .ss-workspace-splitter::after {
+  opacity: 1;
+  background: var(--ss-brand);
+}
+
+.ss-workspace-splitter:focus-visible {
+  outline: none;
+}
+
+.ss-workspace-splitter[aria-disabled="true"] {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.ss-map-focus-btn {
+  margin-right: 0.35rem;
+  border: 1px solid var(--ss-input-border);
+  border-radius: var(--ss-radius);
+  background: #fff;
+}
+
+.ss-workspace--map-focus .ss-workspace-splitter,
+.ss-workspace--map-focus .ss-scene-side {
+  display: none;
+}
+
+.ss-workspace--map-focus .ss-workspace-main {
+  flex: 1 1 auto;
+}
+
+body.ss-workspace-resizing {
+  user-select: none;
+}
+
+@media (max-width: 719px) {
+  .ss-workspace-splitter {
+    display: none;
+  }
+
+  .ss-map-focus-btn {
+    display: none;
+  }
 }
 
 /* Panel headers emptied into the tab toolbar — hide leftover chrome */

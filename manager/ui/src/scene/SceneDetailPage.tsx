@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { PageHeader } from "../components/PageHeader";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/ToastProvider";
@@ -13,6 +13,8 @@ import { SceneWorkspaceSheets } from "../sheets/SceneWorkspaceSheets";
 import { postDjangoDelete } from "../lib/djangoDelete";
 import { useWorkspaceLayout } from "./useWorkspaceLayout";
 import type { WorkspaceLayoutMode } from "./useWorkspaceLayout";
+import { useWorkspaceDensity } from "./useWorkspaceDensity";
+import { WorkspaceSplitter } from "./WorkspaceSplitter";
 import type { SceneDetailBootstrap } from "./types";
 import type { TabItem } from "../components/Tabs";
 import "./SceneDetailPage.css";
@@ -54,6 +56,12 @@ const LAYOUT_OPTIONS: {
 function SceneDetailInner({ bootstrap }: Props) {
   const { scene, cameras, urls, isSuperuser } = bootstrap;
   const { layout, mode, setMode, autoLayout } = useWorkspaceLayout();
+  const {
+    panelSizePx,
+    setPanelSizePx,
+    mapFocus,
+    toggleMapFocus,
+  } = useWorkspaceDensity(layout);
   const [sceneRate, setSceneRate] = useState("--");
   const [sceneDeleteOpen, setSceneDeleteOpen] = useState(false);
   const [sceneDeleteBusy, setSceneDeleteBusy] = useState(false);
@@ -79,6 +87,12 @@ function SceneDetailInner({ bootstrap }: Props) {
       window.removeEventListener("ss-telemetry-clear", onClear);
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window.fitSceneMapDisplay === "function") {
+      window.fitSceneMapDisplay();
+    }
+  }, [mapFocus, panelSizePx, layout]);
 
   const confirmSceneDelete = useCallback(async () => {
     if (!urls.sceneDelete) {
@@ -160,6 +174,21 @@ function SceneDetailInner({ bootstrap }: Props) {
           );
         })}
       </div>
+      <button
+        type="button"
+        className={`ss-layout-toggle-btn ss-map-focus-btn${mapFocus ? " is-active" : ""}`}
+        title={mapFocus ? "Show control panel (Esc)" : "Map only focus"}
+        aria-pressed={mapFocus}
+        onClick={toggleMapFocus}
+      >
+        <i
+          className={`bi ${mapFocus ? "bi-layout-sidebar" : "bi-arrows-fullscreen"}`}
+          aria-hidden="true"
+        />
+        <span className="ss-layout-toggle-label">
+          {mapFocus ? "Panel" : "Map"}
+        </span>
+      </button>
       <a
         className="btn btn-secondary btn-sm"
         id="export-scene"
@@ -207,9 +236,15 @@ function SceneDetailInner({ bootstrap }: Props) {
 
   return (
     <div
-      className={`ss-scene-detail ss-scene-detail--workspace ss-workspace--${layout}`}
+      className={`ss-scene-detail ss-scene-detail--workspace ss-workspace--${layout}${mapFocus ? " ss-workspace--map-focus" : ""}`}
       data-workspace-layout={layout}
       data-workspace-mode={mode}
+      data-map-focus={mapFocus ? "1" : "0"}
+      style={
+        {
+          "--ss-panel-size": `${panelSizePx}px`,
+        } as CSSProperties
+      }
     >
       <PageHeader
         title={scene.name}
@@ -223,6 +258,12 @@ function SceneDetailInner({ bootstrap }: Props) {
         <div className="ss-workspace-main">
           <SceneMapPane />
         </div>
+        <WorkspaceSplitter
+          layout={layout}
+          panelSizePx={panelSizePx}
+          onResize={setPanelSizePx}
+          disabled={mapFocus}
+        />
         <SceneSidePanel tabs={tabs} />
       </div>
       <RoiTripwireEditors
