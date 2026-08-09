@@ -43,7 +43,7 @@ export function CameraSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(mode === "create");
-  const { markDirty, resetDirty } = useFormDirty(loaded);
+  const { dirty, markDirty, resetDirty } = useFormDirty(loaded);
 
   useEffect(() => {
     if (!open) {
@@ -133,6 +133,7 @@ export function CameraSheet({
       open={open}
       title={mode === "create" ? "New camera" : "Edit camera"}
       onClose={onClose}
+      dirty={dirty}
       footer={
         <>
           <Button variant="secondary" disabled={busy} onClick={onClose}>

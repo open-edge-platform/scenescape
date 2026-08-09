@@ -12,6 +12,11 @@ import { SceneManagePanel } from "./SceneManagePanel";
 import { CameraCalibratePanel } from "./CameraCalibratePanel";
 import { SensorCalibratePanel } from "./SensorCalibratePanel";
 
+/**
+ * Command surfaces: create sheets use Drawer (`chooseCommandSurface("simple")`);
+ * manage/calibrate use WorkspacePanel (`chooseCommandSurface("complex")`).
+ */
+
 type Props = {
   sceneId: string;
   authToken: string;

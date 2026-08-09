@@ -1,8 +1,16 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
+import { ConfirmDialog } from "./ConfirmDialog";
 import "./Drawer.css";
 import "./Button.css";
 
@@ -12,23 +20,42 @@ type Props = {
   children: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
+  dirty?: boolean;
+  leaveTitle?: string;
+  leaveBody?: string;
   onClose: () => void;
 };
 
-/** Right-side sheet for in-page create/edit (ViPPET-style). */
+/**
+ * Right-side command surface for simple create/edit sheets.
+ * Shares focus trap, Escape, and dirty-leave confirm with WorkspacePanel.
+ */
 export function Drawer({
   open,
   title,
   children,
   footer,
   wide = false,
+  dirty = false,
+  leaveTitle = "Leave without saving?",
+  leaveBody = "You may have unsaved changes. Leave without saving?",
   onClose,
 }: Props) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [confirmClose, setConfirmClose] = useState(false);
+
+  const requestClose = useCallback(() => {
+    if (dirty) {
+      setConfirmClose(true);
+      return;
+    }
+    onClose();
+  }, [dirty, onClose]);
 
   useEffect(() => {
     if (!open) {
+      setConfirmClose(false);
       return;
     }
     const prev = document.body.style.overflow;
@@ -39,7 +66,7 @@ export function Drawer({
     ) as HTMLElement | null;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        requestClose();
         return;
       }
       if (e.key !== "Tab" || !panel) {
@@ -66,7 +93,7 @@ export function Drawer({
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose]);
+  }, [open, requestClose]);
 
   if (!open) {
     return null;
@@ -74,7 +101,7 @@ export function Drawer({
 
   return createPortal(
     <div className="ss-drawer-root is-open" role="presentation">
-      <div className="ss-drawer-backdrop" onClick={onClose} />
+      <div className="ss-drawer-backdrop" onClick={requestClose} />
       <aside
         className={`ss-drawer-panel${wide ? " ss-drawer-panel--wide" : ""}`}
         role="dialog"
@@ -90,7 +117,7 @@ export function Drawer({
             type="button"
             className="ss-drawer-close"
             aria-label="Close"
-            onClick={onClose}
+            onClick={requestClose}
           >
             ×
           </button>
@@ -98,6 +125,19 @@ export function Drawer({
         <div className="ss-drawer-body">{children}</div>
         {footer ? <div className="ss-drawer-footer">{footer}</div> : null}
       </aside>
+      <ConfirmDialog
+        open={confirmClose}
+        title={leaveTitle}
+        confirmLabel="Leave"
+        danger
+        onConfirm={() => {
+          setConfirmClose(false);
+          onClose();
+        }}
+        onCancel={() => setConfirmClose(false)}
+      >
+        <p>{leaveBody}</p>
+      </ConfirmDialog>
     </div>,
     document.body,
   );
