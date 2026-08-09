@@ -25,7 +25,7 @@
 
 .ss-camera-strip-controls {
   display: inline-flex;
-  align-items: center;
+  align-items: stretch;
   gap: 0;
   margin-left: 0.35rem;
   border: 1px solid var(--ss-input-border);
@@ -37,6 +37,8 @@
 
 .ss-camera-strip-fit {
   appearance: none;
+  flex: 1 1 0;
+  min-width: 0;
   margin: 0;
   padding: 0.2rem 0.45rem;
   border: 0;
@@ -47,6 +49,7 @@
   font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1.2;
+  text-align: center;
   cursor: pointer;
 }
 
@@ -57,6 +60,18 @@
 .ss-camera-strip-fit.is-active {
   color: #fff;
   background: var(--ss-brand);
+}
+
+/* Side layout: full-width equal toggle under the tab chrome */
+.ss-workspace--row .ss-tabs-chrome .ss-camera-strip-controls {
+  display: flex;
+  width: calc(100% - 1.3rem);
+  margin: 0 0.65rem 0.55rem;
+  box-sizing: border-box;
+}
+
+.ss-workspace--row .ss-camera-strip-fit {
+  padding: 0.35rem 0.5rem;
 }
 
 .ss-camera-strip .camera-card .card-header {
@@ -97,27 +112,62 @@
   background: color-mix(in srgb, var(--ss-status-bad) 8%, #fff);
 }
 
-/* Aspect-aware fit modes for stack strip */
-.ss-workspace--stack .ss-camera-strip[data-ss-camera-fit="contain"] .camera-card .card-image img,
-.ss-workspace--stack
+/* Shared image frame so object-fit has a box in both orientations */
+.ss-workspace--stack .ss-camera-strip .camera-card .card-image,
+.ss-workspace--row .ss-camera-strip .camera-card .card-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ss-surface) 70%, #fff);
+}
+
+.ss-workspace--row .ss-camera-strip .camera-card .card-image {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  min-height: 7rem;
+}
+
+.ss-workspace--row .ss-camera-strip .camera-card .card-image a.snapshot-image,
+.ss-workspace--row .ss-camera-strip .camera-card .card-image a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Aspect-aware fit modes (Below + Side) */
+.ss-scene-detail--workspace
+  .ss-camera-strip[data-ss-camera-fit="contain"]
+  .camera-card
+  .card-image
+  img,
+.ss-scene-detail--workspace
   .ss-camera-strip[data-ss-camera-fit="contain"]
   .camera-card
   .snapshot-image
   img {
-  object-fit: contain;
-  width: auto;
+  object-fit: contain !important;
+  width: auto !important;
+  height: auto !important;
   max-width: 100%;
   max-height: 100%;
 }
 
-.ss-workspace--stack .ss-camera-strip[data-ss-camera-fit="cover"] .camera-card .card-image img,
-.ss-workspace--stack
+.ss-scene-detail--workspace
+  .ss-camera-strip[data-ss-camera-fit="cover"]
+  .camera-card
+  .card-image
+  img,
+.ss-scene-detail--workspace
   .ss-camera-strip[data-ss-camera-fit="cover"]
   .camera-card
   .snapshot-image
   img {
-  object-fit: cover;
-  width: 100%;
+  object-fit: cover !important;
+  width: 100% !important;
   height: 100% !important;
   max-width: none;
   max-height: none;
