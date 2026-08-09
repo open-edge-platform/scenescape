@@ -1,0 +1,12 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-scene-map-pane {
+  min-width: 0;
+}
+
+.ss-scene-map-slot {
+  min-width: 0;
+}

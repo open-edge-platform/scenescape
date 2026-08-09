@@ -1,0 +1,24 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Saved</title>
+  </head>
+  <body>
+    <p>Saved.</p>
+    <script>
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(
+          { type: "ss-calibrate-done", reload: true },
+          window.location.origin,
+        );
+      } else {
+        window.location.href = "/";
+      }
+    </script>
+  </body>
+</html>

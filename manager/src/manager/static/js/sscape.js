@@ -31,6 +31,19 @@ import {
 
 var svgCanvas = Snap("#svgout");
 import RESTClient from "/static/js/restclient.js";
+
+// Prefer React toast host when present (ViPPET in-page flows).
+(function bridgeAlertToToast() {
+  const nativeAlert = window.alert.bind(window);
+  window.alert = function (msg) {
+    if (window.ssToast && typeof window.ssToast.show === "function") {
+      window.ssToast.show(String(msg), "info");
+      return;
+    }
+    nativeAlert(msg);
+  };
+})();
+
 var points, maps, rois, tripwires, child_rois, child_tripwires, child_sensors;
 var dragging, drawing, adding, editing, fullscreen;
 var g;
@@ -124,6 +137,7 @@ function fitSceneMapDisplay() {
     maxW = Math.max(stage.clientWidth || window.innerWidth - 24, 100);
     maxH = Math.max(window.innerHeight - 96, 200);
   } else {
+    // Scene detail (Django or React classic shell): ~80vh map peek.
     maxW = Math.max(stage.clientWidth || window.innerWidth - 48, 100);
     maxH = Math.round(window.innerHeight * 0.8);
   }
@@ -139,6 +153,8 @@ function fitSceneMapDisplay() {
   svg.setAttribute("height", displayH);
   $(svg).width(displayW).height(displayH);
 }
+
+window.fitSceneMapDisplay = fitSceneMapDisplay;
 
 if (window.location.href.includes("/cam/calibrate/")) {
   // distortion available only for supporting video analytics microservice
@@ -242,6 +258,19 @@ async function checkBrokerConnections() {
       $("[id^='mqtt_status']").removeClass("connected");
       $(".rate").text("--");
       $("#scene-rate").text("--");
+      if (
+        window.ssSceneTelemetry &&
+        typeof window.ssSceneTelemetry.clearRates === "function"
+      ) {
+        window.ssSceneTelemetry.clearRates();
+      }
+      if (
+        window.ssSceneTelemetry &&
+        typeof window.ssSceneTelemetry.setSceneRate === "function"
+      ) {
+        window.ssSceneTelemetry.setSceneRate("--");
+      }
+      window.dispatchEvent(new CustomEvent("ss-telemetry-clear"));
     });
 
     client.on("message", function (topic, data) {
@@ -259,20 +288,45 @@ async function checkBrokerConnections() {
           if (msg.rate && typeof msg.rate === "object") {
             for (const [key, value] of Object.entries(msg.rate)) {
               var rateEl = document.getElementById("rate-" + key);
-              if (!rateEl) {
-                continue;
-              }
               var fps = Number(value);
-              rateEl.innerText =
+              var rateText =
                 (Number.isFinite(fps) ? fps.toFixed(2) : "--") + " FPS";
+              if (rateEl) {
+                rateEl.innerText = rateText;
+              }
+              if (
+                window.ssSceneTelemetry &&
+                typeof window.ssSceneTelemetry.setCameraRate === "function"
+              ) {
+                window.ssSceneTelemetry.setCameraRate(key, rateText);
+              }
+              window.dispatchEvent(
+                new CustomEvent("ss-camera-rate", {
+                  detail: { sensorId: key, text: rateText },
+                }),
+              );
             }
           }
 
           // Show the scene controller update rate
           var sceneRateEl = document.getElementById("scene-rate");
           var sceneRate = Number(msg.scene_rate);
-          if (sceneRateEl && Number.isFinite(sceneRate)) {
-            sceneRateEl.innerText = sceneRate.toFixed(1);
+          if (Number.isFinite(sceneRate)) {
+            var sceneRateText = sceneRate.toFixed(1);
+            if (sceneRateEl) {
+              sceneRateEl.innerText = sceneRateText;
+            }
+            if (
+              window.ssSceneTelemetry &&
+              typeof window.ssSceneTelemetry.setSceneRate === "function"
+            ) {
+              window.ssSceneTelemetry.setSceneRate(sceneRateText);
+            }
+            window.dispatchEvent(
+              new CustomEvent("ss-scene-rate", {
+                detail: { hz: sceneRateText },
+              }),
+            );
           }
         }
 
@@ -356,8 +410,19 @@ async function checkBrokerConnections() {
       } else if (topic.includes(DATA_CAMERA)) {
         var id = topic.slice(topic.lastIndexOf("/") + 1);
         var camFps = Number(msg.rate);
-        $("#rate-" + id).text(
-          (Number.isFinite(camFps) ? camFps.toFixed(2) : "--") + " FPS",
+        var camRateText =
+          (Number.isFinite(camFps) ? camFps.toFixed(2) : "--") + " FPS";
+        $("#rate-" + id).text(camRateText);
+        if (
+          window.ssSceneTelemetry &&
+          typeof window.ssSceneTelemetry.setCameraRate === "function"
+        ) {
+          window.ssSceneTelemetry.setCameraRate(id, camRateText);
+        }
+        window.dispatchEvent(
+          new CustomEvent("ss-camera-rate", {
+            detail: { sensorId: id, text: camRateText },
+          }),
         );
         $("#updated-" + id).text(msg.timestamp);
       } else if (topic.includes("/child/status")) {
@@ -534,6 +599,8 @@ function numberRois() {
   numberTabs();
 }
 
+window.numberRois = numberRois;
+
 function numberTripwires() {
   var groups = svgCanvas.selectAll("g.tripwire");
 
@@ -575,6 +642,8 @@ function numberTripwires() {
   numberTabs();
 }
 
+window.numberTripwires = numberTripwires;
+
 // Show number of child cards in a tab
 function numberTabs() {
   $(".show-count").each(function () {
@@ -590,7 +659,7 @@ function stringifyRois() {
 
   groups.forEach(function (g) {
     var i = g.attr("id");
-    var title = $("#form-" + i + " input").val();
+    var title = $("#form-" + i + " input.roi-title").val();
     var p = g.select("polygon");
     var region_uuid = i.split("_")[1];
     points = p.attr("points");
@@ -659,13 +728,15 @@ function stringifyRois() {
   $("#id_rois").val(JSON.stringify(rois));
 }
 
+window.stringifyRois = stringifyRois;
+
 function stringifyTripwires() {
   tripwires = [];
   var groups = svgCanvas.selectAll(".tripwire");
 
   groups.forEach(function (g) {
     var i = g.attr("id");
-    var title = $("#form-" + i + " input").val();
+    var title = $("#form-" + i + " input.tripwire-title").val();
     var l = g.select(".tripline");
     var trip_uuid = i.split("_")[1];
 
@@ -693,6 +764,8 @@ function stringifyTripwires() {
   // Update hidden field
   $("#tripwires").val(JSON.stringify(tripwires));
 }
+
+window.stringifyTripwires = stringifyTripwires;
 
 function stringifySingletonColorRange() {
   let color_ranges = [];
@@ -785,12 +858,28 @@ function closePolygon() {
   drawing = false;
 
   if (!$("#map").hasClass("singletonCal")) {
-    $("#roi-template")
-      .clone(true)
-      .removeAttr("id")
-      .attr("id", "form-" + i)
-      .attr("for", i)
-      .appendTo("#roi-fields");
+    var roiFormPayload = {
+      svgId: i,
+      uuid: i.split("_")[1],
+      title: "",
+    };
+    if (
+      window.ssRoiEditors &&
+      typeof window.ssRoiEditors.addRoi === "function"
+    ) {
+      window.ssRoiEditors.addRoi(roiFormPayload);
+    } else if (document.getElementById("ss-scene-detail-root")) {
+      window.dispatchEvent(
+        new CustomEvent("ss-roi-form-add", { detail: roiFormPayload }),
+      );
+    } else {
+      $("#roi-template")
+        .clone(true)
+        .removeAttr("id")
+        .attr("id", "form-" + i)
+        .attr("for", i)
+        .appendTo("#roi-fields");
+    }
 
     numberRois();
   }
@@ -971,30 +1060,57 @@ function newTripwire(e, index, type = "tripwire") {
     updateArrow(g);
 
     if (type == "tripwire") {
-      $("#tripwire-template")
-        .clone(true)
-        .attr({
-          id: "form-" + i,
-          for: i,
-        })
-        .appendTo("#tripwire-fields")
-        .find("input.tripwire-title")
-        .val(e.title)
-        .attr({
-          id: "input-" + i,
-          "aria-labelledby": "label-" + i,
-        })
-        .closest(".input-group")
-        .find("label")
-        .attr({
-          id: "label-" + i,
-          for: "input-" + i,
-        })
-        .closest(".input-group")
-        .find(".topic")
-        .text(
-          APP_NAME + "/event/tripwire/" + scene_id + "/" + index + "/objects",
-        );
+      if (document.getElementById("ss-scene-detail-root")) {
+        if (
+          window.ssRoiEditors &&
+          typeof window.ssRoiEditors.addTripwire === "function" &&
+          (!window.ssRoiEditors.hasTripwire ||
+            !window.ssRoiEditors.hasTripwire(i))
+        ) {
+          window.ssRoiEditors.addTripwire({
+            svgId: i,
+            uuid: String(index),
+            title: e.title || "",
+            topic:
+              APP_NAME +
+              "/event/tripwire/" +
+              scene_id +
+              "/" +
+              index +
+              "/objects",
+          });
+        }
+      } else {
+        $("#tripwire-template")
+          .clone(true)
+          .attr({
+            id: "form-" + i,
+            for: i,
+          })
+          .appendTo("#tripwire-fields")
+          .find("input.tripwire-title")
+          .val(e.title)
+          .attr({
+            id: "input-" + i,
+            "aria-labelledby": "label-" + i,
+          })
+          .closest(".input-group")
+          .find("label")
+          .attr({
+            id: "label-" + i,
+            for: "input-" + i,
+          })
+          .closest(".input-group")
+          .find(".topic")
+          .text(
+            APP_NAME +
+              "/event/tripwire/" +
+              scene_id +
+              "/" +
+              index +
+              "/objects",
+          );
+      }
     } else {
       var text = g.select("text");
       text.textContent = e.from_child_scene + " " + e.title;
@@ -1012,6 +1128,8 @@ function getRoiValues(id, roi) {
   }
   return cur_rois;
 }
+
+window.getRoiValues = getRoiValues;
 
 function find_duplicates(curr_roi) {
   const nameCounts = new Map();
@@ -1173,6 +1291,8 @@ function saveRois(roi_values) {
   }
 }
 
+window.saveRois = saveRois;
+
 if (svgCanvas) {
   svgCanvas.mouseup(function (e) {
     if (dragging || !adding) return;
@@ -1314,72 +1434,119 @@ function drawRoi(e, index, type) {
     }
 
     if (type == "roi") {
-      $("#roi-template")
-        .clone(true)
-        .attr({
-          id: "form-" + i,
-          for: i,
-        })
-        .appendTo("#roi-fields")
-        .find("input.roi-title")
-        .val(e.title)
-        .attr({
-          id: "input-" + i,
-          "aria-labelledby": "label-" + i,
-        })
-        .closest(".input-group")
-        .find("label")
-        .attr({
-          id: "label-" + i,
-          for: "input-" + i,
-        });
-
-      $("#form-" + i)
-        .find(".roi-topic > label")
-        .text("Topic:  ");
-      $("#form-" + i)
-        .find(".roi-topic > .topic-text")
-        .text(APP_NAME + "/event/region/" + scene_id + "/" + index + "/count");
-
-      // Set volumetric checkbox and related fields
-      if (e.volumetric !== undefined) {
-        $("#form-" + i)
-          .find(".roi-volumetric")
-          .prop("checked", e.volumetric);
-      }
-
-      // Set height field
-      if (e.height !== undefined) {
-        $("#form-" + i)
-          .find(".roi-height")
-          .val(e.height);
-      }
-
-      // Set buffer size field
-      if (e.buffer_size !== undefined) {
-        $("#form-" + i)
-          .find(".roi-buffer")
-          .val(e.buffer_size);
-      }
-      for (var sector in e.sectors.thresholds) {
-        var color = e.sectors.thresholds[sector].color;
-        var min = e.sectors.thresholds[sector].color_min;
-        $("#form-" + i)
-          .find("input." + color + "_min")
-          .val(min);
-      }
-      $("#form-" + i)
-        .find("input." + "range_max")
-        .val(e.sectors.range_max);
-
-      document.querySelectorAll(".topic-text").forEach((element) => {
-        element.addEventListener("click", () => {
-          const text = element.textContent;
-          if (navigator.clipboard !== undefined) {
-            navigator.clipboard.writeText(text);
+      // React scene-detail island owns editor cards (hydrated from bootstrap).
+      if (document.getElementById("ss-scene-detail-root")) {
+        if (
+          window.ssRoiEditors &&
+          typeof window.ssRoiEditors.addRoi === "function" &&
+          (!window.ssRoiEditors.hasRoi || !window.ssRoiEditors.hasRoi(i))
+        ) {
+          var greenMin = 0;
+          var yellowMin = 2;
+          var redMin = 5;
+          var rangeMax = 10;
+          if (e.sectors && e.sectors.thresholds) {
+            e.sectors.thresholds.forEach(function (sector) {
+              if (sector.color === "green") greenMin = Number(sector.color_min);
+              if (sector.color === "yellow")
+                yellowMin = Number(sector.color_min);
+              if (sector.color === "red") redMin = Number(sector.color_min);
+            });
+            if (e.sectors.range_max !== undefined) {
+              rangeMax = Number(e.sectors.range_max);
+            }
           }
+          window.ssRoiEditors.addRoi({
+            svgId: i,
+            uuid: index,
+            title: e.title || "",
+            volumetric: Boolean(e.volumetric),
+            height: e.height !== undefined ? Number(e.height) : 1.0,
+            buffer_size:
+              e.buffer_size !== undefined ? Number(e.buffer_size) : 0.0,
+            greenMin: greenMin,
+            yellowMin: yellowMin,
+            redMin: redMin,
+            rangeMax: rangeMax,
+            topic:
+              APP_NAME +
+              "/event/region/" +
+              scene_id +
+              "/" +
+              index +
+              "/count",
+          });
+        }
+      } else {
+        $("#roi-template")
+          .clone(true)
+          .attr({
+            id: "form-" + i,
+            for: i,
+          })
+          .appendTo("#roi-fields")
+          .find("input.roi-title")
+          .val(e.title)
+          .attr({
+            id: "input-" + i,
+            "aria-labelledby": "label-" + i,
+          })
+          .closest(".input-group")
+          .find("label")
+          .attr({
+            id: "label-" + i,
+            for: "input-" + i,
+          });
+
+        $("#form-" + i)
+          .find(".roi-topic > label")
+          .text("Topic:  ");
+        $("#form-" + i)
+          .find(".roi-topic > .topic-text")
+          .text(
+            APP_NAME + "/event/region/" + scene_id + "/" + index + "/count",
+          );
+
+        // Set volumetric checkbox and related fields
+        if (e.volumetric !== undefined) {
+          $("#form-" + i)
+            .find(".roi-volumetric")
+            .prop("checked", e.volumetric);
+        }
+
+        // Set height field
+        if (e.height !== undefined) {
+          $("#form-" + i)
+            .find(".roi-height")
+            .val(e.height);
+        }
+
+        // Set buffer size field
+        if (e.buffer_size !== undefined) {
+          $("#form-" + i)
+            .find(".roi-buffer")
+            .val(e.buffer_size);
+        }
+        for (var sector in e.sectors.thresholds) {
+          var color = e.sectors.thresholds[sector].color;
+          var min = e.sectors.thresholds[sector].color_min;
+          $("#form-" + i)
+            .find("input." + color + "_min")
+            .val(min);
+        }
+        $("#form-" + i)
+          .find("input." + "range_max")
+          .val(e.sectors.range_max);
+
+        document.querySelectorAll(".topic-text").forEach((element) => {
+          element.addEventListener("click", () => {
+            const text = element.textContent;
+            if (navigator.clipboard !== undefined) {
+              navigator.clipboard.writeText(text);
+            }
+          });
         });
-      });
+      }
     } else {
       var center = polyCenter(roi_points);
       var nameText = g.text(center[0], center[1], e.title).attr({ id: "name" });
@@ -1768,7 +1935,6 @@ $(document).ready(function () {
   const loginButton = document.getElementById("login-submit");
   const spinner = document.getElementById("login-spinner");
   const loginText = document.getElementById("login-text");
-  const exportScene = document.getElementById("export-scene");
   const importButton = document.getElementById("scene-import");
   const tokenElement = document.getElementById("auth-token");
 
@@ -1921,51 +2087,53 @@ $(document).ready(function () {
     };
   }
 
-  if (exportScene) {
-    exportScene.onclick = async function () {
-      const authToken = `Token ${tokenElement.value}`;
-      const restclient = new RESTClient(REST_URL, authToken);
-      try {
-        const response = await restclient.getScene(scene_id);
-        if (response.statusCode !== 200)
-          throw new Error("Failed to fetch scenes");
+  $(document).on("click", "#export-scene", async function (e) {
+    e.preventDefault();
+    if (!tokenElement) {
+      return;
+    }
+    const authToken = `Token ${tokenElement.value}`;
+    const restclient = new RESTClient(REST_URL, authToken);
+    try {
+      const response = await restclient.getScene(scene_id);
+      if (response.statusCode !== 200)
+        throw new Error("Failed to fetch scenes");
 
-        const scene = response.content;
-        const zip = new JSZip();
+      const scene = response.content;
+      const zip = new JSZip();
 
-        zip.file(scene.name + ".json", JSON.stringify(scene, null, 2));
-        const sceneName = scene.name.replace(/\s+/g, "_");
+      zip.file(scene.name + ".json", JSON.stringify(scene, null, 2));
+      const sceneName = scene.name.replace(/\s+/g, "_");
 
-        if (scene.map) {
-          try {
-            const mapBlob = await fetchFileAsBlob(scene.map);
-            const mapExt = scene.map.split(".").pop();
-            zip.file(`${sceneName}.${mapExt}`, mapBlob);
+      if (scene.map) {
+        try {
+          const mapBlob = await fetchFileAsBlob(scene.map);
+          const mapExt = scene.map.split(".").pop();
+          zip.file(`${sceneName}.${mapExt}`, mapBlob);
 
-            if (Array.isArray(scene.children)) {
-              for (const child of scene.children) {
-                const mapBlob = await fetchFileAsBlob(child.map);
-                const mapExt = child.map.split(".").pop();
-                zip.file(`${child.name}.${mapExt}`, mapBlob);
-              }
+          if (Array.isArray(scene.children)) {
+            for (const child of scene.children) {
+              const mapBlob = await fetchFileAsBlob(child.map);
+              const mapExt = child.map.split(".").pop();
+              zip.file(`${child.name}.${mapExt}`, mapBlob);
             }
-          } catch (err) {
-            console.warn(`Skipping map for ${sceneName}:`, err);
           }
+        } catch (err) {
+          console.warn(`Skipping map for ${sceneName}:`, err);
         }
-
-        // Download the zip
-        const zipBlob = await zip.generateAsync({ type: "blob" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(zipBlob);
-        link.download = scene.name + ".zip";
-        link.click();
-        URL.revokeObjectURL(link.href);
-      } catch (error) {
-        console.error("Error exporting scene:", error);
       }
-    };
-  }
+
+      // Download the zip
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = scene.name + ".zip";
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.error("Error exporting scene:", error);
+    }
+  });
   async function fetchFileAsBlob(url) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to fetch: ${url}`);
@@ -2352,6 +2520,19 @@ $(document).ready(function () {
     if (!show_telemetry) {
       $("#scene-rate").text("--");
       $(".rate").text("--");
+      if (
+        window.ssSceneTelemetry &&
+        typeof window.ssSceneTelemetry.clearRates === "function"
+      ) {
+        window.ssSceneTelemetry.clearRates();
+      }
+      if (
+        window.ssSceneTelemetry &&
+        typeof window.ssSceneTelemetry.setSceneRate === "function"
+      ) {
+        window.ssSceneTelemetry.setSceneRate("--");
+      }
+      window.dispatchEvent(new CustomEvent("ss-telemetry-clear"));
       document.querySelectorAll(".mark-tooltip").forEach(function (el) {
         el.classList.add("telemetry-hide");
       });

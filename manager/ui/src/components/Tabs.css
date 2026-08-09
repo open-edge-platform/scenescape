@@ -1,0 +1,163 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-tabs {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  background: var(--ss-card-bg);
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+  box-shadow: 0 1px 2px rgba(0, 30, 80, 0.06);
+  overflow: hidden;
+}
+
+.ss-tabs-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0;
+  margin: 0;
+  padding: 0 0.5rem;
+  border-bottom: 1px solid var(--ss-card-border);
+  background: color-mix(in srgb, var(--ss-surface) 65%, #fff);
+}
+
+.ss-tabs-tab {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--ss-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ss-tabs-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.ss-tabs-icon,
+.ss-tabs-tab .ss-tabs-icon.bi {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  margin: 0;
+  padding: 0;
+  font-size: 0.875rem;
+  line-height: 1;
+  opacity: 0.75;
+  color: inherit;
+}
+
+.ss-tabs-icon::before,
+.ss-tabs-tab .ss-tabs-icon.bi::before {
+  margin: 0;
+  padding: 0;
+}
+
+.ss-tabs-label {
+  display: inline-block;
+  line-height: 1.25;
+}
+
+.ss-tabs-count {
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  color: var(--ss-text-muted);
+  opacity: 0.85;
+}
+
+.ss-tabs-tab:hover,
+.ss-tabs-tab:focus {
+  color: var(--ss-nav-bg);
+  background: transparent;
+  outline: none;
+}
+
+.ss-tabs-tab:hover .ss-tabs-icon,
+.ss-tabs-tab:focus .ss-tabs-icon {
+  opacity: 0.95;
+}
+
+.ss-tabs-tab:focus-visible {
+  color: var(--ss-brand);
+  outline: 2px solid color-mix(in srgb, var(--ss-brand) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.ss-tabs-tab.is-active,
+.ss-tabs-tab[aria-selected="true"] {
+  color: var(--ss-brand);
+  font-weight: 600;
+  background: transparent;
+  border-bottom-color: var(--ss-brand);
+}
+
+.ss-tabs-tab.is-active .ss-tabs-icon,
+.ss-tabs-tab[aria-selected="true"] .ss-tabs-icon {
+  opacity: 1;
+  color: var(--ss-brand);
+}
+
+.ss-tabs-tab.is-active .ss-tabs-count,
+.ss-tabs-tab[aria-selected="true"] .ss-tabs-count {
+  color: var(--ss-brand);
+  opacity: 1;
+}
+
+.ss-tabs-tab .scene-detail-mqtt-pill {
+  margin: 0;
+  min-width: 0.95rem;
+  height: 0.95rem;
+  padding: 0;
+  border-radius: 50%;
+  flex: none;
+  font-size: 0.65rem;
+}
+
+.ss-tabs-panels {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.ss-tabs-panel {
+  padding: 0;
+  min-height: 0;
+}
+
+.ss-confirm-error {
+  margin-top: 0.75rem;
+  color: var(--ss-status-bad);
+  font-size: 0.8125rem;
+}

@@ -1,0 +1,121 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-drawer-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  pointer-events: none;
+}
+
+.ss-drawer-root.is-open {
+  pointer-events: auto;
+}
+
+.ss-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 30, 80, 0.4);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.ss-drawer-root.is-open .ss-drawer-backdrop {
+  opacity: 1;
+}
+
+.ss-drawer-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(28rem, 100%);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-left: 1px solid var(--ss-card-border);
+  box-shadow: -8px 0 28px rgba(0, 30, 80, 0.14);
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+}
+
+.ss-drawer-root.is-open .ss-drawer-panel {
+  transform: translateX(0);
+}
+
+.ss-drawer-panel--wide {
+  width: min(42rem, 100%);
+}
+
+.ss-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem 0.65rem;
+  border-bottom: 1px solid var(--ss-card-border);
+}
+
+.ss-drawer-title {
+  margin: 0;
+  font-family: var(--ss-font-heading);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--ss-nav-bg);
+}
+
+.ss-drawer-close {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ss-text-muted);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.1rem 0.35rem;
+}
+
+.ss-drawer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.1rem 1.25rem;
+}
+
+.ss-drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 1.1rem;
+  border-top: 1px solid var(--ss-card-border);
+  background: #fff;
+}
+
+.ss-drawer-form .ss-text-field {
+  margin-bottom: 0.85rem;
+}
+
+.ss-drawer-error {
+  margin: 0 0 0.75rem;
+  color: var(--ss-status-bad);
+  font-size: 0.8125rem;
+}
+
+.ss-drawer-hint {
+  margin: 0 0 0.85rem;
+  color: var(--ss-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.ss-select-field {
+  width: 100%;
+  max-width: 28rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--ss-input-border);
+  border-radius: var(--ss-radius);
+  font-family: var(--ss-font-sans);
+  font-size: 0.875rem;
+}

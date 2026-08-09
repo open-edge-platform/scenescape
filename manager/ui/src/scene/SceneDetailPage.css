@@ -1,0 +1,53 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* Classic vertical scene detail: header → map → full-width tabs (pre-React composition) */
+.ss-scene-detail--classic {
+  display: block;
+  height: auto;
+  min-height: 0;
+  max-width: 100%;
+}
+
+.ss-scene-detail--classic .ss-page-header {
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+.ss-scene-detail--classic .ss-page-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.ss-scene-detail--classic .ss-page-title {
+  font-size: 1.75rem;
+}
+
+.ss-scene-detail--classic .ss-page-header-actions {
+  margin-left: auto;
+}
+
+.ss-scene-detail--classic .ss-scene-rate,
+.ss-scene-detail--classic .scene-rate {
+  margin-right: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--ss-font-sans);
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--ss-text-muted);
+  white-space: nowrap;
+}
+
+.ss-scene-detail--classic .ss-scene-rate #scene-rate,
+.ss-scene-detail--classic .scene-rate #scene-rate {
+  font-weight: 400;
+  color: inherit;
+}

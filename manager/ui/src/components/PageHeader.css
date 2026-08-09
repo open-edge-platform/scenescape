@@ -1,0 +1,61 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-page-header {
+  margin-bottom: 0.75rem;
+}
+
+.ss-breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  list-style: none;
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  color: var(--ss-text-muted);
+}
+
+.ss-breadcrumb li:not(:last-child)::after {
+  content: "/";
+  margin-left: 0.35rem;
+  color: var(--ss-text-muted);
+}
+
+.ss-breadcrumb a {
+  color: var(--ss-brand);
+  text-decoration: none;
+}
+
+.ss-breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.ss-page-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ss-page-title {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 8rem;
+  font-family: var(--ss-font-heading);
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--ss-nav-bg);
+}
+
+.ss-page-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}

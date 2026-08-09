@@ -141,6 +141,7 @@ help:
 	@echo "  lint-python-pylint          Lint python files using pylint"
 	@echo "  lint-python-flake8          Lint python files using flake8"
 	@echo "  lint-javascript             Lint javascript files"
+	@echo "  manager-ui                  Build Manager React UI into static/ui"
 	@echo "  lint-cpp                    Lint C++ files"
 	@echo "  lint-html                   Lint HTML files"
 	@echo "  lint-dockerfiles            Lint Dockerfiles"
@@ -592,10 +593,19 @@ lint-python-flake8:
 	@flake8 || (echo "Python linting failed" && exit 1)
 	@echo "DONE ==> Linting Python files - flake8"
 
+.PHONY: manager-ui
+manager-ui:
+	$(MAKE) -C manager ui-build
+
 .PHONY: lint-javascript
 lint-javascript:
 	@echo "==> Linting JavaScript files..."
 	@find . -name '*.js'  | xargs npx eslint -c .github/resources/eslint.config.js --no-warn-ignored || (echo "Javascript linting failed" && exit 1)
+	@if [ -d manager/ui/node_modules ]; then \
+	  (cd manager/ui && npm run lint) || (echo "Manager UI linting failed" && exit 1); \
+	elif [ -f manager/ui/package.json ]; then \
+	  echo "Skipping manager/ui eslint (run make manager-ui or npm ci in manager/ui first)"; \
+	fi
 	@echo "DONE ==> Linting JavaScript files"
 
 .PHONY: lint-cpp

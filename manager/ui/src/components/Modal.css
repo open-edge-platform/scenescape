@@ -1,0 +1,19 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-modal .modal-content {
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+}
+
+.ss-modal .modal-header {
+  border-bottom-color: var(--ss-card-border);
+}
+
+.ss-modal .modal-title {
+  font-family: var(--ss-font-heading);
+  font-weight: 600;
+  color: var(--ss-nav-bg);
+}

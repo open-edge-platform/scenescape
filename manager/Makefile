@@ -21,7 +21,18 @@ include ../common.mk
 
 default: build-image
 
-build-image: jslibraries jsm-examples remove-symlink Dockerfile
+.PHONY: ui-install ui-build
+ui-install:
+	cd ui && npm ci
+
+ui-build:
+ifndef SKIP_UI
+	cd ui && npm ci && npm run build
+else
+	@echo "SKIP_UI=1 — skipping manager UI build"
+endif
+
+build-image: ui-build jslibraries jsm-examples remove-symlink Dockerfile
 
 .PHONY: test-build
 test-build: test/geckodriver.tar.gz

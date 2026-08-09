@@ -57,6 +57,9 @@ MIDDLEWARE = [
   'axes.middleware.AxesMiddleware',
 ]
 
+# Allow same-origin iframes (calibrate overlay on scene detail).
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
 ROOT_URLCONF = APP_NAME + '.urls'
 
 TEMPLATES = [

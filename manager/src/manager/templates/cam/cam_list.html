@@ -4,17 +4,11 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 {% extends 'sscape/base.html' %}
+{% load static %}
 {% block content %}
-  <div class="page-header">
-    <h2 class="form-title">Cameras</h2>
-    {% if user.is_superuser %}
-      <div class="page-header-actions">
-        <a class="btn btn-primary" href="{% url 'cam_create' %}">
-          + New Camera
-        </a>
-      </div>
-    {% endif %}
-  </div>
+  <div id="ss-admin-list-root"></div>
+  {{ admin_list_bootstrap|json_script:"ss-admin-list-bootstrap" }}
+  <form class="d-none" aria-hidden="true">{% csrf_token %}</form>
 
   <div class="ss-table-card">
     {% if object_list %}
@@ -88,4 +82,10 @@ SPDX-License-Identifier: Apache-2.0
       <p class="ss-table-empty">No cameras are available.</p>
     {% endif %}
   </div>
+{% endblock %}
+{% block scripts %}
+  <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}" />
+  <script type="module" src="{% static 'ui/admin-list.js' %}"></script>
+  {{ list_sheets_bootstrap|json_script:"ss-list-sheets-bootstrap" }}
+  <script type="module" src="{% static 'ui/list-sheets.js' %}"></script>
 {% endblock %}

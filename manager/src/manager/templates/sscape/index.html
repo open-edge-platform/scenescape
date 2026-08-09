@@ -4,6 +4,7 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 {% extends 'sscape/base.html' %}
+{% load static %}
 {% block content %}
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
@@ -18,13 +19,13 @@ SPDX-License-Identifier: Apache-2.0
         <a
           id="import-scene"
           class="btn btn-outline-primary"
-          href="{% url 'scene_import' %}"
+          href="?ss=scene-import"
           >Import Scene</a
         >
         <a
           id="new_scene"
           class="btn btn-primary"
-          href="{% url 'scene_create' %}"
+          href="?ss=scene-create"
           >+ New Scene</a
         >
       </div>
@@ -95,7 +96,7 @@ SPDX-License-Identifier: Apache-2.0
                   class="btn btn-secondary btn-sm"
                   name="Edit"
                   id="scene-edit-{{ scene.id }}"
-                  href="{% url 'scene_update' scene.id %}"
+                  href="?ss=scene-edit&id={{ scene.id }}"
                   title="Edit {{ scene.name }} Scene Details"
                   ><i class="bi bi-pencil"></i
                 ></a>
@@ -116,7 +117,11 @@ SPDX-License-Identifier: Apache-2.0
   {% else %}
     <p class="scene-gallery-empty">
       No scenes are available.
-      <a href="{% url 'scene_create' %}">Click here</a> to add one.
+      <a href="?ss=scene-create">Click here</a> to add one.
     </p>
   {% endif %}
+{% endblock %}
+{% block scripts %}
+  {{ scenes_home_bootstrap|json_script:"ss-scenes-home-bootstrap" }}
+  <script type="module" src="{% static 'ui/scenes-home.js' %}"></script>
 {% endblock %}

@@ -1,0 +1,40 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-text-field {
+  display: grid;
+  grid-template-columns: minmax(10.5rem, 12.5rem) minmax(0, 1fr);
+  gap: 0.5rem 0.75rem;
+  align-items: start;
+  margin-bottom: 0.85rem;
+}
+
+.ss-text-field-label {
+  padding-top: 0.4rem;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ss-nav-bg);
+}
+
+.ss-text-field-control {
+  max-width: var(--ss-field-max, 28rem);
+}
+
+.ss-text-field-input {
+  width: 100%;
+}
+
+.ss-text-field-error {
+  margin-top: 0.25rem;
+  color: var(--ss-status-bad);
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 640px) {
+  .ss-text-field {
+    grid-template-columns: 1fr;
+  }
+}

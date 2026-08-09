@@ -4,22 +4,11 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 {% extends 'sscape/base.html' %}
+{% load static %}
 {% block content %}
-  <nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-      <li class="breadcrumb-item">
-        <a href="{% url 'cam_list' %}">Cameras</a>
-      </li>
-      <li class="breadcrumb-item active" aria-current="page">New Camera</li>
-    </ol>
-  </nav>
-
-  <div class="page-header">
-    <h2 class="form-title">New Camera</h2>
-  </div>
-
-  <div class="ss-form-card">
-    <div class="ss-form-body">
+  <div id="ss-admin-form-root"></div>
+  <div id="ss-form-parking" hidden>
+    <div id="ss-form-host">
       <form enctype="multipart/form-data" method="post">
         {% csrf_token %}
         {% for field in form %}
@@ -66,4 +55,9 @@ SPDX-License-Identifier: Apache-2.0
       </form>
     </div>
   </div>
+  {{ admin_form_bootstrap|json_script:"ss-admin-form-bootstrap" }}
+{% endblock %}
+{% block scripts %}
+  <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}" />
+  <script type="module" src="{% static 'ui/admin-form.js' %}"></script>
 {% endblock %}

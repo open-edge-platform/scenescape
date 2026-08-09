@@ -4,12 +4,13 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 {% extends 'sscape/base.html' %}
+{% load static %}
 {% block content %}
   <div class="page-header">
     <h2 class="form-title">Object Library</h2>
     {% if user.is_superuser %}
       <div class="page-header-actions">
-        <a class="btn btn-primary" href="{% url "asset_create" %}"
+        <a class="btn btn-primary" id="new-asset" href="?ss=asset-create"
           >+ New Object</a
         >
       </div>
@@ -58,4 +59,9 @@ SPDX-License-Identifier: Apache-2.0
       <p class="ss-table-empty">No objects are available.</p>
     {% endif %}
   </div>
+{% endblock %}
+{% block scripts %}
+  <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}" />
+  {{ list_sheets_bootstrap|json_script:"ss-list-sheets-bootstrap" }}
+  <script type="module" src="{% static 'ui/list-sheets.js' %}"></script>
 {% endblock %}

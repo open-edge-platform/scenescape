@@ -1,0 +1,65 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-scene-side {
+  clear: both;
+  margin-top: 0.5rem;
+  margin-bottom: 1.5rem;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+}
+
+.ss-scene-side .ss-tabs {
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ss-scene-side .ss-tabs-list {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+.ss-scene-side .ss-tabs-panels {
+  overflow: visible;
+  flex: none;
+  min-height: 0;
+  margin-top: 0;
+  padding: 0.75rem 0.85rem 1rem;
+}
+
+.ss-legacy-panels-slot {
+  min-height: 0;
+  height: auto;
+}
+
+.ss-legacy-panels-slot #scene-detail-panels {
+  display: block;
+  min-height: 0;
+  height: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.ss-legacy-panels-slot #myTabContent {
+  flex: none;
+  min-height: 0;
+  overflow: visible;
+  padding: 0;
+}
+
+.ss-legacy-panels-slot .tab-pane {
+  display: none;
+}
+
+.ss-legacy-panels-slot .tab-pane.active.show {
+  display: block;
+  height: auto;
+}

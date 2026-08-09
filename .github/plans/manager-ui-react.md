@@ -290,9 +290,27 @@ Use on Manager 2D changes (React or transitional CSS):
 
 ## 9. Immediate next steps (when prioritized)
 
-1. Confirm ViPPET package availability / license for direct dependency vs mirror.
-2. Land Phase 0 token mapping + Phase 1 Vite island scaffolding.
-3. Port Phase 2 shell using the ethos in §2.3 (viewport lock, filmstrip, quiet
-   help) as acceptance criteria.
-4. Keep shipping transitional Django/CSS fixes only when they reduce risk for
-   the React port (do not expand `sscape.js` further without an adapter plan).
+1. ~~Confirm ViPPET package availability / license for direct dependency vs mirror.~~
+   **Decision:** mirror tokens in `manager/ui` (see `manager-ui-token-map.md`).
+2. ~~Land Phase 0 token mapping + Phase 1 Vite island scaffolding.~~ **Done**
+   (`manager/ui`, `make manager-ui` / `make -C manager ui-build`).
+3. ~~Port Phase 2 shell~~ **Done** (classic vertical composition; React chrome +
+   legacy map/panels).
+4. ~~Phase 3 ROI/tripwire React editors~~ **Done** (`RoiTripwireEditors` +
+   `ssRoiEditors` bridge; Snap geometry stays in `sscape.js`).
+5. ~~Phase 4 shared primitives + form islands~~ **Done** (`FormCard`,
+   `TextField`, `Modal`, `Toast`; `admin-form` entry on cam/sensor create).
+6. ~~Phase 5 lists / nav IA~~ **Done** (`admin-list` entry on cam/sensor lists;
+   nav grouping, active states, `nav-docs` id fix).
+7. ~~Tab strip + delete modals~~ **Done** (underline tabs; in-page
+   `ConfirmDialog` + `destructive-actions` island).
+8. **In-page flows track (drawers + REST + calibrate overlay)** — see Cursor
+   plan *ViPPET flow migration*:
+   - Plumbing: `rest.ts`, `Drawer`, `ToastProvider`, `?ss=` sheet contract,
+     Django GET redirects into host pages.
+   - Scene workspace: cam/sensor/child create+edit drawers; calibrate overlay
+     (`?embed=1` iframe + legacy calibrate JS).
+   - Gallery/lists: scene create/import/edit sheets; asset drawers; list-sheets
+     island.
+   - Writes via `/api/v1` Token auth; HTML form pages are redirect stubs, not
+     primary UX.

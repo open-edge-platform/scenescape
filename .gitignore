@@ -48,12 +48,15 @@ tests/perf_tests/input/*.json
 model_installer/models
 package.json
 package-lock.json
+!manager/ui/package.json
+!manager/ui/package-lock.json
 node_modules
 *.auth
 *.crt
 *.csr
 *.key
 *.ts
+!manager/ui/**/*.ts
 *.pem
 kubernetes/scenescape-chart/files/*
 .venv

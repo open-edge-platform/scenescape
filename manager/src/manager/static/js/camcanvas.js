@@ -40,6 +40,7 @@ class CamCanvas {
     this.draggingPoint = null;
     this.calibrationUpdated = false;
     this.viewInitialized = false;
+    this.userAdjustedView = false;
     this.lastImageWidth = 0;
     this.lastImageHeight = 0;
 
@@ -124,7 +125,11 @@ class CamCanvas {
     this.camScaleFactor = this.#computeFitScale();
     this.#updatePointSize();
 
-    if (oldFactor > 0 && oldW > 0 && oldH > 0) {
+    // Layout can settle after first paint (esp. calibrate embed iframe).
+    // Re-center until the user pans/zooms; otherwise preserve their view.
+    if (!this.userAdjustedView) {
+      this.#centerImage();
+    } else if (oldFactor > 0 && oldW > 0 && oldH > 0) {
       const ratio = this.camScaleFactor / oldFactor;
       this.panX = paneW / 2 - (oldW / 2 - this.panX) * ratio;
       this.panY = paneH / 2 - (oldH / 2 - this.panY) * ratio;
@@ -132,6 +137,28 @@ class CamCanvas {
       this.#centerImage();
     }
     this.drawImage();
+  }
+
+  #scheduleCenterSettle() {
+    const recenter = () => {
+      if (this.userAdjustedView || !this.image.width) {
+        return;
+      }
+      const [paneW, paneH] = this.#paneSize();
+      if (!paneW || !paneH) {
+        return;
+      }
+      this.camScaleFactor = this.#computeFitScale();
+      this.#updatePointSize();
+      this.#centerImage();
+      this.drawImage();
+    };
+    requestAnimationFrame(() => {
+      requestAnimationFrame(recenter);
+    });
+    // Embed/iframe and font/layout shifts often finish after the first frames.
+    window.setTimeout(recenter, 50);
+    window.setTimeout(recenter, 200);
   }
 
   #getImageCoordinates(x, y) {
@@ -179,6 +206,7 @@ class CamCanvas {
     if (this.isPanning) {
       this.panX = event.clientX - this.startX;
       this.panY = event.clientY - this.startY;
+      this.userAdjustedView = true;
       this.drawImage();
     } else if (this.isDragging) {
       [this.draggingPoint.x, this.draggingPoint.y] = this.#getImageCoordinates(
@@ -223,6 +251,7 @@ class CamCanvas {
     // Adjust pan values to keep the mouse position fixed
     this.panX = mouseX - (mouseX - this.panX) * scaleFactor;
     this.panY = mouseY - (mouseY - this.panY) * scaleFactor;
+    this.userAdjustedView = true;
 
     this.#updatePointSize();
     this.drawImage();
@@ -309,16 +338,20 @@ class CamCanvas {
     this.#updatePointSize();
 
     if (!this.viewInitialized) {
-      // First frame: fit and center once.
+      // First frame: fit and center once, then re-center after layout settles.
       this.#centerImage();
       this.viewInitialized = true;
+      this.#scheduleCenterSettle();
     } else if (resolutionChanged && previousFactor > 0) {
       // Keep the same view center when the stream resolution changes.
       const ratio = this.camScaleFactor / previousFactor;
       this.panX = paneW / 2 - (paneW / 2 - this.panX) * ratio;
       this.panY = paneH / 2 - (paneH / 2 - this.panY) * ratio;
+    } else if (!this.userAdjustedView) {
+      // Live frames before any user pan/zoom: keep fitted and centered.
+      this.#centerImage();
     }
-    // Same resolution live updates: preserve pan/zoom and only redraw pixels.
+    // User-adjusted view + same resolution: preserve pan/zoom and only redraw.
 
     this.lastImageWidth = this.image.width;
     this.lastImageHeight = this.image.height;
@@ -331,11 +364,13 @@ class CamCanvas {
 
   resetCameraView() {
     this.scale = 1;
+    this.userAdjustedView = false;
     this.camScaleFactor = this.#computeFitScale();
     this.#updatePointSize();
     this.#centerImage();
     this.viewInitialized = true;
     this.drawImage();
+    this.#scheduleCenterSettle();
   }
 
   // Calibration Point functions

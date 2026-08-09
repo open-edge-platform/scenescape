@@ -1,0 +1,94 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 30, 80, 0.45);
+}
+
+.ss-confirm-dialog {
+  width: min(28rem, 100%);
+  background: #fff;
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+  box-shadow: 0 12px 40px rgba(0, 30, 80, 0.22);
+}
+
+.ss-confirm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem 0.5rem;
+}
+
+.ss-confirm-title {
+  margin: 0;
+  font-family: var(--ss-font-heading);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--ss-nav-bg);
+}
+
+.ss-confirm-close {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ss-text-muted);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.1rem 0.35rem;
+}
+
+.ss-confirm-body {
+  padding: 0.35rem 1.1rem 1rem;
+  font-family: var(--ss-font-sans);
+  font-size: 0.9rem;
+  color: var(--ss-text);
+  line-height: 1.45;
+}
+
+.ss-confirm-body p {
+  margin: 0 0 0.65rem;
+}
+
+.ss-confirm-body ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.ss-confirm-body li {
+  margin-bottom: 0.25rem;
+}
+
+.ss-confirm-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 1.1rem 1rem;
+  border-top: 1px solid var(--ss-card-border);
+}
+
+.ss-btn--danger-solid {
+  color: #fff;
+  background: var(--ss-status-bad);
+  border-color: var(--ss-status-bad);
+}
+
+.ss-btn--danger-solid:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.ss-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}

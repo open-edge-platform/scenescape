@@ -66,7 +66,7 @@ SPDX-License-Identifier: Apache-2.0
     <link rel="stylesheet" href="{% static 'css/style.css' %}" />
   </head>
 
-  <body>
+  <body{% if embed %} class="ss-embed"{% endif %}>
     <nav
       class="navbar navbar-expand-md navbar-dark bg-dark fixed-top hide-fullscreen"
     >
@@ -88,56 +88,68 @@ SPDX-License-Identifier: Apache-2.0
       {% if user.is_authenticated %}
         <div class="collapse navbar-collapse" id="navbarMain">
           <ul class="navbar-nav mr-auto">
-            <li class="nav-item">
-              <a class="nav-link" id="nav-scenes" href="/"
-                >Scenes <span class="sr-only">(current)</span></a
-              >
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" id="nav-cameras" href="{% url 'cam_list' %}"
-                >Cameras <span class="sr-only"></span
-              ></a>
+            <li class="nav-item nav-item-group" aria-hidden="true">
+              <span class="nav-group-label">Workspace</span>
             </li>
             <li class="nav-item">
               <a
-                class="nav-link"
+                class="nav-link{% if request.resolver_match.url_name == 'index' or request.resolver_match.url_name == 'sceneDetail' %} active{% endif %}"
+                id="nav-scenes"
+                href="/"
+                >Scenes</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link{% if request.resolver_match.url_name == 'cam_list' or request.resolver_match.url_name == 'cam_create' or request.resolver_match.url_name == 'cam_update' or request.resolver_match.url_name == 'cam_calibrate' or request.resolver_match.url_name == 'cam_delete' %} active{% endif %}"
+                id="nav-cameras"
+                href="{% url 'cam_list' %}"
+                >Cameras</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link{% if request.resolver_match.url_name == 'singleton_sensor_list' or request.resolver_match.url_name == 'singleton_sensor_create' or request.resolver_match.url_name == 'singleton_sensor_update' or request.resolver_match.url_name == 'singleton_sensor_calibrate' or request.resolver_match.url_name == 'singleton_sensor_delete' %} active{% endif %}"
                 id="nav-sensors"
                 href="{% url 'singleton_sensor_list' %}"
-                >Sensors <span class="sr-only"></span
-              ></a>
+                >Sensors</a
+              >
             </li>
             {% if KUBERNETES_SERVICE_HOST %}
               <li class="nav-item">
                 <a
-                  class="nav-link"
+                  class="nav-link{% if request.resolver_match.url_name == 'model_list' %} active{% endif %}"
                   id="nav-models"
                   href="{% url 'model_list' %}"
-                  >Models <span class="sr-only"></span
-                ></a>
+                  >Models</a
+                >
               </li>
             {% endif %}
             <li class="nav-item">
               <a
-                class="nav-link"
+                class="nav-link{% if request.resolver_match.url_name == 'asset_list' or request.resolver_match.url_name == 'asset_create' or request.resolver_match.url_name == 'asset_update' or request.resolver_match.url_name == 'asset_delete' %} active{% endif %}"
                 id="nav-object-library"
                 href="{% url 'asset_list' %}"
-                >Object Library <span class="sr-only"></span
-              ></a>
+                >Object Library</a
+              >
+            </li>
+            <li class="nav-item nav-item-group" aria-hidden="true">
+              <span class="nav-group-label">Help</span>
             </li>
             <li class="nav-item">
               <a
                 class="nav-link"
-                id="nav-object-library"
+                id="nav-docs"
                 href="https://docs.openedgeplatform.intel.com/2026.1/scenescape/index.html"
                 target="docs"
-                >Documentation <span class="sr-only"></span
-              ></a>
+                >Documentation</a
+              >
             </li>
             {% if user.is_staff %}
               <li class="nav-item">
                 <a class="nav-link" id="nav-admin" href="/admin" target="admin"
-                  >Admin <span class="sr-only"></span
-                ></a>
+                  >Admin</a
+                >
               </li>
             {% endif %}
           </ul>
@@ -188,6 +200,12 @@ SPDX-License-Identifier: Apache-2.0
     </div>
     <!-- /.container -->
 
+    {% if user.is_authenticated %}
+      <form class="d-none" aria-hidden="true" id="ss-csrf-form">
+        {% csrf_token %}
+      </form>
+    {% endif %}
+
     <script src="{% static 'assets/jquery-3.6.0.min.js' %}"></script>
     <script src="{% static 'assets/socket.io.min.js' %}"></script>
     <script src="{% static 'assets/snap.svg-min.js' %}"></script>
@@ -198,6 +216,30 @@ SPDX-License-Identifier: Apache-2.0
     <script src="{% static 'assets/jszip.min.js' %}"></script>
     <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     <script type="module" src="{% static 'js/sscape.js' %}"></script>
+    {% if user.is_authenticated %}
+      <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}" />
+      <script
+        type="module"
+        src="{% static 'ui/destructive-actions.js' %}"
+      ></script>
+    {% endif %}
+    {% if embed %}
+      <script>
+        document.addEventListener("DOMContentLoaded", function () {
+          document
+            .querySelectorAll("form[method='post'], form[method='POST']")
+            .forEach(function (form) {
+              if (!form.querySelector('input[name="embed"]')) {
+                var input = document.createElement("input");
+                input.type = "hidden";
+                input.name = "embed";
+                input.value = "1";
+                form.appendChild(input);
+              }
+            });
+        });
+      </script>
+    {% endif %}
     {% block scripts %}
     {% endblock %}
   </body>

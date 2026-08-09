@@ -4,119 +4,74 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 {% extends 'sscape/base.html' %}
+{% load static %}
 {% block content %}
-  <div class="hide-fullscreen">
-    <nav aria-label="breadcrumb">
-      <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="/">Scenes</a></li>
-        <li class="breadcrumb-item active" aria-current="page">
-          {{ scene.name }}
-        </li>
-      </ol>
-    </nav>
-  </div>
-  <div class="hide-fullscreen scene-detail-header">
-    <h2 id="scene_name">{{ scene.name }}</h2>
-    <div class="scene-toolbar">
-      <div class="scene-rate">
-        Rate: <span id="scene-rate">--</span> Hz
-      </div>
-      <a
-        class="btn btn-secondary btn-sm"
-        id="export-scene"
-        title="Export {{ scene.name }}"
-      >
-        <i class="bi bi-box-arrow-up"></i>
-      </a>
-      <a
-        class="btn btn-secondary btn-sm"
-        id="3d-view"
-        href="{% url 'scene_detail' scene.id %}"
-        title="View {{ scene.name }} in 3D"
-        >3D</a
-      >
-      {% if user.is_superuser %}
-        <a
-          class="btn btn-secondary btn-sm"
-          id="scene-edit"
-          href="{% url 'scene_update' scene.id %}"
-          title="Edit {{ scene.name }}"
-        >
-          <i class="bi bi-pencil"></i>
-        </a>
-        <a
-          class="btn btn-secondary btn-sm"
-          id="scene-delete"
-          href="{% url 'scene_delete' scene.id %}"
-          title="Delete {{ scene.name }}"
-        >
-          <i class="bi bi-trash"></i>
-        </a>
-      {% endif %}
-    </div>
-  </div>
-  <div class="scene-map">
-    <div class="scene-map-stage">
-      <div id="map">
-        {% if scene.thumbnail %}
-          <img src="{{ scene.thumbnail.url }}" alt="{{ scene.name }}" />
-        {% elif scene.map %}
-          <img src="{{ scene.map.url }}" alt="{{ scene.name }}" />
-        {% endif %}
-        <input type="hidden" name="scale" id="scale" value="{{ scene.scale }}" />
-        <input type="hidden" name="scene" id="scene" value="{{ scene.id }}" />
-      </div>
-      <svg
-        id="svgout"
-        class="display-none {% if not scene.thumbnail or not scene.map %}blank-map-svgout{% endif %}"
-      >
-        <title>{{ scene.name }} View</title>
-        <desc>
-          Graphical view of the scene map and objects moving within the scene.
-        </desc>
-      </svg>
-      <button
-        type="button"
-        class="btn btn-sm btn-secondary scene-map-fullscreen-btn hide-print"
-        id="fullscreen"
-        title="Full screen map view"
-        aria-pressed="false"
-      >
-        <i class="bi bi-arrows-fullscreen" aria-hidden="true"></i>
-        <span class="sr-only">Full screen map view</span>
-      </button>
-    </div>
-    <div id="map-controls" class="hide-print">
-      <div class="map-view-toggles">
-        <div class="custom-control custom-switch switch">
-          <input
-            type="checkbox"
-            class="custom-control-input"
-            id="show-trails"
-            aria-labelledby="show-trails-label"
-          />
-          <label
-            class="custom-control-label"
-            for="show-trails"
-            title="Toggle Show Trails"
-            id="show-trails-label"
-            >Show&nbsp;Trails</label
-          >
+  <div id="ss-scene-detail-root" class="ss-scene-detail-root"></div>
+
+  <div id="ss-legacy-map-parking" class="ss-legacy-parking" hidden>
+    <div id="ss-map-host" class="scene-map">
+      <div class="scene-map-stage">
+        <div id="map">
+          {% if scene.thumbnail %}
+            <img src="{{ scene.thumbnail.url }}" alt="{{ scene.name }}" />
+          {% elif scene.map %}
+            <img src="{{ scene.map.url }}" alt="{{ scene.name }}" />
+          {% endif %}
+          <input type="hidden" name="scale" id="scale" value="{{ scene.scale }}" />
+          <input type="hidden" name="scene" id="scene" value="{{ scene.id }}" />
         </div>
-        <div class="custom-control custom-switch switch">
-          <input
-            type="checkbox"
-            class="custom-control-input"
-            id="coloring-switch"
-            aria-labelledby="coloring-switch-label"
-          />
-          <label
-            class="custom-control-label"
-            for="coloring-switch"
-            title="Toggle Coloring"
-            id="coloring-switch-label"
-            >Visualize ROIs</label
-          >
+        <svg
+          id="svgout"
+          class="display-none {% if not scene.thumbnail or not scene.map %}blank-map-svgout{% endif %}"
+        >
+          <title>{{ scene.name }} View</title>
+          <desc>
+            Graphical view of the scene map and objects moving within the scene.
+          </desc>
+        </svg>
+        <button
+          type="button"
+          class="btn btn-sm btn-secondary scene-map-fullscreen-btn hide-print"
+          id="fullscreen"
+          title="Full screen map view"
+          aria-pressed="false"
+        >
+          <i class="bi bi-arrows-fullscreen" aria-hidden="true"></i>
+          <span class="sr-only">Full screen map view</span>
+        </button>
+      </div>
+      <div id="map-controls" class="hide-print">
+        <div class="map-view-toggles">
+          <div class="custom-control custom-switch switch">
+            <input
+              type="checkbox"
+              class="custom-control-input"
+              id="show-trails"
+              aria-labelledby="show-trails-label"
+            />
+            <label
+              class="custom-control-label"
+              for="show-trails"
+              title="Toggle Show Trails"
+              id="show-trails-label"
+              >Show&nbsp;Trails</label
+            >
+          </div>
+          <div class="custom-control custom-switch switch">
+            <input
+              type="checkbox"
+              class="custom-control-input"
+              id="coloring-switch"
+              aria-labelledby="coloring-switch-label"
+            />
+            <label
+              class="custom-control-label"
+              for="coloring-switch"
+              title="Toggle Coloring"
+              id="coloring-switch-label"
+              >Visualize ROIs</label
+            >
+          </div>
         </div>
       </div>
     </div>
@@ -167,106 +122,12 @@ SPDX-License-Identifier: Apache-2.0
     />
   {% endif %}
 
+  <div id="ss-legacy-panels-parking" class="ss-legacy-parking" hidden>
   <div
     class="scene-detail-panels hide-fullscreen"
     id="scene-detail-panels"
+    hidden
   >
-  <ul class="nav nav-tabs hide-live" id="myTab" role="tablist">
-    <li class="nav-item">
-      <a
-        class="nav-link active"
-        id="cameras-tab"
-        data-toggle="tab"
-        href="#cameras"
-        role="tab"
-        aria-controls="cameras"
-        aria-selected="true"
-        title="Cameras Tab"
-        ><i class="bi bi-camera-video" aria-hidden="true"></i> Cameras
-        <span class="show-count"></span
-      ></a>
-    </li>
-
-    <li class="nav-item">
-      <a
-        class="nav-link"
-        id="sensors-tab"
-        data-toggle="tab"
-        href="#sensors"
-        role="tab"
-        aria-controls="sensors"
-        aria-selected="false"
-        title="Sensors Tab"
-        ><i class="bi bi-thermometer" aria-hidden="true"></i> Sensors
-        <span class="show-count"></span
-      ></a>
-    </li>
-
-    <li class="nav-item">
-      <a
-        class="nav-link"
-        id="regions-tab"
-        data-toggle="tab"
-        href="#regions"
-        role="tab"
-        aria-controls="regions"
-        aria-selected="false"
-        title="Regions Tab"
-        ><i class="bi bi-layout-wtf" aria-hidden="true"></i> Regions
-        <span class="show-count"></span
-      ></a>
-    </li>
-
-    <li class="nav-item">
-      <a
-        class="nav-link"
-        id="tripwires-tab"
-        data-toggle="tab"
-        href="#trips"
-        role="tab"
-        aria-controls="trips"
-        aria-selected="false"
-        title="Tripwires Tab"
-        ><i class="bi bi-arrow-bar-left" aria-hidden="true"></i> Tripwires
-        <span class="show-count"></span
-      ></a>
-    </li>
-
-    <li class="nav-item">
-      <a
-        class="nav-link"
-        id="children-tab"
-        data-toggle="tab"
-        href="#children"
-        role="tab"
-        aria-controls="children"
-        aria-selected="false"
-        title="Children Tab"
-        ><i class="bi bi-diagram-2" aria-hidden="true"></i> Children
-        <span class="scene-detail-tab-count"
-          >({{ scene.children.count }})</span
-        ></a
-      >
-    </li>
-
-    <li class="nav-item">
-      <a
-        class="nav-link"
-        id="settings-tab"
-        data-toggle="tab"
-        href="#mqtt"
-        role="tab"
-        aria-controls="mqtt"
-        aria-selected="false"
-        title="MQTT Tab"
-        ><span id="mqtt_status" class="scene-detail-mqtt-pill" title="MQTT status"
-          ><i class="bi bi-arrow-down-up" aria-hidden="true"></i
-        ></span>
-        MQTT</a
-      >
-    </li>
-  </ul>
-
   <div class="tab-content" id="myTabContent">
     <div
       class="tab-pane fade show active"
@@ -326,7 +187,7 @@ SPDX-License-Identifier: Apache-2.0
                 class="btn btn-primary btn-sm"
                 id="new-camera"
                 title="Add a new camera"
-                href="{% url 'cam_create' %}?scene={{ scene.id }}"
+                href="?ss=cam-create"
                 >+ New Camera</a
               >
             {% endif %}
@@ -348,7 +209,7 @@ SPDX-License-Identifier: Apache-2.0
                       <a
                         class="snapshot-image"
                         topic="scenescape/cmd/camera/{{ s.sensor_id }}"
-                        href="{% url 'cam_calibrate' s.id %}"
+                        href="?ss=calibrate-cam&id={{ s.id }}"
                         id="cam_calibrate_{{ s.id }}"
                       >
                         <div class="cam-offline">Camera Offline</div>
@@ -390,7 +251,7 @@ SPDX-License-Identifier: Apache-2.0
                       <div class="text-right">
                         <a
                           class="btn btn-secondary btn-sm"
-                          href="{% url 'cam_calibrate' s.id %}"
+                          href="?ss=calibrate-cam&id={{ s.id }}"
                           title="Manage {{ s.name }}"
                           ><i class="bi bi-wrench"></i
                         ></a>
@@ -439,7 +300,7 @@ SPDX-License-Identifier: Apache-2.0
                 class="btn btn-primary btn-sm"
                 id="new-sensor"
                 title="Add a new sensor"
-                href="{% url 'singleton_sensor_create' %}?scene={{ scene.id }}"
+                href="?ss=sensor-create"
                 >+ New Sensor</a
               >
             </span>
@@ -479,12 +340,18 @@ SPDX-License-Identifier: Apache-2.0
                       <div class="text-right">
                         <a
                           class="btn btn-secondary btn-sm sensor_calibrate"
-                          href="{% url 'singleton_sensor_calibrate' s.id %}"
+                          href="?ss=calibrate-sensor&id={{ s.id }}"
                           id="sensor_calibrate_{{ s.id }}"
                           title="Manage"
                         >
                           <i class="bi bi-wrench"></i>
                         </a>
+                        <a
+                          class="btn btn-secondary btn-sm"
+                          href="?ss=sensor-edit&id={{ s.id }}"
+                          title="Edit"
+                          ><i class="bi bi-pencil"></i
+                        ></a>
                         <a
                           class="btn btn-secondary btn-sm"
                           href="{% url 'singleton_sensor_delete' s.id %}"
@@ -630,7 +497,7 @@ SPDX-License-Identifier: Apache-2.0
                 class="btn btn-primary btn-sm"
                 id="new-child"
                 title="Add a new child scene"
-                href="{% url 'child_create' %}?scene={{ scene.id }}"
+                href="?ss=child-create"
                 >+ Link Child Scene</a
               >
             </span>
@@ -687,7 +554,7 @@ SPDX-License-Identifier: Apache-2.0
                   {% if user.is_superuser %}
                     <a
                       class="btn btn-secondary btn-sm"
-                      href="{% url 'child_update' c.id %}"
+                      href="?ss=child-edit&id={{ c.id }}"
                       title="Manage {{ c.child.name }}"
                       id="child-update-{{ c.child.name }}"
                       ><i class="bi bi-wrench"></i
@@ -791,6 +658,7 @@ SPDX-License-Identifier: Apache-2.0
         </div>
       </div>
     </div>
+  </div>
   </div>
   </div>
 
@@ -1245,5 +1113,10 @@ SPDX-License-Identifier: Apache-2.0
       </div>
     </div>
   </div>
+  {{ scene_detail_bootstrap|json_script:"ss-scene-detail-bootstrap" }}
   <input type="hidden" id="auth-token" value="{{ user.auth_token }}" />
+{% endblock %}
+{% block scripts %}
+  <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}" />
+  <script type="module" src="{% static 'ui/scene-detail.js' %}"></script>
 {% endblock %}
