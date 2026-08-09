@@ -133,11 +133,61 @@
 }
 
 .ss-workspace-panel-form--narrow {
-  max-width: 48rem;
+  max-width: 36rem;
 }
 
-.ss-workspace-panel-form--wide {
-  max-width: min(100%, 72rem);
+.ss-workspace-panel-form--wide,
+.ss-workspace-panel-form--bleed {
+  max-width: none;
+  width: 100%;
+}
+
+/* Complex editors: fields share horizontal space instead of a left-capped column */
+.ss-form-section--columns > .ss-form-section-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.65rem 1rem;
+  align-items: start;
+}
+
+.ss-form-section--columns > .ss-form-section-body > .ss-text-field,
+.ss-form-section--columns > .ss-form-section-body > .ss-select-field {
+  margin-bottom: 0;
+}
+
+.ss-form-section--span-2 {
+  grid-column: 1 / -1;
+}
+
+.ss-workspace-cal-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  padding: 0.75rem 1rem 1rem;
+  box-sizing: border-box;
+}
+
+.ss-workspace-cal-preview-meta {
+  flex: 0 0 auto;
+  margin-bottom: 0.65rem;
+}
+
+.ss-workspace-cal-preview-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--ss-card-border, #e9e9e9);
+  border-radius: var(--ss-radius, 0.625rem);
+  overflow: hidden;
+  background: #fff;
+}
+
+.ss-workspace-cal-preview-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: min(70vh, 48rem);
+  border: 0;
 }
 
 .ss-workspace-panel-error {

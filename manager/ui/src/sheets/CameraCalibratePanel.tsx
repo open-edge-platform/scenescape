@@ -91,7 +91,6 @@ export function CameraCalibratePanel({
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [pointsOpen, setPointsOpen] = useState(false);
 
   const markDirty = useCallback(() => {
     if (loaded) {
@@ -108,7 +107,6 @@ export function CameraCalibratePanel({
     setError(null);
     setDirty(false);
     setLoaded(false);
-    setPointsOpen(false);
     api
       .getCamera(authToken, sensorId)
       .then((cam) => {
@@ -292,6 +290,7 @@ export function CameraCalibratePanel({
         id="ss-cam-cal-intrinsics"
         title="Intrinsics"
         description="Focal length and principal point."
+        className="ss-form-section--columns"
       >
         {(["fx", "fy", "cx", "cy"] as const).map((key) => (
           <TextField
@@ -310,6 +309,7 @@ export function CameraCalibratePanel({
         id="ss-cam-cal-distortion"
         title="Distortion"
         description="Radial and tangential coefficients."
+        className="ss-form-section--columns"
       >
         {(["k1", "k2", "p1", "p2", "k3"] as const).map((key) => (
           <TextField
@@ -328,6 +328,7 @@ export function CameraCalibratePanel({
         id="ss-cam-cal-resolution"
         title="Resolution"
         description="Frame size in pixels."
+        className="ss-form-section--columns"
       >
         <TextField
           id="ss-cam-cal-width"
@@ -436,57 +437,34 @@ export function CameraCalibratePanel({
         </Button>
       }
     >
-      <div className="ss-workspace-panel-main">
-        <details
-          id="ss-cam-cal-points"
-          className="ss-form-section ss-form-section--collapsible"
-          open={pointsOpen}
-          onToggle={(ev) => {
-            setPointsOpen((ev.currentTarget as HTMLDetailsElement).open);
-          }}
-        >
-          <summary className="ss-form-section-summary">
-            <span className="ss-form-section-title" id="ss-cam-cal-points-title">
-              Point correspondence
-            </span>
-            <span className="ss-form-section-desc" id="ss-cam-cal-points-desc">
-              Pick matching points on the camera frame and scene map.
-            </span>
-          </summary>
-          <div className="ss-form-section-body">
-            <p className="ss-workspace-panel-hint">
-              Native point-picking UI is deferred. Use the embedded calibrator
-              below, or{" "}
+      <div className="ss-workspace-panel-main ss-workspace-cal-preview">
+        <div className="ss-workspace-cal-preview-meta">
+          <h3 className="ss-form-section-title">Point correspondence</h3>
+          <p className="ss-workspace-panel-hint" style={{ marginBottom: 0 }}>
+            Pick matching points on the camera frame and scene map.{" "}
+            {cameraPk ? (
               <a
                 href={`/cam/calibrate/${cameraPk}?embed=1`}
                 target="_blank"
                 rel="noreferrer"
               >
-                open it in a new tab
+                Open calibrator in a new tab
               </a>
-              .
-            </p>
-            {pointsOpen && cameraPk ? (
-              <iframe
-                title="Point calibrator"
-                src={`/cam/calibrate/${cameraPk}?embed=1`}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  minHeight: "70vh",
-                  border: "1px solid var(--ss-card-border, #e9e9e9)",
-                  borderRadius: "var(--ss-radius, 0.625rem)",
-                  background: "#fff",
-                }}
-              />
             ) : null}
-            {pointsOpen && !cameraPk ? (
-              <p className="ss-workspace-panel-hint">
-                Camera primary key is missing; point calibrator cannot load.
-              </p>
-            ) : null}
+          </p>
+        </div>
+        {cameraPk ? (
+          <div className="ss-workspace-cal-preview-frame">
+            <iframe
+              title="Point calibrator"
+              src={`/cam/calibrate/${cameraPk}?embed=1`}
+            />
           </div>
-        </details>
+        ) : (
+          <p className="ss-workspace-panel-hint">
+            Camera primary key is missing; point calibrator cannot load.
+          </p>
+        )}
       </div>
       <aside className="ss-workspace-panel-aside">{formBody}</aside>
     </WorkspacePanel>

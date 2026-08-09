@@ -301,7 +301,8 @@ body.ss-embed .ss-form-back {
 }
 
 .ss-form-card--map-editor {
-  max-width: min(100%, calc(1280px + 16rem));
+  max-width: none;
+  width: min(100%, calc(100vw - 2rem));
   overflow-x: auto;
   overflow-y: visible;
 }

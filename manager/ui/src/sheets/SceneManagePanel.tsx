@@ -382,7 +382,7 @@ export function SceneManagePanel({
     >
       <form
         id={FORM_ID}
-        className="ss-workspace-panel-form ss-workspace-panel-form--wide"
+        className="ss-workspace-panel-form ss-workspace-panel-form--bleed"
         onSubmit={submit}
       >
         {error ? <p className="ss-workspace-panel-error">{error}</p> : null}
@@ -505,6 +505,7 @@ export function SceneManagePanel({
           description="WGS84 corners and LLA output for Mapbox / Google Maps scenes."
           collapsible
           defaultOpen={mapType === "geospatial_map"}
+          className="ss-form-section--columns"
         >
           <SelectField
             id="ss-scene-manage-output-lla"
@@ -519,7 +520,7 @@ export function SceneManagePanel({
             <option value="true">Yes</option>
             <option value="false">No</option>
           </SelectField>
-          <div className="ss-text-field">
+          <div className="ss-text-field ss-form-section--span-2">
             <label
               className="ss-text-field-label"
               htmlFor="ss-scene-manage-corners"
@@ -600,6 +601,7 @@ export function SceneManagePanel({
           title="Pose"
           description="Translation, rotation, and scale applied to the scene map mesh (.glb)."
           collapsible
+          className="ss-form-section--columns"
         >
           <TextField
             id="ss-scene-manage-tx"
