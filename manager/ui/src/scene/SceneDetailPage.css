@@ -323,6 +323,12 @@ body.ss-workspace-resizing .ss-workspace-splitter::after {
   background: #fff;
 }
 
+/* Prefer the header Map focus control — hide the legacy on-map expand button */
+.ss-scene-detail--workspace .scene-map-fullscreen-btn,
+.ss-scene-detail--workspace #fullscreen.scene-map-fullscreen-btn {
+  display: none !important;
+}
+
 .ss-workspace--map-focus .ss-workspace-splitter,
 .ss-workspace--map-focus .ss-scene-side {
   display: none;
