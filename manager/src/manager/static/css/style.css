@@ -1822,11 +1822,22 @@ body:has(.sign-in-page) .content {
   margin: 0 0.35rem 0 0;
 }
 
+/* Keep Bootstrap custom-switch positioning (inline-flex breaks the hit target) */
 .scene-detail-live-toggle.custom-control {
-  display: inline-flex;
-  align-items: center;
+  position: relative;
+  display: inline-block;
   min-height: 1.5rem;
   padding-left: 2.15rem;
+  margin-right: 0;
+}
+
+.scene-detail-live-toggle .custom-control-input {
+  position: absolute;
+  left: 0;
+  z-index: 2;
+  width: 2rem;
+  height: 1.25rem;
+  cursor: pointer;
 }
 
 .scene-detail-live-toggle .custom-control-label {
@@ -1836,6 +1847,7 @@ body:has(.sign-in-page) .content {
   font-weight: 500;
   color: var(--ss-text);
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .nav-tabs {

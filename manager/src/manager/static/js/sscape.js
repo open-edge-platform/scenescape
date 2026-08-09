@@ -189,20 +189,25 @@ async function checkBrokerConnections() {
 
       if (topic.includes(DATA_REGULATED)) {
         if (show_telemetry) {
-          // Show the FPS for each camera
-          for (const [key, value] of Object.entries(msg.rate)) {
-            var rateEl = document.getElementById("rate-" + key);
-            if (!rateEl) {
-              continue;
+          // Show the FPS for each camera (never throw — would skip plot())
+          if (msg.rate && typeof msg.rate === "object") {
+            for (const [key, value] of Object.entries(msg.rate)) {
+              var rateEl = document.getElementById("rate-" + key);
+              if (!rateEl) {
+                continue;
+              }
+              var fps = Number(value);
+              rateEl.innerText =
+                (Number.isFinite(fps) ? fps.toFixed(2) : "--") + " FPS";
             }
-            var fps = Number(value);
-            rateEl.innerText =
-              (Number.isFinite(fps) ? fps.toFixed(2) : "--") + " FPS";
           }
 
           // Show the scene controller update rate
-          document.getElementById("scene-rate").innerText =
-            msg.scene_rate.toFixed(1);
+          var sceneRateEl = document.getElementById("scene-rate");
+          var sceneRate = Number(msg.scene_rate);
+          if (sceneRateEl && Number.isFinite(sceneRate)) {
+            sceneRateEl.innerText = sceneRate.toFixed(1);
+          }
         }
 
         // Plot the marks
@@ -2247,8 +2252,18 @@ $(document).ready(function () {
   });
 
   $("input#show-telemetry").on("change", function () {
-    if ($(this).is(":checked")) show_telemetry = true;
-    else show_telemetry = false;
+    show_telemetry = $(this).is(":checked");
+    if (!show_telemetry) {
+      $("#scene-rate").text("--");
+      $(".rate").text("--");
+      document.querySelectorAll(".mark-tooltip").forEach(function (el) {
+        el.classList.add("telemetry-hide");
+      });
+    } else {
+      document.querySelectorAll(".mark-tooltip").forEach(function (el) {
+        el.classList.remove("telemetry-hide");
+      });
+    }
   });
 
   $(".form-group")
