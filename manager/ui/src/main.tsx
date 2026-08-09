@@ -25,6 +25,9 @@ const bootstrap = readBootstrap();
 const rootEl = document.getElementById("ss-scene-detail-root");
 
 if (bootstrap && rootEl) {
+  /* Own the viewport before paint settles — Django chrome becomes a slim shell. */
+  document.documentElement.classList.add("ss-scene-workspace");
+  document.body.classList.add("ss-scene-workspace");
   createRoot(rootEl).render(
     <StrictMode>
       <SceneDetailApp bootstrap={bootstrap} />

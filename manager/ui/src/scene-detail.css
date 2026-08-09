@@ -15,3 +15,80 @@
 .ss-scene-detail--workspace .ss-scene-map-slot {
   min-width: 0;
 }
+
+/*
+ * Full-viewport React shell: one flex column from document to workspace.
+ * Global nav stays; page chrome (wrapper padding / body offsets) yields the rest.
+ */
+html.ss-scene-workspace,
+body.ss-scene-workspace {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+body.ss-scene-workspace {
+  display: flex;
+  flex-direction: column;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin: 0;
+}
+
+body.ss-scene-workspace > .navbar.fixed-top {
+  position: sticky;
+  top: 0;
+  flex: 0 0 auto;
+  z-index: 1030;
+}
+
+body.ss-scene-workspace > .navbar.fixed-top .navbar-brand {
+  padding-top: 0.2rem;
+  padding-bottom: 0.2rem;
+  font-size: 1rem;
+}
+
+body.ss-scene-workspace > .navbar.fixed-top .nav-link {
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+
+body.ss-scene-workspace > .wrapper.container-fluid {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body.ss-scene-workspace > .wrapper > .content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+}
+
+body.ss-scene-workspace .ss-scene-detail-root {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+body.ss-scene-workspace .ss-scene-detail--workspace {
+  flex: 1 1 auto;
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+  padding: 0.35rem 0.5rem 0.45rem;
+  box-sizing: border-box;
+}
