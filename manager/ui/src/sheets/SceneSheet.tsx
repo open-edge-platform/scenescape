@@ -111,20 +111,20 @@ export function SceneSheet({
       title={mode === "create" ? "New scene" : "Edit scene"}
       onClose={onClose}
       wide
+      actions={
+        <Button
+          variant="primary"
+          disabled={busy}
+          form="ss-scene-sheet-form"
+          type="submit"
+        >
+          {busy ? "Saving…" : mode === "create" ? "Create scene" : "Save"}
+        </Button>
+      }
       footer={
-        <>
-          <Button variant="secondary" disabled={busy} onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={busy}
-            form="ss-scene-sheet-form"
-            type="submit"
-          >
-            {busy ? "Saving…" : mode === "create" ? "Create scene" : "Save"}
-          </Button>
-        </>
+        <Button variant="secondary" disabled={busy} onClick={onClose}>
+          Cancel
+        </Button>
       }
     >
       <form

@@ -18,6 +18,9 @@ type Props = {
   open: boolean;
   title: string;
   children: ReactNode;
+  /** Primary actions (Save) — trailing edge of the header, like WorkspacePanel. */
+  actions?: ReactNode;
+  /** Secondary actions (Cancel) — bottom bar. */
   footer?: ReactNode;
   wide?: boolean;
   dirty?: boolean;
@@ -28,12 +31,14 @@ type Props = {
 
 /**
  * Right-side command surface for simple create/edit sheets.
- * Shares focus trap, Escape, and dirty-leave confirm with WorkspacePanel.
+ * Save lives in the header (trailing); Cancel stays in the footer.
+ * Shares Escape / dirty-leave confirm with WorkspacePanel.
  */
 export function Drawer({
   open,
   title,
   children,
+  actions,
   footer,
   wide = false,
   dirty = false,
@@ -112,15 +117,20 @@ export function Drawer({
           <h2 className="ss-drawer-title" id={titleId}>
             {title}
           </h2>
-          <button
-            ref={closeRef}
-            type="button"
-            className="ss-drawer-close"
-            aria-label="Close"
-            onClick={requestClose}
-          >
-            ×
-          </button>
+          <div className="ss-drawer-header-end">
+            {actions ? (
+              <div className="ss-drawer-header-actions">{actions}</div>
+            ) : null}
+            <button
+              ref={closeRef}
+              type="button"
+              className="ss-drawer-close"
+              aria-label="Close"
+              onClick={requestClose}
+            >
+              ×
+            </button>
+          </div>
         </div>
         <div className="ss-drawer-body">{children}</div>
         {footer ? <div className="ss-drawer-footer">{footer}</div> : null}

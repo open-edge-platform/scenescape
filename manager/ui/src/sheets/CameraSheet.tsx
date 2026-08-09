@@ -134,28 +134,28 @@ export function CameraSheet({
       title={mode === "create" ? "New camera" : "Edit camera"}
       onClose={onClose}
       dirty={dirty}
+      actions={
+        <Button
+          variant="primary"
+          disabled={busy || !dirty}
+          form="ss-cam-sheet-form"
+          type="submit"
+          title={dirty ? "Save changes" : "No unsaved changes"}
+          className={dirty ? "ss-btn--dirty" : undefined}
+        >
+          {busy
+            ? "Saving…"
+            : mode === "create"
+              ? "Add camera"
+              : dirty
+                ? "Save"
+                : "Saved"}
+        </Button>
+      }
       footer={
-        <>
-          <Button variant="secondary" disabled={busy} onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={busy || !dirty}
-            form="ss-cam-sheet-form"
-            type="submit"
-            title={dirty ? "Save changes" : "No unsaved changes"}
-            className={dirty ? "ss-btn--dirty" : undefined}
-          >
-            {busy
-              ? "Saving…"
-              : mode === "create"
-                ? "Add camera"
-                : dirty
-                  ? "Save"
-                  : "Saved"}
-          </Button>
-        </>
+        <Button variant="secondary" disabled={busy} onClick={onClose}>
+          Cancel
+        </Button>
       }
     >
       <FormShell

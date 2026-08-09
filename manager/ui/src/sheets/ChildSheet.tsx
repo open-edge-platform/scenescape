@@ -136,20 +136,20 @@ export function ChildSheet({
       title={mode === "create" ? "Link child scene" : "Edit child link"}
       onClose={onClose}
       wide
+      actions={
+        <Button
+          variant="primary"
+          disabled={busy}
+          form="ss-child-sheet-form"
+          type="submit"
+        >
+          {busy ? "Saving…" : "Save"}
+        </Button>
+      }
       footer={
-        <>
-          <Button variant="secondary" disabled={busy} onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={busy}
-            form="ss-child-sheet-form"
-            type="submit"
-          >
-            {busy ? "Saving…" : "Save"}
-          </Button>
-        </>
+        <Button variant="secondary" disabled={busy} onClick={onClose}>
+          Cancel
+        </Button>
       }
     >
       <form

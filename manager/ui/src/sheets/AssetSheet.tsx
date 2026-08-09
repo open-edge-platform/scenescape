@@ -104,20 +104,20 @@ export function AssetSheet({
       open={open}
       title={mode === "create" ? "New 3D asset" : "Edit 3D asset"}
       onClose={onClose}
+      actions={
+        <Button
+          variant="primary"
+          disabled={busy}
+          form="ss-asset-sheet-form"
+          type="submit"
+        >
+          {busy ? "Saving…" : "Save"}
+        </Button>
+      }
       footer={
-        <>
-          <Button variant="secondary" disabled={busy} onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={busy}
-            form="ss-asset-sheet-form"
-            type="submit"
-          >
-            {busy ? "Saving…" : "Save"}
-          </Button>
-        </>
+        <Button variant="secondary" disabled={busy} onClick={onClose}>
+          Cancel
+        </Button>
       }
     >
       <form

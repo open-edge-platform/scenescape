@@ -137,28 +137,28 @@ export function SensorSheet({
       title={mode === "create" ? "New sensor" : "Edit sensor"}
       onClose={onClose}
       dirty={dirty}
+      actions={
+        <Button
+          variant="primary"
+          disabled={busy || !dirty}
+          form="ss-sensor-sheet-form"
+          type="submit"
+          title={dirty ? "Save changes" : "No unsaved changes"}
+          className={dirty ? "ss-btn--dirty" : undefined}
+        >
+          {busy
+            ? "Saving…"
+            : mode === "create"
+              ? "Add sensor"
+              : dirty
+                ? "Save"
+                : "Saved"}
+        </Button>
+      }
       footer={
-        <>
-          <Button variant="secondary" disabled={busy} onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            disabled={busy || !dirty}
-            form="ss-sensor-sheet-form"
-            type="submit"
-            title={dirty ? "Save changes" : "No unsaved changes"}
-            className={dirty ? "ss-btn--dirty" : undefined}
-          >
-            {busy
-              ? "Saving…"
-              : mode === "create"
-                ? "Add sensor"
-                : dirty
-                  ? "Save"
-                  : "Saved"}
-          </Button>
-        </>
+        <Button variant="secondary" disabled={busy} onClick={onClose}>
+          Cancel
+        </Button>
       }
     >
       <form

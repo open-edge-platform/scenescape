@@ -51,19 +51,39 @@
 
 .ss-drawer-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 1rem 1.1rem 0.65rem;
+  padding: 0.75rem 1.1rem;
   border-bottom: 1px solid var(--ss-card-border);
 }
 
 .ss-drawer-title {
   margin: 0;
   font-family: var(--ss-font-heading);
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--ss-nav-bg);
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ss-drawer-header-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+
+.ss-drawer-header-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .ss-drawer-close {
