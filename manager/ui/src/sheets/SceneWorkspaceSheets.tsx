@@ -1,22 +1,26 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useSheetFromQuery } from "../hooks/useSheetFromQuery";
 import type { SheetAction } from "../lib/sheetQuery";
+import type { SceneCameraBootstrap } from "../scene/types";
 import { CameraSheet } from "./CameraSheet";
 import { SensorSheet } from "./SensorSheet";
 import { ChildSheet, type SceneOption } from "./ChildSheet";
-import { CalibrateOverlay } from "./CalibrateOverlay";
+import { SceneManagePanel } from "./SceneManagePanel";
+import { CameraCalibratePanel } from "./CameraCalibratePanel";
+import { SensorCalibratePanel } from "./SensorCalibratePanel";
 
 type Props = {
   sceneId: string;
   authToken: string;
   isSuperuser: boolean;
   scenes: SceneOption[];
+  cameras: SceneCameraBootstrap[];
 };
 
-/** Same-page sheet/overlay actions hosted on the scene workspace. */
+/** Same-page sheet/panel actions hosted on the scene workspace. */
 const WORKSPACE_ACTIONS = new Set([
   "cam-create",
   "sensor-create",
@@ -31,13 +35,15 @@ function isWorkspaceAction(v: string | null): v is Exclude<SheetAction, null> {
 }
 
 /**
- * Intercepts same-page ?ss= create/calibrate/manage links; hosts drawers + overlays.
+ * Intercepts same-page ?ss= create/calibrate/manage links; hosts drawers +
+ * full-viewport React workspace panels (no Django iframe chrome).
  */
 export function SceneWorkspaceSheets({
   sceneId,
   authToken,
   isSuperuser,
   scenes,
+  cameras,
 }: Props) {
   const { sheet, open, close } = useSheetFromQuery();
 
@@ -82,11 +88,21 @@ export function SceneWorkspaceSheets({
     window.location.reload();
   }, []);
 
+  const camByPk = useMemo(() => {
+    const map = new Map<string, SceneCameraBootstrap>();
+    cameras.forEach((c) => map.set(String(c.id), c));
+    return map;
+  }, [cameras]);
+
   if (!isSuperuser) {
     return null;
   }
 
   const action = sheet.action;
+  const calibrateCam =
+    action === "calibrate-cam" && sheet.id
+      ? camByPk.get(String(sheet.id))
+      : null;
 
   return (
     <>
@@ -117,17 +133,27 @@ export function SceneWorkspaceSheets({
         onClose={close}
         onSaved={reload}
       />
-      <CalibrateOverlay
-        open={action === "calibrate-cam" || action === "calibrate-sensor"}
-        kind={action === "calibrate-sensor" ? "sensor" : "cam"}
-        entityPk={sheet.id || ""}
-        onClose={close}
-      />
-      <CalibrateOverlay
+      <SceneManagePanel
         open={action === "scene-manage"}
-        kind="scene"
-        entityPk={sceneId}
+        sceneId={sceneId}
+        authToken={authToken}
         onClose={close}
+        onSaved={reload}
+      />
+      <CameraCalibratePanel
+        open={Boolean(calibrateCam)}
+        cameraPk={calibrateCam?.id || ""}
+        sensorId={calibrateCam?.sensorId || ""}
+        sceneId={sceneId}
+        authToken={authToken}
+        onClose={close}
+        onSaved={reload}
+      />
+      <SensorCalibratePanel
+        open={action === "calibrate-sensor"}
+        sensorPk={sheet.id || ""}
+        onClose={close}
+        onSaved={reload}
       />
     </>
   );

@@ -123,6 +123,8 @@ export const api = {
     restForm("POST", "/scene", token, form),
   updateScene: (token: string, uid: string, form: FormData) =>
     restForm("PUT", `/scene/${encodeURIComponent(uid)}`, token, form),
+  updateSceneJson: (token: string, uid: string, data: unknown) =>
+    restJson("PUT", `/scene/${encodeURIComponent(uid)}`, token, data),
   getScene: (token: string, uid: string) =>
     restJson<Record<string, unknown>>(
       "GET",

@@ -1,0 +1,154 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-workspace-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  flex-direction: column;
+  background: var(--ss-surface, #f4f5f5);
+  animation: ss-workspace-panel-in 0.18s ease;
+}
+
+@keyframes ss-workspace-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ss-workspace-panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  background: var(--ss-nav-bg, #001e50);
+  color: #fff;
+  flex: 0 0 auto;
+}
+
+.ss-workspace-panel-back {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  color: #fff;
+  border-radius: var(--ss-radius);
+  padding: 0.25rem 0.65rem;
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.ss-workspace-panel-back:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+.ss-workspace-panel-back:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.ss-workspace-panel-title {
+  margin: 0;
+  font-family: var(--ss-font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ss-workspace-panel-actions {
+  margin-left: auto;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.ss-workspace-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.25rem 1.5rem;
+}
+
+.ss-workspace-panel-body--bleed {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ss-workspace-panel-body--split {
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(22rem, 28rem);
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 960px) {
+  .ss-workspace-panel-body--split {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(40vh, 1fr) minmax(40vh, 1fr);
+    overflow: auto;
+  }
+}
+
+.ss-workspace-panel-main {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.25rem 1.5rem;
+}
+
+.ss-workspace-panel-aside {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-left: 1px solid var(--ss-card-border);
+  background: var(--ss-card-bg);
+  padding: 1rem 1.1rem 1.5rem;
+}
+
+.ss-workspace-panel-form {
+  width: 100%;
+  max-width: none;
+}
+
+.ss-workspace-panel-form--narrow {
+  max-width: 48rem;
+}
+
+.ss-workspace-panel-form--wide {
+  max-width: min(100%, 72rem);
+}
+
+.ss-workspace-panel-error {
+  margin: 0 0 0.85rem;
+  color: var(--ss-status-bad);
+  font-size: 0.8125rem;
+}
+
+.ss-workspace-panel-hint {
+  margin: 0 0 0.85rem;
+  color: var(--ss-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}

@@ -236,6 +236,7 @@ function SceneDetailInner({ bootstrap }: Props) {
         authToken={bootstrap.authToken}
         isSuperuser={isSuperuser}
         scenes={bootstrap.scenes || []}
+        cameras={cameras}
       />
       <ConfirmDialog
         open={sceneDeleteOpen}
