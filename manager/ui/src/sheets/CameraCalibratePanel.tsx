@@ -17,6 +17,11 @@ import {
 } from "../components/PanelLayoutToggle";
 import { api, type RestError } from "../lib/rest";
 import { useAppToast } from "../components/ToastProvider";
+import {
+  PointCorrespondencePane,
+  pairsToTransforms,
+  type PosePair,
+} from "./PointCorrespondencePane";
 import "./CameraCalibratePanel.css";
 import "../components/PanelLayoutToggle.css";
 
@@ -65,11 +70,11 @@ function resolutionParts(resolution: unknown): { width: string; height: string }
 
 /**
  * Full-viewport camera calibrate / settings panel.
- * Persists settings via REST; point picking stays in a nested Django embed.
+ * Settings + point correspondence via REST (no iframe).
  */
 export function CameraCalibratePanel({
   open,
-  cameraPk,
+  cameraPk: _cameraPk,
   sensorId,
   sceneId,
   authToken,
@@ -78,7 +83,6 @@ export function CameraCalibratePanel({
   onSaved,
 }: Props) {
   const toast = useAppToast();
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const lockFocalRef = useRef(true);
   const [layoutMode, setLayoutMode] = useState<PanelLayoutMode>(() =>
     typeof window !== "undefined" ? readPanelLayoutMode() : "auto",
@@ -113,7 +117,9 @@ export function CameraCalibratePanel({
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [iframeReady, setIframeReady] = useState(false);
+  const [posePairs, setPosePairs] = useState<PosePair[]>([]);
+  const [mapUrl, setMapUrl] = useState<string | null>(null);
+  const [cameraImageUrl, setCameraImageUrl] = useState<string | null>(null);
 
   lockFocalRef.current = lockFocal;
   const hasAdvanced = isKubernetes;
@@ -125,23 +131,14 @@ export function CameraCalibratePanel({
     }
   }, [loaded]);
 
-  const pushOpticsToIframe = useCallback(
-    (nextIn: NumMap, nextDist: NumMap, locked: boolean) => {
-      const win = iframeRef.current?.contentWindow;
-      if (!win) {
-        return;
+  const onPoseChange = useCallback(
+    (pairs: PosePair[]) => {
+      setPosePairs(pairs);
+      if (loaded) {
+        setDirty(true);
       }
-      win.postMessage(
-        {
-          type: "ss-calibrate-optics-set",
-          intrinsics: nextIn,
-          distortion: nextDist,
-          fixIntrinsics: { fx: locked, fy: locked },
-        },
-        window.location.origin,
-      );
     },
-    [],
+    [loaded],
   );
 
   useEffect(() => {
@@ -154,10 +151,12 @@ export function CameraCalibratePanel({
     setDirty(false);
     setLoaded(false);
     setLockFocal(true);
-    setIframeReady(false);
-    api
-      .getCamera(authToken, sensorId)
-      .then((cam) => {
+    setPosePairs([]);
+    Promise.all([
+      api.getCamera(authToken, sensorId),
+      api.getScene(authToken, sceneId).catch(() => null),
+    ])
+      .then(([cam, scene]) => {
         if (cancelled) {
           return;
         }
@@ -193,6 +192,19 @@ export function CameraCalibratePanel({
           setModelconfig(String(cam.modelconfig || "model_config.json"));
           setUseCameraPipeline(Boolean(cam.use_camera_pipeline));
         }
+        const map =
+          scene && typeof scene === "object"
+            ? (scene as { map?: unknown; map_url?: unknown }).map ||
+              (scene as { map_url?: unknown }).map_url
+            : null;
+        setMapUrl(typeof map === "string" && map ? map : null);
+        const snap =
+          typeof cam.snapshot === "string"
+            ? cam.snapshot
+            : typeof cam.thumbnail === "string"
+              ? cam.thumbnail
+              : null;
+        setCameraImageUrl(snap);
         setLoaded(true);
       })
       .catch((e: RestError) => {
@@ -208,65 +220,7 @@ export function CameraCalibratePanel({
     return () => {
       cancelled = true;
     };
-  }, [open, sensorId, authToken, hasAdvanced]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const onMessage = (ev: MessageEvent) => {
-      if (ev.origin !== window.location.origin) {
-        return;
-      }
-      if (!ev.data || typeof ev.data !== "object") {
-        return;
-      }
-      if (ev.data.type === "ss-calibrate-done") {
-        toast.show("Camera calibration saved", "ok");
-        onSaved();
-        onClose();
-        return;
-      }
-      if (ev.data.type === "ss-calibrate-optics") {
-        const nextIn = ev.data.intrinsics as NumMap | undefined;
-        const nextDist = ev.data.distortion as NumMap | undefined;
-        const locked = lockFocalRef.current;
-        if (nextIn) {
-          setIntrinsics((prev) => {
-            if (locked) {
-              return {
-                ...prev,
-                cx: nextIn.cx ?? prev.cx,
-                cy: nextIn.cy ?? prev.cy,
-              };
-            }
-            return { ...prev, ...nextIn };
-          });
-        }
-        if (nextDist && distortionEditable) {
-          setDistortion((prev) => ({ ...prev, ...nextDist }));
-        }
-        setDirty(true);
-      }
-    };
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [open, onClose, onSaved, toast, distortionEditable]);
-
-  useEffect(() => {
-    if (!open || !loaded || !iframeReady) {
-      return;
-    }
-    pushOpticsToIframe(intrinsics, distortion, lockFocal);
-  }, [
-    open,
-    loaded,
-    iframeReady,
-    intrinsics,
-    distortion,
-    lockFocal,
-    pushOpticsToIframe,
-  ]);
+  }, [open, sensorId, sceneId, authToken, hasAdvanced]);
 
   useEffect(() => {
     const recompute = () => setAutoLayout(chooseAutoPanelLayout());
@@ -351,10 +305,14 @@ export function CameraCalibratePanel({
       payload.use_camera_pipeline = useCameraPipeline;
     }
     try {
-      iframeRef.current?.contentWindow?.postMessage(
-        { type: "ss-calibrate-save-points" },
-        window.location.origin,
-      );
+      if (posePairs.length >= 4) {
+        payload.transform_type = "3d-2d point correspondence";
+        payload.transforms = pairsToTransforms(posePairs);
+      } else if (posePairs.length > 0) {
+        setError("Point correspondence needs at least 4 matching pairs");
+        setBusy(false);
+        return;
+      }
       await api.updateCamera(authToken, sensorId, payload);
       toast.show("Camera saved", "ok");
       setDirty(false);
@@ -631,25 +589,18 @@ export function CameraCalibratePanel({
           <div className="ss-workspace-cal-preview-meta">
             <h3 className="ss-form-section-title">Point correspondence</h3>
             <p className="ss-workspace-panel-hint" style={{ marginBottom: 0 }}>
-              Place matching points on the camera frame and scene map. With fx/fy
-              unlocked and 6+ pairs, focal length can be estimated into the
-              settings panel.
+              Place matching points on the camera frame and scene map. Save
+              includes pose when 4+ pairs are set.
             </p>
           </div>
-          {cameraPk ? (
-            <div className="ss-workspace-cal-preview-frame">
-              <iframe
-                ref={iframeRef}
-                title="Point calibrator"
-                src={`/cam/calibrate/${cameraPk}?embed=1`}
-                onLoad={() => setIframeReady(true)}
-              />
-            </div>
-          ) : (
-            <p className="ss-workspace-panel-hint">
-              Camera primary key is missing; point calibrator cannot load.
-            </p>
-          )}
+          <div className="ss-workspace-cal-preview-frame">
+            <PointCorrespondencePane
+              mapUrl={mapUrl}
+              cameraImageUrl={cameraImageUrl}
+              disabled={busy || !loaded}
+              onChange={onPoseChange}
+            />
+          </div>
         </div>
         <aside className="ss-cal-workspace-aside">{formBody}</aside>
       </div>

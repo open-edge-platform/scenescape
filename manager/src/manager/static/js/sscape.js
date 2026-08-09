@@ -834,6 +834,9 @@ function stringifyRois() {
 
   // Update hidden field
   $("#id_rois").val(JSON.stringify(rois));
+  try {
+    window.dispatchEvent(new CustomEvent("ss-geometry-stringified", { detail: { kind: "rois" } }));
+  } catch (e) { /* ignore */ }
 }
 
 window.stringifyRois = stringifyRois;
@@ -871,6 +874,13 @@ function stringifyTripwires() {
 
   // Update hidden field
   $("#tripwires").val(JSON.stringify(tripwires));
+  try {
+    window.dispatchEvent(
+      new CustomEvent("ss-geometry-stringified", { detail: { kind: "trips" } }),
+    );
+  } catch (e) {
+    /* ignore */
+  }
 }
 
 window.stringifyTripwires = stringifyTripwires;
@@ -1360,55 +1370,19 @@ function setupCalibrationType() {
   return;
 }
 
-// Function to save roi and tripwires (React REST persist preferred; form POST fallback)
+// Function to save roi and tripwires (React REST persist required)
 async function saveRois(roi_values) {
   var duplicates = find_duplicates(roi_values);
   if (duplicates.length > 0) {
     alert(duplicates.toString() + " already exists. Try a different name");
     return;
   }
-  if (typeof window.ssPersistGeometry === "function") {
-    try {
-      await window.ssPersistGeometry(roi_values);
-      return;
-    } catch (err) {
-      console.error(err);
-      alert("Failed to save regions: " + (err?.message || String(err)));
-      return;
-    }
-  }
-  var form = document.getElementById("roi-form");
-  if (!form) {
+  if (typeof window.ssPersistGeometry !== "function") {
+    alert("Save is unavailable — React geometry persist is not mounted.");
     return;
   }
-  if (typeof stringifyRois === "function") {
-    stringifyRois();
-  }
-  if (typeof stringifyTripwires === "function") {
-    stringifyTripwires();
-  }
-  var formData = new FormData(form);
-  var csrf =
-    document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
-    getCookie("csrftoken");
   try {
-    var resp = await fetch(form.action, {
-      method: "POST",
-      body: formData,
-      credentials: "same-origin",
-      headers: {
-        "X-CSRFToken": csrf || "",
-        Accept: "text/html",
-      },
-      redirect: "follow",
-    });
-    if (!resp.ok && !resp.redirected) {
-      throw new Error("Save failed (HTTP " + resp.status + ")");
-    }
-    if (window.ssToast && typeof window.ssToast.show === "function") {
-      window.ssToast.show("Regions saved", "ok");
-    }
-    window.location.reload();
+    await window.ssPersistGeometry(roi_values);
   } catch (err) {
     console.error(err);
     alert("Failed to save regions: " + (err?.message || String(err)));
@@ -2445,6 +2419,9 @@ $(document).ready(function () {
       $(document)
         .off("click.ssNewRoi", "#new-roi, #empty-new-roi")
         .on("click.ssNewRoi", "#new-roi, #empty-new-roi", function () {
+          if (window.ssUseReactMap) {
+            return;
+          }
           addPoly();
         });
 
@@ -2454,6 +2431,9 @@ $(document).ready(function () {
           "click.ssNewTrip",
           "#new-tripwire, #empty-new-tripwire",
           function () {
+            if (window.ssUseReactMap) {
+              return;
+            }
             addTripwire();
           },
         );
@@ -2546,11 +2526,6 @@ $(document).ready(function () {
   $("#redraw").on("click", function () {
     $(".roi").remove();
     addPoly();
-  });
-
-  $("#roi-form").submit(function (event) {
-    stringifyRois();
-    stringifyTripwires();
   });
 
   $("#fullscreen").on("click", function () {

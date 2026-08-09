@@ -9,4 +9,21 @@
 
 .ss-scene-map-slot {
   min-width: 0;
+  position: relative;
+}
+
+.ss-react-map-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  background: var(--ss-surface, #f4f5f5);
+}
+
+.ss-react-map-layer .ss-react-scene-map {
+  width: 100%;
+  height: 100%;
 }

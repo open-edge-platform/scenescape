@@ -1,0 +1,31 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-models-dir {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 2rem;
+}
+
+.ss-models-dir-tree {
+  margin-top: 1rem;
+}
+
+.ss-model-node-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 0;
+  background: transparent;
+  font-family: var(--ss-font-sans);
+  font-size: 0.875rem;
+  color: var(--ss-text);
+  padding: 0.2rem 0.25rem;
+  cursor: pointer;
+}
+
+.ss-model-node-btn:hover {
+  color: var(--ss-brand);
+}

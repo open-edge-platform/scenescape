@@ -97,30 +97,20 @@ SPDX-License-Identifier: Apache-2.0
   />
 
   {% if user.is_superuser %}
-    <form action="{% url 'save-roi' scene.id %}" method="post" id="roi-form">
-      {% csrf_token %}
-      <input
-        type="hidden"
-        name="rois"
-        id="id_rois"
-        value="{{ scene.roiJSON }}"
-      />
-      <input
-        type="hidden"
-        name="tripwires"
-        id="tripwires"
-        value="{{ scene.tripwireJSON }}"
-      />
-    </form>
-  {% else %}
-    <input type="hidden" name="rois" id="id_rois" value="{{ scene.roiJSON }}" />
-    <input
-      type="hidden"
-      name="tripwires"
-      id="tripwires"
-      value="{{ scene.tripwireJSON }}"
-    />
+    {% csrf_token %}
   {% endif %}
+  <input
+    type="hidden"
+    name="rois"
+    id="id_rois"
+    value="{{ scene.roiJSON }}"
+  />
+  <input
+    type="hidden"
+    name="tripwires"
+    id="tripwires"
+    value="{{ scene.tripwireJSON }}"
+  />
 
   <div id="ss-legacy-panels-parking" class="ss-legacy-parking" hidden>
   <div

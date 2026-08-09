@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { WorkspacePanel } from "../components/WorkspacePanel";
 import { FormSection } from "../components/FormSection";
 import { TextField } from "../components/TextField";
@@ -22,9 +22,7 @@ import "../components/PanelLayoutToggle.css";
 
 type Props = {
   open: boolean;
-  /** Django DB pk as string (from bootstrap sensors[].id) */
   sensorPk: string;
-  /** sensor_id for REST (from bootstrap sensors[].sensorId) */
   sensorId: string;
   sceneId: string;
   authToken: string;
@@ -37,9 +35,50 @@ const TYPES = [
   { value: "generic", label: "Generic" },
 ];
 
+type AreaMode = "scene" | "circle" | "poly";
+
+function numStr(v: unknown, fallback = ""): string {
+  if (v == null || v === "") {
+    return fallback;
+  }
+  return String(v);
+}
+
+function parseNum(s: string): number | undefined {
+  const t = s.trim();
+  if (!t) {
+    return undefined;
+  }
+  const n = Number(t);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function sectorsFromSensor(s: Record<string, unknown>): {
+  green: string;
+  yellow: string;
+  red: string;
+  max: string;
+} {
+  const cr = s.color_ranges;
+  if (cr && typeof cr === "object") {
+    const obj = cr as { sectors?: { color: string; color_min: number }[]; range_max?: number };
+    const sectors = obj.sectors || [];
+    const min = (color: string, fb: number) => {
+      const hit = sectors.find((x) => x.color === color);
+      return hit != null ? String(hit.color_min) : String(fb);
+    };
+    return {
+      green: min("green", 0),
+      yellow: min("yellow", 2),
+      red: min("red", 5),
+      max: obj.range_max != null ? String(obj.range_max) : "10",
+    };
+  }
+  return { green: "0", yellow: "2", red: "5", max: "10" };
+}
+
 /**
- * Full-viewport sensor calibrate panel.
- * Identity settings via REST; area / map ROI stay in the Django embed.
+ * Full-viewport sensor calibrate panel — identity + area via REST (no iframe).
  */
 export function SensorCalibratePanel({
   open,
@@ -51,16 +90,23 @@ export function SensorCalibratePanel({
   onSaved,
 }: Props) {
   const toast = useAppToast();
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [name, setName] = useState("");
   const [sensorIdEdit, setSensorIdEdit] = useState(sensorId);
   const [singletonType, setSingletonType] = useState("environmental");
+  const [area, setArea] = useState<AreaMode>("scene");
+  const [centerX, setCenterX] = useState("0");
+  const [centerY, setCenterY] = useState("0");
+  const [radius, setRadius] = useState("1");
+  const [pointsText, setPointsText] = useState("[]");
+  const [greenMin, setGreenMin] = useState("0");
+  const [yellowMin, setYellowMin] = useState("2");
+  const [redMin, setRedMin] = useState("5");
+  const [rangeMax, setRangeMax] = useState("10");
+  const [mapUrl, setMapUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [iframeReady, setIframeReady] = useState(false);
-  const [iframeDirty, setIframeDirty] = useState(false);
   const [layoutMode, setLayoutMode] = useState<PanelLayoutMode>(() =>
     typeof window !== "undefined" ? readPanelLayoutMode() : "auto",
   );
@@ -75,17 +121,6 @@ export function SensorCalibratePanel({
   const setPanelLayoutMode = useCallback((mode: PanelLayoutMode) => {
     setLayoutMode(mode);
     writePanelLayoutMode(mode);
-  }, []);
-
-  const pushLayoutToIframe = useCallback((layout: PanelLayout) => {
-    const win = iframeRef.current?.contentWindow;
-    if (!win) {
-      return;
-    }
-    win.postMessage(
-      { type: "ss-calibrate-layout", layout },
-      window.location.origin,
-    );
   }, []);
 
   const markDirty = useCallback(() => {
@@ -109,18 +144,40 @@ export function SensorCalibratePanel({
     setBusy(true);
     setError(null);
     setDirty(false);
-    setIframeDirty(false);
     setLoaded(false);
-    setIframeReady(false);
-    api
-      .getSensor(authToken, sensorId)
-      .then((s) => {
+    Promise.all([
+      api.getSensor(authToken, sensorId),
+      api.getScene(authToken, sceneId).catch(() => null),
+    ])
+      .then(([s, scene]) => {
         if (cancelled) {
           return;
         }
         setName(String(s.name || ""));
         setSensorIdEdit(String(s.sensor_id || s.uid || sensorId));
         setSingletonType(String(s.singleton_type || "environmental"));
+        const areaMode = (String(s.area || "scene") as AreaMode) || "scene";
+        setArea(
+          areaMode === "circle" || areaMode === "poly" ? areaMode : "scene",
+        );
+        const center = Array.isArray(s.center) ? s.center : [0, 0];
+        setCenterX(numStr(center[0], "0"));
+        setCenterY(numStr(center[1], "0"));
+        setRadius(s.radius != null ? numStr(s.radius, "1") : "1");
+        setPointsText(
+          Array.isArray(s.points) ? JSON.stringify(s.points, null, 2) : "[]",
+        );
+        const secs = sectorsFromSensor(s);
+        setGreenMin(secs.green);
+        setYellowMin(secs.yellow);
+        setRedMin(secs.red);
+        setRangeMax(secs.max);
+        const map =
+          scene && typeof scene === "object"
+            ? (scene as { map?: unknown; map_url?: unknown }).map ||
+              (scene as { map_url?: unknown }).map_url
+            : null;
+        setMapUrl(typeof map === "string" && map ? map : null);
         setLoaded(true);
       })
       .catch((e: RestError) => {
@@ -136,52 +193,7 @@ export function SensorCalibratePanel({
     return () => {
       cancelled = true;
     };
-  }, [open, sensorId, authToken]);
-
-  useEffect(() => {
-    if (!open) {
-      setDirty(false);
-      setIframeDirty(false);
-      setBusy(false);
-      setIframeReady(false);
-      return;
-    }
-    const onMessage = (ev: MessageEvent) => {
-      if (ev.origin !== window.location.origin) {
-        return;
-      }
-      if (!ev.data || typeof ev.data !== "object") {
-        return;
-      }
-      const type = (ev.data as { type?: string }).type;
-      if (type === "ss-calibrate-dirty") {
-        setIframeDirty(true);
-        setDirty(true);
-        return;
-      }
-      if (type === "ss-calibrate-cancel") {
-        onClose();
-        return;
-      }
-      if (type === "ss-calibrate-done") {
-        toast.show("Sensor calibration saved", "ok");
-        setBusy(false);
-        setDirty(false);
-        setIframeDirty(false);
-        onSaved();
-        onClose();
-      }
-    };
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [open, onClose, onSaved, toast]);
-
-  useEffect(() => {
-    if (!open || !iframeReady) {
-      return;
-    }
-    pushLayoutToIframe(resolvedLayout);
-  }, [open, iframeReady, resolvedLayout, pushLayoutToIframe]);
+  }, [open, sensorId, sceneId, authToken]);
 
   const submit = async (e?: FormEvent) => {
     e?.preventDefault();
@@ -191,19 +203,48 @@ export function SensorCalibratePanel({
     }
     setBusy(true);
     setError(null);
-    try {
-      await api.updateSensor(authToken, restUid, {
-        name: name.trim(),
-        sensor_id: restUid,
-        scene: sceneId,
-        singleton_type: singletonType,
-      });
-      if (iframeDirty || iframeReady) {
-        iframeRef.current?.contentWindow?.postMessage(
-          { type: "ss-calibrate-save-points" },
-          window.location.origin,
-        );
+    const payload: Record<string, unknown> = {
+      name: name.trim(),
+      sensor_id: restUid,
+      scene: sceneId,
+      singleton_type: singletonType,
+      area,
+      color_ranges: {
+        sectors: [
+          { color: "green", color_min: parseNum(greenMin) ?? 0 },
+          { color: "yellow", color_min: parseNum(yellowMin) ?? 2 },
+          { color: "red", color_min: parseNum(redMin) ?? 5 },
+        ],
+        range_max: parseNum(rangeMax) ?? 10,
+      },
+    };
+    if (area === "circle") {
+      const cx = parseNum(centerX);
+      const cy = parseNum(centerY);
+      const r = parseNum(radius);
+      if (cx === undefined || cy === undefined || r === undefined) {
+        setError("Circle area requires center X/Y and radius");
+        setBusy(false);
+        return;
       }
+      payload.center = [cx, cy];
+      payload.radius = r;
+    }
+    if (area === "poly") {
+      try {
+        const pts = JSON.parse(pointsText) as unknown;
+        if (!Array.isArray(pts)) {
+          throw new SyntaxError("points must be an array");
+        }
+        payload.points = pts;
+      } catch {
+        setError("Polygon points must be valid JSON [[x,y], …]");
+        setBusy(false);
+        return;
+      }
+    }
+    try {
+      await api.updateSensor(authToken, restUid, payload);
       toast.show("Sensor saved", "ok");
       setDirty(false);
       onSaved();
@@ -225,11 +266,7 @@ export function SensorCalibratePanel({
       {busy && !loaded ? (
         <p className="ss-workspace-panel-hint">Loading sensor…</p>
       ) : null}
-      <FormSection
-        id="ss-sensor-cal-identity"
-        title="Identity"
-        description="Sensor name and pipeline id. Area geometry stays in the map."
-      >
+      <FormSection title="Identity" description="Sensor name and pipeline id.">
         <TextField
           id="ss-sensor-cal-name"
           label="Name"
@@ -269,12 +306,130 @@ export function SensorCalibratePanel({
           ))}
         </SelectField>
       </FormSection>
+      <FormSection
+        title="Area"
+        description="Coverage on the scene map (REST-backed)."
+      >
+        <SelectField
+          id="ss-sensor-cal-area"
+          label="Area type"
+          value={area}
+          onChange={(ev) => {
+            setArea(ev.target.value as AreaMode);
+            markDirty();
+          }}
+          disabled={busy}
+        >
+          <option value="scene">Entire scene</option>
+          <option value="circle">Circle</option>
+          <option value="poly">Polygon</option>
+        </SelectField>
+        {area === "circle" ? (
+          <>
+            <TextField
+              id="ss-sensor-cal-cx"
+              label="Center X (m)"
+              value={centerX}
+              onChange={(ev) => {
+                setCenterX(ev.target.value);
+                markDirty();
+              }}
+              disabled={busy}
+            />
+            <TextField
+              id="ss-sensor-cal-cy"
+              label="Center Y (m)"
+              value={centerY}
+              onChange={(ev) => {
+                setCenterY(ev.target.value);
+                markDirty();
+              }}
+              disabled={busy}
+            />
+            <TextField
+              id="ss-sensor-cal-r"
+              label="Radius (m)"
+              value={radius}
+              onChange={(ev) => {
+                setRadius(ev.target.value);
+                markDirty();
+              }}
+              disabled={busy}
+            />
+          </>
+        ) : null}
+        {area === "poly" ? (
+          <div className="ss-text-field">
+            <label className="ss-text-field-label" htmlFor="ss-sensor-cal-pts">
+              Points JSON [[x,y], …]
+            </label>
+            <div className="ss-text-field-control">
+              <textarea
+                id="ss-sensor-cal-pts"
+                rows={6}
+                value={pointsText}
+                disabled={busy}
+                onChange={(ev) => {
+                  setPointsText(ev.target.value);
+                  markDirty();
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
+      </FormSection>
+      <FormSection
+        title="Occupancy colors"
+        description="Threshold sectors for scalar visualization."
+        className="ss-form-section--columns"
+      >
+        <TextField
+          id="ss-sensor-cal-g"
+          label="Green min"
+          value={greenMin}
+          onChange={(ev) => {
+            setGreenMin(ev.target.value);
+            markDirty();
+          }}
+          disabled={busy}
+        />
+        <TextField
+          id="ss-sensor-cal-y"
+          label="Yellow min"
+          value={yellowMin}
+          onChange={(ev) => {
+            setYellowMin(ev.target.value);
+            markDirty();
+          }}
+          disabled={busy}
+        />
+        <TextField
+          id="ss-sensor-cal-r2"
+          label="Red min"
+          value={redMin}
+          onChange={(ev) => {
+            setRedMin(ev.target.value);
+            markDirty();
+          }}
+          disabled={busy}
+        />
+        <TextField
+          id="ss-sensor-cal-max"
+          label="Range max"
+          value={rangeMax}
+          onChange={(ev) => {
+            setRangeMax(ev.target.value);
+            markDirty();
+          }}
+          disabled={busy}
+        />
+      </FormSection>
     </form>
   );
 
   return (
     <WorkspacePanel
-      open={open && Boolean(sensorPk)}
+      open={open && Boolean(sensorPk || sensorId)}
       title="Calibrate sensor"
       layout="bleed"
       dirty={dirty}
@@ -307,26 +462,29 @@ export function SensorCalibratePanel({
       >
         <div className="ss-cal-workspace-main ss-workspace-cal-preview">
           <div className="ss-workspace-cal-preview-meta">
-            <h3 className="ss-form-section-title">Area on map</h3>
+            <h3 className="ss-form-section-title">Area preview</h3>
             <p className="ss-workspace-panel-hint" style={{ marginBottom: 0 }}>
-              Place the sensor area (scene, circle, or polygon) and occupancy
-              color ranges on the scene map.
+              Area type: <strong>{area}</strong>
+              {area === "circle"
+                ? ` · center (${centerX}, ${centerY}) · r=${radius}`
+                : null}
+              {area === "poly" ? " · polygon points in the form" : null}
             </p>
           </div>
-          {sensorPk ? (
-            <div className="ss-workspace-cal-preview-frame">
-              <iframe
-                ref={iframeRef}
-                title="Sensor calibrator"
-                src={`/singleton_sensor/calibrate/${sensorPk}?embed=1`}
-                onLoad={() => setIframeReady(true)}
+          <div className="ss-workspace-cal-preview-frame">
+            {mapUrl ? (
+              <img
+                src={mapUrl}
+                alt="Scene map"
+                style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
               />
-            </div>
-          ) : (
-            <p className="ss-workspace-panel-hint">
-              Sensor primary key is missing; calibrator cannot load.
-            </p>
-          )}
+            ) : (
+              <p className="ss-workspace-panel-hint">
+                Scene map preview unavailable. Edit area fields in the settings
+                panel.
+              </p>
+            )}
+          </div>
         </div>
         <aside className="ss-cal-workspace-aside">{formBody}</aside>
       </div>

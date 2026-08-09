@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from django.test import TestCase
@@ -6,6 +6,7 @@ from django.urls import reverse
 from manager.models import SingletonSensor, Scene
 from django.contrib.auth.models import User
 from django.test.client import RequestFactory
+
 
 class SingletonSensorUpdateTestCase(TestCase):
   def setUp(self):
@@ -17,6 +18,10 @@ class SingletonSensorUpdateTestCase(TestCase):
     SingletonSensor.objects.create(sensor_id="100", name="test_sensor", scene = testScene)
 
   def test_singleton_sensor_update_page(self):
-    response = self.client.get(reverse('singleton_sensor_update', args=['1']), data = {'sensor_id': '100', 'name': 'test_sensor_updated'})
-    self.assertEqual(response.status_code, 200)
-    self.assertTemplateUsed(response, 'singleton_sensor/singleton_sensor_update.html')
+    sensor = SingletonSensor.objects.get(sensor_id="100")
+    response = self.client.get(
+      reverse('singleton_sensor_update', args=[sensor.pk]),
+      data = {'sensor_id': '100', 'name': 'test_sensor_updated'})
+    self.assertEqual(response.status_code, 302)
+    self.assertIn('ss=sensor-edit', response.url)
+    self.assertIn(f'id={sensor.sensor_id}', response.url)

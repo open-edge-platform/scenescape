@@ -5,23 +5,16 @@
 
 import json
 import tempfile
-from manager import views
-from scene_common.geometry import Point
 from unittest.mock import Mock
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from manager.models import Scene, SingletonSensor, Cam
-from manager.views import SingletonSensorDeleteView, SingletonSensorCreateView, \
-                         SingletonSensorUpdateView, CamCreateView, CamDeleteView, CamUpdateView
-from unittest.mock import MagicMock, patch
+from manager.views import SingletonSensorDeleteView, CamDeleteView
 from django.contrib.auth.models import User
 from django.test.client import RequestFactory
 from manager.settings import AXES_FAILURE_LIMIT
-from pathlib import Path
 
 test_scene_id = None
-
-SENSOR_ICON_PATH = Path(__file__).resolve().parent.parent.parent / 'ui' / 'test_media' / 'SensorIcon.png'
 
 class SetUpTestCases(TestCase):
   def setUp(self):
@@ -137,14 +130,6 @@ class TestAccountLockedViews(SetUpTestCases):
 
 class TestCameraViews(TestCase):
 
-  camera_intrinsics = {
-    'cam_coord1': '5, 5','cam_coord2': '5, 10',
-    'cam_coord3': '10, 5','cam_coord4': '10, 10',
-    'map_coord1': '10, 10','map_coord2': '10, 15',
-    'map_coord3': '15, 10','map_coord4': '15, 15',
-    'image_width': 33,'image_height': 22
-  }
-
   def setUp(self):
     self.factory = RequestFactory()
     request = self.factory.get('/')
@@ -162,42 +147,33 @@ class TestCameraViews(TestCase):
     view.kwargs = kwargs
     return view
 
-  def test_form_valid_create(self):
+  def test_cam_create_redirects_to_sheet(self):
     response = self.client.get(reverse('cam_create'))
-
-    create_view = self.setup_view(CamCreateView(), response)
-
-    mock_form = Mock()
-    mock_form.instance = Mock()
-    mock_form.instance.type = 'camera'
-
-    form_valid = create_view.form_valid(mock_form)
-    self.assertEqual(form_valid.status_code, 302)
+    self.assertEqual(response.status_code, 302)
+    self.assertIn('ss=cam-create', response.url)
     return
 
-  def test_success_url_update(self):
-    response = self.client.get(reverse('cam_update', args=['1']))
+  def test_cam_create_with_scene_redirects_to_scene_sheet(self):
+    response = self.client.get(
+      reverse('cam_create'), data={'scene': str(self.test_scene_id)})
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(response.url, f"/{self.test_scene_id}/?ss=cam-create")
+    return
 
-    update_view = self.setup_view(CamUpdateView(), response)
-
-    mock_object = Mock()
-    mock_object.scene = Mock()
-    mock_object.scene.id = self.test_scene_id
-
-    update_view.object = mock_object
-    url = update_view.get_success_url()
-    self.assertEqual(url, f"/{self.test_scene_id}")
+  def test_cam_update_redirects_to_sheet(self):
+    cam = Cam.objects.get(sensor_id="1")
+    response = self.client.get(reverse('cam_update', args=[cam.pk]))
+    self.assertEqual(response.status_code, 302)
+    self.assertIn('ss=cam-edit', response.url)
+    self.assertIn(f'id={cam.sensor_id}', response.url)
     return
 
   def test_success_url_delete(self):
     response = self.client.get(reverse('cam_delete', args=['1']))
-
     delete_view = self.setup_view(CamDeleteView(), response)
-
     mock_object = Mock()
     mock_object.scene = Mock()
     mock_object.scene.id = self.test_scene_id
-
     delete_view.object = mock_object
     url = delete_view.get_success_url()
     self.assertEqual(url, f"/{self.test_scene_id}")
@@ -205,59 +181,35 @@ class TestCameraViews(TestCase):
 
   def test_success_url_delete_else(self):
     response = self.client.get(reverse('cam_delete', args=['1']))
-
     delete_view = self.setup_view(CamDeleteView(), response)
-
     mock_object = Mock()
     mock_object.scene = None
-
     delete_view.object = mock_object
     url = delete_view.get_success_url()
     self.assertEqual(url, '/cam/list/')
     return
 
-  def test_camera_calibrate(self):
-    dummy = self.camera_intrinsics.copy()
-    dummy.update({'calibrate_save': 1})
-    response = self.client.post('/cam/calibrate/1', data = dummy)
-    self.assertEqual(response.status_code, 200)
+  def test_camera_calibrate_get_redirects_to_react_sheet(self):
+    cam = Cam.objects.get(sensor_id="1")
+    response = self.client.get('/cam/calibrate/1')
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(
+      response.url, f"/{cam.scene_id}/?ss=calibrate-cam&id={cam.pk}")
     return
 
-  def test_camera_calibrate_point_not_none(self):
-    dummy = self.camera_intrinsics.copy()
-    dummy.update({'calibrate_save': 1})
-
-    point = Point(5, 5)
-    with patch('scene_common.geometry.Line.intersection', return_value = point):
-      response = self.client.post('/cam/calibrate/1', data = dummy)
-    self.assertEqual(response.status_code, 200)
+  def test_camera_calibrate_post_also_redirects(self):
+    cam = Cam.objects.get(sensor_id="1")
+    response = self.client.post('/cam/calibrate/1', data={'calibrate_save': 1})
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(
+      response.url, f"/{cam.scene_id}/?ss=calibrate-cam&id={cam.pk}")
     return
 
-  def test_camera_calibrate_else(self):
-    dummy = self.camera_intrinsics.copy()
-    response = self.client.post('/cam/calibrate/1', data = dummy)
-    self.assertEqual(response.status_code, 200)
-    return
-
-  def test_camera_calibrate_elif_1(self):
-    dummy = self.camera_intrinsics.copy()
-    dummy.update({'save_camera_details': 1, 'scene': '1',
-                  'name': 'camera1','sensor_id': 1})
-    response = self.client.post('/cam/calibrate/1', data = dummy)
-    self.assertEqual(response.status_code, 200)
-    return
-
-  def test_camera_calibrate_elif_2(self):
-    with open(str(SENSOR_ICON_PATH), 'rb') as img:
-      dummy = self.camera_intrinsics.copy()
-      dummy.update({'save_camera_advanced': 1,'icon': img})
-      response = self.client.post('/cam/calibrate/1', data = dummy)
-    self.assertEqual(response.status_code, 200)
-    return
-
-  def test_camera_calibrate_is_valid(self):
-    response = self.client.post('/cam/calibrate/1', data = {'calibrate_save': 1})
-    self.assertEqual(response.status_code, 200)
+  def test_camera_calibrate_orphan_redirects_to_list(self):
+    orphan = Cam.objects.create(sensor_id="2", name="orphan_cam", scene=None)
+    response = self.client.get(f'/cam/calibrate/{orphan.pk}')
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(response.url, reverse('cam_list'))
     return
 
 class TestSingletonSensorViews(TestCase):
@@ -286,56 +238,35 @@ class TestSingletonSensorViews(TestCase):
     view.kwargs = kwargs
     return view
 
-  def test_form_valid_create(self):
+  def test_sensor_create_redirects_to_sheet(self):
     response = self.client.get(reverse('singleton_sensor_create'))
-
-    create_view = self.setup_view(SingletonSensorCreateView(), response)
-
-    mock_form = Mock()
-    mock_form.instance = Mock()
-    mock_form.instance.type = 'generic'
-
-    form_valid = create_view.form_valid(mock_form)
-    self.assertEqual(form_valid.status_code, 302)
+    self.assertEqual(response.status_code, 302)
+    self.assertIn('ss=sensor-create', response.url)
     return
 
-  def test_success_url_create(self):
-    response = self.client.get(reverse('singleton_sensor_create'))
-
-    create_view = self.setup_view(SingletonSensorCreateView(), response)
-
-    mock_object = Mock()
-    mock_object.scene = Mock()
-    mock_object.scene.id = self.test_scene_id
-
-    create_view.object = mock_object
-    url = create_view.get_success_url()
-    self.assertEqual(url, f"/{self.test_scene_id}")
+  def test_sensor_create_with_scene_redirects_to_scene_sheet(self):
+    response = self.client.get(
+      reverse('singleton_sensor_create'),
+      data={'scene': str(self.test_scene_id)})
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(
+      response.url, f"/{self.test_scene_id}/?ss=sensor-create")
     return
 
-  def test_success_url_update(self):
-    response = self.client.get(reverse('singleton_sensor_update', args=['1']))
-
-    update_view = self.setup_view(SingletonSensorUpdateView(), response)
-
-    mock_object = Mock()
-    mock_object.scene = Mock()
-    mock_object.scene.id = self.test_scene_id
-
-    update_view.object = mock_object
-    url = update_view.get_success_url()
-    self.assertEqual(url, f"/{self.test_scene_id}")
+  def test_sensor_update_redirects_to_sheet(self):
+    sensor = SingletonSensor.objects.get(sensor_id="100")
+    response = self.client.get(reverse('singleton_sensor_update', args=[sensor.pk]))
+    self.assertEqual(response.status_code, 302)
+    self.assertIn('ss=sensor-edit', response.url)
+    self.assertIn(f'id={sensor.sensor_id}', response.url)
     return
 
   def test_success_url_delete(self):
     response = self.client.get(reverse('singleton_sensor_delete', args=['1']))
-
     delete_view = self.setup_view(SingletonSensorDeleteView(), response)
-
     mock_object = Mock()
     mock_object.scene = Mock()
     mock_object.scene.id = self.test_scene_id
-
     delete_view.object = mock_object
     url = delete_view.get_success_url()
     self.assertEqual(url, f"/{self.test_scene_id}")
@@ -343,58 +274,41 @@ class TestSingletonSensorViews(TestCase):
 
   def test_success_url_delete_else(self):
     response = self.client.get(reverse('singleton_sensor_delete', args=['1']))
-
     delete_view = self.setup_view(SingletonSensorDeleteView(), response)
-
     mock_object = Mock()
     mock_object.scene = None
-
     delete_view.object = mock_object
     url = delete_view.get_success_url()
     self.assertEqual(url, '/singleton_sensor/list/')
     return
 
-  def test_singleton_sensor_details_form(self):
+  def test_generic_calibrate_get_redirects_to_react_sheet(self):
+    """genericCalibrate no longer renders a Django form; it always redirects
+    into the React ?ss=calibrate-sensor sheet (area/geometry is REST-backed)."""
+    sensor = SingletonSensor.objects.get(sensor_id="100")
     response = self.client.get('/singleton_sensor/calibrate/1')
-    self.assertEqual(response.status_code, 200)
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(
+      response.url, f"/{sensor.scene_id}/?ss=calibrate-sensor&id={sensor.pk}")
     return
 
-  def test_generic_calibrate(self):
+  def test_generic_calibrate_post_also_redirects(self):
+    """Even a legacy-shaped POST body must not be processed server-side."""
+    sensor = SingletonSensor.objects.get(sensor_id="100")
     dummy = self.sensor_intrinsics.copy()
     response = self.client.post('/singleton_sensor/calibrate/1', data = dummy)
-    self.assertEqual(response.status_code, 200)
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(
+      response.url, f"/{sensor.scene_id}/?ss=calibrate-sensor&id={sensor.pk}")
     return
 
-  def test_generic_calibrate_ROIs(self):
-    dummy = self.sensor_intrinsics.copy()
-    dummy.update({'rois': json.dumps([{'points': [[1, 2], [3, 4]]}])})
-    response = self.client.post('/singleton_sensor/calibrate/1', data = dummy)
-    self.assertEqual(response.status_code, 200)
-    return
-
-  def test_generic_calibrate_is_not_valid(self):
-    dummy = self.sensor_intrinsics.copy()
-    dummy.update({'sensor_x': ''})
-    response = self.client.post('/singleton_sensor/calibrate/1', data = dummy)
-    self.assertEqual(response.status_code, 200)
-    return
-
-  def test_generic_calibrate_else(self):
-    views.SingletonDetailsForm = MagicMock()
-    with open(str(SENSOR_ICON_PATH), 'rb') as img:
-      dummy = self.sensor_intrinsics.copy()
-      dummy.update({'icon': img, 'save_sensor_details': 1})
-      response = self.client.post('/singleton_sensor/calibrate/1', data = dummy)
-    self.assertEqual(response.status_code, 200)
-    return
-
-  def test_generic_calibrate_else_point_gt_zero(self):
-    views.len = MagicMock(return_value = 1)
-    with open(str(SENSOR_ICON_PATH), 'rb') as img:
-      dummy = self.sensor_intrinsics.copy()
-      dummy.update({'icon': img})
-      response = self.client.post('/singleton_sensor/calibrate/1', data = dummy)
-    self.assertEqual(response.status_code, 200)
+  def test_generic_calibrate_orphan_sensor_redirects_to_list(self):
+    """Negative case: a sensor with no scene has nowhere to open a sheet on."""
+    orphan = SingletonSensor.objects.create(
+      sensor_id="101", name="orphan_sensor", scene=None)
+    response = self.client.get(f'/singleton_sensor/calibrate/{orphan.pk}')
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(response.url, reverse('singleton_sensor_list'))
     return
 
 class TestSaveGeospatialSnapshot(TestCase):

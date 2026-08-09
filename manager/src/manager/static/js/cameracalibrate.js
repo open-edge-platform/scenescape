@@ -114,6 +114,31 @@ window.addEventListener("message", (ev) => {
     }
     return;
   }
+  if (ev.data.type === "ss-calibrate-request-pose") {
+    try {
+      const pose = window.ssCollectCalibrationPose
+        ? window.ssCollectCalibrationPose()
+        : null;
+      window.parent.postMessage(
+        {
+          type: "ss-calibrate-pose",
+          ok: Boolean(pose),
+          ...(pose || { error: "no pose collector" }),
+        },
+        window.location.origin,
+      );
+    } catch (err) {
+      window.parent.postMessage(
+        {
+          type: "ss-calibrate-pose",
+          ok: false,
+          error: err?.message || String(err),
+        },
+        window.location.origin,
+      );
+    }
+    return;
+  }
   if (ev.data.type === "ss-calibrate-optics-set") {
     applyParentOptics(ev.data);
   }
@@ -555,6 +580,47 @@ export class ConvergedCameraCalibration {
       this.viewport.setProjectionOpacity(opacityValue / 100);
       localStorage.setItem("opacity", opacityValue);
     });
+  }
+
+  /**
+   * Collect current point-correspondence pose for React REST save (no form POST).
+   * @returns {{ transform_type: string, transforms: number[] } | null}
+   */
+  collectPose() {
+    if (!this.camCanvas || !this.viewport) {
+      return null;
+    }
+    const camPoints = this.camCanvas.getCalibrationPoints();
+    const scenePoints = this.viewport.getCalibrationPoints();
+    const camPointCount = Object.keys(camPoints).length;
+    const scenePointCount = Object.keys(scenePoints).length;
+    if (camPointCount === 0 && scenePointCount === 0) {
+      return { transform_type: null, transforms: null, empty: true };
+    }
+    if (!this.isValidCalibration(camPoints, scenePoints)) {
+      return {
+        transform_type: null,
+        transforms: null,
+        empty: false,
+        error:
+          "Saving the calibration requires an equal number of calibration points in each view (minimum 4).",
+        camPointCount,
+        scenePointCount,
+      };
+    }
+    const transforms = [
+      ...Object.values(camPoints).flatMap((point) => [point[0], point[1]]),
+      ...Object.values(scenePoints).flatMap((point) => [
+        point[0],
+        point[1],
+        point[2],
+      ]),
+    ];
+    return {
+      transform_type: "3d-2d point correspondence",
+      transforms,
+      empty: false,
+    };
   }
 
   setupSaveCameraButton() {

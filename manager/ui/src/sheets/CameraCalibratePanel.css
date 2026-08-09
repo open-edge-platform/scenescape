@@ -22,3 +22,85 @@
   margin: 0;
   cursor: pointer;
 }
+
+.ss-point-corr {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 100%;
+  min-height: 0;
+}
+
+.ss-point-corr-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ss-point-corr-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.ss-point-corr-pane {
+  position: relative;
+  border: 2px solid var(--ss-input-border);
+  border-radius: var(--ss-radius);
+  background: #111;
+  overflow: hidden;
+  min-height: 16rem;
+  cursor: crosshair;
+}
+
+.ss-point-corr-pane.is-active {
+  border-color: var(--ss-brand);
+}
+
+.ss-point-corr-pane img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.ss-point-corr-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.ss-point-corr-label {
+  position: absolute;
+  z-index: 1;
+  top: 0.35rem;
+  left: 0.5rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, #fff 85%, transparent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ss-nav-bg);
+}
+
+.ss-point-corr-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 1rem;
+  color: #ccc;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .ss-point-corr-panes {
+    grid-template-columns: 1fr;
+  }
+}

@@ -57,18 +57,22 @@ const LAYOUT_OPTIONS: {
 function SceneDetailInner({ bootstrap }: Props) {
   const { scene, cameras, urls, isSuperuser } = bootstrap;
   const { layout, mode, setMode, autoLayout } = useWorkspaceLayout();
-  const {
-    panelSizePx,
-    setPanelSizePx,
-    mapFocus,
-    toggleMapFocus,
-  } = useWorkspaceDensity(layout);
+  const { panelSizePx, setPanelSizePx, mapFocus, toggleMapFocus } =
+    useWorkspaceDensity(layout);
   const [sceneRate, setSceneRate] = useState("--");
   const [sceneDeleteOpen, setSceneDeleteOpen] = useState(false);
   const [sceneDeleteBusy, setSceneDeleteBusy] = useState(false);
   const [sceneDeleteError, setSceneDeleteError] = useState<string | null>(null);
   const mqttConnected = useMqttConnected();
   const cameraRates = useCameraRates();
+
+  /*
+   * Prefer React SVG map when a map URL is available (Phase 4 dual-run).
+   * Set during render (not an effect) so it's already true before
+   * SceneMapPane's own mount effect reads it — child effects run before
+   * parent effects, so an effect here would race the first render.
+   */
+  window.ssUseReactMap = Boolean(scene.mapUrl);
 
   useEffect(() => {
     const setSceneRateCb = (hz: string) => setSceneRate(hz || "--");
@@ -167,8 +171,7 @@ function SceneDetailInner({ bootstrap }: Props) {
       >
         {LAYOUT_OPTIONS.map((opt) => {
           const active = mode === opt.mode;
-          const hint =
-            opt.mode === "auto" ? ` (now ${autoLayout})` : "";
+          const hint = opt.mode === "auto" ? ` (now ${autoLayout})` : "";
           return (
             <button
               key={opt.mode}
@@ -266,7 +269,7 @@ function SceneDetailInner({ bootstrap }: Props) {
       />
       <div className="ss-workspace-body">
         <div className="ss-workspace-main">
-          <SceneMapPane />
+          <SceneMapPane mapUrl={scene.mapUrl} />
         </div>
         <WorkspaceSplitter
           layout={layout}

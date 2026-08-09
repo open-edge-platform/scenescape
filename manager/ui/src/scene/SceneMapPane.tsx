@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { LEGACY_MAP_IDS, notifyMapHostReady } from "../map/legacyMapHost";
+import { ReactSceneMap } from "./map/ReactSceneMap";
 import "./SceneMapPane.css";
 
 function refitMap(): void {
@@ -11,12 +13,49 @@ function refitMap(): void {
   }
 }
 
+type Props = {
+  mapUrl?: string | null;
+  mapWidth?: number;
+  mapHeight?: number;
+};
+
 /**
- * Adopts the Django-rendered map host into the React layout without remounting
- * the Snap.svg subtree (ids stay stable for sscape.js).
+ * Adopts the Django-rendered map host into the React layout.
+ * When ssUseReactMap is set, overlays ReactSceneMap on #ss-map-host.
  */
-export function SceneMapPane() {
+export function SceneMapPane({
+  mapUrl = null,
+  mapWidth = 1280,
+  mapHeight = 720,
+}: Props) {
   const slotRef = useRef<HTMLDivElement>(null);
+  const [hostReady, setHostReady] = useState(false);
+  const [naturalSize, setNaturalSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+  const useReactMap = Boolean(window.ssUseReactMap) && Boolean(mapUrl);
+
+  useEffect(() => {
+    // Load the map image ourselves so ReactSceneMap's viewBox / scale math
+    // matches the real map (sscape.js may remove the legacy <img> once its
+    // own load handler fires).
+    if (!useReactMap || !mapUrl) {
+      setNaturalSize(null);
+      return;
+    }
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (!cancelled && img.naturalWidth > 0 && img.naturalHeight > 0) {
+        setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
+      }
+    };
+    img.src = mapUrl;
+    return () => {
+      cancelled = true;
+    };
+  }, [useReactMap, mapUrl]);
 
   useEffect(() => {
     const slot = slotRef.current;
@@ -26,7 +65,22 @@ export function SceneMapPane() {
     }
     slot.appendChild(host);
     host.hidden = false;
+    if (useReactMap) {
+      document.body.classList.add("ss-use-react-map");
+      const svg = host.querySelector(
+        "svg#svgout, svg.ss-snap-legacy, svg#svgout-snap",
+      );
+      if (svg) {
+        svg.classList.add("ss-snap-legacy");
+        // Hard contract `#svgout` belongs to the visible map. Relinquish the
+        // id from the hidden Snap canvas so Selenium / layout find React.
+        if (svg.id === "svgout") {
+          svg.id = "svgout-snap";
+        }
+      }
+    }
     notifyMapHostReady();
+    setHostReady(true);
 
     let raf = 0;
     let lastW = -1;
@@ -39,13 +93,14 @@ export function SceneMapPane() {
         raf = 0;
         const w = Math.round(slot.clientWidth);
         const h = Math.round(slot.clientHeight);
-        // Skip no-op fits — ResizeObserver + fitSceneMapDisplay can feedback.
         if (w === lastW && h === lastH && lastW >= 0) {
           return;
         }
         lastW = w;
         lastH = h;
-        refitMap();
+        if (!useReactMap) {
+          refitMap();
+        }
       });
     };
 
@@ -65,17 +120,40 @@ export function SceneMapPane() {
       }
       window.removeEventListener("resize", scheduleRefit);
       observer?.disconnect();
+      document.body.classList.remove("ss-use-react-map");
+      const snap = host.querySelector("svg#svgout-snap, svg.ss-snap-legacy");
+      if (snap && snap.id === "svgout-snap") {
+        // Avoid duplicate id if React layer still mounts briefly on teardown.
+        const reactSvg = host.querySelector("svg.ss-react-scene-map");
+        if (!reactSvg || reactSvg.id !== "svgout") {
+          snap.id = "svgout";
+        }
+      }
       const parking = document.getElementById("ss-legacy-map-parking");
       if (parking && host.parentElement === slot) {
         parking.appendChild(host);
         host.hidden = true;
       }
     };
-  }, []);
+  }, [useReactMap]);
+
+  const host = hostReady ? document.getElementById(LEGACY_MAP_IDS.host) : null;
 
   return (
     <div className="ss-scene-map-pane">
       <div ref={slotRef} className="ss-scene-map-slot" />
+      {useReactMap && host && mapUrl && naturalSize
+        ? createPortal(
+            <div className="ss-react-map-layer">
+              <ReactSceneMap
+                mapHref={mapUrl}
+                mapWidth={naturalSize.width || mapWidth}
+                mapHeight={naturalSize.height || mapHeight}
+              />
+            </div>,
+            host,
+          )
+        : null}
     </div>
   );
 }

@@ -1834,6 +1834,14 @@ body:has(.sign-in-page) .content {
   padding: 0.55rem 1rem;
   font-family: var(--ss-font-sans);
   font-weight: 600;
+  background-color: var(--ss-brand);
+  border-color: var(--ss-brand);
+}
+
+.sign-in-submit:hover:not(:disabled),
+.sign-in-submit:focus:not(:disabled) {
+  background-color: var(--ss-brand-hover);
+  border-color: var(--ss-brand-hover);
 }
 
 .sign-in-help {

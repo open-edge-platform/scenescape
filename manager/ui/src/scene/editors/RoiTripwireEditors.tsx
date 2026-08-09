@@ -7,6 +7,13 @@ import { RegionEditorCard } from "./RegionEditorCard";
 import { TripwireEditorCard } from "./TripwireEditorCard";
 import { persistSceneGeometry } from "../../lib/roiPersist";
 import { useAppToast } from "../../components/ToastProvider";
+import { installSsMapFacade } from "../map/ssMap";
+import {
+  removeRoi as modelRemoveRoi,
+  removeTripwire as modelRemoveTrip,
+  upsertRoiMeta,
+  upsertTripMeta,
+} from "../map/geometryModel";
 import {
   roiFromLoad,
   tripwireFromLoad,
@@ -27,9 +34,7 @@ type Props = {
 
 function syncLegacySave(id: string, dirty: boolean): void {
   const el = document.getElementById(id) as
-    | HTMLButtonElement
-    | HTMLInputElement
-    | null;
+    HTMLButtonElement | HTMLInputElement | null;
   if (!el) {
     return;
   }
@@ -40,8 +45,31 @@ function syncLegacySave(id: string, dirty: boolean): void {
   el.classList.toggle("ss-save-dirty", dirty);
 }
 
+function pushRoiToModel(roi: RoiEntity, points?: number[][]): void {
+  upsertRoiMeta(roi.uuid, {
+    title: roi.title,
+    volumetric: roi.volumetric,
+    height: roi.height,
+    buffer_size: roi.buffer_size,
+    range_max: roi.rangeMax,
+    sectors: [
+      { color: "green", color_min: roi.greenMin },
+      { color: "yellow", color_min: roi.yellowMin },
+      { color: "red", color_min: roi.redMin },
+    ],
+    ...(points
+      ? {
+          points: points.map(
+            (p) => [Number(p[0]), Number(p[1])] as [number, number],
+          ),
+        }
+      : {}),
+  });
+}
+
 /**
  * React ROI / tripwire field cards. Tracks dirty state for legacy Save buttons.
+ * Metadata lives in the typed geometry model; map still owns pixel editing.
  */
 export function RoiTripwireEditors({
   sceneId,
@@ -70,8 +98,44 @@ export function RoiTripwireEditors({
   tripsRef.current = tripwires;
 
   useEffect(() => {
-    const persist = async () => {
-      await persistSceneGeometry(authToken, sceneId);
+    installSsMapFacade();
+    initialRegions.forEach((raw) => {
+      const uuid = String(raw.uuid || "").trim();
+      if (!uuid) {
+        return;
+      }
+      const entity = roiFromLoad(raw, sceneId);
+      if (!entity) {
+        return;
+      }
+      pushRoiToModel(entity, raw.points);
+    });
+    initialTripwires.forEach((raw) => {
+      const uuid = String(raw.uuid || "").trim();
+      if (!uuid) {
+        return;
+      }
+      upsertTripMeta(uuid, {
+        title: (raw.title || "").trim(),
+        points: (raw.points || []).map(
+          (p) => [Number(p[0]), Number(p[1])] as [number, number],
+        ),
+      });
+    });
+  }, [initialRegions, initialTripwires, sceneId]);
+
+  useEffect(() => {
+    const persist = async (options?: { preferHidden?: boolean } | string[]) => {
+      const opts = options && !Array.isArray(options) ? options : undefined;
+      if (opts?.preferHidden) {
+        window.ssMap?.syncFromLegacyStringify?.();
+      } else if (!window.ssUseReactMap) {
+        window.ssMap?.stringifyRois();
+        window.ssMap?.stringifyTripwires();
+      } else {
+        window.ssMap?.flushHidden();
+      }
+      await persistSceneGeometry(authToken, sceneId, opts);
       toast.show("Regions saved", "ok");
       window.location.reload();
     };
@@ -93,7 +157,9 @@ export function RoiTripwireEditors({
 
   useEffect(() => {
     /* Baseline hidden JSON after legacy map init; then watch for geometry edits. */
-    const roiInput = document.getElementById("id_rois") as HTMLInputElement | null;
+    const roiInput = document.getElementById(
+      "id_rois",
+    ) as HTMLInputElement | null;
     const tripInput = document.getElementById(
       "tripwires",
     ) as HTMLInputElement | null;
@@ -102,7 +168,13 @@ export function RoiTripwireEditors({
     const arm = window.setTimeout(() => {
       roiBase = roiInput?.value ?? "";
       tripBase = tripInput?.value ?? "";
+      window.ssMap?.syncFromLegacyStringify();
     }, 1200);
+    const onGeom = () => {
+      setRoiDirty(true);
+      setTripDirty(true);
+    };
+    window.addEventListener("ss-geometry-stringified", onGeom);
     const poll = window.setInterval(() => {
       if (roiInput && roiInput.value !== roiBase) {
         setRoiDirty(true);
@@ -114,11 +186,14 @@ export function RoiTripwireEditors({
     return () => {
       window.clearTimeout(arm);
       window.clearInterval(poll);
+      window.removeEventListener("ss-geometry-stringified", onGeom);
     };
   }, []);
 
   useEffect(() => {
-    const addRoi = (payload: Partial<RoiEntity> & { svgId: string; uuid: string }) => {
+    const addRoi = (
+      payload: Partial<RoiEntity> & { svgId: string; uuid: string },
+    ) => {
       setRois((prev) => {
         if (prev.some((r) => r.svgId === payload.svgId)) {
           return prev;
@@ -188,9 +263,8 @@ export function RoiTripwireEditors({
       }
     };
     const onTripAdd = (ev: Event) => {
-      const detail = (
-        ev as CustomEvent<Parameters<typeof addTripwire>[0]>
-      ).detail;
+      const detail = (ev as CustomEvent<Parameters<typeof addTripwire>[0]>)
+        .detail;
       if (detail?.svgId) {
         addTripwire(detail);
       }
@@ -275,15 +349,15 @@ export function RoiTripwireEditors({
     if (!ok) {
       return;
     }
+    const uuid = svgId.replace(/^roi_/, "");
     document.getElementById(svgId)?.remove();
+    modelRemoveRoi(uuid);
     setRois((prev) => prev.filter((r) => r.svgId !== svgId));
     window.requestAnimationFrame(() => {
-      window.numberRois?.();
-      window.stringifyRois?.();
-      const values = window.getRoiValues?.(
-        "form-control roi-title",
-        "roi",
-      ) as string[] | undefined;
+      window.ssMap?.numberRois();
+      window.ssMap?.stringifyRois();
+      const values = window.getRoiValues?.("form-control roi-title", "roi") as
+        string[] | undefined;
       if (values && window.saveRois) {
         window.saveRois(values);
       }
@@ -302,11 +376,13 @@ export function RoiTripwireEditors({
     if (!ok) {
       return;
     }
+    const uuid = svgId.replace(/^tripwire_/, "");
     document.getElementById(svgId)?.remove();
+    modelRemoveTrip(uuid);
     setTripwires((prev) => prev.filter((t) => t.svgId !== svgId));
     window.requestAnimationFrame(() => {
-      window.numberTripwires?.();
-      window.stringifyTripwires?.();
+      window.ssMap?.numberTripwires();
+      window.ssMap?.stringifyTripwires();
       const values = window.getRoiValues?.(
         "form-control tripwire-title",
         "tripwire",
@@ -333,6 +409,7 @@ export function RoiTripwireEditors({
                   isSuperuser={isSuperuser}
                   onChange={(next) => {
                     setRoiDirty(true);
+                    pushRoiToModel(next);
                     setRois((prev) =>
                       prev.map((r) => (r.svgId === next.svgId ? next : r)),
                     );
@@ -355,6 +432,7 @@ export function RoiTripwireEditors({
                   isSuperuser={isSuperuser}
                   onChange={(next) => {
                     setTripDirty(true);
+                    upsertTripMeta(next.uuid, { title: next.title });
                     setTripwires((prev) =>
                       prev.map((t) => (t.svgId === next.svgId ? next : t)),
                     );

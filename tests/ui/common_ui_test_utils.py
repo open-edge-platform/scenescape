@@ -331,19 +331,44 @@ def create_scene(browser, scene_name, scale, map_image):
   return True
 
 def inject_json(input_text, browser, element, form_id):
-  """! This function takes a serialized json object, fills a given form
-  and submits
+  """! Inject ROI/tripwire JSON into hidden fields and persist via React REST.
   @param    input_text                 Serialized json object.
   @param    browser                    Object wrapping the Selenium driver.
-  @param    element                    The component of the html form.
+  @param    element                    Hidden input id (`id_rois` or `tripwires`).
+  @param    form_id                    Unused (kept for call-site compatibility).
   @return   None
   """
-  input = browser.find_element(By.ID, element)
-  browser.execute_script("document.getElementById('id_rois').type='text'")
-  input.clear()
-  input.send_keys(input_text)
-  script = "document.getElementById({}).submit()".format(form_id)
-  browser.execute_script(script)
+  _ = form_id
+  browser.execute_script(
+    "var e=document.getElementById('id_rois'); if(e){e.type='text';}"
+  )
+  browser.execute_script(
+    "var e=document.getElementById('tripwires'); if(e){e.type='text';}"
+  )
+  # Fire-and-forget: preferHidden persist reloads the page (same as old form POST).
+  marker = browser.find_element(By.ID, "ss-scene-detail-root")
+  browser.execute_script(
+    """
+    const elId = arguments[0];
+    const text = arguments[1];
+    const el = document.getElementById(elId);
+    if (el) { el.value = text; }
+    if (typeof window.ssPersistGeometry !== 'function') {
+      throw new Error('ssPersistGeometry is not mounted');
+    }
+    window.ssPersistGeometry({ preferHidden: true });
+    """,
+    element,
+    input_text,
+  )
+  wait = WebDriverWait(browser, 30)
+  wait.until(EC.staleness_of(marker))
+  wait.until(EC.presence_of_element_located((By.ID, "ss-scene-detail-root")))
+  wait.until(
+    lambda d: d.execute_script(
+      "return typeof window.ssPersistGeometry === 'function'"
+    )
+  )
   return
 
 def create_tripwire_by_ratio(browser, tripwire_name, x_ratio):

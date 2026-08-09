@@ -67,7 +67,10 @@ function parseHiddenJson<T>(id: string): T[] {
   }
 }
 
-function regionPayload(sceneId: string, roi: RoiDraft): Record<string, unknown> {
+function regionPayload(
+  sceneId: string,
+  roi: RoiDraft,
+): Record<string, unknown> {
   const name = (roi.title || "").trim() || `roi_${roi.uuid || "new"}`;
   const payload: Record<string, unknown> = {
     name,
@@ -86,7 +89,10 @@ function regionPayload(sceneId: string, roi: RoiDraft): Record<string, unknown> 
   return payload;
 }
 
-function tripPayload(sceneId: string, trip: TripDraft): Record<string, unknown> {
+function tripPayload(
+  sceneId: string,
+  trip: TripDraft,
+): Record<string, unknown> {
   const name = (trip.title || "").trim() || `tripwire_${trip.uuid || "new"}`;
   return {
     name,
@@ -96,19 +102,52 @@ function tripPayload(sceneId: string, trip: TripDraft): Record<string, unknown> 
   };
 }
 
+export type PersistGeometryOptions = {
+  /** When true, load hidden `#id_rois` / `#tripwires` into the model first (test inject). */
+  preferHidden?: boolean;
+};
+
 /**
- * Bulk-sync ROI / tripwire geometry from SVG stringify outputs via REST.
- * Mirrors Django saveRegionData / saveTripwireData (upsert + delete orphans).
+ * Bulk-sync ROI / tripwire geometry via REST from the typed model.
+ * Callers harvest Snap → model when needed; this path does not scrape the form.
  */
 export async function persistSceneGeometry(
   authToken: string,
   sceneId: string,
+  options?: PersistGeometryOptions,
 ): Promise<void> {
-  window.stringifyRois?.();
-  window.stringifyTripwires?.();
+  let rois: RoiDraft[];
+  let trips: TripDraft[];
 
-  const rois = parseHiddenJson<RoiDraft>("id_rois");
-  const trips = parseHiddenJson<TripDraft>("tripwires");
+  if (options?.preferHidden) {
+    rois = parseHiddenJson<RoiDraft>("id_rois");
+    trips = parseHiddenJson<TripDraft>("tripwires");
+    window.ssMap?.syncFromLegacyStringify?.();
+  } else {
+    const fromModelRois = window.ssMap?.getRois?.() ?? [];
+    const fromModelTrips = window.ssMap?.getTripwires?.() ?? [];
+    rois =
+      fromModelRois.length > 0
+        ? fromModelRois.map((r) => ({
+            uuid: r.uuid,
+            title: r.title,
+            points: r.points,
+            volumetric: r.volumetric,
+            height: r.height,
+            buffer_size: r.buffer_size,
+            range_max: r.range_max,
+            sectors: r.sectors,
+          }))
+        : parseHiddenJson<RoiDraft>("id_rois");
+    trips =
+      fromModelTrips.length > 0
+        ? fromModelTrips.map((t) => ({
+            uuid: t.uuid,
+            title: t.title,
+            points: t.points,
+          }))
+        : parseHiddenJson<TripDraft>("tripwires");
+  }
 
   const [existingRegions, existingTrips] = await Promise.all([
     api.getRegions(authToken, sceneId).then(listResults),
@@ -168,8 +207,9 @@ declare global {
   interface Window {
     stringifyRois?: () => void;
     stringifyTripwires?: () => void;
+    ssUseReactMap?: boolean;
     ssPersistGeometry?: (
-      roiValues?: string[],
+      options?: PersistGeometryOptions | string[],
     ) => void | Promise<void>;
   }
 }

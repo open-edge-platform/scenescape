@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from django.test import TestCase
@@ -6,6 +6,7 @@ from django.urls import reverse
 from manager.models import Scene
 from django.contrib.auth.models import User
 from django.test.client import RequestFactory
+
 
 class SceneUpdateTestCase(TestCase):
   def setUp(self):
@@ -17,6 +18,9 @@ class SceneUpdateTestCase(TestCase):
     self.test_scene_id = testScene.id
 
   def test_scene_update_page(self):
-    response = self.client.get(reverse('scene_update', args=[self.test_scene_id]), data = {'name': 'test_scene_updated'})
-    self.assertEqual(response.status_code, 200)
-    self.assertTemplateUsed(response, 'scene/scene_update.html')
+    response = self.client.get(
+      reverse('scene_update', args=[self.test_scene_id]),
+      data = {'name': 'test_scene_updated'})
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(
+      response.url, f"/{self.test_scene_id}/?ss=scene-manage")

@@ -1,0 +1,49 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-react-scene-map {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  background: #1a1a1a;
+}
+
+.ss-react-scene-map.is-add-roi,
+.ss-react-scene-map.is-add-trip {
+  cursor: crosshair;
+}
+
+.ss-react-roi-poly {
+  fill: color-mix(in srgb, #0054ae 25%, transparent);
+  stroke: #0054ae;
+  stroke-width: 2;
+}
+
+.ss-react-trip-line {
+  stroke: #da2e56;
+  stroke-width: 3;
+}
+
+.ss-react-vertex {
+  fill: #fff;
+  stroke: #001e50;
+  stroke-width: 2;
+  cursor: grab;
+}
+
+.ss-react-draft-line {
+  fill: none;
+  stroke: #0099ec;
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+
+.ss-react-draft-pt {
+  fill: #0099ec;
+}
+
+body.ss-use-react-map #ss-map-host .ss-snap-legacy {
+  display: none !important;
+}

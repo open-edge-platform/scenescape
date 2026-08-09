@@ -21,6 +21,10 @@ export default defineConfig({
         ),
         "scenes-home": path.resolve(__dirname, "src/scenes-home-main.tsx"),
         "list-sheets": path.resolve(__dirname, "src/list-sheets-main.tsx"),
+        "models-directory": path.resolve(
+          __dirname,
+          "src/models-directory-main.tsx",
+        ),
       },
       output: {
         entryFileNames: "[name].js",
