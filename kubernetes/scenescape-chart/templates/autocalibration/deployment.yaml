@@ -10,6 +10,7 @@ metadata:
     app: {{ .Release.Name }}-autocalibration
 spec:
   replicas: 1
+  progressDeadlineSeconds: {{ .Values.autocalibration.progressDeadlineSeconds }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}-autocalibration
@@ -73,6 +74,15 @@ spec:
             capabilities:
               drop:
               - ALL
+          startupProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - curl -k -fsS https://localhost:8443/v1/status >/dev/null
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: {{ .Values.autocalibration.startupFailureThreshold }}
           readinessProbe:
             exec:
               command:
@@ -84,7 +94,6 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
-            initialDelaySeconds: 10
           livenessProbe:
             exec:
               command:
@@ -94,7 +103,6 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
-            initialDelaySeconds: 20
           resources: {}
           volumeMounts:
           - mountPath: /run/secrets/certs/scenescape-ca.pem

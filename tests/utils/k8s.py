@@ -405,17 +405,85 @@ class K8sManager:
     # Install without --wait: some services (NTP, dlstreamer) crash in KinD
     # due to missing capabilities (SYS_TIME) or hardware (GPU). We wait
     # selectively for only the services our tests actually require.
-    # Timeout covers pre-install hooks (model-installer, sample-data).
-    _run([
-      "helm", "install", _RELEASE_NAME, _CHART_PATH,
-      "--namespace", _NAMESPACE,
-      "--kubeconfig", self.kubeconfig,
-      "--timeout", "1200s",
-      "-f", values_file,
-    ])
+    #
+    # The timeout must exceed the combined budget of the pre-install hooks,
+    # which run sequentially: sample-data (downloads + transcodes videos) then
+    # model-download (initialWaitTimeout + waitTimeout, 1440s by default).
+    # Keep this in sync with INSTALL_TIMEOUT in kubernetes/Makefile.
+    try:
+      _run([
+        "helm", "install", _RELEASE_NAME, _CHART_PATH,
+        "--namespace", _NAMESPACE,
+        "--kubeconfig", self.kubeconfig,
+        "--timeout", "1800s",
+        "-f", values_file,
+      ])
+    except Exception:
+      self._dump_namespace_diagnostics("helm install")
+      raise
     logger.info("Helm chart installed. Waiting for core services...")
     self._wait_for_core_services()
     logger.info("Helm chart deployed successfully.")
+
+  def _log_kubectl(self, description, args):
+    """Run a kubectl query and log its output; never raises."""
+    try:
+      result = subprocess.run(
+        ["kubectl", *args, "--kubeconfig", self.kubeconfig],
+        capture_output=True, text=True, check=False, timeout=60,
+      )
+      output = (result.stdout or result.stderr or "").strip()
+    except Exception as exc:
+      output = f"<diagnostic query failed: {exc}>"
+    logger.error("%s:\n%s", description, output)
+
+  def _dump_namespace_diagnostics(self, context):
+    """Log namespace-wide state after a Helm/pre-install hook failure."""
+
+    logger.error("%s failed, collecting namespace diagnostics...", context)
+    for description, args in (
+      ("cluster nodes", ["get", "nodes", "-o", "wide"]),
+      ("pods", ["get", "pods", "-n", _NAMESPACE, "-o", "wide"]),
+      ("jobs", ["get", "jobs", "-n", _NAMESPACE]),
+      ("events", ["get", "events", "-n", _NAMESPACE, "--sort-by=.lastTimestamp"]),
+    ):
+      self._log_kubectl(description, args)
+
+    # Per-container logs for the hook pods, where download progress is visible.
+    pods = subprocess.run(
+      ["kubectl", "get", "pods", "-n", _NAMESPACE,
+       "-o", "jsonpath={.items[*].metadata.name}",
+       "--kubeconfig", self.kubeconfig],
+      capture_output=True, text=True, check=False, timeout=60,
+    )
+    for pod in (pods.stdout or "").split():
+      if "init-" not in pod and "download" not in pod:
+        continue
+      self._log_kubectl(
+        f"logs {pod}",
+        ["logs", pod, "-n", _NAMESPACE, "--all-containers", "--tail=100"],
+      )
+
+  def _dump_rollout_diagnostics(self, resource):
+    """Log pod state and container logs for a resource whose rollout failed."""
+    app_label = resource.split("/", 1)[1].removesuffix("-dep")
+    logger.error("Rollout failed for %s, collecting diagnostics...", resource)
+    self._log_kubectl(
+      f"{resource} pods",
+      ["get", "pods", "-l", f"app={app_label}", "-n", _NAMESPACE, "-o", "wide"],
+    )
+    self._log_kubectl(
+      f"{resource} describe", ["describe", resource, "-n", _NAMESPACE],
+    )
+    self._log_kubectl(
+      f"{resource} logs",
+      ["logs", resource, "-n", _NAMESPACE, "--all-containers", "--tail=200"],
+    )
+    self._log_kubectl(
+      f"{resource} previous logs",
+      ["logs", resource, "-n", _NAMESPACE,
+       "--all-containers", "--previous", "--tail=200"],
+    )
 
   def _wait_for_core_services(self):
     """Wait for core Scenescape services to be ready.
@@ -437,11 +505,15 @@ class K8sManager:
     logger.info("Waiting for core services...")
     for resource in _CORE_RESOURCES:
       logger.info("  Waiting: %s ...", resource)
-      self._cluster.kubectl([
-        "rollout", "status", resource,
-        "-n", _NAMESPACE,
-        "--timeout=1200s",
-      ], as_dict=False, timeout=1260)
+      try:
+        self._cluster.kubectl([
+          "rollout", "status", resource,
+          "-n", _NAMESPACE,
+          "--timeout=1200s",
+        ], as_dict=False, timeout=1260)
+      except Exception:
+        self._dump_rollout_diagnostics(resource)
+        raise
     logger.info("All core services are ready.")
 
     # Wait for kubeclient so it can create camera pipeline pods.

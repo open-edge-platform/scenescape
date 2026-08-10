@@ -81,6 +81,8 @@ scene:
 autocalibration:
   image: intel/scenescape-autocalibration
   pullPolicy: IfNotPresent
+  startupFailureThreshold: 60
+  progressDeadlineSeconds: 1200
 
 kubeclient:
   enabled: true
