@@ -24,6 +24,15 @@
   margin-bottom: 0;
 }
 
+.ss-scene-detail--workspace .ss-page-header-main {
+  gap: 0.5rem 0.65rem;
+}
+
+.ss-scene-detail--workspace .ss-form-back {
+  padding: 0.22rem 0.55rem;
+  font-size: var(--ss-type-workspace-body, 0.8125rem);
+}
+
 .ss-scene-detail--workspace .ss-page-header-row {
   display: flex;
   flex-wrap: wrap;

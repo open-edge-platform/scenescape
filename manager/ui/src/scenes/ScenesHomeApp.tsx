@@ -212,7 +212,6 @@ function ScenesHomeInner({ bootstrap }: Props) {
     <>
       <PageHeader
         title="Scenes"
-        breadcrumbs={[{ label: "Scenes" }]}
         actions={
           bootstrap.isSuperuser ? (
             <>

@@ -7,31 +7,55 @@
   margin-bottom: 0.75rem;
 }
 
+/* Quiet wayfinding meta — shared visual language with Django .breadcrumb */
+.ss-breadcrumb {
+  margin: 0 0 0.35rem;
+}
+
 .ss-breadcrumb ol {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  margin: 0 0 0.5rem;
+  align-items: center;
+  gap: 0;
+  margin: 0;
   padding: 0;
   list-style: none;
   font-family: var(--ss-font-sans);
-  font-size: 0.8125rem;
+  font-size: var(--ss-type-workspace-meta, 0.6875rem);
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
   color: var(--ss-text-muted);
+}
+
+.ss-breadcrumb li {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
 }
 
 .ss-breadcrumb li:not(:last-child)::after {
-  content: "/";
-  margin-left: 0.35rem;
-  color: var(--ss-text-muted);
+  content: "›";
+  margin: 0 0.4rem;
+  color: var(--ss-card-border);
+  font-weight: 400;
+  speak: never;
 }
 
 .ss-breadcrumb a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ss-breadcrumb a:hover,
+.ss-breadcrumb a:focus-visible {
   color: var(--ss-brand);
   text-decoration: none;
 }
 
-.ss-breadcrumb a:hover {
-  text-decoration: underline;
+.ss-breadcrumb [aria-current="page"] {
+  color: var(--ss-text-muted);
+  font-weight: 500;
 }
 
 .ss-page-header-row {
@@ -40,6 +64,15 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.ss-page-header-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.85rem;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .ss-page-title {

@@ -261,10 +261,7 @@ function SceneDetailInner({ bootstrap }: Props) {
     >
       <PageHeader
         title={scene.name}
-        breadcrumbs={[
-          { label: "Scenes", href: urls.scenesHome },
-          { label: scene.name },
-        ]}
+        back={{ href: urls.scenesHome, label: "Scenes" }}
         actions={actions}
       />
       <div className="ss-workspace-body">
