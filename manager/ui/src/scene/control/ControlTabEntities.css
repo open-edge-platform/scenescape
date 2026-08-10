@@ -18,6 +18,7 @@
   gap: 0.55rem;
   width: 100%;
   min-width: 0;
+  max-width: 100%;
 }
 
 #ss-cameras-mount {
@@ -29,4 +30,15 @@
 .ss-workspace--stack #ss-cameras-mount {
   flex-wrap: nowrap;
   overflow-x: auto;
+  align-items: stretch;
+  height: 100%;
+  min-height: 0;
+}
+
+.ss-workspace--row #ss-cameras-mount {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  overflow-x: hidden;
+  max-width: 100%;
+  align-items: stretch;
 }

@@ -90,6 +90,15 @@ declare global {
     stringifyTripwires?: () => void;
     saveRois?: (values: string[]) => void;
     getRoiValues?: (className: string, kind: string) => string[];
+    ssMqttClient?: {
+      subscribe: (topic: string) => void;
+      publish: (topic: string, payload: string) => void;
+      on: (ev: string, fn: (...args: unknown[]) => void) => void;
+      removeListener?: (ev: string, fn: (...args: unknown[]) => void) => void;
+      off?: (ev: string, fn: (...args: unknown[]) => void) => void;
+      end?: (force?: boolean) => void;
+    };
+    ssEnsureMqttScene?: () => void;
     ssRoiEditors?: {
       addRoi: (payload: {
         svgId: string;

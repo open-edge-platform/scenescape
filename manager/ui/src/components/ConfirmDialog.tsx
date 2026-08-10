@@ -33,6 +33,10 @@ export function ConfirmDialog({
   const titleId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
 
   useEffect(() => {
     if (!open) {
@@ -40,10 +44,11 @@ export function ConfirmDialog({
     }
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    // Focus cancel only when the dialog opens — not when busy/onCancel churn.
     cancelRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) {
-        onCancel();
+      if (e.key === "Escape" && !busyRef.current) {
+        onCancelRef.current();
         return;
       }
       if (e.key !== "Tab" || !dialogRef.current) {
@@ -70,7 +75,7 @@ export function ConfirmDialog({
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, busy, onCancel]);
+  }, [open]);
 
   if (!open) {
     return null;

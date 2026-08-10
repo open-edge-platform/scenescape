@@ -401,23 +401,34 @@ body.ss-workspace-resizing {
   flex-direction: column;
   align-items: stretch;
   flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .ss-workspace--row .ss-tabs-list {
   width: 100%;
   margin-left: 0;
   border-bottom: 1px solid var(--ss-card-border);
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .ss-workspace--row .ss-tabs-toolbar {
   display: flex;
   width: 100%;
+  max-width: 100%;
   margin-left: 0;
   justify-content: flex-start;
   gap: 0.4rem 0.55rem;
   padding: 0.5rem 0.65rem;
   background: var(--ss-card-bg);
   border-bottom: 1px solid var(--ss-card-border);
+  box-sizing: border-box;
+  min-width: 0;
+  flex-wrap: wrap;
+  overflow: hidden;
 }
 
 .ss-scene-detail--workspace .ss-scene-side .ss-tabs-toolbar {
@@ -542,6 +553,7 @@ body.ss-workspace-resizing {
   .scene-detail-panel
   > .card-body:has(.camera-card) {
   flex-direction: column;
+  align-items: stretch;
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -704,7 +716,6 @@ body.ss-workspace-resizing {
 
 .ss-scene-detail--workspace .camera-card {
   flex: 0 0 auto;
-  width: min(12.5rem, 100%);
   margin: 0;
   overflow: hidden;
 }
@@ -712,9 +723,13 @@ body.ss-workspace-resizing {
 .ss-workspace--stack .camera-card {
   display: flex;
   flex-direction: column;
-  width: 9.75rem;
+  /* Height fills the Below strip; width follows via aspect-ratio so vertical
+   * resize scales the card in both directions (same idea as Side + width). */
   height: 100%;
   max-height: 100%;
+  width: auto;
+  aspect-ratio: 16 / 11;
+  flex: 0 0 auto;
 }
 
 .ss-scene-detail--workspace .camera-card .cam-offline {
@@ -725,9 +740,11 @@ body.ss-workspace-resizing {
 }
 
 .ss-workspace--row .camera-card {
+  /* Side panel: width tracks panel; 16:9 preview keeps proportional height. */
   width: 100%;
   max-width: 100%;
   margin: 0;
+  align-self: stretch;
 }
 
 .ss-scene-detail--workspace .camera-card .card-header {
@@ -778,6 +795,13 @@ body.ss-workspace-resizing {
   object-position: center;
   margin: 0;
   background: transparent;
+}
+
+/* Keep previews hidden until MQTT sets a frame — more-specific display:block
+ * above must not override Bootstrap/.display-none or empty imgs look broken. */
+.ss-scene-detail--workspace .camera-card .card-image img.display-none,
+.ss-scene-detail--workspace .camera-card .snapshot-image img.display-none {
+  display: none !important;
 }
 
 .ss-workspace--stack .camera-card .card-image {

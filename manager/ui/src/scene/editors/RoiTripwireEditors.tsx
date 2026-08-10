@@ -309,7 +309,7 @@ export function RoiTripwireEditors({
         btn.type = "button";
         btn.className = "btn btn-primary btn-sm";
         btn.id = "empty-new-roi";
-        btn.textContent = "+ New";
+        btn.textContent = "+ New Region";
         empty.appendChild(btn);
       }
     }
@@ -331,7 +331,7 @@ export function RoiTripwireEditors({
         btn.type = "button";
         btn.className = "btn btn-primary btn-sm";
         btn.id = "empty-new-tripwire";
-        btn.textContent = "+ New";
+        btn.textContent = "+ New Tripwire";
         empty.appendChild(btn);
       }
     }

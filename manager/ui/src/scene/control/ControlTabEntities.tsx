@@ -33,7 +33,15 @@ function CameraCards({
   isSuperuser: boolean;
 }) {
   useEffect(() => {
-    window.ssRefreshCameraSnapshots?.();
+    const refresh = () => window.ssRefreshCameraSnapshots?.();
+    refresh();
+    // MQTT may connect before React portals mount; retry briefly.
+    const t1 = window.setTimeout(refresh, 400);
+    const t2 = window.setTimeout(refresh, 1200);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
   }, [cameras]);
 
   if (cameras.length === 0) {
@@ -64,11 +72,8 @@ function CameraCards({
               className="snapshot-image"
               href={isSuperuser ? cam.calibrateHref : undefined}
               id={`cam_calibrate_${cam.id}`}
-              ref={(el) => {
-                if (el) {
-                  el.setAttribute("topic", cam.cmdTopic);
-                }
-              }}
+              data-topic={cam.cmdTopic}
+              data-topic-name={`scenescape/cmd/camera/${cam.name}`}
             >
               <div className="cam-offline">Camera Offline</div>
               <img
@@ -76,6 +81,7 @@ function CameraCards({
                 className="display-none"
                 alt={`${cam.name} View`}
                 data-ss-card-sensor={cam.sensorId}
+                data-ss-card-name={cam.name}
               />
             </a>
           </div>
@@ -85,13 +91,6 @@ function CameraCards({
                 <a
                   className="ss-btn ss-btn--secondary ss-btn--sm"
                   href={cam.calibrateHref}
-                  title={`Manage ${cam.name}`}
-                >
-                  Manage
-                </a>
-                <a
-                  className="ss-btn ss-btn--secondary ss-btn--sm"
-                  href={`?ss=cam-edit&id=${encodeURIComponent(cam.sensorId)}`}
                   title={`Edit ${cam.name}`}
                 >
                   Edit

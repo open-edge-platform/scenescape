@@ -136,7 +136,7 @@ export function TabToolbar({ activeTab, isSuperuser }: Props) {
                 id="new-roi"
                 title="Create a new region"
               >
-                + New
+                + New Region
               </button>
               <input
                 type="button"
@@ -166,7 +166,7 @@ export function TabToolbar({ activeTab, isSuperuser }: Props) {
                 id="new-tripwire"
                 title="Create a new tripwire"
               >
-                + New
+                + New Tripwire
               </button>
               <input
                 type="button"

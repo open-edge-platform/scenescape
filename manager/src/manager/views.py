@@ -321,9 +321,7 @@ def saveROI(request, scene_id):
       return redirect('/' + str(scene.id))
     else:
       log.error("Form bad", request.POST)
-  else:
-    form = ROIForm(initial = {'rois': scene.roiJSON()})
-  return render(request, 'sscape/sceneDetail.html', {'form': form, 'scene': scene})
+  return redirect('/' + str(scene.id))
 
 def saveTripwireData(scene, form):
   jdata = json.loads(form.cleaned_data['tripwires'],

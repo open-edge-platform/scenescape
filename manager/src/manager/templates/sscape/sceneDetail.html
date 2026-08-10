@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 {% extends 'sscape/base.html' %}
 {% load static %}
 {% block content %}
+  {{ scene_detail_bootstrap|json_script:"ss-scene-detail-bootstrap" }}
   <div id="ss-scene-detail-root" class="ss-scene-detail-root"></div>
 
   <div id="ss-legacy-map-parking" class="ss-legacy-parking" hidden>
@@ -208,7 +209,90 @@ SPDX-License-Identifier: Apache-2.0
       <div class="card scene-detail-panel">
         
         <div class="card-body" id="ss-mqtt-mount">
-          {# React MqttSettingsPanel #}
+          {# Broker fields must exist before React mounts so sscape.js can connect #}
+          <div class="ss-mqtt-settings">
+            <div class="ss-mqtt-settings-grid">
+              <div class="ss-mqtt-settings-controls">
+                <div class="ss-mqtt-field">
+                  <label
+                    class="ss-mqtt-label"
+                    for="broker"
+                    id="label-broker"
+                    >WSS Connection</label
+                  >
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="broker"
+                    aria-labelledby="label-broker"
+                    value="{{ scene.wssConnection }}"
+                  />
+                </div>
+                <div class="ss-mqtt-field">
+                  <label
+                    class="ss-mqtt-label"
+                    for="topic"
+                    id="label-topic"
+                    >Scene Data Topic</label
+                  >
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="topic"
+                    aria-labelledby="label-topic"
+                    value="scenescape/regulated/scene/{{ scene.id }}"
+                  />
+                </div>
+                <div class="ss-mqtt-actions">
+                  <button
+                    type="button"
+                    class="ss-btn ss-btn--primary"
+                    id="connect"
+                  >
+                    Connect
+                  </button>
+                  <button
+                    type="button"
+                    class="ss-btn ss-btn--secondary"
+                    id="disconnect"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+              <table
+                class="table table-bordered table-sm ss-mqtt-client-table"
+              >
+                <thead>
+                  <tr>
+                    <th colspan="2">Client Settings</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Broker</th>
+                    <td id="broker-address"></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Validate Certificate</th>
+                    <td>Off</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Encryption (TLS)</th>
+                    <td>On</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Protocol</th>
+                    <td>mqtt://</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Port</th>
+                    <td>1883</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>

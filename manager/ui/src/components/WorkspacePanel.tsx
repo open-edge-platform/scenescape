@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -43,14 +44,18 @@ export function WorkspacePanel({
 }: Props) {
   const titleId = useId();
   const [confirmClose, setConfirmClose] = useState(false);
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   const requestClose = useCallback(() => {
-    if (dirty) {
+    if (dirtyRef.current) {
       setConfirmClose(true);
       return;
     }
-    onClose();
-  }, [dirty, onClose]);
+    onCloseRef.current();
+  }, []);
 
   useEffect(() => {
     if (!open) {

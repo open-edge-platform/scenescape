@@ -67,12 +67,14 @@ class TestRoiViews(TestCase):
 
   def test_save_ROI_get(self):
     response = self.client.get(reverse('save-roi', args=[self.test_scene_id]))
-    self.assertEqual(response.status_code, 200)
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(response.url, f'/{self.test_scene_id}')
     return
 
   def test_save_ROI_post(self):
     response = self.client.post(reverse('save-roi', args=[self.test_scene_id]))
-    self.assertEqual(response.status_code, 200)
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(response.url, f'/{self.test_scene_id}')
     return
 
   def test_save_ROIs(self):

@@ -120,6 +120,9 @@ export function CameraCalibratePanel({
   const [posePairs, setPosePairs] = useState<PosePair[]>([]);
   const [mapUrl, setMapUrl] = useState<string | null>(null);
   const [cameraImageUrl, setCameraImageUrl] = useState<string | null>(null);
+  const cameraNameRef = useRef("");
+  const nameRef = useRef(name);
+  nameRef.current = name;
 
   lockFocalRef.current = lockFocal;
   const hasAdvanced = isKubernetes;
@@ -161,6 +164,7 @@ export function CameraCalibratePanel({
           return;
         }
         setName(String(cam.name || ""));
+        cameraNameRef.current = String(cam.name || "");
         setSensorIdEdit(String(cam.sensor_id || cam.uid || sensorId));
         const inn =
           cam.intrinsics && typeof cam.intrinsics === "object"
@@ -221,6 +225,101 @@ export function CameraCalibratePanel({
       cancelled = true;
     };
   }, [open, sensorId, sceneId, authToken, hasAdvanced]);
+
+  /** Live camera frame via scene MQTT (same path as 2D strip / 3D project frame). */
+  useEffect(() => {
+    if (!open || !sensorId) {
+      return;
+    }
+    type MqttLike = {
+      subscribe: (topic: string) => void;
+      publish: (topic: string, payload: string) => void;
+      on: (ev: string, fn: (topic: string, payload: Uint8Array) => void) => void;
+      removeListener?: (
+        ev: string,
+        fn: (topic: string, payload: Uint8Array) => void,
+      ) => void;
+      off?: (
+        ev: string,
+        fn: (topic: string, payload: Uint8Array) => void,
+      ) => void;
+    };
+    const applyFrame = (topic: string, raw: Uint8Array) => {
+      const suffix = topic.split("camera/")[1] || "";
+      const ids = new Set(
+        [sensorId, cameraNameRef.current, nameRef.current].filter(Boolean),
+      );
+      if (!ids.has(suffix) && suffix !== sensorId) {
+        return;
+      }
+      try {
+        const text = new TextDecoder().decode(raw);
+        const msg = JSON.parse(text) as { image?: string };
+        if (msg.image) {
+          setCameraImageUrl(`data:image/jpeg;base64,${msg.image}`);
+        }
+      } catch {
+        /* ignore malformed */
+      }
+    };
+    const requestFrames = (client: MqttLike) => {
+      try {
+        client.subscribe("scenescape/image/camera/+");
+        client.subscribe("scenescape/image/calibration/camera/+");
+      } catch {
+        /* already subscribed */
+      }
+      const ids = new Set(
+        [sensorId, cameraNameRef.current, nameRef.current].filter(Boolean),
+      );
+      ids.forEach((id) => {
+        client.publish(`scenescape/cmd/camera/${id}`, "getimage");
+        client.publish(`scenescape/cmd/camera/${id}`, "getcalibrationimage");
+      });
+    };
+    let client = window.ssMqttClient as MqttLike | undefined;
+    const onMsg = (topic: string, payload: Uint8Array) => {
+      if (
+        topic.includes("/image/camera/") ||
+        topic.includes("/image/calibration/camera/")
+      ) {
+        applyFrame(topic, payload);
+      }
+    };
+    let poll = 0;
+    const attach = () => {
+      client = window.ssMqttClient as MqttLike | undefined;
+      if (!client) {
+        return false;
+      }
+      client.on("message", onMsg);
+      requestFrames(client);
+      return true;
+    };
+    if (!attach()) {
+      poll = window.setInterval(() => {
+        if (attach()) {
+          window.clearInterval(poll);
+          poll = 0;
+        }
+      }, 500);
+    }
+    const refresh = window.setInterval(() => {
+      const c = window.ssMqttClient as MqttLike | undefined;
+      if (c) {
+        requestFrames(c);
+      }
+    }, 4000);
+    return () => {
+      if (poll) {
+        window.clearInterval(poll);
+      }
+      window.clearInterval(refresh);
+      const c = window.ssMqttClient as MqttLike | undefined;
+      c?.removeListener?.("message", onMsg);
+      c?.off?.("message", onMsg);
+    };
+  }, [open, sensorId]);
 
   useEffect(() => {
     const recompute = () => setAutoLayout(chooseAutoPanelLayout());

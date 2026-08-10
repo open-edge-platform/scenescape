@@ -56,14 +56,18 @@ export function Drawer({
   const closeRef = useRef<HTMLButtonElement>(null);
   const [confirmClose, setConfirmClose] = useState(false);
   const cancelVisible = showCancel ?? Boolean(actions);
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   const requestClose = useCallback(() => {
-    if (dirty) {
+    if (dirtyRef.current) {
       setConfirmClose(true);
       return;
     }
-    onClose();
-  }, [dirty, onClose]);
+    onCloseRef.current();
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -72,6 +76,8 @@ export function Drawer({
     }
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    // Autofocus close only when the drawer opens — not when dirty flips,
+    // or the first keystroke steals focus from the field being edited.
     closeRef.current?.focus();
     const panel = closeRef.current?.closest(
       ".ss-drawer-panel",

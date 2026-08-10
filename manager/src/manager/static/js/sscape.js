@@ -234,10 +234,21 @@ window.ssRefreshCameraSnapshots = function () {
     }
   }
   $(".snapshot-image").each(function () {
-    var topic = $(this).attr("topic");
-    if (topic) {
-      client.publish(topic, "getimage");
+    var topics = {};
+    var primary =
+      this.getAttribute("data-topic") ||
+      this.getAttribute("topic") ||
+      $(this).attr("topic");
+    var byName = this.getAttribute("data-topic-name");
+    if (primary) {
+      topics[primary] = true;
     }
+    if (byName) {
+      topics[byName] = true;
+    }
+    Object.keys(topics).forEach(function (topic) {
+      client.publish(topic, "getimage");
+    });
   });
 };
 
@@ -306,14 +317,28 @@ async function checkBrokerConnections() {
   $("#broker").val(updatedBroker);
   console.log(`Url ${urlSecure} is open`);
 
-  $("#connect").on("click", function () {
-    console.log("Attempting to connect to " + broker.value);
-    var client = mqtt.connect(broker.value);
+  $("#connect")
+    .off("click.ssMqttConnect")
+    .on("click.ssMqttConnect", function () {
+    var brokerInput = document.getElementById("broker");
+    var brokerUrl =
+      brokerInput && "value" in brokerInput
+        ? brokerInput.value
+        : $("#broker").val();
+    console.log("Attempting to connect to " + brokerUrl);
+    if (window.ssMqttClient && typeof window.ssMqttClient.end === "function") {
+      try {
+        window.ssMqttClient.end(true);
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    var client = mqtt.connect(brokerUrl);
     window.ssMqttClient = client;
     sessionStorage.setItem("connectToMqtt", true);
 
     client.on("connect", function () {
-      console.log("Connected to " + broker.value);
+      console.log("Connected to " + brokerUrl);
       if ($("#topic").val() !== undefined) {
         client.subscribe($("#topic").val());
         console.log("Subscribed to " + $("#topic").val());
@@ -345,6 +370,13 @@ async function checkBrokerConnections() {
         client.subscribe(APP_NAME + IMAGE_CAMERA + "+");
       }
       window.ssRefreshCameraSnapshots();
+      // React camera cards may portal in after this connect callback.
+      window.setTimeout(function () {
+        window.ssRefreshCameraSnapshots();
+      }, 500);
+      window.setTimeout(function () {
+        window.ssRefreshCameraSnapshots();
+      }, 1500);
       $("input#live-view")
         .off("change.ssLiveView")
         .on("change.ssLiveView", function () {
@@ -498,7 +530,15 @@ async function checkBrokerConnections() {
         if ($(".snapshot-image").length) {
           var id = topic.split("camera/")[1];
           var previewImgs = document.querySelectorAll(
-            "[id='" + id + "'], [data-ss-card-sensor='" + id + "']",
+            "[id='" +
+              id +
+              "'], [id='card-preview-" +
+              id +
+              "'], [data-ss-card-sensor='" +
+              id +
+              "'], [data-ss-card-name='" +
+              id +
+              "']",
           );
           previewImgs.forEach(function (img) {
             img.setAttribute("src", "data:image/jpeg;base64," + msg.image);
@@ -508,6 +548,7 @@ async function checkBrokerConnections() {
               : [];
             offline.forEach(function (el) {
               el.style.display = "none";
+              el.hidden = true;
             });
           });
 
@@ -548,7 +589,9 @@ async function checkBrokerConnections() {
       console.log("MQTT error: " + e);
     });
 
-    $("#disconnect").on("click", function () {
+    $("#disconnect")
+      .off("click.ssMqttDisconnect")
+      .on("click.ssMqttDisconnect", function () {
       sessionStorage.setItem("connectToMqtt", false);
       client.end();
     });
@@ -2481,12 +2524,29 @@ $(document).ready(function () {
   });
 
   // MQTT management (see https://github.com/mqttjs/MQTT.js)
-  if ($("#broker").length != 0) {
+  // #broker may appear after React adopts panels — also exposed as ssEnsureMqttScene.
+  window.ssEnsureMqttScene = function () {
+    if ($("#broker").length == 0) {
+      return;
+    }
+    if (window.__ssMqttSceneReady) {
+      if (
+        !window.ssMqttClient &&
+        sessionStorage.getItem("connectToMqtt") !== "false"
+      ) {
+        $("#connect").trigger("click");
+      } else if (window.ssMqttClient) {
+        window.ssRefreshCameraSnapshots();
+      }
+      return;
+    }
+    window.__ssMqttSceneReady = true;
+
     // Set broker value to the hostname of the current page
     // since broker runs on web server by default
     var host = window.location.hostname;
     var port = window.location.port;
-    var broker = $("#broker").val();
+    var broker = $("#broker").val() || "";
     var protocol = window.location.protocol;
 
     // If running HTTPS on a custom port, fix up the WSS connection string
@@ -2504,6 +2564,7 @@ $(document).ready(function () {
       broker = broker.replace("/mqtt", ":1884");
     }
 
+    $("#broker").val(broker);
     $("#broker-address").text(host);
     checkBrokerConnections()
       .then(() => {
@@ -2512,7 +2573,8 @@ $(document).ready(function () {
       .catch((error) => {
         console.log("An error occurred:", error);
       });
-  }
+  };
+  window.ssEnsureMqttScene();
 
   $("input[name='area']").on("focus change", function () {
     initArea(this);
