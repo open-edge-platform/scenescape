@@ -86,6 +86,10 @@ class ImportScene:
       "tripwires": None,
       "regions": None,
       "sensors": None,
+      "cameras_created": None,
+      "tripwires_created": None,
+      "regions_created": None,
+      "sensors_created": None,
     }
 
     json_files = [
@@ -171,11 +175,25 @@ class ImportScene:
 
     # Bulk create cameras with transform handling
     cam_items = self.build_camera_items(json_data)
-    errors["cameras"] = await self.bulk_create(cam_items, scene_id, self.rest.createCamera)
+    cameras_created, camera_errors = await self.bulk_create(
+      cam_items, scene_id, self.rest.createCamera)
+    errors["cameras"] = camera_errors
+    errors["cameras_created"] = cameras_created
     # Bulk create other resources
-    errors["regions"] = await self.bulk_create(json_data.get("regions", []), scene_id, self.rest.createRegion)
-    errors["tripwires"] = await self.bulk_create(json_data.get("tripwires", []), scene_id, self.rest.createTripwire)
-    errors["sensors"] = await self.bulk_create(json_data.get("sensors", []), scene_id, self.rest.createSensor)
+    regions_created, region_errors = await self.bulk_create(
+      json_data.get("regions", []), scene_id, self.rest.createRegion)
+    errors["regions"] = region_errors
+    errors["regions_created"] = regions_created
+
+    tripwires_created, tripwire_errors = await self.bulk_create(
+      json_data.get("tripwires", []), scene_id, self.rest.createTripwire)
+    errors["tripwires"] = tripwire_errors
+    errors["tripwires_created"] = tripwires_created
+
+    sensors_created, sensor_errors = await self.bulk_create(
+      json_data.get("sensors", []), scene_id, self.rest.createSensor)
+    errors["sensors"] = sensor_errors
+    errors["sensors_created"] = sensors_created
 
     # children recursion
     for child_data in json_data.get("children", []):
@@ -188,12 +206,15 @@ class ImportScene:
 
   async def bulk_create(self, items, scene_id, create_fn):
     errors = []
+    created = []
     for item in items or []:
       item["scene"] = scene_id
       try:
         resp = await asyncio.to_thread(create_fn, item)
         if getattr(resp, "errors", None):
           errors.append((resp.errors, item))
+        else:
+          created.append(dict(resp))
       except Exception as e:
         errors.append((e, item))
-    return errors or None
+    return created or None, errors or None
