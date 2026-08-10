@@ -1041,7 +1041,9 @@ def pytest_runtest_makereport(item, call):
       or (rep_call is not None and rep_call.failed)
       or (rep_teardown is not None and rep_teardown.failed)
     )
-    _testlog.finalize(passed=not failed)
+    finalize = getattr(_testlog, "finalize", None)
+    if finalize is not None:
+      finalize(passed=not failed)
 
 def pytest_runtest_logreport(report):
   """Log test phase results to the per-test log file."""

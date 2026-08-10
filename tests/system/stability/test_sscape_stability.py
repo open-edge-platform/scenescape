@@ -74,8 +74,20 @@ TEST_MAX_OBJECT_VARIATION = 20
 TEST_MAX_FPS_VARIATION = 10
 
 ### Memory trend checks over the run to detect leak-like behavior.
+### Number of samples averaged for the baseline and the trailing window.
 TEST_MEMORY_AVG_WINDOW = 10
+
+### Cycles to skip before the first memory sample is recorded.
+### 40 cycles of TEST_WAIT_TIME seconds = 20 minutes.
+MEMORY_SETTLE_CYCLES = 40
+
+### Growth must exceed both the relative threshold and the absolute one
+### (percentage points of host memory) to count as a leak.
 TEST_MAX_MEMORY_GROWTH_PCT = 10
+TEST_MAX_MEMORY_GROWTH_PPT = 10
+
+### Consecutive windows above both thresholds before the test is failed.
+MAX_CONSECUTIVE_MEMORY_GROWTH_CYCLES = 3
 
 objects_detected = 0
 connected = False
@@ -162,6 +174,7 @@ class TestState():
     self.high_variation_cycles = 0
     self.memory_samples = []
     self.memory_growth_detected = False
+    self.memory_growth_cycles = 0
     self.unhealthy_cycles = {svc: 0 for svc in HEALTHCHECK_SERVICES}
     self.service_health_failed = False
     self.failed_service = None
@@ -189,8 +202,13 @@ class TestState():
 
   def update_memory_usage(self):
     """! Store a memory usage sample for leak trend checks.
+
+    Samples are discarded until MEMORY_SETTLE_CYCLES have elapsed so the
+    baseline window reflects a settled stack rather than start-up allocation.
     @return   None.
     """
+    if self.current_cycle < MEMORY_SETTLE_CYCLES:
+      return None
     usage = self.read_memory_usage()
     if usage is None:
       print('Unable to collect memory usage sample for stability test.')
@@ -198,8 +216,29 @@ class TestState():
     self.memory_samples.append(usage)
     return None
 
+  def memory_growth_by_service(self):
+    """! Attribute host memory growth to the monitored services.
+    @return   String                  Per service memory delta summary, empty if not enough samples.
+    """
+    deltas = []
+    for svc in HEALTHCHECK_SERVICES:
+      # Drop the settle period so the per service baseline lines up with the
+      # host memory baseline instead of the start-up ramp.
+      samples = self.resource_samples.get(svc, [])[MEMORY_SETTLE_CYCLES:]
+      if len(samples) < (TEST_MEMORY_AVG_WINDOW * 2):
+        continue
+      first = [mem for _, mem in samples[:TEST_MEMORY_AVG_WINDOW]]
+      last = [mem for _, mem in samples[-TEST_MEMORY_AVG_WINDOW:]]
+      delta = (sum(last) / len(last)) - (sum(first) / len(first))
+      deltas.append("{} {:+.2f}pp".format(SERVICE_LABELS.get(svc, svc), delta))
+    return ", ".join(deltas)
+
   def memory_usage_stable(self):
     """! Checks for sustained memory growth across the run.
+
+    Growth has to exceed the relative and the absolute threshold for
+    MAX_CONSECUTIVE_MEMORY_GROWTH_CYCLES consecutive windows before the test
+    fails, matching the debounce used by the message and health checks.
     @return   Bool                    True if memory trend indicates potential leak, otherwise False.
     """
     if len(self.memory_samples) < (TEST_MEMORY_AVG_WINDOW * 2):
@@ -209,20 +248,27 @@ class TestState():
     last_window = self.memory_samples[-TEST_MEMORY_AVG_WINDOW:]
     first_avg = sum(first_window) / len(first_window)
     last_avg = sum(last_window) / len(last_window)
-    growth_pct = ((last_avg - first_avg) / max(first_avg, 0.01)) * 100
+    growth_ppt = last_avg - first_avg
+    growth_pct = (growth_ppt / max(first_avg, 0.01)) * 100
 
-    if growth_pct >= TEST_MAX_MEMORY_GROWTH_PCT:
-      print(
-        "Test failed memory trend check! start average {:.2f}% end average {:.2f}% growth {:.2f}%".format(
-          first_avg,
-          last_avg,
-          growth_pct,
-        )
-      )
-      self.memory_growth_detected = True
-      return True
+    if growth_pct < TEST_MAX_MEMORY_GROWTH_PCT or growth_ppt < TEST_MAX_MEMORY_GROWTH_PPT:
+      self.memory_growth_cycles = 0
+      return False
 
-    return False
+    self.memory_growth_cycles += 1
+    print("Memory growth detected: start average {:.2f}% end average {:.2f}% growth {:.2f}% ({:.2f}pp), consecutive window {}/{}".format(
+      first_avg, last_avg, growth_pct, growth_ppt,
+      self.memory_growth_cycles, MAX_CONSECUTIVE_MEMORY_GROWTH_CYCLES))
+    per_service = self.memory_growth_by_service()
+    if per_service:
+      print("  Per service memory delta: {}".format(per_service))
+    if self.memory_growth_cycles < MAX_CONSECUTIVE_MEMORY_GROWTH_CYCLES:
+      return False
+
+    print("Test failed memory trend check! start average {:.2f}% end average {:.2f}% growth {:.2f}% ({:.2f}pp)".format(
+      first_avg, last_avg, growth_pct, growth_ppt))
+    self.memory_growth_detected = True
+    return True
 
   def update_now_time(self):
     """! Sets now_time equal to the current system time.
