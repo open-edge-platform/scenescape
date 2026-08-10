@@ -199,9 +199,9 @@ class ImportScene:
     # children recursion
     for child_data in json_data.get("children", []):
       child_summary = await self.loadScene(child=child_data, parent=scene_id)
-      for val in child_summary.values():
-        if val:
-          return child_summary
+      if any(child_summary[key] for key in (
+          "scene", "cameras", "tripwires", "regions", "sensors")):
+        return child_summary
 
     return import_summary
 
