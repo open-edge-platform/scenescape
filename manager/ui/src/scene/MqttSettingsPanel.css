@@ -48,5 +48,5 @@
 .ss-mqtt-client-table thead th {
   font-family: var(--ss-font-heading);
   font-size: 0.75rem;
-  background: color-mix(in srgb, var(--ss-surface) 70%, #fff);
+  background: color-mix(in srgb, var(--ss-surface) 70%, var(--ss-elevated));
 }

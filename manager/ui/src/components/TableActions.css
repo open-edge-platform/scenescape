@@ -17,8 +17,8 @@
   padding: 0.2rem 0.45rem;
   border-radius: var(--ss-radius);
   border: 1px solid var(--ss-input-border);
-  background: #fff;
-  color: var(--ss-nav-bg);
+  background: var(--ss-card-bg);
+  color: var(--ss-ink);
   font-family: var(--ss-font-sans);
   font-size: 0.75rem;
   font-weight: 600;
@@ -37,7 +37,7 @@
 }
 
 .ss-table-action.is-danger:hover {
-  color: #fff;
+  color: var(--ss-on-brand);
   background: var(--ss-status-bad);
   border-color: var(--ss-status-bad);
 }

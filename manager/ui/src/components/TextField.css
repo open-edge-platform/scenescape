@@ -16,7 +16,7 @@
   margin: 0;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--ss-nav-bg);
+  color: var(--ss-ink);
 }
 
 .ss-text-field-control {
@@ -59,7 +59,7 @@ select.ss-select-field {
 .ss-select-field:disabled {
   opacity: 0.65;
   cursor: not-allowed;
-  background: color-mix(in srgb, var(--ss-surface) 70%, #fff);
+  background: color-mix(in srgb, var(--ss-surface) 70%, var(--ss-elevated));
 }
 
 .ss-text-field-error {

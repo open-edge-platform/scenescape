@@ -31,7 +31,7 @@
   border: 1px solid var(--ss-input-border);
   border-radius: var(--ss-radius);
   overflow: hidden;
-  background: #fff;
+  background: var(--ss-card-bg);
   animation: ss-camera-card-in var(--ss-motion-fast, 120ms) ease both;
 }
 
@@ -58,7 +58,7 @@
 }
 
 .ss-camera-strip-fit.is-active {
-  color: #fff;
+  color: var(--ss-on-brand);
   background: var(--ss-brand);
 }
 
@@ -105,13 +105,13 @@
 .ss-camera-strip-badge.is-online {
   color: var(--ss-status-ok);
   border-color: color-mix(in srgb, var(--ss-status-ok) 45%, transparent);
-  background: color-mix(in srgb, var(--ss-status-ok) 10%, #fff);
+  background: color-mix(in srgb, var(--ss-status-ok) 10%, var(--ss-elevated));
 }
 
 .ss-camera-strip-badge.is-offline {
   color: var(--ss-status-bad);
   border-color: color-mix(in srgb, var(--ss-status-bad) 45%, transparent);
-  background: color-mix(in srgb, var(--ss-status-bad) 8%, #fff);
+  background: color-mix(in srgb, var(--ss-status-bad) 8%, var(--ss-elevated));
 }
 
 /* Shared image frame so object-fit has a box in both orientations */
@@ -121,7 +121,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: color-mix(in srgb, var(--ss-surface) 70%, #fff);
+  background: color-mix(in srgb, var(--ss-surface) 70%, var(--ss-elevated));
 }
 
 .ss-workspace--row .ss-camera-strip .camera-card .card-image {

@@ -50,7 +50,7 @@
   font-family: var(--ss-font-heading);
   font-size: 1rem;
   font-weight: 600;
-  color: var(--ss-nav-bg);
+  color: var(--ss-ink);
   padding: 0.75rem 1rem;
   margin: 0;
   background: var(--ss-card-bg);
@@ -58,7 +58,7 @@
 }
 
 .ss-scene-card .card-image {
-  background: color-mix(in srgb, var(--ss-surface) 80%, #fff);
+  background: color-mix(in srgb, var(--ss-surface) 80%, var(--ss-elevated));
 }
 
 .ss-scene-card .card-image a {

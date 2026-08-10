@@ -15,11 +15,11 @@
   padding: 0.65rem 0.85rem;
   border-radius: var(--ss-radius);
   border: 1px solid var(--ss-card-border);
-  background: #fff;
+  background: var(--ss-card-bg);
   box-shadow: 0 4px 16px rgba(0, 30, 80, 0.12);
   font-family: var(--ss-font-sans);
   font-size: 0.875rem;
-  color: var(--ss-nav-bg);
+  color: var(--ss-ink);
 }
 
 .ss-toast--ok {

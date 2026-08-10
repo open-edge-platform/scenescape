@@ -20,7 +20,7 @@
   align-items: center;
   justify-content: center;
   pointer-events: auto;
-  background: var(--ss-surface, #f4f5f5);
+  background: var(--ss-surface);
 }
 
 .ss-react-map-layer .ss-react-scene-map {

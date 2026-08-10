@@ -31,7 +31,7 @@ details.ss-form-section + details.ss-form-section {
   font-size: var(--ss-type-workspace-section, 0.9375rem);
   font-weight: 600;
   line-height: 1.3;
-  color: var(--ss-nav-bg);
+  color: var(--ss-ink);
 }
 
 .ss-form-section-desc {
@@ -93,7 +93,7 @@ details.ss-form-section.is-forced-open > .ss-form-section-summary .ss-form-secti
   padding: 0.65rem 0.75rem 0.35rem;
   border: 1px solid color-mix(in srgb, var(--ss-card-border) 85%, var(--ss-nav-bg));
   border-radius: var(--ss-radius);
-  background: color-mix(in srgb, var(--ss-surface) 55%, #fff);
+  background: color-mix(in srgb, var(--ss-surface) 55%, var(--ss-elevated));
 }
 
 .ss-form-field-group-label {

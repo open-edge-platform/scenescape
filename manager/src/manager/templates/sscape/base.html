@@ -10,6 +10,19 @@ SPDX-License-Identifier: Apache-2.0
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("ss-theme");
+          document.documentElement.setAttribute(
+            "data-theme",
+            t === "dark" || t === "light" ? t : "light",
+          );
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "light");
+        }
+      })();
+    </script>
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, shrink-to-fit=no"
@@ -176,6 +189,32 @@ SPDX-License-Identifier: Apache-2.0
         </div>
       {% endif %}
 
+      <div class="ss-theme-toggle-host">
+        <div
+          class="ss-theme-toggle"
+          id="ss-theme-toggle"
+          role="group"
+          aria-label="Color theme"
+        >
+          <button
+            type="button"
+            class="ss-theme-toggle__btn"
+            data-ss-theme="light"
+            aria-pressed="true"
+          >
+            Light
+          </button>
+          <button
+            type="button"
+            class="ss-theme-toggle__btn"
+            data-ss-theme="dark"
+            aria-pressed="false"
+          >
+            Dark
+          </button>
+        </div>
+      </div>
+
       <a
         class="navbar-powered-by"
         href="https://www.intel.com/"
@@ -207,6 +246,7 @@ SPDX-License-Identifier: Apache-2.0
     {% endif %}
 
     <script src="{% static 'assets/jquery-3.6.0.min.js' %}"></script>
+    <script src="{% static 'js/theme.js' %}"></script>
     <script src="{% static 'assets/socket.io.min.js' %}"></script>
     <script src="{% static 'assets/snap.svg-min.js' %}"></script>
     <script src="{% static 'assets/tether.min.js' %}"></script>

@@ -17,7 +17,7 @@
 
 .ss-confirm-dialog {
   width: min(28rem, 100%);
-  background: #fff;
+  background: var(--ss-card-bg);
   border: 1px solid var(--ss-card-border);
   border-radius: var(--ss-radius);
   box-shadow: 0 12px 40px rgba(0, 30, 80, 0.22);
@@ -36,7 +36,7 @@
   font-family: var(--ss-font-heading);
   font-size: 1.15rem;
   font-weight: 600;
-  color: var(--ss-nav-bg);
+  color: var(--ss-ink);
 }
 
 .ss-confirm-close {
@@ -80,7 +80,7 @@
 }
 
 .ss-btn--danger-solid {
-  color: #fff;
+  color: var(--ss-on-brand);
   background: var(--ss-status-bad);
   border-color: var(--ss-status-bad);
 }

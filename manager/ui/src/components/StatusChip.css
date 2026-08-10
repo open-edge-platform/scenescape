@@ -15,7 +15,7 @@
   font-weight: 600;
   line-height: 1.2;
   color: var(--ss-text-muted);
-  background: #fff;
+  background: var(--ss-card-bg);
 }
 
 .ss-status-chip--ok {

@@ -33,12 +33,12 @@
   text-transform: uppercase;
   color: var(--ss-text-muted);
   border-bottom-color: var(--ss-card-border);
-  background: color-mix(in srgb, var(--ss-surface) 65%, #fff);
+  background: color-mix(in srgb, var(--ss-surface) 65%, var(--ss-elevated));
   white-space: nowrap;
 }
 
 .ss-admin-table tbody tr:hover {
-  background: color-mix(in srgb, var(--ss-brand) 4%, #fff);
+  background: color-mix(in srgb, var(--ss-brand) 4%, var(--ss-elevated));
 }
 
 .ss-table-empty {

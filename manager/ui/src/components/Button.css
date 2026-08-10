@@ -26,7 +26,7 @@
 }
 
 .ss-btn--primary {
-  color: #fff;
+  color: var(--ss-on-brand);
   background: var(--ss-brand);
   border-color: var(--ss-brand);
 }
@@ -37,8 +37,8 @@
 }
 
 .ss-btn--secondary {
-  color: var(--ss-nav-bg);
-  background: #fff;
+  color: var(--ss-ink);
+  background: var(--ss-card-bg);
   border-color: var(--ss-input-border);
 }
 
@@ -49,7 +49,7 @@
 
 .ss-btn--danger {
   color: var(--ss-status-bad);
-  background: #fff;
+  background: var(--ss-card-bg);
   border-color: color-mix(
     in srgb,
     var(--ss-status-bad) 45%,
@@ -58,13 +58,13 @@
 }
 
 .ss-btn--danger:hover {
-  color: #fff;
+  color: var(--ss-on-brand);
   background: var(--ss-status-bad);
   border-color: var(--ss-status-bad);
 }
 
 .ss-btn--danger-solid {
-  color: #fff;
+  color: var(--ss-on-brand);
   background: var(--ss-status-bad);
   border-color: var(--ss-status-bad);
 }
@@ -83,7 +83,7 @@
 }
 
 .ss-btn--dirty:not(:disabled) {
-  box-shadow: 0 0 0 1px color-mix(in srgb, #fff 35%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ss-on-brand) 35%, transparent);
 }
 
 .ss-btn--dirty:not(:disabled)::after {

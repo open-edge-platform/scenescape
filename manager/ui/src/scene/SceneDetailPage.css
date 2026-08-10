@@ -50,7 +50,7 @@
   border: 1px solid var(--ss-input-border);
   border-radius: var(--ss-radius);
   overflow: hidden;
-  background: #fff;
+  background: var(--ss-card-bg);
 }
 
 .ss-layout-toggle-btn {
@@ -78,12 +78,12 @@
 .ss-layout-toggle-btn:hover,
 .ss-layout-toggle-btn:focus-visible {
   color: var(--ss-brand);
-  background: color-mix(in srgb, var(--ss-brand) 8%, #fff);
+  background: color-mix(in srgb, var(--ss-brand) 8%, var(--ss-elevated));
   outline: none;
 }
 
 .ss-layout-toggle-btn.is-active {
-  color: #fff;
+  color: var(--ss-on-brand);
   background: var(--ss-brand);
 }
 
@@ -126,7 +126,7 @@
 .ss-scene-detail--workspace .ss-scene-rate #scene-rate {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  color: var(--ss-nav-bg);
+  color: var(--ss-ink);
 }
 
 .ss-workspace-body {
@@ -324,7 +324,7 @@ body.ss-workspace-resizing .ss-workspace-splitter::after {
   margin-right: 0.35rem;
   border: 1px solid var(--ss-input-border);
   border-radius: var(--ss-radius);
-  background: #fff;
+  background: var(--ss-card-bg);
 }
 
 /* Prefer the header Map focus control — hide the legacy on-map expand button */
@@ -578,8 +578,8 @@ body.ss-workspace-resizing {
   font-family: var(--ss-font-heading);
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--ss-nav-bg);
-  background: color-mix(in srgb, var(--ss-surface) 55%, #fff);
+  color: var(--ss-ink);
+  background: color-mix(in srgb, var(--ss-surface) 55%, var(--ss-elevated));
   border-bottom: 1px solid var(--ss-card-border);
 }
 
@@ -814,7 +814,7 @@ body.ss-workspace-resizing {
   align-items: stretch;
   justify-content: stretch;
   overflow: hidden;
-  background: color-mix(in srgb, var(--ss-surface) 70%, #fff);
+  background: color-mix(in srgb, var(--ss-surface) 70%, var(--ss-elevated));
 }
 
 .ss-workspace--stack .camera-card .card-image a.snapshot-image,

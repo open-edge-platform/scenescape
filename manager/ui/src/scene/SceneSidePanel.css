@@ -26,7 +26,7 @@
   align-items: center;
   min-width: 0;
   border-bottom: 1px solid var(--ss-card-border);
-  background: color-mix(in srgb, var(--ss-surface) 65%, #fff);
+  background: color-mix(in srgb, var(--ss-surface) 65%, var(--ss-elevated));
 }
 
 .ss-scene-side .ss-tabs-list {

@@ -23,7 +23,7 @@
   margin: 0;
   padding: 0 0.5rem;
   border-bottom: 1px solid var(--ss-card-border);
-  background: color-mix(in srgb, var(--ss-surface) 65%, #fff);
+  background: color-mix(in srgb, var(--ss-surface) 65%, var(--ss-elevated));
 }
 
 .ss-tabs-tab {
@@ -100,7 +100,7 @@
 
 .ss-tabs-tab:hover,
 .ss-tabs-tab:focus {
-  color: var(--ss-nav-bg);
+  color: var(--ss-ink);
   background: transparent;
   outline: none;
 }

@@ -15,5 +15,5 @@
 .ss-modal .modal-title {
   font-family: var(--ss-font-heading);
   font-weight: 600;
-  color: var(--ss-nav-bg);
+  color: var(--ss-ink);
 }

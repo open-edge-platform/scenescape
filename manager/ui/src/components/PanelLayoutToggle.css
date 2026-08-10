@@ -124,18 +124,18 @@
 
 .ss-cal-layout-btn:hover,
 .ss-cal-layout-btn:focus-visible {
-  color: #fff;
+  color: var(--ss-on-brand);
   background: rgba(255, 255, 255, 0.14);
   outline: none;
 }
 
 .ss-cal-layout-btn.is-active {
   color: var(--ss-nav-bg, #1a1f2e);
-  background: #fff;
+  background: var(--ss-card-bg);
 }
 
 .ss-cal-layout-btn:focus-visible {
-  outline: 2px solid #fff;
+  outline: 2px solid var(--ss-on-brand);
   outline-offset: -2px;
   z-index: 1;
 }

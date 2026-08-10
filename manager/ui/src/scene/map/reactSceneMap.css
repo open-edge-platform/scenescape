@@ -7,7 +7,7 @@
   display: block;
   max-width: 100%;
   max-height: 100%;
-  background: #1a1a1a;
+  background: var(--ss-surface);
 }
 
 .ss-react-scene-map.is-add-roi,
@@ -27,7 +27,7 @@
 }
 
 .ss-react-vertex {
-  fill: #fff;
+  fill: var(--ss-on-brand);
   stroke: #001e50;
   stroke-width: 2;
   cursor: grab;
