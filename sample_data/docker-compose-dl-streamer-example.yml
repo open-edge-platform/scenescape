@@ -194,6 +194,8 @@ services:
       - DBPORT=5432
       - no_proxy=${no_proxy},.scenescape.intel.com
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - MAPBOX_API_KEY=${MAPBOX_API_KEY}
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
@@ -243,6 +245,8 @@ services:
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
       --visibility_topic ${VISIBILITY:-regulated}
+    volumes:
+      - vol-media:/home/scenescape/Scenescape/media
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -605,7 +609,7 @@ services:
     profiles:
       - experimental
       - mapping
-    image: intel/scenescape-mapping-${MAPPING_MODEL:-mapanything}:${VERSION:-latest}
+    image: intel/scenescape-mapping:${VERSION:-latest}
     init: true
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:

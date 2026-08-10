@@ -96,8 +96,8 @@ def reidPolicy(pobj, item, fw, fh):
     return
   classificationPolicy(pobj, item, fw, fh)
   for tensor in item.get('tensors', [{}]):
-    name = tensor.get('name','')
-    if name and ('reid' in name or 'embedding' in name):
+    tensor_name = tensor.get('tensor_name','')
+    if tensor_name and ('reid' in tensor_name or 'embedding' in tensor_name):
       reid_vector = tensor.get('data', [])
       # Handle variable-length re-id vectors from different models
       if not reid_vector:

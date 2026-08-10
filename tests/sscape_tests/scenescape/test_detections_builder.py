@@ -92,7 +92,7 @@ class TestDetectionsBuilder:
     assert detection['id'] == 'object-1'
     assert detection['type'] == 'person'
     assert detection['translation'] == [1.0, 2.0, 3.0]
-    assert detection['velocity'] == [4.0, 5.0]
+    assert detection['velocity'] == [4.0, 5.0, 0.0]
     assert detection['rotation'] == {'yaw': 90.0}
     assert detection['metadata']['age'] == 'adult'
     assert np.allclose(detection['metadata']['reid']['embedding_vector'], [0.1, 0.2])
@@ -556,3 +556,22 @@ class TestDetectionsBuilder:
     assert (dwell_at_t2 - dwell_at_t1) == pytest.approx(3.0)  # 5.0 - 2.0 = 3.0 second interval
     assert (dwell_at_t3 - dwell_at_t2) == pytest.approx(3.5)  # 8.5 - 5.0 = 3.5 second interval
     assert (dwell_at_t3 - dwell_at_t1) == pytest.approx(6.5)  # 8.5 - 2.0 = 6.5 second interval
+
+
+class TestComputeCameraBounds:
+  """Unit tests for computeCameraBounds, in particular its handling of
+  obj_dict entries that never had a 'visibility' key populated (for example
+  an already-tracked/retrack=False object whose visibility was not computed
+  because it bypassed the normal per-frame retrack path)."""
+
+  def test_missing_visibility_key_does_not_raise(self):
+    from scene_common.detections_builder import computeCameraBounds
+
+    scene = SimpleNamespace(cameraWithID=lambda cam_id: None)
+    obj_dict = {'id': 'object-1'}
+
+    # Must not raise KeyError('visibility'); the object simply gets no
+    # per-camera bounds computed.
+    computeCameraBounds(scene, None, obj_dict)
+
+    assert 'camera_bounds' not in obj_dict or obj_dict.get('camera_bounds') == {}

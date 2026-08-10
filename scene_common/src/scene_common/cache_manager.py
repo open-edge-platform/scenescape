@@ -199,9 +199,27 @@ class CacheManager:
     return
 
   def _sensorNeedsRestoring(self, uid):
-    # Check if any old scene has sensors with cache values that can be restored
-    if hasattr(self, '_old_scene_cache') and self._old_scene_cache:
-      return self._old_scene_cache.get(uid)
+    # Reuse the previous Scene instance across a DB-triggered refresh in two
+    # cases: (1) it has sensors with cache values worth restoring (readings,
+    # dwell state, etc.), or (2) it has no tracker at all -- i.e. it's an
+    # AnalyticsScene, which owns no tracked-object identity of its own (that
+    # comes from the Controller via MQTT) and instead needs its ingestion
+    # cache (chain_data history, region/tripwire/dwell state) preserved
+    # across the frequent invalidate() calls REST config changes trigger.
+    # Otherwise return None so callers deserialize a fresh Scene (and
+    # tracker) for uid -- e.g. after an explicit REST-triggered scene config
+    # update on the Controller, where a blanket reuse would silently keep
+    # stale tracked-object identities.
+    if not hasattr(self, '_old_scene_cache') or not self._old_scene_cache:
+      return None
+    old_scene = self._old_scene_cache.get(uid)
+    if old_scene is None:
+      return None
+    if not hasattr(old_scene, 'tracker'):
+      return old_scene
+    for sensor in getattr(old_scene, 'sensors', {}).values():
+      if getattr(sensor, 'value', None) is not None:
+        return old_scene
     return None
 
   def _restoreSensorCache(self, uid, old_scene, scene):
@@ -254,6 +272,9 @@ class CacheManager:
     return
 
   def refreshScenesForCamParams(self, jdata):
+    if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
+      return
+
     intrinsics_changed = self.cameraParametersChanged(jdata, 'intrinsics')
     distortion_changed = self.cameraParametersChanged(jdata, 'distortion')
 

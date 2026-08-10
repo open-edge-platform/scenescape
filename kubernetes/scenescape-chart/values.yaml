@@ -87,6 +87,9 @@ analytics:
 autocalibration:
   image: intel/scenescape-autocalibration
   pullPolicy: IfNotPresent
+  # When true, skip the ~550MB NetVLAD download at container start.
+  # Markerless calibration needs the model; deployment smoke tests do not.
+  skipModelDownload: false
 
 kubeclient:
   enabled: true
