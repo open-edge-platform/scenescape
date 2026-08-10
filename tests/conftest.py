@@ -279,7 +279,7 @@ def version(repo_root):
 @pytest.fixture(scope="session")
 def secrets_dir(repo_root):
   """Path to the secrets directory."""
-  sdir = os.path.join(repo_root, "manager", "secrets")
+  sdir = os.environ.get("SECRETSDIR") or os.path.join(repo_root, "manager", "secrets")
   assert os.path.isdir(sdir), f"Secrets directory not found: {sdir}"
   return sdir
 
@@ -580,7 +580,10 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
 
   os.environ["SECRETSDIR"] = secrets_dir
 
-  compose_file_paths = [os.path.join(repo_root, cf) for cf in profile.compose_files]
+  from tests.utils.profiles import resolve_compose_files
+  compose_file_paths = [
+    os.path.join(repo_root, cf) for cf in resolve_compose_files(profile.compose_files)
+  ]
 
   controller_auth_path = os.path.join(secrets_dir, "controller.auth")
   try:
@@ -631,6 +634,10 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     logger.info("Allocated hierarchy host ports: %s", hierarchy_ports)
 
   env_file.write_text(env_lines)
+  # Compose prefers the process environment over --env-file for variable
+  # pass-through (e.g. environment: [SUPASS]). Keep them in sync.
+  from tests.utils.compose_env import sync_supass_for_compose
+  sync_supass_for_compose(supass)
   (tmp_path / "db").mkdir(exist_ok=True)
   if hierarchy_ports:
     for role in ("parent", "child1", "child2"):

@@ -140,7 +140,10 @@ def main():
   if args.healthcheck_port > 0:
     start_health_server(args.healthcheck_port)
 
-  controller.loopForever()
+  try:
+    controller.loopForever()
+  finally:
+    controller.shutdown()
 
   return
 

@@ -53,9 +53,12 @@ services:
     environment:
       - EGL_PLATFORM=surfaceless
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad
-      - HTTP_PROXY=${HTTP_PROXY}
-      - HTTPS_PROXY=${HTTPS_PROXY}
-      - NO_PROXY=${NO_PROXY}
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+      - no_proxy=127.0.0.1,localhost,${no_proxy},.scenescape.intel.com
+      - HTTP_PROXY=${http_proxy}
+      - HTTPS_PROXY=${https_proxy}
+      - NO_PROXY=127.0.0.1,localhost,${no_proxy},.scenescape.intel.com
     volumes:
       - ./:/workspace
       - vol-media:/home/scenescape/Scenescape/media

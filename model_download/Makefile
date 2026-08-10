@@ -34,7 +34,7 @@ MODEL_DOWNLOADER_RUN_ARGS ?=
 
 .PHONY: install-models
 install-models:
-	@if [ "$(SKIP_MODEL_DOWNLOAD)" == "true" ] || \
+	@if [ "$(SKIP_MODEL_DOWNLOAD)" = "true" ] || \
 		docker run --rm -v "$(MODEL_VOLUME)":/models alpine:3.23 test -f "/models$(MODEL_CONFIG_MARKER)" >/dev/null 2>&1; then \
 		echo "Models already installed in $(MODEL_VOLUME), skipping download (set SKIP_MODEL_DOWNLOAD=false to force re-run)."; \
 	else \
