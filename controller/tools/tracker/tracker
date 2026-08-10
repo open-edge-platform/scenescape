@@ -6,7 +6,6 @@
 import base64
 import orjson
 import os
-import struct
 from argparse import ArgumentParser
 
 import cv2
@@ -57,10 +56,8 @@ def serializeVectors(objects, key):
   found = findResults(objects, key)
   for obj in found:
     if isinstance(obj[key], np.ndarray):
-      vector = obj[key].flatten().tolist()
-      vector = struct.pack("256f", *vector)
-      vector = base64.b64encode(vector).decode('utf-8')
-      obj[key] = vector
+      vector = np.asarray(obj[key], dtype=np.float32).reshape(-1)
+      obj[key] = base64.b64encode(vector.tobytes()).decode('utf-8')
   return
 
 def publishEvents(scene, ts_str):

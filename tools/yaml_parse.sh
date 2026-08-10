@@ -1,7 +1,8 @@
 #!/bin/bash
 
+# SPDX-FileCopyrightText: (C) 2017 Jonathan Peres
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MIT AND Apache-2.0
 
 parse_yaml() {
     local yaml_file=$1

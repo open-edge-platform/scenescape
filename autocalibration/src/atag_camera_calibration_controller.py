@@ -26,7 +26,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
   camera calibration processes occuring in the container.
   """
 
-  def processSceneForCalibration(self, sceneobj, map_update=False):
+  def process_scene_for_calibration(self, sceneobj, map_update=False):
     """! The following tasks are done in this function:
          1) Create AutoCalibration Object.
          2) If Scene is not updated, use data stored in database.
@@ -58,18 +58,18 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     if sceneobj.map_processed is None or map_update:
       try:
         with self.cam_calib_objs[sceneobj.id].cam_calib_lock:
-          self.cam_calib_objs[sceneobj.id].identifyApriltagsInScene(TILE_SIZE,
+          self.cam_calib_objs[sceneobj.id].identify_apriltags_in_scene(TILE_SIZE,
                                                                     TILE_SIZE,
                                                                     DEFAULT_ROTATION_MATRIX)
           if self.cam_calib_objs[sceneobj.id].result_data_3d is not None:
-            self.saveToDatabase(sceneobj, self.cam_calib_objs[sceneobj.id].result_data_3d)
+            self.save_to_database(sceneobj, self.cam_calib_objs[sceneobj.id].result_data_3d)
           log.info("Apriltag center points in 3D identified and saved to database.")
       except FileNotFoundError:
         response_dict['status'] = "Error: Glb file not found"
         return response_dict
 
     apriltags_from_db = []
-    response = self.calibration_data_interface.calibrationMarkersWithSceneID(sceneobj.id)
+    response = self.calibration_data_interface.calibration_markers_with_scene_id(sceneobj.id)
     if 'results' in response:
       apriltags_from_db = response['results']
     result_data_from_db = {}
@@ -79,46 +79,46 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     self.cam_calib_objs[sceneobj.id].result_data_3d = result_data_from_db
     if len(self.cam_calib_objs[sceneobj.id].result_data_3d) < MIN_APRILTAG_COUNT:
       response_dict['status'] = f"Cannot auto calibrate. Check scene to ensure there are at least {MIN_APRILTAG_COUNT} april tags"
-    self.notifySceneRegistration(sceneobj.id, response_dict)
+    self.notify_scene_registration(sceneobj.id, response_dict)
     return response_dict
 
-  def resetScene(self, scene):
+  def reset_scene(self, scene):
     self.cam_calib_objs.pop(scene.id, None)
-    self.calibration_data_interface.deleteCalibrationMarkersForScene(scene.id)
+    self.calibration_data_interface.delete_calibration_markers_for_scene(scene.id)
     return
 
-  def isMapUpdated(self, sceneobj):
+  def is_map_updated(self, sceneobj):
     """! function used to check if the map is updated and reset the scene when map is None.
     @param   sceneobj      scene object.
 
     @return  True/False
     """
     if not sceneobj.map:
-      self.resetScene(sceneobj)
+      self.reset_scene(sceneobj)
       return False
     else:
       return (sceneobj.map_processed is None)
 
-  def saveToDatabase(self, scene, atag_points_3d):
+  def save_to_database(self, scene, atag_points_3d):
     """! Function stores baseapriltag data into db.
     @param   scene             Scene database object.
     @param   atag_points_3d   Apriltag centers in 3d plane.
 
     @return  None
     """
-    response = self.calibration_data_interface.calibrationMarkersWithSceneID(scene.id)
+    response = self.calibration_data_interface.calibration_markers_with_scene_id(scene.id)
     if 'results' in response:
       apriltags = response['results']
     if apriltags and len(atag_points_3d) < len(apriltags):
-      self.calibration_data_interface.deleteCalibrationMarkersForScene(scene.id)
+      self.calibration_data_interface.delete_calibration_markers_for_scene(scene.id)
     else:
       for key, value in atag_points_3d.items():
         post_data = {'marker_id': f"{scene.id}_{str(key)}", 'apriltag_id': key, 'dims': value, 'scene': scene.id}
-        self.calibration_data_interface.updateOrCreateCalibrationMarker(scene.id, post_data)
-    self.calibration_data_interface.updateMapProcessed(scene.id, get_iso_time())
+        self.calibration_data_interface.update_or_create_calibration_marker(scene.id, post_data)
+    self.calibration_data_interface.update_map_processed(scene.id, get_iso_time())
     return
 
-  def decodeImage(self, img_data):
+  def decode_image(self, img_data):
     """! Decodes image from string format to numpy format.
     @param   img_data  encoded image from MQTT.
 
@@ -127,7 +127,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     image_array = np.frombuffer(base64.b64decode(img_data), dtype=np.uint8)
     return cv2.imdecode(image_array, flags=1)
 
-  def generateCalibration(self, sceneobj, camera_intrinsics, cam_frame_data):
+  def generate_calibration(self, sceneobj, camera_intrinsics, cam_frame_data):
     """! Generates the camera pose.
     @param   sceneobj           Scene object
     @param   camera_intrinsics  Camera Intrinsics
@@ -153,22 +153,22 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         raise TypeError(f"Intrinsics not found for camera {cam_frame_data['id']}!")
       image = cam_frame_data['image']
       log.info(f"Decoding image for camera {cam_frame_data['id']}")
-      src_2d_image = self.decodeImage(image)
+      src_2d_image = self.decode_image(image)
       log.info(f"Image decoded for camera {cam_frame_data['id']}, shape: {src_2d_image.shape if src_2d_image is not None else 'None'}")
       intrinsic_matrix_2d = np.array(camera_intrinsics)
       cur_cam_calib_obj.intrinsic_matrix_2d = intrinsic_matrix_2d
-      cur_cam_calib_obj.findApriltagsInFrame(src_2d_image, True)
-      camera_pose = cur_cam_calib_obj.getCameraPoseInScene()
+      cur_cam_calib_obj.find_apriltags_in_frame(src_2d_image, True)
+      camera_pose = cur_cam_calib_obj.get_camera_pose_in_scene()
       log.info(f"Camera pose computed for camera {cam_frame_data['id']}")
 
       if (camera_pose is not None
               and len(cur_cam_calib_obj.apriltags_2d_data) >= MIN_APRILTAG_COUNT):
         # Obtain the frustum view points.
-        frustum_2d = cur_cam_calib_obj.getCameraFrustum()
+        frustum_2d = cur_cam_calib_obj.get_camera_frustum()
         cam_pose = CameraPose(camera_pose,
                               CameraIntrinsics(intrinsic_matrix_2d))
         # Get respective 2d and 3d points for representation in UI.
-        points_3d, points_2d = cur_cam_calib_obj.getPointCorrespondences()
+        points_3d, points_2d = cur_cam_calib_obj.get_point_correspondences()
         log.info(f"Point correspondences calculated for calibration UI for camera {cam_frame_data['id']}")
 
         cam_to_world_y_down = convertToTransformMatrix(self.scene_pose_mat,

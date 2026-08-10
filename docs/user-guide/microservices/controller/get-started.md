@@ -26,18 +26,21 @@
   docker run --rm \
   --init \
   --network scenescape \
-  -v scenescape_vol-media:/home/scenescape/SceneScape/media \
-  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
-  -v $(pwd)/controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json \
+  -v scenescape_vol-media:/home/scenescape/Scenescape/media \
+  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json \
+  -v $(pwd)/controller/config/reid-config.json:/home/scenescape/Scenescape/reid-config.json \
+  -v $(pwd)/controller/config/pose-adjustment-route.json:/home/scenescape/Scenescape/pose-adjustment-route.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
+  -v $(pwd)/manager/secrets/certs/scenescape-reid.crt:/run/secrets/certs/scenescape-reid.crt:ro \
+  -v $(pwd)/manager/secrets/certs/scenescape-reid.key:/run/secrets/certs/scenescape-reid.key:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
-  scenescape-controller \
+  intel/scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
-  --tracker_config_file /home/scenescape/SceneScape/tracker-config.json \
-  --reid_config_file /home/scenescape/SceneScape/reid-config.json \
+  --tracker_config_file /home/scenescape/Scenescape/tracker-config.json \
+  --reid_config_file /home/scenescape/Scenescape/reid-config.json \
   --ntp ntpserv
   ```
 
@@ -47,6 +50,7 @@
   - The **broker** service at `broker.scenescape.intel.com` is up and reachable.
   - The **web** service at `https://web.scenescape.intel.com:443` is accessible.
   - The **ntpserv** service at `udp://<host-ip>:123` whihc maps to port `123/udp` inside the container.
+  - For Extended ReID, a vector database is reachable at the shared defaults (`reid.scenescape.intel.com:55555`, TLS). Mount the shared `scenescape-reid` client certs as shown above. Select the backend with `REID_DATABASE` (`VDMS` or `QDRANT`). See [How to enable re-identification](../../other-topics/how-to-enable-reidentification.md).
 
 - **Verify the service**:
   Check that the service is running:
@@ -65,29 +69,43 @@
   - Refer to [scene-controller-api.yaml](./_assets/scene-controller-api.yaml) on how to access scene controller output
   - Refer to [scene controller sequence diagram](./controller.md#sequence-diagram-scene-controller-workflow)
 
-## Running in Analytics-Only Mode
+## Tracker + Analytics (no local Controller tracker)
 
-Analytics-only mode allows the Scene Controller to consume tracked objects from a separate Tracker service via MQTT instead of performing tracking internally. This is useful for distributed deployments where tracking and analytics are handled by separate services.
+For deployments where a separate Tracker publishes tracks on MQTT, run the
+[Analytics microservice](../analytics/analytics.md) with the Tracker (for example
+`make demo-tracker` / `--profile tracker`). Do not use the former Controller
+`--analytics-only` flag — it has been removed. Controller-proper stacks use
+`--profile controller` (Scene Controller + Analytics).
 
-- **Enable analytics-only mode**:
+## Enabling Pose Adjustment
 
-  Add the `--analytics-only` flag to the docker run command:
+When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer video pipeline, the Scene Controller can use pose keypoints to refine bounding boxes for supported detection types before projecting them into world coordinates. This improves localization accuracy. The feature is disabled by default.
+
+- **Enable pose adjustment via CLI flag**:
+
+  Add the `--pose-adjustment` flag to the docker run command:
 
   ```bash
   docker run --rm \
   --init \
   --network scenescape \
-  -v scenescape_vol-media:/home/scenescape/SceneScape/media \
-  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
+  -v scenescape_vol-media:/home/scenescape/Scenescape/media \
+  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json \
+  -v $(pwd)/controller/config/reid-config.json:/home/scenescape/Scenescape/reid-config.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
+  -v $(pwd)/manager/secrets/certs/scenescape-reid.crt:/run/secrets/certs/scenescape-reid.crt:ro \
+  -v $(pwd)/manager/secrets/certs/scenescape-reid.key:/run/secrets/certs/scenescape-reid.key:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
-  scenescape-controller \
+  intel/scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
+  --tracker_config_file /home/scenescape/Scenescape/tracker-config.json \
+  --reid_config_file /home/scenescape/Scenescape/reid-config.json \
+  --pose_adjustment_config_file /home/scenescape/Scenescape/pose-adjustment-route.json \
   --ntp ntpserv \
-  --analytics-only
+  --pose-adjustment
   ```
 
   Alternatively, use the environment variable:
@@ -96,28 +114,35 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   docker run --rm \
   --init \
   --network scenescape \
-  -e CONTROLLER_ENABLE_ANALYTICS_ONLY=true \
-  -v scenescape_vol-media:/home/scenescape/SceneScape/media \
-  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
+  -e CONTROLLER_ENABLE_POSE_ADJUSTMENT=true \
+  -v scenescape_vol-media:/home/scenescape/Scenescape/media \
+  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json \
+  -v $(pwd)/controller/config/reid-config.json:/home/scenescape/Scenescape/reid-config.json \
+  -v $(pwd)/controller/config/pose-adjustment-route.json:/home/scenescape/Scenescape/pose-adjustment-route.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
+  -v $(pwd)/manager/secrets/certs/scenescape-reid.crt:/run/secrets/certs/scenescape-reid.crt:ro \
+  -v $(pwd)/manager/secrets/certs/scenescape-reid.key:/run/secrets/certs/scenescape-reid.key:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
-  scenescape-controller \
+  intel/scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
+  --tracker_config_file /home/scenescape/Scenescape/tracker-config.json \
+  --reid_config_file /home/scenescape/Scenescape/reid-config.json \
+  --pose_adjustment_config_file /home/scenescape/Scenescape/pose-adjustment-route.json \
   --ntp ntpserv
   ```
 
-- **Note**: In analytics-only mode (experimental feature):
-  - The tracker is not initialized
-  - Camera and scene detection data processing is skipped
-  - The controller subscribes to tracked object data from MQTT topics published by the Tracker service
-  - Analytics processing (regions, tripwires, sensors) continues to function normally
-  - Child scenes are not supported in analytics-only mode
-  - Sensors in Scene not supported and attribute persistence across moving objects not supported on data/scene MQTT topic (data available on events topic)
-  - The following object fields are not available on `event` topic: `visibility`, `similarity`, `confidence`, `entered`, `exited`
-  - The following object fields are not available on `data/regulated` topic: `visibility`, `similarity`, `confidence`
+- **Configure label routing via `pose-adjustment-route.json`**:
+
+  ```json
+  {
+    "person": ["human", "pedestrian"]
+  }
+  ```
+
+- **Note**: This feature requires the DL Streamer video pipeline to use a pose estimation model (e.g. `yolo11n-pose`) that provides keypoint data. See the [DL Streamer Pipeline Server documentation](/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for pipeline setup instructions.
 
 <!--hide_directive
 :::{toctree}

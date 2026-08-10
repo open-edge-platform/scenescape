@@ -180,17 +180,6 @@ TEST_F(MessageHandlerTest, Start_SubscribesToMultipleCameras) {
     handler.start();
 }
 
-// Test that handler does not subscribe when registry is empty
-TEST_F(MessageHandlerTest, Start_NoSubscriptionsWithEmptyRegistry) {
-    SceneRegistry empty_registry;
-
-    // No subscribe calls expected
-    EXPECT_CALL(*mock_client_, subscribe(_)).Times(0);
-
-    MessageHandler handler(mock_client_, empty_registry, test_buffer_, test_config_, false);
-    handler.start();
-}
-
 // Test that handler sets message callback on start
 TEST_F(MessageHandlerTest, Start_SetsMessageCallback) {
     EXPECT_CALL(*mock_client_, setMessageCallback(_)).Times(1);
@@ -876,6 +865,21 @@ TEST_F(MessageHandlerTest, DynamicMode_SubscribesToDatabaseUpdateTopic) {
     handler.start();
 }
 
+// Test that database update subscription still happens when no cameras are registered
+TEST_F(MessageHandlerTest, DynamicMode_SubscribesToDatabaseUpdateTopicWithEmptyRegistry) {
+    SceneRegistry empty_registry;
+
+    MessageHandler handler(mock_client_, empty_registry, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([]() {});
+
+    // No cameras are registered, so no camera topic subscriptions should occur, but the
+    // database update subscription must still happen.
+    EXPECT_CALL(*mock_client_, subscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(1);
+
+    handler.start();
+}
+
 // Test that static mode does NOT subscribe to database update topic
 TEST_F(MessageHandlerTest, StaticMode_NoDatabaseUpdateSubscription) {
     // Only camera subscription expected, no database update subscription
@@ -1009,6 +1013,132 @@ TEST_F(MessageHandlerTest, StaticMode_DatabaseUpdateTreatedAsCameraMessage) {
     EXPECT_EQ(handler.getRejectedCount(), 1);
 }
 
+// Test that detection with metadata field stores it as metadata_json
+TEST_F(MessageHandlerTest, Detection_MetadataJson_ParsedWhenPresent) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{
+                "id": 1,
+                "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100},
+                "metadata": {"reid": {"embedding_vector": [0.1, 0.2]}, "age": {"label": "adult"}}
+            }]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    auto buffer_data = test_buffer_.pop_all();
+    TrackingScope expected_scope{"test-scene-001", "person"};
+    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+
+    EXPECT_FALSE(det.metadata_json.empty());
+    rapidjson::Document doc;
+    ASSERT_FALSE(doc.Parse(det.metadata_json.c_str()).HasParseError());
+    EXPECT_TRUE(doc.HasMember("reid"));
+    EXPECT_TRUE(doc.HasMember("age"));
+}
+
+// Test that metadata field that is not a JSON object is ignored
+TEST_F(MessageHandlerTest, Detection_MetadataJson_IgnoredWhenNotObject) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    // metadata is an array, not an object — must be ignored
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100},
+                        "metadata": [1, 2, 3]}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    auto buffer_data = test_buffer_.pop_all();
+    TrackingScope expected_scope{"test-scene-001", "person"};
+    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+
+    EXPECT_TRUE(det.metadata_json.empty());
+}
+
+// Test that detection with confidence field stores it correctly
+TEST_F(MessageHandlerTest, Detection_Confidence_ParsedWhenPresent) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{
+                "id": 1,
+                "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100},
+                "confidence": 0.87
+            }]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    auto buffer_data = test_buffer_.pop_all();
+    TrackingScope expected_scope{"test-scene-001", "person"};
+    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+
+    ASSERT_TRUE(det.confidence.has_value());
+    EXPECT_NEAR(*det.confidence, 0.87, 1e-9);
+}
+
+// Test that detection without confidence field has absent confidence
+TEST_F(MessageHandlerTest, Detection_Confidence_AbsentWhenNotProvided) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    auto buffer_data = test_buffer_.pop_all();
+    TrackingScope expected_scope{"test-scene-001", "person"};
+    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+
+    EXPECT_FALSE(det.confidence.has_value());
+}
+
+// Test that non-numeric confidence field is ignored
+TEST_F(MessageHandlerTest, Detection_Confidence_IgnoredWhenNotNumber) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100},
+                        "confidence": "high"}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    auto buffer_data = test_buffer_.pop_all();
+    TrackingScope expected_scope{"test-scene-001", "person"};
+    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+
+    EXPECT_FALSE(det.confidence.has_value());
+}
+
 //
 // Schema file edge case test with temp directory
 //
@@ -1079,6 +1209,139 @@ TEST_F(SchemaFileTest, SchemaValidation_HandlesCorruptOrMissingFiles) {
         })";
         mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
     });
+}
+
+//
+// ClockFn injection tests
+//
+
+// Test that injecting a fixed-time ClockFn allows a "fresh" message to pass the lag check.
+// With the fixed clock at the same instant as the message timestamp, lag ≈ 0 → accepted.
+TEST_F(MessageHandlerTest, ClockFn_FixedClock_FreshMessageNotLagged) {
+    using namespace std::chrono;
+
+    // Pin clock to a fixed time equal to the message timestamp.
+    auto fixed_now = sys_days{2026y / January / 27} + 12h;
+    ClockFn test_clock = [fixed_now]() -> system_clock::time_point { return fixed_now; };
+
+    // Tight lag: 1 ms.  With the injected clock == msg timestamp, lag = 0 → accepted.
+    TrackingConfig tight_config{
+        .max_lag_s = 0.001, .time_chunking_rate_fps = 15, .max_workers = 50};
+
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, tight_config, false,
+                           "/scenescape/schema", test_clock);
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getLaggedCount(), 0); // Not dropped — clock matches message time
+    EXPECT_EQ(handler.getBufferedCount(), 1);
+}
+
+// Verify the injected ClockFn is used when evaluating message lag.
+// The injected clock is aligned with the message timestamp, so lag is zero and the
+// message should be accepted and buffered.
+TEST_F(MessageHandlerTest, ClockFn_InjectedClockAligned_ValidMessageAccepted) {
+    using namespace std::chrono;
+
+    // Message timestamp and injected clock are intentionally identical.
+    auto msg_time = sys_days{2026y / January / 27} + 12h;
+
+    // Return the same time as the message timestamp so this test validates the
+    // injected-clock path with zero lag.
+    ClockFn test_clock = [msg_time]() -> system_clock::time_point { return msg_time; };
+
+    TrackingConfig tight_config{
+        .max_lag_s = 0.001, .time_chunking_rate_fps = 15, .max_workers = 50};
+
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, tight_config, false,
+                           "/scenescape/schema", test_clock);
+    handler.start();
+
+    // Timestamp exactly matches the injected clock → lag = 0 ms → accepted.
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getLaggedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 1);
+}
+
+// Test that even with an injected clock, a genuinely old message is still dropped.
+TEST_F(MessageHandlerTest, ClockFn_GenuineLag_MessageDropped) {
+    using namespace std::chrono;
+
+    // Clock fixed at 2026-01-27 12:00:00 UTC.
+    auto fixed_now = sys_days{2026y / January / 27} + 12h;
+    ClockFn test_clock = [fixed_now]() -> system_clock::time_point { return fixed_now; };
+
+    // max_lag = 1 s.  Message is 10 s old relative to the injected clock → dropped.
+    TrackingConfig lag_config{.max_lag_s = 1.0, .time_chunking_rate_fps = 15, .max_workers = 50};
+
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, lag_config, false,
+                           "/scenescape/schema", test_clock);
+    handler.start();
+
+    // Timestamp 10 s before the pinned clock.
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T11:59:50.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getLaggedCount(), 1);
+    EXPECT_EQ(handler.getBufferedCount(), 0);
+}
+
+// Test default constructor (no explicit ClockFn) still works end-to-end.
+TEST_F(MessageHandlerTest, ClockFn_DefaultSystemClock_Used) {
+    // Default constructor passes makeSystemClock() — this is the production path.
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    // test_config_ has max_lag = 10 years → always accepted regardless of wall clock
+    EXPECT_EQ(handler.getLaggedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 1);
+}
+
+// Test that handler does not subscribe when registry is empty
+TEST_F(MessageHandlerTest, Start_NoSubscriptionsWithEmptyRegistry) {
+    SceneRegistry empty_registry;
+
+    EXPECT_CALL(*mock_client_, subscribe(_)).Times(0);
+
+    MessageHandler handler(mock_client_, empty_registry, test_buffer_, test_config_, false);
+    handler.start();
 }
 
 } // namespace

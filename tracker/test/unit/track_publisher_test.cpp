@@ -254,5 +254,108 @@ TEST_F(TrackPublisherTest, BuildTopic_FormatsCorrectly) {
     publisher.publish("xyz-789", "Scene B", "vehicle", "2026-01-27T12:00:00.000Z", tracks);
 }
 
+// =============================================================================
+// metadata passthrough tests
+// =============================================================================
+
+TEST_F(TrackPublisherTest, Serialize_Track_WithMetadata_EmitsMetadataField) {
+    auto mock_client = std::make_shared<MockMqttClient>();
+    TrackPublisher publisher(mock_client);
+
+    std::string captured_payload;
+    EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(true));
+    EXPECT_CALL(*mock_client, publish(_, _))
+        .WillOnce([&captured_payload](const std::string&, const std::string& payload) {
+            captured_payload = payload;
+        });
+
+    Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
+    track.metadata_json = R"({"reid":{"model_name":"test"},"age":{"label":"adult"}})";
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track});
+
+    rapidjson::Document doc;
+    ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
+
+    const auto& obj = doc["objects"][0];
+    ASSERT_TRUE(obj.HasMember("metadata"));
+    EXPECT_TRUE(obj["metadata"].IsObject());
+    EXPECT_TRUE(obj["metadata"].HasMember("reid"));
+    EXPECT_TRUE(obj["metadata"]["reid"].IsObject());
+    EXPECT_STREQ(obj["metadata"]["reid"]["model_name"].GetString(), "test");
+    EXPECT_TRUE(obj["metadata"].HasMember("age"));
+    EXPECT_TRUE(obj["metadata"]["age"].IsObject());
+    EXPECT_STREQ(obj["metadata"]["age"]["label"].GetString(), "adult");
+}
+
+TEST_F(TrackPublisherTest, Serialize_Track_WithInvalidMetadataJson_OmitsMetadataField) {
+    auto mock_client = std::make_shared<MockMqttClient>();
+    TrackPublisher publisher(mock_client);
+
+    std::string captured_payload;
+    EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(true));
+    EXPECT_CALL(*mock_client, publish(_, _))
+        .WillOnce([&captured_payload](const std::string&, const std::string& payload) {
+            captured_payload = payload;
+        });
+
+    Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
+    track.metadata_json = "{not valid json";
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track});
+
+    rapidjson::Document doc;
+    ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
+
+    // Invalid JSON must be silently dropped — no crash, no metadata field emitted
+    EXPECT_FALSE(doc["objects"][0].HasMember("metadata"));
+}
+
+// =============================================================================
+// confidence passthrough tests
+// =============================================================================
+
+TEST_F(TrackPublisherTest, Serialize_Track_WithConfidence_EmitsConfidenceField) {
+    auto mock_client = std::make_shared<MockMqttClient>();
+    TrackPublisher publisher(mock_client);
+
+    std::string captured_payload;
+    EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(true));
+    EXPECT_CALL(*mock_client, publish(_, _))
+        .WillOnce([&captured_payload](const std::string&, const std::string& payload) {
+            captured_payload = payload;
+        });
+
+    Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
+    track.confidence = 0.92;
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track});
+
+    rapidjson::Document doc;
+    ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
+
+    const auto& obj = doc["objects"][0];
+    ASSERT_TRUE(obj.HasMember("confidence"));
+    EXPECT_TRUE(obj["confidence"].IsNumber());
+    EXPECT_NEAR(obj["confidence"].GetDouble(), 0.92, 1e-9);
+}
+
+TEST_F(TrackPublisherTest, Serialize_Track_WithoutConfidence_OmitsConfidenceField) {
+    auto mock_client = std::make_shared<MockMqttClient>();
+    TrackPublisher publisher(mock_client);
+
+    std::string captured_payload;
+    EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(true));
+    EXPECT_CALL(*mock_client, publish(_, _))
+        .WillOnce([&captured_payload](const std::string&, const std::string& payload) {
+            captured_payload = payload;
+        });
+
+    Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track});
+
+    rapidjson::Document doc;
+    ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
+
+    EXPECT_FALSE(doc["objects"][0].HasMember("confidence"));
+}
+
 } // namespace
 } // namespace tracker

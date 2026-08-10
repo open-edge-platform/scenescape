@@ -1,13 +1,16 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
 import re
 import os
+import base64
 
 from flask import Flask, jsonify, request
 from flask_socketio import SocketIO
 from werkzeug.exceptions import BadRequest, NotFound, InternalServerError, RequestEntityTooLarge
+
+from point_cloud_registration import PointCloudRegistration, PointCloudRegistrationError
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("autocalibration-rest")
@@ -81,9 +84,16 @@ class StrategyNotFoundError(CameraCalibrationError):
     super().__init__("Calibration strategy not found", 500, 500)
 
 
+class InvalidPointCloudError(CameraCalibrationError):
+  """Raised when point cloud input validation fails."""
+
+  def __init__(self, message):
+    super().__init__(message, 400, 400)
+
+
 class CameraCalibrationApi:
   """
-  REST API service for automatic camera calibration in Intel SceneScape.
+  REST API service for automatic camera calibration in Scenescape.
   """
 
   API_VERSION = "1.0.0"
@@ -92,7 +102,14 @@ class CameraCalibrationApi:
   MIN_ID_LENGTH = 1
   VALID_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_\.]+$')  # Allow alphanumeric, hyphens, underscores, dots
   MAX_IMAGE_SIZE = 20 * 1024 * 1024
-  MAX_REQUEST_SIZE = 25 * 1024 * 1024
+  # Tighter body-size limit for legacy / image routes (enforced per request).
+  MAX_IMAGE_REQUEST_SIZE = 25 * 1024 * 1024
+  # Perceptual-sensor calibration payloads (e.g. point clouds) can be large;
+  # sized by transport bytes, not by point count.
+  MAX_PERCEPTUAL_SENSOR_REQUEST_SIZE = 100 * 1024 * 1024
+  # Route prefix that is allowed the larger payload limit (covers the
+  # perceptual-sensor localization endpoint).
+  PERCEPTUAL_SENSOR_ROUTE_PREFIX = "/v1/perceptual-sensors/"
 
   class OpenApi:
     """
@@ -106,6 +123,11 @@ class CameraCalibrationApi:
     CAMERA_ID = "cameraId"
     IMAGE = "image"
     INTRINSICS = "intrinsics"
+    SENSOR_ID = "sensorId"
+    POINTCLOUD = "pointcloud"
+    FORMAT = "format"
+    MODALITY = "modality"
+    INITIAL_TRANSFORM = "initialTransform"
 
     class Status:
       BUSY = "busy"
@@ -125,20 +147,22 @@ class CameraCalibrationApi:
                            to scene and camera calibration logic.
     """
     self.app = Flask(__name__)
-    # Set maximum content length to prevent huge payloads
-    self.app.config['MAX_CONTENT_LENGTH'] = self.MAX_REQUEST_SIZE
+    # Allow large perceptual-sensor payloads globally; a per-request guard
+    # enforces a tighter limit on all other (legacy / image) routes.
+    self.app.config['MAX_CONTENT_LENGTH'] = self.MAX_PERCEPTUAL_SENSOR_REQUEST_SIZE
     self.calibrationContext = calibrationContext
 
-    self.socketio = SocketIO(self.app, cors_allowed_origins=["*"])
+    self.socketio = SocketIO(self.app, path="/v1/socket.io/", cors_allowed_origins=["*"])
     if self.calibrationContext is not None:
       self.calibrationContext.socketio = self.socketio
     self.socket_client = {}
 
-    self._registerErrorHandlers()
-    self._registerRoutes()
-    self._registerSocketEvents()
+    self._register_error_handlers()
+    self._register_request_guards()
+    self._register_routes()
+    self._register_socket_events()
 
-  def _validateId(self, id_value, id_type="ID"):
+  def _validate_id(self, id_value, id_type="ID"):
     """
     Validate scene ID or camera ID format and length.
 
@@ -161,7 +185,7 @@ class CameraCalibrationApi:
     if not self.VALID_ID_PATTERN.match(id_value):
       raise ValidationError(f"{id_type} contains invalid characters (only alphanumeric, hyphens, underscores, and dots allowed)")
 
-  def _validateImageData(self, image_data):
+  def _validate_image_data(self, image_data):
     """
     Validate image data from request.
 
@@ -179,7 +203,22 @@ class CameraCalibrationApi:
       log.warning(f"Rejecting oversized image data: {len(image_data)} bytes")
       raise ValidationError("Image data is too large")
 
-  def _validateIntrinsics(self, intrinsics):
+    try:
+      decoded = base64.b64decode(image_data, validate=True)
+    except Exception:
+      raise ValidationError("Image must be valid base64-encoded data")
+
+    IMAGE_SIGNATURES = [
+      b'\xff\xd8\xff',       # JPEG
+      b'\x89PNG\r\n\x1a\n',  # PNG
+      b'GIF87a', b'GIF89a',  # GIF
+      b'BM',                 # BMP
+      b'RIFF',               # WebP (starts with RIFF)
+    ]
+    if not any(decoded.startswith(sig) for sig in IMAGE_SIGNATURES):
+      raise ValidationError("Image data does not appear to be a valid image format")
+
+  def _validate_intrinsics(self, intrinsics):
     """Validate camera intrinsics matrix format."""
     if not isinstance(intrinsics, list) or len(intrinsics) != 3:
       raise ValidationError("Intrinsics must be a 3x3 matrix")
@@ -190,7 +229,41 @@ class CameraCalibrationApi:
         if not isinstance(value, (int, float)):
           raise ValidationError("Intrinsics values must be numbers")
 
-  def _validatePoseData(self, data):
+  def _validate_pointcloud(self, pc_data):
+    """Validate a base64-encoded point cloud payload (PLY or PCD).
+
+    Body-size limits are enforced by the global ``MAX_CONTENT_LENGTH`` and the
+    per-request guard, so only encoding and format are validated here. The
+    serialization format is detected from the payload's magic bytes using the
+    engine's single-source ``detect_format`` (no separate format hint needed).
+    """
+    if not isinstance(pc_data, str):
+      raise InvalidPointCloudError("Point cloud must be a string (base64 encoded)")
+    if len(pc_data) == 0:
+      raise InvalidPointCloudError("Point cloud data cannot be empty")
+
+    try:
+      decoded = base64.b64decode(pc_data, validate=True)
+    except Exception:
+      raise InvalidPointCloudError("Point cloud must be valid base64-encoded data")
+
+    try:
+      PointCloudRegistration.detect_format(decoded)
+    except PointCloudRegistrationError:
+      raise InvalidPointCloudError("Point cloud data must be a valid PCD or PLY file")
+
+  def _validate_transform(self, transform):
+    """Validate an optional 4x4 initial transform matrix."""
+    if not isinstance(transform, list) or len(transform) != 4:
+      raise ValidationError("Initial transform must be a 4x4 matrix")
+    for row in transform:
+      if not isinstance(row, list) or len(row) != 4:
+        raise ValidationError("Each initial transform row must contain exactly 4 values")
+      for value in row:
+        if not isinstance(value, (int, float)):
+          raise ValidationError("Initial transform values must be numbers")
+
+  def _validate_pose_data(self, data):
     """Validate pose-related data in responses."""
     if "quaternion" in data:
       quat = data["quaternion"]
@@ -208,11 +281,30 @@ class CameraCalibrationApi:
         if not isinstance(value, (int, float)):
           raise ValidationError("Translation values must be numbers")
 
-  def _registerErrorHandlers(self):
+  def _register_request_guards(self):
+    """Enforce a tighter body-size limit on non perceptual-sensor routes.
+
+    The global ``MAX_CONTENT_LENGTH`` is sized for large perceptual-sensor
+    payloads; this guard prevents legacy / image routes from accepting oversized
+    request bodies before endpoint-level validation runs.
+    """
+
+    @self.app.before_request
+    def _enforce_request_size():
+      path = request.path or ""
+      if path.startswith(self.PERCEPTUAL_SENSOR_ROUTE_PREFIX):
+        return None
+      content_length = request.content_length
+      if content_length is not None and content_length > self.MAX_IMAGE_REQUEST_SIZE:
+        log.warning(f"Rejecting oversized request body: {content_length} bytes for {path}")
+        raise RequestEntityTooLarge()
+      return None
+
+  def _register_error_handlers(self):
     """Register global error handlers for consistent error responses."""
 
     @self.app.errorhandler(CameraCalibrationError)
-    def handleCalibrationError(error):
+    def handle_calibration_error(error):
       """Handle custom calibration errors."""
       log.error(f"Calibration error: {error.message}")
       response = {
@@ -222,7 +314,7 @@ class CameraCalibrationApi:
       return jsonify(response), error.status_code
 
     @self.app.errorhandler(BadRequest)
-    def handleBadRequest(error):
+    def handle_bad_request(error):
       """Handle 400 Bad Request errors."""
       log.warning(f"Bad request: {error.description}")
       response = {
@@ -232,7 +324,7 @@ class CameraCalibrationApi:
       return jsonify(response), 400
 
     @self.app.errorhandler(NotFound)
-    def handleNotFound(error):
+    def handle_not_found(error):
       """Handle 404 Not Found errors."""
       log.warning(f"Not found: {error.description}")
       response = {
@@ -242,7 +334,7 @@ class CameraCalibrationApi:
       return jsonify(response), 404
 
     @self.app.errorhandler(InternalServerError)
-    def handleInternalError(error):
+    def handle_internal_error(error):
       """Handle 500 Internal Server Error."""
       log.error(f"Internal server error: {error.description}")
       response = {
@@ -252,7 +344,7 @@ class CameraCalibrationApi:
       return jsonify(response), 500
 
     @self.app.errorhandler(RequestEntityTooLarge)
-    def handleRequestEntityTooLarge(error):
+    def handle_request_entity_too_large(error):
       """Handle 413 Request Entity Too Large errors."""
       log.warning("Request entity too large")
       response = {
@@ -262,7 +354,7 @@ class CameraCalibrationApi:
       return jsonify(response), 413
 
     @self.app.errorhandler(Exception)
-    def handleUnexpectedError(error):
+    def handle_unexpected_error(error):
       """Handle unexpected errors."""
       log.error(f"Unexpected error: {str(error)}", exc_info=True)
       response = {
@@ -271,42 +363,42 @@ class CameraCalibrationApi:
       }
       return jsonify(response), 500
 
-  def _validateCalibrationContext(self):
+  def _validate_calibration_context(self):
     """Validate that calibration context is initialized."""
     if not self.calibrationContext:
       raise CalibrationContextError()
 
-  def _getScene(self, scene_id):
+  def _get_scene(self, scene_id):
     """Get scene by ID with validation."""
-    self._validateCalibrationContext()
-    self._validateId(scene_id, "Scene ID")
-    scene = self.calibrationContext.calibration_data_interface.sceneWithID(scene_id)
+    self._validate_calibration_context()
+    self._validate_id(scene_id, "Scene ID")
+    scene = self.calibrationContext.calibration_data_interface.scene_with_id(scene_id)
     if not scene:
       raise SceneNotFoundError(scene_id)
     return scene
 
-  def _validateSceneForOperation(self, scene, operation):
+  def _validate_scene_for_operation(self, scene, operation):
     """Validate scene can be used for the specified operation."""
     if scene.camera_calibration == "Manual":
       raise ManualCalibrationError(operation)
 
-  def _getCamera(self, camera_id):
+  def _get_camera(self, camera_id):
     """Get camera scene by camera ID with validation."""
-    self._validateCalibrationContext()
-    self._validateId(camera_id, "Camera ID")
-    scene = self.calibrationContext.calibration_data_interface.sceneCameraWithID(camera_id)
+    self._validate_calibration_context()
+    self._validate_id(camera_id, "Camera ID")
+    scene = self.calibrationContext.calibration_data_interface.scene_camera_with_id(camera_id)
     if not scene:
       raise CameraNotFoundError(camera_id)
     return scene
 
-  def _getCalibrationStrategy(self, scene):
+  def _get_calibration_strategy(self, scene):
     """Get calibration strategy for scene."""
     strategy = self.calibrationContext.scene_strategies.get(scene.camera_calibration)
     if not strategy:
       raise StrategyNotFoundError()
     return strategy
 
-  def _registerSocketEvents(self):
+  def _register_socket_events(self):
     @self.socketio.on("connect")
     def handle_connect():
       log.info(f"WebSocket connected: {request.sid}")
@@ -363,13 +455,27 @@ class CameraCalibrationApi:
       log.info(f"Registered scene '{scene_id}' with socket id {sid}")
       return
 
-  def _registerRoutes(self):
+    @self.socketio.on("register_perceptual_sensor")
+    def handle_register_perceptual_sensor(data):
+      log.info(f"handle_register_perceptual_sensor received: {data}")
+
+      sensor_id = data.get("sensor_id") if isinstance(data, dict) else None
+      if not sensor_id:
+        log.warning("Missing 'sensor_id' in payload")
+        return
+
+      sid = request.sid
+      self.calibrationContext.socket_clients[sensor_id] = sid
+      log.info(f"Registered sensor '{sensor_id}' with socket id {sid}")
+      return
+
+  def _register_routes(self):
     """Register all REST API endpoints for camera calibration."""
     app = self.app
     API_PREFIX = "/v1"
 
     @app.route(f'{API_PREFIX}/status', methods=['GET'])
-    def serviceStatus():
+    def service_status():
       """Get the current status and version of the calibration service."""
       if not self.calibrationContext:
         return jsonify({
@@ -383,17 +489,17 @@ class CameraCalibrationApi:
       }), 200
 
     @app.route(f'{API_PREFIX}/scenes/<sceneId>/registration', methods=['POST'])
-    def registerScene(sceneId):
+    def register_scene(sceneId):
       """Register a scene for calibration processing."""
       log.info(f"POST {API_PREFIX}/scenes/{sceneId}/registration called")
 
-      scene = self._getScene(sceneId)
-      self._validateSceneForOperation(scene, "registered")
-      strategy = self._getCalibrationStrategy(scene)
+      scene = self._get_scene(sceneId)
+      self._validate_scene_for_operation(scene, "registered")
+      strategy = self._get_calibration_strategy(scene)
       strategy.socketio = self.socketio
       strategy.socket_scene_clients = self.calibrationContext.socket_scene_clients
 
-      if strategy.isMapUpdated(scene):
+      if strategy.is_map_updated(scene):
         log.info(f"Scene map updated for {sceneId}")
         if self.calibrationContext.register_thread_lock.locked():
           log.info(f"Registration busy for {sceneId}")
@@ -409,10 +515,10 @@ class CameraCalibrationApi:
               self.OpenApi.SCENE_ID: sceneId,
               self.OpenApi.MESSAGE: "Registration started"
           }
-          self.calibrationContext.sceneUpdateThreadWrapper(scene, map_update=True)
+          self.calibrationContext.scene_update_thread_wrapper(scene, map_update=True)
       else:
         log.info(f"Processing scene for calibration: {sceneId}")
-        result = strategy.processSceneForCalibration(scene)
+        result = strategy.process_scene_for_calibration(scene)
         status = result.get(self.OpenApi.STATUS, self.OpenApi.Status.ERROR) if result else self.OpenApi.Status.ERROR
 
         if status == self.OpenApi.Status.SUCCESS:
@@ -431,15 +537,15 @@ class CameraCalibrationApi:
       return jsonify(register_response), 202 if register_response.get(self.OpenApi.STATUS) == self.OpenApi.Status.REGISTERING else 200
 
     @app.route(f'{API_PREFIX}/scenes/<sceneId>/registration', methods=['GET'])
-    def getSceneRegistrationStatus(sceneId):
+    def get_scene_registration_status(sceneId):
       """Get the current registration status of a scene."""
       log.info(f"GET {API_PREFIX}/scenes/{sceneId}/registration called")
 
-      scene = self._getScene(sceneId)
-      self._validateSceneForOperation(scene, "queried")
-      strategy = self._getCalibrationStrategy(scene)
+      scene = self._get_scene(sceneId)
+      self._validate_scene_for_operation(scene, "queried")
+      strategy = self._get_calibration_strategy(scene)
 
-      if strategy.isMapUpdated(scene):
+      if strategy.is_map_updated(scene):
         if self.calibrationContext.register_thread_lock.locked():
           status = self.OpenApi.Status.BUSY
           message = "Registration is currently busy"
@@ -460,17 +566,17 @@ class CameraCalibrationApi:
       return jsonify(response), 200
 
     @app.route(f'{API_PREFIX}/scenes/<sceneId>/registration', methods=['PATCH'])
-    def updateScene(sceneId):
+    def update_scene(sceneId):
       """Notify the calibration service that a scene has been updated."""
       log.info(f"PATCH {API_PREFIX}/scenes/{sceneId}/registration called")
 
-      scene = self._getScene(sceneId)
-      self._validateSceneForOperation(scene, "updated")
-      strategy = self._getCalibrationStrategy(scene)
+      scene = self._get_scene(sceneId)
+      self._validate_scene_for_operation(scene, "updated")
+      strategy = self._get_calibration_strategy(scene)
 
-      if strategy.isMapUpdated(scene):
-        strategy.resetScene(scene)
-        self.calibrationContext.sceneUpdateThreadWrapper(scene, map_update=True)
+      if strategy.is_map_updated(scene):
+        strategy.reset_scene(scene)
+        self.calibrationContext.scene_update_thread_wrapper(scene, map_update=True)
         log.info(f"Scene update triggered for {sceneId}")
         return jsonify({self.OpenApi.MESSAGE: "Scene update triggered"}), 202
       else:
@@ -478,12 +584,12 @@ class CameraCalibrationApi:
         return jsonify({self.OpenApi.MESSAGE: "No update needed"}), 200
 
     @app.route(f'{API_PREFIX}/cameras/<cameraId>/calibration', methods=['POST'])
-    def calibrateCamera(cameraId):
+    def calibrate_camera(cameraId):
       """Trigger calibration for a specific camera."""
       log.info(f"POST {API_PREFIX}/cameras/{cameraId}/calibration called")
 
-      scene = self._getCamera(cameraId)
-      strategy = self._getCalibrationStrategy(scene)
+      scene = self._get_camera(cameraId)
+      strategy = self._get_calibration_strategy(scene)
 
       try:
         data = request.get_json(force=True)
@@ -495,14 +601,14 @@ class CameraCalibrationApi:
         raise MissingFieldError('image')
 
       image = data[self.OpenApi.IMAGE]
-      self._validateImageData(image)
+      self._validate_image_data(image)
       intrinsics = data.get(self.OpenApi.INTRINSICS)
 
       if intrinsics is not None:
-        self._validateIntrinsics(intrinsics)
+        self._validate_intrinsics(intrinsics)
 
       if intrinsics is None:
-        intrinsics = self.calibrationContext.calibration_data_interface.getCameraIntrinsics(cameraId)
+        intrinsics = self.calibrationContext.calibration_data_interface.get_camera_intrinsics(cameraId)
 
       if intrinsics is None:
         raise IntrinsicsNotFoundError(cameraId)
@@ -513,7 +619,7 @@ class CameraCalibrationApi:
       }
 
       try:
-        self.calibrationContext.calibrateCameraThreadWrapper(
+        self.calibrationContext.calibrate_camera_thread_wrapper(
             scene, cameraId, intrinsics, cam_frame_data
         )
         return jsonify({
@@ -526,12 +632,12 @@ class CameraCalibrationApi:
         raise CameraCalibrationError(f"Calibration failed: {str(e)}")
 
     @app.route(f'{API_PREFIX}/cameras/<cameraId>/calibration', methods=['GET'])
-    def getCameraCalibrationStatus(cameraId):
+    def get_camera_calibration_status(cameraId):
       """Get the current calibration status and result for a camera."""
       log.info(f"GET {API_PREFIX}/cameras/{cameraId}/calibration called")
 
-      scene = self._getCamera(cameraId)
-      self._validateSceneForOperation(scene, "queried")
+      scene = self._get_camera(cameraId)
+      self._validate_scene_for_operation(scene, "queried")
 
       if self.calibrationContext.calibration_thread_lock.locked():
         response = {
@@ -567,9 +673,108 @@ class CameraCalibrationApi:
           self.OpenApi.MESSAGE: result.get("message", ""),
       }
       if result.get("status") == self.OpenApi.Status.SUCCESS:
-        self._validatePoseData(result)
+        self._validate_pose_data(result)
         response["pose"] = result.get("pose")
         for key in ("quaternion", "translation", "calibration_points_3d", "calibration_points_2d"):
+          if key in result:
+            response[key] = result[key]
+      return jsonify(response), 200
+
+    @app.route(f'{API_PREFIX}/perceptual-sensors/<sensorId>/localization', methods=['POST'])
+    def localize_perceptual_sensor(sensorId):
+      """Localize a perceptual sensor against a scene.
+
+      Currently only point-cloud input is supported; the request `modality`
+      selects the calibration strategy so future modalities can be added
+      without changing this handler.
+      """
+      log.info(f"POST {API_PREFIX}/perceptual-sensors/{sensorId}/localization called")
+
+      self._validate_calibration_context()
+      self._validate_id(sensorId, "Sensor ID")
+
+      try:
+        data = request.get_json(force=True)
+      except Exception as e:
+        log.warning(f"Failed to parse JSON for sensor {sensorId}: {e}")
+        raise ValidationError("Invalid JSON in request body")
+
+      if not data:
+        raise ValidationError("Request body cannot be empty")
+
+      scene_id = data.get(self.OpenApi.SCENE_ID)
+      if not scene_id:
+        raise MissingFieldError(self.OpenApi.SCENE_ID)
+      scene = self._get_scene(scene_id)
+
+      pointcloud = data.get(self.OpenApi.POINTCLOUD)
+      if not pointcloud:
+        raise MissingFieldError(self.OpenApi.POINTCLOUD)
+      fmt = data.get(self.OpenApi.FORMAT)
+      if fmt is not None and (not isinstance(fmt, str) or fmt.lower() not in ("pcd", "ply")):
+        raise InvalidPointCloudError("Point cloud format must be 'pcd' or 'ply'")
+      self._validate_pointcloud(pointcloud)
+
+      initial_transform = data.get(self.OpenApi.INITIAL_TRANSFORM)
+      if initial_transform is not None:
+        self._validate_transform(initial_transform)
+
+      sensor_frame_data = {
+          "pointcloud": pointcloud,
+          "format": fmt,
+          "initial_transform": initial_transform,
+          "modality": data.get(self.OpenApi.MODALITY),
+          "id": sensorId
+      }
+
+      try:
+        self.calibrationContext.calibrate_perceptual_sensor_thread_wrapper(
+            scene, sensorId, sensor_frame_data
+        )
+      except Exception as e:
+        log.error(f"Localization failed for sensor {sensorId}: {e}")
+        raise CameraCalibrationError(f"Localization failed: {str(e)}")
+
+      # Reflect the actual outcome recorded by the wrapper (e.g. "busy" when
+      # another localization is already in progress) instead of assuming the
+      # request was accepted.
+      result = self.calibrationContext.calibration_results.get(sensorId, {})
+      return jsonify({
+          self.OpenApi.STATUS: result.get("status", self.OpenApi.Status.CALIBRATING),
+          self.OpenApi.SENSOR_ID: sensorId,
+          self.OpenApi.SCENE_ID: scene_id,
+          self.OpenApi.MESSAGE: result.get("message", "Localization started")
+      }), 202
+
+    @app.route(f'{API_PREFIX}/perceptual-sensors/<sensorId>/localization', methods=['GET'])
+    def get_perceptual_sensor_localization_status(sensorId):
+      """Get the current localization status and result for a perceptual sensor."""
+      log.info(f"GET {API_PREFIX}/perceptual-sensors/{sensorId}/localization called")
+
+      self._validate_calibration_context()
+      self._validate_id(sensorId, "Sensor ID")
+
+      result = self.calibrationContext.calibration_results.get(sensorId)
+      if result is None:
+        return jsonify({
+            self.OpenApi.SENSOR_ID: sensorId,
+            self.OpenApi.STATUS: self.OpenApi.Status.NOT_STARTED,
+            self.OpenApi.MESSAGE: "Localization has not been started for this sensor"
+        }), 200
+      elif result.get("status") == self.OpenApi.Status.CALIBRATING:
+        return jsonify({
+            self.OpenApi.SENSOR_ID: sensorId,
+            self.OpenApi.STATUS: self.OpenApi.Status.CALIBRATING,
+            self.OpenApi.MESSAGE: "Localization in progress"
+        }), 200
+
+      response = {
+          self.OpenApi.SENSOR_ID: sensorId,
+          self.OpenApi.STATUS: result.get("status", self.OpenApi.Status.ERROR),
+          self.OpenApi.MESSAGE: result.get("message", ""),
+      }
+      if result.get("status") == self.OpenApi.Status.SUCCESS:
+        for key in ("transform", "fitness", "inlier_rmse", "scene_name"):
           if key in result:
             response[key] = result[key]
       return jsonify(response), 200

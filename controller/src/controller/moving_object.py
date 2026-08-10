@@ -2,20 +2,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
+import binascii
 import datetime
-import struct
+import uuid
 import warnings
-from dataclasses import dataclass
+from enum import Enum
 from threading import Lock
-from typing import Dict, List
 
 import cv2
 import numpy as np
 import open3d as o3d
 from scipy.spatial.transform import Rotation
 
+from scene_common.reid_constants import REID_PROVENANCE_KEY
+from scene_common.chain_data import ChainData
 from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2
+from scene_common.timestamp import get_epoch_time
 from scene_common.transform import normalize, rotationToTarget
 from scene_common import log
 
@@ -25,19 +28,109 @@ APRILTAG_HOVER_DISTANCE = 0.5
 DEFAULT_EDGE_LENGTH = 1.0
 DEFAULT_TRACKING_RADIUS = 2.0
 LOCATION_LIMIT = 20
-SPEED_THRESHOLD = 0.1
+SPEED_THRESHOLD_ON = 1.0
+SPEED_THRESHOLD_OFF = 0.5
+REID_FLOAT_SIZE_BYTES = np.dtype(np.float32).itemsize
+REID_EMBEDDING_DIMENSIONS_KEY = 'embedding_dimensions'
 
-@dataclass
-class ChainData:
-  regions: Dict
-  publishedLocations: List[Point]
-  sensors: Dict
-  persist: Dict
+
+def _getReIDEmbeddingDimensions(reid):
+  if not isinstance(reid, dict):
+    return None
+
+  for key in (REID_EMBEDDING_DIMENSIONS_KEY, 'dimensions'):
+    value = reid.get(key)
+    if value is None:
+      continue
+    try:
+      return int(value)
+    except (TypeError, ValueError) as err:
+      raise ValueError(f"Invalid ReID embedding dimensions: {value}") from err
+
+  return None
+
+
+def decodeReIDEmbeddingVector(embedding_data, dimensions=None):
+  if isinstance(embedding_data, str):
+    vector = base64.b64decode(embedding_data, validate=True)
+    if len(vector) % REID_FLOAT_SIZE_BYTES != 0:
+      raise ValueError(
+        f"Packed ReID vector size {len(vector)} is not divisible by {REID_FLOAT_SIZE_BYTES}")
+
+    inferred_dimensions = len(vector) // REID_FLOAT_SIZE_BYTES
+    if dimensions is None:
+      dimensions = inferred_dimensions
+    elif int(dimensions) != inferred_dimensions:
+      raise ValueError(
+        f"Packed ReID vector contains {inferred_dimensions} floats, expected {dimensions}")
+
+    return np.frombuffer(vector, dtype=np.float32).copy().reshape(1, dimensions)
+
+  if isinstance(embedding_data, (np.ndarray, list)):
+    arr = np.asarray(embedding_data, dtype=np.float32).reshape(-1)
+    actual_length = arr.shape[0]
+    if dimensions is not None and int(dimensions) != actual_length:
+      raise ValueError(
+        f"ReID embedding vector has {actual_length} elements, expected {int(dimensions)}")
+    return arr.reshape(1, actual_length)
+
+  return None
+
+
+def serializeReIDPayload(reid):
+  if reid is None:
+    return None
+
+  if isinstance(reid, dict):
+    serialized = dict(reid)
+    embedding_data = serialized.get('embedding_vector', None)
+    if embedding_data is None:
+      return serialized
+
+    if isinstance(embedding_data, str):
+      try:
+        if REID_EMBEDDING_DIMENSIONS_KEY not in serialized and 'dimensions' not in serialized:
+          vector = base64.b64decode(embedding_data)
+          if len(vector) % REID_FLOAT_SIZE_BYTES != 0:
+            raise ValueError(
+              f"Packed ReID vector size {len(vector)} is not divisible by {REID_FLOAT_SIZE_BYTES}")
+          serialized[REID_EMBEDDING_DIMENSIONS_KEY] = len(vector) // REID_FLOAT_SIZE_BYTES
+      except (binascii.Error, TypeError, ValueError) as err:
+        log.warning(f"Failed to decode ReID embedding vector: {err}. Setting embedding_vector to None.")
+        serialized['embedding_vector'] = None
+      return serialized
+
+    flat_vector = np.asarray(embedding_data, dtype=np.float32).reshape(-1)
+    serialized['embedding_vector'] = base64.b64encode(flat_vector.tobytes()).decode('utf-8')
+    serialized[REID_EMBEDDING_DIMENSIONS_KEY] = int(flat_vector.size)
+    return serialized
+
+  if isinstance(reid, np.ndarray) or isinstance(reid, list):
+    flat_vector = np.asarray(reid, dtype=np.float32).reshape(-1)
+    return {
+      'embedding_vector': base64.b64encode(flat_vector.tobytes()).decode('utf-8'),
+      REID_EMBEDDING_DIMENSIONS_KEY: int(flat_vector.size),
+    }
+
+  return reid
+
+class ReidState(Enum):
+  """State of ReID query and matching for an object.
+
+  PENDING_COLLECTION: Collecting embeddings, query not yet made
+  QUERY_NO_MATCH: Query made but no match found (new object)
+  MATCHED: Successfully matched to previous object (reID)
+  REID_DISABLED: ReID system is disabled, no query will be made
+  """
+  PENDING_COLLECTION = "pending_collection"
+  QUERY_NO_MATCH = "query_no_match"
+  MATCHED = "matched"
+  REID_DISABLED = "reid_disabled"
 
 class Chronoloc:
   def __init__(self, point: Point, when: datetime, bounds: Rectangle):
     if not point.is3D:
-      point = Point(point.x, point.y, DEFAULTZ)
+      point = Point([point.x, point.y, DEFAULTZ])
     self.point = point
     self.when = when
     self.bounds = bounds
@@ -46,7 +139,7 @@ class Chronoloc:
 class Vector:
   def __init__(self, camera, point, when):
     if not point.is3D:
-      point = Point(point.x, point.y, DEFAULTZ)
+      point = Point([point.x, point.y, DEFAULTZ])
     self.camera = camera
     self.point = point
     self.last_seen = when
@@ -82,11 +175,13 @@ class MovingObject:
     self.map_translation = None
     self.map_rotation = None
     self.rotation_from_velocity = False
+    self._rotation_from_velocity_active = False
 
     self.first_seen = when
     self.last_seen = None
     self.camera = camera
     self.info = info.copy()
+    self.has_detection_rotation = 'rotation' in self.info
 
     self.category = self.info.get('category', 'object')
     self.boundingBox = None
@@ -109,7 +204,11 @@ class MovingObject:
     self.rotation = np.array([0, 0, 0, 1]).tolist()
     self.intersected = False
     self.reid = {}  # Initialize reid as empty dict
+    self.reid_provenance = None  # Origin of a reid embedding forwarded from another scope
     self.metadata = {}  # Initialize metadata as empty dict
+    self.reid_state = ReidState.PENDING_COLLECTION  # Track reID state
+    self.similarity = None  # Similarity score from last reID match
+    self.previous_ids_chain = []  # Track object ID history: [{'id': gid, 'timestamp': ts, 'similarity_score': score}, ...]
     # Extract reid from metadata if present and preserve metadata attribute
     metadata_from_info = self.info.get('metadata', {})
     if metadata_from_info and isinstance(metadata_from_info, dict):
@@ -128,32 +227,35 @@ class MovingObject:
     New format: dict with 'embedding_vector' (base64 or list) and 'model_name'
     Legacy format: base64-encoded string or direct list of floats
 
+    Provenance, when present, is kept apart from the embedding itself: it describes
+    where the embedding came from rather than what it contains, and downstream ReID
+    gating consults it directly.
+
     @param  reid  The reid data in one of the supported formats
     """
     try:
+      self.reid = {}
+      self.reid_provenance = None
+
       # Handle new format: dict with embedding_vector and model_name
       if isinstance(reid, dict) and 'embedding_vector' in reid:
         embedding_data = reid['embedding_vector']
-        if 'model_name' in reid:
-          self.reid['model_name'] = reid['model_name']
+        self.reid.update({k: v for k, v in reid.items()
+                          if k not in ('embedding_vector', REID_PROVENANCE_KEY)})
+        provenance = reid.get(REID_PROVENANCE_KEY)
+        if isinstance(provenance, dict):
+          self.reid_provenance = dict(provenance)
+        embedding_dimensions = _getReIDEmbeddingDimensions(reid)
       else:
         embedding_data = reid
+        embedding_dimensions = None
 
       # Process the embedding data
-      if isinstance(embedding_data, str):
-        # Base64-encoded string format
-        vector = base64.b64decode(embedding_data)
-        self.reid['embedding_vector'] = np.array(struct.unpack("256f", vector)).reshape(1, -1)
-      elif isinstance(embedding_data, list):
-        # Direct list format
-        self.reid['embedding_vector'] = embedding_data
-      else:
-        # Unknown format, leave as None
-        self.reid['embedding_vector'] = None
+      self.reid['embedding_vector'] = decodeReIDEmbeddingVector(embedding_data, embedding_dimensions)
 
       # Clean up info dict
       self.info.pop('reid', None)
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError, binascii.Error):
       self.reid['embedding_vector'] = None
     return
 
@@ -166,7 +268,7 @@ class MovingObject:
     @param  persist_attributes  List of attributes to persist (may include sub-attributes)
     """
     if self.chain_data is None:
-      self.chain_data = ChainData(regions={}, publishedLocations=[], sensors={}, persist={})
+      self.chain_data = ChainData(regions={}, publishedLocations=[], persist={})
     for attribute in persist_attributes:
       attr, sub_attrs = (list(attribute.items())[0] if isinstance(attribute, dict) else (attribute, None))
       if attr in info:
@@ -189,7 +291,7 @@ class MovingObject:
 
   def setGID(self, gid):
     if self.chain_data is None:
-      self.chain_data = ChainData(regions={}, publishedLocations=[], sensors={}, persist={})
+      self.chain_data = ChainData(regions={}, publishedLocations=[], persist={})
     self.gid = gid
     self.first_seen = self.when
     return
@@ -214,19 +316,32 @@ class MovingObject:
     self.gid = otherObj.gid
     self.first_seen = otherObj.first_seen
     self.frameCount = otherObj.frameCount + 1
+    if self.rotation_from_velocity and not self.has_detection_rotation:
+      self.rotation = list(otherObj.rotation)
+    self._rotation_from_velocity_active = otherObj._rotation_from_velocity_active
+    self.reid_state = otherObj.reid_state
+    self.similarity = otherObj.similarity
+    self.previous_ids_chain = otherObj.get_previous_ids()
 
     del self.chain_data.publishedLocations[LOCATION_LIMIT:]
 
     return
 
   def inferRotationFromVelocity(self):
-    if self.rotation_from_velocity and self.velocity:
+    if not self.has_detection_rotation and self.rotation_from_velocity and self.velocity:
       speed = np.linalg.norm([self.velocity.x, self.velocity.y, self.velocity.z])
-      if speed > SPEED_THRESHOLD:
+      if self._rotation_from_velocity_active:
+        self._rotation_from_velocity_active = speed > SPEED_THRESHOLD_OFF
+      else:
+        self._rotation_from_velocity_active = speed > SPEED_THRESHOLD_ON
+
+      if self._rotation_from_velocity_active:
         velocity = np.array([self.velocity.x, self.velocity.y, self.velocity.z])
         velocity = normalize(velocity)
         direction = np.array([1, 0, 0])
         self.rotation = rotationToTarget(direction, velocity).as_quat().tolist()
+    else:
+      self._rotation_from_velocity_active = False
     return
 
   @property
@@ -299,6 +414,43 @@ class MovingObject:
   def when(self):
     return self.location[0].when
 
+  def save_previous_object_id(self, previous_id, similarity_score=None, timestamp=None):
+    """Save the previous object ID for post-mortem analysis.
+
+    @param previous_id: The previous global ID assigned to this object
+    @param similarity_score: Similarity score from reID matching (if matched), or None if new object
+    @param timestamp: When the change occurred (epoch time), defaults to current time
+    """
+    try:
+      uuid.UUID(previous_id)
+    except (TypeError, ValueError, AttributeError) as err:
+      raise ValueError("previous_id must be a valid UUID") from err
+
+    if timestamp is None:
+      timestamp = get_epoch_time()
+
+    self.previous_ids_chain.append({
+      'id': previous_id,
+      'timestamp': timestamp,
+      'similarity_score': similarity_score
+    })
+    log.debug(f"MovingObject.save_previous_object_id: rv_id={getattr(self, 'rv_id', 'unknown')}, "
+              f"previous_id={previous_id}, similarity={similarity_score}, state={self.reid_state.value}")
+
+  def is_reidentified(self):
+    """Check if this object resulted from successful reID matching.
+
+    @return: True if object was matched to a previous object, False otherwise
+    """
+    return self.reid_state == ReidState.MATCHED
+
+  def get_previous_ids(self):
+    """Get chain of previous IDs for this object.
+
+    @return: List of dicts with 'id', 'timestamp', 'similarity_score' for post-mortem analysis
+    """
+    return self.previous_ids_chain.copy()
+
   def __repr__(self):
     return "%s: %s/%s %s %s vectors: %s" % \
       (self.__class__.__name__,
@@ -361,7 +513,7 @@ class MovingObject:
       'bounding_box': self.boundingBox.asDict,
       'gid': self.gid,
       'frame_count': self.frameCount,
-      'reid': self.reid,
+      'reid': serializeReIDPayload(self.reid),
       'first_seen': self.first_seen,
       'location': [{'point': (v.point.x, v.point.y, v.point.z),
                     'timestamp': v.when,
@@ -372,11 +524,6 @@ class MovingObject:
       'intersected': self.intersected,
       'scene_loc': self.sceneLoc.asNumpyCartesian.tolist(),
     }
-    if 'reid' in dd and isinstance(dd['reid'], np.ndarray):
-      vector = dd['reid'].flatten().tolist()
-      vector = struct.pack("256f", *vector)
-      vector = base64.b64encode(vector).decode('utf-8')
-      dd['reid'] = vector
     if self.intersected:
       dd['adjusted'] = {'gid': self.adjusted[0],
                         'point': (self.adjusted[1].x, self.adjusted[1].y, self.adjusted[1].z)}
@@ -388,9 +535,8 @@ class MovingObject:
     self.gid = info['gid']
     self.frameCount = info['frame_count']
     self.reid = info['reid']
-    if self.reid is not None and 'embedding_vector' in self.reid:
-      vector = base64.b64decode(self.reid['embedding_vector'])
-      self.reid['embedding_vector'] = np.array(struct.unpack("256f", vector)).reshape(1, -1)
+    if self.reid is not None:
+      self._decodeReIDVector(self.reid)
     self.first_seen = info['first_seen']
     self.location = [Chronoloc(Point(v['point']), v['timestamp'], Rectangle(v['bounding_box']))
                      for v in info['location']]
@@ -401,7 +547,7 @@ class MovingObject:
       if self.intersected:
         self.adjusted = [info['adjusted']['gid'], Point(info['adjusted']['point'])]
         if not self.adjusted[1].is3D:
-          self.adjusted[1] = Point(self.adjusted[1].x, self.adjusted[1].y, DEFAULTZ)
+          self.adjusted[1] = Point([self.adjusted[1].x, self.adjusted[1].y, DEFAULTZ])
     return
 
 class ATagObject(MovingObject):

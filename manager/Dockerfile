@@ -3,9 +3,9 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
 
-FROM scenescape-common-base AS scenescape-manager-builder
+FROM intel/scenescape-common-base AS scenescape-manager-builder
 
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
 # hadolint ignore=DL3002
@@ -30,19 +30,32 @@ RUN : \
         apache2 \
     && rm -rf /var/lib/apt/lists/*
 
-# mod_qos library is broken on debian 12, so we build it from source
-RUN wget https://sourceforge.net/projects/mod-qos/files/mod_qos-11.76.tar.gz/download -O /tmp/mod_qos-11.76.tar.gz && \
-    tar -xzf /tmp/mod_qos-11.76.tar.gz -C /tmp && \
-    rm /tmp/mod_qos-11.76.tar.gz && \
-    cd /tmp/mod_qos-11.76/apache2 && \
-    apxs2 -i -a -c -lssl -l crypto mod_qos.c && \
-    rm -rf /tmp/mod_qos-11.76
+# mod_qos library is broken on debian 12, so we build it from source.
+# Use multiple download endpoints and dynamic extraction path to avoid pin-breakage.
+ARG MOD_QOS_VERSION=11.79
+RUN : \
+        ; MOD_QOS_ARCHIVE="/tmp/mod_qos-${MOD_QOS_VERSION}.tar.gz" \
+        ; for URL in \
+                "https://downloads.sourceforge.net/project/mod-qos/mod_qos-${MOD_QOS_VERSION}.tar.gz" \
+                "https://sourceforge.net/projects/mod-qos/files/mod_qos-${MOD_QOS_VERSION}.tar.gz/download" \
+                "https://sourceforge.net/projects/mod-qos/files/latest/download" \
+            ; do \
+                wget --tries=3 --waitretry=2 "$URL" -O "$MOD_QOS_ARCHIVE" && break || true; \
+            done \
+        ; test -s "$MOD_QOS_ARCHIVE" \
+        ; tar -xzf "$MOD_QOS_ARCHIVE" -C /tmp \
+        ; rm -f "$MOD_QOS_ARCHIVE" \
+        ; MOD_QOS_SRC_DIR="$(find /tmp -maxdepth 1 -type d -name 'mod_qos-*' | head -n1)" \
+        ; test -n "$MOD_QOS_SRC_DIR" \
+        ; cd "$MOD_QOS_SRC_DIR/apache2" \
+        ; apxs2 -i -a -c -lssl -lcrypto mod_qos.c \
+        ; rm -rf "$MOD_QOS_SRC_DIR"
 
 # ---------- Manager Runtime Stage ------------------
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-manager-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape Manager Service"
+LABEL org.opencontainers.image.description="Scenescape Manager Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -56,22 +69,17 @@ ARG CERTDOMAIN=scenescape.intel.com
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
-ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
+ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 ARG FORCE_VAAPI
 
-# Update and upgrade base OS packages
-RUN apt update && apt upgrade -y
-
-RUN : \
-&& apt-get update \
-    && apt-get install -y --no-install-recommends \
+# Upgrade base OS packages and install runtime dependencies in one layer
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+        apache2 \
+        bzip2 \
         curl \
         ca-certificates \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends \
-        apache2 \
-        bindfs \
-        bzip2 \
         libegl1 \
         libgl1 \
         libapache2-mod-wsgi-py3 \
@@ -83,13 +91,13 @@ RUN : \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip and setuptools to latest versions
-RUN pip3 install --no-cache-dir --upgrade pip \
-    && pip3 install --no-cache-dir --upgrade setuptools wheel
+# Upgrade pip to latest version
+RUN pip3 install --no-cache-dir --upgrade pip
 
 # Runtime dependencies
 COPY ./manager/requirements-runtime.txt /tmp
-RUN pip3 install --upgrade --no-cache-dir \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip3 install --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt
 
@@ -146,24 +154,18 @@ RUN : \
 
 # Copy application code
 RUN mkdir -p $SCENESCAPE_HOME/manager
-COPY ./manager/src/django/*.py \
-    ./manager/src/setup.py \
-    ./version.txt $SCENESCAPE_HOME/manager/
-COPY ./manager/src/django/ppl_generator/* $SCENESCAPE_HOME/manager/ppl_generator/
-COPY ./manager/src/management/ $SCENESCAPE_HOME/manager/management
-COPY ./manager/src/templates/ $SCENESCAPE_HOME/manager/templates
-COPY ./manager/src/static/ $SCENESCAPE_HOME/manager/static
-COPY ./manager/src/templatetags/ $SCENESCAPE_HOME/manager/templatetags
-COPY ./manager/src/django/manage.py $SCENESCAPE_HOME
+COPY ./manager/src/manager $SCENESCAPE_HOME/manager
+COPY ./manager/src/manage.py $SCENESCAPE_HOME/manage.py
+COPY ./version.txt $SCENESCAPE_HOME/manager/
 COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/fast_geometry /usr/local/lib/python3.11/site-packages/fast_geometry
 COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/scene_common /usr/local/lib/python3.11/site-packages/scene_common
 
-# Install SceneScape
+# Install Scenescape
 RUN : \
     ; eval WSHOME=~$WSUSER \
-    ; chown -R "$WSUSER":"$WSUSER" "$WSHOME/SceneScape" \
-    ; touch "$WSHOME/SceneScape/manager/settings_local.py" \
-    ; chown "$WSUSER:$WSUSER" "$WSHOME/SceneScape/manager/settings_local.py" \
+    ; chown -R "$WSUSER":"$WSUSER" "$WSHOME/Scenescape" \
+    ; touch "$WSHOME/Scenescape/manager/settings_local.py" \
+    ; chown "$WSUSER:$WSUSER" "$WSHOME/Scenescape/manager/settings_local.py" \
     ; pip3 install --no-cache-dir "$SCENESCAPE_HOME/manager/" \
     ;
 RUN cp -R /usr/local/lib/python3.*/site-packages/django/contrib/admin/static/ $SCENESCAPE_HOME/
@@ -225,7 +227,7 @@ Package: * \n\
 Pin: origin packages.mozilla.org \n\
 Pin-Priority: 1000 \n\
 ' | tee /etc/apt/preferences.d/mozilla \
-    ; apt-get update && apt-get install -y --no-install-recommends firefox \
+    ; apt-get update && apt-get install -y --no-install-recommends firefox-esr \
     ; rm -rf /var/lib/apt/lists/*
 # Install Python test dependencies
 COPY ./manager/test/requirements-test.txt /tmp
@@ -238,5 +240,5 @@ COPY ./manager/test/firefox-profile.tar /home/scenescape/.mozilla/
 RUN chmod -R a+rwx /home/scenescape/.mozilla
 
 USER $TEST_USER
-ENV PYTHONPATH=/home/scenescape/SceneScape/
+ENV PYTHONPATH=/home/scenescape/Scenescape/
 ENTRYPOINT [""]

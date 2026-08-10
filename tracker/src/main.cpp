@@ -21,6 +21,7 @@
 #include "telemetry.hpp"
 #include "time_chunk_buffer.hpp"
 #include "time_chunk_scheduler.hpp"
+#include "time_utils.hpp"
 #include "track_publisher.hpp"
 
 /// Exit code for scene update restart (non-zero triggers Docker restart: on-failure)
@@ -39,7 +40,7 @@ std::atomic<bool> g_liveness{false};
 std::atomic<bool> g_readiness{false};
 std::shared_ptr<tracker::MqttClient> g_mqtt_client;
 
-void signal_handler(int signal) {
+void signal_handler(int /*signal*/) {
     g_shutdown_requested = ShutdownReason::SIGNAL;
 }
 
@@ -125,6 +126,17 @@ int main(int argc, char* argv[]) {
     // Initialize time chunk buffer and tracking pipeline
     tracker::TimeChunkBuffer chunk_buffer;
 
+    // Optionally start NTP clock synchronization
+    tracker::NtpClock ntp_clock;
+    tracker::ClockFn clock_fn = tracker::makeSystemClock();
+    if (config.infrastructure.ntp.has_value()) {
+        const auto& ntp_cfg = *config.infrastructure.ntp;
+        LOG_INFO("NTP clock sync enabled (server={}, interval={}s)", ntp_cfg.server,
+                 ntp_cfg.sync_interval_s);
+        ntp_clock.start(ntp_cfg.server, ntp_cfg.sync_interval_s);
+        clock_fn = ntp_clock.asClockFn();
+    }
+
     // Initialize track publisher
     auto track_publisher = std::make_shared<tracker::TrackPublisher>(g_mqtt_client);
 
@@ -138,12 +150,13 @@ int main(int argc, char* argv[]) {
 
     // Initialize time chunk scheduler with workers
     auto scheduler = std::make_unique<tracker::TimeChunkScheduler>(
-        chunk_buffer, scene_registry, config.tracking, publish_callback);
+        chunk_buffer, scene_registry, config.tracking, publish_callback, clock_fn);
 
     // Initialize message handler with buffer integration
     auto message_handler = std::make_unique<tracker::MessageHandler>(
         g_mqtt_client, scene_registry, chunk_buffer, config.tracking,
-        config.infrastructure.tracker.schema_validation, cli_config.schema_path.parent_path());
+        config.infrastructure.tracker.schema_validation, cli_config.schema_path.parent_path(),
+        clock_fn);
 
     // In dynamic mode (API source), enable database update notifications.
     // On receiving any database change (scene create/update/delete, camera change, etc.),
@@ -223,6 +236,9 @@ int main(int argc, char* argv[]) {
 
     // Flush and shut down OpenTelemetry SDK before logger
     tracker::Telemetry::shutdown();
+
+    // Stop NTP clock sync thread before logger shutdown to prevent logging after shutdown
+    ntp_clock.stop();
 
     // Stop healthcheck server
     g_liveness = false;

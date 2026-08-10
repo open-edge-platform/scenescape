@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # prefix for volume and container names, override with the environment variable COMPOSE_PROJECT_NAME
@@ -14,14 +14,10 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-web.crt
   web-key:
     file: ${SECRETSDIR}/certs/scenescape-web.key
-  vdms-client-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
-  vdms-client-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
-  vdms-server-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-s.crt
-  vdms-server-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-s.key
+  reid-client-cert:
+    file: ${SECRETSDIR}/certs/scenescape-reid.crt
+  reid-client-key:
+    file: ${SECRETSDIR}/certs/scenescape-reid.key
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
@@ -30,10 +26,10 @@ secrets:
     file: ${SECRETSDIR}/browser.auth
   calibration.auth:
     file: ${SECRETSDIR}/calibration.auth
-  camcalibration-cert:
-    file: ${SECRETSDIR}/certs/scenescape-camcalibration.crt
-  camcalibration-key:
-    file: ${SECRETSDIR}/certs/scenescape-camcalibration.key
+  autocalibration-cert:
+    file: ${SECRETSDIR}/certs/scenescape-autocalibration.crt
+  autocalibration-key:
+    file: ${SECRETSDIR}/certs/scenescape-autocalibration.key
 
 services:
   ntpserv:
@@ -43,6 +39,23 @@ services:
     # ports:
     #   - 123:123/udp
     restart: on-failure
+    environment:
+      # Fallback to local system clock (stratum 10) when external NTP pools are unreachable.
+      # Chrony automatically prioritizes: external pools first, then local stratum if external fails.
+      - NTP_DIRECTIVES=local stratum 10
+    healthcheck:
+      # Verify stratum is 1-16 (rejects KoD at 0, undefined at >16).
+      test:
+        [
+          "CMD",
+          "sh",
+          "-c",
+          "chronyc tracking | grep -E 'Stratum[[:space:]]+:[[:space:]]+([1-9]|1[0-6])[[:space:]]*$' || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   broker:
     image: eclipse-mosquitto:2.0.22
@@ -76,7 +89,7 @@ services:
     restart: always
 
   web:
-    image: scenescape-manager:${VERSION:-latest}
+    image: intel/scenescape-manager:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -105,18 +118,12 @@ services:
       retries: 10
       start_period: 10s
     environment:
-      - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
+      - EXAMPLEDB=/home/scenescape/Scenescape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
-    cap_add:
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-sample-data:/home/scenescape/Scenescape/sample_data
       - vol-migrations:/workspace/migrations
     secrets:
       - source: root-cert
@@ -133,7 +140,7 @@ services:
     pids_limit: 1000
 
   scene:
-    image: scenescape-controller:${VERSION:-latest}
+    image: intel/scenescape-controller:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -144,8 +151,6 @@ services:
         condition: service_started
       ntpserv:
         condition: service_started
-      # vdms:
-      #   condition: service_started
     environment:
       - CONTROLLER_ENABLE_METRICS
       - CONTROLLER_METRICS_ENDPOINT
@@ -153,7 +158,6 @@ services:
       - CONTROLLER_ENABLE_TRACING
       - CONTROLLER_TRACING_ENDPOINT
       - CONTROLLER_TRACING_SAMPLE_RATIO
-      - CONTROLLER_ENABLE_ANALYTICS_ONLY
     command: >
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
@@ -162,46 +166,26 @@ services:
     # mount the trackerconfig file to the container
     configs:
       - source: tracker-config
-        target: /home/scenescape/SceneScape/tracker-config.json
+        target: /home/scenescape/Scenescape/tracker-config.json
       - source: reid-config
-        target: /home/scenescape/SceneScape/reid-config.json
+        target: /home/scenescape/Scenescape/reid-config.json
     volumes:
-      - vol-media:/home/scenescape/SceneScape/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-media:/home/scenescape/Scenescape/media
+      - vol-sample-data:/home/scenescape/Scenescape/sample_data
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
-      - source: vdms-client-key
-        target: certs/scenescape-vdms-c.key
-      - source: vdms-client-cert
-        target: certs/scenescape-vdms-c.crt
+      - source: reid-client-key
+        target: certs/scenescape-reid.key
+      - source: reid-client-cert
+        target: certs/scenescape-reid.crt
       - django
       - controller.auth
     restart: always
     pids_limit: 1000
 
-  # vdms:
-  #   image: intellabs/vdms:v2.12.0
-  #   init: true
-  #   networks:
-  #     scenescape:
-  #       aliases:
-  #         - vdms.scenescape.intel.com
-  #   environment:
-  #     - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
-  #     - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
-  #     - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
-  #   secrets:
-  #     - source: root-cert
-  #       target: certs/scenescape-ca.pem
-  #     - source: vdms-server-cert
-  #       target: certs/scenescape-vdms-s.crt
-  #     - source: vdms-server-key
-  #       target: certs/scenescape-vdms-s.key
-  #   restart: always
-
   mediaserver:
-    image: bluenviron/mediamtx:1.14.0
+    image: bluenviron/mediamtx:1.18.1
     networks:
       scenescape:
         aliases:
@@ -212,7 +196,7 @@ services:
     pids_limit: 1000
 
   retail-cams:
-    image: linuxserver/ffmpeg:version-8.0-cli
+    image: linuxserver/ffmpeg:version-8.1-cli
     command: |
       -nostdin
       -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts
@@ -231,7 +215,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc3
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc1
     privileged: true
     networks:
       scenescape:
@@ -267,6 +251,7 @@ services:
       - RUN_MODE=EVA
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
+      - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
@@ -282,7 +267,7 @@ services:
       - source: perf-config
         target: /home/pipeline-server/config.json
     volumes:
-      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
@@ -293,7 +278,7 @@ services:
     pids_limit: 1000
 
   mqtt_recorder:
-    image: scenescape-manager:${VERSION:-latest}
+    image: intel/scenescape-manager:${VERSION:-latest}
     init: true
     environment:
       - "SUPASS"
@@ -322,7 +307,7 @@ services:
     restart: "no"
 
   autocalibration:
-    image: scenescape-autocalibration:${VERSION:-latest}
+    image: intel/scenescape-autocalibration:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -349,8 +334,8 @@ services:
       - HTTPS_PROXY=${HTTPS_PROXY}
       - NO_PROXY=${NO_PROXY}
     volumes:
-      - vol-media:/home/scenescape/SceneScape/media
-      - vol-datasets:/home/scenescape/SceneScape/datasets
+      - vol-media:/home/scenescape/Scenescape/media
+      - vol-datasets:/home/scenescape/Scenescape/datasets
       - vol-netvlad_models:/usr/local/lib/python3.11/site-packages/third_party/netvlad
     secrets:
       - source: root-cert

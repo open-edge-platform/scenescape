@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://scenescape.intel.com/tracker/schema/scene-data.schema.json",
   "title": "Scene Data Message",
-  "description": "Track output payload for MQTT topic scenescape/data/scene/{scene_id}/{thing_type}",
+  "description": "Track output payload for MQTT topic scenescape/data/scene/{scene_id}/{thing_type}. Accepts Tracker envelopes and Scene Controller DATA_SCENE messages. Top-level and per-object additionalProperties remain open so detection passthrough metadata and producer-specific metrics can extend the envelope without schema churn.",
   "type": "object",
   "required": ["id", "name", "timestamp", "objects"],
   "examples": [
@@ -42,29 +42,42 @@
       "items": {
         "$ref": "#/$defs/tracked_object"
       }
+    },
+    "unique_detection_count": {
+      "type": "integer",
+      "description": "Scene Controller metric: unique track count for this detection type",
+      "minimum": 0
+    },
+    "rate": {
+      "type": "number",
+      "description": "Optional publish/camera rate passthrough from Scene Controller / detector messages"
+    },
+    "debug_hmo_start_time": {
+      "type": "number",
+      "description": "Scene Controller debug: handleMovingObject start epoch time"
+    },
+    "debug_hmo_processing_time": {
+      "type": "number",
+      "description": "Scene Controller debug: handleMovingObject processing duration in seconds"
     }
   },
-  "additionalProperties": false,
+  "additionalProperties": true,
   "$defs": {
     "tracked_object": {
       "type": "object",
-      "required": [
-        "id",
-        "category",
-        "translation",
-        "velocity",
-        "size",
-        "rotation"
-      ],
+      "required": ["id", "translation", "velocity", "size", "rotation"],
       "properties": {
         "id": {
           "type": "string",
-          "format": "uuid",
-          "description": "Persistent track ID (UUID v4, stable across frames while tracked)"
+          "description": "Persistent track ID (UUID when produced by Tracker; Controller may use other stable string IDs)"
         },
         "category": {
           "type": "string",
-          "description": "Object category (e.g., person, vehicle)"
+          "description": "Object category (e.g., person, vehicle). Tracker output uses this field."
+        },
+        "type": {
+          "type": "string",
+          "description": "Object category alias used by Scene Controller output (same meaning as category)"
         },
         "translation": {
           "type": "array",
@@ -93,9 +106,47 @@
           "items": { "type": "number" },
           "minItems": 4,
           "maxItems": 4
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Optional passthrough metadata from the originating detection (e.g., reid, gender, age). Keys and values are detector-defined.",
+          "additionalProperties": true
+        },
+        "confidence": {
+          "type": ["number", "null"],
+          "description": "Optional detection confidence score in [0, 1]; null when the producer did not supply a score",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "visibility": {
+          "type": "array",
+          "description": "Camera IDs whose field of view currently contains this track (pass-through from track producer)",
+          "items": { "type": "string" }
+        },
+        "camera_bounds": {
+          "type": "object",
+          "description": "Optional per-camera pixel bounding boxes when the producer supplies them",
+          "additionalProperties": true
+        },
+        "prev_translation": {
+          "type": "array",
+          "description": "Previous world position [x, y, z] in meters when available",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "first_seen": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp when the track was first observed"
+        },
+        "frame_count": {
+          "type": "integer",
+          "description": "Number of frames this track has been observed",
+          "minimum": 0
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     }
   }
 }

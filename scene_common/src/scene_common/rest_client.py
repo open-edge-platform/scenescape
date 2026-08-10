@@ -7,6 +7,9 @@ import re
 import requests
 from http import HTTPStatus
 from urllib.parse import urljoin
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class RESTResult(dict):
@@ -99,7 +102,7 @@ class RESTClient:
       path = '/' + path
 
     url = urljoin(self.url, path.lstrip('/'))
-
+    logger.debug("REST request: %s %s", method, url)
     # Merge headers
     headers = self._headers()
     if 'headers' in kwargs:
@@ -116,6 +119,11 @@ class RESTClient:
 
   def decodeReply(self, reply, expectedStatus, successContent=None):
     result = RESTResult(statusCode=reply.status_code)
+    # Accept either a single status code or a list/tuple of acceptable codes
+    if isinstance(expectedStatus, (list, tuple)):
+      status_ok = reply.status_code in expectedStatus
+    else:
+      status_ok = reply.status_code == expectedStatus
     decoded = False
     if 'Content-Type' in reply.headers and reply.headers['Content-Type'] == "application/json":
       try:
@@ -133,14 +141,14 @@ class RESTClient:
         content['filename'] = fname
       decoded = True
 
-    if reply.status_code == expectedStatus:
+    if status_ok:
       if successContent:
         content = successContent
         decoded = True
       if decoded:
         result.update(content)
 
-    if not decoded or reply.status_code != expectedStatus:
+    if not decoded or not status_ok:
       result.errors = content
 
     return result
@@ -196,6 +204,8 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    logger.debug(
+        "RESTClient _create: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
@@ -212,6 +222,8 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    logger.debug("RESTClient _get: endpoint='%s', full_path='%s', params=%s",
+                 endpoint, full_path, parameters)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.get(full_path, params=parameters, headers=headers,
                              verify=self.verify_ssl)
@@ -228,6 +240,8 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    logger.debug(
+        "RESTClient _update: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
@@ -242,6 +256,8 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    logger.debug(
+        "RESTClient _delete: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.delete(
         full_path,
@@ -253,7 +269,7 @@ class RESTClient:
     """Separates file fields from data dictionary for requests library"""
     files = None
     for fileField in fields:
-      if fileField in data and not isinstance(data[fileField], str):
+      if fileField in data and data[fileField] is not None and not isinstance(data[fileField], str):
         data = data.copy()
         files = {fileField: data[fileField]}
         data.pop(fileField)
@@ -333,6 +349,24 @@ class RESTClient:
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
     return self._update(f"child/{uid}", data, files)
+
+  def getChildScene(self, filter):
+    """Gets all child scenes matching filter. If filter is None returns all child scenes.
+
+    @param      filter          dict with key/value pairs to filter matching objects
+    @return                     RESTResult with decoded objects on success,
+                                empty with `errors` set on failure
+    """
+    return self._get("scenes/child", filter)
+
+  def deleteChildSceneLink(self, uid):
+    """Deletes child scene link with `uid`
+
+    @param      uid             uid of child scene link to delete
+    @return                     RESTResult with deleted object's uid on success,
+                                empty with `errors` set on failure
+    """
+    return self._delete(f"child/{uid}")
 
   # Camera
   def getCameras(self, filter):
@@ -580,19 +614,6 @@ class RESTClient:
     """
     return self._delete(f"asset/{uid}")
 
-  # child
-  def getChildScene(self, filter):
-    """Gets all child scenes matching filter. If filter is None returns all child scenes.
-
-    @param      filter          dict with key/value pairs to filter matching objects
-    @return                     RESTResult with decoded objects on success,
-                                empty with `errors` set on failure
-    """
-    return self._get("scenes/child", filter)
-
-  def updateChildScene(self, uid, data):
-    return self._update(f"child/{uid}", data)
-
   # Users
   def getUsers(self, filter):
     """Gets all users matching filter. If filter is None returns all users.
@@ -693,3 +714,4 @@ class RESTClient:
     with open(zip_file_path, "rb") as f:
       files = {"zipFile": (os.path.basename(zip_file_path), f)}
       return self._create(endpoint, data={}, files=files)
+

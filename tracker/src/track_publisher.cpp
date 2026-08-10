@@ -92,6 +92,20 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
         rotation.PushBack(track.rotation[3], allocator);
         obj.AddMember("rotation", rotation, allocator);
 
+        // Optional metadata - re-parse stored JSON string and embed as object
+        if (!track.metadata_json.empty()) {
+            Document meta_doc;
+            if (!meta_doc.Parse(track.metadata_json.c_str()).HasParseError()) {
+                Value meta_copy(meta_doc, allocator);
+                obj.AddMember("metadata", meta_copy, allocator);
+            }
+        }
+
+        // Optional confidence score
+        if (track.confidence.has_value()) {
+            obj.AddMember("confidence", Value(*track.confidence), allocator);
+        }
+
         objects_array.PushBack(obj, allocator);
     }
 

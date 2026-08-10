@@ -44,9 +44,10 @@ static const rapidjson::Pointer PTR_BBOX_HEIGHT("/bounding_box_px/height");
 MessageHandler::MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
                                const SceneRegistry& scene_registry, TimeChunkBuffer& buffer,
                                const TrackingConfig& tracking_config, bool schema_validation,
-                               const std::filesystem::path& schema_dir)
+                               const std::filesystem::path& schema_dir, ClockFn clock_fn)
     : mqtt_client_(std::move(mqtt_client)), scene_registry_(scene_registry), buffer_(buffer),
-      tracking_config_(tracking_config), schema_validation_(schema_validation) {
+      tracking_config_(tracking_config), schema_validation_(schema_validation),
+      clock_fn_(std::move(clock_fn)) {
     if (schema_validation_) {
         auto camera_schema_path = schema_dir / CAMERA_SCHEMA_FILE;
         auto scene_schema_path = schema_dir / SCENE_SCHEMA_FILE;
@@ -105,11 +106,19 @@ void MessageHandler::start() {
         routeMessage(topic, payload);
     });
 
+    // In dynamic mode, subscribe to database update topic for config change notifications
+    if (dynamic_mode_) {
+        mqtt_client_->subscribe(TOPIC_DATABASE_UPDATE);
+        LOG_INFO_ENTRY(LogEntry("Queued database update subscription")
+                           .component("mqtt")
+                           .operation(TOPIC_DATABASE_UPDATE));
+    }
+
     // Subscribe to each registered camera's topic
     auto camera_ids = scene_registry_.get_all_camera_ids();
     if (camera_ids.empty()) {
         LOG_WARN_ENTRY(
-            LogEntry("No cameras registered - not subscribing to any topics").component("mqtt"));
+            LogEntry("No cameras registered - not subscribing to camera topics").component("mqtt"));
         return;
     }
 
@@ -133,14 +142,6 @@ void MessageHandler::start() {
     LOG_INFO_ENTRY(LogEntry("Queued camera subscriptions")
                        .component("mqtt")
                        .operation(std::format("{} cameras", camera_ids.size())));
-
-    // In dynamic mode, subscribe to database update topic for config change notifications
-    if (dynamic_mode_) {
-        mqtt_client_->subscribe(TOPIC_DATABASE_UPDATE);
-        LOG_INFO_ENTRY(LogEntry("Queued database update subscription")
-                           .component("mqtt")
-                           .operation(TOPIC_DATABASE_UPDATE));
-    }
 }
 
 void MessageHandler::stop() {
@@ -175,7 +176,7 @@ void MessageHandler::routeMessage(const std::string& topic, const std::string& p
 }
 
 void MessageHandler::handleDatabaseUpdateMessage(const std::string& topic,
-                                                 const std::string& payload) {
+                                                 [[maybe_unused]] const std::string& payload) {
     LOG_INFO_ENTRY(LogEntry("Database update received, triggering restart")
                        .component("message_handler")
                        .mqtt({.topic = topic, .direction = "subscribe"}));
@@ -433,6 +434,19 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
                                                    static_cast<float>(bbox_width->GetDouble()),
                                                    static_cast<float>(bbox_height->GetDouble()));
 
+            // Optional metadata - serialize the entire metadata object as a raw JSON string
+            if (det.HasMember("metadata") && det["metadata"].IsObject()) {
+                rapidjson::StringBuffer meta_buf;
+                rapidjson::Writer<rapidjson::StringBuffer> meta_writer(meta_buf);
+                det["metadata"].Accept(meta_writer);
+                detection.metadata_json = meta_buf.GetString();
+            }
+
+            // Optional confidence score
+            if (det.HasMember("confidence") && det["confidence"].IsNumber()) {
+                detection.confidence = det["confidence"].GetDouble();
+            }
+
             detections.push_back(detection);
         }
 
@@ -459,10 +473,14 @@ bool MessageHandler::validateJson(const rapidjson::Document& doc,
 }
 
 bool MessageHandler::isMessageLagged(std::chrono::system_clock::time_point msg_time) const {
-    auto now = std::chrono::system_clock::now();
+    auto now = clock_fn_();
     auto lag = std::chrono::duration<double>(now - msg_time).count();
-
-    return lag > tracking_config_.max_lag_s;
+    if (lag > tracking_config_.max_lag_s) {
+        LOG_DEBUG("Message lag check: lag={:.3f}s, max_lag={:.3f}s", lag,
+                  tracking_config_.max_lag_s);
+        return true;
+    }
+    return false;
 }
 
 } // namespace tracker

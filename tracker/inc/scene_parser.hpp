@@ -40,7 +40,7 @@ inline std::array<double, 3> require_array3(const rapidjson::Value& doc, const c
     if (auto* val = Pointer(pointer).Get(doc)) {
         if (val->IsArray() && val->Size() == 3) {
             std::array<double, 3> result;
-            for (size_t i = 0; i < 3; ++i) {
+            for (rapidjson::SizeType i = 0; i < 3; ++i) {
                 if (!(*val)[i].IsNumber()) {
                     throw std::runtime_error(context + ": " + pointer + "[" + std::to_string(i) +
                                              "] must be a number");

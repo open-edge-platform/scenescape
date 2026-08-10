@@ -1,12 +1,12 @@
-# ADR 6: Build-Time Model Selection for 3D Mapping Service
+# ADR 6: 3D Mapping Service
 
-- **Author(s)**: [Intel SceneScape Team](https://github.com/open-edge-platform/scenescape)
+- **Author(s)**: Sarat Poluri
 - **Date**: 2025-10-30
 - **Status**: `Accepted`
 
 ## Context
 
-The top challenges in configuring a new scene in SceneScape are:
+The top challenges in configuring a new scene in Scenescape are:
 
 - **Map Availability:** Obtaining a suitable map for the scene.
 - **Camera Calibration:** Calibrating cameras with respect to the map.
@@ -31,7 +31,7 @@ They demand substantial labor cost from users. Furthermore, any changes incur th
 
 ## Decision
 
-Intel® SceneScape will include a REST API based 3D Mapping service that will leverage state-of-the-art, deep learning based, 3D reconstruction models to generate a mesh purely from the camera inputs. It will be integrated with the SceneScape Web UI to provide a seamless workflow for configuring a scene.
+Scenescape will include a REST API based 3D Mapping service that will leverage state-of-the-art, deep learning based, 3D reconstruction models to generate a mesh purely from the camera inputs. It will be integrated with the Scenescape Web UI to provide a seamless workflow for configuring a scene.
 
 The current set of models the service will support out-of-the-box are:
 

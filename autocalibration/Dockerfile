@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
 
 # =========================
 # STAGE 1: BUILD STAGE
 # =========================
-FROM scenescape-common-base AS autocalibration-builder
+FROM intel/scenescape-common-base AS autocalibration-builder
 ENV DEBIAN_FRONTEND=noninteractive
 ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
@@ -95,7 +95,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 FROM ${RUNTIME_OS_IMAGE} AS autocalibration-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
+LABEL org.opencontainers.image.description="Scenescape's Autocalibration Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -108,7 +108,7 @@ ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
-ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
+ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages"
 # Set model directory for on-demand loading
 ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.11/site-packages/third_party/netvlad"
@@ -116,10 +116,10 @@ ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.11/site-packages/third_party/netvl
 # Update and upgrade base OS packages
 RUN apt update && apt upgrade -y
 
-# Install runtime dependencies first (these change less frequently)
+# Install runtime dependencies in one layer
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
+     apt-get update && apt-get install -y --no-install-recommends \
     libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-pip wget curl && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
@@ -142,9 +142,8 @@ COPY --from=autocalibration-builder /usr/local/lib/python3.11/site-packages/scen
 # Copy AprilTag shared library
 COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.11/site-packages/dt_apriltags/
 
-# Upgrade pip, wheel and setuptools to latest versions
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --upgrade setuptools wheel
+# Upgrade pip to latest version
+RUN pip install --no-cache-dir --upgrade pip
 
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/
@@ -186,7 +185,7 @@ WORKDIR $SCENESCAPE_HOME
 HEALTHCHECK --interval=30s --timeout=5s --retries=10 \
     CMD pgrep -f python3 || exit 1
 
-ENTRYPOINT ["/usr/local/bin/startup.sh", "/home/scenescape/SceneScape/autocalibration"]
+ENTRYPOINT ["/usr/local/bin/startup.sh", "/home/scenescape/Scenescape/autocalibration"]
 
 # ---------- Cam Calibration Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)

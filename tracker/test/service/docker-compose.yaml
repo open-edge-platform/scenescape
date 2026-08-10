@@ -25,9 +25,33 @@ services:
         target: /mosquitto/config/mosquitto.conf
     restart: no
 
+  ntp-server:
+    profiles: ["ntp"]
+    image: dockurr/chrony:4.8
+    ports:
+      - "123/udp" # Dynamic host port for ntplib queries from test host
+    environment:
+      - NTP_DIRECTIVES=local stratum 10
+      - NTP_SERVERS="pool.ntp.org iburst"
+    restart: no
+    healthcheck:
+      # Healthy once Chrony serves a valid stratum (1-16); passes immediately
+      # with 'local stratum 10' even when no upstream NTP pool is reachable.
+      test:
+        [
+          "CMD",
+          "sh",
+          "-c",
+          "chronyc tracking | grep -E 'Stratum[[:space:]]+:[[:space:]]+([1-9]|1[0-6])[[:space:]]*$' || exit 1",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 3s
+
   mock-manager:
     profiles: ["api"]
-    image: python:3.12-slim
+    image: python:3.14-slim
     command: ["python", "/app/mock_manager.py"]
     configs:
       - source: mock-manager-script
@@ -49,14 +73,14 @@ services:
       start_period: 2s
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.115.1
+    image: otel/opentelemetry-collector-contrib:0.155.0
     configs:
       - source: otel-config
         target: /etc/otelcol-contrib/config.yaml
     restart: no
 
   tracker:
-    image: scenescape-tracker:${VERSION:-latest}
+    image: intel/scenescape-tracker:${VERSION:-latest}
     environment:
       - TRACKER_LOG_LEVEL=${TRACKER_LOG_LEVEL:-debug}
       - TRACKER_HEALTHCHECK_PORT=${TRACKER_HEALTHCHECK_PORT:-8080}
@@ -75,6 +99,8 @@ services:
       - TRACKER_OTLP_ENDPOINT=${TRACKER_OTLP_ENDPOINT:-otel-collector:4317}
       - TRACKER_METRICS_EXPORT_INTERVAL_S=${TRACKER_METRICS_EXPORT_INTERVAL_S:-60}
       - TRACKER_TRACING_EXPORT_INTERVAL_S=${TRACKER_TRACING_EXPORT_INTERVAL_S:-5}
+      - TRACKER_NTP_SERVER=${TRACKER_NTP_SERVER:-}
+      - TRACKER_NTP_SYNC_INTERVAL_S=${TRACKER_NTP_SYNC_INTERVAL_S:-}
       # Override host proxy settings - Paho MQTT dont respect no_proxy var, so as a WA
       # tracker code detects empty vars and unsets them (see mqtt_client.cpp clearEmptyProxyVars)
       - http_proxy=

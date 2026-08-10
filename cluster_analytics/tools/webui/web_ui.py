@@ -10,6 +10,13 @@ This module provides a Flask-based web interface for real-time visualization
 of cluster analytics data including object detection and clustering results.
 """
 
+# Must be called before Flask/werkzeug are imported for proper async patching
+try:
+  import eventlet
+  eventlet.monkey_patch()
+except ImportError:
+  pass  # eventlet not available, will use threading mode
+
 import json
 import os
 import threading
@@ -33,13 +40,6 @@ class WebUI:
 
     @param clusterAnalyticsContext: Reference to the ClusterAnalyticsContext instance
     """
-    # Monkey patch eventlet early for proper async support
-    try:
-      import eventlet
-      eventlet.monkey_patch()
-    except ImportError:
-      pass  # eventlet not available, will use threading mode
-
     self.clusterContext = clusterAnalyticsContext
 
     # Get the directory where this file is located
@@ -73,15 +73,15 @@ class WebUI:
     self.delayedUpdateScheduled = False
 
     # Set up Flask routes
-    self.setRoutes()
+    self.set_routes()
 
     # Set up SocketIO event handlers
-    self.setSocketioHandlers()
+    self.set_socketio_handlers()
 
     # Hook into the cluster analytics context to get data updates
-    self.hookIntoAnalytics()
+    self.hook_into_analytics()
 
-  def setRoutes(self):
+  def set_routes(self):
     """Set up Flask routes for the web interface."""
 
     @self.app.route('/')
@@ -105,11 +105,11 @@ class WebUI:
         return json.dumps(self.sceneData[scene_id])
       return json.dumps({"error": "Scene not found"}), 404
 
-  def setSocketioHandlers(self):
+  def set_socketio_handlers(self):
     """Set up SocketIO event handlers for real-time communication."""
 
     @self.socketio.on('connect')
-    def handleConnect():
+    def handle_connect():
       log.debug("WebUI client connected")
       # Send current available scenes with names to the newly connected client
       scenesInfo = [
@@ -119,11 +119,11 @@ class WebUI:
       emit('available_scenes', scenesInfo)
 
     @self.socketio.on('disconnect')
-    def handleDisconnect():
+    def handle_disconnect():
       log.debug("WebUI client disconnected")
 
     @self.socketio.on('select_scene')
-    def handleSceneSelection(data):
+    def handle_scene_selection(data):
       sceneId = data.get('scene_id')
       log.debug(f"WebUI client selected scene: {sceneId}")
       self.currentSelectedScene = sceneId
@@ -145,9 +145,9 @@ class WebUI:
         config = {}
         for category in categories:
           # Get current active parameters (user-configured or defaults) for this scene
-          params = self.clusterContext.getDbscanParamsForCategory(category, sceneId)
+          params = self.clusterContext.get_dbscan_params_for_category(category, sceneId)
           # Get default parameters to show what the recommended values are
-          defaults = self.clusterContext.getDefaultDbscanParamsForCategory(category)
+          defaults = self.clusterContext.get_default_dbscan_params_for_category(category)
 
           # Check if this category has scene-specific customization
           hasCustomParams = (sceneId in self.clusterContext.user_dbscan_params_by_scene and
@@ -168,7 +168,7 @@ class WebUI:
         })
 
     @self.socketio.on('set_refresh_rate')
-    def handleRefreshRateChange(data):
+    def handle_refresh_rate_change(data):
       refreshRate = data.get('refresh_rate', 1.0)
       log.debug(f"WebUI client changed refresh rate to: {refreshRate}")
 
@@ -184,7 +184,7 @@ class WebUI:
       emit('refresh_rate_updated', {'refresh_rate': self.updateInterval})
 
     @self.socketio.on('get_clustering_config')
-    def handleGetClusteringConfig():
+    def handle_get_clustering_config():
       """Send current clustering parameters for scene categories."""
       if self.currentSelectedScene and self.currentSelectedScene in self.sceneData:
         # Get categories present in current scene
@@ -197,9 +197,9 @@ class WebUI:
         config = {}
         for category in categories:
           # Get current active parameters (user-configured or defaults) for this scene
-          params = self.clusterContext.getDbscanParamsForCategory(category, self.currentSelectedScene)
+          params = self.clusterContext.get_dbscan_params_for_category(category, self.currentSelectedScene)
           # Get default parameters to show what the recommended values are
-          defaults = self.clusterContext.getDefaultDbscanParamsForCategory(category)
+          defaults = self.clusterContext.get_default_dbscan_params_for_category(category)
 
           # Check if this category has scene-specific customization
           hasCustomParams = (self.currentSelectedScene in self.clusterContext.user_dbscan_params_by_scene and
@@ -226,7 +226,7 @@ class WebUI:
         })
 
     @self.socketio.on('update_clustering_config')
-    def handleUpdateClusteringConfig(data):
+    def handle_update_clustering_config(data):
       """Update clustering parameters for specific categories."""
       category = data.get('category')
       eps = data.get('eps')
@@ -235,7 +235,7 @@ class WebUI:
       if category and eps is not None and minSamples is not None:
         # Update the parameters using the proper method for the current scene
         if self.currentSelectedScene:
-          self.clusterContext.setUserDbscanParamsForCategory(category, eps, minSamples, self.currentSelectedScene)
+          self.clusterContext.set_user_dbscan_params_for_category(category, eps, minSamples, self.currentSelectedScene)
 
           log.info(f"Updated DBSCAN parameters for '{category}' in scene '{self.currentSelectedScene}': eps={eps}, min_samples={minSamples}")
         else:
@@ -257,7 +257,7 @@ class WebUI:
             }
 
             # Perform re-clustering with new parameters
-            self.clusterContext.analyzeObjectClusters(self.currentSelectedScene, detectionData)
+            self.clusterContext.analyze_object_clusters(self.currentSelectedScene, detectionData)
 
             # Immediately send updated cluster data to frontend
             if 'clusters' in self.sceneData[self.currentSelectedScene]:
@@ -275,7 +275,7 @@ class WebUI:
               log.info(f"Sent empty cluster data to frontend for scene {self.currentSelectedScene} (insufficient objects)")
 
     @self.socketio.on('reset_clustering_config')
-    def handleResetClusteringConfig(data):
+    def handle_reset_clustering_config(data):
       """Reset clustering parameters for a specific category back to defaults."""
       category = data.get('category')
       sceneId = data.get('scene_id')  # Use scene_id from request if provided
@@ -285,7 +285,7 @@ class WebUI:
 
       if category and targetScene:
         # Reset the parameters back to defaults for the target scene
-        self.clusterContext.resetUserDbscanParamsForCategory(category, targetScene)
+        self.clusterContext.reset_user_dbscan_params_for_category(category, targetScene)
 
         log.info(f"Reset DBSCAN parameters for '{category}' in scene '{targetScene}' back to defaults")
 
@@ -293,8 +293,8 @@ class WebUI:
         if targetScene in self.sceneData:
 
           # Get the default parameters that are now active for this scene
-          params = self.clusterContext.getDbscanParamsForCategory(category, targetScene)
-          defaults = self.clusterContext.getDefaultDbscanParamsForCategory(category)
+          params = self.clusterContext.get_dbscan_params_for_category(category, targetScene)
+          defaults = self.clusterContext.get_default_dbscan_params_for_category(category)
 
           emit('clustering_config_updated', {
             'category': category,
@@ -318,7 +318,7 @@ class WebUI:
             }
 
             # Perform re-clustering with reset parameters
-            self.clusterContext.analyzeObjectClusters(targetScene, detectionData)
+            self.clusterContext.analyze_object_clusters(targetScene, detectionData)
 
             # Immediately send updated cluster data to frontend
             if 'clusters' in self.sceneData[targetScene]:
@@ -337,14 +337,14 @@ class WebUI:
       else:
         log.warning(f"Cannot reset DBSCAN parameters for '{category}': no scene specified")
 
-  def scheduleThrottledUpdate(self):
+  def schedule_throttled_update(self):
     """Schedule a throttled update to avoid flooding the WebUI with too many updates."""
     with self.updateLock:
       currentTime = time.time()
 
       # Handle real-time mode (no throttling)
       if self.updateInterval == 0.0:
-        self.sendPendingUpdates()
+        self.send_pending_updates()
         self.lastUpdateTime = currentTime
         # Clear pending update flags
         self.pendingUpdates = {
@@ -356,7 +356,7 @@ class WebUI:
 
       # Check if enough time has passed since the last update
       if currentTime - self.lastUpdateTime >= self.updateInterval:
-        self.sendPendingUpdates()
+        self.send_pending_updates()
         self.lastUpdateTime = currentTime
         # Clear pending update flags
         self.pendingUpdates = {
@@ -370,14 +370,14 @@ class WebUI:
             not self.delayedUpdateScheduled):
           self.delayedUpdateScheduled = True
 
-          def delayedUpdate():
+          def delayed_update():
             time.sleep(
               self.updateInterval -
               (currentTime - self.lastUpdateTime)
             )
             with self.updateLock:
               if any(self.pendingUpdates.values()):
-                self.sendPendingUpdates()
+                self.send_pending_updates()
                 self.lastUpdateTime = time.time()
                 self.pendingUpdates = {
                   'scene_data': False,
@@ -387,9 +387,9 @@ class WebUI:
               self.delayedUpdateScheduled = False
 
           # Start delayed update in a separate thread
-          threading.Thread(target=delayedUpdate, daemon=True).start()
+          threading.Thread(target=delayed_update, daemon=True).start()
 
-  def sendPendingUpdates(self):
+  def send_pending_updates(self):
     """Send pending updates to WebUI clients."""
     if self.pendingUpdates['scenes_list']:
       scenesInfo = [
@@ -416,47 +416,46 @@ class WebUI:
           'clusters': self.sceneData[self.currentSelectedScene]['clusters']
         })
 
-  def hookIntoAnalytics(self):
+  def hook_into_analytics(self):
     """Hook into the cluster analytics context to receive data updates."""
 
     # Store original methods
-    originalAnalyzeClusters = self.clusterContext.analyzeObjectClusters
-    originalPublishClusters = self.clusterContext.publishAllClusters
+    originalAnalyzeClusters = self.clusterContext.analyze_object_clusters
+    originalPublishClusters = self.clusterContext.publish_all_clusters
 
-    def enhancedAnalyzeClusters(sceneId, detectionData):
+    def enhanced_analyze_clusters(sceneId, detectionData):
       """Enhanced version that also updates WebUI data."""
       # Update WebUI data before clustering analysis
-      self.updateSceneObjects(sceneId, detectionData)
+      self.update_scene_objects(sceneId, detectionData)
 
       # Call original method
       result = originalAnalyzeClusters(sceneId, detectionData)
 
       return result
 
-    def enhancedPublishClusters(sceneId, detectionData, allClusters):
+    def enhanced_publish_clusters(sceneId, detectionData):
       """Enhanced version that also updates WebUI data."""
       # Call original method
-      result = originalPublishClusters(sceneId, detectionData, allClusters)
+      result = originalPublishClusters(sceneId, detectionData)
 
       # Get the actual tracked clusters that were published
-      tracked_clusters = self.clusterContext.cluster_tracker.getActiveClusters(
-          scene_id=sceneId,
-          publishable_only=True
+      tracked_clusters = self.clusterContext.cluster_tracker.get_clusters(
+          scene_id=sceneId
       )
 
       # Convert to dictionaries (same format as MQTT publication)
-      cluster_dicts = [c.toDict() for c in tracked_clusters]
+      cluster_dicts = [c.to_dict() for c in tracked_clusters]
 
       # Update WebUI clusters with the actual published data
-      self.updateSceneClusters(sceneId, cluster_dicts)
+      self.update_scene_clusters(sceneId, cluster_dicts)
 
       return result
 
     # Replace methods with enhanced versions
-    self.clusterContext.analyzeObjectClusters = enhancedAnalyzeClusters
-    self.clusterContext.publishAllClusters = enhancedPublishClusters
+    self.clusterContext.analyze_object_clusters = enhanced_analyze_clusters
+    self.clusterContext.publish_all_clusters = enhanced_publish_clusters
 
-  def updateSceneObjects(self, sceneId, detectionData):
+  def update_scene_objects(self, sceneId, detectionData):
     """Update scene objects data for WebUI."""
     objects = detectionData.get('objects', [])
 
@@ -485,9 +484,9 @@ class WebUI:
       self.pendingUpdates['scene_data'] = True
 
     # Schedule throttled update
-    self.scheduleThrottledUpdate()
+    self.schedule_throttled_update()
 
-  def updateSceneClusters(self, sceneId, clusters):
+  def update_scene_clusters(self, sceneId, clusters):
     """Update scene clusters data for WebUI."""
     self.sceneData[sceneId]['clusters'] = clusters
 
@@ -498,7 +497,7 @@ class WebUI:
       self.pendingUpdates['clusters'] = True
 
     # Schedule throttled update
-    self.scheduleThrottledUpdate()
+    self.schedule_throttled_update()
 
   def run(self, host='0.0.0.0', port=9443, debug=False, certfile=None, keyfile=None):
     """Run the Flask-SocketIO server with HTTPS."""
@@ -515,12 +514,12 @@ class WebUI:
       keyfile=keyfile
     )
 
-  def runInThread(self, host='0.0.0.0', port=9443, certfile=None, keyfile=None):
+  def run_in_thread(self, host='0.0.0.0', port=9443, certfile=None, keyfile=None):
     """Run the Flask-SocketIO server in a separate thread using eventlet with HTTPS."""
     if not certfile or not keyfile:
       raise ValueError("SSL certificate and key files are required for HTTPS")
 
-    def runServer():
+    def run_server():
       log.info(f"Starting WebUI server in background on https://{host}:{port}")
       # Use socketio.run() which automatically uses eventlet if available
       # This properly integrates SocketIO with the async server
@@ -535,7 +534,7 @@ class WebUI:
         keyfile=keyfile
       )
 
-    serverThread = threading.Thread(target=runServer, daemon=True)
+    serverThread = threading.Thread(target=run_server, daemon=True)
     serverThread.start()
     log.info(f"WebUI server thread started on {host}:{port}")
     return serverThread

@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 Intel Corporation
+python-on-whales==0.81.0
+jsonschema==4.25.1
+fastjsonschema==2.21.2
+paho-mqtt==2.1.0

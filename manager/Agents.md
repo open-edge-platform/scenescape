@@ -5,39 +5,43 @@ SPDX-License-Identifier: Apache-2.0
 
 # Manager Service - AI Agent Guide
 
+## Documentation
+
+- [MIGRATIONS.md](MIGRATIONS.md) - Django migrations workflow and best practices
+
 ## Service Overview
 
-The **Manager** service is the Django-based web UI and REST API gateway for Intel® SceneScape. It provides user-facing interfaces for system configuration, scene management, camera setup, and PostgreSQL-backed persistence for metadata and configuration.
+The **Manager** service is the Django-based web UI and REST API gateway for Scenescape. It provides user-facing interfaces for system configuration, scene management, camera setup, and PostgreSQL-backed persistence for metadata and configuration.
 
-**Primary Purpose**: Web interface and REST API for managing SceneScape configuration, user authentication, and metadata persistence.
+**Primary Purpose**: Web interface and REST API for managing Scenescape configuration, user authentication, and metadata persistence.
 
 ## Architecture & Components
 
 ### Core Modules
 
-1. **Django Application** (`src/django/`):
+1. **Django Application** (`src/manager/`):
    - Scene management views and APIs
    - Camera configuration interfaces
    - User authentication and authorization
    - PostgreSQL ORM models
 
-2. **REST API** (`src/django/api/`):
+2. **REST API** (`src/manager/api.py`, `src/manager/serializers.py`, `src/manager/urls.py`):
    - RESTful endpoints for external integrations
    - Scene CRUD operations
    - Camera calibration triggers
    - Object query endpoints
 
-3. **Management Commands** (`src/management/`):
+3. **Management Commands** (`src/manager/management/commands/`):
    - Database migrations
    - Admin utilities
    - Data import/export tools
 
-4. **Static Assets** (`src/static/`):
+4. **Static Assets** (`src/manager/static/` and `src/static/`):
    - Frontend JavaScript/CSS
    - UI components
    - Visualization tools
 
-5. **Templates** (`src/templates/`):
+5. **Templates** (`src/manager/templates/`):
    - Django HTML templates
    - Web UI pages
 
@@ -65,7 +69,8 @@ The **Manager** service is the Django-based web UI and REST API gateway for Inte
 
 - `/api/v1/scenes/`: Scene management (CRUD)
 - `/api/v1/cameras/`: Camera configuration
-- `/api/v1/calibration/`: Trigger calibration
+- `/api/v1/calculateintrinsics/`: Calculate camera intrinsics
+- `/api/v1/aclcheck/`: Validate broker topic ACLs
 - `/api/v1/objects/`: Query tracked objects
 - `/api/v1/health/`: Health check
 
@@ -112,17 +117,6 @@ docker compose exec manager python manage.py migrate
 docker compose exec manager python manage.py showmigrations
 ```
 
-### Testing
-
-```bash
-# Django unit tests
-docker compose exec manager python manage.py test
-
-# External acceptance tests
-SUPASS=<password> make setup_tests
-make -C tests manager-functional
-```
-
 ### Running Locally
 
 ```bash
@@ -154,7 +148,7 @@ docker compose exec manager python manage.py createsuperuser
 
 - `requirements-runtime.txt`: Python dependencies
 - `Dockerfile`: Container build instructions
-- `config/settings.py`: Django settings
+- `src/manager/settings.py`: Django settings
 - `secrets/`: TLS certificates, database credentials, Django secret
 
 ### Secrets Management
@@ -178,7 +172,7 @@ Secrets stored in `manager/secrets/`:
 ### Creating a New Django View
 
 ```python
-# In src/django/scenescape/views.py
+# In src/manager/views.py
 from django.views.generic import ListView
 from .models import Scene
 
@@ -191,7 +185,7 @@ class SceneListView(ListView):
 ### Adding REST API Endpoint
 
 ```python
-# In src/django/api/views.py
+# In src/manager/api.py
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
@@ -206,7 +200,7 @@ def scene_status(request, scene_id):
 ### Database Model
 
 ```python
-# In src/django/scenescape/models.py
+# In src/manager/models.py
 from django.db import models
 
 class Camera(models.Model):
@@ -225,23 +219,24 @@ class Camera(models.Model):
 
 ### Adding New Database Model
 
-1. Define model in `src/django/scenescape/models.py`
+1. Define model in `src/manager/models.py`
 2. Create migration: `docker compose exec manager python manage.py makemigrations`
-3. Review migration file in `src/django/scenescape/migrations/`
-4. Apply: `docker compose exec manager python manage.py migrate`
-5. Update admin interface if needed: `src/django/scenescape/admin.py`
+3. Review migration file in `src/manager/migrations/`
+4. Commit migration file to version control
+5. Apply: `docker compose exec manager python manage.py migrate`
+6. Update admin interface if needed: `src/manager/admin.py`
 
 ### Modifying Web UI
 
-1. Edit template in `src/templates/`
-2. Update static assets in `src/static/` (JS/CSS)
+1. Edit template in `src/manager/templates/`
+2. Update static assets in `src/manager/static/` (JS/CSS)
 3. No rebuild needed—Django auto-reloads in development
 4. For production, rebuild image to bundle assets
 
 ### Adding Management Command
 
 ```python
-# Create src/management/commands/export_scenes.py
+# Create src/manager/management/commands/export_scenes.py
 from django.core.management.base import BaseCommand
 
 class Command(BaseCommand):
@@ -282,8 +277,8 @@ docker compose exec manager python manage.py showmigrations
 
 ### Auto Calibration
 
-- Manager UI triggers calibration requests
-- Displays calibration status from Auto Calibration service
+- Manager UI triggers calibration requests through the web-proxied Auto Calibration service
+- Autocalibration endpoints live under `/api/v1/autocalibration/` when accessed through the web container
 - Stores completed calibration parameters in database
 
 ### PostgreSQL
@@ -368,7 +363,7 @@ docker compose exec manager python manage.py dbshell
 
 When modifying the service, verify:
 
-- [ ] Django unit tests pass: `docker compose exec manager python manage.py test`
+- [ ] Functional tests pass: `make run_functional_tests` (starts Docker stacks automatically)
 - [ ] Database migrations apply cleanly
 - [ ] REST API endpoints return correct responses
 - [ ] Web UI pages render without errors
@@ -396,6 +391,6 @@ When modifying the service, verify:
 ## Related Documentation
 
 - [Django Documentation](https://docs.djangoproject.com/): Official Django docs
-- [Scene Controller API](../controller/docs/user-guide/api-docs/scene-controller-api.yaml): Backend API reference
-- [Testing Guide](../.github/instructions/testing.md): Test creation patterns
-- [Python Conventions](../.github/instructions/python.md): Python coding standards
+- [Scene Controller API](../docs/user-guide/microservices/controller/_assets/scene-controller-api.yaml): Backend API reference
+- [Testing Guide](../.github/skills/testing/SKILL.md): Test creation patterns
+- [Python Conventions](../.github/skills/python/SKILL.md): Python coding standards

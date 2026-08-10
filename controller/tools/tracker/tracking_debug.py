@@ -8,6 +8,7 @@ import numpy as np
 from drawing import *
 
 from controller.ilabs_tracking import IntelLabsTracking
+from controller.moving_object import decodeReIDEmbeddingVector
 from controller.scene import Scene
 from controller.tracking import Tracking
 from scene_common.geometry import DEFAULTZ, Line, Point
@@ -35,8 +36,7 @@ class SceneDebug:
       self.reidExpired = []
       reidExp = state['reid_expired']
       for exp in reidExp:
-        vector = base64.b64decode(exp['reid'])
-        vector = np.array(struct.unpack("256f", vector)).reshape(1, -1)
+        vector = decodeReIDEmbeddingVector(exp['reid'], exp.get('embedding_dimensions'))
         self.reidExpired.append(Expired(exp['timestamp'], exp['gid'], vector,
                                         exp['frame_count'], exp['first_seen']))
 
@@ -78,7 +78,7 @@ class SceneDebug:
         gid = archived_obj['gid']
         location = Point(archived_obj['location'][0]['point'])
         if not location.is3D:
-          location = Point(location.x, location.y, DEFAULTZ)
+          location = Point([location.x, location.y, DEFAULTZ])
         print("Category", category)
         print("GID", gid)
         print("Expected Location", location)

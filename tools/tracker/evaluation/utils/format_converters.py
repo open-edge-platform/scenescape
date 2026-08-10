@@ -344,6 +344,7 @@ def convert_canonical_to_motchallenge_csv(
 
   # Convert tracker outputs to CSV rows
   rows = []
+  seen_frame_ids: set = set()
   for scene_data in tracker_outputs:
     # Calculate frame number from timestamp
     timestamp = datetime.fromisoformat(
@@ -360,6 +361,10 @@ def convert_canonical_to_motchallenge_csv(
         uuid_to_id_map[uuid] = next_id
         next_id += 1
       track_id = uuid_to_id_map[uuid]
+
+      if (frame, track_id) in seen_frame_ids:
+        continue
+      seen_frame_ids.add((frame, track_id))
 
       # Extract 3D position
       translation = obj["translation"]

@@ -1,21 +1,25 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import itertools
-from types import SimpleNamespace
 from typing import Optional
+
 import numpy as np
+
 import robot_vision as rv
-from controller.controller_mode import ControllerMode
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
-from scene_common.geometry import Line, Point, Region, Tripwire
+from scene_common.geometry import Point
 from scene_common.scene_model import SceneModel
-from scene_common.timestamp import get_epoch_time, get_iso_time
+from scene_common.timestamp import get_epoch_time
 from scene_common.transform import CameraPose
-from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
+from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY
 
+from scene_common.camera_registry import CameraRegistry
+from scene_common.reid_constants import REID_PROVENANCE_KEY
+from controller.pose_adjustment import (PoseAdjustment,
+                                        MIN_POSE_CACHE_TTL,
+                                        POSE_CACHE_TTL_MULTIPLIER)
 from controller.ilabs_tracking import IntelLabsTracking
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -25,6 +29,26 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
 
 DEBOUNCE_DELAY = 0.5
+MIN_FRAMES_FOR_RELIABLE_TRACK = 3
+
+
+def stripReidProvenance(detections):
+  """
+  Remove claimed embedding provenance from detections arriving on a camera topic.
+
+  Provenance means "another scene vetted this crop with a pixel bbox before forwarding
+  it". A detector is judged by the bbox it sends, so honoring such a claim from one
+  would only let it skip the quality gate it exists to satisfy.
+
+  @param  detections  List of detection dicts, modified in place
+  """
+  for detection in detections:
+    metadata = detection.get('metadata')
+    if isinstance(metadata, dict):
+      reid = metadata.get('reid')
+      if isinstance(reid, dict):
+        reid.pop(REID_PROVENANCE_KEY, None)
+  return
 
 class TripwireEvent:
   def __init__(self, object, direction):
@@ -47,10 +71,10 @@ class Scene(SceneModel):
                time_chunking_enabled = False,
                time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS,
                suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
-               reid_config_data = None):
+               reid_config_data = None,
+               pose_adjustment_config_data = None):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
-             non_measurement_time_dynamic, non_measurement_time_static,
-             "analytics_only=" + str(ControllerMode.isAnalyticsOnly()))
+             non_measurement_time_dynamic, non_measurement_time_static)
     super().__init__(name, map_file, scale)
     self.ref_camera_frame_rate = time_chunking_rate_fps if time_chunking_enabled else effective_object_update_rate
     self.max_unreliable_time = max_unreliable_time
@@ -58,24 +82,25 @@ class Scene(SceneModel):
     self.non_measurement_time_static = non_measurement_time_static
     self.suspended_track_timeout_secs = suspended_track_timeout_secs
     self.reid_config_data = reid_config_data if reid_config_data else {}
+    self.pose_adjustment_config_data = (
+      pose_adjustment_config_data if pose_adjustment_config_data else {}
+    )
+
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
     self.time_chunking_rate_fps = time_chunking_rate_fps
 
-    if not ControllerMode.isAnalyticsOnly():
-      self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
-    else:
-      log.info("Tracker initialization SKIPPED for scene: " + name)
+    self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
 
     self._trs_xyz_to_lla = None
-    self.use_tracker = not ControllerMode.isAnalyticsOnly()
+    self.use_tracker = True
 
-    # Cache for tracked objects from MQTT (for analytics)
-    self.tracked_objects_cache = {}
-
-    # Cache for object history (publishedLocations, etc.) to maintain trails across frames
-    self.object_history_cache = {}
+    self.pose_adjustment = PoseAdjustment.from_env(
+      max_entry_age_seconds=self._get_pose_cache_ttl(),
+      default_enabled=True,
+      pose_adjustment_config_data=self.pose_adjustment_config_data,
+    )
 
     # FIXME - only for backwards compatibility
     self.scale = scale
@@ -89,6 +114,9 @@ class Scene(SceneModel):
     self.trackerType = trackerType
     log.info("SETTING TRACKER TYPE", trackerType)
 
+    if self.tracker is not None:
+      self.tracker.join()
+
     args = (self.max_unreliable_time,
             self.non_measurement_time_dynamic,
             self.non_measurement_time_static)
@@ -97,9 +125,24 @@ class Scene(SceneModel):
     elif trackerType == "time_chunked_intel_labs":
       args += (self.time_chunking_rate_fps, self.suspended_track_timeout_secs, self.reid_config_data)
     self.tracker = self.available_trackers[self.trackerType](*args)
+    self.tracker.uuid_manager.scene_id = self.name
     return
 
-  def updateScene(self, scene_data):
+  def _hydrateFromSceneData(self, scene_data, reid_runtime_update=True):
+    # Rename must happen before anything below that keys process-wide state
+    # (CameraRegistry via updateCameras(), UUIDManager.scene_id via
+    # updateTracker()/_setTracker()) off of self.name -- otherwise a rename
+    # applied in the same update as a camera/tracker-config change gets
+    # recorded under the stale, pre-rename scene name.
+    self.name = scene_data['name']
+
+    reid_config_changed = False
+    if 'reid_config_data' in scene_data:
+      new_reid_config_data = scene_data['reid_config_data']
+      reid_config_changed = new_reid_config_data != self.reid_config_data
+      if reid_config_changed:
+        self.reid_config_data = new_reid_config_data
+
     self.parent = scene_data.get('parent', None)
     self.cameraPose = None
     if 'transform' in scene_data:
@@ -107,18 +150,23 @@ class Scene(SceneModel):
     self.use_tracker = scene_data.get('use_tracker', True)
     self.output_lla = scene_data.get('output_lla', False)
     self.map_corners_lla = scene_data.get('map_corners_lla', None)
+    self.retrack = scene_data.get('retrack', True)
+    self.persist_attributes = scene_data.get('persist_attributes', {})
     self._updateChildren(scene_data.get('children', []))
     self.updateCameras(scene_data.get('cameras', []))
-    self._updateRegions(self.regions, scene_data.get('regions', []))
-    self._updateTripwires(scene_data.get('tripwires', []))
-    self._updateRegions(self.sensors, scene_data.get('sensors', []))
-    # Update reid config if provided
-    if 'reid_config_data' in scene_data:
-      self.reid_config_data = scene_data['reid_config_data']
+    # Regions, tripwires, and sensors are owned by the Analytics service;
+    # Controller only needs cameras (+ children) for tracking and visibility.
+
     tracker_config = scene_data.get('tracker_config', None)
     if tracker_config:
       self.updateTracker(tracker_config[0], tracker_config[1], tracker_config[2])
-    self.name = scene_data['name']
+
+    # Apply ReID config changes in-place to preserve active tracks while
+    # updating UUID manager thresholds and timers.
+    if reid_runtime_update and reid_config_changed and self.trackerType:
+      log.info(f"ReID config changed for scene={self.uid}; updating tracker ReID runtime config")
+      self.tracker.updateReidConfig(self.reid_config_data)
+
     if 'scale' in scene_data:
       self.scale = scene_data['scale']
     if 'regulated_rate' in scene_data:
@@ -128,6 +176,10 @@ class Scene(SceneModel):
     self._invalidate_trs_xyz_to_lla()
     # Access the property to trigger initialization
     _ = self.trs_xyz_to_lla
+    return
+
+  def updateScene(self, scene_data):
+    self._hydrateFromSceneData(scene_data, reid_runtime_update=True)
     return
 
   def updateTracker(self, max_unreliable_time, non_measurement_time_dynamic,
@@ -140,7 +192,12 @@ class Scene(SceneModel):
       self.non_measurement_time_dynamic = non_measurement_time_dynamic
       self.non_measurement_time_static = non_measurement_time_static
       self._setTracker(self.trackerType)
+    if self.pose_adjustment is not None:
+      self.pose_adjustment.set_max_entry_age_seconds(self._get_pose_cache_ttl())
     return
+
+  def _get_pose_cache_ttl(self):
+    return max(MIN_POSE_CACHE_TTL, self.max_unreliable_time * POSE_CACHE_TTL_MULTIPLIER)
 
   def _createMovingObjectsForDetection(self, detectionType, detections, when, camera):
     objects = []
@@ -157,9 +214,6 @@ class Scene(SceneModel):
     return objects
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
-    if ControllerMode.isAnalyticsOnly():
-      return True
-
     camera_id = jdata['id']
     camera = None
 
@@ -180,6 +234,14 @@ class Scene(SceneModel):
       return True
 
     for detection_type, detections in jdata['objects'].items():
+      stripReidProvenance(detections)
+      self.pose_adjustment.adjust_detections(
+        detection_type,
+        detections,
+        self.name,
+        camera,
+        when,
+      )
       if "intrinsics" not in jdata:
         self._convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
       objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
@@ -236,10 +298,6 @@ class Scene(SceneModel):
   def processSceneData(self, jdata, child, cameraPose,
                        detectionType, when=None):
 
-    if ControllerMode.isAnalyticsOnly():
-      log.debug(f"Analytics-only mode enabled, skipping scene data processing for child {child.name if hasattr(child, 'name') else 'unknown'}")
-      return True
-
     new = jdata['objects']
 
     objects = []
@@ -255,9 +313,24 @@ class Scene(SceneModel):
       translation = np.matmul(cameraPose.pose_mat, translation)
       info['translation'] = translation[:3]
 
-      # Remove reid vector from the object info as tracker does not support reid from scene hierarchy
-      if 'reid' in info:
-        info.pop('reid')
+      # Embeddings travel nested under metadata (see detections_builder.prepareObjDict);
+      # a top-level 'reid' key is never produced by a child scene and would bypass the
+      # provenance the receiving scope relies on, so drop it.
+      info.pop('reid', None)
+
+      if not child.retrack:
+        # retrack=False: the child's own gid/identity resolution is trusted as-is and carried
+        # forward via setGID/setPrevious in mergeAlreadyTrackedObjects. These objects never
+        # reach uuid_manager.assignID, so a forwarded embedding would be dead weight here.
+        metadata = info.get('metadata')
+        if isinstance(metadata, dict):
+          metadata.pop('reid', None)
+      # retrack=True: leave metadata.reid intact. The parent re-runs its own tracker and
+      # UUIDManager over these detections so that observations of one person arriving from
+      # several children (and from the parent's own cameras) collapse into a single track.
+      # The forwarded embedding is what makes that merge possible, and its provenance says
+      # which camera vetted it -- the parent queries with it but never enrolls it, since the
+      # originating scene already owns that crop's contribution to the shared database.
 
       mobj = self.tracker.createObject(detectionType, info, when, child, self.persist_attributes.get(detectionType, {}))
       log.debug("RX SCENE OBJECT",
@@ -271,312 +344,20 @@ class Scene(SceneModel):
     return True
 
   def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
-    self._updateVisible(objects)
-    if not ControllerMode.isAnalyticsOnly():
-      self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
-                                self.ref_camera_frame_rate,
-                                self.max_unreliable_time,
-                                self.non_measurement_time_dynamic,
-                                self.non_measurement_time_static,
-                                self.use_tracker)
-    self._updateEvents(detectionType, when)
+    # Compute camera visibility for both retracked objects (fed into this
+    # scene's own tracker) and already-tracked/retrack=False objects (merged
+    # in as-is): both are published on this scene's output topics and can be
+    # looked up by computeCameraBounds() when visibility_topic is 'regulated',
+    # which requires obj.visibility (and therefore obj_dict['visibility']) to
+    # be set regardless of which path an object came from.
+    self._updateVisible(objects + already_tracked_objects)
+    self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
+                              self.ref_camera_frame_rate,
+                              self.max_unreliable_time,
+                              self.non_measurement_time_dynamic,
+                              self.non_measurement_time_static,
+                              self.use_tracker)
     return
-
-  def _updateSensorObjects(self, name, sensor, objects=None):
-    if not hasattr(sensor, 'value'):
-      return
-
-    if objects is None:
-      objects = itertools.chain.from_iterable(sensor.objects.values())
-
-    for obj in objects:
-      if name not in obj.chain_data.sensors:
-        obj.chain_data.sensors[name] = []
-      ts_str = get_iso_time(sensor.lastWhen)
-      existing = [x[0] for x in obj.chain_data.sensors[name]]
-      if ts_str not in existing:
-        obj.chain_data.sensors[name].append((ts_str, sensor.value))
-    return
-
-  def processSensorData(self, jdata, when):
-    sensor_id = jdata['id']
-    sensor = None
-
-    if sensor_id in self.sensors:
-      sensor = self.sensors[sensor_id]
-    else:
-      log.error("Unknown sensor", sensor_id, self.sensors)
-      return False
-
-    if hasattr(sensor, 'lastWhen') and sensor.lastWhen is not None and when <= sensor.lastWhen:
-      log.info("DISCARDING PAST DATA", sensor_id, when)
-      return True
-
-    self.events = {}
-    old_value = getattr(sensor, 'value', None)
-    cur_value = jdata['value']
-    self.events['value'] = [(sensor_id, sensor)]
-    sensor.value = cur_value
-    sensor.lastValue = old_value
-    sensor.lastWhen = when
-    self._updateSensorObjects(sensor_id, sensor)
-
-    return True
-
-  def updateTrackedObjects(self, detection_type, objects):
-    """
-    Update the cache of tracked objects from MQTT.
-    This is used by Analytics to consume tracked objects published by the Tracker service.
-
-    Args:
-        detection_type: The type of detection (e.g., 'person', 'vehicle')
-        objects: List of tracked objects for this detection type
-    """
-    self.tracked_objects_cache[detection_type] = objects
-    return
-
-  def getTrackedObjects(self, detection_type):
-    """
-    Get tracked objects from cache (MQTT) or direct tracker call.
-
-    Args:
-        detection_type: The type of detection
-
-    Returns:
-        List of tracked objects (MovingObject instances or deserialized object-like structures)
-    """
-    # If analytics-only mode is enabled, only use MQTT cache (from separate Tracker service)
-    if ControllerMode.isAnalyticsOnly():
-      if detection_type in self.tracked_objects_cache:
-        cached_objects = self.tracked_objects_cache[detection_type]
-        return self._deserializeTrackedObjects(cached_objects)
-      return []
-
-    # If tracker is enabled, use direct tracker call (traditional mode)
-    if self.tracker is not None:
-      log.debug(f"Using direct tracker call for detection type: {detection_type}")
-      return self.tracker.currentObjects(detection_type)
-
-    return []
-
-  def _deserializeTrackedObjects(self, serialized_objects):
-    """
-    Convert serialized tracked objects to a format usable by Analytics.
-    This creates lightweight wrappers that mimic MovingObject interface.
-    If objects are already deserialized, returns them as-is.
-
-    Args:
-        serialized_objects: List of serialized object dictionaries or already deserialized objects
-
-    Returns:
-        List of object-like structures with necessary attributes
-    """
-
-    if not serialized_objects or not isinstance(serialized_objects, list):
-      return serialized_objects if serialized_objects else []
-
-    if len(serialized_objects) > 0 and not isinstance(serialized_objects[0], dict):
-      return serialized_objects
-
-    objects = []
-    for obj_data in serialized_objects:
-      if not isinstance(obj_data, dict):
-        continue
-      obj = SimpleNamespace()
-      obj.gid = obj_data.get('id')
-      obj.category = obj_data.get('type', obj_data.get('category'))
-      obj.sceneLoc = Point(obj_data.get('translation', [0, 0, 0]))
-      obj.velocity = Point(obj_data.get('velocity', [0, 0, 0])) if obj_data.get('velocity') else None
-      obj.size = obj_data.get('size')
-      obj.confidence = obj_data.get('confidence')
-      obj.frameCount = obj_data.get('frame_count', 0)
-      obj.rotation = obj_data.get('rotation')
-      # Extract reid from metadata if present
-      metadata = obj_data.get('metadata', {})
-      obj.reid = metadata.get('reid') if metadata else None
-      obj.similarity = obj_data.get('similarity')
-      obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
-      obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
-
-      obj_id = obj.gid
-      if 'first_seen' in obj_data:
-        obj.when = get_epoch_time(obj_data.get('first_seen'))
-        obj.first_seen = obj.when
-        # Cache the first_seen from MQTT data
-        if obj_id not in self.object_history_cache:
-          self.object_history_cache[obj_id] = {}
-        self.object_history_cache[obj_id]['first_seen'] = obj.when
-      else:
-        # Check if we have a cached first_seen timestamp
-        if obj_id in self.object_history_cache and 'first_seen' in self.object_history_cache[obj_id]:
-          obj.when = self.object_history_cache[obj_id]['first_seen']
-          obj.first_seen = obj.when
-        else:
-          # First time seeing this object, record current time
-          current_time = get_epoch_time()
-          obj.when = current_time
-          obj.first_seen = current_time
-          if obj_id not in self.object_history_cache:
-            self.object_history_cache[obj_id] = {}
-          self.object_history_cache[obj_id]['first_seen'] = current_time
-          log.debug(f"First time seeing object id {obj_data.get('id')} from MQTT; setting first_seen to current time: {current_time}")
-      obj.visibility = obj_data.get('visibility', [])
-
-      obj.info = {
-        'category': obj.category,
-        'confidence': obj.confidence,
-      }
-
-      if 'center_of_mass' in obj_data:
-        obj.info['center_of_mass'] = obj_data['center_of_mass']
-
-      if 'camera_bounds' in obj_data and obj_data['camera_bounds']:
-        obj._camera_bounds = obj_data['camera_bounds']
-      else:
-        obj._camera_bounds = None
-
-      obj.chain_data = SimpleNamespace()
-      obj.chain_data.regions = obj_data.get('regions', {})
-      obj.chain_data.sensors = obj_data.get('sensors', {})
-      obj.chain_data.persist = obj_data.get('persistent_data', {})
-
-      obj_id = obj.gid
-      if obj_id in self.object_history_cache:
-        obj.chain_data.publishedLocations = self.object_history_cache[obj_id].get('publishedLocations', [])
-      else:
-        obj.chain_data.publishedLocations = []
-        self.object_history_cache[obj_id] = {}
-
-      # Store current object data for next frame
-      self.object_history_cache[obj_id]['publishedLocations'] = obj.chain_data.publishedLocations
-      self.object_history_cache[obj_id]['last_seen'] = obj.sceneLoc
-
-      objects.append(obj)
-
-    return objects
-
-  def _updateEvents(self, detectionType, now, curObjects=None):
-    self.events = {}
-    now_str = get_iso_time(now)
-    if curObjects is None:
-      if ControllerMode.isAnalyticsOnly():
-        curObjects = self.getTrackedObjects(detectionType)
-      else:
-        curObjects = self.tracker.currentObjects(detectionType) if self.tracker else []
-    for obj in curObjects:
-      obj.chain_data.publishedLocations.insert(0, obj.sceneLoc)
-
-    self._updateRegionEvents(detectionType, self.regions, now, now_str, curObjects)
-    self._updateRegionEvents(detectionType, self.sensors, now, now_str, curObjects)
-
-    self._updateTripwireEvents(detectionType, now, curObjects)
-    return
-
-  def _updateTripwireEvents(self, detectionType, now, curObjects):
-    for key in self.tripwires:
-      tripwire = self.tripwires[key]
-      tripwireObjects = tripwire.objects.get(detectionType, [])
-      objects = []
-      for obj in curObjects:
-        age = now - obj.when
-        # When tracker is disabled, skip the frameCount check and consider all objects;
-        # otherwise, only consider objects with frameCount > 3 as reliable.
-        if (obj.frameCount > 3 or ControllerMode.isAnalyticsOnly()) \
-          and len(obj.chain_data.publishedLocations) > 1:
-          d = tripwire.lineCrosses(Line(obj.chain_data.publishedLocations[0].as2Dxy,
-                                        obj.chain_data.publishedLocations[1].as2Dxy))
-          if d != 0:
-            event = TripwireEvent(obj, -d)
-            objects.append(event)
-
-      if len(tripwireObjects) != len(objects) \
-         and now - tripwire.when > DEBOUNCE_DELAY:
-        log.debug("TRIPWIRE EVENT", tripwireObjects, len(objects))
-        tripwire.objects[detectionType] = objects
-        tripwire.when = now
-        if 'objects' not in self.events:
-          self.events['objects'] = []
-        self.events['objects'].append((key, tripwire))
-    return
-
-  def _updateRegionEvents(self, detectionType, regions, now, now_str, curObjects):
-    updated = set()
-    for key in regions:
-      region = regions[key]
-      regionObjects = region.objects.get(detectionType, [])
-      objects = []
-      for obj in curObjects:
-        # When tracker is disabled, skip the frameCount check and consider all objects;
-        # otherwise, only consider objects with frameCount > 3 as reliable.
-        if (obj.frameCount > 3 or ControllerMode.isAnalyticsOnly()) \
-           and (region.isPointWithin(obj.sceneLoc) or self.isIntersecting(obj, region)):
-          objects.append(obj)
-
-      cur = set(x.gid for x in objects)
-      prev = set(x.gid for x in regionObjects)
-      new = cur - prev
-      old = prev - cur
-      newObjects = [x for x in objects if x.gid in new]
-      for obj in newObjects:
-        if key not in obj.chain_data.regions:
-          obj.chain_data.regions[key] = {'entered': now_str}
-          updated.add(key)
-
-      # For sensors add the current sensor value to any new objects
-      if hasattr(region, 'value') and region.singleton_type=="environmental":
-        for obj in newObjects:
-          obj.chain_data.sensors[key] = []
-        self._updateSensorObjects(key, region, newObjects)
-
-      if (len(new) or len(old)) and now - region.when > DEBOUNCE_DELAY:
-        log.debug("REGION EVENT", key, now_str, regionObjects, len(objects))
-        entered = []
-        for obj in objects:
-          if obj.gid in new and key in obj.chain_data.regions:
-            entered.append(obj)
-        if not hasattr(region, 'entered'):
-          region.entered = {}
-        region.entered[detectionType] = entered
-
-        exited = []
-        for obj in regionObjects:
-          if obj.gid in old:
-            if key in obj.chain_data.regions:
-              entered = get_epoch_time(obj.chain_data.regions[key]['entered'])
-              dwell = now - entered
-              exited.append((obj, dwell))
-            obj.chain_data.regions.pop(key, None)
-        if not hasattr(region, 'exited'):
-          region.exited = {}
-        region.exited[detectionType] = exited
-
-        region.objects[detectionType] = objects
-        updated.add(key)
-        region.when = now
-        if 'objects' not in self.events:
-          self.events['objects'] = []
-        self.events['objects'].append((key, region))
-        if len(cur) != len(prev):
-          if 'count' not in self.events:
-            self.events['count'] = []
-          self.events['count'].append((key, region))
-
-    return updated
-
-  def isIntersecting(self, obj, region):
-    if not region.compute_intersection:
-      return False
-
-    if region.mesh is None:
-      createRegionMesh(region)
-
-    try:
-      createObjectMesh(obj)
-    except ValueError as e:
-      log.info(f"Error creating object mesh for intersection check: {e}")
-      return False
-
-    return obj.mesh.is_intersecting(region.mesh)
 
   def _updateVisible(self, curObjects):
     """! Update the visibility of objects from cameras in the scene."""
@@ -595,38 +376,17 @@ class Scene(SceneModel):
   @classmethod
   def deserialize(cls, data):
     tracker_config = data.get('tracker_config', [])
+    reid_config_data = data.get('reid_config_data', None)
+    pose_adjustment_config_data = data.get('pose_adjustment_config_data', None)
     scale_from_data = data.get('scale', None)
     scene = cls(data['name'], data.get('map', None), scale_from_data,
-                *tracker_config)
+                *tracker_config,
+                reid_config_data=reid_config_data,
+                pose_adjustment_config_data=pose_adjustment_config_data)
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)
-    scene.use_tracker = data.get('use_tracker', True) and not ControllerMode.isAnalyticsOnly()
-    scene.output_lla = data.get('output_lla', None)
-    scene.map_corners_lla = data.get('map_corners_lla', None)
-    scene.retrack = data.get('retrack', True)
-    scene.regulated_rate = data.get('regulated_rate', None)
-    scene.external_update_rate = data.get('external_update_rate', None)
-    scene.persist_attributes = data.get('persist_attributes', {})
-    if 'cameras' in data:
-      scene.updateCameras(data['cameras'])
-    if 'regions' in data:
-      scene._updateRegions(scene.regions, data['regions'])
-    if 'tripwires' in data:
-      scene._updateTripwires(data['tripwires'])
-    if 'sensors' in data:
-      scene._updateRegions(scene.sensors, data['sensors'])
-    if 'children' in data:
-      scene.children = [x['name'] for x in data['children']]
-    if 'parent' in data:
-      scene.parent = data['parent']
-    if 'transform' in data:
-      scene.cameraPose = CameraPose(data['transform'], None)
-    if 'tracker_config' in data:
-      tracker_config = data['tracker_config']
-      scene.updateTracker(tracker_config[0], tracker_config[1], tracker_config[2])
-    # Access the property to trigger initialization
-    _ = scene.trs_xyz_to_lla
+    scene._hydrateFromSceneData(data, reid_runtime_update=False)
     return scene
 
   def _updateChildren(self, newChildren):
@@ -642,36 +402,7 @@ class Scene(SceneModel):
     deleted = old - new
     for camID in deleted:
       self.cameras.pop(camID)
-    return
-
-  def _updateRegions(self, existingRegions, newRegions):
-    old = set(existingRegions.keys())
-    new = set([x['uid'] for x in newRegions])
-    for regionData in newRegions:
-      region_uuid = regionData['uid']
-      region_name = regionData['name']
-      if region_uuid in existingRegions:
-        existingRegions[region_uuid].updatePoints(regionData)
-        existingRegions[region_uuid].updateSingletonType(regionData)
-        existingRegions[region_uuid].updateVolumetricInfo(regionData)
-        existingRegions[region_uuid].name = region_name
-      else:
-        existingRegions[region_uuid] = Region(region_uuid, region_name, regionData)
-    deleted = old - new
-    for region_uuid in deleted:
-      existingRegions.pop(region_uuid)
-    return
-
-  def _updateTripwires(self, newTripwires):
-    old = set(self.tripwires.keys())
-    new = set([x['uid'] for x in newTripwires])
-    for tripwireData in newTripwires:
-      tripwire_uuid = tripwireData["uid"]
-      tripwire_name = tripwireData['name']
-      self.tripwires[tripwire_uuid] = Tripwire(tripwire_uuid, tripwire_name, tripwireData)
-    deleted = old - new
-    for tripwireID in deleted:
-      self.tripwires.pop(tripwireID)
+    CameraRegistry.getInstance().updateCameras(self.name, self.cameras.keys())
     return
 
   @property

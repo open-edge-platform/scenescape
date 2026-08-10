@@ -1,1556 +1,2913 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-swagger: "2.0"
+openapi: 3.0.3
 info:
-  description: "REST API Spec"
-  version: "0.5"
-  title: "SceneScape REST API"
+  title: Scenescape API
+  version: 1.0.0
+  description: |
+    API for managing and interacting with the Scenescape Manager system, including cameras, scenes, assets and more.
+  contact:
+    name: Scenescape Manager Support
+    url: https://github.com/open-edge-platform/scenescape
   license:
     name: License
     url: "https://github.com/open-edge-platform/scenescape/blob/main/LICENSES/Apache-2.0.txt"
 
-host: "<user-defined>"
-basePath: "/api/v1"
+servers:
+  - url: "https://localhost/api/v1"
+
 tags:
-  - name: "scene"
-    description: "Operations related to scenes"
+  - name: "asset"
+    description: "Operations related to assets"
+  - name: "auth"
+    description: "Operations related to authentication"
+  - name: "calibrationmarker"
+    description: "Operations related to calibration markers"
   - name: "camera"
     description: "Operations related to cameras"
-  - name: "sensor"
-    description: "Operations related to sensors"
+  - name: "child"
+    description: "Operations related to children"
+  - name: "frame"
+    description: "Operations related to camera frames"
   - name: "region"
     description: "Operations related to regions"
+  - name: "scene"
+    description: "Operations related to scenes"
+  - name: "sensor"
+    description: "Operations related to sensors"
   - name: "tripwire"
     description: "Operations related to tripwires"
   - name: "user"
     description: "Operations related to users"
-  - name: "child"
-    description: "Operations related to children"
-  - name: "asset"
-    description: "Operations related to assets"
-# - name: "thing"
-# - name: "mesh"
-#- name: "image"
-#- name: "video"
-# - name: "ai_model"
-# - name: "product_info"
-
-schemes:
-  - "https"
-  - "http"
+  - name: "video"
+    description: "Operations related to camera videos"
 
 paths:
-  #########Scene Graph Nodes
-
-  /scene:
+  /asset:
     post:
       tags:
-        - "scene"
-      summary: "Add new"
-      description: ""
-      operationId: "createScene"
-      consumes:
-        - "application/json"
-        - "application/xml"
-      produces:
-        - "application/json"
-        - "application/xml"
+        - asset
+      operationId: asset_create
+      summary: Create a new asset
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Asset3D"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/Asset3D"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+  /asset/{uid}:
+    get:
+      tags:
+        - asset
+      operationId: asset_detail_retrieve
+      summary: Get an asset by UID
       parameters:
-        - in: "body"
-          name: "body"
-          description: "properties"
+        - in: path
+          name: uid
           schema:
-            $ref: "#/definitions/Scene"
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
       responses:
         "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Scene"
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset3D"
         "400":
-          description: "Bad Request"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  /scene/{UID}:
+          description: Bad request - UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
     put:
       tags:
-        - "scene"
-      summary: "Update existing"
-      description: ""
-      operationId: "updateScene"
-      consumes:
-        - "application/json"
-        - "application/xml"
-      produces:
-        - "application/json"
-        - "application/xml"
+        - asset
+      operationId: asset_detail_update
+      summary: Update an asset by UID
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "properties"
-          required: true
+        - in: path
+          name: uid
           schema:
-            $ref: "#/definitions/Scene"
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Asset3D"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/Asset3D"
+        required: true
+      security:
+        - tokenAuth: []
       responses:
         "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Scene"
+          description: Updated
         "400":
-          description: "Bad Request"
+          description: Validation error or UID required
         "404":
-          description: "Not found"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
+          description: Not found
+        "401":
+          description: Unauthorized
     delete:
       tags:
-        - "scene"
-      summary: "Delete"
-      description: ""
-      operationId: "deleteScene"
-      produces:
-        - "application/json"
-        - "application/xml"
+        - asset
+      operationId: asset_detail_destroy
+      summary: Delete an asset by UID
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
+        - in: path
+          name: uid
+          schema:
+            type: string
           required: true
-          type: "string"
+      security:
+        - tokenAuth: []
       responses:
         "200":
-          description: "successful operation"
+          description: Deleted
         "400":
-          description: "Bad Request"
+          description: UID required or invalid format
         "404":
-          description: "Not found"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-    get:
-      tags:
-        - "scene"
-      summary: "Find by UID"
-      description: ""
-      operationId: "getScene"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Scene"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Not found"
-      security:
-        - api_key: []
-
-  /scenes:
-    get:
-      tags:
-        - "scene"
-      summary: "Get all"
-      description: ""
-      operationId: "getAllScenes"
-      produces:
-        - "application/json"
-        - "application/xml"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/Scene"
-        "400":
-          description: "Invalid status value"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  /camera:
-    post:
-      tags:
-        - "camera"
-      summary: "Add new"
-      description: ""
-      operationId: "createCamera"
-      consumes:
-        - "application/json"
-        - "application/xml"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - in: "body"
-          name: "body"
-          description: "properties"
-          schema:
-            $ref: "#/definitions/CameraProperties"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/CameraProperties"
-        "400":
-          description: "Bad Request"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  /camera/{UID}:
-    put:
-      tags:
-        - "camera"
-      summary: "Update existing"
-      description: ""
-      operationId: "updateCamera"
-      consumes:
-        - "application/json"
-        - "application/xml"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "properties"
-          required: true
-          schema:
-            $ref: "#/definitions/CameraProperties"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/CameraProperties"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Not found"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-    delete:
-      tags:
-        - "camera"
-      summary: "Delete"
-      description: ""
-      operationId: "deleteCamera"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-      responses:
-        "200":
-          description: "successful operation"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Not found"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-    get:
-      tags:
-        - "camera"
-      summary: "Find by UID"
-      description: ""
-      operationId: "getCamera"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/CameraProperties"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Not found"
-      security:
-        - api_key: []
-
-  /cameras:
-    get:
-      tags:
-        - "camera"
-      summary: "Get all"
-      description: ""
-      operationId: "getAllCameras"
-      produces:
-        - "application/json"
-        - "application/xml"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/CameraProperties"
-        "400":
-          description: "Invalid status value"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  /sensor:
-    post:
-      tags:
-        - "sensor"
-      summary: "Add new"
-      description: ""
-      operationId: "createSensor"
-      consumes:
-        - "application/json"
-        - "application/xml"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - in: "body"
-          name: "body"
-          description: "properties"
-          schema:
-            $ref: "#/definitions/Sensor"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Sensor"
-        "400":
-          description: "Bad Request"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  /sensor/{UID}:
-    put:
-      tags:
-        - "sensor"
-      summary: "Update existing"
-      description: ""
-      operationId: "updateSensor"
-      consumes:
-        - "application/json"
-        - "application/xml"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "properties"
-          required: true
-          schema:
-            $ref: "#/definitions/Sensor"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Sensor"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Not found"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-    delete:
-      tags:
-        - "sensor"
-      summary: "Delete"
-      description: ""
-      operationId: "deleteSensor"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-      responses:
-        "200":
-          description: "successful operation"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Not found"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-    get:
-      tags:
-        - "sensor"
-      summary: "Find by UID"
-      description: ""
-      operationId: "getSensor"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Sensor"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Not found"
-      security:
-        - api_key: []
-
-  /sensors:
-    get:
-      tags:
-        - "sensor"
-      summary: "Get all"
-      description: ""
-      operationId: "getAllSensors"
-      produces:
-        - "application/json"
-        - "application/xml"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/Sensor"
-        "400":
-          description: "Invalid status value"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  /region:
-    post:
-      tags:
-        - "region"
-      summary: "Add new"
-      description: ""
-      operationId: "createRegion"
-      consumes:
-        - "application/json"
-        - "application/xml"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - in: "body"
-          name: "body"
-          description: "properties"
-          schema:
-            $ref: "#/definitions/Region"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Region"
-        "400":
-          description: "Bad Request"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  /region/{UID}:
-    put:
-      tags:
-        - "region"
-      summary: "Update existing"
-      description: ""
-      operationId: "updateRegion"
-      consumes:
-        - "application/json"
-        - "application/xml"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "properties"
-          required: true
-          schema:
-            $ref: "#/definitions/Region"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Region"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Not found"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-    delete:
-      tags:
-        - "region"
-      summary: "Delete"
-      description: ""
-      operationId: "deleteRegion"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-      responses:
-        "200":
-          description: "successful operation"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Not found"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-    get:
-      tags:
-        - "region"
-      summary: "Find by UID"
-      description: ""
-      operationId: "getRegion"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Region"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Not found"
-      security:
-        - api_key: []
-
-  /regions:
-    get:
-      tags:
-        - "region"
-      summary: "Get all"
-      description: ""
-      operationId: "getAllRegions"
-      produces:
-        - "application/json"
-        - "application/xml"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/Region"
-        "400":
-          description: "Invalid status value"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  /tripwire:
-    post:
-      tags:
-        - "tripwire"
-      summary: "Add new"
-      description: ""
-      operationId: "createTripwire"
-      consumes:
-        - "application/json"
-        - "application/xml"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - in: "body"
-          name: "body"
-          description: "properties"
-          schema:
-            $ref: "#/definitions/Region"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Region"
-        "400":
-          description: "Bad Request"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  /tripwire/{UID}:
-    put:
-      tags:
-        - "tripwire"
-      summary: "Update existing"
-      description: ""
-      operationId: "updateTripwire"
-      consumes:
-        - "application/json"
-        - "application/xml"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "properties"
-          required: true
-          schema:
-            $ref: "#/definitions/Tripwire"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Tripwire"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Not found"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-    delete:
-      tags:
-        - "tripwire"
-      summary: "Delete"
-      description: ""
-      operationId: "deleteTripwire"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-      responses:
-        "200":
-          description: "successful operation"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Not found"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-    get:
-      tags:
-        - "tripwire"
-      summary: "Find by UID"
-      description: ""
-      operationId: "getTripwire"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Tripwire"
-        "400":
-          description: "Bad Request"
-        "404":
-          description: "Not found"
-      security:
-        - api_key: []
-
-  /tripwires:
-    get:
-      tags:
-        - "tripwire"
-      summary: "Get all"
-      description: ""
-      operationId: "getAllTripwires"
-      produces:
-        - "application/json"
-        - "application/xml"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/Tripwire"
-        "400":
-          description: "Invalid status value"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  /scenes/child:
-    get:
-      tags:
-        - "child"
-      summary: "Get all children"
-      description: ""
-      operationId: "getAllChildren"
-      produces:
-        - "application/json"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/Child"
-        "400":
-          description: "Bad Request"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  /child:
-    post:
-      tags:
-        - "child"
-      summary: "Create child link"
-      description: ""
-      operationId: "createChild"
-      consumes:
-        - "application/json"
-        - "application/xml"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - in: "body"
-          name: "body"
-          description: "properties"
-          schema:
-            $ref: "#/definitions/Child"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Child"
-        "400":
-          description: "Bad Request"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  /child/{UID}:
-    put:
-      tags:
-        - "child"
-      summary: "Update child link"
-      description: ""
-      operationId: "updateChild"
-      consumes:
-        - "application/json"
-        - "application/xml"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
-          required: true
-          type: "string"
-      responses:
-        "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Child"
-        "400":
-          description: "Bad Request"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  #########Assets
-
+          description: Not found
+        "401":
+          description: Unauthorized
   /assets:
     get:
       tags:
-        - "asset"
-      summary: "Get all 3d assets"
-      description: ""
-      operationId: "getAllAssets"
-      produces:
-        - "application/json"
+        - asset
+      operationId: assets_retrieve
+      summary: List all assets
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: name
+          required: false
+          in: query
+          description: Filter by asset name.
+          schema:
+            type: string
+        - name: id
+          required: false
+          in: query
+          description: Filter by asset ID.
+          schema:
+            type: string
+      security:
+        - tokenAuth: []
       responses:
         "200":
-          description: "successful operation"
-          schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/Asset"
-        "400":
-          description: "Bad Request"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedAsset3DList"
+          description: ""
+        "401":
+          description: Unauthorized
+  /auth:
     post:
       tags:
-        - "asset"
-      summary: "Add new 3d asset"
-      description: ""
-      operationId: "createAsset"
-      consumes:
-        - "application/json"
-        - "application/xml"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - in: "body"
-          name: "body"
-          description: "properties"
-          schema:
-            $ref: "#/definitions/Asset"
+        - auth
+      operationId: auth_create
+      summary: Obtain authentication token
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/CustomAuthToken"
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomAuthToken"
+        required: true
+      security: []
       responses:
         "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Asset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokenResponse"
+          description: ""
         "400":
-          description: "Bad Request"
+          description: Invalid credentials
+        "401":
+          description: Unauthorized
+        "411":
+          description: Length Required - missing Content-Length header
+  /calibrationmarker:
+    post:
+      tags:
+        - calibrationmarker
+      operationId: calibrationmarker_create
+      summary: Create a calibration marker
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalibrationMarker"
+        required: true
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  /asset/{UID}:
+        - tokenAuth: []
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+  /calibrationmarker/{marker_id}:
+    get:
+      tags:
+        - calibrationmarker
+      operationId: calibrationmarker_detail_retrieve
+      summary: Get a calibration marker by marker ID
+      parameters:
+        - in: path
+          name: marker_id
+          schema:
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalibrationMarker"
+        "400":
+          description: Bad request - UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
     put:
       tags:
-        - "asset"
-      summary: "Update existing 3d asset"
-      description: ""
-      operationId: "updateAsset"
-      consumes:
-        - "application/json"
-        - "application/xml"
-      produces:
-        - "application/json"
-        - "application/xml"
+        - calibrationmarker
+      operationId: calibrationmarker_detail_update
+      summary: Update a calibration marker by marker ID
       parameters:
-        - name: "UID"
-          in: "path"
-          description: ""
+        - in: path
+          name: marker_id
+          schema:
+            type: string
           required: true
-          type: "string"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalibrationMarker"
+        required: true
+      security:
+        - tokenAuth: []
       responses:
         "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Asset"
+          description: Updated
         "400":
-          description: "Bad Request"
+          description: Validation error or UID required
         "404":
-          description: "Not found"
+          description: Not found
+        "401":
+          description: Unauthorized
+    delete:
+      tags:
+        - calibrationmarker
+      operationId: calibrationmarker_detail_destroy
+      summary: Delete a calibration marker by marker ID
+      parameters:
+        - in: path
+          name: marker_id
+          schema:
+            type: string
+          required: true
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  #########User
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Deleted
+        "400":
+          description: UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+  /calibrationmarkers:
+    get:
+      tags:
+        - calibrationmarker
+      operationId: calibrationmarkers_retrieve
+      summary: List all calibration markers
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: name
+          required: false
+          in: query
+          description: Filter by marker name.
+          schema:
+            type: string
+        - name: scene
+          required: false
+          in: query
+          description: Filter by scene UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          required: false
+          in: query
+          description: Filter by marker ID.
+          schema:
+            type: string
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedCalibrationMarkerList"
+          description: ""
+        "401":
+          description: Unauthorized
+  /camera:
+    post:
+      tags:
+        - camera
+      operationId: camera_create
+      summary: Create a camera
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Cam"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+  /camera/{sensor_id}:
+    get:
+      tags:
+        - camera
+      operationId: camera_detail_retrieve
+      summary: Get a camera by sensor ID
+      parameters:
+        - in: path
+          name: sensor_id
+          schema:
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cam"
+        "400":
+          description: Bad request - UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    put:
+      tags:
+        - camera
+      operationId: camera_detail_update
+      summary: Update a camera by sensor ID
+      parameters:
+        - in: path
+          name: sensor_id
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Cam"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+        "400":
+          description: Validation error or UID required
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    delete:
+      tags:
+        - camera
+      operationId: camera_detail_destroy
+      summary: Delete a camera by sensor ID
+      parameters:
+        - in: path
+          name: sensor_id
+          schema:
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Deleted
+        "400":
+          description: UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+  /cameras:
+    get:
+      tags:
+        - camera
+      operationId: cameras_retrieve
+      summary: List all cameras
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: name
+          required: false
+          in: query
+          description: Filter by camera name.
+          schema:
+            type: string
+        - name: scene
+          required: false
+          in: query
+          description: Filter by scene UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          required: false
+          in: query
+          description: Filter by camera ID.
+          schema:
+            type: string
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedCamList"
+          description: ""
+        "401":
+          description: Unauthorized
+  /child:
+    post:
+      tags:
+        - child
+      operationId: child_create
+      summary: Create a child scene
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChildScene"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+  /child/{uid}:
+    get:
+      tags:
+        - child
+      operationId: child_detail_retrieve
+      summary: Get a child scene by UID
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChildScene"
+        "400":
+          description: Bad request - UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    put:
+      tags:
+        - child
+      operationId: child_detail_update
+      summary: Update a child scene by UID
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChildScene"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+        "400":
+          description: Validation error or UID required
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    delete:
+      tags:
+        - child
+      operationId: child_detail_destroy
+      summary: Delete a child scene by UID
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Deleted
+        "400":
+          description: UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+  /scenes/child:
+    get:
+      tags:
+        - child
+      operationId: scenes_child_list
+      summary: List all child scene links
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: parent
+          required: false
+          in: query
+          description: Filter by parent scene UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          required: false
+          in: query
+          description: Filter by child scene link ID.
+          schema:
+            type: string
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedChildSceneList"
+        "401":
+          description: Unauthorized
+  /frame:
+    get:
+      tags:
+        - frame
+      operationId: frame_retrieve
+      summary: Get a camera frame
+      parameters:
+        - in: query
+          name: camera
+          schema:
+            type: string
+          description: Camera ID
+          required: true
+        - in: query
+          name: timestamp
+          schema:
+            type: string
+          description: ISO timestamp (required for frame)
+          required: true
+        - in: query
+          name: type
+          schema:
+            type: string
+          description: Frame type filter
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Frame data or video file
+        "404":
+          description: Not found
+        "503":
+          description: Broker unavailable
+        "401":
+          description: Unauthorized
+  /region:
+    post:
+      tags:
+        - region
+      operationId: region_create
+      summary: Create a region
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Region"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+  /region/{uid}:
+    get:
+      tags:
+        - region
+      operationId: region_detail_retrieve
+      summary: Get a region by UID
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Region"
+        "400":
+          description: Bad request - UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    put:
+      tags:
+        - region
+      operationId: region_detail_update
+      summary: Update a region by UID
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Region"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+        "400":
+          description: Validation error or UID required
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    delete:
+      tags:
+        - region
+      operationId: region_detail_destroy
+      summary: Delete a region by UID
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Deleted
+        "400":
+          description: UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+  /regions:
+    get:
+      tags:
+        - region
+      operationId: regions_retrieve
+      summary: List all regions
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: name
+          required: false
+          in: query
+          description: Filter by region name.
+          schema:
+            type: string
+        - name: scene
+          required: false
+          in: query
+          description: Filter by scene UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          required: false
+          in: query
+          description: Filter by region ID.
+          schema:
+            type: string
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedRegionList"
+          description: ""
+        "401":
+          description: Unauthorized
+  /scene:
+    post:
+      tags:
+        - scene
+      operationId: scene_create
+      summary: Create a scene
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Scene"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/Scene"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+  /scene/{uid}:
+    get:
+      tags:
+        - scene
+      operationId: scene_detail_retrieve
+      summary: Get a scene by UID
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scene"
+        "400":
+          description: Bad request - UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    put:
+      tags:
+        - scene
+      operationId: scene_detail_update
+      summary: Update a scene by UID
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Scene"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/Scene"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+        "400":
+          description: Validation error or UID required
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    delete:
+      tags:
+        - scene
+      operationId: scene_detail_destroy
+      summary: Delete a scene by UID
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Deleted
+        "400":
+          description: UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+  /scenes:
+    get:
+      tags:
+        - scene
+      operationId: scenes_retrieve
+      summary: List all scenes
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: name
+          required: false
+          in: query
+          description: Filter by scene name.
+          schema:
+            type: string
+        - name: parent
+          required: false
+          in: query
+          description: Filter by parent scene UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          required: false
+          in: query
+          description: Filter by scene ID.
+          schema:
+            type: string
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedSceneList"
+          description: ""
+        "401":
+          description: Unauthorized
+  /sensor:
+    post:
+      tags:
+        - sensor
+      operationId: sensor_create
+      summary: Create a sensor
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Singleton"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+  /sensor/{sensor_id}:
+    get:
+      tags:
+        - sensor
+      operationId: sensor_detail_retrieve
+      summary: Get a sensor by sensor ID
+      parameters:
+        - in: path
+          name: sensor_id
+          schema:
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Singleton"
+        "400":
+          description: Bad request - UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    put:
+      tags:
+        - sensor
+      operationId: sensor_detail_update
+      summary: Update a sensor by sensor ID
+      parameters:
+        - in: path
+          name: sensor_id
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Singleton"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+        "400":
+          description: Validation error or UID required
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    delete:
+      tags:
+        - sensor
+      operationId: sensor_detail_destroy
+      summary: Delete a sensor by sensor ID
+      parameters:
+        - in: path
+          name: sensor_id
+          schema:
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Deleted
+        "400":
+          description: UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+  /sensors:
+    get:
+      tags:
+        - sensor
+      operationId: sensors_retrieve
+      summary: List all sensors
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: name
+          required: false
+          in: query
+          description: Filter by sensor name.
+          schema:
+            type: string
+        - name: scene
+          required: false
+          in: query
+          description: Filter by scene UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          required: false
+          in: query
+          description: Filter by sensor ID.
+          schema:
+            type: string
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedSingletonList"
+          description: ""
+        "401":
+          description: Unauthorized
+  /tripwire:
+    post:
+      tags:
+        - tripwire
+      operationId: tripwire_create
+      summary: Create a tripwire
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Tripwire"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+  /tripwire/{uid}:
+    get:
+      tags:
+        - tripwire
+      operationId: tripwire_detail_retrieve
+      summary: Get a tripwire by UID
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tripwire"
+        "400":
+          description: Bad request - UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    put:
+      tags:
+        - tripwire
+      operationId: tripwire_detail_update
+      summary: Update a tripwire by UID
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Tripwire"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+        "400":
+          description: Validation error or UID required
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    delete:
+      tags:
+        - tripwire
+      operationId: tripwire_detail_destroy
+      summary: Delete a tripwire by UID
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Deleted
+        "400":
+          description: UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+  /tripwires:
+    get:
+      tags:
+        - tripwire
+      operationId: tripwires_retrieve
+      summary: List all tripwires
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: name
+          required: false
+          in: query
+          description: Filter by tripwire name.
+          schema:
+            type: string
+        - name: scene
+          required: false
+          in: query
+          description: Filter by scene UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          required: false
+          in: query
+          description: Filter by tripwire ID.
+          schema:
+            type: string
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedTripwireList"
+          description: ""
+        "401":
+          description: Unauthorized
   /user:
     post:
       tags:
-        - "user"
-      summary: "Create user"
-      description: "This can only be done by the logged in user."
-      operationId: "createUser"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - in: "body"
-          name: "body"
-          description: "Created user"
-          required: true
-          schema:
-            $ref: "#/definitions/User"
-      responses:
-        default:
-          description: "successful operation"
-        "400":
-          description: "Invalid user supplied"
+        - user
+      operationId: user_create
+      summary: Create a user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/User"
+        required: true
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
+        - tokenAuth: []
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
   /user/{username}:
-    put:
-      tags:
-        - "user"
-      summary: "Update user"
-      description: "This can only be done by the logged in user."
-      operationId: "updateUser"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "username"
-          in: "path"
-          description: "name that need to be updated"
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "Updated user"
-          required: true
-          schema:
-            $ref: "#/definitions/User"
-      responses:
-        default:
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/User"
-        "400":
-          description: "Invalid user supplied"
-        "404":
-          description: "User not found"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-    delete:
-      tags:
-        - "user"
-      summary: "Delete user"
-      description: "This can only be done by the logged in user."
-      operationId: "deleteUser"
-      produces:
-        - "application/json"
-        - "application/xml"
-      parameters:
-        - name: "username"
-          in: "path"
-          description: "The name that needs to be deleted"
-          required: true
-          type: "string"
-      responses:
-        default:
-          description: "successful operation"
-
-        "400":
-          description: "Invalid username supplied"
-        "404":
-          description: "User not found"
-      security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
     get:
       tags:
-        - "user"
-      summary: "Get user by username"
-      description: ""
-      operationId: "getUserByName"
-      produces:
-        - "application/json"
-        - "application/xml"
+        - user
+      operationId: user_detail_retrieve
+      summary: Get a user by username
       parameters:
-        - name: "username"
-          in: "path"
-          description: ""
+        - in: path
+          name: username
+          schema:
+            type: string
           required: true
-          type: "string"
+      security:
+        - tokenAuth: []
       responses:
         "200":
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/User"
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
         "400":
-          description: "Invalid username supplied"
+          description: Bad request - UID required or invalid format
         "404":
-          description: "User not found"
+          description: Not found
+        "401":
+          description: Unauthorized
+    put:
+      tags:
+        - user
+      operationId: user_detail_update
+      summary: Update a user by username
+      parameters:
+        - in: path
+          name: username
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/User"
+        required: true
       security:
-        - scenescape_auth:
-            - "write:things"
-            - "read:things"
-
-  # /product_info:
-  #   get:
-  #     tags:
-  #     - "product_info"
-  #     summary: "Get product info"
-  #     description: ""
-  #     produces:
-  #     - "application/json"
-  #     - "application/xml"
-  #     responses:
-  #       "200":
-  #         description: "successful operation"
-  #         schema:
-  #           $ref: "#/definitions/Product_info"
-  #       "404":
-  #         description: "Not found"
-
-#########Definitions
-definitions:
-  Scene:
-    allOf:
-      - $ref: "#/definitions/Uid"
-      - $ref: "#/definitions/BaseProperties"
-    required:
-      - name
-    properties:
-      name:
-        type: string
-        example: "Scene1"
-      use_tracker:
-        type: boolean
-        default: true
-      output_lla:
-        type: boolean
-        default: false
-      map:
-        type: string
-        example: "/media/HazardZoneSceneLarge.png"
-      children:
-        type: array
-        items:
-          $ref: "#/definitions/Uid"
-      cameras:
-        type: array
-        items:
-          $ref: "#/definitions/Camera"
-      sensors:
-        type: array
-        items:
-          $ref: "#/definitions/Sensor"
-      regions:
-        type: array
-        items:
-          $ref: "#/definitions/Region"
-      tripwires:
-        type: array
-        items:
-          $ref: "#/definitions/Tripwire"
-      mesh_translation:
-        type: array
-        maxLength: 3
-        minLength: 3
-        example: [12.2, 248, 12.0]
-        items:
-          type: number
-      mesh_rotation:
-        type: array
-        maxLength: 3
-        minLength: 3
-        example: [12.2, 248, 12.0]
-        items:
-          type: number
-      mesh_scale:
-        type: array
-        maxLength: 3
-        minLength: 3
-        example: [1, 1, 1]
-        items:
-          type: number
-
-  Camera:
-    allOf:
-      - $ref: "#/definitions/Uid"
-    required:
-      - name
-      - intrinsics
-      - resolution
-      #- distortion
-    properties:
-      mac:
-        type: string
-        example: "02:42:ac:12:00:04"
-      intrinsics:
-        type: object
-        properties:
-          fx:
-            type: number
-            example: 905.0
-          fy:
-            type: number
-            example: 905.0
-          cx:
-            type: number
-            example: 640.0
-          cy:
-            type: number
-            example: 360.0
-      distortion:
-        type: object
-        # Note:  OpenCV can handle 4, 5, 8, 12, or 14
-        properties:
-          k1:
-            type: number
-            example: 0.0
-          k2:
-            type: number
-            example: 0.0
-          p1:
-            type: number
-            example: 0.0
-          p2:
-            type: number
-            example: 0.0
-          k3:
-            type: number
-            example: 0.0
-      translation:
-        type: array
-        items:
-          type: number
-        example: [1, 1, 1]
-      rotation:
-        type: array
-        items:
-          type: number
-        example: [1, 1, 1]
-      scale:
-        type: array
-        items:
-          type: number
-        example: [1, 1, 1]
-      resolution:
-        type: array
-        items:
-          type: integer
-        example: [1280, 720]
-      scene:
-        type: string
-        example: "16fd2706-8baf-433b-82eb-8c7fada847da"
-
-  Sensor:
-    allOf:
-      - $ref: "#/definitions/Uid"
-      - $ref: "#/definitions/ColorRange"
-    required:
-      - name
-    properties:
-      scene:
-        type: string
-        example: "16fd2706-8baf-433b-82eb-8c7fada847da"
-      name:
-        type: string
-        example: "sensor1"
-      sensor_id:
-        type: string
-        example: "sensor1"
-      area:
-        type: string
-        example: "circle"
-      points:
-        type: array
-        items:
-          type: array
-          minLength: 3
-          items:
-            type: number
-            format: number
-        example: [[3.81, 4.59], [5.42, 5.12], [5.82, 3.57]]
-      radius:
-        type: number
-        example: "2.5"
-      center:
-        type: array
-        minLength: 2
-        maxLength: 2
-        items:
-          type: number
-          format: number
-        example: [3.81, 4.59]
-      translation:
-        type: array
-        minLength: 3
-        maxLength: 3
-        items:
-          type: number
-          format: number
-        example: [1, 1, 1]
-      singleton_type:
-        type: string
-        example: "attribute"
-
-  Region:
-    allOf:
-      - $ref: "#/definitions/Uid"
-      - $ref: "#/definitions/ColorRange"
-    required:
-      - name
-    properties:
-      name:
-        type: string
-        example: "roi_0"
-      points:
-        type: array
-        items:
-          type: array
-          minLength: 3
-          items:
-            type: number
-            format: number
-        example: [[3.81, 4.59], [5.42, 5.12], [5.82, 3.57]]
-      height:
-        type: number
-        format: number
-      buffer_size:
-        type: number
-        format: number
-      volumetric:
-        type: boolean
-      scene:
-        type: string
-        example: "16fd2706-8baf-433b-82eb-8c7fada847da"
-
-  Tripwire:
-    allOf:
-      - $ref: "#/definitions/Region"
-    properties:
-      name:
-        example: "tripwire1"
-
-  CameraProperties:
-    allOf:
-      - $ref: "#/definitions/Camera"
-    properties:
-      command:
-        type: string
-        example: "sample_data/apriltag-cam1.mp4"
-      camerachain:
-        type: string
-        example: "retail"
-
-  User:
-    required:
-      - username
-      - password
-    properties:
-      username:
-        type: "string"
-        example: "usr1"
-      password:
-        type: "string"
-        example: "a0sd09*&,S"
-      is_active:
-        type: "boolean"
-        example: true
-      is_staff:
-        type: "boolean"
-        example: false
-      is_superuser:
-        type: "boolean"
-        example: false
-      first_name:
-        type: "string"
-      last_name:
-        type: "string"
-      email:
-        type: "string"
-        example: "usr1@mycompany.com"
-      scene:
-        type: string
-        example: "16fd2706-8baf-433b-82eb-8c7fada847da"
-
-  Child:
-    allOf:
-      - $ref: "#/definitions/Uid"
-    properties:
-      child_type:
-        type: string
-        example: remote
-      name:
-        type: string
-        example: "Child1"
-      parent:
-        $ref: "#/definitions/Uid"
-      retrack:
-        type: boolean
-        example: true
-      host_name:
-        type: string
-        example: "scenescape.intel.com"
-      mqtt_username:
-        type: string
-        example: "user"
-      mqtt_password:
-        type: string
-        example: password
-      transform_type:
-        type: string
-        example: "Matrix"
-      transform1:
-        type: number
-        example: 1.0
-      transform2:
-        type: number
-        example: 1.0
-      transform3:
-        type: number
-        example: 1.0
-      transform4:
-        type: number
-        example: 1.0
-      transform5:
-        type: number
-        example: 1.0
-      transform6:
-        type: number
-        example: 1.0
-      transform7:
-        type: number
-        example: 1.0
-      transform8:
-        type: number
-        example: 1.0
-      transform9:
-        type: number
-        example: 1.0
-      transform10:
-        type: number
-        example: 1.0
-      transform11:
-        type: number
-        example: 1.0
-      transform12:
-        type: number
-        example: 1.0
-      transform13:
-        type: number
-        example: 1.0
-      transform14:
-        type: number
-        example: 1.0
-      transform15:
-        type: number
-        example: 1.0
-      transform16:
-        type: number
-        example: 1.0
-
-  Asset:
-    allOf:
-      - $ref: "#/definitions/Uid"
-    properties:
-      name:
-        type: "string"
-        example: "Asset1"
-      x_size:
-        type: number
-        example: 1.2
-      y_size:
-        type: number
-        example: 1.2
-      z_size:
-        type: number
-        example: 1.2
-      x_buffer_size:
-        type: number
-        example: 1.2
-      y_buffer_size:
-        type: number
-        example: 1.2
-      z_buffer_size:
-        type: number
-        example: 1.2
-      tracking_radius:
-        type: number
-        example: 1.2
-      mark_color:
-        type: string
-        example: "#888888"
-      model_3d:
-        type: string
-        format: binary
-        example: "asset.glb"
-      scale:
-        type: number
-        example: 1.2
-      project_to_map:
-        type: boolean
-        example: false
-      rotation_from_velocity:
-        type: boolean
-        example: false
-
-  ColorRange:
-    properties:
-      color_range:
-        properties:
-          sectors:
-            type: array
-            items:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+        "400":
+          description: Validation error or UID required
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+    delete:
+      tags:
+        - user
+      operationId: user_detail_destroy
+      summary: Delete a user by username
+      parameters:
+        - in: path
+          name: username
+          schema:
+            type: string
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Deleted
+        "400":
+          description: UID required or invalid format
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+  /users:
+    get:
+      tags:
+        - user
+      operationId: users_retrieve
+      summary: List all users
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: username
+          required: false
+          in: query
+          description: Filter by username.
+          schema:
+            type: string
+        - name: id
+          required: false
+          in: query
+          description: Filter by user ID.
+          schema:
+            type: string
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedUserList"
+          description: ""
+        "401":
+          description: Unauthorized
+  /video:
+    get:
+      tags:
+        - video
+      operationId: video_retrieve
+      summary: Get a video
+      parameters:
+        - in: query
+          name: camera
+          schema:
+            type: string
+          description: Camera ID
+          required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Frame data or video file
+        "404":
+          description: Not found
+        "503":
+          description: Broker unavailable
+        "401":
+          description: Unauthorized
+  /database-ready:
+    get:
+      tags:
+        - auth
+      operationId: database_ready_retrieve
+      summary: Check if the database is ready
+      description: >-
+        **Internal use only.** Used by services during startup to poll for
+        database readiness before making API requests.
+      x-internal: true
+      security: []
+      responses:
+        "200":
+          description: Database is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  databaseReady:
+                    type: boolean
+        "503":
+          description: Database not ready or unreachable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  databaseReady:
+                    type: boolean
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+  /calculateintrinsics:
+    post:
+      tags:
+        - camera
+      operationId: calculate_intrinsics_create
+      summary: Calculate camera intrinsics from point correspondences
+      description: >-
+        **Internal use only.** Called during manual camera
+        calibration to compute intrinsic parameters from point correspondences.
+      x-internal: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
               type: object
               properties:
-                color:
+                mapPoints:
+                  type: array
+                  items:
+                    type: array
+                    items:
+                      type: number
+                      format: float
+                  description: 3D world points (minimum 4)
+                camPoints:
+                  type: array
+                  items:
+                    type: array
+                    items:
+                      type: number
+                      format: float
+                  description: Corresponding 2D image points (must match mapPoints count)
+                intrinsics:
+                  type: array
+                  items:
+                    type: array
+                    items:
+                      type: number
+                      format: double
+                  description: Initial 3x3 camera intrinsics matrix
+                distortion:
+                  type: array
+                  items:
+                    type: number
+                    format: double
+                  description: Initial distortion coefficients
+                imageSize:
+                  type: array
+                  items:
+                    type: integer
+                  description: Image dimensions [width, height]
+                fixIntrinsics:
+                  type: object
+                  description: Map of intrinsic parameter names to fix during calibration (e.g. fx, fy, cx, cy, k1, k2, k3, p1, p2)
+                  additionalProperties:
+                    type: boolean
+              required:
+                - mapPoints
+                - camPoints
+                - intrinsics
+                - distortion
+                - imageSize
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Intrinsics calculated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  euler:
+                    type: array
+                    items:
+                      type: number
+                      format: double
+                    description: Camera rotation as Euler angles [X, Y, Z] in radians
+                  position:
+                    type: array
+                    items:
+                      type: number
+                      format: double
+                    description: Camera position [x, y, z]
+                  mtx:
+                    type: array
+                    items:
+                      type: array
+                      items:
+                        type: number
+                        format: double
+                    description: Calibrated 3x3 camera matrix
+                  dist:
+                    type: array
+                    items:
+                      type: array
+                      items:
+                        type: number
+                        format: double
+                    description: Calibrated distortion coefficients
+        "400":
+          description: Invalid input (mismatched point counts, fewer than 4 points, or calculation error)
+        "401":
+          description: Unauthorized
+  /aclcheck:
+    post:
+      tags:
+        - auth
+      operationId: acl_check_create
+      summary: Check MQTT ACL permissions for a user and topic
+      description: >-
+        **Internal use only.** Called by the Mosquitto MQTT broker to enforce
+        per-topic access control. Not intended for direct use by API consumers.
+      x-internal: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
                   type: string
-                  example: "green"
-                color_min:
-                  type: number
-                  example: 0
-            example:
-              [
-                { "color": "green", "color_min": 0 },
-                { "color": "yellow", "color_min": 2 },
-                { "color": "red", "color_min": 5 },
-              ]
-          range_max:
+                  description: Username to check ACL for
+                topic:
+                  type: string
+                  description: MQTT topic to check access against
+                acc:
+                  type: integer
+                  description: Requested access level (1=read, 2=write, 3=read+write, 4=subscribe)
+              required:
+                - username
+                - topic
+                - acc
+      security: []
+      responses:
+        "200":
+          description: Access allowed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: string
+                    enum:
+                      - allow
+                  acc:
+                    type: integer
+        "400":
+          description: Missing required parameters
+        "403":
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: string
+                    enum:
+                      - deny
+        "401":
+          description: Unauthorized
+  /import-scene:
+    post:
+      tags:
+        - scene
+      operationId: import_scene_create
+      summary: Import a scene from a ZIP archive
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                zipFile:
+                  type: string
+                  format: binary
+              required:
+                - zipFile
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "201":
+          description: Scene imported successfully
+        "400":
+          description: Missing or invalid zip file
+        "401":
+          description: Unauthorized
+        "405":
+          description: Method not allowed
+        "500":
+          description: Internal server error
+  /save-geospatial-snapshot:
+    post:
+      tags:
+        - scene
+      operationId: save_geospatial_snapshot_create
+      summary: Save a geospatial map snapshot as PNG
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                image_data:
+                  type: string
+                  description: Base64-encoded PNG image (data URL or raw base64)
+              required:
+                - image_data
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Snapshot saved successfully
+          content:
+            text/html:
+              schema:
+                type: string
+        "400":
+          description: Missing or invalid image data
+        "405":
+          description: Method not allowed
+        "500":
+          description: Internal server error
+        "401":
+          description: Unauthorized
+components:
+  schemas:
+    AccessEnum:
+      enum:
+        - 0
+        - 1
+        - 2
+        - 3
+      type: integer
+      description: |-
+        * `0` - No access
+        * `1` - Read only
+        * `2` - Write only
+        * `3` - Read and Write
+    AreaEnum:
+      enum:
+        - scene
+        - circle
+        - poly
+      type: string
+      description: |-
+        * `scene` - scene
+        * `circle` - circle
+        * `poly` - poly
+    Asset3D:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        x_size:
+          type: number
+          format: double
+          minimum: 0.0
+          default: 1.0
+          title: Object size in x-axis
+        y_size:
+          type: number
+          format: double
+          minimum: 0.0
+          default: 1.0
+          title: Object size in y-axis
+        z_size:
+          type: number
+          format: double
+          minimum: 0.0
+          default: 1.0
+          title: Object size in z-axis
+        tracking_radius:
+          type: number
+          format: double
+          default: 2.0
+          title: Tracking radius (meters)
+        shift_type:
+          oneOf:
+            - $ref: "#/components/schemas/ShiftTypeEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: 1
+        mark_color:
+          type: string
+          maxLength: 20
+          default: "#888888"
+        model_3d:
+          type: string
+          format: uri
+          nullable: true
+          pattern: (?:glb)$
+        scale:
+          type: number
+          format: double
+          nullable: true
+          default: 1.0
+        project_to_map:
+          oneOf:
+            - $ref: "#/components/schemas/OutputLlaEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: false
+        rotation_from_velocity:
+          oneOf:
+            - $ref: "#/components/schemas/OutputLlaEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: false
+        rotation_x:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+          title: X Rotation (degrees)
+        rotation_y:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+          title: Y Rotation (degrees)
+        rotation_z:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+          title: Z Rotation (degrees)
+        translation_x:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+          title: X Translation (meters)
+        translation_y:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+          title: Y Translation (meters)
+        translation_z:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+          title: Z Translation (meters)
+        x_buffer_size:
+          type: number
+          format: double
+          default: 0.0
+          title: Object buffer size in x-axis
+        y_buffer_size:
+          type: number
+          format: double
+          default: 0.0
+          title: Object buffer size in y-axis
+        z_buffer_size:
+          type: number
+          format: double
+          default: 0.0
+          title: Object buffer size in z-axis
+        geometric_center:
+          type: array
+          items:
             type: number
-            example: 10
+            format: double
+          nullable: true
+          default: [0.0, 0.0, 0.0]
+          description: Geometric center offset [x, y, z] in meters from bottom center
+        mass:
+          type: number
+          format: double
+          minimum: 0.0
+          nullable: true
+          default: 1.0
+          title: Mass (kg)
+        center_of_mass:
+          type: array
+          items:
+            type: number
+            format: double
+          nullable: true
+          default: [0.0, 0.0, 0.0]
+          description: Center of mass offset [x, y, z] in meters from geometric center
+        is_static:
+          description: |-
+            Whether object can move on its own
 
-  #########PRIMITIVES
-  Uid:
-    type: object
-    properties:
-      uid:
-        type: string
-        example: "16fd2706-8baf-433b-82eb-8c7fada847da"
-      name:
-        type: string
-        example: "example"
-    xml:
-      name: uid
+            * `True` - Yes
+            * `False` - No
+          oneOf:
+            - $ref: "#/components/schemas/OutputLlaEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: false
+        ttl:
+          type: number
+          format: double
+          minimum: 0.0
+          nullable: true
+          default: 0.0
+          title: Time to Live (seconds)
+          description: Time to live for track expiration (0 = infinite)
+        linear_damping:
+          type: number
+          format: double
+          maximum: 1.0
+          minimum: 0.0
+          nullable: true
+          default: 0.05
+          description: Resistance to linear motion (0.0 - 1.0)
+        angular_damping:
+          type: number
+          format: double
+          maximum: 1.0
+          minimum: 0.0
+          nullable: true
+          default: 0.05
+          description: Resistance to angular motion (0.0 - 1.0)
+        coefficient_of_restitution:
+          type: number
+          format: double
+          maximum: 1.0
+          minimum: 0.0
+          nullable: true
+          default: 0.5
+          description: Bounciness for collisions (0.0 - 1.0)
+        friction_coefficients:
+          type: array
+          items:
+            type: number
+            format: double
+          nullable: true
+          default: [0.5, 0.4]
+          description: Friction coefficients [static, dynamic]
+      required:
+        - name
+    AuthTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+      required:
+        - token
+    BlankEnum:
+      enum:
+        - ""
+    CalibrationMarker:
+      type: object
+      properties:
+        marker_id:
+          type: string
+          maxLength: 50
+        apriltag_id:
+          type: string
+          maxLength: 10
+        dims:
+          type: array
+          items:
+            type: number
+            format: double
+          default: []
+        scene:
+          type: string
+          format: uuid
+      required:
+        - apriltag_id
+        - marker_id
+        - scene
+    Cam:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        sensor_id:
+          type: string
+          writeOnly: true
+          maxLength: 20
+        intrinsics:
+          type: object
+          properties:
+            fx:
+              type: number
+              format: double
+            fy:
+              type: number
+              format: double
+            cx:
+              type: number
+              format: double
+            cy:
+              type: number
+              format: double
+          readOnly: true
+        transform_type:
+          type: string
+          readOnly: true
+        transforms:
+          type: array
+          items:
+            type: number
+            format: double
+          readOnly: true
+        distortion:
+          type: object
+          properties:
+            k1:
+              type: number
+              format: double
+            k2:
+              type: number
+              format: double
+            p1:
+              type: number
+              format: double
+            p2:
+              type: number
+              format: double
+            k3:
+              type: number
+              format: double
+          nullable: true
+          readOnly: true
+        translation:
+          type: array
+          items:
+            type: number
+            format: double
+          readOnly: true
+        rotation:
+          type: array
+          items:
+            type: number
+            format: double
+          readOnly: true
+        scale:
+          type: array
+          items:
+            type: number
+            format: double
+          readOnly: true
+        resolution:
+          type: object
+          additionalProperties: {}
+        scene:
+          type: string
+          format: uuid
+          nullable: true
+        threshold:
+          type: number
+          format: double
+          nullable: true
+        aspect:
+          type: string
+          nullable: true
+          maxLength: 64
+        cv_subsystem:
+          title: Decode Device
+          oneOf:
+            - $ref: "#/components/schemas/CvSubsystemEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: AUTO
+        undistort:
+          type: boolean
+          default: false
+        modelconfig:
+          type: string
+          nullable: true
+          title: Model Config
+          maxLength: 512
+          default: model_config.json
+        use_camera_pipeline:
+          type: boolean
+          nullable: true
+          default: false
+          description: Enable to directly apply the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings.
+        detection_labels:
+          type: string
+          nullable: true
+          description: Detection labels to use, one per line
+          maxLength: 2000
+        command:
+          type: string
+          nullable: true
+          title: Camera (Video Source)
+          maxLength: 512
+        camerachain:
+          type: string
+          nullable: true
+          title: Camera Chain
+          maxLength: 64
+        camera_pipeline:
+          type: string
+          nullable: true
+          description:
+            The camera pipeline string in gst-launch-1.0 syntax which will
+            be applied in camera VA pipeline once 'Use Camera Pipeline'
+            is enabled and 'Save Camera' button is clicked.
+            Please review and/or adjust it before applying.
+          maxLength: 5000
+      required:
+        - name
+    CameraCalibrationEnum:
+      enum:
+        - AprilTag
+        - Markerless
+        - Manual
+      type: string
+      description: |-
+        * `AprilTag` - AprilTag
+        * `Markerless` - Markerless
+        * `Manual` - Manual
+    ChildScene:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        child_type:
+          type: string
+          default: local
+          maxLength: 15
+        transform:
+          type: object
+          additionalProperties: {}
+        name:
+          type: string
+          readOnly: true
+        remote_child_id:
+          type: string
+          format: uuid
+          nullable: true
+        child:
+          type: string
+          format: uuid
+          nullable: true
+        parent:
+          type: string
+          format: uuid
+        host_name:
+          type: string
+          nullable: true
+          title: Hostname or IP
+          maxLength: 200
+        child_name:
+          type: string
+          nullable: true
+          maxLength: 200
+        mqtt_username:
+          type: string
+          nullable: true
+          maxLength: 200
+        mqtt_password:
+          type: string
+          nullable: true
+          maxLength: 200
+        retrack:
+          allOf:
+            - $ref: "#/components/schemas/OutputLlaEnum"
+          default: true
+          title: Retrack objects
+        transform_type:
+          $ref: "#/components/schemas/TransformTypeEnum"
+          default: matrix
+        transform1:
+          type: number
+          format: double
+          nullable: true
+          default: 1.0
+        transform2:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform3:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform4:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform5:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform6:
+          type: number
+          format: double
+          nullable: true
+          default: 1.0
+        transform7:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform8:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform9:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform10:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform11:
+          type: number
+          format: double
+          nullable: true
+          default: 1.0
+        transform12:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform13:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform14:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform15:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform16:
+          type: number
+          format: double
+          nullable: true
+          default: 1.0
+      required:
+        - parent
+    CustomAuthToken:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 150
+        password:
+          type: string
+          maxLength: 150
+      required:
+        - password
+        - username
+    CvSubsystemEnum:
+      enum:
+        - AUTO
+        - GPU
+        - CPU
+      type: string
+      description: |-
+        * `AUTO` - AUTO
+        * `GPU` - GPU
+        * `CPU` - CPU
+    GeospatialProviderEnum:
+      enum:
+        - google
+        - mapbox
+      type: string
+      description: |-
+        * `google` - Google Maps
+        * `mapbox` - Mapbox
+    MapTypeEnum:
+      enum:
+        - map_upload
+        - geospatial_map
+      type: string
+      description: |-
+        * `map_upload` - Map Upload
+        * `geospatial_map` - Geospatial Map
+    NullEnum:
+      enum:
+        -
+    OutputLlaEnum:
+      enum:
+        - true
+        - false
+      type: boolean
+      description: |-
+        * `True` - Yes
+        * `False` - No
+    PaginatedAsset3DList:
+      type: object
+      required:
+        - count
+        - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Asset3D"
+    PaginatedCalibrationMarkerList:
+      type: object
+      required:
+        - count
+        - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalibrationMarker"
+    PaginatedChildSceneList:
+      type: object
+      required:
+        - count
+        - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChildScene"
+    PaginatedCamList:
+      type: object
+      required:
+        - count
+        - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Cam"
+    PaginatedRegionList:
+      type: object
+      required:
+        - count
+        - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Region"
+    PaginatedSceneList:
+      type: object
+      required:
+        - count
+        - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Scene"
+    PaginatedSingletonList:
+      type: object
+      required:
+        - count
+        - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Singleton"
+    PaginatedTripwireList:
+      type: object
+      required:
+        - count
+        - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tripwire"
+    PaginatedUserList:
+      type: object
+      required:
+        - count
+        - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+    PubSubACL:
+      type: object
+      properties:
+        topic:
+          $ref: "#/components/schemas/TopicEnum"
+        access:
+          allOf:
+            - $ref: "#/components/schemas/AccessEnum"
+          default: 0
+      required:
+        - topic
+    Region:
+      type: object
+      properties:
+        uid:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        points:
+          type: array
+          items:
+            type: number
+            format: double
+        scene:
+          type: string
+          format: uuid
+        buffer_size:
+          type: number
+          format: double
+          minimum: 0
+          default: 0.0
+        height:
+          type: number
+          format: double
+          minimum: 0.001
+          default: 1.0
+        volumetric:
+          oneOf:
+            - $ref: "#/components/schemas/OutputLlaEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: false
+        color_ranges:
+          $ref: "#/components/schemas/RegionOccupancyThreshold"
+      required:
+        - name
+        - points
+        - scene
+    RegionOccupancyThreshold:
+      type: object
+      properties:
+        sectors: {}
+        range_max:
+          type: integer
+      required:
+        - range_max
+        - sectors
+    Scene:
+      type: object
+      properties:
+        uid:
+          type: string
+          nullable: true
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        map_type:
+          oneOf:
+            - $ref: "#/components/schemas/MapTypeEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: map_upload
+        use_tracker:
+          $ref: "#/components/schemas/OutputLlaEnum"
+          default: true
+        output_lla:
+          title: Output geospatial coordinates
+          oneOf:
+            - $ref: "#/components/schemas/OutputLlaEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: false
+        trs_matrix:
+          type: array
+          nullable: true
+          items:
+            type: array
+            items:
+              type: number
+              format: double
+          readOnly: true
+        map_corners_lla:
+          type: array
+          nullable: true
+          title: Geospatial coordinates of the four map corners in JSON format
+          description: |-
+            Provide the array of four map corners geospatial coordinates (lat, long, alt).
+            Required only if 'Output geospatial coordinates' is set to `Yes`.
+            Expected order: starting from the bottom-left corner counterclockwise.
+            Expected JSON format: '[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'
+        map:
+          type: string
+          format: uri
+          nullable: true
+          title: Scene map as .glb or .ply or image or .zip or video
+          pattern: (?:glb|png|jpeg|jpg|zip|ply|mp4|mov|mkv|webm|avi)$
+        thumbnail:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+        cameras:
+          type: array
+          items:
+            $ref: "#/components/schemas/Cam"
+          readOnly: true
+        sensors:
+          type: array
+          items:
+            $ref: "#/components/schemas/Singleton"
+          readOnly: true
+        regions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Region"
+        tripwires:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tripwire"
+        parent:
+          type: string
+          format: uuid
+        transform:
+          type: object
+          additionalProperties: {}
+        mesh_translation:
+          type: array
+          items:
+            type: number
+            format: double
+          readOnly: true
+        mesh_rotation:
+          type: array
+          items:
+            type: number
+            format: double
+          readOnly: true
+        mesh_scale:
+          type: array
+          items:
+            type: number
+            format: double
+          readOnly: true
+        scale:
+          type: number
+          format: double
+          minimum: 4.9e-324
+          nullable: true
+          title: Pixels per meter
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChildScene"
+          readOnly: true
+        regulated_rate:
+          type: number
+          format: double
+          minimum: 0.001
+          default: 30
+          title: Regulate Rate (Hz)
+        external_update_rate:
+          type: number
+          format: double
+          minimum: 0.001
+          default: 30
+          title: Max External Update Rate (Hz)
+        camera_calibration:
+          allOf:
+            - $ref: "#/components/schemas/CameraCalibrationEnum"
+          default: Manual
+          title: Calibration Type
+        apriltag_size:
+          type: number
+          format: double
+          nullable: true
+          default: 0.162
+          title: AprilTag Size (meters)
+        map_processed:
+          type: string
+          format: date-time
+          nullable: true
+        polycam_data:
+          type: string
+          format: uri
+          nullable: true
+          pattern: (?:zip)$
+        number_of_localizations:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+          default: 50
+        global_feature:
+          type: string
+          default: netvlad
+          title: Global Feature Matching Algorithm
+          maxLength: 200
+        local_feature:
+          type: string
+          nullable: true
+          default: '{"sift": {}}'
+        matcher:
+          type: string
+          nullable: true
+          default: '{"NN-ratio": {}}'
+        minimum_number_of_matches:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+          default: 20
+        inlier_threshold:
+          type: number
+          format: double
+          minimum: 0.0
+          default: 0.5
+          title: Feature Match Confidence Threshold
+        geospatial_provider:
+          title: Geospatial Map Provider
+          description: |-
+            The map provider used for geospatial maps (google or mapbox)
 
-  BaseProperties:
-    properties:
-      name:
-        type: string
-      virtual:
-        type: boolean
-        default: false
-      timestamp:
-        type: string
-        example: "2023-03-07T21:35:24.717Z"
-      TTL:
-        type: number
-        example: 20.1
-
-  ApiResponse:
-    type: "object"
-    properties:
-      code:
-        type: "integer"
-        format: "int32"
-      type:
-        type: "string"
-      message:
-        type: "string"
-
-securityDefinitions:
-  scenescape_auth:
-    type: "oauth2"
-    authorizationUrl: "http://tbd.tbd.tbd/oauth/dialog"
-    flow: "implicit"
-    scopes:
-      write:things: "modify things in your account"
-      read:things: "read your things"
-  api_key:
-    type: "apiKey"
-    name: "api_key"
-    in: "header"
+            * `google` - Google Maps
+            * `mapbox` - Mapbox
+          oneOf:
+            - $ref: "#/components/schemas/GeospatialProviderEnum"
+            - $ref: "#/components/schemas/BlankEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: google
+        map_zoom:
+          type: number
+          format: double
+          minimum: 0.0
+          nullable: true
+          default: 15.0
+          title: Map Zoom Level
+          description: Zoom level for the geospatial map view
+        map_center_lat:
+          type: number
+          format: double
+          nullable: true
+          title: Map Center Latitude
+          description: Center latitude for the geospatial map view
+        map_center_lng:
+          type: number
+          format: double
+          nullable: true
+          title: Map Center Longitude
+          description: Center longitude for the geospatial map view
+        map_bearing:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+          title: Map Bearing/Rotation (degrees)
+          description: Rotation angle for the geospatial map view in degrees
+      required:
+        - name
+    ShiftTypeEnum:
+      enum:
+        - 1
+        - 2
+      type: integer
+      description: |-
+        * `1` - Type 1 (default)
+        * `2` - Type 2 (may work better for wide and short objects)
+    Singleton:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        scene:
+          type: string
+          format: uuid
+          nullable: true
+        sensor_id:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 150
+        area:
+          $ref: "#/components/schemas/AreaEnum"
+          default: scene
+        points:
+          type: array
+          items:
+            type: number
+            format: double
+        radius:
+          type: number
+          format: double
+          nullable: true
+        center:
+          type: array
+          items:
+            type: number
+            format: double
+          nullable: true
+        translation:
+          type: array
+          items:
+            type: number
+            format: double
+          readOnly: true
+        singleton_type:
+          allOf:
+            - $ref: "#/components/schemas/SingletonTypeEnum"
+          default: environmental
+          title: Type of Sensor
+        color_ranges:
+          $ref: "#/components/schemas/SingletonScalarThreshold"
+      required:
+        - name
+    SingletonScalarThreshold:
+      type: object
+      properties:
+        sectors: {}
+        range_max:
+          type: integer
+      required:
+        - range_max
+        - sectors
+    SingletonTypeEnum:
+      enum:
+        - environmental
+        - attribute
+      type: string
+      description: |-
+        * `environmental` - environmental
+        * `attribute` - attribute
+    TopicEnum:
+      enum:
+        - CHANNEL
+        - CMD_CAMERA
+        - CMD_DATABASE
+        - CMD_KUBECLIENT
+        - CMD_SCENE_UPDATE
+        - DATA_AUTOCALIB_CAM_POSE
+        - DATA_CAMERA
+        - DATA_EXTERNAL
+        - DATA_REGION
+        - DATA_REGULATED
+        - DATA_SCENE
+        - DATA_SENSOR
+        - EVENT
+        - IMAGE_CALIBRATE
+        - IMAGE_CAMERA
+        - SYS_CHILDSCENE_STATUS
+        - ANALYTICS_CLUSTERS
+      type: string
+      description: |-
+        * `CHANNEL` - CHANNEL
+        * `CMD_CAMERA` - CMD_CAMERA
+        * `CMD_DATABASE` - CMD_DATABASE
+        * `CMD_KUBECLIENT` - CMD_KUBECLIENT
+        * `CMD_SCENE_UPDATE` - CMD_SCENE_UPDATE
+        * `DATA_AUTOCALIB_CAM_POSE` - DATA_AUTOCALIB_CAM_POSE
+        * `DATA_CAMERA` - DATA_CAMERA
+        * `DATA_EXTERNAL` - DATA_EXTERNAL
+        * `DATA_REGION` - DATA_REGION
+        * `DATA_REGULATED` - DATA_REGULATED
+        * `DATA_SCENE` - DATA_SCENE
+        * `DATA_SENSOR` - DATA_SENSOR
+        * `EVENT` - EVENT
+        * `IMAGE_CALIBRATE` - IMAGE_CALIBRATE
+        * `IMAGE_CAMERA` - IMAGE_CAMERA
+        * `SYS_CHILDSCENE_STATUS` - SYS_CHILDSCENE_STATUS
+        * `ANALYTICS_CLUSTERS` - ANALYTICS_CLUSTERS
+    TransformTypeEnum:
+      enum:
+        - matrix
+        - euler
+        - quaternion
+      type: string
+      description: |-
+        * `matrix` - Matrix
+        * `euler` - Euler Angles
+        * `quaternion` - Quaternion
+    Tripwire:
+      type: object
+      properties:
+        uid:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        points:
+          type: array
+          items:
+            type: number
+            format: double
+        height:
+          type: number
+          format: double
+          default: 1.0
+        scene:
+          type: string
+          format: uuid
+      required:
+        - name
+        - points
+        - scene
+    User:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          maxLength: 128
+        is_active:
+          type: boolean
+          default: true
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect this instead of deleting accounts.
+        is_staff:
+          type: boolean
+          default: false
+          title: Staff status
+          description: Designates whether the user can log into this admin site.
+          readOnly: true
+        is_superuser:
+          type: boolean
+          default: false
+          title: Superuser status
+          description: Designates that this user has all permissions without explicitly assigning them.
+          readOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        acls:
+          type: array
+          items:
+            $ref: "#/components/schemas/PubSubACL"
+      required:
+        - password
+        - username
+  securitySchemes:
+    tokenAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Token-based authentication with required prefix "Token"

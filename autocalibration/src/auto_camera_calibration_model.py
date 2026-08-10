@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from scene_common import log
@@ -7,7 +7,7 @@ from scene_common.timestamp import get_datetime_from_string
 from scene_common.transform import CameraIntrinsics
 
 class CalibrationScene:
-  _MEDIA_PATH = "/home/scenescape/SceneScape/media/"
+  _MEDIA_PATH = "/home/scenescape/Scenescape/media/"
   #FIXME: should be defined in common location accessible to both models and autocalibration
   DEFAULTS = {
     'rotation_x': 0.0,
@@ -71,23 +71,23 @@ class CameraCalibrationModel():
     self.rest = RESTClient(rest_url, rootcert=root_cert, auth=rest_auth)
     return
 
-  def sceneWithID(self, scene_id):
+  def scene_with_id(self, scene_id):
     response = self.rest.getScene(scene_id)
     if not response:
       log.error(f"Failed to get responses for scene {scene_id}, error code: ", response.statusCode)
       return
     return CalibrationScene.deserialize(response)
 
-  def sceneCameraWithID(self, camera_id):
+  def scene_camera_with_id(self, camera_id):
     response = self.rest.getCamera(camera_id)
     if not response:
       log.error(f"Failed to get responses for camera {camera_id}, error code: ", response.statusCode)
       return
     else:
       scene = response['scene']
-      return self.sceneWithID(scene)
+      return self.scene_with_id(scene)
 
-  def getCameraIntrinsics(self, camera_id):
+  def get_camera_intrinsics(self, camera_id):
     """! Returns camera intrinsics for a given camera ID.
     @param   camera_id  Camera ID to get intrinsics for.
 
@@ -103,7 +103,7 @@ class CameraCalibrationModel():
       return intrinsics_matrix
     return None
 
-  def allScenes(self):
+  def all_scenes(self):
     response = self.rest.getScenes(None)
     if 'results' not in response:
       log.error(f"Failed to get responses for all scenes, error code: ", response.statusCode)
@@ -111,21 +111,21 @@ class CameraCalibrationModel():
     found = response['results']
     return [CalibrationScene.deserialize(scene) for scene in found]
 
-  def updateMapProcessed(self, scene_id, map_processed):
+  def update_map_processed(self, scene_id, map_processed):
     response = self.rest.updateScene(scene_id, {'map_processed': map_processed})
     if not response:
       log.error(f"Failed to update map processed for scene {scene_id}, error code: ", response.statusCode)
       return
     return response
 
-  def calibrationMarkersWithSceneID(self, scene_id):
+  def calibration_markers_with_scene_id(self, scene_id):
     response = self.rest.getCalibrationMarkers({'scene':scene_id})
     if not response:
       log.error(f"Failed to get responses for calibration markers with scene {scene_id}, error code: ", response.statusCode)
       return
     return response
 
-  def deleteCalibrationMarkersForScene(self, scene_id):
+  def delete_calibration_markers_for_scene(self, scene_id):
     response = self.rest.getCalibrationMarkers({'scene':scene_id})
     if not response:
       log.error(f"Failed to delete calibration markers for scene {scene_id}, error code: ", response.statusCode)
@@ -137,7 +137,7 @@ class CameraCalibrationModel():
       self.rest.deleteCalibrationMarker(marker['marker_id'])
     return
 
-  def updateOrCreateCalibrationMarker(self, scene_id, data):
+  def update_or_create_calibration_marker(self, scene_id, data):
     response = self.rest.getCalibrationMarkers({'scene':scene_id})
     if not response:
       log.error(f"Failed to get responses for calibration markers with scene {scene_id}, error code: ", response.statusCode)

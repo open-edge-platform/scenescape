@@ -1,20 +1,20 @@
-# How to Upgrade Intel® SceneScape
+# How to Upgrade Scenescape
 
-This guide provides step-by-step instructions to upgrade your Intel® SceneScape deployment to a new version. By completing this guide, you will:
+This guide provides step-by-step instructions to upgrade your Scenescape deployment to a new version. By completing this guide, you will:
 
 - Migrate configuration and data directories.
-- Deploy the latest version of Intel® SceneScape.
+- Deploy the latest version of Scenescape.
 - Validate and troubleshoot common upgrade issues.
 
-This task is essential for maintaining access to the latest features and fixes in Intel® SceneScape while preserving existing data and services.
+This task is essential for maintaining access to the latest features and fixes in Scenescape while preserving existing data and services.
 
 ## Prerequisites
 
 Before You Begin, ensure the following:
 
-- You have an existing Intel® SceneScape v1.4.0 installation with volumes `scenescape_vol-db`, `scenescape_vol-media`, `scenescape_vol-migrations`, and `scenescape_vol-models` or directory `model_installer/models/`.
+- You have an existing Scenescape v1.4.0 installation with volumes `scenescape_vol-db`, `scenescape_vol-media`, `scenescape_vol-migrations`, and `scenescape_vol-models` or directory `model_installer/models/`.
 
-## How to Upgrade Intel® SceneScape from v1.4.0
+## How to Upgrade Scenescape from v1.4.0
 
 1. **Checkout latest sources**:
 
@@ -50,7 +50,7 @@ Before You Begin, ensure the following:
 
 ## Model Management During Upgrade
 
-Starting from 1.4.0 version, Intel® SceneScape stores models in Docker volumes instead of the host filesystem. This provides several benefits:
+Starting from 1.4.0 version, Scenescape stores models in Docker volumes instead of the host filesystem. This provides several benefits:
 
 - **Automatic Preservation**: Models are automatically preserved during upgrades as Docker volumes persist across container recreations.
 - **No Manual Copy Required**: You no longer need to manually copy `model_installer/models/` during upgrades.

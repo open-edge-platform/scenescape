@@ -10,9 +10,9 @@ Split Controller into two services: **Tracker Service** (pure C++) handles real-
 
 ## Context
 
-The SceneScape Controller must process multiple scenes with 4 cameras at 15 FPS (67ms frame intervals) with 1000 objects per frame while providing both real-time tracking and rich analytics capabilities. Long-term scale requirements will likely increase across all dimensions: cameras, FPS, scene and object counts.
+The Scenescape Controller must process multiple scenes with 4 cameras at 15 FPS (67ms frame intervals) with 1000 objects per frame while providing both real-time tracking and rich analytics capabilities. Long-term scale requirements will likely increase across all dimensions: cameras, FPS, scene and object counts.
 
-SceneScape v2025.2 Controller runs as a single Python microservice that calls C++ via pybind11 for performance-critical operations like positioning, tracking and spatial analytics. However, analysis shows the Python orchestration layer and analytics processing stages create overhead that prevents meeting real-time constraints at target scale
+Scenescape v2025.2 Controller runs as a single Python microservice that calls C++ via pybind11 for performance-critical operations like positioning, tracking and spatial analytics. However, analysis shows the Python orchestration layer and analytics processing stages create overhead that prevents meeting real-time constraints at target scale
 
 The current hybrid implementation (Python + C++ pybind11) cannot utilize modern hardware efficiently due to:
 
@@ -244,9 +244,12 @@ This is a gradual migration using feature flags to maintain backward compatibili
 
 **Phase 2: Migration**
 
-1. Enable Tracker Service as default, Controller in analytics-only mode
-2. Refactor Controller analytics into Analytics Service
-3. Enable Analytics Service as default and retire Controller
+1. Enable Tracker Service as default with the Analytics microservice for
+   regions/events/regulated output (Controller analytics-only mode has been
+   retired; do not run Controller without a local tracker for that purpose)
+2. Refactor remaining Controller responsibilities per
+   [ADR 13](./0013-controller-breakdown-microservices.md)
+3. Enable Analytics Service as default and continue retiring monolith paths
 
 ### References
 

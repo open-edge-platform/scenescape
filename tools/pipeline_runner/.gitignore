@@ -1,0 +1,5 @@
+# Generated camera settings files written during integration test runs
+.test_configs/
+dlsps_config.json
+output/
+__pycache__/

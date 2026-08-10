@@ -31,7 +31,7 @@ services:
       - load-test
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.115.1
+    image: otel/opentelemetry-collector-contrib:0.155.0
     hostname: otel-collector
     command: ["--config=/etc/otel-config.yaml"]
     ports:
@@ -50,7 +50,7 @@ services:
       - load-test
 
   tracker:
-    image: scenescape-tracker:${VERSION:-latest}
+    image: intel/scenescape-tracker:${VERSION:-latest}
     hostname: tracker
     read_only: true
     cap_drop:

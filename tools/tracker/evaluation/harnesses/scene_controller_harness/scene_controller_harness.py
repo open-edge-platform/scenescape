@@ -4,6 +4,7 @@
 """SceneControllerHarness implementation for running tracker in scene controller container."""
 
 import json
+import os
 import tempfile
 import shutil
 from pathlib import Path
@@ -15,11 +16,33 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from base.tracker_harness import TrackerHarness
-from utils.format_converters import write_jsonl
+from utils.format_converters import write_jsonl, stream_jsonl
+
+
+def _harness_tmp_base() -> Path:
+  """Return a base directory for harness temp workspaces that Docker can mount.
+
+  Snap-packaged Docker daemons are confined and cannot bind-mount paths under
+  ``/tmp`` (the default :func:`tempfile.mkdtemp` location), which makes the
+  harness fail out of the box.  Temp workspaces are therefore created under the
+  user's home cache directory, which Docker can always access on both native
+  and snap installations.  Set ``SCENESCAPE_HARNESS_TMPDIR`` to override.
+  """
+  override = os.environ.get("SCENESCAPE_HARNESS_TMPDIR") or None
+  base = (Path(override).expanduser() if override
+          else Path.home() / ".cache" / "scenescape" / "scene_controller_harness")
+  try:
+    base.mkdir(parents=True, exist_ok=True)
+  except OSError as exc:
+    raise RuntimeError(
+      f"Failed to create harness temp directory {base!s}. "
+      "Set SCENESCAPE_HARNESS_TMPDIR to a writable path."
+    ) from exc
+  return base
 
 
 class SceneControllerHarness(TrackerHarness):
-  """Tracker harness for SceneScape Scene Controller.
+  """Tracker harness for Scenescape Scene Controller.
 
   This harness executes the tracker by running it inside the scene controller
   Docker container. It operates in **synchronous batch mode** - all inputs are
@@ -40,7 +63,7 @@ class SceneControllerHarness(TrackerHarness):
     """Initialize SceneControllerHarness.
 
     Args:
-      container_image: Scene controller Docker image (e.g., 'scenescape-controller:2026.0.0-dev')
+      container_image: Scene controller Docker image (e.g., 'intel/scenescape-controller:2026.0.0-dev')
     """
     self._container_image = container_image
     self._scene_config: Optional[Dict[str, Any]] = None
@@ -134,15 +157,15 @@ class SceneControllerHarness(TrackerHarness):
       raise RuntimeError("Tracker config not set. Call set_custom_config() first.")
 
     # Create temporary directory for data exchange with container
-    self._temp_dir = Path(tempfile.mkdtemp(prefix="scenescape_harness_"))
+    self._temp_dir = Path(tempfile.mkdtemp(prefix="scenescape_harness_", dir=_harness_tmp_base()))
     print(f"Created temporary directory: {self._temp_dir}")
 
     try:
       # Write all inputs to single file for data exchange with container
       # (newline-delimited JSON format)
       self._write_input_file(inputs)
-      input_file = self._temp_dir / "inputs.json"
-      self._persist_artifact(input_file, "inputs.json")
+      input_file = self._temp_dir / "inputs.jsonl"
+      self._persist_artifact(input_file, "inputs.jsonl")
 
       # Write scene configuration
       scene_config_file = self._temp_dir / "config.json"
@@ -157,14 +180,13 @@ class SceneControllerHarness(TrackerHarness):
       self._copy_tracking_script()
 
       # Run container
-      output_file = self._temp_dir / "output.json"
+      output_file = self._temp_dir / "output.jsonl"
       self._run_container()
 
       # Read and return outputs
       if output_file.exists():
-        self._persist_artifact(output_file, "outputs.json")
-        with open(output_file, 'r') as f:
-          outputs = json.load(f)
+        self._persist_artifact(output_file, "outputs.jsonl")
+        outputs = list(stream_jsonl(str(output_file)))
         return iter(outputs)
       else:
         raise RuntimeError("Tracker execution completed but no output file generated")
@@ -205,7 +227,7 @@ class SceneControllerHarness(TrackerHarness):
     Args:
       inputs: Iterator of input detection frames
     """
-    output_file = self._temp_dir / "inputs.json"
+    output_file = self._temp_dir / "inputs.jsonl"
     write_jsonl(inputs, str(output_file))
 
   def _copy_tracking_script(self) -> None:
@@ -226,6 +248,7 @@ class SceneControllerHarness(TrackerHarness):
         ],
         workdir="/workspace",
         entrypoint="python",
+        user=f"{os.getuid()}:{os.getgid()}",
         remove=True,
         stream=True
       )

@@ -276,3 +276,49 @@ class TestIntegration:
     # Reset and verify
     evaluator.reset()
     assert evaluator._processed is False
+
+
+class TestSetBaseFps:
+  """Test set_base_fps method."""
+
+  def test_returns_self(self, evaluator):
+    """Method returns self for chaining."""
+    result = evaluator.set_base_fps(30.0)
+    assert result is evaluator
+
+  def test_stores_value(self, evaluator):
+    """FPS value is stored."""
+    evaluator.set_base_fps(25.0)
+    assert evaluator._base_fps == 25.0
+
+  def test_none_resets(self, evaluator):
+    """None resets to auto-compute."""
+    evaluator.set_base_fps(30.0)
+    evaluator.set_base_fps(None)
+    assert evaluator._base_fps is None
+
+  def test_zero_raises(self, evaluator):
+    """Zero fps raises ValueError."""
+    with pytest.raises(ValueError, match="must be > 0"):
+      evaluator.set_base_fps(0)
+
+  def test_negative_raises(self, evaluator):
+    """Negative fps raises ValueError."""
+    with pytest.raises(ValueError, match="must be > 0"):
+      evaluator.set_base_fps(-1.0)
+
+  def test_reset_clears(self, evaluator):
+    """reset() clears base_fps."""
+    evaluator.set_base_fps(30.0)
+    evaluator.reset()
+    assert evaluator._base_fps is None
+
+  def test_overrides_computed_fps(
+    self, evaluator, mock_tracker_outputs, mock_ground_truth_file, temp_result_folder
+  ):
+    """When set, base_fps overrides computed FPS."""
+    evaluator.set_base_fps(15.0)
+    evaluator.configure_metrics(['HOTA'])
+    evaluator.set_output_folder(temp_result_folder)
+    evaluator.process_tracker_outputs(mock_tracker_outputs, mock_ground_truth_file)
+    assert evaluator._camera_fps == 15.0

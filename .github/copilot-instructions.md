@@ -1,22 +1,86 @@
-# SceneScape AI Agent Instructions
+# Scenescape AI Agent Instructions
 
-Intel® SceneScape is a microservice-based spatial awareness framework for multimodal sensor fusion. This guide enables AI agents to work effectively in this distributed system.
+Scenescape is a microservice-based spatial awareness framework for multimodal sensor fusion. This guide enables AI agents to work effectively in this distributed system.
 
 **Current Version**: Read from `version.txt` at repository root
 
-## Language-Specific Instructions
+## Licensing Requirements (Critical - All Files)
 
-For detailed language-specific guidance, refer to `.github/instructions/<language>.md`:
+**CRITICAL - All files must include:**
 
-- **Python**: `.github/instructions/python.md` - Python coding standards, patterns, and best practices
-  - **CRITICAL**: Use 2 spaces for indentation (never 4 spaces or tabs)
-- **JavaScript**: `.github/instructions/javascript.md` - Frontend development conventions
-- **Shell**: `.github/instructions/shell.md` - Bash scripting guidelines
-- **Makefile**: `.github/instructions/makefile.md` - Build system conventions
+- SPDX license header: `SPDX-License-Identifier: Apache-2.0`
+- Copyright line: `(C) <YEAR> Intel Corporation` (use current year for new files)
+- Example:
+  ```python
+  # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+  # SPDX-License-Identifier: Apache-2.0
+  ```
+- **Enforcement**: REUSE compliance checking in CI
+- Add to new files: `make add-licensing FILE=<filename>`
 
-Always consult the appropriate language-specific file when working with code in that language.
+## Language-Specific Skills (Load On-Demand)
 
-**Python Indentation Rule**: All Python code MUST use 2 spaces for indentation. This is enforced by `make indent-check` and is a hard requirement across the entire codebase.
+Consult these based on the code you're working with:
+
+- **Python** (`.github/skills/python/SKILL.md`): Coding standards, imports, patterns
+  - **CRITICAL**: 2 spaces for indentation (checked by `make indent-check`)
+- **JavaScript** (`.github/skills/javascript/SKILL.md`): Frontend conventions
+- **Shell** (`.github/skills/shell/SKILL.md`): Bash scripting guidelines
+- **Makefile** (`.github/skills/makefile/SKILL.md`): Build system conventions
+- **Testing** (`.github/skills/testing/SKILL.md`): Test creation frameworks
+- **External-source adapters** (`.github/skills/external-source-adapter/SKILL.md`): Converter scripts for the Scene Controller `external_source` MQTT contract (read the skill before writing publishers)
+
+### Skills Caching Strategy
+
+Skills are loaded on-demand based on task context to optimize token usage:
+
+**Pre-Cached (Always Available)**:
+
+- `copilot-instructions.md` (this file, always loaded)
+- `python.md` (high frequency, pre-cached)
+- `documentation-how.md` (high frequency, pre-cached)
+
+**Loaded Automatically on Demand**:
+
+- `testing.md` - Loaded when task involves tests or `test` keyword detected
+- `javascript.md` - Loaded when `.js` files are being edited
+- `shell.md` - Loaded when `.sh` files are being edited
+- `makefile.md` - Loaded when Makefile or build system changes
+
+Skills are detected and loaded based on file type, task keywords, and context signals. Explicitly request a skill if the auto-detection doesn't load it.
+
+### Instruction Placement Policy (Critical)
+
+- Prefer skill files under `.github/skills/` for detailed procedural rules.
+- Keep this file focused on high-level routing and references to canonical skill documents.
+- Avoid duplicating policy/checklist text across this file and skills.
+- If overlap is found, retain one canonical source and replace duplicates with a short pointer.
+
+## Security Defaults (Always-On)
+
+Apply secure-by-default behavior across all code generation, changes, and reviews, regardless of language or component.
+
+- Prefer least privilege across code, services, identities, file permissions, APIs, containers, and workflows; avoid insecure defaults.
+- Treat all external input as untrusted and validate format, type, range, and length at trust boundaries.
+- Never hard-code or introduce secrets, credentials, keys, tokens, or passwords in source, tests, configs, or templates; use environment variables or approved secret-management mechanisms.
+- Avoid exposing sensitive data in logs, traces, errors, metrics, or test artifacts.
+- Prevent injection vulnerabilities by avoiding unsafe string construction and using safe, context-appropriate APIs.
+- Prefer trusted, actively maintained dependencies and images; verify sources and pin versions where feasible.
+- Avoid deprecated, unmaintained, or ambiguous packages.
+- Do not suggest bypassing or weakening existing security checks or validations.
+- Keep authorization checks server-side and close to protected resources.
+- Avoid unsafe dynamic execution patterns (`eval`, `exec`, untrusted command construction).
+- Do not assume trusted inputs, networks, or environments.
+- Be explicit about assumptions and limitations.
+- Fail safely and visibly.
+
+## AI Output Trust Model
+
+Treat AI-generated output as **untrusted draft code** until reviewed and tested.
+Reject suggestions that bypass security controls for convenience or introduce unsafe defaults.
+
+For detailed security review guidance, follow:
+`.github/skills/security/SKILL.md`.
 
 ## Architecture Overview
 
@@ -66,16 +130,29 @@ make rebuild-core                  # Clean + build (useful after code changes)
 
 ## Testing Framework
 
-**For comprehensive test creation guidance, see `.github/instructions/testing.md`** - detailed instructions on creating unit, functional, integration, UI, and smoke tests with both positive and negative cases.
+Testing guidance is intentionally centralized in skills to avoid duplication.
 
-**Running Tests** (must have containers running via docker-compose):
+- Canonical test authoring and categorization guidance: `.github/skills/testing/SKILL.md` (category details in `testing/references/`)
+- Canonical runtime verification and completion rules: `.github/skills/test-verification-gate/SKILL.md`
 
-```bash
-SUPASS=<password> make setup_tests                    # Build test images
-make run_basic_acceptance_tests                       # Quick acceptance tests
-make -C tests unit-tests                              # Unit tests only
-make -C tests geometry-unit                           # Specific test (e.g., geometry)
-```
+At this level, only rely on high-level routing:
+
+- Test infrastructure is pytest-based with Docker Compose lifecycle managed in `tests/conftest.py`.
+- Prefer root `Makefile` test targets for execution unless a narrower, explicit pytest invocation is required.
+
+### Completion Gate For Test Tasks (Critical)
+
+For runtime test verification requirements, use
+`.github/skills/test-verification-gate/SKILL.md`.
+
+### Containerized Test Image Freshness Gate (Critical)
+
+Use `.github/skills/test-verification-gate/SKILL.md` as the single source of truth
+for image freshness checks, rebuild-before-test requirements, and retry policy
+for containerized test targets.
+
+Service-specific examples belong in each service guide (for controller, see
+`controller/Agents.md`).
 
 ## Code Patterns & Conventions
 
@@ -128,9 +205,11 @@ pubsub.publish(topic, json_payload)
 
 **Debugging Tests**:
 
-- Use `debugtest.py` for running tests without pytest harness (useful in containers)
-- View test output: `docker compose exec <service> cat <logfile>`
-- Specific test: `pytest tests/sscape_tests/geometry/test_point.py::TestPoint::test_constructor -v`
+- Run specific test: `pytest tests/sscape_tests/geometry/test_point.py::TestPoint::test_constructor`
+- Per-test logs: `tests/.test_logs/<group>/<test_id>/<test_id>-<timestamp>.log`
+  (container logs for failures are written to a `...-containers/` sibling directory)
+- Container log collection: `--collect-container-logs {failed,all,none}` (default: `failed`)
+- Multi-backend: `--backend=docker` (default), `--backend=kubernetes`, `--backend=all`
 
 ## Integration Points & Dependencies
 
@@ -156,7 +235,8 @@ pubsub.publish(topic, json_payload)
 
 - Helm chart: `kubernetes/scenescape-chart/`
 - Reference: `kubernetes/README.md` for K8s-specific patterns
-- Test via `make demo-k8s DEMO_K8S_MODE=core|all`
+- Test via `make demo-k8s DEMO_K8S_MODE=core|reid|all`
+- ReID backend selected by `reid.backend` (`vdms`|`qdrant`), or `REID_BACKEND` for the make targets
 
 ## File Organization Essentials
 
@@ -165,11 +245,39 @@ pubsub.publish(topic, json_payload)
 - **`.env`**: Runtime environment (database password, metrics config, COMPOSE_PROJECT_NAME)
 - **`scene_common/src/scene_common/`**: Reusable modules (MQTT, REST, geometry, schema, logging)
 - **`manager/secrets/`**: TLS certificates, auth tokens (never committed; generated per build)
-- **`tests/Makefile`** and **`tests/Makefile.sscape`**: Test orchestration with Zephyr ID tracking
+- **`tests/conftest.py`**: Session-scoped pytest fixtures for Docker Compose lifecycle, test ordering, and environment injection
+- **`tests/utils/`**: Test infrastructure (`spec.py`, `profiles.py`, `containers.py`, `log.py`)
 
-## Documentation Requirements
+## Documentation Requirements (Always-On)
 
-**ALWAYS read `.github/instructions/documentation.md` before making any code changes.** This file contains comprehensive documentation requirements and update procedures that must be followed for every agent request.
+### WHEN to Update Documentation
+
+**Update documentation IMMEDIATELY when making ANY of these changes:**
+
+- Adding new features, services, models, or options
+- Modifying APIs, endpoints, or request/response formats
+- Changing build targets, Makefile commands, or deployment procedures
+- Adding or removing configuration options or environment variables
+- Updating dependencies or system requirements
+- Changing default behaviors or conventions
+
+### HOW to Update Documentation
+
+**For detailed procedures, see `.github/skills/documentation-how/SKILL.md`.**
+
+This skill contains:
+
+- Service-specific documentation locations (overview, build guides, API specs)
+- Detailed update checklist per component
+- Examples and patterns for each service type
+- Cross-service documentation guidelines
+
+**Quick reference - Key locations:**
+
+- `docs/user-guide/microservices/<service>/<service>.md` - Features and API endpoints
+- `docs/user-guide/microservices/<service>/get-started/build-from-source.md` - Build instructions
+- `<service>/README.md` - Quick start
+- `docs/user-guide/` - Cross-service documentation
 
 ## Quick Reference: New Service Checklist
 
@@ -183,17 +291,3 @@ When adding a new microservice:
 6. Create tests in `tests/sscape_tests/<service>/` with conftest.py fixtures
 7. Add test-build target in service Makefile
 8. **Update ALL relevant documentation** (overview, build guide, API docs, examples)
-
-## Licensing Requirements
-
-**All files must include:**
-
-- SPDX license headers: `SPDX-License-Identifier: Apache-2.0`
-- Copyright: Use current year `(C) <YEAR> Intel Corporation` (e.g., `(C) 2025 Intel Corporation` for files created in 2025)
-- **Enforcement**: REUSE compliance checking in CI
-
-**Add license to new files:**
-
-```bash
-make add-licensing FILE=<filename>
-```

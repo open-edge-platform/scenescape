@@ -1,6 +1,6 @@
-# VS Code Setup for Intel® SceneScape
+# VS Code Setup for Scenescape
 
-This guide configures Visual Studio Code for optimal Intel® SceneScape development with cross-module navigation and IntelliSense.
+This guide configures Visual Studio Code for optimal Scenescape development with cross-module navigation and IntelliSense.
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ Before configuring VS Code, set up the project environment:
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/open-edge-platform/scenescape.git
+   git clone https://github.com/open-edge-platform/scenescape.git -b main
    cd scenescape
    ```
 
@@ -47,7 +47,7 @@ Before configuring VS Code, set up the project environment:
 
 ## Quick Setup
 
-Assuming you have the Intel® SceneScape project cloned and Python environment ready:
+Assuming you have the Scenescape project cloned and Python environment ready:
 
 1. Open VS Code
 2. Use **File → Open Folder** and select the `scenescape` directory
@@ -91,7 +91,7 @@ Create `.vscode/settings.json` in the project root, or press `Ctrl+Shift+P` → 
   "python.terminal.activateEnvironment": true,
   "python.analysis.extraPaths": [
     "${workspaceFolder}",
-    "${workspaceFolder}/manager/src/django",
+    "${workspaceFolder}/manager/src/manager",
     "${workspaceFolder}/tests",
     "${workspaceFolder}/scene_common/src",
     "${workspaceFolder}/controller/src",
@@ -124,3 +124,33 @@ Create `.vscode/settings.json` in the project root, or press `Ctrl+Shift+P` → 
 
 - If Python interpreter is not detected, press `Ctrl+Shift+P` → "Python: Select Interpreter" → Choose `.venv/bin/python`
 - If imports are not resolved, restart VS Code or reload the window (`Ctrl+Shift+P` → "Developer: Reload Window")
+
+## Testing Configuration
+
+VS Code's Python test extension discovers tests via pytest. The configuration in `.vscode/settings.json` controls which test directories are scanned:
+
+```json
+{
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": [
+    "tests",
+    "cluster_analytics/tests/service",
+    "--import-mode=importlib"
+  ]
+}
+```
+
+**Configuration details:**
+
+- `"tests"` — Discovers all tests in the main test directory, including cluster analytics unit tests
+- `"cluster_analytics/tests/service"` — Discovers component tests for the cluster analytics service
+- `"--import-mode=importlib"` — Uses importlib import mode to avoid namespace collisions between isolated test packages
+
+**Note:** Cluster analytics unit tests have their own `pytest.ini` configuration (`tests/sscape_tests/cluster_analytics/pytest.ini`) that disables the Django plugin. This is necessary because these tests don't require Django and would fail trying to import `manager.secrets` if Django initialization were attempted.
+
+**To view tests in VS Code:**
+
+1. Open the **Test Explorer** panel (left sidebar, flask icon)
+2. Click the refresh button to rescan for tests
+3. Expand the test tree to see all tests, including cluster analytics tests

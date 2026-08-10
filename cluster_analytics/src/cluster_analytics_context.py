@@ -3,7 +3,6 @@
 
 import json
 import os
-import threading
 import time
 import numpy as np
 from collections import Counter, defaultdict
@@ -11,7 +10,7 @@ from sklearn.cluster import DBSCAN
 
 from scene_common import log
 from scene_common.mqtt import PubSub
-from cluster_analytics_tracker import ClusterTracker, HungarianMatcher
+from cluster_analytics_tracker import ClusterTracker
 
 class ClusterAnalyticsConfig:
   """Configuration settings for cluster analytics loaded from config.json"""
@@ -49,7 +48,6 @@ class ClusterAnalyticsConfig:
     self.CATEGORY_DBSCAN_PARAMS = dbscan_config.get('category_specific', {})
 
     self.SHAPE_VARIANCE_THRESHOLD = 0.5
-    self.QUADRANT_ANGLE = np.pi / 2  # 90 degrees, quadrant angle
     self.ANGLE_DISTRIBUTION_THRESHOLD = 0.5
     self.LINEAR_FORMATION_AREA_THRESHOLD = 0.5
 
@@ -59,20 +57,6 @@ class ClusterAnalyticsConfig:
     self.STATIONARY_THRESHOLD = 0.1
     self.VELOCITY_COHERENCE_THRESHOLD = 0.3
 
-    self.FRAMES_TO_ACTIVATE = 3
-    self.FRAMES_TO_STABLE = 20
-    self.FRAMES_TO_FADE = 15
-    self.FRAMES_TO_LOST = 10
-
-    self.INITIAL_CONFIDENCE = 0.5
-    self.ACTIVATION_THRESHOLD = 0.6
-    self.STABILITY_THRESHOLD = 0.7
-    self.CONFIDENCE_MISS_PENALTY = 0.1
-    self.CONFIDENCE_MAX_MISS_PENALTY = 0.5
-    self.CONFIDENCE_LONGEVITY_BONUS_MAX = 0.2
-    self.CONFIDENCE_LONGEVITY_FRAMES = 100
-
-    self.ARCHIVE_TIME_THRESHOLD = 5.0
 
 class ClusterAnalyticsContext:
   def __init__(self, broker, broker_auth, cert, root_cert, enable_webui=True, webui_port=9443, webui_certfile=None, webui_keyfile=None):
@@ -82,8 +66,9 @@ class ClusterAnalyticsContext:
     self.webui_keyfile = webui_keyfile
 
     # Initialize cluster tracker for tracking clusters across frames
-    self.cluster_tracker = ClusterTracker(matcher=HungarianMatcher(), config=self.config)
+    self.cluster_tracker = ClusterTracker()
 
+    # Per-scene user-configured DBSCAN parameter overrides: {scene_id: {category: {eps, min_samples}}}
     self.user_dbscan_params_by_scene = {}
 
     # Initialize WebUI if enabled
@@ -119,7 +104,7 @@ class ClusterAnalyticsContext:
 
     try:
       self.client = PubSub(broker_auth, cert, root_cert, broker, keepalive=240)
-      self.client.onConnect = self.mqttOnConnect
+      self.client.onConnect = self.mqtt_on_connect
       log.info(f"Attempting to connect to MQTT broker")
       log.debug(f"Broker address: {broker}")
       self.client.connect()
@@ -131,121 +116,71 @@ class ClusterAnalyticsContext:
 
     return
 
-  def getDbscanParamsForCategory(self, category, scene_id=None):
-    """! Get DBSCAN parameters optimized for a specific object category in a specific scene
+  def get_dbscan_params_for_category(self, category, scene_id=None):
+    """! Get DBSCAN parameters for a specific object category.
     @param   category  Object category (person, vehicle, bicycle, etc.)
-    @param   scene_id  Scene identifier (optional, for scene-specific parameters)
+    @param   scene_id  Optional scene ID to check for user-configured overrides.
     @return  Dictionary with 'eps' and 'min_samples' parameters
     """
-    # Normalize category to lowercase for consistent lookup
     category_lower = category.lower()
 
-    # Check scene-specific user-configured parameters first
-    if scene_id:
-      scene_params = self.user_dbscan_params_by_scene.get(scene_id)
-      if scene_params:
-        params = scene_params.get(category_lower)
-        if params:
-          log.debug(f"Using scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={params['eps']}, min_samples={params['min_samples']}")
-          return params
-
-    # Return category-specific default parameters if available
-    params = self.config.CATEGORY_DBSCAN_PARAMS.get(category_lower)
-    if params:
-      log.debug(f"Using default DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
-      return params
-
-    default_params = {
-        'eps': self.config.DEFAULT_DBSCAN_EPS,
-        'min_samples': self.config.DEFAULT_DBSCAN_MIN_SAMPLES
-    }
-    log.debug(f"Using global default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
-    return default_params
-
-  def setUserDbscanParamsForCategory(self, category, eps, min_samples, scene_id=None):
-    """! Set user-configured DBSCAN parameters for a specific object category in a specific scene
-    @param   category     Object category (person, vehicle, bicycle, etc.)
-    @param   eps          DBSCAN eps parameter
-    @param   min_samples  DBSCAN min_samples parameter
-    @param   scene_id     Scene identifier (optional, for scene-specific parameters)
-    @return  None
-    """
-    # Normalize category to lowercase for consistent lookup
-    category_lower = category.lower()
-
-    # Store scene-specific user configuration
-    if scene_id:
-      # Get current parameters to check for significant changes
-      current_params = self.getDbscanParamsForCategory(category_lower, scene_id)
-      new_params = {'eps': float(eps), 'min_samples': int(min_samples)}
-
-      # Check if this is a significant parameter change that would affect existing clusters
-      eps_change_ratio = abs(new_params['eps'] - current_params['eps']) / max(current_params['eps'], 0.1)
-      min_samples_changed = new_params['min_samples'] != current_params['min_samples']
-
-      # If parameters changed significantly, force-clear existing clusters
-      if eps_change_ratio > 0.5 or min_samples_changed:
-        cleared_count = self.cluster_tracker.forceClearClustersByCategory(scene_id, category_lower)
-        if cleared_count > 0:
-          log.debug(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to significant parameter change")
-
-      # Initialize scene parameters if not exists
-      if scene_id not in self.user_dbscan_params_by_scene:
-        self.user_dbscan_params_by_scene[scene_id] = {}
-
-      # Store parameters for this scene and category
-      self.user_dbscan_params_by_scene[scene_id][category_lower] = new_params
-
-      log.debug(f"Set scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={eps}, min_samples={min_samples}")
-    else:
-      log.warning(f"Cannot set DBSCAN parameters for '{category}': no scene_id provided")
-
-  def getDefaultDbscanParamsForCategory(self, category):
-    """! Get the default (hardcoded) DBSCAN parameters for a category
-    @param   category  Object category (person, vehicle, bicycle, etc.)
-    @return  Dictionary with 'eps' and 'min_samples' default parameters
-    """
-    # Normalize category to lowercase for consistent lookup
-    category_lower = category.lower()
-
-    if category_lower in self.config.CATEGORY_DBSCAN_PARAMS:
-      return self.config.CATEGORY_DBSCAN_PARAMS[category_lower].copy()
-    else:
-      return {
-          'eps': self.config.DEFAULT_DBSCAN_EPS,
-          'min_samples': self.config.DEFAULT_DBSCAN_MIN_SAMPLES
-      }
-
-  def resetUserDbscanParamsForCategory(self, category, scene_id=None):
-    """! Reset user-configured parameters for a category in a specific scene back to defaults
-    @param   category  Object category (person, vehicle, bicycle, etc.)
-    @param   scene_id  Scene identifier (optional, for scene-specific parameters)
-    @return  None
-    """
-    # Normalize category to lowercase for consistent lookup
-    category_lower = category.lower()
-
-    # Remove scene-specific user configuration for this category
+    # Check for user-configured per-scene override first
     if scene_id and scene_id in self.user_dbscan_params_by_scene:
       scene_params = self.user_dbscan_params_by_scene[scene_id]
       if category_lower in scene_params:
-        # Force-clear existing clusters since parameters are changing back to defaults
-        cleared_count = self.cluster_tracker.forceClearClustersByCategory(scene_id, category_lower)
-        if cleared_count > 0:
-          log.debug(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to parameter reset")
+        params = scene_params[category_lower]
+        log.debug(f"Using user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={params['eps']}, min_samples={params['min_samples']}")
+        return params
 
-        del scene_params[category_lower]
-        log.debug(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' back to defaults")
+    # Fall back to category-specific config, then global default
+    return self.get_default_dbscan_params_for_category(category)
 
-        # Clean up empty scene entries
-        if not scene_params:
-          del self.user_dbscan_params_by_scene[scene_id]
-      else:
-        log.debug(f"No custom DBSCAN parameters found for '{category}' in scene '{scene_id}' to reset")
-    else:
-      log.warning(f"Cannot reset DBSCAN parameters for '{category}': scene '{scene_id}' not found or no scene_id provided")
+  def get_default_dbscan_params_for_category(self, category):
+    """! Get default (config-based) DBSCAN parameters for a specific object category.
+    @param   category  Object category (person, vehicle, bicycle, etc.)
+    @return  Dictionary with 'eps' and 'min_samples' parameters
+    """
+    category_lower = category.lower()
+    params = self.config.CATEGORY_DBSCAN_PARAMS.get(category_lower)
+    if params:
+      log.debug(f"Using DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
+      return params
+    default_params = {
+      'eps': self.config.DEFAULT_DBSCAN_EPS,
+      'min_samples': self.config.DEFAULT_DBSCAN_MIN_SAMPLES,
+    }
+    log.debug(f"Using default DBSCAN parameters for '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
+    return default_params
 
-  def mqttOnConnect(self, client, userdata, flags, rc):
+  def set_user_dbscan_params_for_category(self, category, eps, min_samples, scene_id):
+    """! Set user-configured DBSCAN parameters for a category in a specific scene.
+    @param   category    Object category (person, vehicle, bicycle, etc.)
+    @param   eps         Maximum distance between objects in the same cluster
+    @param   min_samples Minimum number of objects to form a cluster
+    @param   scene_id    Scene ID to configure
+    """
+    category_lower = category.lower()
+    if scene_id not in self.user_dbscan_params_by_scene:
+      self.user_dbscan_params_by_scene[scene_id] = {}
+    self.user_dbscan_params_by_scene[scene_id][category_lower] = {
+      'eps': eps,
+      'min_samples': min_samples,
+    }
+    log.info(f"Set user DBSCAN parameters for '{category}' in scene '{scene_id}': eps={eps}, min_samples={min_samples}")
+    self.cluster_tracker.clear_scene(scene_id)
+
+  def reset_user_dbscan_params_for_category(self, category, scene_id):
+    """! Reset user-configured DBSCAN parameters for a category back to config defaults.
+    @param   category  Object category (person, vehicle, bicycle, etc.)
+    @param   scene_id  Scene ID to reset
+    """
+    category_lower = category.lower()
+    if scene_id in self.user_dbscan_params_by_scene:
+      self.user_dbscan_params_by_scene[scene_id].pop(category_lower, None)
+      log.info(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' to config defaults")
+    self.cluster_tracker.clear_scene(scene_id)
+
+  def mqtt_on_connect(self, client, userdata, flags, rc):
     """! Subscribes to MQTT topics on connection.
     @param   client    Client instance for this callback.
     @param   userdata  Private user data as set in Client.
@@ -255,11 +190,11 @@ class ClusterAnalyticsContext:
     @return  None
     """
     data_regulated_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id="+")
-    self.client.addCallback(data_regulated_topic, self.processSceneAnalytics)
+    self.client.addCallback(data_regulated_topic, self.process_scene_analytics)
     log.info("Subscribed to " + data_regulated_topic)
     return
 
-  def processSceneAnalytics(self, client, userdata, message):
+  def process_scene_analytics(self, client, userdata, message):
     """! MQTT callback function used to process analytics data from scenes and object detections.
     This function handles incoming data about scenes and detected objects for analytics processing.
     @param   client      MQTT client.
@@ -277,8 +212,8 @@ class ClusterAnalyticsContext:
       # Reduced logging - only log at debug level
       log.debug(f"Received detection data for scene {scene_id}: {len(detection_data.get('objects', []))} objects")
 
-      all_clusters = self.analyzeObjectClusters(scene_id, detection_data)
-      self.publishAllClusters(scene_id, detection_data, all_clusters)
+      self.analyze_object_clusters(scene_id, detection_data)
+      self.publish_all_clusters(scene_id, detection_data)
 
     except json.JSONDecodeError as e:
       log.error(f"Failed to parse detection data from scene (invalid JSON)")
@@ -290,7 +225,7 @@ class ClusterAnalyticsContext:
       log.debug(traceback.format_exc())
     return
 
-  def extractCoordinatesFromObjects(self, objects):
+  def extract_coordinates_from_objects(self, objects):
     """! Extract x,y coordinates from object detection data for clustering
     @param   objects  List of object detection data
     @return  List of [x, y] coordinate pairs
@@ -308,7 +243,7 @@ class ClusterAnalyticsContext:
         coordinates.append([x, y])
     return coordinates
 
-  def analyzeObjectClusters(self, scene_id, detection_data):
+  def analyze_object_clusters(self, scene_id, detection_data):
     """! Analyze object clusters using DBSCAN algorithm and publish results to MQTT
     @param   scene_id        Scene identifier
     @param   detection_data  Detection data containing objects with coordinates
@@ -350,7 +285,7 @@ class ClusterAnalyticsContext:
 
     # Get the minimum min_samples requirement across all categories that have objects
     min_samples_list = [
-            self.getDbscanParamsForCategory(category, scene_id)['min_samples']
+            self.get_dbscan_params_for_category(category, scene_id)['min_samples']
             for category in objects_by_category
     ]
     min_required_objects = min(min_samples_list, default=self.config.DEFAULT_DBSCAN_MIN_SAMPLES)
@@ -358,19 +293,19 @@ class ClusterAnalyticsContext:
     if len(objects) < min_required_objects:
       log.debug(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering")
       # Still process through tracker to mark existing clusters as missed
-      self.cluster_tracker.processNewDetections(scene_id, [], timestamp)
+      self.cluster_tracker.update(scene_id, [], timestamp)
       return []
 
     # Analyze clusters for each category with multiple objects
     for category, category_objects in objects_by_category.items():
       # Get category-specific DBSCAN parameters for this scene
-      dbscan_params = self.getDbscanParamsForCategory(category, scene_id)
+      dbscan_params = self.get_dbscan_params_for_category(category, scene_id)
 
       if len(category_objects) < dbscan_params['min_samples']:
         continue  # Skip categories with too few objects
 
       # Extract x,y coordinates for clustering
-      coordinates = self.extractCoordinatesFromObjects(category_objects)
+      coordinates = self.extract_coordinates_from_objects(category_objects)
       coordinates_array = np.array(coordinates)
 
       # Apply DBSCAN clustering
@@ -401,8 +336,8 @@ class ClusterAnalyticsContext:
           cluster_center = np.mean(cluster_coordinates, axis=0)
 
           # Analyze shape and velocity
-          shape_analysis = self.detectShapeMl(cluster_coordinates)
-          velocity_analysis = self.analyzeClusterVelocity(cluster_objects, cluster_center)
+          shape_analysis = self.detect_shape_ml(cluster_coordinates)
+          velocity_analysis = self.analyze_cluster_velocity(cluster_objects, cluster_center)
 
           # Create detection dictionary
           cluster_detection = {
@@ -424,16 +359,13 @@ class ClusterAnalyticsContext:
 
           raw_cluster_detections.append(cluster_detection)
 
-    self.cluster_tracker.processNewDetections(scene_id, raw_cluster_detections, timestamp)
+    self.cluster_tracker.update(scene_id, raw_cluster_detections, timestamp)
 
     # Log when no clusters are detected by DBSCAN
     if len(raw_cluster_detections) == 0:
       log.debug(f"Scene {scene_id}: No clusters detected by DBSCAN")
 
-    # Clean up old/lost clusters to prevent stale data
-    self.cluster_tracker.memory.cleanupOldClusters(timestamp)
-
-    # Don't publish here - let publishAllClusters handle it to avoid duplicates
+    # Don't publish here - let publish_all_clusters handle it to avoid duplicates
     return raw_cluster_detections
 
   def _publishTrackedClusters(self, scene_id, detection_data):
@@ -448,13 +380,10 @@ class ClusterAnalyticsContext:
       return
 
     # Get active/stable clusters for this scene
-    tracked_clusters = self.cluster_tracker.getActiveClusters(
-            scene_id=scene_id,
-            publishable_only=True
-    )
+    tracked_clusters = self.cluster_tracker.get_clusters(scene_id)
 
     # Convert to dictionaries
-    cluster_dicts = [c.toDict() for c in tracked_clusters]
+    cluster_dicts = [c.to_dict() for c in tracked_clusters]
 
     try:
       # Create aggregated cluster data structure
@@ -486,18 +415,17 @@ class ClusterAnalyticsContext:
       log.debug(f"Scene ID: {scene_id}, error: {e}")
     return
 
-  def publishAllClusters(self, scene_id, detection_data, all_clusters):
+  def publish_all_clusters(self, scene_id, detection_data):
     """! Publish all clusters for a scene at once to ANALYTICS_CLUSTERS MQTT topic
     @param   scene_id        Scene identifier
     @param   detection_data  Original detection data containing scene metadata
-    @param   all_clusters    List of all cluster metadata dictionaries for the scene
 
     @return  None
     """
     self._publishTrackedClusters(scene_id, detection_data)
     return
 
-  def extractPointFeatures(self, points):
+  def extract_point_features(self, points):
     """! Extract distance and angle features from cluster points relative to centroid
     @param   points  Array of coordinate points in the cluster
 
@@ -508,26 +436,6 @@ class ClusterAnalyticsContext:
 
     for point in points:
     # Distance to centroid
-      dist_to_center = np.linalg.norm(point - centroid)
-
-      # Angle from centroid
-      angle = np.arctan2(point[1] - centroid[1], point[0] - centroid[0])
-
-      features.append([dist_to_center, angle])
-
-    return np.array(features), centroid
-
-  def detectShapeMl(self, points):
-    """! Detect the geometric shape formed by a cluster of points using ML techniques
-    @param   points  Array of coordinate points in the cluster
-
-    @return  Tuple of (features array, centroid array)
-    """
-    features = []
-    centroid = np.mean(points, axis=0)
-
-    for point in points:
-      # Distance to centroid
       dist_to_center = np.linalg.norm(point - centroid)
 
       # Angle from centroid
@@ -551,37 +459,6 @@ class ClusterAnalyticsContext:
             "diameter": float(diameter),
             "area": float(area),
             "circumference": float(2 * np.pi * radius)
-        }
-    }
-
-  def _getRectangleShape(self, points_array):
-    """! Create rectangle shape metadata
-    @param   points_array  Array of coordinate points
-    @return  Dictionary with rectangle shape and size data
-    """
-    x_coords = points_array[:, 0]
-    y_coords = points_array[:, 1]
-
-    width = np.max(x_coords) - np.min(x_coords)
-    height = np.max(y_coords) - np.min(y_coords)
-    area = width * height
-    perimeter = 2 * (width + height)
-
-    corners = [
-        [np.min(x_coords), np.min(y_coords)],
-        [np.max(x_coords), np.min(y_coords)],
-        [np.max(x_coords), np.max(y_coords)],
-        [np.min(x_coords), np.max(y_coords)]
-    ]
-
-    return {
-        "shape": "rectangle",
-        "size": {
-            "width": float(width),
-            "height": float(height),
-            "area": float(area),
-            "perimeter": float(perimeter),
-            "corner_points": [[float(x), float(y)] for x, y in corners]
         }
     }
 
@@ -636,7 +513,7 @@ class ClusterAnalyticsContext:
         }
     }
 
-  def detectShapeMl(self, points):
+  def detect_shape_ml(self, points):
     """! Detect the geometric shape formed by a cluster of points using ML techniques
     @param   points  Array of coordinate points in the cluster
 
@@ -650,7 +527,7 @@ class ClusterAnalyticsContext:
 
     points_array = np.array(points)
 
-    features, _ = self.extractPointFeatures(points_array)
+    features, _ = self.extract_point_features(points_array)
 
     dist_variance = np.var(features[:, 0])
     distances = features[:, 0]
@@ -658,11 +535,6 @@ class ClusterAnalyticsContext:
 
     if dist_variance < self.config.SHAPE_VARIANCE_THRESHOLD:
       return self._getCircleShape(np.mean(distances))
-
-    elif len(points_array) == 4:
-      angle_groups = len(np.unique(np.round(features[:, 1] / self.config.QUADRANT_ANGLE)))
-      if angle_groups >= 3:
-        return self._getRectangleShape(points_array)
 
     elif len(points_array) >= 5:
       angle_diffs = np.diff(np.sort(angles))
@@ -683,7 +555,7 @@ class ClusterAnalyticsContext:
 
     return self._getIrregularShape(points_array, distances)
 
-  def analyzeClusterVelocity(self, cluster_objects, cluster_center):
+  def analyze_cluster_velocity(self, cluster_objects, cluster_center):
     """! Analyze velocity patterns and movement characteristics of a cluster
     @param   cluster_objects  List of objects in the cluster
     @param   cluster_center   Centroid coordinates of the cluster
@@ -727,7 +599,7 @@ class ClusterAnalyticsContext:
     velocity_coherence = max(0, min(1, velocity_coherence))  # Clamp between 0 and 1
 
     # Analyze movement patterns relative to cluster center
-    movement_type = self.classifyMovementPattern(
+    movement_type = self.classify_movement_pattern(
         velocities, positions, cluster_center, avg_speed, velocity_coherence
     )
 
@@ -739,7 +611,7 @@ class ClusterAnalyticsContext:
         "velocity_coherence": float(velocity_coherence)
     }
 
-  def classifyMovementPattern(self, velocities, positions, cluster_center, avg_speed, velocity_coherence):
+  def classify_movement_pattern(self, velocities, positions, cluster_center, avg_speed, velocity_coherence):
     """! Classify the movement pattern of a cluster based on velocity analysis
     @param   velocities       Array of velocity vectors for each object
     @param   positions        Array of position vectors for each object
@@ -785,11 +657,11 @@ class ClusterAnalyticsContext:
     else:
       return "chaotic"
 
-  def loopForever(self):
+  def loop_forever(self):
     # Start WebUI server in a separate thread if available
     if self.webUi:
       try:
-        webThread = self.webUi.runInThread(
+        webThread = self.webUi.run_in_thread(
             host='0.0.0.0',
             port=self.webui_port,
             certfile=self.webui_certfile,

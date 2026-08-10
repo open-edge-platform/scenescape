@@ -119,7 +119,7 @@ def infer_from_img(img, model, intrinsics, categories):
     input_size,
     class_ids,
     score_threshold=SCORE_THRESHOLD, # 0.3,
-    nms_threshold=NMS_THRESHOLD #0.65,
+    nms_threshold=NMS_THRESHOLD, #0.65,
   )
 
   return anns
@@ -135,6 +135,8 @@ class DeepScenario:
     self.model = load_model(MODEL_PATH, self.password, "CPU")
 
   def process_frame(self, frame: VideoFrame) -> bool:
+    custom_regions = []
+
     with frame.data() as frame_data:
       original_image_copy = frame_data.copy()
       annotations = infer_from_img(frame_data, self.model, self.intrinsics, self.categories)
@@ -148,7 +150,16 @@ class DeepScenario:
           corners_3d = get_box_corners(annotation)
           x, y, w, h = compute_2d_bbox_closest_surface(corners_3d, self.intrinsics)
           label = self.category_dict.get(annotation["category_id"], "")
-          roi = frame.add_region(x, y, w, h, label, annotation["score"], False, annotation)
+          frame.add_region(x, y, w, h, label, float(annotation["score"]), False)
+          custom_regions.append({
+          "label": label,
+          "score": float(annotation["score"]),
+          "bbox": {"x": int(x), "y": int(y), "w": int(w), "h": int(h)},
+          "category_id": int(annotation["category_id"]),
+          "translation": [float(v) for v in annotation["translation"]],
+          "rotation": [float(v) for v in annotation["rotation"]],
+          "dimension": [float(v) for v in annotation["dimension"]],
+          })
     frame.add_message(
       json.dumps(
         {
@@ -156,6 +167,7 @@ class DeepScenario:
           'original_image_base64': base64.b64encode(
             cv2.imencode('.jpg', original_image_copy)[1]
           ).decode('utf-8'),
+          "custom_regions_3d": custom_regions,
         }
       )
     )

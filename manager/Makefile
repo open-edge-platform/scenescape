@@ -1,12 +1,14 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-IMAGE = scenescape-manager
+IMAGE = intel/scenescape-manager
+TEST_IMAGE = intel/scenescape-manager-test
 TARGET = scenescape-manager-runtime
+TEST_TARGET = scenescape-manager-test
 USES_SCENE_COMMON = yes
 SHELL = /bin/bash
 CERTDOMAIN = scenescape.intel.com
-JSLIBDIR = src/static
+JSLIBDIR = src/manager/static
 CURL_FLAGS = --connect-timeout 5 --max-time 120 --retry 5 --retry-delay 0
 FORCE_VAAPI ?= 0
 THREEJS_VERSION = 168
@@ -23,11 +25,11 @@ build-image: jslibraries jsm-examples remove-symlink Dockerfile
 
 .PHONY: test-build
 test-build: test/geckodriver.tar.gz
-	$(MAKE) IMAGE="scenescape-manager-test" TARGET="scenescape-manager-test" EXTRA_BUILD_ARGS="--build-arg TEST_USER=$(shell id -u)"
+	$(MAKE) IMAGE="$(TEST_IMAGE)" TARGET="$(TEST_TARGET)" EXTRA_BUILD_ARGS="--build-arg TEST_USER=$(shell id -u)"
 
 # The 'remove-symlink' target removes a potentially dangling symlink to prevent build failures.
 remove-symlink:
-	rm -f ./src/django/secrets.py
+	rm -f ./src/manager/secrets.py
 
 define JSMEXAMPLES
 fonts/helvetiker_regular.typeface.json \
@@ -50,6 +52,7 @@ jsm/libs/stats.module.js \
 jsm/libs/zstddec.module.js \
 jsm/loaders/GLTFLoader.js \
 jsm/loaders/FontLoader.js \
+jsm/renderers/CSS2DRenderer.js \
 jsm/utils/BufferGeometryUtils.js \
 jsm/utils/SkeletonUtils.js \
 jsm/utils/WorkerPool.js \
@@ -218,10 +221,8 @@ test/geckodriver.tar.gz:
 	@echo "Downloading geckodriver..."
 	@set -e \
 		; BASE_URL=https://github.com/mozilla/geckodriver/releases \
-		; GVERSION=$$(curl -sL -o /dev/null -w '%{url_effective}' \
-			"$${BASE_URL}/latest" \
-			| sed -e 's,.*/,,') \
+		; GVERSION=v0.36.0 \
 		; mkdir -p test \
-		; curl -sL \
+		; curl -fSL \
 			"$${BASE_URL}/download/$${GVERSION}/geckodriver-$${GVERSION}-linux64.tar.gz" \
 			--output "test/geckodriver.tar.gz"

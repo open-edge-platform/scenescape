@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
-On-demand NetVLAD model loader for SceneScape autocalibration.
+On-demand NetVLAD model loader for Scenescape autocalibration.
 This script downloads the NetVLAD model only when needed, reducing Docker image size.
 """
 
@@ -37,7 +37,10 @@ def get_model_path() -> Path:
 
 def download_file(url: str, destination: Path, chunk_size: int = 8192) -> bool:
   """
-  Download file with progress bar and error handling.
+  Download a file with logging-based progress reporting and error handling.
+
+  Progress is logged via the module logger in approximately 10%% increments
+  based on the HTTP Content-Length header (when available).
 
   Args:
     url: URL to download from
@@ -54,6 +57,7 @@ def download_file(url: str, destination: Path, chunk_size: int = 8192) -> bool:
 
     total_size = int(response.headers.get('content-length', 0))
     downloaded = 0
+    last_logged_pct = -1
 
     with open(destination, 'wb') as f:
       for chunk in response.iter_content(chunk_size=chunk_size):
@@ -61,13 +65,13 @@ def download_file(url: str, destination: Path, chunk_size: int = 8192) -> bool:
           f.write(chunk)
           downloaded += len(chunk)
 
-          # Show progress
           if total_size > 0:
             progress = (downloaded / total_size) * 100
-            sys.stdout.write(f"\rDownloading: {progress:.1f}% ({downloaded}/{total_size} bytes)")
-            sys.stdout.flush()
+            current_bucket = int(progress / 10) * 10
+            if current_bucket > last_logged_pct:
+              logger.info(f"Downloading: {progress:.1f}% ({downloaded}/{total_size} bytes)")
+              last_logged_pct = current_bucket
 
-    print()  # New line after progress
     logger.info(f"Download complete: {destination}")
     return True
 

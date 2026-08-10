@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: "Get latest DLStreamer version from DockerHub"
         id: dockerhub
@@ -40,8 +40,8 @@ jobs:
           WEEKLY_VERSION=$(echo "$LATEST_WEEKLY" | cut -d'|' -f2)
           WEEKLY_DATE=$(echo "$LATEST_WEEKLY" | cut -d'|' -f1)
 
-          # Get latest RC version (format: YYYY.X.X-ubuntu24-rcX)
-          LATEST_RC=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^[0-9]{4}\\.[0-9]+\\.[0-9]+-ubuntu24-rc[0-9]+$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
+          # Get latest RC version (format: YYYY.X.X-ubuntu24-rcX or YYYY.X.X-ubuntu24-rcX.Y)
+          LATEST_RC=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^[0-9]{4}\\.[0-9]+\\.[0-9]+-ubuntu24-rc[0-9]+(\\.[0-9]+)*$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
           RC_VERSION=$(echo "$LATEST_RC" | cut -d'|' -f2)
           RC_DATE=$(echo "$LATEST_RC" | cut -d'|' -f1)
 
@@ -96,9 +96,25 @@ jobs:
           LATEST="${{ steps.dockerhub.outputs.latest_version }}"
           CURRENT="${{ steps.current.outputs.current_version }}"
 
-          if [ "${LATEST}" != "${CURRENT}" ]; then
+          # Also scan all relevant YAML files for any DLStreamer version that isn't the latest
+          # This catches new files or files with versions different from values.yaml
+          # Exclude .github/ to avoid the workflow file falsely matching its own PR body template
+          OUTDATED_FILES=$(find . -type f \( -name "*.yml" -o -name "*.yaml" \) -not -path './.github/*' 2>/dev/null | while read f; do
+            if grep -qE "(docker\.io/)?intel/dlstreamer-pipeline-server:[^ \"']+" "$f" 2>/dev/null && \
+               ! grep -qE "(docker\.io/)?intel/dlstreamer-pipeline-server:${LATEST}([[:space:]\"']|$)" "$f" 2>/dev/null; then
+              echo "$f"
+            fi
+          done)
+
+          if [ "${LATEST}" != "${CURRENT}" ] || [ -n "${OUTDATED_FILES}" ]; then
             echo "update_needed=true" >> $GITHUB_OUTPUT
             echo "Update needed: ${CURRENT} -> ${LATEST}"
+            [ -n "${OUTDATED_FILES}" ] && echo "Files with non-latest versions:" && echo "${OUTDATED_FILES}"
+            {
+              echo "outdated_files<<EOF"
+              echo "${OUTDATED_FILES}"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
           else
             echo "update_needed=false" >> $GITHUB_OUTPUT
             echo "No update needed. Already on latest version: ${CURRENT}"
@@ -113,11 +129,11 @@ jobs:
 
           echo "Updating from ${OLD_VERSION} to ${NEW_VERSION}"
 
-          # Update docker-compose files
-          find sample_data tests/compose tests/perf_tests/compose tools/ppl_runner \( -name "*.yml" -o -name "*.yaml" \) | while read file; do
-            if grep -q "intel/dlstreamer-pipeline-server:${OLD_VERSION}" "$file"; then
+          # Update files already identified as outdated
+          echo "${{ steps.compare.outputs.outdated_files }}" | while read file; do
+            if [ -n "$file" ]; then
               echo "Updating $file"
-              sed -i "s|intel/dlstreamer-pipeline-server:${OLD_VERSION}|intel/dlstreamer-pipeline-server:${NEW_VERSION}|g" "$file"
+              sed -i -E "s|(docker\.io/)?intel/dlstreamer-pipeline-server:[^ \"']+|\1intel/dlstreamer-pipeline-server:${NEW_VERSION}|g" "$file"
             fi
           done
 
@@ -127,14 +143,21 @@ jobs:
             sed -i "s|${OLD_VERSION}|${NEW_VERSION}|g" kubernetes/scenescape-chart/values.yaml
           fi
 
-          # Count files changed
-          CHANGED_FILES=$(git diff --name-only | wc -l)
+          # Capture changed files once; derive count and markdown list from the same variable
+          CHANGED_FILES_LIST=$(git diff --name-only)
+          CHANGED_FILES=$(echo "${CHANGED_FILES_LIST}" | grep -c . || true)
           echo "changed_files=${CHANGED_FILES}" >> $GITHUB_OUTPUT
           echo "Files changed: ${CHANGED_FILES}"
 
           if [ "${CHANGED_FILES}" -gt 0 ]; then
             echo "success=true" >> $GITHUB_OUTPUT
             echo "Update successful: ${CHANGED_FILES} files modified"
+            # Build markdown list of changed files for PR body
+            {
+              echo "changed_files_list<<EOF"
+              echo "${CHANGED_FILES_LIST}" | sed 's|^|- `|' | sed 's|$|`|'
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
           else
             echo "success=false" >> $GITHUB_OUTPUT
             echo "Warning: No files were changed"
@@ -146,7 +169,7 @@ jobs:
           steps.compare.outputs.update_needed == 'true' &&
           steps.update.outputs.success == 'true' &&
           steps.update.outputs.changed_files > 0
-        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.GH_PAT }}
           commit-message: "DLStreamer: Update intel/dlstreamer-pipeline-server to ${{ steps.dockerhub.outputs.latest_version }}"
@@ -162,16 +185,8 @@ jobs:
             - **Latest RC**: `${{ steps.dockerhub.outputs.latest_rc }}` (published: `${{ steps.dockerhub.outputs.rc_date }}`)
             - **Selected**: `${{ steps.dockerhub.outputs.latest_version }}` (${{ steps.dockerhub.outputs.selected_type }} - chosen as the newest available)
 
-            ### Changes
-            - Docker Compose files updated
-            - Helm chart values.yaml updated
-
             ### Files Updated
-            - `sample_data/docker-compose-*.yml`
-            - `tests/compose/dlstreamer/*.yml`
-            - `tests/perf_tests/compose/*.yml`
-            - `tools/ppl_runner/docker-compose-ppl.yaml`
-            - `kubernetes/scenescape-chart/values.yaml`
+            ${{ steps.update.outputs.changed_files_list }}
 
             ### DockerHub Reference
             - [Release Notes](https://hub.docker.com/r/intel/dlstreamer-pipeline-server/tags)

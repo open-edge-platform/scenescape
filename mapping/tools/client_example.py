@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
@@ -11,37 +11,33 @@ Note: The model type is determined at container build time, not at runtime.
 
 import base64
 import json
-import requests
 from pathlib import Path
 from typing import List
 import argparse
 import urllib3
 import os
-import time
+import sys
 
 # Disable SSL warnings when using --insecure flag
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+POLL_TIMEOUT = 900
 
-def encodeImageToBase64(image_path: str) -> str:
-  """Encode image file to base64 string"""
-  with open(image_path, "rb") as f:
-    image_data = f.read()
-    encoded = base64.b64encode(image_data).decode('utf-8')
-    return encoded
+TOOLS_DIR = Path(__file__).resolve().parent
+MAPPING_SRC_DIR = TOOLS_DIR.parent / "src"
+if str(MAPPING_SRC_DIR) not in sys.path:
+  sys.path.insert(0, str(MAPPING_SRC_DIR))
 
-def sendReconstructionRequest(
-  api_url: str,
+from mapping_client import MappingClient
+
+def send_reconstruction_request(
+  client: MappingClient,
   image_paths: List[str],
   video_path: str,
   use_keyframes: bool = True,
   output_format: str = "glb",
-  mesh_type: str = "mesh",
-  verify_ssl: bool = True
+  mesh_type: str = "mesh"
 ):
   """Send reconstruction request to the API"""
-
-  # Prepare image data
-  files = []
 
   # Prepare request payload
   payload = {
@@ -55,37 +51,29 @@ def sendReconstructionRequest(
       p = Path(img_path)
       if not p.exists():
         raise FileNotFoundError(f"Image not found: {img_path}")
-      files.append(("images", (p.name, p.open("rb"), "image/jpeg")))
+    payload["images"] = image_paths
 
   if video_path:
     p = Path(video_path)
     if not p.exists():
       raise FileNotFoundError(f"Video not found: {video_path}")
-    files.append(("video", (p.name, p.open("rb"), "video/mp4")))
+    payload["video"] = video_path
 
-  print(f"Sending request to {api_url}/reconstruction")
+  print(f"Sending request to {client.url}reconstruction")
   if image_paths and video_path:
-    print(f"- Images: {len([f for f in files if f[0] == 'images'])}")
+    print(f"- Images: {len(image_paths)}")
     print(f"- Video: {video_path}")
   elif image_paths:
-    print(f"- Images: {len(files)}")
+    print(f"- Images: {len(image_paths)}")
   else:
     print(f"- Video: {video_path}")
   print(f"- Output format: {output_format}")
   print(f"- Mesh type: {mesh_type}")
 
   try:
-    # Send POST request
-    response = requests.post(
-      f"{api_url}/reconstruction",
-      data=payload,
-      files=files,
-      timeout=int(os.getenv("GUNICORN_TIMEOUT", "300")), # 5 minute timeout
-      verify=verify_ssl
-    )
+    started = client.performReconstruction(payload)
 
-    if response.status_code in (200, 202):
-      started = response.json()
+    if started.status_code in (200, 202) and not started.errors:
 
       if "processing_time" in started and started.get("success"):
         model_used = started.get("model", "unknown")
@@ -98,8 +86,11 @@ def sendReconstructionRequest(
         return None
 
       print(f"✅ Accepted. request_id={rid}. Polling for completion...")
-      final = wait_for_result(api_url, rid, verify_ssl=verify_ssl, timeout_s=int(os.getenv("GUNICORN_TIMEOUT", "300")) + 120)
-
+      final = client.waitForReconstruction(
+          rid,
+          timeout_s=int(os.getenv("GUNICORN_TIMEOUT", "900")),
+          poll_s=1.5,
+      )
       model_used = final.get("model", "unknown")
       pt = final.get("processing_time", None)
       if pt is not None:
@@ -109,20 +100,13 @@ def sendReconstructionRequest(
       return final
 
     else:
-      print(f"❌ Error {response.status_code}: {response.text}")
+      print(f"❌ Error {started.status_code}: {started.errors}")
       return None
-
-  except requests.exceptions.Timeout:
-    print("❌ Request timed out")
-    return None
-  except requests.exceptions.ConnectionError:
-    print("❌ Connection error - is the API server running?")
-    return None
   except Exception as e:
     print(f"❌ Error: {e}")
     return None
 
-def saveGlbFile(glb_data: str, output_path: str):
+def save_glb_file(glb_data: str, output_path: str):
   """Save base64 encoded GLB data to file"""
   try:
     glb_bytes = base64.b64decode(glb_data)
@@ -132,33 +116,15 @@ def saveGlbFile(glb_data: str, output_path: str):
   except Exception as e:
     print(f"❌ Failed to save GLB file: {e}")
 
-def checkAPIHealth(api_url: str, verify_ssl: bool = True):
+def check_api_health(client: MappingClient):
   """Check API health and available models"""
   try:
-    # Health check
-    response = requests.get(f"{api_url}/health", timeout=10, verify=verify_ssl)
-    if response.status_code == 200:
-      health = response.json()
+    health = client.healthCheckEndpoint()
+    if health:
       print(f"✅ API is healthy")
-      print(f"   Device: {health['device']}")
-      print(f"   Model: {health.get('model', 'unknown')}")
-      print(f"   Model loaded: {health.get('model_loaded', False)}")
     else:
-      print(f"❌ Health check failed: {response.status_code}")
+      print(f"❌ Health check failed: {health.status_code}, {health.errors}")
       return False
-
-    # Get model info
-    response = requests.get(f"{api_url}/models", timeout=10, verify=verify_ssl)
-    if response.status_code == 200:
-      models = response.json()
-      print("📋 Model information:")
-      model_info = models.get('model_info')
-      if model_info:
-        status = "✅ Loaded" if model_info.get('loaded') else "❌ Not loaded"
-        print(f"   - {models.get('model', 'unknown')}: {status}")
-        print(f"   {model_info.get('description', 'No description')}")
-        print(f"   Native output: {model_info.get('native_output', 'unknown')}")
-        print(f"   Supported outputs: {model_info.get('supported_outputs', [])}")
 
     return True
 
@@ -166,38 +132,10 @@ def checkAPIHealth(api_url: str, verify_ssl: bool = True):
     print(f"❌ Failed to connect to API: {e}")
     return False
 
-def wait_for_result(api_url: str, request_id: str, verify_ssl: bool, timeout_s: int = 600, poll_s: float = 2.0):
-  """Poll /reconstruction/status/<id> until complete/failed or timeout."""
-  deadline = time.time() + timeout_s
-  status_url = f"{api_url}/reconstruction/status/{request_id}"
-
-  while time.time() < deadline:
-    r = requests.get(status_url, timeout=10, verify=verify_ssl)
-    if not r.ok:
-      raise RuntimeError(f"Status check failed {r.status_code}: {r.text}")
-
-    st = r.json()
-    state = st.get("state")
-    msg = st.get("message") or ""
-    err = st.get("error")
-
-    print(f"state={state} {('- ' + msg) if msg else ''}")
-
-    if state == "complete":
-      result = (st.get("result") or {})
-      if not result.get("success", True):
-        raise RuntimeError(result.get("error", "Reconstruction failed"))
-      return result
-
-    if state == "failed":
-      raise RuntimeError(err or "Reconstruction failed")
-
-    time.sleep(poll_s)
-
 def main():
   parser = argparse.ArgumentParser(description="3D Mapping Models API Client")
-  parser.add_argument("--api-url", default="https://localhost:8444",
-             help="API server URL (default: https://localhost:8444)")
+  parser.add_argument("--api-url", default="https://localhost:8444/v1",
+             help="API server URL (default: https://localhost:8444/v1)")
   parser.add_argument("--video",
              help="Path to input video file")
   parser.add_argument("--images", nargs="+",
@@ -218,9 +156,11 @@ def main():
 
   # Determine SSL verification setting
   verify_ssl = not args.insecure
+  timeout_s = int(os.getenv("GUNICORN_TIMEOUT", str(POLL_TIMEOUT)))
+  client = MappingClient(url=args.api_url, verify_ssl=verify_ssl, timeout=timeout_s)
 
   # Check API health
-  if not checkAPIHealth(args.api_url, verify_ssl=verify_ssl):
+  if not check_api_health(client):
     return 1
 
   if args.health_check:
@@ -232,14 +172,13 @@ def main():
     return 1
 
   # Send reconstruction request
-  result = sendReconstructionRequest(
-    args.api_url,
+  result = send_reconstruction_request(
+    client,
     args.images,
     args.video,
     args.use_keyframes,
     args.format,
     args.mesh_type,
-    verify_ssl=verify_ssl
   )
 
   if result and result.get("success"):
@@ -249,7 +188,7 @@ def main():
     print(f"   - Intrinsics matrices: {len(result['intrinsics'])}")
 
     if args.format == "glb" and result.get("glb_data"):
-      saveGlbFile(result["glb_data"], args.output)
+      save_glb_file(result["glb_data"], args.output)
     elif args.format == "json":
       # Save full JSON result
       with open(args.output, "w") as f:
@@ -273,4 +212,4 @@ def main():
     return 1
 
 if __name__ == "__main__":
-  exit(main())
+  sys.exit(main())

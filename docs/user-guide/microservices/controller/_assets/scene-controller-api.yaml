@@ -6,17 +6,17 @@ info:
   title: Scenescape MQTT API - Scene Controller Service
   version: "1.0.0"
   description: |
-    The Scene Controller service is responsible for real-time scene tracking and event generation.
+    The Scene Controller service is responsible for real-time multi-camera object tracking.
 
     Flow Description:
     - The Scene Controller `subscribes` to camera data from `scenescape/data/camera/{camera_id}`.
     - It processes live camera detections into `scene objects`.
     - It `publishes` unregulated tracking results to `scenescape/data/scene/{scene_id}/{thing_type}` for each object type (e.g., person, vehicle).
-    - It `publishes` regulated (filtered or validated) track results to `scenescape/regulated/scene/{scene_id}`.
-    - It also `subscribes` to external `sensor data` from `scenescape/data/sensor/{sensor_id}` to enhance scene awareness.
-    - Based on scene and sensor inputs, it **detects events** and **publishes** event notifications to `scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}` and `scenescape/region/<region_id>`.
 
-    These interactions follow a request/response communication pattern and will eventually be transitioned to REST API calls.
+    Sensor correlation, regulated (rate-controlled) output, and region/tripwire event publishing
+    are owned by the Analytics service, which consumes `scenescape/data/scene/{scene_id}/{thing_type}`
+    and `scenescape/data/sensor/{sensor_id}`. See the Analytics service API spec
+    (analytics-service-api.yaml) for those channel definitions.
 
 channels:
   scenescape/data/camera/{camera_id}:
@@ -42,52 +42,40 @@ channels:
             id:
               type: string
             objects:
-              type: array
-              items:
-                type: object
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  type: object
             rate:
-              type: string
+              type: number
+              minimum: 0
             intrinsics:
-              type: array
-              items:
-                type: array
+              type: object
+              properties:
+                fx:
+                  type: number
+                fy:
+                  type: number
+                cx:
+                  type: number
+                cy:
+                  type: number
             distortion:
-              type: array
-              items:
-                type: array
-            frame_rate:
-              type: string
-
-  scenescape/regulated/scene/{scene_id}:
-    parameters:
-      scene_id:
-        description: Scene identifier
-        schema:
-          type: string
-    publish:
-      summary: Scene Controller publishes regulated track data
-      message:
-        payload:
-          type: object
-          properties:
-            timestamp:
-              type: string
-              format: date-time
-            objects:
-              type: array
-              items:
-                type: object
-            id:
-              type: string
-            name:
-              type: string
-            scene_rate:
-              type: float
-            rate:
-              type: string
-            last:
-              type: string
-              format: date-time
+              type: object
+              description: >-
+                Lens distortion coefficients keyed by name.
+              properties:
+                k1:
+                  type: number
+                k2:
+                  type: number
+                p1:
+                  type: number
+                p2:
+                  type: number
+                k3:
+                  type: number
 
   scenescape/data/scene/{scene_id}/{thing_type}:
     parameters:
@@ -108,57 +96,20 @@ channels:
             timestamp:
               type: string
               format: date-time
+            id:
+              type: string
+            name:
+              type: string
+            rate:
+              type: number
+              minimum: 0
+            unique_detection_count:
+              type: integer
+              minimum: 0
             objects:
               type: array
+              description: >-
+                Array of tracked scene objects. Each object includes fields such as
+                `id`, `translation`, `velocity`, `visibility`, `metadata`, and more.
               items:
                 type: object
-
-  scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}:
-    parameters:
-      region_type:
-        description: Region, sensor, or tripwire type
-        schema:
-          type: string
-      scene_id:
-        description: Scene identifier
-        schema:
-          type: string
-      region_id:
-        description: Region, sensor, or tripwire identifier
-        schema:
-          type: string
-      event_type:
-        description: Event type
-        schema:
-          type: string
-    publish:
-      summary: Scene Controller publishes scene event messages
-      message:
-        payload:
-          type: object
-          properties:
-            timestamp:
-              type: string
-              format: date-time
-            objects:
-              type: array
-              items:
-                type: object
-
-  scenescape/data/sensor/{sensor_id}:
-    parameters:
-      sensor_id:
-        description: Sensor identifier
-        schema:
-          type: string
-    subscribe:
-      summary: Scene Controller subscribes to sensor data
-      message:
-        payload:
-          type: object
-          properties:
-            timestamp:
-              type: string
-              format: date-time
-            sensor_type:
-              type: string

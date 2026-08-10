@@ -9,6 +9,10 @@
         "verify_server": true
       }
     },
+    "ntp": {
+      "server": "ntpserv",
+      "sync_interval_s": 300
+    },
     "tracker": {
       "healthcheck": {
         "port": 8080

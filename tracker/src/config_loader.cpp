@@ -312,6 +312,23 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                                      kDefaultNonMeasurementTimeStaticS)
             .GetDouble();
 
+    // NTP configuration (optional; server empty/missing = use OS clock)
+    if (GetValueByPointer(config_doc, json::INFRASTRUCTURE_NTP)) {
+        NtpConfig ntp_config;
+        if (auto* val = GetValueByPointer(config_doc, json::INFRASTRUCTURE_NTP_SERVER)) {
+            if (val->IsString() && val->GetStringLength() > 0) {
+                ntp_config.server = val->GetString();
+            }
+        }
+        ntp_config.sync_interval_s =
+            GetValueByPointerWithDefault(config_doc, json::INFRASTRUCTURE_NTP_SYNC_INTERVAL_S,
+                                         kDefaultNtpSyncIntervalS)
+                .GetInt();
+        if (!ntp_config.server.empty()) {
+            config.infrastructure.ntp = ntp_config;
+        }
+    }
+
     // Apply environment variable overrides
     apply_env(config.observability.logging.level, tracker::env::LOG_LEVEL, parse_log_level);
     apply_env(config.infrastructure.tracker.healthcheck.port, tracker::env::HEALTHCHECK_PORT,
@@ -385,6 +402,37 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
               tracker::env::NON_MEASUREMENT_TIME_DYNAMIC_S, parse_positive_double);
     apply_env(config.tracking.non_measurement_time_static_s,
               tracker::env::NON_MEASUREMENT_TIME_STATIC_S, parse_positive_double);
+
+    // NTP overrides: env vars take precedence;
+    if (auto val = get_env(tracker::env::NTP_SERVER); val.has_value()) {
+        if (!config.infrastructure.ntp.has_value()) {
+            config.infrastructure.ntp = NtpConfig{};
+        }
+        config.infrastructure.ntp->server = val.value();
+    }
+    if (auto val = get_env(tracker::env::NTP_SYNC_INTERVAL_S); val.has_value()) {
+        try {
+            int interval = std::stoi(*val);
+            if (interval < 60) {
+                throw std::runtime_error(std::string(tracker::env::NTP_SYNC_INTERVAL_S) +
+                                         " must be >= 60: " + *val);
+            }
+            if (!config.infrastructure.ntp.has_value()) {
+                config.infrastructure.ntp = NtpConfig{};
+            }
+            config.infrastructure.ntp->sync_interval_s = interval;
+        } catch (const std::invalid_argument&) {
+            throw std::runtime_error("Invalid " + std::string(tracker::env::NTP_SYNC_INTERVAL_S) +
+                                     ": " + *val);
+        } catch (const std::out_of_range&) {
+            throw std::runtime_error("Value out of range for " +
+                                     std::string(tracker::env::NTP_SYNC_INTERVAL_S) + ": " + *val);
+        }
+    }
+    // Discard an ntp config that has no server (can happen when only the interval env var is set).
+    if (config.infrastructure.ntp.has_value() && config.infrastructure.ntp->server.empty()) {
+        config.infrastructure.ntp = std::nullopt;
+    }
 
     // Scenes overrides
     if (auto val = get_env(tracker::env::SCENES_SOURCE); val.has_value()) {

@@ -46,6 +46,14 @@ class Tracking(Thread):
     log.warning("No tracker for category", category)
     return 0
 
+  def updateReidConfig(self, reid_config_data=None):
+    """Update ReID behavior in-place for this tracker and all child trackers."""
+    self.reid_config_data = reid_config_data if reid_config_data else {}
+    self.uuid_manager.updateReidConfig(self.reid_config_data)
+    for tracker in self.trackers.values():
+      tracker.updateReidConfig(self.reid_config_data)
+    return
+
   def trackObjects(self, objects, already_tracked_objects, when, categories, \
                    ref_camera_frame_rate, \
                    max_unreliable_time, \
@@ -90,7 +98,14 @@ class Tracking(Thread):
     """Create a tracker object for each category"""
     for category in categories:
       if category not in self.trackers:
-        tracker = self.__class__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, ref_camera_frame_rate)
+        tracker = self.__class__(
+          max_unreliable_time,
+          non_measurement_time_dynamic,
+          non_measurement_time_static,
+          ref_camera_frame_rate,
+          reid_config_data=self.reid_config_data,
+        )
+        tracker.uuid_manager.scene_id = self.uuid_manager.scene_id
         self.trackers[category] = tracker
         tracker.start()
     return
@@ -199,6 +214,8 @@ class Tracking(Thread):
       tracker.waitForComplete()
       log.debug(f"Joining tracker thread category {category}")
       tracker.join()
+      tracker.uuid_manager.shutdown()
+    self.uuid_manager.shutdown()
     return
 
   @staticmethod
@@ -228,6 +245,7 @@ class Tracking(Thread):
       mobj.setPersistentAttributes(info, persist_attributes)
     else:
       mobj = MovingObject(info, when, sensor)
+      mobj.setPersistentAttributes(info, persist_attributes)
 
     mobj.project_to_map = project_to_map
     mobj.rotation_from_velocity = rotation_from_velocity

@@ -2,11 +2,11 @@
 
 ## Video Pipeline Configuration in UI Camera Calibration Page (in Kubernetes Deployment)
 
-When Intel® SceneScape is deployed in a Kubernetes environment, you can configure Deep Learning Streamer (DL Streamer) video pipelines directly through the camera calibration web interface. This provides a user-friendly way to generate and customize GStreamer pipelines for your cameras without manually editing configuration files.
+When Scenescape is deployed in a Kubernetes environment, you can configure Deep Learning Streamer (DL Streamer) video pipelines directly through the camera calibration web interface. This provides a user-friendly way to generate and customize GStreamer pipelines for your cameras without manually editing configuration files.
 
 ### Accessing the Camera Calibration Page
 
-1. Navigate to your Intel® SceneScape web interface.
+1. Navigate to your Scenescape web interface.
 2. Select a scene from the main dashboard.
 3. Click an existing camera or create a new one.
 4. Open the camera calibration page to access pipeline configuration options.
@@ -34,7 +34,7 @@ Model chaining allows you to combine multiple AI models in a single pipeline to 
 By default, only a limited number of models is downloaded during helm chart installation, which limits the possibilities of model chaining. To enable all models:
 
 1. Configure desired model precisions (e.g., `initModels.modelPrecisions=FP16`) in `kubernetes/scenescape-chart/values.yaml`.
-2. (Re)deploy Intel® SceneScape to download the supported models.
+2. (Re)deploy Scenescape to download the supported models.
 
 ##### Chaining Syntax
 
@@ -45,7 +45,7 @@ By default, only a limited number of models is downloaded during helm chart inst
   - Use `NPU` (e.g., `retail=NPU`) to run the inference on NPU (Neural Processing Unit).
   - **Default device**: If no device is specified, CPU is used as the default.
 
-> **Note**: On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other Intel® SceneScape services can fully benefit from available CPU cores. GPU inference typically provides better performance for complex models.
+> **Note**: On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other Scenescape services can fully benefit from available CPU cores. GPU inference typically provides better performance for complex models.
 
 **Example**: `retail=GPU+reid=GPU` runs person detection on GPU, then feeds the results to person re-identification also running on GPU.
 
@@ -61,6 +61,8 @@ Use the following short names to refer to each model in the chain:
 |                      | person-attributes-recognition-crossroad-0238 | personattr | Person attributes (age, gender, clothing) |
 |                      | age-gender-recognition-retail-0013           | agegender  | Age and gender classification             |
 | **Vehicle Analysis** | vehicle-attributes-recognition-barrier-0042  | vehattr    | Vehicle attributes (color, type)          |
+| **Pose Estimation**  | yolo11n-pose                                 | pose       | Person pose estimation with keypoints     |
+| **ReID (Public)**    | mars-small128                                | marsreid   | Lightweight person re-identification      |
 
 ##### Common Chaining Patterns
 
@@ -77,6 +79,20 @@ retail+personattr
 retail=GPU+agegender=GPU
 
 ```
+
+**Pose Estimation Workflows:**
+
+```
+
+# Pose estimation with re-identification
+pose+marsreid
+```
+
+> **Note**: The `yolo11n-pose` and `mars-small128` models are not included in the default model set. They must be downloaded separately using the DL Streamer `download_public_models.sh` script and copied into the Models Volume. See the [DL Streamer Pipeline Server documentation](/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for setup instructions.
+
+> **Note**: To enable pose-based bounding box adjustment in the Scene Controller, set the `--pose-adjustment` flag or `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable. See the [Scene Controller documentation](../microservices/controller/controller.md) for details.
+
+> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `pose+marsreid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--pose-adjustment` controller flag is also incompatible with Extended ReID (cross-camera re-identification via the configured vector backend).
 
 **Vehicle Analytics Workflows:**
 
@@ -101,7 +117,7 @@ pvbcross16=GPU+reid=GPU
 #### Advanced Configuration
 
 - **Decode Device**: video decoding device settings (`AUTO`, `GPU` or `CPU`). It is highly recommended to use the `AUTO` or `GPU` (only on systems with GPU) setting, as the `CPU` setting forces the pipeline to use software codecs that have significantly lower performance than hardware accelerators. When `AUTO` is set, the pipeline will automatically choose GPU as the decode device if it is available on the system and fall back to CPU otherwise. If the user sets `GPU` on the system without GPU, the pipeline will not work.
-- **Detection Labels**: allows you to filter which object categories are processed and published by the video analytics pipeline. When specified, only detected objects matching the configured labels will be published to Intel® SceneScape. If left empty, all detected objects from the AI model will be published (default behavior). This feature is useful for focusing on specific object types and reducing data volume.
+- **Detection Labels**: allows you to filter which object categories are processed and published by the video analytics pipeline. When specified, only detected objects matching the configured labels will be published to Scenescape. If left empty, all detected objects from the AI model will be published (default behavior). This feature is useful for focusing on specific object types and reducing data volume.
 
   **Supported formats:**
   - One label per line (newline-separated):
@@ -121,12 +137,12 @@ pvbcross16=GPU+reid=GPU
 
   All three formats will produce the same result. Choose the format that best suits your workflow.
 
-- **Model Config**: references a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. You can upload custom model configuration files or modify existing ones using the Models page. The Models page is accessible in the top menu of the Intel® SceneScape UI.
+- **Model Config**: references a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. You can upload custom model configuration files or modify existing ones using the Models page. The Models page is accessible in the top menu of the Scenescape UI.
 - **Use Camera Pipeline**: when enabled, directly applies the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings on saving the camera configuration. When disabled (default), the system automatically generates the pipeline from other form fields.
 
 > **Note**: The `AUTO` setting for decode device does not assume the optimal setting in each possible case. There might be cases when the optimal configuration can be achieved by setting the decode device manually.
 
-> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. The default configuration file `model_config.json` is auto-generated for the models downloaded by the Intel® SceneScape model installer. See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
+> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. The default configuration file `model_config.json` is auto-generated for the models downloaded by the Scenescape model installer. See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
 
 > **Note**: When the **Use Camera Pipeline** checkbox is enabled, the values of camera settings from other form fields ('Camera', 'Camera Chain', 'Decode Device', 'Undistort', 'Model Config') do not impact the effective Visual Analytics pipeline. Enable the checkbox only when you want to use a custom pipeline that should not be auto-generated and remember to update it manually when needed.
 
@@ -153,7 +169,7 @@ The camera calibration page provides an automated pipeline generation feature:
    - Video source configuration based on your Camera (Video Source) field.
    - AI model integration using the selected Model Config.
    - Camera intrinsics and distortion correction, if configured.
-   - Metadata publishing for Intel® SceneScape integration.
+   - Metadata publishing for Scenescape integration.
 
 ### Customizing the Generated Pipeline
 
@@ -162,7 +178,7 @@ After generating a pipeline preview, you can make manual adjustments:
 1. **Edit Pipeline String**: modify the generated pipeline in the Camera Pipeline text area.
    - Add or remove GStreamer elements as needed.
    - Adjust element parameters for specific requirements.
-   - Ensure the pipeline maintains compatibility with Intel® SceneScape - do not modify `gvapython` or `cameraundistort` elements.
+   - Ensure the pipeline maintains compatibility with Scenescape - do not modify `gvapython` or `cameraundistort` elements.
 
 2. **Common Customizations**:
    - **Video Source**: change input source type (file, RTSP, HTTP, device).
@@ -179,7 +195,7 @@ After generating a pipeline preview, you can make manual adjustments:
    - Configuration is stored and deployed to the Kubernetes cluster.
    - The camera deployment is updated with the new pipeline.
 
-2. **Automatic Pipeline Generation**: if you save the form with **Use Camera Pipeline** checkbox disabled, the system automatically generates a pipeline based on other form fields, following best practices and standards for Intel® SceneScape. This ensures every camera has a valid pipeline configuration.
+2. **Automatic Pipeline Generation**: if you save the form with **Use Camera Pipeline** checkbox disabled, the system automatically generates a pipeline based on other form fields, following best practices and standards for Scenescape. This ensures every camera has a valid pipeline configuration.
 
 3. **Error Handling**: If pipeline generation fails, the form remains open for correction and error messages are displayed. Common issues include missing model configurations or invalid command syntax.
 
@@ -197,10 +213,10 @@ You can upload custom models or input video files and use them in DL Streamer Vi
 
 #### Uploading custom models
 
-You can upload custom models to the Models Volume using the Models page. The Models page is accessible in the top menu of the Intel® SceneScape UI. Alternatively, use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide to do it from the command line.
+You can upload custom models to the Models Volume using the Models page. The Models page is accessible in the top menu of the Scenescape UI. Alternatively, use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide to do it from the command line.
 
-1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) on the Models Volume folder structure.
-2. Update the model configuration file or upload a new one so that it includes the newly added model(s). See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
+1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](https://github.com/open-edge-platform/scenescape/blob/main/model_installer/src/README.md) on the Models Volume folder structure.
+2. Update the model configuration file or upload a new one so that it includes the newly added model(s). See [Model Configuration File Format](./model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
 3. Reference the model in the camera pipeline configuration: use the short model name in the **Camera Chain** and the custom model configuration file name in the **Model Config** field.
 
 #### Uploading custom video files
@@ -216,9 +232,10 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 - Distortion correction is temporarily disabled due to a bug in DL Streamer Pipeline Server.
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
-- Cross-stream batching is not supported since in Intel® SceneScape Kubernetes deployment each camera pipeline is running in a separate Pod.
-- Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html).
+- Cross-stream batching is not supported since in Scenescape Kubernetes deployment each camera pipeline is running in a separate Pod.
+- Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html).
 - MP4 input files are not reliably supported. This is due to a GStreamer limitation: the combination of `multifilesrc` and `decodebin3` elements may fail because MP4 container metadata is unavailable when data is provided as discrete file fragments. As a workaround, convert MP4 files to a streaming-friendly format such as MPEG-TS (.ts).
+- Pose estimation pipelines using `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128`) are not compatible with `reidPolicy`. These cameras must use `detectionPolicy`. Additionally, the controller `--pose-adjustment` flag cannot be used together with Extended ReID.
 
 ### Troubleshooting
 
@@ -229,16 +246,16 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 
 ## Manual Video Pipeline Configuration (in Docker Compose deployment)
 
-Intel® SceneScape uses DL Streamer Pipeline Server as the Video Analytics microservice. The file [docker-compose-dl-streamer-example.yml](/sample_data/docker-compose-dl-streamer-example.yml) shows how a DL Streamer Pipeline Server docker container is configured to stream video analytics data for consumption by Intel® SceneScape. It leverages DL Streamer pipelines definitions in [queuing-config.json](/dlstreamer-pipeline-server/queuing-config.json) and [retail-config.json](/dlstreamer-pipeline-server/retail-config.json).
+Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice. The file [docker-compose-dl-streamer-example.yml](/sample_data/docker-compose-dl-streamer-example.yml) shows how a DL Streamer Pipeline Server docker container is configured to stream video analytics data for consumption by Scenescape. It leverages DL Streamer pipelines definitions in [queuing-config.json](/dlstreamer-pipeline-server/queuing-config.json) and [retail-config.json](/dlstreamer-pipeline-server/retail-config.json).
 
 > **Note**: To run DL Streamer Pipeline Server pipelines on hardware accelerators (GPU or NPU), see the DL Streamer Pipeline Server service [user documentation](/dlstreamer-pipeline-server/README.md).
 
 ### Video Pipeline Configuration
 
-The following is the GStreamer command that defines the video processing pipeline. It specifies how video frames are read, processed, and analyzed using various GStreamer elements and plugins. Each element in the pipeline performs a specific task, such as decoding, object detection, metadata conversion, and publishing, to enable video analytics in the Intel® SceneScape platform.
+The following is the GStreamer command that defines the video processing pipeline. It specifies how video frames are read, processed, and analyzed using various GStreamer elements and plugins. Each element in the pipeline performs a specific task, such as decoding, object detection, metadata conversion, and publishing, to enable video analytics in the Scenescape platform.
 
 ```
-"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
 ```
 
 #### Breakdown of gstreamer command
@@ -248,10 +265,9 @@ The following is the GStreamer command that defines the video processing pipelin
 
 `videoconvert` converts the video stream into a raw format suitable for further processing. In this case, it ensures the video is in the BGR format required by downstream elements.
 
-`gvapython` is a GStreamer element that allows custom Python scripts to process video frames. In this pipeline, it is used twice:
+`sscape_timestamp_capture` is a custom GStreamer element that captures timestamps for each video frame. The `ntp-server` parameter specifies the NTP server to synchronize timestamps, and the `use-frame-ntp-timestamp` parameter determines whether to use the NTP timestamp embedded in the RTSP frame metadata or the post-decode system time.
 
-- The first instance, `PostDecodeTimestampCapture`, captures timestamps and processes frames after decoding.
-- The second instance, `PostInferenceDataPublish`, processes frames after inference and publishes metadata in Intel® SceneScape detection format as described in [metadata.schema.json](/controller/src/schema/metadata.schema.json)
+`sscape_post_inference_data_publish`, processes frames after inference and publishes metadata in Scenescape detection format as described in [metadata.schema.json](/controller/src/schema/metadata.schema.json)
 
 `gvadetect` performs object detection using a pre-trained deep learning model. The `model` parameter specifies the path to the model file, and the `model-proc` parameter points to the model's preprocessing configuration.
 
@@ -277,46 +293,50 @@ This section describes the metadata schema and the format that the payload needs
 "parameters": {
     "type": "object",
     "properties": {
-        "ntp_config": {
+        "ntp_server": {
             "element": {
                 "name": "timesync",
-                "property": "kwarg",
-                "format": "json"
+                "property": "ntp-server"
             },
-            "type": "object",
-            "properties": {
-                "ntpServer": {
-                    "type": "string"
-                }
-            }
+            "type": "string"
         },
-        "camera_config": {
+        "use_frame_ntp_timestamp": {
+            "element": {
+                "name": "timesync",
+                "property": "use-frame-ntp-timestamp"
+            },
+            "type": "boolean"
+        },
+        "cameraid": {
+              "element": {
+                "name": "datapublisher",
+                "property": "cameraid"
+              },
+              "type": "string"
+            },
+        "metadatagenpolicy": {
             "element": {
                 "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
+                "property": "metadatagenpolicy"
             },
-            "type": "object",
-            "properties": {
-                "cameraid": {
-                    "type": "string"
-                },
-                "metadatagenpolicy": {
-                    "type": "string",
-                    "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                    "type": "boolean",
-                    "description": "Publish frame to mqtt"
-                },
-                "detection_labels": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of detection labels to filter (e.g., [\"person\", \"car\"]). If empty or omitted, all labels are published."
-                }
-            }
+            "type": "string",
+            "description": "One of detectionPolicy (default), detection3DPolicy, reidPolicy, classificationPolicy, ocrPolicy"
+        },
+        "publish_image": {
+            "element": {
+                "name": "datapublisher",
+                "property": "publish-image"
+            },
+            "type": "boolean",
+            "description": "Publish annotated JPEG to scenescape/image/camera/<cameraid> each frame"
+        },
+        "detection_labels": {
+            "element": {
+                "name": "datapublisher",
+                "property": "detection-labels"
+            },
+            "type": "string",
+            "description": "Comma-separated allow-list of detection categories (e.g. \"person,car\"). Empty publishes all."
         }
     }
 },
@@ -324,20 +344,20 @@ This section describes the metadata schema and the format that the payload needs
 
 ##### Breakdown of parameters
 
-- **ntp_config**: Configuration for time synchronization.
-  - **ntpServer** (string): Specifies the NTP server to synchronize time with.
-- **camera_config**: Configuration for the camera and its metadata publishing.
-  - **intrinsics** (array of numbers): Defines the camera intrinsics. This can be specified as:
-    - `[diagonal_fov]` (diagonal field of view),
-    - `[horizontal_fov, vertical_fov]` (horizontal and vertical field of view), or
-    - `[fx, fy, cx, cy]` (focal lengths and principal point coordinates).
-  - **cameraid** (string): Unique identifier for the camera.
-  - **metadatagenpolicy** (string): Policy for generating metadata. Possible values:
-    - `detectionPolicy` (default): Metadata for object detection.
-    - `reidPolicy`: Metadata for re-identification.
-    - `classificationPolicy`: Metadata for classification.
-  - **publish_frame** (boolean): Indicates whether to publish the video frame to MQTT.
-  - **detection_labels** (array of strings): Optional list of detection labels to filter. When specified, only detected objects matching these labels will be published. If omitted or empty, all detected objects are published. In the UI, labels can be provided as newline-separated, space-separated, or comma-separated values. In JSON configuration, provide as an array. Example: `["person", "car"]`.
+- **ntp_server** (string): Specifies the NTP server to synchronize time with.
+- **use_frame_ntp_timestamp** (boolean): Configuration for using the NTP timestamp embedded in RTSP frame metadata as the frame timestamp. This is an alternative to using the post-decode system clock timestamp. When the RTSP source is configured with `add-reference-timestamp-meta=true`, GStreamer attaches NTP reference timestamp metadata to each buffer.
+  When `true`, the NTP timestamp extracted from the RTSP frame metadata
+  (`GstReferenceTimestampMeta`, caps `timestamp/x-ntp`) is used as the frame timestamp instead of the post-decode
+  system time. This can improve timing accuracy when camera and server clocks are synchronized to the same NTP server.
+  Defaults to `false`. If the metadata is absent on a given frame, the pipeline falls back to the
+  system clock automatically.
+- **cameraid** (string): Unique identifier for the camera.
+- **metadatagenpolicy** (string): Policy for generating metadata. Possible values:
+  - `detectionPolicy` (default): Metadata for object detection. When a pose estimation model is used (e.g. `yolo11n-pose`), also includes `keypoints` (e.g. joints) with normalized x/y coordinates and `keypoint_connections` (e.g. skeleton bone pairs) in each detection object.
+  - `reidPolicy`: Metadata for re-identification.
+  - `classificationPolicy`: Metadata for classification.
+- **publish_frame** (boolean): Indicates whether to publish the video frame to MQTT.
+- **detection_labels** (array of strings): Optional list of detection labels to filter. When specified, only detected objects matching these labels will be published. If omitted or empty, all detected objects are published. In the UI, labels can be provided as newline-separated, space-separated, or comma-separated values. In JSON configuration, provide as an array. Example: `["person", "car"]`.
 
 The payload section is the actual values for the specific pipeline being configured:
 
@@ -350,14 +370,11 @@ The payload section is the actual values for the specific pipeline being configu
         }
     },
     "parameters": {
-        "ntp_config": {
-            "ntpServer": "ntpserv"
-        },
-        "camera_config": {
-            "cameraid": "atag-qcam1",
-            "metadatagenpolicy": "detectionPolicy",
-            "detection_labels": ["person"]
-        }
+        "ntp_server": "ntpserv",
+        "use_frame_ntp_timestamp": false,
+        "cameraid": "atag-qcam1",
+        "metadatagenpolicy": "detectionPolicy",
+        "detection_labels": "person"
     }
 }
 ```
@@ -368,7 +385,7 @@ DL Streamer Pipeline Server supports grouping multiple frames into a single batc
 
 `batch-size` is an optional parameter which specifies the number of input frames grouped together in a single batch.
 
-Read the instructions on how to configure cross stream batching in [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/edge-ai-libraries/dlstreamer-pipeline-server/main/user-guide/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)
+Read the instructions on how to configure cross stream batching in [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)
 
 ### Adding custom models or input video files to Docker volumes
 
@@ -378,7 +395,7 @@ You can upload custom models or input video files and use them in DL Streamer Vi
 
 You can upload custom models to the Models Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
 
-1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) for the Models Volume folder structure.
+1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](https://github.com/open-edge-platform/scenescape/blob/main/model_installer/src/README.md) for the Models Volume folder structure.
 2. Reference the model in the video pipeline inference element (e.g. `gvadetect`).
 
 #### Uploading custom video files to Docker volumes

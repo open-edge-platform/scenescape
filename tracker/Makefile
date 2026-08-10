@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Integration with common.mk for Docker image builds
-IMAGE := scenescape-tracker
+IMAGE := intel/scenescape-tracker
 TARGET ?= runtime
 BUILD_TYPE ?= Release
 HAS_PIP := no
 HAS_DPKG := no
 BUILDER_BASE_IMAGE := debian:13-slim
 BUILDER_IMAGE := $(IMAGE)-builder
-EXTRA_BUILD_ARGS := --build-arg GIT_COMMIT=$(shell git rev-parse --short HEAD) --build-arg BUILD_TYPE=$(BUILD_TYPE)
+EXTRA_BUILD_ARGS += --build-arg GIT_COMMIT=$(shell git rev-parse --short HEAD) --build-arg BUILD_TYPE=$(BUILD_TYPE)
 # Override BUILD_DIR based on BUILD_TYPE (Release->build, others->build-<type>)
 ifeq ($(BUILD_TYPE),Release)
   override BUILD_DIR := $(PWD)/build
@@ -178,7 +178,7 @@ build-relwithdebinfo: dependencies-relwithdebinfo
 TRACKER_SCHEMA_PATH ?= $(CURDIR)/schema/config.schema.json
 TRACKER_CONFIG_PATH ?= $(CURDIR)/config/tracker.json
 
-# MQTT broker connection - preconfigured for SceneScape demo (docker compose up)
+# MQTT broker connection - preconfigured for Scenescape demo (docker compose up)
 # These variables are exported only in run/run-debug targets to avoid polluting test environment
 TRACKER_MQTT_HOST ?= localhost
 TRACKER_MQTT_PORT ?= $(shell cd test/service && docker compose port broker 1883 2>/dev/null | cut -d: -f2 || echo 1883)
@@ -221,7 +221,7 @@ profile: build-relwithdebinfo
 	@echo "Profile data saved to build-relwithdebinfo/perf.data"
 	@echo "Run 'make flamegraph' to generate flamegraph.svg"
 
-flamegraph: 
+flamegraph:
 	@test -f build-relwithdebinfo/perf.data || (echo "No perf.data found. Run 'make profile' first." && exit 1)
 	@test -d build-relwithdebinfo/FlameGraph || git clone --depth 1 https://github.com/brendangregg/FlameGraph.git build-relwithdebinfo/FlameGraph
 	perf script -i build-relwithdebinfo/perf.data | build-relwithdebinfo/FlameGraph/stackcollapse-perf.pl | build-relwithdebinfo/FlameGraph/flamegraph.pl > build-relwithdebinfo/flamegraph.svg
@@ -357,15 +357,15 @@ test-load: build-image
 #####################################################################
 
 build-image-debug:
-	$(MAKE) build-image TARGET=debug BUILD_TYPE=Debug IMAGE=scenescape-tracker-debug
+	$(MAKE) build-image TARGET=debug BUILD_TYPE=Debug IMAGE=$(IMAGE)-debug
 	@mkdir -p build-debug
 	@echo "Extracting debug binary for local symbol loading..."
-	@docker create --name tracker-debug-tmp scenescape-tracker-debug:$(VERSION) >/dev/null 2>&1 || true
+	@docker create --name tracker-debug-tmp $(IMAGE)-debug:$(VERSION) >/dev/null 2>&1 || true
 	@docker cp tracker-debug-tmp:/scenescape/bin/tracker build-debug/tracker 2>/dev/null || true
 	@docker rm tracker-debug-tmp >/dev/null 2>&1 || true
 
 build-image-relwithdebinfo:
-	$(MAKE) build-image TARGET=runtime BUILD_TYPE=RelWithDebInfo IMAGE=scenescape-tracker-relwithdebinfo
+	$(MAKE) build-image TARGET=runtime BUILD_TYPE=RelWithDebInfo IMAGE=$(IMAGE)-relwithdebinfo
 
 # Use host network to reach broker; empty proxy vars for Paho workaround
 # Container uses secure defaults from tracker.json (TLS to broker.scenescape.intel.com)
@@ -382,7 +382,7 @@ run-image-debug: build-image-debug
 		--cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
 		-e http_proxy= -e https_proxy= -e HTTP_PROXY= -e HTTPS_PROXY= \
 		-v $(TRACKER_TLS_CA_CERT_HOST):/run/secrets/certs/scenescape-ca.pem:ro \
-		scenescape-tracker-debug:$(VERSION)
+		$(IMAGE)-debug:$(VERSION)
 	@echo "Debug container started. Attach debugger to localhost:2345"
 
 stop-image-debug:
@@ -442,8 +442,9 @@ mqtt-publish:
 # Uses ldd on the tracker binary (same approach as in the Dockerfile) to identify only the OS libraries
 # that are actually distributed with the image, then maps each back to its dpkg package.
 # Conan-managed packages are collected separately via 'conan graph info' and written to conan-deps.txt.
+# Upstream URL scraping is shared with common.mk via the 'upstream-deps' prerequisite.
 .PHONY: list-dependencies
-list-dependencies: $(BUILD_DIR)
+list-dependencies: $(BUILD_DIR) upstream-deps
 	@if [[ -z $$(docker images | grep "^$(IMAGE)" | grep $(VERSION)) ]]; then \
 	  echo "Error: the image $(IMAGE):$(VERSION) does not exist! Cannot generate dependency list."; \
 	  echo "Please build the image first."; \

@@ -1,28 +1,28 @@
-# How Intel® SceneScape converts Pixel-Based Bounding Boxes to Normalized Image Space
+# How Scenescape converts Pixel-Based Bounding Boxes to Normalized Image Space
 
-This document provides details on how Intel® SceneScape converts object detection bounding boxes from pixel coordinates to normalized image space.
+This document provides details on how Scenescape converts object detection bounding boxes from pixel coordinates to normalized image space.
 
 ## From Pixels to Scene
 
-Before getting into the details, it is helpful to understand how Intel® SceneScape maps detections from image frames onto the scene. Basically, we need to figure out where a given light ray came from in the world, through the lens, and to the sensor.
+Before getting into the details, it is helpful to understand how Scenescape maps detections from image frames onto the scene. Basically, we need to figure out where a given light ray came from in the world, through the lens, and to the sensor.
 
-Pixel-based bounding boxes alone are insufficient to determine where the associated objects or people are in a common scene, so Intel® SceneScape works to bring in additional information about the camera -- things like its focal length and position in the scene. We are essentially reprojecting pixels back onto the world scene using the [geometry of camera image formation](https://learnopencv.com/geometry-of-image-formation/).
+Pixel-based bounding boxes alone are insufficient to determine where the associated objects or people are in a common scene, so Scenescape works to bring in additional information about the camera -- things like its focal length and position in the scene. We are essentially reprojecting pixels back onto the world scene using the [geometry of camera image formation](https://learnopencv.com/geometry-of-image-formation/).
 
-The characteristics of the camera that are independent of its position, like resolution and focal length, are called "camera intrinsics." The position and orientation of the camera in the scene are called "camera extrinsics." We need both intrinsics and extrinsics, but Intel® SceneScape already provides tools to determine the extrinsics: a manual camera calibration interface for fixed cameras and forthcoming methods like SLAM (simultaneous localization and mapping) for automating the process for both fixed and moving cameras.
+The characteristics of the camera that are independent of its position, like resolution and focal length, are called "camera intrinsics." The position and orientation of the camera in the scene are called "camera extrinsics." We need both intrinsics and extrinsics, but Scenescape already provides tools to determine the extrinsics: a manual camera calibration interface for fixed cameras and forthcoming methods like SLAM (simultaneous localization and mapping) for automating the process for both fixed and moving cameras.
 
-That leaves the intrinsics. Every camera is a bit different, so Intel® SceneScape expects the data from cameras to be provided in a special way that is completely independent of the resolution or zoom level or other camera nuances. We call this "camera agnostic metadata" for object detections, and there are straightforward ways to generate this metadata given things you probably already know about the camera (or can quickly figure out).
+That leaves the intrinsics. Every camera is a bit different, so Scenescape expects the data from cameras to be provided in a special way that is completely independent of the resolution or zoom level or other camera nuances. We call this "camera agnostic metadata" for object detections, and there are straightforward ways to generate this metadata given things you probably already know about the camera (or can quickly figure out).
 
 We'll walk through some motivations for the method, how bounding boxes are projected to the scene, creating estimated intrinsics from common camera values, and then creating the normalized bounding boxes.
 
 ### Projecting a Bounding Box onto the Scene
 
-Once all the pieces are in place, Intel® SceneScape can essentially "project" detected objects onto the scene and apply its tracking system to update the associated nodes in the scene graph.
+Once all the pieces are in place, Scenescape can essentially "project" detected objects onto the scene and apply its tracking system to update the associated nodes in the scene graph.
 
-Intel® SceneScape's tracking system does not directly ingest images or video. Instead, it consumes the output of a video analytics pipeline. This has several key advantages:
+Scenescape's tracking system does not directly ingest images or video. Instead, it consumes the output of a video analytics pipeline. This has several key advantages:
 
-1. **Privacy**: Only the bounding box and other detection metadata are sent to Intel® SceneScape, not the actual images (except for camera calibration and preview purposes)
+1. **Privacy**: Only the bounding box and other detection metadata are sent to Scenescape, not the actual images (except for camera calibration and preview purposes)
 2. **Latency and Bandwidth**: If only the metadata are being transmitted, less bandwidth and less time are needed to transmit than the full video
-3. **Various Detection Technologies**: Many models and methods exist for object/person detection using images, video, and other image-like data (e.g. thermal, radar, infrared), and Intel® SceneScape should be able to utilize these systems and modalities
+3. **Various Detection Technologies**: Many models and methods exist for object/person detection using images, video, and other image-like data (e.g. thermal, radar, infrared), and Scenescape should be able to utilize these systems and modalities
 
 ### Projecting a Single Bounding Box
 
@@ -34,7 +34,7 @@ Let us start with a single camera. Figure 1 illustrates a camera detection in a 
 
 The location of the object in the scene can now be estimated. For a flat scene with no occlusions the scene location is usually in the neighborhood of the part of the bounding box closest to the camera (the bottom center point of the bounding box).
 
-**Note**: Only the green dot representing the detection location is shown since Intel® SceneScape does not have access to the source image.
+**Note**: Only the green dot representing the detection location is shown since Scenescape does not have access to the source image.
 
 ### Projecting Bounding Boxes from Multiple Cameras
 
@@ -44,7 +44,7 @@ When multiple cameras see the same object or person, then the projected bounding
 
 **Figure 2:** Projecting multiple bounding boxes onto a common scene
 
-Intel® SceneScape utilizes these detections from various viewpoints to update the associated node in the scene graph. Note that the detections from various sources arrive asynchronously, so source timestamps and time coordination are critical to effective tracking.
+Scenescape utilizes these detections from various viewpoints to update the associated node in the scene graph. Note that the detections from various sources arrive asynchronously, so source timestamps and time coordination are critical to effective tracking.
 
 ### Normalized, Camera Agnostic Metadata
 
@@ -54,7 +54,7 @@ Detection metadata is usually provided in pixel units. Here is an example of a d
 {
    "objects":[
       {
-         "type":"person",
+         "category":"person",
          "bounding_box":{
             "top":157,
             "left":221,
@@ -74,7 +74,7 @@ The output will look something like this, where the values are now floating poin
 {
    "objects":[
       {
-         "type":"person",
+         "category":"person",
          "bounding_box":{
             "x":-0.21945553,
             "y":-0.27470306,
@@ -176,7 +176,7 @@ print(bb)
 {'top': -0.21945553, 'left': -0.27470306, 'width': 0.16574262, 'height': 0.3974754}
 ```
 
-> **Note:** Intel® SceneScape also provides some helper classes and methods for transforming data from pixel space to normalized image space. Intel® SceneScape includes [scene_common/transform.py](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/scene_common/src/scene_common/transform.py) to provide various methods for handling these transformations.
+> **Note:** Scenescape also provides some helper classes and methods for transforming data from pixel space to normalized image space. Scenescape includes [scene_common/transform.py](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/scene_common/src/scene_common/transform.py) to provide various methods for handling these transformations.
 
 ## Configuration Options
 
@@ -190,5 +190,5 @@ print(bb)
 
 ## Supporting Resources
 
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/README.md)
+- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/README.md)
 - [Geometry of Camera Image Formation](https://learnopencv.com/geometry-of-image-formation/)

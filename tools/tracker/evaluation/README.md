@@ -28,13 +28,13 @@ These components communicate using canonical data formats defined by JSON schema
 **System requirements**:
 
 - Docker installed and running on the host machine
-- SceneScape scene controller container image available locally (e.g., `scenescape-controller:2026.0.0-dev`)
+- Scenescape scene controller container image available locally (e.g., `intel/scenescape-controller:2026.0.0-dev`)
 
 To verify Docker is available:
 
 ```bash
 docker --version
-docker images | grep scenescape-controller
+docker images | grep intel/scenescape-controller
 ```
 
 ### Installation
@@ -50,28 +50,80 @@ pip install -r requirements.txt
 
 Create a YAML configuration file (see `pipeline_configs/` directory):
 
+**Full tracker evaluation** (`pipeline_configs/controller_evaluation.yaml`):
+
 ```yaml
 pipeline:
   output:
     path: /tmp/tracker-evaluation # Base output directory
 
 dataset:
-  class: datasets.metric_test_dataset.MetricTestDataset
+  class: datasets.unity_dataset.UnityDataset
   config:
     data_path: /path/to/dataset
-    cameras: [x1, x2]
+    cameras: [Cam_x1_0, Cam_x2_0]
     camera_fps: 30
 
 harness:
   class: harnesses.scene_controller_harness.SceneControllerHarness
   config:
-    container_image: scenescape-controller:latest
+    container_image: intel/scenescape-controller:latest
     tracker_config_path: /path/to/tracker-config.json
 
 evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
     config:
       metrics: [HOTA, MOTA, IDF1]
+  - class: evaluators.diagnostic_evaluator.DiagnosticEvaluator
+    config:
+      metrics: [LOC_T_X, LOC_T_Y, DIST_T]
+  - class: evaluators.jitter_evaluator.JitterEvaluator
+    config:
+      metrics:
+        [
+          rms_jerk,
+          rms_jerk_gt,
+          rms_jerk_ratio,
+          acceleration_variance,
+          acceleration_variance_gt,
+          acceleration_variance_ratio,
+        ]
+```
+
+**Camera projection accuracy** (`pipeline_configs/camera_projection_evaluation.yaml`):
+
+Bypasses the tracker and only applies camera-pose projection to isolate per-camera calibration error:
+
+```yaml
+pipeline:
+  output:
+    path: /tmp/camera-projection-evaluation
+
+dataset:
+  class: datasets.unity_dataset.UnityDataset
+  config:
+    data_path: /path/to/dataset
+    cameras: [Cam_x1_0, Cam_x2_0]
+    camera_fps: 30
+
+harness:
+  class: harnesses.camera_projection_harness.CameraProjectionHarness
+  config:
+    container_image: intel/scenescape-controller:latest
+    # Optional: per-category projection settings.
+    # shift_type 1 = bottom-centre (TYPE_1, default)
+    # shift_type 2 = perspective-corrected point (TYPE_2)
+    # x_size / y_size push the result away from the camera by mean([x,y])/2 metres.
+    object_classes:
+      - name: person
+        shift_type: 1
+        x_size: 0.5
+        y_size: 0.5
+
+evaluators:
+  - class: evaluators.camera_accuracy_evaluator.CameraAccuracyEvaluator
+    config:
+      metrics: [DIST_T, VISIBILITY]
 ```
 
 Run the pipeline:
@@ -82,16 +134,112 @@ python -m pipeline_engine config.yaml
 
 **Output Structure**: Each pipeline run creates a unique timestamped directory:
 
+The pipeline creates a unique output directory for each run: `<pipeline.output.path>/<run-ID>/` where `<run-ID>` is a timestamp in format `YYYYMMDD_HHMMSS`, optionally suffixed with the run_name if provided (e.g. `YYYYMMDD_HHMMSS_MyRun`).
+
+Output directory layout:
+
 ```
-<pipeline.output.path>/
-  └── <run-ID>/                        # Format: YYYYMMDD_HHMMSS
-      ├── dataset/                     # Dataset-specific caches or exports
-      ├── harness/                     # Harness logs or artifacts
-      └── evaluators/
-          └── <evaluator-class-name>/  # Evaluated metrics
+  <pipeline.output.path>/<run-ID>/
+    config/                          Pipeline YAML config copy
+    dataset/                         Dataset-specific caches or exports
+    harness/                         Harness logs or artifacts
+    evaluators/<evaluator-key>/      One folder per evaluator
+    summary.txt                      Evaluation summary
 ```
 
-Example: `/tmp/tracker-evaluation/20260211_142530/evaluators/TrackEvalEvaluator/`
+Evaluator results are saved to: `<pipeline.output.path>/<run-ID>/evaluators/<evaluator-key>/`
+
+The `<evaluator-key>` is the evaluator class name (e.g., `TrackEvalEvaluator`). When two evaluators
+share the same class name, an index suffix is appended to keep keys unique
+(e.g., `TrackEvalEvaluator_0/`, `TrackEvalEvaluator_1/`).
+
+**Multiple evaluators**: The `evaluators` list accepts any number of entries. Each evaluator runs
+against the same tracker outputs independently.
+
+### Black-Box Evaluation Suite
+
+`run_black_box_evaluation.py` runs the complete black-box evaluation across all three
+production container types in a single timestamped session. Two config sets are
+available: the legacy Unity dataset (`pipeline_configs/black_box_unity/`, the default)
+and the WILDTRACK dataset (`pipeline_configs/black_box_wildtrack/`, selected with
+`--dataset wildtrack`). Both sets share the same three config filenames:
+
+| Config                                | Container               | Description                                                   |
+| ------------------------------------- | ----------------------- | ------------------------------------------------------------- |
+| `black_box_controller_immediate.yaml` | `scenescape-controller` | Controller in immediate mode (`time_chunking_enabled: false`) |
+| `black_box_controller_tc.yaml`        | `scenescape-controller` | Controller with time-chunking enabled                         |
+| `black_box_tracker_service.yaml`      | `scenescape-tracker`    | Standalone Tracker Service                                    |
+
+**Prerequisites** (in addition to the general prerequisites above):
+
+- `intel/scenescape-controller:2026.1.0-dev` Docker image available locally
+- `intel/scenescape-tracker:2026.1.0-dev` Docker image available locally
+- `eclipse-mosquitto:2.0.22` Docker image available locally
+
+Verify:
+
+```bash
+docker images | grep -E "scenescape-controller|scenescape-tracker|eclipse-mosquitto"
+```
+
+**Run** (from `tools/tracker/evaluation/`):
+
+```bash
+source .venv/bin/activate
+python -m run_black_box_evaluation
+```
+
+By default results land under ` <repo>/tools/tracker/evaluation/output/black-box-evaluation/`.
+Use `--output` to override, and `--dataset` to choose the config set (default `unity`):
+
+```bash
+python -m run_black_box_evaluation --output /custom/output/path
+python -m run_black_box_evaluation --dataset wildtrack
+```
+
+**Output structure**:
+
+```
+<output>/<YYYYMMDD_HHMMSS>/
+  <YYYYMMDD_HHMMSS>_Controller-Immediate/
+    config/                # Pipeline YAML config copy
+    dataset/
+    harness/
+      inputs.jsonl         # All input frames published to MQTT
+      outputs.jsonl        # All tracker output frames collected from MQTT
+      tracker_logs.txt     # Container stdout/stderr
+    evaluators/
+      TrackEvalEvaluator/
+      DiagnosticEvaluator/
+      JitterEvaluator/
+    summary.txt            # Evaluation summary
+  <YYYYMMDD_HHMMSS>_Controller-Time-Chunking/
+    ...
+  <YYYYMMDD_HHMMSS>_Tracker-Service/
+    ...
+```
+
+The session summary is printed to stdout at the end:
+
+```
+========================================================================
+  Session: /path/to/<YYYYMMDD_HHMMSS>
+========================================================================
+  [black_box_controller_immediate]
+    TrackEvalEvaluator:
+      HOTA: 0.7943
+      MOTA: 0.9930
+      IDF1: 0.9966
+    ...
+```
+
+## Frame Rate Assumption
+
+The pipeline assumes that **tracker output uses the same frame rate as the input dataset**. The `camera_fps` value in the dataset configuration is used to convert tracker timestamps to frame numbers for comparison with ground-truth.
+
+**Important**: If the tracker drops frames (e.g., due to missed detections or processing bottlenecks), the tracker output will have fewer frames than the input, but the frame rate used for time-to-frame conversion should still match the input dataset's frame rate. The pipeline will automatically handle frame count mismatches by matching frames based on timestamps.
+
+If you need to override the frame rate for a specific evaluator run, use `set_base_fps(fps)` on the evaluator before `process_tracker_outputs()` or `process_projected_outputs()` is called. The pipeline engine automatically calls this method when `camera_fps` is configured in the dataset section.
 
 ## Directory Structure
 
@@ -122,6 +270,15 @@ evaluation/
 
 1. Create a new file in `evaluators/` (e.g., `custom_evaluator.py`)
 2. Implement the `TrackerEvaluator` ABC from `base/tracker_evaluator.py`
+
+### Available Evaluators
+
+| Evaluator                 | Metrics                                                                                                                                                     | Description                                                                                                                                                                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TrackEvalEvaluator`      | HOTA, MOTA, IDF1, and more                                                                                                                                  | Industry-standard tracking accuracy metrics via the TrackEval library                                                                                                                                                               |
+| `DiagnosticEvaluator`     | `LOC_T_X`, `LOC_T_Y`, `DIST_T` → summary scalars: `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `num_matches`                                                | Per-frame location and distance error between matched tracker output tracks and ground-truth tracks; uses bipartite (Hungarian) assignment over overlapping frames                                                                  |
+| `JitterEvaluator`         | `rms_jerk`, `rms_jerk_gt`, `rms_jerk_ratio`, `acceleration_variance`, `acceleration_variance_gt`, `acceleration_variance_ratio`, `rms_angular_displacement` | Trajectory smoothness metrics based on numerical differentiation of 3D positions and frame-to-frame quaternion angular displacement; GT and ratio variants allow comparing tracker-added positional jitter against test-data jitter |
+| `CameraAccuracyEvaluator` | `DIST_T` → `dist_mean_all`, `dist_mean_{cam}`, `dist_mean_{cam}_{obj}`; `VISIBILITY` → `visibility_{cam}_{obj}` (frames + %)                                | Per-camera, per-object projection accuracy: mean distance error and visibility frame count. Designed to pair with `CameraProjectionHarness`.                                                                                        |
 
 ## Canonical Data Formats
 
@@ -194,7 +351,8 @@ The evaluation pipeline has comprehensive test coverage:
 
 - **Unit Tests**: Fast tests without external dependencies, located in component-specific test directories
   - `datasets/tests/test_*.py`: Datasets unit tests
-  - `harnesses/tests/test_*.py`: Harnesses unit tests
+  - `harnesses/tests/test_*.py`: Harnesses unit tests (includes `CameraProjectionHarness` — 23 tests; `run_projection.py` helpers — 7 tests)
+  - `evaluators/tests/test_*.py`: Evaluator unit tests (includes `CameraAccuracyEvaluator` — 37 tests)
   - `tests/test_format_converters.py`: Format converter unit tests
 
 - **Integration Tests**: Tests requiring Docker and real components, located in `tests/`
@@ -244,7 +402,7 @@ pytest . -v -m integration
 pytest tests/ -v                     # Integration tests
 pytest datasets/tests/ -v            # Dataset unit tests
 pytest harnesses/tests/ -v           # Harness unit tests
-pytest evaluators/tests/ -v           # Evaluators unit tests
+pytest evaluators/tests/ -v          # Evaluators unit tests
 ```
 
 **Run tests from a specific file**:
@@ -264,13 +422,13 @@ pytest harnesses/tests/test_scene_controller_harness.py::TestSceneControllerHarn
 Integration tests require:
 
 - Docker installed and running
-- SceneScape controller container image available (e.g., `scenescape-controller:latest`)
+- Scenescape controller container image available (e.g., `intel/scenescape-controller:latest`)
 
 Verify Docker setup:
 
 ```bash
 docker --version
-docker images | grep scenescape-controller
+docker images | grep intel/scenescape-controller
 ```
 
 ### Expected Test Results

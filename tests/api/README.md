@@ -10,6 +10,7 @@ A data-driven, multi-step REST API test framework built on pytest. Tests are def
 tests
 ├── api
     ├── test_sscape_api.py        # Main test runner
+    ├── mapping_client.py         # Mapping/reconstruction REST client
     ├── conftest.py               # Pytest configuration
     ├── scenarios/                # Default directory for test scenario files
     │   ├── camera_api.json
@@ -26,26 +27,39 @@ tests
 - Python 3.8+
 - pytest
 - requests
+- `scene_common` package (built from source)
 
 Install dependencies:
 ```bash
 pip install pytest requests
 ```
 
+### Setup `scene_common`
+
+The test framework depends on the `scene_common` package.
+
+```bash
+make -C scene_common
+# Or add source directory to PYTHONPATH 
+export PYTHONPATH=$(pwd)/scene_common/src:$PYTHONPATH
+```
+
 ---
 
 ## Environment Variables
 
-| Variable        | Default                        | Description                        |
-|-----------------|--------------------------------|------------------------------------|
-| `API_TOKEN`     | `token`                        | Authentication token for API calls |
-| `API_BASE_URL`  | `https://localhost/api/v1`     | Base URL of the target API         |
+| Variable            | Default                        | Description                                  |
+|---------------------|--------------------------------|----------------------------------------------|
+| `API_TOKEN`         | `token`                        | Authentication token for API calls           |
+| `API_BASE_URL`      | `https://localhost`            | Base URL (scheme + host only); the test runner appends the API path internally                   |
 
-Set them before running:
-```bash
-export API_TOKEN=your_token_here
-export API_BASE_URL=https://your-server/api/v1
-```
+
+### Mapping Service Setup
+
+The mapping/reconstruction tests require the `scenescape-mapping` service to be running.
+The "excessively large input" (HTTP 413) test uses a dummy `LargeVideoForTest.mp4`
+(>100MB) that is generated automatically at runtime in `tests/api/test_media/` and
+removed afterwards.
 
 ---
 
@@ -130,7 +144,7 @@ The JSON request keys are automatically mapped to RESTClient parameter names:
 | JSON key | RESTClient parameter | Usage                        |
 |----------|----------------------|------------------------------|
 | `body`   | `data`               | Request body (POST/PUT)      |
-| `UID`    | `uid`                | Path parameter               |
+| `uid`    | `uid`                | Path parameter               |
 
 List methods (e.g. `getCameras`, `getScenes`) automatically receive `filter=None` if no filter is provided in the request.
 
@@ -171,7 +185,7 @@ List methods (e.g. `getCameras`, `getScenes`) automatically receive `filter=None
         "api": "scene",
         "method": "updateScene",
         "request": {
-          "UID": "${SCENE_UID}",
+          "uid": "${SCENE_UID}",
           "body": {
             "name": "Scene1_Updated",
             "use_tracker": false,
@@ -187,7 +201,7 @@ List methods (e.g. `getCameras`, `getScenes`) automatically receive `filter=None
         "api": "scene",
         "method": "getScene",
         "request": {
-          "UID": "${SCENE_UID}"
+          "uid": "${SCENE_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -254,7 +268,7 @@ This extracts the `uid` field from the response body and stores it as `SCENE_UID
 ### Using a saved value
 ```json
 "request": {
-  "UID": "${SCENE_UID}"
+  "uid": "${SCENE_UID}"
 }
 ```
 
@@ -300,18 +314,19 @@ The log file is overwritten on each run. Debug output includes full request data
 
 ## Available API Methods
 
-All methods live in `RESTClient`:
+All methods live in `RESTClient` unless noted otherwise:
 
-| API group  | Methods                                                      |
-|------------|--------------------------------------------------------------|
-| `scene`    | `getScenes`, `createScene`, `getScene`, `updateScene`, `deleteScene` |
-| `camera`   | `getCameras`, `createCamera`, `getCamera`, `updateCamera`, `deleteCamera` |
-| `sensor`   | `getSensors`, `createSensor`, `getSensor`, `updateSensor`, `deleteSensor` |
-| `region`   | `getRegions`, `createRegion`, `getRegion`, `updateRegion`, `deleteRegion` |
-| `tripwire` | `getTripwires`, `createTripwire`, `getTripwire`, `updateTripwire`, `deleteTripwire` |
-| `user`     | `getUsers`, `createUser`, `getUser`, `updateUser`, `deleteUser` |
-| `asset`    | `getAssets`, `createAsset`, `getAsset`, `updateAsset`, `deleteAsset` |
-| `child`    | `getChildScene`, `updateChildScene`                          |
+| API group  | Methods                                                      | Client          |
+|------------|--------------------------------------------------------------|-----------------|
+| `scene`    | `getScenes`, `createScene`, `getScene`, `updateScene`, `deleteScene` | `RESTClient` |
+| `camera`   | `getCameras`, `createCamera`, `getCamera`, `updateCamera`, `deleteCamera` | `RESTClient` |
+| `sensor`   | `getSensors`, `createSensor`, `getSensor`, `updateSensor`, `deleteSensor` | `RESTClient` |
+| `region`   | `getRegions`, `createRegion`, `getRegion`, `updateRegion`, `deleteRegion` | `RESTClient` |
+| `tripwire` | `getTripwires`, `createTripwire`, `getTripwire`, `updateTripwire`, `deleteTripwire` | `RESTClient` |
+| `user`     | `getUsers`, `createUser`, `getUser`, `updateUser`, `deleteUser` | `RESTClient` |
+| `asset`    | `getAssets`, `createAsset`, `getAsset`, `updateAsset`, `deleteAsset` | `RESTClient` |
+| `child`    | `getChildScene`, `updateChildScene`                          | `RESTClient`    |
+| `mapping`  | `performReconstruction`, `getReconstructionStatus`, `healthCheckEndpoint` | `MappingClient` |
 
 ---
 

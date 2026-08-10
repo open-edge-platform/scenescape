@@ -1,0 +1,32 @@
+---
+description: Scenescape Cursor agent router — canonical instructions and workflow
+alwaysApply: true
+---
+
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+# Scenescape (Cursor)
+
+## Canonical instructions (read first)
+
+For project-wide conventions, read [`.github/copilot-instructions.md`](../../.github/copilot-instructions.md): licensing, security defaults, architecture, Makefile targets, documentation policy, and how skills are organized.
+
+**Do not duplicate** policy from that file or from skills. Use short pointers only in Cursor rules.
+
+## Skills
+
+When the task touches a language, build system, tests, security, or documentation, discover and read the relevant `SKILL.md` under [`.github/skills/`](../../.github/skills/) (browse the directory or follow routing in `copilot-instructions.md`). Do not assume a fixed list of skill files.
+
+## Service guides
+
+Before substantive changes in a component tree, find and read `Agents.md` in that service’s directory (search upward from edited paths or the component root). Not every folder has one; use it when present.
+
+## Cursor workflow
+
+- Prefer root `Makefile` test targets unless a narrower pytest run is explicitly required (details live in skills).
+- Run commands in the real environment; investigate failures before giving up.
+- Commits and pull requests only when the user asks (see user/global Cursor rules).
+- Keep changes minimal and match existing conventions in the touched area.

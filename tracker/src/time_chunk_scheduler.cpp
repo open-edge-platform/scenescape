@@ -7,14 +7,15 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <unordered_set>
 
 namespace tracker {
 
 TimeChunkScheduler::TimeChunkScheduler(TimeChunkBuffer& buffer, const SceneRegistry& registry,
                                        const TrackingConfig& config,
-                                       PublishCallback publish_callback)
+                                       PublishCallback publish_callback, ClockFn clock_fn)
     : buffer_(buffer), registry_(registry), config_(config),
-      publish_callback_(std::move(publish_callback)) {
+      publish_callback_(std::move(publish_callback)), clock_fn_(std::move(clock_fn)) {
     // Defense-in-depth: schema and config loader validate this upstream,
     // but guard here to prevent undefined behavior if bypassed.
     if (config_.time_chunking_rate_fps <= 0) {
@@ -98,7 +99,18 @@ void TimeChunkScheduler::run() {
         // Collect all buffered data
         BufferMap snapshot = buffer_.pop_all();
 
-        if (!snapshot.empty()) {
+        if (snapshot.empty()) {
+            Metrics::inc_time_chunking_empty_chunks();
+        } else {
+            Metrics::inc_time_chunking_non_empty_chunks();
+            // Count distinct cameras across all scopes in this dispatch.
+            std::unordered_set<std::string> unique_cameras;
+            for (const auto& scope_entry : snapshot) {
+                for (const auto& camera_entry : scope_entry.second) {
+                    unique_cameras.insert(camera_entry.first);
+                }
+            }
+            Metrics::inc_time_chunking_unique_cameras_n(unique_cameras.size());
             dispatch(std::move(snapshot));
         }
     }
@@ -160,7 +172,7 @@ TrackingWorker* TimeChunkScheduler::get_or_create_worker(const TrackingScope& sc
 
     // Create new worker with tracking config and cameras
     auto worker = std::make_unique<TrackingWorker>(scope, scene_display_name, kWorkerQueueCapacity,
-                                                   publish_callback_, config_, cameras);
+                                                   publish_callback_, config_, cameras, clock_fn_);
 
     LOG_INFO("Created TrackingWorker for scope {}/{} (total workers: {}, cameras: {})",
              scope.scene_id, scope.category, workers_.size() + 1, cameras.size());

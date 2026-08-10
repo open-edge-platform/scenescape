@@ -6,11 +6,15 @@
 *.orig
 *.tar
 *~
+*oxx
+*so
 .coverage_*
 .env
+.scenescape-profile
 .pytest_cache
 .vscode
 __pycache__
+*.egg-info
 admin-pass.txt
 apriltag-cam[0-9].json
 build
@@ -18,18 +22,24 @@ datasets
 db
 db.sqlite3
 db-backup-*
+manager/src/manager/static/assets
+manager/src/manager/static/bootstrap*
+manager/src/manager/static/examples
+manager/secrets
+manager/src/manager/secrets.py
 manager/src/static/assets
 manager/src/static/bootstrap*
 manager/src/static/examples
-manager/secrets
-manager/src/django/secrets.py
 docker-compose.yml
 kubernetes/setup/
 kubernetes/manager
 media
-migrations
+# Ignore runtime migrations directory (not Django source migrations)
+/migrations
+**/workspace/migrations
 pvd-mqtt/detect
 sample_data/xREF_*
+.test_logs
 test_data
 test_reports/
 !tests/interface/firefox-profile.tar
@@ -39,7 +49,6 @@ model_installer/models
 package.json
 package-lock.json
 node_modules
-coverity_tool.tgz
 *.auth
 *.crt
 *.csr
@@ -48,3 +57,5 @@ coverity_tool.tgz
 *.pem
 kubernetes/scenescape-chart/files/*
 .venv
+test_db.sqlite3
+tests/ui/test_media/Empty.zip

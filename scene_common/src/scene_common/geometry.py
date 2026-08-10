@@ -37,11 +37,30 @@ class Region:
     return
 
   def updatePoints(self, info):
-    if (not self.hasPointsArray(info) and 'center' in info):
+    # Set center if provided (needed for circles and other centered regions)
+    if 'center' in info and info['center'] is not None:
       pt = info['center']
       self.center = pt if isinstance(pt, Point) else Point(pt)
 
-    if (self.hasPointsArray(info)) or ('area' in info and info['area'] == "poly"):
+    # Check explicit area type first - respect explicit configuration over inferred types
+    if 'area' in info and info['area'] == "circle":
+      if not hasattr(self, 'center') or self.center is None:
+        raise ValueError(f"Circle region '{self.name}' has invalid center value")
+      if 'radius' not in info or info['radius'] is None:
+        raise ValueError(f"Circle region '{self.name}' requires a positive 'radius' value")
+      try:
+        radius = float(info['radius'])
+      except (TypeError, ValueError):
+        raise ValueError(f"Circle region '{self.name}' requires a numeric 'radius' value")
+      if radius <= 0:
+        raise ValueError(f"Circle region '{self.name}' requires a positive 'radius' value")
+      self.area = Region.REGION_CIRCLE
+      self.radius = radius
+      self.boundingBox = Rectangle(self.center - (self.radius, self.radius),
+                                   self.center + (self.radius, self.radius))
+    elif 'area' in info and info['area'] == "scene":
+      self.area = Region.REGION_SCENE
+    elif (self.hasPointsArray(info)) or ('area' in info and info['area'] == "poly"):
       self.area = Region.REGION_POLY
       self.points = []
       if not isarray(info):
@@ -52,14 +71,6 @@ class Region:
       self.points_list = [x.as2Dxy.asCartesianVector for x in self.points]
       if len(self.points_list) > 2:
         self.polygon = Polygon(self.points_list)
-    elif 'area' in info and info['area'] == "circle":
-      self.area = Region.REGION_CIRCLE
-      self.radius = info['radius']
-      # Rectangle is created using Point, Point constructor.
-      self.boundingBox = Rectangle(self.center - (self.radius, self.radius),
-                                   self.center + (self.radius, self.radius))
-    elif 'area' in info and info['area'] == "scene":
-      self.area = Region.REGION_SCENE
     else:
       raise ValueError("Unrecognized point data", info)
     return
@@ -183,3 +194,37 @@ class Tripwire(Region):
       'uuid': self.uuid,
     }
     return data
+
+def getTripwireEvents(tripwires, object_locations):
+  """Detect line crossings between object movement segments and tripwires.
+
+  @param tripwires         Dict of {key: Tripwire} to check against
+  @param object_locations  List of location pairs (current, previous) per object
+  @return Dict mapping tripwire key to list of (object_index, direction) tuples
+  """
+  tripwire_events = {}
+  for key, tripwire in tripwires.items():
+    event_matches = []
+    for obj_idx, obj_locations in enumerate(object_locations):
+      d = tripwire.lineCrosses(Line(obj_locations[0].as2Dxy,
+                                    obj_locations[1].as2Dxy))
+      if d != 0:
+        event_matches.append((obj_idx, -d))
+    tripwire_events[key] = event_matches
+  return tripwire_events
+
+def getRegionEvents(regions, object_locations):
+  """Determine which objects are within each region using point containment.
+
+  @param regions           Dict of {key: Region} to check against
+  @param object_locations  List of object positions (Point) to test
+  @return Dict mapping region key to list of object indices within that region
+  """
+  region_events = {}
+  for key, region in regions.items():
+    region_objects = []
+    for obj_idx, obj_location in enumerate(object_locations):
+      if region.isPointWithin(obj_location):
+        region_objects.append(obj_idx)
+    region_events[key] = region_objects
+  return region_events

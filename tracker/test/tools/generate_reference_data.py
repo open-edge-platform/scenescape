@@ -305,6 +305,26 @@ def generate_bbox_foot_tests(intrinsics_mat, distortion, pose_mat, camera_origin
     norm_x, norm_y = map_pixel_to_normalized(foot_x, foot_y, intrinsics_mat, distortion)
     world = camera_point_to_world(norm_x, norm_y, pose_mat, camera_origin)
 
+    # Compute width_m (bottom-left to bottom-right distance) for footprint offset
+    bl = pixel_to_world_point(
+        bbox['x'], bbox['y'] + bbox['height'],
+        intrinsics_mat, distortion, pose_mat, camera_origin)
+    br = pixel_to_world_point(
+        bbox['x'] + bbox['width'], bbox['y'] + bbox['height'],
+        intrinsics_mat, distortion, pose_mat, camera_origin)
+    width_m = math.sqrt((br['x'] - bl['x'])**2 + (br['y'] - bl['y'])**2)
+
+    # Apply footprint offset: shift foot away from camera by width_m/2
+    # along the camera→foot bearing to approximate object center.
+    cam = camera_origin
+    foot_dx = world['x'] - cam[0]
+    foot_dy = world['y'] - cam[1]
+    bearing_len = math.sqrt(foot_dx**2 + foot_dy**2)
+    if bearing_len > 1e-9:
+      half_size = width_m / 2.0
+      world['x'] += (foot_dx / bearing_len) * half_size
+      world['y'] += (foot_dy / bearing_len) * half_size
+
     test_cases.append({
       'name': bbox['name'],
       'bbox': {'x': bbox['x'], 'y': bbox['y'], 'width': bbox['width'], 'height': bbox['height']},

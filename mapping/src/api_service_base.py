@@ -16,20 +16,33 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import datetime, timezone
 from typing import Dict, Any
 from werkzeug.utils import secure_filename
 import uuid
 import threading
+import json
+import re
+import traceback
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 from scene_common import log
 
-from mesh_utils import getMeshInfo
+from mesh_utils import get_mesh_info
 
 RECON_STATUS = {}
 RECON_LOCK = threading.Lock()
+INIT_STATUS_LOCK = threading.Lock()
+INIT_STATUS = {
+  "state": "starting",
+  "stage": "boot",
+  "progress": 0.0,
+  "message": "service booting",
+  "error": None,
+  "updated_at": time.time(),
+}
 
 def set_status(request_id: str, **fields):
   with RECON_LOCK:
@@ -51,8 +64,41 @@ def prune_status(max_age_seconds=3600):
     for rid in to_delete:
       del RECON_STATUS[rid]
 
+def set_init_status(
+  state: str,
+  stage: str | None = None,
+  progress: float | None = None,
+  message: str | None = None,
+  error: str | None = None,
+):
+  """Update mapping service initialization state exposed via /health."""
+  with INIT_STATUS_LOCK:
+    INIT_STATUS["state"] = state
+    if stage is not None:
+      INIT_STATUS["stage"] = stage
+    if progress is not None:
+      INIT_STATUS["progress"] = min(100.0, max(0.0, float(progress)))
+    if message is not None:
+      INIT_STATUS["message"] = message
+    INIT_STATUS["error"] = error
+    INIT_STATUS["updated_at"] = time.time()
+
+
+def get_init_status() -> dict[str, Any]:
+  """Return a shallow copy of current initialization state."""
+  with INIT_STATUS_LOCK:
+    return dict(INIT_STATUS)
+
+def _start_status_cleanup_thread():
+  def _cleanup_loop():
+    while True:
+      time.sleep(STATUS_CLEANUP_INTERVAL_SECONDS)
+      prune_status()
+  t = threading.Thread(target=_cleanup_loop, daemon=True, name="status-cleanup")
+  t.start()
+
 # Helper functions for request validation
-def validateReconstructionRequest(data):
+def validate_reconstruction_request(data):
   """Validate reconstruction request data (supports images OR video)"""
 
   if not isinstance(data, dict):
@@ -104,12 +150,23 @@ CORS(app)  # Enable CORS for all routes
 
 # Configure Flask app
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max request size
+API_PREFIX = "/v1"
 
-def initializeModel():
+# Input validation constants
+CAMERA_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,64}$')
+_REQUEST_ID_RE = re.compile(r'^[0-9a-f]{32}$')
+MAX_IMAGES = 50
+MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024   # 20MB per image
+MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024   # 50MB video
+
+# Status management constants
+STATUS_CLEANUP_INTERVAL_SECONDS = 300     # 5 minutes
+
+def initialize_model():
   """Initialize the model - this will be overridden by model-specific services"""
   raise NotImplementedError("This should be overridden by model-specific services")
 
-def runModelInference(input_data: Dict[str, Any]) -> Dict[str, Any]:
+def run_model_inference(input_data: Dict[str, Any]) -> Dict[str, Any]:
   """
   Run inference using the loaded model.
 
@@ -143,9 +200,9 @@ def runModelInference(input_data: Dict[str, Any]) -> Dict[str, Any]:
         use_keyframes = use_keyframes.lower() in ("1", "true", "yes", "y", "on")
 
       # Extract frames from video using the model's internal method
-      video_frames = loaded_model._framesFromVideoAsBase64Dicts(
+      video_frames = loaded_model._frames_from_video_as_base64_dicts(
         video_path=video,
-        max_frames=loaded_model._maxFramesForTimeBudget(
+        max_frames=loaded_model._max_frames_for_time_budget(
           time_budget_seconds=int(os.getenv("GUNICORN_TIMEOUT", "300")),
           overhead=30
         ),
@@ -158,24 +215,24 @@ def runModelInference(input_data: Dict[str, Any]) -> Dict[str, Any]:
       raise RuntimeError("No frames available for inference")
 
     log.info(f"Running inference on {len(all_frames)} total frames")
-    return loaded_model.runInference(all_frames)
+    return loaded_model.run_inference(all_frames)
 
   except Exception as e:
-    log.error(f"Model inference failed: {e}")
+    log.error(f"Model inference failed: {e}\n{traceback.format_exc()}")
     raise RuntimeError(f"Model inference failed: {e}")
 
-def createGlbFile(result: Dict[str, Any], mesh_type: str = "mesh") -> str:
+def create_glb_file(result: Dict[str, Any], mesh_type: str = "mesh") -> str:
   """Create GLB file from model results and return file path"""
   global loaded_model
 
   temp_glb_fd, temp_glb_path = tempfile.mkstemp(suffix=".glb")
 
   try:
-    # Use the model's createOutput method
-    scene_3d = loaded_model.createOutput(result, output_format=mesh_type)
+    # Use the model's create_output method
+    scene_3d = loaded_model.create_output(result, output_format=mesh_type)
     scene_3d.export(temp_glb_path)
 
-    mesh_info = getMeshInfo(scene_3d)
+    mesh_info = get_mesh_info(scene_3d)
     log.info(f"GLB created: {mesh_info}")
 
     return temp_glb_path
@@ -188,7 +245,7 @@ def createGlbFile(result: Dict[str, Any], mesh_type: str = "mesh") -> str:
   finally:
     os.close(temp_glb_fd)
 
-@app.route("/reconstruction", methods=["POST"])
+@app.route(f"{API_PREFIX}/reconstruction", methods=["POST"])
 def reconstruct3D():
   """
   Perform 3D reconstruction from multipart images OR video
@@ -203,7 +260,6 @@ def reconstruct3D():
     request_id,
     state="processing",
     message="queued",
-    model=model_name,
     created_at=time.time(),
     updated_at=time.time(),
   )
@@ -215,6 +271,7 @@ def reconstruct3D():
   image_files = request.files.getlist("images")
   video_file = request.files.get("video")
   camera_ids = request.form.getlist("camera_ids")
+  camera_locations = request.form.getlist("camera_locations", None)
 
   if (not image_files) and (video_file is None):
     set_status(request_id, state="failed", updated_at=time.time(), error="Provide images and/or video")
@@ -227,18 +284,45 @@ def reconstruct3D():
   # Build images payload (base64) in-request
   images = None
   if image_files:
+    if len(image_files) > MAX_IMAGES:
+      set_status(request_id, state="failed", updated_at=time.time(), error="Invalid input")
+      return jsonify({"success": False, "request_id": request_id, "error": f"Too many images (max {MAX_IMAGES})"}), 400
+
     images = []
-    pairs = zip(image_files, camera_ids) if camera_ids else [(f, None) for f in image_files]
-    for f, cam_id in pairs:
+
+    for idx, f in enumerate(image_files):
       if not f or not f.filename:
         continue
+
       raw = f.read()
       if not raw:
         continue
+
+      if len(raw) > MAX_IMAGE_SIZE_BYTES:
+        set_status(request_id, state="failed", updated_at=time.time(), error="Invalid input")
+        return jsonify({"success": False, "request_id": request_id, "error": "Image file exceeds size limit"}), 400
+
+      cam_id = camera_ids[idx] if idx < len(camera_ids) else None
+
+      if cam_id and not CAMERA_ID_PATTERN.match(cam_id):
+        set_status(request_id, state="failed", updated_at=time.time(), error="Invalid input")
+        return jsonify({"success": False, "request_id": request_id, "error": "Invalid camera_id format"}), 400
+
+      cam_loc = None
+      if camera_locations and idx < len(camera_locations):
+        try:
+          cam_loc = json.loads(camera_locations[idx])
+        except Exception as e:
+          log.warning(
+                f"Invalid JSON camera location for camera {idx} | error: {e}"
+          )
+          cam_loc = None
+
       images.append({
-        "filename": secure_filename(f.filename),
-        "camera_id": cam_id,
-        "data": base64.b64encode(raw).decode("utf-8"),
+          "filename": secure_filename(f.filename),
+          "camera_id": cam_id,
+          "camera_location": cam_loc,   # Only populated if provided
+          "data": base64.b64encode(raw).decode("utf-8"),
       })
 
     if not images:
@@ -250,6 +334,13 @@ def reconstruct3D():
   if video_file:
     uploads_dir = os.getenv("UPLOADS_DIR", "/tmp/uploads")
     os.makedirs(uploads_dir, exist_ok=True)
+    os.chmod(uploads_dir, 0o700)
+    video_file.stream.seek(0, 2)
+    video_size = video_file.stream.tell()
+    video_file.stream.seek(0)
+    if video_size > MAX_VIDEO_SIZE_BYTES:
+      set_status(request_id, state="failed", updated_at=time.time(), error="Invalid input")
+      return jsonify({"success": False, "request_id": request_id, "error": "Video file exceeds size limit"}), 400
     filename = secure_filename(video_file.filename or "video.mp4")
     video_path = os.path.join(uploads_dir, f"{request_id}_{filename}")
     video_file.save(video_path)
@@ -264,10 +355,10 @@ def reconstruct3D():
   }
 
   try:
-    validateReconstructionRequest(inference_payload)
+    validate_reconstruction_request(inference_payload)
   except ValueError as e:
     # Log detailed validation error on the server, but do not expose it to the client
-    log(f"Reconstruction request validation failed for {request_id}: {e}")
+    log.error(f"Reconstruction request validation failed for {request_id}: {e}\n{traceback.format_exc()}")
     generic_error = "Invalid reconstruction request"
     set_status(request_id, state="failed", updated_at=time.time(), error=generic_error)
     return jsonify({"success": False, "request_id": request_id, "error": generic_error}), 400
@@ -277,12 +368,12 @@ def reconstruct3D():
     glb_path = None
     try:
       set_status(request_id, state="processing", updated_at=time.time(), message="running inference")
-      result = runModelInference(inference_payload)
+      result = run_model_inference(inference_payload)
 
       glb_data = None
       if output_format == "glb":
         set_status(request_id, state="processing", updated_at=time.time(), message="generating glb")
-        glb_path = createGlbFile(result, mesh_type)
+        glb_path = create_glb_file(result, mesh_type)
         with open(glb_path, "rb") as f:
           glb_data = base64.b64encode(f.read()).decode("utf-8")
 
@@ -291,7 +382,6 @@ def reconstruct3D():
       final = {
         "success": True,
         "request_id": request_id,
-        "model": model_name,
         "glb_data": glb_data,
         "camera_poses": result["camera_poses"],
         "intrinsics": result["intrinsics"],
@@ -324,29 +414,68 @@ def reconstruct3D():
   return jsonify({"success": True, "request_id": request_id, "state": "processing"}), 200
 
 
-@app.route("/health", methods=["GET"])
-def healthCheck():
-  """Health check endpoint"""
+@app.route(f"{API_PREFIX}/health", methods=["GET"])
+def health_check():
+  """Health check endpoint with unified readiness contract."""
   global loaded_model, model_name
 
+  model_loaded = loaded_model is not None and loaded_model.is_loaded
+  init_status = get_init_status()
+  init_state = init_status.get("state")
+
+  # Keep init status synchronized with readiness, regardless of startup mode.
+  if model_loaded and init_status.get("state") != "ready":
+    set_init_status(
+      state="ready",
+      stage="model_loaded",
+      progress=100.0,
+      message="model loaded",
+      error=None,
+    )
+    init_status = get_init_status()
+
+  if model_loaded:
+    service_status = "healthy"
+    status_code = 200
+  elif init_state == "failed":
+    service_status = "unhealthy"
+    status_code = 503
+  else:
+    service_status = "degraded"
+    status_code = 202
+
   health_status = {
-    "status": "healthy",
+    "status": service_status,
+    "ready": model_loaded,
+    "component": "mapping",
+    "timestamp": datetime.now(timezone.utc).isoformat(),
+    "version": "1.0",
+    "details": {
+      "models": {
+        "loaded": model_loaded,
+        "active": model_name,
+      },
+      "runtime": {
+        "device": device,
+      },
+    },
     "model": model_name,
-    "model_loaded": loaded_model is not None and loaded_model.is_loaded,
+    "model_loaded": model_loaded,
     "device": device,
+    "initialization": init_status,
   }
 
   log.debug(f"Health check: {health_status}")
-  return jsonify(health_status), 200
+  return jsonify(health_status), status_code
 
-@app.route("/models", methods=["GET"])
-def listModels():
+@app.route(f"{API_PREFIX}/models", methods=["GET"])
+def list_models():
   """List the available model and its status"""
   global loaded_model, model_name
 
   model_info = None
   if loaded_model is not None:
-    model_info = loaded_model.getModelInfo()
+    model_info = loaded_model.get_model_info()
 
   models_data = {
     "model": model_name,
@@ -359,37 +488,68 @@ def listModels():
   }
   return jsonify(models_data), 200
 
-@app.route("/reconstruction/status/<request_id>", methods=["GET"])
-def reconstructionStatus(request_id):
+@app.route(f"{API_PREFIX}/reconstruction/status/<request_id>", methods=["GET"])
+def reconstruction_status(request_id):
+  if not _REQUEST_ID_RE.match(request_id):
+    return jsonify({"success": False, "error": "Invalid request ID"}), 400
   prune_status()
   status = get_status(request_id)
   if not status:
     return jsonify({"success": False, "error": "unknown request_id"}), 404
-  return jsonify({"success": True, "request_id": request_id, **status}), 200
+
+  safe = {
+    "state": status.get("state"),
+    "message": status.get("message"),
+    "processing_time": status.get("processing_time"),
+  }
+  if status.get("state") == "complete":
+    result = status.get("result", {})
+    safe["result"] = {k: v for k, v in result.items() if k != "model"}
+  elif status.get("state") == "failed":
+    safe["error"] = "Reconstruction failed"
+
+  return jsonify({"success": True, "request_id": request_id, **safe}), 200
 
 # Error handlers
 @app.errorhandler(404)
-def notFound(error):
-  return jsonify({"error": "Endpoint not found"}), 404
+def not_found(error):
+  return jsonify({"success": False, "error": "Endpoint not found"}), 404
 
 @app.errorhandler(405)
-def methodNotAllowed(error):
-  return jsonify({"error": "Method not allowed"}), 405
+def method_not_allowed(error):
+  return jsonify({"success": False, "error": "Method not allowed"}), 405
 
 @app.errorhandler(413)
-def requestEntityTooLarge(error):
-  return jsonify({"error": "Request too large"}), 413
+def request_entity_too_large(error):
+  # Drain the remaining request body before returning. When a reverse proxy
+  # (e.g., Apache) forwards an upload and the backend closes the connection
+  # without consuming the body, the proxy sees a connection reset and returns
+  # 502 instead of forwarding this 413. Reading and discarding the bytes
+  # empties the pipe so the proxy can receive and forward the response cleanly.
+  try:
+    stream = request.environ.get('wsgi.input')
+    if stream is not None:
+      cap = request.content_length or (app.config.get('MAX_CONTENT_LENGTH', 0) * 2)
+      drained = 0
+      while drained < cap:
+        chunk = stream.read(min(65536, cap - drained))
+        if not chunk:
+          break
+        drained += len(chunk)
+  except Exception:
+    pass
+  return jsonify({"success": False, "error": "Request too large"}), 413
 
 @app.errorhandler(500)
-def internalServerError(error):
-  return jsonify({"error": "Internal server error"}), 500
+def internal_server_error(error):
+  return jsonify({"success": False, "error": "Internal server error"}), 500
 
-def signalHandler(sig, frame):
+def signal_handler(sig, frame):
   """Handle SIGINT (Ctrl+C) gracefully"""
   log.info("Received SIGINT (Ctrl+C), shutting down gracefully...")
   sys.exit(0)
 
-def runDevelopmentServer():
+def run_development_server():
   """Run Flask development server"""
   log.info("Starting in DEVELOPMENT mode...")
   log.info("Flask development server starting on https://0.0.0.0:8444")
@@ -406,11 +566,11 @@ def runDevelopmentServer():
   except KeyboardInterrupt:
     log.info("Server interrupted by user")
   except Exception as e:
-    log.error(f"Server error: {e}")
+    log.error(f"Server error: {e}\n{traceback.format_exc()}")
   finally:
     log.info("Server shutdown complete")
 
-def runProductionServer(cert_file=None, key_file=None):
+def run_production_server(cert_file=None, key_file=None):
   """Run Gunicorn production server with TLS"""
   log.info("Starting in PRODUCTION mode with TLS...")
 
@@ -463,15 +623,15 @@ def runProductionServer(cert_file=None, key_file=None):
     # and each worker needs to initialize the model in its own process via post_fork hook
     subprocess.run(gunicorn_cmd, check=True)
   except subprocess.CalledProcessError as e:
-    log.error(f"Gunicorn failed to start: {e}")
+    log.error(f"Gunicorn failed to start: {e}\n{traceback.format_exc()}")
     sys.exit(1)
   except KeyboardInterrupt:
     log.info("Server interrupted by user")
   except Exception as e:
-    log.error(f"Server error: {e}")
+    log.error(f"Server error: {e}\n{traceback.format_exc()}")
     sys.exit(1)
 
-def startApp():
+def start_app():
   """Start the application with command line argument parsing"""
   parser = argparse.ArgumentParser(description="3D Mapping Models API Server")
   parser.add_argument(
@@ -498,8 +658,11 @@ def startApp():
   args = parser.parse_args()
 
   # Set up signal handler for graceful shutdown
-  signal.signal(signal.SIGINT, signalHandler)
-  signal.signal(signal.SIGTERM, signalHandler)
+  signal.signal(signal.SIGINT, signal_handler)
+  signal.signal(signal.SIGTERM, signal_handler)
+
+  # Start background status cleanup thread
+  _start_status_cleanup_thread()
 
   log.info("Starting 3D Mapping API server...")
 
@@ -514,22 +677,26 @@ def startApp():
   try:
     if dev_mode:
       # For development server, initialize model here (single process)
-      loaded_model, model_name = initializeModel()
+      set_init_status("starting", "model_init_begin", 10.0, "initializing model")
+      loaded_model, model_name = initialize_model()
+      set_init_status("ready", "model_loaded", 100.0, "model loaded")
       log.info("API Service startup completed successfully")
-      runDevelopmentServer()
+      run_development_server()
     else:
       # For production server, model will be initialized in each worker via post_fork hook
       # Don't initialize here as Gunicorn will fork workers with separate memory spaces
+      set_init_status("starting", "waiting_for_worker", 5.0, "waiting for worker model initialization")
       log.info("API Service starting (model will be initialized in Gunicorn workers)")
-      runProductionServer(cert_file=args.cert_file, key_file=args.key_file)
+      run_production_server(cert_file=args.cert_file, key_file=args.key_file)
 
   except KeyboardInterrupt:
     log.info("Server interrupted by user")
   except Exception as e:
+    set_init_status("failed", "startup_error", 100.0, "startup failed", str(e))
     log.error(f"Server error: {e}")
     raise
   finally:
     log.info("Server shutdown complete")
 
 if __name__ == "__main__":
-  startApp()
+  start_app()

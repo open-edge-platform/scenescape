@@ -1,46 +1,84 @@
-# Running tests for Intel® SceneScape on Kubernetes
+# Running tests for Scenescape on Kubernetes
 
-Run Kubernetes tests on a Docker test host against our local Kind testing setup or a remote Kubernetes cluster.
+All Kubernetes tests are driven by pytest with the `--backend=kubernetes` flag.
+This creates a KinD cluster, deploys Scenescape via Helm, runs the tests, and
+destroys the cluster automatically at the end of the session. No
+separately-running cluster is required.
 
-# Usage
+## Prerequisites
 
-## Local Kubernetes cluster tests
+Install the following tools and make them available on `PATH`:
+
+| Tool      | Installation                                                                                                                                                                                                |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kind`    | >= v0.31 (v0.32.0 recommended); older binaries fail `kind load` against `kindest/node:v1.35.x` with `failed to detect containerd snapshotter`. https://kind.sigs.k8s.io/docs/user/quick-start/#installation |
+| `kubectl` | https://kubernetes.io/docs/tasks/tools/ (v1.35.x recommended for the pinned node image)                                                                                                                     |
+| `helm`    | https://helm.sh/docs/intro/install/                                                                                                                                                                         |
+
+Python dependencies (`pytest-kubernetes`, `python-on-whales`) are installed
+automatically by `make setup-tests`.
+
+## Running tests
 
 ```bash
-# make sure SS docker isn't running
-make -C kubernetes VALIDATION=1 # this starts kubernetes with tests.enabled = true in the helm chart
-# wait until containers are ready, check with k9s
-# run tests with the SUPASS in values.yaml and KUBERNETES=1
-make -C tests out-of-box SUPASS=change_me KUBERNETES=1
-# containers won't be stopped after a test, you can go ahead and execute the next test.
-make -C kubernetes clean-all # to clear all kubernetes infra after you are done
+# One-time setup — build core images and create the test virtualenv
+SUPASS=change_me make && make setup-tests
+
+# Activate the virtualenv
+source tests/.venv/bin/activate
+
+# Run the Kubernetes deployment smoke tests
+pytest tests/kubernetes --backend=kubernetes -v
+
+# Run the out-of-box test on Kubernetes
+pytest tests/ui/test_out_of_box.py --backend=kubernetes -v
+
+# Run all Kubernetes-capable tests
+pytest --backend=kubernetes -v
+
+# Run only tests that are Kubernetes-specific
+pytest -m kubernetes_only --backend=kubernetes -v
 ```
 
-## Remote Kubernetes cluster tests
+Requires kind >= v0.31 (see Prerequisites). Cluster setup (KinD creation, Helm
+deploy, image loading) takes roughly 15–20 minutes on first run. Subsequent
+runs reuse the pulled images from the local Docker cache.
 
-```bash
-# install SS on Kubernetes with tests.enabled: true in values.yaml, wait until all pods are ready
-# prepare docker test host on the same network
-# copy kubeconfig to docker test host
-# execute the test cases on a remote cluster with scenescape installed with tests enabled
-KUBECONFIG=/home/ubuntu/config make -C tests out-of-box SUPASS=change_me KUBERNETES=1 KUB_CLUSTER_FRP_ADDRESS=192.168.122.42 KUB_CLUSTER_FRP_PORT=7000
-# Variables to set
-KUBECONFIG=<absolute-path-to-remote-cluster-kubeconfig>
-KUB_CLUSTER_FRP_ADDRESS=<ip-of-frps-service>
-KUB_CLUSTER_FRP_PORT=<port-of-frps-service>
-KUB_CLUSTER_FRP_SECRET_KEY=<frps-secret-key>
-CERT_KUB_BROKER_URL=<broker-cert-url> # in the format broker.<namespace> where ns is the ns in where scenescape is installed
-CERT_KUB_WEB_URL=<web-cert-url> # in the format web.<namespace> where ns is the ns in where scenescape is installed
+## VS Code Test Extension
+
+Add `--backend=kubernetes` to `python.testing.pytestArgs` in
+`.vscode/settings.json`:
+
+```json
+{
+  "python.testing.pytestArgs": ["tests", "--backend=kubernetes"],
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false
+}
 ```
 
-# How it works
+Then click **Refresh Tests** and run from the Testing sidebar as normal.
 
-The kubernetes `runtest`, which will be run when `make -C tests` is started with `KUBERNETES=1` does the following:
+## How it works
 
-- expects Intel® SceneScape to be running in validation mode on a Kubernetes cluster with `tests.enabled: true`
-  - this will start one FRP server (frps) and multiple FRP client (frpc) containers to proxy pod ports
-  - require an additional `init-tests` image to copy our test database into our pgserver pod to run tests against
-- uses `kubectl` which uses the kubeconfig defined by the `KUBECONFIG` environment variable to connect to a cluster (local or remote) to manage PVCs and deployments
-- starts multiple [FRP](https://github.com/fatedier/frp) clients as docker containers which proxy most of the useful ports out from Kubernetes back into the docker environment, through one frps server port. These containers proxy the ports from the Kubernetes pods back into the docker test host so our existing test infrastructure does not need to be modified.
+When `--backend=kubernetes` is passed to pytest the `K8sManager` in
+`tests/utils/k8s.py` performs the following steps:
 
-Additional loadbalancer, service or nodeport values can be changed in the chart's values.yaml depending on the cluster.
+1. Creates a KinD cluster named `pytest-test-cluster` using the config in
+   `tests/kubernetes/config/kind_config.yaml`.
+2. Installs the Nginx Ingress Controller and cert-manager.
+3. Tags and loads core Scenescape Docker images into the KinD node
+   (matches `make build-core`; mapping / cluster-analytics are not required
+   unless those chart features are enabled).
+4. Runs `make copy-files` in `kubernetes/` to populate the Helm chart files.
+5. Installs the Helm chart with generated values (passwords, proxy settings).
+6. Waits for all core services to become ready (web, scene controller,
+   autocalibration, broker, pgserver, vdms, mediaserver, kubeclient, cameras,
+   DL Streamer warmup).
+7. Extracts `controller.auth` and `scenescape-ca.pem` from Kubernetes secrets.
+8. Sets up `kubectl port-forward` for MQTT (`localhost:1883`) and the web
+   service (`localhost:<random-port>`).
+9. Injects the port-forwarded URLs, auth file, and root certificate into the
+   test fixtures so tests connect transparently.
+
+After all tests finish the cluster is torn down automatically.

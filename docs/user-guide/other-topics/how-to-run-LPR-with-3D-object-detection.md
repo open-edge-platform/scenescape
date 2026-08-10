@@ -3,11 +3,11 @@
 This guide explains how to:
 
 1. Set up and run the License Plate Recognition pipeline using DeepScenario model for 3D Object Detection.
-2. Configure Intel® SceneScape to ingest the pipeline metadata and enable running spatial analytics on the Scene.
+2. Configure Scenescape to ingest the pipeline metadata and enable running spatial analytics on the Scene.
 
 ## Prerequisites
 
-- Successful deployment of a Intel® SceneScape instance using [Get Started](../get-started.md)
+- Successful deployment of a Scenescape instance using [Installation](../get-started/installation.md)
 - Access to the DeepScenario 3D Object Detection package
 
 ## Setup Steps
@@ -70,23 +70,17 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
       {
         "name": "deepscenario-cam1",
         "source": "gstreamer",
-        "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/input-video.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvapython class=DeepScenario module=/home/pipeline-server/user_scripts/DeepScenario.py function=process_frame name=deepscenario ! queue ! gvadeskew intrinsics-file=/home/pipeline-server/user_scripts/intrinsics.json ! queue ! gvadetect inference-region=1 model=/home/pipeline-server/models/yolov8_license_plate_detector/yolov8_license_plate_detector.xml ! queue ! gvaclassify model=/home/pipeline-server/models/ch_PP-OCRv4_rec_infer/ch_PP-OCRv4_rec_infer.xml ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/input-video.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvapython class=DeepScenario module=/home/pipeline-server/user_scripts/DeepScenario.py function=process_frame name=deepscenario ! queue ! gvadeskew intrinsics-file=/home/pipeline-server/user_scripts/intrinsics.json ! queue ! gvadetect inference-region=1 model=/home/pipeline-server/models/yolov8_license_plate_detector/yolov8_license_plate_detector.xml ! queue ! gvaclassify model=/home/pipeline-server/models/ch_PP-OCRv4_rec_infer/ch_PP-OCRv4_rec_infer.xml ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
           "properties": {
-            "ntp_config": {
+            "ntp_server": {
               "element": {
                 "name": "timesync",
-                "property": "kwarg",
-                "format": "json"
+                "property": "ntp-server"
               },
-              "type": "object",
-              "properties": {
-                "ntpServer": {
-                  "type": "string"
-                }
-              }
+              "type": "string"
             },
             "deepscenario_config": {
               "element": {
@@ -106,26 +100,28 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
                 }
               }
             },
-            "camera_config": {
+            "cameraid": {
               "element": {
                 "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
+                "property": "cameraid"
               },
-              "type": "object",
-              "properties": {
-                "cameraid": {
-                  "type": "string"
-                },
-                "metadatagenpolicy": {
-                  "type": "string",
-                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
-                }
-              }
+              "type": "string"
+            },
+            "metadatagenpolicy": {
+              "element": {
+                "name": "datapublisher",
+                "property": "metadatagenpolicy"
+              },
+              "type": "string",
+              "description": "One of detectionPolicy (default), detection3DPolicy, reidPolicy, classificationPolicy, ocrPolicy"
+            },
+            "publish_image": {
+              "element": {
+                "name": "datapublisher",
+                "property": "publish-image"
+              },
+              "type": "boolean",
+              "description": "Publish frame to mqtt"
             }
           }
         },
@@ -137,17 +133,13 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
             }
           },
           "parameters": {
-            "ntp_config": {
-              "ntpServer": "ntpserv"
-            },
+            "ntp_server": "ntpserv",
             "deepscenario_config": {
               "intrinsics_path": "/home/pipeline-server/user_scripts/intrinsics.json",
               "max_distance": 28.0
             },
-            "camera_config": {
-              "cameraid": "lpr",
-              "metadatagenpolicy": "ocrPolicy"
-            }
+            "cameraid": "lpr",
+            "metadatagenpolicy": "ocrPolicy"
           }
         }
       }
@@ -187,7 +179,7 @@ Create a file intrinsics.json in `scenescape/dlstreamer-pipeline-server/user_scr
 }
 ```
 
-A good starting point for these values are camera vendor provided specs. However, if they are unavailable or are giving inaccurate results, refer to the [how-to-manually-calibrate-cameras](../calibrating-cameras/how-to-manually-calibrate-cameras.md) guide for details on how to provide sufficient point correspondences for computing fx, fy and k1. cx and cy are always half the resolution of the frame in x and y.
+A good starting point for these values are camera vendor provided specs. However, if they are unavailable or are giving inaccurate results, refer to the [Use 2D UI for Manual Calibration](../how-to-guides/calibrate-cameras/use-2D-UI-for-calibration.md) guide for details on how to provide sufficient point correspondences for computing fx, fy and k1. cx and cy are always half the resolution of the frame in x and y.
 
 Each pipeline can have a separate `intrinsics.json` file. The DeepScenario script accepts the path to the `intrinsics.json` file as `intrinsics_path` argument.
 
@@ -229,13 +221,14 @@ deepscenario:
     - REST_SERVER_PORT=8080
     - GENICAM=Balluff
     - GST_DEBUG=GST_TRACER:7
+    - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
     - ADD_UTCTIME_TO_METADATA=true
     - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
     - MQTT_HOST=broker.scenescape.intel.com
     - MQTT_PORT=1883
   volumes:
     - ./dlstreamer-pipeline-server/deepscenario-lpr-config.json:/home/pipeline-server/config.json
-    - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+    - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
     - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
     - ./sample_data:/home/pipeline-server/videos
     - ./model_installer/models/public/ch_PP-OCRv4_rec_infer/FP32:/home/pipeline-server/models/ch_PP-OCRv4_rec_infer
@@ -257,7 +250,7 @@ command: controller --broker broker.scenescape.intel.com --ntp ntpserv --maxlag 
 
 Ensure your directory structure looks like this:
 
-```
+```text
 scenescape/
 ├── dlstreamer-pipeline-server/
 │   ├── user_scripts/
@@ -302,7 +295,7 @@ docker-compose ps
 
 ### 10. Adding a new scene and a new camera
 
-- Create a new scene, add a camera with name and id set to `lpr` and calibrate the camera, by following [How to Create a New Scene](../building-a-scene/how-to-create-new-scene.md#adding-the-new-scene-and-cameras).
+- Create a new scene, add a camera with name and id set to `lpr` and calibrate the camera, by following [How to Create a New Scene](../how-to-guides/build-a-scene/create-new-scene.md#adding-the-new-scene-and-cameras).
 - 3D Object Detection can occasionally lead to the object not being positioned on the ground plane. When there is a discrepancy from ground truth with respect to the `z` value in object `translation`, use the `Project to map` setting mentioned in the [How to Define Object Properties](./how-to-define-object-properties.md#additional-settings) guide.
 
 ### 11. Verifying the Setup
@@ -315,4 +308,4 @@ Figure 1: 3D object detection
 ### Learn More
 
 - Read [the solution brief](https://www.intel.com/content/www/us/en/content-details/824541/groundbreaking-4d-object-detection-with-deepscenario-and-intel-scenescape.html) to understand how the above setup can be used to detect parking violations with high accuracy.
-- Pair [3D Object Detections with powerful spatial analytics](../building-a-scene/how-to-configure-spatial-analytics.md).
+- Pair [3D Object Detections with powerful spatial analytics](../how-to-guides/build-a-scene/configure-spatial-analytics.md).

@@ -48,11 +48,11 @@ Explicitly out of scope:
 - **Dynamic re-configuration** — Config changes require restart (by design for simplicity)
 - **Object re-identification** — Track IDs reset on camera handoff (when non-overlapping) or long-term occlusion or object re-entry
 - **Historical persistence** — Tracking state lost on service restart
-- **NTP time correction** — No camera clock drift compensation
 - **Lease-based scaling** — Static scene partitioning only
 - **Multi-scene fusion** — No cross-scene track handoff
 - **Scene hierarchy** — Flat scene structure only; no parent-child scene relationships or nested regions
 - **Sensor tagging of a track** — No visibility array or per-sensor metadata on tracks
+- **Multi-camera detection metadata merging** — When a track is observed by multiple cameras in the same time chunk, detection metadata (`confidence`, `metadata`) from the last processed camera overwrites earlier values (last-write-wins, inherent RobotVision attributes API limitation)
 
 ## Architecture
 
@@ -90,7 +90,9 @@ See full schema: [`camera-data.schema.json`](../../tracker/schema/camera-data.sc
     "person": [
       {
         "id": 1,
-        "bounding_box_px": { "x": 4, "y": 0, "width": 127, "height": 309 }
+        "bounding_box_px": { "x": 4, "y": 0, "width": 127, "height": 309 },
+        "metadata": { "reid": "...", "gender": "male" },
+        "confidence": 0.92
       }
     ]
   }
@@ -121,7 +123,9 @@ See full schema: [`scene-data.schema.json`](../../tracker/schema/scene-data.sche
       "translation": [-0.33, 2.48, 0.0],
       "velocity": [-0.04, 0.2, 0.0],
       "size": [0.5, 0.5, 1.85],
-      "rotation": [0, 0, 0, 1]
+      "rotation": [0, 0, 0, 1],
+      "metadata": { "reid": "...", "gender": "male" },
+      "confidence": 0.92
     }
   ]
 }
@@ -137,6 +141,17 @@ In-memory only - no persistent storage. Stateless design for horizontal scalabil
 | Detection buffers              | Flushed `time_chunking_rate_fps` per second |
 | Publish queue                  | Drained on shutdown (2s timeout)            |
 | Scene configuration            | Loaded at startup                           |
+
+### Detection Data Passthrough
+
+Detection metadata fields are passed through from the camera detection message to the corresponding track in the scene output. Both fields are optional — when absent in the detection message they are omitted from the track output.
+
+| Field        | Type   | Description                                                       |
+| ------------ | ------ | ----------------------------------------------------------------- |
+| `confidence` | number | Detection confidence score in \[0, 1\] from the AI model          |
+| `metadata`   | object | Semantic attributes from the AI pipeline (e.g. reid, age, gender) |
+
+**Multi-camera limitation**: When a track is matched against detections from multiple cameras within the same time chunk, detection metadata (`confidence`, `metadata`) reflects the last matched camera only (last-write-wins). This is an inherent limitation of the RobotVision attributes API used for per-track data storage.
 
 ## Operations
 
@@ -225,6 +240,17 @@ Detailed latency breakdown for bottleneck identification:
 | `tracker.stage.publish_duration`   | histogram | scene, category  | ms   | MQTT serialize & publish                  |
 
 **Attribute Strategy**: Early-stage metrics (parse, buffer) use `camera_id` since category is not yet determined; late-stage metrics (queue, transform, track, publish) use `category` after detection classification.
+
+##### Time-Chunking Metrics
+
+Performance counters for the time-chunk buffer and scheduler:
+
+| Metric                                     | Type    | Attributes      | Unit      | Description                                        |
+| ------------------------------------------ | ------- | --------------- | --------- | -------------------------------------------------- |
+| `tracker.time_chunking.duplicated_cameras` | counter | scene, category | {message} | Buffered camera frames overwritten before dispatch |
+| `tracker.time_chunking.unique_cameras`     | counter | —               | {camera}  | Distinct cameras dispatched per non-empty chunk    |
+| `tracker.time_chunking.non_empty_chunks`   | counter | —               | {chunk}   | Dispatch intervals that had buffered data          |
+| `tracker.time_chunking.empty_chunks`       | counter | —               | {chunk}   | Dispatch intervals with no buffered data           |
 
 ##### Rejection/Drop Reasons
 

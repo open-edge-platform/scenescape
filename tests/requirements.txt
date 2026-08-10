@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Host-side dependencies for end-to-end test orchestration and inner test execution.
+
+# Orchestration
+pytest==9.0.3
+pytest-django==4.12.0
+pytest-kubernetes==0.8.0
+python-on-whales==0.81.0
+waiting==1.4.0
+pyyaml==6.0.3
+
+# Inner test dependencies
+paho-mqtt==2.1.0
+numpy==2.2.6
+requests==2.33.0
+selenium==4.43.0
+Pillow==12.3.0
+scikit-image==0.26.0
+scikit-learn==1.8.0
+opencv-python==4.13.0.92
+pyvirtualdisplay==3.0
+psutil==5.9.0
+pupil-apriltags==1.0.4.post11
+Django==5.2.15
+django-axes==8.0.0
+django-session-timeout==0.1.0
+djangorestframework==3.16.1
+jsonschema==4.25.1
+plyfile==1.0.3
+trimesh==4.11.5
+shapely==2.1.1
+mapbox-earcut==1.0.3
+fastjsonschema==2.21.2
+open3d==0.19.0
+opentelemetry-api==1.38.0
+opentelemetry-sdk==1.38.0
+opentelemetry-exporter-otlp-proto-grpc==1.38.0
+vdms==0.0.22
+qdrant-client==1.18.0
+aiofiles==25.1.0
+orjson==3.11.6
+ntplib==0.4.0
+openapi-spec-validator==0.8.5
+pytz==2026.2
+
+# Build dependencies for fast_geometry C++ extension
+pybind11==3.0.4
+
+# Scenescape shared library (installed as editable from repo)
+-e ../scene_common/src
+
+# Tracker black-box evaluation pipeline dependencies (packages not already listed above)
+scipy==1.17.1
+jsonpointer==2.4
+dask==2026.3.0
+pandas==3.0.2
+pyarrow==23.0.1
+matplotlib==3.10.8
+pytest-cov==4.1.0

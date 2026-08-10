@@ -6,6 +6,7 @@
 #include "config_loader.hpp"
 #include "coordinate_transformer.hpp"
 #include "id_map.hpp"
+#include "time_utils.hpp"
 #include "tracking_types.hpp"
 
 #include <rv/tracking/MultipleObjectTracker.hpp>
@@ -58,7 +59,8 @@ public:
      */
     TrackingWorker(TrackingScope scope, std::string scene_name, int queue_capacity,
                    PublishCallback publish_callback, const TrackingConfig& tracking_config,
-                   const std::unordered_map<std::string, Camera>& cameras);
+                   const std::unordered_map<std::string, Camera>& cameras,
+                   ClockFn clock_fn = makeSystemClock());
 
     /// Destructor joins worker thread
     ~TrackingWorker();
@@ -153,7 +155,7 @@ private:
      * @param category Object category for the output tracks
      * @return Vector of Track structs ready for publishing
      */
-    std::vector<Track> convert_tracks(const std::vector<rv::tracking::TrackedObject>& rv_tracks,
+    std::vector<Track> convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tracks,
                                       const std::string& category);
 
     TrackingScope scope_;
@@ -174,6 +176,8 @@ private:
     mutable std::mutex queue_mutex_;
     std::condition_variable queue_cv_;
     std::deque<Chunk> queue_;
+
+    ClockFn clock_fn_;
 
     std::atomic<bool> stop_requested_{false};
     std::atomic<int> processed_count_{0};

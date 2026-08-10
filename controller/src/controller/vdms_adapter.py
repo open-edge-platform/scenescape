@@ -1,40 +1,58 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import os
-import json
 import socket
-import threading
 
-import numpy as np
 import vdms
 
-from controller.reid import ReIDDatabase
+from controller.reid import ReIDDatabase, ReidNoValidVectorsError, ReidPartialWriteError
+from scene_common.reid_constants import (
+  K_NEIGHBORS,
+  SCHEMA_NAME,
+  SIMILARITY_METRIC,
+)
+from controller.reid_env import (
+  get_reid_ca_cert,
+  get_reid_client_cert,
+  get_reid_client_key,
+  get_reid_hostname,
+  get_reid_port,
+  get_reid_use_tls,
+)
 from scene_common import log
 
-DEFAULT_HOSTNAME = os.getenv("VDMS_HOSTNAME", "vdms.scenescape.intel.com")
-DEFAULT_CONFIDENCE_THRESHOLD = float(os.getenv("VDMS_CONFIDENCE_THRESHOLD", "0.8"))
+# Retained for tests/tools that historically imported this module constant.
 DIMENSIONS = 256
-K_NEIGHBORS = 1
-SCHEMA_NAME = "reid_vector"
-SIMILARITY_METRIC = "L2"
+SCHEMA_MARKER_CLASS = "ReidSchemaMarker"
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
-               similarity_metric=SIMILARITY_METRIC, dimensions=DIMENSIONS,
-               confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD):
+               similarity_metric=SIMILARITY_METRIC, dimensions=None,
+               confidence_threshold=None,
+               ca_cert=None, client_cert=None,
+               client_key=None, use_tls=None):
+    super().__init__(
+      set_name=set_name,
+      similarity_metric=similarity_metric,
+      dimensions=dimensions,
+      confidence_threshold=confidence_threshold)
+    resolved_ca_cert = get_reid_ca_cert() if ca_cert is None else ca_cert
+    resolved_client_cert = (
+      get_reid_client_cert() if client_cert is None else client_cert)
+    resolved_client_key = get_reid_client_key() if client_key is None else client_key
+    resolved_use_tls = get_reid_use_tls() if use_tls is None else use_tls
     self.db = vdms.vdms(
-      use_tls=True,
-      ca_cert_file="/run/secrets/certs/scenescape-ca.pem",
-      client_cert_file="/run/secrets/certs/scenescape-vdms-c.crt",
-      client_key_file="/run/secrets/certs/scenescape-vdms-c.key"
+      use_tls=resolved_use_tls,
+      ca_cert_file=resolved_ca_cert,
+      client_cert_file=resolved_client_cert,
+      client_key_file=resolved_client_key
     )
-    self.set_name = set_name
-    self.similarity_metric = similarity_metric
-    self.dimensions = dimensions
-    self.confidence_threshold = confidence_threshold
-    self.lock = threading.Lock()
+    self.hostname = get_reid_hostname()
+    self.port = get_reid_port()
     return
+
+  def _schemaResourceLabel(self):
+    return "VDMS descriptor set"
 
   def sendQuery(self, query, blob=None):
     """
@@ -66,92 +84,109 @@ class VDMSDatabase(ReIDDatabase):
       for (item, response) in zip(query, query_response[0]):
         query_type = next(iter(item))
         response_data = response.get(query_type, {})
+        if not isinstance(response_data, dict):
+          log.debug(f"sendQuery: Non-dict payload for {query_type}: {response_data!r}")
+          response_data = {}
         responses.append(response_data)
     else:
       log.warning(f"Failed to send query to VDMS container: {query}")
     return responses, response_blob
 
-  def connect(self, hostname=DEFAULT_HOSTNAME):
+  def connect(self, hostname=None):
+    if hostname is None:
+      hostname = self.hostname
     try:
-      self.db.connect(hostname)
-      if not self.findSchema(self.set_name):
-        self.addSchema(self.set_name, self.similarity_metric, self.dimensions)
+      self.db.connect(hostname, port=self.port)
+      self._initializeSchemaOnConnect()
+    except RuntimeError as e:
+      log.error(f"Failed to initialize VDMS schema: {e}")
     except socket.error as e:
       log.warning(f"Failed to connect to VDMS container: {e}")
     return
 
-  def addSchema(self, set_name, similarity_metric, dimensions):
-    query = [{
+  def _tryCreateSchema(self, dimensions, metric):
+    """
+    Attempt AddDescriptorSet first (avoids FindDescriptorSet on a missing set,
+    which triggers a VDMS v2.12 bug). Return True on create, False if the set
+    already appears to exist.
+    """
+    response, _ = self.sendQuery([{
       "AddDescriptorSet": {
-        "name": f"{set_name}",
-        "metric": f"{similarity_metric}",
+        "name": self.set_name,
+        "metric": metric,
         "dimensions": dimensions
+      }
+    }])
+
+    if not response:
+      raise RuntimeError(
+        f"No response from VDMS for descriptor set '{self.set_name}'.")
+
+    if response[0].get('status') == 0:
+      return True
+
+    log.debug(
+      f"_tryCreateSchema: AddDescriptorSet status={response[0].get('status')}; "
+      "set may already exist.")
+    return False
+
+  def _persistSchemaMarker(self, dimensions, metric):
+    """
+    Record dimensions/metric as a VDMS entity. Sidesteps FindDescriptorSet's
+    unreliable metadata response (VDMS v2.12). A race between instances is
+    harmless since both would write the same configured values.
+    """
+    query = [{"AddEntity": {"class": SCHEMA_MARKER_CLASS,
+              "properties": {
+                "set_name": self.set_name,
+                "dimensions": dimensions,
+                "metric": metric}}}]
+    response, _ = self.sendQuery(query)
+    if not response or response[0].get('status') != 0:
+      raise RuntimeError(
+        f"Failed to write schema marker for '{self.set_name}'. Response: {response}")
+
+  def _readSchemaMarker(self):
+    """
+    Read the schema marker entity for this descriptor set to verify
+    dimensions/metric reliably, bypassing FindDescriptorSet.
+
+    @return  (exists, dimensions, metric) tuple. (False, None, None) if not found.
+    """
+    query = [{
+      "FindEntity": {
+        "class": SCHEMA_MARKER_CLASS,
+        "constraints": {"set_name": ["==", self.set_name]},
+        "results": {"list": ["set_name", "dimensions", "metric"]}
       }
     }]
     response, _ = self.sendQuery(query)
-    if response and response[0].get('status') != 0:
-      log.warning(
-        f"Failed to add the descriptor set to the database. Received response {response[0]}")
-    return
+    if not response or response[0].get('status') != 0:
+      return False, None, None
 
-  def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name=SCHEMA_NAME, **metadata):
+    payload = response[0]
+    marker_exists = payload.get('returned', 0) > 0 or bool(payload.get('entities'))
+    if not marker_exists:
+      return False, None, None
+
+    dimensions = self._extractSchemaDimensions(payload)
+    metric = self._extractSchemaMetric(payload)
+    return True, dimensions, metric
+
+  def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name=None,
+               persist=None, **metadata):
     """
     Add entries to database with visual embeddings and optional semantic metadata.
-    Implements schema-less metadata storage for flexible attribute evolution.
-
-    @param   uuid         Unique ID for the object
-    @param   rvid         ID of the object from the motion tracker
-    @param   object_type  Class of the object (Person, Vehicle, etc.)
-    @param   reid_vectors Re-ID embeddings produced by a detection model
-    @param   set_name     Name of the set to add the new entry to
-    @param   metadata     Optional semantic attributes (age, gender, color, etc.)
-    @return  None
     """
-    # Build properties with standard fields
-    properties = {
-      "uuid": f"{uuid}",
-      "rvid": f"{rvid}",
-      "type": f"{object_type}"
-    }
+    set_name = self._resolveSetName(set_name)
+    properties = self._buildEntryProperties(
+      uuid, rvid, object_type, persist=persist, **metadata)
 
-    # Add semantic metadata attributes (schema-less)
-    # Metadata can include: age, gender, color, make, model, confidence_scores, etc.
-    for key, value in metadata.items():
-      if isinstance(value, dict):
-        # For metadata dicts with 'label' and optional confidence, store ONLY the label
-        # This ensures VDMS constraints can match properly (e.g., gender=['==', 'Male'])
-        # Example: {'label': 'Male', 'confidence': 0.95} → store 'Male'
-        if 'label' in value:
-          properties[key] = str(value['label'])
-          log.debug(f"[VDMS] addEntry: Extracted label '{value['label']}' from {key} metadata dict")
-        else:
-          # If no label, serialize as JSON
-          properties[key] = json.dumps(value)
-          log.debug(f"[VDMS] addEntry: Serialized {key} as JSON (no label field)")
-      else:
-        # Store as string
-        properties[key] = str(value)
-
-    query = {
-      "AddDescriptor": {
-        "set": f"{set_name}",
-        "properties": properties
-      }
-    }
-    # Convert vectors to JSON-serializable format (float32 -> float) and to bytes
     # VDMS API expects: query([q1, q2, ...], [blob1, blob2, ...])
-    # Blobs are consumed sequentially, one per AddDescriptor query (flat list)
     descriptor_blobs = []
     add_query = []
-    for reid_vector in reid_vectors:
-      # Ensure vector is properly formatted as 1D array of float32
-      # reid_vector might be shape (1, 256) from moving_object, need to flatten to (256,)
-      vec_array = np.asarray(reid_vector, dtype="float32").flatten()
-      if vec_array.shape[0] != 256:
-        log.warning(f"addEntry: Expected vector shape (256,) but got {vec_array.shape}, skipping this vector")
-        continue
+    for vec_array in self._prepareVectorsForAddEntry(reid_vectors):
       descriptor_blobs.append(vec_array.tobytes())
-      # Create query dict for each vector
       add_query.append({
         "AddDescriptor": {
           "set": f"{set_name}",
@@ -159,126 +194,124 @@ class VDMSDatabase(ReIDDatabase):
         }
       })
 
-    response, _ = self.sendQuery(add_query, descriptor_blobs)  # Flat list of blobs
-    if response:
-      success_count = 0
-      for item in response:
-        if item.get('status') == 0:
-          success_count += 1
-        else:
-          log.warning(
-            f"Failed to add the descriptor to the database. Received response {item}")
-    else:
-      log.error(f"addEntry: No response from VDMS when adding {len(add_query)} vectors")
+    if not add_query:
+      raise ReidNoValidVectorsError(
+        "addEntry: No valid vectors to add (all skipped due to dimension mismatch "
+        "or uninitialized dimensions)")
+
+    response, _ = self.sendQuery(add_query, descriptor_blobs)
+    if not response:
+      raise RuntimeError(
+        f"addEntry: No response from VDMS when adding {len(add_query)} vectors")
+    failures = [item for item in response if item.get('status') != 0]
+    if failures:
+      successes = len(response) - len(failures)
+      detail = (
+        f"addEntry: Failed to add {len(failures)}/{len(response)} descriptor(s) "
+        f"to VDMS. First failure: {failures[0]}")
+      if successes > 0:
+        raise ReidPartialWriteError(detail)
+      raise RuntimeError(detail)
     return
 
-  def findSchema(self, set_name):
+  def getPersistedAttributes(self, uuid, set_name=None):
+    """
+    Retrieve the most recent persist attributes stored for a given object UUID.
+    """
+    set_name = self._resolveSetName(set_name)
+    query = [{
+      "FindDescriptor": {
+        "set": f"{set_name}",
+        "constraints": {
+          "uuid": ["==", f"{uuid}"]
+        },
+        "results": {
+          "list": ["uuid", "persist", "persist_timestamp"],
+          "blob": False
+        }
+      }
+    }]
+    response, _ = self.sendQuery(query)
+    if not response or response[0].get('status') != 0:
+      log.debug(f"[VDMS] getPersistedAttributes: No entry found for uuid={uuid}")
+      return {}
+
+    entities = response[0].get('entities', [])
+    if not entities:
+      return {}
+
+    return self._decodeLatestPersist(
+      entities,
+      uuid,
+      missing_sentinels=("Missing property",))
+
+  def findSchemaMetadata(self, set_name):
     query = [{
       "FindDescriptorSet": {
         "set": f"{set_name}"
       }
     }]
     response, _ = self.sendQuery(query)
-    if response and response[0].get('status') == 0 and response[0].get('returned') > 0:
-      return True
-    return False
+    if not response:
+      return False, None, None
+    first_response = response[0]
+    if (not first_response or first_response.get('status') != 0 or
+        first_response.get('returned', 0) <= 0):
+      return False, None, None
 
-  def _build_query_constraints(self, object_type, **constraints):
-    """
-    Build query constraints for TIER 1 metadata filtering.
+    schema_dimensions = self._extractSchemaDimensions(first_response)
+    schema_metric = self._extractSchemaMetric(first_response)
+    return True, schema_dimensions, schema_metric
 
-    VDMS constraint model: Only supports AND operations between property constraints.
-    Constraint format for each property: [operator, value] for single constraint,
-    or [op1, val1, op2, val2] for range constraint (e.g. ">=5" AND "<=10").
+  def _extractSchemaDimensions(self, find_descriptor_set_response):
+    payloads = [find_descriptor_set_response]
+    for key in ['entities', 'entity', 'content', 'results', 'DescriptorSet']:
+      value = find_descriptor_set_response.get(key)
+      if isinstance(value, dict):
+        payloads.append(value)
+      elif isinstance(value, list):
+        payloads.extend(item for item in value if isinstance(item, dict))
 
-    Constraint routing logic:
-    - Object type is always AND constraint (required field)
-    - If value is dict with 'confidence' key (new metadata format):
-      - confidence >= threshold (0.8): AND constraints (strict filtering in TIER 1)
-      - confidence < threshold (0.8): IGNORED (relies on TIER 2 vector similarity for flexible matching)
-      - Extract 'label' field for VDMS query value
-    - If value is non-dict or dict without confidence (legacy format):
-      - IGNORED (relies on TIER 2 vector similarity for matching)
-    - Non-numeric values: IGNORED (relies on TIER 2 vector similarity)
+    for payload in payloads:
+      for key in ['dimensions', 'dimension', 'VD:dimensions', 'VD:dimension']:
+        if key in payload:
+          try:
+            return int(payload[key])
+          except (TypeError, ValueError):
+            log.warning(
+              f"findSchemaDetails: Could not parse descriptor dimensions from key "
+              f"'{key}' value '{payload[key]}'")
+            return None
+    return None
 
-    Note: Low-confidence and unspecified constraints are intentionally omitted from TIER 1
-    filtering, allowing TIER 2 vector similarity search to provide flexible,
-    confidence-aware matching. This simplification avoids VDMS limitations with complex
-    OR constraint expressions across multiple properties.
+  def _extractSchemaMetric(self, find_descriptor_set_response):
+    payloads = [find_descriptor_set_response]
+    for key in ['entities', 'entity', 'content', 'results', 'DescriptorSet']:
+      value = find_descriptor_set_response.get(key)
+      if isinstance(value, dict):
+        payloads.append(value)
+      elif isinstance(value, list):
+        payloads.extend(item for item in value if isinstance(item, dict))
 
-    @param   object_type  Class of the object (Person, Vehicle, etc.)
-    @param   constraints  Optional metadata filters (key-value pairs, may be dicts with label/confidence)
-    @return  query_constraints  Dictionary with "type" and optional high-confidence AND fields
-    """
-    # TIER 1: Build dynamic constraints for metadata filtering
-    # Object type is always filtered (AND constraint - required)
-    query_constraints = {
-      "type": ["==", f"{object_type}"]
-    }
+    for payload in payloads:
+      for key in ['metric', 'distance_metric', 'similarity_metric',
+                  'VD:metric', 'VD:distance_metric', 'VD:similarity_metric']:
+        if key in payload and payload[key] is not None:
+          return str(payload[key])
+    return None
 
-    log.debug(f"[VDMS] Building constraints for object_type={object_type}, threshold={self.confidence_threshold}")
-    log.debug(f"[VDMS] Input constraints: {constraints}")
-
-    # Apply only high-confidence constraints
-    if constraints:
-      for key, value in constraints.items():
-        if value is None:
-          log.debug(f"[VDMS] Skipping {key}: value is None")
-          continue
-
-        # Extract actual value and confidence from metadata dict
-        actual_value = value
-        confidence = None
-
-        # Handle new metadata format: {label: <data>, model_name: <model>, confidence: <score>}
-        if isinstance(value, dict) and 'label' in value:
-          actual_value = value['label']
-          confidence = value.get('confidence', None)
-          log.debug(f"[VDMS] {key}: dict format - label={actual_value}, confidence={confidence}")
-        else:
-          log.debug(f"[VDMS] {key}: non-dict or no label - value={value}, type={type(value)}")
-
-        # Only apply high-confidence constraints (>= 0.8)
-        try:
-          # If confidence is available, check if it meets threshold
-          if confidence is not None:
-            conf_value = float(confidence)
-            # If confidence >= threshold, treat as AND constraint (strict matching)
-            if conf_value >= self.confidence_threshold:
-              query_constraints[key] = ["==", str(actual_value)]
-              log.debug(f"[VDMS] ✓ ADDED: {key}={actual_value} (confidence={conf_value} >= {self.confidence_threshold})")
-            else:
-              # If confidence < threshold, ignore (rely on TIER 2 vector similarity)
-              log.debug(f"[VDMS] ✗ IGNORED: {key} (confidence={conf_value} < {self.confidence_threshold}, will use TIER 2)")
-          else:
-            # No confidence available - skip this constraint, rely on TIER 2
-            log.debug(f"[VDMS] ✗ IGNORED: {key} (no confidence available, will use TIER 2)")
-        except (ValueError, TypeError):
-          # Confidence value not convertible to float, ignore
-          log.debug(f"[VDMS] ✗ IGNORED: {key} (confidence not convertible to float)")
-          pass
-
-    log.debug(f"[VDMS] Final TIER 1 query_constraints: {query_constraints}")
-    return query_constraints
-
-  def findMatches(self, object_type, reid_vectors, set_name=SCHEMA_NAME,
+  def findMatches(self, object_type, reid_vectors, set_name=None,
                    k_neighbors=K_NEIGHBORS, **constraints):
     """
     2-Tier Hybrid Search: TIER 1 (metadata filtering) + TIER 2 (vector similarity)
 
-    @param   object_type  Class of the source of the reid vector (Person, Vehicle, etc.)
-    @param   reid_vectors Re-ID embeddings produced by a detection model
-    @param   set_name     Name of the set to find similarity scores
-    @param   k_neighbors  Number of similar entries to return
-    @param   constraints  Optional metadata filters built as VDMS constraint expressions
-    @return  result       Entries with the closest similarity scores
+    Returns one result list per valid query vector (empty list when no usable match).
     """
+    set_name = self._resolveSetName(set_name)
     log.debug(f"[VDMS] findMatches called: object_type={object_type}, k_neighbors={k_neighbors}")
     log.debug(f"[VDMS] findMatches constraints received: {constraints}")
 
-    # TIER 1: Build dynamic constraints for metadata filtering
-    query_constraints = self._build_query_constraints(object_type, **constraints)
-
+    query_constraints = self._buildQueryConstraints(object_type, **constraints)
     find_query = {
       "FindDescriptor": {
         "set": f"{set_name}",
@@ -297,27 +330,33 @@ class VDMSDatabase(ReIDDatabase):
 
     log.debug(f"[VDMS] Executing TIER 1 find with constraints: {query_constraints}")
 
-    # TIER 2: Vector similarity search on filtered candidates
-    blob = []
-    for reid_vector in reid_vectors:
-      # Ensure vector is float32, then convert to bytes for VDMS
-      vec_array = np.array(reid_vector, dtype="float32")
-      blob.append(vec_array.tobytes())  # Flat list of blobs
+    blob = [vec.tobytes() for vec in self._prepareReidVectors(reid_vectors)]
+    if not blob:
+      log.warning("findMatches: No valid vectors for similarity search")
+      return None
 
-    query = [find_query] * len(reid_vectors)
+    query = [find_query] * len(blob)
     response, _ = self.sendQuery(query, blob)
 
-    log.debug(f"[VDMS] Raw VDMS response (truncated): status={response[0].get('status') if response else 'None'}, returned={response[0].get('returned') if response else 'None'}")
+    log.debug(
+      f"[VDMS] Raw VDMS response (truncated): "
+      f"status={response[0].get('status') if response else 'None'}, "
+      f"returned={response[0].get('returned') if response else 'None'}")
     if response and len(response) > 0:
       log.debug(f"[VDMS] Full first response: {response[0]}")
 
-    if response:
-      result = [
-        item.get('entities')
-        for item in response
-        if (item.get('status') == 0 and item.get('returned') > 0)
-      ]
-      log.debug(f"[VDMS] findMatches returned {len(result)} result(s) from {len(reid_vectors)} vector(s)")
-      return result
-    log.debug("[VDMS] findMatches returned None (no response from VDMS)")
-    return None
+    result = []
+    for item in (response or []):
+      if item.get('status') != 0 or item.get('returned', 0) <= 0:
+        result.append([])
+        continue
+      result.append(self._entitiesFromNormalizedScores(item.get('entities', [])))
+
+    while len(result) < len(blob):
+      result.append([])
+
+    log.debug(
+      "[VDMS] findMatches returned %d per-vector result item(s) from %d valid "
+      "query vector(s); VDMS response items=%d, input vectors=%d",
+      len(result), len(blob), len(response or []), len(reid_vectors))
+    return result
