@@ -53,7 +53,7 @@ To start all services including both mapping and cluster analytics:
 SUPASS=your_password make demo-all
 ```
 
-For successive runs, you can use Docker Compose directly (see [Docker Compose Profiles](../../get-started.md#docker-compose-profiles) for details on available profiles):
+For successive runs, you can use Docker Compose directly (see [Docker Compose Profiles](../../get-started/installation.md#docker-compose-profiles) for details on available profiles):
 
 ### Launch all cores services and experimental services
 
@@ -249,7 +249,7 @@ To stop services and remove volumes (this will delete all data):
 docker compose --profile controller --profile experimental down -v
 ```
 
-> **Note:** The `--profile` flags must match those used when starting the services. If you only started with `--profile controller`, omit `--profile experimental`. See [Docker Compose Profiles](../../get-started.md#docker-compose-profiles) for details.
+> **Note:** The `--profile` flags must match those used when starting the services. If you only started with `--profile controller`, omit `--profile experimental`. See [Docker Compose Profiles](../../get-started/installation.md#docker-compose-profiles) for details.
 
 ---
 

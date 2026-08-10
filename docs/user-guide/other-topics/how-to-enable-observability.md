@@ -39,7 +39,7 @@ By completing this guide, you will:
 Before you begin, ensure the following:
 
 - Scenescape is deployed and running (see the
-  [Get Started Guide](../get-started.md)).
+  [Installation Guide](../get-started/installation.md)).
 - You are able to edit the Compose file used by your deployment (for example
   `sample_data/docker-compose-dl-streamer-example.yml`) and set environment
   variables for the affected containers.

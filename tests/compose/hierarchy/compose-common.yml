@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Shared network + secrets for multi-controller hierarchy ReID tests.
+
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+  web-cert:
+    file: ${SECRETSDIR}/certs/scenescape-web.crt
+  web-key:
+    file: ${SECRETSDIR}/certs/scenescape-web.key
+  django:
+    file: ${SECRETSDIR}/django
+  controller.auth:
+    environment: CONTROLLER_AUTH
+  browser.auth:
+    file: ${SECRETSDIR}/browser.auth
+  calibration.auth:
+    file: ${SECRETSDIR}/calibration.auth
+  reid-client-cert:
+    file: ${SECRETSDIR}/certs/scenescape-reid.crt
+  reid-client-key:
+    file: ${SECRETSDIR}/certs/scenescape-reid.key
+  reid-server-cert:
+    file: ${SECRETSDIR}/certs/scenescape-reid-s.crt
+  reid-server-key:
+    file: ${SECRETSDIR}/certs/scenescape-reid-s.key
+
+configs:
+  mosquitto-secure:
+    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf

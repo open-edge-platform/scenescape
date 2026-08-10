@@ -43,6 +43,9 @@ DEMO_WAIT_SECONDS ?= "0"
 REID_BACKEND ?= vdms
 REID_OVERRIDE_FILE = sample_data/docker-compose.$(strip $(REID_BACKEND))-override.yml
 REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE)
+DEMO_REBUILD_IMAGES ?= true
+# Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
+DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
 
 # Test variables
 TESTS_FOLDER := tests
@@ -311,6 +314,7 @@ clean-tests:
 list-dependencies: $(BUILD_DIR)
 	@echo "==> Listing dependencies for all microservices..."
 	@set -e; \
+	$(MAKE) -C $(COMMON_FOLDER) BUILD_DIR=$(BUILD_DIR) list-dependencies; \
 	for dir in $(IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) list-dependencies; \
 	done
@@ -710,23 +714,23 @@ check-reid-backend:
 	esac
 
 .PHONY: demo
-demo: build-core init-sample-data
+demo: $(DEMO_BUILD:build=build-core) init-sample-data
 	$(call start_demo,--profile controller)
 
 .PHONY: demo-reid
-demo-reid: check-reid-backend build-core init-sample-data
+demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core) init-sample-data
 	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-all
-demo-all: check-reid-backend build-all init-sample-data
+demo-all: check-reid-backend $(DEMO_BUILD:build=build-all) init-sample-data
 	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile experimental))
 
 .PHONY: demo-cluster-analytics
-demo-cluster-analytics: build-all init-sample-data
+demo-cluster-analytics: $(DEMO_BUILD:build=build-all) init-sample-data
 	$(call start_demo,--profile controller --profile cluster-analytics)
 
 .PHONY: demo-tracker
-demo-tracker: build-all init-sample-data
+demo-tracker: $(DEMO_BUILD:build=build-all) init-sample-data
 	$(call start_demo,--profile tracker)
 
 .PHONY: demo-close
@@ -782,8 +786,18 @@ $(SECRETSDIR):
 	fi
 
 .PHONY: $(SECRETSDIR) certificates
+# Hierarchy functional tests need SANs for parent-/child*-web/broker and reid-*.
+# Override with empty values for minimal production-like certs, e.g.
+#   make certificates BROKER_EXTRA_HOSTS= WEB_EXTRA_HOSTS= REID_S_EXTRA_HOSTS=
+BROKER_EXTRA_HOSTS ?= parent-broker child1-broker child2-broker
+WEB_EXTRA_HOSTS ?= parent-web child1-web child2-web
+REID_S_EXTRA_HOSTS ?= reid-shared reid-a reid-b
 certificates:
-	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12) SECRETSDIR=$(SECRETSDIR) CERTDOMAIN=$(CERTDOMAIN)
+	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12) \
+		SECRETSDIR=$(SECRETSDIR) CERTDOMAIN=$(CERTDOMAIN) \
+		BROKER_EXTRA_HOSTS="$(BROKER_EXTRA_HOSTS)" \
+		WEB_EXTRA_HOSTS="$(WEB_EXTRA_HOSTS)" \
+		REID_S_EXTRA_HOSTS="$(REID_S_EXTRA_HOSTS)"
 
 .PHONY: auth-secrets
 auth-secrets:

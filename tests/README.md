@@ -79,6 +79,11 @@ only for failed tests. Use `--collect-container-logs {failed,all,none}` to
 change this behavior. Test specs are defined in the individual test
 modules as Python dataclasses.
 
+### Residual resource cleanup
+
+Before any setup work, each session removes the containers, networks and volumes of any
+`test-<id>-<profile>` compose project left over from a previous run.
+
 ### Running tests via make
 
 Use make targets from the repository root.
@@ -155,6 +160,9 @@ pytest tests/functional --collect-container-logs none
 | `FIREFOX_BIN`     | `firefox` (from PATH)     | UI tests | Path to Firefox binary for Selenium tests   |
 | `GECKODRIVER_BIN` | `geckodriver` (from PATH) | UI tests | Path to geckodriver binary for Selenium     |
 
+`SECRETSDIR` can be overridden for CI or other constrained filesystems when the
+default repo-local `manager/secrets/` path is not writable.
+
 ### Log files
 
 Per-test log files are saved automatically:
@@ -216,6 +224,13 @@ pytest tests/sscape_tests
 | ----------------- | --------------------------------------------------------------------------------- |
 | `kubernetes_only` | Test runs only with `--backend=kubernetes` or `--backend=all`; skipped for Docker |
 | `preserve_db`     | Skip post-test DB restore so the next test can verify persistence                 |
+
+## Multi-controller hierarchy (functional)
+
+Literal parent + child Scene Controllers on one host use Compose fragments under
+`tests/compose/hierarchy/` and `REID_HIER_*` profiles. Agent-oriented fixture
+notes: [multi-controller hierarchy fixtures](../.github/skills/testing/references/functional-tests.md#multi-controller-hierarchy-fixtures).
+Deployment guide: [Deploy Multiple Controllers on One Host](../docs/user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md).
 
 ## Using the VS Code Test Extension
 

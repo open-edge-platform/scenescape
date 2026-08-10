@@ -6,9 +6,10 @@ CAMCALIBIMAGE=intel/scenescape-autocalibration
 CONTROLLERIMAGE=intel/scenescape-controller
 CLUSTERANALYTICSIMAGE=intel/scenescape-cluster-analytics
 MAPPINGIMAGE=intel/scenescape-mapping
+ANALYTICSIMAGE=intel/scenescape-analytics
 
 # Image groupings for flexible builds
-CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE)
+CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE) $(ANALYTICSIMAGE)
 EXPERIMENTAL_IMAGES=$(CLUSTERANALYTICSIMAGE) $(MAPPINGIMAGE)
 ALL_IMAGES=$(CORE_IMAGES) $(EXPERIMENTAL_IMAGES)
 
@@ -71,13 +72,13 @@ clean-all: clean-kind
 # mv /tmp/kind /tmp/kubectl /tmp/k9s /tmp/helm ~/.local/bin
 install-deps:
 	@if [ -z "$(shell which kind)" ] ; then \
-	    curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64 ; \
+	    curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.32.0/kind-linux-amd64 ; \
 	    chmod +x /tmp/kind ; \
 	    sudo mv /tmp/kind /usr/local/bin/kind ; \
 	    echo "kind installed" ; \
 	fi
 	@if [ -z "$(shell which kubectl)" ] ; then \
-	    curl -Lo /tmp/kubectl https://dl.k8s.io/release/v1.28.1/bin/linux/amd64/kubectl ; \
+	    curl -Lo /tmp/kubectl https://dl.k8s.io/release/v1.35.0/bin/linux/amd64/kubectl ; \
 	    chmod +x /tmp/kubectl ; \
 	    sudo install -o root -g root -m 0755 /tmp/kubectl /usr/local/bin/kubectl ; \
 	    echo "kubectl installed" ; \
@@ -146,6 +147,7 @@ load-core:
 	$(MAKE) load-image IMAGE=$(MANAGERIMAGE)
 	$(MAKE) load-image IMAGE=$(CAMCALIBIMAGE)
 	$(MAKE) load-image IMAGE=$(CONTROLLERIMAGE)
+	$(MAKE) load-image IMAGE=$(ANALYTICSIMAGE)
 
 load-experimental:
 	# optional images for cluster analytics and mapping components
