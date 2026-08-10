@@ -6,6 +6,7 @@ import zipfile
 import json
 import asyncio
 import aiofiles
+from typing import Any, Callable
 
 from scene_common.rest_client import RESTClient
 from scene_common.options import POINT_CORRESPONDENCE, EULER
@@ -80,7 +81,7 @@ class ImportScene:
                                   "map": (resource_path, map_data)})
 
   async def loadScene(self, child=None, parent=None):
-    errors = {
+    import_summary = {
       "scene": None,
       "cameras": None,
       "tripwires": None,
@@ -98,18 +99,18 @@ class ImportScene:
     ]
 
     if not json_files:
-      errors["scene"] = {"scene": ["No JSON file found"]}
-      return errors
+      import_summary["scene"] = {"scene": ["No JSON file found"]}
+      return import_summary
 
     if len(json_files) > 1:
-      errors["scene"] = {"scene": ["Multiple JSON files found"]}
-      return errors
+      import_summary["scene"] = {"scene": ["Multiple JSON files found"]}
+      return import_summary
 
     json_file = os.path.join(self.extract_dir, json_files[0])
 
     if self.badZipfile:
-      errors["scene"] = {"scene": ["Cannot find resource file"]}
-      return errors
+      import_summary["scene"] = {"scene": ["Cannot find resource file"]}
+      return import_summary
 
     # Load JSON data
     if child:
@@ -119,8 +120,8 @@ class ImportScene:
         async with aiofiles.open(json_file, "r", encoding="utf-8") as f:
           json_data = json.loads(await f.read())
       except Exception:
-        errors["scene"] = {"scene": ["Failed to parse JSON"]}
-        return errors
+        import_summary["scene"] = {"scene": ["Failed to parse JSON"]}
+        return import_summary
 
     # find resource (non-json) files
     resource_files = [
@@ -128,22 +129,22 @@ class ImportScene:
       if os.path.isfile(os.path.join(self.extract_dir, f)) and not f.lower().endswith(".json")
     ]
     if not resource_files:
-      errors["scene"] = {"scene": ["No resource files found"]}
-      return errors
+      import_summary["scene"] = {"scene": ["No resource files found"]}
+      return import_summary
 
     # match resource with scene name
     matched = next((f for f in resource_files if json_data["name"] in f), None)
     if not matched:
-      errors["scene"] = {"scene": ["No matching resource file"]}
-      return errors
+      import_summary["scene"] = {"scene": ["No matching resource file"]}
+      return import_summary
 
     resource_path = os.path.join(self.extract_dir, matched)
 
     # Upload scene (wrap sync REST call)
     resp = await asyncio.to_thread(self.createSceneMap, json_data, resource_path)
     if resp.errors:
-      errors["scene"] = resp.errors
-      return errors
+      import_summary["scene"] = resp.errors
+      return import_summary
 
     scene_id = resp.get("uid")
 
@@ -177,34 +178,41 @@ class ImportScene:
     cam_items = self.build_camera_items(json_data)
     cameras_created, camera_errors = await self.bulk_create(
       cam_items, scene_id, self.rest.createCamera)
-    errors["cameras"] = camera_errors
-    errors["cameras_created"] = cameras_created
+    import_summary["cameras"] = camera_errors
+    import_summary["cameras_created"] = cameras_created
     # Bulk create other resources
     regions_created, region_errors = await self.bulk_create(
       json_data.get("regions", []), scene_id, self.rest.createRegion)
-    errors["regions"] = region_errors
-    errors["regions_created"] = regions_created
+    import_summary["regions"] = region_errors
+    import_summary["regions_created"] = regions_created
 
     tripwires_created, tripwire_errors = await self.bulk_create(
       json_data.get("tripwires", []), scene_id, self.rest.createTripwire)
-    errors["tripwires"] = tripwire_errors
-    errors["tripwires_created"] = tripwires_created
+    import_summary["tripwires"] = tripwire_errors
+    import_summary["tripwires_created"] = tripwires_created
 
     sensors_created, sensor_errors = await self.bulk_create(
       json_data.get("sensors", []), scene_id, self.rest.createSensor)
-    errors["sensors"] = sensor_errors
-    errors["sensors_created"] = sensors_created
+    import_summary["sensors"] = sensor_errors
+    import_summary["sensors_created"] = sensors_created
 
     # children recursion
     for child_data in json_data.get("children", []):
-      child_errors = await self.loadScene(child=child_data, parent=scene_id)
-      for key, val in child_errors.items():
+      child_summary = await self.loadScene(child=child_data, parent=scene_id)
+      for val in child_summary.values():
         if val:
-          return child_errors
+          return child_summary
 
-    return errors
+    return import_summary
 
-  async def bulk_create(self, items, scene_id, create_fn):
+  async def bulk_create(
+      self,
+      items: list[dict[str, Any]] | None,
+      scene_id: str,
+      create_fn: Callable[[dict[str, Any]], Any]) -> tuple[
+        list[dict[str, Any]] | None,
+        list[tuple[Any, dict[str, Any]]] | None]:
+    """Creates many scene resources and returns (created_items, errors)."""
     errors = []
     created = []
     for item in items or []:
