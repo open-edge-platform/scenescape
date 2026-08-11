@@ -25,12 +25,14 @@ RUN apt-get source --download-only \
     cfitsio \
     curl \
     dpkg \
+    eigen3 \
     elfutils \
     ffmpeg \
     fonts-dejavu-core \
     fyba \
     gcc-12 \
     gcc-14 \
+    gcc-defaults \
     gdal \
     gdbm \
     gdcm \
@@ -176,17 +178,21 @@ RUN apt-get source --download-only \
     libzvbi-common \
     libzvbi0 \
     lm-sensors \
+    make-dfsg \
     mariadb \
     mosquitto \
+    mysql-defaults \
     netcdf \
     numactl \
     ogdi-dfsg \
     opencv \
     perl \
+    pkgconf \
     poppler \
     procps \
     proj-data \
     protobuf \
+    python-pip \
     python3.11 \
     qtbase-opensource-src \
     rtmpdump \
@@ -196,6 +202,7 @@ RUN apt-get source --download-only \
     superlu \
     unixodbc \
     wget \
+    wheel \
     x11-common \
     x265 \
     xerces-c \
@@ -207,6 +214,7 @@ RUN : \
     ; git clone --depth 1 https://github.com/certifi/python-certifi \
     ; git clone --depth 1 https://github.com/dranjan/python-plyfile \
     ; git clone --depth 1 https://github.com/eclipse-paho/paho.mqtt.python \
+    ; git clone --depth 1 https://github.com/ijl/orjson \
     ; git clone --depth 1 https://github.com/jab/bidict \
     ; git clone --depth 1 https://github.com/psycopg/psycopg2 \
     ; git clone --depth 1 https://github.com/tqdm/tqdm
@@ -220,7 +228,8 @@ RUN : \
     ; git clone --depth 1 https://github.com/eclipse/paho.mqtt.c \
     ; git clone --depth 1 https://github.com/eclipse/paho.mqtt.cpp \
     ; git clone --depth 1 https://github.com/eigenteam/eigen-git-mirror \
-    ; git clone --depth 1 https://github.com/gcc-mirror/gcc
+    ; git clone --depth 1 https://github.com/gcc-mirror/gcc \
+    ; git clone --depth 1 https://git.savannah.gnu.org/git/config.git gnu-config
 
 WORKDIR /sources/other
 RUN : \
