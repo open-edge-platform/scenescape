@@ -277,10 +277,10 @@ compute the equivalent matrix.
 - **X/Y/Z Translation (meters)**: position of the child scene's origin in
   the parent scene's coordinate system.
 - **X/Y/Z Rotation (degrees)**: rotation of the child scene's axes relative
-  to the parent's, applied about the parent scene's fixed X, Y, then Z axes
-  (extrinsic XYZ order), in degrees. Rotation follows the right-hand rule
-  (looking from the positive end of an axis toward the origin, a positive
-  angle rotates counterclockwise).
+  to the parent's, applied in intrinsic `XYZ` order (rotations about the child
+  scene's local X axis, then local Y, then local Z), in degrees. Rotation
+  follows the right-hand rule (looking from the positive end of an axis toward
+  the origin, a positive angle rotates counterclockwise).
 - **Scale**: uniform scale factor applied to the child scene (`1` = no
   scaling). Setting this field also updates the Y and Z scale used
   internally, since non-uniform scale is not exposed in this view.
