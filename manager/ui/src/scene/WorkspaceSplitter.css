@@ -6,31 +6,65 @@
 .ss-workspace-splitter {
   flex: 0 0 auto;
   position: relative;
-  z-index: 2;
+  z-index: 8;
   background: transparent;
   touch-action: none;
 }
 
-.ss-workspace-splitter--stack {
-  height: 0.35rem;
-  margin: -0.05rem 0;
-  cursor: row-resize;
+.ss-workspace-splitter--stack,
+.ss-workspace-splitter--stack:hover {
+  height: 0.75rem;
+  margin: -0.15rem 0;
+  cursor: row-resize !important;
 }
 
-.ss-workspace-splitter--row {
-  width: 0.35rem;
-  margin: 0 -0.05rem;
-  cursor: col-resize;
+.ss-workspace-splitter--row,
+.ss-workspace-splitter--row:hover {
+  width: 0.75rem;
+  margin: 0 -0.15rem;
+  cursor: col-resize !important;
+}
+
+/* Extra slop so the handle wins over the map / iframe at the seam. */
+.ss-workspace-splitter--stack::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -0.35rem;
+  bottom: -0.35rem;
+}
+
+.ss-workspace-splitter--row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -0.35rem;
+  right: -0.35rem;
 }
 
 .ss-workspace-splitter::after {
   content: "";
   position: absolute;
-  inset: 0;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--ss-input-border) 70%, transparent);
-  opacity: 0;
-  transition: opacity 0.12s ease;
+  background: var(--ss-input-border);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.ss-workspace-splitter--stack::after {
+  left: calc(50% - 1.35rem);
+  width: 2.7rem;
+  top: 0.28rem;
+  height: 0.2rem;
+}
+
+.ss-workspace-splitter--row::after {
+  top: calc(50% - 1.35rem);
+  height: 2.7rem;
+  left: 0.28rem;
+  width: 0.2rem;
 }
 
 .ss-workspace-splitter:hover::after,
@@ -51,6 +85,16 @@ body.ss-workspace-resizing .ss-workspace-splitter::after {
 
 body.ss-workspace-resizing {
   user-select: none;
+}
+
+body.ss-workspace-resizing[data-ss-resize="stack"],
+body.ss-workspace-resizing[data-ss-resize="stack"] * {
+  cursor: row-resize !important;
+}
+
+body.ss-workspace-resizing[data-ss-resize="row"],
+body.ss-workspace-resizing[data-ss-resize="row"] * {
+  cursor: col-resize !important;
 }
 
 @media (max-width: 719px) {

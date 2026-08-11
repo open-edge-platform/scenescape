@@ -1,12 +1,19 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+import { useEffect, useState, type MouseEvent } from "react";
 import "./TabToolbar.css";
 
 type Props = {
   activeTab: string;
   isSuperuser: boolean;
 };
+
+function persistGeometry(ev: MouseEvent): void {
+  ev.preventDefault();
+  ev.stopPropagation();
+  void window.ssPersistGeometry?.();
+}
 
 function HelpButton({
   id,
@@ -67,6 +74,28 @@ function LiveToggle({
  * Active-tab toolbar controls with stable DOM ids for sscape.js handlers.
  */
 export function TabToolbar({ activeTab, isSuperuser }: Props) {
+  const [roiDirty, setRoiDirty] = useState(() => Boolean(window.ssRoiDirty));
+  const [tripDirty, setTripDirty] = useState(() =>
+    Boolean(window.ssTripDirty),
+  );
+
+  useEffect(() => {
+    const onRoi = (ev: Event) => {
+      setRoiDirty(Boolean((ev as CustomEvent<boolean>).detail));
+    };
+    const onTrip = (ev: Event) => {
+      setTripDirty(Boolean((ev as CustomEvent<boolean>).detail));
+    };
+    window.addEventListener("ss-roi-dirty", onRoi);
+    window.addEventListener("ss-trip-dirty", onTrip);
+    setRoiDirty(Boolean(window.ssRoiDirty));
+    setTripDirty(Boolean(window.ssTripDirty));
+    return () => {
+      window.removeEventListener("ss-roi-dirty", onRoi);
+      window.removeEventListener("ss-trip-dirty", onTrip);
+    };
+  }, []);
+
   return (
     <div className="ss-tab-toolbar-inner" data-active-tab={activeTab}>
       {activeTab === "cameras" ? (
@@ -138,14 +167,19 @@ export function TabToolbar({ activeTab, isSuperuser }: Props) {
               >
                 + New Region
               </button>
-              <input
+              <button
                 type="button"
-                className="btn btn-sm btn-primary ss-save-clean"
+                className={`btn btn-sm btn-primary${roiDirty ? " ss-save-dirty" : " ss-save-clean"}`}
                 id="save-rois"
-                value="Save"
-                title="No unsaved changes"
-                disabled
-              />
+                title={
+                  roiDirty ? "Save unsaved changes" : "No unsaved changes"
+                }
+                disabled={!roiDirty}
+                aria-disabled={roiDirty ? "false" : "true"}
+                onClick={persistGeometry}
+              >
+                Save
+              </button>
             </>
           ) : null}
         </>
@@ -168,14 +202,19 @@ export function TabToolbar({ activeTab, isSuperuser }: Props) {
               >
                 + New Tripwire
               </button>
-              <input
+              <button
                 type="button"
-                className="btn btn-sm btn-primary ss-save-clean"
+                className={`btn btn-sm btn-primary${tripDirty ? " ss-save-dirty" : " ss-save-clean"}`}
                 id="save-trips"
-                value="Save"
-                title="No unsaved changes"
-                disabled
-              />
+                title={
+                  tripDirty ? "Save unsaved changes" : "No unsaved changes"
+                }
+                disabled={!tripDirty}
+                aria-disabled={tripDirty ? "false" : "true"}
+                onClick={persistGeometry}
+              >
+                Save
+              </button>
             </>
           ) : null}
         </>

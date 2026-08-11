@@ -101,6 +101,11 @@ declare global {
       end?: (force?: boolean) => void;
     };
     ssEnsureMqttScene?: () => void;
+    ssRoiDirty?: boolean;
+    ssTripDirty?: boolean;
+    ssPersistGeometry?: (
+      options?: { preferHidden?: boolean } | string[],
+    ) => void | Promise<void>;
     ssRoiEditors?: {
       addRoi: (payload: {
         svgId: string;

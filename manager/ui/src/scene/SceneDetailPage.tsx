@@ -300,6 +300,8 @@ function SceneDetailInner({ bootstrap }: Props) {
         scenes={bootstrap.scenes || []}
         cameras={cameras}
         sensors={bootstrap.sensors || []}
+        mapUrl={scene.mapUrl}
+        mapScale={scene.scale}
       />
       <ConfirmDialog
         open={sceneDeleteOpen}

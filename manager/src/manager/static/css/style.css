@@ -1132,21 +1132,28 @@ a:hover {
   align-items: center;
   gap: 0.4rem;
   margin: 0 0.35rem 0 0;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--ss-ink);
   font-family: var(--ss-font-sans);
   font-size: 0.75rem;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+  flex: 0 0 auto;
 }
 
 .cal-opacity input[type="range"] {
-  width: 7.5rem;
-  height: 1.15rem;
+  width: 8rem;
+  min-width: 6rem;
+  height: 1.35rem;
   margin: 0;
   padding: 0;
   vertical-align: middle;
-  accent-color: var(--ss-brand-soft, #0099ec);
+  pointer-events: auto;
+  cursor: pointer;
+  accent-color: var(--ss-brand, #0054ae);
 }
 
 .cal-pane {

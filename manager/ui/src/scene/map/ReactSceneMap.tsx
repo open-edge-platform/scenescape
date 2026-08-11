@@ -34,6 +34,55 @@ function newTempId(): string {
   return `tmp${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
+/** Match sscape.js updateArrow: perpendicular flag points toward +1 flow. */
+function tripDirectionDecor(
+  p0: [number, number],
+  p1: [number, number],
+  flagLen = 22,
+): {
+  arrow: { x1: number; y1: number; x2: number; y2: number };
+  head: string;
+} | null {
+  const vx = p1[0] - p0[0];
+  const vy = p1[1] - p0[1];
+  const mag = Math.hypot(vx, vy);
+  if (mag < 1) {
+    return null;
+  }
+  const ax = (-flagLen * vy) / mag;
+  const ay = (flagLen * vx) / mag;
+  const midX = (p0[0] + p1[0]) / 2;
+  const midY = (p0[1] + p1[1]) / 2;
+  const tipX = midX + ax;
+  const tipY = midY + ay;
+  const ux = ax / flagLen;
+  const uy = ay / flagLen;
+  const px = -uy;
+  const py = ux;
+  const head = [
+    `${tipX},${tipY}`,
+    `${tipX - ux * 8 + px * 4},${tipY - uy * 8 + py * 4}`,
+    `${tipX - ux * 8 - px * 4},${tipY - uy * 8 - py * 4}`,
+  ].join(" ");
+  return {
+    arrow: { x1: midX, y1: midY, x2: tipX, y2: tipY },
+    head,
+  };
+}
+
+function polyLabelPoint(pts: [number, number][]): [number, number] | null {
+  if (!pts.length) {
+    return null;
+  }
+  let x = 0;
+  let y = 0;
+  pts.forEach((p) => {
+    x += p[0];
+    y += p[1];
+  });
+  return [x / pts.length, y / pts.length];
+}
+
 /**
  * React SVG scene map — draw/edit ROI polygons and tripwires.
  * Enabled when window.ssUseReactMap is true (set from SceneDetailPage).
@@ -244,9 +293,20 @@ export function ReactSceneMap({ mapHref, mapWidth, mapHeight }: Props) {
       {rois.map((roi) => {
         const pts = roi.points.map(toPx);
         const pointsAttr = pts.map((p) => p.join(",")).join(" ");
+        const labelAt = polyLabelPoint(pts);
         return (
           <g key={roi.uuid} id={`roi_${roi.uuid}`} className="roi">
             <polygon points={pointsAttr} className="ss-react-roi-poly" />
+            {roi.title && labelAt ? (
+              <text
+                className="ss-react-roi-title"
+                x={labelAt[0]}
+                y={labelAt[1]}
+                pointerEvents="none"
+              >
+                {roi.title}
+              </text>
+            ) : null}
             {pts.map((p, i) => (
               <circle
                 key={i}
@@ -265,6 +325,7 @@ export function ReactSceneMap({ mapHref, mapWidth, mapHeight }: Props) {
         if (pts.length < 2) {
           return null;
         }
+        const decor = tripDirectionDecor(pts[0], pts[1]);
         return (
           <g key={trip.uuid} id={`tripwire_${trip.uuid}`} className="tripwire">
             <line
@@ -274,6 +335,31 @@ export function ReactSceneMap({ mapHref, mapWidth, mapHeight }: Props) {
               x2={pts[1][0]}
               y2={pts[1][1]}
             />
+            {decor ? (
+              <g className="ss-react-trip-dir" pointerEvents="none">
+                <line
+                  className="ss-react-trip-arrow"
+                  x1={decor.arrow.x1}
+                  y1={decor.arrow.y1}
+                  x2={decor.arrow.x2}
+                  y2={decor.arrow.y2}
+                />
+                <polygon
+                  className="ss-react-trip-arrowhead"
+                  points={decor.head}
+                />
+              </g>
+            ) : null}
+            {trip.title ? (
+              <text
+                className="ss-react-trip-title"
+                x={(pts[0][0] + pts[1][0]) / 2}
+                y={(pts[0][1] + pts[1][1]) / 2 - 14}
+                pointerEvents="none"
+              >
+                {trip.title}
+              </text>
+            ) : null}
             {pts.map((p, i) => (
               <circle
                 key={i}

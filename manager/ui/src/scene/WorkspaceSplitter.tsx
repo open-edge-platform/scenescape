@@ -41,6 +41,7 @@ export function WorkspaceSplitter({
       handle.setPointerCapture(ev.pointerId);
       dragging.current = true;
       document.body.classList.add("ss-workspace-resizing");
+      document.body.dataset.ssResize = layout;
 
       const onMove = (e: PointerEvent) => {
         if (!dragging.current) {
@@ -57,6 +58,7 @@ export function WorkspaceSplitter({
       const onUp = (e: PointerEvent) => {
         dragging.current = false;
         document.body.classList.remove("ss-workspace-resizing");
+        delete document.body.dataset.ssResize;
         try {
           handle.releasePointerCapture(e.pointerId);
         } catch {
@@ -85,7 +87,8 @@ export function WorkspaceSplitter({
       className={`ss-workspace-splitter ss-workspace-splitter--${layout}`}
       role="separator"
       aria-orientation={layout === "stack" ? "horizontal" : "vertical"}
-      aria-label="Resize control panel"
+      aria-label="Drag to resize the panel"
+      title="Drag to resize the panel"
       aria-valuenow={Math.round(panelSizePx)}
       aria-disabled={disabled || undefined}
       tabIndex={disabled ? -1 : 0}

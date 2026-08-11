@@ -87,6 +87,10 @@ class CamCanvas {
       this.#refitToPane();
     });
     this.resizeObserver.observe(this.canvas);
+    const pane = this.canvas.closest(".cal-pane-viewport");
+    if (pane && pane !== this.canvas) {
+      this.resizeObserver.observe(pane);
+    }
   }
 
   #paneSize() {
@@ -98,7 +102,9 @@ class CamCanvas {
     if (!paneW || !paneH || !this.image.width || !this.image.height) {
       return CAMERA_SCALE_FACTOR;
     }
-    return Math.min(paneW / this.image.width, paneH / this.image.height);
+    return (
+      Math.min(paneW / this.image.width, paneH / this.image.height) * 0.96
+    );
   }
 
   #updatePointSize() {
@@ -160,6 +166,7 @@ class CamCanvas {
     // Embed/iframe and font/layout shifts often finish after the first frames.
     window.setTimeout(recenter, 50);
     window.setTimeout(recenter, 200);
+    window.setTimeout(recenter, 600);
   }
 
   #getImageCoordinates(x, y) {
@@ -346,14 +353,15 @@ class CamCanvas {
       this.#centerImage();
       this.viewInitialized = true;
       this.#scheduleCenterSettle();
+    } else if (!this.userAdjustedView) {
+      // Live frames and resolution changes before any user pan/zoom:
+      // keep the whole image fitted and centered.
+      this.#centerImage();
     } else if (resolutionChanged && previousFactor > 0) {
       // Keep the same view center when the stream resolution changes.
       const ratio = this.camScaleFactor / previousFactor;
       this.panX = paneW / 2 - (paneW / 2 - this.panX) * ratio;
       this.panY = paneH / 2 - (paneH / 2 - this.panY) * ratio;
-    } else if (!this.userAdjustedView) {
-      // Live frames before any user pan/zoom: keep fitted and centered.
-      this.#centerImage();
     }
     // User-adjusted view + same resolution: preserve pan/zoom and only redraw.
 

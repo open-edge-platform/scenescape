@@ -25,6 +25,8 @@ type Props = {
   scenes: SceneOption[];
   cameras: SceneCameraBootstrap[];
   sensors?: SceneSensorBootstrap[];
+  mapUrl?: string | null;
+  mapScale?: number | null;
 };
 
 const WORKSPACE_ACTIONS = new Set([
@@ -55,6 +57,8 @@ export function SceneWorkspaceSheets({
   scenes,
   cameras,
   sensors = [],
+  mapUrl = null,
+  mapScale = null,
 }: Props) {
   const { sheet, open, close } = useSheetFromQuery();
 
@@ -192,6 +196,8 @@ export function SceneWorkspaceSheets({
         sensorId={calibrateSensor?.sensorId || ""}
         sceneId={sceneId}
         authToken={authToken}
+        mapUrlHint={mapUrl}
+        mapScale={mapScale}
         onClose={close}
         onSaved={reload}
       />

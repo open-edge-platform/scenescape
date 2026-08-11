@@ -391,6 +391,18 @@ window.ssDrawSingletonSensors = function () {
     if (!i) {
       return;
     }
+    var title =
+      ($(this).attr("data-sensor-name") || "").trim() ||
+      $(".card-header", this)
+        .clone()
+        .children()
+        .remove()
+        .end()
+        .text()
+        .trim();
+    if (title) {
+      sensor.title = title;
+    }
     drawSensor(sensor, i, "sensor");
     if (sensor.sectors && sensor.sectors.thresholds.length > 0) {
       singleton_color_sectors[i] = sensor.sectors;
@@ -816,6 +828,23 @@ function initArea(a) {
 }
 
 function numberRois() {
+  if (window.ssUseReactMap) {
+    $(".form-roi").each(function (n) {
+      $(this)
+        .find(".roi-number")
+        .text(String(n + 1));
+    });
+    if ($(".form-roi").length > 0) {
+      $("#no-regions").hide();
+    } else {
+      $("#no-regions").show();
+    }
+    numberTabs();
+    return;
+  }
+  if (!svgCanvas) {
+    return;
+  }
   var groups = svgCanvas.selectAll("g.roi");
 
   groups.forEach(function (e, n) {
@@ -857,6 +886,23 @@ function numberRois() {
 window.numberRois = numberRois;
 
 function numberTripwires() {
+  if (window.ssUseReactMap) {
+    $(".form-tripwire").each(function (n) {
+      $(this)
+        .find(".tripwire-number")
+        .text(String(n + 1));
+    });
+    if ($(".form-tripwire").length > 0) {
+      $("#no-tripwires").hide();
+    } else {
+      $("#no-tripwires").show();
+    }
+    numberTabs();
+    return;
+  }
+  if (!svgCanvas) {
+    return;
+  }
   var groups = svgCanvas.selectAll("g.tripwire");
 
   groups.forEach(function (e, n) {
@@ -909,6 +955,12 @@ function numberTabs() {
 
 // Turn the regions of interest into a string for saving to the database
 function stringifyRois() {
+  if (window.ssUseReactMap) {
+    if (window.ssMap && typeof window.ssMap.flushHidden === "function") {
+      window.ssMap.flushHidden();
+    }
+    return;
+  }
   rois = [];
   var groups = svgCanvas.selectAll(".roi");
 
@@ -989,6 +1041,12 @@ function stringifyRois() {
 window.stringifyRois = stringifyRois;
 
 function stringifyTripwires() {
+  if (window.ssUseReactMap) {
+    if (window.ssMap && typeof window.ssMap.flushHidden === "function") {
+      window.ssMap.flushHidden();
+    }
+    return;
+  }
   tripwires = [];
   var groups = svgCanvas.selectAll(".tripwire");
 
@@ -1739,10 +1797,19 @@ function drawRoi(e, index, type) {
 
 function drawSensor(sensor, index, type) {
   var i = type + "_" + index;
+  var existing = document.getElementById(i);
 
-  if (type === "child_sensor" && document.getElementById(i)) {
-    var name_text = document.getElementById(i).querySelector("#name");
-    var hierarchy_text = document.getElementById(i).querySelector("#hierarchy");
+  if (type === "sensor" && existing) {
+    var nameEl = existing.querySelector("#name");
+    if (nameEl && sensor.title) {
+      nameEl.textContent = sensor.title;
+    }
+    return;
+  }
+
+  if (type === "child_sensor" && existing) {
+    var name_text = existing.querySelector("#name");
+    var hierarchy_text = existing.querySelector("#hierarchy");
     if (sensor.x && sensor.y) {
       var p = metersToPixels([sensor.x, sensor.y], scale, scene_y_max);
       sensor.x = p[0];
@@ -1762,13 +1829,13 @@ function drawSensor(sensor, index, type) {
       outer_circle.setAttribute("r", sensor.radius * scale);
     } else if (sensor.area === "poly") {
       let area_points = [];
-      sensor.points.forEach(function (m) {
+      (sensor.points || []).forEach(function (m) {
         var p = metersToPixels(m, scale, scene_y_max);
         area_points.push(p[0], p[1]);
       });
       var points_string = area_points.join(",");
       var polygon = document.querySelector("#" + i + " > .area");
-      if (polygon.getAttribute("points") != points_string) {
+      if (polygon && polygon.getAttribute("points") != points_string) {
         polygon.setAttribute("points", points_string);
       }
     }
@@ -1785,15 +1852,24 @@ function drawSensor(sensor, index, type) {
       var text = g.text(sensor.x, sensor.y, "").addClass("value");
     } else if (sensor.area === "poly") {
       var tempPoints = [];
-
-      sensor.points.forEach(function (p) {
+      (sensor.points || []).forEach(function (p) {
         p = metersToPixels(p, scale, scene_y_max);
         tempPoints.push(p[0], p[1]);
       });
 
-      var center = polyCenter(tempPoints);
-      var poly = g.polygon(tempPoints).addClass("area");
-      var text = g.text(center[0], center[1], "").addClass("value");
+      if (tempPoints.length >= 6) {
+        var center = polyCenter(tempPoints);
+        var poly = g.polygon(tempPoints).addClass("area");
+        var text = g.text(center[0], center[1], "").addClass("value");
+        if (
+          sensor.x == null ||
+          sensor.y == null ||
+          (Number(sensor.x) === 0 && Number(sensor.y) === 0)
+        ) {
+          sensor.x = center[0] / scale;
+          sensor.y = (scene_y_max - center[1]) / scale;
+        }
+      }
     }
 
     if ($(".sensor-icon", this).length) {
@@ -2480,15 +2556,6 @@ $(document).ready(function () {
         initArea($("input:checked"));
       }
 
-      $(".singleton").each(function () {
-        var sensor = $.parseJSON($(".area-json", this).val());
-        var i = $(".sensor-id", this).text();
-        var g = svgCanvas.group();
-        drawSensor(sensor, i, "sensor");
-        if (sensor.sectors.thresholds.length > 0) {
-          singleton_color_sectors[i] = sensor.sectors;
-        }
-      });
       /* React may finish mounting cards after this; allow a late pass. */
       window.ssDrawSingletonSensors();
 

@@ -36,6 +36,8 @@ const HELP: { id: string; title: string; items: string[] }[] = [
     title: "Tripwire Help",
     items: [
       "Draw a tripwire line on the map between two endpoints.",
+      "The green flag points toward +1 crossings.",
+      "Name the tripwire in the side panel, then Save.",
       "Save writes all tripwires for this scene in one submit.",
       "Crossing events publish on the configured MQTT topic.",
     ],

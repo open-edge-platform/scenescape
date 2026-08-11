@@ -11,7 +11,9 @@
 }
 
 .ss-react-scene-map.is-add-roi,
-.ss-react-scene-map.is-add-trip {
+.ss-react-scene-map.is-add-trip,
+.ss-react-map-layer:has(.ss-react-scene-map.is-add-roi),
+.ss-react-map-layer:has(.ss-react-scene-map.is-add-trip) {
   cursor: crosshair;
 }
 
@@ -21,9 +23,39 @@
   stroke-width: 2;
 }
 
+.ss-react-roi-title,
+.ss-react-trip-title {
+  font-family: var(--ss-font-sans, sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke fill;
+  stroke: var(--ss-card-bg, #fff);
+  stroke-width: 3px;
+}
+
+.ss-react-roi-title {
+  fill: #0054ae;
+}
+
 .ss-react-trip-line {
   stroke: #da2e56;
   stroke-width: 3;
+}
+
+.ss-react-trip-arrow {
+  stroke: #00aa00;
+  stroke-width: 2.5;
+}
+
+.ss-react-trip-arrowhead {
+  fill: #00aa00;
+  stroke: none;
+}
+
+.ss-react-trip-title {
+  fill: #00aa00;
 }
 
 .ss-react-vertex {
@@ -72,7 +104,22 @@ body.ss-use-react-map #ss-map-host .ss-snap-legacy image {
 }
 
 body.ss-use-react-map #ss-map-host .ss-snap-legacy .roi,
-body.ss-use-react-map #ss-map-host .ss-snap-legacy .tripwire,
-body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group {
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .tripwire {
   display: none !important;
+}
+
+/* Sensors stay on the Snap overlay — React map does not draw them. */
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group {
+  display: block !important;
+  pointer-events: none;
+}
+
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group #name {
+  display: block !important;
+  fill: #001e50;
+  font-size: 14px;
+  font-weight: 700;
+  paint-order: stroke fill;
+  stroke: var(--ss-card-bg, #fff);
+  stroke-width: 3px;
 }

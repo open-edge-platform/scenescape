@@ -32,17 +32,14 @@ type Props = {
   initialTripwires: TripwireLoadJson[];
 };
 
-function syncLegacySave(id: string, dirty: boolean): void {
-  const el = document.getElementById(id) as
-    HTMLButtonElement | HTMLInputElement | null;
-  if (!el) {
+function publishDirty(kind: "roi" | "trip", dirty: boolean): void {
+  if (kind === "roi") {
+    window.ssRoiDirty = dirty;
+    window.dispatchEvent(new CustomEvent("ss-roi-dirty", { detail: dirty }));
     return;
   }
-  el.disabled = !dirty;
-  el.setAttribute("aria-disabled", dirty ? "false" : "true");
-  el.title = dirty ? "Save unsaved changes" : "No unsaved changes";
-  el.classList.toggle("ss-save-clean", !dirty);
-  el.classList.toggle("ss-save-dirty", dirty);
+  window.ssTripDirty = dirty;
+  window.dispatchEvent(new CustomEvent("ss-trip-dirty", { detail: dirty }));
 }
 
 function pushRoiToModel(roi: RoiEntity, points?: number[][]): void {
@@ -94,6 +91,7 @@ export function RoiTripwireEditors({
 
   const roisRef = useRef(rois);
   const tripsRef = useRef(tripwires);
+  const persistingRef = useRef(false);
   roisRef.current = rois;
   tripsRef.current = tripwires;
 
@@ -126,6 +124,10 @@ export function RoiTripwireEditors({
 
   useEffect(() => {
     const persist = async (options?: { preferHidden?: boolean } | string[]) => {
+      if (persistingRef.current) {
+        return;
+      }
+      persistingRef.current = true;
       const opts = options && !Array.isArray(options) ? options : undefined;
       if (opts?.preferHidden) {
         window.ssMap?.syncFromLegacyStringify?.();
@@ -135,9 +137,23 @@ export function RoiTripwireEditors({
       } else {
         window.ssMap?.flushHidden();
       }
-      await persistSceneGeometry(authToken, sceneId, opts);
-      toast.show("Regions saved", "ok");
-      window.location.reload();
+      try {
+        await persistSceneGeometry(authToken, sceneId, opts);
+        publishDirty("roi", false);
+        publishDirty("trip", false);
+        setRoiDirty(false);
+        setTripDirty(false);
+        toast.show("Regions saved", "ok");
+        window.location.reload();
+      } catch (err) {
+        const message =
+          err && typeof err === "object" && "message" in err
+            ? String((err as { message?: unknown }).message || "Save failed")
+            : "Save failed";
+        toast.show(message, "bad");
+        persistingRef.current = false;
+        throw err;
+      }
     };
     window.ssPersistGeometry = persist;
     return () => {
@@ -148,11 +164,11 @@ export function RoiTripwireEditors({
   }, [authToken, sceneId, toast]);
 
   useEffect(() => {
-    syncLegacySave("save-rois", roiDirty);
+    publishDirty("roi", roiDirty);
   }, [roiDirty]);
 
   useEffect(() => {
-    syncLegacySave("save-trips", tripDirty);
+    publishDirty("trip", tripDirty);
   }, [tripDirty]);
 
   useEffect(() => {

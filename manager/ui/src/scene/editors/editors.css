@@ -78,3 +78,10 @@
   color: var(--ss-text-muted);
   font-size: 0.875rem;
 }
+
+.ss-editor-trip-hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: var(--ss-text-muted);
+  line-height: 1.35;
+}

@@ -28,6 +28,8 @@ import {
   CAL_PANEL_SIZE_KEY,
   useWorkspaceDensity,
 } from "../scene/useWorkspaceDensity";
+import { readMapScale, pixelsToMeters } from "../scene/map/coords";
+import { SensorAreaMap } from "./SensorAreaMap";
 import "./CameraCalibratePanel.css";
 import "../components/PanelLayoutToggle.css";
 
@@ -37,6 +39,8 @@ type Props = {
   sensorId: string;
   sceneId: string;
   authToken: string;
+  mapUrlHint?: string | null;
+  mapScale?: number | null;
   onClose: () => void;
   onSaved: () => void;
 };
@@ -62,6 +66,28 @@ function parseNum(s: string): number | undefined {
   }
   const n = Number(t);
   return Number.isFinite(n) ? n : undefined;
+}
+
+function isUnsetCenter(x: unknown, y: unknown): boolean {
+  const cx = Number(x);
+  const cy = Number(y);
+  if (!Number.isFinite(cx) || !Number.isFinite(cy)) {
+    return true;
+  }
+  return Math.abs(cx) < 1e-9 && Math.abs(cy) < 1e-9;
+}
+
+/** Scene-map center in meters (matches sscape.js Y flip). */
+function mapCenterMeters(
+  scale: number,
+  mapWidth: number,
+  mapHeight: number,
+): [number, number] {
+  const safeScale = scale > 0 ? scale : 100;
+  if (!(mapWidth > 0 && mapHeight > 0)) {
+    return [0, 0];
+  }
+  return pixelsToMeters(mapWidth / 2, mapHeight / 2, safeScale, mapHeight);
 }
 
 function sectorsFromSensor(s: Record<string, unknown>): {
@@ -91,12 +117,34 @@ function sectorsFromSensor(s: Record<string, unknown>): {
 /**
  * Full-viewport sensor calibrate panel — identity + area via REST (no iframe).
  */
+function parsePointsText(text: string): [number, number][] {
+  try {
+    const pts = JSON.parse(text) as unknown;
+    if (!Array.isArray(pts)) {
+      return [];
+    }
+    return pts
+      .filter(
+        (p): p is [number, number] =>
+          Array.isArray(p) &&
+          p.length >= 2 &&
+          Number.isFinite(Number(p[0])) &&
+          Number.isFinite(Number(p[1])),
+      )
+      .map((p) => [Number(p[0]), Number(p[1])]);
+  } catch {
+    return [];
+  }
+}
+
 export function SensorCalibratePanel({
   open,
   sensorPk,
   sensorId,
   sceneId,
   authToken,
+  mapUrlHint = null,
+  mapScale = null,
   onClose,
   onSaved,
 }: Props) {
@@ -113,7 +161,13 @@ export function SensorCalibratePanel({
   const [yellowMin, setYellowMin] = useState("2");
   const [redMin, setRedMin] = useState("5");
   const [rangeMax, setRangeMax] = useState("10");
-  const [mapUrl, setMapUrl] = useState<string | null>(null);
+  const [mapUrl, setMapUrl] = useState<string | null>(mapUrlHint);
+  const [scale, setScale] = useState(() =>
+    mapScale && mapScale > 0 ? mapScale : readMapScale(),
+  );
+  const [mapSize, setMapSize] = useState<{ width: number; height: number } | null>(
+    null,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -175,9 +229,72 @@ export function SensorCalibratePanel({
         setArea(
           areaMode === "circle" || areaMode === "poly" ? areaMode : "scene",
         );
-        const center = Array.isArray(s.center) ? s.center : [0, 0];
-        setCenterX(numStr(center[0], "0"));
-        setCenterY(numStr(center[1], "0"));
+        const center = Array.isArray(s.center) ? s.center : null;
+        const cx = center ? center[0] : null;
+        const cy = center ? center[1] : null;
+        const sceneScale =
+          scene && typeof scene === "object"
+            ? Number((scene as { scale?: unknown }).scale)
+            : NaN;
+        const resolvedScale =
+          Number.isFinite(sceneScale) && sceneScale > 0
+            ? sceneScale
+            : mapScale && mapScale > 0
+              ? mapScale
+              : readMapScale();
+        setScale(resolvedScale);
+
+        const map =
+          scene && typeof scene === "object"
+            ? (scene as { map?: unknown; map_url?: unknown }).map ||
+              (scene as { map_url?: unknown }).map_url
+            : null;
+        const fromApi = typeof map === "string" && map ? map : null;
+        const resolvedMap = mapUrlHint || fromApi;
+        setMapUrl(resolvedMap);
+
+        const applyCenter = (width: number, height: number) => {
+          if (isUnsetCenter(cx, cy)) {
+            const [mx, my] = mapCenterMeters(resolvedScale, width, height);
+            setCenterX(numStr(Number(mx.toFixed(3)), "0"));
+            setCenterY(numStr(Number(my.toFixed(3)), "0"));
+          } else {
+            setCenterX(numStr(cx, "0"));
+            setCenterY(numStr(cy, "0"));
+          }
+        };
+
+        if (resolvedMap) {
+          const img = new Image();
+          img.onload = () => {
+            if (cancelled) {
+              return;
+            }
+            if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+              setMapSize({
+                width: img.naturalWidth,
+                height: img.naturalHeight,
+              });
+              applyCenter(img.naturalWidth, img.naturalHeight);
+            } else if (!isUnsetCenter(cx, cy)) {
+              setCenterX(numStr(cx, "0"));
+              setCenterY(numStr(cy, "0"));
+            }
+          };
+          img.onerror = () => {
+            if (!cancelled && !isUnsetCenter(cx, cy)) {
+              setCenterX(numStr(cx, "0"));
+              setCenterY(numStr(cy, "0"));
+            }
+          };
+          img.src = resolvedMap;
+        } else if (!isUnsetCenter(cx, cy)) {
+          setCenterX(numStr(cx, "0"));
+          setCenterY(numStr(cy, "0"));
+        } else {
+          setCenterX("0");
+          setCenterY("0");
+        }
         setRadius(s.radius != null ? numStr(s.radius, "1") : "1");
         setPointsText(
           Array.isArray(s.points) ? JSON.stringify(s.points, null, 2) : "[]",
@@ -187,12 +304,6 @@ export function SensorCalibratePanel({
         setYellowMin(secs.yellow);
         setRedMin(secs.red);
         setRangeMax(secs.max);
-        const map =
-          scene && typeof scene === "object"
-            ? (scene as { map?: unknown; map_url?: unknown }).map ||
-              (scene as { map_url?: unknown }).map_url
-            : null;
-        setMapUrl(typeof map === "string" && map ? map : null);
         setLoaded(true);
       })
       .catch((e: RestError) => {
@@ -208,7 +319,7 @@ export function SensorCalibratePanel({
     return () => {
       cancelled = true;
     };
-  }, [open, sensorId, sceneId, authToken]);
+  }, [open, sensorId, sceneId, authToken, mapUrlHint, mapScale]);
 
   const submit = async (e?: FormEvent) => {
     e?.preventDefault();
@@ -252,6 +363,20 @@ export function SensorCalibratePanel({
           throw new SyntaxError("points must be an array");
         }
         payload.points = pts;
+        const numeric = pts.filter(
+          (p): p is [number, number] =>
+            Array.isArray(p) &&
+            p.length >= 2 &&
+            Number.isFinite(Number(p[0])) &&
+            Number.isFinite(Number(p[1])),
+        );
+        if (numeric.length) {
+          const cx =
+            numeric.reduce((sum, p) => sum + Number(p[0]), 0) / numeric.length;
+          const cy =
+            numeric.reduce((sum, p) => sum + Number(p[1]), 0) / numeric.length;
+          payload.center = [cx, cy];
+        }
       } catch {
         setError("Polygon points must be valid JSON [[x,y], …]");
         setBusy(false);
@@ -323,14 +448,34 @@ export function SensorCalibratePanel({
       </FormSection>
       <FormSection
         title="Area"
-        description="Coverage on the scene map (REST-backed)."
+        description={
+          area === "circle"
+            ? "Click the map to place the center. Drag the rim to set radius."
+            : area === "poly"
+              ? "Click the map to add vertices. Click the first point to close."
+              : "Coverage on the scene map."
+        }
       >
         <SelectField
           id="ss-sensor-cal-area"
           label="Area type"
           value={area}
           onChange={(ev) => {
-            setArea(ev.target.value as AreaMode);
+            const next = ev.target.value as AreaMode;
+            setArea(next);
+            if (
+              next === "circle" &&
+              isUnsetCenter(centerX, centerY) &&
+              mapSize
+            ) {
+              const [mx, my] = mapCenterMeters(
+                scale,
+                mapSize.width,
+                mapSize.height,
+              );
+              setCenterX(String(Number(mx.toFixed(3))));
+              setCenterY(String(Number(my.toFixed(3))));
+            }
             markDirty();
           }}
           disabled={busy}
@@ -480,19 +625,38 @@ export function SensorCalibratePanel({
           <div className="ss-workspace-cal-preview-meta">
             <h3 className="ss-form-section-title">Area preview</h3>
             <p className="ss-workspace-panel-hint" style={{ marginBottom: 0 }}>
-              Area type: <strong>{area}</strong>
               {area === "circle"
-                ? ` · center (${centerX}, ${centerY}) · r=${radius}`
+                ? "Click the map to place the center. Drag the handle or rim."
                 : null}
-              {area === "poly" ? " · polygon points in the form" : null}
+              {area === "poly"
+                ? "Click to add polygon vertices. Click the first point to close."
+                : null}
+              {area === "scene" ? "Entire scene coverage." : null}
             </p>
           </div>
           <div className="ss-workspace-cal-preview-frame">
             {mapUrl ? (
-              <img
-                src={mapUrl}
-                alt="Scene map"
-                style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+              <SensorAreaMap
+                mapUrl={mapUrl}
+                scale={scale}
+                area={area}
+                centerX={parseNum(centerX) ?? 0}
+                centerY={parseNum(centerY) ?? 0}
+                radius={parseNum(radius) ?? 1}
+                points={parsePointsText(pointsText)}
+                onCenterChange={(x, y) => {
+                  setCenterX(String(Number(x.toFixed(3))));
+                  setCenterY(String(Number(y.toFixed(3))));
+                  markDirty();
+                }}
+                onRadiusChange={(r) => {
+                  setRadius(String(Number(r.toFixed(3))));
+                  markDirty();
+                }}
+                onPointsChange={(pts) => {
+                  setPointsText(JSON.stringify(pts, null, 2));
+                  markDirty();
+                }}
               />
             ) : (
               <p className="ss-workspace-panel-hint">

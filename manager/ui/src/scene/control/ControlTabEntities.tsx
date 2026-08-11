@@ -143,6 +143,7 @@ function SensorCards({
         <div
           key={sensor.id}
           className="card singleton count-item ss-control-card"
+          data-sensor-name={sensor.name}
         >
           <h5 className="card-header">
             {sensor.iconUrl ? (

@@ -43,6 +43,10 @@ export function RegionEditorCard({
             value={roi.title}
             onChange={(e) => onChange({ ...roi, title: e.target.value })}
             onBlur={() => {
+              if (window.ssUseReactMap) {
+                window.ssMap?.numberRois?.();
+                return;
+              }
               if (typeof window.numberRois === "function") {
                 window.numberRois();
               }

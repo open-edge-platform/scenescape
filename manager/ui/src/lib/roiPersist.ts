@@ -124,29 +124,27 @@ export async function persistSceneGeometry(
     trips = parseHiddenJson<TripDraft>("tripwires");
     window.ssMap?.syncFromLegacyStringify?.();
   } else {
-    const fromModelRois = window.ssMap?.getRois?.() ?? [];
-    const fromModelTrips = window.ssMap?.getTripwires?.() ?? [];
-    rois =
-      fromModelRois.length > 0
-        ? fromModelRois.map((r) => ({
-            uuid: r.uuid,
-            title: r.title,
-            points: r.points,
-            volumetric: r.volumetric,
-            height: r.height,
-            buffer_size: r.buffer_size,
-            range_max: r.range_max,
-            sectors: r.sectors,
-          }))
-        : parseHiddenJson<RoiDraft>("id_rois");
-    trips =
-      fromModelTrips.length > 0
-        ? fromModelTrips.map((t) => ({
-            uuid: t.uuid,
-            title: t.title,
-            points: t.points,
-          }))
-        : parseHiddenJson<TripDraft>("tripwires");
+    const fromModelRois = window.ssMap?.getRois?.();
+    const fromModelTrips = window.ssMap?.getTripwires?.();
+    rois = fromModelRois
+      ? fromModelRois.map((r) => ({
+          uuid: r.uuid,
+          title: r.title,
+          points: r.points,
+          volumetric: r.volumetric,
+          height: r.height,
+          buffer_size: r.buffer_size,
+          range_max: r.range_max,
+          sectors: r.sectors,
+        }))
+      : parseHiddenJson<RoiDraft>("id_rois");
+    trips = fromModelTrips
+      ? fromModelTrips.map((t) => ({
+          uuid: t.uuid,
+          title: t.title,
+          points: t.points,
+        }))
+      : parseHiddenJson<TripDraft>("tripwires");
   }
 
   const [existingRegions, existingTrips] = await Promise.all([

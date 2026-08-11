@@ -12,7 +12,7 @@ import * as THREE from "/static/assets/three.module.js";
 import { OrbitControls } from "/static/examples/jsm/controls/OrbitControls.js";
 import {
   CALIBRATION_POINT_COLORS,
-  CALIBRATION_SCALE_FACTOR,
+  CALIBRATION_POINT_SCALE,
   CALIBRATION_TEXT_SIZE,
   CAMERA_FOV,
   CAMERA_ASPECT,
@@ -22,6 +22,7 @@ import {
   SCENE_MAX_TEXTURE_SIZE,
   SPHERE_RADIUS,
   REST_URL,
+  INITIAL_PROJECTION_OPACITY,
 } from "/static/js/constants.js";
 import { Draw } from "/static/js/draw.js";
 import { isMeshToProjectOn } from "/static/js/interactions.js";
@@ -50,9 +51,11 @@ class Viewport extends THREE.Scene {
     this.calibrationUpdated = false;
     this.pointEdited = false;
     this.draggingPoint = null;
+    this.userAdjustedView = false;
 
     this.projectedMaterial = null;
     this.mesh = null;
+    this.initialOpacity = INITIAL_PROJECTION_OPACITY / 100;
 
     this.scaleFactor = 1.0;
     this.sceneBoundingBox = new THREE.Box3();
@@ -93,17 +96,43 @@ class Viewport extends THREE.Scene {
     this.orbitControls.minDistance = 0.01; // Minimum zoom distance
     this.orbitControls.maxDistance = 2000; // Maximum zoom distance
     this.orbitControls.maxPolarAngle = Math.PI / 2; // Limit vertical rotation
+    this.orbitControls.addEventListener("start", () => {
+      if (!this.isDragging) {
+        this.userAdjustedView = true;
+      }
+    });
   }
 
-  #getCanvasDiagonal() {
-    return Math.sqrt(this.canvas.width ** 2 + this.canvas.height ** 2);
+  /** CSS pixel size of the map pane (ignore WebGL buffer / devicePixelRatio). */
+  #getClientSize() {
+    const width = this.canvas.clientWidth || this.canvas.width || 1;
+    const height = this.canvas.clientHeight || this.canvas.height || 1;
+    return { width, height };
   }
 
-  #updateObjectScale(object, scaleFactor) {
-    const distance = this.perspectiveCamera.position.distanceTo(
-      object.position,
+  /**
+   * Match CamCanvas point sizing: diameter ≈ min(pane) * CALIBRATION_POINT_SCALE.
+   * Keeps map points proportional to the calibrate pane instead of a fixed CSS size
+   * that looks oversized in the smaller embed layout.
+   */
+  #getTargetPointRadiusPx() {
+    const { width, height } = this.#getClientSize();
+    return (Math.min(width, height) * CALIBRATION_POINT_SCALE) / 2;
+  }
+
+  #updateObjectScale(object) {
+    const distance = Math.max(
+      this.perspectiveCamera.position.distanceTo(object.position),
+      0.01,
     );
-    const scale = distance / scaleFactor;
+    const { height } = this.#getClientSize();
+    const vFov = THREE.MathUtils.degToRad(this.perspectiveCamera.fov);
+    const worldRadius =
+      (this.#getTargetPointRadiusPx() / Math.max(height, 1)) *
+      2 *
+      Math.tan(vFov / 2) *
+      distance;
+    const scale = worldRadius / SPHERE_RADIUS;
     object.scale.set(scale, scale, scale);
   }
 
@@ -229,8 +258,8 @@ class Viewport extends THREE.Scene {
   }
 
   resetCameraView() {
-    this.initializeCamera();
-    this.orbitControls.target.set(this.floorWidth / 2, this.floorHeight / 2, 1);
+    this.userAdjustedView = false;
+    this.fitFloorInView();
   }
 
   addCalibrationPoint(x, y, z) {
@@ -245,9 +274,7 @@ class Viewport extends THREE.Scene {
       point,
       color,
     );
-    // Scale the point on creation to an appropriate size based on the canvas dimensions
-    const scaleFactor = this.#getCanvasDiagonal() / CALIBRATION_SCALE_FACTOR;
-    this.#updateObjectScale(pointMesh, scaleFactor);
+    this.#updateObjectScale(pointMesh);
     this.add(pointMesh);
     this.calibrationUpdated = true;
     this.pointEdited = true;
@@ -263,11 +290,9 @@ class Viewport extends THREE.Scene {
   }
 
   updateCalibrationPointScale() {
-    const scaleFactor = this.#getCanvasDiagonal() / CALIBRATION_SCALE_FACTOR;
-
     this.children
       .filter((child) => child.name.startsWith("calibrationPoint_"))
-      .forEach((child) => this.#updateObjectScale(child, scaleFactor));
+      .forEach((child) => this.#updateObjectScale(child));
   }
 
   clearCalibrationPoints() {
@@ -376,38 +401,130 @@ class Viewport extends THREE.Scene {
               this.sceneMesh,
               texture,
             );
-          this.projectedMaterial.opacity = this.initialOpacity;
+          // Sit just above the floor so the overlay wins depth against the map.
+          this.mesh.position.z = (this.mesh.position.z || 0) + 0.002;
+          this.mesh.renderOrder = 2;
           this.add(this.mesh);
         } else {
           this.projectedMaterial.texture = texture;
           this.projectedMaterial.project(this.mesh);
         }
+        this.applyProjectionOpacity(this.initialOpacity);
         this.setProjectionVisibility(true);
       });
     }
   }
 
-  setProjectionVisibility(visibility) {
-    if (this.projectedMaterial) {
-      this.projectedMaterial.visible = visibility;
+  applyProjectionOpacity(opacity) {
+    const value = Number(opacity);
+    if (!Number.isFinite(value)) {
+      return;
     }
+    const clamped = Math.min(1, Math.max(0, value));
+    this.initialOpacity = clamped;
+    const material = this.projectedMaterial;
+    if (!material) {
+      return;
+    }
+    material.transparent = true;
+    material.opacity = clamped;
+    material.depthWrite = false;
+    material.needsUpdate = true;
+    if (material.uniforms && material.uniforms.opacity) {
+      material.uniforms.opacity.value = clamped;
+    }
+    // Keep the mesh itself visible; fade via material opacity only.
+    // Hide only when the user has dragged the slider fully to 0.
+    if (this.mesh) {
+      this.mesh.visible = clamped > 0;
+      this.mesh.renderOrder = 2;
+    }
+    material.visible = clamped > 0;
   }
 
   setProjectionOpacity(opacity) {
+    this.applyProjectionOpacity(opacity);
+  }
+
+  setProjectionVisibility(visibility) {
     if (this.projectedMaterial) {
-      this.projectedMaterial.opacity = opacity;
-    } else {
-      this.initialOpacity = opacity;
+      const show =
+        Boolean(visibility) && (this.initialOpacity == null || this.initialOpacity > 0);
+      this.projectedMaterial.visible = show;
+      if (this.mesh) {
+        this.mesh.visible = show;
+      }
     }
   }
 
   // Scene map loading functions
 
-  computePerspectiveCameraPose(floorWidth, floorHeight, fov) {
+  computePerspectiveCameraPose(floorWidth, floorHeight, fov, aspect) {
     const center = { x: floorWidth / 2, y: floorHeight / 2 };
-    const cameraZ =
-      floorHeight / (2 * Math.tan(THREE.MathUtils.degToRad(fov / 2)));
+    const safeAspect =
+      Number.isFinite(aspect) && aspect > 0 ? aspect : CAMERA_ASPECT;
+    const vFov = THREE.MathUtils.degToRad(fov);
+    const zForHeight = floorHeight / 2 / Math.tan(vFov / 2);
+    const hFov = 2 * Math.atan(Math.tan(vFov / 2) * safeAspect);
+    const zForWidth = floorWidth / 2 / Math.tan(hFov / 2);
+    const cameraZ = Math.max(zForHeight, zForWidth, 0.5) * 1.08;
     return { cameraZ, center };
+  }
+
+  syncCameraAspect() {
+    const width = this.canvas.clientWidth || this.canvas.width || 1;
+    const height = this.canvas.clientHeight || this.canvas.height || 1;
+    if (height > 0) {
+      this.perspectiveCamera.aspect = width / height;
+      this.perspectiveCamera.updateProjectionMatrix();
+    }
+  }
+
+  /**
+   * Top-down framing that keeps the whole floor / scene mesh in view.
+   */
+  fitFloorInView() {
+    this.syncCameraAspect();
+    const box = this.sceneBoundingBox;
+    let width = this.floorWidth;
+    let height = this.floorHeight;
+    const center = new THREE.Vector3(
+      (this.floorWidth || 0) / 2,
+      (this.floorHeight || 0) / 2,
+      0,
+    );
+    if (box && !box.isEmpty()) {
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      box.getCenter(center);
+      width = size.x || width;
+      height = size.y || height;
+    }
+    if (!width || !height) {
+      return;
+    }
+    const { cameraZ } = this.computePerspectiveCameraPose(
+      width,
+      height,
+      this.perspectiveCamera.fov,
+      this.perspectiveCamera.aspect,
+    );
+    this.perspectiveCamera.position.set(center.x, center.y, center.z + cameraZ);
+    this.perspectiveCamera.updateProjectionMatrix();
+    if (this.orbitControls) {
+      this.orbitControls.target.copy(center);
+      this.orbitControls.update();
+    }
+    this.updateCalibrationPointScale();
+  }
+
+  handleViewportResize() {
+    this.syncCameraAspect();
+    if (!this.userAdjustedView) {
+      this.fitFloorInView();
+    } else {
+      this.updateCalibrationPointScale();
+    }
   }
 
   resizeImage(image, maxWidth, maxHeight) {
@@ -584,13 +701,7 @@ class Viewport extends THREE.Scene {
   }
 
   initializeCamera() {
-    const { cameraZ, center } = this.computePerspectiveCameraPose(
-      this.floorWidth,
-      this.floorHeight,
-      this.perspectiveCamera.fov,
-    );
-    this.perspectiveCamera.position.set(center.x, center.y, cameraZ);
-    this.perspectiveCamera.updateProjectionMatrix();
+    this.fitFloorInView();
   }
 
   initializeScene() {
@@ -605,8 +716,6 @@ class Viewport extends THREE.Scene {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
     directionalLight.position.set(0, 0, 1);
     this.add(directionalLight);
-
-    this.orbitControls.target.set(this.floorWidth / 2, this.floorHeight / 2, 1);
   }
 }
 

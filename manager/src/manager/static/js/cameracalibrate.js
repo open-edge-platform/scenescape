@@ -345,13 +345,10 @@ export class ConvergedCameraCalibration {
       .then(() => viewport.initializeScene())
       .then(() => waitForCanvasLayout(viewport.renderer.domElement))
       .then(() => {
+        viewport.fitFloorInView();
         function animate() {
           if (resizeRendererToDisplaySize(viewport.renderer)) {
-            const canvas = viewport.renderer.domElement;
-            viewport.perspectiveCamera.aspect =
-              canvas.clientWidth / canvas.clientHeight;
-            viewport.perspectiveCamera.updateProjectionMatrix();
-            viewport.updateCalibrationPointScale();
+            viewport.handleViewportResize();
           }
 
           viewport.orbitControls.update();
@@ -600,15 +597,26 @@ export class ConvergedCameraCalibration {
       }
     }
     if (this.camCanvas) {
-      this.camCanvas.calibrationUpdated = false;
-      this.camCanvas.pointEdited = false;
       this.camCanvas.drawImage();
     }
     if (this.viewport) {
-      this.viewport.calibrationUpdated = false;
-      this.viewport.pointEdited = false;
       this.viewport.updateCalibrationPointScale();
-      this.viewport.frameCalibrationPoints();
+      this.viewport.fitFloorInView();
+    }
+    // Pose must re-solve once so the camera→map overlay appears without
+    // requiring the user to nudge a point after reload.
+    if (this.camCanvas && this.viewport) {
+      const camPoints = this.camCanvas.getCalibrationPoints();
+      const mapPoints = this.viewport.getCalibrationPoints();
+      if (this.isValidCalibration(camPoints, mapPoints)) {
+        this.camCanvas.calibrationUpdated = true;
+        this.viewport.calibrationUpdated = true;
+      } else {
+        this.camCanvas.calibrationUpdated = false;
+        this.viewport.calibrationUpdated = false;
+      }
+      this.camCanvas.pointEdited = false;
+      this.viewport.pointEdited = false;
     }
   }
 
@@ -651,21 +659,32 @@ export class ConvergedCameraCalibration {
   }
 
   setupOpacitySlider() {
-    const previousOpacity = localStorage.getItem("opacity");
-    if (previousOpacity !== null) {
-      $("#overlay_opacity").val(previousOpacity);
-      this.viewport.setProjectionOpacity(previousOpacity / 100);
-    } else {
-      $("#overlay_opacity").val(INITIAL_PROJECTION_OPACITY);
-      this.viewport.setProjectionOpacity(INITIAL_PROJECTION_OPACITY / 100);
+    const slider = document.getElementById("overlay_opacity");
+    if (!slider || !this.viewport) {
+      return;
     }
+    const stored = localStorage.getItem("opacity");
+    const initial =
+      stored !== null && Number.isFinite(Number(stored))
+        ? Number(stored)
+        : INITIAL_PROJECTION_OPACITY;
+    slider.value = String(initial);
+    this.viewport.setProjectionOpacity(initial / 100);
 
-    // Update perspective overlay transparency when slider is moved
-    $("#overlay_opacity").on("input", (event) => {
-      const opacityValue = $(event.currentTarget).val();
+    const apply = () => {
+      const opacityValue = Number(slider.value);
+      if (!Number.isFinite(opacityValue)) {
+        return;
+      }
       this.viewport.setProjectionOpacity(opacityValue / 100);
-      localStorage.setItem("opacity", opacityValue);
-    });
+      localStorage.setItem("opacity", String(opacityValue));
+    };
+    if (slider.dataset.ssOpacityBound === "1") {
+      return;
+    }
+    slider.dataset.ssOpacityBound = "1";
+    slider.addEventListener("input", apply);
+    slider.addEventListener("change", apply);
   }
 
   /**
