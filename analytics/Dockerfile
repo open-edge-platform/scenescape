@@ -62,9 +62,6 @@ RUN : \
     && eval WSHOME=~$WSUSER \
     && chmod a+rX "${WSHOME}"
 
-RUN pip3 install --no-cache-dir --upgrade pip \
-    && pip3 install --no-cache-dir --upgrade setuptools wheel
-
 COPY analytics/requirements-runtime.txt /tmp
 RUN pip3 install --break-system-packages --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/requirements-runtime.txt

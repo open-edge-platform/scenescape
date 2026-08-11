@@ -98,10 +98,6 @@ RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
     fi && \
     rm -rf /tmp/models
 
-# Upgrade pip, wheel and setuptools to latest versions
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --upgrade setuptools wheel
-
 # Install all Python dependencies in one layer
 RUN pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
