@@ -525,7 +525,7 @@ class MeshGenerator:
       except Exception:
         pass
 
-  def finalizeMeshFromStatus(self, scene, request_id: str):
+  def finalizeMeshFromStatus(self, scene, request_id: str, preserve_mesh_frame: bool = False):
     status = self.mapping_client.getReconstructionStatus(request_id)
 
     if not status.get("success"):
@@ -551,7 +551,11 @@ class MeshGenerator:
       return {"success": False, "error": connectivity_error}
 
     self._updateSceneCamerasWithMappingResult(mapping_result, cameras)
-    mesh_transform = self._saveMeshToScene(scene, merged_mesh)
+    mesh_transform = self._saveMeshToScene(
+      scene,
+      merged_mesh,
+      preserve_mesh_frame=preserve_mesh_frame,
+    )
     if mesh_transform is not None:
       self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
     return {"success": True}
@@ -664,7 +668,7 @@ class MeshGenerator:
       log.error(f"Error updating camera {camera.sensor_id}: {e}")
       raise
 
-  def _saveMeshToScene(self, scene, merged_mesh):
+  def _saveMeshToScene(self, scene, merged_mesh, preserve_mesh_frame: bool = False):
     """
     Save the generated GLB mesh to the scene's map field.
 
@@ -674,18 +678,27 @@ class MeshGenerator:
 
     Returns:
       dict: Transformation applied to mesh (rotation matrix, translation, center_offset)
+        or None when the incoming mesh frame is preserved.
     """
     try:
 
-      # Align the mesh to XY plane with largest bottom face flat and in first quadrant
-      log.info(f"Aligning mesh to XY plane in first quadrant")
-      aligned_mesh, mesh_transform = self.alignMeshToXYPlane(merged_mesh)
+      if preserve_mesh_frame:
+        log.info("Preserving incoming mesh frame; skipping XY alignment")
+        aligned_mesh = merged_mesh
+        mesh_transform = None
+      else:
+        # Align the mesh to XY plane with largest bottom face flat and in first quadrant
+        log.info(f"Aligning mesh to XY plane in first quadrant")
+        aligned_mesh, mesh_transform = self.alignMeshToXYPlane(merged_mesh)
 
       # Export the aligned mesh as GLB
       glb_filename = f"{scene.name}_generated_mesh.glb"
       glb_exported_bytes = aligned_mesh.export(file_type='glb')
 
-      log.info(f"Saving aligned mesh to scene {scene.name} as {glb_filename}")
+      if preserve_mesh_frame:
+        log.info(f"Saving preserved-frame mesh to scene {scene.name} as {glb_filename}")
+      else:
+        log.info(f"Saving aligned mesh to scene {scene.name} as {glb_filename}")
       # Save to scene's map field without triggering save yet
       scene.map.save(glb_filename, ContentFile(glb_exported_bytes), save=False)
 

@@ -903,6 +903,12 @@ def generate_mesh_status(request, pk):
   if not request_id:
     return JsonResponse({"success": False, "error": "missing request_id"}, status=400)
 
+  def _get_bool_query(name: str) -> bool:
+    value = str(request.GET.get(name, "")).strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+  preserve_mesh_frame = _get_bool_query("preserve_mesh_frame") or _get_bool_query("skip_mesh_alignment")
+
   try:
     from .mesh_generator import MeshGenerator
     mesh_generator = MeshGenerator()
@@ -924,7 +930,11 @@ def generate_mesh_status(request, pk):
       if hasattr(scene, "mesh_state") and scene.mesh_state == "complete":
         status_data["finalized"] = True
         return JsonResponse(status_data, status=200)
-      finalize_result = mesh_generator.finalizeMeshFromStatus(scene, request_id)
+      finalize_result = mesh_generator.finalizeMeshFromStatus(
+        scene,
+        request_id,
+        preserve_mesh_frame=preserve_mesh_frame,
+      )
 
       if not finalize_result.get("success"):
         if hasattr(scene, "mesh_state"):
