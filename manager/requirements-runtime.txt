@@ -4,7 +4,7 @@
 
 # Keep package list in alphabetical order
 aiofiles==25.1.0
-Django==5.2.15
+Django==5.2.16
 django-axes==8.0.0
 django-debug-toolbar==6.0.0
 django-session-timeout==0.1.0
