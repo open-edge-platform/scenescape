@@ -143,8 +143,8 @@ body.ss-workspace-resizing .ss-cal-workspace-main {
 }
 
 .ss-cal-layout-btn.is-active {
-  color: var(--ss-nav-bg, #1a1f2e);
-  background: var(--ss-card-bg);
+  color: #0c0d0f;
+  background: #f2f4f7;
 }
 
 .ss-cal-layout-btn:focus-visible {

@@ -166,68 +166,32 @@ SPDX-License-Identifier: Apache-2.0
             {% endif %}
           </ul>
 
-          <ul class="navbar-nav navbar-right">
-            <li class="nav-item">
-              <div class="btn-nav">
-                <div class="navbar-text navbar-info">
-                  <span id="navbar-username"
-                    >User: <strong>{{ request.user.username }}</strong></span
+          <div class="ss-nav-trailing">
+            <ul class="navbar-nav navbar-right">
+              <li class="nav-item">
+                <div class="btn-nav">
+                  <div class="navbar-text navbar-info">
+                    <span id="navbar-username"
+                      >User: <strong>{{ request.user.username }}</strong></span
+                    >
+                  </div>
+                  <a
+                    class="btn btn-sm btn-outline-light navbar-btn"
+                    id="nav-sign-out"
+                    href="/sign_out"
+                    >Log Out</a
                   >
                 </div>
-                <a
-                  class="btn btn-sm btn-outline-light navbar-btn"
-                  id="nav-sign-out"
-                  href="/sign_out"
-                  >Log Out</a
-                >
-              </div>
-            </li>
-          </ul>
-        </div>
-      {% endif %}
-
-      <div class="ss-nav-trailing">
-        <div class="ss-theme-toggle-host">
-          <div
-            class="ss-theme-toggle"
-            id="ss-theme-toggle"
-            role="group"
-            aria-label="Color theme"
-          >
-            <button
-              type="button"
-              class="ss-theme-toggle__btn"
-              data-ss-theme="light"
-              aria-pressed="true"
-            >
-              Light
-            </button>
-            <button
-              type="button"
-              class="ss-theme-toggle__btn"
-              data-ss-theme="dark"
-              aria-pressed="false"
-            >
-              Dark
-            </button>
+              </li>
+            </ul>
+            {% include "sscape/includes/nav_trailing_controls.html" %}
           </div>
         </div>
-
-        <a
-          class="navbar-powered-by"
-          href="https://www.intel.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Powered by Intel"
-        >
-          <span class="powered-by-label">Powered by</span>
-          <img
-            class="intel-logo"
-            src="{% static 'images/intel-logo.svg' %}"
-            alt="Intel"
-          />
-        </a>
-      </div>
+      {% else %}
+        <div class="ss-nav-trailing">
+          {% include "sscape/includes/nav_trailing_controls.html" %}
+        </div>
+      {% endif %}
     </nav>
 
     <div class="container-fluid wrapper">

@@ -59,12 +59,12 @@ html[data-theme="dark"] {
   --ss-brand-soft: #0099ec;
   --ss-nav-bg: #0c0d0f;
   --ss-nav-fg: #f2f4f7;
-  --ss-ink: #e8eef5;
+  --ss-ink: #f4f7fb;
   --ss-surface: #0f1419;
   --ss-card-bg: #1a222c;
   --ss-card-border: #2c3642;
-  --ss-text: #f2f4f7;
-  --ss-text-muted: #9aa3ad;
+  --ss-text: #f4f7fb;
+  --ss-text-muted: #c5cdd6;
   --ss-status-ok: #3dd68c;
   --ss-status-bad: #f0718a;
   --ss-input-border: #4a5563;

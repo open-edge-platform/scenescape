@@ -34,15 +34,15 @@ html[data-theme="dark"] {
   --ss-brand: #4da3ff;
   --ss-brand-hover: #7abbff;
   --ss-brand-soft: #0099ec;
-  /* Neutral charcoal — darker than --ss-surface, no leftover navy */}
+  /* Neutral charcoal — darker than --ss-surface, no leftover navy */
   --ss-nav-bg: #0c0d0f;
   --ss-nav-fg: #f2f4f7;
-  --ss-ink: #e8eef5;
+  --ss-ink: #f4f7fb;
   --ss-surface: #0f1419;
   --ss-card-bg: #1a222c;
   --ss-card-border: #2c3642;
-  --ss-text: #f2f4f7;
-  --ss-text-muted: #9aa3ad;
+  --ss-text: #f4f7fb;
+  --ss-text-muted: #c5cdd6;
   --ss-status-ok: #3dd68c;
   --ss-status-bad: #f0718a;
   --ss-input-border: #4a5563;
@@ -279,6 +279,43 @@ html[data-theme="dark"] .navbar.bg-dark {
   background-color: color-mix(in srgb, var(--ss-surface) 55%, var(--ss-card-bg));
 }
 
+/* Bootstrap leftovers that keep light-theme ink on dark surfaces */
+html[data-theme="dark"] .text-muted,
+html[data-theme="dark"] .form-text,
+html[data-theme="dark"] .text-secondary,
+html[data-theme="dark"] .close {
+  color: var(--ss-text-muted) !important;
+}
+
+html[data-theme="dark"] .dropdown-menu {
+  color: var(--ss-text);
+  background-color: var(--ss-card-bg);
+  border-color: var(--ss-card-border);
+}
+
+html[data-theme="dark"] .dropdown-item {
+  color: var(--ss-text);
+}
+
+html[data-theme="dark"] .dropdown-item:hover,
+html[data-theme="dark"] .dropdown-item:focus {
+  color: var(--ss-ink);
+  background-color: var(--ss-elevated);
+}
+
+html[data-theme="dark"] .custom-select,
+html[data-theme="dark"] select.form-control,
+html[data-theme="dark"] select.ss-select-field {
+  color: var(--ss-text);
+  background-color: var(--ss-card-bg);
+}
+
+html[data-theme="dark"] .custom-select option,
+html[data-theme="dark"] select option {
+  color: var(--ss-text);
+  background-color: var(--ss-card-bg);
+}
+
 
 .navbar-dark .navbar-nav .nav-link,
 .navbar-dark .navbar-text {
@@ -312,8 +349,27 @@ html[data-theme="dark"] .navbar.bg-dark {
 }
 
 .navbar-nav.navbar-right {
-  margin-left: auto;
+  margin-left: 0;
   margin-right: 0;
+}
+
+@media (min-width: 768px) {
+  .navbar.navbar-expand-md.fixed-top {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .navbar.navbar-expand-md .navbar-collapse {
+    display: flex;
+    flex-grow: 1;
+    flex-basis: auto;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .navbar.navbar-expand-md .navbar-collapse .ss-nav-trailing {
+    margin-left: auto;
+  }
 }
 
 .btn-nav {
@@ -385,7 +441,7 @@ html[data-theme="dark"] .ss-theme-toggle__btn[aria-pressed="true"] {
   align-items: center;
   gap: 1.25rem;
   margin-left: auto;
-  padding-left: 1.5rem;
+  padding-left: 0;
   flex-shrink: 0;
 }
 
@@ -1452,6 +1508,12 @@ polygon {
   box-sizing: border-box;
 }
 
+.card,
+.card-body,
+.card .card-header {
+  color: var(--ss-text);
+}
+
 .card .card-header {
   background-color: var(--ss-card-bg);
   border-bottom: 1px solid var(--ss-card-border);
@@ -1667,7 +1729,7 @@ polygon {
   height: 2.15rem;
   padding: 0;
   color: var(--ss-ink);
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--ss-card-bg);
   border: 1px solid var(--ss-card-border);
   box-shadow: 0 1px 4px rgba(0, 30, 80, 0.12);
 }
@@ -1789,7 +1851,7 @@ body.is-map-fullscreen #map-controls {
 .col-form-label {
   font-weight: 500;
   font-family: var(--ss-font-sans);
-  color: var(--ss-text-muted);
+  color: var(--ss-text);
   text-align: left;
 }
 
