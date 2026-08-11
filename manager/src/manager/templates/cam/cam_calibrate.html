@@ -1,0 +1,399 @@
+<!--
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+{% extends 'sscape/base.html' %}
+{% load static %}
+
+{% block content %}
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item">
+        <a href="/">Scenes</a>
+      </li>
+      <li class="breadcrumb-item">
+        <a href="{% url 'sceneDetail' caminst.scene.id %}"
+          >{{ caminst.scene.name }}</a
+        >
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">
+        {{ caminst.name }}
+      </li>
+    </ol>
+  </nav>
+
+  <div class="page-header">
+    <div class="page-header-main">
+      {% url 'sceneDetail' caminst.scene.id as cam_back_href %}
+      {% include 'sscape/form_back.html' with back_href=cam_back_href %}
+      <h2 class="form-title">Manage Camera: {{ caminst.name }}</h2>
+    </div>
+    <div class="page-header-actions">
+      <div id="mqtt_status" class="btn btn-sm btn-secondary" title="MQTT status">
+        <i class="bi bi-arrow-down-up"></i>
+      </div>
+      <a
+        class="ss-table-action is-danger"
+        href="{% url 'cam_delete' caminst.id %}"
+        title="Delete"
+        ><i class="bi bi-trash"></i><span>Delete</span></a
+      >
+    </div>
+  </div>
+
+  <div class="display-none">
+    <button class="btn btn-secondary" id="connect">Connect</button>
+    <button class="btn btn-secondary" id="disconnect">Disconnect</button>
+    <button class="btn btn-secondary" id="snapshot">Snapshot</button>
+  </div>
+  <form enctype="multipart/form-data" id="calibration_form" method="post">
+    {% csrf_token %}
+    <div id="calibrate">
+      <div class="card cal-workspace-card">
+        <h5 class="noselect card-header hide-live cal-toolbar">
+          <span class="cal-toolbar-title">Calibration workspace</span>
+          <div class="cal-toolbar-actions">
+            {% if caminst.scene.thumbnail or caminst.scene.map %}
+              <label
+                class="cal-opacity"
+                for="overlay_opacity"
+                title="Blend the camera image onto the scene map"
+              >
+                <span>Overlay</span>
+                <input
+                  type="range"
+                  id="overlay_opacity"
+                  min="0"
+                  max="100"
+                  value="0"
+                  aria-label="Projection overlay opacity"
+                />
+              </label>
+              <input
+                type="button"
+                class="btn btn-secondary btn-sm"
+                value="Reset View"
+                id="reset_view"
+                title="Reset views to the default view"
+              />
+              <input
+                type="button"
+                class="btn btn-secondary btn-sm"
+                value="Reset Points"
+                id="reset_points"
+                title="Remove all currently placed points"
+              />
+            {% endif %}
+            <button
+              type="button"
+              class="btn btn-primary btn-sm"
+              id="auto-autocalibration"
+              disabled
+              value="Auto Calibrate"
+              title="Auto Calibrate system not available for this scene"
+            >
+              <div id="calib-spinner" class="button-spinner hide-spinner"></div>
+              <span>Auto Calibrate</span>
+            </button>
+            <input
+              type="submit"
+              name="calibrate_save"
+              id="top_save"
+              class="btn btn-primary btn-sm"
+              value="Save Camera"
+            />
+          </div>
+        </h5>
+
+        {% if form.non_field_errors %}
+          <div
+            class="alert alert-danger"
+            role="alert"
+            style="margin-top: 20px; margin-left: 20px; margin-right: 20px;"
+          >
+            {% for error in form.non_field_errors %}
+              <div>{{ error }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="card-body">
+          {% if caminst.scene.thumbnail or caminst.scene.map %}
+            <p id="calibrate-info" class="text-muted">
+              To calibrate the camera, place matching pairs of points in each
+              view (minimum 4 pairs).<br />
+              Points can be added by double-clicking and removed by
+              right-clicking.<br />
+              With 6+ point pairs, the camera focal length can be estimated
+              through calibration when fx and fy are unlocked.<br />
+              When you are satisfied with your changes, click on "Save Camera"
+              to update the configuration.
+            </p>
+          {% else %}
+            <p class="text-muted">
+              To calibrate the camera, add a map to the {{ caminst.scene.name }}
+              scene.
+            </p>
+          {% endif %}
+
+          <div class="cameraCalContainer">
+            <div
+              class="cal-pane-backdrop"
+              id="cal-pane-backdrop"
+              hidden
+            ></div>
+            <section class="cal-pane" aria-label="Camera view">
+              <header class="cal-pane-header">
+                <span class="cal-pane-title">Camera</span>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-light cal-pane-expand"
+                  data-cal-expand
+                  aria-expanded="false"
+                  title="Expand camera view"
+                >
+                  <i class="bi bi-fullscreen" aria-hidden="true"></i>
+                  <span class="sr-only">Expand camera view</span>
+                </button>
+              </header>
+              <div class="cal-pane-viewport">
+                <img
+                  id="camera_img"
+                  class="noselect"
+                  src="{% static 'images/offline.png' %}"
+                  alt="Camera Offline"
+                />
+                <canvas id="camera_img_canvas" class="cameraCal"></canvas>
+              </div>
+            </section>
+            <section class="cal-pane" aria-label="Scene map view">
+              <header class="cal-pane-header">
+                <span class="cal-pane-title">Scene</span>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-light cal-pane-expand"
+                  data-cal-expand
+                  aria-expanded="false"
+                  title="Expand scene view"
+                >
+                  <i class="bi bi-fullscreen" aria-hidden="true"></i>
+                  <span class="sr-only">Expand scene view</span>
+                </button>
+              </header>
+              <div class="cal-pane-viewport">
+                {% if caminst.scene.thumbnail %}
+                  <img
+                    id="map_img"
+                    class="noselect"
+                    src="{{ caminst.scene.thumbnail.url }}"
+                    alt="{{ caminst.scene.name }}"
+                  />
+                {% elif caminst.scene.map %}
+                  <img
+                    id="map_img"
+                    class="noselect"
+                    src="{{ caminst.scene.map.url }}"
+                    alt="{{ caminst.scene.name }}"
+                  />
+                {% else %}
+                  <img id="map_img" class="noselect" />
+                {% endif %}
+                <canvas id="map_canvas_3D" class="cameraCal"></canvas>
+              </div>
+            </section>
+          </div>
+
+          <section
+            class="ss-form-section"
+            aria-labelledby="ss-cam-sec-identity-title"
+          >
+            <h3 class="ss-form-section-title" id="ss-cam-sec-identity-title">
+              Identity &amp; stream
+            </h3>
+            <p class="ss-form-section-desc">
+              Camera id, scene assignment, and capture / pipeline settings.
+            </p>
+            <div class="ss-form-section-body">
+              {% for field in form %}
+                {% if field.name == 'name' or field.name == 'sensor_id' or field.name == 'scene' or field.name == 'command' or field.name == 'camerachain' %}
+                  <div class="form-group row" id="{{ field.name }}_wrapper">
+                    <label
+                      class="col-form-label form-label"
+                      id="label_{{ field.name }}"
+                      for="id_{{ field.name }}"
+                      >{{ field.label }}</label
+                    >
+                    <div class="col-sm-3">
+                      {{ field.errors }}
+                      {{ field }}
+                    </div>
+                  </div>
+                {% elif field.name == 'camera_pipeline' %}
+                  <div class="form-group row" id="{{ field.name }}_wrapper">
+                    <label
+                      class="col-form-label form-label"
+                      id="label_{{ field.name }}"
+                      for="id_{{ field.name }}"
+                      >{{ field.label }}</label
+                    >
+                    <div class="col-sm-6">
+                      <div class="mb-2">
+                        <button
+                          type="button"
+                          class="btn btn-info btn-sm"
+                          id="generate-pipeline-preview"
+                          title="Generate camera pipeline preview based on current form values"
+                        >
+                          Generate Pipeline Preview
+                        </button>
+                      </div>
+                      {{ field.errors }}
+                      {{ field }}
+                      {% if field.help_text %}
+                        <small class="form-text text-muted"
+                          >{{ field.help_text }}</small
+                        >
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </section>
+
+          <section
+            class="ss-form-section"
+            aria-labelledby="ss-cam-sec-optics-title"
+          >
+            <h3 class="ss-form-section-title" id="ss-cam-sec-optics-title">
+              Intrinsics &amp; distortion
+            </h3>
+            <p class="ss-form-section-desc">
+              Focal length and lens parameters used by calibration.
+            </p>
+            <div class="ss-form-section-body">
+              {% for field in form %}
+                {% if 'intrinsic' in field.name or 'distortion' in field.name %}
+                  <div class="form-group row">
+                    <label
+                      class="col-form-label form-label"
+                      id="label_{{ field.name }}"
+                      for="id_{{ field.name }}"
+                      >{{ field.label }}</label
+                    >
+                    <div class="col-sm-3">
+                      {{ field.errors }}
+                      {{ field }}
+                    </div>
+                    {% if field.name == 'intrinsics_fx' or field.name == 'intrinsics_fy' %}
+                      <div
+                        class="col-sm-1 d-flex align-items-center"
+                        id="lock_{{ field.name }}"
+                      >
+                        <input
+                          type="checkbox"
+                          name="enabled_{{ field.name }}"
+                          id="enabled_{{ field.name }}"
+                          checked
+                        />
+                        <label
+                          class="checkbox-text"
+                          for="enabled_{{ field.name }}"
+                          >Lock value</label
+                        >
+                      </div>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </section>
+
+          <details class="ss-form-section ss-form-section--collapsible">
+            <summary class="ss-form-section-summary">
+              <span class="ss-form-section-title">Advanced</span>
+              <span class="ss-form-section-desc">
+                Optional deployment and detection parameters.
+              </span>
+            </summary>
+            <div class="ss-form-section-body">
+              {% for field in form %}
+                {% if field.name in form.advanced_fields %}
+                  <div
+                    class="form-group row advanced-options"
+                    title="Optional advanced parameter"
+                    id="{{ field.name }}_wrapper"
+                  >
+                    <label
+                      class="col-form-label form-label"
+                      id="label_{{ field.name }}"
+                      for="id_{{ field.name }}"
+                      >{{ field.label }}</label
+                    >
+                    <div class="col-sm-3">
+                      {{ field.errors }}
+                      {{ field }}
+                      {% if field.help_text %}
+                        <small class="form-text text-muted"
+                          >{{ field.help_text }}</small
+                        >
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </details>
+
+          {% for field in form %}
+            {% if 'coord' in field.name %}
+              <div class="display-none coordinate">{{ field }}</div>
+            {% elif field.name != 'name' and field.name != 'sensor_id' and field.name != 'scene' and field.name != 'command' and field.name != 'camerachain' and field.name != 'camera_pipeline' and 'intrinsic' not in field.name and 'distortion' not in field.name and field.name not in form.advanced_fields %}
+              <div class="display-none">{{ field }}</div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </form>
+  <input type="hidden" id="broker" value="{{ caminst.scene.wssConnection }}" />
+  <input
+    type="hidden"
+    id="topic"
+    value="scenescape/image/calibration/camera/{{ caminst.sensor_id }}"
+  />
+  <input type="hidden" id="sensor_id" value="{{ caminst.sensor_id }}" />
+  <input
+    type="hidden"
+    id="initial-id_transforms"
+    value="{% if caminst.transforms %}{{ caminst.transforms|join:',' }}{% endif %}"
+  />
+  <input
+    type="hidden"
+    id="generate-pipeline-url"
+    value="{{ generated_pipeline_url }}"
+  />
+  <input type="hidden" id="scale" value="{{ caminst.scene.scale }}" />
+  <input type="hidden" id="scene" value="{{ caminst.scene.id }}" />
+  <input
+    type="hidden"
+    id="calib_strategy"
+    value="{{ caminst.scene.camera_calibration }}"
+  />
+  <input
+    type="hidden"
+    name="auth-token"
+    id="auth-token"
+    value="{{ user.auth_token }}"
+  />
+  <input
+    type="hidden"
+    id="kubernetes-fields"
+    value="{{ form.kubernetes_fields|join:',' }}"
+  />
+  <script src="{% static 'assets/opencv.js' %}"></script>
+  <script src="{% static 'assets/socket.io.min.js' %}"></script>
+  <script src="{% static 'js/cameracalibrate.js' %}" type="module"></script>
+  <script src="{% static 'js/pipeline-generator.js' %}"></script>
+{% endblock %}

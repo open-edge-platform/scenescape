@@ -74,6 +74,8 @@ export type SceneDetailBootstrap = {
   /** True when Manager runs in Kubernetes; advanced camera pipeline fields apply. */
   isKubernetes: boolean;
   appVersion: string | null;
+  googleMapsApiKey?: string;
+  mapboxApiKey?: string;
 };
 
 declare global {

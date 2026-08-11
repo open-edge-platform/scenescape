@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import OrderedDict
+import json
 import os
 
 from django.contrib.auth import authenticate
@@ -553,6 +554,20 @@ class TripwireSerializer(RegionSerializer):
     model = Tripwire
     fields = ['uid', 'name', 'points', 'height', 'scene']
 
+class MapCornersLLAField(serializers.JSONField):
+  """Accept a parsed list or a JSON string (multipart form posts)."""
+
+  def to_internal_value(self, data):
+    if isinstance(data, str):
+      raw = data.strip()
+      if not raw:
+        return None
+      try:
+        data = json.loads(raw)
+      except json.JSONDecodeError:
+        self.fail('invalid')
+    return super().to_internal_value(data)
+
 class TransformSerializerField(serializers.DictField):
   def to_representation(self, obj):
     return obj.asDict
@@ -575,6 +590,11 @@ class SceneSerializer(NonNullSerializer):
   children = serializers.SerializerMethodField('get_children')
   map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z", required=False, allow_null=True)
   trs_matrix = serializers.SerializerMethodField('get_trs_matrix')
+  map_corners_lla = MapCornersLLAField(required=False, allow_null=True)
+  # Model BooleanFields use Yes/No choices; without an explicit BooleanField
+  # DRF treats them as ChoiceField and rejects multipart "true"/"false".
+  output_lla = serializers.BooleanField(required=False, allow_null=True)
+  use_tracker = serializers.BooleanField(required=False)
 
   def validate(self, attrs):
     if not self.initial_data:

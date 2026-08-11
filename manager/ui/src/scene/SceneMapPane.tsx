@@ -13,7 +13,10 @@ function refitMap(): void {
   }
 }
 
-/** Keep Snap mark canvas sized to the visible React map for trails overlay. */
+/**
+ * Marks stay in native map pixels on the Snap overlay. Match the React
+ * map's viewBox so resize only changes display scale, not coordinates.
+ */
 function syncSnapToReact(stage: HTMLElement): void {
   const reactSvg = stage.querySelector(
     "svg.ss-react-scene-map",
@@ -24,15 +27,17 @@ function syncSnapToReact(stage: HTMLElement): void {
   if (!reactSvg || !snap) {
     return;
   }
-  const w = reactSvg.clientWidth || reactSvg.getBoundingClientRect().width;
-  const h = reactSvg.clientHeight || reactSvg.getBoundingClientRect().height;
-  if (w < 8 || h < 8) {
-    return;
+  const vb = reactSvg.getAttribute("viewBox");
+  const par =
+    reactSvg.getAttribute("preserveAspectRatio") || "xMidYMid meet";
+  if (vb) {
+    snap.setAttribute("viewBox", vb);
   }
-  snap.setAttribute("width", String(Math.round(w)));
-  snap.setAttribute("height", String(Math.round(h)));
-  snap.style.width = `${Math.round(w)}px`;
-  snap.style.height = `${Math.round(h)}px`;
+  snap.setAttribute("preserveAspectRatio", par);
+  snap.removeAttribute("width");
+  snap.removeAttribute("height");
+  snap.style.width = "100%";
+  snap.style.height = "100%";
 }
 
 type Props = {
@@ -124,12 +129,13 @@ export function SceneMapPane({
         if (!useReactMap) {
           refitMap();
         } else {
-          const stage = host.querySelector(
+          const stageEl = host.querySelector(
             ".scene-map-stage",
           ) as HTMLElement | null;
-          if (stage) {
-            syncSnapToReact(stage);
+          if (stageEl) {
+            syncSnapToReact(stageEl);
           }
+          refitMap();
         }
       });
     };
@@ -166,6 +172,17 @@ export function SceneMapPane({
       }
     };
   }, [useReactMap]);
+
+  useEffect(() => {
+    if (!useReactMap || !hostReady) {
+      return;
+    }
+    const host = document.getElementById(LEGACY_MAP_IDS.host);
+    const stageEl = host?.querySelector(".scene-map-stage") as HTMLElement | null;
+    if (stageEl) {
+      syncSnapToReact(stageEl);
+    }
+  }, [useReactMap, hostReady, naturalSize]);
 
   const host = hostReady ? document.getElementById(LEGACY_MAP_IDS.host) : null;
   const stage =

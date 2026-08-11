@@ -186,46 +186,48 @@ SPDX-License-Identifier: Apache-2.0
         </div>
       {% endif %}
 
-      <div class="ss-theme-toggle-host">
-        <div
-          class="ss-theme-toggle"
-          id="ss-theme-toggle"
-          role="group"
-          aria-label="Color theme"
-        >
-          <button
-            type="button"
-            class="ss-theme-toggle__btn"
-            data-ss-theme="light"
-            aria-pressed="true"
+      <div class="ss-nav-trailing">
+        <div class="ss-theme-toggle-host">
+          <div
+            class="ss-theme-toggle"
+            id="ss-theme-toggle"
+            role="group"
+            aria-label="Color theme"
           >
-            Light
-          </button>
-          <button
-            type="button"
-            class="ss-theme-toggle__btn"
-            data-ss-theme="dark"
-            aria-pressed="false"
-          >
-            Dark
-          </button>
+            <button
+              type="button"
+              class="ss-theme-toggle__btn"
+              data-ss-theme="light"
+              aria-pressed="true"
+            >
+              Light
+            </button>
+            <button
+              type="button"
+              class="ss-theme-toggle__btn"
+              data-ss-theme="dark"
+              aria-pressed="false"
+            >
+              Dark
+            </button>
+          </div>
         </div>
-      </div>
 
-      <a
-        class="navbar-powered-by"
-        href="https://www.intel.com/"
-        target="_blank"
-        rel="noopener noreferrer"
-        title="Powered by Intel"
-      >
-        <span class="powered-by-label">Powered by</span>
-        <img
-          class="intel-logo"
-          src="{% static 'images/intel-logo.svg' %}"
-          alt="Intel"
-        />
-      </a>
+        <a
+          class="navbar-powered-by"
+          href="https://www.intel.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Powered by Intel"
+        >
+          <span class="powered-by-label">Powered by</span>
+          <img
+            class="intel-logo"
+            src="{% static 'images/intel-logo.svg' %}"
+            alt="Intel"
+          />
+        </a>
+      </div>
     </nav>
 
     <div class="container-fluid wrapper">

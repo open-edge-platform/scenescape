@@ -185,6 +185,27 @@ async function manageCalibrationState(msg, scene_id) {
   }
 }
 
+function parseTransformList(raw) {
+  if (raw == null) {
+    return [];
+  }
+  const text = String(raw).trim();
+  if (!text) {
+    return [];
+  }
+  if (text.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        return parsed.map(String);
+      }
+    } catch (err) {
+      /* fall through to CSV */
+    }
+  }
+  return text.split(",");
+}
+
 function initializeCalibrationSettings() {
   if ($(".cameraCal").length) {
     camera_calibration.initializeCamCanvas(
@@ -199,11 +220,23 @@ function initializeCalibrationSettings() {
     );
 
     const transformType = $("#id_transform_type").val();
-    const initialTransforms = $("#initial-id_transforms").val().split(",");
-    camera_calibration.addInitialCalibrationPoints(
-      initialTransforms,
-      transformType,
+    const initialTransforms = parseTransformList(
+      $("#initial-id_transforms").val() || $("#id_transforms").val(),
     );
+    const applyStoredPoints = () => {
+      camera_calibration.addInitialCalibrationPoints(
+        initialTransforms,
+        transformType,
+      );
+    };
+    const ready = camera_calibration.viewportReady;
+    if (ready && typeof ready.then === "function") {
+      ready.then(applyStoredPoints).catch((err) => {
+        console.error("Viewport failed to load stored calibration points", err);
+      });
+    } else {
+      applyStoredPoints();
+    }
 
     // Set up callbacks for buttons in the calibration interface
     camera_calibration.setupResetPointsButton();

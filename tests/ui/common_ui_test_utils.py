@@ -48,6 +48,52 @@ DEFAULT_SENSOR_TRIANGLE_HEIGHT = 600
 DEFAULT_SENSOR_TRIANGLE_LENGTH = 800
 DEFAULT_SENSOR_TRIANGLE_UPPER_LEFT_POINT = (-400, -300)
 BROWSER_WAIT = 5
+CALIBRATE_IFRAME = (
+  By.CSS_SELECTOR,
+  'iframe[title="Point calibrator"], .ss-workspace-cal-preview-frame iframe',
+)
+
+def enter_calibrate_workspace(browser, timeout=15):
+  """Switch into the React calibrate iframe when the 3D workspace is embedded."""
+  try:
+    if browser.find_elements(By.ID, "camera_img_canvas"):
+      return True
+  except Exception:
+    pass
+  browser.switch_to.default_content()
+  wait = WebDriverWait(browser, timeout)
+  try:
+    iframe = wait.until(EC.presence_of_element_located(CALIBRATE_IFRAME))
+    wait.until(
+      lambda drv: drv.execute_script(
+        """
+        const f = document.querySelector(
+          'iframe[title="Point calibrator"], .ss-workspace-cal-preview-frame iframe'
+        );
+        try {
+          return !!(f && f.contentDocument
+            && f.contentDocument.getElementById('camera_img_canvas'));
+        } catch (err) {
+          return false;
+        }
+        """
+      )
+    )
+    browser.switch_to.frame(iframe)
+    return True
+  except Exception as exc:
+    print(f"enter_calibrate_workspace: {exc}")
+    try:
+      return bool(browser.find_elements(By.ID, "camera_img_canvas"))
+    except Exception:
+      return False
+
+def leave_calibrate_workspace(browser):
+  """Return Selenium to the parent document after iframe work."""
+  try:
+    browser.switch_to.default_content()
+  except Exception:
+    pass
 
 def click_when_clickable(browser, locator, timeout_s=10):
   """Click an element after ensuring it is interactable and not obscured."""
@@ -580,6 +626,7 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
 
   browser.find_element(By.ID, 'cam_calibrate_1').click()
   wait = WebDriverWait(browser, BROWSER_WAIT)
+  enter_calibrate_workspace(browser)
   calibration_ready_script = """
     const calibration = window.camera_calibration;
     if (!calibration || !calibration.camCanvas || !calibration.viewport) {
@@ -668,8 +715,11 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
     )
     if save_calibration:
       calibration_form = browser.find_element(By.ID, "calibration_form")
-      browser.find_element(By.NAME, "calibrate_save").click()
+      browser.execute_script(
+        "const b=document.querySelector('[name=calibrate_save]'); if (b) b.click();"
+      )
       wait.until(EC.staleness_of(calibration_form))
+      leave_calibrate_workspace(browser)
       print("clicked 'Save Calibration' (fallback mode)")
     else:
       print("It has been chosen not to save the calibration changes.")
@@ -705,8 +755,11 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
   print("Changed the Camera Perspective")
   if save_calibration:
     calibration_form = browser.find_element(By.ID, "calibration_form")
-    browser.find_element(By.NAME, "calibrate_save").click()
+    browser.execute_script(
+      "const b=document.querySelector('[name=calibrate_save]'); if (b) b.click();"
+    )
     wait.until(EC.staleness_of(calibration_form))
+    leave_calibrate_workspace(browser)
     print("clicked 'Save Calibration'")
   else:
     print("It has been chosen not to save the calibration changes.")
@@ -715,6 +768,7 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
 def render_calibration_preview(browser, transforms_type='initial-id_transforms'):
   """Render deterministic calibration markers for screenshot comparison."""
   try:
+    enter_calibrate_workspace(browser)
     browser.execute_script(
       """
       const transformsId = arguments[0];
@@ -815,6 +869,7 @@ def check_cam_calibration(browser, not_expected_cam=(0, 0), not_expected_map=(0,
   """
   try:
     browser.find_element(By.ID,'cam_calibrate_1').click()
+    enter_calibrate_workspace(browser)
     cam_values_init = get_calibration_points(browser, 'camera')
     map_values_init = get_calibration_points(browser, 'map')
     if (cam_values_init[0] != not_expected_cam) and (map_values_init[0] != not_expected_map):
@@ -837,6 +892,7 @@ def check_calibration_initialization(browser, expected_cam_values, expected_map_
   calibration = True
   try:
     browser.find_element(By.ID,'cam_calibrate_1').click()
+    enter_calibrate_workspace(browser)
     cam_values_init = get_calibration_points(browser, 'camera')
     map_values_init = get_calibration_points(browser, 'map')
     for index in range(len(expected_cam_values)):
@@ -861,6 +917,7 @@ def get_calibration_points(browser, calibration_type, initial_transforms=True):
   @return   list                       List of calibration points represented as four pairs of float x, y values.
   """
   try:
+    enter_calibrate_workspace(browser)
     browser.execute_script("document.querySelectorAll('.display-none').forEach(e => {e.style.display = 'block';})")
     transforms_type = 'initial-id_transforms' if initial_transforms else 'id_transforms'
     init_id_transforms = browser.find_element(By.ID, transforms_type).get_attribute('value')

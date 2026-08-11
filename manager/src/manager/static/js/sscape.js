@@ -109,6 +109,55 @@ var scene_id = $("#scene").val();
 var icon_size = 24;
 var show_telemetry = false;
 var show_trails = false;
+
+function cameraPreviewIsLive(sensorId) {
+  if (!sensorId) {
+    return false;
+  }
+  var escaped =
+    typeof CSS !== "undefined" && CSS.escape
+      ? CSS.escape(String(sensorId))
+      : String(sensorId);
+  var img =
+    document.querySelector("[data-ss-card-sensor=\"" + escaped + "\"]") ||
+    document.getElementById("card-preview-" + sensorId);
+  if (!img || img.classList.contains("display-none")) {
+    return false;
+  }
+  var src = img.currentSrc || img.getAttribute("src") || "";
+  if (!src || src.indexOf("offline.png") !== -1) {
+    return false;
+  }
+  return img.naturalWidth > 0 || src.indexOf("data:image") === 0;
+}
+
+function applyCameraRate(sensorId, rateText) {
+  if (!cameraPreviewIsLive(sensorId)) {
+    return false;
+  }
+  var rateEl = document.getElementById("rate-" + sensorId);
+  var rateFilmEl = document.getElementById("rate-film-" + sensorId);
+  if (rateEl) {
+    rateEl.innerText = rateText;
+    rateEl.classList.remove("telemetry-hide");
+  }
+  if (rateFilmEl) {
+    rateFilmEl.innerText = rateText;
+    rateFilmEl.classList.remove("telemetry-hide");
+  }
+  if (
+    window.ssSceneTelemetry &&
+    typeof window.ssSceneTelemetry.setCameraRate === "function"
+  ) {
+    window.ssSceneTelemetry.setCameraRate(sensorId, rateText);
+  }
+  window.dispatchEvent(
+    new CustomEvent("ss-camera-rate", {
+      detail: { sensorId: sensorId, text: rateText },
+    }),
+  );
+  return true;
+}
 var scene_y_max = 480; // Scene image height in SVG user units
 var scene_map_width = 0; // Scene image width in SVG user units
 var savedElements = [];
@@ -171,13 +220,44 @@ function svgPointerToScene(e) {
   ];
 }
 
-function fitSceneMapDisplay() {
-  var svg = document.getElementById("svgout");
-  var stage = document.querySelector(".scene-map-stage");
-  if (!svg || !stage || !isSceneDetailMap()) {
+function syncReactMapOverlay() {
+  var reactSvg = document.querySelector("svg.ss-react-scene-map");
+  var snap = document.querySelector("svg.ss-snap-legacy, svg#svgout-snap");
+  if (!reactSvg || !snap) {
     return;
   }
-  if (!scene_map_width || !scene_y_max) {
+  var vb =
+    reactSvg.getAttribute("viewBox") ||
+    (scene_map_width && scene_y_max
+      ? "0 0 " + scene_map_width + " " + scene_y_max
+      : "");
+  var par =
+    reactSvg.getAttribute("preserveAspectRatio") || "xMidYMid meet";
+  if (vb) {
+    snap.setAttribute("viewBox", vb);
+  }
+  snap.setAttribute("preserveAspectRatio", par);
+  snap.removeAttribute("width");
+  snap.removeAttribute("height");
+  snap.style.width = "100%";
+  snap.style.height = "100%";
+}
+
+function fitSceneMapDisplay() {
+  var stage = document.querySelector(".scene-map-stage");
+  if (!stage || !isSceneDetailMap()) {
+    return;
+  }
+
+  // React map fills the stage; marks live on the Snap overlay. Both must
+  // share the same viewBox so resize only changes display scale.
+  if (document.body.classList.contains("ss-use-react-map")) {
+    syncReactMapOverlay();
+    return;
+  }
+
+  var svg = document.getElementById("svgout");
+  if (!svg || !scene_map_width || !scene_y_max) {
     return;
   }
 
@@ -420,31 +500,14 @@ async function checkBrokerConnections() {
 
       if (topic.includes(DATA_REGULATED)) {
         if (show_telemetry) {
-          // Show the FPS for each camera (never throw — would skip plot())
+          // Show the FPS for each camera that currently has a live preview.
+          // scene.rate is a sticky cache and still lists cameras that went offline.
           if (msg.rate && typeof msg.rate === "object") {
             for (const [key, value] of Object.entries(msg.rate)) {
-              var rateEl = document.getElementById("rate-" + key);
-              var rateFilmEl = document.getElementById("rate-film-" + key);
               var fps = Number(value);
               var rateText =
                 (Number.isFinite(fps) ? fps.toFixed(2) : "--") + " FPS";
-              if (rateEl) {
-                rateEl.innerText = rateText;
-              }
-              if (rateFilmEl) {
-                rateFilmEl.innerText = rateText;
-              }
-              if (
-                window.ssSceneTelemetry &&
-                typeof window.ssSceneTelemetry.setCameraRate === "function"
-              ) {
-                window.ssSceneTelemetry.setCameraRate(key, rateText);
-              }
-              window.dispatchEvent(
-                new CustomEvent("ss-camera-rate", {
-                  detail: { sensorId: key, text: rateText },
-                }),
-              );
+              applyCameraRate(key, rateText);
             }
           }
 
@@ -520,7 +583,9 @@ async function checkBrokerConnections() {
       } else if (topic.includes("singleton")) {
         plotSingleton(msg);
       } else if (topic.includes(IMAGE_CALIBRATE)) {
-        updateCalibrationView(msg);
+        if (window.camera_calibration?.camCanvas) {
+          updateCalibrationView(msg);
+        }
       } else if (topic.includes(IMAGE_CAMERA)) {
         // Skip processing regular camera images on calibration page
         if (window.location.href.includes("/cam/calibrate/")) {
@@ -558,21 +623,12 @@ async function checkBrokerConnections() {
         }
       } else if (topic.includes(DATA_CAMERA)) {
         var id = topic.slice(topic.lastIndexOf("/") + 1);
-        var camFps = Number(msg.rate);
-        var camRateText =
-          (Number.isFinite(camFps) ? camFps.toFixed(2) : "--") + " FPS";
-        $("#rate-" + id + ", #rate-film-" + id).text(camRateText);
-        if (
-          window.ssSceneTelemetry &&
-          typeof window.ssSceneTelemetry.setCameraRate === "function"
-        ) {
-          window.ssSceneTelemetry.setCameraRate(id, camRateText);
+        if (show_telemetry) {
+          var camFps = Number(msg.rate);
+          var camRateText =
+            (Number.isFinite(camFps) ? camFps.toFixed(2) : "--") + " FPS";
+          applyCameraRate(id, camRateText);
         }
-        window.dispatchEvent(
-          new CustomEvent("ss-camera-rate", {
-            detail: { sensorId: id, text: camRateText },
-          }),
-        );
         $("#updated-" + id).text(msg.timestamp);
       } else if (topic.includes("/child/status")) {
         var child = topic.slice(topic.lastIndexOf("/") + 1);
@@ -2642,7 +2698,7 @@ $(document).ready(function () {
     show_telemetry = $(this).is(":checked");
     if (!show_telemetry) {
       $("#scene-rate").text("--");
-      $(".rate").text("--");
+      $(".rate").text("--").addClass("telemetry-hide");
       if (
         window.ssSceneTelemetry &&
         typeof window.ssSceneTelemetry.clearRates === "function"
@@ -2662,6 +2718,9 @@ $(document).ready(function () {
     } else {
       document.querySelectorAll(".mark-tooltip").forEach(function (el) {
         el.classList.remove("telemetry-hide");
+      });
+      document.querySelectorAll(".rate").forEach(function (el) {
+        el.classList.add("telemetry-hide");
       });
     }
   });

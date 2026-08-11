@@ -39,6 +39,7 @@ class CamCanvas {
     this.startY = 0;
     this.draggingPoint = null;
     this.calibrationUpdated = false;
+    this.pointEdited = false;
     this.viewInitialized = false;
     this.userAdjustedView = false;
     this.lastImageWidth = 0;
@@ -214,6 +215,7 @@ class CamCanvas {
         event.clientY,
       );
       this.calibrationUpdated = true;
+      this.pointEdited = true;
       this.drawImage();
     }
   }
@@ -283,6 +285,8 @@ class CamCanvas {
         const numB = parseInt(b.replace(/\D/g, ""));
         return numA - numB;
       });
+      this.calibrationUpdated = true;
+      this.pointEdited = true;
       this.drawImage();
     }
   }
@@ -398,6 +402,7 @@ class CamCanvas {
       name: name,
     });
     this.calibrationUpdated = true;
+    this.pointEdited = true;
   }
 
   clearCalibrationPoints() {
@@ -406,6 +411,14 @@ class CamCanvas {
     for (let i = 0; i < MAX_CALIBRATION_POINTS; i++) {
       this.calibrationPointNames.push(`p${i}`);
     }
+    this.calibrationUpdated = true;
+    this.pointEdited = true;
+  }
+
+  consumePointEdit() {
+    const edited = this.pointEdited;
+    this.pointEdited = false;
+    return edited;
   }
 
   getCalibrationPoints() {

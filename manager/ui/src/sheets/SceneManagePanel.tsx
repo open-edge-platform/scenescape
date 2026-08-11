@@ -7,7 +7,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { WorkspacePanel } from "../components/WorkspacePanel";
+import { Drawer } from "../components/Drawer";
 import { FormSection } from "../components/FormSection";
 import { TextField } from "../components/TextField";
 import { SelectField } from "../components/SelectField";
@@ -20,6 +20,10 @@ import {
   pollMeshStatus,
   startMeshGeneration,
 } from "../lib/meshGeneration";
+import {
+  GeospatialMapPicker,
+} from "./GeospatialMapPicker";
+import type { GeospatialApplyResult } from "../lib/geospatialLoader";
 
 type Props = {
   open: boolean;
@@ -54,6 +58,13 @@ function boolStr(v: unknown, fallback: "true" | "false"): "true" | "false" {
     return "false";
   }
   return fallback;
+}
+
+/** Django/DRF BooleanField+choices only matches str(True)/str(False). */
+function formChoiceBool(value: string | boolean): "True" | "False" {
+  return value === true || value === "true" || value === "True"
+    ? "True"
+    : "False";
 }
 
 function vec3From(
@@ -117,6 +128,8 @@ export function SceneManagePanel({
   const [mapType, setMapType] = useState("map_upload");
   const [scale, setScale] = useState("100");
   const [mapFile, setMapFile] = useState<File | null>(null);
+  const [mapSnapshotName, setMapSnapshotName] = useState<string | null>(null);
+  const [geoPickerOpen, setGeoPickerOpen] = useState(false);
 
   const [useTracker, setUseTracker] = useState<"true" | "false">("true");
   const [regulatedRate, setRegulatedRate] = useState("30");
@@ -228,6 +241,9 @@ export function SceneManagePanel({
         setName(str(s.name));
         setMapType(str(s.map_type, "map_upload"));
         setScale(s.scale != null ? str(s.scale) : "100");
+        setMapFile(null);
+        setMapSnapshotName(null);
+        setGeoPickerOpen(false);
         setUseTracker(boolStr(s.use_tracker, "true"));
         setRegulatedRate(s.regulated_rate != null ? str(s.regulated_rate) : "30");
         setExternalUpdateRate(
@@ -368,14 +384,14 @@ export function SceneManagePanel({
     if (scale.trim()) {
       form.append("scale", scale.trim());
     }
-    form.append("use_tracker", useTracker);
+    form.append("use_tracker", formChoiceBool(useTracker));
     if (regulatedRate.trim()) {
       form.append("regulated_rate", regulatedRate.trim());
     }
     if (externalUpdateRate.trim()) {
       form.append("external_update_rate", externalUpdateRate.trim());
     }
-    form.append("output_lla", outputLla);
+    form.append("output_lla", formChoiceBool(outputLla));
     if (mapCornersLla.trim()) {
       form.append("map_corners_lla", mapCornersLla.trim());
     }
@@ -463,11 +479,72 @@ export function SceneManagePanel({
     }
   };
 
+  const applyGeospatialPosition = async (result: GeospatialApplyResult) => {
+    setScale(result.scale || scale);
+    setMapCornersLla(result.mapCornersLla);
+    setOutputLla(result.outputLla);
+    setGeospatialProvider(result.geospatialProvider);
+    setMapZoom(result.mapZoom);
+    setMapCenterLat(result.mapCenterLat);
+    setMapCenterLng(result.mapCenterLng);
+    setMapBearing(result.mapBearing);
+    setMapType("geospatial_map");
+    setMapSnapshotName(result.mapFilename);
+    markDirty();
+
+    setBusy(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("name", name.trim() || "Scene");
+      form.append("map_type", "geospatial_map");
+      form.append("scale", result.scale || scale || "100");
+      form.append("output_lla", formChoiceBool(true));
+      form.append("map_corners_lla", result.mapCornersLla);
+      form.append("geospatial_provider", result.geospatialProvider);
+      if (result.mapZoom) {
+        form.append("map_zoom", result.mapZoom);
+      }
+      if (result.mapCenterLat) {
+        form.append("map_center_lat", result.mapCenterLat);
+      }
+      if (result.mapCenterLng) {
+        form.append("map_center_lng", result.mapCenterLng);
+      }
+      if (result.mapBearing) {
+        form.append("map_bearing", result.mapBearing);
+      }
+      const snapRes = await fetch(result.mapMediaUrl, { credentials: "same-origin" });
+      if (!snapRes.ok) {
+        throw new Error("Could not download generated map snapshot");
+      }
+      const blob = await snapRes.blob();
+      form.append(
+        "map",
+        new File([blob], result.mapFilename || "geospatial_map.png", {
+          type: blob.type || "image/png",
+        }),
+      );
+      await api.updateScene(authToken, sceneId, form);
+      toast.show("Geospatial map positioned and saved", "ok");
+      setDirty(false);
+      onSaved();
+    } catch (err) {
+      const re = err as RestError & { message?: string };
+      const msg = re.message || "Failed to save geospatial map";
+      setError(msg);
+      throw new Error(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <WorkspacePanel
+    <>
+    <Drawer
       open={open}
-      title="Manage Scene"
-      layout="form"
+      title="Edit Scene"
+      wide
       dirty={dirty}
       onClose={onClose}
       actions={
@@ -499,7 +576,7 @@ export function SceneManagePanel({
     >
       <FormShell
         id={FORM_ID}
-        className="ss-workspace-panel-form ss-workspace-panel-form--bleed"
+        className="ss-drawer-form"
         error={error}
         hint={loading ? "Loading scene…" : null}
         busy={busy || loading}
@@ -552,26 +629,50 @@ export function SceneManagePanel({
             }}
             disabled={busy}
           />
-          <div className="ss-text-field">
-            <label
-              className="ss-text-field-label"
-              htmlFor="ss-scene-manage-map-file"
-            >
-              Map file
-            </label>
-            <div className="ss-text-field-control">
-              <input
-                id="ss-scene-manage-map-file"
-                type="file"
-                accept="image/*,.pdf,.svg,.glb,.gltf,.ply,.zip,video/*"
-                disabled={busy}
-                onChange={(ev) => {
-                  setMapFile(ev.target.files?.[0] || null);
-                  markDirty();
-                }}
-              />
+          {mapType === "map_upload" ? (
+            <div className="ss-text-field">
+              <label
+                className="ss-text-field-label"
+                htmlFor="ss-scene-manage-map-file"
+              >
+                Map file
+              </label>
+              <div className="ss-text-field-control">
+                <input
+                  id="ss-scene-manage-map-file"
+                  type="file"
+                  accept="image/*,.pdf,.svg,.glb,.gltf,.ply,.zip,video/*"
+                  disabled={busy}
+                  onChange={(ev) => {
+                    setMapFile(ev.target.files?.[0] || null);
+                    setMapSnapshotName(null);
+                    markDirty();
+                  }}
+                />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="ss-text-field ss-form-section--span-2">
+              <span className="ss-text-field-label">Geospatial basemap</span>
+              <div className="ss-text-field-control" style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  disabled={busy || loading}
+                  onClick={() => setGeoPickerOpen(true)}
+                >
+                  Position map
+                </Button>
+                <span className="ss-workspace-panel-hint" style={{ margin: 0 }}>
+                  {mapSnapshotName
+                    ? `Positioned: ${mapSnapshotName}`
+                    : mapCornersLla.trim()
+                      ? "Corners set — open the map to reposition"
+                      : "Open a floating Mapbox / Google view to frame the scene"}
+                </span>
+              </div>
+            </div>
+          )}
         </FormSection>
 
         <FormSection
@@ -925,6 +1026,17 @@ export function SceneManagePanel({
           />
         </FormSection>
       </FormShell>
-    </WorkspacePanel>
+    </Drawer>
+    <GeospatialMapPicker
+      open={open && geoPickerOpen}
+      provider={geospatialProvider}
+      mapZoom={mapZoom}
+      mapCenterLat={mapCenterLat}
+      mapCenterLng={mapCenterLng}
+      mapBearing={mapBearing}
+      onClose={() => setGeoPickerOpen(false)}
+      onApply={applyGeospatialPosition}
+    />
+    </>
   );
 }

@@ -2,14 +2,108 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import hashlib
+import json
 import os
 
 from django import forms
+from django.conf import settings
 from django.db.models import Q
 from django.forms import ModelForm
 
-from manager.models import Scene, SceneImport, ChildScene
+from manager.models import Scene, SceneImport, Cam, ChildScene
 from manager.validators import validate_zip_file
+from scene_common.cam_fields import (
+    CAM_FORM_FIELDS, CAM_FORM_ONLY_FIELDS,
+    CAM_KUBERNETES_FIELDS, CAM_ADVANCED_FIELDS
+)
+
+class CamCalibrateForm(forms.ModelForm):
+  class Meta:
+    model = Cam
+    fields = CAM_FORM_FIELDS
+
+  def __init__(self, *args, **kwargs):
+    self.advanced_fields = CAM_ADVANCED_FIELDS
+    self.unsupported_fields = CAM_FORM_ONLY_FIELDS
+    self.kubernetes_fields = CAM_KUBERNETES_FIELDS + CAM_ADVANCED_FIELDS
+    super().__init__(*args, **kwargs)
+
+    # Set defaults
+    if 'cv_subsystem' in self.fields:
+      self.fields['cv_subsystem'].empty_label = None
+      if not self.instance.pk or not self.instance.cv_subsystem:
+        self.fields['cv_subsystem'].initial = 'AUTO'
+    if not self.instance.pk and not self.fields['modelconfig'].initial:
+      self.fields['modelconfig'].initial = 'model_config.json'
+
+    # TODO: enable undistort element when DLSPS image has cameraundistort
+    self.fields['undistort'].widget = forms.CheckboxInput(attrs={'disabled': True})
+    if not self.instance.pk:
+      self.fields['undistort'].initial = False
+
+    # Configure use_camera_pipeline as a checkbox
+    if 'use_camera_pipeline' in self.fields:
+      self.fields['use_camera_pipeline'].widget = forms.CheckboxInput()
+      if not self.instance.pk:
+        self.fields['use_camera_pipeline'].initial = False
+
+    for field in self.unsupported_fields:
+      del self.fields[field]
+    if not settings.KUBERNETES_SERVICE_HOST:
+      for field in self.kubernetes_fields:
+        del self.fields[field]
+      self.fields['distortion_k1'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_k2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_p1'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_p2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+      self.fields['distortion_k3'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
+    self.fields['intrinsics_cx'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
+    self.fields['intrinsics_cy'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
+    self.fields['transform_type'].widget = forms.HiddenInput()
+    self.fields['transforms'].widget = forms.HiddenInput()
+    if self.instance.pk and self.instance.transforms:
+      csv = ','.join(str(v) for v in self.instance.transforms)
+      self.initial['transforms'] = csv
+    self.fields['sensor_id'].label = "Camera ID"
+    if settings.KUBERNETES_SERVICE_HOST:
+      self.fields['camera_pipeline'].widget = forms.Textarea(attrs={
+          'rows': 6,
+          'cols': 80,
+          'style': 'resize: vertical; white-space: pre-wrap; word-wrap: break-word;',
+          'placeholder': 'Camera pipeline will be generated automatically when you click "Generate Pipeline Preview" button or save the form.'
+      })
+      self.fields['detection_labels'].widget = forms.Textarea(attrs={
+          'rows': 6,
+          'cols': 50,
+          'placeholder': 'car\npedestrian\ntrolley'
+      })
+
+  def clean_transforms(self):
+    value = self.cleaned_data.get('transforms')
+    if value is None or value == '' or value == []:
+      return []
+    items = value
+    if isinstance(value, str):
+      raw = value.strip()
+      if not raw:
+        return []
+      if raw.startswith('['):
+        try:
+          parsed = json.loads(raw)
+        except json.JSONDecodeError:
+          parsed = []
+        items = parsed if isinstance(parsed, list) else []
+      else:
+        items = [piece.strip() for piece in raw.split(',') if piece.strip()]
+    if not isinstance(items, list):
+      return []
+    result = []
+    for item in items:
+      try:
+        result.append(float(item))
+      except (TypeError, ValueError):
+        continue
+    return result
 
 class ROIForm(forms.Form):
   rois = forms.CharField()

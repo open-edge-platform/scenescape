@@ -36,7 +36,9 @@ class Viewport extends THREE.Scene {
     this.sceneMesh = null;
     this.floorWidth = null;
     this.floorHeight = null;
-    this.sceneScale = scale;
+    const parsedScale = parseFloat(scale);
+    this.sceneScale =
+      Number.isFinite(parsedScale) && parsedScale > 0 ? parsedScale : 100;
     this.restClient = new RESTClient(REST_URL, authToken);
     this.canvas = canvas;
     this.gltfLoader = gltfLoader;
@@ -46,6 +48,7 @@ class Viewport extends THREE.Scene {
 
     this.isDragging = false;
     this.calibrationUpdated = false;
+    this.pointEdited = false;
     this.draggingPoint = null;
 
     this.projectedMaterial = null;
@@ -163,6 +166,7 @@ class Viewport extends THREE.Scene {
         if (isMeshToProjectOn(intersect)) {
           this.draggingPoint.position.copy(intersect.point);
           this.calibrationUpdated = true;
+          this.pointEdited = true;
           return;
         }
       }
@@ -217,6 +221,8 @@ class Viewport extends THREE.Scene {
           const numB = parseInt(b.replace(/\D/g, ""));
           return numA - numB;
         });
+        this.calibrationUpdated = true;
+        this.pointEdited = true;
         return;
       }
     }
@@ -244,6 +250,7 @@ class Viewport extends THREE.Scene {
     this.#updateObjectScale(pointMesh, scaleFactor);
     this.add(pointMesh);
     this.calibrationUpdated = true;
+    this.pointEdited = true;
 
     this.drawObject
       .createTextObject(name, TEXT_POSITION, CALIBRATION_TEXT_SIZE)
@@ -272,6 +279,44 @@ class Viewport extends THREE.Scene {
     for (let i = 0; i < MAX_CALIBRATION_POINTS; i++) {
       this.calibrationPointNames.push(`p${i}`);
     }
+    this.calibrationUpdated = true;
+    this.pointEdited = true;
+  }
+
+  consumePointEdit() {
+    const edited = this.pointEdited;
+    this.pointEdited = false;
+    return edited;
+  }
+
+  frameCalibrationPoints() {
+    const points = this.children.filter((child) =>
+      child.name.startsWith("calibrationPoint_"),
+    );
+    if (!points.length || !this.orbitControls) {
+      return;
+    }
+    const box = new THREE.Box3();
+    points.forEach((point) => box.expandByPoint(point.position));
+    if (box.isEmpty()) {
+      return;
+    }
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+    const span = Math.max(size.x, size.y, size.z, 0.5);
+    const dist =
+      (span / 2) /
+      Math.tan(THREE.MathUtils.degToRad(this.perspectiveCamera.fov / 2));
+    this.perspectiveCamera.position.set(
+      center.x,
+      center.y,
+      Math.max(dist * 1.6, 1.5),
+    );
+    this.orbitControls.target.set(center.x, center.y, center.z);
+    this.orbitControls.update();
+    this.updateCalibrationPointScale();
   }
 
   getCalibrationPointCount() {

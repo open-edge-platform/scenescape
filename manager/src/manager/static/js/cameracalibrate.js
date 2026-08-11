@@ -144,6 +144,37 @@ window.addEventListener("message", (ev) => {
   }
 });
 
+function notifyParentPointsChanged() {
+  if (!window.parent || window.parent === window) {
+    return;
+  }
+  if (!document.body.classList.contains("ss-embed")) {
+    return;
+  }
+  window.parent.postMessage(
+    { type: "ss-calibrate-points-changed" },
+    window.location.origin,
+  );
+}
+
+function waitForCanvasLayout(canvas, timeoutMs = 3000) {
+  return new Promise((resolve) => {
+    const started = performance.now();
+    const tick = () => {
+      if (canvas && canvas.clientWidth > 2 && canvas.clientHeight > 2) {
+        resolve();
+        return;
+      }
+      if (performance.now() - started > timeoutMs) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
 function applyParentOptics(data) {
   const inn = data.intrinsics || {};
   const dist = data.distortion || {};
@@ -267,11 +298,23 @@ export class ConvergedCameraCalibration {
     this.camCanvas = new CamCanvas(canvasElement, imageSrc);
     // FIXME: Find a better way to do these event listeners which require interacting with both
     // the camCanvas and viewport
-    this.camCanvas.canvas.addEventListener("mouseup", (event) => {
-      this.calculateCalibrationIntrinsics();
+    this.camCanvas.canvas.addEventListener("mouseup", () => {
+      if (this.camCanvas.consumePointEdit()) {
+        this.calculateCalibrationIntrinsics();
+        notifyParentPointsChanged();
+      }
     });
-    this.camCanvas.canvas.addEventListener("dblclick", (event) => {
-      this.calculateCalibrationIntrinsics();
+    this.camCanvas.canvas.addEventListener("dblclick", () => {
+      if (this.camCanvas.consumePointEdit()) {
+        this.calculateCalibrationIntrinsics();
+        notifyParentPointsChanged();
+      }
+    });
+    this.camCanvas.canvas.addEventListener("contextmenu", () => {
+      if (this.camCanvas.consumePointEdit()) {
+        this.calculateCalibrationIntrinsics();
+        notifyParentPointsChanged();
+      }
     });
     this.camCanvas.canvas.addEventListener("mousemove", (event) => {
       if (this.camCanvas.isDragging) {
@@ -297,11 +340,11 @@ export class ConvergedCameraCalibration {
     );
     this.viewport = viewport;
 
-    viewport
+    this.viewportReady = viewport
       .loadMap()
+      .then(() => viewport.initializeScene())
+      .then(() => waitForCanvasLayout(viewport.renderer.domElement))
       .then(() => {
-        viewport.initializeScene();
-
         function animate() {
           if (resizeRendererToDisplaySize(viewport.renderer)) {
             const canvas = viewport.renderer.domElement;
@@ -317,17 +360,27 @@ export class ConvergedCameraCalibration {
         }
 
         animate();
-      })
-      .then(() => {
         viewport.initializeEventListeners();
 
-        viewport.renderer.domElement.addEventListener("mouseup", (event) => {
-          this.calculateCalibrationIntrinsics();
+        viewport.renderer.domElement.addEventListener("mouseup", () => {
+          if (viewport.consumePointEdit()) {
+            this.calculateCalibrationIntrinsics();
+            notifyParentPointsChanged();
+          }
         });
-        viewport.renderer.domElement.addEventListener("dblclick", (event) => {
-          this.calculateCalibrationIntrinsics();
+        viewport.renderer.domElement.addEventListener("dblclick", () => {
+          if (viewport.consumePointEdit()) {
+            this.calculateCalibrationIntrinsics();
+            notifyParentPointsChanged();
+          }
         });
-        viewport.renderer.domElement.addEventListener("mousemove", (event) => {
+        viewport.renderer.domElement.addEventListener("contextmenu", () => {
+          if (viewport.consumePointEdit()) {
+            this.calculateCalibrationIntrinsics();
+            notifyParentPointsChanged();
+          }
+        });
+        viewport.renderer.domElement.addEventListener("mousemove", () => {
           if (viewport.isDragging) {
             this.projectionEnabled = false;
           }
@@ -496,35 +549,66 @@ export class ConvergedCameraCalibration {
     }
   }
 
+  #placeSceneCalibrationPoint(x, y, z) {
+    let px = x;
+    let py = y;
+    let pz = z;
+    const floorW = this.viewport.floorWidth || 0;
+    const floorH = this.viewport.floorHeight || 0;
+    const scale = this.viewport.sceneScale || 100;
+    // Stored map points are meters. Legacy / mistaken pixel values sit far
+    // outside the floor and must be converted.
+    if (
+      floorW > 0 &&
+      floorH > 0 &&
+      (Math.abs(px) > floorW * 1.5 || Math.abs(py) > floorH * 1.5)
+    ) {
+      px /= scale;
+      py /= scale;
+      pz /= scale;
+    }
+    this.viewport.addCalibrationPoint(px, py, pz);
+  }
+
   addInitialCalibrationPoints(points, transformType) {
-    if (transformType !== "3d-2d point correspondence") {
+    const kind = String(transformType || "").trim();
+    if (kind && kind !== "3d-2d point correspondence") {
       return;
     }
-    if (points.length % 5 === 0) {
-      const splitPoint = (points.length / 5) * 2;
+    const values = points
+      .map((value) => parseFloat(value))
+      .filter((value) => Number.isFinite(value));
+    if (values.length % 5 === 0) {
+      const splitPoint = (values.length / 5) * 2;
       for (let i = 0; i < splitPoint; i += 2) {
-        const x = parseFloat(points[i]);
-        const y = parseFloat(points[i + 1]);
-        this.camCanvas.addCalibrationPoint(x, y);
+        this.camCanvas.addCalibrationPoint(values[i], values[i + 1]);
       }
-      for (let i = splitPoint; i < points.length; i += 3) {
-        const x = parseFloat(points[i]);
-        const y = parseFloat(points[i + 1]);
-        const z = parseFloat(points[i + 2]);
-        this.viewport.addCalibrationPoint(x, y, z);
+      for (let i = splitPoint; i < values.length; i += 3) {
+        this.#placeSceneCalibrationPoint(
+          values[i],
+          values[i + 1],
+          values[i + 2],
+        );
       }
-    } else if (points.length % 2 === 0) {
-      const splitPoint = points.length / 2;
+    } else if (values.length % 2 === 0) {
+      const splitPoint = values.length / 2;
       for (let i = 0; i < splitPoint; i += 2) {
-        const x = parseFloat(points[i]);
-        const y = parseFloat(points[i + 1]);
-        this.camCanvas.addCalibrationPoint(x, y);
+        this.camCanvas.addCalibrationPoint(values[i], values[i + 1]);
       }
-      for (let i = splitPoint; i < points.length; i += 2) {
-        const x = parseFloat(points[i]);
-        const y = parseFloat(points[i + 1]);
-        this.viewport.addCalibrationPoint(x, y, 0);
+      for (let i = splitPoint; i < values.length; i += 2) {
+        this.#placeSceneCalibrationPoint(values[i], values[i + 1], 0);
       }
+    }
+    if (this.camCanvas) {
+      this.camCanvas.calibrationUpdated = false;
+      this.camCanvas.pointEdited = false;
+      this.camCanvas.drawImage();
+    }
+    if (this.viewport) {
+      this.viewport.calibrationUpdated = false;
+      this.viewport.pointEdited = false;
+      this.viewport.updateCalibrationPointScale();
+      this.viewport.frameCalibrationPoints();
     }
   }
 
@@ -542,12 +626,14 @@ export class ConvergedCameraCalibration {
         map_coord[2],
       );
     }
+    notifyParentPointsChanged();
   }
 
   clearCalibrationPoints() {
     this.camCanvas.clearCalibrationPoints();
     this.viewport.clearCalibrationPoints();
     this.projectionEnabled = false;
+    notifyParentPointsChanged();
   }
 
   setupResetPointsButton() {

@@ -6,6 +6,7 @@ import type { WorkspaceLayout } from "./useWorkspaceLayout";
 
 const SIZE_KEY = "ss-workspace-panel-size";
 const FOCUS_KEY = "ss-workspace-map-focus";
+export const CAL_PANEL_SIZE_KEY = "ss-cal-panel-size";
 
 const DEFAULT_STACK_PX = 224;
 const DEFAULT_ROW_PX = 320;
@@ -23,9 +24,9 @@ function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
 }
 
-function readSizes(): StoredSizes {
+function readSizes(storageKey: string): StoredSizes {
   try {
-    const raw = window.localStorage.getItem(SIZE_KEY);
+    const raw = window.localStorage.getItem(storageKey);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<StoredSizes>;
       return {
@@ -47,9 +48,9 @@ function readSizes(): StoredSizes {
   return { stack: DEFAULT_STACK_PX, row: DEFAULT_ROW_PX };
 }
 
-function writeSizes(sizes: StoredSizes): void {
+function writeSizes(storageKey: string, sizes: StoredSizes): void {
   try {
-    window.localStorage.setItem(SIZE_KEY, JSON.stringify(sizes));
+    window.localStorage.setItem(storageKey, JSON.stringify(sizes));
   } catch {
     /* ignore */
   }
@@ -81,19 +82,29 @@ export type WorkspaceDensityState = {
   maxPx: number;
 };
 
+type DensityOptions = {
+  /** Persist stack/row sizes under this key (scene vs calibrate). */
+  storageKey?: string;
+  /** Map-only focus + Escape. Off for calibrate overlays. */
+  enableFocus?: boolean;
+};
+
 /**
  * Persisted inspector size + map-only focus for the scene workspace.
  */
 export function useWorkspaceDensity(
   layout: WorkspaceLayout,
+  options: DensityOptions = {},
 ): WorkspaceDensityState {
+  const storageKey = options.storageKey ?? SIZE_KEY;
+  const enableFocus = options.enableFocus !== false;
   const [sizes, setSizes] = useState<StoredSizes>(() =>
     typeof window !== "undefined"
-      ? readSizes()
+      ? readSizes(storageKey)
       : { stack: DEFAULT_STACK_PX, row: DEFAULT_ROW_PX },
   );
   const [mapFocus, setMapFocusState] = useState(() =>
-    typeof window !== "undefined" ? readFocus() : false,
+    typeof window !== "undefined" && enableFocus ? readFocus() : false,
   );
 
   const minPx = layout === "stack" ? MIN_STACK_PX : MIN_ROW_PX;
@@ -108,11 +119,11 @@ export function useWorkspaceDensity(
           layout === "stack"
             ? { ...prev, stack: next }
             : { ...prev, row: next };
-        writeSizes(updated);
+        writeSizes(storageKey, updated);
         return updated;
       });
     },
-    [layout, minPx, maxPx],
+    [layout, minPx, maxPx, storageKey],
   );
 
   const setMapFocus = useCallback((v: boolean) => {
@@ -129,6 +140,9 @@ export function useWorkspaceDensity(
   }, []);
 
   useEffect(() => {
+    if (!enableFocus) {
+      return;
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && mapFocus) {
         setMapFocus(false);
@@ -136,7 +150,7 @@ export function useWorkspaceDensity(
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [mapFocus, setMapFocus]);
+  }, [enableFocus, mapFocus, setMapFocus]);
 
   return {
     panelSizePx,

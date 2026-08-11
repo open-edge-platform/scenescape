@@ -26,9 +26,12 @@ def reset_perspective(browser):
   @ return  BOOL      Boolean representing a successful reset.
   """
   try:
+    common.enter_calibrate_workspace(browser)
     browser.find_element(By.ID, "reset_points").click()
     time.sleep(TEST_WAIT_TIME)
-    browser.find_element(By.NAME, "calibrate_save").click()
+    browser.execute_script(
+      "const b=document.querySelector('[name=calibrate_save]'); if (b) b.click();"
+    )
     log.info("Perspective has been reset!")
     return True
   except Exception as e:

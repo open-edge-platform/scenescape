@@ -214,6 +214,22 @@ class TestCameraViews(TestCase):
     self.assertEqual(response.url, reverse('cam_list'))
     return
 
+  def test_camera_calibrate_embed_renders_3d_workspace(self):
+    cam = Cam.objects.get(sensor_id="1")
+    response = self.client.get(f'/cam/calibrate/{cam.pk}?embed=1')
+    self.assertEqual(response.status_code, 200)
+    self.assertContains(response, 'id="camera_img_canvas"')
+    self.assertContains(response, 'id="map_canvas_3D"')
+    self.assertContains(response, 'id="initial-id_transforms"')
+    return
+
+  def test_camera_calibrate_embed_orphan_redirects_to_list(self):
+    orphan = Cam.objects.create(sensor_id="3", name="orphan_embed", scene=None)
+    response = self.client.get(f'/cam/calibrate/{orphan.pk}?embed=1')
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(response.url, reverse('cam_list'))
+    return
+
 class TestSingletonSensorViews(TestCase):
 
   sensor_intrinsics = {

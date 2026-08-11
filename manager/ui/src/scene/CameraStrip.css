@@ -89,6 +89,10 @@
   order: 3;
 }
 
+.ss-camera-strip .camera-card .card-header .rate.telemetry-hide {
+  display: none;
+}
+
 .ss-camera-strip-badge {
   order: 2;
   display: inline-flex;

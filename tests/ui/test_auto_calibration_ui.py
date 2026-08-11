@@ -169,6 +169,7 @@ class AprilTagCalibrationTest(UserInterfaceTest):
     print(f"Navigated to cam calibration page {cam_url}")
 
     time.sleep(1)
+    common.enter_calibrate_workspace(self.browser)
 
     assert wait_for_image(self.browser, wait_time, "camera_img")
     assert wait_for_image(self.browser, wait_time, "map_img")
@@ -194,6 +195,7 @@ class AprilTagCalibrationTest(UserInterfaceTest):
       "Save did not complete within timeout (alert or navigation missing)"
     )
     self.navigateDirectlyToPage(cam_url)
+    common.enter_calibrate_workspace(self.browser)
     # On reload, wait for the persisted points to be re-rendered to camCanvas.
     assert wait_for_calibration_points(self.browser, RELOAD_TIMEOUT_S, min_points=4), (
       f"Persisted calibration points did not appear on reload within {RELOAD_TIMEOUT_S}s"

@@ -44,7 +44,7 @@ from manager.models import Scene, ChildScene, \
   Region, RegionPoint, Tripwire, TripwirePoint, \
   UserSession, FailedLogin, \
   RegionOccupancyThreshold, SceneImport
-from manager.forms import ROIForm
+from manager.forms import ROIForm, CamCalibrateForm
 from manager.validators import validate_uuid
 
 from scene_common.options import *
@@ -290,6 +290,8 @@ def sceneDetail(request, scene_id):
     "isSuperuser": request.user.is_superuser,
     "isKubernetes": bool(settings.KUBERNETES_SERVICE_HOST),
     "appVersion": getattr(settings, "APP_VERSION_NUMBER", None),
+    "googleMapsApiKey": getattr(settings, "GOOGLE_MAPS_API_KEY", "") or "",
+    "mapboxApiKey": getattr(settings, "MAPBOX_API_KEY", "") or "",
     "deleteImpact": {
       "sensors": scene.sensor_set.count(),
       "regions": scene.regions.count(),
@@ -307,6 +309,8 @@ def sceneDetail(request, scene_id):
     'child_tripwires': child_trips,
     'child_sensors': child_sensors,
     'scene_detail_bootstrap': scene_detail_bootstrap,
+    'google_maps_api_key': getattr(settings, "GOOGLE_MAPS_API_KEY", "") or "",
+    'mapbox_api_key': getattr(settings, "MAPBOX_API_KEY", "") or "",
   })
 
 @superuser_required
@@ -938,13 +942,88 @@ def account_locked(request):
 
 @superuser_required
 def cameraCalibrate(request, sensor_id):
-  """Camera calibrate UX is React; this URL only redirects into ?ss=calibrate-cam."""
+  """React hosts settings; ?embed=1 renders the 3D CamCanvas + Viewport."""
   cam_inst = get_object_or_404(Cam, pk=sensor_id)
-  if cam_inst.scene_id:
-    return sheet_redirect(
-      scene_path(cam_inst.scene_id), 'calibrate-cam', cam_inst.pk
-    )
-  return redirect(reverse('cam_list'))
+  embed = request.GET.get('embed') == '1' or request.POST.get('embed') == '1'
+
+  if request.method == 'POST':
+    if not embed:
+      if cam_inst.scene_id:
+        return sheet_redirect(
+          scene_path(cam_inst.scene_id), 'calibrate-cam', cam_inst.pk
+        )
+      return redirect(reverse('cam_list'))
+    form = CamCalibrateForm(request.POST, request.FILES, instance=cam_inst)
+    if form.is_valid():
+      log.info('Form received {}'.format(form.cleaned_data))
+
+      if settings.KUBERNETES_SERVICE_HOST:
+        if cam_inst.use_camera_pipeline and not cam_inst.camera_pipeline:
+          form.add_error(
+            None,
+            "ERROR! Camera Pipeline field cannot be empty if "
+            "'Use Camera Pipeline' is enabled.")
+          generated_pipeline_url = reverse(
+            'generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+          return render(request, 'cam/cam_calibrate.html', {
+            'form': form,
+            'caminst': cam_inst,
+            'generated_pipeline_url': generated_pipeline_url,
+            'embed': embed,
+          })
+        try:
+          generated_pipeline = generate_pipeline_string_from_dict(
+            form.cleaned_data)
+          log.info(
+            "Camera settings validated. Successfully generated pipeline: "
+            f"{generated_pipeline[:100]}...")
+        except (PipelineGenerationValueError,
+                PipelineGenerationNotImplementedError) as e:
+          log.error(f"Invalid camera settings for camera {cam_inst.name}: {e}")
+          form.add_error(None, f"ERROR! Invalid camera settings: {str(e)}.")
+          generated_pipeline_url = reverse(
+            'generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+          return render(request, 'cam/cam_calibrate.html', {
+            'form': form,
+            'caminst': cam_inst,
+            'generated_pipeline_url': generated_pipeline_url,
+            'embed': embed,
+          })
+        except Exception as e:
+          log.error(f"Invalid camera settings for camera {cam_inst.name}: {e}")
+          form.add_error(None, "ERROR! Invalid camera settings: internal error.")
+          generated_pipeline_url = reverse(
+            'generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+          return render(request, 'cam/cam_calibrate.html', {
+            'form': form,
+            'caminst': cam_inst,
+            'generated_pipeline_url': generated_pipeline_url,
+            'embed': embed,
+          })
+
+      form.save()
+      return render(request, 'cam/cam_calibrate_done.html', {
+        'reload': True,
+      })
+    log.warning('Form not valid!')
+  else:
+    if not embed and cam_inst.scene_id:
+      return sheet_redirect(
+        scene_path(cam_inst.scene_id), 'calibrate-cam', cam_inst.pk
+      )
+    if not embed or not cam_inst.scene_id:
+      return redirect(reverse('cam_list'))
+    form = CamCalibrateForm(instance=cam_inst)
+
+  generated_pipeline_url = reverse(
+    'generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+
+  return render(request, 'cam/cam_calibrate.html', {
+    'form': form,
+    'caminst': cam_inst,
+    'generated_pipeline_url': generated_pipeline_url,
+    'embed': embed,
+  })
 
 @superuser_required
 def genericCalibrate(request, sensor_id):

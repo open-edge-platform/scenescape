@@ -1,7 +1,14 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+} from "react";
 import { WorkspacePanel } from "../components/WorkspacePanel";
 import { FormSection } from "../components/FormSection";
 import { TextField } from "../components/TextField";
@@ -17,11 +24,11 @@ import {
 } from "../components/PanelLayoutToggle";
 import { api, type RestError } from "../lib/rest";
 import { useAppToast } from "../components/ToastProvider";
+import { WorkspaceSplitter } from "../scene/WorkspaceSplitter";
 import {
-  PointCorrespondencePane,
-  pairsToTransforms,
-  type PosePair,
-} from "./PointCorrespondencePane";
+  CAL_PANEL_SIZE_KEY,
+  useWorkspaceDensity,
+} from "../scene/useWorkspaceDensity";
 import "./CameraCalibratePanel.css";
 import "../components/PanelLayoutToggle.css";
 
@@ -31,7 +38,7 @@ type Props = {
   cameraPk: string;
   /** sensor_id for REST (from bootstrap cameras[].sensorId) */
   sensorId: string;
-  /** Bootstrap camera name for MQTT cmd/image topics (before REST returns). */
+  /** Bootstrap camera name (shown before REST returns). */
   cameraName?: string;
   sceneId: string;
   authToken: string;
@@ -42,6 +49,14 @@ type Props = {
 };
 
 type NumMap = Record<string, string>;
+
+type CalibratePose = {
+  ok?: boolean;
+  empty?: boolean;
+  error?: string;
+  transform_type?: string | null;
+  transforms?: number[] | null;
+};
 
 function numStr(v: unknown, fallback = ""): string {
   if (v === null || v === undefined || v === "") {
@@ -70,13 +85,46 @@ function resolutionParts(resolution: unknown): { width: string; height: string }
   return { width: "", height: "" };
 }
 
+function requestIframePose(
+  iframe: HTMLIFrameElement,
+  timeoutMs = 8000,
+): Promise<CalibratePose> {
+  return new Promise((resolve, reject) => {
+    const win = iframe.contentWindow;
+    if (!win) {
+      reject(new Error("Calibration viewport is not ready"));
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      window.removeEventListener("message", onMsg);
+      reject(new Error("Timed out waiting for calibration pose"));
+    }, timeoutMs);
+    const onMsg = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) {
+        return;
+      }
+      if (!ev.data || ev.data.type !== "ss-calibrate-pose") {
+        return;
+      }
+      window.clearTimeout(timer);
+      window.removeEventListener("message", onMsg);
+      resolve(ev.data as CalibratePose);
+    };
+    window.addEventListener("message", onMsg);
+    win.postMessage(
+      { type: "ss-calibrate-request-pose" },
+      window.location.origin,
+    );
+  });
+}
+
 /**
  * Full-viewport camera calibrate / settings panel.
- * Settings + point correspondence via REST (no iframe).
+ * Settings persist via REST; live preview + 3D map stay in the Django embed.
  */
 export function CameraCalibratePanel({
   open,
-  cameraPk: _cameraPk,
+  cameraPk,
   sensorId,
   cameraName = "",
   sceneId,
@@ -86,6 +134,7 @@ export function CameraCalibratePanel({
   onSaved,
 }: Props) {
   const toast = useAppToast();
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const lockFocalRef = useRef(true);
   const [layoutMode, setLayoutMode] = useState<PanelLayoutMode>(() =>
     typeof window !== "undefined" ? readPanelLayoutMode() : "auto",
@@ -120,17 +169,7 @@ export function CameraCalibratePanel({
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [posePairs, setPosePairs] = useState<PosePair[]>([]);
-  const [mapUrl, setMapUrl] = useState<string | null>(null);
-  const [cameraImageUrl, setCameraImageUrl] = useState<string | null>(null);
-  const cameraNameRef = useRef(cameraName);
-  const nameRef = useRef(name);
-  nameRef.current = name;
-  useEffect(() => {
-    if (cameraName) {
-      cameraNameRef.current = cameraName;
-    }
-  }, [cameraName]);
+  const [iframeReady, setIframeReady] = useState(false);
 
   lockFocalRef.current = lockFocal;
   const hasAdvanced = isKubernetes;
@@ -142,14 +181,23 @@ export function CameraCalibratePanel({
     }
   }, [loaded]);
 
-  const onPoseChange = useCallback(
-    (pairs: PosePair[]) => {
-      setPosePairs(pairs);
-      if (loaded) {
-        setDirty(true);
+  const pushOpticsToIframe = useCallback(
+    (nextIn: NumMap, nextDist: NumMap, locked: boolean) => {
+      const win = iframeRef.current?.contentWindow;
+      if (!win) {
+        return;
       }
+      win.postMessage(
+        {
+          type: "ss-calibrate-optics-set",
+          intrinsics: nextIn,
+          distortion: nextDist,
+          fixIntrinsics: { fx: locked, fy: locked },
+        },
+        window.location.origin,
+      );
     },
-    [loaded],
+    [],
   );
 
   useEffect(() => {
@@ -162,39 +210,17 @@ export function CameraCalibratePanel({
     setDirty(false);
     setLoaded(false);
     setLockFocal(true);
-    setPosePairs([]);
-    // Seed from the live strip card if MQTT already delivered a frame.
-    const stripImg = document.getElementById(
-      `card-preview-${sensorId}`,
-    ) as HTMLImageElement | null;
-    const stripSrc = stripImg?.getAttribute("src") || "";
-    if (stripSrc.startsWith("data:image/")) {
-      setCameraImageUrl(stripSrc);
-    } else if (cameraName) {
-      const byName = Array.from(
-        document.querySelectorAll("img[data-ss-card-name]"),
-      ).find(
-        (el) => el.getAttribute("data-ss-card-name") === cameraName,
-      ) as HTMLImageElement | undefined;
-      const namedSrc = byName?.getAttribute("src") || "";
-      if (namedSrc.startsWith("data:image/")) {
-        setCameraImageUrl(namedSrc);
-      }
-    }
+    setIframeReady(false);
     if (cameraName) {
-      cameraNameRef.current = cameraName;
       setName(cameraName);
     }
-    Promise.all([
-      api.getCamera(authToken, sensorId),
-      api.getScene(authToken, sceneId).catch(() => null),
-    ])
-      .then(([cam, scene]) => {
+    api
+      .getCamera(authToken, sensorId)
+      .then((cam) => {
         if (cancelled) {
           return;
         }
         setName(String(cam.name || cameraName || ""));
-        cameraNameRef.current = String(cam.name || cameraName || "");
         setSensorIdEdit(String(cam.sensor_id || cam.uid || sensorId));
         const inn =
           cam.intrinsics && typeof cam.intrinsics === "object"
@@ -226,21 +252,6 @@ export function CameraCalibratePanel({
           setModelconfig(String(cam.modelconfig || "model_config.json"));
           setUseCameraPipeline(Boolean(cam.use_camera_pipeline));
         }
-        const map =
-          scene && typeof scene === "object"
-            ? (scene as { map?: unknown; map_url?: unknown }).map ||
-              (scene as { map_url?: unknown }).map_url
-            : null;
-        setMapUrl(typeof map === "string" && map ? map : null);
-        const snap =
-          typeof cam.snapshot === "string"
-            ? cam.snapshot
-            : typeof cam.thumbnail === "string"
-              ? cam.thumbnail
-              : null;
-        if (snap) {
-          setCameraImageUrl(snap);
-        }
         setLoaded(true);
       })
       .catch((e: RestError) => {
@@ -256,127 +267,68 @@ export function CameraCalibratePanel({
     return () => {
       cancelled = true;
     };
-  }, [open, sensorId, cameraName, sceneId, authToken, hasAdvanced]);
+  }, [open, sensorId, cameraName, authToken, hasAdvanced]);
 
-  /** Live camera frame via scene MQTT (same path as 2D strip / 3D project frame). */
   useEffect(() => {
-    if (!open || !sensorId) {
+    if (!open) {
       return;
     }
-    type MqttLike = {
-      connected?: boolean;
-      subscribe: (topic: string) => void;
-      publish: (topic: string, payload: string) => void;
-      on: (
-        ev: string,
-        fn: (topic: string, payload: Uint8Array | string) => void,
-      ) => void;
-      removeListener?: (
-        ev: string,
-        fn: (topic: string, payload: Uint8Array | string) => void,
-      ) => void;
-      off?: (
-        ev: string,
-        fn: (topic: string, payload: Uint8Array | string) => void,
-      ) => void;
-    };
-    const decodePayload = (raw: Uint8Array | string): string => {
-      if (typeof raw === "string") {
-        return raw;
-      }
-      return new TextDecoder().decode(raw);
-    };
-    const applyFrame = (topic: string, raw: Uint8Array | string) => {
-      const suffix = topic.split("camera/")[1] || "";
-      const ids = new Set(
-        [sensorId, cameraNameRef.current, nameRef.current, cameraName].filter(
-          Boolean,
-        ),
-      );
-      if (!ids.has(suffix) && suffix !== sensorId) {
+    const onMessage = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) {
         return;
       }
-      try {
-        const msg = JSON.parse(decodePayload(raw)) as { image?: string };
-        if (msg.image) {
-          setCameraImageUrl(`data:image/jpeg;base64,${msg.image}`);
-        }
-      } catch {
-        /* ignore malformed */
-      }
-    };
-    const requestFrames = (client: MqttLike) => {
-      if (client.connected === false) {
+      if (!ev.data || typeof ev.data !== "object") {
         return;
       }
-      try {
-        client.subscribe("scenescape/image/camera/+");
-        client.subscribe("scenescape/image/calibration/camera/+");
-      } catch {
-        /* already subscribed */
+      if (ev.data.type === "ss-calibrate-done") {
+        toast.show("Camera calibration saved", "ok");
+        onSaved();
+        onClose();
+        return;
       }
-      const ids = new Set(
-        [sensorId, cameraNameRef.current, nameRef.current, cameraName].filter(
-          Boolean,
-        ),
-      );
-      ids.forEach((id) => {
-        client.publish(`scenescape/cmd/camera/${id}`, "getimage");
-        client.publish(`scenescape/cmd/camera/${id}`, "getcalibrationimage");
-      });
-    };
-    let client = window.ssMqttClient as MqttLike | undefined;
-    const onMsg = (topic: string, payload: Uint8Array | string) => {
-      if (
-        topic.includes("/image/camera/") ||
-        topic.includes("/image/calibration/camera/")
-      ) {
-        applyFrame(topic, payload);
+      if (ev.data.type === "ss-calibrate-points-changed") {
+        setDirty(true);
+        return;
       }
-    };
-    const onConnect = () => {
-      const c = window.ssMqttClient as MqttLike | undefined;
-      if (c) {
-        requestFrames(c);
-      }
-    };
-    let poll = 0;
-    const attach = () => {
-      client = window.ssMqttClient as MqttLike | undefined;
-      if (!client) {
-        return false;
-      }
-      client.on("message", onMsg);
-      client.on("connect", onConnect);
-      requestFrames(client);
-      return true;
-    };
-    if (!attach()) {
-      poll = window.setInterval(() => {
-        if (attach()) {
-          window.clearInterval(poll);
-          poll = 0;
+      if (ev.data.type === "ss-calibrate-optics") {
+        const nextIn = ev.data.intrinsics as NumMap | undefined;
+        const nextDist = ev.data.distortion as NumMap | undefined;
+        const locked = lockFocalRef.current;
+        if (nextIn) {
+          setIntrinsics((prev) => {
+            if (locked) {
+              return {
+                ...prev,
+                cx: nextIn.cx ?? prev.cx,
+                cy: nextIn.cy ?? prev.cy,
+              };
+            }
+            return { ...prev, ...nextIn };
+          });
         }
-      }, 500);
+        if (nextDist && distortionEditable) {
+          setDistortion((prev) => ({ ...prev, ...nextDist }));
+        }
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [open, onClose, onSaved, toast, distortionEditable]);
+
+  useEffect(() => {
+    if (!open || !loaded || !iframeReady) {
+      return;
     }
-    const refresh = window.setInterval(() => {
-      const c = window.ssMqttClient as MqttLike | undefined;
-      if (c) {
-        requestFrames(c);
-      }
-    }, 4000);
-    return () => {
-      if (poll) {
-        window.clearInterval(poll);
-      }
-      window.clearInterval(refresh);
-      const c = window.ssMqttClient as MqttLike | undefined;
-      c?.removeListener?.("message", onMsg);
-      c?.off?.("message", onMsg);
-      c?.removeListener?.("connect", onConnect);
-      c?.off?.("connect", onConnect);
-    };
-  }, [open, sensorId, cameraName]);
+    pushOpticsToIframe(intrinsics, distortion, lockFocal);
+  }, [
+    open,
+    loaded,
+    iframeReady,
+    intrinsics,
+    distortion,
+    lockFocal,
+    pushOpticsToIframe,
+  ]);
 
   useEffect(() => {
     const recompute = () => setAutoLayout(chooseAutoPanelLayout());
@@ -392,6 +344,20 @@ export function CameraCalibratePanel({
 
   const resolvedLayout: PanelLayout =
     layoutMode === "auto" ? autoLayout : layoutMode;
+  const { panelSizePx, setPanelSizePx } = useWorkspaceDensity(resolvedLayout, {
+    storageKey: CAL_PANEL_SIZE_KEY,
+    enableFocus: false,
+  });
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const id = window.requestAnimationFrame(() => {
+      iframeRef.current?.contentWindow?.dispatchEvent(new Event("resize"));
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [open, panelSizePx, resolvedLayout]);
 
   const setFocal = (key: "fx" | "fy", value: string) => {
     if (lockFocal) {
@@ -461,13 +427,22 @@ export function CameraCalibratePanel({
       payload.use_camera_pipeline = useCameraPipeline;
     }
     try {
-      if (posePairs.length >= 4) {
-        payload.transform_type = "3d-2d point correspondence";
-        payload.transforms = pairsToTransforms(posePairs);
-      } else if (posePairs.length > 0) {
-        setError("Point correspondence needs at least 4 matching pairs");
-        setBusy(false);
-        return;
+      const frame = iframeRef.current;
+      if (frame?.contentWindow) {
+        const pose = await requestIframePose(frame);
+        if (pose.error && !pose.empty) {
+          setError(pose.error);
+          setBusy(false);
+          return;
+        }
+        if (
+          !pose.empty &&
+          pose.transform_type &&
+          Array.isArray(pose.transforms)
+        ) {
+          payload.transform_type = pose.transform_type;
+          payload.transforms = pose.transforms;
+        }
       }
       await api.updateCamera(authToken, sensorId, payload);
       toast.show("Camera saved", "ok");
@@ -740,24 +715,37 @@ export function CameraCalibratePanel({
         className={`ss-cal-workspace ss-cal-workspace--${resolvedLayout}`}
         data-cal-layout={resolvedLayout}
         data-cal-layout-mode={layoutMode}
+        style={{ "--ss-panel-size": `${panelSizePx}px` } as CSSProperties}
       >
         <div className="ss-cal-workspace-main ss-workspace-cal-preview">
           <div className="ss-workspace-cal-preview-meta">
-            <h3 className="ss-form-section-title">Point correspondence</h3>
+            <h3 className="ss-form-section-title">Calibration workspace</h3>
             <p className="ss-workspace-panel-hint" style={{ marginBottom: 0 }}>
-              Place matching points on the camera frame and scene map. Save
-              includes pose when 4+ pairs are set.
+              Live camera view and 3D scene map. Double-click to add points,
+              drag to move them, scroll to zoom, and right-click to delete.
+              Orbit the scene with click-drag.
             </p>
           </div>
-          <div className="ss-workspace-cal-preview-frame">
-            <PointCorrespondencePane
-              mapUrl={mapUrl}
-              cameraImageUrl={cameraImageUrl}
-              disabled={busy || !loaded}
-              onChange={onPoseChange}
-            />
-          </div>
+          {cameraPk ? (
+            <div className="ss-workspace-cal-preview-frame">
+              <iframe
+                ref={iframeRef}
+                title="Point calibrator"
+                src={`/cam/calibrate/${cameraPk}?embed=1`}
+                onLoad={() => setIframeReady(true)}
+              />
+            </div>
+          ) : (
+            <p className="ss-workspace-panel-hint">
+              Camera primary key is missing; the 3D calibrator cannot load.
+            </p>
+          )}
         </div>
+        <WorkspaceSplitter
+          layout={resolvedLayout}
+          panelSizePx={panelSizePx}
+          onResize={setPanelSizePx}
+        />
         <aside className="ss-cal-workspace-aside">{formBody}</aside>
       </div>
     </WorkspacePanel>

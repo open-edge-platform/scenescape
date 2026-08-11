@@ -55,9 +55,10 @@ body.ss-use-react-map #ss-map-host .scene-map-stage {
 body.ss-use-react-map #ss-map-host .ss-snap-legacy {
   display: block !important;
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  transform: none;
   z-index: 3;
   pointer-events: none;
   background: transparent !important;

@@ -34,8 +34,8 @@ html[data-theme="dark"] {
   --ss-brand: #4da3ff;
   --ss-brand-hover: #7abbff;
   --ss-brand-soft: #0099ec;
-  /* Distinct from --ss-surface so the fixed bar does not dissolve into content */
-  --ss-nav-bg: #1a2f4a;
+  /* Neutral charcoal — darker than --ss-surface, no leftover navy */}
+  --ss-nav-bg: #0c0d0f;
   --ss-nav-fg: #f2f4f7;
   --ss-ink: #e8eef5;
   --ss-surface: #0f1419;
@@ -59,9 +59,15 @@ body {
   font-family: var(--ss-font-sans);
 }
 
+html:has(body.ss-embed),
 body.ss-embed {
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
+  height: 100%;
+  max-height: 100%;
+}
+
+body.ss-embed {
+  padding: 0;
+  overflow: hidden;
 }
 
 body.ss-embed .navbar,
@@ -69,8 +75,49 @@ body.ss-embed .breadcrumb {
   display: none !important;
 }
 
+body.ss-embed .wrapper,
+body.ss-embed .content,
+body.ss-embed #calibration_form,
+body.ss-embed #calibrate,
+body.ss-embed .cal-workspace-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  max-width: none;
+}
+
+body.ss-embed .content {
+  overflow: hidden;
+}
+
+body.ss-embed #calibrate > .card > .card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0.4rem;
+  overflow: hidden;
+}
+
+body.ss-embed .cameraCalContainer {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  gap: 0.45rem;
+}
+
+body.ss-embed .cal-pane {
+  min-height: 0;
+}
+
 body.ss-embed .cal-pane-viewport {
-  height: min(58vh, 640px);
+  height: auto;
+  min-height: 0;
+  flex: 1 1 auto;
 }
 
 body.ss-embed #calibrate > .card {
@@ -101,10 +148,6 @@ body.ss-embed section[aria-labelledby="ss-cam-sec-optics-title"] {
   clip: rect(0, 0, 0, 0) !important;
   white-space: nowrap !important;
   border: 0 !important;
-}
-
-body.ss-embed .cal-pane-viewport {
-  height: min(52vh, 560px);
 }
 
 body.ss-embed #calibrate > .card > .card-header {
@@ -203,6 +246,11 @@ h6 {
   box-shadow: 0 1px 0 color-mix(in srgb, #000 35%, transparent);
 }
 
+html[data-theme="dark"] .navbar.bg-dark {
+  border-bottom-color: color-mix(in srgb, #fff 10%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, #000 55%, transparent);
+}
+
 /* Bootstrap tables inherit Manager theme tokens */
 .table {
   color: var(--ss-text);
@@ -263,6 +311,11 @@ h6 {
   }
 }
 
+.navbar-nav.navbar-right {
+  margin-left: auto;
+  margin-right: 0;
+}
+
 .btn-nav {
   display: inline-flex;
   align-items: center;
@@ -289,7 +342,7 @@ h6 {
   display: inline-flex;
   align-items: center;
   gap: 0;
-  margin-right: 0.5rem;
+  margin: 0;
   padding: 0.15rem;
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 999px;
@@ -327,16 +380,26 @@ html[data-theme="dark"] .ss-theme-toggle__btn[aria-pressed="true"] {
   background: #f2f4f7;
 }
 
+.ss-nav-trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-left: auto;
+  padding-left: 1.5rem;
+  flex-shrink: 0;
+}
+
 .ss-theme-toggle-host {
   display: inline-flex;
   align-items: center;
-  margin-left: auto;
-  margin-right: 0.75rem;
+  margin: 0;
 }
 
 @media (max-width: 767.98px) {
-  .ss-theme-toggle-host {
+  .ss-nav-trailing {
+    width: 100%;
     margin: 0.5rem 1rem;
+    justify-content: space-between;
   }
 }
 
@@ -1008,6 +1071,28 @@ a:hover {
   margin-left: auto;
 }
 
+.cal-opacity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0.35rem 0 0;
+  color: rgba(255, 255, 255, 0.88);
+  font-family: var(--ss-font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.cal-opacity input[type="range"] {
+  width: 7.5rem;
+  height: 1.15rem;
+  margin: 0;
+  padding: 0;
+  vertical-align: middle;
+  accent-color: var(--ss-brand-soft, #0099ec);
+}
+
 .cal-pane {
   display: flex;
   flex-direction: column;
@@ -1114,6 +1199,15 @@ body.cal-pane-expanded {
 
   .cal-pane-viewport {
     height: min(45vh, 480px);
+  }
+
+  body.ss-embed .cameraCalContainer {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body.ss-embed .cal-pane-viewport {
+    height: auto;
+    min-height: 0;
   }
 }
 
@@ -2052,8 +2146,8 @@ body:has(.sign-in-page) .content {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  margin-left: auto;
-  padding: 0.25rem 0.5rem 0.25rem 1rem;
+  margin-left: 0;
+  padding: 0.25rem 0.5rem;
   flex-shrink: 0;
 }
 

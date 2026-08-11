@@ -21,6 +21,8 @@ type Props = {
   actions?: ReactNode;
   /** Body layout: scroll form, full-bleed, or split main|aside. */
   layout?: "form" | "bleed" | "split";
+  /** Extra class on the panel root (e.g. nested stacking). */
+  className?: string;
   dirty?: boolean;
   leaveTitle?: string;
   leaveBody?: string;
@@ -37,6 +39,7 @@ export function WorkspacePanel({
   children,
   actions,
   layout = "form",
+  className,
   dirty = false,
   leaveTitle = "Leave without saving?",
   leaveBody = "You may have unsaved changes. Leave without saving?",
@@ -90,7 +93,7 @@ export function WorkspacePanel({
   return createPortal(
     <>
       <div
-        className="ss-workspace-panel"
+        className={`ss-workspace-panel${className ? ` ${className}` : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

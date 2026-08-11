@@ -3,12 +3,15 @@
 
 import { useCallback, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import type { WorkspaceLayout } from "./useWorkspaceLayout";
+import "./WorkspaceSplitter.css";
 
 type Props = {
   layout: WorkspaceLayout;
   panelSizePx: number;
   onResize: (panelSizePx: number) => void;
   disabled?: boolean;
+  /** Ancestor that bounds the drag. Default covers scene + calibrate workspaces. */
+  containerSelector?: string;
 };
 
 /**
@@ -20,6 +23,7 @@ export function WorkspaceSplitter({
   panelSizePx,
   onResize,
   disabled,
+  containerSelector = ".ss-workspace-body, .ss-cal-workspace",
 }: Props) {
   const dragging = useRef(false);
 
@@ -30,14 +34,13 @@ export function WorkspaceSplitter({
       }
       ev.preventDefault();
       const handle = ev.currentTarget;
-      handle.setPointerCapture(ev.pointerId);
-      dragging.current = true;
-      document.body.classList.add("ss-workspace-resizing");
-
-      const body = handle.closest(".ss-workspace-body") as HTMLElement | null;
+      const body = handle.closest(containerSelector) as HTMLElement | null;
       if (!body) {
         return;
       }
+      handle.setPointerCapture(ev.pointerId);
+      dragging.current = true;
+      document.body.classList.add("ss-workspace-resizing");
 
       const onMove = (e: PointerEvent) => {
         if (!dragging.current) {
@@ -62,7 +65,10 @@ export function WorkspaceSplitter({
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", onUp);
-        if (typeof window.fitSceneMapDisplay === "function") {
+        if (
+          body.classList.contains("ss-workspace-body") &&
+          typeof window.fitSceneMapDisplay === "function"
+        ) {
           window.fitSceneMapDisplay();
         }
       };
@@ -71,7 +77,7 @@ export function WorkspaceSplitter({
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     },
-    [disabled, layout, onResize],
+    [containerSelector, disabled, layout, onResize],
   );
 
   return (

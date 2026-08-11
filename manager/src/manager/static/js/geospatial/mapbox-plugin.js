@@ -146,7 +146,11 @@ class MapboxPlugin extends MapInterface {
 
   generateBounds() {
     const bounds = this.map.getBounds();
-    if (!bounds) return;
+    if (!bounds) {
+      throw new Error(
+        "Map bounds are not ready yet. Wait for the map to finish loading.",
+      );
+    }
 
     const center = this.map.getCenter();
     const zoom = this.map.getZoom();
@@ -154,8 +158,10 @@ class MapboxPlugin extends MapInterface {
 
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
-    const nw = bounds.getNorthWest();
-    const se = bounds.getSouthEast();
+    const nwLat = ne.lat;
+    const nwLng = sw.lng;
+    const seLat = sw.lat;
+    const seLng = ne.lng;
 
     // Populate the scale field in the form
     const scaleField = document.getElementById("id_scale");
@@ -170,9 +176,9 @@ class MapboxPlugin extends MapInterface {
     if (mapCornersField) {
       const cornersLLA = [
         [sw.lat, sw.lng, 0], // SW (bottom-left)
-        [nw.lat, nw.lng, 0], // NW (top-left)
+        [nwLat, nwLng, 0], // NW (top-left)
         [ne.lat, ne.lng, 0], // NE (top-right)
-        [se.lat, se.lng, 0], // SE (bottom-right)
+        [seLat, seLng, 0], // SE (bottom-right)
       ];
       mapCornersField.value = JSON.stringify(cornersLLA);
 
@@ -214,13 +220,27 @@ class MapboxPlugin extends MapInterface {
       // Save to server
       this.saveSnapshotToServer(imageData);
 
-      // Hide snapshot display elements
-      document.getElementById("snapshot").style.display = "none";
-      document.getElementById("stitchedSnapshot").style.display = "none";
+      // Hide snapshot display elements when present (legacy form only)
+      const snapshot = document.getElementById("snapshot");
+      if (snapshot) {
+        snapshot.style.display = "none";
+      }
+      const stitched = document.getElementById("stitchedSnapshot");
+      if (stitched) {
+        stitched.style.display = "none";
+      }
     };
 
     tempImg.onerror = () => {
       console.error("Failed to load Mapbox static image");
+      window.dispatchEvent(
+        new CustomEvent("ss-geospatial-snapshot", {
+          detail: {
+            success: false,
+            error: "Failed to load Mapbox static snapshot",
+          },
+        }),
+      );
     };
 
     tempImg.src = url;
@@ -271,11 +291,14 @@ class MapboxPlugin extends MapInterface {
     try {
       console.log("Saving snapshot to server...");
 
-      // Get CSRF token
-      const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
+      const csrfToken = this.getCsrfToken();
 
       if (!csrfToken) {
         console.error("CSRF token not found");
+        this.dispatchSnapshotResult({
+          success: false,
+          error: "CSRF token not found",
+        });
         return;
       }
 
@@ -284,12 +307,12 @@ class MapboxPlugin extends MapInterface {
 
       const formData = new FormData();
       formData.append("image_data", imageData);
-      formData.append("csrfmiddlewaretoken", csrfToken.value);
+      formData.append("csrfmiddlewaretoken", csrfToken);
 
       const response = await fetch("/api/v1/save-geospatial-snapshot/", {
         method: "POST",
         headers: {
-          "X-CSRFToken": csrfToken.value,
+          "X-CSRFToken": csrfToken,
         },
         body: formData,
       });
@@ -309,49 +332,67 @@ class MapboxPlugin extends MapInterface {
 
             // Create a display element to show the generated file
             let fileDisplay = document.getElementById("generated-map-display");
-            if (!fileDisplay) {
+            if (!fileDisplay && mapField.parentNode) {
               fileDisplay = document.createElement("div");
               fileDisplay.id = "generated-map-display";
               fileDisplay.className = "alert alert-success";
               mapField.parentNode.appendChild(fileDisplay);
             }
-            fileDisplay.innerHTML = `Generated map: ${result.filename}`;
-            fileDisplay.style.display = "block";
+            if (fileDisplay) {
+              fileDisplay.innerHTML = `Generated map: ${result.filename}`;
+              fileDisplay.style.display = "block";
+            }
+          }
 
-            // Add a hidden input with the filename for form submission
-            let hiddenInput = document.getElementById("generated-map-filename");
-            if (!hiddenInput) {
-              hiddenInput = document.createElement("input");
-              hiddenInput.type = "hidden";
-              hiddenInput.id = "generated-map-filename";
-              hiddenInput.name = "generated_map_filename";
-              mapField.parentNode.appendChild(hiddenInput);
-            }
-            hiddenInput.value = result.filename;
+          // Always expose filename for React picker / form bridges
+          let hiddenInput = document.getElementById("generated-map-filename");
+          if (!hiddenInput) {
+            hiddenInput = document.createElement("input");
+            hiddenInput.type = "hidden";
+            hiddenInput.id = "generated-map-filename";
+            hiddenInput.name = "generated_map_filename";
+            const host =
+              document.getElementById("ss-geo-map-bridge") || document.body;
+            host.appendChild(hiddenInput);
+          }
+          hiddenInput.value = result.filename;
 
-            // Set map_type to geospatial_map when generating a geospatial map
-            const mapTypeField = document.getElementById("id_map_type");
-            if (mapTypeField) {
-              mapTypeField.value = "geospatial_map";
-              mapTypeField.dispatchEvent(new Event("change", { bubbles: true }));
-            }
-            const geoSection = document.getElementById("ss-form-sec-geo");
-            if (geoSection) {
-              geoSection.open = true;
-            }
+          // Set map_type to geospatial_map when generating a geospatial map
+          const mapTypeField = document.getElementById("id_map_type");
+          if (mapTypeField) {
+            mapTypeField.value = "geospatial_map";
+            mapTypeField.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+          const geoSection = document.getElementById("ss-form-sec-geo");
+          if (geoSection) {
+            geoSection.open = true;
+          }
 
-            // Save current map settings to form fields
-            if (window.saveCurrentMapSettings) {
-              window.saveCurrentMapSettings();
-            }
+          // Save current map settings to form fields
+          if (window.saveCurrentMapSettings) {
+            window.saveCurrentMapSettings();
           }
 
           console.log(
             "Geospatial snapshot saved successfully:",
             result.filename,
           );
+          window.dispatchEvent(
+            new CustomEvent("ss-geospatial-snapshot", {
+              detail: {
+                success: true,
+                filename: result.filename,
+                mediaUrl: result.media_url,
+              },
+            }),
+          );
         } else {
           console.error("Failed to save snapshot:", result.error);
+          window.dispatchEvent(
+            new CustomEvent("ss-geospatial-snapshot", {
+              detail: { success: false, error: result.error || "Save failed" },
+            }),
+          );
         }
       } else {
         const errorText = await response.text();
@@ -360,9 +401,25 @@ class MapboxPlugin extends MapInterface {
           response.status,
           errorText,
         );
+        window.dispatchEvent(
+          new CustomEvent("ss-geospatial-snapshot", {
+            detail: {
+              success: false,
+              error: "Server error saving snapshot",
+            },
+          }),
+        );
       }
     } catch (error) {
       console.error("Error saving snapshot to server:", error);
+      window.dispatchEvent(
+        new CustomEvent("ss-geospatial-snapshot", {
+          detail: {
+            success: false,
+            error: error && error.message ? error.message : "Snapshot failed",
+          },
+        }),
+      );
     }
   }
 }

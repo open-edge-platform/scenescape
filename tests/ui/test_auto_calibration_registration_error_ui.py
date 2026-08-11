@@ -41,6 +41,7 @@ class RegistrationErrorHandlingTest(UserInterfaceTest):
     # leaves the scene's map marked as processed once it settles.
     print("Navigating to camera1 page to let the first registration settle.")
     self.navigateDirectlyToPage(cam_url)
+    common.enter_calibrate_workspace(self.browser)
     WebDriverWait(self.browser, timeout).until(
       lambda d: self.wait_for_button_label(d, expected_label, actual_label, button_id)
     )
@@ -56,6 +57,7 @@ class RegistrationErrorHandlingTest(UserInterfaceTest):
     print("Reloading the page to force a synchronous registration error response.")
     actual_label['value'] = None
     self.browser.refresh()
+    common.enter_calibrate_workspace(self.browser)
 
     print(f"Checking auto calibration button label after reload. Timeout: {timeout}")
     try:

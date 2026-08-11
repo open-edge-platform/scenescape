@@ -228,6 +228,7 @@ export function ReactSceneMap({ mapHref, mapWidth, mapHeight }: Props) {
       id="svgout"
       className={`ss-react-scene-map${mode !== "idle" ? ` is-${mode}` : ""}`}
       viewBox={`0 0 ${mapWidth} ${mapHeight}`}
+      preserveAspectRatio="xMidYMid meet"
       width="100%"
       height="100%"
       onClick={onSvgClick}

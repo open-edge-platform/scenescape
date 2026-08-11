@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 {% load static %}
 {% block content %}
   {{ scene_detail_bootstrap|json_script:"ss-scene-detail-bootstrap" }}
+  {{ google_maps_api_key|json_script:"google-maps-api-key" }}
+  {{ mapbox_api_key|json_script:"mapbox-api-key" }}
   <div id="ss-scene-detail-root" class="ss-scene-detail-root"></div>
 
   <div id="ss-legacy-map-parking" class="ss-legacy-parking" hidden>

@@ -44,6 +44,7 @@ def test_manual_camera_calibration(params, result_recorder):
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
     browser.find_element(By.ID, 'cam_calibrate_1').click()
     time.sleep(TEST_WAIT_TIME)
+    common.enter_calibrate_workspace(browser)
 
     viewport_dimensions = browser.execute_script("return [window.innerWidth, window.innerHeight];")
 
@@ -93,6 +94,7 @@ def test_manual_camera_calibration(params, result_recorder):
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
     browser.find_element(By.ID, 'cam_calibrate_1').click()
     time.sleep(TEST_WAIT_TIME)
+    common.enter_calibrate_workspace(browser)
 
     log.info("Take_screenshot after saving manual calibration")
     assert common.render_calibration_preview(browser, 'initial-id_transforms')
@@ -112,6 +114,7 @@ def test_manual_camera_calibration(params, result_recorder):
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
     browser.find_element(By.ID, 'cam_calibrate_1').click()
     time.sleep(TEST_WAIT_TIME)
+    common.enter_calibrate_workspace(browser)
 
     log.info("Take_screenshot after reverting to the previous calibration settings")
     assert common.render_calibration_preview(browser, 'initial-id_transforms')

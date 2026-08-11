@@ -32,9 +32,21 @@ function writeFit(fit: CameraStripFit): void {
   }
 }
 
+function isLivePreview(img: HTMLImageElement | null): boolean {
+  if (!img || img.classList.contains("display-none")) {
+    return false;
+  }
+  const src = img.currentSrc || img.getAttribute("src") || "";
+  if (!src || src.includes("offline.png")) {
+    return false;
+  }
+  return img.naturalWidth > 0 || src.startsWith("data:image");
+}
+
 /**
  * Update card live/offline chrome only when values change.
  * Must not write DOM unconditionally — MutationObservers watch this subtree.
+ * Online = a live MQTT frame, never a stale scene.rate FPS string.
  */
 function applyCardState(card: HTMLElement): void {
   const img = card.querySelector(
@@ -42,14 +54,14 @@ function applyCardState(card: HTMLElement): void {
   ) as HTMLImageElement | null;
   const offline = card.querySelector(".cam-offline") as HTMLElement | null;
   const rateEl = card.querySelector(".rate") as HTMLElement | null;
+  const online = isLivePreview(img);
+  if (!online && rateEl) {
+    if ((rateEl.textContent || "").trim() !== "--") {
+      rateEl.textContent = "--";
+    }
+    rateEl.classList.add("telemetry-hide");
+  }
   const rateText = (rateEl?.textContent || "").trim();
-  const hasFrame =
-    Boolean(img) &&
-    !img!.classList.contains("display-none") &&
-    (img!.naturalWidth > 0 || Boolean(img!.currentSrc || img!.src));
-  const online =
-    hasFrame ||
-    (rateText !== "" && rateText !== "--" && !rateText.startsWith("--"));
 
   const nextOnline = online ? "1" : "0";
   if (card.dataset.ssOnline !== nextOnline) {
@@ -103,13 +115,29 @@ export function CameraStripEnhancer({ rates = {} }: Props) {
 
   useEffect(() => {
     Object.entries(rates).forEach(([sensorId, text]) => {
+      const card = document
+        .querySelector(`[data-ss-card-sensor="${CSS.escape(sensorId)}"]`)
+        ?.closest(".camera-card") as HTMLElement | null;
+      const img = card?.querySelector(
+        "img[data-ss-card-sensor], img[id^='card-preview-']",
+      ) as HTMLImageElement | null;
       const rateEl = document.getElementById(`rate-${sensorId}`);
+      if (!isLivePreview(img)) {
+        if (rateEl) {
+          if ((rateEl.textContent || "").trim() !== "--") {
+            rateEl.textContent = "--";
+          }
+          rateEl.classList.add("telemetry-hide");
+        }
+        if (card) {
+          applyCardState(card);
+        }
+        return;
+      }
       if (rateEl && rateEl.textContent !== text) {
         rateEl.textContent = text;
+        rateEl.classList.remove("telemetry-hide");
       }
-      const card = document
-        .querySelector(`[data-ss-card-sensor="${sensorId}"]`)
-        ?.closest(".camera-card") as HTMLElement | null;
       if (card) {
         applyCardState(card);
       }

@@ -62,7 +62,7 @@ function CameraCards({
       {cameras.map((cam) => (
         <div key={cam.id} className="card count-item camera-card">
           <h6 className="card-header">
-            <span className="rate" id={`rate-${cam.sensorId}`}>
+            <span className="rate telemetry-hide" id={`rate-${cam.sensorId}`}>
               --
             </span>
             {cam.name}

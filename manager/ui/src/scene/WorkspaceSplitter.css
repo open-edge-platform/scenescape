@@ -1,0 +1,60 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-workspace-splitter {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+  background: transparent;
+  touch-action: none;
+}
+
+.ss-workspace-splitter--stack {
+  height: 0.35rem;
+  margin: -0.05rem 0;
+  cursor: row-resize;
+}
+
+.ss-workspace-splitter--row {
+  width: 0.35rem;
+  margin: 0 -0.05rem;
+  cursor: col-resize;
+}
+
+.ss-workspace-splitter::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ss-input-border) 70%, transparent);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.ss-workspace-splitter:hover::after,
+.ss-workspace-splitter:focus-visible::after,
+body.ss-workspace-resizing .ss-workspace-splitter::after {
+  opacity: 1;
+  background: var(--ss-brand);
+}
+
+.ss-workspace-splitter:focus-visible {
+  outline: none;
+}
+
+.ss-workspace-splitter[aria-disabled="true"] {
+  pointer-events: none;
+  opacity: 0;
+}
+
+body.ss-workspace-resizing {
+  user-select: none;
+}
+
+@media (max-width: 719px) {
+  .ss-workspace-splitter {
+    display: none;
+  }
+}

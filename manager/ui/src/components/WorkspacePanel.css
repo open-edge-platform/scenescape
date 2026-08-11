@@ -25,6 +25,10 @@
     var(--ss-motion-ease, ease) both;
 }
 
+.ss-workspace-panel--nested {
+  z-index: 1400;
+}
+
 .ss-workspace-panel-title {
   margin: 0;
   font-family: var(--ss-font-heading);
@@ -180,13 +184,12 @@
   flex-direction: column;
   min-height: 0;
   height: 100%;
-  padding: 0.75rem 1rem 1rem;
+  padding: 0.35rem 0.45rem 0.45rem;
   box-sizing: border-box;
 }
 
 .ss-workspace-cal-preview-meta {
-  flex: 0 0 auto;
-  margin-bottom: 0.65rem;
+  display: none;
 }
 
 .ss-workspace-cal-preview-frame {
@@ -202,7 +205,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  min-height: min(70vh, 48rem);
+  min-height: 0;
   border: 0;
 }
 

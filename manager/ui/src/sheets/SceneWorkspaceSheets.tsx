@@ -13,7 +13,7 @@ import { CameraCalibratePanel } from "./CameraCalibratePanel";
 import { SensorCalibratePanel } from "./SensorCalibratePanel";
 
 /**
- * Command surfaces: create/edit sheets use Drawer; manage/calibrate use
+ * Command surfaces: create/edit/manage sheets use Drawer; calibrate uses
  * WorkspacePanel.
  */
 

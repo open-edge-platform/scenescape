@@ -1,7 +1,13 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+} from "react";
 import { WorkspacePanel } from "../components/WorkspacePanel";
 import { FormSection } from "../components/FormSection";
 import { TextField } from "../components/TextField";
@@ -17,6 +23,11 @@ import {
 } from "../components/PanelLayoutToggle";
 import { api, type RestError } from "../lib/rest";
 import { useAppToast } from "../components/ToastProvider";
+import { WorkspaceSplitter } from "../scene/WorkspaceSplitter";
+import {
+  CAL_PANEL_SIZE_KEY,
+  useWorkspaceDensity,
+} from "../scene/useWorkspaceDensity";
 import "./CameraCalibratePanel.css";
 import "../components/PanelLayoutToggle.css";
 
@@ -116,6 +127,10 @@ export function SensorCalibratePanel({
 
   const resolvedLayout: PanelLayout =
     layoutMode === "auto" ? autoLayout : layoutMode;
+  const { panelSizePx, setPanelSizePx } = useWorkspaceDensity(resolvedLayout, {
+    storageKey: CAL_PANEL_SIZE_KEY,
+    enableFocus: false,
+  });
   const restUid = sensorIdEdit.trim() || sensorId;
 
   const setPanelLayoutMode = useCallback((mode: PanelLayoutMode) => {
@@ -459,6 +474,7 @@ export function SensorCalibratePanel({
         className={`ss-cal-workspace ss-cal-workspace--${resolvedLayout}`}
         data-cal-layout={resolvedLayout}
         data-cal-layout-mode={layoutMode}
+        style={{ "--ss-panel-size": `${panelSizePx}px` } as CSSProperties}
       >
         <div className="ss-cal-workspace-main ss-workspace-cal-preview">
           <div className="ss-workspace-cal-preview-meta">
@@ -486,6 +502,11 @@ export function SensorCalibratePanel({
             )}
           </div>
         </div>
+        <WorkspaceSplitter
+          layout={resolvedLayout}
+          panelSizePx={panelSizePx}
+          onResize={setPanelSizePx}
+        />
         <aside className="ss-cal-workspace-aside">{formBody}</aside>
       </div>
     </WorkspacePanel>

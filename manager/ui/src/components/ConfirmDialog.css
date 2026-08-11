@@ -6,8 +6,8 @@
 .ss-confirm {
   position: fixed;
   inset: 0;
-  /* Above calibrate overlay (1300) so Leave/Stay is clickable */
-  z-index: 1400;
+  /* Above calibrate (1300) and geo picker (1500) so Leave/Stay is clickable */
+  z-index: 1600;
   display: flex;
   align-items: center;
   justify-content: center;
