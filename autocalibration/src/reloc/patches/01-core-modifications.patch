@@ -972,8 +972,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--exclude=extractors' '--exclude=matchers' /tmp/hloc-latest/hloc/localize_inloc.py hloc/localize_inloc.py
 --- /tmp/hloc-latest/hloc/localize_inloc.py	2026-01-16 16:13:56.813844948 -0700
 +++ hloc/localize_inloc.py	2026-01-16 16:16:08.543183960 -0700
-@@ -1,178 +1,231 @@
-+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+@@ -1,178 +1,233 @@
++# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 +# SPDX-License-Identifier: Apache-2.0
 +
  import argparse
@@ -1238,6 +1238,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +     camera,
 +     estimation_options=estimation_options,
 +  )
++  if ret is None:
++    raise ValueError("estimate_and_refine_absolute_pose returned None")
 +  ret['cfg'] = cfg
 +  return ret, all_mkpq, all_mkpr, all_mkp3d, all_indices, num_matches
 +
