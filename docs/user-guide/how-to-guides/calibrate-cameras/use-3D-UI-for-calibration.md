@@ -74,15 +74,15 @@ Before you begin:
 
 ## Configuration Options
 
-| Parameter            | Purpose                                      | Expected Values                              |
-| -------------------- | -------------------------------------------- | -------------------------------------------- |
-| camera_name          | Custom label for the camera                  | String                                       |
-| extrinsics           | Camera position and orientation              | Matrix or 3D transform values                |
-| intrinsics           | Lens configuration                           | fx, fy, cx, cy, etc.                         |
-| distortion           | Lens distortion coefficients                 | k1, k2, p1, p2, etc.                         |
-| opacity              | Transparency of projected image              | 0.0 (transparent) to 1.0 (solid); default 0.8 |
-| project all frames   | Toggle projections for all cameras           | On / Off                                     |
-| all cameras opacity  | Set projection opacity for all cameras       | 0–100 (percent); default 80                  |
+| Parameter           | Purpose                                | Expected Values                               |
+| ------------------- | -------------------------------------- | --------------------------------------------- |
+| camera_name         | Custom label for the camera            | String                                        |
+| extrinsics          | Camera position and orientation        | Matrix or 3D transform values                 |
+| intrinsics          | Lens configuration                     | fx, fy, cx, cy, etc.                          |
+| distortion          | Lens distortion coefficients           | k1, k2, p1, p2, etc.                          |
+| opacity             | Transparency of projected image        | 0.0 (transparent) to 1.0 (solid); default 0.8 |
+| project all frames  | Toggle projections for all cameras     | On / Off                                      |
+| all cameras opacity | Set projection opacity for all cameras | 0–100 (percent); default 80                   |
 
 ## Troubleshooting
 
