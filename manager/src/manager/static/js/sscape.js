@@ -109,6 +109,45 @@ var scene_id = $("#scene").val();
 var icon_size = 24;
 var show_telemetry = false;
 var show_trails = false;
+var pendingCalibrateMsg = null;
+
+function isCalibratePage() {
+  return window.location.href.includes("/cam/calibrate/");
+}
+
+function calibrateSensorId() {
+  return $("#sensor_id").val() || "";
+}
+
+function requestCalibrateFrames(client) {
+  var sensorId = calibrateSensorId();
+  var mqttClient = client || window.ssMqttClient;
+  if (!mqttClient || !sensorId) {
+    return;
+  }
+  mqttClient.publish(APP_NAME + CMD_CAMERA + sensorId, "getcalibrationimage");
+  mqttClient.publish(APP_NAME + CMD_CAMERA + sensorId, "getimage");
+}
+
+function applyCalibrationImage(msg) {
+  if (!msg || !msg.image) {
+    return false;
+  }
+  if (!window.camera_calibration || !window.camera_calibration.camCanvas) {
+    pendingCalibrateMsg = msg;
+    return false;
+  }
+  pendingCalibrateMsg = null;
+  updateCalibrationView(msg);
+  return true;
+}
+
+function flushPendingCalibrationImage(client) {
+  if (pendingCalibrateMsg) {
+    applyCalibrationImage(pendingCalibrateMsg);
+  }
+  requestCalibrateFrames(client);
+}
 
 function cameraPreviewIsLive(sensorId) {
   if (!sensorId) {
@@ -359,7 +398,7 @@ window.ssDrawSingletonSensors = function () {
   });
 };
 
-if (window.location.href.includes("/cam/calibrate/")) {
+if (isCalibratePage()) {
   // distortion available only for supporting video analytics microservice
   initializeCalibration(scene_id, socket);
 }
@@ -446,7 +485,13 @@ async function checkBrokerConnections() {
       $("#mqtt_status").addClass("connected");
 
       // Camera strip may mount via React after connect — always wire live-view + subscribe.
-      if (!window.location.href.includes("/cam/calibrate/")) {
+      if (isCalibratePage()) {
+        var calSensor = calibrateSensorId();
+        if (calSensor) {
+          client.subscribe(APP_NAME + IMAGE_CAMERA + calSensor);
+        }
+        requestCalibrateFrames(client);
+      } else {
         client.subscribe(APP_NAME + IMAGE_CAMERA + "+");
       }
       window.ssRefreshCameraSnapshots();
@@ -583,12 +628,15 @@ async function checkBrokerConnections() {
       } else if (topic.includes("singleton")) {
         plotSingleton(msg);
       } else if (topic.includes(IMAGE_CALIBRATE)) {
-        if (window.camera_calibration?.camCanvas) {
-          updateCalibrationView(msg);
-        }
+        applyCalibrationImage(msg);
       } else if (topic.includes(IMAGE_CAMERA)) {
-        // Skip processing regular camera images on calibration page
-        if (window.location.href.includes("/cam/calibrate/")) {
+        if (isCalibratePage()) {
+          var calId = topic.split("camera/")[1];
+          if (calId === calibrateSensorId()) {
+            if (applyCalibrationImage(msg)) {
+              client.publish(APP_NAME + CMD_CAMERA + calId, "getimage");
+            }
+          }
           return;
         }
         // Use native JS since jQuery.load() pukes on data URI's
@@ -2316,8 +2364,12 @@ $(document).ready(function () {
   // Operations to take after images are loaded
   $(".content").imagesLoaded(function () {
     // Camera calibration interface
-    if (window.location.href.includes("/cam/calibrate/")) {
+    if (isCalibratePage()) {
       initializeCalibrationSettings();
+      flushPendingCalibrationImage(window.ssMqttClient);
+      window.setTimeout(function () {
+        flushPendingCalibrationImage(window.ssMqttClient);
+      }, 400);
     }
 
     // SVG scene implementation
@@ -2631,6 +2683,14 @@ $(document).ready(function () {
       });
   };
   window.ssEnsureMqttScene();
+  if (isCalibratePage()) {
+    window.setTimeout(function () {
+      if (!window.camera_calibration || !window.camera_calibration.camCanvas) {
+        initializeCalibrationSettings();
+      }
+      flushPendingCalibrationImage(window.ssMqttClient);
+    }, 800);
+  }
 
   $("input[name='area']").on("focus change", function () {
     initArea(this);
