@@ -21,10 +21,12 @@ RUN apt-get source --download-only \
     base-files \
     bash \
     bzip2 \
+    ca-certificates \
     cfitsio \
     curl \
     dpkg \
     elfutils \
+    ffmpeg \
     fonts-dejavu-core \
     fyba \
     gcc-12 \
@@ -33,24 +35,55 @@ RUN apt-get source --download-only \
     gdbm \
     gdcm \
     geos \
+    git \
+    git-man \
     glib2.0 \
     glibc \
     gosu \
     hdf5 \
     icu \
     jbigkit \
+    libasound2 \
+    libasound2-data \
+    libass9 \
+    libasyncns0 \
+    libavc1394-0 \
+    libavcodec59 \
+    libavdevice59 \
+    libavfilter8 \
+    libavformat59 \
+    libavutil57 \
+    libbluray2 \
+    libbs2b0 \
+    libcaca0 \
+    libcairo-gobject2 \
+    libcairo2 \
     libcap2 \
+    libcdio-cdda2 \
+    libcdio-paranoia2 \
+    libcdio19 \
+    libchromaprint1 \
+    libcodec2-1.0 \
     libcurl3-gnutls \
     libcurl4 \
+    libdatrie1 \
     libdbus-1-3 \
+    libdc1394-25 \
     libde265 \
+    libdecor-0-0 \
     libegl-mesa0 \
     libegl1 \
+    liberror-perl \
     libevdev2 \
+    libflac12 \
+    libflite1 \
     libfreetype6 \
     libfreexl1 \
+    libfribidi0 \
     libgbm1 \
     libgcrypt20 \
+    libgdk-pixbuf-2.0-0 \
+    libgdk-pixbuf2.0-common \
     libgeotiff5 \
     libgl1 \
     libgl1-mesa-dri \
@@ -58,46 +91,90 @@ RUN apt-get source --download-only \
     libglvnd0 \
     libglx-mesa0 \
     libglx0 \
+    libgme0 \
     libgnutls30 \
     libgraphite2-3 \
-    libgssapi-krb5-2 \
     libgudev \
     libharfbuzz0b \
     libhdf4 \
     libheif \
     libhwloc15 \
+    libiec61883-0 \
     libinput \
-    libk5crypto3 \
+    libjack-jackd2-0 \
     libkml \
-    libkrb5-3 \
-    libkrb5support0 \
     liblcms2-2 \
     libldap-2.5-0 \
     libltdl7 \
+    libmbedcrypto7 \
+    libmp3lame0 \
+    libmpg123-0 \
     libnghttp2-14 \
     libnspr4 \
     libnss3 \
+    libopenal-data \
+    libopenal1 \
     libopengl0 \
+    libopenmpt0 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libpangoft2-1.0-0 \
     libpciaccess0 \
+    libpgm-5.3-0 \
+    libplacebo208 \
     libpng16-16 \
+    libpocketsphinx3 \
+    libpostproc56 \
     libpq5 \
     libproj25 \
+    libpulse0 \
     libqhull-r8.0 \
+    libraw1394-11 \
+    librsvg2-2 \
     librttopo \
+    librubberband2 \
+    libsamplerate0 \
     libsasl2-2 \
     libsasl2-modules-db \
-    libssl3 \
+    libsdl2-2.0-0 \
+    libshine3 \
+    libslang2 \
+    libsndfile1 \
+    libsodium23 \
+    libsoxr0 \
+    libspeex1 \
+    libsphinxbase3 \
+    libsrt1.5-gnutls \
+    libssh-gcrypt-4 \
+    libsvtav1enc1 \
+    libswresample4 \
+    libswscale6 \
     libsystemd0 \
     libtbb12 \
     libtbbbind-2-5 \
     libtbbmalloc2 \
+    libthai-data \
+    libthai0 \
+    libtwolame0 \
     libudev1 \
+    libudfread0 \
     liburiparser1 \
+    libusb-1.0-0 \
+    libva-drm2 \
+    libva-x11-2 \
+    libva2 \
+    libvidstab1.1 \
+    libx264-164 \
     libxcb-icccm4 \
     libxcb-image0 \
     libxcb-keysyms1 \
     libxcb-render-util0 \
     libxcb-util1 \
+    libxvidcore4 \
+    libzimg2 \
+    libzmq5 \
+    libzvbi-common \
+    libzvbi0 \
     lm-sensors \
     mariadb \
     mosquitto \
@@ -105,15 +182,12 @@ RUN apt-get source --download-only \
     numactl \
     ogdi-dfsg \
     opencv \
-    openssl \
     perl \
     poppler \
     procps \
     proj-data \
     protobuf \
     python3.11 \
-    python3-pip \
-    python3-wheel \
     qtbase-opensource-src \
     rtmpdump \
     sed \
@@ -133,7 +207,6 @@ RUN : \
     ; git clone --depth 1 https://github.com/certifi/python-certifi \
     ; git clone --depth 1 https://github.com/dranjan/python-plyfile \
     ; git clone --depth 1 https://github.com/eclipse-paho/paho.mqtt.python \
-    ; git clone --depth 1 https://github.com/ijl/orjson \
     ; git clone --depth 1 https://github.com/jab/bidict \
     ; git clone --depth 1 https://github.com/psycopg/psycopg2 \
     ; git clone --depth 1 https://github.com/tqdm/tqdm
@@ -147,8 +220,7 @@ RUN : \
     ; git clone --depth 1 https://github.com/eclipse/paho.mqtt.c \
     ; git clone --depth 1 https://github.com/eclipse/paho.mqtt.cpp \
     ; git clone --depth 1 https://github.com/eigenteam/eigen-git-mirror \
-    ; git clone --depth 1 https://github.com/gcc-mirror/gcc \
-    ; git clone --depth 1 https://git.savannah.gnu.org/git/config.git gnu-config
+    ; git clone --depth 1 https://github.com/gcc-mirror/gcc
 
 WORKDIR /sources/other
 RUN : \
