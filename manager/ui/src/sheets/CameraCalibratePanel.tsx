@@ -31,6 +31,8 @@ type Props = {
   cameraPk: string;
   /** sensor_id for REST (from bootstrap cameras[].sensorId) */
   sensorId: string;
+  /** Bootstrap camera name for MQTT cmd/image topics (before REST returns). */
+  cameraName?: string;
   sceneId: string;
   authToken: string;
   /** Advanced pipeline fields only exist on Kubernetes deploys (matches CamCalibrateForm). */
@@ -76,6 +78,7 @@ export function CameraCalibratePanel({
   open,
   cameraPk: _cameraPk,
   sensorId,
+  cameraName = "",
   sceneId,
   authToken,
   isKubernetes,
@@ -120,9 +123,14 @@ export function CameraCalibratePanel({
   const [posePairs, setPosePairs] = useState<PosePair[]>([]);
   const [mapUrl, setMapUrl] = useState<string | null>(null);
   const [cameraImageUrl, setCameraImageUrl] = useState<string | null>(null);
-  const cameraNameRef = useRef("");
+  const cameraNameRef = useRef(cameraName);
   const nameRef = useRef(name);
   nameRef.current = name;
+  useEffect(() => {
+    if (cameraName) {
+      cameraNameRef.current = cameraName;
+    }
+  }, [cameraName]);
 
   lockFocalRef.current = lockFocal;
   const hasAdvanced = isKubernetes;
@@ -155,6 +163,28 @@ export function CameraCalibratePanel({
     setLoaded(false);
     setLockFocal(true);
     setPosePairs([]);
+    // Seed from the live strip card if MQTT already delivered a frame.
+    const stripImg = document.getElementById(
+      `card-preview-${sensorId}`,
+    ) as HTMLImageElement | null;
+    const stripSrc = stripImg?.getAttribute("src") || "";
+    if (stripSrc.startsWith("data:image/")) {
+      setCameraImageUrl(stripSrc);
+    } else if (cameraName) {
+      const byName = Array.from(
+        document.querySelectorAll("img[data-ss-card-name]"),
+      ).find(
+        (el) => el.getAttribute("data-ss-card-name") === cameraName,
+      ) as HTMLImageElement | undefined;
+      const namedSrc = byName?.getAttribute("src") || "";
+      if (namedSrc.startsWith("data:image/")) {
+        setCameraImageUrl(namedSrc);
+      }
+    }
+    if (cameraName) {
+      cameraNameRef.current = cameraName;
+      setName(cameraName);
+    }
     Promise.all([
       api.getCamera(authToken, sensorId),
       api.getScene(authToken, sceneId).catch(() => null),
@@ -163,8 +193,8 @@ export function CameraCalibratePanel({
         if (cancelled) {
           return;
         }
-        setName(String(cam.name || ""));
-        cameraNameRef.current = String(cam.name || "");
+        setName(String(cam.name || cameraName || ""));
+        cameraNameRef.current = String(cam.name || cameraName || "");
         setSensorIdEdit(String(cam.sensor_id || cam.uid || sensorId));
         const inn =
           cam.intrinsics && typeof cam.intrinsics === "object"
@@ -208,7 +238,9 @@ export function CameraCalibratePanel({
             : typeof cam.thumbnail === "string"
               ? cam.thumbnail
               : null;
-        setCameraImageUrl(snap);
+        if (snap) {
+          setCameraImageUrl(snap);
+        }
         setLoaded(true);
       })
       .catch((e: RestError) => {
@@ -224,7 +256,7 @@ export function CameraCalibratePanel({
     return () => {
       cancelled = true;
     };
-  }, [open, sensorId, sceneId, authToken, hasAdvanced]);
+  }, [open, sensorId, cameraName, sceneId, authToken, hasAdvanced]);
 
   /** Live camera frame via scene MQTT (same path as 2D strip / 3D project frame). */
   useEffect(() => {
@@ -232,29 +264,40 @@ export function CameraCalibratePanel({
       return;
     }
     type MqttLike = {
+      connected?: boolean;
       subscribe: (topic: string) => void;
       publish: (topic: string, payload: string) => void;
-      on: (ev: string, fn: (topic: string, payload: Uint8Array) => void) => void;
+      on: (
+        ev: string,
+        fn: (topic: string, payload: Uint8Array | string) => void,
+      ) => void;
       removeListener?: (
         ev: string,
-        fn: (topic: string, payload: Uint8Array) => void,
+        fn: (topic: string, payload: Uint8Array | string) => void,
       ) => void;
       off?: (
         ev: string,
-        fn: (topic: string, payload: Uint8Array) => void,
+        fn: (topic: string, payload: Uint8Array | string) => void,
       ) => void;
     };
-    const applyFrame = (topic: string, raw: Uint8Array) => {
+    const decodePayload = (raw: Uint8Array | string): string => {
+      if (typeof raw === "string") {
+        return raw;
+      }
+      return new TextDecoder().decode(raw);
+    };
+    const applyFrame = (topic: string, raw: Uint8Array | string) => {
       const suffix = topic.split("camera/")[1] || "";
       const ids = new Set(
-        [sensorId, cameraNameRef.current, nameRef.current].filter(Boolean),
+        [sensorId, cameraNameRef.current, nameRef.current, cameraName].filter(
+          Boolean,
+        ),
       );
       if (!ids.has(suffix) && suffix !== sensorId) {
         return;
       }
       try {
-        const text = new TextDecoder().decode(raw);
-        const msg = JSON.parse(text) as { image?: string };
+        const msg = JSON.parse(decodePayload(raw)) as { image?: string };
         if (msg.image) {
           setCameraImageUrl(`data:image/jpeg;base64,${msg.image}`);
         }
@@ -263,6 +306,9 @@ export function CameraCalibratePanel({
       }
     };
     const requestFrames = (client: MqttLike) => {
+      if (client.connected === false) {
+        return;
+      }
       try {
         client.subscribe("scenescape/image/camera/+");
         client.subscribe("scenescape/image/calibration/camera/+");
@@ -270,7 +316,9 @@ export function CameraCalibratePanel({
         /* already subscribed */
       }
       const ids = new Set(
-        [sensorId, cameraNameRef.current, nameRef.current].filter(Boolean),
+        [sensorId, cameraNameRef.current, nameRef.current, cameraName].filter(
+          Boolean,
+        ),
       );
       ids.forEach((id) => {
         client.publish(`scenescape/cmd/camera/${id}`, "getimage");
@@ -278,12 +326,18 @@ export function CameraCalibratePanel({
       });
     };
     let client = window.ssMqttClient as MqttLike | undefined;
-    const onMsg = (topic: string, payload: Uint8Array) => {
+    const onMsg = (topic: string, payload: Uint8Array | string) => {
       if (
         topic.includes("/image/camera/") ||
         topic.includes("/image/calibration/camera/")
       ) {
         applyFrame(topic, payload);
+      }
+    };
+    const onConnect = () => {
+      const c = window.ssMqttClient as MqttLike | undefined;
+      if (c) {
+        requestFrames(c);
       }
     };
     let poll = 0;
@@ -293,6 +347,7 @@ export function CameraCalibratePanel({
         return false;
       }
       client.on("message", onMsg);
+      client.on("connect", onConnect);
       requestFrames(client);
       return true;
     };
@@ -318,8 +373,10 @@ export function CameraCalibratePanel({
       const c = window.ssMqttClient as MqttLike | undefined;
       c?.removeListener?.("message", onMsg);
       c?.off?.("message", onMsg);
+      c?.removeListener?.("connect", onConnect);
+      c?.off?.("connect", onConnect);
     };
-  }, [open, sensorId]);
+  }, [open, sensorId, cameraName]);
 
   useEffect(() => {
     const recompute = () => setAutoLayout(chooseAutoPanelLayout());

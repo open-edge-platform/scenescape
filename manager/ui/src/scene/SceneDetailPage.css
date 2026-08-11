@@ -221,8 +221,8 @@
 
 .ss-scene-detail--workspace .ss-scene-map-slot #map-controls {
   flex: 0 0 auto;
-  position: static;
-  z-index: auto;
+  position: relative;
+  z-index: 5;
   margin: 0.3rem auto 0;
   width: 100%;
 }

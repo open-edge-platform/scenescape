@@ -179,6 +179,7 @@ export function SceneWorkspaceSheets({
         open={Boolean(calibrateCam)}
         cameraPk={calibrateCam?.id || ""}
         sensorId={calibrateCam?.sensorId || ""}
+        cameraName={calibrateCam?.name || ""}
         sceneId={sceneId}
         authToken={authToken}
         isKubernetes={isKubernetes}

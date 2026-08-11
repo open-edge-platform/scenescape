@@ -34,7 +34,8 @@ html[data-theme="dark"] {
   --ss-brand: #4da3ff;
   --ss-brand-hover: #7abbff;
   --ss-brand-soft: #0099ec;
-  --ss-nav-bg: #0a1628;
+  /* Distinct from --ss-surface so the fixed bar does not dissolve into content */
+  --ss-nav-bg: #1a2f4a;
   --ss-nav-fg: #f2f4f7;
   --ss-ink: #e8eef5;
   --ss-surface: #0f1419;
@@ -198,6 +199,8 @@ h6 {
 
 .navbar.bg-dark {
   background-color: var(--ss-nav-bg) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--ss-nav-fg) 14%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, #000 35%, transparent);
 }
 
 /* Bootstrap tables inherit Manager theme tokens */
@@ -320,7 +323,7 @@ h6 {
 }
 
 html[data-theme="dark"] .ss-theme-toggle__btn[aria-pressed="true"] {
-  color: #0a1628;
+  color: #1a2f4a;
   background: #f2f4f7;
 }
 
@@ -1990,8 +1993,16 @@ body:has(.sign-in-page) .content {
   margin-top: 0;
   display: inline-flex;
   align-items: center;
-  padding-top: 0.35rem;
-  padding-bottom: 0.35rem;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.ss-brand-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  line-height: 1;
 }
 
 /* Product wordmark — geometric sans to echo Intel logo typography */
@@ -2004,6 +2015,17 @@ body:has(.sign-in-page) .content {
   line-height: 1;
   color: var(--ss-nav-fg);
   text-decoration: none;
+  white-space: nowrap;
+}
+
+.ss-brand-version {
+  display: block;
+  font-family: var(--ss-font-sans);
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: color-mix(in srgb, var(--ss-nav-fg) 62%, transparent);
   white-space: nowrap;
 }
 

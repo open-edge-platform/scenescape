@@ -13,6 +13,28 @@ function refitMap(): void {
   }
 }
 
+/** Keep Snap mark canvas sized to the visible React map for trails overlay. */
+function syncSnapToReact(stage: HTMLElement): void {
+  const reactSvg = stage.querySelector(
+    "svg.ss-react-scene-map",
+  ) as SVGSVGElement | null;
+  const snap = stage.querySelector(
+    "svg.ss-snap-legacy, svg#svgout-snap",
+  ) as SVGSVGElement | null;
+  if (!reactSvg || !snap) {
+    return;
+  }
+  const w = reactSvg.clientWidth || reactSvg.getBoundingClientRect().width;
+  const h = reactSvg.clientHeight || reactSvg.getBoundingClientRect().height;
+  if (w < 8 || h < 8) {
+    return;
+  }
+  snap.setAttribute("width", String(Math.round(w)));
+  snap.setAttribute("height", String(Math.round(h)));
+  snap.style.width = `${Math.round(w)}px`;
+  snap.style.height = `${Math.round(h)}px`;
+}
+
 type Props = {
   mapUrl?: string | null;
   mapWidth?: number;
@@ -21,7 +43,8 @@ type Props = {
 
 /**
  * Adopts the Django-rendered map host into the React layout.
- * When ssUseReactMap is set, overlays ReactSceneMap on #ss-map-host.
+ * When ssUseReactMap is set, overlays ReactSceneMap on the map stage only
+ * (so #map-controls toggles stay visible below the stage).
  */
 export function SceneMapPane({
   mapUrl = null,
@@ -100,6 +123,13 @@ export function SceneMapPane({
         lastH = h;
         if (!useReactMap) {
           refitMap();
+        } else {
+          const stage = host.querySelector(
+            ".scene-map-stage",
+          ) as HTMLElement | null;
+          if (stage) {
+            syncSnapToReact(stage);
+          }
         }
       });
     };
@@ -138,11 +168,14 @@ export function SceneMapPane({
   }, [useReactMap]);
 
   const host = hostReady ? document.getElementById(LEGACY_MAP_IDS.host) : null;
+  const stage =
+    host?.querySelector(".scene-map-stage") ??
+    null;
 
   return (
     <div className="ss-scene-map-pane">
       <div ref={slotRef} className="ss-scene-map-slot" />
-      {useReactMap && host && mapUrl && naturalSize
+      {useReactMap && stage && mapUrl && naturalSize
         ? createPortal(
             <div className="ss-react-map-layer">
               <ReactSceneMap
@@ -151,7 +184,7 @@ export function SceneMapPane({
                 mapHeight={naturalSize.height || mapHeight}
               />
             </div>,
-            host,
+            stage,
           )
         : null}
     </div>

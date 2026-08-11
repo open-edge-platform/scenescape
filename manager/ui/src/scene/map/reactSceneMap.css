@@ -44,6 +44,34 @@
   fill: #0099ec;
 }
 
+/*
+ * Snap stays mounted for live marks / trails. Hide its map image and
+ * geometry (React owns those); keep marks visible above the React layer.
+ */
+body.ss-use-react-map #ss-map-host .scene-map-stage {
+  position: relative;
+}
+
 body.ss-use-react-map #ss-map-host .ss-snap-legacy {
+  display: block !important;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  pointer-events: none;
+  background: transparent !important;
+  max-width: none;
+  max-height: none;
+}
+
+body.ss-use-react-map #ss-map-host .ss-snap-legacy image {
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .roi,
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .tripwire,
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group {
   display: none !important;
 }

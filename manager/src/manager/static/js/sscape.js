@@ -1733,7 +1733,7 @@ function setROIColor(roi_id, occupancy) {
       var color = getColorForValue(roi_id, occupancy, roi_color_sectors);
       roi_polygon.style.fill = color;
     } else {
-      roi_polygon.style.fill = "white";
+      roi_polygon.style.fill = "";
     }
   }
 }

@@ -95,15 +95,17 @@ SPDX-License-Identifier: Apache-2.0
         <span class="navbar-toggler-icon"></span>
       </button>
       <a class="navbar-brand" href="/" id="home">
-        <span class="ss-wordmark">{{ APP_PROPER_NAME }}</span>
+        <span class="ss-brand-stack">
+          <span class="ss-wordmark">{{ APP_PROPER_NAME }}</span>
+          <span class="ss-brand-version" id="navbar-version"
+            >Version {{ APP_VERSION_NUMBER }}</span
+          >
+        </span>
       </a>
 
       {% if user.is_authenticated %}
         <div class="collapse navbar-collapse" id="navbarMain">
           <ul class="navbar-nav mr-auto">
-            <li class="nav-item nav-item-group" aria-hidden="true">
-              <span class="nav-group-label">Workspace</span>
-            </li>
             <li class="nav-item">
               <a
                 class="nav-link{% if request.resolver_match.url_name == 'index' or request.resolver_match.url_name == 'sceneDetail' %} active{% endif %}"
@@ -146,9 +148,6 @@ SPDX-License-Identifier: Apache-2.0
                 >Object Library</a
               >
             </li>
-            <li class="nav-item nav-item-group" aria-hidden="true">
-              <span class="nav-group-label">Help</span>
-            </li>
             <li class="nav-item">
               <a
                 class="nav-link"
@@ -173,8 +172,6 @@ SPDX-License-Identifier: Apache-2.0
                 <div class="navbar-text navbar-info">
                   <span id="navbar-username"
                     >User: <strong>{{ request.user.username }}</strong></span
-                  ><br /><span id="navbar-version"
-                    >Version {{ APP_VERSION_NUMBER }}</span
                   >
                 </div>
                 <a
