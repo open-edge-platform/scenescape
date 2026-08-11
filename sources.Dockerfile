@@ -192,7 +192,7 @@ RUN apt-get source --download-only \
     procps \
     proj-data \
     protobuf \
-    python-pip \
+    python3-pip \
     python3.11 \
     qtbase-opensource-src \
     rtmpdump \
@@ -202,7 +202,7 @@ RUN apt-get source --download-only \
     superlu \
     unixodbc \
     wget \
-    wheel \
+    python3-wheel \
     x11-common \
     x265 \
     xerces-c \
