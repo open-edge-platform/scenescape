@@ -229,7 +229,12 @@ class SensorMqttRoi(SceneObjectMqtt):
       log.info('object exited region')
 
     entered_objects = region_data.get('entered', [])
-    if self.entered and len(self.sensorHistory) > 0:
+    # Exited objects arrive wrapped as {'object': ..., 'dwell': N}; unwrap for sensor checks.
+    unwrapped_exited = [
+      item['object'] if isinstance(item, dict) and 'object' in item else item
+      for item in exited_objects
+    ]
+    if self.entered and self.enteredTimestamp is not None and len(self.sensorHistory) > 0:
       start_idx, end_idx = self.findSensorIndexes(
         self.enteredTimestamp, region_message_ts, self.exitedTimestamp)
       if not self.handleEnteredExitedObjects(entered_objects,
@@ -239,7 +244,7 @@ class SensorMqttRoi(SceneObjectMqtt):
       else:
         self.checkedEntered += 1
 
-      if not self.handleEnteredExitedObjects(exited_objects,
+      if not self.handleEnteredExitedObjects(unwrapped_exited,
                                              self.sensorHistory[start_idx:end_idx]):
         log.info("Found error in 'exited' objects!")
         self.errorInSensor = True

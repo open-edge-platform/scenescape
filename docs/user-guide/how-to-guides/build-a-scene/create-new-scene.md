@@ -111,7 +111,7 @@ Using a mapping tool, it is possible to measure various distances between points
 
 ##### Adding the new scene and cameras
 
-From the Scenescape working directory on the scene controller, bring up the system with the new configuration (see [Docker Compose Profiles](../../get-started.md#docker-compose-profiles) for details on choosing profiles):
+From the Scenescape working directory on the scene controller, bring up the system with the new configuration (see [Docker Compose Profiles](../../get-started/installation.md#docker-compose-profiles) for details on choosing profiles):
 
 ```bash
 docker compose --profile controller up

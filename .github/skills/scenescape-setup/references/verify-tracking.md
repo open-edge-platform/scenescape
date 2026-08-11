@@ -11,17 +11,20 @@ Happy path: `scripts/verify_tracking.sh <deploy_dir> <scene_uid>` (orchestrator 
 bash scripts/verify_tracking.sh <deploy_dir> <scene_uid> 120
 ```
 
-Pass: ≥1 object in the `objects` array on `scenescape/regulated/scene/<scene_uid>`.
+Pass: ≥1 object in the `objects` array on `scenescape/regulated/scene/<scene_uid>`
+(published by the **analytics** service).
 
 ## Troubleshooting
 
-### 1. Scene controller logs (filtered)
+### 1. Analytics / scene controller logs (filtered)
 
 ```bash
 cd <deploy_dir>
+docker compose logs analytics --tail 50 | grep -iE 'error|mqtt|scene|regul'
 docker compose logs scene --tail 50 | grep -iE 'scene|camera|calibrat|error|mqtt'
 ```
 
+Confirm analytics is Up: `docker compose ps analytics`. Without it, the regulated topic stays empty.
 ### 2. Cameras registered
 
 Use manager API or UI; see [scene-and-cameras.md](./scene-and-cameras.md).

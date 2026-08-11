@@ -18,6 +18,8 @@ Before you begin, ensure the following:
 - You have access to modify the `docker-compose.yml` file in your deployment.
 - You are familiar with scene and camera configuration in Scenescape.
 
+Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md) for exposing match-latency, camera-count, and tracked-object-count metrics for monitoring and hardware-sizing purposes.
+
 ---
 
 ## Steps to Enable Reidentification (ReID) for Out of Box Experience
@@ -65,7 +67,7 @@ retail-config:
 This reidentification-specific configuration uses a vision pipeline that includes anonymous visual feature extraction (also called "visual embeddings") using a person reidentification model:
 
 ```
-"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/apriltag-cam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/apriltag-cam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/omz/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
 ```
 
 **Expected Result**: Scenescape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
@@ -250,6 +252,9 @@ retail-config:
 - **UI Support**:\
   UUID display in the 3D UI is planned for future releases.
 
+- **Latency Metrics**:\
+  For match-latency trends and correlating them against camera count and tracked-object count (e.g. for hardware sizing or monitoring degradation as a deployment scales), see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md).
+
 > **Note**: The default ReID model is tuned for the 'person' category and may not generalize well to other object types.
 
 ---
@@ -262,6 +267,15 @@ When an object is first detected, it is assigned a UUID and no similarity score.
 - **No Match**: The object retains its original UUID.
 
 The scene output includes `reid_state` for each tracked object. For canonical state definitions and lifecycle transitions, see [2-Tier Hybrid Search Implementation](../microservices/controller/Extended-ReID.md#reid-object-states). For output field contract details, see [Scene Controller Data Formats](../microservices/controller/data_formats.md#common-output-track-fields).
+
+In a scene hierarchy, a parent scene can match identities using embeddings its children forward. Query first: if the crop is already enrolled, rematch only; if not (for example parent-only ReID), the parent may enroll under its UUID. When a ReID-enabled child stamps `will_enroll` / `enrolled` on hierarchy provenance, the parent still queries but does not write a second UUID for that crop. See [Embeddings in a Scene Hierarchy](../microservices/controller/Extended-ReID.md#embeddings-in-a-scene-hierarchy) and [write authority](../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#write-authority-on-the-hierarchy-wire-will_enroll--enrolled).
+
+For multi-controller setups: **unrelated** scenes may **share** one ReID backend
+or use **separate** instances. In a **hierarchy**, do not split backends across
+children when you expect one identity space. **Parent-only ReID** with children
+forwarding embeddings (no local child ReID) is supported—parent enrolls on
+query-no-match; see
+[ReID across controllers](../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#reid-across-controllers-what-is-supported).
 
 ---
 
@@ -298,7 +312,6 @@ helm upgrade scenescape-release-1 --install kubernetes/scenescape-chart/ \
 ```
 
 > **Note**: Retention is time-based only. Under heavy ingest, storage can still grow within the TTL window. This is not capacity-based eviction.
-
 ---
 
 ## Configuration Options
@@ -352,3 +365,7 @@ docker compose -f docker-compose-dl-streamer-example.yml \
 3. **Issue: Backend switch appears to “lose” identities**
    - **Cause**: VDMS and Qdrant do not share stored embeddings.
    - **Resolution**: Expected after switching `REID_DATABASE`. Re-accumulate features in the new backend, or restore the previous backend and its data volume.
+
+4. **Issue: No `reid_*` metrics showing up when checking latency/camera-count metrics**
+   - **Cause**: Most commonly, ReID isn't actually enabled yet (feature-extraction pipeline / `reid-config.json` not applied — see [Steps to Enable Reidentification](#steps-to-enable-reidentification-reid-for-out-of-box-experience) above), rather than a metrics-pipeline problem.
+   - **Resolution**: Confirm ReID is enabled and objects are being detected/tracked first; then see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md#troubleshooting) for metrics-specific troubleshooting.

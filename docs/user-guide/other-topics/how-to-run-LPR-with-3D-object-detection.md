@@ -7,7 +7,7 @@ This guide explains how to:
 
 ## Prerequisites
 
-- Successful deployment of a Scenescape instance using [Get Started](../get-started.md)
+- Successful deployment of a Scenescape instance using [Installation](../get-started/installation.md)
 - Access to the DeepScenario 3D Object Detection package
 
 ## Setup Steps
@@ -70,12 +70,12 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
       {
         "name": "deepscenario-cam1",
         "source": "gstreamer",
-        "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/input-video.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvapython class=DeepScenario module=/home/pipeline-server/user_scripts/DeepScenario.py function=process_frame name=deepscenario ! queue ! gvadeskew intrinsics-file=/home/pipeline-server/user_scripts/intrinsics.json ! queue ! gvadetect inference-region=1 model=/home/pipeline-server/models/yolov8_license_plate_detector/yolov8_license_plate_detector.xml ! queue ! gvaclassify model=/home/pipeline-server/models/ch_PP-OCRv4_rec_infer/ch_PP-OCRv4_rec_infer.xml ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/input-video.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvapython class=DeepScenario module=/home/pipeline-server/user_scripts/DeepScenario.py function=process_frame name=deepscenario ! queue ! gvadeskew intrinsics-file=/home/pipeline-server/user_scripts/intrinsics.json ! queue ! gvadetect inference-region=1 model=/home/pipeline-server/models/yolov8_license_plate_detector/yolov8_license_plate_detector.xml ! queue ! gvaclassify model=/home/pipeline-server/models/ch_PP-OCRv4_rec_infer/ch_PP-OCRv4_rec_infer.xml ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
           "properties": {
-            "ntp_config": {
+            "ntp_server": {
               "element": {
                 "name": "timesync",
                 "property": "ntp-server"
@@ -133,7 +133,7 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
             }
           },
           "parameters": {
-            "ntp_config": "ntpserv",
+            "ntp_server": "ntpserv",
             "deepscenario_config": {
               "intrinsics_path": "/home/pipeline-server/user_scripts/intrinsics.json",
               "max_distance": 28.0
@@ -221,16 +221,14 @@ deepscenario:
     - REST_SERVER_PORT=8080
     - GENICAM=Balluff
     - GST_DEBUG=GST_TRACER:7
+    - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
     - ADD_UTCTIME_TO_METADATA=true
     - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
     - MQTT_HOST=broker.scenescape.intel.com
     - MQTT_PORT=1883
   volumes:
     - ./dlstreamer-pipeline-server/deepscenario-lpr-config.json:/home/pipeline-server/config.json
-    - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_decode_timestamp_capture.py
-    - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_inference_data_publish.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_inference_data_publish.py
-    - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_policies.py
-    - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_3d_detector.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_3d_detector.py
+    - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
     - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
     - ./sample_data:/home/pipeline-server/videos
     - ./model_installer/models/public/ch_PP-OCRv4_rec_infer/FP32:/home/pipeline-server/models/ch_PP-OCRv4_rec_infer

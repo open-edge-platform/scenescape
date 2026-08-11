@@ -28,6 +28,7 @@ Consult these based on the code you're working with:
 - **Shell** (`.github/skills/shell/SKILL.md`): Bash scripting guidelines
 - **Makefile** (`.github/skills/makefile/SKILL.md`): Build system conventions
 - **Testing** (`.github/skills/testing/SKILL.md`): Test creation frameworks
+- **External-source adapters** (`.github/skills/external-source-adapter/SKILL.md`): Converter scripts for the Scene Controller `external_source` MQTT contract (read the skill before writing publishers)
 
 ### Skills Caching Strategy
 
@@ -205,7 +206,8 @@ pubsub.publish(topic, json_payload)
 **Debugging Tests**:
 
 - Run specific test: `pytest tests/sscape_tests/geometry/test_point.py::TestPoint::test_constructor`
-- Per-test logs: `tests/test_logs/<category>/<test_name>-<timestamp>/` (includes container logs)
+- Per-test logs: `tests/.test_logs/<group>/<test_id>/<test_id>-<timestamp>.log`
+  (container logs for failures are written to a `...-containers/` sibling directory)
 - Container log collection: `--collect-container-logs {failed,all,none}` (default: `failed`)
 - Multi-backend: `--backend=docker` (default), `--backend=kubernetes`, `--backend=all`
 

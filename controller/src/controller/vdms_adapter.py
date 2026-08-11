@@ -5,8 +5,8 @@ import socket
 
 import vdms
 
-from controller.reid import ReIDDatabase
-from controller.reid_constants import (
+from controller.reid import ReIDDatabase, ReidNoValidVectorsError, ReidPartialWriteError
+from scene_common.reid_constants import (
   K_NEIGHBORS,
   SCHEMA_NAME,
   SIMILARITY_METRIC,
@@ -188,7 +188,7 @@ class VDMSDatabase(ReIDDatabase):
     # VDMS API expects: query([q1, q2, ...], [blob1, blob2, ...])
     descriptor_blobs = []
     add_query = []
-    for vec_array in self._prepareReidVectors(reid_vectors):
+    for vec_array in self._prepareVectorsForAddEntry(reid_vectors):
       descriptor_blobs.append(vec_array.tobytes())
       add_query.append({
         "AddDescriptor": {
@@ -198,19 +198,23 @@ class VDMSDatabase(ReIDDatabase):
       })
 
     if not add_query:
-      log.warning(
+      raise ReidNoValidVectorsError(
         "addEntry: No valid vectors to add (all skipped due to dimension mismatch "
         "or uninitialized dimensions)")
-      return
 
     response, _ = self.sendQuery(add_query, descriptor_blobs)
-    if response:
-      for item in response:
-        if item.get('status') != 0:
-          log.warning(
-            f"Failed to add the descriptor to the database. Received response {item}")
-    else:
-      log.error(f"addEntry: No response from VDMS when adding {len(add_query)} vectors")
+    if not response:
+      raise RuntimeError(
+        f"addEntry: No response from VDMS when adding {len(add_query)} vectors")
+    failures = [item for item in response if item.get('status') != 0]
+    if failures:
+      successes = len(response) - len(failures)
+      detail = (
+        f"addEntry: Failed to add {len(failures)}/{len(response)} descriptor(s) "
+        f"to VDMS. First failure: {failures[0]}")
+      if successes > 0:
+        raise ReidPartialWriteError(detail)
+      raise RuntimeError(detail)
     return
 
   def _applyRetentionProperties(self, properties):
@@ -305,7 +309,7 @@ class VDMSDatabase(ReIDDatabase):
         payloads.extend(item for item in value if isinstance(item, dict))
 
     for payload in payloads:
-      for key in ['dimensions', 'dimension']:
+      for key in ['dimensions', 'dimension', 'VD:dimensions', 'VD:dimension']:
         if key in payload:
           try:
             return int(payload[key])
@@ -326,7 +330,8 @@ class VDMSDatabase(ReIDDatabase):
         payloads.extend(item for item in value if isinstance(item, dict))
 
     for payload in payloads:
-      for key in ['metric', 'distance_metric', 'similarity_metric']:
+      for key in ['metric', 'distance_metric', 'similarity_metric',
+                  'VD:metric', 'VD:distance_metric', 'VD:similarity_metric']:
         if key in payload and payload[key] is not None:
           return str(payload[key])
     return None
