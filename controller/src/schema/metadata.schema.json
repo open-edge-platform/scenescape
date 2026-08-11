@@ -278,6 +278,40 @@
       "description": "MAC address of system that acquired the data.",
       "examples": ["AB:CD:EF:12:34:56", "ab-cd-ef-12-34-56"]
     },
+    "camera_extrinsics": {
+      "title": "Camera Extrinsics",
+      "type": "object",
+      "description": "Optional per-message camera pose override used to project detections for this frame.",
+      "properties": {
+        "translation": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rotation": {
+          "type": "array",
+          "description": "Quaternion [x,y,z,w] or Euler XYZ degrees.",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 4
+        },
+        "scale": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "required": ["translation", "rotation"],
+      "additionalProperties": true
+    },
     "singleton": {
       "title": "Sensor Metadata",
       "description": "Many types of sensors exist for generating data from the physical world. This schema defines the composition of metadata for publishing sensor data into Scenescape.",
@@ -324,6 +358,9 @@
               "$ref": "#/definitions/detection"
             }
           }
+        },
+        "extrinsics": {
+          "$ref": "#/definitions/camera_extrinsics"
         },
         "sub_detections": {
           "title": "Sub-Detections",

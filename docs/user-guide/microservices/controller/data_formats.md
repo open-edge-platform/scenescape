@@ -33,6 +33,7 @@ against the `detector` definition in
 | `id`             | string                |   Yes    | Camera identifier; must match the `{camera_id}` segment in the MQTT topic identifier                                                |
 | `timestamp`      | string (ISO 8601 UTC) |   Yes    | Acquisition time of the frame                                                                                                       |
 | `objects`        | object                |   Yes    | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`)                                                 |
+| `extrinsics`     | object                |    No    | Per-message camera pose override (`translation`, `rotation`, optional `scale`) used to project this frame's detections in scene space |
 | `rate`           | number ≥ 0            |    No    | Camera framerate (frames per second) when the message was produced                                                                  |
 | `sub_detections` | array of string       |    No    | Sub-detection labels run on this frame (e.g. `["license_plate"]`)                                                                   |
 | `intrinsics`     | object                |    No    | Camera intrinsic parameters (`fx`, `fy`, `cx`, `cy`); used to update camera calibration and compute image resolution                |

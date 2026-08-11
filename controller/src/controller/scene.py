@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from types import SimpleNamespace
 from typing import Optional
 
 import numpy as np
@@ -204,17 +205,42 @@ class Scene(SceneModel):
       log.info("DISCARDING: camera has no pose")
       return True
 
+    message_camera = camera
+    extrinsics = jdata.get('extrinsics')
+    if isinstance(extrinsics, dict):
+      try:
+        translation = extrinsics.get('translation')
+        rotation = extrinsics.get('rotation')
+        if translation is not None and rotation is not None:
+          override_pose = CameraPose({
+            'translation': translation,
+            'rotation': rotation,
+            'scale': extrinsics.get('scale') or [1, 1, 1],
+          }, camera.pose.intrinsics)
+          message_camera = SimpleNamespace(cameraID=camera.cameraID, pose=override_pose)
+      except Exception as exc:
+        log.warning("Ignoring invalid message extrinsics for camera %s: %s", camera_id, exc)
+
     for detection_type, detections in jdata['objects'].items():
       self.pose_adjustment.adjust_detections(
         detection_type,
         detections,
         self.name,
-        camera,
+        message_camera,
         when,
       )
       if "intrinsics" not in jdata:
-        self._convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
-      objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
+        self._convertPixelBoundingBoxesToMeters(
+          detections,
+          message_camera.pose.intrinsics.intrinsics,
+          message_camera.pose.intrinsics.distortion,
+        )
+      objects = self._createMovingObjectsForDetection(
+        detection_type,
+        detections,
+        when,
+        message_camera,
+      )
       self._finishProcessing(detection_type, when, objects)
     return True
 
