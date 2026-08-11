@@ -44,7 +44,10 @@ SPDX-License-Identifier: Apache-2.0
           value="Yes, Delete the Camera!"
         />
         {% if object.scene %}
-          <a class="btn btn-outline-secondary ms-2" href="{% url 'cam_calibrate' object.id %}">
+          <a
+            class="btn btn-outline-secondary ms-2"
+            href="{% url 'cam_calibrate' object.id %}"
+          >
             Cancel
           </a>
         {% else %}
