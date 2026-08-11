@@ -972,7 +972,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--exclude=extractors' '--exclude=matchers' /tmp/hloc-latest/hloc/localize_inloc.py hloc/localize_inloc.py
 --- /tmp/hloc-latest/hloc/localize_inloc.py	2026-01-16 16:13:56.813844948 -0700
 +++ hloc/localize_inloc.py	2026-01-16 16:16:08.543183960 -0700
-@@ -1,178 +1,216 @@
+@@ -1,178 +1,231 @@
 +# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 +# SPDX-License-Identifier: Apache-2.0
 +
@@ -1222,7 +1222,22 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      'height': height,
 +      'params': [focal_length, cx, cy]
 +  }
-+  ret = pycolmap.absolute_pose_estimation(all_mkpq, all_mkp3d, cfg, 48.00)
++
++  camera = pycolmap.Camera(
++      model=cfg["model"],
++      width=cfg["width"],
++      height=cfg["height"],
++      params=cfg["params"],
++  )
++  estimation_options = pycolmap.AbsolutePoseEstimationOptions()
++  estimation_options.ransac.max_error = 48.0
++
++  ret = pycolmap.estimate_and_refine_absolute_pose(
++     np.ascontiguousarray(all_mkpq, dtype=np.float64),
++     np.ascontiguousarray(all_mkp3d, dtype=np.float64),
++     camera,
++     estimation_options=estimation_options,
++  )
 +  ret['cfg'] = cfg
 +  return ret, all_mkpq, all_mkpr, all_mkp3d, all_indices, num_matches
 +
@@ -1356,7 +1371,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--exclude=extractors' '--exclude=matchers' /tmp/hloc-latest/hloc/localize_sfm.py hloc/localize_sfm.py
 --- /tmp/hloc-latest/hloc/localize_sfm.py	2026-01-16 16:13:56.813844948 -0700
 +++ hloc/localize_sfm.py	2026-01-16 16:16:08.543398969 -0700
-@@ -1,235 +1,240 @@
+@@ -1,235 +1,244 @@
 +# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 +# SPDX-License-Identifier: Apache-2.0
 +
@@ -1448,41 +1463,28 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -    return clusters
 +  clusters = sorted(clusters, key=len, reverse=True)
 +  return clusters
- 
- 
+
+
  class QueryLocalizer:
--    def __init__(self, reconstruction, config=None):
--        self.reconstruction = reconstruction
--        self.config = config or {}
--
--    def localize(self, points2D_all, points2D_idxs, points3D_id, query_camera):
--        points2D = points2D_all[points2D_idxs]
--        points3D = [self.reconstruction.points3D[j].xyz for j in points3D_id]
--        if points2D.shape[0] == 0:
--            return None
--        ret = pycolmap.estimate_and_refine_absolute_pose(
--            points2D,
--            points3D,
--            query_camera,
--            estimation_options=self.config.get("estimation", {}),
--            refinement_options=self.config.get("refinement", {}),
--        )
--        return ret
-+  def __init__(self, reconstruction, config=None):
-+    self.reconstruction = reconstruction
-+    self.config = config or {}
-+
-+  def localize(self, points2D_all, points2D_idxs, points3D_id, query_camera):
-+    points2D = points2D_all[points2D_idxs]
-+    points3D = [self.reconstruction.points3D[j].xyz for j in points3D_id]
-+    ret = pycolmap.absolute_pose_estimation(
-+        points2D, points3D, query_camera,
-+        estimation_options=self.config.get('estimation', {}),
-+        refinement_options=self.config.get('refinement', {}),
-+    )
-+    return ret
- 
- 
+     def __init__(self, reconstruction, config=None):
+         self.reconstruction = reconstruction
+         self.config = config or {}
+
+     def localize(self, points2D_all, points2D_idxs, points3D_id, query_camera):
+         points2D = points2D_all[points2D_idxs]
+         points3D = [self.reconstruction.points3D[j].xyz for j in points3D_id]
+         if points2D.shape[0] == 0:
+             return None
+         ret = pycolmap.estimate_and_refine_absolute_pose(
+             points2D,
+             points3D,
+             query_camera,
+             estimation_options=self.config.get("estimation", {}),
+             refinement_options=self.config.get("refinement", {}),
+         )
+         return ret
+
+
  def pose_from_cluster(
 -    localizer: QueryLocalizer,
 -    qname: str,
@@ -5196,7 +5198,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +    return cursor.lastrowid
 +
 +  def add_image(self, name, camera_id,
-+                prior_q=np.full(4, np.NaN), prior_t=np.full(3, np.NaN),
++                prior_q=np.full(4, np.nan), prior_t=np.full(3, np.nan),
 +                image_id=None):
 +    cursor = self.execute(
 +        "INSERT INTO images VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
