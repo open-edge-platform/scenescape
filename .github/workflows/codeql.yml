@@ -175,6 +175,7 @@ jobs:
           template: report
           token: ${{ secrets.GITHUB_TOKEN }}
           outputDir: codeql-report
+          sarifReportDir: results
 
       - name: "GitHub Upload Release Artifacts"
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -197,6 +198,7 @@ jobs:
           template: report
           token: ${{ secrets.GITHUB_TOKEN }}
           outputDir: codeql-report
+          sarifReportDir: results
 
       - name: "GitHub Upload Release Artifacts"
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
