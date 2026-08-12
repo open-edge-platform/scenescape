@@ -188,7 +188,8 @@ class MovingObject:
       self.boundingBoxPixels = Rectangle(self.info['bounding_box_px'])
       self.info.pop('bounding_box_px')
       if not 'bounding_box' in self.info:
-        agnostic = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(self.boundingBoxPixels)
+        # Pass distance so depth-equipped cameras project to true 3D instead of floor intersection.
+        agnostic = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(self.boundingBoxPixels, self.info.get('distance'))
         self.boundingBox = agnostic
     if 'bounding_box' in self.info:
       self.boundingBox = Rectangle(self.info['bounding_box'])
