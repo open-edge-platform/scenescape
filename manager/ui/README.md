@@ -33,6 +33,7 @@ Outputs under `manager/src/manager/static/ui/`:
 | `list-sheets` | `list-sheets.js` | Cam / sensor / asset lists |
 | `admin-list` | `admin-list.js` | Camera / sensor list chrome |
 | `destructive-actions` | `destructive-actions.js` | In-page delete confirms |
+| `models-directory` | `models-directory.js` | K8s Models page (browse / upload) |
 
 
 Set `SKIP_UI=1` to skip the UI build when running `make -C manager build-image`

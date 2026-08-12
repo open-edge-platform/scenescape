@@ -11,6 +11,29 @@
 
 .ss-models-dir-tree {
   margin-top: 1rem;
+  min-height: 8rem;
+  border-radius: 0.5rem;
+}
+
+.ss-models-dir-tree.is-drop,
+.ss-model-row.is-drop {
+  outline: 2px dashed var(--ss-brand);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--ss-brand) 10%, transparent);
+}
+
+.ss-model-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-radius: 0.25rem;
+  padding-right: 0.15rem;
+}
+
+.ss-model-row:hover,
+.ss-model-row:focus-within {
+  background: color-mix(in srgb, var(--ss-brand) 8%, transparent);
 }
 
 .ss-model-node-btn {
@@ -24,8 +47,54 @@
   color: var(--ss-text);
   padding: 0.2rem 0.25rem;
   cursor: pointer;
+  min-width: 0;
+  text-align: left;
 }
 
 .ss-model-node-btn:hover {
   color: var(--ss-brand);
+}
+
+.ss-model-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.05rem;
+  flex-shrink: 0;
+  opacity: 0.4;
+}
+
+.ss-model-row:hover .ss-model-actions,
+.ss-model-row:focus-within .ss-model-actions {
+  opacity: 1;
+}
+
+.ss-model-action-danger:hover {
+  color: var(--ss-status-bad);
+}
+
+.ss-model-new-folder {
+  max-width: 20rem;
+  margin: 0.2rem 0 0.4rem;
+}
+
+.ss-model-guidance {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.ss-model-guidance li + li {
+  margin-top: 0.5rem;
+}
+
+.ss-models-dir-error {
+  margin: 0.5rem 0 0;
+  color: var(--ss-status-bad);
+  font-size: 0.8125rem;
+}
+
+.ss-models-dir-hint {
+  margin: 0.5rem 0 0;
+  color: var(--ss-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
 }

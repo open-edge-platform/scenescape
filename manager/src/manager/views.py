@@ -921,6 +921,9 @@ class ModelListView(LoginRequiredMixin, TemplateView):
         current_level[filename] = None
 
     context['directory_structure'] = dir_structure
+    context['models_directory_bootstrap'] = {
+      'isSuperuser': self.request.user.is_superuser,
+    }
 
     return context
 

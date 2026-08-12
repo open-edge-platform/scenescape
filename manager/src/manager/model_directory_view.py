@@ -7,7 +7,6 @@ import zipfile
 
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
-from django.template.loader import render_to_string
 from rest_framework import authentication, status
 from rest_framework.views import APIView
 
@@ -29,9 +28,9 @@ class ModelDirectory(APIView):
       return None, "Invalid path"
     return norm_path, None
 
-  # Load the directory and return directory content in html or json format
+  # Load the directory and return directory content as json
   # return data, status_code
-  def loadDirectory(self, path, folder_name, as_json=False):
+  def loadDirectory(self, path, folder_name):
 
     # Error handling
     if(path is None):
@@ -91,21 +90,12 @@ class ModelDirectory(APIView):
     # Count depth level
     depth_level = len([part for part in os.path.join(path, folder_name).split(os.sep) if part])
 
-    if as_json:
-      return {
-        'path': path,
-        'folder_name': folder_name,
-        'depth': depth_level,
-        'tree': dir_structure,
-      }, status.HTTP_200_OK
-
-    # Render the directory content in html format
-    html = render_to_string('model/includes/model_directory.html', {
-        'path': path,
-        'directory_structure': dir_structure,
-        'depth': 16 + 32 * depth_level,
-    })
-    return html, status.HTTP_200_OK
+    return {
+      'path': path,
+      'folder_name': folder_name,
+      'depth': depth_level,
+      'tree': dir_structure,
+    }, status.HTTP_200_OK
 
   # Check if the directory exists
   # return data, status code
@@ -230,12 +220,8 @@ class ModelDirectory(APIView):
       data, status_code = self.checkDirectoryExistence(path, folder_name)
       return HttpResponse(data, status=status_code)
     elif action == "load":
-      want_json = (
-        request.GET.get("format") == "json"
-        or "application/json" in request.META.get("HTTP_ACCEPT", "")
-      )
-      data, status_code = self.loadDirectory(path, folder_name, as_json=want_json)
-      if want_json and isinstance(data, dict):
+      data, status_code = self.loadDirectory(path, folder_name)
+      if isinstance(data, dict):
         return JsonResponse(data, status=status_code)
       return HttpResponse(data, status=status_code)
     else:
@@ -261,8 +247,20 @@ class ModelDirectory(APIView):
     else:
       return HttpResponse('Invalid action', status=status.HTTP_400_BAD_REQUEST)
 
+  def _formValue(self, request, key):
+    value = request.POST.get(key)
+    if value is not None:
+      return value
+    value = request.GET.get(key)
+    if value is not None:
+      return value
+    try:
+      return request.data.get(key)
+    except Exception:
+      return None
+
   def delete(self, request):
-    path = request.POST.get('path')
-    delete_folder = request.POST.get('folder_name')
+    path = self._formValue(request, 'path')
+    delete_folder = self._formValue(request, 'folder_name')
     data, status_code = self.deleteDirectory(path, delete_folder)
     return HttpResponse(data, status=status_code)

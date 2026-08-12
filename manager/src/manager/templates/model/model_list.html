@@ -6,71 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 {% extends 'sscape/base.html' %}
 {% load static %}
 {% block content %}
-  <div class="page-header">
-    <h2 class="form-title d-flex align-items-center">
-      Model Directory {# Button to display the guidance #}
-      <button
-        class="guidance-modal-button"
-        data-toggle="modal"
-        data-target="#model-directory-guidance"
-      >
-        <i class="bi bi-info-circle"></i>
-      </button>
-    </h2>
-  </div>
-
-  {# User modal guidance #}
-  <div
-    class="modal fade"
-    id="model-directory-guidance"
-    tabindex="-1"
-    role="dialog"
-    aria-labelledby="model-directory-guidance-title"
-  >
-    <div class="modal-dialog modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="model-directory-guidance-title">
-            Guidance
-          </h5>
-          <button
-            type="button"
-            class="close"
-            data-dismiss="modal"
-            aria-label="Close"
-          >
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <ol>
-            <li>
-              Browse folders and files under the models root. Use Refresh to
-              reload after uploads performed outside this UI.
-            </li>
-            <li>
-              Renaming directories is not supported. To rename, delete the
-              existing directory and create a new one with the desired name.
-            </li>
-            <li>
-              Advanced create / upload / delete actions remain available via the
-              model-directory API; this page is the React directory browser.
-            </li>
-          </ol>
-        </div>
-        <div class="modal-footer">
-          <button
-            type="button"
-            class="btn btn-outline-secondary"
-            data-dismiss="modal"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   {% if directory_structure is not none %}
     {% csrf_token %}
     <div id="ss-models-directory-root"></div>
@@ -80,5 +15,6 @@ SPDX-License-Identifier: Apache-2.0
 {% endblock %}
 
 {% block scripts %}
+  {{ models_directory_bootstrap|json_script:"ss-models-directory-bootstrap" }}
   <script type="module" src="{% static 'ui/models-directory.js' %}"></script>
 {% endblock %}

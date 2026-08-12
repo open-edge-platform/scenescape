@@ -88,21 +88,19 @@ Likely files: `SceneDetailPage.css`, `reactSceneMap.css`,
 Out of scope here: calibrate workspace size, geospatial picker, theme
 tokens, virtualized tables / search / sort / filter.
 
-### 2. Model directory parity (optional)
+### 2. Model directory parity
 
-Initial React island ships on `model/list/`:
+Status: **done** (UI). React island on `model/list/` matches legacy actions:
 
 - Mount: `#ss-models-directory-root` → `models-directory.js`
-- API: `GET /api/v1/model-directory/?action=load&format=json`
-- Legacy jQuery `model_list.js` / HTML fragment load path retired
+- Bootstrap: `#ss-models-directory-bootstrap` (`isSuperuser`)
+- Browse, refresh, copy `/models/…`, download
+- Superuser: create folder, upload, zip extract into named folder,
+  overwrite confirm, delete confirm, drag-drop onto root/folder
+- API: `GET/POST/DELETE /api/v1/model-directory/` (JSON load only)
+- Legacy jQuery `model_list.js` / HTML fragment retired
 
-Still optional:
-
-- Create folder / upload / extract zip / delete / copy-path in React
-  (API already supports POST/DELETE; UI is browse + refresh)
-- Drop unused `model/includes/model_directory.html` when no HTML
-  consumers remain
-- K8s-only BAT covering browse + upload if product requires full parity
+Optional later: K8s-only BAT covering browse + upload if product requires it.
 
 ### 3. 3D scene viewport (epic)
 
