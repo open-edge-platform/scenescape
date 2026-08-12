@@ -3,8 +3,6 @@
 
 # Scenescape
 
-_Part of [Edge AI Libraries](https://docs.openedgeplatform.intel.com/dev/ai-libraries.html)_
-
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape">
@@ -91,7 +89,7 @@ PostgreSQL database server which stores static information used by the web UI an
 :::{toctree}
 :hidden:
 
-Scenescape Home Page <https://docs.openedgeplatform.intel.com/dev/scenescape/index.html>
+Go back to Libraries <https://docs.openedgeplatform.intel.com/dev/ai-libraries.html>
 
 :::
 
@@ -99,6 +97,7 @@ Scenescape Home Page <https://docs.openedgeplatform.intel.com/dev/scenescape/ind
 :hidden:
 :caption: Get Started
 
+Scenescape Overview <https://docs.openedgeplatform.intel.com/dev/scenescape/index.html>
 Installation <./get-started/installation.md>
 System Requirements <./get-started/system-requirements.md>
 
