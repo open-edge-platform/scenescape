@@ -24,7 +24,6 @@ SCALE = 1000
 
 
 @pytest.mark.test_name("NEX-T10393_PAGE_NAVIGATE")
-@pytest.mark.preserve_db
 def test_persistence_on_page_navigate(params, result_recorder):
   """! Checks that a scene can be created and a camera added.
   @param    params                  Dict of test parameters.

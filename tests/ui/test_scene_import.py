@@ -224,7 +224,7 @@ class SceneImportTest(UserInterfaceTest):
 
       if self.expected == SCENE_EXISTS:
         # Ensure the scene exists before testing the duplicate-import error.
-        # A prior test's DB restore may have wiped it.
+        # A prior test may have removed it.
         self.importScene()
         time.sleep(self.waitTime)
 

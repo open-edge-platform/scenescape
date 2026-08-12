@@ -33,8 +33,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-pytestmark = pytest.mark.preserve_db
-
 def test_scene_retrack_disabled_objects_propagate_to_parent(
     objData, record_xml_attribute, params):
   """! Positive test: with retrack=False, objects from the child scene still

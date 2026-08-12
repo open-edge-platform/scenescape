@@ -40,8 +40,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-pytestmark = pytest.mark.preserve_db
-
 # Feature accumulation needs >=12 frames; leave headroom, then prune + flush.
 ENROLL_FRAMES = 30
 PRUNE_EMPTY_FRAMES = 15

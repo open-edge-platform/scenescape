@@ -36,8 +36,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-pytestmark = pytest.mark.preserve_db
-
 
 def _collect_external_messages(h, client_holder, timeout=None):
   """Subscribe to child DATA_EXTERNAL and return messages that contain objects."""

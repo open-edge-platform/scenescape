@@ -104,8 +104,8 @@ class ExternalSourceAnalytics(FunctionalTest):
   def prepareGeoScene(self):
     """Enable geospatial calibration on the demo scene.
 
-    After inter-test DB restore, the controller may compute TRS locally while
-    REST briefly omits ``trs_matrix`` (same flake class as
+    When the demo scene has just been created, the controller may compute TRS
+    locally while REST briefly omits ``trs_matrix`` (same flake class as
     test_geospatial_ingest_publish). Prefer corners on the existing demo map;
     fall back to map re-upload. Readiness is confirmed by a successful
     external-source publish that appears on DATA_SCENE, not solely by REST.

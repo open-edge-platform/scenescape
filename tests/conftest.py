@@ -21,6 +21,7 @@ import re
 import socket
 import subprocess
 import sys
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -71,7 +72,6 @@ try:
   import utils.log as _testlog
   from utils import stream_subprocess
   from utils.containers import collect_logs, wait_for_services
-  from utils.profiles import WaitConfig
   _ORCHESTRATION_AVAILABLE = True
 except ImportError:
   pass
@@ -155,111 +155,6 @@ class ScenescapeEnv:
   secrets_dir: str
   supass: str
   hierarchy_ports: dict = None
-
-  def restore_db(self):
-    """Reload the database from the original test archive.
-
-    Flushes all data (keeping the schema), reloads fixture data from
-    the EXAMPLEDB archive, recreates auth users, marks the database
-    as ready, and restarts the scene controller so it picks up the
-    fresh DB state.
-    """
-    logger.info("Restoring database from EXAMPLEDB archive...")
-    manage = "$SCENESCAPE_HOME/manage.py"
-    self.docker.compose.execute(
-      "web",
-      ["sh", "-c", f"python {manage} flush --no-input"],
-      tty=False,
-    )
-    self.docker.compose.execute(
-      "web",
-      ["sh", "-c",
-       "tar xjf $EXAMPLEDB -C /tmp"
-       f" && python {manage} loaddata /tmp/data.json"
-       " && rm -f /tmp/data.json /tmp/meta.json"],
-      tty=False,
-    )
-    self.docker.compose.execute(
-      "web",
-      ["sh", "-c",
-       "find -L /run/secrets -name '*.auth'"
-       f"  -exec python {manage} createuser --skip-existing {{}} \\;"
-       " && DJANGO_SUPERUSER_PASSWORD=$SUPASS"
-       f"    python {manage} createsuperuser"
-       "    --no-input --username=admin"
-       "    --email=admin@domain.com 2>/dev/null || true"],
-      tty=False,
-    )
-
-    self.docker.compose.execute(
-      "web",
-      ["sh", "-c", f"python {manage} updatedbstatus --ready"],
-      tty=False,
-    )
-    logger.info("Database restored.")
-
-    logger.info("Restarting scene controller to refresh cache...")
-    try:
-      from datetime import datetime, timezone
-      import time
-      restart_time = datetime.now(timezone.utc)
-      self.docker.compose.restart("scene")
-      time.sleep(0.5)
-      wait_for_services(
-        self.docker, self.project_name,
-        {"scene": WaitConfig(log_pattern="Subscribed to")},
-        since=restart_time,
-      )
-      logger.info("Scene controller restarted and ready.")
-    except Exception as exc:
-      logger.warning("Scene controller restart failed: %s", exc)
-
-    # Restart the autocalibration service if it is running
-    try:
-      from datetime import datetime, timezone
-      import time
-      containers = self.docker.compose.ps()
-      autocalib_running = any(
-        c.name and "autocalibration" in c.name and "init" not in c.name
-        for c in containers
-      )
-      if autocalib_running:
-        logger.info("Restarting autocalibration service (auth token refresh)...")
-        restart_time = datetime.now(timezone.utc)
-        self.docker.compose.restart("autocalibration")
-        time.sleep(0.5)
-        wait_for_services(
-          self.docker, self.project_name,
-          {"autocalibration": WaitConfig(timeout=120)},
-          since=restart_time,
-        )
-        logger.info("Autocalibration service restarted and ready.")
-    except Exception as exc:
-      logger.warning("Autocalibration restart failed: %s", exc)
-
-    # Restart the analytics service if it is running (its cached REST auth
-    # session is invalidated by the DB flush/reload above, same as autocalibration).
-    try:
-      from datetime import datetime, timezone
-      import time
-      containers = self.docker.compose.ps()
-      analytics_running = any(
-        c.name and "analytics" in c.name and "cluster" not in c.name
-        for c in containers
-      )
-      if analytics_running:
-        logger.info("Restarting analytics service (auth token refresh)...")
-        restart_time = datetime.now(timezone.utc)
-        self.docker.compose.restart("analytics")
-        time.sleep(0.5)
-        wait_for_services(
-          self.docker, self.project_name,
-          {"analytics": WaitConfig(log_pattern="Subscribed to")},
-          since=restart_time,
-        )
-        logger.info("Analytics service restarted and ready.")
-    except Exception as exc:
-      logger.warning("Analytics restart failed: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -945,56 +840,10 @@ def scenescape_env(request, _compose_manager, secrets_dir, supass,
       spec.profile, _spec_visibility_topic(spec), fresh=fresh)
     _inject_options(request.config, spec, secrets_dir, supass, env=env)
 
-  # If a previous test preserved the database (skipped its post-test restore)
-  # and it lived in a different module, restore now so this test starts from the
-  # baseline snapshot. Restores are scoped to the running stack: a profile change
-  # already restarts the stack with a fresh database, and within-module
-  # persistence chains (multiple tests in one file relying on carried-over state)
-  # are intentionally left untouched.
-  if "web" in spec.profile.wait_for and hasattr(env, "restore_db"):
-    preserved = getattr(request.session, "_scenescape_db_preserved", None)
-    if preserved is not None:
-      preserved_module, preserved_profile_key = preserved
-      current_profile_key = f"{spec.profile.name}:{_spec_visibility_topic(spec)}"
-      if preserved_profile_key != current_profile_key:
-        # Stack was restarted on the profile switch; database is already fresh.
-        request.session._scenescape_db_preserved = None
-      elif preserved_module != request.module.__name__:
-        logger.info(
-          "Restoring database before %s: previous module %s preserved it",
-          request.module.__name__, preserved_module,
-        )
-        try:
-          env.restore_db()
-        except Exception as exc:
-          logger.warning("Pre-test DB restore failed: %s", exc)
-        request.session._scenescape_db_preserved = None
-
   yield env
 
   # Collect container logs based on outcome and mode while the stack is still running.
   _collect_container_logs_if_configured(env, request)
-
-  # Restore database after every test so each test starts from an identical
-  # baseline. Only applies to profiles that include a web/database service.
-  # Tests marked with @pytest.mark.preserve_db skip this restore so a following
-  # test in the same module can verify data survives; the preserved state is
-  # recorded so the next test in a different module restores before running.
-  if "web" in spec.profile.wait_for:
-    if _is_final_test(request.node):
-      logger.info("Skipping post-test DB restore: last test of the session")
-      request.session._scenescape_db_preserved = None
-    elif request.node.get_closest_marker("preserve_db"):
-      request.session._scenescape_db_preserved = (
-        request.module.__name__,
-        f"{spec.profile.name}:{_spec_visibility_topic(spec)}",
-      )
-    else:
-      try:
-        env.restore_db()
-      except Exception as exc:
-        logger.warning("Post-test DB restore failed: %s", exc)
-      request.session._scenescape_db_preserved = None
 
 
 # ---------------------------------------------------------------------------
@@ -1192,8 +1041,6 @@ def pytest_configure(config):
 
 from tests.common_test_utils import record_test_result
 
-DEMO_SCENE_UID = "3bc091c7-e449-46a0-9540-29c499bca18c"
-
 
 @pytest.fixture(scope="function", autouse=True)
 def record_test_name(request, record_xml_attribute):
@@ -1222,12 +1069,133 @@ def result_recorder(request):
     record_test_result(test_name, r.exit_code)
 
 
-@pytest.fixture(scope="function")
-def demo_scene(scenescape_env):
-  """Provide the Demo scene UID.
+# ---------------------------------------------------------------------------
+# Scene lifecycle fixtures
+# ---------------------------------------------------------------------------
 
-  Database restoration is handled automatically by the scenescape_env
-  fixture teardown, so every test gets a clean slate regardless of
-  whether it uses this fixture.
+# Properties of the seeded "Demo" scene, reproduced by the demo_scene fixture
+# so tests get identical content on every deployment backend.
+DEMO_SCENE_MAP = "sample_data/HazardZoneSceneLarge.png"
+DEMO_SCENE_SCALE = 100.0
+DEMO_SCENE_CAMERAS = ("camera1", "camera2", "camera3")
+# 3D-2D point correspondence calibration of the seeded demo cameras.
+DEMO_CAMERA_TRANSFORM_TYPE = "3d-2d point correspondence"
+DEMO_CAMERA_TRANSFORMS = [278.0, 61.0, 621.0, 132.0, 559.0, 460.0, 66.0, 289.0,
+                          0.1, 5.38, 3.04, 5.35, 3.05, 2.42, 0.1, 2.45]
+# Seconds to wait for the scene controller to observe a new scene.
+_SCENE_READY_TIMEOUT = 30
+
+
+def _wait_for_scene(rest, uid, timeout=_SCENE_READY_TIMEOUT):
+  """Block until *uid* is readable over REST, so the controller has it too."""
+  deadline = time.monotonic() + timeout
+  while time.monotonic() < deadline:
+    try:
+      if rest.getScene(uid):
+        return True
+    except Exception:
+      pass
+    time.sleep(0.5)
+  return False
+
+
+@pytest.fixture(scope="function")
+def scene_factory(params):
+  """Create scenes (and their cameras) that are removed when the test ends.
+  Usage:
+      scene = scene_factory("my-scene", cameras=["cam-a"])
+      scene_uid = scene["uid"]
   """
-  return DEMO_SCENE_UID
+  from scene_common.rest_client import RESTClient
+
+  rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
+  assert rest.authenticate(params['user'], params['password']), \
+    "scene_factory could not authenticate against the REST API"
+
+  created_scenes = []
+  created_cameras = []
+
+  def _delete_by_name(getter, deleter, name):
+    """Remove pre-existing objects called *name* so creation cannot clash."""
+    try:
+      existing = getter({'name': name}).get('results', [])
+    except Exception:
+      return
+    for obj in existing:
+      try:
+        deleter(obj['uid'])
+      except Exception:
+        pass
+
+  def _factory(name, cameras=(), map_image=None, replace=False, **fields):
+    """Create a scene and return the created scene object.
+
+    @param  name        Scene name.
+    @param  cameras     Camera names to attach to the scene.
+    @param  map_image   Repo-relative path of a map image to upload.
+    @param  replace     Delete pre-existing objects with the same names first.
+    @param  fields      Extra fields forwarded to the scene create call.
+    """
+    if replace:
+      _delete_by_name(rest.getScenes, rest.deleteScene, name)
+      for camera in cameras:
+        _delete_by_name(rest.getCameras, rest.deleteCamera, camera)
+
+    payload = {'name': name}
+    payload.update(fields)
+    if map_image:
+      path = os.path.join(_REPO_ROOT, map_image)
+      with open(path, "rb") as handle:
+        payload['map'] = (path, handle.read())
+
+    scene = rest.createScene(payload)
+    assert scene, f"scene_factory failed creating '{name}': " \
+      f"{scene.statusCode} {getattr(scene, 'errors', None)}"
+    created_scenes.append(scene['uid'])
+
+    for camera in cameras:
+      created = rest.createCamera({
+        'name': camera,
+        'sensor_id': camera,
+        'scene': scene['uid'],
+        'transform_type': DEMO_CAMERA_TRANSFORM_TYPE,
+        'transforms': DEMO_CAMERA_TRANSFORMS,
+      })
+      assert created, f"scene_factory failed creating camera '{camera}': " \
+        f"{created.statusCode} {getattr(created, 'errors', None)}"
+      created_cameras.append(created['uid'])
+
+    _wait_for_scene(rest, scene['uid'])
+    return scene
+
+  yield _factory
+
+  # Cameras first: deleting a scene cascades, but explicit removal keeps
+  # camera names free even if the scene delete fails.
+  for uid in reversed(created_cameras):
+    try:
+      rest.deleteCamera(uid)
+    except Exception as exc:
+      logger.warning("scene_factory could not delete camera %s: %s", uid, exc)
+  for uid in reversed(created_scenes):
+    try:
+      rest.deleteScene(uid)
+    except Exception as exc:
+      logger.warning("scene_factory could not delete scene %s: %s", uid, exc)
+
+
+@pytest.fixture(scope="function")
+def demo_scene(scene_factory, params):
+  """Provide a freshly created Demo scene and return its UID.
+
+  The scene reproduces the seeded demo fixture (map, scale and the
+  ``camera1``-``camera3`` cameras) and is removed again during teardown.
+  """
+  scene = scene_factory(
+    params['scene_name'],
+    cameras=DEMO_SCENE_CAMERAS,
+    map_image=DEMO_SCENE_MAP,
+    replace=True,
+    scale=DEMO_SCENE_SCALE,
+  )
+  return scene['uid']
