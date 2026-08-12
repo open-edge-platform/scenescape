@@ -1,0 +1,188 @@
+[
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALCULATEINTRINSICS/01: Calculate camera intrinsics with valid payload",
+    "test_steps": [
+      {
+        "step_name": "Calculate camera intrinsics",
+        "api": "calculateintrinsics",
+        "method": "calculateCameraIntrinsics",
+        "request": {
+          "body": {
+            "mapPoints": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ],
+              [
+                1.0,
+                0.0,
+                0.0
+              ],
+              [
+                1.0,
+                1.0,
+                0.0
+              ],
+              [
+                0.0,
+                1.0,
+                0.0
+              ]
+            ],
+            "camPoints": [
+              [
+                100.0,
+                100.0
+              ],
+              [
+                500.0,
+                100.0
+              ],
+              [
+                500.0,
+                500.0
+              ],
+              [
+                100.0,
+                500.0
+              ]
+            ],
+            "intrinsics": [
+              [
+                1000.0,
+                0.0,
+                960.0
+              ],
+              [
+                0.0,
+                1000.0,
+                540.0
+              ],
+              [
+                0.0,
+                0.0,
+                1.0
+              ]
+            ],
+            "distortion": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "imageSize": [
+              1920,
+              1080
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALCULATEINTRINSICS/02: Calculate camera intrinsics with missing required fields",
+    "test_steps": [
+      {
+        "step_name": "Attempt to calculate intrinsics with incomplete payload",
+        "api": "calculateintrinsics",
+        "method": "calculateCameraIntrinsics",
+        "request": {
+          "body": {
+            "distortion": [
+              0.0
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALCULATEINTRINSICS/03: Calculate camera intrinsics with mismatched point counts",
+    "test_steps": [
+      {
+        "step_name": "Attempt to calculate intrinsics with invalid point counts",
+        "api": "calculateintrinsics",
+        "method": "calculateCameraIntrinsics",
+        "request": {
+          "body": {
+            "mapPoints": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ],
+              [
+                1.0,
+                0.0,
+                0.0
+              ],
+              [
+                1.0,
+                1.0,
+                0.0
+              ],
+              [
+                0.0,
+                1.0,
+                0.0
+              ]
+            ],
+            "camPoints": [
+              [
+                100.0,
+                100.0
+              ],
+              [
+                500.0,
+                100.0
+              ],
+              [
+                500.0,
+                500.0
+              ]
+            ],
+            "intrinsics": [
+              [
+                1000.0,
+                0.0,
+                960.0
+              ],
+              [
+                0.0,
+                1000.0,
+                540.0
+              ],
+              [
+                0.0,
+                0.0,
+                1.0
+              ]
+            ],
+            "distortion": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "imageSize": [
+              1920,
+              1080
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  }
+]

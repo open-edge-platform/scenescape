@@ -414,6 +414,16 @@ class RESTClient:
     """
     return self._delete(f"camera/{uid}")
 
+  def calculateCameraIntrinsics(self, data):
+    """Calculates camera intrinsics from point correspondences.
+
+    @param      data            dict with mapPoints, camPoints, intrinsics,
+                                distortion, and imageSize.
+    @return                     RESTResult with calculated intrinsics/pose on
+                                success, or with `errors` set on failure
+    """
+    return self._update("calculateintrinsics", data)
+
   def frame(self, uid, timestamp):
     """Gets frame from camera with `uid` which is near `timestamp`
 
