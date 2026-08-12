@@ -3,6 +3,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { TabItem } from "../components/Tabs";
+import {
+  readStoredSceneTab,
+  SCENE_TAB_EVENT,
+  writeStoredSceneTab,
+  type SceneControlTabId,
+} from "../lib/sceneTab";
 import { CameraStripEnhancer } from "./CameraStripEnhancer";
 import { ControlTabEntities } from "./control/ControlTabEntities";
 import { MqttSettingsPanel } from "./MqttSettingsPanel";
@@ -58,7 +64,9 @@ export function SceneSidePanel({
   sceneId = "",
   wssConnection = "",
 }: Props) {
-  const [activeId, setActiveId] = useState("cameras");
+  const [activeId, setActiveId] = useState<SceneControlTabId>(() =>
+    readStoredSceneTab(sceneId),
+  );
   const [panelsReady, setPanelsReady] = useState(false);
   const slotRef = useRef<HTMLDivElement>(null);
 
@@ -94,6 +102,42 @@ export function SceneSidePanel({
     });
   }, [activeId]);
 
+  useEffect(() => {
+    writeStoredSceneTab(sceneId, activeId);
+  }, [sceneId, activeId]);
+
+  useEffect(() => {
+    const onTab = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ tabId?: string }>).detail;
+      const tabId = detail?.tabId;
+      if (
+        tabId === "cameras" ||
+        tabId === "sensors" ||
+        tabId === "regions" ||
+        tabId === "tripwires" ||
+        tabId === "children" ||
+        tabId === "mqtt"
+      ) {
+        setActiveId(tabId);
+      }
+    };
+    window.addEventListener(SCENE_TAB_EVENT, onTab);
+    return () => window.removeEventListener(SCENE_TAB_EVENT, onTab);
+  }, []);
+
+  const selectTab = (tabId: string) => {
+    if (
+      tabId === "cameras" ||
+      tabId === "sensors" ||
+      tabId === "regions" ||
+      tabId === "tripwires" ||
+      tabId === "children" ||
+      tabId === "mqtt"
+    ) {
+      setActiveId(tabId);
+    }
+  };
+
   return (
     <aside className="ss-scene-side hide-fullscreen">
       <div className="ss-tabs">
@@ -111,7 +155,7 @@ export function SceneSidePanel({
                   aria-selected={selected}
                   aria-controls={PANE_BY_TAB[tab.id] || tab.id}
                   className={`ss-tabs-tab${selected ? " is-active" : ""}`}
-                  onClick={() => setActiveId(tab.id)}
+                  onClick={() => selectTab(tab.id)}
                 >
                   <span className="ss-tabs-label">{tab.label}</span>
                   {tab.count !== undefined && tab.count !== null ? (

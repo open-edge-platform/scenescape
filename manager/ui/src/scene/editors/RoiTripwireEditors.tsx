@@ -92,6 +92,11 @@ export function RoiTripwireEditors({
   const roisRef = useRef(rois);
   const tripsRef = useRef(tripwires);
   const persistingRef = useRef(false);
+  const toastRef = useRef(toast);
+  const persistImplRef = useRef<(
+    options?: { preferHidden?: boolean } | string[],
+  ) => Promise<void> | void>(() => undefined);
+  toastRef.current = toast;
   roisRef.current = rois;
   tripsRef.current = tripwires;
 
@@ -123,7 +128,9 @@ export function RoiTripwireEditors({
   }, [initialRegions, initialTripwires, sceneId]);
 
   useEffect(() => {
-    const persist = async (options?: { preferHidden?: boolean } | string[]) => {
+    persistImplRef.current = async (
+      options?: { preferHidden?: boolean } | string[],
+    ) => {
       if (persistingRef.current) {
         return;
       }
@@ -143,25 +150,31 @@ export function RoiTripwireEditors({
         publishDirty("trip", false);
         setRoiDirty(false);
         setTripDirty(false);
-        toast.show("Regions saved", "ok");
+        toastRef.current.show("Regions saved", "ok");
         window.location.reload();
       } catch (err) {
         const message =
           err && typeof err === "object" && "message" in err
             ? String((err as { message?: unknown }).message || "Save failed")
             : "Save failed";
-        toast.show(message, "bad");
+        toastRef.current.show(message, "bad");
         persistingRef.current = false;
         throw err;
       }
     };
+  }, [authToken, sceneId]);
+
+  useEffect(() => {
+    const persist = (
+      options?: { preferHidden?: boolean } | string[],
+    ) => persistImplRef.current(options);
     window.ssPersistGeometry = persist;
     return () => {
       if (window.ssPersistGeometry === persist) {
         delete window.ssPersistGeometry;
       }
     };
-  }, [authToken, sceneId, toast]);
+  }, []);
 
   useEffect(() => {
     publishDirty("roi", roiDirty);
@@ -366,18 +379,15 @@ export function RoiTripwireEditors({
       return;
     }
     const uuid = svgId.replace(/^roi_/, "");
-    document.getElementById(svgId)?.remove();
     modelRemoveRoi(uuid);
     setRois((prev) => prev.filter((r) => r.svgId !== svgId));
-    window.requestAnimationFrame(() => {
-      window.ssMap?.numberRois();
-      window.ssMap?.stringifyRois();
-      const values = window.getRoiValues?.("form-control roi-title", "roi") as
-        string[] | undefined;
-      if (values && window.saveRois) {
-        window.saveRois(values);
-      }
-    });
+    setRoiDirty(true);
+    window.ssMap?.flushHidden();
+    try {
+      await persistImplRef.current();
+    } catch {
+      /* toast already shown */
+    }
   };
 
   const removeTripwire = async (svgId: string) => {
@@ -393,20 +403,15 @@ export function RoiTripwireEditors({
       return;
     }
     const uuid = svgId.replace(/^tripwire_/, "");
-    document.getElementById(svgId)?.remove();
     modelRemoveTrip(uuid);
     setTripwires((prev) => prev.filter((t) => t.svgId !== svgId));
-    window.requestAnimationFrame(() => {
-      window.ssMap?.numberTripwires();
-      window.ssMap?.stringifyTripwires();
-      const values = window.getRoiValues?.(
-        "form-control tripwire-title",
-        "tripwire",
-      ) as string[] | undefined;
-      if (values && window.saveRois) {
-        window.saveRois(values);
-      }
-    });
+    setTripDirty(true);
+    window.ssMap?.flushHidden();
+    try {
+      await persistImplRef.current();
+    } catch {
+      /* toast already shown */
+    }
   };
 
   const roiHost = document.getElementById("roi-fields");

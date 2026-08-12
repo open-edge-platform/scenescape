@@ -43,7 +43,6 @@ urlpatterns = [
   path('singleton_sensor/detail/<int:pk>/', views.SingletonSensorDetailView.as_view(), name='singleton_sensor_detail'),
   path('singleton_sensor/update/<int:pk>/', views.SingletonSensorUpdateView.as_view(), name='singleton_sensor_update'),
   path('singleton_sensor/delete/<int:pk>/', views.SingletonSensorDeleteView.as_view(), name='singleton_sensor_delete'),
-  path('singleton_sensor/calibrate/<int:sensor_id>', views.genericCalibrate, name='singleton_sensor_calibrate'),
   path('asset/list/', views.AssetListView.as_view(), name='asset_list'),
   path('asset/create/', views.AssetCreateView.as_view(), name='asset_create'),
   path('asset/update/<int:pk>/', views.AssetUpdateView.as_view(), name='asset_update'),

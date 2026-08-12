@@ -2656,43 +2656,55 @@ $(document).ready(function () {
           },
         );
 
-      $(".roi-remove").on("click", async function () {
-        var $group = $(this).closest(".form-roi");
-        var r = await ssAskConfirm(
-          "Are you sure you wish to remove this ROI?",
-          {
-            title: "Remove region?",
-            confirmLabel: "Remove",
-            danger: true,
-          },
-        );
+      $(document)
+        .off("click.ssRoiRemove", ".roi-remove")
+        .on("click.ssRoiRemove", ".roi-remove", async function (event) {
+          if (window.ssUseReactMap) {
+            return;
+          }
+          event.preventDefault();
+          var $group = $(this).closest(".form-roi");
+          var r = await ssAskConfirm(
+            "Are you sure you wish to remove this ROI?",
+            {
+              title: "Remove region?",
+              confirmLabel: "Remove",
+              danger: true,
+            },
+          );
 
-        if (r == true) {
-          $("#" + $group.attr("for")).remove();
-          $group.remove();
-          numberRois();
-          saveRois(getRoiValues("form-control roi-title", "roi"));
-        }
-      });
+          if (r == true) {
+            $("#" + $group.attr("for")).remove();
+            $group.remove();
+            numberRois();
+            saveRois(getRoiValues("form-control roi-title", "roi"));
+          }
+        });
 
-      $(".tripwire-remove").on("click", async function () {
-        var $group = $(this).closest(".form-tripwire");
-        var r = await ssAskConfirm(
-          "Are you sure you wish to remove this tripwire?",
-          {
-            title: "Remove tripwire?",
-            confirmLabel: "Remove",
-            danger: true,
-          },
-        );
+      $(document)
+        .off("click.ssTripRemove", ".tripwire-remove")
+        .on("click.ssTripRemove", ".tripwire-remove", async function (event) {
+          if (window.ssUseReactMap) {
+            return;
+          }
+          event.preventDefault();
+          var $group = $(this).closest(".form-tripwire");
+          var r = await ssAskConfirm(
+            "Are you sure you wish to remove this tripwire?",
+            {
+              title: "Remove tripwire?",
+              confirmLabel: "Remove",
+              danger: true,
+            },
+          );
 
-        if (r == true) {
-          $("#" + $group.attr("for")).remove();
-          $group.remove();
-          numberTripwires();
-          saveRois(getRoiValues("form-control tripwire-title", "tripwire"));
-        }
-      });
+          if (r == true) {
+            $("#" + $group.attr("for")).remove();
+            $group.remove();
+            numberTripwires();
+            saveRois(getRoiValues("form-control tripwire-title", "tripwire"));
+          }
+        });
     }
 
     setColorForAllROIs();

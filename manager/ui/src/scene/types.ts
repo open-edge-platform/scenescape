@@ -5,7 +5,6 @@ export type SceneCameraBootstrap = {
   id: string;
   sensorId: string;
   name: string;
-  calibrateUrl: string;
   calibrateHref: string;
   cmdTopic: string;
   deleteUrl: string | null;
@@ -58,6 +57,8 @@ export type SceneDetailBootstrap = {
   };
   urls: {
     scenesHome: string;
+    camList?: string;
+    sensorList?: string;
     scene3d: string;
     sceneEdit: string | null;
     sceneDelete: string | null;

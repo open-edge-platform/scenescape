@@ -28,6 +28,23 @@ function countLabel(n: number): string {
   return String(n);
 }
 
+function sceneDetailBack(urls: SceneDetailBootstrap["urls"]): {
+  href: string;
+  label: string;
+} {
+  const from =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("from")
+      : null;
+  if (from === "cam-list" && urls.camList) {
+    return { href: urls.camList, label: "Cameras" };
+  }
+  if (from === "sensor-list" && urls.sensorList) {
+    return { href: urls.sensorList, label: "Sensors" };
+  }
+  return { href: urls.scenesHome, label: "Scenes" };
+}
+
 const LAYOUT_OPTIONS: {
   mode: WorkspaceLayoutMode;
   label: string;
@@ -261,7 +278,7 @@ function SceneDetailInner({ bootstrap }: Props) {
     >
       <PageHeader
         title={scene.name}
-        back={{ href: urls.scenesHome, label: "Scenes" }}
+        back={sceneDetailBack(urls)}
         actions={actions}
       />
       <div className="ss-workspace-body">

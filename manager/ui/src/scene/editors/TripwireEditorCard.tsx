@@ -62,7 +62,11 @@ export function TripwireEditorCard({
                 className="btn btn-secondary tripwire-remove"
                 type="button"
                 title="Remove this Tripwire"
-                onClick={() => onRemove(tripwire.svgId)}
+                onClick={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  onRemove(tripwire.svgId);
+                }}
               >
                 <i className="bi bi-trash" aria-hidden="true" />
               </button>

@@ -124,7 +124,7 @@ SPDX-License-Identifier: Apache-2.0
             </li>
             <li class="nav-item">
               <a
-                class="nav-link{% if request.resolver_match.url_name == 'singleton_sensor_list' or request.resolver_match.url_name == 'singleton_sensor_create' or request.resolver_match.url_name == 'singleton_sensor_update' or request.resolver_match.url_name == 'singleton_sensor_calibrate' or request.resolver_match.url_name == 'singleton_sensor_delete' %} active{% endif %}"
+                class="nav-link{% if request.resolver_match.url_name == 'singleton_sensor_list' or request.resolver_match.url_name == 'singleton_sensor_create' or request.resolver_match.url_name == 'singleton_sensor_update' or request.resolver_match.url_name == 'singleton_sensor_delete' %} active{% endif %}"
                 id="nav-sensors"
                 href="{% url 'singleton_sensor_list' %}"
                 >Sensors</a

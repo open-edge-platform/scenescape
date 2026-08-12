@@ -58,7 +58,11 @@ export function RegionEditorCard({
                 className="btn btn-secondary roi-remove"
                 type="button"
                 title="Remove this ROI"
-                onClick={() => onRemove(roi.svgId)}
+                onClick={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  onRemove(roi.svgId);
+                }}
               >
                 <i className="bi bi-trash" aria-hidden="true" />
               </button>

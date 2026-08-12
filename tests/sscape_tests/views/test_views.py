@@ -196,7 +196,7 @@ class TestCameraViews(TestCase):
     response = self.client.get('/cam/calibrate/1')
     self.assertEqual(response.status_code, 302)
     self.assertEqual(
-      response.url, f"/{cam.scene_id}/?ss=calibrate-cam&id={cam.pk}")
+      response.url, f"{reverse('cam_list')}?ss=calibrate-cam&id={cam.pk}")
     return
 
   def test_camera_calibrate_post_also_redirects(self):
@@ -204,7 +204,7 @@ class TestCameraViews(TestCase):
     response = self.client.post('/cam/calibrate/1', data={'calibrate_save': 1})
     self.assertEqual(response.status_code, 302)
     self.assertEqual(
-      response.url, f"/{cam.scene_id}/?ss=calibrate-cam&id={cam.pk}")
+      response.url, f"{reverse('cam_list')}?ss=calibrate-cam&id={cam.pk}")
     return
 
   def test_camera_calibrate_orphan_redirects_to_list(self):
@@ -231,12 +231,6 @@ class TestCameraViews(TestCase):
     return
 
 class TestSingletonSensorViews(TestCase):
-
-  sensor_intrinsics = {
-    'area': 'circle',
-    'sensor_x': 1, 'sensor_y': 1,
-    'sensor_r': 1,'rois': 1
-  }
 
   def setUp(self):
     self.factory = RequestFactory()
@@ -300,33 +294,10 @@ class TestSingletonSensorViews(TestCase):
     self.assertEqual(url, '/singleton_sensor/list/')
     return
 
-  def test_generic_calibrate_get_redirects_to_react_sheet(self):
-    """genericCalibrate no longer renders a Django form; it always redirects
-    into the React ?ss=calibrate-sensor sheet (area/geometry is REST-backed)."""
-    sensor = SingletonSensor.objects.get(sensor_id="100")
+  def test_generic_calibrate_url_removed(self):
+    """Standalone sensor calibrate URL is gone; React hosts the sheet."""
     response = self.client.get('/singleton_sensor/calibrate/1')
-    self.assertEqual(response.status_code, 302)
-    self.assertEqual(
-      response.url, f"/{sensor.scene_id}/?ss=calibrate-sensor&id={sensor.pk}")
-    return
-
-  def test_generic_calibrate_post_also_redirects(self):
-    """Even a legacy-shaped POST body must not be processed server-side."""
-    sensor = SingletonSensor.objects.get(sensor_id="100")
-    dummy = self.sensor_intrinsics.copy()
-    response = self.client.post('/singleton_sensor/calibrate/1', data = dummy)
-    self.assertEqual(response.status_code, 302)
-    self.assertEqual(
-      response.url, f"/{sensor.scene_id}/?ss=calibrate-sensor&id={sensor.pk}")
-    return
-
-  def test_generic_calibrate_orphan_sensor_redirects_to_list(self):
-    """Negative case: a sensor with no scene has nowhere to open a sheet on."""
-    orphan = SingletonSensor.objects.create(
-      sensor_id="101", name="orphan_sensor", scene=None)
-    response = self.client.get(f'/singleton_sensor/calibrate/{orphan.pk}')
-    self.assertEqual(response.status_code, 302)
-    self.assertEqual(response.url, reverse('singleton_sensor_list'))
+    self.assertEqual(response.status_code, 404)
     return
 
 class TestSaveGeospatialSnapshot(TestCase):

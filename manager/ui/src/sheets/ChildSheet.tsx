@@ -55,6 +55,7 @@ export function ChildSheet({
   onSaved,
 }: Props) {
   const toast = useAppToast();
+  const [parentId, setParentId] = useState(parentSceneId);
   const [childType, setChildType] = useState<"local" | "remote">("local");
   const [childSceneId, setChildSceneId] = useState("");
   const [childName, setChildName] = useState("");
@@ -75,6 +76,7 @@ export function ChildSheet({
       return;
     }
     setError(null);
+    setParentId(parentSceneId);
     if (mode === "create") {
       setChildType("local");
       setChildSceneId("");
@@ -150,14 +152,20 @@ export function ChildSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, mode, childUid, authToken]);
+  }, [open, mode, childUid, authToken, parentSceneId]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    const parent = parentId.trim() || parentSceneId.trim();
+    if (!parent) {
+      setError("Select a parent scene");
+      setBusy(false);
+      return;
+    }
     const payload: Record<string, unknown> = {
-      parent: parentSceneId,
+      parent,
       child_type: childType,
       retrack,
       transform_type: transformType === "matrix" ? "matrix" : "euler",
@@ -206,7 +214,9 @@ export function ChildSheet({
     }
   };
 
-  const otherScenes = scenes.filter((s) => s.id !== parentSceneId);
+  const resolvedParent = parentId.trim() || parentSceneId.trim();
+  const otherScenes = scenes.filter((s) => s.id !== resolvedParent);
+  const showParentPicker = !parentSceneId.trim();
 
   return (
     <Drawer
@@ -231,6 +241,23 @@ export function ChildSheet({
         onSubmit={submit}
       >
         {error ? <p className="ss-drawer-error">{error}</p> : null}
+        {showParentPicker ? (
+          <SelectField
+            id="ss-child-parent"
+            label="Parent scene"
+            value={parentId}
+            onChange={(ev) => setParentId(ev.target.value)}
+            required
+            disabled={busy}
+          >
+            <option value="">Select scene…</option>
+            {scenes.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </SelectField>
+        ) : null}
         <SelectField
           id="ss-child-type"
           label="Child type"

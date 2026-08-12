@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { ToastProvider, useAppToast } from "../components/ToastProvider";
 import { LegacyConfirmHost } from "../components/LegacyConfirmHost";
 import { PageHeader } from "../components/PageHeader";
@@ -9,6 +9,8 @@ import { useSheetFromQuery } from "../hooks/useSheetFromQuery";
 import type { SheetAction } from "../lib/sheetQuery";
 import { SceneSheet } from "../sheets/SceneSheet";
 import { SceneImportDialog } from "../sheets/SceneImportDialog";
+import { SceneManagePanel } from "../sheets/SceneManagePanel";
+import { ChildSheet } from "../sheets/ChildSheet";
 import "./ScenesHomeApp.css";
 
 export type SceneHomeCard = {
@@ -37,7 +39,12 @@ type Props = {
   bootstrap: ScenesHomeBootstrap;
 };
 
-const HOME_ACTIONS = new Set(["scene-create", "scene-import"]);
+const HOME_ACTIONS = new Set([
+  "scene-create",
+  "scene-import",
+  "scene-manage",
+  "child-create",
+]);
 
 function isHomeAction(v: string | null): v is Exclude<SheetAction, null> {
   return Boolean(v && HOME_ACTIONS.has(v));
@@ -207,6 +214,12 @@ function ScenesHomeInner({ bootstrap }: Props) {
   }, []);
 
   const openCreate = useCallback(() => open("scene-create"), [open]);
+  const sceneOptions = useMemo(
+    () => (bootstrap.scenes || []).map((s) => ({ id: s.id, name: s.name })),
+    [bootstrap.scenes],
+  );
+  const manageSceneId =
+    sheet.action === "scene-manage" && sheet.id ? sheet.id : "";
 
   return (
     <>
@@ -259,6 +272,22 @@ function ScenesHomeInner({ bootstrap }: Props) {
             authToken={bootstrap.authToken}
             onClose={close}
             onImported={reload}
+          />
+          <SceneManagePanel
+            open={Boolean(manageSceneId)}
+            sceneId={manageSceneId}
+            authToken={bootstrap.authToken}
+            onClose={close}
+            onSaved={reload}
+          />
+          <ChildSheet
+            open={sheet.action === "child-create"}
+            mode="create"
+            parentSceneId=""
+            scenes={sceneOptions}
+            authToken={bootstrap.authToken}
+            onClose={close}
+            onSaved={reload}
           />
         </>
       ) : null}

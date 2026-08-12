@@ -129,7 +129,7 @@ def index(request):
       'mapUrl': scene.map.url if scene.map else None,
       'detailUrl': reverse('sceneDetail', args=[scene.id]),
       'detail3dUrl': reverse('scene_detail', args=[scene.id]),
-      'manageUrl': f"{scene_path(scene.id)}?ss=scene-manage",
+      'manageUrl': f"{reverse('index')}?ss=scene-manage&id={scene.id}",
       'deleteUrl': (
         reverse('scene_delete', args=[scene.id])
         if request.user.is_superuser else None
@@ -188,7 +188,6 @@ def sceneDetail(request, scene_id):
         "id": str(sensor.id),
         "sensorId": sensor.sensor_id,
         "name": sensor.name,
-        "calibrateUrl": reverse("cam_calibrate", args=[sensor.id]),
         "calibrateHref": f"?ss=calibrate-cam&id={sensor.id}",
         "cmdTopic": f"scenescape/cmd/camera/{sensor.sensor_id}",
         "deleteUrl": (
@@ -279,6 +278,8 @@ def sceneDetail(request, scene_id):
     },
     "urls": {
       "scenesHome": reverse("index"),
+      "camList": reverse("cam_list"),
+      "sensorList": reverse("singleton_sensor_list"),
       "scene3d": reverse("scene_detail", args=[scene.id]),
       "sceneEdit": reverse("scene_update", args=[scene.id]) if request.user.is_superuser else None,
       "sceneDelete": reverse("scene_delete", args=[scene.id]) if request.user.is_superuser else None,
@@ -462,12 +463,12 @@ class CamDeleteView(SuperUserCheck, DeleteView):
     return reverse_lazy('cam_list')
 
 class CamDetailView(SuperUserCheck, View):
-  """Legacy detail URL → calibrate sheet or camera list."""
+  """Legacy detail URL → calibrate sheet on the camera list."""
 
   def get(self, request, *args, **kwargs):
     cam = get_object_or_404(Cam, pk=kwargs['pk'])
     if cam.scene_id:
-      return sheet_redirect(scene_path(cam.scene_id), 'calibrate-cam', cam.pk)
+      return sheet_redirect(reverse('cam_list'), 'calibrate-cam', cam.pk)
     return redirect(reverse('cam_list'))
 
 class CamListView(LoginRequiredMixin, ListView):
@@ -491,7 +492,7 @@ class CamListView(LoginRequiredMixin, ListView):
         if scene:
           actions.append({
             'label': 'Manage',
-            'href': reverse('cam_calibrate', args=[cam.id]),
+            'href': f"{reverse('cam_list')}?ss=calibrate-cam&id={cam.id}",
           })
         else:
           actions.append({
@@ -510,7 +511,10 @@ class CamListView(LoginRequiredMixin, ListView):
           {'text': cam.sensor_id},
           {
             'text': str(scene) if scene else '--',
-            'href': reverse('sceneDetail', args=[scene.id]) if scene else None,
+            'href': (
+              f"{reverse('sceneDetail', args=[scene.id])}?from=cam-list"
+              if scene else None
+            ),
           },
         ],
         'actions': actions,
@@ -529,6 +533,16 @@ class CamListView(LoginRequiredMixin, ListView):
       'isSuperuser': self.request.user.is_superuser,
       'kind': 'cam',
       'defaultSceneId': None,
+      'isKubernetes': bool(settings.KUBERNETES_SERVICE_HOST),
+      'cameras': [
+        {
+          'id': str(cam.id),
+          'sensorId': cam.sensor_id,
+          'name': str(cam),
+          'sceneId': str(cam.scene_id) if cam.scene_id else None,
+        }
+        for cam in context['object_list']
+      ],
       'scenes': [
         {'id': str(s.id), 'name': s.name}
         for s in Scene.objects.order_by('name')
@@ -636,13 +650,13 @@ class SingletonSensorDeleteView(SuperUserCheck, DeleteView):
     return reverse_lazy('singleton_sensor_list')
 
 class SingletonSensorDetailView(SuperUserCheck, View):
-  """Legacy detail URL → calibrate sheet or sensor list."""
+  """Legacy detail URL → calibrate sheet on the sensor list."""
 
   def get(self, request, *args, **kwargs):
     sensor = get_object_or_404(SingletonSensor, pk=kwargs['pk'])
     if sensor.scene_id:
       return sheet_redirect(
-        scene_path(sensor.scene_id), 'calibrate-sensor', sensor.pk
+        reverse('singleton_sensor_list'), 'calibrate-sensor', sensor.pk
       )
     return redirect(reverse('singleton_sensor_list'))
 
@@ -667,7 +681,10 @@ class SingletonSensorListView(LoginRequiredMixin, ListView):
         if scene:
           actions.append({
             'label': 'Manage',
-            'href': reverse('singleton_sensor_calibrate', args=[sensor.id]),
+            'href': (
+              f"{reverse('singleton_sensor_list')}"
+              f"?ss=calibrate-sensor&id={sensor.id}"
+            ),
           })
         else:
           actions.append({
@@ -689,7 +706,10 @@ class SingletonSensorListView(LoginRequiredMixin, ListView):
           {'text': sensor.sensor_id},
           {
             'text': str(scene) if scene else '--',
-            'href': reverse('sceneDetail', args=[scene.id]) if scene else None,
+            'href': (
+              f"{reverse('sceneDetail', args=[scene.id])}?from=sensor-list"
+              if scene else None
+            ),
           },
         ],
         'actions': actions,
@@ -708,6 +728,15 @@ class SingletonSensorListView(LoginRequiredMixin, ListView):
       'isSuperuser': self.request.user.is_superuser,
       'kind': 'sensor',
       'defaultSceneId': None,
+      'sensors': [
+        {
+          'id': str(sensor.id),
+          'sensorId': sensor.sensor_id,
+          'name': str(sensor),
+          'sceneId': str(sensor.scene_id) if sensor.scene_id else None,
+        }
+        for sensor in context['object_list']
+      ],
       'scenes': [
         {'id': str(s.id), 'name': s.name}
         for s in Scene.objects.order_by('name')
@@ -942,17 +971,20 @@ def account_locked(request):
 
 @superuser_required
 def cameraCalibrate(request, sensor_id):
-  """React hosts settings; ?embed=1 renders the 3D CamCanvas + Viewport."""
+  """Embed-only 3D CamCanvas + Viewport for the React calibrate panel."""
   cam_inst = get_object_or_404(Cam, pk=sensor_id)
   embed = request.GET.get('embed') == '1' or request.POST.get('embed') == '1'
 
+  if not embed:
+    if cam_inst.scene_id:
+      return sheet_redirect(
+        reverse('cam_list'), 'calibrate-cam', cam_inst.pk
+      )
+    return redirect(reverse('cam_list'))
+  if not cam_inst.scene_id:
+    return redirect(reverse('cam_list'))
+
   if request.method == 'POST':
-    if not embed:
-      if cam_inst.scene_id:
-        return sheet_redirect(
-          scene_path(cam_inst.scene_id), 'calibrate-cam', cam_inst.pk
-        )
-      return redirect(reverse('cam_list'))
     form = CamCalibrateForm(request.POST, request.FILES, instance=cam_inst)
     if form.is_valid():
       log.info('Form received {}'.format(form.cleaned_data))
@@ -1007,12 +1039,6 @@ def cameraCalibrate(request, sensor_id):
       })
     log.warning('Form not valid!')
   else:
-    if not embed and cam_inst.scene_id:
-      return sheet_redirect(
-        scene_path(cam_inst.scene_id), 'calibrate-cam', cam_inst.pk
-      )
-    if not embed or not cam_inst.scene_id:
-      return redirect(reverse('cam_list'))
     form = CamCalibrateForm(instance=cam_inst)
 
   generated_pipeline_url = reverse(
@@ -1024,16 +1050,6 @@ def cameraCalibrate(request, sensor_id):
     'generated_pipeline_url': generated_pipeline_url,
     'embed': embed,
   })
-
-@superuser_required
-def genericCalibrate(request, sensor_id):
-  """Sensor calibrate UX is React; this URL only redirects into ?ss=calibrate-sensor."""
-  obj_inst = get_object_or_404(SingletonSensor, pk=sensor_id)
-  if obj_inst.scene_id:
-    return sheet_redirect(
-      scene_path(obj_inst.scene_id), 'calibrate-sensor', obj_inst.pk
-    )
-  return redirect(reverse('singleton_sensor_list'))
 
 def getAllChildrenMetaData(scene_id):
   children = ChildScene.objects.filter(parent=scene_id)

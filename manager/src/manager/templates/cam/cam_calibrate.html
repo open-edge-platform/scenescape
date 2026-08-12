@@ -7,26 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 {% load static %}
 
 {% block content %}
-  <nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-      <li class="breadcrumb-item">
-        <a href="/">Scenes</a>
-      </li>
-      <li class="breadcrumb-item">
-        <a href="{% url 'sceneDetail' caminst.scene.id %}"
-          >{{ caminst.scene.name }}</a
-        >
-      </li>
-      <li class="breadcrumb-item active" aria-current="page">
-        {{ caminst.name }}
-      </li>
-    </ol>
-  </nav>
-
   <div class="page-header">
     <div class="page-header-main">
-      {% url 'sceneDetail' caminst.scene.id as cam_back_href %}
-      {% include 'sscape/form_back.html' with back_href=cam_back_href %}
       <h2 class="form-title">Manage Camera: {{ caminst.name }}</h2>
     </div>
     <div class="page-header-actions">

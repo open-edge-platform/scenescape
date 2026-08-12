@@ -15,7 +15,7 @@ SPDX-License-Identifier: Apache-2.0
               {{ s.name }}
               <a
                 class="btn btn-secondary btn-sm"
-                href="{% url 'cam_calibrate' s.id %}"
+                href="/{{ scene.id }}/?ss=calibrate-cam&id={{ s.id }}"
                 title="Manage {{ s.name }}"
                 ><i class="bi bi-wrench"></i
               ></a>

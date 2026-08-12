@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import { useSheetFromQuery } from "../hooks/useSheetFromQuery";
+import { activateSceneTab, tabForSheetAction } from "../lib/sceneTab";
 import type { SheetAction } from "../lib/sheetQuery";
 import type { SceneCameraBootstrap, SceneSensorBootstrap } from "../scene/types";
 import { CameraSheet } from "./CameraSheet";
@@ -62,6 +63,25 @@ export function SceneWorkspaceSheets({
 }: Props) {
   const { sheet, open, close } = useSheetFromQuery();
 
+  const openSheet = useCallback(
+    (action: Exclude<SheetAction, null>, id: string | null = null) => {
+      const tab = tabForSheetAction(action);
+      if (tab) {
+        activateSceneTab(tab);
+      }
+      open(action, id);
+    },
+    [open],
+  );
+
+  const closeSheet = useCallback(() => {
+    const tab = tabForSheetAction(sheet.action);
+    close();
+    if (tab) {
+      activateSceneTab(tab);
+    }
+  }, [close, sheet.action]);
+
   useEffect(() => {
     const onClick = (ev: Event) => {
       const target = ev.target as HTMLElement | null;
@@ -92,12 +112,19 @@ export function SceneWorkspaceSheets({
       ) {
         ev.preventDefault();
         ev.stopPropagation();
-        open(ss, url.searchParams.get("id"));
+        openSheet(ss, url.searchParams.get("id"));
       }
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [open, sceneId]);
+  }, [openSheet, sceneId]);
+
+  useEffect(() => {
+    const tab = tabForSheetAction(sheet.action);
+    if (tab) {
+      activateSceneTab(tab);
+    }
+  }, [sheet.action]);
 
   const reload = useCallback(() => {
     window.location.reload();
@@ -149,7 +176,7 @@ export function SceneWorkspaceSheets({
         scenes={scenes}
         sensorUid={action === "cam-edit" ? camEditUid : null}
         authToken={authToken}
-        onClose={close}
+        onClose={closeSheet}
         onSaved={reload}
       />
       <SensorSheet
@@ -159,7 +186,7 @@ export function SceneWorkspaceSheets({
         scenes={scenes}
         sensorUid={action === "sensor-edit" ? sheet.id : null}
         authToken={authToken}
-        onClose={close}
+        onClose={closeSheet}
         onSaved={reload}
       />
       <ChildSheet
@@ -169,14 +196,14 @@ export function SceneWorkspaceSheets({
         childUid={action === "child-edit" ? sheet.id : null}
         scenes={scenes}
         authToken={authToken}
-        onClose={close}
+        onClose={closeSheet}
         onSaved={reload}
       />
       <SceneManagePanel
         open={action === "scene-manage"}
         sceneId={sceneId}
         authToken={authToken}
-        onClose={close}
+        onClose={closeSheet}
         onSaved={reload}
       />
       <CameraCalibratePanel
@@ -187,7 +214,7 @@ export function SceneWorkspaceSheets({
         sceneId={sceneId}
         authToken={authToken}
         isKubernetes={isKubernetes}
-        onClose={close}
+        onClose={closeSheet}
         onSaved={reload}
       />
       <SensorCalibratePanel
@@ -198,7 +225,7 @@ export function SceneWorkspaceSheets({
         authToken={authToken}
         mapUrlHint={mapUrl}
         mapScale={mapScale}
-        onClose={close}
+        onClose={closeSheet}
         onSaved={reload}
       />
     </>

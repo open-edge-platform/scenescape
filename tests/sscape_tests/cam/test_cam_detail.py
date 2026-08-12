@@ -22,4 +22,4 @@ class CamDetailTestCase(TestCase):
     response = self.client.get('/cam/calibrate/1')
     self.assertEqual(response.status_code, 302)
     self.assertEqual(
-      response.url, f"/{cam.scene_id}/?ss=calibrate-cam&id={cam.pk}")
+      response.url, f"{reverse('cam_list')}?ss=calibrate-cam&id={cam.pk}")
