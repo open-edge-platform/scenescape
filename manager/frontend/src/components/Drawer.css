@@ -140,6 +140,34 @@
   line-height: 1.4;
 }
 
+.ss-map-source-fieldset {
+  border: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.ss-map-source-fieldset legend {
+  margin-bottom: 0.35rem;
+  padding: 0;
+}
+
+.ss-map-source-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  cursor: pointer;
+  color: var(--ss-text);
+}
+
+.ss-map-source-option input {
+  margin-top: 0.2rem;
+}
+
 .ss-select-field {
   width: 100%;
   max-width: 28rem;

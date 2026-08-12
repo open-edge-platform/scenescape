@@ -6,27 +6,77 @@ import {
   D as Xe,
   S as ee,
   T as d,
-  F as ue,
+  F as de,
   b as ca,
 } from "./rest-CiiNoWNe.js";
-import { B as me } from "./Button-CDF7QSMd.js";
+import { B as ue } from "./Button-CDF7QSMd.js";
 import { u as We, r as da, C as ua } from "./ConfirmDialog-DanZpjzY.js";
-function G(t, n = "0") {
-  return t == null || t === "" ? n : String(t);
+function ma() {
+  const a = document.querySelector('input[name="csrfmiddlewaretoken"]');
+  if (a != null && a.value) return a.value;
+  const t = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+  return t ? decodeURIComponent(t[1]) : "";
 }
-function Fe(t, n) {
-  return Array.isArray(t) && t.length >= 3
-    ? [G(t[0], n[0]), G(t[1], n[1]), G(t[2], n[2])]
-    : n;
+async function pa(a) {
+  const t = await fetch(`/scene/generate-mesh/${a}/`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { Accept: "application/json", "X-CSRFToken": ma() },
+      body: new FormData(),
+    }),
+    s = await t.json().catch(() => ({}));
+  if (!t.ok || s.success === !1)
+    throw new Error(s.error || `Generate mesh failed (HTTP ${t.status})`);
+  if (!s.request_id)
+    throw new Error("Generate mesh response missing request_id");
+  return s.request_id;
 }
-function Q(t, n = 0) {
-  const r = Number(t);
-  return Number.isFinite(r) ? r : n;
+async function ga(a, t, s) {
+  const g = Date.now();
+  for (;;) {
+    if (Date.now() - g > 9e5)
+      throw new Error("Timed out waiting for mesh generation.");
+    const i = await fetch(
+        `/scene/generate-mesh-status/${a}/?request_id=${encodeURIComponent(t)}`,
+        { credentials: "same-origin", headers: { Accept: "application/json" } },
+      ),
+      x = await i.json().catch(() => ({}));
+    if (!i.ok) throw new Error(x.error || "Status check failed");
+    if (x.success === !1) throw new Error(x.error || "Mesh generation failed");
+    if (x.state === "complete") return;
+    if (x.state === "failed")
+      throw new Error(x.error || "Mesh generation failed");
+    await new Promise((m) => setTimeout(m, 1500));
+  }
 }
-function Ea({
-  open: t,
-  mode: n,
-  parentSceneId: r,
+async function Ue(a) {
+  if (!a) return !1;
+  try {
+    const t = await fetch("/mapping-service/status/", {
+      method: "GET",
+      headers: { Accept: "application/json", Authorization: `Token ${a}` },
+    });
+    return t.ok ? !!(await t.json()).available : !1;
+  } catch {
+    return !1;
+  }
+}
+function q(a, t = "0") {
+  return a == null || a === "" ? t : String(a);
+}
+function Fe(a, t) {
+  return Array.isArray(a) && a.length >= 3
+    ? [q(a[0], t[0]), q(a[1], t[1]), q(a[2], t[2])]
+    : t;
+}
+function K(a, t = 0) {
+  const s = Number(a);
+  return Number.isFinite(s) ? s : t;
+}
+function Ta({
+  open: a,
+  mode: t,
+  parentSceneId: s,
   childUid: u,
   scenes: _,
   authToken: g,
@@ -34,28 +84,28 @@ function Ea({
   onSaved: x,
 }) {
   const m = We(),
-    [L, q] = l.useState(r),
-    [B, z] = l.useState("local"),
-    [O, T] = l.useState(""),
-    [le, P] = l.useState(""),
-    [V, M] = l.useState(""),
-    [D, J] = l.useState(""),
+    [L, D] = l.useState(s),
+    [T, z] = l.useState("local"),
+    [O, P] = l.useState(""),
+    [le, k] = l.useState(""),
+    [V, F] = l.useState(""),
+    [A, J] = l.useState(""),
     [Z, ae] = l.useState(""),
     [$, ie] = l.useState(""),
     [te, U] = l.useState(!0),
-    [pe, h] = l.useState("euler"),
+    [me, h] = l.useState("euler"),
     [f, w] = l.useState(["0", "0", "0"]),
     [v, N] = l.useState(["0", "0", "0"]),
     [y, b] = l.useState(["1", "1", "1"]),
     [c, C] = l.useState(!1),
-    [k, E] = l.useState(null);
+    [B, E] = l.useState(null);
   l.useEffect(() => {
-    if (!t) return;
-    if ((E(null), q(r), n === "create")) {
+    if (!a) return;
+    if ((E(null), D(s), t === "create")) {
       (z("local"),
-        T(""),
         P(""),
-        M(""),
+        k(""),
+        F(""),
         J(""),
         ae(""),
         ie(""),
@@ -76,14 +126,14 @@ function Ea({
           if (o) return;
           const R = p.child_type === "remote" ? "remote" : "local";
           (z(R),
-            T(String(p.child || "")),
-            P(String(p.child_name || p.name || "")),
-            M(String(p.remote_child_id || "")),
+            P(String(p.child || "")),
+            k(String(p.child_name || p.name || "")),
+            F(String(p.remote_child_id || "")),
             J(String(p.host_name || "")),
             ae(String(p.mqtt_username || "")),
             U(p.retrack !== !1 && p.retrack !== "false"));
-          const F = String(p.transform_type || "euler");
-          h(F === "quaternion" || F === "matrix" ? F : "euler");
+          const M = String(p.transform_type || "euler");
+          h(M === "quaternion" || M === "matrix" ? M : "euler");
           const Y =
             p.transform && typeof p.transform == "object" ? p.transform : null;
           Y
@@ -91,19 +141,19 @@ function Ea({
               N(Fe(Y.rotation, ["0", "0", "0"])),
               b(Fe(Y.scale, ["1", "1", "1"])))
             : (w([
-                G(p.transform1, "0"),
-                G(p.transform2, "0"),
-                G(p.transform3, "0"),
+                q(p.transform1, "0"),
+                q(p.transform2, "0"),
+                q(p.transform3, "0"),
               ]),
               N([
-                G(p.transform4, "0"),
-                G(p.transform5, "0"),
-                G(p.transform6, "0"),
+                q(p.transform4, "0"),
+                q(p.transform5, "0"),
+                q(p.transform6, "0"),
               ]),
               b([
-                G(p.transform7, "1"),
-                G(p.transform8, "1"),
-                G(p.transform9, "1"),
+                q(p.transform7, "1"),
+                q(p.transform8, "1"),
+                q(p.transform9, "1"),
               ]));
         })
         .catch((p) => {
@@ -116,28 +166,28 @@ function Ea({
         o = !0;
       }
     );
-  }, [t, n, u, g, r]);
+  }, [a, t, u, g, s]);
   const ne = async (o) => {
       (o.preventDefault(), C(!0), E(null));
-      const p = L.trim() || r.trim();
+      const p = L.trim() || s.trim();
       if (!p) {
         (E("Select a parent scene"), C(!1));
         return;
       }
       const R = {
         parent: p,
-        child_type: B,
+        child_type: T,
         retrack: te,
-        transform_type: pe === "matrix" ? "matrix" : "euler",
-        transform1: Q(f[0]),
-        transform2: Q(f[1]),
-        transform3: Q(f[2]),
-        transform4: Q(v[0]),
-        transform5: Q(v[1]),
-        transform6: Q(v[2]),
-        transform7: Q(y[0], 1),
-        transform8: Q(y[1], 1),
-        transform9: Q(y[2], 1),
+        transform_type: me === "matrix" ? "matrix" : "euler",
+        transform1: K(f[0]),
+        transform2: K(f[1]),
+        transform3: K(f[2]),
+        transform4: K(v[0]),
+        transform5: K(v[1]),
+        transform6: K(v[2]),
+        transform7: K(y[0], 1),
+        transform8: K(y[1], 1),
+        transform9: K(y[2], 1),
         transform10: 0,
         transform11: 1,
         transform12: 0,
@@ -146,38 +196,38 @@ function Ea({
         transform15: 0,
         transform16: 1,
       };
-      B === "local"
+      T === "local"
         ? (R.child = O)
         : ((R.child_name = le.trim()),
           (R.remote_child_id = V.trim()),
-          (R.host_name = D.trim()),
+          (R.host_name = A.trim()),
           (R.mqtt_username = Z.trim()),
           $ && (R.mqtt_password = $));
       try {
-        let F;
-        (n === "create"
-          ? ((F = await re.createChild(g, R)),
+        let M;
+        (t === "create"
+          ? ((M = await re.createChild(g, R)),
             m.show("Child scene linked", "ok"))
           : u &&
-            ((F = await re.updateChild(g, u, R)),
+            ((M = await re.updateChild(g, u, R)),
             m.show("Child scene updated", "ok")),
-          x(F),
+          x(M),
           i());
-      } catch (F) {
-        E(F.message || "Save failed");
+      } catch (M) {
+        E(M.message || "Save failed");
       } finally {
         C(!1);
       }
     },
-    I = L.trim() || r.trim(),
+    I = L.trim() || s.trim(),
     se = _.filter((o) => o.id !== I),
-    H = !r.trim();
+    H = !s.trim();
   return e.jsx(Xe, {
-    open: t,
-    title: n === "create" ? "Link child scene" : "Edit child link",
+    open: a,
+    title: t === "create" ? "Link child scene" : "Edit child link",
     onClose: i,
     wide: !0,
-    actions: e.jsx(me, {
+    actions: e.jsx(ue, {
       variant: "primary",
       disabled: c,
       form: "ss-child-sheet-form",
@@ -189,13 +239,13 @@ function Ea({
       className: "ss-drawer-form",
       onSubmit: ne,
       children: [
-        k ? e.jsx("p", { className: "ss-drawer-error", children: k }) : null,
+        B ? e.jsx("p", { className: "ss-drawer-error", children: B }) : null,
         H
           ? e.jsxs(ee, {
               id: "ss-child-parent",
               label: "Parent scene",
               value: L,
-              onChange: (o) => q(o.target.value),
+              onChange: (o) => D(o.target.value),
               required: !0,
               disabled: c,
               children: [
@@ -209,7 +259,7 @@ function Ea({
         e.jsxs(ee, {
           id: "ss-child-type",
           label: "Child type",
-          value: B,
+          value: T,
           onChange: (o) => z(o.target.value === "remote" ? "remote" : "local"),
           disabled: c,
           children: [
@@ -217,12 +267,12 @@ function Ea({
             e.jsx("option", { value: "remote", children: "Remote" }),
           ],
         }),
-        B === "local"
+        T === "local"
           ? e.jsxs(ee, {
               id: "ss-child-scene",
               label: "Child scene",
               value: O,
-              onChange: (o) => T(o.target.value),
+              onChange: (o) => P(o.target.value),
               required: !0,
               disabled: c,
               children: [
@@ -238,7 +288,7 @@ function Ea({
                   id: "ss-child-name",
                   label: "Child name",
                   value: le,
-                  onChange: (o) => P(o.target.value),
+                  onChange: (o) => k(o.target.value),
                   required: !0,
                   disabled: c,
                 }),
@@ -246,14 +296,14 @@ function Ea({
                   id: "ss-remote-child-id",
                   label: "Remote child ID",
                   value: V,
-                  onChange: (o) => M(o.target.value),
+                  onChange: (o) => F(o.target.value),
                   required: !0,
                   disabled: c,
                 }),
                 e.jsx(d, {
                   id: "ss-host-name",
                   label: "Host name",
-                  value: D,
+                  value: A,
                   onChange: (o) => J(o.target.value),
                   required: !0,
                   disabled: c,
@@ -272,7 +322,7 @@ function Ea({
                   type: "password",
                   value: $,
                   onChange: (o) => ie(o.target.value),
-                  required: n === "create",
+                  required: t === "create",
                   disabled: c,
                   autoComplete: "new-password",
                 }),
@@ -290,11 +340,11 @@ function Ea({
             "Retrack objects when they enter this parent",
           ],
         }),
-        e.jsxs(ue, {
+        e.jsxs(de, {
           title: "Transform",
           description: "Child pose relative to the parent scene (Euler).",
           collapsible: !0,
-          defaultOpen: n === "edit",
+          defaultOpen: t === "edit",
           className: "ss-form-section--columns",
           children: [
             e.jsx(d, {
@@ -366,57 +416,31 @@ function Ea({
     }),
   });
 }
-function ma() {
-  const t = document.querySelector('input[name="csrfmiddlewaretoken"]');
-  if (t != null && t.value) return t.value;
-  const n = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
-  return n ? decodeURIComponent(n[1]) : "";
+function Te(a) {
+  return a === !0 || a === "true" || a === "True" ? "True" : "False";
 }
-async function pa(t) {
-  const n = await fetch(`/scene/generate-mesh/${t}/`, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { Accept: "application/json", "X-CSRFToken": ma() },
-      body: new FormData(),
-    }),
-    r = await n.json().catch(() => ({}));
-  if (!n.ok || r.success === !1)
-    throw new Error(r.error || `Generate mesh failed (HTTP ${n.status})`);
-  if (!r.request_id)
-    throw new Error("Generate mesh response missing request_id");
-  return r.request_id;
+async function fa(a) {
+  const t = await fetch(a.mapMediaUrl, { credentials: "same-origin" });
+  if (!t.ok) throw new Error("Could not download generated map snapshot");
+  const s = await t.blob();
+  return new File([s], a.mapFilename || "geospatial_map.png", {
+    type: s.type || "image/png",
+  });
 }
-async function ga(t, n, r) {
-  const g = Date.now();
-  for (;;) {
-    if (Date.now() - g > 9e5)
-      throw new Error("Timed out waiting for mesh generation.");
-    const i = await fetch(
-        `/scene/generate-mesh-status/${t}/?request_id=${encodeURIComponent(n)}`,
-        { credentials: "same-origin", headers: { Accept: "application/json" } },
-      ),
-      x = await i.json().catch(() => ({}));
-    if (!i.ok) throw new Error(x.error || "Status check failed");
-    if (x.success === !1) throw new Error(x.error || "Mesh generation failed");
-    if (x.state === "complete") return;
-    if (x.state === "failed")
-      throw new Error(x.error || "Mesh generation failed");
-    await new Promise((m) => setTimeout(m, 1500));
-  }
+function ha(a, t, s) {
+  ((s == null ? void 0 : s.name) != null && a.append("name", s.name),
+    a.append("map_type", "geospatial_map"),
+    a.append("scale", t.scale || "100"),
+    a.append("output_lla", Te(!0)),
+    a.append("map_corners_lla", t.mapCornersLla),
+    a.append("geospatial_provider", t.geospatialProvider),
+    t.mapZoom && a.append("map_zoom", t.mapZoom),
+    t.mapCenterLat && a.append("map_center_lat", t.mapCenterLat),
+    t.mapCenterLng && a.append("map_center_lng", t.mapCenterLng),
+    t.mapBearing && a.append("map_bearing", t.mapBearing),
+    s != null && s.mapFile && a.append("map", s.mapFile));
 }
-async function Ue(t) {
-  if (!t) return !1;
-  try {
-    const n = await fetch("/mapping-service/status/", {
-      method: "GET",
-      headers: { Accept: "application/json", Authorization: `Token ${t}` },
-    });
-    return n.ok ? !!(await n.json()).available : !1;
-  } catch {
-    return !1;
-  }
-}
-const fa = [
+const ba = [
     "ss-geo-map-interface",
     "ss-geo-google-plugin",
     "ss-geo-mapbox-plugin",
@@ -428,67 +452,67 @@ const fa = [
     "/static/js/geospatial/mapbox-plugin.js",
     "/static/js/geospatial/geomanager.js",
   ];
-function ha(t, n) {
-  return new Promise((r, u) => {
-    const _ = document.getElementById(t);
+function va(a, t) {
+  return new Promise((s, u) => {
+    const _ = document.getElementById(a);
     if (_) {
       if (_.dataset.loaded === "1") {
-        r();
+        s();
         return;
       }
-      (_.addEventListener("load", () => r(), { once: !0 }),
-        _.addEventListener("error", () => u(new Error(`Failed to load ${n}`)), {
+      (_.addEventListener("load", () => s(), { once: !0 }),
+        _.addEventListener("error", () => u(new Error(`Failed to load ${t}`)), {
           once: !0,
         }));
       return;
     }
     const g = document.createElement("script");
-    ((g.id = t),
-      (g.src = n),
+    ((g.id = a),
+      (g.src = t),
       (g.async = !1),
       (g.onload = () => {
-        ((g.dataset.loaded = "1"), r());
+        ((g.dataset.loaded = "1"), s());
       }),
-      (g.onerror = () => u(new Error(`Failed to load ${n}`))),
+      (g.onerror = () => u(new Error(`Failed to load ${t}`))),
       document.head.appendChild(g));
   });
 }
-async function ba() {
-  for (let t = 0; t < Ve.length; t += 1) await ha(fa[t], Ve[t]);
+async function xa() {
+  for (let a = 0; a < Ve.length; a += 1) await va(ba[a], Ve[a]);
 }
 const je = "ss-geo-map";
-function fe(t) {
-  if (typeof t == "function") {
-    const r = Number(t());
-    return Number.isFinite(r) ? r : null;
+function ge(a) {
+  if (typeof a == "function") {
+    const s = Number(a());
+    return Number.isFinite(s) ? s : null;
   }
-  const n = Number(t);
-  return Number.isFinite(n) ? n : null;
+  const t = Number(a);
+  return Number.isFinite(t) ? t : null;
 }
-function va(t) {
-  if (!t || typeof t != "object") return { lat: "", lng: "" };
-  const n = t,
-    r = fe(n.lat),
-    u = fe(n.lng);
-  return { lat: r != null ? String(r) : "", lng: u != null ? String(u) : "" };
+function _a(a) {
+  if (!a || typeof a != "object") return { lat: "", lng: "" };
+  const t = a,
+    s = ge(t.lat),
+    u = ge(t.lng);
+  return { lat: s != null ? String(s) : "", lng: u != null ? String(u) : "" };
 }
-function xa(t, n) {
-  const r = 40075016686e-3,
-    u = (256 * Math.pow(2, n)) / 360,
-    _ = (r / 360) * Math.cos((t * Math.PI) / 180);
+function ya(a, t) {
+  const s = 40075016686e-3,
+    u = (256 * Math.pow(2, t)) / 360,
+    _ = (s / 360) * Math.cos((a * Math.PI) / 180);
   return (u / _).toFixed(2);
 }
-function _a(t) {
+function ja(a) {
   var m, L;
-  if (!t || typeof t != "object") return null;
-  const n = t,
-    r = (m = n.getNorthEast) == null ? void 0 : m.call(n),
-    u = (L = n.getSouthWest) == null ? void 0 : L.call(n);
-  if (!r || !u) return null;
-  const _ = fe(r.lat),
-    g = fe(r.lng),
-    i = fe(u.lat),
-    x = fe(u.lng);
+  if (!a || typeof a != "object") return null;
+  const t = a,
+    s = (m = t.getNorthEast) == null ? void 0 : m.call(t),
+    u = (L = t.getSouthWest) == null ? void 0 : L.call(t);
+  if (!s || !u) return null;
+  const _ = ge(s.lat),
+    g = ge(s.lng),
+    i = ge(u.lat),
+    x = ge(u.lng);
   return _ == null || g == null || i == null || x == null
     ? null
     : JSON.stringify([
@@ -500,7 +524,7 @@ function _a(t) {
 }
 function Ee() {
   var i, x, m;
-  const t = {
+  const a = {
       corners: null,
       lat: "",
       lng: "",
@@ -508,41 +532,41 @@ function Ee() {
       bearing: "",
       scale: "",
     },
-    n =
+    t =
       (x =
         (i = window.mapManager) == null ? void 0 : i.getCurrentMapInstance) ==
       null
         ? void 0
         : x.call(i);
-  if (!(n != null && n.getBounds) || !n.getCenter || !n.getZoom) return t;
-  (m = n.resize) == null || m.call(n);
-  const r = va(n.getCenter()),
-    u = Number(n.getZoom()),
-    _ = typeof n.getBearing == "function" ? Number(n.getBearing()) : 0,
-    g = Number(r.lat);
+  if (!(t != null && t.getBounds) || !t.getCenter || !t.getZoom) return a;
+  (m = t.resize) == null || m.call(t);
+  const s = _a(t.getCenter()),
+    u = Number(t.getZoom()),
+    _ = typeof t.getBearing == "function" ? Number(t.getBearing()) : 0,
+    g = Number(s.lat);
   return {
-    corners: _a(n.getBounds()),
-    lat: r.lat,
-    lng: r.lng,
+    corners: ja(t.getBounds()),
+    lat: s.lat,
+    lng: s.lng,
     zoom: Number.isFinite(u) ? String(u) : "",
     bearing: Number.isFinite(_) ? String(_) : "0",
-    scale: Number.isFinite(g) && Number.isFinite(u) ? xa(g, u) : "",
+    scale: Number.isFinite(g) && Number.isFinite(u) ? ya(g, u) : "",
   };
 }
-function ya(t = 6e4) {
-  let n = 0,
-    r = null;
+function wa(a = 6e4) {
+  let t = 0,
+    s = null;
   const u = () => {
-    (n && (window.clearTimeout(n), (n = 0)),
-      r &&
-        (window.removeEventListener("ss-geospatial-snapshot", r), (r = null)));
+    (t && (window.clearTimeout(t), (t = 0)),
+      s &&
+        (window.removeEventListener("ss-geospatial-snapshot", s), (s = null)));
   };
   return {
     promise: new Promise((g, i) => {
-      ((n = window.setTimeout(() => {
+      ((t = window.setTimeout(() => {
         (u(), i(new Error("Timed out waiting for map snapshot")));
-      }, t)),
-        (r = (x) => {
+      }, a)),
+        (s = (x) => {
           const m = x.detail;
           if ((u(), m != null && m.success && m.filename)) {
             g({
@@ -557,23 +581,23 @@ function ya(t = 6e4) {
             ),
           );
         }),
-        window.addEventListener("ss-geospatial-snapshot", r));
+        window.addEventListener("ss-geospatial-snapshot", s));
     }),
     abort: u,
   };
 }
-function ja(t, n) {
-  if (t instanceof Error && t.message) return t.message;
-  if (t && typeof t == "object" && "message" in t) {
-    const r = t.message;
-    if (typeof r == "string" && r.trim()) return r;
+function Sa(a, t) {
+  if (a instanceof Error && a.message) return a.message;
+  if (a && typeof a == "object" && "message" in a) {
+    const s = a.message;
+    if (typeof s == "string" && s.trim()) return s;
   }
-  return n;
+  return t;
 }
-function wa({
-  open: t,
-  provider: n,
-  mapZoom: r,
+function Na({
+  open: a,
+  provider: t,
+  mapZoom: s,
   mapCenterLat: u,
   mapCenterLng: _,
   mapBearing: g,
@@ -581,36 +605,36 @@ function wa({
   onApply: x,
 }) {
   const m = l.useId(),
-    [L, q] = l.useState(!1),
-    [B, z] = l.useState(!1),
-    [O, T] = l.useState(!1),
-    [le, P] = l.useState(!1),
-    [V, M] = l.useState(null),
-    [D, J] = l.useState(n || "google"),
+    [L, D] = l.useState(!1),
+    [T, z] = l.useState(!1),
+    [O, P] = l.useState(!1),
+    [le, k] = l.useState(!1),
+    [V, F] = l.useState(null),
+    [A, J] = l.useState(t || "google"),
     [Z, ae] = l.useState(""),
     $ = l.useRef(!1);
   (l.useEffect(() => {
-    t && (J(n || "google"), T(!1), P(!1), M(null), z(!1), ($.current = !1));
-  }, [t, n]),
+    a && (J(t || "google"), P(!1), k(!1), F(null), z(!1), ($.current = !1));
+  }, [a, t]),
     l.useEffect(() => {
-      if (!t) return;
+      if (!a) return;
       let h = !1;
       const f = async () => {
           try {
-            if ((await ba(), h)) return;
+            if ((await xa(), h)) return;
             if (!window.GeoManager)
               throw new Error("Geospatial map manager failed to load");
             (window.mapManager || (window.mapManager = new window.GeoManager()),
               (window.saveCurrentMapSettings = () => {
                 const c = Ee(),
                   C = document.getElementById("id_map_center_lat"),
-                  k = document.getElementById("id_map_center_lng"),
+                  B = document.getElementById("id_map_center_lng"),
                   E = document.getElementById("id_map_zoom"),
                   ne = document.getElementById("id_map_bearing"),
                   I = document.getElementById("id_map_corners_lla"),
                   se = document.getElementById("id_scale");
                 (C && c.lat && (C.value = c.lat),
-                  k && c.lng && (k.value = c.lng),
+                  B && c.lng && (B.value = c.lng),
                   E && c.zoom && (E.value = c.zoom),
                   ne && c.bearing && (ne.value = c.bearing),
                   I && c.corners && (I.value = c.corners),
@@ -618,31 +642,31 @@ function wa({
               }));
             const v = Number(u),
               N = Number(_),
-              y = Number(r),
+              y = Number(s),
               b = Number(g);
             (await window.mapManager.initialize({
               containerId: je,
-              provider: n || "google",
+              provider: t || "google",
               lat: Number.isFinite(v) ? v : 37.7749,
               lng: Number.isFinite(N) ? N : -122.4194,
               zoom: Number.isFinite(y) && y > 0 ? y : 15,
               rotation: Number.isFinite(b) ? b : 0,
             }),
               window.requestAnimationFrame(() => {
-                var C, k, E;
+                var C, B, E;
                 const c =
-                  (k =
+                  (B =
                     (C = window.mapManager) == null
                       ? void 0
                       : C.getCurrentMapInstance) == null
                     ? void 0
-                    : k.call(C);
+                    : B.call(C);
                 (E = c == null ? void 0 : c.resize) == null || E.call(c);
               }),
               h || (z(!0), ($.current = !0)));
           } catch (v) {
             h ||
-              (M(v instanceof Error ? v.message : "Failed to open map"), z(!1));
+              (F(v instanceof Error ? v.message : "Failed to open map"), z(!1));
           }
         },
         w = window.setTimeout(() => {
@@ -653,23 +677,23 @@ function wa({
         const v = document.getElementById(je);
         v && (v.innerHTML = "");
       };
-    }, [t]));
+    }, [a]));
   const ie = () => {
       if (O) {
-        P(!0);
+        k(!0);
         return;
       }
       i();
     },
     te = async (h) => {
-      (J(h), T(!0), M(null));
+      (J(h), P(!0), F(null));
       const f = document.getElementById("id_geospatial_provider");
       f && (f.value = h);
       try {
         if (!window.mapManager) return;
         const w = Number(u),
           v = Number(_),
-          N = Number(r),
+          N = Number(s),
           y = Number(g);
         (await window.mapManager.setMapProvider(h, {
           containerId: je,
@@ -679,7 +703,7 @@ function wa({
           rotation: Number.isFinite(y) ? y : 0,
         }),
           window.requestAnimationFrame(() => {
-            var c, C, k;
+            var c, C, B;
             const b =
               (C =
                 (c = window.mapManager) == null
@@ -687,25 +711,25 @@ function wa({
                   : c.getCurrentMapInstance) == null
                 ? void 0
                 : C.call(c);
-            (k = b == null ? void 0 : b.resize) == null || k.call(b);
+            (B = b == null ? void 0 : b.resize) == null || B.call(b);
           }),
           z(!0));
       } catch (w) {
-        (M(w instanceof Error ? w.message : "Failed to switch provider"),
+        (F(w instanceof Error ? w.message : "Failed to switch provider"),
           z(!1));
       }
     },
     U = () => {
       var h;
-      (T(!0), (h = window.mapManager) == null || h.moveToLocation());
+      (P(!0), (h = window.mapManager) == null || h.moveToLocation());
     },
-    pe = l.useCallback(async () => {
+    me = l.useCallback(async () => {
       if (!window.mapManager) {
-        M("Map is not ready");
+        F("Map is not ready");
         return;
       }
-      (q(!0), M(null));
-      const h = ya();
+      (D(!0), F(null));
+      const h = wa();
       try {
         const f = Ee();
         if (!f.corners) throw new Error("Map corners were not generated");
@@ -725,21 +749,21 @@ function wa({
           outputLla: "true",
           mapCenterLat: b.lat || f.lat,
           mapCenterLng: b.lng || f.lng,
-          mapZoom: b.zoom || f.zoom || r || "15",
+          mapZoom: b.zoom || f.zoom || s || "15",
           mapBearing: b.bearing || f.bearing || g || "0",
-          geospatialProvider: D,
+          geospatialProvider: A,
           mapFilename: y.filename,
           mapMediaUrl: y.mediaUrl,
         }),
-          T(!1),
+          P(!1),
           i());
       } catch (f) {
-        (h.abort(), M(ja(f, "Failed to save map position")));
+        (h.abort(), F(Sa(f, "Failed to save map position")));
       } finally {
-        q(!1);
+        D(!1);
       }
-    }, [x, i, D, r, g]);
-  return t
+    }, [x, i, A, s, g]);
+  return a
     ? da.createPortal(
         e.jsxs(e.Fragment, {
           children: [
@@ -765,17 +789,17 @@ function wa({
                       e.jsxs("div", {
                         className: "ss-geo-modal-actions",
                         children: [
-                          e.jsx(me, {
+                          e.jsx(ue, {
                             variant: "secondary",
                             type: "button",
                             onClick: ie,
                             children: "Cancel",
                           }),
-                          e.jsx(me, {
+                          e.jsx(ue, {
                             variant: "primary",
                             type: "button",
-                            disabled: L || !B,
-                            onClick: () => void pe(),
+                            disabled: L || !T,
+                            onClick: () => void me(),
                             children: L ? "Saving…" : "Done",
                           }),
                         ],
@@ -791,7 +815,7 @@ function wa({
                           e.jsxs(ee, {
                             id: "mapProvider",
                             label: "Provider",
-                            value: D,
+                            value: A,
                             onChange: (h) => void te(h.target.value),
                             disabled: L,
                             children: [
@@ -810,17 +834,17 @@ function wa({
                             label: "Find location",
                             value: Z,
                             onChange: (h) => {
-                              (ae(h.target.value), T(!0));
+                              (ae(h.target.value), P(!0));
                             },
                             onKeyDown: (h) => {
                               h.key === "Enter" && (h.preventDefault(), U());
                             },
-                            disabled: L || !B,
+                            disabled: L || !T,
                           }),
-                          e.jsx(me, {
+                          e.jsx(ue, {
                             variant: "secondary",
                             type: "button",
-                            disabled: L || !B || !Z.trim(),
+                            disabled: L || !T || !Z.trim(),
                             onClick: U,
                             children: "Go",
                           }),
@@ -855,7 +879,7 @@ function wa({
                           e.jsx("input", {
                             type: "hidden",
                             id: "id_geospatial_provider",
-                            value: D,
+                            value: A,
                             readOnly: !0,
                           }),
                           e.jsx("input", {
@@ -886,7 +910,7 @@ function wa({
                           e.jsx("input", {
                             type: "hidden",
                             id: "id_map_zoom",
-                            defaultValue: r,
+                            defaultValue: s,
                           }),
                           e.jsx("input", {
                             type: "hidden",
@@ -912,9 +936,9 @@ function wa({
               cancelLabel: "Stay",
               danger: !0,
               onConfirm: () => {
-                (P(!1), i());
+                (k(!1), i());
               },
-              onCancel: () => P(!1),
+              onCancel: () => k(!1),
               children: e.jsx("p", {
                 children:
                   "Map position will not be saved to the scene. Leave without applying?",
@@ -927,90 +951,92 @@ function wa({
     : null;
 }
 const Ze = "ss-scene-manage-form",
-  Sa = [
+  Ca = [
     { value: "Manual", label: "Manual" },
     { value: "AprilTag", label: "AprilTag" },
     { value: "Markerless", label: "Markerless" },
   ];
-function S(t, n = "") {
-  return t == null ? n : String(t);
+function S(a, t = "") {
+  return a == null ? t : String(a);
 }
-function He(t, n) {
-  return t === !0 || t === "true" || t === "True"
+function He(a, t) {
+  return a === !0 || a === "true" || a === "True"
     ? "true"
-    : t === !1 || t === "false" || t === "False"
+    : a === !1 || a === "false" || a === "False"
       ? "false"
-      : n;
+      : t;
 }
-function ze(t) {
-  return t === !0 || t === "true" || t === "True" ? "True" : "False";
+function ze(a, t, s) {
+  return Array.isArray(a) && a.length >= 3
+    ? [S(a[0], String(t[0])), S(a[1], String(t[1])), S(a[2], String(t[2]))]
+    : s
+      ? [S(s.x, String(t[0])), S(s.y, String(t[1])), S(s.z, String(t[2]))]
+      : [String(t[0]), String(t[1]), String(t[2])];
 }
-function Le(t, n, r) {
-  return Array.isArray(t) && t.length >= 3
-    ? [S(t[0], String(n[0])), S(t[1], String(n[1])), S(t[2], String(n[2]))]
-    : r
-      ? [S(r.x, String(n[0])), S(r.y, String(n[1])), S(r.z, String(n[2]))]
-      : [String(n[0]), String(n[1]), String(n[2])];
+function pe(a) {
+  return [Number(a[0]) || 0, Number(a[1]) || 0, Number(a[2]) || 0];
 }
-function ge(t) {
-  return [Number(t[0]) || 0, Number(t[1]) || 0, Number(t[2]) || 0];
-}
-function Te(t) {
-  if (t == null) return "";
-  if (typeof t == "string") return t;
+function Le(a) {
+  if (a == null) return "";
+  if (typeof a == "string") return a;
   try {
-    return JSON.stringify(t, null, 2);
+    return JSON.stringify(a, null, 2);
   } catch {
     return "";
   }
 }
-function Ye(t) {
-  const n = t.trim();
-  return n ? JSON.parse(n) : null;
+function Ye(a) {
+  const t = a.trim();
+  return t ? JSON.parse(t) : null;
 }
-function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
+function Ma() {
+  if (typeof window > "u") return null;
+  const a = new URLSearchParams(window.location.search).get("map");
+  return a === "geospatial_map" || a === "map_upload" ? a : null;
+}
+function Pa({ open: a, sceneId: t, authToken: s, onClose: u, onSaved: _ }) {
   const g = We(),
     [i, x] = l.useState(!1),
     [m, L] = l.useState(!1),
-    [q, B] = l.useState(!1),
+    [D, T] = l.useState(!1),
     [z, O] = l.useState(null),
-    [T, le] = l.useState(""),
-    [P, V] = l.useState("map_upload"),
-    [M, D] = l.useState("100"),
+    [P, le] = l.useState(""),
+    [k, V] = l.useState("map_upload"),
+    [F, A] = l.useState("100"),
     [J, Z] = l.useState(null),
     [ae, $] = l.useState(null),
     [ie, te] = l.useState(!1),
-    [U, pe] = l.useState("true"),
+    [U, me] = l.useState("true"),
     [h, f] = l.useState("30"),
     [w, v] = l.useState("30"),
     [N, y] = l.useState("false"),
     [b, c] = l.useState(""),
-    [C, k] = l.useState("google"),
+    [C, B] = l.useState("google"),
     [E, ne] = l.useState("15"),
     [I, se] = l.useState(""),
     [H, o] = l.useState(""),
     [p, R] = l.useState("0"),
-    [F, Y] = l.useState(["0", "0", "0"]),
-    [X, _e] = l.useState(["0", "0", "0"]),
-    [W, ye] = l.useState(["1", "1", "1"]),
+    [M, Y] = l.useState(["0", "0", "0"]),
+    [X, xe] = l.useState(["0", "0", "0"]),
+    [W, _e] = l.useState(["1", "1", "1"]),
     [we, Pe] = l.useState("Manual"),
-    [he, ke] = l.useState("0.162"),
-    [be, Be] = l.useState("50"),
+    [fe, ke] = l.useState("0.162"),
+    [he, Be] = l.useState("50"),
     [Se, Oe] = l.useState("netvlad"),
     [oe, Re] = l.useState('{"sift": {}}'),
-    [ce, Ie] = l.useState('{"NN-ratio": {}}'),
-    [Ne, Ge] = l.useState(null),
-    [ve, qe] = l.useState("20"),
-    [xe, De] = l.useState("0.5"),
-    [Ke, Ae] = l.useState(!1),
+    [ce, Ge] = l.useState('{"NN-ratio": {}}'),
+    [Ne, Ie] = l.useState(null),
+    [be, qe] = l.useState("20"),
+    [ve, De] = l.useState("0.5"),
+    [Qe, Ae] = l.useState(!1),
     [Ce, Je] = l.useState(!1),
-    j = () => B(!0),
-    Qe =
-      F.join(",") !== "0,0,0" ||
+    j = () => T(!0),
+    Ke =
+      M.join(",") !== "0,0,0" ||
       X.join(",") !== "0,0,0" ||
       W.join(",") !== "1,1,1",
     ea =
-      P === "geospatial_map" ||
+      k === "geospatial_map" ||
       N === "true" ||
       !!b.trim() ||
       !!I.trim() ||
@@ -1022,125 +1048,127 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
       /calibration|apriltag|localization|feature|inlier|match/i.test(z || ""),
     Me = m ? "loading" : "ready";
   l.useEffect(() => {
-    if (!t) return;
-    let a = !1;
-    Ue(r).then((A) => {
-      a || Ae(A);
+    if (!a) return;
+    let n = !1;
+    Ue(s).then((G) => {
+      n || Ae(G);
     });
-    const s = window.setInterval(() => {
-      Ue(r).then((A) => {
-        a || Ae(A);
+    const r = window.setInterval(() => {
+      Ue(s).then((G) => {
+        n || Ae(G);
       });
     }, 3e4);
     return () => {
-      ((a = !0), window.clearInterval(s));
+      ((n = !0), window.clearInterval(r));
     };
-  }, [t, r]);
+  }, [a, s]);
   const sa = async () => {
     (Je(!0), O(null));
     try {
-      const a = await pa(n);
-      (await ga(n, a), g.show("Mesh generated — map updated", "ok"), _());
-    } catch (a) {
-      O(a.message || "Mesh generation failed");
+      const n = await pa(t);
+      (await ga(t, n), g.show("Mesh generated — map updated", "ok"), _());
+    } catch (n) {
+      O(n.message || "Mesh generation failed");
     } finally {
       Je(!1);
     }
   };
   l.useEffect(() => {
-    if (!t || !n) return;
-    let a = !1;
+    if (!a || !t) return;
+    let n = !1;
     return (
       O(null),
-      B(!1),
+      T(!1),
       Z(null),
-      Ge(null),
+      Ie(null),
       L(!0),
       x(!0),
       re
-        .getScene(r, n)
-        .then((s) => {
-          a ||
-            (le(S(s.name)),
-            V(S(s.map_type, "map_upload")),
-            D(s.scale != null ? S(s.scale) : "100"),
+        .getScene(s, t)
+        .then((r) => {
+          if (n) return;
+          le(S(r.name));
+          const G = Ma();
+          (V(G || S(r.map_type, "map_upload")),
+            G && T(!0),
+            A(r.scale != null ? S(r.scale) : "100"),
             Z(null),
             $(null),
             te(!1),
-            pe(He(s.use_tracker, "true")),
-            f(s.regulated_rate != null ? S(s.regulated_rate) : "30"),
+            me(He(r.use_tracker, "true")),
+            f(r.regulated_rate != null ? S(r.regulated_rate) : "30"),
             v(
-              s.external_update_rate != null ? S(s.external_update_rate) : "30",
+              r.external_update_rate != null ? S(r.external_update_rate) : "30",
             ),
-            y(He(s.output_lla, "false")),
-            c(Te(s.map_corners_lla)),
-            k(S(s.geospatial_provider, "google")),
-            ne(s.map_zoom != null ? S(s.map_zoom) : "15"),
-            se(s.map_center_lat != null ? S(s.map_center_lat) : ""),
-            o(s.map_center_lng != null ? S(s.map_center_lng) : ""),
-            R(s.map_bearing != null ? S(s.map_bearing) : "0"),
+            y(He(r.output_lla, "false")),
+            c(Le(r.map_corners_lla)),
+            B(S(r.geospatial_provider, "google")),
+            ne(r.map_zoom != null ? S(r.map_zoom) : "15"),
+            se(r.map_center_lat != null ? S(r.map_center_lat) : ""),
+            o(r.map_center_lng != null ? S(r.map_center_lng) : ""),
+            R(r.map_bearing != null ? S(r.map_bearing) : "0"),
             Y(
-              Le(s.mesh_translation, [0, 0, 0], {
-                x: s.translation_x,
-                y: s.translation_y,
-                z: s.translation_z,
+              ze(r.mesh_translation, [0, 0, 0], {
+                x: r.translation_x,
+                y: r.translation_y,
+                z: r.translation_z,
+              }),
+            ),
+            xe(
+              ze(r.mesh_rotation, [0, 0, 0], {
+                x: r.rotation_x,
+                y: r.rotation_y,
+                z: r.rotation_z,
               }),
             ),
             _e(
-              Le(s.mesh_rotation, [0, 0, 0], {
-                x: s.rotation_x,
-                y: s.rotation_y,
-                z: s.rotation_z,
+              ze(r.mesh_scale, [1, 1, 1], {
+                x: r.scale_x,
+                y: r.scale_y,
+                z: r.scale_z,
               }),
             ),
-            ye(
-              Le(s.mesh_scale, [1, 1, 1], {
-                x: s.scale_x,
-                y: s.scale_y,
-                z: s.scale_z,
-              }),
-            ),
-            Pe(S(s.camera_calibration, "Manual")),
-            ke(s.apriltag_size != null ? S(s.apriltag_size) : "0.162"),
+            Pe(S(r.camera_calibration, "Manual")),
+            ke(r.apriltag_size != null ? S(r.apriltag_size) : "0.162"),
             Be(
-              s.number_of_localizations != null
-                ? S(s.number_of_localizations)
+              r.number_of_localizations != null
+                ? S(r.number_of_localizations)
                 : "50",
             ),
-            Oe(S(s.global_feature, "netvlad")),
+            Oe(S(r.global_feature, "netvlad")),
             Re(
-              (s.local_feature != null && Te(s.local_feature)) ||
+              (r.local_feature != null && Le(r.local_feature)) ||
                 '{"sift": {}}',
             ),
-            Ie((s.matcher != null && Te(s.matcher)) || '{"NN-ratio": {}}'),
+            Ge((r.matcher != null && Le(r.matcher)) || '{"NN-ratio": {}}'),
             qe(
-              s.minimum_number_of_matches != null
-                ? S(s.minimum_number_of_matches)
+              r.minimum_number_of_matches != null
+                ? S(r.minimum_number_of_matches)
                 : "20",
             ),
-            De(s.inlier_threshold != null ? S(s.inlier_threshold) : "0.5"),
-            B(!1));
+            De(r.inlier_threshold != null ? S(r.inlier_threshold) : "0.5"),
+            T(!1));
         })
-        .catch((s) => {
-          a || O(s.message || "Failed to load scene");
+        .catch((r) => {
+          n || O(r.message || "Failed to load scene");
         })
         .finally(() => {
-          a || (L(!1), x(!1));
+          n || (L(!1), x(!1));
         }),
       () => {
-        a = !0;
+        n = !0;
       }
     );
-  }, [t, n, r]);
-  const K = (a, s, A) => (de) => {
-      const $e = [...s];
-      (($e[A] = de.target.value), a($e), j());
+  }, [a, t, s]);
+  const Q = (n, r, G) => (ye) => {
+      const $e = [...r];
+      (($e[G] = ye.target.value), n($e), j());
     },
     ra = () => {
-      const a = {
-        name: T.trim(),
-        map_type: P,
-        scale: M.trim() ? Number(M) : null,
+      const n = {
+        name: P.trim(),
+        map_type: k,
+        scale: F.trim() ? Number(F) : null,
         use_tracker: U === "true",
         regulated_rate: h.trim() ? Number(h) : null,
         external_update_rate: w.trim() ? Number(w) : null,
@@ -1148,122 +1176,105 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
         geospatial_provider: C,
         map_zoom: E.trim() ? Number(E) : null,
         map_bearing: p.trim() ? Number(p) : null,
-        mesh_translation: ge(F),
-        mesh_rotation: ge(X),
-        mesh_scale: ge(W),
+        mesh_translation: pe(M),
+        mesh_rotation: pe(X),
+        mesh_scale: pe(W),
         camera_calibration: we,
-        apriltag_size: he.trim() ? Number(he) : null,
-        number_of_localizations: be.trim() ? Number(be) : null,
+        apriltag_size: fe.trim() ? Number(fe) : null,
+        number_of_localizations: he.trim() ? Number(he) : null,
         global_feature: Se.trim(),
         local_feature: oe.trim() ? JSON.parse(oe) : null,
         matcher: ce.trim() ? JSON.parse(ce) : null,
-        minimum_number_of_matches: ve.trim() ? Number(ve) : null,
-        inlier_threshold: xe.trim() ? Number(xe) : null,
+        minimum_number_of_matches: be.trim() ? Number(be) : null,
+        inlier_threshold: ve.trim() ? Number(ve) : null,
       };
-      (I.trim() && (a.map_center_lat = Number(I)),
-        H.trim() && (a.map_center_lng = Number(H)));
-      const s = b.trim() ? Ye(b) : null;
-      return (s != null && (a.map_corners_lla = s), a);
+      (I.trim() && (n.map_center_lat = Number(I)),
+        H.trim() && (n.map_center_lng = Number(H)));
+      const r = b.trim() ? Ye(b) : null;
+      return (r != null && (n.map_corners_lla = r), n);
     },
     la = () => {
-      const a = new FormData();
+      const n = new FormData();
       return (
-        a.append("name", T.trim()),
-        a.append("map_type", P),
-        M.trim() && a.append("scale", M.trim()),
-        a.append("use_tracker", ze(U)),
-        h.trim() && a.append("regulated_rate", h.trim()),
-        w.trim() && a.append("external_update_rate", w.trim()),
-        a.append("output_lla", ze(N)),
-        b.trim() && a.append("map_corners_lla", b.trim()),
-        a.append("geospatial_provider", C),
-        E.trim() && a.append("map_zoom", E.trim()),
-        I.trim() && a.append("map_center_lat", I.trim()),
-        H.trim() && a.append("map_center_lng", H.trim()),
-        p.trim() && a.append("map_bearing", p.trim()),
-        a.append("camera_calibration", we),
-        he.trim() && a.append("apriltag_size", he.trim()),
-        be.trim() && a.append("number_of_localizations", be.trim()),
-        a.append("global_feature", Se.trim()),
-        oe.trim() && a.append("local_feature", oe.trim()),
-        ce.trim() && a.append("matcher", ce.trim()),
-        ve.trim() && a.append("minimum_number_of_matches", ve.trim()),
-        xe.trim() && a.append("inlier_threshold", xe.trim()),
-        J && a.append("map", J),
-        Ne && a.append("polycam_data", Ne),
-        a
+        n.append("name", P.trim()),
+        n.append("map_type", k),
+        F.trim() && n.append("scale", F.trim()),
+        n.append("use_tracker", Te(U)),
+        h.trim() && n.append("regulated_rate", h.trim()),
+        w.trim() && n.append("external_update_rate", w.trim()),
+        n.append("output_lla", Te(N)),
+        b.trim() && n.append("map_corners_lla", b.trim()),
+        n.append("geospatial_provider", C),
+        E.trim() && n.append("map_zoom", E.trim()),
+        I.trim() && n.append("map_center_lat", I.trim()),
+        H.trim() && n.append("map_center_lng", H.trim()),
+        p.trim() && n.append("map_bearing", p.trim()),
+        n.append("camera_calibration", we),
+        fe.trim() && n.append("apriltag_size", fe.trim()),
+        he.trim() && n.append("number_of_localizations", he.trim()),
+        n.append("global_feature", Se.trim()),
+        oe.trim() && n.append("local_feature", oe.trim()),
+        ce.trim() && n.append("matcher", ce.trim()),
+        be.trim() && n.append("minimum_number_of_matches", be.trim()),
+        ve.trim() && n.append("inlier_threshold", ve.trim()),
+        J && n.append("map", J),
+        Ne && n.append("polycam_data", Ne),
+        n
       );
     },
-    ia = async (a) => {
-      (a.preventDefault(), x(!0), O(null));
+    ia = async (n) => {
+      (n.preventDefault(), x(!0), O(null));
       try {
         (b.trim() && Ye(b),
           oe.trim() && JSON.parse(oe),
           ce.trim() && JSON.parse(ce),
           J || Ne
-            ? (await re.updateScene(r, n, la()),
-              await re.updateSceneJson(r, n, {
-                name: T.trim(),
-                mesh_translation: ge(F),
-                mesh_rotation: ge(X),
-                mesh_scale: ge(W),
+            ? (await re.updateScene(s, t, la()),
+              await re.updateSceneJson(s, t, {
+                name: P.trim(),
+                mesh_translation: pe(M),
+                mesh_rotation: pe(X),
+                mesh_scale: pe(W),
               }))
-            : await re.updateSceneJson(r, n, ra()),
+            : await re.updateSceneJson(s, t, ra()),
           g.show("Scene saved", "ok"),
-          B(!1),
+          T(!1),
           _(),
           u());
-      } catch (s) {
-        const A = s;
-        s instanceof SyntaxError
+      } catch (r) {
+        const G = r;
+        r instanceof SyntaxError
           ? O("JSON fields must be valid (corners / local feature / matcher)")
-          : O(A.message || "Save failed");
+          : O(G.message || "Save failed");
       } finally {
         x(!1);
       }
     },
-    oa = async (a) => {
-      (D(a.scale || M),
-        c(a.mapCornersLla),
-        y(a.outputLla),
-        k(a.geospatialProvider),
-        ne(a.mapZoom),
-        se(a.mapCenterLat),
-        o(a.mapCenterLng),
-        R(a.mapBearing),
+    oa = async (n) => {
+      (A(n.scale || F),
+        c(n.mapCornersLla),
+        y(n.outputLla),
+        B(n.geospatialProvider),
+        ne(n.mapZoom),
+        se(n.mapCenterLat),
+        o(n.mapCenterLng),
+        R(n.mapBearing),
         V("geospatial_map"),
-        $(a.mapFilename),
+        $(n.mapFilename),
         j(),
         x(!0),
         O(null));
       try {
-        const s = new FormData();
-        (s.append("name", T.trim() || "Scene"),
-          s.append("map_type", "geospatial_map"),
-          s.append("scale", a.scale || M || "100"),
-          s.append("output_lla", ze(!0)),
-          s.append("map_corners_lla", a.mapCornersLla),
-          s.append("geospatial_provider", a.geospatialProvider),
-          a.mapZoom && s.append("map_zoom", a.mapZoom),
-          a.mapCenterLat && s.append("map_center_lat", a.mapCenterLat),
-          a.mapCenterLng && s.append("map_center_lng", a.mapCenterLng),
-          a.mapBearing && s.append("map_bearing", a.mapBearing));
-        const A = await fetch(a.mapMediaUrl, { credentials: "same-origin" });
-        if (!A.ok) throw new Error("Could not download generated map snapshot");
-        const de = await A.blob();
-        (s.append(
-          "map",
-          new File([de], a.mapFilename || "geospatial_map.png", {
-            type: de.type || "image/png",
-          }),
-        ),
-          await re.updateScene(r, n, s),
+        const r = await fa(n),
+          G = new FormData();
+        (ha(G, n, { name: P.trim() || "Scene", mapFile: r }),
+          await re.updateScene(s, t, G),
           g.show("Geospatial map positioned and saved", "ok"),
-          B(!1),
+          T(!1),
           _());
-      } catch (s) {
-        const de = s.message || "Failed to save geospatial map";
-        throw (O(de), new Error(de));
+      } catch (r) {
+        const ye = r.message || "Failed to save geospatial map";
+        throw (O(ye), new Error(ye));
       } finally {
         x(!1);
       }
@@ -1271,15 +1282,15 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
   return e.jsxs(e.Fragment, {
     children: [
       e.jsx(Xe, {
-        open: t,
+        open: a,
         title: "Edit Scene",
         wide: !0,
-        dirty: q,
+        dirty: D,
         onClose: u,
         actions: e.jsxs(e.Fragment, {
           children: [
-            Ke
-              ? e.jsx(me, {
+            Qe
+              ? e.jsx(ue, {
                   variant: "secondary",
                   type: "button",
                   id: "generate_mesh",
@@ -1290,14 +1301,14 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                   children: Ce ? "Generating…" : "Generate Mesh",
                 })
               : null,
-            e.jsx(me, {
+            e.jsx(ue, {
               variant: "primary",
               type: "submit",
               form: Ze,
-              disabled: i || m || !q || Ce,
-              title: q ? "Save changes" : "No unsaved changes",
-              className: q ? "ss-btn--dirty" : void 0,
-              children: i && !m ? "Saving…" : q ? "Save" : "Saved",
+              disabled: i || m || !D || Ce,
+              title: D ? "Save changes" : "No unsaved changes",
+              className: D ? "ss-btn--dirty" : void 0,
+              children: i && !m ? "Saving…" : D ? "Save" : "Saved",
             }),
           ],
         }),
@@ -1309,7 +1320,7 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
           busy: i || m,
           onSubmit: ia,
           children: [
-            e.jsx(ue, {
+            e.jsx(de, {
               id: "ss-scene-manage-identity",
               title: "Identity",
               description:
@@ -1317,15 +1328,15 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
               children: e.jsx(d, {
                 id: "ss-scene-manage-name",
                 label: "Name",
-                value: T,
-                onChange: (a) => {
-                  (le(a.target.value), j());
+                value: P,
+                onChange: (n) => {
+                  (le(n.target.value), j());
                 },
                 required: !0,
                 disabled: i,
               }),
             }),
-            e.jsxs(ue, {
+            e.jsxs(de, {
               id: "ss-scene-manage-map",
               title: "Map",
               description:
@@ -1334,9 +1345,9 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                 e.jsxs(ee, {
                   id: "ss-scene-manage-map-type",
                   label: "Map type",
-                  value: P,
-                  onChange: (a) => {
-                    (V(a.target.value), j());
+                  value: k,
+                  onChange: (n) => {
+                    (V(n.target.value), j());
                   },
                   disabled: i,
                   children: [
@@ -1353,13 +1364,13 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                 e.jsx(d, {
                   id: "ss-scene-manage-scale",
                   label: "Scale (px per meter)",
-                  value: M,
-                  onChange: (a) => {
-                    (D(a.target.value), j());
+                  value: F,
+                  onChange: (n) => {
+                    (A(n.target.value), j());
                   },
                   disabled: i,
                 }),
-                P === "map_upload"
+                k === "map_upload"
                   ? e.jsxs("div", {
                       className: "ss-text-field",
                       children: [
@@ -1376,12 +1387,12 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                             accept:
                               "image/*,.pdf,.svg,.glb,.gltf,.ply,.zip,video/*",
                             disabled: i,
-                            onChange: (a) => {
-                              var s;
+                            onChange: (n) => {
+                              var r;
                               (Z(
-                                ((s = a.target.files) == null
+                                ((r = n.target.files) == null
                                   ? void 0
-                                  : s[0]) || null,
+                                  : r[0]) || null,
                               ),
                                 $(null),
                                 j());
@@ -1406,7 +1417,7 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                             alignItems: "center",
                           },
                           children: [
-                            e.jsx(me, {
+                            e.jsx(ue, {
                               type: "button",
                               variant: "primary",
                               disabled: i || m,
@@ -1428,7 +1439,7 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                     }),
               ],
             }),
-            e.jsxs(ue, {
+            e.jsxs(de, {
               id: "ss-scene-manage-tracking",
               title: "Tracking",
               description:
@@ -1438,8 +1449,8 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                   id: "ss-scene-manage-use-tracker",
                   label: "Use tracker",
                   value: U,
-                  onChange: (a) => {
-                    (pe(a.target.value === "true" ? "true" : "false"), j());
+                  onChange: (n) => {
+                    (me(n.target.value === "true" ? "true" : "false"), j());
                   },
                   disabled: i,
                   children: [
@@ -1451,8 +1462,8 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                   id: "ss-scene-manage-regulated-rate",
                   label: "Regulate rate (Hz)",
                   value: h,
-                  onChange: (a) => {
-                    (f(a.target.value), j());
+                  onChange: (n) => {
+                    (f(n.target.value), j());
                   },
                   disabled: i,
                 }),
@@ -1460,15 +1471,15 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                   id: "ss-scene-manage-external-rate",
                   label: "Max external update rate (Hz)",
                   value: w,
-                  onChange: (a) => {
-                    (v(a.target.value), j());
+                  onChange: (n) => {
+                    (v(n.target.value), j());
                   },
                   disabled: i,
                 }),
               ],
             }),
             e.jsxs(
-              ue,
+              de,
               {
                 id: "ss-scene-manage-geo",
                 title: "Geospatial settings",
@@ -1483,8 +1494,8 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                     id: "ss-scene-manage-output-lla",
                     label: "Output geospatial coordinates",
                     value: N,
-                    onChange: (a) => {
-                      (y(a.target.value === "true" ? "true" : "false"), j());
+                    onChange: (n) => {
+                      (y(n.target.value === "true" ? "true" : "false"), j());
                     },
                     disabled: i,
                     children: [
@@ -1508,8 +1519,8 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                           rows: 6,
                           value: b,
                           disabled: i,
-                          onChange: (a) => {
-                            (c(a.target.value), j());
+                          onChange: (n) => {
+                            (c(n.target.value), j());
                           },
                         }),
                       }),
@@ -1519,8 +1530,8 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                     id: "ss-scene-manage-geo-provider",
                     label: "Geospatial provider",
                     value: C,
-                    onChange: (a) => {
-                      (k(a.target.value), j());
+                    onChange: (n) => {
+                      (B(n.target.value), j());
                     },
                     disabled: i,
                     children: [
@@ -1535,8 +1546,8 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                     id: "ss-scene-manage-map-zoom",
                     label: "Map zoom",
                     value: E,
-                    onChange: (a) => {
-                      (ne(a.target.value), j());
+                    onChange: (n) => {
+                      (ne(n.target.value), j());
                     },
                     disabled: i,
                   }),
@@ -1544,8 +1555,8 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                     id: "ss-scene-manage-map-lat",
                     label: "Map center latitude",
                     value: I,
-                    onChange: (a) => {
-                      (se(a.target.value), j());
+                    onChange: (n) => {
+                      (se(n.target.value), j());
                     },
                     disabled: i,
                   }),
@@ -1553,8 +1564,8 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                     id: "ss-scene-manage-map-lng",
                     label: "Map center longitude",
                     value: H,
-                    onChange: (a) => {
-                      (o(a.target.value), j());
+                    onChange: (n) => {
+                      (o(n.target.value), j());
                     },
                     disabled: i,
                   }),
@@ -1562,88 +1573,88 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                     id: "ss-scene-manage-map-bearing",
                     label: "Map bearing (degrees)",
                     value: p,
-                    onChange: (a) => {
-                      (R(a.target.value), j());
+                    onChange: (n) => {
+                      (R(n.target.value), j());
                     },
                     disabled: i,
                   }),
                 ],
               },
-              `geo-${Me}-${P}`,
+              `geo-${Me}-${k}`,
             ),
             e.jsxs(
-              ue,
+              de,
               {
                 id: "ss-scene-manage-pose",
                 title: "Pose",
                 description:
                   "Translation, rotation, and scale applied to the scene map mesh (.glb).",
                 collapsible: !0,
-                defaultOpen: !m && Qe,
+                defaultOpen: !m && Ke,
                 forceOpen: ta,
                 className: "ss-form-section--columns",
                 children: [
                   e.jsx(d, {
                     id: "ss-scene-manage-tx",
                     label: "Translation X (m)",
-                    value: F[0],
-                    onChange: K(Y, F, 0),
+                    value: M[0],
+                    onChange: Q(Y, M, 0),
                     disabled: i,
                   }),
                   e.jsx(d, {
                     id: "ss-scene-manage-ty",
                     label: "Translation Y (m)",
-                    value: F[1],
-                    onChange: K(Y, F, 1),
+                    value: M[1],
+                    onChange: Q(Y, M, 1),
                     disabled: i,
                   }),
                   e.jsx(d, {
                     id: "ss-scene-manage-tz",
                     label: "Translation Z (m)",
-                    value: F[2],
-                    onChange: K(Y, F, 2),
+                    value: M[2],
+                    onChange: Q(Y, M, 2),
                     disabled: i,
                   }),
                   e.jsx(d, {
                     id: "ss-scene-manage-rx",
                     label: "Rotation X (°)",
                     value: X[0],
-                    onChange: K(_e, X, 0),
+                    onChange: Q(xe, X, 0),
                     disabled: i,
                   }),
                   e.jsx(d, {
                     id: "ss-scene-manage-ry",
                     label: "Rotation Y (°)",
                     value: X[1],
-                    onChange: K(_e, X, 1),
+                    onChange: Q(xe, X, 1),
                     disabled: i,
                   }),
                   e.jsx(d, {
                     id: "ss-scene-manage-rz",
                     label: "Rotation Z (°)",
                     value: X[2],
-                    onChange: K(_e, X, 2),
+                    onChange: Q(xe, X, 2),
                     disabled: i,
                   }),
                   e.jsx(d, {
                     id: "ss-scene-manage-sx",
                     label: "Scale X",
                     value: W[0],
-                    onChange: K(ye, W, 0),
+                    onChange: Q(_e, W, 0),
                     disabled: i,
                   }),
                   e.jsx(d, {
                     id: "ss-scene-manage-sy",
                     label: "Scale Y",
                     value: W[1],
-                    onChange: K(ye, W, 1),
+                    onChange: Q(_e, W, 1),
                     disabled: i,
                   }),
                   e.jsx(d, {
                     id: "ss-scene-manage-sz",
                     label: "Scale Z",
                     value: W[2],
-                    onChange: K(ye, W, 2),
+                    onChange: Q(_e, W, 2),
                     disabled: i,
                   }),
                 ],
@@ -1651,7 +1662,7 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
               `pose-${Me}`,
             ),
             e.jsxs(
-              ue,
+              de,
               {
                 id: "ss-scene-manage-autocal",
                 title: "Auto-calibration",
@@ -1665,33 +1676,33 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                     id: "ss-scene-manage-cal-type",
                     label: "Calibration type",
                     value: we,
-                    onChange: (a) => {
-                      (Pe(a.target.value), j());
+                    onChange: (n) => {
+                      (Pe(n.target.value), j());
                     },
                     disabled: i,
-                    children: Sa.map((a) =>
+                    children: Ca.map((n) =>
                       e.jsx(
                         "option",
-                        { value: a.value, children: a.label },
-                        a.value,
+                        { value: n.value, children: n.label },
+                        n.value,
                       ),
                     ),
                   }),
                   e.jsx(d, {
                     id: "ss-scene-manage-apriltag",
                     label: "AprilTag size (m)",
-                    value: he,
-                    onChange: (a) => {
-                      (ke(a.target.value), j());
+                    value: fe,
+                    onChange: (n) => {
+                      (ke(n.target.value), j());
                     },
                     disabled: i,
                   }),
                   e.jsx(d, {
                     id: "ss-scene-manage-localizations",
                     label: "Number of localizations",
-                    value: be,
-                    onChange: (a) => {
-                      (Be(a.target.value), j());
+                    value: he,
+                    onChange: (n) => {
+                      (Be(n.target.value), j());
                     },
                     disabled: i,
                   }),
@@ -1699,8 +1710,8 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                     id: "ss-scene-manage-global-feature",
                     label: "Global feature matching",
                     value: Se,
-                    onChange: (a) => {
-                      (Oe(a.target.value), j());
+                    onChange: (n) => {
+                      (Oe(n.target.value), j());
                     },
                     disabled: i,
                   }),
@@ -1719,8 +1730,8 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                           rows: 3,
                           value: oe,
                           disabled: i,
-                          onChange: (a) => {
-                            (Re(a.target.value), j());
+                          onChange: (n) => {
+                            (Re(n.target.value), j());
                           },
                         }),
                       }),
@@ -1741,8 +1752,8 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                           rows: 3,
                           value: ce,
                           disabled: i,
-                          onChange: (a) => {
-                            (Ie(a.target.value), j());
+                          onChange: (n) => {
+                            (Ge(n.target.value), j());
                           },
                         }),
                       }),
@@ -1763,10 +1774,10 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                           type: "file",
                           accept: ".zip,application/zip",
                           disabled: i,
-                          onChange: (a) => {
-                            var s;
-                            (Ge(
-                              ((s = a.target.files) == null ? void 0 : s[0]) ||
+                          onChange: (n) => {
+                            var r;
+                            (Ie(
+                              ((r = n.target.files) == null ? void 0 : r[0]) ||
                                 null,
                             ),
                               j());
@@ -1778,18 +1789,18 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
                   e.jsx(d, {
                     id: "ss-scene-manage-min-matches",
                     label: "Minimum number of matches",
-                    value: ve,
-                    onChange: (a) => {
-                      (qe(a.target.value), j());
+                    value: be,
+                    onChange: (n) => {
+                      (qe(n.target.value), j());
                     },
                     disabled: i,
                   }),
                   e.jsx(d, {
                     id: "ss-scene-manage-inlier",
                     label: "Inlier threshold",
-                    value: xe,
-                    onChange: (a) => {
-                      (De(a.target.value), j());
+                    value: ve,
+                    onChange: (n) => {
+                      (De(n.target.value), j());
                     },
                     disabled: i,
                   }),
@@ -1800,8 +1811,8 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
           ],
         }),
       }),
-      e.jsx(wa, {
-        open: t && ie,
+      e.jsx(Na, {
+        open: a && ie,
         provider: C,
         mapZoom: E,
         mapCenterLat: I,
@@ -1813,4 +1824,13 @@ function za({ open: t, sceneId: n, authToken: r, onClose: u, onSaved: _ }) {
     ],
   });
 }
-export { Ea as C, za as S };
+export {
+  Ta as C,
+  Na as G,
+  Pa as S,
+  ha as a,
+  Ue as c,
+  fa as f,
+  ga as p,
+  pa as s,
+};
