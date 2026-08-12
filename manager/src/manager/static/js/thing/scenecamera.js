@@ -331,7 +331,7 @@ export default class SceneCamera extends THREE.Object3D {
     this.projectFrame = false;
     let panelSettings = {
       name: this.name === DEFAULT_CAMERA_NAME ? "" : this.name,
-      opacity: 100,
+      opacity: 80,
       fov: computeDiagonalFOV(
         this.cameraMatrix.data64F[CX],
         this.cameraMatrix.data64F[CY],
@@ -978,6 +978,11 @@ export default class SceneCamera extends THREE.Object3D {
               );
             // scene is the group. We add the mesh to the group because we want it to move together.
             this.add(this.mesh);
+            this.executeOnControl("opacity", (control) => {
+              if (control[0]) {
+                this.cameraCapture.opacity = control[0].getValue() / 100.0;
+              }
+            });
           } else {
             this.cameraCapture.texture = texture;
             this.cameraCapture.project(this.mesh);
