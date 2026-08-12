@@ -12,7 +12,8 @@ import "./components/Button.css";
 
 function DestructiveActionsApp() {
   const { dialog } = useDeleteLinkInterceptor({
-    fallbackHref: "/",
+    fallbackHref:
+      window.location.pathname + (window.location.search || "") || "/",
   });
   return dialog;
 }

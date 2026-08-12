@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { api } from "./rest";
+import {
+  publishGeometry,
+  rekeyRoi,
+  rekeyTripwire,
+} from "../scene/map/geometryModel";
 
 type RoiDraft = {
   title?: string;
@@ -107,6 +112,13 @@ export type PersistGeometryOptions = {
   preferHidden?: boolean;
 };
 
+export type PersistIdMap = Record<string, string>;
+
+export type PersistGeometryResult = {
+  roiIds: PersistIdMap;
+  tripIds: PersistIdMap;
+};
+
 /**
  * Bulk-sync ROI / tripwire geometry via REST from the typed model.
  * Callers harvest Snap → model when needed; this path does not scrape the form.
@@ -115,7 +127,7 @@ export async function persistSceneGeometry(
   authToken: string,
   sceneId: string,
   options?: PersistGeometryOptions,
-): Promise<void> {
+): Promise<PersistGeometryResult> {
   let rois: RoiDraft[];
   let trips: TripDraft[];
 
@@ -156,16 +168,21 @@ export async function persistSceneGeometry(
     existingRegions.map(uidOf).filter((u): u is string => Boolean(u)),
   );
   const keepRegion = new Set<string>();
+  const roiIds: PersistIdMap = {};
   for (const roi of rois) {
     const payload = regionPayload(sceneId, roi);
     if (isUuid(roi.uuid) && existingRegionIds.has(roi.uuid)) {
       await api.updateRegion(authToken, roi.uuid, payload);
       keepRegion.add(roi.uuid);
+      roiIds[roi.uuid] = roi.uuid;
     } else {
       const created = await api.createRegion(authToken, payload);
       const uid = uidOf(created);
       if (uid) {
         keepRegion.add(uid);
+        if (roi.uuid) {
+          roiIds[roi.uuid] = uid;
+        }
       }
     }
   }
@@ -180,16 +197,21 @@ export async function persistSceneGeometry(
     existingTrips.map(uidOf).filter((u): u is string => Boolean(u)),
   );
   const keepTrip = new Set<string>();
+  const tripIds: PersistIdMap = {};
   for (const trip of trips) {
     const payload = tripPayload(sceneId, trip);
     if (isUuid(trip.uuid) && existingTripIds.has(trip.uuid)) {
       await api.updateTripwire(authToken, trip.uuid, payload);
       keepTrip.add(trip.uuid);
+      tripIds[trip.uuid] = trip.uuid;
     } else {
       const created = await api.createTripwire(authToken, payload);
       const uid = uidOf(created);
       if (uid) {
         keepTrip.add(uid);
+        if (trip.uuid) {
+          tripIds[trip.uuid] = uid;
+        }
       }
     }
   }
@@ -199,6 +221,23 @@ export async function persistSceneGeometry(
       await api.deleteTripwire(authToken, uid);
     }
   }
+
+  let remapped = false;
+  for (const [oldId, newId] of Object.entries(roiIds)) {
+    if (rekeyRoi(oldId, newId)) {
+      remapped = true;
+    }
+  }
+  for (const [oldId, newId] of Object.entries(tripIds)) {
+    if (rekeyTripwire(oldId, newId)) {
+      remapped = true;
+    }
+  }
+  if (remapped) {
+    publishGeometry();
+  }
+
+  return { roiIds, tripIds };
 }
 
 declare global {

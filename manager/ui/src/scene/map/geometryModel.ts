@@ -120,6 +120,38 @@ export function removeTripwire(uuid: string): void {
   notify();
 }
 
+/** Remap a temp client id to the server uid after persist. */
+export function rekeyRoi(oldUuid: string, newUuid: string): boolean {
+  if (!oldUuid || !newUuid || oldUuid === newUuid) {
+    return false;
+  }
+  const row = rois.get(oldUuid);
+  if (!row) {
+    return false;
+  }
+  rois.delete(oldUuid);
+  rois.set(newUuid, { ...row, uuid: newUuid });
+  return true;
+}
+
+export function rekeyTripwire(oldUuid: string, newUuid: string): boolean {
+  if (!oldUuid || !newUuid || oldUuid === newUuid) {
+    return false;
+  }
+  const row = trips.get(oldUuid);
+  if (!row) {
+    return false;
+  }
+  trips.delete(oldUuid);
+  trips.set(newUuid, { ...row, uuid: newUuid });
+  return true;
+}
+
+export function publishGeometry(): void {
+  flushGeometryToHidden();
+  notify();
+}
+
 export function replaceRoiPoints(uuid: string, points: GeometryPoint[]): void {
   const prev = rois.get(uuid);
   if (!prev) {

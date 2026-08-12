@@ -8,8 +8,9 @@ import tempfile
 from unittest.mock import Mock
 from django.test import TestCase, override_settings
 from django.urls import reverse
-from manager.models import Scene, SingletonSensor, Cam
-from manager.views import SingletonSensorDeleteView, CamDeleteView
+from manager.models import Scene, SingletonSensor, Cam, ChildScene
+from manager.views import (
+  SingletonSensorDeleteView, CamDeleteView, ChildDeleteView)
 from django.contrib.auth.models import User
 from django.test.client import RequestFactory
 from manager.settings import AXES_FAILURE_LIMIT
@@ -298,6 +299,60 @@ class TestSingletonSensorViews(TestCase):
     """Standalone sensor calibrate URL is gone; React hosts the sheet."""
     response = self.client.get('/singleton_sensor/calibrate/1')
     self.assertEqual(response.status_code, 404)
+    return
+
+class TestChildViews(TestCase):
+
+  def setUp(self):
+    self.factory = RequestFactory()
+    request = self.factory.get('/')
+    self.user = User.objects.create_superuser(
+      'test_user', 'test_user@intel.com', 'testpassword')
+    self.client.post(
+      reverse('sign_in'),
+      data={
+        'username': 'test_user',
+        'password': 'testpassword',
+        'request': request,
+      },
+    )
+    self.parent = Scene.objects.create(name="parent_scene", map="test_map")
+    self.child = Scene.objects.create(name="child_scene", map="test_map")
+    self.link = ChildScene.objects.create(
+      parent=self.parent, child=self.child, child_type="local")
+    return
+
+  def setup_view(self, view, request, *args, **kwargs):
+    view.request = request
+    view.args = args
+    view.kwargs = kwargs
+    return view
+
+  def test_success_url_delete(self):
+    response = self.client.get(reverse('child_delete', args=[self.link.pk]))
+    delete_view = self.setup_view(ChildDeleteView(), response)
+    mock_object = Mock()
+    mock_object.parent_id = self.parent.id
+    delete_view.object = mock_object
+    url = delete_view.get_success_url()
+    self.assertEqual(url, f"/{self.parent.id}/")
+    return
+
+  def test_success_url_delete_else(self):
+    response = self.client.get(reverse('child_delete', args=[self.link.pk]))
+    delete_view = self.setup_view(ChildDeleteView(), response)
+    mock_object = Mock()
+    mock_object.parent_id = None
+    delete_view.object = mock_object
+    url = delete_view.get_success_url()
+    self.assertEqual(url, reverse('index'))
+    return
+
+  def test_child_delete_post_redirects_to_parent_scene(self):
+    response = self.client.post(reverse('child_delete', args=[self.link.pk]))
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(response.url, f"/{self.parent.id}/")
+    self.assertFalse(ChildScene.objects.filter(pk=self.link.pk).exists())
     return
 
 class TestSaveGeospatialSnapshot(TestCase):

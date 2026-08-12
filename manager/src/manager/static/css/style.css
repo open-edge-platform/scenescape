@@ -1490,6 +1490,7 @@ polygon {
   opacity: 0.4;
   stroke: blue;
   stroke-width: 3px;
+  transition: fill 180ms ease;
 }
 
 .autoshow-pane {

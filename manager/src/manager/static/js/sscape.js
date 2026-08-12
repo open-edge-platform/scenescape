@@ -775,7 +775,7 @@ function plotSingleton(m) {
   var $sensor = $("#sensor_" + m.id);
 
   $(".area", $sensor).css("fill", m.status);
-  $("text", $sensor).text(m.value.toString());
+  $("text.value", $sensor).text(m.value.toString());
 }
 
 function addPoly() {

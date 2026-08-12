@@ -195,8 +195,13 @@ export function SceneMapPane({
       {useReactMap && stage && mapUrl && naturalSize
         ? createPortal(
             <div className="ss-react-map-layer">
+              <img
+                className="ss-react-map-bg"
+                src={mapUrl}
+                alt=""
+                draggable={false}
+              />
               <ReactSceneMap
-                mapHref={mapUrl}
                 mapWidth={naturalSize.width || mapWidth}
                 mapHeight={naturalSize.height || mapHeight}
               />

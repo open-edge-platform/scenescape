@@ -853,13 +853,17 @@ class ChildCreateView(SuperUserCheck, View):
 class ChildDeleteView(SuperUserCheck, DeleteView):
   model = ChildScene
   template_name = "sscape/embed_done.html"
-  success_url = reverse_lazy('index')
 
   def get(self, request, *args, **kwargs):
     self.object = self.get_object()
     if self.object.parent_id:
       return redirect(scene_path(self.object.parent_id))
     return redirect(reverse('index'))
+
+  def get_success_url(self):
+    if self.object.parent_id:
+      return scene_path(self.object.parent_id)
+    return reverse_lazy('index')
 
 class ChildUpdateView(SuperUserCheck, View):
   """React sheet only; URL redirects into ?ss=child-edit."""

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   getRoiList,
   getTripwireList,
@@ -25,7 +25,6 @@ import "./reactSceneMap.css";
 type Mode = "idle" | "add-roi" | "add-trip";
 
 type Props = {
-  mapHref: string;
   mapWidth: number;
   mapHeight: number;
 };
@@ -86,8 +85,12 @@ function polyLabelPoint(pts: [number, number][]): [number, number] | null {
 /**
  * React SVG scene map — draw/edit ROI polygons and tripwires.
  * Enabled when window.ssUseReactMap is true (set from SceneDetailPage).
+ * Map bitmap lives in SceneMapPane so geometry updates do not reload it.
  */
-export function ReactSceneMap({ mapHref, mapWidth, mapHeight }: Props) {
+export const ReactSceneMap = memo(function ReactSceneMap({
+  mapWidth,
+  mapHeight,
+}: Props) {
   const [rois, setRois] = useState<RoiGeometry[]>(() => getRoiList());
   const [trips, setTrips] = useState<TripwireGeometry[]>(() =>
     getTripwireList(),
@@ -282,14 +285,6 @@ export function ReactSceneMap({ mapHref, mapWidth, mapHeight }: Props) {
       height="100%"
       onClick={onSvgClick}
     >
-      <image
-        href={mapHref}
-        x={0}
-        y={0}
-        width={mapWidth}
-        height={mapHeight}
-        preserveAspectRatio="none"
-      />
       {rois.map((roi) => {
         const pts = roi.points.map(toPx);
         const pointsAttr = pts.map((p) => p.join(",")).join(" ");
@@ -394,7 +389,7 @@ export function ReactSceneMap({ mapHref, mapWidth, mapHeight }: Props) {
       ) : null}
     </svg>
   );
-}
+});
 
 declare global {
   interface Window {

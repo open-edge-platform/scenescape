@@ -5,7 +5,10 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { RegionEditorCard } from "./RegionEditorCard";
 import { TripwireEditorCard } from "./TripwireEditorCard";
-import { persistSceneGeometry } from "../../lib/roiPersist";
+import {
+  persistSceneGeometry,
+  type PersistIdMap,
+} from "../../lib/roiPersist";
 import { useAppToast } from "../../components/ToastProvider";
 import { installSsMapFacade } from "../map/ssMap";
 import {
@@ -31,6 +34,23 @@ type Props = {
   initialRegions: RoiLoadJson[];
   initialTripwires: TripwireLoadJson[];
 };
+
+function remapEntityIds<
+  T extends { uuid: string; svgId: string; topic: string },
+>(rows: T[], idMap: PersistIdMap, prefix: "roi" | "tripwire"): T[] {
+  return rows.map((row) => {
+    const nextId = idMap[row.uuid];
+    if (!nextId || nextId === row.uuid) {
+      return row;
+    }
+    return {
+      ...row,
+      uuid: nextId,
+      svgId: `${prefix}_${nextId}`,
+      topic: row.topic.split(row.uuid).join(nextId),
+    };
+  });
+}
 
 function publishDirty(kind: "roi" | "trip", dirty: boolean): void {
   if (kind === "roi") {
@@ -145,21 +165,25 @@ export function RoiTripwireEditors({
         window.ssMap?.flushHidden();
       }
       try {
-        await persistSceneGeometry(authToken, sceneId, opts);
+        const result = await persistSceneGeometry(authToken, sceneId, opts);
+        setRois((prev) => remapEntityIds(prev, result.roiIds, "roi"));
+        setTripwires((prev) =>
+          remapEntityIds(prev, result.tripIds, "tripwire"),
+        );
         publishDirty("roi", false);
         publishDirty("trip", false);
         setRoiDirty(false);
         setTripDirty(false);
         toastRef.current.show("Regions saved", "ok");
-        window.location.reload();
       } catch (err) {
         const message =
           err && typeof err === "object" && "message" in err
             ? String((err as { message?: unknown }).message || "Save failed")
             : "Save failed";
         toastRef.current.show(message, "bad");
-        persistingRef.current = false;
         throw err;
+      } finally {
+        persistingRef.current = false;
       }
     };
   }, [authToken, sceneId]);

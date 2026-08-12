@@ -7,7 +7,7 @@
   display: block;
   max-width: 100%;
   max-height: 100%;
-  background: var(--ss-surface);
+  background: transparent;
 }
 
 .ss-react-scene-map.is-add-roi,
@@ -21,6 +21,7 @@
   fill: color-mix(in srgb, #0054ae 25%, transparent);
   stroke: #0054ae;
   stroke-width: 2;
+  transition: fill var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease);
 }
 
 .ss-react-roi-title,
@@ -117,9 +118,23 @@ body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group {
 body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group #name {
   display: block !important;
   fill: #001e50;
-  font-size: 14px;
-  font-weight: 700;
+  font-family: var(--ss-font-sans, sans-serif);
+  font-size: 13px;
+  font-weight: 600;
   paint-order: stroke fill;
-  stroke: var(--ss-card-bg, #fff);
-  stroke-width: 3px;
+  stroke: #fff;
+  stroke-width: 1px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group .area {
+  transition: fill var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ss-react-roi-poly,
+  body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group .area {
+    transition: none;
+  }
 }
