@@ -3,9 +3,9 @@
 This guide provides step-by-step instructions to automatically generate a 3D scene map from camera feeds using Scenescape's mapping service. By completing this guide, you will:
 
 - Build and launch all Scenescape services including the mapping service
-- Create a new scene with a placeholder map image
+- Create a new scene choosing **Reconstruct from cameras** (no placeholder map required)
 - Add cameras and verify video frames are being processed
-- Generate a 3D mesh reconstruction of the scene
+- Generate a 3D mesh reconstruction from the scene map helper
 - Visualize the generated mesh in both 2D and 3D views
 - Enable multi-camera tracking using the generated mesh
 
@@ -83,7 +83,7 @@ You should see services including `mapping` with a status of `healthy`.
 
 ---
 
-## Step 3: Create a New Scene with Placeholder Map
+## Step 3: Create a New Scene for Reconstruction
 
 1. Open your web browser and navigate to the Scenescape URL.
 2. Log in using the credentials you configured (username: `admin`, password: your `SUPASS` value)
@@ -91,19 +91,22 @@ You should see services including `mapping` with a status of `healthy`.
 4. Click **+ New Scene**
 5. Fill in the scene details:
    - **Scene Name**: Enter a descriptive name for your scene
-   - **Map File**: Upload a placeholder image (any simple image will work, as it will be replaced by the generated mesh)
-   - **Scale**: Enter any positive value (e.g., `50` pixels per meter) - this will be updated after mesh generation
+   - **Map source**: Choose **Reconstruct from cameras** (default when the mapping service is healthy)
+   - You do **not** need to upload a placeholder map for this path
 
-6. Click **Save New Scene**
+6. Click **Create scene**
 
-> **Note**: The placeholder map image is temporary. Once the 3D mesh is generated, the system will create a top-down render of the mesh to replace the placeholder.
+The scene opens with a setup helper on the map stage. Tracking cannot run until a map exists and cameras are calibrated—either by generating a mesh (map + auto-calibration) or by uploading / positioning a geospatial map and calibrating manually.
+
+> **Note**: If mapping is not running, **Reconstruct from cameras** is disabled. Upload a floor plan / GLB, use **Geospatial map** in the create drawer, or start mapping (`docker compose --profile mapping up -d` / `make demo-all`) and try again.
+
+> **Alternatives**: **Upload map** attaches an image or GLB at create time. **Geospatial map** lets you position a basemap in the create drawer before the scene is saved.
 
 ---
 
 ## Step 4: Add Cameras and Verify Video Frames
 
-1. Click on your newly created scene to open it
-2. Add camera by clicking on "+ New Camera" below the scene map, then filling in the camera details as required.
+1. On the scene details page, follow the map setup helper (or click **+ New Camera**) and fill in the camera details as required.
 
 > **Note**: The camera ID _must_ match the `cameraid` set in the config file for DL Streamer Pipeline Server (e.g: dlstreamer-pipeline-server/config.json), or the scene controller will not be able to associate the camera with its instance in Scenescape.
 
@@ -111,8 +114,8 @@ Using the above example, the form should look like this for the `video0` camera:
 
 ![Creating a new camera](../../_assets/ui/new-camera.png)
 
-3. Click **Save Camera**
-4. Repeat for all cameras in your scene
+2. Click **Save Camera**
+3. Repeat for all cameras in your scene
 
 ### Verify Video Frames
 
@@ -124,20 +127,22 @@ After adding cameras, verify that video frames are being received:
 
 > **Note**: Ensure cameras have overlapping fields of view for the mapping service to successfully reconstruct the scene.
 
+> **Important**: If cameras are added but the scene still has no map and mapping is unavailable, the map stage shows a **tracking blocked** helper. Upload or geospatial-map the scene (then calibrate manually), or start the mapping service and generate a mesh. Without a map and calibration, tracking will not work.
+
 ---
 
 ## Step 5: Generate the Scene Mesh
 
 Once cameras are configured and streaming:
 
-1. On the scene details page, navigate to the scene settings page by clicking the "Edit" icon.
-2. Click **Generate Mesh** button at the bottom of the page
+1. On the scene details page, use **Generate Mesh** on the map setup helper (also available under **Edit Scene** when mapping is healthy).
 
 > **Note**: The "Generate Mesh" button is only available when the mapping service is healthy. If you do not see this button:
 >
 > - Verify the mapping service is running: `docker compose ps mapping`
 > - Check the mapping service logs: `docker compose logs mapping`
 > - Ensure the service shows as `healthy` in the status
+> - Use **Check again** on the map setup helper after starting the service
 
 The mesh generation process will:
 
@@ -146,24 +151,21 @@ The mesh generation process will:
 - Reconstruct a 3D point cloud and mesh of the scene
 - Align the mesh to the first quadrant and rotate the floor to align with the XY plane
 - Automatically calibrate camera poses relative to the reconstructed scene
+- Apply the generated mesh and camera updates when the job completes (no separate Save step is required for the mesh)
 
 > **Note**: Mesh generation typically takes 2-5 minutes depending on scene complexity and the number of cameras.
 
 ---
 
-## Step 6: Save Settings
+## Step 6: Confirm the Map Was Applied
 
-Once mesh generation is complete:
+After mesh generation completes, the page reloads with:
 
-1. Click **Save Settings** to apply the generated mesh to your scene
+- A top-down render of the 3D mesh as the scene map
+- Updated camera parameters from the reconstruction
+- Multi-camera tracking enabled for the scene
 
-This will:
-
-- Replace the placeholder map with a top-down render of the 3D mesh
-- Update camera parameters based on the reconstruction
-- Enable proper of objects tracking in the scene
-
----
+Use **Edit Scene** only if you need to adjust other scene settings.
 
 ## Step 7: View the Top-Down Mesh Render
 
@@ -266,12 +268,20 @@ If the mapping service remains unhealthy:
 
 ### Generate Mesh Button Not Visible
 
-If you do not see the "Generate Mesh" button:
+If you do not see the "Generate Mesh" button on the map setup helper or under Edit Scene:
 
 1. Verify mapping service is running: `docker compose ps | grep mapping`
 2. Ensure you're using the correct profile: `--profile mapping` or `--profile experimental`
 3. Check that the mapping service shows as healthy
-4. Refresh the browser page after the service becomes healthy
+4. Refresh the browser page or click **Check again** on the map helper after the service becomes healthy
+5. Confirm the scene has at least one camera (Generate Mesh appears when cameras exist and mapping is healthy)
+
+### Tracking Blocked / No Map Helper
+
+If the scene has cameras but no map and mapping is down, the map stage explains that tracking cannot run until a map and calibration exist. Either:
+
+1. Start mapping and use **Generate Mesh**, or
+2. **Upload a map** / **Use geospatial map**, then calibrate cameras manually
 
 ### Poor Mesh Quality
 

@@ -11,6 +11,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/ToastProvider";
 import { LegacyConfirmHost } from "../components/LegacyConfirmHost";
 import { SceneMapPane } from "./SceneMapPane";
+import { SceneMapSetupHelper } from "./SceneMapSetupHelper";
 import { SceneSidePanel } from "./SceneSidePanel";
 import { RoiTripwireEditors } from "./editors/RoiTripwireEditors";
 import { SceneWorkspaceSheets } from "../sheets/SceneWorkspaceSheets";
@@ -300,6 +301,9 @@ function SceneDetailInner({ bootstrap }: Props) {
   );
 
   const deleteImpact = bootstrap.deleteImpact;
+  const setupReconstruct =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("setup") === "reconstruct";
 
   return (
     <div
@@ -320,7 +324,22 @@ function SceneDetailInner({ bootstrap }: Props) {
       />
       <div className="ss-workspace-body">
         <div className="ss-workspace-main">
-          <SceneMapPane mapUrl={scene.mapUrl} />
+          <SceneMapPane
+            mapUrl={scene.mapUrl}
+            setupHelper={
+              !scene.mapUrl && isSuperuser ? (
+                <SceneMapSetupHelper
+                  sceneId={scene.id}
+                  authToken={bootstrap.authToken}
+                  cameraCount={cameras.length}
+                  setupReconstruct={setupReconstruct}
+                  onMeshComplete={() => {
+                    window.location.href = window.location.pathname;
+                  }}
+                />
+              ) : null
+            }
+          />
         </div>
         <WorkspaceSplitter
           layout={layout}

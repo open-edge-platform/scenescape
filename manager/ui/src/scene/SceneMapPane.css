@@ -4,6 +4,7 @@
  */
 
 .ss-scene-map-pane {
+  position: relative;
   min-width: 0;
 }
 

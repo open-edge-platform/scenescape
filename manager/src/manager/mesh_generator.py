@@ -441,13 +441,15 @@ class MeshGenerator:
     if rootcert is None:
       rootcert = "/run/secrets/certs/scenescape-ca.pem"
     cert = os.environ.get("BROKERCERT")
+    mqtt_client = None
+    uploaded_map_path = None
+    temp_created = False
     try:
       log.info(f"Connecting to MQTT broker at {broker}")
       mqtt_client = PubSub(auth, cert, rootcert, broker)
       mqtt_client.connect()
 
       cameras = scene.sensor_set.filter(type='camera').order_by('id')
-      uploaded_map_path = None
 
       # Collect images from all cameras in the scene
       log.info(f"Starting mesh generation for scene {scene.name}")
@@ -484,8 +486,12 @@ class MeshGenerator:
         q = serializer.get_rotation(camera)
         s = serializer.get_scale(camera) or [1.0, 1.0, 1.0]
 
-        if t is None or q is None:
-          raise ValueError(f"Missing pose for camera {cam_id}: t={t} q={q}")
+        # UI-created cameras often have no pose yet; use identity placeholders
+        # so reconstruction can start. Finalization overwrites with mapping results.
+        if t is None:
+          t = [0.0, 0.0, 0.0]
+        if q is None:
+          q = [0.0, 0.0, 0.0, 1.0]
 
         camera_location_order.append({
           "translation": list(t),

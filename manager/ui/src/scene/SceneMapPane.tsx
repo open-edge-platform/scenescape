@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { LEGACY_MAP_IDS, notifyMapHostReady } from "../map/legacyMapHost";
 import { ReactSceneMap } from "./map/ReactSceneMap";
@@ -44,6 +44,7 @@ type Props = {
   mapUrl?: string | null;
   mapWidth?: number;
   mapHeight?: number;
+  setupHelper?: ReactNode;
 };
 
 /**
@@ -55,6 +56,7 @@ export const SceneMapPane = memo(function SceneMapPane({
   mapUrl = null,
   mapWidth = 1280,
   mapHeight = 720,
+  setupHelper = null,
 }: Props) {
   const slotRef = useRef<HTMLDivElement>(null);
   const [hostReady, setHostReady] = useState(false);
@@ -204,6 +206,7 @@ export const SceneMapPane = memo(function SceneMapPane({
             stage,
           )
         : null}
+      {setupHelper}
     </div>
   );
 });

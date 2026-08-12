@@ -259,9 +259,11 @@ function ScenesHomeInner({ bootstrap }: Props) {
             sceneUid={null}
             authToken={bootstrap.authToken}
             onClose={close}
-            onSaved={(uid) => {
+            onSaved={(uid, opts) => {
               if (uid) {
-                window.location.href = `/${uid}/`;
+                const q =
+                  opts?.setup === "reconstruct" ? "?setup=reconstruct" : "";
+                window.location.href = `/${uid}/${q}`;
                 return;
               }
               reload();
