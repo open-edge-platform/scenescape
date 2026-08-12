@@ -102,19 +102,6 @@ jobs:
         with:
           category: "/language:${{matrix.language}}"
 
-      - name: "Generate Security Report"
-        uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
-        with:
-          template: report
-          token: ${{ secrets.GITHUB_TOKEN }}
-          outputDir: codeql-report-${{ matrix.language }}
-
-      - name: "GitHub Upload Release Artifacts"
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: codeql-report-${{ matrix.language }}
-          path: ./codeql-report-${{ matrix.language }}/report.pdf
-
   codeql:
     name: "Run CodeQL Analysis on whole codebase"
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -161,15 +148,22 @@ jobs:
         with:
           category: "/language:${{ matrix.language }}"
 
+  report:
+    name: "Generate CodeQL Security Report"
+    needs: [ codeql, analyze ]
+    permissions:
+      security-events: read
+    runs-on: ubuntu-latest
+    steps:
       - name: "Generate Security Report"
         uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
         with:
           template: report
           token: ${{ secrets.GITHUB_TOKEN }}
-          outputDir: codeql-report-${{ matrix.language }}
+          outputDir: codeql-report
 
       - name: "GitHub Upload Release Artifacts"
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: codeql-report-${{ matrix.language }}
-          path: ./codeql-report-${{ matrix.language }}/report.pdf
+          name: codeql-report
+          path: ./codeql-report/report.pdf
