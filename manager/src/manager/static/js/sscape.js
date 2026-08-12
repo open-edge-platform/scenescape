@@ -1927,6 +1927,7 @@ $(document).ready(function () {
   if (coloring_toggle.length) {
     is_coloring_enabled = localStorage.getItem("visualize_rois") === "true";
     coloring_toggle.prop("checked", is_coloring_enabled);
+    $("#svgout").toggleClass("show-roi-names", is_coloring_enabled);
     setColorForAllROIs();
   }
 
@@ -1934,6 +1935,7 @@ $(document).ready(function () {
     const isChecked = $(this).is(":checked");
     is_coloring_enabled = isChecked;
     localStorage.setItem("visualize_rois", isChecked);
+    $("#svgout").toggleClass("show-roi-names", isChecked);
     setColorForAllROIs();
   });
 
