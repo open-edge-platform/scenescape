@@ -177,7 +177,7 @@ Following are the step-by-step instructions for enabling person reidentification
    (both overrides included automatically) and defaults to VDMS; use
    `make demo-reid REID_BACKEND=qdrant` for Qdrant.
 
-2. The [queuing-config-reid.json](./queuing-config-reid.json) and
+2. The predefined [queuing-config-reid.json](./queuing-config-reid.json) and
    [retail-config-reid.json](./retail-config-reid.json) configs enable vector
    embedding metadata from the DL Streamer service and are applied
    automatically by `docker-compose.reid-pipeline-override.yml` above. If you
