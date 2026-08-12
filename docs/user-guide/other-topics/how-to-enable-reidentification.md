@@ -46,7 +46,11 @@ Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-
    profile or manual service/dependency editing is required.
 
    From the repository root, `make demo-reid` starts the core demo plus the
-   ReID database, defaulting to VDMS. Switch backends with `REID_BACKEND`:
+   ReID database, defaulting to VDMS, and also automatically swaps the
+   `retail-config`/`queuing-config` pipeline configs to the `reidPolicy`
+   variants (`retail-config-reid.json` / `queuing-config-reid.json`) so
+   camera payloads carry `metadata.reid` embeddings out of the box. Switch
+   backends with `REID_BACKEND`:
 
    ```bash
    make demo-reid
@@ -56,8 +60,10 @@ Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-
    Plain `make demo` runs tracking without ReID. `make demo-close` uses the
    backend override recorded when the demo was started.
 
-2. **Enable Visual Feature Extraction in Video Pipeline**
-   Edit the retail-config setting in [Docker Compose](/sample_data/docker-compose-dl-streamer-example.yml) as follows:
+2. **Enable Visual Feature Extraction in Video Pipeline (manual `docker compose` usage)**
+   The step above is only needed if you are composing services yourself
+   instead of using `make demo-reid`. Edit the retail-config setting in
+   [Docker Compose](/sample_data/docker-compose-dl-streamer-example.yml) as follows:
 
 ```yaml
 retail-config:
