@@ -162,7 +162,7 @@ jobs:
 
   report-all:
     name: "Generate CodeQL Security Report"
-    needs: [ analyze-all ]
+    needs: [analyze-all]
     permissions:
       security-events: read
     runs-on: ubuntu-latest
@@ -184,7 +184,7 @@ jobs:
 
   report-changed:
     name: "Generate CodeQL Security Report"
-    needs: [ analyze-changed ]
+    needs: [analyze-changed]
     permissions:
       security-events: read
     runs-on: ubuntu-latest
