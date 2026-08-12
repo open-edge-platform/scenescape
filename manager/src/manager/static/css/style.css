@@ -287,6 +287,10 @@ html[data-theme="dark"] .close {
   color: var(--ss-text-muted) !important;
 }
 
+html[data-theme="dark"] .text-dark {
+  color: var(--ss-ink) !important;
+}
+
 html[data-theme="dark"] .dropdown-menu {
   color: var(--ss-text);
   background-color: var(--ss-card-bg);
@@ -314,6 +318,23 @@ html[data-theme="dark"] .custom-select option,
 html[data-theme="dark"] select option {
   color: var(--ss-text);
   background-color: var(--ss-card-bg);
+}
+
+/* Bootstrap utility classes that force light surfaces */
+.bg-white {
+  background-color: var(--ss-card-bg) !important;
+}
+
+.bg-light {
+  background-color: var(--ss-surface) !important;
+}
+
+.border {
+  border: 1px solid var(--ss-card-border) !important;
+}
+
+.border-light {
+  border: 1px solid var(--ss-card-border) !important;
 }
 
 
@@ -531,6 +552,58 @@ html[data-theme="dark"] .ss-theme-toggle__btn[aria-pressed="true"] {
   background-color: transparent;
   border-color: var(--ss-card-border);
   opacity: 0.65;
+}
+
+/* Light chrome — map to elevated surfaces instead of Bootstrap #f8f9fa */
+.btn-light {
+  color: var(--ss-ink);
+  background-color: var(--ss-elevated);
+  border-color: var(--ss-card-border);
+}
+
+.btn-light:hover,
+.btn-light:focus {
+  color: var(--ss-brand);
+  background-color: color-mix(in srgb, var(--ss-brand) 8%, var(--ss-elevated));
+  border-color: var(--ss-brand);
+}
+
+.btn-light:not(:disabled):not(.disabled):active,
+.btn-light:not(:disabled):not(.disabled).active,
+.show > .btn-light.dropdown-toggle {
+  color: var(--ss-on-brand);
+  background-color: var(--ss-brand);
+  border-color: var(--ss-brand);
+}
+
+.btn-light:disabled,
+.btn-light.disabled {
+  color: var(--ss-text-muted);
+  background-color: var(--ss-elevated);
+  border-color: var(--ss-card-border);
+  opacity: 0.65;
+}
+
+.btn-outline-light {
+  color: var(--ss-nav-fg);
+  border-color: color-mix(in srgb, var(--ss-nav-fg) 55%, transparent);
+}
+
+.btn-outline-light:hover,
+.btn-outline-light:focus {
+  color: var(--ss-nav-bg);
+  background-color: var(--ss-nav-fg);
+  border-color: var(--ss-nav-fg);
+}
+
+.badge-light {
+  color: var(--ss-ink);
+  background-color: var(--ss-elevated);
+}
+
+.badge-secondary {
+  color: var(--ss-on-brand);
+  background-color: var(--ss-text-muted);
 }
 
 .page-header {
@@ -854,6 +927,7 @@ body.ss-embed .ss-form-back {
 }
 
 .modal-content {
+  background-color: var(--ss-card-bg);
   border: 1px solid var(--ss-card-border);
   border-radius: var(--ss-radius);
   box-shadow: 0 12px 40px rgba(0, 30, 80, 0.18);
@@ -1928,6 +2002,11 @@ textarea.form-control:focus,
   color: var(--ss-text);
 }
 
+.custom-control-label::before {
+  background-color: var(--ss-card-bg);
+  border-color: var(--ss-input-border);
+}
+
 .custom-control-input:checked ~ .custom-control-label::before {
   background-color: var(--ss-brand);
   border-color: var(--ss-brand);
@@ -1935,6 +2014,26 @@ textarea.form-control:focus,
 
 .custom-control-input:focus ~ .custom-control-label::before {
   box-shadow: 0 0 0 0.1875rem rgba(0, 84, 174, 0.2);
+}
+
+.custom-control-input:not(:disabled):active ~ .custom-control-label::before {
+  background-color: color-mix(in srgb, var(--ss-brand) 35%, var(--ss-card-bg));
+  border-color: color-mix(in srgb, var(--ss-brand) 45%, var(--ss-card-border));
+  color: var(--ss-on-brand);
+}
+
+.custom-control-input[disabled] ~ .custom-control-label,
+.custom-control-input:disabled ~ .custom-control-label {
+  color: var(--ss-text-muted);
+}
+
+.custom-control-input[disabled] ~ .custom-control-label::before,
+.custom-control-input:disabled ~ .custom-control-label::before {
+  background-color: var(--ss-surface);
+}
+
+.custom-switch .custom-control-input:checked ~ .custom-control-label::after {
+  background-color: var(--ss-on-brand);
 }
 
 .input-group-text {
@@ -2498,6 +2597,34 @@ body:has(.sign-in-page) .content {
 
 .nav-tabs {
   clear: left;
+  border-bottom-color: var(--ss-card-border);
+}
+
+.nav-tabs .nav-link {
+  color: var(--ss-text-muted);
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.nav-tabs .nav-link:hover,
+.nav-tabs .nav-link:focus {
+  color: var(--ss-ink);
+  background-color: transparent;
+  border-color: var(--ss-card-border) var(--ss-card-border) var(--ss-card-border);
+}
+
+.nav-tabs .nav-link.disabled {
+  color: var(--ss-text-muted);
+  background-color: transparent;
+  border-color: transparent;
+  opacity: 0.55;
+}
+
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-item.show .nav-link {
+  color: var(--ss-ink);
+  background-color: var(--ss-card-bg);
+  border-color: var(--ss-card-border) var(--ss-card-border) var(--ss-card-bg);
 }
 
 .absolute-hide {
@@ -2582,29 +2709,29 @@ body:has(.sign-in-page) .content {
 .alert-success {
   background-color: color-mix(in srgb, var(--ss-status-ok) 12%, var(--ss-elevated));
   border-color: color-mix(in srgb, var(--ss-status-ok) 35%, var(--ss-elevated));
-  color: #0b5a0b;
+  color: var(--ss-status-ok);
 }
 
 .alert-danger,
 .login-error.alert-danger {
   background-color: color-mix(in srgb, var(--ss-status-bad) 10%, var(--ss-elevated));
   border-color: color-mix(in srgb, var(--ss-status-bad) 32%, var(--ss-elevated));
-  color: #8a1838;
+  color: var(--ss-status-bad);
 }
 
 .alert-warning {
   background-color: color-mix(in srgb, #edb200 14%, var(--ss-elevated));
   border-color: color-mix(in srgb, #edb200 40%, var(--ss-elevated));
-  color: #7a5a00;
+  color: color-mix(in srgb, #edb200 55%, var(--ss-ink));
 }
 
 .alert-info {
   background-color: color-mix(in srgb, var(--ss-brand) 10%, var(--ss-elevated));
   border-color: color-mix(in srgb, var(--ss-brand) 28%, var(--ss-elevated));
-  color: var(--ss-brand-hover);
+  color: var(--ss-brand);
 }
 
-/* Keep 3D scene toasts on the original Bootstrap alert look */
+/* Toasts follow Manager theme tokens (readable in light and dark) */
 .toast .alert-default {
   background-color: black;
   border-color: black;
@@ -2612,27 +2739,27 @@ body:has(.sign-in-page) .content {
 }
 
 .toast .alert-success {
-  color: #155724;
-  background-color: #d4edda;
-  border-color: #c3e6cb;
+  color: var(--ss-status-ok);
+  background-color: color-mix(in srgb, var(--ss-status-ok) 14%, var(--ss-elevated));
+  border-color: color-mix(in srgb, var(--ss-status-ok) 35%, var(--ss-elevated));
 }
 
 .toast .alert-danger {
-  color: #721c24;
-  background-color: #f8d7da;
-  border-color: #f5c6cb;
+  color: var(--ss-status-bad);
+  background-color: color-mix(in srgb, var(--ss-status-bad) 12%, var(--ss-elevated));
+  border-color: color-mix(in srgb, var(--ss-status-bad) 32%, var(--ss-elevated));
 }
 
 .toast .alert-warning {
-  color: #856404;
-  background-color: #fff3cd;
-  border-color: #ffeeba;
+  color: color-mix(in srgb, #edb200 55%, var(--ss-ink));
+  background-color: color-mix(in srgb, #edb200 14%, var(--ss-elevated));
+  border-color: color-mix(in srgb, #edb200 40%, var(--ss-elevated));
 }
 
 .toast .alert-info {
-  color: #0c5460;
-  background-color: #d1ecf1;
-  border-color: #bee5eb;
+  color: var(--ss-brand);
+  background-color: color-mix(in srgb, var(--ss-brand) 12%, var(--ss-elevated));
+  border-color: color-mix(in srgb, var(--ss-brand) 28%, var(--ss-elevated));
 }
 
 .model-directory-success-notice,

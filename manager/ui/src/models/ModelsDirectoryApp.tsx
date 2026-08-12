@@ -592,8 +592,8 @@ export function ModelsDirectoryApp({ isSuperuser }: Props) {
         open={guidanceOpen}
         title="Guidance"
         confirmLabel="OK"
-        cancelLabel="Close"
         danger={false}
+        alert
         onConfirm={() => setGuidanceOpen(false)}
         onCancel={() => setGuidanceOpen(false)}
       >

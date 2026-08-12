@@ -21,6 +21,11 @@
   border: 1px solid var(--ss-card-border);
   border-radius: var(--ss-radius);
   box-shadow: 0 12px 40px rgba(0, 30, 80, 0.22);
+  color: var(--ss-text);
+}
+
+.ss-confirm-body code {
+  color: var(--ss-ink);
 }
 
 .ss-confirm-header {

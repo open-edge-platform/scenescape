@@ -4,11 +4,14 @@
  */
 
 .ss-modal .modal-content {
+  background-color: var(--ss-card-bg);
   border: 1px solid var(--ss-card-border);
   border-radius: var(--ss-radius);
+  color: var(--ss-text);
 }
 
 .ss-modal .modal-header {
+  background-color: var(--ss-surface);
   border-bottom-color: var(--ss-card-border);
 }
 
@@ -16,4 +19,24 @@
   font-family: var(--ss-font-heading);
   font-weight: 600;
   color: var(--ss-ink);
+}
+
+.ss-modal .modal-header .close {
+  color: var(--ss-text-muted);
+  text-shadow: none;
+  opacity: 0.85;
+}
+
+.ss-modal .modal-header .close:hover {
+  color: var(--ss-ink);
+  opacity: 1;
+}
+
+.ss-modal .modal-body {
+  color: var(--ss-text);
+}
+
+.ss-modal .modal-footer {
+  background-color: var(--ss-card-bg);
+  border-top-color: var(--ss-card-border);
 }

@@ -14,6 +14,8 @@ export type ConfirmDialogProps = {
   cancelLabel?: string;
   danger?: boolean;
   busy?: boolean;
+  /** Dismiss-only dialog: one action button, no cancel or header close. */
+  alert?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -27,11 +29,13 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   danger = true,
   busy = false,
+  alert = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
   const titleId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const busyRef = useRef(busy);
   busyRef.current = busy;
@@ -44,8 +48,8 @@ export function ConfirmDialog({
     }
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    // Focus cancel only when the dialog opens — not when busy/onCancel churn.
-    cancelRef.current?.focus();
+    // Focus primary dismiss/confirm control when the dialog opens.
+    (alert ? confirmRef : cancelRef).current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !busyRef.current) {
         onCancelRef.current();
@@ -75,7 +79,7 @@ export function ConfirmDialog({
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, alert]);
 
   if (!open) {
     return null;
@@ -95,28 +99,33 @@ export function ConfirmDialog({
           <h2 className="ss-confirm-title" id={titleId}>
             {title}
           </h2>
-          <button
-            type="button"
-            className="ss-confirm-close"
-            aria-label="Close"
-            disabled={busy}
-            onClick={onCancel}
-          >
-            ×
-          </button>
+          {alert ? null : (
+            <button
+              type="button"
+              className="ss-confirm-close"
+              aria-label="Close"
+              disabled={busy}
+              onClick={onCancel}
+            >
+              ×
+            </button>
+          )}
         </div>
         <div className="ss-confirm-body">{children}</div>
         <div className="ss-confirm-footer">
+          {alert ? null : (
+            <button
+              ref={cancelRef}
+              type="button"
+              className="ss-btn ss-btn--secondary"
+              disabled={busy}
+              onClick={onCancel}
+            >
+              {cancelLabel}
+            </button>
+          )}
           <button
-            ref={cancelRef}
-            type="button"
-            className="ss-btn ss-btn--secondary"
-            disabled={busy}
-            onClick={onCancel}
-          >
-            {cancelLabel}
-          </button>
-          <button
+            ref={confirmRef}
             type="button"
             className={`ss-btn ${danger ? "ss-btn--danger-solid" : "ss-btn--primary"}`}
             disabled={busy}

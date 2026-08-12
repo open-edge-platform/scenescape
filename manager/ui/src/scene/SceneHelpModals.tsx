@@ -57,20 +57,7 @@ export function SceneHelpModals() {
   return (
     <>
       {HELP.map((h) => (
-        <Modal
-          key={h.id}
-          id={h.id}
-          title={h.title}
-          footer={
-            <button
-              type="button"
-              className="ss-btn ss-btn--secondary"
-              data-dismiss="modal"
-            >
-              Close
-            </button>
-          }
-        >
+        <Modal key={h.id} id={h.id} title={h.title}>
           <ul>
             {h.items.map((item) => (
               <li key={item}>{item}</li>

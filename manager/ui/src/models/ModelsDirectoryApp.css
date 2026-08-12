@@ -26,9 +26,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.65rem;
   border-radius: 0.25rem;
-  padding-right: 0.15rem;
+  padding: 0.15rem 0.2rem 0.15rem 0;
 }
 
 .ss-model-row:hover,
@@ -39,16 +39,22 @@
 .ss-model-node-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
   border: 0;
   background: transparent;
   font-family: var(--ss-font-sans);
-  font-size: 0.875rem;
+  font-size: 1rem;
+  line-height: 1.35;
   color: var(--ss-text);
-  padding: 0.2rem 0.25rem;
+  padding: 0.35rem 0.3rem;
   cursor: pointer;
   min-width: 0;
   text-align: left;
+}
+
+.ss-model-node-btn .bi {
+  font-size: 1.2rem;
+  line-height: 1;
 }
 
 .ss-model-node-btn:hover {
@@ -58,9 +64,19 @@
 .ss-model-actions {
   display: inline-flex;
   align-items: center;
-  gap: 0.05rem;
+  gap: 0.1rem;
   flex-shrink: 0;
   opacity: 0.4;
+}
+
+.ss-model-actions .ss-btn {
+  font-size: 1rem;
+  padding: 0.35rem 0.45rem;
+}
+
+.ss-model-actions .bi {
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .ss-model-row:hover .ss-model-actions,
