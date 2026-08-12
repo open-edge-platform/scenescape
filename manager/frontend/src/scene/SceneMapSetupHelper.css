@@ -1,0 +1,74 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-map-setup-helper {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--ss-surface, #f4f5f7) 92%, transparent);
+}
+
+.ss-map-setup-helper-card {
+  pointer-events: auto;
+  max-width: 32rem;
+  width: 100%;
+  margin: 0;
+  padding: 1.25rem 1.35rem;
+  background: var(--ss-surface-raised, #fff);
+  border: 1px solid var(--ss-border, #d0d5dd);
+  border-radius: 0.35rem;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+
+.ss-map-setup-helper-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--ss-fg, #1a1f36);
+}
+
+.ss-map-setup-helper-body {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--ss-muted, #667085);
+}
+
+.ss-map-setup-helper-error {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--ss-danger, #b42318);
+}
+
+.ss-map-setup-helper-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.ss-map-setup-helper-secondary {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--ss-border, #e4e7ec);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.ss-map-setup-helper-hint {
+  margin: 0;
+  flex: 1 1 12rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--ss-muted, #667085);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}

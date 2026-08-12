@@ -13,6 +13,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/ToastProvider";
 import { LegacyConfirmHost } from "../components/LegacyConfirmHost";
 import { SceneMapPane } from "./SceneMapPane";
+import { SceneMapSetupHelper } from "./SceneMapSetupHelper";
 import { SceneSidePanel } from "./SceneSidePanel";
 import { RoiTripwireEditors } from "./editors/RoiTripwireEditors";
 import { SceneWorkspaceSheets } from "../sheets/SceneWorkspaceSheets";
@@ -363,6 +364,9 @@ function SceneDetailInner({ bootstrap }: Props) {
   }, []);
 
   const deleteImpact = bootstrap.deleteImpact;
+  const setupReconstruct =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("setup") === "reconstruct";
 
   return (
     <div
@@ -405,7 +409,22 @@ function SceneDetailInner({ bootstrap }: Props) {
       </div>
       <div className="ss-workspace-body">
         <div className="ss-workspace-main">
-          <SceneMapPane mapUrl={mapBitmapUrl} />
+          <SceneMapPane
+            mapUrl={mapBitmapUrl}
+            setupHelper={
+              !mapBitmapUrl && isSuperuser ? (
+                <SceneMapSetupHelper
+                  sceneId={scene.id}
+                  authToken={bootstrap.authToken}
+                  cameraCount={cameras.length}
+                  setupReconstruct={setupReconstruct}
+                  onMeshComplete={() => {
+                    window.location.href = window.location.pathname;
+                  }}
+                />
+              ) : null
+            }
+          />
           <div className="scene-rate ss-scene-rate telemetry-hide">
             Rate: &nbsp;<span id="scene-rate">{sceneRate}</span>&nbsp; Hz
           </div>

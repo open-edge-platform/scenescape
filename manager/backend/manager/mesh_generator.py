@@ -468,13 +468,15 @@ class MeshGenerator:
     if rootcert is None:
       rootcert = "/run/secrets/certs/scenescape-ca.pem"
     cert = os.environ.get("BROKERCERT")
+    mqtt_client = None
+    uploaded_map_path = None
+    temp_created = False
     try:
       log.info(f"Connecting to MQTT broker at {broker}")
       mqtt_client = PubSub(auth, cert, rootcert, broker)
       mqtt_client.connect()
 
       cameras = scene.sensor_set.filter(type='camera').order_by('id')
-      uploaded_map_path = None
 
       # Collect images from all cameras in the scene
       log.info(f"Starting mesh generation for scene {scene.name}")
