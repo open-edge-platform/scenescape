@@ -110,6 +110,7 @@ def api_map(http_client, autocalib_client, mapping_client):
     "user": http_client,
     "asset": http_client,
     "child": http_client,
+    "aclcheck": http_client,
     "autocalibration": autocalib_client,
     "mapping": mapping_client,
 }
