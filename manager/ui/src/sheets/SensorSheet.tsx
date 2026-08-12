@@ -21,7 +21,7 @@ type Props = {
   sensorUid?: string | null;
   authToken: string;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (payload?: Record<string, unknown>) => void;
 };
 
 const TYPES = [
@@ -114,15 +114,16 @@ export function SensorSheet({
       singleton_type: singletonType,
     };
     try {
+      let saved: Record<string, unknown> | undefined;
       if (mode === "create") {
-        await api.createSensor(authToken, payload);
+        saved = await api.createSensor(authToken, payload);
         toast.show("Sensor created", "ok");
       } else if (sensorUid) {
-        await api.updateSensor(authToken, sensorUid, payload);
+        saved = await api.updateSensor(authToken, sensorUid, payload);
         toast.show("Sensor updated", "ok");
       }
       resetDirty();
-      onSaved();
+      onSaved(saved);
       onClose();
     } catch (err) {
       setError((err as RestError).message || "Save failed");

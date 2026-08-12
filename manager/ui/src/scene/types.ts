@@ -89,6 +89,7 @@ declare global {
     fitSceneMapDisplay?: () => void;
     numberRois?: () => void;
     numberTripwires?: () => void;
+    numberTabs?: () => void;
     stringifyRois?: () => void;
     stringifyTripwires?: () => void;
     saveRois?: (values: string[]) => void;

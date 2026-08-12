@@ -182,6 +182,7 @@ class SingletonScalarThresholdSerializer(RegionOccupancyThresholdSerializer):
 
 class SingletonSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
+  id = serializers.IntegerField(source="pk", read_only=True)
   uid = serializers.CharField(source="sensor_id", read_only=True)
   scene = serializers.CharField(source='scene.pk', allow_null=True, required=False)
   center = CenterSerializerField(source='*', required=False)
@@ -266,11 +267,12 @@ class SingletonSerializer(NonNullSerializer):
 
   class Meta:
     model = SingletonSensor
-    fields = ['uid', 'scene', 'sensor_id', 'name', 'area', 'points', 'radius', 'center',
-              'translation', 'singleton_type', 'color_ranges']
+    fields = ['id', 'uid', 'scene', 'sensor_id', 'name', 'area', 'points', 'radius',
+              'center', 'translation', 'singleton_type', 'color_ranges']
 
 class CamSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
+  id = serializers.IntegerField(source="pk", read_only=True)
   sensor_id = serializers.CharField(write_only=True, required=False)
   uid = serializers.CharField(source="sensor_id", read_only=True)
   intrinsics = serializers.SerializerMethodField('get_intrinsics')
@@ -496,7 +498,7 @@ class CamSerializer(NonNullSerializer):
 
   class Meta:
     model = Cam
-    fields = CAM_SERIALIZER_FIELDS
+    fields = ['id'] + CAM_SERIALIZER_FIELDS
 
 class RegionSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)

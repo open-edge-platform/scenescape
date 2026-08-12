@@ -126,7 +126,6 @@ function requestCalibrateFrames(client) {
     return;
   }
   mqttClient.publish(APP_NAME + CMD_CAMERA + sensorId, "getcalibrationimage");
-  mqttClient.publish(APP_NAME + CMD_CAMERA + sensorId, "getimage");
 }
 
 function applyCalibrationImage(msg) {
@@ -371,6 +370,23 @@ window.ssRefreshCameraSnapshots = function () {
   });
 };
 
+function sensorHasMapGeometry(sensor) {
+  if (!sensor || !sensor.area || sensor.area === "scene") {
+    return false;
+  }
+  if (sensor.area === "circle") {
+    return (
+      Number.isFinite(Number(sensor.x)) &&
+      Number.isFinite(Number(sensor.y)) &&
+      Number.isFinite(Number(sensor.radius))
+    );
+  }
+  if (sensor.area === "poly") {
+    return Array.isArray(sensor.points) && sensor.points.length >= 3;
+  }
+  return false;
+}
+
 /** Draw / refresh singleton sensors from React-rendered .singleton cards. */
 window.ssDrawSingletonSensors = function () {
   if (typeof svgCanvas === "undefined" || !svgCanvas) {
@@ -385,6 +401,9 @@ window.ssDrawSingletonSensors = function () {
     try {
       sensor = $.parseJSON(raw);
     } catch (e) {
+      return;
+    }
+    if (!sensorHasMapGeometry(sensor)) {
       return;
     }
     var i = $(".sensor-id", this).text();
@@ -408,6 +427,24 @@ window.ssDrawSingletonSensors = function () {
       singleton_color_sectors[i] = sensor.sectors;
     }
   });
+};
+
+window.ssRemoveSingletonSensor = function (sensorId) {
+  if (!sensorId) {
+    return;
+  }
+  var sel = "#sensor_" + sensorId;
+  if (svgCanvas && typeof svgCanvas.select === "function") {
+    var snapEl = svgCanvas.select(sel);
+    if (snapEl) {
+      snapEl.remove();
+      return;
+    }
+  }
+  var el = document.getElementById("sensor_" + sensorId);
+  if (el) {
+    el.remove();
+  }
 };
 
 if (isCalibratePage()) {
@@ -500,7 +537,7 @@ async function checkBrokerConnections() {
       if (isCalibratePage()) {
         var calSensor = calibrateSensorId();
         if (calSensor) {
-          client.subscribe(APP_NAME + IMAGE_CAMERA + calSensor);
+          client.subscribe(APP_NAME + IMAGE_CALIBRATE + calSensor);
         }
         requestCalibrateFrames(client);
       } else {
@@ -643,12 +680,6 @@ async function checkBrokerConnections() {
         applyCalibrationImage(msg);
       } else if (topic.includes(IMAGE_CAMERA)) {
         if (isCalibratePage()) {
-          var calId = topic.split("camera/")[1];
-          if (calId === calibrateSensorId()) {
-            if (applyCalibrationImage(msg)) {
-              client.publish(APP_NAME + CMD_CAMERA + calId, "getimage");
-            }
-          }
           return;
         }
         // Use native JS since jQuery.load() pukes on data URI's
@@ -945,13 +976,43 @@ function numberTripwires() {
 
 window.numberTripwires = numberTripwires;
 
+function liveMountCount(mountId, itemSelector) {
+  var mount = document.getElementById(mountId);
+  if (!mount || mount.childElementCount === 0) {
+    return undefined;
+  }
+  return mount.querySelectorAll(itemSelector).length;
+}
+
 // Show number of child cards in a tab
 function numberTabs() {
   $(".show-count").each(function () {
-    var numCards = $(".count-item", $(this).closest("a").attr("href")).length;
+    var href = $(this).closest("a").attr("href");
+    if (!href) {
+      return;
+    }
+    var numCards = $(".count-item", href).length;
     $(this).text("(" + numCards + ")");
   });
+  var counts = {};
+  var cameras = liveMountCount("ss-cameras-mount", ".count-item");
+  var sensors = liveMountCount("ss-sensors-mount", ".count-item");
+  var children = liveMountCount("ss-children-mount", ".ss-control-card");
+  if (cameras !== undefined) {
+    counts.cameras = cameras;
+  }
+  if (sensors !== undefined) {
+    counts.sensors = sensors;
+  }
+  if (children !== undefined) {
+    counts.children = children;
+  }
+  if (Object.keys(counts).length) {
+    window.dispatchEvent(new CustomEvent("ss-tab-counts", { detail: counts }));
+  }
 }
+
+window.numberTabs = numberTabs;
 
 // Turn the regions of interest into a string for saving to the database
 function stringifyRois() {

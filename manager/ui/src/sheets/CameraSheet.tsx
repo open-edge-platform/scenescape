@@ -23,7 +23,7 @@ type Props = {
   sensorUid?: string | null;
   authToken: string;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (payload?: Record<string, unknown>) => void;
 };
 
 export function CameraSheet({
@@ -102,15 +102,16 @@ export function CameraSheet({
     setBusy(true);
     setError(null);
     try {
+      let saved: Record<string, unknown> | undefined;
       if (mode === "create") {
-        await api.createCamera(authToken, {
+        saved = await api.createCamera(authToken, {
           sensor_id: sensorId.trim(),
           name: name.trim(),
           scene: scene.trim(),
         });
         toast.show("Camera created", "ok");
       } else if (sensorUid) {
-        await api.updateCamera(authToken, sensorUid, {
+        saved = await api.updateCamera(authToken, sensorUid, {
           sensor_id: sensorId.trim(),
           name: name.trim(),
           scene: scene.trim(),
@@ -118,7 +119,7 @@ export function CameraSheet({
         toast.show("Camera updated", "ok");
       }
       resetDirty();
-      onSaved();
+      onSaved(saved);
       onClose();
     } catch (err) {
       const re = err as RestError;

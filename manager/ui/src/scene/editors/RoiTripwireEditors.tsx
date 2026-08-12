@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useRef, useState } from "react";
+import { publishSceneTabCounts } from "../../lib/sceneTab";
 import { createPortal } from "react-dom";
 import { RegionEditorCard } from "./RegionEditorCard";
 import { TripwireEditorCard } from "./TripwireEditorCard";
@@ -113,6 +114,8 @@ export function RoiTripwireEditors({
   const tripsRef = useRef(tripwires);
   const persistingRef = useRef(false);
   const toastRef = useRef(toast);
+  const roiBaseRef = useRef("");
+  const tripBaseRef = useRef("");
   const persistImplRef = useRef<(
     options?: { preferHidden?: boolean } | string[],
   ) => Promise<void> | void>(() => undefined);
@@ -170,6 +173,12 @@ export function RoiTripwireEditors({
         setTripwires((prev) =>
           remapEntityIds(prev, result.tripIds, "tripwire"),
         );
+        roiBaseRef.current =
+          (document.getElementById("id_rois") as HTMLInputElement | null)
+            ?.value ?? roiBaseRef.current;
+        tripBaseRef.current =
+          (document.getElementById("tripwires") as HTMLInputElement | null)
+            ?.value ?? tripBaseRef.current;
         publishDirty("roi", false);
         publishDirty("trip", false);
         setRoiDirty(false);
@@ -216,23 +225,32 @@ export function RoiTripwireEditors({
     const tripInput = document.getElementById(
       "tripwires",
     ) as HTMLInputElement | null;
-    let roiBase = roiInput?.value ?? "";
-    let tripBase = tripInput?.value ?? "";
+    roiBaseRef.current = roiInput?.value ?? "";
+    tripBaseRef.current = tripInput?.value ?? "";
     const arm = window.setTimeout(() => {
-      roiBase = roiInput?.value ?? "";
-      tripBase = tripInput?.value ?? "";
+      roiBaseRef.current = roiInput?.value ?? "";
+      tripBaseRef.current = tripInput?.value ?? "";
       window.ssMap?.syncFromLegacyStringify();
     }, 1200);
-    const onGeom = () => {
+    const onGeom = (ev: Event) => {
+      const kind = (ev as CustomEvent<{ kind?: string }>).detail?.kind;
+      if (kind === "trips") {
+        setTripDirty(true);
+        return;
+      }
+      if (kind === "rois") {
+        setRoiDirty(true);
+        return;
+      }
       setRoiDirty(true);
       setTripDirty(true);
     };
     window.addEventListener("ss-geometry-stringified", onGeom);
     const poll = window.setInterval(() => {
-      if (roiInput && roiInput.value !== roiBase) {
+      if (roiInput && roiInput.value !== roiBaseRef.current) {
         setRoiDirty(true);
       }
-      if (tripInput && tripInput.value !== tripBase) {
+      if (tripInput && tripInput.value !== tripBaseRef.current) {
         setTripDirty(true);
       }
     }, 600);
@@ -333,6 +351,13 @@ export function RoiTripwireEditors({
   }, [sceneId]);
 
   useEffect(() => {
+    publishSceneTabCounts({
+      regions: rois.length,
+      tripwires: tripwires.length,
+    });
+  }, [rois.length, tripwires.length]);
+
+  useEffect(() => {
     const noRegions = document.getElementById("no-regions");
     if (noRegions) {
       noRegions.style.display = rois.length ? "none" : "";
@@ -405,12 +430,11 @@ export function RoiTripwireEditors({
     const uuid = svgId.replace(/^roi_/, "");
     modelRemoveRoi(uuid);
     setRois((prev) => prev.filter((r) => r.svgId !== svgId));
-    setRoiDirty(true);
     window.ssMap?.flushHidden();
     try {
       await persistImplRef.current();
     } catch {
-      /* toast already shown */
+      setRoiDirty(true);
     }
   };
 
@@ -429,12 +453,11 @@ export function RoiTripwireEditors({
     const uuid = svgId.replace(/^tripwire_/, "");
     modelRemoveTrip(uuid);
     setTripwires((prev) => prev.filter((t) => t.svgId !== svgId));
-    setTripDirty(true);
     window.ssMap?.flushHidden();
     try {
       await persistImplRef.current();
     } catch {
-      /* toast already shown */
+      setTripDirty(true);
     }
   };
 

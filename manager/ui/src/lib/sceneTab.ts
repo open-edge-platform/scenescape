@@ -12,6 +12,25 @@ export type SceneControlTabId =
 
 const STORAGE_PREFIX = "ss-scene-tab:";
 export const SCENE_TAB_EVENT = "ss-scene-tab";
+export const SCENE_TAB_COUNTS_EVENT = "ss-tab-counts";
+
+export type SceneTabCounts = {
+  cameras?: number;
+  sensors?: number;
+  regions?: number;
+  tripwires?: number;
+  children?: number;
+};
+
+/** Update scene-detail tab badges without a full reload. */
+export function publishSceneTabCounts(counts: SceneTabCounts): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(
+    new CustomEvent(SCENE_TAB_COUNTS_EVENT, { detail: counts }),
+  );
+}
 
 const TAB_BY_SHEET: Record<string, SceneControlTabId> = {
   "cam-create": "cameras",

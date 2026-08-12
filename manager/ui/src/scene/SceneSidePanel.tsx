@@ -1,7 +1,13 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import type { TabItem } from "../components/Tabs";
 import {
   readStoredSceneTab,
@@ -49,6 +55,8 @@ type Props = {
   isSuperuser?: boolean;
   sceneId?: string;
   wssConnection?: string;
+  authToken?: string;
+  onSensorsChange?: Dispatch<SetStateAction<SceneSensorBootstrap[]>>;
 };
 
 /**
@@ -63,6 +71,8 @@ export function SceneSidePanel({
   isSuperuser = false,
   sceneId = "",
   wssConnection = "",
+  authToken = "",
+  onSensorsChange,
 }: Props) {
   const [activeId, setActiveId] = useState<SceneControlTabId>(() =>
     readStoredSceneTab(sceneId),
@@ -183,6 +193,8 @@ export function SceneSidePanel({
         childrenLinks={childrenLinks}
         isSuperuser={isSuperuser}
         panelsReady={panelsReady}
+        authToken={authToken}
+        onSensorsChange={onSensorsChange}
       />
       <MqttSettingsPanel
         wssConnection={wssConnection}

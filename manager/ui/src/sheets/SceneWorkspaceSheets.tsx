@@ -1,11 +1,30 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useMemo } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { useSheetFromQuery } from "../hooks/useSheetFromQuery";
 import { activateSceneTab, tabForSheetAction } from "../lib/sceneTab";
+import {
+  cameraCardFromRest,
+  childCardFromRest,
+  restDestId,
+  sensorCardFromRest,
+  upsertCameraCard,
+  upsertChildCard,
+  upsertSensorCard,
+} from "../lib/sceneEntityCards";
 import type { SheetAction } from "../lib/sheetQuery";
-import type { SceneCameraBootstrap, SceneSensorBootstrap } from "../scene/types";
+import type {
+  SceneCameraBootstrap,
+  SceneChildBootstrap,
+  SceneSensorBootstrap,
+} from "../scene/types";
 import { CameraSheet } from "./CameraSheet";
 import { SensorSheet } from "./SensorSheet";
 import { ChildSheet, type SceneOption } from "./ChildSheet";
@@ -26,6 +45,9 @@ type Props = {
   scenes: SceneOption[];
   cameras: SceneCameraBootstrap[];
   sensors?: SceneSensorBootstrap[];
+  onCamerasChange: Dispatch<SetStateAction<SceneCameraBootstrap[]>>;
+  onSensorsChange: Dispatch<SetStateAction<SceneSensorBootstrap[]>>;
+  onChildrenChange: Dispatch<SetStateAction<SceneChildBootstrap[]>>;
   mapUrl?: string | null;
   mapScale?: number | null;
 };
@@ -58,6 +80,9 @@ export function SceneWorkspaceSheets({
   scenes,
   cameras,
   sensors = [],
+  onCamerasChange,
+  onSensorsChange,
+  onChildrenChange,
   mapUrl = null,
   mapScale = null,
 }: Props) {
@@ -130,6 +155,98 @@ export function SceneWorkspaceSheets({
     window.location.reload();
   }, []);
 
+  const onCameraSaved = useCallback(
+    (payload?: Record<string, unknown>) => {
+      if (!payload) {
+        return;
+      }
+      const card = cameraCardFromRest(payload);
+      if (!card) {
+        return;
+      }
+      const dest = restDestId(payload, "scene");
+      const prevSensorId =
+        sheet.action === "cam-edit" && sheet.id ? String(sheet.id) : null;
+      onCamerasChange((prev) => {
+        if (dest && dest !== sceneId) {
+          return prev.filter(
+            (c) =>
+              c.id !== card.id &&
+              c.sensorId !== card.sensorId &&
+              c.sensorId !== prevSensorId,
+          );
+        }
+        return upsertCameraCard(prev, card, prevSensorId);
+      });
+    },
+    [onCamerasChange, sceneId, sheet.action, sheet.id],
+  );
+
+  const onSensorSaved = useCallback(
+    (payload?: Record<string, unknown>) => {
+      if (!payload) {
+        return;
+      }
+      const dest = restDestId(payload, "scene");
+      const prevSensorId =
+        sheet.action === "sensor-edit" && sheet.id ? String(sheet.id) : null;
+      onSensorsChange((prev) => {
+        const existing = prev.find(
+          (s) =>
+            s.sensorId === prevSensorId ||
+            s.sensorId === String(payload.uid || "") ||
+            s.id === String(payload.id || ""),
+        );
+        const card = sensorCardFromRest(payload, existing);
+        if (!card) {
+          return prev;
+        }
+        if (dest && dest !== sceneId) {
+          return prev.filter(
+            (s) =>
+              s.id !== card.id &&
+              s.sensorId !== card.sensorId &&
+              s.sensorId !== prevSensorId,
+          );
+        }
+        return upsertSensorCard(prev, card, prevSensorId);
+      });
+    },
+    [onSensorsChange, sceneId, sheet.action, sheet.id],
+  );
+
+  const onChildSaved = useCallback(
+    (payload?: Record<string, unknown>) => {
+      if (!payload) {
+        return;
+      }
+      const dest = restDestId(payload, "parent");
+      const prevRestUid =
+        sheet.action === "child-edit" && sheet.id ? String(sheet.id) : null;
+      onChildrenChange((prev) => {
+        const existing = prev.find(
+          (c) =>
+            c.id === String(payload.uid || payload.id || "") ||
+            c.restUid === prevRestUid,
+        );
+        const card = childCardFromRest(payload, scenes, existing);
+        if (!card) {
+          return prev;
+        }
+        if (dest && dest !== sceneId) {
+          return prev.filter(
+            (c) =>
+              c.id !== card.id &&
+              c.restUid !== card.restUid &&
+              c.restUid !== prevRestUid,
+          );
+        }
+        return upsertChildCard(prev, card, prevRestUid);
+      });
+    },
+    [onChildrenChange, sceneId, scenes, sheet.action, sheet.id],
+  );
+
   const camByPk = useMemo(() => {
     const map = new Map<string, SceneCameraBootstrap>();
     cameras.forEach((c) => map.set(String(c.id), c));
@@ -177,7 +294,7 @@ export function SceneWorkspaceSheets({
         sensorUid={action === "cam-edit" ? camEditUid : null}
         authToken={authToken}
         onClose={closeSheet}
-        onSaved={reload}
+        onSaved={onCameraSaved}
       />
       <SensorSheet
         open={action === "sensor-create" || action === "sensor-edit"}
@@ -187,7 +304,7 @@ export function SceneWorkspaceSheets({
         sensorUid={action === "sensor-edit" ? sheet.id : null}
         authToken={authToken}
         onClose={closeSheet}
-        onSaved={reload}
+        onSaved={onSensorSaved}
       />
       <ChildSheet
         open={action === "child-create" || action === "child-edit"}
@@ -197,7 +314,7 @@ export function SceneWorkspaceSheets({
         scenes={scenes}
         authToken={authToken}
         onClose={closeSheet}
-        onSaved={reload}
+        onSaved={onChildSaved}
       />
       <SceneManagePanel
         open={action === "scene-manage"}

@@ -18,8 +18,7 @@ const HELP: { id: string; title: string; items: string[] }[] = [
     title: "Sensor Help",
     items: [
       "Generic sensors report scalar or area occupancy on the map.",
-      "Use Manage to place and size the sensor coverage area.",
-      "Edit updates identity fields without changing map pose.",
+      "Use Edit to place and size the sensor coverage area.",
     ],
   },
   {

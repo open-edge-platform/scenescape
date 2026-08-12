@@ -1,8 +1,18 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { createPortal } from "react-dom";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { useAppToast } from "../../components/ToastProvider";
+import { api, type RestError } from "../../lib/rest";
+import { publishSceneTabCounts } from "../../lib/sceneTab";
 import type {
   SceneCameraBootstrap,
   SceneChildBootstrap,
@@ -14,6 +24,7 @@ declare global {
   interface Window {
     ssRefreshCameraSnapshots?: () => void;
     ssDrawSingletonSensors?: () => void;
+    ssRemoveSingletonSensor?: (sensorId: string) => void;
   }
 }
 
@@ -23,6 +34,8 @@ type Props = {
   childrenLinks: SceneChildBootstrap[];
   isSuperuser: boolean;
   panelsReady: boolean;
+  authToken?: string;
+  onSensorsChange?: Dispatch<SetStateAction<SceneSensorBootstrap[]>>;
 };
 
 function CameraCards({
@@ -116,9 +129,11 @@ function CameraCards({
 function SensorCards({
   sensors,
   isSuperuser,
+  onDelete,
 }: {
   sensors: SceneSensorBootstrap[];
   isSuperuser: boolean;
+  onDelete?: (sensor: SceneSensorBootstrap) => void;
 }) {
   useEffect(() => {
     window.ssDrawSingletonSensors?.();
@@ -178,18 +193,20 @@ function SensorCards({
                   className="ss-btn ss-btn--secondary ss-btn--sm sensor_calibrate"
                   href={sensor.calibrateHref}
                   id={`sensor_calibrate_${sensor.id}`}
-                  title="Manage"
-                >
-                  Manage
-                </a>
-                <a
-                  className="ss-btn ss-btn--secondary ss-btn--sm"
-                  href={sensor.editHref}
                   title="Edit"
                 >
                   Edit
                 </a>
-                {sensor.deleteUrl ? (
+                {onDelete ? (
+                  <button
+                    type="button"
+                    className="ss-btn ss-btn--danger ss-btn--sm"
+                    title="Delete"
+                    onClick={() => onDelete(sensor)}
+                  >
+                    Delete
+                  </button>
+                ) : sensor.deleteUrl ? (
                   <a
                     className="ss-btn ss-btn--danger ss-btn--sm"
                     href={sensor.deleteUrl}
@@ -301,7 +318,57 @@ export function ControlTabEntities({
   childrenLinks,
   isSuperuser,
   panelsReady,
+  authToken = "",
+  onSensorsChange,
 }: Props) {
+  const toast = useAppToast();
+  const [pendingSensor, setPendingSensor] =
+    useState<SceneSensorBootstrap | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!panelsReady) {
+      return;
+    }
+    publishSceneTabCounts({
+      cameras: cameras.length,
+      sensors: sensors.length,
+      children: childrenLinks.length,
+    });
+    window.numberTabs?.();
+  }, [panelsReady, cameras, sensors, childrenLinks]);
+
+  const confirmSensorDelete = useCallback(async () => {
+    if (!pendingSensor || !authToken || !onSensorsChange) {
+      return;
+    }
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await api.deleteSensor(authToken, pendingSensor.sensorId);
+      window.ssRemoveSingletonSensor?.(pendingSensor.sensorId);
+      onSensorsChange((prev) =>
+        prev.filter(
+          (s) =>
+            s.id !== pendingSensor.id &&
+            s.sensorId !== pendingSensor.sensorId,
+        ),
+      );
+      toast.show("Sensor deleted", "ok");
+      setPendingSensor(null);
+    } catch (err) {
+      setDeleteError((err as RestError).message || "Delete failed");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [authToken, onSensorsChange, pendingSensor, toast]);
+
+  const requestSensorDelete = useCallback((sensor: SceneSensorBootstrap) => {
+    setDeleteError(null);
+    setPendingSensor(sensor);
+  }, []);
+
   if (!panelsReady) {
     return null;
   }
@@ -309,6 +376,7 @@ export function ControlTabEntities({
   const camMount = document.getElementById("ss-cameras-mount");
   const sensorMount = document.getElementById("ss-sensors-mount");
   const childMount = document.getElementById("ss-children-mount");
+  const canDeleteSensor = Boolean(authToken && onSensorsChange);
 
   return (
     <>
@@ -320,7 +388,11 @@ export function ControlTabEntities({
         : null}
       {sensorMount
         ? createPortal(
-            <SensorCards sensors={sensors} isSuperuser={isSuperuser} />,
+            <SensorCards
+              sensors={sensors}
+              isSuperuser={isSuperuser}
+              onDelete={canDeleteSensor ? requestSensorDelete : undefined}
+            />,
             sensorMount,
           )
         : null}
@@ -333,6 +405,27 @@ export function ControlTabEntities({
             childMount,
           )
         : null}
+      <ConfirmDialog
+        open={Boolean(pendingSensor)}
+        title="Delete sensor?"
+        confirmLabel="Delete"
+        danger
+        busy={deleteBusy}
+        onConfirm={confirmSensorDelete}
+        onCancel={() => {
+          if (!deleteBusy) {
+            setPendingSensor(null);
+            setDeleteError(null);
+          }
+        }}
+      >
+        <p>
+          Are you sure you want to delete{" "}
+          <strong>{pendingSensor?.name || "this sensor"}</strong>?
+        </p>
+        <p>This action cannot be undone.</p>
+        {deleteError ? <p className="ss-confirm-error">{deleteError}</p> : null}
+      </ConfirmDialog>
     </>
   );
 }

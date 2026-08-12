@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { LEGACY_MAP_IDS, notifyMapHostReady } from "../map/legacyMapHost";
 import { ReactSceneMap } from "./map/ReactSceneMap";
@@ -51,7 +51,7 @@ type Props = {
  * When ssUseReactMap is set, overlays ReactSceneMap on the map stage only
  * (so #map-controls toggles stay visible below the stage).
  */
-export function SceneMapPane({
+export const SceneMapPane = memo(function SceneMapPane({
   mapUrl = null,
   mapWidth = 1280,
   mapHeight = 720,
@@ -195,13 +195,8 @@ export function SceneMapPane({
       {useReactMap && stage && mapUrl && naturalSize
         ? createPortal(
             <div className="ss-react-map-layer">
-              <img
-                className="ss-react-map-bg"
-                src={mapUrl}
-                alt=""
-                draggable={false}
-              />
               <ReactSceneMap
+                mapHref={mapUrl}
                 mapWidth={naturalSize.width || mapWidth}
                 mapHeight={naturalSize.height || mapHeight}
               />
@@ -211,4 +206,4 @@ export function SceneMapPane({
         : null}
     </div>
   );
-}
+});

@@ -25,9 +25,31 @@ import "./reactSceneMap.css";
 type Mode = "idle" | "add-roi" | "add-trip";
 
 type Props = {
+  mapHref: string;
   mapWidth: number;
   mapHeight: number;
 };
+
+const MapBitmap = memo(function MapBitmap({
+  href,
+  width,
+  height,
+}: {
+  href: string;
+  width: number;
+  height: number;
+}) {
+  return (
+    <image
+      href={href}
+      x={0}
+      y={0}
+      width={width}
+      height={height}
+      preserveAspectRatio="none"
+    />
+  );
+});
 
 function newTempId(): string {
   return `tmp${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -85,9 +107,10 @@ function polyLabelPoint(pts: [number, number][]): [number, number] | null {
 /**
  * React SVG scene map — draw/edit ROI polygons and tripwires.
  * Enabled when window.ssUseReactMap is true (set from SceneDetailPage).
- * Map bitmap lives in SceneMapPane so geometry updates do not reload it.
+ * Bitmap is memoized so geometry edits do not reload the map image.
  */
 export const ReactSceneMap = memo(function ReactSceneMap({
+  mapHref,
   mapWidth,
   mapHeight,
 }: Props) {
@@ -285,6 +308,7 @@ export const ReactSceneMap = memo(function ReactSceneMap({
       height="100%"
       onClick={onSvgClick}
     >
+      <MapBitmap href={mapHref} width={mapWidth} height={mapHeight} />
       {rois.map((roi) => {
         const pts = roi.points.map(toPx);
         const pointsAttr = pts.map((p) => p.join(",")).join(" ");

@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import {
+  SCENE_TAB_COUNTS_EVENT,
+  type SceneTabCounts,
+} from "../lib/sceneTab";
 import { PageHeader } from "../components/PageHeader";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/ToastProvider";
@@ -72,7 +76,7 @@ const LAYOUT_OPTIONS: {
 ];
 
 function SceneDetailInner({ bootstrap }: Props) {
-  const { scene, cameras, urls, isSuperuser } = bootstrap;
+  const { scene, urls, isSuperuser } = bootstrap;
   const { layout, mode, setMode, autoLayout } = useWorkspaceLayout();
   const { panelSizePx, setPanelSizePx, mapFocus, toggleMapFocus } =
     useWorkspaceDensity(layout);
@@ -82,6 +86,16 @@ function SceneDetailInner({ bootstrap }: Props) {
   const [sceneDeleteError, setSceneDeleteError] = useState<string | null>(null);
   const mqttConnected = useMqttConnected();
   const cameraRates = useCameraRates();
+  const [cameras, setCameras] = useState(bootstrap.cameras);
+  const [sensors, setSensors] = useState(bootstrap.sensors || []);
+  const [childrenLinks, setChildrenLinks] = useState(bootstrap.children || []);
+  const [tabCounts, setTabCounts] = useState({
+    cameras: bootstrap.cameras.length,
+    sensors: bootstrap.counts.sensors,
+    regions: bootstrap.counts.regions,
+    tripwires: bootstrap.counts.tripwires,
+    children: bootstrap.counts.children,
+  });
 
   /*
    * Prefer React SVG map when a map URL is available (Phase 4 dual-run).
@@ -113,6 +127,29 @@ function SceneDetailInner({ bootstrap }: Props) {
   }, []);
 
   useEffect(() => {
+    const onCounts = (ev: Event) => {
+      const detail = (ev as CustomEvent<SceneTabCounts>).detail;
+      if (!detail || typeof detail !== "object") {
+        return;
+      }
+      setTabCounts((prev) => {
+        const next = { ...prev };
+        (["cameras", "sensors", "regions", "tripwires", "children"] as const).forEach(
+          (key) => {
+            const n = detail[key];
+            if (typeof n === "number" && Number.isFinite(n) && n >= 0) {
+              next[key] = n;
+            }
+          },
+        );
+        return next;
+      });
+    };
+    window.addEventListener(SCENE_TAB_COUNTS_EVENT, onCounts);
+    return () => window.removeEventListener(SCENE_TAB_COUNTS_EVENT, onCounts);
+  }, []);
+
+  useEffect(() => {
     const id = window.requestAnimationFrame(() => {
       if (typeof window.fitSceneMapDisplay === "function") {
         window.fitSceneMapDisplay();
@@ -136,26 +173,26 @@ function SceneDetailInner({ bootstrap }: Props) {
   }, [urls.sceneDelete, urls.scenesHome]);
 
   const tabs: TabItem[] = [
-    { id: "cameras", label: "Cameras", count: countLabel(cameras.length) },
+    { id: "cameras", label: "Cameras", count: countLabel(tabCounts.cameras) },
     {
       id: "sensors",
       label: "Sensors",
-      count: countLabel(bootstrap.counts.sensors),
+      count: countLabel(tabCounts.sensors),
     },
     {
       id: "regions",
       label: "Regions",
-      count: countLabel(bootstrap.counts.regions),
+      count: countLabel(tabCounts.regions),
     },
     {
       id: "tripwires",
       label: "Tripwires",
-      count: countLabel(bootstrap.counts.tripwires),
+      count: countLabel(tabCounts.tripwires),
     },
     {
       id: "children",
       label: "Children",
-      count: countLabel(bootstrap.counts.children),
+      count: countLabel(tabCounts.children),
     },
     {
       id: "mqtt",
@@ -294,12 +331,14 @@ function SceneDetailInner({ bootstrap }: Props) {
         <SceneSidePanel
           tabs={tabs}
           cameraRates={cameraRates}
-          cameras={bootstrap.cameras}
-          sensors={bootstrap.sensors || []}
-          childrenLinks={bootstrap.children || []}
+          cameras={cameras}
+          sensors={sensors}
+          childrenLinks={childrenLinks}
           isSuperuser={isSuperuser}
           sceneId={scene.id}
           wssConnection={bootstrap.scene.wssConnection || ""}
+          authToken={bootstrap.authToken}
+          onSensorsChange={setSensors}
         />
       </div>
       <RoiTripwireEditors
@@ -316,7 +355,10 @@ function SceneDetailInner({ bootstrap }: Props) {
         isKubernetes={Boolean(bootstrap.isKubernetes)}
         scenes={bootstrap.scenes || []}
         cameras={cameras}
-        sensors={bootstrap.sensors || []}
+        sensors={sensors}
+        onCamerasChange={setCameras}
+        onSensorsChange={setSensors}
+        onChildrenChange={setChildrenLinks}
         mapUrl={scene.mapUrl}
         mapScale={scene.scale}
       />

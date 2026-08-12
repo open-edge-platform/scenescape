@@ -90,9 +90,14 @@ export async function restForm<T>(
 
 export const api = {
   createCamera: (token: string, data: unknown) =>
-    restJson("POST", "/camera", token, data),
+    restJson<Record<string, unknown>>("POST", "/camera", token, data),
   updateCamera: (token: string, uid: string, data: unknown) =>
-    restJson("PUT", `/camera/${encodeURIComponent(uid)}`, token, data),
+    restJson<Record<string, unknown>>(
+      "PUT",
+      `/camera/${encodeURIComponent(uid)}`,
+      token,
+      data,
+    ),
   getCamera: (token: string, uid: string) =>
     restJson<Record<string, unknown>>(
       "GET",
@@ -100,19 +105,31 @@ export const api = {
       token,
     ),
   createSensor: (token: string, data: unknown) =>
-    restJson("POST", "/sensor", token, data),
+    restJson<Record<string, unknown>>("POST", "/sensor", token, data),
   updateSensor: (token: string, uid: string, data: unknown) =>
-    restJson("PUT", `/sensor/${encodeURIComponent(uid)}`, token, data),
+    restJson<Record<string, unknown>>(
+      "PUT",
+      `/sensor/${encodeURIComponent(uid)}`,
+      token,
+      data,
+    ),
   getSensor: (token: string, uid: string) =>
     restJson<Record<string, unknown>>(
       "GET",
       `/sensor/${encodeURIComponent(uid)}`,
       token,
     ),
+  deleteSensor: (token: string, uid: string) =>
+    restJson("DELETE", `/sensor/${encodeURIComponent(uid)}`, token),
   createChild: (token: string, data: unknown) =>
-    restJson("POST", "/child", token, data),
+    restJson<Record<string, unknown>>("POST", "/child", token, data),
   updateChild: (token: string, uid: string, data: unknown) =>
-    restJson("PUT", `/child/${encodeURIComponent(uid)}`, token, data),
+    restJson<Record<string, unknown>>(
+      "PUT",
+      `/child/${encodeURIComponent(uid)}`,
+      token,
+      data,
+    ),
   getChild: (token: string, uid: string) =>
     restJson<Record<string, unknown>>(
       "GET",

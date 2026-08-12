@@ -20,7 +20,7 @@ type Props = {
   scenes: SceneOption[];
   authToken: string;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (payload?: Record<string, unknown>) => void;
 };
 
 type Vec3 = [string, string, string];
@@ -198,14 +198,15 @@ export function ChildSheet({
       }
     }
     try {
+      let saved: Record<string, unknown> | undefined;
       if (mode === "create") {
-        await api.createChild(authToken, payload);
+        saved = await api.createChild(authToken, payload);
         toast.show("Child scene linked", "ok");
       } else if (childUid) {
-        await api.updateChild(authToken, childUid, payload);
+        saved = await api.updateChild(authToken, childUid, payload);
         toast.show("Child scene updated", "ok");
       }
-      onSaved();
+      onSaved(saved);
       onClose();
     } catch (err) {
       setError((err as RestError).message || "Save failed");
