@@ -102,6 +102,12 @@ jobs:
         with:
           category: "/language:${{matrix.language}}"
 
+      - name: "GitHub Upload SARIF report"
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: codeql-report-${{ matrix.language }}
+          path: ../results
+
   codeql:
     name: "Run CodeQL Analysis on whole codebase"
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -148,6 +154,12 @@ jobs:
         with:
           category: "/language:${{ matrix.language }}"
 
+      - name: "GitHub Upload SARIF report"
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: codeql-report-${{ matrix.language }}
+          path: ../results
+
   report:
     name: "Generate CodeQL Security Report"
     needs: [ codeql, analyze ]
@@ -155,6 +167,8 @@ jobs:
       security-events: read
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+
       - name: "Generate Security Report"
         uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
         with:
