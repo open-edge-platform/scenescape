@@ -162,9 +162,7 @@ NPU performance metrics can be monitored using [NPU System Monitoring Tool](http
 Following are the step-by-step instructions for enabling person reidentification for the out-of-box **Queuing** scene.
 
 1. **Enable the ReID Database Container and pipeline configs**\
-   Launch Scenescape with exactly one ReID backend override plus the ReID
-   pipeline override (swaps `retail-config`/`queuing-config` to the
-   `reidPolicy` variants below). This example selects VDMS:
+   Launch Scenescape with exactly one ReID backend override plus the ReID pipeline override. This example selects VDMS:
 
    ```bash
    docker compose -f docker-compose.yml \
