@@ -42,8 +42,6 @@ DEMO_WAIT_SECONDS ?= "0"
 # ReID vector backend used by the ReID demo targets: vdms (default) or qdrant
 REID_BACKEND ?= vdms
 REID_OVERRIDE_FILE = sample_data/docker-compose.$(strip $(REID_BACKEND))-override.yml
-# Swaps retail-config/queuing-config to the reidPolicy pipeline variants so
-# camera payloads actually carry metadata.reid embeddings for the ReID backend
 REID_PIPELINE_OVERRIDE_FILE = sample_data/docker-compose.reid-pipeline-override.yml
 REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE) -f $(REID_PIPELINE_OVERRIDE_FILE)
 DEMO_REBUILD_IMAGES ?= true
