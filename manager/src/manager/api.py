@@ -441,10 +441,22 @@ class ACLCheck(APIView):
         status=status.HTTP_400_BAD_REQUEST
       )
 
-    user = User.objects.get(username=username)
+    try:
+      user = User.objects.get(username=username)
+    except User.DoesNotExist:
+      log.warning("Access denied: unknown user '%s'.", username)
+      return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+      requestedAccess = int(request.data['acc'])
+    except (KeyError, TypeError, ValueError):
+      log.warning('Missing or invalid acc parameter')
+      return Response(
+        {'detail': 'Missing or invalid acc parameter.'},
+        status=status.HTTP_400_BAD_REQUEST
+      )
+
     user_acls = PubSubACL.objects.filter(user=user)
-    requestedAccess = request.data['acc']
-    requestedAccess = int(requestedAccess)
 
     # Admin users have full read/write access to the broker.
     if user.is_superuser:
