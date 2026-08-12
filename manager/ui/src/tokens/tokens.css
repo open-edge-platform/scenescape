@@ -9,7 +9,7 @@
 @import "../components/StatusChip.css";
 @import "../components/FormSection.css";
 
-/* Mirrored from manager style.css :root — see .github/plans/manager-ui-token-map.md */
+/* Mirrored from manager style.css :root — see .github/plans/manager-ui.md */
 :root,
 html[data-theme="light"] {
   color-scheme: light;
