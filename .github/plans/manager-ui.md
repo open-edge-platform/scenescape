@@ -5,77 +5,127 @@ SPDX-License-Identifier: Apache-2.0
 
 # Manager UI
 
-2D React rewrite (Phases 0–5) is **done**: tokens, primitives, scene detail,
-lists, sheets, calibrate panels, REST geometry persist, in-place entity
-cards. This file is the remaining work plus freeze contracts.
+Status of the Manager React rewrite against the current tree. Tokens,
+primitives, hard contracts, and build notes stay at the bottom.
 
 Do not reopen Snap / calibrate iframe work. Do not stretch the scene map
 (`slice` / cover).
+
+## Status
+
+| Area | State |
+| --- | --- |
+| 2D React rewrite (Phases 0–5) | **Done** |
+| Model directory UI parity | **Done** |
+| Empty space — admin lists (Phase 1) | **Not started** |
+| Empty space — scene detail chrome (Phase 2) | **Partial** |
+| 3D scene viewport (React) | **Not started** (legacy Three.js) |
+
+## Done
+
+### 2D rewrite
+
+Tokens, primitives, scene detail workspace, lists island, sheets,
+calibrate panels, REST geometry persist, in-place entity cards (cameras /
+sensors / children create + delete without full-page flash), live tab
+counts via `ss-tab-counts`, map `meet` aspect (no stretch).
+
+Scene entity cards: camera/sensor **Edit** opens the calibrate sheet
+(`calibrateHref` / `?ss=calibrate-*`), not a separate metadata drawer.
+
+### Model directory
+
+React island on K8s `model/list/`:
+
+- Mount: `#ss-models-directory-root` → `models-directory.js`
+- Bootstrap: `#ss-models-directory-bootstrap` (`isSuperuser`)
+- Browse, refresh, copy `/models/…`, download
+- Superuser: create folder, upload, zip → folder named after archive then
+  extract, overwrite confirm, delete confirm, drag-drop onto root/folder
+- API: `GET/POST/DELETE /api/v1/model-directory/` (JSON load only)
+- Legacy `model_list.js` and `model/includes/model_directory.html` removed
+- Cap already `max-width: 64rem` (`.ss-models-dir`)
+
+Optional later: K8s-only BAT for browse + upload.
+
+Key paths: `manager/ui/src/models/`, `models-directory-main.tsx`,
+`model/model_list.html`, `model_directory_view.py`, `ModelListView` in
+`views.py`.
 
 ## Remaining
 
 ### 1. Empty space on lists and scene detail
 
-Status: **not started**. Design agreed; implement in a later PR. Do not
-fold into 3D or model-directory work.
-
 Two layout mistakes produce the same complaint (“large empty spaces”) on a
-wide monitor.
+wide monitor. Do not fold into the 3D epic.
 
-**Admin lists** (Cameras, Sensors, Object Library) are 1–3 short columns
-plus actions in `container-fluid`. Columns share leftover width equally,
-so gaps sit *between* Name / ID / Scene. Title is landing-page scale;
-empty states sit in a hollow full-width card. Scenes Home is a thumbnail
-gallery and should stay that way.
+#### Phase 1 — admin lists — **not started**
 
-**Scene detail** letterboxing is correct (`preserveAspectRatio="xMidYMid
-meet"`). What still *reads* as a hole: unused stage fill differs from the
-page surface; camera preview letterbox does not match the card; empty tabs
-must stay a short peek, not a padded panel.
+Cameras, Sensors, Object Library still full-bleed in `container-fluid`.
+Columns share leftover width equally (gaps *between* Name / ID / Scene).
+Title is landing-page scale (`1.75rem`). Empty states sit in a hollow
+full-width card. Scenes Home is a thumbnail gallery and should stay that
+way.
 
-#### Non-goals
-
-- Do not turn Cameras / Sensors / Object Library into card galleries.
-- Do not stretch the map or grow one camera card to fill the Below strip.
-- Do not switch camera previews to `cover`.
-- Do not add a second density control.
-- Do not change Models directory into a table. Optional: align its
-  max-width with the list cap after Phase 1.
-- No user-facing docs unless chrome labels change.
-
-#### Phase 1 — lists (do first)
+Still to do:
 
 - Cap `.ss-admin-list` / `.ss-admin-table-card` at **56–64rem**,
-  left-aligned (same idea as `ss-form-card--wide`).
+  left-aligned (same idea as `ss-form-card--wide` / models at `64rem`).
 - Content-sized columns (`table-layout: auto`); leftover space **after**
   the last column. Actions column hugs chips.
-- Quieter title (`~1.2rem`); drop title-echo breadcrumb.
+- Quieter title (`~1.2rem`). Title-echo breadcrumb strip already exists in
+  `PageHeader` (`wayfindingCrumbs`); Django still passes echo crumbs.
 - Compact empty state inside a content-sized card.
 - Spot-check Cameras, Sensors, Object Library at ~1920px and ~1280px.
 
 Likely files: `manager/ui/src/admin/AdminListApp.tsx`, `AdminListApp.css`,
 `PageHeader.tsx` / `.css`, `manager/src/manager/views.py` list bootstraps.
 
-#### Phase 2 — scene detail chrome
+Current evidence of open work: `.ss-admin-list` / `.ss-admin-table-card`
+are `width: 100%` with no `max-width`; no `table-layout` on
+`.ss-admin-table`; `.ss-page-title` is `1.75rem`; `.ss-table-empty` uses
+large padding inside the full-width card.
 
-- Unused map stage fill → `--ss-surface` (not a contrasting hole). Keep
-  `meet` and viewBox sync (`#svgout` + `#svgout-snap`).
-- Keep Auto / Below / Side and map focus.
-- Below camera strip: left-align cards; quiet gutter; `contain` previews
-  with letterbox fill matching the card.
-- Empty tabs stay `ss-empty-state`; do not pad to `--ss-panel-size`.
+#### Phase 2 — scene detail chrome — **partial**
 
-Likely files: `SceneDetailPage.css`, `reactSceneMap.css`,
-`style.css` (`.scene-map-stage`), `CameraStrip.css`,
+Letterboxing is correct (`preserveAspectRatio="xMidYMid meet"` on the
+React map; Snap overlay syncs PAR). Auto / Below / Side and map focus
+remain. Compact empty tabs (`ss-empty-state`, workspace padding
+`0.5rem 0.25rem` — not `--ss-panel-size`). Camera strip: left-aligned
+cards, `object-fit: contain` default, letterbox fill
+`color-mix(… --ss-surface …)` on preview frames. Adjacent React map
+surfaces already use `--ss-surface` (`SceneMapPane.css`,
+`reactSceneMap.css`).
+
+Still open:
+
+- Named `.scene-map-stage` in `style.css` is still `background:
+  transparent` — unused stage fill can still read as a hole vs the page
+  surface. Align to `--ss-surface` without changing `meet` or viewBox
+  sync (`#svgout` + `#svgout-snap`).
+- Re-check Below strip gutter / card alignment if anything still feels
+  hollow after the stage fill fix.
+
+Likely files: `style.css` (`.scene-map-stage`), `SceneDetailPage.css`,
+`reactSceneMap.css`, `SceneMapPane.css`, `CameraStrip.css`,
 `ControlTabEntities.css`.
 
 #### Phase 3 — optional
 
-- Models directory max-width matches the list cap if it now looks
-  inconsistent.
+- Models directory already at `64rem`. After Phase 1, confirm list cap and
+  models cap look consistent (both ~56–64rem); adjust only if needed.
 - Scenes Home unchanged.
 
-#### Verify
+#### Non-goals
+
+- Do not turn Cameras / Sensors / Object Library into card galleries.
+- Do not stretch the map or grow one camera card to fill the Below strip.
+- Do not switch camera previews to `cover` as the default.
+- Do not add a second density control.
+- Do not change Models directory into a table.
+- No user-facing docs unless chrome labels change.
+
+#### Verify (when implementing)
 
 - `make -C manager ui-build`
 - Lists: table does not stretch across a wide viewport; columns are not
@@ -88,25 +138,19 @@ Likely files: `SceneDetailPage.css`, `reactSceneMap.css`,
 Out of scope here: calibrate workspace size, geospatial picker, theme
 tokens, virtualized tables / search / sort / filter.
 
-### 2. Model directory parity
+### 2. 3D scene viewport (epic)
 
-Status: **done** (UI). React island on `model/list/` matches legacy actions:
+**Not started.** Legacy Three.js surface remains:
 
-- Mount: `#ss-models-directory-root` → `models-directory.js`
-- Bootstrap: `#ss-models-directory-bootstrap` (`isSuperuser`)
-- Browse, refresh, copy `/models/…`, download
-- Superuser: create folder, upload, zip extract into named folder,
-  overwrite confirm, delete confirm, drag-drop onto root/folder
-- API: `GET/POST/DELETE /api/v1/model-directory/` (JSON load only)
-- Legacy jQuery `model_list.js` / HTML fragment retired
+- Entry: `manager/src/manager/static/js/scenescape3d.js` (~700 LOC) plus
+  ES modules under `static/js/thing/`, `viewport.js`, managers, etc.
+- Mount: `base_3d.html` loads the legacy module — no React root / no
+  `manager/ui` 3D entry.
+- Scene detail only links out (`#3d-view` → `urls.scene3d`).
 
-Optional later: K8s-only BAT covering browse + upload if product requires it.
-
-### 3. 3D scene viewport (epic)
-
-Replace or wrap the legacy Three.js surface (`scenescape3d.js` ~4.3k LOC)
-with a React-owned shell that reuses MQTT / auth patterns from the 2D
-rewrite. Do **not** fold into 2D trickle PRs.
+Replace or wrap with a React-owned shell that reuses MQTT / auth patterns
+from the 2D rewrite. Do **not** fold into 2D trickle PRs (empty-space or
+otherwise).
 
 Suggested slices:
 
@@ -218,6 +262,7 @@ Calibrate iframes are retired. React sheets own calibrate UX.
 | `#roi-form` POST | `window.ssPersistGeometry` → REST |
 | Sensor / camera calibrate iframes | React panels |
 | Form scrape stringify as save source | Typed `ssMap` geometry model |
+| jQuery `model_list.js` / HTML fragment load | React `models-directory.js` + JSON API |
 
 ### REST persist
 
@@ -226,9 +271,14 @@ Calibrate iframes are retired. React sheets own calibrate UX.
 - Sensors: `PUT /api/v1/sensor/{uid}` (area, points, color_ranges);
   `DELETE /api/v1/sensor/{uid}`
 - Cameras: `PUT /api/v1/camera/{uid}` (intrinsics, transforms, …)
+- Models (K8s): `GET/POST/DELETE /api/v1/model-directory/`
 
 ## Build
 
 ```bash
 make -C manager ui-build
 ```
+
+Islands under `manager/src/manager/static/ui/`: `scene-detail`,
+`scenes-home`, `list-sheets`, `admin-list`, `destructive-actions`,
+`models-directory` (+ shared `manager-ui.css`).
