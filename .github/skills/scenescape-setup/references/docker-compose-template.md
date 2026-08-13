@@ -290,7 +290,7 @@ services:
       - vol-mapping-torch-cache:/workspace/.cache/torch
       - vol-mapping-hf-cache:/workspace/.cache/huggingface
     command: >
-      sh -c "chown -R 1001:1001 /workspace/model_weights /workspace/.cache/torch /workspace/.cache/huggingface"
+      sh -c "chown -R ${UID:-1000}:${GID:-1000} /workspace/model_weights /workspace/.cache/torch /workspace/.cache/huggingface"
     restart: "no"
 
   mapping:
@@ -298,7 +298,7 @@ services:
     profiles:
       - mapping
     init: true
-    user: "1001:1001"
+    user: "${UID:-1000}:${GID:-1000}"
     networks:
       scenescape:
         aliases:
@@ -380,7 +380,16 @@ GID=$(id -g)
 `write_deployment_env.py` (Step 6) writes `VERSION`, `UID`, and `GID` automatically.
 The published `intel/scenescape-mapping` image already embeds MapAnything (`MODEL_TYPE`
 defaults to `mapanything` in the image); no deploy-time model selector is required.
-Mapping runs as UID **1001** inside the container; `mapping-init` fixes volume ownership
-before the mapping service starts. `analytics` (and `broker`) run as `${UID:-1000}:${GID:-1000}`
-so they can read host-generated 0600 secrets — export `UID`/`GID` (or rely on the defaults)
-when bringing the stack up.
+Mapping runs as `${UID:-1000}:${GID:-1000}` inside the container, matching the host user like
+`analytics`, `broker`, and `web` do — export `UID`/`GID` (or rely on the defaults) when bringing
+the stack up. `mapping-init` chowns the model-weights/torch-cache/hf-cache volumes to that same
+UID/GID before the mapping service starts. The published `intel/scenescape-mapping` image bakes
+in a default `scenescape` user at UID 1001 purely as its own build-time default; nothing in the
+image or its Kubernetes deployment (which runs the identical image at UID 1000) actually requires
+UID 1001, so matching the host UID here — rather than hardcoding 1001 — lets `mapping` read the
+host-generated `0600` secrets (`mapping-cert`, `mapping-key`, `root-cert`) the same way the other
+services already do, without loosening any file permissions. Because `mapping`'s UID is fixed at 1001 (not the host UID),
+its three secrets (`mapping-cert`, `mapping-key`, `root-cert`) explicitly set `mode: 0444`
+so the container can read them regardless of the host user's UID/GID — without this, gunicorn
+fails with `PermissionError: [Errno 13] Permission denied` loading the TLS cert chain whenever
+the host UID isn't 1001.
