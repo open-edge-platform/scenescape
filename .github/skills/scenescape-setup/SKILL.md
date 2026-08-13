@@ -297,6 +297,12 @@ per camera ID; step 13 confirms tracked objects are associated with more than on
 success is `DEPLOY COMPLETE` with a `scene_uid`. End with a `Post-task metrics` breakdown listing
 requirements-gathering, bootstrap, calibration, scene-and-verification, and total wall-clock.
 
+After `DEPLOY COMPLETE`, generate a deployment README: read
+[readme-template.md](./references/readme-template.md), substitute the tokens (`{{SCENE_NAME}}`,
+`{{DEPLOY_DIR}}`, `{{SCENE_UID}}`, `{{CAMERA_IDS}}`, and `{{HOST_IP}}` from
+`ip -4 route get 8.8.8.8 | awk '{print $7; exit}'`), and write the result to
+`<deploy_dir>/README.md`. Skip silently if the template is missing.
+
 Do **not** read [operational-reference.md](./references/operational-reference.md) during a routine
 deploy or resume. Read it only for a requested generated-file-layout or web-UI handoff, or when a
 specific bootstrap, runtime, reconstruction, or tracking-verification failure needs diagnosis.
