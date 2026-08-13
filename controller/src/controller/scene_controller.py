@@ -275,8 +275,8 @@ class SceneController:
       new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
                                      thing_type=otype)
       self.pubsub.publish(new_topic, jstr)
-      self.publishExternalDetections(scene, otype, objects, jdata)
       scene.lastPubCount[cid] = olen
+    self.publishExternalDetections(scene, otype, objects, jdata)
     return
 
   def publishExternalDetections(self, scene, otype, objects, jdata_base):
