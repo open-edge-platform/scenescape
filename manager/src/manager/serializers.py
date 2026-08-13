@@ -282,12 +282,6 @@ class CamSerializer(NonNullSerializer):
   scene = serializers.CharField(source="scene.pk", allow_null=True, required=False)
   transform_type = serializers.SerializerMethodField('get_transform_type')
 
-  def validate(self, attrs):
-    # DRF enforces required fields on create; allow PATCH/partial updates to omit them.
-    if self.instance is None and 'name' not in attrs:
-      raise serializers.ValidationError({'name': ['This field is required.']})
-    return attrs
-
   def validate_name(self, value):
     if not self.instance:
       qs = Cam.objects.filter(name=value)
@@ -319,7 +313,7 @@ class CamSerializer(NonNullSerializer):
     if not is_update:
       sensor_id = validated_data.get('sensor_id', None)
       if sensor_id is None:
-        sensor_id = self.initial_data.get('name')
+        sensor_id = validated_data.get('name')
         if sensor_id is not None:
           sensor_id = sensor_id.replace(" ", "_")
         validated_data['sensor_id'] = sensor_id
@@ -410,6 +404,9 @@ class CamSerializer(NonNullSerializer):
     return
 
   def create_camera_instance(self, instance):
+    if instance.scene is None:
+      return
+
     if instance.cam.transforms is None:
       return
 
@@ -490,6 +487,8 @@ class CamSerializer(NonNullSerializer):
     return camera.pose.scale if camera and hasattr(camera, 'pose') else None
 
   def validate(self, data):
+    if 'name' not in data:
+      raise serializers.ValidationError({'name': ['This field is required.']})
     _validate_scene_exists(data)
     if data.get('use_camera_pipeline') and not data.get('camera_pipeline'):
       raise serializers.ValidationError({
@@ -919,7 +918,9 @@ class UserSerializer(NonNullSerializer):
               'email', 'acls']
 
     extra_kwargs = {
-      'password': {'write_only': True}
+      'password': {'write_only': True},
+      'is_staff': {'read_only': True},
+      'is_superuser': {'read_only': True}
     }
 
 class Asset3DSerializer(NonNullSerializer):

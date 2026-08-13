@@ -12,21 +12,39 @@ Tests support two deployment backends controlled by the `--backend` flag:
 
 ### Host system packages
 
-The following packages must be installed on the host before running `make setup-tests`.
-Install them with `apt-get` (or equivalent for your distribution):
+Install all required packages:
 
-| Package         | Minimum version | Required for         | Install command                              |
-| --------------- | --------------- | -------------------- | -------------------------------------------- |
-| `firefox`       | 150.0.2         | UI / Selenium tests  | `sudo apt-get install -y firefox`            |
-| `geckodriver`   | 0.36.0          | UI / Selenium tests  | Check https://github.com/mozilla/geckodriver |
-| `xvfb`          | 21.1            | UI / Selenium tests  | `sudo apt-get install -y xvfb`               |
-| `libopencv-dev` | 4.6             | `robot_vision` build | `sudo apt-get install -y libopencv-dev`      |
-| `libeigen3-dev` | 3.4             | `robot_vision` build | `sudo apt-get install -y libeigen3-dev`      |
+```bash
+sudo apt-get update && sudo apt-get install -y \
+  build-essential \
+  python3.12-dev \
+  python3.12-venv \
+  xvfb \
+  libopencv-dev \
+  libeigen3-dev
+```
 
-> **Note**: `firefox` and `xvfb` are only needed when running UI/Selenium tests.
-> `libopencv-dev` and `libeigen3-dev` are required to compile the `robot_vision`
-> C++ extension used by tracker metric and scene tests.
-> On Ubuntu, Firefox must be installed via apt — the snap version is not compatible with Selenium.
+**Note:** Firefox must be set up separately (see [Firefox Setup](#firefox-setup) below).
+
+### Firefox Setup
+
+Firefox **must** be installed as a real binary (not snap), as snap Firefox is incompatible with Selenium.
+
+**Manual setup**
+
+For Ubuntu 24.04+:
+
+```bash
+sudo add-apt-repository -y ppa:mozillateam/ppa
+sudo apt-get update && sudo apt-get install -y firefox-esr
+sudo ln -sf /usr/bin/firefox-esr /usr/bin/firefox
+```
+
+Verify Firefox is installed correctly:
+
+```bash
+firefox --version  # Should show Mozilla Firefox (not snap)
+```
 
 ### Docker backend
 
@@ -60,6 +78,11 @@ container log collection, teardown). By default, container logs are collected
 only for failed tests. Use `--collect-container-logs {failed,all,none}` to
 change this behavior. Test specs are defined in the individual test
 modules as Python dataclasses.
+
+### Residual resource cleanup
+
+Before any setup work, each session removes the containers, networks and volumes of any
+`test-<id>-<profile>` compose project left over from a previous run.
 
 ### Running tests via make
 
@@ -129,23 +152,37 @@ pytest tests/functional --collect-container-logs none
 
 ### Environment variables
 
-| Variable        | Default            | Backend | Description                                 |
-| --------------- | ------------------ | ------- | ------------------------------------------- |
-| `SUPASS`        | random             | both    | Superuser password for the test deployment  |
-| `SECRETSDIR`    | `manager/secrets/` | docker  | Path to the secrets directory               |
-| `IMAGE_VERSION` | `latest`           | docker  | Docker image tag to use for test containers |
+| Variable          | Default                   | Backend  | Description                                 |
+| ----------------- | ------------------------- | -------- | ------------------------------------------- |
+| `SUPASS`          | random                    | both     | Superuser password for the test deployment  |
+| `SECRETSDIR`      | `manager/secrets/`        | docker   | Path to the secrets directory               |
+| `IMAGE_VERSION`   | `latest`                  | docker   | Docker image tag to use for test containers |
+| `FIREFOX_BIN`     | `firefox` (from PATH)     | UI tests | Path to Firefox binary for Selenium tests   |
+| `GECKODRIVER_BIN` | `geckodriver` (from PATH) | UI tests | Path to geckodriver binary for Selenium     |
+
+`SECRETSDIR` can be overridden for CI or other constrained filesystems when the
+default repo-local `manager/secrets/` path is not writable.
 
 ### Log files
 
 Per-test log files are saved automatically:
 
 ```
-tests/test_logs/functional/<test_id>-<timestamp>.log
-tests/test_logs/unit/<test_id>-<timestamp>.log
-tests/test_logs/ui/<test_id>-<timestamp>.log
+tests/.test_logs/<group>/<test_id>/<test_id>-<timestamp>.log
 ```
 
-Container log collection supports:
+Log content depends on the test outcome:
+
+- **Passing test** — only the raw `print()` output from the test body plus any log records are kept.
+- **Failing test** — the full orchestration log is preserved for
+  debugging, along with per-container Docker logs in a sibling
+  directory (unless `--collect-container-logs=none` is set):
+
+  ```
+  tests/.test_logs/<group>/<test_id>/<test_id>-<timestamp>-containers/<service>.log
+  ```
+
+Container log collection modes (`--collect-container-logs`):
 
 - `failed` (default): collect container logs only for failed tests.
 - `all`: collect container logs for every test.
@@ -187,6 +224,13 @@ pytest tests/sscape_tests
 | ----------------- | --------------------------------------------------------------------------------- |
 | `kubernetes_only` | Test runs only with `--backend=kubernetes` or `--backend=all`; skipped for Docker |
 | `preserve_db`     | Skip post-test DB restore so the next test can verify persistence                 |
+
+## Multi-controller hierarchy (functional)
+
+Literal parent + child Scene Controllers on one host use Compose fragments under
+`tests/compose/hierarchy/` and `REID_HIER_*` profiles. Agent-oriented fixture
+notes: [multi-controller hierarchy fixtures](../.github/skills/testing/references/functional-tests.md#multi-controller-hierarchy-fixtures).
+Deployment guide: [Deploy Multiple Controllers on One Host](../docs/user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md).
 
 ## Using the VS Code Test Extension
 

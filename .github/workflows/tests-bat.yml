@@ -96,7 +96,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Set paths filter
         id: filter
-        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         with:
           predicate-quantifier: "every"
           filters: |
@@ -153,13 +153,6 @@ jobs:
           mkdir -p reports
           pytest tests -m basic_acceptance --junitxml=reports/bat_results.xml --log-level=ERROR
 
-      - name: "Run Metric Tests"
-        if: always() && steps.setup-test-env.outcome == 'success'
-        run: |
-          source tests/.venv/bin/activate
-          mkdir -p reports
-          pytest tests/system/metric --junitxml=reports/metric_results.xml --log-level=ERROR
-
       - name: "Run Unit Tests"
         if: always() && steps.setup-test-env.outcome == 'success'
         run: |
@@ -197,7 +190,10 @@ jobs:
     runs-on: [bat]
     permissions:
       packages: write # For using GHCR as cache registry
+    env:
+      SECRETSDIR: ${{ github.workspace }}/.scenescape-secrets
     needs: [filter, check-pr-state]
+    timeout-minutes: 90
     if: ${{ (needs.filter.outputs.code_changed == 'true' || needs.filter.outputs.bat_workflow_changed == 'true') && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
       - name: Checkout

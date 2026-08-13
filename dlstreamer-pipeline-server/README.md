@@ -15,7 +15,7 @@
 Below are step-by-step instructions for enabling out-of-the-box scenes in Scenescape to leverage DL Streamer Pipeline Server for Video Analytics.
 
 1. **Model Requirements:**
-   Ensure the OMZ model `person-detection-retail-0013` is present in the Models Volume in the `models/intel/` subfolder. Refer to the instructions in [How to Manage Files in Volumes](../docs/user-guide/other-topics/how-to-manage-files-in-volumes.md) on how to access the Models Volume.
+   Ensure the OMZ model `person-detection-retail-0013` is present in the Models Volume in the `omz/` subfolder. Refer to the instructions in [How to Manage Files in Volumes](../docs/user-guide/other-topics/how-to-manage-files-in-volumes.md) on how to access the Models Volume.
 
 2. **Start Scenescape DL Streamer-based demo:**
 
@@ -161,22 +161,36 @@ NPU performance metrics can be monitored using [NPU System Monitoring Tool](http
 
 Following are the step-by-step instructions for enabling person reidentification for the out-of-box **Queuing** scene.
 
-1. **Enable the ReID Database Container**\
-   Launch scenescape using vdms profile
+1. **Enable the ReID Database Container and pipeline configs**\
+   Launch Scenescape with exactly one ReID backend override plus the ReID pipeline override. This example selects VDMS:
 
    ```bash
-   docker compose -f docker-compose.yml -f sample_data/docker-compose.vdms-override.yml --profile vdms up -d
+   docker compose -f docker-compose.yml \
+     -f sample_data/docker-compose.vdms-override.yml \
+     -f sample_data/docker-compose.reid-pipeline-override.yml \
+     --profile controller up -d
    ```
 
-2. Use the predefined [queuing-config-reid.json](./queuing-config-reid.json) to enable vector embedding metadata from the DL Streamer service:
+   To use Qdrant instead, replace `docker-compose.vdms-override.yml` with
+   `docker-compose.qdrant-override.yml`. Do not combine the two backend
+   overrides. From the repository root, `make demo-reid` does the same
+   (both overrides included automatically) and defaults to VDMS; use
+   `make demo-reid REID_BACKEND=qdrant` for Qdrant.
+
+2. The predefined [queuing-config-reid.json](./queuing-config-reid.json) and
+   [retail-config-reid.json](./retail-config-reid.json) configs enable vector
+   embedding metadata from the DL Streamer service and are applied
+   automatically by `docker-compose.reid-pipeline-override.yml` above. If you
+   are composing the services manually without that override file, set them
+   directly instead:
 
    ```yaml
    configs:
      queuing-config:
        file: ./dlstreamer-pipeline-server/queuing-config-reid.json
+     retail-config:
+       file: ./dlstreamer-pipeline-server/retail-config-reid.json
    ```
-
-   Repeat the same step but with [retail-config-reid.json](./retail-config-reid.json) to enable reid for the **Retail** scene.
 
    If this is the first time running Scenescape, run:
 
@@ -187,11 +201,17 @@ Following are the step-by-step instructions for enabling person reidentification
    If you have already deployed Scenescape, use:
 
    ```sh
-   docker compose down queuing-video retail-video scene
-   docker compose -f docker-compose.yml -f sample_data/docker-compose.vdms-override.yml --profile vdms up queuing-video retail-video vdms scene -d
+   docker compose -f docker-compose.yml \
+     -f sample_data/docker-compose.vdms-override.yml \
+     -f sample_data/docker-compose.reid-pipeline-override.yml \
+     --profile controller down
+   docker compose -f docker-compose.yml \
+     -f sample_data/docker-compose.vdms-override.yml \
+     -f sample_data/docker-compose.reid-pipeline-override.yml \
+     --profile controller up queuing-video retail-video reid scene -d
    ```
 
-   Ensure the OMZ model `person-reidentification-retail-0277` is available in `intel/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/intel`.
+   Ensure the OMZ model `person-reidentification-retail-0277` is available in `omz/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/omz`.
 
 ## Enable Pose Estimation
 
@@ -235,7 +255,7 @@ Following are step-by-step instructions for enabling pose estimation for the out
 
    To enable improved localization using pose keypoints, pass the `--pose-adjustment` flag or set the `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable on the `scene` service. This feature is disabled by default. See the [Scene Controller documentation](../docs/user-guide/microservices/controller/controller.md) for details.
 
-> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128` for deep-sort tracking) must use `detectionPolicy` as the metadata generation policy — `reidPolicy` is not supported for these pipelines. Additionally, the `--pose-adjustment` controller flag cannot be used together with Extended ReID (VDMS-based cross-camera re-identification).
+> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128` for deep-sort tracking) must use `detectionPolicy` as the metadata generation policy — `reidPolicy` is not supported for these pipelines. Additionally, the `--pose-adjustment` controller flag cannot be used together with Extended ReID (cross-camera re-identification via the configured vector backend).
 
 ## Enable Frame NTP Timestamp Extraction
 
@@ -243,7 +263,7 @@ Following are short steps to enable NTP timestamp extraction from an RTSP camera
 
 When an RTSP source provides NTP timing in its stream (via RTCP Sender Reports), GStreamer's `rtspsrc` element can
 attach that NTP reference timestamp to each buffer using `add-reference-timestamp-meta=true`. Enabling
-`useFrameNtpTimestamp` in the pipeline configuration causes Scenescape to read that metadata and use it as the frame
+`use-frame-ntp-timestamp` in the pipeline configuration causes Scenescape to read that metadata and use it as the frame
 timestamp instead of the post-decode system clock time. This improves timing accuracy when the camera and server are
 synchronized to the same NTP source.
 
@@ -253,14 +273,12 @@ synchronized to the same NTP source.
 1. Ensure the `rtspsrc` element in your pipeline string includes `add-reference-timestamp-meta=true`. The out-of-box
    [queuing-config.json](./queuing-config.json) already includes this setting.
 
-2. Set `useFrameNtpTimestamp` to `true` in the `frame_ntp_config` section of your pipeline payload. In
-   `queuing-config.json` this is the `payload.parameters.frame_ntp_config` block:
+2. Set `use_frame_ntp_timestamp` to `true` in your pipeline payload. In
+   `queuing-config.json` this is the `payload.parameters` block:
 
 ```json
 {
-  "frame_ntp_config": {
-    "useFrameNtpTimestamp": true
-  }
+  "use_frame_ntp_timestamp": true
 }
 ```
 
@@ -279,7 +297,7 @@ To create a new pipeline, follow these steps:
 1. **Create a New Config File:**
    Use the existing `config.json` as a template to create your new pipeline configuration file (e.g., `my_pipeline_config.json`). Adjust the parameters as needed for your use case.
 
-   > **Note:** The `detection_policy` parameter specifies the type of inference model used in the pipeline. For example, use `detection_policy` for detection models, `reid_policy` for re-identification models, and `classification_policy` for classification models. Currently, only these policies are supported. To add a custom policy, refer to the implementation in [sscape_adapter.py](./user_scripts/gvapython/sscape/sscape_adapter.py).
+   > **Note:** The `detection_policy` parameter specifies the type of inference model used in the pipeline. For example, use `detection_policy` for detection models, `reid_policy` for re-identification models, and `classification_policy` for classification models. Currently, only these policies are supported. To add a custom policy, refer to the implementation in [sscape_post_inference_data_publish.py](./user_scripts/gstplugins/sscape_post_inference_data_publish.py).
 
 2. **Mount the Config File:**
    In your `docker-compose.yml`, update the DL Streamer Pipeline Server service to mount your new config file. For example:
@@ -303,7 +321,7 @@ Your new pipeline will now be used by the DL Streamer Pipeline Server on startup
 
 ## Using Authenticated MQTT Broker
 
-- The current DL Streamer Pipeline Server does not support Mosquitto connections with authentication by default. If authentication is required, configure a custom MQTT client with authentication support in [sscape_adapter.py](./user_scripts/gvapython/sscape/sscape_adapter.py).
+- The current DL Streamer Pipeline Server does not support Mosquitto connections with authentication by default. If authentication is required, configure a custom MQTT client with authentication support in [sscape_post_inference_data_publish.py](./user_scripts/gstplugins/sscape_post_inference_data_publish.py).
 
 ## Additional Resources
 

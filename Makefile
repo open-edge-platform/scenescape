@@ -8,7 +8,7 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-CORE_IMAGE_FOLDERS := autocalibration controller manager model_installer
+CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
 IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker
 
 # Image variables
@@ -38,12 +38,21 @@ CERTDOMAIN ?= scenescape.intel.com
 # Demo variables
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
+DEMO_WAIT_SECONDS ?= "0"
+# ReID vector backend used by the ReID demo targets: vdms (default) or qdrant
+REID_BACKEND ?= vdms
+REID_OVERRIDE_FILE = sample_data/docker-compose.$(strip $(REID_BACKEND))-override.yml
+REID_PIPELINE_OVERRIDE_FILE = sample_data/docker-compose.reid-pipeline-override.yml
+REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE) -f $(REID_PIPELINE_OVERRIDE_FILE)
+DEMO_REBUILD_IMAGES ?= true
+# Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
+DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
 
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
-TEST_IMAGE_FOLDERS := autocalibration controller manager mapping cluster_analytics
-TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping cluster_analytics)
+TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics
+TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics)
 DEPLOYMENT_TEST ?= 0
 
 # Kubernetes demo variables
@@ -56,7 +65,6 @@ CONTROLLER_METRICS_EXPORT_INTERVAL_S ?= 60
 CONTROLLER_ENABLE_TRACING ?= false
 CONTROLLER_TRACING_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
 CONTROLLER_TRACING_SAMPLE_RATIO ?= 1.0
-CONTROLLER_ENABLE_ANALYTICS_ONLY ?= false
 
 # ========================= Default Target ===========================
 
@@ -88,14 +96,15 @@ help:
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
-	@echo "  demo                        (default) Start the Scenescape demo with core services using Docker Compose"
-	@echo "  demo-all                    Start the Scenescape demo with all services using Docker Compose"
+	@echo "  demo                        (default) Start the Scenescape demo with core services (tracking, no ReID)"
+	@echo "  demo-reid                   Start the core demo plus the ReID vector database"
+	@echo "  demo-all                    Start demo-reid plus cluster analytics and experimental services"
 	@echo "  demo-cluster-analytics      Start the Scenescape demo with cluster analytics service using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Scenescape)"
-	@echo "  demo-tracker                Start the Scenescape demo with Tracker service + Controller in analytics only mode using Docker Compose"
+	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
-	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
+	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -153,6 +162,8 @@ help:
 	@echo "  - Use 'make JOBS=N' to build Scenescape images using N parallel processes."
 	@echo "  - Use 'make FOLDERS=\"<list of image folders>\"' to build specific image folders."
 	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
+	@echo "  - ReID demo targets (demo-reid, demo-all, demo-k8s with DEMO_K8S_MODE=reid|all)"
+	@echo "    default to REID_BACKEND=vdms. Set REID_BACKEND=qdrant to use Qdrant instead."
 	@echo ""
 
 # ========================= Build Images =============================
@@ -175,7 +186,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager mapping cluster_analytics: build-common
+autocalibration controller manager analytics mapping cluster_analytics: build-common
 
 # Helper function to build images in parallel
 define parallel-build
@@ -289,7 +300,7 @@ clean-secrets:
 clean-tests:
 	@echo "==> Cleaning test artifacts..."
 	@-rm -rf test_data/
-	@-rm -rf tests/test_logs tests/.venv
+	@-rm -rf tests/.test_logs tests/.venv
 	@echo "Cleaning fast_geometry build artifacts..."
 	@-rm -f scene_common/src/fast_geometry/*.oxx scene_common/src/fast_geometry/*.so
 	@-rm -rf scene_common/src/scene_common.egg-info
@@ -304,6 +315,7 @@ clean-tests:
 list-dependencies: $(BUILD_DIR)
 	@echo "==> Listing dependencies for all microservices..."
 	@set -e; \
+	$(MAKE) -C $(COMMON_FOLDER) BUILD_DIR=$(BUILD_DIR) list-dependencies; \
 	for dir in $(IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) list-dependencies; \
 	done
@@ -346,7 +358,7 @@ build-sources-image: sources.Dockerfile
 
 .PHONY: install-models
 install-models:
-	@$(MAKE) -C model_installer install-models
+	@$(MAKE) -C model_download install-models
 
 # =========================== Run Tests ==============================
 
@@ -356,7 +368,7 @@ PYTEST_FLAGS := --rootdir=$(CURDIR)/tests -v --tb=short
 TESTS_DIR := $(CURDIR)/tests
 
 .PHONY: setup-tests
-setup-tests: init-secrets .env setup-pytest
+setup-tests: init-secrets .env setup-pytest build-common
 	@echo "Setting up test environment..."
 	for dir in $(TEST_IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir test-build; \
@@ -372,7 +384,10 @@ setup-pytest:
 	@echo "Installing venv dependencies..."; \
 	$(CURDIR)/tests/.venv/bin/pip install --progress-bar on --upgrade pip; \
 	cd $(CURDIR)/tests && $(CURDIR)/tests/.venv/bin/pip install --progress-bar on -r requirements.txt; \
-	cd $(CURDIR)/tests && $(CURDIR)/tests/.venv/bin/pip install --no-deps -r requirements-no-deps.txt;
+	cd $(CURDIR)/tests && $(CURDIR)/tests/.venv/bin/pip install --progress-bar on pycocotools tabulate; \
+	cd $(CURDIR)/tests && ( $(CURDIR)/tests/.venv/bin/pip install --no-deps -r requirements-no-deps.txt 2>&1 \
+		| sed '/trackeval 1.0.1 requires numpy>=2.3.2; python_version >= "3.11", but you have numpy 2.2.6 which is incompatible\./d' ); \
+	test $${PIPESTATUS[0]} -eq 0;
 	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "from fast_geometry import Point" 2>/dev/null; then \
 		echo "Building fast_geometry C++ extension..."; \
 		PATH="$(CURDIR)/tests/.venv/bin:$$PATH" \
@@ -380,27 +395,40 @@ setup-pytest:
 	fi
 	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision, 'tracking')" 2>/dev/null; then \
 		echo "Building robot_vision C++ extension..."; \
+		for pkg in libopencv-dev libeigen3-dev; do \
+			dpkg -s $$pkg > /dev/null 2>&1 || { echo "ERROR: $$pkg is required to build robot_vision. See tests/README.md for installation instructions."; exit 1; }; \
+		done; \
 		$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir scikit-build-core cmake; \
-		if ! dpkg -s libopencv-dev > /dev/null 2>&1; then \
-			echo "ERROR: libopencv-dev is required to build robot_vision. See tests/README.md for installation instructions."; \
-			exit 1; \
-		fi; \
-		if ! dpkg -s libeigen3-dev > /dev/null 2>&1; then \
-			echo "ERROR: libeigen3-dev is required to build robot_vision. See tests/README.md for installation instructions."; \
-			exit 1; \
-		fi; \
 		OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
 			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(CURDIR)/controller/src/robot_vision; \
 	fi
-	@if ! command -v firefox > /dev/null 2>&1; then \
-		echo "WARNING: Firefox is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
+	@FF_LOCATIONS="$$(which -a firefox 2>/dev/null || true)"; \
+	if [ -z "$$FF_LOCATIONS" ]; then \
+			echo "ERROR: Firefox is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
+			exit 1; \
+	fi; \
+	FF_NON_SNAP="$$(echo "$$FF_LOCATIONS" | grep -v '/snap/' || true)"; \
+	if [ -z "$$FF_NON_SNAP" ]; then \
+			echo "ERROR: All firefox binaries are Snap-based:"; \
+			echo "$$FF_LOCATIONS" | sed 's/^/  /'; \
+			echo "Snap Firefox is incompatible with Selenium. See tests/README.md for installation instructions."; \
+			exit 1; \
+	fi
+	@if [ ! -f "$(CURDIR)/tests/.venv/bin/geckodriver" ]; then \
+		echo "geckodriver not found — downloading v0.36.0 into tests/.venv/bin/..."; \
+		set -e; \
+		BASE_URL=https://github.com/mozilla/geckodriver/releases; \
+		GVERSION=v0.36.0; \
+		curl -fSL "$${BASE_URL}/download/$${GVERSION}/geckodriver-$${GVERSION}-linux64.tar.gz" \
+			| tar xz -C $(CURDIR)/tests/.venv/bin/ geckodriver; \
+		echo "geckodriver installed to tests/.venv/bin/geckodriver"; \
 	fi
 	@if ! command -v Xvfb > /dev/null 2>&1; then \
 		echo "WARNING: Xvfb is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
 	fi
 
 .PHONY: run_tests
-run_tests: setup-tests setup-pytest
+run_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -410,7 +438,7 @@ run_tests: setup-tests setup-pytest
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_standard_tests
-run_standard_tests: setup-tests setup-pytest
+run_standard_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running standard tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -419,7 +447,7 @@ run_standard_tests: setup-tests setup-pytest
 	@echo "DONE ==> Running standard tests"
 
 .PHONY: run_functional_tests
-run_functional_tests: setup-tests setup-pytest
+run_functional_tests: setup-tests build-core-images
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running functional tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -433,7 +461,7 @@ run_non_functional_tests: init-secrets .env
 	@echo "DONE ==> Running non-functional tests"
 
 .PHONY: run_ui_tests
-run_ui_tests: setup-tests setup-pytest
+run_ui_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running UI tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -441,24 +469,22 @@ run_ui_tests: setup-tests setup-pytest
 	@echo "DONE ==> Running UI tests"
 
 .PHONY: run_unit_tests
-run_unit_tests: setup-tests setup-pytest
+run_unit_tests: init-secrets setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests..."
 	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
 	@echo "DONE ==> Running unit tests"
 
 .PHONY: run_basic_acceptance_tests
-run_basic_acceptance_tests: setup-tests setup-pytest
+run_basic_acceptance_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running basic acceptance tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
-		$(PYTEST) $(TESTS_DIR)/functional/ $(TESTS_DIR)/ui/ \
-		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ \
-		$(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Basic acceptance tests failed" && exit 1)
+		$(PYTEST) $(TESTS_DIR) -m basic_acceptance $(PYTEST_FLAGS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
 .PHONY: run_stability_tests
-run_stability_tests: setup-tests setup-pytest
+run_stability_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	$(eval HOURS ?= 24)
 	@echo "Running stability tests..."
@@ -471,7 +497,7 @@ run_stability_tests: setup-tests setup-pytest
 
 TEST_DATA ?= test_data
 .PHONY: run_performance_tests
-run_performance_tests: setup-tests setup-pytest
+run_performance_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running performance tests..."
 	$(MAKE) _run_performance_tests SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
@@ -497,7 +523,7 @@ geometry-conformance:
 GENERATE_JUNITXML = -o junit_logging=all --junitxml tests/reports/test_reports/$@.xml
 
 .PHONY: run_metric_tests
-run_metric_tests: setup-tests setup-pytest
+run_metric_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running metric tests..."
 	$(MAKE) -j $(NPROCS) _run_metric_tests SUPASS=$(SUPASS) || (echo "Metric tests failed" && exit 1)
@@ -624,12 +650,6 @@ prettier-write:
 add-licensing:
 	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="Apache-2.0" $(FILE) || (echo "Adding license failed" && exit 1)
 
-# =========================== Coverity ==============================
-.PHONY: build-coverity
-build-coverity:
-	$(MAKE) -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
-	@export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" && pip3 install --no-cache-dir scikit-build-core && cd controller/src/robot_vision && pip3 install --no-cache-dir --no-build-isolation . || (echo "robot vision build failed" && exit 1)
-	$(MAKE) -C tracker build || (echo "tracker build failed" && exit 1)
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: convert-dls-videos
@@ -673,29 +693,46 @@ define start_demo
 		echo "Updating docker-compose.yml with custom HTTPS port: $$HTTPS_PORT"; \
 		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
 	fi
-	docker compose $(1) up -d
 	@echo "$(1)" > .scenescape-profile
+	@if [ "$(DEMO_WAIT_SECONDS)" != "0" ]; then \
+		echo "Waiting for Scenescape services to be ready..."; \
+		docker compose $(1) up -d --wait --wait-timeout $(DEMO_WAIT_SECONDS); \
+	else \
+		echo "Starting Scenescape services in detached mode..."; \
+		docker compose $(1) up -d; \
+	fi
 	@echo ""
 	@echo "To stop Scenescape, type:"
 	@echo "    docker compose $(1) down"
 	@echo "Or use: make demo-close"
 endef
 
+.PHONY: check-reid-backend
+check-reid-backend:
+	@case "$(strip $(REID_BACKEND))" in \
+		vdms|qdrant) ;; \
+		*) echo "REID_BACKEND must be 'vdms' (default) or 'qdrant'"; exit 1 ;; \
+	esac
+
 .PHONY: demo
-demo: build-core init-sample-data
+demo: $(DEMO_BUILD:build=build-core) init-sample-data
 	$(call start_demo,--profile controller)
 
+.PHONY: demo-reid
+demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core) init-sample-data
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller))
+
 .PHONY: demo-all
-demo-all: build-all init-sample-data
-	$(call start_demo,--profile controller --profile cluster-analytics --profile experimental)
+demo-all: check-reid-backend $(DEMO_BUILD:build=build-all) init-sample-data
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile experimental))
 
 .PHONY: demo-cluster-analytics
-demo-cluster-analytics: build-all init-sample-data
+demo-cluster-analytics: $(DEMO_BUILD:build=build-all) init-sample-data
 	$(call start_demo,--profile controller --profile cluster-analytics)
 
 .PHONY: demo-tracker
-demo-tracker: build-all init-sample-data
-	$(call start_demo,--profile analytics --profile tracker)
+demo-tracker: $(DEMO_BUILD:build=build-all) init-sample-data
+	$(call start_demo,--profile tracker)
 
 .PHONY: demo-close
 demo-close:
@@ -707,8 +744,8 @@ demo-close:
 	@rm -f .scenescape-profile
 
 .PHONY: demo-k8s
-demo-k8s:
-	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST) DEMO_K8S_MODE=$(DEMO_K8S_MODE)
+demo-k8s: check-reid-backend
+	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST) DEMO_K8S_MODE=$(DEMO_K8S_MODE) REID_BACKEND=$(strip $(REID_BACKEND))
 
 .PHONY: docker-compose.yml
 docker-compose.yml:
@@ -734,7 +771,6 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "CONTROLLER_ENABLE_TRACING=$(CONTROLLER_ENABLE_TRACING)" >> $@
 	@echo "CONTROLLER_TRACING_ENDPOINT=$(CONTROLLER_TRACING_ENDPOINT)" >> $@
 	@echo "CONTROLLER_TRACING_SAMPLE_RATIO=$(CONTROLLER_TRACING_SAMPLE_RATIO)" >> $@
-	@echo "CONTROLLER_ENABLE_ANALYTICS_ONLY=$(CONTROLLER_ENABLE_ANALYTICS_ONLY)" >> $@
 # ======================= Secrets Management =========================
 
 .PHONY: init-secrets
@@ -751,8 +787,18 @@ $(SECRETSDIR):
 	fi
 
 .PHONY: $(SECRETSDIR) certificates
+# Hierarchy functional tests need SANs for parent-/child*-web/broker and reid-*.
+# Override with empty values for minimal production-like certs, e.g.
+#   make certificates BROKER_EXTRA_HOSTS= WEB_EXTRA_HOSTS= REID_S_EXTRA_HOSTS=
+BROKER_EXTRA_HOSTS ?= parent-broker child1-broker child2-broker
+WEB_EXTRA_HOSTS ?= parent-web child1-web child2-web
+REID_S_EXTRA_HOSTS ?= reid-shared reid-a reid-b
 certificates:
-	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12) SECRETSDIR=$(SECRETSDIR) CERTDOMAIN=$(CERTDOMAIN)
+	@make -C ./tools/certificates CERTPASS=$$(openssl rand -base64 12) \
+		SECRETSDIR=$(SECRETSDIR) CERTDOMAIN=$(CERTDOMAIN) \
+		BROKER_EXTRA_HOSTS="$(BROKER_EXTRA_HOSTS)" \
+		WEB_EXTRA_HOSTS="$(WEB_EXTRA_HOSTS)" \
+		REID_S_EXTRA_HOSTS="$(REID_S_EXTRA_HOSTS)"
 
 .PHONY: auth-secrets
 auth-secrets:

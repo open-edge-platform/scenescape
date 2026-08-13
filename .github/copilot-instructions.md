@@ -28,6 +28,7 @@ Consult these based on the code you're working with:
 - **Shell** (`.github/skills/shell/SKILL.md`): Bash scripting guidelines
 - **Makefile** (`.github/skills/makefile/SKILL.md`): Build system conventions
 - **Testing** (`.github/skills/testing/SKILL.md`): Test creation frameworks
+- **External-source adapters** (`.github/skills/external-source-adapter/SKILL.md`): Converter scripts for the Scene Controller `external_source` MQTT contract (read the skill before writing publishers)
 
 ### Skills Caching Strategy
 
@@ -131,7 +132,7 @@ make rebuild-core                  # Clean + build (useful after code changes)
 
 Testing guidance is intentionally centralized in skills to avoid duplication.
 
-- Canonical test authoring and categorization guidance: `.github/skills/testing/SKILL.md`
+- Canonical test authoring and categorization guidance: `.github/skills/testing/SKILL.md` (category details in `testing/references/`)
 - Canonical runtime verification and completion rules: `.github/skills/test-verification-gate/SKILL.md`
 
 At this level, only rely on high-level routing:
@@ -205,7 +206,8 @@ pubsub.publish(topic, json_payload)
 **Debugging Tests**:
 
 - Run specific test: `pytest tests/sscape_tests/geometry/test_point.py::TestPoint::test_constructor`
-- Per-test logs: `tests/test_logs/<category>/<test_name>-<timestamp>/` (includes container logs)
+- Per-test logs: `tests/.test_logs/<group>/<test_id>/<test_id>-<timestamp>.log`
+  (container logs for failures are written to a `...-containers/` sibling directory)
 - Container log collection: `--collect-container-logs {failed,all,none}` (default: `failed`)
 - Multi-backend: `--backend=docker` (default), `--backend=kubernetes`, `--backend=all`
 
@@ -233,7 +235,8 @@ pubsub.publish(topic, json_payload)
 
 - Helm chart: `kubernetes/scenescape-chart/`
 - Reference: `kubernetes/README.md` for K8s-specific patterns
-- Test via `make demo-k8s DEMO_K8S_MODE=core|all`
+- Test via `make demo-k8s DEMO_K8S_MODE=core|reid|all`
+- ReID backend selected by `reid.backend` (`vdms`|`qdrant`), or `REID_BACKEND` for the make targets
 
 ## File Organization Essentials
 

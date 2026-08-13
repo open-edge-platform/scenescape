@@ -35,8 +35,6 @@
             "password": "FullPassword123!",
             "email": "user_full@example.com",
             "is_active": true,
-            "is_staff": true,
-            "is_superuser": false,
             "first_name": "John",
             "last_name": "Doe",
             "scene": "16fd2706-8baf-433b-82eb-8c7fada847da"
@@ -180,22 +178,72 @@
           "status_code": 200
         },
         "expected_body": {
-          "count": 8,
+          "count": 6,
           "next": null,
           "previous": null,
           "results": [
             {
-              "uid": "4",
-              "username": "admin",
+              "uid": "1",
+              "username": "webuser",
               "is_active": true,
-              "is_staff": true,
+              "is_staff": false,
               "is_superuser": true,
               "first_name": "",
               "last_name": "",
-              "email": "admin@domain.com"
+              "email": "",
+              "acls": [
+                {
+                  "topic": "DATA_CAMERA",
+                  "access": 1
+                },
+                {
+                  "topic": "CHANNEL",
+                  "access": 1
+                },
+                {
+                  "topic": "IMAGE_CAMERA",
+                  "access": 1
+                },
+                {
+                  "topic": "IMAGE_CALIBRATE",
+                  "access": 1
+                },
+                {
+                  "topic": "CMD_DATABASE",
+                  "access": 3
+                },
+                {
+                  "topic": "CMD_CAMERA",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_AUTOCALIB_CAM_POSE",
+                  "access": 1
+                },
+                {
+                  "topic": "CMD_KUBECLIENT",
+                  "access": 3
+                },
+                {
+                  "topic": "EVENT",
+                  "access": 1
+                },
+                {
+                  "topic": "SYS_CHILDSCENE_STATUS",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_REGULATED",
+                  "access": 1
+                },
+                {
+                  "topic": "DATA_EXTERNAL",
+                  "access": 1
+                }
+              ]
             },
             {
-              "uid": "1",
+              "uid": "2",
               "username": "calibration",
               "is_active": true,
               "is_staff": false,
@@ -219,7 +267,7 @@
               ]
             },
             {
-              "uid": "2",
+              "uid": "3",
               "username": "scenectrl",
               "is_active": true,
               "is_staff": false,
@@ -287,64 +335,14 @@
               ]
             },
             {
-              "uid": "3",
-              "username": "webuser",
+              "uid": "4",
+              "username": "admin",
               "is_active": true,
-              "is_staff": false,
+              "is_staff": true,
               "is_superuser": true,
               "first_name": "",
               "last_name": "",
-              "email": "",
-              "acls": [
-                {
-                  "topic": "DATA_CAMERA",
-                  "access": 1
-                },
-                {
-                  "topic": "CHANNEL",
-                  "access": 1
-                },
-                {
-                  "topic": "IMAGE_CAMERA",
-                  "access": 1
-                },
-                {
-                  "topic": "IMAGE_CALIBRATE",
-                  "access": 1
-                },
-                {
-                  "topic": "CMD_DATABASE",
-                  "access": 3
-                },
-                {
-                  "topic": "CMD_CAMERA",
-                  "access": 3
-                },
-                {
-                  "topic": "DATA_AUTOCALIB_CAM_POSE",
-                  "access": 1
-                },
-                {
-                  "topic": "CMD_KUBECLIENT",
-                  "access": 3
-                },
-                {
-                  "topic": "EVENT",
-                  "access": 1
-                },
-                {
-                  "topic": "SYS_CHILDSCENE_STATUS",
-                  "access": 3
-                },
-                {
-                  "topic": "DATA_REGULATED",
-                  "access": 1
-                },
-                {
-                  "topic": "DATA_EXTERNAL",
-                  "access": 1
-                }
-              ]
+              "email": "admin@domain.com"
             },
             {
               "uid": "${USER_ID}",
@@ -360,7 +358,7 @@
               "uid": "${USER_ID_FULL}",
               "username": "${USER_NAME_FULL}",
               "is_active": true,
-              "is_staff": true,
+              "is_staff": false,
               "is_superuser": false,
               "first_name": "John",
               "last_name": "Doe",
@@ -428,7 +426,89 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/USER/12: Delete Existing User",
+    "test_name": "Vision_AI/SSCAPE/API/USER/12: Create user with is_staff and is_superuser true",
+    "test_steps": [
+      {
+        "step_name": "Create user with privilege fields in body",
+        "api": "user",
+        "method": "createUser",
+        "request": {
+          "body": {
+            "username": "user_privileged",
+            "password": "Privileged123!",
+            "is_staff": true,
+            "is_superuser": true
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        }
+      },
+      {
+        "step_name": "Verify privilege fields were ignored",
+        "api": "user",
+        "method": "getUser",
+        "request": {
+          "username": "user_privileged"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "is_staff": false,
+          "is_superuser": false
+        }
+      },
+      {
+        "step_name": "Cleanup created user",
+        "api": "user",
+        "method": "deleteUser",
+        "request": {
+          "username": "user_privileged"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/13: Update user with is_staff and is_superuser true",
+    "test_steps": [
+      {
+        "step_name": "Update user with privilege fields in body",
+        "api": "user",
+        "method": "updateUser",
+        "request": {
+          "username": "${USER_NAME_MINIMAL}",
+          "body": {
+            "is_staff": true,
+            "is_superuser": true
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify privilege fields were not changed",
+        "api": "user",
+        "method": "getUser",
+        "request": {
+          "username": "${USER_NAME_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "is_staff": false,
+          "is_superuser": false
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/14: Delete Existing User",
     "test_steps": [
       {
         "step_name": "Delete user minimal",
@@ -440,11 +520,22 @@
         "expected_status": {
           "status_code": 200
         }
+      },
+      {
+        "step_name": "Delete full user",
+        "api": "user",
+        "method": "deleteUser",
+        "request": {
+          "username": "${USER_NAME_FULL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/USER/13: Delete non existent user",
+    "test_name": "Vision_AI/SSCAPE/API/USER/15: Delete non existent user",
     "test_steps": [
       {
         "step_name": "Delete again",

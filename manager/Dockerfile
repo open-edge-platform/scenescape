@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
 
 FROM intel/scenescape-common-base AS scenescape-manager-builder
 
@@ -30,13 +30,26 @@ RUN : \
         apache2 \
     && rm -rf /var/lib/apt/lists/*
 
-# mod_qos library is broken on debian 12, so we build it from source
-RUN wget https://sourceforge.net/projects/mod-qos/files/mod_qos-11.79.tar.gz/download -O /tmp/mod_qos-11.79.tar.gz && \
-    tar -xzf /tmp/mod_qos-11.79.tar.gz -C /tmp && \
-    rm /tmp/mod_qos-11.79.tar.gz && \
-    cd /tmp/mod_qos-11.79/apache2 && \
-    apxs2 -i -a -c -lssl -l crypto mod_qos.c && \
-    rm -rf /tmp/mod_qos-11.79
+# mod_qos library is broken on debian 12, so we build it from source.
+# Use multiple download endpoints and dynamic extraction path to avoid pin-breakage.
+ARG MOD_QOS_VERSION=11.79
+RUN : \
+        ; MOD_QOS_ARCHIVE="/tmp/mod_qos-${MOD_QOS_VERSION}.tar.gz" \
+        ; for URL in \
+                "https://downloads.sourceforge.net/project/mod-qos/mod_qos-${MOD_QOS_VERSION}.tar.gz" \
+                "https://sourceforge.net/projects/mod-qos/files/mod_qos-${MOD_QOS_VERSION}.tar.gz/download" \
+                "https://sourceforge.net/projects/mod-qos/files/latest/download" \
+            ; do \
+                wget --tries=3 --waitretry=2 "$URL" -O "$MOD_QOS_ARCHIVE" && break || true; \
+            done \
+        ; test -s "$MOD_QOS_ARCHIVE" \
+        ; tar -xzf "$MOD_QOS_ARCHIVE" -C /tmp \
+        ; rm -f "$MOD_QOS_ARCHIVE" \
+        ; MOD_QOS_SRC_DIR="$(find /tmp -maxdepth 1 -type d -name 'mod_qos-*' | head -n1)" \
+        ; test -n "$MOD_QOS_SRC_DIR" \
+        ; cd "$MOD_QOS_SRC_DIR/apache2" \
+        ; apxs2 -i -a -c -lssl -lcrypto mod_qos.c \
+        ; rm -rf "$MOD_QOS_SRC_DIR"
 
 # ---------- Manager Runtime Stage ------------------
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-manager-runtime
@@ -59,18 +72,14 @@ ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 ARG FORCE_VAAPI
 
-# Update and upgrade base OS packages
-RUN apt update && apt upgrade -y
-
-RUN : \
-&& apt-get update \
-    && apt-get install -y --no-install-recommends \
-        curl \
-        ca-certificates \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends \
+# Upgrade base OS packages and install runtime dependencies in one layer
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
         apache2 \
         bzip2 \
+        curl \
+        ca-certificates \
         libegl1 \
         libgl1 \
         libapache2-mod-wsgi-py3 \
@@ -82,13 +91,10 @@ RUN : \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip and setuptools to latest versions
-RUN pip3 install --no-cache-dir --upgrade pip \
-    && pip3 install --no-cache-dir --upgrade setuptools wheel
-
 # Runtime dependencies
 COPY ./manager/requirements-runtime.txt /tmp
-RUN pip3 install --upgrade --no-cache-dir \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip3 install --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt
 

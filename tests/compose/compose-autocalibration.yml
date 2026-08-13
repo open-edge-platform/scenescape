@@ -19,7 +19,7 @@ secrets:
 services:
   # Init container to fix volume permissions for autocalibration
   autocalibration-init:
-    image: alpine:3.23
+    image: alpine:3.24
     command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models
@@ -53,9 +53,12 @@ services:
     environment:
       - EGL_PLATFORM=surfaceless
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad
-      - HTTP_PROXY=${HTTP_PROXY}
-      - HTTPS_PROXY=${HTTPS_PROXY}
-      - NO_PROXY=${NO_PROXY}
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+      - no_proxy=127.0.0.1,localhost,${no_proxy},.scenescape.intel.com
+      - HTTP_PROXY=${http_proxy}
+      - HTTPS_PROXY=${https_proxy}
+      - NO_PROXY=127.0.0.1,localhost,${no_proxy},.scenescape.intel.com
     volumes:
       - ./:/workspace
       - vol-media:/home/scenescape/Scenescape/media

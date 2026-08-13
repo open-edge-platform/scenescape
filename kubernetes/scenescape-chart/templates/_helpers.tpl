@@ -16,6 +16,14 @@
   value: {{ .Values.noProxy }}
 {{- end }}
 
+{{- define "reid.backend" -}}
+{{- $backend := .Values.reid.backend | default "vdms" -}}
+{{- if not (has $backend (list "vdms" "qdrant")) -}}
+{{- fail (printf "reid.backend must be 'vdms' or 'qdrant', got '%s'" $backend) -}}
+{{- end -}}
+{{- $backend -}}
+{{- end -}}
+
 {{- define "certs_volume" }}
 - name: certs
   projected:
@@ -34,20 +42,22 @@
           path: scenescape-broker.crt
         - key: tls.key
           path: scenescape-broker.key
+    {{- if .Values.reid.enabled }}
     - secret:
-        name: {{ .Release.Name }}-vdms-s-tls
+        name: {{ .Release.Name }}-reid-s-tls
         items:
         - key: tls.key
-          path: scenescape-vdms-s.key
+          path: scenescape-reid-s.key
         - key: tls.crt
-          path: scenescape-vdms-s.crt
+          path: scenescape-reid-s.crt
     - secret:
-        name: {{ .Release.Name }}-vdms-c-tls
+        name: {{ .Release.Name }}-reid-c-tls
         items:
         - key: tls.key
-          path: scenescape-vdms-c.key
+          path: scenescape-reid.key
         - key: tls.crt
-          path: scenescape-vdms-c.crt
+          path: scenescape-reid.crt
+    {{- end }}
     - secret:
         name: {{ .Release.Name }}-autocalibration-tls
         items:

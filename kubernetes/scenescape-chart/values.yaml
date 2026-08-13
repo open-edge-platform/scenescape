@@ -11,7 +11,7 @@ imagePullSecrets: {}
 
 # Service values
 initModels:
-  enabled: true
+  enabled: false
   image:
     repository: docker.io
     name: python
@@ -27,6 +27,25 @@ initModels:
     limits:
       memory: "2Gi"
       cpu: "1000m"
+
+modelDownload:
+  enabled: true
+  image:
+    repository: docker.io
+    name: intel/model-download
+    tag: 2026.2.0-ww32
+    pullPolicy: IfNotPresent
+  commandArgs: "--plugins omz"
+  parallelDownloads: false
+  initialWaitTimeout: 1800
+  waitTimeout: 1800
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "100m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
 
 ntpserv:
   image:
@@ -58,11 +77,19 @@ web:
 scene:
   image: intel/scenescape-controller
   pullPolicy: IfNotPresent
-  analyticsOnly: false
+
+analytics:
+  image: intel/scenescape-analytics
+  pullPolicy: IfNotPresent
+  # regulated, unregulated, or none
+  visibilityTopic: regulated
 
 autocalibration:
   image: intel/scenescape-autocalibration
   pullPolicy: IfNotPresent
+  # When true, skip the ~550MB NetVLAD download at container start.
+  # Markerless calibration needs the model; deployment smoke tests do not.
+  skipModelDownload: false
 
 kubeclient:
   enabled: true
@@ -71,12 +98,12 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "2026.2.0-20260630-weekly-ubuntu24"
+    tag: "2026.2.0-ubuntu24-rc1"
     pullPolicy: IfNotPresent
 
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
-  tag: "2026.2.0-20260630-weekly-ubuntu24"
+  tag: "2026.2.0-ubuntu24-rc1"
   pullPolicy: IfNotPresent
   storageClassName: ""
   cameras:
@@ -90,7 +117,7 @@ retail:
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
-  tag: "2026.2.0-20260630-weekly-ubuntu24"
+  tag: "2026.2.0-ubuntu24-rc1"
   storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
@@ -116,13 +143,23 @@ video:
   storage: 50Gi
   storageClassName: ""
 
-vdms:
+reid:
   enabled: true
-  image:
-    repository: docker.io
-    name: intellabs/vdms
-    tag: v2.12.0
-    pullPolicy: IfNotPresent
+  # Vector database backend for re-identification: vdms or qdrant.
+  # The backends are alternatives; exactly one is deployed as the "reid" service.
+  backend: vdms
+  vdms:
+    image:
+      repository: docker.io
+      name: intellabs/vdms
+      tag: v2.12.0
+      pullPolicy: IfNotPresent
+  qdrant:
+    image:
+      repository: docker.io
+      name: qdrant/qdrant
+      tag: v1.13.2
+      pullPolicy: IfNotPresent
 
 clusterAnalytics:
   enabled: false

@@ -72,12 +72,20 @@ When making changes, verify and update:
 - **Overview** (`docs/user-guide/microservices/controller/controller.md`): Scene management, object tracking, REST API
 - **Build** (`docs/user-guide/microservices/controller/get-started/build-from-source.md`): Makefile targets, Docker commands
 - **API Spec** (`docs/user-guide/microservices/controller/api-reference.md` and `_assets/scene-controller-api.yaml`): gRPC/REST endpoint definitions
+- **Data formats** (`docs/user-guide/microservices/controller/data_formats.md`): Canonical MQTT contracts, including External Source Input Message Format
+- **External-source adapter how-to** (`docs/user-guide/how-to-guides/publish-external-source-adapter.md`): Procedure for converter scripts (links to data formats; does not duplicate field tables)
+- **External-source adapter skill** (`.github/skills/external-source-adapter/SKILL.md`): Agent checklist; points at the how-to and data formats
 - **Tests** (`controller/tests/README.md`): Unit, functional, integration test execution
+
+When changing the `external_source` / `external_pose` / `external_detection`
+contract: update the schema and `data_formats.md` first, then verify links and
+checklists in the how-to and `.github/skills/external-source-adapter/SKILL.md`
+still resolve. Do not restate field tables in the how-to or skill.
 
 ### Manager Service
 
 - **Overview** (`docs/user-guide/using-intel-scenescape/` and related guides): Web UI features, REST API, database schema
-- **Build** (`docs/user-guide/get-started.md` and root build guides): Django setup, migrations, static files
+- **Build** (`docs/user-guide/get-started/installation.md` and root build guides): Django setup, migrations, static files
 - **API Spec** (`docs/user-guide/api-reference.md`): REST endpoint definitions
 - **Tests** (`manager/tests/README.md`): UI tests, functional tests, API tests
 

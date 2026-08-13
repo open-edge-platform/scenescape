@@ -7,7 +7,7 @@ This guide explains how to:
 
 ## Prerequisites
 
-- Successful deployment of a Scenescape instance using [Get Started](../get-started.md)
+- Successful deployment of a Scenescape instance using [Installation](../get-started/installation.md)
 - Access to the DeepScenario 3D Object Detection package
 
 ## Setup Steps
@@ -70,23 +70,17 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
       {
         "name": "deepscenario-cam1",
         "source": "gstreamer",
-        "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/input-video.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvapython class=DeepScenario module=/home/pipeline-server/user_scripts/DeepScenario.py function=process_frame name=deepscenario ! queue ! gvadeskew intrinsics-file=/home/pipeline-server/user_scripts/intrinsics.json ! queue ! gvadetect inference-region=1 model=/home/pipeline-server/models/yolov8_license_plate_detector/yolov8_license_plate_detector.xml ! queue ! gvaclassify model=/home/pipeline-server/models/ch_PP-OCRv4_rec_infer/ch_PP-OCRv4_rec_infer.xml ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/input-video.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvapython class=DeepScenario module=/home/pipeline-server/user_scripts/DeepScenario.py function=process_frame name=deepscenario ! queue ! gvadeskew intrinsics-file=/home/pipeline-server/user_scripts/intrinsics.json ! queue ! gvadetect inference-region=1 model=/home/pipeline-server/models/yolov8_license_plate_detector/yolov8_license_plate_detector.xml ! queue ! gvaclassify model=/home/pipeline-server/models/ch_PP-OCRv4_rec_infer/ch_PP-OCRv4_rec_infer.xml ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
           "properties": {
-            "ntp_config": {
+            "ntp_server": {
               "element": {
                 "name": "timesync",
-                "property": "kwarg",
-                "format": "json"
+                "property": "ntp-server"
               },
-              "type": "object",
-              "properties": {
-                "ntpServer": {
-                  "type": "string"
-                }
-              }
+              "type": "string"
             },
             "deepscenario_config": {
               "element": {
@@ -106,26 +100,28 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
                 }
               }
             },
-            "camera_config": {
+            "cameraid": {
               "element": {
                 "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
+                "property": "cameraid"
               },
-              "type": "object",
-              "properties": {
-                "cameraid": {
-                  "type": "string"
-                },
-                "metadatagenpolicy": {
-                  "type": "string",
-                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
-                }
-              }
+              "type": "string"
+            },
+            "metadatagenpolicy": {
+              "element": {
+                "name": "datapublisher",
+                "property": "metadatagenpolicy"
+              },
+              "type": "string",
+              "description": "One of detectionPolicy (default), detection3DPolicy, reidPolicy, classificationPolicy, ocrPolicy"
+            },
+            "publish_image": {
+              "element": {
+                "name": "datapublisher",
+                "property": "publish-image"
+              },
+              "type": "boolean",
+              "description": "Publish frame to mqtt"
             }
           }
         },
@@ -137,17 +133,13 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
             }
           },
           "parameters": {
-            "ntp_config": {
-              "ntpServer": "ntpserv"
-            },
+            "ntp_server": "ntpserv",
             "deepscenario_config": {
               "intrinsics_path": "/home/pipeline-server/user_scripts/intrinsics.json",
               "max_distance": 28.0
             },
-            "camera_config": {
-              "cameraid": "lpr",
-              "metadatagenpolicy": "ocrPolicy"
-            }
+            "cameraid": "lpr",
+            "metadatagenpolicy": "ocrPolicy"
           }
         }
       }
@@ -229,13 +221,14 @@ deepscenario:
     - REST_SERVER_PORT=8080
     - GENICAM=Balluff
     - GST_DEBUG=GST_TRACER:7
+    - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
     - ADD_UTCTIME_TO_METADATA=true
     - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
     - MQTT_HOST=broker.scenescape.intel.com
     - MQTT_PORT=1883
   volumes:
     - ./dlstreamer-pipeline-server/deepscenario-lpr-config.json:/home/pipeline-server/config.json
-    - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+    - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
     - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
     - ./sample_data:/home/pipeline-server/videos
     - ./model_installer/models/public/ch_PP-OCRv4_rec_infer/FP32:/home/pipeline-server/models/ch_PP-OCRv4_rec_infer
