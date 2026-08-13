@@ -13,6 +13,7 @@ import {
   TextureLoader,
 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { applyScenePoseToObject } from "./poseThree";
 import type { SceneGeometrySpec } from "./sceneGeometry";
 
 function loadImageSize(
@@ -65,6 +66,25 @@ async function loadMapPlane(
   return root;
 }
 
+/**
+ * Apply the scene's mesh TRS on a holder so GLB vertices sit in scene-local
+ * meters. The holder is a child of the child-link Object3D, so this pose is
+ * not written into the stored child→parent Euler.
+ */
+export function attachSceneMeshPose(
+  object: Object3D,
+  spec: SceneGeometrySpec,
+): Object3D {
+  if (!spec.isGlb) {
+    return object;
+  }
+  const holder = new Group();
+  holder.name = `${object.name || spec.name || "scene"}-mesh`;
+  holder.add(object);
+  applyScenePoseToObject(holder, spec.meshPose);
+  return holder;
+}
+
 async function loadGlb(spec: SceneGeometrySpec): Promise<Object3D> {
   if (!spec.mapUrl) {
     throw new Error("Scene has no GLB map");
@@ -80,7 +100,7 @@ async function loadGlb(spec: SceneGeometrySpec): Promise<Object3D> {
       mesh.material.opacity = Math.min(mesh.material.opacity, 0.95);
     }
   });
-  return root;
+  return attachSceneMeshPose(root, spec);
 }
 
 /** Load a scene map as a textured XY plane (Z-up floor) or a GLB mesh. */

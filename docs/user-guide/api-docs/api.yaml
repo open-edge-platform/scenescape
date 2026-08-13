@@ -2924,7 +2924,7 @@ components:
         residual_m:
           type: number
           format: double
-          description: Max ECEF residual of the reconstructed pose, in meters
+          description: Max parent-local error of the stored Euler pose versus the composed child-to-parent transform, in meters
       required:
         - translation
         - rotation

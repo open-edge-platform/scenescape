@@ -35,15 +35,18 @@ This task is essential for managing distributed scenes in Scenescape deployments
    - If **both** scenes have geospatial coordinates
      ([Configure Geospatial Coordinates](./configure-geospatial-coordinates.md)),
      Scenescape computes the pose from the four map corners. Optional:
-     **Override with manual values**. Linking is refused when the reconstructed
-     pose misses a child corner by more than ``max(2 m, 0.5% of the larger
-     map)``. If it fails, re-run **Generate Geospatial Bounds & Snapshot** on
-     both scenes so each map image and its corners cover the same square.
+     **Override with manual values**. Linking is refused when the stored Euler
+     pose would place a child track more than ``max(2 m, 0.5% of the larger
+     map)`` from the composed geospatial transform. If it fails, re-run
+     **Generate Geospatial Bounds & Snapshot** on both scenes so each map
+     image and its corners cover the same square.
    - If the scenes are **not** both georeferenced and both have a map image
      or GLB, click **Place in 3D**. The parent map is the world; drag the
      child with translate / rotate / scale, then **Use this pose**. RGB axes
      mark each scene origin (X red, Y green, Z blue up) in scene-local
-     meters. Open **Advanced** only if you need to type Euler values.
+     meters. A GLB is drawn with that scene's mesh rotation and translation
+     (same pose as the thumbnail) so lining up the models lines up the
+     track frames. Open **Advanced** only if you need to type Euler values.
    - Otherwise enter translation (meters), Euler rotation (degrees), and
      scale under **Advanced**.
 8. Click **Save**.
