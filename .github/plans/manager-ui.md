@@ -26,6 +26,11 @@ Replace or wrap with a React-owned shell that reuses MQTT / auth patterns
 from the 2D rewrite. Keep the **workspace** shell (full-bleed). Do **not**
 fold into 2D trickle PRs.
 
+Precursor: non-georeferenced child linking already ships a thin Z-up
+placement canvas (`manager/ui/src/placement/`) with `poseThree` conversion
+and TransformControls. Reuse that pose/gizmo module in the viewport; do
+not wrap `scenescape3d.js` for hierarchy placement.
+
 Suggested slices:
 
 1. Inventory: entry points, MQTT topics, asset load path, Django mounts.

@@ -235,6 +235,7 @@ function ScenesHomeInner({ bootstrap }: Props) {
         id: s.id,
         name: s.name,
         georeferenced: Boolean(s.georeferenced),
+        mapUrl: s.mapUrl || null,
       })),
     [bootstrap.scenes],
   );
