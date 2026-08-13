@@ -366,6 +366,7 @@ class TestSceneControllerPublishers:
       uid='scene-1',
       regulated_rate=5,
       cameras={'cam-1': object()},
+      serializeCameras=MagicMock(return_value=[{'id': 'cam-1'}]),
     )
     msg_object = SimpleNamespace(gid='obj-1')
     jdata = {
@@ -384,6 +385,8 @@ class TestSceneControllerPublishers:
       scene_controller.publishRegulatedDetections(scene_obj, [msg_object], 'person', jdata, 'cam-1')
 
     assert scene_controller.pubsub.publish.call_count == 1
+    payload = json.loads(scene_controller.pubsub.publish.call_args.args[1])
+    assert payload['cameras'] == [{'id': 'cam-1'}]
     cached = scene_controller.regulate_cache['scene-1']
     assert cached['rate']['cam-1'] == 7
     assert cached['last'] == 42.0

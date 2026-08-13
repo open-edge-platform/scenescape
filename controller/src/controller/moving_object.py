@@ -33,6 +33,19 @@ REID_FLOAT_SIZE_BYTES = np.dtype(np.float32).itemsize
 REID_EMBEDDING_DIMENSIONS_KEY = 'embedding_dimensions'
 
 
+def _parse_metric_distance(info):
+  if 'distance' not in info:
+    return None
+  distance = info.pop('distance')
+  try:
+    distance = float(distance)
+  except (TypeError, ValueError) as err:
+    raise ValueError("Invalid distance", distance) from err
+  if distance <= 0:
+    raise ValueError("Invalid distance", distance)
+  return distance
+
+
 def _getReIDEmbeddingDimensions(reid):
   if not isinstance(reid, dict):
     return None
@@ -189,6 +202,7 @@ class MovingObject:
     self.last_seen = None
     self.camera = camera
     self.info = info.copy()
+    self.metric_distance = _parse_metric_distance(self.info)
 
     self.category = self.info.get('category', 'object')
     self.boundingBox = None
@@ -196,11 +210,15 @@ class MovingObject:
       self.boundingBoxPixels = Rectangle(self.info['bounding_box_px'])
       self.info.pop('bounding_box_px')
       if not 'bounding_box' in self.info:
-        agnostic = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(self.boundingBoxPixels)
+        agnostic = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(
+          self.boundingBoxPixels, self.metric_distance)
         self.boundingBox = agnostic
     if 'bounding_box' in self.info:
       self.boundingBox = Rectangle(self.info['bounding_box'])
       self.info.pop('bounding_box')
+      if self.metric_distance is not None and not self.boundingBox.origin.is3D:
+        self.boundingBox = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(
+          self.boundingBox, self.metric_distance)
     self.confidence = self.info['confidence'] if 'confidence' in self.info else None
     self.oid = self.info['id']
     self.info.pop('id')

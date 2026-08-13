@@ -293,6 +293,7 @@ class SceneController:
       new_jdata = {
         'timestamp': jdata['timestamp'],
         'objects': objects,
+        'cameras': scene_obj.serializeCameras(),
         'id': jdata['id'],
         'name': jdata['name'],
         'scene_rate': round(1 / update_rate, 1),
