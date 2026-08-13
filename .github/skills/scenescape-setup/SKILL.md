@@ -38,6 +38,8 @@ existing `deploy-inputs.json`, and targeted phase resumes such as `bootstrap`, `
   the old `deploy-inputs.json` before re-running the full bootstrap/calibrate/scene flow.
 - For troubleshooting, read only the single phase or symptom-specific reference that matches the
   reported failure; avoid broad log dumps and unrelated docs.
+- Every orchestrator launch must also start `watch_orchestrator.sh` on the orchestrator PID so the
+  agent reports `RESULT=SUCCESS`/`FAILURE` when the run ends — do not ask the user to poll status.
 
 ## Parameters / Arguments
 
@@ -156,6 +158,7 @@ down -v` — always require explicit confirmation).
   the orchestrator default and the command must contain only `--deploy-dir` and `--skill-dir`.
 - Load troubleshooting references only when a step fails.
 - **Never** assign `SKILL_DIR` inline with `bash` on the same command (`SKILL_DIR=x bash "$SKILL_DIR/..."` silently fails because the variable is not yet expanded). Always set `export SKILL_DIR=...` on its own line first.
+- **Always attach the completion watcher** when launching the orchestrator (full deploy, resume, or `--phase`). Do **not** ask the user to poll for status; report back when the watcher notifies `ORCHESTRATOR_FINISHED` / `RESULT=`.
 
 ## Step 0 — Bootstrap skill-dir
 
@@ -217,6 +220,9 @@ hardcode simulator hostnames or camera names.
 an explicit list of video file paths, use `--video-dir`/`--video-files` in place of `--streams` —
 see [video-file-input.md](./references/video-file-input.md). This covers local file playback
 only; MJPEG and USB camera input are out of scope pending a separate source-discovery service.
+File → MediaMTX/RTSP publishing (codec probe, publishers, Step 7 diagnosis) is
+[video-file-publishing.md](./references/video-file-publishing.md) — load it on file-backed RTSP
+failures, not during routine Step 1.
 
 ## Scene source: reconstruction vs. blueprint/GLB vs. geospatial map
 
@@ -344,7 +350,10 @@ Use this exact sentence in the response: "`--fresh` clears `.deploy-state.json` 
 
 ## Deploy and complete
 
-Launch the default all-phase deployment asynchronously after Step 1:
+Launch the default all-phase deployment asynchronously after Step 1, then **immediately**
+start the completion watcher. Capture the orchestrator PID (`$!`) and pass it to
+`watch_orchestrator.sh` so the agent is notified when the run finishes — do not ask the user
+to poll with "status".
 
 ```bash
 nohup bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
@@ -354,7 +363,30 @@ nohup bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
   --camera-ids <id> [...] \
   --scene-name <scene_name> \
   >"<deploy_dir>/orchestrator.log" 2>&1 &
+ORCH_PID=$!
+echo "$ORCH_PID" >"<deploy_dir>/orchestrator.pid"
+
+# Background this watcher (do not block the agent turn). Configure tool notify_on_output
+# (or equivalent) with pattern: ORCHESTRATOR_FINISHED|RESULT=
+bash "$SKILL_DIR/scripts/watch_orchestrator.sh" \
+  --deploy-dir <deploy_dir> \
+  --pid "$ORCH_PID"
 ```
+
+**Watcher rules (mandatory on every orchestrator launch, including Fast Path resume and
+`--phase`):**
+
+1. Start `watch_orchestrator.sh` in the background right after the orchestrator (`block_until_ms: 0`
+   or equivalent). Pass the real orchestrator PID — never `pgrep` for `deploy_scenescape.sh`
+   (that can match the watcher or the launching shell).
+2. Subscribe to output matching `ORCHESTRATOR_FINISHED|RESULT=` so the agent is woken when the
+   run ends.
+3. Tell the user the deploy/resume is running and that you will report when it completes; do
+   **not** instruct them to keep asking for status.
+4. When notified: on `RESULT=SUCCESS`, report `DEPLOY COMPLETE` / `scene_uid`, write the
+   deployment README (below), and include Post-task metrics. On `RESULT=FAILURE`, read only the
+   matching troubleshooting reference for the failed step and continue diagnosis — do not dump
+   full compose logs.
 
 For a video-file deployment, use the synthesized RTSP streams from `deploy_inputs.py read` in the
 same command. Every full-deployment response must state that step 9 produces one calibration JPEG
@@ -387,7 +419,9 @@ has the phase's prerequisites, narrower safety rules, and standalone `Run` comma
 
 A single-phase request still requires `deploy-inputs.json` to already exist for that
 `deploy_dir` (from a prior Step 1) — do not re-ask Step 1 questions unless the user is also
-changing streams/camera_ids/scene_name.
+changing streams/camera_ids/scene_name. Launch with the same async orchestrator +
+`watch_orchestrator.sh` pattern as [Deploy and complete](#deploy-and-complete) (capture `$!`,
+background the watcher, notify on `ORCHESTRATOR_FINISHED|RESULT=`).
 
 ## Quality & Evaluation
 

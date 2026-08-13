@@ -61,6 +61,8 @@ tracked objects are associated with more than one camera ID for a multi-camera d
 | MQTT configuration | [mosquitto-config.md](./mosquitto-config.md) |
 | Compose-template failure | [docker-compose-template.md](./docker-compose-template.md) |
 | RTSP or health-check failure | [runtime-verification.md](./runtime-verification.md) |
+| File-backed RTSP / MediaMTX publisher | [video-file-publishing.md](./video-file-publishing.md) |
+| Local video input gathering | [video-file-input.md](./video-file-input.md) |
 | RTSP and MQTT commands | [command-templates.md](./command-templates.md) |
 | Reconstruction failure | [reconstruction.md](./reconstruction.md) |
 | Scene/camera REST inspection | [scene-and-cameras.md](./scene-and-cameras.md) |

@@ -104,7 +104,8 @@ python3 <skill-dir>/scripts/adapt_pipeline_config.py \
 - External RTSP sources must be reachable from the SceneScape Docker network
 - GPU/WSL2 segfaults with dual pipelines: see repo `queuing-config-gpu.json` / sample compose
 - Local video files (folder or explicit list) instead of live RTSP cameras: see
-  [video-file-input.md](./video-file-input.md) — they are looped through an internal RTSP
+  [video-file-input.md](./video-file-input.md) / [video-file-publishing.md](./video-file-publishing.md)
+  — they are looped through an internal RTSP
   re-streamer, so this file's spec applies unchanged once `deploy-inputs.json` is written.
 - Canonical upstream examples: `dlstreamer-pipeline-server/queuing-config.json` and
   `docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md`
