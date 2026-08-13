@@ -1251,3 +1251,4 @@ class TestSceneControllerRemoteChildParent:
     assert success is False
     assert scene is remote_sender
     assert remote_sender.parent is None
+
