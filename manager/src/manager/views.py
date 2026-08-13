@@ -125,6 +125,7 @@ def index(request):
     scenes_payload.append({
       'id': str(scene.id),
       'name': scene.name,
+      'georeferenced': bool(scene.output_lla and scene.map_corners_lla),
       'thumbnailUrl': scene.thumbnail.url if scene.thumbnail else None,
       'mapUrl': scene.map.url if scene.map else None,
       'detailUrl': reverse('sceneDetail', args=[scene.id]),
@@ -264,6 +265,8 @@ def sceneDetail(request, scene_id):
       "mapUrl": map_url,
       "thumbnailUrl": thumb_url,
       "wssConnection": scene.wssConnection(),
+      "outputLla": bool(scene.output_lla),
+      "georeferenced": bool(scene.output_lla and scene.map_corners_lla),
     },
     "cameras": cameras,
     "sensors": sensors,
@@ -299,7 +302,11 @@ def sceneDetail(request, scene_id):
       "tripwires": scene.tripwires.count(),
     },
     "scenes": [
-      {"id": str(s.id), "name": s.name}
+      {
+        "id": str(s.id),
+        "name": s.name,
+        "georeferenced": bool(s.output_lla and s.map_corners_lla),
+      }
       for s in Scene.objects.order_by("name")
     ],
   }

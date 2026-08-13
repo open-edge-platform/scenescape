@@ -359,6 +359,19 @@ class RESTClient:
     """
     return self._get("scenes/child", filter)
 
+  def previewGeospatialChildTransform(self, data):
+    """Preview a geospatial child-to-parent pose without creating a link.
+
+    @param      data            dict with ``parent`` and ``child`` scene UIDs
+    @return                     RESTResult with translation/rotation/scale/residual_m
+    """
+    full_path = urljoin(self.url, "childscene/preview-geospatial-transform/")
+    headers = {'Authorization': f"Token {self.token}"}
+    data_args = self.prepareDataArgs(data, None)
+    reply = self.session.post(full_path, **data_args, headers=headers,
+                              verify=self.verify_ssl)
+    return self.decodeReply(reply, HTTPStatus.OK)
+
   def deleteChildSceneLink(self, uid):
     """Deletes child scene link with `uid`
 

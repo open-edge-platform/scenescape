@@ -337,6 +337,13 @@ class Scene(models.Model):
 
     if send_update_command:
       transaction.on_commit(partial(sendUpdateCommand, scene_id=updated_scene))
+    self._refreshGeospatialChildLinks()
+    return
+
+  def _refreshGeospatialChildLinks(self):
+    """Recompute geospatial child poses after map / corners / scale changes."""
+    from manager.geospatial_child_link import refresh_geospatial_links_for_scene
+    refresh_geospatial_links_for_scene(self)
     return
 
   def notifyDbUpdate(self):
@@ -551,6 +558,11 @@ class ChildScene(models.Model):
   transform16 = models.FloatField(default=1.0, null=True, blank=True)
   transform_type = models.CharField(max_length=10, choices=CHILD_SCENE_TRANSFORM_CHOICES,
                                     default=MATRIX)
+  transform_source = models.CharField(
+    max_length=16, choices=CHILD_SCENE_TRANSFORM_SOURCE_CHOICES,
+    default=TRANSFORM_SOURCE_MANUAL, blank=True,
+    help_text="How the child pose was obtained. Geospatial links are recomputed when "
+              "either scene's map corners or scale change.")
   host_name = models.CharField("Hostname or IP", max_length=200, null=True, blank=True)
   mqtt_username = models.CharField("MQTT Username", max_length=200, null=True, blank=True)
   mqtt_password = models.CharField("MQTT Password", max_length=200, null=True, blank=True)

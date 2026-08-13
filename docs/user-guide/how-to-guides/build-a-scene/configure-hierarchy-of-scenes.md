@@ -31,7 +31,13 @@ This task is essential for managing distributed scenes in Scenescape deployments
 4. Click **+ Link Child Scene**.
 5. Set **Child Type** to `Local`.
 6. Select the scene to be added from the dropdown list.
-7. Enter transform type and values.
+7. If **both** the parent and child have geospatial coordinates configured
+   ([Configure Geospatial Coordinates](./configure-geospatial-coordinates.md)),
+   Scenescape computes the child pose from the four map corners. You do not
+   enter translation, rotation, or scale. Optional: **Override with manual
+   values** if you need to adjust the pose.
+   Otherwise enter the child pose relative to the parent (translation in
+   meters, Euler rotation in degrees, scale).
 8. Click **Add Child Scene**.
 
 **Expected Result**: The child scene appears in the parent scene view.
@@ -123,7 +129,9 @@ Then restart Scenescape:
    - Child Name
    - Hostname or IP
    - MQTT Username/Password
-   - Transform type/values
+   - Transform type/values (remote children are not auto-linked from
+     geospatial corners; enter the pose or configure geospatial linking
+     after the child scene exists locally)
 6. Click **Add Child Scene**.
 
 ![Remote Child Form](../../_assets/ui/remote_child_link_form.png "remote child scene form")

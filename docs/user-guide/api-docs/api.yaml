@@ -593,6 +593,50 @@ paths:
           description: Not found
         "401":
           description: Unauthorized
+  /childscene/preview-geospatial-transform/:
+    post:
+      tags:
+        - child
+      operationId: child_preview_geospatial_transform
+      summary: Preview a geospatial child-to-parent pose
+      description: >
+        Compute the Euler pose that maps a local child scene into its parent
+        using each scene's four-corner geospatial calibration. Does not write
+        to the database. Both scenes must have `output_lla` and
+        `map_corners_lla`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - parent
+                - child
+              properties:
+                parent:
+                  type: string
+                  format: uuid
+                  description: Parent scene UID
+                child:
+                  type: string
+                  format: uuid
+                  description: Child scene UID
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Computed pose
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeospatialChildTransformPreview"
+        "400":
+          description: Missing fields or scenes are not georeferenced
+        "401":
+          description: Unauthorized
+        "404":
+          description: Parent or child scene not found
   /scenes/child:
     get:
       tags:
@@ -2100,6 +2144,14 @@ components:
         transform_type:
           $ref: "#/components/schemas/TransformTypeEnum"
           default: matrix
+        transform_source:
+          $ref: "#/components/schemas/TransformSourceEnum"
+          default: manual
+          description: >
+            `geospatial` computes and stores the child pose from both scenes'
+            map corners. `manual` uses the submitted transform values.
+            Geospatial links are recomputed when either scene's map corners or
+            scale change.
         transform1:
           type: number
           format: double
@@ -2521,6 +2573,10 @@ components:
             - $ref: "#/components/schemas/OutputLlaEnum"
             - $ref: "#/components/schemas/NullEnum"
           default: false
+        georeferenced:
+          type: boolean
+          readOnly: true
+          description: True when output_lla is enabled and four map_corners_lla are set.
         trs_matrix:
           type: array
           nullable: true
@@ -2829,6 +2885,48 @@ components:
         * `matrix` - Matrix
         * `euler` - Euler Angles
         * `quaternion` - Quaternion
+    TransformSourceEnum:
+      enum:
+        - manual
+        - geospatial
+      type: string
+      description: |-
+        * `manual` - Client-supplied Euler or matrix pose
+        * `geospatial` - Computed from both scenes' map_corners_lla
+    GeospatialChildTransformPreview:
+      type: object
+      properties:
+        translation:
+          type: array
+          items:
+            type: number
+            format: double
+          minItems: 3
+          maxItems: 3
+        rotation:
+          type: array
+          items:
+            type: number
+            format: double
+          minItems: 3
+          maxItems: 3
+          description: XYZ Euler angles in degrees
+        scale:
+          type: array
+          items:
+            type: number
+            format: double
+          minItems: 3
+          maxItems: 3
+        residual_m:
+          type: number
+          format: double
+          description: Max ECEF residual of the reconstructed pose, in meters
+      required:
+        - translation
+        - rotation
+        - scale
+        - residual_m
     Tripwire:
       type: object
       properties:

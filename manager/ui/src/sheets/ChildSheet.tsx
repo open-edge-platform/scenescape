@@ -10,7 +10,11 @@ import { FormSection } from "../components/FormSection";
 import { api, type RestError } from "../lib/rest";
 import { useAppToast } from "../components/ToastProvider";
 
-export type SceneOption = { id: string; name: string };
+export type SceneOption = {
+  id: string;
+  name: string;
+  georeferenced?: boolean;
+};
 
 type Props = {
   open: boolean;
@@ -44,6 +48,20 @@ function num(s: string, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function fmt(n: number, digits = 2): string {
+  return Number.isFinite(n) ? n.toFixed(digits) : "—";
+}
+
+function sceneGeoreferenced(
+  scenes: SceneOption[],
+  sceneId: string,
+): boolean {
+  if (!sceneId) {
+    return false;
+  }
+  return Boolean(scenes.find((s) => s.id === sceneId)?.georeferenced);
+}
+
 export function ChildSheet({
   open,
   mode,
@@ -65,9 +83,19 @@ export function ChildSheet({
   const [mqttPassword, setMqttPassword] = useState("");
   const [retrack, setRetrack] = useState(true);
   const [transformType, setTransformType] = useState("euler");
+  const [transformSource, setTransformSource] = useState<
+    "geospatial" | "manual"
+  >("manual");
   const [translation, setTranslation] = useState<Vec3>(["0", "0", "0"]);
   const [rotation, setRotation] = useState<Vec3>(["0", "0", "0"]);
   const [scale, setScale] = useState<Vec3>(["1", "1", "1"]);
+  const [preview, setPreview] = useState<{
+    translation: number[];
+    rotation: number[];
+    residual_m: number;
+  } | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [manualOverride, setManualOverride] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,9 +115,13 @@ export function ChildSheet({
       setMqttPassword("");
       setRetrack(true);
       setTransformType("euler");
+      setTransformSource("manual");
       setTranslation(["0", "0", "0"]);
       setRotation(["0", "0", "0"]);
       setScale(["1", "1", "1"]);
+      setPreview(null);
+      setPreviewError(null);
+      setManualOverride(false);
       return;
     }
     if (!childUid) {
@@ -113,6 +145,9 @@ export function ChildSheet({
         setRetrack(c.retrack !== false && c.retrack !== "false");
         const tt = String(c.transform_type || "euler");
         setTransformType(tt === "quaternion" || tt === "matrix" ? tt : "euler");
+        const geo = c.transform_source === "geospatial";
+        setTransformSource(geo ? "geospatial" : "manual");
+        setManualOverride(!geo);
         const pose =
           c.transform && typeof c.transform === "object"
             ? (c.transform as Record<string, unknown>)
@@ -154,6 +189,62 @@ export function ChildSheet({
     };
   }, [open, mode, childUid, authToken, parentSceneId]);
 
+  const resolvedParent = parentId.trim() || parentSceneId.trim();
+  const parentGeo = sceneGeoreferenced(scenes, resolvedParent);
+  const childGeo =
+    childType === "local" && sceneGeoreferenced(scenes, childSceneId);
+  const geoEligible = parentGeo && childGeo;
+
+  useEffect(() => {
+    if (!open || childType !== "local") {
+      return;
+    }
+    if (geoEligible && !manualOverride) {
+      setTransformSource("geospatial");
+      return;
+    }
+    if (!geoEligible) {
+      setTransformSource("manual");
+    }
+  }, [open, childType, geoEligible, manualOverride]);
+
+  useEffect(() => {
+    if (!open || transformSource !== "geospatial" || !geoEligible) {
+      setPreview(null);
+      setPreviewError(null);
+      return;
+    }
+    let cancelled = false;
+    setPreviewError(null);
+    api
+      .previewGeospatialTransform(authToken, resolvedParent, childSceneId)
+      .then((pose) => {
+        if (!cancelled) {
+          setPreview({
+            translation: pose.translation,
+            rotation: pose.rotation,
+            residual_m: pose.residual_m,
+          });
+        }
+      })
+      .catch((e: RestError) => {
+        if (!cancelled) {
+          setPreview(null);
+          setPreviewError(e.message || "Failed to compute geospatial pose");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    open,
+    transformSource,
+    geoEligible,
+    authToken,
+    resolvedParent,
+    childSceneId,
+  ]);
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -169,23 +260,26 @@ export function ChildSheet({
       child_type: childType,
       retrack,
       transform_type: transformType === "matrix" ? "matrix" : "euler",
-      transform1: num(translation[0]),
-      transform2: num(translation[1]),
-      transform3: num(translation[2]),
-      transform4: num(rotation[0]),
-      transform5: num(rotation[1]),
-      transform6: num(rotation[2]),
-      transform7: num(scale[0], 1),
-      transform8: num(scale[1], 1),
-      transform9: num(scale[2], 1),
-      transform10: 0,
-      transform11: 1,
-      transform12: 0,
-      transform13: 0,
-      transform14: 0,
-      transform15: 0,
-      transform16: 1,
+      transform_source: transformSource,
     };
+    if (transformSource === "manual") {
+      payload.transform1 = num(translation[0]);
+      payload.transform2 = num(translation[1]);
+      payload.transform3 = num(translation[2]);
+      payload.transform4 = num(rotation[0]);
+      payload.transform5 = num(rotation[1]);
+      payload.transform6 = num(rotation[2]);
+      payload.transform7 = num(scale[0], 1);
+      payload.transform8 = num(scale[1], 1);
+      payload.transform9 = num(scale[2], 1);
+      payload.transform10 = 0;
+      payload.transform11 = 1;
+      payload.transform12 = 0;
+      payload.transform13 = 0;
+      payload.transform14 = 0;
+      payload.transform15 = 0;
+      payload.transform16 = 1;
+    }
     if (childType === "local") {
       payload.child = childSceneId;
     } else {
@@ -215,7 +309,6 @@ export function ChildSheet({
     }
   };
 
-  const resolvedParent = parentId.trim() || parentSceneId.trim();
   const otherScenes = scenes.filter((s) => s.id !== resolvedParent);
   const showParentPicker = !parentSceneId.trim();
 
@@ -276,7 +369,12 @@ export function ChildSheet({
             id="ss-child-scene"
             label="Child scene"
             value={childSceneId}
-            onChange={(ev) => setChildSceneId(ev.target.value)}
+            onChange={(ev) => {
+              setChildSceneId(ev.target.value);
+              if (mode === "create") {
+                setManualOverride(false);
+              }
+            }}
             required
             disabled={busy}
           >
@@ -342,89 +440,161 @@ export function ChildSheet({
           />
           Retrack objects when they enter this parent
         </label>
-        <FormSection
-          title="Transform"
-          description="Child pose relative to the parent scene (Euler)."
-          collapsible
-          defaultOpen={mode === "edit"}
-          className="ss-form-section--columns"
-        >
-          <TextField
-            id="ss-child-tx"
-            label="Translation X (m)"
-            value={translation[0]}
-            onChange={(ev) =>
-              setTranslation([ev.target.value, translation[1], translation[2]])
-            }
-            disabled={busy}
-          />
-          <TextField
-            id="ss-child-ty"
-            label="Translation Y (m)"
-            value={translation[1]}
-            onChange={(ev) =>
-              setTranslation([translation[0], ev.target.value, translation[2]])
-            }
-            disabled={busy}
-          />
-          <TextField
-            id="ss-child-tz"
-            label="Translation Z (m)"
-            value={translation[2]}
-            onChange={(ev) =>
-              setTranslation([translation[0], translation[1], ev.target.value])
-            }
-            disabled={busy}
-          />
-          <TextField
-            id="ss-child-rx"
-            label="Rotation X (°)"
-            value={rotation[0]}
-            onChange={(ev) =>
-              setRotation([ev.target.value, rotation[1], rotation[2]])
-            }
-            disabled={busy}
-          />
-          <TextField
-            id="ss-child-ry"
-            label="Rotation Y (°)"
-            value={rotation[1]}
-            onChange={(ev) =>
-              setRotation([rotation[0], ev.target.value, rotation[2]])
-            }
-            disabled={busy}
-          />
-          <TextField
-            id="ss-child-rz"
-            label="Rotation Z (°)"
-            value={rotation[2]}
-            onChange={(ev) =>
-              setRotation([rotation[0], rotation[1], ev.target.value])
-            }
-            disabled={busy}
-          />
-          <TextField
-            id="ss-child-sx"
-            label="Scale X"
-            value={scale[0]}
-            onChange={(ev) => setScale([ev.target.value, scale[1], scale[2]])}
-            disabled={busy}
-          />
-          <TextField
-            id="ss-child-sy"
-            label="Scale Y"
-            value={scale[1]}
-            onChange={(ev) => setScale([scale[0], ev.target.value, scale[2]])}
-            disabled={busy}
-          />
-          <TextField
-            id="ss-child-sz"
-            label="Scale Z"
-            value={scale[2]}
-            onChange={(ev) => setScale([scale[0], scale[1], ev.target.value])}
-            disabled={busy}
-          />
-        </FormSection>
+        {childType === "local" && childSceneId && !geoEligible ? (
+          <p className="ss-drawer-hint">
+            Geospatial auto-link needs both scenes configured with output
+            geospatial coordinates and four map corners.
+          </p>
+        ) : null}
+        {transformSource === "geospatial" ? (
+          <div className="ss-child-geo-pose">
+            <p className="ss-drawer-hint">
+              Pose computed from geospatial corners. No translation or rotation
+              values to enter.
+            </p>
+            {previewError ? (
+              <p className="ss-drawer-error">{previewError}</p>
+            ) : null}
+            {preview ? (
+              <p className="ss-drawer-hint" id="ss-child-geo-preview">
+                Translation {fmt(preview.translation[0])} m,{" "}
+                {fmt(preview.translation[1])} m, {fmt(preview.translation[2])} m
+                · Yaw {fmt(preview.rotation[2], 1)}° · residual{" "}
+                {fmt(preview.residual_m, 2)} m
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className="ss-text-link"
+              disabled={busy}
+              onClick={() => {
+                setManualOverride(true);
+                setTransformSource("manual");
+              }}
+            >
+              Override with manual values
+            </button>
+          </div>
+        ) : (
+          <>
+            {geoEligible ? (
+              <p className="ss-drawer-hint">
+                <button
+                  type="button"
+                  className="ss-text-link"
+                  disabled={busy}
+                  onClick={() => {
+                    setManualOverride(false);
+                    setTransformSource("geospatial");
+                  }}
+                >
+                  Use geospatial pose
+                </button>
+              </p>
+            ) : null}
+            <FormSection
+              title="Transform"
+              description="Child pose relative to the parent scene (Euler)."
+              collapsible
+              defaultOpen={mode === "edit" || manualOverride}
+              className="ss-form-section--columns"
+            >
+              <TextField
+                id="ss-child-tx"
+                label="Translation X (m)"
+                value={translation[0]}
+                onChange={(ev) =>
+                  setTranslation([
+                    ev.target.value,
+                    translation[1],
+                    translation[2],
+                  ])
+                }
+                disabled={busy}
+              />
+              <TextField
+                id="ss-child-ty"
+                label="Translation Y (m)"
+                value={translation[1]}
+                onChange={(ev) =>
+                  setTranslation([
+                    translation[0],
+                    ev.target.value,
+                    translation[2],
+                  ])
+                }
+                disabled={busy}
+              />
+              <TextField
+                id="ss-child-tz"
+                label="Translation Z (m)"
+                value={translation[2]}
+                onChange={(ev) =>
+                  setTranslation([
+                    translation[0],
+                    translation[1],
+                    ev.target.value,
+                  ])
+                }
+                disabled={busy}
+              />
+              <TextField
+                id="ss-child-rx"
+                label="Rotation X (°)"
+                value={rotation[0]}
+                onChange={(ev) =>
+                  setRotation([ev.target.value, rotation[1], rotation[2]])
+                }
+                disabled={busy}
+              />
+              <TextField
+                id="ss-child-ry"
+                label="Rotation Y (°)"
+                value={rotation[1]}
+                onChange={(ev) =>
+                  setRotation([rotation[0], ev.target.value, rotation[2]])
+                }
+                disabled={busy}
+              />
+              <TextField
+                id="ss-child-rz"
+                label="Rotation Z (°)"
+                value={rotation[2]}
+                onChange={(ev) =>
+                  setRotation([rotation[0], rotation[1], ev.target.value])
+                }
+                disabled={busy}
+              />
+              <TextField
+                id="ss-child-sx"
+                label="Scale X"
+                value={scale[0]}
+                onChange={(ev) =>
+                  setScale([ev.target.value, scale[1], scale[2]])
+                }
+                disabled={busy}
+              />
+              <TextField
+                id="ss-child-sy"
+                label="Scale Y"
+                value={scale[1]}
+                onChange={(ev) =>
+                  setScale([scale[0], ev.target.value, scale[2]])
+                }
+                disabled={busy}
+              />
+              <TextField
+                id="ss-child-sz"
+                label="Scale Z"
+                value={scale[2]}
+                onChange={(ev) =>
+                  setScale([scale[0], scale[1], ev.target.value])
+                }
+                disabled={busy}
+              />
+            </FormSection>
+          </>
+        )}
       </form>
     </Drawer>
   );

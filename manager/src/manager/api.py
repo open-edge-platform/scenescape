@@ -22,6 +22,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 
 from manager.models import Scene, Cam, SingletonSensor, Region, Tripwire, Asset3D, ChildScene, CalibrationMarker, DatabaseStatus, PubSubACL
 from manager.serializers import *
+from manager.geospatial_child_link import compute_pose_for_scenes
 from manager.scene_import import ImportScene
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.mqtt import PubSub
@@ -254,6 +255,41 @@ class ManageThing(APIView):
     log.info("DELETED", thing_type, {uid_field: uid})
 
     return Response({uid_field: uid}, status=status.HTTP_200_OK)
+
+
+class PreviewGeospatialChildTransform(APIView):
+  """Compute a child-to-parent Euler pose from two georeferenced scenes. No DB write."""
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def post(self, request):
+    parent_uid = request.data.get('parent')
+    child_uid = request.data.get('child')
+    missing = {}
+    if not parent_uid:
+      missing['parent'] = ['This field is required.']
+    if not child_uid:
+      missing['child'] = ['This field is required.']
+    if missing:
+      return Response(missing, status=status.HTTP_400_BAD_REQUEST)
+
+    errors = {}
+    parent_scene = Scene.objects.filter(pk=parent_uid).first()
+    child_scene = Scene.objects.filter(pk=child_uid).first()
+    if parent_scene is None:
+      errors['parent'] = ['Scene not found.']
+    if child_scene is None:
+      errors['child'] = ['Scene not found.']
+    if errors:
+      return Response(errors, status=status.HTTP_404_NOT_FOUND)
+
+    pose = compute_pose_for_scenes(parent_scene, child_scene)
+    return Response({
+        'translation': pose['translation'],
+        'rotation': pose['rotation'],
+        'scale': pose['scale'],
+        'residual_m': pose['residual_m'],
+    })
 
 
 class CustomAuthToken(ObtainAuthToken):

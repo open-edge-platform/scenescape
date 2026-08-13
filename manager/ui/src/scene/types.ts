@@ -43,6 +43,8 @@ export type SceneDetailBootstrap = {
     mapUrl: string | null;
     thumbnailUrl: string | null;
     wssConnection?: string | null;
+    georeferenced?: boolean;
+    outputLla?: boolean;
   };
   cameras: SceneCameraBootstrap[];
   sensors: SceneSensorBootstrap[];
@@ -69,7 +71,7 @@ export type SceneDetailBootstrap = {
     regions: number;
     tripwires: number;
   };
-  scenes?: { id: string; name: string }[];
+  scenes?: { id: string; name: string; georeferenced?: boolean }[];
   authToken: string;
   isSuperuser: boolean;
   /** True when Manager runs in Kubernetes; advanced camera pipeline fields apply. */

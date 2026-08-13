@@ -22,6 +22,13 @@ from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
 from scene_common.cam_fields import CAM_SERIALIZER_FIELDS
+from manager.geospatial_child_link import (
+    apply_geospatial_pose,
+    compute_pose_for_scenes,
+    pose_to_child_fields,
+    request_has_explicit_transform,
+    scenes_are_georeferenced,
+)
 
 
 class CustomAuthTokenSerializer(serializers.Serializer):
@@ -592,6 +599,7 @@ class SceneSerializer(NonNullSerializer):
   children = serializers.SerializerMethodField('get_children')
   map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z", required=False, allow_null=True)
   trs_matrix = serializers.SerializerMethodField('get_trs_matrix')
+  georeferenced = serializers.SerializerMethodField('get_georeferenced')
   map_corners_lla = MapCornersLLAField(required=False, allow_null=True)
   # Model BooleanFields use Yes/No choices; without an explicit BooleanField
   # DRF treats them as ChoiceField and rejects multipart "true"/"false".
@@ -609,7 +617,8 @@ class SceneSerializer(NonNullSerializer):
     allowed = set(self.fields.keys()) | {
         "mesh_translation",
         "mesh_rotation",
-        "mesh_scale"
+        "mesh_scale",
+        "transform_source",
     }
 
     incoming = set(self.initial_data.keys())
@@ -648,6 +657,10 @@ class SceneSerializer(NonNullSerializer):
     if obj.trs_matrix:
       return obj.trs_matrix
     return None
+
+  def get_georeferenced(self, obj):
+    from scene_common.geospatial_hierarchy import scene_is_georeferenced
+    return scene_is_georeferenced(obj.output_lla, obj.map_corners_lla)
 
   def to_representation(self, instance):
     ret = super().to_representation(instance)
@@ -806,8 +819,19 @@ class SceneSerializer(NonNullSerializer):
 
     if parent_uid:
       self.link_parent(parent_uid, instance)
-    if transform and hasattr(instance, 'parent') and instance.parent:
-      self.update_child_transform(instance.parent, transform)
+    child_link = getattr(instance, 'parent', None)
+    transform_source = self.initial_data.get(
+        'transform_source', TRANSFORM_SOURCE_MANUAL)
+    if child_link:
+      parent_scene = child_link.parent
+      should_compute = (
+          transform_source == TRANSFORM_SOURCE_GEOSPATIAL
+          or (not transform and scenes_are_georeferenced(parent_scene, instance))
+      )
+      if should_compute:
+        apply_geospatial_pose(child_link)
+      elif transform:
+        self.update_child_transform(child_link, transform)
 
     if is_update:
       for key, value in validated_data.items():
@@ -864,7 +888,7 @@ class SceneSerializer(NonNullSerializer):
               'camera_calibration', 'apriltag_size', 'map_processed', 'polycam_data',
               'number_of_localizations', 'global_feature', 'local_feature', 'matcher',
               'minimum_number_of_matches', 'inlier_threshold', 'geospatial_provider', 'map_zoom',
-              'map_center_lat', 'map_center_lng', 'map_bearing']
+              'map_center_lat', 'map_center_lng', 'map_bearing', 'georeferenced']
 
 class PubSubACLSerializer(NonNullSerializer):
   class Meta:
@@ -980,6 +1004,20 @@ class ChildSceneSerializer(NonNullSerializer):
   def getChildName(self, obj):
     return obj.child.name if obj.child else obj.child_name
 
+  def _should_compute_geospatial(self, parent, child, transform_source):
+    if transform_source == TRANSFORM_SOURCE_GEOSPATIAL:
+      return True
+    if self.instance is not None:
+      return False
+    if request_has_explicit_transform(self.initial_data):
+      return False
+    return scenes_are_georeferenced(parent, child)
+
+  def _apply_geospatial_to_validated(self, validated_data, parent, child):
+    pose = compute_pose_for_scenes(parent, child)
+    validated_data.update(pose_to_child_fields(pose))
+    return pose
+
   def validate(self, data):
     child_type = data.get('child_type')
     parent = data.get('parent')
@@ -1013,6 +1051,18 @@ class ChildSceneSerializer(NonNullSerializer):
         query_child = query_child.exclude(pk=self.instance.pk)
       if query_child.exists():
         raise serializers.ValidationError({'child': f"{child} already exists for this parent."})
+
+    transform_source = data.get('transform_source')
+    if transform_source is None and self.instance is not None:
+      transform_source = self.instance.transform_source or TRANSFORM_SOURCE_MANUAL
+    if transform_source is None:
+      transform_source = TRANSFORM_SOURCE_MANUAL
+    resolved_parent = parent or (self.instance.parent if self.instance else None)
+    resolved_child = child
+    if resolved_child is None and self.instance is not None:
+      resolved_child = self.instance.child
+    if self._should_compute_geospatial(resolved_parent, resolved_child, transform_source):
+      self._apply_geospatial_to_validated(data, resolved_parent, resolved_child)
 
     return data
 
@@ -1049,6 +1099,7 @@ class ChildSceneSerializer(NonNullSerializer):
     fields = ['uid', 'child_type', 'transform', 'name', 'remote_child_id', \
           'child', 'parent', 'host_name', 'child_name', \
           'mqtt_username', 'mqtt_password', 'retrack', 'transform_type', \
+          'transform_source', \
           'transform1', 'transform2', 'transform3', 'transform4', \
           'transform5', 'transform6', 'transform7', 'transform8', \
           'transform9', 'transform10', 'transform11', 'transform12', \

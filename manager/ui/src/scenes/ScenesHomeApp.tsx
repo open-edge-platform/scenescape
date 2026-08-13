@@ -16,6 +16,7 @@ import "./ScenesHomeApp.css";
 export type SceneHomeCard = {
   id: string;
   name: string;
+  georeferenced?: boolean;
   thumbnailUrl: string | null;
   mapUrl: string | null;
   detailUrl: string;
@@ -215,7 +216,12 @@ function ScenesHomeInner({ bootstrap }: Props) {
 
   const openCreate = useCallback(() => open("scene-create"), [open]);
   const sceneOptions = useMemo(
-    () => (bootstrap.scenes || []).map((s) => ({ id: s.id, name: s.name })),
+    () =>
+      (bootstrap.scenes || []).map((s) => ({
+        id: s.id,
+        name: s.name,
+        georeferenced: Boolean(s.georeferenced),
+      })),
     [bootstrap.scenes],
   );
   const manageSceneId =
