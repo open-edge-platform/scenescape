@@ -13,7 +13,7 @@ from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSu
 from scene_common.geometry import Point
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time
-from scene_common.transform import CameraPose
+from scene_common.transform import CameraIntrinsics, CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY
 
 from controller.camera_registry import CameraRegistry
@@ -67,6 +67,7 @@ class Scene(SceneModel):
 
     self._trs_xyz_to_lla = None
     self.use_tracker = True
+    self.camera_pose_overrides = {}
 
     self.pose_adjustment = PoseAdjustment.from_env(
       max_entry_age_seconds=self._get_pose_cache_ttl(),
@@ -206,20 +207,31 @@ class Scene(SceneModel):
       return True
 
     message_camera = camera
-    extrinsics = jdata.get('extrinsics')
-    if isinstance(extrinsics, dict):
-      try:
-        translation = extrinsics.get('translation')
-        rotation = extrinsics.get('rotation')
-        if translation is not None and rotation is not None:
-          override_pose = CameraPose({
-            'translation': translation,
-            'rotation': rotation,
-            'scale': extrinsics.get('scale') or [1, 1, 1],
-          }, camera.pose.intrinsics)
-          message_camera = SimpleNamespace(cameraID=camera.cameraID, pose=override_pose)
-      except Exception as exc:
-        log.warning("Ignoring invalid message extrinsics for camera %s: %s", camera_id, exc)
+    try:
+      pose_data = jdata.get('extrinsics') or {}
+      intrinsics_data = jdata.get('intrinsics')
+      if not isinstance(pose_data, dict):
+        raise ValueError("extrinsics must be an object")
+
+      if intrinsics_data is not None:
+        intrinsics = CameraIntrinsics(
+          intrinsics_data,
+          jdata.get('distortion', camera.pose.intrinsics.distortion),
+          jdata.get('resolution', camera.pose.resolution),
+        )
+      else:
+        intrinsics = camera.pose.intrinsics
+
+      if pose_data or intrinsics_data is not None:
+        override_pose = CameraPose({
+          'translation': pose_data.get('translation', camera.pose.translation.asNumpyCartesian),
+          'rotation': pose_data.get('rotation', camera.pose.euler_rotation),
+          'scale': pose_data.get('scale', camera.pose.scale),
+        }, intrinsics)
+        self.camera_pose_overrides[camera_id] = override_pose
+        message_camera = SimpleNamespace(cameraID=camera.cameraID, pose=override_pose)
+    except (TypeError, ValueError) as exc:
+      log.warning(f"Ignoring invalid camera metadata for {camera_id}: {exc}")
 
     for detection_type, detections in jdata['objects'].items():
       self.pose_adjustment.adjust_detections(
@@ -243,6 +255,23 @@ class Scene(SceneModel):
       )
       self._finishProcessing(detection_type, when, objects)
     return True
+
+  def serializeCameras(self):
+    """Serialize configured cameras, applying the most recent message pose override."""
+    cameras = []
+    for camera_id, camera in self.cameras.items():
+      if not hasattr(camera, 'pose'):
+        continue
+      pose = self.camera_pose_overrides.get(camera_id, camera.pose)
+      camera_data = {
+        'id': camera_id,
+        'translation': pose.translation.asNumpyCartesian.tolist(),
+        'rotation': list(pose.euler_rotation),
+        'scale': list(pose.scale),
+      }
+      camera_data.update(pose.intrinsics.asDict())
+      cameras.append(camera_data)
+    return cameras
 
   def _convertPixelBoundingBoxesToMeters(self, objects: list[dict], intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
     """
@@ -377,6 +406,7 @@ class Scene(SceneModel):
     deleted = old - new
     for camID in deleted:
       self.cameras.pop(camID)
+      self.camera_pose_overrides.pop(camID, None)
     CameraRegistry.getInstance().updateCameras(self.name, self.cameras.keys())
     return
 

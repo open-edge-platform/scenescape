@@ -488,6 +488,10 @@ function main() {
     }
 
     if (topic.includes(CONSTANTS.DATA_REGULATED)) {
+      cameraManager = sceneThingManagers["things"]["camera"]["obj"];
+      if (cameraManager) {
+        cameraManager.updatePoses(msg.cameras);
+      }
       if (showTrackedObjects) {
         // Plot the marks
         assetManager.plot(msg);
