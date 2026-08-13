@@ -21,6 +21,11 @@ import {
   startMeshGeneration,
 } from "../lib/meshGeneration";
 import {
+  appendGeospatialSceneFields,
+  fetchGeospatialMapFile,
+  formChoiceBool,
+} from "../lib/geospatialSceneForm";
+import {
   GeospatialMapPicker,
 } from "./GeospatialMapPicker";
 import type { GeospatialApplyResult } from "../lib/geospatialLoader";
@@ -58,13 +63,6 @@ function boolStr(v: unknown, fallback: "true" | "false"): "true" | "false" {
     return "false";
   }
   return fallback;
-}
-
-/** Django/DRF BooleanField+choices only matches str(True)/str(False). */
-function formChoiceBool(value: string | boolean): "True" | "False" {
-  return value === true || value === "true" || value === "True"
-    ? "True"
-    : "False";
 }
 
 function vec3From(
@@ -109,6 +107,17 @@ function parseCorners(text: string): unknown | null {
     return null;
   }
   return JSON.parse(trimmed) as unknown;
+}
+
+function mapTypeFromQuery(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const map = new URLSearchParams(window.location.search).get("map");
+  if (map === "geospatial_map" || map === "map_upload") {
+    return map;
+  }
+  return null;
 }
 
 export function SceneManagePanel({
@@ -239,7 +248,11 @@ export function SceneManagePanel({
           return;
         }
         setName(str(s.name));
-        setMapType(str(s.map_type, "map_upload"));
+        const queryMap = mapTypeFromQuery();
+        setMapType(queryMap || str(s.map_type, "map_upload"));
+        if (queryMap) {
+          setDirty(true);
+        }
         setScale(s.scale != null ? str(s.scale) : "100");
         setMapFile(null);
         setMapSnapshotName(null);
@@ -495,36 +508,12 @@ export function SceneManagePanel({
     setBusy(true);
     setError(null);
     try {
+      const mapFileBlob = await fetchGeospatialMapFile(result);
       const form = new FormData();
-      form.append("name", name.trim() || "Scene");
-      form.append("map_type", "geospatial_map");
-      form.append("scale", result.scale || scale || "100");
-      form.append("output_lla", formChoiceBool(true));
-      form.append("map_corners_lla", result.mapCornersLla);
-      form.append("geospatial_provider", result.geospatialProvider);
-      if (result.mapZoom) {
-        form.append("map_zoom", result.mapZoom);
-      }
-      if (result.mapCenterLat) {
-        form.append("map_center_lat", result.mapCenterLat);
-      }
-      if (result.mapCenterLng) {
-        form.append("map_center_lng", result.mapCenterLng);
-      }
-      if (result.mapBearing) {
-        form.append("map_bearing", result.mapBearing);
-      }
-      const snapRes = await fetch(result.mapMediaUrl, { credentials: "same-origin" });
-      if (!snapRes.ok) {
-        throw new Error("Could not download generated map snapshot");
-      }
-      const blob = await snapRes.blob();
-      form.append(
-        "map",
-        new File([blob], result.mapFilename || "geospatial_map.png", {
-          type: blob.type || "image/png",
-        }),
-      );
+      appendGeospatialSceneFields(form, result, {
+        name: name.trim() || "Scene",
+        mapFile: mapFileBlob,
+      });
       await api.updateScene(authToken, sceneId, form);
       toast.show("Geospatial map positioned and saved", "ok");
       setDirty(false);
