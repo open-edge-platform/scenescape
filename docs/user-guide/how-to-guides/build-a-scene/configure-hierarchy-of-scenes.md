@@ -31,14 +31,19 @@ This task is essential for managing distributed scenes in Scenescape deployments
 4. Click **+ Link Child Scene**.
 5. Set **Child Type** to `Local`.
 6. Select the scene to be added from the dropdown list.
-7. If **both** the parent and child have geospatial coordinates configured
-   ([Configure Geospatial Coordinates](./configure-geospatial-coordinates.md)),
-   Scenescape computes the child pose from the four map corners. You do not
-   enter translation, rotation, or scale. Optional: **Override with manual
-   values** if you need to adjust the pose.
-   Otherwise enter the child pose relative to the parent (translation in
-   meters, Euler rotation in degrees, scale).
-8. Click **Add Child Scene**.
+7. Set the child pose relative to the parent:
+   - If **both** scenes have geospatial coordinates
+     ([Configure Geospatial Coordinates](./configure-geospatial-coordinates.md)),
+     Scenescape computes the pose from the four map corners. Optional:
+     **Override with manual values**.
+   - If the scenes are **not** both georeferenced and both have a map image
+     or GLB, click **Place in 3D**. The parent map is the world; drag the
+     child with translate / rotate / scale, then **Use this pose**. Axes are
+     scene-local meters (Z up). Open **Advanced** only if you need to type
+     Euler values.
+   - Otherwise enter translation (meters), Euler rotation (degrees), and
+     scale under **Advanced**.
+8. Click **Save**.
 
 **Expected Result**: The child scene appears in the parent scene view.
 

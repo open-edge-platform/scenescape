@@ -1007,6 +1007,8 @@ class ChildSceneSerializer(NonNullSerializer):
   def _should_compute_geospatial(self, parent, child, transform_source):
     if transform_source == TRANSFORM_SOURCE_GEOSPATIAL:
       return True
+    if transform_source == TRANSFORM_SOURCE_VISUAL:
+      return False
     if self.instance is not None:
       return False
     if request_has_explicit_transform(self.initial_data):

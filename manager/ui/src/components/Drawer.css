@@ -144,6 +144,14 @@
   margin: 0.5rem 0 0.85rem;
 }
 
+.ss-child-visual-pose {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0.5rem 0 0.85rem;
+}
+
 .ss-drawer-form .ss-text-link {
   appearance: none;
   border: 0;

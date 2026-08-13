@@ -306,6 +306,7 @@ def sceneDetail(request, scene_id):
         "id": str(s.id),
         "name": s.name,
         "georeferenced": bool(s.output_lla and s.map_corners_lla),
+        "mapUrl": s.map.url if s.map else None,
       }
       for s in Scene.objects.order_by("name")
     ],

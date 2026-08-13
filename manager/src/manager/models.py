@@ -562,7 +562,8 @@ class ChildScene(models.Model):
     max_length=16, choices=CHILD_SCENE_TRANSFORM_SOURCE_CHOICES,
     default=TRANSFORM_SOURCE_MANUAL, blank=True,
     help_text="How the child pose was obtained. Geospatial links are recomputed when "
-              "either scene's map corners or scale change.")
+              "either scene's map corners or scale change. Visual (3D gizmo) and "
+              "manual links are never auto-refreshed.")
   host_name = models.CharField("Hostname or IP", max_length=200, null=True, blank=True)
   mqtt_username = models.CharField("MQTT Username", max_length=200, null=True, blank=True)
   mqtt_password = models.CharField("MQTT Password", max_length=200, null=True, blank=True)

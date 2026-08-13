@@ -15,7 +15,9 @@ from rest_framework.authtoken.models import Token
 
 from manager.models import ChildScene, Scene
 from manager.serializers import ChildSceneSerializer
-from scene_common.options import EULER, TRANSFORM_SOURCE_GEOSPATIAL, TRANSFORM_SOURCE_MANUAL
+from scene_common.options import (
+    EULER, TRANSFORM_SOURCE_GEOSPATIAL, TRANSFORM_SOURCE_MANUAL,
+    TRANSFORM_SOURCE_VISUAL)
 
 TEST_NAME = "NEX-T22111"
 
@@ -201,6 +203,72 @@ class GeospatialChildLinkSerializerTest(TestCase):
         **self._auth_headers())
     self.assertEqual(response.status_code, 400)
     self.assertIn('child', response.json())
+
+  def test_visual_source_persists_client_euler(self):
+    serializer = ChildSceneSerializer(data={
+        'parent': self.parent.pk,
+        'child': self.child.pk,
+        'child_type': 'local',
+        'transform_source': TRANSFORM_SOURCE_VISUAL,
+        'transform_type': EULER,
+        'transform1': 4.5,
+        'transform2': -1.25,
+        'transform3': 0.5,
+        'transform4': 0,
+        'transform5': 0,
+        'transform6': 30,
+        'transform7': 1,
+        'transform8': 1,
+        'transform9': 1,
+    })
+    self.assertTrue(serializer.is_valid(), serializer.errors)
+    link = serializer.save()
+    self.assertEqual(link.transform_source, TRANSFORM_SOURCE_VISUAL)
+    self.assertEqual(link.transform_type, EULER)
+    self.assertAlmostEqual(link.transform1, 4.5)
+    self.assertAlmostEqual(link.transform2, -1.25)
+    self.assertAlmostEqual(link.transform3, 0.5)
+    self.assertAlmostEqual(link.transform6, 30)
+
+  def test_scene_corner_update_does_not_refresh_visual_links(self):
+    visual_child = _geo_scene('visual_child')
+    visual_link = ChildScene.objects.create(
+        parent=self.parent,
+        child=visual_child,
+        child_type='local',
+        transform_source=TRANSFORM_SOURCE_VISUAL,
+        transform_type=EULER,
+        transform1=7, transform2=8, transform3=0,
+        transform4=0, transform5=0, transform6=15,
+        transform7=1, transform8=1, transform9=1,
+    )
+    visual_child.map_corners_lla = SHIFTED_CORNERS_LLA
+    visual_child.save()
+    visual_link.refresh_from_db()
+    self.assertEqual(visual_link.transform_source, TRANSFORM_SOURCE_VISUAL)
+    self.assertEqual(visual_link.transform1, 7)
+    self.assertEqual(visual_link.transform2, 8)
+    self.assertEqual(visual_link.transform6, 15)
+
+  def test_unknown_transform_source_is_rejected(self):
+    serializer = ChildSceneSerializer(data={
+        'parent': self.parent.pk,
+        'child': self.child.pk,
+        'child_type': 'local',
+        'transform_source': 'overlay',
+        'transform_type': EULER,
+        'transform1': 1,
+        'transform2': 0,
+        'transform3': 0,
+        'transform4': 0,
+        'transform5': 0,
+        'transform6': 0,
+        'transform7': 1,
+        'transform8': 1,
+        'transform9': 1,
+    })
+    self.assertFalse(serializer.is_valid())
+    self.assertIn('transform_source', serializer.errors)
 
   def test_preview_endpoint_requires_both_ids(self):
     response = self.client.post(

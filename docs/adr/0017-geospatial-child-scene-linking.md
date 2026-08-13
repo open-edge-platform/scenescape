@@ -40,7 +40,8 @@ Earth's frame and should not be a survey problem for the operator.
 - **Trust cached `trs_matrix`** — often stale or unset until the controller
   writes it back. Rejected; always refit from corners.
 - **Interactive overlay / point correspondence for non-geo scenes** — better UX
-  when there is no Earth frame; follow-on, not this decision.
+  when there is no Earth frame; follow-on as 3D gizmo placement
+  ([ADR 18](./0018-3d-child-scene-placement.md)), not 2D map snap.
 
 ## Consequences
 

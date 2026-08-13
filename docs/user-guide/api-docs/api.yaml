@@ -2149,9 +2149,10 @@ components:
           default: manual
           description: >
             `geospatial` computes and stores the child pose from both scenes'
-            map corners. `manual` uses the submitted transform values.
+            map corners. `visual` stores a client Euler pose from the 3D
+            placement gizmo. `manual` uses typed transform values.
             Geospatial links are recomputed when either scene's map corners or
-            scale change.
+            scale change. Visual and manual links are never auto-refreshed.
         transform1:
           type: number
           format: double
@@ -2889,10 +2890,12 @@ components:
       enum:
         - manual
         - geospatial
+        - visual
       type: string
       description: |-
         * `manual` - Client-supplied Euler or matrix pose
         * `geospatial` - Computed from both scenes' map_corners_lla
+        * `visual` - Client Euler pose from the 3D placement gizmo; never auto-refreshed
     GeospatialChildTransformPreview:
       type: object
       properties:
