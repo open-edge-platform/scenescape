@@ -121,7 +121,9 @@ urlpatterns += [
   path('api/v1/database-ready', api.DatabaseReady.as_view()),
   path('api/v1/calculateintrinsics', CalculateCameraIntrinsics.as_view()),
   path('api/v1/aclcheck', api.ACLCheck.as_view()),
-  path("api/v1/import-scene/", api.SceneImportAPIView.as_view())
+  path("api/v1/import-scene/", api.SceneImportAPIView.as_view()),
+  path("api/v1/childscene/preview-geospatial-transform/",
+       api.PreviewGeospatialChildTransform.as_view()),
 
 ]
 

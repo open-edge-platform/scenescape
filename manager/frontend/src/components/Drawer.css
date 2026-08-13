@@ -140,6 +140,22 @@
   line-height: 1.4;
 }
 
+.ss-child-geo-pose {
+  margin: 0.5rem 0 0.85rem;
+}
+
+.ss-drawer-form .ss-text-link {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--ss-brand);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .ss-map-source-fieldset {
   border: none;
   margin: 0 0 0.5rem;
