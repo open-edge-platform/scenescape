@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import orjson
+
 from scene_common import log
 from scene_common.mqtt import PubSub
 
@@ -53,6 +55,16 @@ class ChildSceneController():
                             self.parent_controller.handleMovingObjectMessage)
     log.info("Subscribed to", self.child_scene_topic)
 
+    # Tell the child, over the live connection to ITS OWN broker, that it
+    # has a remote parent. A remote child's own scene record has no
+    # cross-instance concept of "parent" (that relationship only exists in
+    # the parent's own database), so publishExternalDetections' scene.parent
+    # guard would otherwise always block hierarchy publishing for remote
+    # children.
+    self.client.publish(
+      PubSub.formatTopic(PubSub.SYS_CHILD_PARENT_LINK, scene_id=self.child_id),
+      orjson.dumps({"parent_marker": True}))
+    log.info("Notified child of live parent link on", self.child_scene_topic)
     return
 
   def publishStatus(self, client, userdata, message):

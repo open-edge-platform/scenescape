@@ -283,7 +283,7 @@ class SceneController:
     # Hierarchy output for parent scenes. Root scenes (no parent) have no
     # hierarchy consumer for this path — skip rather than publishing onto
     # scenescape/external/{scene_uid}/+ (publisher id = this scene).
-    if not getattr(scene, 'parent', None):
+    if not getattr(scene, 'parent', None) and not getattr(scene, 'remote_parent_uid', None):
       return
 
     # External rate output (0.5fps)
@@ -292,7 +292,7 @@ class SceneController:
       scene.last_published_detection[otype] = get_epoch_time()
 
       # Rebuild detections list with sensor data included
-      reid_policy = self._hierarchyReidPublishPolicy(scene)
+      reid_policy = self._hierarchyReidPublishPolicy(scene, otype)
       will_enroll = reid_policy == 'will_enroll'
       jdata = jdata_base.copy()
       jdata['objects'] = buildDetectionsList(
@@ -325,7 +325,7 @@ class SceneController:
               and os.path.exists(get_reid_client_key()))
     return True
 
-  def _hierarchyReidPublishPolicy(self, scene):
+  def _hierarchyReidPublishPolicy(self, scene, category):
     """
     Decide how hierarchy output should treat ReID embeddings for this scene.
 
@@ -346,7 +346,8 @@ class SceneController:
         keep writing under passthrough.
     """
     tracker = getattr(scene, 'tracker', None)
-    uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
+    category_tracker = getattr(getattr(scene, 'tracker', None), 'trackers', {}).get(category)
+    uuid_manager = getattr(category_tracker, 'uuid_manager', None)
     if uuid_manager is None:
       return 'passthrough'
     if not self._sceneHasReidWriteIntent():
@@ -368,8 +369,8 @@ class SceneController:
 
   def _trackHasReidEnrollment(self, scene, aobj):
     """True when this track owns or is accumulating a local ReID write."""
-    tracker = getattr(scene, 'tracker', None)
-    uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
+    category_tracker = getattr(getattr(scene, 'tracker', None), 'trackers', {}).get(aobj.category)
+    uuid_manager = getattr(category_tracker, 'uuid_manager', None)
     if uuid_manager is None:
       return False
     rv_id = getattr(aobj, 'rv_id', None)
@@ -509,6 +510,22 @@ class SceneController:
         self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
                               msg_when, detection_type, jdata, camera_id)
       return
+
+  def handleParentLinkNotice(self, client, userdata, message):
+    """A remote parent has connected to this scene's own broker and confirmed
+    it is this scene's parent. Set the live in-memory flag so
+    publishExternalDetections stops withholding hierarchy publishes."""
+    topic = PubSub.parseTopic(message.topic)
+    scene = self.cache_manager.sceneWithID(topic['scene_id'])
+    if scene is None:
+      log.warning("Parent-link notice for unknown scene %s", topic['scene_id'])
+      return
+    payload = orjson.loads(message.payload.decode('utf-8'))
+    parent_uid = payload.get('uid') or True
+    if getattr(scene, 'remote_parent_uid', None) != parent_uid:
+      scene.remote_parent_uid = parent_uid
+      log.info(f"Scene {scene.name} confirmed live remote parent link")
+    return
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
     is_remote = False
@@ -783,6 +800,9 @@ class SceneController:
                             self.handleMovingObjectMessage))
       # External publisher-centric ingest is covered by the wildcard subscribe above.
 
+        need_subscribe.add((PubSub.formatTopic(PubSub.SYS_CHILD_PARENT_LINK,
+                                          scene_id=scene.uid),
+                      self.handleParentLinkNotice))
       if hasattr(scene, 'children'):
         child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)
 
