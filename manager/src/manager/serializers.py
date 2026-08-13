@@ -566,6 +566,7 @@ class TransformSerializerField(serializers.DictField):
 
 class SceneSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
+  skip_auto_align = serializers.BooleanField(write_only=True, required=False, default=False)
   uid = serializers.SerializerMethodField('get_uid')
   cameras = serializers.SerializerMethodField('get_cameras')
   sensors = serializers.SerializerMethodField('get_sensors')
@@ -730,6 +731,7 @@ class SceneSerializer(NonNullSerializer):
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
+    skip_auto_align = bool(validated_data.pop('skip_auto_align', False))
 
     parent_uid = None
     transform = None
@@ -753,6 +755,9 @@ class SceneSerializer(NonNullSerializer):
       with transaction.atomic():
         Scene.objects.bulk_create([instance])
         instance.refresh_from_db()
+
+    if skip_auto_align:
+      instance._from_generate_mesh = True
 
     if output_lla:
       instance.scenescapeScene.output_lla = output_lla
@@ -840,7 +845,7 @@ class SceneSerializer(NonNullSerializer):
 
   class Meta:
     model = Scene
-    fields = ['uid', 'name', 'map_type', 'use_tracker', 'output_lla', 'trs_matrix', 'map_corners_lla', 'map', 'thumbnail', 'cameras', 'sensors', 'regions',
+    fields = ['uid', 'name', 'skip_auto_align', 'map_type', 'use_tracker', 'output_lla', 'trs_matrix', 'map_corners_lla', 'map', 'thumbnail', 'cameras', 'sensors', 'regions',
               'tripwires', 'parent', 'transform', 'mesh_translation', 'mesh_rotation',
               'mesh_scale', 'scale', 'children', 'regulated_rate', 'external_update_rate',
               'camera_calibration', 'apriltag_size', 'map_processed', 'polycam_data',
