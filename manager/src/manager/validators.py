@@ -15,10 +15,18 @@ from plyfile import PlyData
 def validate_glb(value):
   with tempfile.NamedTemporaryFile(suffix=".glb") as glb_file:
     glb_file.write(value.read())
-    mesh = o3d.io.read_triangle_model(glb_file.name)
-    if len(mesh.meshes) == 0 or mesh.materials[0].shader is None:
-      raise ValidationError("Only valid glTF binary (.glb) files are supported for 3D assets.")
-    return value
+    glb_file.flush()
+    try:
+      mesh = o3d.io.read_triangle_model(glb_file.name)
+      if len(mesh.meshes) == 0 or mesh.materials[0].shader is None:
+        raise ValidationError("Only valid glTF binary (.glb) files are supported for 3D assets.")
+    except ValidationError:
+      raise
+    except Exception as e:
+      raise ValidationError(f"Failed to read glTF binary (.glb) file: {e}")
+    finally:
+      value.seek(0)
+  return value
 
 def validate_image(value):
   with Image.open(value) as img:
