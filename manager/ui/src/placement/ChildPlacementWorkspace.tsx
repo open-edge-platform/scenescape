@@ -175,6 +175,12 @@ export function ChildPlacementWorkspace({
           </Button>
           <Button onClick={() => pushPose(initialPose)}>Reset</Button>
           <Button onClick={() => pushPose(IDENTITY_POSE)}>Identity</Button>
+          <span className="ss-placement-axes-legend" title="RGB = XYZ, Z up">
+            <span className="ss-placement-axis ss-placement-axis--x">X</span>
+            <span className="ss-placement-axis ss-placement-axis--y">Y</span>
+            <span className="ss-placement-axis ss-placement-axis--z">Z</span>
+            <span className="ss-placement-axes-caption">parent + child</span>
+          </span>
         </div>
         {error ? <p className="ss-placement-error">{error}</p> : null}
         {busy && !specsReady ? (

@@ -23,6 +23,36 @@
   flex: 0 0 auto;
 }
 
+.ss-placement-axes-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #9aa3ab;
+}
+
+.ss-placement-axis {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ss-placement-axis--x {
+  color: #ff6b6b;
+}
+
+.ss-placement-axis--y {
+  color: #51cf66;
+}
+
+.ss-placement-axis--z {
+  color: #74c0fc;
+}
+
+.ss-placement-axes-caption {
+  color: #9aa3ab;
+}
+
 .ss-placement-canvas {
   flex: 1 1 auto;
   min-height: 16rem;

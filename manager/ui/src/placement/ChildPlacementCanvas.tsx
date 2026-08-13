@@ -4,7 +4,6 @@
 import { useEffect, useRef } from "react";
 import {
   AmbientLight,
-  AxesHelper,
   Box3,
   Color,
   DirectionalLight,
@@ -24,6 +23,12 @@ import {
   type SceneEulerPose,
 } from "./poseThree";
 import { loadSceneObject } from "./loadSceneObject";
+import {
+  axesLengthFromSpan,
+  makePlacementAxes,
+  spanOfObject,
+  syncChildAxes,
+} from "./placementAxes";
 import type { SceneGeometrySpec } from "./sceneGeometry";
 import type { PlacementGizmoMode } from "./placementTypes";
 
@@ -152,7 +157,10 @@ export function ChildPlacementCanvas({
     const grid = new GridHelper(40, 40, 0x4b5563, 0x2d333b);
     grid.rotation.x = Math.PI / 2;
     scene.add(grid);
-    scene.add(new AxesHelper(2));
+
+    const childAxesRoot = new Group();
+    childAxesRoot.name = "child-axes-root";
+    scene.add(childAxesRoot);
 
     const resize = () => {
       if (!renderer || disposed) {
@@ -170,6 +178,9 @@ export function ChildPlacementCanvas({
       if (disposed || !renderer) {
         return;
       }
+      if (childRef.current) {
+        syncChildAxes(childAxesRoot, childRef.current);
+      }
       orbit?.update();
       renderer.render(scene, camera);
       frame = window.requestAnimationFrame(tick);
@@ -186,9 +197,22 @@ export function ChildPlacementCanvas({
         }
         parentGroup.add(parentObj);
         childGroup.add(childObj);
+        parentGroup.add(
+          makePlacementAxes(
+            axesLengthFromSpan(spanOfObject(parentObj)),
+            "parent-axes",
+          ),
+        );
+        childAxesRoot.add(
+          makePlacementAxes(
+            axesLengthFromSpan(spanOfObject(childObj)),
+            "child-axes",
+          ),
+        );
         applyingRef.current = true;
         applyScenePoseToObject(childGroup, poseRef.current);
         applyingRef.current = false;
+        syncChildAxes(childAxesRoot, childGroup);
         gizmo?.attach(childGroup);
         fitCamera(camera, orbit as OrbitControls, [parentGroup, childGroup]);
         ro.observe(host);
