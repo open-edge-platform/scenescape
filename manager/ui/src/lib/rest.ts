@@ -136,6 +136,20 @@ export const api = {
       `/child/${encodeURIComponent(uid)}`,
       token,
     ),
+  previewGeospatialTransform: (
+    token: string,
+    parent: string,
+    child: string,
+  ) =>
+    restJson<{
+      translation: number[];
+      rotation: number[];
+      scale: number[];
+      residual_m: number;
+    }>("POST", "/childscene/preview-geospatial-transform/", token, {
+      parent,
+      child,
+    }),
   createScene: (token: string, form: FormData) =>
     restForm("POST", "/scene", token, form),
   updateScene: (token: string, uid: string, form: FormData) =>

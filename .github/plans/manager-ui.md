@@ -108,6 +108,11 @@ Replace or wrap the legacy Three.js surface (`scenescape3d.js` ~4.3k LOC)
 with a React-owned shell that reuses MQTT / auth patterns from the 2D
 rewrite. Do **not** fold into 2D trickle PRs.
 
+Precursor: non-georeferenced child linking already ships a thin Z-up
+placement canvas (`manager/ui/src/placement/`) with `poseThree` conversion
+and TransformControls. Reuse that pose/gizmo module in the viewport; do
+not wrap `scenescape3d.js` for hierarchy placement.
+
 Suggested slices:
 
 1. Inventory: entry points, MQTT topics, asset load path, Django template

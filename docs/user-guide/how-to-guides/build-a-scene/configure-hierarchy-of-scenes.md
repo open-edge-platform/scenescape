@@ -31,8 +31,25 @@ This task is essential for managing distributed scenes in Scenescape deployments
 4. Click **+ Link Child Scene**.
 5. Set **Child Type** to `Local`.
 6. Select the scene to be added from the dropdown list.
-7. Enter transform type and values.
-8. Click **Add Child Scene**.
+7. Set the child pose relative to the parent:
+   - If **both** scenes have geospatial coordinates
+     ([Configure Geospatial Coordinates](./configure-geospatial-coordinates.md)),
+     Scenescape computes the pose from the four map corners. Optional:
+     **Override with manual values**. Linking is refused when the stored Euler
+     pose would place a child track more than ``max(2 m, 0.5% of the larger
+     map)`` from the composed geospatial transform. If it fails, re-run
+     **Generate Geospatial Bounds & Snapshot** on both scenes so each map
+     image and its corners cover the same square.
+   - If the scenes are **not** both georeferenced and both have a map image
+     or GLB, click **Place in 3D**. The parent map is the world; drag the
+     child with translate / rotate / scale, then **Use this pose**. RGB axes
+     mark each scene origin (X red, Y green, Z blue up) in scene-local
+     meters. A GLB is drawn with that scene's mesh rotation and translation
+     (same pose as the thumbnail) so lining up the models lines up the
+     track frames. Open **Advanced** only if you need to type Euler values.
+   - Otherwise enter translation (meters), Euler rotation (degrees), and
+     scale under **Advanced**.
+8. Click **Save**.
 
 **Expected Result**: The child scene appears in the parent scene view.
 
@@ -123,7 +140,9 @@ Then restart Scenescape:
    - Child Name
    - Hostname or IP
    - MQTT Username/Password
-   - Transform type/values
+   - Transform type/values (remote children are not auto-linked from
+     geospatial corners; enter the pose or configure geospatial linking
+     after the child scene exists locally)
 6. Click **Add Child Scene**.
 
 ![Remote Child Form](../../_assets/ui/remote_child_link_form.png "remote child scene form")

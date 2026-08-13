@@ -11,6 +11,10 @@ import {
   loadGeospatialScripts,
   type GeospatialApplyResult,
 } from "../lib/geospatialLoader";
+import {
+  scaleFromView,
+  snapshotCornersJson,
+} from "../lib/geospatialSnapshot";
 import "./GeospatialMapPicker.css";
 
 const GEO_MAP_ID = "ss-geo-map";
@@ -48,42 +52,6 @@ function centerParts(center: unknown): { lat: string; lng: string } {
   };
 }
 
-function scaleFromView(lat: number, zoom: number): string {
-  const earth = 40075016.686;
-  const pixelsPerDegree = (256 * Math.pow(2, zoom)) / 360;
-  const metersPerDegreeLng =
-    (earth / 360) * Math.cos((lat * Math.PI) / 180);
-  return (pixelsPerDegree / metersPerDegreeLng).toFixed(2);
-}
-
-function cornersFromBounds(bounds: unknown): string | null {
-  if (!bounds || typeof bounds !== "object") {
-    return null;
-  }
-  const b = bounds as {
-    getNorthEast?: () => { lat?: unknown; lng?: unknown };
-    getSouthWest?: () => { lat?: unknown; lng?: unknown };
-  };
-  const ne = b.getNorthEast?.();
-  const sw = b.getSouthWest?.();
-  if (!ne || !sw) {
-    return null;
-  }
-  const neLat = coord(ne.lat);
-  const neLng = coord(ne.lng);
-  const swLat = coord(sw.lat);
-  const swLng = coord(sw.lng);
-  if (neLat == null || neLng == null || swLat == null || swLng == null) {
-    return null;
-  }
-  return JSON.stringify([
-    [swLat, swLng, 0],
-    [neLat, swLng, 0],
-    [neLat, neLng, 0],
-    [swLat, neLng, 0],
-  ]);
-}
-
 function readLiveMap(): {
   corners: string | null;
   lat: string;
@@ -102,33 +70,40 @@ function readLiveMap(): {
   };
   const map = window.mapManager?.getCurrentMapInstance?.() as
     | {
-        getBounds?: () => unknown;
         getCenter?: () => unknown;
         getZoom?: () => number;
         getBearing?: () => number;
+        getHeading?: () => number;
         resize?: () => void;
       }
     | null
     | undefined;
-  if (!map?.getBounds || !map.getCenter || !map.getZoom) {
+  if (!map?.getCenter || !map.getZoom) {
     return empty;
   }
   map.resize?.();
   const parts = centerParts(map.getCenter());
   const zoomN = Number(map.getZoom());
-  const bearingN =
-    typeof map.getBearing === "function" ? Number(map.getBearing()) : 0;
+  const bearingRaw =
+    typeof map.getBearing === "function"
+      ? map.getBearing()
+      : typeof map.getHeading === "function"
+        ? map.getHeading()
+        : 0;
+  const bearingN = Number(bearingRaw);
   const latN = Number(parts.lat);
+  const lngN = Number(parts.lng);
+  const ready =
+    Number.isFinite(latN) && Number.isFinite(lngN) && Number.isFinite(zoomN);
   return {
-    corners: cornersFromBounds(map.getBounds()),
+    corners: ready
+      ? snapshotCornersJson(latN, lngN, zoomN, Number.isFinite(bearingN) ? bearingN : 0)
+      : null,
     lat: parts.lat,
     lng: parts.lng,
     zoom: Number.isFinite(zoomN) ? String(zoomN) : "",
     bearing: Number.isFinite(bearingN) ? String(bearingN) : "0",
-    scale:
-      Number.isFinite(latN) && Number.isFinite(zoomN)
-        ? scaleFromView(latN, zoomN)
-        : "",
+    scale: ready ? scaleFromView(latN, zoomN).toFixed(2) : "",
   };
 }
 
@@ -410,7 +385,10 @@ export function GeospatialMapPicker({
       window.mapManager.generateBounds();
       const snap = await pending.promise;
       const after = readLiveMap();
-      const corners = after.corners || live.corners;
+      const fieldCorners = (
+        document.getElementById("id_map_corners_lla") as HTMLInputElement | null
+      )?.value?.trim();
+      const corners = fieldCorners || after.corners || live.corners;
 
       await onApply({
         scale: after.scale || live.scale || "100",

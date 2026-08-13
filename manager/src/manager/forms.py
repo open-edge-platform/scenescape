@@ -156,6 +156,7 @@ class ChildSceneForm(forms.ModelForm):
     ]
     fields = ['child_type', 'child', 'remote_child_id', 'child_name', 'parent', 'host_name', \
           'mqtt_username', 'mqtt_password', 'retrack', 'transform_type', \
+          'transform_source', \
           'transform1', 'transform2', 'transform3', 'transform4', \
           'transform5', 'transform6', 'transform7', 'transform8', \
           'transform9', 'transform10', 'transform11', 'transform12', \

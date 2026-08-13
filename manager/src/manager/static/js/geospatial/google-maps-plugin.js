@@ -143,35 +143,9 @@ class GoogleMapsPlugin extends MapInterface {
 
     const center = this.map.getCenter();
     const zoom = this.map.getZoom();
-    const scale = this.calculateScale(center.lat(), zoom);
-
-    const ne = bounds.getNorthEast();
-    const sw = bounds.getSouthWest();
-
-    // Populate the scale field in the form
-    const scaleField = document.getElementById("id_scale");
-    if (scaleField) {
-      scaleField.value = scale.toFixed(2);
-    }
-
-    // Populate map_corners_lla field with corners in the expected format
-    // Expected order: starting from the bottom-left corner counterclockwise
-    // Format: [ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]
-    const mapCornersField = document.getElementById("id_map_corners_lla");
-    if (mapCornersField) {
-      const cornersLLA = [
-        [sw.lat(), sw.lng(), 0], // SW (bottom-left)
-        [ne.lat(), sw.lng(), 0], // NW (top-left)
-        [ne.lat(), ne.lng(), 0], // NE (top-right)
-        [sw.lat(), ne.lng(), 0], // SE (bottom-right)
-      ];
-      mapCornersField.value = JSON.stringify(cornersLLA);
-
-      const outputLlaField = document.getElementById("id_output_lla");
-      if (outputLlaField) {
-        outputLlaField.value = "True";
-      }
-    }
+    const heading =
+      typeof this.map.getHeading === "function" ? this.map.getHeading() : 0;
+    this.writeGeospatialFormFields(center.lat(), center.lng(), zoom, heading);
 
     this.generateSnapshot();
   }
@@ -180,55 +154,28 @@ class GoogleMapsPlugin extends MapInterface {
     const center = this.map.getCenter();
     const zoom = this.map.getZoom();
 
-    // Calculate bounds for stitched approach (4 quadrants)
-    const bounds = this.map.getBounds();
-    const ne = bounds.getNorthEast();
-    const sw = bounds.getSouthWest();
-    const centerLat = center.lat();
-    const centerLng = center.lng();
-
-    const latRange = ne.lat() - sw.lat();
-    const lngRange = ne.lng() - sw.lng();
-    const quarterLat = latRange / 4;
-    const quarterLng = lngRange / 4;
-
+    const heading =
+      typeof this.map.getHeading === "function" ? this.map.getHeading() : 0;
+    const q = this.snapshotQuadrantCenters(
+      center.lat(),
+      center.lng(),
+      zoom,
+      heading,
+    );
     const quadrants = [
-      {
-        name: "NW",
-        lat: centerLat + quarterLat,
-        lng: centerLng - quarterLng,
-        x: 0,
-        y: 0,
-      },
-      {
-        name: "NE",
-        lat: centerLat + quarterLat,
-        lng: centerLng + quarterLng,
-        x: 640,
-        y: 0,
-      },
-      {
-        name: "SW",
-        lat: centerLat - quarterLat,
-        lng: centerLng - quarterLng,
-        x: 0,
-        y: 640,
-      },
-      {
-        name: "SE",
-        lat: centerLat - quarterLat,
-        lng: centerLng + quarterLng,
-        x: 640,
-        y: 640,
-      },
+      { name: "NW", ...q.NW },
+      { name: "NE", ...q.NE },
+      { name: "SW", ...q.SW },
+      { name: "SE", ...q.SE },
     ];
 
+    const snapPx = this.constructor.SNAPSHOT_SIZE_PX;
     let canvas = document.getElementById("stitchedSnapshot");
     if (!canvas) {
       canvas = document.createElement("canvas");
-      canvas.width = 1280;
-      canvas.height = 1280;
     }
+    canvas.width = snapPx;
+    canvas.height = snapPx;
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       this.dispatchSnapshotResult({
@@ -237,7 +184,7 @@ class GoogleMapsPlugin extends MapInterface {
       });
       return;
     }
-    ctx.clearRect(0, 0, 1280, 1280);
+    ctx.clearRect(0, 0, snapPx, snapPx);
 
     let loadedImages = 0;
     const totalImages = 4;
