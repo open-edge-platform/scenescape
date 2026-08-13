@@ -4,7 +4,7 @@
 import base64
 import datetime
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 
@@ -47,6 +47,29 @@ class TestChainData:
 
 
 class TestMovingObject:
+  def test_metric_distance_is_used_to_project_two_dimensional_boxes(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    projected = Rectangle({'x': 1.0, 'y': 2.0, 'width': 0.3, 'height': 0.4})
+    intrinsics = SimpleNamespace(
+      mapPixelToNormalizedImagePlane=Mock(return_value=projected),
+      intrinsics=np.eye(3),
+      distortion=np.zeros(5),
+    )
+    camera = SimpleNamespace(
+      pose=SimpleNamespace(intrinsics=intrinsics),
+    )
+    info = _base_info()
+    info.pop('bounding_box')
+    info['bounding_box_px'] = {'x': 10, 'y': 20, 'width': 30, 'height': 40}
+    info['distance'] = 2.5
+
+    obj = MovingObject(info, when, camera)
+
+    intrinsics.mapPixelToNormalizedImagePlane.assert_called_once_with(
+      obj.boundingBoxPixels, 2.5)
+    assert obj.metric_distance == 2.5
+    assert 'distance' not in obj.info
+
   def test_init_extracts_reid_and_keeps_metadata(self):
     when = datetime.datetime.now(datetime.timezone.utc)
     metadata = {

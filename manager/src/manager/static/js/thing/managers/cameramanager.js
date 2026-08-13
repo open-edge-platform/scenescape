@@ -21,4 +21,12 @@ export default class CameraManager extends ThingManager {
       }
     });
   }
+
+  updatePoses(cameras) {
+    if (!Array.isArray(cameras)) return;
+    for (const camera of cameras) {
+      const sceneCamera = this.sceneCameras[camera.id];
+      if (sceneCamera) sceneCamera.updatePose(camera);
+    }
+  }
 }

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Optional
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -94,6 +95,7 @@ class Scene(SceneModel):
     self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
 
     self._trs_xyz_to_lla = None
+    self.camera_pose_overrides = {}
     self.use_tracker = True
 
     self.pose_adjustment = PoseAdjustment.from_env(
@@ -233,20 +235,58 @@ class Scene(SceneModel):
       log.info("DISCARDING: camera has no pose")
       return True
 
+    message_camera = camera
+    extrinsics = jdata.get('extrinsics')
+    if isinstance(extrinsics, dict):
+      try:
+        translation = extrinsics.get('translation')
+        rotation = extrinsics.get('rotation')
+        if translation is not None and rotation is not None:
+          override_pose = CameraPose({
+            'translation': translation,
+            'rotation': rotation,
+            'scale': extrinsics.get('scale') or [1, 1, 1],
+          }, camera.pose.intrinsics)
+          self.camera_pose_overrides[camera_id] = override_pose
+          message_camera = SimpleNamespace(cameraID=camera.cameraID, pose=override_pose)
+      except (TypeError, ValueError) as exc:
+        log.warning(f"Ignoring invalid camera metadata for {camera_id}: {exc}")
+
     for detection_type, detections in jdata['objects'].items():
       stripReidProvenance(detections)
       self.pose_adjustment.adjust_detections(
         detection_type,
         detections,
         self.name,
-        camera,
+        message_camera,
         when,
       )
       if "intrinsics" not in jdata:
-        self.convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
-      objects = self.createMovingObjectsForDetection(detection_type, detections, when, camera)
+        self.convertPixelBoundingBoxesToMeters(
+          detections,
+          message_camera.pose.intrinsics.intrinsics,
+          message_camera.pose.intrinsics.distortion,
+        )
+      objects = self.createMovingObjectsForDetection(detection_type, detections, when, message_camera)
       self.finishProcessing(detection_type, when, objects)
     return True
+
+  def serializeCameras(self):
+    """Serialize configured cameras using their latest supplied poses."""
+    cameras = []
+    for camera_id, camera in self.cameras.items():
+      if not hasattr(camera, 'pose'):
+        continue
+      pose = self.camera_pose_overrides.get(camera_id, camera.pose)
+      camera_data = {
+        'id': camera_id,
+        'translation': pose.translation.asNumpyCartesian.tolist(),
+        'rotation': list(pose.euler_rotation),
+        'scale': list(pose.scale),
+      }
+      camera_data.update(pose.intrinsics.asDict())
+      cameras.append(camera_data)
+    return cameras
 
   def convertPixelBoundingBoxesToMeters(self, objects: list[dict], intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
     """
@@ -412,6 +452,7 @@ class Scene(SceneModel):
     deleted = old - new
     for camID in deleted:
       self.cameras.pop(camID)
+      self.camera_pose_overrides.pop(camID, None)
     CameraRegistry.getInstance().updateCameras(self.name, self.cameras.keys())
     return
 

@@ -289,6 +289,9 @@ class SceneController:
     # intentional: no detections is state. Rate limiting belongs only on
     # analytics' regulated topic.
     jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=False)
+    serialize_cameras = getattr(scene, 'serializeCameras', None)
+    if self.visibility_topic != 'unregulated' and callable(serialize_cameras):
+      jdata['cameras'] = serialize_cameras()
     if 'debug_hmo_start_time' in jdata:
       jdata['debug_hmo_processing_time'] = get_epoch_time() - jdata['debug_hmo_start_time']
     # Convert numpy types to native Python types for JSON serialization
@@ -312,6 +315,7 @@ class SceneController:
       reid_policy = self._hierarchyReidPublishPolicy(scene, otype)
       will_enroll = reid_policy == 'will_enroll'
       jdata = jdata_base.copy()
+      jdata.pop('cameras', None)
 
       # Hierarchy output must not carry agent publisher fields. If source_id
       # leaks onto external/{scene_uid}/+, the wildcard subscription re-ingests

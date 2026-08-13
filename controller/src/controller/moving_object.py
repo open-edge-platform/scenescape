@@ -38,6 +38,19 @@ SPEED_THRESHOLD_ON = 1.0
 SPEED_THRESHOLD_OFF = 0.5
 
 
+def _parse_metric_distance(info):
+  if 'distance' not in info:
+    return None
+  distance = info.pop('distance')
+  try:
+    distance = float(distance)
+  except (TypeError, ValueError) as err:
+    raise ValueError("Invalid distance", distance) from err
+  if distance <= 0:
+    raise ValueError("Invalid distance", distance)
+  return distance
+
+
 def serializeReIDPayload(reid):
   if reid is None:
     return None
@@ -142,6 +155,7 @@ class MovingObject:
     self.last_seen = None
     self.camera = camera
     self.info = info.copy()
+    self.metric_distance = _parse_metric_distance(self.info)
     self.has_detection_rotation = 'rotation' in self.info
 
     self.category = self.info.get('category', 'object')
@@ -150,11 +164,15 @@ class MovingObject:
       self.boundingBoxPixels = Rectangle(self.info['bounding_box_px'])
       self.info.pop('bounding_box_px')
       if not 'bounding_box' in self.info:
-        agnostic = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(self.boundingBoxPixels)
+        agnostic = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(
+          self.boundingBoxPixels, self.metric_distance)
         self.boundingBox = agnostic
     if 'bounding_box' in self.info:
       self.boundingBox = Rectangle(self.info['bounding_box'])
       self.info.pop('bounding_box')
+      if self.metric_distance is not None and not self.boundingBox.origin.is3D:
+        self.boundingBox = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(
+          self.boundingBox, self.metric_distance)
     self.confidence = self.info['confidence'] if 'confidence' in self.info else None
     self.oid = self.info['id']
     self.info.pop('id')

@@ -204,6 +204,35 @@ def test_processCameraData_intrinsics_present_skips_bbox_conversion(scene_obj, c
   assert scene_obj.processCameraData(payload) is True
   convert_mock.assert_not_called()
 
+
+def test_processCameraData_applies_and_serializes_per_frame_extrinsics(scene_obj, camera_obj, monkeypatch):
+  scene_obj.cameras[camera_obj.cameraID] = camera_obj
+  captured = {}
+
+  def _capture_create(detection_type, detections, when_value, camera):
+    captured['camera'] = camera
+    return []
+
+  monkeypatch.setattr(scene_obj, 'createMovingObjectsForDetection', _capture_create)
+  monkeypatch.setattr(scene_obj, 'finishProcessing', lambda *args, **kwargs: None)
+  payload = {
+    'id': camera_obj.cameraID,
+    'timestamp': '2023-05-16T21:22:58.388Z',
+    'extrinsics': {
+      'translation': [1.0, 2.0, 3.0],
+      'rotation': [0.0, 0.0, 0.0],
+      'scale': [1.0, 1.0, 1.0],
+    },
+    'objects': {'person': []},
+  }
+
+  assert scene_obj.processCameraData(payload) is True
+  np.testing.assert_allclose(
+    captured['camera'].pose.translation.asNumpyCartesian, [1.0, 2.0, 3.0])
+  serialized = scene_obj.serializeCameras()
+  assert serialized[0]['id'] == camera_obj.cameraID
+  np.testing.assert_allclose(serialized[0]['translation'], [1.0, 2.0, 3.0])
+
 def test_processCameraData_ignore_time_flag_uses_now(scene_obj, camera_obj, monkeypatch):
   scene_obj.cameras[camera_obj.cameraID] = camera_obj
   captured = {}
