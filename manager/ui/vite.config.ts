@@ -29,6 +29,12 @@ export default defineConfig({
       output: {
         entryFileNames: "[name].js",
         chunkFileNames: "chunks/[name]-[hash].js",
+        manualChunks(id) {
+          if (id.includes("node_modules/three")) {
+            return "three";
+          }
+          return undefined;
+        },
         assetFileNames: (assetInfo) => {
           if (assetInfo.name && assetInfo.name.endsWith(".css")) {
             return "manager-ui.css";
