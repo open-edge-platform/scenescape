@@ -25,7 +25,9 @@ linking should not wait on that rewrite and must not stretch the 2D SVG map.
 ## Decision
 
 - Ship a **thin 3D placement widget** in the Manager UI: parent map or GLB is
-  the world; the child is a second `Object3D` with TransformControls.
+  the world; the child is a second `Object3D` with TransformControls. GLB
+  maps are shown with the scene's mesh translation/rotation/scale (Y-up to
+  first-quadrant Z-up) so aligning meshes confirms scene-local track frames.
 - Run the canvas **Z-up** (`camera.up = (0,0,1)`) so gizmo axes match stored
   Euler. Do not reuse camera `togglePoseYupYdown` (that is CV Y-down).
 - Persist the same `ChildScene` Euler contract as today

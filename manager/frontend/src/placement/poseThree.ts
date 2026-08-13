@@ -2,15 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Euler, Matrix4, Object3D, Quaternion, Vector3 } from "three";
-import type { SceneEulerPose } from "./placementTypes";
+import { IDENTITY_POSE, type SceneEulerPose } from "./placementTypes";
 
 export type { SceneEulerPose };
-
-export const IDENTITY_POSE: SceneEulerPose = {
-  translation: [0, 0, 0],
-  rotation: [0, 0, 0],
-  scale: [1, 1, 1],
-};
+export { IDENTITY_POSE };
 
 const DEG = 180 / Math.PI;
 const RAD = Math.PI / 180;

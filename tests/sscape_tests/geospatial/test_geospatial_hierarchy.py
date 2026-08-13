@@ -115,6 +115,30 @@ class TestComputeChildToParentPose:
         PARENT_XYZ, PARENT_LLA, child_xyz, child_lla)
     _assert_pose_close(result, translation, rotation, [1, 1, 1], atol_t=0.25, atol_r=2.0)
 
+  def test_stored_euler_maps_child_tracks_like_controller(self):
+    """CameraPose(stored Euler) must place child corners on the parent map."""
+    child_xyz = local_xyz_corners_from_extents(3.0, 2.0)
+    translation = [1.5, 0.8, 0.0]
+    rotation = [0.0, 0.0, 25.0]
+    child_lla = _child_lla_from_pose(translation, rotation, [1, 1, 1], child_xyz)
+    result = compute_child_to_parent_pose(
+        PARENT_XYZ, PARENT_LLA, child_xyz, child_lla)
+    stored = CameraPose({
+        'translation': result['translation'],
+        'rotation': result['rotation'],
+        'scale': result['scale'],
+    }, None)
+    expected = CameraPose({
+        'translation': translation,
+        'rotation': rotation,
+        'scale': [1, 1, 1],
+    }, None)
+    for xyz in child_xyz:
+      got = np.matmul(stored.pose_mat, np.hstack([xyz, 1.0]))[:3]
+      want = np.matmul(expected.pose_mat, np.hstack([xyz, 1.0]))[:3]
+      assert float(np.linalg.norm(got - want)) < 0.25
+    np.testing.assert_allclose(stored.pose_mat, result['matrix'], atol=1e-9)
+
   def test_nested_building_in_campus(self):
     """Child footprint is a subset of the parent, offset inside the campus."""
     child_xyz = local_xyz_corners_from_extents(2.0, 1.5)
@@ -148,15 +172,14 @@ class TestComputeChildToParentPose:
     with pytest.raises(GeospatialHierarchyError, match="surface"):
       compute_child_to_parent_pose(lifted, PARENT_LLA, PARENT_XYZ, PARENT_LLA)
 
-  def test_rejects_tight_residual_threshold(self):
-    child_xyz = local_xyz_corners_from_extents(3.0, 2.0)
-    child_lla = _child_lla_from_pose([1.0, 0.5, 0.0], [0, 0, 0], [1, 1, 1], child_xyz)
-    with pytest.raises(GeospatialHierarchyError, match="residual"):
+  def test_rejects_zero_residual_threshold(self):
+    with pytest.raises(GeospatialHierarchyError, match="positive"):
       compute_child_to_parent_pose(
-          PARENT_XYZ, PARENT_LLA, child_xyz, child_lla,
-          residual_threshold_m=1e-12)
+          PARENT_XYZ, PARENT_LLA, PARENT_XYZ, PARENT_LLA,
+          residual_threshold_m=0)
 
-  def test_rejects_square_map_with_rectangular_lla(self):
+  def test_same_corner_mismatch_still_stores_faithful_track_pose(self):
+    """Shared XYZ/LLA mismatch cancels in inv(Tp)@Tc; stored Euler stays identity."""
     square = local_xyz_corners_from_extents(400.0, 400.0)
     lat0, lon0, alt = 37.38685435, -121.96408120, 8.0
     dlat = 225 / 110540
@@ -167,5 +190,6 @@ class TestComputeChildToParentPose:
         [lat0 + dlat, lon0 + dlon, alt],
         [lat0 + dlat, lon0, alt],
     ]
-    with pytest.raises(GeospatialHierarchyError, match="residual"):
-      compute_child_to_parent_pose(square, rect_lla, square, rect_lla)
+    result = compute_child_to_parent_pose(square, rect_lla, square, rect_lla)
+    assert result['residual_m'] < 1e-6
+    _assert_pose_close(result, [0, 0, 0], [0, 0, 0], [1, 1, 1], atol_t=0.05, atol_r=0.5)
