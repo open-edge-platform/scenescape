@@ -15,7 +15,11 @@ from scene_common.earth_lla import (
 )
 from scene_common.transform import CameraPose
 
+# Floor for intersection-sized maps. Larger parents (stitched blocks) use
+# RESIDUAL_SPAN_FRACTION of the bigger map span so the ECEF affine's ~1 m /
+# 500 m error does not block campus-scale links.
 DEFAULT_RESIDUAL_THRESHOLD_M = 2.0
+RESIDUAL_SPAN_FRACTION = 0.005
 CORNER_COUNT = 4
 
 Number = Union[int, float]
@@ -75,6 +79,18 @@ def _ecef_distance_lla(lla_a: Iterable[Number], lla_b: Iterable[Number]) -> floa
   return float(np.linalg.norm(convertLLAToECEF(lla_a) - convertLLAToECEF(lla_b)))
 
 
+def map_span_m(xyz_corners: np.ndarray) -> float:
+  """Axis-aligned width/height of local XYZ corners, in meters."""
+  return float(max(np.ptp(xyz_corners[:, 0]), np.ptp(xyz_corners[:, 1]), 0.0))
+
+
+def residual_threshold_for_maps(
+    parent_xyz: np.ndarray, child_xyz: np.ndarray) -> float:
+  """Reject gate: 2 m floor, or 0.5 % of the larger map when stitching blocks."""
+  span = max(map_span_m(parent_xyz), map_span_m(child_xyz))
+  return max(DEFAULT_RESIDUAL_THRESHOLD_M, RESIDUAL_SPAN_FRACTION * span)
+
+
 def _decompose_affine_to_euler(matrix: np.ndarray) -> dict:
   """Decompose a 4x4 affine into translation, XYZ Euler degrees, and scale."""
   linear = np.array(matrix[:3, :3], dtype=np.float64)
@@ -102,7 +118,7 @@ def compute_child_to_parent_pose(
     parent_lla_corners: Corners,
     child_xyz_corners: Corners,
     child_lla_corners: Corners,
-    residual_threshold_m: float = DEFAULT_RESIDUAL_THRESHOLD_M,
+    residual_threshold_m: Optional[float] = None,
 ) -> dict:
   """Compute the Euler pose that maps child-local XYZ into parent-local XYZ.
 
@@ -116,6 +132,7 @@ def compute_child_to_parent_pose(
     child_xyz_corners: Four child-local surface points (z=0), CCW from lower-left.
     child_lla_corners: Matching child WGS84 corners [lat, lon, alt].
     residual_threshold_m: Max ECEF error after Euler reconstruction (meters).
+      ``None`` uses ``max(2 m, 0.5% of the larger map span)``.
 
   Returns:
     Dict with ``translation``, ``rotation`` (XYZ degrees), ``scale``,
@@ -128,7 +145,9 @@ def compute_child_to_parent_pose(
   parent_lla = _as_corner_array(parent_lla_corners, "parent geospatial")
   child_xyz = _as_corner_array(child_xyz_corners, "child local")
   child_lla = _as_corner_array(child_lla_corners, "child geospatial")
-  if residual_threshold_m <= 0:
+  if residual_threshold_m is None:
+    residual_threshold_m = residual_threshold_for_maps(parent_xyz, child_xyz)
+  elif residual_threshold_m <= 0:
     raise GeospatialHierarchyError("residual_threshold_m must be positive")
 
   try:
@@ -143,8 +162,15 @@ def compute_child_to_parent_pose(
     raise GeospatialHierarchyError("Parent geospatial transform is not invertible") from exc
 
   child_to_parent = parent_inv @ child_trs
-  euler_pose = _decompose_affine_to_euler(child_to_parent)
-  reconstructed = CameraPose(euler_pose, None)
+  try:
+    euler_pose = _decompose_affine_to_euler(child_to_parent)
+    reconstructed = CameraPose(euler_pose, None)
+  except GeospatialHierarchyError:
+    raise
+  except ValueError as exc:
+    raise GeospatialHierarchyError(
+        "Could not decompose child-to-parent geospatial pose to Euler") from exc
+
   residual = 0.0
   for xyz, expected_lla in zip(child_xyz, child_lla):
     parent_pt = np.matmul(reconstructed.pose_mat, np.hstack([xyz, 1.0]))[:3]
@@ -154,7 +180,8 @@ def compute_child_to_parent_pose(
   if residual > residual_threshold_m:
     raise GeospatialHierarchyError(
         f"Geospatial child pose residual {residual:.2f} m exceeds "
-        f"{residual_threshold_m:.2f} m")
+        f"{residual_threshold_m:.2f} m. Re-generate geospatial bounds on both "
+        "scenes so the map image and map corners cover the same square.")
 
   return {
       'translation': reconstructed.translation.asNumpyCartesian.tolist(),

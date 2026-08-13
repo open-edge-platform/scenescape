@@ -13,6 +13,7 @@ from scene_common.geospatial_hierarchy import (
     compute_child_to_parent_pose,
     local_xyz_corners_from_extents,
     local_xyz_corners_from_image_size,
+    residual_threshold_for_maps,
     scene_is_georeferenced,
 )
 from scene_common.transform import CameraPose
@@ -79,6 +80,18 @@ class TestSceneIsGeoreferenced:
     assert not scene_is_georeferenced(True, PARENT_LLA[:3])
 
 
+class TestResidualThresholdForMaps:
+  def test_floor_for_intersection_sized_maps(self):
+    parent = local_xyz_corners_from_extents(80.0, 60.0)
+    child = local_xyz_corners_from_extents(20.0, 15.0)
+    assert residual_threshold_for_maps(parent, child) == DEFAULT_RESIDUAL_THRESHOLD_M
+
+  def test_scales_with_stitched_parent(self):
+    parent = local_xyz_corners_from_extents(2000.0, 1600.0)
+    child = local_xyz_corners_from_extents(400.0, 300.0)
+    assert residual_threshold_for_maps(parent, child) == pytest.approx(10.0)
+
+
 class TestComputeChildToParentPose:
   def test_identity_when_corners_match(self):
     result = compute_child_to_parent_pose(
@@ -142,3 +155,17 @@ class TestComputeChildToParentPose:
       compute_child_to_parent_pose(
           PARENT_XYZ, PARENT_LLA, child_xyz, child_lla,
           residual_threshold_m=1e-12)
+
+  def test_rejects_square_map_with_rectangular_lla(self):
+    square = local_xyz_corners_from_extents(400.0, 400.0)
+    lat0, lon0, alt = 37.38685435, -121.96408120, 8.0
+    dlat = 225 / 110540
+    dlon = 760 / (111320 * np.cos(np.deg2rad(lat0)))
+    rect_lla = [
+        [lat0, lon0, alt],
+        [lat0, lon0 + dlon, alt],
+        [lat0 + dlat, lon0 + dlon, alt],
+        [lat0 + dlat, lon0, alt],
+    ]
+    with pytest.raises(GeospatialHierarchyError, match="residual"):
+      compute_child_to_parent_pose(square, rect_lla, square, rect_lla)

@@ -56,7 +56,9 @@ Earth's frame and should not be a survey problem for the operator.
 - Remote children cannot auto-link until the parent has the child's corners
   (REST-to-remote is still unimplemented).
 - Pose accuracy is bounded by the existing geospatial assumptions (~1 m for
-  locally flat scenes under ~400 m).
+  locally flat scenes under ~400 m). The save-time residual gate is
+  ``max(2 m, 0.5% of the larger map span)`` so intersection→block stays
+  tight while block→campus is not rejected solely because the parent grew.
 
 ## References
 

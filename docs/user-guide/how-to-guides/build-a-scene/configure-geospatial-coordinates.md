@@ -30,7 +30,9 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 1. Use the controls on the map frame to zoom in or out as needed.
 1. Click "Generate Geospatial Bounds & Snapshot" so that:
    - "Output Geospatial Coordinates" field is set to "Yes".
-   - "Map Corners" are autopopulated with the geospatial coordinates of the four corners of the map.
+   - "Map Corners" are autopopulated with the geospatial coordinates of the
+     four corners of the **snapshot image** (a 1280×1280 square at the current
+     center, zoom, and heading), not the on-screen map widget.
    - "Pixels per meter" field is autopopulated with the scale of the scene.
 1. Click "Save Scene".
 1. For additional details on configuring a scene, follow the [new scene guide](./create-new-scene.md)
