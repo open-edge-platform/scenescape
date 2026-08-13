@@ -19,6 +19,71 @@ metadata:
 
 Host needs **Docker**, **docker-compose**, and **Python 3.10+** with `requests`.
 
+## Overview
+
+This skill deploys and resumes an Intel® SceneScape environment outside the repo, gathers the
+required deployment inputs from the user, and orchestrates the bootstrap, calibration, scene
+reconstruction, and verification workflow. It is intended for first-time installs, re-runs with
+existing `deploy-inputs.json`, and targeted phase resumes such as `bootstrap`, `calibrate`, or
+`scene` when the user only needs to repeat or continue a part of the deployment.
+
+## Important usage notes
+
+- Treat a resume or continue request as confirmation that `deploy-inputs.json` already exists for
+  the named `deploy_dir` unless the user explicitly says the directory is wrong or no prior run was
+  started.
+- Do not invent retained camera IDs, streams, or scene names when a read-back is unavailable; ask the
+  user to confirm the retained set before writing a replacement or launching `--fresh`.
+- Use `--fresh` only with explicit confirmation, and explain that it clears `.deploy-state.json` and
+  the old `deploy-inputs.json` before re-running the full bootstrap/calibrate/scene flow.
+- For troubleshooting, read only the single phase or symptom-specific reference that matches the
+  reported failure; avoid broad log dumps and unrelated docs.
+
+## Parameters / Arguments
+
+Required runtime inputs for a fresh deployment:
+
+- `deploy_dir`: writable directory for generated files and local deployment state
+- `streams` or a video file source: one RTSP/RTSPS URL per camera or the recorded-video inputs
+  described in `video-file-input.md`
+- `camera_ids`: unique identifiers matching the stream order and containing no `/`
+- `scene_name`: human-readable scene name chosen by the user
+- Optional state fields: `--phase`, `--fresh`, and the resume flag implied by the Fast Path
+
+The skill also expects the user to confirm whether they want the default reconstruction-based
+scene generation or a blueprint/GLB/PLY/geospatial alternative, and may need a specific reactive
+troubleshooting decision when tracking or Re-ID quality is poor.
+
+## Returns / Output
+
+This skill produces the deployment artifacts in the provided `deploy_dir`, including:
+
+- `deploy-inputs.json` as the persisted source of truth for inputs
+- `.deploy-state.json` and the orchestrator log files created during the run
+- the generated calibration outputs, reconstructed scene data, and verification results from the
+  SceneScape deployment workflow
+- a final `DEPLOY COMPLETE` success signal with a `scene_uid` and deployment metrics summary
+
+When a routine deploy or resume is launched, the response should clearly show the command being
+used, confirm the persisted values being loaded, and report the expected success criteria for the
+phase or full deployment.
+
+## Error Handling
+
+The agent should fail safely and explicitly instead of guessing:
+
+- If `streams` and `camera_ids` do not match in length or contain duplicates, stop and ask for
+  corrected inputs before writing `deploy-inputs.json`.
+- If the user requests a fresh redeploy after a camera change but the existing deployment inputs are
+  not readable, ask the user to confirm the retained inputs rather than inventing them.
+- If no local checkout is available and the repo path does not resolve, state that the local path
+  is unavailable and fall back to the canonical GitHub URL rather than fabricating docs.
+- If the user provides a resume/continue signal, treat it as confirmation that the prior inputs exist
+  and strictly avoid re-asking Step 1 unless the user explicitly says the directory is wrong or the
+  deployment never started.
+- If a deployment step fails, read only the matching reference for that phase or symptom and avoid
+  broad log dumps; use focused verification and configuration changes only.
+
 ## File Resolution
 
 All scripts, references, and assets are resolved **relative to `$SKILL_DIR`**
