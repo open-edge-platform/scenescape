@@ -2,13 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Euler, Matrix4, Object3D, Quaternion, Vector3 } from "three";
+import type { SceneEulerPose } from "./placementTypes";
 
-/** Child→parent Euler pose in scene-local meters (XYZ degrees, Z-up). */
-export type SceneEulerPose = {
-  translation: [number, number, number];
-  rotation: [number, number, number];
-  scale: [number, number, number];
-};
+export type { SceneEulerPose };
 
 export const IDENTITY_POSE: SceneEulerPose = {
   translation: [0, 0, 0],

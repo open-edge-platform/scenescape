@@ -16,7 +16,7 @@ import { Button } from "../components/Button";
 import { FormSection } from "../components/FormSection";
 import { api, type RestError } from "../lib/rest";
 import { useAppToast } from "../components/ToastProvider";
-import type { SceneEulerPose } from "../placement/poseThree";
+import type { SceneEulerPose } from "../placement/placementTypes";
 
 const ChildPlacementWorkspace = lazy(() =>
   import("../placement/ChildPlacementWorkspace").then((m) => ({
