@@ -275,9 +275,10 @@ class SceneController:
       new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
                                      thing_type=otype)
       self.pubsub.publish(new_topic, jstr)
-      self.publishExternalDetections(scene, otype, objects, jdata)
       scene.lastPubCount[cid] = olen
+    self.publishExternalDetections(scene, otype, objects, jdata)
     return
+
 
   def publishExternalDetections(self, scene, otype, objects, jdata_base):
     # Hierarchy output for parent scenes. Root scenes (no parent) have no
@@ -288,7 +289,8 @@ class SceneController:
 
     # External rate output (0.5fps)
     now = get_epoch_time()
-    if self.shouldPublish(scene.last_published_detection[otype], now, 1/scene.external_update_rate):
+    is_clearing_event = len(objects) == 0
+    if is_clearing_event or self.shouldPublish(scene.last_published_detection[otype], now, 1/scene.external_update_rate):
       scene.last_published_detection[otype] = get_epoch_time()
 
       # Rebuild detections list with sensor data included
