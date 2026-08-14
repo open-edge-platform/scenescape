@@ -4,15 +4,14 @@
 import orjson
 import os
 from collections import defaultdict
+from types import SimpleNamespace
 
 import ntplib
 
-from controller.cache_manager import CacheManager
+from scene_common.cache_manager import CacheManager
 from controller.child_scene_controller import ChildSceneController
-from controller.controller_mode import ControllerMode
-from controller.detections_builder import (buildDetectionsDict,
-                                           buildDetectionsList,
-                                           computeCameraBounds)
+from scene_common.detections_builder import buildDetectionsList
+from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
 from controller.scene import Scene
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
@@ -21,11 +20,55 @@ from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
 from controller.observability import metrics
+from controller.reid_env import (
+  get_reid_client_cert,
+  get_reid_client_key,
+  get_reid_use_tls,
+)
 from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
                                       MINIMAL_CHUNKING_RATE_FPS,
                                       MAXIMAL_CHUNKING_RATE_FPS)
 from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
-AVG_FRAMES = 100
+TRUSTED_POSITIONING_SOURCES_ENV_VAR = 'CONTROLLER_TRUSTED_POSITIONING_SOURCES'
+EXTERNAL_SOURCE_BINDINGS_ENV_VAR = 'CONTROLLER_EXTERNAL_SOURCE_BINDINGS'
+
+
+def _parseTrustedSources(value):
+  """Parse a comma-separated list of source IDs authorized to publish poses
+  already expressed in scene-local coordinates. Fails closed: an unset or
+  empty value trusts no source."""
+  if not value:
+    return frozenset()
+  return frozenset(item.strip() for item in value.split(',') if item.strip())
+
+def _parseExternalSourceBindings(value):
+  """Parse manual publisher→scene bindings.
+
+  Format: ``publisher_id:scene_uid,publisher_id:scene_uid2,...``
+  Returns a dict of publisher_id → frozenset(scene_uid). Empty/unset means
+  no manual bindings (wgs84 publishers use geospatial auto-attach).
+  """
+  bindings = {}
+  if not value:
+    return bindings
+  for item in value.split(','):
+    item = item.strip()
+    if not item:
+      continue
+    if ':' not in item:
+      log.warning("Ignoring malformed %s entry (expected publisher:scene): %r",
+                  EXTERNAL_SOURCE_BINDINGS_ENV_VAR, item)
+      continue
+    publisher_id, scene_uid = item.split(':', 1)
+    publisher_id = publisher_id.strip()
+    scene_uid = scene_uid.strip()
+    if not publisher_id or not scene_uid:
+      log.warning("Ignoring malformed %s entry: %r",
+                  EXTERNAL_SOURCE_BINDINGS_ENV_VAR, item)
+      continue
+    bindings.setdefault(publisher_id, set()).add(scene_uid)
+  return {publisher_id: frozenset(scenes) for publisher_id, scenes in bindings.items()}
+
 
 class SceneController:
 
@@ -38,7 +81,6 @@ class SceneController:
     self.rewrite_bad_time = rewrite_bad_time
     self.rewrite_all_time = rewrite_all_time
     self.max_lag = max_lag
-    self.regulate_cache = {}
     self.broker = mqtt_broker
     self.mqtt_auth = mqtt_auth
     self.tracker_config_data = {}
@@ -48,20 +90,14 @@ class SceneController:
     self.pose_adjustment_config_data = {}
     self.pose_adjustment_config_file = pose_adjustment_config_file
 
-    if tracker_config_file is not None and not ControllerMode.isAnalyticsOnly():
+    if tracker_config_file is not None:
       self.extractTrackerConfigData(tracker_config_file)
-    elif ControllerMode.isAnalyticsOnly():
-      log.info("Analytics-only mode: Skipping tracker configuration file loading")
 
-    if reid_config_file is not None and not ControllerMode.isAnalyticsOnly():
+    if reid_config_file is not None:
       self.extractReidConfigData(reid_config_file)
-    elif ControllerMode.isAnalyticsOnly():
-      log.info("Analytics-only mode: Skipping reid configuration file loading")
 
-    if pose_adjustment_config_file is not None and not ControllerMode.isAnalyticsOnly():
+    if pose_adjustment_config_file is not None:
       self.extractPoseAdjustmentConfigData(pose_adjustment_config_file)
-    elif ControllerMode.isAnalyticsOnly():
-      log.info("Analytics-only mode: Skipping pose adjustment configuration file loading")
 
     self.last_time_sync = None
     self.ntp_server = ntp_server
@@ -69,22 +105,6 @@ class SceneController:
     self.time_offset = 0
 
     self.schema_val = SchemaValidation(schema_file, is_multi_message=True)
-
-    # Initialize scene-data schema validator for analytics-only mode
-    self.scene_data_schema_validator = None
-    if ControllerMode.isAnalyticsOnly():
-      from pathlib import Path
-      schema_filename = 'scene-data.schema.json'
-      schema_path = Path(os.environ.get('SCENESCAPE_HOME')) / 'tracker' / 'schema' / schema_filename
-      if schema_path.exists():
-        try:
-          log.info(f"Loading scene-data schema from: {schema_path}")
-          self.scene_data_schema_validator = SchemaValidation(str(schema_path), is_multi_message=False)
-          log.info("Scene-data schema validator initialized")
-        except Exception as e:
-          log.error(f"Failed to initialize scene-data schema validator from {schema_path}: {e}")
-      else:
-        log.error(f"Scene-data schema file not found at: {schema_path}")
 
     self.pubsub = PubSub(mqtt_auth, client_cert, root_cert, mqtt_broker, keepalive=60)
     self.pubsub.onConnect = self.onConnect
@@ -102,6 +122,25 @@ class SceneController:
 
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
+
+    self.external_source_pose_cache = ExternalSourcePoseCache(
+      sweep_grace_seconds=self.max_lag,
+      sweep_time_provider=self._getExternalSourceSweepTime)
+    self.identity_claim_registry = IdentityClaimRegistry(
+      sweep_grace_seconds=self.max_lag,
+      sweep_time_provider=self._getExternalSourceSweepTime)
+    # Expired-entry cleanup runs on a background daemon timer rather than
+    # inline on the MQTT message-handling thread, so a burst of accumulated
+    # entries never stalls ingestion (see external_source.py).
+    self.external_source_pose_cache.startBackgroundSweep()
+    self.identity_claim_registry.startBackgroundSweep()
+    self.trusted_positioning_sources = _parseTrustedSources(
+      os.getenv(TRUSTED_POSITIONING_SOURCES_ENV_VAR))
+    self.external_source_bindings = _parseExternalSourceBindings(
+      os.getenv(EXTERNAL_SOURCE_BINDINGS_ENV_VAR))
+    if self.external_source_bindings:
+      log.info("Loaded %s manual external-source bindings for %s publishers",
+               EXTERNAL_SOURCE_BINDINGS_ENV_VAR, len(self.external_source_bindings))
     return
 
   def extractTrackerConfigData(self, tracker_config_file):
@@ -188,6 +227,22 @@ class SceneController:
   def loopForever(self):
     return self.pubsub.loopForever()
 
+  def _getExternalSourceSweepTime(self):
+    """Return the NTP-corrected time used to accept external-source events."""
+    return get_epoch_time() + self.time_offset
+
+  def shutdown(self):
+    """Stop background maintenance threads owned by this controller.
+
+    Safe to call multiple times. The MQTT/tracker threads are not joined
+    here since ``loopForever()`` normally only returns on process exit, at
+    which point these daemon threads are torn down anyway; this exists for
+    graceful cleanup paths (tests, future signal handling).
+    """
+    self.external_source_pose_cache.stopBackgroundSweep()
+    self.identity_claim_registry.stopBackgroundSweep()
+    return
+
   def publishDetections(self, scene, objects, ts, otype, jdata, camera_id):
     if not hasattr(scene, 'lastPubCount'):
       scene.lastPubCount = {}
@@ -201,10 +256,12 @@ class SceneController:
     }
     metrics.record_object_count(len(objects), metric_attributes)
 
-    if not ControllerMode.isAnalyticsOnly():
-      self.publishSceneDetections(scene, objects, otype, jdata)
-    self.publishRegulatedDetections(scene, objects, otype, jdata, camera_id)
-    self.publishRegionDetections(scene, objects, otype, jdata)
+    if camera_id is not None:
+      jdata['camera_id'] = camera_id
+      if isinstance(jdata.get('extrinsics'), dict):
+        jdata['camera_pose'] = jdata['extrinsics']
+
+    self.publishSceneDetections(scene, objects, otype, jdata)
     return
 
   def shouldPublish(self, last, now, max_delay):
@@ -223,20 +280,35 @@ class SceneController:
       new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
                                      thing_type=otype)
       self.pubsub.publish(new_topic, jstr)
-      # External detections need sensor data, so pass objects to rebuild
-      self.publishExternalDetections(scene, otype, objects, jdata)
       scene.lastPubCount[cid] = olen
+    self.publishExternalDetections(scene, otype, objects, jdata)
     return
 
   def publishExternalDetections(self, scene, otype, objects, jdata_base):
-    # External rate output (0.5fps): include sensor data
+    # Hierarchy output for parent scenes. Root scenes (no parent) have no
+    # hierarchy consumer for this path — skip rather than publishing onto
+    # scenescape/external/{scene_uid}/+ (publisher id = this scene).
+    if not getattr(scene, 'parent', None):
+      return
+
+    # External rate output (0.5fps)
     now = get_epoch_time()
     if self.shouldPublish(scene.last_published_detection[otype], now, 1/scene.external_update_rate):
       scene.last_published_detection[otype] = get_epoch_time()
 
       # Rebuild detections list with sensor data included
+      reid_policy = self._hierarchyReidPublishPolicy(scene)
+      will_enroll = reid_policy == 'will_enroll'
       jdata = jdata_base.copy()
-      jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=True)
+      jdata['objects'] = buildDetectionsList(
+        objects, scene, self.visibility_topic == 'unregulated', include_sensors=True,
+        attach_reid_provenance=True,
+        minimum_bbox_area=scene.reid_config_data.get('minimum_bbox_area'),
+        will_enroll_reid=will_enroll,
+        withhold_reid=(reid_policy == 'withhold'),
+        reid_enrolled_fn=(
+          (lambda aobj, _scene=scene: self._trackHasReidEnrollment(_scene, aobj))
+          if will_enroll else None))
       jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
 
       scene_hierarchy_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL, scene_id=scene.uid,
@@ -244,237 +316,85 @@ class SceneController:
       self.pubsub.publish(scene_hierarchy_topic, jstr)
     return
 
-  def publishRegulatedDetections(self, scene_obj, msg_objects, otype, jdata, camera_id):
-    update_rate = self.calculateRate()
-    scene_uid = scene_obj.uid
-
-    if scene_uid not in self.regulate_cache:
-      self.regulate_cache[scene_uid] = {
-        'objects': {},
-        'rate': {},
-        'last': None
-      }
-    scene = self.regulate_cache[scene_uid]
-    # Regulated rate output (5fps): include sensor data
-    scene['objects'][otype] = buildDetectionsList(msg_objects, scene_obj, self.visibility_topic == 'unregulated', include_sensors=True, include_region_dwell=True)
-    if camera_id is not None:
-      scene['rate'][camera_id] = jdata.get('rate', None)
-    elif ControllerMode.isAnalyticsOnly() and 'rate' in jdata:
-      camera_ids = set()
-      for obj in jdata.get('objects', []):
-        camera_ids.update(obj.get('visibility', []))
-
-      scene_rate = jdata['rate']
-      configured_cameras = set(scene_obj.cameras.keys())
-      for cam_id in camera_ids:
-        if cam_id in configured_cameras:
-          scene['rate'][cam_id] = scene_rate
-
-    now = get_epoch_time()
-    if self.shouldPublish(scene['last'], now, 1/scene_obj.regulated_rate):
-      # If we're doing Regulated visibility, then we need to compute for all
-      # the objects in the cache
-      objects = []
-      is_regulated = self.visibility_topic == 'regulated'
-
-      msg_objects_lookup = {}
-      if is_regulated:
-        for obj in msg_objects:
-          msg_objects_lookup[obj.gid] = obj
-
-      for key in scene['objects']:
-        for obj in scene['objects'][key]:
-          if is_regulated:
-            aobj = msg_objects_lookup.get(obj['id'], None)
-            if aobj is not None:
-              computeCameraBounds(scene_obj, aobj, obj)
-          objects.append(obj)
-      log.debug(f"Publishing regulated: scene={scene_uid}, objects_count={len(objects)}, types={list(scene['objects'].keys())}")
-      new_jdata = {
-        'timestamp': jdata['timestamp'],
-        'objects': objects,
-        'cameras': scene_obj.serializeCameras(),
-        'id': jdata['id'],
-        'name': jdata['name'],
-        'scene_rate': round(1 / update_rate, 1),
-        'rate': scene['rate'],
-      }
-      jstr = orjson.dumps(new_jdata, option=orjson.OPT_SERIALIZE_NUMPY)
-      topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid)
-      self.pubsub.publish(topic, jstr)
-      scene['last'] = now
-
-    return
-
-  def publishRegionDetections(self, scene, objects, otype, jdata):
-    current_time = get_epoch_time(jdata['timestamp'])
-    for rname in scene.regions:
-      robjects = []
-      for obj in objects:
-        if rname in obj.chain_data.regions:
-          robjects.append(obj)
-      # Region-specific detections: include sensor data
-      jdata['objects'] = buildDetectionsList(
-        robjects, scene, False, include_sensors=True,
-        include_region_dwell=True, current_time=current_time)
-      olen = len(jdata['objects'])
-      rid = scene.name + "/" + rname + "/" + otype
-      if olen > 0 or rid not in scene.lastPubCount or scene.lastPubCount[rid] > 0:
-        jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
-        new_topic = PubSub.formatTopic(PubSub.DATA_REGION, scene_id=scene.uid,
-                                       region_id=rname, thing_type=otype)
-        self.pubsub.publish(new_topic, jstr)
-        scene.lastPubCount[rid] = olen
-    return
-
-  def publishEvents(self, scene, ts_str):
-    for event_type in scene.events:
-      for _, region in scene.events[event_type]:
-        etype = None
-        metadata = None
-
-        if isinstance(region, Tripwire):
-          etype = 'tripwire'
-          metadata = region.serialize()
-
-        elif isinstance(region, Region):
-          etype = 'region'
-          metadata = region.serialize()
-          metadata['fromSensor'] = (region.singleton_type != None)
-
-        event_data = {
-          'timestamp': ts_str,
-          'scene_id': scene.uid,
-          'scene_name': scene.name,
-          etype + '_id': region.uuid,
-          etype + '_name': region.name,
-        }
-        detections_dict, num_objects = self._buildAllRegionObjsList(scene, region, event_data)
-        self._buildEnteredObjsList(scene, region, event_data, detections_dict)
-        self._buildExitedObjsList(scene, region, event_data)
-
-        log.debug("EVENT DATA", event_data)
-        if hasattr(region, 'value'):
-          event_data['value'] = region.value
-        event_data['metadata'] = metadata
-        if not isinstance(region, Tripwire) or num_objects > 0:
-          event_topic = PubSub.formatTopic(PubSub.EVENT,
-                                           region_type=etype, event_type=event_type,
-                                           scene_id=scene.uid, region_id=region.uuid)
-          self.pubsub.publish(event_topic, orjson.dumps(event_data, option=orjson.OPT_SERIALIZE_NUMPY))
-
-    # Clear objects and count events after publishing (but preserve 'value' events for sensors)
-    scene.events.pop('objects', None)
-    scene.events.pop('count', None)
-
-    self._clearSensorValuesOnExit(scene)
-
-    return
-
-  def _buildAllRegionObjsList(self, scene, region, event_data):
-    counts = {}
-    num_objects = 0
-    all_objects = []
-    for otype, objects in region.objects.items():
-      counts[otype] = len(objects)
-      num_objects += counts[otype]
-      all_objects += objects
-    event_data['counts'] = counts
-    detections_dict = buildDetectionsDict(
-      all_objects, scene, include_sensors=True,
-      include_region_dwell=True, current_time=get_epoch_time(event_data['timestamp']))
-    event_data['objects'] = list(detections_dict.values())
-    return detections_dict, num_objects
-
-  def _buildEnteredObjsList(self, scene, region, event_data, detections_dict):
-    entered = getattr(region, 'entered', {})
-    event_data['entered'] = []
-    missing_objs = []
-    for entered_list in entered.values():
-      for item in entered_list:
-        # For sensor value events, objects may not be in detections_dict
-        if item.gid in detections_dict:
-          event_data['entered'].append(detections_dict[item.gid])
-        else:
-          missing_objs.append(item)
-
-    # Build any objects not in detections_dict (e.g., from sensor events)
-    if missing_objs:
-      entered_objs = buildDetectionsList(
-        missing_objs, scene, False, include_sensors=True,
-        include_region_dwell=True, current_time=get_epoch_time(event_data['timestamp']))
-      event_data['entered'].extend(entered_objs)
-
-  def _buildExitedObjsList(self, scene, region, event_data):
-    exited = getattr(region, 'exited', {})
-    event_data['exited'] = []
-    exited_dict = {}
-    for exited_list in exited.values():
-      exited_objs = []
-      for exited_obj, dwell in exited_list:
-        exited_dict[exited_obj.gid] = dwell
-        exited_objs.extend([exited_obj])
-      # Exit events: include sensor data (timestamped readings and attribute events)
-      exited_objs = buildDetectionsList(
-        exited_objs, scene, False, include_sensors=True,
-        include_region_dwell=True, current_time=get_epoch_time(event_data['timestamp']))
-      exited_data = [{'object': exited_obj, 'dwell': exited_dict[exited_obj['id']]} for exited_obj in exited_objs]
-      event_data['exited'].extend(exited_data)
-    return
-
-  def _clearSensorValuesOnExit(self, scene):
+  def _sceneHasReidWriteIntent(self):
     """
-    Clears region entered/exited arrays after events have been published.
-    Note: Sensor state cleanup (readings arrays, etc.) is handled
-    in _updateRegionEvents before this method is called. This method only clears
-    the event arrays to prevent stale data from being published in subsequent frames.
-    """
-    for event_type in scene.events:
-      for region_name, region in scene.events[event_type]:
-        region.exited = {}
-        region.entered = {}
-    return
+    True when this controller is configured to own ReID database writes.
 
+    TLS deployments mount client certs only on ReID-enabled compose profiles;
+    parent-only / passthrough children keep the TLS default and omit those certs.
+    Setting REID_USE_TLS=false is an explicit non-mTLS ReID choice and implies
+    write intent even when hostname/database env vars use built-in defaults.
+    """
+    if get_reid_use_tls():
+      return (os.path.exists(get_reid_client_cert())
+              and os.path.exists(get_reid_client_key()))
+    return True
+
+  def _hierarchyReidPublishPolicy(self, scene):
+    """
+    Decide how hierarchy output should treat ReID embeddings for this scene.
+
+    Returns one of:
+      - 'will_enroll': write intent exists and at least one successful write was
+        confirmed — enable per-track will_enroll/enrolled stamps so parents skip
+        writes for tracks this child owns. Survives later write-health or
+        reid_enabled clears so parents do not sole-enroll crops already stored.
+      - 'withhold': ReID write intent exists but schema is not ready yet, or no
+        successful write has been confirmed yet (and no empty-batch fallback) —
+        do not forward *local* embeddings (avoids parent sole-enroll before the
+        child can write, and avoids claiming will_enroll when the child cannot
+        enroll). Inherited vetted embeddings still forward.
+      - 'passthrough': no local ReID write path, writes are failing before the
+        first confirm, or empty batches occurred before the first confirmed write
+        — forward vetted crops without will_enroll so the parent may sole-enroll.
+        Local enrollment also stops in those handoff modes so the child does not
+        keep writing under passthrough.
+    """
+    tracker = getattr(scene, 'tracker', None)
+    uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
+    if uuid_manager is None:
+      return 'passthrough'
+    if not self._sceneHasReidWriteIntent():
+      return 'passthrough'
+    # Confirmed writes keep will_enroll mode even if reid later disables or
+    # write-health clears — per-track stamps limit claims to owned tracks.
+    if getattr(uuid_manager, 'reid_write_confirmed', False):
+      return 'will_enroll'
+    if not getattr(uuid_manager, 'reid_enabled', False):
+      return 'passthrough'
+    if not getattr(uuid_manager, 'reid_write_healthy', True):
+      return 'passthrough'
+    if getattr(uuid_manager, 'reid_empty_batch_before_confirm', False):
+      return 'passthrough'
+    database = getattr(uuid_manager, 'reid_database', None)
+    if getattr(database, '_schema_ready', False) is not True:
+      return 'withhold'
+    return 'withhold'
+
+  def _trackHasReidEnrollment(self, scene, aobj):
+    """True when this track owns or is accumulating a local ReID write."""
+    tracker = getattr(scene, 'tracker', None)
+    uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
+    if uuid_manager is None:
+      return False
+    rv_id = getattr(aobj, 'rv_id', None)
+    if rv_id is None:
+      return False
+    entry = uuid_manager.features_for_database.get(rv_id)
+    if entry and entry.get('reid_vectors'):
+      return True
+    if uuid_manager.enrollment_features.get(rv_id):
+      return True
+    if uuid_manager.local_enrollment_features.get(rv_id):
+      return True
+    if uuid_manager.quality_features.get(rv_id):
+      return True
+    if rv_id in uuid_manager.active_query:
+      return True
+    with uuid_manager.active_ids_lock:
+      values = uuid_manager.active_ids.get(rv_id)
+    return bool(values and values[0] is not None)
   # Message handling
-  def handleSensorMessage(self, client, userdata, message):
-    """
-    Handle a sensor message such as this
-    MQTT Topic: scenescape/data/sensor/02:42:ac:11:00:05.1
-        {"timestamp": "2018-09-12T19:03:49.600z",
-         "subtype": "humidity",
-         "value": "21.7",
-         "id": "02:42:ac:11:00:05.1",
-         "status": "green" }
-    """
-
-    message = message.payload.decode('utf-8')
-    jdata = orjson.loads(message)
-
-    if not self.schema_val.validateMessage("singleton", jdata, check_format=True):
-      return
-
-    sensor_id = jdata['id']
-    scene = self.cache_manager.sceneWithSensorID(sensor_id)
-    if scene is None:
-      return
-
-    if self.rewrite_all_time:
-      ts = get_epoch_time()
-      jdata['timestamp'] = get_iso_time(ts)
-    else:
-      ts = get_epoch_time(jdata['timestamp'])
-
-    if not scene.processSensorData(jdata, when=ts):
-      log.error("Sensor fail", sensor_id)
-      self.cache_manager.invalidate()
-      return
-
-    jdata['scene_id'] = scene.uid
-    jdata['scene_name'] = scene.name
-
-    self.publishEvents(scene, jdata['timestamp'])
-    return
-
   def handleMovingObjectMessage(self, client, userdata, message):
 
     topic = PubSub.parseTopic(message.topic)
@@ -489,6 +409,10 @@ class SceneController:
       if 'camera_id' in topic and not self.schema_val.validateMessage("detector", jdata):
         return
 
+      if topic['_topic_id'] == PubSub.DATA_EXTERNAL and 'source_id' in jdata \
+          and not self.schema_val.validateMessage("external_source", jdata):
+        return
+
       now = get_epoch_time()
       self.time_offset, self.last_time_sync = adjust_time(now, self.ntp_server, self.ntp_client,
                                                       self.last_time_sync, self.time_offset,
@@ -498,7 +422,11 @@ class SceneController:
         return
 
       jdata['debug_hmo_start_time'] = now
-      self.cache_manager.refreshScenesForCamParams(jdata)
+      # Camera intrinsics/distortion refresh only applies to camera-originated
+      # messages (keyed by 'id'); external-source messages are keyed by
+      # 'source_id' and have no camera parameters to refresh.
+      if topic['_topic_id'] != PubSub.DATA_EXTERNAL:
+        self.cache_manager.refreshScenesForCamParams(jdata)
 
       if self.rewrite_all_time:
         msg_when = now
@@ -511,21 +439,57 @@ class SceneController:
         if not self.rewrite_bad_time:
           metric_attributes["reason"] = "fell_behind"
           metrics.inc_dropped(metric_attributes)
-          log.warning("{} FELL BEHIND by {}. SKIPPING {}".format(message.topic, lag, jdata['id']))
+          log.warning("{} FELL BEHIND by {}. SKIPPING {}".format(
+            message.topic, lag, jdata.get('id', jdata.get('source_id', 'unknown'))))
           return
         msg_when = now
 
       camera_id = None
       if topic['_topic_id'] == PubSub.DATA_EXTERNAL:
         detection_types = [topic['thing_type']]
-        sender_id = topic['scene_id']
-        success, scene = self._handleChildSceneObject(sender_id, jdata, detection_types[0], msg_when)
+        # Path segment is the publisher id (child scene uid or agent source_id).
+        publisher_id = topic['scene_id']
+        if 'source_id' in jdata:
+          if jdata['source_id'] != publisher_id:
+            log.error("External source_id %r does not match topic publisher id %r",
+                      jdata['source_id'], publisher_id)
+            return
+          scenes = self._scenesForExternalPublisher(publisher_id, jdata, msg_when)
+          if not scenes:
+            log.warning("No scene binding for external publisher %s", publisher_id)
+            return
+          for scene in scenes:
+            jdata_scene = dict(jdata)
+            jdata_scene['objects'] = [dict(obj) for obj in jdata.get('objects', [])]
+            success = self._handleExternalSourceObject(
+              scene, jdata_scene, detection_types[0], msg_when)
+            if not success:
+              log.error("Camera fail publisher_id=%s scene=%s", publisher_id, getattr(scene, 'name', None))
+              self.cache_manager.invalidate()
+              return
+            jdata_scene['id'] = scene.uid
+            jdata_scene['name'] = scene.name
+            for detection_type in detection_types:
+              jdata_scene['unique_detection_count'] = scene.tracker.getUniqueIDCount(
+                detection_type)
+              self.publishDetections(
+                scene, scene.tracker.currentObjects(detection_type),
+                msg_when, detection_type, jdata_scene, camera_id)
+          return
+
+        handled = self._handleChildSceneObject(
+          publisher_id, jdata, detection_types[0], msg_when)
+        # None => orphan hierarchy echo from a root scene; ignore.
+        if handled is None:
+          return
+        success, scene = handled
+        sender_id = publisher_id
       else:
         detection_types = jdata['objects'].keys()
         camera_id = sender_id = topic['camera_id']
         sender = self.cache_manager.sceneWithCameraID(sender_id)
         if sender is None:
-          log.error("UNKNOWN SENDER", sender_id)
+          log.error(f"UNKNOWN SENDER: {sender_id}")
           return
         scene = sender
 
@@ -539,7 +503,7 @@ class SceneController:
         success = scene.processCameraData(jdata, when=msg_when)
 
       if not success:
-        log.error("Camera fail", sender_id, scene.name)
+        log.error("Camera fail", sender_id, scene.name if scene is not None else "unknown")
         self.cache_manager.invalidate()
         return
 
@@ -549,69 +513,151 @@ class SceneController:
         jdata['unique_detection_count'] = scene.tracker.getUniqueIDCount(detection_type)
         self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
                               msg_when, detection_type, jdata, camera_id)
-        self.publishEvents(scene, jdata['timestamp'])
       return
-
-  def handleSceneDataMessage(self, client, userdata, message):
-    """
-    Handle scene data messages (tracked objects) published to DATA_SCENE topic.
-    This updates the Analytics cache with tracked objects from the existing topic.
-    When analytics-only mode is enabled, this also publishes analytics results.
-    """
-    topic = PubSub.parseTopic(message.topic)
-    jdata = orjson.loads(message.payload.decode('utf-8'))
-
-    scene_id = topic['scene_id']
-    detection_type = topic['thing_type']
-    log.debug(f"Received scene data message: scene={scene_id}, type={detection_type}, objects={len(jdata.get('objects', []))}")
-
-    scene = self.cache_manager.sceneWithID(scene_id)
-    if scene is None:
-      log.warning(f"Scene not found for tracked objects, ignoring scene_id={scene_id}")
-      return
-
-    if ControllerMode.isAnalyticsOnly() and self.scene_data_schema_validator is not None:
-      if not self.scene_data_schema_validator.validate(jdata, check_format=True):
-        log.error(f"Scene data validation failed for scene={scene_id}, type={detection_type}")
-        return
-
-    tracked_objects = jdata.get('objects', [])
-
-    scene.updateTrackedObjects(detection_type, tracked_objects)
-
-    if ControllerMode.isAnalyticsOnly():
-      analytics_objects = scene.getTrackedObjects(detection_type)
-      log.debug(f"Analytics-only mode - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
-
-      scene._updateVisible(analytics_objects)
-
-      msg_when = get_epoch_time(jdata.get('timestamp'))
-
-      scene._updateEvents(detection_type, msg_when, analytics_objects)
-
-      self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
-      self.publishEvents(scene, jdata.get('timestamp'))
-
-    return
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
+    is_remote = False
     sender = self.cache_manager.sceneWithID(sender_id)
     if sender is None:
       remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
-        log.error("UNKNOWN SENDER")
-        return
-      else:
-        sender = remote_sender
+        log.error(f"UNKNOWN SENDER: {sender_id}")
+        return False, None
+      sender = remote_sender
+      is_remote = True
 
     if not hasattr(sender, 'parent') or sender.parent is None:
-      log.error("UNKNOWN PARENT", sender_id)
-      return False, sender
+      if is_remote:
+        recovered = self._parentUidForRemoteChild(sender_id)
+        if recovered:
+          sender.parent = recovered
+          log.info(f"Recovered parent={recovered} for remote child {sender_id}")
+        else:
+          log.error("UNKNOWN PARENT", sender_id)
+          return False, sender
+      else:
+        # Hierarchy publishes (no source_id) from a root scene are not destined
+        # for a parent — ignore them rather than failing closed and invalidating
+        # the scene cache. (Root scenes no longer self-subscribe for ingest.)
+        log.debug("Ignoring hierarchy publish from root scene %s (no parent)",
+                  sender_id)
+        return None
 
     scene = self.cache_manager.sceneWithID(sender.parent)
+    if scene is None:
+      log.error("PARENT SCENE NOT FOUND", sender.parent, "for sender", sender.name)
+      return False, None
+
     success = scene.processSceneData(jdata, sender, sender.cameraPose,
                                      detection_type, when=msg_when)
     return success, scene
+
+  def _scenesForExternalPublisher(self, publisher_id, jdata, msg_when):
+    """Resolve which scenes should ingest a publisher-centric external message.
+
+    Manual bindings from CONTROLLER_EXTERNAL_SOURCE_BINDINGS win when present
+    for this publisher. Otherwise:
+    - ``reference_frame: wgs84`` → every scene with geospatial calibration
+      (interim auto-attach until a spatial binder with footprint/handoff policy
+      exists)
+    - pose omitted → scenes that still hold a live cached pose for this source
+    - ``reference_frame: scene`` without a manual binding → no scenes (must be
+      explicitly bound)
+    """
+    explicit = self.external_source_bindings.get(publisher_id)
+    if explicit is not None:
+      scenes = []
+      for scene_uid in explicit:
+        scene = self.cache_manager.sceneWithID(scene_uid)
+        if scene is None:
+          log.warning("External binding scene %s not found for publisher %s",
+                      scene_uid, publisher_id)
+        else:
+          scenes.append(scene)
+      return scenes
+
+    pose = jdata.get('pose')
+    if pose is None:
+      scene_uids = self.external_source_pose_cache.scenesWithLiveCache(
+        publisher_id, msg_when)
+      scenes = []
+      for scene_uid in scene_uids:
+        scene = self.cache_manager.sceneWithID(scene_uid)
+        if scene is not None:
+          scenes.append(scene)
+      return scenes
+
+    reference_frame = pose.get('reference_frame')
+    if reference_frame == 'wgs84':
+      scenes = []
+      for scene in self.cache_manager.allScenes():
+        if scene.trs_xyz_to_lla is not None:
+          scenes.append(scene)
+      return scenes
+
+    # scene-frame (and unknown frames) require an explicit manual binding.
+    return []
+
+  def _handleExternalSourceObject(self, scene, jdata, detection_type, msg_when):
+    """Handle a message from a dynamic external source (physical agent or
+    positioning service) publishing under its own publisher id, as
+    distinguished from a configured child scene by the presence of
+    'source_id' in the payload."""
+    source_id = jdata['source_id']
+    trusted = source_id in self.trusted_positioning_sources
+    camera_pose, reason = self.external_source_pose_cache.resolve(
+      scene, source_id, jdata.get('pose'), msg_when, trusted_scene_pose=trusted)
+    if camera_pose is None:
+      log.warning(f"External source pose unavailable for source={source_id} "
+                f"scene={scene.uid}: {reason}")
+      return True
+
+    # Every external-source object's 'id' is trusted directly as global
+    # track identity by default (no source allowlist to configure): the
+    # object bypasses Scenescape's kinematic tracker/ReID association and
+    # keeps the source-assigned id as its gid for as long as the source
+    # keeps reporting that same id. This is safe for sources like a UWB/RTLS
+    # tag whose id is already a permanent hardware identifier. To keep this
+    # safe without requiring per-source configuration, each id is claimed
+    # exclusively per (scene, category): if a different source is already
+    # using the same id at the same time -- a genuine identity collision --
+    # the newly arriving, colliding object is dropped rather than silently
+    # merged into an unrelated track. See IdentityClaimRegistry for the one
+    # case this does not solve (a single source reusing a stale id for a
+    # new physical object after its previous claim has expired).
+    accepted_objects = []
+    for obj in jdata.get('objects', []):
+      obj_id = obj.get('id')
+      ok, collision_reason = self.identity_claim_registry.claim(
+        scene.uid, detection_type, source_id, obj_id, msg_when)
+      if ok:
+        accepted_objects.append(obj)
+      else:
+        log.warning(
+          f"Rejecting external-source object: id={obj_id} from source={source_id} "
+          f"scene={scene.uid} category={detection_type}: {collision_reason}")
+    jdata['objects'] = accepted_objects
+
+    external_source = SimpleNamespace(name=source_id, uid=source_id, retrack=False)
+    return scene.processSceneData(jdata, external_source, camera_pose,
+                                  detection_type, when=msg_when)
+
+  @staticmethod
+  def _withRemoteChildParent(info, parent_uid):
+    """Copy remote-child REST *info* and ensure ``parent`` is set to *parent_uid*."""
+    remote_info = dict(info)
+    if not remote_info.get('parent'):
+      remote_info['parent'] = parent_uid
+    return remote_info
+
+  def _parentUidForRemoteChild(self, remote_child_id):
+    """Return the parent scene uid that links *remote_child_id*, or None."""
+    for scene in self.cache_manager.allScenes():
+      results = self.cache_manager.data_source.getChildScenes(scene.uid)
+      for info in (results or {}).get('results', []):
+        if str(info.get('remote_child_id')) == str(remote_child_id):
+          return scene.uid
+    return None
 
   def updateCameras(self):
     for scene in self.scenes:
@@ -621,16 +667,6 @@ class SceneController:
           self.cache_manager.updateCamera(cam)
     return
 
-  def updateRegulateCache(self):
-    for scene in list(self.regulate_cache.keys()):
-      if scene not in self.scenes:
-        self.regulate_cache.pop(scene)
-      else:
-        for cam in scene['rate']:
-          if cam not in scene.cameras:
-            scene['rate'].pop(cam)
-    return
-
   def handleDatabaseMessage(self, client, userdata, message):
     command = str(message.payload.decode("utf-8"))
     if command == "update":
@@ -638,23 +674,10 @@ class SceneController:
         self.updateSubscriptions()
         self.updateObjectClasses()
         self.updateCameras()
-        self.updateRegulateCache()
         self.updateTRSMatrix()
       except Exception as e:
         log.warning("Failed to update database: %s", e)
     return
-
-  def calculateRate(self):
-    now = get_epoch_time()
-    if not hasattr(self, "regulate_rate"):
-      self.regulate_last = now
-      self.regulate_rate = 1
-    delta = now - self.regulate_last
-    self.regulate_rate *= AVG_FRAMES
-    self.regulate_rate += delta
-    self.regulate_rate /= AVG_FRAMES + 1
-    self.regulate_last = now
-    return self.regulate_rate
 
   # MQTT callbacks
   def onConnect(self, client, userdata, flags, rc):
@@ -704,7 +727,7 @@ class SceneController:
     if sender is None:
       remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
-        log.error("UNKNOWN SENDER")
+        log.error(f"UNKNOWN SENDER: {sender_id}")
         return
       else:
         sender = remote_sender
@@ -753,41 +776,41 @@ class SceneController:
     need_subscribe_child = dict()
 
     self.scenes = self.cache_manager.allScenes()
-    for scene in self.scenes:
-      if not ControllerMode.isAnalyticsOnly():
-        for camera in scene.cameras:
-          need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
-                              self.handleMovingObjectMessage))
-      else:
-        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
-                            self.handleSceneDataMessage))
+    # Publisher-centric: one wildcard covers configured children and dynamic
+    # agents on scenescape/external/{publisher_id}/{thing_type}.
+    need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
+                                          scene_id="+", thing_type="+"),
+                        self.handleMovingObjectMessage))
 
-      for sensor in scene.sensors:
-        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=sensor),
-                            self.handleSensorMessage))
+    for scene in self.scenes:
+      for camera in scene.cameras:
+        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
+                            self.handleMovingObjectMessage))
+      # External publisher-centric ingest is covered by the wildcard subscribe above.
 
       if hasattr(scene, 'children'):
         child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)
 
-        if not ControllerMode.isAnalyticsOnly():
-          for info in child_scenes.get('results', []):
-            if info['child_type'] == 'local':
-              self.cache_manager.sceneWithID(info['child']).retrack = info['retrack']
+        for info in child_scenes.get('results', []):
+          if info['child_type'] == 'local':
+            self.cache_manager.sceneWithID(info['child']).retrack = info['retrack']
 
-              need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
-                                                     scene_id=info['child'], thing_type="+"),
-                                  self.handleMovingObjectMessage))
-
-              need_subscribe.add((PubSub.formatTopic(PubSub.EVENT, region_type="+",
-                                                    event_type="+",
-                                                    scene_id=info['child'],
-                                                    region_id="+"),
-                                  self.republishEvents))
-            else:
-              child_obj = ChildSceneController(self.root_cert, info, self)
-              self.cache_manager.cached_child_transforms_by_uid[info['remote_child_id']] = Scene.deserialize(info)
-              need_subscribe_child[info['remote_child_id']] = child_obj
-              need_subscribe.add((PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS, scene_id=info['remote_child_id']), child_obj.publishStatus))
+            need_subscribe.add((PubSub.formatTopic(PubSub.EVENT, region_type="+",
+                                                  event_type="+",
+                                                  scene_id=info['child'],
+                                                  region_id="+"),
+                                self.republishEvents))
+          else:
+            # Remote child payloads may omit parent (or leave it null). The
+            # enclosing scene is the parent by construction of this query.
+            remote_info = self._withRemoteChildParent(info, scene.uid)
+            child_obj = ChildSceneController(self.root_cert, remote_info, self)
+            self.cache_manager.cached_child_transforms_by_uid[remote_info['remote_child_id']] = \
+              Scene.deserialize(remote_info)
+            need_subscribe_child[remote_info['remote_child_id']] = child_obj
+            need_subscribe.add((PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
+                                                    scene_id=remote_info['remote_child_id']),
+                                child_obj.publishStatus))
 
     # disconnect old children clients
     for old_child, cobj in self.subscribed_children.items():

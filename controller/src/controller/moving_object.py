@@ -6,16 +6,16 @@ import binascii
 import datetime
 import uuid
 import warnings
-from dataclasses import dataclass, field
 from enum import Enum
 from threading import Lock
-from typing import Dict, List
 
 import cv2
 import numpy as np
 import open3d as o3d
 from scipy.spatial.transform import Rotation
 
+from scene_common.reid_constants import REID_PROVENANCE_KEY
+from scene_common.chain_data import ChainData
 from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2
 from scene_common.timestamp import get_epoch_time
@@ -28,22 +28,10 @@ APRILTAG_HOVER_DISTANCE = 0.5
 DEFAULT_EDGE_LENGTH = 1.0
 DEFAULT_TRACKING_RADIUS = 2.0
 LOCATION_LIMIT = 20
-SPEED_THRESHOLD = 0.1
+SPEED_THRESHOLD_ON = 1.0
+SPEED_THRESHOLD_OFF = 0.5
 REID_FLOAT_SIZE_BYTES = np.dtype(np.float32).itemsize
 REID_EMBEDDING_DIMENSIONS_KEY = 'embedding_dimensions'
-
-
-def _parse_metric_distance(info):
-  if 'distance' not in info:
-    return None
-  distance = info.pop('distance')
-  try:
-    distance = float(distance)
-  except (TypeError, ValueError) as err:
-    raise ValueError("Invalid distance", distance) from err
-  if distance <= 0:
-    raise ValueError("Invalid distance", distance)
-  return distance
 
 
 def _getReIDEmbeddingDimensions(reid):
@@ -139,20 +127,10 @@ class ReidState(Enum):
   MATCHED = "matched"
   REID_DISABLED = "reid_disabled"
 
-@dataclass
-class ChainData:
-  regions: Dict
-  publishedLocations: List[Point]
-  persist: Dict
-  active_sensors: set = field(default_factory=set)
-  env_sensor_state: Dict = field(default_factory=dict)  # {'sensor_id': {'readings': [(ts, val), ...]}}
-  attr_sensor_events: Dict = field(default_factory=dict)  # {'sensor_id': [(ts, val), ...]}
-  _lock: Lock = field(default_factory=Lock)
-
 class Chronoloc:
   def __init__(self, point: Point, when: datetime, bounds: Rectangle):
     if not point.is3D:
-      point = Point(point.x, point.y, DEFAULTZ)
+      point = Point([point.x, point.y, DEFAULTZ])
     self.point = point
     self.when = when
     self.bounds = bounds
@@ -161,7 +139,7 @@ class Chronoloc:
 class Vector:
   def __init__(self, camera, point, when):
     if not point.is3D:
-      point = Point(point.x, point.y, DEFAULTZ)
+      point = Point([point.x, point.y, DEFAULTZ])
     self.camera = camera
     self.point = point
     self.last_seen = when
@@ -197,12 +175,13 @@ class MovingObject:
     self.map_translation = None
     self.map_rotation = None
     self.rotation_from_velocity = False
+    self._rotation_from_velocity_active = False
 
     self.first_seen = when
     self.last_seen = None
     self.camera = camera
     self.info = info.copy()
-    self.metric_distance = _parse_metric_distance(self.info)
+    self.has_detection_rotation = 'rotation' in self.info
 
     self.category = self.info.get('category', 'object')
     self.boundingBox = None
@@ -210,15 +189,11 @@ class MovingObject:
       self.boundingBoxPixels = Rectangle(self.info['bounding_box_px'])
       self.info.pop('bounding_box_px')
       if not 'bounding_box' in self.info:
-        agnostic = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(
-          self.boundingBoxPixels, self.metric_distance)
+        agnostic = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(self.boundingBoxPixels, self.info.get('distance'))
         self.boundingBox = agnostic
     if 'bounding_box' in self.info:
       self.boundingBox = Rectangle(self.info['bounding_box'])
       self.info.pop('bounding_box')
-      if self.metric_distance is not None and not self.boundingBox.origin.is3D:
-        self.boundingBox = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(
-          self.boundingBox, self.metric_distance)
     self.confidence = self.info['confidence'] if 'confidence' in self.info else None
     self.oid = self.info['id']
     self.info.pop('id')
@@ -229,6 +204,7 @@ class MovingObject:
     self.rotation = np.array([0, 0, 0, 1]).tolist()
     self.intersected = False
     self.reid = {}  # Initialize reid as empty dict
+    self.reid_provenance = None  # Origin of a reid embedding forwarded from another scope
     self.metadata = {}  # Initialize metadata as empty dict
     self.reid_state = ReidState.PENDING_COLLECTION  # Track reID state
     self.similarity = None  # Similarity score from last reID match
@@ -251,15 +227,24 @@ class MovingObject:
     New format: dict with 'embedding_vector' (base64 or list) and 'model_name'
     Legacy format: base64-encoded string or direct list of floats
 
+    Provenance, when present, is kept apart from the embedding itself: it describes
+    where the embedding came from rather than what it contains, and downstream ReID
+    gating consults it directly.
+
     @param  reid  The reid data in one of the supported formats
     """
     try:
       self.reid = {}
+      self.reid_provenance = None
 
       # Handle new format: dict with embedding_vector and model_name
       if isinstance(reid, dict) and 'embedding_vector' in reid:
         embedding_data = reid['embedding_vector']
-        self.reid.update({k: v for k, v in reid.items() if k != 'embedding_vector'})
+        self.reid.update({k: v for k, v in reid.items()
+                          if k not in ('embedding_vector', REID_PROVENANCE_KEY)})
+        provenance = reid.get(REID_PROVENANCE_KEY)
+        if isinstance(provenance, dict):
+          self.reid_provenance = dict(provenance)
         embedding_dimensions = _getReIDEmbeddingDimensions(reid)
       else:
         embedding_data = reid
@@ -331,6 +316,9 @@ class MovingObject:
     self.gid = otherObj.gid
     self.first_seen = otherObj.first_seen
     self.frameCount = otherObj.frameCount + 1
+    if self.rotation_from_velocity and not self.has_detection_rotation:
+      self.rotation = list(otherObj.rotation)
+    self._rotation_from_velocity_active = otherObj._rotation_from_velocity_active
     self.reid_state = otherObj.reid_state
     self.similarity = otherObj.similarity
     self.previous_ids_chain = otherObj.get_previous_ids()
@@ -340,13 +328,20 @@ class MovingObject:
     return
 
   def inferRotationFromVelocity(self):
-    if self.rotation_from_velocity and self.velocity:
+    if not self.has_detection_rotation and self.rotation_from_velocity and self.velocity:
       speed = np.linalg.norm([self.velocity.x, self.velocity.y, self.velocity.z])
-      if speed > SPEED_THRESHOLD:
+      if self._rotation_from_velocity_active:
+        self._rotation_from_velocity_active = speed > SPEED_THRESHOLD_OFF
+      else:
+        self._rotation_from_velocity_active = speed > SPEED_THRESHOLD_ON
+
+      if self._rotation_from_velocity_active:
         velocity = np.array([self.velocity.x, self.velocity.y, self.velocity.z])
         velocity = normalize(velocity)
         direction = np.array([1, 0, 0])
         self.rotation = rotationToTarget(direction, velocity).as_quat().tolist()
+    else:
+      self._rotation_from_velocity_active = False
     return
 
   @property
@@ -552,7 +547,7 @@ class MovingObject:
       if self.intersected:
         self.adjusted = [info['adjusted']['gid'], Point(info['adjusted']['point'])]
         if not self.adjusted[1].is3D:
-          self.adjusted[1] = Point(self.adjusted[1].x, self.adjusted[1].y, DEFAULTZ)
+          self.adjusted[1] = Point([self.adjusted[1].x, self.adjusted[1].y, DEFAULTZ])
     return
 
 class ATagObject(MovingObject):

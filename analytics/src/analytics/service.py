@@ -13,6 +13,7 @@ from scene_common import log
 from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import get_epoch_time, get_iso_time
+from scipy.spatial.transform import Rotation as SciRotation
 
 AVG_FRAMES = 100
 
@@ -83,6 +84,33 @@ class AnalyticsService:
   def shouldPublish(self, last, now, max_delay):
     return last is None or now - last >= max_delay
 
+  @staticmethod
+  def _as_euler_deg(rotation):
+    """3D UI updatePose expects intrinsic XYZ Euler degrees, not quaternion."""
+    if rotation is None:
+      return [0.0, 0.0, 0.0]
+    if hasattr(rotation, "tolist"):
+      rotation = rotation.tolist()
+    rot = [float(v) for v in rotation]
+    if len(rot) == 4:
+      return SciRotation.from_quat(rot).as_euler("XYZ", degrees=True).tolist()
+    return rot
+
+  @staticmethod
+  def _camera_state(camera):
+    pose = camera.pose
+    scale = pose.scale
+    if hasattr(scale, "tolist"):
+      scale = scale.tolist()
+    return {
+      'id': camera.cameraID,
+      'uid': camera.cameraID,
+      'name': camera.cameraID,
+      'translation': pose.translation.asNumpyCartesian.tolist(),
+      'rotation': AnalyticsService._as_euler_deg(pose.euler_rotation),
+      'scale': list(scale),
+    }
+
   def calculateRate(self):
     now = get_epoch_time()
     if not hasattr(self, "regulate_rate"):
@@ -100,8 +128,43 @@ class AnalyticsService:
     scene_uid = scene_obj.uid
 
     if scene_uid not in self.regulate_cache:
-      self.regulate_cache[scene_uid] = {'objects': {}, 'rate': {}, 'last': None}
+      self.regulate_cache[scene_uid] = {
+        'objects': {}, 'rate': {}, 'last': None,
+        'camera_states': {}, 'dynamic_camera_poses': {},
+      }
     scene = self.regulate_cache[scene_uid]
+    scene.setdefault('camera_states', {})
+    scene.setdefault('dynamic_camera_poses', {})
+
+    configured_ids = set(scene_obj.cameras.keys())
+    for configured_id in configured_ids:
+      camera = scene_obj.cameras[configured_id]
+      if not hasattr(camera, 'pose') or camera.pose is None:
+        continue
+      state = self._camera_state(camera)
+      state['dynamic_pose'] = False
+      dynamic_pose = scene['dynamic_camera_poses'].get(configured_id)
+      if dynamic_pose:
+        state.update(dynamic_pose)
+        state['dynamic_pose'] = True
+      scene['camera_states'][configured_id] = state
+    for removed_id in set(scene['camera_states']) - configured_ids:
+      scene['camera_states'].pop(removed_id, None)
+
+    message_camera_id = jdata.get('camera_id') or camera_id
+    message_pose = jdata.get('camera_pose') or jdata.get('extrinsics')
+    if message_camera_id and isinstance(message_pose, dict):
+      scene['dynamic_camera_poses'][message_camera_id] = {
+        'translation': message_pose.get('translation', [0.0, 0.0, 0.0]),
+        'rotation': AnalyticsService._as_euler_deg(
+          message_pose.get('rotation', [0.0, 0.0, 0.0])),
+        'scale': message_pose.get('scale', [1.0, 1.0, 1.0]),
+      }
+      if message_camera_id in scene['camera_states']:
+        scene['camera_states'][message_camera_id].update(
+          scene['dynamic_camera_poses'][message_camera_id]
+        )
+        scene['camera_states'][message_camera_id]['dynamic_pose'] = True
 
     scene['objects'][otype] = buildDetectionsList(
       msg_objects, scene_obj,
@@ -141,6 +204,7 @@ class AnalyticsService:
         'name': jdata['name'],
         'scene_rate': round(1 / update_rate, 1),
         'rate': scene['rate'],
+        'cameras': list(scene['camera_states'].values()),
       }
       jstr = orjson.dumps(new_jdata, option=orjson.OPT_SERIALIZE_NUMPY)
       self.pubsub.publish(PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid), jstr)

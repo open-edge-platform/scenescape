@@ -23,13 +23,19 @@ export default class CustomCameraHelper extends THREE.CameraHelper {
     const w = 1,
       h = 1;
 
-    // we need just camera projection matrix inverse
-    // world matrix must be identity
-
+    // Geometry is in camera-local space; CameraHelper.matrix tracks matrixWorld.
+    // Cloning the live camera copies world pose and double-transforms the lines.
     _camera = this.camera.clone();
+    _camera.position.set(0, 0, 0);
+    _camera.quaternion.identity();
+    _camera.scale.set(1, 1, 1);
+    _camera.matrix.identity();
+    _camera.matrixWorld.identity();
+    _camera.matrixWorldInverse.identity();
     _camera.far = FAR;
     _camera.near = NEAR;
     _camera.updateProjectionMatrix();
+    _camera.updateMatrixWorld(true);
 
     // center / target
 

@@ -25,7 +25,11 @@ export default class CameraManager extends ThingManager {
   updatePoses(cameras) {
     if (!Array.isArray(cameras)) return;
     for (const camera of cameras) {
-      const sceneCamera = this.sceneCameras[camera.id];
+      const sceneCamera = (
+        this.sceneCameras[camera.id] ||
+        this.sceneCameras[camera.uid] ||
+        this.sceneCameras[camera.name]
+      );
       if (sceneCamera) sceneCamera.updatePose(camera);
     }
   }

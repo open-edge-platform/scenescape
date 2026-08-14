@@ -326,9 +326,6 @@ export default class SceneCamera extends THREE.Object3D {
   updatePose(pose) {
     if (!this.sceneCamera || !pose.translation || !pose.rotation) return;
 
-    if (pose.intrinsics) this.updateIntrinsics(pose.intrinsics);
-    if (pose.distortion) this.updateDistortion(pose.distortion);
-
     this.cameraPosition.fromArray(pose.translation);
     this.cameraRotation.set(
       ...pose.rotation.map((value) => THREE.MathUtils.degToRad(value)),
@@ -337,9 +334,7 @@ export default class SceneCamera extends THREE.Object3D {
     this.sceneCamera.rotation.copy(this.cameraRotation);
     if (pose.scale) this.sceneCamera.scale.fromArray(pose.scale);
     this.togglePoseYupYdown(this.sceneCamera);
-    this.sceneCamera.updateProjectionMatrix();
     this.sceneCamera.updateMatrixWorld(true);
-    this.sceneCameraHelper.update();
     if (this.transformControl) this.resetTransformObject();
   }
 
