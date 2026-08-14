@@ -319,11 +319,11 @@ class TestSceneControllerPublishers:
     assert jdata['debug_hmo_processing_time'] == 5.0
 
   def test_publish_external_detections_publishes_with_sensor_enriched_objects(self):
-    """External publish emits when scene has a parent and shouldPublish allows."""
+    """External publish emits when shouldPublish allows."""
     scene_controller = self._build_controller('unregulated')
     scene = SimpleNamespace(
       uid='scene-1',
-      parent='parent-1',
+      parent=None,
       external_update_rate=2,
       last_published_detection=defaultdict(lambda: None),
       reid_config_data={'minimum_bbox_area': 5000},
@@ -346,22 +346,25 @@ class TestSceneControllerPublishers:
     assert call_kwargs['withhold_reid'] is False
     assert call_kwargs['reid_enrolled_fn'] is None
 
-  def test_publish_external_detections_skips_root_scene_without_parent(self):
-    """Root scenes must not publish hierarchy echoes onto their own external topic."""
+  def test_publish_external_detections_publishes_for_root_scene(self):
+    """Root/remote-child scenes still publish; own-echo filtering is on receive."""
     scene_controller = self._build_controller('unregulated')
     scene = SimpleNamespace(
       uid='scene-1',
       parent=None,
       external_update_rate=2,
       last_published_detection=defaultdict(lambda: None),
+      reid_config_data={'minimum_bbox_area': 5000},
     )
     jdata_base = {'timestamp': '2026-01-01T00:00:01Z', 'objects': ['unchanged']}
     scene_controller.shouldPublish = MagicMock(return_value=True)
 
-    scene_controller.publishExternalDetections(scene, 'person', [object()], jdata_base)
+    with patch('controller.scene_controller.get_epoch_time', side_effect=[100.0, 101.0]), \
+         patch('controller.scene_controller.buildDetectionsList', return_value=[{'id': 'o1'}]):
+      scene_controller.publishExternalDetections(scene, 'person', [object()], jdata_base)
 
-    scene_controller.pubsub.publish.assert_not_called()
-    scene_controller.shouldPublish.assert_not_called()
+    scene_controller.pubsub.publish.assert_called_once()
+    scene_controller.shouldPublish.assert_called_once()
 
   def _publish_external_with_reid_manager(self, uuid_manager, write_intent=True, category='person'):
     """Publish external detections for a scene whose CATEGORY SUBTRACKER owns uuid_manager.
@@ -1112,6 +1115,9 @@ class TestHandleMovingObjectExternal:
   ):
     """Hierarchy messages (no source_id) that return None must not invalidate."""
     controller = self._build_controller()
+    # Not a local no-parent scene, so the cheap early reject does not fire and
+    # the legacy _handleChildSceneObject None path still applies.
+    controller.cache_manager.sceneWithID.return_value = None
     controller._handleChildSceneObject = MagicMock(return_value=None)
     message = self._external_message('root-1', {
       'timestamp': '2026-01-01T00:00:00Z',
@@ -1124,6 +1130,60 @@ class TestHandleMovingObjectExternal:
     controller._scenesForExternalPublisher.assert_not_called()
     controller.cache_manager.invalidate.assert_not_called()
     controller.publishDetections.assert_not_called()
+
+  @patch('controller.scene_controller.metrics')
+  @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
+  @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
+  def test_own_hierarchy_echo_rejected_before_heavy_work(
+    self, mock_epoch, mock_adjust, _mock_metrics
+  ):
+    """Local scene with no parent: drop own external echo before NTP/schema."""
+    controller = self._build_controller()
+    controller.cache_manager.sceneWithID.return_value = SimpleNamespace(
+      uid='root-1', parent=None)
+    controller._handleChildSceneObject = MagicMock()
+    message = self._external_message('root-1', {
+      'timestamp': '2026-01-01T00:00:00Z',
+      'objects': [],
+    })
+
+    controller.handleMovingObjectMessage(None, None, message)
+
+    controller.cache_manager.sceneWithID.assert_called_once_with('root-1')
+    controller._handleChildSceneObject.assert_not_called()
+    controller.schema_val.validateMessage.assert_not_called()
+    mock_adjust.assert_not_called()
+    mock_epoch.assert_not_called()
+    controller._scenesForExternalPublisher.assert_not_called()
+    controller.publishDetections.assert_not_called()
+    controller.cache_manager.invalidate.assert_not_called()
+
+  @patch('controller.scene_controller.metrics')
+  @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
+  @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
+  def test_local_child_hierarchy_echo_still_ingested(
+    self, _mock_epoch, mock_adjust, _mock_metrics
+  ):
+    """Local child with a parent must still reach _handleChildSceneObject."""
+    controller = self._build_controller()
+    controller.cache_manager.sceneWithID.return_value = SimpleNamespace(
+      uid='child-1', parent='parent-1')
+    parent_scene = MagicMock()
+    parent_scene.uid = 'parent-1'
+    parent_scene.name = 'Parent'
+    parent_scene.tracker.getUniqueIDCount.return_value = 0
+    parent_scene.tracker.currentObjects.return_value = []
+    controller._handleChildSceneObject = MagicMock(return_value=(True, parent_scene))
+    message = self._external_message('child-1', {
+      'timestamp': '2026-01-01T00:00:00Z',
+      'objects': [],
+    })
+
+    controller.handleMovingObjectMessage(None, None, message)
+
+    controller._handleChildSceneObject.assert_called_once()
+    mock_adjust.assert_called_once()
+    controller.publishDetections.assert_called_once()
 
 
 class TestSceneControllerShutdown:
