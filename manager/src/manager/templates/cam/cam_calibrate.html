@@ -164,6 +164,21 @@ SPDX-License-Identifier: Apache-2.0
             </div>
           {% endif %}
 
+          <div class="form-group row">
+            <label class="col-form-label form-label" for="detected_resolution"
+              >Image Resolution</label
+            >
+            <div class="col-sm-3">
+              <input
+                type="text"
+                class="form-control"
+                id="detected_resolution"
+                value="{{ caminst.width }} x {{ caminst.height }}"
+                disabled
+              />
+            </div>
+          </div>
+
           {% for field in form %}
             {% if field.name in "name sensor_id scene command camerachain" %}
               <div class="form-group row" id="{{ field.name }}_wrapper">

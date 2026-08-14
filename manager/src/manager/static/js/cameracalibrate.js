@@ -635,6 +635,9 @@ export class ConvergedCameraCalibration {
   updateCameraOpticalCenter(resolution, cameraMatrix) {
     const [width, height] = resolution;
     const EPSILON = 1e-6;
+    $("#id_width").val(width);
+    $("#id_height").val(height);
+    $("#detected_resolution").val(`${width} x ${height}`);
     if (
       Math.abs(parseFloat($("#id_intrinsics_cx").val()) - width / 2.0) > EPSILON
     ) {
