@@ -358,6 +358,21 @@ def main() -> None:
       no_proxy_hosts = [h for h in line.split("=", 1)[1].split(",") if h]
   generate_secrets_and_env(deploy_dir, skill_dir, no_proxy_hosts)
 
+  # Re-assert public-cert modes even when generate_secrets already ran — keeps
+  # older deploy dirs / partial resumes readable by non-host UIDs.
+  ensure = subprocess.run(
+    [
+      sys.executable,
+      str(skill_dir / "scripts" / "ensure_secret_perms.py"),
+      "--deploy-dir", str(deploy_dir),
+    ],
+    check=True,
+    capture_output=True,
+    text=True,
+  )
+  if ensure.stdout.strip():
+    print(ensure.stdout.strip())
+
   print(f"Bootstrap complete: {deploy_dir}")
 
 

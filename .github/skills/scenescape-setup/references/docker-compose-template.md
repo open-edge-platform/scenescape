@@ -250,6 +250,8 @@ services:
       MQTT_HOST: broker.scenescape.intel.com
       MQTT_PORT: 1883
       ROOT_CA: /run/secrets/certs/scenescape-ca.pem
+      # Quiets "REST_SERVER_PORT environment variable not set" (REST unused by this skill).
+      REST_SERVER_PORT: "8080"
       # Keep mediaserver out of proxies by default; user-provided RTSP hosts are appended via .env.
       <<: *proxy_env
       no_proxy: mediaserver,${no_proxy:+${no_proxy},}broker.scenescape.intel.com,.scenescape.intel.com
@@ -383,13 +385,18 @@ defaults to `mapanything` in the image); no deploy-time model selector is requir
 Mapping runs as `${UID:-1000}:${GID:-1000}` inside the container, matching the host user like
 `analytics`, `broker`, and `web` do — export `UID`/`GID` (or rely on the defaults) when bringing
 the stack up. `mapping-init` chowns the model-weights/torch-cache/hf-cache volumes to that same
-UID/GID before the mapping service starts. The published `intel/scenescape-mapping` image bakes
-in a default `scenescape` user at UID 1001 purely as its own build-time default; nothing in the
-image or its Kubernetes deployment (which runs the identical image at UID 1000) actually requires
-UID 1001, so matching the host UID here — rather than hardcoding 1001 — lets `mapping` read the
-host-generated `0600` secrets (`mapping-cert`, `mapping-key`, `root-cert`) the same way the other
-services already do, without loosening any file permissions. Because `mapping`'s UID is fixed at 1001 (not the host UID),
-its three secrets (`mapping-cert`, `mapping-key`, `root-cert`) explicitly set `mode: 0444`
-so the container can read them regardless of the host user's UID/GID — without this, gunicorn
-fails with `PermissionError: [Errno 13] Permission denied` loading the TLS cert chain whenever
-the host UID isn't 1001.
+UID/GID before the mapping service starts.
+
+**File-backed Compose secrets inherit host file modes.** Many Docker/Compose builds ignore
+`secrets[].mode` / `uid` / `gid` (you may see: `secrets uid, gid and mode are not supported,
+they will be ignored`). Do **not** rely on compose `mode: 0444` to fix readability.
+Instead:
+
+- `generate_secrets.sh` / `ensure_secret_perms.py` set public trust material (`.pem` / `.crt`)
+  to **0644** and keep private keys / `.auth` files at **0600**.
+- Services that run as the host UID (`broker`, `scene`, `web`, `mapping`, …) can read both.
+- `video-analytics` runs as `intelmicroserviceuser` (UID 1999); it needs the CA at 0644 or
+  MQTT TLS fails with `PermissionError` loading `ROOT_CA`, and Step 9 calibration times out.
+- After fixing modes on an already-running deploy, recreate `video-analytics` so the secret
+  remounts (`docker compose up -d --force-recreate video-analytics`). The orchestrator does
+  this automatically when `ensure_secret_perms.py` reports `changed=1`.

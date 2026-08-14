@@ -103,7 +103,7 @@ packages) and the full backend/marker reference.
 
 ## Security note (demo configuration)
 
-Single-host demo deployment. `secrets/certs/scenescape-mapping.key` is readable by
-non-owner container UIDs so the `mapping` and `video-analytics` services can start.
-Restrict that key and replace the self-signed certificates with CA-signed ones
-before exposing this host beyond a trusted network.
+Single-host demo deployment. Public trust material (`.pem` / `.crt`) is mode `0644` so
+containers that do not run as the host UID (notably `video-analytics`) can load the CA;
+private keys and `.auth` files stay `0600`. Replace the self-signed certificates with
+CA-signed ones before exposing this host beyond a trusted network.

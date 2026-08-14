@@ -18,6 +18,9 @@ user's camera IDs.
 - Do not re-run bootstrap or bring up unrelated services from this phase; it only captures
   calibration frames and checks mapping health.
 - Restrict file writes to `<deploy_dir>/calibration-frames` and `<deploy_dir>/.deploy-state.json`.
+- The orchestrator still re-asserts public CA/cert modes (`ensure_secret_perms.py`) and may
+  recreate `video-analytics` if MQTT TLS cannot read `ROOT_CA` — that is required for Step 9
+  and is not a full bootstrap.
 
 ## Run
 

@@ -30,9 +30,11 @@ bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
 
 Reconstruction creates/finalizes the scene named in `deploy-inputs.json`.
 
-Reconstruction and tracking verification (step 13 waits up to ~2 minutes for scene readiness) can
-take a while; launch asynchronously with `watch_orchestrator.sh` (see SKILL.md Deploy and
-complete) rather than blocking or asking the user to poll.
+Reconstruction and tracking verification (step 13 waits up to ~45s for camera subscriptions,
+then up to ~2 minutes for regulated tracks) can take a while; launch asynchronously with
+`watch_orchestrator.sh` (see SKILL.md Deploy and complete) rather than blocking or asking the
+user to poll. Step 13 **fails** if fewer than `len(camera_ids)` scene controller camera
+subscriptions appear — see [verify-tracking.md](./verify-tracking.md).
 
 ## Reference Lookup
 

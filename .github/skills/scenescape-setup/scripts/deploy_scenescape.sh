@@ -41,6 +41,81 @@ log() {
   echo "$*" | tee -a "$LOG_FILE"
 }
 
+# Re-assert public CA/cert modes (0644). Sets SECRET_PERMS_CHANGED=1 when any
+# mode changed so callers can force-recreate video-analytics (Compose ignores secret mode:).
+SECRET_PERMS_CHANGED=0
+ensure_secret_perms() {
+  local out
+  SECRET_PERMS_CHANGED=0
+  out=$(
+    python3 "$SKILL_DIR/scripts/ensure_secret_perms.py" --deploy-dir "$DEPLOY_DIR" 2>>"$LOG_FILE"
+  ) || {
+    log "FAIL: ensure_secret_perms.py"
+    return 1
+  }
+  [[ -n "$out" ]] && log "$out"
+  if [[ "$out" == *"changed=1"* ]]; then
+    SECRET_PERMS_CHANGED=1
+  fi
+  return 0
+}
+
+# After video-analytics is up: verify ROOT_CA is readable and MQTT TLS is not failing.
+# Recreate once if needed (common when resuming a deploy that still had 0600 CA files).
+ensure_video_analytics_mqtt() {
+  local recreate_hint="${1:-0}"
+  cd "$DEPLOY_DIR"
+
+  if [[ "$recreate_hint" == "1" ]]; then
+    log "Public cert modes changed; recreating video-analytics to remount ROOT_CA"
+    docker compose up -d --force-recreate video-analytics >>"$LOG_FILE" 2>&1
+  fi
+
+  python3 scripts/check_service_health.py \
+    --deploy-dir "$DEPLOY_DIR" \
+    --service video-analytics \
+    --require-healthy \
+    --max-attempts 24 \
+    --interval 5 >>"$LOG_FILE" 2>&1 || {
+    log "FAIL: video-analytics not healthy before MQTT check"
+    return 1
+  }
+
+  if ! docker compose exec -T video-analytics \
+    sh -c 'test -r "${ROOT_CA:-/run/secrets/certs/scenescape-ca.pem}"' >>"$LOG_FILE" 2>&1; then
+    log "ROOT_CA not readable inside video-analytics; fixing modes and recreating"
+    python3 "$SKILL_DIR/scripts/ensure_secret_perms.py" --deploy-dir "$DEPLOY_DIR" >>"$LOG_FILE" 2>&1
+    docker compose up -d --force-recreate video-analytics >>"$LOG_FILE" 2>&1
+    python3 scripts/check_service_health.py \
+      --deploy-dir "$DEPLOY_DIR" \
+      --service video-analytics \
+      --require-healthy \
+      --max-attempts 24 \
+      --interval 5 >>"$LOG_FILE" 2>&1 || return 1
+  fi
+
+  # Pipelines log PermissionError during datapublisher MQTT TLS setup when CA is 0600.
+  sleep 3
+  if docker compose logs video-analytics --since 2m 2>&1 \
+    | grep -q 'PermissionError'; then
+    log "video-analytics MQTT PermissionError detected; re-asserting cert modes and recreating"
+    python3 "$SKILL_DIR/scripts/ensure_secret_perms.py" --deploy-dir "$DEPLOY_DIR" >>"$LOG_FILE" 2>&1
+    docker compose up -d --force-recreate video-analytics >>"$LOG_FILE" 2>&1
+    python3 scripts/check_service_health.py \
+      --deploy-dir "$DEPLOY_DIR" \
+      --service video-analytics \
+      --require-healthy \
+      --max-attempts 24 \
+      --interval 5 >>"$LOG_FILE" 2>&1 || return 1
+    sleep 3
+    if docker compose logs video-analytics --since 1m 2>&1 | grep -q 'PermissionError'; then
+      log "FAIL: video-analytics still hits PermissionError after CA fix"
+      return 1
+    fi
+  fi
+  return 0
+}
+
 state_read() {
   python3 - "$STATE_FILE" "$1" <<'PY'
 import json
@@ -145,6 +220,8 @@ step_bootstrap() {
 step_warmup_rtsp() {
   log "STEP 7: parallel warmup, models, RTSP, video-analytics"
   cd "$DEPLOY_DIR"
+  ensure_secret_perms
+
   bash scripts/parallel_warmup.sh >>"$LOG_FILE" 2>&1
 
   python3 scripts/download_model.py "$DEPLOY_DIR" >>"$LOG_FILE" 2>&1 &
@@ -170,14 +247,13 @@ step_warmup_rtsp() {
     exit 1
   }
 
-  docker compose up -d video-analytics >>"$LOG_FILE" 2>&1
-  python3 scripts/check_service_health.py \
-    --deploy-dir "$DEPLOY_DIR" \
-    --service video-analytics \
-    --require-healthy \
-    --max-attempts 24 \
-    --interval 5 >>"$LOG_FILE" 2>&1 || {
-    log "STEP 7: FAIL (video-analytics)"
+  if [[ "$SECRET_PERMS_CHANGED" == "1" ]]; then
+    docker compose up -d --force-recreate video-analytics >>"$LOG_FILE" 2>&1
+  else
+    docker compose up -d video-analytics >>"$LOG_FILE" 2>&1
+  fi
+  ensure_video_analytics_mqtt 0 || {
+    log "STEP 7: FAIL (video-analytics MQTT / ROOT_CA)"
     exit 1
   }
 
@@ -222,6 +298,11 @@ step_calibration() {
   log "STEP 9: calibration frame gate"
   local frames_dir="$DEPLOY_DIR/calibration-frames"
   cd "$DEPLOY_DIR"
+  ensure_secret_perms
+  ensure_video_analytics_mqtt "$SECRET_PERMS_CHANGED" || {
+    log "STEP 9: FAIL (video-analytics MQTT / ROOT_CA)"
+    exit 1
+  }
   python3 scripts/capture_calibration_frames.py \
     --deploy-dir "$DEPLOY_DIR" \
     --cameras "${CAMERA_IDS[@]}" \
@@ -279,16 +360,16 @@ step_reconstruct() {
 wait_scene_ready() {
   # Wait for scene controller to be fully initialized: stable camera subscriptions + detections flowing
   local max_wait=45
-  local start_time elapsed camera_count target_count
+  local start_time elapsed camera_count=0 target_count
   start_time=$(date +%s)
   target_count=${#CAMERA_IDS[@]}
 
   log "STEP 13: waiting for scene controller initialization (max ${max_wait}s)"
   while (( elapsed = $(date +%s) - start_time, elapsed < max_wait )); do
     # Count subscriptions to camera topics (should match camera count)
-    camera_count=$(docker compose logs scene --tail 100 2>&1 \
+    camera_count=$(docker compose logs scene --tail 200 2>&1 \
       | grep -c 'Subscribed to scenescape/data/camera' || true)
-    
+
     if (( camera_count >= target_count )); then
       log "Scene ready (${camera_count} camera subscriptions established)"
       sleep 3  # Settle time for tracker to accumulate initial detections
@@ -296,9 +377,8 @@ wait_scene_ready() {
     fi
     sleep 2
   done
-  log "WARN: scene initialization incomplete (${camera_count}/${target_count} cameras subscribed) but proceeding"
-  sleep 5  # Extra settle time as fallback
-  return 0  # Don't fail; let verify_tracking timeout handle it if truly broken
+  log "STEP 13: FAIL (scene initialization incomplete: ${camera_count}/${target_count} cameras subscribed)"
+  return 1
 }
 
 step_tracking() {
@@ -311,7 +391,12 @@ step_tracking() {
   fi
 
   cd "$DEPLOY_DIR"
-  wait_scene_ready
+  wait_scene_ready || {
+    docker compose logs scene --tail 50 2>&1 \
+      | grep -E 'NEW SCENE|Subscribed to scenescape/data/camera|ERROR|error' \
+      | tail -20 >>"$LOG_FILE" || true
+    exit 1
+  }
 
   docker compose logs scene --tail 30 2>&1 \
     | grep -E 'NEW SCENE|Subscribed to scenescape/data/camera' \
