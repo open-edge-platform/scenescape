@@ -95,7 +95,6 @@ class Scene(SceneModel):
     self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
 
     self._trs_xyz_to_lla = None
-    self.camera_pose_overrides = {}
     self.use_tracker = True
 
     self.pose_adjustment = PoseAdjustment.from_env(
@@ -247,7 +246,6 @@ class Scene(SceneModel):
             'rotation': rotation,
             'scale': extrinsics.get('scale') or [1, 1, 1],
           }, camera.pose.intrinsics)
-          self.camera_pose_overrides[camera_id] = override_pose
           message_camera = SimpleNamespace(cameraID=camera.cameraID, pose=override_pose)
       except (TypeError, ValueError) as exc:
         log.warning(f"Ignoring invalid camera metadata for {camera_id}: {exc}")
@@ -270,23 +268,6 @@ class Scene(SceneModel):
       objects = self.createMovingObjectsForDetection(detection_type, detections, when, message_camera)
       self.finishProcessing(detection_type, when, objects)
     return True
-
-  def serializeCameras(self):
-    """Serialize configured cameras using their latest supplied poses."""
-    cameras = []
-    for camera_id, camera in self.cameras.items():
-      if not hasattr(camera, 'pose'):
-        continue
-      pose = self.camera_pose_overrides.get(camera_id, camera.pose)
-      camera_data = {
-        'id': camera_id,
-        'translation': pose.translation.asNumpyCartesian.tolist(),
-        'rotation': list(pose.euler_rotation),
-        'scale': list(pose.scale),
-      }
-      camera_data.update(pose.intrinsics.asDict())
-      cameras.append(camera_data)
-    return cameras
 
   def convertPixelBoundingBoxesToMeters(self, objects: list[dict], intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
     """
@@ -452,7 +433,6 @@ class Scene(SceneModel):
     deleted = old - new
     for camID in deleted:
       self.cameras.pop(camID)
-      self.camera_pose_overrides.pop(camID, None)
     CameraRegistry.getInstance().updateCameras(self.name, self.cameras.keys())
     return
 

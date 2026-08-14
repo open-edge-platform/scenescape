@@ -278,6 +278,11 @@ class SceneController:
     }
     metrics.record_object_count(len(objects), metric_attributes)
 
+    if camera_id is not None:
+      jdata['camera_id'] = camera_id
+      if isinstance(jdata.get('extrinsics'), dict):
+        jdata['camera_pose'] = jdata['extrinsics']
+
     self.publishSceneDetections(scene, objects, otype, jdata)
     return
 
@@ -289,9 +294,6 @@ class SceneController:
     # intentional: no detections is state. Rate limiting belongs only on
     # analytics' regulated topic.
     jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=False)
-    serialize_cameras = getattr(scene, 'serializeCameras', None)
-    if self.visibility_topic != 'unregulated' and callable(serialize_cameras):
-      jdata['cameras'] = serialize_cameras()
     if 'debug_hmo_start_time' in jdata:
       jdata['debug_hmo_processing_time'] = get_epoch_time() - jdata['debug_hmo_start_time']
     # Convert numpy types to native Python types for JSON serialization

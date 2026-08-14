@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, call, patch
 from pathlib import Path
 
 import orjson
+import numpy as np
 import pytest
 
 from analytics.adapters.scene_model import AnalyticsScene
@@ -76,6 +77,43 @@ def test_controller_reid_state_and_count_reach_regulated_output(state, gid):
   else:
     assert 'previous_ids_chain' not in published_object
   assert output['unique_detection_count'] == 3
+
+
+def test_regulated_output_uses_latest_dynamic_camera_pose():
+  service = _service()
+  service.calculateRate = MagicMock(return_value=10.0)
+  service.shouldPublish = MagicMock(return_value=True)
+  camera = SimpleNamespace(
+    cameraID='handheld-01',
+    pose=SimpleNamespace(
+      translation=SimpleNamespace(asNumpyCartesian=np.array([0.0, 0.0, 0.0])),
+      euler_rotation=[0.0, 0.0, 0.0],
+      scale=[1.0, 1.0, 1.0],
+    ),
+  )
+  scene = SimpleNamespace(uid='scene1', cameras={'handheld-01': camera}, regulated_rate=1.0)
+  jdata = {
+    'timestamp': get_iso_time(100.0),
+    'id': 'scene1',
+    'name': 'Test scene',
+    'camera_id': 'handheld-01',
+    'camera_pose': {
+      'translation': [4.0, 5.0, 6.0],
+      'rotation': [0.0, 0.0, 0.0, 1.0],
+      'scale': [1.0, 1.0, 1.0],
+    },
+    'objects': [],
+  }
+
+  with patch('analytics.service.buildDetectionsList', return_value=[]), \
+       patch('analytics.service.get_epoch_time', return_value=100.0):
+    service.publishRegulatedDetections(scene, [], 'person', jdata, 'handheld-01')
+
+  payload = orjson.loads(service.pubsub.publish.call_args.args[1])
+  assert payload['cameras'][0]['id'] == 'handheld-01'
+  assert payload['cameras'][0]['dynamic_pose'] is True
+  assert payload['cameras'][0]['translation'] == [4.0, 5.0, 6.0]
+  assert payload['cameras'][0]['rotation'] == [0.0, 0.0, 0.0]
 
 
 def test_delayed_reid_match_preserves_region_dwell_and_crossing(make_region, make_tripwire):

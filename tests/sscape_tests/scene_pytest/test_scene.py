@@ -229,9 +229,6 @@ def test_processCameraData_applies_and_serializes_per_frame_extrinsics(scene_obj
   assert scene_obj.processCameraData(payload) is True
   np.testing.assert_allclose(
     captured['camera'].pose.translation.asNumpyCartesian, [1.0, 2.0, 3.0])
-  serialized = scene_obj.serializeCameras()
-  assert serialized[0]['id'] == camera_obj.cameraID
-  np.testing.assert_allclose(serialized[0]['translation'], [1.0, 2.0, 3.0])
 
 def test_processCameraData_ignore_time_flag_uses_now(scene_obj, camera_obj, monkeypatch):
   scene_obj.cameras[camera_obj.cameraID] = camera_obj

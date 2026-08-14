@@ -340,21 +340,20 @@ class TestSceneControllerPublishers:
       assert payload['objects'] == []
     assert scene_controller.publishExternalDetections.call_count == 2
 
-  def test_publish_regulated_scene_detections_includes_camera_poses(self):
+  def test_publish_detections_attaches_per_message_camera_pose(self):
     scene_controller = self._build_controller('regulated')
     scene_controller.publishExternalDetections = MagicMock()
-    cameras = [{'id': 'handheld-01', 'translation': [1.0, 2.0, 3.0]}]
-    scene = SimpleNamespace(
-      uid='scene-1', name='Test Scene',
-      serializeCameras=MagicMock(return_value=cameras),
-    )
-    jdata = {'timestamp': '2026-01-01T00:00:01Z'}
+    scene = SimpleNamespace(uid='scene-1', name='Test Scene')
+    extrinsics = {'translation': [1.0, 2.0, 3.0], 'rotation': [0.0, 0.0, 0.0]}
+    jdata = {'timestamp': '2026-01-01T00:00:01Z', 'extrinsics': extrinsics}
 
-    with patch('controller.scene_controller.buildDetectionsList', return_value=[]):
-      scene_controller.publishSceneDetections(scene, [], 'person', jdata)
+    with patch('controller.scene_controller.metrics'), \
+         patch('controller.scene_controller.buildDetectionsList', return_value=[]):
+      scene_controller.publishDetections(scene, [], 1.0, 'person', jdata, 'handheld-01')
 
     payload = orjson.loads(scene_controller.pubsub.publish.call_args.args[1])
-    assert payload['cameras'] == cameras
+    assert payload['camera_id'] == 'handheld-01'
+    assert payload['camera_pose'] == extrinsics
     scene_controller.publishExternalDetections.assert_called_once()
 
   def test_publish_external_detections_publishes_with_sensor_enriched_objects(self):
