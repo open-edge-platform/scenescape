@@ -46,6 +46,14 @@ class UUIDManager:
       self.pool.shutdown(wait=False)
     return
 
+  def getActiveGID(self, rv_id):
+    """Return the active GID for a tracker id, or None if unset.
+
+    Reads under active_ids_lock so callers do not race assignID/pruneInactiveTracks.
+    """
+    with self.active_ids_lock:
+      return self.active_ids.get(rv_id, [None])[0]
+
   def connectDatabase(self):
     self.pool.submit(self.reid_database.connect)
 

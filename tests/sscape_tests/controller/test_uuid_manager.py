@@ -159,6 +159,21 @@ class TestAssignIDStoresGIDWhenReidDisabled(unittest.TestCase):
     self.assertEqual(mgr.active_ids[11][0], "original-gid")
 
 
+class TestGetActiveGID(unittest.TestCase):
+  """getActiveGID reads under active_ids_lock."""
+
+  def test_returns_gid_when_present(self):
+    mgr = _make_uuid_manager()
+    mgr.active_ids = {42: ["gid-42", 0.9]}
+    self.assertEqual(mgr.getActiveGID(42), "gid-42")
+
+  def test_returns_none_when_missing_or_unset(self):
+    mgr = _make_uuid_manager()
+    self.assertIsNone(mgr.getActiveGID(1))
+    mgr.active_ids = {2: [None, None]}
+    self.assertIsNone(mgr.getActiveGID(2))
+
+
 class TestPruneInactiveTracksAcceptsSet(unittest.TestCase):
   """pruneInactiveTracks now accepts a set (changed from list in commit f4d8d7f)."""
 

@@ -135,9 +135,31 @@ class TestSceneControllerProcessMessageCore(unittest.TestCase):
     now = 1000.0
 
     with patch("controller.scene_controller.get_epoch_time", return_value=100.0):
-      result = self.controller._processMessageCore(topic_str, jdata, now, 100, 200)
+      with patch("controller.scene_controller.metrics.inc_dropped") as inc_dropped:
+        result = self.controller._processMessageCore(topic_str, jdata, now, 100, 200)
 
     self.assertIsNone(result)
+    inc_dropped.assert_called_once()
+    self.assertEqual(inc_dropped.call_args[0][0]["reason"], "fell_behind")
+
+  def test_child_scene_unknown_sender_returns_none_without_invalidate(self):
+    """Unknown child sender must skip cleanly without crashing or invalidating."""
+    self.controller.schema_val.validateMessage.return_value = True
+    self.controller.cache_manager.refreshScenesForCamParams = Mock()
+    self.controller._handleChildSceneObject = Mock(return_value=(False, None))
+
+    topic_str = "scenescape/data/external/child_id/detection"
+    jdata = {"id": "cam1", "objects": {}, "timestamp": "2026-06-24T12:00:00.000Z"}
+
+    with patch("controller.scene_controller.PubSub.parseTopic",
+               return_value={"_topic_id": PubSub.DATA_EXTERNAL,
+                             "scene_id": "child_id",
+                             "thing_type": "detection"}):
+      with patch("controller.scene_controller.get_epoch_time", return_value=1000.0):
+        result = self.controller._processMessageCore(topic_str, jdata, 1000.0, 100, 200)
+
+    self.assertIsNone(result)
+    self.controller.cache_manager.invalidate.assert_not_called()
 
   def test_lag_startup_grace_accepts_stale_frame(self):
     """Test that startup grace period accepts stale frames."""

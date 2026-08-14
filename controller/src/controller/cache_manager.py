@@ -41,16 +41,21 @@ class CacheManager:
   def refreshScenes(self):
     """Refresh scene cache from data source.
 
-    CRITICAL DESIGN: No HTTP calls may happen while self._lock is held.
-    Holding the lock during HTTP calls blocks the MQTT callback thread,
-    causing permanent "dead-but-alive" stalls.
+    CRITICAL DESIGN: No HTTP calls or Scene construct/update may happen while
+    self._lock is held. Holding the lock during those operations blocks the MQTT
+    callback thread on lookups (sceneWithCameraID/sceneWithID), causing
+    permanent "dead-but-alive" stalls.
 
-    Architectural pattern: Lock-free HTTP to prevent MQTT thread blocking
-    1. HTTP fetch (OUTSIDE lock) - all REST API calls happen without holding lock
-    2. Camera param sync to DB (OUTSIDE lock) - updateCamera/getCamera are HTTP operations
-    3. In-memory cache update (INSIDE lock, NO HTTP) - fast dict updates only
+    Architectural pattern:
+    1. HTTP fetch (OUTSIDE lock)
+    2. Camera param sync to DB (OUTSIDE lock)
+    3. Snapshot existing scenes (BRIEF lock)
+    4. Scene.deserialize / updateScene (OUTSIDE lock)
+    5. Atomic dict swap (BRIEF lock); clear dirty only if no newer mark arrived
     """
-    # Step 1: Fetch scene data from REST API (OUTSIDE LOCK - prevents MQTT thread blocking)
+    refresh_started = get_epoch_time()
+
+    # Step 1: Fetch scene data from REST API (OUTSIDE LOCK)
     try:
       result = self.data_source.getScenes()
     except requests.exceptions.Timeout as e:
@@ -69,53 +74,58 @@ class CacheManager:
 
     found = result.get("results", [])
 
-    # Step 2: Sync camera parameters to DB via HTTP (OUTSIDE LOCK - prevents MQTT thread blocking)
-    # _refreshCameras makes HTTP calls (updateCamera, getCamera) - must NOT be under lock
+    # Step 2: Sync camera parameters to DB via HTTP (OUTSIDE LOCK)
     for scene_data in found:
       self._refreshCameras(scene_data)
 
-    # Step 3: Update cache dictionaries (INSIDE LOCK - fast in-memory updates only, NO HTTP)
-    # Minimizes lock hold time to prevent contention, all HTTP work already completed above.
+    # Attach tracker config before heavy Scene work (tracker_config_data is
+    # written only at CacheManager init / config load).
+    for scene_data in found:
+      if self.tracker_config_data:
+        scene_data["tracker_config"] = [self.tracker_config_data["max_unreliable_time"],
+                                      self.tracker_config_data["non_measurement_time_dynamic"],
+                                      self.tracker_config_data["non_measurement_time_static"],
+                                      self.tracker_config_data["time_chunking_enabled"],
+                                      self.tracker_config_data["time_chunking_interval_milliseconds"],
+                                      self.tracker_config_data.get("baseline_frame_rate", 30),
+                                      self.tracker_config_data.get("suspended_track_timeout_secs", 60.0)]
+        scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
+
+    # Step 3: Snapshot existing Scene objects (BRIEF lock — dict copy only)
     with self._lock:
-      if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
-        self.cached_scenes_by_uid = {}
-      self._cached_scenes_by_cameraID = {}
-      self._cached_scenes_by_sensorID = {}
+      existing = dict(self.cached_scenes_by_uid or {})
 
-      old = set(self.cached_scenes_by_uid.keys())
-      new = set(x['uid'] for x in found)
-      deleted = old - new
-      for uid in deleted:
-        self.cached_scenes_by_uid.pop(uid, None)
+    # Step 4: Build / update Scene objects OUTSIDE lock so MQTT lookups are not blocked
+    new_by_uid = {}
+    new_by_camera = {}
+    new_by_sensor = {}
+    for scene_data in found:
+      uid = scene_data['uid']
+      if uid not in existing:
+        log.debug(f"[SCENE_CACHE] Creating new Scene object for uid={uid} name={scene_data.get('name', 'unknown')} (tracker state reset)")
+        scene = Scene.deserialize(scene_data)
+      else:
+        scene = existing[uid]
+        log.debug(f"[SCENE_CACHE] Updating existing Scene object for uid={uid} name={scene_data.get('name', 'unknown')} (tracker state preserved)")
+        scene.updateScene(scene_data)
 
-      for scene_data in found:
-        if self.tracker_config_data:
-          scene_data["tracker_config"] = [self.tracker_config_data["max_unreliable_time"],
-                                        self.tracker_config_data["non_measurement_time_dynamic"],
-                                        self.tracker_config_data["non_measurement_time_static"],
-                                        self.tracker_config_data["time_chunking_enabled"],
-                                        self.tracker_config_data["time_chunking_interval_milliseconds"],
-                                        self.tracker_config_data.get("baseline_frame_rate", 30),
-                                        self.tracker_config_data.get("suspended_track_timeout_secs", 60.0)]
-          scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
+      for cameraID in scene.cameras.keys():
+        new_by_camera[cameraID] = scene
+      for sensorID in scene.sensors.keys():
+        new_by_sensor[sensorID] = scene
+      new_by_uid[scene.uid] = scene
 
-        uid = scene_data['uid']
-        if uid not in self.cached_scenes_by_uid:
-          log.debug(f"[SCENE_CACHE] Creating new Scene object for uid={uid} name={scene_data.get('name', 'unknown')} (tracker state reset)")
-          scene = Scene.deserialize(scene_data)
-        else:
-          scene = self.cached_scenes_by_uid[uid]
-          log.debug(f"[SCENE_CACHE] Updating existing Scene object for uid={uid} name={scene_data.get('name', 'unknown')} (tracker state preserved)")
-          scene.updateScene(scene_data)
-
-        for cameraID in scene.cameras.keys():
-          self._cached_scenes_by_cameraID[cameraID] = scene
-        for sensorID in scene.sensors.keys():
-          self._cached_scenes_by_sensorID[sensorID] = scene
-        self.cached_scenes_by_uid[scene.uid] = scene
+    # Step 5: Atomic swap of lookup dicts (BRIEF lock)
+    with self._lock:
+      self.cached_scenes_by_uid = new_by_uid
+      self._cached_scenes_by_cameraID = new_by_camera
+      self._cached_scenes_by_sensorID = new_by_sensor
       self._cache_refreshed = get_epoch_time()
-      self._refresh_dirty = False
-      self._dirty_since = None
+      # Preserve dirty marks that arrived after this refresh started so a
+      # concurrent markDirty() is not wiped by a stale in-flight refresh.
+      if self._dirty_since is None or self._dirty_since <= refresh_started:
+        self._refresh_dirty = False
+        self._dirty_since = None
     return
 
   def _refreshCameras(self, scene_data):
@@ -190,7 +200,7 @@ class CacheManager:
 
     if needs_refresh:
       log.warning(f"[PROFILE_CACHE] Triggering refreshScenes due to intrinsics/distortion change for camera {jdata['id']}")
-      self.refreshScenes()
+      self.checkRefresh(force=True)
     return
 
   def updateCamera(self, cam):
@@ -250,18 +260,30 @@ class CacheManager:
         if not self._refresh_in_progress:
           needs_refresh = True
           self._refresh_in_progress = True
+        elif force or dirty_refresh_due:
+          # Coalesce: an in-flight refresh cannot absorb a concurrent force/dirty
+          # request — mark dirty so a follow-up refresh runs after it completes.
+          self._refresh_dirty = True
+          self._dirty_since = now
     if needs_refresh:
       try:
-        self.refreshScenes()  # HTTP calls happen OUTSIDE the lock
+        self.refreshScenes()  # HTTP / Scene work happen OUTSIDE the lock
       finally:
+        followup = False
         with self._lock:
           self._refresh_in_progress = False
+          # A concurrent force/dirty request may have been coalesced while we
+          # were in-flight — run one more gated refresh if still dirty.
+          if self._refresh_dirty:
+            followup = True
+        if followup:
+          self.checkRefresh(force=True)
     return
 
   def allScenes(self, force_refresh=False):
     self.checkRefresh(force=force_refresh)
     with self._lock:
-      return list(self.cached_scenes_by_uid.values())
+      return list((self.cached_scenes_by_uid or {}).values())
 
   # --- Fast lookup methods (no HTTP, no checkRefresh) ---
   # These are safe to call from the MQTT callback thread because they
@@ -314,10 +336,14 @@ class CacheManager:
         log.info("[CACHE] Periodic refresh thread stopped")
 
   def _periodicRefreshLoop(self):
-    """Background thread: periodically refreshes scene cache via HTTP."""
+    """Background thread: periodically refreshes scene cache via HTTP.
+
+    Uses checkRefresh(force=True) so concurrent refreshes share the
+    _refresh_in_progress gate instead of racing refreshScenes() directly.
+    """
     while not self._refresh_stop.wait(timeout=self._refresh_interval):
       try:
-        self.refreshScenes()
+        self.checkRefresh(force=True)
         log.debug("[CACHE_PERIODIC_REFRESH] Refresh completed successfully")
       except Exception as e:
         log.error(f"[CACHE_PERIODIC_REFRESH] Error: {type(e).__name__}: {e}")

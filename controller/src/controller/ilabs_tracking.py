@@ -172,7 +172,7 @@ class IntelLabsTracking(Tracking):
       # Preserve existing UUID mapping if one exists for this rv_id.
       # Without this check, a new GID is assigned every time a track transitions
       # between reliable/unreliable/suspended states, breaking identity continuity.
-      existing_gid = self.uuid_manager.active_ids.get(sscape_object.rv_id, [None])[0]
+      existing_gid = self.uuid_manager.getActiveGID(sscape_object.rv_id)
       if existing_gid is None:
         sscape_object.setGID(uuid)
       else:

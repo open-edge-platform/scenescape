@@ -1139,7 +1139,7 @@ class SceneController:
               f"upstream_ms={upstream_ms:.1f}, mqtt_ms={mqtt_ms:.1f}, "
               f"total_ms={total_lag_ms:.1f}")
 
-  def _applyLagPolicy(self, jdata, lag, now):
+  def _applyLagPolicy(self, jdata, lag, now, metric_attributes=None):
     """Decide how to handle a frame whose lag exceeds max_lag.
 
     Returns the processing time to use, or None if the frame should be dropped.
@@ -1155,6 +1155,10 @@ class SceneController:
       log.debug(f"Startup grace: accepting stale frame from {jdata.get('id', 'unknown')} (lag={lag:.2f}s)")
     elif not self.rewrite_bad_time:
       log.warning("FELL BEHIND by {}. SKIPPING {}".format(lag, jdata.get('id', 'unknown')))
+      if metric_attributes is not None:
+        drop_attrs = dict(metric_attributes)
+        drop_attrs["reason"] = "fell_behind"
+        metrics.inc_dropped(drop_attrs)
       return None
     jdata['timestamp'] = get_iso_time(now)
     return now
@@ -1177,11 +1181,12 @@ class SceneController:
     This function contains the computational core of message handling. It does NOT:
     - Acquire locks (_ntp_sync_lock, _publish_lock)
     - Publish to MQTT
-    - Mutate metrics counters
+
+    Lag drops increment the fell_behind drop metric via _applyLagPolicy.
 
     It DOES access (read-mostly, with their own internal locks):
     - self.schema_val (read-only validation)
-    - self.cache_manager (RLock-protected lookups)
+    - self.cache_manager (lock-protected lookups)
     - Scene objects (mutated during processCameraData — will be process-local in multiprocessing)
 
     Args:
@@ -1215,7 +1220,11 @@ class SceneController:
     self._logLagDecomposition(jdata, lag)
 
     if lag > self.max_lag:
-      msg_when = self._applyLagPolicy(jdata, lag, now)
+      lag_metric_attributes = {
+          "topic": topic_str,
+          "camera": jdata.get('id', jdata.get('source_id', 'unknown')),
+      }
+      msg_when = self._applyLagPolicy(jdata, lag, now, metric_attributes=lag_metric_attributes)
       if msg_when is None:
         return None
 
@@ -1245,6 +1254,10 @@ class SceneController:
       success = scene.processCameraData(jdata, when=msg_when)
 
     if not success:
+      # Unknown child sender returns (False, None) — skip cleanly without crashing
+      # or invalidating the cache for a hierarchy resolution miss.
+      if scene is None:
+        return None
       log.error("Camera fail", sender_id, scene.name)
       self.cache_manager.invalidate()
       return None
@@ -1309,13 +1322,10 @@ class SceneController:
                                                         ntplib.NTPException)
       now_with_offset = now + self.time_offset
 
-      # Core processing (no locks, no publish)
+      # Core processing (no locks, no publish).
+      # Lag drops record fell_behind inside _applyLagPolicy; other skips are silent.
       result = self._processMessageCore(topic_str, jdata, now_with_offset, t_handler_start, t_parse)
       if result is None:
-        # Message was skipped (validation, lag, unknown sender, etc.)
-        if queue_wait_ms > 50 and jdata.get('id'):
-          metric_attributes["reason"] = "fell_behind"
-          metrics.inc_dropped(metric_attributes)
         return
 
       t_process_done = time.time_ns()
