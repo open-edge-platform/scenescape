@@ -342,7 +342,6 @@ class SceneController:
         Local enrollment also stops in those handoff modes so the child does not
         keep writing under passthrough.
     """
-    tracker = getattr(scene, 'tracker', None)
     category_tracker = getattr(getattr(scene, 'tracker', None), 'trackers', {}).get(category)
     uuid_manager = getattr(category_tracker, 'uuid_manager', None)
     if uuid_manager is None:

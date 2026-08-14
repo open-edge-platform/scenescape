@@ -1185,6 +1185,36 @@ class TestHandleMovingObjectExternal:
     mock_adjust.assert_called_once()
     controller.publishDetections.assert_called_once()
 
+  @patch('controller.scene_controller.metrics')
+  @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
+  @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
+  def test_remote_child_hierarchy_ingest_succeeds_when_not_local(
+    self, _mock_epoch, mock_adjust, _mock_metrics
+  ):
+    """Parent-side remote ingest: sceneWithID(child) is None so early reject
+    must not fire; successful _handleChildSceneObject still publishes."""
+    controller = self._build_controller()
+    # Remote child is not a local scene on the parent controller.
+    controller.cache_manager.sceneWithID.return_value = None
+    parent_scene = MagicMock()
+    parent_scene.uid = 'parent-1'
+    parent_scene.name = 'Parent'
+    parent_scene.tracker.getUniqueIDCount.return_value = 0
+    parent_scene.tracker.currentObjects.return_value = []
+    controller._handleChildSceneObject = MagicMock(return_value=(True, parent_scene))
+    message = self._external_message('remote-child-1', {
+      'timestamp': '2026-01-01T00:00:00Z',
+      'objects': [],
+    })
+
+    controller.handleMovingObjectMessage(None, None, message)
+
+    controller.cache_manager.sceneWithID.assert_called_with('remote-child-1')
+    controller._handleChildSceneObject.assert_called_once()
+    mock_adjust.assert_called_once()
+    controller.publishDetections.assert_called_once()
+    controller.cache_manager.invalidate.assert_not_called()
+
 
 class TestSceneControllerShutdown:
   """Controller owns pose/identity sweep threads; shutdown must stop both."""
