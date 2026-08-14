@@ -4,7 +4,6 @@
 import hashlib
 import json
 import os
-from pathlib import Path
 
 from django import forms
 from django.conf import settings
@@ -13,7 +12,11 @@ from django.forms import ModelForm, ValidationError
 
 from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
 from manager.validators import validate_zip_file
-from manager.ppl_generator import PipelineGenerationValueError, PipelineGenerationNotImplementedError
+from manager.ppl_generator import (
+  PipelineGenerationValueError,
+  PipelineGenerationNotImplementedError,
+  load_model_config,
+)
 from manager.ppl_generator.model_chain import parse_model_chain
 from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES
 from scene_common.cam_fields import (
@@ -184,27 +187,18 @@ class CamCreateForm(forms.ModelForm):
     super().__init__(*args, **kwargs)
     self.fields['scene'].required = False
 
-  # Added validation to ensure all models in camerachain exist in model_config
   def clean_camerachain(self):
+    """Reject camerachain values that reference models missing from model-config."""
     camerachain = self.cleaned_data.get('camerachain', '').strip()
     if not camerachain:
       return camerachain
 
     model_config_filename = getattr(self.instance, 'modelconfig', None) or 'model_config.json'
-    model_config_path = Path(os.environ.get('MODEL_CONFIGS_FOLDER', '/models/model_configs')) / model_config_filename
-    if not model_config_path.is_file():
-      raise ValidationError(f"Model config file not found at {model_config_path}")
-
     try:
-      with open(model_config_path, 'r') as f:
-        model_config = json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
-      raise ValidationError(f"Error reading model config: {str(e)}")
-
-    try:
+      model_config = load_model_config(model_config_filename)
       parse_model_chain(camerachain, settings.MODEL_ROOT, model_config)
     except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
-      raise ValidationError(str(e))
+      raise ValidationError(str(e)) from e
 
     return camerachain
 

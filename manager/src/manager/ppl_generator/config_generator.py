@@ -11,6 +11,30 @@ import numpy as np
 from .common_types import PipelineGenerationValueError
 from .pipeline_generator import PipelineGenerator
 
+def load_model_config(modelconfig_name=None):
+  """Load model-config JSON from MODEL_CONFIGS_FOLDER.
+
+  Restricts ``modelconfig_name`` to a basename so path separators cannot escape
+  the configured model-configs directory.
+  """
+  configs_folder = Path(os.environ.get('MODEL_CONFIGS_FOLDER', '/models/model_configs'))
+  # `or` handles empty/None names the same way create-time defaults do
+  filename = Path(modelconfig_name or 'model_config.json').name
+  if not filename:
+    raise PipelineGenerationValueError("Model config filename cannot be empty.")
+
+  model_config_path = configs_folder / filename
+  if not model_config_path.is_file():
+    raise PipelineGenerationValueError(
+      f"Model config file '{filename}' does not exist.")
+
+  try:
+    with open(model_config_path, 'r') as f:
+      return json.load(f)
+  except (json.JSONDecodeError, OSError) as e:
+    raise PipelineGenerationValueError(f"Error reading model config: {e}") from e
+
+
 # TODO: Move the method to pipeline_generator.py
 def create_pipeline_generator_from_dict(form_data_dict):
   """Create PipelineGenerator object from data dictionary and model config.
@@ -18,18 +42,7 @@ def create_pipeline_generator_from_dict(form_data_dict):
   is taken from the environment variable MODEL_CONFIGS_FOLDER, defaults to /models/model_configs.
   """
   # `or` operator is used on purpose because `modelconfig` key may exist with value set to None
-  model_config_path = Path(
-    os.environ.get(
-      'MODEL_CONFIGS_FOLDER',
-      '/models/model_configs')) / (form_data_dict.get(
-    'modelconfig') or 'model_config.json')
-  if not model_config_path.is_file():
-    raise PipelineGenerationValueError(
-      f"Model config file '{model_config_path}' does not exist.")
-
-  with open(model_config_path, 'r') as f:
-    model_config = json.load(f)
-
+  model_config = load_model_config(form_data_dict.get('modelconfig'))
   return PipelineGenerator(form_data_dict, model_config)
 
 
