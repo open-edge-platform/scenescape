@@ -114,7 +114,7 @@ export default class SceneCamera extends THREE.Object3D {
     this.cameraCapture = null;
     this.currentFrame = null;
     this.socket = io({
-      path: "/socket.io",
+      path: "/api/v1/autocalibration/socket.io",
       transports: ["websocket"],
     });
 
@@ -331,7 +331,7 @@ export default class SceneCamera extends THREE.Object3D {
     this.projectFrame = false;
     let panelSettings = {
       name: this.name === DEFAULT_CAMERA_NAME ? "" : this.name,
-      opacity: 100,
+      opacity: 80,
       fov: computeDiagonalFOV(
         this.cameraMatrix.data64F[CX],
         this.cameraMatrix.data64F[CY],
@@ -489,6 +489,7 @@ export default class SceneCamera extends THREE.Object3D {
       control = this.controlsFolder.add(panelSettings, "delete");
       control.$button.id = this.name.concat("-", "delete-camera");
       control = this.controlsFolder.add(panelSettings, "auto calibrate");
+      control.$button.id = this.name.concat("-", "auto-calibrate");
       control.domElement.classList.add("disabled");
     }
 
@@ -977,6 +978,11 @@ export default class SceneCamera extends THREE.Object3D {
               );
             // scene is the group. We add the mesh to the group because we want it to move together.
             this.add(this.mesh);
+            this.executeOnControl("opacity", (control) => {
+              if (control[0]) {
+                this.cameraCapture.opacity = control[0].getValue() / 100.0;
+              }
+            });
           } else {
             this.cameraCapture.texture = texture;
             this.cameraCapture.project(this.mesh);

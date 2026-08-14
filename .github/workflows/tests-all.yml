@@ -16,7 +16,7 @@ on:
   workflow_call:
     inputs:
       ref:
-        description: "SceneScape ref to test against"
+        description: "Scenescape ref to test against"
         required: false
         default: ""
         type: string
@@ -53,14 +53,14 @@ jobs:
     name: "Functional Tests"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: 140
+    timeout-minutes: 300
     steps:
       - name: Remove test_data folder
         run: |
           sudo rm -rf test_data || true
 
       - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -72,38 +72,26 @@ jobs:
         with:
           system-prune: "true"
 
-      - name: "Log in to GHCR"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: "Log in to DockerHub"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          username: scenescape
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: "Setup Cache Targets"
-        id: setup-cache
-        uses: ./.github/actions/setup-cache
-
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Functional Tests
-        env:
-          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
-          make clean-all
-          make run_functional_tests
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/functional --junitxml=reports/functional_results.xml --log-level=ERROR
 
-      - name: Upload Logs and Reports
-        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
-        uses: ./.github/actions/upload-artifacts
+      - name: Upload Test Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: functional-report
+          path: |
+            **/reports/*.xml
 
       - name: Cleanup
         if: always()
@@ -114,57 +102,45 @@ jobs:
     name: "Non-Functional Tests"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - name: Remove test_data folder
         run: |
           sudo rm -rf test_data || true
 
       - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ inputs.ref }}
 
-      - name: "Remove all Docker images"
-        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
-        uses: ./.github/actions/cleanup
-        with:
-          system-prune: "true"
-
-      - name: "Log in to GHCR"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: "Log in to DockerHub"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
           username: scenescape
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: "Setup Cache Targets"
-        id: setup-cache
-        uses: ./.github/actions/setup-cache
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
+        with:
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
-
-      - name: Run Non-Functional Tests
-        env:
-          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
+      - name: Run Non Functional Tests
         run: |
-          make clean-all
-          make run_non_functional_tests
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/non_functional --junitxml=reports/non_functional_results.xml --log-level=ERROR
 
-      - name: Upload Logs and Reports
-        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
-        uses: ./.github/actions/upload-artifacts
+      - name: Upload Test Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: non-functional-report
+          path: |
+            **/reports/*.xml
 
       - name: Cleanup
         if: always()
@@ -175,14 +151,14 @@ jobs:
     name: "Metric Tests"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: 40
+    timeout-minutes: 90
     steps:
       - name: Remove test_data folder
         run: |
           sudo rm -rf test_data || true
 
       - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -194,38 +170,26 @@ jobs:
         with:
           system-prune: "true"
 
-      - name: "Log in to GHCR"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: "Log in to DockerHub"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          username: scenescape
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: "Setup Cache Targets"
-        id: setup-cache
-        uses: ./.github/actions/setup-cache
-
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Metric Tests
-        env:
-          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
-          make clean-all
-          make run_metric_tests
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/system/metric --junitxml=reports/metric_results.xml --log-level=ERROR
 
-      - name: Upload Logs and Reports
-        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
-        uses: ./.github/actions/upload-artifacts
+      - name: Upload Test Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: metric-report
+          path: |
+            **/reports/*.xml
 
       - name: Cleanup
         if: always()
@@ -236,14 +200,14 @@ jobs:
     name: "UI Tests"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: 90
+    timeout-minutes: 300
     steps:
       - name: Remove test_data folder
         run: |
           sudo rm -rf test_data || true
 
       - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -255,38 +219,26 @@ jobs:
         with:
           system-prune: "true"
 
-      - name: "Log in to GHCR"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: "Log in to DockerHub"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          username: scenescape
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: "Setup Cache Targets"
-        id: setup-cache
-        uses: ./.github/actions/setup-cache
-
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run UI Tests
-        env:
-          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
-          make clean-all
-          make run_ui_tests
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/ui --junitxml=reports/ui_results.xml --log-level=ERROR
 
-      - name: Upload Logs and Reports
-        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
-        uses: ./.github/actions/upload-artifacts
+      - name: Upload Test Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: ui-report
+          path: |
+            **/reports/*.xml
 
       - name: Cleanup
         if: always()
@@ -297,14 +249,14 @@ jobs:
     name: "Unit Tests"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: 30
+    timeout-minutes: 70
     steps:
       - name: Remove test_data folder
         run: |
           sudo rm -rf test_data || true
 
       - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -316,38 +268,25 @@ jobs:
         with:
           system-prune: "true"
 
-      - name: "Log in to GHCR"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+      - name: Setup Tests Environment
+        uses: ./.github/actions/setup-tests
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: "Log in to DockerHub"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          username: scenescape
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: "Setup Cache Targets"
-        id: setup-cache
-        uses: ./.github/actions/setup-cache
-
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
-
-      - name: Run Unit Tests
-        env:
-          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
+      - name: "Run Unit Tests"
         run: |
-          make clean-all
-          make run_unit_tests
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/sscape_tests --junitxml=reports/unit_results.xml --log-level=ERROR
 
-      - name: Upload Logs and Reports
-        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
-        uses: ./.github/actions/upload-artifacts
+      - name: Upload Test Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: unit-report
+          path: |
+            **/reports/*.xml
 
       - name: Cleanup
         if: always()

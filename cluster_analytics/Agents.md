@@ -7,35 +7,40 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Service Overview
 
-The **Cluster Analytics** service provides advanced object clustering, tracking, and behavioral analysis capabilities for Intel® SceneScape. It identifies spatial clusters of objects, tracks their evolution over time, analyzes geometric patterns, and classifies movement behaviors.
+The **Cluster Analytics** service provides advanced object clustering, tracking, and behavioral analysis capabilities for Scenescape. It identifies spatial clusters of objects, tracks their evolution over time, analyzes geometric patterns, and classifies movement behaviors.
 
 **Primary Purpose**: Transform individual object detections into meaningful group behaviors by identifying clusters, tracking their lifecycle, detecting geometric patterns, and analyzing movement dynamics.
 
-**Status**: Experimental—enabled via `make build-experimental` or `make build-all`
+**Status**: Production—build via `make cluster_analytics` or `make build-all`
 
 ## Architecture & Components
 
 ### Core Modules
 
-1. **`cluster_analytics.py`**: Main service controller
-   - MQTT message handling
-   - DBSCAN clustering algorithm implementation
-   - Cluster lifecycle management (new, active, inactive, merged, split)
-   - REST API for cluster queries
-   - Integration with Scene Controller
+1. **`cluster_analytics.py`**: CLI entrypoint
+   - Parses CLI arguments (`--broker`, `--brokerauth`, `--cert`, `--rootcert`, `--webui`, `--webui-port`, `--webui-certfile`, `--webui-keyfile`)
+   - Instantiates `ClusterAnalyticsContext` and calls `loop_forever()`
+   - No clustering logic lives here
 
-2. **`cluster_analytics_tracker.py`**: Cluster tracking engine
-   - Persistent cluster tracking across frames
-   - State machine for cluster lifecycle
-   - Cluster matching based on centroid proximity
-   - Merge/split detection
-   - Historical data management
+2. **`cluster_analytics_context.py`**: Service context and clustering engine
+   - Loads `config.json` via `ClusterAnalyticsConfig`
+   - Manages MQTT connection (subscribe / publish)
+   - Runs DBSCAN per object category per frame
+   - Integrates with `ClusterTracker` for UUID persistence
+   - Exposes per-scene DBSCAN parameter override API for WebUI / future REST API
+   - Optionally starts the WebUI thread
 
-3. **`cluster_analytics_context.py`**: Service configuration and state
-   - Configuration loading from JSON
-   - Category-specific DBSCAN parameters
-   - Tracking thresholds and timeouts
-   - Runtime state management
+3. **`cluster_analytics_tracker.py`**: Greedy centroid tracker
+   - `TrackedCluster` dataclass: `uuid`, `category`, `centroid`, `objects_count`, `shape_analysis`, `velocity_analysis`, `object_ids`, `dbscan_params`, `first_seen`, `last_seen`
+   - `ClusterTracker(max_matching_distance=2.0, expiry_seconds=10.0)`
+   - `tracker.update(scene_id, raw_detections, timestamp)` — greedy nearest-centroid matching per category
+   - `tracker.get_clusters(scene_id)` — returns non-expired `TrackedCluster` list
+   - No state machine, no confidence scoring, no scipy dependency
+
+4. **`tools/webui/web_ui.py`**: Optional Flask+SocketIO WebUI
+   - Enabled via `--webui` CLI flag
+   - Real-time cluster visualization on HTTPS port 9443
+   - Calls context methods to read/write per-scene DBSCAN overrides
 
 ### Key Features
 
@@ -47,10 +52,10 @@ The **Cluster Analytics** service provides advanced object clustering, tracking,
 
 **2. Cluster Tracking**
 
-- Unique cluster IDs maintained across frames
-- State-based lifecycle: `new` → `active` → `inactive` (or `merged`/`split`)
-- Centroid-based matching with configurable distance threshold
-- Maximum unreliable time before cluster marked inactive
+- Greedy nearest-centroid matching per category per frame
+- Persistent UUIDs reused as long as centroid stays within `max_matching_distance`
+- Clusters dropped after `expiry_seconds` without a match
+- No state machine or confidence scoring
 
 **3. Shape Detection**
 
@@ -61,17 +66,14 @@ The **Cluster Analytics** service provides advanced object clustering, tracking,
 
 **4. Velocity Analysis**
 
-- Movement pattern classification for clusters
-- Patterns: `stationary`, `coordinated`, `converging`, `diverging`, `chaotic`
-- Velocity vector computation from centroid movement
-- Acceleration and direction change detection
+- Movement pattern classification: `stationary`, `coordinated_parallel`, `converging`, `diverging`, `loosely_coordinated`, `chaotic`
+- Average velocity vector, magnitude, direction, and coherence score computed per cluster
 
 ### Dependencies
 
-- **Scene Common**: MQTT/REST clients, geometry utilities, schema validation
-- **NumPy/SciPy**: Numerical computations, spatial algorithms
+- **Scene Common**: MQTT (`PubSub`), logging, geometry utilities
+- **NumPy**: Numerical computations (no SciPy required)
 - **scikit-learn**: DBSCAN implementation
-- **Scene Controller**: Receives object detections, sends cluster results
 
 ## Communication Patterns
 
@@ -79,51 +81,65 @@ The **Cluster Analytics** service provides advanced object clustering, tracking,
 
 **Subscribes**:
 
-- `detector/<camera_id>`: Object detection messages from Scene Controller
-- `cluster/request`: Explicit cluster analysis requests
+- `scenescape/regulated/scene/+` (`DATA_REGULATED`) — object detection data for all scenes
 
 **Publishes**:
 
-- `cluster/result/<scene_id>`: Cluster analysis results with geometries and velocities
-- `cluster/status`: Service status and diagnostics
+- `scenescape/analytics/clusters/{scene_id}` (`ANALYTICS_CLUSTERS`) — cluster analysis results
 
 ### Message Format
 
-**Input (Object Detections)**:
+**Input** (`DATA_REGULATED`):
 
 ```json
 {
-  "frame_id": 12345,
-  "timestamp": 1704902400.0,
+  "name": "Retail",
+  "timestamp": "2025-10-21T09:16:41.377Z",
   "objects": [
     {
-      "object_id": "obj_001",
+      "id": "69de7c1c-21da-45bc-ae45-2f1d3d16d5b2",
       "category": "person",
-      "position": { "x": 10.5, "y": 5.2, "z": 0.0 },
-      "confidence": 0.95
+      "translation": [10.5, 5.2, 0.0],
+      "velocity": [0.1, -0.05, 0.0]
     }
   ]
 }
 ```
 
-**Output (Cluster Results)**:
+**Output** (`ANALYTICS_CLUSTERS`):
 
 ```json
 {
-  "timestamp": 1704902400.0,
+  "scene_id": "3bc091c7-e449-46a0-9540-29c499bca18c",
+  "scene_name": "Retail",
+  "timestamp": "2025-10-21T09:16:41.377Z",
   "clusters": [
     {
-      "cluster_id": "cluster_001",
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       "category": "person",
-      "state": "active",
-      "centroid": { "x": 10.0, "y": 5.0, "z": 0.0 },
-      "object_count": 5,
-      "shape": "circle",
-      "shape_confidence": 0.85,
-      "velocity_pattern": "stationary",
-      "bounding_box": { "x": 0.5, "y": 0.5, "width": 0.1, "height": 0.2 }
+      "objects_count": 5,
+      "center_of_mass": { "x": 10.0, "y": 5.0 },
+      "shape_analysis": { "shape": "circle", "size": { "radius": 0.4 } },
+      "velocity_analysis": {
+        "movement_type": "stationary",
+        "average_velocity": [0.0, 0.0, 0.0],
+        "velocity_magnitude": 0.0,
+        "movement_direction_degrees": 0.0,
+        "velocity_coherence": 0.0
+      },
+      "object_ids": ["69de7c1c-..."],
+      "dbscan_params": { "eps": 2.0, "min_samples": 2, "category": "person" },
+      "tracking": {
+        "tracking_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "first_seen": 1729501599.234,
+        "last_seen": 1729501601.734
+      }
     }
-  ]
+  ],
+  "summary": {
+    "categories": ["person"],
+    "total_objects": 5
+  }
 }
 ```
 
@@ -133,24 +149,11 @@ The **Cluster Analytics** service provides advanced object clustering, tracking,
 
 ```bash
 # From root directory
-make cluster_analytics                  # Build image
+make cluster_analytics                  # Build production image
 make rebuild-cluster_analytics          # Clean + rebuild
-make build-experimental                 # Build experimental services
-make build-all                          # All services including experimental
-```
-
-### Testing
-
-```bash
-# Unit tests
-make -C tests cluster-analytics-unit
-
-# Functional tests (requires running containers)
-SUPASS=<password> make setup_tests
-make -C tests cluster-analytics-functional
-
-# Specific test module
-pytest tests/sscape_tests/cluster_analytics/test_tracker.py -v
+make build-all                          # All services
+# Demo image (WebUI included, for development/demo only)
+make -C cluster_analytics build-demo
 ```
 
 ### Running Locally
@@ -168,248 +171,222 @@ docker compose up cluster-analytics -e LOG_LEVEL=DEBUG
 
 ## Key Configuration
 
-### Environment Variables
+### CLI Arguments
 
-- `MQTT_BROKER`: MQTT broker address (default: `mosquitto:8883`)
-- `SCENE_CONTROLLER_URL`: REST endpoint for Scene Controller
-- `CONFIG_FILE`: Path to configuration JSON
-- `LOG_LEVEL`: `DEBUG`, `INFO`, `WARNING`, `ERROR`
+| Argument           | Description                               |
+| ------------------ | ----------------------------------------- |
+| `--broker`         | MQTT broker hostname                      |
+| `--brokerauth`     | Path to broker auth file                  |
+| `--cert`           | Path to client certificate                |
+| `--rootcert`       | Path to CA certificate                    |
+| `--webui`          | Enable WebUI server (disabled by default) |
+| `--webui-port`     | WebUI HTTPS port (default: 9443)          |
+| `--webui-certfile` | TLS certificate for WebUI                 |
+| `--webui-keyfile`  | TLS private key for WebUI                 |
 
 ### Configuration File Format
 
+Located at `/app/config/config.json` in the container:
+
 ```json
 {
-  "clustering": {
+  "dbscan": {
     "default": {
-      "eps": 2.0,
+      "eps": 1,
       "min_samples": 3
     },
-    "person": {
-      "eps": 1.5,
-      "min_samples": 3
-    },
-    "vehicle": {
-      "eps": 3.0,
-      "min_samples": 2
+    "category_specific": {
+      "person": { "eps": 2, "min_samples": 2 },
+      "vehicle": { "eps": 4.0, "min_samples": 2 },
+      "bicycle": { "eps": 1.5, "min_samples": 2 },
+      "truck": { "eps": 5.0, "min_samples": 2 },
+      "bus": { "eps": 6.0, "min_samples": 2 }
     }
-  },
-  "tracking": {
-    "max_distance": 5.0,
-    "max_unreliable_time": 3.0,
-    "min_frames_for_shape": 10
-  },
-  "shape_detection": {
-    "enabled": true,
-    "confidence_threshold": 0.7
-  },
-  "velocity_analysis": {
-    "enabled": true,
-    "stationary_threshold": 0.1,
-    "coordinated_threshold": 0.3
   }
 }
 ```
 
+`default` is the fallback for any category not listed in `category_specific`.
+
 ## Code Patterns
 
-### Running Cluster Analysis
+### Instantiating the Context
 
 ```python
-from cluster_analytics import ClusterAnalytics
 from cluster_analytics_context import ClusterAnalyticsContext
 
-# Initialize service
-config = ClusterAnalyticsContext(config_file="config/cluster_config.json")
-service = ClusterAnalytics(
-    mqtt_broker="mosquitto:8883",
-    context=config
+# Context wires MQTT + tracker + optional WebUI
+context = ClusterAnalyticsContext(
+    broker="broker.scenescape.intel.com",
+    broker_auth="/run/secrets/controller.auth",
+    cert=None,
+    root_cert="/run/secrets/certs/scenescape-ca.pem",
+    enable_webui=False,
 )
-
-# Start listening for object detections
-service.start()
+context.loop_forever()  # Blocks; starts MQTT loop
 ```
 
-### Custom Clustering
+### Using the Tracker Directly
+
+```python
+from cluster_analytics_tracker import ClusterTracker
+import time
+
+tracker = ClusterTracker(max_matching_distance=2.0, expiry_seconds=10.0)
+
+# raw_detections: list of dicts from analyze_object_clusters()
+tracker.update(scene_id="scene-abc", raw_detections=raw, timestamp=time.time())
+
+for cluster in tracker.get_clusters("scene-abc"):
+    print(cluster.uuid, cluster.category, cluster.centroid)
+```
+
+### Reading / Writing Per-Scene DBSCAN Overrides
+
+```python
+# Read effective params (user override → category config → default)
+params = context.get_dbscan_params_for_category("person", scene_id="scene-abc")
+
+# Read config-only defaults (ignores user overrides)
+defaults = context.get_default_dbscan_params_for_category("person")
+
+# Set per-scene override (e.g., from WebUI or future REST API)
+context.set_user_dbscan_params_for_category("person", eps=3.0, min_samples=2, scene_id="scene-abc")
+
+# Reset per-scene override back to config defaults
+context.reset_user_dbscan_params_for_category("person", scene_id="scene-abc")
+```
+
+### Running DBSCAN Manually
 
 ```python
 from sklearn.cluster import DBSCAN
 import numpy as np
 
-# Extract object positions
-positions = np.array([[obj.x, obj.y] for obj in objects])
-
-# Run DBSCAN
-clustering = DBSCAN(eps=2.0, min_samples=3)
-labels = clustering.fit_predict(positions)
-
-# Group objects by cluster
-clusters = {}
-for obj, label in zip(objects, labels):
-    if label == -1:
-        continue  # Noise point
-    if label not in clusters:
-        clusters[label] = []
-    clusters[label].append(obj)
-```
-
-### Tracking Clusters Across Frames
-
-```python
-from cluster_analytics_tracker import ClusterTracker
-
-tracker = ClusterTracker(max_distance=5.0, max_unreliable_time=3.0)
-
-# Update with new clusters from current frame
-current_clusters = [...]  # From DBSCAN
-tracked_clusters = tracker.update(current_clusters, timestamp)
-
-# Get active clusters
-active = [c for c in tracked_clusters if c.state == "active"]
-
-# Detect state changes
-for cluster in tracked_clusters:
-    if cluster.state == "split":
-        print(f"Cluster {cluster.id} split into {cluster.split_into}")
-    elif cluster.state == "merged":
-        print(f"Cluster {cluster.id} merged from {cluster.merged_from}")
-```
-
-### Shape Detection
-
-```python
-from cluster_analytics import detect_shape
-
-# Detect shape from cluster points
-shape, confidence = detect_shape(cluster_points)
-
-# Shape types: 'circle', 'rectangle', 'line', 'irregular'
-if shape == "circle" and confidence > 0.8:
-    print(f"High confidence circular cluster detected")
+positions = np.array([[obj['translation'][0], obj['translation'][1]] for obj in objects])
+clustering = DBSCAN(eps=2.0, min_samples=2).fit(positions)
+# Labels: -1 = noise, 0..N = cluster index
+for label in set(clustering.labels_) - {-1}:
+    members = [obj for obj, lbl in zip(objects, clustering.labels_) if lbl == label]
 ```
 
 ## Common Tasks
 
-### Adding New Velocity Pattern
+### Adding a New Velocity Pattern
 
-1. Edit `cluster_analytics.py` → `analyze_velocity()` function
-2. Define new pattern logic (e.g., "orbiting", "oscillating")
-3. Add pattern to enum/constants
-4. Update documentation and schema
-5. Add unit tests for new pattern
+1. Edit `cluster_analytics_context.py` → `classify_movement_pattern()`
+2. Add new pattern logic with a unique return string
+3. Update tests in `tests/sscape_tests/cluster_analytics/test_velocity.py`
 
-### Tuning Clustering Parameters
+### Tuning DBSCAN Parameters
 
-1. Edit configuration file or database
-2. Test with sample data: `pytest tests/sscape_tests/cluster_analytics/test_clustering.py`
-3. Visualize clusters to verify quality
-4. Category-specific tuning (people vs. vehicles need different params)
+1. Edit `cluster_analytics/config/config.json`
+2. Run unit tests: `pytest tests/sscape_tests/cluster_analytics/test_clustering.py -p no:django`
+3. Rebuild image and verify with component tests
 
-**Tips**:
+**Guidelines**:
 
-- `eps`: Controls maximum distance between cluster members (larger = bigger clusters)
-- `min_samples`: Minimum objects to form cluster (larger = stricter clustering)
-- Start conservative (small eps, higher min_samples) and relax as needed
+- `eps`: Max distance between cluster members (larger = bigger clusters)
+- `min_samples`: Minimum objects to form a cluster (larger = stricter)
+- Per-category overrides apply automatically; `default` is the fallback
+
+### Changing Tracker Sensitivity
+
+Edit `ClusterTracker` instantiation in `cluster_analytics_context.py`:
+
+```python
+self.cluster_tracker = ClusterTracker(
+    max_matching_distance=2.0,  # metres — increase if clusters drift between frames
+    expiry_seconds=10.0         # seconds — increase to keep clusters alive during gaps
+)
+```
 
 ### Debugging Cluster Tracking Issues
 
-1. Enable debug logging: `LOG_LEVEL=DEBUG`
-2. Log cluster states and transitions
-3. Visualize cluster centroids over time
-4. Check `max_unreliable_time` threshold (may be too aggressive)
-5. Verify object ID consistency from detector
+1. Enable debug logging in the container: add `LOG_LEVEL=DEBUG` env var
+2. Watch MQTT output: `mosquitto_sub -t 'scenescape/analytics/clusters/+' -v`
+3. Check `max_matching_distance` (too small = new UUID every frame)
+4. Check `expiry_seconds` (too small = clusters disappear between bursts)
 
-### Integrating Shape Detection Model
-
-```python
-# Replace heuristic shape detection with ML model
-import torch
-from shape_model import ShapeClassifier
-
-model = ShapeClassifier.load("/models/shape_detector.pt")
-
-def detect_shape_ml(cluster_points):
-    # Convert to tensor
-    points_tensor = torch.tensor(cluster_points, dtype=torch.float32)
-
-    # Predict shape
-    with torch.no_grad():
-        shape_logits = model(points_tensor)
-        shape_idx = torch.argmax(shape_logits)
-        confidence = torch.softmax(shape_logits, dim=0)[shape_idx].item()
-
-    shapes = ["circle", "rectangle", "line", "irregular"]
-    return shapes[shape_idx], confidence
-```
+5. Enable debug logging: `LOG_LEVEL=DEBUG`
+6. Log cluster states and transitions
+7. Visualize cluster centroids over time
 
 ## Integration Points
 
-### Scene Controller
+### Data Flow
 
-- **Input**: Receives object detections via MQTT
-- **Output**: Sends cluster analysis results back to Scene Controller
-- **Flow**: Scene Controller tracks individual objects → Cluster Analytics groups them → Results feed back for scene understanding
+```
+Scene Controller
+    → MQTT DATA_REGULATED (scenescape/regulated/scene/{id})
+        → ClusterAnalyticsContext.process_scene_analytics()
+            → analyze_object_clusters()  [DBSCAN per category]
+            → ClusterTracker.update()    [UUID persistence]
+            → _publishTrackedClusters()  [MQTT ANALYTICS_CLUSTERS]
+```
 
-### Manager Web UI
+### WebUI
 
-- Future: Visualization of cluster analytics
-- Cluster heatmaps over time
-- Shape and velocity pattern dashboards
-- Configuration UI for DBSCAN parameters
+- Flask+SocketIO server on HTTPS port 9443 (enabled with `--webui`)
+- Real-time visualization of objects and clusters
+- Per-scene DBSCAN parameter controls backed by `set_user_dbscan_params_for_category()`
+- **Requires the demo image**: the production image does not include WebUI dependencies.
+  Build with `make build-demo` in `cluster_analytics/`, then use `scenescape-cluster-analytics-demo` in docker-compose.
 
-### Mapping Service
+### Future REST API
 
-- Potential integration: Use cluster patterns to identify landmarks
-- Crowd density mapping
-- Traffic flow analysis from vehicle clusters
+- Per-scene DBSCAN override methods (`set_user_dbscan_params_for_category` etc.) are preserved for future REST API exposure
 
 ## File Structure
 
 ```
 cluster_analytics/
-├── Dockerfile                          # Container build
-├── Makefile                            # Build rules
-├── README.md                           # Overview documentation
-├── requirements-runtime.txt            # Python dependencies
-├── requirements-build.txt              # Build-time dependencies
+├── Dockerfile
+├── Makefile
+├── README.md
+├── Agents.md
+├── requirements-runtime.txt
+├── requirements-build.txt
 ├── src/
-│   ├── cluster_analytics.py           # Main service controller
-│   ├── cluster_analytics_tracker.py   # Cluster tracking engine
-│   └── cluster_analytics_context.py   # Configuration management
+│   ├── cluster_analytics.py           # CLI entrypoint
+│   ├── cluster_analytics_tracker.py   # Greedy centroid tracker
+│   └── cluster_analytics_context.py   # DBSCAN + MQTT + config
 ├── config/
-│   └── cluster_config.json            # Default configuration
-├── docs/
-│   └── user-guide/
-│       ├── overview.md                # Architecture documentation
-│       ├── get-started.md             # Quick start guide
-│       └── How-to-build-source.md     # Build instructions
+│   └── config.json                    # Default DBSCAN parameters
+├── tests/
+│   └── service/                       # Component tests (Docker)
+│       ├── conftest.py
+│       ├── test_clustering_pipeline.py
+│       └── docker-compose.yaml
 └── tools/
-    └── visualize_clusters.py          # Visualization utilities
+    └── webui/                         # Optional Flask+SocketIO WebUI
+        ├── web_ui.py
+        ├── templates/
+        └── static/
 ```
+
+Unit tests live outside the service directory at `tests/sscape_tests/cluster_analytics/`.
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **No clusters detected**
-   - Check `eps` parameter (may be too small)
-   - Verify `min_samples` not too high
-   - Ensure objects actually close enough spatially
-   - Debug: Log object positions to verify data
+   - Check `eps` in `config.json` (may be too small for the scene scale)
+   - Verify `min_samples` is not higher than the typical group size
+   - Check that objects have valid `translation` coordinates
 
 2. **Too many small clusters**
-   - Increase `eps` to merge nearby objects
-   - Decrease `min_samples` if appropriate
-   - Check for noise in object positions
+   - Increase `eps` in `config.json` for the relevant category
+   - Lower `min_samples` if appropriate
 
-3. **Cluster IDs changing frequently**
-   - Increase `max_distance` threshold in tracker
-   - Extend `max_unreliable_time` to allow gaps
-   - Verify object detection quality (jitter in positions)
+3. **Cluster UUID changes every frame**
+   - Increase `max_matching_distance` in `ClusterTracker` instantiation
+   - Cluster centroid may be jumping beyond the matching threshold
 
-4. **Shape detection inaccurate**
-   - Increase `min_frames_for_shape` (need more data)
-   - Check cluster size (too few points = unreliable shape)
-   - Verify object positions are accurate
+4. **Clusters disappear between frames**
+   - Increase `expiry_seconds` in `ClusterTracker` instantiation
+   - Check object detection rate vs. `expiry_seconds`
 
 ### Logs & Diagnostics
 
@@ -417,36 +394,29 @@ cluster_analytics/
 # Service logs
 docker compose logs cluster-analytics --tail 100
 
-# MQTT message debugging
-docker compose exec mosquitto mosquitto_sub -t 'cluster/#' -v
+# Watch MQTT cluster output
+mosquitto_sub -t 'scenescape/analytics/clusters/+' -v
+
+# Watch MQTT input
+mosquitto_sub -t 'scenescape/regulated/scene/+' -v
 
 # Performance monitoring
 docker stats cluster-analytics
-
-# Interactive debugging
-docker compose exec cluster-analytics python -m pdb src/cluster_analytics.py
 ```
 
 ## Performance Considerations
 
-### Optimization Strategies
+### Optimization Notes
 
-1. **Spatial Indexing**: Use KD-tree for faster neighbor searches (already in DBSCAN)
-2. **Frame Skipping**: Process every N frames instead of all frames
-3. **Cluster Pruning**: Remove inactive clusters from tracking after timeout
-4. **Incremental Updates**: Update clusters incrementally vs. full recomputation
-
-### Scalability Limits
-
-- **Object Count**: DBSCAN scales ~O(n log n) with spatial index
-- **Cluster Count**: Tracking overhead grows linearly with active clusters
-- **Historical Data**: Limit history depth to prevent memory bloat
+- DBSCAN scales O(n log n) with the sklearn implementation
+- Tracker overhead is O(n) per category per frame (greedy linear scan)
+- No historical data retained in tracker — memory footprint is bounded by active live clusters
 
 ## Testing Checklist
 
 When modifying the service, verify:
 
-- [ ] Unit tests pass: `make -C tests cluster-analytics-unit`
+- [ ] Unit tests pass: `make run_unit_tests`
 - [ ] DBSCAN produces expected clusters with test data
 - [ ] Cluster tracking maintains IDs across frames
 - [ ] State transitions (new → active → inactive) work correctly

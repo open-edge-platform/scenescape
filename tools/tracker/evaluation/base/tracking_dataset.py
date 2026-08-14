@@ -16,7 +16,7 @@ class TrackingDataset(ABC):
   - Input data (videos or object detections) from multiple cameras
   - Ground-truth object locations for evaluation
 
-  Implementations must convert dataset-specific formats to SceneScape canonical formats.
+  Implementations must convert dataset-specific formats to Scenescape canonical formats.
   """
 
   @abstractmethod
@@ -84,6 +84,30 @@ class TrackingDataset(ABC):
 
     Raises:
       ValueError: If camera_fps is invalid or not supported.
+      RuntimeError: On other errors.
+    """
+    pass
+
+  @abstractmethod
+  def set_object_categories(
+    self,
+    categories: Optional[List[str]] = None
+  ) -> 'TrackingDataset':
+    """Set the object categories to include in inputs and ground truth.
+
+    When set, only objects belonging to the specified categories are included
+    in the data returned by get_inputs() and get_ground_truth().  Categories
+    are matched case-sensitively against the category keys in the data.
+
+    Args:
+      categories: List of category names to include (optional).
+                  If None, includes all categories (no filtering).
+
+    Returns:
+      Self for method chaining.
+
+    Raises:
+      ValueError: If categories list is empty.
       RuntimeError: On other errors.
     """
     pass

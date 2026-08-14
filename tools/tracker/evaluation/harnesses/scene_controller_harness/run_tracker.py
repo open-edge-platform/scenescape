@@ -12,9 +12,8 @@ the container to run the tracker on input data.
 import json
 import time
 
-from controller.detections_builder import buildDetectionsList
+from scene_common.detections_builder import buildDetectionsList
 from controller.scene import Scene
-from controller.controller_mode import ControllerMode
 from scene_common.scenescape import SceneLoader
 from scene_common.camera import Camera
 from scene_common.geometry import Region, Tripwire
@@ -70,7 +69,6 @@ def track():
   # Load scene configuration
   loader = SceneLoader("config.json")
   scene_config = loader.config
-  ControllerMode.initialize(analytics_only=False)
 
   if time_chunking_enabled:
     ref_camera_fps = time_chunking_rate_fps
@@ -125,7 +123,7 @@ def track():
   # Load inputs from single file (newline-delimited JSON)
   # Inputs are already sorted by timestamp from dataset
   input_frames = []
-  with open("inputs.json", 'r') as f:
+  with open("inputs.jsonl", 'r') as f:
     for line in f:
       if line.strip():
         frame = json.loads(line.strip())
@@ -179,10 +177,11 @@ def main():
   try:
     pred_data = track()
 
-    # Write output
-    with open("output.json", "w") as f:
-      json.dump(pred_data, f, indent=2)
-    print(f"Wrote {len(pred_data)} outputs to output.json")
+    # Write output as newline-delimited JSON
+    with open("output.jsonl", "w") as f:
+      for item in pred_data:
+        f.write(json.dumps(item) + "\n")
+    print(f"Wrote {len(pred_data)} outputs to output.jsonl")
     return 0
   except Exception as exc:
     print(f"Tracking run failed: {exc}")

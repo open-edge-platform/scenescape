@@ -1,0 +1,74 @@
+---
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "Setup Test Environment"
+description: "Install Pytest and dependencies for testing, setup Docker and Python"
+inputs:
+  dockerhub-token:
+    description: "DockerHub token"
+    required: true
+  ghcr-token:
+    description: "GHCR token"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      with:
+        python-version: "3.12"
+        check-latest: true
+
+    - name: "Log in to DockerHub"
+      uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+      continue-on-error: true
+      with:
+        username: scenescape
+        password: ${{ inputs.dockerhub-token }}
+
+    - name: "Log in to GHCR"
+      uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+      continue-on-error: true
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.ghcr-token }}
+
+    - name: "Setup Cache Targets"
+      id: setup-cache
+      uses: ./.github/actions/setup-cache
+
+    - name: "Build common base"
+      shell: bash
+      env:
+        CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+        GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
+      run: |
+        make build-common
+
+    - name: "Build images"
+      shell: bash
+      env:
+        CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+        GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
+      run: |
+        make build-all
+
+    - name: "Setup Test Environment"
+      shell: bash
+      run: |
+        make setup-tests
+
+    - name: "Install github annotate plugin"
+      shell: bash
+      run: |
+        source tests/.venv/bin/activate
+        pip install -r .github/resources/requirements-pytest.txt
+
+    - name: "Set correct Firefox version for tests"
+      shell: bash
+      run: |
+        sudo apt remove -y firefox
+        sudo snap remove --purge firefox
+        sudo apt install -y firefox

@@ -6,12 +6,54 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include <omp.h>
 #include <opencv2/calib3d.hpp>
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 namespace tracker {
+
+namespace {
+
+void addMetadataAttributes(std::string_view metadataJson,
+                           std::unordered_map<std::string, std::string>& attributes) {
+    attributes["metadata_json"] = metadataJson;
+
+    rapidjson::Document metadata;
+    if (metadata.Parse(metadataJson.data(), metadataJson.size()).HasParseError() ||
+        !metadata.IsObject()) {
+        return;
+    }
+
+    for (auto member = metadata.MemberBegin(); member != metadata.MemberEnd(); ++member) {
+        rapidjson::StringBuffer value_buffer;
+        rapidjson::Writer<rapidjson::StringBuffer> value_writer(value_buffer);
+        member->value.Accept(value_writer);
+
+        const std::string field(member->name.GetString(), member->name.GetStringLength());
+        attributes["metadata." + field] = value_buffer.GetString();
+
+        if (!member->value.IsObject() || !member->value.HasMember("confidence") ||
+            !member->value["confidence"].IsNumber()) {
+            continue;
+        }
+
+        char confidence_buffer[32];
+        const auto confidence = member->value["confidence"].GetDouble();
+        auto [ptr, ec] = std::to_chars(confidence_buffer,
+                                       confidence_buffer + sizeof(confidence_buffer), confidence);
+        if (ec == std::errc{}) {
+            attributes["metadata_confidence." + field] = std::string(confidence_buffer, ptr);
+        }
+    }
+}
+
+} // namespace
 
 CoordinateTransformer::CoordinateTransformer(const CameraIntrinsics& intrinsics,
                                              const CameraExtrinsics& extrinsics) {
@@ -184,16 +226,34 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         const double elevation_angle = std::atan2(std::abs(cam_z), ll1);
         const double height_m = std::sin(elevation_angle) * ll2;
 
+        // Shift foot point away from camera by half the object width along
+        // the camera→foot bearing.  This compensates for the fact that the
+        // bottom-center of the bounding box projects to the near edge of
+        // the object's footprint, not its center.  Without this offset,
+        // the same object observed from two cameras at different angles
+        // projects to two different ground points, causing duplicate tracks
+        // when the gap exceeds the matching threshold.
+        const double foot_dx = foot.x - cam_x;
+        const double foot_dy = foot.y - cam_y;
+        const double bearing_len = std::sqrt(foot_dx * foot_dx + foot_dy * foot_dy);
+        double offset_x = foot.x;
+        double offset_y = foot.y;
+        if (bearing_len > 1e-9) {
+            const double half_size = width_m / 2.0;
+            offset_x += (foot_dx / bearing_len) * half_size;
+            offset_y += (foot_dy / bearing_len) * half_size;
+        }
+
         auto& obj = result[i];
         obj.id = detections[i].id.value_or(rv::tracking::InvalidObjectId);
-        obj.x = foot.x;
-        obj.y = foot.y;
+        obj.x = offset_x;
+        obj.y = offset_y;
         obj.z = 0.0;
         obj.length = width_m; // [width, width, height] convention
         obj.width = width_m;
         obj.height = height_m;
         if (!detections[i].metadata_json.empty()) {
-            obj.attributes["metadata_json"] = detections[i].metadata_json;
+            addMetadataAttributes(detections[i].metadata_json, obj.attributes);
         }
         if (detections[i].confidence.has_value()) {
             char buf[32];

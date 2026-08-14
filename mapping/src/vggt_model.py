@@ -25,6 +25,8 @@ import trimesh
 import shutil
 from scene_common.mesh_util import image_mesh
 
+import traceback
+
 from scene_common import log
 
 from model_interface import ReconstructionModel
@@ -56,7 +58,7 @@ class VGGTModel(ReconstructionModel):
     self.model_weights_url = "https://huggingface.co/facebook/VGGT-1B/resolve/main/model.pt"
     self.local_weights_path = "/workspace/model_weights/vggt_model.pt"
 
-  def loadModel(self) -> None:
+  def load_model(self) -> None:
     """Load VGGT model and weights."""
     try:
       log.info("Initializing VGGT model...")
@@ -80,10 +82,10 @@ class VGGTModel(ReconstructionModel):
       log.info("VGGT model loaded successfully")
 
     except Exception as e:
-      log.error(f"Failed to load VGGT model: {e}")
+      log.error(f"Failed to load VGGT model: {e}\n{traceback.format_exc()}")
       raise RuntimeError(f"VGGT model loading failed: {e}")
 
-  def runInference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
+  def run_inference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Run VGGT inference on input images.
 
@@ -97,9 +99,9 @@ class VGGTModel(ReconstructionModel):
       Dictionary containing predictions, camera poses, and intrinsics
     """
     if not self.is_loaded:
-      raise RuntimeError("Model not loaded. Call loadModel() first.")
+      raise RuntimeError("Model not loaded. Call load_model() first.")
 
-    self.validateImages(images)
+    self.validate_images(images)
 
     try:
       # Decode images and get original sizes
@@ -109,36 +111,36 @@ class VGGTModel(ReconstructionModel):
       camera_locations = []
 
       for img_data in images:
-        img_array = self.decodeBase64Image(img_data["data"])
+        img_array = self.decode_base64_image(img_data["data"])
         camera_ids.append(img_data.get("camera_id"))
         camera_locations.append(img_data.get("camera_location"))
         # Apply CLAHE for improved contrast
-        img_array = self._applyCLAHE(img_array)
+        img_array = self._apply_clahe(img_array)
         pil_image = Image.fromarray(img_array)
         pil_images.append(pil_image)
         original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
 
       # Preprocess images using VGGT's logic
-      images_tensor, model_size = self._preprocessImages(pil_images)
+      images_tensor, model_size = self._preprocess_images(pil_images)
 
       # Run inference
       log.info(f"Running VGGT inference on device: {self.device}")
-      predictions = self._runModelInference(images_tensor)
+      predictions = self._run_model_inference(images_tensor)
 
       # Process outputs
-      result = self._processOutputs(predictions, original_sizes, model_size, camera_ids=camera_ids, camera_locations=camera_locations)
+      result = self._process_outputs(predictions, original_sizes, model_size, camera_ids=camera_ids, camera_locations=camera_locations)
 
       return result
 
     except Exception as e:
-      log.error(f"VGGT inference failed: {e}")
+      log.error(f"VGGT inference failed: {e}\n{traceback.format_exc()}")
       raise RuntimeError(f"VGGT inference failed: {e}")
 
-  def getSupportedOutputs(self) -> List[str]:
+  def get_supported_outputs(self) -> List[str]:
     """Get supported output formats."""
     return ["pointcloud", "mesh"]
 
-  def getNativeOutput(self) -> str:
+  def get_native_output(self) -> str:
     """Get native output format."""
     return "pointcloud"
 
@@ -150,7 +152,7 @@ class VGGTModel(ReconstructionModel):
     cb = self._camera_center_from_c2w(c2w_b)
     return float(np.linalg.norm(cb - ca))
 
-  def scaleIntrinsicsToOriginalSize(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
+  def scale_intrinsics_to_original_size(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
                    preprocessing_mode: str = "crop") -> list:
     """Scale intrinsics for VGGT preprocessing (simple resize + crop/pad)"""
     if len(intrinsics.shape) == 2:
@@ -223,7 +225,7 @@ class VGGTModel(ReconstructionModel):
 
     return scaled_intrinsics
 
-  def createOutput(
+  def create_output(
     self,
     result: Dict[str, Any],
     output_format: str = None,
@@ -239,7 +241,7 @@ class VGGTModel(ReconstructionModel):
     - Fallback: original VGGT GLB export via predictions_to_glb.
 
     Args:
-      result: Result dictionary from runInference containing predictions
+      result: Result dictionary from run_inference containing predictions
       output_format: Desired output format ('pointcloud' or 'mesh'). If None, uses native format.
       voxel_size: Kept for backward compat; not used in fast mesh path.
       floor_margin: Floor flattening margin (meters) for fast mesh path.
@@ -248,11 +250,11 @@ class VGGTModel(ReconstructionModel):
       trimesh.Scene: Processed 3D scene
     """
     if output_format is None:
-      output_format = self.getNativeOutput()
+      output_format = self.get_native_output()
 
-    if output_format not in self.getSupportedOutputs():
+    if output_format not in self.get_supported_outputs():
       raise ValueError(
-        f"Output format '{output_format}' not supported. Supported formats: {self.getSupportedOutputs()}"
+        f"Output format '{output_format}' not supported. Supported formats: {self.get_supported_outputs()}"
       )
 
     predictions = result["predictions"]
@@ -409,7 +411,7 @@ class VGGTModel(ReconstructionModel):
     finally:
       shutil.rmtree(temp_dir, ignore_errors=True)
 
-  def _preprocessImages(self, pil_images: List[Image.Image]) -> tuple:
+  def _preprocess_images(self, pil_images: List[Image.Image]) -> tuple:
     """
     No-padding preprocess:
     1) Resize so the SHORTER side becomes 518 (keeps aspect ratio).
@@ -449,7 +451,7 @@ class VGGTModel(ReconstructionModel):
     model_size = (target, target)
     return images_tensor, model_size
 
-  def _runModelInference(self, images_tensor: torch.Tensor) -> Dict[str, Any]:
+  def _run_model_inference(self, images_tensor: torch.Tensor) -> Dict[str, Any]:
     """
     Run the VGGT model inference.
 
@@ -511,7 +513,7 @@ class VGGTModel(ReconstructionModel):
       log.exception(f"Failed to compute baseline from camera_locations: {e}")
       return 0.0
 
-  def _processOutputs(self, predictions: Dict[str, Any], original_sizes: List[tuple],
+  def _process_outputs(self, predictions: Dict[str, Any], original_sizes: List[tuple],
             model_size: tuple, camera_ids: List[Any] = None, camera_locations: List[Any] = None) -> Dict[str, Any]:
     """
     Process VGGT outputs into standard format.
@@ -547,7 +549,7 @@ class VGGTModel(ReconstructionModel):
     predictions["world_points_from_depth"] = world_points
 
     model_intrinsics = predictions["intrinsic"]  # (S, 3, 3)
-    original_intrinsics = self.scaleIntrinsicsToOriginalSize(
+    original_intrinsics = self.scale_intrinsics_to_original_size(
       model_intrinsics,
       model_size,
       original_sizes,
@@ -624,7 +626,7 @@ class VGGTModel(ReconstructionModel):
       K = original_intrinsics[i]
 
       rotation_matrix = camera_to_world[:3, :3]
-      quaternion = self.rotationMatrixToQuaternion(rotation_matrix)
+      quaternion = self.rotation_matrix_to_quaternion(rotation_matrix)
 
       camera_poses.append({
         "camera_id": cam_id,

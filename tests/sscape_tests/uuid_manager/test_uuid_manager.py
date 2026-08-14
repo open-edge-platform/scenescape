@@ -9,6 +9,8 @@ These tests run inside the controller container where all dependencies are avail
 """
 
 import numpy as np
+import concurrent.futures
+from types import SimpleNamespace
 from unittest.mock import Mock, MagicMock, patch
 
 import pytest
@@ -19,8 +21,13 @@ from controller.uuid_manager import (
   DEFAULT_SIMILARITY_THRESHOLD_COSINE,
 )
 
+from controller.reid import ReidNoValidVectorsError, ReidPartialWriteError, ReidWriteSupersededError
+from controller.moving_object import MovingObject, ReidState, Chronoloc
+from scene_common.geometry import Point, Rectangle
+import time
 
-def call_update_active_dict_locked(manager, sscape_object, database_id, similarity, query_timestamp=None):
+def call_update_active_dict_locked(manager, sscape_object, database_id, similarity,
+                                   query_timestamp=None, query_vector_scores=None):
   """Call updateActiveDict while holding active_ids_lock, matching production call pattern."""
   with manager.active_ids_lock:
     manager.updateActiveDict(
@@ -28,17 +35,16 @@ def call_update_active_dict_locked(manager, sscape_object, database_id, similari
       database_id=database_id,
       similarity=similarity,
       query_timestamp=query_timestamp,
+      query_vector_scores=query_vector_scores,
     )
 
 @pytest.fixture(autouse=True)
 def mock_vdms_db():
-  """Patch UUIDManager database mapping so all tests use a fake VDMS backend."""
+  """Patch the backend registry lookup so all tests use a fake backend."""
   mock_vdms_db = MagicMock()
 
-  def fake_constructor(**kwargs):
-    return mock_vdms_db
-
-  with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_constructor}):
+  with patch('controller.uuid_manager.create_reid_database',
+             return_value=mock_vdms_db):
     yield mock_vdms_db
 
 
@@ -80,6 +86,15 @@ class TestUUIDManagerInitialization:
     assert hasattr(manager, 'active_ids')
     assert isinstance(manager.active_ids, dict)
     assert len(manager.active_ids) == 0
+
+  def test_default_similarity_configuration_uses_cosine(self, mock_vdms_db):
+    """Unconfigured ReID should use cosine matching and its threshold."""
+
+    manager = UUIDManager()
+
+    assert manager.similarity_metric == 'COSINE'
+    assert manager.similarity_threshold == DEFAULT_SIMILARITY_THRESHOLD_COSINE
+    assert manager.reid_database.similarity_metric == 'IP'
 
   def test_default_similarity_threshold_uses_l2_value_when_metric_is_l2(self, mock_vdms_db):
     """L2 metric should use the L2-specific default threshold when not configured."""
@@ -459,10 +474,11 @@ class TestAssignID:
     obj.boundingBoxPixels.area = 10000
     obj.metadata = {}
 
-    # Manually add sufficient features to trigger query submission
+    # Manually add sufficient observations to trigger query submission
     manager.quality_features["tracker_many_features"] = [
-      np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist() for _ in range(15)
+      np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist()
     ]
+    manager.quality_observation_counts["tracker_many_features"] = 15
 
     manager.assignID(obj)
 
@@ -560,11 +576,8 @@ class TestDataTypes:
 class TestUUIDManagerMetricAwareMatching:
   """Verify parseQueryResults follows descriptor metric semantics."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_rejects_single_dimension_entity_list(self, mock_vdms_class):
+  def test_parse_query_results_rejects_single_dimension_entity_list(self):
     """Flat entity lists violate contract and should be treated as no-match."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "L2"
 
@@ -574,16 +587,13 @@ class TestUUIDManagerMetricAwareMatching:
       {'uuid': 'b', 'rvid': '2', '_distance': 0.6},
     ]
 
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
 
     assert database_id is None
     assert similarity is None
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_ip_uses_higher_is_better(self, mock_vdms_class):
+  def test_parse_query_results_ip_uses_higher_is_better(self):
     """IP metric should select max `_distance` and require values above threshold."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "IP"
 
@@ -598,16 +608,13 @@ class TestUUIDManagerMetricAwareMatching:
       ],
     ]
 
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
 
     assert database_id == 'a'
     assert similarity == 0.8
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_l2_uses_lower_is_better(self, mock_vdms_class):
+  def test_parse_query_results_l2_uses_lower_is_better(self):
     """L2 metric should select min `_distance` and require values below threshold."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "L2"
 
@@ -622,16 +629,13 @@ class TestUUIDManagerMetricAwareMatching:
       ],
     ]
 
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
 
     assert database_id == 'a'
     assert similarity == 0.2
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_ip_ignores_out_of_range_scores(self, mock_vdms_class):
+  def test_parse_query_results_ip_ignores_out_of_range_scores(self):
     """IP matching must ignore candidates with `_distance` outside [-1, 1]."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "IP"
 
@@ -646,16 +650,13 @@ class TestUUIDManagerMetricAwareMatching:
       ],
     ]
 
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
 
     assert database_id == 'b'
     assert similarity == 0.9
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_ip_returns_no_match_when_all_scores_invalid(self, mock_vdms_class):
+  def test_parse_query_results_ip_returns_no_match_when_all_scores_invalid(self):
     """IP matching must return no match if all candidate scores are out of range."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
     manager.reid_database.similarity_metric = "IP"
 
@@ -669,16 +670,13 @@ class TestUUIDManagerMetricAwareMatching:
       ],
     ]
 
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
 
     assert database_id is None
     assert similarity is None
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_ip_threshold_boundary_requires_strictly_greater(self, mock_vdms_class):
+  def test_parse_query_results_ip_threshold_boundary_requires_strictly_greater(self):
     """IP matching should not accept values exactly equal to threshold."""
-    mock_vdms_class.return_value = MagicMock()
-
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.8})
     manager.reid_database.similarity_metric = "IP"
 
@@ -689,16 +687,39 @@ class TestUUIDManagerMetricAwareMatching:
       ]
     ]
 
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
 
     assert database_id is None
     assert similarity is None
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_parse_query_results_l2_threshold_boundary_requires_strictly_less(self, mock_vdms_class):
-    """L2 matching should not accept values exactly equal to threshold."""
-    mock_vdms_class.return_value = MagicMock()
+  def test_parse_query_results_builds_per_vector_scores_vs_winning_uuid(self):
+    """query_vector_scores align to the majority UUID, with None when absent."""
+    manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
+    manager.reid_database.similarity_metric = "IP"
 
+    similarity_scores = [
+      [
+        {'uuid': 'winner', 'rvid': '1', '_distance': 0.95},
+        {'uuid': 'other', 'rvid': '2', '_distance': 0.9},
+      ],
+      [
+        {'uuid': 'winner', 'rvid': '3', '_distance': 0.91},
+        {'uuid': 'other', 'rvid': '4', '_distance': 0.8},
+      ],
+      [
+        {'uuid': 'other', 'rvid': '5', '_distance': 0.99},
+      ],
+    ]
+
+    database_id, similarity, query_vector_scores = manager.parseQueryResults(
+      similarity_scores)
+
+    assert database_id == 'winner'
+    assert similarity == 0.95
+    assert query_vector_scores == [0.95, 0.91, None]
+
+  def test_parse_query_results_l2_threshold_boundary_requires_strictly_less(self):
+    """L2 matching should not accept values exactly equal to threshold."""
     manager = UUIDManager(reid_config_data={'similarity_threshold': 0.2})
     manager.reid_database.similarity_metric = "L2"
 
@@ -709,7 +730,7 @@ class TestUUIDManagerMetricAwareMatching:
       ]
     ]
 
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
 
     assert database_id is None
     assert similarity is None
@@ -718,56 +739,64 @@ class TestUUIDManagerMetricAwareMatching:
 class TestUUIDManagerMetricAwareUpdateFlow:
   """Verify parse->update flow produces correct states for both metric paths."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_cosine_path_match_transitions_to_matched(self, mock_vdms_class):
+  def test_cosine_path_match_transitions_to_matched(self):
     """COSINE (mapped to IP) should produce MATCHED when best score is above threshold."""
     from controller.moving_object import MovingObject, ReidState
     import time
 
-    mock_vdms_class.return_value = MagicMock()
     manager = UUIDManager(reid_config_data={'similarity_metric': 'COSINE', 'similarity_threshold': 0.8})
     manager.reid_database.similarity_metric = "IP"
 
     info = {'id': '1', 'confidence': 0.95}
+    now = time.time()
     obj = MovingObject(info, time.time(), None)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
+    obj.chain_data = MagicMock()
+    obj.chain_data.persist = {}
+
+    mock_bounds = MagicMock()
+    obj.location = [Chronoloc(Point(0, 0, 0), now, mock_bounds)]
 
     with manager.active_ids_lock:
       manager.active_ids[obj.rv_id] = [None, None]
     manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
 
     similarity_scores = [[{'uuid': 'db_match_1', 'rvid': '1', '_distance': 0.92}]]
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
     call_update_active_dict_locked(manager, obj, database_id=database_id, similarity=similarity)
 
     assert obj.reid_state == ReidState.MATCHED
     assert obj.gid == 'db_match_1'
     assert obj.similarity == 0.92
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_l2_path_equal_threshold_transitions_to_query_no_match(self, mock_vdms_class):
+  def test_l2_path_equal_threshold_transitions_to_query_no_match(self):
     """L2 should produce QUERY_NO_MATCH when best score is equal to threshold."""
     from controller.moving_object import MovingObject, ReidState
     import time
 
-    mock_vdms_class.return_value = MagicMock()
     manager = UUIDManager(reid_config_data={'similarity_metric': 'L2', 'similarity_threshold': 0.2})
     manager.reid_database.similarity_metric = "L2"
 
     info = {'id': '1', 'confidence': 0.95}
+    now = time.time()
     obj = MovingObject(info, time.time(), None)
     obj.rv_id = 2
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
+    obj.chain_data = MagicMock()
+    obj.chain_data.persist = {}
+
+    mock_bounds = MagicMock()
+    obj.location = [Chronoloc(Point(0, 0, 0), now, mock_bounds)]
 
     with manager.active_ids_lock:
       manager.active_ids[obj.rv_id] = [None, None]
     manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
 
     similarity_scores = [[{'uuid': 'db_match_2', 'rvid': '2', '_distance': 0.2}]]
-    database_id, similarity = manager.parseQueryResults(similarity_scores)
+    database_id, similarity, _ = manager.parseQueryResults(similarity_scores)
     call_update_active_dict_locked(manager, obj, database_id=database_id, similarity=similarity)
 
     assert database_id is None
@@ -872,3 +901,810 @@ class TestDimensionInference:
 
     assert "track_1" in manager.quality_features, "64-dim embedding should be accepted"
     assert "track_2" not in manager.quality_features, "128-dim embedding should be rejected after 64 inferred"
+
+
+def _make_reid_object(rv_id, *, bbox_area=None, provenance=None, embedding=None):
+  """Build a detection whose embedding is either locally observed or forwarded to us."""
+  obj = MagicMock()
+  obj.rv_id = rv_id
+  obj.category = "Person"
+  obj.gid = None
+  obj.metadata = {}
+  if embedding is None:
+    embedding = np.arange(64, dtype=np.float32).tolist()
+  obj.reid = {"embedding_vector": list(embedding)}
+  obj.boundingBoxPixels = None if bbox_area is None else SimpleNamespace(area=bbox_area)
+  obj.reid_provenance = provenance
+  return obj
+
+
+VETTED_PROVENANCE = {
+  'origin_scene_id': 'scene-child',
+  'origin_camera_id': 'cam-1',
+  'quality_vetted': True,
+}
+
+
+class TestReidObservationTrust:
+  """Separate what a scene may query the shared database with from what it may write to it."""
+
+  def test_local_crop_feeds_both_query_and_enrollment(self, mock_vdms_db):
+    """A crop from this scene's own camera is usable for matching and for enrollment."""
+    manager = UUIDManager()
+    obj = _make_reid_object("local-track", bbox_area=10000)
+
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert len(manager.quality_features["local-track"]) == 1
+    assert len(manager.enrollment_features["local-track"]) == 1
+
+  def test_small_local_crop_is_rejected_entirely(self, mock_vdms_db):
+    """A crop below the area gate is too unreliable to match with or to store."""
+    manager = UUIDManager()
+    obj = _make_reid_object("tiny-track", bbox_area=10)
+
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert "tiny-track" not in manager.quality_features
+    assert "tiny-track" not in manager.enrollment_features
+
+  def test_crop_exactly_at_minimum_area_is_rejected(self, mock_vdms_db):
+    """The area gate is exclusive, matching what the forwarding side enforces."""
+    manager = UUIDManager(reid_config_data={'minimum_bbox_area': 5000})
+    obj = _make_reid_object("boundary-track", bbox_area=5000)
+
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert "boundary-track" not in manager.quality_features
+
+  def test_vetted_forwarded_embedding_feeds_query_and_enrollment(self, mock_vdms_db):
+    """Vetted forwarded crops query and may be written (sole enroll / cluster enhance)."""
+    manager = UUIDManager()
+    obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
+
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert len(manager.quality_features["forwarded-track"]) == 1
+    assert len(manager.enrollment_features["forwarded-track"]) == 1
+
+  def test_embedding_without_bbox_or_provenance_is_dropped(self, mock_vdms_db):
+    """Nothing vouches for an embedding that arrives with neither, so it is unusable."""
+    manager = UUIDManager()
+    obj = _make_reid_object("orphan-track")
+
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert "orphan-track" not in manager.quality_features
+    assert "orphan-track" not in manager.enrollment_features
+
+  def test_provenance_without_origin_scene_is_not_trusted(self, mock_vdms_db):
+    """A vetting claim that names no origin cannot be attributed to anyone."""
+    manager = UUIDManager()
+    obj = _make_reid_object("anonymous-track", provenance={'quality_vetted': True})
+
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert "anonymous-track" not in manager.quality_features
+
+  def test_provenance_cannot_rescue_a_small_local_crop(self, mock_vdms_db):
+    """A claim from upstream never overrides the bbox this scope can measure itself."""
+    manager = UUIDManager()
+    obj = _make_reid_object("claimed-track", bbox_area=10, provenance=VETTED_PROVENANCE)
+
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert "claimed-track" not in manager.quality_features
+    assert "claimed-track" not in manager.enrollment_features
+
+  def test_forwarded_is_not_locally_enrollable_but_may_contribute_writes(self, mock_vdms_db):
+    """Local-bbox gate stays false; vetted forward still may contribute to a UUID write."""
+    manager = UUIDManager()
+    obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
+
+    assert manager.isQueryableObservation(obj) is True
+    assert manager.isEnrollableObservation(obj) is False
+    assert manager.mayContributeEnrollmentEmbedding(obj) is True
+
+  def test_will_enroll_provenance_is_queryable_but_not_writable(self, mock_vdms_db):
+    """Child ReID ownership claim: parent may query, must not enroll/enhance."""
+    manager = UUIDManager()
+    provenance = dict(VETTED_PROVENANCE)
+    provenance['will_enroll'] = True
+    obj = _make_reid_object("forwarded-track", provenance=provenance)
+
+    assert manager.isQueryableObservation(obj) is True
+    assert manager.mayContributeEnrollmentEmbedding(obj) is False
+
+    manager.gatherQualityVisualFeatures(obj)
+    assert len(manager.quality_features["forwarded-track"]) == 1
+    assert "forwarded-track" not in manager.enrollment_features
+
+  def test_enrolled_provenance_blocks_parent_writes(self, mock_vdms_db):
+    """Explicit enrolled claim also blocks parent database contribution."""
+    manager = UUIDManager()
+    provenance = dict(VETTED_PROVENANCE)
+    provenance['enrolled'] = True
+    obj = _make_reid_object("forwarded-track", provenance=provenance)
+
+    assert manager.isQueryableObservation(obj) is True
+    assert manager.mayContributeEnrollmentEmbedding(obj) is False
+
+  def test_unvetted_enrollment_claim_is_ignored(self, mock_vdms_db):
+    """Bare will_enroll without vetted origin must not suppress parent enrollment."""
+    manager = UUIDManager()
+    obj = _make_reid_object(
+      "forwarded-track", provenance={'will_enroll': True})
+
+    assert manager.isQueryableObservation(obj) is False
+    assert manager.mayContributeEnrollmentEmbedding(obj) is False
+
+    vetted_enough_to_query = _make_reid_object(
+      "forwarded-track",
+      provenance={'quality_vetted': True, 'origin_scene_id': 'child',
+                  'will_enroll': True})
+    assert manager.mayContributeEnrollmentEmbedding(vetted_enough_to_query) is False
+
+    spoof_without_origin = _make_reid_object(
+      "local-track", bbox_area=10000,
+      provenance={'will_enroll': True, 'quality_vetted': True})
+    # Local bbox makes it queryable; claim without origin_scene_id is not vetted.
+    assert manager.isQueryableObservation(spoof_without_origin) is True
+    assert manager.mayContributeEnrollmentEmbedding(spoof_without_origin) is True
+
+  def test_will_enroll_no_match_does_not_enroll(self, mock_vdms_db):
+    """Query miss must not sole-enroll when upstream claimed will_enroll."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    provenance = dict(VETTED_PROVENANCE)
+    provenance['will_enroll'] = True
+    obj = _make_reid_object("forwarded-track", provenance=provenance)
+    obj.chain_data = None
+
+    manager.gatherQualityVisualFeatures(obj)
+    call_update_active_dict_locked(manager, obj, database_id=None, similarity=None)
+
+    assert manager.features_for_database["forwarded-track"]['reid_vectors'] == []
+    manager._addNewFeaturesToDatabase("forwarded-track")
+    assert manager.pool.submit.call_count == 0
+
+  def test_reid_no_valid_vectors_does_not_clear_write_health(self, mock_vdms_db):
+    """Empty/invalid batches hand off without sticky-disabling write-health."""
+    manager = UUIDManager()
+    prior_epoch = manager.reid_write_epoch
+    skipped = concurrent.futures.Future()
+    skipped.set_exception(ReidNoValidVectorsError("no vectors"))
+
+    manager._onReidWriteComplete(skipped)
+    assert manager.reid_write_healthy is True
+    assert manager.reid_write_confirmed is False
+    assert manager.reid_write_epoch == prior_epoch + 1
+    assert manager.reid_empty_batch_before_confirm is True
+
+  def test_empty_batch_before_confirm_stops_local_enrollment(self, mock_vdms_db):
+    """Empty-batch passthrough must not leave the child writing beside the parent."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    manager.reid_empty_batch_before_confirm = True
+    obj = _make_reid_object("local-track", bbox_area=10000)
+
+    manager.gatherQualityVisualFeatures(obj)
+    assert "local-track" not in manager.enrollment_features
+
+    manager.features_for_database["local-track"] = {
+      'gid': 'gid-1',
+      'category': 'person',
+      'reid_vectors': [np.arange(8, dtype=np.float32)],
+      'persist': {},
+      'metadata': {},
+    }
+    manager._addNewFeaturesToDatabase("local-track")
+    assert manager.pool.submit.call_count == 0
+
+  def test_reid_disabled_stops_local_enrollment_and_bumps_epoch(self, mock_vdms_db):
+    """Slow-query disable must drop in-flight writes and stop enrollment."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    prior_epoch = manager.reid_write_epoch
+    manager._disableReidWrites("test disable")
+    assert manager.reid_enabled is False
+    assert manager.reid_write_epoch == prior_epoch + 1
+
+    obj = _make_reid_object("local-track", bbox_area=10000)
+    manager.gatherQualityVisualFeatures(obj)
+    assert "local-track" not in manager.enrollment_features
+
+  def test_reid_write_cancelled_leaves_write_health(self, mock_vdms_db):
+    """Pool cancellation must not sticky-clear hierarchy write-health."""
+    manager = UUIDManager()
+    prior_epoch = manager.reid_write_epoch
+    cancelled = concurrent.futures.Future()
+    cancelled.cancel()
+
+    manager._onReidWriteComplete(cancelled)
+    assert manager.reid_write_healthy is True
+    assert manager.reid_write_confirmed is False
+    assert manager.reid_write_epoch == prior_epoch
+
+  def test_reid_write_success_sets_confirmed(self, mock_vdms_db):
+    """First successful addEntry unlocks will_enroll via reid_write_confirmed."""
+    manager = UUIDManager()
+    manager.reid_empty_batch_before_confirm = True
+    assert manager.reid_write_confirmed is False
+    ok = concurrent.futures.Future()
+    ok.set_result(None)
+    manager._onReidWriteComplete(ok)
+    assert manager.reid_write_healthy is True
+    assert manager.reid_write_confirmed is True
+    assert manager.reid_empty_batch_before_confirm is False
+
+  def test_reid_write_success_confirms_even_when_unhealthy(self, mock_vdms_db):
+    """A landed write must confirm even if a sibling failure already cleared health."""
+    manager = UUIDManager()
+    failed = concurrent.futures.Future()
+    failed.set_exception(RuntimeError("vdms down"))
+    manager._onReidWriteComplete(failed)
+    assert manager.reid_write_healthy is False
+
+    recovered = concurrent.futures.Future()
+    recovered.set_result(None)
+    manager._onReidWriteComplete(recovered)
+    assert manager.reid_write_healthy is False
+    assert manager.reid_write_confirmed is True
+
+  def test_reid_partial_write_confirms_and_clears_health(self, mock_vdms_db):
+    """Partial adapter success must confirm stored vectors and stop further writes."""
+    manager = UUIDManager()
+    partial = concurrent.futures.Future()
+    partial.set_exception(ReidPartialWriteError("1/2 failed"))
+    manager._onReidWriteComplete(partial)
+    assert manager.reid_write_confirmed is True
+    assert manager.reid_write_healthy is False
+    assert manager.reid_empty_batch_before_confirm is False
+
+  def test_unhealthy_writes_skip_enrollment_and_discard_flush(self, mock_vdms_db):
+    """Passthrough recovery must not leave the child writing alongside the parent."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    manager.reid_write_healthy = False
+    obj = _make_reid_object("local-track", bbox_area=10000)
+
+    manager.gatherQualityVisualFeatures(obj)
+    assert "local-track" not in manager.enrollment_features
+
+    manager.features_for_database["local-track"] = {
+      'gid': 'gid-1',
+      'category': 'person',
+      'reid_vectors': [np.arange(8, dtype=np.float32)],
+      'persist': {},
+      'metadata': {},
+    }
+    manager._addNewFeaturesToDatabase("local-track")
+    assert manager.pool.submit.call_count == 0
+    assert "local-track" not in manager.features_for_database
+
+  def test_in_flight_write_skipped_after_health_clears(self, mock_vdms_db):
+    """Epoch guard drops superseded workers so parent sole-enroll is not raced."""
+    manager = UUIDManager()
+    manager.reid_database = MagicMock()
+    epoch = manager.reid_write_epoch
+    manager.reid_write_healthy = False
+    manager.reid_write_epoch = epoch + 1
+
+    with pytest.raises(ReidWriteSupersededError):
+      manager._writeReidEntry(
+        epoch, 'gid-1', 'track-1', 'person', [np.arange(4, dtype=np.float32)],
+        {}, {})
+    manager.reid_database.addEntry.assert_not_called()
+
+  def test_superseded_write_callback_does_not_confirm(self, mock_vdms_db):
+    """Skipped in-flight workers must not falsely set reid_write_confirmed."""
+    manager = UUIDManager()
+    superseded = concurrent.futures.Future()
+    superseded.set_exception(ReidWriteSupersededError("dropped"))
+    manager._onReidWriteComplete(superseded)
+    assert manager.reid_write_confirmed is False
+    assert manager.reid_write_healthy is True
+
+  def test_write_reid_entry_success_calls_add_entry(self, mock_vdms_db):
+    """Healthy matching-epoch workers must reach the database adapter."""
+    manager = UUIDManager()
+    manager.reid_database = MagicMock()
+    vectors = [np.arange(4, dtype=np.float32)]
+
+    manager._writeReidEntry(
+      manager.reid_write_epoch, 'gid-1', 'track-1', 'person', vectors,
+      {'timestamp': 1.0}, {'age': 'adult'})
+
+    manager.reid_database.addEntry.assert_called_once_with(
+      'gid-1', 'track-1', 'person', vectors, persist={'timestamp': 1.0}, age='adult')
+
+  def test_flush_add_entry_failure_clears_health_end_to_end(self, mock_vdms_db):
+    """Raising addEntry through the real pool callback sticky-clears write-health."""
+    manager = UUIDManager()
+    manager.reid_database = MagicMock()
+    manager.reid_database.addEntry.side_effect = RuntimeError("vdms down")
+    manager.pool.shutdown(wait=False)
+    manager.pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    manager.features_for_database["flush-track"] = {
+      'gid': 'gid-1',
+      'category': 'person',
+      'reid_vectors': [np.arange(8, dtype=np.float32)],
+      'persist': {},
+      'metadata': {},
+    }
+
+    try:
+      manager._addNewFeaturesToDatabase("flush-track")
+      manager.pool.shutdown(wait=True)
+    finally:
+      manager.pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+    assert manager.reid_write_healthy is False
+    assert manager.reid_write_confirmed is False
+    assert manager.reid_write_epoch == 1
+
+  def test_unhealthy_update_active_dict_does_not_stage_enrollment(self, mock_vdms_db):
+    """Identity updates continue, but features_for_database is not staged when unhealthy."""
+    manager = UUIDManager()
+    manager.reid_write_healthy = False
+    obj = _make_reid_object("local-track", bbox_area=10000)
+    manager.gatherQualityVisualFeatures(obj)
+    assert "local-track" in manager.quality_features
+    assert "local-track" not in manager.enrollment_features
+
+    call_update_active_dict_locked(manager, obj, database_id=None, similarity=None)
+    assert "local-track" not in manager.features_for_database
+    assert "local-track" not in manager.enrollment_features
+    assert manager.active_ids["local-track"][0] is not None
+
+  def test_database_entry_includes_local_and_forwarded_enrollment_features(
+      self, mock_vdms_db):
+    """Mixed tracks accumulate distinct local and vetted forwarded vectors."""
+    manager = UUIDManager()
+    local = _make_reid_object("mixed-track", bbox_area=10000)
+    forwarded = _make_reid_object(
+      "mixed-track", provenance=VETTED_PROVENANCE,
+      embedding=(np.arange(64, dtype=np.float32) + 10).tolist())
+    forwarded.chain_data = None
+
+    manager.gatherQualityVisualFeatures(local)
+    manager.gatherQualityVisualFeatures(forwarded)
+    manager.gatherQualityVisualFeatures(forwarded)
+    call_update_active_dict_locked(manager, local, database_id=None, similarity=None)
+
+    assert len(manager.quality_features["mixed-track"]) == 2
+    assert manager.features_for_database["mixed-track"]['reid_vectors'] == \
+      manager.enrollment_features["mixed-track"]
+    assert len(manager.features_for_database["mixed-track"]['reid_vectors']) == 2
+
+  def test_exact_duplicate_enrollment_vectors_are_skipped(self, mock_vdms_db):
+    """Repeating the same embedding does not grow unique query/enrollment lists."""
+    manager = UUIDManager()
+    obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
+
+    manager.gatherQualityVisualFeatures(obj)
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert manager.quality_observation_counts["forwarded-track"] == 2
+    assert len(manager.quality_features["forwarded-track"]) == 1
+    assert len(manager.enrollment_features["forwarded-track"]) == 1
+
+  def test_repeated_identical_embeddings_still_count_toward_query_threshold(
+      self, mock_vdms_db):
+    """Exact-deduped quality lists must not block the frame-count query gate."""
+    manager = UUIDManager(reid_config_data={'feature_accumulation_threshold': 3})
+    obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
+
+    manager.gatherQualityVisualFeatures(obj)
+    manager.gatherQualityVisualFeatures(obj)
+    assert manager.haveSufficientVisualFeatures(obj) is False
+    manager.gatherQualityVisualFeatures(obj)
+
+    assert manager.haveSufficientVisualFeatures(obj) is True
+    assert len(manager.quality_features["forwarded-track"]) == 1
+
+  def test_forwarded_only_no_match_enrolls(self, mock_vdms_db):
+    """Parent-only ReID: no prior enrollment → parent enrolls vetted forwarded crops."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
+    obj.chain_data = None
+
+    manager.gatherQualityVisualFeatures(obj)
+    call_update_active_dict_locked(manager, obj, database_id=None, similarity=None)
+
+    assert len(manager.features_for_database["forwarded-track"]['reid_vectors']) == 1
+    manager._addNewFeaturesToDatabase("forwarded-track")
+    assert manager.pool.submit.call_count == 1
+
+  def test_forwarded_only_match_enhances_cluster(self, mock_vdms_db):
+    """Near rematch still writes vetted forwarded vectors under the matched UUID."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
+    obj.chain_data = None
+
+    manager.gatherQualityVisualFeatures(obj)
+    call_update_active_dict_locked(
+      manager, obj, database_id=42, similarity=0.99)
+
+    assert len(manager.features_for_database["forwarded-track"]['reid_vectors']) == 1
+    manager._addNewFeaturesToDatabase("forwarded-track")
+    assert manager.pool.submit.call_count == 1
+
+  def test_exact_rematch_skips_rewriting_query_evidence(self, mock_vdms_db):
+    """Exact rematch score means forwarded query evidence is already stored."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    obj = _make_reid_object("forwarded-track", provenance=VETTED_PROVENANCE)
+    obj.chain_data = None
+
+    manager.gatherQualityVisualFeatures(obj)
+    call_update_active_dict_locked(
+      manager, obj, database_id=42, similarity=1.0)
+
+    assert manager.features_for_database["forwarded-track"]['reid_vectors'] == []
+    manager._addNewFeaturesToDatabase("forwarded-track")
+    assert manager.pool.submit.call_count == 0
+
+  def test_exact_rematch_keeps_local_camera_enrollment(self, mock_vdms_db):
+    """Exact rematch must not drop pending local camera crops still needing a write."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    local = _make_reid_object(
+      "mixed-track", bbox_area=10000,
+      embedding=np.arange(64, dtype=np.float32).tolist())
+    local.chain_data = None
+    forwarded = _make_reid_object(
+      "mixed-track", provenance=VETTED_PROVENANCE,
+      embedding=(np.arange(64, dtype=np.float32) + 10).tolist())
+
+    manager.gatherQualityVisualFeatures(local)
+    manager.gatherQualityVisualFeatures(forwarded)
+    call_update_active_dict_locked(
+      manager, local, database_id=42, similarity=1.0)
+
+    pending = manager.features_for_database["mixed-track"]['reid_vectors']
+    assert len(pending) == 1
+    assert np.array_equal(
+      np.asarray(pending[0], dtype=np.float32),
+      np.arange(64, dtype=np.float32))
+    manager._addNewFeaturesToDatabase("mixed-track")
+    assert manager.pool.submit.call_count == 1
+
+  def test_rematch_skips_only_exact_query_vectors(self, mock_vdms_db):
+    """One exact hit in a multi-vector query must not drop near-duplicate enhancements."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    exact_vec = np.arange(64, dtype=np.float32).tolist()
+    near_vec = (np.arange(64, dtype=np.float32) + 3).tolist()
+    first = _make_reid_object(
+      "forwarded-track", provenance=VETTED_PROVENANCE, embedding=exact_vec)
+    first.chain_data = None
+    second = _make_reid_object(
+      "forwarded-track", provenance=VETTED_PROVENANCE, embedding=near_vec)
+
+    manager.gatherQualityVisualFeatures(first)
+    manager.gatherQualityVisualFeatures(second)
+    # Aggregate best score is exact, but only the first query vector is exact.
+    call_update_active_dict_locked(
+      manager, second, database_id=42, similarity=1.0,
+      query_vector_scores=[1.0, 0.95])
+
+    pending = manager.features_for_database["forwarded-track"]['reid_vectors']
+    assert len(pending) == 1
+    assert np.array_equal(
+      np.asarray(pending[0], dtype=np.float32),
+      np.asarray(near_vec, dtype=np.float32))
+    manager._addNewFeaturesToDatabase("forwarded-track")
+    assert manager.pool.submit.call_count == 1
+
+  def test_rematch_skips_query_vectors_missing_winner_score(self, mock_vdms_db):
+    """A vector whose neighbors omit the matched UUID must not enhance that cluster."""
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    near_vec = np.arange(64, dtype=np.float32).tolist()
+    other_vec = (np.arange(64, dtype=np.float32) + 7).tolist()
+    first = _make_reid_object(
+      "forwarded-track", provenance=VETTED_PROVENANCE, embedding=near_vec)
+    first.chain_data = None
+    second = _make_reid_object(
+      "forwarded-track", provenance=VETTED_PROVENANCE, embedding=other_vec)
+
+    manager.gatherQualityVisualFeatures(first)
+    manager.gatherQualityVisualFeatures(second)
+    call_update_active_dict_locked(
+      manager, second, database_id=42, similarity=0.95,
+      query_vector_scores=[0.95, None])
+
+    pending = manager.features_for_database["forwarded-track"]['reid_vectors']
+    assert len(pending) == 1
+    assert np.array_equal(
+      np.asarray(pending[0], dtype=np.float32),
+      np.asarray(near_vec, dtype=np.float32))
+
+  def test_matched_forwarded_detection_appends_to_pending_entry(self, mock_vdms_db):
+    """After rematch, a distinct vetted forwarded frame grows the pending entry."""
+    manager = UUIDManager()
+    local = _make_reid_object("mixed-track", bbox_area=10000)
+    local.chain_data = None
+    forwarded = _make_reid_object(
+      "mixed-track", provenance=VETTED_PROVENANCE,
+      embedding=(np.arange(64, dtype=np.float32) + 5).tolist())
+
+    manager.gatherQualityVisualFeatures(local)
+    call_update_active_dict_locked(manager, local, database_id=None, similarity=None)
+    stored = len(manager.features_for_database["mixed-track"]['reid_vectors'])
+    manager.pickBestID(forwarded)
+
+    assert len(manager.features_for_database["mixed-track"]['reid_vectors']) == stored + 1
+
+  def test_matched_exact_duplicate_forwarded_detection_does_not_append(self, mock_vdms_db):
+    """Exact same vector already pending is not appended again after rematch."""
+    manager = UUIDManager()
+    local = _make_reid_object("mixed-track", bbox_area=10000)
+    local.chain_data = None
+    forwarded = _make_reid_object("mixed-track", provenance=VETTED_PROVENANCE)
+
+    manager.gatherQualityVisualFeatures(local)
+    call_update_active_dict_locked(manager, local, database_id=None, similarity=None)
+    stored = len(manager.features_for_database["mixed-track"]['reid_vectors'])
+    manager.pickBestID(forwarded)
+
+    assert len(manager.features_for_database["mixed-track"]['reid_vectors']) == stored
+
+  def test_pruning_a_track_clears_its_enrollment_features(self, mock_vdms_db):
+    """Track teardown must not leave one track's crops behind for the next one."""
+    manager = UUIDManager()
+    obj = _make_reid_object("local-track", bbox_area=10000)
+    manager.gatherQualityVisualFeatures(obj)
+    with manager.active_ids_lock:
+      manager.active_ids["local-track"] = [None, None]
+
+    manager.pruneInactiveTracks([])
+
+    assert "local-track" not in manager.enrollment_features
+    assert "local-track" not in manager.local_enrollment_features
+    assert "local-track" not in manager.quality_features
+    assert "local-track" not in manager.quality_observation_counts
+class TestCategoryHasEmbeddingsFlag:
+  """Test the sticky _category_has_embeddings flag and _category identity set in assignID."""
+
+  def test_category_has_embeddings_starts_false(self, mock_vdms_db):
+    """Verify a freshly constructed manager hasn't confirmed any embeddings yet."""
+
+    manager = UUIDManager()
+
+    assert manager._category_has_embeddings is False
+    assert manager._category is None
+
+  def test_assign_id_sets_category_identity_regardless_of_embedding(self, mock_vdms_db):
+    """Verify _category is learned from the first assigned object even without a reid embedding."""
+
+    manager = UUIDManager()
+
+    obj = MagicMock()
+    obj.rv_id = "tracker_1"
+    obj.reid = None
+    obj.category = "apriltag"
+    obj.gid = "auto_gid_1"
+    obj.metadata = {}
+
+    manager.assignID(obj)
+
+    assert manager._category == "apriltag"
+    assert manager._category_has_embeddings is False, "No embedding was ever produced, flag must stay false"
+
+  @patch('controller.uuid_manager.CameraRegistry')
+  def test_assign_id_sets_category_has_embeddings_true_when_embedding_present(self, mock_camera_registry, mock_vdms_db):
+    """Verify the flag flips true the first time a real embedding is confirmed."""
+
+    manager = UUIDManager()
+
+    obj = MagicMock()
+    obj.rv_id = "tracker_with_reid"
+    obj.reid = {"embedding_vector": np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist()}
+    obj.category = "person"
+    obj.gid = "auto_gid_1"
+    obj.boundingBoxPixels = MagicMock()
+    obj.boundingBoxPixels.area = 10000
+    obj.metadata = {}
+
+    manager.assignID(obj)
+
+    assert manager._category_has_embeddings is True
+    assert manager._category == "person"
+
+  @patch('controller.uuid_manager.CameraRegistry')
+  def test_category_has_embeddings_stays_true_after_a_frame_without_embedding(self, mock_camera_registry, mock_vdms_db):
+    """Sticky semantics: once confirmed, a later frame lacking an embedding must not reset it."""
+
+    manager = UUIDManager()
+
+    obj_with_reid = MagicMock()
+    obj_with_reid.rv_id = "tracker_1"
+    obj_with_reid.reid = {"embedding_vector": np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist()}
+    obj_with_reid.category = "person"
+    obj_with_reid.gid = "auto_gid_1"
+    obj_with_reid.boundingBoxPixels = MagicMock()
+    obj_with_reid.boundingBoxPixels.area = 10000
+    obj_with_reid.metadata = {}
+    manager.assignID(obj_with_reid)
+    assert manager._category_has_embeddings is True
+
+    obj_without_reid_this_frame = MagicMock()
+    obj_without_reid_this_frame.rv_id = "tracker_1"
+    obj_without_reid_this_frame.reid = None
+    obj_without_reid_this_frame.category = "person"
+    obj_without_reid_this_frame.gid = "auto_gid_1"
+    obj_without_reid_this_frame.metadata = {}
+
+    manager.assignID(obj_without_reid_this_frame)
+
+    assert manager._category_has_embeddings is True, "Flag must not flicker back to false"
+
+
+class TestPruneInactiveTracksMetrics:
+  """Test pruneInactiveTracks' reporting into metrics and TrackedObjectRegistry."""
+
+  @patch('controller.uuid_manager.metrics')
+  @patch('controller.uuid_manager.TrackedObjectRegistry')
+  def test_reports_zero_when_category_has_no_embeddings(self, mock_registry_class, mock_metrics, mock_vdms_db):
+    """Verify a non-ReID category (e.g. apriltag) always reports 0, regardless of active track count."""
+
+    manager = UUIDManager()
+    manager.scene_id = "scene_1"
+    manager._category = "apriltag"
+    manager._category_has_embeddings = False
+
+    tracked = [MagicMock(id="t1"), MagicMock(id="t2"), MagicMock(id="t3")]
+    manager.pruneInactiveTracks(tracked)
+
+    mock_metrics.record_reid_tracked_object_count.assert_called_once_with(0, {'category': 'apriltag'})
+
+  @patch('controller.uuid_manager.metrics')
+  @patch('controller.uuid_manager.TrackedObjectRegistry')
+  def test_reports_actual_count_when_category_has_embeddings(self, mock_registry_class, mock_metrics, mock_vdms_db):
+    """Verify a confirmed ReID category reports the real active-track count."""
+
+    manager = UUIDManager()
+    manager.scene_id = "scene_1"
+    manager._category = "person"
+    manager._category_has_embeddings = True
+
+    tracked = [MagicMock(id="t1"), MagicMock(id="t2"), MagicMock(id="t3")]
+    manager.pruneInactiveTracks(tracked)
+
+    mock_metrics.record_reid_tracked_object_count.assert_called_once_with(3, {'category': 'person'})
+
+  @patch('controller.uuid_manager.metrics')
+  @patch('controller.uuid_manager.TrackedObjectRegistry')
+  def test_reports_count_into_registry_and_emits_total(self, mock_registry_class, mock_metrics, mock_vdms_db):
+    """Verify the per-category count is pushed into the registry and the scene-wide total is emitted."""
+
+    mock_registry_instance = MagicMock()
+    mock_registry_instance.getTotalCount.return_value = 7
+    mock_registry_class.getInstance.return_value = mock_registry_instance
+
+    manager = UUIDManager()
+    manager.scene_id = "scene_1"
+    manager._category = "person"
+    manager._category_has_embeddings = True
+
+    tracked = [MagicMock(id="t1"), MagicMock(id="t2")]
+    manager.pruneInactiveTracks(tracked)
+
+    mock_registry_instance.updateCategoryCount.assert_called_once_with("scene_1", "person", 2)
+    mock_registry_instance.getTotalCount.assert_called_once_with("scene_1")
+    mock_metrics.record_reid_total_tracked_object_count.assert_called_once_with(7)
+
+  @patch('controller.uuid_manager.metrics')
+  @patch('controller.uuid_manager.TrackedObjectRegistry')
+  def test_skips_registry_update_when_category_never_set(self, mock_registry_class, mock_metrics, mock_vdms_db):
+    """Verify the registry is left untouched if no object has ever been assigned (category unknown)."""
+
+    mock_registry_instance = MagicMock()
+    mock_registry_class.getInstance.return_value = mock_registry_instance
+
+    manager = UUIDManager()
+    manager.scene_id = "scene_1"
+    assert manager._category is None
+
+    manager.pruneInactiveTracks([])
+
+    mock_registry_instance.updateCategoryCount.assert_not_called()
+    mock_metrics.record_reid_total_tracked_object_count.assert_not_called()
+    mock_metrics.record_reid_tracked_object_count.assert_called_once_with(0, None)
+
+
+class TestShutdownRegistryCleanup:
+  """Test that shutdown() removes this category's contribution from the registry."""
+
+  @patch('controller.uuid_manager.TrackedObjectRegistry')
+  def test_shutdown_removes_category_from_registry(self, mock_registry_class, mock_vdms_db):
+    """Verify shutdown drops this tracker's category so it stops counting toward the total."""
+
+    mock_registry_instance = MagicMock()
+    mock_registry_class.getInstance.return_value = mock_registry_instance
+
+    manager = UUIDManager()
+    manager.scene_id = "scene_1"
+    manager._category = "person"
+
+    manager.shutdown()
+
+    mock_registry_instance.removeCategory.assert_called_once_with("scene_1", "person")
+
+  @patch('controller.uuid_manager.TrackedObjectRegistry')
+  def test_shutdown_skips_registry_call_when_category_never_set(self, mock_registry_class, mock_vdms_db):
+    """Verify shutdown doesn't touch the registry if this tracker never processed an object."""
+
+    mock_registry_instance = MagicMock()
+    mock_registry_class.getInstance.return_value = mock_registry_instance
+
+    manager = UUIDManager()
+    assert manager._category is None
+
+    manager.shutdown()
+
+    mock_registry_instance.removeCategory.assert_not_called()
+
+
+class TestRecordMatchLatencyCallSites:
+  """Test that updateActiveDict threads category/camera_count through to the latency tracker."""
+
+  @patch('controller.uuid_manager.CameraRegistry')
+  def test_update_active_dict_passes_category_and_camera_count(self, mock_camera_registry, mock_vdms_db):
+    """Verify recordMatchLatency is called with this object's category and the current camera count."""
+
+    mock_camera_registry.getInstance.return_value.getCameraCount.return_value = 4
+
+    manager = UUIDManager()
+    manager.match_latency_tracker = MagicMock()
+
+    info = {'id': '1', 'confidence': 0.95}
+    now = time.time()
+    obj = MovingObject(info, now, None)
+    obj.rv_id = 42
+    obj.category = "person"
+    obj.chain_data = MagicMock()
+    obj.chain_data.persist = {}
+    mock_bounds = MagicMock()
+    obj.location = [Chronoloc(Point(0, 0, 0), now, mock_bounds)]
+
+    with manager.active_ids_lock:
+      manager.active_ids[obj.rv_id] = [None, None]
+    manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
+
+    call_update_active_dict_locked(manager, obj, database_id=None, similarity=None, query_timestamp=now)
+
+    manager.match_latency_tracker.recordMatchLatency.assert_called_once_with(
+      42, now, camera_count=4, category="person")
+
+  @patch('controller.uuid_manager.CameraRegistry')
+  def test_update_active_dict_uses_different_category_per_object(self, mock_camera_registry, mock_vdms_db):
+    """Verify a differently-categorized object gets its own category tagged, not a stale value."""
+
+    mock_camera_registry.getInstance.return_value.getCameraCount.return_value = 1
+
+    manager = UUIDManager()
+    manager.match_latency_tracker = MagicMock()
+
+    info = {'id': '1', 'confidence': 0.95}
+    now = time.time()
+    obj = MovingObject(info, now, None)
+    obj.rv_id = 99
+    obj.category = "car"
+    obj.chain_data = MagicMock()
+    obj.chain_data.persist = {}
+    mock_bounds = MagicMock()
+    obj.location = [Chronoloc(Point(0, 0, 0), now, mock_bounds)]
+
+    with manager.active_ids_lock:
+      manager.active_ids[obj.rv_id] = [None, None]
+    manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
+
+    call_update_active_dict_locked(manager, obj, database_id=None, similarity=None, query_timestamp=now)
+
+    manager.match_latency_tracker.recordMatchLatency.assert_called_once_with(
+      99, now, camera_count=1, category="car")

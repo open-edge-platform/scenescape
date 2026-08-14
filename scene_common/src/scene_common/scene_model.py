@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import cv2
@@ -17,7 +17,7 @@ class SceneModel:
     if map_file:
       # FIXME: get the image binary data using url rather than this hack
       if 'http' in map_file:
-        map_file = map_file.replace('https://web.scenescape.intel.com', '/home/scenescape/SceneScape')
+        map_file = map_file.replace('https://web.scenescape.intel.com', '/home/scenescape/Scenescape')
       if os.path.exists(map_file):
         self.background = cv2.imread(map_file)
         self.extractMapTriangleMesh(map_file, scale)

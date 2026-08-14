@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
 
 # =========================
 # STAGE 1: MODEL BUILDER STAGE
 # =========================
-FROM scenescape-common-base AS mapping-builder
+FROM intel/scenescape-common-base AS mapping-builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG MODEL_TYPE=mapanything
@@ -35,7 +35,7 @@ RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
 FROM ${RUNTIME_OS_IMAGE} AS mapping-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's 3D Mapping Service"
+LABEL org.opencontainers.image.description="Scenescape's 3D Mapping Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -47,7 +47,7 @@ ARG MODEL_TYPE=mapanything
 ENV MODEL_TYPE=${MODEL_TYPE}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
-ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
+ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 
 # Update and upgrade base OS packages
 RUN apt update && apt upgrade -y
@@ -98,10 +98,6 @@ RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
     fi && \
     rm -rf /tmp/models
 
-# Upgrade pip, wheel and setuptools to latest versions
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --upgrade setuptools wheel
-
 # Install all Python dependencies in one layer
 RUN pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
@@ -109,10 +105,10 @@ RUN pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
         pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_mapanything.txt && \
         pip install --no-cache-dir -e .; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r /workspace/vggt/requirements.txt -r /workspace/vggt/requirements_demo.txt && \
         pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_vggt.txt && \
         cd /workspace/vggt && \
-        pip install --no-cache-dir -e . && \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt -r requirements_demo.txt; \
+        pip install --no-cache-dir -e .; \
     fi && \
     rm -rf /usr/local/lib/python3.11/site-packages/torch/test \
            /usr/local/lib/python3.11/site-packages/torch/share \
@@ -168,4 +164,4 @@ COPY --chown=$WSUSER:$WSUSER mapping/tests $SCENESCAPE_HOME/tests
 
 USER $WSUSER
 
-CMD ["python", "-m", "pytest", "/home/scenescape/SceneScape/tests", "-v"]
+CMD ["python", "-m", "pytest", "/home/scenescape/Scenescape/tests", "-v"]

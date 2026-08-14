@@ -24,7 +24,7 @@ def test_init(manager):
 
   return
 
-def test_sceneWithName():
+def test_sceneWithName(manager):
   SceneLoader.addScene(SceneLoader.scene)
   scene = SceneLoader.sceneWithName(SCENE_NAME)
 
@@ -33,7 +33,7 @@ def test_sceneWithName():
   assert scene.name == SCENE_NAME
   return
 
-def test_addScene():
+def test_addScene(manager):
   SceneLoader.addScene(SceneLoader.scene)
 
   assert SceneLoader.scenes[SCENE_NAME] == SceneLoader.scene

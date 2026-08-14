@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if and .Values.hooks.enabled .Values.modelDownload.enabled }}
+{{- if not (kindIs "bool" .Values.modelDownload.parallelDownloads) }}
+{{- fail "modelDownload.parallelDownloads must be a boolean (true or false)" }}
+{{- end }}
+{{- if not .Values.modelDownload.commandArgs }}
+{{- fail "modelDownload.commandArgs cannot be empty" }}
+{{- end }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-model-download
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "2"
+    {{- if not .Values.chartdebug }}
+    "helm.sh/hook-delete-policy": hook-succeeded
+    {{- end }}
+spec:
+  template:
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+      - command: ["/bin/bash", "-c"]
+        args:
+        - |
+          {{ .Files.Get "files/model-download/entrypoint-k8s.sh" | nindent 10 }}
+        image: {{ .Values.modelDownload.image.repository }}/{{ .Values.modelDownload.image.name }}:{{ .Values.modelDownload.image.tag }}
+        imagePullPolicy: {{ .Values.modelDownload.image.pullPolicy }}
+        name: {{ .Release.Name }}-model-download-container
+        env:
+          - name: HF_HUB_ENABLE_HF_TRANSFER
+            value: "1"
+          - name: MODEL_DOWNLOADER_ARGS
+            value: {{ .Values.modelDownload.commandArgs | quote }}
+          - name: MODEL_DOWNLOADER_URL
+            value: "http://127.0.0.1:8000"
+          - name: MODEL_DIR
+            value: "/workspace/models-storage/models"
+          - name: MODEL_CONFIG_FILE
+            value: "/workspace/model-download/models.json"
+          - name: PARALLEL_DOWNLOADS
+            value: {{ .Values.modelDownload.parallelDownloads | quote }}
+          - name: MODEL_DOWNLOADER_INITIAL_WAIT_TIMEOUT
+            value: {{ .Values.modelDownload.initialWaitTimeout | quote }}
+          - name: MODEL_DOWNLOADER_WAIT_TIMEOUT
+            value: {{ .Values.modelDownload.waitTimeout | quote }}
+          {{ include "proxy_envs" . | indent 10 }}
+        resources:
+          {{- toYaml .Values.modelDownload.resources | nindent 10 }}
+        volumeMounts:
+        - mountPath: /workspace/models-storage
+          name: models-storage
+        - mountPath: /workspace/model-download
+          name: model-download-code
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: models-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-models-pvc
+      - name: model-download-code
+        configMap:
+          name: {{ .Release.Name }}-model-download
+  backoffLimit: 3
+{{- end }}
+

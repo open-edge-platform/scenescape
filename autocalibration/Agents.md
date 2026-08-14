@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Service Overview
 
-The **Auto Camera Calibration** service (formerly `camcalibration`) computes camera intrinsics and extrinsics from sensor feeds using AprilTag markers or markerless calibration techniques. This microservice is critical for establishing accurate spatial awareness in SceneScape's multimodal sensor fusion framework.
+The **Auto Camera Calibration** service (formerly `camcalibration`) computes camera intrinsics and extrinsics from sensor feeds using AprilTag markers or markerless calibration techniques. This microservice is critical for establishing accurate spatial awareness in Scenescape's multimodal sensor fusion framework.
 
 **Primary Purpose**: Automatically calibrate cameras to provide accurate world-coordinate transformations for object tracking and scene understanding.
 
@@ -24,21 +24,33 @@ The **Auto Camera Calibration** service (formerly `camcalibration`) computes cam
    - Alternative calibration method without physical markers
    - Uses feature detection and matching across frames
 
-3. **`auto_camera_calibration_controller.py`**: Main service controller
+3. **`point_cloud_registration.py`**: Sensor-agnostic point cloud registration engine
+   - Converts a scene mesh (GLB/PLY) into a point cloud, sampled and cached per scene
+   - Registers a sensor point cloud (LiDAR, depth camera, stereo, photogrammetry) against
+     the scene cloud using Open3D Generalized ICP + point-to-plane ICP refinement
+   - Decodes base64 PCD/PLY input; returns a 4x4 transform, fitness, and inlier RMSE
+   - `point_cloud_calibration_controller.py` wraps it as a `PerceptualSensorCalibrationController`
+     strategy (`POINTCLOUD` modality), routed by sensor modality independently of a scene's
+     calibration mode
+
+4. **`auto_camera_calibration_controller.py`**: Main service controller
    - Orchestrates calibration workflows
    - Manages MQTT communication with Scene Controller
    - Handles REST API requests
 
-4. **`auto_camera_calibration_api.py`**: REST API endpoints
-   - `/calibrate`: Trigger calibration for specific camera
-   - `/status`: Check calibration status
-   - Health check endpoints
+5. **`auto_camera_calibration_api.py`**: REST API endpoints
+   - `/scenes/{sceneId}/registration`: Register/update a scene for calibration
+   - `/cameras/{cameraId}/calibration`: Trigger and poll camera calibration
+   - `/perceptual-sensors/{sensorId}/localization`: Localize/poll a perceptual sensor
+     against a scene's 3D model (named distinctly from scene `registration` and camera
+     `calibration` to avoid endpoint-name confusion)
+   - `/status`: Check calibration service status
 
-5. **`auto_camera_calibration_model.py`**: Data models and validation
+6. **`auto_camera_calibration_model.py`**: Data models and validation
    - Calibration request/response structures
    - Camera parameter models
 
-6. **`reloc/`**: Relocalization support
+7. **`reloc/`**: Relocalization support
    - Camera pose estimation refinement
    - Handles camera movement detection
 
@@ -48,6 +60,7 @@ The **Auto Camera Calibration** service (formerly `camcalibration`) computes cam
 - **OpenCV**: Computer vision operations
 - **NumPy/SciPy**: Numerical computations
 - **AprilTag library**: Marker detection (for AprilTag mode)
+- **Open3D** (`open3d-cpu[headless]`): Mesh sampling and point cloud registration (ICP/GICP)
 
 ## Communication Patterns
 
@@ -80,17 +93,6 @@ make rebuild-autocalibration            # Clean + rebuild
 
 # Build with dependencies
 make build-core                         # Includes autocalibration
-```
-
-### Testing
-
-```bash
-# Unit tests
-make -C tests autocalibration-unit
-
-# Functional tests (requires running containers)
-SUPASS=<password> make setup_tests
-make -C tests autocalibration-functional
 ```
 
 ### Running Locally
@@ -250,8 +252,7 @@ docker compose ps autocalibration
 
 When modifying the service, verify:
 
-- [ ] Unit tests pass: `make -C tests autocalibration-unit`
-- [ ] Functional tests pass (with containers running)
+- [ ] Functional tests pass: `make run_functional_tests`
 - [ ] AprilTag detection works with sample data
 - [ ] MQTT messages validated against schema
 - [ ] API endpoints return correct status codes

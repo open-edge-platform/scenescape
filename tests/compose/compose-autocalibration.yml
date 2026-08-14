@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+  django:
+    file: ${SECRETSDIR}/django
+  calibration.auth:
+    file: ${SECRETSDIR}/calibration.auth
+  autocalibration-cert:
+    file: ${SECRETSDIR}/certs/scenescape-autocalibration.crt
+  autocalibration-key:
+    file: ${SECRETSDIR}/certs/scenescape-autocalibration.key
+
+services:
+  # Init container to fix volume permissions for autocalibration
+  autocalibration-init:
+    image: alpine:3.24
+    command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
+    volumes:
+      - vol-netvlad_models:/data/netvlad_models
+      - vol-media:/data/media
+      - vol-datasets:/data/datasets
+    restart: "no"
+
+  autocalibration:
+    image: intel/scenescape-autocalibration:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape-test:
+        aliases:
+          - autocalibration.scenescape.intel.com
+    user: "1000:1000"
+    depends_on:
+      autocalibration-init:
+        condition: service_completed_successfully
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+    command: >
+      --restauth /run/secrets/calibration.auth
+      --resturl https://web.scenescape.intel.com:443/api/v1
+      --restport 8443
+      --ssl-certfile /run/secrets/certs/scenescape-autocalibration.crt
+      --ssl-keyfile /run/secrets/certs/scenescape-autocalibration.key
+    # ports:
+    #   - "8443:8443"
+    environment:
+      - EGL_PLATFORM=surfaceless
+      - NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+      - no_proxy=127.0.0.1,localhost,${no_proxy},.scenescape.intel.com
+      - HTTP_PROXY=${http_proxy}
+      - HTTPS_PROXY=${https_proxy}
+      - NO_PROXY=127.0.0.1,localhost,${no_proxy},.scenescape.intel.com
+    volumes:
+      - ./:/workspace
+      - vol-media:/home/scenescape/Scenescape/media
+      - vol-sample-data:/workspace/media
+      - vol-datasets:/home/scenescape/Scenescape/datasets
+      - vol-netvlad_models:/usr/local/lib/python3.11/site-packages/third_party/netvlad
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: autocalibration-cert
+        target: certs/scenescape-autocalibration.crt
+      - source: autocalibration-key
+        target: certs/scenescape-autocalibration.key
+      - django
+      - calibration.auth
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-s", "https://localhost:8443/v1/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: always
+    pids_limit: 1000
+
+volumes:
+  vol-media:
+  vol-datasets:
+  vol-netvlad_models:
+    driver: local

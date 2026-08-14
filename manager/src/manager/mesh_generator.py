@@ -23,7 +23,7 @@ import trimesh
 
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
-from scene_common.mesh_util import mergeMesh
+from scene_common.mesh_util import mergeMesh, checkMeshConnectivity
 from scene_common.options import QUATERNION
 from scene_common import log
 from manager.serializers import CamSerializer
@@ -145,7 +145,7 @@ class MappingServiceClient:
 
   def __init__(self):
     # Get mapping service URL from environment or use default
-    self.base_url = os.environ.get('MAPPING_SERVICE_URL', 'https://mapping.scenescape.intel.com:8444')
+    self.base_url = os.environ.get('MAPPING_SERVICE_URL', 'https://mapping.scenescape.intel.com:8444/v1')
     self.timeout_per_camera = 30  # timeout (in seconds) per camera for mesh generation
     self.health_timeout = 5  # Short timeout for health checks
 
@@ -292,12 +292,21 @@ class MappingServiceClient:
         verify=self.rootcert
       )
 
-      if response.status_code == 200:
+      if response.status_code in (200, 202):
         health_data = response.json()
+        details = health_data.get('details', {})
+        models = details.get('models', {})
+        if not models and 'model_loaded' in health_data:
+          models = {
+            'loaded': health_data.get('model_loaded', False),
+            'active': health_data.get('model', 'unknown'),
+          }
+
         return {
           'available': True,
           'status': health_data.get('status', 'unknown'),
-          'models': health_data.get('models', {})
+          'ready': bool(health_data.get('ready', False)),
+          'models': models,
         }
       else:
         return {
@@ -368,7 +377,13 @@ class MeshGenerator:
       raise ValueError("Uploaded file does not look like a valid video")
 
     filename = getattr(uploaded_file, "name", "") or ""
-    suffix = Path(filename).suffix
+    suffix = Path(filename).suffix.lower()
+
+    # The extension check must be an inline literal set (not a reference to
+    # ALLOWED_VIDEO_EXTENSIONS) for CodeQL's path-injection analysis to treat
+    # it as sanitizing suffix before it reaches NamedTemporaryFile below.
+    if suffix not in {".mp4", ".mov", ".mkv", ".webm", ".avi"}:
+      raise ValueError(f"Unsupported video file extension: {suffix or 'none'}")
 
     try:
       path = uploaded_file.temporary_file_path()
@@ -378,6 +393,32 @@ class MeshGenerator:
         for chunk in uploaded_file.chunks():
           tmp.write(chunk)
         return tmp.name, True
+
+  def _checkMeshConnectivity(self, glb_data_base64):
+    """
+    Decode/load/merge the reconstructed mesh once and validate connectivity.
+
+    Returns:
+      tuple: (error_message, merged_mesh). error_message is a string when the
+        mesh is split into multiple dominant, spatially separate surfaces or
+        cannot be decoded, otherwise None. merged_mesh is the loaded trimesh
+        object to reuse downstream, or None when decode/load failed.
+    """
+    try:
+      glb_bytes = base64.b64decode(glb_data_base64)
+      mesh = trimesh.load(BytesIO(glb_bytes), file_type='glb')
+      merged_mesh = mergeMesh(mesh)
+    except Exception as e:
+      # Decode/load errors will also break mesh saving; fail early before any scene mutation.
+      log.error(f"Failed to decode/load reconstructed mesh: {e}")
+      return "Mapping service returned invalid GLB data", None
+
+    try:
+      return checkMeshConnectivity(merged_mesh), merged_mesh
+    except Exception as e:
+      # Connectivity analysis failure should not block the reconstruction pipeline.
+      log.warning(f"Could not analyze mesh connectivity: {e}")
+      return None, merged_mesh
 
   def startMeshGeneration(self, scene, mesh_type='mesh', uploaded_map=None):
     """
@@ -499,15 +540,21 @@ class MeshGenerator:
 
     cameras = scene.sensor_set.filter(type="camera").order_by("id")
 
-    if mapping_result.get("success"):
-      self._updateSceneCamerasWithMappingResult(mapping_result, cameras)
-      if mapping_result.get("glb_data"):
-        mesh_transform = self._saveMeshToScene(scene, mapping_result["glb_data"])
-        if mesh_transform is not None:
-          self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
-        return {"success": True}
+    glb_data = mapping_result.get("glb_data")
+    if not glb_data:
+      return {"success": False, "error": "Mapping service did not return GLB data"}
 
-    return {"success": False, "error": "Mapping service did not return GLB data"}
+    # Validate the reconstructed mesh is a single connected scene before
+    # mutating any camera poses, so a rejected mesh leaves the scene untouched.
+    connectivity_error, merged_mesh = self._checkMeshConnectivity(glb_data)
+    if connectivity_error is not None:
+      return {"success": False, "error": connectivity_error}
+
+    self._updateSceneCamerasWithMappingResult(mapping_result, cameras)
+    mesh_transform = self._saveMeshToScene(scene, merged_mesh)
+    if mesh_transform is not None:
+      self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
+    return {"success": True}
 
   def _updateSceneCamerasWithMappingResult(self, mapping_result, cameras):
     """
@@ -617,22 +664,18 @@ class MeshGenerator:
       log.error(f"Error updating camera {camera.sensor_id}: {e}")
       raise
 
-  def _saveMeshToScene(self, scene, glb_data_base64):
+  def _saveMeshToScene(self, scene, merged_mesh):
     """
     Save the generated GLB mesh to the scene's map field.
 
     Args:
       scene: Scene object to update
-      glb_data_base64: Base64 encoded GLB file data
+      merged_mesh: Pre-loaded, merged trimesh object from _checkMeshConnectivity
 
     Returns:
       dict: Transformation applied to mesh (rotation matrix, translation, center_offset)
     """
     try:
-      # Decode base64 GLB data
-      glb_bytes = base64.b64decode(glb_data_base64)
-      mesh = trimesh.load(BytesIO(glb_bytes), file_type='glb')
-      merged_mesh = mergeMesh(mesh)
 
       # Align the mesh to XY plane with largest bottom face flat and in first quadrant
       log.info(f"Aligning mesh to XY plane in first quadrant")

@@ -110,12 +110,11 @@ class SceneUpdateForm(ModelForm):
     model = Scene
     fields = ('__all__')
 
-  def checkDuplicatePolycamData(self, zip_file, field_name):
+  def updatePolycamHash(self, zip_file):
+    # Re-uploading a zip (even one identical to the current data) must always be allowed to save.
     file_hash = hashlib.sha256(zip_file.read()).hexdigest()
-    if self.instance.polycam_hash == file_hash:
-      self.add_error(field_name, "Uploading a duplicate zip file is not allowed. Please clear the field and upload again.")
-    else:
-      self.instance.polycam_hash = file_hash
+    zip_file.seek(0)
+    self.instance.polycam_hash = file_hash
     return
 
   def clean(self):
@@ -127,10 +126,10 @@ class SceneUpdateForm(ModelForm):
     if new_map_file:
       map_file_ext = os.path.splitext(new_map_file.name)[1].lower()
       if map_file_ext == ".zip":
-        self.checkDuplicatePolycamData(new_map_file, 'map')
+        self.updatePolycamHash(new_map_file)
         validate_zip_file(new_map_file)
     if new_polycam_file:
-      self.checkDuplicatePolycamData(new_polycam_file, 'polycam_data')
+      self.updatePolycamHash(new_polycam_file)
       validate_zip_file(new_polycam_file, map_file_ext == ".glb")
     else:
       self.instance.polycam_hash = ""

@@ -4,9 +4,12 @@
 import cv2
 import numpy as np
 from rest_framework import status
+from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from scipy.spatial.transform import Rotation
+
+from manager.api import IsAdminOrReadOnly
 
 from scene_common import log
 
@@ -32,9 +35,18 @@ def calculate_pose(rvec, tvec):
   return euler, position
 
 class CalculateCameraIntrinsics(APIView):
+  authentication_classes = [TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
   def post(self, request):
     log.info(f"Received request to calculate intrinsics with {request.data}")
     try:
+      required_fields = ['mapPoints', 'camPoints', 'intrinsics', 'distortion', 'imageSize']
+      missing_fields = [field for field in required_fields if field not in request.data]
+      if missing_fields:
+        return Response({"error": f"Missing required fields: {', '.join(missing_fields)}"},
+                        status=status.HTTP_400_BAD_REQUEST)
+
       if len(request.data['mapPoints']) != len(request.data['camPoints']) \
           or len(request.data['mapPoints']) < 4:
         return Response({"error": "Invalid number of points provided for calculation."},
@@ -72,7 +84,7 @@ class CalculateCameraIntrinsics(APIView):
       euler, position = calculate_pose(rvecs[0], tvecs[0])
       return Response({"euler": euler, "position": position, "mtx": mtx, "dist": dist},
                       status=status.HTTP_200_OK)
-    except (cv2.error, TypeError, ValueError) as e:
+    except (cv2.error, TypeError, ValueError, KeyError) as e:
       log.error(f"Error calculating intrinsics: {e}")
       return Response({"error": "Invalid values provided for calculation"},
                       status=status.HTTP_400_BAD_REQUEST)

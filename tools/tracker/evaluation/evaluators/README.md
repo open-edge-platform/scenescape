@@ -52,15 +52,15 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from evaluators.trackeval_evaluator import TrackEvalEvaluator
-from datasets.metric_test_dataset import MetricTestDataset
+from datasets.unity_dataset import UnityDataset
 from harnesses.scene_controller_harness import SceneControllerHarness
 
 # Initialize dataset
-dataset = MetricTestDataset("path/to/dataset")
+dataset = UnityDataset("path/to/dataset")
 dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
 # Initialize and run harness
-harness = SceneControllerHarness(container_image='scenescape-controller:latest')
+harness = SceneControllerHarness(container_image='intel/scenescape-controller:latest')
 harness.set_scene_config(dataset.get_scene_config())
 harness.set_custom_config({'tracker_config_path': '/path/to/tracker-config.json'})
 tracker_outputs = harness.process_inputs(dataset.get_inputs())
@@ -148,9 +148,9 @@ print(f"Matched pairs: {int(metrics['num_matches'])}")
 
 ### JitterEvaluator
 
-**Purpose**: Evaluate tracker smoothness by measuring positional jitter in tracked object trajectories, and compare it against jitter already present in the ground-truth test data.
+**Purpose**: Evaluate tracker smoothness by measuring positional and rotational jitter in tracked object trajectories, and compare positional jitter against jitter already present in the ground-truth test data.
 
-**Status**: **FULLY IMPLEMENTED** — Computes RMS jerk and acceleration variance from both tracker outputs and ground-truth tracks using numerical differentiation.
+**Status**: **FULLY IMPLEMENTED** — Computes RMS jerk and acceleration variance from both tracker outputs and ground-truth tracks using numerical differentiation, plus RMS frame-to-frame angular displacement from tracker quaternion rotations.
 
 **Supported Metrics**:
 
@@ -162,6 +162,7 @@ print(f"Matched pairs: {int(metrics['num_matches'])}")
 | `acceleration_variance_gt`    | Ground truth   | Same as `acceleration_variance` computed on ground-truth tracks                                                   |
 | `rms_jerk_ratio`              | Tracker / GT   | `rms_jerk` / `rms_jerk_gt` — tracker jitter relative to GT (1.0 = equal)                                          |
 | `acceleration_variance_ratio` | Tracker / GT   | `acceleration_variance` / `acceleration_variance_gt` — tracker acceleration variance relative to GT (1.0 = equal) |
+| `rms_angular_displacement`    | Tracker output | RMS shortest frame-to-frame quaternion angular displacement across all tracks (degrees)                           |
 
 Comparing `rms_jerk` with `rms_jerk_gt` shows how much jitter the tracker
 adds on top of any jitter already present in the test data.
@@ -175,6 +176,7 @@ $$v_i = \frac{p_{i+1} - p_i}{\Delta t_i}, \quad a_i = \frac{v_{i+1} - v_i}{\Delt
 - **rms_jerk / rms_jerk_gt**: $\sqrt{\frac{1}{N}\sum |j_i|^2}$ over all jerk samples from all tracks.
 - **acceleration_variance / acceleration_variance_gt**: $\text{Var}(|a_i|)$ over all acceleration magnitude samples from all tracks.
 - **rms_jerk_ratio / acceleration_variance_ratio**: tracker metric divided by the corresponding GT metric. Returns 0.0 when the GT denominator is zero. Values >1.0 indicate the tracker adds more jitter than is inherent in the ground truth.
+- **rms_angular_displacement**: $\sqrt{\frac{1}{N}\sum \Delta\theta_i^2}$, where $\Delta\theta_i = 2\arccos(|q_i \cdot q_{i+1}|)$ is the shortest angular displacement between normalized consecutive quaternions. The result is reported in degrees. Invalid quaternions and tracks with fewer than two valid consecutive rotations do not contribute samples.
 
 Minimum track length: 3 points for acceleration, 4 points for jerk. Shorter tracks are skipped; if no eligible tracks exist, the metric returns 0.0.
 
@@ -183,6 +185,7 @@ For GT metrics, ground-truth frame numbers are converted to relative timestamps 
 **Key Features**:
 
 - Builds per-track position histories from canonical tracker output format.
+- Builds independent per-track quaternion rotation histories; rotation-only objects are supported.
 - Parses MOTChallenge 3D CSV ground-truth file for GT metric computation.
 - Supports variable frame rates — time deltas are computed from actual timestamps.
 - Deduplicates frames with identical timestamps (mirrors `TrackEvalEvaluator` behaviour).
@@ -198,7 +201,8 @@ from evaluators.jitter_evaluator import JitterEvaluator
 evaluator = JitterEvaluator()
 evaluator.configure_metrics(['rms_jerk', 'rms_jerk_gt', 'rms_jerk_ratio',
                              'acceleration_variance', 'acceleration_variance_gt',
-                             'acceleration_variance_ratio'])
+                             'acceleration_variance_ratio',
+                             'rms_angular_displacement'])
 evaluator.set_output_folder(Path('/path/to/results'))
 
 # Pass ground_truth=None to skip GT metrics
@@ -208,6 +212,7 @@ metrics = evaluator.evaluate_metrics()
 print(f"RMS Jerk (tracker): {metrics['rms_jerk']:.4f} m/s³")
 print(f"RMS Jerk (GT):      {metrics['rms_jerk_gt']:.4f} m/s³")
 print(f"RMS Jerk ratio:     {metrics['rms_jerk_ratio']:.4f}  (1.0 = equal jitter)")
+print(f"RMS angular displacement: {metrics['rms_angular_displacement']:.4f} degrees")
 ```
 
 **Pipeline Configuration**:
@@ -224,6 +229,7 @@ evaluators:
           acceleration_variance,
           acceleration_variance_gt,
           acceleration_variance_ratio,
+          rms_angular_displacement,
         ]
 ```
 
@@ -288,7 +294,7 @@ print(f"Overall mean error: {results['dist_mean_all']:.3f} m")
 harness:
   class: harnesses.camera_projection_harness.CameraProjectionHarness
   config:
-    container_image: scenescape-controller:latest
+    container_image: intel/scenescape-controller:latest
 
 evaluators:
   - class: evaluators.camera_accuracy_evaluator.CameraAccuracyEvaluator

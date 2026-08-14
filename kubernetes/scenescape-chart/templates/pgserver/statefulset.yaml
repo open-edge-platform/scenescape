@@ -45,34 +45,41 @@ spec:
             allowPrivilegeEscalation: false
           ports:
             - containerPort: 5432
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h localhost -p 5432
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h localhost -p 5432
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
           volumeMounts:
             - mountPath: /var/lib/postgresql/data
               name: pgserver-storage
               subPath: pgdata
             - mountPath: /workspace/media
               name: media-storage
-{{- if .Values.tests.enabled }}
-            - mountPath: /workspace/tests
-              name: tests-storage
-              subPath: tests
-{{- end }}
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
-        - name: dev-fuse
-          hostPath:
-            path: /dev/fuse
         - name: media-storage
           persistentVolumeClaim:
             claimName: {{ .Release.Name }}-media-pvc
-{{- if .Values.tests.enabled }}
-        - name: tests-storage
-          persistentVolumeClaim:
-            claimName: {{ .Release.Name }}-tests-pvc
-{{- end }}
   volumeClaimTemplates:
   - metadata:
       name: pgserver-storage

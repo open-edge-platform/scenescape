@@ -1,9 +1,9 @@
 ---
 name: shell
-description: Shell scripting standards for SceneScape — shebang, style, and Bash guidelines.
+description: Shell scripting standards for Scenescape — shebang, style, and Bash guidelines.
 ---
 
-# Shell Scripting Standards for SceneScape
+# Shell Scripting Standards for Scenescape
 
 ## Shebang
 
@@ -441,7 +441,7 @@ while read -r line; do
 done < <(command)
 ```
 
-## SceneScape-Specific Patterns
+## Scenescape-Specific Patterns
 
 ### Docker Commands
 
@@ -613,7 +613,7 @@ test_script() {
 
 #
 # Script Name: deploy.sh
-# Description: Deploy SceneScape services to production
+# Description: Deploy Scenescape services to production
 # Usage: ./deploy.sh [environment]
 #
 
@@ -664,7 +664,7 @@ echo "$string" | grep pattern  # External process
 
 ### Bash-specific Features
 
-SceneScape uses bash, not POSIX sh. These are OK:
+Scenescape uses bash, not POSIX sh. These are OK:
 
 - `[[ ]]` tests
 - Arrays

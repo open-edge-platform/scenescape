@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.format_converters import (
+  convert_canonical_to_motchallenge_csv,
   convert_json_to_json,
   convert_json_to_csv,
   read_csv_to_dataframe,
@@ -226,3 +227,107 @@ class TestJSONL:
       assert first == objects[0]
       remaining = list(generator)
       assert remaining == objects[1:]
+
+
+class TestConvertCanonicalToMOTChallenge:
+  """Tests for convert_canonical_to_motchallenge_csv."""
+
+  def _make_output(self, timestamp, uuid, translation):
+    return {"timestamp": timestamp, "objects": [{"id": uuid, "translation": translation}]}
+
+  def test_empty_input_writes_empty_file(self, tmp_path):
+    csv = tmp_path / "empty.csv"
+    result = convert_canonical_to_motchallenge_csv([], str(csv), 30.0)
+    assert result == {}
+    assert csv.read_text() == ""
+
+  def test_basic_single_frame(self, tmp_path):
+    """One frame, one object → one CSV row with correct fields."""
+    outputs = [
+      {"timestamp": "2026-01-01T00:00:00.000Z",
+       "objects": [{"id": "uuid-1", "translation": [1.0, 2.0, 0.5]}]},
+    ]
+    csv = tmp_path / "track.csv"
+    convert_canonical_to_motchallenge_csv(outputs, str(csv), 30.0)
+
+    import pandas as pd
+    df = pd.read_csv(str(csv), header=None,
+                     names=["frame", "id", "x", "y", "z", "conf", "class", "visibility"])
+    assert len(df) == 1
+    assert df.iloc[0]["frame"] == 1
+    assert df.iloc[0]["x"] == 1.0
+    assert df.iloc[0]["y"] == 2.0
+    assert df.iloc[0]["z"] == 0.5
+
+  def test_frame_numbers_computed_from_timestamps(self, tmp_path):
+    """Timestamps 33 ms apart at 30 fps produce consecutive frame numbers."""
+    outputs = [
+      {"timestamp": "2026-01-01T00:00:00.000Z",
+       "objects": [{"id": "uuid-1", "translation": [0.0, 0.0, 0.0]}]},
+      {"timestamp": "2026-01-01T00:00:00.033Z",
+       "objects": [{"id": "uuid-1", "translation": [1.0, 0.0, 0.0]}]},
+    ]
+    csv = tmp_path / "track.csv"
+    convert_canonical_to_motchallenge_csv(outputs, str(csv), 30.0)
+
+    import pandas as pd
+    df = pd.read_csv(str(csv), header=None,
+                     names=["frame", "id", "x", "y", "z", "conf", "class", "visibility"])
+    assert list(df["frame"]) == [1, 2]
+
+  def test_uuids_mapped_to_stable_integers(self, tmp_path):
+    """Each distinct UUID gets a unique integer ID that persists across frames."""
+    outputs = [
+      {"timestamp": "2026-01-01T00:00:00.000Z",
+       "objects": [
+         {"id": "uuid-a", "translation": [0.0, 0.0, 0.0]},
+         {"id": "uuid-b", "translation": [1.0, 0.0, 0.0]},
+       ]},
+    ]
+    csv = tmp_path / "track.csv"
+    mapping = convert_canonical_to_motchallenge_csv(outputs, str(csv), 30.0)
+
+    assert len(mapping) == 2
+    assert mapping["uuid-a"] != mapping["uuid-b"]
+
+    import pandas as pd
+    df = pd.read_csv(str(csv), header=None,
+                     names=["frame", "id", "x", "y", "z", "conf", "class", "visibility"])
+    assert set(df["id"]) == {mapping["uuid-a"], mapping["uuid-b"]}
+
+  def test_duplicate_frame_track_pair_skipped(self, tmp_path):
+    """Two entries with different timestamps that round to the same frame number
+    produce only one CSV row per (frame, track_id) — the first is kept."""
+    # At 30 fps, frame duration = 1/30 s ≈ 33.3 ms.
+    # T=0.000 s → frame 1; T=0.001 s also → frame 1 (rounds to 0 + 1).
+    outputs = [
+      {"timestamp": "2026-01-01T00:00:00.000Z",
+       "objects": [{"id": "uuid-1", "translation": [1.0, 0.0, 0.0]}]},
+      {"timestamp": "2026-01-01T00:00:00.001Z",
+       "objects": [{"id": "uuid-1", "translation": [9.9, 0.0, 0.0]}]},
+    ]
+    csv = tmp_path / "track.csv"
+    convert_canonical_to_motchallenge_csv(outputs, str(csv), 30.0)
+
+    import pandas as pd
+    df = pd.read_csv(str(csv), header=None,
+                     names=["frame", "id", "x", "y", "z", "conf", "class", "visibility"])
+    assert len(df) == 1, "Duplicate (frame, id) row must be dropped"
+    assert df.iloc[0]["x"] == 1.0, "First occurrence must be kept"
+
+  def test_same_track_different_frames_both_kept(self, tmp_path):
+    """Same UUID across two distinct frames produces two rows — no false dedup."""
+    outputs = [
+      {"timestamp": "2026-01-01T00:00:00.000Z",
+       "objects": [{"id": "uuid-1", "translation": [1.0, 0.0, 0.0]}]},
+      {"timestamp": "2026-01-01T00:00:00.033Z",
+       "objects": [{"id": "uuid-1", "translation": [2.0, 0.0, 0.0]}]},
+    ]
+    csv = tmp_path / "track.csv"
+    convert_canonical_to_motchallenge_csv(outputs, str(csv), 30.0)
+
+    import pandas as pd
+    df = pd.read_csv(str(csv), header=None,
+                     names=["frame", "id", "x", "y", "z", "conf", "class", "visibility"])
+    assert len(df) == 2
+    assert list(df["frame"]) == [1, 2]

@@ -14,14 +14,10 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-web.crt
   web-key:
     file: ${SECRETSDIR}/certs/scenescape-web.key
-  vdms-client-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
-  vdms-client-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
-  vdms-server-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-s.crt
-  vdms-server-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-s.key
+  reid-client-cert:
+    file: ${SECRETSDIR}/certs/scenescape-reid.crt
+  reid-client-key:
+    file: ${SECRETSDIR}/certs/scenescape-reid.key
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
@@ -42,7 +38,7 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-mapping.key
 
 x-controller-base: &controller-base
-  image: scenescape-controller:${VERSION:-latest}
+  image: intel/scenescape-controller:${VERSION:-latest}
   init: true
   user: "${UID:-1000}:${GID:-1000}"
   networks:
@@ -70,33 +66,31 @@ x-controller-base: &controller-base
     --ntp ntpserv
   configs:
     - source: tracker-config
-      target: /home/scenescape/SceneScape/tracker-config.json
+      target: /home/scenescape/Scenescape/tracker-config.json
     - source: reid-config
-      target: /home/scenescape/SceneScape/reid-config.json
+      target: /home/scenescape/Scenescape/reid-config.json
   volumes:
-    - vol-media:/home/scenescape/SceneScape/media
-    - vol-sample-data:/home/scenescape/SceneScape/sample_data
+    - vol-media:/home/scenescape/Scenescape/media
+    - vol-sample-data:/home/scenescape/Scenescape/sample_data
   secrets:
     - source: root-cert
       target: certs/scenescape-ca.pem
     - django
     - controller.auth
-    - source: vdms-client-key
-      target: certs/scenescape-vdms-c.key
-    - source: vdms-client-cert
-      target: certs/scenescape-vdms-c.crt
+    - source: reid-client-key
+      target: certs/scenescape-reid.key
+    - source: reid-client-cert
+      target: certs/scenescape-reid.crt
   restart: always
   pids_limit: 1000
 
 # Profiles:
 # - Default (no profile): Core services including autocalibration
-# - experimental: All services including mapping and cluster-analytics
+# - experimental: All services including mapping
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
-# - vdms: Enable the VDMS service
-# - controller: Enable the Controller service in Default mode (analytics + tracking)
-# - analytics: Enable the Controller service in Analytics Only mode (without tracking)
-# - tracker: Enable tracker service
+# - controller: Scene Controller (tracking) + Analytics service
+# - tracker: Tracker service + Analytics service (no Scene Controller)
 
 services:
   ntpserv:
@@ -128,7 +122,7 @@ services:
   broker:
     image: eclipse-mosquitto:2.0.22
     # ports:
-    #  - "1883:1883"
+    #   - "1883:1883"
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
@@ -152,8 +146,8 @@ services:
       - scenescape
     volumes:
       - vol-db:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     restart: always
     healthcheck:
       test:
@@ -167,7 +161,7 @@ services:
       start_period: 5s
 
   web:
-    image: scenescape-manager:${VERSION:-latest}
+    image: intel/scenescape-manager:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -194,22 +188,23 @@ services:
       retries: 10
       start_period: 10s
     environment:
-      - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
+      - EXAMPLEDB=/home/scenescape/Scenescape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
       - DBHOST=pgserver
       - DBPORT=5432
       - no_proxy=${no_proxy},.scenescape.intel.com
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
-    cap_add:
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - MAPBOX_API_KEY=${MAPBOX_API_KEY}
+      # Max upload size for scene map files (blueprints, .glb meshes). Default
+      # 132MB. Raise if uploading large 3D scans or high-res floor plans;
+      # lower to reduce per-request memory pressure in constrained deployments.
+      - DATA_UPLOAD_MAX_MEMORY_SIZE_MB=${DATA_UPLOAD_MAX_MEMORY_SIZE_MB:-132}
+      - FILE_UPLOAD_MAX_MEMORY_SIZE_MB=${FILE_UPLOAD_MAX_MEMORY_SIZE_MB:-132}
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-sample-data:/home/scenescape/Scenescape/sample_data
       - vol-migrations:/workspace/migrations
     secrets:
       - source: root-cert
@@ -230,34 +225,38 @@ services:
     profiles:
       - controller
 
-  controller-analytics:
-    <<: *controller-base
-    profiles:
-      - analytics
-    environment:
-      CONTROLLER_ENABLE_ANALYTICS_ONLY: "true"
-
-  vdms:
-    image: intellabs/vdms:v2.12.0
+  analytics:
+    image: intel/scenescape-analytics:${VERSION:-latest}
     init: true
-    profiles: ["vdms"]
+    user: "${UID:-1000}:${GID:-1000}"
     networks:
       scenescape:
-        aliases:
-          - vdms.scenescape.intel.com
-    # ports:
-    #   - "55555:55555"
+    profiles:
+      - controller
+      - tracker
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
     environment:
-      - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
-      - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
-      - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
+      no_proxy: ${no_proxy},.scenescape.intel.com
+      NO_PROXY: ${NO_PROXY},.scenescape.intel.com
+      VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --visibility_topic ${VISIBILITY:-regulated}
+    volumes:
+      - vol-media:/home/scenescape/Scenescape/media
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
-      - source: vdms-server-cert
-        target: certs/scenescape-vdms-s.crt
-      - source: vdms-server-key
-        target: certs/scenescape-vdms-s.key
+      - django
+      - controller.auth
     restart: always
     pids_limit: 1000
 
@@ -297,7 +296,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24-rc1.1
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc1
     networks:
       scenescape:
     tty: true
@@ -335,6 +334,7 @@ services:
       - RUN_MODE=EVA
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
+      - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
@@ -350,7 +350,7 @@ services:
       - source: retail-config
         target: /home/pipeline-server/config.json
     volumes:
-      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
@@ -361,7 +361,7 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24-rc1.1
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc1
     networks:
       scenescape:
     tty: true
@@ -399,6 +399,7 @@ services:
       - RUN_MODE=EVA
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
+      - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
@@ -414,7 +415,7 @@ services:
       - source: queuing-config
         target: /home/pipeline-server/config.json
     volumes:
-      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
@@ -434,7 +435,7 @@ services:
       - vol-datasets:/data/datasets
 
   autocalibration:
-    image: scenescape-autocalibration:${VERSION:-latest}
+    image: intel/scenescape-autocalibration:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -458,11 +459,14 @@ services:
       - EGL_PLATFORM=surfaceless
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad
       - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
       - HTTPS_PROXY=${HTTPS_PROXY}
-      - NO_PROXY=${NO_PROXY},scenescape.intel.com
+      - https_proxy=${https_proxy}
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+      - no_proxy=${no_proxy},.scenescape.intel.com
     volumes:
-      - vol-media:/home/scenescape/SceneScape/media
-      - vol-datasets:/home/scenescape/SceneScape/datasets
+      - vol-media:/home/scenescape/Scenescape/media
+      - vol-datasets:/home/scenescape/Scenescape/datasets
       - vol-netvlad_models:/usr/local/lib/python3.11/site-packages/third_party/netvlad
     secrets:
       - source: root-cert
@@ -478,12 +482,12 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 30s
     restart: always
     pids_limit: 1000
 
   tracker:
-    image: scenescape-tracker:${VERSION:-latest}
+    image: intel/scenescape-tracker:${VERSION:-latest}
     profiles:
       - tracker
     networks:
@@ -536,22 +540,22 @@ services:
     profiles:
       - experimental
       - mapping
-    image: scenescape-mapping:${VERSION:-latest}
+    image: intel/scenescape-mapping:${VERSION:-latest}
     init: true
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:
       scenescape:
         aliases:
           - mapping.scenescape.intel.com
-    ports:
-      - "8444:8444"
+    # ports:
+    #   - "8444:8444"
     volumes:
       - vol-mapping-model-weights:/workspace/model_weights
       - vol-mapping-torch-cache:/workspace/.cache/torch
       - vol-mapping-hf-cache:/workspace/.cache/huggingface
     environment:
       - MAPPING_CPU_SEC_PER_FRAME=10
-      - GUNICORN_TIMEOUT=300
+      - GUNICORN_TIMEOUT=900
       - PYTHONDONTWRITEBYTECODE=1
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
@@ -567,18 +571,22 @@ services:
       - source: mapping-key
         target: certs/scenescape-mapping.key
     healthcheck:
-      test: ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8444/health"]
-      interval: 10s
-      timeout: 60s
+      test:
+        ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8444/v1/health"]
+      interval: 15s
+      timeout: 10s
       retries: 5
-      start_period: 10s
+      start_period: 600s # Allow time for model download and initialization
     restart: always
 
   cluster-analytics:
+    environment:
+      OPENBLAS_NUM_THREADS: "2"
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
     profiles:
-      - experimental
       - cluster-analytics
-    image: scenescape-cluster-analytics:${VERSION:-latest}
+    image: intel/scenescape-cluster-analytics:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -606,8 +614,8 @@ configs:
   mosquitto-secure:
     file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
   tracker-config:
-    # Use this configuration file to run tracking with time-chunking enabled
-    # file: ./controller/config/tracker-config-time-chunking.json
+    # Use this configuration file to run tracking in immediate mode
+    # file: ./controller/config/tracker-config-immediate.json
     file: ./controller/config/tracker-config.json
   reid-config:
     file: ./controller/config/reid-config.json

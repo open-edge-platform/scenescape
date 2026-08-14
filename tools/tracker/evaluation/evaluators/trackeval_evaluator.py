@@ -7,7 +7,7 @@ Integrates with TrackEval library to compute industry-standard tracking metrics
 including HOTA, MOTA, IDF1, and CLEAR MOT metrics for 3D point tracking.
 """
 
-from typing import Iterator, List, Dict, Any
+from typing import Iterator, List, Dict, Any, Optional
 from pathlib import Path
 import sys
 import tempfile
@@ -224,6 +224,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
     self._class_name: str = "pedestrian"  # Class name used in MOTChallenge format
     self._num_frames: int = 0
     self._camera_fps: float = 30.0
+    self._base_fps: Optional[float] = None
     self._uuid_to_id_map: Dict[str, int] = {}
 
   def configure_metrics(self, metrics: List[str]) -> 'TrackEvalEvaluator':
@@ -270,6 +271,23 @@ class TrackEvalEvaluator(TrackerEvaluator):
     self._output_folder = path
     return self
 
+  def set_base_fps(self, fps=None) -> 'TrackEvalEvaluator':
+    """Set base frame rate for timestamp-to-frame-number conversion.
+
+    Args:
+      fps: Frames per second (> 0), or None to auto-compute from timestamps.
+
+    Returns:
+      Self for method chaining.
+
+    Raises:
+      ValueError: If fps is not None and <= 0.
+    """
+    if fps is not None and fps <= 0:
+      raise ValueError("fps must be > 0")
+    self._base_fps = fps
+    return self
+
   def process_tracker_outputs(
     self,
     tracker_outputs: Iterator[Dict[str, Any]],
@@ -309,7 +327,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
       if not tracker_output_list:
         raise RuntimeError("No tracker outputs provided")
 
-      # drop duplicated timestamps when production tracker runs metrics dataset without time-chunking
+      # Drop duplicated timestamps when production tracker runs metrics dataset in immediate mode.
       seen_timestamps = set()
       filtered_outputs = []
       for data in tracker_output_list:
@@ -327,7 +345,9 @@ class TrackEvalEvaluator(TrackerEvaluator):
         for data in tracker_output_list
       ]
       self._num_frames = len(timestamps)
-      if self._num_frames > 1:
+      if self._base_fps is not None:
+        self._camera_fps = self._base_fps
+      elif self._num_frames > 1:
         # Calculate average FPS from timestamps
         time_span = (timestamps[-1] - timestamps[0]).total_seconds()
         self._camera_fps = (self._num_frames - 1) / time_span if time_span > 0 else 30.0
@@ -556,6 +576,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
     self._seq_name = "evaluation_seq"
     self._num_frames = 0
     self._camera_fps = 30.0
+    self._base_fps = None
     self._uuid_to_id_map = {}
 
     return self

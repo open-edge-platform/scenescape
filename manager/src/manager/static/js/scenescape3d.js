@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -47,6 +47,8 @@ function main() {
     canvas: canvas,
     alpha: true,
     antialias: true,
+    // Retain the drawing buffer when running under WebDriver (Selenium)
+    preserveDrawingBuffer: navigator.webdriver === true,
   });
   renderer.toneMapping = THREE.ACESFilmicToneMapping; // Enable tone mapping
   renderer.toneMappingExposure = 1.0; // Default exposure for renderer
@@ -102,7 +104,7 @@ function main() {
     .add(panelSettings, "show tracked objects")
     .onChange(function (visibility) {
       showTrackedObjects = visibility;
-      assetManager.hideMarks();
+      assetManager.setMarksVisibility(visibility);
     }).$widget.id = "tracked-objects-button";
 
   // Add light intensity control
@@ -177,6 +179,40 @@ function main() {
       },
     },
   };
+
+  const DEFAULT_CAMERA_OPACITY = 80;
+  const cameraPanelSettings = {
+    "project all frames": false,
+    "all cameras opacity": DEFAULT_CAMERA_OPACITY,
+  };
+
+  camerasFolder
+    .add(cameraPanelSettings, "project all frames")
+    .onChange(function (visibility) {
+      const cm = sceneThingManagers.things.camera.obj;
+      if (!cm) return;
+      for (const key in cm.sceneCameras) {
+        if (key !== "undefined" && cm.sceneCameras[key]) {
+          cm.sceneCameras[key].executeOnControl("project frame", (control) => {
+            if (control[0]) control[0].setValue(visibility);
+          });
+        }
+      }
+    }).$widget.id = "project-all-frames";
+
+  camerasFolder
+    .add(cameraPanelSettings, "all cameras opacity", 0, 100, 1)
+    .onChange(function (weight) {
+      const cm = sceneThingManagers.things.camera.obj;
+      if (!cm) return;
+      for (const key in cm.sceneCameras) {
+        if (key !== "undefined" && cm.sceneCameras[key]) {
+          cm.sceneCameras[key].executeOnControl("opacity", (control) => {
+            if (control[0]) control[0].setValue(weight);
+          });
+        }
+      }
+    }).$input.id = "all-cameras-opacity";
 
   // Ambient scene lighting
   const ambientColor = 0xa0a0a0; // Brighter ambient for more vibrant colors
@@ -361,7 +397,12 @@ function main() {
       console.log("MQTT error: " + e);
     });
 
-    assetManager = AssetManager(scene, subscribeToTracking);
+    assetManager = AssetManager(
+      scene,
+      subscribeToTracking,
+      sceneViewCamera,
+      renderer.domElement,
+    );
     assetManager.loadAssets(gltfLoader);
     enableLiveView();
   }
@@ -609,6 +650,7 @@ function main() {
 
     stats.update();
     renderer.render(scene, sceneViewCamera);
+    if (assetManager) assetManager.renderLabels();
     requestAnimationFrame(render);
   }
 
@@ -636,6 +678,7 @@ function main() {
 
     orbitControls.enabled = false;
     sceneViewCamera = orthographicCamera;
+    if (assetManager) assetManager.setCamera(orthographicCamera);
   }
 
   // Set the camera to 3D perspective view
@@ -650,6 +693,7 @@ function main() {
 
     orbitControls.enabled = true;
     sceneViewCamera = perspectiveCamera;
+    if (assetManager) assetManager.setCamera(perspectiveCamera);
   }
 
   // Reset the view to the default position (set with controls.saveState())

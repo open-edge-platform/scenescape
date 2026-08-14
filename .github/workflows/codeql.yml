@@ -23,15 +23,16 @@ permissions: {}
 
 jobs:
   detect-languages:
-    name: "Detect Changed Languages (except Python and JavaScript)"
+    name: "Detect Changed Languages"
     runs-on: ubuntu-latest
+    if: github.event_name != 'push' && github.event_name != 'workflow_dispatch'
     permissions:
       contents: read
     outputs:
       langs: ${{ steps.detect-langs.outputs.langs }}
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #7.0.0
         with:
           path: scenescape
           persist-credentials: false
@@ -45,7 +46,7 @@ jobs:
             git fetch origin main:main
             echo "Fetched main branch"
           fi
-          changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.yml' '*.yaml' '*.sh' '*.java' '*.ts' || true)
+          changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.yml' '*.yaml' '*.js' '*.ts' '*.h' '*.c' '*.hpp' '*.cpp' '*.py' || true)
           echo "Performed git diff"
 
           if [ -z "$changed_files" ]; then
@@ -53,7 +54,7 @@ jobs:
             echo "langs=[]" >> $GITHUB_OUTPUT
             exit 0
           fi
-          declare -A langmap=( ["yaml"]=actions ["yml"]=actions ["java"]=java-kotlin ["ts"]=javascript-typescript )
+          declare -A langmap=( ["yaml"]=actions ["yml"]=actions ["js"]=javascript-typescript ["ts"]=javascript-typescript ["h"]=c-cpp ["c"]=c-cpp ["hpp"]=c-cpp ["cpp"]=c-cpp ["py"]=python )
           declare -A langs
 
           for file in $changed_files; do
@@ -71,7 +72,7 @@ jobs:
   analyze:
     name: "CodeQL Analysis on changed files"
     needs: detect-languages
-    if: needs.detect-languages.outputs.langs != '[]'
+    if: (github.event_name != 'push' && github.event_name != 'workflow_dispatch') && needs.detect-languages.outputs.langs != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -85,19 +86,19 @@ jobs:
 
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #7.0.0
         with:
           persist-credentials: false
 
       - name: "Initialize CodeQL build mode"
-        uses: github/codeql-action/init@e46ed2cbd01164d986452f91f178727624ae40d7 # v4.35.3
+        uses: github/codeql-action/init@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
         with:
           languages: ${{ matrix.language }}
           build-mode: none
           source-root: .
 
       - name: "Perform CodeQL analysis"
-        uses: github/codeql-action/analyze@e46ed2cbd01164d986452f91f178727624ae40d7 # v4.35.3
+        uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
         with:
           category: "/language:${{matrix.language}}"
 
@@ -115,7 +116,8 @@ jobs:
           path: ./codeql-report-${{ matrix.language }}/report.pdf
 
   codeql:
-    name: "Run CodeQL Analysis on Python and JavaScript"
+    name: "Run CodeQL Analysis on whole codebase"
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     permissions:
       security-events: write
       packages: read
@@ -124,24 +126,38 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        language: [javascript, python] # Add more languages as needed
+        language: [actions, javascript-typescript, python, c-cpp] # Add more languages as needed
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
       - name: "Initialize CodeQL"
-        uses: github/codeql-action/init@e46ed2cbd01164d986452f91f178727624ae40d7 # v4.35.3
+        uses: github/codeql-action/init@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
         with:
           languages: ${{ matrix.language }}
           dependency-caching: true
 
       - name: "Autobuild"
-        uses: github/codeql-action/autobuild@e46ed2cbd01164d986452f91f178727624ae40d7 # v4.35.3
+        if: ${{ matrix.language != 'c-cpp' }}
+        uses: github/codeql-action/autobuild@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
+
+      - name: Build C and C++ code
+        if: ${{ matrix.language == 'c-cpp' }}
+        working-directory: tracker
+        run: |
+          sudo make install-deps
+          make install-tools
+          # Ensure pipx-installed tools (conan, cmake, ninja) are on PATH
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          # Create default Conan profile (required before `conan install`)
+          conan profile detect --force
+          make build
 
       - name: "Perform CodeQL Analysis"
-        uses: github/codeql-action/analyze@e46ed2cbd01164d986452f91f178727624ae40d7 # v4.35.3
+        uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
         with:
           category: "/language:${{ matrix.language }}"
 

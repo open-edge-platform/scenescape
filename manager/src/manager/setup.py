@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import re
@@ -7,9 +7,22 @@ from setuptools import setup, find_packages
 
 import os
 
+
+def normalize_to_pep440(version):
+  """Convert Scenescape tag-style versions to a setuptools-compatible version."""
+  # Keep existing rc normalization behavior.
+  normalized = re.sub(r'(rc\d+)([\d.]+)', lambda m: m.group(1) + m.group(2).replace('.', '-'), version)
+
+  # Convert Docker-style suffixes (e.g. -20260804-weekly) to local version metadata.
+  if '-' in normalized:
+    base, suffix = normalized.split('-', 1)
+    normalized = f"{base}+{suffix.replace('-', '.')}"
+
+  return normalized
+
 # Application Naming
 APP_NAME = 'manager'
-APP_PROPER_NAME = 'SceneScape'
+APP_PROPER_NAME = 'Scenescape'
 APP_BASE_NAME = 'scenescape'
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -17,8 +30,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 try:
   with open(os.path.join(BASE_DIR, 'version.txt')) as f:
-    APP_VERSION_NUMBER = f.readline().rstrip()
-    APP_VERSION_NUMBER = re.sub(r'(rc\d+)([\d.]+)', lambda m: m.group(1) + m.group(2).replace('.', '-'), APP_VERSION_NUMBER)
+    APP_VERSION_NUMBER = normalize_to_pep440(f.readline().rstrip())
     print(APP_PROPER_NAME + " version " + APP_VERSION_NUMBER)
 except IOError:
   print(f"{APP_PROPER_NAME} version.txt file not found in {BASE_DIR}")
@@ -30,5 +42,5 @@ setup(
     license='Apache-2.0',
     version=APP_VERSION_NUMBER,
     author='Intel Corporation',
-    description='SceneScape core functionality',
+    description='Scenescape core functionality',
     )

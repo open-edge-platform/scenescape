@@ -3,15 +3,39 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import base64
 import copy
 import json
 import math
+import struct
 import threading
 import time
+
+import numpy as np
 
 from scene_common.mqtt import PubSub
 from scene_common import log
 from scene_common.timestamp import get_iso_time
+
+# Pixel bbox areas relative to DEFAULT_MINIMUM_BBOX_AREA (5000 px^2).
+LARGE_BBOX_PX = {"x": 100, "y": 100, "width": 100, "height": 100}  # 10000
+SMALL_BBOX_PX = {"x": 100, "y": 100, "width": 50, "height": 50}    # 2500
+REID_MODEL_NAME = "person-reidentification-retail-0287"
+REID_EMBEDDING_DIMS = 256
+
+
+def encode_reid_base64(embedding):
+  """Encode a float embedding vector as a base64 string for camera MQTT payloads."""
+  flat = np.asarray(embedding, dtype=np.float32).reshape(-1)
+  packed = struct.pack(f'{len(flat)}f', *flat.tolist())
+  return base64.b64encode(packed).decode('utf-8')
+
+
+def make_reid_embedding(seed=0.1):
+  """Return a deterministic unit-ish embedding for functional hierarchy tests."""
+  rng = np.random.default_rng(int(seed * 1000))
+  vec = rng.random(REID_EMBEDDING_DIMS, dtype=np.float32)
+  return vec / (np.linalg.norm(vec) + 1e-8)
 
 
 class RetrackTest:
@@ -191,6 +215,21 @@ class RetrackTest:
       log.info(f"Set external_update_rate={rate} on scene {self.child_id}")
     self._await_db_notification(_update)
 
+  def set_regulated_rate(self, rest_client, scene_uid, rate):
+    """! Update regulated_rate on a scene and wait for the CMD_DATABASE
+    notification confirming the controller has loaded the change.
+
+    @param    rest_client   An authenticated RESTClient instance.
+    @param    scene_uid     UID of the scene to update.
+    @param    rate          Float Hz value for regulated_rate.
+    """
+    def _update():
+      res = rest_client.updateScene(scene_uid, {'regulated_rate': rate})
+      assert res.statusCode == 200, \
+        f"Failed to set regulated_rate={rate}: {res.statusCode}: {res.errors}"
+      log.info(f"Set regulated_rate={rate} on scene {scene_uid}")
+    self._await_db_notification(_update)
+
   def make_client(self, topics=None, on_msg=None):
     """! Create and start an MQTT PubSub client, subscribe to *topics* on
     connect, and block until the broker confirms connection.
@@ -287,6 +326,53 @@ class RetrackTest:
     return ids
 
   @staticmethod
+  def with_reid_detection(obj_data, bbox_px, embedding=None, provenance=None,
+                          obj_category="person"):
+    """! Return a camera payload with pixel bbox and metadata.reid for hierarchy tests.
+
+    Uses bounding_box_px so the child scene can apply the crop-area quality gate
+    when stamping provenance on DATA_EXTERNAL.
+
+    @param    obj_data      Object-data fixture (camera id + objects template).
+    @param    bbox_px       Pixel bounding box dict with x/y/width/height.
+    @param    embedding     Optional float embedding; generated when omitted.
+    @param    provenance    Optional provenance dict injected under metadata.reid
+                            (used to assert camera-claimed provenance is ignored).
+    @param    obj_category  Detection category key (default person).
+    @return                 Deep-copied payload ready to publish.
+    """
+    payload = copy.deepcopy(obj_data)
+    det = payload["objects"][obj_category][0]
+    det.pop("bounding_box", None)
+    det["bounding_box_px"] = copy.deepcopy(bbox_px)
+    det["category"] = obj_category
+    if embedding is None:
+      embedding = make_reid_embedding()
+    reid = {
+      "embedding_vector": encode_reid_base64(embedding),
+      "model_name": REID_MODEL_NAME,
+    }
+    if provenance is not None:
+      reid["provenance"] = copy.deepcopy(provenance)
+    det["metadata"] = {"reid": reid}
+    return payload
+
+  @staticmethod
+  def collect_reid_payloads(messages):
+    """! Collect (object_id, reid_dict) pairs from regulated/external messages.
+
+    @param    messages  List of decoded MQTT object messages.
+    @return             List of (id, reid) tuples where reid is present.
+    """
+    found = []
+    for msg in messages:
+      for obj in msg.get("objects", []):
+        reid = (obj.get("metadata") or {}).get("reid")
+        if isinstance(reid, dict) and "embedding_vector" in reid:
+          found.append((obj.get("id"), reid))
+    return found
+
+  @staticmethod
   def publish_data(obj_data, client, obj_category="person"):
     """! Publish simulated object detection data to a camera's MQTT topic.
 
@@ -300,13 +386,59 @@ class RetrackTest:
     for iteration in range(RetrackTest.NUM_PUBLISH_ITERATIONS):
       for i in range(5):
         obj_data["timestamp"] = get_iso_time()
-        obj_data["objects"][obj_category][0]["bounding_box"]["y"] = 100 + (i * 20)
-        obj_data["objects"][obj_category][0]["category"] = obj_category
+        det = obj_data["objects"][obj_category][0]
+        y = 100 + (i * 20)
+        if "bounding_box_px" in det:
+          det["bounding_box_px"]["y"] = y
+        elif "bounding_box" in det:
+          det["bounding_box"]["y"] = y
+        det["category"] = obj_category
         client.publish(topic, json.dumps(obj_data))
         log.info(
-          f"Published object via camera {cam_id}: y={100 + (i * 20)} "
+          f"Published object via camera {cam_id}: y={y} "
           f"(iter {iteration})")
         time.sleep(1.0 / RetrackTest.FRAME_RATE)
+
+  @staticmethod
+  def publish_empty_frames(client, camera_id, count=15, rate=10.0):
+    """! Publish empty camera frames to drive tracker pruning / ReID flush.
+
+    @param    client      Connected MQTT PubSub client.
+    @param    camera_id   Camera id used as the MQTT topic suffix.
+    @param    count       Number of empty frames to publish.
+    @param    rate        Publish rate in Hz.
+    """
+    topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera_id)
+    for _ in range(count):
+      payload = {
+        "id": camera_id,
+        "timestamp": get_iso_time(),
+        "rate": float(rate),
+        "objects": {"person": []},
+      }
+      client.publish(topic, json.dumps(payload))
+      time.sleep(1.0 / rate)
+
+  @staticmethod
+  def publish_reid_frames(obj_data, client, num_frames=30, obj_category="person"):
+    """! Publish enough reid-bearing frames to satisfy feature accumulation.
+
+    @param    obj_data      Payload from with_reid_detection().
+    @param    client        Connected MQTT PubSub client.
+    @param    num_frames    Number of frames to publish.
+    @param    obj_category  Detection category key.
+    """
+    obj_data = copy.deepcopy(obj_data)
+    cam_id = obj_data["id"]
+    topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=cam_id)
+    for i in range(num_frames):
+      obj_data["timestamp"] = get_iso_time()
+      det = obj_data["objects"][obj_category][0]
+      if "bounding_box_px" in det:
+        det["bounding_box_px"]["y"] = 100 + (i % 5) * 20
+      det["category"] = obj_category
+      client.publish(topic, json.dumps(obj_data))
+      time.sleep(1.0 / RetrackTest.FRAME_RATE)
 
   @staticmethod
   def publish_timed(obj_data, client, rate, duration):
@@ -324,8 +456,13 @@ class RetrackTest:
     i = 0
     while time.time() < end:
       obj_data["timestamp"] = get_iso_time()
-      obj_data["objects"]["person"][0]["bounding_box"]["y"] = 100 + (i % 5) * 20
-      obj_data["objects"]["person"][0]["category"] = "person"
+      det = obj_data["objects"]["person"][0]
+      y = 100 + (i % 5) * 20
+      if "bounding_box_px" in det:
+        det["bounding_box_px"]["y"] = y
+      elif "bounding_box" in det:
+        det["bounding_box"]["y"] = y
+      det["category"] = "person"
       client.publish(topic, json.dumps(obj_data))
       time.sleep(1.0 / rate)
       i += 1

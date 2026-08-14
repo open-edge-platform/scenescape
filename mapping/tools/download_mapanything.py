@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
-On-demand MapAnything model loader for SceneScape 3D mapping service.
+On-demand MapAnything model loader for Scenescape 3D mapping service.
 """
 
 import sys
 
 from scene_common import log
 
-from model_utils import ensureCacheDirectories, checkModelExists, createSuccessMarker
+from model_utils import ensure_cache_directories, check_model_exists, create_success_marker
 
 MODEL_NAME = "mapanything"
 
-def downloadMapanythingModel() -> bool:
+def download_mapanything_model() -> bool:
   """
   Download MapAnything model using the installed package.
 
@@ -40,7 +40,7 @@ def downloadMapanythingModel() -> bool:
 
     # Create success marker
     success_message = f'MapAnything model {model_name} downloaded successfully'
-    if not createSuccessMarker(MODEL_NAME, success_message):
+    if not create_success_marker(MODEL_NAME, success_message):
       return False
 
     log.info('MapAnything (Apache 2.0) model downloaded successfully!')
@@ -50,7 +50,7 @@ def downloadMapanythingModel() -> bool:
     log.error(f'Failed to download MapAnything model: {e}')
     return False
 
-def ensureMapanythingModel() -> bool:
+def ensure_mapanything_model() -> bool:
   """
   Ensure MapAnything model exists, downloading if necessary.
 
@@ -58,22 +58,22 @@ def ensureMapanythingModel() -> bool:
     True if model is available, False otherwise
   """
   # Ensure cache directories exist
-  ensureCacheDirectories()
+  ensure_cache_directories()
 
   # Check if model already exists
-  if checkModelExists(MODEL_NAME):
+  if check_model_exists(MODEL_NAME):
     log.info("MapAnything model already downloaded.")
     return True
 
   # Download the model
-  return downloadMapanythingModel()
+  return download_mapanything_model()
 
 def main():
   """Main function for standalone execution."""
   log.info("MapAnything Model Loader")
   log.info("=======================")
 
-  success = ensureMapanythingModel()
+  success = ensure_mapanything_model()
 
   if success:
     log.info("MapAnything model is ready for use!")

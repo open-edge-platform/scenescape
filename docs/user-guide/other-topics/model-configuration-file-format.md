@@ -2,7 +2,7 @@
 
 ## Overview
 
-Model configuration files (JSON) define the AI models available for use in camera pipelines within Intel® SceneScape, specifying model short names, model parameters, element types, and adapter configurations needed to generate proper GStreamer pipelines with DL Streamer elements.
+Model configuration files (JSON) define the AI models available for use in camera pipelines within Scenescape, specifying model short names, model parameters, element types, and adapter configurations needed to generate proper GStreamer pipelines with DL Streamer elements.
 
 > **Note**: Model configuration files described in this document are used for dynamic camera configuration in Kubernetes deployments. They are not used in Docker Compose deployments, where camera pipelines are configured statically in configuration files. Therefore, this document refers specifically to Kubernetes deployments unless stated otherwise.
 
@@ -10,12 +10,12 @@ Model configuration files (JSON) define the AI models available for use in camer
 
 Model configuration files are JSON documents stored in the `<Models Volume>/models/model_configs` folder and are managed:
 
-- Through the Intel® SceneScape Models page, accessible via the link in the top menu. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
+- Through the Scenescape Models page, accessible via the link in the top menu. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
 - By accessing the models volume directly using `kubectl` tool (see the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide for detailed instructions).
 
 ### Usage
 
-The Intel® SceneScape model installer automatically generates the default model configuration file at the location `<Models Volume>/models/model_configs/model_config.json` for the set of models being downloaded.
+The Scenescape model installer automatically generates the default model configuration file at the location `<Models Volume>/models/model_configs/model_config.json` for the set of models being downloaded.
 
 The user needs to update the model configuration file in the following cases:
 
@@ -50,8 +50,8 @@ For basic usage of the models downloaded by the model installer, no changes are 
   "retail": {
     "type": "detect",
     "params": {
-      "model": "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
-      "model_proc": "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json",
+      "model": "omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
+      "model_proc": "object_detection/person/person-detection-retail-0013.json",
       "scheduling-policy": "latency",
       "threshold": "0.75"
     },
@@ -96,7 +96,7 @@ Any additional parameters specified in the `params` section are passed directly 
 
 ### Adapter Parameters
 
-Configuration for the Python adapter that transforms DL Streamer metadata to the Intel® SceneScape format:
+Configuration for the Python adapter that transforms DL Streamer metadata to the Scenescape format:
 
 - **`metadatagenpolicy`**: defines how metadata is generated and formatted.
   - `detectionPolicy`: for standard object detection results with 2D bounding boxes.
@@ -124,7 +124,7 @@ When generating a camera pipeline:
 
 ## Troubleshooting
 
-When adding a new model or model config file through the Models page UI, if you encounter any errors, use the cluster PVC mount that holds Intel® SceneScape models (Models Volume) to view the current configuration or make a new configuration and models available at runtime.
+When adding a new model or model config file through the Models page UI, if you encounter any errors, use the cluster PVC mount that holds Scenescape models (Models Volume) to view the current configuration or make a new configuration and models available at runtime.
 
 Refer to instructions in [How to manage files in volumes](./how-to-manage-files-in-volumes.md) on how to access Models Volume and copy files from local file system to the volume.
 

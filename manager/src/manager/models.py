@@ -339,6 +339,10 @@ class Scene(models.Model):
       transaction.on_commit(partial(sendUpdateCommand, scene_id=updated_scene))
     return
 
+  def notifyDbUpdate(self):
+    transaction.on_commit(sendUpdateCommand)
+    return
+
   def delete(self, *args, **kwargs):
     super(Scene, self).delete(*args, **kwargs)
     transaction.on_commit(sendUpdateCommand)

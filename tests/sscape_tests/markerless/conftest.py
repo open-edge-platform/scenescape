@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -14,9 +14,6 @@ from auto_camera_calibration_model import CalibrationScene
 from markerless_camera_calibration import CameraCalibrationMonocularPoseEstimate
 from scene_common.options import MARKERLESS
 
-import tests.common_test_utils as common
-
-TEST_NAME = "NEX-T10497"
 SCENE_MAP = "sample_data/atag-calib-demo-map.png"
 SCENE_ID = "f1b9b1b0-1b1b-1b1b-1b1b-1b1b1b1b1b1b"
 DATASET_DIR = os.path.abspath(os.path.join(__file__ ,"../test_markerless/test_dataset"))
@@ -24,18 +21,6 @@ OUTPUT_DIR = os.path.abspath(os.path.join(__file__ ,"../test_markerless/output_d
 TEST_MEDIA_PATH = os.path.abspath(os.path.join(__file__ ,"../../../ui/test_media/"))
 GLB_PATH = TEST_MEDIA_PATH + "/box.glb"
 BAD_GLB_PATH = TEST_MEDIA_PATH + "/box_invalid.glb"
-
-def pytest_sessionstart():
-  """! Executes at the beginning of the session. """
-
-  print(f"Executing: {TEST_NAME}")
-  return
-
-def pytest_sessionfinish(exitstatus):
-  """! Executes at the end of the session. """
-
-  common.record_test_result(TEST_NAME, exitstatus)
-  return
 
 def sceneData():
   """! Returns a dictionary containing scene data. """

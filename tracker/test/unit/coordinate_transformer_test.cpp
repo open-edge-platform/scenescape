@@ -111,10 +111,12 @@ const CameraTestConfig kCameraAtaqQcam1 = {
     {1.0, 1.0, 1.0}};
 
 // Bbox foot-to-world reference data for atag-qcam1
+// NOTE: world positions include footprint offset (foot shifted away from camera
+// by width_m/2 along the camera→foot bearing) to approximate object center.
 const std::vector<BboxFootTestCase> kAtaqQcam1BboxTests = {
-    {"center_person", 590.0, 260.0, 100.0, 200.0, 3.6344901016966507, 2.392939581932098},
-    {"top_left_person", 10.0, 10.0, 80.0, 160.0, 1.2282759561369583, 6.183174458656931},
-    {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 4.829388967448987, 0.741790968197878},
+    {"center_person", 590.0, 260.0, 100.0, 200.0, 3.6902042231496193, 2.5808369089270590},
+    {"top_left_person", 10.0, 10.0, 80.0, 160.0, 1.1492465718921960, 6.4519638750283645},
+    {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 4.9361860976576870, 0.7728640267176475},
 };
 
 // Bbox size-to-world reference data for atag-qcam1

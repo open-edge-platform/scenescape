@@ -104,10 +104,10 @@ def test_dog_extractor():
 
 
 def test_feature_extraction():
-  """Test actual feature extraction on synthetic images - SKIPPED (SuperPoint not used in SceneScape)."""
+  """Test actual feature extraction on synthetic images - SKIPPED (SuperPoint not used in Scenescape)."""
   print_test_header("Feature Extraction (SuperPoint) - SKIPPED")
-  print("  ⚠️  SuperPoint not used in SceneScape, test skipped")
-  print_test_result(True, "Skipped - not used in SceneScape")
+  print("  ⚠️  SuperPoint not used in Scenescape, test skipped")
+  print_test_result(True, "Skipped - not used in Scenescape")
   return True
 
 
@@ -122,7 +122,7 @@ def main():
   # Run DoG API test (critical for build-time verification)
   dog_passed = test_dog_extractor()
 
-  # SuperPoint test skipped (not used in SceneScape)
+  # SuperPoint test skipped (not used in Scenescape)
   extraction_passed = test_feature_extraction()
 
   return 0 if dog_passed else 1

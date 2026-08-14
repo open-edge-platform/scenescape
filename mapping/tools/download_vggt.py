@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
-On-demand VGGT model loader for SceneScape 3D mapping service.
+On-demand VGGT model loader for Scenescape 3D mapping service.
 """
 
 import sys
 
 from scene_common import log
 
-from model_utils import getModelWeightsDir, ensureCacheDirectories, checkModelExists, createSuccessMarker
+from model_utils import get_model_weights_dir, ensure_cache_directories, check_model_exists, create_success_marker
 
 MODEL_NAME = "vggt"
 
-def downloadVGGTModel() -> bool:
+def download_vggt_model() -> bool:
   """
   Download VGGT model using the installed package.
 
@@ -42,12 +42,12 @@ def downloadVGGTModel() -> bool:
     weights = torch.hub.load_state_dict_from_url(_URL, map_location='cpu')
 
     # Save weights locally for faster future access
-    weights_path = getModelWeightsDir() / 'vggt_model.pt'
+    weights_path = get_model_weights_dir() / 'vggt_model.pt'
     torch.save(weights, weights_path)
 
     # Create success marker
     success_message = 'VGGT model downloaded successfully'
-    if not createSuccessMarker(MODEL_NAME, success_message):
+    if not create_success_marker(MODEL_NAME, success_message):
       return False
 
     log.info('VGGT model downloaded and cached successfully!')
@@ -57,7 +57,7 @@ def downloadVGGTModel() -> bool:
     log.error(f'Failed to download VGGT model: {e}')
     return False
 
-def ensureVGGTModel() -> bool:
+def ensure_vggt_model() -> bool:
   """
   Ensure VGGT model exists, downloading if necessary.
 
@@ -65,22 +65,22 @@ def ensureVGGTModel() -> bool:
     True if model is available, False otherwise
   """
   # Ensure cache directories exist
-  ensureCacheDirectories()
+  ensure_cache_directories()
 
   # Check if model already exists
-  if checkModelExists(MODEL_NAME):
+  if check_model_exists(MODEL_NAME):
     log.info("VGGT model already downloaded.")
     return True
 
   # Download the model
-  return downloadVGGTModel()
+  return download_vggt_model()
 
 def main():
   """Main function for standalone execution."""
   log.info("VGGT Model Loader")
   log.info("================")
 
-  success = ensureVGGTModel()
+  success = ensure_vggt_model()
 
   if success:
     log.info("VGGT model is ready for use!")
