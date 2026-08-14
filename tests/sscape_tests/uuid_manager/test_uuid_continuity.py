@@ -62,7 +62,8 @@ def ilabs_tracker():
   uuid_manager attribute (a real UUIDManager) and all_tracker_objects are
   left intact for per-test inspection and manipulation.
   """
-  with patch('controller.ilabs_tracking.rv') as mock_rv:
+  with patch('controller.uuid_manager.create_reid_database', return_value=MagicMock()), \
+       patch('controller.ilabs_tracking.rv') as mock_rv:
     mock_rv.tracking.TrackManagerConfig.return_value = MagicMock()
     mock_rv.tracking.MotionModel = MagicMock()
     mock_rv.tracking.MultipleObjectTracker.return_value = MagicMock()
@@ -76,6 +77,8 @@ def ilabs_tracker():
       non_measurement_time_static=2.0,
       effective_object_update_rate=30.0,
     )
+    # Isolate GID continuity from Re-ID assignID side effects.
+    tracker.uuid_manager.assignID = Mock()
     yield tracker
 
 
