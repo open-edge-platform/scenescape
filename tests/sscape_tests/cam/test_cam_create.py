@@ -4,6 +4,7 @@
 import json
 import os
 import tempfile
+from unittest.mock import mock_open, patch
 
 from django.contrib.auth.models import User
 from django.forms import ValidationError
@@ -124,3 +125,34 @@ class CamCreateCamerachainValidationTestCase(TestCase):
       self._clean_camerachain('retail', modelconfig='../../model_config.json'),
       'retail',
     )
+
+  def test_clean_camerachain_rejects_symlink_escape(self):
+    """Symlinks that resolve outside MODEL_CONFIGS_FOLDER are rejected."""
+    outside_dir = tempfile.TemporaryDirectory()
+    self.addCleanup(outside_dir.cleanup)
+    outside_config = os.path.join(outside_dir.name, 'outside.json')
+    with open(outside_config, 'w', encoding='utf-8') as config_file:
+      json.dump(SAMPLE_MODEL_CONFIG, config_file)
+
+    link_name = 'escape_config.json'
+    link_path = os.path.join(self._tmpdir.name, link_name)
+    os.symlink(outside_config, link_path)
+
+    with self.assertRaises(ValidationError) as ctx:
+      self._clean_camerachain('retail', modelconfig=link_name)
+    message = str(ctx.exception)
+    self.assertIn('Invalid model config path', message)
+    self.assertNotIn(outside_dir.name, message)
+
+  def test_clean_camerachain_oserror_omits_filesystem_paths(self):
+    """OSError while reading model-config must not surface filesystem paths."""
+    with patch('manager.ppl_generator.config_generator.open',
+               mock_open()) as mocked_open:
+      mocked_open.side_effect = PermissionError(
+        13, 'Permission denied', self.config_path)
+      with self.assertRaises(ValidationError) as ctx:
+        self._clean_camerachain('retail')
+    message = str(ctx.exception)
+    self.assertIn('Unable to read model config file', message)
+    self.assertNotIn(self._tmpdir.name, message)
+    self.assertNotIn(self.config_path, message)

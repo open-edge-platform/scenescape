@@ -14,16 +14,23 @@ from .pipeline_generator import PipelineGenerator
 def load_model_config(modelconfig_name=None):
   """Load model-config JSON from MODEL_CONFIGS_FOLDER.
 
-  Restricts ``modelconfig_name`` to a basename so path separators cannot escape
-  the configured model-configs directory.
+  Restricts ``modelconfig_name`` to a basename and verifies the resolved path
+  stays within the configured model-configs directory (blocks traversal and
+  symlink escapes). OS errors are reported without filesystem path details.
   """
-  configs_folder = Path(os.environ.get('MODEL_CONFIGS_FOLDER', '/models/model_configs'))
+  configs_folder = Path(
+    os.environ.get('MODEL_CONFIGS_FOLDER', '/models/model_configs')).resolve()
   # `or` handles empty/None names the same way create-time defaults do
   filename = Path(modelconfig_name or 'model_config.json').name
-  if not filename:
+  if not filename or filename in ('.', '..'):
     raise PipelineGenerationValueError("Model config filename cannot be empty.")
 
-  model_config_path = configs_folder / filename
+  model_config_path = (configs_folder / filename).resolve()
+  try:
+    model_config_path.relative_to(configs_folder)
+  except ValueError as e:
+    raise PipelineGenerationValueError("Invalid model config path.") from e
+
   if not model_config_path.is_file():
     raise PipelineGenerationValueError(
       f"Model config file '{filename}' does not exist.")
@@ -31,8 +38,12 @@ def load_model_config(modelconfig_name=None):
   try:
     with open(model_config_path, 'r') as f:
       return json.load(f)
-  except (json.JSONDecodeError, OSError) as e:
-    raise PipelineGenerationValueError(f"Error reading model config: {e}") from e
+  except json.JSONDecodeError as e:
+    raise PipelineGenerationValueError(
+      "Model config file is not valid JSON.") from e
+  except OSError as e:
+    raise PipelineGenerationValueError(
+      "Unable to read model config file.") from e
 
 
 # TODO: Move the method to pipeline_generator.py
