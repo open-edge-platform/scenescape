@@ -2,17 +2,17 @@
 name: scenescape-setup
 description: >
   Deploy a working Intel® SceneScape installation from scratch (outside the repo). Gathers
-  user-provided streams, camera IDs, and scene name, then runs bootstrap through tracking
-  verification via scripts/deploy_scenescape.sh. Also handles re-running or resuming a single
-  phase of an existing deployment on request (e.g. "recalibrate", "redo scene reconstruction",
-  "resume bootstrap only") via the orchestrator's --phase flag.
+  user-provided streams, camera IDs, scene name, and mapping choice, then runs bootstrap through
+  tracking verification via scripts/deploy_scenescape.sh. Also handles re-running or resuming a
+  single phase of an existing deployment on request (e.g. "recalibrate", "redo scene
+  reconstruction", "resume bootstrap only") via the orchestrator's --phase flag.
 license: Apache-2.0
 compatibility: >-
   Requires Docker, docker-compose, and Python 3.10+ with `requests` on the host. GitHub access
   for sparse checkout of dlstreamer-pipeline-server. Network access to RTSP camera streams.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, Env
 metadata:
-  argument-hint: "<deploy_dir> — always gather streams, camera_ids, scene_name from the user first"
+  argument-hint: "<deploy_dir> — always gather streams, camera_ids, scene_name, mapping from the user first"
 ---
 
 # SceneScape End-to-End Setup
@@ -50,11 +50,12 @@ Required runtime inputs for a fresh deployment:
   described in `video-file-input.md`
 - `camera_ids`: unique identifiers matching the stream order and containing no `/`
 - `scene_name`: human-readable scene name chosen by the user
+- `mapping`: scene map source — `reconstruction` (default), floor blueprint, `.glb`/`.ply` mesh, or
+  geospatial (address/GPS)
 - Optional state fields: `--phase`, `--fresh`, and the resume flag implied by the Fast Path
 
-The skill also expects the user to confirm whether they want the default reconstruction-based
-scene generation or a blueprint/GLB/PLY/geospatial alternative, and may need a specific reactive
-troubleshooting decision when tracking or Re-ID quality is poor.
+The skill may also need a specific reactive troubleshooting decision when tracking or Re-ID
+quality is poor.
 
 ## Returns / Output
 
@@ -112,8 +113,9 @@ in `docs/user-guide/`.
 ## Safety rules for autonomous execution
 
 - **Execute approved deployment work, don't just narrate.** After the user explicitly requests a
-  deployment and `deploy_dir`, `streams`/video source, `camera_ids`, and `scene_name` are known
-  (from the user's message, `deploy-inputs.json`, or `.deploy-state.json`), use tools to perform
+  deployment and `deploy_dir`, `streams`/video source, `camera_ids`, `scene_name`, and `mapping`
+  are known (from the user's message, `deploy-inputs.json`, or `.deploy-state.json`), use tools to
+  perform
   the approved non-destructive steps instead of providing shell snippets alone. Show and obtain
   confirmation for genuinely destructive actions (see below) before executing them. This does
   **not** license silently
@@ -137,8 +139,9 @@ down -v` — always require explicit confirmation).
 
 ## Agent guardrails
 
-- **Step 1 is mandatory on a new deploy** — ask the user for `streams`, `camera_ids`, and
-  `scene_name`. Do not assume values from prior sessions, sample data, or running containers.
+- **Step 1 is mandatory on a new deploy** — ask the user for `streams`, `camera_ids`,
+  `scene_name`, and `mapping`. Do not assume values from prior sessions, sample data, or
+  running containers.
 - **Prefer the orchestrator** after inputs are confirmed; read `deploy.log` only on failure.
 - Before executing an orchestrator command, obtain the user's authorization to deploy or resume;
   an explicit request to deploy, continue, or resume is sufficient. Otherwise, show the command
@@ -195,8 +198,23 @@ Ask the user for every new deployment:
 | `streams`    | One RTSP/RTSPS URL per camera, user-provided, in order — **or** local video files/folder (see below) |
 | `camera_ids` | Unique IDs (no `/`), same order as `streams`                                                         |
 | `scene_name` | Human-readable scene name chosen by the user                                                         |
+| `mapping`    | Scene map source: `reconstruction` (default), floor blueprint, `.glb`/`.ply` mesh, or geospatial     |
 
 Validate: `len(streams) == len(camera_ids)`, ≥1 camera, `camera_ids` are unique (no duplicates, no `/`), valid RTSP URLs. State explicitly in your response that this uniqueness check was performed before writing `deploy-inputs.json` — `deploy_inputs.py` also re-validates it, but call it out for the user.
+
+**`mapping` choices:**
+
+- **`reconstruction` (default / no answer)**: proceed as documented below — the orchestrator's
+  steps 9 and 11–13 capture calibration frames, auto-generate the map, and auto-calibrate camera
+  poses. If the user also has a pre-recorded walk-through video of the space, it can be included
+  at step 11–12 for extra reconstruction coverage (camera auto-calibration is unaffected) — see
+  [reconstruction.md](./references/reconstruction.md#supplementing-with-a-walk-through-video).
+- **Blueprint image, GLB/PLY mesh, or geospatial map**: this skips automatic camera-pose
+  estimation, so the user must calibrate cameras **manually** via the web UI afterward — confirm
+  they accept that tradeoff, then follow
+  [scene-map-alternatives.md](./references/scene-map-alternatives.md), which covers running only
+  `--phase bootstrap`/`--phase calibrate`, computing pixels-per-meter for a blueprint, creating the
+  scene via REST, and (for geospatial) setting `output_lla` + `map_corners_lla`.
 
 Persist before automation:
 
@@ -223,26 +241,6 @@ only; MJPEG and USB camera input are out of scope pending a separate source-disc
 File → MediaMTX/RTSP publishing (codec probe, publishers, Step 7 diagnosis) is
 [video-file-publishing.md](./references/video-file-publishing.md) — load it on file-backed RTSP
 failures, not during routine Step 1.
-
-## Scene source: reconstruction vs. blueprint/GLB vs. geospatial map
-
-Also during Step 1, ask:
-
-> "Do you already have a floor blueprint image or a `.glb`/`.ply` scene mesh, or should
-> SceneScape auto-generate the scene map from camera reconstruction (default)? If you'd rather
-> build the scene from a geospatial (address/GPS-based) map, that's also available."
-
-- **No answer / reconstruction (default)**: proceed as documented below — the orchestrator's
-  steps 9 and 11–13 capture calibration frames, auto-generate the map, and auto-calibrate camera
-  poses. If the user also has a pre-recorded walk-through video of the space, it can be included
-  at step 11–12 for extra reconstruction coverage (camera auto-calibration is unaffected) — see
-  [reconstruction.md](./references/reconstruction.md#supplementing-with-a-walk-through-video).
-- **Blueprint image, GLB/PLY mesh, or geospatial map**: this skips automatic camera-pose
-  estimation, so the user must calibrate cameras **manually** via the web UI afterward — confirm
-  they accept that tradeoff, then follow
-  [scene-map-alternatives.md](./references/scene-map-alternatives.md), which covers running only
-  `--phase bootstrap`/`--phase calibrate`, computing pixels-per-meter for a blueprint, creating the
-  scene via REST, and (for geospatial) setting `output_lla` + `map_corners_lla`.
 
 ## Tuning tracker/Re-ID behavior (reactive only)
 
@@ -384,9 +382,9 @@ bash "$SKILL_DIR/scripts/watch_orchestrator.sh" \
 3. Tell the user the deploy/resume is running and that you will report when it completes; do
    **not** instruct them to keep asking for status.
 4. When notified: on `RESULT=SUCCESS`, report `DEPLOY COMPLETE` / `scene_uid`, write the
-   deployment README (below), and include Post-task metrics. On `RESULT=FAILURE`, read only the
-   matching troubleshooting reference for the failed step and continue diagnosis — do not dump
-   full compose logs.
+   deployment README (below), include Post-task metrics, then run the post-deploy handoff
+   below. On `RESULT=FAILURE`, read only the matching troubleshooting reference for the failed
+   step and continue diagnosis — do not dump full compose logs.
 
 For a video-file deployment, use the synthesized RTSP streams from `deploy_inputs.py read` in the
 same command. Every full-deployment response must state that step 9 produces one calibration JPEG
@@ -399,6 +397,13 @@ After `DEPLOY COMPLETE`, generate a deployment README: read
 `{{DEPLOY_DIR}}`, `{{SCENE_UID}}`, `{{CAMERA_IDS}}`, and `{{HOST_IP}}` from
 `ip -4 route get 8.8.8.8 | awk '{print $7; exit}'`), and write the result to
 `<deploy_dir>/README.md`. Skip silently if the template is missing.
+
+**Post-deploy handoff (required after every successful full deploy):** read
+[using-scene-output.md](./references/using-scene-output.md) and end the success response with its
+clarifying question (what the user wants to do with the tracked-object data — alert, count,
+integrate, or something else). Do this even if the user has not asked yet; do **not** skip it
+after metrics/README. Single-phase `--phase` successes skip this handoff unless the user is
+continuing into application/analytics work.
 
 Do **not** read [operational-reference.md](./references/operational-reference.md) during a routine
 deploy or resume. Read it only for a requested generated-file-layout or web-UI handoff, or when a
