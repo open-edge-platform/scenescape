@@ -37,7 +37,8 @@ Step 1 if:
 For an explicit resume signal, do not test the local sandbox for file existence or treat a
 missing local path as a contradiction. The signal is sufficient confirmation: show the read-back
 command, show the resume command, and state that `.deploy-state.json` selects the next
-incomplete step.
+incomplete step. Use this exact sentence in the response: "The orchestrator resumes from the
+step recorded in `.deploy-state.json` rather than restarting from step 1."
 
 For a camera or stream change, read the existing inputs before creating the replacement set. If
 the read-back is unavailable, say that the new set replaces only the named camera/stream while
@@ -48,8 +49,12 @@ that a changed camera or stream set is not eligible for the Fast Path resume.
 In that unavailable-read-back case, do not execute a write or `--fresh` launch. State: "I could
 not read the existing deployment inputs. Please provide or confirm the retained camera IDs,
 streams, and scene name before the fresh redeploy." Then show the exact `--fresh` orchestrator
-command marked **pending confirmation**, explaining that it clears `.deploy-state.json` and the
-old `deploy-inputs.json`, and reruns **bootstrap**, **calibrate**, and **scene** rather than only
-recalibrating the changed camera. Never present retained-camera placeholders as runnable values.
-Use this exact sentence in the response: "`--fresh` clears `.deploy-state.json` and the old
-`deploy-inputs.json`."
+command marked **pending confirmation**. Never present retained-camera placeholders as runnable
+values. Use both of these exact sentences in the response:
+
+- "`--fresh` clears `.deploy-state.json` and the old `deploy-inputs.json`."
+- "This `--fresh` run re-executes all phases (bootstrap, calibrate, scene) rather than only
+  recalibrating the changed camera."
+
+When the read-back *is* available and the user has confirmed the full updated camera/stream set,
+still include both exact `--fresh` sentences above when showing the launch command.

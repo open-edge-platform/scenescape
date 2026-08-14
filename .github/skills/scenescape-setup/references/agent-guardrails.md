@@ -43,7 +43,7 @@ execution.
 - Before executing an orchestrator command, obtain the user's authorization to deploy or resume;
   an explicit request to deploy, continue, or resume is sufficient. Otherwise, show the command
   and ask. Always obtain separate explicit confirmation before executing `--fresh`.
-- **Do not read** `docker-compose-template.md` or `sample_data/` unless troubleshooting a
+- **Do not read** `assets/docker-compose-template.md` or `sample_data/` unless troubleshooting a
   template bug. Pipeline generation is defined in `pipeline-config.md`.
 - **Do not** dump raw `docker compose logs`; use `check_service_health.py` and focused log
   filters.

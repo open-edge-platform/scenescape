@@ -20,7 +20,7 @@ MEDIAMTX_IMAGE = "bluenviron/mediamtx:1.18.1"
 
 def skill_dir_from_arg(value: Path) -> Path:
   path = value.resolve()
-  if not (path / "references" / "docker-compose-template.md").is_file():
+  if not (path / "assets" / "docker-compose-template.md").is_file():
     raise ValueError(f"Not a scenescape-setup skill directory: {path}")
   return path
 
@@ -114,7 +114,7 @@ def generate_docker_compose(skill_dir: Path, deploy_dir: Path) -> None:
   """Extract the ```yaml fenced block from the compose template and substitute
   ${SECRETSDIR}. Done in pure Python (no shell) since deploy_dir/secrets_dir are
   user-supplied paths and must never be interpolated into a shell command string."""
-  template = skill_dir / "references" / "docker-compose-template.md"
+  template = skill_dir / "assets" / "docker-compose-template.md"
   secrets_dir = deploy_dir / "secrets"
 
   lines: list[str] = []

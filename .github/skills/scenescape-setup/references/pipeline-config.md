@@ -19,7 +19,7 @@ upstream SceneScape repo into `<deploy_dir>/dlstreamer-pipeline-server/`.
 
 Compose mounts those files into
 `/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/` so GStreamer can load them as
-elements — see [docker-compose-template.md](./docker-compose-template.md).
+elements — see [docker-compose-template.md](../assets/docker-compose-template.md).
 
 `adapt_pipeline_config.py` **generates** `<deploy_dir>/dlstreamer-pipeline-server/pipeline-config.json`
 from `deploy-inputs.json` using the specification below. No upstream `queuing-config.json` is

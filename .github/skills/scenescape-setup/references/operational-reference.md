@@ -59,7 +59,7 @@ tracked objects are associated with more than one camera ID for a multi-camera d
 | Scene only | [phase-scene.md](./phase-scene.md) |
 | Pipeline configuration | [pipeline-config.md](./pipeline-config.md) |
 | MQTT configuration | [mosquitto-config.md](./mosquitto-config.md) |
-| Compose-template failure | [docker-compose-template.md](./docker-compose-template.md) |
+| Compose-template failure | [docker-compose-template.md](../assets/docker-compose-template.md) |
 | RTSP or health-check failure | [runtime-verification.md](./runtime-verification.md) |
 | File-backed RTSP / MediaMTX publisher | [video-file-publishing.md](./video-file-publishing.md) |
 | Local video input gathering | [video-file-input.md](./video-file-input.md) |

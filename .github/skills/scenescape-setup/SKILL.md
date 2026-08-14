@@ -112,12 +112,20 @@ Verify: `ls "$SKILL_DIR/scripts/deploy_scenescape.sh"` must succeed before conti
 
 Do **not** ask tuning questions upfront during Step 1 — always deploy with the shipped
 `tracker-config.json` / `reid-config.json` defaults first. Open the matching questionnaire only
-**after** the user reports tracking/Re-ID dissatisfaction. Present only the questionnaire for
-the reported symptom (numbered questions in your response), then apply the resulting values
-yourself — edit `<deploy_dir>/controller/tracker-config.json` / `reid-config.json` (the deployed
-copy, not the skill's `assets/` file) and run `docker compose up -d --force-recreate scene`.
-Load exactly one matching reference (tracker timing vs cross-camera Re-ID), and state which one
-you used.
+**after** the user reports tracking/Re-ID dissatisfaction. In that first response:
+
+1. State which reference you opened (`tuning-tracker.md` or `tuning-reid.md` — exactly one).
+2. Present that reference's numbered questionnaire in your reply.
+3. In the **same turn**, apply symptom-derived starter values from that reference's
+   recommendation logic to the deployed copy at
+   `<deploy_dir>/controller/tracker-config.json` or
+   `<deploy_dir>/controller/reid-config.json` (never the skill's `assets/` originals). Show the
+   exact JSON field changes and the exact restart command
+   `docker compose up -d --force-recreate scene`.
+4. Note that questionnaire answers can further refine the starter values.
+
+Do not skip the questionnaire, and do not skip showing the deployed-path edits + scene-only
+restart. Load exactly one matching reference (tracker timing vs cross-camera Re-ID).
 
 ## Quality & Evaluation
 

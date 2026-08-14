@@ -44,11 +44,22 @@ bash "$SKILL_DIR/scripts/watch_orchestrator.sh" \
    step and continue diagnosis — do not dump full compose logs.
 
 For a video-file deployment, use the synthesized RTSP streams from `deploy_inputs.py read` in
-the same command. Every full-deployment response must state that step 9 produces one calibration
-JPEG per camera ID; step 13 confirms tracked objects are associated with more than one
-`camera_id`; and success is `DEPLOY COMPLETE` with a `scene_uid`. End with a `Post-task metrics`
-breakdown listing requirements-gathering, bootstrap, calibration, scene-and-verification, and
-total wall-clock.
+the same command. Every full-deployment response (including dry-run / plan-only harness runs)
+must state all of the following in the response text itself — not only as comments inside a
+shell snippet:
+
+- Step 9 produces one calibration JPEG per camera ID.
+- Step 13 confirms tracked objects are associated with more than one `camera_id`.
+- Success is marked by `DEPLOY COMPLETE` with a `scene_uid`.
+- The watcher is subscribed with notify pattern `RESULT=` (use that exact token).
+- A `Post-task metrics` breakdown listing these five categories:
+  requirements-gathering, bootstrap, calibration, scene-and-verification, and total
+  wall-clock.
+
+Use this exact sentence when describing the watcher: "Notify on `RESULT=` so completion is
+reported without asking the user to poll status." Use this exact sentence for the metrics
+header: "Post-task metrics: requirements-gathering, bootstrap, calibration,
+scene-and-verification, total wall-clock."
 
 ## Deployment README (after `DEPLOY COMPLETE`)
 
