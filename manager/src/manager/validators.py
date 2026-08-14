@@ -5,7 +5,7 @@ import os
 import re
 import tempfile
 import uuid
-from zipfile import ZipFile
+from zipfile import BadZipFile, ZipFile
 
 from django.core.exceptions import ValidationError
 import open3d as o3d
@@ -47,6 +47,26 @@ def validate_ply(value):
     value.seek(0)
   except Exception as e:
     raise ValidationError(f"Invalid PLY file: {str(e)}")
+  return value
+
+def validate_mapping_bundle_zip(value):
+  """! Verify a shared mapping-bundle upload is a readable, non-empty zip.
+
+  Unlike validate_zip_file (which requires a polycam dataset layout), a mapping
+  bundle just packages SLAM artifacts (rtabmap.db, baseline point cloud/mesh,
+  metadata) with no required internal folder structure.
+  """
+  try:
+    with ZipFile(value, "r") as zf:
+      bad_entry = zf.testzip()
+      if bad_entry is not None:
+        raise ValidationError(f"Corrupt entry in mapping bundle: {bad_entry}")
+      if not zf.namelist():
+        raise ValidationError("Mapping bundle zip is empty")
+  except BadZipFile as e:
+    raise ValidationError(f"Invalid zip file: {e}")
+  finally:
+    value.seek(0)
   return value
 
 def validate_map_file(value):
