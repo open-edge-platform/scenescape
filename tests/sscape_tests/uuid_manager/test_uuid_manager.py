@@ -1742,6 +1742,34 @@ class TestPruneInactiveTracksMetrics:
     mock_metrics.record_reid_total_tracked_object_count.assert_not_called()
     mock_metrics.record_reid_tracked_object_count.assert_called_once_with(0, None)
 
+  @patch('controller.uuid_manager.metrics')
+  @patch('controller.uuid_manager.TrackedObjectRegistry')
+  def test_metric_objects_decouples_count_from_prune_retention_set(
+      self, mock_registry_class, mock_metrics, mock_vdms_db):
+    """Reliable-only metrics must not inflate when prune retains suspended tracks."""
+    mock_registry_instance = MagicMock()
+    mock_registry_instance.getTotalCount.return_value = 1
+    mock_registry_class.getInstance.return_value = mock_registry_instance
+
+    manager = UUIDManager()
+    manager.scene_id = "scene_1"
+    manager._category = "person"
+    manager._category_has_embeddings = True
+    with manager.active_ids_lock:
+      manager.active_ids[1] = ["gid_reliable", 0.9]
+      manager.active_ids[3] = ["gid_suspended", None]
+
+    reliable = [MagicMock(id=1)]
+    all_active = [MagicMock(id=1), MagicMock(id=3)]
+    manager.pruneInactiveTracks(all_active, metric_objects=reliable)
+
+    mock_metrics.record_reid_tracked_object_count.assert_called_once_with(
+      1, {'category': 'person'})
+    mock_registry_instance.updateCategoryCount.assert_called_once_with(
+      "scene_1", "person", 1)
+    assert 1 in manager.active_ids, "Reliable mapping must be retained"
+    assert 3 in manager.active_ids, "Suspended mapping must still be retained for UUID continuity"
+
 
 class TestShutdownRegistryCleanup:
   """Test that shutdown() removes this category's contribution from the registry."""

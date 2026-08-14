@@ -15,7 +15,7 @@ tracked object has no matching entry in all_tracker_objects.
 """
 
 import uuid as uuid_module
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 
@@ -114,8 +114,8 @@ class TestGIDReuseAcrossOcclusion:
 
     ilabs_tracker.from_tracked_object(tracked_obj, [sscape_obj])
 
-    sscape_obj.setGID.assert_called_once_with(original_gid), \
-      "Existing GID from active_ids must be reused for a returning rv_id"
+    assert sscape_obj.setGID.call_args == call(original_gid), (
+      "Existing GID from active_ids must be reused for a returning rv_id")
 
   def test_uuid_used_as_gid_when_rv_id_not_in_active_ids(self, ilabs_tracker):
     """When rv_id has no existing active_ids entry, the UUID must be used as initial GID.
@@ -138,8 +138,8 @@ class TestGIDReuseAcrossOcclusion:
 
     ilabs_tracker.from_tracked_object(tracked_obj, [sscape_obj])
 
-    sscape_obj.setGID.assert_called_once_with(obj_uuid), \
-      "UUID from tracked object must be used as GID when rv_id is brand new"
+    assert sscape_obj.setGID.call_args == call(obj_uuid), (
+      "UUID from tracked object must be used as GID when rv_id is brand new")
 
   def test_none_gid_in_active_ids_falls_back_to_uuid(self, ilabs_tracker):
     """When active_ids holds [None, None] for rv_id, the UUID must be used as GID.
@@ -160,8 +160,8 @@ class TestGIDReuseAcrossOcclusion:
 
     ilabs_tracker.from_tracked_object(tracked_obj, [sscape_obj])
 
-    sscape_obj.setGID.assert_called_once_with(obj_uuid), \
-      "UUID must be used as GID when existing active_ids entry has None GID"
+    assert sscape_obj.setGID.call_args == call(obj_uuid), (
+      "UUID must be used as GID when existing active_ids entry has None GID")
 
   def test_gid_not_changed_when_previous_object_found_in_all_tracker_objects(self, ilabs_tracker):
     """When a previous object is found in all_tracker_objects, setPrevious is used instead.
@@ -188,7 +188,59 @@ class TestGIDReuseAcrossOcclusion:
 
     ilabs_tracker.from_tracked_object(tracked_obj, [sscape_obj])
 
-    sscape_obj.setGID.assert_not_called(), \
-      "setGID must not be called when object is found via all_tracker_objects"
-    sscape_obj.setPrevious.assert_called_once_with(prev_obj), \
-      "setPrevious must be called when matching previous object is found"
+    assert sscape_obj.setGID.call_count == 0, (
+      "setGID must not be called when object is found via all_tracker_objects")
+    assert sscape_obj.setPrevious.call_args == call(prev_obj), (
+      "setPrevious must be called when matching previous object is found")
+
+
+class TestTrackCategoryPruneWiring:
+  """Verify trackCategory wires suspended/unreliable tracks into prune.
+
+  Without this wiring, UUID mappings for occluded objects are dropped even
+  though from_tracked_object knows how to reuse them on reappearance.
+  """
+
+  def test_track_category_prunes_with_all_active_states_and_reliable_metrics(
+      self, ilabs_tracker):
+    reliable = [Mock(id=1)]
+    unreliable = [Mock(id=2)]
+    suspended = [Mock(id=3)]
+    ilabs_tracker.tracker.get_reliable_tracks.return_value = reliable
+    ilabs_tracker.tracker.get_unreliable_tracks.return_value = unreliable
+    ilabs_tracker.tracker.get_suspended_tracks.return_value = suspended
+    ilabs_tracker.update_tracks = Mock()
+    ilabs_tracker.from_tracked_object = Mock(return_value=MagicMock())
+    ilabs_tracker.mergeAlreadyTrackedObjects = Mock(return_value=[])
+    ilabs_tracker.uuid_manager.pruneInactiveTracks = Mock()
+
+    ilabs_tracker.trackCategory([], 0.0, [])
+
+    prune_args, prune_kwargs = ilabs_tracker.uuid_manager.pruneInactiveTracks.call_args
+    retained_ids = {track.id for track in prune_args[0]}
+    assert retained_ids == {1, 2, 3}, (
+      "Prune retention set must include reliable, unreliable, and suspended tracks")
+    assert prune_kwargs.get('metric_objects') is reliable, (
+      "ReID metrics must use reliable tracks only")
+
+  def test_track_category_batched_prunes_with_all_active_states_and_reliable_metrics(
+      self, ilabs_tracker):
+    reliable = [Mock(id=10)]
+    unreliable = [Mock(id=20)]
+    suspended = [Mock(id=30)]
+    ilabs_tracker.tracker.get_reliable_tracks.return_value = reliable
+    ilabs_tracker.tracker.get_unreliable_tracks.return_value = unreliable
+    ilabs_tracker.tracker.get_suspended_tracks.return_value = suspended
+    ilabs_tracker.update_tracks_batched = Mock()
+    ilabs_tracker.from_tracked_object = Mock(return_value=MagicMock())
+    ilabs_tracker.mergeAlreadyTrackedObjects = Mock(return_value=[])
+    ilabs_tracker.uuid_manager.pruneInactiveTracks = Mock()
+
+    ilabs_tracker.trackCategoryBatched([[]], 0.0, [])
+
+    prune_args, prune_kwargs = ilabs_tracker.uuid_manager.pruneInactiveTracks.call_args
+    retained_ids = {track.id for track in prune_args[0]}
+    assert retained_ids == {10, 20, 30}, (
+      "Batched prune retention set must include all active track states")
+    assert prune_kwargs.get('metric_objects') is reliable, (
+      "Batched ReID metrics must use reliable tracks only")

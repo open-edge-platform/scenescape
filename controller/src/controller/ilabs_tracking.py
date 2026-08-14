@@ -257,13 +257,15 @@ class IntelLabsTracking(Tracking):
     when = datetime.fromtimestamp(when)
     self.update_tracks(objects, when)
     reliable_tracks = self.tracker.get_reliable_tracks()
-    # Include ALL active C++ tracks to preserve UUID mappings
+    # Include ALL active C++ tracks to preserve UUID mappings. Metrics still
+    # use reliable_tracks only so suspended/unreliable do not inflate gauges.
     all_active_tracks = set(chain(
       reliable_tracks,
       self.tracker.get_unreliable_tracks(),
       self.tracker.get_suspended_tracks()))
     tracked_objects = reliable_tracks
-    self.uuid_manager.pruneInactiveTracks(all_active_tracks)
+    self.uuid_manager.pruneInactiveTracks(
+      all_active_tracks, metric_objects=reliable_tracks)
     tracks_from_detections = [self.from_tracked_object(tracked_object, objects)
                               for tracked_object in tracked_objects]
 
@@ -277,13 +279,15 @@ class IntelLabsTracking(Tracking):
     when = datetime.fromtimestamp(when)
     self.update_tracks_batched(objects_per_camera, when)
     reliable_tracks = self.tracker.get_reliable_tracks()
-    # Include ALL active C++ tracks to preserve UUID mappings
+    # Include ALL active C++ tracks to preserve UUID mappings. Metrics still
+    # use reliable_tracks only so suspended/unreliable do not inflate gauges.
     all_active_tracks = set(chain(
       reliable_tracks,
       self.tracker.get_unreliable_tracks(),
       self.tracker.get_suspended_tracks()))
     tracked_objects = reliable_tracks
-    self.uuid_manager.pruneInactiveTracks(all_active_tracks)
+    self.uuid_manager.pruneInactiveTracks(
+      all_active_tracks, metric_objects=reliable_tracks)
 
     # Flatten all objects for from_tracked_object lookup
     all_objects = [obj for camera_objects in objects_per_camera for obj in camera_objects]
