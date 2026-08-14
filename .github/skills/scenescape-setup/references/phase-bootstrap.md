@@ -38,7 +38,7 @@ bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
 Resume: `--deploy-dir` + `--skill-dir` only (loads `deploy-inputs.json`).
 
 This phase can take several minutes (Docker pulls, model downloads, RTSP warmup) — launch it
-asynchronously with `watch_orchestrator.sh` (see SKILL.md Deploy and complete) rather than
+asynchronously with `watch_orchestrator.sh` (see [deploy-and-complete.md](./deploy-and-complete.md)) rather than
 blocking or asking the user to poll.
 
 ## Reference Lookup

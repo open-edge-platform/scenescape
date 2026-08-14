@@ -34,7 +34,7 @@ bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
 Omit streams/camera IDs — loaded from `deploy-inputs.json`.
 
 Mapping health checks (step 10) can take up to a few minutes to become ready; launch
-asynchronously with `watch_orchestrator.sh` (see SKILL.md Deploy and complete) rather than
+asynchronously with `watch_orchestrator.sh` (see [deploy-and-complete.md](./deploy-and-complete.md)) rather than
 blocking or asking the user to poll.
 
 ## Reference Lookup
