@@ -577,6 +577,10 @@ class SceneSerializer(NonNullSerializer):
   children = serializers.SerializerMethodField('get_children')
   map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z", required=False, allow_null=True)
   trs_matrix = serializers.SerializerMethodField('get_trs_matrix')
+  mapping_bundle_updated = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z", required=False,
+                            allow_null=True, read_only=True)
+  mapping_bundle_contributor = serializers.CharField(required=False, read_only=True)
+  has_mapping_bundle = serializers.SerializerMethodField('get_has_mapping_bundle')
 
   def validate(self, attrs):
     if not self.initial_data:
@@ -628,6 +632,9 @@ class SceneSerializer(NonNullSerializer):
     if obj.trs_matrix:
       return obj.trs_matrix
     return None
+
+  def get_has_mapping_bundle(self, obj):
+    return bool(obj.mapping_bundle)
 
   def to_representation(self, instance):
     ret = super().to_representation(instance)
@@ -852,7 +859,8 @@ class SceneSerializer(NonNullSerializer):
               'camera_calibration', 'apriltag_size', 'map_processed', 'polycam_data',
               'number_of_localizations', 'global_feature', 'local_feature', 'matcher',
               'minimum_number_of_matches', 'inlier_threshold', 'geospatial_provider', 'map_zoom',
-              'map_center_lat', 'map_center_lng', 'map_bearing']
+              'map_center_lat', 'map_center_lng', 'map_bearing', 'mapping_bundle_updated',
+              'mapping_bundle_contributor', 'has_mapping_bundle']
 
 class PubSubACLSerializer(NonNullSerializer):
   class Meta:

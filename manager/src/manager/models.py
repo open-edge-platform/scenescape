@@ -32,7 +32,7 @@ from scene_common.options import *
 from scene_common.scene_model import SceneModel as ScenescapeScene
 from scene_common.scenescape import SceneLoader
 from scene_common.timestamp import get_epoch_time
-from manager.validators import validate_map_file, validate_glb, validate_map_corners_lla
+from manager.validators import validate_map_file, validate_glb, validate_map_corners_lla, validate_mapping_bundle_zip
 from manager.fields import ListField
 
 from scene_common import log
@@ -116,6 +116,18 @@ class Scene(models.Model):
                             validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip","ply","mp4",
                             "mov", "mkv", "webm", "avi"]),
                                         validate_map_file])
+  # Shared SLAM artifacts (rtabmap.db + baseline point cloud/mesh/metadata) contributed by
+  # handheld mapping sessions, separate from `map` (the renderable glb/ply/image/video).
+  # A second handheld pulls this bundle to resume/relocalize into the same map instead of
+  # starting from scratch. No merge/conflict resolution yet — last upload wins.
+  mapping_bundle = models.FileField(
+    "Shared mapping session artifacts (SLAM database + baseline) as a .zip bundle",
+    default=None, null=True, blank=True,
+    validators=[FileExtensionValidator(["zip"]), validate_mapping_bundle_zip])
+  mapping_bundle_updated = models.DateTimeField("Mapping bundle last updated", default=None, null=True,
+                            blank=True, editable=False)
+  mapping_bundle_contributor = models.CharField("Mapping bundle last contributor", max_length=200,
+                            default="", blank=True, editable=False)
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
                             validators=[MinValueValidator(5e-324)])
   use_tracker = models.BooleanField("Use tracker", choices=BOOLEAN_CHOICES, default=True, blank=True)

@@ -10,8 +10,9 @@ import asyncio
 from datetime import datetime, timezone
 
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, OperationalError, connection
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from rest_framework.views import APIView
 from rest_framework import authentication, permissions
 from rest_framework.response import Response
@@ -23,6 +24,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from manager.models import Scene, Cam, SingletonSensor, Region, Tripwire, Asset3D, ChildScene, CalibrationMarker, DatabaseStatus, PubSubACL
 from manager.serializers import *
 from manager.scene_import import ImportScene
+from manager.validators import validate_mapping_bundle_zip
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.mqtt import PubSub
 from scene_common.options import *
@@ -108,6 +110,81 @@ class SceneImportAPIView(APIView):
     coroutine = scene.loadScene()
     errors = asyncio.run(coroutine)
     return Response(errors, status=status.HTTP_201_CREATED)
+
+
+class SceneMappingBundleView(APIView):
+  """!Upload/download the shared mapping-session bundle for a scene.
+
+  This is separate from the visualization `map` field (a renderable glb/ply/
+  image/video): the bundle carries the raw SLAM artifacts (rtabmap.db,
+  baseline point cloud/mesh, metadata) a handheld needs to resume mapping or
+  relocalize into a map another handheld already built, cached locally just
+  like a restarting handheld does with its own map. No merge/conflict
+  resolution yet — each upload simply replaces the scene's stored bundle.
+  """
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [permissions.IsAuthenticated]
+
+  def _get_scene(self, scene_id):
+    try:
+      return Scene.objects.get(pk=scene_id)
+    except (Scene.DoesNotExist, ValueError, DjangoValidationError):
+      return None
+
+  def get(self, request, scene_id):
+    """!Download the scene's mapping bundle, or 404 if none has been contributed."""
+    scene = self._get_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    if not scene.mapping_bundle:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    filename = os.path.basename(scene.mapping_bundle.name) or "mapping_bundle.zip"
+    response = FileResponse(scene.mapping_bundle.open('rb'), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+  def put(self, request, scene_id):
+    """!Replace the scene's mapping bundle. Multipart field: `mapping_bundle`.
+
+    Optional `contributor` form field records who last contributed (e.g. the
+    handheld's camera_id) for basic provenance — no fusion/merge logic yet.
+    """
+    scene = self._get_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+
+    upload = request.FILES.get('mapping_bundle')
+    if upload is None:
+      return Response({"error": "mapping_bundle file is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+      validate_mapping_bundle_zip(upload)
+    except DjangoValidationError as exc:
+      return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    scene.mapping_bundle = upload
+    scene.mapping_bundle_updated = get_iso_time()
+    scene.mapping_bundle_contributor = str(request.data.get('contributor') or '')[:200]
+    scene.save(update_fields=['mapping_bundle', 'mapping_bundle_updated', 'mapping_bundle_contributor'])
+
+    log.info("Mapping bundle uploaded for scene", scene.pk, "by", scene.mapping_bundle_contributor or "unknown")
+    return Response({
+      "uid": scene.pk,
+      "mapping_bundle_updated": scene.mapping_bundle_updated,
+      "mapping_bundle_contributor": scene.mapping_bundle_contributor,
+    }, status=status.HTTP_200_OK)
+
+  def delete(self, request, scene_id):
+    """!Clear the scene's mapping bundle."""
+    scene = self._get_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    scene.mapping_bundle.delete(save=False)
+    scene.mapping_bundle = None
+    scene.mapping_bundle_updated = None
+    scene.mapping_bundle_contributor = ""
+    scene.save(update_fields=['mapping_bundle', 'mapping_bundle_updated', 'mapping_bundle_contributor'])
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ManageThing(APIView):
   authentication_classes = [authentication.TokenAuthentication]

@@ -174,6 +174,11 @@ class SceneController:
     }
     metrics.record_object_count(len(objects), metric_attributes)
 
+    if camera_id is not None:
+      jdata['camera_id'] = camera_id
+      if isinstance(jdata.get('extrinsics'), dict):
+        jdata['camera_pose'] = jdata['extrinsics']
+
     self.publishSceneDetections(scene, objects, otype, jdata)
     return
 

@@ -83,6 +83,22 @@ class AnalyticsService:
   def shouldPublish(self, last, now, max_delay):
     return last is None or now - last >= max_delay
 
+  @staticmethod
+  def _camera_state(camera):
+    pose = camera.pose
+    intrinsics = pose.intrinsics.asDict()
+    width, height = pose.intrinsics.getResolutionFromIntrinsics()
+    return {
+      'uid': camera.cameraID,
+      'name': camera.cameraID,
+      'translation': pose.translation.asNumpyCartesian.tolist(),
+      'rotation': pose.quaternion_rotation.tolist(),
+      'scale': pose.scale,
+      'intrinsics': intrinsics['intrinsics'],
+      'distortion': intrinsics['distortion'],
+      'resolution': {'width': width, 'height': height},
+    }
+
   def calculateRate(self):
     now = get_epoch_time()
     if not hasattr(self, "regulate_rate"):
@@ -100,8 +116,38 @@ class AnalyticsService:
     scene_uid = scene_obj.uid
 
     if scene_uid not in self.regulate_cache:
-      self.regulate_cache[scene_uid] = {'objects': {}, 'rate': {}, 'last': None}
+      self.regulate_cache[scene_uid] = {
+        'objects': {}, 'rate': {}, 'last': None,
+        'camera_states': {}, 'dynamic_camera_poses': {},
+      }
     scene = self.regulate_cache[scene_uid]
+
+    configured_ids = set(scene_obj.cameras.keys())
+    for configured_id in configured_ids:
+      camera = scene_obj.cameras[configured_id]
+      state = self._camera_state(camera)
+      state['dynamic_pose'] = False
+      dynamic_pose = scene['dynamic_camera_poses'].get(configured_id)
+      if dynamic_pose:
+        state.update(dynamic_pose)
+        state['dynamic_pose'] = True
+      scene['camera_states'][configured_id] = state
+    for removed_id in set(scene['camera_states']) - configured_ids:
+      scene['camera_states'].pop(removed_id, None)
+
+    message_camera_id = jdata.get('camera_id') or camera_id
+    message_pose = jdata.get('camera_pose') or jdata.get('extrinsics')
+    if message_camera_id and isinstance(message_pose, dict):
+      scene['dynamic_camera_poses'][message_camera_id] = {
+        'translation': message_pose.get('translation', [0, 0, 0]),
+        'rotation': message_pose.get('rotation', [0, 0, 0, 1]),
+        'scale': message_pose.get('scale', [1, 1, 1]),
+      }
+      if message_camera_id in scene['camera_states']:
+        scene['camera_states'][message_camera_id].update(
+          scene['dynamic_camera_poses'][message_camera_id]
+        )
+        scene['camera_states'][message_camera_id]['dynamic_pose'] = True
 
     scene['objects'][otype] = buildDetectionsList(
       msg_objects, scene_obj,
@@ -141,6 +187,7 @@ class AnalyticsService:
         'name': jdata['name'],
         'scene_rate': round(1 / update_rate, 1),
         'rate': scene['rate'],
+        'cameras': list(scene['camera_states'].values()),
       }
       jstr = orjson.dumps(new_jdata, option=orjson.OPT_SERIALIZE_NUMPY)
       self.pubsub.publish(PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid), jstr)
