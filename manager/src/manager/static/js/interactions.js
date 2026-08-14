@@ -12,9 +12,17 @@ import {
 import SceneCamera from "/static/js/thing/scenecamera.js";
 
 function isMeshToProjectOn(intersect) {
-  return SCENE_MESH_NAMES.some((name) =>
+  if (SCENE_MESH_NAMES.some((name) =>
     intersect.object.name.toLowerCase().includes(name),
-  );
+  )) return true;
+
+  // GLBs may use arbitrary internal mesh names beneath the scene root.
+  let object = intersect.object.parent;
+  while (object) {
+    if (object.name === "3d_scene") return true;
+    object = object.parent;
+  }
+  return false;
 }
 
 function SetupMarkHover(scene, domElement, marks, getCamera) {

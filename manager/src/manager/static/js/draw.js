@@ -43,9 +43,14 @@ const POINT_GEOMETRY = new THREE.SphereGeometry(
  */
 function extractGeometry(gltf) {
   const geometries = [];
+  gltf.updateWorldMatrix(true, true);
+  const rootInverse = gltf.matrixWorld.clone().invert();
   gltf.traverse((child) => {
     if (child.isMesh) {
-      geometries.push(child.geometry);
+      const geometry = child.geometry.clone();
+      const localToRoot = rootInverse.clone().multiply(child.matrixWorld);
+      geometry.applyMatrix4(localToRoot);
+      geometries.push(geometry);
     }
   });
 
@@ -258,6 +263,7 @@ class Draw {
     const mesh = new THREE.Mesh(geometry, physicalMaterial);
     mesh.position.copy(floorMesh.position);
     mesh.rotation.copy(floorMesh.rotation);
+    mesh.scale.copy(floorMesh.scale);
 
     const materials = [physicalMaterial, projectedMaterial];
     // allows multiple materials to be used with the geometry.
