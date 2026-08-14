@@ -809,8 +809,14 @@ class SceneSerializer(NonNullSerializer):
     glb_map_handled = False
     if map_path:
       uploaded_map = map_path
-      map_path = '/media/' + map_path.name
-      ext = os.path.splitext(map_path)[1].lower()
+      map_upload_uncommitted = getattr(uploaded_map, '_committed', True) is False
+      validated_data.pop('map', None)
+      try:
+        uploaded_map.seek(0)
+      except (AttributeError, OSError):
+        pass
+      instance.map.save(os.path.basename(uploaded_map.name), uploaded_map, save=False)
+      ext = os.path.splitext(instance.map.name)[1].lower()
 
       if ext == ".ply":
         glb_file = instance.map.path.replace(".ply", ".glb")
@@ -834,7 +840,7 @@ class SceneSerializer(NonNullSerializer):
         if is_update:
           map_changed = (
               instance._original_map != uploaded_map
-              or getattr(uploaded_map, '_committed', True) is False
+              or map_upload_uncommitted
           )
           if map_changed:
             instance.map = uploaded_map
@@ -850,6 +856,8 @@ class SceneSerializer(NonNullSerializer):
               setattr(instance, key, validated_data[key])
         elif map_changed:
           instance.autoAlignSceneMap()
+        if map_changed:
+          instance.map_processed = None
 
         instance.saveThumbnail()
         # Persist align + thumbnail fields. Create uses bulk_create and never
