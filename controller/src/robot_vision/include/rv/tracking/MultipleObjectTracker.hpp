@@ -127,6 +127,16 @@ public:
     return mTrackManager.getReliableTracks();
   }
 
+  inline std::vector<TrackedObject> getSuspendedTracks()
+  {
+    return mTrackManager.getSuspendedTracks();
+  }
+
+  inline std::vector<TrackedObject> getUnreliableTracks()
+  {
+    return mTrackManager.getUnreliableTracks();
+  }
+
   /**
    * @brief Returns a the list of all active tracked objects
    *

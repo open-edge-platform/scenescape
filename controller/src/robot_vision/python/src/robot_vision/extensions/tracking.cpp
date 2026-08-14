@@ -325,6 +325,12 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def("get_reliable_tracks",
          &rv::tracking::MultipleObjectTracker::getReliableTracks,
          "Returns a list of all active reliable tracks.")
+    .def("get_suspended_tracks",
+         &rv::tracking::MultipleObjectTracker::getSuspendedTracks,
+         "Returns a list of all suspended tracks.")
+    .def("get_unreliable_tracks",
+         &rv::tracking::MultipleObjectTracker::getUnreliableTracks,
+         "Returns a list of all active unreliable tracks.")
     .def("update_tracker_params",
          &rv::tracking::MultipleObjectTracker::updateTrackerParams,
          "Updates tracker frame based parameters.");

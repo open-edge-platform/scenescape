@@ -5,6 +5,7 @@ import math
 import json
 import uuid
 from datetime import datetime
+from itertools import chain
 
 import numpy as np
 import robot_vision as rv
@@ -199,7 +200,16 @@ class IntelLabsTracking(Tracking):
         sscape_object.inferRotationFromVelocity()
         break
     if not found:
-      sscape_object.setGID(object_uuid)
+      # Reuse an existing GID when this rv_id is still in active_ids
+      # (e.g. suspended/unreliable across occlusion); otherwise start from
+      # the per-detection UUID. AssignID may later replace the GID via Re-ID.
+      with self.uuid_manager.active_ids_lock:
+        existing_gid_data = self.uuid_manager.active_ids.get(sscape_object.rv_id)
+      existing_gid = existing_gid_data[0] if existing_gid_data else None
+      if existing_gid is None:
+        sscape_object.setGID(object_uuid)
+      else:
+        sscape_object.setGID(existing_gid)
 
     self.uuid_manager.assignID(sscape_object)
 
@@ -246,8 +256,16 @@ class IntelLabsTracking(Tracking):
     """Create reliable tracks for objects detected and tracks detected"""
     when = datetime.fromtimestamp(when)
     self.update_tracks(objects, when)
-    tracked_objects = self.tracker.get_reliable_tracks()
-    self.uuid_manager.pruneInactiveTracks(tracked_objects)
+    reliable_tracks = self.tracker.get_reliable_tracks()
+    # Include ALL active C++ tracks to preserve UUID mappings. Metrics still
+    # use reliable_tracks only so suspended/unreliable do not inflate gauges.
+    all_active_tracks = set(chain(
+      reliable_tracks,
+      self.tracker.get_unreliable_tracks(),
+      self.tracker.get_suspended_tracks()))
+    tracked_objects = reliable_tracks
+    self.uuid_manager.pruneInactiveTracks(
+      all_active_tracks, metric_objects=reliable_tracks)
     tracks_from_detections = [self.from_tracked_object(tracked_object, objects)
                               for tracked_object in tracked_objects]
 
@@ -260,8 +278,16 @@ class IntelLabsTracking(Tracking):
     """Create reliable tracks for objects from multiple cameras using batched tracking"""
     when = datetime.fromtimestamp(when)
     self.update_tracks_batched(objects_per_camera, when)
-    tracked_objects = self.tracker.get_reliable_tracks()
-    self.uuid_manager.pruneInactiveTracks(tracked_objects)
+    reliable_tracks = self.tracker.get_reliable_tracks()
+    # Include ALL active C++ tracks to preserve UUID mappings. Metrics still
+    # use reliable_tracks only so suspended/unreliable do not inflate gauges.
+    all_active_tracks = set(chain(
+      reliable_tracks,
+      self.tracker.get_unreliable_tracks(),
+      self.tracker.get_suspended_tracks()))
+    tracked_objects = reliable_tracks
+    self.uuid_manager.pruneInactiveTracks(
+      all_active_tracks, metric_objects=reliable_tracks)
 
     # Flatten all objects for from_tracked_object lookup
     all_objects = [obj for camera_objects in objects_per_camera for obj in camera_objects]

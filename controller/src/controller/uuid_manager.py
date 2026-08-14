@@ -400,15 +400,23 @@ class UUIDManager:
       return None
     return getattr(source, 'cameraID', None) or getattr(source, 'uid', None)
 
-  def pruneInactiveTracks(self, tracked_objects):
+  def pruneInactiveTracks(self, tracked_objects, metric_objects=None):
     """
     Removes inactive tracks from the active_ids dict.
     Note: Stale feature flushing is now handled by a background timer in _flushStaleFeatures()
     that runs every 1 second and flushes features older than 5 seconds.
 
-    @param  tracked_objects  The objects currently tracked by the tracker
+    @param  tracked_objects  Tracks whose UUID mappings must be retained (may include
+                             unreliable/suspended tracks for occlusion continuity)
+    @param  metric_objects   Optional subset used for ReID active-track metrics/registry.
+                             Defaults to tracked_objects. Callers that expand the prune
+                             set for UUID retention should pass reliable tracks here so
+                             suspended/unreliable tracks do not inflate gauges.
     """
-    active_tracks = [tracked_object.id for tracked_object in tracked_objects]
+    # Use a set so membership checks during pruning are O(1). Callers may
+    # pass reliable + unreliable + suspended tracks to preserve UUID
+    # continuity across brief occlusions.
+    active_tracks = {tracked_object.id for tracked_object in tracked_objects}
 
     # Metrics: count of currently active tracked objects/persons, but only
     # for categories confirmed to produce ReID embeddings (e.g. excludes
@@ -419,8 +427,11 @@ class UUIDManager:
     # category is actively producing embeddings and being matched. Tagged
     # with category so multiple tracked categories (e.g. person + car)
     # don't overwrite each other's values on the same unlabeled series.
+    # Keep the metric denominator independent of the prune retention set.
+    metric_source = tracked_objects if metric_objects is None else metric_objects
+    metric_track_ids = {tracked_object.id for tracked_object in metric_source}
     tracked_object_attributes = {'category': self._category} if self._category is not None else None
-    category_count = len(active_tracks) if self._category_has_embeddings else 0
+    category_count = len(metric_track_ids) if self._category_has_embeddings else 0
     metrics.record_reid_tracked_object_count(category_count, tracked_object_attributes)
 
     # Report this category's count into the shared registry, then emit the
@@ -1307,9 +1318,8 @@ class UUIDManager:
     # If reid is disabled, mark object state immediately (no query will be made)
     if not self.reid_enabled:
       sscape_object.reid_state = ReidState.REID_DISABLED
-
     # Continue gathering features until we have enough or query is already submitted
-    if sscape_object.rv_id not in self.active_query and self.reid_enabled:
+    elif sscape_object.rv_id not in self.active_query:
       self.gatherQualityVisualFeatures(sscape_object)
       sufficient_features = self.haveSufficientVisualFeatures(sscape_object)
       feature_count = self.quality_observation_counts.get(sscape_object.rv_id, 0)

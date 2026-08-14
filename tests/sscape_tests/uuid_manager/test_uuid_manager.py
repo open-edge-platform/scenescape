@@ -903,6 +903,132 @@ class TestDimensionInference:
     assert "track_2" not in manager.quality_features, "128-dim embedding should be rejected after 64 inferred"
 
 
+class TestPruneInactiveTracks:
+  """Tests for UUID mapping preservation when pruning inactive tracks.
+
+  These tests verify that pruneInactiveTracks correctly preserves UUID
+  mappings for all active track states (reliable, unreliable, suspended)
+  and only removes entries for truly inactive tracks.
+
+  This is the core mechanism that enables UUID continuity across occlusions
+  (issue #1152): suspended/unreliable tracks must stay in active_ids so
+  that when they become reliable again, their original GID is still available.
+  """
+
+  def _make_track(self, track_id):
+    """Return a mock track object with the given numeric id."""
+    track = Mock()
+    track.id = track_id
+    return track
+
+  def test_prune_removes_tracks_absent_from_active_set(self, mock_vdms_db):
+    """UUID mappings for tracks NOT in the active set must be removed."""
+    manager = UUIDManager()
+    with manager.active_ids_lock:
+      manager.active_ids[1] = ["gid_active", 0.9]
+      manager.active_ids[2] = ["gid_gone", None]
+
+    manager.pruneInactiveTracks([self._make_track(1)])
+
+    assert 1 in manager.active_ids, "Active track mapping should be preserved"
+    assert 2 not in manager.active_ids, "Absent track mapping should be pruned"
+
+  def test_prune_preserves_tracks_present_in_active_set(self, mock_vdms_db):
+    """UUID mappings for all tracks present in the active set must be kept."""
+    manager = UUIDManager()
+    with manager.active_ids_lock:
+      manager.active_ids[10] = ["gid_10", 0.85]
+      manager.active_ids[11] = ["gid_11", 0.92]
+
+    manager.pruneInactiveTracks([self._make_track(10), self._make_track(11)])
+
+    assert 10 in manager.active_ids, "Track 10 mapping should be preserved"
+    assert 11 in manager.active_ids, "Track 11 mapping should be preserved"
+    assert manager.active_ids[10][0] == "gid_10", "GID for track 10 should be unchanged"
+    assert manager.active_ids[11][0] == "gid_11", "GID for track 11 should be unchanged"
+
+  def test_prune_preserves_uuid_for_suspended_tracks(self, mock_vdms_db):
+    """UUID mappings for suspended tracks must be preserved when they are in the active set.
+
+    Suspended tracks are objects that have temporarily left the field of view.
+    Their UUID entries must survive pruning so that the original GID is available
+    when the object reappears.
+    """
+    manager = UUIDManager()
+    suspended_gid = "gid_static_object"
+    with manager.active_ids_lock:
+      manager.active_ids[1] = ["gid_reliable", 0.9]
+      manager.active_ids[3] = [suspended_gid, None]
+
+    # Pass both reliable and suspended tracks together (as trackCategory now does)
+    manager.pruneInactiveTracks([self._make_track(1), self._make_track(3)])
+
+    assert 3 in manager.active_ids, "Suspended track UUID mapping should be preserved"
+    assert manager.active_ids[3][0] == suspended_gid, "Suspended track GID should be unchanged"
+
+  def test_prune_preserves_uuid_for_unreliable_tracks(self, mock_vdms_db):
+    """UUID mappings for unreliable tracks must be preserved when they are in the active set.
+
+    Unreliable tracks are objects that have been detected but not yet confirmed
+    reliable by the tracker. Their UUID entries must survive pruning to avoid
+    premature GID recycling.
+    """
+    manager = UUIDManager()
+    unreliable_gid = "gid_uncertain_object"
+    with manager.active_ids_lock:
+      manager.active_ids[5] = [unreliable_gid, None]
+
+    manager.pruneInactiveTracks([self._make_track(5)])
+
+    assert 5 in manager.active_ids, "Unreliable track UUID mapping should be preserved"
+    assert manager.active_ids[5][0] == unreliable_gid, "Unreliable track GID should be unchanged"
+
+  def test_prune_with_all_active_states_preserves_all_mappings(self, mock_vdms_db):
+    """When reliable, unreliable, and suspended tracks are all present, all mappings survive."""
+    manager = UUIDManager()
+    with manager.active_ids_lock:
+      manager.active_ids[1] = ["gid_reliable", 0.9]
+      manager.active_ids[2] = ["gid_unreliable", None]
+      manager.active_ids[3] = ["gid_suspended", None]
+
+    all_active = [self._make_track(1), self._make_track(2), self._make_track(3)]
+    manager.pruneInactiveTracks(all_active)
+
+    assert 1 in manager.active_ids, "Reliable track mapping should be preserved"
+    assert 2 in manager.active_ids, "Unreliable track mapping should be preserved"
+    assert 3 in manager.active_ids, "Suspended track mapping should be preserved"
+
+  def test_prune_with_empty_active_set_removes_all_mappings(self, mock_vdms_db):
+    """When no tracks are active, all UUID mappings must be cleared."""
+    manager = UUIDManager()
+    with manager.active_ids_lock:
+      manager.active_ids[1] = ["gid_1", 0.9]
+      manager.active_ids[2] = ["gid_2", 0.8]
+
+    manager.pruneInactiveTracks([])
+
+    assert len(manager.active_ids) == 0, "All UUID mappings should be pruned when no tracks are active"
+
+  def test_prune_without_suspended_tracks_loses_suspended_uuid_mapping(self, mock_vdms_db):
+    """Regression guard: omitting suspended tracks from the prune set causes UUID loss.
+
+    This test documents the pre-fix behavior and demonstrates why the fix
+    (including suspended tracks in all_active_tracks) is necessary.  If only
+    reliable tracks are passed, the suspended track entry is removed and the
+    object will receive a new GID on reappearance.
+    """
+    manager = UUIDManager()
+    with manager.active_ids_lock:
+      manager.active_ids[1] = ["gid_reliable", 0.9]
+      manager.active_ids[3] = ["gid_suspended", None]
+
+    # Simulate the old (unfixed) behavior: pass only reliable tracks
+    manager.pruneInactiveTracks([self._make_track(1)])
+
+    assert 3 not in manager.active_ids, \
+      "Suspended track mapping is lost when excluded from the active set (pre-fix regression)"
+
+
 def _make_reid_object(rv_id, *, bbox_area=None, provenance=None, embedding=None):
   """Build a detection whose embedding is either locally observed or forwarded to us."""
   obj = MagicMock()
@@ -1615,6 +1741,34 @@ class TestPruneInactiveTracksMetrics:
     mock_registry_instance.updateCategoryCount.assert_not_called()
     mock_metrics.record_reid_total_tracked_object_count.assert_not_called()
     mock_metrics.record_reid_tracked_object_count.assert_called_once_with(0, None)
+
+  @patch('controller.uuid_manager.metrics')
+  @patch('controller.uuid_manager.TrackedObjectRegistry')
+  def test_metric_objects_decouples_count_from_prune_retention_set(
+      self, mock_registry_class, mock_metrics, mock_vdms_db):
+    """Reliable-only metrics must not inflate when prune retains suspended tracks."""
+    mock_registry_instance = MagicMock()
+    mock_registry_instance.getTotalCount.return_value = 1
+    mock_registry_class.getInstance.return_value = mock_registry_instance
+
+    manager = UUIDManager()
+    manager.scene_id = "scene_1"
+    manager._category = "person"
+    manager._category_has_embeddings = True
+    with manager.active_ids_lock:
+      manager.active_ids[1] = ["gid_reliable", 0.9]
+      manager.active_ids[3] = ["gid_suspended", None]
+
+    reliable = [MagicMock(id=1)]
+    all_active = [MagicMock(id=1), MagicMock(id=3)]
+    manager.pruneInactiveTracks(all_active, metric_objects=reliable)
+
+    mock_metrics.record_reid_tracked_object_count.assert_called_once_with(
+      1, {'category': 'person'})
+    mock_registry_instance.updateCategoryCount.assert_called_once_with(
+      "scene_1", "person", 1)
+    assert 1 in manager.active_ids, "Reliable mapping must be retained"
+    assert 3 in manager.active_ids, "Suspended mapping must still be retained for UUID continuity"
 
 
 class TestShutdownRegistryCleanup:
