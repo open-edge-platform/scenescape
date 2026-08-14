@@ -63,7 +63,7 @@ written form elsewhere.
 - Before any deploy/resume/phase launch, read
   [agent-guardrails.md](./references/agent-guardrails.md).
 - Every orchestrator launch also starts `watch_orchestrator.sh` on the orchestrator PID in the
-  background, notifying on `ORCHESTRATOR_FINISHED|RESULT=`; never ask the user to poll status.
+  background, notifying on `RESULT=`; never ask the user to poll status.
 - Never invent camera IDs/streams/scene names; never interpolate raw inputs into ad hoc shell
   one-liners; destructive actions (`--fresh`, deleting `deploy_dir`, `docker compose down -v`)
   always need explicit confirmation.

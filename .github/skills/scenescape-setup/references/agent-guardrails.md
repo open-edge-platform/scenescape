@@ -63,4 +63,4 @@ execution.
   `export SKILL_DIR=...` on its own line first.
 - **Always attach the completion watcher** when launching the orchestrator (full deploy, resume,
   or `--phase`). Do **not** ask the user to poll for status; report back when the watcher
-  notifies `ORCHESTRATOR_FINISHED` / `RESULT=`.
+  notifies `RESULT=`.

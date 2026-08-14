@@ -24,7 +24,7 @@ ORCH_PID=$!
 echo "$ORCH_PID" >"<deploy_dir>/orchestrator.pid"
 
 # Background this watcher (do not block the agent turn). Configure tool notify_on_output
-# (or equivalent) with pattern: ORCHESTRATOR_FINISHED|RESULT=
+# (or equivalent) with pattern: RESULT=
 bash "$SKILL_DIR/scripts/watch_orchestrator.sh" \
   --deploy-dir <deploy_dir> \
   --pid "$ORCH_PID"
@@ -35,8 +35,7 @@ bash "$SKILL_DIR/scripts/watch_orchestrator.sh" \
 1. Start `watch_orchestrator.sh` in the background right after the orchestrator
    (`block_until_ms: 0` or equivalent). Pass the real orchestrator PID — never `pgrep` for
    `deploy_scenescape.sh` (that can match the watcher or the launching shell).
-2. Subscribe to output matching `ORCHESTRATOR_FINISHED|RESULT=` so the agent is woken when the
-   run ends.
+2. Subscribe to output matching `RESULT=` so the agent is woken when the run ends.
 3. Tell the user the deploy/resume is running and that you will report when it completes; do
    **not** instruct them to keep asking for status.
 4. When notified: on `RESULT=SUCCESS`, report `DEPLOY COMPLETE` / `scene_uid`, write the

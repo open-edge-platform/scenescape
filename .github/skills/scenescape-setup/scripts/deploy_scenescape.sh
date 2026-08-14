@@ -38,7 +38,7 @@ EOF
 
 log() {
   # shellcheck disable=SC2329
-  echo "$*" | tee -a "$LOG_FILE"
+  echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"
 }
 
 # Re-assert public CA/cert modes (0644). Sets SECRET_PERMS_CHANGED=1 when any
