@@ -62,6 +62,8 @@ class CamCalibrateForm(forms.ModelForm):
         del self.fields[field]
     self.fields['intrinsics_cx'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
     self.fields['intrinsics_cy'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
+    self.fields['width'].widget = forms.HiddenInput()
+    self.fields['height'].widget = forms.HiddenInput()
     self.fields['transform_type'].widget = forms.HiddenInput()
     self.fields['sensor_id'].label = "Camera ID"
     if settings.KUBERNETES_SERVICE_HOST:
