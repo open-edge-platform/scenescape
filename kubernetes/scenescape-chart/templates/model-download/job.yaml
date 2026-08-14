@@ -33,6 +33,8 @@ spec:
         imagePullPolicy: {{ .Values.modelDownload.image.pullPolicy }}
         name: {{ .Release.Name }}-model-download-container
         env:
+          - name: HF_HUB_ENABLE_HF_TRANSFER
+            value: "1"
           - name: MODEL_DOWNLOADER_ARGS
             value: {{ .Values.modelDownload.commandArgs | quote }}
           - name: MODEL_DOWNLOADER_URL

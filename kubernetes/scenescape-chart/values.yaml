@@ -37,8 +37,8 @@ modelDownload:
     pullPolicy: IfNotPresent
   commandArgs: "--plugins omz"
   parallelDownloads: false
-  initialWaitTimeout: 720
-  waitTimeout: 720
+  initialWaitTimeout: 1800
+  waitTimeout: 1800
   resources:
     requests:
       memory: "512Mi"
@@ -87,6 +87,9 @@ analytics:
 autocalibration:
   image: intel/scenescape-autocalibration
   pullPolicy: IfNotPresent
+  # When true, skip the ~550MB NetVLAD download at container start.
+  # Markerless calibration needs the model; deployment smoke tests do not.
+  skipModelDownload: false
 
 kubeclient:
   enabled: true
