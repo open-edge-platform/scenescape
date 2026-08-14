@@ -11,9 +11,9 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Service Overview
 
-The **Manager** service is the Django-based web UI and REST API gateway for Intel® SceneScape. It provides user-facing interfaces for system configuration, scene management, camera setup, and PostgreSQL-backed persistence for metadata and configuration.
+The **Manager** service is the Django-based web UI and REST API gateway for Scenescape. It provides user-facing interfaces for system configuration, scene management, camera setup, and PostgreSQL-backed persistence for metadata and configuration.
 
-**Primary Purpose**: Web interface and REST API for managing SceneScape configuration, user authentication, and metadata persistence.
+**Primary Purpose**: Web interface and REST API for managing Scenescape configuration, user authentication, and metadata persistence.
 
 ## Architecture & Components
 
@@ -69,7 +69,8 @@ The **Manager** service is the Django-based web UI and REST API gateway for Inte
 
 - `/api/v1/scenes/`: Scene management (CRUD)
 - `/api/v1/cameras/`: Camera configuration
-- `/api/v1/calibration/`: Trigger calibration
+- `/api/v1/calculateintrinsics/`: Calculate camera intrinsics
+- `/api/v1/aclcheck/`: Validate broker topic ACLs
 - `/api/v1/objects/`: Query tracked objects
 - `/api/v1/health/`: Health check
 
@@ -114,17 +115,6 @@ docker compose exec manager python manage.py migrate
 
 # Check migration status
 docker compose exec manager python manage.py showmigrations
-```
-
-### Testing
-
-```bash
-# Django unit tests
-docker compose exec manager python manage.py test
-
-# External acceptance tests
-SUPASS=<password> make setup_tests
-make -C tests manager-functional
 ```
 
 ### Running Locally
@@ -287,8 +277,8 @@ docker compose exec manager python manage.py showmigrations
 
 ### Auto Calibration
 
-- Manager UI triggers calibration requests
-- Displays calibration status from Auto Calibration service
+- Manager UI triggers calibration requests through the web-proxied Auto Calibration service
+- Autocalibration endpoints live under `/api/v1/autocalibration/` when accessed through the web container
 - Stores completed calibration parameters in database
 
 ### PostgreSQL
@@ -373,7 +363,7 @@ docker compose exec manager python manage.py dbshell
 
 When modifying the service, verify:
 
-- [ ] Django unit tests pass: `docker compose exec manager python manage.py test`
+- [ ] Functional tests pass: `make run_functional_tests` (starts Docker stacks automatically)
 - [ ] Database migrations apply cleanly
 - [ ] REST API endpoints return correct responses
 - [ ] Web UI pages render without errors

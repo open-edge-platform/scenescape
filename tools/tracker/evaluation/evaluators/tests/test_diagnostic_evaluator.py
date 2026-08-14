@@ -499,3 +499,50 @@ class TestMethodChaining:
               .set_output_folder(temp_output_folder)
               .process_tracker_outputs(iter(tracker_outputs), gt_file))
     assert result is evaluator
+
+
+class TestSetBaseFps:
+  """Test set_base_fps method."""
+
+  def test_returns_self(self, evaluator):
+    """Method returns self for chaining."""
+    assert evaluator.set_base_fps(30.0) is evaluator
+
+  def test_none_resets(self, evaluator):
+    """None resets to auto-compute."""
+    evaluator.set_base_fps(30.0)
+    evaluator.set_base_fps(None)
+    assert evaluator._base_fps is None
+
+  def test_zero_raises(self, evaluator):
+    """Zero fps raises ValueError."""
+    with pytest.raises(ValueError, match="must be > 0"):
+      evaluator.set_base_fps(0)
+
+  def test_negative_raises(self, evaluator):
+    """Negative fps raises ValueError."""
+    with pytest.raises(ValueError, match="must be > 0"):
+      evaluator.set_base_fps(-1.0)
+
+  def test_reset_clears(self, evaluator):
+    """reset() clears base_fps."""
+    evaluator.set_base_fps(30.0)
+    evaluator.reset()
+    assert evaluator._base_fps is None
+
+  def test_overrides_computed_fps(self, evaluator, perfect_data, temp_output_folder):
+    """When set, base_fps is used instead of auto-computed value."""
+    tracker_outputs, gt_file = perfect_data
+    evaluator.set_base_fps(10.0)
+    evaluator.configure_metrics(['DIST_T'])
+    evaluator.set_output_folder(temp_output_folder)
+    evaluator.process_tracker_outputs(tracker_outputs, gt_file)
+
+    # Verify frames were assigned using 10fps, not auto-computed value.
+    # With 100ms interval at 10fps (frame_duration=100ms), frames should be
+    # 1, 2, 3, ... (one per interval). Check any track has sequential frames.
+    for track in evaluator._output_tracks.values():
+      frames = sorted(track.keys())
+      if len(frames) > 1:
+        assert frames == list(range(1, len(frames) + 1))
+        break

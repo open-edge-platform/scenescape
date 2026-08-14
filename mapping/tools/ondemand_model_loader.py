@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
-On-demand model loader for SceneScape 3D mapping service.
+On-demand model loader for Scenescape 3D mapping service.
 This script downloads the MapAnything and VGGT models only when needed, reducing Docker image size.
 Combines model download coordination and individual model management.
 """
@@ -14,10 +14,10 @@ import sys
 
 from scene_common import log
 
-from download_mapanything import ensureMapanythingModel
-from download_vggt import ensureVGGTModel
+from download_mapanything import ensure_mapanything_model
+from download_vggt import ensure_vggt_model
 
-def ensureModel() -> bool:
+def ensure_model() -> bool:
   """
   Ensure all required models exist, downloading them if necessary.
 
@@ -30,15 +30,15 @@ def ensureModel() -> bool:
   model_type = os.environ.get("MODEL_TYPE", "").lower()
 
   if model_type == "mapanything":
-    return ensureMapanythingModel()
+    return ensure_mapanything_model()
   elif model_type == "vggt":
-    return ensureVGGTModel()
+    return ensure_vggt_model()
   else:
     return False
 
 def main():
   """Main function for standalone execution."""
-  success = ensureModel()
+  success = ensure_model()
   if success:
     log.info("Required model is available.")
   else:

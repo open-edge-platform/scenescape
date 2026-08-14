@@ -1,35 +1,139 @@
-#!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import sys
 import time
 from selenium.webdriver import Firefox
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.firefox.options import Options
 from selenium.common.exceptions import NoSuchElementException, WebDriverException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
+from pathlib import Path
+from shutil import which
+import subprocess
 
 MAX_RETRIES = 5
 RETRY_DELAY = 30
 
+def _is_real_executable(binary):
+  # geckodriver cannot launch shell-script wrappers (e.g. the snap launcher at
+  # /usr/bin/firefox), so require a real ELF/Mach-O executable, not a script.
+  try:
+    with open(binary, "rb") as f:
+      header = f.read(2)
+  except OSError:
+    return False
+  return header != b"#!"
+
+def _validate_firefox(binary):
+  result = subprocess.run([binary, "--version"], capture_output=True, text=True)
+  if result.returncode != 0 or "Firefox" not in result.stdout + result.stderr:
+    raise RuntimeError(f"Invalid Firefox binary: {binary}")
+
+def _find_firefox_binary():
+  candidates = [
+    os.environ.get("FIREFOX_BIN"),
+    "/usr/lib/firefox-esr/firefox-esr",
+    "/usr/lib/firefox/firefox",
+    "/usr/bin/firefox",
+    "/usr/bin/firefox-esr",
+    which("firefox-esr"),
+    which("firefox"),
+  ]
+
+  for candidate in candidates:
+    if not candidate:
+      continue
+    p = Path(candidate)
+    # Debian/Ubuntu firefox-esr package: /usr/bin/firefox-esr -> firefox.sh;
+    # the real ELF lives beside the wrapper.
+    if p.is_dir():
+      for name in ("firefox-esr", "firefox"):
+        nested = p / name
+        if nested.is_file() and nested.stat().st_mode & 0o111 and _is_real_executable(nested):
+          return str(nested)
+      continue
+    if p.is_file() and p.stat().st_mode & 0o111 and _is_real_executable(p):
+      return str(p)
+
+  raise RuntimeError(
+    "No valid Firefox executable found. Checked firefox/firefox-esr in PATH "
+    "and common system locations."
+  )
+
+def _find_geckodriver():
+  candidates = [
+    os.environ.get("GECKODRIVER_BIN"),
+    str(Path(sys.executable).parent / "geckodriver"),
+    which("geckodriver"),
+  ]
+
+  for candidate in candidates:
+    if not candidate:
+      continue
+    p = Path(candidate).resolve()
+    # Prefer a real binary over snap wrappers when both appear on PATH.
+    if "/snap/" in str(p):
+      continue
+    if p.is_file() and p.stat().st_mode & 0o111:
+      return str(p)
+
+  raise RuntimeError(
+    "geckodriver not found. Run 'make setup-tests' to install it."
+  )
+
 class Browser(Firefox):
-  def __init__(self, headless=True):
-    # Must remove proxy settings from environment otherwise Jenkins testing fails
-    for key in os.environ:
-      if 'proxy' in key or 'PROXY' in key:
-        del os.environ[key]
+  def __init__(self, headless=True, webgl=False):
+    # Remove proxy settings safely
+    for key in list(os.environ):
+      if 'proxy' in key.lower():
+        os.environ.pop(key, None)
+
+
+    # Make headless explicit for Firefox in CI.
+    if headless:
+      os.environ["MOZ_HEADLESS"] = "1"
+    else:
+      os.environ.pop("MOZ_HEADLESS", None)
+
+    # Force Mesa software rendering (llvmpipe/swrast) so a WebGL context can be
+    # created even when the runner has no GPU.
+    if webgl:
+      os.environ["LIBGL_ALWAYS_SOFTWARE"] = "1"
+      os.environ.setdefault("GALLIUM_DRIVER", "llvmpipe")
 
     options = Options()
     if headless:
-      options.add_argument('--headless')
+      options.add_argument("--headless")
+
+    options.add_argument("--width=1080")
+    options.add_argument("--height=1920")
+    options.set_preference("webgl.disabled", not webgl)
+    options.set_preference("media.hardware-video-decoding.enabled", False)
+    options.set_preference("gfx.webrender.software", True)
+    options.set_preference("network.proxy.type", 0)
+
+    binary = _find_firefox_binary()
+    _validate_firefox(binary)
+    options.binary_location = binary
 
     options.add_argument("--window-size=1080,1920")
-    s = Service("/usr/local/bin/geckodriver")
-    super().__init__(options=options, service=s)
-    return
+    # Resolve Scenescape service hostnames to loopback inside the Firefox process.
+    # This applies to geckodriver subprocess, which is unaffected by the Python-level
+    # socket.getaddrinfo patch in conftest.py.
+    _host_aliases = [
+      "broker.scenescape.intel.com",
+      "web.scenescape.intel.com",
+      "autocalibration.scenescape.intel.com",
+      "reid.scenescape.intel.com",
+    ]
+    options.set_preference("network.dns.localDomains", ",".join(_host_aliases))
+    service = Service(_find_geckodriver())
+    super().__init__(options=options, service=service)
 
   def getPage(self, url, expected_title, retries=MAX_RETRIES, delay=RETRY_DELAY):
     '''
@@ -114,3 +218,8 @@ class Browser(Firefox):
 
   def actionChains(self):
     return ActionChains(self)
+
+  def find_elements_with_wait(self, by, value, timeout=10):
+    return WebDriverWait(self, timeout).until(
+      EC.presence_of_all_elements_located((by, value))
+    )

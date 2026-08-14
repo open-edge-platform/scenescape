@@ -45,6 +45,8 @@ def _make_sscape_object(obj_uuid, rv_id=None):
   obj.uuid = obj_uuid
   obj.rv_id = rv_id
   obj.gid = None
+  # Avoid exercising yaw/quaternion conversion in these GID-continuity tests.
+  obj.has_detection_rotation = False
   obj.location = [MagicMock()]
   obj.location[0].point = MagicMock()
   return obj

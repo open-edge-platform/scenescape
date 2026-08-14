@@ -1,6 +1,6 @@
 ---
 name: test-verification-gate
-description: Runtime test verification gate for SceneScape — image freshness checks, rebuild-before-test requirements, and retry policy.
+description: Runtime test verification gate for Scenescape — image freshness checks, rebuild-before-test requirements, and retry policy.
 ---
 
 <!--
@@ -18,28 +18,31 @@ Ensure runtime verification is completed and reported consistently.
 
 ## Required Checklist
 
-1. Select a repository Makefile target that covers the modified tests.
-2. Prefer a root target when practical (for example, `make run_unit_tests`).
-3. Otherwise select the narrowest scoped target in `tests/Makefile`
-   (for example, `make -C tests scenescape-unit`).
-4. If the selected target runs in a service `...-test` container image,
-   rebuild images for changed services before executing tests.
-5. Execute the target.
-6. If failures occur, confirm image freshness before code-level debugging:
-   - Rebuild the impacted service runtime and test images if not rebuilt.
-   - Rerun the same target once on fresh images.
-7. If still failing, fix and rerun the same target.
-8. Report exact command and concise pass/fail summary.
+1. Identify the changed files and classify scope: unit, functional, ui or perf.
+2. Select the narrowest pytest invocation that covers the modified tests:
+   - Unit tests (no containers needed): `pytest tests/sscape_tests/<test_file>.py`
+   - Functional/UI tests (containers needed): `pytest tests/functional/<test_file>.py`
+3. If the test requires running containers and service code changed, rebuild
+   the impacted service images before executing tests.
+4. Execute the selected command.
+5. If failures occur, confirm image freshness before code-level debugging:
+   - Rebuild the impacted service runtime image if not rebuilt.
+   - Rerun the same command once on fresh images.
+6. If still failing, fix and rerun the same command.
+7. Report exact command and concise pass/fail summary.
 
 ## Image Freshness Mapping (Common)
 
-- Changed `controller/src/**` + `make -C tests scene-unit`:
-  - `make controller`
-  - `make -C controller test-build`
-  - then run `make -C tests scene-unit SUPASS=<password>`
+- Changed `controller/src/**`, testing with `pytest tests/functional/<test>.py`:
+  - `make rebuild-controller`
+  - then run `pytest tests/functional/<test>.py`
 
-Apply the same pattern to other services: rebuild runtime + test image before
-running containerized test targets.
+- Changed `manager/src/**`, testing with `pytest tests/functional/<test>.py`:
+  - `make rebuild-manager`
+  - then run `pytest tests/functional/<test>.py`
+
+Unit tests in `tests/sscape_tests/` run on the host (no container images required).
+Apply rebuild only for functional/UI/integration tests that exercise containerized services.
 
 ## Blocked Execution Policy
 

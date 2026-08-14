@@ -9,8 +9,21 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from controller.scene_controller import SceneController
-from controller.controller_mode import ControllerMode
 from controller.observability import metrics, tracing
+from controller.pose_adjustment import POSE_ADJUSTMENT_ENV_VAR
+from scene_common import log
+
+_ANALYTICS_ONLY_REMOVED = (
+  "Controller analytics-only mode was removed. Region, tripwire, sensor, and "
+  "regulated analytics are provided by the Analytics microservice. Use "
+  "`--profile controller` (Controller + Analytics) or `--profile tracker` "
+  "(Tracker + Analytics); see docs/user-guide/microservices/analytics/analytics.md."
+)
+
+
+class _RemovedAnalyticsOnly(argparse.Action):
+  def __call__(self, parser, namespace, values, option_string=None):
+    parser.error(_ANALYTICS_ONLY_REMOVED)
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
   def __init__(self, *args, **kwargs):
@@ -38,6 +51,17 @@ def start_health_server(port):
   thread = threading.Thread(target=server.serve_forever, daemon=True)
   thread.start()
   return server
+
+
+def _env_bool(name, default):
+  value = os.getenv(name)
+  if value is None:
+    return default
+  return value.strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def _pose_adjustment_default_enabled():
+  return _env_bool(POSE_ADJUSTMENT_ENV_VAR, False)
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -77,16 +101,31 @@ def build_argparser():
                       default="regulated")
   parser.add_argument("--healthcheck_port", type=int, default=0,
                       help="Port for HTTP health check endpoint (0 to disable)")
-  parser.add_argument("--analytics-only", action="store_true",
-                      default=os.getenv("CONTROLLER_ENABLE_ANALYTICS_ONLY") == "true",
-                      help="Enable analytics-only mode. Use this when running a separate Tracker service that publishes tracking data to MQTT.")
+  parser.add_argument("--analytics-only", action=_RemovedAnalyticsOnly, nargs=0,
+                      help=argparse.SUPPRESS)
+  parser.add_argument("--pose_adjustment_config_file",
+                      help="JSON file with pose adjustment routing configuration",
+                      default=os.path.join(os.path.dirname(script_path), "pose-adjustment-route.json"))
+  parser.add_argument("--pose-adjustment",
+                      dest="pose_adjustment",
+                      action=argparse.BooleanOptionalAction,
+                      default=_pose_adjustment_default_enabled(),
+                      help="Enable pose-based person bounding box adjustment before world projection.")
   return parser
 
 def main():
+  if os.getenv("CONTROLLER_ENABLE_ANALYTICS_ONLY") == "true":
+    log.error(_ANALYTICS_ONLY_REMOVED)
+    return 2
+
   args = build_argparser().parse_args()
-
-  ControllerMode.initialize(analytics_only=args.analytics_only)
-
+  os.environ[POSE_ADJUSTMENT_ENV_VAR] = (
+    "true" if args.pose_adjustment else "false"
+  )
+  log.info(
+    f"Controller pose adjustment: "
+    f"{'ENABLED' if args.pose_adjustment else 'DISABLED'}"
+  )
   metrics.init()
   tracing.init()
   controller = SceneController(args.rewriteBadTime, args.rewriteAllTime,
@@ -94,13 +133,17 @@ def main():
                               args.brokerauth, args.resturl,
                               args.restauth, args.cert,
                               args.rootcert, args.ntp, args.tracker_config_file, args.schema_file,
-                              args.visibility_topic, args.data_source, args.reid_config_file)
+                              args.visibility_topic, args.data_source,
+                              args.reid_config_file, args.pose_adjustment_config_file)
 
   # Start health check server if port is specified
   if args.healthcheck_port > 0:
     start_health_server(args.healthcheck_port)
 
-  controller.loopForever()
+  try:
+    controller.loopForever()
+  finally:
+    controller.shutdown()
 
   return
 

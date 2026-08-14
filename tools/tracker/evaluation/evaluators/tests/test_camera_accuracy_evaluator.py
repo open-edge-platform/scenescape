@@ -586,3 +586,67 @@ class TestPlotCameraDistances:
     cam_df = self._make_cam_df()
     ev._plot_camera_distances(cam_df, "TestCam", tmp_path, cam_pos=None)
     assert (tmp_path / "trajectories_TestCam.png").exists()
+
+
+class TestSetBaseFps:
+  """Test set_base_fps method."""
+
+  def test_returns_self(self):
+    """Method returns self for chaining."""
+    ev = CameraAccuracyEvaluator()
+    assert ev.set_base_fps(30.0) is ev
+
+  def test_none_resets(self):
+    """None resets to auto-compute."""
+    ev = CameraAccuracyEvaluator()
+    ev.set_base_fps(30.0)
+    ev.set_base_fps(None)
+    assert ev._base_fps is None
+
+  def test_zero_raises(self):
+    """Zero fps raises ValueError."""
+    ev = CameraAccuracyEvaluator()
+    with pytest.raises(ValueError, match="must be > 0"):
+      ev.set_base_fps(0)
+
+  def test_negative_raises(self):
+    """Negative fps raises ValueError."""
+    ev = CameraAccuracyEvaluator()
+    with pytest.raises(ValueError, match="must be > 0"):
+      ev.set_base_fps(-1.0)
+
+  def test_reset_clears(self):
+    """reset() clears base_fps."""
+    ev = CameraAccuracyEvaluator()
+    ev.set_base_fps(30.0)
+    ev.reset()
+    assert ev._base_fps is None
+
+  def test_overrides_computed_fps(self):
+    """When set, base_fps is used instead of auto-computed value."""
+    ev = CameraAccuracyEvaluator()
+    ev.set_base_fps(10.0)
+
+    # Use two frames 33ms apart: auto-computed FPS would map to frames 1 and 2,
+    # but base_fps=10 (100ms/frame) maps both timestamps to frame 1.
+    projected_outputs = [
+      {
+        "timestamp": "2024-01-01T00:00:00.000Z",
+        "cam_id": "Cam1",
+        "objects": [
+          {"id": "Cam1:1", "translation": [0.0, 0.0, 0.0], "category": "person"}
+        ],
+      },
+      {
+        "timestamp": "2024-01-01T00:00:00.033Z",
+        "cam_id": "Cam1",
+        "objects": [
+          {"id": "Cam1:1", "translation": [1.0, 1.0, 0.0], "category": "person"}
+        ],
+      },
+    ]
+
+    ev._parse_projected_outputs(projected_outputs)
+
+    track = ev._projected_tracks[("Cam1", "1")]
+    assert sorted(track.keys()) == [1]

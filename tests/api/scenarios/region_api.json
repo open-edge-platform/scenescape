@@ -27,7 +27,13 @@
         "request": {
           "body": {
             "name": "Region_Minimal",
-            "scene": "${SCENE_UID}"
+            "scene": "${SCENE_UID}",
+            "points": [
+              [0.0, 0.0],
+              [1.0, 0.0],
+              [1.0, 1.0],
+              [0.0, 1.0]
+            ]
           }
         },
         "expected_status": {
@@ -55,7 +61,24 @@
               [1.0, 0.0],
               [1.0, 1.0],
               [0.0, 1.0]
-            ]
+            ],
+            "color_ranges": {
+              "sectors": [
+                {
+                  "color": "green",
+                  "color_min": 0
+                },
+                {
+                  "color": "yellow",
+                  "color_min": 2
+                },
+                {
+                  "color": "red",
+                  "color_min": 5
+                }
+              ],
+              "range_max": 10
+            }
           }
         },
         "expected_status": {
@@ -80,7 +103,24 @@
             "points": [
               [0.0, 0.0],
               [1.0, 1.0]
-            ]
+            ],
+            "color_ranges": {
+              "sectors": [
+                {
+                  "color": "green",
+                  "color_min": 0
+                },
+                {
+                  "color": "yellow",
+                  "color_min": 2
+                },
+                {
+                  "color": "red",
+                  "color_min": 5
+                }
+              ],
+              "range_max": 10
+            }
           }
         },
         "expected_status": {
@@ -100,7 +140,30 @@
           "uid": "${REGION_UID_MINIMAL}",
           "body": {
             "name": "Region_Minimal_Updated",
-            "scene": "${SCENE_UID}"
+            "scene": "${SCENE_UID}",
+            "points": [
+              [0.0, 0.0],
+              [1.0, 0.0],
+              [1.0, 1.0],
+              [0.0, 1.0]
+            ],
+            "color_ranges": {
+              "sectors": [
+                {
+                  "color": "green",
+                  "color_min": 0
+                },
+                {
+                  "color": "yellow",
+                  "color_min": 2
+                },
+                {
+                  "color": "red",
+                  "color_min": 5
+                }
+              ],
+              "range_max": 10
+            }
           }
         },
         "expected_status": {
@@ -140,7 +203,24 @@
               [2.0, 0.0],
               [2.0, 2.0],
               [0.0, 2.0]
-            ]
+            ],
+            "color_ranges": {
+              "sectors": [
+                {
+                  "color": "green",
+                  "color_min": 0
+                },
+                {
+                  "color": "yellow",
+                  "color_min": 2
+                },
+                {
+                  "color": "red",
+                  "color_min": 5
+                }
+              ],
+              "range_max": 10
+            }
           }
         },
         "expected_status": {
@@ -191,7 +271,7 @@
         "api": "region",
         "method": "updateRegion",
         "request": {
-          "uid": "123",
+          "uid": "00000000-0000-0000-0000-000000000000",
           "body": {
             "name": "Should_Fail",
             "scene": "${SCENE_UID}"
@@ -219,10 +299,33 @@
         "expected_body": {
           "uid": "${REGION_UID_MINIMAL}",
           "name": "Region_Minimal_Updated",
+          "points": [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 1.0],
+            [0.0, 1.0]
+          ],
           "scene": "${SCENE_UID}",
           "buffer_size": 0.0,
           "height": 1.0,
-          "volumetric": false
+          "volumetric": false,
+          "color_ranges": {
+            "sectors": [
+              {
+                "color": "green",
+                "color_min": 0
+              },
+              {
+                "color": "yellow",
+                "color_min": 2
+              },
+              {
+                "color": "red",
+                "color_min": 5
+              }
+            ],
+            "range_max": 10
+          }
         }
       }
     ]
@@ -235,7 +338,7 @@
         "api": "region",
         "method": "getRegion",
         "request": {
-          "uid": "123"
+          "uid": "00000000-0000-0000-0000-000000000000"
         },
         "expected_status": {
           "status_code": 404
@@ -292,6 +395,17 @@
         "expected_status": {
           "status_code": 404
         }
+      },
+      {
+        "step_name": "Delete leftover scene",
+        "api": "scene",
+        "method": "deleteScene",
+        "request": {
+          "uid": "${SCENE_UID}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
       }
     ]
   },
@@ -303,7 +417,7 @@
         "api": "region",
         "method": "deleteRegion",
         "request": {
-          "uid": "123"
+          "uid": "00000000-0000-0000-0000-000000000000"
         },
         "expected_status": {
           "status_code": 404

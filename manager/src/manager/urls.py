@@ -55,7 +55,7 @@ urlpatterns = [
   path('sign_out/', views.sign_out, name="sign_out"),
   path('account_locked/', views.account_locked, name="account_locked"),
   path('media/list/<str:folder_name>/', views.list_resources, name='list_resources'),
-  path('api/v1/save-geospatial-snapshot/', views.save_geospatial_snapshot, name='save_geospatial_snapshot'),
+  path('api/v1/save-geospatial-snapshot/', views.SaveGeospatialSnapshot.as_view(), name='save_geospatial_snapshot'),
   re_path(r'^%s(?P<path>.*)$' % settings.MEDIA_URL[1:],
           views.protected_media,
           {'media_root': settings.MEDIA_ROOT}),
@@ -118,6 +118,7 @@ urlpatterns += [
 urlpatterns += [
   path('api/', include('rest_framework.urls')),
   path('api/v1/auth', api.CustomAuthToken.as_view(), name='api_token_auth'),
+  path('api/v1/health', api.ServiceHealth.as_view()),
   path('api/v1/database-ready', api.DatabaseReady.as_view()),
   path('api/v1/calculateintrinsics', CalculateCameraIntrinsics.as_view()),
   path('api/v1/aclcheck', api.ACLCheck.as_view()),

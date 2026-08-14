@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <unordered_set>
 
 namespace tracker {
 
@@ -98,7 +99,18 @@ void TimeChunkScheduler::run() {
         // Collect all buffered data
         BufferMap snapshot = buffer_.pop_all();
 
-        if (!snapshot.empty()) {
+        if (snapshot.empty()) {
+            Metrics::inc_time_chunking_empty_chunks();
+        } else {
+            Metrics::inc_time_chunking_non_empty_chunks();
+            // Count distinct cameras across all scopes in this dispatch.
+            std::unordered_set<std::string> unique_cameras;
+            for (const auto& scope_entry : snapshot) {
+                for (const auto& camera_entry : scope_entry.second) {
+                    unique_cameras.insert(camera_entry.first);
+                }
+            }
+            Metrics::inc_time_chunking_unique_cameras_n(unique_cameras.size());
             dispatch(std::move(snapshot));
         }
     }

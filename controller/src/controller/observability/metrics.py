@@ -1,7 +1,7 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""OpenTelemetry metrics for SceneScape controller.
+"""OpenTelemetry metrics for Scenescape controller.
 
 WARNING: Experimental API, insecure OTLP only.
 
@@ -25,7 +25,14 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from scene_common import log
 
 # Export simplified public API functions only
-__all__ = ['init', 'inc_messages', 'inc_dropped', 'record_object_count', 'time_mqtt_handler', 'time_tracking']
+__all__ = ['init', 'inc_messages', 'inc_dropped', 'record_object_count', 'time_mqtt_handler', 'time_tracking',
+           'inc_time_chunking_duplicated_cameras', 'add_time_chunking_unique_cameras',
+           'inc_time_chunking_non_empty_chunks', 'inc_time_chunking_empty_chunks',
+           'record_reid_rolling_avg_match_latency',
+           'record_reid_rolling_min_match_latency', 'record_reid_rolling_max_match_latency',
+           'record_reid_match_latency',
+           'record_reid_current_camera_count', 'record_reid_tracked_object_count',
+           'record_reid_total_tracked_object_count']
 
 # OpenTelemetry metric name constants
 METRIC_MQTT_MESSAGES_COUNT = "scenescape_controller_mqtt_messages"
@@ -33,6 +40,17 @@ METRIC_MQTT_MESSAGES_DROPPED = "scenescape_controller_mqtt_messages_dropped"
 METRIC_MQTT_HANDLER_DURATION = "scenescape_controller_mqtt_handler_duration"
 METRIC_TRACKING_DURATION = "scenescape_controller_tracking_duration"
 METRIC_MQTT_MESSAGES_OBJECT_COUNT = "scenescape_controller_objects_in_mqtt_message"
+METRIC_TIME_CHUNKING_DUPLICATED_CAMERAS = "scenescape_controller_time_chunking_duplicated_cameras"
+METRIC_TIME_CHUNKING_UNIQUE_CAMERAS = "scenescape_controller_time_chunking_unique_cameras"
+METRIC_TIME_CHUNKING_NON_EMPTY_CHUNKS = "scenescape_controller_time_chunking_non_empty_chunks"
+METRIC_TIME_CHUNKING_EMPTY_CHUNKS = "scenescape_controller_time_chunking_empty_chunks"
+METRIC_REID_ROLLING_AVG_MATCH_LATENCY = "scenescape_controller_reid_rolling_avg_match_latency"
+METRIC_REID_ROLLING_MIN_MATCH_LATENCY = "scenescape_controller_reid_rolling_min_match_latency"
+METRIC_REID_ROLLING_MAX_MATCH_LATENCY = "scenescape_controller_reid_rolling_max_match_latency"
+METRIC_REID_MATCH_LATENCY = "scenescape_controller_reid_match_latency"
+METRIC_REID_CURRENT_CAMERA_COUNT = "scenescape_controller_reid_current_camera_count"
+METRIC_REID_TRACKED_OBJECT_COUNT = "scenescape_controller_reid_tracked_object_count"
+METRIC_REID_TOTAL_TRACKED_OBJECT_COUNT = "scenescape_controller_reid_total_tracked_object_count"
 
 METRIC_INSTRUMENTS = [
     {
@@ -64,6 +82,73 @@ METRIC_INSTRUMENTS = [
         "description": "Object count per MQTT message",
         "unit": "1",
         "kind": "histogram"
+    },
+    {
+        "name": METRIC_TIME_CHUNKING_DUPLICATED_CAMERAS,
+        "description": "Time-chunking buffered camera frames overwritten before dispatch",
+        "unit": "1",
+        "kind": "counter"
+    },
+    {
+        "name": METRIC_TIME_CHUNKING_UNIQUE_CAMERAS,
+        "description": "Time-chunking unique cameras dispatched per chunk",
+        "unit": "1",
+        "kind": "counter"
+    },
+    {
+        "name": METRIC_TIME_CHUNKING_NON_EMPTY_CHUNKS,
+        "description": "Time-chunking dispatch intervals with buffered data",
+        "unit": "1",
+        "kind": "counter"
+    },
+    {
+        "name": METRIC_TIME_CHUNKING_EMPTY_CHUNKS,
+        "description": "Time-chunking dispatch intervals with no buffered data",
+        "unit": "1",
+        "kind": "counter"
+    },
+    {
+        "name": METRIC_REID_ROLLING_AVG_MATCH_LATENCY,
+        "description": "Average ReID match latency over the last N recorded matches (rolling window, default N=10), updated on every match decision. Tagged with a category attribute (e.g. person, car) to distinguish tracked categories.",
+        "unit": "s",
+        "kind": "gauge"
+    },
+    {
+        "name": METRIC_REID_ROLLING_MIN_MATCH_LATENCY,
+        "description": "Minimum ReID match latency over the last N recorded matches (rolling window, default N=10), updated on every match decision. Tagged with a category attribute (e.g. person, car) to distinguish tracked categories.",
+        "unit": "s",
+        "kind": "gauge"
+    },
+    {
+        "name": METRIC_REID_ROLLING_MAX_MATCH_LATENCY,
+        "description": "Maximum ReID match latency over the last N recorded matches (rolling window, default N=10), updated on every match decision. Tagged with a category attribute (e.g. person, car) to distinguish tracked categories.",
+        "unit": "s",
+        "kind": "gauge"
+    },
+    {
+        "name": METRIC_REID_MATCH_LATENCY,
+        "description": "Per-match ReID latency, from a track's first appearance to its match/no-match decision. Feeds statistically rigorous P95/P99 computed downstream (e.g. Prometheus histogram_quantile()) over whatever time range is queried, rather than a fixed sample count. Tagged with a category attribute (e.g. person, car) to distinguish tracked categories.",
+        "unit": "s",
+        "kind": "histogram",
+        "buckets": [0.1, 0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10, 15, 20, 30]
+    },
+    {
+        "name": METRIC_REID_CURRENT_CAMERA_COUNT,
+        "description": "Camera count (configured and confirmed producing embeddings) tagged on the most recent ReID match decision -- same value as MatchLatencyTracker.getStats()['camera_count']. Also tagged with a category attribute to distinguish tracked categories.",
+        "unit": "1",
+        "kind": "gauge"
+    },
+    {
+        "name": METRIC_REID_TRACKED_OBJECT_COUNT,
+        "description": "Number of currently active tracked objects/persons whose category produces ReID embeddings (excludes non-ReID categories), sampled each tracking cycle. Tagged with a category attribute to distinguish tracked categories.",
+        "unit": "1",
+        "kind": "gauge"
+    },
+    {
+        "name": METRIC_REID_TOTAL_TRACKED_OBJECT_COUNT,
+        "description": "Total currently active tracked objects/persons summed across every ReID-capable category (e.g. person + car combined), via TrackedObjectRegistry",
+        "unit": "1",
+        "kind": "gauge"
     }
 ]
 
@@ -117,6 +202,76 @@ def record_object_count(count, attributes=None):
   if instance:
     instance.histogram_record(METRIC_MQTT_MESSAGES_OBJECT_COUNT, count, attributes)
 
+def inc_time_chunking_duplicated_cameras(attributes=None):
+  """Increment count of buffered camera frames overwritten before dispatch."""
+  instance = _metrics_instance
+  if instance:
+    instance.counter_add(METRIC_TIME_CHUNKING_DUPLICATED_CAMERAS, 1, attributes)
+
+def add_time_chunking_unique_cameras(count, attributes=None):
+  """Add the number of unique cameras dispatched in a time-chunk."""
+  instance = _metrics_instance
+  if instance:
+    instance.counter_add(METRIC_TIME_CHUNKING_UNIQUE_CAMERAS, count, attributes)
+
+def inc_time_chunking_non_empty_chunks(attributes=None):
+  """Increment count of dispatch intervals that had buffered data."""
+  instance = _metrics_instance
+  if instance:
+    instance.counter_add(METRIC_TIME_CHUNKING_NON_EMPTY_CHUNKS, 1, attributes)
+
+def inc_time_chunking_empty_chunks(attributes=None):
+  """Increment count of dispatch intervals that had no buffered data."""
+  instance = _metrics_instance
+  if instance:
+    instance.counter_add(METRIC_TIME_CHUNKING_EMPTY_CHUNKS, 1, attributes)
+
+def record_reid_rolling_avg_match_latency(latency_s, attributes=None):
+  """Report the current rolling-window average ReID match latency, in seconds."""
+  instance = _metrics_instance
+  if instance:
+    instance.gauge_set(METRIC_REID_ROLLING_AVG_MATCH_LATENCY, latency_s, attributes)
+
+def record_reid_rolling_min_match_latency(latency_s, attributes=None):
+  """Report the current rolling-window minimum ReID match latency, in seconds."""
+  instance = _metrics_instance
+  if instance:
+    instance.gauge_set(METRIC_REID_ROLLING_MIN_MATCH_LATENCY, latency_s, attributes)
+
+def record_reid_rolling_max_match_latency(latency_s, attributes=None):
+  """Report the current rolling-window maximum ReID match latency, in seconds."""
+  instance = _metrics_instance
+  if instance:
+    instance.gauge_set(METRIC_REID_ROLLING_MAX_MATCH_LATENCY, latency_s, attributes)
+
+def record_reid_match_latency(latency_s, attributes=None):
+  """Record a single per-match ReID latency sample, in seconds. Feeds
+  statistically rigorous P95/P99 computed downstream (e.g. Prometheus
+  histogram_quantile()) rather than an in-process estimate."""
+  instance = _metrics_instance
+  if instance:
+    instance.histogram_record(METRIC_REID_MATCH_LATENCY, latency_s, attributes)
+
+def record_reid_current_camera_count(count, attributes=None):
+  """Report the camera_count tagged on the most recent ReID match decision --
+  same value as MatchLatencyTracker.getStats()['camera_count']."""
+  instance = _metrics_instance
+  if instance:
+    instance.gauge_set(METRIC_REID_CURRENT_CAMERA_COUNT, count, attributes)
+
+def record_reid_tracked_object_count(count, attributes=None):
+  """Report the number of objects/persons currently tracked (active)."""
+  instance = _metrics_instance
+  if instance:
+    instance.gauge_set(METRIC_REID_TRACKED_OBJECT_COUNT, count, attributes)
+
+def record_reid_total_tracked_object_count(count, attributes=None):
+  """Report the total tracked-object count summed across every category
+  (e.g. person + car combined) -- see TrackedObjectRegistry."""
+  instance = _metrics_instance
+  if instance:
+    instance.gauge_set(METRIC_REID_TOTAL_TRACKED_OBJECT_COUNT, count, attributes)
+
 @contextmanager
 def time_mqtt_handler(attributes=None):
   """Time MQTT handler processing duration."""
@@ -167,6 +322,7 @@ class _metrics:
     INSTRUMENT_CREATORS = {
         "counter": self.meter.create_counter,
         "histogram": self.meter.create_histogram,
+        "gauge": self.meter.create_gauge,
     }
 
     for instrument in METRIC_INSTRUMENTS:
@@ -182,6 +338,32 @@ class _metrics:
       except KeyError:
         raise ValueError(f"Unknown instrument kind: '{instrument['kind']}'. Supported kinds: {list(INSTRUMENT_CREATORS.keys())}")
 
+      kwargs = dict(
+          name=instrument["name"],
+          description=instrument["description"],
+          unit=instrument["unit"]
+      )
+      buckets = instrument.get("buckets")
+      if instrument["kind"] == "histogram" and buckets:
+        try:
+          # explicit_bucket_boundaries_advisory requires a newer OTel SDK
+          # (~1.24+). Fall back to default buckets on older SDKs rather
+          # than failing metrics init entirely -- the histogram still
+          # works, just with less accurate percentile queries downstream.
+          setattr(self, instrument["name"], creator(
+              **kwargs, explicit_bucket_boundaries_advisory=buckets))
+          continue
+        except TypeError:
+          log.warning(
+              f"init_metrics: OTel SDK does not support explicit bucket "
+              f"boundaries for '{instrument['name']}'; using default "
+              f"buckets (percentile queries on this metric may be less "
+              f"accurate). Consider upgrading opentelemetry-sdk.")
+
+      setattr(self, instrument["name"], creator(**kwargs))
+      if instrument["kind"] == "counter":
+        self.counter_add(instrument["name"], 0)  # Initialize counter to zero
+
   def counter_add(self, attr_name, value=1, attributes=None):
     """Add value to counter metric."""
     counter = getattr(self, attr_name, None)
@@ -193,6 +375,12 @@ class _metrics:
     histogram = getattr(self, attr_name, None)
     if histogram is not None:
       histogram.record(value, attributes=attributes)
+
+  def gauge_set(self, attr_name, value, attributes=None):
+    """Set the current value of a gauge metric (last-value semantics)."""
+    gauge = getattr(self, attr_name, None)
+    if gauge is not None:
+      gauge.set(value, attributes=attributes)
 
   @contextmanager
   def _time_message(self, metric_name, attributes=None):

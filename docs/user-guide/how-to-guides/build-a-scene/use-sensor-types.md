@@ -1,12 +1,12 @@
-# Use Environmental and Attribute Sensor Types in Intel® SceneScape
+# Use Environmental and Attribute Sensor Types in Scenescape
 
-This guide provides step-by-step instructions to integrate and use environmental and attribute sensor types in Intel® SceneScape. By completing this guide, you will:
+This guide provides step-by-step instructions to integrate and use environmental and attribute sensor types in Scenescape. By completing this guide, you will:
 
 - Understand the differences between environmental and attribute sensors.
-- Learn how to configure and publish sensor data to Intel® SceneScape.
+- Learn how to configure and publish sensor data to Scenescape.
 - Verify that sensor data is properly associated with tracked scene objects.
 
-This task is important for enhancing your scene graph with real-world sensor data, enabling deeper insights from environmental context and object-specific attributes. If you're new to Scene Graphs or Intel® SceneScape, see [Integrating Cameras and Sensors](../integrate-cameras-and-sensors.md).
+This task is important for enhancing your scene graph with real-world sensor data, enabling deeper insights from environmental context and object-specific attributes. If you're new to Scene Graphs or Scenescape, see [Integrating Cameras and Sensors](../integrate-cameras-and-sensors.md).
 
 ---
 
@@ -14,11 +14,11 @@ This task is important for enhancing your scene graph with real-world sensor dat
 
 Before you begin, ensure the following:
 
-- **Access and Permissions**: When using Intel® SceneScape secure broker for publishing sensor data, refer to [user access controls](https://github.com/open-edge-platform/scenescape/blob/release-2026.0/manager/config/user_access_config.json) and [access levels](https://github.com/open-edge-platform/scenescape/blob/release-2026.0/scene_common/src/scene_common/options.py).
+- **Access and Permissions**: When using Scenescape secure broker for publishing sensor data, refer to [user access controls](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/manager/config/user_access_config.json) and [access levels](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/scene_common/src/scene_common/options.py).
 
 If you're new to these concepts, see:
 
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.0/README.md)
+- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/README.md)
 - [MQTT Intro](https://mqtt.org/getting-started/)
 
 ---
@@ -36,7 +36,7 @@ If you're new to these concepts, see:
 
 #### Create the Sensor
 
-1. Log in to Intel® SceneScape.
+1. Log in to Scenescape.
 2. Click on a scene.
 3. Click on `Sensors` at the bottom of the scene.
 4. Click `New Sensor` to create a sensor.
@@ -75,7 +75,7 @@ Check the scene graph for objects within the sensor region:
 
 #### Step 1: Create the Sensor
 
-1. Log in to Intel® SceneScape.
+1. Log in to Scenescape.
 2. Click on a scene.
 3. Click on `Sensors` at the bottom of the scene.
 4. Click `New Sensor` to create a sensor.
@@ -105,7 +105,47 @@ Check updates for the target object:
 
 ---
 
+## REST API Reference
+
+Sensors can also be created, updated, listed, and deleted over the REST API instead of the UI —
+useful for scripting a scene-wide sensor that has no shape to draw.
+
+```bash
+curl -sk -X POST https://<manager-host>/api/v1/sensor \
+    -H "Authorization: Token $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "name": "lobby_temperature",
+        "scene": "<scene-uid>",
+        "area": "scene",
+        "singleton_type": "environmental"
+    }'
+```
+
+For the full field reference (all accepted fields, `area`/`singleton_type` enum values), see the
+canonical OpenAPI spec: [API Reference](../../api-reference.md) (source:
+`docs/user-guide/api-docs/api.yaml`, `Singleton` schema). The API reference doesn't capture these
+validation rules, which only live in server-side logic:
+
+- `center`+`radius` are required when `area` is `circle`; `points` is required when `area` is
+  `poly`.
+- If `sensor_id` isn't supplied on create, it defaults to `name` with spaces replaced by
+  underscores.
+- `color_ranges.sectors[].color` must be one of `green`, `yellow`, or `red`:
+  ```json
+  {
+    "color_ranges": {
+      "sectors": [
+        { "color": "green", "color_min": "0" },
+        { "color": "yellow", "color_min": "2" },
+        { "color": "red", "color_min": "5" }
+      ],
+      "range_max": 10
+    }
+  }
+  ```
+
 ## Supporting Resources
 
 - [Visualize ROI and Sensor Areas](./visualize-regions.md)
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.0/README.md)
+- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/README.md)

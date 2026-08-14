@@ -1,4 +1,4 @@
-# Intel® SceneScape's Camera Calibration Service
+# Scenescape's Camera Calibration Service
 
 ## Documentation
 

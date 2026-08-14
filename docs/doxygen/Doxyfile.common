@@ -24,7 +24,7 @@
 # Project related configuration options
 #---------------------------------------------------------------------------
 
-PROJECT_NAME           = "SceneScape"
+PROJECT_NAME           = "Scenescape"
 PROJECT_NUMBER         = $(SSCAPE_VERSION)
 PROJECT_BRIEF          = "Scene-based AI software solution."
 PROJECT_LOGO           = manager/static/images/logo.png

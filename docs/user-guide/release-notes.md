@@ -1,4 +1,54 @@
-# Release Notes: Intel® SceneScape
+# Release Notes: Scenescape
+
+## Version 2026.1.0
+
+**June 17, 2026**
+
+**New**
+
+- Tracking & Analytics
+  - Added Tracker Evaluation Pipeline enhancements:
+    - Multi-evaluator support
+    - New jitter metrics (RMS jerk, acceleration variance)
+    - Per-frame diagnostic evaluator
+  - High-performance tracker improvements:
+    - Supports visibility, confidence, and detection metadata
+    - Includes NTP-based time correction
+
+- Controller uses pose estimation metadata to mitigate partial occlusion of a person. Implementation is extensible to other object types.
+
+- Re-ID feature now works with embedding vectors of arbitrary size, provides cosine distance as a similarity metric and publishes track state for determining re-id accuracy.
+
+**Improved**
+
+- Testing & Quality
+  - Major API test rework and reporting improvements
+  - Expanded automation coverage:
+    - Mapping, autocalibration, MQTT events, retrack, linked scenes
+  - Added UI tests
+  - Migration of legacy tests to scenario-based JSON
+  - Improved test stability and fixtures
+  - Added weekly test coverage for releases
+
+- Documentation:
+  - Major documentation restructuring and alignment
+  - Improved navigation, references, and formatting
+  - Standardized message format documentation
+
+**Fixed**
+
+- Metadata passthrough issues in controller
+- Database migration flow issues
+- Corrected camera pose and scale for VGGT models
+- Sensor color update inconsistencies
+- REID schema initialization failures
+- API behavior, input validation
+- Missing TRS matrix fields
+- Calibration API handling of invalid images
+- Asset update failures for invalid IDs
+- Docker cache handling, Docker image size regressions
+- Resolved bind mount permission errors
+- NTP pod CrashLoopBackOff issue
 
 ## Version 2026.0.0
 
@@ -11,7 +61,7 @@
 - Extended Re-identification with a 2-tier architecture to improve Re-ID quality and scalability.
 - Mapping service enhancements: Video-Based Mapping, CLAHE pre-processing to improve mesh appearance
 - Controller outputs augmented to work with a physics engine
-- Controller Analytics Mode: New analytics-only mode for the controller with schema validation
+- Controller Analytics Mode: New analytics-only mode for the controller with schema validation (retired; use the Analytics microservice)
 
 **Improved**
 

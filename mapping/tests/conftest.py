@@ -120,12 +120,12 @@ def mock_model():
       "supported_outputs": ["mesh", "pointcloud"]
     }
 
-  model.loadModel = Mock(side_effect=load_model)
-  model.runInference = Mock(side_effect=run_inference)
-  model.getModelInfo = Mock(side_effect=get_model_info)
-  model.isModelLoaded = Mock(return_value=model.is_loaded)
-  model.getSupportedOutputs = Mock(return_value=["mesh", "pointcloud"])
-  model.getNativeOutput = Mock(return_value="mesh")
+  model.load_model = Mock(side_effect=load_model)
+  model.run_inference = Mock(side_effect=run_inference)
+  model.get_model_info = Mock(side_effect=get_model_info)
+  model.is_model_loaded = Mock(return_value=model.is_loaded)
+  model.get_supported_outputs = Mock(return_value=["mesh", "pointcloud"])
+  model.get_native_output = Mock(return_value="mesh")
 
   return model
 

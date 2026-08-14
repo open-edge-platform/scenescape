@@ -1,31 +1,25 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-MANAGERIMAGE=scenescape-manager
-CAMCALIBIMAGE=scenescape-autocalibration
-CONTROLLERIMAGE=scenescape-controller
-CLUSTERANALYTICSIMAGE=scenescape-cluster-analytics
-MAPPINGIMAGE=scenescape-mapping
+MANAGERIMAGE=intel/scenescape-manager
+CAMCALIBIMAGE=intel/scenescape-autocalibration
+CONTROLLERIMAGE=intel/scenescape-controller
+CLUSTERANALYTICSIMAGE=intel/scenescape-cluster-analytics
+MAPPINGIMAGE=intel/scenescape-mapping
+ANALYTICSIMAGE=intel/scenescape-analytics
 
 # Image groupings for flexible builds
-CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE)
+CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE) $(ANALYTICSIMAGE)
 EXPERIMENTAL_IMAGES=$(CLUSTERANALYTICSIMAGE) $(MAPPINGIMAGE)
 ALL_IMAGES=$(CORE_IMAGES) $(EXPERIMENTAL_IMAGES)
 
 VERSION:=$(shell cat ../version.txt)
 NAMESPACE=scenescape
 WORKINGDIR=$(shell dirname $(shell pwd))
-ORGANIZATION?=intel
-VALIDATION=
-VALIDATION_FLAG=
 DEPLOYMENT_TEST=
 TEST_FLAGS=
 # it may need to be increased if all models are being downloaded (see values.yaml)
-INSTALL_TIMEOUT?=600s
-
-ifeq ($(VALIDATION), 1)
-    VALIDATION_FLAG=--set tests.enabled=true
-endif
+INSTALL_TIMEOUT?=1800s
 
 ifeq ($(DEPLOYMENT_TEST), 1)
     TEST_FLAGS=--wait --timeout $(INSTALL_TIMEOUT) --debug
@@ -43,14 +37,16 @@ RELEASE=scenescape-release-1
 FORCE_VAAPI?=0
 CHART_DEBUG?=0
 
-# Demo mode variable for Kubernetes deployments (core or all)
+# Demo mode variable for Kubernetes deployments (core, reid or all)
 DEMO_K8S_MODE?=core
+# ReID vector database backend used when ReID is deployed: vdms (default) or qdrant
+REID_BACKEND?=vdms
 
 # Proxy settings: if http_proxy, https_proxy, or no_proxy environment variables are set,
 # they will be automatically passed to the Helm chart during installation
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
-# start kind, then install SceneScape with helm
+# start kind, then install Scenescape with helm
 default: install-deps clean-kind kind load-core install
 
 # publish to ITEP by building, packaging, then pushing
@@ -76,13 +72,13 @@ clean-all: clean-kind
 # mv /tmp/kind /tmp/kubectl /tmp/k9s /tmp/helm ~/.local/bin
 install-deps:
 	@if [ -z "$(shell which kind)" ] ; then \
-	    curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64 ; \
+	    curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.32.0/kind-linux-amd64 ; \
 	    chmod +x /tmp/kind ; \
 	    sudo mv /tmp/kind /usr/local/bin/kind ; \
 	    echo "kind installed" ; \
 	fi
 	@if [ -z "$(shell which kubectl)" ] ; then \
-	    curl -Lo /tmp/kubectl https://dl.k8s.io/release/v1.28.1/bin/linux/amd64/kubectl ; \
+	    curl -Lo /tmp/kubectl https://dl.k8s.io/release/v1.35.0/bin/linux/amd64/kubectl ; \
 	    chmod +x /tmp/kubectl ; \
 	    sudo install -o root -g root -m 0755 /tmp/kubectl /usr/local/bin/kubectl ; \
 	    echo "kubectl installed" ; \
@@ -144,13 +140,14 @@ docker-build-experimental:
 	$(MAKE) -C .. build-experimental CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
 load-image:
-	docker tag $(IMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(IMAGE):$(VERSION)
-	kind load docker-image $(REGISTRY)/$(ORGANIZATION)/$(IMAGE):$(VERSION)
+	docker tag $(IMAGE):$(VERSION) $(REGISTRY)/$(IMAGE):$(VERSION)
+	kind load docker-image $(REGISTRY)/$(IMAGE):$(VERSION)
 
 load-core:
 	$(MAKE) load-image IMAGE=$(MANAGERIMAGE)
 	$(MAKE) load-image IMAGE=$(CAMCALIBIMAGE)
 	$(MAKE) load-image IMAGE=$(CONTROLLERIMAGE)
+	$(MAKE) load-image IMAGE=$(ANALYTICSIMAGE)
 
 load-experimental:
 	# optional images for cluster analytics and mapping components
@@ -180,24 +177,35 @@ package: copy-files chart.yaml
 copy-files:
 	mkdir -p scenescape-chart/files/dlsps
 	mkdir -p scenescape-chart/files/broker
-	mkdir -p scenescape-chart/files/model-installer
+	mkdir -p scenescape-chart/files/model-download
 	mkdir -p scenescape-chart/files/sample-data
-	cp -r ../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/* scenescape-chart/files/dlsps/
+	mkdir -p scenescape-chart/files/scene-controller
+	cp -r ../dlstreamer-pipeline-server/user_scripts/gstplugins/* scenescape-chart/files/dlsps/
 	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/broker/mosquitto-secure.conf
-	cp -r ../model_installer/src/* scenescape-chart/files/model-installer/
-	cp ../model_installer/requirements-runtime.txt scenescape-chart/files/model-installer/requirements-runtime.txt
-	cp ../dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json scenescape-chart/files/model-installer/person-detection-retail-0013.json
-	cp ../dlstreamer-pipeline-server/model_config.json scenescape-chart/files/model-installer/model_config.json
-	cp ../controller/config/tracker-config.json scenescape-chart/files/model-installer/tracker-config.json
-	cp ../controller/config/reid-config.json scenescape-chart/files/model-installer/reid-config.json
+	cp ../controller/config/tracker-config.json scenescape-chart/files/scene-controller/tracker-config.json
+	cp ../controller/config/reid-config.json scenescape-chart/files/scene-controller/reid-config.json
+	cp ../model_download/src/download_models.py scenescape-chart/files/model-download/download_models.py
+	cp ../model_download/src/generate_model_config.py scenescape-chart/files/model-download/generate_model_config.py
+	cp ../model_download/src/entrypoint-k8s.sh scenescape-chart/files/model-download/entrypoint-k8s.sh
+	cp ../model_download/models.json scenescape-chart/files/model-download/models.json
 	cp ../sample_data/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
 	cp ../sample_data/convert-videos-k8s.sh scenescape-chart/files/sample-data/convert-videos-k8s.sh
 
 
+check-demo-k8s-mode:
+	@case "$(DEMO_K8S_MODE)" in \
+	  core|reid|all) ;; \
+	  *) echo "Invalid DEMO_K8S_MODE '$(DEMO_K8S_MODE)'. Use core, reid or all."; exit 1 ;; \
+	esac
+	@case "$(REID_BACKEND)" in \
+	  vdms|qdrant) ;; \
+	  *) echo "Invalid REID_BACKEND '$(REID_BACKEND)'. Use vdms or qdrant."; exit 1 ;; \
+	esac
+
 # to test template rendering
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
-install: copy-files chart.yaml
+install: check-demo-k8s-mode copy-files chart.yaml
 	@VALUES_FILE=""; \
 	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
 		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \
@@ -224,12 +232,14 @@ install: copy-files chart.yaml
 	if [ -n "$${PGPASS}" ]; then \
 		PGPASS_ARG="--set pgserver.password=$${PGPASS}"; \
 	fi; \
-	MODE_ARG=""; \
-	if [ "$(DEMO_K8S_MODE)" = "all" ]; then \
-		MODE_ARG="--set mapping.enabled=true --set clusterAnalytics.enabled=true"; \
+	MODE_ARG="--set reid.enabled=false"; \
+	if [ "$(DEMO_K8S_MODE)" = "reid" ]; then \
+		MODE_ARG="--set reid.enabled=true --set reid.backend=$(REID_BACKEND)"; \
+	elif [ "$(DEMO_K8S_MODE)" = "all" ]; then \
+		MODE_ARG="--set reid.enabled=true --set reid.backend=$(REID_BACKEND) --set mapping.enabled=true --set clusterAnalytics.enabled=true"; \
 	fi; \
 	REPOSITORY_ARG="--set repository=$(REGISTRY)"; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${SUPASS_ARG} $${PGPASS_ARG} $${MODE_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${SUPASS_ARG} $${PGPASS_ARG} $${MODE_ARG} $${VALUES_FILE} $(TEST_FLAGS);
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi
@@ -262,19 +272,6 @@ rebuild-demo:
 rebuild-core: uninstall delete-namespace build-core install
 
 rebuild-all: uninstall delete-namespace build-all install
-
-build-validation: build-validation-demo
-
-build-validation-demo:
-	@if [ "$(DEMO_K8S_MODE)" = "all" ]; then \
-		$(MAKE) build-validation-all; \
-	else \
-		$(MAKE) build-validation-core; \
-	fi
-
-build-validation-core: delete-namespace build-core install wait-for-ready
-
-build-validation-all: delete-namespace build-all install wait-for-ready
 
 test:
 	@helm test $(RELEASE) -n $(NAMESPACE) --timeout 240s

@@ -105,6 +105,7 @@ class Tracking(Thread):
           ref_camera_frame_rate,
           reid_config_data=self.reid_config_data,
         )
+        tracker.uuid_manager.scene_id = self.uuid_manager.scene_id
         self.trackers[category] = tracker
         tracker.start()
     return
@@ -244,6 +245,7 @@ class Tracking(Thread):
       mobj.setPersistentAttributes(info, persist_attributes)
     else:
       mobj = MovingObject(info, when, sensor)
+      mobj.setPersistentAttributes(info, persist_attributes)
 
     mobj.project_to_map = project_to_map
     mobj.rotation_from_velocity = rotation_from_velocity

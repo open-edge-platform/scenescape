@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+services:
+  parent-scene:
+    depends_on:
+      vdms-a:
+        condition: service_started
+    environment:
+      REID_HOSTNAME: reid-a.scenescape.intel.com
+  child1-scene:
+    depends_on:
+      vdms-a:
+        condition: service_started
+    environment:
+      REID_HOSTNAME: reid-a.scenescape.intel.com
+  child2-scene:
+    depends_on:
+      vdms-b:
+        condition: service_started
+    environment:
+      REID_HOSTNAME: reid-b.scenescape.intel.com

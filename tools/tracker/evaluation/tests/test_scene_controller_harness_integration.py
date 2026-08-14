@@ -14,14 +14,14 @@ import itertools
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from harnesses.scene_controller_harness import SceneControllerHarness
-from datasets.metric_test_dataset import MetricTestDataset
+from datasets.unity_dataset import UnityDataset
 
 # Path to test data and schemas
 DATASET_PATH = Path(__file__).parent.parent.parent.parent.parent / \
-  "tests" / "system" / "metric" / "dataset"
+  "tests" / "system" / "metric" / "unity_dataset"
 SCHEMA_PATH = Path(__file__).parent.parent.parent.parent.parent / \
   "tracker" / "schema"
-TRACKER_CONFIG_PATH = DATASET_PATH / "tracker-config-time-chunking.json"
+TRACKER_CONFIG_PATH = Path(__file__).parent.parent / "pipeline_configs" / "black_box_unity" / "config" / "controller_immediate.json"
 
 # Test configuration
 NUM_INPUT_FRAMES = 120  # Number of input frames to process in integration tests
@@ -31,8 +31,8 @@ TIME_RANGE_END = "2014-09-08T04:00:04.000Z"
 
 @pytest.fixture
 def dataset(tmp_path):
-  """Create MetricTestDataset instance."""
-  ds = MetricTestDataset(str(DATASET_PATH))
+  """Create UnityDataset instance."""
+  ds = UnityDataset(str(DATASET_PATH))
   ds.set_output_folder(tmp_path / "dataset_outputs")
   ds.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30).set_time_range(
     TIME_RANGE_START,
@@ -44,7 +44,7 @@ def dataset(tmp_path):
 @pytest.fixture
 def harness():
   """Create SceneControllerHarness with latest container."""
-  return SceneControllerHarness(container_image='scenescape-controller:latest')
+  return SceneControllerHarness(container_image='intel/scenescape-controller:latest')
 
 
 @pytest.fixture
@@ -204,3 +204,37 @@ class TestSceneControllerHarnessIntegration:
     # Check that object has some expected fields (may vary based on actual output)
     assert isinstance(first_object, dict), "Object should be a dictionary"
     # Note: Not checking specific fields as format is being validated by schema test
+
+  def test_category_filter_reduces_output_objects(self, harness, dataset):
+    """Filtering input categories reduces the number of tracked objects."""
+    harness.set_scene_config(dataset.get_scene_config())
+    harness.set_custom_config({
+      'tracker_config_path': str(TRACKER_CONFIG_PATH)
+    })
+
+    # Run without category filter
+    limited_inputs = itertools.islice(dataset.get_inputs(), NUM_INPUT_FRAMES)
+    outputs_all = list(harness.process_inputs(limited_inputs))
+    ids_all = {
+      obj.get("id") for out in outputs_all
+      for obj in out.get("objects", [])
+    }
+
+    # Run with "person" only
+    harness.reset()
+    dataset.set_object_categories(["person"])
+    harness.set_scene_config(dataset.get_scene_config())
+    harness.set_custom_config({
+      'tracker_config_path': str(TRACKER_CONFIG_PATH)
+    })
+    limited_inputs = itertools.islice(dataset.get_inputs(), NUM_INPUT_FRAMES)
+    outputs_filtered = list(harness.process_inputs(limited_inputs))
+    ids_filtered = {
+      obj.get("id") for out in outputs_filtered
+      for obj in out.get("objects", [])
+    }
+
+    assert len(ids_filtered) < len(ids_all), (
+      f"Filtering to 'person' should produce fewer unique object IDs "
+      f"({len(ids_filtered)} vs {len(ids_all)})"
+    )

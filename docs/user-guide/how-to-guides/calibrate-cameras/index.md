@@ -1,6 +1,6 @@
 # Calibrating Cameras
 
-These articles will teach you various ways of calibrating cameras for Intel® SceneScape.
+These articles will teach you various ways of calibrating cameras for Scenescape.
 
 - [Use 2D UI for Manual Calibration](./use-2D-UI-for-calibration.md)
 - [Use 3D UI for Calibration](./use-3D-UI-for-calibration.md)

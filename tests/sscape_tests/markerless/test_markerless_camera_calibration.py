@@ -12,35 +12,42 @@ import pytest
 from markerless_camera_calibration import CameraCalibrationMonocularPoseEstimate, getPoseMatrix
 from scene_common.mesh_util import extractMeshFromGLB, extractMeshFromImage
 from scene_common.transform import convertToTransformMatrix
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import MARKERLESS
 
-def test_extractMeshFromGLB(getGlbFile):
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=MARKERLESS,
+  require_password=False, auth="",
+)
+
+def test_extractMeshFromGLB(scenescape_env, getGlbFile):
   """! Tests loading mesh from glb file. """
   mesh, _ = extractMeshFromGLB(getGlbFile)
   assert isinstance(mesh,o3d.t.geometry.TriangleMesh)
 
-def test_extractMeshFromImage(getImageFile):
+def test_extractMeshFromImage(scenescape_env, getImageFile):
   """! Tests loading mesh from image file. """
   assert isinstance(extractMeshFromImage(getImageFile),o3d.t.geometry.TriangleMesh)
 
-def test_camCalibObject(createCamCalibObject):
+def test_camCalibObject(scenescape_env, createCamCalibObject):
   """! Tests Creation of a CameraCalibrationMonocularPoseEstimate object. """
   assert isinstance(createCamCalibObject, CameraCalibrationMonocularPoseEstimate)
 
-def test_decodeImage(createCamCalibObject ,convertImageToBase64,
+def test_decodeImage(scenescape_env, createCamCalibObject ,convertImageToBase64,
                      convertBadImageToBase64):
   """! Tests if the images being sent via mqtt is decoded right. """
   cam_obj = createCamCalibObject
   assert isinstance(cam_obj.decodeImage(convertImageToBase64), np.ndarray)
   assert isinstance(cam_obj.decodeImage(convertBadImageToBase64), NoneType)
 
-def test_getPoseMatrix(createSceneObject, expectedPoseMat):
+def test_getPoseMatrix(scenescape_env, createSceneObject, expectedPoseMat):
   """! Tests if basic Pose Matrix generated is correct. """
   scene_obj = createSceneObject
   pose_mat = getPoseMatrix(scene_obj)
   assert pose_mat.shape == (4, 4)
   assert np.allclose(expectedPoseMat, pose_mat)
 
-def test_convertYUpToYDown(createCamCalibObject, createSceneObject, rotAndTrans,
+def test_convertYUpToYDown(scenescape_env, createCamCalibObject, createSceneObject, rotAndTrans,
                            expectedMatForYupToYDown):
   """! Tests upon rotation and translation, do we get the right matrix in
        Scenescape co-ordinate system. """
@@ -51,7 +58,7 @@ def test_convertYUpToYDown(createCamCalibObject, createSceneObject, rotAndTrans,
   assert val.shape == (4, 4)
   assert np.allclose(expectedMatForYupToYDown, val)
 
-def test_convertToTransformMatrix(createCamCalibObject, rotAndTrans,
+def test_convertToTransformMatrix(scenescape_env, createCamCalibObject, rotAndTrans,
                                   expectedMatForTransformMatrix):
   """! Test markerless.convertToTransformMatrix returns 4x4 shaped matrix. """
   rot, trans = rotAndTrans
@@ -59,7 +66,7 @@ def test_convertToTransformMatrix(createCamCalibObject, rotAndTrans,
   assert val.shape == (4, 4)
   assert np.allclose(expectedMatForTransformMatrix, val)
 
-def test_getMarkerlessConfig(createCamCalibObject, createSceneObject, hlocConfig):
+def test_getMarkerlessConfig(scenescape_env, createCamCalibObject, createSceneObject, hlocConfig):
   """! Test to check if hloc config generated is right. """
   cfg = createCamCalibObject.generateMarkerlessConfig(createSceneObject)
   assert isinstance(cfg, dict)
@@ -68,7 +75,7 @@ def test_getMarkerlessConfig(createCamCalibObject, createSceneObject, hlocConfig
   assert len(cfg['hloc']) == 6
   assert cfg['hloc'] == hlocConfig
 
-def test_extractMeshFromGLBBad(getBadGlbFile, getImageFile):
+def test_extractMeshFromGLBBad(scenescape_env, getBadGlbFile, getImageFile):
   """! Tests loading bad glb file. """
   with pytest.raises(ValueError) as valueerror:
     extractMeshFromGLB(getBadGlbFile)

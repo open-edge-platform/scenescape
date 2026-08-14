@@ -8,6 +8,7 @@ import { ConvergedCameraCalibration } from "/static/js/cameracalibrate.js";
 
 var calibration_strategy;
 let camera_calibration;
+const AUTOCALIB_PROXY_BASE = "/api/v1/autocalibration";
 
 // Initialize after DOM is ready
 document.addEventListener("DOMContentLoaded", function () {
@@ -17,14 +18,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
 async function startCameraCalibration(cameraUID, image, intrinsics) {
   try {
-    const response = await fetch(`/v1/cameras/${cameraUID}/calibration`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        image: image,
-        intrinsics: intrinsics,
-      }),
-    });
+    const response = await fetch(
+      `${AUTOCALIB_PROXY_BASE}/cameras/${cameraUID}/calibration`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image: image,
+          intrinsics: intrinsics,
+        }),
+      },
+    );
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} - ${response.statusText}`);
@@ -41,7 +45,7 @@ async function startCameraCalibration(cameraUID, image, intrinsics) {
 
 async function getCalibrationServiceStatus() {
   try {
-    const response = await fetch("/v1/status", {
+    const response = await fetch(`${AUTOCALIB_PROXY_BASE}/status`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -60,7 +64,7 @@ async function getCalibrationServiceStatus() {
 }
 
 async function registerScene(sceneId) {
-  const url = `/v1/scenes/${sceneId}/registration`;
+  const url = `${AUTOCALIB_PROXY_BASE}/scenes/${sceneId}/registration`;
 
   try {
     const response = await fetch(url, {
@@ -114,9 +118,23 @@ async function registerAutoCameraCalibration(scene_id, socket) {
   }
 
   socket.on("register_result", async (notification) => {
-    manageCalibrationState(notification.data, scene_id);
+    await manageCalibrationState(notification.data, scene_id);
   });
-  const response = await registerScene(scene_id);
+
+  // The registration POST resolves synchronously with an error when the scene
+  // map wasn't just updated, in which case no "register_result" socket event
+  // is ever emitted, so the response must be handled here too.
+  try {
+    const response = await registerScene(scene_id);
+    if (response) {
+      await manageCalibrationState(response, scene_id);
+    }
+  } catch (error) {
+    await manageCalibrationState(
+      { status: "error", message: error.message },
+      scene_id,
+    );
+  }
 }
 
 async function manageCalibrationState(msg, scene_id) {
@@ -144,7 +162,22 @@ async function manageCalibrationState(msg, scene_id) {
           "Click to calibrate the camera automatically";
       }
     } else if (msg.status == "re-register") {
-      const response = await registerScene(scene_id);
+      try {
+        const response = await registerScene(scene_id);
+        if (response) {
+          await manageCalibrationState(response, scene_id);
+        }
+      } catch (error) {
+        await manageCalibrationState(
+          { status: "error", message: error.message },
+          scene_id,
+        );
+      }
+    } else if (msg.status == "error") {
+      document.getElementById("calib-spinner").classList.add("hide-spinner");
+      document.getElementById("auto-autocalibration").disabled = true;
+      document.getElementById("auto-autocalibration").title =
+        msg.message || "Auto camera calibration failed";
     } else {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
       document.getElementById("auto-autocalibration").title = msg.status;

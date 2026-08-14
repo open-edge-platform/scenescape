@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# kindest/node:v1.35.0 requires kind >= v0.31 (containerd 2.x snapshotter detection).
+# Pin by digest so retagged floating tags cannot break kind load.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: pytest-test-cluster
+nodes:
+- role: control-plane
+  image: kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraMounts:
+  - hostPath: /dev/dri
+    containerPath: /dev/dri

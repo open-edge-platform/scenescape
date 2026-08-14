@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+  django:
+    file: ${SECRETSDIR}/django
+  controller.auth:
+    environment: CONTROLLER_AUTH
+
+services:
+  analytics:
+    image: intel/scenescape-analytics:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape-test:
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+    environment:
+      VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      no_proxy: 127.0.0.1,localhost,${no_proxy},.scenescape.intel.com
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      NO_PROXY: 127.0.0.1,localhost,${NO_PROXY},.scenescape.intel.com
+    command: --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --visibility_topic ${VISIBILITY:-regulated}
+    volumes:
+      - vol-media:/home/scenescape/Scenescape/media
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - django
+      - controller.auth
+    restart: on-failure

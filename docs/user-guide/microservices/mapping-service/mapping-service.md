@@ -8,8 +8,10 @@ hide_directive-->
 
 # Mapping Service
 
-This Docker container provides a Flask REST API interface for 3D reconstruction with build-time
-model selection, enabling generation of meshes and camera parameters from captured frames.
+The Mapping Service generates 3D scene reconstructions — meshes, point clouds, and camera parameters (poses and intrinsics) — from a set of captured images or video frames. It exposes a REST API so other microservices can request reconstructions on demand.
+
+## Models
+
 Each container is built with one of two state-of-the-art models:
 
 - **MapAnything**: Universal Feed-Forward Metric 3D Reconstruction
@@ -17,31 +19,34 @@ Each container is built with one of two state-of-the-art models:
 
 ## Features
 
-- **Flask** based REST API with JSON responses
+- **REST API** with JSON responses
 - **Build-Time Model Selection**: Single model per container, no dependency conflicts
-- **Multi-image Input**: Process multiple images simultaneously
-- **GLB Output**: Generate 3D models in GLB format
-- **Camera Data**: Extract camera poses and intrinsics
+- **Flexible Input**: Multiple images, video files, or both in a single request
+- **Multiple Output Formats**: GLB meshes or point clouds
+- **Camera Data**: Extracts camera poses and intrinsics alongside geometry
 - **Image Enhancement**: Automatic CLAHE preprocessing for improved contrast
-- **Containerized**: Model-specific containers for clean deployment
 
-## SceneScape Integration
+## Scenescape Integration
 
-The following diagram shows the dataflow between the Intel® SceneScape Web UI, database, MQTT
+The following diagram shows the dataflow between the Scenescape Web UI, database, MQTT
 broker, and the Mapping Service.
 
 > **Note:** The diagram is currently best viewed in light color mode.
 
 ```mermaid
 sequenceDiagram
-    SceneScape Web UI ->>+Database: "Query camera info"
-    SceneScape Web UI ->>+MQTT Broker: "Get latest frame for each camera"
-    SceneScape Web UI ->>+Mapping Service: "REST API call to /reconstruction endpoint with camera frames"
-    Mapping Service ->>+SceneScape Web UI: "Output: GLB & Camera Poses"
-    SceneScape Web UI ->>+Database: "Update scene map & camera poses"
+    Scenescape Web UI ->>+Database: "Query camera info"
+    Scenescape Web UI ->>+MQTT Broker: "Get latest frame for each camera"
+    Scenescape Web UI ->>+Mapping Service: "REST API call to /reconstruction endpoint with camera frames"
+    Mapping Service ->>+Scenescape Web UI: "Output: GLB & Camera Poses"
+    Scenescape Web UI ->>+Database: "Update scene map & camera poses"
 ```
 
 ## API Endpoints
+
+> **Security note:** Mapping service endpoints currently do not enforce endpoint-level
+> authentication or authorization. Deploy behind trusted network boundaries and reverse
+> proxy controls, and use TLS for transport protection.
 
 ### Health Check
 
@@ -130,34 +135,40 @@ the service from source and running it.
 ```python
 import base64
 import requests
+from pathlib import Path
 
-# Encode images to base64
-def encode_image(image_path):
-    with open(image_path, "rb") as f:
-        return base64.b64encode(f.read()).decode('utf-8')
+# Prepare multipart request
+files = []
+handles = []
+for image_path in ["image1.jpg", "image2.jpg"]:
+  path = Path(image_path)
+  handle = path.open("rb")
+  handles.append(handle)
+  files.append(("images", (path.name, handle, "image/jpeg")))
 
-# Prepare request
-payload = {
-    "images": [
-        {"data": encode_image("image1.jpg"), "filename": "image1.jpg"},
-        {"data": encode_image("image2.jpg"), "filename": "image2.jpg"}
-    ],
-    "output_format": "glb"
+data = {
+  "output_format": "glb",
+  "mesh_type": "mesh",
 }
 
-# Send request
-response = requests.post("https://localhost:8444/reconstruction", json=payload)
-result = response.json()
+try:
+try:
+  # Send request through the Apache reverse proxy used in the full stack deployment
+  response = requests.post("https://localhost/api/v1/mapping/reconstruction", data=data, files=files, verify=False)
+  result = response.json()
 
-if result["success"]:
+  if result["success"]:
     # Save GLB file
     glb_data = base64.b64decode(result["glb_data"])
     with open("output.glb", "wb") as f:
-        f.write(glb_data)
+      f.write(glb_data)
 
     print(f"Model used: {result['model']}")
     print(f"Processing time: {result['processing_time']:.2f}s")
     print(f"Camera poses: {len(result['camera_poses'])}")
+finally:
+  for handle in handles:
+    handle.close()
 ```
 
 ### Using the Included Client
@@ -175,13 +186,19 @@ python client_example.py --images image1.jpg image2.jpg --mesh-type pointcloud -
 
 ```bash
 # Health check
-curl https://localhost:8444/health --insecure
+curl https://localhost:8444/v1/health --insecure
+
+# Startup progress (poll initialization state)
+while true; do
+  curl -ks https://localhost:8444/v1/health | jq '{status, ready, initialization}'
+  sleep 2
+done
 
 # List models
-curl https://localhost:8444/models --insecure
+curl https://localhost:8444/v1/models --insecure
 
 # Reconstruction with images (using multipart/form-data - recommended)
-curl -X POST "https://localhost:8444/reconstruction" \
+curl -X POST "https://localhost:8444/v1/reconstruction" \
   -F "images=@image1.jpg" \
   -F "images=@image2.jpg" \
   -F "output_format=glb" \
@@ -189,7 +206,7 @@ curl -X POST "https://localhost:8444/reconstruction" \
   --insecure
 
 # Reconstruction with video
-curl -X POST "https://localhost:8444/reconstruction" \
+curl -X POST "https://localhost:8444/v1/reconstruction" \
   -F "video=@video.mp4" \
   -F "output_format=glb" \
   -F "mesh_type=mesh" \
@@ -197,7 +214,7 @@ curl -X POST "https://localhost:8444/reconstruction" \
   --insecure
 
 # Reconstruction with both images and video
-curl -X POST "https://localhost:8444/reconstruction" \
+curl -X POST "https://localhost:8444/v1/reconstruction" \
   -F "images=@image1.jpg" \
   -F "images=@image2.jpg" \
   -F "video=@video.mp4" \
@@ -206,7 +223,7 @@ curl -X POST "https://localhost:8444/reconstruction" \
   --insecure
 
 # Save GLB output to file (requires jq for JSON parsing)
-curl -X POST "https://localhost:8444/reconstruction" \
+curl -X POST "https://localhost:8444/v1/reconstruction" \
   -F "images=@image1.jpg" \
   -F "images=@image2.jpg" \
   -F "output_format=glb" \
@@ -265,7 +282,7 @@ To add support for additional models:
   scale of the output mesh generated by **Map Anything** is closer to the actual scene than
   **VGGT**.
 - The output mesh generated by **VGGT** version of the service has several issues currently.
-  All of these issues will be addressed in the next Intel® SceneScape release:
+  All of these issues will be addressed in the next Scenescape release:
   - It is not aligned with the original point cloud
   - The resolution of the texture is not sharp.
   - Pointcloud to mesh conversion takes many multiples of time taken by inference that
