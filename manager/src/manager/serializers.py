@@ -778,8 +778,13 @@ class SceneSerializer(NonNullSerializer):
       instance.trs_matrix = trs_matrix
 
     if map_path:
-      map_path = '/media/' + map_path.name
-      ext = os.path.splitext(map_path)[1].lower()
+      validated_data.pop('map', None)
+      try:
+        map_path.seek(0)
+      except (AttributeError, OSError):
+        pass
+      instance.map.save(os.path.basename(map_path.name), map_path, save=False)
+      ext = os.path.splitext(instance.map.name)[1].lower()
 
       if ext == ".ply":
         glb_file = instance.map.path.replace(".ply", ".glb")
