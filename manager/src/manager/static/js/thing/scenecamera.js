@@ -174,14 +174,28 @@ export default class SceneCamera extends THREE.Object3D {
     });
   }
 
+  // A camera registered without its true resolution keeps the 640x480 default,
+  // which renders the frustum far narrower than the projected image.
+  intrinsicsResolution() {
+    const cx = this.cameraMatrix.data64F[CX];
+    const cy = this.cameraMatrix.data64F[CY];
+    return cx > 0 && cy > 0 ? { w: cx * 2, h: cy * 2 } : this.resolution;
+  }
+
+  refreshFrustum() {
+    this.sceneCamera.updateProjectionMatrix();
+    if (this.sceneCameraHelper) this.sceneCameraHelper.update();
+  }
+
   addCamera() {
+    const resolution = this.intrinsicsResolution();
     const vfov = computeVerticalFOVFromFy(
       this.cameraMatrix.data64F[FY],
-      this.resolution,
+      resolution,
     );
     this.sceneCamera = new THREE.PerspectiveCamera(
       vfov,
-      this.resolution.w / this.resolution.h,
+      resolution.w / resolution.h,
       0.1,
       10,
     );
@@ -592,9 +606,9 @@ export default class SceneCamera extends THREE.Object3D {
     if (this.resolution) {
       this.sceneCamera.fov = computeVerticalFOVFromFy(
         this.cameraMatrix.data64F[FY],
-        this.resolution,
+        this.intrinsicsResolution(),
       );
-      this.sceneCamera.updateProjectionMatrix();
+      this.refreshFrustum();
       if (this.cameraCapture) {
         this.cameraCapture.camera = this.sceneCamera;
         this.cameraCapture.project(this.mesh);
@@ -605,7 +619,7 @@ export default class SceneCamera extends THREE.Object3D {
   setCameraAspectRatio() {
     this.sceneCamera.aspect =
       this.cameraMatrix.data64F[CX] / this.cameraMatrix.data64F[CY];
-    this.sceneCamera.updateProjectionMatrix();
+    this.refreshFrustum();
     if (this.cameraCapture) {
       this.cameraCapture.camera = this.sceneCamera;
       this.cameraCapture.project(this.mesh);
@@ -812,6 +826,8 @@ export default class SceneCamera extends THREE.Object3D {
       ),
       scale: [1, 1, 1],
       transform_type: "euler",
+      // Detected from the incoming frame; without it the camera keeps the 640x480 default.
+      resolution: { width: this.resolution.w, height: this.resolution.h },
     };
 
     if (this.cameraUID && this.mqttClient && this.isVARunning) {
@@ -983,7 +999,7 @@ export default class SceneCamera extends THREE.Object3D {
             this.cameraMatrix.data64F[FY],
             this.resolution,
           );
-          this.sceneCamera.updateProjectionMatrix();
+          this.refreshFrustum();
           if (this.cameraCapture === null) {
             [this.cameraCapture, this.mesh] =
               this.drawObj.createProjectionMaterial(
