@@ -133,6 +133,6 @@ docker run ${DCKARGS[@]} -v "${HOSTDIR}":${APPDIR} \
         -e http_proxy -e https_proxy -e no_proxy -e PROJECT="${DCKPROJECT}"\
         -v ${DCKPROJECT}_vol-models:${MODELDIR} -v ${DCKPROJECT}_vol-sample-data:/home/scenescape/SceneScape/sample_data -e PYTHONPATH="${APPDIR}"\
         -v ${HOSTDIR}/manager/secrets:/run/secrets \
-        ${IMAGE} ${ARGS[@]} $@
+        ${IMAGE} ${ARGS[@]} "$@"
 STATUS=$?
 exit ${STATUS}

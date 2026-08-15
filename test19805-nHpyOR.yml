@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 networks:
-  scenescape-test:
+  scenescape-test_test19805:
 
 secrets:
   root-cert:
@@ -25,7 +25,7 @@ services:
     image: scenescape-manager:${VERSION:-latest}
     init: true
     networks:
-      scenescape-test:
+      scenescape-test_test19805:
         aliases:
           - web.scenescape.intel.com
     depends_on:
@@ -47,15 +47,9 @@ services:
       retries: 10
       start_period: 10s
     environment:
-      - "EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2"
+      - "EXAMPLEDB=/home/scenescape/SceneScape/tests/testdb.tar.bz2"
       - "DBROOT"
       - "SUPASS"
-      - "HTTP_PROXY=${HTTP_PROXY}"
-      - "HTTPS_PROXY=${HTTPS_PROXY}"
-      - "http_proxy=${http_proxy}"
-      - "https_proxy=${https_proxy}"
-      - "NO_PROXY=${NO_PROXY},.scenescape.intel.com,.scenescape"
-      - "no_proxy=${no_proxy},.scenescape.intel.com,.scenescape"
     cap_add:
       - SYS_ADMIN
     devices:
@@ -64,7 +58,8 @@ services:
       - apparmor:unconfined
     # web interface needs access to the media files
     volumes:
-      - vol-media:/workspace/media
+      - ./tests/testdb.tar.bz2:/home/scenescape/SceneScape/tests/testdb.tar.bz2
+      - ./${DBROOT}/media:/workspace/${DBROOT}/media
       - vol-sample-data:/home/scenescape/SceneScape/sample_data
       - vol-migrations:/workspace/migrations
     secrets:

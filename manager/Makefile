@@ -188,7 +188,7 @@ $(JSLIBDIR)/assets/ProjectedMaterial.module.js:
 	  &&  sed "s,'three','/static/assets/three.module.js'," $@ > temp.js && mv temp.js $@
 
 $(JSLIBDIR)/assets/opencv.js:
-	URL=https://docs.opencv.org/4.10.0 && PKG=$$(basename $@) \
+	URL=https://docs.opencv.org/4.13.0 && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 

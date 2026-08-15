@@ -25,8 +25,8 @@ make -C tests release-tests
 # Run broken tests (known unstable or failing)
 make -C tests broken-tests
 
-# Run a specific test
-make -C tests mqtt-roi
+# Run a specific test (after container images are prepared)
+make setup_tests && make -C tests mqtt-roi
 
 ```
 

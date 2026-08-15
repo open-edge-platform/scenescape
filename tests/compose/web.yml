@@ -50,6 +50,12 @@ services:
       - "EXAMPLEDB=/home/scenescape/SceneScape/tests/testdb.tar.bz2"
       - "DBROOT"
       - "SUPASS"
+      - "HTTP_PROXY=${HTTP_PROXY}"
+      - "HTTPS_PROXY=${HTTPS_PROXY}"
+      - "http_proxy=${http_proxy}"
+      - "https_proxy=${https_proxy}"
+      - "NO_PROXY=${NO_PROXY},.scenescape.intel.com,.scenescape"
+      - "no_proxy=${no_proxy},.scenescape.intel.com,.scenescape"
     cap_add:
       - SYS_ADMIN
     devices:

@@ -176,7 +176,8 @@ template <typename T> void GatedHungarianMatcher<T>::MatchInit()
 
   /* determine function of comparison */
   static std::map<OptimizeFlag, std::function<bool(T, T)>> compare_fun_map = {
-    {OptimizeFlag::OPTMAX, std::less<T>()}, {OptimizeFlag::OPTMIN, std::greater<T>()},
+    {OptimizeFlag::OPTMAX, std::less<T>()},
+    {OptimizeFlag::OPTMIN, std::greater<T>()},
   };
   auto find_ret = compare_fun_map.find(opt_flag_);
   CHECK(find_ret != compare_fun_map.end());

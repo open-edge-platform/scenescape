@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 networks:
@@ -30,16 +30,9 @@ services:
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
       --ntp ntpserv
-    environment:
-      - "HTTP_PROXY=${HTTP_PROXY}"
-      - "HTTPS_PROXY=${HTTPS_PROXY}"
-      - "http_proxy=${http_proxy}"
-      - "https_proxy=${https_proxy}"
-      - "NO_PROXY=${NO_PROXY},.scenescape.intel.com,.scenescape"
-      - "no_proxy=${no_proxy},.scenescape.intel.com,.scenescape"
     volumes:
       - ./${DBROOT}/media:/home/scenescape/SceneScape/media
-      - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
+      - ./tests/compose/tracker-config-time-chunking.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

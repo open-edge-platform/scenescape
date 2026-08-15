@@ -1,5 +1,7 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 """OpenTelemetry metrics for SceneScape controller.
 
@@ -177,6 +179,8 @@ class _metrics:
             description=instrument["description"],
             unit=instrument["unit"]
         ))
+        if instrument["kind"] == "counter":
+          self.counter_add(instrument["name"], 0)
       except KeyError:
         raise ValueError(f"Unknown instrument kind: '{instrument['kind']}'. Supported kinds: {list(INSTRUMENT_CREATORS.keys())}")
 

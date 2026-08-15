@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test_test19805:
+
+services:
+  pgserver:
+    image: postgres:17.6
+    environment:
+      POSTGRES_USER: scenescape
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: scenescape
+    networks:
+      - scenescape-test_test19805
+    volumes:
+      - vol-db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  vol-db:

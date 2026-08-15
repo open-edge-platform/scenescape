@@ -60,6 +60,8 @@ web:
 scene:
   image: intel/scenescape-controller
   pullPolicy: IfNotPresent
+  maxWorkers: 0
+  ompNumThreads: 8
 
 camcalibration:
   image: intel/scenescape-camcalibration

@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 import collections
 import concurrent.futures
@@ -30,12 +32,27 @@ class UUIDManager:
     self.quality_features = {}
     self.unique_id_count = 0
     self.reid_database = available_databases[database]()
-    self.pool = concurrent.futures.ThreadPoolExecutor()
+    # Bound thread pool to prevent excessive thread creation under heavy ReID load
+    self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=4)
     self.similarity_query_times = collections.deque(
       maxlen=DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED)
     self.similarity_query_times_lock = threading.Lock()
     self.reid_enabled = True
     return
+
+  def shutdown(self):
+    """Shutdown the thread pool executor."""
+    if hasattr(self, 'pool'):
+      self.pool.shutdown(wait=False)
+    return
+
+  def getActiveGID(self, rv_id):
+    """Return the active GID for a tracker id, or None if unset.
+
+    Reads under active_ids_lock so callers do not race assignID/pruneInactiveTracks.
+    """
+    with self.active_ids_lock:
+      return self.active_ids.get(rv_id, [None])[0]
 
   def connectDatabase(self):
     self.pool.submit(self.reid_database.connect)
@@ -297,4 +314,8 @@ class UUIDManager:
             self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
     else:
       self.pickBestID(sscape_object)
+    # Store the assigned UUID in active_ids to preserve identity across track state changes
+    with self.active_ids_lock:
+      if self.active_ids.get(sscape_object.rv_id, [None])[0] is None:
+        self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
     return

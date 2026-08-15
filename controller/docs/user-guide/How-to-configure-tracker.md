@@ -27,6 +27,7 @@ The default content of the `tracker-config.json` file is shown below. It is reco
   "non_measurement_frames_static": 16,
   "baseline_frame_rate": 30,
   "time_chunking_enabled": false,
+  "object_batching_enabled": false,
   "suspended_track_timeout_secs": 60.0
 }
 ```
@@ -101,6 +102,7 @@ The content of the `tracker-config-time-chunking.json` file is shown below.
   "baseline_frame_rate": 30,
   "time_chunking_enabled": true,
   "time_chunking_interval_milliseconds": 66,
+  "object_batching_enabled": false,
   "suspended_track_timeout_secs": 60.0
 }
 ```
@@ -109,12 +111,23 @@ Here is a brief description of the time-chunking-specific configuration paramete
 
 - `time_chunking_enabled`: Enables or disables the time-chunking feature. Set to `true` to enable.
 - `time_chunking_interval_milliseconds`: Defines the interval in milliseconds at which the tracker processes data in chunks. The effective tracker processing rate is `1000 / time_chunking_interval_milliseconds` Hz. For example, if the interval is 66 ms, the tracker processing rate is 15.15 Hz.
+- `object_batching_enabled`: When time-chunking is enabled, controls whether cameras in a chunk are merged into a single batched tracker call (`true`) or processed one camera at a time (`false`). Defaults to `false`. Only applies when `time_chunking_enabled` is `true`.
 
 ### How to Set Time-Chunking Interval
 
 The rule of thumb for setting the time-chunking interval is to adjust it to the camera with the highest frame rate: `time_chunking_interval_milliseconds = 1000 / highest_camera_FPS`. This way, no input data will be dropped during time-chunking.
 
 The time-chunking interval may be further increased beyond the recommended value if additional performance improvements are needed. However, in this case, more than one frame from a camera might fall within a time chunk, and the potential accuracy loss caused by dropped frames should be carefully balanced against performance benefits.
+
+### Frame Freshness and Dropping
+
+Under load, SceneScape prefers the newest detections over processing every frame. Two independent layers can skip intermediate frames:
+
+1. **Controller ingress** — For each camera, the Scene Controller keeps only the latest detection message waiting to be processed and limits how much work can be in flight at once. Newer frames replace older ones before they reach the tracker. This behavior is always active with the per-scene controller workers; it is not configured via `tracker-config.json`.
+
+2. **Time-chunking** — When `time_chunking_enabled` is `true`, within each `time_chunking_interval_milliseconds` window only the latest frame per camera and object category is kept for that chunk. If the tracker is still busy when a chunk is ready, that chunk may be dropped. Look for `Tracker work queue is not empty` in controller logs.
+
+Enabling time-chunking does not turn off controller ingress freshness. If both layers are shedding load, more frames are skipped than with either alone. Prefer lowering camera FPS or increasing the time-chunking interval before relying on optional `object_batching_enabled`.
 
 ### Adjusting Time-Based Parameters for Time-Chunking
 

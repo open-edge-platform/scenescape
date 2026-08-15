@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test_test19805:
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+  web-cert:
+    file: ${SECRETSDIR}/certs/scenescape-web.crt
+  web-key:
+    file: ${SECRETSDIR}/certs/scenescape-web.key
+
+configs:
+  mosquitto-secure:
+    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
+
+services:
+  broker:
+    image: eclipse-mosquitto
+    # ports:
+    #   - "1883:1883"
+    configs:
+      - source: mosquitto-secure
+        target: /mosquitto/config/mosquitto.conf
+    volumes:
+      - type: bind
+        source: ${SECRETSDIR}
+        target: /mosquitto/secrets
+    networks:
+      scenescape-test_test19805:
+        aliases:
+          - broker.scenescape.intel.com
+    user: "${UID:-1000}:${GID:-1000}"
+    restart: always

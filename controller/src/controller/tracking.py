@@ -1,8 +1,11 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
+import time
 from queue import Queue
-from threading import Thread
+from threading import Thread, current_thread
 
 from controller.moving_object import (DEFAULT_EDGE_LENGTH,
                                       DEFAULT_TRACKING_RADIUS, ATagObject,
@@ -28,13 +31,22 @@ STREAMING_MODE = False  # (DEFAULT) Objects from one source (camera) at a time a
 BATCHED_MODE = True     # Objects from multiple sources are aggregated together and put into the queue
 
 class Tracking(Thread):
+  """Base tracker class. Each instance is a daemon thread that owns all mutable
+  tracking state for one category. Worker threads enqueue work via self.queue;
+  only this thread's run() loop mutates all_tracker_objects, curObjects, and
+  uuid_manager. This ownership model is the foundation for future
+  multiprocessing: each tracker can move to a dedicated process without
+  sharing mutable state."""
+
   def __init__(self):
-    super().__init__()
+    super().__init__(daemon=True)
     self.trackers = {}
     self.all_tracker_objects = self.curObjects = []
     self.already_tracked_objects = []
     self.queue = Queue()
     self.uuid_manager = UUIDManager()
+    # Thread identity recorded at run() start — used to assert ownership
+    self._owner_thread_id = None
     return
 
   def getUniqueIDCount(self, category):
@@ -49,7 +61,7 @@ class Tracking(Thread):
                    max_unreliable_time, \
                    non_measurement_time_dynamic, \
                    non_measurement_time_static, \
-                   use_tracker=True):
+                   use_tracker=True, camera_id=None):
 
     self._createTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
 
@@ -68,7 +80,7 @@ class Tracking(Thread):
         queue = self.trackers[category].queue
         if not queue.empty():
           # Tracker specific to this category is still processing. Skip tracking objects for this category.
-          log.info("Tracker work queue is not empty", category, queue.qsize())
+          log.debug("Tracker work queue is not empty", category, queue.qsize())
           metrics_attributes = {
             "category": category,
             "reason": "tracker_busy"
@@ -118,13 +130,11 @@ class Tracking(Thread):
 
   def trackCategory(self, objects, when, tracks):
     # You must implement in your subclass
-    raise NotImplemented
-    return
+    raise NotImplementedError
 
   def trackCategoryBatched(self, objects_per_camera, when, tracks):
     # You must implement in your subclass if batched mode is used
-    raise NotImplemented
-    return
+    raise NotImplementedError
 
   def currentObjects(self, category=None):
     categories = []
@@ -142,8 +152,22 @@ class Tracking(Thread):
       cur_objects = self.groupObjects(cur_objects)
     return cur_objects
 
+  def _assert_owner_thread(self):
+    """Assert that mutable tracker state is only accessed by the owning daemon thread."""
+    tid = current_thread().ident
+    if self._owner_thread_id is None:
+      self._owner_thread_id = tid
+      return
+    if tid != self._owner_thread_id:
+      raise RuntimeError(
+        f"Tracker state accessed by thread {tid}, but owned by {self._owner_thread_id}"
+      )
+
   def run(self):
+    self._owner_thread_id = current_thread().ident
     self.uuid_manager.connectDatabase()
+    last_heartbeat = time.time()
+    items_processed = 0
     while True:
       queue_item = self.queue.get()
 
@@ -170,15 +194,29 @@ class Tracking(Thread):
       metrics_attributes = {
         "category": category,
       }
-      with metrics.time_tracking(metrics_attributes):
-        if mode == BATCHED_MODE:
-          self.trackCategoryBatched(objects, when, already_tracked_objects)
-        else:
-          self.trackCategory(objects, when, already_tracked_objects)
-        # curObjects are the results while all_tracker_objects
-        # is used as a working collection inside the thread
-        self.curObjects = (self.all_tracker_objects).copy()
+      try:
+        with metrics.time_tracking(metrics_attributes):
+          # Assert ownership: only this daemon thread should mutate tracker state
+          self._assert_owner_thread()
+          if mode == BATCHED_MODE:
+            self.trackCategoryBatched(objects, when, already_tracked_objects)
+          else:
+            self.trackCategory(objects, when, already_tracked_objects)
+          # curObjects are the results while all_tracker_objects
+          # is used as a working collection inside the thread
+          self.curObjects = (self.all_tracker_objects).copy()
+      except Exception as e:
+        log.error(f"[TRACKER_EXCEPTION] category={category}, mode={'batched' if mode == BATCHED_MODE else 'streaming'}, "
+                  f"error={type(e).__name__}: {e}")
+      finally:
         self.queue.task_done()
+        items_processed += 1
+
+      # Heartbeat logging every 30 seconds to confirm thread liveness
+      now = time.time()
+      if now - last_heartbeat > 30.0:
+        log.info(f"[TRACKER_HEARTBEAT] thread={self.__str__()}, items_processed={items_processed}, queue_size={self.queue.qsize()}")
+        last_heartbeat = now
 
     log.debug(f"Tracker thread {self.__str__()} exiting. Queue size: {self.queue.qsize()}")
     return
@@ -198,6 +236,9 @@ class Tracking(Thread):
       tracker.waitForComplete()
       log.debug(f"Joining tracker thread category {category}")
       tracker.join()
+      # Shutdown uuid_manager thread pool for this tracker
+      if hasattr(tracker, 'uuid_manager'):
+        tracker.uuid_manager.shutdown()
     return
 
   @staticmethod

@@ -4,7 +4,7 @@
 ARG RUNTIME_OS_IMAGE=ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061
 
 # -------------- Common Base Stage (ported to Ubuntu 24.04) --------------
-FROM ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061 AS scenescape-common-base-24-04
+FROM ${RUNTIME_OS_IMAGE} AS scenescape-common-base-24-04
 
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
 # hadolint ignore=DL3002
@@ -16,22 +16,22 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        # Keep package list in alphabetical order
-        cmake \
-        curl \
-        g++ \
-        git \
-        libeigen3-dev \
-        libgtest-dev \
-        make \
-        # needed by fast_geometry
-        pkg-config \
-        pybind11-dev \
-        python3-dev \
-        python3-pip \
-        # needed by fast_geometry
-        python3-scipy \
-        python-is-python3 \
+    # Keep package list in alphabetical order
+    cmake \
+    curl \
+    g++ \
+    git \
+    libeigen3-dev \
+    libgtest-dev \
+    make \
+    # needed by fast_geometry
+    pkg-config \
+    pybind11-dev \
+    python3-dev \
+    python3-pip \
+    # needed by fast_geometry
+    python3-scipy \
+    python-is-python3 \
     && rm -rf /var/lib/apt/lists/*
 
 # install common dependencies
@@ -56,8 +56,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        libopencv-dev \
-        python3-venv \
+    libopencv-dev \
+    python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 # create and set up Python virtual environment
@@ -78,7 +78,7 @@ RUN export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
     && cd dist \
     && ${BUILD_ENV_DIR}/bin/pip3 install --no-cache-dir ./*.whl \
     && cd \
-   && rm -rf /tmp/robot_vision
+    && rm -rf /tmp/robot_vision
 
 # Build main controller package
 COPY ./controller/src/controller /tmp/controller/controller
@@ -116,14 +116,14 @@ USER root
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        gosu \
-        libgl1 \
-        libopencv-contrib406t64 \
-        libopencv-stitching406t64 \
-        libpython3.12 \
-        netbase \
-        python3-pip \
-        sudo \
+    gosu \
+    libgl1 \
+    libopencv-contrib406t64 \
+    libopencv-stitching406t64 \
+    libpython3.12 \
+    netbase \
+    python3-pip \
+    sudo \
     && rm -rf /usr/lib/x86_64-linux-gnu/libLLVM-15.so.1 \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 

@@ -118,6 +118,12 @@ services:
     environment:
       - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com,.scenescape
+      - no_proxy=${no_proxy},.scenescape.intel.com,.scenescape
     cap_add:
       - SYS_ADMIN
     devices:
@@ -164,6 +170,12 @@ services:
       - CONTROLLER_ENABLE_TRACING
       - CONTROLLER_TRACING_ENDPOINT
       - CONTROLLER_TRACING_SAMPLE_RATIO
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com,.scenescape
+      - no_proxy=${no_proxy},.scenescape.intel.com,.scenescape
     command: >
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
@@ -406,7 +418,10 @@ services:
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
       - HTTP_PROXY=${HTTP_PROXY}
       - HTTPS_PROXY=${HTTPS_PROXY}
-      - NO_PROXY=${NO_PROXY}
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com,.scenescape
+      - no_proxy=${no_proxy},.scenescape.intel.com,.scenescape
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
       - vol-datasets:/home/scenescape/SceneScape/datasets

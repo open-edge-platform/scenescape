@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 ---
 apiVersion: apps/v1
@@ -45,6 +47,10 @@ spec:
           env:
           - name: VDMS_HOSTNAME
             value: vdms.{{ .Release.Namespace }}.svc.cluster.local
+          - name: CONTROLLER_MAX_WORKERS
+            value: {{ .Values.scene.maxWorkers | quote }}
+          - name: OMP_NUM_THREADS
+            value: {{ .Values.scene.ompNumThreads | quote }}
             {{ include "proxy_envs" . | indent 10 }}
           readinessProbe:
             exec:
@@ -54,7 +60,12 @@ spec:
             periodSeconds: 1
           securityContext:
             readOnlyRootFilesystem: true
+          {{- if .Values.scene.resources }}
+          resources:
+            {{- toYaml .Values.scene.resources | nindent 12 }}
+          {{- else }}
           resources: {}
+          {{- end }}
           volumeMounts:
           - mountPath: /run/secrets/certs/scenescape-ca.pem
             subPath: scenescape-ca.pem
@@ -81,6 +92,8 @@ spec:
           - mountPath: /home/scenescape/SceneScape/tracker-config.json
             name: tracker-config
             subPath: tracker-config.json
+          - mountPath: /dev/shm
+            name: dshm
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -100,4 +113,7 @@ spec:
       - name: tracker-config
         configMap:
           name: {{ .Release.Name }}-tracker-config
+      - name: dshm
+        emptyDir:
+          medium: Memory
 status: {}

@@ -3,7 +3,7 @@
   "non_measurement_frames_dynamic": 8,
   "non_measurement_frames_static": 16,
   "baseline_frame_rate": 30,
-  "time_chunking_enabled": false,
+  "time_chunking_enabled": true,
   "time_chunking_interval_milliseconds": 50,
   "object_batching_enabled": false,
   "suspended_track_timeout_secs": 60.0

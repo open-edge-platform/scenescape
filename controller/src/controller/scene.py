@@ -1,7 +1,10 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 import itertools
+import time
 from typing import Optional
 
 import numpy as np
@@ -44,15 +47,19 @@ class Scene(SceneModel):
                non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC,
                time_chunking_enabled = False,
                time_chunking_interval_milliseconds = DEFAULT_CHUNKING_INTERVAL_MS,
-               suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS):
+               baseline_frame_rate = 30,
+               suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
+               object_batching_enabled = False):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static)
     super().__init__(name, map_file, scale)
+    self.baseline_frame_rate = baseline_frame_rate
+    self.suspended_track_timeout_secs = suspended_track_timeout_secs
+    self.object_batching_enabled = object_batching_enabled
     self.ref_camera_frame_rate = None
     self.max_unreliable_time = max_unreliable_time
     self.non_measurement_time_dynamic = non_measurement_time_dynamic
     self.non_measurement_time_static = non_measurement_time_static
-    self.suspended_track_timeout_secs = suspended_track_timeout_secs
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
@@ -60,9 +67,6 @@ class Scene(SceneModel):
     self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
     self._trs_xyz_to_lla = None
     self.use_tracker = True
-
-    # FIXME - only for backwards compatibility
-    self.scale = scale
 
     return
 
@@ -75,10 +79,14 @@ class Scene(SceneModel):
 
     args = (self.max_unreliable_time,
             self.non_measurement_time_dynamic,
-            self.non_measurement_time_static)
+            self.non_measurement_time_static,
+            self.baseline_frame_rate,
+            self.suspended_track_timeout_secs)
     if trackerType == "time_chunked_intel_labs":
-      args += (self.time_chunking_interval_milliseconds,)
-    args += (self.suspended_track_timeout_secs,)
+      args += (self.time_chunking_interval_milliseconds, self.object_batching_enabled)
+    if self.tracker is not None:
+      log.warning(f"[TRACKER_REPLACE] Replacing existing tracker for scene '{self.name}' "
+                  f"type={trackerType}. All tracker state (tracked objects, UUIDs) will be lost.")
     self.tracker = self.available_trackers[self.trackerType](*args)
     return
 
@@ -116,6 +124,11 @@ class Scene(SceneModel):
     if max_unreliable_time != self.max_unreliable_time or \
        non_measurement_time_dynamic != self.non_measurement_time_dynamic or \
        non_measurement_time_static != self.non_measurement_time_static:
+      log.warning(f"[TRACKER_PARAM_CHANGE] Scene '{self.name}' tracker parameters changed "
+                  f"(max_unreliable_time: {self.max_unreliable_time} -> {max_unreliable_time}, "
+                  f"non_measurement_time_dynamic: {self.non_measurement_time_dynamic} -> {non_measurement_time_dynamic}, "
+                  f"non_measurement_time_static: {self.non_measurement_time_static} -> {non_measurement_time_static}). "
+                  f"Recreating tracker — tracked objects will be lost.")
       self.max_unreliable_time = max_unreliable_time
       self.non_measurement_time_dynamic = non_measurement_time_dynamic
       self.non_measurement_time_static = non_measurement_time_static
@@ -137,6 +150,7 @@ class Scene(SceneModel):
     return objects
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
+    t_start = time.time_ns()
     camera_id = jdata['id']
     camera = None
 
@@ -155,13 +169,32 @@ class Scene(SceneModel):
       return False
 
     if not hasattr(camera, 'pose'):
-      log.info("DISCARDING: camera has no pose")
+      log.debug("DISCARDING: camera has no pose")
       return True
+
+    # Reset events once per frame so all detection types accumulate.
+    self.events = {}
     for detection_type, detections in jdata['objects'].items():
+      t_cat_start = time.time_ns()
+
       if "intrinsics" not in jdata:
         self._convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
+      t_convert = time.time_ns()
+
       objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
-      self._finishProcessing(detection_type, when, objects)
+      t_create = time.time_ns()
+
+      self._finishProcessing(detection_type, when, objects, camera_id=camera_id)
+      t_finish = time.time_ns()
+
+      convert_ms = (t_convert - t_cat_start) / 1e6
+      create_ms = (t_create - t_convert) / 1e6
+      finish_ms = (t_finish - t_create) / 1e6
+      log.debug(f"[PROFILE_PROCESS] camera={camera_id}, cat={detection_type}, dets={len(detections)}, "
+                f"convert_ms={convert_ms:.3f}, create_ms={create_ms:.3f}, finish_ms={finish_ms:.3f}")
+
+    total_ms = (time.time_ns() - t_start) / 1e6
+    log.debug(f"[PROFILE_PROCESS_TOTAL] camera={camera_id}, total_ms={total_ms:.3f}")
     return True
 
   def _convertPixelBoundingBoxesToMeters(self, objects: list[dict], intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
@@ -213,6 +246,7 @@ class Scene(SceneModel):
 
   def processSceneData(self, jdata, child, cameraPose,
                        detectionType, when=None):
+    self.events = {}
     new = jdata['objects']
 
     if 'frame_rate' in jdata:
@@ -246,14 +280,20 @@ class Scene(SceneModel):
     self._finishProcessing(detectionType, when, objects, child_objects)
     return True
 
-  def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
+  def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=None, camera_id=None):
+    if already_tracked_objects is None:
+      already_tracked_objects = []
+
     self._updateVisible(objects)
+
     self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
                               self.ref_camera_frame_rate,
                               self.max_unreliable_time,
                               self.non_measurement_time_dynamic,
                               self.non_measurement_time_static,
-                              self.use_tracker)
+                              self.use_tracker,
+                              camera_id=camera_id)
+
     self._updateEvents(detectionType, when)
     return
 
@@ -284,7 +324,7 @@ class Scene(SceneModel):
       return False
 
     if hasattr(sensor, 'lastWhen') and sensor.lastWhen is not None and when <= sensor.lastWhen:
-      log.info("DISCARDING PAST DATA", sensor_id, when)
+      log.debug("DISCARDING PAST DATA", sensor_id, when)
       return True
 
     self.events = {}
@@ -299,7 +339,6 @@ class Scene(SceneModel):
     return True
 
   def _updateEvents(self, detectionType, now):
-    self.events = {}
     now_str = get_iso_time(now)
     curObjects = self.tracker.currentObjects(detectionType)
     for obj in curObjects:
@@ -410,7 +449,7 @@ class Scene(SceneModel):
     try:
       createObjectMesh(obj)
     except ValueError as e:
-      log.info(f"Error creating object mesh for intersection check: {e}")
+      log.warning(f"Error creating object mesh for intersection check: {e}")
       return False
 
     return obj.mesh.is_intersecting(region.mesh)

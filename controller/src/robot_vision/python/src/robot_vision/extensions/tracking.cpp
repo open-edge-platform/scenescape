@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+// Modifications:
+// Nokia VPOD (Emerging Products, BLR), 2026
 
 #include <opencv2/core.hpp>
 #include <pybind11/chrono.h>
@@ -196,8 +198,8 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
      "Default init state covariance passed to the KalmanEstimator init function.")
     .def_readwrite("motion_models", &rv::tracking::TrackManagerConfig::mMotionModels,
      "List of motion models to use. It defaults to [CV, CA, CTRV]")
-     .def_readwrite("suspended_track_timeout_secs", &rv::tracking::TrackManagerConfig::mSuspendedTrackMaxAgeSecs,
-      "Maximum age (seconds) for a suspended track before cleanup. Configurable via Python.")
+    .def_readwrite("suspended_track_timeout_secs", &rv::tracking::TrackManagerConfig::mSuspendedTrackMaxAgeSecs,
+     "Maximum age (seconds) for a suspended track before cleanup. Configurable via Python.")
     .def("__repr__", &rv::tracking::TrackManagerConfig::toString, "String representation");
 
 

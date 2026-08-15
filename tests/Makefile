@@ -169,6 +169,7 @@ _functional-tests: \
   sensor-scene-api \
   sensors-send-events \
   superuser-crud-operations-api \
+  time-chunking-tracker \
   upload-3d-glb-file-api \
   upload-only-3d-glb-files-api \
   vdms-similarity-search \
@@ -223,6 +224,7 @@ _unit-tests: \
   account-security-unit \
   autocamcalib-unit \
   cam-unit \
+  controller-unit \
   geometry-unit \
   geospatial-unit \
   markerless-unit \

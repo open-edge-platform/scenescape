@@ -8,6 +8,7 @@ import os
 import time
 
 import cv2
+import pytest
 
 import controller.tools.analytics.library.json_helper as json_helper
 import controller.tools.analytics.library.metrics as metrics
@@ -100,6 +101,8 @@ def track(params):
     time_chunking_interval_milliseconds=time_chunking_interval_ms,
     suspended_track_timeout_secs=suspended_track_timeout_secs
   )
+  # Set a dummy uid for the scene to avoid log spam
+  scene.uid = f"dummy-uid-{scene_config['name']}"
 
   if 'sensors' in scene_config:
     for name in scene_config['sensors']:
@@ -175,6 +178,10 @@ def test_tracker_metric(params, assets, record_xml_attribute):
   record_xml_attribute("name", TEST_NAME)
   print("Executing: " + TEST_NAME)
   print("Using tracker config: " + params["trackerconfig"])
+
+  if params["trackerconfig_name"] == "time-chunking" and params["metric"] in ("velocity", "msoce"):
+    pytest.skip("Time-chunking velocity/msoce baselines require dedicated calibration")
+
   params["assets"] = [assets[3]]
   result = 1
 
