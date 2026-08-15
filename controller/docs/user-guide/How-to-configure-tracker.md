@@ -119,6 +119,16 @@ The rule of thumb for setting the time-chunking interval is to adjust it to the 
 
 The time-chunking interval may be further increased beyond the recommended value if additional performance improvements are needed. However, in this case, more than one frame from a camera might fall within a time chunk, and the potential accuracy loss caused by dropped frames should be carefully balanced against performance benefits.
 
+### Frame Freshness and Dropping
+
+Under load, SceneScape prefers the newest detections over processing every frame. Two independent layers can skip intermediate frames:
+
+1. **Controller ingress** — For each camera, the Scene Controller keeps only the latest detection message waiting to be processed and limits how much work can be in flight at once. Newer frames replace older ones before they reach the tracker. This behavior is always active with the per-scene controller workers; it is not configured via `tracker-config.json`.
+
+2. **Time-chunking** — When `time_chunking_enabled` is `true`, within each `time_chunking_interval_milliseconds` window only the latest frame per camera and object category is kept for that chunk. If the tracker is still busy when a chunk is ready, that chunk may be dropped. Look for `Tracker work queue is not empty` in controller logs.
+
+Enabling time-chunking does not turn off controller ingress freshness. If both layers are shedding load, more frames are skipped than with either alone. Prefer lowering camera FPS or increasing the time-chunking interval before relying on optional `object_batching_enabled`.
+
 ### Adjusting Time-Based Parameters for Time-Chunking
 
 The mechanism of time-based parameters described above still applies when time-chunking is enabled. What may change with time-chunking enabled is the track refresh rate, which is the rate at which a track is updated with new detections. When time-chunking is disabled, each track is refreshed at a rate equal to the cumulative FPS of cameras observing the object. With time-chunking enabled, each track is refreshed at the tracker processing rate, which is `1000 / time_chunking_interval_milliseconds` Hz.

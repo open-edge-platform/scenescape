@@ -3,7 +3,7 @@
 - **Author(s)**: [Mohammed Sufiyan Saqib](https://github.com/mohammed-saqib), [Sarat Poluri](https://github.com/saratpoluri)
 - **Date**: 2026-05-12
 - **Status**: `Accepted`
-- **Supersedes**: N/A (replaces draft titled “Controller Multiprocessing and Scene-Aware Time Chunking”; scene-aware chunking is out of scope for this decision)
+- **Supersedes**: N/A (replaces draft titled “Controller Multiprocessing and Scene-Aware Time Chunking”; scene-aware chunking and related camera-count resolution are deferred — see Alternatives Considered)
 
 ## Context
 
@@ -24,13 +24,28 @@ We will use **per-scene multiprocessing in `SceneController`**:
 - apply admission control with an in-flight semaphore,
 - automatically recreate broken worker pools.
 
-**Out of scope for this ADR:** scene-aware time-chunking (grouping by `(category, scene_id, camera_id)`, event-driven complete-scene dispatch, hybrid timer fallback, and cache-based expected-camera-count resolution for that path). Tracker time-chunking remains the existing timer-only design from ADR 3 (`time_chunking_enabled` / `time_chunking_interval_milliseconds`).
+Tracker time-chunking remains the existing timer-only design from ADR 3 (`time_chunking_enabled` / `time_chunking_interval_milliseconds`). Items deferred from earlier drafts of this ADR are listed under Alternatives Considered.
+
+### Interaction with tracker time-chunking
+
+Controller ingress overwrite/admission and tracker time-chunking are **intentionally stacked**, not alternatives:
+
+| Layer | Where | What is kept / dropped |
+| --- | --- | --- |
+| Controller ingress | Before scene worker / tracker | Latest detection per camera; in-flight cap can refuse work under overload |
+| Time-chunking | Tracker path (optional) | Latest frame per camera+category per interval; busy tracker can drop a whole chunk |
+
+Neither layer replaces the other. Time-chunking does not disable controller freshest-frame behavior. Product-facing knobs for the tracker layer live in `tracker-config.json` (see tracker how-to). Controller admission and async-publish limits remain implementation settings, not user-guide configuration.
 
 ## Alternatives Considered
 
 - Keep single-threaded callback-thread pipeline: rejected due to head-of-line blocking.
 - Global worker pool without scene affinity: rejected due to poorer isolation and harder fairness reasoning.
-- Scene-aware / hybrid time-chunking in the tracker path: deferred — not implemented on this branch; adds scheduling and cache-lookup complexity beyond the multiprocessing goal. Existing timer-only time-chunking is retained.
+
+### Deferred (not in this ADR’s accepted scope)
+
+- **Scene-aware / hybrid time-chunking** in the tracker path: group frames by `(category, scene_id, camera_id)`, dispatch complete scenes on an event-driven path, and use a timer fallback for partial scenes with fixed-rate monotonic scheduling. Deferred — not implemented on this branch; adds scheduling complexity beyond the multiprocessing goal. Existing timer-only time-chunking (ADR 3) is retained.
+- **Cache-safe camera count resolution** (former Decision #3): resolve expected cameras per scene via cache fast-lookups only (no HTTP on the hot path) so complete-scene dispatch knows when a scene is “full.” Deferred with scene-aware time-chunking — it has no consumer without that path. Revisit only if scene-aware chunking is revived.
 
 ## Consequences
 
@@ -45,8 +60,7 @@ We will use **per-scene multiprocessing in `SceneController`**:
 
 - Higher implementation complexity (worker lifecycle and coordination).
 - Additional memory/process overhead due to per-scene executors.
-- More tuning surface (`CONTROLLER_MAX_WORKERS`, `CONTROLLER_MAX_INFLIGHT`, async publish queue settings).
-- When time-chunking is also enabled, controller overwrite buffering and tracker time-chunk buffering both drop intermediate frames; operators must understand both layers.
+- Stacked freshness layers (controller ingress plus optional time-chunking) can drop more intermediate frames than either alone; operators should tune camera FPS and time-chunking interval using the tracker how-to before enabling object batching.
 
 ## References
 

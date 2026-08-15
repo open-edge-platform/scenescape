@@ -171,7 +171,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   def trackObjects(self, objects, already_tracked_objects, when, categories,
                    ref_camera_frame_rate, max_unreliable_time,
                    non_measurement_time_dynamic, non_measurement_time_static,
-                   use_tracker=True, scene_id=None, camera_id=None):
+                   use_tracker=True, camera_id=None):
     """Override trackObjects to use time chunking"""
 
     if not use_tracker:

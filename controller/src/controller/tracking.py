@@ -61,7 +61,7 @@ class Tracking(Thread):
                    max_unreliable_time, \
                    non_measurement_time_dynamic, \
                    non_measurement_time_static, \
-                   use_tracker=True, scene_id=None, camera_id=None):
+                   use_tracker=True, camera_id=None):
 
     self._createTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
 

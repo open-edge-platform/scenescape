@@ -286,19 +286,12 @@ class Scene(SceneModel):
 
     self._updateVisible(objects)
 
-    # Use scene UID from database (loaded by cache_manager)
-    if not hasattr(self, 'uid') or self.uid is None:
-      scene_id_to_use = self.name
-    else:
-      scene_id_to_use = self.uid
-
     self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
                               self.ref_camera_frame_rate,
                               self.max_unreliable_time,
                               self.non_measurement_time_dynamic,
                               self.non_measurement_time_static,
                               self.use_tracker,
-                              scene_id=scene_id_to_use,
                               camera_id=camera_id)
 
     self._updateEvents(detectionType, when)
