@@ -266,15 +266,19 @@ class CacheManager:
           self._refresh_dirty = True
           self._dirty_since = now
     if needs_refresh:
+      attempt_started = now
       try:
         self.refreshScenes()  # HTTP / Scene work happen OUTSIDE the lock
       finally:
         followup = False
         with self._lock:
           self._refresh_in_progress = False
-          # A concurrent force/dirty request may have been coalesced while we
-          # were in-flight — run one more gated refresh if still dirty.
-          if self._refresh_dirty:
+          # Only re-enter when a newer dirty mark arrived during this attempt.
+          # Pre-existing dirty left after a failed refresh must not recurse forever;
+          # the next periodic/forced checkRefresh will retry.
+          if (self._refresh_dirty
+              and self._dirty_since is not None
+              and self._dirty_since > attempt_started):
             followup = True
         if followup:
           self.checkRefresh(force=True)

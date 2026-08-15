@@ -19,7 +19,13 @@ class TestCacheManagerRefreshGating(unittest.TestCase):
     cache_manager._refresh_dirty = False
     cache_manager._dirty_since = None
     cache_manager._refresh_debounce_sec = 0.1
-    cache_manager.refreshScenes = Mock()
+
+    def clear_dirty_on_refresh():
+      # Mirror successful refreshScenes() clearing pre-existing dirty marks.
+      cache_manager._refresh_dirty = False
+      cache_manager._dirty_since = None
+
+    cache_manager.refreshScenes = Mock(side_effect=clear_dirty_on_refresh)
     return cache_manager
 
   def test_check_refresh_skips_dirty_refresh_during_debounce(self):
@@ -60,6 +66,30 @@ class TestCacheManagerRefreshGating(unittest.TestCase):
     cache_manager.refreshScenes.assert_not_called()
     self.assertTrue(cache_manager._refresh_dirty)
     self.assertEqual(cache_manager._dirty_since, 200.0)
+
+  def test_check_refresh_followup_only_when_dirty_during_attempt(self):
+    """Follow-up refresh runs only if dirty was marked after the attempt started."""
+    cache_manager = self._build_cache_manager()
+    cache_manager._refresh_dirty = True
+    cache_manager._dirty_since = 100.0
+    call_count = {"n": 0}
+
+    def refresh_then_dirty_midway():
+      call_count["n"] += 1
+      if call_count["n"] == 1:
+        # Concurrent markDirty after attempt_started (100.2)
+        cache_manager._refresh_dirty = True
+        cache_manager._dirty_since = 100.3
+      else:
+        cache_manager._refresh_dirty = False
+        cache_manager._dirty_since = None
+
+    cache_manager.refreshScenes = Mock(side_effect=refresh_then_dirty_midway)
+
+    with patch("controller.cache_manager.get_epoch_time", return_value=100.2):
+      cache_manager.checkRefresh()
+
+    self.assertEqual(cache_manager.refreshScenes.call_count, 2)
 
   def test_periodic_refresh_loop_uses_gated_check_refresh(self):
     cache_manager = self._build_cache_manager()
