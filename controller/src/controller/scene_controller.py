@@ -589,6 +589,7 @@ class SceneController:
       self.tracker_config_data["non_measurement_time_static"] = tracker_config["non_measurement_frames_static"] / baseline_fps
       self._extractTimeChunkingEnabled(tracker_config)
       self._extractTimeChunkingInterval(tracker_config)
+      self._extractObjectBatchingEnabled(tracker_config)
       self.tracker_config_data["suspended_track_timeout_secs"] = tracker_config.get("suspended_track_timeout_secs", 60.0)
 
       if "persist_attributes" in tracker_config:
@@ -628,6 +629,20 @@ class SceneController:
       log.info(f"Time chunking interval (ms): {interval_int}")
     except (ValueError, TypeError):
       raise ValueError(f"Invalid value for time_chunking_interval_milliseconds in tracker config file")
+    return
+
+  def _extractObjectBatchingEnabled(self, tracker_config):
+    """Extract and validate object_batching_enabled (default False for release path)."""
+    if "object_batching_enabled" not in tracker_config:
+      self.tracker_config_data["object_batching_enabled"] = False
+      log.info("Object batching enabled flag missing in tracker config file, disabling object batching.")
+      return
+
+    try:
+      self.tracker_config_data["object_batching_enabled"] = bool(tracker_config["object_batching_enabled"])
+      log.info(f"Object batching enabled: {self.tracker_config_data['object_batching_enabled']}")
+    except (ValueError, TypeError):
+      raise ValueError("Invalid value for object_batching_enabled in tracker config file.")
     return
 
   def loopForever(self):

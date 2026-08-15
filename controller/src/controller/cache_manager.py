@@ -88,7 +88,8 @@ class CacheManager:
                                       self.tracker_config_data["time_chunking_enabled"],
                                       self.tracker_config_data["time_chunking_interval_milliseconds"],
                                       self.tracker_config_data.get("baseline_frame_rate", 30),
-                                      self.tracker_config_data.get("suspended_track_timeout_secs", 60.0)]
+                                      self.tracker_config_data.get("suspended_track_timeout_secs", 60.0),
+                                      self.tracker_config_data.get("object_batching_enabled", False)]
         scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
 
     # Step 3: Snapshot existing Scene objects (BRIEF lock — dict copy only)

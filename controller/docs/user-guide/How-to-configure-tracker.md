@@ -27,6 +27,7 @@ The default content of the `tracker-config.json` file is shown below. It is reco
   "non_measurement_frames_static": 16,
   "baseline_frame_rate": 30,
   "time_chunking_enabled": false,
+  "object_batching_enabled": false,
   "suspended_track_timeout_secs": 60.0
 }
 ```
@@ -101,6 +102,7 @@ The content of the `tracker-config-time-chunking.json` file is shown below.
   "baseline_frame_rate": 30,
   "time_chunking_enabled": true,
   "time_chunking_interval_milliseconds": 66,
+  "object_batching_enabled": false,
   "suspended_track_timeout_secs": 60.0
 }
 ```
@@ -109,6 +111,7 @@ Here is a brief description of the time-chunking-specific configuration paramete
 
 - `time_chunking_enabled`: Enables or disables the time-chunking feature. Set to `true` to enable.
 - `time_chunking_interval_milliseconds`: Defines the interval in milliseconds at which the tracker processes data in chunks. The effective tracker processing rate is `1000 / time_chunking_interval_milliseconds` Hz. For example, if the interval is 66 ms, the tracker processing rate is 15.15 Hz.
+- `object_batching_enabled`: When time-chunking is enabled, controls whether cameras in a chunk are merged into a single batched tracker call (`true`) or processed one camera at a time (`false`). Defaults to `false`. Only applies when `time_chunking_enabled` is `true`.
 
 ### How to Set Time-Chunking Interval
 

@@ -48,12 +48,14 @@ class Scene(SceneModel):
                time_chunking_enabled = False,
                time_chunking_interval_milliseconds = DEFAULT_CHUNKING_INTERVAL_MS,
                baseline_frame_rate = 30,
-               suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS):
+               suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
+               object_batching_enabled = False):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static)
     super().__init__(name, map_file, scale)
     self.baseline_frame_rate = baseline_frame_rate
     self.suspended_track_timeout_secs = suspended_track_timeout_secs
+    self.object_batching_enabled = object_batching_enabled
     self.ref_camera_frame_rate = None
     self.max_unreliable_time = max_unreliable_time
     self.non_measurement_time_dynamic = non_measurement_time_dynamic
@@ -81,7 +83,7 @@ class Scene(SceneModel):
             self.baseline_frame_rate,
             self.suspended_track_timeout_secs)
     if trackerType == "time_chunked_intel_labs":
-      args += (self.time_chunking_interval_milliseconds,)
+      args += (self.time_chunking_interval_milliseconds, self.object_batching_enabled)
     if self.tracker is not None:
       log.warning(f"[TRACKER_REPLACE] Replacing existing tracker for scene '{self.name}' "
                   f"type={trackerType}. All tracker state (tracked objects, UUIDs) will be lost.")
