@@ -103,9 +103,11 @@ class RemoteHierarchySetup:
     # be unique on the parent, so create a dedicated scene+camera on each child.
     self.child1_id = self._create_child_scene_with_camera(
       rest_c1, "hier_child1", "camera1", move_demo=True)
+    time.sleep(5)
     self.child1_camera_id = "camera1"
     self.child2_id = self._create_child_scene_with_camera(
       rest_c2, "hier_child2", "camera1", move_demo=True)
+    time.sleep(5)
     self.child2_camera_id = "camera1"
     log.info(f"Parent={self.parent_id} child1={self.child1_id} child2={self.child2_id}")
 
