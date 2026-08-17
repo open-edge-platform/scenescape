@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import orjson
 import os
 from collections import defaultdict
 from types import SimpleNamespace
