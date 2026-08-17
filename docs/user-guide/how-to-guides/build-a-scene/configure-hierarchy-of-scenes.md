@@ -2,6 +2,15 @@
 
 A hierarchy of scenes can be created using a parent-child relationship, enabling scene analytics from multiple scenes — whether on the [same system](#steps-to-add-a-local-child-scene) or [different systems in same network](#steps-to-add-a-remote-child-scene) running Scenescape — to be visualized within a single parent scene. This hierarchy is not limited to a single level of relationship; it can be scaled upwards, allowing for multi-level parent-child configurations. By subscribing to the parent scene's events, you can observe the base analytics (such as regions of interest, tripwires, and sensors) of the parent scene, along with the transformed base analytics of all its child scenes, directly within the parent scene.
 
+> **Single parent per child:** Hierarchy is designed so each child scene has
+> **one** parent scene. A parent may have many children, and trees may be
+> multi-level (grandparent → parent → child), but the same child must not be
+> linked under more than one parent — neither as a local child in one Manager
+> database nor as a remote child from multiple parent Controllers. Multi-parent
+> fan-out (for example the same intersection under both a city scene and a
+> neighborhood scene) is unsupported: local links are one-to-one in the data
+> model, and remote ingest / ReID write authority assume a single parent.
+
 > **Same host, multiple Scene Controllers:** Local children share one controller.
 > To run several controllers on one machine and link them as remote children
 > (including sharing or splitting a ReID database), see
