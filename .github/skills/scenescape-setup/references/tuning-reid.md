@@ -23,6 +23,13 @@ ask these questions upfront during Step 1. Always deploy first with the shipped
 running and the user reports that re-identification across cameras is missing or matching the
 wrong person.
 
+**First response after a Re-ID complaint**: state that you opened `tuning-reid.md` (not
+`tuning-tracker.md`), paste the numbered questionnaire below into your reply, **and in the same
+turn** apply symptom-derived starter values from the recommendation logic below to
+`<deploy_dir>/controller/reid-config.json` (never `assets/reid-config.json`). Show the exact
+JSON field changes and `docker compose up -d --force-recreate scene`. Note that questionnaire
+answers can refine the starter values further.
+
 ## Questionnaire
 
 | #   | Question                                                                                                 | Parameters affected                                                                                |
@@ -91,7 +98,7 @@ docker compose up -d --force-recreate scene
 ```
 
 The file is mounted into the `scene` container as a Docker config (see
-`docker-compose-template.md`) and is only read at container start, so the restart is required. If
+`assets/docker-compose-template.md`) and is only read at container start, so the restart is required. If
 tuning happens to be requested before step 8's first `docker compose up` (e.g. the user already
 knew their Re-ID needs during Step 1, overriding the reactive default), editing the file at that
 point is sufficient and no restart is needed yet.
