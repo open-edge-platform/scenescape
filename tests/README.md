@@ -242,21 +242,21 @@ Use the tests virtual environment so Test Explorer resolves project imports
 
 1. Ensure dependencies are installed:
 
-  ```bash
-  make setup-tests
-  ```
+```bash
+make setup-tests
+```
 
 2. In `.vscode/settings.json` (repository root), set Python and pytest paths:
 
-  ```json
-  {
-    "python.defaultInterpreterPath": "${workspaceFolder}/tests/.venv/bin/python3",
-    "python.testing.pytestPath": "${workspaceFolder}/tests/.venv/bin/pytest",
-    "python.testing.pytestArgs": ["tests"],
-    "python.testing.pytestEnabled": true,
-    "python.testing.unittestEnabled": false
-  }
-  ```
+```json
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/tests/.venv/bin/python3",
+  "python.testing.pytestPath": "${workspaceFolder}/tests/.venv/bin/pytest",
+  "python.testing.pytestArgs": ["tests"],
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false
+}
+```
 
 3. Click **Refresh Tests** in the Testing sidebar, then run as normal.
 
