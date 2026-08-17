@@ -54,7 +54,9 @@ def validate_ply(value):
 def validate_mapping_bundle_zip(value):
   """!Verify a shared mapping bundle contains a usable RTAB-Map database.
 
-  The RTAB-Map database must be structurally valid and retain visual words;
+  Requires a structurally valid database with at least one node, plus either
+  visual words or raw features. Word can be empty after a localization-mode
+  shutdown; Feature still carries the descriptors needed to resume.
   SQLite integrity alone does not catch a database emptied by a mode switch.
   """
   try:
@@ -71,11 +73,12 @@ def validate_mapping_bundle_zip(value):
         with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as db:
           if db.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
             raise ValidationError("Mapping bundle RTAB-Map database failed SQLite integrity check")
-          nodes = db.execute("SELECT COUNT(*) FROM Node").fetchone()[0]
-          words = db.execute("SELECT COUNT(*) FROM Word").fetchone()[0]
+          nodes = _sqlite_table_count(db, "Node")
+          words = _sqlite_table_count(db, "Word")
+          features = _sqlite_table_count(db, "Feature")
         if nodes == 0:
           raise ValidationError("Mapping bundle RTAB-Map database contains no nodes")
-        if words == 0:
+        if words == 0 and features == 0:
           raise ValidationError("Mapping bundle RTAB-Map database contains no visual words")
   except sqlite3.Error as exc:
     raise ValidationError(f"Invalid RTAB-Map database in mapping bundle: {exc}")
@@ -84,6 +87,12 @@ def validate_mapping_bundle_zip(value):
   finally:
     value.seek(0)
   return value
+
+def _sqlite_table_count(db, table):
+  try:
+    return int(db.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0])
+  except sqlite3.Error:
+    return 0
 
 def validate_map_file(value):
   ext = os.path.splitext(value.name)[1].lower()[1:]
