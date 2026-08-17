@@ -4,12 +4,14 @@
 import orjson
 import os
 from collections import defaultdict
+from types import SimpleNamespace
 
 import ntplib
 
 from scene_common.cache_manager import CacheManager
 from controller.child_scene_controller import ChildSceneController
 from scene_common.detections_builder import buildDetectionsList
+from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
 from controller.scene import Scene
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
@@ -27,6 +29,46 @@ from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
                                       MINIMAL_CHUNKING_RATE_FPS,
                                       MAXIMAL_CHUNKING_RATE_FPS)
 from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
+TRUSTED_POSITIONING_SOURCES_ENV_VAR = 'CONTROLLER_TRUSTED_POSITIONING_SOURCES'
+EXTERNAL_SOURCE_BINDINGS_ENV_VAR = 'CONTROLLER_EXTERNAL_SOURCE_BINDINGS'
+
+
+def _parseTrustedSources(value):
+  """Parse a comma-separated list of source IDs authorized to publish poses
+  already expressed in scene-local coordinates. Fails closed: an unset or
+  empty value trusts no source."""
+  if not value:
+    return frozenset()
+  return frozenset(item.strip() for item in value.split(',') if item.strip())
+
+def _parseExternalSourceBindings(value):
+  """Parse manual publisher→scene bindings.
+
+  Format: ``publisher_id:scene_uid,publisher_id:scene_uid2,...``
+  Returns a dict of publisher_id → frozenset(scene_uid). Empty/unset means
+  no manual bindings (wgs84 publishers use geospatial auto-attach).
+  """
+  bindings = {}
+  if not value:
+    return bindings
+  for item in value.split(','):
+    item = item.strip()
+    if not item:
+      continue
+    if ':' not in item:
+      log.warning("Ignoring malformed %s entry (expected publisher:scene): %r",
+                  EXTERNAL_SOURCE_BINDINGS_ENV_VAR, item)
+      continue
+    publisher_id, scene_uid = item.split(':', 1)
+    publisher_id = publisher_id.strip()
+    scene_uid = scene_uid.strip()
+    if not publisher_id or not scene_uid:
+      log.warning("Ignoring malformed %s entry: %r",
+                  EXTERNAL_SOURCE_BINDINGS_ENV_VAR, item)
+      continue
+    bindings.setdefault(publisher_id, set()).add(scene_uid)
+  return {publisher_id: frozenset(scenes) for publisher_id, scenes in bindings.items()}
+
 
 class SceneController:
 
@@ -80,6 +122,25 @@ class SceneController:
 
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
+
+    self.external_source_pose_cache = ExternalSourcePoseCache(
+      sweep_grace_seconds=self.max_lag,
+      sweep_time_provider=self._getExternalSourceSweepTime)
+    self.identity_claim_registry = IdentityClaimRegistry(
+      sweep_grace_seconds=self.max_lag,
+      sweep_time_provider=self._getExternalSourceSweepTime)
+    # Expired-entry cleanup runs on a background daemon timer rather than
+    # inline on the MQTT message-handling thread, so a burst of accumulated
+    # entries never stalls ingestion (see external_source.py).
+    self.external_source_pose_cache.startBackgroundSweep()
+    self.identity_claim_registry.startBackgroundSweep()
+    self.trusted_positioning_sources = _parseTrustedSources(
+      os.getenv(TRUSTED_POSITIONING_SOURCES_ENV_VAR))
+    self.external_source_bindings = _parseExternalSourceBindings(
+      os.getenv(EXTERNAL_SOURCE_BINDINGS_ENV_VAR))
+    if self.external_source_bindings:
+      log.info("Loaded %s manual external-source bindings for %s publishers",
+               EXTERNAL_SOURCE_BINDINGS_ENV_VAR, len(self.external_source_bindings))
     return
 
   def extractTrackerConfigData(self, tracker_config_file):
@@ -166,6 +227,22 @@ class SceneController:
   def loopForever(self):
     return self.pubsub.loopForever()
 
+  def _getExternalSourceSweepTime(self):
+    """Return the NTP-corrected time used to accept external-source events."""
+    return get_epoch_time() + self.time_offset
+
+  def shutdown(self):
+    """Stop background maintenance threads owned by this controller.
+
+    Safe to call multiple times. The MQTT/tracker threads are not joined
+    here since ``loopForever()`` normally only returns on process exit, at
+    which point these daemon threads are torn down anyway; this exists for
+    graceful cleanup paths (tests, future signal handling).
+    """
+    self.external_source_pose_cache.stopBackgroundSweep()
+    self.identity_claim_registry.stopBackgroundSweep()
+    return
+
   def publishDetections(self, scene, objects, ts, otype, jdata, camera_id):
     if not hasattr(scene, 'lastPubCount'):
       scene.lastPubCount = {}
@@ -198,11 +275,17 @@ class SceneController:
       new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
                                      thing_type=otype)
       self.pubsub.publish(new_topic, jstr)
-      self.publishExternalDetections(scene, otype, objects, jdata)
       scene.lastPubCount[cid] = olen
+    self.publishExternalDetections(scene, otype, objects, jdata)
     return
 
   def publishExternalDetections(self, scene, otype, objects, jdata_base):
+    # Hierarchy output for parent scenes. Root scenes (no parent) have no
+    # hierarchy consumer for this path — skip rather than publishing onto
+    # scenescape/external/{scene_uid}/+ (publisher id = this scene).
+    if not getattr(scene, 'parent', None):
+      return
+
     # External rate output (0.5fps)
     now = get_epoch_time()
     if self.shouldPublish(scene.last_published_detection[otype], now, 1/scene.external_update_rate):
@@ -321,6 +404,10 @@ class SceneController:
       if 'camera_id' in topic and not self.schema_val.validateMessage("detector", jdata):
         return
 
+      if topic['_topic_id'] == PubSub.DATA_EXTERNAL and 'source_id' in jdata \
+          and not self.schema_val.validateMessage("external_source", jdata):
+        return
+
       now = get_epoch_time()
       self.time_offset, self.last_time_sync = adjust_time(now, self.ntp_server, self.ntp_client,
                                                       self.last_time_sync, self.time_offset,
@@ -330,7 +417,11 @@ class SceneController:
         return
 
       jdata['debug_hmo_start_time'] = now
-      self.cache_manager.refreshScenesForCamParams(jdata)
+      # Camera intrinsics/distortion refresh only applies to camera-originated
+      # messages (keyed by 'id'); external-source messages are keyed by
+      # 'source_id' and have no camera parameters to refresh.
+      if topic['_topic_id'] != PubSub.DATA_EXTERNAL:
+        self.cache_manager.refreshScenesForCamParams(jdata)
 
       if self.rewrite_all_time:
         msg_when = now
@@ -343,17 +434,51 @@ class SceneController:
         if not self.rewrite_bad_time:
           metric_attributes["reason"] = "fell_behind"
           metrics.inc_dropped(metric_attributes)
-          log.warning("{} FELL BEHIND by {}. SKIPPING {}".format(message.topic, lag, jdata['id']))
+          log.warning("{} FELL BEHIND by {}. SKIPPING {}".format(
+            message.topic, lag, jdata.get('id', jdata.get('source_id', 'unknown'))))
           return
         msg_when = now
 
       camera_id = None
       if topic['_topic_id'] == PubSub.DATA_EXTERNAL:
         detection_types = [topic['thing_type']]
-        sender_id = topic['scene_id']
-        success, scene = self._handleChildSceneObject(sender_id, jdata, detection_types[0], msg_when)
-        if not success:
+        # Path segment is the publisher id (child scene uid or agent source_id).
+        publisher_id = topic['scene_id']
+        if 'source_id' in jdata:
+          if jdata['source_id'] != publisher_id:
+            log.error("External source_id %r does not match topic publisher id %r",
+                      jdata['source_id'], publisher_id)
+            return
+          scenes = self._scenesForExternalPublisher(publisher_id, jdata, msg_when)
+          if not scenes:
+            log.warning("No scene binding for external publisher %s", publisher_id)
+            return
+          for scene in scenes:
+            jdata_scene = dict(jdata)
+            jdata_scene['objects'] = [dict(obj) for obj in jdata.get('objects', [])]
+            success = self._handleExternalSourceObject(
+              scene, jdata_scene, detection_types[0], msg_when)
+            if not success:
+              log.error("Camera fail publisher_id=%s scene=%s", publisher_id, getattr(scene, 'name', None))
+              self.cache_manager.invalidate()
+              return
+            jdata_scene['id'] = scene.uid
+            jdata_scene['name'] = scene.name
+            for detection_type in detection_types:
+              jdata_scene['unique_detection_count'] = scene.tracker.getUniqueIDCount(
+                detection_type)
+              self.publishDetections(
+                scene, scene.tracker.currentObjects(detection_type),
+                msg_when, detection_type, jdata_scene, camera_id)
           return
+
+        handled = self._handleChildSceneObject(
+          publisher_id, jdata, detection_types[0], msg_when)
+        # None => orphan hierarchy echo from a root scene; ignore.
+        if handled is None:
+          return
+        success, scene = handled
+        sender_id = publisher_id
       else:
         detection_types = jdata['objects'].keys()
         camera_id = sender_id = topic['camera_id']
@@ -386,23 +511,32 @@ class SceneController:
       return
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
+    is_remote = False
     sender = self.cache_manager.sceneWithID(sender_id)
     if sender is None:
       remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
         log.error(f"UNKNOWN SENDER: {sender_id}")
         return False, None
-      else:
-        sender = remote_sender
+      sender = remote_sender
+      is_remote = True
 
     if not hasattr(sender, 'parent') or sender.parent is None:
-      recovered = self._parentUidForRemoteChild(sender_id)
-      if recovered:
-        sender.parent = recovered
-        log.info(f"Recovered parent={recovered} for remote child {sender_id}")
+      if is_remote:
+        recovered = self._parentUidForRemoteChild(sender_id)
+        if recovered:
+          sender.parent = recovered
+          log.info(f"Recovered parent={recovered} for remote child {sender_id}")
+        else:
+          log.error("UNKNOWN PARENT", sender_id)
+          return False, sender
       else:
-        log.error("UNKNOWN PARENT", sender_id)
-        return False, sender
+        # Hierarchy publishes (no source_id) from a root scene are not destined
+        # for a parent — ignore them rather than failing closed and invalidating
+        # the scene cache. (Root scenes no longer self-subscribe for ingest.)
+        log.debug("Ignoring hierarchy publish from root scene %s (no parent)",
+                  sender_id)
+        return None
 
     scene = self.cache_manager.sceneWithID(sender.parent)
     if scene is None:
@@ -412,6 +546,96 @@ class SceneController:
     success = scene.processSceneData(jdata, sender, sender.cameraPose,
                                      detection_type, when=msg_when)
     return success, scene
+
+  def _scenesForExternalPublisher(self, publisher_id, jdata, msg_when):
+    """Resolve which scenes should ingest a publisher-centric external message.
+
+    Manual bindings from CONTROLLER_EXTERNAL_SOURCE_BINDINGS win when present
+    for this publisher. Otherwise:
+    - ``reference_frame: wgs84`` → every scene with geospatial calibration
+      (interim auto-attach until a spatial binder with footprint/handoff policy
+      exists)
+    - pose omitted → scenes that still hold a live cached pose for this source
+    - ``reference_frame: scene`` without a manual binding → no scenes (must be
+      explicitly bound)
+    """
+    explicit = self.external_source_bindings.get(publisher_id)
+    if explicit is not None:
+      scenes = []
+      for scene_uid in explicit:
+        scene = self.cache_manager.sceneWithID(scene_uid)
+        if scene is None:
+          log.warning("External binding scene %s not found for publisher %s",
+                      scene_uid, publisher_id)
+        else:
+          scenes.append(scene)
+      return scenes
+
+    pose = jdata.get('pose')
+    if pose is None:
+      scene_uids = self.external_source_pose_cache.scenesWithLiveCache(
+        publisher_id, msg_when)
+      scenes = []
+      for scene_uid in scene_uids:
+        scene = self.cache_manager.sceneWithID(scene_uid)
+        if scene is not None:
+          scenes.append(scene)
+      return scenes
+
+    reference_frame = pose.get('reference_frame')
+    if reference_frame == 'wgs84':
+      scenes = []
+      for scene in self.cache_manager.allScenes():
+        if scene.trs_xyz_to_lla is not None:
+          scenes.append(scene)
+      return scenes
+
+    # scene-frame (and unknown frames) require an explicit manual binding.
+    return []
+
+  def _handleExternalSourceObject(self, scene, jdata, detection_type, msg_when):
+    """Handle a message from a dynamic external source (physical agent or
+    positioning service) publishing under its own publisher id, as
+    distinguished from a configured child scene by the presence of
+    'source_id' in the payload."""
+    source_id = jdata['source_id']
+    trusted = source_id in self.trusted_positioning_sources
+    camera_pose, reason = self.external_source_pose_cache.resolve(
+      scene, source_id, jdata.get('pose'), msg_when, trusted_scene_pose=trusted)
+    if camera_pose is None:
+      log.warning(f"External source pose unavailable for source={source_id} "
+                f"scene={scene.uid}: {reason}")
+      return True
+
+    # Every external-source object's 'id' is trusted directly as global
+    # track identity by default (no source allowlist to configure): the
+    # object bypasses Scenescape's kinematic tracker/ReID association and
+    # keeps the source-assigned id as its gid for as long as the source
+    # keeps reporting that same id. This is safe for sources like a UWB/RTLS
+    # tag whose id is already a permanent hardware identifier. To keep this
+    # safe without requiring per-source configuration, each id is claimed
+    # exclusively per (scene, category): if a different source is already
+    # using the same id at the same time -- a genuine identity collision --
+    # the newly arriving, colliding object is dropped rather than silently
+    # merged into an unrelated track. See IdentityClaimRegistry for the one
+    # case this does not solve (a single source reusing a stale id for a
+    # new physical object after its previous claim has expired).
+    accepted_objects = []
+    for obj in jdata.get('objects', []):
+      obj_id = obj.get('id')
+      ok, collision_reason = self.identity_claim_registry.claim(
+        scene.uid, detection_type, source_id, obj_id, msg_when)
+      if ok:
+        accepted_objects.append(obj)
+      else:
+        log.warning(
+          f"Rejecting external-source object: id={obj_id} from source={source_id} "
+          f"scene={scene.uid} category={detection_type}: {collision_reason}")
+    jdata['objects'] = accepted_objects
+
+    external_source = SimpleNamespace(name=source_id, uid=source_id, retrack=False)
+    return scene.processSceneData(jdata, external_source, camera_pose,
+                                  detection_type, when=msg_when)
 
   @staticmethod
   def _withRemoteChildParent(info, parent_uid):
@@ -547,10 +771,17 @@ class SceneController:
     need_subscribe_child = dict()
 
     self.scenes = self.cache_manager.allScenes()
+    # Publisher-centric: one wildcard covers configured children and dynamic
+    # agents on scenescape/external/{publisher_id}/{thing_type}.
+    need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
+                                          scene_id="+", thing_type="+"),
+                        self.handleMovingObjectMessage))
+
     for scene in self.scenes:
       for camera in scene.cameras:
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
                             self.handleMovingObjectMessage))
+      # External publisher-centric ingest is covered by the wildcard subscribe above.
 
       if hasattr(scene, 'children'):
         child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)
@@ -558,10 +789,6 @@ class SceneController:
         for info in child_scenes.get('results', []):
           if info['child_type'] == 'local':
             self.cache_manager.sceneWithID(info['child']).retrack = info['retrack']
-
-            need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
-                                                   scene_id=info['child'], thing_type="+"),
-                                self.handleMovingObjectMessage))
 
             need_subscribe.add((PubSub.formatTopic(PubSub.EVENT, region_type="+",
                                                   event_type="+",

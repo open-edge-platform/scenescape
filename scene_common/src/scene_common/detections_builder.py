@@ -147,9 +147,9 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
   velocity = aobj.velocity
   if velocity is None:
-    velocity = Point(0, 0, 0)
+    velocity = Point([0, 0, 0])
   if not velocity.is3D:
-    velocity = Point(velocity.x, velocity.y, DEFAULTZ)
+    velocity = Point([velocity.x, velocity.y, DEFAULTZ])
 
   # Build a fresh top-level dict per serialization so optional fields like
   # sensors do not leak between scene, regulated, and external outputs.
@@ -284,7 +284,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
 def computeCameraBounds(scene, aobj, obj_dict):
   camera_bounds = {}
-  for cameraID in obj_dict['visibility']:
+  for cameraID in obj_dict.get('visibility', []):
     bounds = None
     projected = False
     is_source_camera = (
