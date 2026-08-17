@@ -61,7 +61,7 @@ jobs:
     name: "Stability Test"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: 960
+    timeout-minutes: ${{ fromJSON(inputs.stability_hours || '15') * 60 + 60 }} # Add 1 hour buffer to the stability test duration
     steps:
       - name: Remove test_data folder
         run: |
