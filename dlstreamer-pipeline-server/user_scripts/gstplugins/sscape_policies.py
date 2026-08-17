@@ -11,6 +11,15 @@ def _isDetection(item):
   detection = item.get('detection')
   return isinstance(detection, dict) and 'confidence' in detection
 
+def _isReidTensor(tensor):
+  """Check if a tensor holds a raw re-id embedding vector."""
+  name = tensor.get('name', '')
+  if 'reid' in name or 'embedding' in name:
+    return True
+  if name == 'detection':
+    return False
+  return bool(tensor.get('data')) and 'label' not in tensor and 'label_id' not in tensor
+
 def _extractKeypointsFromGvametaconvert(item):
   """Extract keypoints from gvametaconvert format (yolo11-pose and similar)."""
   raw_keypoints = item.get('keypoints')
@@ -96,8 +105,7 @@ def reidPolicy(pobj, item, fw, fh):
     return
   classificationPolicy(pobj, item, fw, fh)
   for tensor in item.get('tensors', [{}]):
-    name = tensor.get('name','')
-    if name and ('reid' in name or 'embedding' in name):
+    if _isReidTensor(tensor):
       reid_vector = tensor.get('data', [])
       # Handle variable-length re-id vectors from different models
       if not reid_vector:
@@ -134,7 +142,7 @@ def classificationPolicy(pobj, item, fw, fh):
   categories = {}
   for tensor in item.get('tensors', [{}]):
     name = tensor.get('name','')
-    if name and name != 'detection' and ('reid' not in name and 'embedding' not in name):
+    if name and name != 'detection' and not _isReidTensor(tensor):
       metadata_dict = {
         'label': tensor.get('label', ''),
         'model_name': tensor.get('model_name', '')
