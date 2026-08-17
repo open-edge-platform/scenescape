@@ -56,12 +56,26 @@ permissions:
   contents: read
 
 jobs:
+  compute_timeout:
+    runs-on: ubuntu-latest
+    name: "Compute Timeout"
+    outputs:
+      timeout_minutes: ${{ steps.compute.outputs.timeout_minutes }}
+    steps:
+      - name: Compute job timeout (stability_hours + 1 hour buffer)
+        id: compute
+        env:
+          STABILITY_HOURS: ${{ inputs.stability_hours || '15' }}
+        run: |
+          echo "timeout_minutes=$(( STABILITY_HOURS * 60 + 60 ))" >> "$GITHUB_OUTPUT"
+
   run_stability_test:
+    needs: compute_timeout
     runs-on: [stability]
     name: "Stability Test"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: ${{ fromJSON(inputs.stability_hours || '15') * 60 + 60 }} # Add 1 hour buffer to the stability test duration
+    timeout-minutes: ${{ fromJSON(needs.compute_timeout.outputs.timeout_minutes) }}
     steps:
       - name: Remove test_data folder
         run: |
