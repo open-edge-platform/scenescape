@@ -3,6 +3,8 @@
 
 import os
 import re
+import shutil
+import sqlite3
 import tempfile
 import uuid
 from zipfile import BadZipFile, ZipFile
@@ -50,19 +52,33 @@ def validate_ply(value):
   return value
 
 def validate_mapping_bundle_zip(value):
-  """! Verify a shared mapping-bundle upload is a readable, non-empty zip.
+  """!Verify a shared mapping bundle contains a usable RTAB-Map database.
 
-  Unlike validate_zip_file (which requires a polycam dataset layout), a mapping
-  bundle just packages SLAM artifacts (rtabmap.db, baseline point cloud/mesh,
-  metadata) with no required internal folder structure.
+  The RTAB-Map database must be structurally valid and retain visual words;
+  SQLite integrity alone does not catch a database emptied by a mode switch.
   """
   try:
     with ZipFile(value, "r") as zf:
       bad_entry = zf.testzip()
       if bad_entry is not None:
         raise ValidationError(f"Corrupt entry in mapping bundle: {bad_entry}")
-      if not zf.namelist():
-        raise ValidationError("Mapping bundle zip is empty")
+      if "rtabmap.db" not in zf.namelist():
+        raise ValidationError("Mapping bundle must contain rtabmap.db")
+      with tempfile.TemporaryDirectory(prefix="mapping_bundle_check_") as tmp:
+        db_path = os.path.join(tmp, "rtabmap.db")
+        with zf.open("rtabmap.db") as src, open(db_path, "wb") as dst:
+          shutil.copyfileobj(src, dst)
+        with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as db:
+          if db.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+            raise ValidationError("Mapping bundle RTAB-Map database failed SQLite integrity check")
+          nodes = db.execute("SELECT COUNT(*) FROM Node").fetchone()[0]
+          words = db.execute("SELECT COUNT(*) FROM Word").fetchone()[0]
+        if nodes == 0:
+          raise ValidationError("Mapping bundle RTAB-Map database contains no nodes")
+        if words == 0:
+          raise ValidationError("Mapping bundle RTAB-Map database contains no visual words")
+  except sqlite3.Error as exc:
+    raise ValidationError(f"Invalid RTAB-Map database in mapping bundle: {exc}")
   except BadZipFile as e:
     raise ValidationError(f"Invalid zip file: {e}")
   finally:
