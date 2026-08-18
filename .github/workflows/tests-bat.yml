@@ -176,14 +176,16 @@ jobs:
 
       - name: Run Mapping Service tests
         if: always() && steps.setup-test-env.outcome == 'success'
-        working-directory: mapping/tests
         run: |
-          ./run_tests.sh
+          source tests/.venv/bin/activate
+          mapping/tests/run_tests.sh
 
       - name: Run Cluster Analytics tests
         if: always() && steps.setup-test-env.outcome == 'success'
         working-directory: cluster_analytics
         run: |
+          source tests/.venv/bin/activate
+          cd cluster_analytics
           make test-build
           pip install -r tests/service/requirements.txt
           pytest tests/service/ -v
