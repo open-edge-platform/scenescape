@@ -196,6 +196,11 @@ services:
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
       - MAPBOX_API_KEY=${MAPBOX_API_KEY}
+      # Max upload size for scene map files (blueprints, .glb meshes). Default
+      # 132MB. Raise if uploading large 3D scans or high-res floor plans;
+      # lower to reduce per-request memory pressure in constrained deployments.
+      - DATA_UPLOAD_MAX_MEMORY_SIZE_MB=${DATA_UPLOAD_MAX_MEMORY_SIZE_MB:-132}
+      - FILE_UPLOAD_MAX_MEMORY_SIZE_MB=${FILE_UPLOAD_MAX_MEMORY_SIZE_MB:-132}
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media

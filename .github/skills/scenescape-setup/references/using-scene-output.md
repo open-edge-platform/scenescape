@@ -5,15 +5,17 @@ SPDX-License-Identifier: Apache-2.0
 
 # Building something with the deployed scene's output
 
-Read this once a deployment reaches `DEPLOY COMPLETE` and the user wants to _use_ the tracked-object
-data for something — an alert, a dashboard, a count, an integration with another system — rather
-than just view it in the web UI. This is the handoff point from "deploy SceneScape" to "build an
-application on top of SceneScape."
+Read this after every successful full deploy reaches `DEPLOY COMPLETE` (required handoff in
+`SKILL.md`), and whenever the user wants to _use_ the tracked-object data for something — an
+alert, a dashboard, a count, an integration with another system — rather than just view it in the
+web UI. This is the handoff point from "deploy SceneScape" to "build an application on top of
+SceneScape."
 
 ## Ask what the user is trying to accomplish
 
 Don't assume the goal from the deployment context alone (e.g. "warehouse" doesn't imply "count
-forklifts"). A short clarifying question upfront avoids wiring up the wrong topic or event type:
+forklifts"). A short clarifying question upfront avoids wiring up the wrong topic or event type.
+After a successful deploy, always end with this question (even if the user has not asked yet):
 
 > "Now that the scene is tracking, what do you want to do with that data? For example: trigger an
 > alert when someone enters/leaves an area, count objects over time, integrate with another
