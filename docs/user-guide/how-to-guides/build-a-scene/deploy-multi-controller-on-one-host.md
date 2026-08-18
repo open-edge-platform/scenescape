@@ -24,7 +24,9 @@ By completing this guide, you will:
 
 Prefer **local** children whenever a single controller can own the hierarchy.
 Use remote children only for operational isolation (separate stacks), not to
-invent mixed ReID topologies.
+invent mixed ReID topologies. Hierarchy still assumes **one parent per child**;
+do not point multiple parent Controllers at the same remote child. See
+[Configure a Hierarchy of Scenes](./configure-hierarchy-of-scenes.md).
 
 On one host, remote children still use the same remote-child link UI and MQTT
 `DATA_EXTERNAL` path as controllers on different machines. The only difference
