@@ -64,7 +64,6 @@ class PubSub(_PubSubTopicBase):
     _Topic.IMAGE_CAMERA: Template(TOPIC_BASE + "/image/camera/${camera_id}"),
     _Topic.SYS_CHILDSCENE_STATUS: Template(TOPIC_BASE + "/sys/child/status/${scene_id}"),
     _Topic.ANALYTICS_CLUSTERS: Template(TOPIC_BASE + "/analytics/clusters/${scene_id}"),
-    _Topic.SYS_CHILD_PARENT_LINK: Template(TOPIC_BASE + "/sys/child/parent/${scene_id}")
   }
 
   def __init__(self, auth, cert, rootca, broker, port=None, keepalive=60,
