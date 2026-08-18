@@ -318,6 +318,7 @@ helm upgrade scenescape-release-1 --install kubernetes/scenescape-chart/ \
 ```
 
 > **Note**: Retention is time-based only. Under heavy ingest, storage can still grow within the TTL window. This is not capacity-based eviction.
+
 ---
 
 ## Configuration Options
