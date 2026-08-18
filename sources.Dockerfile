@@ -18,21 +18,16 @@ RUN apt-get source --download-only \
     apache2-data \
     apache2-utils \
     armadillo \
-    base-files \
-    bash \
     bzip2 \
     ca-certificates \
     cfitsio \
     curl \
-    dpkg \
-    eigen3 \
     elfutils \
     ffmpeg \
     fonts-dejavu-core \
     fyba \
     gcc-12 \
     gcc-14 \
-    gcc-defaults \
     gdal \
     gdbm \
     gdcm \
@@ -45,6 +40,7 @@ RUN apt-get source --download-only \
     hdf5 \
     icu \
     jbigkit \
+    libarchive13 \
     libasound2 \
     libasound2-data \
     libass9 \
@@ -60,7 +56,6 @@ RUN apt-get source --download-only \
     libcaca0 \
     libcairo-gobject2 \
     libcairo2 \
-    libcap2 \
     libcdio-cdda2 \
     libcdio-paranoia2 \
     libcdio19 \
@@ -83,7 +78,6 @@ RUN apt-get source --download-only \
     libfreexl1 \
     libfribidi0 \
     libgbm1 \
-    libgcrypt20 \
     libgdk-pixbuf-2.0-0 \
     libgdk-pixbuf2.0-common \
     libgeotiff5 \
@@ -94,7 +88,6 @@ RUN apt-get source --download-only \
     libglx-mesa0 \
     libglx0 \
     libgme0 \
-    libgnutls30 \
     libgraphite2-3 \
     libgudev \
     libharfbuzz0b \
@@ -151,14 +144,12 @@ RUN apt-get source --download-only \
     libsvtav1enc1 \
     libswresample4 \
     libswscale6 \
-    libsystemd0 \
     libtbb12 \
     libtbbbind-2-5 \
     libtbbmalloc2 \
     libthai-data \
     libthai0 \
     libtwolame0 \
-    libudev1 \
     libudfread0 \
     liburiparser1 \
     libusb-1.0-0 \
@@ -178,16 +169,13 @@ RUN apt-get source --download-only \
     libzvbi-common \
     libzvbi0 \
     lm-sensors \
-    make-dfsg \
     mariadb \
     mosquitto \
-    mysql-defaults \
     netcdf \
     numactl \
     ogdi-dfsg \
     opencv \
     perl \
-    pkgconf \
     poppler \
     procps \
     proj-data \
@@ -197,7 +185,6 @@ RUN apt-get source --download-only \
     python3.11 \
     qtbase-opensource-src \
     rtmpdump \
-    sed \
     shared-mime-info \
     spatialite \
     superlu \
@@ -212,7 +199,6 @@ WORKDIR /sources/python
 RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git
 RUN : \
     ; git clone --depth 1 https://github.com/certifi/python-certifi \
-    ; git clone --depth 1 https://github.com/dranjan/python-plyfile \
     ; git clone --depth 1 https://github.com/eclipse-paho/paho.mqtt.python \
     ; git clone --depth 1 https://github.com/ijl/orjson \
     ; git clone --depth 1 https://github.com/jab/bidict \
@@ -228,8 +214,7 @@ RUN : \
     ; git clone --depth 1 https://github.com/eclipse/paho.mqtt.c \
     ; git clone --depth 1 https://github.com/eclipse/paho.mqtt.cpp \
     ; git clone --depth 1 https://github.com/eigenteam/eigen-git-mirror \
-    ; git clone --depth 1 https://github.com/gcc-mirror/gcc \
-    ; git clone --depth 1 https://git.savannah.gnu.org/git/config.git gnu-config
+    ; git clone --depth 1 https://github.com/gcc-mirror/gcc
 
 WORKDIR /sources/other
 RUN : \
