@@ -37,13 +37,25 @@ def load_model_config(modelconfig_name=None):
 
   try:
     with open(model_config_path, 'r') as f:
-      return json.load(f)
+      model_config = json.load(f)
   except json.JSONDecodeError as e:
     raise PipelineGenerationValueError(
       "Model config file is not valid JSON.") from e
   except OSError as e:
     raise PipelineGenerationValueError(
       "Unable to read model config file.") from e
+
+  # Enforce the expected {model_name: {params: ...}} shape so malformed
+  # (but JSON-valid) configs fail with a clear message instead of crashing later.
+  if not isinstance(model_config, dict):
+    raise PipelineGenerationValueError(
+      "Model config file must contain a JSON object mapping model names to their config.")
+  for model_name, entry in model_config.items():
+    if not isinstance(entry, dict):
+      raise PipelineGenerationValueError(
+        f"Model config entry for '{model_name}' must be a JSON object.")
+
+  return model_config
 
 
 # TODO: Move the method to pipeline_generator.py

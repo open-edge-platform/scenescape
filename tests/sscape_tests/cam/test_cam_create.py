@@ -156,3 +156,24 @@ class CamCreateCamerachainValidationTestCase(TestCase):
     self.assertIn('Unable to read model config file', message)
     self.assertNotIn(self._tmpdir.name, message)
     self.assertNotIn(self.config_path, message)
+
+  def _write_config(self, content):
+    with open(self.config_path, 'w', encoding='utf-8') as config_file:
+      json.dump(content, config_file)
+
+  def test_clean_camerachain_handles_non_object_config(self):
+    """Valid JSON that is not a model-config object yields a safe error, not a crash."""
+    for content in (42, "retail", ["retail"], None):
+      self._write_config(content)
+      with self.assertRaises(ValidationError) as ctx:
+        self._clean_camerachain('retail')
+      self.assertIn(
+        'must contain a JSON object', str(ctx.exception))
+
+  def test_clean_camerachain_handles_non_object_model_entry(self):
+    """A model entry that is not an object yields a safe error, not a crash."""
+    self._write_config({'retail': 42})
+    with self.assertRaises(ValidationError) as ctx:
+      self._clean_camerachain('retail')
+    self.assertIn(
+      "entry for 'retail' must be a JSON object", str(ctx.exception))

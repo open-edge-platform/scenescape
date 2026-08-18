@@ -18,6 +18,7 @@ from manager.ppl_generator import (
   load_model_config,
 )
 from manager.ppl_generator.model_chain import parse_model_chain
+from scene_common import log
 from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES
 from scene_common.cam_fields import (
     CAM_FORM_FIELDS, CAM_FORM_ONLY_FIELDS,
@@ -199,6 +200,11 @@ class CamCreateForm(forms.ModelForm):
       parse_model_chain(camerachain, settings.MODEL_ROOT, model_config)
     except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
       raise ValidationError(str(e)) from e
+    except Exception as e:
+      # Malformed (but JSON-valid) model configs can raise unexpected errors;
+      # convert to a safe validation message instead of a 500 and log details.
+      log.error(f"Unexpected error validating camerachain: {e}")
+      raise ValidationError("Unable to validate camera chain against model config.") from e
 
     return camerachain
 
