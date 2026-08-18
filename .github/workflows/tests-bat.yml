@@ -160,6 +160,22 @@ jobs:
           mkdir -p reports
           pytest tests/sscape_tests/ --junitxml=reports/unit_results.xml --log-level=ERROR
 
+      - name: Run Mapping Service tests
+        if: always() && steps.setup-test-env.outcome == 'success'
+        run: |
+          source tests/.venv/bin/activate
+          cd mapping/tests
+          mapping/tests/run_tests.sh
+
+      - name: Run Cluster Analytics tests
+        if: always() && steps.setup-test-env.outcome == 'success'
+        run: |
+          source tests/.venv/bin/activate
+          cd cluster_analytics
+          make test-build
+          pip install -r tests/service/requirements.txt
+          pytest tests/service/ -v
+
       - name: Run Pipeline Runner tests
         if: always() && steps.setup-test-env.outcome == 'success'
         env:
@@ -173,22 +189,6 @@ jobs:
           pip install --upgrade pip
           pip install -q -r requirements-ppl-test.txt
           pytest . --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
-
-      - name: Run Mapping Service tests
-        if: always() && steps.setup-test-env.outcome == 'success'
-        run: |
-          source tests/.venv/bin/activate
-          mapping/tests/run_tests.sh
-
-      - name: Run Cluster Analytics tests
-        if: always() && steps.setup-test-env.outcome == 'success'
-        working-directory: cluster_analytics
-        run: |
-          source tests/.venv/bin/activate
-          cd cluster_analytics
-          make test-build
-          pip install -r tests/service/requirements.txt
-          pytest tests/service/ -v
 
       - name: Upload Test Report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
