@@ -14,11 +14,13 @@ from pathlib import Path
 from deploy_inputs import load_inputs
 
 DLSTREAMER_FOLDERS = ("model-proc-files", "mosquitto", "user_scripts")
+FFMPEG_IMAGE = "linuxserver/ffmpeg:version-8.1-cli"
+MEDIAMTX_IMAGE = "bluenviron/mediamtx:1.18.1"
 
 
 def skill_dir_from_arg(value: Path) -> Path:
   path = value.resolve()
-  if not (path / "references" / "docker-compose-template.md").is_file():
+  if not (path / "assets" / "docker-compose-template.md").is_file():
     raise ValueError(f"Not a scenescape-setup skill directory: {path}")
   return path
 
@@ -112,7 +114,7 @@ def generate_docker_compose(skill_dir: Path, deploy_dir: Path) -> None:
   """Extract the ```yaml fenced block from the compose template and substitute
   ${SECRETSDIR}. Done in pure Python (no shell) since deploy_dir/secrets_dir are
   user-supplied paths and must never be interpolated into a shell command string."""
-  template = skill_dir / "references" / "docker-compose-template.md"
+  template = skill_dir / "assets" / "docker-compose-template.md"
   secrets_dir = deploy_dir / "secrets"
 
   lines: list[str] = []
@@ -133,6 +135,56 @@ def generate_docker_compose(skill_dir: Path, deploy_dir: Path) -> None:
   (deploy_dir / "docker-compose.yml").write_text(compose_text, encoding="utf-8")
 
 
+def probe_video_codec(video_path: Path) -> str | None:
+  """Return the primary video codec name (e.g. h264), or None if probing fails."""
+  path = Path(video_path).resolve()
+  if not path.is_file():
+    return None
+
+  ffprobe_args = [
+    "-v", "error",
+    "-select_streams", "v:0",
+    "-show_entries", "stream=codec_name",
+    "-of", "csv=p=0",
+  ]
+
+  # Prefer host ffprobe when present; otherwise use the same image the publisher runs.
+  commands = [
+    ["ffprobe", *ffprobe_args, str(path)],
+    [
+      "docker", "run", "--rm", "--entrypoint", "/usr/local/bin/ffprobe",
+      "-v", f"{path}:/probe{path.suffix}:ro",
+      FFMPEG_IMAGE,
+      *ffprobe_args,
+      f"/probe{path.suffix}",
+    ],
+  ]
+  for command in commands:
+    try:
+      result = subprocess.run(
+        command, capture_output=True, text=True, check=False, timeout=60,
+      )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+      continue
+    codec = (result.stdout or "").strip().splitlines()
+    if result.returncode == 0 and codec and codec[0]:
+      return codec[0].strip().lower()
+  return None
+
+
+def rtsp_video_encode_args(video_path: Path) -> str:
+  """Choose ffmpeg output args for RTSP publish.
+
+  H.264 sources use bitstream copy (same as SceneScape sample queuing-cams).
+  Anything else is re-encoded to H.264 so the DL Streamer
+  rtph264depay/h264parse/avdec_h264 pipeline still works.
+  """
+  codec = probe_video_codec(Path(video_path))
+  if codec in ("h264", "avc", "avc1"):
+    return "-c copy"
+  return "-c:v libx264 -preset veryfast -an"
+
+
 def generate_video_file_override(deploy_dir: Path, payload: dict) -> None:
   """When Step 1 inputs are local video files (payload["source_type"] == "file"),
   write docker-compose.override.yml with a local RTSP re-streamer (mediamtx + ffmpeg)
@@ -140,7 +192,8 @@ def generate_video_file_override(deploy_dir: Path, payload: dict) -> None:
   validation, proxy bypass) treats it exactly like a live camera pointed at
   rtsp://mediaserver:8554/<camera_id>. docker compose auto-merges *.override.yml
   files with docker-compose.yml, so no other orchestration changes are required.
-  See references/video-file-input.md."""
+  See references/video-file-publishing.md (override/publish) and
+  references/video-file-input.md (Step 1 file inputs)."""
   override_path = deploy_dir / "docker-compose.override.yml"
   if payload.get("source_type") != "file":
     if override_path.exists():
@@ -150,20 +203,34 @@ def generate_video_file_override(deploy_dir: Path, payload: dict) -> None:
   camera_ids = payload["camera_ids"]
   video_paths = payload["video_paths"]
 
-  input_clauses = []
-  map_clauses = []
-  volume_lines = []
-  for index, (camera_id, video_path) in enumerate(zip(camera_ids, video_paths)):
+  # One ffmpeg publisher per camera. A single process with multiple libx264 outputs
+  # tends to die with Broken pipe against MediaMTX; per-camera isolation matches
+  # the stability of SceneScape's sample path while still allowing re-encode.
+  publisher_blocks = []
+  for camera_id, video_path in zip(camera_ids, video_paths):
     container_path = f"/videos/{camera_id}{Path(video_path).suffix}"
-    input_clauses.append(f"-re -stream_loop -1 -i {container_path}")
-    map_clauses.append(
-      f"-map {index}:v -c:v libx264 -preset veryfast -an -f rtsp "
-      f"-rtsp_transport tcp rtsp://mediaserver:8554/{camera_id}"
+    encode_args = rtsp_video_encode_args(Path(video_path))
+    command = (
+      f"-nostdin -re -stream_loop -1 -i {container_path} "
+      f"-map 0:v {encode_args} -f rtsp -rtsp_transport tcp "
+      f"rtsp://mediaserver:8554/{camera_id}"
     )
-    volume_lines.append(f"      - {video_path}:{container_path}:ro")
+    # Compose service names must stay DNS-safe; camera_ids already forbid '/'.
+    service_name = f"video-file-{camera_id}"
+    publisher_blocks.append(
+      f"  {service_name}:\n"
+      f"    image: {FFMPEG_IMAGE}\n"
+      f"    command: {command}\n"
+      "    volumes:\n"
+      f"      - {video_path}:{container_path}:ro\n"
+      "    networks:\n"
+      "      scenescape:\n"
+      "    depends_on:\n"
+      "      - mediaserver\n"
+      "    restart: always\n"
+    )
 
-  command = "-nostdin " + " ".join(input_clauses) + " " + " ".join(map_clauses)
-  volumes_block = "\n".join(volume_lines)
+  publishers_block = "\n".join(publisher_blocks)
   spdx_file_copyright = "SPDX-FileCopyrightText"
   spdx_license_identifier = "SPDX-License-Identifier"
 
@@ -175,29 +242,21 @@ def generate_video_file_override(deploy_dir: Path, payload: dict) -> None:
     "# cameras. Loops each file through a local RTSP server (mediamtx) so the rest of\n"
     "# the deployment is unchanged from the live-camera path. docker compose\n"
     "# auto-merges this file with docker-compose.yml; no -f flag is needed.\n"
+    "# H.264 sources use -c copy; other codecs are re-encoded with libx264.\n"
     "\n"
     "networks:\n"
     "  scenescape:\n"
     "\n"
     "services:\n"
     "  mediaserver:\n"
-    "    image: bluenviron/mediamtx:1.18.1\n"
+    f"    image: {MEDIAMTX_IMAGE}\n"
     "    networks:\n"
     "      scenescape:\n"
     "        aliases:\n"
     "          - mediaserver\n"
     "    restart: always\n"
     "\n"
-    "  video-file-cams:\n"
-    "    image: linuxserver/ffmpeg:version-8.1-cli\n"
-    f"    command: {command}\n"
-    "    volumes:\n"
-    f"{volumes_block}\n"
-    "    networks:\n"
-    "      scenescape:\n"
-    "    depends_on:\n"
-    "      - mediaserver\n"
-    "    restart: always\n",
+    f"{publishers_block}",
     encoding="utf-8",
   )
 
@@ -298,6 +357,21 @@ def main() -> None:
     if line.startswith("no_proxy_hosts="):
       no_proxy_hosts = [h for h in line.split("=", 1)[1].split(",") if h]
   generate_secrets_and_env(deploy_dir, skill_dir, no_proxy_hosts)
+
+  # Re-assert public-cert modes even when generate_secrets already ran — keeps
+  # older deploy dirs / partial resumes readable by non-host UIDs.
+  ensure = subprocess.run(
+    [
+      sys.executable,
+      str(skill_dir / "scripts" / "ensure_secret_perms.py"),
+      "--deploy-dir", str(deploy_dir),
+    ],
+    check=True,
+    capture_output=True,
+    text=True,
+  )
+  if ensure.stdout.strip():
+    print(ensure.stdout.strip())
 
   print(f"Bootstrap complete: {deploy_dir}")
 
