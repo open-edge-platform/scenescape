@@ -518,22 +518,6 @@ class SceneController:
                               msg_when, detection_type, jdata, camera_id)
       return
 
-  def handleParentLinkNotice(self, client, userdata, message):
-    """A remote parent has connected to this scene's own broker and confirmed
-    it is this scene's parent. Set the live in-memory flag so
-    publishExternalDetections stops withholding hierarchy publishes."""
-    topic = PubSub.parseTopic(message.topic)
-    scene = self.cache_manager.sceneWithID(topic['scene_id'])
-    if scene is None:
-      log.warning("Parent-link notice for unknown scene %s", topic['scene_id'])
-      return
-    payload = orjson.loads(message.payload.decode('utf-8'))
-    parent_uid = payload.get('uid') or True
-    if getattr(scene, 'remote_parent_uid', None) != parent_uid:
-      scene.remote_parent_uid = parent_uid
-      log.info(f"Scene {scene.name} confirmed live remote parent link")
-    return
-
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
     is_remote = False
     sender = self.cache_manager.sceneWithID(sender_id)
@@ -807,9 +791,6 @@ class SceneController:
                             self.handleMovingObjectMessage))
       # External publisher-centric ingest is covered by the wildcard subscribe above.
 
-        need_subscribe.add((PubSub.formatTopic(PubSub.SYS_CHILD_PARENT_LINK,
-                                          scene_id=scene.uid),
-                      self.handleParentLinkNotice))
       if hasattr(scene, 'children'):
         child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)
 
