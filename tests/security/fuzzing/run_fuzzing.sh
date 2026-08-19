@@ -10,8 +10,8 @@ cd /workspace
 
 workspace_root="$(pwd)"
 run_dir="${workspace_root}/service_runs/manager"
-result_dir="${workspace_root}/Fuzz/manager"
 mode_dir="$(tr '[:lower:]' '[:upper:]' <<< "${restler_mode:0:1}")${restler_mode:1}"
+result_dir="${workspace_root}/${mode_dir}/manager"
 
 rm -rf "$run_dir" "$result_dir" "${workspace_root}/RestlerLogs/manager"
 mkdir -p "$run_dir" "${workspace_root}/RestlerLogs/manager"
@@ -25,7 +25,7 @@ auth_token=$(curl -s "https://web.scenescape.intel.com/api/v1/auth" \
   -d "username=$auth_username&password=$auth_password" | jq -r '.token')
 sed -i "s/##TOKEN##/$auth_token/" /tmp/token
 
-rm -rf Compile Fuzz RestlerLogs Test
+rm -rf Compile Fuzz Fuzz-lean RestlerLogs Test
 
 # Create a dedicated "child" scene before RESTler runs so we have two distinct
 # valid scene UUIDs for POST /child (parent != child is enforced by the API).
@@ -327,14 +327,13 @@ PY
   --settings settings.json
 
 if [ -d "$mode_dir" ]; then
-    mkdir -p /workspace/Fuzz
-    rm -rf /workspace/Fuzz/manager
-    mkdir -p /workspace/Fuzz/manager
-    mv "$mode_dir" /workspace/Fuzz/manager/
+    mkdir -p "$(dirname "$result_dir")"
+    rm -rf "$result_dir"
+    mv "$mode_dir" "$result_dir"
 fi
 
 if [ -n "$USER_ID" ] && [ -n "$GROUP_ID" ]; then
-    chown -R "$USER_ID":"$GROUP_ID" /workspace/Fuzz/manager /workspace/service_runs/manager /workspace/RestlerLogs/manager 2>/dev/null || true
+    chown -R "$USER_ID":"$GROUP_ID" "$result_dir" /workspace/service_runs/manager /workspace/RestlerLogs/manager 2>/dev/null || true
 fi
 
 echo "RESTler fuzzing run completed"

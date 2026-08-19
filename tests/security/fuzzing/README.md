@@ -38,13 +38,19 @@ This directory contains the following:
 3. From the fuzzing folder, execute the Docker command to launch a RESTler container and run our script:
    - `cd tests/security/fuzzing`
    - `docker run --rm -v "$(pwd)":/workspace -e USER_ID=$(id -u) -e GROUP_ID=$(id -g) restler /workspace/run_fuzzing.sh`
-4. When testing finishes (this takes a long time!), manager results are stored in `Fuzz/manager/`. See the RESTler documentation for more about how to interpret the results of a run, or talk to your security team!
+4. When testing finishes (this takes a long time!), results are stored in
+   `<test mode>/<service name>/` below this directory. For example:
+   `Fuzz/manager/`, `Test/autocalibration/`, or `Fuzz-lean/mapping/`. The test
+   mode directory is derived from `restler_mode`: `fuzz` becomes `Fuzz`,
+   `fuzz-lean` becomes `Fuzz-lean`, and `test` becomes `Test`. See the RESTler
+   documentation for more about how to interpret the results of a run, or talk
+   to your security team!
 
 ### Fuzzing additional services
 
 The Auto Calibration and Mapping APIs use their own canonical OpenAPI specs and
-are run separately from the manager campaign. Results remain under this same
-directory in `Fuzz/manager/`, `Fuzz/autocalibration/`, and `Fuzz/mapping/`.
+are run separately from the manager campaign. Their results use the same
+`<test mode>/<service name>/` layout as the manager campaign.
 
 The service runners need the repository mounted at `/repo` so they can copy the
 canonical spec at runtime:

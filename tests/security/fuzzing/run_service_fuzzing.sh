@@ -23,8 +23,8 @@ time_budget_hours="${TIME_BUDGET_HOURS:-${time_budget_hours:-2}}"
 
 spec_file="${service_name}_openapi.yaml"
 run_dir="service_runs/${service_name}"
-result_dir="/workspace/Fuzz/${service_name}"
 mode_dir="$(tr '[:lower:]' '[:upper:]' <<< "${restler_mode:0:1}")${restler_mode:1}"
+result_dir="/workspace/${mode_dir}/${service_name}"
 
 rm -rf "$run_dir" "$result_dir" "RestlerLogs/${service_name}"
 mkdir -p "$run_dir" "RestlerLogs/${service_name}"
@@ -109,10 +109,9 @@ restler_status=$?
 set -e
 
 if [[ -d "$mode_dir" ]]; then
-  mkdir -p /workspace/Fuzz
-  mkdir -p "$result_dir"
-  rm -rf "$result_dir/$mode_dir"
-  mv "$mode_dir" "$result_dir/"
+  mkdir -p "$(dirname "$result_dir")"
+  rm -rf "$result_dir"
+  mv "$mode_dir" "$result_dir"
 fi
 
 echo "RESTler ${service_name} fuzzing run completed"
