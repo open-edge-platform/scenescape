@@ -2482,6 +2482,10 @@ components:
             - $ref: "#/components/schemas/OutputLlaEnum"
             - $ref: "#/components/schemas/NullEnum"
           default: false
+        visible:
+          type: boolean
+          default: false
+          description: Whether the region is shown by default in the 3D scene view.
         color_ranges:
           $ref: "#/components/schemas/RegionOccupancyThreshold"
       required:
@@ -2760,6 +2764,10 @@ components:
             - $ref: "#/components/schemas/SingletonTypeEnum"
           default: environmental
           title: Type of Sensor
+        visible:
+          type: boolean
+          default: false
+          description: Whether the sensor area is shown by default in the 3D scene view.
         color_ranges:
           $ref: "#/components/schemas/SingletonScalarThreshold"
       required:
@@ -2851,6 +2859,10 @@ components:
         scene:
           type: string
           format: uuid
+        visible:
+          type: boolean
+          default: false
+          description: Whether the tripwire is shown by default in the 3D scene view.
       required:
         - name
         - points
