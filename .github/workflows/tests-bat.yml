@@ -165,7 +165,7 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           cd mapping/tests
-          mapping/tests/run_tests.sh
+          ./run_tests.sh
 
       - name: Run Cluster Analytics tests
         if: always() && steps.setup-test-env.outcome == 'success'
