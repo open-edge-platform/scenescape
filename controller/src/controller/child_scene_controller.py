@@ -52,7 +52,6 @@ class ChildSceneController():
     self.client.addCallback(self.child_scene_topic,
                             self.parent_controller.handleMovingObjectMessage)
     log.info("Subscribed to", self.child_scene_topic)
-
     return
 
   def publishStatus(self, client, userdata, message):

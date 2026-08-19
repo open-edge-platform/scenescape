@@ -15,6 +15,7 @@
         "Shows the deploy_inputs.py read-back command and correctly explains that the synthesized rtsp://mediaserver:8554/<camera_id> streams (not the original video paths) are what get passed to the orchestrator's --streams/--camera-ids flags",
         "States or demonstrates that camera_ids cam1/cam2 are checked/confirmed unique before proceeding",
         "Shows the orchestrator script (deploy_scenescape.sh) being launched in an async/background terminal rather than instructions to run it in the foreground and block",
+        "Shows or describes launching watch_orchestrator.sh against the orchestrator PID (with notify on RESULT=) so the agent reports completion instead of asking the user to poll status",
         "States that the calibration phase is expected to produce one calibration JPEG per camera_id",
         "States that tracking verification (step 13) is expected to confirm tracked objects are associated with more than one camera_id",
         "States that successful completion is marked by DEPLOY COMPLETE with a scene_uid and enumerates the Post-Task deployment metrics breakdown"
@@ -31,7 +32,8 @@
         "Treats the explicit continue/stopped-deployment signal as confirmation that deploy-inputs.json exists and skips re-asking Step 1 questions",
         "Shows the deploy_inputs.py read-back command and identifies the persisted streams/camera_ids/scene_name as the values to confirm, instead of silently reusing them",
         "Shows the orchestrator command with only --deploy-dir and --skill-dir (no --fresh)",
-        "States that the orchestrator resumes from the step recorded in .deploy-state.json rather than restarting from step 1"
+        "States that the orchestrator resumes from the step recorded in .deploy-state.json rather than restarting from step 1",
+        "Shows or describes launching watch_orchestrator.sh against the orchestrator PID so completion is reported without asking the user to poll status"
       ]
     },
     {
