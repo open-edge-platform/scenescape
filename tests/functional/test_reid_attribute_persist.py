@@ -191,7 +191,7 @@ def connect_reid_backend(use_tls=True):
 
 GENDER_BBOX = {"x": 100, "y": 100, "width": 120, "height": 240}
 SMALL_BBOX = {"x": 100, "y": 100, "width": 40, "height": 60}
-NEGATIVE_BBOX = {"x": 500, "y": 100, "width": 120, "height": 240}
+OFFSET_BBOX = {"x": 500, "y": 100, "width": 120, "height": 240}
 
 FEATURE_THRESHOLD = 12
 STALE_TIMEOUT_S = 5
@@ -339,7 +339,7 @@ def test_gender_confidence_gates_reid_match(mqtt_client, warmed_scene, reentry_c
 
   time.sleep(SUSPENDED_TRACK_TIMEOUT_S + 5)
 
-  det_reentry = make_detection(7, NEGATIVE_BBOX, embedding=emb,
+  det_reentry = make_detection(7, OFFSET_BBOX, embedding=emb,
                                gender="Female", gender_conf=reentry_confidence)
   with SceneOutputCollector(mqtt_client, scene_uid) as collector:
     publish_frames(mqtt_client, camera_id, [det_reentry],
