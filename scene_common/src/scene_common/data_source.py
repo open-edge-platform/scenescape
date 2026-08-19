@@ -35,6 +35,12 @@ class RestSceneDataSource(SceneDataSource):
     self.rest = RESTClient(rest_url, rootcert=root_cert, auth=rest_auth)
     return
 
+  def getTripwires(self, filter):
+    return self.rest.getTripwires(filter)
+
+  def getTripwire(self, uid):
+    return self.rest.getTripwire(uid)
+
   def getScenes(self):
     return self.rest.getScenes(None)
 
@@ -43,6 +49,9 @@ class RestSceneDataSource(SceneDataSource):
 
   def getChildScenes(self, scene_uid):
     return self.rest.getChildScene({'parent': scene_uid})
+
+  def updateChildScene(self, uid, data):
+    return self.rest.updateChildScene(uid, data)
 
   def getAssets(self):
     return self.rest.getAssets({})

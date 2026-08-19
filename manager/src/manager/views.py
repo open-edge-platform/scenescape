@@ -135,7 +135,6 @@ def list_resources(request, folder_name):
 def sceneDetail(request, scene_id):
   scene = get_object_or_404(Scene, pk=scene_id)
   child_rois, child_trips, child_sensors = getAllChildrenMetaData(scene_id)
-  # FIXME add rest api call to remote child using child scene api token
 
   return render(request, 'sscape/sceneDetail.html', {'scene': scene, 'child_rois': child_rois,
                                                      'child_tripwires': child_trips, 'child_sensors': child_sensors})
@@ -810,7 +809,12 @@ def getAllChildrenMetaData(scene_id):
         else:
           child_sensors.append(cs)
 
-    # FIXME add rest api call to remote child using child scene api token
+    elif c.child_type == "remote":
+      current_child_name = c.child_name
+      for tripwire in (c.cached_tripwires or []):
+        tripwire = dict(tripwire)
+        tripwire['from_child_scene'] = current_child_name
+        child_trips.append(applyChildTransform(tripwire, c.cameraPose))
 
   return json.dumps(child_rois), json.dumps(child_trips), json.dumps(child_sensors)
 

@@ -61,6 +61,7 @@ class AnalyticsService:
     )
 
     self.visibility_topic = visibility_topic
+    self.scenes = []
     log.info(f"AnalyticsService: visibility on {self.visibility_topic} topic")
     return
 
@@ -242,12 +243,41 @@ class AnalyticsService:
     publish_events(scene, jdata['timestamp'], self.pubsub.publish)
     return
 
+  def publishTripwiresForScene(self, scene):
+    """Publish cached tripwire definitions for *scene* on the response topic."""
+    result = self.cache_manager.data_source.getTripwires({'scene': scene.uid})
+    if result.errors:
+      log.warning(f"Failed to fetch tripwires for scene {scene.uid}: {result.errors}")
+      return
+    tripwires = [
+      {'title': t.get('name', ''), 'uuid': t.get('uid', ''), 'points': t.get('points', [])}
+      for t in result.get('results', [])
+    ]
+    topic = PubSub.formatTopic(PubSub.CMD_CHILD_TRIPWIRES_RESPONSE, scene_id=scene.uid)
+    self.pubsub.publish(topic, orjson.dumps(tripwires).decode('utf-8'))
+    log.debug(f"Published {len(tripwires)} tripwire(s) for scene {scene.uid} on {topic}")
+    return
+
+  def handleTripwiresRequest(self, client, userdata, message):
+    """Respond to a parent request for tripwire definitions."""
+    topic = PubSub.parseTopic(message.topic)
+    requested_scene_id = topic.get('scene_id')
+    for scene in getattr(self, 'scenes', []):
+      if str(scene.uid) == str(requested_scene_id):
+        self.publishTripwiresForScene(scene)
+        return
+    log.warning(f"Tripwires request for unknown scene {requested_scene_id}")
+    return
+
   def handleDatabaseMessage(self, client, userdata, message):
     command = str(message.payload.decode("utf-8"))
     if command == "update":
       try:
         self.updateSubscriptions()
         self.updateRegulateCache()
+        # Re-publish tripwire definitions so parent caches stay current
+        for scene in getattr(self, 'scenes', []):
+          self.publishTripwiresForScene(scene)
       except Exception as e:
         log.warning("Failed to update database: %s", e)
     return
@@ -264,6 +294,9 @@ class AnalyticsService:
     self.updateSubscriptions()
     self.pubsub.addCallback(PubSub.formatTopic(PubSub.CMD_DATABASE), self.handleDatabaseMessage)
     log.info("Subscribed to", PubSub.formatTopic(PubSub.CMD_DATABASE))
+    # Publish initial tripwire definitions so parent controller can cache them
+    for scene in getattr(self, 'scenes', []):
+      self.publishTripwiresForScene(scene)
     return
 
   def updateSubscriptions(self):
@@ -278,6 +311,10 @@ class AnalyticsService:
       need_subscribe.add((
         PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
         self.handleSceneDataMessage,
+      ))
+      need_subscribe.add((
+        PubSub.formatTopic(PubSub.CMD_CHILD_TRIPWIRES_REQUEST, scene_id=scene.uid),
+        self.handleTripwiresRequest,
       ))
       for sensor in scene.sensors:
         need_subscribe.add((
