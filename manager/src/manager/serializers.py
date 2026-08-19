@@ -225,6 +225,7 @@ class SingletonSerializer(NonNullSerializer):
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
+    visibility_only = is_update and set(validated_data) == {'visible'}
 
     scene_uid = validated_data.pop('scene', None)
     if scene_uid is not None:
@@ -253,8 +254,8 @@ class SingletonSerializer(NonNullSerializer):
     if color_ranges:
       SingletonScalarThresholdSerializer.linkSingletonScalarThreshold(instance, color_ranges)
 
-    # notify that DB has been updated
-    instance.notifydbupdate()
+    if not visibility_only:
+      instance.notifydbupdate()
     return instance
 
   def create(self, validated_data):
@@ -266,7 +267,7 @@ class SingletonSerializer(NonNullSerializer):
   class Meta:
     model = SingletonSensor
     fields = ['uid', 'scene', 'sensor_id', 'name', 'area', 'points', 'radius', 'center',
-              'translation', 'singleton_type', 'color_ranges']
+              'translation', 'singleton_type', 'color_ranges', 'visible']
 
 class CamSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
@@ -513,6 +514,7 @@ class RegionSerializer(NonNullSerializer):
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
+    visibility_only = is_update and set(validated_data) == {'visible'}
 
     scene_uid = validated_data.pop('scene', None)
     if scene_uid is not None:
@@ -534,8 +536,8 @@ class RegionSerializer(NonNullSerializer):
     if color_ranges:
       RegionOccupancyThresholdSerializer.linkRegionOccupancyThreshold(instance, color_ranges)
 
-    # notify that DB has been updated
-    instance.notifydbupdate()
+    if not visibility_only:
+      instance.notifydbupdate()
     return instance
 
   def create(self, validated_data):
@@ -549,12 +551,13 @@ class RegionSerializer(NonNullSerializer):
 
   class Meta:
     model = Region
-    fields = ['uid', 'name', 'points', 'scene', 'buffer_size', 'height', 'volumetric', 'color_ranges']
+    fields = ['uid', 'name', 'points', 'scene', 'buffer_size', 'height', 'volumetric', 'color_ranges',
+              'visible']
 
 class TripwireSerializer(RegionSerializer):
   class Meta:
     model = Tripwire
-    fields = ['uid', 'name', 'points', 'height', 'scene']
+    fields = ['uid', 'name', 'points', 'height', 'scene', 'visible']
 
 class TransformSerializerField(serializers.DictField):
   def to_representation(self, obj):

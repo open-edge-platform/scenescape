@@ -51,6 +51,10 @@ If you're new to these concepts, see:
 3. In the Manage Sensor view, you can update attributes like Measurement area (Entire Scene, Circle or Custom region), Name, Sensor id, Scene, Singleton type, Color Range, etc. For more details on how to use the Color Range, refer to [Visualizing ROI and Sensor Areas](./visualize-regions.md).
 4. Cick on `Save Sensor `to persist the modified sensor.
 
+In the 3D scene view, expand `Sensors Settings` and toggle `show` for the
+sensor. The visibility setting is saved immediately and restored after a page
+refresh. This setting is shared across users and devices that view the scene.
+
 #### Publish Environmental Sensor Readings
 
 From a third party application, publish sensor data to the topic `scenescape/data/sensor/<sensorName>`
