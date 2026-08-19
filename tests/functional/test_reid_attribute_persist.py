@@ -339,7 +339,7 @@ def test_gender_confidence_gates_reid_match(mqtt_client, warmed_scene, reentry_c
 def test_bbox_below_minimum_area_gathers_no_features(mqtt_client, warmed_scene,
                                                      record_xml_attribute):
   """Detections under minimum_bbox_area never contribute embeddings."""
-  record_xml_attribute("name", "NEX-T26001")
+  record_xml_attribute("name", "NEX-T25996")
   scene_uid, camera_id = warmed_scene
 
   det = make_detection(14, SMALL_BBOX, embedding=make_embedding(seed=9),
