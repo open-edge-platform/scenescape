@@ -13,12 +13,12 @@ Scenescape currently has custom solutions for:
 - **Model download and management**: Handled by the `model_installer` service and a set of static configuration conventions for a limited number of models.
 - **Visual pipeline building**: Relies on manually authored JSON files for Docker Compose deployments and a custom pipeline generator for Kubernetes.
 
-Furthermore, Scenescape's integration with the [**DL Streamer Pipeline Server (DLSPS)**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/microservices/dlstreamer-pipeline-server) for pipeline execution is constrained by the lack of a runtime API. Pipelines are configured statically, and Kubernetes deployments must recreate DLSPS pods for every pipeline update. These limitations in runtime model management and dynamic pipeline configuration negatively impact the user experience.
+Furthermore, Scenescape's integration with the [**DL Streamer Pipeline Server (DLSPS)**](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server) for pipeline execution is constrained by the lack of a runtime API. Pipelines are configured statically, and Kubernetes deployments must recreate DLSPS pods for every pipeline update. These limitations in runtime model management and dynamic pipeline configuration negatively impact the user experience.
 
 In parallel, the Intel® [Open-Edge-Platform](https://github.com/open-edge-platform) (OEP) provides reusable components that cover these functionalities and enable integration with Geti:
 
-- [**Model Downloader**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/microservices/model-download): Manages model lifecycle and storage.
-- [**ViPPET**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/tools/visual-pipeline-and-platform-evaluation-tool) (Visual Pipeline and Platform Evaluation Tool): Supports pipeline authoring and verification.
+- [**Model Downloader**](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/model-download): Manages model lifecycle and storage.
+- [**ViPPET**](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/tools/visual-pipeline-and-platform-evaluation-tool) (Visual Pipeline and Platform Evaluation Tool): Supports pipeline authoring and verification.
 - **Stream Manager**: A new component for camera discovery, video capture, livestreaming, and replay.
 
 There is currently no interoperability between Scenescape and the OEP components mentioned. Integrating these components and reusing their capabilities in place of Scenescape's custom solutions would provide a better user experience, including indirect integration with Geti, and offer multiple advantages. The motivation for this change extends beyond UX to include improved engineering efficiency, a sharper focus on Scenescape's core spatial-awareness functionality (such as sensor fusion, tracking, and scene state), and a reduction of redundant engineering efforts across OEP.
