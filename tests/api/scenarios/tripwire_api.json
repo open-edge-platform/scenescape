@@ -128,7 +128,8 @@
                 [1.0, 0.0]
               ],
               "height": 1.0,
-              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+              "visible": false
             },
             {
               "uid": "${TRIPWIRE_UID_FULL}",
@@ -138,7 +139,8 @@
                 [1.0, 1.0]
               ],
               "height": 1.0,
-              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+              "visible": false
             }
           ]
         }
@@ -198,11 +200,26 @@
             "points": [
               [1.0, 1.0],
               [1.0, 0.0]
-            ]
+            ],
+            "visible": true
           }
         },
         "expected_status": {
           "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify tripwire visibility was updated",
+        "api": "tripwire",
+        "method": "getTripwire",
+        "request": {
+          "uid": "${TRIPWIRE_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "visible": true
         }
       }
     ]
