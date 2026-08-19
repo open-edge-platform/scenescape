@@ -137,5 +137,7 @@ class CameraDeletionTest(FunctionalTest):
 
 def test_camera_deletion_main(scenescape_env, demo_scene, request, record_xml_attribute):
   test = CameraDeletionTest(TEST_NAME, request, record_xml_attribute)
+  test.params['scene_id'] = demo_scene
+  test.existingSceneUID = demo_scene
   test.testCameraDeletion()
   assert test.exitCode == 0
