@@ -28,8 +28,6 @@ from pathlib import Path
 
 import pytest
 
-from scene_common.mqtt import PubSub
-
 _TESTS_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _TESTS_DIR.parent
 if str(_TESTS_DIR) not in sys.path:
@@ -61,6 +59,8 @@ if str(_controller_src) not in sys.path:
 _analytics_src = _REPO_ROOT / "analytics" / "src"
 if str(_analytics_src) not in sys.path:
   sys.path.insert(0, str(_analytics_src))
+
+from scene_common.mqtt import PubSub
 
 # ---------------------------------------------------------------------------
 # Environmental dependencies (host-only)
