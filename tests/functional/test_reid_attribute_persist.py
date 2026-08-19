@@ -260,6 +260,29 @@ def test_persist_stored_to_vdms_on_track_end(mqtt_client, warmed_scene,
     f"persist gender label mismatch: {persist.get('gender')}"
 
 
+def test_bbox_below_minimum_area_gathers_no_features(mqtt_client, warmed_scene,
+                                                     record_xml_attribute):
+  """Detections under minimum_bbox_area never contribute embeddings."""
+  record_xml_attribute("name", "NEX-T25996")
+  scene_uid, camera_id = warmed_scene
+
+  det = make_detection(14, SMALL_BBOX, embedding=make_embedding(seed=9),
+                       gender="Male", gender_conf=0.9)
+
+  with SceneOutputCollector(mqtt_client, scene_uid) as collector:
+    publish_frames(mqtt_client, camera_id, [det], num_frames=FEATURE_THRESHOLD * 2)
+    assert collector.wait_for(lambda o: o.get("id") is not None, timeout=20), \
+      "small-bbox detections never produced scene output"
+    tracked_objs = collector.objects()
+    publish_empty(mqtt_client, camera_id, num_frames=10)
+
+  states = {o.get("reid_state") for o in tracked_objs}
+  assert states == {"pending_collection"}, \
+    f"small-bbox track left pending_collection: {states}"
+  assert all(o.get("similarity") is None for o in tracked_objs), \
+    "small-bbox track was scored against the ReID database"
+
+
 def test_gender_survives_intermittent_dropouts(mqtt_client, warmed_scene,
                                                record_xml_attribute):
   """Gender stays populated when the analytics model stops reporting the attribute."""
@@ -334,26 +357,3 @@ def test_gender_confidence_gates_reid_match(mqtt_client, warmed_scene, reentry_c
     assert reentry_gid != baseline_gid, (
       "re-entered track matched the baseline gid despite a mismatched high-confidence "
       "gender; gender is not being applied as a TIER-1 constraint")
-
-
-def test_bbox_below_minimum_area_gathers_no_features(mqtt_client, warmed_scene,
-                                                     record_xml_attribute):
-  """Detections under minimum_bbox_area never contribute embeddings."""
-  record_xml_attribute("name", "NEX-T25996")
-  scene_uid, camera_id = warmed_scene
-
-  det = make_detection(14, SMALL_BBOX, embedding=make_embedding(seed=9),
-                       gender="Male", gender_conf=0.9)
-
-  with SceneOutputCollector(mqtt_client, scene_uid) as collector:
-    publish_frames(mqtt_client, camera_id, [det], num_frames=FEATURE_THRESHOLD * 2)
-    assert collector.wait_for(lambda o: o.get("id") is not None, timeout=20), \
-      "small-bbox detections never produced scene output"
-    tracked_objs = collector.objects()
-    publish_empty(mqtt_client, camera_id, num_frames=10)
-
-  states = {o.get("reid_state") for o in tracked_objs}
-  assert states == {"pending_collection"}, \
-    f"small-bbox track left pending_collection: {states}"
-  assert all(o.get("similarity") is None for o in tracked_objs), \
-    "small-bbox track was scored against the ReID database"
