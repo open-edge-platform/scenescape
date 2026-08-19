@@ -329,10 +329,12 @@ def test_gender_confidence_gates_reid_match(mqtt_client, warmed_scene, reentry_c
   det_baseline = make_detection(6, GENDER_BBOX, embedding=emb,
                                 gender="Male", gender_conf=0.9)
   with SceneOutputCollector(mqtt_client, scene_uid) as collector:
-    publish_frames(mqtt_client, camera_id, [det_baseline],
-                   num_frames=FEATURE_THRESHOLD + 8)
-    baseline_obj = collector.wait_for(
-      lambda o: gender_label(o) == "Male" and is_reid_resolved(o), timeout=30)
+    baseline_obj = None
+    deadline = time.time() + 30
+    while time.time() < deadline and baseline_obj is None:
+      publish_frames(mqtt_client, camera_id, [det_baseline], num_frames=2, interval=0.1)
+      baseline_obj = collector.wait_for(
+        lambda o: gender_label(o) == "Male" and is_reid_resolved(o), timeout=1)
     assert baseline_obj is not None, "baseline track never resolved its ReID query"
     baseline_gid = baseline_obj["id"]
     publish_empty(mqtt_client, camera_id, num_frames=10)
@@ -342,9 +344,12 @@ def test_gender_confidence_gates_reid_match(mqtt_client, warmed_scene, reentry_c
   det_reentry = make_detection(7, OFFSET_BBOX, embedding=emb,
                                gender="Female", gender_conf=reentry_confidence)
   with SceneOutputCollector(mqtt_client, scene_uid) as collector:
-    publish_frames(mqtt_client, camera_id, [det_reentry],
-                   num_frames=FEATURE_THRESHOLD + 8)
-    reentry_obj = collector.wait_for(is_reid_resolved, timeout=30)
+    reentry_obj = None
+    deadline = time.time() + 30
+    while time.time() < deadline and reentry_obj is None:
+      publish_frames(mqtt_client, camera_id, [det_reentry], num_frames=2, interval=0.1)
+      reentry_obj = collector.wait_for(
+        lambda o: gender_label(o) == "Female" and is_reid_resolved(o), timeout=1)
     assert reentry_obj is not None, "re-entered track never resolved its ReID query"
     reentry_gid = reentry_obj["id"]
     publish_empty(mqtt_client, camera_id, num_frames=10)
