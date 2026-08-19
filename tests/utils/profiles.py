@@ -41,7 +41,11 @@ _BROKER = WaitConfig(log_pattern=r"mosquitto version .* running")
 _WEB = WaitConfig()
 _SCENE = WaitConfig(log_pattern="Subscribed to")
 _AUTOCALIBRATION = WaitConfig(timeout=1200)
-_MAPPING = WaitConfig(timeout=6000)
+_MAPPING = WaitConfig(timeout=600)
+# Mapping can take much longer to become ready during the long-run stability
+# test (model download/cache warm-up); scope the larger timeout to STABILITY
+# only so other mapping-based profiles keep failing fast.
+_MAPPING_STABILITY = WaitConfig(timeout=6000)
 
 
 # ---------------------------------------------------------------------------
@@ -327,7 +331,8 @@ STABILITY = ServiceProfile(
     "queuing-video": WaitConfig(),
     "retail-video": WaitConfig(),
     "autocalibration": _AUTOCALIBRATION,
-    "mapping": _MAPPING,
+    "mapping": _MAPPING_STABILITY,
+    "controller-analytics": _SCENE,
   },
 )
 

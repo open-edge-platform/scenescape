@@ -14,7 +14,6 @@ from tests.ui.browser import Browser
 import tests.common_test_utils as common
 from tests.utils.containers import (
   HEALTH_OK,
-  HEALTH_MISSING,
   check_services_health,
   get_services_stats,
 )
@@ -388,9 +387,11 @@ class TestState():
   def check_service_health(self, docker, project_name):
     """! Poll Docker health for each monitored service.
 
-    Missing containers are treated as skipped. A service that reports unhealthy
-    or stopped for more than ``MAX_CONSECUTIVE_UNHEALTHY_CYCLES`` consecutive cycles
-    fails the test.
+    A missing container is treated as a failure condition, since every service
+    in HEALTHCHECK_SERVICES is expected to be running under the STABILITY
+    profile. A service that reports missing, unhealthy, or stopped for more
+    than ``MAX_CONSECUTIVE_UNHEALTHY_CYCLES`` consecutive cycles fails the
+    test.
 
     @param    docker                  python-on-whales DockerClient.
     @param    project_name            Compose project name (from scenescape_env).
@@ -406,27 +407,24 @@ class TestState():
     for svc in HEALTHCHECK_SERVICES:
       status, detail = results[svc]
       label = SERVICE_LABELS.get(svc, svc)
-      if status == HEALTH_MISSING:
-        print("  {}: SKIPPED ({})".format(label, detail))
-        self.unhealthy_cycles[svc] = 0
-        continue
       if status == HEALTH_OK:
         print("  {}: OK".format(label))
         self.unhealthy_cycles[svc] = 0
         continue
-      # Unhealthy / stopped / error.
+      # Missing / unhealthy / stopped / error.
       overall_ok = False
       self.unhealthy_cycles[svc] += 1
       print("  {}: {} ({}) — consecutive cycle {}/{}".format(
         label, status.upper(), detail,
         self.unhealthy_cycles[svc], MAX_CONSECUTIVE_UNHEALTHY_CYCLES))
       if self.unhealthy_cycles[svc] >= MAX_CONSECUTIVE_UNHEALTHY_CYCLES and failure is None:
-        failure = (svc, detail)
+        failure = (svc, status, detail)
     print("Overall Health: {}".format("OK" if overall_ok else "DEGRADED"))
     if failure is not None:
-      svc, detail = failure
-      print("Test failed service health check! {} has been {} for {} cycles".format(
-        svc, detail, self.unhealthy_cycles[svc]))
+      svc, status, detail = failure
+      label = SERVICE_LABELS.get(svc, svc)
+      print("Test failed service health check! {} has been {} ({}) for {} cycles".format(
+        label, status.upper(), detail, self.unhealthy_cycles[svc]))
       self.service_health_failed = True
       self.failed_service = svc
       return True
@@ -473,11 +471,11 @@ class TestState():
       print("    CPU: {:.1f}%".format(avg_cpu))
       print("    Memory: {:.1f}%".format(avg_mem))
     if per_service_cpu:
-      print("Overall CPU Usage: {:.1f}%".format(sum(per_service_cpu)))
-      print("Overall Memory Usage: {:.1f}%".format(sum(per_service_mem)))
+      print("Overall CPU Usage (avg): {:.1f}%".format(sum(per_service_cpu) / len(per_service_cpu)))
+      print("Overall Memory Usage (avg): {:.1f}%".format(sum(per_service_mem) / len(per_service_mem)))
     else:
-      print("Overall CPU Usage: n/a")
-      print("Overall Memory Usage: n/a")
+      print("Overall CPU Usage (avg): n/a")
+      print("Overall Memory Usage (avg): n/a")
     return None
 
   def check_time_remaining(self):
