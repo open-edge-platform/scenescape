@@ -86,10 +86,6 @@ RUN : \
     && eval WSHOME=~$WSUSER \
     && chmod a+rX "${WSHOME}"
 
-# Upgrade pip, wheel and setuptools to latest versions
-RUN pip3 install --no-cache-dir --upgrade pip \
-    && pip3 install --no-cache-dir --upgrade setuptools wheel
-
 # install only required runtime dependencies
 COPY controller/requirements-runtime.txt /tmp
 RUN : \

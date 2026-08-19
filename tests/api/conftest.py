@@ -104,12 +104,14 @@ def api_map(http_client, autocalib_client, mapping_client):
   return {
     "scene": http_client,
     "camera": http_client,
+    "calculateintrinsics": http_client,
     "sensor": http_client,
     "region": http_client,
     "tripwire": http_client,
     "user": http_client,
     "asset": http_client,
     "child": http_client,
+    "aclcheck": http_client,
     "autocalibration": autocalib_client,
     "mapping": mapping_client,
 }

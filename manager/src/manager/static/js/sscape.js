@@ -1408,6 +1408,11 @@ function setColorForAllROIs() {
   }
 }
 
+// Toggle ROI/tripwire name label visibility (independent of whether the toggle UI exists on this page)
+function setRoiNameVisibility(enabled) {
+  $("#svgout").toggleClass("show-roi-names", enabled);
+}
+
 function setROIColor(roi_id, occupancy) {
   var roi_polygon = document.querySelector("#roi_" + roi_id + " polygon");
   if (roi_polygon) {
@@ -1923,9 +1928,11 @@ $(document).ready(function () {
     scale = $("#scale").val();
   }
 
+  is_coloring_enabled = localStorage.getItem("visualize_rois") === "true";
+  setRoiNameVisibility(is_coloring_enabled);
+
   const coloring_toggle = $("input#coloring-switch");
   if (coloring_toggle.length) {
-    is_coloring_enabled = localStorage.getItem("visualize_rois") === "true";
     coloring_toggle.prop("checked", is_coloring_enabled);
     setColorForAllROIs();
   }
@@ -1934,6 +1941,7 @@ $(document).ready(function () {
     const isChecked = $(this).is(":checked");
     is_coloring_enabled = isChecked;
     localStorage.setItem("visualize_rois", isChecked);
+    setRoiNameVisibility(isChecked);
     setColorForAllROIs();
   });
 
