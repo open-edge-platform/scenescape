@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # -------------- Common Base Stage --------------
-FROM python:3.11-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba AS scenescape-common-base
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS scenescape-common-base
 
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
 # hadolint ignore=DL3002
@@ -32,16 +32,12 @@ RUN : \
         python3-scipy \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip and setuptools to latest versions
-RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel
-
-# Pin numpy to the runtime version before building C extensions (fast_geometry)
-# to ensure NumPy ABI compatibility between build and runtime stages.
+# Install python dependencies
 COPY ./scene_common/requirements.txt /tmp/scene_common_requirements.txt
 RUN pip3 install --no-cache-dir -r /tmp/scene_common_requirements.txt \
     && rm /tmp/scene_common_requirements.txt
 
-# install common dependencies
+# Install scene-common dependencies
 COPY ./scene_common/src /tmp/scene_common
 RUN : \
     && cd /tmp/scene_common \

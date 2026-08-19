@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Optional GPU device mount for the queuing-video DLStreamer service.
+# Included by resolve_compose_files() only when /dev/dri has usable DRM nodes.
+
+networks:
+  scenescape-test:
+
+services:
+  queuing-video:
+    devices:
+      - "/dev/dri:/dev/dri"

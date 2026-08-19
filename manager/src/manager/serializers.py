@@ -313,7 +313,7 @@ class CamSerializer(NonNullSerializer):
     if not is_update:
       sensor_id = validated_data.get('sensor_id', None)
       if sensor_id is None:
-        sensor_id = self.initial_data.get('name')
+        sensor_id = validated_data.get('name')
         if sensor_id is not None:
           sensor_id = sensor_id.replace(" ", "_")
         validated_data['sensor_id'] = sensor_id
@@ -404,6 +404,9 @@ class CamSerializer(NonNullSerializer):
     return
 
   def create_camera_instance(self, instance):
+    if instance.scene is None:
+      return
+
     if instance.cam.transforms is None:
       return
 

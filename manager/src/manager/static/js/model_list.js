@@ -306,27 +306,36 @@ $(document).ready(function () {
       const $modal = $(".model-prompt-container");
       const $confirmBtn = $modal.find(".prompt-confirm-button");
       const $cancelBtn = $modal.find(".prompt-cancel-button");
-      const $message = $modal.find(".prompt-body");
+      const messageEl = $modal.find(".prompt-body").get(0);
 
-      // path and filenames are read from DOM attributes / user-supplied file
-      // names, so they are inserted as text nodes rather than concatenated
-      // into an HTML string, which avoids HTML/script injection regardless
-      // of their content.
-      $message.empty();
-      $message.append(
-        $("<b>").text(`Are you sure want to ${action} the following files?`),
+      // Build the message with plain DOM nodes only (createElement/
+      // textContent/native append), never jQuery's .html()/.append(string)
+      // or string concatenation, so path/filenames can never be parsed as
+      // markup no matter their content - unlike jQuery, native
+      // Element.append() always inserts string arguments as literal text.
+      const boldText = (text) => {
+        const el = document.createElement("b");
+        el.textContent = text;
+        return el;
+      };
+
+      messageEl.textContent = "";
+      messageEl.append(
+        boldText(`Are you sure want to ${action} the following files?`),
+        document.createElement("br"),
+        document.createElement("br"),
+        boldText("Directory:"),
+        ` ${path}`,
+        document.createElement("br"),
+        document.createElement("br"),
+        boldText("Files:"),
+        document.createElement("br"),
       );
-      $message.append("<br><br>");
-      $message.append($("<b>").text("Directory:"));
-      $message.append(document.createTextNode(" " + path));
-      $message.append("<br><br>");
-      $message.append($("<b>").text("Files:"));
-      $message.append("<br>");
       fileNameList.forEach((name, index) => {
         if (index > 0) {
-          $message.append("<br>");
+          messageEl.append(document.createElement("br"));
         }
-        $message.append(document.createTextNode(name));
+        messageEl.append(name);
       });
 
       // Show the modal
