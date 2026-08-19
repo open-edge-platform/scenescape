@@ -335,37 +335,6 @@ def mqtt_client(params):
   client.loopStop()
   client.disconnect()
 
-def pytest_runtest_makereport(item, call):
-  """Hook that runs after each test phase (setup/call/teardown).
-
-  Used to detect when we're in a single-test run (or the last test in a session)
-  and clean up the compose stack immediately.
-  """
-  if not _ORCHESTRATION_AVAILABLE:
-    return
-
-  # Only act after the test teardown phase has completed
-  if call.when != "teardown":
-    return
-
-  # Check if this test used scenescape_env
-  if not getattr(item.session, "_scenescape_test_ran", False):
-    return
-
-  # Reset the marker for the next test
-  item.session._scenescape_test_ran = False
-
-  # If this is the last test in the session (or only one),
-  # tear down the compose stack immediately to avoid container leakage.
-  remaining_items = [i for i in item.session.items if i != item]
-  if not remaining_items:
-    if hasattr(item.session, "_compose_manager"):
-      manager = item.session._compose_manager
-      try:
-        manager._stop_current()
-        logger.info("Cleaned up compose stack after final test")
-      except Exception as exc:
-        logger.warning("Failed to clean up compose stack: %s", exc)
 def _is_final_test(node):
   """True when *node* is the last collected test of the session."""
   items = getattr(node.session, "items", None)
