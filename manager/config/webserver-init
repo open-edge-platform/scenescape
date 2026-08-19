@@ -104,6 +104,9 @@ fi
 
 
 echo Running interface
+rm -f /tmp/.X99-lock /tmp/.X11-unix/X99 /var/run/apache2/apache2.pid
+Xvfb :99 -screen 0 1024x768x24 &
+echo "export DISPLAY=:99" >> /etc/apache2/envvars
 apache2ctl -D FOREGROUND &
 WAITPID="${WAITPID} $!"
 set --
