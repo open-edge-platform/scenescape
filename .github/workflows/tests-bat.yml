@@ -162,10 +162,10 @@ jobs:
 
       - name: Run Mapping Service tests
         if: always() && steps.setup-test-env.outcome == 'success'
+        working-directory: mapping
         run: |
-          source tests/.venv/bin/activate
-          cd mapping/tests
-          ./run_tests.sh
+          make test-build
+          docker run --rm -it --entrypoint bash intel/scenescape-mapping-test -c 'cd /home/scenescape/Scenescape/tests && ./run_tests.sh'
 
       - name: Run Cluster Analytics tests
         if: always() && steps.setup-test-env.outcome == 'success'
