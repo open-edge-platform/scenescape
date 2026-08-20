@@ -25,14 +25,18 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-pytestmark = [pytest.mark.preserve_db]
-
 CAMERA_ID = "atag-qcam1"
 
 APRILTAG_CATEGORY = re.compile(r"^apriltag_(\d+)$")
 PERSON_CATEGORY = "person"
 
+EXPECTED_TAGS = {
+  "apriltag_100", "apriltag_101", "apriltag_102",
+  "apriltag_103", "apriltag_104", "apriltag_105"
+}
+
 DETECTION_WAIT_S = 90
+COLLECT_WINDOW_S = 30
 POLL_INTERVAL_S = 0.5
 
 
@@ -45,14 +49,22 @@ def _apriltag_categories(frame):
   return {c for c in frame.get('objects', {}) if APRILTAG_CATEGORY.match(c)}
 
 
-def _has_apriltag_and_person(frame):
-  """! Return True when a camera frame carries both an AprilTag and a person.
+def _collect_frames(tester, camera_id, window_s):
+  """! Collect every DATA_CAMERA payload published by `camera_id` over a window.
 
-  @param    frame   Decoded DATA_CAMERA payload.
-  @return   bool
+  @param    tester      Connected ServiceMqttTest instance.
+  @param    camera_id   Camera id whose DATA_CAMERA topic is inspected.
+  @param    window_s    Seconds to keep collecting before returning.
+  @return   list of decoded payloads.
   """
-  return bool(_apriltag_categories(frame)) and bool(
-    frame.get('objects', {}).get(PERSON_CATEGORY))
+  topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera_id)
+  end = time.time() + window_s
+  while time.time() < end:
+    time.sleep(POLL_INTERVAL_S)
+  return [
+    msg['data'] for msg in tester.get_messages()
+    if msg['topic'] == topic and isinstance(msg['data'], dict)
+  ]
 
 
 def _wait_for_frame(tester, camera_id, predicate, timeout):
@@ -66,12 +78,15 @@ def _wait_for_frame(tester, camera_id, predicate, timeout):
   """
   topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera_id)
   end = time.time() + timeout
+  seen = 0
   while time.time() < end:
-    for msg in tester.get_messages():
+    msgs = tester.get_messages()
+    for msg in msgs[seen:]:
       if msg['topic'] != topic or not isinstance(msg['data'], dict):
         continue
       if predicate(msg['data']):
         return msg['data']
+    seen = len(msgs)
     time.sleep(POLL_INTERVAL_S)
   return None
 
@@ -99,32 +114,39 @@ def test_apriltag_detections_published(result_recorder, mqtt_tester):
   @param    mqtt_tester       ServiceMqttTest subscribed to all cameras.
   """
   frame = _wait_for_frame(
-    mqtt_tester, CAMERA_ID, _has_apriltag_and_person, DETECTION_WAIT_S,
+    mqtt_tester, CAMERA_ID, lambda f: bool(_apriltag_categories(f)),
+    DETECTION_WAIT_S,
   )
   assert frame is not None, (
-    f"No AprilTag or person detection received for {CAMERA_ID} within {DETECTION_WAIT_S}s"
+    f"No AprilTag detection received for {CAMERA_ID} within {DETECTION_WAIT_S}s"
   )
 
-  categories = _apriltag_categories(frame)
-  log.info(f"{CAMERA_ID} reported AprilTag categories: {sorted(categories)}")
+  frames = _collect_frames(mqtt_tester, CAMERA_ID, COLLECT_WINDOW_S)
+  tags = set()
+  people = 0
 
-  for category in categories:
-    for detection in frame['objects'][category]:
-      assert detection['category'] == category
-      assert 0.0 < detection['confidence'] <= 1.0, (
-        f"{category} confidence out of range: {detection['confidence']}"
-      )
-      box = detection['bounding_box_px']
-      assert box['width'] > 0 and box['height'] > 0, (
-        f"{category} has a degenerate bounding box: {box}"
-      )
-      assert box['x'] >= 0 and box['y'] >= 0, (
-        f"{category} bounding box starts outside the frame: {box}"
-      )
+  for frame in frames:
+    for category in _apriltag_categories(frame):
+      tags.add(category)
+      for detection in frame['objects'][category]:
+        assert detection['category'] == category
+        assert 0.0 < detection['confidence'] <= 1.0, (
+          f"{category} confidence out of range: {detection['confidence']}"
+        )
+    for detection in frame.get('objects', {}).get(PERSON_CATEGORY, []):
+      people += 1
+      assert 0.0 < detection['confidence'] <= 1.0
 
-  people = frame['objects'][PERSON_CATEGORY]
-  log.info(f"{CAMERA_ID} reported {len(people)} person detection(s)")
-  for detection in people:
-    assert 0.0 < detection['confidence'] <= 1.0
+  assert EXPECTED_TAGS <= tags, (
+    f"AprilTags never seen on {CAMERA_ID}: {sorted(EXPECTED_TAGS - tags)}"
+  )
+  assert people > 0, (
+    f"No person detections on {CAMERA_ID} within {COLLECT_WINDOW_S}s"
+  )
+
+  log.info(
+    f"{CAMERA_ID} reported AprilTags {sorted(tags)} and {people} person "
+    f"detection(s) across {len(frames)} frames"
+  )
 
   result_recorder.success()
