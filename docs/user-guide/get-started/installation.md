@@ -84,11 +84,11 @@ make demo
 
 The Docker Compose demo targets are tiered, each building on the previous one:
 
-| Target      | Includes                                                     |
-| ----------- | ------------------------------------------------------------ |
-| `demo`      | Core services with tracking, without ReID                    |
-| `demo-reid` | `demo` plus the ReID vector database                         |
-| `demo-all`  | `demo-reid` plus cluster analytics and mapping services      |
+| Target      | Includes                                                |
+| ----------- | ------------------------------------------------------- |
+| `demo`      | Core services with tracking, without ReID               |
+| `demo-reid` | `demo` plus the ReID vector database                    |
+| `demo-all`  | `demo-reid` plus cluster analytics and mapping services |
 
 The ReID targets use VDMS by default. Set `REID_BACKEND=qdrant` to use Qdrant:
 
