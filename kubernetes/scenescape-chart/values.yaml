@@ -98,12 +98,12 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "2026.2.0-ubuntu24-rc1"
+    tag: "2026.2.0-ubuntu24-rc2"
     pullPolicy: IfNotPresent
 
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
-  tag: "2026.2.0-ubuntu24-rc1"
+  tag: "2026.2.0-ubuntu24-rc2"
   pullPolicy: IfNotPresent
   storageClassName: ""
   cameras:
@@ -117,7 +117,7 @@ retail:
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
-  tag: "2026.2.0-ubuntu24-rc1"
+  tag: "2026.2.0-ubuntu24-rc2"
   storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg

@@ -1067,6 +1067,11 @@ class UUIDManager:
               f"Ignoring out-of-range IP similarity score {entity.get('_distance')} "
               f"for uuid={entity.get('uuid')}")
           continue
+        if entity.get('uuid') is None:
+          log.warning(
+            f"Ignoring candidate with missing uuid (distance={metric_value}); "
+            "cannot attribute this match to an identity")
+          continue
         filtered_entities.append({**entity, '_distance': metric_value})
 
       if not filtered_entities:
@@ -1353,6 +1358,17 @@ class UUIDManager:
     database_ids = [v[0] for v in self.active_ids.values()]
     return database_id not in database_ids
 
+  def _onQuerySimilarityComplete(self, future):
+    """Log unhandled exceptions from querySimilarity so a background failure
+    doesn't silently leave a track stuck in PENDING_COLLECTION forever."""
+    if future.cancelled():
+      return
+
+    try:
+      future.result()
+    except Exception as err:
+      log.error(f"querySimilarity failed with an unhandled exception: {err}", exc_info=True)
+
   def assignID(self, sscape_object):
     """
     Assigns a unique ID to the Scenescape object
@@ -1400,8 +1416,8 @@ class UUIDManager:
       if sufficient_features:
         log.debug(f"assignID: Submitting similarity query for rv_id={sscape_object.rv_id}")
         self.active_query[sscape_object.rv_id] = True
-        self.pool.submit(self.querySimilarity, sscape_object)
-
+        future = self.pool.submit(self.querySimilarity, sscape_object)
+        future.add_done_callback(self._onQuerySimilarityComplete)
     # Always pick best ID for the current frame
     self.pickBestID(sscape_object)
     return
