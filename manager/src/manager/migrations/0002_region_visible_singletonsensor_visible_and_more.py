@@ -9,7 +9,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
   dependencies = [
-    ('manager', '0002_add_cached_tripwires_to_childscene'),
+    ('manager', '0001_initial'),
   ]
 
   operations = [

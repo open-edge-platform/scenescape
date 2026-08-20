@@ -1,4 +1,4 @@
-# manager/src/manager/migrations/0002_add_cached_tripwires_to_childscene.py
+# manager/src/manager/migrations/0003_add_cached_tripwires_to_childscene.py
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
@@ -26,6 +26,7 @@ def add_cached_tripwires_if_missing(apps, schema_editor):
 class Migration(migrations.Migration):
   dependencies = [
     ("manager", "0001_initial"),
+    ("manager", "0002_region_visible_singletonsensor_visible_and_more"),
   ]
 
   operations = [
