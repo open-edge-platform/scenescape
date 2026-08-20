@@ -9,8 +9,8 @@ MAPPINGIMAGE=intel/scenescape-mapping
 ANALYTICSIMAGE=intel/scenescape-analytics
 
 # Image groupings for flexible builds
-CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE) $(ANALYTICSIMAGE) $(CLUSTERANALYTICSIMAGE) $(MAPPINGIMAGE)
-ALL_IMAGES=$(CORE_IMAGES)
+CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE) $(ANALYTICSIMAGE)
+ALL_IMAGES=$(CORE_IMAGES) $(CLUSTERANALYTICSIMAGE) $(MAPPINGIMAGE)
 
 VERSION:=$(shell cat ../version.txt)
 NAMESPACE=scenescape
@@ -56,7 +56,7 @@ build: build-core
 
 build-core: docker-build-core load-core
 
-build-all: build-core
+build-all: docker-build-all load-all
 
 kind: generate-kind-yaml start-kind install-cert-manager
 
@@ -134,6 +134,9 @@ install-cert-manager:
 docker-build-core:
 	$(MAKE) -C .. CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
+docker-build-all:
+	$(MAKE) -C .. build-all CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
+
 load-image:
 	docker tag $(IMAGE):$(VERSION) $(REGISTRY)/$(IMAGE):$(VERSION)
 	kind load docker-image $(REGISTRY)/$(IMAGE):$(VERSION)
@@ -143,10 +146,10 @@ load-core:
 	$(MAKE) load-image IMAGE=$(CAMCALIBIMAGE)
 	$(MAKE) load-image IMAGE=$(CONTROLLERIMAGE)
 	$(MAKE) load-image IMAGE=$(ANALYTICSIMAGE)
-	$(MAKE) load-image IMAGE=$(CLUSTERANALYTICSIMAGE)
-	$(MAKE) load-image IMAGE=$(MAPPINGIMAGE)
 
 load-all: load-core
+	$(MAKE) load-image IMAGE=$(CLUSTERANALYTICSIMAGE)
+	$(MAKE) load-image IMAGE=$(MAPPINGIMAGE)
 
 SERVICES := $(patsubst scenescape-%,%,$(ALL_IMAGES))
 .PHONY: $(SERVICES)

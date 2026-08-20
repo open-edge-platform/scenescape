@@ -11,7 +11,7 @@ The **Mapping** service provides spatial mapping and localization capabilities f
 
 **Primary Purpose**: Generate 3D maps from camera feeds and provide spatial localization services for objects and cameras within reconstructed environments.
 
-**Status**: Core service—built by default with `make build-core` or `make build-all`
+**Status**: Production—build via `make mapping` or `make build-all`
 
 ## Architecture & Components
 
@@ -105,7 +105,6 @@ Object Query → Visual Grounding → 3D Coordinates → Scene Controller
 # From root directory
 make mapping                            # Build image
 make rebuild-mapping                    # Clean + rebuild
-make build-core                         # Build mapping + other core services
 make build-all                          # All services
 ```
 

@@ -90,7 +90,7 @@ For detailed security review guidance, follow:
 - **Manager** (`manager/`): Django-based web UI, REST API, PostgreSQL schema management
 - **Auto Camera Calibration** (`autocalibration/`): Computes camera intrinsics/extrinsics from sensor feeds (docker-compose still references as `camcalibration`)
 - **DL Streamer Pipeline Server**: Video analytics pipeline integration (external service config in `dlstreamer-pipeline-server/`)
-- **Mapping & Cluster Analytics** (`mapping/`, `cluster_analytics/`): Optional core modules (included in `build-core`; enable in Compose with `--profile mapping` and/or `--profile cluster-analytics`)
+- **Mapping & Cluster Analytics** (`mapping/`, `cluster_analytics/`): Built by `make build-all` (or individually via `make mapping` / `make cluster_analytics`); enable in Compose with `--profile mapping` and/or `--profile cluster-analytics`
 - **Model Installer** (`model_installer/`): Manages OpenVINO Zoo model installation
 
 **Message Flow:**
@@ -115,8 +115,8 @@ Sensors → MQTT (broker) → Scene Controller → Manager/Web UI
 **Key Targets** (from root `Makefile`):
 
 ```bash
-make build-core                    # Default: core services (autocalibration, controller, manager, model_installer, mapping, cluster_analytics)
-make build-all                     # Core services plus the optional tracker image
+make build-core                    # Default: core services (autocalibration, controller, manager, analytics)
+make build-all                     # All services (adds mapping, cluster_analytics, tracker)
 make rebuild-core                  # Clean + build (useful after code changes)
 ```
 
