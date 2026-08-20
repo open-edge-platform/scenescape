@@ -4,7 +4,7 @@
 openapi: 3.0.0
 info:
   title: "Scenescape API fuzz spec"
-  description: "Curated OpenAPI spec for fuzz testing high-value Scenescape REST resources"
+  description: "OpenAPI spec for fuzz testing Scenescape REST API"
   version: "1.0.0"
 
 servers:
