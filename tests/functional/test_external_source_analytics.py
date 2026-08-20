@@ -347,6 +347,7 @@ def test_external_source_analytics(
     scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
   test = ExternalSourceAnalytics(
     TEST_NAME, request, record_xml_attribute, repo_root)
+  test.sceneUID = demo_scene
   test.verifyFunction()
   assert test.exitCode == 0
   return

@@ -94,7 +94,8 @@ class CameraDeletionTest(FunctionalTest):
 
       # Step 5: Attach orphan camera to existing test scene
       log.info(f"Attaching orphan camera to scene: {self.existingSceneUID}")
-      updateResult = self.rest.updateCamera(cameraUID, {'scene': self.existingSceneUID})
+      updateResult = self.rest.updateCamera(
+        cameraUID, {'name': self.newCameraName, 'scene': self.existingSceneUID})
       assert updateResult, (updateResult.statusCode, updateResult.errors)
       assert updateResult['scene'] == self.existingSceneUID
 

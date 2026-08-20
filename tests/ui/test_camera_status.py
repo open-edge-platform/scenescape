@@ -13,7 +13,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def test_camera_status_main(params, record_xml_attribute):
+def test_camera_status_main(params, demo_scene, record_xml_attribute):
   """! Checks that the camera streams on the WebUI are updated, reporting success
   if camera 1 and 2 streams are updated, and camera 3 is offline.
   @param    params                  Dict of test parameters.

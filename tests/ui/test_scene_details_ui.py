@@ -14,7 +14,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def test_scene_details_main(params, record_xml_attribute):
+def test_scene_details_main(params, demo_scene, record_xml_attribute):
   """! Checks that the scene detail page is accessible from the scene summary page.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.

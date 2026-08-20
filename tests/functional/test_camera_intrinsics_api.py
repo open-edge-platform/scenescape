@@ -113,6 +113,7 @@ class CameraIntrinsicsTest(FunctionalTest):
 
     # Update camera with new intrinsics
     updateData = {
+      'name': self.testCameraName,
       'intrinsics': newIntrinsics,
       'distortion': newDistortion
     }

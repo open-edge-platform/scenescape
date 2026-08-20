@@ -62,13 +62,13 @@ IDENTITY_ROTATION = [0, 0, 0, 1]
 
 
 class ExternalSourceIngest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute, repo_root):
+  def __init__(self, testName, request, recordXMLAttribute, repo_root, scene_uid=None):
     super().__init__(testName, request, recordXMLAttribute)
     self.repoRoot = repo_root
 
     self.exitCode = 1
     self.outputReceived = False
-    self.sceneUID = self.params['scene_id']
+    self.sceneUID = scene_uid if scene_uid is not None else self.params['scene_id']
 
     self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
     assert self.rest.authenticate(self.params['user'], self.params['password'])
@@ -389,7 +389,7 @@ class ExternalSourceIngest(FunctionalTest):
 
 
 def test_external_source_ingest(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
-  test = ExternalSourceIngest(TEST_NAME, request, record_xml_attribute, repo_root)
+  test = ExternalSourceIngest(TEST_NAME, request, record_xml_attribute, repo_root, scene_uid=demo_scene)
   test.verifyFunction()
   assert test.exitCode == 0
   return

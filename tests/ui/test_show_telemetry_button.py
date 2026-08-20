@@ -80,7 +80,7 @@ class WillOurShipGo(UserInterfaceTest):
       self.recordTestResult()
     return
 
-def test_telemetry_button(scenescape_env, request, record_xml_attribute):
+def test_telemetry_button(scenescape_env, demo_scene, request, record_xml_attribute):
   test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
   test.checkForMalfunctions()
   assert test.exitCode == 0
