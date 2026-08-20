@@ -42,7 +42,11 @@ DEMO_WAIT_SECONDS ?= "0"
 # ReID vector backend used by the ReID demo targets: vdms (default) or qdrant
 REID_BACKEND ?= vdms
 REID_OVERRIDE_FILE = sample_data/docker-compose.$(strip $(REID_BACKEND))-override.yml
-REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE)
+REID_PIPELINE_OVERRIDE_FILE = sample_data/docker-compose.reid-pipeline-override.yml
+REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE) -f $(REID_PIPELINE_OVERRIDE_FILE)
+DEMO_REBUILD_IMAGES ?= true
+# Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
+DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
 
 # Test variables
 TESTS_FOLDER := tests
@@ -72,9 +76,6 @@ build-core: init-secrets build-core-images install-models
 .PHONY: build-all
 build-all: init-secrets build-all-images install-models
 
-.PHONY: build-experimental
-build-experimental: build-experimental-images
-
 # ============================== Help ================================
 
 .PHONY: help
@@ -85,16 +86,14 @@ help:
 	@echo "Available targets:"
 	@echo "  build-core        (default) Build secrets, core images (excluding mapping, cluster_analytics, and tracker), and install models"
 	@echo "  build-all                   Build secrets, all images, and install models"
-	@echo "  build-experimental          Build experimental images only (mapping and tracker)"
 	@echo "  build-core-images           Build core microservice images (excluding mapping, cluster_analytics, and tracker) in parallel"
 	@echo "  build-all-images            Build all microservice images in parallel"
-	@echo "  build-experimental-images   Build experimental microservice images (mapping and tracker) in parallel"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
 	@echo "  demo                        (default) Start the Scenescape demo with core services (tracking, no ReID)"
 	@echo "  demo-reid                   Start the core demo plus the ReID vector database"
-	@echo "  demo-all                    Start demo-reid plus cluster analytics and experimental services"
+	@echo "  demo-all                    Start demo-reid plus cluster analytics and mapping services"
 	@echo "  demo-cluster-analytics      Start the Scenescape demo with cluster analytics service using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Scenescape)"
@@ -205,14 +204,6 @@ build-core-images: $(BUILD_DIR)
 	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
 	$(MAKE) -j$(JOBS) $(CORE_IMAGE_FOLDERS)
 	@echo "DONE ==> Parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
-
-# Parallel wrapper for experimental images (mapping and tracker)
-.PHONY: build-experimental-images
-build-experimental-images: $(BUILD_DIR)
-	@echo "==> Running parallel builds of experimental folders: mapping tracker"
-	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
-	$(MAKE) -j$(JOBS) mapping tracker
-	@echo "DONE ==> Parallel builds of experimental folders: mapping tracker"
 
 # ===================== Cleaning and Rebuilding =======================
 .PHONY: rebuild-core-images
@@ -711,23 +702,23 @@ check-reid-backend:
 	esac
 
 .PHONY: demo
-demo: build-core init-sample-data
+demo: $(DEMO_BUILD:build=build-core) init-sample-data
 	$(call start_demo,--profile controller)
 
 .PHONY: demo-reid
-demo-reid: check-reid-backend build-core init-sample-data
+demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core) init-sample-data
 	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-all
-demo-all: check-reid-backend build-all init-sample-data
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile experimental))
+demo-all: check-reid-backend $(DEMO_BUILD:build=build-all) init-sample-data
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile mapping))
 
 .PHONY: demo-cluster-analytics
-demo-cluster-analytics: build-all init-sample-data
+demo-cluster-analytics: $(DEMO_BUILD:build=build-all) init-sample-data
 	$(call start_demo,--profile controller --profile cluster-analytics)
 
 .PHONY: demo-tracker
-demo-tracker: build-all init-sample-data
+demo-tracker: $(DEMO_BUILD:build=build-all) init-sample-data
 	$(call start_demo,--profile tracker)
 
 .PHONY: demo-close

@@ -50,6 +50,12 @@ services:
       - "DBTYPE=postgres"
       - "DBROOT"
       - "SUPASS"
+      - "http_proxy=${http_proxy}"
+      - "https_proxy=${https_proxy}"
+      - "no_proxy=127.0.0.1,localhost,${no_proxy},.scenescape.intel.com"
+      - "HTTP_PROXY=${HTTP_PROXY}"
+      - "HTTPS_PROXY=${HTTPS_PROXY}"
+      - "NO_PROXY=127.0.0.1,localhost,${NO_PROXY},.scenescape.intel.com"
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media

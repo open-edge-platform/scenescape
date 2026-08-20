@@ -228,6 +228,12 @@ polygon {
   text-anchor: middle;
 }
 
+/* Hide ROI/tripwire name labels unless "Visualize ROIs" is enabled */
+#svgout:not(.show-roi-names) .roi > text,
+#svgout:not(.show-roi-names) .tripwire > text {
+  display: none;
+}
+
 .poly text::selection {
   background: none;
 }

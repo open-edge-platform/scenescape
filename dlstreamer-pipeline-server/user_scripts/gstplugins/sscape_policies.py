@@ -13,7 +13,8 @@ def _isDetection(item):
 
 def _isReidTensor(tensor):
   """Check if a tensor holds a raw re-id embedding vector."""
-  name = tensor.get('name', '')
+  # Some models report the tensor identifier under 'name', others under 'tensor_name'.
+  name = tensor.get('name', '') or tensor.get('tensor_name', '')
   if 'reid' in name or 'embedding' in name:
     return True
   if name == 'detection':
