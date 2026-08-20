@@ -1,10 +1,9 @@
-#!/bin/bash
+#!/bin/sh
 
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-set -euo pipefail
-apt update && apt install -y wget
+set -eu
 if [ -f /workspace/sample-data-storage/sample_data/.done ]; then
     echo ".done file exists in /workspace/sample-data-storage/sample_data/"
 else

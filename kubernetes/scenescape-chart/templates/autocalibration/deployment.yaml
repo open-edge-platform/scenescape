@@ -79,6 +79,16 @@ spec:
             capabilities:
               drop:
               - ALL
+          # First boot downloads the ~554 MB NetVLAD model; give it a long grace window before liveness kicks in.
+          startupProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - curl -k -fsS https://localhost:8443/v1/status >/dev/null
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: {{ .Values.autocalibration.startupProbeFailureThreshold }}
           readinessProbe:
             exec:
               command:
@@ -90,7 +100,6 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
-            initialDelaySeconds: 10
           livenessProbe:
             exec:
               command:
@@ -100,7 +109,6 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
-            initialDelaySeconds: 20
           resources: {}
           volumeMounts:
           - mountPath: /run/secrets/certs/scenescape-ca.pem

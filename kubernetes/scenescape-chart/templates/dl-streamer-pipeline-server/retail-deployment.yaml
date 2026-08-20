@@ -29,6 +29,18 @@ spec:
         command: ["sh", "-c", "until nc -z mediaserver 8554; do echo waiting for mediaserver; sleep 2; done"]
         securityContext:
           {{ include "defaultContainerSecurityContext" . | indent 10 }}
+      # Block startup until the sample-data Job has converted the .mp4 sources to the .ts files ffmpeg reads.
+      - name: wait-for-sample-data
+        image: {{ .Values.dlspsWaitImage.repository }}/{{ .Values.dlspsWaitImage.name }}:{{ .Values.dlspsWaitImage.tag }}
+        imagePullPolicy: {{ .Values.dlspsWaitImage.pullPolicy }}
+        command: ["sh", "-c", "until [ -f /data/.done ]; do echo waiting for sample-data; sleep 2; done"]
+        securityContext:
+          {{ include "defaultContainerSecurityContext" . | indent 10 }}
+        volumeMounts:
+        - name: sample-data
+          mountPath: /data
+          subPath: sample_data
+          readOnly: true
       containers:
       - name: retail-cams
         image: {{ .Values.retail.cameras.image }}:{{ .Values.retail.cameras.tag }}

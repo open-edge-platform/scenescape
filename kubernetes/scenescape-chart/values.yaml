@@ -90,6 +90,8 @@ autocalibration:
   # When true, skip the ~550MB NetVLAD download at container start.
   # Markerless calibration needs the model; deployment smoke tests do not.
   skipModelDownload: false
+  # Startup probe failure threshold. 60 * 30s = 30 min grace for first-boot NetVLAD download.
+  startupProbeFailureThreshold: 60
 
 kubeclient:
   enabled: true
@@ -197,8 +199,8 @@ sampleData:
   sourceVersion: main
   downloadDataImage:
     repository: docker.io
-    name: ubuntu
-    tag: 22.04
+    name: busybox
+    tag: 1.37.0
     pullPolicy: IfNotPresent
   convertVideosImage:
     repository: docker.io

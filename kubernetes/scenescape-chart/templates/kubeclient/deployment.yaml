@@ -37,6 +37,20 @@ spec:
         command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
         securityContext:
           {{ include "defaultContainerSecurityContext" . | indent 10 }}
+      {{- if .Values.modelDownload.enabled }}
+      # Block startup until the model-download Job has written model_config.json; otherwise
+      # kubeclient's one-shot camera initialization fails and pipelines are never spawned.
+      - name: wait-for-model-config-initcontainer
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+        imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
+        command: ["/bin/sh", "-c", "until [ -f /data/models/model_configs/model_config.json ]; do sleep 2; done"]
+        securityContext:
+          {{ include "defaultContainerSecurityContext" . | indent 10 }}
+        volumeMounts:
+        - mountPath: /data
+          name: models-storage
+          readOnly: true
+      {{- end }}
       containers:
         - args:
           - --shell

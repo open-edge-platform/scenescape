@@ -111,3 +111,45 @@ def test_scenescape_mqtt_accessible(_k8s_manager):
   with socket.create_connection(("localhost", _k8s_manager.mqtt_port), timeout=5) as sock:
     assert sock is not None, "Failed to connect to MQTT broker"
   logger.info("MQTT broker is reachable")
+
+@pytest.mark.kubernetes_only
+def test_kubeclient_spawned_pipelines(_k8s_manager):
+  """Verify kubeclient created at least one video pipeline Deployment.
+
+  Kubeclient names each spawned pipeline ``<release[:20]>-videoppl-<sensor>-<hash5>``.
+  If ``model_config.json`` is not on the models PVC when kubeclient boots, the
+  one-shot camera init fails silently and no pipelines are ever created.
+  """
+  kubeconfig = _k8s_manager.kubeconfig
+  namespace = _k8s_manager.namespace
+  release = _k8s_manager.release_name
+  prefix = f"{release[:20]}-videoppl-"
+
+  def _list_pipeline_deployments():
+    result = subprocess.run(
+      ["kubectl", "get", "deployments",
+       "--namespace", namespace,
+       "--kubeconfig", kubeconfig,
+       "-o", "json"],
+      capture_output=True, text=True, check=True,
+    )
+    items = json.loads(result.stdout)["items"]
+    return [d["metadata"]["name"] for d in items
+            if d["metadata"]["name"].startswith(prefix)]
+
+  timeout_s = 180
+  deadline = time.monotonic() + timeout_s
+  names = []
+  while time.monotonic() < deadline:
+    names = _list_pipeline_deployments()
+    if names:
+      break
+    time.sleep(5)
+
+  logger.info("Found %d pipeline deployment(s) matching '%s*': %s",
+              len(names), prefix, sorted(names))
+  assert names, (
+    f"No video pipeline deployments matching '{prefix}*' found in namespace "
+    f"'{namespace}' after {timeout_s}s. Kubeclient likely failed to spawn "
+    f"pipelines (e.g. model_config.json missing on the models PVC at boot)."
+  )

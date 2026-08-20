@@ -11,7 +11,7 @@ spec:
     spec:
       initContainers:
       - name: download-sample-data
-        command: ["/bin/bash", "-c"]
+        command: ["/bin/sh", "-c"]
         image: {{ .Values.sampleData.downloadDataImage.repository }}/{{ .Values.sampleData.downloadDataImage.name }}:{{ .Values.sampleData.downloadDataImage.tag }}
         imagePullPolicy: {{ .Values.sampleData.downloadDataImage.pullPolicy }}
         env:
