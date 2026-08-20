@@ -75,7 +75,7 @@ export default class SceneTripwire extends THREE.Object3D {
     this.scene = params.scene;
     this.height = params.height;
     this.tripwireFolder = params.tripwireFolder;
-    this.visible = false;
+    this.visible = this.tripwire.visible ?? false;
     this.tripwireControls = new ThingControls(this);
     Object.assign(this, validateInputControls);
     this.tripwireControls.addArea();
