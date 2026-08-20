@@ -240,7 +240,7 @@ For optimal mesh generation results:
 To stop all Scenescape services:
 
 ```bash
-docker compose --profile controller --profile mapping down
+docker compose --profile controller --profile mapping --profile cluster-analytics down
 ```
 
 To stop services and remove volumes (this will delete all data):
