@@ -11,14 +11,17 @@ estimates each camera's pose automatically. Use this reference when the user alr
 floor blueprint image, a 3D `.glb`/`.ply` mesh, or wants to build the scene from a geospatial
 (GPS-based) map instead of auto-reconstruction.
 
-## Caveat: manual calibration is required
+## Caveat: manual calibration vs automated camera.json
 
 Auto-reconstruction estimates camera pose (position + orientation) as a side effect of building
 the mesh from captured frames. A pre-made blueprint/GLB/geospatial map has no such frames to
-estimate pose from, so cameras must be calibrated **manually** through the SceneScape web UI (2D
-or 3D calibration UI) after the scene is created. This skill cannot automate that step — it
-requires interactively adding/dragging correspondence points in a browser. Confirm the user
-accepts this tradeoff before proceeding.
+estimate pose from.
+
+* **Without pre-calibrated cameras**: Cameras must be calibrated **manually** through the SceneScape
+  web UI (2D or 3D calibration UI) after the scene is created.
+* **With pre-calibrated `camera.json`**: If the user provides a `camera.json` containing camera
+  translation, rotation (quaternion), and intrinsics (`fx`, `fy`, `cx`, `cy`), camera registration can be
+  **fully automated** via REST API, bypassing manual UI calibration.
 
 Exception: uploading a `.zip` Polycam scan (a mobile 3D scan) instead of a blueprint/GLB enables
 `Markerless` auto-calibration — mention this option if the user has a mobile 3D scan rather than a
@@ -103,6 +106,44 @@ curl -sk -X POST https://localhost/api/v1/scene \
   in the OpenAPI schema.)
 - The response includes `"uid"` — the new `scene_uid`. Save it; camera registration and the
   geospatial steps below need it.
+
+### Automated camera registration with `camera.json`
+
+When a pre-calibrated `camera.json` file is provided, batch-register the cameras via REST API instead of requiring manual UI calibration:
+
+```python
+import json, requests
+
+with open('<path_to_camera.json>') as f:
+    cameras = json.load(f)
+
+for cam in cameras:
+    payload = {
+        "name": cam.get("name", cam["sensor_id"]),
+        "sensor_id": cam["sensor_id"],
+        "scene": "<scene_uid>",
+        "transform_type": "quaternion",
+        "translation": cam["translation"],
+        "rotation": cam["rotation"],
+        "scale": cam.get("scale", [1.0, 1.0, 1.0]),
+        "intrinsics": cam["intrinsics"]
+    }
+    resp = requests.post(
+        "https://localhost/api/v1/camera",
+        headers={"Authorization": f"Token {TOKEN}", "Content-Type": "application/json"},
+        json=payload,
+        verify=False
+    )
+    print(f"Registered {cam['sensor_id']}: {resp.status_code}")
+```
+
+Once registered via REST API, you can immediately verify tracking:
+
+```bash
+bash "$SKILL_DIR/scripts/verify_tracking.sh" <deploy_dir> <scene_uid> 120
+```
+
+### Manual Web UI camera registration (when `camera.json` is not provided)
 
 Register a placeholder camera per `camera_id` using
 [scene-and-cameras.md](./scene-and-cameras.md#camera-registration) with this `scene_uid`, then tell

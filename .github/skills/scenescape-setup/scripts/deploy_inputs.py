@@ -98,6 +98,9 @@ def inputs_payload(
   scene_name: str,
   skill_dir: str | None = None,
   video_paths: list[str] | None = None,
+  mapping: str = "reconstruction",
+  glb_file: str | None = None,
+  camera_json: str | None = None,
 ) -> dict[str, Any]:
   if not scene_name or not scene_name.strip():
     raise ValueError("scene_name is required")
@@ -127,6 +130,12 @@ def inputs_payload(
       "streams": list(streams),
       "source_type": "rtsp",
     }
+
+  payload["mapping"] = mapping
+  if glb_file:
+    payload["glb_file"] = str(Path(glb_file).expanduser().resolve())
+  if camera_json:
+    payload["camera_json"] = str(Path(camera_json).expanduser().resolve())
 
   if skill_dir:
     payload["skill_dir"] = skill_dir
@@ -171,9 +180,71 @@ def inputs_match(saved: dict[str, Any], candidate: dict[str, Any]) -> bool:
   )
 
 
+def gather_interactive_inputs() -> tuple[Path, dict[str, Any]]:
+  print("=== SceneScape Deployment Input Setup ===")
+  deploy_dir_str = input("Deploy Directory [default: ./deploy]: ").strip() or "./deploy"
+  deploy_dir = Path(deploy_dir_str).expanduser().resolve()
+
+  scene_name = input("Scene Name: ").strip()
+  while not scene_name:
+    print("Scene name is required!")
+    scene_name = input("Scene Name: ").strip()
+
+  print("\nMapping Source Options:")
+  print("  1. reconstruction (Default: Auto-generate map from camera streams)")
+  print("  2. glb (Pre-made 3D GLB mesh file)")
+  print("  3. blueprint (2D floor plan image)")
+  print("  4. geospatial (GPS-based map)")
+  mapping_choice = input("Select mapping option [1-4, default 1]: ").strip() or "1"
+  mapping_map = {"1": "reconstruction", "2": "glb", "3": "blueprint", "4": "geospatial"}
+  mapping = mapping_map.get(mapping_choice, "reconstruction")
+
+  glb_file = None
+  camera_json = None
+  if mapping == "glb":
+    glb_file = input("Path to .glb 3D mesh file: ").strip()
+    has_cam_json = input("Do you have a pre-calibrated camera.json file? (y/n) [default: y]: ").strip().lower() or "y"
+    if has_cam_json.startswith("y"):
+      camera_json = input("Path to camera.json file: ").strip()
+
+  print("\nVideo Stream Source Options:")
+  print("  1. RTSP streams")
+  print("  2. Local video directory")
+  source_choice = input("Select source option [1-2, default 1]: ").strip() or "1"
+
+  camera_ids = None
+  streams = None
+  video_paths = None
+
+  if source_choice == "2":
+    vdir = input("Path to video directory: ").strip()
+    video_paths = [str(p) for p in discover_video_files(Path(vdir))]
+    cids_in = input("Camera IDs (space-separated, or press Enter to auto-derive): ").strip()
+    if cids_in:
+      camera_ids = cids_in.split()
+  else:
+    streams_in = input("RTSP URLs (space-separated): ").strip()
+    streams = streams_in.split()
+    cids_in = input("Camera IDs (space-separated, same order as streams): ").strip()
+    camera_ids = cids_in.split()
+
+  payload = inputs_payload(
+    camera_ids=camera_ids,
+    streams=streams,
+    scene_name=scene_name,
+    video_paths=video_paths,
+    mapping=mapping,
+    glb_file=glb_file,
+    camera_json=camera_json,
+  )
+  return deploy_dir, payload
+
+
 def main() -> None:
   parser = argparse.ArgumentParser(description="Validate and persist SceneScape deployment inputs")
   sub = parser.add_subparsers(dest="command", required=True)
+
+  interactive = sub.add_parser("interactive", help="Interactively prompt for deployment inputs")
 
   write = sub.add_parser("write", help="Validate and write deploy-inputs.json")
   write.add_argument("--deploy-dir", required=True, type=Path)
@@ -192,6 +263,9 @@ def main() -> None:
     "--video-files", nargs="+", metavar="PATH",
     help="Explicit list of local video file paths, one per camera, in order",
   )
+  write.add_argument("--mapping", default="reconstruction", help="Scene map source: reconstruction, blueprint, glb, geospatial")
+  write.add_argument("--glb-file", help="Path to pre-made .glb 3D mesh file")
+  write.add_argument("--camera-json", help="Path to pre-calibrated camera JSON file")
   write.add_argument("--skill-dir", default=None)
 
   read = sub.add_parser("read", help="Print deploy-inputs.json or checkpoint inputs as JSON")
@@ -205,18 +279,31 @@ def main() -> None:
 
   args = parser.parse_args()
 
+  if args.command == "interactive":
+    deploy_dir, payload = gather_interactive_inputs()
+    path = save_inputs(deploy_dir, payload)
+    print(f"\nSaved deploy inputs to: {path}")
+    return
+
   if args.command == "write":
     if args.video_dir is not None:
       video_paths = [str(path) for path in discover_video_files(args.video_dir)]
       payload = inputs_payload(
-        args.camera_ids, None, args.scene_name, args.skill_dir, video_paths=video_paths
+        args.camera_ids, None, args.scene_name, args.skill_dir,
+        video_paths=video_paths, mapping=args.mapping,
+        glb_file=args.glb_file, camera_json=args.camera_json,
       )
     elif args.video_files is not None:
       payload = inputs_payload(
-        args.camera_ids, None, args.scene_name, args.skill_dir, video_paths=args.video_files
+        args.camera_ids, None, args.scene_name, args.skill_dir,
+        video_paths=args.video_files, mapping=args.mapping,
+        glb_file=args.glb_file, camera_json=args.camera_json,
       )
     else:
-      payload = inputs_payload(args.camera_ids, args.streams, args.scene_name, args.skill_dir)
+      payload = inputs_payload(
+        args.camera_ids, args.streams, args.scene_name, args.skill_dir,
+        mapping=args.mapping, glb_file=args.glb_file, camera_json=args.camera_json,
+      )
     path = save_inputs(args.deploy_dir, payload)
     print(path)
     return

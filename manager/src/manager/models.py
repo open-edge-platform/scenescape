@@ -25,7 +25,7 @@ from django.core.files import File
 
 from scene_common.camera import Camera as ScenescapeCamera, CameraPose as ScenescapeCameraPose
 from scene_common.geometry import Region as ScenescapeRegion, Tripwire as ScenescapeTripwire
-from scene_common.glb_top_view import generateOrthoView, getMeshSize
+from scene_common.glb_top_view import generateOrthoView
 from scene_common.mesh_util import extractMeshFromGLB, extractMeshFromPointCloud
 from scene_common.mqtt import PubSub
 from scene_common.options import *
@@ -226,7 +226,10 @@ class Scene(models.Model):
             self._original_inlier_threshold != self.inlier_threshold
 
   def regenerateThumbnail(self):
-    return self.map != self._original_map or \
+    # A brand-new scene never has a thumbnail yet, regardless of whether the
+    # _original_* snapshots (taken in __init__) already match the current values.
+    return not self.thumbnail or \
+           self.map != self._original_map or \
            self._original_rotation_x != self.rotation_x or \
            self._original_rotation_y != self.rotation_y or \
            self._original_rotation_z != self.rotation_z or \
@@ -249,10 +252,13 @@ class Scene(models.Model):
       self.rotation_y = 0.0
       self.rotation_z = 0.0
       mesh, _ = extractMeshFromGLB(self.map.path, rotation=np.array([self.rotation_x, self.rotation_y, self.rotation_z]))
-      width, height, depth = getMeshSize(mesh)
-      self.translation_x = width/2
-      self.translation_y = height/2
-      self.translation_z = depth/2
+      # width/2,height/2 only aligns to the first quadrant when the mesh is
+      # already centered at the origin; use -min_bound so off-center pivots
+      # (e.g. "pivot_in_bbox" assets) are translated correctly too.
+      min_bound = mesh.get_axis_aligned_bounding_box().min_bound.numpy()
+      self.translation_x = -min_bound[0]
+      self.translation_y = -min_bound[1]
+      self.translation_z = -min_bound[2]
     return
 
   def resetRotation(self):
@@ -278,6 +284,9 @@ class Scene(models.Model):
 
   def save(self, *args, **kwargs):
     updated_scene = self.id
+    # self._state.adding flips to False after the first super().save() call
+    # below, so it must be captured up front to detect genuine creation later.
+    is_new_scene = self._state.adding
     send_update_command = kwargs.pop("send_update_command", True)
     self.dataset_dir = f"{os.getcwd()}/datasets/{self.name}"
     self.output_dir = f"{os.getcwd()}/datasets/{self.name}/output_dir"
@@ -317,16 +326,26 @@ class Scene(models.Model):
             glb_file = extractMeshFromPointCloud(self.map.path)
             with open(glb_file, 'rb') as f:
               self.map.save(os.path.basename(glb_file), File(f), save=False)
-            self.saveThumbnail()
+            try:
+              self.saveThumbnail()
+            except Exception as e:
+              log.warning(f"Failed to generate thumbnail for {self.name}: {e}")
+              self.thumbnail = None
 
           elif ext == ".glb":
             # Note: autoAlignSceneMap() only performs alignment for uploaded GLB files.
             # For generated meshes (_from_generate_mesh == True), autoAlignSceneMap() returns early.
             # This asymmetry is intentional; see method implementation for details.
-            # Only auto-align if a new GLB file was uploaded
-            if self._original_map != self.map:
+            # Only auto-align if a new GLB file was uploaded, or this is the
+            # initial creation (where _original_map already matches self.map
+            # because __init__ snapshots it after the map kwarg is set).
+            if self._original_map != self.map or is_new_scene:
               self.autoAlignSceneMap()
-            self.saveThumbnail()
+            try:
+              self.saveThumbnail()
+            except Exception as e:
+              log.warning(f"Failed to generate thumbnail for {self.name}: {e}")
+              self.thumbnail = None
           else:
             self.thumbnail = None
             self.resetRotation()

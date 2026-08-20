@@ -107,6 +107,11 @@ echo Running interface
 rm -f /tmp/.X99-lock /tmp/.X11-unix/X99 /var/run/apache2/apache2.pid
 Xvfb :99 -screen 0 1024x768x24 &
 echo "export DISPLAY=:99" >> /etc/apache2/envvars
+# Open3D's EGL headless renderer segfaults in eglInitialize() without a valid
+# XDG_RUNTIME_DIR and without forcing the surfaceless EGL platform (no /dev/dri here).
+mkdir -p /tmp/xdg-runtime && chmod 700 /tmp/xdg-runtime
+echo "export XDG_RUNTIME_DIR=/tmp/xdg-runtime" >> /etc/apache2/envvars
+echo "export EGL_PLATFORM=surfaceless" >> /etc/apache2/envvars
 apache2ctl -D FOREGROUND &
 WAITPID="${WAITPID} $!"
 set --
