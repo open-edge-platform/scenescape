@@ -51,8 +51,8 @@ DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) |
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
-TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics dlstreamer-pipeline-server
-TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics dlstreamer-pipeline-server)
+TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics tests
+TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics tests)
 DEPLOYMENT_TEST ?= 0
 
 # Kubernetes demo variables
