@@ -16,7 +16,7 @@ on:
       stability_hours:
         description: "Duration (hours) for the stability test"
         required: false
-        default: "15"
+        default: "23"
         type: string
 
 # Only run at most 1 workflow concurrently per pushed commit
@@ -50,7 +50,7 @@ jobs:
     runs-on: [stability]
     name: "Stability Test"
     permissions:
-      packages: write # For using GHCR as cache registry
+      packages: read # For pulling GHCR cache layers
     timeout-minutes: ${{ fromJSON(needs.compute_timeout.outputs.timeout_minutes) }}
     steps:
       - name: Remove test_data folder
