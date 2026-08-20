@@ -258,6 +258,29 @@ class AnalyticsService:
     log.debug(f"Published {len(tripwires)} tripwire(s) for scene {scene.uid} on {topic}")
     return
 
+  def publishRoisForScene(self, scene):
+    """Publish cached ROI definitions for *scene* on the response topic."""
+    result = self.cache_manager.data_source.getRegions({'scene': scene.uid})
+    if result.errors:
+      log.warning(f"Failed to fetch rois for scene {scene.uid}: {result.errors}")
+      return
+    rois = []
+    for region in result.get('results', []):
+      rois.append({
+        'title': region.get('name', ''),
+        'uuid': region.get('uid', ''),
+        'points': region.get('points', []),
+        'volumetric': region.get('volumetric', False),
+        'height': region.get('height', 1),
+        'buffer_size': region.get('buffer_size', 0),
+        'sectors': region.get('color_ranges', {}).get('thresholds', []),
+        'range_max': region.get('color_ranges', {}).get('range_max', 0),
+      })
+    topic = PubSub.formatTopic(PubSub.CMD_CHILD_ROIS_RESPONSE, scene_id=scene.uid)
+    self.pubsub.publish(topic, orjson.dumps(rois).decode('utf-8'))
+    log.debug(f"Published {len(rois)} roi(s) for scene {scene.uid} on {topic}")
+    return
+
   def handleTripwiresRequest(self, client, userdata, message):
     """Respond to a parent request for tripwire definitions."""
     topic = PubSub.parseTopic(message.topic)
@@ -269,6 +292,17 @@ class AnalyticsService:
     log.warning(f"Tripwires request for unknown scene {requested_scene_id}")
     return
 
+  def handleRoisRequest(self, client, userdata, message):
+    """Respond to a parent request for roi definitions."""
+    topic = PubSub.parseTopic(message.topic)
+    requested_scene_id = topic.get('scene_id')
+    for scene in getattr(self, 'scenes', []):
+      if str(scene.uid) == str(requested_scene_id):
+        self.publishRoisForScene(scene)
+        return
+    log.warning(f"Rois request for unknown scene {requested_scene_id}")
+    return
+
   def handleDatabaseMessage(self, client, userdata, message):
     command = str(message.payload.decode("utf-8"))
     if command == "update":
@@ -278,6 +312,7 @@ class AnalyticsService:
         # Re-publish tripwire definitions so parent caches stay current
         for scene in getattr(self, 'scenes', []):
           self.publishTripwiresForScene(scene)
+          self.publishRoisForScene(scene)
       except Exception as e:
         log.warning("Failed to update database: %s", e)
     return
@@ -297,6 +332,7 @@ class AnalyticsService:
     # Publish initial tripwire definitions so parent controller can cache them
     for scene in getattr(self, 'scenes', []):
       self.publishTripwiresForScene(scene)
+      self.publishRoisForScene(scene)
     return
 
   def updateSubscriptions(self):
@@ -315,6 +351,10 @@ class AnalyticsService:
       need_subscribe.add((
         PubSub.formatTopic(PubSub.CMD_CHILD_TRIPWIRES_REQUEST, scene_id=scene.uid),
         self.handleTripwiresRequest,
+      ))
+      need_subscribe.add((
+        PubSub.formatTopic(PubSub.CMD_CHILD_ROIS_REQUEST, scene_id=scene.uid),
+        self.handleRoisRequest,
       ))
       for sensor in scene.sensors:
         need_subscribe.add((

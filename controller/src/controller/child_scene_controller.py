@@ -17,6 +17,7 @@ class ChildSceneController():
     self.connected = False
     self.remote_config = dict(info)  # keep the full existing remote child row
     self._last_tripwires_json = None
+    self._last_rois_json = None
 
     self.client = PubSub(cert=None, rootca=root_cert, broker=info.get('host_name', None),
                          auth=f"{info.get('mqtt_username', None)}:{info.get('mqtt_password', None)}",
@@ -57,6 +58,9 @@ class ChildSceneController():
     tripwires_response_topic = PubSub.formatTopic(PubSub.CMD_CHILD_TRIPWIRES_RESPONSE,
                                                   scene_id=self.child_id)
     self.client.removeCallback(tripwires_response_topic)
+    rois_response_topic = PubSub.formatTopic(PubSub.CMD_CHILD_ROIS_RESPONSE,
+                                             scene_id=self.child_id)
+    self.client.removeCallback(rois_response_topic)
 
     self.client.addCallback(self.child_event_topic, self.parent_controller.republishEvents)
     log.info("Subscribed to", self.child_event_topic)
@@ -68,10 +72,18 @@ class ChildSceneController():
     self.client.addCallback(tripwires_response_topic, self.handleTripwiresResponse)
     log.info("Subscribed to", tripwires_response_topic)
 
+    self.client.addCallback(rois_response_topic, self.handleRoisResponse)
+    log.info("Subscribed to", rois_response_topic)
+
     tripwires_request_topic = PubSub.formatTopic(PubSub.CMD_CHILD_TRIPWIRES_REQUEST,
                                                  scene_id=self.child_id)
     self.client.publish(tripwires_request_topic, "request")
     log.info("Requested tripwires from child", self.child_name)
+
+    rois_request_topic = PubSub.formatTopic(PubSub.CMD_CHILD_ROIS_REQUEST,
+                                            scene_id=self.child_id)
+    self.client.publish(rois_request_topic, "request")
+    log.info("Requested rois from child", self.child_name)
     return
 
   def handleTripwiresResponse(self, client, userdata, message):
@@ -114,6 +126,46 @@ class ChildSceneController():
         )
     except Exception as e:
       log.error(f"Failed to persist tripwires for child {self.child_name}: {e}")
+
+  def handleRoisResponse(self, client, userdata, message):
+    log.debug(
+      f"ROI callback: child={self.child_name} "
+      f"link_uid={self.child_link_uid} topic={message.topic} "
+      f"payload={message.payload}"
+    )
+
+    if not self.child_link_uid:
+      log.warning(f"Cannot persist rois for child {self.child_name}: no child_link_uid")
+      return
+
+    try:
+      rois = orjson.loads(message.payload.decode('utf-8'))
+    except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
+      log.error(f"Invalid rois payload from child {self.child_name}: {e}")
+      return
+
+    if not isinstance(rois, list):
+      log.error(f"Unexpected rois payload type from child {self.child_name}")
+      return
+
+    normalized = orjson.dumps(rois, option=orjson.OPT_SORT_KEYS)
+    if normalized == self._last_rois_json:
+      log.debug(f"Rois unchanged for child {self.child_name}; skipping persist")
+      return
+    self._last_rois_json = normalized
+
+    try:
+      result = self.parent_controller.cache_manager.data_source.updateChildScene(
+        self.child_link_uid,
+        {'cached_rois': rois}
+      )
+      if result.status_code != 200 or result.errors:
+        log.error(
+          f"Failed to persist rois for child {self.child_name}: "
+          f"status={result.status_code} errors={result.errors}"
+        )
+    except Exception as e:
+      log.error(f"Failed to persist rois for child {self.child_name}: {e}")
 
   def publishStatus(self, client, userdata, message):
     msg = message.payload.decode('utf-8')
