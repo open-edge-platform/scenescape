@@ -6,6 +6,9 @@
 
 **New:**
 
+- **Analytics Service:** Extracted analytics functionality from the Scene Controller into a new, separate service that computes region, tripwire, sensor analytics, and camera bounds for tracked objects. Also responsible for regulating output to a max rate. Available on Docker Hub at [intel/scenescape-analytics](https://hub.docker.com/r/intel/scenescape-analytics)
+- **Mapping Service:** No longer an experimental feature; now officially released with images available on Docker Hub at [intel/scenescape-mapping](https://hub.docker.com/r/intel/scenescape-mapping)
+- **Cluster Analytics Service:** No longer an experimental feature; now officially released with images available on Docker Hub at [intel/scenescape-cluster-analytics](https://hub.docker.com/r/intel/scenescape-cluster-analytics)
 - ReID improvements:
   - Added visual indicator to track objects in 3D UI
   - Exposed ReID Match Latency Metrics
@@ -17,9 +20,6 @@
   - Added point-cloud based localization in Auto Calibration Service
   - Added example deployment showcasing usage of LiDARs + Cameras with Intel® Scenescape
 - **Model Downloader:** Switched from Intel® Scenescape-specific model installer to [Intel Model Download Microservice](https://hub.docker.com/r/intel/model-download)
-- **Analytics Service:** Extracted analytics functionality from the Scene Controller into a new, separate service that computes region, tripwire, sensor analytics, and camera bounds for tracked objects. Also responsible for regulating output to a max rate. Available on Docker Hub at [intel/scenescape-analytics](https://hub.docker.com/r/intel/scenescape-analytics)
-- **Mapping Service:** No longer an experimental feature; now officially released with images available on Docker Hub at [intel/scenescape-mapping](https://hub.docker.com/r/intel/scenescape-mapping)
-- **Cluster Analytics Service:** No longer an experimental feature; now officially released with images available on Docker Hub at [intel/scenescape-cluster-analytics](https://hub.docker.com/r/intel/scenescape-cluster-analytics)
 - Analytics pipeline improvements: Migrated old gvapython-based scripts to custom GStreamer Elements
 - Added support for multi-camera object metadata fusion in time-chunking
 - Tracker Evaluation Pipeline:
