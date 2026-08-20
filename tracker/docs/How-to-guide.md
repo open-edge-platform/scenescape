@@ -58,7 +58,7 @@ make demo-tracker
 
 What `demo-tracker` does:
 
-- Runs `make build-all` to build all images (core plus tracker)
+- Runs `make build-all` to build all images
 - Runs `make init-sample-data` to prepare volumes and sample files
 - Invokes the compose helper with: `--profile tracker`
 

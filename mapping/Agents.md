@@ -11,8 +11,6 @@ The **Mapping** service provides spatial mapping and localization capabilities f
 
 **Primary Purpose**: Generate 3D maps from camera feeds and provide spatial localization services for objects and cameras within reconstructed environments.
 
-**Status**: Production—build via `make mapping` or `make build-all`
-
 ## Architecture & Components
 
 ### Core Modules
@@ -360,9 +358,9 @@ When modifying the service, verify:
 - [ ] Memory usage stays within limits
 - [ ] Service recovers from model errors gracefully
 
-## Research & Future Features
+## Advanced Features
 
-Planned areas of investigation for the mapping service include:
+Advanced capabilities of the mapping service include:
 
 - **Neural Radiance Fields (NeRF)**: Potential future integration
 - **Semantic Mapping**: Object-level understanding in maps
