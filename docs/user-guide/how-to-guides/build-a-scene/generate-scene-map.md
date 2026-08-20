@@ -67,7 +67,7 @@ docker compose --profile mapping --profile cluster-analytics up -d
 docker compose --profile mapping up -d
 ```
 
-> **Note**: The `--profile` flag allows you to selectively enable optional services. Combine `--profile mapping --profile cluster-analytics` to start both, or use `--profile mapping` to start just the mapping service along with all core services.
+> **Note**: The `--profile` flag lets you selectively enable the mapping and cluster-analytics services. Combine `--profile mapping --profile cluster-analytics` to start both, or use `--profile mapping` to start just the mapping service along with all core services.
 
 ### Verify Services are Running
 

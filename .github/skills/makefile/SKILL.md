@@ -405,7 +405,7 @@ build-all:
 	@echo "$(BLUE)Building core services...$(RESET)"
 	$(MAKE) build-core
 	@echo "$(GREEN)✓ Core services built$(RESET)"
-	@echo "$(BLUE)Building optional services...$(RESET)"
+	@echo "$(BLUE)Building tracker...$(RESET)"
 	$(MAKE) tracker
 	@echo "$(GREEN)✓ All services built$(RESET)"
 ```
