@@ -2,11 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# TEMPORARY: This workflow has been temporarily reduced to only run the
-# stability test for validation on the current branch. Restore the full
-# job set before merging.
-name: "[Tests] Stability Test"
-run-name: "[Tests] Stability Test"
+name: "[Tests] All Tests"
+run-name: "[Tests] All Tests"
 
 on:
   workflow_dispatch:
@@ -16,11 +13,6 @@ on:
         required: false
         default: false
         type: boolean
-      stability_hours:
-        description: "Duration (hours) for the stability test"
-        required: false
-        default: "15"
-        type: string
   workflow_call:
     inputs:
       ref:
@@ -56,26 +48,12 @@ permissions:
   contents: read
 
 jobs:
-  compute_timeout:
-    runs-on: ubuntu-latest
-    name: "Compute Timeout"
-    outputs:
-      timeout_minutes: ${{ steps.compute.outputs.timeout_minutes }}
-    steps:
-      - name: Compute job timeout (stability_hours + 1 hour buffer)
-        id: compute
-        env:
-          STABILITY_HOURS: ${{ inputs.stability_hours || '15' }}
-        run: |
-          echo "timeout_minutes=$(( STABILITY_HOURS * 60 + 60 ))" >> "$GITHUB_OUTPUT"
-
-  run_stability_test:
-    needs: compute_timeout
-    runs-on: [stability]
-    name: "Stability Test"
+  run_functional_tests:
+    runs-on: [all]
+    name: "Functional Tests"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: ${{ fromJSON(needs.compute_timeout.outputs.timeout_minutes) }}
+    timeout-minutes: 300
     steps:
       - name: Remove test_data folder
         run: |
@@ -101,19 +79,212 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run Stability Test
-        env:
-          STABILITY_HOURS: ${{ inputs.stability_hours || '15' }}
+      - name: Run Functional Tests
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/system/stability --junitxml=reports/stability_results.xml --log-level=ERROR
+          pytest tests/functional --junitxml=reports/functional_results.xml --log-level=ERROR
 
       - name: Upload Test Report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
-          name: stability-report
+          name: functional-report
+          path: |
+            **/reports/*.xml
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup
+
+  run_non_functional_tests:
+    runs-on: [all]
+    name: "Non-Functional Tests"
+    permissions:
+      packages: write # For using GHCR as cache registry
+    timeout-minutes: 60
+    steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
+      - name: Checkout Repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+
+      - name: "Log in to DockerHub"
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
+        with:
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Non Functional Tests
+        run: |
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/non_functional --junitxml=reports/non_functional_results.xml --log-level=ERROR
+
+      - name: Upload Test Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: non-functional-report
+          path: |
+            **/reports/*.xml
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup
+
+  run_metric_tests:
+    runs-on: [all]
+    name: "Metric Tests"
+    permissions:
+      packages: write # For using GHCR as cache registry
+    timeout-minutes: 90
+    steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
+      - name: Checkout Repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+
+      - name: "Remove all Docker images"
+        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
+
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
+        with:
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Metric Tests
+        run: |
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/system/metric --junitxml=reports/metric_results.xml --log-level=ERROR
+
+      - name: Upload Test Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: metric-report
+          path: |
+            **/reports/*.xml
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup
+
+  run_ui_tests:
+    runs-on: [all]
+    name: "UI Tests"
+    permissions:
+      packages: write # For using GHCR as cache registry
+    timeout-minutes: 300
+    steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
+      - name: Checkout Repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+
+      - name: "Remove all Docker images"
+        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
+
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
+        with:
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run UI Tests
+        run: |
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/ui --junitxml=reports/ui_results.xml --log-level=ERROR
+
+      - name: Upload Test Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: ui-report
+          path: |
+            **/reports/*.xml
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup
+
+  run_unit_tests:
+    runs-on: [all]
+    name: "Unit Tests"
+    permissions:
+      packages: write # For using GHCR as cache registry
+    timeout-minutes: 70
+    steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
+      - name: Checkout Repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+
+      - name: "Remove all Docker images"
+        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
+
+      - name: Setup Tests Environment
+        uses: ./.github/actions/setup-tests
+        with:
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Run Unit Tests"
+        run: |
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/sscape_tests --junitxml=reports/unit_results.xml --log-level=ERROR
+
+      - name: Upload Test Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: unit-report
           path: |
             **/reports/*.xml
 

@@ -23,7 +23,7 @@ from tests.utils.profiles import STABILITY
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=STABILITY,
   require_password=True,
-  extra_args=["--hours", os.environ.get("STABILITY_HOURS", "20")],
+  extra_args=["--hours", os.environ.get("STABILITY_HOURS", "23")],
 )
 
 TEST_NAME="NEX-T10411"
