@@ -58,13 +58,13 @@ For successive runs, you can use Docker Compose directly (see [Docker Compose Pr
 ### Launch all core services with mapping and cluster analytics
 
 ```bash
-docker compose --profile mapping --profile cluster-analytics up -d
+docker compose --profile controller --profile mapping --profile cluster-analytics up -d
 ```
 
 ### Launch all core services and mapping service
 
 ```bash
-docker compose --profile mapping up -d
+docker compose --profile controller --profile mapping up -d
 ```
 
 > **Note**: The `--profile` flag lets you selectively enable the mapping and cluster-analytics services. Combine `--profile mapping --profile cluster-analytics` to start both, or use `--profile mapping` to start just the mapping service along with all core services.
@@ -246,7 +246,7 @@ docker compose --profile controller --profile mapping --profile cluster-analytic
 To stop services and remove volumes (this will delete all data):
 
 ```bash
-docker compose --profile controller --profile mapping down -v
+docker compose --profile controller --profile mapping --profile cluster-analytics down -v
 ```
 
 > **Note:** The `--profile` flags must match those used when starting the services. If you only started with `--profile controller`, omit `--profile mapping`. See [Docker Compose Profiles](../../get-started/installation.md#docker-compose-profiles) for details.
