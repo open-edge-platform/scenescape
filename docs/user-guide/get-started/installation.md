@@ -88,7 +88,7 @@ The Docker Compose demo targets are tiered, each building on the previous one:
 | ----------- | ------------------------------------------------------------ |
 | `demo`      | Core services with tracking, without ReID                    |
 | `demo-reid` | `demo` plus the ReID vector database                         |
-| `demo-all`  | `demo-reid` plus cluster analytics and experimental services |
+| `demo-all`  | `demo-reid` plus cluster analytics and mapping services      |
 
 The ReID targets use VDMS by default. Set `REID_BACKEND=qdrant` to use Qdrant:
 
@@ -119,7 +119,6 @@ The following profiles are available:
 | Profile             | Description                                                                             |
 | ------------------- | --------------------------------------------------------------------------------------- |
 | `controller`        | Scene Controller (tracking) + Analytics service. Used by `make demo`.                   |
-| `experimental`      | Enables mapping and cluster-analytics services.                                         |
 | `mapping`           | Enables mapping service only.                                                           |
 | `cluster-analytics` | Enables cluster-analytics service only.                                                 |
 | `tracker`           | Tracker service + Analytics service (no Scene Controller). Used by `make demo-tracker`. |
@@ -135,7 +134,7 @@ docker compose --profile controller up -d
 Multiple profiles can be combined:
 
 ```console
-docker compose --profile controller --profile experimental up -d
+docker compose --profile controller --profile mapping up -d
 ```
 
 Alternatively, profiles can be set via the `COMPOSE_PROFILES` environment variable:
@@ -148,7 +147,7 @@ docker compose up -d
 For multiple profiles, use a comma-separated list:
 
 ```console
-export COMPOSE_PROFILES=controller,experimental
+export COMPOSE_PROFILES=controller,mapping
 docker compose up -d
 ```
 
