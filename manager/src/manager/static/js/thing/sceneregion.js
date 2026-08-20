@@ -215,7 +215,7 @@ export default class SceneRegion extends THREE.Object3D {
     this.maxOpacity = MAX_OPACITY;
     this.scene = params.scene;
     this.regionsFolder = params.regionsFolder;
-    this.visible = false;
+    this.visible = this.region.visible ?? false;
     this.regionControls = new ThingControls(this);
 
     Object.assign(this, validateInputControls);
