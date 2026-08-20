@@ -7,12 +7,6 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ .Release.Name }}-init-volumes
-  annotations:
-    "helm.sh/hook": pre-install
-    "helm.sh/hook-weight": "1"
-    {{- if not .Values.chartdebug }}
-    "helm.sh/hook-delete-policy": hook-succeeded
-    {{- end }}
 spec:
   template:
     spec:

@@ -232,7 +232,6 @@ migrations:
 # PVC
 pvc:
   storageClassName: ""
-  hookWeight: "0"
 
 # External access
 service:
@@ -271,13 +270,8 @@ certdomain: ""
 supass: ""
 dbroot: ""
 debug: false
-chartdebug: false
 
 # Proxy configuration
 httpProxy: ""
 httpsProxy: ""
 noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local,10.244.0.0/16,10.96.0.0/12"
-
-# disable pre-install and post-install hooks for cluster compatibility
-hooks:
-  enabled: true

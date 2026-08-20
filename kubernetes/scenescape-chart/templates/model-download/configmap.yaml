@@ -1,15 +1,12 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-{{- if and .Values.hooks.enabled .Values.modelDownload.enabled }}
+{{- if .Values.modelDownload.enabled }}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ .Release.Name }}-model-download
-  annotations:
-    "helm.sh/hook": pre-install
-    "helm.sh/hook-weight": "0"
 data:
   download_models.py: |-
 {{ .Files.Get "files/model-download/download_models.py" | indent 4 }}
