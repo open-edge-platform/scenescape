@@ -18,27 +18,10 @@ on:
         required: false
         default: "15"
         type: string
-  workflow_call:
-    inputs:
-      ref:
-        description: "Scenescape ref to test against"
-        required: false
-        default: ""
-        type: string
-      save_artifacts:
-        description: "Save artifacts from tests"
-        required: false
-        default: true
-        type: boolean
-      cleanup:
-        description: "Cleanup before running ALL tests"
-        required: false
-        default: false
-        type: boolean
 
 # Only run at most 1 workflow concurrently per pushed commit
 concurrency:
-  group: ${{ github.workflow }}-${{ github.sha || github.ref }}-${{ inputs.ref || 'default' }}
+  group: ${{ github.workflow }}-${{ github.sha || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -79,10 +62,9 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
-        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
+        if: ${{ github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
         with:
           system-prune: "true"
