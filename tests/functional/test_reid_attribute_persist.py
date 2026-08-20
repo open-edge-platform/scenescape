@@ -131,7 +131,29 @@ def get_scene_and_camera(params):
 
   raise AssertionError("No scene with a configured camera found")
 
+def connect_mqtt(params):
+  """Return a connected, looping PubSub client."""
+  pubsub = PubSub(
+    params["auth"], None, params["rootcert"], params["broker_url"],
+    port=int(params["broker_port"]), keepalive=60,
+  )
+  pubsub.connect()
+  pubsub.loopStart()
+  for _ in range(100):
+    if pubsub.isConnected():
+      break
+    time.sleep(0.1)
+  assert pubsub.isConnected(), "Failed to connect to MQTT broker"
+  return pubsub
 
+
+@pytest.fixture
+def mqtt_client(params):
+  """Connected PubSub client scoped to this module's functional tests."""
+  client = connect_mqtt(params)
+  yield client
+  client.loopStop()
+  client.disconnect()
 class SceneOutputCollector:
   """Subscribe to the scene controller's tracked-object topic and collect published objects."""
 

@@ -60,8 +60,6 @@ _analytics_src = _REPO_ROOT / "analytics" / "src"
 if str(_analytics_src) not in sys.path:
   sys.path.insert(0, str(_analytics_src))
 
-from scene_common.mqtt import PubSub
-
 # ---------------------------------------------------------------------------
 # Environmental dependencies (host-only)
 # ---------------------------------------------------------------------------
@@ -312,28 +310,6 @@ def params(request, scenescape_env):
     'expect_exceed_max': request.config.getoption('--expect_exceed_max'),
   }
 
-def connect_mqtt(params):
-  """Return a connected, looping PubSub client."""
-  pubsub = PubSub(
-    params["auth"], None, params["rootcert"], params["broker_url"],
-    port=int(params["broker_port"]), keepalive=60,
-  )
-  pubsub.connect()
-  pubsub.loopStart()
-  for _ in range(100):
-    if pubsub.isConnected():
-      break
-    time.sleep(0.1)
-  assert pubsub.isConnected(), "Failed to connect to MQTT broker"
-  return pubsub
-
-@pytest.fixture
-def mqtt_client(params):
-  """Connected PubSub client, cleaned up after the test."""
-  client = connect_mqtt(params)
-  yield client
-  client.loopStop()
-  client.disconnect()
 
 def _is_final_test(node):
   """True when *node* is the last collected test of the session."""
