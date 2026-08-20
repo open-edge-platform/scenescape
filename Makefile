@@ -9,7 +9,7 @@ SHELL := /bin/bash
 # Build folders
 COMMON_FOLDER := scene_common
 CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
-IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) tracker mapping cluster_analytics
+IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker
 
 # Image variables
 IMAGE_PREFIX := scenescape
@@ -84,9 +84,9 @@ help:
 	@echo "Scenescape version $(VERSION)"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  build-core        (default) Build secrets, core images (excluding tracker), and install models"
+	@echo "  build-core        (default) Build secrets, core images (excluding mapping, cluster_analytics, and tracker), and install models"
 	@echo "  build-all                   Build secrets, all images, and install models"
-	@echo "  build-core-images           Build core microservice images (excluding tracker) in parallel"
+	@echo "  build-core-images           Build core microservice images (excluding mapping, cluster_analytics, and tracker) in parallel"
 	@echo "  build-all-images            Build all microservice images in parallel"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
@@ -181,7 +181,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-$(CORE_IMAGE_FOLDERS): build-common
+autocalibration controller manager analytics mapping cluster_analytics: build-common
 
 # Helper function to build images in parallel
 define parallel-build
@@ -196,7 +196,7 @@ endef
 build-all-images: $(BUILD_DIR)
 	$(call parallel-build, $(IMAGE_FOLDERS))
 
-# Parallel wrapper for core images (excluding tracker)
+# Parallel wrapper for core images (excluding mapping and cluster_analytics)
 .PHONY: build-core-images
 build-core-images: $(BUILD_DIR)
 	@echo "==> Running parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
