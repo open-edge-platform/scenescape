@@ -405,8 +405,13 @@ build-all:
 	@echo "$(BLUE)Building core services...$(RESET)"
 	$(MAKE) build-core
 	@echo "$(GREEN)✓ Core services built$(RESET)"
+<<<<<<< Updated upstream
 	@echo "$(BLUE)Building tracker...$(RESET)"
 	$(MAKE) tracker
+=======
+	@echo "$(BLUE)Building mapping, cluster_analytics, and tracker...$(RESET)"
+	$(MAKE) mapping cluster_analytics tracker
+>>>>>>> Stashed changes
 	@echo "$(GREEN)✓ All services built$(RESET)"
 ```
 
