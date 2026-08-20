@@ -90,6 +90,10 @@ _WEB = WaitConfig()
 _SCENE = WaitConfig(log_pattern="Subscribed to")
 _AUTOCALIBRATION = WaitConfig(timeout=1200)
 _MAPPING = WaitConfig(timeout=600)
+# Mapping can take much longer to become ready during the long-run stability
+# test (model download/cache warm-up); scope the larger timeout to STABILITY
+# only so other mapping-based profiles keep failing fast.
+_MAPPING_STABILITY = WaitConfig(timeout=6000)
 _ANALYTICS = WaitConfig(log_pattern="Subscribed to")
 
 
@@ -537,6 +541,35 @@ FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS = ServiceProfile(
   },
 )
 
+# Full-stack profile used by the long-run stability test.
+STABILITY = ServiceProfile(
+  name="stability",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{DLS}/compose-retail_video.yml",
+    f"{DLS}/compose-queuing_video.yml",
+    f"{COMPOSE}/compose-scene.yml",
+    f"{COMPOSE}/compose-web_default.yml",
+    f"{COMPOSE}/compose-cams.yml",
+    f"{COMPOSE}/compose-autocalibration.yml",
+    f"{COMPOSE}/compose-mapping.yml",
+    f"{COMPOSE}/compose-controller_analytics.yml",
+  ),
+  wait_for={
+    "broker": _BROKER,
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "queuing-video": WaitConfig(),
+    "retail-video": WaitConfig(),
+    "autocalibration": _AUTOCALIBRATION,
+    "mapping": _MAPPING_STABILITY,
+    "controller-analytics": _SCENE,
+  },
+)
+
 # Analytics + Manager only (no Scene Controller / Tracker). Used to inject
 # Tracker-shaped DATA_SCENE over MQTT and assert Analytics events without
 # duplicating Controller tracking coverage in FULL_STACK.
@@ -582,6 +615,7 @@ PROFILE_REGISTRY: dict = {
     SCENE_NO_DB,
     MARKERLESS,
     INFERENCE_PERF,
+    STABILITY,
     ANALYTICS_MQTT,
   ]
 }
