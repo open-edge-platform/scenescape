@@ -36,7 +36,7 @@ SUPASS=your_password make build-all
 
 This command will:
 
-- Build all core services (controller, manager, autocalibration, model_installer)
+- Build all core services
 - Build the mapping and cluster_analytics services
 - Generate security certificates and secrets
 - Install required AI models
