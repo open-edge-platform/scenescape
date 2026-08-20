@@ -86,7 +86,6 @@ x-controller-base: &controller-base
 
 # Profiles:
 # - Default (no profile): Core services including autocalibration
-# - experimental: All services including mapping
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
 # - controller: Scene Controller (tracking) + Analytics service
@@ -538,7 +537,6 @@ services:
 
   mapping:
     profiles:
-      - experimental
       - mapping
     image: intel/scenescape-mapping:${VERSION:-latest}
     init: true
