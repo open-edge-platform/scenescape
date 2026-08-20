@@ -39,6 +39,13 @@ Follow the steps in the [Installation Guide](../../get-started/installation.md) 
 2. Find your region in the Scene and double click on the polygon to edit its shape. Drag the vertices to refine their positions.
 3. Click `Save Regions and Tripwires` to persist your changes.
 
+#### Set 3D Visibility
+
+In the 3D scene view, expand `Regions Settings` or `Tripwires Settings`, then
+toggle `show` for the item. The visibility setting is saved immediately and is
+restored after refreshing the page. This setting is shared across users and
+devices that view the scene.
+
 #### Verify the Results
 
 1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) to observe all topics on the broker or use paho mqtt client to observe the topic right under the region name text box. For example: `/scenescape/event/region/${scene_uuid}/${region_uuid}/count`.
