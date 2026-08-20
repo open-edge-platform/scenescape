@@ -14,11 +14,11 @@ This task is important for enhancing your scene graph with real-world sensor dat
 
 Before you begin, ensure the following:
 
-- **Access and Permissions**: When using Scenescape secure broker for publishing sensor data, refer to [user access controls](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/manager/config/user_access_config.json) and [access levels](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/scene_common/src/scene_common/options.py).
+- **Access and Permissions**: When using Scenescape secure broker for publishing sensor data, refer to [user access controls](https://github.com/open-edge-platform/scenescape/blob/main/manager/config/user_access_config.json) and [access levels](https://github.com/open-edge-platform/scenescape/blob/main/scene_common/src/scene_common/options.py).
 
 If you're new to these concepts, see:
 
-- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/README.md)
+- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
 - [MQTT Intro](https://mqtt.org/getting-started/)
 
 ---
@@ -152,4 +152,4 @@ validation rules, which only live in server-side logic:
 ## Supporting Resources
 
 - [Visualize ROI and Sensor Areas](./visualize-regions.md)
-- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/README.md)
+- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
