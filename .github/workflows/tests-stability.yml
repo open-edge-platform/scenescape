@@ -1,0 +1,97 @@
+---
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Tests] Stability Test"
+run-name: "[Tests] Stability Test"
+
+on:
+  workflow_dispatch:
+    inputs:
+      cleanup:
+        description: "Cleanup before running ALL tests"
+        required: false
+        default: false
+        type: boolean
+      stability_hours:
+        description: "Duration (hours) for the stability test"
+        required: false
+        default: "23"
+        type: string
+
+# Only run at most 1 workflow concurrently per pushed commit
+concurrency:
+  group: ${{ github.workflow }}-${{ github.sha || github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOCKER_BUILDKIT: 1
+  SUPASS: demo
+
+permissions:
+  contents: read
+
+jobs:
+  compute_timeout:
+    runs-on: ubuntu-latest
+    name: "Compute Timeout"
+    outputs:
+      timeout_minutes: ${{ steps.compute.outputs.timeout_minutes }}
+    steps:
+      - name: Compute job timeout (stability_hours + 1 hour buffer)
+        id: compute
+        env:
+          STABILITY_HOURS: ${{ inputs.stability_hours || '23' }}
+        run: |
+          echo "timeout_minutes=$(( STABILITY_HOURS * 60 + 60 ))" >> "$GITHUB_OUTPUT"
+
+  run_stability_test:
+    needs: compute_timeout
+    runs-on: [stability]
+    name: "Stability Test"
+    permissions:
+      packages: read # For pulling GHCR cache layers
+    timeout-minutes: ${{ fromJSON(needs.compute_timeout.outputs.timeout_minutes) }}
+    steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
+      - name: Checkout Repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: "Remove all Docker images"
+        if: ${{ github.event.inputs.cleanup == 'true' }}
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
+
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
+        with:
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Stability Test
+        env:
+          STABILITY_HOURS: ${{ inputs.stability_hours || '23' }}
+        run: |
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/system/stability --junitxml=reports/stability_results.xml --log-level=ERROR
+
+      - name: Upload Test Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: stability-report
+          path: |
+            **/reports/*.xml
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup

@@ -494,6 +494,22 @@ def _spec_visibility_topic(spec):
       return args[i + 1]
   return "regulated"
 
+MAPPING_CACHE_VOLUMES = (
+  "scenescape_vol-mapping-model-weights",
+  "scenescape_vol-mapping-torch-cache",
+  "scenescape_vol-mapping-hf-cache",
+)
+
+
+def _ensure_mapping_cache_volumes():
+  """Create the external mapping cache volumes if they do not already exist."""
+  bare_docker = DockerClient()
+  for vol in MAPPING_CACHE_VOLUMES:
+    if bare_docker.volume.exists(vol):
+      continue
+    logger.info("Creating external mapping cache volume: %s", vol)
+    bare_docker.volume.create(vol)
+
 
 # Compose project names created by _compose_lifecycle: "test-<4 hex chars>-<spec>".
 _TEST_PROJECT_RE = re.compile(r"^test-[0-9a-f]{4}-")
@@ -667,6 +683,9 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       cwd=repo_root,
       env={**os.environ, "COMPOSE_PROJECT_NAME": project_name},
     )
+
+    if any("compose-mapping.yml" in cf for cf in profile.compose_files):
+      _ensure_mapping_cache_volumes()
 
     logger.info("Starting compose services...")
     try:
@@ -1167,7 +1186,9 @@ def pytest_runtest_makereport(item, call):
         or (rep_call is not None and rep_call.failed)
         or (rep_teardown is not None and rep_teardown.failed)
       )
-      _testlog.finalize(passed=not failed)
+      finalize = getattr(_testlog, "finalize", None)
+      if finalize is not None:
+        finalize(passed=not failed)
 
 def pytest_runtest_logreport(report):
   """Log test phase results to the per-test log file."""
