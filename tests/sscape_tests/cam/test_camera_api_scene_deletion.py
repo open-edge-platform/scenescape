@@ -9,7 +9,7 @@ from manager.models import Cam, Scene
 from manager.serializers import CamSerializer
 
 
-TEST_NAME = "NEX-T00000"
+TEST_NAME = "NEX-T28215"
 
 
 class CameraAPISceneDeletionTestCase(TestCase):
