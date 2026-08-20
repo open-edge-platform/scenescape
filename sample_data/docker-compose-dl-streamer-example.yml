@@ -89,9 +89,8 @@ x-controller-base: &controller-base
 # - experimental: All services including mapping
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
-# - controller: Enable the Controller service in Default mode (analytics + tracking)
-# - analytics: Enable the Controller service in Analytics Only mode (without tracking)
-# - tracker: Enable tracker service
+# - controller: Scene Controller (tracking) + Analytics service
+# - tracker: Tracker service + Analytics service (no Scene Controller)
 
 services:
   ntpserv:
@@ -123,7 +122,7 @@ services:
   broker:
     image: eclipse-mosquitto:2.0.22
     # ports:
-    #  - "1883:1883"
+    #   - "1883:1883"
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
@@ -195,6 +194,13 @@ services:
       - DBPORT=5432
       - no_proxy=${no_proxy},.scenescape.intel.com
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - MAPBOX_API_KEY=${MAPBOX_API_KEY}
+      # Max upload size for scene map files (blueprints, .glb meshes). Default
+      # 132MB. Raise if uploading large 3D scans or high-res floor plans;
+      # lower to reduce per-request memory pressure in constrained deployments.
+      - DATA_UPLOAD_MAX_MEMORY_SIZE_MB=${DATA_UPLOAD_MAX_MEMORY_SIZE_MB:-132}
+      - FILE_UPLOAD_MAX_MEMORY_SIZE_MB=${FILE_UPLOAD_MAX_MEMORY_SIZE_MB:-132}
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
@@ -219,12 +225,40 @@ services:
     profiles:
       - controller
 
-  controller-analytics:
-    <<: *controller-base
+  analytics:
+    image: intel/scenescape-analytics:${VERSION:-latest}
+    init: true
+    user: "${UID:-1000}:${GID:-1000}"
+    networks:
+      scenescape:
     profiles:
-      - analytics
+      - controller
+      - tracker
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
     environment:
-      CONTROLLER_ENABLE_ANALYTICS_ONLY: "true"
+      no_proxy: ${no_proxy},.scenescape.intel.com
+      NO_PROXY: ${NO_PROXY},.scenescape.intel.com
+      VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --visibility_topic ${VISIBILITY:-regulated}
+    volumes:
+      - vol-media:/home/scenescape/Scenescape/media
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - django
+      - controller.auth
+    restart: always
+    pids_limit: 1000
 
   mediaserver:
     image: bluenviron/mediamtx:1.18.1
@@ -262,7 +296,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260728-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc1
     networks:
       scenescape:
     tty: true
@@ -300,6 +334,7 @@ services:
       - RUN_MODE=EVA
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
+      - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
@@ -315,10 +350,7 @@ services:
       - source: retail-config
         target: /home/pipeline-server/config.json
     volumes:
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_decode_timestamp_capture.py
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_inference_data_publish.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_inference_data_publish.py
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_policies.py
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_3d_detector.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_3d_detector.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
@@ -329,7 +361,7 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260728-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc1
     networks:
       scenescape:
     tty: true
@@ -367,6 +399,7 @@ services:
       - RUN_MODE=EVA
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
+      - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
@@ -382,10 +415,7 @@ services:
       - source: queuing-config
         target: /home/pipeline-server/config.json
     volumes:
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_decode_timestamp_capture.py
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_inference_data_publish.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_inference_data_publish.py
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_policies.py
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_3d_detector.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_3d_detector.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
@@ -510,7 +540,7 @@ services:
     profiles:
       - experimental
       - mapping
-    image: intel/scenescape-mapping-${MAPPING_MODEL:-mapanything}:${VERSION:-latest}
+    image: intel/scenescape-mapping:${VERSION:-latest}
     init: true
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:

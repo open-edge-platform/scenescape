@@ -7,6 +7,8 @@ import pytest
 import sys
 from pathlib import Path
 
+import numpy as np
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from evaluators.jitter_evaluator import JitterEvaluator
@@ -146,6 +148,19 @@ class TestProcessTrackerOutputs:
     assert positions[1] == [1.0, 0.0, 0.0]
     assert positions[2] == [2.0, 0.0, 0.0]
 
+  def test_builds_rotation_histories_without_translation(self, evaluator):
+    outputs = [
+      {"timestamp": "2024-01-01T00:00:00.000Z", "objects": [
+        {"id": "track-A", "rotation": [0.0, 0.0, 0.0, 1.0]}]},
+      {"timestamp": "2024-01-01T00:00:00.033Z", "objects": [
+        {"id": "track-A", "rotation": [0.0, 0.0, 1.0, 0.0]}]},
+    ]
+
+    evaluator.process_tracker_outputs(outputs, ground_truth=None)
+
+    assert evaluator._track_histories == {}
+    assert len(evaluator._rotation_histories["track-A"]) == 2
+
   def test_track_history_sorted_by_timestamp(self, evaluator):
     # Outputs intentionally out of order
     outputs = [
@@ -244,6 +259,82 @@ class TestEvaluateMetrics:
     assert 'acceleration_variance' in metrics
     assert isinstance(metrics['acceleration_variance'], float)
     assert metrics['acceleration_variance'] >= 0.0
+
+  def test_rms_angular_displacement_returns_float(self, evaluator):
+    outputs = [
+      {"timestamp": "2024-01-01T00:00:00.000Z", "objects": [
+        {"id": "track-A", "rotation": [0.0, 0.0, 0.0, 1.0]}]},
+      {"timestamp": "2024-01-01T00:00:00.033Z", "objects": [
+        {"id": "track-A", "rotation": [0.0, 0.0, 1.0, 0.0]}]},
+    ]
+    evaluator.configure_metrics(['rms_angular_displacement'])
+    evaluator.process_tracker_outputs(outputs, ground_truth=None)
+
+    metrics = evaluator.evaluate_metrics()
+
+    assert isinstance(metrics['rms_angular_displacement'], float)
+    assert metrics['rms_angular_displacement'] == pytest.approx(180.0)
+
+  def test_rms_angular_displacement_known_value(self, evaluator):
+    half_angle = np.radians(45.0)
+    outputs = [
+      {"timestamp": "2024-01-01T00:00:00.000Z", "objects": [
+        {"id": "track-A", "rotation": [0.0, 0.0, 0.0, 1.0]}]},
+      {"timestamp": "2024-01-01T00:00:00.033Z", "objects": [
+        {"id": "track-A", "rotation": [0.0, 0.0, np.sin(half_angle), np.cos(half_angle)]}]},
+      {"timestamp": "2024-01-01T00:00:00.067Z", "objects": [
+        {"id": "track-A", "rotation": [0.0, 0.0, 1.0, 0.0]}]},
+    ]
+    evaluator.configure_metrics(['rms_angular_displacement'])
+    evaluator.process_tracker_outputs(outputs, ground_truth=None)
+
+    metrics = evaluator.evaluate_metrics()
+
+    assert metrics['rms_angular_displacement'] == pytest.approx(90.0)
+
+  def test_rms_angular_displacement_treats_quaternion_signs_as_equivalent(self, evaluator):
+    outputs = [
+      {"timestamp": "2024-01-01T00:00:00.000Z", "objects": [
+        {"id": "track-A", "rotation": [0.0, 0.0, 0.0, 1.0]}]},
+      {"timestamp": "2024-01-01T00:00:00.033Z", "objects": [
+        {"id": "track-A", "rotation": [0.0, 0.0, 0.0, -1.0]}]},
+    ]
+    evaluator.configure_metrics(['rms_angular_displacement'])
+    evaluator.process_tracker_outputs(outputs, ground_truth=None)
+
+    metrics = evaluator.evaluate_metrics()
+
+    assert metrics['rms_angular_displacement'] == pytest.approx(0.0)
+
+  @pytest.mark.parametrize("rotation", [
+    [0.0, 0.0, 1.0],
+    [0.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0, float('nan')],
+    ["invalid", 0.0, 0.0, 1.0],
+  ])
+  def test_rms_angular_displacement_skips_invalid_rotation(self, evaluator, rotation):
+    outputs = [
+      {"timestamp": "2024-01-01T00:00:00.000Z", "objects": [
+        {"id": "track-A", "rotation": [0.0, 0.0, 0.0, 1.0]}]},
+      {"timestamp": "2024-01-01T00:00:00.033Z", "objects": [
+        {"id": "track-A", "rotation": rotation}]},
+    ]
+    evaluator.configure_metrics(['rms_angular_displacement'])
+    evaluator.process_tracker_outputs(outputs, ground_truth=None)
+
+    metrics = evaluator.evaluate_metrics()
+
+    assert metrics['rms_angular_displacement'] == 0.0
+
+  def test_rms_angular_displacement_returns_zero_without_rotations(
+    self, evaluator, mock_tracker_outputs
+  ):
+    evaluator.configure_metrics(['rms_angular_displacement'])
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
+
+    metrics = evaluator.evaluate_metrics()
+
+    assert metrics['rms_angular_displacement'] == 0.0
 
   def test_both_metrics_together(self, evaluator, mock_tracker_outputs):
     evaluator.configure_metrics(['rms_jerk', 'acceleration_variance'])

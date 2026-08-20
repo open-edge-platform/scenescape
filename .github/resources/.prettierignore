@@ -6,6 +6,13 @@
 **/.reuse/templates/template.jinja2
 .venv
 
+# Agent plan drafts (not product formatting surface)
+# This ignore file lives in .github/resources/, so plans is ../plans/.
+../plans/
+
+# Agent skills use compact Markdown tables to avoid unnecessary context tokens.
+../skills/
+
 # Build directories (CMake/Conan generated)
 **/build/
 **/build-*/

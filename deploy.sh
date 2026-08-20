@@ -192,7 +192,12 @@ echo Building Scenescape
 echo '########################################'
 
 make -C docs clean
-make CERTPASS="${CERTPASS}" DBPASS="${DBPASS}"
+
+if [ "${KUBERNETES}" = "1" ] ; then
+    make init-secrets build-core-images CERTPASS="${CERTPASS}" DBPASS="${DBPASS}"
+else
+    make CERTPASS="${CERTPASS}" DBPASS="${DBPASS}"
+fi
 
 if manager/tools/upgrade-database --check ; then
     UPGRADEDB=0

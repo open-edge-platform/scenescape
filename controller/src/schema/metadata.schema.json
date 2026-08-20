@@ -278,6 +278,169 @@
       "description": "MAC address of system that acquired the data.",
       "examples": ["AB:CD:EF:12:34:56", "ab-cd-ef-12-34-56"]
     },
+    "external_detection": {
+      "type": "object",
+      "title": "External Source Object Observation",
+      "description": "An object observed by an external source (physical agent or child scene), expressed in the source's local coordinate frame. Unlike camera detections, size is optional: a source that cannot estimate an object's extent may report a point observation.",
+      "additionalProperties": true,
+      "meta:extensible": true,
+      "properties": {
+        "translation": {
+          "title": "Translation",
+          "type": "array",
+          "description": "Position of the object relative to the source's local origin (x, y, z).",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rotation": {
+          "title": "Rotation",
+          "type": "array",
+          "description": "Rotation of the object in quaternion (x, y, z, w).",
+          "items": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "size": {
+          "title": "Size",
+          "type": "array",
+          "description": "Size of the object (x, y, z). Optional; omit for a point observation with no known extent.",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "category": {
+          "title": "Category",
+          "type": "string",
+          "description": "Category or class of the observed object.",
+          "examples": ["person", "vehicle", "object"]
+        },
+        "confidence": {
+          "title": "Confidence",
+          "type": "number",
+          "description": "Source-reported confidence for this observation.",
+          "examples": [0.899463546, 0.93243],
+          "exclusiveMinimum": 0.0
+        },
+        "id": {
+          "title": "Source-Local Object ID",
+          "type": "string",
+          "description": "Identifier the source uses to correlate this observation across messages. Not a Scenescape global ID; the controller does not map or look up this value, it is used only as the observation's local reference."
+        },
+        "metadata": {
+          "$ref": "#/definitions/semantic_metadata",
+          "description": "Semantic metadata describing what an object is (age, gender, clothing, embedding vectors, etc)."
+        }
+      },
+      "required": ["category", "translation", "id"]
+    },
+    "external_pose": {
+      "type": "object",
+      "title": "External Source Pose",
+      "description": "Pose of an external source's local origin, used to transform its object observations into the target scene's coordinate frame.",
+      "additionalProperties": false,
+      "properties": {
+        "reference_frame": {
+          "title": "Reference Frame",
+          "type": "string",
+          "description": "Frame the pose is expressed in. 'wgs84' is a global position, only resolvable when the target scene has valid geospatial calibration. 'scene' is a pose already expressed in the target scene's local coordinates and is only accepted from authorized positioning-service publishers.",
+          "enum": ["wgs84", "scene"]
+        },
+        "lat_long_alt": {
+          "title": "Latitude, Longitude, Altitude",
+          "type": "array",
+          "description": "Global position of the source's local origin (latitude, longitude, altitude in meters). Required when reference_frame is 'wgs84'.",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "translation": {
+          "title": "Translation",
+          "type": "array",
+          "description": "Position of the source's local origin in scene-local coordinates (x, y, z). Required when reference_frame is 'scene'.",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rotation": {
+          "title": "Rotation",
+          "type": "array",
+          "description": "Orientation of the source's local origin, as a quaternion (x, y, z, w).",
+          "items": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "position_accuracy_m": {
+          "title": "Position Accuracy",
+          "type": "number",
+          "description": "Estimated accuracy of the reported position in meters, if known.",
+          "exclusiveMinimum": 0.0
+        },
+        "provider": {
+          "title": "Pose Provider",
+          "type": "string",
+          "description": "Informational label for what produced this pose (e.g. 'agent', 'positioning_service'). Not used for authorization.",
+          "examples": ["agent", "positioning_service"]
+        }
+      },
+      "required": ["reference_frame"],
+      "if": {
+        "properties": { "reference_frame": { "const": "wgs84" } }
+      },
+      "then": {
+        "required": ["lat_long_alt"]
+      },
+      "else": {
+        "required": ["translation"]
+      }
+    },
+    "external_source": {
+      "title": "External Source Metadata",
+      "description": "Unified contract for object observations published by external sources (physical agents such as drones or vehicles, and the Scenescape positioning service) under scenescape/external/{publisher_id}/{thing_type}, where publisher_id matches source_id. Scene membership is via consumer-side binding.",
+      "type": "object",
+      "additionalProperties": true,
+      "meta:extensible": true,
+      "properties": {
+        "timestamp": {
+          "$ref": "#/definitions/timestamp"
+        },
+        "source_id": {
+          "title": "Source ID",
+          "type": "string",
+          "description": "Identifier of the publishing source; must match the topic publisher_id segment. Combined with the bound scene uid to key the source's pose cache."
+        },
+        "pose": {
+          "$ref": "#/definitions/external_pose",
+          "description": "Pose of the source's local origin, for transforming 'objects' into the target scene. May be omitted to reuse the most recently cached, non-expired pose for this source_id."
+        },
+        "objects": {
+          "title": "Observed Objects",
+          "type": "array",
+          "description": "Objects observed by this source, in its local coordinate frame. May be empty when a message only updates the source's pose.",
+          "items": {
+            "$ref": "#/definitions/external_detection"
+          }
+        }
+      },
+      "required": ["timestamp", "source_id", "objects"]
+    },
     "singleton": {
       "title": "Sensor Metadata",
       "description": "Many types of sensors exist for generating data from the physical world. This schema defines the composition of metadata for publishing sensor data into Scenescape.",
@@ -344,6 +507,9 @@
     },
     "detector": {
       "$ref": "#/definitions/detector"
+    },
+    "external_source": {
+      "$ref": "#/definitions/external_source"
     }
   },
   "additionalProperties": true,

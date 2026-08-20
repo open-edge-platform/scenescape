@@ -10,8 +10,8 @@ import numpy as np
 from unittest.mock import MagicMock, patch
 
 from controller.qdrant_adapter import QdrantDatabase
-from controller.reid import ReIDDatabase
-from controller.reid_constants import SCHEMA_NAME
+from controller.reid import ReIDDatabase, ReidNoValidVectorsError
+from scene_common.reid_constants import SCHEMA_NAME
 
 
 class TestQdrantDatabaseInterface:
@@ -132,6 +132,28 @@ class TestQdrantDataOperations:
     assert len(points) == 1
     assert points[0].payload["uuid"] == "uuid-1"
     assert points[0].payload["type"] == "person"
+
+  def test_add_entry_reraises_upsert_failure(self):
+    """Upsert errors must propagate so hierarchy write-health can clear."""
+    db = QdrantDatabase(dimensions=4)
+    db.client = MagicMock()
+    db.connected = True
+    db.client.upsert.side_effect = RuntimeError("qdrant unavailable")
+    vector = np.array([0.1, 0.2, 0.3, 0.4], dtype="float32")
+
+    with pytest.raises(RuntimeError, match="qdrant unavailable"):
+      db.addEntry("uuid-1", "track-1", "person", [vector])
+
+  def test_add_entry_raises_when_no_valid_vectors(self):
+    """Empty prepared batches must raise ReidNoValidVectorsError (non-sticky)."""
+    db = QdrantDatabase(dimensions=4)
+    db.client = MagicMock()
+    db.connected = True
+    wrong = np.array([0.1, 0.2], dtype="float32")
+
+    with pytest.raises(ReidNoValidVectorsError, match="No valid vectors"):
+      db.addEntry("uuid-1", "track-1", "person", [wrong])
+    db.client.upsert.assert_not_called()
 
   def test_get_persisted_attributes_uses_ordered_scroll(self):
     db = QdrantDatabase()
