@@ -208,6 +208,26 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
   },
 )
 
+REID_NO_VIDEO = ServiceProfile(
+  name="reid_no_video",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-vdms.yml",
+    f"{COMPOSE}/compose-scene_reid.yml",
+    f"{COMPOSE}/compose-web_default.yml",
+  ),
+  wait_for={
+    "broker": _BROKER,
+    "ntpserv": WaitConfig(),
+    "pgserver": _PGSERVER,
+    "vdms": WaitConfig(),
+    "web": _WEB,
+    "scene": _SCENE,
+  },
+)
+
 REID = ServiceProfile(
   name="reid",
   compose_files=(

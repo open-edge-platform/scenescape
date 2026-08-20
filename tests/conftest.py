@@ -21,6 +21,7 @@ import re
 import socket
 import subprocess
 import sys
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -308,6 +309,7 @@ def params(request, scenescape_env):
     'scene_name': request.config.getoption('--scene_name'),
     'expect_exceed_max': request.config.getoption('--expect_exceed_max'),
   }
+
 
 def _is_final_test(node):
   """True when *node* is the last collected test of the session."""
