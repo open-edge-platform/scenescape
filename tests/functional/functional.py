@@ -105,8 +105,9 @@ class FunctionalTest(Diagnostic):
     return locations
 
   def getScene(self):
-    res = self.rest.getScenes({'id': self.params['scene_id']})
-    assert res['results'], ("Scene does not exist", self.params['scene_id'], res.statusCode, res.errors)
+    scene_id = getattr(self, 'sceneUID', None) or self.params['scene_id']
+    res = self.rest.getScenes({'id': scene_id})
+    assert res['results'], ("Scene does not exist", scene_id, res.statusCode, res.errors)
     return
 
   def sceneScapeReady(self, max_attempts, controller_wait):
@@ -114,12 +115,13 @@ class FunctionalTest(Diagnostic):
     ready = None
     frameRate = 10
     objData = self.objData()
+    scene_id = getattr(self, 'sceneUID', None) or self.params['scene_id']
 
     self.pubsub = PubSub(self.params['auth'], None, self.params['rootcert'],
                          self.params['broker_url'],
                          port=int(self.params['broker_port']))
     waitTopic = PubSub.formatTopic(PubSub.DATA_SCENE,
-                                   scene_id=self.params['scene_id'], thing_type="person")
+                                   scene_id=scene_id, thing_type="person")
     publishTopic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=objData['id'])
     self.pubsub.connect()
     self.pubsub.loopStart()

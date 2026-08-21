@@ -78,6 +78,7 @@ def test_camera_intrinsics_main(params, record_xml_attribute):
   record_xml_attribute("name", TEST_NAME)
   exit_code = 1
 
+  browser = None
   try:
     log.info("Executing: " + TEST_NAME)
     browser = Browser()
@@ -94,7 +95,8 @@ def test_camera_intrinsics_main(params, record_xml_attribute):
     exit_code = 0
 
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0

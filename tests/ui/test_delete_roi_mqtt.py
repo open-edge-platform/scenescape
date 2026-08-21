@@ -61,6 +61,7 @@ def test_roi_mqtt(params, record_xml_attribute):
   rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
   assert rest.authenticate(params['user'], params['password'])
 
+  browser = None
   try:
     client = PubSub(params['auth'], None, params['rootcert'],
                     params['broker_url'], params['broker_port'])
@@ -121,7 +122,8 @@ def test_roi_mqtt(params, record_xml_attribute):
       print("Failed to connect!")
 
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0

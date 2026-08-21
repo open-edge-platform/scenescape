@@ -102,9 +102,11 @@ class RetrackTest:
     self.child_id = child_scene['uid']
     log.info(f"Using Demo as child scene: {self.child_id}")
 
-    res = rest_client.updateScene(self.child_id, {'parent': self.parent_id})
-    assert res.statusCode == 200, \
-      f"Failed to link child to parent: {res.statusCode}"
+    def _link():
+      res = rest_client.updateScene(self.child_id, {'parent': self.parent_id})
+      assert res.statusCode == 200, \
+        f"Failed to link child to parent: {res.statusCode}"
+    self._await_db_notification(_link)
 
     child_links = rest_client.getChildScene({'parent': self.parent_id})
     assert child_links.statusCode == 200 and child_links['count'] == 1, \
