@@ -109,35 +109,39 @@ curl -sk -X POST https://localhost/api/v1/scene \
 
 ### Automated camera registration with `camera.json`
 
-When a pre-calibrated `camera.json` file is provided, batch-register the cameras via REST API instead of requiring manual UI calibration:
+When a pre-calibrated `camera.json` file is provided, use
+`scripts/register_cameras.py` to batch-register the cameras via REST instead of requiring manual
+UI calibration. It auto-detects the per-camera identifier key (`sensor_id`/`uid`/`name`/`id`),
+auto-detects euler vs quaternion rotation (the manager API converts quaternion → euler
+server-side), and auto-deletes orphaned (scene=None) cameras that collide with a name being
+registered (a retry after any prior failed attempt would otherwise 400 with "orphaned camera with
+the name ... already exists").
 
-```python
-import json, requests
-
-with open('<path_to_camera.json>') as f:
-    cameras = json.load(f)
-
-for cam in cameras:
-    payload = {
-        "name": cam.get("name", cam["sensor_id"]),
-        "sensor_id": cam["sensor_id"],
-        "scene": "<scene_uid>",
-        "transform_type": "quaternion",
-        "translation": cam["translation"],
-        "rotation": cam["rotation"],
-        "scale": cam.get("scale", [1.0, 1.0, 1.0]),
-        "intrinsics": cam["intrinsics"]
-    }
-    resp = requests.post(
-        "https://localhost/api/v1/camera",
-        headers={"Authorization": f"Token {TOKEN}", "Content-Type": "application/json"},
-        json=payload,
-        verify=False
-    )
-    print(f"Registered {cam['sensor_id']}: {resp.status_code}")
+```bash
+python3 "$SKILL_DIR/scripts/register_cameras.py" \
+  --deploy-dir <deploy_dir> \
+  --scene-uid <scene_uid> \
+  --camera-json <path_to_camera.json> \
+  --camera-ids <id> [<id> ...]
 ```
 
-Once registered via REST API, you can immediately verify tracking:
+`--camera-ids` (the deployed camera_ids) is optional but recommended: with it, the script
+validates every camera.json identifier resolves to a known camera_id and refuses to guess. If an
+identifier doesn't match (case-insensitively) — e.g. the JSON names a camera `FrontView_L2` but
+the deployed `camera_id` is `rearview_l` — it exits with the exact `--camera-map` flags needed:
+
+```bash
+python3 "$SKILL_DIR/scripts/register_cameras.py" \
+  --deploy-dir <deploy_dir> \
+  --scene-uid <scene_uid> \
+  --camera-json <path_to_camera.json> \
+  --camera-map 'FrontView_L2=rearview_l' 'FrontView_R2=rearview_r' ...
+```
+
+Never guess this mapping yourself from filenames alone — confirm it with the user first, the same
+way an ambiguous `camera_id`/stream change requires confirmation in Step 1.
+
+Once registered, verify tracking:
 
 ```bash
 bash "$SKILL_DIR/scripts/verify_tracking.sh" <deploy_dir> <scene_uid> 120
