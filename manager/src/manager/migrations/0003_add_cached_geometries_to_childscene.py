@@ -7,7 +7,8 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
   dependencies = [
-    ('manager', '0001_initial'),
+    ('manager', '0002_region_visible_singletonsensor_visible_and_more'),
+
   ]
 
   operations = [
