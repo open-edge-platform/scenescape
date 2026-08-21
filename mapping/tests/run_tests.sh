@@ -28,7 +28,7 @@ fi
 # Check if pytest is installed
 if ! command -v pytest &> /dev/null; then
     echo -e "${YELLOW}pytest not found. Installing test dependencies...${NC}"
-    pip install -r requirements-test.txt
+    pip install -q pytest pytest-cov pytest-mock
     echo -e "${GREEN}Test dependencies installed.${NC}"
     echo ""
 fi
