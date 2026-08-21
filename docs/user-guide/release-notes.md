@@ -20,7 +20,7 @@
 - LiDAR Support:
   - Added point-cloud based localization in Auto Calibration Service
   - Added example deployment showcasing usage of LiDARs + Cameras with Intel® Scenescape
-- **Model Downloader:** Switched from Intel® Scenescape-specific model installer to [Intel Model Download Microservice](https://hub.docker.com/r/intel/model-download)
+- Model Download service integration: Switched from Intel® Scenescape-specific model installer to [Intel Model Download Microservice](https://hub.docker.com/r/intel/model-download)
 - Analytics pipeline improvements: Migrated old gvapython-based scripts to custom GStreamer Elements
 - Added support for multi-camera object metadata fusion in time-chunking
 - Tracker Evaluation Pipeline:
