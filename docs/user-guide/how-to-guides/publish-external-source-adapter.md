@@ -189,7 +189,7 @@ or certificates in the converter. Topic path uses `SOURCE_ID`; optional
    [Pose Caching and Message Ordering](../microservices/controller/data_formats.md#pose-caching-and-message-ordering).
 
 End-to-end MQTT coverage that exercises this path lives in
-[`tests/functional/test_external_source_ingest.py`](https://github.com/open-edge-platform/scenescape/blob/main/tests/functional/test_external_source_ingest.py).
+[`tests/functional/test_external_source_ingest.py`](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/tests/functional/test_external_source_ingest.py).
 
 ## Out of Scope
 
