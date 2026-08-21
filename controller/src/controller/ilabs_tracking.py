@@ -141,6 +141,7 @@ class IntelLabsTracking(Tracking):
     rv_object.z = pt.z
     # length is mapped to x, width is mapped to y and height is to z if intel labs tracker
     size = sscape_object.size if sscape_object.size else [DEFAULT_EDGE_LENGTH] * 3
+    size = [max(0.01, abs(float(component))) for component in size]
     rv_object.length = size[0]
     rv_object.width = size[1]
     rv_object.height = size[2]

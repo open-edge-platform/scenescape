@@ -70,6 +70,11 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
   if not velocity.is3D:
     velocity = Point(velocity.x, velocity.y, DEFAULTZ)
 
+  raw_size = aobj.size if aobj.size is not None else [1.0, 1.0, 1.0]
+  # Analytics rejects size components < 0. Ground-plane projection from a
+  # handheld pose can produce a negative height; keep magnitude so tracks publish.
+  size = [max(0.01, abs(float(component))) for component in raw_size]
+
   # Build a fresh top-level dict per serialization so optional fields like
   # sensors do not leak between scene, regulated, and external outputs.
   obj_dict = dict(aobj.info or {})
@@ -77,7 +82,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
     'id': aobj.gid, # gid is the global ID - computed by Scenescape server.
     'type': otype,
     'translation': scene_loc_vector,
-    'size': aobj.size,
+    'size': size,
     'velocity': velocity.asCartesianVector
   })
 

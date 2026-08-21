@@ -118,6 +118,13 @@ def test_visible(scene_obj, camera_obj, detectionType, jdata, when):
      'bounding_box': {'x': 1.5, 'y': 2.5, 'width': 0.06, 'height': 0.09}}
   ]),
 
+  # Depth detections keep pixel boxes (converted later via distance)
+  ([
+    {'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80}, 'distance': 2.4,
+     'category': 'chair'},
+    {'bounding_box_px': {'x': 150, 'y': 250, 'width': 60, 'height': 90}, 'category': 'person'}
+  ]),
+
   # Object with sub_detections having bounding_box (should be ignored)
   ([{
     'bounding_box_px': {'x': 100, 'y': 200, 'width': 50, 'height': 80},
@@ -153,6 +160,9 @@ def test_convert_pixel_bbox(scene_obj, objects):
 
 def assert_bounding_box(obj, original_obj):
   """Helper function to assert the presence and immutability of bounding box fields."""
+  if original_obj.get('distance') is not None:
+    assert 'bounding_box' not in obj, f"Depth detection should keep pixel boxes: {obj}"
+    return
   if 'bounding_box' in original_obj:
     # Assert that the bounding_box was not changed
     assert obj['bounding_box'] == original_obj['bounding_box'], f"Bounding box was modified for object: {obj}"

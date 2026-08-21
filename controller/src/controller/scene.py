@@ -260,8 +260,11 @@ class Scene(SceneModel):
     bbox_mappings = []  # Track which bbox corresponds to which object/sub_detection
 
     for obj_idx, obj in enumerate(objects):
-      # Check main object bounding box
-      if 'bounding_box' not in obj and 'bounding_box_px' in obj:
+      # Handheld (and other depth) detections include `distance`. Keep pixel
+      # boxes so MovingObject can lift them into camera 3D with that depth.
+      # Flattening to the meter-plane first discards depth and projects to the
+      # ground, which yields invalid size/placement for a moving camera.
+      if obj.get('distance') is None and 'bounding_box' not in obj and 'bounding_box_px' in obj:
         bbox_px = obj['bounding_box_px']
         bboxes_to_convert.append((bbox_px['x'], bbox_px['y'], bbox_px['width'], bbox_px['height']))
         bbox_mappings.append(('main', obj_idx, None, None))
@@ -269,7 +272,7 @@ class Scene(SceneModel):
       # Check sub_detections bounding boxes
       for key in obj.get('sub_detections', []):
         for sub_idx, sub_obj in enumerate(obj[key]):
-          if 'bounding_box' not in sub_obj and 'bounding_box_px' in sub_obj:
+          if sub_obj.get('distance') is None and 'bounding_box' not in sub_obj and 'bounding_box_px' in sub_obj:
             bbox_px = sub_obj['bounding_box_px']
             bboxes_to_convert.append((bbox_px['x'], bbox_px['y'], bbox_px['width'], bbox_px['height']))
             bbox_mappings.append(('sub', obj_idx, key, sub_idx))
