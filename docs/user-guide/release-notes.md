@@ -16,6 +16,7 @@
   - Added Qdrant vector database as a ReID backend
   - Added persistent attribute restoration on ReID match
   - Added support for publishing external observations over MQTT, designed for supporting moving sensors, autonomous physical agents and ephemeral child scenes via a unified approach
+  - Added server-side eviction of expired VDMS descriptors preventing unbounded storage growth
 - LiDAR Support:
   - Added point-cloud based localization in Auto Calibration Service
   - Added example deployment showcasing usage of LiDARs + Cameras with Intel® Scenescape
