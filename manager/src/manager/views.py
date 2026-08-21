@@ -815,6 +815,10 @@ def getAllChildrenMetaData(scene_id):
 
     elif c.child_type == "remote":
       current_child_name = c.child_name
+      for region in (c.cached_rois or []):
+        region = dict(region)
+        region['from_child_scene'] = current_child_name
+        child_rois.append(applyChildTransform(region, c.cameraPose))
       for tripwire in (c.cached_tripwires or []):
         tripwire = dict(tripwire)
         tripwire['from_child_scene'] = current_child_name

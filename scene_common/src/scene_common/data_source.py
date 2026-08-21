@@ -38,6 +38,9 @@ class RestSceneDataSource(SceneDataSource):
   def getTripwires(self, filter):
     return self.rest.getTripwires(filter)
 
+  def getRegions(self, filter):
+    return self.rest.getRegions(filter)
+
   def getTripwire(self, uid):
     return self.rest.getTripwire(uid)
 

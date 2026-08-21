@@ -1004,11 +1004,12 @@ class ChildSceneSerializer(NonNullSerializer):
     is_update = instance is not None
     parent_scene = validated_data.get('parent')
 
-    if is_update and set(validated_data.keys()) == {'cached_tripwires'}:
-      ChildScene.objects.filter(pk=instance.pk).update(
-        cached_tripwires=validated_data['cached_tripwires']
-      )
-      instance.cached_tripwires = validated_data['cached_tripwires']
+    cache_fields = {'cached_tripwires', 'cached_rois'}
+    if is_update and set(validated_data.keys()).issubset(cache_fields):
+      update_values = {k: validated_data[k] for k in validated_data.keys()}
+      ChildScene.objects.filter(pk=instance.pk).update(**update_values)
+      for key, value in update_values.items():
+        setattr(instance, key, value)
       return instance
 
     # For partial updates, inherit current type from instance
@@ -1047,7 +1048,7 @@ class ChildSceneSerializer(NonNullSerializer):
     fields = ['uid', 'child_type', 'transform', 'name', 'remote_child_id', \
           'child', 'parent', 'host_name', 'child_name', \
           'mqtt_username', 'mqtt_password', 'retrack', 'transform_type', \
-          'cached_tripwires', \
+          'cached_rois', 'cached_tripwires', \
           'transform1', 'transform2', 'transform3', 'transform4', \
           'transform5', 'transform6', 'transform7', 'transform8', \
           'transform9', 'transform10', 'transform11', 'transform12', \
