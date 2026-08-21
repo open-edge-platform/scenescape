@@ -22,9 +22,21 @@ DEFAULT_CONFIDENCE_THRESHOLD = 0.8
 DEFAULT_CA_CERT = "/run/secrets/certs/scenescape-ca.pem"
 DEFAULT_CLIENT_CERT = "/run/secrets/certs/scenescape-reid.crt"
 DEFAULT_CLIENT_KEY = "/run/secrets/certs/scenescape-reid.key"
+# Descriptor lifetime in seconds (0 disables retention). 86400 = 24 hours.
+DEFAULT_DESCRIPTOR_TTL_SECS = int(
+    os.getenv("DEFAULT_DESCRIPTOR_TTL_SECS", "86400")
+)
+
+# How often the controller asks the active backend to purge expired descriptors.
+DEFAULT_PURGE_INTERVAL_SECS = int(
+    os.getenv("DEFAULT_PURGE_INTERVAL_SECS", "300")
+)
 
 PORT_RANGE = (1, 65535)
 CONFIDENCE_THRESHOLD_RANGE = (0.0, 1.0)
+# Upper bound is generous (about 10 years) so operators can tune long-lived demos.
+DESCRIPTOR_TTL_RANGE = (0, 315360000)
+PURGE_INTERVAL_RANGE = (1, 86400)
 
 _TRUE_VALUES = ("1", "true", "yes", "on")
 _FALSE_VALUES = ("0", "false", "no", "off")
@@ -167,3 +179,17 @@ def get_reid_client_cert():
 def get_reid_client_key():
   """Return client key path for mTLS backends."""
   return _env_value("REID_CLIENT_KEY", DEFAULT_CLIENT_KEY)
+
+
+def get_reid_descriptor_ttl_secs():
+  """Return descriptor time-to-live in seconds (0 disables retention)."""
+  return _env_int(
+    "REID_DESCRIPTOR_TTL_SECS", DEFAULT_DESCRIPTOR_TTL_SECS,
+    DESCRIPTOR_TTL_RANGE)
+
+
+def get_reid_purge_interval_secs():
+  """Return how often the controller triggers backend purgeExpired()."""
+  return _env_int(
+    "REID_PURGE_INTERVAL_SECS", DEFAULT_PURGE_INTERVAL_SECS,
+    PURGE_INTERVAL_RANGE)

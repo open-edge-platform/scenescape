@@ -50,4 +50,7 @@ services:
         target: certs/scenescape-reid.crt
       - django
       - controller.auth
+    environment:
+      - REID_DESCRIPTOR_TTL_SECS=300
+      - REID_PURGE_INTERVAL_SECS=300
     restart: on-failure
