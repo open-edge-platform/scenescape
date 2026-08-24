@@ -5,8 +5,12 @@
 """
 Dual-stream publisher for the LiDAR-intersection fusion demo (LIDAR_DEMO=true).
 
-Runs two independent GStreamer pipelines as separate gst-launch-1.0
-subprocesses:
+Runs a single gst-launch-1.0 process containing two independent chains (no
+gvastreammux/gvastreamdemux - just two disjoint branches in one pipeline
+string), so both read frames from the same wall-clock/process the same way
+A's reference implementation did - this keeps the LiDAR and camera frame
+sequences moving in lockstep instead of drifting apart the way two separate
+subprocesses with independent GStreamer clocks would:
 
   LiDAR:   multifilesrc (.bin frames) -> g3dlidarparse -> g3dinference
              (PointPillars) -> gvametaconvert -> gvametapublish (FIFO)
@@ -24,9 +28,15 @@ exactly like any other pair of SceneScape camera/lidar sensors.
 LiDAR-to-scene coordinate transform: (-y, -x, z) axis swap. Z is forced to 0
 to keep objects on the ground plane; the Scene Controller adds the sensor's
 own pose translation (from the scene config) to get the final world position.
+
+The camera branch also answers the Manager UI's "getimage" request
+(scenescape/cmd/camera/<CAM_SENSOR_ID> -> scenescape/image/camera/<CAM_SENSOR_ID>)
+so the camera shows as online with a live preview, matching the standard
+retail/queuing pipelines' behavior.
 """
 
 import atexit
+import base64
 import json
 import math
 import os
@@ -50,7 +60,11 @@ LIDAR_SENSOR_ID   = os.environ.get("LIDAR_SENSOR_ID", "intersection-lidar1")
 LIDAR_DATA_PATH   = os.environ.get("LIDAR_DATA_PATH", "/home/pipeline-server/videos/lidar_intersection/velodyne_bin/%06d.bin")
 LIDAR_START_INDEX = int(os.environ.get("LIDAR_START_INDEX", "010699"))
 _LIDAR_STOP_RAW   = os.environ.get("LIDAR_STOP_INDEX")
-LIDAR_STOP_INDEX  = int(_LIDAR_STOP_RAW.strip()) if _LIDAR_STOP_RAW and _LIDAR_STOP_RAW.strip() else None
+# Default matches the shipped sample_data/lidar_intersection/*.tar.gz frame
+# range (010699-010949). An explicit bound (rather than relying on gst's own
+# file-not-found loop detection) keeps the getimage preview's frame-index
+# tracking below from drifting past the last real frame.
+LIDAR_STOP_INDEX  = int(_LIDAR_STOP_RAW.strip()) if _LIDAR_STOP_RAW and _LIDAR_STOP_RAW.strip() else 10949
 LIDAR_LOOP        = os.environ.get("LIDAR_LOOP", "true").lower() not in ("0", "false", "no")
 LIDAR_FRAME_RATE  = int(os.environ.get("LIDAR_FRAME_RATE", "10"))
 LIDAR_SCORE_THRESHOLD = float(os.environ.get("LIDAR_SCORE_THRESHOLD", "0.7"))
@@ -213,6 +227,9 @@ def build_lidar_message(raw: dict, gst_to_wall, fps: float) -> dict:
         "translation": [sx, sy, sz],
         "size":        [bbox.get("l", 0.0), bbox.get("w", 0.0), bbox.get("h", 0.0)],
         "rotation":    bbox3d_to_quaternion(float(bbox["yaw"])),
+        # Debug aid: lets the UI (marks.js/assetmanager.js) show which sensor
+        # produced this detection before fusion combines them.
+        "source":      "lidar",
       })
     except (TypeError, ValueError):
       continue
@@ -246,6 +263,7 @@ def build_camera_message(raw: dict, gst_to_wall, fps: float) -> dict:
           "width":  item["w"],
           "height": item["h"],
         },
+        "source":          "camera",
       })
     except (KeyError, TypeError):
       continue
@@ -308,6 +326,51 @@ def safe_publish(client: mqtt.Client, client_prefix: str, topic: str, payload: s
   return client
 
 
+def _encode_frame_as_png_b64(path: str) -> "str | None":
+  """Read an image file and re-encode it as base64 PNG (the format the
+  Manager UI's "getimage" preview expects). Returns None on any failure.
+  """
+  try:
+    import cv2
+    img = cv2.imread(path)
+    if img is None:
+      return None
+    ok, buf = cv2.imencode(".png", img)
+    if not ok:
+      return None
+    return base64.b64encode(buf.tobytes()).decode("ascii")
+  except Exception as exc:
+    print(f"[camera-publisher] Failed to encode preview frame {path}: {exc}", flush=True)
+    return None
+
+
+def setup_getimage_responder(
+  client: mqtt.Client, sensor_id: str, data_path: str, frame_index_cell: list, start_index: int,
+) -> None:
+  """Answer the Manager UI's "getimage" command (scenescape/cmd/camera/<id>)
+  with the most recently processed frame on scenescape/image/camera/<id>, so
+  the camera shows online with a live preview instead of "offline".
+
+  Falls back to `start_index` if the tracked index has run past the last
+  recorded frame file (e.g. no CAM_STOP_INDEX set - the exact wraparound
+  point is only known to gst-launch's own multifilesrc, not this script).
+  """
+  image_topic = f"scenescape/image/camera/{sensor_id}"
+
+  def _on_message(msg_client, _userdata, message):
+    if message.payload.decode("utf-8", errors="replace").strip() != "getimage":
+      return
+    idx = frame_index_cell[0]
+    if idx is None:
+      return
+    b64 = _encode_frame_as_png_b64(data_path % idx) or _encode_frame_as_png_b64(data_path % start_index)
+    if b64 is not None:
+      msg_client.publish(image_topic, json.dumps({"image": b64}), qos=0)
+
+  client.subscribe(f"scenescape/cmd/camera/{sensor_id}")
+  client.on_message = _on_message
+
+
 # ── FIFO helpers ───────────────────────────────────────────────────────────────
 
 def _make_fifo(path: str) -> None:
@@ -328,41 +391,35 @@ def _open_fifo_background(path: str, result: list) -> threading.Thread:
 
 def run_stream(
   name: str,
-  pipeline_cmd: str,
+  proc: subprocess.Popen,
   fifo_path: str,
   topic: str,
   publish_raw: bool,
   raw_topic: str,
   frame_rate: float,
   build_message,
+  image_preview: "dict | None" = None,
 ) -> None:
-  """Start a gst-launch-1.0 pipeline, read its FIFO output, and publish each
-  frame's detections to MQTT. Runs until the pipeline exits or errors.
+  """Read `proc`'s (already running, shared with the sibling stream) FIFO
+  output, and publish each frame's detections to MQTT. Runs until the shared
+  pipeline exits or errors.
+
+  `image_preview`, if given, enables the "getimage" preview responder:
+  {"sensor_id": str, "data_path": str, "start_index": int,
+   "stop_index": int | None, "loop": bool}.
   """
-  print(f"[{name}] Starting pipeline: {pipeline_cmd}", flush=True)
-  _make_fifo(fifo_path)
-
-  proc = subprocess.Popen(shlex.split(pipeline_cmd), stderr=sys.stderr)
-  print(f"[{name}] Pipeline started (pid={proc.pid})", flush=True)
-
   fifo_result: list = [None]
   fifo_thread = _open_fifo_background(fifo_path, fifo_result)
 
   client = connect_mqtt(name)
   gst_to_wall = make_gst_to_wall()
 
-  @atexit.register
-  def _cleanup():
-    if proc.poll() is None:
-      proc.terminate()
-      try:
-        proc.wait(timeout=5)
-      except subprocess.TimeoutExpired:
-        proc.kill()
-    try:
-      os.remove(fifo_path)
-    except FileNotFoundError:
-      pass
+  frame_index_cell = [None]
+  if image_preview is not None:
+    setup_getimage_responder(
+      client, image_preview["sensor_id"], image_preview["data_path"], frame_index_cell,
+      image_preview["start_index"],
+    )
 
   fifo_thread.join(timeout=30.0)
   if fifo_result[0] is None:
@@ -401,23 +458,24 @@ def run_stream(
       if publish_raw:
         client = safe_publish(client, name, raw_topic, line)
 
+      if image_preview is not None:
+        start = image_preview["start_index"]
+        stop = image_preview["stop_index"]
+        span = (stop - start + 1) if (stop is not None and image_preview["loop"]) else None
+        frame_index_cell[0] = start + (published % span if span else published)
+
       published += 1
       if published % 100 == 0:
         counts = {k: len(v) for k, v in msg["objects"].items()}
         print(f"[{name}] frames={published} fps={fps:.1f} objects={counts}", flush=True)
 
   print(f"[{name}] Done - published {published} frames", flush=True)
-  try:
-    proc.wait(timeout=10)
-  except subprocess.TimeoutExpired:
-    proc.terminate()
 
 
 # ── Pipeline builders ──────────────────────────────────────────────────────────
 
-def _build_lidar_pipeline() -> str:
+def _lidar_chain_parts() -> list:
   parts = [
-    "gst-launch-1.0",
     f"multifilesrc location={shlex.quote(LIDAR_DATA_PATH)} start-index={LIDAR_START_INDEX}",
   ]
   if LIDAR_STOP_INDEX is not None:
@@ -434,12 +492,11 @@ def _build_lidar_pipeline() -> str:
     f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(LIDAR_FIFO)}",
     "! fakesink sync=false",
   ]
-  return " ".join(parts)
+  return parts
 
 
-def _build_camera_pipeline() -> str:
+def _camera_chain_parts() -> list:
   parts = [
-    "gst-launch-1.0",
     f"multifilesrc location={shlex.quote(CAM_DATA_PATH)} start-index={CAM_START_INDEX}",
   ]
   if CAM_STOP_INDEX is not None:
@@ -460,7 +517,16 @@ def _build_camera_pipeline() -> str:
     f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(CAM_FIFO)}",
     "! fakesink sync=false",
   ]
-  return " ".join(parts)
+  return parts
+
+
+def _build_combined_pipeline() -> str:
+  """Both chains as independent branches inside ONE gst-launch-1.0 invocation
+  (no gvastreammux/gvastreamdemux - they share nothing but the process/clock).
+  Keeps the LiDAR and camera frame sequences moving in lockstep instead of
+  drifting apart the way two separate gst-launch subprocesses would.
+  """
+  return " ".join(["gst-launch-1.0"] + _camera_chain_parts() + _lidar_chain_parts())
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -473,30 +539,64 @@ def main() -> None:
     flush=True,
   )
 
+  _make_fifo(CAM_FIFO)
+  _make_fifo(LIDAR_FIFO)
+
+  pipeline_cmd = _build_combined_pipeline()
+  print(f"[lidar-publisher] Starting combined pipeline: {pipeline_cmd}", flush=True)
+  proc = subprocess.Popen(shlex.split(pipeline_cmd), stderr=sys.stderr)
+  print(f"[lidar-publisher] Pipeline started (pid={proc.pid})", flush=True)
+
+  @atexit.register
+  def _cleanup():
+    if proc.poll() is None:
+      proc.terminate()
+      try:
+        proc.wait(timeout=5)
+      except subprocess.TimeoutExpired:
+        proc.kill()
+    for path in (CAM_FIFO, LIDAR_FIFO):
+      try:
+        os.remove(path)
+      except FileNotFoundError:
+        pass
+
   errors: list = []
 
-  def _run_and_capture(name, pipeline_cmd, fifo_path, topic, publish_raw, raw_topic, frame_rate, build_message):
+  def _run_and_capture(name, fifo_path, topic, publish_raw, raw_topic, frame_rate, build_message, image_preview=None):
     try:
-      run_stream(name, pipeline_cmd, fifo_path, topic, publish_raw, raw_topic, frame_rate, build_message)
+      run_stream(name, proc, fifo_path, topic, publish_raw, raw_topic, frame_rate, build_message, image_preview)
     except Exception as exc:  # noqa: BLE001 - surface stream failure without killing the sibling stream
       print(f"[{name}] FATAL: {exc}", flush=True)
       errors.append(exc)
 
   camera_thread = threading.Thread(
     target=_run_and_capture,
-    args=("camera-publisher", _build_camera_pipeline(), CAM_FIFO, CAM_TOPIC,
-          CAM_PUBLISH_RAW, CAM_RAW_TOPIC, CAM_FRAME_RATE, build_camera_message),
+    args=("camera-publisher", CAM_FIFO, CAM_TOPIC, CAM_PUBLISH_RAW, CAM_RAW_TOPIC, CAM_FRAME_RATE, build_camera_message),
+    kwargs={
+      "image_preview": {
+        "sensor_id": CAM_SENSOR_ID,
+        "data_path": CAM_DATA_PATH,
+        "start_index": CAM_START_INDEX,
+        "stop_index": CAM_STOP_INDEX,
+        "loop": CAM_LOOP,
+      },
+    },
     daemon=True,
   )
   camera_thread.start()
 
   _run_and_capture(
-    "lidar-publisher", _build_lidar_pipeline(), LIDAR_FIFO, LIDAR_TOPIC,
-    LIDAR_PUBLISH_RAW, LIDAR_RAW_TOPIC, LIDAR_FRAME_RATE, build_lidar_message,
+    "lidar-publisher", LIDAR_FIFO, LIDAR_TOPIC, LIDAR_PUBLISH_RAW, LIDAR_RAW_TOPIC, LIDAR_FRAME_RATE, build_lidar_message,
   )
 
   camera_thread.join()
   _mqtt_state.shutdown()
+
+  try:
+    proc.wait(timeout=10)
+  except subprocess.TimeoutExpired:
+    proc.terminate()
 
   if errors:
     sys.exit(1)
