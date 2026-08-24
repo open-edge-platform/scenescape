@@ -6,7 +6,11 @@
 
 **New:**
 
-- **Analytics Service:** Extracted analytics functionality from the Scene Controller into a new, separate service that computes region, tripwire, sensor analytics, and camera bounds for tracked objects. Also responsible for regulating output to a max rate. Available on Docker Hub at [intel/scenescape-analytics](https://hub.docker.com/r/intel/scenescape-analytics)
+- **Analytics Service:** Extracted analytics functionality from the Scene Controller into a new, separate service.
+  - Computes region, tripwire, sensor, volumetric analytics, and camera bounds for tracked objects
+  - Regulates output to a configurable max rate
+
+  Available on Docker Hub at [intel/scenescape-analytics](https://hub.docker.com/r/intel/scenescape-analytics)
 - **Mapping Service:** No longer an experimental feature; now officially released with images available on Docker Hub at [intel/scenescape-mapping](https://hub.docker.com/r/intel/scenescape-mapping)
 - **Cluster Analytics Service:** No longer an experimental feature; now officially released with images available on Docker Hub at [intel/scenescape-cluster-analytics](https://hub.docker.com/r/intel/scenescape-cluster-analytics)
 - ReID improvements:
