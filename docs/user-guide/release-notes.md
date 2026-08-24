@@ -6,13 +6,11 @@
 
 **New:**
 
-- **Analytics Service:** Extracted analytics functionality from the Scene Controller into a new, separate service.
+- **Analytics Service:** Extracted analytics functionality from the Scene Controller into a new, separate service, available on Docker Hub at [intel/scenescape-analytics](https://hub.docker.com/r/intel/scenescape-analytics):
   - Computes region, tripwire, sensor, volumetric analytics, and camera bounds for tracked objects
   - Regulates output to a configurable max rate
-
-  Available on Docker Hub at [intel/scenescape-analytics](https://hub.docker.com/r/intel/scenescape-analytics)
-- **Mapping Service:** No longer an experimental feature; now officially released with images available on Docker Hub at [intel/scenescape-mapping](https://hub.docker.com/r/intel/scenescape-mapping)
-- **Cluster Analytics Service:** No longer an experimental feature; now officially released with images available on Docker Hub at [intel/scenescape-cluster-analytics](https://hub.docker.com/r/intel/scenescape-cluster-analytics)
+- **Mapping Service:** No longer an experimental feature; now officially released with images available on Docker Hub at [intel/scenescape-mapping](https://hub.docker.com/r/intel/scenescape-mapping).
+- **Cluster Analytics Service:** No longer an experimental feature; now officially released with images available on Docker Hub at [intel/scenescape-cluster-analytics](https://hub.docker.com/r/intel/scenescape-cluster-analytics).
 - ReID improvements:
   - Added visual indicator to track objects in 3D UI
   - Exposed ReID Match Latency Metrics
@@ -58,7 +56,6 @@
 - Kubernetes:
   - Parent-child scene relation issues
   - Importing scene API returning null for all attributes
-
 
 ## Version 2026.1.0
 
