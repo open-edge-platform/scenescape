@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import logging, sys
@@ -16,17 +16,25 @@ LVL_MIN = 99
 # log.LVL_TRACK = 20
 # log.LVL_MIN = log.LVL_INFO
 
+class _SafeStreamHandler(logging.StreamHandler):
+  """StreamHandler that tolerates sys.stdout being replaced or closed."""
+  def emit(self, record):
+    if self.stream is not sys.stdout:
+      self.stream = sys.stdout
+    super().emit(record)
+
+  def handleError(self, record):
+    pass
+
 def log(*args, level=logging.INFO):
   if not hasattr(log, "logger"):
     log.logger = logging.getLogger(__name__)
     log.logger.setLevel(level)
-    log.handler = logging.StreamHandler(sys.stdout)
+    log.handler = _SafeStreamHandler(sys.stdout)
     log.handler.setFormatter(logging.Formatter("%(asctime)s %(message)s",
                                            datefmt="%Y-%m-%d %H:%M:%S"))
     # log.handler.setFormatter(logging.Formatter("%(message)s"))
     log.logger.addHandler(log.handler)
-  if log.handler.stream is not sys.stdout:
-    log.handler.setStream(sys.stdout)
   outstr = " ".join(map(str, args))
   log.logger.log(level, outstr)
   return
