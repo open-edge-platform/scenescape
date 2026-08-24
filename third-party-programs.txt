@@ -142322,3 +142322,29 @@ NOTE: The text of this Exhibit A may differ slightly from the text of the notice
 
 This software may be used by anyone for any reason so long
 as the copyright notice in the source files remains intact.
+
+-------------------------------------------------------------
+237. DAIR-V2X Dataset (sample_data/lidar_intersection/velodyne_bin_part1.tar.gz,
+     sample_data/lidar_intersection/velodyne_bin_part2.tar.gz, sample_data/lidar_intersection/velodyne_bin_part3.tar.gz,
+     sample_data/lidar_intersection/image_part1.tar.gz, sample_data/lidar_intersection/image_part2.tar.gz,
+     sample_data/lidar_intersection/image_part3.tar.gz, sample_data/lidar_intersection/image_part4.tar.gz)
+
+    Copyright (C) 2022 Tsinghua University
+
+    This dataset is a subset of DAIR-V2X: A Large-Scale Dataset for
+    Vehicle-Infrastructure Cooperative 3D Object Detection.
+    Source: https://github.com/AIR-THU/DAIR-V2X
+
+Apache-2.0 License
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.

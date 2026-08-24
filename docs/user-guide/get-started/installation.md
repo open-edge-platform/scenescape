@@ -100,6 +100,14 @@ make demo-reid REID_BACKEND=qdrant
 `make demo-close` remembers the selected override and stops the matching
 deployment.
 
+### (Optional): LiDAR-Intersection fusion demo
+
+A separate, opt-in demo fuses a recorded LiDAR point-cloud stream with a
+recorded camera image sequence. Enable it by adding `LIDAR_DEMO=true` to any
+demo target, e.g. `make demo LIDAR_DEMO=true`. See
+[Run the LiDAR-Intersection Fusion Demo](../how-to-guides/run-lidar-intersection-demo.md)
+for the full setup and scene-import steps.
+
 ## Step 4: Verify a successful deployment
 
 If you are running remotely, connect using `https://<ip_address>` or `https://<hostname>`, using the correct IP address or hostname of the remote Scenescape system. If accessing on a local system use `https://localhost`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".

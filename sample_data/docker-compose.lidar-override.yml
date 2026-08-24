@@ -1,0 +1,116 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# LiDAR-intersection fusion demo (opt-in). Enable with `LIDAR_DEMO=true`, e.g.:
+#
+#   SUPASS=<password> make demo LIDAR_DEMO=true
+#
+# Adds a recorded LiDAR (PointPillars) + camera image-sequence pipeline for
+# the "Lidar Intersection" sample scene. All assets live under
+# sample_data/lidar_intersection/ so they are fully separate from the
+# default apriltag/queuing demo data. See
+# docs/user-guide/how-to-guides/run-lidar-intersection-demo.md for the full
+# step-by-step guide (including how to import the sample scene).
+
+services:
+  # Extracts the recorded LiDAR point-cloud frames and camera JPEG frames
+  # into the shared sample-data volume (source tar.gz archives are bind
+  # mounted read-only from the repo, not copied through vol-sample-data).
+  lidar-data-init:
+    image: alpine:3.23
+    command: >-
+      sh -c "mkdir -p /dst/lidar_intersection/velodyne_bin /dst/lidar_intersection/images &&
+      tar -xzf /src/velodyne_bin_part1.tar.gz --strip-components=1 -C /dst/lidar_intersection/velodyne_bin/ &&
+      tar -xzf /src/velodyne_bin_part2.tar.gz --strip-components=1 -C /dst/lidar_intersection/velodyne_bin/ &&
+      tar -xzf /src/velodyne_bin_part3.tar.gz --strip-components=1 -C /dst/lidar_intersection/velodyne_bin/ &&
+      tar -xzf /src/image_part1.tar.gz --strip-components=1 -C /dst/lidar_intersection/images/ &&
+      tar -xzf /src/image_part2.tar.gz --strip-components=1 -C /dst/lidar_intersection/images/ &&
+      tar -xzf /src/image_part3.tar.gz --strip-components=1 -C /dst/lidar_intersection/images/ &&
+      tar -xzf /src/image_part4.tar.gz --strip-components=1 -C /dst/lidar_intersection/images/ &&
+      echo 'lidar_intersection data ready'"
+    volumes:
+      - ./sample_data/lidar_intersection/velodyne_bin_part1.tar.gz:/src/velodyne_bin_part1.tar.gz:ro
+      - ./sample_data/lidar_intersection/velodyne_bin_part2.tar.gz:/src/velodyne_bin_part2.tar.gz:ro
+      - ./sample_data/lidar_intersection/velodyne_bin_part3.tar.gz:/src/velodyne_bin_part3.tar.gz:ro
+      - ./sample_data/lidar_intersection/image_part1.tar.gz:/src/image_part1.tar.gz:ro
+      - ./sample_data/lidar_intersection/image_part2.tar.gz:/src/image_part2.tar.gz:ro
+      - ./sample_data/lidar_intersection/image_part3.tar.gz:/src/image_part3.tar.gz:ro
+      - ./sample_data/lidar_intersection/image_part4.tar.gz:/src/image_part4.tar.gz:ro
+      - vol-sample-data:/dst
+    restart: "no"
+    pids_limit: 1000
+
+  # One-shot: builds/installs the PointPillars OpenVINO model + GStreamer
+  # inference extension into the shared models volume. Not part of the
+  # generic model_download flow since PointPillars is built from source
+  # (openvino_contrib), not downloaded from OMZ.
+  lidar-model-init:
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+    user: root
+    entrypoint: ["/bin/bash", "/model_installer/install-pointpillars"]
+    environment:
+      - MODELS_PATH=/home/pipeline-server/models
+      - POINTPILLARS_ROOT=${POINTPILLARS_ROOT:-}
+      - OPENVINO_CONTRIB_DIR=${OPENVINO_CONTRIB_DIR:-}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+    volumes:
+      - ./sample_data/lidar_intersection/model_installer:/model_installer
+      - vol-models:/home/pipeline-server/models
+    restart: "no"
+    pids_limit: 1000
+
+  lidar-stream:
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+    networks:
+      scenescape:
+    tty: true
+    entrypoint:
+      ["python3", "/home/pipeline-server/user_scripts/lidar_publisher.py"]
+    # Uncomment these lines to use GPU acceleration
+    # devices:
+    #   - "/dev/dri:/dev/dri"
+    # group_add:
+    #   - "992"
+    # device_cgroup_rules:
+    #   - "c 226:* rmw"
+    depends_on:
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+      lidar-data-init:
+        condition: service_completed_successfully
+      lidar-model-init:
+        condition: service_completed_successfully
+    environment:
+      - MQTT_HOST=broker.scenescape.intel.com
+      - MQTT_PORT=1883
+      # LiDAR branch — override as needed:
+      # - LIDAR_SENSOR_ID=intersection-lidar1
+      # - LIDAR_DATA_PATH=/home/pipeline-server/videos/lidar_intersection/velodyne_bin/%06d.bin
+      # - LIDAR_START_INDEX=010699
+      # - LIDAR_STOP_INDEX=010949
+      # - LIDAR_LOOP=true
+      # - LIDAR_FRAME_RATE=10
+      - LIDAR_DEVICE=CPU
+      - LIDAR_SCORE_THRESHOLD=0.70
+      # - LIDAR_MODEL_CONFIG=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
+      - LIDAR_PUBLISH_RAW=false
+      # Camera branch — override as needed:
+      # - CAM_SENSOR_ID=intersection-cam1
+      # - CAM_DATA_PATH=/home/pipeline-server/videos/lidar_intersection/images/%06d.jpg
+      # - CAM_START_INDEX=010699
+      # - CAM_STOP_INDEX=010949
+      - CAM_DEVICE=CPU
+      - CAM_SCORE_THRESHOLD=0.8
+      # - CAM_DETECTION_LABELS=vehicle,cyclist
+    volumes:
+      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - vol-sample-data:/home/pipeline-server/videos
+      - vol-models:/home/pipeline-server/models
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+    restart: always
+    pids_limit: 1000

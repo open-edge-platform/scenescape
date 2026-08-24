@@ -44,6 +44,15 @@ REID_BACKEND ?= vdms
 REID_OVERRIDE_FILE = sample_data/docker-compose.$(strip $(REID_BACKEND))-override.yml
 REID_PIPELINE_OVERRIDE_FILE = sample_data/docker-compose.reid-pipeline-override.yml
 REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE) -f $(REID_PIPELINE_OVERRIDE_FILE)
+# LiDAR-intersection fusion demo (separate opt-in demo, own sample_data/lidar_intersection/
+# assets). Enable with LIDAR_DEMO=true, e.g. `make demo LIDAR_DEMO=true`.
+LIDAR_DEMO ?= false
+LIDAR_OVERRIDE_FILE = sample_data/docker-compose.lidar-override.yml
+LIDAR_ENABLED := $(filter-out false 0 no,$(shell echo $(LIDAR_DEMO) | tr '[:upper:]' '[:lower:]'))
+# Extra -f arg only (assumes the caller's compose invocation already includes -f docker-compose.yml)
+LIDAR_OVERRIDE_ARGS := $(if $(LIDAR_ENABLED),-f $(LIDAR_OVERRIDE_FILE),)
+# Standalone compose args, including the base file, for targets that don't already pass -f docker-compose.yml
+LIDAR_COMPOSE_ARGS := $(if $(LIDAR_ENABLED),-f docker-compose.yml $(LIDAR_OVERRIDE_ARGS),)
 DEMO_REBUILD_IMAGES ?= true
 # Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
 DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
@@ -100,6 +109,8 @@ help:
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
+	@echo "                              (add LIDAR_DEMO=true to any demo/demo-* target above to also enable the"
+	@echo "                              separate LiDAR-intersection fusion demo, e.g. 'make demo LIDAR_DEMO=true')"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -159,6 +170,9 @@ help:
 	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
 	@echo "  - ReID demo targets (demo-reid, demo-all, demo-k8s with DEMO_K8S_MODE=reid|all)"
 	@echo "    default to REID_BACKEND=vdms. Set REID_BACKEND=qdrant to use Qdrant instead."
+	@echo "  - Set LIDAR_DEMO=true to additionally start the LiDAR-intersection fusion demo"
+	@echo "    (separate 'Lidar Intersection' scene, own assets under sample_data/lidar_intersection/)."
+	@echo "    See docs/user-guide/how-to-guides/run-lidar-intersection-demo.md for setup steps."
 	@echo ""
 
 # ========================= Build Images =============================
@@ -703,23 +717,23 @@ check-reid-backend:
 
 .PHONY: demo
 demo: $(DEMO_BUILD:build=build-core) init-sample-data
-	$(call start_demo,--profile controller)
+	$(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-reid
 demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core) init-sample-data
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller))
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) $(LIDAR_OVERRIDE_ARGS) --profile controller))
 
 .PHONY: demo-all
 demo-all: check-reid-backend $(DEMO_BUILD:build=build-all) init-sample-data
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile mapping))
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) $(LIDAR_OVERRIDE_ARGS) --profile controller --profile cluster-analytics --profile mapping))
 
 .PHONY: demo-cluster-analytics
 demo-cluster-analytics: $(DEMO_BUILD:build=build-all) init-sample-data
-	$(call start_demo,--profile controller --profile cluster-analytics)
+	$(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile controller --profile cluster-analytics))
 
 .PHONY: demo-tracker
 demo-tracker: $(DEMO_BUILD:build=build-all) init-sample-data
-	$(call start_demo,--profile tracker)
+	$(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile tracker))
 
 .PHONY: demo-close
 demo-close:
