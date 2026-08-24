@@ -8,11 +8,52 @@
 # Adds a recorded LiDAR (PointPillars) + camera image-sequence pipeline for
 # the "Lidar Intersection" sample scene. All assets live under
 # sample_data/lidar_intersection/ so they are fully separate from the
-# default apriltag/queuing demo data. See
+# default apriltag/queuing demo data. The scene, camera, and sensor are
+# seeded automatically (idempotent - see lidar-scene-init below); see
 # docs/user-guide/how-to-guides/run-lidar-intersection-demo.md for the full
-# step-by-step guide (including how to import the sample scene).
+# step-by-step guide.
 
 services:
+  # One-shot: seeds the "Lidar Intersection" scene, camera, and sensor via
+  # Scenescape's existing Scene Import REST API (POST /api/v1/import-scene/)
+  # so no Manager source or DB-fixture changes are needed. Skips the import
+  # if a scene with this name already exists (e.g. on a restart without a
+  # volume reset), so it's safe to run on every `make demo LIDAR_DEMO=true`.
+  lidar-scene-init:
+    image: alpine:3.23
+    networks:
+      scenescape:
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      - SUPASS=${SUPASS}
+    volumes:
+      - ./sample_data/lidar_intersection/LidarIntersection-scene-import.zip:/scene-import/LidarIntersection-scene-import.zip:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        apk add --no-cache curl >/dev/null
+        TOKEN=$$(curl -sk -X POST -d "username=admin&password=${SUPASS}" https://web.scenescape.intel.com/api/v1/auth \
+          | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        if [ -z "$$TOKEN" ]; then
+          echo "lidar-scene-init: failed to authenticate to the Scenescape API"
+          exit 1
+        fi
+        if curl -sk -H "Authorization: Token $$TOKEN" https://web.scenescape.intel.com/api/v1/scenes \
+          | grep -Eq '"name"[[:space:]]*:[[:space:]]*"Lidar Intersection"'; then
+          echo "lidar-scene-init: 'Lidar Intersection' scene already exists, skipping import"
+          exit 0
+        fi
+        echo "lidar-scene-init: importing 'Lidar Intersection' scene..."
+        curl -sk -X POST -H "Authorization: Token $$TOKEN" \
+          -F "zipFile=@/scene-import/LidarIntersection-scene-import.zip" \
+          https://web.scenescape.intel.com/api/v1/import-scene/
+        echo "lidar-scene-init: done"
+    restart: "no"
+    pids_limit: 1000
+
   # Extracts the recorded LiDAR point-cloud frames and camera JPEG frames
   # into the shared sample-data volume (source tar.gz archives are bind
   # mounted read-only from the repo, not copied through vol-sample-data).
@@ -67,13 +108,17 @@ services:
     tty: true
     entrypoint:
       ["python3", "/home/pipeline-server/user_scripts/lidar_publisher.py"]
-    # Uncomment these lines to use GPU acceleration
-    # devices:
-    #   - "/dev/dri:/dev/dri"
-    # group_add:
-    #   - "992"
-    # device_cgroup_rules:
-    #   - "c 226:* rmw"
+    # GPU acceleration for the LiDAR (PointPillars) branch (default) — requires
+    # /dev/dri on the host and GPU drivers installed (see the note on
+    # LIDAR_DEVICE below). Comment these out (and set LIDAR_DEVICE=CPU) to
+    # run the LiDAR branch on CPU too; the camera branch defaults to CPU
+    # already and doesn't need this.
+    devices:
+      - "/dev/dri:/dev/dri"
+    group_add:
+      - "992"
+    device_cgroup_rules:
+      - "c 226:* rmw"
     depends_on:
       broker:
         condition: service_started
@@ -93,7 +138,10 @@ services:
       # - LIDAR_STOP_INDEX=010949
       # - LIDAR_LOOP=true
       # - LIDAR_FRAME_RATE=10
-      - LIDAR_DEVICE=CPU
+      # GPU is the default (see note above); CPU works but is noticeably
+      # slower for PointPillars inference — set to CPU only as a fallback
+      # when no GPU/drivers are available.
+      - LIDAR_DEVICE=GPU
       - LIDAR_SCORE_THRESHOLD=0.70
       # - LIDAR_MODEL_CONFIG=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
       - LIDAR_PUBLISH_RAW=false
@@ -106,7 +154,7 @@ services:
       - CAM_SCORE_THRESHOLD=0.8
       # - CAM_DETECTION_LABELS=vehicle,cyclist
     volumes:
-      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - ./sample_data/lidar_intersection/lidar_publisher.py:/home/pipeline-server/user_scripts/lidar_publisher.py:ro
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:

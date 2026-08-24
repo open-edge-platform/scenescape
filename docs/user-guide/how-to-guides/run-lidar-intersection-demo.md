@@ -14,29 +14,46 @@ all of its data, scene configuration, and pipeline assets live under
 and it is started with its own `LIDAR_DEMO` environment variable, so it never
 affects the standard `make demo` deployment.
 
-> **Note:** No source-code patches are required to the Manager, Scene
-> Controller, or any other microservice to run this demo. The "Lidar
-> Intersection" scene is seeded using Scenescape's existing
+> **Note:** The scene itself is seeded using Scenescape's existing
 > [scene import](./build-a-scene/create-new-scene.md#importing-the-scene)
-> feature, and camera/LiDAR sensor fusion is handled by the Scene
-> Controller's existing multi-sensor tracking logic - the same mechanism used
-> to fuse any two overlapping camera/sensor feeds.
+> feature - no Manager DB-fixture changes needed. A small set of
+> demo-only Manager/Controller source changes (LiDAR heading disambiguation,
+> default vehicle/cyclist objects, debug source labels in the UI) are kept
+> as a single patch under `sample_data/lidar_intersection/patches/` and are
+> applied to the
+> source tree automatically by `make build-core`/`make build-all` only when
+> `LIDAR_DEMO=true` - a normal build/demo never touches these files. See
+> [Demo-only Manager/Controller patch](#demo-only-managercontroller-patch)
+> below for details.
 
 ## What this demo adds
 
 | Asset                                           | Purpose                                                                     |
 | ------------------------------------------------ | ---------------------------------------------------------------------------- |
-| `sample_data/docker-compose.lidar-override.yml` | Opt-in Compose override adding the `lidar-data-init`, `lidar-model-init`, and `lidar-stream` services |
-| `dlstreamer-pipeline-server/user_scripts/lidar_publisher.py` | Runs the LiDAR (PointPillars) and camera (person-vehicle-bike) GStreamer pipelines and publishes detections over MQTT |
+| `sample_data/lidar_intersection/docker-compose.lidar-override.yml` | Opt-in Compose override adding the `lidar-scene-init`, `lidar-data-init`, `lidar-model-init`, and `lidar-stream` services |
+| `sample_data/lidar_intersection/lidar_publisher.py` | Runs the LiDAR (PointPillars) and camera (person-vehicle-bike) GStreamer pipelines and publishes detections over MQTT |
+| `sample_data/lidar_intersection/patches/0001-lidar-fusion-manager-controller.patch` | Demo-only Manager/Controller source changes, applied automatically when building with `LIDAR_DEMO=true` |
 | `sample_data/lidar_intersection/`               | Scene config, map image, scene-import ZIP, recorded LiDAR/camera frames, and the PointPillars model installer, all scoped to this demo |
 
 ## Prerequisites
 
 - Complete [Installation](../get-started/installation.md) Steps 1-2 (get the
   source and build the container images) at least once.
-- A GPU is optional. The demo defaults to CPU inference for both the LiDAR
-  and camera branches so it works on any supported target; see
-  [Using GPU acceleration](#using-gpu-acceleration) below to switch to GPU.
+- An Intel GPU is used **by default** for the LiDAR (PointPillars) inference
+  branch, and requires the host to have `/dev/dri` and the Intel GPU driver
+  installed. The camera branch defaults to CPU (a lighter model that runs
+  fine without a GPU). Install/verify drivers with the
+  [DL Streamer prerequisites script](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/DLS_install_prerequisites.sh)
+  (`./DLS_install_prerequisites.sh`) or see the
+  [DL Streamer system requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/system_requirements.html)
+  and [install guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html)
+  for details (NPU is not used by this demo, but the same script covers it).
+  > **Performance note:** running the LiDAR branch without a GPU
+  > (`LIDAR_DEVICE=CPU`, see [Using GPU acceleration](#using-gpu-acceleration))
+  > works on any target, but PointPillars 3-D inference on CPU is
+  > significantly slower than on GPU and can noticeably drop below the
+  > `LIDAR_FRAME_RATE` target (choppy playback, growing detection latency).
+  > Prefer GPU whenever available.
 
 ## Step 1: Enable the demo
 
@@ -56,10 +73,11 @@ make demo-reid LIDAR_DEMO=true REID_BACKEND=qdrant
 make demo-all LIDAR_DEMO=true
 ```
 
-This starts three extra containers, on top of the normal demo services:
+This starts four extra containers, on top of the normal demo services:
 
 | Service            | Role                                                                                                          |
 | ------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `lidar-scene-init` | One-shot: seeds the "Lidar Intersection" scene, camera, and sensor via the Scene Import REST API (idempotent - skips if the scene already exists) |
 | `lidar-data-init`  | One-shot: extracts the recorded `.bin` LiDAR frames and `.jpg` camera frames into the shared sample-data volume |
 | `lidar-model-init` | One-shot: builds and installs the PointPillars OpenVINO model + GStreamer inference extension into the shared models volume (first run only; can take several minutes) |
 | `lidar-stream`     | Long-running: runs both GStreamer pipelines and publishes fused-ready detections over MQTT                     |
@@ -68,7 +86,7 @@ Check the one-shot containers completed successfully, and that `lidar-stream`
 is running:
 
 ```bash
-docker compose ps lidar-data-init lidar-model-init lidar-stream
+docker compose ps lidar-scene-init lidar-data-init lidar-model-init lidar-stream
 docker compose logs -f lidar-stream
 ```
 
@@ -80,38 +98,35 @@ You should see log lines like:
 [lidar-publisher] frames=100 fps=10.0 objects={'vehicle': 2, 'cyclist': 1}
 ```
 
-## Step 2: Import the "Lidar Intersection" scene
+## Step 2: Scene is seeded automatically
 
-The demo publishes detections for sensors `intersection-lidar1` and
-`intersection-cam1`, but the scene itself (map, camera/sensor poses) is not
-seeded automatically - import it once per fresh deployment (per `make
-demo-close` volume reset).
-
-### Option A: Using the Web UI
-
-1. Open `https://localhost` (or `https://<hostname>`) and log in with
-   `admin` / the `SUPASS` password.
-2. Click **Scenes**, then **+ Import Scene**.
-3. Upload
-   [sample_data/lidar_intersection/LidarIntersection-scene-import.zip](../../../sample_data/lidar_intersection/LidarIntersection-scene-import.zip).
-4. Click **Import**.
-
-### Option B: Using `curl`
+`lidar-scene-init` waits for the Manager (`web`) to become healthy, then
+imports
+[sample_data/lidar_intersection/LidarIntersection-scene-import.zip](../../../sample_data/lidar_intersection/LidarIntersection-scene-import.zip)
+via the Scene Import REST API (`POST /api/v1/import-scene/`) - no manual
+step, and no Manager source or DB-fixture changes are needed. It checks
+`GET /api/v1/scenes` first and skips the import if a scene named "Lidar
+Intersection" already exists, so it's safe to leave enabled across restarts;
+after a full `make demo-close` (which wipes volumes) it re-imports cleanly
+on the next `make demo LIDAR_DEMO=true`.
 
 ```bash
-TOKEN=$(curl --location --insecure -X POST \
-  -d "username=admin&password=$SUPASS" \
-  https://localhost/api/v1/auth | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
-
-curl -k -X POST \
-  -H "Authorization: Token $TOKEN" \
-  -F "zipFile=@sample_data/lidar_intersection/LidarIntersection-scene-import.zip" \
-  https://localhost/api/v1/import-scene/
+docker compose logs lidar-scene-init
 ```
 
-After the import, a new **Lidar Intersection** scene appears with the
+After it runs, a new **Lidar Intersection** scene appears with the
 `intersection-cam1` camera and `intersection-lidar1` LiDAR sensor already
 positioned and calibrated.
+
+> **Manual re-import:** if you ever need to force a re-import (e.g. after
+> editing `LidarIntersection-scene-import.zip`), delete the existing "Lidar
+> Intersection" scene from the UI (or via the API) and re-run
+> `docker compose up -d lidar-scene-init`, or import the same ZIP manually
+> via **Scenes -> + Import Scene** in the UI, or `curl -F
+> zipFile=@sample_data/lidar_intersection/LidarIntersection-scene-import.zip`
+> against `/api/v1/import-scene/` (see
+> [Importing the scene](./build-a-scene/create-new-scene.md#importing-the-scene)
+> for the full token/curl pattern).
 
 ## Step 3: Verify fusion is working
 
@@ -145,25 +160,30 @@ teardown step is needed.
 
 ## Using GPU acceleration
 
-Both branches default to `LIDAR_DEVICE=CPU` / `CAM_DEVICE=CPU`. To use GPU
-inference:
+The LiDAR branch defaults to `LIDAR_DEVICE=GPU`, with the `lidar-stream`
+service's `devices`/`group_add`/`device_cgroup_rules` already enabled to
+pass through `/dev/dri`. Make sure the host has an Intel GPU driver
+installed first (see [Prerequisites](#prerequisites)). The camera branch
+defaults to `CAM_DEVICE=CPU`; set `CAM_DEVICE=GPU` too if you want the
+camera detector to also use the GPU.
 
-1. In `sample_data/docker-compose.lidar-override.yml`, uncomment the
-   `devices`, `group_add`, and `device_cgroup_rules` entries under the
-   `lidar-stream` service.
-2. Set `LIDAR_DEVICE=GPU` (and optionally `CAM_DEVICE=GPU`) under the same
-   service's `environment` section.
+**Falling back to CPU** (e.g. no GPU available): in
+`sample_data/lidar_intersection/docker-compose.lidar-override.yml`,
+comment out the `devices`, `group_add`, and `device_cgroup_rules` entries
+under the `lidar-stream` service, and set `LIDAR_DEVICE=CPU` under the same
+service's `environment` section. CPU inference works but is noticeably
+slower (see the performance note in [Prerequisites](#prerequisites)).
 
 ## Configuration reference
 
 The `lidar-stream` service reads its configuration from environment
 variables (see the commented examples in
-`sample_data/docker-compose.lidar-override.yml`):
+`sample_data/lidar_intersection/docker-compose.lidar-override.yml`):
 
 | Variable                | Default                        | Description                                  |
 | ------------------------ | ------------------------------- | ----------------------------------------------- |
 | `LIDAR_SENSOR_ID`        | `intersection-lidar1`           | Sensor id used for the MQTT topic and payload |
-| `LIDAR_DEVICE`           | `CPU`                           | OpenVINO device for PointPillars inference    |
+| `LIDAR_DEVICE`           | `GPU`                           | OpenVINO device for PointPillars inference (`CPU` fallback is much slower) |
 | `LIDAR_SCORE_THRESHOLD`  | `0.70`                          | Minimum detection confidence to publish       |
 | `LIDAR_FRAME_RATE`       | `10`                            | Target playback frame rate                    |
 | `LIDAR_LOOP`             | `true`                          | Loop the recorded frame sequence               |
@@ -172,8 +192,52 @@ variables (see the commented examples in
 | `CAM_SCORE_THRESHOLD`    | `0.8`                           | Minimum detection confidence to publish       |
 | `CAM_DETECTION_LABELS`   | `vehicle,cyclist`               | Comma-separated category allow-list           |
 
+## Demo-only Manager/Controller patch
+
+`sample_data/lidar_intersection/patches/0001-lidar-fusion-manager-controller.patch` contains a
+small set of changes that are only relevant to this demo, so they are kept
+out of the normal source tree and applied on top of it instead:
+
+| Change                                                          | File(s)                                                                 |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Resolve LiDAR front/back heading ambiguity using track velocity | `controller/src/controller/moving_object.py`                            |
+| Seed default `vehicle`/`cyclist` objects (size, tracking radius, mark color) | `manager/src/manager/management/commands/init_default_assets.py` (new), `manager/src/manager/migrations/0003_default_asset3d_objects.py` (new), `manager/config/scenescape-init` |
+| Debug UI: label/style marks by detection source (lidar vs camera), add cyclist mark styling | `manager/src/manager/static/js/marks.js`, `manager/src/manager/static/js/assetmanager.js`, `manager/src/manager/static/css/style.css` |
+
+`make build-core`/`make build-all` apply this patch to the working tree
+automatically (and only) when `LIDAR_DEMO=true`, build the `controller` and
+`manager` images with it applied, then automatically revert it - the patch
+only needs to be on disk while those images are being built (it's baked
+into the image layers), so:
+
+```bash
+SUPASS=<password> make build-core demo LIDAR_DEMO=true
+```
+
+builds the patched images, reverts the source tree back to normal, and
+starts the demo, all in one step. Your working tree stays clean throughout -
+`git status` should never show `controller/`/`manager/` files as modified
+because of this demo, so there's nothing extra to commit/push for it beyond
+this demo's own files under `sample_data/lidar_intersection/`, `Makefile`,
+and docs. The apply/revert cycle is idempotent - re-running the same command
+does not re-apply, fail, or leave anything applied. To manually apply or
+remove the patch (e.g. to inspect a diff without building):
+
+```bash
+make apply-lidar-patch    # apply sample_data/lidar_intersection/patches/0001-... to the working tree
+make revert-lidar-patch   # revert it back to the unpatched source
+```
+
+> **Note:** if a build is interrupted between `apply-lidar-patch` and the
+> automatic revert (e.g. `Ctrl+C` mid-build), `controller/`/`manager/` may be
+> left patched in your working tree. Run `make revert-lidar-patch` to clean
+> up, or check `git status` before committing/pushing.
+
 ## Troubleshooting
 
+- **`lidar-scene-init` fails to authenticate:** confirm `SUPASS` matches the
+  password used for the running deployment (it must be the same value passed
+  to `make demo LIDAR_DEMO=true`); check `docker compose logs lidar-scene-init`.
 - **`lidar-model-init` fails or times out:** it compiles a GStreamer
   extension from `openvino_contrib` source on first run and needs outbound
   network access (respects `HTTPS_PROXY`/`https_proxy`); check `docker
@@ -181,6 +245,9 @@ variables (see the commented examples in
 - **No detections published:** confirm `lidar-data-init` completed
   successfully (`docker compose logs lidar-data-init`) - the pipelines need
   the extracted `.bin`/`.jpg` frames in the shared sample-data volume.
-- **Scene appears empty after `make demo-close` + a fresh `make demo
-  LIDAR_DEMO=true`:** the scene import (Step 2) is not automatic and must be
-  repeated after every volume reset.
+- **Scene appears empty (or missing) after `make demo-close` + a fresh `make
+  demo LIDAR_DEMO=true`:** check `docker compose logs lidar-scene-init` -
+  it depends on `web` being healthy first, so a slow Manager startup can
+  briefly delay the import; the container exits after one attempt and is not
+  retried automatically. Re-trigger it with `docker compose up -d
+  lidar-scene-init` if needed.

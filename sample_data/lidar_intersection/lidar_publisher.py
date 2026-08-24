@@ -59,7 +59,7 @@ LIDAR_MODEL_CONFIG = os.environ.get(
   "/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json",
 )
 
-_LIDAR_DEVICE_RAW = os.environ.get("LIDAR_DEVICE", "CPU").strip().upper()
+_LIDAR_DEVICE_RAW = os.environ.get("LIDAR_DEVICE", "GPU").strip().upper()
 _ALLOWED_DEVICES = {
   "CPU", "GPU", "MYRIAD",
   "HETERO:CPU,GPU", "HETERO:GPU,CPU",
@@ -92,7 +92,7 @@ _CAM_STOP_RAW   = os.environ.get("CAM_STOP_INDEX")
 CAM_STOP_INDEX  = int(_CAM_STOP_RAW.strip()) if _CAM_STOP_RAW and _CAM_STOP_RAW.strip() else LIDAR_STOP_INDEX
 CAM_LOOP        = os.environ.get("CAM_LOOP", "true" if LIDAR_LOOP else "false").lower() not in ("0", "false", "no")
 CAM_FRAME_RATE  = int(os.environ.get("CAM_FRAME_RATE", str(LIDAR_FRAME_RATE)))
-CAM_DEVICE      = os.environ.get("CAM_DEVICE", "CPU").strip().upper()
+CAM_DEVICE      = os.environ.get("CAM_DEVICE", "GPU").strip().upper()
 CAM_SCORE_THRESHOLD = float(os.environ.get("CAM_SCORE_THRESHOLD", "0.8"))
 CAM_MODEL = os.environ.get(
   "CAM_MODEL",

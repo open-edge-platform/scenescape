@@ -1,0 +1,315 @@
+diff --git a/controller/src/controller/moving_object.py b/controller/src/controller/moving_object.py
+index edeab0da..3b2139e5 100644
+--- a/controller/src/controller/moving_object.py
++++ b/controller/src/controller/moving_object.py
+@@ -330,7 +330,18 @@ class MovingObject:
+     return
+ 
+   def inferRotationFromVelocity(self):
+-    if not self.has_detection_rotation and self.rotation_from_velocity and self.velocity:
++    if self.has_detection_rotation:
++      # 3D detectors (e.g. LiDAR/PointPillars) regress an oriented bounding
++      # box but often cannot tell an object's front from its back, so the
++      # reported heading can flip ~180 degrees frame-to-frame even though
++      # the object's actual direction of travel barely changes. Use the
++      # track's own velocity direction (which has no such ambiguity) to
++      # resolve it, rather than trusting the raw sensor heading every frame.
++      if self.rotation_from_velocity:
++        self._disambiguateRotationWithVelocity()
++      return
++
++    if self.rotation_from_velocity and self.velocity:
+       speed = np.linalg.norm([self.velocity.x, self.velocity.y, self.velocity.z])
+       if self._rotation_from_velocity_active:
+         self._rotation_from_velocity_active = speed > SPEED_THRESHOLD_OFF
+@@ -346,6 +357,26 @@ class MovingObject:
+       self._rotation_from_velocity_active = False
+     return
+ 
++  def _disambiguateRotationWithVelocity(self):
++    """Flip a sensor-reported heading by 180 degrees about Z if it points
++    against the track's direction of travel.
++
++    Only acts once speed is clearly above noise level (reusing
++    SPEED_THRESHOLD_ON), so a stopped/idling object's heading is left alone.
++    """
++    if not self.velocity or not self.rotation:
++      return
++    speed = np.linalg.norm([self.velocity.x, self.velocity.y, self.velocity.z])
++    if speed <= SPEED_THRESHOLD_ON:
++      return
++
++    velocity_dir = normalize(np.array([self.velocity.x, self.velocity.y, 0.0]))
++    forward = Rotation.from_quat(np.array(self.rotation)).apply([1, 0, 0])
++    if np.dot(forward[:2], velocity_dir[:2]) < 0:
++      flip = Rotation.from_euler('z', 180, degrees=True)
++      self.rotation = (flip * Rotation.from_quat(np.array(self.rotation))).as_quat().tolist()
++    return
++
+   @property
+   def camLoc(self):
+     """Object location in camera coordinate system"""
+diff --git a/manager/config/scenescape-init b/manager/config/scenescape-init
+index 4ba37700..4c9ef8b3 100755
+--- a/manager/config/scenescape-init
++++ b/manager/config/scenescape-init
+@@ -298,6 +298,8 @@ if [ -n "$DBTYPE" ]; then
+         ./manage.py loaddata "${DBROOT}/media/data.json"
+         rm -f "${DBROOT}/media/data.json" "${DBROOT}/media/meta.json"
+     fi
++    echo "==> Initializing default Asset3D objects..."
++    ./manage.py init_default_assets
+     ./manage.py updatedbstatus --not-ready
+ 
+     if [ -z "${OVERWRITE_USER_AUTH}" ]; then
+diff --git a/manager/src/manager/management/commands/init_default_assets.py b/manager/src/manager/management/commands/init_default_assets.py
+new file mode 100644
+index 00000000..ce978a14
+--- /dev/null
++++ b/manager/src/manager/management/commands/init_default_assets.py
+@@ -0,0 +1,42 @@
++# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
++# SPDX-License-Identifier: Apache-2.0
++
++from django.core.management.base import BaseCommand
++
++from manager.models import Asset3D
++
++
++DEFAULT_ASSETS = [
++  {
++    "name": "vehicle",
++    "x_size": 4.04,
++    "y_size": 1.66,
++    "z_size": 1.55,
++    "tracking_radius": 3.0,
++    "mark_color": "#0099ff",
++    "shift_type": 1,
++  },
++  {
++    "name": "cyclist",
++    "x_size": 1.85,
++    "y_size": 0.65,
++    "z_size": 1.84,
++    "tracking_radius": 2.0,
++    "mark_color": "#f39c12",
++    "shift_type": 1,
++  },
++]
++
++
++class Command(BaseCommand):
++  help = "Ensure default Asset3D objects (vehicle, cyclist) exist in the objects library."
++
++  def handle(self, *args, **options):
++    for asset in DEFAULT_ASSETS:
++      name = asset["name"]
++      defaults = {k: v for k, v in asset.items() if k != "name"}
++      obj, created = Asset3D.objects.get_or_create(name=name, defaults=defaults)
++      if created:
++        self.stdout.write(f"Created Asset3D: {name}")
++      else:
++        self.stdout.write(f"Asset3D already exists: {name} (skipped)")
+diff --git a/manager/src/manager/migrations/0003_default_asset3d_objects.py b/manager/src/manager/migrations/0003_default_asset3d_objects.py
+new file mode 100644
+index 00000000..3b9fd6f8
+--- /dev/null
++++ b/manager/src/manager/migrations/0003_default_asset3d_objects.py
+@@ -0,0 +1,57 @@
++# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
++# SPDX-License-Identifier: Apache-2.0
++
++from django.db import migrations
++
++
++def add_default_asset3d_objects(apps, schema_editor):
++  """Populate the Asset3D objects library with default vehicle and cyclist entries.
++
++  Sizes are derived from observed LiDAR detections:
++    vehicle  - avg of three detections: x=4.04 m, y=1.66 m, z=1.55 m
++    cyclist  - single detection:        x=1.85 m, y=0.65 m, z=1.84 m
++  """
++  Asset3D = apps.get_model("manager", "Asset3D")
++
++  Asset3D.objects.get_or_create(
++    name="vehicle",
++    defaults={
++      "x_size": 4.04,
++      "y_size": 1.66,
++      "z_size": 1.55,
++      "tracking_radius": 3.0,
++      "mark_color": "#0099ff",
++      "shift_type": 1,
++    },
++  )
++
++  Asset3D.objects.get_or_create(
++    name="cyclist",
++    defaults={
++      "x_size": 1.85,
++      "y_size": 0.65,
++      "z_size": 1.84,
++      "tracking_radius": 2.0,
++      "mark_color": "#f39c12",
++      "shift_type": 1,
++    },
++  )
++
++
++def remove_default_asset3d_objects(apps, schema_editor):
++  Asset3D = apps.get_model("manager", "Asset3D")
++  Asset3D.objects.filter(name__in=["vehicle", "cyclist"]).delete()
++
++
++class Migration(migrations.Migration):
++
++  dependencies = [
++    ("manager", "0002_region_visible_singletonsensor_visible_and_more"),
++  ]
++
++  operations = [
++    migrations.RunPython(
++      add_default_asset3d_objects,
++      reverse_code=remove_default_asset3d_objects,
++    ),
++  ]
+diff --git a/manager/src/manager/static/css/style.css b/manager/src/manager/static/css/style.css
+index f41a6a1d..a2e85c04 100644
+--- a/manager/src/manager/static/css/style.css
++++ b/manager/src/manager/static/css/style.css
+@@ -258,6 +258,20 @@ polygon {
+   fill: #009933;
+ }
+ 
++.cyclist circle {
++  fill: #f39c12;
++}
++
++/* Debug aid: distinguish un-fused lidar vs camera detections by stroke style.
++   Fill color (by object type) and the "L"/"C" text label are unaffected. */
++.source-lidar circle {
++  stroke-dasharray: 4, 3;
++}
++
++.source-camera circle {
++  stroke-dasharray: none;
++}
++
+ .vehicle circle {
+   fill: #0099ff;
+ }
+diff --git a/manager/src/manager/static/js/assetmanager.js b/manager/src/manager/static/js/assetmanager.js
+index 552bd8c7..5964ea29 100644
+--- a/manager/src/manager/static/js/assetmanager.js
++++ b/manager/src/manager/static/js/assetmanager.js
+@@ -48,6 +48,14 @@ export default function AssetManager(
+     } else {
+       updateLabelFields(markObject, { dwell: null });
+     }
++
++    // Debug aid: surface which sensor produced this detection (lidar vs
++    // camera) before fusion logic combines them into a single object. Only
++    // shown for pipelines that report obj.source, so other deployments'
++    // labels are unaffected.
++    if (obj.source) {
++      updateLabelFields(markObject, { source: obj.source });
++    }
+   }
+ 
+   function addDefaultGeometryToCache(name, color, depth) {
+diff --git a/manager/src/manager/static/js/marks.js b/manager/src/manager/static/js/marks.js
+index 66d10aa1..77ce8d32 100644
+--- a/manager/src/manager/static/js/marks.js
++++ b/manager/src/manager/static/js/marks.js
+@@ -26,21 +26,30 @@ function updateTooltipContent(mark, o, show_telemetry) {
+   const tooltip = mark.node.querySelector(".mark-tooltip");
+   const persistentData = o.persistent_data;
+ 
+-  if (!persistentData) return;
+-
+-  const persistentDataArray = Object.entries(persistentData).flatMap(
+-    ([key, value]) =>
+-      typeof value === "object" && value !== null
+-        ? Object.entries(value).map(([nestedKey, nestedValue]) => ({
+-            key: `${key}.${nestedKey}`,
+-            value: nestedValue,
+-          }))
+-        : { key, value },
+-  );
++  // Detection source ("lidar" or "camera") is only present on pipelines that
++  // publish it explicitly (e.g. the LiDAR/camera fusion debug pipeline), so
++  // it's shown separately from persistent_data instead of gating on it.
++  if (o.source) {
++    addOrUpdateTableRow(table, "source", o.source);
++  }
+ 
+-  persistentDataArray.forEach(({ key, value }) =>
+-    addOrUpdateTableRow(table, key, value),
+-  );
++  if (!persistentData && !o.source) return;
++
++  if (persistentData) {
++    const persistentDataArray = Object.entries(persistentData).flatMap(
++      ([key, value]) =>
++        typeof value === "object" && value !== null
++          ? Object.entries(value).map(([nestedKey, nestedValue]) => ({
++              key: `${key}.${nestedKey}`,
++              value: nestedValue,
++            }))
++          : { key, value },
++    );
++
++    persistentDataArray.forEach(({ key, value }) =>
++      addOrUpdateTableRow(table, key, value),
++    );
++  }
+ 
+   if (tooltip) {
+     const { width, height } = table.getBoundingClientRect();
+@@ -170,6 +179,11 @@ function addNewMark(
+     .attr("id", "mark_" + o.id)
+     .addClass("mark")
+     .addClass(o.type);
++  // Detection source ("lidar" or "camera") lets the debug pipeline visually
++  // distinguish which sensor produced an object before fusion is applied.
++  if (o.source) {
++    mark.addClass("source-" + o.source);
++  }
+ 
+   if (show_trails) {
+     trail = svgCanvas
+@@ -177,6 +191,9 @@ function addNewMark(
+       .attr("id", "mark_" + o.id)
+       .addClass("trail")
+       .addClass(o.type);
++    if (o.source) {
++      trail.addClass("source-" + o.source);
++    }
+   }
+ 
+   // FIXME: Make object size in the display a configurable option, or receive from Scenescape
+@@ -184,6 +201,8 @@ function addNewMark(
+     mark_radius = parseInt(scale * 0.3); // Person is about 0.3 meter radius
+   } else if (o.type == "vehicle") {
+     mark_radius = parseInt(scale * 1.5); // Vehicles are about 1.5 meters "radius" (3 meters across)
++  } else if (o.type == "cyclist") {
++    mark_radius = parseInt(scale * 0.35); // Cyclists are about 0.35 meter radius (~0.65 m wide)
+   } else if (o.type == "apriltag") {
+     mark_radius = parseInt(scale * 0.15); // Arbitrary AprilTag size (smaller than person)
+   } else {
+@@ -193,8 +212,14 @@ function addNewMark(
+   // Create the circle
+   var circle = mark.circle(0, 0, mark_radius);
+ 
++  // Label the mark with the first letter of its detection source (e.g. "L"
++  // for lidar, "C" for camera) so streams can be told apart on the map
++  // before fusion logic combines them. Objects without o.source (e.g. from
++  // pipelines that don't report it) render no label, same as before.
++  var sourceLabel = o.source ? o.source.charAt(0).toUpperCase() : "";
++
+   // add tooltip foreign object
+-  var text = mark.text(0, 0, "");
++  var text = mark.text(0, 0, sourceLabel);
+   var foreignObject = document.createElementNS(
+     "http://www.w3.org/2000/svg",
+     "foreignObject",
