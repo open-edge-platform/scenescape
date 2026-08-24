@@ -56,7 +56,14 @@ LIDAR_COMPOSE_ARGS := $(if $(LIDAR_ENABLED),-f docker-compose.yml $(LIDAR_OVERRI
 # Demo-only Manager changes (default vehicle/cyclist assets, debug UI source
 # labels) are kept as a patch, applied to the source tree only when building
 # with LIDAR_DEMO=true - never touches a normal (non-LiDAR) build/demo.
-LIDAR_PATCH_FILE := sample_data/lidar_intersection/patches/0001-lidar-fusion-manager.patch
+# Demo-only Manager changes (default vehicle/cyclist assets, debug UI source
+# labels) plus a small Controller/scene_common change so the UI's L/C source
+# labels have real data (Controller doesn't otherwise forward a "source"
+# field into tracked-object output) are kept as patches, applied to the
+# source tree only when building with LIDAR_DEMO=true - never touches a
+# normal (non-LiDAR) build/demo.
+LIDAR_PATCH_FILES := sample_data/lidar_intersection/patches/0001-lidar-fusion-manager.patch \
+                     sample_data/lidar_intersection/patches/0002-controller-source-passthrough.patch
 LIDAR_PATCH_TARGET := $(if $(LIDAR_ENABLED),apply-lidar-patch,)
 # Patch only needs to be on disk while the controller/manager images are being
 # built (it's baked into the image layers); auto-revert it right after so the
@@ -731,26 +738,30 @@ check-reid-backend:
 # instead of silently building unpatched images.
 .PHONY: apply-lidar-patch
 apply-lidar-patch:
-	@if git -C $(CURDIR) apply --check $(LIDAR_PATCH_FILE) 2>/dev/null; then \
-		echo "==> Applying LiDAR-demo Manager patch ($(LIDAR_PATCH_FILE))..."; \
-		git -C $(CURDIR) apply $(LIDAR_PATCH_FILE); \
-	elif git -C $(CURDIR) apply --check -R $(LIDAR_PATCH_FILE) 2>/dev/null; then \
-		echo "==> LiDAR-demo Manager patch already applied, skipping"; \
-	else \
-		echo "ERROR: $(LIDAR_PATCH_FILE) does not apply cleanly and does not look"; \
-		echo "already applied either. Resolve manually (see 'git apply --check" ; \
-		echo "$(LIDAR_PATCH_FILE)' for details) before building with LIDAR_DEMO=true."; \
-		exit 1; \
-	fi
+	@for p in $(LIDAR_PATCH_FILES); do \
+		if git -C $(CURDIR) apply --check "$$p" 2>/dev/null; then \
+			echo "==> Applying LiDAR-demo patch ($$p)..."; \
+			git -C $(CURDIR) apply "$$p"; \
+		elif git -C $(CURDIR) apply --check -R "$$p" 2>/dev/null; then \
+			echo "==> LiDAR-demo patch already applied, skipping ($$p)"; \
+		else \
+			echo "ERROR: $$p does not apply cleanly and does not look"; \
+			echo "already applied either. Resolve manually (see 'git apply --check $$p')" ; \
+			echo "before building with LIDAR_DEMO=true."; \
+			exit 1; \
+		fi; \
+	done
 
 .PHONY: revert-lidar-patch
 revert-lidar-patch:
-	@if git -C $(CURDIR) apply --check -R $(LIDAR_PATCH_FILE) 2>/dev/null; then \
-		echo "==> Reverting LiDAR-demo Manager patch ($(LIDAR_PATCH_FILE))..."; \
-		git -C $(CURDIR) apply -R $(LIDAR_PATCH_FILE); \
-	else \
-		echo "LiDAR-demo Manager patch not currently applied, skipping"; \
-	fi
+	@for p in $(LIDAR_PATCH_FILES); do \
+		if git -C $(CURDIR) apply --check -R "$$p" 2>/dev/null; then \
+			echo "==> Reverting LiDAR-demo patch ($$p)..."; \
+			git -C $(CURDIR) apply -R "$$p"; \
+		else \
+			echo "LiDAR-demo patch not currently applied, skipping ($$p)"; \
+		fi; \
+	done
 
 .PHONY: demo
 demo: $(DEMO_BUILD:build=build-core) init-sample-data
