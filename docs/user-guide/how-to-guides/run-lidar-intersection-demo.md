@@ -16,15 +16,15 @@ affects the standard `make demo` deployment.
 
 > **Note:** The scene itself is seeded using Scenescape's existing
 > [scene import](./build-a-scene/create-new-scene.md#importing-the-scene)
-> feature - no Manager DB-fixture changes needed. A small set of
-> demo-only Manager/Controller source changes (LiDAR heading disambiguation,
-> default vehicle/cyclist objects, debug source labels in the UI) are kept
-> as a single patch under `sample_data/lidar_intersection/patches/` and are
-> applied to the
-> source tree automatically by `make build-core`/`make build-all` only when
-> `LIDAR_DEMO=true` - a normal build/demo never touches these files. See
-> [Demo-only Manager/Controller patch](#demo-only-managercontroller-patch)
-> below for details.
+> feature - no Manager DB-fixture changes needed. Camera/LiDAR sensor fusion
+> is handled entirely by the Scene Controller's existing multi-sensor
+> tracking logic, unmodified. A small set of demo-only Manager source
+> changes (default vehicle/cyclist objects, debug source labels in the UI)
+> are kept as a single patch under `sample_data/lidar_intersection/patches/`
+> and are applied to the source tree automatically by `make build-core`/
+> `make build-all` only when `LIDAR_DEMO=true` - a normal build/demo never
+> touches these files. See
+> [Demo-only Manager patch](#demo-only-manager-patch) below for details.
 
 ## What this demo adds
 
@@ -32,7 +32,7 @@ affects the standard `make demo` deployment.
 | ------------------------------------------------ | ---------------------------------------------------------------------------- |
 | `sample_data/lidar_intersection/docker-compose.lidar-override.yml` | Opt-in Compose override adding the `lidar-scene-init`, `lidar-data-init`, `lidar-model-init`, and `lidar-stream` services |
 | `sample_data/lidar_intersection/lidar_publisher.py` | Runs the LiDAR (PointPillars) and camera (person-vehicle-bike) GStreamer pipelines and publishes detections over MQTT |
-| `sample_data/lidar_intersection/patches/0001-lidar-fusion-manager-controller.patch` | Demo-only Manager/Controller source changes, applied automatically when building with `LIDAR_DEMO=true` |
+| `sample_data/lidar_intersection/patches/0001-lidar-fusion-manager.patch` | Demo-only Manager source changes, applied automatically when building with `LIDAR_DEMO=true` |
 | `sample_data/lidar_intersection/`               | Scene config, map image, scene-import ZIP, recorded LiDAR/camera frames, and the PointPillars model installer, all scoped to this demo |
 
 ## Prerequisites
@@ -192,31 +192,33 @@ variables (see the commented examples in
 | `CAM_SCORE_THRESHOLD`    | `0.8`                           | Minimum detection confidence to publish       |
 | `CAM_DETECTION_LABELS`   | `vehicle,cyclist`               | Comma-separated category allow-list           |
 
-## Demo-only Manager/Controller patch
+## Demo-only Manager patch
 
-`sample_data/lidar_intersection/patches/0001-lidar-fusion-manager-controller.patch` contains a
+`sample_data/lidar_intersection/patches/0001-lidar-fusion-manager.patch` contains a
 small set of changes that are only relevant to this demo, so they are kept
 out of the normal source tree and applied on top of it instead:
 
 | Change                                                          | File(s)                                                                 |
 | ------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| Resolve LiDAR front/back heading ambiguity using track velocity | `controller/src/controller/moving_object.py`                            |
 | Seed default `vehicle`/`cyclist` objects (size, tracking radius, mark color) | `manager/src/manager/management/commands/init_default_assets.py` (new), `manager/src/manager/migrations/0003_default_asset3d_objects.py` (new), `manager/config/scenescape-init` |
 | Debug UI: label/style marks by detection source (lidar vs camera), add cyclist mark styling | `manager/src/manager/static/js/marks.js`, `manager/src/manager/static/js/assetmanager.js`, `manager/src/manager/static/css/style.css` |
 
+The Scene Controller itself is unmodified - LiDAR/camera fusion and rotation
+handling use its existing, generic multi-sensor tracking logic.
+
 `make build-core`/`make build-all` apply this patch to the working tree
-automatically (and only) when `LIDAR_DEMO=true`, build the `controller` and
-`manager` images with it applied, then automatically revert it - the patch
-only needs to be on disk while those images are being built (it's baked
+automatically (and only) when `LIDAR_DEMO=true`, build the `manager`
+image with it applied, then automatically revert it - the patch
+only needs to be on disk while that image is being built (it's baked
 into the image layers), so:
 
 ```bash
 SUPASS=<password> make build-core demo LIDAR_DEMO=true
 ```
 
-builds the patched images, reverts the source tree back to normal, and
+builds the patched image, reverts the source tree back to normal, and
 starts the demo, all in one step. Your working tree stays clean throughout -
-`git status` should never show `controller/`/`manager/` files as modified
+`git status` should never show `manager/` files as modified
 because of this demo, so there's nothing extra to commit/push for it beyond
 this demo's own files under `sample_data/lidar_intersection/`, `Makefile`,
 and docs. The apply/revert cycle is idempotent - re-running the same command
@@ -229,7 +231,7 @@ make revert-lidar-patch   # revert it back to the unpatched source
 ```
 
 > **Note:** if a build is interrupted between `apply-lidar-patch` and the
-> automatic revert (e.g. `Ctrl+C` mid-build), `controller/`/`manager/` may be
+> automatic revert (e.g. `Ctrl+C` mid-build), `manager/` files may be
 > left patched in your working tree. Run `make revert-lidar-patch` to clean
 > up, or check `git status` before committing/pushing.
 

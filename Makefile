@@ -53,10 +53,10 @@ LIDAR_ENABLED := $(filter-out false 0 no,$(shell echo $(LIDAR_DEMO) | tr '[:uppe
 LIDAR_OVERRIDE_ARGS := $(if $(LIDAR_ENABLED),-f $(LIDAR_OVERRIDE_FILE),)
 # Standalone compose args, including the base file, for targets that don't already pass -f docker-compose.yml
 LIDAR_COMPOSE_ARGS := $(if $(LIDAR_ENABLED),-f docker-compose.yml $(LIDAR_OVERRIDE_ARGS),)
-# Demo-only Manager/Controller changes (rotation disambiguation, default vehicle/cyclist
-# assets, debug UI source labels) are kept as a patch, applied to the source tree only
-# when building with LIDAR_DEMO=true - never touches a normal (non-LiDAR) build/demo.
-LIDAR_PATCH_FILE := sample_data/lidar_intersection/patches/0001-lidar-fusion-manager-controller.patch
+# Demo-only Manager changes (default vehicle/cyclist assets, debug UI source
+# labels) are kept as a patch, applied to the source tree only when building
+# with LIDAR_DEMO=true - never touches a normal (non-LiDAR) build/demo.
+LIDAR_PATCH_FILE := sample_data/lidar_intersection/patches/0001-lidar-fusion-manager.patch
 LIDAR_PATCH_TARGET := $(if $(LIDAR_ENABLED),apply-lidar-patch,)
 # Patch only needs to be on disk while the controller/manager images are being
 # built (it's baked into the image layers); auto-revert it right after so the
@@ -120,8 +120,8 @@ help:
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
 	@echo "                              (add LIDAR_DEMO=true to any demo/demo-* target above to also enable the"
 	@echo "                              separate LiDAR-intersection fusion demo, e.g. 'make demo LIDAR_DEMO=true')"
-	@echo "  apply-lidar-patch           Apply the demo-only Manager/Controller patch for the LiDAR-intersection demo"
-	@echo "  revert-lidar-patch          Revert the demo-only Manager/Controller patch"
+	@echo "  apply-lidar-patch           Apply the demo-only Manager patch for the LiDAR-intersection demo"
+	@echo "  revert-lidar-patch          Revert the demo-only Manager patch"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -732,10 +732,10 @@ check-reid-backend:
 .PHONY: apply-lidar-patch
 apply-lidar-patch:
 	@if git -C $(CURDIR) apply --check $(LIDAR_PATCH_FILE) 2>/dev/null; then \
-		echo "==> Applying LiDAR-demo Manager/Controller patch ($(LIDAR_PATCH_FILE))..."; \
+		echo "==> Applying LiDAR-demo Manager patch ($(LIDAR_PATCH_FILE))..."; \
 		git -C $(CURDIR) apply $(LIDAR_PATCH_FILE); \
 	elif git -C $(CURDIR) apply --check -R $(LIDAR_PATCH_FILE) 2>/dev/null; then \
-		echo "==> LiDAR-demo Manager/Controller patch already applied, skipping"; \
+		echo "==> LiDAR-demo Manager patch already applied, skipping"; \
 	else \
 		echo "ERROR: $(LIDAR_PATCH_FILE) does not apply cleanly and does not look"; \
 		echo "already applied either. Resolve manually (see 'git apply --check" ; \
@@ -746,10 +746,10 @@ apply-lidar-patch:
 .PHONY: revert-lidar-patch
 revert-lidar-patch:
 	@if git -C $(CURDIR) apply --check -R $(LIDAR_PATCH_FILE) 2>/dev/null; then \
-		echo "==> Reverting LiDAR-demo Manager/Controller patch ($(LIDAR_PATCH_FILE))..."; \
+		echo "==> Reverting LiDAR-demo Manager patch ($(LIDAR_PATCH_FILE))..."; \
 		git -C $(CURDIR) apply -R $(LIDAR_PATCH_FILE); \
 	else \
-		echo "LiDAR-demo Manager/Controller patch not currently applied, skipping"; \
+		echo "LiDAR-demo Manager patch not currently applied, skipping"; \
 	fi
 
 .PHONY: demo
