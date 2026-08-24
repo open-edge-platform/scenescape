@@ -253,3 +253,11 @@ demo LIDAR_DEMO=true`:** check `docker compose logs lidar-scene-init` -
   briefly delay the import; the container exits after one attempt and is not
   retried automatically. Re-trigger it with `docker compose up -d
 lidar-scene-init` if needed.
+- **`intersection-cam1` shows "offline"/no picture in the UI:** the Manager
+  UI only marks a camera online once it gets a reply to its "getimage"
+  request; `lidar_publisher.py` answers this for `intersection-cam1` using
+  the current camera frame. If it still shows offline, check `docker compose
+  logs lidar-stream` for encode errors, and confirm `lidar-data-init`
+  completed (the preview needs the same extracted `.jpg` frames as
+  detection). `intersection-lidar1` has no camera picture and will always
+  show offline/no-preview - that's expected for a LiDAR sensor.
