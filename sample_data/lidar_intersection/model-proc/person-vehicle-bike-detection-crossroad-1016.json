@@ -4,12 +4,7 @@
   "output_postproc": [
     {
       "converter": "detection_output",
-      "labels": [
-        "background",
-        "vehicle",
-        "person",
-        "cyclist"
-      ]
+      "labels": ["background", "vehicle", "person", "cyclist"]
     }
   ]
 }
