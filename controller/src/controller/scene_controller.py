@@ -665,13 +665,12 @@ class SceneController:
   def handleDatabaseMessage(self, client, userdata, message):
     command = str(message.payload.decode("utf-8"))
     if command == "update":
-      try:
-        self.updateSubscriptions()
-        self.updateObjectClasses()
-        self.updateCameras()
-        self.updateTRSMatrix()
-      except Exception as e:
-        log.warning("Failed to update database: %s", e)
+      for step in (self.updateSubscriptions, self.updateObjectClasses,
+                   self.updateCameras, self.updateTRSMatrix):
+        try:
+          step()
+        except Exception as e:
+          log.warning("Failed to update database in %s: %s", step.__name__, e)
     return
 
   # MQTT callbacks

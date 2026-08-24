@@ -35,9 +35,15 @@ def test_manual_camera_calibration_api(rest, result_recorder):
   log.info("Step 2. Get cameras' UIDs and Transforms. Generate modified data.")
   cameras = rest.getCameras('')
   for camera in cameras["results"]:
+    if not camera.get("transforms"):
+      log.info(f"Skipping camera {camera['uid']} without calibration points")
+      continue
     original_camera_data.update({camera["uid"]: camera["transforms"]})
-    modified_camera_data = {uid: [x*1.05 for x in transforms] for uid, transforms in original_camera_data.items()}
-    assert original_camera_data != modified_camera_data, "Original and Modified data is the same"
+
+  assert original_camera_data, "No calibrated cameras available to test against"
+  modified_camera_data = {uid: [x*1.05 for x in transforms]
+                          for uid, transforms in original_camera_data.items()}
+  assert original_camera_data != modified_camera_data, "Original and Modified data is the same"
 
   log.info("Step 3. Modify calibration points")
   for uid, transforms in modified_camera_data.items():

@@ -4,12 +4,16 @@
 from tests.diagnostic import Diagnostic
 import numpy as np
 import threading
+import time
 import json
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time, get_epoch_time
 from tests.utils.log import get_logger
 
 log = get_logger(__name__)
+
+# Seconds to wait for the broker handshake before giving up on a connection.
+MQTT_CONNECT_TIMEOUT_S = 10
 
 class FunctionalTest(Diagnostic):
   def buildArgparser(self):
@@ -110,6 +114,18 @@ class FunctionalTest(Diagnostic):
     assert res['results'], ("Scene does not exist", scene_id, res.statusCode, res.errors)
     return
 
+  def waitForConnection(self, pubsub, timeout=MQTT_CONNECT_TIMEOUT_S):
+    """Block until `pubsub` reports a live broker connection.
+
+    @param      pubsub      PubSub instance with its network loop started
+    @param      timeout     seconds to wait before giving up
+    @return                 True when connected, False on timeout
+    """
+    deadline = get_epoch_time() + timeout
+    while not pubsub.isConnected() and get_epoch_time() < deadline:
+      time.sleep(0.05)
+    return pubsub.isConnected()
+
   def sceneScapeReady(self, max_attempts, controller_wait):
     attempts = 0
     ready = None
@@ -125,6 +141,11 @@ class FunctionalTest(Diagnostic):
     publishTopic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=objData['id'])
     self.pubsub.connect()
     self.pubsub.loopStart()
+    if not self.waitForConnection(self.pubsub):
+      log.error('Timed out connecting to the broker; scene controller probe '
+                'cannot subscribe or publish.')
+      self.pubsub.loopStop()
+      return False
 
     while attempts < max_attempts:
       attempts += 1

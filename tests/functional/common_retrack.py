@@ -174,6 +174,7 @@ class RetrackTest:
     assert subscribed.wait(self.MAX_WAIT), \
       "Temporary MQTT client failed to subscribe to CMD_DATABASE within timeout"
     try:
+      db_received.clear()
       rest_fn()
       assert db_received.wait(self.MAX_WAIT), \
         "Timed out waiting for CMD_DATABASE notification"
