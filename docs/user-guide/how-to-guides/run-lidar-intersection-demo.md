@@ -68,7 +68,6 @@ make demo LIDAR_DEMO=true
 `REID_BACKEND` can, for example:
 
 ```bash
-make demo-reid LIDAR_DEMO=true REID_BACKEND=qdrant
 make demo-all LIDAR_DEMO=true
 ```
 
@@ -207,16 +206,17 @@ of it only for this demo:
 
 | Change                                                                                      | File(s)                                                                                                       |
 | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Carry the publisher's `source` field ( `"lidar"`/`"camera"` ) through tracking/fusion so the debug UI labels above have real data - the Controller doesn't forward arbitrary detection fields into tracked-object output otherwise | `controller/src/controller/moving_object.py`, `scene_common/src/scene_common/detections_builder.py` |
+| Carry the publisher's `source` field ( `"lidar"`/`"camera"` ) through tracking/fusion so the debug UI labels above have real data - the Controller doesn't forward arbitrary detection fields into tracked-object output otherwise, and the Analytics service (which actually publishes the regulated/UI-facing topic) re-derives tracked objects through its own allowlisted representation that needed the same field added | `controller/src/controller/moving_object.py`, `scene_common/src/scene_common/detections_builder.py`, `scene_common/src/scene_common/ingestion.py`, `analytics/src/analytics/analytics_models.py` |
 
 LiDAR/camera fusion and rotation handling themselves are unmodified - this
 patch only adds a pass-through for one debug-only field.
 
 `make build-core`/`make build-all` apply both patches to the working tree
 automatically (and only) when `LIDAR_DEMO=true`, build the `manager`,
-`controller`, and shared `scene_common` base images with them applied, then
-automatically revert them - the patches only need to be on disk while those
-images are being built (they're baked into the image layers), so:
+`controller`, `analytics`, and shared `scene_common` base images with them
+applied, then automatically revert them - the patches only need to be on
+disk while those images are being built (they're baked into the image
+layers), so:
 
 ```bash
 SUPASS=<password> make build-core demo LIDAR_DEMO=true
@@ -224,9 +224,9 @@ SUPASS=<password> make build-core demo LIDAR_DEMO=true
 
 builds the patched images, reverts the source tree back to normal, and
 starts the demo, all in one step. Your working tree stays clean throughout -
-`git status` should never show `controller/`/`manager/`/`scene_common/`
-files as modified because of this demo, so there's nothing extra to
-commit/push for it beyond this demo's own files under
+`git status` should never show `controller/`/`manager/`/`scene_common/`/
+`analytics/` files as modified because of this demo, so there's nothing
+extra to commit/push for it beyond this demo's own files under
 `sample_data/lidar_intersection/`, `Makefile`, and docs. The apply/revert
 cycle is idempotent - re-running the same command does not re-apply, fail,
 or leave anything applied. To manually apply or remove the patches (e.g. to
@@ -239,9 +239,9 @@ make revert-lidar-patch   # revert them back to the unpatched source
 
 > **Note:** if a build is interrupted between `apply-lidar-patch` and the
 > automatic revert (e.g. `Ctrl+C` mid-build), `controller/`/`manager/`/
-> `scene_common/` files may be left patched in your working tree. Run
-> `make revert-lidar-patch` to clean up, or check `git status` before
-> committing/pushing.
+> `scene_common/`/`analytics/` files may be left patched in your working
+> tree. Run `make revert-lidar-patch` to clean up, or check `git status`
+> before committing/pushing.
 
 ## Troubleshooting
 
