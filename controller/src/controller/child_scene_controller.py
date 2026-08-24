@@ -55,12 +55,11 @@ class ChildSceneController():
     # Remove stale callbacks from any previous connection before re-adding
     self.client.removeCallback(self.child_event_topic)
     self.client.removeCallback(self.child_scene_topic)
-    tripwires_response_topic = PubSub.formatTopic(PubSub.CMD_CHILD_TRIPWIRES_RESPONSE,
-                                                  scene_id=self.child_id)
-    self.client.removeCallback(tripwires_response_topic)
-    rois_response_topic = PubSub.formatTopic(PubSub.CMD_CHILD_ROIS_RESPONSE,
-                                             scene_id=self.child_id)
-    self.client.removeCallback(rois_response_topic)
+    tripwires_topic = PubSub.formatTopic(PubSub.DATA_CHILD_TRIPWIRES,
+                                         scene_id=self.child_id)
+    self.client.removeCallback(tripwires_topic)
+    rois_topic = PubSub.formatTopic(PubSub.DATA_CHILD_ROIS, scene_id=self.child_id)
+    self.client.removeCallback(rois_topic)
 
     self.client.addCallback(self.child_event_topic, self.parent_controller.republishEvents)
     log.info("Subscribed to", self.child_event_topic)
@@ -69,24 +68,14 @@ class ChildSceneController():
                             self.parent_controller.handleMovingObjectMessage)
     log.info("Subscribed to", self.child_scene_topic)
 
-    self.client.addCallback(tripwires_response_topic, self.handleTripwiresResponse)
-    log.info("Subscribed to", tripwires_response_topic)
+    self.client.addCallback(tripwires_topic, self.handleTripwiresCatalog, qos=1)
+    log.info("Subscribed to", tripwires_topic)
 
-    self.client.addCallback(rois_response_topic, self.handleRoisResponse)
-    log.info("Subscribed to", rois_response_topic)
-
-    tripwires_request_topic = PubSub.formatTopic(PubSub.CMD_CHILD_TRIPWIRES_REQUEST,
-                                                 scene_id=self.child_id)
-    self.client.publish(tripwires_request_topic, "request")
-    log.info("Requested tripwires from child", self.child_name)
-
-    rois_request_topic = PubSub.formatTopic(PubSub.CMD_CHILD_ROIS_REQUEST,
-                                            scene_id=self.child_id)
-    self.client.publish(rois_request_topic, "request")
-    log.info("Requested rois from child", self.child_name)
+    self.client.addCallback(rois_topic, self.handleRoisCatalog, qos=1)
+    log.info("Subscribed to", rois_topic)
     return
 
-  def handleTripwiresResponse(self, client, userdata, message):
+  def handleTripwiresCatalog(self, client, userdata, message):
     log.debug(
       f"Tripwire callback: child={self.child_name} "
       f"link_uid={self.child_link_uid} topic={message.topic} "
@@ -112,7 +101,6 @@ class ChildSceneController():
     if normalized == self._last_tripwires_json:
       log.debug(f"Tripwires unchanged for child {self.child_name}; skipping persist")
       return
-    self._last_tripwires_json = normalized
 
     try:
       result = self.parent_controller.cache_manager.data_source.updateChildScene(
@@ -124,10 +112,12 @@ class ChildSceneController():
           f"Failed to persist tripwires for child {self.child_name}: "
           f"status={result.status_code} errors={result.errors}"
         )
+        return
+      self._last_tripwires_json = normalized
     except Exception as e:
       log.error(f"Failed to persist tripwires for child {self.child_name}: {e}")
 
-  def handleRoisResponse(self, client, userdata, message):
+  def handleRoisCatalog(self, client, userdata, message):
     log.debug(
       f"ROI callback: child={self.child_name} "
       f"link_uid={self.child_link_uid} topic={message.topic} "
@@ -152,7 +142,6 @@ class ChildSceneController():
     if normalized == self._last_rois_json:
       log.debug(f"Rois unchanged for child {self.child_name}; skipping persist")
       return
-    self._last_rois_json = normalized
 
     try:
       result = self.parent_controller.cache_manager.data_source.updateChildScene(
@@ -164,6 +153,8 @@ class ChildSceneController():
           f"Failed to persist rois for child {self.child_name}: "
           f"status={result.status_code} errors={result.errors}"
         )
+        return
+      self._last_rois_json = normalized
     except Exception as e:
       log.error(f"Failed to persist rois for child {self.child_name}: {e}")
 

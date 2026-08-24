@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -36,10 +36,8 @@ class _Topic(Enum):
   IMAGE_CAMERA = auto()
   SYS_CHILDSCENE_STATUS = auto()
   ANALYTICS_CLUSTERS = auto()
-  CMD_CHILD_TRIPWIRES_REQUEST = auto()
-  CMD_CHILD_TRIPWIRES_RESPONSE = auto()
-  CMD_CHILD_ROIS_REQUEST = auto()
-  CMD_CHILD_ROIS_RESPONSE = auto()
+  DATA_CHILD_TRIPWIRES = auto()
+  DATA_CHILD_ROIS = auto()
 
 # Really gross way to put above constants directly into PubSub class
 class _PubSubTopicBase:
@@ -67,10 +65,8 @@ class PubSub(_PubSubTopicBase):
     _Topic.IMAGE_CAMERA: Template(TOPIC_BASE + "/image/camera/${camera_id}"),
     _Topic.SYS_CHILDSCENE_STATUS: Template(TOPIC_BASE + "/sys/child/status/${scene_id}"),
     _Topic.ANALYTICS_CLUSTERS: Template(TOPIC_BASE + "/analytics/clusters/${scene_id}"),
-    _Topic.CMD_CHILD_TRIPWIRES_REQUEST: Template(TOPIC_BASE + "/cmd/child/tripwires/request/${scene_id}"),
-    _Topic.CMD_CHILD_TRIPWIRES_RESPONSE: Template(TOPIC_BASE + "/cmd/child/tripwires/response/${scene_id}"),
-    _Topic.CMD_CHILD_ROIS_REQUEST: Template(TOPIC_BASE + "/cmd/child/rois/request/${scene_id}"),
-    _Topic.CMD_CHILD_ROIS_RESPONSE: Template(TOPIC_BASE + "/cmd/child/rois/response/${scene_id}"),
+    _Topic.DATA_CHILD_TRIPWIRES: Template(TOPIC_BASE + "/data/child/tripwires/${scene_id}"),
+    _Topic.DATA_CHILD_ROIS: Template(TOPIC_BASE + "/data/child/rois/${scene_id}"),
   }
 
   def __init__(self, auth, cert, rootca, broker, port=None, keepalive=60,

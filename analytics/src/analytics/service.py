@@ -243,8 +243,15 @@ class AnalyticsService:
     publish_events(scene, jdata['timestamp'], self.pubsub.publish)
     return
 
+  def _publishRetainedCatalog(self, topic_id, scene_id, payload):
+    """Publish *payload* as the last-known catalog for *scene_id* (retained)."""
+    topic = PubSub.formatTopic(topic_id, scene_id=scene_id)
+    self.pubsub.publish(
+      topic, orjson.dumps(payload).decode('utf-8'), qos=1, retain=True)
+    return topic
+
   def publishTripwiresForScene(self, scene):
-    """Publish cached tripwire definitions for *scene* on the response topic."""
+    """Publish the current tripwire catalog for *scene* as retained state."""
     result = self.cache_manager.data_source.getTripwires({'scene': scene.uid})
     if result.errors:
       log.warning(f"Failed to fetch tripwires for scene {scene.uid}: {result.errors}")
@@ -253,13 +260,13 @@ class AnalyticsService:
       {'title': t.get('name', ''), 'uuid': t.get('uid', ''), 'points': t.get('points', [])}
       for t in result.get('results', [])
     ]
-    topic = PubSub.formatTopic(PubSub.CMD_CHILD_TRIPWIRES_RESPONSE, scene_id=scene.uid)
-    self.pubsub.publish(topic, orjson.dumps(tripwires).decode('utf-8'))
+    topic = self._publishRetainedCatalog(
+      PubSub.DATA_CHILD_TRIPWIRES, scene.uid, tripwires)
     log.debug(f"Published {len(tripwires)} tripwire(s) for scene {scene.uid} on {topic}")
     return
 
   def publishRoisForScene(self, scene):
-    """Publish cached ROI definitions for *scene* on the response topic."""
+    """Publish the current ROI catalog for *scene* as retained state."""
     result = self.cache_manager.data_source.getRegions({'scene': scene.uid})
     if result.errors:
       log.warning(f"Failed to fetch rois for scene {scene.uid}: {result.errors}")
@@ -276,31 +283,15 @@ class AnalyticsService:
         'sectors': region.get('color_ranges', {}).get('thresholds', []),
         'range_max': region.get('color_ranges', {}).get('range_max', 0),
       })
-    topic = PubSub.formatTopic(PubSub.CMD_CHILD_ROIS_RESPONSE, scene_id=scene.uid)
-    self.pubsub.publish(topic, orjson.dumps(rois).decode('utf-8'))
+    topic = self._publishRetainedCatalog(PubSub.DATA_CHILD_ROIS, scene.uid, rois)
     log.debug(f"Published {len(rois)} roi(s) for scene {scene.uid} on {topic}")
     return
 
-  def handleTripwiresRequest(self, client, userdata, message):
-    """Respond to a parent request for tripwire definitions."""
-    topic = PubSub.parseTopic(message.topic)
-    requested_scene_id = topic.get('scene_id')
-    for scene in getattr(self, 'scenes', []):
-      if str(scene.uid) == str(requested_scene_id):
-        self.publishTripwiresForScene(scene)
-        return
-    log.warning(f"Tripwires request for unknown scene {requested_scene_id}")
-    return
-
-  def handleRoisRequest(self, client, userdata, message):
-    """Respond to a parent request for roi definitions."""
-    topic = PubSub.parseTopic(message.topic)
-    requested_scene_id = topic.get('scene_id')
-    for scene in getattr(self, 'scenes', []):
-      if str(scene.uid) == str(requested_scene_id):
-        self.publishRoisForScene(scene)
-        return
-    log.warning(f"Rois request for unknown scene {requested_scene_id}")
+  def clearCatalogForScene(self, scene_id):
+    """Overwrite retained catalogs so a removed scene does not leave stale state."""
+    self._publishRetainedCatalog(PubSub.DATA_CHILD_TRIPWIRES, scene_id, [])
+    self._publishRetainedCatalog(PubSub.DATA_CHILD_ROIS, scene_id, [])
+    log.debug(f"Cleared retained analytics catalog for scene {scene_id}")
     return
 
   def handleDatabaseMessage(self, client, userdata, message):
@@ -309,7 +300,6 @@ class AnalyticsService:
       try:
         self.updateSubscriptions()
         self.updateRegulateCache()
-        # Re-publish tripwire definitions so parent caches stay current
         for scene in getattr(self, 'scenes', []):
           self.publishTripwiresForScene(scene)
           self.publishRoisForScene(scene)
@@ -329,7 +319,6 @@ class AnalyticsService:
     self.updateSubscriptions()
     self.pubsub.addCallback(PubSub.formatTopic(PubSub.CMD_DATABASE), self.handleDatabaseMessage)
     log.info("Subscribed to", PubSub.formatTopic(PubSub.CMD_DATABASE))
-    # Publish initial tripwire definitions so parent controller can cache them
     for scene in getattr(self, 'scenes', []):
       self.publishTripwiresForScene(scene)
       self.publishRoisForScene(scene)
@@ -342,19 +331,13 @@ class AnalyticsService:
       self.subscribed = set()
     need_subscribe = set()
 
+    previous_ids = {str(s.uid) for s in getattr(self, 'scenes', [])}
     self.scenes = self.cache_manager.allScenes()
+    current_ids = {str(s.uid) for s in self.scenes}
     for scene in self.scenes:
       need_subscribe.add((
         PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
         self.handleSceneDataMessage,
-      ))
-      need_subscribe.add((
-        PubSub.formatTopic(PubSub.CMD_CHILD_TRIPWIRES_REQUEST, scene_id=scene.uid),
-        self.handleTripwiresRequest,
-      ))
-      need_subscribe.add((
-        PubSub.formatTopic(PubSub.CMD_CHILD_ROIS_REQUEST, scene_id=scene.uid),
-        self.handleRoisRequest,
       ))
       for sensor in scene.sensors:
         need_subscribe.add((
@@ -371,6 +354,8 @@ class AnalyticsService:
       self.pubsub.addCallback(topic, callback)
       log.info("Subscribed to", topic)
     self.subscribed = need_subscribe
+    for scene_id in previous_ids - current_ids:
+      self.clearCatalogForScene(scene_id)
     return
 
   def updateRegulateCache(self):
