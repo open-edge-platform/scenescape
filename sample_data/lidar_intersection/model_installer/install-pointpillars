@@ -1,0 +1,212 @@
+#!/bin/bash
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Install PointPillars OpenVINO IR files and build the required extension
+# library (libov_pointpillars_extensions.so), then write a runtime config JSON.
+#
+# Sources are taken from the openvino_contrib repository:
+#   https://github.com/openvinotoolkit/openvino_contrib.git
+#
+# Resolution order for POINTPILLARS_ROOT (modules/3d/pointPillars):
+#   1. POINTPILLARS_ROOT env var (if set)
+#   2. Sibling checkout: <SCRIPT_DIR>/../../openvino_contrib/modules/3d/pointPillars
+#      or the path given by OPENVINO_CONTRIB_DIR env var
+#   3. Sparse clone into POINTPILLARS_CACHE_DIR
+#
+# Environment variables:
+#   MODELS_PATH              Destination for IR files.  Default: /workspace/models
+#   POINTPILLARS_ROOT        Existing modules/3d/pointPillars directory.
+#   OPENVINO_CONTRIB_DIR     Existing openvino_contrib checkout root.
+#   OPENVINO_CONTRIB_REF     Commit SHA or tag to check out after sparse clone.
+#                            Default: d131b42505ee77e064638e0b38e6a84b52b779d6
+#                            (the commit that introduced the PointPillars module)
+#   POINTPILLARS_CACHE_DIR   Cache dir for sparse clone.  Default: /tmp/pointpillars-cache
+#   PYTHON                   Python interpreter with openvino installed.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODELS_PATH="${MODELS_PATH:-/workspace/models}"
+POINTPILLARS_MODEL_DIR="${MODELS_PATH}/public/pointpillars/FP16"
+POINTPILLARS_CACHE_DIR="${POINTPILLARS_CACHE_DIR:-/tmp/pointpillars-cache}"
+OPENVINO_CONTRIB_URL="https://github.com/openvinotoolkit/openvino_contrib.git"
+# Pinned to the commit that introduced modules/3d/pointPillars.
+# Override with OPENVINO_CONTRIB_REF to test a newer revision.
+OPENVINO_CONTRIB_REF="${OPENVINO_CONTRIB_REF:-d131b42505ee77e064638e0b38e6a84b52b779d6}"
+
+POINTPILLARS_MODEL_FILES=(
+    "pointpillars_ov_nn.bin"
+    "pointpillars_ov_nn.xml"
+    "pointpillars_ov_pillar_layer.xml"
+    "pointpillars_ov_postproc.xml"
+)
+
+log()  { printf '[install-pointpillars] %s\n' "$*"; }
+fail() { printf '[install-pointpillars] ERROR: %s\n' "$*" >&2; exit 1; }
+
+require_command() {
+    command -v "$1" >/dev/null 2>&1 || fail "Required command not found: $1"
+}
+
+# ── Python with OpenVINO ───────────────────────────────────────────────────────
+
+select_python_with_openvino() {
+    local candidates=()
+    [[ -n "${PYTHON:-}" ]] && candidates+=("${PYTHON}")
+    candidates+=(
+        "${SCRIPT_DIR}/../../../.venv/bin/python"
+        "${HOME}/.virtualenvs/dlstreamer/bin/python"
+        "python3"
+        "python"
+    )
+    local candidate
+    for candidate in "${candidates[@]}"; do
+        if command -v "$candidate" >/dev/null 2>&1 \
+           && "$candidate" -c 'import openvino' >/dev/null 2>&1; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+    fail "No Python interpreter with the openvino package found. Set PYTHON= or install openvino."
+}
+
+# ── Resolve PointPillars source tree ──────────────────────────────────────────
+
+resolve_pointpillars_root() {
+    if [[ -n "${POINTPILLARS_ROOT:-}" ]]; then
+        [[ -d "${POINTPILLARS_ROOT}" ]] || fail "POINTPILLARS_ROOT does not exist: ${POINTPILLARS_ROOT}"
+        log "Using POINTPILLARS_ROOT=${POINTPILLARS_ROOT}"
+        return 0
+    fi
+
+    # Sibling checkout: honour OPENVINO_CONTRIB_DIR or auto-detect relative to script.
+    local contrib_dir="${OPENVINO_CONTRIB_DIR:-${SCRIPT_DIR}/../../openvino_contrib}"
+    local sibling="${contrib_dir}/modules/3d/pointPillars"
+    if [[ -d "${sibling}" ]]; then
+        POINTPILLARS_ROOT="${sibling}"
+        log "Found sibling openvino_contrib checkout: ${POINTPILLARS_ROOT}"
+        return 0
+    fi
+
+    # Sparse clone fallback.
+    local sparse_root="${POINTPILLARS_CACHE_DIR}/openvino_contrib"
+    if [[ ! -d "${sparse_root}/.git" ]]; then
+        log "Sparse-cloning openvino_contrib into ${sparse_root} at ref ${OPENVINO_CONTRIB_REF}..."
+        rm -rf "${sparse_root}"
+        git clone --filter=blob:none --sparse \
+            "${OPENVINO_CONTRIB_URL}" "${sparse_root}"
+        git -C "${sparse_root}" sparse-checkout set modules/3d/pointPillars
+        git -C "${sparse_root}" checkout "${OPENVINO_CONTRIB_REF}"
+    else
+        local current_sha
+        current_sha="$(git -C "${sparse_root}" rev-parse HEAD)"
+        if [[ "${current_sha}" != "${OPENVINO_CONTRIB_REF}" ]]; then
+            log "Cached clone is at ${current_sha}, re-checking out ${OPENVINO_CONTRIB_REF}..."
+            git -C "${sparse_root}" checkout "${OPENVINO_CONTRIB_REF}"
+        fi
+    fi
+    POINTPILLARS_ROOT="${sparse_root}/modules/3d/pointPillars"
+    log "Using sparse-cloned source: ${POINTPILLARS_ROOT}"
+}
+
+# ── Copy IR model files ────────────────────────────────────────────────────────
+
+copy_model_files() {
+    mkdir -p "${POINTPILLARS_MODEL_DIR}"
+    local pretrained_dir="${POINTPILLARS_ROOT}/pretrained"
+    [[ -d "${pretrained_dir}" ]] || fail "pretrained directory not found: ${pretrained_dir}"
+
+    local file
+    for file in "${POINTPILLARS_MODEL_FILES[@]}"; do
+        local src="${pretrained_dir}/${file}"
+        [[ -f "${src}" ]] || fail "Model file not found: ${src}"
+        if [[ ! -f "${POINTPILLARS_MODEL_DIR}/${file}" ]]; then
+            log "Copying ${file}"
+            cp -f "${src}" "${POINTPILLARS_MODEL_DIR}/${file}"
+        else
+            log "Already present: ${file}"
+        fi
+    done
+}
+
+# ── Build OpenVINO extension ───────────────────────────────────────────────────
+
+build_extension() {
+    local python_bin
+    python_bin="$(select_python_with_openvino)"
+    export PATH="$(dirname "${python_bin}"):${PATH}"
+
+    local ext_build_script="${POINTPILLARS_ROOT}/ov_extensions/build.sh"
+    local ext_library="${POINTPILLARS_ROOT}/ov_extensions/build/libov_pointpillars_extensions.so"
+
+    [[ -f "${ext_build_script}" ]] || fail "Extension build script not found: ${ext_build_script}"
+
+    if [[ -f "${ext_library}" ]]; then
+        log "Extension already built: ${ext_library}"
+    else
+        log "Building PointPillars OpenVINO extension..."
+        bash "${ext_build_script}"
+        [[ -f "${ext_library}" ]] || fail "Extension build failed — library not produced: ${ext_library}"
+        log "Extension built: ${ext_library}"
+    fi
+
+    # Copy into MODELS_PATH so it is accessible from any container that mounts vol-models.
+    local dest="${POINTPILLARS_MODEL_DIR}/libov_pointpillars_extensions.so"
+    if [[ ! -f "${dest}" ]] || ! cmp -s "${ext_library}" "${dest}"; then
+        log "Copying extension to ${dest}"
+        cp -f "${ext_library}" "${dest}"
+    fi
+}
+
+# ── Write runtime config JSON ─────────────────────────────────────────────────
+
+write_config() {
+    local config_path="${POINTPILLARS_MODEL_DIR}/pointpillars_ov_config.json"
+    local ext_library="${POINTPILLARS_MODEL_DIR}/libov_pointpillars_extensions.so"
+
+    cat > "${config_path}" <<EOF
+{
+  "voxel_params": {
+    "voxel_size": [0.16, 0.16, 4],
+    "point_cloud_range": [0, -39.68, -3, 69.12, 39.68, 1],
+    "max_num_points": 32,
+    "max_voxels": 16000
+  },
+  "extension_lib": "${ext_library}",
+  "voxel_model":   "${POINTPILLARS_MODEL_DIR}/pointpillars_ov_pillar_layer.xml",
+  "nn_model":      "${POINTPILLARS_MODEL_DIR}/pointpillars_ov_nn.xml",
+  "postproc_model":"${POINTPILLARS_MODEL_DIR}/pointpillars_ov_postproc.xml"
+}
+EOF
+    log "Config written: ${config_path}"
+}
+
+# ── Build tool bootstrap (no root required for cmake via pip) ────────────────
+
+ensure_build_tools() {
+    local missing=()
+    command -v cmake >/dev/null 2>&1 || missing+=(cmake)
+    command -v make  >/dev/null 2>&1 || missing+=(make)
+    command -v c++   >/dev/null 2>&1 || missing+=(g++)
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        log "Installing missing build tools: ${missing[*]}"
+        apt-get update -qq
+        apt-get install -y --no-install-recommends "${missing[@]}"
+    fi
+}
+
+# ── Entry point ────────────────────────────────────────────────────────────────
+
+require_command git
+
+log "MODELS_PATH=${MODELS_PATH}"
+
+ensure_build_tools
+resolve_pointpillars_root
+copy_model_files
+build_extension
+write_config
+
+log "Done. Set LIDAR_MODEL_CONFIG=${POINTPILLARS_MODEL_DIR}/pointpillars_ov_config.json"
