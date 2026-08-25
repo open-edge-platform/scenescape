@@ -1,9 +1,9 @@
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/analytics">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/release-2026.2.0/analytics">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/analytics/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/analytics/README.md">
      Readme
   </a>
 </div>
@@ -42,7 +42,7 @@ For details on the MQTT message formats accepted and produced by the Analytics s
 
 - [Data Formats](./data_formats.md)
 - [API Reference](./api-reference.md)
-- [Analytics Service README](https://github.com/open-edge-platform/scenescape/blob/main/analytics/README.md)
+- [Analytics Service README](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/analytics/README.md)
 - [Scene Controller](../controller/controller.md)
 
 <!--hide_directive

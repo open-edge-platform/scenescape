@@ -17,7 +17,7 @@ Before You Begin, ensure the following:
 
 This guide assumes familiarity with the Scenescape environment. If needed, see:
 
-- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
+- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/README.md)
 
 ## Steps to Visualize ROI and Sensor Areas
 
@@ -123,4 +123,4 @@ To enable visualization:
 
 ## Supporting Resources
 
-- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
+- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/README.md)
