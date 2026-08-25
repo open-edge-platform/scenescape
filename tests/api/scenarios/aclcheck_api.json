@@ -80,7 +80,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/ACLCHECK/05: Non-object JSON body returns 400, not a server error",
+    "test_name": "Vision_AI/SSCAPE/API/ACLCHECK/05: Non-object JSON body returns 400",
     "test_steps": [
       {
         "step_name": "Check ACL with a boolean request body",
