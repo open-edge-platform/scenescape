@@ -25,7 +25,7 @@ by the **Analytics** microservice — see
 The Scene Controller subscribes to the MQTT topic `scenescape/data/camera/{camera_id}` and
 receives camera detection metadata from visual analytics pipelines. Messages are validated
 against the `detector` definition in
-[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
+[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/controller/src/schema/metadata.schema.json).
 
 ### Top-Level Message Fields
 
@@ -140,7 +140,7 @@ omitted; `embedding_vector` truncated for readability):
 ```
 
 For the full schema definition, see
-[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
+[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/controller/src/schema/metadata.schema.json).
 
 ## External Source Input Message Format
 
@@ -167,7 +167,7 @@ Two payload contracts share the topic, distinguished by `source_id`:
     `CONTROLLER_TRUSTED_POSITIONING_SOURCES` for acceptance)
 
 Messages with `source_id` are validated against the `external_source` definition in
-[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
+[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/controller/src/schema/metadata.schema.json).
 
 This section documents the unified external-source **payload** contract.
 
