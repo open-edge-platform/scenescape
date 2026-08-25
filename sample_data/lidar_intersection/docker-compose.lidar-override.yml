@@ -54,29 +54,37 @@ services:
     restart: "no"
     pids_limit: 1000
 
-  # Extracts the recorded LiDAR point-cloud frames and camera JPEG frames
-  # into the shared sample-data volume (source tar.gz archives are bind
-  # mounted read-only from the repo, not copied through vol-sample-data).
+  # Converts the manually-downloaded raw DAIR-V2X-Seq (V2X-Seq-SPD) dataset
+  # (see the "Prerequisites" section of
+  # docs/user-guide/how-to-guides/run-lidar-intersection-demo.md - too large
+  # to commit to the repo, so it's NOT bind-mounted from anything checked
+  # into git) into the shared sample-data volume: LiDAR `velodyne/*.pcd`
+  # frames are converted to `velodyne_bin/*.bin` via convert_pcd_to_bin.py
+  # (the format DLStreamer's g3dlidarparse expects), and camera `image/*.jpg`
+  # frames are copied through unchanged (no conversion needed). Only the
+  # `image/`/`velodyne/` subdirectories are mounted (not the full
+  # `infrastructure-side/` tree) - `calib/`/`label/`/`data_info.json` aren't
+  # needed by this demo.
   lidar-data-init:
-    image: alpine:3.23
-    command: >-
-      sh -c "mkdir -p /dst/lidar_intersection/velodyne_bin /dst/lidar_intersection/images &&
-      tar -xzf /src/velodyne_bin_part1.tar.gz --strip-components=1 -C /dst/lidar_intersection/velodyne_bin/ &&
-      tar -xzf /src/velodyne_bin_part2.tar.gz --strip-components=1 -C /dst/lidar_intersection/velodyne_bin/ &&
-      tar -xzf /src/velodyne_bin_part3.tar.gz --strip-components=1 -C /dst/lidar_intersection/velodyne_bin/ &&
-      tar -xzf /src/image_part1.tar.gz --strip-components=1 -C /dst/lidar_intersection/images/ &&
-      tar -xzf /src/image_part2.tar.gz --strip-components=1 -C /dst/lidar_intersection/images/ &&
-      tar -xzf /src/image_part3.tar.gz --strip-components=1 -C /dst/lidar_intersection/images/ &&
-      tar -xzf /src/image_part4.tar.gz --strip-components=1 -C /dst/lidar_intersection/images/ &&
-      echo 'lidar_intersection data ready'"
+    image: python:3.11-slim
+    environment:
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - PCD_VELODYNE_DIR=/src/velodyne
+      - PCD_BIN_DIR=/dst/lidar_intersection/velodyne_bin
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        pip install --no-cache-dir --quiet numpy pypcd4
+        mkdir -p /dst/lidar_intersection/velodyne_bin /dst/lidar_intersection/images
+        python3 /convert_pcd_to_bin.py
+        cp /src/image/*.jpg /dst/lidar_intersection/images/
+        echo 'lidar_intersection data ready'
     volumes:
-      - ./sample_data/lidar_intersection/velodyne_bin_part1.tar.gz:/src/velodyne_bin_part1.tar.gz:ro
-      - ./sample_data/lidar_intersection/velodyne_bin_part2.tar.gz:/src/velodyne_bin_part2.tar.gz:ro
-      - ./sample_data/lidar_intersection/velodyne_bin_part3.tar.gz:/src/velodyne_bin_part3.tar.gz:ro
-      - ./sample_data/lidar_intersection/image_part1.tar.gz:/src/image_part1.tar.gz:ro
-      - ./sample_data/lidar_intersection/image_part2.tar.gz:/src/image_part2.tar.gz:ro
-      - ./sample_data/lidar_intersection/image_part3.tar.gz:/src/image_part3.tar.gz:ro
-      - ./sample_data/lidar_intersection/image_part4.tar.gz:/src/image_part4.tar.gz:ro
+      - ${LIDAR_RAW_DATASET_DIR:-./sample_data/lidar_intersection/V2X-Seq-SPD-Example}/infrastructure-side/image:/src/image:ro
+      - ${LIDAR_RAW_DATASET_DIR:-./sample_data/lidar_intersection/V2X-Seq-SPD-Example}/infrastructure-side/velodyne:/src/velodyne:ro
+      - ./sample_data/lidar_intersection/convert_pcd_to_bin.py:/convert_pcd_to_bin.py:ro
       - vol-sample-data:/dst
     restart: "no"
     pids_limit: 1000
@@ -155,6 +163,7 @@ services:
       # - CAM_DETECTION_LABELS=vehicle,cyclist
     volumes:
       - ./sample_data/lidar_intersection/lidar_publisher.py:/home/pipeline-server/user_scripts/lidar_publisher.py:ro
+      - ./sample_data/lidar_intersection/model-proc:/home/pipeline-server/videos/lidar_intersection/model-proc:ro
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:

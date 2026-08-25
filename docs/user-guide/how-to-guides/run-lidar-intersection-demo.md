@@ -32,13 +32,46 @@ affects the standard `make demo` deployment.
 | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sample_data/lidar_intersection/docker-compose.lidar-override.yml` | Opt-in Compose override adding the `lidar-scene-init`, `lidar-data-init`, `lidar-model-init`, and `lidar-stream` services                       |
 | `sample_data/lidar_intersection/lidar_publisher.py`                | Runs the LiDAR (PointPillars) and camera (person-vehicle-bike) GStreamer pipelines and publishes detections over MQTT                           |
+| `sample_data/lidar_intersection/convert_pcd_to_bin.py`             | Converts the manually-downloaded dataset's `.pcd` LiDAR frames to the `.bin` format `lidar_publisher.py`/DLStreamer expect - see [Prerequisites](#prerequisites) |
 | `sample_data/lidar_intersection/patches/`                          | Demo-only patches, one per component (Manager, Controller, scene_common, Analytics), applied automatically when building with `LIDAR_DEMO=true` |
-| `sample_data/lidar_intersection/`                                  | Scene config, map image, scene-import ZIP, recorded LiDAR/camera frames, and the PointPillars model installer, all scoped to this demo          |
+| `sample_data/lidar_intersection/`                                  | Scene config, map image, scene-import ZIP, and the PointPillars model installer, all scoped to this demo (the recorded LiDAR/camera frames themselves are NOT part of the repo - see [Prerequisites](#prerequisites)) |
 
 ## Prerequisites
 
 - Complete [Installation](../get-started/installation.md) Steps 1-2 (get the
   source and build the container images) at least once.
+- **Download the recorded LiDAR/camera dataset manually** - it is not
+  committed to this repo because it's too large (hundreds of MB of `.pcd`
+  point clouds and `.jpg` images):
+  1. Download the [V2X-Seq-SPD-Example](https://drive.google.com/file/d/1gjOmGEBMcipvDzu2zOrO9ex_OscUZMYY/view)
+     `.zip` archive from Google Drive through a browser and move it to your Scenescape folder (Google Drive's
+     download-confirmation page for files this size makes a scripted
+     download unreliable, so this step is manual).
+  2. Extract it so the result is
+     `sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side/`,
+     containing (at least) an `image/` directory of `.jpg` frames, a
+     `velodyne/` directory of `.pcd` frames, and a `data_info.json` file (this
+     is the path `docker-compose.lidar-override.yml`'s `lidar-data-init`
+     service expects by default; override it with the `LIDAR_RAW_DATASET_DIR`
+     environment variable if you'd rather extract it elsewhere):
+
+     ```bash
+     unzip V2X-Seq-SPD-Example.zip -d sample_data/lidar_intersection
+     # Adjust the extracted path/depth so infrastructure-side/ ends up directly
+     # under V2X-Seq-SPD-Example/, e.g. if the archive has an extra top-level
+     # folder: mv sample_data/lidar_intersection/V2X-Seq-SPD-Example/*/infrastructure-side \
+     #            sample_data/lidar_intersection/V2X-Seq-SPD-Example/
+     ls sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side
+     ```
+  3. This is a one-time step per checkout - the extracted folder is
+     git-ignored (`sample_data/lidar_intersection/V2X-Seq-SPD-Example/` in
+     `.gitignore`) and `lidar-data-init` re-converts it into the shared
+     Docker volume on every `make demo LIDAR_DEMO=true`.
+
+  This dataset is the infrastructure-side subset of the **V2X-Seq-SPD**
+  dataset from the [DAIR-V2X-Seq](https://github.com/AIR-THU/DAIR-V2X-Seq)
+  project (Tsinghua University, Apache-2.0) - see that repository for the
+  full dataset, license terms, and citation details.
 - An Intel GPU is used **by default** for the LiDAR (PointPillars) inference
   branch, and requires the host to have `/dev/dri` and the Intel GPU driver
   installed. The camera branch defaults to CPU (a lighter model that runs
@@ -65,19 +98,12 @@ export SUPASS=<password>
 make demo LIDAR_DEMO=true
 ```
 
-`LIDAR_DEMO=true` can be combined with any other demo target the same way
-`REID_BACKEND` can, for example:
-
-```bash
-make demo-all LIDAR_DEMO=true
-```
-
 This starts four extra containers, on top of the normal demo services:
 
 | Service            | Role                                                                                                                                                                   |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lidar-scene-init` | One-shot: seeds the "Lidar Intersection" scene, camera, and sensor via the Scene Import REST API (idempotent - skips if the scene already exists)                      |
-| `lidar-data-init`  | One-shot: extracts the recorded `.bin` LiDAR frames and `.jpg` camera frames into the shared sample-data volume                                                        |
+| `lidar-data-init`  | One-shot: converts the manually-downloaded raw dataset's `.pcd` LiDAR frames to `.bin` (via `convert_pcd_to_bin.py`) and copies its `.jpg` camera frames into the shared sample-data volume - only mounts the `image/`/`velodyne/` subdirectories, see [Prerequisites](#prerequisites) |
 | `lidar-model-init` | One-shot: builds and installs the PointPillars OpenVINO model + GStreamer inference extension into the shared models volume (first run only; can take several minutes) |
 | `lidar-stream`     | Long-running: runs both GStreamer pipelines and publishes fused-ready detections over MQTT                                                                             |
 
@@ -205,6 +231,14 @@ variables (see the commented examples in
 | `CAM_DEVICE`            | `CPU`                 | OpenVINO device for the camera detector                                    |
 | `CAM_SCORE_THRESHOLD`   | `0.8`                 | Minimum detection confidence to publish                                    |
 | `CAM_DETECTION_LABELS`  | `vehicle,cyclist`     | Comma-separated category allow-list                                        |
+
+`lidar-data-init` (the dataset conversion step) has its own variable, set as
+a `docker compose`/Makefile-level environment variable rather than inside
+the compose file itself:
+
+| Variable               | Default                                                    | Description                                                                          |
+| ----------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `LIDAR_RAW_DATASET_DIR` | `./sample_data/lidar_intersection/V2X-Seq-SPD-Example`       | Host path to the extracted raw dataset (must contain an `infrastructure-side/` directory) - see [Prerequisites](#prerequisites) |
 
 ## Demo-only patches
 
@@ -364,9 +398,17 @@ equivalent of this same growing-lag symptom).
   extension from `openvino_contrib` source on first run and needs outbound
   network access (respects `HTTPS_PROXY`/`https_proxy`); check `docker
 compose logs lidar-model-init`.
+- **`lidar-data-init` fails (`No such file or directory` for `image`/`velodyne`, or `pip install` errors):** confirm you completed the manual dataset download in
+  [Prerequisites](#prerequisites) and extracted it to
+  `sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side/`
+  (or set `LIDAR_RAW_DATASET_DIR` to wherever you extracted it) - only its
+  `image/` and `velodyne/` subdirectories are actually mounted/used;
+  `pip install` failures usually mean no outbound network access (respects
+  `HTTPS_PROXY`/`https_proxy`, same as `lidar-model-init`). Check `docker
+compose logs lidar-data-init`.
 - **No detections published:** confirm `lidar-data-init` completed
   successfully (`docker compose logs lidar-data-init`) - the pipelines need
-  the extracted `.bin`/`.jpg` frames in the shared sample-data volume.
+  the converted `.bin`/`.jpg` frames in the shared sample-data volume.
 - **Scene appears empty (or missing) after `make demo-close` + a fresh `make
 demo LIDAR_DEMO=true`:** check `docker compose logs lidar-scene-init` -
   it depends on `web` being healthy first, so a slow Manager startup can
