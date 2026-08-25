@@ -204,8 +204,8 @@ sampleData:
   sourceVersion: main
   downloadDataImage:
     repository: docker.io
-    name: curlimages/curl
-    tag: 8.17.0
+    name: ubuntu
+    tag: 22.04
     pullPolicy: IfNotPresent
   convertVideosImage:
     repository: docker.io

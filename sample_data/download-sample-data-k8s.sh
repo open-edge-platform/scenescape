@@ -1,9 +1,10 @@
-#!/bin/sh
+#!/bin/bash
 
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-set -eu
+set -euo pipefail
+apt update && apt install -y wget
 if [ -f /workspace/sample-data-storage/sample_data/.done ]; then
     echo ".done file exists in /workspace/sample-data-storage/sample_data/"
 else
@@ -14,7 +15,7 @@ else
     FILES="{{ join " " .Values.sampleData.files }}"
     for file in $FILES; do
         echo "Downloading $file..."
-        curl -fSL --retry 3 --retry-delay 2 -o "/workspace/sample-data-storage/sample_data/$file" "$SAMPLE_DATA_URL/$file"
+        wget -O "/workspace/sample-data-storage/sample_data/$file" "$SAMPLE_DATA_URL/$file"
     done
     echo "Sample data downloaded successfully"
 fi

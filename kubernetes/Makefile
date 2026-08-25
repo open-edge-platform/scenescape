@@ -135,8 +135,8 @@ docker-build-all:
 	$(MAKE) -C .. build-all CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
 load-image:
-	docker tag $(IMAGE):$(VERSION) $(REGISTRY)/$(IMAGE):$(VERSION)
-	kind load docker-image $(REGISTRY)/$(IMAGE):$(VERSION)
+	docker tag $(IMAGE):$(VERSION) $(IMAGE):$(VERSION)
+	kind load docker-image $(IMAGE):$(VERSION)
 
 load-core:
 	$(MAKE) load-image IMAGE=$(MANAGERIMAGE)
