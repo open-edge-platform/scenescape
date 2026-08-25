@@ -326,21 +326,27 @@ def safe_publish(client: mqtt.Client, client_prefix: str, topic: str, payload: s
   return client
 
 
-def _encode_frame_as_png_b64(path: str) -> "str | None":
-  """Read an image file and re-encode it as base64 PNG (the format the
-  Manager UI's "getimage" preview expects). Returns None on any failure.
+def _read_frame_as_jpeg_b64(path: str) -> "str | None":
+  """Read an already-JPEG-encoded frame file and base64 it as-is.
+
+  The recorded frames are already `.jpg` files, so this avoids decoding and
+  re-encoding them (e.g. via OpenCV) on every single "getimage" request -
+  that round trip was the dominant cost of a preview response (full
+  1920x1080 decode + lossless PNG re-encode taking multiple seconds and
+  producing a multi-megabyte payload), which made the live preview look
+  laggy/slow-updating and could leave the camera showing "offline" if a
+  response didn't arrive back before the UI gave up. Reading the raw bytes
+  directly is near-instant and matches the JPEG format the Manager UI's
+  2D view and the standard DLStreamer publisher both already expect for
+  `scenescape/image/camera/<id>` (the 3D view's data-URI mime label is
+  cosmetic - browsers sniff the actual image bytes). Returns None on any
+  failure.
   """
   try:
-    import cv2
-    img = cv2.imread(path)
-    if img is None:
-      return None
-    ok, buf = cv2.imencode(".png", img)
-    if not ok:
-      return None
-    return base64.b64encode(buf.tobytes()).decode("ascii")
+    with open(path, "rb") as f:
+      return base64.b64encode(f.read()).decode("ascii")
   except Exception as exc:
-    print(f"[camera-publisher] Failed to encode preview frame {path}: {exc}", flush=True)
+    print(f"[camera-publisher] Failed to read preview frame {path}: {exc}", flush=True)
     return None
 
 
@@ -363,7 +369,7 @@ def setup_getimage_responder(
     idx = frame_index_cell[0]
     if idx is None:
       return
-    b64 = _encode_frame_as_png_b64(data_path % idx) or _encode_frame_as_png_b64(data_path % start_index)
+    b64 = _read_frame_as_jpeg_b64(data_path % idx) or _read_frame_as_jpeg_b64(data_path % start_index)
     if b64 is not None:
       msg_client.publish(image_topic, json.dumps({"image": b64}), qos=0)
 
@@ -389,6 +395,19 @@ def _open_fifo_background(path: str, result: list) -> threading.Thread:
 
 # ── Stream runner (shared by both LiDAR and camera branches) ──────────────────
 
+# Startup synchronization / cross-stream lag diagnostics: PointPillars
+# (LiDAR/GPU) model load+compile can take many seconds longer than the
+# camera branch's first frame, letting camera race ahead before LiDAR's
+# first real detection - mirrors the reference implementation's "startup
+# flush" workaround. The camera stream discards any frames it reads before
+# LiDAR's first frame instead of publishing them, so both streams start
+# from an equivalent point; both streams also share a frame counter so a
+# running lag can be logged for diagnostics.
+_lidar_ready = threading.Event()
+_stream_frame_counts: "dict[str, int]" = {"lidar-publisher": 0, "camera-publisher": 0}
+_stream_counts_lock = threading.Lock()
+
+
 def run_stream(
   name: str,
   proc: subprocess.Popen,
@@ -399,6 +418,7 @@ def run_stream(
   frame_rate: float,
   build_message,
   image_preview: "dict | None" = None,
+  is_lidar: bool = False,
 ) -> None:
   """Read `proc`'s (already running, shared with the sibling stream) FIFO
   output, and publish each frame's detections to MQTT. Runs until the shared
@@ -407,6 +427,10 @@ def run_stream(
   `image_preview`, if given, enables the "getimage" preview responder:
   {"sensor_id": str, "data_path": str, "start_index": int,
    "stop_index": int | None, "loop": bool}.
+
+  `is_lidar` marks the LiDAR stream so it can release `_lidar_ready` on its
+  first frame; the camera stream (is_lidar=False) waits on that event and
+  discards frames read before it fires (see the startup-flush comment above).
   """
   fifo_result: list = [None]
   fifo_thread = _open_fifo_background(fifo_path, fifo_result)
@@ -439,11 +463,20 @@ def run_stream(
       if not line:
         continue
 
+      if not is_lidar and not _lidar_ready.is_set():
+        # Discard camera frames that arrive before LiDAR's first frame
+        # (GPU model warm-up lag) instead of publishing/counting them.
+        continue
+
       try:
         raw = json.loads(line)
       except json.JSONDecodeError as exc:
         print(f"[{name}] JSON error frame={published}: {exc}", flush=True)
         continue
+
+      if is_lidar and not _lidar_ready.is_set():
+        _lidar_ready.set()
+        print(f"[{name}] first LiDAR frame processed - releasing camera stream", flush=True)
 
       gst_ns = raw.get("lidar_frame", {}).get("exit_source_timestamp")
       now = gst_to_wall(int(gst_ns)) if gst_ns is not None else time.time()
@@ -465,9 +498,26 @@ def run_stream(
         frame_index_cell[0] = start + (published % span if span else published)
 
       published += 1
+      with _stream_counts_lock:
+        _stream_frame_counts[name] = published
+
       if published % 100 == 0:
         counts = {k: len(v) for k, v in msg["objects"].items()}
-        print(f"[{name}] frames={published} fps={fps:.1f} objects={counts}", flush=True)
+        if is_lidar:
+          # Lag stays flat in steady state (small, constant offset from the
+          # camera branch's own CPU inference latency); a lag that keeps
+          # growing over time would indicate the camera branch is falling
+          # behind, not just a fixed warm-up-vs-warm-up latency difference.
+          with _stream_counts_lock:
+            cam_count = _stream_frame_counts.get("camera-publisher", 0)
+          lag = published - cam_count
+          print(
+            f"[{name}] frames={published} fps={fps:.1f} objects={counts}"
+            f" cam={cam_count} (lag={lag})",
+            flush=True,
+          )
+        else:
+          print(f"[{name}] frames={published} fps={fps:.1f} objects={counts}", flush=True)
 
   print(f"[{name}] Done - published {published} frames", flush=True)
 
@@ -563,9 +613,9 @@ def main() -> None:
 
   errors: list = []
 
-  def _run_and_capture(name, fifo_path, topic, publish_raw, raw_topic, frame_rate, build_message, image_preview=None):
+  def _run_and_capture(name, fifo_path, topic, publish_raw, raw_topic, frame_rate, build_message, image_preview=None, is_lidar=False):
     try:
-      run_stream(name, proc, fifo_path, topic, publish_raw, raw_topic, frame_rate, build_message, image_preview)
+      run_stream(name, proc, fifo_path, topic, publish_raw, raw_topic, frame_rate, build_message, image_preview, is_lidar=is_lidar)
     except Exception as exc:  # noqa: BLE001 - surface stream failure without killing the sibling stream
       print(f"[{name}] FATAL: {exc}", flush=True)
       errors.append(exc)
@@ -588,6 +638,7 @@ def main() -> None:
 
   _run_and_capture(
     "lidar-publisher", LIDAR_FIFO, LIDAR_TOPIC, LIDAR_PUBLISH_RAW, LIDAR_RAW_TOPIC, LIDAR_FRAME_RATE, build_lidar_message,
+    is_lidar=True,
   )
 
   camera_thread.join()

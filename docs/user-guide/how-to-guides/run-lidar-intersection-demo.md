@@ -16,13 +16,14 @@ affects the standard `make demo` deployment.
 
 > **Note:** The scene itself is seeded using Scenescape's existing
 > [scene import](./build-a-scene/create-new-scene.md#importing-the-scene)
-> feature - no Manager DB-fixture changes needed. A small set of demo-only
-> source changes (default vehicle/cyclist objects, debug source labels in
-> the UI, and carrying that source field through Controller tracking) are
-> kept as patches under `sample_data/lidar_intersection/patches/` and are
-> applied to the source tree automatically by `make build-core`/
-> `make build-all` only when `LIDAR_DEMO=true` - a normal build/demo never
-> touches these files. See
+> feature - no Manager DB-fixture changes needed. All demo-only source
+> changes (default vehicle/cyclist objects, debug source labels in the UI,
+> carrying a `source` field and a LiDAR heading-disambiguation fix through
+> Controller tracking, and forwarding that field through scene_common and
+> Analytics) are kept as one patch per component under
+> `sample_data/lidar_intersection/patches/` and are applied to the source
+> tree automatically by `make build-core`/`make build-all` only when
+> `LIDAR_DEMO=true` - a normal build/demo never touches these files. See
 > [Demo-only patches](#demo-only-patches) below for details.
 
 ## What this demo adds
@@ -31,7 +32,7 @@ affects the standard `make demo` deployment.
 | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `sample_data/lidar_intersection/docker-compose.lidar-override.yml` | Opt-in Compose override adding the `lidar-scene-init`, `lidar-data-init`, `lidar-model-init`, and `lidar-stream` services               |
 | `sample_data/lidar_intersection/lidar_publisher.py`                | Runs the LiDAR (PointPillars) and camera (person-vehicle-bike) GStreamer pipelines and publishes detections over MQTT                   |
-| `sample_data/lidar_intersection/patches/`                          | Demo-only patches (Manager assets/UI, Controller source-field pass-through), applied automatically when building with `LIDAR_DEMO=true` |
+| `sample_data/lidar_intersection/patches/`                          | Demo-only patches, one per component (Manager, Controller, scene_common, Analytics), applied automatically when building with `LIDAR_DEMO=true` |
 | `sample_data/lidar_intersection/`                                  | Scene config, map image, scene-import ZIP, recorded LiDAR/camera frames, and the PointPillars model installer, all scoped to this demo  |
 
 ## Prerequisites
@@ -192,26 +193,39 @@ variables (see the commented examples in
 
 ## Demo-only patches
 
-Two small patches are kept out of the normal source tree and applied on top
-of it only for this demo:
+Four small patches - one per affected component - are kept out of the normal
+source tree and applied on top of it only for this demo:
 
-`sample_data/lidar_intersection/patches/0001-lidar-fusion-manager.patch`:
+`sample_data/lidar_intersection/patches/0001-lidar-fusion-manager.patch` (Manager):
 
 | Change                                                                                      | File(s)                                                                                                                                                                          |
 | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Seed default `vehicle`/`cyclist` objects (size, tracking radius, mark color)                | `manager/src/manager/management/commands/init_default_assets.py` (new), `manager/src/manager/migrations/0003_default_asset3d_objects.py` (new), `manager/config/scenescape-init` |
+| Seed default `vehicle`/`cyclist` objects (size, tracking radius, mark color, `rotation_from_velocity=true`) | `manager/src/manager/management/commands/init_default_assets.py` (new), `manager/src/manager/migrations/0003_default_asset3d_objects.py` (new), `manager/config/scenescape-init` |
 | Debug UI: label/style marks by detection source (lidar vs camera), add cyclist mark styling | `manager/src/manager/static/js/marks.js`, `manager/src/manager/static/js/assetmanager.js`, `manager/src/manager/static/css/style.css`                                            |
 
-`sample_data/lidar_intersection/patches/0002-controller-source-passthrough.patch`:
+`sample_data/lidar_intersection/patches/0002-controller-lidar-fusion.patch` (Controller):
 
-| Change                                                                                                                                                                                                                                                                                                                                                                                                                        | File(s)                                                                                                                                                                                          |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Carry the publisher's `source` field ( `"lidar"`/`"camera"` ) through tracking/fusion so the debug UI labels above have real data - the Controller doesn't forward arbitrary detection fields into tracked-object output otherwise, and the Analytics service (which actually publishes the regulated/UI-facing topic) re-derives tracked objects through its own allowlisted representation that needed the same field added | `controller/src/controller/moving_object.py`, `scene_common/src/scene_common/detections_builder.py`, `scene_common/src/scene_common/ingestion.py`, `analytics/src/analytics/analytics_models.py` |
+| Change                                                                                                                                                                                                          | File(s)                                     |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Carry the publisher's `source` field (`"lidar"`/`"camera"`) through tracking/fusion so the debug UI labels from patch `0001` have real data                                                                      | `controller/src/controller/moving_object.py` |
+| LiDAR heading-disambiguation fix: PointPillars (like other oriented-bbox 3-D detectors) can flip a reported heading ~180 degrees front-to-back; `_disambiguateRotationWithVelocity()` corrects it using the track's own (unambiguous) velocity direction - see [Rotation/orientation handling](#rotationorientation-handling) | `controller/src/controller/moving_object.py` |
 
-LiDAR/camera fusion and rotation handling themselves are unmodified - this
-patch only adds a pass-through for one debug-only field.
+`sample_data/lidar_intersection/patches/0003-scene-common-source-passthrough.patch` (scene_common):
 
-`make build-core`/`make build-all` apply both patches to the working tree
+| Change                                                                                          | File(s)                                                                                                                          |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Forward the same `source` field through the shared detections-builder/ingestion helpers so it reaches the regulated/UI-facing output | `scene_common/src/scene_common/detections_builder.py`, `scene_common/src/scene_common/ingestion.py`                              |
+
+`sample_data/lidar_intersection/patches/0004-analytics-source-passthrough.patch` (Analytics):
+
+| Change                                                                                                                                                             | File(s)                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Forward the same `source` field through the Analytics service's own tracked-object representation - the Analytics split re-derives objects through an allowlisted dataclass, so it needs the field added independently of the Controller | `analytics/src/analytics/analytics_models.py`     |
+
+Other than the `source` field pass-through and the LiDAR heading-disambiguation
+fix above, fusion/tracking logic itself is unmodified by these patches.
+
+`make build-core`/`make build-all` apply all four patches to the working tree
 automatically (and only) when `LIDAR_DEMO=true`, build the `manager`,
 `controller`, `analytics`, and shared `scene_common` base images with them
 applied, then automatically revert them - the patches only need to be on
@@ -233,7 +247,7 @@ or leave anything applied. To manually apply or remove the patches (e.g. to
 inspect a diff without building):
 
 ```bash
-make apply-lidar-patch    # apply both patches to the working tree
+make apply-lidar-patch    # apply all four patches to the working tree
 make revert-lidar-patch   # revert them back to the unpatched source
 ```
 
@@ -242,6 +256,28 @@ make revert-lidar-patch   # revert them back to the unpatched source
 > `scene_common/`/`analytics/` files may be left patched in your working
 > tree. Run `make revert-lidar-patch` to clean up, or check `git status`
 > before committing/pushing.
+
+## Rotation/orientation handling
+
+LiDAR gives real 3-D orientation (`rotation` on each detection), but PointPillars
+(like other oriented-bbox 3-D detectors) can occasionally mistake an object's
+front for its back, flipping its reported heading ~180 degrees even while it
+keeps moving in the same direction. Patch `0002` (above) adds a
+`_disambiguateRotationWithVelocity()` method to
+`controller/src/controller/moving_object.py` for this: once a track's speed is
+clearly above noise level, it flips a LiDAR-reported heading 180 degrees about
+Z whenever that heading points against the track's own (unambiguous) velocity
+direction. It's a no-op for every other existing demo, since it only runs when
+both `has_detection_rotation` (i.e. the detection carried a `rotation`, as
+LiDAR's does) and the object's class has `rotation_from_velocity: true` - the
+same flag that already gates the existing camera-only hysteresis-based heading
+inference (`inferRotationFromVelocity()`/`SPEED_THRESHOLD_ON`/`SPEED_THRESHOLD_OFF`).
+
+The `vehicle`/`cyclist` default assets seeded by patch `0001` (above) set
+`rotation_from_velocity=true` so both fixes are active out of the box for this
+demo. If you reset the objects library or add these classes another way,
+re-enable it per class from the Manager UI's asset config (or
+`manager_asset3d.rotation_from_velocity` directly) to keep this behavior.
 
 ## Troubleshooting
 
@@ -261,6 +297,11 @@ demo LIDAR_DEMO=true`:** check `docker compose logs lidar-scene-init` -
   briefly delay the import; the container exits after one attempt and is not
   retried automatically. Re-trigger it with `docker compose up -d
 lidar-scene-init` if needed.
+- **A vehicle/cyclist's heading flips ~180 degrees while moving in a
+  straight line:** confirm `rotation_from_velocity` is still `true` for that
+  class in the Manager's asset config (Django `manager_asset3d` table) - the
+  fix in [Rotation/orientation handling](#rotationorientation-handling) above
+  is a no-op otherwise.
 - **`intersection-cam1` shows "offline"/no picture in the UI:** the Manager
   UI only marks a camera online once it gets a reply to its "getimage"
   request; `lidar_publisher.py` answers this for `intersection-cam1` using

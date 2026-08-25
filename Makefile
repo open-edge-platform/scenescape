@@ -53,17 +53,25 @@ LIDAR_ENABLED := $(filter-out false 0 no,$(shell echo $(LIDAR_DEMO) | tr '[:uppe
 LIDAR_OVERRIDE_ARGS := $(if $(LIDAR_ENABLED),-f $(LIDAR_OVERRIDE_FILE),)
 # Standalone compose args, including the base file, for targets that don't already pass -f docker-compose.yml
 LIDAR_COMPOSE_ARGS := $(if $(LIDAR_ENABLED),-f docker-compose.yml $(LIDAR_OVERRIDE_ARGS),)
-# Demo-only Manager changes (default vehicle/cyclist assets, debug UI source
-# labels) are kept as a patch, applied to the source tree only when building
-# with LIDAR_DEMO=true - never touches a normal (non-LiDAR) build/demo.
-# Demo-only Manager changes (default vehicle/cyclist assets, debug UI source
-# labels) plus a small Controller/scene_common change so the UI's L/C source
-# labels have real data (Controller doesn't otherwise forward a "source"
-# field into tracked-object output) are kept as patches, applied to the
-# source tree only when building with LIDAR_DEMO=true - never touches a
-# normal (non-LiDAR) build/demo.
+# Demo-only source changes are kept as one patch per component (Manager,
+# Controller, scene_common, Analytics), applied to the source tree only when
+# building with LIDAR_DEMO=true - never touches a normal (non-LiDAR)
+# build/demo:
+#   0001 (Manager): default vehicle/cyclist assets, debug UI source labels.
+#   0002 (Controller): carries a "source" field (lidar/camera) through
+#     tracking so the Manager's debug UI labels above have real data, plus
+#     a LiDAR heading-disambiguation fix for PointPillars' front/back
+#     ambiguity (moving_object.py doesn't otherwise forward either).
+#   0003 (scene_common): forwards that same "source" field through the
+#     shared detections-builder/ingestion helpers.
+#   0004 (Analytics): forwards that same "source" field through the
+#     Analytics service's own tracked-object representation (the Analytics
+#     split re-derives objects through an allowlisted dataclass, so it
+#     needs the same field added independently of the Controller).
 LIDAR_PATCH_FILES := sample_data/lidar_intersection/patches/0001-lidar-fusion-manager.patch \
-                     sample_data/lidar_intersection/patches/0002-controller-source-passthrough.patch
+                     sample_data/lidar_intersection/patches/0002-controller-lidar-fusion.patch \
+                     sample_data/lidar_intersection/patches/0003-scene-common-source-passthrough.patch \
+                     sample_data/lidar_intersection/patches/0004-analytics-source-passthrough.patch
 LIDAR_PATCH_TARGET := $(if $(LIDAR_ENABLED),apply-lidar-patch,)
 # Patch only needs to be on disk while the controller/manager images are being
 # built (it's baked into the image layers); auto-revert it right after so the
