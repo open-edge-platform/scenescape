@@ -28,6 +28,10 @@ services:
         condition: service_healthy
     environment:
       - SUPASS=${SUPASS}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+      - no_proxy=${no_proxy},.scenescape.intel.com
     volumes:
       - ./sample_data/lidar_intersection/LidarIntersection-scene-import.zip:/scene-import/LidarIntersection-scene-import.zip:ro
     entrypoint: ["/bin/sh", "-c"]
