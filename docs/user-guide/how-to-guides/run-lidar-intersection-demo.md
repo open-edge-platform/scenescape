@@ -27,12 +27,12 @@ affects the standard `make demo` deployment.
 
 ## What this demo adds
 
-| Asset                                                                    | Purpose                                                                                                                                |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `sample_data/lidar_intersection/docker-compose.lidar-override.yml`       | Opt-in Compose override adding the `lidar-scene-init`, `lidar-data-init`, `lidar-model-init`, and `lidar-stream` services              |
-| `sample_data/lidar_intersection/lidar_publisher.py`                      | Runs the LiDAR (PointPillars) and camera (person-vehicle-bike) GStreamer pipelines and publishes detections over MQTT                  |
-| `sample_data/lidar_intersection/patches/`                                | Demo-only patches (Manager assets/UI, Controller source-field pass-through), applied automatically when building with `LIDAR_DEMO=true` |
-| `sample_data/lidar_intersection/`                                        | Scene config, map image, scene-import ZIP, recorded LiDAR/camera frames, and the PointPillars model installer, all scoped to this demo |
+| Asset                                                              | Purpose                                                                                                                                 |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `sample_data/lidar_intersection/docker-compose.lidar-override.yml` | Opt-in Compose override adding the `lidar-scene-init`, `lidar-data-init`, `lidar-model-init`, and `lidar-stream` services               |
+| `sample_data/lidar_intersection/lidar_publisher.py`                | Runs the LiDAR (PointPillars) and camera (person-vehicle-bike) GStreamer pipelines and publishes detections over MQTT                   |
+| `sample_data/lidar_intersection/patches/`                          | Demo-only patches (Manager assets/UI, Controller source-field pass-through), applied automatically when building with `LIDAR_DEMO=true` |
+| `sample_data/lidar_intersection/`                                  | Scene config, map image, scene-import ZIP, recorded LiDAR/camera frames, and the PointPillars model installer, all scoped to this demo  |
 
 ## Prerequisites
 
@@ -204,8 +204,8 @@ of it only for this demo:
 
 `sample_data/lidar_intersection/patches/0002-controller-source-passthrough.patch`:
 
-| Change                                                                                      | File(s)                                                                                                       |
-| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Change                                                                                                                                                                                                                                                                                                                                                                                                                        | File(s)                                                                                                                                                                                          |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Carry the publisher's `source` field ( `"lidar"`/`"camera"` ) through tracking/fusion so the debug UI labels above have real data - the Controller doesn't forward arbitrary detection fields into tracked-object output otherwise, and the Analytics service (which actually publishes the regulated/UI-facing topic) re-derives tracked objects through its own allowlisted representation that needed the same field added | `controller/src/controller/moving_object.py`, `scene_common/src/scene_common/detections_builder.py`, `scene_common/src/scene_common/ingestion.py`, `analytics/src/analytics/analytics_models.py` |
 
 LiDAR/camera fusion and rotation handling themselves are unmodified - this
@@ -265,7 +265,7 @@ lidar-scene-init` if needed.
   UI only marks a camera online once it gets a reply to its "getimage"
   request; `lidar_publisher.py` answers this for `intersection-cam1` using
   the current camera frame. If it still shows offline, check `docker compose
-  logs lidar-stream` for encode errors, and confirm `lidar-data-init`
+logs lidar-stream` for encode errors, and confirm `lidar-data-init`
   completed (the preview needs the same extracted `.jpg` frames as
   detection). `intersection-lidar1` has no camera picture and will always
   show offline/no-preview - that's expected for a LiDAR sensor.
