@@ -152,10 +152,21 @@ index f41a6a1d..a2e85c04 100644
    fill: #0099ff;
  }
 diff --git a/manager/src/manager/static/js/assetmanager.js b/manager/src/manager/static/js/assetmanager.js
-index 552bd8c7..5964ea29 100644
+index 552bd8c7..070d8575 100644
 --- a/manager/src/manager/static/js/assetmanager.js
 +++ b/manager/src/manager/static/js/assetmanager.js
-@@ -48,6 +48,14 @@ export default function AssetManager(
+@@ -13,6 +13,10 @@ import {
+ } from "/static/js/draw.js";
+ import { SetupMarkHover } from "/static/js/interactions.js";
+ 
++// Detection source ("lidar"/"camera") is untrusted MQTT data; only these
++// values are ever shown in the label.
++const KNOWN_SOURCES = ["lidar", "camera"];
++
+ export default function AssetManager(
+   scene,
+   subscribeToTracking,
+@@ -48,6 +52,15 @@ export default function AssetManager(
      } else {
        updateLabelFields(markObject, { dwell: null });
      }
@@ -163,18 +174,43 @@ index 552bd8c7..5964ea29 100644
 +    // Debug aid: surface which sensor produced this detection (lidar vs
 +    // camera) before fusion logic combines them into a single object. Only
 +    // shown for pipelines that report obj.source, so other deployments'
-+    // labels are unaffected.
-+    if (obj.source) {
++    // labels are unaffected. obj.source is untrusted (published over MQTT),
++    // so it's constrained to a known allow-list before being displayed.
++    if (KNOWN_SOURCES.includes(obj.source)) {
 +      updateLabelFields(markObject, { source: obj.source });
 +    }
    }
  
    function addDefaultGeometryToCache(name, color, depth) {
 diff --git a/manager/src/manager/static/js/marks.js b/manager/src/manager/static/js/marks.js
-index 66d10aa1..77ce8d32 100644
+index 66d10aa1..d4114781 100644
 --- a/manager/src/manager/static/js/marks.js
 +++ b/manager/src/manager/static/js/marks.js
-@@ -26,21 +26,30 @@ function updateTooltipContent(mark, o, show_telemetry) {
+@@ -16,31 +16,54 @@ function addOrUpdateTableRow(table, key, value) {
+   } else {
+     var newRow = document.createElement("tr");
+     newRow.setAttribute("data-key", key);
+-    newRow.innerHTML = `<th>${key}</th><td>${value}</td>`;
++    var th = document.createElement("th");
++    th.textContent = key;
++    var td = document.createElement("td");
++    td.textContent = value;
++    newRow.appendChild(th);
++    newRow.appendChild(td);
+     table.appendChild(newRow);
+   }
+ }
+ 
++// Detection source is untrusted (published over MQTT by the LiDAR/camera
++// debug pipeline), so it's constrained to a known allow-list before being
++// used in CSS class names or labels.
++var KNOWN_SOURCES = ["lidar", "camera"];
++function sanitizeSource(source) {
++  return KNOWN_SOURCES.includes(source) ? source : undefined;
++}
++
+ function updateTooltipContent(mark, o, show_telemetry) {
+   const table = mark.node.querySelector(".mark-tooltip-content");
    const tooltip = mark.node.querySelector(".mark-tooltip");
    const persistentData = o.persistent_data;
  
@@ -192,14 +228,15 @@ index 66d10aa1..77ce8d32 100644
 +  // Detection source ("lidar" or "camera") is only present on pipelines that
 +  // publish it explicitly (e.g. the LiDAR/camera fusion debug pipeline), so
 +  // it's shown separately from persistent_data instead of gating on it.
-+  if (o.source) {
-+    addOrUpdateTableRow(table, "source", o.source);
++  const source = sanitizeSource(o.source);
++  if (source) {
++    addOrUpdateTableRow(table, "source", source);
 +  }
  
 -  persistentDataArray.forEach(({ key, value }) =>
 -    addOrUpdateTableRow(table, key, value),
 -  );
-+  if (!persistentData && !o.source) return;
++  if (!persistentData && !source) return;
 +
 +  if (persistentData) {
 +    const persistentDataArray = Object.entries(persistentData).flatMap(
@@ -219,29 +256,30 @@ index 66d10aa1..77ce8d32 100644
  
    if (tooltip) {
      const { width, height } = table.getBoundingClientRect();
-@@ -170,6 +179,11 @@ function addNewMark(
+@@ -170,6 +193,12 @@ function addNewMark(
      .attr("id", "mark_" + o.id)
      .addClass("mark")
      .addClass(o.type);
 +  // Detection source ("lidar" or "camera") lets the debug pipeline visually
 +  // distinguish which sensor produced an object before fusion is applied.
-+  if (o.source) {
-+    mark.addClass("source-" + o.source);
++  const source = sanitizeSource(o.source);
++  if (source) {
++    mark.addClass("source-" + source);
 +  }
  
    if (show_trails) {
      trail = svgCanvas
-@@ -177,6 +191,9 @@ function addNewMark(
+@@ -177,6 +206,9 @@ function addNewMark(
        .attr("id", "mark_" + o.id)
        .addClass("trail")
        .addClass(o.type);
-+    if (o.source) {
-+      trail.addClass("source-" + o.source);
++    if (source) {
++      trail.addClass("source-" + source);
 +    }
    }
  
    // FIXME: Make object size in the display a configurable option, or receive from Scenescape
-@@ -184,6 +201,8 @@ function addNewMark(
+@@ -184,6 +216,8 @@ function addNewMark(
      mark_radius = parseInt(scale * 0.3); // Person is about 0.3 meter radius
    } else if (o.type == "vehicle") {
      mark_radius = parseInt(scale * 1.5); // Vehicles are about 1.5 meters "radius" (3 meters across)
@@ -250,7 +288,7 @@ index 66d10aa1..77ce8d32 100644
    } else if (o.type == "apriltag") {
      mark_radius = parseInt(scale * 0.15); // Arbitrary AprilTag size (smaller than person)
    } else {
-@@ -193,8 +212,14 @@ function addNewMark(
+@@ -193,8 +227,14 @@ function addNewMark(
    // Create the circle
    var circle = mark.circle(0, 0, mark_radius);
  
@@ -258,7 +296,7 @@ index 66d10aa1..77ce8d32 100644
 +  // for lidar, "C" for camera) so streams can be told apart on the map
 +  // before fusion logic combines them. Objects without o.source (e.g. from
 +  // pipelines that don't report it) render no label, same as before.
-+  var sourceLabel = o.source ? o.source.charAt(0).toUpperCase() : "";
++  var sourceLabel = source ? source.charAt(0).toUpperCase() : "";
 +
    // add tooltip foreign object
 -  var text = mark.text(0, 0, "");
