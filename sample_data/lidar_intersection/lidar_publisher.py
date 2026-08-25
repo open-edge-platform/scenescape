@@ -2,37 +2,12 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Dual-stream publisher for the LiDAR-intersection fusion demo (LIDAR_DEMO=true).
+"""LiDAR + camera dual-stream publisher for the LiDAR-intersection demo.
 
-Runs a single gst-launch-1.0 process containing two independent chains (no
-gvastreammux/gvastreamdemux - just two disjoint branches in one pipeline
-string), so both read frames from the same wall-clock/process the same way
-A's reference implementation did - this keeps the LiDAR and camera frame
-sequences moving in lockstep instead of drifting apart the way two separate
-subprocesses with independent GStreamer clocks would:
-
-  LiDAR:   multifilesrc (.bin frames) -> g3dlidarparse -> g3dinference
-             (PointPillars) -> gvametaconvert -> gvametapublish (FIFO)
-  Camera:  multifilesrc (.jpg frames) -> jpegdec -> videoconvert
-             -> gvafpsthrottle -> gvadetect (person-vehicle-bike) ->
-             gvametaconvert -> gvametapublish (FIFO)
-
-Each FIFO is parsed here in Python and published directly to MQTT using
-SceneScape's standard camera-detection message schema
-(scenescape/data/camera/<sensor_id>). No sensor fusion happens in this
-script - the two sensors (intersection-lidar1, intersection-cam1) are fused
-downstream by the Scene Controller (Hungarian association across sensors),
-exactly like any other pair of SceneScape camera/lidar sensors.
-
-LiDAR-to-scene coordinate transform: (-y, -x, z) axis swap. Z is forced to 0
-to keep objects on the ground plane; the Scene Controller adds the sensor's
-own pose translation (from the scene config) to get the final world position.
-
-The camera branch also answers the Manager UI's "getimage" request
-(scenescape/cmd/camera/<CAM_SENSOR_ID> -> scenescape/image/camera/<CAM_SENSOR_ID>)
-so the camera shows as online with a live preview, matching the standard
-retail/queuing pipelines' behavior.
+One gst-launch-1.0 process, two branches (LiDAR/PointPillars, camera/
+person-vehicle-bike), each writing to its own FIFO; read here and published
+to MQTT (scenescape/data/camera/<sensor_id>). Fusion happens downstream in
+the Scene Controller.
 """
 
 import atexit
@@ -60,10 +35,7 @@ LIDAR_SENSOR_ID   = os.environ.get("LIDAR_SENSOR_ID", "intersection-lidar1")
 LIDAR_DATA_PATH   = os.environ.get("LIDAR_DATA_PATH", "/home/pipeline-server/videos/lidar_intersection/velodyne_bin/%06d.bin")
 LIDAR_START_INDEX = int(os.environ.get("LIDAR_START_INDEX", "010699"))
 _LIDAR_STOP_RAW   = os.environ.get("LIDAR_STOP_INDEX")
-# Default matches the shipped sample_data/lidar_intersection/*.tar.gz frame
-# range (010699-010949). An explicit bound (rather than relying on gst's own
-# file-not-found loop detection) keeps the getimage preview's frame-index
-# tracking below from drifting past the last real frame.
+# Default matches the shipped frame range (010699-010949).
 LIDAR_STOP_INDEX  = int(_LIDAR_STOP_RAW.strip()) if _LIDAR_STOP_RAW and _LIDAR_STOP_RAW.strip() else 10949
 LIDAR_LOOP        = os.environ.get("LIDAR_LOOP", "true").lower() not in ("0", "false", "no")
 LIDAR_FRAME_RATE  = int(os.environ.get("LIDAR_FRAME_RATE", "10"))
@@ -92,10 +64,7 @@ LIDAR_FIFO        = "/tmp/lidar_detections.fifo"
 LIDAR_PUBLISH_RAW = os.environ.get("LIDAR_PUBLISH_RAW", "false").lower() not in ("0", "false", "no")
 LIDAR_RAW_TOPIC   = os.environ.get("LIDAR_RAW_TOPIC", f"scenescape/data/camera/{LIDAR_SENSOR_ID}-raw")
 
-# KITTI class index -> label name. Person (index 0) intentionally omitted -
-# the camera branch already covers pedestrians; only vehicle/cyclist come
-# from the LiDAR branch (matches the asset categories configured for this
-# scene: person, vehicle, cyclist).
+# KITTI class index -> label name (person omitted, camera branch covers it).
 LIDAR_KITTI_LABELS: dict[int, str] = {1: "cyclist", 2: "vehicle"}
 
 # ── Camera pipeline config ─────────────────────────────────────────────────────
@@ -127,9 +96,7 @@ CAM_PUBLISH_RAW = os.environ.get("CAM_PUBLISH_RAW", "false").lower() not in ("0"
 CAM_RAW_TOPIC   = os.environ.get("CAM_RAW_TOPIC", f"scenescape/data/camera/{CAM_SENSOR_ID}-raw")
 
 
-# ── GStreamer monotonic clock -> wall-clock offset, anchored on first frame ────
-# Each stream anchors its own offset independently since the two pipelines
-# start at slightly different times.
+# GStreamer clock -> wall clock, anchored independently per stream.
 def make_gst_to_wall():
   offset: "list[float | None]" = [None]
 
@@ -145,35 +112,19 @@ def make_gst_to_wall():
 # ── Coordinate transform (LiDAR only) ──────────────────────────────────────────
 
 def lidar_to_scene_offset(x_l: float, y_l: float, z_l: float) -> "tuple[float, float, float]":
-  """Map LiDAR coordinates to scene-frame offset via (-y, -x) axis swap.
-  Z is forced to 0 to keep objects on the ground plane, since the SceneScape
-  controller adds the sensor pose translation to get the final world position.
-  """
+  """LiDAR (x,y,z) -> scene offset: (-y,-x) axis swap, z forced to 0."""
   return -y_l, -x_l, 0.0
 
 
 def bbox3d_to_quaternion(yaw: float) -> "list[float]":
-  """
-  Convert PointPillars yaw to SceneScape quaternion [qx, qy, qz, qw].
-
-  Two rotations combined:
-    1. Z-axis yaw:   q_yaw  = [0, 0, qz, qw]
-    2. X-axis 180deg: q_flip = [1, 0,  0,  0]
-
-  Hamilton product q_flip * q_yaw -> [qw_yaw, -qz_yaw, 0, 0]
-
-  This keeps the object XY position unchanged while flipping the render
-  orientation so the roof faces up.
-  """
+  """PointPillars yaw -> SceneScape quaternion (Z-yaw + 180deg X-flip so roof faces up)."""
   half = (-yaw - math.pi) / 2.0
   qz = math.sin(half)
   qw = math.cos(half)
   if qw < 0.0:
     qz, qw = -qz, -qw
 
-  # Clamp to open interval (-1, 1): the SceneScape controller schema requires
-  # strict "< 1" on every quaternion component (exclusiveMaximum). yaw=0
-  # yields sin(-pi/2)=-1 which would set rotation[1]=1.0 exactly.
+  # Clamp <1 (exclusiveMaximum in schema); yaw=0 gives sin(-pi/2)=-1 exactly.
   _C = 1.0 - 1e-7
   return [max(-_C, min(_C, qw)), max(-_C, min(_C, -qz)), 0.0, 0.0]
 
@@ -201,10 +152,7 @@ def _resolve_lidar_label(obj: dict) -> "str | None":
 
 
 def build_lidar_message(raw: dict, gst_to_wall, fps: float) -> dict:
-  """Wrap PointPillars 3-D detections in SceneScape camera-detection format.
-
-  Expects bbox_3d schema: {x, y, z, l, w, h, yaw, pitch, roll}.
-  """
+  """Wrap PointPillars 3-D detections in SceneScape camera-detection format."""
   gst_ns = raw.get("lidar_frame", {}).get("exit_source_timestamp")
   ts = _make_timestamp(gst_to_wall(int(gst_ns)) if gst_ns is not None else time.time())
 
@@ -227,8 +175,7 @@ def build_lidar_message(raw: dict, gst_to_wall, fps: float) -> dict:
         "translation": [sx, sy, sz],
         "size":        [bbox.get("l", 0.0), bbox.get("w", 0.0), bbox.get("h", 0.0)],
         "rotation":    bbox3d_to_quaternion(float(bbox["yaw"])),
-        # Debug aid: lets the UI (marks.js/assetmanager.js) show which sensor
-        # produced this detection before fusion combines them.
+        # Lets the UI show which sensor produced this detection.
         "source":      "lidar",
       })
     except (TypeError, ValueError):
@@ -238,9 +185,7 @@ def build_lidar_message(raw: dict, gst_to_wall, fps: float) -> dict:
 
 
 def build_camera_message(raw: dict, gst_to_wall, fps: float) -> dict:
-  """Wrap gvametaconvert 2-D detections in SceneScape camera-detection format
-  (same `bounding_box_px` schema used by the retail/queuing demo pipelines).
-  """
+  """Wrap gvametaconvert 2-D detections in SceneScape camera-detection format."""
   ts = _make_timestamp(time.time())
 
   objects: dict = {}
@@ -327,21 +272,7 @@ def safe_publish(client: mqtt.Client, client_prefix: str, topic: str, payload: s
 
 
 def _read_frame_as_jpeg_b64(path: str) -> "str | None":
-  """Read an already-JPEG-encoded frame file and base64 it as-is.
-
-  The recorded frames are already `.jpg` files, so this avoids decoding and
-  re-encoding them (e.g. via OpenCV) on every single "getimage" request -
-  that round trip was the dominant cost of a preview response (full
-  1920x1080 decode + lossless PNG re-encode taking multiple seconds and
-  producing a multi-megabyte payload), which made the live preview look
-  laggy/slow-updating and could leave the camera showing "offline" if a
-  response didn't arrive back before the UI gave up. Reading the raw bytes
-  directly is near-instant and matches the JPEG format the Manager UI's
-  2D view and the standard DLStreamer publisher both already expect for
-  `scenescape/image/camera/<id>` (the 3D view's data-URI mime label is
-  cosmetic - browsers sniff the actual image bytes). Returns None on any
-  failure.
-  """
+  """Read a frame file and base64 it as-is (already JPEG, no re-encode)."""
   try:
     with open(path, "rb") as f:
       return base64.b64encode(f.read()).decode("ascii")
@@ -353,14 +284,7 @@ def _read_frame_as_jpeg_b64(path: str) -> "str | None":
 def setup_getimage_responder(
   client: mqtt.Client, sensor_id: str, data_path: str, frame_index_cell: list, start_index: int,
 ) -> None:
-  """Answer the Manager UI's "getimage" command (scenescape/cmd/camera/<id>)
-  with the most recently processed frame on scenescape/image/camera/<id>, so
-  the camera shows online with a live preview instead of "offline".
-
-  Falls back to `start_index` if the tracked index has run past the last
-  recorded frame file (e.g. no CAM_STOP_INDEX set - the exact wraparound
-  point is only known to gst-launch's own multifilesrc, not this script).
-  """
+  """Answer the Manager UI's "getimage" command with the latest frame."""
   image_topic = f"scenescape/image/camera/{sensor_id}"
 
   def _on_message(msg_client, _userdata, message):
@@ -395,14 +319,8 @@ def _open_fifo_background(path: str, result: list) -> threading.Thread:
 
 # ── Stream runner (shared by both LiDAR and camera branches) ──────────────────
 
-# Startup synchronization / cross-stream lag diagnostics: PointPillars
-# (LiDAR/GPU) model load+compile can take many seconds longer than the
-# camera branch's first frame, letting camera race ahead before LiDAR's
-# first real detection - mirrors the reference implementation's "startup
-# flush" workaround. The camera stream discards any frames it reads before
-# LiDAR's first frame instead of publishing them, so both streams start
-# from an equivalent point; both streams also share a frame counter so a
-# running lag can be logged for diagnostics.
+# Camera stream waits for LiDAR's first frame (GPU model-load lag), and both
+# share a frame counter for the lag diagnostic logged below.
 _lidar_ready = threading.Event()
 _stream_frame_counts: "dict[str, int]" = {"lidar-publisher": 0, "camera-publisher": 0}
 _stream_counts_lock = threading.Lock()
@@ -420,18 +338,7 @@ def run_stream(
   image_preview: "dict | None" = None,
   is_lidar: bool = False,
 ) -> None:
-  """Read `proc`'s (already running, shared with the sibling stream) FIFO
-  output, and publish each frame's detections to MQTT. Runs until the shared
-  pipeline exits or errors.
-
-  `image_preview`, if given, enables the "getimage" preview responder:
-  {"sensor_id": str, "data_path": str, "start_index": int,
-   "stop_index": int | None, "loop": bool}.
-
-  `is_lidar` marks the LiDAR stream so it can release `_lidar_ready` on its
-  first frame; the camera stream (is_lidar=False) waits on that event and
-  discards frames read before it fires (see the startup-flush comment above).
-  """
+  """Read `proc`'s FIFO and publish detections to MQTT until it exits."""
   fifo_result: list = [None]
   fifo_thread = _open_fifo_background(fifo_path, fifo_result)
 
@@ -464,9 +371,7 @@ def run_stream(
         continue
 
       if not is_lidar and not _lidar_ready.is_set():
-        # Discard camera frames that arrive before LiDAR's first frame
-        # (GPU model warm-up lag) instead of publishing/counting them.
-        continue
+        continue  # discard camera frames until LiDAR's first frame
 
       try:
         raw = json.loads(line)
@@ -504,10 +409,7 @@ def run_stream(
       if published % 100 == 0:
         counts = {k: len(v) for k, v in msg["objects"].items()}
         if is_lidar:
-          # Lag stays flat in steady state (small, constant offset from the
-          # camera branch's own CPU inference latency); a lag that keeps
-          # growing over time would indicate the camera branch is falling
-          # behind, not just a fixed warm-up-vs-warm-up latency difference.
+          # Growing lag (not just flat/constant) means camera is falling behind.
           with _stream_counts_lock:
             cam_count = _stream_frame_counts.get("camera-publisher", 0)
           lag = published - cam_count
@@ -571,11 +473,7 @@ def _camera_chain_parts() -> list:
 
 
 def _build_combined_pipeline() -> str:
-  """Both chains as independent branches inside ONE gst-launch-1.0 invocation
-  (no gvastreammux/gvastreamdemux - they share nothing but the process/clock).
-  Keeps the LiDAR and camera frame sequences moving in lockstep instead of
-  drifting apart the way two separate gst-launch subprocesses would.
-  """
+  """Both chains as independent branches inside one gst-launch-1.0 invocation."""
   return " ".join(["gst-launch-1.0"] + _camera_chain_parts() + _lidar_chain_parts())
 
 

@@ -44,38 +44,20 @@ REID_BACKEND ?= vdms
 REID_OVERRIDE_FILE = sample_data/docker-compose.$(strip $(REID_BACKEND))-override.yml
 REID_PIPELINE_OVERRIDE_FILE = sample_data/docker-compose.reid-pipeline-override.yml
 REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE) -f $(REID_PIPELINE_OVERRIDE_FILE)
-# LiDAR-intersection fusion demo (separate opt-in demo, own sample_data/lidar_intersection/
-# assets). Enable with LIDAR_DEMO=true, e.g. `make demo LIDAR_DEMO=true`.
+# LiDAR-intersection fusion demo (opt-in). Enable with LIDAR_DEMO=true.
 LIDAR_DEMO ?= false
 LIDAR_OVERRIDE_FILE = sample_data/lidar_intersection/docker-compose.lidar-override.yml
 LIDAR_ENABLED := $(filter-out false 0 no,$(shell echo $(LIDAR_DEMO) | tr '[:upper:]' '[:lower:]'))
-# Extra -f arg only (assumes the caller's compose invocation already includes -f docker-compose.yml)
 LIDAR_OVERRIDE_ARGS := $(if $(LIDAR_ENABLED),-f $(LIDAR_OVERRIDE_FILE),)
-# Standalone compose args, including the base file, for targets that don't already pass -f docker-compose.yml
 LIDAR_COMPOSE_ARGS := $(if $(LIDAR_ENABLED),-f docker-compose.yml $(LIDAR_OVERRIDE_ARGS),)
-# Demo-only source changes are kept as one patch per component (Manager,
-# Controller, scene_common, Analytics), applied to the source tree only when
-# building with LIDAR_DEMO=true - never touches a normal (non-LiDAR)
-# build/demo:
-#   0001 (Manager): default vehicle/cyclist assets, debug UI source labels.
-#   0002 (Controller): carries a "source" field (lidar/camera) through
-#     tracking so the Manager's debug UI labels above have real data, plus
-#     a LiDAR heading-disambiguation fix for PointPillars' front/back
-#     ambiguity (moving_object.py doesn't otherwise forward either).
-#   0003 (scene_common): forwards that same "source" field through the
-#     shared detections-builder/ingestion helpers.
-#   0004 (Analytics): forwards that same "source" field through the
-#     Analytics service's own tracked-object representation (the Analytics
-#     split re-derives objects through an allowlisted dataclass, so it
-#     needs the same field added independently of the Controller).
+# One patch per component (0001 Manager, 0002 Controller, 0003 scene_common,
+# 0004 Analytics), applied only when building with LIDAR_DEMO=true.
 LIDAR_PATCH_FILES := sample_data/lidar_intersection/patches/0001-lidar-fusion-manager.patch \
                      sample_data/lidar_intersection/patches/0002-controller-lidar-fusion.patch \
                      sample_data/lidar_intersection/patches/0003-scene-common-source-passthrough.patch \
                      sample_data/lidar_intersection/patches/0004-analytics-source-passthrough.patch
 LIDAR_PATCH_TARGET := $(if $(LIDAR_ENABLED),apply-lidar-patch,)
-# Patch only needs to be on disk while the controller/manager images are being
-# built (it's baked into the image layers); auto-revert it right after so the
-# working tree doesn't stay dirty once the build finishes.
+# Auto-reverted after build so the working tree doesn't stay dirty.
 LIDAR_REVERT_TARGET := $(if $(LIDAR_ENABLED),revert-lidar-patch,)
 DEMO_REBUILD_IMAGES ?= true
 # Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
@@ -741,9 +723,7 @@ check-reid-backend:
 		*) echo "REID_BACKEND must be 'vdms' (default) or 'qdrant'"; exit 1 ;; \
 	esac
 
-# Idempotent: applies cleanly on a pristine tree, is a no-op if already applied
-# (detected via reverse-apply check), and fails loudly on any other conflict
-# instead of silently building unpatched images.
+# No-op if already applied; fails loudly on any other conflict.
 .PHONY: apply-lidar-patch
 apply-lidar-patch:
 	@for p in $(LIDAR_PATCH_FILES); do \
