@@ -30,7 +30,7 @@ configs:
   queuing-config:
     # Use this configuration file to run decoding and inference on GPU
     # file: ./sample_data/demo_scenes/Queuing/queuing-config-gpu.json
-    file: ./sample_data/demo_scenes/Queuing/queuing-config.json
+    file: ./sample_data/demo_scenes/Queuing/queuing-config-yolox_s-gpu.json
     # Use this configuration file to run inference on NPU
     # file: ./sample_data/demo_scenes/Queuing/queuing-config-npu.json
 
