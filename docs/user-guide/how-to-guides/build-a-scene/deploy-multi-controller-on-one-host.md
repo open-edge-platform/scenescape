@@ -73,7 +73,7 @@ Prefer **one Compose project** with role-prefixed services
 stacks both claiming host ports `443` / `1883` / `55555`.
 
 A working reference used by functional tests lives under
-[`tests/compose/hierarchy/`](https://github.com/open-edge-platform/scenescape/tree/main/tests/compose/hierarchy).
+[`tests/compose/hierarchy/`](https://github.com/open-edge-platform/scenescape/tree/release-2026.2.0/tests/compose/hierarchy).
 Those fragments are test-oriented but illustrate the same deployment rules.
 
 ### 1. Give Each Role Unique Host Ports

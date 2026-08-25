@@ -12,7 +12,7 @@ info:
     url: https://github.com/open-edge-platform/scenescape
   license:
     name: License
-    url: "https://github.com/open-edge-platform/scenescape/blob/main/LICENSES/Apache-2.0.txt"
+    url: "https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/LICENSES/Apache-2.0.txt"
 
 servers:
   - url: "https://localhost/api/v1"

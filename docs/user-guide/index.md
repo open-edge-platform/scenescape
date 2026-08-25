@@ -8,7 +8,7 @@
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/README.md">
      Readme
   </a>
     <a class="icon_download" href="https://github.com/open-edge-platform/scenescape/releases">
@@ -55,7 +55,7 @@ For details on the analytics input and output message formats, see [Analytics Me
 
 ### **Deep Learning Streamer Pipeline Server**
 
-Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python-based, interoperable containerized microservice for easy development and deployment of video analytics pipelines. For more information, refer to [Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide).
+Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python-based, interoperable containerized microservice for easy development and deployment of video analytics pipelines. For more information, refer to [Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.2.0/microservices/dlstreamer-pipeline-server/docs/user-guide).
 
 ### **Auto Camera Calibration**
 
@@ -89,7 +89,7 @@ PostgreSQL database server which stores static information used by the web UI an
 :::{toctree}
 :hidden:
 
-Go back to Libraries <https://docs.openedgeplatform.intel.com/dev/ai-libraries.html>
+Go back to Libraries <https://docs.openedgeplatform.intel.com/2026.2/ai-libraries.html>
 
 :::
 
@@ -97,7 +97,7 @@ Go back to Libraries <https://docs.openedgeplatform.intel.com/dev/ai-libraries.h
 :hidden:
 :caption: Get Started
 
-Scenescape Overview <https://docs.openedgeplatform.intel.com/dev/scenescape/index.html>
+Scenescape Overview <https://docs.openedgeplatform.intel.com/2026.2/scenescape/index.html>
 Installation <./get-started/installation.md>
 System Requirements <./get-started/system-requirements.md>
 
