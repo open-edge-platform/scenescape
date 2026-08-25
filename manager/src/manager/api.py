@@ -65,6 +65,8 @@ class ListThings(generics.ListAPIView):
   def get_queryset(self):
     thing_class, _, _ = get_class_and_serializer(self.args[0])
     queryset = thing_class.objects.all()
+    if thing_class is Cam:
+      queryset = queryset.select_related('scene')
     query_params = self.request.query_params
     if query_params:
       keys = query_params.keys()
