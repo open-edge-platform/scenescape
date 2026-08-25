@@ -199,8 +199,8 @@ sampleData:
   sourceVersion: main
   downloadDataImage:
     repository: docker.io
-    name: busybox
-    tag: 1.37.0
+    name: curlimages/curl
+    tag: 8.17.0
     pullPolicy: IfNotPresent
   convertVideosImage:
     repository: docker.io

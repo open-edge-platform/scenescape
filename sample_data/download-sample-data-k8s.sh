@@ -14,7 +14,7 @@ else
     FILES="{{ join " " .Values.sampleData.files }}"
     for file in $FILES; do
         echo "Downloading $file..."
-        wget -O "/workspace/sample-data-storage/sample_data/$file" "$SAMPLE_DATA_URL/$file"
+        curl -fSL --retry 3 --retry-delay 2 -o "/workspace/sample-data-storage/sample_data/$file" "$SAMPLE_DATA_URL/$file"
     done
     echo "Sample data downloaded successfully"
 fi
