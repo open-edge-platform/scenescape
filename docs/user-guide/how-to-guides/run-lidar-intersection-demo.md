@@ -28,12 +28,12 @@ affects the standard `make demo` deployment.
 
 ## What this demo adds
 
-| Asset                                                              | Purpose                                                                                                                                         |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sample_data/lidar_intersection/docker-compose.lidar-override.yml` | Opt-in Compose override adding the `lidar-scene-init`, `lidar-data-init`, `lidar-model-init`, and `lidar-stream` services                       |
-| `sample_data/lidar_intersection/lidar_publisher.py`                | Runs the LiDAR (PointPillars) and camera (person-vehicle-bike) GStreamer pipelines and publishes detections over MQTT                           |
-| `sample_data/lidar_intersection/convert_pcd_to_bin.py`             | Converts the manually-downloaded dataset's `.pcd` LiDAR frames to the `.bin` format `lidar_publisher.py`/DLStreamer expect - see [Prerequisites](#prerequisites) |
-| `sample_data/lidar_intersection/patches/`                          | Demo-only patches, one per component (Manager, Controller, scene_common, Analytics), applied automatically when building with `LIDAR_DEMO=true` |
+| Asset                                                              | Purpose                                                                                                                                                                                                               |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sample_data/lidar_intersection/docker-compose.lidar-override.yml` | Opt-in Compose override adding the `lidar-scene-init`, `lidar-data-init`, `lidar-model-init`, and `lidar-stream` services                                                                                             |
+| `sample_data/lidar_intersection/lidar_publisher.py`                | Runs the LiDAR (PointPillars) and camera (person-vehicle-bike) GStreamer pipelines and publishes detections over MQTT                                                                                                 |
+| `sample_data/lidar_intersection/convert_pcd_to_bin.py`             | Converts the manually-downloaded dataset's `.pcd` LiDAR frames to the `.bin` format `lidar_publisher.py`/DLStreamer expect - see [Prerequisites](#prerequisites)                                                      |
+| `sample_data/lidar_intersection/patches/`                          | Demo-only patches, one per component (Manager, Controller, scene_common, Analytics), applied automatically when building with `LIDAR_DEMO=true`                                                                       |
 | `sample_data/lidar_intersection/`                                  | Scene config, map image, scene-import ZIP, and the PointPillars model installer, all scoped to this demo (the recorded LiDAR/camera frames themselves are NOT part of the repo - see [Prerequisites](#prerequisites)) |
 
 ## Prerequisites
@@ -44,7 +44,7 @@ affects the standard `make demo` deployment.
   committed to this repo because it's too large (hundreds of MB of `.pcd`
   point clouds and `.jpg` images):
   1. Download the [V2X-Seq-SPD-Example](https://drive.google.com/file/d/1gjOmGEBMcipvDzu2zOrO9ex_OscUZMYY/view)
-     `.zip` archive from Google Drive through a browser and move it to your Scenescape folder (Google Drive's
+     `.zip` archive from Google Drive through a browser and move it to your Scenescape directory (Google Drive's
      download-confirmation page for files this size makes a scripted
      download unreliable, so this step is manual).
   2. Extract it so the result is
@@ -63,6 +63,7 @@ affects the standard `make demo` deployment.
      #            sample_data/lidar_intersection/V2X-Seq-SPD-Example/
      ls sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side
      ```
+
   3. This is a one-time step per checkout - the extracted folder is
      git-ignored (`sample_data/lidar_intersection/V2X-Seq-SPD-Example/` in
      `.gitignore`) and `lidar-data-init` re-converts it into the shared
@@ -72,6 +73,7 @@ affects the standard `make demo` deployment.
   dataset from the [DAIR-V2X-Seq](https://github.com/AIR-THU/DAIR-V2X-Seq)
   project (Tsinghua University, Apache-2.0) - see that repository for the
   full dataset, license terms, and citation details.
+
 - An Intel GPU is used **by default** for the LiDAR (PointPillars) inference
   branch, and requires the host to have `/dev/dri` and the Intel GPU driver
   installed. The camera branch defaults to CPU (a lighter model that runs
@@ -100,12 +102,12 @@ make demo LIDAR_DEMO=true
 
 This starts four extra containers, on top of the normal demo services:
 
-| Service            | Role                                                                                                                                                                   |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lidar-scene-init` | One-shot: seeds the "Lidar Intersection" scene, camera, and sensor via the Scene Import REST API (idempotent - skips if the scene already exists)                      |
+| Service            | Role                                                                                                                                                                                                                                                                                   |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lidar-scene-init` | One-shot: seeds the "Lidar Intersection" scene, camera, and sensor via the Scene Import REST API (idempotent - skips if the scene already exists)                                                                                                                                      |
 | `lidar-data-init`  | One-shot: converts the manually-downloaded raw dataset's `.pcd` LiDAR frames to `.bin` (via `convert_pcd_to_bin.py`) and copies its `.jpg` camera frames into the shared sample-data volume - only mounts the `image/`/`velodyne/` subdirectories, see [Prerequisites](#prerequisites) |
-| `lidar-model-init` | One-shot: builds and installs the PointPillars OpenVINO model + GStreamer inference extension into the shared models volume (first run only; can take several minutes) |
-| `lidar-stream`     | Long-running: runs both GStreamer pipelines and publishes fused-ready detections over MQTT                                                                             |
+| `lidar-model-init` | One-shot: builds and installs the PointPillars OpenVINO model + GStreamer inference extension into the shared models volume (first run only; can take several minutes)                                                                                                                 |
+| `lidar-stream`     | Long-running: runs both GStreamer pipelines and publishes fused-ready detections over MQTT                                                                                                                                                                                             |
 
 Check the one-shot containers completed successfully, and that `lidar-stream`
 is running:
@@ -236,9 +238,9 @@ variables (see the commented examples in
 a `docker compose`/Makefile-level environment variable rather than inside
 the compose file itself:
 
-| Variable               | Default                                                    | Description                                                                          |
-| ----------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `LIDAR_RAW_DATASET_DIR` | `./sample_data/lidar_intersection/V2X-Seq-SPD-Example`       | Host path to the extracted raw dataset (must contain an `infrastructure-side/` directory) - see [Prerequisites](#prerequisites) |
+| Variable                | Default                                                | Description                                                                                                                     |
+| ----------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `LIDAR_RAW_DATASET_DIR` | `./sample_data/lidar_intersection/V2X-Seq-SPD-Example` | Host path to the extracted raw dataset (must contain an `infrastructure-side/` directory) - see [Prerequisites](#prerequisites) |
 
 ## Demo-only patches
 
