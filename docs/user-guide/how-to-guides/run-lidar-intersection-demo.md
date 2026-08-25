@@ -36,6 +36,80 @@ affects the standard `make demo` deployment.
 | `sample_data/lidar_intersection/patches/`                          | Demo-only patches, one per component (Manager, Controller, scene_common, Analytics), applied automatically when building with `LIDAR_DEMO=true`                                                                       |
 | `sample_data/lidar_intersection/`                                  | Scene config, map image, scene-import ZIP, and the PointPillars model installer, all scoped to this demo (the recorded LiDAR/camera frames themselves are NOT part of the repo - see [Prerequisites](#prerequisites)) |
 
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph init["One-shot init (run once per volume)"]
+        DataInit["lidar-data-init\n.pcd -> .bin, copy .jpg"]
+        ModelInit["lidar-model-init\nbuild PointPillars"]
+        SceneInit["lidar-scene-init\nimport scene via REST API"]
+    end
+    subgraph vols["Shared Docker volumes"]
+        SampleVol[("vol-sample-data\nvelodyne_bin/, images/")]
+        ModelVol[("vol-models\npointpillars_ov_config.json + IR")]
+    end
+    DataInit --> SampleVol
+    ModelInit --> ModelVol
+
+    subgraph stream["lidar-stream (one gst-launch-1.0 process)"]
+        direction LR
+        LidarBranch["multifilesrc(.bin) -> g3dlidarparse\n-> g3dinference(PointPillars, GPU)\n-> gvametaconvert -> gvametapublish"]
+        CamBranch["multifilesrc(.jpg) -> jpegdec -> videoconvert\n-> gvafpsthrottle -> gvadetect(person-vehicle-bike, CPU)\n-> gvametaconvert -> gvametapublish"]
+        Pub["lidar_publisher.py\n(reads both FIFOs, builds MQTT messages)"]
+        LidarBranch -->|FIFO| Pub
+        CamBranch -->|FIFO| Pub
+    end
+    SampleVol -.-> LidarBranch
+    SampleVol -.-> CamBranch
+    ModelVol -.-> LidarBranch
+
+    Pub -->|"scenescape/data/camera/intersection-lidar1\n(3-D bbox_3d)"| MQTT((MQTT broker))
+    Pub -->|"scenescape/data/camera/intersection-cam1\n(2-D bounding_box_px)"| MQTT
+    SceneInit -.->|imports scene/sensors once| Manager["Manager (web)"]
+    MQTT --> Controller["Scene Controller\n(fuses LiDAR + camera per-sensor detections)"]
+    Controller -->|"scenescape/regulated/scene/{scene_uid}"| Manager
+```
+
+`lidar-data-init`/`lidar-model-init`/`lidar-scene-init` are one-shot
+containers (`restart: "no"`) that populate the two shared volumes and seed
+the scene once; `lidar-stream` is the only long-running service, and is what
+`docker compose logs -f lidar-stream` in the steps below is watching.
+
+### PointPillars model initialization
+
+`lidar-model-init` runs
+[model_installer/install-pointpillars](../../../sample_data/lidar_intersection/model_installer/install-pointpillars),
+which turns a pinned upstream commit into everything `g3dinference` needs at
+runtime, all written into `vol-models`:
+
+1. **Get the source**: reuses a sibling `openvino_contrib` checkout if one is
+   already present (`OPENVINO_CONTRIB_DIR`/`POINTPILLARS_ROOT`), otherwise
+   does a `--filter=blob:none --sparse` git clone of
+   [openvinotoolkit/openvino_contrib](https://github.com/openvinotoolkit/openvino_contrib)
+   restricted to `modules/3d/pointPillars`, checked out at a pinned commit
+   (`OPENVINO_CONTRIB_REF`, defaults to the commit that introduced the
+   module) - not a moving target, so re-runs are reproducible.
+2. **Copy the pretrained IR model**: copies the four
+   `pointpillars_ov_*.{xml,bin}` files from that checkout's `pretrained/`
+   directory into `vol-models/public/pointpillars/FP16/`.
+3. **Build the OpenVINO extension**: compiles
+   `libov_pointpillars_extensions.so` (a custom OpenVINO op needed for
+   PointPillars' voxelization/scatter layers) via the checkout's own
+   `ov_extensions/build.sh`, using a Python with `openvino` installed
+   (auto-detected) and `cmake`/`g++` (installed via `apt-get` if missing) -
+   then copies the built `.so` alongside the IR files.
+4. **Write the runtime config**: generates
+   `pointpillars_ov_config.json` (voxel size/range, max points/voxels, and
+   paths to the IR files + extension library) - this is the file
+   `LIDAR_MODEL_CONFIG` points `g3dinference` at.
+
+Steps 2-4 are skip-if-already-done (checks for existing files before
+copying/building), so re-running `lidar-model-init` on a volume that already
+has the model is fast; only the first run on a fresh `vol-models` actually
+clones/builds anything (the several-minutes-first-run cost mentioned in
+[Step 1](#step-1-enable-the-demo)).
+
 ## Prerequisites
 
 - Complete [Installation](../get-started/installation.md) Steps 1-2 (get the
@@ -44,7 +118,7 @@ affects the standard `make demo` deployment.
   committed to this repo because it's too large (hundreds of MB of `.pcd`
   point clouds and `.jpg` images):
   1. Download the [V2X-Seq-SPD-Example](https://drive.google.com/file/d/1gjOmGEBMcipvDzu2zOrO9ex_OscUZMYY/view)
-     `.zip` archive from Google Drive through a browser and move it to your Scenescape directory (Google Drive's
+     `.zip` archive from Google Drive through a browser and move it to your `Scenescape` directory (Google Drive's
      download-confirmation page for files this size makes a scripted
      download unreliable, so this step is manual).
   2. Extract it so the result is
@@ -57,10 +131,6 @@ affects the standard `make demo` deployment.
 
      ```bash
      unzip V2X-Seq-SPD-Example.zip -d sample_data/lidar_intersection
-     # Adjust the extracted path/depth so infrastructure-side/ ends up directly
-     # under V2X-Seq-SPD-Example/, e.g. if the archive has an extra top-level
-     # folder: mv sample_data/lidar_intersection/V2X-Seq-SPD-Example/*/infrastructure-side \
-     #            sample_data/lidar_intersection/V2X-Seq-SPD-Example/
      ls sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side
      ```
 
