@@ -240,7 +240,8 @@ class _MqttState:
 _mqtt_state = _MqttState()
 
 
-def connect_mqtt(client_prefix: str) -> mqtt.Client:
+def connect_mqtt(client_prefix: str, on_connect_setup=None) -> mqtt.Client:
+  """Connect and, on every (re)connect, re-run on_connect_setup (subscriptions/on_message)."""
   client = mqtt.Client(client_id=f"{client_prefix}-{uuid.uuid4().hex[:8]}")
   if os.path.exists(ROOT_CA):
     client.tls_set(ca_certs=ROOT_CA)
@@ -249,6 +250,8 @@ def connect_mqtt(client_prefix: str) -> mqtt.Client:
       client.connect(BROKER, PORT, keepalive=60)
       client.loop_start()
       print(f"[{client_prefix}] Connected to {BROKER}:{PORT}", flush=True)
+      if on_connect_setup is not None:
+        on_connect_setup(client)
       _mqtt_state.add(client)
       return client
     except Exception as exc:
@@ -257,7 +260,9 @@ def connect_mqtt(client_prefix: str) -> mqtt.Client:
   raise RuntimeError(f"[{client_prefix}] Could not connect to MQTT broker after 10 attempts")
 
 
-def safe_publish(client: mqtt.Client, client_prefix: str, topic: str, payload: str) -> mqtt.Client:
+def safe_publish(
+  client: mqtt.Client, client_prefix: str, topic: str, payload: str, on_connect_setup=None,
+) -> mqtt.Client:
   result = client.publish(topic, payload, qos=0)
   if result.rc != mqtt.MQTT_ERR_SUCCESS:
     print(f"[{client_prefix}] Publish failed rc={result.rc}, reconnecting...", flush=True)
@@ -266,7 +271,8 @@ def safe_publish(client: mqtt.Client, client_prefix: str, topic: str, payload: s
       client.disconnect()
     except Exception:
       pass
-    client = connect_mqtt(client_prefix)
+    # New client on reconnect loses prior subscriptions/on_message, so replay them.
+    client = connect_mqtt(client_prefix, on_connect_setup=on_connect_setup)
     client.publish(topic, payload, qos=0)
   return client
 
@@ -342,15 +348,18 @@ def run_stream(
   fifo_result: list = [None]
   fifo_thread = _open_fifo_background(fifo_path, fifo_result)
 
-  client = connect_mqtt(name)
   gst_to_wall = make_gst_to_wall()
 
   frame_index_cell = [None]
+  resubscribe = None
   if image_preview is not None:
-    setup_getimage_responder(
-      client, image_preview["sensor_id"], image_preview["data_path"], frame_index_cell,
-      image_preview["start_index"],
-    )
+    def resubscribe(c: mqtt.Client) -> None:
+      setup_getimage_responder(
+        c, image_preview["sensor_id"], image_preview["data_path"], frame_index_cell,
+        image_preview["start_index"],
+      )
+
+  client = connect_mqtt(name, on_connect_setup=resubscribe)
 
   fifo_thread.join(timeout=30.0)
   if fifo_result[0] is None:
@@ -392,9 +401,9 @@ def run_stream(
       msg = build_message(raw, gst_to_wall, fps)
 
       if sum(len(v) for v in msg["objects"].values()) > 0:
-        client = safe_publish(client, name, topic, json.dumps(msg))
+        client = safe_publish(client, name, topic, json.dumps(msg), on_connect_setup=resubscribe)
       if publish_raw:
-        client = safe_publish(client, name, raw_topic, line)
+        client = safe_publish(client, name, raw_topic, line, on_connect_setup=resubscribe)
 
       if image_preview is not None:
         start = image_preview["start_index"]
