@@ -5,6 +5,20 @@
 
 - **Time to Complete:** 30-45 minutes (plus first-time PointPillars model build)
 
+> **Disclaimer: demo-only, not for production use.** This demo has known
+> limitations that make it unsuitable as a benchmark or production reference:
+>
+> - **PointPillars model quality is limited:** the LiDAR branch does not
+>   reliably detect all vehicles/cyclists in every frame - expect missed and
+>   inconsistent detections, not a complete/accurate 3-D detection record.
+> - **The recorded clip is very short:** playback is a single ~25-second,
+>   251-frame sequence (`LIDAR_START_INDEX`-`LIDAR_STOP_INDEX`, looped), not a
+>   representative long-running capture.
+> - **LiDAR/camera synchronization is a recorded-playback artifact:** see
+>   [LiDAR/camera stream synchronization](#lidarcamera-stream-synchronization-recorded-playback-only)
+>   below - it does not reflect how real, independently-clocked sensors
+>   behave.
+
 This guide walks through running the **LiDAR-Intersection fusion demo**, a
 separate, opt-in Scenescape demo that fuses a recorded LiDAR point-cloud
 stream with a recorded camera image sequence of the same real-world
