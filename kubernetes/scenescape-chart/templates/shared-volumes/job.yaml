@@ -10,10 +10,15 @@ metadata:
 spec:
   template:
     spec:
+      securityContext:
+        {{ include "defaultPodSecurityContext" . | indent 8 }}
+        fsGroup: 1000
       containers:
       - name: {{ .Release.Name }}-init-migrations-volume
         image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
         imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
+        securityContext:
+          {{ include "defaultContainerSecurityContext" . | indent 10 }}
         volumeMounts:
         - mountPath: /workspace/migrations
           name: migrations-storage

@@ -36,9 +36,19 @@ spec:
           image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
           imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
           command: ["/bin/sh", "-c", "chown -R 1000:1000 /data/media /data/datasets"]
+          # chown -R requires CHOWN + FOWNER + DAC_READ_SEARCH; other caps dropped.
           securityContext:
             runAsUser: 0
             runAsGroup: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - CHOWN
+                - FOWNER
+                - DAC_READ_SEARCH
           volumeMounts:
           - mountPath: /data/media
             name: media-storage

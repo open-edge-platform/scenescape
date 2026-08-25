@@ -17,6 +17,7 @@ spec:
   template:
     spec:
       securityContext:
+        {{ include "defaultPodSecurityContext" . | indent 8 }}
         fsGroup: 1000
       containers:
       - command: ["/bin/bash", "-c"]
@@ -26,6 +27,12 @@ spec:
         image: {{ .Values.modelDownload.image.repository }}/{{ .Values.modelDownload.image.name }}:{{ .Values.modelDownload.image.tag }}
         imagePullPolicy: {{ .Values.modelDownload.image.pullPolicy }}
         name: {{ .Release.Name }}-model-download-container
+        # entrypoint rewrites /opt/models symlink; root fs must stay writable.
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
         env:
           - name: HF_HUB_ENABLE_HF_TRANSFER
             value: "1"
