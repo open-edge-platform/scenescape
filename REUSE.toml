@@ -53,17 +53,3 @@ SPDX-FileCopyrightText = [
   "(C) 2025 Intel Corporation"
 ]
 SPDX-License-Identifier = "Apache-2.0 AND BSD-3-Clause"
-
-[[annotations]]
-path = [
-  "sample_data/lidar_intersection/velodyne_bin_part1.tar.gz",
-  "sample_data/lidar_intersection/velodyne_bin_part2.tar.gz",
-  "sample_data/lidar_intersection/velodyne_bin_part3.tar.gz",
-  "sample_data/lidar_intersection/image_part1.tar.gz",
-  "sample_data/lidar_intersection/image_part2.tar.gz",
-  "sample_data/lidar_intersection/image_part3.tar.gz",
-  "sample_data/lidar_intersection/image_part4.tar.gz"
-]
-precedence = "override"
-SPDX-FileCopyrightText = "(C) 2022 Tsinghua University"
-SPDX-License-Identifier = "Apache-2.0"
