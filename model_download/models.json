@@ -4,6 +4,78 @@
   "models": [
     {
       "model_downloader": {
+        "name": "OpenVINO/yolox_s-fp16-ov",
+        "hub": "huggingface"
+      },
+      "scenescape": {
+        "name": "yolox_s-fp16",
+        "config": {
+          "type": "detect",
+          "params": {
+            "model": "huggingface/OpenVINO_yolox_s-fp16-ov/yolox_s.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
+        "name": "OpenVINO/yolox_s-int8-ov",
+        "hub": "huggingface"
+      },
+      "scenescape": {
+        "name": "yolox_s-int8",
+        "config": {
+          "type": "detect",
+          "params": {
+            "model": "huggingface/OpenVINO_yolox_s-int8-ov/yolox_s.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
+        "name": "OpenVINO/yolox_tiny-fp16-ov",
+        "hub": "huggingface"
+      },
+      "scenescape": {
+        "name": "yolox_tiny-fp16",
+        "config": {
+          "type": "detect",
+          "params": {
+            "model": "huggingface/OpenVINO_yolox_tiny-fp16-ov/yolox_tiny.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
+        "name": "OpenVINO/yolox_tiny-int8-ov",
+        "hub": "huggingface"
+      },
+      "scenescape": {
+        "name": "yolox_tiny-int8",
+        "config": {
+          "type": "detect",
+          "params": {
+            "model": "huggingface/OpenVINO_yolox_tiny-int8-ov/yolox_tiny.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
         "name": "person-detection-retail-0013",
         "hub": "omz"
       },

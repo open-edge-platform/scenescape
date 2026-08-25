@@ -1,0 +1,124 @@
+{
+  "config": {
+    "logging": {
+      "C_LOG_LEVEL": "INFO",
+      "PY_LOG_LEVEL": "INFO"
+    },
+    "pipelines": [
+      {
+        "name": "apriltag-cam1",
+        "source": "gstreamer",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/retail-cam1 latency=200 ! decodebin3 ! sscape_timestamp_capture name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/huggingface/OpenVINO_yolox_tiny-fp16-ov/yolox_tiny.xml device=GPU inference-region=0 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "ntp_server": {
+              "element": {
+                "name": "timesync",
+                "property": "ntp-server"
+              },
+              "type": "string"
+            },
+            "cameraid": {
+              "element": {
+                "name": "datapublisher",
+                "property": "cameraid"
+              },
+              "type": "string"
+            },
+            "metadatagenpolicy": {
+              "element": {
+                "name": "datapublisher",
+                "property": "metadatagenpolicy"
+              },
+              "type": "string",
+              "description": "One of detectionPolicy (default), detection3DPolicy, reidPolicy, classificationPolicy, ocrPolicy"
+            },
+            "publish_image": {
+              "element": {
+                "name": "datapublisher",
+                "property": "publish-image"
+              },
+              "type": "boolean",
+              "description": "Publish annotated JPEG to scenescape/image/camera/<cameraid> each frame"
+            },
+            "detection_labels": {
+              "element": {
+                "name": "datapublisher",
+                "property": "detection-labels"
+              },
+              "type": "string",
+              "description": "Comma-separated allow-list of detection categories (e.g. \"person,car\"). Empty publishes all."
+            }
+          }
+        },
+        "payload": {
+          "parameters": {
+            "ntp_server": "ntpserv",
+            "cameraid": "camera1",
+            "metadatagenpolicy": "detectionPolicy",
+            "detection_labels": "person"
+          }
+        }
+      },
+      {
+        "name": "apriltag-cam2",
+        "source": "gstreamer",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/retail-cam2 latency=200 ! decodebin3 ! sscape_timestamp_capture name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/huggingface/OpenVINO_yolox_tiny-fp16-ov/yolox_tiny.xml device=GPU inference-region=0 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "ntp_server": {
+              "element": {
+                "name": "timesync",
+                "property": "ntp-server"
+              },
+              "type": "string"
+            },
+            "cameraid": {
+              "element": {
+                "name": "datapublisher",
+                "property": "cameraid"
+              },
+              "type": "string"
+            },
+            "metadatagenpolicy": {
+              "element": {
+                "name": "datapublisher",
+                "property": "metadatagenpolicy"
+              },
+              "type": "string",
+              "description": "One of detectionPolicy (default), detection3DPolicy, reidPolicy, classificationPolicy, ocrPolicy"
+            },
+            "publish_image": {
+              "element": {
+                "name": "datapublisher",
+                "property": "publish-image"
+              },
+              "type": "boolean",
+              "description": "Publish annotated JPEG to scenescape/image/camera/<cameraid> each frame"
+            },
+            "detection_labels": {
+              "element": {
+                "name": "datapublisher",
+                "property": "detection-labels"
+              },
+              "type": "string",
+              "description": "Comma-separated allow-list of detection categories (e.g. \"person,car\"). Empty publishes all."
+            }
+          }
+        },
+        "payload": {
+          "parameters": {
+            "ntp_server": "ntpserv",
+            "cameraid": "camera2",
+            "metadatagenpolicy": "detectionPolicy",
+            "detection_labels": "person"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -3,7 +3,7 @@
   "sensor_id": "atag-qcam1",
   "command": "file://qcam1.ts",
   "cv_subsystem": "AUTO",
-  "camerachain": "retail=CPU + reid=CPU",
+  "camerachain": "yolox_s=CPU",
   "intrinsics_fx": "905",
   "intrinsics_fy": "905",
   "intrinsics_cx": "640",
