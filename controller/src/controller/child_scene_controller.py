@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import orjson
-
 from scene_common import log
 from scene_common.mqtt import PubSub
 
