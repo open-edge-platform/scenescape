@@ -273,6 +273,8 @@ class AnalyticsService:
       return
     rois = []
     for region in result.get('results', []):
+      color_ranges = region.get('color_ranges') or {}
+
       rois.append({
         'title': region.get('name', ''),
         'uuid': region.get('uid', ''),
@@ -280,8 +282,10 @@ class AnalyticsService:
         'volumetric': region.get('volumetric', False),
         'height': region.get('height', 1),
         'buffer_size': region.get('buffer_size', 0),
-        'sectors': region.get('color_ranges', {}).get('thresholds', []),
-        'range_max': region.get('color_ranges', {}).get('range_max', 0),
+        'sectors': {
+          'thresholds': color_ranges.get('sectors', []),
+          'range_max': color_ranges.get('range_max', 0),
+        },
       })
     topic = self._publishRetainedCatalog(PubSub.DATA_CHILD_ROIS, scene.uid, rois)
     log.debug(f"Published {len(rois)} roi(s) for scene {scene.uid} on {topic}")
