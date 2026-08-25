@@ -124,6 +124,7 @@ help:
 	@echo ""
 	@echo "  run_tests                   Run all tests"
 	@echo "  run_basic_acceptance_tests  Run basic acceptance tests"
+	@echo "  run_basic_acceptance_tests_k8s  Run metric tests (K8s BAT)"
 	@echo "  run_functional_tests        Run functional tests"
 	@echo "  run_ui_tests                Run UI tests"
 	@echo "  run_unit_tests              Run unit tests"
@@ -422,6 +423,7 @@ run_tests: setup-tests
 		$(PYTEST) $(TESTS_DIR)/functional/ $(TESTS_DIR)/ui/ \
 		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ \
 		$(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Tests failed" && exit 1)
+	$(MAKE) run_metric_tests SUPASS=$(SUPASS) || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_standard_tests
@@ -468,7 +470,12 @@ run_basic_acceptance_tests: setup-tests
 	@echo "Running basic acceptance tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
 		$(PYTEST) $(TESTS_DIR) -m basic_acceptance $(PYTEST_FLAGS) || (echo "Basic acceptance tests failed" && exit 1)
+	$(MAKE) run_metric_tests SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
+
+.PHONY: run_basic_acceptance_tests_k8s
+run_basic_acceptance_tests_k8s: run_metric_tests
+	@echo "DONE ==> Running basic acceptance tests (K8s BAT)"
 
 .PHONY: run_stability_tests
 run_stability_tests: setup-tests
@@ -513,49 +520,9 @@ GENERATE_JUNITXML = -o junit_logging=all --junitxml tests/reports/test_reports/$
 run_metric_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running metric tests..."
-	$(MAKE) -j $(NPROCS) _run_metric_tests SUPASS=$(SUPASS) || (echo "Metric tests failed" && exit 1)
+	$(PYTEST) $(TESTS_DIR)/system/metric/ $(PYTEST_FLAGS) $(GENERATE_JUNITXML) \
+		|| (echo "Metric tests failed" && exit 1)
 	@echo "DONE ==> Running metric tests"
-
-.PHONY: _run_metric_tests
-_run_metric_tests: idc-error-metric msoce-metric velocity-metric
-
-define metric-recipe =
-	$(eval TEST_SCRIPT=$1)
-	$(eval TEST_SUITE=$2)
-	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING METRIC TEST $@ \
-	  ; if [ -n "$3" ] && [ -n "$4" ] && [ -n "$5" ]; then \
-		METRIC="--metric $3" ; \
-		THRESHOLD="--threshold $4" ; \
-		FRAME_RATE="--camera_frame_rate $5" \
-	  ; fi \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; $(PYTEST) -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
-			$${METRIC} $${THRESHOLD} $${FRAME_RATE} \
-			-o junit_suite_name=$(TEST_SUITE) | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
-endef
-
-.PHONY: distance-msoce
-distance-msoce: # NEX-T10524
-	$(call metric-recipe, tests/system/metric/test_distance_thresh.py, distance-threshold)
-
-.PHONY: idc-error-metric
-idc-error-metric: # NEX-T10463
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, idc-metric, idc-error, 0.05, 30)
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, idc-metric, idc-error, 0.05, 10)
-
-.PHONY: msoce-metric
-msoce-metric: # NEX-T10463
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, msoce-metric, msoce, 0.05, 30)
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, msoce-metric, msoce, 0.05, 10)
-
-.PHONY: velocity-metric
-velocity-metric: # NEX-T10463
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, velocity-metric, velocity, 0.15, 30)
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, velocity-metric, velocity, 0.15, 10)
 
 # ============================= Lint ==================================
 
