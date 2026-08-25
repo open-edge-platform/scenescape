@@ -50,12 +50,11 @@ LIDAR_OVERRIDE_FILE = sample_data/lidar_intersection/docker-compose.lidar-overri
 LIDAR_ENABLED := $(filter-out false 0 no,$(shell echo $(LIDAR_DEMO) | tr '[:upper:]' '[:lower:]'))
 LIDAR_OVERRIDE_ARGS := $(if $(LIDAR_ENABLED),-f $(LIDAR_OVERRIDE_FILE),)
 LIDAR_COMPOSE_ARGS := $(if $(LIDAR_ENABLED),-f docker-compose.yml $(LIDAR_OVERRIDE_ARGS),)
-# One patch per component (0001 Manager, 0002 Controller, 0003 scene_common,
-# 0004 Analytics), applied only when building with LIDAR_DEMO=true.
-LIDAR_PATCH_FILES := sample_data/lidar_intersection/patches/0001-lidar-fusion-manager.patch \
-                     sample_data/lidar_intersection/patches/0002-controller-lidar-fusion.patch \
-                     sample_data/lidar_intersection/patches/0003-scene-common-source-passthrough.patch \
-                     sample_data/lidar_intersection/patches/0004-analytics-source-passthrough.patch
+# One patch per component (0001 manager, 0002 scene_common, 0003 analytics),
+# applied only when building with LIDAR_DEMO=true.
+LIDAR_PATCH_FILES := sample_data/lidar_intersection/patches/0001-manager-default-assets-and-source-labels.patch \
+                     sample_data/lidar_intersection/patches/0002-scene-common-source-passthrough.patch \
+                     sample_data/lidar_intersection/patches/0003-analytics-source-passthrough.patch
 LIDAR_PATCH_TARGET := $(if $(LIDAR_ENABLED),apply-lidar-patch,)
 # Auto-reverted after build so the working tree doesn't stay dirty.
 LIDAR_REVERT_TARGET := $(if $(LIDAR_ENABLED),revert-lidar-patch,)
