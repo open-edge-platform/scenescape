@@ -98,8 +98,8 @@ packages) and the full backend/marker reference.
 ## References
 
 - SceneScape repository: https://github.com/open-edge-platform/scenescape
-- User guide: https://github.com/open-edge-platform/scenescape/tree/main/docs/user-guide
-- Tests guide: https://github.com/open-edge-platform/scenescape/blob/main/tests/README.md
+- User guide: https://github.com/open-edge-platform/scenescape/tree/release-2026.2.0/docs/user-guide
+- Tests guide: https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/tests/README.md
 
 ## Security note (demo configuration)
 

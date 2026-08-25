@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Download the detection model used by this skill's pipeline via the Model Download
-microservice (https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/model-download).
+microservice (https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.2.0/microservices/model-download).
 
 Scoped to the single OMZ model (`person-detection-retail-0013`) this skill's generated pipeline
 config references, so the skill can run standalone without a full repo checkout or a
