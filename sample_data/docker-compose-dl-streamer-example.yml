@@ -86,7 +86,6 @@ x-controller-base: &controller-base
 
 # Profiles:
 # - Default (no profile): Core services including autocalibration
-# - experimental: All services including mapping
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
 # - controller: Scene Controller (tracking) + Analytics service
@@ -296,7 +295,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc1
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
     networks:
       scenescape:
     tty: true
@@ -361,7 +360,7 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc1
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
     networks:
       scenescape:
     tty: true
@@ -538,7 +537,6 @@ services:
 
   mapping:
     profiles:
-      - experimental
       - mapping
     image: intel/scenescape-mapping:${VERSION:-latest}
     init: true
