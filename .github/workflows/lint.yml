@@ -5,11 +5,8 @@
 name: "[Code Analysis] Lint code"
 run-name: "[Code Analysis] Lint code"
 
-on: # yamllint disable-line rule:truthy
-  pull_request:
-    branches:
-      - main
-      - release-*
+on:
+  workflow_call: {}
   workflow_dispatch: {}
 
 permissions:

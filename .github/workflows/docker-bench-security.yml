@@ -8,11 +8,6 @@ run-name: "[Code Analysis] Docker Bench Security"
 on:
   workflow_call: {}
   workflow_dispatch: {}
-  push:
-    branches:
-      - main
-      - release-*
-  merge_group: {}
 
 permissions: {}
 

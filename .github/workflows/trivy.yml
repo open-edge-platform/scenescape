@@ -6,19 +6,8 @@ name: "[Code Analysis] Trivy"
 run-name: "[Code Analysis] Trivy"
 
 on:
+  workflow_call: {}
   workflow_dispatch: {}
-  push:
-    branches:
-      - main
-      - release-*
-  pull_request:
-    branches:
-      - main
-      - release-*
-    types:
-      - opened
-      - synchronize
-      - reopened
 
 permissions:
   contents: read # needed for actions/checkout

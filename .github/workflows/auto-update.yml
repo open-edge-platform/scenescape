@@ -5,11 +5,8 @@
 name: "[CI/CD] Update All Pull Requests"
 run-name: "[CI/CD] Update All Pull Requests"
 
-on: # yamllint disable-line rule:truthy
-  push:
-    branches:
-      - main
-      - release-*
+on:
+  workflow_call: {}
   workflow_dispatch: {}
 
 concurrency:

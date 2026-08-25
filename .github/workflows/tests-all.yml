@@ -30,10 +30,6 @@ on:
         required: false
         default: false
         type: boolean
-  push:
-    branches:
-      - main
-      - release-*
 
 # Only run at most 1 workflow concurrently per pushed commit
 concurrency:

@@ -6,6 +6,7 @@ name: "[Tests] Basic Acceptance Tests"
 run-name: "[Tests] Basic Acceptance Tests"
 
 on:
+  workflow_call: {}
   workflow_dispatch:
     inputs:
       cleanup:
@@ -18,23 +19,6 @@ on:
         required: false
         type: number
         default: 80
-  pull_request:
-    branches:
-      - main
-      - release-*
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-  push:
-    branches:
-      - main
-      - release-*
-
-  # Trigger workflow when enqueued to a merge group
-  # (must be under 'on')
-  merge_group: {}
 
 # Only run at most 1 workflow concurrently per PR or per branch to keep costs down
 concurrency:

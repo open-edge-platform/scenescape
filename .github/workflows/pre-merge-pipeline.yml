@@ -1,0 +1,145 @@
+---
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Pipeline] Pre-merge"
+run-name: "[Pipeline] Pre-merge"
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release-*
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+concurrency:
+  group: pre-merge-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  detect-changes:
+    name: "Detect Changed Paths"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      renovate_config: ${{ steps.filter.outputs.renovate_config }}
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: "Filter paths"
+        id: filter
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: |
+            renovate_config:
+              - '.github/renovate.json5'
+
+  bandit:
+    name: "Bandit"
+    uses: ./.github/workflows/bandit.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  clamav:
+    name: "ClamAV"
+    uses: ./.github/workflows/clamav.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  codeql:
+    name: "CodeQL"
+    uses: ./.github/workflows/codeql.yml
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+      packages: read
+    secrets: inherit
+
+  gitleaks:
+    name: "Gitleaks"
+    uses: ./.github/workflows/gitleaks.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  license:
+    name: "License"
+    uses: ./.github/workflows/license.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  scorecard:
+    name: "Scorecard"
+    uses: ./.github/workflows/scorecard.yml
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+    secrets: inherit
+
+  tests-bat:
+    name: "BAT Tests"
+    uses: ./.github/workflows/tests-bat.yml
+    permissions:
+      contents: read
+      packages: write
+    secrets: inherit
+
+  tracker-service:
+    name: "Tracker Service"
+    uses: ./.github/workflows/tracker-service.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  trivy:
+    name: "Trivy"
+    uses: ./.github/workflows/trivy.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  zizmor:
+    name: "Zizmor"
+    uses: ./.github/workflows/zizmor.yml
+    permissions:
+      contents: read
+      security-events: write
+    secrets: inherit
+
+  documentation-check:
+    name: "Documentation"
+    uses: ./.github/workflows/documentation-check.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  lint:
+    name: "Lint"
+    uses: ./.github/workflows/lint.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  renovate-config-validator:
+    name: "Renovate Config Validator"
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.renovate_config == 'true' }}
+    uses: ./.github/workflows/renovate-config-validator.yml
+    permissions:
+      contents: read
+    secrets: inherit

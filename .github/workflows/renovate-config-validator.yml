@@ -5,9 +5,7 @@
 name: "[Updates] Validate Renovate configuration"
 
 on:
-  pull_request:
-    paths:
-      - ".github/renovate.json5"
+  workflow_call: {}
 
 permissions: {} # No permissions by default
 

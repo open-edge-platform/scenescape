@@ -1,0 +1,132 @@
+---
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Pipeline] Post-merge"
+run-name: "[Pipeline] Post-merge"
+
+on:
+  push:
+    branches:
+      - main
+      - release-*
+
+concurrency:
+  group: post-merge-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  auto-update:
+    name: "Auto-update PRs"
+    uses: ./.github/workflows/auto-update.yml
+    permissions:
+      contents: read
+      pull-requests: write
+    secrets: inherit
+
+  bandit:
+    name: "Bandit"
+    uses: ./.github/workflows/bandit.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  cache-update:
+    name: "Cache Update"
+    # Preserve original main-only push trigger
+    if: ${{ github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/cache-update.yml
+    permissions:
+      contents: read
+      packages: write
+    secrets: inherit
+
+  clamav:
+    name: "ClamAV"
+    uses: ./.github/workflows/clamav.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  codeql:
+    name: "CodeQL"
+    uses: ./.github/workflows/codeql.yml
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+      packages: read
+    secrets: inherit
+
+  docker-bench-security:
+    name: "Docker Bench Security"
+    uses: ./.github/workflows/docker-bench-security.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  gitleaks:
+    name: "Gitleaks"
+    uses: ./.github/workflows/gitleaks.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  license:
+    name: "License"
+    uses: ./.github/workflows/license.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  scorecard:
+    name: "Scorecard"
+    uses: ./.github/workflows/scorecard.yml
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+    secrets: inherit
+
+  tests-all:
+    name: "All Tests"
+    uses: ./.github/workflows/tests-all.yml
+    permissions:
+      contents: read
+      packages: write
+    secrets: inherit
+
+  tests-bat:
+    name: "BAT Tests"
+    uses: ./.github/workflows/tests-bat.yml
+    permissions:
+      contents: read
+      packages: write
+    secrets: inherit
+
+  tracker-service:
+    name: "Tracker Service"
+    # Preserve original main-only push trigger
+    if: ${{ github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/tracker-service.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  trivy:
+    name: "Trivy"
+    uses: ./.github/workflows/trivy.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  zizmor:
+    name: "Zizmor"
+    uses: ./.github/workflows/zizmor.yml
+    permissions:
+      contents: read
+      security-events: write
+    secrets: inherit
