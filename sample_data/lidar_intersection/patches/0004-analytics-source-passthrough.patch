@@ -1,0 +1,19 @@
+diff --git a/analytics/src/analytics/analytics_models.py b/analytics/src/analytics/analytics_models.py
+index 77014857..3824dfcc 100644
+--- a/analytics/src/analytics/analytics_models.py
++++ b/analytics/src/analytics/analytics_models.py
+@@ -35,6 +35,7 @@ def moving_object_to_analytics_object(obj) -> "AnalyticsObject":
+     metadata=getattr(obj, 'metadata', None),
+     reid=getattr(obj, 'reid', None),
+     visibility=getattr(obj, 'visibility', None),
++    source=getattr(obj, 'source', None),
+   )
+ 
+ 
+@@ -75,3 +76,6 @@ class AnalyticsObject:
+   # Camera IDs whose FOV contains this object. Prefer pass-through from the
+   # track producer; AnalyticsScene._updateVisible fills only when missing.
+   visibility: Optional[Any] = None
++  # Debug aid: which sensor produced this detection (e.g. "lidar"/"camera"),
++  # carried through from the track producer.
++  source: Optional[Any] = None

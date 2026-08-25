@@ -1,0 +1,70 @@
+diff --git a/controller/src/controller/moving_object.py b/controller/src/controller/moving_object.py
+index edeab0da..bb1a5eaf 100644
+--- a/controller/src/controller/moving_object.py
++++ b/controller/src/controller/moving_object.py
+@@ -182,6 +182,11 @@ class MovingObject:
+     self.camera = camera
+     self.info = info.copy()
+     self.has_detection_rotation = 'rotation' in self.info
++    # Debug aid: which sensor produced this detection (e.g. "lidar"/"camera"),
++    # if the publisher reports one. Kept as an explicit attribute (like
++    # category/reid_state) so it survives tracking/fusion instead of relying
++    # on self.info, which does not reliably persist across setPrevious().
++    self.source = self.info.get('source')
+ 
+     self.category = self.info.get('category', 'object')
+     self.boundingBox = None
+@@ -324,13 +329,25 @@ class MovingObject:
+     self.reid_state = otherObj.reid_state
+     self.similarity = otherObj.similarity
+     self.previous_ids_chain = otherObj.get_previous_ids()
++    self.source = self.source or otherObj.source
+ 
+     del self.chain_data.publishedLocations[LOCATION_LIMIT:]
+ 
+     return
+ 
+   def inferRotationFromVelocity(self):
+-    if not self.has_detection_rotation and self.rotation_from_velocity and self.velocity:
++    if self.has_detection_rotation:
++      # 3D detectors (e.g. LiDAR/PointPillars) regress an oriented bounding
++      # box but often cannot tell an object's front from its back, so the
++      # reported heading can flip ~180 degrees frame-to-frame even though
++      # the object's actual direction of travel barely changes. Use the
++      # track's own velocity direction (which has no such ambiguity) to
++      # resolve it, rather than trusting the raw sensor heading every frame.
++      if self.rotation_from_velocity:
++        self._disambiguateRotationWithVelocity()
++      return
++
++    if self.rotation_from_velocity and self.velocity:
+       speed = np.linalg.norm([self.velocity.x, self.velocity.y, self.velocity.z])
+       if self._rotation_from_velocity_active:
+         self._rotation_from_velocity_active = speed > SPEED_THRESHOLD_OFF
+@@ -346,6 +363,26 @@ class MovingObject:
+       self._rotation_from_velocity_active = False
+     return
+ 
++  def _disambiguateRotationWithVelocity(self):
++    """Flip a sensor-reported heading by 180 degrees about Z if it points
++    against the track's direction of travel.
++
++    Only acts once speed is clearly above noise level (reusing
++    SPEED_THRESHOLD_ON), so a stopped/idling object's heading is left alone.
++    """
++    if not self.velocity or not self.rotation:
++      return
++    speed = np.linalg.norm([self.velocity.x, self.velocity.y, self.velocity.z])
++    if speed <= SPEED_THRESHOLD_ON:
++      return
++
++    velocity_dir = normalize(np.array([self.velocity.x, self.velocity.y, 0.0]))
++    forward = Rotation.from_quat(np.array(self.rotation)).apply([1, 0, 0])
++    if np.dot(forward[:2], velocity_dir[:2]) < 0:
++      flip = Rotation.from_euler('z', 180, degrees=True)
++      self.rotation = (flip * Rotation.from_quat(np.array(self.rotation))).as_quat().tolist()
++    return
++
+   @property
+   def camLoc(self):
+     """Object location in camera coordinate system"""

@@ -16,7 +16,7 @@ new file mode 100644
 index 00000000..ce978a14
 --- /dev/null
 +++ b/manager/src/manager/management/commands/init_default_assets.py
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,44 @@
 +# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 +# SPDX-License-Identifier: Apache-2.0
 +
@@ -34,6 +34,7 @@ index 00000000..ce978a14
 +    "tracking_radius": 3.0,
 +    "mark_color": "#0099ff",
 +    "shift_type": 1,
++    "rotation_from_velocity": True,
 +  },
 +  {
 +    "name": "cyclist",
@@ -43,6 +44,7 @@ index 00000000..ce978a14
 +    "tracking_radius": 2.0,
 +    "mark_color": "#f39c12",
 +    "shift_type": 1,
++    "rotation_from_velocity": True,
 +  },
 +]
 +
@@ -64,7 +66,7 @@ new file mode 100644
 index 00000000..3b9fd6f8
 --- /dev/null
 +++ b/manager/src/manager/migrations/0003_default_asset3d_objects.py
-@@ -0,0 +1,57 @@
+@@ -0,0 +1,59 @@
 +# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 +# SPDX-License-Identifier: Apache-2.0
 +
@@ -89,6 +91,7 @@ index 00000000..3b9fd6f8
 +      "tracking_radius": 3.0,
 +      "mark_color": "#0099ff",
 +      "shift_type": 1,
++      "rotation_from_velocity": True,
 +    },
 +  )
 +
@@ -101,6 +104,7 @@ index 00000000..3b9fd6f8
 +      "tracking_radius": 2.0,
 +      "mark_color": "#f39c12",
 +      "shift_type": 1,
++      "rotation_from_velocity": True,
 +    },
 +  )
 +
