@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[Pipeline] Post-merge"
-run-name: "[Pipeline] Post-merge"
+name: "[CI] Post-merge"
+run-name: "[CI] Post-merge"
 
 on:
   push:
