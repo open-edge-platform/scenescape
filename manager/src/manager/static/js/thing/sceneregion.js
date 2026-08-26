@@ -247,6 +247,11 @@ export default class SceneRegion extends THREE.Object3D {
     this.regionControls.addToScene();
     this.regionControls.addControlPanel(this.regionsFolder);
     this.controlsFolder = this.regionControls.controlsFolder;
+    if (this.region.isSensor && this.regionType === "scene") {
+      this.executeOnControl("show", (control) => {
+        control[0].disable();
+      });
+    }
     if (!this.region.isSensor) {
       this.controlsFolder
         .add({ volumetric: this.volumetric }, "volumetric")

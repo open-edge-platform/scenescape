@@ -65,7 +65,7 @@ python scripts/upload_object_asset.py \
   static flag). For less common fields (rotation, damping, restitution, tracking radius, buffer
   sizes), call `POST /api/v1/asset` (create) or `PUT /api/v1/asset/{uid}` (update) directly — see
   the full field reference in
-  [How to Define Object Properties#rest-api-reference](https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/other-topics/how-to-define-object-properties.md#rest-api-reference)
+  [How to Define Object Properties#rest-api-reference](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/docs/user-guide/other-topics/how-to-define-object-properties.md#rest-api-reference)
   (or the local path `docs/user-guide/other-topics/how-to-define-object-properties.md`).
 - Asset names must be unique; creating an entry with a name that already exists returns a 400 —
   use the update flow above to modify it instead.

@@ -6,7 +6,7 @@ This guide provides step-by-step instructions to manually calibrate cameras in S
 - Use 2D UI tools to align views with map data.
 - Understand advanced calibration options such as focal length estimation.
 
-This task is essential for accurate spatial positioning and analytics in Scenescape. If you’re new to Scenescape, see [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md).
+This task is essential for accurate spatial positioning and analytics in Scenescape. If you’re new to Scenescape, see [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/README.md).
 
 ## Prerequisites
 
@@ -89,4 +89,4 @@ For challenging scenes, consider using physical calibration targets in the envir
 ## Supporting Resources
 
 - [Step-by-step guide to 3D camera calibration](./use-3D-UI-for-calibration.md#step-3-calibrate-the-camera)
-- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
+- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/README.md)

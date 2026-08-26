@@ -52,7 +52,7 @@ def get_class_and_serializer(thing_type):
   elif thing_type in ("asset", "assets"):
     return Asset3D, Asset3DSerializer, 'pk'
   elif thing_type in ("child"):
-    return ChildScene, ChildSceneSerializer, 'child_id'
+    return ChildScene, ChildSceneSerializer, 'pk'
   elif thing_type in ("calibrationmarker", "calibrationmarkers"):
     return CalibrationMarker, CalibrationMarkerSerializer, 'marker_id'
   return None, None, None
@@ -141,7 +141,7 @@ class ManageThing(APIView):
         return int(uid)
       return None
 
-    if uid_field in ['uuid'] or thing_type in ['region', 'tripwire', 'child', 'scene']:
+    if uid_field in ['uuid'] or thing_type in ['region', 'tripwire', 'scene']:
       try:
         return uuid.UUID(uid, version=4)
       except ValueError:

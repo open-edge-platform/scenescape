@@ -54,7 +54,7 @@ troubleshooting reference, no broad log dumps.
 All scripts, references, and assets resolve relative to `$SKILL_DIR`, so the skill folder is
 self-contained and portable. `docs/user-guide/...` links point at the local checkout first; if
 unavailable (standalone skill copy), fall back to
-`https://github.com/open-edge-platform/scenescape/blob/main/<path>` instead of guessing. Never
+`https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/<path>` instead of guessing. Never
 copy SceneScape repo docs into `references/`; reserve new references for knowledge that has no
 written form elsewhere.
 
@@ -63,7 +63,7 @@ written form elsewhere.
 - Before any deploy/resume/phase launch, read
   [agent-guardrails.md](./references/agent-guardrails.md).
 - Every orchestrator launch also starts `watch_orchestrator.sh` on the orchestrator PID in the
-  background, notifying on `RESULT=`; never ask the user to poll status.
+  background, notifying on `RESULT=`; rely on watcher notifications instead of user-driven polling.
 - Never invent camera IDs/streams/scene names; never interpolate raw inputs into ad hoc shell
   one-liners; destructive actions (`--fresh`, deleting `deploy_dir`, `docker compose down -v`)
   always need explicit confirmation.

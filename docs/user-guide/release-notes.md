@@ -2,7 +2,7 @@
 
 ## Version 2026.2.0
 
-**Release Date:** August 2026
+**Release Date:** September 9, 2026
 
 **New:**
 
@@ -17,7 +17,6 @@
   - Added shared ReID instance support across multiple scenes, including child and parent scenes
   - Added Qdrant vector database as a ReID backend
   - Added persistent attribute restoration on ReID match
-  - Added support for publishing external observations over MQTT, designed for supporting moving sensors, autonomous physical agents and ephemeral child scenes via a unified approach
   - Added server-side eviction of expired VDMS descriptors preventing unbounded storage growth
 - LiDAR Support:
   - Added point-cloud based localization in Auto Calibration Service
@@ -25,6 +24,7 @@
 - Model Download service integration: Switched from Intel® Scenescape-specific model installer to [Intel Model Download Microservice](https://hub.docker.com/r/intel/model-download)
 - Analytics pipeline improvements: Migrated old gvapython-based scripts to custom GStreamer Elements
 - Added support for multi-camera object metadata fusion in time-chunking
+- Added support for publishing external observations over MQTT, designed for supporting moving sensors, autonomous physical agents and ephemeral child scenes via a unified approach
 - Tracker Evaluation Pipeline:
   - Added runtime observability to the Tracker evaluation black-box harness and added time-chunking performance counters
   - Stabilized evaluation results
