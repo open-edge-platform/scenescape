@@ -11,8 +11,19 @@ Function:
 - parse_results: Parses an xUnit test results file and categorizes test cases based on their execution outcome.
 """
 
+import re
+import xml.etree.ElementTree as ET
 import xunitparser
 
+KEY_REGEX = re.compile(r"^NEX-[0-9]{5,6}$")
+
+def _extract_key(text):
+    if not text:
+        return None
+    m = KEY_REGEX.search(text)
+    if m:
+        return m.group(0)
+    return text.split()[0]
 
 def parse_results(path):
     """
@@ -31,22 +42,28 @@ def parse_results(path):
     This function reads the specified xUnit results file, uses xunitparser to parse the contents, and then processes each test case to categorize them based on their outcomes.
     Each test case is identified by the method name associated with the test, which is expected to be in a specific format that includes the test identifier.
     """
-    with open(path) as fh:
-        ts, tr = xunitparser.parse(fh)
+    tree = ET.parse(path)
+    root = tree.getroot()
 
     results_exec = []
     results_pass = []
     results_fail = []
     results_skip = []
 
-    for tc in ts:
-        test_id = tc.methodname.split(':')[0]
+    idx = 0
+    for tc in root.iter('testcase'):
+        idx += 1
+        name = tc.get('name') or tc.get('classname') or f'unnamed-{idx}'
+        # prefer extracting an explicit Jira-like key if present
+        test_id = _extract_key(name) or name
+
         results_exec.append(test_id)
-        if tc.success:
-            results_pass.append(test_id)
-        elif tc.skipped:
+
+        if tc.find('failure') is not None or tc.find('error') is not None:
+            results_fail.append(test_id)
+        elif tc.find('skipped') is not None:
             results_skip.append(test_id)
         else:
-            results_fail.append(test_id)
+            results_pass.append(test_id)
 
     return results_exec, results_pass, results_fail, results_skip

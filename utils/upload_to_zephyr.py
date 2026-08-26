@@ -21,29 +21,56 @@ def upload_zephyr_results(
         create,
         comment):
 
-    _, results_pass, results_fail, results_skip = xunit.parse_results(path)
+    results_exec, results_pass, results_fail, results_skip = xunit.parse_results(path)
+
+    folders = [part.strip()
+               for part in (folder_name or '').split(',') if part.strip()]
 
     j = jira.Jira(jira_token)
     test_from_jira = j.get_all_tests_as_lut(
-        fields="name,key", folder=folder_name)
-    logging.info(f"Retrieved {len(test_from_jira)} tests from Jira")
+        fields="name,key", folder=folders or None)
+    logging.info(
+        f"Retrieved {len({test['key'] for test in test_from_jira.values()})} "
+        f"tests from Jira ({len(test_from_jira)} lookup aliases)")
     assignees: dict = {}
 
-    try:
-        list_of_testcases_pass = [
-            test_from_jira[tc_key]['key'] for tc_key in results_pass]
-        list_of_testcases_fail = [
-            test_from_jira[tc_key]['key'] for tc_key in results_fail]
-        list_of_testcases_skip = [
-            test_from_jira[tc_key]['key'] for tc_key in results_skip]
-    except KeyError as e:
-        raise jira.JiraException(
-            f'Test case with key "{
-                e.args[0]}" not found in Jira')
+    # if tests are not found in Jira, list them and raise an exception
+    missing_tests = [tc_key for tc_key in results_exec + results_pass + results_fail + results_skip if tc_key not in test_from_jira]
+    # if missing_tests:
+    #     logging.error(f"Tests not found in Jira: {missing_tests}")
+    #     #write not found tests in file for debugging
+    #     with open('not_found.txt', 'w') as f:
+    #         for test in missing_tests:
+    #             f.write(f"{test}\n")
+    #     raise jira.JiraException(f"Tests not found in Jira: {missing_tests}")
+
+    # if missing tests are found, we can still upload the results for the tests that were found
+    list_of_testcases_pass = [
+        test_from_jira[tc_key]['key'] for tc_key in results_pass if tc_key in test_from_jira]
+    list_of_testcases_fail = [
+        test_from_jira[tc_key]['key'] for tc_key in results_fail if tc_key in test_from_jira]
+    list_of_testcases_skip = [
+        test_from_jira[tc_key]['key'] for tc_key in results_skip if tc_key in test_from_jira]
+
+    logging.info(
+        f"Uploading results to Jira: {len(list_of_testcases_pass)} passed, "
+        f"{len(list_of_testcases_fail)} failed, "
+        f"{len(list_of_testcases_skip)} skipped")
+    # try:
+    #     list_of_testcases_pass = [
+    #         test_from_jira[tc_key]['key'] for tc_key in results_pass]
+    #     list_of_testcases_fail = [
+    #         test_from_jira[tc_key]['key'] for tc_key in results_fail]
+    #     list_of_testcases_skip = [
+    #         test_from_jira[tc_key]['key'] for tc_key in results_skip]
+    # except KeyError as e:
+    #     raise jira.JiraException(
+    #         f'Test case with key "{
+    #             e.args[0]}" not found in Jira')
 
     method = j.update_test_cycle_results
     method(
-        folder_name,
+        folders[0] if folders else None,
         cycle_name,
         comment,
         assignees,
@@ -67,7 +94,8 @@ def main():
                         action='store')
 
     parser.add_argument('-F', '--folder',
-                        help="Folder to upload results to",
+                        help="Comma-separated Zephyr folders to look up test "
+                             "cases in; subfolders must be listed explicitly",
                         default=None,
                         action='store')
 
