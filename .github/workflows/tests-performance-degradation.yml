@@ -16,7 +16,7 @@ on:
       performance_hours:
         description: "Duration (hours) for the performance degradation test"
         required: false
-        default: "20"
+        default: "23"
         type: string
 
 # Only run at most 1 workflow concurrently per pushed commit
@@ -41,7 +41,7 @@ jobs:
       - name: Compute job timeout (performance_hours + 1 hour buffer)
         id: compute
         env:
-          PERFORMANCE_HOURS: ${{ inputs.performance_hours || '20' }}
+          PERFORMANCE_HOURS: ${{ inputs.performance_hours || '23' }}
         run: |
           echo "timeout_minutes=$(( PERFORMANCE_HOURS * 60 + 60 ))" >> "$GITHUB_OUTPUT"
 
@@ -78,7 +78,7 @@ jobs:
 
       - name: Run Performance Degradation Test
         env:
-          PERFORMANCE_HOURS: ${{ inputs.performance_hours || '20' }}
+          PERFORMANCE_HOURS: ${{ inputs.performance_hours || '23' }}
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
