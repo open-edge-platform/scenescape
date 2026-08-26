@@ -9,8 +9,10 @@ on:
 
 permissions: {} # No permissions by default
 
+# Hardcoded prefix so this group is stable when called via workflow_call
+# (github.workflow evaluates to the caller's workflow name in reusable workflows).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: renovate-config-validator-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:

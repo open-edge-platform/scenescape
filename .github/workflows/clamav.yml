@@ -9,9 +9,11 @@ on:
   workflow_call: {}
   workflow_dispatch: {}
 
-# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+# Only run at most 1 workflow concurrently per PR or per branch to keep costs down.
+# Hardcoded prefix so this group is stable when called via workflow_call
+# (github.workflow evaluates to the caller's workflow name in reusable workflows).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: clamav-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
