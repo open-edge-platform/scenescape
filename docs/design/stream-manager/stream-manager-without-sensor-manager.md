@@ -1,5 +1,9 @@
 # Stream Manager — Event-Based Video Storage and Retrieval (without Sensor Manager)
 
+## Architecture diagram
+
+![Architecture — Stream Manager without Sensor Manager](scenescape-architecture-extension-Case-3.drawio.svg)
+
 ## Sequence diagram
 
 ```mermaid
