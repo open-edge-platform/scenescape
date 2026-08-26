@@ -38,19 +38,8 @@ import statistics
 import time
 from datetime import datetime, timedelta
 
+import psutil
 import pytest
-
-try:
-  import psutil
-except ImportError:
-  import subprocess
-  import sys
-  subprocess.check_call([sys.executable, "-m", "pip", "install", "psutil"])
-  # Make sure that if Python doesn't have the import directory in the search path, refresh it
-  import site
-  from importlib import reload
-  reload(site)
-  import psutil
 
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
@@ -244,7 +233,7 @@ def check_liveness(rows):
     log.error(
       f"Pipeline stalled: throughput fell below "
       f"{MIN_THROUGHPUT_MSGS_PER_SEC} msgs/sec at "
-      f"{[row[0] for row in stalled]} seconds into the run!"
+      f"{[round(row[0]) for row in stalled]} seconds into the run!"
     )
     return False
   return True
@@ -478,10 +467,10 @@ def test_sscape_performance_degradation(params, scenescape_env, result_recorder)
 
     throughput = objects_detected / CYCLE_INTERVAL_SECONDS
     cpu, mem = sample_resources(scenescape_env, cpu_count, total_memory)
-    elapsed = (datetime.now() - start_time).seconds
+    elapsed = (datetime.now() - start_time).total_seconds()
 
     log.info(
-      f"[{elapsed}s] throughput {throughput:.2f} msgs/sec, cpu {cpu:.1f}%, "
+      f"[{elapsed:.0f}s] throughput {throughput:.2f} msgs/sec, cpu {cpu:.1f}%, "
       f"mem {mem:.1f}%"
     )
 

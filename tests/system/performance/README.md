@@ -49,7 +49,7 @@ The test also fails if the MQTT broker connection is lost.
 Go to Scenescape directory, and execute the performance degradation test:
 
 ```bash
-make SUPASS=admin123 run_performance_degradation_tests HOURS=2
+make SUPASS=admin123 run_performance_degradation_test HOURS=2
 ```
 
 If you already have the test `.venv` set up (created by `make setup-tests`),
