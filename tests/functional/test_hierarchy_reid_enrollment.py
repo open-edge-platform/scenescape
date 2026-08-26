@@ -74,7 +74,7 @@ def test_hierarchy_child_enrolls_local_crop(
   """! Positive: child scene owning the camera enrolls the vetted local crop
   into the shared ReID database (at least one near-exact UUID for the embedding).
   """
-  TEST_NAME = "NEX-T21925"
+  TEST_NAME = "NEX-T28653"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
@@ -169,7 +169,7 @@ def test_hierarchy_retrack_true_parent_does_not_double_enroll(
   """! Positive: with retrack=True the parent queries using the forwarded
   embedding but must not enroll a second UUID for the same child crop.
   """
-  TEST_NAME = "NEX-T21926"
+  TEST_NAME = "NEX-T28651"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
@@ -279,7 +279,7 @@ def test_hierarchy_retrack_false_parent_still_single_enrollment(
   """! Boundary: with retrack=False the parent strips reid entirely; only the
   child camera owner enrolls, so the unique UUID count for the crop remains 1.
   """
-  TEST_NAME = "NEX-T21927"
+  TEST_NAME = "NEX-T28652"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
