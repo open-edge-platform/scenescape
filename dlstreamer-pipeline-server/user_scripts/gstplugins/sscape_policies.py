@@ -124,7 +124,7 @@ def reidPolicy(pobj, item, fw, fh):
         pobj['metadata'] = {}
       pobj['metadata']['reid'] = {
         'embedding_vector': base64.b64encode(v).decode('utf-8'),
-        'model_name': tensor.get('model_name', '')
+        'model_name': tensor.get('model_name', tensor.get('semantic_tag', ''))
       }
       break
   return
@@ -142,11 +142,12 @@ def classificationPolicy(pobj, item, fw, fh):
   categories = {}
   for tensor in item.get('tensors', [{}]):
     name = tensor.get('name','')
-    if name and name != 'detection' and not _isReidTensor(tensor):
+    if name and name != 'detection' and _isReidTensor(tensor):
       metadata_dict = {
         'label': tensor.get('label', ''),
-        'model_name': tensor.get('model_name', '')
+        'model_name': tensor.get('model_name', tensor.get('semantic_tag', ''))
       }
+
       if 'confidence' in tensor:
         metadata_dict['confidence'] = tensor.get('confidence')
       categories[name] = metadata_dict
