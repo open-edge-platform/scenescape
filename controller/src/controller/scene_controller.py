@@ -518,7 +518,6 @@ class SceneController:
                               msg_when, detection_type, jdata, camera_id)
       return
 
-
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
     is_remote = False
     sender = self.cache_manager.sceneWithID(sender_id)
