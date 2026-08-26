@@ -127,7 +127,7 @@ To facilitate NPU acceleration, sample configuration files are provided for the 
 
 - Inference offloaded to NPU
 
-NPU performance metrics can be monitored using [NPU System Monitoring Tool](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/tools/npu-monitor-tool)
+NPU performance metrics can be monitored using [NPU System Monitoring Tool](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.2.0/tools/npu-monitor-tool)
 
 ### Configuration
 
