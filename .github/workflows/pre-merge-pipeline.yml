@@ -99,6 +99,7 @@ jobs:
       - codeql
       - zizmor
       - license
+      - tracker
     uses: ./.github/workflows/tests-bat.yml
     permissions:
       contents: read
