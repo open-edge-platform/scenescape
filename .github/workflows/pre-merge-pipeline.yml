@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[Pipeline] Pre-merge"
-run-name: "[Pipeline] Pre-merge"
+name: "[CI] Pre-merge"
+run-name: "[CI] Pre-merge"
 
 on:
   pull_request:
