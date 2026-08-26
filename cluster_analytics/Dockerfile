@@ -13,7 +13,7 @@ LABEL org.opencontainers.image.description="Scenescape's Scene Cluster Analytics
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/README.md"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/README.md"
 
 ARG USER_ID=1001
 ARG GROUP_ID=1001
