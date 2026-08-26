@@ -6,7 +6,7 @@ This guide provides step-by-step instructions to use the Scenescape 3D UI to man
 - Add, modify, or delete cameras.
 - Calibrate cameras interactively within a 3D scene.
 
-This task is important for developers or customers using Scenescape to visually manage and align camera data with 3D environments. If you're new to Scenescape, see the [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md).
+This task is important for developers or customers using Scenescape to visually manage and align camera data with 3D environments. If you're new to Scenescape, see the [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/README.md).
 
 ## Prerequisites
 
@@ -90,4 +90,4 @@ Before you begin:
 
 ## Supporting Resources
 
-- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
+- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/README.md)

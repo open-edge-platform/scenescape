@@ -134,7 +134,7 @@ Once the measurement data is available, the average and standard deviation of pi
 grep latency_tracer_pipeline /tmp/latency_tracer/trace.log | grep -oP 'frame_latency=\(double\)\K[0-9]+\.[0-9]+' | tail -n 1000 | awk '{sum+=$1; sumsq+=$1*$1; count++} END {avg=sum/count; std=sqrt(sumsq/count - avg*avg); printf "Count: %d\nAverage: %.6f\nStd Dev: %.6f\n", count, avg, std}'
 ```
 
-Please refer to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/latency_tracer.html) and [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/advanced-guide/detailed_usage/how-to-advanced/performance/processing-latency.html) for more details on interpreting the latency tracer output.
+Please refer to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/dlstreamer/dev_guide/latency_tracer.html) and [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/dlstreamer-pipeline-server/advanced-guide/detailed_usage/how-to-advanced/performance/processing-latency.html) for more details on interpreting the latency tracer output.
 
 ### Disabling latency tracer
 
