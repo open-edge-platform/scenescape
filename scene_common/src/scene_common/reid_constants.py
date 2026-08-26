@@ -15,12 +15,17 @@ SIMILARITY_METRIC = "IP"
 # float32 rounding errors from vector normalization and inner-product computation.
 COSINE_SIMILARITY_TOLERANCE = 1e-6
 SCHEMA_MARKER_COLLECTION = "_reid_schema_markers"
+EXPIRES_AT_KEY = "expires_at"
+# VDMS-native property: TTL duration in seconds (not an absolute timestamp).
+VDMS_EXPIRATION_KEY = "_expiration"
 RESERVED_ENTRY_KEYS = frozenset({
   "uuid",
   "rvid",
   "type",
   "persist",
   "persist_timestamp",
+  EXPIRES_AT_KEY,
+  VDMS_EXPIRATION_KEY,
 })
 DEFAULT_CONFIG_SIMILARITY_METRIC = "COSINE"
 SUPPORTED_CONFIG_SIMILARITY_METRICS = frozenset({"COSINE", "L2"})
