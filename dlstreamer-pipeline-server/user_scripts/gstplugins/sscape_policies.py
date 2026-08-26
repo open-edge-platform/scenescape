@@ -147,7 +147,6 @@ def classificationPolicy(pobj, item, fw, fh):
         'label': tensor.get('label', ''),
         'model_name': tensor.get('model_name', tensor.get('semantic_tag', ''))
       }
-
       if 'confidence' in tensor:
         metadata_dict['confidence'] = tensor.get('confidence')
       categories[name] = metadata_dict
