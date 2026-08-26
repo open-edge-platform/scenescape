@@ -93,6 +93,9 @@ jobs:
 
   tests-bat:
     name: "BAT Tests"
+    needs:
+      - lint
+      - bandit
     uses: ./.github/workflows/tests-bat.yml
     permissions:
       contents: read
@@ -100,7 +103,7 @@ jobs:
     secrets: inherit
 
   tracker-service:
-    name: "Tracker Service"
+    name: "Tracker Service Tests"
     uses: ./.github/workflows/tracker-service.yml
     permissions:
       contents: read

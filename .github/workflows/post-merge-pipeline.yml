@@ -99,14 +99,6 @@ jobs:
       packages: write
     secrets: inherit
 
-  tests-bat:
-    name: "BAT Tests"
-    uses: ./.github/workflows/tests-bat.yml
-    permissions:
-      contents: read
-      packages: write
-    secrets: inherit
-
   tracker-service:
     name: "Tracker Service"
     # Preserve original main-only push trigger
@@ -129,4 +121,11 @@ jobs:
     permissions:
       contents: read
       security-events: write
+    secrets: inherit
+
+  lint:
+    name: "Lint"
+    uses: ./.github/workflows/lint.yml
+    permissions:
+      contents: read
     secrets: inherit
