@@ -32,8 +32,7 @@ distinct ways a long run can go wrong:
    saturation ceiling. Trends that rise less than 1 percentage point across the run
    itself are treated as drift and ignored.
 5. **REST response-time guarantees** — p50 and p99 latency are computed over
-   the whole run and checked against absolute SLA ceilings (0.5s and 2.0s by
-   default; tune these constants to the deployment's actual SLA). The p99
+   the whole run and checked against absolute SLA ceilings. The p99
    (tail latency) of the early half of the run is also compared against the
    late half; the test fails if tail latency grows more than 100% over the
    run. p99.9 is reported but only enforced on runs long enough to produce

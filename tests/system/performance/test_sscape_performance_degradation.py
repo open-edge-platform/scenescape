@@ -105,9 +105,9 @@ MEM_PROJECTION_HOURS = 24
 MEM_TREND_MIN_RISE_PCT = 1.0
 
 ### REST response-time guarantees (tail latency, not just the mean)
-REST_P50_MAX_SECONDS = 0.5
-REST_P99_MAX_SECONDS = 2.0
-REST_P999_MAX_SECONDS = 5.0
+REST_P50_MAX_SECONDS = 0.15
+REST_P99_MAX_SECONDS = 0.40
+REST_P999_MAX_SECONDS = 0.60
 ### A p99.9 estimate needs at least this many samples to describe anything
 ### other than the largest value observed; below it the check is skipped.
 MIN_SAMPLES_FOR_P999 = 1000
