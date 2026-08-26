@@ -215,7 +215,7 @@ You can upload custom models or input video files and use them in DL Streamer Vi
 
 You can upload custom models to the Models Volume using the Models page. The Models page is accessible in the top menu of the Scenescape UI. Alternatively, use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide to do it from the command line.
 
-1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](https://github.com/open-edge-platform/scenescape/blob/main/model_installer/src/README.md) on the Models Volume folder structure.
+1. Upload the model in OpenVINO IR format with desired precision(s).
 2. Update the model configuration file or upload a new one so that it includes the newly added model(s). See [Model Configuration File Format](./model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
 3. Reference the model in the camera pipeline configuration: use the short model name in the **Camera Chain** and the custom model configuration file name in the **Model Config** field.
 
@@ -233,7 +233,7 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
 - Cross-stream batching is not supported since in Scenescape Kubernetes deployment each camera pipeline is running in a separate Pod.
-- Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html).
+- Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DL Streamer documentation](https://docs.openedgeplatform.intel.com//edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html).
 - MP4 input files are not reliably supported. This is due to a GStreamer limitation: the combination of `multifilesrc` and `decodebin3` elements may fail because MP4 container metadata is unavailable when data is provided as discrete file fragments. As a workaround, convert MP4 files to a streaming-friendly format such as MPEG-TS (.ts).
 - Pose estimation pipelines using `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128`) are not compatible with `reidPolicy`. These cameras must use `detectionPolicy`. Additionally, the controller `--pose-adjustment` flag cannot be used together with Extended ReID.
 
@@ -277,7 +277,7 @@ The following is the GStreamer command that defines the video processing pipelin
 
 `appsink` is the final element in the pipeline, which consumes the processed video and metadata. The `sync=true` parameter ensures the pipeline operates in sync with the video stream.
 
-Read the instructions here for details on how to further configure DL Streamer pipeline [DL Streamer Pipeline Server documentation](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide) to customize:
+Read the instructions here for details on how to further configure DL Streamer pipeline [DL Streamer Pipeline Server documentation](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.2.0/microservices/dlstreamer-pipeline-server/docs/user-guide) to customize:
 
 - Input sources (video files, USB, RTSP streams)
 - Processing parameters
@@ -385,7 +385,7 @@ DL Streamer Pipeline Server supports grouping multiple frames into a single batc
 
 `batch-size` is an optional parameter which specifies the number of input frames grouped together in a single batch.
 
-Read the instructions on how to configure cross stream batching in [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)
+Read the instructions on how to configure cross stream batching in [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/dlstreamer-pipeline-server/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)
 
 ### Adding custom models or input video files to Docker volumes
 
@@ -395,7 +395,7 @@ You can upload custom models or input video files and use them in DL Streamer Vi
 
 You can upload custom models to the Models Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
 
-1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](https://github.com/open-edge-platform/scenescape/blob/main/model_installer/src/README.md) for the Models Volume folder structure.
+1. Upload the model in OpenVINO IR format with desired precision(s).
 2. Reference the model in the video pipeline inference element (e.g. `gvadetect`).
 
 #### Uploading custom video files to Docker volumes

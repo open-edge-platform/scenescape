@@ -8,7 +8,7 @@
 > **insecure OTLP/gRPC only** — do not enable it on untrusted networks or in
 > production deployments that require TLS between the service and the
 > collector. See ADR
-> [`0002-controller-otel`](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0002-controller-otel.md)
+> [`0002-controller-otel`](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/docs/adr/0002-controller-otel.md)
 > and the design documents linked at the bottom of this page for background.
 
 This guide explains how to enable and configure the experimental
@@ -46,7 +46,7 @@ Before you begin, ensure the following:
 - You have an OpenTelemetry Collector reachable from the service containers.
   A minimal collector configuration used by the tracker load tests is
   available at
-  [`tracker/test/load/config/otel-collector.yaml`](https://github.com/open-edge-platform/scenescape/blob/main/tracker/test/load/config/otel-collector.yaml)
+  [`tracker/test/load/config/otel-collector.yaml`](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/tracker/test/load/config/otel-collector.yaml)
   and can be used as a starting point.
 
 > **Note:** The collector endpoint must be reachable over **plaintext
@@ -83,7 +83,7 @@ startup to fail with a `ValueError`.
 
 The provided Compose files already wire these variables through to the
 `scene` service. For example, in
-[`sample_data/docker-compose-dl-streamer-example.yml`](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/docker-compose-dl-streamer-example.yml)
+[`sample_data/docker-compose-dl-streamer-example.yml`](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/sample_data/docker-compose-dl-streamer-example.yml)
 the controller declares:
 
 ```yaml
@@ -156,7 +156,7 @@ follows the OpenTelemetry SDK defaults.
 The Tracker Service is used when the Scene Controller runs in
 [analytics-only mode](../microservices/controller/controller.md#configurable-arguments-and-flags).
 Its observability settings live in the tracker service configuration file
-(see [`tracker/config/tracker.json`](https://github.com/open-edge-platform/scenescape/blob/main/tracker/config/tracker.json))
+(see [`tracker/config/tracker.json`](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/tracker/config/tracker.json))
 and can also be overridden with environment variables.
 
 ### Configuration File
@@ -205,7 +205,7 @@ Metrics and tracing are configured under `infrastructure.otlp` and
 
 Any of the settings above can be overridden without editing the
 configuration file. The service uses these variables (defined in
-[`tracker/inc/env_vars.hpp`](https://github.com/open-edge-platform/scenescape/blob/main/tracker/inc/env_vars.hpp)):
+[`tracker/inc/env_vars.hpp`](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/tracker/inc/env_vars.hpp)):
 
 | Variable                            | Description                                         |
 | ----------------------------------- | --------------------------------------------------- |
@@ -231,14 +231,14 @@ services:
 
 For a working end-to-end setup with an OpenTelemetry Collector, tracker
 service, and load generator, see
-[`tracker/test/load/compose.yml`](https://github.com/open-edge-platform/scenescape/blob/main/tracker/test/load/compose.yml)
+[`tracker/test/load/compose.yml`](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/tracker/test/load/compose.yml)
 and the collector configuration in the same directory.
 
 ### What the Tracker Service Exports
 
 The Tracker Service publishes OpenTelemetry data under the `tracker` meter
 scope with the following instruments (see
-[`tracker/inc/metrics.hpp`](https://github.com/open-edge-platform/scenescape/blob/main/tracker/inc/metrics.hpp)):
+[`tracker/inc/metrics.hpp`](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/tracker/inc/metrics.hpp)):
 
 **Core metrics**
 
@@ -277,7 +277,7 @@ example DL Streamer).
 
 For attribute values, drop reasons, histogram buckets, and additional
 detail, see the tracker service
-[design document](https://github.com/open-edge-platform/scenescape/blob/main/docs/design/tracker-service.md#observability).
+[design document](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/docs/design/tracker-service.md#observability).
 
 ---
 
@@ -320,9 +320,9 @@ After enabling either signal, restart the affected service and check:
 
 ## Supporting Resources
 
-- ADR: [0002 Adopt OpenTelemetry in Controller Microservice](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0002-controller-otel.md)
-- Design: [Tracker Service — Observability](https://github.com/open-edge-platform/scenescape/blob/main/docs/design/tracker-service.md#observability)
+- ADR: [0002 Adopt OpenTelemetry in Controller Microservice](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/docs/adr/0002-controller-otel.md)
+- Design: [Tracker Service — Observability](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/docs/design/tracker-service.md#observability)
 - [Scene Controller Service](../microservices/controller/controller.md)
 - [How to Configure the Tracker](../microservices/controller/how-to-configure-tracker.md)
-- Tracker service source: [`tracker/`](https://github.com/open-edge-platform/scenescape/tree/main/tracker)
-- Example collector configuration: [`tracker/test/load/config/otel-collector.yaml`](https://github.com/open-edge-platform/scenescape/blob/main/tracker/test/load/config/otel-collector.yaml)
+- Tracker service source: [`tracker/`](https://github.com/open-edge-platform/scenescape/tree/release-2026.2.0/tracker)
+- Example collector configuration: [`tracker/test/load/config/otel-collector.yaml`](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/tracker/test/load/config/otel-collector.yaml)

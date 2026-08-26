@@ -1,6 +1,6 @@
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/mapping/docs">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/release-2026.2.0/mapping/docs">
      GitHub
   </a>
 </div>

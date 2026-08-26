@@ -54,7 +54,7 @@ troubleshooting reference, no broad log dumps.
 All scripts, references, and assets resolve relative to `$SKILL_DIR`, so the skill folder is
 self-contained and portable. `docs/user-guide/...` links point at the local checkout first; if
 unavailable (standalone skill copy), fall back to
-`https://github.com/open-edge-platform/scenescape/blob/main/<path>` instead of guessing. Never
+`https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/<path>` instead of guessing. Never
 copy SceneScape repo docs into `references/`; reserve new references for knowledge that has no
 written form elsewhere.
 

@@ -555,6 +555,8 @@ class ChildScene(models.Model):
   mqtt_username = models.CharField("MQTT Username", max_length=200, null=True, blank=True)
   mqtt_password = models.CharField("MQTT Password", max_length=200, null=True, blank=True)
   retrack = models.BooleanField("Retrack objects", choices=BOOLEAN_CHOICES, default=True, blank=True)
+  cached_rois = models.JSONField("Cached remote rois", default=list, blank=True)
+  cached_tripwires = models.JSONField("Cached remote tripwires", default=list, blank=True)
 
   @property
   def cameraPose(self):
