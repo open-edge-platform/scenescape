@@ -5,7 +5,8 @@
 import concurrent.futures
 import logging
 import os
-from typing import Any, Dict, List, Optional
+import re
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import requests
 import urllib3
@@ -13,6 +14,9 @@ import urllib3
 logger = logging.getLogger(__name__)
 
 urllib3.disable_warnings()
+
+KEY_RE = re.compile(r'([A-Z]+-\d+)')
+PAGE_SIZE = 100
 
 
 class JiraException(Exception):
@@ -146,6 +150,7 @@ class Jira:
             max_results: int) -> List[Dict]:
         local_params = params.copy()
         local_params['startAt'] = start_at
+        local_params['maxResults'] = max_results
         logger.info(f'Fetching issues {start_at}-{start_at + max_results - 1}')
         logger.info(f'Query params: {local_params}')
         response = self.get(
@@ -182,70 +187,75 @@ class Jira:
 
             return results
 
-    def get_tests(self, query: str, fields: str = '') -> List[Dict]:
-        if fields == 'name,key':
-            max_results = 1000
-            batch_qty = 2
-        else:
-            max_results = 200
-            batch_qty = 10
-
-        issues = []
-        logger.info(f"Getting tests from project '{self.project}'")
-
+    def get_tests(self, query: str, fields: str = '',
+                  page_size: int = PAGE_SIZE) -> List[Dict]:
         params = {
             'query': query,
-            'maxResults': max_results,
+            'fields': fields,
         }
-
-        if fields:
-            params['fields'] = fields
-
+        all_tests: List[Dict] = []
+        start_at = 0
         while True:
-            params['startAt'] = len(issues)
-            new_issues = self.fetch_batch_issues(
-                params, len(issues), batch_qty, max_results)
-            issues.extend(new_issues)
-
-            if len(new_issues) < max_results * batch_qty:
+            batch = self.fetch_issues(params, start_at, page_size)
+            if not batch:
                 break
-
-            logger.info(f'Progress: {len(issues)} tests retrieved')
-
-        logger.info(f'Total: {len(issues)} tests retrieved')
-        return issues
+            all_tests.extend(batch)
+            start_at += len(batch)
+            logger.info(
+                f'Fetched {len(batch)} tests, total so far: {len(all_tests)}')
+        return all_tests
 
     def get_all_tests(self, fields: str = '') -> List[Dict]:
         query = f'projectKey = "{self.project}" AND "Team" IN ("{self.team}")'
         return self.get_tests(query, fields=fields)
 
-    def get_tests_in_folder(self, folder: str, fields: str = '') -> List[Dict]:
-        folder_path = folder if folder.startswith('/') else f'/{folder}'
+    def get_tests_in_folder(self,
+            folder: Union[str, Iterable[str]],
+            fields: str = '') -> List[Dict]:
+        folders = [folder] if isinstance(folder, str) else list(folder)
+        paths = []
+        for entry in folders:
+            path = '/' + entry.strip().strip('/')
+            if '"' in path:
+                raise JiraException(f'Invalid folder path: {entry}')
+            paths.append(path)
+        if not paths:
+            raise JiraException('No folder specified')
 
-        query = (f'projectKey = "{self.project}" AND '
-                 f'"Team" IN ("{self.team}") AND '
-                 f'folder = "{folder_path}"')
+        # Zephyr ATM matches folders exactly, so subfolders must be listed too.
+        tests: List[Dict] = []
+        seen = set()
+        for path in paths:
+            query = f'projectKey = "{self.project}" AND folder = "{path}"'
+            logger.info(f'Fetching tests in folder: {path}')
+            for test in self.get_tests(query, fields=fields):
+                key = test.get('key')
+                if key is not None and key in seen:
+                    continue
+                seen.add(key)
+                tests.append(test)
+        return tests
 
-        logger.info(f"Fetching tests in folder: {folder_path}")
-        return self.get_tests(query, fields=fields)
-
-    def get_all_tests_as_lut(self, fields: str = '',
-                             folder: Optional[str] = None) -> Dict[str, Dict]:
+    def get_all_tests_as_lut(
+            self,
+            fields: str = '',
+            folder: Optional[Union[str, Iterable[str]]] = None) -> Dict[str, Dict]:
         tests = self.get_tests_in_folder(
             folder, fields=fields) if folder else self.get_all_tests(
             fields=fields)
+        
 
-        lut_tests = {}
+        lut_tests: Dict[str, Dict] = {}
         for test in tests:
-            ss_key = test['name'].split(':', 1)[0]
-            lut_tests[ss_key] = test
+            name = test.get('name', '') or ''
             if 'key' in test:
                 lut_tests[test['key']] = test
-
-        logger.info(
-            f'Created lookup table with {
-                len(lut_tests)} entries from {
-                len(tests)} tests')
+            match = KEY_RE.search(name)
+            if match:
+                lut_tests[match.group(1)] = test
+            short = name.split(':', 1)[0].strip()
+            if short:
+                lut_tests[short] = test
         return lut_tests
 
     def get_cycle_from_folder(self, folder_name: str, cycle_name: str) -> str:
