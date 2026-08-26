@@ -2,6 +2,15 @@
 
 A hierarchy of scenes can be created using a parent-child relationship, enabling scene analytics from multiple scenes — whether on the [same system](#steps-to-add-a-local-child-scene) or [different systems in same network](#steps-to-add-a-remote-child-scene) running Scenescape — to be visualized within a single parent scene. This hierarchy is not limited to a single level of relationship; it can be scaled upwards, allowing for multi-level parent-child configurations. By subscribing to the parent scene's events, you can observe the base analytics (such as regions of interest, tripwires, and sensors) of the parent scene, along with the transformed base analytics of all its child scenes, directly within the parent scene.
 
+> **Single parent per child:** Hierarchy is designed so each child scene has
+> **one** parent scene. A parent may have many children, and trees may be
+> multi-level (grandparent → parent → child), but the same child must not be
+> linked under more than one parent — neither as a local child in one Manager
+> database nor as a remote child from multiple parent Controllers. Multi-parent
+> fan-out (for example the same intersection under both a city scene and a
+> neighborhood scene) is unsupported: local links are one-to-one in the data
+> model, and remote ingest / ReID write authority assume a single parent.
+
 > **Same host, multiple Scene Controllers:** Local children share one controller.
 > To run several controllers on one machine and link them as remote children
 > (including sharing or splitting a ReID database), see
@@ -31,7 +40,7 @@ This task is essential for managing distributed scenes in Scenescape deployments
 4. Click **+ Link Child Scene**.
 5. Set **Child Type** to `Local`.
 6. Select the scene to be added from the dropdown list.
-7. Enter transform type and values.
+7. Enter [transform type and values](#understanding-transform-type-and-values).
 8. Click **Add Child Scene**.
 
 **Expected Result**: The child scene appears in the parent scene view.
@@ -77,7 +86,7 @@ _Figure 4: comment ntpserver for DL Streamer Pipeline Server in `docker-compose.
 
 _Figure 5: ntpserver config for DL Streamer Pipeline in `pipeline-config.json`._
 
-> **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` does not exist.
+> **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` does not exist.
 
 ### 2. Set Up Secure Communication
 
@@ -123,7 +132,7 @@ Then restart Scenescape:
    - Child Name
    - Hostname or IP
    - MQTT Username/Password
-   - Transform type/values
+   - [Transform type/values](#understanding-transform-type-and-values)
 6. Click **Add Child Scene**.
 
 ![Remote Child Form](../../_assets/ui/remote_child_link_form.png "remote child scene form")
@@ -224,3 +233,77 @@ flags unset so the parent may sole-enroll on no-match.
 > Refer to [Re-identification Guide](../../other-topics/how-to-enable-reidentification.md) for more details.
 > Full matrix:
 > [ReID Across Controllers](./deploy-multi-controller-on-one-host.md#reid-across-controllers-what-is-supported).
+
+---
+
+## Understanding Transform Type and Values
+
+The child link's transform describes where the child scene's origin sits inside
+the parent scene, and how the child's axes are rotated and scaled relative to
+the parent's. **Child Type** does not change this: local and remote children
+use the exact same **Transform Type** field and values.
+
+Use the **Transform Type** dropdown to pick one of three representations of
+the same underlying transform. Switching the dropdown updates the visible
+fields and their labels; values you already entered for translation are
+carried over where possible (for example, editing the Euler translation also
+updates the Quaternion translation).
+
+### Matrix
+
+A 4x4 [homogeneous transformation matrix](https://en.wikipedia.org/wiki/Transformation_matrix#Affine_transformations)
+(row-major) mapping a point in the child scene's coordinate system to the
+parent scene's coordinate system:
+
+| | Column 1 | Column 2 | Column 3 | Column 4 |
+|---|---|---|---|---|
+| **Row 1** | Matrix (1,1) | Matrix (1,2) | Matrix (1,3) | Matrix (1,4) |
+| **Row 2** | Matrix (2,1) | Matrix (2,2) | Matrix (2,3) | Matrix (2,4) |
+| **Row 3** | Matrix (3,1) | Matrix (3,2) | Matrix (3,3) | Matrix (3,4) |
+| **Row 4** | Matrix (4,1) | Matrix (4,2) | Matrix (4,3) | Matrix (4,4) |
+
+- **Rows 1-3, columns 1-3** (Matrix (1,1) through Matrix (3,3)) are the
+  combined rotation-and-scale part of the transform.
+- **Rows 1-3, column 4** (Matrix (1,4), Matrix (2,4), Matrix (3,4)) is the
+  translation of the child origin in the parent scene, in meters, for X, Y,
+  and Z respectively.
+- **Row 4** (Matrix (4,1) through Matrix (4,4)) is always `[0, 0, 0, 1]` and
+  the fields are disabled/read-only. This row is a fixed requirement of the
+  homogeneous-matrix format itself (it makes the matrix multiplication work
+  for combined rotate+translate+scale operations) — it does not represent a
+  rotation angle or direction, so there is nothing to configure there.
+
+The default value is the identity matrix (Matrix (1,1), (2,2), (3,3), (4,4)
+= `1`, all others `0`), meaning the child scene's origin, axes, and scale
+are identical to the parent's until you change the values.
+
+Because raw matrix values are hard to reason about, most users find it
+easier to select **Euler** or **Quaternion** instead and let Scenescape
+compute the equivalent matrix.
+
+### Euler
+
+- **X/Y/Z Translation (meters)**: position of the child scene's origin in
+  the parent scene's coordinate system.
+- **X/Y/Z Rotation (degrees)**: rotation of the child scene's axes relative
+  to the parent's, applied in intrinsic `XYZ` order (rotations about the child
+  scene's local X axis, then local Y, then local Z), in degrees. Rotation
+  follows the right-hand rule (looking from the positive end of an axis toward
+  the origin, a positive angle rotates counterclockwise).
+- **Scale**: uniform scale factor applied to the child scene (`1` = no
+  scaling). Setting this field also updates the Y and Z scale used
+  internally, since non-uniform scale is not exposed in this view.
+
+### Quaternion
+
+- **X/Y/Z Translation (meters)**: same meaning as in Euler.
+- **X/Y/Z/W Quaternion**: rotation of the child scene's axes relative to
+  the parent's, expressed as a unit quaternion, using the same axis
+  convention as Euler above.
+- **Scale**: same meaning as in Euler.
+
+> **Tip**: If you don't know the exact offset/rotation between the two
+> scenes, start from the identity/default values (no translation, no
+> rotation, scale `1`), add the child scene, then adjust the values while
+> watching the child scene's analytics render in the parent scene map until
+> they line up with the expected real-world position.

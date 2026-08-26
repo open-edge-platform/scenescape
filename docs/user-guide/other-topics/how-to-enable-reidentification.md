@@ -46,7 +46,11 @@ Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-
    profile or manual service/dependency editing is required.
 
    From the repository root, `make demo-reid` starts the core demo plus the
-   ReID database, defaulting to VDMS. Switch backends with `REID_BACKEND`:
+   ReID database, defaulting to VDMS, and also automatically swaps the
+   `retail-config`/`queuing-config` pipeline configs to the `reidPolicy`
+   variants (`retail-config-reid.json` / `queuing-config-reid.json`) so
+   camera payloads carry `metadata.reid` embeddings out of the box. Switch
+   backends with `REID_BACKEND`:
 
    ```bash
    make demo-reid
@@ -56,8 +60,10 @@ Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-
    Plain `make demo` runs tracking without ReID. `make demo-close` uses the
    backend override recorded when the demo was started.
 
-2. **Enable Visual Feature Extraction in Video Pipeline**
-   Edit the retail-config setting in [Docker Compose](/sample_data/docker-compose-dl-streamer-example.yml) as follows:
+2. **Enable Visual Feature Extraction in Video Pipeline (manual `docker compose` usage)**
+   The step above is only needed if you are composing services yourself
+   instead of using `make demo-reid`. Edit the retail-config setting in
+   [Docker Compose](/sample_data/docker-compose-dl-streamer-example.yml) as follows:
 
 ```yaml
 retail-config:
@@ -157,9 +163,10 @@ helm upgrade scenescape-release-1 --install kubernetes/scenescape-chart/ \
 ```
 
 The chart sets `REID_DATABASE` on the Scene Controller from `reid.backend`, so
-no other value needs to change. Setting `reid.enabled=false` removes the
-database Deployment, Service, and ReID certificates, and drops the ReID client
-certificates from the Scene Controller.
+no other value needs to change; descriptor retention defaults match Compose and
+is tunable as described in [Storage Bounding](#storage-bounding). Setting
+`reid.enabled=false` removes the database Deployment, Service, and ReID
+certificates, and drops the ReID client certificates from the Scene Controller.
 
 From the repository root, `make demo-k8s` follows the same tiers as the Compose
 demo:
@@ -276,7 +283,41 @@ forwarding embeddings (no local child ReID) is supported—parent enrolls on
 query-no-match; see
 [ReID across controllers](../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#reid-across-controllers-what-is-supported).
 
-> **Known Issue**: Current VDMS implementation does not support feature expiration, leading to degraded performance over time. This will be addressed in a future release.
+---
+
+## Storage Bounding
+
+Architecture rationale: [ADR-0014](../../adr/0014-reid-descriptor-ttl-retention.md).
+
+TTL retention is a coarse way to bound ReID store growth under memory pressure.
+It intentionally sacrifices long-horizon re-identification: old identities are
+valid data that we eventually drop so the store stays robust with large entry
+counts. Matching is not gated on TTL; descriptors remain searchable until they
+are physically purged.
+
+Shared contract:
+
+- **`REID_DESCRIPTOR_TTL_SECS`** (default `86400`) — lifetime hint stamped when a descriptor is written. `0` disables retention.
+- **`REID_PURGE_INTERVAL_SECS`** (default `300`) — how often one process-wide controller worker asks the active backend to reclaim expired descriptors via `purgeExpired()`. Effective residency is roughly `TTL` to `TTL + purge interval`.
+
+Backend details (private to the adapter):
+
+- **VDMS** — writes native `_expiration` as a TTL duration and reclaims with `DeleteExpired`.
+- **Qdrant** — stores absolute `expires_at` and deletes matching points on the purge interval. Search does not filter on expiry.
+
+Both deployment models expose the same knobs:
+
+- **Compose** — set `REID_DESCRIPTOR_TTL_SECS` and `REID_PURGE_INTERVAL_SECS` on the `scene` service.
+- **Helm** — set `reid.descriptorTtlSecs` and `reid.purgeIntervalSecs`. The chart renders these into the same environment variables:
+
+```bash
+helm upgrade scenescape-release-1 --install kubernetes/scenescape-chart/ \
+  -n scenescape --create-namespace \
+  --set reid.enabled=true --set reid.backend=vdms \
+  --set reid.descriptorTtlSecs=3600 --set reid.purgeIntervalSecs=300
+```
+
+> **Note**: Retention is time-based only. Under heavy ingest, storage can still grow within the TTL window. This is not capacity-based eviction.
 
 ---
 
@@ -288,6 +329,8 @@ query-no-match; see
 | `DEFAULT_MINIMUM_BBOX_AREA`                                               | Minimum bounding box size to consider a valid feature.                                                                                               | Pixel area (e.g., 400–1600)                                                                                                                             |
 | `DEFAULT_MINIMUM_FEATURE_COUNT`                                           | Minimum features needed before querying DB.                                                                                                          | Integer (e.g., 5–20)                                                                                                                                    |
 | `DEFAULT_MAX_FEATURE_SLICE_SIZE`                                          | Proportion of features stored to improve DB performance.                                                                                             | Float (e.g., 0.1–1.0)                                                                                                                                   |
+| `REID_DESCRIPTOR_TTL_SECS`                                                | Coarse descriptor retention lifetime (`0` disables reclaim). Descriptors stay matchable until purged.                                                | Integer seconds (e.g., `86400` for 24 hours)                                                                                                            |
+| `REID_PURGE_INTERVAL_SECS`                                                | How often the controller triggers backend physical reclaim via `purgeExpired()`.                                                                     | Integer seconds (e.g., `300`)                                                                                                                           |
 
 To apply changes, use the same backend override you selected when starting the stack:
 

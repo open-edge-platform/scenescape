@@ -4,11 +4,23 @@
 openapi: 3.0.0
 info:
   title: "Scenescape API fuzz spec"
-  description: "OpenAPI spec for fuzz testing the Scenescape REST API"
+  description: "OpenAPI spec for fuzz testing Scenescape REST API"
   version: "1.0.0"
 
 servers:
   - url: https://web.scenescape.intel.com/api/v1
+
+tags:
+  - name: "scene"
+  - name: "asset"
+  - name: "sensor"
+  - name: "camera"
+  - name: "region"
+  - name: "tripwire"
+  - name: "user"
+  - name: "child"
+  - name: "calibrationmarker"
+  - name: "system"
 
 paths:
   /scenes:
@@ -16,6 +28,8 @@ paths:
       tags:
         - "scene"
       summary: "List all scenes"
+      security:
+        - tokenAuth: []
       responses:
         "200":
           description: "successful operation"
@@ -33,6 +47,8 @@ paths:
       tags:
         - "scene"
       summary: "Create a new scene"
+      security:
+        - tokenAuth: []
       requestBody:
         required: true
         content:
@@ -54,6 +70,8 @@ paths:
       tags:
         - "scene"
       summary: "Get a scene by UID"
+      security:
+        - tokenAuth: []
       parameters:
         - name: uid
           in: path
@@ -76,6 +94,8 @@ paths:
       tags:
         - "scene"
       summary: "Update a scene"
+      security:
+        - tokenAuth: []
       parameters:
         - name: uid
           in: path
@@ -104,6 +124,8 @@ paths:
       tags:
         - "scene"
       summary: "Delete a scene"
+      security:
+        - tokenAuth: []
       parameters:
         - name: uid
           in: path
@@ -118,7 +140,948 @@ paths:
         "404":
           description: "Scene not found"
 
+  /assets:
+    get:
+      tags:
+        - "asset"
+      summary: "List all assets"
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Asset"
+
+  /asset:
+    post:
+      tags:
+        - "asset"
+      summary: "Create a new asset"
+      security:
+        - tokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetRequest"
+      responses:
+        "201":
+          description: "Asset created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+        "400":
+          description: "Bad Request"
+
+  /asset/{uid}:
+    get:
+      tags:
+        - "asset"
+      summary: "Get an asset by UID"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+        "404":
+          description: "Asset not found"
+    put:
+      tags:
+        - "asset"
+      summary: "Update an asset"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAssetRequest"
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+    delete:
+      tags:
+        - "asset"
+      summary: "Delete an asset"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Asset deleted"
+
+  /sensors:
+    get:
+      tags:
+        - "sensor"
+      summary: "List all sensors"
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Sensor"
+
+  /sensor:
+    post:
+      tags:
+        - "sensor"
+      summary: "Create a sensor"
+      security:
+        - tokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSensorRequest"
+      responses:
+        "201":
+          description: "Sensor created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sensor"
+
+  /sensor/{sensor_id}:
+    get:
+      tags:
+        - "sensor"
+      summary: "Get a sensor by sensor ID"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: sensor_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sensor"
+    put:
+      tags:
+        - "sensor"
+      summary: "Update a sensor"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: sensor_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSensorRequest"
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sensor"
+    delete:
+      tags:
+        - "sensor"
+      summary: "Delete a sensor"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: sensor_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Sensor deleted"
+
+  /cameras:
+    get:
+      tags:
+        - "camera"
+      summary: "List all cameras"
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Camera"
+
+  /camera:
+    post:
+      tags:
+        - "camera"
+      summary: "Create a camera"
+      security:
+        - tokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCameraRequest"
+      responses:
+        "201":
+          description: "Camera created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Camera"
+
+  /camera/{sensor_id}:
+    get:
+      tags:
+        - "camera"
+      summary: "Get a camera by sensor ID"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: sensor_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Camera"
+    put:
+      tags:
+        - "camera"
+      summary: "Update a camera"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: sensor_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCameraRequest"
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Camera"
+    delete:
+      tags:
+        - "camera"
+      summary: "Delete a camera"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: sensor_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Camera deleted"
+
+  /regions:
+    get:
+      tags:
+        - "region"
+      summary: "List all regions"
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Region"
+
+  /region:
+    post:
+      tags:
+        - "region"
+      summary: "Create a new region"
+      security:
+        - tokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRegionRequest"
+      responses:
+        "201":
+          description: "Region created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Region"
+
+  /region/{uid}:
+    get:
+      tags:
+        - "region"
+      summary: "Get a region by UID"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Region"
+    put:
+      tags:
+        - "region"
+      summary: "Update a region"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRegionRequest"
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Region"
+    delete:
+      tags:
+        - "region"
+      summary: "Delete a region"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Region deleted"
+
+  /tripwires:
+    get:
+      tags:
+        - "tripwire"
+      summary: "List all tripwires"
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tripwire"
+
+  /tripwire:
+    post:
+      tags:
+        - "tripwire"
+      summary: "Create a new tripwire"
+      security:
+        - tokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTripwireRequest"
+      responses:
+        "201":
+          description: "Tripwire created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tripwire"
+
+  /tripwire/{uid}:
+    get:
+      tags:
+        - "tripwire"
+      summary: "Get a tripwire by UID"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tripwire"
+    put:
+      tags:
+        - "tripwire"
+      summary: "Update a tripwire"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTripwireRequest"
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tripwire"
+    delete:
+      tags:
+        - "tripwire"
+      summary: "Delete a tripwire"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Tripwire deleted"
+
+  /users:
+    get:
+      tags:
+        - "user"
+      summary: "List all users"
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserResponse"
+
+  /user:
+    post:
+      tags:
+        - "user"
+      summary: "Create a user"
+      security:
+        - tokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: "User created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+
+  /user/{username}:
+    get:
+      tags:
+        - "user"
+      summary: "Get a user by username"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+    put:
+      tags:
+        - "user"
+      summary: "Update a user"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+    delete:
+      tags:
+        - "user"
+      summary: "Delete a user"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "User deleted"
+
+  /scenes/child:
+    get:
+      tags:
+        - "child"
+      summary: "List all child scene links"
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChildScene"
+
+  /child:
+    post:
+      tags:
+        - "child"
+      summary: "Create a child scene"
+      security:
+        - tokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChildRequest"
+      responses:
+        "201":
+          description: "Child scene created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChildScene"
+
+  /child/{uid}:
+    get:
+      tags:
+        - "child"
+      summary: "Get a child scene by UID"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChildScene"
+    put:
+      tags:
+        - "child"
+      summary: "Update a child scene"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChildRequest"
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChildScene"
+    delete:
+      tags:
+        - "child"
+      summary: "Delete a child scene"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Child scene deleted"
+
+  /calibrationmarkers:
+    get:
+      tags:
+        - "calibrationmarker"
+      summary: "List all calibration markers"
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CalibrationMarker"
+
+  /calibrationmarker:
+    post:
+      tags:
+        - "calibrationmarker"
+      summary: "Create a calibration marker"
+      security:
+        - tokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCalibrationMarkerRequest"
+      responses:
+        "201":
+          description: "Calibration marker created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalibrationMarker"
+
+  /calibrationmarker/{marker_id}:
+    get:
+      tags:
+        - "calibrationmarker"
+      summary: "Get a calibration marker by marker ID"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: marker_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalibrationMarker"
+    put:
+      tags:
+        - "calibrationmarker"
+      summary: "Update a calibration marker"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: marker_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCalibrationMarkerRequest"
+      responses:
+        "200":
+          description: "successful operation"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalibrationMarker"
+    delete:
+      tags:
+        - "calibrationmarker"
+      summary: "Delete a calibration marker"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: marker_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Calibration marker deleted"
+
+  /database-ready:
+    get:
+      tags:
+        - "system"
+      summary: "Check if the database is ready"
+      security: []
+      responses:
+        "200":
+          description: "Database is ready"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  databaseReady:
+                    type: boolean
+        "503":
+          description: "Database not ready"
+
+  /video:
+    get:
+      tags:
+        - "system"
+      summary: "Get a video stream for a camera"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: camera
+          in: query
+          required: true
+          schema:
+            type: string
+          description: "Camera sensor ID"
+      responses:
+        "200":
+          description: "Video data"
+        "404":
+          description: "Camera not found"
+        "503":
+          description: "Broker unavailable"
+
+  /frame:
+    get:
+      tags:
+        - "system"
+      summary: "Get a single camera frame"
+      security:
+        - tokenAuth: []
+      parameters:
+        - name: camera
+          in: query
+          required: true
+          schema:
+            type: string
+          description: "Camera sensor ID"
+      responses:
+        "200":
+          description: "Frame data"
+        "404":
+          description: "Camera not found"
+        "503":
+          description: "Broker unavailable"
+
+  /aclcheck:
+    post:
+      tags:
+        - "system"
+      summary: "Check MQTT ACL permissions"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - topic
+                - acc
+              properties:
+                username:
+                  type: string
+                topic:
+                  type: string
+                acc:
+                  type: integer
+                  enum:
+                    - 1
+                    - 2
+                    - 4
+      responses:
+        "200":
+          description: "Access allowed"
+        "403":
+          description: "Access denied"
+
+  /calculateintrinsics:
+    post:
+      tags:
+        - "system"
+      summary: "Calculate camera intrinsics from point correspondences"
+      security:
+        - tokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalculateIntrinsicsRequest"
+      responses:
+        "200":
+          description: "Intrinsics calculated"
+        "400":
+          description: "Invalid input"
+
+  /save-geospatial-snapshot:
+    post:
+      tags:
+        - "system"
+      summary: "Save a geospatial map snapshot"
+      security:
+        - tokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - image_data
+              properties:
+                image_data:
+                  type: string
+      responses:
+        "200":
+          description: "Snapshot saved"
+        "400":
+          description: "Missing image data"
+
 components:
+  securitySchemes:
+    tokenAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+
   schemas:
     CreateSceneRequest:
       type: object
@@ -178,3 +1141,388 @@ components:
           type: array
           items:
             type: number
+
+    CreateAssetRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          x-restler-fuzzable-uuid: true
+        file:
+          type: string
+          description: "Asset reference or URI"
+
+    UpdateAssetRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          x-restler-fuzzable-uuid: true
+        file:
+          type: string
+
+    Asset:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        name:
+          type: string
+        file:
+          type: string
+
+    CreateSensorRequest:
+      type: object
+      required:
+        - name
+        - scene
+        - singleton_type
+      properties:
+        name:
+          type: string
+          x-restler-fuzzable-uuid: true
+        scene:
+          type: string
+          format: uuid
+        sensor_id:
+          type: string
+        singleton_type:
+          type: string
+          enum:
+            - environmental
+            - attribute
+
+    UpdateSensorRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          x-restler-fuzzable-uuid: true
+        singleton_type:
+          type: string
+          enum:
+            - environmental
+            - attribute
+
+    Sensor:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        name:
+          type: string
+        scene:
+          type: string
+          format: uuid
+        sensor_id:
+          type: string
+        singleton_type:
+          type: string
+
+    CreateCameraRequest:
+      type: object
+      required:
+        - name
+        - scene
+        - sensor_id
+      properties:
+        name:
+          type: string
+          x-restler-fuzzable-uuid: true
+        scene:
+          type: string
+          format: uuid
+        sensor_id:
+          type: string
+
+    UpdateCameraRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          x-restler-fuzzable-uuid: true
+
+    Camera:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        name:
+          type: string
+        scene:
+          type: string
+          format: uuid
+        sensor_id:
+          type: string
+
+    CreateRegionRequest:
+      type: object
+      required:
+        - name
+        - scene
+        - points
+      properties:
+        name:
+          type: string
+          x-restler-fuzzable-uuid: true
+        scene:
+          type: string
+        points:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+
+    UpdateRegionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          x-restler-fuzzable-uuid: true
+        points:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+
+    Region:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        name:
+          type: string
+        scene:
+          type: string
+        points:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+
+    CreateTripwireRequest:
+      type: object
+      required:
+        - name
+        - scene
+        - points
+      properties:
+        name:
+          type: string
+          x-restler-fuzzable-uuid: true
+        scene:
+          type: string
+        points:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+
+    UpdateTripwireRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          x-restler-fuzzable-uuid: true
+        points:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+
+    Tripwire:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        name:
+          type: string
+        scene:
+          type: string
+        points:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+
+    CreateUserRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          x-restler-fuzzable-uuid: true
+        password:
+          type: string
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          x-restler-fuzzable-uuid: true
+        password:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+
+    UserResponse:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+        is_staff:
+          type: boolean
+
+    CreateChildRequest:
+      type: object
+      required:
+        - parent
+        - child
+      properties:
+        parent:
+          type: string
+          format: uuid
+        child:
+          type: string
+          format: uuid
+        child_type:
+          type: string
+          enum:
+            - local
+
+    UpdateChildRequest:
+      type: object
+      properties:
+        child_type:
+          type: string
+        transform:
+          type: object
+          additionalProperties: {}
+
+    ChildScene:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        child_type:
+          type: string
+        parent:
+          type: string
+          format: uuid
+        name:
+          type: string
+          readOnly: true
+
+    CreateCalibrationMarkerRequest:
+      type: object
+      required:
+        - marker_id
+        - apriltag_id
+        - scene
+      properties:
+        marker_id:
+          type: string
+          x-restler-fuzzable-uuid: true
+        apriltag_id:
+          type: string
+          enum:
+            - "tag25h9"
+            - "tag36h11"
+            - "tag16h5"
+        scene:
+          type: string
+          format: uuid
+        dims:
+          type: array
+          items:
+            type: number
+
+    UpdateCalibrationMarkerRequest:
+      type: object
+      properties:
+        apriltag_id:
+          type: string
+        dims:
+          type: array
+          items:
+            type: number
+
+    CalibrationMarker:
+      type: object
+      properties:
+        marker_id:
+          type: string
+          readOnly: true
+        apriltag_id:
+          type: string
+        scene:
+          type: string
+          format: uuid
+        dims:
+          type: array
+          items:
+            type: number
+
+    CalculateIntrinsicsRequest:
+      type: object
+      required:
+        - mapPoints
+        - camPoints
+        - intrinsics
+        - distortion
+        - imageSize
+      properties:
+        mapPoints:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+        camPoints:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+        intrinsics:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+        distortion:
+          type: array
+          items:
+            type: number
+        imageSize:
+          type: array
+          items:
+            type: integer

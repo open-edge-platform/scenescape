@@ -84,11 +84,11 @@ make demo
 
 The Docker Compose demo targets are tiered, each building on the previous one:
 
-| Target      | Includes                                                     |
-| ----------- | ------------------------------------------------------------ |
-| `demo`      | Core services with tracking, without ReID                    |
-| `demo-reid` | `demo` plus the ReID vector database                         |
-| `demo-all`  | `demo-reid` plus cluster analytics and experimental services |
+| Target      | Includes                                                |
+| ----------- | ------------------------------------------------------- |
+| `demo`      | Core services with tracking, without ReID               |
+| `demo-reid` | `demo` plus the ReID vector database                    |
+| `demo-all`  | `demo-reid` plus cluster analytics and mapping services |
 
 The ReID targets use VDMS by default. Set `REID_BACKEND=qdrant` to use Qdrant:
 
@@ -119,9 +119,8 @@ The following profiles are available:
 | Profile             | Description                                                                             |
 | ------------------- | --------------------------------------------------------------------------------------- |
 | `controller`        | Scene Controller (tracking) + Analytics service. Used by `make demo`.                   |
-| `experimental`      | Enables mapping and cluster-analytics services.                                         |
-| `mapping`           | Enables mapping service only.                                                           |
-| `cluster-analytics` | Enables cluster-analytics service only.                                                 |
+| `mapping`           | Enables mapping service.                                                                |
+| `cluster-analytics` | Enables cluster-analytics service.                                                      |
 | `tracker`           | Tracker service + Analytics service (no Scene Controller). Used by `make demo-tracker`. |
 
 > **ReID backends:** The `demo-reid` and `demo-all` targets default to VDMS (`REID_BACKEND=vdms`); set `REID_BACKEND=qdrant` to switch. For raw Compose, add exactly one of `sample_data/docker-compose.vdms-override.yml` or `sample_data/docker-compose.qdrant-override.yml`. Both overrides provide the same logical `reid` service, shared host `reid.scenescape.intel.com`, port `55555`, TLS settings, and certificates. See [Selecting the ReID Vector Database Backend](../other-topics/how-to-enable-reidentification.md#selecting-the-reid-vector-database-backend).
@@ -135,7 +134,7 @@ docker compose --profile controller up -d
 Multiple profiles can be combined:
 
 ```console
-docker compose --profile controller --profile experimental up -d
+docker compose --profile controller --profile mapping up -d
 ```
 
 Alternatively, profiles can be set via the `COMPOSE_PROFILES` environment variable:
@@ -148,7 +147,7 @@ docker compose up -d
 For multiple profiles, use a comma-separated list:
 
 ```console
-export COMPOSE_PROFILES=controller,experimental
+export COMPOSE_PROFILES=controller,mapping
 docker compose up -d
 ```
 
