@@ -1,0 +1,912 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Stream Manager REST API - Case 3 WITH Sensor Manager (Stage 4 draft).
+# Cameras are NTP-synchronized; Stream Manager consumes camera streams directly
+# as a second viewer. Streams are DISCOVERED via Sensor Manager and referenced
+# by the Sensor Manager namespace id (`sensor_id`) instead of a manual source URI.
+#
+# Optional camera control (PTZ / NTP) is provided by the Sensor Manager API and
+# is NOT part of this (Stream Manager) API; it is called directly by Business
+# Logic using the same `sensor_id`.
+#
+# Conventions:
+#   - URL path segments and query parameters: kebab-case.
+#   - JSON request/response body fields: snake_case.
+#   - Timestamps: RFC 3339 / ISO 8601, UTC (e.g. 2026-08-26T12:00:00.000Z).
+#   - Errors: application/problem+json (RFC 9457).
+#   - Retention/TTL of recordings and buffers is NOT modeled here; it is handled
+#     by separate global service configuration (out of scope for this API).
+
+openapi: 3.0.0
+
+info:
+  title: Stream Manager API (with Sensor Manager)
+  version: "1.0.0-draft"
+  description: >
+    Reusable horizontal microservice for edge-local buffering, timestamp-aligned
+    storage, and retrieval of camera streams driven by analytics events.
+    This variant covers deployments WITH a Sensor Manager: sensors are discovered
+    and controlled by the Sensor Manager, and streams are attached by referencing
+    the Sensor Manager namespace id (`sensor_id`).
+  license:
+    name: Apache-2.0
+
+servers:
+  - url: /v1
+    description: Version 1 (path-prefixed)
+
+tags:
+  - name: sensors
+    description: Sensors discovered via Sensor Manager, available to attach as streams.
+  - name: streams
+    description: Attachment, metadata, and buffer configuration of source streams.
+  - name: records
+    description: Lifecycle and metadata of recordings (a recording spans multiple streams).
+  - name: retrieval
+    description: Binary retrieval of frames and clips from a recording.
+
+paths:
+  /sensors:
+    get:
+      tags: [sensors]
+      operationId: listSensors
+      summary: List sensors discovered via Sensor Manager
+      description: >
+        Optional discovery convenience. Proxies the Sensor Manager to list
+        available sensors (by namespace `sensor_id`) that can be attached as
+        streams via POST /streams.
+      parameters:
+        - name: type
+          in: query
+          required: false
+          description: Filter by sensor type (e.g. camera).
+          schema:
+            type: string
+        - name: available
+          in: query
+          required: false
+          description: Only sensors currently available to attach.
+          schema:
+            type: boolean
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of discovered sensors.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SensorList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "502":
+          description: Sensor Manager is unreachable.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+
+  /streams:
+    get:
+      tags: [streams]
+      operationId: listStreams
+      summary: List attached streams
+      description: Lists streams attached from sensors discovered via Sensor Manager.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: state
+          in: query
+          required: false
+          description: Filter by stream state.
+          schema:
+            $ref: "#/components/schemas/StreamState"
+      responses:
+        "200":
+          description: A page of streams.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreamList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [streams]
+      operationId: attachStream
+      summary: Attach a discovered sensor as a stream
+      description: >
+        Attaches a sensor (identified by its Sensor Manager namespace `sensor_id`)
+        as a stream. The stream source is resolved through the Sensor Manager.
+        Optionally initializes in-memory pre-event buffering.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StreamCreate"
+      responses:
+        "201":
+          description: Stream attached.
+          headers:
+            Location:
+              description: URI of the created stream.
+              schema:
+                type: string
+                format: uri-reference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stream"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No sensor with the given `sensor_id` is known to Sensor Manager.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          description: A stream is already attached for this `sensor_id`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+
+  /streams/{stream-id}:
+    parameters:
+      - $ref: "#/components/parameters/StreamIdPath"
+    get:
+      tags: [streams]
+      operationId: getStream
+      summary: Get metadata of a stream
+      responses:
+        "200":
+          description: Stream metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stream"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [streams]
+      operationId: detachStream
+      summary: Detach a stream
+      description: >
+        Detaches the stream and stops its buffering. Fails if the stream is part
+        of an active (in-progress) recording.
+      responses:
+        "204":
+          description: Stream detached.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Stream is currently being recorded and cannot be detached.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+
+  /streams/{stream-id}/buffer:
+    parameters:
+      - $ref: "#/components/parameters/StreamIdPath"
+    put:
+      tags: [streams]
+      operationId: setStreamBuffer
+      summary: Configure in-memory pre-event buffering for a stream
+      description: >
+        Enables/disables and sizes the rolling in-memory buffer used to capture a
+        leading (pre-event) window before event-triggered recording starts.
+        Buffer is sized by time window in seconds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BufferConfig"
+      responses:
+        "200":
+          description: Updated buffer configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BufferStatus"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /records:
+    get:
+      tags: [records]
+      operationId: listRecords
+      summary: List recordings and metadata
+      description: >
+        Lists recordings, optionally filtered by contributing stream and by a
+        timestamp range that the recording overlaps.
+      parameters:
+        - name: stream-id
+          in: query
+          required: false
+          description: Only recordings that include this stream.
+          schema:
+            type: string
+        - name: timestamp-start
+          in: query
+          required: false
+          description: Lower bound (inclusive); recordings overlapping [start, end].
+          schema:
+            type: string
+            format: date-time
+        - name: timestamp-end
+          in: query
+          required: false
+          description: Upper bound (inclusive); recordings overlapping [start, end].
+          schema:
+            type: string
+            format: date-time
+        - name: state
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/RecordState"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of recordings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [records]
+      operationId: importRecord
+      summary: Import (upload) an external recording
+      description: >
+        Ingests an externally produced recording into Stream Manager and creates
+        a recording from it.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/RecordImport"
+      responses:
+        "201":
+          description: Recording created from the imported media.
+          headers:
+            Location:
+              description: URI of the created recording.
+              schema:
+                type: string
+                format: uri-reference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Record"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          description: Payload too large.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+
+  /records/start:
+    post:
+      tags: [records]
+      operationId: startRecord
+      summary: Start a synchronized recording of one or more streams
+      description: >
+        Creates and starts a single recording that spans the given streams,
+        synchronized on source timestamps. When a stream has an active pre-event
+        buffer, up to `pre_event_seconds` of buffered frames are prepended.
+        Use the `Idempotency-Key` header so a duplicate event does not create two
+        recordings.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordStartRequest"
+      responses:
+        "201":
+          description: Recording created and started.
+          headers:
+            Location:
+              description: URI of the created recording.
+              schema:
+                type: string
+                format: uri-reference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Record"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: One or more referenced streams do not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          description: Idempotency-Key already used for a different request.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+
+  /records/stop:
+    post:
+      tags: [records]
+      operationId: stopRecord
+      summary: Stop an in-progress recording
+      description: Stops the recording identified by `record_id`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordStopRequest"
+      responses:
+        "200":
+          description: Recording stopped (or already completed).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Record"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Recording is not in a stoppable state.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+
+  /records/{record-id}:
+    parameters:
+      - $ref: "#/components/parameters/RecordIdPath"
+    get:
+      tags: [records]
+      operationId: getRecord
+      summary: Get metadata of a specific recording
+      responses:
+        "200":
+          description: Recording metadata (including per-stream tracks).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Record"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [records]
+      operationId: deleteRecord
+      summary: Delete a recording
+      responses:
+        "204":
+          description: Recording deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Recording is in progress; stop it before deleting.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+
+  /records/{record-id}/frame:
+    parameters:
+      - $ref: "#/components/parameters/RecordIdPath"
+    get:
+      tags: [retrieval]
+      operationId: getRecordFrame
+      summary: Retrieve a single frame from one stream of a recording
+      description: >
+        Returns the frame nearest to `timestamp` for the given `stream-id`.
+        A recording spans multiple streams, so `stream-id` is required to
+        identify which stream's frame to return.
+      parameters:
+        - name: stream-id
+          in: query
+          required: true
+          description: Which stream of the recording to sample.
+          schema:
+            type: string
+        - name: timestamp
+          in: query
+          required: true
+          description: Target time; the nearest available frame is returned.
+          schema:
+            type: string
+            format: date-time
+        - name: format
+          in: query
+          required: false
+          description: Image encoding of the returned frame.
+          schema:
+            type: string
+            enum: [jpeg, png]
+            default: jpeg
+      responses:
+        "200":
+          description: The frame image (binary).
+          headers:
+            X-Frame-Timestamp:
+              description: Actual RFC 3339 timestamp of the returned frame.
+              schema:
+                type: string
+                format: date-time
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Recording or stream not found, or no frame at/near the timestamp.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+
+  /records/{record-id}/clip:
+    parameters:
+      - $ref: "#/components/parameters/RecordIdPath"
+    get:
+      tags: [retrieval]
+      operationId: getRecordClip
+      summary: Retrieve a video clip from one stream of a recording
+      description: >
+        Returns a clip for the given `stream-id` between `timestamp-start` and
+        either `timestamp-end` or `duration-seconds`.
+      parameters:
+        - name: stream-id
+          in: query
+          required: true
+          description: Which stream of the recording to extract.
+          schema:
+            type: string
+        - name: timestamp-start
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: timestamp-end
+          in: query
+          required: false
+          description: End of the clip. Provide this OR `duration-seconds`.
+          schema:
+            type: string
+            format: date-time
+        - name: duration-seconds
+          in: query
+          required: false
+          description: Clip length from `timestamp-start`. Provide this OR `timestamp-end`.
+          schema:
+            type: number
+            minimum: 0
+            exclusiveMinimum: true
+        - name: format
+          in: query
+          required: false
+          description: Container/codec of the returned clip.
+          schema:
+            type: string
+            enum: [mp4, mkv, webm]
+            default: mp4
+      responses:
+        "200":
+          description: The video clip (binary).
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+            video/x-matroska:
+              schema:
+                type: string
+                format: binary
+            video/webm:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of items to return.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque pagination cursor returned as `next_cursor` by a prior call.
+      schema:
+        type: string
+    StreamIdPath:
+      name: stream-id
+      in: path
+      required: true
+      description: Unique stream identifier.
+      schema:
+        type: string
+    RecordIdPath:
+      name: record-id
+      in: path
+      required: true
+      description: Unique recording identifier.
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Client-generated key to make recording creation idempotent.
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unauthorized:
+      description: Missing or invalid credentials.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    Sensor:
+      type: object
+      description: A sensor discovered via Sensor Manager.
+      properties:
+        sensor_id:
+          type: string
+          description: Sensor Manager namespace identifier.
+        type:
+          type: string
+          description: Sensor type (e.g. camera).
+        capabilities:
+          type: array
+          items:
+            type: string
+          description: Supported capabilities (e.g. ptz, ntp, onvif).
+        available:
+          type: boolean
+          description: Whether the sensor is currently available to attach.
+
+    SensorList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Sensor"
+        next_cursor:
+          type: string
+          nullable: true
+
+    StreamState:
+      type: string
+      enum: [registered, buffering, error]
+
+    BufferConfig:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+          description: Whether the rolling in-memory buffer is active.
+        buffer_seconds:
+          type: integer
+          minimum: 0
+          default: 0
+          description: Length of the rolling pre-event buffer window, in seconds.
+      additionalProperties: false
+
+    BufferStatus:
+      allOf:
+        - $ref: "#/components/schemas/BufferConfig"
+        - type: object
+          properties:
+            buffered_seconds:
+              type: number
+              readOnly: true
+              description: Amount of data currently buffered, in seconds.
+            oldest_buffered_at:
+              type: string
+              format: date-time
+              readOnly: true
+              description: Timestamp of the oldest buffered frame.
+
+    StreamCreate:
+      type: object
+      required: [sensor_id]
+      properties:
+        sensor_id:
+          type: string
+          description: >
+            Sensor Manager namespace id of the discovered sensor to attach.
+            The stream source is resolved through the Sensor Manager.
+        name:
+          type: string
+          description: Human-readable stream name.
+        buffer:
+          $ref: "#/components/schemas/BufferConfig"
+      additionalProperties: false
+
+    Stream:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        sensor_id:
+          type: string
+          description: Sensor Manager namespace id this stream is attached to.
+        name:
+          type: string
+        source_uri:
+          type: string
+          format: uri
+          readOnly: true
+          description: Stream source resolved via Sensor Manager.
+        state:
+          $ref: "#/components/schemas/StreamState"
+        buffer:
+          $ref: "#/components/schemas/BufferStatus"
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    StreamList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Stream"
+        next_cursor:
+          type: string
+          nullable: true
+          description: Cursor for the next page, or null if this is the last page.
+
+    RecordState:
+      type: string
+      enum: [recording, stopping, completed, failed, imported]
+
+    RecordMode:
+      type: string
+      enum: [open, fixed]
+      description: >
+        `open` runs until explicitly stopped; `fixed` auto-stops after
+        `duration_seconds`.
+
+    RecordSource:
+      type: string
+      enum: [live, imported]
+
+    RecordTrack:
+      type: object
+      description: Per-stream segment contained in a recording.
+      properties:
+        stream_id:
+          type: string
+        sensor_id:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+        frame_count:
+          type: integer
+          nullable: true
+
+    RecordStartRequest:
+      type: object
+      required: [stream_ids]
+      properties:
+        stream_ids:
+          type: array
+          minItems: 1
+          items:
+            type: string
+          description: Streams to record together in one synchronized recording.
+        mode:
+          $ref: "#/components/schemas/RecordMode"
+        duration_seconds:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          description: Required when `mode` is `fixed`; ignored when `open`.
+        pre_event_seconds:
+          type: integer
+          minimum: 0
+          description: >
+            Amount of buffered pre-event data to prepend. Defaults to each
+            stream's configured buffer window when omitted.
+        event_id:
+          type: string
+          description: Correlation id of the triggering analytics event.
+        label:
+          type: string
+          description: Free-form label (e.g. event type).
+      additionalProperties: false
+
+    RecordStopRequest:
+      type: object
+      required: [record_id]
+      properties:
+        record_id:
+          type: string
+      additionalProperties: false
+
+    RecordImport:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: The recording media file to import.
+        sensor_id:
+          type: string
+        label:
+          type: string
+      additionalProperties: false
+
+    Record:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        state:
+          $ref: "#/components/schemas/RecordState"
+        source:
+          $ref: "#/components/schemas/RecordSource"
+        mode:
+          $ref: "#/components/schemas/RecordMode"
+        stream_ids:
+          type: array
+          items:
+            type: string
+        pre_event_seconds:
+          type: integer
+          nullable: true
+        duration_seconds:
+          type: number
+          nullable: true
+        event_id:
+          type: string
+          nullable: true
+        label:
+          type: string
+          nullable: true
+        tracks:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecordTrack"
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        stopped_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    RecordList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Record"
+        next_cursor:
+          type: string
+          nullable: true
+
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      properties:
+        type:
+          type: string
+          format: uri
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+
+security:
+  - bearerAuth: []
