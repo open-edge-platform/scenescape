@@ -19,7 +19,7 @@ Two variants are documented:
 
 ## Contents
 
-| Variant | Design doc (sequence diagram + API summary) | OpenAPI spec |
+| Variant | Design doc (arch & sequence diagrams + API summary) | OpenAPI spec |
 | --- | --- | --- |
 | Without Sensor Manager | [stream-manager-without-sensor-manager.md](stream-manager-without-sensor-manager.md) | [stream-manager-api-without-sensor-manager.yaml](stream-manager-api-without-sensor-manager.yaml) |
 | With Sensor Manager | [stream-manager-with-sensor-manager.md](stream-manager-with-sensor-manager.md) | [stream-manager-api-with-sensor-manager.yaml](stream-manager-api-with-sensor-manager.yaml) |
