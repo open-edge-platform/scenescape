@@ -280,10 +280,13 @@ class SceneController:
     return
 
   def publishExternalDetections(self, scene, otype, objects, jdata_base):
-    # Hierarchy output onto scenescape/external/{scene_uid}/+. Parents that
-    # care (local or remote via ChildSceneController) subscribe; this
-    # instance drops its own no-parent echoes cheaply in
-    # handleMovingObjectMessage before schema/NTP work.
+    # Hierarchy output onto scenescape/external/{scene_uid}/+. Only scenes that
+    # are linked under a parent need this path. Standalone roots skip the
+    # expensive rebuild/MQTT (ADR 16); remote children that look like roots on
+    # their own broker need a non-blocking follow-up — see
+    # .github/plans/hierarchy-external-publish-hot-path.md.
+    if not getattr(scene, 'parent', None):
+      return
     now = get_epoch_time()
     if self.shouldPublish(scene.last_published_detection[otype], now, 1/scene.external_update_rate):
       scene.last_published_detection[otype] = get_epoch_time()

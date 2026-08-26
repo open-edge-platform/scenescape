@@ -323,7 +323,7 @@ class TestSceneControllerPublishers:
     scene_controller = self._build_controller('unregulated')
     scene = SimpleNamespace(
       uid='scene-1',
-      parent=None,
+      parent='parent-1',
       external_update_rate=2,
       last_published_detection=defaultdict(lambda: None),
       reid_config_data={'minimum_bbox_area': 5000},
@@ -346,8 +346,8 @@ class TestSceneControllerPublishers:
     assert call_kwargs['withhold_reid'] is False
     assert call_kwargs['reid_enrolled_fn'] is None
 
-  def test_publish_external_detections_publishes_for_root_scene(self):
-    """Root/remote-child scenes still publish; own-echo filtering is on receive."""
+  def test_publish_external_detections_skips_standalone_root_scene(self):
+    """Scenes without a parent skip hierarchy external publish (ADR 16)."""
     scene_controller = self._build_controller('unregulated')
     scene = SimpleNamespace(
       uid='scene-1',
@@ -360,11 +360,12 @@ class TestSceneControllerPublishers:
     scene_controller.shouldPublish = MagicMock(return_value=True)
 
     with patch('controller.scene_controller.get_epoch_time', side_effect=[100.0, 101.0]), \
-         patch('controller.scene_controller.buildDetectionsList', return_value=[{'id': 'o1'}]):
+         patch('controller.scene_controller.buildDetectionsList', return_value=[{'id': 'o1'}]) as mock_build:
       scene_controller.publishExternalDetections(scene, 'person', [object()], jdata_base)
 
-    scene_controller.pubsub.publish.assert_called_once()
-    scene_controller.shouldPublish.assert_called_once()
+    scene_controller.pubsub.publish.assert_not_called()
+    scene_controller.shouldPublish.assert_not_called()
+    mock_build.assert_not_called()
 
   def _publish_external_with_reid_manager(self, uuid_manager, write_intent=True, category='person'):
     """Publish external detections for a scene whose CATEGORY SUBTRACKER owns uuid_manager.

@@ -130,7 +130,8 @@ Agent                         Registry                      Binder / Controller
 `external/+/+` (hears every publisher that can authenticate to the broker) and attaches `wgs84`
 publishers to every geo-calibrated scene (plus optional `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`).
 That interim auto-attach is a stand-in for registry spatial resolution, not the long-term
-multi-scene policy. Root scenes must not emit hierarchy echoes onto the external topic.
+multi-scene policy. Root scenes must not emit hierarchy echoes onto the external topic
+(`publishExternalDetections` returns early when `scene.parent` is unset).
 
 **Subscription migration (explicit).** The long-term binder should move from the interim
 wildcard to **binding-driven selective subscribe** (only `external/{publisher_id}/+` for
