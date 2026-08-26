@@ -96,6 +96,9 @@ jobs:
     needs:
       - lint
       - bandit
+      - codeql
+      - zizmor
+      - license
     uses: ./.github/workflows/tests-bat.yml
     permissions:
       contents: read
