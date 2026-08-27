@@ -130,32 +130,35 @@ clones/builds anything (the several-minutes-first-run cost mentioned in
 - **Download the recorded LiDAR/camera dataset manually** - it is not
   committed to this repo because it's too large (hundreds of MB of `.pcd`
   point clouds and `.jpg` images):
-  1. Download the [V2X-Seq-SPD-Example](https://drive.google.com/file/d/1gjOmGEBMcipvDzu2zOrO9ex_OscUZMYY/view)
-     `.zip` archive from Google Drive through a browser and move it to your `Scenescape` directory (Google Drive's
-     download-confirmation page for files this size makes a scripted
-     download unreliable, so this step is manual).
-  2. Extract it so the result is
-     `sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side/`,
-     containing (at least) an `image/` directory of `.jpg` frames, a
-     `velodyne/` directory of `.pcd` frames, and a `data_info.json` file (this
-     is the path `docker-compose.lidar-override.yml`'s `lidar-data-init`
-     service expects by default; override it with the `LIDAR_RAW_DATASET_DIR`
-     environment variable if you'd rather extract it elsewhere):
 
-     ```bash
-     unzip V2X-Seq-SPD-Example.zip -d sample_data/lidar_intersection
-     ls sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side
-     ```
+1. Download the [V2X-Seq-SPD-Example](https://drive.google.com/file/d/1gjOmGEBMcipvDzu2zOrO9ex_OscUZMYY/view) `.zip` archive.
 
-  3. This is a one-time step per checkout - the extracted folder is
-     git-ignored (`sample_data/lidar_intersection/V2X-Seq-SPD-Example/` in
-     `.gitignore`) and `lidar-data-init` re-converts it into the shared
-     Docker volume on every `make demo LIDAR_DEMO=true`.
+   > 📌 **Source**: Official sample dataset provided by Tsinghua University (AIR-THU).
 
-  This dataset is the infrastructure-side subset of the **V2X-Seq-SPD**
-  dataset from the [DAIR-V2X-Seq](https://github.com/AIR-THU/DAIR-V2X-Seq)
-  project (Tsinghua University, Apache-2.0) - see that repository for the
-  full dataset, license terms, and citation details.
+   > ⚠️ **Manual Download Required**: Google Drive's virus scan prompt for large files makes scripted downloads (`wget`/`curl`) fail. **Please download this file manually** via your browser and move it to your `Scenescape` directory.
+
+2. Extract it so the result is
+   `sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side/`,
+   containing (at least) an `image/` directory of `.jpg` frames, a
+   `velodyne/` directory of `.pcd` frames, and a `data_info.json` file (this
+   is the path `docker-compose.lidar-override.yml`'s `lidar-data-init`
+   service expects by default; override it with the `LIDAR_RAW_DATASET_DIR`
+   environment variable if you'd rather extract it elsewhere):
+
+   ```bash
+   unzip V2X-Seq-SPD-Example.zip -d sample_data/lidar_intersection
+   ls sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side
+   ```
+
+3. This is a one-time step per checkout - the extracted folder is
+   git-ignored (`sample_data/lidar_intersection/V2X-Seq-SPD-Example/` in
+   `.gitignore`) and `lidar-data-init` re-converts it into the shared
+   Docker volume on every `make demo LIDAR_DEMO=true`.
+
+This dataset is the infrastructure-side subset of the **V2X-Seq-SPD**
+dataset from the [DAIR-V2X-Seq](https://github.com/AIR-THU/DAIR-V2X-Seq)
+project (Tsinghua University, Apache-2.0) - see that repository for the
+full dataset, license terms, and citation details.
 
 - An Intel GPU is used **by default** for the LiDAR (PointPillars) inference
   branch, and requires the host to have `/dev/dri` and the Intel GPU driver
