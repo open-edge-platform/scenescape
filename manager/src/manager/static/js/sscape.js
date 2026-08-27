@@ -1907,7 +1907,6 @@ $(document).ready(function () {
     return await response.blob();
   }
 
-
   if ($("#scale").val() !== "") {
     scale = $("#scale").val();
   }
