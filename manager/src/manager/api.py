@@ -432,6 +432,9 @@ class CameraManager(APIView):
 
 
 class ACLCheck(APIView):
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
   def post(self, request):
     username = request.data.get('username')
     currentTopic = request.data.get('topic')

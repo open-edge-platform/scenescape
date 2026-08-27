@@ -120,6 +120,7 @@ def protected_media(request, path, media_root):
     return HttpResponseNotFound()
   return HttpResponse("401 Unauthorized", status=401)
 
+@superuser_required
 def list_resources(request, folder_name):
   """! List files in folder_name inside MEDIA_ROOT and return them as JSON."""
   media_root_real = os.path.realpath(settings.MEDIA_ROOT)
