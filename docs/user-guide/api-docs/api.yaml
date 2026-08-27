@@ -66,8 +66,8 @@ paths:
           description: Created
         "400":
           description: Validation error
-        "401":
-          description: Unauthorized
+        "403":
+          description: Request did not originate from the local container
   /asset/{uid}:
     get:
       tags:
@@ -1393,6 +1393,27 @@ paths:
           description: Broker unavailable
         "401":
           description: Unauthorized
+  /health:
+    get:
+      tags:
+        - auth
+      operationId: health_retrieve
+      summary: Check Manager health
+      description: >-
+        **Internal use only.** Available only to local in-container health
+        probes. It is not reachable through the Manager service network or
+        public interface.
+      x-internal: true
+      security: []
+      responses:
+        "200":
+          description: Manager is healthy and ready
+        "202":
+          description: Manager is running but dependencies are not ready
+        "503":
+          description: Manager cannot reach a required dependency
+        "403":
+          description: Request did not originate from the local container
   /database-ready:
     get:
       tags:
@@ -1400,8 +1421,9 @@ paths:
       operationId: database_ready_retrieve
       summary: Check if the database is ready
       description: >-
-        **Internal use only.** Used by services during startup to poll for
-        database readiness before making API requests.
+        **Internal use only.** Available only to local in-container health
+        probes to determine database readiness. It is not reachable through
+        the Manager service network or public interface.
       x-internal: true
       security: []
       responses:
@@ -1423,10 +1445,8 @@ paths:
                 properties:
                   databaseReady:
                     type: boolean
-        "404":
-          description: Not found
-        "401":
-          description: Unauthorized
+        "403":
+          description: Request did not originate from the local container
   /calculateintrinsics:
     post:
       tags:
@@ -1539,8 +1559,7 @@ paths:
       operationId: acl_check_create
       summary: Check MQTT ACL permissions for a user and topic
       description: >-
-        **Internal use only.** Called by the Mosquitto MQTT broker to enforce
-        per-topic access control. Not intended for direct use by API consumers.
+        **Internal use only.** Not intended for direct use by API consumers.
       x-internal: true
       requestBody:
         required: true
@@ -1562,7 +1581,8 @@ paths:
                 - username
                 - topic
                 - acc
-      security: []
+      security:
+      - tokenAuth: []
       responses:
         "200":
           description: Access allowed
