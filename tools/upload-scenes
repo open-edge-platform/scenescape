@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+"""Uploads exported scenes to a running Scenescape deployment over the REST API.
+
+The source directory holds one ZIP per scene, in the format the "Export Scene"
+button of the web UI produces: a single JSON file describing the scene next to
+the map it refers to. Each archive is posted to the /import-scene endpoint.
+"""
+
+import json
+import os
+import sys
+import time
+import zipfile
+from argparse import ArgumentParser
+from http import HTTPStatus
+
+import requests
+
+from scene_common import log
+from scene_common.rest_client import RESTClient
+
+DEFAULT_REST_URL = "https://web.scenescape.intel.com/api/v1"
+DEFAULT_REST_AUTH = "/run/secrets/controller.auth"
+DEFAULT_ROOT_CERT = "/run/secrets/certs/scenescape-ca.pem"
+DEFAULT_WAIT_SECONDS = 300
+POLL_INTERVAL_SECONDS = 5
+POLL_TIMEOUT_SECONDS = 10
+RESOURCE_KEYS = ("cameras", "regions", "tripwires", "sensors")
+
+
+def build_argparser():
+  parser = ArgumentParser(description="Upload exported scenes to Scenescape.")
+  parser.add_argument("directory", help="directory holding one ZIP file per scene")
+  parser.add_argument("--resturl", default=DEFAULT_REST_URL,
+                      help="URL of the Scenescape REST API")
+  parser.add_argument("--restauth", default=DEFAULT_REST_AUTH,
+                      help="path to an auth file, or a user:password string")
+  parser.add_argument("--rootcert", default=DEFAULT_ROOT_CERT,
+                      help="CA certificate used to verify the REST server")
+  parser.add_argument("--wait", type=int, default=DEFAULT_WAIT_SECONDS, metavar="SECONDS",
+                      help="how long to wait for the database to become ready (0 disables waiting)")
+  return parser
+
+
+def wait_for_database(rest_url, rootcert, timeout):
+  """Polls the database-ready endpoint until it reports ready or the timeout expires.
+
+  Args:
+    rest_url: Base URL of the REST API
+    rootcert: CA certificate used to verify the server
+    timeout: Maximum number of seconds to wait
+
+  Returns:
+    True once the database is ready, False if the timeout expired
+  """
+  ready_url = rest_url.rstrip("/") + "/database-ready"
+  deadline = time.monotonic() + timeout
+  while True:
+    try:
+      reply = requests.get(ready_url, verify=rootcert, timeout=POLL_TIMEOUT_SECONDS)
+      if reply.status_code == HTTPStatus.OK and reply.json().get("databaseReady"):
+        return True
+    except requests.exceptions.RequestException as e:
+      log.debug(f"Database not reachable yet: {e}")
+    if time.monotonic() >= deadline:
+      return False
+    time.sleep(POLL_INTERVAL_SECONDS)
+
+
+def read_scene_from_zip(zip_path):
+  """Reads the scene definition out of a scene archive, or None when unusable."""
+  try:
+    with zipfile.ZipFile(zip_path) as archive:
+      json_names = [name for name in archive.namelist() if name.lower().endswith(".json")]
+      if len(json_names) != 1:
+        log.error(f"Skipping {zip_path}: expected one JSON file, found {len(json_names)}")
+        return None
+      scene = json.loads(archive.read(json_names[0]))
+  except (OSError, zipfile.BadZipFile, json.JSONDecodeError) as e:
+    log.error(f"Failed to read {zip_path}: {e}")
+    return None
+
+  name = scene.get("name") if isinstance(scene, dict) else None
+  if not name or not isinstance(name, str):
+    log.error(f"Skipping {zip_path}: the archived JSON does not describe a scene")
+    return None
+  return scene
+
+
+def find_scene_uid(rest, name):
+  """Returns the uid of the scene called `name`, or None when it does not exist."""
+  scenes = rest.getScenes({"name": name}).get("results", [])
+  return scenes[0]["uid"] if scenes else None
+
+
+def upload_scene(rest, scene, zip_path):
+  """Imports a single scene archive and reports any problem the server returned."""
+  name = scene["name"]
+  result = rest.importScene(zip_path)
+  if result.errors:
+    log.error(f"Failed to upload scene '{name}': {result.errors}")
+    return False
+  if result.get("scene"):
+    log.error(f"Failed to import scene '{name}': {result['scene']}")
+    return False
+
+  for key in RESOURCE_KEYS:
+    if result.get(key):
+      log.warning(f"Scene '{name}' reported problems with {key}: {result[key]}")
+  return True
+
+
+def upload_assets(rest, scene):
+  """Creates the object library entries a scene relies on, unless they exist already."""
+  succeeded = True
+  for asset in scene.get("assets", []):
+    name = asset.get("name")
+    if not name:
+      log.error(f"Ignoring an asset without a name in scene '{scene['name']}'")
+      succeeded = False
+      continue
+    if rest.getAssets({"name": name}).get("results", []):
+      continue
+    result = rest.createAsset(asset)
+    if result.errors:
+      log.error(f"Failed to create asset '{name}': {result.errors}")
+      succeeded = False
+  return succeeded
+
+
+def upload_calibration_markers(rest, scene):
+  """Creates the AprilTag markers of a scene, which the import endpoint ignores."""
+  markers = scene.get("calibration_markers")
+  if not markers:
+    return True
+
+  name = scene["name"]
+  uid = find_scene_uid(rest, name)
+  if not uid:
+    log.error(f"Cannot add calibration markers, scene '{name}' was not found")
+    return False
+
+  succeeded = True
+  for marker in markers:
+    apriltag_id = str(marker["apriltag_id"])
+    result = rest.createCalibrationMarker({
+      "marker_id": f"{uid}_{apriltag_id}",
+      "apriltag_id": apriltag_id,
+      "dims": marker["dims"],
+      "scene": uid,
+    })
+    if result.errors:
+      log.error(f"Failed to add marker {apriltag_id} to '{name}': {result.errors}")
+      succeeded = False
+  return succeeded
+
+
+def main():
+  args = build_argparser().parse_args()
+
+  if not os.path.isdir(args.directory):
+    log.error(f"Not a directory: {args.directory}")
+    return 1
+
+  scene_archives = sorted(entry.path for entry in os.scandir(args.directory)
+                          if entry.is_file() and entry.name.lower().endswith(".zip"))
+  if not scene_archives:
+    log.error(f"No scene archives found in {args.directory}")
+    return 1
+
+  if args.wait and not wait_for_database(args.resturl, args.rootcert, args.wait):
+    log.error(f"Database was not ready after {args.wait} seconds")
+    return 1
+
+  try:
+    rest = RESTClient(args.resturl, auth=args.restauth, rootcert=args.rootcert)
+  except (RuntimeError, ValueError) as e:
+    log.error(f"Cannot connect to {args.resturl}: {e}")
+    return 1
+
+  failed = 0
+  for zip_path in scene_archives:
+    scene = read_scene_from_zip(zip_path)
+    if scene is None:
+      failed += 1
+      continue
+
+    name = scene["name"]
+    if find_scene_uid(rest, name):
+      log.info(f"Scene '{name}' already exists, skipping {zip_path}")
+      continue
+
+    if not upload_assets(rest, scene):
+      failed += 1
+      continue
+    if not upload_scene(rest, scene, zip_path):
+      failed += 1
+      continue
+    if not upload_calibration_markers(rest, scene):
+      failed += 1
+      continue
+    log.info(f"Uploaded scene '{name}' from {zip_path}")
+
+  return 1 if failed else 0
+
+
+if __name__ == '__main__':
+  sys.exit(main())

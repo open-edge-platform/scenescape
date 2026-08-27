@@ -39,6 +39,10 @@ CERTDOMAIN ?= scenescape.intel.com
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
 DEMO_WAIT_SECONDS ?= "0"
+# Directory with one exported ZIP per demo scene, as seen from inside the web container
+DEMO_SCENES_DIR ?= /home/scenescape/Scenescape/sample_data/demo_scenes
+# Seconds the scene upload waits for the database to come up
+DEMO_SCENES_WAIT ?= 300
 # ReID vector backend used by the ReID demo targets: vdms (default) or qdrant
 REID_BACKEND ?= vdms
 REID_OVERRIDE_FILE = sample_data/docker-compose.$(strip $(REID_BACKEND))-override.yml
@@ -98,6 +102,7 @@ help:
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Scenescape)"
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
+	@echo "  demo-scenes                 Upload the demo scenes in DEMO_SCENES_DIR to a running deployment via the REST API"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
 	@echo ""
@@ -688,6 +693,7 @@ define start_demo
 		echo "Starting Scenescape services in detached mode..."; \
 		docker compose $(1) up -d; \
 	fi
+	@$(MAKE) demo-scenes
 	@echo ""
 	@echo "To stop Scenescape, type:"
 	@echo "    docker compose $(1) down"
@@ -700,6 +706,11 @@ check-reid-backend:
 		vdms|qdrant) ;; \
 		*) echo "REID_BACKEND must be 'vdms' (default) or 'qdrant'"; exit 1 ;; \
 	esac
+
+.PHONY: demo-scenes
+demo-scenes:
+	@echo "Uploading demo scenes from $(DEMO_SCENES_DIR) through the REST API..."
+	docker compose exec -T web upload-scenes --wait $(DEMO_SCENES_WAIT) $(DEMO_SCENES_DIR)
 
 .PHONY: demo
 demo: $(DEMO_BUILD:build=build-core) init-sample-data

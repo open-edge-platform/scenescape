@@ -187,7 +187,6 @@ services:
       retries: 10
       start_period: 10s
     environment:
-      - EXAMPLEDB=/home/scenescape/Scenescape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
       - DBHOST=pgserver
       - DBPORT=5432
