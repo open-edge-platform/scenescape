@@ -66,8 +66,8 @@ paths:
           description: Created
         "400":
           description: Validation error
-        "403":
-          description: Request did not originate from the local container
+        "401":
+          description: Unauthorized
   /asset/{uid}:
     get:
       tags:
