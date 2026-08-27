@@ -43,7 +43,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 pytestmark = pytest.mark.preserve_db
 
 # Feature accumulation needs >=12 frames; leave headroom, then prune + flush.
-ENROLL_FRAMES = 30
+ENROLL_FRAMES = 40
 PRUNE_EMPTY_FRAMES = 15
 FLUSH_WAIT_SECS = 10
 NEAR_EXACT_SCORE = 0.95
@@ -74,7 +74,7 @@ def test_hierarchy_child_enrolls_local_crop(
   """! Positive: child scene owning the camera enrolls the vetted local crop
   into the shared ReID database (at least one near-exact UUID for the embedding).
   """
-  TEST_NAME = "NEX-T21925"
+  TEST_NAME = "NEX-T28653"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
@@ -164,17 +164,17 @@ def test_hierarchy_child_enrolls_local_crop(
   assert exit_code == 0
   return
 
-
 def test_hierarchy_retrack_true_parent_does_not_double_enroll(
     objData, record_xml_attribute, params):
   """! Positive: with retrack=True the parent queries using the forwarded
   embedding but must not enroll a second UUID for the same child crop.
   """
-  TEST_NAME = "NEX-T21926"
+  TEST_NAME = "NEX-T28651"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client = None
+  ext_client = None
   rest_client = None
   h = RetrackTest(params)
 
@@ -196,22 +196,65 @@ def test_hierarchy_retrack_true_parent_does_not_double_enroll(
     payload = RetrackTest.with_reid_detection(
       objData, LARGE_BBOX_PX, embedding=embedding)
     h.reset()
-    RetrackTest.publish_reid_frames(payload, client, num_frames=ENROLL_FRAMES)
-    # Parent must have observed forwarded objects while the track was live.
-    h.wait_for_messages(require_parent=True, require_child=True, timeout=15)
-    parent_snap, _ = h.snapshot_received()
-    parent_reid = RetrackTest.collect_reid_payloads(parent_snap)
-    assert parent_reid, (
-      "retrack=True parent must receive forwarded reid before enrollment flush")
 
+    # Phase 1: enroll and confirm the write, mirroring
+    # test_hierarchy_child_enrolls_local_crop. Until reid_write_confirmed
+    # flips true, _hierarchyReidPublishPolicy returns 'withhold' and the
+    # child deliberately strips metadata.reid from DATA_EXTERNAL (ADR 0015) —
+    # so there is nothing to observe on the parent side yet.
+    RetrackTest.publish_reid_frames(payload, client, num_frames=ENROLL_FRAMES)
     RetrackTest.publish_empty_frames(client, objData["id"], count=PRUNE_EMPTY_FRAMES)
-    # Extra wait so parent tracks expire and would flush if they wrongly enrolled.
-    time.sleep(FLUSH_WAIT_SECS + 5)
+    time.sleep(FLUSH_WAIT_SECS)
 
     uuid_count, matched = _wait_for_enrollment(embedding, expected_min_uuids=1)
     assert uuid_count >= 1, (
       "Expected child enrollment of the crop; "
       f"near-exact uuid_count={uuid_count}, matches={matched}")
+
+    # Phase 2: now that the write is confirmed, the child's hierarchy policy
+    # becomes 'will_enroll' and forwards the embedding. Subscribe to the
+    # parent's DATA_EXTERNAL and re-publish to observe it.
+    ext_queue = queue.Queue()
+
+    def _on_ext(mqttc, obj, msg):
+      try:
+        data = json.loads(msg.payload.decode("utf-8"))
+      except Exception:
+        return
+      if data.get("objects"):
+        ext_queue.put(data)
+
+    ext_client = h.make_client(
+      topics=[PubSub.formatTopic(
+        PubSub.DATA_EXTERNAL, scene_id=h.parent_id, thing_type="+")],
+      on_msg=_on_ext)
+
+    h.reset()
+    RetrackTest.publish_reid_frames(payload, client, num_frames=20)
+    h.wait_for_messages(require_parent=True, require_child=True, timeout=15)
+
+    deadline = time.time() + 15
+    messages = []
+    while time.time() < deadline and not messages:
+      try:
+        messages.append(ext_queue.get(timeout=1.0))
+      except queue.Empty:
+        continue
+    while True:
+      try:
+        messages.append(ext_queue.get_nowait())
+      except queue.Empty:
+        break
+
+    parent_reid = RetrackTest.collect_reid_payloads(messages)
+    assert parent_reid, (
+      "retrack=True parent must receive forwarded reid after the child's "
+      "write is confirmed (post-enrollment)")
+
+    RetrackTest.publish_empty_frames(client, objData["id"], count=PRUNE_EMPTY_FRAMES)
+    time.sleep(FLUSH_WAIT_SECS + 5)
+
+    uuid_count, matched = _wait_for_enrollment(embedding, expected_min_uuids=1)
     assert uuid_count == 1, (
       "retrack=True parent must not double-enroll the child crop; "
       f"expected 1 unique uuid, found {uuid_count}, matches={matched}")
@@ -222,6 +265,8 @@ def test_hierarchy_retrack_true_parent_does_not_double_enroll(
   finally:
     if client is not None:
       client.loopStop()
+    if ext_client is not None:
+      ext_client.loopStop()
     if rest_client is not None:
       h.teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
@@ -229,13 +274,12 @@ def test_hierarchy_retrack_true_parent_does_not_double_enroll(
   assert exit_code == 0
   return
 
-
 def test_hierarchy_retrack_false_parent_still_single_enrollment(
     objData, record_xml_attribute, params):
   """! Boundary: with retrack=False the parent strips reid entirely; only the
   child camera owner enrolls, so the unique UUID count for the crop remains 1.
   """
-  TEST_NAME = "NEX-T21927"
+  TEST_NAME = "NEX-T28652"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
