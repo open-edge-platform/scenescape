@@ -61,6 +61,7 @@ class AnalyticsService:
     )
 
     self.visibility_topic = visibility_topic
+    self.scenes = []
     log.info(f"AnalyticsService: visibility on {self.visibility_topic} topic")
     return
 
@@ -242,12 +243,70 @@ class AnalyticsService:
     publish_events(scene, jdata['timestamp'], self.pubsub.publish)
     return
 
+  def _publishRetainedCatalog(self, topic_id, scene_id, payload):
+    """Publish *payload* as the last-known catalog for *scene_id* (retained)."""
+    topic = PubSub.formatTopic(topic_id, scene_id=scene_id)
+    self.pubsub.publish(
+      topic, orjson.dumps(payload).decode('utf-8'), qos=1, retain=True)
+    return topic
+
+  def publishTripwiresForScene(self, scene):
+    """Publish the current tripwire catalog for *scene* as retained state."""
+    result = self.cache_manager.data_source.getTripwires({'scene': scene.uid})
+    if result.errors:
+      log.warning(f"Failed to fetch tripwires for scene {scene.uid}: {result.errors}")
+      return
+    tripwires = [
+      {'title': t.get('name', ''), 'uuid': t.get('uid', ''), 'points': t.get('points', [])}
+      for t in result.get('results', [])
+    ]
+    topic = self._publishRetainedCatalog(
+      PubSub.DATA_CHILD_TRIPWIRES, scene.uid, tripwires)
+    log.debug(f"Published {len(tripwires)} tripwire(s) for scene {scene.uid} on {topic}")
+    return
+
+  def publishRoisForScene(self, scene):
+    """Publish the current ROI catalog for *scene* as retained state."""
+    result = self.cache_manager.data_source.getRegions({'scene': scene.uid})
+    if result.errors:
+      log.warning(f"Failed to fetch rois for scene {scene.uid}: {result.errors}")
+      return
+    rois = []
+    for region in result.get('results', []):
+      color_ranges = region.get('color_ranges') or {}
+
+      rois.append({
+        'title': region.get('name', ''),
+        'uuid': region.get('uid', ''),
+        'points': region.get('points', []),
+        'volumetric': region.get('volumetric', False),
+        'height': region.get('height', 1),
+        'buffer_size': region.get('buffer_size', 0),
+        'sectors': {
+          'thresholds': color_ranges.get('sectors', []),
+          'range_max': color_ranges.get('range_max', 0),
+        },
+      })
+    topic = self._publishRetainedCatalog(PubSub.DATA_CHILD_ROIS, scene.uid, rois)
+    log.debug(f"Published {len(rois)} roi(s) for scene {scene.uid} on {topic}")
+    return
+
+  def clearCatalogForScene(self, scene_id):
+    """Overwrite retained catalogs so a removed scene does not leave stale state."""
+    self._publishRetainedCatalog(PubSub.DATA_CHILD_TRIPWIRES, scene_id, [])
+    self._publishRetainedCatalog(PubSub.DATA_CHILD_ROIS, scene_id, [])
+    log.debug(f"Cleared retained analytics catalog for scene {scene_id}")
+    return
+
   def handleDatabaseMessage(self, client, userdata, message):
     command = str(message.payload.decode("utf-8"))
     if command == "update":
       try:
         self.updateSubscriptions()
         self.updateRegulateCache()
+        for scene in getattr(self, 'scenes', []):
+          self.publishTripwiresForScene(scene)
+          self.publishRoisForScene(scene)
       except Exception as e:
         log.warning("Failed to update database: %s", e)
     return
@@ -264,6 +323,9 @@ class AnalyticsService:
     self.updateSubscriptions()
     self.pubsub.addCallback(PubSub.formatTopic(PubSub.CMD_DATABASE), self.handleDatabaseMessage)
     log.info("Subscribed to", PubSub.formatTopic(PubSub.CMD_DATABASE))
+    for scene in getattr(self, 'scenes', []):
+      self.publishTripwiresForScene(scene)
+      self.publishRoisForScene(scene)
     return
 
   def updateSubscriptions(self):
@@ -273,7 +335,9 @@ class AnalyticsService:
       self.subscribed = set()
     need_subscribe = set()
 
+    previous_ids = {str(s.uid) for s in getattr(self, 'scenes', [])}
     self.scenes = self.cache_manager.allScenes()
+    current_ids = {str(s.uid) for s in self.scenes}
     for scene in self.scenes:
       need_subscribe.add((
         PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
@@ -294,6 +358,8 @@ class AnalyticsService:
       self.pubsub.addCallback(topic, callback)
       log.info("Subscribed to", topic)
     self.subscribed = need_subscribe
+    for scene_id in previous_ids - current_ids:
+      self.clearCatalogForScene(scene_id)
     return
 
   def updateRegulateCache(self):
