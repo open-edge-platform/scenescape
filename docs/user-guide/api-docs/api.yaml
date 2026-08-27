@@ -1582,7 +1582,7 @@ paths:
                 - topic
                 - acc
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Access allowed
