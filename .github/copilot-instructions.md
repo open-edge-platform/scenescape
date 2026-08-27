@@ -28,6 +28,7 @@ Consult these based on the code you're working with:
 - **Shell** (`.github/skills/shell/SKILL.md`): Bash scripting guidelines
 - **Makefile** (`.github/skills/makefile/SKILL.md`): Build system conventions
 - **Testing** (`.github/skills/testing/SKILL.md`): Test creation frameworks
+- **External-source adapters** (`.github/skills/external-source-adapter/SKILL.md`): Converter scripts for the Scene Controller `external_source` MQTT contract (read the skill before writing publishers)
 
 ### Skills Caching Strategy
 
@@ -89,7 +90,7 @@ For detailed security review guidance, follow:
 - **Manager** (`manager/`): Django-based web UI, REST API, PostgreSQL schema management
 - **Auto Camera Calibration** (`autocalibration/`): Computes camera intrinsics/extrinsics from sensor feeds (docker-compose still references as `camcalibration`)
 - **DL Streamer Pipeline Server**: Video analytics pipeline integration (external service config in `dlstreamer-pipeline-server/`)
-- **Mapping & Cluster Analytics** (`mapping/`, `cluster_analytics/`): Experimental modules (enable via `build-experimental`)
+- **Mapping & Cluster Analytics** (`mapping/`, `cluster_analytics/`): Built by `make build-all` (or individually via `make mapping` / `make cluster_analytics`); enable in Compose with `--profile mapping` and/or `--profile cluster-analytics`
 - **Model Installer** (`model_installer/`): Manages OpenVINO Zoo model installation
 
 **Message Flow:**
@@ -114,9 +115,8 @@ Sensors → MQTT (broker) → Scene Controller → Manager/Web UI
 **Key Targets** (from root `Makefile`):
 
 ```bash
-make build-core                    # Default: core services (autocalibration, controller, manager, model_installer)
-make build-all                     # Includes experimental (mapping + cluster_analytics)
-make build-experimental            # Mapping + cluster_analytics only
+make build-core                    # Default: core services (autocalibration, controller, manager, analytics)
+make build-all                     # All services (adds mapping, cluster_analytics, tracker)
 make rebuild-core                  # Clean + build (useful after code changes)
 ```
 
@@ -286,7 +286,7 @@ When adding a new microservice:
 2. Source should import from `scene_common` for shared logic
 3. Add `setup.py` if needed for local testing
 4. Add docker-compose service (network: `scenescape`, depends_on appropriate services)
-5. Update root `Makefile` `IMAGE_FOLDERS` and (optionally) `CORE_IMAGE_FOLDERS` or experimental groups
+5. Update root `Makefile` `IMAGE_FOLDERS` and (optionally) `CORE_IMAGE_FOLDERS`
 6. Create tests in `tests/sscape_tests/<service>/` with conftest.py fixtures
 7. Add test-build target in service Makefile
 8. **Update ALL relevant documentation** (overview, build guide, API docs, examples)

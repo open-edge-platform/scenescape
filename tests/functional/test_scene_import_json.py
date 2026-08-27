@@ -5,6 +5,7 @@
 
 import os
 import json
+import threading
 import time
 from tests.utils.log import get_logger
 from scene_common.mqtt import PubSub
@@ -22,6 +23,9 @@ SCENESCAPE_SPEC = FuncTestSpec(
 TEST_NAME = "NEX-T15347"
 FRAMES_PER_SECOND = 10
 PERSON = "person"
+MQTT_CONNECT_TIMEOUT_S = 30
+REGULATED_WAIT_TIMEOUT_S = 30
+
 
 class SceneControllerImportJSON(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
@@ -30,12 +34,18 @@ class SceneControllerImportJSON(FunctionalTest):
     self.frameRate = FRAMES_PER_SECOND
     self.sceneData = None
     self.jsonPath = "./sample_data/Retail.json"
+    self._mqtt_ready = threading.Event()
 
     self.pubsub = PubSub(self.params['auth'], None, self.params['rootcert'],
                          self.params['broker_url'], int(self.params['broker_port']))
-
+    self.pubsub.onConnect = self._onMqttConnect
     self.pubsub.connect()
     self.pubsub.loopStart()
+    return
+
+  def _onMqttConnect(self, _client, _userdata, _flags, rc):
+    if rc == 0:
+      self._mqtt_ready.set()
     return
 
   def regulatedReceived(self, pahoClient, userdata, message):
@@ -65,25 +75,36 @@ class SceneControllerImportJSON(FunctionalTest):
       assert os.path.exists(self.jsonPath), "JSON file does not exist"
       log.info("JSON file present")
 
+      assert self._mqtt_ready.wait(MQTT_CONNECT_TIMEOUT_S), (
+        "MQTT client failed to connect")
+
       log.info("Step 2. Check for regulated messages")
       log.info("Adding callback to check for regulated messages.")
-      topic_regulated = self.pubsub.formatTopic(self.pubsub.DATA_REGULATED, scene_id=self.sceneUID)
+      topic_regulated = PubSub.formatTopic(PubSub.DATA_REGULATED,
+                                           scene_id=self.sceneUID)
       self.pubsub.addCallback(topic_regulated, self.regulatedReceived)
 
       log.info("Sending detections for regulated messages to appear.")
       objLocation = self.getLocations()
       jdata = self.objData()
-      for location in objLocation:
-        camera_id = jdata['id']
+      camera_id = jdata['id']
+      cam_topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera_id)
+      deadline = time.time() + REGULATED_WAIT_TIMEOUT_S
+      loc_iter = iter(objLocation)
+      while self.sceneData is None and time.time() < deadline:
+        try:
+          location = next(loc_iter)
+        except StopIteration:
+          loc_iter = iter(objLocation)
+          location = next(loc_iter)
         jdata['timestamp'] = get_iso_time()
         jdata['objects'][PERSON][0]['bounding_box']['y'] = location
-        detection = json.dumps(jdata)
-        self.pubsub.publish(PubSub.formatTopic(PubSub.DATA_CAMERA,
-                                         camera_id=camera_id), detection)
+        self.pubsub.publish(cam_topic, json.dumps(jdata))
         time.sleep(1 / self.frameRate)
 
       log.info("Verifying if regulated messages appeared")
-      assert self.sceneData != None, "No regulated message received."
+      assert self.sceneData is not None, (
+        f"No regulated message received within {REGULATED_WAIT_TIMEOUT_S}s")
 
       log.info(f"Regulated message received. Contents:\n{self.sceneData}")
       self.exitCode = 0

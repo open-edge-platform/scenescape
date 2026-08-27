@@ -414,6 +414,16 @@ class RESTClient:
     """
     return self._delete(f"camera/{uid}")
 
+  def calculateCameraIntrinsics(self, data):
+    """Calculates camera intrinsics from point correspondences.
+
+    @param      data            dict with mapPoints, camPoints, intrinsics,
+                                distortion, and imageSize.
+    @return                     RESTResult with calculated intrinsics/pose on
+                                success, or with `errors` set on failure
+    """
+    return self._update("calculateintrinsics", data)
+
   def frame(self, uid, timestamp):
     """Gets frame from camera with `uid` which is near `timestamp`
 
@@ -659,6 +669,19 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     return self._delete(f"user/{username}")
+
+  def checkAcl(self, data):
+    """Checks whether a user is allowed to access a broker topic.
+
+    @param      data            dict with 'username', 'topic', and 'acc' keys
+    @return                     RESTResult with 'result' ('allow'/'deny') on
+                                200/403, or `errors` set on 400/other failure
+    """
+    full_path = urljoin(self.url, "aclcheck")
+    headers = {'Authorization': f"Token {self.token}"} if hasattr(self, 'token') and self.token else {}
+    reply = self.session.post(full_path, json=data, headers=headers,
+                              verify=self.verify_ssl)
+    return self.decodeReply(reply, (HTTPStatus.OK, HTTPStatus.BAD_REQUEST, HTTPStatus.FORBIDDEN))
 
   # CalibrationMarker
   def getCalibrationMarkers(self, filter):

@@ -1,5 +1,62 @@
 # Release Notes: Scenescape
 
+## Version 2026.2.0
+
+**Release Date:** September 9, 2026
+
+**New:**
+
+- **Analytics Service:** Extracted analytics functionality from the Scene Controller into a new, separate service, available on Docker Hub at [intel/scenescape-analytics](https://hub.docker.com/r/intel/scenescape-analytics):
+  - Computes region, tripwire, sensor, volumetric analytics, and camera bounds for tracked objects
+  - Regulates output to a configurable max rate
+- **Mapping Service:** No longer an experimental feature; now officially released with images available on Docker Hub at [intel/scenescape-mapping](https://hub.docker.com/r/intel/scenescape-mapping).
+- **Cluster Analytics Service:** No longer an experimental feature; now officially released with images available on Docker Hub at [intel/scenescape-cluster-analytics](https://hub.docker.com/r/intel/scenescape-cluster-analytics).
+- ReID improvements:
+  - Added visual indicator to track objects in 3D UI
+  - Exposed ReID Match Latency Metrics
+  - Added shared ReID instance support across multiple scenes, including child and parent scenes
+  - Added Qdrant vector database as a ReID backend
+  - Added persistent attribute restoration on ReID match
+  - Added support for publishing external observations over MQTT, designed for supporting moving sensors, autonomous physical agents and ephemeral child scenes via a unified approach
+  - Added server-side eviction of expired VDMS descriptors preventing unbounded storage growth
+- LiDAR Support:
+  - Added point-cloud based localization in Auto Calibration Service
+  - Added example deployment showcasing usage of LiDARs + Cameras with Intel® Scenescape
+- Model Download service integration: Switched from Intel® Scenescape-specific model installer to [Intel Model Download Microservice](https://hub.docker.com/r/intel/model-download)
+- Analytics pipeline improvements: Migrated old gvapython-based scripts to custom GStreamer Elements
+- Added support for multi-camera object metadata fusion in time-chunking
+- Tracker Evaluation Pipeline:
+  - Added runtime observability to the Tracker evaluation black-box harness and added time-chunking performance counters
+  - Stabilized evaluation results
+  - Adopted Wildtrack dataset for evaluation
+- Added a new user-facing agent skill that deploys Intel® Scenescape. It gathers required user inputs and sets up the video analytics pipeline, scene creation, camera configuration, scene reconstruction (if required), tracker and ReID configuration, and verification workflow. It can also create downstream business logic that leverages the spatial analytics outputs
+
+**Improved:**
+
+- Testing & Quality:
+  - Expanded automation coverage:
+    - 3D asset CRUD & camera creation UI workflows
+    - Cluster-analytics unit and component test suites
+    - Autocalibration
+  - Mock tracker for unit tests; removed unnecessary build dependencies
+  - Improved test stability and infrastructure:
+    - Automatic cleanup of residual test resources after aborted runs
+    - Increased reliability of k8s and helm chart tests
+    - Test logger adjustments for clearer diagnostics
+
+**Fixed:**
+
+- Multi-controller VDMS schema verification
+- Hardened authorization on some API endpoints
+- ROI names displayed when "Visualize ROIs" is disabled
+- Objects not tracked in analytics-only mode after scene import
+- Registration error status handling in Autocalibration
+- Polycam data overwrite issue
+- Pose estimation accuracy degradation during longer occlusions
+- Kubernetes:
+  - Parent-child scene relation issues
+  - Importing scene API returning null for all attributes
+
 ## Version 2026.1.0
 
 **June 17, 2026**

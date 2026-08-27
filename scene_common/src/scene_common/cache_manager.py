@@ -5,7 +5,16 @@
 # module level) isn't installed in the analytics image, so keep all
 # controller.* imports lazy to allow CacheManager (and therefore
 # AnalyticsService) to be imported there.
+import threading
+
+# Scene (and robot_vision, imported by controller.scene at module level)
+# isn't installed in the analytics image, so keep that one import lazy to
+# allow CacheManager (and therefore AnalyticsService) to be imported there.
+# CameraRegistry/TrackedObjectRegistry now live in scene_common alongside
+# everything else here, so they're safe to import eagerly.
 from scene_common.data_source import RestSceneDataSource, FileSceneDataSource
+from scene_common.camera_registry import CameraRegistry
+from scene_common.tracking_object_registry import TrackedObjectRegistry
 
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
@@ -16,6 +25,12 @@ class CacheManager:
   def __init__(self, data_source=None, rest_url=None, rest_auth=None,
                root_cert=None, tracker_config_data={}, reid_config_data={},
                pose_adjustment_config_data=None, scene_cls=None):
+    self._lock = threading.RLock()
+    self._refresh_done = threading.Condition(self._lock)
+    # Per-instance refresh coordination (not class state — multiple managers
+    # in one process must not block or supersede each other).
+    self._cache_epoch = 0
+    self._refresh_in_progress = False
     self.cached_child_transforms_by_uid = {}
     self.camera_parameters = {}
     self.tracker_config_data = tracker_config_data
@@ -40,18 +55,76 @@ class CacheManager:
     self.refreshScenes()
     return
 
-  def refreshScenes(self):
+  def _refreshLock(self):
+    """Lock and condition used for single-flight refresh, created on first use."""
+    if not hasattr(self, '_lock'):
+      self._lock = threading.RLock()
+    if not hasattr(self, '_refresh_done'):
+      self._refresh_done = threading.Condition(self._lock)
+    if not hasattr(self, '_cache_epoch'):
+      self._cache_epoch = 0
+    if not hasattr(self, '_refresh_in_progress'):
+      self._refresh_in_progress = False
+    return self._lock
+
+  def _cacheNeedsRefresh(self):
+    return (
+      not hasattr(self, 'cached_scenes_by_uid')
+      or self.cached_scenes_by_uid is None
+      or not hasattr(self, '_cache_refreshed')
+    )
+
+  def refreshScenes(self, force=False):
+    # Single-flight: concurrent callers share one in-flight refresh instead of
+    # racing parallel REST fetches. A waiter accepts the shared result only if
+    # the cache ends up usable; otherwise (the fetch was superseded by
+    # invalidate(), or failed) it fetches itself. force=True always fetches
+    # after waiting, so a refresh requested after a write never adopts a result
+    # fetched before it.
+    self._refreshLock()
+    while True:
+      with self._lock:
+        if self._refresh_in_progress:
+          while self._refresh_in_progress:
+            self._refresh_done.wait()
+          if not force and not self._cacheNeedsRefresh():
+            return
+          continue
+
+        self._refresh_in_progress = True
+        epoch = self._cache_epoch
+
+      try:
+        # REST fetch happens OUTSIDE the lock so it doesn't block other threads
+        # doing lookups while we wait on the network.
+        result = self.data_source.getScenes()
+        if 'results' not in result:
+          log.error("Failed to get results, error code: ", result.statusCode)
+          return
+        found = result.get("results", [])
+
+        # _refreshCameras also does REST calls; keep those outside the lock too.
+        for scene_data in found:
+          self._refreshCameras(scene_data)
+
+        with self._lock:
+          if epoch != self._cache_epoch:
+            # invalidate() superseded this fetch, so its results are stale.
+            return
+          self._applySceneResults(found)
+        return
+      finally:
+        with self._lock:
+          self._refresh_in_progress = False
+          self._refresh_done.notify_all()
+
+  def _applySceneResults(self, found):
+    """Apply fetched scene results. Caller must hold self._lock."""
     if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
       self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
 
-    result = self.data_source.getScenes()
-    if 'results' not in result:
-      log.error("Failed to get results, error code: ", result.statusCode)
-      return
-
-    found = result.get("results", [])
     old = set(self.cached_scenes_by_uid.keys())
     new = set(x['uid'] for x in found)
     deleted = old - new
@@ -59,7 +132,6 @@ class CacheManager:
       self._teardownScene(self.cached_scenes_by_uid.pop(uid, None))
 
     for scene_data in found:
-      self._refreshCameras(scene_data)
       if self.tracker_config_data:
         scene_data["tracker_config"] = [self.tracker_config_data["max_unreliable_time"],
                                       self.tracker_config_data["non_measurement_time_dynamic"],
@@ -103,7 +175,6 @@ class CacheManager:
       self._old_scene_cache = None
 
     self._cache_refreshed = get_epoch_time()
-    return
 
   def _teardownScene(self, scene):
     """
@@ -123,21 +194,32 @@ class CacheManager:
       return
     if getattr(scene, "tracker", None) is not None:
       scene.tracker.join()
-    try:
-      from controller.camera_registry import CameraRegistry
-      from controller.tracking_object_registry import TrackedObjectRegistry
-    except ModuleNotFoundError:
-      # controller isn't installed in the analytics-only image; there's no
-      # process-local registry state there to clean up.
-      return
     CameraRegistry.getInstance().removeScene(scene.name)
     TrackedObjectRegistry.getInstance().removeScene(scene.name)
     return
 
   def _sensorNeedsRestoring(self, uid):
-    # Check if any old scene has sensors with cache values that can be restored
-    if hasattr(self, '_old_scene_cache') and self._old_scene_cache:
-      return self._old_scene_cache.get(uid)
+    # Reuse the previous Scene instance across a DB-triggered refresh in two
+    # cases: (1) it has sensors with cache values worth restoring (readings,
+    # dwell state, etc.), or (2) it has no tracker at all -- i.e. it's an
+    # AnalyticsScene, which owns no tracked-object identity of its own (that
+    # comes from the Controller via MQTT) and instead needs its ingestion
+    # cache (chain_data history, region/tripwire/dwell state) preserved
+    # across the frequent invalidate() calls REST config changes trigger.
+    # Otherwise return None so callers deserialize a fresh Scene (and
+    # tracker) for uid -- e.g. after an explicit REST-triggered scene config
+    # update on the Controller, where a blanket reuse would silently keep
+    # stale tracked-object identities.
+    if not hasattr(self, '_old_scene_cache') or not self._old_scene_cache:
+      return None
+    old_scene = self._old_scene_cache.get(uid)
+    if old_scene is None:
+      return None
+    if not hasattr(old_scene, 'tracker'):
+      return old_scene
+    for sensor in getattr(old_scene, 'sensors', {}).values():
+      if getattr(sensor, 'value', None) is not None:
+        return old_scene
     return None
 
   def _restoreSensorCache(self, uid, old_scene, scene):
@@ -190,26 +272,41 @@ class CacheManager:
     return
 
   def refreshScenesForCamParams(self, jdata):
+    if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
+      return
+
     intrinsics_changed = self.cameraParametersChanged(jdata, 'intrinsics')
     distortion_changed = self.cameraParametersChanged(jdata, 'distortion')
 
-    for scene in self.cached_scenes_by_uid.values():
-      for camera in scene.cameras:
-        if jdata['id'] == camera:
-          intrinsics = jdata.get('intrinsics', {})
-          cx = intrinsics.get('cx')
-          cy = intrinsics.get('cy')
+    if not (intrinsics_changed or distortion_changed):
+      return
 
-          if cx is not None and cy is not None:
-            width = cx * 2
-            height = cy * 2
-            current_resolution = scene.cameras[camera].pose.resolution if hasattr(scene.cameras[camera].pose, 'resolution') else None
-            if current_resolution != [width, height]:
-              self.camera_parameters[camera]['resolution'] = [width, height]
-              self.updateCamera(scene.cameras[camera])
+    self.checkRefresh()
+    cameras_to_update = []
+    with self._lock:
+      if self.cached_scenes_by_uid is None:
+        log.warning("refreshScenesForCamParams: cache still None after refresh attempt, skipping")
+        return
+      for scene in self.cached_scenes_by_uid.values():
+        for camera in scene.cameras:
+          if jdata['id'] == camera:
+            intrinsics = jdata.get('intrinsics', {})
+            cx = intrinsics.get('cx')
+            cy = intrinsics.get('cy')
 
-    if intrinsics_changed or distortion_changed:
-      self.refreshScenes()
+            if cx is not None and cy is not None:
+              width = cx * 2
+              height = cy * 2
+              current_resolution = scene.cameras[camera].pose.resolution if hasattr(scene.cameras[camera].pose, 'resolution') else None
+              if current_resolution != [width, height]:
+                self.camera_parameters[camera]['resolution'] = [width, height]
+                cameras_to_update.append(scene.cameras[camera])
+
+    # updateCamera does REST; keep it outside the lock so lookups aren't blocked.
+    for cam in cameras_to_update:
+      self.updateCamera(cam)
+
+    self.refreshScenes(force=True)
     return
 
   def updateCamera(self, cam):
@@ -244,38 +341,60 @@ class CacheManager:
     return False
 
   def checkRefresh(self):
-    now = get_epoch_time()
-    if not hasattr(self, 'cached_scenes_by_uid') \
-       or self.cached_scenes_by_uid is None \
-       or not hasattr(self, '_cache_refreshed'):
-       #or now - self._cache_refreshed > REFRESH_TIME:
+    self._refreshLock()
+    with self._lock:
+      needs_refresh = self._cacheNeedsRefresh()
+    if not needs_refresh:
+      return
+
+    self.refreshScenes()
+
+    # A refresh discarded by a concurrent invalidate() leaves the cache empty;
+    # retry once so lookups do not treat it as permanently missing.
+    with self._lock:
+      still_needs_refresh = self._cacheNeedsRefresh()
+    if still_needs_refresh:
       self.refreshScenes()
     return
 
   def allScenes(self):
     self.checkRefresh()
-    return self.cached_scenes_by_uid.values()
+    with self._lock:
+      return list(self.cached_scenes_by_uid.values()) if self.cached_scenes_by_uid else []
 
   def sceneWithID(self, sceneID):
     self.checkRefresh()
-    return self.cached_scenes_by_uid.get(sceneID, None)
+    with self._lock:
+      if self.cached_scenes_by_uid is None:
+        return None
+      return self.cached_scenes_by_uid.get(sceneID, None)
 
   def sceneWithCameraID(self, cameraID):
     self.checkRefresh()
-    return self._cached_scenes_by_cameraID.get(cameraID, None)
+    with self._lock:
+      return self._cached_scenes_by_cameraID.get(cameraID, None)
 
   def sceneWithSensorID(self, sensorID):
     self.checkRefresh()
-    return self._cached_scenes_by_sensorID.get(sensorID, None)
+    with self._lock:
+      return self._cached_scenes_by_sensorID.get(sensorID, None)
 
   def sceneWithRemoteChildID(self, childID):
     self.checkRefresh()
-    return self.cached_child_transforms_by_uid.get(childID, None)
+    with self._lock:
+      return self.cached_child_transforms_by_uid.get(childID, None)
 
   def invalidate(self):
-    # Preserve old scene cache for sensor value restoration
-    self._old_scene_cache = self.cached_scenes_by_uid if hasattr(self, 'cached_scenes_by_uid') else {}
-    self.cached_scenes_by_uid = None
-    if not hasattr(self, 'cached_child_transforms_by_uid') or self.cached_child_transforms_by_uid is None:
-      self.cached_child_transforms_by_uid = {}
+    self._refreshLock()
+    with self._lock:
+      if self.cached_scenes_by_uid is not None:
+        self._old_scene_cache = self.cached_scenes_by_uid
+      elif not hasattr(self, '_old_scene_cache'):
+        self._old_scene_cache = {}
+      self.cached_scenes_by_uid = None
+      self._cached_scenes_by_cameraID = {}
+      self._cached_scenes_by_sensorID = {}
+      self._cache_epoch += 1
+      if not hasattr(self, 'cached_child_transforms_by_uid') or self.cached_child_transforms_by_uid is None:
+        self.cached_child_transforms_by_uid = {}
     return

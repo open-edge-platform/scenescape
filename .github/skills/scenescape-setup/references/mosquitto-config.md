@@ -23,8 +23,8 @@ certfile /mosquitto/secrets/certs/scenescape-broker.crt
 protocol websockets
 ```
 
-All MQTT clients (video-analytics, scene controller, web manager, verification scripts) connect
-over TLS on port 1883 using the SceneScape CA certificate.
+All MQTT clients (video-analytics, scene controller, analytics, web manager, verification
+scripts) connect over TLS on port 1883 using the SceneScape CA certificate.
 
 ## Optional Mosquitto Password File
 

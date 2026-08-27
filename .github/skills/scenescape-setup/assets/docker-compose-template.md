@@ -78,6 +78,8 @@ services:
       scenescape:
         aliases:
           - broker.scenescape.intel.com
+    # Match host UID so mosquitto can read 0600 secrets generated on the host.
+    user: "${UID:-1000}:${GID:-1000}"
     environment:
       <<: *proxy_env
     restart: always
@@ -106,7 +108,7 @@ services:
       start_period: 5s
 
   web:
-    image: scenescape-manager:latest
+    image: intel/scenescape-manager:latest
     init: true
     networks:
       scenescape:
@@ -165,8 +167,10 @@ services:
     restart: always
 
   scene:
-    image: scenescape-controller:latest
+    image: intel/scenescape-controller:latest
     init: true
+    # Match host UID so the controller can read 0600 secrets generated on the host.
+    user: "${UID:-1000}:${GID:-1000}"
     networks:
       scenescape:
     depends_on:
@@ -202,6 +206,37 @@ services:
         target: certs/scenescape-reid.crt
     restart: always
 
+  # Publishes regulated scene output + region/tripwire/sensor events. Consumes
+  # unregulated per-category tracks from `scene` on scenescape/data/scene/...
+  analytics:
+    image: intel/scenescape-analytics:${VERSION:-latest}
+    init: true
+    user: "${UID:-1000}:${GID:-1000}"
+    networks:
+      scenescape:
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+    environment:
+      VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
+      <<: *proxy_env
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --visibility_topic ${VISIBILITY:-regulated}
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: django
+        target: django/secrets.py
+      - controller.auth
+    restart: always
+
   video-analytics:
     image: intel/dlstreamer-pipeline-server:2026.2.0-20260728-weekly-ubuntu24
     networks:
@@ -215,6 +250,8 @@ services:
       MQTT_HOST: broker.scenescape.intel.com
       MQTT_PORT: 1883
       ROOT_CA: /run/secrets/certs/scenescape-ca.pem
+      # Quiets "REST_SERVER_PORT environment variable not set" (REST unused by this skill).
+      REST_SERVER_PORT: "8080"
       # Keep mediaserver out of proxies by default; user-provided RTSP hosts are appended via .env.
       <<: *proxy_env
       no_proxy: mediaserver,${no_proxy:+${no_proxy},}broker.scenescape.intel.com,.scenescape.intel.com
@@ -228,6 +265,7 @@ services:
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_inference_data_publish.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_inference_data_publish.py
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_policies.py
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_3d_detector.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_3d_detector.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_gst_log.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_gst_log.py
       - ./dlstreamer-pipeline-server/model-proc-files:/home/pipeline-server/model-proc-files:ro
     secrets:
       - source: root-cert
@@ -254,15 +292,15 @@ services:
       - vol-mapping-torch-cache:/workspace/.cache/torch
       - vol-mapping-hf-cache:/workspace/.cache/huggingface
     command: >
-      sh -c "chown -R 1001:1001 /workspace/model_weights /workspace/.cache/torch /workspace/.cache/huggingface"
+      sh -c "chown -R ${UID:-1000}:${GID:-1000} /workspace/model_weights /workspace/.cache/torch /workspace/.cache/huggingface"
     restart: "no"
 
   mapping:
-    image: scenescape-mapping-${MAPPING_MODEL:-mapanything}:${VERSION:-latest}
+    image: intel/scenescape-mapping:${VERSION:-latest}
     profiles:
       - mapping
     init: true
-    user: "1001:1001"
+    user: "${UID:-1000}:${GID:-1000}"
     networks:
       scenescape:
         aliases:
@@ -337,11 +375,28 @@ print(re.search(r\"DATABASE_PASSWORD='([^']+)'\", txt).group(1))
 ")
 SUPASS=$(cat secrets/supass)
 VERSION=latest
-MAPPING_MODEL=mapanything
 UID=$(id -u)
 GID=$(id -g)
 ```
 
-`write_deployment_env.py` (Step 6) writes `VERSION` and `MAPPING_MODEL` automatically.
-Mapping runs as UID **1001** inside the container; `mapping-init` fixes volume ownership
-before the mapping service starts.
+`write_deployment_env.py` (Step 6) writes `VERSION`, `UID`, and `GID` automatically.
+The published `intel/scenescape-mapping` image already embeds MapAnything (`MODEL_TYPE`
+defaults to `mapanything` in the image); no deploy-time model selector is required.
+Mapping runs as `${UID:-1000}:${GID:-1000}` inside the container, matching the host user like
+`analytics`, `broker`, and `web` do — export `UID`/`GID` (or rely on the defaults) when bringing
+the stack up. `mapping-init` chowns the model-weights/torch-cache/hf-cache volumes to that same
+UID/GID before the mapping service starts.
+
+**File-backed Compose secrets inherit host file modes.** Many Docker/Compose builds ignore
+`secrets[].mode` / `uid` / `gid` (you may see: `secrets uid, gid and mode are not supported,
+they will be ignored`). Do **not** rely on compose `mode: 0444` to fix readability.
+Instead:
+
+- `generate_secrets.sh` / `ensure_secret_perms.py` set public trust material (`.pem` / `.crt`)
+  to **0644** and keep private keys / `.auth` files at **0600**.
+- Services that run as the host UID (`broker`, `scene`, `web`, `mapping`, …) can read both.
+- `video-analytics` runs as `intelmicroserviceuser` (UID 1999); it needs the CA at 0644 or
+  MQTT TLS fails with `PermissionError` loading `ROOT_CA`, and Step 9 calibration times out.
+- After fixing modes on an already-running deploy, recreate `video-analytics` so the secret
+  remounts (`docker compose up -d --force-recreate video-analytics`). The orchestrator does
+  this automatically when `ensure_secret_perms.py` reports `changed=1`.

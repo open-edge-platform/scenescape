@@ -10,7 +10,7 @@ This guide provides step-by-step instructions to set up and use Regions of Inter
 
 ## Prerequisites
 
-Follow the steps in the [Get Started Guide](../../get-started.md) to bring up an instance of Scenescape with out-of-box demo scenes.
+Follow the steps in the [Installation Guide](../../get-started/installation.md) to bring up an instance of Scenescape with out-of-box demo scenes.
 
 ## Steps to Configure Regions of Interest
 
@@ -38,6 +38,13 @@ Follow the steps in the [Get Started Guide](../../get-started.md) to bring up an
 1. Click on `Regions` at the bottom of the page.
 2. Find your region in the Scene and double click on the polygon to edit its shape. Drag the vertices to refine their positions.
 3. Click `Save Regions and Tripwires` to persist your changes.
+
+#### Set 3D Visibility
+
+In the 3D scene view, expand `Regions Settings` or `Tripwires Settings`, then
+toggle `show` for the item. The visibility setting is saved immediately and is
+restored after refreshing the page. This setting is shared across users and
+devices that view the scene.
 
 #### Verify the Results
 

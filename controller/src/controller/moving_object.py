@@ -14,6 +14,7 @@ import numpy as np
 import open3d as o3d
 from scipy.spatial.transform import Rotation
 
+from scene_common.reid_constants import REID_PROVENANCE_KEY
 from scene_common.chain_data import ChainData
 from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2
@@ -129,7 +130,7 @@ class ReidState(Enum):
 class Chronoloc:
   def __init__(self, point: Point, when: datetime, bounds: Rectangle):
     if not point.is3D:
-      point = Point(point.x, point.y, DEFAULTZ)
+      point = Point([point.x, point.y, DEFAULTZ])
     self.point = point
     self.when = when
     self.bounds = bounds
@@ -138,7 +139,7 @@ class Chronoloc:
 class Vector:
   def __init__(self, camera, point, when):
     if not point.is3D:
-      point = Point(point.x, point.y, DEFAULTZ)
+      point = Point([point.x, point.y, DEFAULTZ])
     self.camera = camera
     self.point = point
     self.last_seen = when
@@ -203,6 +204,7 @@ class MovingObject:
     self.rotation = np.array([0, 0, 0, 1]).tolist()
     self.intersected = False
     self.reid = {}  # Initialize reid as empty dict
+    self.reid_provenance = None  # Origin of a reid embedding forwarded from another scope
     self.metadata = {}  # Initialize metadata as empty dict
     self.reid_state = ReidState.PENDING_COLLECTION  # Track reID state
     self.similarity = None  # Similarity score from last reID match
@@ -225,15 +227,24 @@ class MovingObject:
     New format: dict with 'embedding_vector' (base64 or list) and 'model_name'
     Legacy format: base64-encoded string or direct list of floats
 
+    Provenance, when present, is kept apart from the embedding itself: it describes
+    where the embedding came from rather than what it contains, and downstream ReID
+    gating consults it directly.
+
     @param  reid  The reid data in one of the supported formats
     """
     try:
       self.reid = {}
+      self.reid_provenance = None
 
       # Handle new format: dict with embedding_vector and model_name
       if isinstance(reid, dict) and 'embedding_vector' in reid:
         embedding_data = reid['embedding_vector']
-        self.reid.update({k: v for k, v in reid.items() if k != 'embedding_vector'})
+        self.reid.update({k: v for k, v in reid.items()
+                          if k not in ('embedding_vector', REID_PROVENANCE_KEY)})
+        provenance = reid.get(REID_PROVENANCE_KEY)
+        if isinstance(provenance, dict):
+          self.reid_provenance = dict(provenance)
         embedding_dimensions = _getReIDEmbeddingDimensions(reid)
       else:
         embedding_data = reid
@@ -291,12 +302,14 @@ class MovingObject:
     #     otherObj.sceneLoc, self.sceneLoc)
     self.location = [self.location[0]] + otherObj.location[:LOCATION_LIMIT - 1]
 
-    persistent_attributes = self.chain_data.persist if self.chain_data else {}
-    for attr, new_value in persistent_attributes.items():
-      old_value = otherObj.chain_data.persist.get(attr, None)
+    persistent_attributes = dict(otherObj.chain_data.persist) if otherObj.chain_data else {}
+    self_persist = self.chain_data.persist if self.chain_data else {}
+    for attr, new_value in self_persist.items():
+      old_value = persistent_attributes.get(attr, None)
       if isinstance(new_value, dict) and isinstance(old_value, dict):
         new_value.update({k: v for k, v in old_value.items() if v is not None})
-      persistent_attributes[attr] = new_value if new_value is not None else old_value
+      if new_value is not None:
+        persistent_attributes[attr] = new_value
 
     self.chain_data = otherObj.chain_data
     self.chain_data.persist = persistent_attributes
@@ -536,7 +549,7 @@ class MovingObject:
       if self.intersected:
         self.adjusted = [info['adjusted']['gid'], Point(info['adjusted']['point'])]
         if not self.adjusted[1].is3D:
-          self.adjusted[1] = Point(self.adjusted[1].x, self.adjusted[1].y, DEFAULTZ)
+          self.adjusted[1] = Point([self.adjusted[1].x, self.adjusted[1].y, DEFAULTZ])
     return
 
 class ATagObject(MovingObject):

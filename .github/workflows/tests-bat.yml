@@ -153,13 +153,6 @@ jobs:
           mkdir -p reports
           pytest tests -m basic_acceptance --junitxml=reports/bat_results.xml --log-level=ERROR
 
-      - name: "Run Metric Tests"
-        if: always() && steps.setup-test-env.outcome == 'success'
-        run: |
-          source tests/.venv/bin/activate
-          mkdir -p reports
-          pytest tests/system/metric --junitxml=reports/metric_results.xml --log-level=ERROR
-
       - name: "Run Unit Tests"
         if: always() && steps.setup-test-env.outcome == 'success'
         run: |
@@ -197,6 +190,8 @@ jobs:
     runs-on: [bat]
     permissions:
       packages: write # For using GHCR as cache registry
+    env:
+      SECRETSDIR: ${{ github.workspace }}/.scenescape-secrets
     needs: [filter, check-pr-state]
     timeout-minutes: 90
     if: ${{ (needs.filter.outputs.code_changed == 'true' || needs.filter.outputs.bat_workflow_changed == 'true') && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}

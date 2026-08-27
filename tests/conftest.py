@@ -21,6 +21,7 @@ import re
 import socket
 import subprocess
 import sys
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -154,6 +155,7 @@ class ScenescapeEnv:
   repo_root: str
   secrets_dir: str
   supass: str
+  hierarchy_ports: dict = None
 
   def restore_db(self):
     """Reload the database from the original test archive.
@@ -278,7 +280,7 @@ def version(repo_root):
 @pytest.fixture(scope="session")
 def secrets_dir(repo_root):
   """Path to the secrets directory."""
-  sdir = os.path.join(repo_root, "manager", "secrets")
+  sdir = os.environ.get("SECRETSDIR") or os.path.join(repo_root, "manager", "secrets")
   assert os.path.isdir(sdir), f"Secrets directory not found: {sdir}"
   return sdir
 
@@ -308,6 +310,36 @@ def params(request, scenescape_env):
     'expect_exceed_max': request.config.getoption('--expect_exceed_max'),
   }
 
+
+def _is_final_test(node):
+  """True when *node* is the last collected test of the session."""
+  items = getattr(node.session, "items", None)
+  return bool(items) and items[-1] is node
+
+
+def _stop_stack_after_final_test(item):
+  """Tear the compose stack down as soon as the last test finished."""
+  if not _ORCHESTRATION_AVAILABLE:
+    return
+
+  # Only act for tests that actually used the environment.
+  if not getattr(item.session, "_scenescape_test_ran", False):
+    return
+  item.session._scenescape_test_ran = False
+
+  if not _is_final_test(item):
+    return
+
+  manager = getattr(item.session, "_compose_manager", None)
+  if manager is None:
+    return
+  try:
+    manager._stop_current()
+    logger.info("Cleaned up compose stack after final test")
+  except Exception as exc:
+    logger.warning("Failed to clean up compose stack: %s", exc)
+
+
 def pytest_report_teststatus(report, config):
   if report.when == "call":
     return report.outcome, "", ""
@@ -329,6 +361,15 @@ _HOST_ALIASES = [
   "web.scenescape.intel.com",
   "autocalibration.scenescape.intel.com",
   "reid.scenescape.intel.com",
+  "parent-web.scenescape.intel.com",
+  "parent-broker.scenescape.intel.com",
+  "child1-web.scenescape.intel.com",
+  "child1-broker.scenescape.intel.com",
+  "child2-web.scenescape.intel.com",
+  "child2-broker.scenescape.intel.com",
+  "reid-shared.scenescape.intel.com",
+  "reid-a.scenescape.intel.com",
+  "reid-b.scenescape.intel.com",
 ]
 
 @pytest.fixture(scope="session")
@@ -453,6 +494,77 @@ def _spec_visibility_topic(spec):
       return args[i + 1]
   return "regulated"
 
+MAPPING_CACHE_VOLUMES = (
+  "scenescape_vol-mapping-model-weights",
+  "scenescape_vol-mapping-torch-cache",
+  "scenescape_vol-mapping-hf-cache",
+)
+
+
+def _ensure_mapping_cache_volumes():
+  """Create the external mapping cache volumes if they do not already exist."""
+  bare_docker = DockerClient()
+  for vol in MAPPING_CACHE_VOLUMES:
+    if bare_docker.volume.exists(vol):
+      continue
+    logger.info("Creating external mapping cache volume: %s", vol)
+    bare_docker.volume.create(vol)
+
+
+# Compose project names created by _compose_lifecycle: "test-<4 hex chars>-<spec>".
+_TEST_PROJECT_RE = re.compile(r"^test-[0-9a-f]{4}-")
+
+
+def _compose_project_of(resource):
+  """Return the compose project label of *resource*, or "" when absent."""
+  labels = getattr(resource, "labels", None)
+  if labels is None:
+    labels = getattr(getattr(resource, "config", None), "labels", None) or {}
+  return labels.get("com.docker.compose.project", "")
+
+
+def cleanup_residual_test_resources():
+  """Remove stacks left behind by test runs that were aborted before teardown."""
+  try:
+    docker = DockerClient()
+    containers = [c for c in docker.container.list(all=True)
+                  if _TEST_PROJECT_RE.match(_compose_project_of(c))]
+    networks = [n for n in docker.network.list()
+                if _TEST_PROJECT_RE.match(n.name or "")]
+    volumes = [v for v in docker.volume.list()
+               if _TEST_PROJECT_RE.match(str(v.name or ""))]
+  except Exception as exc:
+    logger.warning("Residual test resource scan failed: %s", exc)
+    return
+
+  if not (containers or networks or volumes):
+    return
+
+  logger.info(
+    "Removing residual resources from aborted test runs: "
+    "%d container(s), %d network(s), %d volume(s)",
+    len(containers), len(networks), len(volumes),
+  )
+
+  # Containers first: networks and volumes stay in use until they are gone.
+  for container in containers:
+    try:
+      docker.container.remove(container, force=True, volumes=True)
+    except Exception as exc:
+      logger.warning("Failed to remove residual container %s: %s", container.name, exc)
+
+  for network in networks:
+    try:
+      docker.network.remove(network)
+    except Exception as exc:
+      logger.warning("Failed to remove residual network %s: %s", network.name, exc)
+
+  for volume in volumes:
+    try:
+      docker.volume.remove(volume)
+    except Exception as exc:
+      logger.warning("Failed to remove residual volume %s: %s", volume.name, exc)
+
 
 def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory,
                        exampledb="", collect_container_logs_mode="failed",
@@ -486,7 +598,10 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
 
   os.environ["SECRETSDIR"] = secrets_dir
 
-  compose_file_paths = [os.path.join(repo_root, cf) for cf in profile.compose_files]
+  from tests.utils.profiles import resolve_compose_files
+  compose_file_paths = [
+    os.path.join(repo_root, cf) for cf in resolve_compose_files(profile.compose_files)
+  ]
 
   controller_auth_path = os.path.join(secrets_dir, "controller.auth")
   try:
@@ -523,8 +638,28 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
   # Only set DLSTREAMER_VERSION when detected; omitting lets compose defaults apply.
   if dlstreamer_version:
     env_lines += f"DLSTREAMER_VERSION={dlstreamer_version}\n"
+
+  hierarchy_ports = None
+  if profile.name.startswith("reid_hier"):
+    from tests.functional.hierarchy_ports import allocate_hierarchy_ports
+    hierarchy_ports = allocate_hierarchy_ports()
+    for key, value in hierarchy_ports.items():
+      env_lines += f"{key}={value}\n"
+      # Compose prefers the process environment over --env-file for
+      # interpolation; keep os.environ in sync so stale shell exports cannot
+      # override the freshly allocated host ports.
+      os.environ[key] = value
+    logger.info("Allocated hierarchy host ports: %s", hierarchy_ports)
+
   env_file.write_text(env_lines)
+  # Compose prefers the process environment over --env-file for variable
+  # pass-through (e.g. environment: [SUPASS]). Keep them in sync.
+  from tests.utils.compose_env import sync_supass_for_compose
+  sync_supass_for_compose(supass)
   (tmp_path / "db").mkdir(exist_ok=True)
+  if hierarchy_ports:
+    for role in ("parent", "child1", "child2"):
+      (tmp_path / "db" / role / "media").mkdir(parents=True, exist_ok=True)
 
   docker = DockerClient(
     compose_files=compose_file_paths,
@@ -549,6 +684,9 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       env={**os.environ, "COMPOSE_PROJECT_NAME": project_name},
     )
 
+    if any("compose-mapping.yml" in cf for cf in profile.compose_files):
+      _ensure_mapping_cache_volumes()
+
     logger.info("Starting compose services...")
     try:
       docker.compose.up(detach=True, pull="missing", quiet=True)
@@ -566,6 +704,7 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       repo_root=repo_root,
       secrets_dir=secrets_dir,
       supass=supass,
+      hierarchy_ports=hierarchy_ports,
     )
 
   except Exception:
@@ -595,6 +734,10 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       docker.compose.down(remove_orphans=True, volumes=True)
     except Exception as exc:
       logger.warning("compose down failed: %s", exc)
+
+    if hierarchy_ports:
+      from tests.functional.hierarchy_ports import clear_hierarchy_port_env
+      clear_hierarchy_port_env()
 
     bare_docker = DockerClient()
     for vol in [
@@ -859,7 +1002,10 @@ def scenescape_env(request, _compose_manager, secrets_dir, supass,
   # test in the same module can verify data survives; the preserved state is
   # recorded so the next test in a different module restores before running.
   if "web" in spec.profile.wait_for:
-    if request.node.get_closest_marker("preserve_db"):
+    if _is_final_test(request.node):
+      logger.info("Skipping post-test DB restore: last test of the session")
+      request.session._scenescape_db_preserved = None
+    elif request.node.get_closest_marker("preserve_db"):
       request.session._scenescape_db_preserved = (
         request.module.__name__,
         f"{spec.profile.name}:{_spec_visibility_topic(spec)}",
@@ -890,6 +1036,21 @@ def _derive_marker(item):
 
 # Log directory: tests/.test_logs/{group}/{test_id}/{test_id}-{timestamp}.log
 _LOG_BASE = _TESTS_DIR / ".test_logs"
+
+def pytest_sessionstart(session):
+  """Clean up residual stacks left behind by previously aborted test runs.
+
+  Runs before any fixture setup so an interrupted session cannot leak its
+  containers, networks and volumes into the next one.
+  """
+  if not _ORCHESTRATION_AVAILABLE:
+    return
+  config = session.config
+  if getattr(config.option, "collectonly", False):
+    return
+  if config.getoption("--backend") not in ("docker", "all"):
+    return
+  cleanup_residual_test_resources()
 
 def pytest_generate_tests(metafunc):
   """Parametrize tests across backends when --backend=all.
@@ -1014,16 +1175,20 @@ def pytest_runtest_makereport(item, call):
   outcome = yield
   rep = outcome.get_result()
   setattr(item, f"rep_{rep.when}", rep)
-  if rep.when == "teardown" and _testlog is not None:
-    rep_setup = getattr(item, "rep_setup", None)
-    rep_call = getattr(item, "rep_call", None)
-    rep_teardown = getattr(item, "rep_teardown", None)
-    failed = bool(
-      (rep_setup is not None and rep_setup.failed)
-      or (rep_call is not None and rep_call.failed)
-      or (rep_teardown is not None and rep_teardown.failed)
-    )
-    _testlog.finalize(passed=not failed)
+  if rep.when == "teardown":
+    _stop_stack_after_final_test(item)
+    if _testlog is not None:
+      rep_setup = getattr(item, "rep_setup", None)
+      rep_call = getattr(item, "rep_call", None)
+      rep_teardown = getattr(item, "rep_teardown", None)
+      failed = bool(
+        (rep_setup is not None and rep_setup.failed)
+        or (rep_call is not None and rep_call.failed)
+        or (rep_teardown is not None and rep_teardown.failed)
+      )
+      finalize = getattr(_testlog, "finalize", None)
+      if finalize is not None:
+        finalize(passed=not failed)
 
 def pytest_runtest_logreport(report):
   """Log test phase results to the per-test log file."""
