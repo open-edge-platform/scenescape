@@ -226,6 +226,34 @@ build-core-images: $(BUILD_DIR)
 	$(MAKE) -j$(JOBS) $(CORE_IMAGE_FOLDERS)
 	@echo "DONE ==> Parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
 
+# No-op if already applied; fails loudly on any other conflict.
+.PHONY: apply-lidar-patch
+apply-lidar-patch:
+	@for p in $(LIDAR_PATCH_FILES); do \
+		if git -C $(CURDIR) apply --check "$$p" 2>/dev/null; then \
+			echo "==> Applying LiDAR-demo patch ($$p)..."; \
+			git -C $(CURDIR) apply "$$p"; \
+		elif git -C $(CURDIR) apply --check -R "$$p" 2>/dev/null; then \
+			echo "==> LiDAR-demo patch already applied, skipping ($$p)"; \
+		else \
+			echo "ERROR: $$p does not apply cleanly and does not look"; \
+			echo "already applied either. Resolve manually (see 'git apply --check $$p')" ; \
+			echo "before running 'make build-core-lidar' or 'make demo-lidar'."; \
+			exit 1; \
+		fi; \
+	done
+
+.PHONY: revert-lidar-patch
+revert-lidar-patch:
+	@for p in $(LIDAR_PATCH_FILES); do \
+		if git -C $(CURDIR) apply --check -R "$$p" 2>/dev/null; then \
+			echo "==> Reverting LiDAR-demo patch ($$p)..."; \
+			git -C $(CURDIR) apply -R "$$p"; \
+		else \
+			echo "LiDAR-demo patch not currently applied, skipping ($$p)"; \
+		fi; \
+	done
+
 # ===================== Cleaning and Rebuilding =======================
 .PHONY: rebuild-core-images
 rebuild-core-images: clean-core-images build-core-images
@@ -721,34 +749,6 @@ check-reid-backend:
 		vdms|qdrant) ;; \
 		*) echo "REID_BACKEND must be 'vdms' (default) or 'qdrant'"; exit 1 ;; \
 	esac
-
-# No-op if already applied; fails loudly on any other conflict.
-.PHONY: apply-lidar-patch
-apply-lidar-patch:
-	@for p in $(LIDAR_PATCH_FILES); do \
-		if git -C $(CURDIR) apply --check "$$p" 2>/dev/null; then \
-			echo "==> Applying LiDAR-demo patch ($$p)..."; \
-			git -C $(CURDIR) apply "$$p"; \
-		elif git -C $(CURDIR) apply --check -R "$$p" 2>/dev/null; then \
-			echo "==> LiDAR-demo patch already applied, skipping ($$p)"; \
-		else \
-			echo "ERROR: $$p does not apply cleanly and does not look"; \
-			echo "already applied either. Resolve manually (see 'git apply --check $$p')" ; \
-			echo "before running 'make build-core-lidar' or 'make demo-lidar'."; \
-			exit 1; \
-		fi; \
-	done
-
-.PHONY: revert-lidar-patch
-revert-lidar-patch:
-	@for p in $(LIDAR_PATCH_FILES); do \
-		if git -C $(CURDIR) apply --check -R "$$p" 2>/dev/null; then \
-			echo "==> Reverting LiDAR-demo patch ($$p)..."; \
-			git -C $(CURDIR) apply -R "$$p"; \
-		else \
-			echo "LiDAR-demo patch not currently applied, skipping ($$p)"; \
-		fi; \
-	done
 
 .PHONY: demo
 demo: $(DEMO_BUILD:build=build-core) init-sample-data
