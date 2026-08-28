@@ -55,12 +55,24 @@ LIDAR_COMPOSE_ARGS := $(if $(LIDAR_ENABLED),-f docker-compose.yml $(LIDAR_OVERRI
 LIDAR_PATCH_FILES := sample_data/lidar_intersection/patches/0001-manager-default-assets-and-source-labels.patch \
                      sample_data/lidar_intersection/patches/0002-scene-common-source-passthrough.patch \
                      sample_data/lidar_intersection/patches/0003-analytics-source-passthrough.patch
-LIDAR_PATCH_TARGET := $(if $(LIDAR_ENABLED),apply-lidar-patch,)
-# Auto-reverted after build so the working tree doesn't stay dirty.
-LIDAR_REVERT_TARGET := $(if $(LIDAR_ENABLED),revert-lidar-patch,)
 DEMO_REBUILD_IMAGES ?= true
 # Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
 DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
+
+# When LIDAR_DEMO=true, apply demo patches around an image build and always
+# revert them via EXIT (success, failure, or Ctrl+C) so the working tree
+# cannot stay dirty. $(1) is the image-build target (build-core-images /
+# build-all-images).
+define build_with_optional_lidar_patches
+	@if [ -n "$(LIDAR_ENABLED)" ]; then \
+		set -e; \
+		trap '$(MAKE) revert-lidar-patch' EXIT; \
+		$(MAKE) apply-lidar-patch; \
+		$(MAKE) $(1); \
+	else \
+		$(MAKE) $(1); \
+	fi
+endef
 
 # Test variables
 TESTS_FOLDER := tests
@@ -85,10 +97,14 @@ CONTROLLER_TRACING_SAMPLE_RATIO ?= 1.0
 default: build-core
 
 .PHONY: build-core
-build-core: init-secrets $(LIDAR_PATCH_TARGET) build-core-images $(LIDAR_REVERT_TARGET) install-models
+build-core: init-secrets
+	$(call build_with_optional_lidar_patches,build-core-images)
+	@$(MAKE) install-models
 
 .PHONY: build-all
-build-all: init-secrets $(LIDAR_PATCH_TARGET) build-all-images $(LIDAR_REVERT_TARGET) install-models
+build-all: init-secrets
+	$(call build_with_optional_lidar_patches,build-all-images)
+	@$(MAKE) install-models
 
 # ============================== Help ================================
 

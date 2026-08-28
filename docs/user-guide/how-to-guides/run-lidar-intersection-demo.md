@@ -365,9 +365,9 @@ debug-only field.
 `make build-core`/`make build-all` apply all three patches to the working tree
 automatically (and only) when `LIDAR_DEMO=true`, build the `manager`,
 `analytics`, and shared `scene_common` base images with them
-applied, then automatically revert them - the patches only need to be on
-disk while those images are being built (they're baked into the image
-layers), so:
+applied, then automatically revert them (an `EXIT` trap also reverts on
+build failure or `Ctrl+C`) - the patches only need to be on disk while
+those images are being built (they're baked into the image layers), so:
 
 ```bash
 SUPASS=<password> make build-core demo LIDAR_DEMO=true
@@ -411,11 +411,10 @@ sample_data/lidar_intersection/patches/0002-scene-common-source-passthrough.patc
 but `make apply-lidar-patch`/`revert-lidar-patch` always process all 3
 together for the normal build workflow.
 
-> **Note:** if a build is interrupted between `apply-lidar-patch` and the
-> automatic revert (e.g. `Ctrl+C` mid-build), `manager/`/
-> `scene_common/`/`analytics/` files may be left patched in your working
-> tree. Run `make revert-lidar-patch` to clean up, or check `git status`
-> before committing/pushing.
+> **Note:** a hard kill (`kill -9`) of the build can still skip the
+> `EXIT` trap. If `git status` shows patched `manager/` /
+> `scene_common/` / `analytics/` files afterward, run
+> `make revert-lidar-patch`.
 
 ## Rotation/orientation handling
 
