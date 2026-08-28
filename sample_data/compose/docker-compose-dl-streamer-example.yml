@@ -71,7 +71,6 @@ x-controller-base: &controller-base
       target: /home/scenescape/Scenescape/reid-config.json
   volumes:
     - vol-media:/home/scenescape/Scenescape/media
-    - vol-sample-data:/home/scenescape/Scenescape/sample_data
   secrets:
     - source: root-cert
       target: certs/scenescape-ca.pem
@@ -272,7 +271,7 @@ services:
     image: linuxserver/ffmpeg:version-8.1-cli
     command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -re -stream_loop -1 -i /workspace/media/qcam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam2
     volumes:
-      - vol-sample-data:/workspace/media
+      - vol-videos:/workspace/media
     networks:
       scenescape:
     depends_on:
@@ -284,7 +283,7 @@ services:
     image: linuxserver/ffmpeg:version-8.1-cli
     command: -nostdin -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts -re -stream_loop -1 -i /workspace/media/apriltag-cam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam2
     volumes:
-      - vol-sample-data:/workspace/media
+      - vol-videos:/workspace/media
     networks:
       scenescape:
     depends_on:
@@ -631,7 +630,7 @@ volumes:
   vol-media:
   vol-migrations:
   vol-datasets:
-  vol-sample-data:
+  vol-videos:
   vol-models:
   vol-netvlad_models:
     driver: local

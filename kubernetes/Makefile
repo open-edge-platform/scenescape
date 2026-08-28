@@ -183,8 +183,8 @@ copy-files:
 	cp ../model_download/src/generate_model_config.py scenescape-chart/files/model-download/generate_model_config.py
 	cp ../model_download/src/entrypoint-k8s.sh scenescape-chart/files/model-download/entrypoint-k8s.sh
 	cp ../model_download/models.json scenescape-chart/files/model-download/models.json
-	cp ../sample_data/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
-	cp ../sample_data/convert-videos-k8s.sh scenescape-chart/files/sample-data/convert-videos-k8s.sh
+	cp ../sample_data/scripts/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
+	cp ../sample_data/scripts/convert-videos-k8s.sh scenescape-chart/files/sample-data/convert-videos-k8s.sh
 
 
 check-demo-k8s-mode:

@@ -246,7 +246,7 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 
 ## Manual Video Pipeline Configuration (in Docker Compose deployment)
 
-Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice. The file [docker-compose-dl-streamer-example.yml](/sample_data/docker-compose-dl-streamer-example.yml) shows how a DL Streamer Pipeline Server docker container is configured to stream video analytics data for consumption by Scenescape. It leverages DL Streamer pipelines definitions in [queuing-config.json](/dlstreamer-pipeline-server/queuing-config.json) and [retail-config.json](/dlstreamer-pipeline-server/retail-config.json).
+Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice. The file [docker-compose-dl-streamer-example.yml](/sample_data/compose/docker-compose-dl-streamer-example.yml) shows how a DL Streamer Pipeline Server docker container is configured to stream video analytics data for consumption by Scenescape. It leverages DL Streamer pipelines definitions in [queuing-config.json](/dlstreamer-pipeline-server/queuing-config.json) and [retail-config.json](/dlstreamer-pipeline-server/retail-config.json).
 
 > **Note**: To run DL Streamer Pipeline Server pipelines on hardware accelerators (GPU or NPU), see the DL Streamer Pipeline Server service [user documentation](/dlstreamer-pipeline-server/README.md).
 

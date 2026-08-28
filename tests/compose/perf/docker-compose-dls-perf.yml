@@ -123,7 +123,7 @@ services:
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/Scenescape/sample_data
+      - ./sample_data/exampledb.tar.bz2:/home/scenescape/Scenescape/sample_data/exampledb.tar.bz2
       - vol-migrations:/workspace/migrations
     secrets:
       - source: root-cert
@@ -171,7 +171,6 @@ services:
         target: /home/scenescape/Scenescape/reid-config.json
     volumes:
       - vol-media:/home/scenescape/Scenescape/media
-      - vol-sample-data:/home/scenescape/Scenescape/sample_data
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -206,7 +205,7 @@ services:
       -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam2
       -map 2:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam3
     volumes:
-      - vol-sample-data:/workspace/media
+      - vol-videos:/workspace/media
     networks:
       scenescape:
     depends_on:
@@ -269,7 +268,7 @@ services:
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
-      - vol-sample-data:/home/pipeline-server/videos
+      - vol-videos:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:
       - source: root-cert
@@ -370,7 +369,7 @@ volumes:
   vol-media:
   vol-migrations:
   vol-datasets:
-  vol-sample-data:
+  vol-videos:
   vol-models:
   vol-netvlad_models:
     driver: local

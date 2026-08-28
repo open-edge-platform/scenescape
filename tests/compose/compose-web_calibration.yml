@@ -54,7 +54,6 @@ services:
     volumes:
       - ./tests/calibrationdb.tar.bz2:/home/scenescape/Scenescape/tests/calibrationdb.tar.bz2
       - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/Scenescape/sample_data
       - vol-migrations:/workspace/migrations
     secrets:
       - source: root-cert
@@ -72,4 +71,3 @@ services:
 volumes:
   vol-media:
   vol-migrations:
-  vol-sample-data:

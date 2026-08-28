@@ -32,7 +32,7 @@ export LOGSFORCONTAINER="${WAITFORCONTAINERS} mqtt_recorder "
 
 rm -f ${LOG}
 
-tests/runtest sample_data/docker-compose-dls-perf.yml \
+tests/runtest tests/compose/perf/dls-perf.yml \
     sleep ${TEST_DURATION}
 
 RESULT=$?

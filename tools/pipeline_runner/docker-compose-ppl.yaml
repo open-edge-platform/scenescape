@@ -33,7 +33,7 @@ services:
       - rtsp
     command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1
     volumes:
-      - vol-sample-data:/workspace/media
+      - vol-videos:/workspace/media
     networks:
       ppl_runner:
     depends_on:
@@ -131,7 +131,7 @@ services:
       # Uncomment the line below to enable latency tracing
       # - "/tmp/latency_tracer:/tmp"
       - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
-      - vol-sample-data:/home/pipeline-server/videos
+      - vol-videos:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
       - ${OUTPUT_DIR}:/home/pipeline-server/output
       - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
@@ -149,7 +149,7 @@ configs:
 
 volumes:
   vol-models:
-  vol-sample-data:
+  vol-videos:
   vol-dlstreamer-pipeline-server-pipeline-root:
     driver: local
     driver_opts:

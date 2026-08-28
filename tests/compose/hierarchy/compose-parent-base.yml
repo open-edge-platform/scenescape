@@ -47,7 +47,6 @@ services:
     volumes:
       - ./tests/testdb.tar.bz2:/home/scenescape/Scenescape/tests/testdb.tar.bz2
       - parent-vol-media:/workspace/media
-      - parent-vol-sample-data:/home/scenescape/Scenescape/sample_data
       - parent-vol-migrations:/workspace/migrations
     secrets:
       - source: root-cert
@@ -91,5 +90,4 @@ services:
 volumes:
   parent-vol-db:
   parent-vol-media:
-  parent-vol-sample-data:
   parent-vol-migrations:

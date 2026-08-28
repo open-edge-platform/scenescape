@@ -123,7 +123,7 @@ The following profiles are available:
 | `cluster-analytics` | Enables cluster-analytics service.                                                      |
 | `tracker`           | Tracker service + Analytics service (no Scene Controller). Used by `make demo-tracker`. |
 
-> **ReID backends:** The `demo-reid` and `demo-all` targets default to VDMS (`REID_BACKEND=vdms`); set `REID_BACKEND=qdrant` to switch. For raw Compose, add exactly one of `sample_data/docker-compose.vdms-override.yml` or `sample_data/docker-compose.qdrant-override.yml`. Both overrides provide the same logical `reid` service, shared host `reid.scenescape.intel.com`, port `55555`, TLS settings, and certificates. See [Selecting the ReID Vector Database Backend](../other-topics/how-to-enable-reidentification.md#selecting-the-reid-vector-database-backend).
+> **ReID backends:** The `demo-reid` and `demo-all` targets default to VDMS (`REID_BACKEND=vdms`); set `REID_BACKEND=qdrant` to switch. For raw Compose, add exactly one of `sample_data/compose/docker-compose.vdms-override.yml` or `sample_data/compose/docker-compose.qdrant-override.yml`. Both overrides provide the same logical `reid` service, shared host `reid.scenescape.intel.com`, port `55555`, TLS settings, and certificates. See [Selecting the ReID Vector Database Backend](../other-topics/how-to-enable-reidentification.md#selecting-the-reid-vector-database-backend).
 
 Profiles can be specified on the command line with `--profile`:
 

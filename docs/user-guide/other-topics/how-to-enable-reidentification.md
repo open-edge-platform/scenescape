@@ -28,17 +28,17 @@ Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-
 
    Use one backend override with the base Compose file. Both overrides create
    the same logical `reid` service and configure the Scene Controller. Run
-   these commands from the `sample_data/` directory:
+   these commands from the repository root:
 
    ```bash
    # VDMS
-   docker compose -f docker-compose-dl-streamer-example.yml \
-     -f docker-compose.vdms-override.yml \
+   docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+     -f sample_data/compose/docker-compose.vdms-override.yml \
      --profile controller up
 
    # Or Qdrant
-   docker compose -f docker-compose-dl-streamer-example.yml \
-     -f docker-compose.qdrant-override.yml \
+   docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+     -f sample_data/compose/docker-compose.qdrant-override.yml \
      --profile controller up
    ```
 
@@ -63,7 +63,7 @@ Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-
 2. **Enable Visual Feature Extraction in Video Pipeline (manual `docker compose` usage)**
    The step above is only needed if you are composing services yourself
    instead of using `make demo-reid`. Edit the retail-config setting in
-   [Docker Compose](/sample_data/docker-compose-dl-streamer-example.yml) as follows:
+   [Docker Compose](/sample_data/compose/docker-compose-dl-streamer-example.yml) as follows:
 
 ```yaml
 retail-config:
@@ -98,20 +98,20 @@ material, and controller connection settings. The selected override sets
 1. **Stop the stack** using the same base and backend override files used to start it:
 
    ```bash
-   docker compose -f docker-compose-dl-streamer-example.yml \
-     -f docker-compose.vdms-override.yml \
+   docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+     -f sample_data/compose/docker-compose.vdms-override.yml \
      --profile controller down
    ```
 
 2. **Start with the other backend override**. For example, to select Qdrant:
 
    ```bash
-   docker compose -f docker-compose-dl-streamer-example.yml \
-     -f docker-compose.qdrant-override.yml \
+   docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+     -f sample_data/compose/docker-compose.qdrant-override.yml \
      --profile controller up
    ```
 
-   The override ([docker-compose.qdrant-override.yml](/sample_data/docker-compose.qdrant-override.yml)):
+   The override ([docker-compose.qdrant-override.yml](/sample_data/compose/docker-compose.qdrant-override.yml)):
    - Starts the logical `reid` service using Qdrant, with TLS on shared host `reid.scenescape.intel.com` and port `55555`
    - Sets `REID_DATABASE=QDRANT` on the `scene` service
    - Connection defaults (hostname, port, TLS=`true`, cert paths) are shared via `REID_*` settings
@@ -143,8 +143,8 @@ Values are validated at controller startup. A port outside 1–65535, a confiden
 2. Replace the Qdrant override with the VDMS override:
 
    ```bash
-   docker compose -f docker-compose-dl-streamer-example.yml \
-     -f docker-compose.vdms-override.yml \
+   docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+     -f sample_data/compose/docker-compose.vdms-override.yml \
      --profile controller up
    ```
 
@@ -225,15 +225,15 @@ it; that is a separate hardening step.
    database service.
 
    ```bash
-   docker compose -f docker-compose-dl-streamer-example.yml \
-     -f docker-compose.vdms-override.yml \
+   docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+     -f sample_data/compose/docker-compose.vdms-override.yml \
      --profile controller down
    ```
 
    Substitute `docker-compose.qdrant-override.yml` when Qdrant is active.
 
 2. **Remove ReID from the Camera Pipeline**
-   Edit the retail-config setting in [Docker Compose](/sample_data/docker-compose-dl-streamer-example.yml) and revert to the config without re-id model:
+   Edit the retail-config setting in [Docker Compose](/sample_data/compose/docker-compose-dl-streamer-example.yml) and revert to the config without re-id model:
 
 ```yaml
 retail-config:
@@ -335,12 +335,12 @@ helm upgrade scenescape-release-1 --install kubernetes/scenescape-chart/ \
 To apply changes, use the same backend override you selected when starting the stack:
 
 ```bash
-docker compose -f docker-compose-dl-streamer-example.yml \
-  -f docker-compose.vdms-override.yml \
+docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+  -f sample_data/compose/docker-compose.vdms-override.yml \
   --profile controller down
 make -C docker
-docker compose -f docker-compose-dl-streamer-example.yml \
-  -f docker-compose.vdms-override.yml \
+docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+  -f sample_data/compose/docker-compose.vdms-override.yml \
   --profile controller up --build
 ```
 
@@ -352,11 +352,11 @@ docker compose -f docker-compose-dl-streamer-example.yml \
    - **Cause**: Database container is not running, not linked, or TLS/certs do not match the shared ReID defaults.
    - **Resolution**:
      ```bash
-     docker compose -f docker-compose-dl-streamer-example.yml \
-       -f docker-compose.vdms-override.yml \
+     docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+       -f sample_data/compose/docker-compose.vdms-override.yml \
        --profile controller ps reid
-     docker compose -f docker-compose-dl-streamer-example.yml \
-       -f docker-compose.vdms-override.yml \
+     docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+       -f sample_data/compose/docker-compose.vdms-override.yml \
        --profile controller logs reid
      ```
      Substitute the Qdrant override when it is selected. Confirm the `reid`

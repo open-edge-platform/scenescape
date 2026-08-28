@@ -86,7 +86,7 @@ _Figure 4: comment ntpserver for DL Streamer Pipeline Server in `docker-compose.
 
 _Figure 5: ntpserver config for DL Streamer Pipeline in `pipeline-config.json`._
 
-> **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` does not exist.
+> **Note**: Use [sample_data/compose/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/compose/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` does not exist.
 
 ### 2. Set Up Secure Communication
 

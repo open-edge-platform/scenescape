@@ -36,8 +36,10 @@ SECRETSDIR ?= $(CURDIR)/manager/secrets
 CERTDOMAIN ?= scenescape.intel.com
 
 # Demo variables
-DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
-DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
+SAMPLE_VIDEOS_DIR := sample_data/videos
+SAMPLE_COMPOSE_DIR := sample_data/compose
+DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(SAMPLE_VIDEOS_DIR)/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
+DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/docker-compose-dl-streamer-example.yml
 DEMO_WAIT_SECONDS ?= "0"
 # Host directory with one exported ZIP per demo scene
 DEMO_SCENES_DIR ?= sample_data/demo_scenes
@@ -50,8 +52,8 @@ DEMO_SCENES_WAIT ?= 300
 UPLOAD_SCENES := tools/upload_scenes/upload-scenes
 # ReID vector backend used by the ReID demo targets: vdms (default) or qdrant
 REID_BACKEND ?= vdms
-REID_OVERRIDE_FILE = sample_data/docker-compose.$(strip $(REID_BACKEND))-override.yml
-REID_PIPELINE_OVERRIDE_FILE = sample_data/docker-compose.reid-pipeline-override.yml
+REID_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/docker-compose.$(strip $(REID_BACKEND))-override.yml
+REID_PIPELINE_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/docker-compose.reid-pipeline-override.yml
 REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE) -f $(REID_PIPELINE_OVERRIDE_FILE)
 DEMO_REBUILD_IMAGES ?= true
 # Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
@@ -655,20 +657,20 @@ convert-dls-videos:
 
 .PHONY: init-sample-data
 init-sample-data: convert-dls-videos
-	@echo "Initializing sample data volume..."
-	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-sample-data 2>/dev/null || true
+	@echo "Initializing sample video volume..."
+	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-videos 2>/dev/null || true
 	@echo "Setting up volume permissions..."
-	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:3.23 chown $(shell id -u):$(shell id -g) /dest
-	@echo "Copying files from $(CURDIR)/sample_data to volume..."
-	@if [ -d "$(CURDIR)/sample_data" ]; then \
+	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 chown $(shell id -u):$(shell id -g) /dest
+	@echo "Copying files from $(CURDIR)/$(SAMPLE_VIDEOS_DIR) to volume..."
+	@if [ -d "$(CURDIR)/$(SAMPLE_VIDEOS_DIR)" ]; then \
 		docker run --rm \
-			-v $(CURDIR)/sample_data:/source:ro \
-			-v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
+			-v $(CURDIR)/$(SAMPLE_VIDEOS_DIR):/source:ro \
+			-v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest \
 			--user $(shell id -u):$(shell id -g) \
 			alpine:3.23 \
 			sh -c "echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo '';"; \
 	else \
-		echo "WARNING: Source directory $(CURDIR)/sample_data does not exist!"; \
+		echo "WARNING: Source directory $(CURDIR)/$(SAMPLE_VIDEOS_DIR) does not exist!"; \
 		exit 1; \
 	fi
 	@echo "Sample data volume initialized."
