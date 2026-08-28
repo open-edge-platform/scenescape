@@ -824,12 +824,19 @@ class Cam(Sensor):
       self.cv_subsystem = 'AUTO'
 
     super().save(*args, **kwargs)
+    # Invalidate cached scene so camera pose/calibration changes are reflected
+    if self.scene:
+      SceneLoader.removeScene(self.scene.name)
     transaction.on_commit(partial(sendUpdateCommand,
                                   camera_data = self.cameraData('save')))
     return
 
   def delete(self, *args, **kwargs):
+    # Invalidate cached scene so camera deletion is reflected
+    scene = self.scene
     super().delete(*args, **kwargs)
+    if scene:
+      SceneLoader.removeScene(scene.name)
     transaction.on_commit(partial(sendUpdateCommand,
                                   camera_data = self.cameraData('delete')))
     return

@@ -74,3 +74,10 @@ class SceneLoader:
   def addScene(scene):
     SceneLoader.scenes[scene.name] = scene
     return
+
+  @staticmethod
+  def removeScene(name):
+    """Remove a scene from the cache by name."""
+    if name in SceneLoader.scenes:
+      del SceneLoader.scenes[name]
+    return
