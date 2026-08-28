@@ -9,7 +9,6 @@ WSUSER=${WSUSER:-scenescape}
 WORKSPACE=${WORKSPACE:-/workspace}
 SECRETSDIR=${SECRETSDIR:-${WORKSPACE}/secrets}
 MANAGERDIR=Scenescape
-SAMPLEDATADIR=/home/scenescape/Scenescape/sample_data
 
 RUNSECRETS=/run/secrets
 EGL_PLATFORM=${EGL_PLATFORM:-surfaceless}

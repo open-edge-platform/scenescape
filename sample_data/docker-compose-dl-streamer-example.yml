@@ -202,7 +202,6 @@ services:
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/Scenescape/sample_data
       - vol-migrations:/workspace/migrations
     secrets:
       - source: root-cert
@@ -350,7 +349,6 @@ services:
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
-      - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:
       - source: root-cert
@@ -415,7 +413,6 @@ services:
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
-      - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:
       - source: root-cert

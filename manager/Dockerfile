@@ -180,8 +180,6 @@ COPY --chown=$WSUSER:$WSUSER ./manager/config/webserver-init \
      ./manager/config/scenescape-init \
      /usr/local/bin/
 
-COPY --chown=$WSUSER:$WSUSER ./tools/upload-scenes /usr/local/bin/upload-scenes
-
 RUN chown -R $WSUSER:$WSUSER /home/scenescape/ \
     && chown -R $WSUSER:$WSUSER /etc/apache2/ \
     && mkdir -p /workspace /workspace/media /workspace/migrations \

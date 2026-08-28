@@ -39,10 +39,15 @@ CERTDOMAIN ?= scenescape.intel.com
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
 DEMO_WAIT_SECONDS ?= "0"
-# Directory with one exported ZIP per demo scene, as seen from inside the web container
-DEMO_SCENES_DIR ?= /home/scenescape/Scenescape/sample_data/demo_scenes
+# Host directory with one exported ZIP per demo scene
+DEMO_SCENES_DIR ?= sample_data/demo_scenes
+DEMO_SCENES_URL ?= https://localhost/api/v1
+# The demo certificate is issued for web.scenescape.intel.com, not for localhost.
+# Override with --rootcert <ca.pem> when uploading to a properly named host.
+DEMO_SCENES_TLS ?= --insecure
 # Seconds the scene upload waits for the database to come up
 DEMO_SCENES_WAIT ?= 300
+UPLOAD_SCENES := tools/upload_scenes/upload-scenes
 # ReID vector backend used by the ReID demo targets: vdms (default) or qdrant
 REID_BACKEND ?= vdms
 REID_OVERRIDE_FILE = sample_data/docker-compose.$(strip $(REID_BACKEND))-override.yml
@@ -709,8 +714,15 @@ check-reid-backend:
 
 .PHONY: demo-scenes
 demo-scenes:
-	@echo "Uploading demo scenes from $(DEMO_SCENES_DIR) through the REST API..."
-	docker compose exec -T web upload-scenes --wait $(DEMO_SCENES_WAIT) $(DEMO_SCENES_DIR)
+	@python3 -c "import requests" 2>/dev/null || { \
+		echo "Missing dependencies, install them with:"; \
+		echo "    pip install -r tools/upload_scenes/requirements.txt"; \
+		exit 1; \
+	}
+	@echo "Uploading demo scenes from $(DEMO_SCENES_DIR) to $(DEMO_SCENES_URL)..."
+	python3 $(UPLOAD_SCENES) --restauth $(SECRETSDIR)/controller.auth \
+		$(DEMO_SCENES_TLS) --wait $(DEMO_SCENES_WAIT) \
+		$(DEMO_SCENES_URL) $(DEMO_SCENES_DIR)
 
 .PHONY: demo
 demo: $(DEMO_BUILD:build=build-core) init-sample-data
