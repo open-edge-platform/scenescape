@@ -4,31 +4,52 @@
 
 """LiDAR + camera dual-stream publisher for the LiDAR-intersection demo.
 
-One gst-launch-1.0 process, two branches (LiDAR/PointPillars, camera/
-person-vehicle-bike), each writing to its own FIFO; read here and published
-to MQTT (scenescape/data/camera/<sensor_id>). Fusion happens downstream in
-the Scene Controller.
+Module split (keep this separation when extending):
+
+- ``lidar_sensor_contract`` — SceneScape MQTT detection contract shared by any
+  input (live or recorded): wall-clock stamps, transforms, message builders,
+  MQTT helpers. Always publish including empty frames.
+- ``lidar_file_playback`` — recorded ``multifilesrc`` / numbered-file proxy
+  only: skip-unread feed staging (live drop-stale stand-in), dataset index
+  math, file-backed getimage, GStreamer file-source chain fragments.
+
+This file is the demo entrypoint: env config, FIFO/GStreamer process, and
+wiring the file-playback adapter into the publish loop.
+
+Streams run independently (no pace-gate). When PointPillars is slower than
+the camera, skip-to-live drops unread ``.bin`` frames so LiDAR detections
+stay on "now" — the same policy a live capture ring buffer would use.
 """
 
+from __future__ import annotations
+
 import atexit
-import base64
 import json
-import math
 import os
 import shlex
 import subprocess
 import sys
 import threading
 import time
-import uuid
-from datetime import datetime, timezone
 
-import paho.mqtt.client as mqtt
+from lidar_file_playback import (
+  LidarCatchUp,
+  camera_multifilesrc_parts,
+  lidar_multifilesrc_parts,
+  playback_index,
+  setup_getimage_responder,
+)
+from lidar_sensor_contract import (
+  MqttState,
+  build_camera_message,
+  build_lidar_message,
+  connect_mqtt,
+  safe_publish,
+)
 
 # ── MQTT ──────────────────────────────────────────────────────────────────────
 BROKER  = os.environ.get("MQTT_HOST", "broker.scenescape.intel.com")
 PORT    = int(os.environ.get("MQTT_PORT", "1883"))
-ROOT_CA = "/run/secrets/certs/scenescape-ca.pem"
 
 # ── LiDAR pipeline config ──────────────────────────────────────────────────────
 LIDAR_SENSOR_ID   = os.environ.get("LIDAR_SENSOR_ID", "intersection-lidar1")
@@ -63,9 +84,10 @@ LIDAR_TOPIC       = f"scenescape/data/camera/{LIDAR_SENSOR_ID}"
 LIDAR_FIFO        = "/tmp/lidar_detections.fifo"
 LIDAR_PUBLISH_RAW = os.environ.get("LIDAR_PUBLISH_RAW", "false").lower() not in ("0", "false", "no")
 LIDAR_RAW_TOPIC   = os.environ.get("LIDAR_RAW_TOPIC", f"scenescape/data/camera/{LIDAR_SENSOR_ID}-raw")
-
-# KITTI class index -> label name (person omitted, camera branch covers it).
-LIDAR_KITTI_LABELS: dict[int, str] = {1: "cyclist", 2: "vehicle"}
+# File-playback only: skip unread .bin files so inference stays on camera-now
+# (live sensors drop stale samples instead; see lidar_file_playback.py).
+LIDAR_SKIP_TO_LIVE = os.environ.get("LIDAR_SKIP_TO_LIVE", "true").lower() not in ("0", "false", "no")
+LIDAR_FEED_DIR = os.environ.get("LIDAR_FEED_DIR", "/tmp/lidar_feed")
 
 # ── Camera pipeline config ─────────────────────────────────────────────────────
 CAM_SENSOR_ID   = os.environ.get("CAM_SENSOR_ID", "intersection-cam1")
@@ -95,219 +117,25 @@ CAM_FIFO        = "/tmp/camera_detections.fifo"
 CAM_PUBLISH_RAW = os.environ.get("CAM_PUBLISH_RAW", "false").lower() not in ("0", "false", "no")
 CAM_RAW_TOPIC   = os.environ.get("CAM_RAW_TOPIC", f"scenescape/data/camera/{CAM_SENSOR_ID}-raw")
 
-
-# GStreamer clock -> wall clock, anchored independently per stream.
-def make_gst_to_wall():
-  offset: "list[float | None]" = [None]
-
-  def _gst_to_wall(gst_ns: int) -> float:
-    gst_s = gst_ns / 1e9
-    if offset[0] is None:
-      offset[0] = time.time() - gst_s
-    return gst_s + offset[0]
-
-  return _gst_to_wall
+_mqtt_state = MqttState()
+_lidar_ready = threading.Event()
+_stream_frame_counts: dict[str, int] = {"lidar-publisher": 0, "camera-publisher": 0}
+_stream_counts_lock = threading.Lock()
 
 
-# ── Coordinate transform (LiDAR only) ──────────────────────────────────────────
-
-def lidar_to_scene_offset(x_l: float, y_l: float, z_l: float) -> "tuple[float, float, float]":
-  """LiDAR (x,y,z) -> scene offset: (-y,-x) axis swap, z forced to 0."""
-  return -y_l, -x_l, 0.0
-
-
-def bbox3d_to_quaternion(yaw: float) -> "list[float]":
-  """PointPillars yaw -> SceneScape quaternion (Z-yaw + 180deg X-flip so roof faces up)."""
-  half = (-yaw - math.pi) / 2.0
-  qz = math.sin(half)
-  qw = math.cos(half)
-  if qw < 0.0:
-    qz, qw = -qz, -qw
-
-  # Clamp <1 (exclusiveMaximum in schema); yaw=0 gives sin(-pi/2)=-1 exactly.
-  _C = 1.0 - 1e-7
-  return [max(-_C, min(_C, qw)), max(-_C, min(_C, -qz)), 0.0, 0.0]
+def _camera_playback_index() -> int:
+  with _stream_counts_lock:
+    cam_count = _stream_frame_counts.get("camera-publisher", 0)
+  return playback_index(cam_count, CAM_START_INDEX, CAM_STOP_INDEX, CAM_LOOP)
 
 
-# ── Message builders ────────────────────────────────────────────────────────────
-
-def _make_timestamp(ts: float) -> str:
-  dt = datetime.fromtimestamp(ts, tz=timezone.utc)
-  ms = dt.microsecond // 1000
-  return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{ms:03d}Z"
+def _build_lidar_msg(raw: dict, fps: float) -> dict:
+  return build_lidar_message(raw, LIDAR_SENSOR_ID, fps)
 
 
-def _resolve_lidar_label(obj: dict) -> "str | None":
-  label = obj.get("label")
-  if label and isinstance(label, str) and label.strip():
-    label = label.strip()
-    return label if label in ("vehicle", "cyclist") else None
-  lid = obj.get("label_id")
-  if lid is not None:
-    try:
-      return LIDAR_KITTI_LABELS.get(int(lid))
-    except (ValueError, TypeError):
-      return None
-  return None
+def _build_camera_msg(raw: dict, fps: float) -> dict:
+  return build_camera_message(raw, CAM_SENSOR_ID, fps, CAM_DETECTION_LABELS)
 
-
-def build_lidar_message(raw: dict, gst_to_wall, fps: float) -> dict:
-  """Wrap PointPillars 3-D detections in SceneScape camera-detection format."""
-  gst_ns = raw.get("lidar_frame", {}).get("exit_source_timestamp")
-  ts = _make_timestamp(gst_to_wall(int(gst_ns)) if gst_ns is not None else time.time())
-
-  objects: dict = {}
-  for i, obj in enumerate(raw.get("objects", [])):
-    bbox = obj.get("bbox_3d")
-    if not isinstance(bbox, dict) or "yaw" not in bbox:
-      continue
-    label = _resolve_lidar_label(obj)
-    if label is None:
-      continue
-    try:
-      sx, sy, sz = lidar_to_scene_offset(
-        bbox.get("x", 0.0), bbox.get("y", 0.0), bbox.get("z", 0.0)
-      )
-      objects.setdefault(label, []).append({
-        "id":          i + 1,
-        "category":    label,
-        "confidence":  obj.get("confidence", 0.0),
-        "translation": [sx, sy, sz],
-        "size":        [bbox.get("l", 0.0), bbox.get("w", 0.0), bbox.get("h", 0.0)],
-        "rotation":    bbox3d_to_quaternion(float(bbox["yaw"])),
-        # Lets the UI show which sensor produced this detection.
-        "source":      "lidar",
-      })
-    except (TypeError, ValueError):
-      continue
-
-  return {"id": LIDAR_SENSOR_ID, "timestamp": ts, "rate": round(fps, 2), "objects": objects}
-
-
-def build_camera_message(raw: dict, gst_to_wall, fps: float) -> dict:
-  """Wrap gvametaconvert 2-D detections in SceneScape camera-detection format."""
-  ts = _make_timestamp(time.time())
-
-  objects: dict = {}
-  for i, item in enumerate(raw.get("objects", [])):
-    detection = item.get("detection")
-    if not isinstance(detection, dict) or "confidence" not in detection:
-      continue
-    label = detection.get("label") or str(detection.get("label_id", ""))
-    label = label.strip()
-    if CAM_DETECTION_LABELS and label not in CAM_DETECTION_LABELS:
-      continue
-    try:
-      objects.setdefault(label, []).append({
-        "id":              i + 1,
-        "category":        label,
-        "confidence":      detection["confidence"],
-        "bounding_box_px": {
-          "x":      item["x"],
-          "y":      item["y"],
-          "width":  item["w"],
-          "height": item["h"],
-        },
-        "source":          "camera",
-      })
-    except (KeyError, TypeError):
-      continue
-
-  return {"id": CAM_SENSOR_ID, "timestamp": ts, "rate": round(fps, 2), "objects": objects}
-
-
-# ── MQTT helpers ───────────────────────────────────────────────────────────────
-
-class _MqttState:
-  """Tracks active clients so atexit always disconnects every stream's client."""
-
-  def __init__(self) -> None:
-    self.clients: "list[mqtt.Client]" = []
-
-  def add(self, client: mqtt.Client) -> None:
-    self.clients.append(client)
-
-  def shutdown(self) -> None:
-    for client in self.clients:
-      try:
-        client.loop_stop()
-        client.disconnect()
-      except Exception:
-        pass
-    self.clients = []
-
-
-_mqtt_state = _MqttState()
-
-
-def connect_mqtt(client_prefix: str, on_connect_setup=None) -> mqtt.Client:
-  """Connect and, on every (re)connect, re-run on_connect_setup (subscriptions/on_message)."""
-  client = mqtt.Client(client_id=f"{client_prefix}-{uuid.uuid4().hex[:8]}")
-  if os.path.exists(ROOT_CA):
-    client.tls_set(ca_certs=ROOT_CA)
-  for attempt in range(10):
-    try:
-      client.connect(BROKER, PORT, keepalive=60)
-      client.loop_start()
-      print(f"[{client_prefix}] Connected to {BROKER}:{PORT}", flush=True)
-      if on_connect_setup is not None:
-        on_connect_setup(client)
-      _mqtt_state.add(client)
-      return client
-    except Exception as exc:
-      print(f"[{client_prefix}] Connect attempt {attempt + 1}/10 failed: {exc}", flush=True)
-      time.sleep(2)
-  raise RuntimeError(f"[{client_prefix}] Could not connect to MQTT broker after 10 attempts")
-
-
-def safe_publish(
-  client: mqtt.Client, client_prefix: str, topic: str, payload: str, on_connect_setup=None,
-) -> mqtt.Client:
-  result = client.publish(topic, payload, qos=0)
-  if result.rc != mqtt.MQTT_ERR_SUCCESS:
-    print(f"[{client_prefix}] Publish failed rc={result.rc}, reconnecting...", flush=True)
-    try:
-      client.loop_stop()
-      client.disconnect()
-    except Exception:
-      pass
-    # New client on reconnect loses prior subscriptions/on_message, so replay them.
-    client = connect_mqtt(client_prefix, on_connect_setup=on_connect_setup)
-    client.publish(topic, payload, qos=0)
-  return client
-
-
-def _read_frame_as_jpeg_b64(path: str) -> "str | None":
-  """Read a frame file and base64 it as-is (already JPEG, no re-encode)."""
-  try:
-    with open(path, "rb") as f:
-      return base64.b64encode(f.read()).decode("ascii")
-  except Exception as exc:
-    print(f"[camera-publisher] Failed to read preview frame {path}: {exc}", flush=True)
-    return None
-
-
-def setup_getimage_responder(
-  client: mqtt.Client, sensor_id: str, data_path: str, frame_index_cell: list, start_index: int,
-) -> None:
-  """Answer the Manager UI's "getimage" command with the latest frame."""
-  image_topic = f"scenescape/image/camera/{sensor_id}"
-
-  def _on_message(msg_client, _userdata, message):
-    if message.payload.decode("utf-8", errors="replace").strip() != "getimage":
-      return
-    idx = frame_index_cell[0]
-    if idx is None:
-      return
-    b64 = _read_frame_as_jpeg_b64(data_path % idx) or _read_frame_as_jpeg_b64(data_path % start_index)
-    if b64 is not None:
-      msg_client.publish(image_topic, json.dumps({"image": b64}), qos=0)
-
-  client.subscribe(f"scenescape/cmd/camera/{sensor_id}")
-  client.on_message = _on_message
-
-
-# ── FIFO helpers ───────────────────────────────────────────────────────────────
 
 def _make_fifo(path: str) -> None:
   if os.path.exists(path):
@@ -323,62 +151,6 @@ def _open_fifo_background(path: str, result: list) -> threading.Thread:
   return t
 
 
-# ── Stream runner (shared by both LiDAR and camera branches) ──────────────────
-
-# Both branches replay the same recorded clip but are paced independently (the
-# camera by gvafpsthrottle, the LiDAR by inference throughput), so without
-# coupling they drift apart without bound. These shared counters plus a
-# Condition let each reader back-pressure its own FIFO whenever it gets more
-# than LAG_TOLERANCE frames ahead of the sibling, keeping the two aligned in
-# either direction (and holding the camera back until LiDAR's first frame).
-_lidar_ready = threading.Event()
-_stream_frame_counts: "dict[str, int]" = {"lidar-publisher": 0, "camera-publisher": 0}
-_stream_finished: "dict[str, bool]" = {"lidar-publisher": False, "camera-publisher": False}
-_stream_counts_cond = threading.Condition()
-
-# Max frames one branch may run ahead of the other before it is paced back.
-LAG_TOLERANCE = max(1, int(os.environ.get("LIDAR_CAM_LAG_TOLERANCE", "2")))
-
-
-def _sibling(name: str) -> str:
-  return "camera-publisher" if name == "lidar-publisher" else "lidar-publisher"
-
-
-def _mark_stream_finished(name: str) -> None:
-  """Release a sibling that may be waiting on this (now-stopped) stream."""
-  with _stream_counts_cond:
-    _stream_finished[name] = True
-    _stream_counts_cond.notify_all()
-
-
-def _record_frame(name: str, published: int) -> None:
-  with _stream_counts_cond:
-    _stream_frame_counts[name] = published
-    _stream_counts_cond.notify_all()
-
-
-def _wait_for_pace(name: str, published: int, proc: subprocess.Popen) -> bool:
-  """Block while this stream is >=LAG_TOLERANCE frames ahead of its sibling.
-
-  Not reading the FIFO fills the pipe, back-pressuring this branch's GStreamer
-  chain so it physically slows to the sibling's rate. Returns False if the
-  pipeline exited while waiting so the caller stops.
-  """
-  other = _sibling(name)
-  with _stream_counts_cond:
-    while True:
-      # Camera also holds until LiDAR's first frame (GPU model-load skew).
-      startup_hold = (name == "camera-publisher") and not _lidar_ready.is_set()
-      if _stream_finished.get(other, False):
-        return True  # sibling gone: don't stall waiting for it to advance
-      ahead = published - _stream_frame_counts.get(other, 0)
-      if not startup_hold and ahead < LAG_TOLERANCE:
-        return True
-      if proc.poll() is not None:
-        return False
-      _stream_counts_cond.wait(timeout=0.5)
-
-
 def run_stream(
   name: str,
   proc: subprocess.Popen,
@@ -388,25 +160,28 @@ def run_stream(
   raw_topic: str,
   frame_rate: float,
   build_message,
-  image_preview: "dict | None" = None,
+  image_preview: dict | None = None,
   is_lidar: bool = False,
+  catchup: LidarCatchUp | None = None,
 ) -> None:
-  """Read `proc`'s FIFO and publish detections to MQTT until it exits."""
+  """Read a detection FIFO and publish SceneScape MQTT messages until exit.
+
+  ``catchup`` is optional and file-playback-only (skip-unread staging).
+  Streams are independent — no pace-gate between camera and LiDAR.
+  """
   fifo_result: list = [None]
   fifo_thread = _open_fifo_background(fifo_path, fifo_result)
-
-  gst_to_wall = make_gst_to_wall()
 
   frame_index_cell = [None]
   resubscribe = None
   if image_preview is not None:
-    def resubscribe(c: mqtt.Client) -> None:
+    def resubscribe(c) -> None:
       setup_getimage_responder(
         c, image_preview["sensor_id"], image_preview["data_path"], frame_index_cell,
         image_preview["start_index"],
       )
 
-  client = connect_mqtt(name, on_connect_setup=resubscribe)
+  client = connect_mqtt(name, BROKER, PORT, _mqtt_state, on_connect_setup=resubscribe)
 
   fifo_thread.join(timeout=30.0)
   if fifo_result[0] is None:
@@ -414,7 +189,9 @@ def run_stream(
 
   published = 0
   fps = float(frame_rate)
-  last_ts: "float | None" = None
+  last_ts: float | None = None
+  last_inferred = LIDAR_START_INDEX
+  last_behind = 0
 
   with fifo_result[0] as fifo:
     for line in fifo:
@@ -426,34 +203,39 @@ def run_stream(
       if not line:
         continue
 
-      # Back-pressure this FIFO if we are running ahead of the sibling stream.
-      if not _wait_for_pace(name, published, proc):
-        break
-
       try:
         raw = json.loads(line)
       except json.JSONDecodeError as exc:
         print(f"[{name}] JSON error frame={published}: {exc}", flush=True)
+        # File catch-up: GStreamer already consumed this feed slot.
+        if is_lidar and catchup is not None:
+          last_inferred, last_behind = catchup.on_lidar_done()
         continue
 
       if is_lidar and not _lidar_ready.is_set():
         _lidar_ready.set()
-        with _stream_counts_cond:
-          _stream_counts_cond.notify_all()
-        print(f"[{name}] first LiDAR frame processed - releasing camera stream", flush=True)
+        print(f"[{name}] first LiDAR frame processed", flush=True)
 
-      gst_ns = raw.get("lidar_frame", {}).get("exit_source_timestamp")
-      now = gst_to_wall(int(gst_ns)) if gst_ns is not None else time.time()
+      if is_lidar and catchup is not None:
+        last_inferred, last_behind = catchup.on_lidar_done()
+
+      now = time.time()
       if last_ts is not None:
         fps = 0.9 * fps + 0.1 * (1.0 / max(now - last_ts, 0.001))
       last_ts = now
 
-      msg = build_message(raw, gst_to_wall, fps)
+      msg = build_message(raw, fps)
 
-      if sum(len(v) for v in msg["objects"].values()) > 0:
-        client = safe_publish(client, name, topic, json.dumps(msg), on_connect_setup=resubscribe)
+      # Contract: always publish, including empty objects, so tracks can clear.
+      client = safe_publish(
+        client, name, topic, json.dumps(msg), BROKER, PORT, _mqtt_state,
+        on_connect_setup=resubscribe,
+      )
       if publish_raw:
-        client = safe_publish(client, name, raw_topic, line, on_connect_setup=resubscribe)
+        client = safe_publish(
+          client, name, raw_topic, line, BROKER, PORT, _mqtt_state,
+          on_connect_setup=resubscribe,
+        )
 
       if image_preview is not None:
         start = image_preview["start_index"]
@@ -462,18 +244,26 @@ def run_stream(
         frame_index_cell[0] = start + (published % span if span else published)
 
       published += 1
-      _record_frame(name, published)
+      with _stream_counts_lock:
+        _stream_frame_counts[name] = published
+
+      if not is_lidar and catchup is not None:
+        catchup.nudge_lookahead()
 
       if published % 100 == 0:
         counts = {k: len(v) for k, v in msg["objects"].items()}
         if is_lidar:
-          # With the pace gate the lag stays bounded (|lag| <= LAG_TOLERANCE).
-          with _stream_counts_cond:
+          with _stream_counts_lock:
             cam_count = _stream_frame_counts.get("camera-publisher", 0)
-          lag = published - cam_count
+          extra = ""
+          if catchup is not None:
+            extra = (
+              f" idx={last_inferred} behind={last_behind}"
+              f" skipped={catchup.skipped_total}"
+            )
           print(
             f"[{name}] frames={published} fps={fps:.1f} objects={counts}"
-            f" cam={cam_count} (lag={lag})",
+            f" cam={cam_count}{extra}",
             flush=True,
           )
         else:
@@ -482,68 +272,65 @@ def run_stream(
   print(f"[{name}] Done - published {published} frames", flush=True)
 
 
-# ── Pipeline builders ──────────────────────────────────────────────────────────
-
-def _lidar_chain_parts() -> list:
-  parts = [
-    f"multifilesrc location={shlex.quote(LIDAR_DATA_PATH)} start-index={LIDAR_START_INDEX}",
-  ]
-  if LIDAR_STOP_INDEX is not None:
-    parts.append(f"stop-index={LIDAR_STOP_INDEX}")
-  if LIDAR_LOOP:
-    parts.append("loop=true")
-  parts += [
-    "caps=application/octet-stream",
-    f"! g3dlidarparse stride=1 frame-rate={LIDAR_FRAME_RATE}",
-    f"! g3dinference config={shlex.quote(LIDAR_MODEL_CONFIG)}"
-    f" device={shlex.quote(LIDAR_DEVICE)}"
-    f" score-threshold={LIDAR_SCORE_THRESHOLD}",
-    f"! gvametaconvert add-tensor-data={LIDAR_ADD_TENSOR_DATA} format=json",
-    f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(LIDAR_FIFO)}",
-    "! fakesink sync=false",
-  ]
-  return parts
-
-
-def _camera_chain_parts() -> list:
-  parts = [
-    f"multifilesrc location={shlex.quote(CAM_DATA_PATH)} start-index={CAM_START_INDEX}",
-  ]
-  if CAM_STOP_INDEX is not None:
-    parts.append(f"stop-index={CAM_STOP_INDEX}")
-  if CAM_LOOP:
-    parts.append("loop=true")
-  parts += [
-    "caps=image/jpeg",
-    "! jpegdec",
-    "! videoconvert",
-    "! video/x-raw,format=BGR",
-    f"! gvafpsthrottle target-fps={CAM_FRAME_RATE}",
-    f"! gvadetect model={shlex.quote(CAM_MODEL)}"
-    f" model-proc={shlex.quote(CAM_MODEL_PROC)}"
-    f" device={shlex.quote(CAM_DEVICE)}"
-    f" threshold={CAM_SCORE_THRESHOLD}",
-    "! gvametaconvert add-tensor-data=false format=json",
-    f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(CAM_FIFO)}",
-    "! fakesink sync=false",
-  ]
-  return parts
-
-
 def _build_combined_pipeline() -> str:
-  """Both chains as independent branches inside one gst-launch-1.0 invocation."""
-  return " ".join(["gst-launch-1.0"] + _camera_chain_parts() + _lidar_chain_parts())
+  """Both recorded-file chains as independent branches in one gst-launch."""
+  return " ".join(
+    ["gst-launch-1.0"]
+    + camera_multifilesrc_parts(
+      data_path=CAM_DATA_PATH,
+      start_index=CAM_START_INDEX,
+      stop_index=CAM_STOP_INDEX,
+      loop=CAM_LOOP,
+      frame_rate=CAM_FRAME_RATE,
+      model=CAM_MODEL,
+      model_proc=CAM_MODEL_PROC,
+      device=CAM_DEVICE,
+      score_threshold=CAM_SCORE_THRESHOLD,
+      fifo_path=CAM_FIFO,
+    )
+    + lidar_multifilesrc_parts(
+      skip_to_live=LIDAR_SKIP_TO_LIVE,
+      feed_dir=LIDAR_FEED_DIR,
+      data_path=LIDAR_DATA_PATH,
+      start_index=LIDAR_START_INDEX,
+      stop_index=LIDAR_STOP_INDEX,
+      loop=LIDAR_LOOP,
+      frame_rate=LIDAR_FRAME_RATE,
+      model_config=LIDAR_MODEL_CONFIG,
+      device=LIDAR_DEVICE,
+      score_threshold=LIDAR_SCORE_THRESHOLD,
+      add_tensor_data=LIDAR_ADD_TENSOR_DATA,
+      fifo_path=LIDAR_FIFO,
+    )
+  )
 
-
-# ── Main ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
   print(
     f"[lidar-publisher] lidar_sensor={LIDAR_SENSOR_ID} cam_sensor={CAM_SENSOR_ID} "
     f"broker={BROKER}:{PORT} lidar_topic={LIDAR_TOPIC} cam_topic={CAM_TOPIC} "
-    f"lidar_device={LIDAR_DEVICE} cam_device={CAM_DEVICE}",
+    f"lidar_device={LIDAR_DEVICE} cam_device={CAM_DEVICE} "
+    f"skip_to_live={LIDAR_SKIP_TO_LIVE}",
     flush=True,
   )
+
+  catchup = None
+  if LIDAR_SKIP_TO_LIVE:
+    catchup = LidarCatchUp(
+      data_path=LIDAR_DATA_PATH,
+      feed_dir=LIDAR_FEED_DIR,
+      start_index=LIDAR_START_INDEX,
+      cam_start=CAM_START_INDEX,
+      cam_stop=CAM_STOP_INDEX,
+      cam_loop=CAM_LOOP,
+      camera_index_fn=_camera_playback_index,
+    )
+    catchup.prime()
+    print(
+      f"[lidar-publisher] skip-to-live feed={LIDAR_FEED_DIR} "
+      f"first_idx={catchup.last_dataset_index}",
+      flush=True,
+    )
 
   _make_fifo(CAM_FIFO)
   _make_fifo(LIDAR_FIFO)
@@ -571,17 +358,17 @@ def main() -> None:
 
   def _run_and_capture(name, fifo_path, topic, publish_raw, raw_topic, frame_rate, build_message, image_preview=None, is_lidar=False):
     try:
-      run_stream(name, proc, fifo_path, topic, publish_raw, raw_topic, frame_rate, build_message, image_preview, is_lidar=is_lidar)
+      run_stream(
+        name, proc, fifo_path, topic, publish_raw, raw_topic, frame_rate, build_message,
+        image_preview, is_lidar=is_lidar, catchup=catchup,
+      )
     except Exception as exc:  # noqa: BLE001 - surface stream failure without killing the sibling stream
       print(f"[{name}] FATAL: {exc}", flush=True)
       errors.append(exc)
-    finally:
-      # Unblock a sibling that may be waiting on this stream's pace gate.
-      _mark_stream_finished(name)
 
   camera_thread = threading.Thread(
     target=_run_and_capture,
-    args=("camera-publisher", CAM_FIFO, CAM_TOPIC, CAM_PUBLISH_RAW, CAM_RAW_TOPIC, CAM_FRAME_RATE, build_camera_message),
+    args=("camera-publisher", CAM_FIFO, CAM_TOPIC, CAM_PUBLISH_RAW, CAM_RAW_TOPIC, CAM_FRAME_RATE, _build_camera_msg),
     kwargs={
       "image_preview": {
         "sensor_id": CAM_SENSOR_ID,
@@ -596,7 +383,7 @@ def main() -> None:
   camera_thread.start()
 
   _run_and_capture(
-    "lidar-publisher", LIDAR_FIFO, LIDAR_TOPIC, LIDAR_PUBLISH_RAW, LIDAR_RAW_TOPIC, LIDAR_FRAME_RATE, build_lidar_message,
+    "lidar-publisher", LIDAR_FIFO, LIDAR_TOPIC, LIDAR_PUBLISH_RAW, LIDAR_RAW_TOPIC, LIDAR_FRAME_RATE, _build_lidar_msg,
     is_lidar=True,
   )
 

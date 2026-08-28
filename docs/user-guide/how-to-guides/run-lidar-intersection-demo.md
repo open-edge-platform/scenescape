@@ -14,10 +14,11 @@
 > - **The recorded clip is very short:** playback is a single ~25-second,
 >   251-frame sequence (`LIDAR_START_INDEX`-`LIDAR_STOP_INDEX`, looped), not a
 >   representative long-running capture.
-> - **LiDAR/camera synchronization is a recorded-playback artifact:** see
->   [LiDAR/camera stream synchronization](#lidarcamera-stream-synchronization-recorded-playback-only)
->   below - it does not reflect how real, independently-clocked sensors
->   behave.
+> - **File playback is a live-sensor proxy:** streams run independently;
+>   when PointPillars is slower than the camera, unread LiDAR frames are
+>   skipped so detections stay on "now" (see
+>   [Live-sensor contract vs recorded-file proxy](#live-sensor-contract-vs-recorded-file-proxy)).
+>   Do not treat pace-coupling of the two branches as a deployment pattern.
 
 This guide walks through running the **LiDAR-Intersection fusion demo**, a
 separate, opt-in Scenescape demo that fuses a recorded LiDAR point-cloud
@@ -44,7 +45,9 @@ never affects the standard `make demo` deployment.
 | Asset                                                              | Purpose                                                                                                                                                                                                               |
 | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sample_data/lidar_intersection/docker-compose.lidar-override.yml` | Opt-in Compose override adding the `lidar-scene-init`, `lidar-data-init`, `lidar-model-init`, and `lidar-stream` services                                                                                             |
-| `sample_data/lidar_intersection/lidar_publisher.py`                | Runs the LiDAR (PointPillars) and camera (person-vehicle-bike) GStreamer pipelines and publishes detections over MQTT                                                                                                 |
+| `sample_data/lidar_intersection/lidar_publisher.py`                | Demo entrypoint: env config, GStreamer process, wires contract + file playback                                                                                                                                         |
+| `sample_data/lidar_intersection/lidar_sensor_contract.py`          | Input-agnostic SceneScape detection MQTT contract (wall-clock stamps, transforms, message builders)                                                                                                                    |
+| `sample_data/lidar_intersection/lidar_file_playback.py`            | Recorded-file proxy only (`multifilesrc`, skip-unread feed staging, dataset index helpers, file-backed getimage)                                                                                                       |
 | `sample_data/lidar_intersection/convert_pcd_to_bin.py`             | Converts the manually-downloaded dataset's `.pcd` LiDAR frames to the `.bin` format `lidar_publisher.py`/DLStreamer expect - see [Prerequisites](#prerequisites)                                                      |
 | `sample_data/lidar_intersection/reencode_jpegs.py`                 | Re-encodes the dataset's `.jpg` camera frames at a lower JPEG quality (same resolution) so decode/detect/preview keep up with `CAM_FRAME_RATE`                                                                        |
 | `sample_data/lidar_intersection/patches/`                          | Demo-only patches, one per component (Manager, scene_common, Analytics), applied automatically when building with `make build-core-lidar`                                                                             |
@@ -68,7 +71,7 @@ flowchart LR
 
     subgraph stream["lidar-stream (one gst-launch-1.0 process)"]
         direction LR
-        LidarBranch["multifilesrc(.bin) -> g3dlidarparse\n-> g3dinference(PointPillars, GPU)\n-> gvametaconvert -> gvametapublish"]
+        LidarBranch["skip-to-live feed(.bin) -> g3dlidarparse\n-> g3dinference(PointPillars)\n-> gvametaconvert -> gvametapublish"]
         CamBranch["multifilesrc(.jpg) -> jpegdec -> videoconvert\n-> gvafpsthrottle -> gvadetect(person-vehicle-bike, CPU)\n-> gvametaconvert -> gvametapublish"]
         Pub["lidar_publisher.py\n(reads both FIFOs, builds MQTT messages)"]
         LidarBranch -->|FIFO| Pub
@@ -373,11 +376,11 @@ voxel-based 3-D CNN, noticeably heavier than the 2-D `person-vehicle-bike`
 detector the camera branch uses, and it runs in the same `gst-launch-1.0`
 process/host that also has to keep decoding and detecting camera frames.
 On CPU, PointPillars inference routinely can't keep up with the default
-`LIDAR_FRAME_RATE=10`. The
-[pace gate](#lidarcamera-stream-synchronization-recorded-playback-only)
-keeps `lag` bounded, so the symptom is not runaway lag but **both** branches'
-`fps=` values sitting below `LIDAR_FRAME_RATE`. Prefer GPU; fall back to CPU
-only when none is available, and expect choppier playback.
+`LIDAR_FRAME_RATE=10` / camera throttle. **Skip-to-live** (default) drops
+unread `.bin` frames so LiDAR detections stay on camera "now" instead of
+coupling the camera to LiDAR's rate. Prefer GPU for denser LiDAR updates;
+fall back to CPU only when none is available (expect sparser LiDAR,
+`skipped=` rising in the logs).
 
 **Falling back to CPU** (e.g. no GPU available): in
 `sample_data/lidar_intersection/docker-compose.lidar-override.yml`,
@@ -403,7 +406,8 @@ variables (see the commented examples in
 | `CAM_DEVICE`              | `CPU`                 | OpenVINO device for the camera detector                                                        |
 | `CAM_SCORE_THRESHOLD`     | `0.8`                 | Minimum detection confidence to publish                                                        |
 | `CAM_DETECTION_LABELS`    | `vehicle,cyclist`     | Comma-separated category allow-list                                                            |
-| `LIDAR_CAM_LAG_TOLERANCE` | `2`                   | Max frames one branch may run ahead of the other before it is paced back (keeps `lag` bounded) |
+| `LIDAR_SKIP_TO_LIVE`      | `true`                | File-playback: skip unread `.bin` frames so LiDAR stays on camera-now (live drop-stale proxy)  |
+| `LIDAR_FEED_DIR`          | `/tmp/lidar_feed`     | File-playback only: directory of hardlinked `.bin` slots for skip-to-live (`multifilesrc`)     |
 
 `lidar-data-init` (the dataset conversion step) has its own variable, set as
 a `docker compose`/Makefile-level environment variable rather than inside
@@ -445,9 +449,12 @@ make revert-lidar-patch   # revert them back to the unpatched source
 
 ## Rotation/orientation handling
 
-LiDAR gives real 3-D orientation (`rotation` on each detection) directly from
-PointPillars, used as-is. The Controller's existing (unpatched) camera-only
-heading inference (`inferRotationFromVelocity()`, gated by
+LiDAR detections publish a SceneScape ``[x, y, z, w]`` quaternion derived from
+PointPillars yaw after the LiDAR->scene axis map
+(``scene_yaw = -yaw``; PointPillars ``theta`` is 90 degrees off a pure
+heading-vector transform of ``(x, y) -> (-y, -x)``). The Controller then tracks that heading as a
+Z-yaw (see ``_quaternion_to_yaw`` / ``_yaw_to_quaternion``). The Controller's
+existing camera-only heading inference (`inferRotationFromVelocity()`, gated by
 `has_detection_rotation` being false and the class's `rotation_from_velocity`
 flag) still applies to `intersection-cam1`'s 2-D detections: when enabled,
 heading is inferred from the Kalman-estimated velocity direction with
@@ -455,59 +462,60 @@ hysteresis (`SPEED_THRESHOLD_ON`/`OFF`) to avoid flapping at low speed.
 
 The `vehicle`/`cyclist` default assets seeded by patch `0001` (above) set
 `rotation_from_velocity=true` so this existing feature is active out of the
-box for this demo's camera-sourced tracks. No LiDAR-specific rotation fix is
-applied - PointPillars' own front/back heading ambiguity (a known limitation
-of oriented-bbox 3-D detectors) is not corrected here. If you reset the
-objects library or add these classes another way, re-enable it per class
-from the Manager UI's asset config (or `manager_asset3d.rotation_from_velocity`
-directly) to keep this behavior.
+box for this demo's camera-sourced tracks. PointPillars' own front/back
+heading ambiguity (a known limitation of oriented-bbox 3-D detectors) is not
+corrected here. If you reset the objects library or add these classes another
+way, re-enable it per class from the Manager UI's asset config (or
+`manager_asset3d.rotation_from_velocity` directly) to keep this behavior.
 
-## LiDAR/camera stream synchronization (recorded-playback only)
+## Live-sensor contract vs recorded-file proxy
 
-`lidar_publisher.py` replays two independent pre-recorded file sequences (the
-`.bin` LiDAR frames and the `.jpg` camera frames) as two branches of one
-`gst-launch-1.0` process, each paced by its own `multifilesrc`/
-`gvafpsthrottle`. Because PointPillars can take several seconds to load and
-compile on first use while the camera branch starts producing frames almost
-immediately, the camera branch would otherwise race ahead of the LiDAR
-branch by a growing number of file-index positions before LiDAR ever
-publishes its first detection.
+File playback is a stand-in for live sensors. Keep that split visible in the
+code:
 
-To keep the two recorded sequences aligned, the script:
+| Concern | Module | Applies to live sensors? |
+| --- | --- | --- |
+| MQTT payload shape, wall-clock timestamps, LiDAR→scene transforms, always-publish (including empty) | `lidar_sensor_contract.py` | Yes |
+| Numbered `.bin`/`.jpg` sequences, `multifilesrc`, skip-unread feed staging (`LidarCatchUp`), file-backed `getimage` | `lidar_file_playback.py` | No (mechanism); the *policy* of dropping unread samples when inference is slow matches live ring-buffer / latest-frame behavior |
+| Env wiring + process orchestration | `lidar_publisher.py` | Demo entrypoint |
 
-- Holds the camera branch back until LiDAR's own first frame is processed
-  (`_lidar_ready` in `lidar_publisher.py`), logged as
-  `[lidar-publisher] first LiDAR frame processed - releasing camera stream`.
-- Then keeps both branches paced to each other with a **bidirectional
-  back-pressure gate**: whichever branch gets more than
-  `LIDAR_CAM_LAG_TOLERANCE` frames ahead of the other stops draining its own
-  FIFO, which fills the pipe and back-pressures that branch's GStreamer chain
-  so it physically slows to the sibling's rate. This bounds the drift in
-  **either** direction (camera-ahead or LiDAR-ahead), so the coupled pair
-  effectively plays back at the rate of whichever branch is momentarily
-  slower.
-- Logs a running `cam=<count> (lag=<n>)` value alongside every 100th LiDAR
-  frame in `docker compose logs lidar-stream`, so you can see at a glance
-  whether the two streams are keeping pace with each other.
+`lidar_publisher.py` replays two independent pre-recorded file sequences as
+two branches of one `gst-launch-1.0` process. The camera branch is paced by
+`gvafpsthrottle` at `CAM_FRAME_RATE`. PointPillars is usually slower,
+especially on CPU.
 
-**This is purely a recorded-playback artifact and does not apply to real
-sensors.** A real LiDAR unit and a real camera each publish their own
-hardware/NTP-timestamped detections continuously and independently as they
-capture live data - there is no shared "file index"/`multifilesrc` counter to
-keep aligned, and no GPU-model-load-vs-camera-startup race to reconcile,
-since a live LiDAR sensor is already running and producing detections
-continuously well before (and after) any given camera comes online. The
-Scene Controller's per-sensor Hungarian association/fusion already handles
-sensors that start, stop, or report at different rates generically - this
-script-level startup-flush/pace-gate logic exists only to make a
-pre-recorded demo behave sensibly, not because live multi-sensor fusion
-needs it. With the pace gate, `lag` stays bounded to roughly
-`±LIDAR_CAM_LAG_TOLERANCE` once the demo is running; if you see it stuck at
-that bound while **both** branches' `fps=` values sit below
-`LIDAR_FRAME_RATE`, that means one branch genuinely can't keep up and is
-holding the other back (see
-[Using GPU acceleration](#using-gpu-acceleration)) - raise the LiDAR to GPU
-or lower the target frame rate rather than letting the two drift apart.
+### Why skip-to-live instead of pace-gate
+
+When PointPillars cannot hold the camera frame rate, two demo strategies
+are possible:
+
+| Approach | Behavior | Deployment lesson |
+| --- | --- | --- |
+| **Pace-gate** | Whichever branch runs ahead stops until the sibling catches up, so both play at ~min(camera, LiDAR) rate | Teaches coupling: a fast sensor waits on a slow one |
+| **Skip-to-live** (default) | Camera keeps its rate; unread LiDAR `.bin` frames are dropped so each inference uses camera-now | Matches live capture: drop stale samples, publish "now" |
+
+This demo uses **skip-to-live**. File playback is a proxy for live sensors,
+and live cameras do not pause for LiDAR. Pace-gating makes a short clip look
+smoothly synchronized, but that pattern does not belong in real
+multi-sensor deployments — the Scene Controller already fuses independent
+streams at different rates. Prefer a sparser-but-current LiDAR contribution
+over slowing the whole scene to PointPillars throughput.
+
+**Skip-to-live (default, `LIDAR_SKIP_TO_LIVE=true`):** after each PointPillars
+result, the file-playback adapter stages the `.bin` that matches the camera
+branch's current playback index and skips unread files in between. MQTT
+timestamps for both sensors use wall clock (sensor contract), so a slow
+LiDAR still contributes "now". LiDAR detections become sparser when
+inference is slow; they do not drift into the past. Logs include `idx=`
+(dataset index just inferred), `behind=` (how far that index is behind
+camera-now), and `skipped=` (cumulative unread bins dropped).
+
+Set `LIDAR_SKIP_TO_LIVE=false` only to force every `.bin` in order (detector
+QA). In that mode a slow device will fall behind the camera again.
+
+A real LiDAR and camera each publish independently at their own rates.
+Reuse `lidar_sensor_contract.py` for payload and timing; replace
+`lidar_file_playback.py` with live capture that feeds inference.
 
 ## Troubleshooting
 
@@ -553,15 +561,11 @@ lidar-scene-init` if needed.
   `lidar-data-init` completed (the preview needs the same extracted `.jpg`
   frames as detection). `intersection-lidar1` has no camera picture and will
   always show offline/no-preview - that's expected for a LiDAR sensor.
-- **`cam=... (lag=...)` grows past `±LIDAR_CAM_LAG_TOLERANCE` in `docker
-compose logs lidar-stream`:** the bidirectional pace gate normally holds
-  `lag` within roughly `±LIDAR_CAM_LAG_TOLERANCE` (default 2). A brief
-  overshoot right after startup is fine (FIFO/read-ahead buffering), but a
-  `lag` that keeps growing means the gate is not engaging - check that neither branch has
-  crashed (`[camera-publisher]`/`[lidar-publisher] FATAL`/`Done` lines). If
-  `lag` instead sits pinned at the tolerance while **both** `fps=` values are
-  below `LIDAR_FRAME_RATE`, the streams are aligned but one branch can't keep
-  up - see
-  [LiDAR/camera stream synchronization](#lidarcamera-stream-synchronization-recorded-playback-only)
-  and [Using GPU acceleration](#using-gpu-acceleration) (usually the LiDAR
-  branch running on CPU); move LiDAR to GPU or lower `LIDAR_FRAME_RATE`.
+- **`behind=` stays large or `skipped=` never increases in `docker compose
+logs lidar-stream`:** skip-to-live should keep `behind` small after
+  PointPillars finishes loading (the first frame can still be the sequence
+  start). If `behind` grows without `skipped` increasing, confirm
+  `LIDAR_SKIP_TO_LIVE` is not `false` and check for `LiDAR frame missing`
+  errors. See
+  [Live-sensor contract vs recorded-file proxy](#live-sensor-contract-vs-recorded-file-proxy)
+  and [Using GPU acceleration](#using-gpu-acceleration).

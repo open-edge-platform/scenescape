@@ -160,6 +160,11 @@ services:
       # - LIDAR_STOP_INDEX=010949
       # - LIDAR_LOOP=true
       # - LIDAR_FRAME_RATE=10
+      # File-playback only: skip unread bins so inference stays on camera-now
+      # (live drop-stale stand-in; see lidar_file_playback.py). Set false to
+      # process every .bin in order (QA). Default true.
+      # - LIDAR_SKIP_TO_LIVE=true
+      # - LIDAR_FEED_DIR=/tmp/lidar_feed
       # GPU is the default (see note above); CPU works but is noticeably
       # slower for PointPillars inference — set to CPU only as a fallback
       # when no GPU/drivers are available.
@@ -176,14 +181,11 @@ services:
       - CAM_DEVICE=CPU
       - CAM_SCORE_THRESHOLD=0.8
       # - CAM_DETECTION_LABELS=vehicle,cyclist
-
-      ### Stream sync — override as needed:
-      # Max frames one branch may run ahead of the other before it is paced
-      # back (keeps the LiDAR/camera `lag` bounded); raise it to allow more
-      # slack, lower it (min 1) to keep the two branches tighter.
-      # - LIDAR_CAM_LAG_TOLERANCE=2
     volumes:
+      # Entrypoint + sibling modules (sensor contract vs file-playback adapter).
       - ./sample_data/lidar_intersection/lidar_publisher.py:/home/pipeline-server/user_scripts/lidar_publisher.py:ro
+      - ./sample_data/lidar_intersection/lidar_sensor_contract.py:/home/pipeline-server/user_scripts/lidar_sensor_contract.py:ro
+      - ./sample_data/lidar_intersection/lidar_file_playback.py:/home/pipeline-server/user_scripts/lidar_file_playback.py:ro
       - ./sample_data/lidar_intersection/model-proc:/home/pipeline-server/videos/lidar_intersection/model-proc:ro
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
