@@ -176,8 +176,7 @@ help:
 	@echo "  - ReID demo targets (demo-reid, demo-all, demo-k8s with DEMO_K8S_MODE=reid|all)"
 	@echo "    default to REID_BACKEND=vdms. Set REID_BACKEND=qdrant to use Qdrant instead."
 	@echo "  - Set LIDAR_DEMO=true to additionally start the LiDAR-intersection fusion demo"
-	@echo "    (separate 'Lidar Intersection' scene, own assets under sample_data/lidar_intersection/)."
-	@echo "    See docs/user-guide/how-to-guides/run-lidar-intersection-demo.md for setup steps."
+	@echo "    See docs/user-guide/how-to-guides/run-lidar-intersection-demo.md for prerequisites and setup steps."
 	@echo ""
 
 # ========================= Build Images =============================
