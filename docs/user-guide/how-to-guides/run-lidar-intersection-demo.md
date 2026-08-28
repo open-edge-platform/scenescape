@@ -46,6 +46,7 @@ never affects the standard `make demo` deployment.
 | `sample_data/lidar_intersection/docker-compose.lidar-override.yml` | Opt-in Compose override adding the `lidar-scene-init`, `lidar-data-init`, `lidar-model-init`, and `lidar-stream` services                                                                                             |
 | `sample_data/lidar_intersection/lidar_publisher.py`                | Runs the LiDAR (PointPillars) and camera (person-vehicle-bike) GStreamer pipelines and publishes detections over MQTT                                                                                                 |
 | `sample_data/lidar_intersection/convert_pcd_to_bin.py`             | Converts the manually-downloaded dataset's `.pcd` LiDAR frames to the `.bin` format `lidar_publisher.py`/DLStreamer expect - see [Prerequisites](#prerequisites)                                                      |
+| `sample_data/lidar_intersection/reencode_jpegs.py`                 | Re-encodes the dataset's `.jpg` camera frames at a lower JPEG quality (same resolution) so decode/detect/preview keep up with `CAM_FRAME_RATE`                                                                        |
 | `sample_data/lidar_intersection/patches/`                          | Demo-only patches, one per component (Manager, scene_common, Analytics), applied automatically when building with `make build-core-lidar`                                                                             |
 | `sample_data/lidar_intersection/`                                  | Scene config, map image, scene-import ZIP, and the PointPillars model installer, all scoped to this demo (the recorded LiDAR/camera frames themselves are NOT part of the repo - see [Prerequisites](#prerequisites)) |
 
@@ -190,12 +191,12 @@ make demo-lidar
 
 This starts four extra containers, on top of the normal demo services:
 
-| Service            | Role                                                                                                                                                                                                                                                                                   |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lidar-scene-init` | One-shot: seeds the "Lidar Intersection" scene, camera, and sensor via the Scene Import REST API (idempotent - skips if the scene already exists)                                                                                                                                      |
-| `lidar-data-init`  | One-shot: converts the manually-downloaded raw dataset's `.pcd` LiDAR frames to `.bin` (via `convert_pcd_to_bin.py`) and copies its `.jpg` camera frames into the shared sample-data volume - only mounts the `image/`/`velodyne/` subdirectories, see [Prerequisites](#prerequisites) |
-| `lidar-model-init` | One-shot: builds and installs the PointPillars OpenVINO model + GStreamer inference extension into the shared models volume (first run only; can take several minutes)                                                                                                                 |
-| `lidar-stream`     | Long-running: runs both GStreamer pipelines and publishes fused-ready detections over MQTT                                                                                                                                                                                             |
+| Service            | Role                                                                                                                                                                                                                                                                                                                                         |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lidar-scene-init` | One-shot: seeds the "Lidar Intersection" scene, camera, and sensor via the Scene Import REST API (idempotent - skips if the scene already exists)                                                                                                                                                                                            |
+| `lidar-data-init`  | One-shot: converts the manually-downloaded raw dataset's `.pcd` LiDAR frames to `.bin` (via `convert_pcd_to_bin.py`) and re-encodes its `.jpg` camera frames at a lower JPEG quality (via `reencode_jpegs.py`) into the shared sample-data volume - only mounts the `image/`/`velodyne/` subdirectories, see [Prerequisites](#prerequisites) |
+| `lidar-model-init` | One-shot: builds and installs the PointPillars OpenVINO model + GStreamer inference extension into the shared models volume (first run only; can take several minutes)                                                                                                                                                                       |
+| `lidar-stream`     | Long-running: runs both GStreamer pipelines and publishes fused-ready detections over MQTT                                                                                                                                                                                                                                                   |
 
 Check the one-shot containers completed successfully, and that `lidar-stream`
 is running:
@@ -225,6 +226,14 @@ Converting 251 frames from /src/velodyne -> /dst/lidar_intersection/velodyne_bin
   250/251 done
   251/251 done
 Conversion complete.
+Re-encoding 251 frames from /src/image -> /dst/lidar_intersection/images at quality=50
+  50/251 done
+  100/251 done
+  150/251 done
+  200/251 done
+  250/251 done
+  251/251 done
+Re-encoding complete.
 lidar_intersection data ready
 ```
 
@@ -406,6 +415,7 @@ the compose file itself:
 | Variable                | Default                                                | Description                                                                                                                     |
 | ----------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
 | `LIDAR_RAW_DATASET_DIR` | `./sample_data/lidar_intersection/V2X-Seq-SPD-Example` | Host path to the extracted raw dataset (must contain an `infrastructure-side/` directory) - see [Prerequisites](#prerequisites) |
+| `JPEG_QUALITY`          | `50`                                                   | JPEG re-encode quality (1-95) applied to camera frames by `reencode_jpegs.py` - lower is faster to decode/detect but blockier   |
 
 ## Demo-only patches
 
