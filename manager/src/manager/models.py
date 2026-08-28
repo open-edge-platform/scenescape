@@ -842,14 +842,14 @@ class Cam(Sensor):
       self.cv_subsystem = 'AUTO'
 
     super().save(*args, **kwargs)
-    
+
     # Invalidate the scene cache after saving
     if self.scene is not None:
       SceneLoader.scenes.pop(self.scene.name, None)
     if scene_changed and original_scene is not None:
       # Also invalidate the old scene cache if scene was reassigned
       SceneLoader.scenes.pop(original_scene.name, None)
-    
+
     transaction.on_commit(partial(sendUpdateCommand,
                                   camera_data = self.cameraData('save')))
     return
