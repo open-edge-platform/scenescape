@@ -81,7 +81,8 @@ flowchart LR
     Pub -->|"scenescape/data/camera/intersection-cam1\n(2-D bounding_box_px)"| MQTT
     SceneInit -.->|imports scene/sensors once| Manager["Manager (web)"]
     MQTT --> Controller["Scene Controller\n(fuses LiDAR + camera per-sensor detections)"]
-    Controller -->|"scenescape/regulated/scene/{scene_uid}"| Manager
+    Controller -->|"scenescape/regulated/scene/{scene_uid}"| MQTT
+    MQTT --> Manager
 ```
 
 `lidar-data-init`/`lidar-model-init`/`lidar-scene-init` are one-shot
