@@ -24,36 +24,7 @@ Prebuilt containers are published on Docker Hub:
 - [Scenescape Cluster Analytics](https://hub.docker.com/r/intel/scenescape-cluster-analytics)
 - [Scenescape Mapping](https://hub.docker.com/r/intel/scenescape-mapping)
 
-## 4. Configure preloaded scenes at deployment
-
-Scenes are not preloaded while the database is initialized. They are uploaded
-through the REST API once the deployment is running, by the standalone
-`tools/upload_scenes/upload-scenes` client. It takes the URL of the web API and a
-directory holding one exported scene archive (`.zip`) per scene, as produced by
-the "Export Scene" button of the web UI. The demo archives live in
-`sample_data/demo_scenes`.
-
-Install its dependencies once with
-`pip install -r tools/upload_scenes/requirements.txt`.
-
-- **Load the demo scenes:** `make demo` does this automatically; run it again at
-  any time with `make demo-scenes`. Scenes that already exist are skipped.
-- **Load your own scenes:** run the client directly against any deployment:
-
-  ```bash
-  python3 tools/upload_scenes/upload-scenes \
-    --restauth manager/secrets/controller.auth \
-    --rootcert manager/secrets/certs/scenescape-ca.pem \
-    https://web.scenescape.intel.com/api/v1 ./my-scenes
-  ```
-
-  `--restauth` also accepts a `user:password` string, and `--insecure` skips
-  certificate verification when the deployment is reached under a name the
-  certificate was not issued for, such as `https://localhost`.
-
-- **Skip loading scenes:** do not run `make demo-scenes`.
-
-## 5. Start Services
+## 4. Start Services
 
 Start the demo without rebuilding local images (relies entirely on the prebuilt containers):
 
@@ -62,6 +33,32 @@ SUPASS=<password> DEMO_REBUILD_IMAGES=false make demo
 ```
 
 > `DEMO_REBUILD_IMAGES=false` skips the re-building images locally from source.
+
+## 5. Load Scenes with the Scene Upload Tool
+
+The database starts empty; nothing is preloaded at startup. `make demo` already
+uploads the sample scenes for you once the deployment is healthy, by calling
+`make demo-scenes`, which runs the standalone `tools/upload_scenes/upload-scenes`
+client against `sample_data/demo_scenes` (one exported scene archive, `.zip`,
+per scene, as produced by the "Export Scene" button of the web UI). Scenes that
+already exist are skipped, so re-running it is safe.
+
+Install the tool's dependencies once with
+`pip install -r tools/upload_scenes/requirements.txt`.
+
+To load your own scenes into an already-running deployment, point the tool at
+a different directory of exported archives:
+
+```bash
+python3 tools/upload_scenes/upload-scenes \
+  --restauth manager/secrets/controller.auth \
+  --rootcert manager/secrets/certs/scenescape-ca.pem \
+  https://web.scenescape.intel.com/api/v1 ./my-scenes
+```
+
+`--restauth` also accepts a `user:password` string, and `--insecure` skips
+certificate verification when the deployment is reached under a name the
+certificate was not issued for, such as `https://localhost`.
 
 Verify that all containers are running:
 
