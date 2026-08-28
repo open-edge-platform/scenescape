@@ -22,11 +22,11 @@ DEBUG = os.getenv('DJANGO_DEBUG', 'False').lower() in ['true', '1', 't']
 def get_allowed_hosts():
   """
   Determine allowed hosts for Django's HOST header validation.
-  
+
   Priority (highest to lowest):
   1. SCENESCAPE_ALLOWED_HOSTS env var (comma-separated list)
   2. Fallback to ['*'] for backwards compatibility
-  
+
   Environment variables should contain comma-separated host values:
   - SCENESCAPE_ALLOWED_HOSTS=example.com,10.0.0.1
   """
