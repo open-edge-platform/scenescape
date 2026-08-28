@@ -94,7 +94,6 @@ CONTROLLER_TRACING_SAMPLE_RATIO ?= 1.0
 default: build-core
 
 .PHONY: build-core
-<<<<<<< HEAD
 build-core: init-secrets build-core-images install-models
 
 .PHONY: build-all
@@ -102,16 +101,6 @@ build-all: init-secrets build-all-images install-models
 
 .PHONY: build-core-lidar
 build-core-lidar: init-secrets apply-lidar-patch build-core-images revert-lidar-patch install-models
-=======
-build-core: init-secrets
-	$(call build_with_optional_lidar_patches,build-core-images)
-	@$(MAKE) install-models
-
-.PHONY: build-all
-build-all: init-secrets
-	$(call build_with_optional_lidar_patches,build-all-images)
-	@$(MAKE) install-models
->>>>>>> 430292fa3cbc1908b4192fcc98bcbf888d11a746
 
 # ============================== Help ================================
 
