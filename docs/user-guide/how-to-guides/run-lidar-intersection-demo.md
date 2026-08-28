@@ -45,9 +45,9 @@ never affects the standard `make demo` deployment.
 | Asset                                                              | Purpose                                                                                                                                                                                                               |
 | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sample_data/lidar_intersection/docker-compose.lidar-override.yml` | Opt-in Compose override adding the `lidar-scene-init`, `lidar-data-init`, `lidar-model-init`, and `lidar-stream` services                                                                                             |
-| `sample_data/lidar_intersection/lidar_publisher.py`                | Demo entrypoint: env config, GStreamer process, wires contract + file playback                                                                                                                                         |
-| `sample_data/lidar_intersection/lidar_sensor_contract.py`          | Input-agnostic SceneScape detection MQTT contract (wall-clock stamps, transforms, message builders)                                                                                                                    |
-| `sample_data/lidar_intersection/lidar_file_playback.py`            | Recorded-file proxy only (`multifilesrc`, skip-unread feed staging, dataset index helpers, file-backed getimage)                                                                                                       |
+| `sample_data/lidar_intersection/lidar_publisher.py`                | Demo entrypoint: env config, GStreamer process, wires contract + file playback                                                                                                                                        |
+| `sample_data/lidar_intersection/lidar_sensor_contract.py`          | Input-agnostic SceneScape detection MQTT contract (wall-clock stamps, transforms, message builders)                                                                                                                   |
+| `sample_data/lidar_intersection/lidar_file_playback.py`            | Recorded-file proxy only (`multifilesrc`, skip-unread feed staging, dataset index helpers, file-backed getimage)                                                                                                      |
 | `sample_data/lidar_intersection/convert_pcd_to_bin.py`             | Converts the manually-downloaded dataset's `.pcd` LiDAR frames to the `.bin` format `lidar_publisher.py`/DLStreamer expect - see [Prerequisites](#prerequisites)                                                      |
 | `sample_data/lidar_intersection/reencode_jpegs.py`                 | Re-encodes the dataset's `.jpg` camera frames at a lower JPEG quality (same resolution) so decode/detect/preview keep up with `CAM_FRAME_RATE`                                                                        |
 | `sample_data/lidar_intersection/patches/`                          | Demo-only patches, one per component (Manager, scene_common, Analytics), applied automatically when building with `make build-core-lidar`                                                                             |
@@ -395,19 +395,19 @@ The `lidar-stream` service reads its configuration from environment
 variables (see the commented examples in
 `sample_data/lidar_intersection/docker-compose.lidar-override.yml`):
 
-| Variable                  | Default               | Description                                                                                    |
-| ------------------------- | --------------------- | ---------------------------------------------------------------------------------------------- |
-| `LIDAR_SENSOR_ID`         | `intersection-lidar1` | Sensor id used for the MQTT topic and payload                                                  |
-| `LIDAR_DEVICE`            | `GPU`                 | OpenVINO device for PointPillars inference (`CPU` fallback is much slower)                     |
-| `LIDAR_SCORE_THRESHOLD`   | `0.70`                | Minimum detection confidence to publish                                                        |
-| `LIDAR_FRAME_RATE`        | `10`                  | Target playback frame rate                                                                     |
-| `LIDAR_LOOP`              | `true`                | Loop the recorded frame sequence                                                               |
-| `CAM_SENSOR_ID`           | `intersection-cam1`   | Sensor id used for the MQTT topic and payload                                                  |
-| `CAM_DEVICE`              | `CPU`                 | OpenVINO device for the camera detector                                                        |
-| `CAM_SCORE_THRESHOLD`     | `0.8`                 | Minimum detection confidence to publish                                                        |
-| `CAM_DETECTION_LABELS`    | `vehicle,cyclist`     | Comma-separated category allow-list                                                            |
-| `LIDAR_SKIP_TO_LIVE`      | `true`                | File-playback: skip unread `.bin` frames so LiDAR stays on camera-now (live drop-stale proxy)  |
-| `LIDAR_FEED_DIR`          | `/tmp/lidar_feed`     | File-playback only: directory of hardlinked `.bin` slots for skip-to-live (`multifilesrc`)     |
+| Variable                | Default               | Description                                                                                   |
+| ----------------------- | --------------------- | --------------------------------------------------------------------------------------------- |
+| `LIDAR_SENSOR_ID`       | `intersection-lidar1` | Sensor id used for the MQTT topic and payload                                                 |
+| `LIDAR_DEVICE`          | `GPU`                 | OpenVINO device for PointPillars inference (`CPU` fallback is much slower)                    |
+| `LIDAR_SCORE_THRESHOLD` | `0.70`                | Minimum detection confidence to publish                                                       |
+| `LIDAR_FRAME_RATE`      | `10`                  | Target playback frame rate                                                                    |
+| `LIDAR_LOOP`            | `true`                | Loop the recorded frame sequence                                                              |
+| `CAM_SENSOR_ID`         | `intersection-cam1`   | Sensor id used for the MQTT topic and payload                                                 |
+| `CAM_DEVICE`            | `CPU`                 | OpenVINO device for the camera detector                                                       |
+| `CAM_SCORE_THRESHOLD`   | `0.8`                 | Minimum detection confidence to publish                                                       |
+| `CAM_DETECTION_LABELS`  | `vehicle,cyclist`     | Comma-separated category allow-list                                                           |
+| `LIDAR_SKIP_TO_LIVE`    | `true`                | File-playback: skip unread `.bin` frames so LiDAR stays on camera-now (live drop-stale proxy) |
+| `LIDAR_FEED_DIR`        | `/tmp/lidar_feed`     | File-playback only: directory of hardlinked `.bin` slots for skip-to-live (`multifilesrc`)    |
 
 `lidar-data-init` (the dataset conversion step) has its own variable, set as
 a `docker compose`/Makefile-level environment variable rather than inside
@@ -449,11 +449,11 @@ make revert-lidar-patch   # revert them back to the unpatched source
 
 ## Rotation/orientation handling
 
-LiDAR detections publish a SceneScape ``[x, y, z, w]`` quaternion derived from
+LiDAR detections publish a SceneScape `[x, y, z, w]` quaternion derived from
 PointPillars yaw after the LiDAR->scene axis map
-(``scene_yaw = -yaw``; PointPillars ``theta`` is 90 degrees off a pure
-heading-vector transform of ``(x, y) -> (-y, -x)``). The Controller then tracks that heading as a
-Z-yaw (see ``_quaternion_to_yaw`` / ``_yaw_to_quaternion``). The Controller's
+(`scene_yaw = -yaw`; PointPillars `theta` is 90 degrees off a pure
+heading-vector transform of `(x, y) -> (-y, -x)`). The Controller then tracks that heading as a
+Z-yaw (see `_quaternion_to_yaw` / `_yaw_to_quaternion`). The Controller's
 existing camera-only heading inference (`inferRotationFromVelocity()`, gated by
 `has_detection_rotation` being false and the class's `rotation_from_velocity`
 flag) still applies to `intersection-cam1`'s 2-D detections: when enabled,
@@ -473,11 +473,11 @@ way, re-enable it per class from the Manager UI's asset config (or
 File playback is a stand-in for live sensors. Keep that split visible in the
 code:
 
-| Concern | Module | Applies to live sensors? |
-| --- | --- | --- |
-| MQTT payload shape, wall-clock timestamps, LiDAR→scene transforms, always-publish (including empty) | `lidar_sensor_contract.py` | Yes |
-| Numbered `.bin`/`.jpg` sequences, `multifilesrc`, skip-unread feed staging (`LidarCatchUp`), file-backed `getimage` | `lidar_file_playback.py` | No (mechanism); the *policy* of dropping unread samples when inference is slow matches live ring-buffer / latest-frame behavior |
-| Env wiring + process orchestration | `lidar_publisher.py` | Demo entrypoint |
+| Concern                                                                                                             | Module                     | Applies to live sensors?                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| MQTT payload shape, wall-clock timestamps, LiDAR→scene transforms, always-publish (including empty)                 | `lidar_sensor_contract.py` | Yes                                                                                                                             |
+| Numbered `.bin`/`.jpg` sequences, `multifilesrc`, skip-unread feed staging (`LidarCatchUp`), file-backed `getimage` | `lidar_file_playback.py`   | No (mechanism); the _policy_ of dropping unread samples when inference is slow matches live ring-buffer / latest-frame behavior |
+| Env wiring + process orchestration                                                                                  | `lidar_publisher.py`       | Demo entrypoint                                                                                                                 |
 
 `lidar_publisher.py` replays two independent pre-recorded file sequences as
 two branches of one `gst-launch-1.0` process. The camera branch is paced by
@@ -489,10 +489,10 @@ especially on CPU.
 When PointPillars cannot hold the camera frame rate, two demo strategies
 are possible:
 
-| Approach | Behavior | Deployment lesson |
-| --- | --- | --- |
-| **Pace-gate** | Whichever branch runs ahead stops until the sibling catches up, so both play at ~min(camera, LiDAR) rate | Teaches coupling: a fast sensor waits on a slow one |
-| **Skip-to-live** (default) | Camera keeps its rate; unread LiDAR `.bin` frames are dropped so each inference uses camera-now | Matches live capture: drop stale samples, publish "now" |
+| Approach                   | Behavior                                                                                                 | Deployment lesson                                       |
+| -------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| **Pace-gate**              | Whichever branch runs ahead stops until the sibling catches up, so both play at ~min(camera, LiDAR) rate | Teaches coupling: a fast sensor waits on a slow one     |
+| **Skip-to-live** (default) | Camera keeps its rate; unread LiDAR `.bin` frames are dropped so each inference uses camera-now          | Matches live capture: drop stale samples, publish "now" |
 
 This demo uses **skip-to-live**. File playback is a proxy for live sensors,
 and live cameras do not pause for LiDAR. Pace-gating makes a short clip look
