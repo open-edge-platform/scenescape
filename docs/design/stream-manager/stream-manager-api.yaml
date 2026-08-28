@@ -321,8 +321,11 @@ paths:
       summary: Start a synchronized recording of one or more streams
       description: >
         Creates and starts a single recording that spans the given streams,
-        synchronized on source timestamps. When a stream has an active pre-event
-        buffer, up to `pre_event_seconds` of buffered frames are prepended.
+        synchronized on source timestamps. The event start is `timestamp_start`
+        (defaults to now); the recording begins at
+        `timestamp_start - pre_event_seconds`, prepending up to
+        `pre_event_seconds` of buffered frames when a stream has an active
+        pre-event buffer.
         Use the `Idempotency-Key` header so a duplicate event does not create two
         recordings.
       parameters:
@@ -857,6 +860,14 @@ components:
           items:
             type: string
           description: Streams to record together in one synchronized recording.
+        timestamp_start:
+          type: string
+          format: date-time
+          description: >
+            When the event to record started. This does NOT include the
+            pre-event buffer: the recording begins at
+            `timestamp_start - pre_event_seconds`. Defaults to the time the
+            request is received when omitted.
         mode:
           $ref: "#/components/schemas/RecordMode"
         duration_seconds:

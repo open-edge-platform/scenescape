@@ -67,7 +67,8 @@ sequenceDiagram
     note over Broker, SM: Event-triggered synchronized recording
     Broker->>BL: Analytics event + visibility + t_event
     BL->>BL: Select streams from visibility metadata
-    BL->>SM: POST /v1/records/start {stream_ids, mode, pre_event_seconds}
+    BL->>SM: POST /v1/records/start {stream_ids, timestamp_start, mode, pre_event_seconds}
+    SM->>SM: Recording starts at timestamp_start - pre_event_seconds
     SM-->>BL: 201 Created {record_id}
     alt Open-ended recording
         Broker->>BL: Event completion
@@ -102,7 +103,7 @@ sequenceDiagram
 | PUT | `/v1/streams/{stream-id}/buffer` | Configure the in-memory pre-event buffer (time window) | path: `stream-id`\*; body: `enabled`\*, `buffer_seconds` | `200` `BufferStatus` `{ ..., buffered_seconds, oldest_buffered_at }` |
 | GET | `/v1/records` | List recordings and metadata | query: `stream-id`, `timestamp-start`, `timestamp-end`, `state`, `limit`, `cursor` | `200` `RecordList` `{ items[Record], next_cursor }` |
 | POST | `/v1/records` | Import (upload) an external recording | body (multipart): `file`\*, `sensor_id`, `label` | `201` `Record` + `Location`; `413` too large |
-| POST | `/v1/records/start` | Start one synchronized recording spanning multiple streams | header: `Idempotency-Key`; body: `stream_ids`\*, `mode` (`open`\|`fixed`), `duration_seconds` (req if `fixed`), `pre_event_seconds`, `event_id`, `label` | `201` `Record` + `Location`; `404` unknown stream; `409` key reuse |
+| POST | `/v1/records/start` | Start one synchronized recording spanning multiple streams | header: `Idempotency-Key`; body: `stream_ids`\*, `timestamp_start` (event start; recording begins at `timestamp_start - pre_event_seconds`), `mode` (`open`\|`fixed`), `duration_seconds` (req if `fixed`), `pre_event_seconds`, `event_id`, `label` | `201` `Record` + `Location`; `404` unknown stream; `409` key reuse |
 | POST | `/v1/records/stop` | Stop an in-progress recording | body: `record_id`\* | `200` `Record`; `404`; `409` not stoppable |
 | GET | `/v1/records/{record-id}` | Get recording metadata incl. per-stream tracks | path: `record-id`\* | `200` `Record` `{ ..., tracks[RecordTrack] }`; `404` |
 | DELETE | `/v1/records/{record-id}` | Delete a recording | path: `record-id`\* | `204`; `409` if in progress |
