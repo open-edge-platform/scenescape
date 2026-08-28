@@ -53,14 +53,6 @@ sequenceDiagram
     end
     end
 
-    rect rgb(230, 219, 255)
-    opt Optional camera control (via Sensor Manager API)
-        BL->>SMgr: Control camera (PTZ / NTP) by sensor_id
-        SMgr->>Cam: Apply control
-        SMgr-->>BL: 200 OK
-    end
-    end
-
     rect rgb(255, 251, 235)
     note over Cam, Ctrl: Analytics pipeline (independent path)
     loop Per frame
