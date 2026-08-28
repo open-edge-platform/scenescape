@@ -43,13 +43,76 @@ The following table summarizes the network ports exposed by Scenescape’s servi
 | 443  | Apache    | HTTP server providing web interface, REST API, and websocket access to MQTT broker      |
 | 1883 | Mosquitto | Main broker port, providing MQTT message bus access via a TLS-encrypted TCP connection. |
 
+### Restricting Allowed Hosts
+
+By default, Scenescape's Django web server is configured with `ALLOWED_HOSTS = ['*']`, which accepts HTTP requests with any Host header. This is convenient for development and testing but presents risk in production deployments.
+
+Scenescape supports one variable for configuring host validation:
+
+- `SCENESCAPE_ALLOWED_HOSTS`
+
+Set `SCENESCAPE_ALLOWED_HOSTS` to a comma-separated list of allowed hostnames/IPs.
+
+```bash
+export SCENESCAPE_ALLOWED_HOSTS="<host-ip>,localhost,127.0.0.1"
+```
+
+For Docker Compose deployments, set it in repository-root `.env` and ensure the `web` service passes it through:
+
+```yaml
+environment:
+  - SCENESCAPE_ALLOWED_HOSTS=${SCENESCAPE_ALLOWED_HOSTS}
+```
+
+For Kubernetes Helm deployments, set:
+
+```yaml
+web:
+  allowedHosts: "<host-ip>,localhost,127.0.0.1"
+```
+
+> [!NOTE] `localhost,127.0.0.1` are required if you want to use the built-in health check endpoints, which are called from inside the container.
+> If you don't include them, then health checks should be disabled or modified to use an allowed host.
+
+#### Health check compatibility
+
+After restricting hosts, probe requests must use an allowed Host header.
+
+Use loopback URL plus explicit Host header in Docker Compose:
+
+```yaml
+healthcheck:
+  test: "curl --insecure -H 'Host: localhost' -X GET https://127.0.0.1:443/api/v1/database-ready | grep 'true'"
+```
+
+Use the same approach for Kubernetes probes:
+
+```yaml
+readinessProbe:
+  exec:
+	command:
+	  - sh
+	  - -c
+	  - curl --insecure -s -H 'Host: localhost' https://127.0.0.1:443/api/v1/health
+
+livenessProbe:
+  exec:
+	command:
+	  - sh
+	  - -c
+	  - curl --insecure -fsS -H 'Host: localhost' https://127.0.0.1:443/api/v1/health >/dev/null
+```
+
+#### Priority and fallback behavior
+
+1. Use `SCENESCAPE_ALLOWED_HOSTS` when set.
+2. Fall back to `['*']` only when `SCENESCAPE_ALLOWED_HOSTS` is not set (for development purposes).
+
 ## 3: Secret creation and management
 
 ### Scenescape TLS overview
 
 Scenescape uses TLS for server authentication and to encrypt communication between services.
-
-For demonstration and testing purposes, the out-of-box `deploy.sh` script creates a self-signed root certificate authority (CA) and uses that CA to issue certificates for the web server and the MQTT broker. In a production situation, certificates should be signed by a CA trusted by the systems running Scenescape.
 
 **Intel does not provide certificates.** The self-signed certificates produced by the out-of-box `deploy.sh` script are not intended for production use. Certificate and key management are the responsibility of the customer.
 
