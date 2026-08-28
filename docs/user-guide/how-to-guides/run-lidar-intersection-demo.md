@@ -86,8 +86,9 @@ flowchart LR
 
 `lidar-data-init`/`lidar-model-init`/`lidar-scene-init` are one-shot
 containers (`restart: "no"`) that populate the two shared volumes and seed
-the scene once; `lidar-stream` is the only long-running service, and is what
-`docker compose logs -f lidar-stream` in the steps below is watching.
+the scene once; `lidar-stream` waits for all three to finish successfully,
+then is the only long-running service (`docker compose logs -f lidar-stream`
+in the steps below watches it).
 
 ### PointPillars model initialization
 
