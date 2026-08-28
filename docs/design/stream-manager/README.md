@@ -34,3 +34,8 @@ npx swagger-ui-watcher docs/design/stream-manager/stream-manager-api.yaml
 If you are working on a remote machine, forward the port (e.g. `8000`) to your local
 machine. This is easiest via your IDE's port-forwarding feature, after which open
 <http://localhost:8000> in your browser.
+
+## References
+
+- NVIDIA DeepStream Smart Video Record (counterpart):
+  <https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_Smart_video.html>
