@@ -19,7 +19,27 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DJANGO_DEBUG', 'False').lower() in ['true', '1', 't']
 
-ALLOWED_HOSTS = ['*']
+def get_allowed_hosts():
+  """
+  Determine allowed hosts for Django's HOST header validation.
+  
+  Priority (highest to lowest):
+  1. SCENESCAPE_ALLOWED_HOSTS env var (comma-separated list)
+  2. Fallback to ['*'] for backwards compatibility
+  
+  Environment variables should contain comma-separated host values:
+  - SCENESCAPE_ALLOWED_HOSTS=example.com,10.0.0.1
+  """
+  if 'SCENESCAPE_ALLOWED_HOSTS' in os.environ:
+    hosts = [h.strip() for h in os.getenv('SCENESCAPE_ALLOWED_HOSTS').split(',') if h.strip()]
+    hosts.extend(['web.scenescape.svc.cluster.local', 'web.scenescape.intel.com'])  # Always allow these hosts
+    if hosts:
+      return hosts
+
+  # Fallback for backwards compatibility
+  return ['*']
+
+ALLOWED_HOSTS = get_allowed_hosts()
 DEFAULT_CHARSET = "utf-8"
 
 # Application definition
@@ -83,16 +103,17 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_AGE = LOGOUT_EXPIRES
 SESSION_SAVE_EVERY_REQUEST = True
-SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
 SESSION_EXPIRE_SECONDS = LOGOUT_EXPIRES
 SESSION_EXPIRE_AFTER_LAST_ACTIVITY = True # Reset expire timer after user activity
 
 AXES_ENABLED = True
-AXES_FAILURE_LIMIT = 10
-AXES_COOLOFF_TIME = timedelta(seconds=30)
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_URL = '/account_locked'
-AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_LOCKOUT_PARAMETERS = [["username"]]
 
 # Database
 # https://docs.djangoproject.com/en/2.0/ref/settings/#databases
