@@ -137,6 +137,8 @@ services:
         condition: service_started
       ntpserv:
         condition: service_started
+      lidar-scene-init:
+        condition: service_completed_successfully
       lidar-data-init:
         condition: service_completed_successfully
       lidar-model-init:

@@ -86,8 +86,9 @@ flowchart LR
 
 `lidar-data-init`/`lidar-model-init`/`lidar-scene-init` are one-shot
 containers (`restart: "no"`) that populate the two shared volumes and seed
-the scene once; `lidar-stream` is the only long-running service, and is what
-`docker compose logs -f lidar-stream` in the steps below is watching.
+the scene once; `lidar-stream` waits for all three to finish successfully,
+then is the only long-running service (`docker compose logs -f lidar-stream`
+in the steps below watches it).
 
 ### PointPillars model initialization
 
@@ -410,11 +411,10 @@ sample_data/lidar_intersection/patches/0002-scene-common-source-passthrough.patc
 but `make apply-lidar-patch`/`revert-lidar-patch` always process all 3
 together for the normal build workflow.
 
-> **Note:** if a build is interrupted between `apply-lidar-patch` and the
-> automatic revert (e.g. `Ctrl+C` mid-build), `manager/`/
-> `scene_common/`/`analytics/` files may be left patched in your working
-> tree. Run `make revert-lidar-patch` to clean up, or check `git status`
-> before committing/pushing.
+> **Note:** a hard kill (`kill -9`) of the build can still skip the
+> `EXIT` trap. If `git status` shows patched `manager/` /
+> `scene_common/` / `analytics/` files afterward, run
+> `make revert-lidar-patch`.
 
 ## Rotation/orientation handling
 
