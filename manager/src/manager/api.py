@@ -7,6 +7,7 @@ import socket
 import threading
 import uuid
 import asyncio
+from collections.abc import Mapping
 from datetime import datetime, timezone
 
 from django.contrib.auth.models import User
@@ -433,6 +434,13 @@ class CameraManager(APIView):
 
 class ACLCheck(APIView):
   def post(self, request):
+    if not isinstance(request.data, Mapping):
+      log.warning('Request body must be a JSON object')
+      return Response(
+        {'detail': 'Request body must be a JSON object.'},
+        status=status.HTTP_400_BAD_REQUEST
+      )
+
     username = request.data.get('username')
     currentTopic = request.data.get('topic')
 
