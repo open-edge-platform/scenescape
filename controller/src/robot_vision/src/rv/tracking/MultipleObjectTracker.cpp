@@ -306,19 +306,28 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
   // Sequential assignment phase to avoid race conditions
   for (size_t trackIdx = 0; trackIdx < tracks.size(); ++trackIdx)
   {
-    const auto &matches = matchesPerTrack[trackIdx];
+    auto matches = matchesPerTrack[trackIdx];
     if (matches.empty())
     {
       continue;
     }
 
-    // Keep geometry/measurement from the latest matched camera for compatibility.
-    const auto &lastMatch = matches.back();
-    auto fusedObject = objectsPerCamera[lastMatch.first][lastMatch.second];
-    fuseMetadata(matches, objectsPerCamera, fusedObject);
-    mergeHistoricalMetadata(tracks[trackIdx], fusedObject);
+    // Deterministic camera order so repeated runs fuse observations identically.
+    std::sort(matches.begin(), matches.end());
 
-    mTrackManager.setMeasurement(tracks[trackIdx].id, fusedObject);
+    // Feed every matched observation to the track; the last one carries the fused
+    // metadata so its attributes win in the sequential Kalman correction step.
+    for (size_t matchIdx = 0; matchIdx < matches.size(); ++matchIdx)
+    {
+      auto observation = objectsPerCamera[matches[matchIdx].first][matches[matchIdx].second];
+      if (matchIdx + 1 == matches.size())
+      {
+        fuseMetadata(matches, objectsPerCamera, observation);
+        mergeHistoricalMetadata(tracks[trackIdx], observation);
+      }
+      mTrackManager.addMeasurement(tracks[trackIdx].id, observation);
+    }
+
     isTrackAssigned[trackIdx] = true;
   }
 

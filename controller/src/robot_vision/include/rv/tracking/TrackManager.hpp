@@ -125,9 +125,18 @@ public:
   /**
    * @brief Assign a measurement to an KalmanEstimator.
    *
-   * The measurement won't be applied inmediately, it will be applied during the next correct measurement step
+   * The measurement won't be applied inmediately, it will be applied during the next correct measurement step.
+   * Replaces any measurements previously queued for the track.
    */
   void setMeasurement(const Id &id, const TrackedObject &measurement);
+
+  /**
+   * @brief Queue an additional measurement for a KalmanEstimator.
+   *
+   * Appends to the measurements already queued for the track; all queued measurements are applied
+   * sequentially during the next correct step.
+   */
+  void addMeasurement(const Id &id, const TrackedObject &measurement);
 
   /**
    * @brief Triggers the correct measurements step
@@ -204,7 +213,7 @@ public:
 private:
   std::unordered_map<Id, MultiModelKalmanEstimator> mKalmanEstimators;
   std::unordered_map<Id, MultiModelKalmanEstimator> mSuspendedKalmanEstimators;
-  std::unordered_map<Id, TrackedObject> mMeasurementMap;
+  std::unordered_map<Id, std::vector<TrackedObject>> mMeasurementMap;
   std::unordered_map<Id, uint32_t> mNonMeasurementFrames;
   std::unordered_map<Id, uint32_t> mNumberOfTrackedFrames;
   std::unordered_map<Id, std::chrono::steady_clock::time_point> mSuspensionTimes;

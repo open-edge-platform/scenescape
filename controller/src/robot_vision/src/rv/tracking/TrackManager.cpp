@@ -143,8 +143,11 @@ void TrackManager::correct()
 
     if (mMeasurementMap.count(id))
     {
-      auto const measurement = mMeasurementMap.find(id);
-      estimator.correct(measurement->second);
+      auto const measurements = mMeasurementMap.find(id);
+      for (auto const &measurement : measurements->second)
+      {
+        estimator.correct(measurement);
+      }
     }
   }
 
@@ -175,7 +178,10 @@ void TrackManager::correct()
   for (const auto &id : reactivationList)
   {
     reactivateTrack(id);
-    mKalmanEstimators[id].correct(mMeasurementMap[id]);
+    for (auto const &measurement : mMeasurementMap[id])
+    {
+      mKalmanEstimators[id].correct(measurement);
+    }
   }
 
   std::vector<Id> deletionList;
@@ -300,15 +306,12 @@ std::vector<TrackedObject> TrackManager::getDriftingTracks()
 
 void TrackManager::setMeasurement(const Id &id, const TrackedObject &measurement)
 {
-  auto previousMeasurement = mMeasurementMap.find(id);
-  if (previousMeasurement != mMeasurementMap.end())
-  {
-    mMeasurementMap[id] = measurement;
-  }
-  else
-  {
-    mMeasurementMap.insert(std::make_pair(id, measurement));
-  }
+  mMeasurementMap[id] = std::vector<TrackedObject>{measurement};
+}
+
+void TrackManager::addMeasurement(const Id &id, const TrackedObject &measurement)
+{
+  mMeasurementMap[id].push_back(measurement);
 }
 
 TrackedObject TrackManager::getTrack(const Id &id)
