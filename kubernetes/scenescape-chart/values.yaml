@@ -217,8 +217,6 @@ sampleData:
     - videos/apriltag-cam3.mp4
     - videos/qcam1.mp4
     - videos/qcam2.mp4
-    - exampledb.tar.bz2
-    - compose/docker-compose-dl-streamer-example.yml
   storage: 500Mi
   storageClassName: ""
 

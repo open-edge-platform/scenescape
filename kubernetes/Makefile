@@ -41,6 +41,12 @@ DEMO_K8S_MODE?=core
 # ReID vector database backend used when ReID is deployed: vdms (default) or qdrant
 REID_BACKEND?=vdms
 
+# Directory with one exported ZIP per demo scene, and the client that uploads them
+DEMO_SCENES_DIR?=../sample_data/demo_scenes
+DEMO_SCENES_URL?=https://localhost/api/v1
+DEMO_SCENES_WAIT?=300
+UPLOAD_SCENES:=../tools/upload_scenes/upload-scenes
+
 # Proxy settings: if http_proxy, https_proxy, or no_proxy environment variables are set,
 # they will be automatically passed to the Helm chart during installation
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
@@ -197,6 +203,21 @@ check-demo-k8s-mode:
 	  *) echo "Invalid REID_BACKEND '$(REID_BACKEND)'. Use vdms or qdrant."; exit 1 ;; \
 	esac
 
+# Uploads sample_data/demo_scenes/*.zip through the REST API, same client the root Makefile uses.
+.PHONY: demo-scenes
+demo-scenes:
+	@python3 -c "import requests" 2>/dev/null || { \
+		echo "Missing dependencies, install them with:"; \
+		echo "    pip install -r ../tools/upload_scenes/requirements.txt"; \
+		exit 1; \
+	}
+	@echo "Uploading demo scenes from $(DEMO_SCENES_DIR) to $(DEMO_SCENES_URL)..."
+	@AUTH_FILE=$$(mktemp); \
+	trap 'rm -f $$AUTH_FILE' EXIT; \
+	kubectl get secret $(RELEASE)-controller.auth -n $(NAMESPACE) -o jsonpath='{.data.controller\.auth}' | base64 -d > $$AUTH_FILE; \
+	python3 $(UPLOAD_SCENES) --restauth $$AUTH_FILE --insecure --wait $(DEMO_SCENES_WAIT) \
+		$(DEMO_SCENES_URL) $(DEMO_SCENES_DIR)
+
 # to test template rendering
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
@@ -238,6 +259,7 @@ install: check-demo-k8s-mode copy-files chart.yaml
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi
+	$(MAKE) demo-scenes
 
 uninstall:
 	helm uninstall $(RELEASE) -n $(NAMESPACE) || true

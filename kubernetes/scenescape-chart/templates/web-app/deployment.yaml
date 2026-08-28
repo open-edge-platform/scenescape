@@ -70,8 +70,6 @@ spec:
             value: https://web.scenescape.svc.cluster.local
           - name: MODEL_CONFIGS_FOLDER
             value: /home/scenescape/Scenescape/models/models/model_configs
-          - name: EXAMPLEDB
-            value: /home/scenescape/Scenescape/sample_data/exampledb.tar.bz2
           - name: DBHOST
             value: pgserver
           - name: DBPORT
