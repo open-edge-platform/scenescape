@@ -237,6 +237,20 @@ SPDX-License-Identifier: Apache-2.0
     <li class="nav-item">
       <a
         class="nav-link"
+        id="radars-tab"
+        data-toggle="tab"
+        href="#radars"
+        role="tab"
+        aria-controls="radars"
+        aria-selected="false"
+        title="Radars Tab"
+        ><i class="bi bi-broadcast"></i> Radars <span class="show-count"
+      /></a>
+    </li>
+
+    <li class="nav-item">
+      <a
+        class="nav-link"
         id="regions-tab"
         data-toggle="tab"
         href="#regions"
@@ -479,6 +493,64 @@ SPDX-License-Identifier: Apache-2.0
                         <a
                           class="btn btn-secondary btn-sm"
                           href="{% url 'singleton_sensor_delete' s.id %}"
+                          title="Delete"
+                          ><i class="bi bi-trash"></i
+                        ></a>
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="tab-pane fade"
+      id="radars"
+      role="tabpanel"
+      aria-labelledby="radars-tab"
+    >
+      <div class="card width-100">
+        <h5 class="noselect card-header">
+          Radars
+          {% if user.is_superuser %}
+            <a
+              type="button"
+              class="btn btn-primary btn-sm float-right"
+              id="new-radar"
+              title="Add a new radar"
+              href="{% url 'radar_create' %}?scene={{ scene.id }}"
+              >+ New Radar</a
+            >
+          {% endif %}
+        </h5>
+        <div class="card-body">
+          {% if scene.sensor_set.count %}
+            {% for s in scene.sensor_set.all|dictsort:"name" %}
+              {% if s.type == "radar" %}
+                <div class="card count-item">
+                  <h5 class="card-header">{{ s.name }}</h5>
+                  <div class="card-body">
+                    <table class="table table-sm">
+                      <tr>
+                        <th>ID</th>
+                        <td class="small">{{ s.sensor_id }}</td>
+                      </tr>
+                    </table>
+                    {% if user.is_superuser %}
+                      <div class="text-right">
+                        <a
+                          class="btn btn-secondary btn-sm"
+                          href="{% url 'radar_update' s.id %}"
+                          title="Edit"
+                          ><i class="bi bi-wrench"></i
+                        ></a>
+                        <a
+                          class="btn btn-secondary btn-sm"
+                          href="{% url 'radar_delete' s.id %}"
                           title="Delete"
                           ><i class="bi bi-trash"></i
                         ></a>

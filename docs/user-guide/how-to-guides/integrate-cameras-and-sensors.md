@@ -129,8 +129,12 @@ All sensor and camera messages share two properties: timestamp and ID.
 
    > **Note:** Bounding boxes are in normalized image space. For more information on how to transform pixel-based bounding boxes, see [how Scenescape converts Pixel-Based Bounding Boxes to Normalized Image Space](../additional-resources/convert-object-detections-to-normalized-image-space.md).
 
+   For **radar** sensors, publish the same 3-D object fields on
+   `scenescape/data/radar/{radar_id}` (sensor-local metres). See
+   [Add and Use Radar Sensors](./add-and-use-radar-sensors.md).
+
 2. **3D Detections from Cameras and Other Sensors**
-   Sometimes sensors and AI models provide 3D detections instead of 2D detections. 3D detections may be directly measured by sensors (e.g. GPS), inferred from 2D data (e.g. monocular images), and/or inferred from 3D data (e.g. point clouds). In those cases a 3D bounding box (i.e. cuboid) can be provided like in the example below:
+   Sometimes sensors and AI models provide 3D detections instead of 2D detections. 3D detections may be directly measured by sensors (e.g. GPS), inferred from 2D data (e.g. monocular images), and/or inferred from 3D data (e.g. point clouds, radar). In those cases a 3D bounding box (i.e. cuboid) can be provided like in the example below:
 
    ```json
    {

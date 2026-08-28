@@ -1,0 +1,28 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+{% extends 'sscape/base.html' %}
+{% block content %}
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item">
+        <a href="{% url 'radar_list' %}">Radars</a>
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">Delete Radar</li>
+    </ol>
+  </nav>
+
+  <div class="card width-100">
+    <h5 class="noselect card-header">Delete Radar</h5>
+    <div class="card-body">
+      <p>Delete radar <strong>{{ object.name }}</strong> ({{ object.sensor_id }})?</p>
+      <form method="post">
+        {% csrf_token %}
+        <input class="btn btn-danger" type="submit" value="Confirm Delete" />
+        <a class="btn btn-secondary" href="{% url 'radar_list' %}">Cancel</a>
+      </form>
+    </div>
+  </div>
+{% endblock %}

@@ -20,7 +20,7 @@ from rest_framework import status
 from rest_framework import generics
 from rest_framework.authtoken.views import ObtainAuthToken
 
-from manager.models import Scene, Cam, SingletonSensor, Region, Tripwire, Asset3D, ChildScene, CalibrationMarker, DatabaseStatus, PubSubACL
+from manager.models import Scene, Cam, Radar, SingletonSensor, Region, Tripwire, Asset3D, ChildScene, CalibrationMarker, DatabaseStatus, PubSubACL
 from manager.serializers import *
 from manager.scene_import import ImportScene
 from scene_common.timestamp import get_epoch_time, get_iso_time
@@ -41,6 +41,8 @@ def get_class_and_serializer(thing_type):
     return Scene, SceneSerializer, 'pk'
   elif thing_type in ("camera", "cameras"):
     return Cam, CamSerializer, 'sensor_id'
+  elif thing_type in ("radar", "radars"):
+    return Radar, RadarSerializer, 'sensor_id'
   elif thing_type in ("sensor", "sensors"):
     return SingletonSensor, SingletonSerializer, 'sensor_id'
   elif thing_type in ("region", "regions"):
@@ -65,7 +67,7 @@ class ListThings(generics.ListAPIView):
   def get_queryset(self):
     thing_class, _, _ = get_class_and_serializer(self.args[0])
     queryset = thing_class.objects.all()
-    if thing_class is Cam:
+    if thing_class is Cam or thing_class is Radar:
       queryset = queryset.select_related('scene')
     query_params = self.request.query_params
     if query_params:

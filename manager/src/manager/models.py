@@ -24,6 +24,7 @@ from django.utils.text import get_valid_filename
 from django.core.files import File
 
 from scene_common.camera import Camera as ScenescapeCamera, CameraPose as ScenescapeCameraPose
+from scene_common.radar import Radar as ScenescapeRadar
 from scene_common.geometry import Region as ScenescapeRegion, Tripwire as ScenescapeTripwire
 from scene_common.glb_top_view import generateOrthoView, getMeshSize
 from scene_common.mesh_util import extractMeshFromGLB, extractMeshFromPointCloud
@@ -422,6 +423,15 @@ class Scene(models.Model):
 
         mScene.cameras[sensor.sensor_id] = ScenescapeCamera(
             sensor.sensor_id, sInfo, resolution=(cam.width, cam.height))
+
+      elif sensor.type == "radar" and (force or sensor.sensor_id not in getattr(mScene, 'radars', {})):
+        radar = sensor.radar
+        if radar.transforms is None:
+          continue
+        sInfo = radar.transformation
+        if not hasattr(mScene, 'radars'):
+          mScene.radars = {}
+        mScene.radars[sensor.sensor_id] = ScenescapeRadar(sensor.sensor_id, sInfo)
     return
 
   def createSceneScapeRegion(self, existing, region):
@@ -606,7 +616,8 @@ class Sensor(models.Model):
   sensor_id = models.CharField(max_length=20, default=None, unique=True, verbose_name="Sensor ID")
   name = models.CharField(max_length=200, unique=True)
   sensor_type_choices = (('camera', 'Camera'),
-                         ('generic', 'generic'))
+                         ('generic', 'generic'),
+                         ('radar', 'Radar'))
   type = models.CharField(max_length=200, choices=sensor_type_choices)
   scene = models.ForeignKey(Scene, null=True, on_delete=models.SET_NULL)
   icon = models.ImageField(default=None, null=True, blank=True)
@@ -832,6 +843,29 @@ class Cam(Sensor):
     super().delete(*args, **kwargs)
     transaction.on_commit(partial(sendUpdateCommand,
                                   camera_data = self.cameraData('delete')))
+    return
+
+
+class Radar(Sensor):
+  """Fixed infrastructure radar sensor with scene extrinsics (no imaging)."""
+
+  transforms = ListField(blank=True, default=list)
+  transform_type = models.CharField(max_length=26, choices=RADAR_TRANSFORM_CHOICES,
+                                    default=EULER)
+
+  @property
+  def transformation(self):
+    return ScenescapeCameraPose.arrayToDictionary(self.transforms, self.transform_type)
+
+  def save(self, *args, **kwargs):
+    self.type = 'radar'
+    super().save(*args, **kwargs)
+    transaction.on_commit(sendUpdateCommand)
+    return
+
+  def delete(self, *args, **kwargs):
+    super().delete(*args, **kwargs)
+    transaction.on_commit(sendUpdateCommand)
     return
 
 

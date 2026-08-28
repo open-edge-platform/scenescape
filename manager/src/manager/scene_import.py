@@ -11,6 +11,7 @@ from typing import Any, Callable
 from scene_common.rest_client import RESTClient
 from scene_common.options import POINT_CORRESPONDENCE, EULER
 from scene_common.cam_fields import CAM_COMMON_FIELDS
+from scene_common.radar_fields import RADAR_COMMON_FIELDS
 from scene_common import log
 
 
@@ -50,6 +51,26 @@ class ImportScene:
       cam_items.append(cam_data)
     return cam_items
 
+  def build_radar_items(self, json_data):
+    radar_items = []
+    for radar in json_data.get("radars", []):
+      radar_data = {
+        "sensor_id": radar.get("uid"),
+        **{field: radar.get(field) for field in RADAR_COMMON_FIELDS if field in radar},
+      }
+      transform_type = radar.get("transform_type")
+      if transform_type:
+        radar_data.update({
+          "transform_type": EULER if transform_type != "matrix" else transform_type,
+          "translation": radar.get("translation"),
+          "rotation": radar.get("rotation"),
+          "scale": radar.get("scale", [1.0, 1.0, 1.0]),
+        })
+        if transform_type == "matrix":
+          radar_data["transforms"] = radar.get("transforms")
+      radar_items.append(radar_data)
+    return radar_items
+
   def extractZip(self):
     self.extract_dir = os.path.splitext(self.zip_path)[0]
     os.makedirs(self.extract_dir, exist_ok=True)
@@ -84,10 +105,12 @@ class ImportScene:
     import_summary = {
       "scene": None,
       "cameras": None,
+      "radars": None,
       "tripwires": None,
       "regions": None,
       "sensors": None,
       "cameras_created": None,
+      "radars_created": None,
       "tripwires_created": None,
       "regions_created": None,
       "sensors_created": None,
@@ -180,6 +203,13 @@ class ImportScene:
       cam_items, scene_id, self.rest.createCamera)
     import_summary["cameras"] = camera_errors
     import_summary["cameras_created"] = cameras_created
+
+    radar_items = self.build_radar_items(json_data)
+    radars_created, radar_errors = await self.bulk_create(
+      radar_items, scene_id, self.rest.createRadar)
+    import_summary["radars"] = radar_errors
+    import_summary["radars_created"] = radars_created
+
     # Bulk create other resources
     regions_created, region_errors = await self.bulk_create(
       json_data.get("regions", []), scene_id, self.rest.createRegion)
@@ -200,7 +230,7 @@ class ImportScene:
     for child_data in json_data.get("children", []):
       child_summary = await self.loadScene(child=child_data, parent=scene_id)
       if any(child_summary[key] for key in (
-          "scene", "cameras", "tripwires", "regions", "sensors")):
+          "scene", "cameras", "radars", "tripwires", "regions", "sensors")):
         return child_summary
 
     return import_summary

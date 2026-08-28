@@ -414,6 +414,52 @@ class RESTClient:
     """
     return self._delete(f"camera/{uid}")
 
+  # Radar
+  def getRadars(self, filter):
+    """Gets all radars matching filter. If filter is None returns all radars.
+
+    @param      filter          dict with key/value pairs to filter matching objects
+    @return                     RESTResult with decoded objects on success,
+                                empty with `errors` set on failure
+    """
+    return self._get("radars", filter)
+
+  def createRadar(self, data):
+    """Creates a new radar sensor
+
+    @param      data            dict with key/value pairs of new object.
+    @return                     RESTResult with decoded objects on success,
+                                empty with `errors` set on failure
+    """
+    return self._create("radar", data)
+
+  def getRadar(self, uid):
+    """Gets radar with `uid`
+
+    @param      uid             uid of radar to get
+    @return                     RESTResult with decoded object on success,
+                                empty with `errors` set on failure
+    """
+    return self._get(f"radar/{uid}", None)
+
+  def updateRadar(self, uid, data):
+    """Updates radar with `uid`
+
+    @param      uid             uid of radar to update
+    @return                     RESTResult with decoded object on success,
+                                empty with `errors` set on failure
+    """
+    return self._update(f"radar/{uid}", data)
+
+  def deleteRadar(self, uid):
+    """Deletes radar with `uid`
+
+    @param      uid             uid of radar to delete
+    @return                     RESTResult with deleted object's uid on success,
+                                empty with `errors` set on failure
+    """
+    return self._delete(f"radar/{uid}")
+
   def calculateCameraIntrinsics(self, data):
     """Calculates camera intrinsics from point correspondences.
 

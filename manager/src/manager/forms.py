@@ -10,7 +10,7 @@ from django.conf import settings
 from django.db.models import Q
 from django.forms import ModelForm, ValidationError
 
-from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
+from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene, Radar
 from manager.validators import validate_zip_file
 from manager.ppl_generator import (
   PipelineGenerationValueError,
@@ -207,6 +207,20 @@ class CamCreateForm(forms.ModelForm):
       raise ValidationError("Unable to validate camera chain against model config.") from e
 
     return camerachain
+
+
+class RadarCreateForm(forms.ModelForm):
+  class Meta:
+    model = Radar
+    fields = ['sensor_id', 'name', 'scene']
+    labels = {
+      'sensor_id': 'Radar ID',
+    }
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.fields['scene'].required = False
+
 
 class ChildSceneForm(forms.ModelForm):
   class Meta:

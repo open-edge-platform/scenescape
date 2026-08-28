@@ -10,6 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 | Message Format                                                                | Direction | MQTT Topic                                        |
 | ----------------------------------------------------------------------------- | --------- | ------------------------------------------------- |
 | [Camera Input Message Format](#camera-input-message-format)                   | Subscribe | `scenescape/data/camera/{camera_id}`              |
+| [Radar Input Message Format](#radar-input-message-format)                     | Subscribe | `scenescape/data/radar/{radar_id}`                |
 | [External Source Input Message Format](#external-source-input-message-format) | Subscribe | `scenescape/external/{publisher_id}/{thing_type}` |
 | [Data Scene Output Message Format](#data-scene-output-message-format)         | Publish   | `scenescape/data/scene/{scene_id}/{thing_type}`   |
 
@@ -141,6 +142,37 @@ omitted; `embedding_vector` truncated for readability):
 
 For the full schema definition, see
 [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/controller/src/schema/metadata.schema.json).
+
+## Radar Input Message Format
+
+The Scene Controller subscribes to `scenescape/data/radar/{radar_id}` for
+first-class radar sensors provisioned in Manager. Messages use the same
+`detector` schema as cameras. Prefer 3-D detections (`translation` + `size`) in
+**radar-local metres**; the Controller applies the radar sensor pose (no image
+projection). Always publish frames, including empty `objects`, so tracks clear.
+
+How-to: [Add and Use Radar Sensors](../../how-to-guides/add-and-use-radar-sensors.md).
+
+### Example Radar Detection Message
+
+```json
+{
+  "id": "radar1",
+  "timestamp": "2026-08-28T18:00:00.000Z",
+  "rate": 10.0,
+  "objects": {
+    "vehicle": [
+      {
+        "id": 1,
+        "category": "vehicle",
+        "confidence": 0.85,
+        "translation": [12.0, -1.5, 0.0],
+        "size": [2.0, 1.5, 1.5]
+      }
+    ]
+  }
+}
+```
 
 ## External Source Input Message Format
 

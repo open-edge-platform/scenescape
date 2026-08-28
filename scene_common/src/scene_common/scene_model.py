@@ -23,6 +23,7 @@ class SceneModel:
         self.extractMapTriangleMesh(map_file, scale)
     self.children = []
     self.cameras = {}
+    self.radars = {}
     self.regions = {}
     self.tripwires = {}
     self.sensors = {}
@@ -57,6 +58,11 @@ class SceneModel:
       return self.cameras[anID]
     return None
 
+  def radarWithID(self, anID):
+    if anID in self.radars:
+      return self.radars[anID]
+    return None
+
   def serialize(self):
     data = {
       'uid': self.name,
@@ -71,6 +77,8 @@ class SceneModel:
 
     if self.cameras:
       data['cameras'] = {x: self.cameras[x].serialize() for x in self.cameras}
+    if self.radars:
+      data['radars'] = {x: self.radars[x].serialize() for x in self.radars}
     if self.sensors:
       data['sensors'] = {x: self.sensors[x].serialize() for x in self.sensors}
     if self.regions:

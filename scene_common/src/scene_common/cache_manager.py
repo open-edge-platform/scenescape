@@ -44,6 +44,7 @@ class CacheManager:
       self._scene_cls = Scene
     self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
+    self._cached_scenes_by_radarID = {}
     self._cached_scenes_by_sensorID = {}
 
     if rest_url and rest_auth:
@@ -123,6 +124,7 @@ class CacheManager:
     if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
       self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
+    self._cached_scenes_by_radarID = {}
     self._cached_scenes_by_sensorID = {}
 
     old = set(self.cached_scenes_by_uid.keys())
@@ -166,6 +168,8 @@ class CacheManager:
 
       for cameraID in scene.cameras.keys():
         self._cached_scenes_by_cameraID[cameraID] = scene
+      for radarID in getattr(scene, 'radars', {}).keys():
+        self._cached_scenes_by_radarID[radarID] = scene
       for sensorID in scene.sensors.keys():
         self._cached_scenes_by_sensorID[sensorID] = scene
       self.cached_scenes_by_uid[scene.uid] = scene
@@ -374,6 +378,11 @@ class CacheManager:
     with self._lock:
       return self._cached_scenes_by_cameraID.get(cameraID, None)
 
+  def sceneWithRadarID(self, radarID):
+    self.checkRefresh()
+    with self._lock:
+      return self._cached_scenes_by_radarID.get(radarID, None)
+
   def sceneWithSensorID(self, sensorID):
     self.checkRefresh()
     with self._lock:
@@ -393,6 +402,7 @@ class CacheManager:
         self._old_scene_cache = {}
       self.cached_scenes_by_uid = None
       self._cached_scenes_by_cameraID = {}
+      self._cached_scenes_by_radarID = {}
       self._cached_scenes_by_sensorID = {}
       self._cache_epoch += 1
       if not hasattr(self, 'cached_child_transforms_by_uid') or self.cached_child_transforms_by_uid is None:

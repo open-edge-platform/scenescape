@@ -38,13 +38,13 @@ from rest_framework.authentication import SessionAuthentication
 from manager.api import IsAdminOrReadOnly
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.models import Scene, ChildScene, \
-  Cam, Asset3D, \
+  Cam, Radar, Asset3D, \
   SingletonSensor, SingletonScalarThreshold, \
   Region, RegionPoint, Tripwire, TripwirePoint, \
   SingletonAreaPoint, UserSession, FailedLogin, \
   RegionOccupancyThreshold, SceneImport
 from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDetailsForm, \
-  SceneUpdateForm, SceneImportForm, CamCreateForm, SingletonCreateForm, ChildSceneForm
+  SceneUpdateForm, SceneImportForm, CamCreateForm, RadarCreateForm, SingletonCreateForm, ChildSceneForm
 from manager.validators import add_form_error, validate_uuid
 
 from scene_common.options import *
@@ -315,6 +315,58 @@ class CamUpdateView(SuperUserCheck, UpdateView):
       scene_id = self.object.scene.id
       return '/' + str(scene_id)
     return reverse_lazy('cam_list')
+
+# Radar CRUD
+class RadarCreateView(SuperUserCheck, CreateView):
+  model = Radar
+  form_class = RadarCreateForm
+  template_name = "radar/radar_create.html"
+
+  def get_initial(self):
+    initial = super().get_initial()
+    scene_id = self.request.GET.get('scene')
+    if scene_id:
+      try:
+        scene = Scene.objects.get(id=scene_id)
+        initial['scene'] = scene
+      except Scene.DoesNotExist:
+        pass
+    return initial
+
+  def form_valid(self, form):
+    form.instance.type = 'radar'
+    return super().form_valid(form)
+
+  def form_invalid(self, form):
+    return self.render_to_response(self.get_context_data(form=form), status=400)
+
+  def get_success_url(self):
+    if self.object.scene is not None:
+      return '/' + str(self.object.scene.id)
+    return reverse_lazy('radar_list')
+
+class RadarDeleteView(SuperUserCheck, DeleteView):
+  model = Radar
+  template_name = "radar/radar_delete.html"
+
+  def get_success_url(self):
+    if self.object.scene is not None:
+      return '/' + str(self.object.scene.id)
+    return reverse_lazy('radar_list')
+
+class RadarListView(LoginRequiredMixin, ListView):
+  model = Radar
+  template_name = "radar/radar_list.html"
+
+class RadarUpdateView(SuperUserCheck, UpdateView):
+  model = Radar
+  fields = ['sensor_id', 'name', 'scene']
+  template_name = "radar/radar_update.html"
+
+  def get_success_url(self):
+    if self.object.scene is not None:
+      return '/' + str(self.object.scene.id)
+    return reverse_lazy('radar_list')
 
 #Scene CRUD
 class SceneCreateView(SuperUserCheck, CreateView):

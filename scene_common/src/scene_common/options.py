@@ -72,6 +72,13 @@ CAM_TRANSFORM_CHOICES = [
     (POINT_CORRESPONDENCE, '3D-2D Point Correspondence')
   ]
 
+# Radar has no imaging plane; point-correspondence calibration does not apply.
+RADAR_TRANSFORM_CHOICES = [
+    (MATRIX, 'Matrix'),
+    (EULER, 'Euler Angles'),
+    (QUATERNION, 'Quaternion'),
+  ]
+
 CHILD_SCENE_TRANSFORM_CHOICES = [
     (MATRIX, 'Matrix'),
     (EULER, 'Euler Angles'),

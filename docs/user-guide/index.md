@@ -111,6 +111,7 @@ Deploy Scenescape <./how-to-guides/deploy-scenescape-using-prebuilt-containers.m
 Use the UI and Online Documentation <./how-to-guides/ui-tutorial.md>
 Build a Scene <./how-to-guides/build-a-scene/index.md>
 Integrate Cameras and Sensors <./how-to-guides/integrate-cameras-and-sensors.md>
+Add and Use Radar Sensors <./how-to-guides/add-and-use-radar-sensors.md>
 Publish External Source Adapter <./how-to-guides/publish-external-source-adapter.md>
 Calibrate Cameras <./how-to-guides/calibrate-cameras/index.md>
 Work with Spatial Analytics Data <./how-to-guides/work-with-spatial-analytics-data.md>

@@ -1,0 +1,57 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+{% extends 'sscape/base.html' %}
+{% block content %}
+  {% if user.is_superuser %}
+    <a
+      class="btn btn-primary float-right"
+      href="{% url 'radar_create' %}"
+      >+ New Radar</a
+    >
+  {% endif %}
+  <h2 class="form-title">Radars</h2>
+
+  <table class="table table-fluid">
+    <thead>
+      <tr>
+        <th>Radar Name</th>
+        <th>Radar ID</th>
+        <th>Scene</th>
+        {% if user.is_superuser %}
+          <th>Manage</th>
+          <th>Delete</th>
+        {% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for radar in object_list %}
+        <tr>
+          <td>{{ radar.name }}</td>
+          <td>{{ radar.sensor_id }}</td>
+          <td>
+            {% if radar.scene %}
+              <a href="/{{ radar.scene.id }}/">{{ radar.scene.name }}</a>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          {% if user.is_superuser %}
+            <td>
+              <a href="{% url 'radar_update' radar.id %}">Edit</a>
+            </td>
+            <td>
+              <a href="{% url 'radar_delete' radar.id %}">Delete</a>
+            </td>
+          {% endif %}
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5">No radars provisioned.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

@@ -404,7 +404,8 @@ class SceneController:
     }
     metrics.inc_messages(metric_attributes)
     with metrics.time_mqtt_handler(metric_attributes):
-      if 'camera_id' in topic and not self.schema_val.validateMessage("detector", jdata):
+      if ('camera_id' in topic or 'radar_id' in topic) \
+          and not self.schema_val.validateMessage("detector", jdata):
         return
 
       if topic['_topic_id'] == PubSub.DATA_EXTERNAL and 'source_id' in jdata \
@@ -423,7 +424,7 @@ class SceneController:
       # Camera intrinsics/distortion refresh only applies to camera-originated
       # messages (keyed by 'id'); external-source messages are keyed by
       # 'source_id' and have no camera parameters to refresh.
-      if topic['_topic_id'] != PubSub.DATA_EXTERNAL:
+      if topic['_topic_id'] == PubSub.DATA_CAMERA:
         self.cache_manager.refreshScenesForCamParams(jdata)
 
       if self.rewrite_all_time:
@@ -482,6 +483,21 @@ class SceneController:
           return
         success, scene = handled
         sender_id = publisher_id
+      elif topic['_topic_id'] == PubSub.DATA_RADAR:
+        detection_types = jdata['objects'].keys()
+        camera_id = sender_id = topic['radar_id']
+        sender = self.cache_manager.sceneWithRadarID(sender_id)
+        if sender is None:
+          log.error(f"UNKNOWN RADAR: {sender_id}")
+          return
+        scene = sender
+
+        if not detection_types:
+          detection_types = list(scene.tracker.trackers.keys())
+          for dtype in detection_types:
+            jdata['objects'][dtype] = []
+
+        success = scene.processRadarData(jdata, when=msg_when)
       else:
         detection_types = jdata['objects'].keys()
         camera_id = sender_id = topic['camera_id']
@@ -501,7 +517,7 @@ class SceneController:
         success = scene.processCameraData(jdata, when=msg_when)
 
       if not success:
-        log.error("Camera fail", sender_id, scene.name if scene is not None else "unknown")
+        log.error("Sensor fail", sender_id, scene.name if scene is not None else "unknown")
         self.cache_manager.invalidate()
         return
 
@@ -783,6 +799,9 @@ class SceneController:
     for scene in self.scenes:
       for camera in scene.cameras:
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
+                            self.handleMovingObjectMessage))
+      for radar in getattr(scene, 'radars', {}):
+        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_RADAR, radar_id=radar),
                             self.handleMovingObjectMessage))
       # External publisher-centric ingest is covered by the wildcard subscribe above.
 

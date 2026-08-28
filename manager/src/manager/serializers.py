@@ -14,13 +14,14 @@ from rest_framework import serializers
 from rest_framework.authtoken.models import Token
 from scipy.spatial.transform import Rotation
 
-from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
+from manager.models import Asset3D, Cam, ChildScene, Radar, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
   RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
 from scene_common.cam_fields import CAM_SERIALIZER_FIELDS
+from scene_common.radar_fields import RADAR_SERIALIZER_FIELDS
 
 
 class CustomAuthTokenSerializer(serializers.Serializer):
@@ -501,6 +502,143 @@ class CamSerializer(NonNullSerializer):
     model = Cam
     fields = CAM_SERIALIZER_FIELDS
 
+
+class RadarSerializer(NonNullSerializer):
+  """REST serializer for first-class radar sensors (pose only, no imaging)."""
+
+  name = serializers.CharField(max_length=150)
+  sensor_id = serializers.CharField(write_only=True, required=False)
+  uid = serializers.CharField(source="sensor_id", read_only=True)
+  translation = serializers.SerializerMethodField('get_translation')
+  rotation = serializers.SerializerMethodField('get_rotation')
+  scale = serializers.SerializerMethodField('get_scale')
+  transforms = serializers.SerializerMethodField('get_transform')
+  scene = serializers.CharField(source="scene.pk", allow_null=True, required=False)
+  transform_type = serializers.SerializerMethodField('get_transform_type')
+
+  def validate_name(self, value):
+    if not self.instance:
+      qs = Radar.objects.filter(name=value)
+      if qs.exists():
+        radar = qs.first()
+        if hasattr(radar, 'scene') and radar.scene is not None:
+          raise serializers.ValidationError(
+            f"A radar with the name '{value}' already exists.")
+        raise serializers.ValidationError(
+          f"orphaned radar with the name '{value}' already exists.")
+    return value
+
+  def create_update(self, validated_data, instance=None):
+    is_update = instance is not None
+    scene_uid = validated_data.pop('scene', None)
+    if scene_uid is not None:
+      validated_data['scene_id'] = scene_uid['pk']
+
+    validated_data['type'] = "radar"
+    self.map_transform_fields(validated_data)
+
+    if not is_update:
+      sensor_id = validated_data.get('sensor_id', None)
+      if sensor_id is None:
+        sensor_id = validated_data.get('name')
+        if sensor_id is not None:
+          sensor_id = sensor_id.replace(" ", "_")
+        validated_data['sensor_id'] = sensor_id
+      instance = super().create(validated_data)
+    else:
+      super().update(instance, validated_data)
+
+    self.create_radar_instance(instance)
+    return instance
+
+  def create(self, validated_data):
+    return self.create_update(validated_data)
+
+  def update(self, instance, validated_data):
+    return self.create_update(validated_data, instance)
+
+  def map_transform_fields(self, validated_data):
+    transform_type = self.initial_data.get("transform_type", None)
+    extended_data = {}
+
+    if transform_type in (EULER, QUATERNION) \
+       and all(key in self.initial_data for key in ('translation', 'rotation')):
+      if transform_type == QUATERNION:
+        self.initial_data['rotation'] = Rotation.from_quat(
+          self.initial_data['rotation']
+        ).as_euler('XYZ', degrees=True).tolist()
+        transform_type = EULER
+      scale = self.initial_data.get('scale', [1.0, 1.0, 1.0])
+      extended_data['transforms'] = (
+        self.initial_data['translation'] +
+        self.initial_data['rotation'] +
+        scale
+      )
+    elif transform_type == MATRIX:
+      extended_data['transforms'] = self.initial_data.get('transforms', None)
+
+    if extended_data:
+      extended_data.update({
+        'type': "radar",
+        'transform_type': transform_type,
+      })
+      validated_data.update(extended_data)
+    return
+
+  def create_radar_instance(self, instance):
+    if instance.scene is None:
+      return
+    if instance.transforms is None:
+      return
+    radars = getattr(instance.scene.scenescapeScene, 'radars', None)
+    if radars is not None and instance.sensor_id in radars:
+      radars.pop(instance.sensor_id)
+    instance.scene.scenescapeSceneUpdateSensors(instance.scene.scenescapeScene)
+    return
+
+  def get_translation(self, obj):
+    if not obj.scene:
+      return None
+    self.create_radar_instance(obj)
+    radar = obj.scene.scenescapeScene.radarWithID(obj.sensor_id)
+    return radar.pose.translation.asNumpyCartesian.tolist() if radar \
+      and hasattr(radar, 'pose') else None
+
+  def get_rotation(self, obj):
+    if not obj.scene:
+      return None
+    self.create_radar_instance(obj)
+    radar = obj.scene.scenescapeScene.radarWithID(obj.sensor_id)
+    return getattr(radar.pose, 'euler_rotation', None) \
+      if radar and hasattr(radar, 'pose') else None
+
+  def get_transform(self, obj):
+    if not obj.scene:
+      return None
+    return obj.transforms
+
+  def get_transform_type(self, obj):
+    if not obj.scene:
+      return None
+    return obj.transform_type
+
+  def get_scale(self, obj):
+    if not obj.scene:
+      return None
+    radar = obj.scene.scenescapeScene.radarWithID(obj.sensor_id)
+    return radar.pose.scale if radar and hasattr(radar, 'pose') else None
+
+  def validate(self, data):
+    if 'name' not in data:
+      raise serializers.ValidationError({'name': ['This field is required.']})
+    _validate_scene_exists(data)
+    return data
+
+  class Meta:
+    model = Radar
+    fields = RADAR_SERIALIZER_FIELDS
+
+
 class RegionSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
   uid = serializers.SerializerMethodField('get_uuid')
@@ -570,6 +708,7 @@ class SceneSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
   uid = serializers.SerializerMethodField('get_uid')
   cameras = serializers.SerializerMethodField('get_cameras')
+  radars = serializers.SerializerMethodField('get_radars')
   sensors = serializers.SerializerMethodField('get_sensors')
   regions = RegionSerializer(many=True, required=False)
   tripwires = TripwireSerializer(many=True, required=False)
@@ -645,6 +784,10 @@ class SceneSerializer(NonNullSerializer):
   def get_cameras(self, obj):
     queryset = Cam.objects.filter(scene=obj)
     return CamSerializer(queryset, many=True, context=self.context).data
+
+  def get_radars(self, obj):
+    queryset = Radar.objects.filter(scene=obj)
+    return RadarSerializer(queryset, many=True, context=self.context).data
 
   def get_sensors(self, obj):
     queryset = [SingletonSensor.objects.get(pk=x.id) for x in obj.sensor_set.all()
@@ -842,7 +985,7 @@ class SceneSerializer(NonNullSerializer):
 
   class Meta:
     model = Scene
-    fields = ['uid', 'name', 'map_type', 'use_tracker', 'output_lla', 'trs_matrix', 'map_corners_lla', 'map', 'thumbnail', 'cameras', 'sensors', 'regions',
+    fields = ['uid', 'name', 'map_type', 'use_tracker', 'output_lla', 'trs_matrix', 'map_corners_lla', 'map', 'thumbnail', 'cameras', 'radars', 'sensors', 'regions',
               'tripwires', 'parent', 'transform', 'mesh_translation', 'mesh_rotation',
               'mesh_scale', 'scale', 'children', 'regulated_rate', 'external_update_rate',
               'camera_calibration', 'apriltag_size', 'map_processed', 'polycam_data',

@@ -52,6 +52,7 @@ export const CMD_CAMERA = "/cmd/camera/";
 export const CMD_DATABASE = "/cmd/database";
 export const DATA_REGULATED = "/regulated/scene/";
 export const DATA_CAMERA = "/data/camera/";
+export const DATA_RADAR = "/data/radar/";
 export const IMAGE_CAMERA = "/image/camera/";
 export const IMAGE_CALIBRATE = "/image/calibration/camera/";
 export const SYS_CHILDSCENE_STATUS = "/sys/child/status";

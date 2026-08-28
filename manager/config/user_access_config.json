@@ -14,13 +14,15 @@
       { "topic": "DATA_SENSOR", "access": 1 },
       { "topic": "EVENT", "access": 3 },
       { "topic": "SYS_CHILDSCENE_STATUS", "access": 3 },
-      { "topic": "DATA_CAMERA", "access": 1 }
+      { "topic": "DATA_CAMERA", "access": 1 },
+      { "topic": "DATA_RADAR", "access": 1 }
     ],
     "is_superuser": true
   },
   "browser.auth": {
     "acls": [
       { "topic": "DATA_CAMERA", "access": 1 },
+      { "topic": "DATA_RADAR", "access": 1 },
       { "topic": "CHANNEL", "access": 1 },
       { "topic": "IMAGE_CAMERA", "access": 1 },
       { "topic": "IMAGE_CALIBRATE", "access": 1 },

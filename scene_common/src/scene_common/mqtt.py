@@ -27,6 +27,7 @@ class _Topic(Enum):
   DATA_AUTOCALIB_CAM_POSE = auto()
   DATA_CAMERA = auto()
   DATA_EXTERNAL = auto()
+  DATA_RADAR = auto()
   DATA_REGION = auto()
   DATA_REGULATED = auto()
   DATA_SCENE = auto()
@@ -56,6 +57,7 @@ class PubSub(_PubSubTopicBase):
     _Topic.DATA_AUTOCALIB_CAM_POSE: Template(TOPIC_BASE + "/autocalibration/camera/pose/${camera_id}"),
     _Topic.DATA_CAMERA: Template(TOPIC_BASE + "/data/camera/${camera_id}"),
     _Topic.DATA_EXTERNAL: Template(TOPIC_BASE + "/external/${scene_id}/${thing_type}"),
+    _Topic.DATA_RADAR: Template(TOPIC_BASE + "/data/radar/${radar_id}"),
     _Topic.DATA_REGION: Template(TOPIC_BASE + "/data/region/${scene_id}/${region_id}/${thing_type}"),
     _Topic.DATA_REGULATED: Template(TOPIC_BASE + "/regulated/scene/${scene_id}"),
     _Topic.DATA_SCENE: Template(TOPIC_BASE + "/data/scene/${scene_id}/${thing_type}"),
@@ -133,6 +135,7 @@ class PubSub(_PubSubTopicBase):
     regex = re.escape(template)
     regex = regex.replace(r'\$\{thing_type\}', r'([^/]+)')
     regex = regex.replace(r'\$\{camera_id\}', r'([^/]+)')
+    regex = regex.replace(r'\$\{radar_id\}', r'([^/]+)')
     regex = regex.replace(r'\$\{scene_id\}', r'([^/]+)')
     regex = regex.replace(r'\$\{channel\}', r'([^/]+)')
     regex = regex.replace(r'\$\{scene_name\}', r'([^/]+)')

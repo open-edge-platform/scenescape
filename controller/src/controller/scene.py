@@ -8,6 +8,7 @@ import numpy as np
 import robot_vision as rv
 from scene_common import log
 from scene_common.camera import Camera
+from scene_common.radar import Radar
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
 from scene_common.geometry import Point
 from scene_common.scene_model import SceneModel
@@ -154,8 +155,9 @@ class Scene(SceneModel):
     self.persist_attributes = scene_data.get('persist_attributes', {})
     self._updateChildren(scene_data.get('children', []))
     self.updateCameras(scene_data.get('cameras', []))
+    self.updateRadars(scene_data.get('radars', []))
     # Regions, tripwires, and sensors are owned by the Analytics service;
-    # Controller only needs cameras (+ children) for tracking and visibility.
+    # Controller only needs cameras/radars (+ children) for tracking and visibility.
 
     tracker_config = scene_data.get('tracker_config', None)
     if tracker_config:
@@ -245,6 +247,31 @@ class Scene(SceneModel):
       if "intrinsics" not in jdata:
         self._convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
       objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
+      self._finishProcessing(detection_type, when, objects)
+    return True
+
+  def processRadarData(self, jdata, when=None, ignoreTimeFlag=False):
+    """Ingest radar detector payloads (sensor-local 3-D, no image projection)."""
+    radar_id = jdata['id']
+
+    if not when:
+      if ignoreTimeFlag:
+        when = get_epoch_time()
+      else:
+        when = get_epoch_time(jdata['timestamp'])
+
+    if radar_id not in self.radars:
+      log.error("Unknown radar", radar_id, self.radars)
+      return False
+
+    radar = self.radars[radar_id]
+    if not hasattr(radar, 'pose'):
+      log.info("DISCARDING: radar has no pose")
+      return True
+
+    for detection_type, detections in jdata['objects'].items():
+      objects = self._createMovingObjectsForDetection(
+        detection_type, detections, when, radar)
       self._finishProcessing(detection_type, when, objects)
     return True
 
@@ -403,6 +430,17 @@ class Scene(SceneModel):
     for camID in deleted:
       self.cameras.pop(camID)
     CameraRegistry.getInstance().updateCameras(self.name, self.cameras.keys())
+    return
+
+  def updateRadars(self, newRadars):
+    old = set(self.radars.keys())
+    new = set([x['uid'] for x in newRadars])
+    for radarData in newRadars:
+      radarID = radarData['uid']
+      self.radars[radarID] = Radar(radarID, radarData)
+    deleted = old - new
+    for radarID in deleted:
+      self.radars.pop(radarID)
     return
 
   @property
