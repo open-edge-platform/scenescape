@@ -90,17 +90,17 @@ Use the same approach for Kubernetes probes:
 ```yaml
 readinessProbe:
   exec:
-	command:
-	  - sh
-	  - -c
-	  - curl --insecure -s -H 'Host: localhost' https://127.0.0.1:443/api/v1/health
+    command:
+      - sh
+      - -c
+      - curl --insecure -s -H 'Host: localhost' https://127.0.0.1:443/api/v1/health
 
 livenessProbe:
   exec:
-	command:
-	  - sh
-	  - -c
-	  - curl --insecure -fsS -H 'Host: localhost' https://127.0.0.1:443/api/v1/health >/dev/null
+    command:
+      - sh
+      - -c
+      - curl --insecure -fsS -H 'Host: localhost' https://127.0.0.1:443/api/v1/health >/dev/null
 ```
 
 #### Priority and fallback behavior

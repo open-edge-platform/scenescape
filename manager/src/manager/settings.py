@@ -26,11 +26,11 @@ EXPOSE_TEST_HOOKS = os.getenv('EXPOSE_TEST_HOOKS', 'False').lower() in ['true', 
 def get_allowed_hosts():
   """
   Determine allowed hosts for Django's HOST header validation.
-  
+
   Priority (highest to lowest):
   1. SCENESCAPE_ALLOWED_HOSTS env var (comma-separated list)
   2. Fallback to ['*'] for backwards compatibility
-  
+
   Environment variables should contain comma-separated host values:
   - SCENESCAPE_ALLOWED_HOSTS=example.com,10.0.0.1
   """
