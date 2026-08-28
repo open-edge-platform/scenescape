@@ -29,12 +29,12 @@ RUN : \
     && rm -rf /var/lib/apt/lists/*
 
 # mod_qos library is broken on debian 12, so we build it from source
-RUN wget https://sourceforge.net/projects/mod-qos/files/mod_qos-11.76.tar.gz/download -O /tmp/mod_qos-11.76.tar.gz && \
-    tar -xzf /tmp/mod_qos-11.76.tar.gz -C /tmp && \
-    rm /tmp/mod_qos-11.76.tar.gz && \
-    cd /tmp/mod_qos-11.76/apache2 && \
+RUN wget https://sourceforge.net/projects/mod-qos/files/mod_qos-11.79.tar.gz/download -O /tmp/mod_qos-11.79.tar.gz && \
+    tar -xzf /tmp/mod_qos-11.79.tar.gz -C /tmp && \
+    rm /tmp/mod_qos-11.79.tar.gz && \
+    cd /tmp/mod_qos-11.79/apache2 && \
     apxs2 -i -a -c -lssl -l crypto mod_qos.c && \
-    rm -rf /tmp/mod_qos-11.76
+    rm -rf /tmp/mod_qos-11.79
 
 # ---------- Manager Runtime Stage ------------------
 FROM python:3.11-slim-bookworm AS scenescape-manager-runtime
