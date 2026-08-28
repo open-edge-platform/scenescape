@@ -408,90 +408,32 @@ the compose file itself:
 
 ## Demo-only patches
 
-Three small patches - one per affected component - are kept out of the normal
-source tree and applied on top of it only for this demo:
+Three small patches - one per component (Manager, scene_common, Analytics) -
+are kept out of the normal source tree and applied only for this demo. They
+add:
 
-`sample_data/lidar_intersection/patches/0001-manager-default-assets-and-source-labels.patch` (Manager):
+- Default `vehicle`/`cyclist` objects, and debug UI styling that labels
+  tracked marks by detection source (lidar vs camera - see
+  [What to expect in the UI](#what-to-expect-in-the-ui)).
+- Pass-through of the `source` field through scene_common and Analytics so
+  it reaches the regulated/UI-facing output end-to-end.
 
-| Change                                                                                                      | File(s)                                                                                                                                                                          |
-| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Seed default `vehicle`/`cyclist` objects (size, tracking radius, mark color, `rotation_from_velocity=true`) | `manager/src/manager/management/commands/init_default_assets.py` (new), `manager/src/manager/migrations/0003_default_asset3d_objects.py` (new), `manager/config/scenescape-init` |
-| Debug UI: label/style marks by detection source (lidar vs camera), add cyclist mark styling                 | `manager/src/manager/static/js/marks.js`, `manager/src/manager/static/js/assetmanager.js`, `manager/src/manager/static/css/style.css`                                            |
-
-`sample_data/lidar_intersection/patches/0002-scene-common-source-passthrough.patch` (scene_common):
-
-| Change                                                                                                                               | File(s)                                                                                             |
-| ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| Forward the same `source` field through the shared detections-builder/ingestion helpers so it reaches the regulated/UI-facing output | `scene_common/src/scene_common/detections_builder.py`, `scene_common/src/scene_common/ingestion.py` |
-
-`sample_data/lidar_intersection/patches/0003-analytics-source-passthrough.patch` (Analytics):
-
-| Change                                                                                                                                                                                                                 | File(s)                                       |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| Forward the same `source` field through the Analytics service's own tracked-object representation - the Analytics split re-derives objects through an allowlisted dataclass, so it needs the field added independently | `analytics/src/analytics/analytics_models.py` |
-
-No Controller patch is needed: the Controller's own `data/scene/<id>/<type>`
-topic already includes arbitrary detection fields like `source` for free
-(`prepareObjDict()` seeds its output dict from the tracked object's `info`,
-which retains whatever the publisher sent). Only the Analytics service's
-internal ingestion/object model needed explicit wiring, since it reconstructs
-its own curated object representation from the incoming MQTT data instead of
-keeping the full `info` dict around. Fusion/tracking logic itself is
-unmodified by any of these patches - they only add a pass-through for one
-debug-only field.
-
-`make build-core-lidar` applies all three patches to the working tree
-automatically, builds the `manager`, `analytics`, and shared `scene_common`
-base images with them applied, then automatically reverts them - the
-patches only need to be on disk while those images are being built (they're
-baked into the image layers), so:
-
-```bash
-SUPASS=<password> make demo-lidar
-```
-
-builds the patched images, reverts the source tree back to normal, and
-starts the demo, all in one step. Your working tree stays clean throughout -
-`git status` should never show `manager/`/`scene_common/`/
-`analytics/` files as modified because of this demo, so there's nothing
-extra to commit/push for it beyond this demo's own files under
-`sample_data/lidar_intersection/`, `Makefile`, and docs. The apply/revert
-cycle is idempotent - re-running the same command does not re-apply, fail,
-or leave anything applied. To manually apply or remove the patches (e.g. to
-inspect a diff without building):
+`make build-core-lidar` (and therefore `make demo-lidar`) applies the
+patches automatically, builds the `manager`, `analytics`, and shared
+`scene_common` images with them applied, then automatically reverts them.
+Your working tree stays clean throughout - `git status` should never show
+`manager/`/`scene_common/`/`analytics/` files as modified because of this
+demo. To manually apply or remove the patches (e.g. to inspect a diff
+without building):
 
 ```bash
 make apply-lidar-patch    # apply all three patches to the working tree
 make revert-lidar-patch   # revert them back to the unpatched source
 ```
 
-**How `apply-lidar-patch`/`revert-lidar-patch` actually work:** each target
-loops over the same 3 patch files (`LIDAR_PATCH_FILES` in the `Makefile`) one
-at a time, in order (`0001` -> `0002` -> `0003`), and for each one:
-
-- `apply-lidar-patch`: tries `git apply --check <patch>` first; if it applies
-  cleanly, applies it for real. If that check fails, it tries
-  `git apply --check -R <patch>` ("does this look already applied?") and
-  skips with a log line if so - this is what makes repeated invocations
-  idempotent (e.g. running `make build-core-lidar` twice in a row). If
-  neither check succeeds, it prints an error naming the offending patch and
-  stops immediately (the remaining patches in the list are not attempted),
-  instead of silently building partially-patched or unpatched images.
-- `revert-lidar-patch`: the mirror image - checks `git apply --check -R
-<patch>` and reverts it if currently applied, otherwise skips it as
-  already-unpatched.
-
-Since each patch only touches one component's files, they don't depend on
-each other and can be applied/reverted individually if needed (e.g. to
-inspect just the scene_common patch: `git apply --check
-sample_data/lidar_intersection/patches/0002-scene-common-source-passthrough.patch`),
-but `make apply-lidar-patch`/`revert-lidar-patch` always process all 3
-together for the normal build workflow.
-
-> **Note:** a hard kill (`kill -9`) of the build can still skip the
-> `EXIT` trap. If `git status` shows patched `manager/` /
-> `scene_common/` / `analytics/` files afterward, run
-> `make revert-lidar-patch`.
+> **Note:** a hard kill (`kill -9`) of a build can skip the automatic
+> revert. If `git status` shows patched `manager/`/`scene_common/`/
+> `analytics/` files afterward, run `make revert-lidar-patch` to clean up.
 
 ## Rotation/orientation handling
 
