@@ -64,8 +64,10 @@ services:
   # into the shared sample-data volume: LiDAR `velodyne/*.pcd`
   # frames are converted to `velodyne_bin/*.bin` via convert_pcd_to_bin.py
   # (the format DLStreamer's g3dlidarparse expects), and camera `image/*.jpg`
-  # frames are copied through unchanged (no conversion needed). Only the
-  # `image/`/`velodyne/` subdirectories are mounted (not the full `infrastructure-side/` tree).
+  # frames are re-encoded at a lower JPEG quality (same resolution) via
+  # reencode_jpegs.py so decode/detect/preview keep up with CAM_FRAME_RATE.
+  # Only the `image/`/`velodyne/` subdirectories are mounted (not the full
+  # `infrastructure-side/` tree).
   lidar-data-init:
     image: python:3.11-slim
     environment:
@@ -75,19 +77,23 @@ services:
       - no_proxy=${no_proxy},.scenescape.intel.com
       - PCD_VELODYNE_DIR=/src/velodyne
       - PCD_BIN_DIR=/dst/lidar_intersection/velodyne_bin
+      - JPEG_SRC_DIR=/src/image
+      - JPEG_DST_DIR=/dst/lidar_intersection/images
+      - JPEG_QUALITY=${JPEG_QUALITY:-50}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         set -e
-        pip install --no-cache-dir --quiet numpy pypcd4
+        pip install --no-cache-dir --quiet numpy pypcd4 pillow
         mkdir -p /dst/lidar_intersection/velodyne_bin /dst/lidar_intersection/images
         python3 /convert_pcd_to_bin.py
-        cp /src/image/*.jpg /dst/lidar_intersection/images/
+        python3 /reencode_jpegs.py
         echo 'lidar_intersection data ready'
     volumes:
       - ${LIDAR_RAW_DATASET_DIR:-./sample_data/lidar_intersection/V2X-Seq-SPD-Example}/infrastructure-side/image:/src/image:ro
       - ${LIDAR_RAW_DATASET_DIR:-./sample_data/lidar_intersection/V2X-Seq-SPD-Example}/infrastructure-side/velodyne:/src/velodyne:ro
       - ./sample_data/lidar_intersection/convert_pcd_to_bin.py:/convert_pcd_to_bin.py:ro
+      - ./sample_data/lidar_intersection/reencode_jpegs.py:/reencode_jpegs.py:ro
       - vol-sample-data:/dst
     restart: "no"
     pids_limit: 1000
