@@ -373,15 +373,11 @@ voxel-based 3-D CNN, noticeably heavier than the 2-D `person-vehicle-bike`
 detector the camera branch uses, and it runs in the same `gst-launch-1.0`
 process/host that also has to keep decoding and detecting camera frames.
 On CPU, PointPillars inference routinely can't keep up with the default
-`LIDAR_FRAME_RATE=10`. The bidirectional pace gate described in
-[LiDAR/camera stream synchronization](#lidarcamera-stream-synchronization-recorded-playback-only)
-below keeps this from turning into an ever-growing `lag`, but it does so by
-holding the faster (camera) branch back to the LiDAR's real rate - so the
-symptom on CPU is not runaway lag but **both** branches' `fps=` values
-sitting well below `LIDAR_FRAME_RATE` (choppy playback for the whole scene).
-Watch the `fps=` values in `docker compose logs lidar-stream`: if the LiDAR
-branch drags both below target, prefer GPU. Only fall back to CPU if no GPU
-is available, and expect a noticeably choppier scene when you do.
+`LIDAR_FRAME_RATE=10`. The
+[pace gate](#lidarcamera-stream-synchronization-recorded-playback-only)
+keeps `lag` bounded, so the symptom is not runaway lag but **both** branches'
+`fps=` values sitting below `LIDAR_FRAME_RATE`. Prefer GPU; fall back to CPU
+only when none is available, and expect choppier playback.
 
 **Falling back to CPU** (e.g. no GPU available): in
 `sample_data/lidar_intersection/docker-compose.lidar-override.yml`,
