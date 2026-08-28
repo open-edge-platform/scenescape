@@ -6,6 +6,8 @@
 import json
 import os
 import threading
+
+import orjson
 import pytest
 import tempfile
 from collections import defaultdict
@@ -305,7 +307,7 @@ class TestSceneControllerPublishers:
     """Scene publish emits DATA_SCENE and triggers external publish path."""
     scene_controller = self._build_controller('unregulated')
     scene_controller.publishExternalDetections = MagicMock()
-    scene = SimpleNamespace(uid='scene-1', name='Test Scene', lastPubCount={})
+    scene = SimpleNamespace(uid='scene-1', name='Test Scene')
     jdata = {'timestamp': '2026-01-01T00:00:01Z', 'debug_hmo_start_time': 10.0}
     objects = [SimpleNamespace(gid='obj-1')]
 
@@ -315,8 +317,24 @@ class TestSceneControllerPublishers:
 
     assert scene_controller.pubsub.publish.call_count == 1
     scene_controller.publishExternalDetections.assert_called_once_with(scene, 'person', objects, jdata)
-    assert scene.lastPubCount['Test Scene/person'] == 1
     assert jdata['debug_hmo_processing_time'] == 5.0
+
+  def test_publish_scene_detections_publishes_empty_objects_every_time(self):
+    """Empty objects lists free-run; no detections is still publishable state."""
+    scene_controller = self._build_controller('unregulated')
+    scene_controller.publishExternalDetections = MagicMock()
+    scene = SimpleNamespace(uid='scene-1', name='Test Scene')
+    jdata = {'timestamp': '2026-01-01T00:00:01Z'}
+
+    with patch('controller.scene_controller.buildDetectionsList', return_value=[]):
+      scene_controller.publishSceneDetections(scene, [], 'person', jdata)
+      scene_controller.publishSceneDetections(scene, [], 'person', jdata)
+
+    assert scene_controller.pubsub.publish.call_count == 2
+    for call in scene_controller.pubsub.publish.call_args_list:
+      payload = orjson.loads(call.args[1])
+      assert payload['objects'] == []
+    assert scene_controller.publishExternalDetections.call_count == 2
 
   def test_publish_external_detections_publishes_with_sensor_enriched_objects(self):
     """External publish emits when shouldPublish allows."""
@@ -565,7 +583,6 @@ class TestSceneControllerPublishers:
 
     scene_controller.publishDetections(scene, objects, 10.0, 'person', jdata, 'cam-1')
 
-    assert hasattr(scene, 'lastPubCount')
     assert hasattr(scene, 'last_published_detection')
     scene_controller.publishSceneDetections.assert_called_once_with(scene, objects, 'person', jdata)
     mock_metrics.record_object_count.assert_called_once()
