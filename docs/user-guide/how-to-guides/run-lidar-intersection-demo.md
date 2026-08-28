@@ -364,15 +364,15 @@ voxel-based 3-D CNN, noticeably heavier than the 2-D `person-vehicle-bike`
 detector the camera branch uses, and it runs in the same `gst-launch-1.0`
 process/host that also has to keep decoding and detecting camera frames.
 On CPU, PointPillars inference routinely can't keep up with the default
-`LIDAR_FRAME_RATE=10`, and unlike the one-time startup skew described in
+`LIDAR_FRAME_RATE=10`. The bidirectional pace gate described in
 [LiDAR/camera stream synchronization](#lidarcamera-stream-synchronization-recorded-playback-only)
-below, this shows up as a **lag that keeps growing** frame after frame
-instead of settling to a small constant offset - watch the `lag=` value in
-`docker compose logs lidar-stream` (a steadily increasing number, not just a
-steady small one, means the LiDAR branch itself is falling behind in real
-time, not just recovering from GPU warm-up). Prefer GPU whenever the host
-supports it; only fall back to CPU if no GPU is available, and expect a
-noticeably choppier LiDAR branch when you do.
+below keeps this from turning into an ever-growing `lag`, but it does so by
+holding the faster (camera) branch back to the LiDAR's real rate - so the
+symptom on CPU is not runaway lag but **both** branches' `fps=` values
+sitting well below `LIDAR_FRAME_RATE` (choppy playback for the whole scene).
+Watch the `fps=` values in `docker compose logs lidar-stream`: if the LiDAR
+branch drags both below target, prefer GPU. Only fall back to CPU if no GPU
+is available, and expect a noticeably choppier scene when you do.
 
 **Falling back to CPU** (e.g. no GPU available): in
 `sample_data/lidar_intersection/docker-compose.lidar-override.yml`,
@@ -387,17 +387,18 @@ The `lidar-stream` service reads its configuration from environment
 variables (see the commented examples in
 `sample_data/lidar_intersection/docker-compose.lidar-override.yml`):
 
-| Variable                | Default               | Description                                                                |
-| ----------------------- | --------------------- | -------------------------------------------------------------------------- |
-| `LIDAR_SENSOR_ID`       | `intersection-lidar1` | Sensor id used for the MQTT topic and payload                              |
-| `LIDAR_DEVICE`          | `GPU`                 | OpenVINO device for PointPillars inference (`CPU` fallback is much slower) |
-| `LIDAR_SCORE_THRESHOLD` | `0.70`                | Minimum detection confidence to publish                                    |
-| `LIDAR_FRAME_RATE`      | `10`                  | Target playback frame rate                                                 |
-| `LIDAR_LOOP`            | `true`                | Loop the recorded frame sequence                                           |
-| `CAM_SENSOR_ID`         | `intersection-cam1`   | Sensor id used for the MQTT topic and payload                              |
-| `CAM_DEVICE`            | `CPU`                 | OpenVINO device for the camera detector                                    |
-| `CAM_SCORE_THRESHOLD`   | `0.8`                 | Minimum detection confidence to publish                                    |
-| `CAM_DETECTION_LABELS`  | `vehicle,cyclist`     | Comma-separated category allow-list                                        |
+| Variable                  | Default               | Description                                                                                    |
+| ------------------------- | --------------------- | ---------------------------------------------------------------------------------------------- |
+| `LIDAR_SENSOR_ID`         | `intersection-lidar1` | Sensor id used for the MQTT topic and payload                                                  |
+| `LIDAR_DEVICE`            | `GPU`                 | OpenVINO device for PointPillars inference (`CPU` fallback is much slower)                     |
+| `LIDAR_SCORE_THRESHOLD`   | `0.70`                | Minimum detection confidence to publish                                                        |
+| `LIDAR_FRAME_RATE`        | `10`                  | Target playback frame rate                                                                     |
+| `LIDAR_LOOP`              | `true`                | Loop the recorded frame sequence                                                               |
+| `CAM_SENSOR_ID`           | `intersection-cam1`   | Sensor id used for the MQTT topic and payload                                                  |
+| `CAM_DEVICE`              | `CPU`                 | OpenVINO device for the camera detector                                                        |
+| `CAM_SCORE_THRESHOLD`     | `0.8`                 | Minimum detection confidence to publish                                                        |
+| `CAM_DETECTION_LABELS`    | `vehicle,cyclist`     | Comma-separated category allow-list                                                            |
+| `LIDAR_CAM_LAG_TOLERANCE` | `2`                   | Max frames one branch may run ahead of the other before it is paced back (keeps `lag` bounded) |
 
 `lidar-data-init` (the dataset conversion step) has its own variable, set as
 a `docker compose`/Makefile-level environment variable rather than inside
@@ -468,10 +469,17 @@ publishes its first detection.
 
 To keep the two recorded sequences aligned, the script:
 
-- Holds the camera branch's published output back (frames are read from its
-  FIFO but discarded, not published/counted) until LiDAR's own first frame
-  is processed (`_lidar_ready` in `lidar_publisher.py`), logged as
+- Holds the camera branch back until LiDAR's own first frame is processed
+  (`_lidar_ready` in `lidar_publisher.py`), logged as
   `[lidar-publisher] first LiDAR frame processed - releasing camera stream`.
+- Then keeps both branches paced to each other with a **bidirectional
+  back-pressure gate**: whichever branch gets more than
+  `LIDAR_CAM_LAG_TOLERANCE` frames ahead of the other stops draining its own
+  FIFO, which fills the pipe and back-pressures that branch's GStreamer chain
+  so it physically slows to the sibling's rate. This bounds the drift in
+  **either** direction (camera-ahead or LiDAR-ahead), so the coupled pair
+  effectively plays back at the rate of whichever branch is momentarily
+  slower.
 - Logs a running `cam=<count> (lag=<n>)` value alongside every 100th LiDAR
   frame in `docker compose logs lidar-stream`, so you can see at a glance
   whether the two streams are keeping pace with each other.
@@ -485,13 +493,15 @@ since a live LiDAR sensor is already running and producing detections
 continuously well before (and after) any given camera comes online. The
 Scene Controller's per-sensor Hungarian association/fusion already handles
 sensors that start, stop, or report at different rates generically - this
-script-level startup-flush/lag-tracking logic exists only to make a
+script-level startup-flush/pace-gate logic exists only to make a
 pre-recorded demo behave sensibly, not because live multi-sensor fusion
-needs it. A small, constant `lag` value (e.g. `lag=1`) once the demo is
-running is expected and not a bug; a `lag` that keeps growing indicates the
-camera branch is genuinely falling behind (see
-[Using GPU acceleration](#using-gpu-acceleration) for the LiDAR-side
-equivalent of this same growing-lag symptom).
+needs it. With the pace gate, `lag` stays bounded to roughly
+`±LIDAR_CAM_LAG_TOLERANCE` once the demo is running; if you see it stuck at
+that bound while **both** branches' `fps=` values sit below
+`LIDAR_FRAME_RATE`, that means one branch genuinely can't keep up and is
+holding the other back (see
+[Using GPU acceleration](#using-gpu-acceleration)) - raise the LiDAR to GPU
+or lower the target frame rate rather than letting the two drift apart.
 
 ## Troubleshooting
 
@@ -537,9 +547,16 @@ lidar-scene-init` if needed.
   `lidar-data-init` completed (the preview needs the same extracted `.jpg`
   frames as detection). `intersection-lidar1` has no camera picture and will
   always show offline/no-preview - that's expected for a LiDAR sensor.
-- **`cam=... (lag=...)` keeps growing in `docker compose logs lidar-stream`
-  instead of staying at a small constant value:** see
+- **`cam=... (lag=...)` grows past `±LIDAR_CAM_LAG_TOLERANCE` in `docker
+compose logs lidar-stream`:** the bidirectional pace gate normally holds
+  `lag` within roughly `±LIDAR_CAM_LAG_TOLERANCE` (default 2). A brief
+  overshoot right after startup is fine (FIFO/read-ahead buffering), but a
+  `lag` that keeps growing means the gate is not engaging - check that
+  `lidar_publisher.py` is the patched version and that neither branch has
+  crashed (`[camera-publisher]`/`[lidar-publisher] FATAL`/`Done` lines). If
+  `lag` instead sits pinned at the tolerance while **both** `fps=` values are
+  below `LIDAR_FRAME_RATE`, the streams are aligned but one branch can't keep
+  up - see
   [LiDAR/camera stream synchronization](#lidarcamera-stream-synchronization-recorded-playback-only)
-  and [Using GPU acceleration](#using-gpu-acceleration) - a small constant
-  lag is normal, but a steadily growing one usually means the LiDAR branch
-  is running on CPU and can't keep up with `LIDAR_FRAME_RATE`.
+  and [Using GPU acceleration](#using-gpu-acceleration) (usually the LiDAR
+  branch running on CPU); move LiDAR to GPU or lower `LIDAR_FRAME_RATE`.

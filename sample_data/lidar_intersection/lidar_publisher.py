@@ -325,11 +325,58 @@ def _open_fifo_background(path: str, result: list) -> threading.Thread:
 
 # ── Stream runner (shared by both LiDAR and camera branches) ──────────────────
 
-# Camera stream waits for LiDAR's first frame (GPU model-load lag), and both
-# share a frame counter for the lag diagnostic logged below.
+# Both branches replay the same recorded clip but are paced independently (the
+# camera by gvafpsthrottle, the LiDAR by inference throughput), so without
+# coupling they drift apart without bound. These shared counters plus a
+# Condition let each reader back-pressure its own FIFO whenever it gets more
+# than LAG_TOLERANCE frames ahead of the sibling, keeping the two aligned in
+# either direction (and holding the camera back until LiDAR's first frame).
 _lidar_ready = threading.Event()
 _stream_frame_counts: "dict[str, int]" = {"lidar-publisher": 0, "camera-publisher": 0}
-_stream_counts_lock = threading.Lock()
+_stream_finished: "dict[str, bool]" = {"lidar-publisher": False, "camera-publisher": False}
+_stream_counts_cond = threading.Condition()
+
+# Max frames one branch may run ahead of the other before it is paced back.
+LAG_TOLERANCE = max(1, int(os.environ.get("LIDAR_CAM_LAG_TOLERANCE", "2")))
+
+
+def _sibling(name: str) -> str:
+  return "camera-publisher" if name == "lidar-publisher" else "lidar-publisher"
+
+
+def _mark_stream_finished(name: str) -> None:
+  """Release a sibling that may be waiting on this (now-stopped) stream."""
+  with _stream_counts_cond:
+    _stream_finished[name] = True
+    _stream_counts_cond.notify_all()
+
+
+def _record_frame(name: str, published: int) -> None:
+  with _stream_counts_cond:
+    _stream_frame_counts[name] = published
+    _stream_counts_cond.notify_all()
+
+
+def _wait_for_pace(name: str, published: int, proc: subprocess.Popen) -> bool:
+  """Block while this stream is >=LAG_TOLERANCE frames ahead of its sibling.
+
+  Not reading the FIFO fills the pipe, back-pressuring this branch's GStreamer
+  chain so it physically slows to the sibling's rate. Returns False if the
+  pipeline exited while waiting so the caller stops.
+  """
+  other = _sibling(name)
+  with _stream_counts_cond:
+    while True:
+      # Camera also holds until LiDAR's first frame (GPU model-load skew).
+      startup_hold = (name == "camera-publisher") and not _lidar_ready.is_set()
+      if _stream_finished.get(other, False):
+        return True  # sibling gone: don't stall waiting for it to advance
+      ahead = published - _stream_frame_counts.get(other, 0)
+      if not startup_hold and ahead < LAG_TOLERANCE:
+        return True
+      if proc.poll() is not None:
+        return False
+      _stream_counts_cond.wait(timeout=0.5)
 
 
 def run_stream(
@@ -379,8 +426,9 @@ def run_stream(
       if not line:
         continue
 
-      if not is_lidar and not _lidar_ready.is_set():
-        continue  # discard camera frames until LiDAR's first frame
+      # Back-pressure this FIFO if we are running ahead of the sibling stream.
+      if not _wait_for_pace(name, published, proc):
+        break
 
       try:
         raw = json.loads(line)
@@ -390,6 +438,8 @@ def run_stream(
 
       if is_lidar and not _lidar_ready.is_set():
         _lidar_ready.set()
+        with _stream_counts_cond:
+          _stream_counts_cond.notify_all()
         print(f"[{name}] first LiDAR frame processed - releasing camera stream", flush=True)
 
       gst_ns = raw.get("lidar_frame", {}).get("exit_source_timestamp")
@@ -412,14 +462,13 @@ def run_stream(
         frame_index_cell[0] = start + (published % span if span else published)
 
       published += 1
-      with _stream_counts_lock:
-        _stream_frame_counts[name] = published
+      _record_frame(name, published)
 
       if published % 100 == 0:
         counts = {k: len(v) for k, v in msg["objects"].items()}
         if is_lidar:
-          # Growing lag (not just flat/constant) means camera is falling behind.
-          with _stream_counts_lock:
+          # With the pace gate the lag stays bounded (|lag| <= LAG_TOLERANCE).
+          with _stream_counts_cond:
             cam_count = _stream_frame_counts.get("camera-publisher", 0)
           lag = published - cam_count
           print(
@@ -526,6 +575,9 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001 - surface stream failure without killing the sibling stream
       print(f"[{name}] FATAL: {exc}", flush=True)
       errors.append(exc)
+    finally:
+      # Unblock a sibling that may be waiting on this stream's pace gate.
+      _mark_stream_finished(name)
 
   camera_thread = threading.Thread(
     target=_run_and_capture,
