@@ -122,7 +122,7 @@ Steps 2-4 are skip-if-already-done (checks for existing files before
 copying/building), so re-running `lidar-model-init` on a volume that already
 has the model is fast; only the first run on a fresh `vol-models` actually
 clones/builds anything (the several-minutes-first-run cost mentioned in
-[Step 1](#step-1-enable-the-demo)).
+[Enable the demo](#enable-the-demo)).
 
 ## Prerequisites
 
@@ -177,7 +177,7 @@ full dataset, license terms, and citation details.
   > `LIDAR_FRAME_RATE` target (choppy playback, growing detection latency).
   > Prefer GPU whenever available.
 
-## Step 1: Enable the demo
+## Enable the demo
 
 Run the dedicated `demo-lidar` target instead of `make demo` (a basic demo
 only - no ReID or tracker):
@@ -212,7 +212,58 @@ You should see log lines like:
 [lidar-publisher] frames=100 fps=10.0 objects={'vehicle': 2, 'cyclist': 1}
 ```
 
-## Step 2: Scene is seeded automatically
+`lidar-data-init` (`docker compose logs lidar-data-init`) converts the
+dataset and exits:
+
+```text
+Converting 251 frames from /src/velodyne -> /dst/lidar_intersection/velodyne_bin
+  50/251 done
+  100/251 done
+  150/251 done
+  200/251 done
+  250/251 done
+  251/251 done
+Conversion complete.
+lidar_intersection data ready
+```
+
+`lidar-model-init` (`docker compose logs lidar-model-init`) builds/installs
+the PointPillars model. On the first run (several minutes: clones
+`openvino_contrib` and compiles the OpenVINO extension):
+
+```text
+[install-pointpillars] MODELS_PATH=/home/pipeline-server/models
+[install-pointpillars] Sparse-cloning openvino_contrib into /tmp/pointpillars-cache/openvino_contrib at ref d131b42505ee77e064638e0b38e6a84b52b779d6...
+[install-pointpillars] Using sparse-cloned source: /tmp/pointpillars-cache/openvino_contrib/modules/3d/pointPillars
+[install-pointpillars] Copying pointpillars_ov_nn.bin
+[install-pointpillars] Copying pointpillars_ov_nn.xml
+[install-pointpillars] Copying pointpillars_ov_pillar_layer.xml
+[install-pointpillars] Copying pointpillars_ov_postproc.xml
+[install-pointpillars] Building PointPillars OpenVINO extension...
+[install-pointpillars] Extension built: /tmp/pointpillars-cache/openvino_contrib/modules/3d/pointPillars/ov_extensions/build/libov_pointpillars_extensions.so
+[install-pointpillars] Copying extension to /home/pipeline-server/models/public/pointpillars/FP16/libov_pointpillars_extensions.so
+[install-pointpillars] Config written: /home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
+[install-pointpillars] Done. Set LIDAR_MODEL_CONFIG=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
+```
+
+On later runs (model already present on `vol-models`), it skips the clone/build
+and finishes in seconds:
+
+```text
+[install-pointpillars] MODELS_PATH=/home/pipeline-server/models
+[install-pointpillars] Using sparse-cloned source: /tmp/pointpillars-cache/openvino_contrib/modules/3d/pointPillars
+[install-pointpillars] Already present: pointpillars_ov_nn.bin
+[install-pointpillars] Already present: pointpillars_ov_nn.xml
+[install-pointpillars] Already present: pointpillars_ov_pillar_layer.xml
+[install-pointpillars] Already present: pointpillars_ov_postproc.xml
+[install-pointpillars] Extension already built: /tmp/pointpillars-cache/openvino_contrib/modules/3d/pointPillars/ov_extensions/build/libov_pointpillars_extensions.so
+[install-pointpillars] Config written: /home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
+[install-pointpillars] Done. Set LIDAR_MODEL_CONFIG=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
+```
+
+## Verify demo is working
+
+### Scene is seeded automatically
 
 `lidar-scene-init` waits for the Manager (`web`) to become healthy, then
 imports
@@ -226,6 +277,19 @@ on the next `make demo-lidar`.
 
 ```bash
 docker compose logs lidar-scene-init
+```
+
+On the first run you should see:
+
+```text
+lidar-scene-init: importing 'Lidar Intersection' scene...
+lidar-scene-init: done
+```
+
+On later runs (scene already imported), it exits early instead:
+
+```text
+lidar-scene-init: 'Lidar Intersection' scene already exists, skipping import
 ```
 
 After it runs, a new **Lidar Intersection** scene appears with the
@@ -242,25 +306,38 @@ zipFile=@sample_data/lidar_intersection/LidarIntersection-scene-import.zip`
 > [Importing the scene](./build-a-scene/create-new-scene.md#importing-the-scene)
 > for the full token/curl pattern).
 
-## Step 3: Verify fusion is working
+### What to expect in the UI
 
-1. Open the **Lidar Intersection** scene in the UI - tracked vehicles and
-   cyclists should appear moving through the intersection, sourced from
-   either sensor.
-2. Or inspect the raw per-sensor detections directly (the broker is not
-   published to the host by default, so sniff traffic from inside the
-   container):
+Open the **Lidar Intersection** scene in the UI:
 
-   ```bash
-   docker compose exec broker mosquitto_sub -h localhost -p 1883 \
-     --cafile /mosquitto/secrets/certs/scenescape-ca.pem --insecure -v \
-     -t 'scenescape/data/camera/intersection-lidar1' \
-     -t 'scenescape/data/camera/intersection-cam1'
-   ```
+- **3D view** (default): tracked vehicles and cyclists appear as marks moving
+  through the intersection. Marks are labeled/styled by detection source
+  (lidar vs camera - see the debug UI changes in
+  [Demo-only patches](#demo-only-patches)), so you can tell which sensor(s)
+  are currently contributing to a given tracked object; a vehicle or cyclist
+  seen by both sensors is fused into a single tracked mark rather than
+  appearing twice.
+- **2D view**: switching to `intersection-cam1` shows the replayed camera
+  frames with 2-D detection boxes overlaid. `intersection-lidar1` has no
+  camera picture and always shows offline/no-preview in this view - that is
+  expected for a LiDAR sensor (see
+  [Troubleshooting](#troubleshooting)).
 
-   Each message includes a `"source"` sensor id and category-grouped
-   `objects`; over time you should see the same real-world vehicle tracked
-   by both sensors and fused into a single tracked object in the scene.
+### Verify fusion via MQTT
+
+Inspect the raw per-sensor detections directly (the broker is not published
+to the host by default, so sniff traffic from inside the container):
+
+```bash
+docker compose exec broker mosquitto_sub -h localhost -p 1883 \
+  --cafile /mosquitto/secrets/certs/scenescape-ca.pem --insecure -v \
+  -t 'scenescape/data/camera/intersection-lidar1' \
+  -t 'scenescape/data/camera/intersection-cam1'
+```
+
+Each message includes a `"source"` sensor id and category-grouped
+`objects`; over time you should see the same real-world vehicle tracked
+by both sensors and fused into a single tracked object in the scene.
 
 ## Stopping the demo
 
