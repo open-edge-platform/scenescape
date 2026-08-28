@@ -116,6 +116,7 @@ Publish External Source Adapter <./how-to-guides/publish-external-source-adapter
 Calibrate Cameras <./how-to-guides/calibrate-cameras/index.md>
 Work with Spatial Analytics Data <./how-to-guides/work-with-spatial-analytics-data.md>
 Run the LiDAR-Intersection Fusion Demo <./how-to-guides/run-lidar-intersection-demo.md>
+Run the Radar-Intersection Fusion Demo <./how-to-guides/run-radar-intersection-demo.md>
 
 :::
 

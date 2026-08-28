@@ -1,0 +1,64 @@
+{
+  "model": "RadarPillars",
+  "source": "Fatihbin/radarpillars-vod",
+  "license": "Apache-2.0",
+  "point_cloud_range": [
+    0.0,
+    -25.6,
+    -3.0,
+    51.2,
+    25.6,
+    2.0
+  ],
+  "voxel_size": [
+    0.16,
+    0.16,
+    5.0
+  ],
+  "max_points_per_voxel": 32,
+  "max_voxels": 16000,
+  "bev_channels": 32,
+  "grid_size": [
+    320,
+    320,
+    1
+  ],
+  "nn_model": "radarpillars_bev_detect.xml",
+  "preproc_weights": "radarpillars_preproc_weights.npz",
+  "score_threshold": 0.1,
+  "nms_thresh": 0.1,
+  "class_names": [
+    "vehicle",
+    "person",
+    "cyclist"
+  ],
+  "anchor_sizes": [
+    [
+      3.9,
+      1.6,
+      1.56
+    ],
+    [
+      0.8,
+      0.6,
+      1.73
+    ],
+    [
+      1.76,
+      0.6,
+      1.73
+    ]
+  ],
+  "anchor_rotations": [
+    0.0,
+    1.57
+  ],
+  "anchor_bottom_heights": [
+    -1.78,
+    -0.6,
+    -0.6
+  ],
+  "feature_map_stride": 2,
+  "dir_offset": 0.78539,
+  "num_dir_bins": 2
+}

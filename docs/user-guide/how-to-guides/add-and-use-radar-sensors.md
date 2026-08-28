@@ -131,6 +131,7 @@ When using or redistributing VIDETEC-derived frames, attribute:
 
 ## Related documentation
 
+- [Run the Radar-Intersection Fusion Demo](./run-radar-intersection-demo.md)
 - [Integrate Cameras and Sensors](./integrate-cameras-and-sensors.md)
 - [Scene Controller Data Formats](../microservices/controller/data_formats.md)
 - [Radar service README](../../../radar/README.md)

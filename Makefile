@@ -47,6 +47,9 @@ REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE) -f $(REID_PIP
 # LiDAR-intersection (LiDAR/Camera) fusion demo variables
 LIDAR_OVERRIDE_FILE = sample_data/lidar_intersection/docker-compose.lidar-override.yml
 LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
+# Radar-intersection (Radar/Camera) fusion demo variables
+RADAR_OVERRIDE_FILE = sample_data/radar_intersection/docker-compose.radar-override.yml
+RADAR_COMPOSE_ARGS = -f docker-compose.yml -f $(RADAR_OVERRIDE_FILE)
 # One patch per component (0001 manager, 0002 scene_common, 0003 analytics),
 # applied only when building with make build-core-lidar.
 LIDAR_PATCH_FILES := sample_data/lidar_intersection/patches/0001-manager-default-assets-and-source-labels.patch \
@@ -117,6 +120,7 @@ help:
 	@echo "                              as the super user password for logging into Scenescape)"
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
 	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
+	@echo "  demo-radar                  Start the basic Scenescape demo plus the Radar-intersection (Radar/Camera) fusion demo"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
 	@echo ""
@@ -180,6 +184,8 @@ help:
 	@echo "    default to REID_BACKEND=vdms. Set REID_BACKEND=qdrant to use Qdrant instead."
 	@echo "  - Use 'make demo-lidar' to run the basic LiDAR-intersection (LIDAR/Camera) fusion demo."
 	@echo "    See docs/user-guide/how-to-guides/run-lidar-intersection-demo.md for prerequisites and setup steps."
+	@echo "  - Use 'make demo-radar' to run the Radar-intersection (RadarPillars OpenVINO + camera) fusion demo."
+	@echo "    See docs/user-guide/how-to-guides/run-radar-intersection-demo.md for prerequisites and setup steps."
 	@echo ""
 
 # ========================= Build Images =============================
@@ -774,6 +780,11 @@ demo-tracker: $(DEMO_BUILD:build=build-all) init-sample-data
 .PHONY: demo-lidar
 demo-lidar: $(DEMO_BUILD:build=build-core-lidar) init-sample-data
 	$(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile controller))
+
+# Radar-intersection (RadarPillars OpenVINO + camera gvadetect) fusion demo
+.PHONY: demo-radar
+demo-radar: $(DEMO_BUILD:build=build-core) init-sample-data
+	$(call start_demo,$(strip $(RADAR_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-close
 demo-close:

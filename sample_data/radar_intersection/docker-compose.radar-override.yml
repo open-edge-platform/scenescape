@@ -1,0 +1,145 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Radar-intersection fusion demo (opt-in, dedicated target). Run with:
+#
+#   SUPASS=<password> make demo-radar
+#
+# RadarPillars OpenVINO IR (host VFE/attention + OV BEV/detect) publishes on
+# scenescape/data/radar/{id}; camera gvadetect publishes on data/camera/{id}.
+# See docs/user-guide/how-to-guides/run-radar-intersection-demo.md.
+
+services:
+  radar-scene-init:
+    image: alpine:3.23
+    networks:
+      scenescape:
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      - SUPASS=${SUPASS}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+      - no_proxy=${no_proxy},.scenescape.intel.com
+    volumes:
+      - ./sample_data/radar_intersection/RadarIntersection-scene-import.zip:/scene-import/RadarIntersection-scene-import.zip:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        apk add --no-cache curl >/dev/null
+        TOKEN=$$(curl -sk -X POST -d "username=admin&password=${SUPASS}" https://web.scenescape.intel.com/api/v1/auth \
+          | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        if [ -z "$$TOKEN" ]; then
+          echo "radar-scene-init: failed to authenticate to the Scenescape API"
+          exit 1
+        fi
+        if curl -sk -H "Authorization: Token $$TOKEN" https://web.scenescape.intel.com/api/v1/scenes \
+          | grep -Eq '"name"[[:space:]]*:[[:space:]]*"Radar Intersection"'; then
+          echo "radar-scene-init: 'Radar Intersection' scene already exists, skipping import"
+          exit 0
+        fi
+        echo "radar-scene-init: importing 'Radar Intersection' scene..."
+        curl -sk -X POST -H "Authorization: Token $$TOKEN" \
+          -F "zipFile=@/scene-import/RadarIntersection-scene-import.zip" \
+          https://web.scenescape.intel.com/api/v1/import-scene/
+        echo "radar-scene-init: done"
+    restart: "no"
+    pids_limit: 1000
+
+  # Synthetic VIDETEC-style radar frames + camera JPEGs (from V2X-Seq or
+  # LIDAR_RAW_DATASET_DIR) into the shared sample-data volume.
+  radar-data-init:
+    image: python:3.11-slim
+    environment:
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+      - no_proxy=${no_proxy},.scenescape.intel.com
+      - JPEG_SRC_DIR=/src/image
+      - JPEG_DST_DIR=/dst/radar_intersection/images
+      - JPEG_QUALITY=${JPEG_QUALITY:-50}
+      - RADAR_FRAMES_DST=/dst/radar_intersection/frames
+      - RADAR_NUM_FRAMES=${RADAR_NUM_FRAMES:-60}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        pip install --no-cache-dir --quiet numpy pillow
+        mkdir -p /dst/radar_intersection/frames /dst/radar_intersection/images
+        python3 /generate_synthetic_radar_frames.py -o /dst/radar_intersection/frames -n $${RADAR_NUM_FRAMES}
+        if [ -d /src/image ] && ls /src/image/*.jpg >/dev/null 2>&1; then
+          python3 /reencode_jpegs.py
+        else
+          echo 'radar-data-init: no camera JPEGs under /src/image — camera branch needs RADAR_CAM_DATASET_DIR'
+        fi
+        echo 'radar_intersection data ready'
+    volumes:
+      - ${RADAR_CAM_DATASET_DIR:-./sample_data/lidar_intersection/V2X-Seq-SPD-Example}/infrastructure-side/image:/src/image:ro
+      - ./sample_data/radar_intersection/generate_synthetic_radar_frames.py:/generate_synthetic_radar_frames.py:ro
+      - ./sample_data/lidar_intersection/reencode_jpegs.py:/reencode_jpegs.py:ro
+      - vol-sample-data:/dst
+    restart: "no"
+    pids_limit: 1000
+
+  radar-model-init:
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+    user: root
+    entrypoint: ["/bin/bash", "/model_installer/install-radarpillars"]
+    environment:
+      - MODELS_PATH=/home/pipeline-server/models
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+      - no_proxy=${no_proxy},.scenescape.intel.com
+    volumes:
+      - ./sample_data/radar_intersection/model_installer:/model_installer
+      - vol-models:/home/pipeline-server/models
+    restart: "no"
+    pids_limit: 1000
+
+  radar-stream:
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+    networks:
+      scenescape:
+    tty: true
+    entrypoint:
+      ["python3", "/home/pipeline-server/user_scripts/radar_publisher.py"]
+    depends_on:
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+      radar-scene-init:
+        condition: service_completed_successfully
+      radar-data-init:
+        condition: service_completed_successfully
+      radar-model-init:
+        condition: service_completed_successfully
+    environment:
+      - MQTT_HOST=broker.scenescape.intel.com
+      - MQTT_PORT=1883
+      - RADAR_SENSOR_ID=intersection-radar1
+      - RADAR_DEVICE=${RADAR_DEVICE:-CPU}
+      - RADAR_FRAME_RATE=${RADAR_FRAME_RATE:-10}
+      - RADAR_MUTE=${RADAR_MUTE:-false}
+      - CAM_SENSOR_ID=radar-cam1
+      - CAM_DEVICE=${CAM_DEVICE:-CPU}
+      - CAM_SCORE_THRESHOLD=${CAM_SCORE_THRESHOLD:-0.5}
+      - CAM_MUTE=${CAM_MUTE:-false}
+      - CAM_START_INDEX=${CAM_START_INDEX:-010699}
+      - CAM_STOP_INDEX=${CAM_STOP_INDEX:-010949}
+      - CAM_DATA_PATH=/home/pipeline-server/videos/radar_intersection/images/%06d.jpg
+    volumes:
+      - ./sample_data/radar_intersection/radar_publisher.py:/home/pipeline-server/user_scripts/radar_publisher.py:ro
+      - ./sample_data/radar_intersection/radarpillars_infer.py:/home/pipeline-server/user_scripts/radarpillars_infer.py:ro
+      - ./sample_data/radar_intersection/model-proc:/home/pipeline-server/videos/radar_intersection/model-proc:ro
+      - vol-sample-data:/home/pipeline-server/videos
+      - vol-models:/home/pipeline-server/models
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+    restart: always
+    pids_limit: 1000

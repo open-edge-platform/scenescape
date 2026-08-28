@@ -42,6 +42,8 @@ sample_data/xREF_*
 # Manually-downloaded raw LiDAR-demo dataset - see docs/user-guide/how-to-guides/run-lidar-intersection-demo.md Prerequisites
 V2X-Seq-SPD-Example.zip
 sample_data/lidar_intersection/V2X-Seq-SPD-Example/
+sample_data/radar_intersection/frames/
+sample_data/radar_intersection/weights/
 .test_logs
 test_data
 test_reports/

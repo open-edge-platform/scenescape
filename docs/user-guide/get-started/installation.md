@@ -107,6 +107,12 @@ recorded camera image sequence. Run it with the dedicated `make demo-lidar` targ
 See [Run the LiDAR-Intersection Fusion Demo](../how-to-guides/run-lidar-intersection-demo.md)
 for the full setup and scene-import steps.
 
+### (Optional): Radar-Intersection fusion demo
+
+A separate, opt-in demo fuses RadarPillars (OpenVINO IR) radar detections with
+an OpenVINO camera `gvadetect` stream. Run it with `make demo-radar`.
+See [Run the Radar-Intersection Fusion Demo](../how-to-guides/run-radar-intersection-demo.md).
+
 ## Step 4: Verify a successful deployment
 
 If you are running remotely, connect using `https://<ip_address>` or `https://<hostname>`, using the correct IP address or hostname of the remote Scenescape system. If accessing on a local system use `https://localhost`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
