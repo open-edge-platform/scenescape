@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 #
-# Stream Manager REST API - Case 3 WITH Sensor Manager (Stage 4 draft).
+# Stream Manager REST API (Stage 4 draft).
 # Cameras are NTP-synchronized; Stream Manager consumes camera streams directly
 # as a second viewer. Streams are DISCOVERED via Sensor Manager and referenced
 # by the Sensor Manager namespace id (`sensor_id`) instead of a manual source URI.
@@ -21,12 +21,12 @@
 openapi: 3.0.0
 
 info:
-  title: Stream Manager API (with Sensor Manager)
+  title: Stream Manager API
   version: "1.0.0-draft"
   description: >
     Reusable horizontal microservice for edge-local buffering, timestamp-aligned
     storage, and retrieval of camera streams driven by analytics events.
-    This variant covers deployments WITH a Sensor Manager: sensors are discovered
+    Sensors are discovered
     and controlled by the Sensor Manager, and streams are attached by referencing
     the Sensor Manager namespace id (`sensor_id`).
   license:

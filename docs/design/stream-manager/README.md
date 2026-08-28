@@ -11,18 +11,13 @@ around analytics events.
 - Replay / restreaming of stored video.
 - Cameras that do **not** provide synchronized timestamps in the stream.
 
-Two variants are documented:
-
-- **Without Sensor Manager** — streams are registered manually by `source_uri` / camera id.
-- **With Sensor Manager** — streams are discovered and referenced by `sensor_id` (Sensor
-  Manager namespace); optional camera control is handled by the Sensor Manager API.
+Streams are discovered and referenced by `sensor_id` (Sensor Manager namespace); optional
+camera control is handled by the Sensor Manager API.
 
 ## Contents
 
-| Variant | Design doc (arch & sequence diagrams + API summary) | OpenAPI spec |
-| --- | --- | --- |
-| Without Sensor Manager | [stream-manager-without-sensor-manager.md](stream-manager-without-sensor-manager.md) | [stream-manager-api-without-sensor-manager.yaml](stream-manager-api-without-sensor-manager.yaml) |
-| With Sensor Manager | [stream-manager-with-sensor-manager.md](stream-manager-with-sensor-manager.md) | [stream-manager-api-with-sensor-manager.yaml](stream-manager-api-with-sensor-manager.yaml) |
+- [stream-manager.md](stream-manager.md) — design doc (arch & sequence diagrams + API summary)
+- [stream-manager-api.yaml](stream-manager-api.yaml) — OpenAPI spec
 
 ## Viewing the API spec with Swagger UI
 
@@ -32,9 +27,7 @@ git fetch origin
 git checkout tdorau/stream-manager-api-draft
 
 # Serve the spec with a live Swagger UI (default: http://localhost:8000)
-npx swagger-ui-watcher docs/design/stream-manager/stream-manager-api-without-sensor-manager.yaml
-# or the with-Sensor-Manager variant:
-npx swagger-ui-watcher docs/design/stream-manager/stream-manager-api-with-sensor-manager.yaml
+npx swagger-ui-watcher docs/design/stream-manager/stream-manager-api.yaml
 ```
 
 If you are working on a remote machine, forward the port (e.g. `8000`) to your local
