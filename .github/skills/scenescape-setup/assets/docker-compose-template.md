@@ -262,6 +262,9 @@ services:
       # Native GST plugins (sscape_timestamp_capture / sscape_post_inference_data_publish)
       # must live on the GStreamer python plugin path — not under /home/pipeline-server/user_scripts.
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_decode_timestamp_capture.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_timestamp_fields.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_timestamp_fields.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_rtp_ntp.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_rtp_ntp.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_rtcp_ntp.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_rtcp_ntp.py
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_inference_data_publish.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_inference_data_publish.py
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_policies.py
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_3d_detector.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_3d_detector.py

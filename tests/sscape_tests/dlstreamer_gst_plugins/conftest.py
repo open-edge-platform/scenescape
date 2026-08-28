@@ -94,3 +94,26 @@ def _install_fake_gi():
 
 
 _install_fake_gi()
+
+
+def _install_fake_ntplib():
+  """Host tests should not require ntplib; conversion matches the real module."""
+  try:
+    import ntplib  # noqa: F401
+    return
+  except ImportError:
+    pass
+  ntp_delta = 2208988800.0
+  mod = types.ModuleType("ntplib")
+  mod.ntp_to_system_time = lambda ntp: float(ntp) - ntp_delta
+  mod.system_to_ntp_time = lambda unix: float(unix) + ntp_delta
+
+  class NTPClient:  # pylint: disable=too-few-public-methods
+    def request(self, *args, **kwargs):
+      raise OSError("ntplib stub")
+
+  mod.NTPClient = NTPClient
+  sys.modules["ntplib"] = mod
+
+
+_install_fake_ntplib()

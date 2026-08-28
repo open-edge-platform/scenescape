@@ -42,6 +42,14 @@ PIPELINE_PARAMETERS = {
       "element": {"name": "timesync", "property": "use-frame-ntp-timestamp"},
       "type": "boolean",
     },
+    "timestamp_source": {
+      "element": {"name": "timesync", "property": "timestamp-source"},
+      "type": "string",
+      "description": (
+        "Clock copied to MQTT timestamp: timestamp_rtcp or "
+        "timestamp_post_decode"
+      ),
+    },
     "cameraid": {
       "element": {"name": "datapublisher", "property": "cameraid"},
       "type": "string",
@@ -76,6 +84,7 @@ PIPELINE_PARAMETERS = {
 def gstreamer_pipeline(rtsp_url: str) -> str:
   return (
     f"rtspsrc location={rtsp_url} add-reference-timestamp-meta=true latency=200 "
+    f"! sscape_rtp_ntp name=rtpntp "
     f"! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR "
     f"! sscape_timestamp_capture name=timesync ntp-server=ntpserv "
     f"! gvadetect model={MODEL_XML} model-proc={MODEL_PROC} "
@@ -96,6 +105,7 @@ def pipeline_entry(camera_id: str, rtsp_url: str) -> dict:
       "parameters": {
         "ntp_config": "ntpserv",
         "frame_ntp_config": False,
+        "timestamp_source": "timestamp_post_decode",
         "cameraid": camera_id,
         "metadatagenpolicy": "detectionPolicy",
         "detection_labels": "person",

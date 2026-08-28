@@ -111,14 +111,15 @@ harness:
   config:
     container_image: intel/scenescape-controller:latest
     # Optional: per-category projection settings.
-    # shift_type 1 = bottom-centre (TYPE_1, default)
-    # shift_type 2 = perspective-corrected point (TYPE_2)
-    # x_size / y_size push the result away from the camera by mean([x,y])/2 metres.
+    # shift_type 1 = bottom-centre + full footprint offset (TYPE_1, default)
+    # shift_type 2 = size-and-angle blend to bbox centre (TYPE_2)
+    # x_size / y_size / z_size: footprint and height in metres
     object_classes:
       - name: person
         shift_type: 1
         x_size: 0.5
         y_size: 0.5
+        z_size: 1.7
 
 evaluators:
   - class: evaluators.camera_accuracy_evaluator.CameraAccuracyEvaluator

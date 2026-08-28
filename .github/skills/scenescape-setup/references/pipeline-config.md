@@ -13,7 +13,9 @@ upstream SceneScape repo into `<deploy_dir>/dlstreamer-pipeline-server/`.
 
 | Plugin file                                      | Element name                         | Role                                      |
 | ------------------------------------------------ | ------------------------------------ | ----------------------------------------- |
+| `sscape_timestamp_fields.py`                     | (library)                            | MQTT timestamp field names and source selection |
 | `sscape_post_decode_timestamp_capture.py`        | `sscape_timestamp_capture`           | NTP / frame timestamp capture (`timesync`) |
+| `sscape_rtp_ntp.py` / `sscape_rtcp_ntp.py`       | `sscape_rtp_ntp`                     | Per-packet RTP→NTP from RTCP Sender Reports |
 | `sscape_post_inference_data_publish.py`          | `sscape_post_inference_data_publish` | MQTT metadata publish (`datapublisher`)    |
 | `sscape_policies.py` / `sscape_3d_detector.py`   | (imported by datapublisher)          | Metadata generation policies               |
 
@@ -57,6 +59,7 @@ For each `(camera_id, rtsp_url)` in `deploy-inputs.json`:
 
 ```
 rtspsrc location={rtsp_url} add-reference-timestamp-meta=true latency=200
+! sscape_rtp_ntp name=rtpntp
 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR
 ! sscape_timestamp_capture name=timesync ntp-server=ntpserv
 ! gvadetect
@@ -75,6 +78,7 @@ Parameters map directly to native GST element properties (no nested `kwarg` JSON
 {
   "ntp_config": "ntpserv",
   "frame_ntp_config": false,
+  "timestamp_source": "timestamp_post_decode",
   "cameraid": "{camera_id}",
   "metadatagenpolicy": "detectionPolicy",
   "detection_labels": "person"
@@ -84,7 +88,8 @@ Parameters map directly to native GST element properties (no nested `kwarg` JSON
 | Payload key          | Element        | GST property                 | Notes                                      |
 | -------------------- | -------------- | ---------------------------- | ------------------------------------------ |
 | `ntp_config`         | `timesync`     | `ntp-server`                 | string; matches `ntpserv` compose service  |
-| `frame_ntp_config`   | `timesync`     | `use-frame-ntp-timestamp`    | boolean                                    |
+| `frame_ntp_config`   | `timesync`     | `use-frame-ntp-timestamp`    | boolean alias for `timestamp_rtcp`         |
+| `timestamp_source`   | `timesync`     | `timestamp-source`           | `timestamp_rtcp` or `timestamp_post_decode` |
 | `cameraid`           | `datapublisher`| `cameraid`                   | string                                     |
 | `metadatagenpolicy`  | `datapublisher`| `metadatagenpolicy`          | string                                     |
 | `publish_image`      | `datapublisher`| `publish-image`              | boolean (optional; default false)          |

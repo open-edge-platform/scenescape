@@ -14,6 +14,23 @@ from scene_common.geometry import isarray, Point, Line, Rectangle, Region
 MAX_COPLANAR_DETERMINANT = 0.1
 FALLBACK_HORIZON_DISTANCE = 1000
 
+
+def type2ShiftWeight(base_angle_degrees, in_plane_size, height, eps=1e-9):
+  """Complementary TYPE_2 blend weight in [0, 1].
+
+  0 = bbox bottom + full in-plane offset (grazing).
+  1 = bbox center + zero offset (nadir, or planar height ~ 0).
+  """
+  gamma = min(abs(float(base_angle_degrees)), 90.0)
+  footprint = max(float(in_plane_size), 0.0)
+  object_height = max(float(height), 0.0)
+  rad = math.radians(gamma)
+  denom = object_height * math.cos(rad) + footprint * math.sin(rad)
+  if denom < eps:
+    return 1.0
+  weight = (footprint * math.sin(rad)) / denom
+  return max(0.0, min(1.0, weight))
+
 class CameraIntrinsics:
   INTRINSICS_KEYS = ('fx', 'fy', 'cx', 'cy')
   DISTORTION_KEYS = ('k1', 'k2', 'p1', 'p2', 'k3', 'k4', 'k5', 'k6',

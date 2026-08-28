@@ -475,6 +475,25 @@
         "timestamp": {
           "$ref": "#/definitions/timestamp"
         },
+        "timestamp_src": {
+          "title": "Timestamp source field",
+          "type": "string",
+          "description": "Name of the field copied into timestamp (timestamp_rtcp or timestamp_post_decode).",
+          "examples": ["timestamp_rtcp", "timestamp_post_decode"]
+        },
+        "timestamp_rtcp": {
+          "title": "RTCP SR timestamp",
+          "description": "Capture-time NTP from RTCP Sender Reports.",
+          "oneOf": [
+            { "$ref": "#/definitions/timestamp" },
+            { "type": "null" }
+          ]
+        },
+        "timestamp_post_decode": {
+          "title": "Post-decode timestamp",
+          "description": "Host clock after decode. Always published when present.",
+          "$ref": "#/definitions/timestamp"
+        },
         "id": {
           "$ref": "#/definitions/id"
         },

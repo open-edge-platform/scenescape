@@ -85,8 +85,8 @@ Check `datasets/README.md` for more details
   - Bypasses the full tracker and only applies camera-pose projection to isolate per-camera calibration error.
   - Runs `run_projection.py` inside the `intel/scenescape-controller` Docker container (requires `scene_common`, OpenCV, open3d).
   - Supports two projection modes per object category via the `object_classes` custom config key:
-    - **TYPE_1** (`shift_type: 1`, default): projects bounding-box bottom-centre `(centre_x, bottom_y)` to world XY plane using `CameraPose.cameraPointToWorldPoint()`.
-    - **TYPE_2** (`shift_type: 2`): shifts the projection point upward by `(height/2) * (baseAngle/90)` before projecting, using `CameraPose.projectBounds()` to derive the base angle.
+    - **TYPE_1** (`shift_type: 1`, default): projects bounding-box bottom-centre `(centre_x, bottom_y)` to world XY plane using `CameraPose.cameraPointToWorldPoint()`, then applies the full footprint offset.
+    - **TYPE_2** (`shift_type: 2`): complementary weight `w = (D·sin γ)/(H·cos γ + D·sin γ)` from `z_size` and `projectBounds()` `baseAngle`. Image point is lerp(bottom-centre, bbox-centre, w); world offset is `(D/2)·(1-w)`.
   - After projection, applies a size offset: pushes the world position `mean([x_size, y_size]) / 2` metres away from the camera, matching `MovingObject.mapObjectDetectionToWorld()`.
   - `set_custom_config()` accepts `object_classes` (list of `{name, shift_type, x_size, y_size}` dicts) and `container_image`.
   - `process_inputs()` serialises `object_classes` to `params.json` in the shared temp dir before launching the container; `run_projection.py` reads it at startup.

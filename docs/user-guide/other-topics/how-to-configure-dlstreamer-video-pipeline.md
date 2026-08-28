@@ -269,7 +269,7 @@ The following is the GStreamer command that defines the video processing pipelin
 
 `videoconvert` converts the video stream into a raw format suitable for further processing. In this case, it ensures the video is in the BGR format required by downstream elements.
 
-`sscape_timestamp_capture` is a custom GStreamer element that captures timestamps for each video frame. The `ntp-server` parameter specifies the NTP server to synchronize timestamps, and the `use-frame-ntp-timestamp` parameter determines whether to use the NTP timestamp embedded in the RTSP frame metadata or the post-decode system time.
+`sscape_timestamp_capture` is a custom GStreamer element that attaches both the RTCP SR capture clock (`timestamp_rtcp`) and the host post-decode clock (`timestamp_post_decode`) to each frame. The `ntp-server` parameter specifies the NTP server used to correct the post-decode clock. `timestamp-source` (or the compatibility alias `use-frame-ntp-timestamp`) selects which clock is copied into MQTT `timestamp`; `timestamp_src` names that field. The post-decode clock is never discarded.
 
 `sscape_post_inference_data_publish`, processes frames after inference and publishes metadata in Scenescape detection format as described in [metadata.schema.json](/controller/src/schema/metadata.schema.json)
 
@@ -311,6 +311,13 @@ This section describes the metadata schema and the format that the payload needs
             },
             "type": "boolean"
         },
+        "timestamp_source": {
+            "element": {
+                "name": "timesync",
+                "property": "timestamp-source"
+            },
+            "type": "string"
+        },
         "cameraid": {
               "element": {
                 "name": "datapublisher",
@@ -349,12 +356,8 @@ This section describes the metadata schema and the format that the payload needs
 ##### Breakdown of parameters
 
 - **ntp_server** (string): Specifies the NTP server to synchronize time with.
-- **use_frame_ntp_timestamp** (boolean): Configuration for using the NTP timestamp embedded in RTSP frame metadata as the frame timestamp. This is an alternative to using the post-decode system clock timestamp. When the RTSP source is configured with `add-reference-timestamp-meta=true`, GStreamer attaches NTP reference timestamp metadata to each buffer.
-  When `true`, the NTP timestamp extracted from the RTSP frame metadata
-  (`GstReferenceTimestampMeta`, caps `timestamp/x-ntp`) is used as the frame timestamp instead of the post-decode
-  system time. This can improve timing accuracy when camera and server clocks are synchronized to the same NTP server.
-  Defaults to `false`. If the metadata is absent on a given frame, the pipeline falls back to the
-  system clock automatically.
+- **timestamp_source** (string): Clock copied into MQTT `timestamp`: `timestamp_rtcp` (RTCP Sender Report capture time) or `timestamp_post_decode` (host clock after decode). Both clocks are always attached when RTCP metadata is available; `timestamp_src` names the selected field. Switch at runtime with MQTT `scenescape/cmd/camera/<id>` `{"command":"timestamp_source","timestamp_source":"timestamp_rtcp"}`. Defaults to `timestamp_post_decode`.
+- **use_frame_ntp_timestamp** (boolean): Compatibility alias for `timestamp_source=timestamp_rtcp`. When the RTSP source is configured with `add-reference-timestamp-meta=true`, GStreamer attaches NTP reference timestamp metadata to each buffer. For live cameras, put `sscape_rtp_ntp` immediately after `rtspsrc` so that metadata is the per-packet mapping from RTCP Sender Reports (re-anchored on every SR), not a single session-start offset. If the metadata is absent on a given frame, MQTT `timestamp` falls back to post-decode and `timestamp_src` reports the clock actually used.
 - **cameraid** (string): Unique identifier for the camera.
 - **metadatagenpolicy** (string): Policy for generating metadata. Possible values:
   - `detectionPolicy` (default): Metadata for object detection. When a pose estimation model is used (e.g. `yolo11n-pose`), also includes `keypoints` (e.g. joints) with normalized x/y coordinates and `keypoint_connections` (e.g. skeleton bone pairs) in each detection object.
@@ -376,6 +379,7 @@ The payload section is the actual values for the specific pipeline being configu
     "parameters": {
         "ntp_server": "ntpserv",
         "use_frame_ntp_timestamp": false,
+        "timestamp_source": "timestamp_post_decode",
         "cameraid": "atag-qcam1",
         "metadatagenpolicy": "detectionPolicy",
         "detection_labels": "person"

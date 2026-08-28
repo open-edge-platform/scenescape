@@ -97,10 +97,11 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
                                PublishCallback publish_callback,
                                const TrackingConfig& tracking_config,
                                const std::unordered_map<std::string, Camera>& cameras,
-                               ClockFn clock_fn)
+                               ClockFn clock_fn, ObjectClass object_class)
     : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
       publish_callback_(std::move(publish_callback)),
-      tracker_(build_tracker_config(tracking_config)), clock_fn_(std::move(clock_fn)) {
+      tracker_(build_tracker_config(tracking_config)), object_class_(object_class),
+      clock_fn_(std::move(clock_fn)) {
     // Adapt frame-rate-dependent timing parameters
     tracker_.updateTrackerParams(tracking_config.time_chunking_rate_fps);
 
@@ -110,8 +111,8 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
                               CoordinateTransformer(camera.intrinsics, camera.extrinsics));
     }
 
-    LOG_INFO("TrackingWorker initialized with {} cameras for scope {}/{}", cameras.size(),
-             scope_.scene_id, scope_.category);
+    LOG_INFO("TrackingWorker initialized with {} cameras for scope {}/{} (shift_type={})",
+             cameras.size(), scope_.scene_id, scope_.category, object_class_.shift_type);
 
     worker_thread_ = std::thread(&TrackingWorker::run, this);
 }
@@ -241,7 +242,8 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
             LOG_WARN("Unknown camera '{}' in detection batch, skipping", batch.camera_id);
             continue;
         }
-        objects_per_camera.push_back(transformer_it->second.transformDetections(batch.detections));
+        objects_per_camera.push_back(
+            transformer_it->second.transformDetections(batch.detections, object_class_));
     }
 
     return objects_per_camera;

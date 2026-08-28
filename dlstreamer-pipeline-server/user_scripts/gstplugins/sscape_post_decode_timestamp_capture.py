@@ -7,7 +7,6 @@ Designed to be used in a DLStreamer pipeline after a decoder element. It attache
 
 import json
 import time
-from datetime import datetime
 from typing import Optional
 
 import gi
@@ -21,14 +20,18 @@ from gi.repository import (  # pylint: disable=no-name-in-module
 )
 
 import ntplib
-from pytz import timezone
 from gstgva.video_frame import VideoFrame
 
 from sscape_gst_log import GstCategoryLogger  # noqa: E402  pylint: disable=wrong-import-position
+from sscape_timestamp_fields import (  # noqa: E402  pylint: disable=wrong-import-position
+  TS_POST_DECODE,
+  TS_RTCP,
+  format_unix_iso,
+  normalize_timestamp_source,
+  select_timestamp,
+)
 
 
-DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
-TIMEZONE = "UTC"
 NTP_RESYNC_INTERVAL_S = 1000
 NTP_REQUEST_TIMEOUT_S = 2
 NTP_CAPS_STRING = "timestamp/x-ntp"
@@ -72,10 +75,16 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
     "use-frame-ntp-timestamp": (
       bool,
       "Use frame NTP timestamp",
-      "When true, use the NTP timestamp from GstReferenceTimestampMeta "
-      "attached by rtspsrc (add-reference-timestamp-meta=true). If the "
-      "meta is missing, fall back to post-decode system time.",
+      "Compatibility alias for timestamp-source=timestamp_rtcp. Both "
+      "clocks are always attached; this only selects MQTT timestamp.",
       False,
+      GObject.ParamFlags.READWRITE,
+    ),
+    "timestamp-source": (
+      str,
+      "Timestamp source",
+      "Field copied to timestamp: timestamp_rtcp or timestamp_post_decode.",
+      TS_POST_DECODE,
       GObject.ParamFlags.READWRITE,
     ),
     "fps-alpha": (
@@ -104,7 +113,7 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
 
     # Properties (defaults)
     self._ntp_server: Optional[str] = None
-    self._use_frame_ntp: bool = False
+    self._timestamp_source: str = TS_POST_DECODE
     self._fps_alpha: float = 0.75
     self._fps_calc_interval: float = 1.0
 
@@ -127,7 +136,9 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
     if name == "ntp-server":
       return self._ntp_server
     if name == "use-frame-ntp-timestamp":
-      return self._use_frame_ntp
+      return self._timestamp_source == TS_RTCP
+    if name == "timestamp-source":
+      return self._timestamp_source
     if name == "fps-alpha":
       return self._fps_alpha
     if name == "fps-calc-interval":
@@ -139,7 +150,9 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
     if name == "ntp-server":
       self._ntp_server = value or None
     elif name == "use-frame-ntp-timestamp":
-      self._use_frame_ntp = bool(value)
+      self._timestamp_source = TS_RTCP if bool(value) else TS_POST_DECODE
+    elif name == "timestamp-source":
+      self._timestamp_source = normalize_timestamp_source(value)
     elif name == "fps-alpha":
       self._fps_alpha = float(value)
     elif name == "fps-calc-interval":
@@ -176,11 +189,10 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
       return None
     ntp_seconds = ntp_meta.timestamp / 1e9
     system_ts = ntplib.ntp_to_system_time(ntp_seconds)
-    dt_utc = datetime.fromtimestamp(system_ts, tz=timezone(TIMEZONE))
     self._log.debug(
-      f"NTP={dt_utc} delta={time.time() - system_ts} raw={ntp_seconds}"
+      f"RTCP NTP unix={system_ts} delta={time.time() - system_ts}"
     )
-    return f"{dt_utc.strftime(DATETIME_FORMAT)[:-3]}Z"
+    return format_unix_iso(system_ts)
 
   def _update_fps(self, now: float) -> None:
     self._frame_cnt += 1
@@ -224,22 +236,27 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
     self._sync_ntp_if_needed(now)
 
     adjusted = now + self._time_offset
-    postdecode_ts = (
-      f"{datetime.fromtimestamp(adjusted, tz=timezone(TIMEZONE)).strftime(DATETIME_FORMAT)[:-3]}Z"
+    post_decode_ts = format_unix_iso(adjusted)
+    rtcp_ts = self._extract_ntp_timestamp(buffer)
+    selected, timestamp_src = select_timestamp(
+      {TS_POST_DECODE: post_decode_ts, TS_RTCP: rtcp_ts},
+      self._timestamp_source,
     )
 
-    if self._use_frame_ntp:
-      frame_ntp = self._extract_ntp_timestamp(buffer)
-      if frame_ntp:
-        postdecode_ts = frame_ntp
-
     payload = json.dumps({
-      "postdecode_timestamp": postdecode_ts,
+      "timestamp": selected,
+      "timestamp_src": timestamp_src,
+      TS_POST_DECODE: post_decode_ts,
+      TS_RTCP: rtcp_ts,
+      # Alias of the post-decode clock (not the selected MQTT timestamp).
+      "postdecode_timestamp": post_decode_ts,
       "timestamp_for_next_block": adjusted,
       "fps": self._fps,
     })
 
-    self._log.debug(f"attached ts={postdecode_ts} fps={self._fps:.2f}")
+    self._log.debug(
+      f"attached ts={selected} src={timestamp_src} fps={self._fps:.2f}"
+    )
 
     # Attach as GstGVAJSONMeta so the downstream post-inference publisher
     # (and any other GVA-aware element) can read it via VideoFrame.messages().

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
+#include <numbers>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -51,6 +52,22 @@ void addMetadataAttributes(std::string_view metadataJson,
             attributes["metadata_confidence." + field] = std::string(confidence_buffer, ptr);
         }
     }
+}
+
+double type2ShiftWeight(double gamma_rad, double in_plane_size, double height,
+                        double eps = 1e-9) {
+    gamma_rad = std::abs(gamma_rad);
+    constexpr double kMaxGamma = std::numbers::pi / 2.0;
+    if (gamma_rad > kMaxGamma) {
+        gamma_rad = kMaxGamma;
+    }
+    in_plane_size = std::max(in_plane_size, 0.0);
+    height = std::max(height, 0.0);
+    const double denom = height * std::cos(gamma_rad) + in_plane_size * std::sin(gamma_rad);
+    if (denom < eps) {
+        return 1.0;
+    }
+    return std::clamp((in_plane_size * std::sin(gamma_rad)) / denom, 0.0, 1.0);
 }
 
 } // namespace
@@ -160,7 +177,8 @@ void CoordinateTransformer::batchPixelToWorld(const std::vector<cv::Point2f>& pi
 }
 
 std::vector<rv::tracking::TrackedObject>
-CoordinateTransformer::transformDetections(std::span<const Detection> detections) const {
+CoordinateTransformer::transformDetections(std::span<const Detection> detections,
+                                           const ObjectClass& object_class) const {
     const auto n = detections.size();
     if (n == 0)
         return {};
@@ -264,6 +282,56 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         }
 
         detection_valid[i] = 1;
+    }
+
+    // TYPE_2: re-project a point blended toward bbox centre and replace the
+    // stacked D/2 offset with a complementary (1-w) offset.
+    if (object_class.shift_type == ObjectClass::kShiftType2) {
+        std::vector<cv::Point2f> shifted(n, {0.0f, 0.0f});
+        std::vector<double> weights(n, 0.0);
+        std::vector<double> footprints(n, 0.0);
+        for (size_t i = 0; i < n; ++i) {
+            if (!detection_valid[i]) {
+                continue;
+            }
+            const size_t base = i * kPixelsPerDetection;
+            const auto& foot = world[base];
+            double footprint = result[i].length;
+            if (object_class.x_size > 0.0 || object_class.y_size > 0.0) {
+                footprint = 0.5 * (object_class.x_size + object_class.y_size);
+            }
+            footprints[i] = footprint;
+            const double ground_dist = std::hypot(foot.x - cam_x, foot.y - cam_y);
+            const double gamma = std::atan2(std::abs(cam_z), ground_dist);
+            weights[i] = type2ShiftWeight(gamma, footprint, object_class.z_size);
+            const auto& bbox = detections[i].bounding_box_px;
+            const auto blend = static_cast<float>(weights[i]);
+            shifted[i] = {bbox.x + bbox.width * 0.5f,
+                          bbox.y + bbox.height - blend * bbox.height * 0.5f};
+        }
+
+        std::vector<cv::Point2d> shifted_world;
+        std::vector<uint8_t> shifted_valid;
+        batchPixelToWorld(shifted, shifted_world, shifted_valid);
+
+        for (size_t i = 0; i < n; ++i) {
+            if (!detection_valid[i] || i >= shifted_valid.size() || !shifted_valid[i]) {
+                continue;
+            }
+            const auto& pt = shifted_world[i];
+            const double remaining = (footprints[i] / 2.0) * (1.0 - weights[i]);
+            const double dx = pt.x - cam_x;
+            const double dy = pt.y - cam_y;
+            const double bearing_len = std::hypot(dx, dy);
+            double pos_x = pt.x;
+            double pos_y = pt.y;
+            if (bearing_len > 1e-9 && remaining > 1e-9) {
+                pos_x += (dx / bearing_len) * remaining;
+                pos_y += (dy / bearing_len) * remaining;
+            }
+            result[i].x = pos_x;
+            result[i].y = pos_y;
+        }
     }
 
     // Compact: remove invalid detections (preserves ordering)

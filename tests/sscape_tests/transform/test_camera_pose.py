@@ -11,7 +11,7 @@ from scipy.spatial.transform import Rotation
 
 from scene_common.transform import (
     CameraPose, getPoseMatrix, applyChildTransform, transform2DPoint,
-    convertToTransformMatrix, normalize, rotationToTarget
+    convertToTransformMatrix, normalize, rotationToTarget, type2ShiftWeight
 )
 from scene_common.geometry import Point, Rectangle
 from scene_common.transform import CameraIntrinsics
@@ -892,6 +892,26 @@ class TestUtilityFunctions:
     scene_obj = IncompleteSceneObject()
     with pytest.raises(AttributeError):
       getPoseMatrix(scene_obj)
+
+
+class TestType2ShiftWeight:
+  def test_nadir_is_center(self):
+    assert type2ShiftWeight(90.0, 0.4, 1.7) == pytest.approx(1.0)
+
+  def test_grazing_is_bottom(self):
+    assert type2ShiftWeight(0.0, 0.4, 1.7) == pytest.approx(0.0)
+
+  def test_planar_is_center_at_every_angle(self):
+    for angle in (0.0, 30.0, 60.0, 90.0):
+      assert type2ShiftWeight(angle, 0.4, 0.0) == pytest.approx(1.0)
+
+  def test_zero_size_defaults_to_center(self):
+    assert type2ShiftWeight(45.0, 0.0, 0.0) == pytest.approx(1.0)
+
+  def test_monotone_in_elevation(self):
+    weights = [type2ShiftWeight(angle, 0.5, 1.7) for angle in (0, 30, 45, 60, 90)]
+    assert weights == sorted(weights)
+
 
 if __name__ == "__main__":
   pytest.main([__file__])

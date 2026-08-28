@@ -19,7 +19,7 @@ from scene_common.chain_data import ChainData
 from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2
 from scene_common.timestamp import get_epoch_time
-from scene_common.transform import normalize, rotationToTarget
+from scene_common.transform import normalize, rotationToTarget, type2ShiftWeight
 from scene_common import log
 
 warnings.simplefilter('ignore', np.exceptions.RankWarning)
@@ -346,19 +346,32 @@ class MovingObject:
       self._rotation_from_velocity_active = False
     return
 
+  def _type2Weight(self):
+    """TYPE_2 blend: 0 at grazing (bbox bottom), 1 at nadir (bbox center)."""
+    if not hasattr(self, 'baseAngle'):
+      self._projectBounds()
+    footprint = 0.0
+    height = 0.0
+    if self.size is not None and len(self.size) >= 2:
+      footprint = float(np.mean([self.size[0], self.size[1]]))
+      if len(self.size) >= 3:
+        height = float(self.size[2])
+    return type2ShiftWeight(getattr(self, 'baseAngle', 0.0), footprint, height)
+
   @property
   def camLoc(self):
     """Object location in camera coordinate system"""
     bounds = self.boundingBox
     if self.shift_type == TYPE_2:
-      if not hasattr(self, 'baseAngle'):
-        self._projectBounds()
-      return Point(bounds.x + bounds.width / 2,
-                 bounds.y + bounds.height - (bounds.height / 2) * (self.baseAngle / 90))
-    else:
-      pt = Point(bounds.x + bounds.width / 2, bounds.y2)
+      weight = self._type2Weight()
+      pt = Point(bounds.x + bounds.width / 2,
+                 bounds.y2 - (bounds.height / 2) * weight)
       if bounds.origin.is3D:
         pt = Point(pt.x, pt.y, bounds.origin.z)
+      return pt
+    pt = Point(bounds.x + bounds.width / 2, bounds.y2)
+    if bounds.origin.is3D:
+      pt = Point(pt.x, pt.y, bounds.origin.z)
     return pt
 
   def mapObjectDetectionToWorld(self, info, when, camera):
@@ -385,8 +398,11 @@ class MovingObject:
       if camera and hasattr(camera, 'pose'):
         self.orig_point = camera.pose.cameraPointToWorldPoint(self.camLoc)
         if not self.camLoc.is3D:
+          offset = np.mean([self.size[0], self.size[1]]) / 2
+          if self.shift_type == TYPE_2:
+            offset = offset * (1.0 - self._type2Weight())
           line1 = Line(camera.pose.translation, self.orig_point)
-          line2 = Line(self.orig_point, Point(np.mean([self.size[0], self.size[1]]) / 2, line1.angle, 0, polar=True), relative=True)
+          line2 = Line(self.orig_point, Point(offset, line1.angle, 0, polar=True), relative=True)
           self.orig_point = line2.end
     self.location = [Chronoloc(self.orig_point, when, self.boundingBox)]
     self.vectors = [Vector(camera, self.orig_point, when)]

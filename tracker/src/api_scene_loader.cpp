@@ -150,6 +150,44 @@ rapidjson::Document validate_scenes(const rapidjson::Document& scenes_doc,
     return valid_scenes;
 }
 
+std::unordered_map<std::string, ObjectClass> parse_object_classes(const std::string& json) {
+    std::unordered_map<std::string, ObjectClass> classes;
+    if (json.empty()) {
+        return classes;
+    }
+
+    rapidjson::Document doc;
+    doc.Parse(json.c_str());
+    if (doc.HasParseError() || !doc.IsObject() || !doc.HasMember("results") ||
+        !doc["results"].IsArray()) {
+        LOG_WARN("Object Library response missing 'results' array; using TYPE_1 defaults");
+        return classes;
+    }
+
+    for (const auto& entry : doc["results"].GetArray()) {
+        if (!entry.IsObject() || !entry.HasMember("name") || !entry["name"].IsString()) {
+            continue;
+        }
+        ObjectClass cls;
+        if (entry.HasMember("shift_type") && entry["shift_type"].IsInt()) {
+            cls.shift_type = entry["shift_type"].GetInt();
+        }
+        if (entry.HasMember("x_size") && entry["x_size"].IsNumber()) {
+            cls.x_size = entry["x_size"].GetDouble();
+        }
+        if (entry.HasMember("y_size") && entry["y_size"].IsNumber()) {
+            cls.y_size = entry["y_size"].GetDouble();
+        }
+        if (entry.HasMember("z_size") && entry["z_size"].IsNumber()) {
+            cls.z_size = entry["z_size"].GetDouble();
+        }
+        classes.emplace(entry["name"].GetString(), cls);
+    }
+
+    LOG_INFO("Loaded {} Object Library entries", classes.size());
+    return classes;
+}
+
 } // namespace detail
 
 namespace {
@@ -169,6 +207,12 @@ public:
         auto client = client_factory_(manager_config_);
         client->authenticate(username, password);
         std::string response_body = client->fetchScenes();
+        try {
+            object_classes_ = detail::parse_object_classes(client->fetchAssets());
+        } catch (const std::exception& e) {
+            LOG_WARN("Failed to fetch Object Library: {}; using TYPE_1 defaults", e.what());
+            object_classes_.clear();
+        }
 
         // Parse the API response
         rapidjson::Document response_doc;
@@ -209,10 +253,15 @@ public:
         return scenes;
     }
 
+    std::unordered_map<std::string, ObjectClass> objectClasses() const override {
+        return object_classes_;
+    }
+
 private:
     ManagerConfig manager_config_;
     std::filesystem::path schema_dir_;
     ManagerClientFactory client_factory_;
+    std::unordered_map<std::string, ObjectClass> object_classes_;
 };
 
 } // namespace

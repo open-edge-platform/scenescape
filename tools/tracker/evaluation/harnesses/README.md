@@ -150,7 +150,8 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 - `container_image`: override the Docker image at runtime.
 - `object_classes`: list of per-category projection settings. Each entry is a dict with:
   - `name` (str, required): category name (case-insensitive).
-  - `shift_type` (int, optional, default `1`): `1` = TYPE_1 (bottom-centre), `2` = TYPE_2 (perspective-corrected point using `CameraPose.projectBounds()`).
+  - `shift_type` (int, optional, default `1`): `1` = TYPE_1 (bottom-centre + full footprint offset), `2` = TYPE_2 (size-and-angle blend to bbox centre; world offset tapers to 0 at nadir).
+  - `z_size` (float, optional, default `0`): object height in metres. TYPE_2 with `z_size ≈ 0` stays on bbox centre at every camera angle.
   - `x_size` / `y_size` (float, optional, default `0.0`): physical object dimensions in metres used to push the projected point `mean([x_size, y_size]) / 2` metres away from the camera, matching `MovingObject.mapObjectDetectionToWorld()`.
 
   Example (also valid as YAML `harness.config.object_classes`):
@@ -158,8 +159,8 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
   ```python
   harness.set_custom_config({
       "object_classes": [
-          {"name": "person", "shift_type": 1, "x_size": 0.5, "y_size": 0.5},
-          {"name": "vehicle", "shift_type": 2, "x_size": 2.0, "y_size": 4.0},
+          {"name": "person", "shift_type": 1, "x_size": 0.5, "y_size": 0.5, "z_size": 1.7},
+          {"name": "vehicle", "shift_type": 2, "x_size": 2.0, "y_size": 4.0, "z_size": 1.5},
       ]
   })
   ```

@@ -44,6 +44,12 @@ from sscape_3d_detector import (  # noqa: E402  pylint: disable=wrong-import-pos
 from sscape_gst_log import (  # noqa: E402  pylint: disable=wrong-import-position
   GstCategoryLogger,
 )
+from sscape_timestamp_fields import (  # noqa: E402  pylint: disable=wrong-import-position
+  TS_POST_DECODE,
+  TS_RTCP,
+  normalize_timestamp_source,
+  select_timestamp,
+)
 
 ROOT_CA = os.environ.get("ROOT_CA", "/run/secrets/certs/scenescape-ca.pem")
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
@@ -152,6 +158,15 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       1, 65535, 1883,
       GObject.ParamFlags.READWRITE,
     ),
+    "timestamp-source": (
+      str,
+      "Timestamp source",
+      "Clock copied to MQTT timestamp: timestamp_rtcp or "
+      "timestamp_post_decode. Empty uses the upstream timesync choice. "
+      "Also settable at runtime via scenescape/cmd/camera/<id>.",
+      "",
+      GObject.ParamFlags.READWRITE,
+    ),
   }
 
   def __init__(self):
@@ -170,6 +185,7 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       "MQTT_HOST", "broker.scenescape.intel.com"
     )
     self._mqtt_port: int = 1883
+    self._timestamp_source: str = ""
 
     # Runtime state
     self._sink_caps = None
@@ -199,6 +215,8 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       return self._mqtt_host
     if name == "mqtt-port":
       return self._mqtt_port
+    if name == "timestamp-source":
+      return self._timestamp_source
     raise AttributeError(f"Unknown property {name}")
 
   def do_set_property(self, prop, value):  # pylint: disable=arguments-differ
@@ -227,6 +245,10 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
         self._mqtt_host = value
     elif name == "mqtt-port":
       self._mqtt_port = int(value)
+    elif name == "timestamp-source":
+      self._timestamp_source = (
+        "" if value in (None, "") else normalize_timestamp_source(value)
+      )
     else:
       raise AttributeError(f"Unknown property {name}")
 
@@ -311,6 +333,14 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       self._cam_auto_calibrate = True
       if "payload_intrinsics" in msg:
         self._cam_auto_calibrate_intrinsics = msg["payload_intrinsics"]
+      return
+    if isinstance(msg, dict) and msg.get("command") == "timestamp_source":
+      value = msg.get("timestamp_source") or msg.get("value")
+      if value in (None, ""):
+        self._timestamp_source = ""
+      else:
+        self._timestamp_source = normalize_timestamp_source(value)
+      self._log.info(f"timestamp_source={self._timestamp_source or 'upstream'}")
 
   # ------------------------------------------------------------------
   # Buffer processing
@@ -425,9 +455,29 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
   def _build_object_data(self, gvadata: dict) -> None:
     now = time.time()
     ts_next_block = gvadata.get("timestamp_for_next_block")
+    clocks = {
+      TS_POST_DECODE: gvadata.get(TS_POST_DECODE) or gvadata.get(
+        "postdecode_timestamp"
+      ),
+      TS_RTCP: gvadata.get(TS_RTCP),
+    }
+
+    # Always re-select from named clocks. gvametaconvert also publishes
+    # ``timestamp`` (a numeric running-time) and would clobber the ISO clock
+    # if we copied gvadata["timestamp"] blindly.
+    wanted = self._timestamp_source or gvadata.get("timestamp_src") or TS_POST_DECODE
+    selected, timestamp_src = select_timestamp(clocks, wanted)
+    if not selected:
+      fallback = gvadata.get("timestamp")
+      if isinstance(fallback, str) and fallback:
+        selected = fallback
+
     self._frame_level_data.update({
       "id": self._cameraid,
-      "timestamp": gvadata.get("postdecode_timestamp"),
+      "timestamp": selected,
+      "timestamp_src": timestamp_src,
+      TS_POST_DECODE: clocks.get(TS_POST_DECODE),
+      TS_RTCP: clocks.get(TS_RTCP),
       "debug_timestamp_end":
         f"{datetime.fromtimestamp(now, tz=timezone(TIMEZONE)).strftime(DATETIME_FORMAT)[:-3]}Z",
       "debug_processing_time":

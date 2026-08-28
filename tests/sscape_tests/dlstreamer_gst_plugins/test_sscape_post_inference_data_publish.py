@@ -72,6 +72,7 @@ class TestProperties:
     assert element.do_get_property(make_prop("publish-image")) is False
     assert element.do_get_property(make_prop("detection-labels")) == ""
     assert element.do_get_property(make_prop("mqtt-port")) == 1883
+    assert element.do_get_property(make_prop("timestamp-source")) == ""
 
   def test_set_and_get_cameraid(self, element):
     element.do_set_property(make_prop("cameraid"), "cam-42")
@@ -217,6 +218,23 @@ class TestHandleCameraMessage:
     assert element._cam_auto_calibrate is True
     assert element._cam_auto_calibrate_intrinsics is None
 
+  def test_timestamp_source_command_overrides(self, element):
+    payload = json.dumps({
+      "command": "timestamp_source", "timestamp_source": "timestamp_rtcp",
+    })
+    element._handle_camera_message(
+      None, None, SimpleNamespace(payload=payload.encode("utf-8")),
+    )
+    assert element._timestamp_source == "timestamp_rtcp"
+
+  def test_timestamp_source_command_empty_clears_override(self, element):
+    element._timestamp_source = "timestamp_rtcp"
+    payload = json.dumps({"command": "timestamp_source", "value": ""})
+    element._handle_camera_message(
+      None, None, SimpleNamespace(payload=payload.encode("utf-8")),
+    )
+    assert element._timestamp_source == ""
+
   def test_invalid_json_is_ignored(self, element):
     element._handle_camera_message(
       None, None, SimpleNamespace(payload=b"{not json"),
@@ -318,10 +336,41 @@ class TestBuildObjectData:
     fld = element._frame_level_data
     assert fld["id"] == "cam-a"
     assert fld["timestamp"] == "2026-07-21T00:00:00.000Z"
+    assert fld["timestamp_src"] == "timestamp_post_decode"
+    assert fld["timestamp_post_decode"] == "2026-07-21T00:00:00.000Z"
     assert fld["rate"] == 15.5
     assert fld["initial_intrinsics"] == {"fx": 1000}
     assert fld["debug_timestamp_end"].endswith("Z")
     assert isinstance(fld["objects"], dict) and not fld["objects"]
+
+  def test_override_selects_rtcp_and_keeps_post_decode(self, element):
+    element._timestamp_source = "timestamp_rtcp"
+    gvadata = self._gvadata(
+      [],
+      timestamp="2026-07-21T00:00:00.000Z",
+      timestamp_src="timestamp_post_decode",
+      timestamp_post_decode="2026-07-21T00:00:00.000Z",
+      timestamp_rtcp="2026-07-21T00:00:01.000Z",
+    )
+    element._build_object_data(gvadata)
+    fld = element._frame_level_data
+    assert fld["timestamp"] == "2026-07-21T00:00:01.000Z"
+    assert fld["timestamp_src"] == "timestamp_rtcp"
+    assert fld["timestamp_post_decode"] == "2026-07-21T00:00:00.000Z"
+    assert fld["timestamp_rtcp"] == "2026-07-21T00:00:01.000Z"
+
+  def test_gva_numeric_timestamp_does_not_clobber_selected_clock(self, element):
+    gvadata = self._gvadata(
+      [],
+      timestamp=66963982662,
+      timestamp_src="timestamp_rtcp",
+      timestamp_post_decode="2026-07-21T00:00:00.000Z",
+      timestamp_rtcp="2026-07-21T00:00:01.000Z",
+    )
+    element._build_object_data(gvadata)
+    fld = element._frame_level_data
+    assert fld["timestamp"] == "2026-07-21T00:00:01.000Z"
+    assert fld["timestamp_src"] == "timestamp_rtcp"
 
   def test_detection_labels_filter_excludes_non_matching(self, element):
     element._detection_labels = ["person"]

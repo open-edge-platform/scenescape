@@ -261,25 +261,41 @@ Following are step-by-step instructions for enabling pose estimation for the out
 
 Following are short steps to enable NTP timestamp extraction from an RTSP camera stream for the out-of-box **Queuing** scene.
 
-When an RTSP source provides NTP timing in its stream (via RTCP Sender Reports), GStreamer's `rtspsrc` element can
-attach that NTP reference timestamp to each buffer using `add-reference-timestamp-meta=true`. Enabling
-`use-frame-ntp-timestamp` in the pipeline configuration causes Scenescape to read that metadata and use it as the frame
-timestamp instead of the post-decode system clock time. This improves timing accuracy when the camera and server are
-synchronized to the same NTP source.
+When an RTSP source provides NTP timing in its stream (via RTCP Sender Reports), place
+`sscape_rtp_ntp` immediately after `rtspsrc`. That element re-anchors on every Sender
+Report and writes `GstReferenceTimestampMeta` from each packet's RTP timestamp so capture
+time stays aligned to the sender clock. `add-reference-timestamp-meta=true` on `rtspsrc`
+is a fallback until the first SR. `sscape_timestamp_capture` always attaches both clocks
+(`timestamp_rtcp` and `timestamp_post_decode`). `timestamp-source` (or the compatibility
+alias `use-frame-ntp-timestamp=true`) selects which clock is copied into MQTT
+`timestamp`; `timestamp_src` names that field. The post-decode clock is never discarded.
 
 > **Note:** This feature requires an RTSP source that provides NTP timestamps in its stream. It has no effect on
 > file-based sources such as `multifilesrc`.
 
-1. Ensure the `rtspsrc` element in your pipeline string includes `add-reference-timestamp-meta=true`. The out-of-box
-   [queuing-config.json](./queuing-config.json) already includes this setting.
+1. Insert `sscape_rtp_ntp` after `rtspsrc` and keep `add-reference-timestamp-meta=true`.
+   Example:
 
-2. Set `use_frame_ntp_timestamp` to `true` in your pipeline payload. In
+```
+rtspsrc location=... add-reference-timestamp-meta=true latency=200 ! sscape_rtp_ntp name=rtpntp ! rtph264depay ! ...
+```
+
+2. Set `timestamp_source` to `timestamp_rtcp` in your pipeline payload
+   (`use_frame_ntp_timestamp: true` is a compatibility alias). In
    `queuing-config.json` this is the `payload.parameters` block:
 
 ```json
 {
+  "timestamp_source": "timestamp_rtcp",
   "use_frame_ntp_timestamp": true
 }
+```
+
+   Switch at runtime without restarting the pipeline:
+
+```
+scenescape/cmd/camera/<cameraid>
+{"command":"timestamp_source","timestamp_source":"timestamp_rtcp"}
 ```
 
 3. Restart the DL Streamer Pipeline Server service to apply the change:

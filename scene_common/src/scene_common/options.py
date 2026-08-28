@@ -44,7 +44,7 @@ BOOLEAN_CHOICES = (
 
 SHIFT_TYPE = (
     (TYPE_1, 'Type 1 (default)'),
-    (TYPE_2, 'Type 2 (may work better for wide and short objects)'),
+    (TYPE_2, 'Type 2 (size and camera angle)'),
 )
 
 CALIBRATION_CHOICES = [

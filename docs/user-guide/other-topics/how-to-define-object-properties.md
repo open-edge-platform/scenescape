@@ -46,9 +46,14 @@ You can apply positive values to expand the bounding box or negative values to s
 ### Tracking Behavior Settings
 
 - **Tracking radius (meters)**: Set the maximum distance from the object center for matching new detections with the track.
-- **Shift type**: Shift type is used to compute the bottom center of the object to estimate its position in world coordinates.
-  - For most objects the default setting of "Type 1" will work well.
-  - For wide and short objects, "Type 2" performs better.
+- **Shift type**: How the detector box is mapped onto the scene plane.
+  - **Type 1** (default): project the bottom-center of the box, then move that
+    point away from the camera by half the object's footprint. Best for people
+    seen from the side.
+  - **Type 2**: blend from bottom-center to box-center using object height
+    (`z_size`) and camera elevation. Looking straight down (or a flat sprite
+    with `z_size` ≈ 0) uses the box center with no extra shove. Side views still
+    use the near edge plus a shrinking footprint offset.
 
 ## Additional Settings
 

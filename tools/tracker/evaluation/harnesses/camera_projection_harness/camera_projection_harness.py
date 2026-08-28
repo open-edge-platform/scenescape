@@ -66,8 +66,8 @@ class CameraProjectionHarness(TrackerHarness):
     - ``container_image`` (str): Docker image to use.
     - ``object_classes`` (list): Per-category projection settings.  Each entry
       is a dict with ``name``, ``shift_type`` (1 or 2), ``x_size``,
-      ``y_size`` (object footprint in metres).  Controls TYPE_2 angle
-      compensation and camloc size offset in ``run_projection.py``.
+      ``y_size``, ``z_size`` (object size in metres).  Controls TYPE_2
+      size-and-angle blend and camloc size offset in ``run_projection.py``.
   """
 
   def __init__(self, container_image: str = DEFAULT_CONTAINER_IMAGE):

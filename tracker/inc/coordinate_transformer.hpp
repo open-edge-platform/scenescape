@@ -20,10 +20,13 @@ namespace tracker {
 /**
  * @brief Batch-oriented transformer from pixel detections to world-space TrackedObjects.
  *
- * Converts 2D pixel bounding boxes into 3D world positions and sizes using
- * camera intrinsics/extrinsics. The foot point (bottom-center of each bbox)
- * determines the world position via ground-plane intersection; three additional
- * corner points (BL, BR, TL) determine the object's world-space dimensions.
+     * Converts 2D pixel bounding boxes into 3D world positions and sizes using
+     * camera intrinsics/extrinsics. By default the foot point (bottom-center of
+     * each bbox) determines the world position via ground-plane intersection
+     * (TYPE_1). TYPE_2 blends that point toward bbox center from object size and
+     * camera elevation, and tapers the in-plane size offset so the two are not
+     * stacked. Three additional corner points (BL, BR, TL) determine the
+     * object's world-space dimensions.
  *
  * Designed for high-throughput (1000+ detections per batch):
  * - Single cv::undistortPoints call for all pixels in the batch
@@ -61,13 +64,15 @@ public:
      * Detections where any projection fails are silently skipped.
      *
      * @param detections Span of pixel-space detections (bounding boxes)
+     * @param object_class Object Library settings for this category (TYPE_1 default)
      * @return TrackedObjects with world-space position and size fields populated.
      *         id, x, y, z, length, width, height are set. Velocity/yaw are zero.
      *         attributes["metadata_json"] is set from Detection::metadata_json when non-empty.
      *         attributes["confidence"] is set from Detection::confidence when present.
      */
     std::vector<rv::tracking::TrackedObject>
-    transformDetections(std::span<const Detection> detections) const;
+    transformDetections(std::span<const Detection> detections,
+                        const ObjectClass& object_class = {}) const;
 
     /**
      * @brief Convert yaw angle (radians) to quaternion [x, y, z, w].

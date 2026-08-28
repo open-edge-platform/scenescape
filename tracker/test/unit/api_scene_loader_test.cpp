@@ -47,6 +47,7 @@ ManagerClientFactory make_mock_factory(const std::string& scenes_response) {
         auto mock = std::make_unique<test::MockManagerRestClient>();
         EXPECT_CALL(*mock, authenticate(_, _)).Times(1);
         EXPECT_CALL(*mock, fetchScenes()).WillOnce(Return(scenes_response));
+        EXPECT_CALL(*mock, fetchAssets()).WillRepeatedly(Return(R"({"results":[]})"));
         return mock;
     };
 }
@@ -661,6 +662,22 @@ TEST(SceneParserTest, RequireArray3NonNumberElementThrows) {
     doc.Parse(json);
 
     EXPECT_THROW(detail::parse_scene(doc), std::runtime_error);
+}
+
+TEST(ParseObjectClassesTest, ReadsShiftTypeAndSizes) {
+    auto classes = detail::parse_object_classes(
+        R"({"results":[{"name":"drone","shift_type":2,"x_size":0.4,"y_size":0.4,"z_size":0.0}]})");
+    ASSERT_EQ(classes.size(), 1u);
+    ASSERT_TRUE(classes.contains("drone"));
+    EXPECT_EQ(classes["drone"].shift_type, ObjectClass::kShiftType2);
+    EXPECT_DOUBLE_EQ(classes["drone"].x_size, 0.4);
+    EXPECT_DOUBLE_EQ(classes["drone"].z_size, 0.0);
+}
+
+TEST(ParseObjectClassesTest, EmptyOrInvalidReturnsEmpty) {
+    EXPECT_TRUE(detail::parse_object_classes("").empty());
+    EXPECT_TRUE(detail::parse_object_classes("not json").empty());
+    EXPECT_TRUE(detail::parse_object_classes(R"({"results":[]})").empty());
 }
 
 } // namespace

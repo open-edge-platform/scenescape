@@ -21,9 +21,9 @@ For each detection frame it:
      ``shift_type`` (TYPE_1 or TYPE_2, see below).
   3. Projects that point onto the world ground-plane (z = 0) using
      ``CameraPose.cameraPointToWorldPoint()``.
-  4. Applies the camloc size offset — pushes the result
-     ``mean([x_size, y_size]) / 2`` metres away from the camera,
-     matching ``MovingObject.mapObjectDetectionToWorld()``.
+  4. Applies the camloc size offset — for TYPE_1, pushes the result
+     ``mean([x_size, y_size]) / 2`` metres away from the camera; for TYPE_2
+     that offset is scaled by ``(1 - w)`` so it dies off at nadir.
 
 It writes ``output.json`` – a JSON array of canonical Tracker Output Format
 dicts (one entry per input detection frame).
@@ -31,19 +31,20 @@ dicts (one entry per input detection frame).
 Projection modes (shift_type)
 -------------------------------
 - **TYPE_1** (``shift_type: 1``, default): uses the bounding-box
-  bottom-centre as the ground contact point.
-- **TYPE_2** (``shift_type: 2``): shifts the projection point upward
-  from the bottom edge by ``(height / 2) * (baseAngle / 90)`` where
-  ``baseAngle`` is the angle between the camera and the object base,
-  obtained from ``CameraPose.projectBounds()``.  Reduces perspective
-  overshoot for objects seen from a steep/far angle.
+  bottom-centre as the ground contact point, then the full size offset.
+- **TYPE_2** (``shift_type: 2``): one complementary weight
+  ``w = (D·sin γ) / (H·cos γ + D·sin γ)`` where ``D = mean(x_size, y_size)``,
+  ``H = z_size``, and ``γ`` is ``CameraPose.projectBounds()`` ``baseAngle``.
+  Image point is ``lerp(bottom-centre, bbox-centre, w)``; world offset is
+  ``(D/2)·(1-w)``. At 90° (or ``z_size ≈ 0``) this is bbox centre with no
+  offset.
 
 Object class configuration (params.json)
 -----------------------------------------
 ``params.json`` may contain an ``object_classes`` list, e.g.::
 
     {"object_classes": [
-        {"name": "person", "shift_type": 2, "x_size": 0.5, "y_size": 0.5}
+        {"name": "person", "shift_type": 2, "x_size": 0.5, "y_size": 0.5, "z_size": 0.0}
     ]}
 
 Categories not listed fall back to TYPE_1 with no size offset.
@@ -59,7 +60,7 @@ import json
 import sys
 
 import numpy as np
-from scene_common.transform import CameraPose, CameraIntrinsics
+from scene_common.transform import CameraPose, CameraIntrinsics, type2ShiftWeight
 from scene_common.geometry import Line, Point, Rectangle
 
 TYPE_1 = 1
@@ -67,6 +68,7 @@ TYPE_2 = 2
 DEFAULT_SHIFT_TYPE = TYPE_1
 DEFAULT_X_SIZE = 0.0
 DEFAULT_Y_SIZE = 0.0
+DEFAULT_Z_SIZE = 0.0
 
 
 def _build_class_map(object_classes: list) -> dict:
@@ -74,7 +76,7 @@ def _build_class_map(object_classes: list) -> dict:
 
   Returns:
     Dict mapping lower-case category name to
-    ``{"shift_type": int, "x_size": float, "y_size": float}``.
+    ``{"shift_type": int, "x_size": float, "y_size": float, "z_size": float}``.
   """
   result = {}
   for entry in object_classes:
@@ -85,6 +87,7 @@ def _build_class_map(object_classes: list) -> dict:
       "shift_type": int(entry.get("shift_type", DEFAULT_SHIFT_TYPE)),
       "x_size": float(entry.get("x_size", DEFAULT_X_SIZE)),
       "y_size": float(entry.get("y_size", DEFAULT_Y_SIZE)),
+      "z_size": float(entry.get("z_size", DEFAULT_Z_SIZE)),
     }
   return result
 
@@ -147,6 +150,7 @@ def project_frame(
     shift_type = cls.get("shift_type", DEFAULT_SHIFT_TYPE)
     x_size = cls.get("x_size", DEFAULT_X_SIZE)
     y_size = cls.get("y_size", DEFAULT_Y_SIZE)
+    z_size = cls.get("z_size", DEFAULT_Z_SIZE)
 
     for obj in obj_list:
       bb = obj.get("bounding_box")
@@ -160,13 +164,17 @@ def project_frame(
 
       centre_x = bb["x"] + bb["width"] / 2.0
       bottom_y = bb["y"] + bb["height"]
+      offset = np.mean([x_size, y_size]) / 2
 
-      # TYPE_2: shift projection point upward based on camera elevation angle
+      # TYPE_2: one weight walks the image point to bbox centre and tapers
+      # the world offset so they are not stacked.
       if shift_type == TYPE_2:
         try:
           bb_rect = Rectangle(bb)
           _, _, base_angle = pose.projectBounds(bb_rect)
-          bottom_y = bottom_y - (bb["height"] / 2.0) * (base_angle / 90.0)
+          weight = type2ShiftWeight(base_angle, np.mean([x_size, y_size]), z_size)
+          bottom_y = bottom_y - (bb["height"] / 2.0) * weight
+          offset = offset * (1.0 - weight)
         except Exception as exc:
           print(
             f"[run_projection] WARNING: TYPE_2 shift failed for "
@@ -176,12 +184,8 @@ def project_frame(
 
       world_point = pose.cameraPointToWorldPoint(Point(centre_x, bottom_y))
 
-      # Camloc compensation: exact production code from
+      # Camloc compensation: production code from
       # MovingObject.mapObjectDetectionToWorld() (controller/moving_object.py).
-      # line1 from camera translation to projected world point gives the
-      # bearing angle; line2 pushes world_point along that bearing by
-      # mean([x_size, y_size]) / 2 metres.
-      offset = np.mean([x_size, y_size]) / 2
       if offset > 1e-9:
         line1 = Line(cam_t, world_point)
         line2 = Line(world_point, Point(offset, line1.angle, 0, polar=True), relative=True)

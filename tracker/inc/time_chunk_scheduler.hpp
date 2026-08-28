@@ -40,10 +40,13 @@ public:
      * @param registry Reference to SceneRegistry for scene name lookup
      * @param config Tracking configuration
      * @param publish_callback Callback for workers to publish results
+     * @param clock_fn Clock used for tracker timestamps
+     * @param object_classes Object Library settings keyed by detector category
      */
     TimeChunkScheduler(TimeChunkBuffer& buffer, const SceneRegistry& registry,
                        const TrackingConfig& config, PublishCallback publish_callback,
-                       ClockFn clock_fn = makeSystemClock());
+                       ClockFn clock_fn = makeSystemClock(),
+                       std::unordered_map<std::string, ObjectClass> object_classes = {});
 
     /// Destructor stops scheduler and all workers
     ~TimeChunkScheduler();
@@ -139,6 +142,7 @@ private:
 
     std::atomic<int> dispatched_count_{0};
     std::atomic<int> scope_limit_drops_{0};
+    std::unordered_map<std::string, ObjectClass> object_classes_;
 };
 
 } // namespace tracker

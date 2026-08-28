@@ -32,7 +32,10 @@ against the `detector` definition in
 | Field            | Type                  | Required | Description                                                                                                                         |
 | ---------------- | --------------------- | :------: | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `id`             | string                |   Yes    | Camera identifier; must match the `{camera_id}` segment in the MQTT topic identifier                                                |
-| `timestamp`      | string (ISO 8601 UTC) |   Yes    | Acquisition time of the frame                                                                                                       |
+| `timestamp`               | string (ISO 8601 UTC) |   Yes    | Selected acquisition clock (see `timestamp_src`). Tracker baseline.                                                                 |
+| `timestamp_src`           | string                |    No    | Field name of the selected clock (`timestamp_rtcp` or `timestamp_post_decode`). A consumer can read `payload[payload.timestamp_src]`. |
+| `timestamp_rtcp`          | string or null        |    No    | Capture-time NTP from RTCP Sender Reports (`GstReferenceTimestampMeta`)                                                             |
+| `timestamp_post_decode`   | string (ISO 8601 UTC) |    No    | Host clock after decode (never discarded when RTCP is selected)                                                                     |
 | `objects`        | object                |   Yes    | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`)                                                 |
 | `rate`           | number ≥ 0            |    No    | Camera framerate (frames per second) when the message was produced                                                                  |
 | `sub_detections` | array of string       |    No    | Sub-detection labels run on this frame (e.g. `["license_plate"]`)                                                                   |
