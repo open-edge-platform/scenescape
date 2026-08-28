@@ -557,8 +557,7 @@ lidar-scene-init` if needed.
 compose logs lidar-stream`:** the bidirectional pace gate normally holds
   `lag` within roughly `±LIDAR_CAM_LAG_TOLERANCE` (default 2). A brief
   overshoot right after startup is fine (FIFO/read-ahead buffering), but a
-  `lag` that keeps growing means the gate is not engaging - check that
-  `lidar_publisher.py` is the patched version and that neither branch has
+  `lag` that keeps growing means the gate is not engaging - check that neither branch has
   crashed (`[camera-publisher]`/`[lidar-publisher] FATAL`/`Done` lines). If
   `lag` instead sits pinned at the tolerance while **both** `fps=` values are
   below `LIDAR_FRAME_RATE`, the streams are aligned but one branch can't keep
