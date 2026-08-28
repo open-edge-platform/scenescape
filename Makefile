@@ -56,21 +56,6 @@ DEMO_REBUILD_IMAGES ?= true
 # Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
 DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
 
-# When LIDAR_DEMO=true, apply demo patches around an image build and always
-# revert them via EXIT (success, failure, or Ctrl+C) so the working tree
-# cannot stay dirty. $(1) is the image-build target (build-core-images /
-# build-all-images).
-define build_with_optional_lidar_patches
-	@if [ -n "$(LIDAR_ENABLED)" ]; then \
-		set -e; \
-		trap '$(MAKE) revert-lidar-patch' EXIT; \
-		$(MAKE) apply-lidar-patch; \
-		$(MAKE) $(1); \
-	else \
-		$(MAKE) $(1); \
-	fi
-endef
-
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
@@ -100,7 +85,13 @@ build-core: init-secrets build-core-images install-models
 build-all: init-secrets build-all-images install-models
 
 .PHONY: build-core-lidar
-build-core-lidar: init-secrets apply-lidar-patch build-core-images revert-lidar-patch install-models
+build-core-lidar: init-secrets
+# EXIT trap reverts the patches on success, build failure, or Ctrl+C so the
+# working tree cannot stay patched.
+	@set -e; trap '$(MAKE) revert-lidar-patch' EXIT; \
+	$(MAKE) apply-lidar-patch; \
+	$(MAKE) build-core-images
+	@$(MAKE) install-models
 
 # ============================== Help ================================
 
