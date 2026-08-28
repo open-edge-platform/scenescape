@@ -44,20 +44,14 @@ REID_BACKEND ?= vdms
 REID_OVERRIDE_FILE = sample_data/docker-compose.$(strip $(REID_BACKEND))-override.yml
 REID_PIPELINE_OVERRIDE_FILE = sample_data/docker-compose.reid-pipeline-override.yml
 REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE) -f $(REID_PIPELINE_OVERRIDE_FILE)
-# LiDAR-intersection fusion demo (opt-in). Enable with LIDAR_DEMO=true.
-LIDAR_DEMO ?= false
+# LiDAR-intersection (LiDAR/Camera) fusion demo variables
 LIDAR_OVERRIDE_FILE = sample_data/lidar_intersection/docker-compose.lidar-override.yml
-LIDAR_ENABLED := $(filter-out false 0 no,$(shell echo $(LIDAR_DEMO) | tr '[:upper:]' '[:lower:]'))
-LIDAR_OVERRIDE_ARGS := $(if $(LIDAR_ENABLED),-f $(LIDAR_OVERRIDE_FILE),)
-LIDAR_COMPOSE_ARGS := $(if $(LIDAR_ENABLED),-f docker-compose.yml $(LIDAR_OVERRIDE_ARGS),)
+LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
 # One patch per component (0001 manager, 0002 scene_common, 0003 analytics),
-# applied only when building with LIDAR_DEMO=true.
+# applied only when building with make build-core-lidar.
 LIDAR_PATCH_FILES := sample_data/lidar_intersection/patches/0001-manager-default-assets-and-source-labels.patch \
                      sample_data/lidar_intersection/patches/0002-scene-common-source-passthrough.patch \
                      sample_data/lidar_intersection/patches/0003-analytics-source-passthrough.patch
-LIDAR_PATCH_TARGET := $(if $(LIDAR_ENABLED),apply-lidar-patch,)
-# Auto-reverted after build so the working tree doesn't stay dirty.
-LIDAR_REVERT_TARGET := $(if $(LIDAR_ENABLED),revert-lidar-patch,)
 DEMO_REBUILD_IMAGES ?= true
 # Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
 DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
@@ -85,10 +79,13 @@ CONTROLLER_TRACING_SAMPLE_RATIO ?= 1.0
 default: build-core
 
 .PHONY: build-core
-build-core: init-secrets $(LIDAR_PATCH_TARGET) build-core-images $(LIDAR_REVERT_TARGET) install-models
+build-core: init-secrets build-core-images install-models
 
 .PHONY: build-all
-build-all: init-secrets $(LIDAR_PATCH_TARGET) build-all-images $(LIDAR_REVERT_TARGET) install-models
+build-all: init-secrets build-all-images install-models
+
+.PHONY: build-core-lidar
+build-core-lidar: init-secrets apply-lidar-patch build-core-images revert-lidar-patch install-models
 
 # ============================== Help ================================
 
@@ -102,6 +99,7 @@ help:
 	@echo "  build-all                   Build secrets, all images, and install models"
 	@echo "  build-core-images           Build core microservice images (excluding mapping, cluster_analytics, and tracker) in parallel"
 	@echo "  build-all-images            Build all microservice images in parallel"
+	@echo "  build-core-lidar            Build secrets, core images with the LiDAR-intersection demo patches applied, and install models"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
@@ -112,6 +110,7 @@ help:
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Scenescape)"
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
+	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
 	@echo ""
@@ -173,7 +172,7 @@ help:
 	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
 	@echo "  - ReID demo targets (demo-reid, demo-all, demo-k8s with DEMO_K8S_MODE=reid|all)"
 	@echo "    default to REID_BACKEND=vdms. Set REID_BACKEND=qdrant to use Qdrant instead."
-	@echo "  - Set LIDAR_DEMO=true to additionally start the LiDAR-intersection fusion demo"
+	@echo "  - Use 'make demo-lidar' to run the basic LiDAR-intersection (LIDAR/Camera) fusion demo."
 	@echo "    See docs/user-guide/how-to-guides/run-lidar-intersection-demo.md for prerequisites and setup steps."
 	@echo ""
 
@@ -729,7 +728,7 @@ apply-lidar-patch:
 		else \
 			echo "ERROR: $$p does not apply cleanly and does not look"; \
 			echo "already applied either. Resolve manually (see 'git apply --check $$p')" ; \
-			echo "before building with LIDAR_DEMO=true."; \
+			echo "before running 'make build-core-lidar' or 'make demo-lidar'."; \
 			exit 1; \
 		fi; \
 	done
@@ -747,23 +746,28 @@ revert-lidar-patch:
 
 .PHONY: demo
 demo: $(DEMO_BUILD:build=build-core) init-sample-data
-	$(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile controller))
+	$(call start_demo,--profile controller)
 
 .PHONY: demo-reid
 demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core) init-sample-data
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) $(LIDAR_OVERRIDE_ARGS) --profile controller))
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-all
 demo-all: check-reid-backend $(DEMO_BUILD:build=build-all) init-sample-data
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) $(LIDAR_OVERRIDE_ARGS) --profile controller --profile cluster-analytics --profile mapping))
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile mapping))
 
 .PHONY: demo-cluster-analytics
 demo-cluster-analytics: $(DEMO_BUILD:build=build-all) init-sample-data
-	$(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile controller --profile cluster-analytics))
+	$(call start_demo,--profile controller --profile cluster-analytics)
 
 .PHONY: demo-tracker
 demo-tracker: $(DEMO_BUILD:build=build-all) init-sample-data
-	$(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile tracker))
+	$(call start_demo,--profile tracker)
+
+# Basic LiDAR-intersection (LIDAR/Camera) fusion demo only
+.PHONY: demo-lidar
+demo-lidar: $(DEMO_BUILD:build=build-core-lidar) init-sample-data
+	$(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-close
 demo-close:

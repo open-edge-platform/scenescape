@@ -25,8 +25,8 @@ stream with a recorded camera image sequence of the same real-world
 intersection. It is fully independent from the default apriltag/queuing demo:
 all of its data, scene configuration, and pipeline assets live under
 [sample_data/lidar_intersection/](../../../sample_data/lidar_intersection)
-and it is started with its own `LIDAR_DEMO` environment variable, so it never
-affects the standard `make demo` deployment.
+and it is started with its own dedicated `make demo-lidar` target, so it
+never affects the standard `make demo` deployment.
 
 > **Note:** The scene itself is seeded using Scenescape's existing
 > [scene import](./build-a-scene/create-new-scene.md#importing-the-scene)
@@ -35,8 +35,8 @@ affects the standard `make demo` deployment.
 > and forwarding a `source` field through scene_common and Analytics) are
 > kept as one patch per component under
 > `sample_data/lidar_intersection/patches/` and are applied to the source
-> tree automatically by `make build-core`/`make build-all` only when
-> `LIDAR_DEMO=true` - a normal build/demo never touches these files. See
+> tree automatically by `make build-core-lidar` only - a normal
+> `make build-core`/`make build-all` never touches these files. See
 > [Demo-only patches](#demo-only-patches) below for details.
 
 ## What this demo adds
@@ -46,7 +46,7 @@ affects the standard `make demo` deployment.
 | `sample_data/lidar_intersection/docker-compose.lidar-override.yml` | Opt-in Compose override adding the `lidar-scene-init`, `lidar-data-init`, `lidar-model-init`, and `lidar-stream` services                                                                                             |
 | `sample_data/lidar_intersection/lidar_publisher.py`                | Runs the LiDAR (PointPillars) and camera (person-vehicle-bike) GStreamer pipelines and publishes detections over MQTT                                                                                                 |
 | `sample_data/lidar_intersection/convert_pcd_to_bin.py`             | Converts the manually-downloaded dataset's `.pcd` LiDAR frames to the `.bin` format `lidar_publisher.py`/DLStreamer expect - see [Prerequisites](#prerequisites)                                                      |
-| `sample_data/lidar_intersection/patches/`                          | Demo-only patches, one per component (Manager, scene_common, Analytics), applied automatically when building with `LIDAR_DEMO=true`                                                                                   |
+| `sample_data/lidar_intersection/patches/`                          | Demo-only patches, one per component (Manager, scene_common, Analytics), applied automatically when building with `make build-core-lidar`                                                                             |
 | `sample_data/lidar_intersection/`                                  | Scene config, map image, scene-import ZIP, and the PointPillars model installer, all scoped to this demo (the recorded LiDAR/camera frames themselves are NOT part of the repo - see [Prerequisites](#prerequisites)) |
 
 ## Architecture
@@ -153,7 +153,7 @@ clones/builds anything (the several-minutes-first-run cost mentioned in
 3. This is a one-time step per checkout - the extracted folder is
    git-ignored (`sample_data/lidar_intersection/V2X-Seq-SPD-Example/` in
    `.gitignore`) and `lidar-data-init` re-converts it into the shared
-   Docker volume on every `make demo LIDAR_DEMO=true`.
+   Docker volume on every `make demo-lidar`.
 
 This dataset is the infrastructure-side subset of the **V2X-Seq-SPD**
 dataset from the [DAIR-V2X-Seq](https://github.com/AIR-THU/DAIR-V2X-Seq)
@@ -178,12 +178,12 @@ full dataset, license terms, and citation details.
 
 ## Step 1: Enable the demo
 
-Add `LIDAR_DEMO=true` to any of the normal `make demo*` targets. For example,
-to start the core demo plus the LiDAR-Intersection fusion demo:
+Run the dedicated `demo-lidar` target instead of `make demo` (a basic demo
+only - no ReID or tracker):
 
 ```bash
 export SUPASS=<password>
-make demo LIDAR_DEMO=true
+make demo-lidar
 ```
 
 This starts four extra containers, on top of the normal demo services:
@@ -221,7 +221,7 @@ step, and no Manager source or DB-fixture changes are needed. It checks
 `GET /api/v1/scenes` first and skips the import if a scene named "Lidar
 Intersection" already exists, so it's safe to leave enabled across restarts;
 after a full `make demo-close` (which wipes volumes) it re-imports cleanly
-on the next `make demo LIDAR_DEMO=true`.
+on the next `make demo-lidar`.
 
 ```bash
 docker compose logs lidar-scene-init
@@ -362,15 +362,14 @@ keeping the full `info` dict around. Fusion/tracking logic itself is
 unmodified by any of these patches - they only add a pass-through for one
 debug-only field.
 
-`make build-core`/`make build-all` apply all three patches to the working tree
-automatically (and only) when `LIDAR_DEMO=true`, build the `manager`,
-`analytics`, and shared `scene_common` base images with them
-applied, then automatically revert them - the patches only need to be on
-disk while those images are being built (they're baked into the image
-layers), so:
+`make build-core-lidar` applies all three patches to the working tree
+automatically, builds the `manager`, `analytics`, and shared `scene_common`
+base images with them applied, then automatically reverts them - the
+patches only need to be on disk while those images are being built (they're
+baked into the image layers), so:
 
 ```bash
-SUPASS=<password> make build-core demo LIDAR_DEMO=true
+SUPASS=<password> make demo-lidar
 ```
 
 builds the patched images, reverts the source tree back to normal, and
@@ -396,7 +395,7 @@ at a time, in order (`0001` -> `0002` -> `0003`), and for each one:
   cleanly, applies it for real. If that check fails, it tries
   `git apply --check -R <patch>` ("does this look already applied?") and
   skips with a log line if so - this is what makes repeated invocations
-  idempotent (e.g. building twice in a row with `LIDAR_DEMO=true`). If
+  idempotent (e.g. running `make build-core-lidar` twice in a row). If
   neither check succeeds, it prints an error naming the offending patch and
   stops immediately (the remaining patches in the list are not attempted),
   instead of silently building partially-patched or unpatched images.
@@ -478,7 +477,7 @@ equivalent of this same growing-lag symptom).
 
 - **`lidar-scene-init` fails to authenticate:** confirm `SUPASS` matches the
   password used for the running deployment (it must be the same value passed
-  to `make demo LIDAR_DEMO=true`); check `docker compose logs lidar-scene-init`.
+  to `make demo-lidar`); check `docker compose logs lidar-scene-init`.
 - **`lidar-model-init` fails or times out:** it compiles a GStreamer
   extension from `openvino_contrib` source on first run and needs outbound
   network access (respects `HTTPS_PROXY`/`https_proxy`); check `docker
@@ -495,7 +494,7 @@ compose logs lidar-data-init`.
   successfully (`docker compose logs lidar-data-init`) - the pipelines need
   the converted `.bin`/`.jpg` frames in the shared sample-data volume.
 - **Scene appears empty (or missing) after `make demo-close` + a fresh `make
-demo LIDAR_DEMO=true`:** check `docker compose logs lidar-scene-init` -
+demo-lidar`:** check `docker compose logs lidar-scene-init` -
   it depends on `web` being healthy first, so a slow Manager startup can
   briefly delay the import; the container exits after one attempt and is not
   retried automatically. Re-trigger it with `docker compose up -d

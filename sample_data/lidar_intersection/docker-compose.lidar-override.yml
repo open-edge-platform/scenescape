@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# LiDAR-intersection fusion demo (opt-in). Enable with `LIDAR_DEMO=true`, e.g.:
+# LiDAR-intersection fusion demo (opt-in, dedicated target). Run with:
 #
-#   SUPASS=<password> make demo LIDAR_DEMO=true
+#   SUPASS=<password> make demo-lidar
 #
 # Adds a recorded LiDAR (PointPillars) + camera image-sequence pipeline for
 # the "Lidar Intersection" sample scene. All assets live under
@@ -18,7 +18,7 @@ services:
   # Scenescape's existing Scene Import REST API (POST /api/v1/import-scene/)
   # so no Manager source or DB-fixture changes are needed. Skips the import
   # if a scene with this name already exists (e.g. on a restart without a
-  # volume reset), so it's safe to run on every `make demo LIDAR_DEMO=true`.
+  # volume reset), so it's safe to run on every `make demo-lidar`.
   lidar-scene-init:
     image: alpine:3.23
     networks:
