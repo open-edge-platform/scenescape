@@ -74,7 +74,7 @@ class SceneCameraCacheTestCase(TestCase):
     self.cam.save()
 
     persisted = Cam.objects.get(pk=self.cam.pk)
-    self.assertEqual(persisted.transforms, [], 
+    self.assertEqual(persisted.transforms, [],
                      "transforms should be cleared when scene is reassigned")
     self.assertIsNone(persisted.scene_x,
                       "scene_x should be None after reassignment")
