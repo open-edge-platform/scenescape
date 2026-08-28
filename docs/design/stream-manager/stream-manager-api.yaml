@@ -116,10 +116,11 @@ paths:
     post:
       tags: [streams]
       operationId: attachStream
-      summary: Attach a discovered sensor as a stream
+      summary: Attach a stream (from a sensor or by URL)
       description: >
-        Attaches a sensor (identified by its Sensor Manager namespace `sensor_id`)
-        as a stream. The stream source is resolved through the Sensor Manager.
+        Attaches a stream, either from a sensor discovered via Sensor Manager
+        (`source_kind: sensor`, resolved through the Sensor Manager) or manually
+        by URL outside the Sensor Manager namespace (`source_kind: uri`).
         Optionally initializes in-memory pre-event buffering.
       requestBody:
         required: true
@@ -151,7 +152,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
         "409":
-          description: A stream is already attached for this `sensor_id`.
+          description: >
+            Duplicate stream: a stream is already attached for this `sensor_id`,
+            or another stream already uses the same (normalized) `source_uri`.
           content:
             application/problem+json:
               schema:
@@ -691,9 +694,23 @@ components:
               description: Timestamp of the oldest buffered frame.
 
     StreamCreate:
+      oneOf:
+        - $ref: "#/components/schemas/StreamCreateFromSensor"
+        - $ref: "#/components/schemas/StreamCreateFromUri"
+      discriminator:
+        propertyName: source_kind
+        mapping:
+          sensor: "#/components/schemas/StreamCreateFromSensor"
+          uri: "#/components/schemas/StreamCreateFromUri"
+
+    StreamCreateFromSensor:
       type: object
-      required: [sensor_id]
+      required: [source_kind, sensor_id]
       properties:
+        source_kind:
+          type: string
+          enum: [sensor]
+          description: Attach a sensor discovered via Sensor Manager.
         sensor_id:
           type: string
           description: >
@@ -705,6 +722,43 @@ components:
         buffer:
           $ref: "#/components/schemas/BufferConfig"
       additionalProperties: false
+      example:
+        source_kind: sensor
+        sensor_id: cam-entrance-01
+        name: Entrance camera
+        buffer:
+          enabled: true
+          buffer_seconds: 15
+
+    StreamCreateFromUri:
+      type: object
+      required: [source_kind, source_uri]
+      properties:
+        source_kind:
+          type: string
+          enum: [uri]
+          description: >
+            Attach a stream manually by URL, outside the Sensor Manager namespace.
+        source_uri:
+          type: string
+          format: uri
+          description: >
+            Stream source URL to attach. Only vetted schemes are accepted
+            (e.g. `rtsp`, `rtsps`, `https`); internal/link-local addresses are
+            rejected to prevent SSRF.
+        name:
+          type: string
+          description: Human-readable stream name.
+        buffer:
+          $ref: "#/components/schemas/BufferConfig"
+      additionalProperties: false
+      example:
+        source_kind: uri
+        source_uri: rtsp://192.0.2.10:554/stream1
+        name: Loading dock (manual)
+        buffer:
+          enabled: true
+          buffer_seconds: 15
 
     Stream:
       type: object
@@ -712,16 +766,28 @@ components:
         id:
           type: string
           readOnly: true
+        origin:
+          type: string
+          enum: [sensor, uri]
+          readOnly: true
+          description: >
+            How the stream was attached: `sensor` (discovered via Sensor Manager)
+            or `uri` (attached manually by URL).
         sensor_id:
           type: string
-          description: Sensor Manager namespace id this stream is attached to.
+          nullable: true
+          description: >
+            Sensor Manager namespace id this stream is attached to; null for
+            manually attached (`origin: uri`) streams.
         name:
           type: string
         source_uri:
           type: string
           format: uri
           readOnly: true
-          description: Stream source resolved via Sensor Manager.
+          description: >
+            Stream source URL. Resolved via Sensor Manager for `origin: sensor`
+            streams; the client-supplied URL for `origin: uri` streams.
         state:
           $ref: "#/components/schemas/StreamState"
         buffer:

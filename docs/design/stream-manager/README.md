@@ -11,7 +11,8 @@ around analytics events.
 - Replay / restreaming of stored video.
 - Cameras that do **not** provide synchronized timestamps in the stream.
 
-Streams are discovered and referenced by `sensor_id` (Sensor Manager namespace); optional
+Streams are discovered and referenced by `sensor_id` (Sensor Manager namespace); they can
+also be attached manually by URL (`source_kind: uri`) outside that namespace. Optional
 camera control is handled by the Sensor Manager API.
 
 ## Contents

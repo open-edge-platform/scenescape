@@ -19,7 +19,7 @@ sequenceDiagram
     participant SM as Stream Manager
     participant VLM as VLM / downstream
 
-    note over SMgr: Sensor Manager additions are shown in purple
+    note over SMgr: Interactions with Sensor Manager are shown in purple
 
     rect rgb(230, 219, 255)
     note over Op, SMgr: Discovery + camera setup (Sensor Manager)
@@ -31,17 +31,19 @@ sequenceDiagram
 
     rect rgb(238, 255, 240)
     note over BL, SM: Attach stream + buffering + event subscription
-    BL->>SM: POST /v1/streams {sensor_id}
+    alt Attach discovered sensor (source_kind: sensor)
+        BL->>SM: POST /v1/streams {source_kind: sensor, sensor_id}
+        SM->>SMgr: Resolve source for sensor_id
+        SMgr-->>SM: Stream source endpoint
+    else Attach manually by URL (source_kind: uri)
+        BL->>SM: POST /v1/streams {source_kind: uri, source_uri}
+        SM->>SM: Validate URL (scheme allowlist, block internal) + dedup source_uri
     end
-
-    rect rgb(230, 219, 255)
-    SM->>SMgr: Resolve source for sensor_id
-    SMgr-->>SM: Stream source endpoint
     end
 
     rect rgb(238, 255, 240)
     SM->>Cam: Open stream (RTSP, 2nd viewer)
-    SM-->>BL: 201 Created {stream_id, sensor_id}
+    SM-->>BL: 201 Created {stream_id, origin, sensor_id?}
     BL->>SM: PUT /v1/streams/{stream_id}/buffer {enabled, buffer_seconds}
     SM->>SM: Start pre-event in-memory buffering (ring buffer)
     SM-->>BL: 200 OK BufferStatus
@@ -102,7 +104,7 @@ sequenceDiagram
 | --- | --- | --- | --- | --- |
 | GET | `/v1/sensors` | _Optional._ List sensors discovered via Sensor Manager, available to attach | query: `type`, `available`, `limit`, `cursor` | `200` `SensorList` `{ items[Sensor{ sensor_id, type, capabilities, available }], next_cursor }`; `502` if Sensor Manager unreachable |
 | GET | `/v1/streams` | List attached streams | query: `state`, `limit`, `cursor` | `200` `StreamList` `{ items[Stream], next_cursor }` |
-| POST | `/v1/streams` | Attach a discovered sensor as a stream; optionally initialize buffering | body: `sensor_id`\*, `name`, `buffer{ enabled, buffer_seconds }` | `201` `Stream` + `Location`; `404` unknown sensor; `409` already attached |
+| POST | `/v1/streams` | Attach a stream from a discovered sensor or manually by URL; optionally initialize buffering | body (`oneOf` on `source_kind`\*): sensor → `sensor_id`\*; uri → `source_uri`\*; plus `name`, `buffer{ enabled, buffer_seconds }` | `201` `Stream` + `Location`; `400` invalid/blocked URL; `404` unknown sensor; `409` duplicate `sensor_id` or `source_uri` |
 | GET | `/v1/streams/{stream-id}` | Get metadata of a stream (incl. `sensor_id`) | path: `stream-id`\* | `200` `Stream`; `404` |
 | DELETE | `/v1/streams/{stream-id}` | Detach a stream and stop its buffering | path: `stream-id`\* | `204`; `409` if being recorded |
 | PUT | `/v1/streams/{stream-id}/buffer` | Configure the in-memory pre-event buffer (time window) | path: `stream-id`\*; body: `enabled`\*, `buffer_seconds` | `200` `BufferStatus` `{ ..., buffered_seconds, oldest_buffered_at }` |
@@ -115,4 +117,4 @@ sequenceDiagram
 | GET | `/v1/records/{record-id}/frame` | Retrieve a single frame from one stream (nearest to timestamp) | path: `record-id`\*; query: `stream-id`\*, `timestamp`\*, `format` (`jpeg`\|`png`) | `200` binary `image/jpeg`\|`image/png` + `X-Frame-Timestamp`; `404` |
 | GET | `/v1/records/{record-id}/clip` | Retrieve a video clip from one stream over a range | path: `record-id`\*; query: `stream-id`\*, `timestamp-start`\*, `timestamp-end` \| `duration-seconds`, `format` (`mp4`\|`mkv`\|`webm`) | `200` binary `video/mp4`\|`video/x-matroska`\|`video/webm`; `404` |
 
-\* = required. Streams are **discovered** (`GET /v1/sensors`) and **attached by `sensor_id`** (Sensor Manager namespace); `Stream` and `RecordTrack` carry `sensor_id`. **Optional camera control** (PTZ / NTP) is provided by the **Sensor Manager API** (not Stream Manager) and is called by Business Logic using the same `sensor_id`. All timestamps are RFC 3339 UTC; errors use `application/problem+json` (RFC 9457); auth is a bearer token.
+\* = required. Streams are either **discovered** (`GET /v1/sensors`) and **attached by `sensor_id`** (Sensor Manager namespace, `source_kind: sensor`) or **attached manually by URL** (`source_kind: uri`, `source_uri`) outside that namespace. `Stream` reports its `origin` (`sensor`\|`uri`); `sensor_id` is null for URL-attached streams. Manual URLs are restricted to a scheme allowlist and de-duplicated by normalized `source_uri` (SSRF protection). **Optional camera control** (PTZ / NTP) is provided by the **Sensor Manager API** (not Stream Manager) and is called by Business Logic using the same `sensor_id`. All timestamps are RFC 3339 UTC; errors use `application/problem+json` (RFC 9457); auth is a bearer token.
