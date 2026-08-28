@@ -60,5 +60,6 @@
   ],
   "feature_map_stride": 2,
   "dir_offset": 0.78539,
-  "num_dir_bins": 2
+  "num_dir_bins": 2,
+  "preproc_weights_rpw1": "radarpillars_preproc_weights.rpw1"
 }

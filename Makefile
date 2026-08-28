@@ -50,6 +50,10 @@ LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
 # Radar-intersection (Radar/Camera) fusion demo variables
 RADAR_OVERRIDE_FILE = sample_data/radar_intersection/docker-compose.radar-override.yml
 RADAR_COMPOSE_ARGS = -f docker-compose.yml -f $(RADAR_OVERRIDE_FILE)
+# Local DLSPS image with generalized g3dinference (PointPillars + RadarPillars)
+DLSTREAMER_SRC ?= $(abspath ../dlstreamer)
+DLS_G3D_IMAGE ?= intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2-g3d
+DLS_BASE_IMAGE ?= intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
 # One patch per component (0001 manager, 0002 scene_common, 0003 analytics),
 # applied only when building with make build-core-lidar.
 LIDAR_PATCH_FILES := sample_data/lidar_intersection/patches/0001-manager-default-assets-and-source-labels.patch \
@@ -119,6 +123,7 @@ help:
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Scenescape)"
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
+	@echo "  build-dlsps-g3d             Bake local DLSPS image with generalized g3dinference"
 	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
 	@echo "  demo-radar                  Start the basic Scenescape demo plus the Radar-intersection (Radar/Camera) fusion demo"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
@@ -776,15 +781,22 @@ demo-cluster-analytics: $(DEMO_BUILD:build=build-all) init-sample-data
 demo-tracker: $(DEMO_BUILD:build=build-all) init-sample-data
 	$(call start_demo,--profile tracker)
 
+# Bake DLSPS with generalized g3dinference (needs DLSTREAMER_SRC checkout)
+.PHONY: build-dlsps-g3d
+build-dlsps-g3d:
+	DLSTREAMER_SRC="$(DLSTREAMER_SRC)" DLS_BASE_IMAGE="$(DLS_BASE_IMAGE)" \
+	  DLS_G3D_IMAGE="$(DLS_G3D_IMAGE)" \
+	  bash sample_data/dlstreamer-pipeline-server/build-g3d-image.sh
+
 # Basic LiDAR-intersection (LIDAR/Camera) fusion demo only
 .PHONY: demo-lidar
-demo-lidar: $(DEMO_BUILD:build=build-core-lidar) init-sample-data
-	$(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile controller))
+demo-lidar: build-dlsps-g3d $(DEMO_BUILD:build=build-core-lidar) init-sample-data
+	DLS_G3D_IMAGE="$(DLS_G3D_IMAGE)" $(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile controller))
 
-# Radar-intersection (RadarPillars OpenVINO + camera gvadetect) fusion demo
+# Radar-intersection (g3dinference radarpillars + camera gvadetect) fusion demo
 .PHONY: demo-radar
-demo-radar: $(DEMO_BUILD:build=build-core) init-sample-data
-	$(call start_demo,$(strip $(RADAR_COMPOSE_ARGS) --profile controller))
+demo-radar: build-dlsps-g3d $(DEMO_BUILD:build=build-core) init-sample-data
+	DLS_G3D_IMAGE="$(DLS_G3D_IMAGE)" $(call start_demo,$(strip $(RADAR_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-close
 demo-close:

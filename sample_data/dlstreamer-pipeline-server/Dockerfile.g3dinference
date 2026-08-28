@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# DLSPS image with generalized g3dinference (PointPillars + RadarPillars).
+# Built by: make build-dlsps-g3d
+
+ARG BASE_IMAGE=intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+FROM ${BASE_IMAGE}
+
+COPY libgst3delements.so /opt/intel/dlstreamer/lib/libgst3delements.so

@@ -5,8 +5,9 @@
 #
 #   SUPASS=<password> make demo-radar
 #
-# RadarPillars OpenVINO IR (host VFE/attention + OV BEV/detect) publishes on
+# RadarPillars OpenVINO IR via g3dinference model-type=radarpillars publishes on
 # scenescape/data/radar/{id}; camera gvadetect publishes on data/camera/{id}.
+# Requires: make build-dlsps-g3d (local DLSPS image with generalized g3dinference).
 # See docs/user-guide/how-to-guides/run-radar-intersection-demo.md.
 
 services:
@@ -68,8 +69,8 @@ services:
       - |
         set -e
         pip install --no-cache-dir --quiet numpy pillow
-        mkdir -p /dst/radar_intersection/frames /dst/radar_intersection/images
-        python3 /generate_synthetic_radar_frames.py -o /dst/radar_intersection/frames -n $${RADAR_NUM_FRAMES}
+        mkdir -p /dst/radar_intersection/frames /dst/radar_intersection/pcd_bin /dst/radar_intersection/images
+        python3 /generate_synthetic_radar_frames.py -o /dst/radar_intersection -n $${RADAR_NUM_FRAMES}
         if [ -d /src/image ] && ls /src/image/*.jpg >/dev/null 2>&1; then
           python3 /reencode_jpegs.py
         else
@@ -101,7 +102,7 @@ services:
     pids_limit: 1000
 
   radar-stream:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+    image: ${DLS_G3D_IMAGE:-intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2-g3d}
     networks:
       scenescape:
     tty: true
@@ -124,7 +125,11 @@ services:
       - RADAR_SENSOR_ID=intersection-radar1
       - RADAR_DEVICE=${RADAR_DEVICE:-CPU}
       - RADAR_FRAME_RATE=${RADAR_FRAME_RATE:-10}
+      - RADAR_SCORE_THRESHOLD=${RADAR_SCORE_THRESHOLD:-0.1}
       - RADAR_MUTE=${RADAR_MUTE:-false}
+      - RADAR_DATA_PATH=/home/pipeline-server/videos/radar_intersection/pcd_bin/%06d.bin
+      - RADAR_START_INDEX=${RADAR_START_INDEX:-0}
+      - RADAR_STOP_INDEX=${RADAR_STOP_INDEX:-}
       - CAM_SENSOR_ID=radar-cam1
       - CAM_DEVICE=${CAM_DEVICE:-CPU}
       - CAM_SCORE_THRESHOLD=${CAM_SCORE_THRESHOLD:-0.5}
@@ -134,7 +139,8 @@ services:
       - CAM_DATA_PATH=/home/pipeline-server/videos/radar_intersection/images/%06d.jpg
     volumes:
       - ./sample_data/radar_intersection/radar_publisher.py:/home/pipeline-server/user_scripts/radar_publisher.py:ro
-      - ./sample_data/radar_intersection/radarpillars_infer.py:/home/pipeline-server/user_scripts/radarpillars_infer.py:ro
+      - ./sample_data/radar_intersection/radar_file_playback.py:/home/pipeline-server/user_scripts/radar_file_playback.py:ro
+      - ./sample_data/radar_intersection/radar_sensor_contract.py:/home/pipeline-server/user_scripts/radar_sensor_contract.py:ro
       - ./sample_data/radar_intersection/model-proc:/home/pipeline-server/videos/radar_intersection/model-proc:ro
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models

@@ -29,6 +29,11 @@ all of its data, scene configuration, and pipeline assets live under
 and it is started with its own dedicated `make demo-lidar` target, so it
 never affects the standard `make demo` deployment.
 
+`make demo-lidar` also runs `build-dlsps-g3d`, which bakes a local DLSPS image
+(`…:2026.2.0-ubuntu24-rc2-g3d`) containing generalized
+`g3dinference model-type=pointpillars`. Point the build at your DLStreamer
+checkout with `DLSTREAMER_SRC` (default `../dlstreamer`).
+
 > **Note:** The scene itself is seeded using Scenescape's existing
 > [scene import](./build-a-scene/create-new-scene.md#importing-the-scene)
 > feature - no Manager DB-fixture changes needed. All demo-only source

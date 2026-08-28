@@ -2,10 +2,12 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Generate synthetic VIDETEC-style (N,5) radar frames for the radar DNN demo.
+"""Generate synthetic radar frames for the radar DNN demo.
 
-Frames are float32 [range_m, doppler_mps, azimuth_deg, elevation_deg, magnitude]
-with sparse clusters that RadarPillars OpenVINO typically turns into boxes.
+Writes:
+  - VIDETEC-style ``frames/%06d.npy`` (N,5) for offline Python tooling
+  - VoD-style ``pcd_bin/%06d.bin`` float32 (N,7) for
+    ``g3dlidarparse point-features=7 ! g3dinference model-type=radarpillars``
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ from pathlib import Path
 import numpy as np
 
 
-def make_frame(rng: np.random.Generator, clusters: list[tuple]) -> np.ndarray:
+def make_videtec_frame(rng: np.random.Generator, clusters: list[tuple]) -> np.ndarray:
   parts = []
   for center_r, center_az, n, mag0 in clusters:
     f = np.zeros((n, 5), np.float32)
@@ -26,7 +28,6 @@ def make_frame(rng: np.random.Generator, clusters: list[tuple]) -> np.ndarray:
     f[:, 3] = rng.normal(0.0, 0.4, n)
     f[:, 4] = mag0 + rng.random(n) * 15.0
     parts.append(f)
-  # Clutter
   clutter_n = int(rng.integers(8, 24))
   c = np.zeros((clutter_n, 5), np.float32)
   c[:, 0] = rng.uniform(2.0, 45.0, clutter_n)
@@ -38,16 +39,33 @@ def make_frame(rng: np.random.Generator, clusters: list[tuple]) -> np.ndarray:
   return np.vstack(parts).astype(np.float32)
 
 
+def videtec_to_pcd(frame: np.ndarray) -> np.ndarray:
+  """(N,5) range/doppler/az/el/mag → (N,7) x,y,z,rcs,v_r,v_r_comp,time."""
+  frame = np.asarray(frame, dtype=np.float32)
+  if frame.size == 0:
+    return np.zeros((0, 7), dtype=np.float32)
+  r, d, az, el, mag = frame.T
+  az_r = np.deg2rad(az)
+  el_r = np.deg2rad(el)
+  cos_el = np.cos(el_r)
+  x = r * cos_el * np.cos(az_r)
+  y = r * cos_el * np.sin(az_r)
+  z = r * np.sin(el_r)
+  return np.stack([x, y, z, mag, d, d, np.zeros_like(d)], axis=1).astype(np.float32)
+
+
 def main():
   ap = argparse.ArgumentParser()
-  ap.add_argument("-o", "--out-dir", required=True)
+  ap.add_argument("-o", "--out-dir", required=True, help="Base radar_intersection dir")
   ap.add_argument("-n", "--num-frames", type=int, default=60)
   ap.add_argument("--seed", type=int, default=0)
   args = ap.parse_args()
-  out = Path(args.out_dir)
-  out.mkdir(parents=True, exist_ok=True)
+  base = Path(args.out_dir)
+  frames_dir = base / "frames"
+  pcd_dir = base / "pcd_bin"
+  frames_dir.mkdir(parents=True, exist_ok=True)
+  pcd_dir.mkdir(parents=True, exist_ok=True)
   rng = np.random.default_rng(args.seed)
-  # Three moving clusters (range drifts slowly across the sequence).
   for i in range(args.num_frames):
     t = i / max(1, args.num_frames - 1)
     clusters = [
@@ -55,9 +73,10 @@ def main():
       (18.0 + 6.0 * t, 12.0 - 3.0 * t, 24, 20.0),
       (12.0 + 2.0 * np.sin(t * 6), -15.0 + 8.0 * t, 20, 16.0),
     ]
-    frame = make_frame(rng, clusters)
-    np.save(out / f"{i:06d}.npy", frame)
-  print(f"Wrote {args.num_frames} frames to {out}")
+    frame = make_videtec_frame(rng, clusters)
+    np.save(frames_dir / f"{i:06d}.npy", frame)
+    videtec_to_pcd(frame).tofile(pcd_dir / f"{i:06d}.bin")
+  print(f"Wrote {args.num_frames} frames to {frames_dir} and {pcd_dir}")
 
 
 if __name__ == "__main__":

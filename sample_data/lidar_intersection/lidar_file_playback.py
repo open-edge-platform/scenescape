@@ -232,6 +232,7 @@ def lidar_multifilesrc_parts(
     "caps=application/octet-stream",
     f"! g3dlidarparse stride=1 frame-rate={frame_rate}",
     f"! g3dinference config={shlex.quote(model_config)}"
+    f" model-type=pointpillars"
     f" device={shlex.quote(device)}"
     f" score-threshold={score_threshold}",
     f"! gvametaconvert add-tensor-data={add_tensor_data} format=json",

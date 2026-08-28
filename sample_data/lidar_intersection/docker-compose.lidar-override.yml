@@ -121,7 +121,7 @@ services:
     pids_limit: 1000
 
   lidar-stream:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+    image: ${DLS_G3D_IMAGE:-intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2-g3d}
     networks:
       scenescape:
     tty: true
