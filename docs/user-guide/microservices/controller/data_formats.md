@@ -154,8 +154,10 @@ Two payload contracts share the topic, distinguished by `source_id`:
 
 - **Configured child scene** (no `source_id`): `{publisher_id}` is the sending child's
   own id. The controller looks up the child's configured parent and static `cameraPose`.
-  Only scenes with a parent publish this hierarchy form; roots do not emit hierarchy
-  echoes onto the external topic.
+  Local children publish this hierarchy form when `scene.parent` is set. Standalone roots do
+  not. A remote child (root on its own broker) publishes only while a remote parent has
+  retained-signalled attach on `scenescape/sys/hierarchy/parent/{child_uid}` (`attached` /
+  `detached`); see [ADR 16](../../../adr/0016-unified-external-source-ingestion.md).
 - **Unified external source** (`source_id` present): `{publisher_id}` must equal
   `source_id`. The controller binds the publisher to one or more scenes:
   - **Manual:** `CONTROLLER_EXTERNAL_SOURCE_BINDINGS=publisher_id:scene_uid,...`

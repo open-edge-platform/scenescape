@@ -11,10 +11,10 @@ SPDX-License-Identifier: Apache-2.0
 callback it also calls `publishExternalDetections`, which rebuilds detections
 with sensors / ReID provenance and publishes `DATA_EXTERNAL` for hierarchy.
 
-[ADR 16](../../docs/adr/0016-unified-external-source-ingestion.md) already
-requires that root scenes must not emit hierarchy echoes. #1788 removed the
-early return for scenes with no parent so **remote children** (roots on their
-own broker) could export to a parent `ChildSceneController`. That made every
+[ADR 16](../../docs/adr/0016-unified-external-source-ingestion.md) requires that
+standalone root scenes must not emit hierarchy echoes. #1788 removed the early
+return for scenes with no parent so **remote children** (roots on their own
+broker) could export to a parent `ChildSceneController`. That made every
 standalone root pay hierarchy cost every frame and regressed black-box
 controller-immediate jitter:
 
@@ -63,13 +63,18 @@ shares the camera callback on 3.12.
 3. Target **free-threaded CPython 3.14** so hierarchy CPU can run truly in
    parallel with the next camera frames (not just overlap I/O under the GIL).
 
-Ship remote-child export restore (parent signal — **done**; see Interim) **with**
-that non-blocking path so child metrics do not regress again.
+The parent-attach signal (Interim) restored remote-child export without waiting
+on this work. Remains: move hierarchy rebuild/MQTT off the camera callback so
+remote children that export do not regress black-box jitter the way always-on
+publish (#1788) did.
 
 ## References
 
-- ADR 16 root-echo rule; #1788 / `278a9866`
+- ADR 16 root-echo rule + remote-child `SYS_HIERARCHY_PARENT` attach signal;
+  #1788 / `278a9866`
 - `controller/src/controller/scene_controller.py` —
-  `publishSceneDetections` / `publishExternalDetections`
+  `publishSceneDetections` / `publishExternalDetections` /
+  `handleHierarchyParentMessage`
+- `controller/src/controller/child_scene_controller.py` — retained attach/detach
 - `tests/system/metric/test_black_box_evaluation.py` —
   `black_box_controller_immediate` jitter thresholds

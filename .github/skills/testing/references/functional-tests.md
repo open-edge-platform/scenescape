@@ -86,4 +86,9 @@ shared with children, parent-only passthrough, or none):
 - Prefer `@pytest.mark.preserve_db` for multi-controller matrices (each profile brings its own PG volumes).
 - Hierarchy host ports are written to `os.environ` for Compose interpolation and
   cleared on stack teardown (`clear_hierarchy_port_env`).
-- Controller product notes (remote `parent` recovery): `controller/Agents.md` hierarchy section.
+- Remote children skip `DATA_EXTERNAL` until the parent retained-publishes
+  `SYS_HIERARCHY_PARENT` `attached` on the child broker. Wait for child status /
+  parent link before asserting hierarchy export (local children use
+  `scene.parent` and do not need the signal).
+- Controller product notes (remote `parent` recovery + attach signal):
+  `controller/Agents.md` hierarchy section.
