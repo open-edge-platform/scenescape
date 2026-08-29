@@ -42,6 +42,16 @@ class ChildSceneController():
                                                              scene_id=self.child_id), e)
     return
 
+  def _publishHierarchyParentSignal(self, payload):
+    """Tell the child controller whether a remote parent is listening (retained)."""
+    topic = PubSub.formatTopic(PubSub.SYS_HIERARCHY_PARENT, scene_id=self.child_id)
+    try:
+      self.client.publish(topic, payload, qos=1, retain=True)
+      log.info(f"Published hierarchy parent {payload} for {self.child_name} on {topic}")
+    except Exception as exc:
+      log.error(f"Failed to publish hierarchy parent {payload} for {self.child_name}: {exc}")
+    return
+
   def onChildConnect(self, client, userdata, flags, rc):
     if rc == 5:
       self.handleException("Invalid credentials")
@@ -49,6 +59,8 @@ class ChildSceneController():
     log.info(f"Connected to remote child {self.child_name} with result code {rc}")
 
     self.connected = True
+    # Enable DATA_EXTERNAL on the child before UI status / subscriptions.
+    self._publishHierarchyParentSignal(PubSub.HIERARCHY_PARENT_ATTACHED)
     self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
                                                              scene_id=self.child_id), "connected")
 
@@ -171,6 +183,7 @@ class ChildSceneController():
     self.connected = False
     log.info(f"Disconnected remote child {self.child_name}")
 
+    self._publishHierarchyParentSignal(PubSub.HIERARCHY_PARENT_DETACHED)
     self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
                         scene_id=self.child_id), "disconnected")
     return
@@ -179,4 +192,7 @@ class ChildSceneController():
     return self.client.loopStart()
 
   def loopStop(self):
+    if self.connected:
+      self._publishHierarchyParentSignal(PubSub.HIERARCHY_PARENT_DETACHED)
+      self.connected = False
     return self.client.loopStop()

@@ -28,8 +28,12 @@ controller-immediate jitter:
 
 Restore the early return in `publishExternalDetections` when `scene.parent` is
 unset. Standalone / black-box roots recover; local children still publish.
-Remote children with `parent=None` on the child broker are again blocked from
-exporting until the follow-up below.
+
+**Remote-child parent signal (done):** `ChildSceneController` retained-publishes
+`scenescape/sys/hierarchy/parent/{child_uid}` `attached` / `detached` on the
+**child** broker on connect / disconnect. The child `SceneController` enables
+`DATA_EXTERNAL` for that scene uid while attached. Non-blocking hot-path publish
+(below) remains deferred — hierarchy work still shares the camera callback.
 
 ## Attempts that did not land
 
@@ -59,8 +63,8 @@ shares the camera callback on 3.12.
 3. Target **free-threaded CPython 3.14** so hierarchy CPU can run truly in
    parallel with the next camera frames (not just overlap I/O under the GIL).
 
-Ship remote-child export restore (parent signal or explicit hierarchy flag)
-**only with** that non-blocking path so child metrics do not regress again.
+Ship remote-child export restore (parent signal — **done**; see Interim) **with**
+that non-blocking path so child metrics do not regress again.
 
 ## References
 

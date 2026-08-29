@@ -166,10 +166,11 @@ before linking, or clear duplicate scenes.
 
 ### 6. Link Children as Remote
 
-On each **remote child** Scene Controller, pass `--publish-external`. A remote
-child is a root on its own broker, so without this flag the controller skips
-`DATA_EXTERNAL` (ADR 16) and the parent never receives objects. Local children on the same
-controller do not need the flag.
+When the parent connects to a remote child's broker, it publishes a retained
+`scenescape/sys/hierarchy/parent/<remote_child_id>` `attached` message on that broker.
+The child Scene Controller enables `DATA_EXTERNAL` for that scene while the parent is
+linked and disables it on disconnect (`detached`). Local children on the same
+controller do not need this signal.
 
 From the **parent** UI (or REST API):
 
@@ -338,7 +339,6 @@ machine.
 
 - [ ] Each web UI opens on its own host port with a valid TLS name.
 - [ ] Each broker accepts MQTT with the expected auth and CA.
-- [ ] Each remote-child Scene Controller is started with `--publish-external`.
 - [ ] Parent remote-child status is connected for every child.
 - [ ] Parent regulated MQTT shows child objects after transform.
 - [ ] ReID for unrelated stacks: shared DB **or** separate instances, as needed.

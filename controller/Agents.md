@@ -632,9 +632,11 @@ logger.error(f"Tracking failed for object {obj_id}") # Errors
   recovers parent if still missing (`scene_controller.py`). Unit coverage:
   `TestSceneControllerRemoteChildParent` in
   `tests/sscape_tests/scenescape/test_scene_controller.py` (NEX-T21933).
-- Remote-child controllers must pass `--publish-external` so
-  `publishExternalDetections` still emits `DATA_EXTERNAL` (ADR 16 skips
-  scenes with no parent). Local children do not need the flag.
+- Remote-child export: on connect to the child broker, `ChildSceneController`
+  retained-publishes `SYS_HIERARCHY_PARENT` `attached` (and `detached` on
+  disconnect / `loopStop`). The child `SceneController` enables
+  `DATA_EXTERNAL` for that scene uid while attached (ADR 16 still skips
+  unattached roots). Local children do not need the signal.
 - Hierarchy ReID publish policy (`scene_controller._hierarchyReidPublishPolicy`
   / `uuid_manager` write-health / write-confirmed): withhold local reid until
   schema ready and first successful write; per-track `will_enroll` / `enrolled`;

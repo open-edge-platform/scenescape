@@ -99,10 +99,6 @@ def build_argparser():
   parser.add_argument("--visibility_topic", help="Which topic to publish visibility on."
                       "Valid options are 'unregulated', 'regulated', or 'none'",
                       default="regulated")
-  parser.add_argument("--publish-external", dest="publish_external",
-                      action=argparse.BooleanOptionalAction, default=False,
-                      help="Publish DATA_EXTERNAL even when the scene has no parent. "
-                           "Required for a remote child (a root on its own broker).")
   parser.add_argument("--healthcheck_port", type=int, default=0,
                       help="Port for HTTP health check endpoint (0 to disable)")
   parser.add_argument("--analytics-only", action=_RemovedAnalyticsOnly, nargs=0,
@@ -138,8 +134,7 @@ def main():
                               args.restauth, args.cert,
                               args.rootcert, args.ntp, args.tracker_config_file, args.schema_file,
                               args.visibility_topic, args.data_source,
-                              args.reid_config_file, args.pose_adjustment_config_file,
-                              args.publish_external)
+                              args.reid_config_file, args.pose_adjustment_config_file)
 
   # Start health check server if port is specified
   if args.healthcheck_port > 0:
