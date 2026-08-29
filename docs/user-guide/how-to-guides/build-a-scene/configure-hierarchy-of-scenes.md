@@ -124,6 +124,11 @@ Then restart Scenescape:
 
 ### 3. Link Remote Child
 
+On the **child** Scene Controller, pass `--publish-external` so the child
+publishes `DATA_EXTERNAL`. Without it, a remote child (a root on its own broker) skips
+hierarchy output. See
+[Deploy Multiple Controllers on One Host](./deploy-multi-controller-on-one-host.md#6-link-children-as-remote).
+
 1. Open the child system's Scenescape UI and copy the MQTT credentials.
 2. Open the parent system's Scenescape UI.
 3. Go to the **Children** tab in parent scene.

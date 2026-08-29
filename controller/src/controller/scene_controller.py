@@ -75,7 +75,8 @@ class SceneController:
   def __init__(self, rewrite_bad_time, rewrite_all_time, max_lag, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert, ntp_server,
                tracker_config_file, schema_file, visibility_topic, data_source,
-               reid_config_file=None, pose_adjustment_config_file=None):
+               reid_config_file=None, pose_adjustment_config_file=None,
+               publish_external=False):
     self.cert = client_cert
     self.root_cert = root_cert
     self.rewrite_bad_time = rewrite_bad_time
@@ -121,7 +122,11 @@ class SceneController:
     )
 
     self.visibility_topic = visibility_topic
+    self.publish_external = bool(publish_external)
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
+    log.info(
+      "DATA_EXTERNAL for parentless scenes: "
+      f"{'ENABLED' if self.publish_external else 'DISABLED'}")
 
     self.external_source_pose_cache = ExternalSourcePoseCache(
       sweep_grace_seconds=self.max_lag,
@@ -277,10 +282,9 @@ class SceneController:
   def publishExternalDetections(self, scene, otype, objects, jdata_base):
     # Hierarchy output onto scenescape/external/{scene_uid}/+. Only scenes that
     # are linked under a parent need this path. Standalone roots skip the
-    # expensive rebuild/MQTT (ADR 16); remote children that look like roots on
-    # their own broker need a non-blocking follow-up — see
-    # .github/plans/hierarchy-external-publish-hot-path.md.
-    if not getattr(scene, 'parent', None):
+    # expensive rebuild/MQTT (ADR 16). Remote children are roots on their own
+    # broker; pass --publish-external so they still publish.
+    if not getattr(scene, 'parent', None) and not getattr(self, 'publish_external', False):
       return
     now = get_epoch_time()
     if self.shouldPublish(scene.last_published_detection[otype], now, 1/scene.external_update_rate):

@@ -10,7 +10,10 @@ import time
 from pathlib import Path
 
 from scene_common.reid_constants import SCHEMA_NAME
-from controller.reid_registry import create_reid_database, normalize_backend_name
+from controller.reid_registry import (
+  create_reid_database as _create_reid_database,
+  normalize_backend_name,
+)
 from tests.utils.log import get_logger
 
 log = get_logger(__name__)
@@ -26,6 +29,12 @@ def configure_host_reid_certs():
   os.environ.setdefault("REID_CLIENT_CERT", str(certs / "scenescape-reid.crt"))
   os.environ.setdefault("REID_CLIENT_KEY", str(certs / "scenescape-reid.key"))
   os.environ.setdefault("REID_USE_TLS", "true")
+
+
+def create_reid_database(*args, **kwargs):
+  """Create a ReID adapter after pointing TLS env vars at host secrets."""
+  configure_host_reid_certs()
+  return _create_reid_database(*args, **kwargs)
 
 
 def get_reid_profile_module(semantic=False):
