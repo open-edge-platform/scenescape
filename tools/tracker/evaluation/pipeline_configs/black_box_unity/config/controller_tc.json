@@ -4,5 +4,10 @@
   "non_measurement_time_static_s": 1.6,
   "time_chunking_enabled": true,
   "time_chunking_rate_fps": 10,
-  "suspended_track_timeout_secs": 60.0
+  "suspended_track_timeout_secs": 60.0,
+  "association": {
+    "method": "euclidean",
+    "gate_probability": 0.99,
+    "max_radius_m": 2.0
+  }
 }

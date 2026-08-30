@@ -117,10 +117,15 @@ public:
   Mat getErrorCov() const override;
   Mat getMeasurementCov() const;
 
-  void setStateAndCovariance(cv::Mat state, cv::Mat errorCov)
+  void setStateAndCovariance(const cv::Mat &newState, const cv::Mat &newErrorCov)
   {
-    state = state.clone();
-    errorCov = errorCov.clone();
+    state = newState.clone();
+    errorCov = newErrorCov.clone();
+  }
+
+  void setProcessNoiseCov(const cv::Mat &newProcessNoiseCov)
+  {
+    processNoiseCov = newProcessNoiseCov.clone();
   }
 
   //  Get the state estimate

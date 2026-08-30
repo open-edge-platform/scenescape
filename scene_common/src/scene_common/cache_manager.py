@@ -141,6 +141,11 @@ class CacheManager:
                                       self.tracker_config_data["time_chunking_rate_fps"],
                                       self.tracker_config_data["suspended_track_timeout_secs"]]
         scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
+        scene_data["association_config"] = self.tracker_config_data.get("association", {
+          "method": "position_mahalanobis",
+          "gate_probability": 0.99,
+          "max_radius_m": 10.0,
+        })
       if self.reid_config_data:
         scene_data["reid_config_data"] = self.reid_config_data
       if getattr(self, 'pose_adjustment_config_data', {}):

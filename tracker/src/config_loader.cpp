@@ -312,6 +312,21 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                                      kDefaultNonMeasurementTimeStaticS)
             .GetDouble();
 
+    if (auto* method = GetValueByPointer(config_doc, json::TRACKING_ASSOCIATION_METHOD)) {
+        if (!method->IsString()) {
+            throw std::runtime_error("Invalid association method: expected string");
+        }
+        config.tracking.association.method = parseAssociationMethod(method->GetString());
+    }
+    config.tracking.association.gate_probability =
+        GetValueByPointerWithDefault(config_doc, json::TRACKING_ASSOCIATION_GATE_PROBABILITY,
+                                     kDefaultAssociationGateProbability)
+            .GetDouble();
+    config.tracking.association.max_radius_m =
+        GetValueByPointerWithDefault(config_doc, json::TRACKING_ASSOCIATION_MAX_RADIUS_M,
+                                     kDefaultAssociationMaxRadiusCeilingM)
+            .GetDouble();
+
     // NTP configuration (optional; server empty/missing = use OS clock)
     if (GetValueByPointer(config_doc, json::INFRASTRUCTURE_NTP)) {
         NtpConfig ntp_config;
@@ -402,6 +417,24 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
               tracker::env::NON_MEASUREMENT_TIME_DYNAMIC_S, parse_positive_double);
     apply_env(config.tracking.non_measurement_time_static_s,
               tracker::env::NON_MEASUREMENT_TIME_STATIC_S, parse_positive_double);
+
+    if (auto val = get_env(tracker::env::ASSOCIATION_METHOD); val.has_value()) {
+        config.tracking.association.method = parseAssociationMethod(val.value());
+    }
+    apply_env(config.tracking.association.gate_probability, tracker::env::ASSOCIATION_GATE_PROBABILITY,
+              [](const std::string& v, const std::string& s) {
+                  try {
+                      double probability = std::stod(v);
+                      if (probability <= 0.0 || probability > 1.0) {
+                          throw std::runtime_error(s + " must be in (0, 1]: " + v);
+                      }
+                      return probability;
+                  } catch (const std::invalid_argument&) {
+                      throw std::runtime_error("Invalid " + s + ": " + v);
+                  }
+              });
+    apply_env(config.tracking.association.max_radius_m, tracker::env::ASSOCIATION_MAX_RADIUS_M,
+              parse_positive_double);
 
     // NTP overrides: env vars take precedence;
     if (auto val = get_env(tracker::env::NTP_SERVER); val.has_value()) {

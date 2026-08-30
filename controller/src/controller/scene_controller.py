@@ -12,6 +12,7 @@ from scene_common.cache_manager import CacheManager
 from controller.child_scene_controller import ChildSceneController
 from scene_common.detections_builder import buildDetectionsList
 from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
+from controller.ilabs_tracking import normalize_association_config
 from controller.scene import Scene
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
@@ -163,6 +164,13 @@ class SceneController:
         else:
           log.error("Invalid persist_attributes format in tracker config file")
           self.tracker_config_data["persist_attributes"] = {}
+
+      association = tracker_config.get("association", {})
+      self.tracker_config_data["association"] = normalize_association_config({
+        "method": association.get("method", "position_mahalanobis"),
+        "gate_probability": association.get("gate_probability", 0.99),
+        "max_radius_m": association.get("max_radius_m", 10.0),
+      })
     return
 
   def extractReidConfigData(self, reid_config_file):

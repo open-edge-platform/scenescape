@@ -1,8 +1,11 @@
 // SPDX-FileCopyrightText: 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+#include "association_config.hpp"
 #include "config_loader.hpp"
 #include "scene_loader.hpp"
+
+#include <rv/Utils.hpp>
 
 #include "env_vars.hpp"
 #include "utils/scoped_env.hpp"
@@ -719,6 +722,92 @@ TEST(ConfigLoaderTest, TrackingEnvOverrides_EmptyTreatedAsUnset) {
         auto config = load_config(config_file.path(), get_schema_path());
         EXPECT_EQ(config.scenes.file_path.value(), empty_scenes_path()); // From config
     }
+}
+
+TEST(ConfigLoaderTest, AssociationDefaults) {
+    TempFile config_file(MINIMAL_CONFIG());
+    auto config = load_config(config_file.path(), get_schema_path());
+    EXPECT_EQ(config.tracking.association.method, AssociationMethod::PositionMahalanobis);
+    EXPECT_DOUBLE_EQ(config.tracking.association.gate_probability, 0.99);
+    EXPECT_DOUBLE_EQ(config.tracking.association.max_radius_m, 10.0);
+}
+
+TEST(ConfigLoaderTest, AssociationOmittedBlockUsesProductionDefaults) {
+    // Minimal configs often omit tracking.association entirely; method and
+    // max_radius_m must still match schema / AssociationConfig struct defaults.
+    const std::string json = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "tracking": {
+        "max_unreliable_time_s": 1.0
+      },
+      "scenes": {
+        "source": "file",
+        "file_path": ")" + empty_scenes_path() + R"("
+      }
+    })";
+    TempFile config_file(json);
+    auto config = load_config(config_file.path(), get_schema_path());
+    EXPECT_EQ(config.tracking.association.method, AssociationMethod::PositionMahalanobis);
+    EXPECT_DOUBLE_EQ(config.tracking.association.gate_probability, 0.99);
+    EXPECT_DOUBLE_EQ(config.tracking.association.max_radius_m, 10.0);
+    EXPECT_NEAR(config.tracking.association.costThreshold(), rv::chi2Threshold(0.99, 2), 1e-6);
+}
+
+TEST(ConfigLoaderTest, AssociationInvalidMethodThrows) {
+    const std::string json = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "tracking": {
+        "association": {
+          "method": "not-a-real-method"
+        }
+      },
+      "scenes": {
+        "source": "file",
+        "file_path": ")" + empty_scenes_path() + R"("
+      }
+    })";
+    TempFile config_file(json);
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, AssociationFromJsonAndEnv) {
+    const std::string json = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "tracking": {
+        "association": {
+          "method": "position_mahalanobis",
+          "gate_probability": 0.95,
+          "max_radius_m": 8.0
+        }
+      },
+      "scenes": {
+        "source": "file",
+        "file_path": ")" + empty_scenes_path() + R"("
+      }
+    })";
+    TempFile config_file(json);
+
+    ScopedEnv method_env(tracker::env::ASSOCIATION_METHOD, "euclidean");
+    auto config = load_config(config_file.path(), get_schema_path());
+    EXPECT_EQ(config.tracking.association.method, AssociationMethod::Euclidean);
+    EXPECT_DOUBLE_EQ(config.tracking.association.gate_probability, 0.95);
+    EXPECT_DOUBLE_EQ(config.tracking.association.max_radius_m, 8.0);
+    EXPECT_EQ(config.tracking.association.distanceType(), rv::tracking::DistanceType::Euclidean);
+    EXPECT_DOUBLE_EQ(config.tracking.association.costThreshold(), 8.0);
+}
+
+TEST(ConfigLoaderTest, AssociationMahalanobisCostThresholdUsesChi2) {
+    AssociationConfig association;
+    association.method = AssociationMethod::PositionMahalanobis;
+    association.gate_probability = 0.99;
+    EXPECT_NEAR(association.costThreshold(), rv::chi2Threshold(0.99, 2), 1e-6);
+    EXPECT_EQ(association.distanceType(), rv::tracking::DistanceType::PositionMahalanobis);
 }
 
 //

@@ -6,6 +6,9 @@
 #include "logger.hpp"
 #include "tracking_worker.hpp"
 
+#include <rv/Utils.hpp>
+#include <rv/tracking/ObjectMatching.hpp>
+
 #include <chrono>
 #include <condition_variable>
 #include <format>
@@ -992,6 +995,38 @@ TEST_F(TrackingWorkerTest, Tracking_MetadataMaximumPersistsAcrossChunks) {
     EXPECT_NE(metadata.find("female"), std::string::npos);
     EXPECT_NE(metadata.find("0.9"), std::string::npos);
     EXPECT_EQ(metadata.find(R"("label":"male")"), std::string::npos);
+}
+
+TEST_F(TrackingWorkerTest, AssociationConfigSelectsDistanceType) {
+    TrackingConfig config = make_test_tracking_config();
+    config.association.method = AssociationMethod::PositionMahalanobis;
+    config.association.gate_probability = 0.99;
+    config.association.max_radius_m = 10.0;
+
+    PublishCallback callback = [](const std::string&, const std::string&, const std::string&,
+                                  const std::string&, const std::vector<Track>&) {};
+    TrackingScope scope{"scene-1", "person"};
+    TrackingWorker worker(scope, "Test Scene", 2, callback, config, cameras_);
+
+    EXPECT_EQ(worker.associationConfig().method, AssociationMethod::PositionMahalanobis);
+    EXPECT_EQ(worker.associationConfig().distanceType(),
+              rv::tracking::DistanceType::PositionMahalanobis);
+    EXPECT_NEAR(worker.associationConfig().costThreshold(), rv::chi2Threshold(0.99, 2), 1e-6);
+    EXPECT_DOUBLE_EQ(worker.associationConfig().max_radius_m, 10.0);
+}
+
+TEST_F(TrackingWorkerTest, AssociationConfigDefaultsToPositionMahalanobis) {
+    TrackingConfig config = make_test_tracking_config();
+    PublishCallback callback = [](const std::string&, const std::string&, const std::string&,
+                                  const std::string&, const std::vector<Track>&) {};
+    TrackingScope scope{"scene-1", "person"};
+    TrackingWorker worker(scope, "Test Scene", 2, callback, config, cameras_);
+
+    EXPECT_EQ(worker.associationConfig().method, AssociationMethod::PositionMahalanobis);
+    EXPECT_EQ(worker.associationConfig().distanceType(),
+              rv::tracking::DistanceType::PositionMahalanobis);
+    EXPECT_NEAR(worker.associationConfig().costThreshold(), rv::chi2Threshold(0.99, 2), 1e-6);
+    EXPECT_DOUBLE_EQ(worker.associationConfig().max_radius_m, 10.0);
 }
 
 } // namespace
