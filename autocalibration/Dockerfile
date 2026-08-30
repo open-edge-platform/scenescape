@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+ARG RUNTIME_OS_IMAGE=ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
 
 # =========================
 # STAGE 1: BUILD STAGE
@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 # Install Python dependencies (these change more frequently)
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip3 install --upgrade \
+    pip3 install --break-system-packages --ignore-installed --upgrade \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     pybind11 dt-apriltags setuptools wheel
 
@@ -109,9 +109,9 @@ ENV CERTDOMAIN=${CERTDOMAIN}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
-ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages"
+ENV PYTHONPATH="/usr/local/lib/python3.14/dist-packages"
 # Set model directory for on-demand loading
-ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.11/site-packages/third_party/netvlad"
+ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.14/dist-packages/third_party/netvlad"
 
 # Update and upgrade base OS packages
 RUN apt update && apt upgrade -y
@@ -120,7 +120,7 @@ RUN apt update && apt upgrade -y
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
      apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-pip wget curl && \
+    libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-open3d python3-pip python-is-python3 wget curl && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
@@ -136,17 +136,17 @@ RUN mkdir -p $NETVLAD_MODEL_DIR /tmp && \
     chmod a=rwx,+t /tmp
 
 # Copy scene_common and fast_geometry from builder stage BEFORE installing other packages
-COPY --from=autocalibration-builder /usr/local/lib/python3.11/site-packages/fast_geometry /usr/local/lib/python3.11/site-packages/fast_geometry
-COPY --from=autocalibration-builder /usr/local/lib/python3.11/site-packages/scene_common /usr/local/lib/python3.11/site-packages/scene_common
+COPY --from=autocalibration-builder /usr/local/lib/python3.14/dist-packages/fast_geometry /usr/local/lib/python3.14/dist-packages/fast_geometry
+COPY --from=autocalibration-builder /usr/local/lib/python3.14/dist-packages/scene_common /usr/local/lib/python3.14/dist-packages/scene_common
 
 # Copy AprilTag shared library
-COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.11/site-packages/dt_apriltags/
+COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.14/dist-packages/dt_apriltags/
 
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/
 COPY autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir \
+    pip install --break-system-packages --ignore-installed --no-cache-dir \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     -r /tmp/requirements-runtime.txt && \
     chmod +x /usr/local/bin/download_models.py && \
@@ -155,7 +155,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy built wheels and install them
 COPY --from=autocalibration-builder /output/*.whl /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --extra-index-url https://download.pytorch.org/whl/cpu /tmp/*.whl && \
+    pip install --break-system-packages --ignore-installed --extra-index-url https://download.pytorch.org/whl/cpu /tmp/*.whl && \
     rm -rf /tmp/*.whl
 
 # Copy application code (this changes frequently)
@@ -194,7 +194,7 @@ ENV SKIP_MODEL_DOWNLOAD=1
 USER root
 
 # Install Python test dependencies
-RUN pip3 install --upgrade --no-cache-dir coverage pytest
+RUN pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir coverage pytest
 
 USER $WSUSER
 

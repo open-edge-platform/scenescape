@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+ARG RUNTIME_OS_IMAGE=ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
 
 FROM intel/scenescape-common-base AS scenescape-manager-builder
 
@@ -87,6 +87,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libgomp1 \
         mosquitto-clients \
         netcat-openbsd \
+        python3 \
+        python3-open3d \
+        python3-pip \
+        python-is-python3 \
         sudo \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -94,7 +98,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Runtime dependencies
 COPY ./manager/requirements-runtime.txt /tmp
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip3 install --no-cache-dir \
+    pip3 install --break-system-packages --ignore-installed --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt
 
@@ -154,8 +158,8 @@ RUN mkdir -p $SCENESCAPE_HOME/manager
 COPY ./manager/src/manager $SCENESCAPE_HOME/manager
 COPY ./manager/src/manage.py $SCENESCAPE_HOME/manage.py
 COPY ./version.txt $SCENESCAPE_HOME/manager/
-COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/fast_geometry /usr/local/lib/python3.11/site-packages/fast_geometry
-COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/scene_common /usr/local/lib/python3.11/site-packages/scene_common
+COPY --from=scenescape-manager-builder /usr/local/lib/python3.14/dist-packages/fast_geometry /usr/local/lib/python3.14/dist-packages/fast_geometry
+COPY --from=scenescape-manager-builder /usr/local/lib/python3.14/dist-packages/scene_common /usr/local/lib/python3.14/dist-packages/scene_common
 
 # Install Scenescape
 RUN : \
@@ -163,9 +167,9 @@ RUN : \
     ; chown -R "$WSUSER":"$WSUSER" "$WSHOME/Scenescape" \
     ; touch "$WSHOME/Scenescape/manager/settings_local.py" \
     ; chown "$WSUSER:$WSUSER" "$WSHOME/Scenescape/manager/settings_local.py" \
-    ; pip3 install --no-cache-dir "$SCENESCAPE_HOME/manager/" \
+    ; pip3 install --break-system-packages --ignore-installed --no-cache-dir "$SCENESCAPE_HOME/manager/" \
     ;
-RUN cp -R /usr/local/lib/python3.*/site-packages/django/contrib/admin/static/ $SCENESCAPE_HOME/
+RUN cp -R /usr/local/lib/python3.*/dist-packages/django/contrib/admin/static/ $SCENESCAPE_HOME/
 
 RUN chmod -R u=rwX,go=rX $SCENESCAPE_HOME/manager/static/assets/
 RUN chmod -R u=rwX,go=rX $SCENESCAPE_HOME/manager/static/examples/
@@ -228,7 +232,7 @@ Pin-Priority: 1000 \n\
     ; rm -rf /var/lib/apt/lists/*
 # Install Python test dependencies
 COPY ./manager/test/requirements-test.txt /tmp
-RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-test.txt
+RUN pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir -r /tmp/requirements-test.txt
 
 ADD ./manager/test/geckodriver.tar.gz /usr/local/bin/
 RUN chmod a+rwx /usr/local/bin/geckodriver

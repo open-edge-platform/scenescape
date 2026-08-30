@@ -13,7 +13,7 @@ pyyaml==6.0.3
 
 # Inner test dependencies
 paho-mqtt==2.1.0
-numpy==2.2.6
+numpy==2.3.5
 requests==2.33.0
 selenium==4.43.0
 Pillow==12.3.0
@@ -30,10 +30,10 @@ djangorestframework==3.16.1
 jsonschema==4.25.1
 plyfile==1.0.3
 trimesh==4.11.5
-shapely==2.1.1
+shapely==2.1.2
 mapbox-earcut==1.0.3
 fastjsonschema==2.21.2
-open3d==0.19.0
+# open3d==0.19.0  # provided by apt python3-open3d on Ubuntu 26.04
 opentelemetry-api==1.38.0
 opentelemetry-sdk==1.38.0
 opentelemetry-exporter-otlp-proto-grpc==1.38.0

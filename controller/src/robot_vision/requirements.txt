@@ -2,6 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # This file is licensed under Apache 2.0 License.
 
-numpy==2.2.6
+numpy==2.3.5
 networkx==3.6.1
 scipy==1.17.1

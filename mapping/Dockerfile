@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+ARG RUNTIME_OS_IMAGE=ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
 
 # =========================
 # STAGE 1: MODEL BUILDER STAGE
@@ -63,6 +63,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-dri \
     libgl1 \
     libgomp1 \
+    python3 \
+    python3-open3d \
+    python3-pip \
+    python-is-python3 \
     && rm -rf /var/lib/apt/lists/* \
     # Create user
     && groupadd -g $GROUP_ID $WSUSER \
@@ -82,11 +86,11 @@ COPY mapping/tools/*.py /usr/local/bin/
 
 # Copy compiled packages from builder
 COPY --chown=$WSUSER:$WSUSER --from=mapping-builder \
-    /usr/local/lib/python3.11/site-packages/fast_geometry \
-    /usr/local/lib/python3.11/site-packages/fast_geometry
+    /usr/local/lib/python3.14/dist-packages/fast_geometry \
+    /usr/local/lib/python3.14/dist-packages/fast_geometry
 COPY --chown=$WSUSER:$WSUSER --from=mapping-builder \
-    /usr/local/lib/python3.11/site-packages/scene_common \
-    /usr/local/lib/python3.11/site-packages/scene_common
+    /usr/local/lib/python3.14/dist-packages/scene_common \
+    /usr/local/lib/python3.14/dist-packages/scene_common
 
 # Copy the selected model directory based on MODEL_TYPE
 COPY --from=mapping-builder /tmp/ /tmp/models/
@@ -98,20 +102,20 @@ RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
     rm -rf /tmp/models
 
 # Install all Python dependencies in one layer
-RUN pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
+RUN pip install --break-system-packages --ignore-installed --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
         cd /workspace/map-anything && \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_mapanything.txt && \
-        pip install --no-cache-dir --no-deps -e .; \
+        pip install --break-system-packages --ignore-installed --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_mapanything.txt && \
+        pip install --break-system-packages --ignore-installed --no-cache-dir --no-deps -e .; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r /workspace/vggt/requirements.txt -r /workspace/vggt/requirements_demo.txt && \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_vggt.txt && \
+        pip install --break-system-packages --ignore-installed --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r /workspace/vggt/requirements.txt -r /workspace/vggt/requirements_demo.txt && \
+        pip install --break-system-packages --ignore-installed --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_vggt.txt && \
         cd /workspace/vggt && \
-        pip install --no-cache-dir -e .; \
+        pip install --break-system-packages --ignore-installed --no-cache-dir -e .; \
     fi && \
-    rm -rf /usr/local/lib/python3.11/site-packages/torch/test \
-           /usr/local/lib/python3.11/site-packages/torch/share \
-           /usr/local/lib/python3.11/site-packages/torchvision/test 2>/dev/null || true && \
+    rm -rf /usr/local/lib/python3.14/dist-packages/torch/test \
+           /usr/local/lib/python3.14/dist-packages/torch/share \
+           /usr/local/lib/python3.14/dist-packages/torchvision/test 2>/dev/null || true && \
     chown -R $WSUSER:$WSUSER $SCENESCAPE_HOME /workspace
 
 # Create startup script
@@ -156,7 +160,7 @@ USER root
 
 # Install test dependencies and copy test files
 COPY mapping/tests/requirements-test.txt /tmp/
-RUN pip install --no-cache-dir -r /tmp/requirements-test.txt \
+RUN pip install --break-system-packages --ignore-installed --no-cache-dir -r /tmp/requirements-test.txt \
     && rm /tmp/requirements-test.txt
 
 COPY --chown=$WSUSER:$WSUSER mapping/tests $SCENESCAPE_HOME/tests

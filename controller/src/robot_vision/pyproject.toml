@@ -12,7 +12,7 @@ description = "Algorithms for robot vision, tracking and fusion"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.7"
 dependencies = [
-    "numpy==2.2.6",
+    "numpy==2.3.5",
     "networkx",
     "scipy",
 ]

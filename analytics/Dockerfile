@@ -5,7 +5,7 @@
 # C++ tracking extension.  AnalyticsScene and AnalyticsService are designed
 # to be importable without robot_vision present.
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+ARG RUNTIME_OS_IMAGE=ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
 
 # -------------- Analytics Builder Stage --------------
 FROM intel/scenescape-common-base AS scenescape-analytics-builder
@@ -18,7 +18,7 @@ COPY ./analytics/src/analytics /tmp/analytics/analytics
 COPY ./analytics/src/setup.py /tmp/analytics/setup.py
 RUN cd /tmp/analytics \
     && python3 setup.py bdist_wheel \
-    && pip3 install --no-cache-dir ./dist/*.whl -vvv \
+    && pip3 install --break-system-packages --ignore-installed --no-cache-dir ./dist/*.whl -vvv \
     && cd \
     && rm -rf /tmp/analytics
 
@@ -33,9 +33,11 @@ LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/sce
 ARG USER_ID=1001
 ARG GROUP_ID=1001
 ARG CERTDOMAIN=scenescape.intel.com
-ARG PYTHON_VERSION=3.11
+ARG PYTHON_VERSION=3.14
+ARG PY_LIB_DIR=python3.14
 
 ENV PYTHON_VERSION=${PYTHON_VERSION}
+ENV PY_LIB_DIR=${PY_LIB_DIR}
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 ENV DEBIAN_FRONTEND=noninteractive
@@ -48,9 +50,12 @@ RUN apt update && apt upgrade -y \
         gosu \
         libgl1 \
         libgomp1 \
-        libpython3.11 \
+        libpython3.14 \
         netbase \
+        python3 \
+        python3-open3d \
         python3-pip \
+        python-is-python3 \
         sudo \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -63,13 +68,13 @@ RUN : \
     && chmod a+rX "${WSHOME}"
 
 COPY analytics/requirements-runtime.txt /tmp
-RUN pip3 install --break-system-packages --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
+RUN pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/requirements-runtime.txt
 
 # Copy installed packages from builder
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/python${PYTHON_VERSION}/site-packages/fast_geometry /usr/local/lib/python${PYTHON_VERSION}/site-packages/fast_geometry
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/python${PYTHON_VERSION}/site-packages/scene_common /usr/local/lib/python${PYTHON_VERSION}/site-packages/scene_common
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/python${PYTHON_VERSION}/site-packages/analytics /usr/local/lib/python${PYTHON_VERSION}/site-packages/analytics
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/${PY_LIB_DIR}/dist-packages/fast_geometry /usr/local/lib/${PY_LIB_DIR}/dist-packages/fast_geometry
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/${PY_LIB_DIR}/dist-packages/scene_common /usr/local/lib/${PY_LIB_DIR}/dist-packages/scene_common
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/${PY_LIB_DIR}/dist-packages/analytics /usr/local/lib/${PY_LIB_DIR}/dist-packages/analytics
 
 # Schema file consumed by the analytics service at startup
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json

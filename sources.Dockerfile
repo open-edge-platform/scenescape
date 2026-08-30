@@ -182,7 +182,7 @@ RUN apt-get source --download-only \
     protobuf \
     python3-pip \
     python3-wheel \
-    python3.11 \
+    python3.14 \
     qtbase-opensource-src \
     rtmpdump \
     shared-mime-info \
