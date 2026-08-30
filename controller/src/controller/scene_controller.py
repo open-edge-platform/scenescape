@@ -121,6 +121,8 @@ class SceneController:
     )
 
     self.visibility_topic = visibility_topic
+    # Scene uids whose remote parent has signalled attach on SYS_HIERARCHY_PARENT.
+    self._hierarchy_parent_attached = set()
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
 
     self.external_source_pose_cache = ExternalSourcePoseCache(
@@ -275,10 +277,13 @@ class SceneController:
     return
 
   def publishExternalDetections(self, scene, otype, objects, jdata_base):
-    # Hierarchy output onto scenescape/external/{scene_uid}/+. Parents that
-    # care (local or remote via ChildSceneController) subscribe; this
-    # instance drops its own no-parent echoes cheaply in
-    # handleMovingObjectMessage before schema/NTP work.
+    # Hierarchy output onto scenescape/external/{scene_uid}/+. Only scenes that
+    # are linked under a parent need this path. Standalone roots skip the
+    # expensive rebuild/MQTT (ADR 16). Remote children are roots on their own
+    # broker; a retained SYS_HIERARCHY_PARENT attach from the parent enables them.
+    if (not getattr(scene, 'parent', None)
+        and scene.uid not in self._hierarchy_parent_attached):
+      return
     now = get_epoch_time()
     if self.shouldPublish(scene.last_published_detection[otype], now, 1/scene.external_update_rate):
       scene.last_published_detection[otype] = get_epoch_time()
@@ -301,6 +306,28 @@ class SceneController:
       scene_hierarchy_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL, scene_id=scene.uid,
                                                  thing_type=otype)
       self.pubsub.publish(scene_hierarchy_topic, jstr)
+    return
+
+  def handleHierarchyParentMessage(self, client, userdata, message):
+    """Enable/disable DATA_EXTERNAL for a local root when a remote parent links."""
+    topic = PubSub.parseTopic(message.topic)
+    if topic is None or topic.get('_topic_id') != PubSub.SYS_HIERARCHY_PARENT:
+      return
+    scene_id = topic.get('scene_id')
+    if not scene_id or self.cache_manager.sceneWithID(scene_id) is None:
+      return
+    try:
+      payload = message.payload.decode('utf-8').strip()
+    except (UnicodeDecodeError, AttributeError):
+      return
+    if payload == PubSub.HIERARCHY_PARENT_ATTACHED:
+      if scene_id not in self._hierarchy_parent_attached:
+        self._hierarchy_parent_attached.add(scene_id)
+        log.info(f"Remote parent attached; enabling DATA_EXTERNAL for scene {scene_id}")
+    elif payload == PubSub.HIERARCHY_PARENT_DETACHED:
+      if scene_id in self._hierarchy_parent_attached:
+        self._hierarchy_parent_attached.discard(scene_id)
+        log.info(f"Remote parent detached; disabling DATA_EXTERNAL for scene {scene_id}")
     return
 
   def _sceneHasReidWriteIntent(self):
@@ -779,6 +806,9 @@ class SceneController:
     need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
                                           scene_id="+", thing_type="+"),
                         self.handleMovingObjectMessage))
+    # Remote parents signal attach/detach on the child's broker.
+    need_subscribe.add((PubSub.formatTopic(PubSub.SYS_HIERARCHY_PARENT, scene_id="+"),
+                        self.handleHierarchyParentMessage))
 
     for scene in self.scenes:
       for camera in scene.cameras:

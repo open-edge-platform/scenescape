@@ -29,6 +29,12 @@ class ChildSceneController():
     self.child_event_topic = PubSub.formatTopic(PubSub.EVENT,
                                                 region_type="+", event_type="+",
                                                 scene_id=self.child_id, region_id="+")
+    # Broker publishes retained detached if the parent drops without a clean
+    # disconnect (onChildDisconnect is too late to publish on this client).
+    self._hierarchy_parent_topic = PubSub.formatTopic(
+      PubSub.SYS_HIERARCHY_PARENT, scene_id=self.child_id)
+    self.client.willSet(
+      self._hierarchy_parent_topic, PubSub.HIERARCHY_PARENT_DETACHED, qos=1, retain=True)
     try:
       self.client.connect()
     except Exception as e:
@@ -42,6 +48,26 @@ class ChildSceneController():
                                                              scene_id=self.child_id), e)
     return
 
+  def _publishHierarchyParentSignal(self, payload):
+    """Tell the child controller whether a remote parent is listening (retained).
+
+    Call only while the child-broker MQTT client is still connected (e.g. from
+    onChildConnect or loopStop). Unexpected drops rely on the last will set at
+    connect time.
+    """
+    try:
+      result = self.client.publish(
+        self._hierarchy_parent_topic, payload, qos=1, retain=True)
+      wait = getattr(result, 'wait_for_publish', None)
+      if callable(wait):
+        wait(timeout=5.0)
+      log.info(
+        f"Published hierarchy parent {payload} for {self.child_name} "
+        f"on {self._hierarchy_parent_topic}")
+    except Exception as exc:
+      log.error(f"Failed to publish hierarchy parent {payload} for {self.child_name}: {exc}")
+    return
+
   def onChildConnect(self, client, userdata, flags, rc):
     if rc == 5:
       self.handleException("Invalid credentials")
@@ -49,6 +75,8 @@ class ChildSceneController():
     log.info(f"Connected to remote child {self.child_name} with result code {rc}")
 
     self.connected = True
+    # Enable DATA_EXTERNAL on the child before UI status / subscriptions.
+    self._publishHierarchyParentSignal(PubSub.HIERARCHY_PARENT_ATTACHED)
     self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
                                                              scene_id=self.child_id), "connected")
 
@@ -170,7 +198,10 @@ class ChildSceneController():
   def onChildDisconnect(self, client, userdata, rc):
     self.connected = False
     log.info(f"Disconnected remote child {self.child_name}")
-
+    # Do not publish SYS_HIERARCHY_PARENT here: this callback runs after the
+    # child-broker client is already offline, so publish would fail and leave
+    # a stale retained "attached". Intentional teardown publishes in loopStop();
+    # unexpected drops use the MQTT last will registered at connect.
     self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
                         scene_id=self.child_id), "disconnected")
     return
@@ -179,4 +210,11 @@ class ChildSceneController():
     return self.client.loopStart()
 
   def loopStop(self):
+    if self.connected:
+      self._publishHierarchyParentSignal(PubSub.HIERARCHY_PARENT_DETACHED)
+      self.connected = False
+      try:
+        self.client.disconnect()
+      except Exception as exc:
+        log.debug(f"Disconnect after hierarchy detach for {self.child_name}: {exc}")
     return self.client.loopStop()

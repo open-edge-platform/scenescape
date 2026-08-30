@@ -124,6 +124,15 @@ Then restart Scenescape:
 
 ### 3. Link Remote Child
 
+When the parent Scene Controller connects to the child's MQTT broker, it publishes a
+retained `scenescape/sys/hierarchy/parent/<child_scene_uid>` `attached` signal on the
+**child** broker (and registers a retained `detached` last will). Intentional teardown
+publishes `detached` while still connected; unexpected drops use the will. The child
+enables `DATA_EXTERNAL` for that scene automatically and disables it again on `detached`.
+Local children on the same controller do not need this signal — they already have
+`scene.parent` set. See
+[Deploy Multiple Controllers on One Host](./deploy-multi-controller-on-one-host.md#6-link-children-as-remote).
+
 1. Open the child system's Scenescape UI and copy the MQTT credentials.
 2. Open the parent system's Scenescape UI.
 3. Go to the **Children** tab in parent scene.

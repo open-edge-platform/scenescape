@@ -174,7 +174,6 @@ def test_hierarchy_retrack_true_parent_does_not_double_enroll(
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client = None
-  ext_client = None
   rest_client = None
   h = RetrackTest(params)
 
@@ -212,41 +211,15 @@ def test_hierarchy_retrack_true_parent_does_not_double_enroll(
       f"near-exact uuid_count={uuid_count}, matches={matched}")
 
     # Phase 2: now that the write is confirmed, the child's hierarchy policy
-    # becomes 'will_enroll' and forwards the embedding. Subscribe to the
-    # parent's DATA_EXTERNAL and re-publish to observe it.
-    ext_queue = queue.Queue()
-
-    def _on_ext(mqttc, obj, msg):
-      try:
-        data = json.loads(msg.payload.decode("utf-8"))
-      except Exception:
-        return
-      if data.get("objects"):
-        ext_queue.put(data)
-
-    ext_client = h.make_client(
-      topics=[PubSub.formatTopic(
-        PubSub.DATA_EXTERNAL, scene_id=h.parent_id, thing_type="+")],
-      on_msg=_on_ext)
-
+    # becomes 'will_enroll' and forwards the embedding. The parent is a root
+    # so it does not publish DATA_EXTERNAL (ADR 16); forwarded reid appears
+    # on parent DATA_REGULATED after retrack.
     h.reset()
     RetrackTest.publish_reid_frames(payload, client, num_frames=20)
     h.wait_for_messages(require_parent=True, require_child=True, timeout=15)
 
-    deadline = time.time() + 15
-    messages = []
-    while time.time() < deadline and not messages:
-      try:
-        messages.append(ext_queue.get(timeout=1.0))
-      except queue.Empty:
-        continue
-    while True:
-      try:
-        messages.append(ext_queue.get_nowait())
-      except queue.Empty:
-        break
-
-    parent_reid = RetrackTest.collect_reid_payloads(messages)
+    parent_snap, _ = h.snapshot_received()
+    parent_reid = RetrackTest.collect_reid_payloads(parent_snap)
     assert parent_reid, (
       "retrack=True parent must receive forwarded reid after the child's "
       "write is confirmed (post-enrollment)")
@@ -265,8 +238,6 @@ def test_hierarchy_retrack_true_parent_does_not_double_enroll(
   finally:
     if client is not None:
       client.loopStop()
-    if ext_client is not None:
-      ext_client.loopStop()
     if rest_client is not None:
       h.teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)

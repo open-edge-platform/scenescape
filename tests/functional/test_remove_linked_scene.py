@@ -32,6 +32,7 @@ class RemoveLinkedScene(FunctionalTest):
     super().__init__(testName, request, recordXMLAttribute)
     self.parent_id = None
     self.child_id = None
+    self.child_link_id = None
     self.parent_received = []
     self.child_received = []
     self.connected = False
@@ -98,8 +99,10 @@ class RemoveLinkedScene(FunctionalTest):
       f"Expected status code 200, got {res.statusCode}"
 
     res = self.rest.getChildScene({'parent': self.parent_id})
-    assert res.statusCode == 200, \
-      f"Expected status code 200, got {res.statusCode}"
+    assert res.statusCode == 200 and res['count'] >= 1, \
+      f"Expected child link after linking, got {res.statusCode} count={res.get('count')}"
+    self.child_link_id = res['results'][0]['uid']
+    log.info(f"Child link ID: {self.child_link_id}")
 
   def _publish_data(self, obj_data, obj_category="person"):
     """! Publish simulated object detection data to a camera's MQTT topic.
@@ -172,7 +175,7 @@ class RemoveLinkedScene(FunctionalTest):
     log.info("PASS: Parent scene received data from linked child scene")
 
     log.info("Step 2: Unlinking child scene from parent scene")
-    res = self.rest.deleteChildSceneLink(self.child_id)
+    res = self.rest.deleteChildSceneLink(self.child_link_id)
     assert res.statusCode == 200, \
       f"Expected status code 200, got {res.statusCode}"
 

@@ -488,7 +488,8 @@ class CamSerializer(NonNullSerializer):
     return camera.pose.scale if camera and hasattr(camera, 'pose') else None
 
   def validate(self, data):
-    if 'name' not in data:
+    name = data.get('name', None)
+    if (name is None and not self.partial) or (name is not None and not name.strip()):
       raise serializers.ValidationError({'name': ['This field is required.']})
     _validate_scene_exists(data)
     if data.get('use_camera_pipeline') and not data.get('camera_pipeline'):

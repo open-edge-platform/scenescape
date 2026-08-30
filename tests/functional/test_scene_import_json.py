@@ -24,7 +24,7 @@ TEST_NAME = "NEX-T15347"
 FRAMES_PER_SECOND = 10
 PERSON = "person"
 MQTT_CONNECT_TIMEOUT_S = 30
-REGULATED_WAIT_TIMEOUT_S = 30
+SCENE_WAIT_TIMEOUT_S = 30
 
 
 class SceneControllerImportJSON(FunctionalTest):
@@ -48,7 +48,7 @@ class SceneControllerImportJSON(FunctionalTest):
       self._mqtt_ready.set()
     return
 
-  def regulatedReceived(self, pahoClient, userdata, message):
+  def sceneDataReceived(self, pahoClient, userdata, message):
     data = message.payload.decode("utf-8")
     self.sceneData = json.loads(data)
     return
@@ -58,11 +58,12 @@ class SceneControllerImportJSON(FunctionalTest):
 
     Steps:
       * Get scene JSON file
-      * Subscribe to regulated scene MQTT topic and verify messages are present
+      * Subscribe to unregulated DATA_SCENE and verify tracking messages appear
 
     Notes:
       * This test requires to be run using scene_no_db.yml present in tests/compose folder
       * This compose file removes --restauth option from scene service and replaces it with --data_source pointing to JSON.
+      * SCENE_NO_DB does not run Analytics, so output is DATA_SCENE (not DATA_REGULATED).
     """
 
     self.exitCode = 1
@@ -78,18 +79,18 @@ class SceneControllerImportJSON(FunctionalTest):
       assert self._mqtt_ready.wait(MQTT_CONNECT_TIMEOUT_S), (
         "MQTT client failed to connect")
 
-      log.info("Step 2. Check for regulated messages")
-      log.info("Adding callback to check for regulated messages.")
-      topic_regulated = PubSub.formatTopic(PubSub.DATA_REGULATED,
-                                           scene_id=self.sceneUID)
-      self.pubsub.addCallback(topic_regulated, self.regulatedReceived)
+      log.info("Step 2. Check for DATA_SCENE tracking messages")
+      log.info("Adding callback to check for DATA_SCENE messages.")
+      topic_scene = PubSub.formatTopic(PubSub.DATA_SCENE,
+                                       scene_id=self.sceneUID, thing_type="+")
+      self.pubsub.addCallback(topic_scene, self.sceneDataReceived)
 
-      log.info("Sending detections for regulated messages to appear.")
+      log.info("Sending detections for DATA_SCENE messages to appear.")
       objLocation = self.getLocations()
       jdata = self.objData()
       camera_id = jdata['id']
       cam_topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera_id)
-      deadline = time.time() + REGULATED_WAIT_TIMEOUT_S
+      deadline = time.time() + SCENE_WAIT_TIMEOUT_S
       loc_iter = iter(objLocation)
       while self.sceneData is None and time.time() < deadline:
         try:
@@ -102,11 +103,11 @@ class SceneControllerImportJSON(FunctionalTest):
         self.pubsub.publish(cam_topic, json.dumps(jdata))
         time.sleep(1 / self.frameRate)
 
-      log.info("Verifying if regulated messages appeared")
+      log.info("Verifying if DATA_SCENE messages appeared")
       assert self.sceneData is not None, (
-        f"No regulated message received within {REGULATED_WAIT_TIMEOUT_S}s")
+        f"No DATA_SCENE message received within {SCENE_WAIT_TIMEOUT_S}s")
 
-      log.info(f"Regulated message received. Contents:\n{self.sceneData}")
+      log.info(f"DATA_SCENE message received. Contents:\n{self.sceneData}")
       self.exitCode = 0
 
     except Exception as e:

@@ -79,6 +79,13 @@ trusts no source. There is no corresponding CLI flag.
 (`publisher_id:scene_uid,publisher_id:scene_uid2,...`). Required for `reference_frame: scene`
 poses. For `wgs84`, unset means geospatial auto-attach to every geo-calibrated scene.
 
+Remote hierarchy: when a parent Scene Controller connects to a remote child's MQTT broker, it
+publishes a retained `scenescape/sys/hierarchy/parent/{child_scene_uid}` message (`attached`)
+and registers a retained MQTT last will of `detached`. Intentional teardown publishes `detached`
+before disconnecting (`loopStop`); unexpected drops rely on the broker delivering the will. The
+child enables `DATA_EXTERNAL` for that scene while attached and disables it on `detached`. Local
+children (same controller, `scene.parent` set) do not use this signal.
+
 External-source object identity (`objects[*].id`) requires no environment variable or
 per-source configuration: every external source's `id` is trusted directly as global track
 identity by default, protected at runtime by automatic identity-collision detection. See

@@ -166,6 +166,13 @@ before linking, or clear duplicate scenes.
 
 ### 6. Link Children as Remote
 
+When the parent connects to a remote child's broker, it publishes a retained
+`scenescape/sys/hierarchy/parent/<remote_child_id>` `attached` message on that broker
+and registers a retained `detached` last will. Intentional unlink/teardown publishes
+`detached` before disconnect; unexpected drops use the will. The child Scene Controller
+enables `DATA_EXTERNAL` for that scene while attached and disables it on `detached`.
+Local children on the same controller do not need this signal.
+
 From the **parent** UI (or REST API):
 
 1. Open the parent scene → **Children** → **+ Link Child Scene**.

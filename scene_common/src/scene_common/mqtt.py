@@ -35,6 +35,7 @@ class _Topic(Enum):
   IMAGE_CALIBRATE = auto()
   IMAGE_CAMERA = auto()
   SYS_CHILDSCENE_STATUS = auto()
+  SYS_HIERARCHY_PARENT = auto()
   ANALYTICS_CLUSTERS = auto()
   DATA_CHILD_TRIPWIRES = auto()
   DATA_CHILD_ROIS = auto()
@@ -64,10 +65,15 @@ class PubSub(_PubSubTopicBase):
     _Topic.IMAGE_CALIBRATE: Template(TOPIC_BASE + "/image/calibration/camera/${camera_id}"),
     _Topic.IMAGE_CAMERA: Template(TOPIC_BASE + "/image/camera/${camera_id}"),
     _Topic.SYS_CHILDSCENE_STATUS: Template(TOPIC_BASE + "/sys/child/status/${scene_id}"),
+    _Topic.SYS_HIERARCHY_PARENT: Template(TOPIC_BASE + "/sys/hierarchy/parent/${scene_id}"),
     _Topic.ANALYTICS_CLUSTERS: Template(TOPIC_BASE + "/analytics/clusters/${scene_id}"),
     _Topic.DATA_CHILD_TRIPWIRES: Template(TOPIC_BASE + "/data/child/tripwires/${scene_id}"),
     _Topic.DATA_CHILD_ROIS: Template(TOPIC_BASE + "/data/child/rois/${scene_id}"),
   }
+
+  # Parent→child retained signal: enable DATA_EXTERNAL while a remote parent is linked.
+  HIERARCHY_PARENT_ATTACHED = "attached"
+  HIERARCHY_PARENT_DETACHED = "detached"
 
   def __init__(self, auth, cert, rootca, broker, port=None, keepalive=60,
                insecure=False, transport="tcp", userdata=None):
@@ -184,6 +190,10 @@ class PubSub(_PubSubTopicBase):
 
   def publish(self, topic, payload, qos=0, retain=False):
     return self.client.publish(topic, payload, qos, retain)
+
+  def willSet(self, topic, payload, qos=0, retain=False):
+    """Set MQTT last will (must be called before connect)."""
+    return self.client.will_set(topic, payload, qos, retain)
 
   def disconnect(self):
     return self.client.disconnect()

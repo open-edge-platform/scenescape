@@ -297,10 +297,11 @@ class TestSceneDeserializeReidConfigPropagation:
 class TestSceneControllerPublishers:
   """Unit tests for SceneController publish* methods."""
 
-  def _build_controller(self, visibility_topic='unregulated'):
+  def _build_controller(self, visibility_topic='unregulated', attached_scenes=None):
     controller = SceneController.__new__(SceneController)
     controller.pubsub = MagicMock()
     controller.visibility_topic = visibility_topic
+    controller._hierarchy_parent_attached = set(attached_scenes or ())
     return controller
 
   def test_publish_scene_detections_publishes_and_invokes_external_builder(self):
@@ -341,7 +342,7 @@ class TestSceneControllerPublishers:
     scene_controller = self._build_controller('unregulated')
     scene = SimpleNamespace(
       uid='scene-1',
-      parent=None,
+      parent='parent-1',
       external_update_rate=2,
       last_published_detection=defaultdict(lambda: None),
       reid_config_data={'minimum_bbox_area': 5000},
@@ -364,9 +365,31 @@ class TestSceneControllerPublishers:
     assert call_kwargs['withhold_reid'] is False
     assert call_kwargs['reid_enrolled_fn'] is None
 
-  def test_publish_external_detections_publishes_for_root_scene(self):
-    """Root/remote-child scenes still publish; own-echo filtering is on receive."""
+  def test_publish_external_detections_skips_standalone_root_scene(self):
+    """Scenes without a parent skip hierarchy external publish (ADR 16)."""
     scene_controller = self._build_controller('unregulated')
+    scene = SimpleNamespace(
+      uid='scene-1',
+      parent=None,
+      external_update_rate=2,
+      last_published_detection=defaultdict(lambda: None),
+      reid_config_data={'minimum_bbox_area': 5000},
+    )
+    jdata_base = {'timestamp': '2026-01-01T00:00:01Z', 'objects': ['unchanged']}
+    scene_controller.shouldPublish = MagicMock(return_value=True)
+
+    with patch('controller.scene_controller.get_epoch_time', side_effect=[100.0, 101.0]), \
+         patch('controller.scene_controller.buildDetectionsList', return_value=[{'id': 'o1'}]) as mock_build:
+      scene_controller.publishExternalDetections(scene, 'person', [object()], jdata_base)
+
+    scene_controller.pubsub.publish.assert_not_called()
+    scene_controller.shouldPublish.assert_not_called()
+    mock_build.assert_not_called()
+
+  def test_publish_external_detections_exports_root_when_parent_attached(self):
+    """Remote-parent attach signal lets a root scene publish DATA_EXTERNAL."""
+    scene_controller = self._build_controller(
+      'unregulated', attached_scenes={'scene-1'})
     scene = SimpleNamespace(
       uid='scene-1',
       parent=None,
@@ -381,8 +404,47 @@ class TestSceneControllerPublishers:
          patch('controller.scene_controller.buildDetectionsList', return_value=[{'id': 'o1'}]):
       scene_controller.publishExternalDetections(scene, 'person', [object()], jdata_base)
 
-    scene_controller.pubsub.publish.assert_called_once()
-    scene_controller.shouldPublish.assert_called_once()
+    assert scene_controller.pubsub.publish.call_count == 1
+
+  def test_hierarchy_parent_attach_detach_toggles_export(self):
+    """SYS_HIERARCHY_PARENT attached/detached updates the export set."""
+    scene_controller = self._build_controller('unregulated')
+    scene_controller.cache_manager = MagicMock()
+    scene_controller.cache_manager.sceneWithID.return_value = SimpleNamespace(uid='scene-1')
+
+    attached_topic = PubSub.formatTopic(PubSub.SYS_HIERARCHY_PARENT, scene_id='scene-1')
+    msg = SimpleNamespace(topic=attached_topic, payload=b'attached')
+    scene_controller.handleHierarchyParentMessage(None, None, msg)
+    assert 'scene-1' in scene_controller._hierarchy_parent_attached
+
+    msg = SimpleNamespace(topic=attached_topic, payload=b'detached')
+    scene_controller.handleHierarchyParentMessage(None, None, msg)
+    assert 'scene-1' not in scene_controller._hierarchy_parent_attached
+
+  def test_publish_external_detections_skips_root_after_parent_detach(self):
+    """After detach, a root scene stops publishing DATA_EXTERNAL."""
+    scene_controller = self._build_controller(
+      'unregulated', attached_scenes={'scene-1'})
+    scene_controller.cache_manager = MagicMock()
+    scene_controller.cache_manager.sceneWithID.return_value = SimpleNamespace(uid='scene-1')
+    topic = PubSub.formatTopic(PubSub.SYS_HIERARCHY_PARENT, scene_id='scene-1')
+    scene_controller.handleHierarchyParentMessage(
+      None, None, SimpleNamespace(topic=topic, payload=b'detached'))
+
+    scene = SimpleNamespace(
+      uid='scene-1',
+      parent=None,
+      external_update_rate=2,
+      last_published_detection=defaultdict(lambda: None),
+      reid_config_data={'minimum_bbox_area': 5000},
+    )
+    scene_controller.shouldPublish = MagicMock(return_value=True)
+    with patch('controller.scene_controller.get_epoch_time', side_effect=[100.0, 101.0]), \
+         patch('controller.scene_controller.buildDetectionsList', return_value=[{'id': 'o1'}]) as mock_build:
+      scene_controller.publishExternalDetections(scene, 'person', [object()], {})
+
+    scene_controller.pubsub.publish.assert_not_called()
+    mock_build.assert_not_called()
 
   def _publish_external_with_reid_manager(self, uuid_manager, write_intent=True, category='person'):
     """Publish external detections for a scene whose CATEGORY SUBTRACKER owns uuid_manager.

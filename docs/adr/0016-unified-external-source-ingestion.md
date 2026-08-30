@@ -5,7 +5,7 @@
 
 - **Author(s)**: Sarat Poluri
 - **Date**: 2026-07-21 (publisher-centric binding and scene/service registry target updated
-  2026-07-22)
+  2026-07-22; remote-child hierarchy export signal updated 2026-08-29)
 - **Status**: `Accepted`
 - **Related**: [ADR 13 (proposed, PR #1526) — Controller Breakdown into Functionality-Aligned Microservices](https://github.com/open-edge-platform/scenescape/pull/1526/files) (see [Relationship to ADR 13](#relationship-to-adr-13-controller-breakdown-and-known-deviation) below)
 
@@ -130,7 +130,13 @@ Agent                         Registry                      Binder / Controller
 `external/+/+` (hears every publisher that can authenticate to the broker) and attaches `wgs84`
 publishers to every geo-calibrated scene (plus optional `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`).
 That interim auto-attach is a stand-in for registry spatial resolution, not the long-term
-multi-scene policy. Root scenes must not emit hierarchy echoes onto the external topic.
+multi-scene policy. Standalone root scenes must not emit hierarchy echoes onto the external
+topic (`publishExternalDetections` returns early when `scene.parent` is unset **and** no remote
+parent has attached). A remote child is a root on its own broker; when a parent
+`ChildSceneController` connects to that broker it retained-publishes
+`scenescape/sys/hierarchy/parent/{child_uid}` with `attached` (and `detached` on intentional
+`loopStop` while still connected, or via MQTT last will on unexpected drop),
+and the child enables hierarchy `DATA_EXTERNAL` for that scene uid while attached.
 
 **Subscription migration (explicit).** The long-term binder should move from the interim
 wildcard to **binding-driven selective subscribe** (only `external/{publisher_id}/+` for
@@ -328,7 +334,9 @@ gap. Documented here as a known, intentional scoping decision, not an oversight.
 - One topic rule for children and dynamic agents; publishers need not know parents; multi-scene
   attachment lives in binder policy (eventually registry-driven) without changing agent publish
   paths.
-- Removes the structural cause of root-scene self-echo (no scene inbox self-subscribe).
+- Removes the structural cause of root-scene self-echo (no scene inbox self-subscribe);
+  unattached roots still skip hierarchy `DATA_EXTERNAL`, while remote children export only after
+  a retained parent-attach signal on their broker.
 - Trust-domain base case matches existing parent/child MQTT (same issuing authority).
 - Clear separation: discoverable registry (spatial index) vs binder (subscriptions) vs publisher
   (own-id telemetry) aligns with common service-discovery + geo-directory practice.
@@ -452,8 +460,10 @@ trust-domain follow-ons:
   `IdentityClaimRegistry`)
 - `controller/src/controller/scene_controller.py`
   (`handleMovingObjectMessage`, `_handleExternalSourceObject`, `_handleChildSceneObject`,
-  `_scenesForExternalPublisher`, `updateSubscriptions`, `_parseTrustedSources`,
-  `_parseExternalSourceBindings`)
+  `_scenesForExternalPublisher`, `updateSubscriptions`, `handleHierarchyParentMessage`,
+  `_parseTrustedSources`, `_parseExternalSourceBindings`)
+- `controller/src/controller/child_scene_controller.py`
+  (remote MQTT client; retained `SYS_HIERARCHY_PARENT` attach/detach on the child broker)
 - `controller/src/controller/moving_object.py` (`MovingObject.__init__`, `oid`/`gid` distinction)
 - `controller/src/controller/ilabs_tracking.py` (`mergeAlreadyTrackedObjects`, the retrack=False
   identity-passthrough path trusted external-source objects always use)
@@ -469,9 +479,12 @@ trust-domain follow-ons:
 - `.github/skills/external-source-adapter/SKILL.md` (agent checklist for writing converters;
   anti-drift pointers to the how-to and `data_formats.md`)
 - `docs/user-guide/microservices/controller/controller.md`
-  (`CONTROLLER_TRUSTED_POSITIONING_SOURCES`, `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`)
+  (`CONTROLLER_TRUSTED_POSITIONING_SOURCES`, `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`,
+  remote hierarchy parent-attach signal)
 - `docs/user-guide/how-to-guides/build-a-scene/configure-hierarchy-of-scenes.md` (parent/child
-  hierarchy; static binding precursor)
+  hierarchy; static binding precursor; remote-child attach signal)
+- `docs/user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md`
+  (single-host remote hierarchy + ReID; parent-attach enablement)
 - `tests/functional/test_external_source_ingest.py` (MQTT ingest, geo accuracy, pose cache reuse, source_id/topic mismatch, identity collision, untrusted scene pose)
 - `tests/functional/test_external_source_analytics.py` (ROI / tripwire with external objects)
 - `tests/sscape_tests/schema/test_schema.py`, `tests/sscape_tests/schema/conftest.py`
@@ -479,7 +492,10 @@ trust-domain follow-ons:
   (`TestIdentityClaimRegistry` collision-detection unit coverage)
 - `tests/sscape_tests/scenescape/test_scene_controller.py`
   (`TestSceneControllerHandleExternalSourceObject`, publisher binding / multi-geo fan-out,
-  wildcard SUB, mismatch drop, root-hierarchy)
+  wildcard SUB, mismatch drop, root-hierarchy / parent-attach export gate)
+- `tests/sscape_tests/scenescape/test_child_scene_controller.py`
+  (retained `SYS_HIERARCHY_PARENT` attach on connect; detach in `loopStop`; last
+  will for unexpected drop; no publish from `onChildDisconnect`)
 - `tests/sscape_tests/scene_pytest/test_time_chunking_child_scene.py`
   (time-chunk bucketing for child/`uid` and already-tracked external sources)
 - [ADR 11 — Configurable ReID Similarity Metric and Track Lineage Output](0011-inner-product-reid-state-and-id-lineage.md)
