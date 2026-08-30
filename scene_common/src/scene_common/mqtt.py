@@ -191,6 +191,10 @@ class PubSub(_PubSubTopicBase):
   def publish(self, topic, payload, qos=0, retain=False):
     return self.client.publish(topic, payload, qos, retain)
 
+  def willSet(self, topic, payload, qos=0, retain=False):
+    """Set MQTT last will (must be called before connect)."""
+    return self.client.will_set(topic, payload, qos, retain)
+
   def disconnect(self):
     return self.client.disconnect()
 

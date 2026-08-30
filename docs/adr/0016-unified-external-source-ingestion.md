@@ -134,7 +134,8 @@ multi-scene policy. Standalone root scenes must not emit hierarchy echoes onto t
 topic (`publishExternalDetections` returns early when `scene.parent` is unset **and** no remote
 parent has attached). A remote child is a root on its own broker; when a parent
 `ChildSceneController` connects to that broker it retained-publishes
-`scenescape/sys/hierarchy/parent/{child_uid}` with `attached` (and `detached` on disconnect),
+`scenescape/sys/hierarchy/parent/{child_uid}` with `attached` (and `detached` on intentional
+`loopStop` while still connected, or via MQTT last will on unexpected drop),
 and the child enables hierarchy `DATA_EXTERNAL` for that scene uid while attached.
 
 **Subscription migration (explicit).** The long-term binder should move from the interim
@@ -493,7 +494,8 @@ trust-domain follow-ons:
   (`TestSceneControllerHandleExternalSourceObject`, publisher binding / multi-geo fan-out,
   wildcard SUB, mismatch drop, root-hierarchy / parent-attach export gate)
 - `tests/sscape_tests/scenescape/test_child_scene_controller.py`
-  (retained `SYS_HIERARCHY_PARENT` attach/detach on connect / disconnect / `loopStop`)
+  (retained `SYS_HIERARCHY_PARENT` attach on connect; detach in `loopStop`; last
+  will for unexpected drop; no publish from `onChildDisconnect`)
 - `tests/sscape_tests/scene_pytest/test_time_chunking_child_scene.py`
   (time-chunk bucketing for child/`uid` and already-tracked external sources)
 - [ADR 11 — Configurable ReID Similarity Metric and Track Lineage Output](0011-inner-product-reid-state-and-id-lineage.md)

@@ -30,10 +30,12 @@ Restore the early return in `publishExternalDetections` when `scene.parent` is
 unset. Standalone / black-box roots recover; local children still publish.
 
 **Remote-child parent signal (done):** `ChildSceneController` retained-publishes
-`scenescape/sys/hierarchy/parent/{child_uid}` `attached` / `detached` on the
-**child** broker on connect / disconnect. The child `SceneController` enables
-`DATA_EXTERNAL` for that scene uid while attached. Non-blocking hot-path publish
-(below) remains deferred — hierarchy work still shares the camera callback.
+`scenescape/sys/hierarchy/parent/{child_uid}` `attached` on the **child** broker
+on connect, registers a retained `detached` last will, and publishes `detached`
+in `loopStop()` while still connected (then disconnects). Do not publish detach
+from `onChildDisconnect` (client already offline). The child `SceneController`
+enables `DATA_EXTERNAL` for that scene uid while attached. Non-blocking hot-path
+publish (below) remains deferred — hierarchy work still shares the camera callback.
 
 ## Attempts that did not land
 
