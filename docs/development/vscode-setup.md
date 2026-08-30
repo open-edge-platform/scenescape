@@ -4,8 +4,8 @@ This guide configures Visual Studio Code for optimal Scenescape development with
 
 ## Prerequisites
 
-- Ubuntu 24.04 LTS
-- Python 3.12
+- Ubuntu 26.04 LTS
+- Python 3.14
 - Git
 - Visual Studio Code
 
@@ -23,7 +23,7 @@ Before configuring VS Code, set up the project environment:
 2. **Create and activate virtual environment**
 
    ```bash
-   python3.12 -m venv .venv
+   python3.14 -m venv .venv
    source .venv/bin/activate
    ```
 

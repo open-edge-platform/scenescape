@@ -17,8 +17,8 @@ Install all required packages:
 ```bash
 sudo apt-get update && sudo apt-get install -y \
   build-essential \
-  python3.12-dev \
-  python3.12-venv \
+  python3.14-dev \
+  python3.14-venv \
   xvfb \
   libopencv-dev \
   libeigen3-dev
@@ -32,7 +32,7 @@ Firefox **must** be installed as a real binary (not snap), as snap Firefox is in
 
 **Manual setup**
 
-For Ubuntu 24.04+:
+For Ubuntu 26.04+:
 
 ```bash
 sudo add-apt-repository -y ppa:mozillateam/ppa

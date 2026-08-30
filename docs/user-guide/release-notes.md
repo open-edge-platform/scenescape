@@ -33,6 +33,7 @@
 
 **Improved:**
 
+- Container base images migrated from Debian Bookworm (Python 3.11) to Ubuntu 26.04 LTS (Python 3.14), with thread-safety hardening for free-threaded / concurrent controller paths
 - Testing & Quality:
   - Expanded automation coverage:
     - 3D asset CRUD & camera creation UI workflows
