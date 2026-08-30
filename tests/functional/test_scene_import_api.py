@@ -66,6 +66,30 @@ class SceneImportAPITest(FunctionalTest):
           return False
     return True
 
+  def tolerant_value_equivalence(self, actual, expected, tol=1e-9):
+    """Compare values with numeric tolerance; ignore keys only present on actual.
+
+    Used for sensor (and similar) import payloads where the REST response may
+    add defaults such as ``visible`` and coerce ints to floats.
+    """
+    if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
+      return actual == pytest.approx(expected, abs=tol)
+    if isinstance(actual, list) and isinstance(expected, list):
+      if len(actual) != len(expected):
+        return False
+      return all(
+        self.tolerant_value_equivalence(a, e, tol)
+        for a, e in zip(actual, expected)
+      )
+    if isinstance(actual, dict) and isinstance(expected, dict):
+      for key, exp_val in expected.items():
+        if key not in actual:
+          return False
+        if not self.tolerant_value_equivalence(actual[key], exp_val, tol):
+          return False
+      return True
+    return actual == expected
+
   def read_json_from_zip(self):
     with zipfile.ZipFile(self.zipFile, "r") as zip_ref:
       json_files = [f for f in zip_ref.namelist() if f.endswith(".json")]
@@ -270,7 +294,8 @@ class SceneImportAPITest(FunctionalTest):
       for k in ("uid", "scene"):
         res.pop(k, None)
         sensor.pop(k, None)
-      assert res == sensor, f"Sensor mismatch: {sensor['name']}"
+      assert self.tolerant_value_equivalence(res, sensor), (
+        f"Sensor mismatch: {sensor['name']}")
 
     log.info("✅ Scene components validated.")
 

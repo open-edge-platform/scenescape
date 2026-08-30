@@ -62,6 +62,7 @@ class ChildSceneTest:
     # Scene / region IDs populated by setup_scenes()
     self.parent_id = None
     self.child_id = None
+    self.child_link_id = None
     self.roi_uid = None
     self.tripwire_uid = None
     self.sensor_uid = None
@@ -123,10 +124,13 @@ class ChildSceneTest:
         f"Expected 200 linking child to parent, got {res.statusCode}: {res.errors}")
       log.info("[SETUP] Linked child to parent")
 
-      # Verify link
+      # ChildScene link uid (integer pk) is distinct from the child scene uid
       res = rest_client.getChildScene({"parent": self.parent_id})
-      assert res.statusCode == 200, (
-        f"Expected 200 fetching child scenes, got {res.statusCode}: {res.errors}")
+      assert res.statusCode == 200 and res["count"] >= 1, (
+        f"Expected child link after linking, got {res.statusCode} count={res.get('count')}: "
+        f"{res.errors}")
+      self.child_link_id = res["results"][0]["uid"]
+      log.info(f"[SETUP] Child link uid={self.child_link_id}")
     else:
       self.child_unlinked = True
       log.info("[SETUP] Child NOT linked to parent (link=False)")
@@ -240,11 +244,13 @@ class ChildSceneTest:
 
     @param    rest_client   An authenticated :class:`RESTClient`.
     """
-    res = rest_client.deleteChildSceneLink(self.child_id)
+    assert self.child_link_id is not None, "child_link_id unset; cannot unlink"
+    res = rest_client.deleteChildSceneLink(self.child_link_id)
     assert res.statusCode == 200, (
       f"Expected 200 deleting child link, got {res.statusCode}: {res.errors}")
     self.child_unlinked = True
-    log.info(f"Unlinked child uid={self.child_id}: {res.statusCode}")
+    log.info(f"Unlinked child uid={self.child_id} link={self.child_link_id}: "
+             f"{res.statusCode}")
 
   def _subscribe_event(self, mqttc, label, region_type, scene_id, region_id):
     """Format an EVENT topic, subscribe, and log the subscription."""
