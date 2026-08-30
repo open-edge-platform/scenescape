@@ -367,20 +367,7 @@ class SceneController:
     rv_id = getattr(aobj, 'rv_id', None)
     if rv_id is None:
       return False
-    entry = uuid_manager.features_for_database.get(rv_id)
-    if entry and entry.get('reid_vectors'):
-      return True
-    if uuid_manager.enrollment_features.get(rv_id):
-      return True
-    if uuid_manager.local_enrollment_features.get(rv_id):
-      return True
-    if uuid_manager.quality_features.get(rv_id):
-      return True
-    if rv_id in uuid_manager.active_query:
-      return True
-    with uuid_manager.active_ids_lock:
-      values = uuid_manager.active_ids.get(rv_id)
-    return bool(values and values[0] is not None)
+    return uuid_manager.hasPendingReidEnrollment(rv_id)
   # Message handling
   def handleMovingObjectMessage(self, client, userdata, message):
 

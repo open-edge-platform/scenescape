@@ -3,6 +3,7 @@
 
 from collections import deque
 from statistics import median
+from threading import Lock
 from typing import Deque, Dict, Optional, Tuple
 
 from scene_common import log
@@ -80,28 +81,31 @@ class ProportionCache:
     self.max_entry_age_seconds = max_entry_age_seconds
     self.min_observations = min_observations
     self._entries: Dict[Tuple[str, str, str], PersonProportionEntry] = {}
+    self._lock = Lock()
 
   def set_max_entry_age_seconds(self, max_entry_age_seconds: float) -> None:
     self.max_entry_age_seconds = max_entry_age_seconds
 
   def prune(self, now: float) -> None:
-    stale_keys = [
-      key for key, entry in self._entries.items()
-      if entry.last_seen is not None and now - entry.last_seen > self.max_entry_age_seconds
-    ]
-    if stale_keys:
-      log.debug(
-        f"Pruning {len(stale_keys)} stale pose cache entries at time {now:.3f}: {stale_keys}"
-      )
-    for key in stale_keys:
-      del self._entries[key]
+    with self._lock:
+      stale_keys = [
+        key for key, entry in self._entries.items()
+        if entry.last_seen is not None and now - entry.last_seen > self.max_entry_age_seconds
+      ]
+      if stale_keys:
+        log.debug(
+          f"Pruning {len(stale_keys)} stale pose cache entries at time {now:.3f}: {stale_keys}"
+        )
+      for key in stale_keys:
+        del self._entries[key]
 
   def mark_seen(self, cache_key: Tuple[str, str, str], when: float) -> None:
-    entry = self._entries.get(cache_key)
-    if entry is None:
-      entry = PersonProportionEntry(self.max_samples)
-      self._entries[cache_key] = entry
-    entry.mark_seen(when)
+    with self._lock:
+      entry = self._entries.get(cache_key)
+      if entry is None:
+        entry = PersonProportionEntry(self.max_samples)
+        self._entries[cache_key] = entry
+      entry.mark_seen(when)
 
   def add_observation(
     self,
@@ -109,27 +113,29 @@ class ProportionCache:
     ratios: Dict[str, float],
     when: float,
   ) -> None:
-    entry = self._entries.get(cache_key)
-    if entry is None:
-      entry = PersonProportionEntry(self.max_samples)
-      self._entries[cache_key] = entry
-    entry.add_observation(ratios, when)
+    with self._lock:
+      entry = self._entries.get(cache_key)
+      if entry is None:
+        entry = PersonProportionEntry(self.max_samples)
+        self._entries[cache_key] = entry
+      entry.add_observation(ratios, when)
 
   def get_medians(self, cache_key: Tuple[str, str, str]) -> Dict[str, float]:
-    entry = self._entries.get(cache_key)
-    if entry is None:
-      log.debug(f"No pose cache entry for {cache_key}")
-      return {}
-    if entry.observation_count < self.min_observations:
+    with self._lock:
+      entry = self._entries.get(cache_key)
+      if entry is None:
+        log.debug(f"No pose cache entry for {cache_key}")
+        return {}
+      if entry.observation_count < self.min_observations:
+        log.debug(
+          f"Pose cache not ready for {cache_key}: "
+          f"observations={entry.observation_count}/{self.min_observations}, "
+          f"detections={entry.detection_count}"
+        )
+        return {}
+      medians = entry.medians()
       log.debug(
-        f"Pose cache not ready for {cache_key}: "
-        f"observations={entry.observation_count}/{self.min_observations}, "
-        f"detections={entry.detection_count}"
+        f"Pose cache medians for {cache_key}: "
+        f"observations={entry.observation_count}, medians={medians}"
       )
-      return {}
-    medians = entry.medians()
-    log.debug(
-      f"Pose cache medians for {cache_key}: "
-      f"observations={entry.observation_count}, medians={medians}"
-    )
-    return medians
+      return medians
