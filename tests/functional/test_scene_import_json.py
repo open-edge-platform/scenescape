@@ -81,8 +81,8 @@ class SceneControllerImportJSON(FunctionalTest):
       log.info("Step 2. Check for scene messages")
       log.info("Adding callback to check for scene messages.")
       topic_scene = PubSub.formatTopic(PubSub.DATA_SCENE,
-                   scene_id=self.sceneUID,
-                   thing_type=PERSON)
+                                       scene_id=self.sceneUID,
+                                       thing_type=PERSON)
       self.pubsub.addCallback(topic_scene, self.sceneReceived)
 
       log.info("Sending detections for scene messages to appear.")
