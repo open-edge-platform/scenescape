@@ -130,7 +130,11 @@ Agent                         Registry                      Binder / Controller
 `external/+/+` (hears every publisher that can authenticate to the broker) and attaches `wgs84`
 publishers to every geo-calibrated scene (plus optional `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`).
 That interim auto-attach is a stand-in for registry spatial resolution, not the long-term
-multi-scene policy. Root scenes must not emit hierarchy echoes onto the external topic.
+multi-scene policy. Standalone root scenes must not emit hierarchy echoes onto the external
+topic (`publishExternalDetections` returns early when `scene.parent` is unset **and**
+`--publish-external` / `CONTROLLER_PUBLISH_EXTERNAL` is disabled). A remote child is a root
+on its own broker; enable the controller flag so it emits hierarchy `DATA_EXTERNAL` for a
+parent `ChildSceneController` to consume.
 
 **Subscription migration (explicit).** The long-term binder should move from the interim
 wildcard to **binding-driven selective subscribe** (only `external/{publisher_id}/+` for
@@ -328,7 +332,9 @@ gap. Documented here as a known, intentional scoping decision, not an oversight.
 - One topic rule for children and dynamic agents; publishers need not know parents; multi-scene
   attachment lives in binder policy (eventually registry-driven) without changing agent publish
   paths.
-- Removes the structural cause of root-scene self-echo (no scene inbox self-subscribe).
+- Removes the structural cause of root-scene self-echo (no scene inbox self-subscribe);
+  unattached roots still skip hierarchy `DATA_EXTERNAL`, while remote-child controllers
+  export when `--publish-external` / `CONTROLLER_PUBLISH_EXTERNAL` is enabled.
 - Trust-domain base case matches existing parent/child MQTT (same issuing authority).
 - Clear separation: discoverable registry (spatial index) vs binder (subscriptions) vs publisher
   (own-id telemetry) aligns with common service-discovery + geo-directory practice.

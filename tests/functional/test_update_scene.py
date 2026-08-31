@@ -8,6 +8,8 @@ scene controller:
   - Scene name changes appear in scenescape/data/scene MQTT topic metadata.
   - Regulated_rate and external_update_rate changes affect the frequency of
     scenescape/regulated/scene and scenescape/external/{scene_id} messages, respectively.
+  - Standalone roots (CONTROLLER_PUBLISH_EXTERNAL off by default) do not emit
+    DATA_EXTERNAL; remote-child stacks enable --publish-external on the controller.
     """
 
 import json
@@ -380,5 +382,47 @@ def test_scene_external_rate_update_changes_message_frequency(
       log.info(f"Restored external_update_rate={original_ext_rate}")
     except Exception as exc:
       log.warning(f"Failed to restore external_update_rate: {exc}")
+    if client is not None:
+      client.loopStop()
+
+
+@pytest.mark.test_name("NEX-T23098")
+def test_standalone_root_skips_external_when_publish_external_disabled(
+    objData, result_recorder, demo_scene):
+  """ADR 16: default controller (no --publish-external) does not emit DATA_EXTERNAL
+  for a standalone root scene.
+  """
+  helper, rest, scene = demo_scene
+  scene_uid = scene["uid"]
+  assert not scene.get("parent"), "Demo must be a standalone root for this test"
+  client = None
+
+  try:
+    ext_topic = PubSub.formatTopic(
+      PubSub.DATA_EXTERNAL, scene_id=scene_uid, thing_type="+")
+    ext_msgs = []
+    msg_lock = threading.Lock()
+
+    def _on_ext(mqttc, obj, msg):
+      try:
+        data = json.loads(msg.payload.decode("utf-8"))
+        if data.get("objects"):
+          with msg_lock:
+            ext_msgs.append(data)
+      except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        log.warning(f"Failed to decode external payload: {exc}")
+
+    client = helper.make_client(topics=[ext_topic], on_msg=_on_ext)
+    helper.publish_data(objData, client)
+    time.sleep(2.0)
+    with msg_lock:
+      count = len(ext_msgs)
+    assert count == 0, (
+      f"Standalone root must not publish DATA_EXTERNAL when "
+      f"--publish-external is off; got {count} messages")
+    log.info("PASS: no DATA_EXTERNAL from standalone root (publish-external disabled)")
+    result_recorder.success()
+
+  finally:
     if client is not None:
       client.loopStop()

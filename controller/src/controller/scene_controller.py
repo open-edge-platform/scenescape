@@ -31,6 +31,7 @@ from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
 from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 TRUSTED_POSITIONING_SOURCES_ENV_VAR = 'CONTROLLER_TRUSTED_POSITIONING_SOURCES'
 EXTERNAL_SOURCE_BINDINGS_ENV_VAR = 'CONTROLLER_EXTERNAL_SOURCE_BINDINGS'
+PUBLISH_EXTERNAL_ENV_VAR = 'CONTROLLER_PUBLISH_EXTERNAL'
 
 
 def _parseTrustedSources(value):
@@ -75,7 +76,8 @@ class SceneController:
   def __init__(self, rewrite_bad_time, rewrite_all_time, max_lag, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert, ntp_server,
                tracker_config_file, schema_file, visibility_topic, data_source,
-               reid_config_file=None, pose_adjustment_config_file=None):
+               reid_config_file=None, pose_adjustment_config_file=None,
+               publish_external=False):
     self.cert = client_cert
     self.root_cert = root_cert
     self.rewrite_bad_time = rewrite_bad_time
@@ -83,6 +85,7 @@ class SceneController:
     self.max_lag = max_lag
     self.broker = mqtt_broker
     self.mqtt_auth = mqtt_auth
+    self.publish_external = bool(publish_external)
     self.tracker_config_data = {}
     self.tracker_config_file = tracker_config_file
     self.reid_config_data = {}
@@ -122,6 +125,10 @@ class SceneController:
 
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
+    log.info(
+      f"Hierarchy DATA_EXTERNAL for scenes without a local parent: "
+      f"{'ENABLED' if self.publish_external else 'DISABLED'} "
+      f"({PUBLISH_EXTERNAL_ENV_VAR} / --publish-external)")
 
     self.external_source_pose_cache = ExternalSourcePoseCache(
       sweep_grace_seconds=self.max_lag,
@@ -275,10 +282,13 @@ class SceneController:
     return
 
   def publishExternalDetections(self, scene, otype, objects, jdata_base):
-    # Hierarchy output onto scenescape/external/{scene_uid}/+. Parents that
-    # care (local or remote via ChildSceneController) subscribe; this
-    # instance drops its own no-parent echoes cheaply in
-    # handleMovingObjectMessage before schema/NTP work.
+    # Hierarchy output onto scenescape/external/{scene_uid}/+. Local children
+    # have scene.parent set. Remote children (roots on their own broker) opt in
+    # with CONTROLLER_PUBLISH_EXTERNAL / --publish-external. Standalone roots
+    # skip the expensive rebuild/MQTT (ADR 16).
+    if (not getattr(scene, 'parent', None)
+        and not self.publish_external):
+      return
     now = get_epoch_time()
     if self.shouldPublish(scene.last_published_detection[otype], now, 1/scene.external_update_rate):
       scene.last_published_detection[otype] = get_epoch_time()

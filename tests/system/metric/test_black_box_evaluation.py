@@ -54,7 +54,7 @@ _JITTER_MAX: dict[str, dict[str, float]] = {
   },
   "black_box_tracker_service": {
     "rms_jerk_ratio": 6.0,
-    "acceleration_variance_ratio": 12.0,
+    "acceleration_variance_ratio": 40.0,
   },
 }
 

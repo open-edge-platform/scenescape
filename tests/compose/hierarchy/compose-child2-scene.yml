@@ -28,6 +28,7 @@ services:
       --visibility_topic regulated
       --rewriteBadTime
       --maxlag 10
+      --publish-external
     volumes:
       - ./:/workspace
       - ./${DBROOT}/child2/media:/workspace/media

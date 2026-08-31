@@ -54,6 +54,12 @@ values are better.
 
 `--visibility_topic`: Specifies the topic for publishing visibility information, which includes the visibility of objects in cameras. Options are `unregulated`, `regulated`, or `none`. Default is `regulated`.
 
+`--publish-external`: When set, publish `scenescape/external/{scene_uid}/+` for scenes
+that have no local parent (remote-child hierarchy export). Local children with
+`scene.parent` always publish. Off by default; can also be enabled with
+`CONTROLLER_PUBLISH_EXTERNAL=true`. Leave unset on standalone / black-box controllers
+to avoid hierarchy hot-path cost (ADR 16).
+
 `--pose-adjustment`: Enables pose-based bounding box adjustment before world projection. When enabled, the controller uses pose keypoints (e.g. from a `yolo11n-pose` model) to refine the bounding box used for projecting detections into world coordinates. This is disabled by default. Cannot be used together with Extended ReID (cross-camera re-identification via the configured vector backend); see [Extended Re-ID](./Extended-ReID.md) for details. Can also be enabled via the `CONTROLLER_ENABLE_POSE_ADJUSTMENT` environment variable set to `true`. Requires the DL Streamer video pipeline to use a pose estimation model that provides keypoint data. See the [DL Streamer Pipeline Server documentation](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for pipeline setup.
 
 `--pose_adjustment_config_file`: JSON file that defines pose-adjustment label routing. The default file is `pose-adjustment-route.json` next to the controller executable. Use this file to map each registered pose-adjustment strategy label to the incoming labels that should dispatch to it.
@@ -78,6 +84,10 @@ trusts no source. There is no corresponding CLI flag.
 `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`: Optional manual publisher→scene bindings
 (`publisher_id:scene_uid,publisher_id:scene_uid2,...`). Required for `reference_frame: scene`
 poses. For `wgs84`, unset means geospatial auto-attach to every geo-calibrated scene.
+
+Remote hierarchy: on a remote-child Scene Controller, enable hierarchy `DATA_EXTERNAL`
+with `--publish-external` or `CONTROLLER_PUBLISH_EXTERNAL=true`. Local children (same
+controller, `scene.parent` set) publish without that flag.
 
 External-source object identity (`objects[*].id`) requires no environment variable or
 per-source configuration: every external source's `id` is trusted directly as global track

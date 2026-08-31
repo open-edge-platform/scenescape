@@ -419,9 +419,9 @@ class SensorMqttMessageFlowTest(FunctionalTest):
     assert self.regulatedMessages, "No regulated messages received"
 
     if not ANALYTICS:
-      # Root scenes no longer publish DATA_EXTERNAL (hierarchy output is for
-      # parent scenes only under the publisher-centric topic model). Sensor
-      # payloads for a standalone demo scene are validated via regulated.
+      # Standalone roots skip DATA_EXTERNAL unless the controller enables
+      # --publish-external / CONTROLLER_PUBLISH_EXTERNAL. Sensor payloads for a
+      # standalone demo scene are validated via regulated.
       scene = self.rest.getScene(self.sceneUID)
       if scene and scene.get('parent'):
         assert self.externalMessages, (

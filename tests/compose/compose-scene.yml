@@ -38,6 +38,8 @@ services:
       --broker broker.scenescape.intel.com
       --ntp ntpserv
       --visibility_topic ${VISIBILITY:-regulated}
+      --rewriteBadTime
+      --maxlag 10
     volumes:
       - vol-media:/home/scenescape/Scenescape/media
       - ./controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json

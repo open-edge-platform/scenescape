@@ -166,6 +166,10 @@ before linking, or clear duplicate scenes.
 
 ### 6. Link Children as Remote
 
+On each **child** Scene Controller, enable `--publish-external` or
+`CONTROLLER_PUBLISH_EXTERNAL=true` so the child emits `DATA_EXTERNAL`. Local children on
+the same controller do not need this flag.
+
 From the **parent** UI (or REST API):
 
 1. Open the parent scene → **Children** → **+ Link Child Scene**.
