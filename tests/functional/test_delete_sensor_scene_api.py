@@ -18,8 +18,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 TEST_NAME = "NEX-T21880"
-MAX_CONTROLLER_WAIT = 20  # seconds
-MAX_ATTEMPTS = 3
+MAX_CONTROLLER_WAIT = 45  # seconds (Python 3.14 / Ubuntu 26.04 controllers need more headroom)
+MAX_ATTEMPTS = 5
 
 class DeleteSensorSceneTest(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):

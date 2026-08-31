@@ -80,8 +80,9 @@ RUN : \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN : \
-    # delete ubuntu user if exists
+    # delete ubuntu user/group if exists (UID/GID 1000 on Ubuntu 26.04)
     && userdel -f -r ubuntu || true \
+    && groupdel ubuntu || true \
     # create scenescape user
     && groupadd -g ${GROUP_ID} $WSUSER \
     && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER \

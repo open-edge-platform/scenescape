@@ -17,8 +17,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 TEST_NAME = "NEX-T21878"
-MAX_CONTROLLER_WAIT = 20  # seconds
-MAX_ATTEMPTS = 3
+MAX_CONTROLLER_WAIT = 45  # seconds (Python 3.14 / Ubuntu 26.04 controllers need more headroom)
+MAX_ATTEMPTS = 5
 
 class CameraDeletionTest(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
@@ -94,7 +94,8 @@ class CameraDeletionTest(FunctionalTest):
 
       # Step 5: Attach orphan camera to existing test scene
       log.info(f"Attaching orphan camera to scene: {self.existingSceneUID}")
-      updateResult = self.rest.updateCamera(cameraUID, {'scene': self.existingSceneUID})
+      updateResult = self.rest.updateCamera(
+        cameraUID, {'name': self.newCameraName, 'scene': self.existingSceneUID})
       assert updateResult, (updateResult.statusCode, updateResult.errors)
       assert updateResult['scene'] == self.existingSceneUID
 

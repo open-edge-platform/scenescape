@@ -258,6 +258,8 @@ class SceneImportTest(UserInterfaceTest):
             print(f"No alert {i+1} appeared within {self.waitTime} seconds.")
             break
 
+        # Allow UI to settle after orphan-accept dialogs before reading tab counts.
+        time.sleep(self.waitTime)
         cameras = len(self.sceneData.get('cameras', []))
         sensors = len(self.sceneData.get('sensors', []))
         assert self.navigateToScene(self.sceneData['name'])

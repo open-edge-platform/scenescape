@@ -67,6 +67,10 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
       except FileNotFoundError:
         response_dict['status'] = "Error: Glb file not found"
         return response_dict
+      except Exception as exc:
+        log.error(f"Apriltag scene processing failed: {exc}")
+        response_dict['status'] = f"Error: {exc}"
+        return response_dict
 
     apriltags_from_db = []
     response = self.calibration_data_interface.calibration_markers_with_scene_id(sceneobj.id)

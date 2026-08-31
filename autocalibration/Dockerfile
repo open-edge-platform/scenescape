@@ -63,7 +63,13 @@ RUN git submodule update --init && \
     mkdir build
 
 WORKDIR /tmp/apriltag/apriltag-dev/build
-RUN cmake ../apriltags/ && make -j$(nproc)
+# Ubuntu 26.04 ships CMake that rejects cmake_minimum_required < 3.5, and GCC 15
+# treats K&R empty parameter lists as (void). Raise the policy floor and compile
+# as gnu11 so the vendored apriltags submodule still builds.
+RUN cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+      -DCMAKE_C_FLAGS="-std=gnu11 -Wno-error=incompatible-pointer-types" \
+      ../apriltags/ \
+    && make -j$(nproc)
 
 WORKDIR /tmp/apriltag/apriltag-dev
 RUN python3 setup.py bdist_wheel && \
@@ -124,8 +130,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
-# Add user with specific UID/GID (not system user)
-RUN groupadd -g $GROUP_ID $WSUSER && \
+# Add user with specific UID/GID (not system user).
+# Ubuntu 26.04 base images already have an "ubuntu" user/group at UID/GID 1000.
+RUN userdel -f -r ubuntu || true && \
+    groupdel ubuntu || true && \
+    groupadd -g $GROUP_ID $WSUSER && \
     useradd -u $USER_ID -g $GROUP_ID -m -s /bin/bash $WSUSER && \
     usermod -a -G video,users $WSUSER && \
     chmod a+rX /home/$WSUSER

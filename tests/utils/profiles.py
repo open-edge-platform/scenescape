@@ -194,7 +194,9 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
     f"{DLS}/compose-retail_video.yml",
     f"{DLS}/compose-queuing_video.yml",
     f"{COMPOSE}/compose-scene.yml",
-    f"{COMPOSE}/compose-web_default.yml",
+    # testdb includes Demo (camera1/2/3); web_default exampledb is Queuing/Retail only
+    # and breaks UI tests that navigate to Demo via check_db_status.
+    f"{COMPOSE}/compose-web.yml",
     f"{COMPOSE}/compose-cams.yml",
     f"{COMPOSE}/compose-analytics.yml",
   ),

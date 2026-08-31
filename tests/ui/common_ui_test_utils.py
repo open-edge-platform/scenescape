@@ -985,6 +985,7 @@ def create_circle_sensor(browser, radius=250):
   """
   browser.find_element(By.CSS_SELECTOR, "#id_area_1").click()
   slider = browser.find_element(By.ID, "id_sensor_r")
+  browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", slider)
   circle_action = browser.actionChains()
   circle_action.click_and_hold(slider).move_by_offset(radius, 0).release().perform()
   return save_sensor_calibration(browser)
@@ -999,6 +1000,9 @@ def create_triangle_sensor(browser, triangle_height=DEFAULT_SENSOR_TRIANGLE_HEIG
   """
   browser.find_element(By.CSS_SELECTOR, "#id_area_2").click()
   svg = browser.find_element(By.ID, "svgout")
+  browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", svg)
+  # Wait until the map SVG has a non-zero size and is considered displayed.
+  WebDriverWait(browser, 10).until(lambda b: svg.is_displayed() and svg.size.get("height", 0) > 0)
   action_chain = browser.actionChains()
   action_chain.move_to_element_with_offset(svg, upper_left_point[0], upper_left_point[1]).click().perform()
   action_chain.move_by_offset(0, triangle_height).click().perform()
@@ -1324,6 +1328,37 @@ def navigate_to_scene(browser, scene_name):
   else:
     print( "Unable to find {} scene!".format(scene_name))
   return found
+
+def wait_for_save_complete(browser, timeout_s, page_url_before_save):
+  """Wait for the camera-calibration save alert and post-save navigation.
+
+  Saving dispatches the form only after alert("Camera updated") and an async
+  MQTT round trip. Accept the alert, then wait until the browser navigates
+  away from the pre-save URL.
+  """
+  deadline = time.time() + timeout_s
+  while time.time() < deadline:
+    if browser.current_url != page_url_before_save:
+      return True
+    try:
+      alert = browser.switch_to.alert
+      print(f"Accepting save alert: {alert.text!r}")
+      alert.accept()
+      break
+    except Exception:
+      time.sleep(0.25)
+
+  remaining = deadline - time.time()
+  if remaining <= 0:
+    return browser.current_url != page_url_before_save
+
+  try:
+    WebDriverWait(browser, remaining).until(
+      lambda b: b.current_url != page_url_before_save
+    )
+    return True
+  except TimeoutException:
+    return browser.current_url != page_url_before_save
 
 def wait_for_elements(browser, search_phrase, text=None, findBy=By.XPATH, maxWait=120, refreshPage=True):
   """! This function waits for elements to be available in the browser, for a duration of maxWait.
@@ -1659,20 +1694,58 @@ def is_within_rectangle(bl, tr, curr_point):
 ######################################################################################
 # Decorators
 ######################################################################################
-def mock_display(func):
-  """! Run func with a mock display.
-  @param    func                       Function to be wrapped.
-  @return   wrapper_mock_display       Wrapped function mocking a display.
+def mock_display(func=None, *, require_xvfb=False):
+  """! Run func with an optional Xvfb virtual display.
+
+  UserInterfaceTest uses headless Firefox by default; those tests do not need
+  Xvfb. Pass require_xvfb=True only when the test constructs Browser with
+  headless=False (e.g. test_camera_creation_3d_ui).
   """
-  @functools.wraps(func)
-  def wrapper_mock_display(*args, **kwargs):
-    display = Display(visible=0, size=(1920, 1080))
-    display.start()
-    try:
-      return func(*args, **kwargs)
-    finally:
-      display.stop()
-  return wrapper_mock_display
+  def _decorate(f):
+    @functools.wraps(f)
+    def wrapper_mock_display(*args, **kwargs):
+      if not require_xvfb:
+        return f(*args, **kwargs)
+
+      # Xvfb start can flake under load. Use a fresh Display per attempt so a
+      # timed-out start cannot leave the object in a half-started state.
+      subprocess.run(
+        ["pkill", "-f", r"Xvfb -br -nolisten tcp -screen 0"],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+      )
+      time.sleep(0.5)
+      display = None
+      last_error = None
+      for _attempt in range(3):
+        display = Display(visible=0, size=(1920, 1080))
+        try:
+          display.start()
+          last_error = None
+          break
+        except Exception as exc:
+          last_error = exc
+          try:
+            display.stop()
+          except Exception:
+            pass
+          display = None
+          time.sleep(1.0)
+      if last_error is not None or display is None:
+        raise last_error if last_error is not None else RuntimeError("Xvfb failed to start")
+      try:
+        return f(*args, **kwargs)
+      finally:
+        try:
+          display.stop()
+        except Exception:
+          pass
+    return wrapper_mock_display
+
+  if func is not None:
+    return _decorate(func)
+  return _decorate
 
 def scenescape_login_headed(func):
   """! Run func after logging into Scenescape.
@@ -1841,10 +1914,28 @@ class InteractWithPage(ABC):
     upload_success = False
     tmp_dir_path = tempfile.mkdtemp()
     file_output_path = tmp_dir_path + "/" + self.interaction_params.file_name
+    # Prefer the live media href from the form (Django may nest under MEDIA_URL
+    # paths); fall back to /media/<filename> construction.
     parsed_url = urlparse(self.browser.current_url)
-    file_url = parsed_url._replace(path=f"/media/{self.interaction_params.file_name}").geturl()
+    file_path = f"/media/{self.interaction_params.file_name}"
+    try:
+      link = self.browser.find_element(
+        By.CSS_SELECTOR, self.interaction_params.element_location)
+      href = link.get_attribute("href")
+      if href:
+        file_path = urlparse(href).path or file_path
+    except Exception:
+      pass
+    # Host curl often cannot resolve compose DNS aliases (e.g.
+    # web.scenescape.intel.com); hit the published localhost port and send Host.
+    host_header = parsed_url.hostname or "web.scenescape.intel.com"
+    port = parsed_url.port or (443 if parsed_url.scheme == "https" else 80)
+    file_url = f"{parsed_url.scheme}://127.0.0.1:{port}{file_path}"
 
-    curl_str = ["curl", file_url, "-k", "-o", file_output_path, "-v"]
+    curl_str = [
+      "curl", file_url, "-k", "-o", file_output_path, "-w", "%{http_code}", "-sS",
+      "-H", f"Host: {host_header}",
+    ]
     sessionid = None
     csrftoken = None
 
@@ -1857,14 +1948,20 @@ class InteractWithPage(ABC):
     assert sessionid is not None
     assert csrftoken is not None
     curl_str.extend(["-b", f"{sessionid};{csrftoken}"])
-    subprocess.run(curl_str, capture_output=True, text=True)
+    result = subprocess.run(curl_str, capture_output=True, text=True)
+    http_code = (result.stdout or "").strip()
 
     tmp_files = os.listdir(tmp_dir_path)
-    if (self.interaction_params.file_name in tmp_files) and filecmp.cmp(file_output_path, self.interaction_params.file_path):
+    if (self.interaction_params.file_name in tmp_files
+        and http_code == "200"
+        and filecmp.cmp(file_output_path, self.interaction_params.file_path)):
       upload_success = True
       print(check_str_root + "Passed")
     else:
       print(check_str_root + "Failed")
+      print(
+        f"  url={file_url} host={host_header} http={http_code} "
+        f"curl_err={result.stderr!r} downloaded={tmp_files}")
     return upload_success
 
   def check_screenshots_differ(self) -> bool:

@@ -1761,12 +1761,14 @@ $(document).ready(function () {
                   try {
                     let updateResponse;
                     if (isCamera) {
+                      // Camera updates require name (serializer contract).
                       updateResponse = await restClient.updateCamera(
                         msg[1].sensor_id,
-                        { scene: msg[1].scene },
+                        { name: msg[1].name, scene: msg[1].scene },
                       );
                     } else {
                       let sensorData = {
+                        name: msg[1].name,
                         scene: msg[1].scene,
                         center: msg[1].center,
                       };

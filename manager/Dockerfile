@@ -145,6 +145,9 @@ RUN : \
     ; chmod og-w /etc/apache2/sites-available/*.conf /etc/apache2/apache2.conf
 
 RUN : \
+    # Ubuntu 26.04 images ship an "ubuntu" user/group at UID/GID 1000.
+    ; userdel -f -r ubuntu || true \
+    ; groupdel ubuntu || true \
     ; groupadd -g $GROUP_ID $WSUSER \
     ; useradd -r -u $USER_ID -g $GROUP_ID -m -s /bin/bash $WSUSER \
     ; usermod -a -G video,users $WSUSER \
@@ -214,6 +217,8 @@ RUN : \
     ; apt-get update \
     ; install -d -m 0755 /etc/apt/keyrings \
     ; apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
         wget \
         libpci-dev \
         libnss3-tools \
@@ -230,9 +235,13 @@ Pin-Priority: 1000 \n\
 ' | tee /etc/apt/preferences.d/mozilla \
     ; apt-get update && apt-get install -y --no-install-recommends firefox-esr \
     ; rm -rf /var/lib/apt/lists/*
-# Install Python test dependencies
+# Install Python test dependencies.
+# pupil-apriltags has no cp314 wheels yet; build from source under C11 so GCC 15
+# accepts the vendored AprilTag C sources.
 COPY ./manager/test/requirements-test.txt /tmp
-RUN pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir -r /tmp/requirements-test.txt
+RUN CFLAGS="-std=gnu11 -Wno-error=incompatible-pointer-types" \
+    pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir \
+      -r /tmp/requirements-test.txt
 
 ADD ./manager/test/geckodriver.tar.gz /usr/local/bin/
 RUN chmod a+rwx /usr/local/bin/geckodriver

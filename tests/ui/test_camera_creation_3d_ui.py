@@ -49,7 +49,7 @@ def cleanup_created_camera(browser, camera_name):
   assert len(remaining_rows) == 0, f"Camera '{camera_name}' still exists in table after deletion"
 
 @pytest.mark.fresh_stack
-@common.mock_display
+@common.mock_display(require_xvfb=True)
 @pytest.mark.test_name("NEX-T10558")
 def test_camera_creation_3d_ui(params, result_recorder):
   """! Test that the user is able to create a camera in the 3D UI interface.

@@ -14,6 +14,7 @@ opentelemetry-sdk==1.38.0
 opencv-python-headless==4.13.0.92
 orjson==3.11.6
 paho-mqtt==2.1.0
+requests==2.33.0
 scipy==1.17.1
 setuptools==83.0.0
 shapely==2.1.2

@@ -44,6 +44,16 @@ class SceneImportAPITest(FunctionalTest):
     with zipfile.ZipFile(self.zipFile, "w") as zf:
       pass
 
+  def _numbers_equivalent(self, val1, val2, tol=1e-9):
+    """Compare nested lists/tuples of numbers with int/float tolerance."""
+    if isinstance(val1, (list, tuple)) and isinstance(val2, (list, tuple)):
+      if len(val1) != len(val2):
+        return False
+      return all(self._numbers_equivalent(a, b, tol) for a, b in zip(val1, val2))
+    if isinstance(val1, (int, float)) and isinstance(val2, (int, float)):
+      return val1 == pytest.approx(val2, abs=tol)
+    return val1 == val2
+
   def tolerant_camera_equivalence(self, cam1, cam2, tol=1e-9):
     """
     Returns True if two camera dictionaries are equivalent, allowing for small
@@ -51,19 +61,35 @@ class SceneImportAPITest(FunctionalTest):
     """
     for key in cam1:
       if key not in cam2:
-        continue # Skip keys not present in both
+        continue  # Skip keys not present in both
       val1 = cam1[key]
       val2 = cam2.get(key)
+      if isinstance(val1, (list, tuple)) and val1 and isinstance(
+          val1[0], (int, float, list, tuple)):
+        if not self._numbers_equivalent(val1, val2, tol):
+          return False
+      elif isinstance(val1, (int, float)) and isinstance(val2, (int, float)):
+        if not self._numbers_equivalent(val1, val2, tol):
+          return False
+      elif val1 != val2:
+        return False
+    return True
 
-      if isinstance(val1, list) and all(isinstance(x, float) for x in val1):
-        if val1 != pytest.approx(val2, abs=tol):
+  def tolerant_sensor_equivalence(self, actual, expected, tol=1e-9):
+    """Compare sensor dicts; tolerate int/float and nested numeric list drift."""
+    for key, exp_val in expected.items():
+      if key not in actual:
+        return False
+      act_val = actual[key]
+      if isinstance(exp_val, (list, tuple)) and exp_val and isinstance(
+          exp_val[0], (int, float, list, tuple)):
+        if not self._numbers_equivalent(act_val, exp_val, tol):
           return False
-      elif isinstance(val1, float):
-        if val1 != pytest.approx(val2, abs=tol):
+      elif isinstance(exp_val, (int, float)) and isinstance(act_val, (int, float)):
+        if not self._numbers_equivalent(act_val, exp_val, tol):
           return False
-      else:
-        if val1 != val2:
-          return False
+      elif act_val != exp_val:
+        return False
     return True
 
   def read_json_from_zip(self):
@@ -270,7 +296,11 @@ class SceneImportAPITest(FunctionalTest):
       for k in ("uid", "scene"):
         res.pop(k, None)
         sensor.pop(k, None)
-      assert res == sensor, f"Sensor mismatch: {sensor['name']}"
+      # API may return newer fields (e.g. visible) not present in older export ZIPs.
+      # Also tolerate int vs float (0 vs 0.0) from JSON / serializer drift.
+      res = {k: res[k] for k in sensor if k in res}
+      assert self.tolerant_sensor_equivalence(res, sensor), (
+        f"Sensor mismatch: {sensor['name']}")
 
     log.info("✅ Scene components validated.")
 

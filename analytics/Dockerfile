@@ -61,6 +61,7 @@ RUN apt update && apt upgrade -y \
 
 RUN : \
     && userdel -f -r ubuntu || true \
+    && groupdel ubuntu || true \
     && groupadd -g ${GROUP_ID} $WSUSER \
     && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER \
     && usermod -a -G video,users $WSUSER \

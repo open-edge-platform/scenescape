@@ -20,6 +20,7 @@ plotly==6.7.0
 pycolmap==4.0.4
 pytz==2026.2
 PyYAML==6.0.3
+requests==2.33.0
 scikit-learn==1.9.0
 scipy==1.17.1
 setuptools==83.0.0

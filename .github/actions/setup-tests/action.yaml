@@ -17,7 +17,8 @@ runs:
     - name: Set up Python
       uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
       with:
-        python-version: "3.14"
+        # Host pytest venv (open3d / pupil-apriltags wheels). Service images use Ubuntu 26.04 / Python 3.14.
+        python-version: "3.12"
         check-latest: true
 
     - name: "Log in to DockerHub"

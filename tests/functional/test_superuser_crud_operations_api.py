@@ -116,7 +116,11 @@ class CRUDPermissionsTest(FunctionalTest):
       assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED), f"Expected OK/CREATED, got {res.statusCode} for tripwire creation"
       tripwire_uid = res["uid"]
 
+      cam = self.rest_admin.getCamera(self.camera_uid)
+      assert cam.statusCode == HTTPStatus.OK, f"Expected OK, got {cam.statusCode} fetching camera"
       update_data = {
+        "name": cam["name"],
+        "scene": cam.get("scene") or self.scene_uid,
         "intrinsics": {
           "fx": 850.0, "fy": 860.0, "cx": 330.0, "cy": 340.0
         },

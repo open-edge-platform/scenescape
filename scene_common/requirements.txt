@@ -4,5 +4,6 @@
 
 numpy==2.3.5
 msgpack==1.2.1
+requests==2.33.0
 setuptools==83.0.0
 wheel==0.47.0
