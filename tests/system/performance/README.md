@@ -7,6 +7,9 @@ This test checks whether the system's performance holds up over a long run.
 Starts Scenescape and every 60 seconds samples:
 
 - MQTT message throughput (messages/sec across all topics)
+- MQTT delivery latency (the gap between the timestamp a publisher stamped on
+  a message and the time it reached the test subscriber, capped at 200
+  samples per cycle)
 - CPU and Memory usage of the deployment's containers.
 - REST API response latency (5 `getScenes` round-trips per cycle, to build a
   latency distribution rather than a single sample)
@@ -38,6 +41,10 @@ distinct ways a long run can go wrong:
    run. p99.9 is reported but only enforced on runs long enough to produce
    1000 latency samples (roughly 3.5 hours), below which a "p99.9" is just
    the largest value observed.
+6. **MQTT pipeline latency** — the same percentile and tail-growth checks as
+   above, applied to how long messages take to travel from publisher to
+   subscriber. This measures the end-to-end responsiveness of the pipeline
+   itself.
 
 The statistical checks require at least 40 post-warmup samples, so the run
 must be at least roughly 45 minutes long. Below that the test fails.

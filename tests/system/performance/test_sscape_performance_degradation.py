@@ -29,9 +29,12 @@ the failure modes that matter on a long run:
    REST round-trips are sampled per cycle to build a latency distribution,
    which is checked against absolute SLA ceilings and for tail-latency
    growth between the early and late halves of the run.
+6. MQTT pipeline latency — how long it takes for a scene update produced by
+   the controller to actually reach a subscriber.
 
 """
 
+import json
 import math
 import os
 import statistics
@@ -43,6 +46,7 @@ import pytest
 
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
+from scene_common.timestamp import get_epoch_time
 from tests.utils.log import get_logger
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 from tests.utils.spec import FuncTestSpec
@@ -104,8 +108,17 @@ MIN_SAMPLES_FOR_P999 = 1000
 ### early half of the run against the late half.
 REST_P99_MAX_GROWTH_PCT = 100
 
+### MQTT pipeline latency: publisher timestamp to subscriber receive time.
+MQTT_P50_MAX_SECONDS = 1.0
+MQTT_P99_MAX_SECONDS = 2.0
+MQTT_P999_MAX_SECONDS = 5.0
+MQTT_P99_MAX_GROWTH_PCT = 100
+### Cap on latency samples kept per cycle.
+MQTT_LATENCY_SAMPLES_PER_CYCLE = 200
+
 objects_detected = 0
 connected = False
+cycle_mqtt_latencies = []
 
 
 def on_connect(mqttc, userdata, flags, rc):
@@ -126,9 +139,27 @@ def on_disconnect(mqttc, userdata, rc):
 
 
 def on_message(mqttc, userdata, msg):
-  """Count every message received; used to derive throughput per cycle."""
+  """Count every message and sample how long it took to arrive.
+
+  Latency is the gap between the timestamp the publisher stamped on the
+  message and the time it reached this subscriber. Messages without a
+  usable timestamp (control/command topics also matched by the wildcard
+  subscription) only count towards throughput.
+  """
   global objects_detected
   objects_detected += 1
+
+  if len(cycle_mqtt_latencies) >= MQTT_LATENCY_SAMPLES_PER_CYCLE:
+    return None
+  try:
+    published = json.loads(msg.payload)["timestamp"]
+    ### get_epoch_time() falls back to the current time when handed an
+    ### empty value, which would record a bogus zero latency, so only
+    ### genuine timestamp strings are sampled.
+    if isinstance(published, str) and published:
+      cycle_mqtt_latencies.append(time.time() - get_epoch_time(published))
+  except (ValueError, TypeError, KeyError, UnicodeDecodeError):
+    pass
   return None
 
 
@@ -352,58 +383,60 @@ def check_saturation(cpu, mem, saturation_counters):
   return saturated
 
 
-def check_latency_slas(query_latencies):
-  """Check REST response-time percentiles against absolute SLAs and tail growth.
+def check_latency_slas(label, latencies, p50_max, p99_max, p999_max, growth_max):
+  """Check a latency distribution against absolute SLAs and tail growth.
+
+  Used for both REST round-trip times and MQTT message delivery latency.
 
   Returns:
     True if p50/p99/p99.9 stay within their SLA ceilings and p99 doesn't
     grow beyond threshold between the early and late halves of the run,
     otherwise False.
   """
-  if len(query_latencies) < MIN_SAMPLES_FOR_ANALYSIS:
+  if len(latencies) < MIN_SAMPLES_FOR_ANALYSIS:
     log.error(
-      f"Only collected {len(query_latencies)} REST samples; need at least "
+      f"Only collected {len(latencies)} {label} samples; need at least "
       f"{MIN_SAMPLES_FOR_ANALYSIS} to assess latency SLAs."
     )
     return False
 
   passed = True
-  p50 = percentile(query_latencies, 50)
-  p99 = percentile(query_latencies, 99)
-  log.info(f"REST query time: p50 {p50:.3f}s, p99 {p99:.3f}s")
+  p50 = percentile(latencies, 50)
+  p99 = percentile(latencies, 99)
+  log.info(f"{label} latency: p50 {p50:.3f}s, p99 {p99:.3f}s")
 
   slas = [
-    ("p50", p50, REST_P50_MAX_SECONDS),
-    ("p99", p99, REST_P99_MAX_SECONDS),
+    ("p50", p50, p50_max),
+    ("p99", p99, p99_max),
   ]
   ### Below MIN_SAMPLES_FOR_P999 a "p99.9" is just the largest observed
   ### value, so it is reported but not enforced.
-  p999 = percentile(query_latencies, 99.9)
-  if len(query_latencies) >= MIN_SAMPLES_FOR_P999:
-    slas.append(("p99.9", p999, REST_P999_MAX_SECONDS))
-    log.info(f"REST query time: p99.9 {p999:.3f}s")
+  p999 = percentile(latencies, 99.9)
+  if len(latencies) >= MIN_SAMPLES_FOR_P999:
+    slas.append(("p99.9", p999, p999_max))
+    log.info(f"{label} latency: p99.9 {p999:.3f}s")
   else:
     log.info(
-      f"REST query time: p99.9 {p999:.3f}s (not enforced, needs "
-      f"{MIN_SAMPLES_FOR_P999} samples, have {len(query_latencies)})"
+      f"{label} latency: p99.9 {p999:.3f}s (not enforced, needs "
+      f"{MIN_SAMPLES_FOR_P999} samples, have {len(latencies)})"
     )
 
-  for label, value, limit in slas:
+  for name, value, limit in slas:
     if value > limit:
-      log.error(f"REST query time {label} ({value:.3f}s) exceeds SLA of {limit:.3f}s!")
+      log.error(f"{label} latency {name} ({value:.3f}s) exceeds SLA of {limit:.3f}s!")
       passed = False
 
-  early, late = split_halves(query_latencies)
+  early, late = split_halves(latencies)
   early_p99 = percentile(early, 99)
   late_p99 = percentile(late, 99)
   growth_pct = ((late_p99 - early_p99) / early_p99) * 100 if early_p99 else 0.0
   log.info(
-    f"REST p99 tail latency trend: early {early_p99:.3f}s, late "
+    f"{label} p99 tail latency trend: early {early_p99:.3f}s, late "
     f"{late_p99:.3f}s, change {growth_pct:+.1f}% "
-    f"(limit +{REST_P99_MAX_GROWTH_PCT}%)"
+    f"(limit +{growth_max}%)"
   )
-  if early_p99 and growth_pct > REST_P99_MAX_GROWTH_PCT:
-    log.error("REST p99 tail latency grew beyond threshold over the run!")
+  if early_p99 and growth_pct > growth_max:
+    log.error(f"{label} p99 tail latency grew beyond threshold over the run!")
     passed = False
 
   return passed
@@ -415,12 +448,14 @@ def test_sscape_performance_degradation(params, scenescape_env, result_recorder)
   memory leak, or REST latency SLA violations over the run.
 
   Every CYCLE_INTERVAL_SECONDS: samples MQTT throughput and the deployment's
-  CPU/Memory usage (checked live for saturation), and fires
+  CPU/Memory usage (checked live for saturation), records how long arriving
+  MQTT messages took to reach this subscriber, and fires
   QUERY_SAMPLES_PER_CYCLE REST round-trips (used to build a latency
   distribution). Once the configured duration has elapsed, checks pipeline
   liveness, whether throughput/CPU/Memory variability grew between the early
   and late halves of the run, whether the memory trend projects past the
-  saturation ceiling, and whether REST latency percentiles stayed within SLA.
+  saturation ceiling, and whether REST and MQTT latency percentiles stayed
+  within SLA.
   """
   global connected
   global objects_detected
@@ -457,11 +492,13 @@ def test_sscape_performance_degradation(params, scenescape_env, result_recorder)
 
   rows = []
   query_latencies = []
+  mqtt_latencies = []
   saturation_counters = {"cpu": 0, "mem": 0}
   cycle = 0
   passed = False
   while datetime.now() < end_time:
     objects_detected = 0
+    cycle_mqtt_latencies.clear()
     collect_mqtt_msgs(client)
     assert connected, "Lost connection to MQTT broker"
 
@@ -480,6 +517,7 @@ def test_sscape_performance_degradation(params, scenescape_env, result_recorder)
 
     if cycle >= WARMUP_CYCLES:
       rows.append([elapsed, throughput, cpu, mem])
+      mqtt_latencies.extend(cycle_mqtt_latencies)
       query_latencies.extend(sample_query_latencies(rest_client, QUERY_SAMPLES_PER_CYCLE))
 
     cycle += 1
@@ -490,7 +528,14 @@ def test_sscape_performance_degradation(params, scenescape_env, result_recorder)
       check_liveness(rows),
       check_variability(rows),
       check_memory_trend(rows),
-      check_latency_slas(query_latencies),
+      check_latency_slas(
+        "REST", query_latencies, REST_P50_MAX_SECONDS, REST_P99_MAX_SECONDS,
+        REST_P999_MAX_SECONDS, REST_P99_MAX_GROWTH_PCT
+      ),
+      check_latency_slas(
+        "MQTT", mqtt_latencies, MQTT_P50_MAX_SECONDS, MQTT_P99_MAX_SECONDS,
+        MQTT_P999_MAX_SECONDS, MQTT_P99_MAX_GROWTH_PCT
+      ),
     ]
     passed = all(results)
 
