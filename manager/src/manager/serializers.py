@@ -1004,21 +1004,36 @@ class ChildSceneSerializer(NonNullSerializer):
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
     parent_scene = validated_data.get('parent')
-    child_type = validated_data.get('child_type')
+
+    cache_fields = {'cached_tripwires', 'cached_rois'}
+    if is_update and set(validated_data.keys()).issubset(cache_fields):
+      update_values = {k: validated_data[k] for k in validated_data.keys()}
+      ChildScene.objects.filter(pk=instance.pk).update(**update_values)
+      for key, value in update_values.items():
+        setattr(instance, key, value)
+      return instance
+
+    # For partial updates, inherit current type from instance
+    effective_child_type = validated_data.get('child_type')
+    if is_update and effective_child_type is None:
+      effective_child_type = instance.child_type
 
     if is_update:
-      if child_type == "remote":
+      if effective_child_type == "remote":
+        # Keep remote fields intact; just ensure local child FK is null
         validated_data['child'] = None
       else:
+        # Local child: clear remote-only fields
         validated_data['child_name'] = None
         validated_data['host_name'] = None
         validated_data['mqtt_username'] = None
         validated_data['mqtt_password'] = None
-        if instance.child:
+        validated_data['remote_child_id'] = None
+        if instance.child and parent_scene is not None:
           SceneSerializer.check_circular_dependency(parent_scene, instance.child)
       return super().update(instance, validated_data)
 
-    if child_type == "local" and validated_data.get('child'):
+    if effective_child_type == "local" and validated_data.get('child'):
       SceneSerializer.check_circular_dependency(parent_scene, validated_data['child'])
 
     return super().create(validated_data)
@@ -1034,6 +1049,7 @@ class ChildSceneSerializer(NonNullSerializer):
     fields = ['uid', 'child_type', 'transform', 'name', 'remote_child_id', \
           'child', 'parent', 'host_name', 'child_name', \
           'mqtt_username', 'mqtt_password', 'retrack', 'transform_type', \
+          'cached_rois', 'cached_tripwires', \
           'transform1', 'transform2', 'transform3', 'transform4', \
           'transform5', 'transform6', 'transform7', 'transform8', \
           'transform9', 'transform10', 'transform11', 'transform12', \
