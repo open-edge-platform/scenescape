@@ -823,6 +823,13 @@ def getAllChildrenMetaData(scene_id):
         tripwire = dict(tripwire)
         tripwire['from_child_scene'] = current_child_name
         child_trips.append(applyChildTransform(tripwire, c.cameraPose))
+      for sensor in (c.cached_sensors or []):
+        sensor = dict(sensor)
+        sensor['from_child_scene'] = current_child_name
+        if sensor.get('area') in [CIRCLE, POLY]:
+          child_sensors.append(applyChildTransform(sensor, c.cameraPose))
+        else:
+          child_sensors.append(sensor)
 
   return json.dumps(child_rois), json.dumps(child_trips), json.dumps(child_sensors)
 

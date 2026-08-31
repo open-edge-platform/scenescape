@@ -557,6 +557,7 @@ class ChildScene(models.Model):
   retrack = models.BooleanField("Retrack objects", choices=BOOLEAN_CHOICES, default=True, blank=True)
   cached_rois = models.JSONField("Cached remote rois", default=list, blank=True)
   cached_tripwires = models.JSONField("Cached remote tripwires", default=list, blank=True)
+  cached_sensors = models.JSONField("Cached remote sensors", default=list, blank=True)
 
   @property
   def cameraPose(self):

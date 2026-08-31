@@ -291,10 +291,43 @@ class AnalyticsService:
     log.debug(f"Published {len(rois)} roi(s) for scene {scene.uid} on {topic}")
     return
 
+  def publishSensorsForScene(self, scene):
+    """Publish the current generic sensor catalog for *scene* as retained state."""
+    result = self.cache_manager.data_source.getSensors({'scene': scene.uid})
+    if result.errors:
+      log.warning(f"Failed to fetch sensors for scene {scene.uid}: {result.errors}")
+      return
+
+    sensors = []
+    for sensor in result.get('results', []):
+      if sensor.get('type') != 'generic':
+        continue
+      center = sensor.get('center') or [None, None]
+      color_ranges = sensor.get('color_ranges') or {}
+      sensors.append({
+        'title': sensor.get('name', ''),
+        'uuid': sensor.get('uid') or sensor.get('sensor_id', ''),
+        'area': sensor.get('area'),
+        'radius': sensor.get('radius'),
+        'x': center[0] if len(center) > 0 else None,
+        'y': center[1] if len(center) > 1 else None,
+        'points': sensor.get('points', []),
+        'sectors': {
+          'thresholds': color_ranges.get('sectors', []),
+          'range_max': color_ranges.get('range_max', 0),
+        },
+        'singleton_type': sensor.get('singleton_type'),
+      })
+
+    topic = self._publishRetainedCatalog(PubSub.DATA_CHILD_SENSORS, scene.uid, sensors)
+    log.debug(f"Published {len(sensors)} sensor(s) for scene {scene.uid} on {topic}")
+    return
+
   def clearCatalogForScene(self, scene_id):
     """Overwrite retained catalogs so a removed scene does not leave stale state."""
     self._publishRetainedCatalog(PubSub.DATA_CHILD_TRIPWIRES, scene_id, [])
     self._publishRetainedCatalog(PubSub.DATA_CHILD_ROIS, scene_id, [])
+    self._publishRetainedCatalog(PubSub.DATA_CHILD_SENSORS, scene_id, [])
     log.debug(f"Cleared retained analytics catalog for scene {scene_id}")
     return
 
@@ -307,6 +340,7 @@ class AnalyticsService:
         for scene in getattr(self, 'scenes', []):
           self.publishTripwiresForScene(scene)
           self.publishRoisForScene(scene)
+          self.publishSensorsForScene(scene)
       except Exception as e:
         log.warning("Failed to update database: %s", e)
     return
@@ -326,6 +360,7 @@ class AnalyticsService:
     for scene in getattr(self, 'scenes', []):
       self.publishTripwiresForScene(scene)
       self.publishRoisForScene(scene)
+      self.publishSensorsForScene(scene)
     return
 
   def updateSubscriptions(self):
