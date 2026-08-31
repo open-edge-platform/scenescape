@@ -619,6 +619,7 @@ class Sensor(models.Model):
     super().__init__(*args, **kwargs)
     self._original_sensor_id = self.sensor_id
     self._original_name = self.name
+    self._original_scene = self.scene
 
   def calibrateString(self):
     return "calibrate-" + self.type
@@ -822,6 +823,13 @@ class Cam(Sensor):
       self.intrinsics_fy = self.DEFAULT_INTRINSICS['fy']
     if self.cv_subsystem is None:
       self.cv_subsystem = 'AUTO'
+
+    # Clear transforms and scene coordinates when scene is reassigned
+    if self._original_scene != self.scene:
+      self.transforms = []
+      self.scene_x = None
+      self.scene_y = None
+      self.scene_z = None
 
     super().save(*args, **kwargs)
     # Invalidate cached scene so camera pose/calibration changes are reflected
