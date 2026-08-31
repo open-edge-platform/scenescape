@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
 
 # =========================
 # STAGE 1: MODEL BUILDER STAGE
 # =========================
-FROM scenescape-common-base AS mapping-builder
+FROM intel/scenescape-common-base AS mapping-builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG MODEL_TYPE=mapanything
@@ -16,12 +16,11 @@ WORKDIR /tmp
 
 # Copy the patch files
 COPY mapping/0001-Run-it-on-CPU.patch /tmp/
-COPY mapping/mapanything-version-fix.patch /tmp/
 
 # Clone and prepare only the selected model
 RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
         git clone https://github.com/facebookresearch/map-anything.git ./map-anything && \
-        cd ./map-anything && git checkout b84b28f && git apply /tmp/mapanything-version-fix.patch; \
+        cd ./map-anything && git checkout b84b28f; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
         git clone https://github.com/facebookresearch/vggt.git ./vggt && \
         cd ./vggt && git checkout 44b3afb && git apply /tmp/0001-Run-it-on-CPU.patch; \
@@ -35,11 +34,11 @@ RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
 FROM ${RUNTIME_OS_IMAGE} AS mapping-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's 3D Mapping Service"
+LABEL org.opencontainers.image.description="Scenescape's 3D Mapping Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/mapping/docs/user-guide/overview.md"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/microservices/mapping-service/mapping-service.md"
 
 ARG USER_ID=1001
 ARG GROUP_ID=1001
@@ -47,7 +46,7 @@ ARG MODEL_TYPE=mapanything
 ENV MODEL_TYPE=${MODEL_TYPE}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
-ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
+ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 
 # Update and upgrade base OS packages
 RUN apt update && apt upgrade -y
@@ -98,21 +97,17 @@ RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
     fi && \
     rm -rf /tmp/models
 
-# Upgrade pip, wheel and setuptools to latest versions
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --upgrade setuptools wheel
-
 # Install all Python dependencies in one layer
 RUN pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
         cd /workspace/map-anything && \
         pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_mapanything.txt && \
-        pip install --no-cache-dir -e .; \
+        pip install --no-cache-dir --no-deps -e .; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r /workspace/vggt/requirements.txt -r /workspace/vggt/requirements_demo.txt && \
         pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_vggt.txt && \
         cd /workspace/vggt && \
-        pip install --no-cache-dir -e . && \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt -r requirements_demo.txt; \
+        pip install --no-cache-dir -e .; \
     fi && \
     rm -rf /usr/local/lib/python3.11/site-packages/torch/test \
            /usr/local/lib/python3.11/site-packages/torch/share \
@@ -168,4 +163,4 @@ COPY --chown=$WSUSER:$WSUSER mapping/tests $SCENESCAPE_HOME/tests
 
 USER $WSUSER
 
-CMD ["python", "-m", "pytest", "/home/scenescape/SceneScape/tests", "-v"]
+CMD ["python", "-m", "pytest", "/home/scenescape/Scenescape/tests", "-v"]

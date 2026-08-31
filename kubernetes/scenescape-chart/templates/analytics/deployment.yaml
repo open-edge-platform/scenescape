@@ -1,0 +1,99 @@
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-analytics
+  labels:
+    app: {{ .Release.Name }}-analytics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-analytics
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-analytics
+        {{ include "releaseLabels" . | indent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+      enableServiceLinks: false
+      initContainers:
+      - name: wait-for-web-initcontainer
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+        imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
+        command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
+        securityContext:
+          readOnlyRootFilesystem: true
+          runAsUser: 1000
+      containers:
+        - args:
+          - --restauth=/run/secrets/controller.auth
+          - --brokerauth=/run/secrets/controller.auth
+          - --broker
+          - broker.{{ .Release.Namespace }}.svc.cluster.local
+          - --resturl
+          - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
+          - --visibility_topic
+          - {{ .Values.analytics.visibilityTopic | default "regulated" | quote }}
+          - --healthcheck_port=8080
+          image: {{ .Values.repository }}/{{ .Values.analytics.image }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.analytics.pullPolicy }}
+          name: {{ .Release.Name }}-analytics
+          env:
+          - name: VISIBILITY_TOPIC
+            value: {{ .Values.analytics.visibilityTopic | default "regulated" | quote }}
+            {{ include "proxy_envs" . | indent 10 }}
+          ports:
+          - containerPort: 8080
+            name: health
+            protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          securityContext:
+            {{ include "defaultContainerSecurityContext" . | indent 12 }}
+          resources: {}
+          volumeMounts:
+          - mountPath: /run/secrets/certs/scenescape-ca.pem
+            subPath: scenescape-ca.pem
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/controller.auth
+            name: controller-auth
+            readOnly: true
+            subPath: controller.auth
+      restartPolicy: Always
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      {{ include "certs_volume" . | indent 6 }}
+      - name: controller-auth
+        secret:
+          secretName: {{ .Release.Name }}-controller.auth
+status: {}

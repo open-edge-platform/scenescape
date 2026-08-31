@@ -31,6 +31,16 @@ The auto calibration services supports two types of camera calibration methods:
 
 For implementation-level details of markerless calibration using NetVLAD, quadtree attention, and HLoc, see [Markerless Camera Calibration Internals](./markerless-camera-calibration.md).
 
+In addition to camera calibration, the service supports **sensor-agnostic perceptual sensor localization**.
+A point cloud produced by any perceptual sensor (LiDAR, depth camera, stereo, photogrammetry) is
+localized against the scene's 3D model to compute the sensor-to-scene transform. The client sends a
+base64-encoded point cloud together with the target `sceneId` to
+`/v1/perceptual-sensors/{sensorId}/localization`. **PCD is the default point cloud format** (PLY is
+also accepted for interoperability). The service samples a point cloud from the scene
+mesh (cached per scene), aligns the sensor cloud using Open3D Generalized ICP with a point-to-plane
+refinement pass, and returns a 4x4 transform along with fitness and inlier RMSE metrics. Localization
+runs asynchronously and results are delivered over WebSocket or by polling the GET endpoint.
+
 To deploy the auto calibration service, refer to the [Get Started](./get-started.md) guide. The service supports configuration through specific arguments and flags ([listed below](#configurable-arguments-and-flags)), which default to predefined values unless explicitly modified.
 
 ## Configurable Arguments and Flags
@@ -51,7 +61,7 @@ To deploy the auto calibration service, refer to the [Get Started](./get-started
 
 ## Architecture
 
-![Intel® SceneScape architecture diagram](./_assets/architecture.png)
+![Scenescape architecture diagram](./_assets/architecture.png)
 
 _Figure 1: Architecture Diagram_
 
@@ -71,7 +81,7 @@ The workflow below illustrates the Auto Camera Calibration process. Camera pose 
    - The Client subscribes to real-time calibration results via WebSocket notifications (recommended approach).
    - Alternatively, the Client can poll the calibration status and results using GET on `/v1/cameras/{cameraId}/calibration` endpoint.
 
-![Intel® SceneScape auto calibration sequence diagram](./_assets/autocalibration-sequence-diagram.png)
+![Scenescape auto calibration sequence diagram](./_assets/autocalibration-sequence-diagram.png)
 
 _Figure 2: Auto Calibration Sequence diagram_
 

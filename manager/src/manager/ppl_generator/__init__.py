@@ -1,7 +1,7 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pipeline generation module for SceneScape."""
+"""Pipeline generation module for Scenescape."""
 
 from .common_types import PipelineGenerationNotImplementedError, PipelineGenerationValueError
 
@@ -16,6 +16,9 @@ def __getattr__(name):
   elif name == "generate_pipeline_string_from_dict":
     from .config_generator import generate_pipeline_string_from_dict
     return generate_pipeline_string_from_dict
+  elif name == "load_model_config":
+    from .config_generator import load_model_config
+    return load_model_config
   else:
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
@@ -28,4 +31,5 @@ __all__ = [
   'PipelineConfigGenerator',
   'PipelineGenerator',
   'generate_pipeline_string_from_dict',
+  'load_model_config',
 ]

@@ -11,7 +11,7 @@ Source video: car-detection.ts
 
 Each scenario spins up a full Docker Compose stack via ``PipelineRunner``,
 subscribes to the MQTT detection topic, collects at least
-``MIN_DETECTIONS`` messages, validates every message against the SceneScape
+``MIN_DETECTIONS`` messages, validates every message against the Scenescape
 detector JSON schema, and tears the stack down - even on failure.
 
 Hardware-specific scenarios are skipped automatically when the corresponding
@@ -36,6 +36,11 @@ MIN_CATEGORY_DETECTIONS = 3
 COLLECT_TIMEOUT = 120  # seconds - generous to allow model  warm-up
 
 
+def _count_by_aliases(category_counts: dict[str, int], *aliases: str) -> int:
+  """Return total object count across equivalent category labels."""
+  return sum(category_counts.get(alias, 0) for alias in aliases)
+
+
 def _apply_marks(scenario: PipelineScenario):
   """Convert scenario mark names to live pytest marks for parametrize."""
   marks = [getattr(pytest.mark, m) for m in scenario.marks]
@@ -50,7 +55,7 @@ class TestVehiclePipelines:
     indirect=True,
   )
   def test_detections_received_and_valid(self, camera_settings_path, schema_validator, sample_data):
-    """Pipeline produces detections that pass the SceneScape detector schema.
+    """Pipeline produces detections that pass the Scenescape detector schema.
 
     Positive test: for each scenario launch the pipeline, collect
     MIN_DETECTIONS messages within COLLECT_TIMEOUT seconds, and assert every
@@ -79,13 +84,16 @@ class TestVehiclePipelines:
 
     print(f"Category counts: {category_counts}")
 
-    assert category_counts.get("person", 0) >= MIN_CATEGORY_DETECTIONS, (
+    person_count = _count_by_aliases(category_counts, "person", "1")
+    vehicle_count = _count_by_aliases(category_counts, "vehicle", "2")
+
+    assert person_count >= MIN_CATEGORY_DETECTIONS, (
       f"Expected >= {MIN_CATEGORY_DETECTIONS} person detections, "
-      f"got {category_counts.get('person', 0)}"
+      f"got {person_count}"
     )
-    assert category_counts.get("vehicle", 0) >= MIN_CATEGORY_DETECTIONS, (
+    assert vehicle_count >= MIN_CATEGORY_DETECTIONS, (
       f"Expected >= {MIN_CATEGORY_DETECTIONS} vehicle detections, "
-      f"got {category_counts.get('vehicle', 0)}"
+      f"got {vehicle_count}"
     )
 
 

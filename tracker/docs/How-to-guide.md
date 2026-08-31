@@ -1,8 +1,13 @@
-# How to Deploy Intel® SceneScape with Tracker Service alongside Controller in Analytics-Only Mode
+# How to Deploy Scenescape with Tracker + Analytics
 
-This guide explains the updated Docker Compose workflow to deploy the Tracker service while running the Scene Controller in analytics-only mode.
+This guide explains the Docker Compose workflow to deploy the Tracker service
+together with the standalone Analytics service (without the Scene Controller).
 
-## Build and start Tracker + Controller (analytics-only)
+The Tracker publishes tracked objects on `scenescape/data/scene/...`. The
+Analytics service consumes that topic and publishes regulated detections,
+region/tripwire events, and sensor-correlated output.
+
+## Build and start Tracker + Analytics
 
 1. Export the super-user password (required by the web service):
 
@@ -10,35 +15,38 @@ This guide explains the updated Docker Compose workflow to deploy the Tracker se
 export SUPASS=<your-password>
 ```
 
-2. Build images (ensure the `tracker` image is available):
+2. Build images (ensure the `tracker` and `analytics` images are available):
 
 ```bash
 # Builds all images including non-core tracker image
 make build-all
 ```
 
-3. Start the Controller in analytics-only mode together with the Tracker service:
+3. Start the Tracker and Analytics services:
 
 ```bash
-# Start analytics-only controller + tracker
-docker compose --profile analytics --profile tracker up -d
+# Starts tracker + analytics (analytics is included in the tracker profile)
+docker compose --profile tracker up -d
 ```
 
 Notes:
 
-- The `analytics` profile sets `CONTROLLER_ENABLE_ANALYTICS_ONLY=true` in the compose file.
-- If you also need experimental services (mapping, cluster-analytics), add `--profile experimental`.
+- The `tracker` Compose profile starts both the `tracker` and `analytics`
+  services. The Scene Controller (`scene`) is not started.
+- If you also need the mapping or cluster-analytics services, add
+  `--profile mapping` and/or `--profile cluster-analytics`.
 
 ### Stop
 
 ```bash
-# Stop analytics + tracker
-docker compose --profile analytics --profile tracker down
+docker compose --profile tracker down
 ```
 
-## Start Tracker + Controller (analytics-only) demo with `demo-tracker`
+## Start Tracker + Analytics demo with `demo-tracker`
 
-The repository `Makefile` provides a `demo-tracker` target which builds everything, initializes sample data and starts Docker Compose with the `analytics` and `tracker` profiles.
+The repository `Makefile` provides a `demo-tracker` target which builds
+everything, initializes sample data, and starts Docker Compose with the
+`tracker` profile.
 
 Usage:
 
@@ -50,25 +58,26 @@ make demo-tracker
 
 What `demo-tracker` does:
 
-- Runs `make build-all` to build all images (core + experimental)
+- Runs `make build-all` to build all images
 - Runs `make init-sample-data` to prepare volumes and sample files
-- Invokes the compose helper with: `--profile analytics --profile tracker`
+- Invokes the compose helper with: `--profile tracker`
 
-### Stop Tracker + Controller (analytics-only) demo:
+### Stop Tracker + Analytics demo:
 
 ```bash
-docker compose --profile analytics --profile tracker down
+docker compose --profile tracker down
 ```
 
-### Restart Tracker + Controller (analytics-only) demo:
+### Restart Tracker + Analytics demo:
 
 ```bash
-docker compose --profile analytics --profile tracker up -d
+docker compose --profile tracker up -d
 ```
 
 ## Related Documentation
 
 - [Tracker Service Documentation](../README.md)
 - [Tracker Service Architecture](../../docs/design/tracker-service.md)
+- [Analytics Service Documentation](../../docs/user-guide/microservices/analytics/analytics.md)
 - [Controller User Guide](../../docs/user-guide/microservices/controller/controller.md)
-- [Controller Analytics-Only Mode](../../docs/user-guide/microservices/controller/get-started.md#running-in-analytics-only-mode)
+- [How to Enable Observability (Experimental)](../../docs/user-guide/other-topics/how-to-enable-observability.md) — enabling OpenTelemetry metrics and tracing for the tracker service.

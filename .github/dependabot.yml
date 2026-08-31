@@ -42,7 +42,6 @@ updates:
       - "/controller"
       - "/kubernetes/init-images"
       - "/manager"
-      - "/model_installer"
       - "/scene_common"
       - "/cluster_analytics"
       - "/controller/src/robot_vision"
@@ -91,7 +90,6 @@ updates:
       - "/controller/src/robot_vision"
       - "/manager"
       - "/manager/test"
-      - "/model_installer"
       - "/cluster_analytics"
       - "/mapping"
       - "/mapping/tests"
@@ -112,6 +110,19 @@ updates:
         update-types:
           ["version-update:semver-major", "version-update:semver-minor"]
     reviewers:
+      - "saratpoluri"
+      - "dmytroye"
+      - "tdorauintc"
+
+  # Enable version updates for NPM packages used in CI
+  - package-ecosystem: "npm"
+    directory: "/.github/resources"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "npm"
+    reviewers:
+      - "Irakus"
       - "saratpoluri"
       - "dmytroye"
       - "tdorauintc"

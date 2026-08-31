@@ -59,7 +59,7 @@ services:
     pids_limit: 1000
 
   mqtt-recorder:
-    image: scenescape-manager:latest
+    image: intel/scenescape-manager:latest
     networks:
       ppl_runner:
     entrypoint: ["python3"]
@@ -88,7 +88,7 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
 
   video-pipeline:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
     networks:
       ppl_runner:
     tty: true
@@ -118,6 +118,7 @@ services:
       - GST_TRACERS=${GST_TRACERS:-}
       - GST_DEBUG_FILE=${GST_DEBUG_FILE:-}
       #      - GST_DEBUG=1,gencamsrc:2
+      - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
@@ -129,7 +130,7 @@ services:
     volumes:
       # Uncomment the line below to enable latency tracing
       # - "/tmp/latency_tracer:/tmp"
-      - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
       - ${OUTPUT_DIR}:/home/pipeline-server/output

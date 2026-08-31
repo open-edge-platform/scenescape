@@ -7,7 +7,7 @@
 Kubernetes backend for end-to-end tests.
 
 Provides K8sManager (parallel to _ComposeManager) that creates a KinD cluster,
-deploys SceneScape via Helm, sets up port-forwarding, and extracts secrets so
+deploys Scenescape via Helm, sets up port-forwarding, and extracts secrets so
 tests can connect to the cluster using the same params dict as Docker tests.
 """
 
@@ -43,12 +43,13 @@ _CERTMANAGER_URL = (
 _RELEASE_NAME = "scenescape"
 _NAMESPACE = "scenescape"
 
+# Core images required by the default k8s test Helm values (reid enabled;
+# mapping / clusterAnalytics remain disabled). Matches `make build-core`.
 _SCENESCAPE_IMAGES = [
-  "scenescape-manager",
-  "scenescape-autocalibration",
-  "scenescape-controller",
-  "scenescape-cluster-analytics",
-  "scenescape-mapping",
+  "intel/scenescape-analytics",
+  "intel/scenescape-autocalibration",
+  "intel/scenescape-controller",
+  "intel/scenescape-manager",
 ]
 
 def _run(cmd, **kwargs):
@@ -157,7 +158,7 @@ def _image_exists(ref: str) -> bool:
 class K8sManager:
   """Manages a KinD Kubernetes cluster lifecycle for test sessions.
 
-  Parallel to _ComposeManager: creates a KinD cluster, deploys SceneScape
+  Parallel to _ComposeManager: creates a KinD cluster, deploys Scenescape
   via Helm, sets up port-forwarding, and extracts secrets. Session-scoped:
   the cluster is created once and reused for all tests.
   """
@@ -228,8 +229,8 @@ class K8sManager:
     self._cluster.apply(_CERTMANAGER_URL)
     self._wait_for_cert_manager()
 
-    # Load SceneScape images into KinD
-    logger.info("Loading SceneScape images into KinD...")
+    # Load Scenescape images into KinD
+    logger.info("Loading Scenescape images into KinD...")
     self._load_images()
 
     # Populate kubernetes/scenescape-chart/files/ from source tree.
@@ -328,13 +329,13 @@ class K8sManager:
     time.sleep(5)
 
   def _load_images(self):
-    """Tag and load SceneScape + external images into the KinD cluster."""
+    """Tag and load Scenescape + external images into the KinD cluster."""
     version_file = Path(self._repo_root) / "version.txt"
     version = version_file.read_text().strip()
 
     for image_name in _SCENESCAPE_IMAGES:
       old_tag = f"{image_name}:latest"
-      new_tag = f"intel/{image_name}:{version}"
+      new_tag = f"{image_name}:{version}"
 
       if not _image_exists(old_tag):
         raise RuntimeError(
@@ -384,6 +385,13 @@ class K8sManager:
       f'  password: "{self._supass}"\n'
       f'hooks:\n'
       f'  enabled: true\n'
+      # KinD/CI often cannot finish the ~550MB NetVLAD fetch before the
+      # deployment progress deadline; smoke tests do not need markerless.
+      f'autocalibration:\n'
+      f'  skipModelDownload: true\n'
+      f'reid:\n'
+      f'  enabled: true\n'
+      f'  backend: "{os.getenv("REID_BACKEND", "vdms")}"\n'
       f'httpProxy: "{os.getenv("HTTP_PROXY", "")}"\n'
       f'httpsProxy: "{os.getenv("HTTPS_PROXY", "")}"\n'
       f'noProxy: "{os.getenv("NO_PROXY", "")}"\n'
@@ -415,7 +423,7 @@ class K8sManager:
     logger.info("Helm chart deployed successfully.")
 
   def _wait_for_core_services(self):
-    """Wait for core SceneScape services to be ready.
+    """Wait for core Scenescape services to be ready.
 
     NTP (chrony) is excluded because it needs the SYS_TIME capability
     which is not available in KinD. All other services including
@@ -425,7 +433,7 @@ class K8sManager:
       f"deployment/{_RELEASE_NAME}-web-dep",
       f"deployment/{_RELEASE_NAME}-scene-dep",
       f"deployment/{_RELEASE_NAME}-autocalibration-dep",
-      f"deployment/{_RELEASE_NAME}-vdms-dep",
+      f"deployment/{_RELEASE_NAME}-reid-dep",
       f"deployment/{_RELEASE_NAME}-mediaserver-dep",
       f"deployment/{_RELEASE_NAME}-broker",
       f"statefulset/{_RELEASE_NAME}-pgserver",
@@ -434,11 +442,15 @@ class K8sManager:
     logger.info("Waiting for core services...")
     for resource in _CORE_RESOURCES:
       logger.info("  Waiting: %s ...", resource)
-      self._cluster.kubectl([
-        "rollout", "status", resource,
-        "-n", _NAMESPACE,
-        "--timeout=600s",
-      ], as_dict=False, timeout=660)
+      try:
+        self._cluster.kubectl([
+          "rollout", "status", resource,
+          "-n", _NAMESPACE,
+          "--timeout=1200s",
+        ], as_dict=False, timeout=1260)
+      except Exception:
+        self._log_resource_failure(resource)
+        raise
     logger.info("All core services are ready.")
 
     # Wait for kubeclient so it can create camera pipeline pods.
@@ -455,6 +467,44 @@ class K8sManager:
 
     # Wait for DL Streamer to load models and start producing inference.
     self._wait_for_inference_warmup()
+
+  def _log_resource_failure(self, resource: str):
+    """Emit describe/logs for a failed rollout so CI failures are actionable."""
+    name = resource.split("/", 1)[-1]
+    kind = resource.split("/", 1)[0]
+    logger.error("Rollout failed for %s; collecting diagnostics...", resource)
+    for cmd, label in (
+      (["kubectl", "describe", kind, name,
+        "-n", _NAMESPACE, "--kubeconfig", self.kubeconfig], "describe"),
+      (["kubectl", "get", "pods",
+        "-n", _NAMESPACE, "--kubeconfig", self.kubeconfig,
+        "-l", f"app={name.removesuffix('-dep')}",
+        "-o", "wide"], "pods"),
+      (["kubectl", "get", "events",
+        "-n", _NAMESPACE, "--kubeconfig", self.kubeconfig,
+        "--field-selector", f"involvedObject.name={name}",
+        "--sort-by=.lastTimestamp"], "events"),
+    ):
+      result = subprocess.run(cmd, capture_output=True, text=True)
+      out = (result.stdout or result.stderr or "").strip()
+      logger.error("%s %s:\n%s", resource, label, out or "<empty>")
+
+    pods = subprocess.run(
+      ["kubectl", "get", "pods",
+       "-n", _NAMESPACE, "--kubeconfig", self.kubeconfig,
+       "-l", f"app={name.removesuffix('-dep')}",
+       "-o", "jsonpath={.items[*].metadata.name}"],
+      capture_output=True, text=True,
+    )
+    for pod in pods.stdout.split():
+      logs = subprocess.run(
+        ["kubectl", "logs", pod,
+         "-n", _NAMESPACE, "--kubeconfig", self.kubeconfig,
+         "--all-containers", "--tail=80"],
+        capture_output=True, text=True,
+      )
+      logger.error(
+        "logs %s:\n%s", pod, (logs.stdout or logs.stderr or "").strip() or "<empty>")
 
   def _wait_for_inference_warmup(self, timeout: int = 180):
     """Wait for DL Streamer pipelines to start producing inference results.

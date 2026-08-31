@@ -7,7 +7,7 @@
 
 The Tracker Service is a high-performance C++ microservice that aggregates detection messages from cameras using time-chunked processing and publishes tracked object data to scene topics. It uses Kalman filtering via RobotVision library for temporal consistency.
 
-**Key Difference**: Unlike other SceneScape services (Python), the Tracker Service is implemented in C++ with Conan 2.x dependency management, CMake + Ninja builds, and distroless production images.
+**Key Difference**: Unlike other Scenescape services (Python), the Tracker Service is implemented in C++ with Conan 2.x dependency management, CMake + Ninja builds, and distroless production images.
 
 ## Architecture Overview
 

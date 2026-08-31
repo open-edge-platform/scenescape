@@ -36,7 +36,7 @@ class PipelineEngine:
         path: /tmp/tracker-evaluation
 
     dataset:
-      class: datasets.metric_test_dataset.MetricTestDataset
+      class: datasets.unity_dataset.UnityDataset
       config:
         data_path: /path/to/dataset
         cameras: [x1, x2]
@@ -45,7 +45,7 @@ class PipelineEngine:
     harness:
       class: harnesses.scene_controller_harness.SceneControllerHarness
       config:
-        container_image: scenescape-controller:latest
+        container_image: intel/scenescape-controller:latest
         tracker_config_path: /path/to/tracker-config.json
 
     evaluators:
@@ -414,6 +414,13 @@ class PipelineEngine:
     if 'custom_config' in custom_config:
       custom_config.update(custom_config.pop('custom_config'))
 
+    # Inject camera_order from dataset config so the harness publishes
+    # same-timestamp frames in a fixed, deterministic order.
+    dataset_config = self._config.get('dataset', {}).get('config', {})
+    camera_order = dataset_config.get('cameras')
+    if camera_order and 'camera_order' not in custom_config:
+      custom_config['camera_order'] = camera_order
+
     if custom_config:
       self._harness.set_custom_config(custom_config)
 
@@ -484,6 +491,42 @@ class PipelineEngine:
       evaluator_output_path = self._output_path / 'evaluators' / evaluator_key
       evaluator.set_output_folder(evaluator_output_path)
 
+def _tee_output(output_path: Path) -> None:
+  """Redirect stdout and stderr to both the terminal and a log file.
+
+  Installs a lightweight tee shim so every subsequent print() call and
+  exception traceback is written to *output_path*/pipeline.log as well as
+  the current stdout/stderr streams.  Teeing the *current* streams (rather
+  than ``sys.__stdout__``/``sys.__stderr__``) preserves any prior redirection,
+  e.g. pytest capture or ``contextlib.redirect_stdout``.  The log file is
+  opened in write mode and kept open for the duration of the process (closed
+  automatically on exit).
+
+  Args:
+      output_path: Run-specific output directory (must already exist).
+  """
+  class _Tee:
+    def __init__(self, primary, secondary):
+      self._primary   = primary
+      self._secondary = secondary
+
+    def write(self, s):
+      n = self._primary.write(s)
+      self._secondary.write(s)
+      return n
+
+    def flush(self):
+      self._primary.flush()
+      self._secondary.flush()
+
+    def fileno(self):
+      return self._primary.fileno()
+
+  log_file = open(output_path / "pipeline.log", "w", buffering=1)  # line-buffered
+  sys.stdout = _Tee(sys.stdout or sys.__stdout__, log_file)
+  sys.stderr = _Tee(sys.stderr or sys.__stderr__, log_file)
+
+
 def main():
   """Main entry point for running pipeline from command line.
 
@@ -503,6 +546,11 @@ def main():
     # Load configuration
     print(f"Loading configuration from {config_path}...")
     engine.load_configuration(config_path)
+
+    # Tee stdout + stderr into the run output folder from this point on.
+    # The "Loading configuration" line above is intentionally not captured
+    # because the output folder does not exist until load_configuration() returns.
+    _tee_output(engine._output_path)
 
     # Run tracker
     print("Running tracker...")

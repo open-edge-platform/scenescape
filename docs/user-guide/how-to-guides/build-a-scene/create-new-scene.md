@@ -1,6 +1,6 @@
 # Create and Configure a New Scene
 
-Once the demo scene is running, the system is ready to process a live scene. There are a few things that need to be done to configure a live scene in Intel® SceneScape. These include:
+Once the demo scene is running, the system is ready to process a live scene. There are a few things that need to be done to configure a live scene in Scenescape. These include:
 
 1. [Mounting and connecting cameras](#mounting-and-connecting-cameras)
 2. [Configuring the vision pipeline for a camera stream](#configuring-the-vision-pipeline-for-a-camera-stream)
@@ -24,7 +24,7 @@ Here are several considerations when selecting a camera.
 
 ### Determining camera field of view
 
-Each camera must have a known field of view, since it is used by Intel® SceneScape to project data into the digital scene. The field of view is usually published in the camera's datasheet.
+Each camera must have a known field of view, since it is used by Scenescape to project data into the digital scene. The field of view is usually published in the camera's datasheet.
 
 > **Note:** Point/Tilt/Zoom (PTZ) cameras have a varying field of view depending on the zoom level. We recommend setting the zoom level to the widest setting so the field of view can be read from the datasheet. Zooming in will require careful measurement of the field of view or camera intrinsics calibration, a process not documented here.
 
@@ -32,7 +32,7 @@ Determine either the diagonal field of view or the horizontal and vertical field
 
 ## Reference Configurations
 
-There are many ways to configure Intel® SceneScape to process camera and sensor data. Here we we will focus on two configurations, each with two cameras. Configuration 1 uses USB cameras connected to the same computer, and Configuration 2 uses IP cameras connected to different computers. You can use these two configurations as the starting point for building custom scenes with multiple cameras and compute nodes.
+There are many ways to configure Scenescape to process camera and sensor data. Here we we will focus on two configurations, each with two cameras. Configuration 1 uses USB cameras connected to the same computer, and Configuration 2 uses IP cameras connected to different computers. You can use these two configurations as the starting point for building custom scenes with multiple cameras and compute nodes.
 
 ### Configuration 1: USB cameras with a single computer
 
@@ -68,7 +68,7 @@ A good rule of thumb is to mount the cameras above any object or person to be mo
 
 > **Note**: If possible, avoid mounting the cameras with a view of the horizon, or at least keep most of the area to be monitored well below the horizon by angling the camera down and mounting it higher.
 
-Once the cameras are mounted and connected, verify that the cameras are working using webcam software (such as Cheese on Linux), VLC, or a web browser per the manufacturer's instructions. If using USB cameras, be sure to quit any application using the camera prior to connecting to the camera with Intel® SceneScape.
+Once the cameras are mounted and connected, verify that the cameras are working using webcam software (such as Cheese on Linux), VLC, or a web browser per the manufacturer's instructions. If using USB cameras, be sure to quit any application using the camera prior to connecting to the camera with Scenescape.
 
 ## Configuring the vision pipeline for a camera stream
 
@@ -76,7 +76,7 @@ Refer to [How to Configure DL Streamer Video Pipeline](../../other-topics/how-to
 
 ## Configuring a New Scene
 
-There are two options for configuring a new scene in Intel® SceneScape:
+There are two options for configuring a new scene in Scenescape:
 
 ### Option A: Automated Scene Map Generation and Camera Calibration
 
@@ -97,7 +97,7 @@ For best results, size the image to about 1000 pixels wide. The scale to set whe
 
 There are other methods of determining pixels per meter, such as measuring the distance between two known points in pixel units on the image and in meters on the scene. Some math involving the Pythagorean theorem may be required.
 
-> **Note**: Creating accurate scale floor plans and calibrating cameras can be challenging. To assist with this process, Intel® SceneScape supports importing a scene that was scanned with a mobile device or uploading a glTF (.glb) 3D asset of the scene. For more information on scene scanning and using scene scans for automated camera calibration, see [Markerless Camera Calibration](../calibrate-cameras/autocalibrate-cameras-using-visual-features.md#1-generate-polycam-dataset).
+> **Note**: Creating accurate scale floor plans and calibrating cameras can be challenging. To assist with this process, Scenescape supports importing a scene that was scanned with a mobile device or uploading a glTF (.glb) 3D asset of the scene. For more information on scene scanning and using scene scans for automated camera calibration, see [Markerless Camera Calibration](../calibrate-cameras/autocalibrate-cameras-using-visual-features.md#1-generate-polycam-dataset).
 
 ##### Scene floor plan example
 
@@ -111,7 +111,7 @@ Using a mapping tool, it is possible to measure various distances between points
 
 ##### Adding the new scene and cameras
 
-From the Intel® SceneScape working directory on the scene controller, bring up the system with the new configuration (see [Docker Compose Profiles](../../get-started.md#docker-compose-profiles) for details on choosing profiles):
+From the Scenescape working directory on the scene controller, bring up the system with the new configuration (see [Docker Compose Profiles](../../get-started/installation.md#docker-compose-profiles) for details on choosing profiles):
 
 ```bash
 docker compose --profile controller up
@@ -119,7 +119,7 @@ docker compose --profile controller up
 
 If you are using Configuration 2, also run `docker compose --profile controller up` on each additional computer.
 
-Launch Intel® SceneScape and log in. Create a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ New Scene". Give your scene a name, select your floor plan file, and enter the scene's scale. Using the above parking lot example, it might look something like this:
+Launch Scenescape and log in. Create a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ New Scene". Give your scene a name, select your floor plan file, and enter the scene's scale. Using the above parking lot example, it might look something like this:
 
 ![Creating a new scene](../../_assets/ui/new-scene.png)
 
@@ -129,7 +129,7 @@ Click "Save New Scene" and then open the scene by clicking on it in the Scenes p
 
 Add each camera by clicking on "+ New Camera" below the scene map, then filling in the camera details as required.
 
-> **Note**: The camera ID _must_ match the `cameraid` set in the config file for DL Streamer Pipeline Server (e.g: dlstreamer-pipeline-server/config.json), or the scene controller will not be able to associate the camera with its instance in Intel® SceneScape.
+> **Note**: The camera ID _must_ match the `cameraid` set in the config file for DL Streamer Pipeline Server (e.g: dlstreamer-pipeline-server/config.json), or the scene controller will not be able to associate the camera with its instance in Scenescape.
 
 Using the above example, the form should look like this for the `video0` camera:
 
@@ -141,11 +141,11 @@ Once both cameras are added, the scene is ready to be calibrated. Click on each 
 
 ## Exporting and Importing the scene
 
-Intel® SceneScape provides a way to easily transfer a scene configuration from deployment to another through export and import functionality. This greatly reduces time, effort and discrepancies between development and deployment configuration of a scene.
+Scenescape provides a way to easily transfer a scene configuration from deployment to another through export and import functionality. This greatly reduces time, effort and discrepancies between development and deployment configuration of a scene.
 
 ### Exporting the scene
 
-Launch Intel® SceneScape and log in.
+Launch Scenescape and log in.
 
 Select the scene you'd like to export.
 
@@ -159,7 +159,7 @@ A ZIP file `<scene_name>.zip` will be downloaded.
 
 ### Importing the scene
 
-Launch Intel® SceneScape and log in.
+Launch Scenescape and log in.
 
 Import a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ Import Scene".
 
@@ -174,3 +174,27 @@ Click import to begin the upload.
 ## Additional Resources
 
 - [Generate a Scene Map Using The Mapping Service](./generate-scene-map.md)
+
+## REST API Reference
+
+A scene can also be created without the UI via `POST /api/v1/scene` (multipart form data, since
+`map` is a file upload):
+
+```bash
+curl -sk -X POST https://<manager-host>/api/v1/scene \
+    -H "Authorization: Token $TOKEN" \
+    -F "name=<scene_name>" \
+    -F "map=@<path-to-blueprint.png-or-mesh.glb>" \
+    -F "scale=<pixels_per_meter>" \
+    -F "map_type=map_upload" \
+    -F "camera_calibration=Manual"
+```
+
+The response includes `"uid"` — the scene UID needed to register cameras (`POST /api/v1/camera`)
+and for the geospatial update described in
+[Configure Geospatial Coordinates for a Scene#rest-api-reference](./configure-geospatial-coordinates.md#rest-api-reference).
+
+For the full field reference (accepted `map` file types, `map_type`/`camera_calibration` enum
+values, defaults, and all other scene fields), see the canonical OpenAPI spec: [API
+Reference](../../api-reference.md) (source: `docs/user-guide/api-docs/api.yaml`, `Scene` schema).
+Don't restate those fields elsewhere — link here instead.

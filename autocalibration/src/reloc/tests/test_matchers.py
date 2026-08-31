@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Test custom SceneScape matchers."""
+"""Test custom Scenescape matchers."""
 
 import sys
 from test_utils import setup_hloc_path, print_test_header, print_test_result
@@ -77,10 +77,10 @@ def test_loftr_matcher():
 
 
 def test_qta_loftr_matcher():
-  """Test QTA-LoFTR matcher class - SKIPPED (not used in SceneScape)."""
+  """Test QTA-LoFTR matcher class - SKIPPED (not used in Scenescape)."""
   print_test_header("QTA-LoFTR Matcher - SKIPPED")
-  print("  ⚠️  QTA-LoFTR not used in SceneScape, test skipped")
-  print_test_result(True, "Skipped - not used in SceneScape")
+  print("  ⚠️  QTA-LoFTR not used in Scenescape, test skipped")
+  print_test_result(True, "Skipped - not used in Scenescape")
   return True
 
 

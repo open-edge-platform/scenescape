@@ -5,6 +5,7 @@
 
 import json
 import math
+import threading
 import time
 from http import HTTPStatus
 
@@ -14,20 +15,21 @@ from scene_common.rest_client import RESTClient
 
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import FULL_STACK_WITH_MAPPING_AND_VIDEO
+from tests.utils.profiles import FULL_STACK_WITH_RETAIL_VIDEO
 
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=FULL_STACK_WITH_MAPPING_AND_VIDEO,
+  profile=FULL_STACK_WITH_RETAIL_VIDEO,
   auth=AUTH_CONTROLLER,
 )
 
 TEST_NAME = "NEX-T10543"
-COLLECT_TIMEOUT = 10.0
+COLLECT_TIMEOUT = 30.0
 MIN_MESSAGES = 5
 PROPAGATION_DELAY = 0.5
-WARMUP_TIMEOUT = 15.0
+WARMUP_TIMEOUT = 60.0
+DETECTION_WAIT_TIMEOUT = 90.0
 IDENTITY_QUAT = (0.0, 0.0, 0.0, 1.0)
 ALIGNMENT_PASS_RATIO = 0.98
 
@@ -71,26 +73,36 @@ class RotationFromVelocityTest(FunctionalTest):
 
     self.scene_id = self.params['scene_id']
 
-    # Create asset
-    asset_data = {"name": "person"}
-    res = self.rest.createAsset(asset_data)
-    assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED)
-    self.asset_uid = res["uid"]
-    log.info(f"Created PERSON asset UID: {self.asset_uid}")
+    # Demo DB already has a "person" asset; reuse it (create only if missing).
+    assets = self.rest.getAssets(None)
+    assert assets, (getattr(assets, "statusCode", None), getattr(assets, "errors", None))
+    results = assets.get("results") or []
+    person = next((a for a in results if a.get("name") == "person"), None)
+    if person:
+      self.asset_uid = person["uid"]
+      log.info(f"Using existing PERSON asset UID: {self.asset_uid}")
+    else:
+      res = self.rest.createAsset({"name": "person"})
+      assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED), (
+        res.statusCode, res.errors)
+      self.asset_uid = res["uid"]
+      log.info(f"Created PERSON asset UID: {self.asset_uid}")
 
-    # MQTT setup
-    self.client = PubSub(self.params["auth"], None, self.params["rootcert"], self.params["broker_url"],
-                          port=int(self.params["broker_port"]))
-    self.client.connect()
-    self.client.loopStart()
-
+    # MQTT setup — subscribe from onConnect so the session is ready.
     self.topic = PubSub.formatTopic(
       PubSub.DATA_SCENE,
       scene_id=self.scene_id,
       thing_type="person"
     )
-
-    self.client.addCallback(self.topic, self.on_message)
+    self._mqtt_ready = threading.Event()
+    self.client = PubSub(self.params["auth"], None, self.params["rootcert"],
+                         self.params["broker_url"],
+                         port=int(self.params["broker_port"]))
+    self.client.onConnect = self._on_mqtt_connect
+    self.client.onMessage = self.on_message
+    self.client.connect()
+    self.client.loopStart()
+    assert self._mqtt_ready.wait(30), "MQTT failed to connect/subscribe"
 
     # Runtime state
     self.rotations_before = []
@@ -98,6 +110,12 @@ class RotationFromVelocityTest(FunctionalTest):
     self.rotations_disabled = []
     self.collect_target = None  # "before" | "enabled" | "disabled"
     self.exitCode = 1
+
+  def _on_mqtt_connect(self, mqttc, _obj, _flags, rc):
+    if rc == 0:
+      mqttc.subscribe(self.topic)
+      self._mqtt_ready.set()
+    return
 
   # MQTT callback
   def on_message(self, _client, _obj, msg):
@@ -162,6 +180,17 @@ class RotationFromVelocityTest(FunctionalTest):
   # Test flow
   def run(self):
     try:
+      # Wait for retail-video detections before measuring rotations.
+      log.info("Waiting for person detections on %s ...", self.topic)
+      self.collect_target = "before"
+      start = time.time()
+      while time.time() - start < DETECTION_WAIT_TIMEOUT and not self.rotations_before:
+        time.sleep(0.2)
+      self.collect_target = None
+      assert self.rotations_before, (
+        f"No person detections with rotation/velocity within {DETECTION_WAIT_TIMEOUT}s "
+        f"on topic '{self.topic}'")
+
       # ensure feature is OFF at start and verify OFF-state rotation is identity
       self.set_rotation_from_velocity(False)
 

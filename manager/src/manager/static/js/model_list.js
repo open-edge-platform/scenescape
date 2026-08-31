@@ -270,16 +270,6 @@ $(document).ready(function () {
     $elements.detach().appendTo($container);
   }
 
-  // Helper function to escape HTML special characters
-  function escapeHTML(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
-
   // Function to show the prompt modal to confirm the action
   function showModelPromptModal(action, path, filenames) {
     return new Promise((resolve, reject) => {
@@ -291,23 +281,21 @@ $(document).ready(function () {
       else if (filenames === null) {
         return resolve(true);
       }
-      // Multiple files to overwrite/delete -> join with <br> for better readability
+
+      // Normalize filenames into a plain array of raw (unescaped) strings
+      let fileNameList;
       if (Array.isArray(filenames)) {
-        if (filenames.length > 0) {
-          filenames = filenames.map(escapeHTML).join("<br>");
-        }
         // No files to overwrite/delete -> no need prompt
-        else {
+        if (filenames.length === 0) {
           return resolve(true);
         }
+        fileNameList = filenames;
       }
       // No files to overwrite/delete -> no need prompt
       else if (filenames.toString() === "") {
         return resolve(true);
-      }
-      // Single file to overwrite/delete -> convert to string
-      else {
-        filenames = escapeHTML(filenames.toString());
+      } else {
+        fileNameList = [filenames.toString()];
       }
 
       // Set the path to "root" if it is empty
@@ -318,21 +306,37 @@ $(document).ready(function () {
       const $modal = $(".model-prompt-container");
       const $confirmBtn = $modal.find(".prompt-confirm-button");
       const $cancelBtn = $modal.find(".prompt-cancel-button");
-      const $message = $modal.find(".prompt-body");
+      const messageEl = $modal.find(".prompt-body").get(0);
 
-      // Construct the message to be displayed in the modal
-      var htmlMessage =
-        "<b>Are you sure want to " +
-        action +
-        " the following files?</b><br>" +
-        "<br>" +
-        "<b>Directory:</b> " +
-        path +
-        "<br>" +
-        "<br>" +
-        "<b>Files:</b><br>" +
-        filenames;
-      $message.html(htmlMessage);
+      // Build the message with plain DOM nodes only (createElement/
+      // textContent/native append), never jQuery's .html()/.append(string)
+      // or string concatenation, so path/filenames can never be parsed as
+      // markup no matter their content - unlike jQuery, native
+      // Element.append() always inserts string arguments as literal text.
+      const boldText = (text) => {
+        const el = document.createElement("b");
+        el.textContent = text;
+        return el;
+      };
+
+      messageEl.textContent = "";
+      messageEl.append(
+        boldText(`Are you sure want to ${action} the following files?`),
+        document.createElement("br"),
+        document.createElement("br"),
+        boldText("Directory:"),
+        ` ${path}`,
+        document.createElement("br"),
+        document.createElement("br"),
+        boldText("Files:"),
+        document.createElement("br"),
+      );
+      fileNameList.forEach((name, index) => {
+        if (index > 0) {
+          messageEl.append(document.createElement("br"));
+        }
+        messageEl.append(name);
+      });
 
       // Show the modal
       $modal.css("display", "block");

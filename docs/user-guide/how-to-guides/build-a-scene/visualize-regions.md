@@ -1,23 +1,23 @@
-# Visualize ROI and Sensor Areas in Intel® SceneScape
+# Visualize ROI and Sensor Areas in Scenescape
 
-This guide provides step-by-step instructions to visualize region of interest (ROI) and sensor areas using defined color thresholds in Intel® SceneScape. By completing this guide, you will:
+This guide provides step-by-step instructions to visualize region of interest (ROI) and sensor areas using defined color thresholds in Scenescape. By completing this guide, you will:
 
 - Set default and custom color range values for ROIs and sensors.
 - Enable and view ROI and sensor visualization in the UI.
 - Understand limitations regarding scene hierarchy transmission.
 
-This task is important for visualizing scene activity and sensor measurements with intuitive color indicators. If you're new to ROI and sensor visualizations, refer to the Intel® SceneScape UI user documentation.
+This task is important for visualizing scene activity and sensor measurements with intuitive color indicators. If you're new to ROI and sensor visualizations, refer to the Scenescape UI user documentation.
 
 ## Prerequisites
 
 Before You Begin, ensure the following:
 
-- **Dependencies Installed**: Install Intel® SceneScape and required tools.
-- **Access and Permissions**: Ensure you have access to the Intel® SceneScape deployment and the UI.
+- **Dependencies Installed**: Install Scenescape and required tools.
+- **Access and Permissions**: Ensure you have access to the Scenescape deployment and the UI.
 
-This guide assumes familiarity with the Intel® SceneScape environment. If needed, see:
+This guide assumes familiarity with the Scenescape environment. If needed, see:
 
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.0/README.md)
+- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
 
 ## Steps to Visualize ROI and Sensor Areas
 
@@ -36,7 +36,7 @@ To customize thresholds:
 2. Enter desired min-max values for each color category.
 3. Click **Save Regions and Tripwires**.
 
-**Expected Output**: The values update in the Intel® SceneScape UI and apply to visualizations.
+**Expected Output**: The values update in the Scenescape UI and apply to visualizations.
 
 ![Default color range values](../../_assets/ui/default-range-values.png)
 **Figure 1**: Default color range values
@@ -48,7 +48,7 @@ To customize thresholds:
 
 To view ROI coloring:
 
-1. Toggle **Visualize ROIs** in the Intel® SceneScape UI.
+1. Toggle **Visualize ROIs** in the Scenescape UI.
 
 **Expected Output**: ROI areas are shaded in green, yellow, or red based on the occupancy threshold.
 
@@ -81,7 +81,7 @@ To customize thresholds:
 
 To enable visualization:
 
-1. Toggle **Visualize ROIs** in the Intel® SceneScape UI.
+1. Toggle **Visualize ROIs** in the Scenescape UI.
 
 **Expected Output**: Sensor measurement areas are colored based on thresholds. Supports different shapes:
 
@@ -123,4 +123,4 @@ To enable visualization:
 
 ## Supporting Resources
 
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.0/README.md)
+- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
