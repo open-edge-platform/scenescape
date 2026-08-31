@@ -342,6 +342,7 @@ def test_malformed_data(scenescape_env, params, record_xml_attribute):
       )
   finally:
     pubsub.loopStop()
+    pubsub.disconnect()
 
   _print_evidence(evidence)
 
