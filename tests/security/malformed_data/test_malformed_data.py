@@ -20,6 +20,7 @@ Acceptance criteria:
 import json
 import threading
 import time
+import pytest
 from http import HTTPStatus
 
 import tests.common_test_utils as common
@@ -51,11 +52,11 @@ SEEDED_CAMERAS = (CANARY_CAMERA, INVALID_SENDER)
 UNKNOWN_CAMERA = "camera4"
 
 # How long to wait for an expected scene update before giving up.
-EMIT_TIMEOUT = 120
+EMIT_TIMEOUT_S = 120
 # How long to drive a camera that must NOT produce scene updates.
-DROP_WINDOW = 6
-PUBLISH_INTERVAL = 0.2
-DRAIN_TIME = 1.5
+DROP_WINDOW_S = 6
+PUBLISH_INTERVAL_S = 0.2
+DRAIN_TIME_S = 1.5
 
 
 def _good_objects():
@@ -213,7 +214,7 @@ def _drive_until_emit(pubsub, counter, camera_id, timeout):
   while time.time() < deadline:
     payload_json = json.dumps(_good_payload(camera_id))
     pubsub.publish(topic, payload_json)
-    time.sleep(PUBLISH_INTERVAL)
+    time.sleep(PUBLISH_INTERVAL_S)
     if counter.count > 0:
       break
   return counter.count, payload_json
@@ -233,8 +234,8 @@ def _drive_expecting_drop(pubsub, counter, camera_id, build_payload, duration):
   while time.time() < deadline:
     payload_json = json.dumps(build_payload(camera_id))
     pubsub.publish(topic, payload_json)
-    time.sleep(PUBLISH_INTERVAL)
-  time.sleep(DRAIN_TIME)
+    time.sleep(PUBLISH_INTERVAL_S)
+  time.sleep(DRAIN_TIME_S)
   return counter.count, payload_json
 
 
@@ -260,11 +261,8 @@ def _print_evidence(evidence):
     print(line)
     log.info(line)
 
-
-def test_malformed_data(scenescape_env, params, record_xml_attribute):
-  record_xml_attribute("name", TEST_NAME)
-  print("Executing: " + TEST_NAME)
-
+@pytest.mark.test_name("NEX-T10423")
+def test_malformed_data(scenescape_env, params):
   rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
   assert rest.authenticate(params["user"], params["password"]), \
     "REST authentication failed"
@@ -295,7 +293,7 @@ def test_malformed_data(scenescape_env, params, record_xml_attribute):
     # Positive control: a registered camera with valid data must be forwarded.
     # This also guards against false passes from a broken database or pipeline.
     control_count, payload = _drive_until_emit(
-      pubsub, counter, CONTROL_CAMERA, EMIT_TIMEOUT,
+      pubsub, counter, CONTROL_CAMERA, EMIT_TIMEOUT_S,
     )
     ok = control_count > 0
     evidence.append((CONTROL_CAMERA, "valid (control)", payload, ">0",
@@ -308,7 +306,7 @@ def test_malformed_data(scenescape_env, params, record_xml_attribute):
     # Schema-invalid messages must never be forwarded.
     for name, builder in INVALID_CASES:
       seen, payload = _drive_expecting_drop(
-        pubsub, counter, INVALID_SENDER, builder, DROP_WINDOW,
+        pubsub, counter, INVALID_SENDER, builder, DROP_WINDOW_S,
       )
       ok = seen == 0
       evidence.append((INVALID_SENDER, name, payload, "0", seen,
@@ -318,7 +316,7 @@ def test_malformed_data(scenescape_env, params, record_xml_attribute):
 
     # Unknown sender: valid payload but unregistered camera must be dropped.
     seen, payload = _drive_expecting_drop(
-      pubsub, counter, UNKNOWN_CAMERA, _good_payload, DROP_WINDOW,
+      pubsub, counter, UNKNOWN_CAMERA, _good_payload, DROP_WINDOW_S,
     )
     ok = seen == 0
     evidence.append((UNKNOWN_CAMERA, "valid (unregistered sender)", payload, "0",
@@ -331,7 +329,7 @@ def test_malformed_data(scenescape_env, params, record_xml_attribute):
     # Freshly seeded camera with valid data must be forwarded,
     # confirming registration and the database are healthy.
     canary_count, payload = _drive_until_emit(
-      pubsub, counter, CANARY_CAMERA, EMIT_TIMEOUT,
+      pubsub, counter, CANARY_CAMERA, EMIT_TIMEOUT_S,
     )
     ok = canary_count > 0
     evidence.append((CANARY_CAMERA, "valid (canary)", payload, ">0",
@@ -355,4 +353,4 @@ def test_malformed_data(scenescape_env, params, record_xml_attribute):
 
 
 if __name__ == "__main__":
-  exit(test_malformed_data() or 0)
+  pytest.main([__file__])
