@@ -11,6 +11,7 @@ from scene_common.mqtt import PubSub
 from tests.functional.reid_backend import get_reid_profile_module
 from tests.utils.spec import FuncTestSpec
 from tests.utils.log import get_logger
+import pytest
 
 log = get_logger(__name__)
 
@@ -334,14 +335,13 @@ def run_test(test_name, test_desc, scene_config, params):
   assert exit_code == 0
   return exit_code
 
-def test_reid_unique_count(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T10539")
+def test_reid_unique_count(params):
   """! Tests the unique count for each scene when RE-ID is enabled.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10539"
-  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   log.info("Test the unique count for each scene when RE-ID is enabled.")
 
