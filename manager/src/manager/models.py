@@ -813,6 +813,24 @@ class Cam(Sensor):
     return camera_data
 
   def save(self, *args, **kwargs):
+    # Reset camera pose when reassigned to a different scene
+    original_scene = None
+    scene_changed = False
+    if self.pk is not None:
+      # This is an update, check if scene has changed
+      try:
+        original = Cam.objects.get(pk=self.pk)
+        original_scene = original.scene
+        if original.scene != self.scene:
+          # Scene has changed, clear pose-related fields
+          self.transforms = []
+          self.scene_x = None
+          self.scene_y = None
+          self.scene_z = None
+          scene_changed = True
+      except Cam.DoesNotExist:
+        pass
+
     if self.intrinsics_cx is None:
       self.intrinsics_cx = self.DEFAULT_INTRINSICS['cx']
     if self.intrinsics_cy is None:
@@ -824,17 +842,15 @@ class Cam(Sensor):
     if self.cv_subsystem is None:
       self.cv_subsystem = 'AUTO'
 
-    # Clear transforms and scene coordinates when scene is reassigned
-    if self._original_scene != self.scene:
-      self.transforms = []
-      self.scene_x = None
-      self.scene_y = None
-      self.scene_z = None
-
     super().save(*args, **kwargs)
+
     # Invalidate cached scene so camera pose/calibration changes are reflected
     if self.scene:
       SceneLoader.removeScene(self.scene.name)
+    if scene_changed and original_scene is not None:
+      # Also invalidate the old scene cache if scene was reassigned
+      SceneLoader.removeScene(original_scene.name)
+
     transaction.on_commit(partial(sendUpdateCommand,
                                   camera_data = self.cameraData('save')))
     return
