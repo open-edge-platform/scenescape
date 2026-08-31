@@ -5,15 +5,14 @@
 
 """Security test: the scene controller must reject malformed sensor data.
 
-This drives camera (detector) messages onto the MQTT input topic and verifies
+This drives camera messages onto the MQTT input topic and verifies
 that the controller only forwards data that both passes schema validation and
 originates from a registered camera. Each case is exercised in isolation: a
 single camera publishes for a short window while the test subscribes to the
 scene output topic and counts forwarded updates.
 
 Acceptance criteria:
-  * A registered camera sending valid data produces scene updates
-    (positive control + a DB-health canary).
+  * A registered camera sending valid data produces scene updates.
   * Messages that fail schema validation produce no scene updates.
   * Messages from an unregistered camera produce no scene updates.
 """
@@ -329,7 +328,7 @@ def test_malformed_data(scenescape_env, params, record_xml_attribute):
         f"unknown sender {UNKNOWN_CAMERA!r} produced {seen} scene updates"
       )
 
-    # Canary: a freshly seeded camera with valid data must be forwarded,
+    # Freshly seeded camera with valid data must be forwarded,
     # confirming registration and the database are healthy.
     canary_count, payload = _drive_until_emit(
       pubsub, counter, CANARY_CAMERA, EMIT_TIMEOUT,
