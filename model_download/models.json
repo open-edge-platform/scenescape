@@ -122,6 +122,42 @@
           }
         }
       }
+    },
+    {
+      "model_downloader": {
+        "name": "OpenVINO/YOLO11m-int8-ov",
+        "hub": "huggingface"
+      },
+      "scenescape": {
+        "name": "yolo11m-int8",
+        "config": {
+          "type": "detect",
+          "params": {
+            "model": "huggingface/OpenVINO_YOLO11m-int8-ov/yolo11m.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
+        "name": "OpenVINO/YOLO11s-int8-ov",
+        "hub": "huggingface"
+      },
+      "scenescape": {
+        "name": "yolo11s-int8",
+        "config": {
+          "type": "detect",
+          "params": {
+            "model": "huggingface/OpenVINO_YOLO11s-int8-ov/yolo11s.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+          }
+        }
+      }
     }
   ],
   "model_config": {
