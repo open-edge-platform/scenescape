@@ -654,8 +654,8 @@ def cameraCalibrate(request, sensor_id):
             'generated_pipeline_url': generated_pipeline_url
           })
 
-      cam_inst.save()
-      return redirect(sceneDetail, scene_id=cam_inst.scene_id)
+      instance = form.save()
+      return redirect(sceneDetail, scene_id=instance.scene_id)
     else:
       log.warning('Form not valid!')
   else:
