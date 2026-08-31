@@ -188,7 +188,7 @@ def _assert_distinct_parent_ids(ids_final, context, hier):
   indirect=True,
   ids=["reid_hier_shared"],
 )
-def test_hierarchy_shared_db_cross_child_merge(
+def test_hierarchy_shared_db_cross_child_merge(demo_scene,
     objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
   """! NEX-T27151: shared DB + retrack → same embedding on C1 then C2 converges
   to one parent ID via shared-DB rematch; shared DB has uuid_count(E)==1.
@@ -276,7 +276,7 @@ def test_hierarchy_shared_db_cross_child_merge(
   indirect=True,
   ids=["reid_hier_children_only"],
 )
-def test_hierarchy_children_share_db_parent_none(
+def test_hierarchy_children_share_db_parent_none(demo_scene,
     objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
   """! NEX-T27152: children share DB (enroll once); parent has no ReID so
   C1↔C2 do not merge via ReID at parent.
@@ -360,7 +360,7 @@ def test_hierarchy_children_share_db_parent_none(
   indirect=True,
   ids=["reid_hier_parent_only"],
 )
-def test_hierarchy_parent_has_db_children_none(
+def test_hierarchy_parent_has_db_children_none(demo_scene,
     objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
   """! NEX-T27153: children have no ReID; parent enrolls forwarded crops on
   query-no-match, then rematches C2 to the same UUID (sequential).
@@ -446,7 +446,7 @@ def test_hierarchy_parent_has_db_children_none(
   indirect=True,
   ids=["reid_hier_partial"],
 )
-def test_hierarchy_partial_db_no_cross_merge(
+def test_hierarchy_partial_db_no_cross_merge(demo_scene,
     objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
   """! NEX-T27154: parent+child1 share reid-a; child2 has no DB → C2 does not
   merge into C1's parent UUID via ReID.
@@ -523,7 +523,7 @@ def test_hierarchy_partial_db_no_cross_merge(
   indirect=True,
   ids=["reid_hier_split"],
 )
-def test_hierarchy_split_dbs_no_cross_merge(
+def test_hierarchy_split_dbs_no_cross_merge(demo_scene,
     objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
   """! NEX-T27155 (negative): child1→reid-a, child2→reid-b; each DB enrolls
   once; parent IDs for C1 vs C2 differ.

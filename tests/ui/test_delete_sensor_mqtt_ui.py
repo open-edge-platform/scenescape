@@ -82,7 +82,7 @@ def getSensorUid(rest, sensor_name):
   # Get the uid of the first result
   return res["results"][0]['uid']
 
-def test_sensor_delete_mqtt(params, record_xml_attribute):
+def test_sensor_delete_mqtt(demo_scene, params, record_xml_attribute):
   '''! This function creates a sensor from the UI and then deletes
   the sensor. After the sensor deletion, the MQTT server should not
   give any response, else the test fails.

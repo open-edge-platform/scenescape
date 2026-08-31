@@ -33,7 +33,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-def test_scene_retrack_disabled_objects_propagate_to_parent(
+def test_scene_retrack_disabled_objects_propagate_to_parent(demo_scene,
     objData, record_xml_attribute, params):
   """! Positive test: with retrack=False, objects from the child scene still
   appear on the parent regulated topic.  They bypass the parent tracker and
@@ -84,7 +84,7 @@ def test_scene_retrack_disabled_objects_propagate_to_parent(
   return
 
 
-def test_scene_retrack_disabled_preserves_child_object_ids(
+def test_scene_retrack_disabled_preserves_child_object_ids(demo_scene,
     objData, record_xml_attribute, params):
   """! Positive test: with retrack=False, object IDs published on the parent's
   regulated topic match the IDs from the child scene.  This verifies that
@@ -143,7 +143,7 @@ def test_scene_retrack_disabled_preserves_child_object_ids(
   return
 
 
-def test_scene_retrack_enabled_assigns_new_ids_to_child_objects(
+def test_scene_retrack_enabled_assigns_new_ids_to_child_objects(demo_scene,
     objData, record_xml_attribute, params):
   """! Positive test: with retrack=True, the parent tracker assigns its own
   tracking IDs to objects received from the child scene.  The IDs seen on
@@ -202,7 +202,7 @@ def test_scene_retrack_enabled_assigns_new_ids_to_child_objects(
   return
 
 
-def test_scene_retrack_toggle_changes_id_behaviour(
+def test_scene_retrack_toggle_changes_id_behaviour(demo_scene,
     objData, record_xml_attribute, params):
   """! Positive test: with continuous object publishing, toggling retrack
   from True to False causes the parent to switch from assigning new tracking
@@ -289,7 +289,7 @@ def test_scene_retrack_toggle_changes_id_behaviour(
   return
 
 
-def test_external_topic_payload_has_required_fields(objData, record_xml_attribute, params):
+def test_external_topic_payload_has_required_fields(demo_scene, objData, record_xml_attribute, params):
   """! Verify that DATA_EXTERNAL messages published for a child scene contain
   the required top-level fields (id, timestamp, name, objects) and that each
   object entry contains id, translation (three finite floats), and type.
@@ -372,7 +372,7 @@ def test_external_topic_payload_has_required_fields(objData, record_xml_attribut
   return
 
 
-def test_external_topic_translations_reach_parent_regulated(
+def test_external_topic_translations_reach_parent_regulated(demo_scene,
     objData, record_xml_attribute, params):
   """! Verify that object translations from DATA_EXTERNAL (child scene space)
   reach the parent regulated topic after the coordinate transform.  With
@@ -488,7 +488,7 @@ def test_external_topic_translations_reach_parent_regulated(
   return
 
 
-def test_external_update_rate_limits_publish_frequency(
+def test_external_update_rate_limits_publish_frequency(demo_scene,
     objData, record_xml_attribute, params):
   """! Verify that the external_update_rate scene setting limits the frequency
   at which DATA_EXTERNAL messages are published.  The child scene rate is set

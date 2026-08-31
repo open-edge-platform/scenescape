@@ -16,7 +16,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def test_camera_deletion_main(params, record_xml_attribute):
+def test_camera_deletion_main(demo_scene, params, record_xml_attribute):
   """! Checks that a camera which is not attached to a scene can be deleted.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.

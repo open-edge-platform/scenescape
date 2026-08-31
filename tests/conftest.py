@@ -15,12 +15,14 @@ Compose stack runs at a time.  Tests are sorted by profile so the
 stack is only restarted when the required profile changes.
 """
 
+import contextlib
 import logging
 import os
 import re
 import socket
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from dataclasses import dataclass
@@ -1082,21 +1084,155 @@ DEMO_SCENE_CAMERAS = ("camera1", "camera2", "camera3")
 DEMO_CAMERA_TRANSFORM_TYPE = "3d-2d point correspondence"
 DEMO_CAMERA_TRANSFORMS = [278.0, 61.0, 621.0, 132.0, 559.0, 460.0, 66.0, 289.0,
                           0.1, 5.38, 3.04, 5.35, 3.05, 2.42, 0.1, 2.45]
-# Seconds to wait for the scene controller to observe a new scene.
+# Seconds to wait for a REST object to become readable.
 _SCENE_READY_TIMEOUT = 30
+# Seconds to wait for the manager to announce a change on CMD_DATABASE.
+_DB_NOTIFY_TIMEOUT = 20
+# Seconds to wait for a deleted name to disappear from the database.
+_DELETE_SETTLE_TIMEOUT = 15
+
+
+def _rest_results(getter, filter_params):
+  """Return the "results" list of a REST list call, or [] when it fails.
+
+  The manager returns an empty list for unsupported filter keys, so a
+  failed lookup can never be mistaken for "everything matches".
+  """
+  try:
+    response = getter(filter_params)
+  except Exception as exc:
+    logger.warning("scene_factory REST lookup %s failed: %s", filter_params, exc)
+    return []
+  if not response:
+    return []
+  try:
+    return response.get('results', []) or []
+  except AttributeError:
+    return []
 
 
 def _wait_for_scene(rest, uid, timeout=_SCENE_READY_TIMEOUT):
-  """Block until *uid* is readable over REST, so the controller has it too."""
+  """Block until scene *uid* is readable over REST.
+
+  REST readability only proves the manager committed the scene; use
+  "_database_watcher" to confirm the controller was told about it.
+  """
   deadline = time.monotonic() + timeout
-  while time.monotonic() < deadline:
+  while True:
     try:
       if rest.getScene(uid):
         return True
     except Exception:
       pass
+    if time.monotonic() >= deadline:
+      return False
     time.sleep(0.5)
-  return False
+
+
+def _wait_for_cameras(rest, scene_uid, cameras, timeout=_SCENE_READY_TIMEOUT):
+  """Block until every camera is attached to *scene_uid* and calibrated.
+
+  "CamSerializer" derives "transforms" from the camera's scene link and
+  "NonNullSerializer" drops the key entirely when it is None, so the
+  presence of a non-empty "transforms" is the reliable signal that the
+  calibration was accepted.  Tests that assert against calibrated cameras
+  depend on this having happened before they run.
+
+  @return   list    Names of cameras that never became ready.
+  """
+  deadline = time.monotonic() + timeout
+  pending = list(cameras)
+  while True:
+    for name in list(pending):
+      for cam in _rest_results(rest.getCameras, {'name': name}):
+        if cam.get('scene') == scene_uid and cam.get('transforms'):
+          pending.remove(name)
+          break
+    if not pending or time.monotonic() >= deadline:
+      return pending
+    time.sleep(0.5)
+
+
+def _wait_until_absent(getter, name, timeout=_DELETE_SETTLE_TIMEOUT):
+  """Block until no object called *name* is returned by *getter*."""
+  deadline = time.monotonic() + timeout
+  while True:
+    if not _rest_results(getter, {'name': name}):
+      return True
+    if time.monotonic() >= deadline:
+      return False
+    time.sleep(0.5)
+
+
+@contextlib.contextmanager
+def _database_watcher(params):
+  """Yield an event set whenever the manager announces a database change.
+
+  The scene controller only reloads its scenes and cameras when the manager
+  announces a change on "CMD_DATABASE".  Waiting for that announcement is
+  the only signal a test has that the controller knows about a REST change.
+
+  Yields None when the broker cannot be reached or subscribed to.  Callers
+  then skip the notification waits instead of burning a timeout per REST
+  call; the REST readiness checks still guarantee the data is committed,
+  they just cannot confirm the controller caught up.
+  """
+  from scene_common.mqtt import PubSub
+
+  received = threading.Event()
+  subscribed = threading.Event()
+  topic = PubSub.formatTopic(PubSub.CMD_DATABASE)
+
+  def _on_database(mqttc, obj, msg):
+    received.set()
+
+  def _on_connected(mqttc, obj, flags, rc):
+    if rc == 0:
+      mqttc.addCallback(topic, _on_database)
+
+  def _on_subscribed(mqttc, obj, mid, granted_qos):
+    subscribed.set()
+
+  client = None
+  watcher = None
+  try:
+    client = PubSub(params['auth'], None, params['rootcert'],
+                    params['broker_url'], params['broker_port'])
+    client.onConnect = _on_connected
+    client.onSubscribe = _on_subscribed
+    client.connect()
+    client.loopStart()
+    if subscribed.wait(_DB_NOTIFY_TIMEOUT):
+      watcher = received
+    else:
+      logger.warning("scene_factory could not subscribe to CMD_DATABASE; "
+                     "scene creation cannot confirm controller readiness")
+  except Exception as exc:
+    logger.warning("scene_factory could not watch CMD_DATABASE: %s", exc)
+  try:
+    yield watcher
+  finally:
+    if client is not None:
+      try:
+        client.loopStop()
+      except Exception:
+        pass
+
+
+def _await_database(watcher, action, description):
+  """Run *action* and wait for the manager to announce it on CMD_DATABASE.
+
+  The event is cleared immediately before the call so a notification left
+  over from an earlier mutation can never satisfy this wait.
+  """
+  if watcher is None:
+    return action()
+  watcher.clear()
+  result = action()
+  if not watcher.wait(_DB_NOTIFY_TIMEOUT):
+    logger.warning("scene_factory saw no CMD_DATABASE notification after %s",
+                   description)
+  return result
 
 
 @pytest.fixture(scope="function")
@@ -1115,20 +1251,23 @@ def scene_factory(params):
   created_scenes = []
   created_cameras = []
 
-  def _delete_by_name(getter, deleter, name):
+  def _delete_by_name(getter, deleter, kind, name):
     """Remove pre-existing objects called *name* so creation cannot clash."""
-    try:
-      existing = getter({'name': name}).get('results', [])
-    except Exception:
-      return
-    for obj in existing:
+    for obj in _rest_results(getter, {'name': name}):
       try:
         deleter(obj['uid'])
-      except Exception:
-        pass
+      except Exception as exc:
+        logger.warning("scene_factory could not delete existing %s '%s' (%s): %s",
+                       kind, name, obj.get('uid'), exc)
+    assert _wait_until_absent(getter, name), \
+      f"scene_factory could not clear existing {kind} named '{name}'"
 
   def _factory(name, cameras=(), map_image=None, replace=False, **fields):
     """Create a scene and return the created scene object.
+
+    Every REST mutation is paired with a wait for the manager's
+    CMD_DATABASE announcement, so the scene controller has been told about
+    the scene and its cameras by the time this returns.
 
     @param  name        Scene name.
     @param  cameras     Camera names to attach to the scene.
@@ -1136,11 +1275,6 @@ def scene_factory(params):
     @param  replace     Delete pre-existing objects with the same names first.
     @param  fields      Extra fields forwarded to the scene create call.
     """
-    if replace:
-      _delete_by_name(rest.getScenes, rest.deleteScene, name)
-      for camera in cameras:
-        _delete_by_name(rest.getCameras, rest.deleteCamera, camera)
-
     payload = {'name': name}
     payload.update(fields)
     if map_image:
@@ -1148,24 +1282,43 @@ def scene_factory(params):
       with open(path, "rb") as handle:
         payload['map'] = (path, handle.read())
 
-    scene = rest.createScene(payload)
-    assert scene, f"scene_factory failed creating '{name}': " \
-      f"{scene.statusCode} {getattr(scene, 'errors', None)}"
-    created_scenes.append(scene['uid'])
+    with _database_watcher(params) as watcher:
+      if replace:
+        # Cameras first: a camera still attached to the old scene keeps the
+        # name reserved and would make the re-create fail.
+        for camera in cameras:
+          _delete_by_name(rest.getCameras, rest.deleteCamera, "camera", camera)
+        _delete_by_name(rest.getScenes, rest.deleteScene, "scene", name)
 
-    for camera in cameras:
-      created = rest.createCamera({
-        'name': camera,
-        'sensor_id': camera,
-        'scene': scene['uid'],
-        'transform_type': DEMO_CAMERA_TRANSFORM_TYPE,
-        'transforms': DEMO_CAMERA_TRANSFORMS,
-      })
-      assert created, f"scene_factory failed creating camera '{camera}': " \
-        f"{created.statusCode} {getattr(created, 'errors', None)}"
-      created_cameras.append(created['uid'])
+      scene = _await_database(watcher, lambda: rest.createScene(payload),
+                              f"creating scene '{name}'")
+      assert scene, f"scene_factory failed creating '{name}': " \
+        f"{scene.statusCode} {getattr(scene, 'errors', None)}"
+      created_scenes.append(scene['uid'])
 
-    _wait_for_scene(rest, scene['uid'])
+      assert _wait_for_scene(rest, scene['uid']), \
+        f"scene_factory: scene '{name}' ({scene['uid']}) never became readable"
+
+      for camera in cameras:
+        created = _await_database(
+          watcher,
+          lambda camera=camera: rest.createCamera({
+            'name': camera,
+            'sensor_id': camera,
+            'scene': scene['uid'],
+            'transform_type': DEMO_CAMERA_TRANSFORM_TYPE,
+            'transforms': DEMO_CAMERA_TRANSFORMS,
+          }),
+          f"creating camera '{camera}'")
+        assert created, f"scene_factory failed creating camera '{camera}': " \
+          f"{created.statusCode} {getattr(created, 'errors', None)}"
+        created_cameras.append(created['uid'])
+
+      unready = _wait_for_cameras(rest, scene['uid'], cameras)
+      assert not unready, \
+        f"scene_factory: cameras {unready} of scene '{name}' were never " \
+        "attached and calibrated"
+
     return scene
 
   yield _factory
@@ -1185,11 +1338,23 @@ def scene_factory(params):
 
 
 @pytest.fixture(scope="function")
-def demo_scene(scene_factory, params):
+def demo_scene(request, scene_factory, params):
   """Provide a freshly created Demo scene and return its UID.
 
   The scene reproduces the seeded demo fixture (map, scale and the
-  ``camera1``-``camera3`` cameras) and is removed again during teardown.
+  "camera1"-"camera3" cameras) and is removed again during teardown.
+
+  Because "Scene.id" is "editable=False" the manager always assigns a
+  random UID, so the historical hardcoded demo UID cannot be recreated.
+  This fixture therefore publishes the real UID to every place tests read a
+  scene id from, and restores the previous values on teardown:
+
+  * "--scene_id" on the pytest config, which is what the "Diagnostic"
+    based functional and UI test classes resolve "params['scene_id']" from.
+  * "common_ui_test_utils.TEST_SCENE_ID", used by UI tests to build scene
+    URLs and element selectors.
+
+  A test only has to declare this fixture; no other wiring is needed.
   """
   scene = scene_factory(
     params['scene_name'],
@@ -1198,4 +1363,19 @@ def demo_scene(scene_factory, params):
     replace=True,
     scale=DEMO_SCENE_SCALE,
   )
-  return scene['uid']
+  uid = scene['uid']
+
+  previous_option = getattr(request.config.option, "scene_id", None)
+  request.config.option.scene_id = uid
+
+  # Only patch the UI helpers when a UI test already imported them.
+  ui_utils = sys.modules.get("common_ui_test_utils")
+  previous_ui_id = getattr(ui_utils, "TEST_SCENE_ID", None) if ui_utils else None
+  if ui_utils is not None:
+    ui_utils.TEST_SCENE_ID = uid
+
+  yield uid
+
+  request.config.option.scene_id = previous_option
+  if ui_utils is not None:
+    ui_utils.TEST_SCENE_ID = previous_ui_id

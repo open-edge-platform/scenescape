@@ -16,7 +16,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 TEST_NAME = 'NEX-T15280'
 
-def test_manual_camera_calibration_api(rest, result_recorder):
+def test_manual_camera_calibration_api(demo_scene, rest, result_recorder):
   """Checks that camera calibration points can be modified through API.
 
     Steps:

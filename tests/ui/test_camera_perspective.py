@@ -36,7 +36,7 @@ def reset_perspective(browser):
     return False
 
 
-def test_cam_perspective_main(params, record_xml_attribute):
+def test_cam_perspective_main(demo_scene, params, record_xml_attribute):
   """! Checks that the camera calibration can be reset.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.

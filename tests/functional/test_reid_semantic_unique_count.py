@@ -15,7 +15,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
   profile=get_reid_profile_module(semantic=True),
 )
 
-def test_reid_semantic_unique_count(params, record_xml_attribute):
+def test_reid_semantic_unique_count(demo_scene, params, record_xml_attribute):
   """! Tests the unique count for each scene when RE-ID with
   semantic classification (age-gender) is enabled.
   @param    params                  Dict of test parameters.

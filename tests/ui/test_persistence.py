@@ -24,7 +24,7 @@ SCALE = 1000
 
 
 @pytest.mark.test_name("NEX-T10393_PAGE_NAVIGATE")
-def test_persistence_on_page_navigate(params, result_recorder):
+def test_persistence_on_page_navigate(demo_scene, params, result_recorder):
   """! Checks that a scene can be created and a camera added.
   @param    params                  Dict of test parameters.
   """
@@ -78,7 +78,7 @@ def test_persistence_on_restart(params, result_recorder):
   browser = Browser()
   try:
     assert common.check_page_login(browser, params)
-    assert common.check_db_status(browser)
+    assert common.check_db_status(browser, scene_name=SCENE_NAME)
 
     def _cleanup_test_artifacts():
       """Remove scene and camera created by the page-navigate test."""

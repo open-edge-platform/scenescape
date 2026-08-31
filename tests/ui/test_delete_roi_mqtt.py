@@ -46,7 +46,7 @@ def getRegionUid(rest, re_name):
   # Get the uid of the first result
   return res["results"][0]['uid']
 
-def test_roi_mqtt(params, record_xml_attribute):
+def test_roi_mqtt(demo_scene, params, record_xml_attribute):
   """! Test the deletion of ROI and verify that the deleted ROI is not publishing any data to MQTT.
   @param    params                  List of test parameters.
   @param    record_xml_attribute    Function for recording test name.

@@ -28,7 +28,7 @@ TEST_SSIM_THRESHOLD = 0.98 # 98% similarity
 
 @pytest.mark.fresh_stack
 @pytest.mark.test_name("NEX-T10426")
-def test_manual_camera_calibration(params, result_recorder):
+def test_manual_camera_calibration(demo_scene, params, result_recorder):
   """! Checks that the camera calibration can be set manually and saved.
   @param    params                  Dict of test parameters.
   @param    result_recorder         Pytest fixture recording the test result.

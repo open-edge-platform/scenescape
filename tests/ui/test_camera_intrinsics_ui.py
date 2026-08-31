@@ -67,7 +67,7 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
       value += step
   return True
 
-def test_camera_intrinsics_main(params, record_xml_attribute):
+def test_camera_intrinsics_main(demo_scene, params, record_xml_attribute):
   """! Checks that the camera parameters in the web UI can be updated and
   that they persist after saving, for both Camera Save buttons.
   @param    params                  Dict of test parameters.
