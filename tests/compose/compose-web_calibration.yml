@@ -44,7 +44,6 @@ services:
       retries: 10
       start_period: 120s
     environment:
-      - "EXAMPLEDB=/home/scenescape/Scenescape/tests/calibrationdb.tar.bz2"
       - "DBHOST=pgserver"
       - "DBPORT=5432"
       - "DBTYPE=postgres"
@@ -52,7 +51,6 @@ services:
       - "SUPASS"
     # web interface needs access to the media files
     volumes:
-      - ./tests/calibrationdb.tar.bz2:/home/scenescape/Scenescape/tests/calibrationdb.tar.bz2
       - vol-media:/workspace/media
       - vol-migrations:/workspace/migrations
     secrets:

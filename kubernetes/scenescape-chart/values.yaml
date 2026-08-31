@@ -199,7 +199,7 @@ datasets:
 sampleData:
   source: https://raw.githubusercontent.com/open-edge-platform/scenescape
   sourceDir: sample_data
-  sourceVersion: main
+  sourceVersion: upload_scenes_with_api # TODO: change before merging
   downloadDataImage:
     repository: docker.io
     name: ubuntu

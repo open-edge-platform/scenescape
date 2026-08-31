@@ -44,7 +44,6 @@ services:
       retries: 10
       start_period: 120s
     environment:
-      - "EXAMPLEDB=/home/scenescape/Scenescape/tests/testdb.tar.bz2"
       - "DBHOST=pgserver"
       - "DBPORT=5432"
       - "DBTYPE=postgres"
@@ -57,7 +56,6 @@ services:
       - "NO_PROXY=${NO_PROXY},.scenescape.intel.com"
     # web interface needs access to the media files
     volumes:
-      - ./tests/testdb.tar.bz2:/home/scenescape/Scenescape/tests/testdb.tar.bz2
       - vol-media:/workspace/media
       - vol-migrations:/workspace/migrations
     secrets:

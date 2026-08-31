@@ -39,13 +39,11 @@ services:
       retries: 10
       start_period: 120s
     environment:
-      - "EXAMPLEDB=/home/scenescape/Scenescape/tests/testdb.tar.bz2"
       - "DBHOST=child1-pgserver"
       - "DBPORT=5432"
       - "DBTYPE=postgres"
       - "SUPASS"
     volumes:
-      - ./tests/testdb.tar.bz2:/home/scenescape/Scenescape/tests/testdb.tar.bz2
       - child1-vol-media:/workspace/media
       - child1-vol-migrations:/workspace/migrations
     secrets:

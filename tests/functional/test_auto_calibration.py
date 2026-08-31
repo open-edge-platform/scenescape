@@ -27,7 +27,6 @@ log = get_logger(__name__)
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_AUTOCALIBRATION,
   auth=AUTH_BROWSER,
-  exampledb="tests/calibrationdb.tar.bz2",
 )
 
 MAX_WAIT = 5
@@ -96,7 +95,7 @@ class AutoCalibration(FunctionalTest):
                intrinsics=None, repo_root=""):
     super().__init__(testName, request, recordXMLAttribute)
     self.scene_name = "Queuing"
-    self.scene_id = '302cf49a-97ec-402d-a324-c5077b280b7b'
+    self.scene_id = self.params['scene_id']
     self.camera_id = "atag-qcam1"
     self.frame = f"{repo_root}/tests/ui/test_media/atag-qcam1-frame.png"
     self.exitCode = 1

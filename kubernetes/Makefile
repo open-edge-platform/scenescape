@@ -211,6 +211,8 @@ demo-scenes:
 		echo "    pip install -r ../tools/upload_scenes/requirements.txt"; \
 		exit 1; \
 	}
+	@echo "Waiting for kubeclient to be ready (so it doesn't miss camera-creation events)..."
+	kubectl rollout status deployment/$(RELEASE)-kubeclient-dep -n $(NAMESPACE) --timeout=300s
 	@echo "Uploading demo scenes from $(DEMO_SCENES_DIR) to $(DEMO_SCENES_URL)..."
 	@AUTH_FILE=$$(mktemp); \
 	trap 'rm -f $$AUTH_FILE' EXIT; \
