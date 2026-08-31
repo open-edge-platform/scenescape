@@ -467,25 +467,11 @@ directly) to keep this behavior.
 `lidar_publisher.py` replays two independent pre-recorded file sequences (the
 `.bin` LiDAR frames and the `.jpg` camera frames) as two branches of one
 `gst-launch-1.0` process, each paced by its own `multifilesrc`/
-`gvafpsthrottle`. Because PointPillars can take several seconds to load and
-compile on first use while the camera branch starts producing frames almost
-immediately, the camera branch would otherwise race ahead of the LiDAR
-branch by a growing number of file-index positions before LiDAR ever
-publishes its first detection.
-
-**Why frame-index pace-gating, not independent per-branch rates:** the
-underlying V2X-Seq-SPD recording captures both sensors at the same ~10Hz, so
-LiDAR file index `i` and camera file index `i` already correspond to the same
-recorded instant - `LIDAR_FRAME_RATE`/`CAM_FRAME_RATE` both default to `10`
-for this reason (`CAM_FRAME_RATE` defaults to `LIDAR_FRAME_RATE`). Because of
-that 1:1 index-to-time correspondence, keeping the two branches' file-index
-lag bounded (this pace gate) is equivalent to keeping them wall-clock
-aligned, i.e. throttling the camera branch down to whatever rate LiDAR
-inference can actually sustain reproduces the original recorded pairing
-instead of pairing a live camera frame with a stale/skipped LiDAR frame from
-a different point in the clip. This only holds because this dataset's two
-sequences are pre-aligned 1:1; it is not a general substitute for real
-independently-clocked sensors (see the note below).
+`gvafpsthrottle`. PointPillars can take several seconds to load and compile
+on first use, while the camera branch starts producing frames almost
+immediately. Without extra coordination, the camera branch would race ahead
+of the LiDAR branch by a growing number of file-index positions before LiDAR
+ever publishes its first detection.
 
 To keep the two recorded sequences aligned, the script:
 
@@ -504,24 +490,39 @@ To keep the two recorded sequences aligned, the script:
   frame in `docker compose logs lidar-stream`, so you can see at a glance
   whether the two streams are keeping pace with each other.
 
+The gate uses **file index**, not independent per-branch rates, because the
+V2X-Seq-SPD recording captured both sensors at the same ~10 Hz. LiDAR file
+index `i` and camera file index `i` already correspond to the same recorded
+instant, which is why `LIDAR_FRAME_RATE` and `CAM_FRAME_RATE` both default to
+`10` (`CAM_FRAME_RATE` defaults to `LIDAR_FRAME_RATE`). Bounding the two
+branches' file-index lag is therefore equivalent to keeping them wall-clock
+aligned: throttling the faster branch to whatever rate the slower branch
+(usually LiDAR inference) can sustain reproduces the original recorded
+pairing, instead of pairing a live camera frame with a stale or skipped LiDAR
+frame from a different point in the clip.
+
+That 1:1 index-to-time correspondence holds only because this dataset's two
+sequences are pre-aligned. It is not a general substitute for real,
+independently-clocked sensors.
+
 **This is purely a recorded-playback artifact and does not apply to real
 sensors.** A real LiDAR unit and a real camera each publish their own
-hardware/NTP-timestamped detections continuously and independently as they
-capture live data - there is no shared "file index"/`multifilesrc` counter to
-keep aligned, and no GPU-model-load-vs-camera-startup race to reconcile,
-since a live LiDAR sensor is already running and producing detections
-continuously well before (and after) any given camera comes online. The
-Scene Controller's per-sensor Hungarian association/fusion already handles
-sensors that start, stop, or report at different rates generically - this
-script-level startup-flush/pace-gate logic exists only to make a
-pre-recorded demo behave sensibly, not because live multi-sensor fusion
-needs it. With the pace gate, `lag` stays bounded to roughly
-`±LIDAR_CAM_LAG_TOLERANCE` once the demo is running; if you see it stuck at
+hardware/NTP-timestamped detections continuously and independently. There is
+no shared file-index / `multifilesrc` counter to keep aligned, and no
+GPU-model-load-vs-camera-startup race to reconcile: a live LiDAR sensor is
+already producing detections well before (and after) any given camera comes
+online. The Scene Controller's per-sensor Hungarian association and fusion
+already handles sensors that start, stop, or report at different rates. The
+script-level startup-flush and pace-gate logic exists only to make a
+pre-recorded demo behave sensibly, not because live multi-sensor fusion needs
+it.
+
+With the pace gate, `lag` stays bounded to roughly
+`±LIDAR_CAM_LAG_TOLERANCE` once the demo is running. If you see it stuck at
 that bound while **both** branches' `fps=` values sit below
-`LIDAR_FRAME_RATE`, that means one branch genuinely can't keep up and is
-holding the other back (see
-[Using GPU acceleration](#using-gpu-acceleration)) - raise the LiDAR to GPU
-or lower the target frame rate rather than letting the two drift apart.
+`LIDAR_FRAME_RATE`, one branch cannot keep up and is holding the other back
+(see [Using GPU acceleration](#using-gpu-acceleration)). Raise the LiDAR to
+GPU or lower the target frame rate rather than letting the two drift apart.
 
 ## Troubleshooting
 
