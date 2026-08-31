@@ -103,9 +103,8 @@ deployment.
 ### (Optional): LiDAR-Intersection fusion demo
 
 A separate, opt-in demo fuses a recorded LiDAR point-cloud stream with a
-recorded camera image sequence. Enable it by adding `LIDAR_DEMO=true`
-demo target, e.g. `make demo LIDAR_DEMO=true`. See
-[Run the LiDAR-Intersection Fusion Demo](../how-to-guides/run-lidar-intersection-demo.md)
+recorded camera image sequence. Run it with the dedicated `make demo-lidar` target.
+See [Run the LiDAR-Intersection Fusion Demo](../how-to-guides/run-lidar-intersection-demo.md)
 for the full setup and scene-import steps.
 
 ## Step 4: Verify a successful deployment

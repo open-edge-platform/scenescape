@@ -61,11 +61,11 @@ index 00000000..ce978a14
 +        self.stdout.write(f"Created Asset3D: {name}")
 +      else:
 +        self.stdout.write(f"Asset3D already exists: {name} (skipped)")
-diff --git a/manager/src/manager/migrations/0003_default_asset3d_objects.py b/manager/src/manager/migrations/0003_default_asset3d_objects.py
+diff --git a/manager/src/manager/migrations/0004_default_asset3d_objects.py b/manager/src/manager/migrations/0004_default_asset3d_objects.py
 new file mode 100644
 index 00000000..3b9fd6f8
 --- /dev/null
-+++ b/manager/src/manager/migrations/0003_default_asset3d_objects.py
++++ b/manager/src/manager/migrations/0004_default_asset3d_objects.py
 @@ -0,0 +1,59 @@
 +# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 +# SPDX-License-Identifier: Apache-2.0
@@ -117,7 +117,7 @@ index 00000000..3b9fd6f8
 +class Migration(migrations.Migration):
 +
 +  dependencies = [
-+    ("manager", "0002_region_visible_singletonsensor_visible_and_more"),
++    ("manager", "0003_add_cached_geometries_to_childscene"),
 +  ]
 +
 +  operations = [

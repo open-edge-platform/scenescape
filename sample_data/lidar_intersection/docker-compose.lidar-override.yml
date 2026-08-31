@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# LiDAR-intersection fusion demo (opt-in). Enable with `LIDAR_DEMO=true`, e.g.:
+# LiDAR-intersection fusion demo (opt-in, dedicated target). Run with:
 #
-#   SUPASS=<password> make demo LIDAR_DEMO=true
+#   SUPASS=<password> make demo-lidar
 #
 # Adds a recorded LiDAR (PointPillars) + camera image-sequence pipeline for
 # the "Lidar Intersection" sample scene. All assets live under
@@ -18,7 +18,7 @@ services:
   # Scenescape's existing Scene Import REST API (POST /api/v1/import-scene/)
   # so no Manager source or DB-fixture changes are needed. Skips the import
   # if a scene with this name already exists (e.g. on a restart without a
-  # volume reset), so it's safe to run on every `make demo LIDAR_DEMO=true`.
+  # volume reset), so it's safe to run on every `make demo-lidar`.
   lidar-scene-init:
     image: alpine:3.23
     networks:
@@ -64,8 +64,10 @@ services:
   # into the shared sample-data volume: LiDAR `velodyne/*.pcd`
   # frames are converted to `velodyne_bin/*.bin` via convert_pcd_to_bin.py
   # (the format DLStreamer's g3dlidarparse expects), and camera `image/*.jpg`
-  # frames are copied through unchanged (no conversion needed). Only the
-  # `image/`/`velodyne/` subdirectories are mounted (not the full `infrastructure-side/` tree).
+  # frames are re-encoded at a lower JPEG quality (same resolution) via
+  # reencode_jpegs.py so decode/detect/preview keep up with CAM_FRAME_RATE.
+  # Only the `image/`/`velodyne/` subdirectories are mounted (not the full
+  # `infrastructure-side/` tree).
   lidar-data-init:
     image: python:3.11-slim
     environment:
@@ -75,19 +77,23 @@ services:
       - no_proxy=${no_proxy},.scenescape.intel.com
       - PCD_VELODYNE_DIR=/src/velodyne
       - PCD_BIN_DIR=/dst/lidar_intersection/velodyne_bin
+      - JPEG_SRC_DIR=/src/image
+      - JPEG_DST_DIR=/dst/lidar_intersection/images
+      - JPEG_QUALITY=${JPEG_QUALITY:-50}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         set -e
-        pip install --no-cache-dir --quiet numpy pypcd4
+        pip install --no-cache-dir --quiet numpy pypcd4 pillow
         mkdir -p /dst/lidar_intersection/velodyne_bin /dst/lidar_intersection/images
         python3 /convert_pcd_to_bin.py
-        cp /src/image/*.jpg /dst/lidar_intersection/images/
+        python3 /reencode_jpegs.py
         echo 'lidar_intersection data ready'
     volumes:
       - ${LIDAR_RAW_DATASET_DIR:-./sample_data/lidar_intersection/V2X-Seq-SPD-Example}/infrastructure-side/image:/src/image:ro
       - ${LIDAR_RAW_DATASET_DIR:-./sample_data/lidar_intersection/V2X-Seq-SPD-Example}/infrastructure-side/velodyne:/src/velodyne:ro
       - ./sample_data/lidar_intersection/convert_pcd_to_bin.py:/convert_pcd_to_bin.py:ro
+      - ./sample_data/lidar_intersection/reencode_jpegs.py:/reencode_jpegs.py:ro
       - vol-sample-data:/dst
     restart: "no"
     pids_limit: 1000
@@ -137,6 +143,8 @@ services:
         condition: service_started
       ntpserv:
         condition: service_started
+      lidar-scene-init:
+        condition: service_completed_successfully
       lidar-data-init:
         condition: service_completed_successfully
       lidar-model-init:
@@ -168,6 +176,12 @@ services:
       - CAM_DEVICE=CPU
       - CAM_SCORE_THRESHOLD=0.8
       # - CAM_DETECTION_LABELS=vehicle,cyclist
+
+      ### Stream sync — override as needed:
+      # Max frames one branch may run ahead of the other before it is paced
+      # back (keeps the LiDAR/camera `lag` bounded); raise it to allow more
+      # slack, lower it (min 1) to keep the two branches tighter.
+      # - LIDAR_CAM_LAG_TOLERANCE=2
     volumes:
       - ./sample_data/lidar_intersection/lidar_publisher.py:/home/pipeline-server/user_scripts/lidar_publisher.py:ro
       - ./sample_data/lidar_intersection/model-proc:/home/pipeline-server/videos/lidar_intersection/model-proc:ro
