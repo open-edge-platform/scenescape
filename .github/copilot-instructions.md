@@ -37,15 +37,15 @@ Skills are loaded on-demand based on task context to optimize token usage:
 **Pre-Cached (Always Available)**:
 
 - `copilot-instructions.md` (this file, always loaded)
-- `python.md` (high frequency, pre-cached)
+- `.github/skills/python/SKILL.md` (high frequency, pre-cached)
 - `documentation-how.md` (high frequency, pre-cached)
 
 **Loaded Automatically on Demand**:
 
-- `testing.md` - Loaded when task involves tests or `test` keyword detected
-- `javascript.md` - Loaded when `.js` files are being edited
-- `shell.md` - Loaded when `.sh` files are being edited
-- `makefile.md` - Loaded when Makefile or build system changes
+- `.github/skills/testing/SKILL.md` (and any `references/*.md` it points to) - Loaded when task involves tests or `test` keyword detected
+- `.github/skills/javascript/SKILL.md` - Loaded when `.js` files are being edited
+- `.github/skills/shell/SKILL.md` - Loaded when `.sh` files are being edited
+- `.github/skills/makefile/SKILL.md` - Loaded when Makefile or build system changes
 
 Skills are detected and loaded based on file type, task keywords, and context signals. Explicitly request a skill if the auto-detection doesn't load it.
 
