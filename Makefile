@@ -43,7 +43,7 @@ DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/docker-compose-dl-stre
 DEMO_WAIT_SECONDS ?= "0"
 # Host directory with one exported ZIP per demo scene
 DEMO_SCENES_DIR ?= sample_data/demo_scenes
-DEMO_SCENES_URL ?= https://localhost/api/v1
+DEMO_SCENES_URL ?= https://localhost:$(if $(HTTPS_PORT),$(HTTPS_PORT),443)/api/v1
 # The demo certificate is issued for web.scenescape.intel.com, not for localhost.
 # Override with --rootcert <ca.pem> when uploading to a properly named host.
 DEMO_SCENES_TLS ?= --insecure

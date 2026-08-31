@@ -63,6 +63,15 @@ class SceneScapeClient:
   def create_calibration_marker(self, marker):
     return self._request("POST", "/calibrationmarker", json=marker)
 
+  def calibration_marker_exists(self, marker_id):
+    try:
+      self._request("GET", f"/calibrationmarker/{marker_id}")
+      return True
+    except requests.HTTPError as e:
+      if e.response is not None and e.response.status_code == 404:
+        return False
+      raise
+
   def import_scene(self, zip_path):
     """Posts a scene archive and returns the server's import summary."""
     with open(zip_path, "rb") as archive:
@@ -143,8 +152,11 @@ def upload_calibration_markers(client, scene):
 
   for marker in markers:
     apriltag_id = str(marker["apriltag_id"])
+    marker_id = f"{uid}_{apriltag_id}"
+    if client.calibration_marker_exists(marker_id):
+      continue
     client.create_calibration_marker({
-      "marker_id": f"{uid}_{apriltag_id}",
+      "marker_id": marker_id,
       "apriltag_id": apriltag_id,
       "dims": marker["dims"],
       "scene": uid,
@@ -160,10 +172,12 @@ def upload_scene(client, scene, zip_path):
     log.error(f"Failed to import scene '{name}': {summary['scene']}")
     return False
 
+  failed = False
   for key in RESOURCE_KEYS:
     if summary.get(key):
-      log.warning(f"Scene '{name}' reported problems with {key}: {summary[key]}")
-  return True
+      log.error(f"Failed to import {key} for scene '{name}': {summary[key]}")
+      failed = True
+  return not failed
 
 
 def upload_one(client, zip_path):
@@ -179,7 +193,9 @@ def upload_one(client, zip_path):
   name = scene["name"]
   existing_uid = client.scene_uid(name)
   if existing_uid:
-    log.info(f"Scene '{name}' already exists, skipping {zip_path}")
+    log.info(f"Scene '{name}' already exists, reconciling assets/markers for {zip_path}")
+    if not upload_assets(client, scene) or not upload_calibration_markers(client, scene):
+      return None
     return existing_uid
 
   if not upload_assets(client, scene) \

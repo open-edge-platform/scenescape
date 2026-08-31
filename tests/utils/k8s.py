@@ -490,7 +490,7 @@ class K8sManager:
     logger.info("Web port: %d", self.web_port)
     return
 
-  def _upload_baseline_scenes(self, scene_archives=("demo",)):
+  def _upload_baseline_scenes(self, scene_archives=("demo", "retail_and_queuing")):
     """Upload the baseline scenes over REST and snapshot the resulting DB.
 
     Uses the "web.scenescape.intel.com" hostname (patched to the port-forward

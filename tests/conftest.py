@@ -810,6 +810,7 @@ _PROFILE_SCENE_ARCHIVES = {
   "reid": ("retail_and_queuing",),
   "reid_qdrant": ("retail_and_queuing",),
   "reid_semantic": ("retail_and_queuing",),
+  "reid_semantic_qdrant": ("retail_and_queuing",),
   "full_stack_autocalibration_no_apriltags": ("retail_and_queuing",),
   "stability": ("retail_and_queuing",),
 }
