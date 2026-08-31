@@ -473,6 +473,20 @@ immediately, the camera branch would otherwise race ahead of the LiDAR
 branch by a growing number of file-index positions before LiDAR ever
 publishes its first detection.
 
+**Why frame-index pace-gating, not independent per-branch rates:** the
+underlying V2X-Seq-SPD recording captures both sensors at the same ~10Hz, so
+LiDAR file index `i` and camera file index `i` already correspond to the same
+recorded instant - `LIDAR_FRAME_RATE`/`CAM_FRAME_RATE` both default to `10`
+for this reason (`CAM_FRAME_RATE` defaults to `LIDAR_FRAME_RATE`). Because of
+that 1:1 index-to-time correspondence, keeping the two branches' file-index
+lag bounded (this pace gate) is equivalent to keeping them wall-clock
+aligned, i.e. throttling the camera branch down to whatever rate LiDAR
+inference can actually sustain reproduces the original recorded pairing
+instead of pairing a live camera frame with a stale/skipped LiDAR frame from
+a different point in the clip. This only holds because this dataset's two
+sequences are pre-aligned 1:1; it is not a general substitute for real
+independently-clocked sensors (see the note below).
+
 To keep the two recorded sequences aligned, the script:
 
 - Holds the camera branch back until LiDAR's own first frame is processed
