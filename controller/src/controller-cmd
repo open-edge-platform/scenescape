@@ -117,13 +117,14 @@ def build_argparser():
                       help="Enable pose-based person bounding box adjustment before world projection.")
   parser.add_argument("--publish-external",
                       dest="publish_external",
-                      action="store_true",
+                      action=argparse.BooleanOptionalAction,
                       default=_publish_external_default_enabled(),
                       help=(
                         "Publish scenescape/external/{scene_uid}/+ for scenes without a "
                         "local parent (remote-child hierarchy export). Local children "
                         f"with scene.parent always publish. Off by default; also enabled "
-                        f"when {PUBLISH_EXTERNAL_ENV_VAR}=true."))
+                        f"when {PUBLISH_EXTERNAL_ENV_VAR}=true. Use --no-publish-external "
+                        "to force off when the env var is set."))
   return parser
 
 def main():

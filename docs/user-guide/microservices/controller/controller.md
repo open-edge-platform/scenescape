@@ -54,11 +54,12 @@ values are better.
 
 `--visibility_topic`: Specifies the topic for publishing visibility information, which includes the visibility of objects in cameras. Options are `unregulated`, `regulated`, or `none`. Default is `regulated`.
 
-`--publish-external`: When set, publish `scenescape/external/{scene_uid}/+` for scenes
-that have no local parent (remote-child hierarchy export). Local children with
-`scene.parent` always publish. Off by default; can also be enabled with
-`CONTROLLER_PUBLISH_EXTERNAL=true`. Leave unset on standalone / black-box controllers
-to avoid hierarchy hot-path cost (ADR 16).
+`--publish-external` / `--no-publish-external`: When enabled, publish
+`scenescape/external/{scene_uid}/+` for scenes that have no local parent
+(remote-child hierarchy export). Local children with `scene.parent` always publish.
+Off by default; can also be enabled with `CONTROLLER_PUBLISH_EXTERNAL=true`.
+Use `--no-publish-external` to force off when the env var is set. Leave disabled on
+standalone / black-box controllers to avoid hierarchy hot-path cost (ADR 16).
 
 `--pose-adjustment`: Enables pose-based bounding box adjustment before world projection. When enabled, the controller uses pose keypoints (e.g. from a `yolo11n-pose` model) to refine the bounding box used for projecting detections into world coordinates. This is disabled by default. Cannot be used together with Extended ReID (cross-camera re-identification via the configured vector backend); see [Extended Re-ID](./Extended-ReID.md) for details. Can also be enabled via the `CONTROLLER_ENABLE_POSE_ADJUSTMENT` environment variable set to `true`. Requires the DL Streamer video pipeline to use a pose estimation model that provides keypoint data. See the [DL Streamer Pipeline Server documentation](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for pipeline setup.
 
