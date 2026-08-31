@@ -121,6 +121,11 @@ services:
         /run.sh",
       ]
 
+  # Mount the InfluxDB admin token so the manager's NLQ API can authenticate to InfluxDB.
+  web:
+    secrets:
+      - influxdb2-admin-token
+
 #  nginx:
 #    image: nginx:1.27-alpine
 #    container_name: nginx-reverse-proxy
