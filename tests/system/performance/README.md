@@ -2,6 +2,11 @@
 
 This test checks whether the system's performance holds up over a long run.
 
+## Minimum hardware requirements
+
+- CPU: Intel Core 11th Gen or better
+- RAM: 8GB
+
 ## Description
 
 Starts Scenescape and every 60 seconds samples:
