@@ -117,13 +117,13 @@ class K8sScenescapeEnv:
 
   def restore_db(self):
     """Restore the database to baseline state via kubectl exec."""
-    web_pod = self._get_pod_name(f"{self.release_name}-web")
+    web_pod = _get_pod_name(self.kubeconfig, self.namespace, f"{self.release_name}-web")
     manage = "$SCENESCAPE_HOME/manage.py"
 
-    self._kubectl_exec(web_pod, f"python {manage} flush --no-input")
-    self._kubectl_exec(web_pod, f"python {manage} loaddata {BASELINE_PATH}")
-    self._kubectl_exec(
-      web_pod,
+    _kubectl_exec(self.kubeconfig, self.namespace, web_pod, f"python {manage} flush --no-input")
+    _kubectl_exec(self.kubeconfig, self.namespace, web_pod, f"python {manage} loaddata {BASELINE_PATH}")
+    _kubectl_exec(
+      self.kubeconfig, self.namespace, web_pod,
       f"find -L /run/secrets -name '*.auth'"
       f"  -exec python {manage} createuser --skip-existing {{}} \\;"
       f" && DJANGO_SUPERUSER_PASSWORD=$SUPASS"
@@ -131,7 +131,7 @@ class K8sScenescapeEnv:
       f"    --no-input --username=admin"
       f"    --email=admin@domain.com 2>/dev/null || true",
     )
-    self._kubectl_exec(web_pod, f"python {manage} updatedbstatus --ready")
+    _kubectl_exec(self.kubeconfig, self.namespace, web_pod, f"python {manage} updatedbstatus --ready")
     logger.info("Database restored.")
 
     # Restart scene controller to refresh cache.
@@ -148,14 +148,6 @@ class K8sScenescapeEnv:
       "--timeout=120s",
     ])
     logger.info("Scene controller restarted and ready.")
-
-  def _get_pod_name(self, app_label):
-    """Get the first running pod name for a given app label."""
-    return _get_pod_name(self.kubeconfig, self.namespace, app_label)
-
-  def _kubectl_exec(self, pod, command):
-    """Execute a shell command inside a pod."""
-    _kubectl_exec(self.kubeconfig, self.namespace, pod, command)
 
 def _image_exists(ref: str) -> bool:
   try:
