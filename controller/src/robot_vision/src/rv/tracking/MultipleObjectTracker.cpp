@@ -306,7 +306,7 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
   // Sequential assignment phase to avoid race conditions
   for (size_t trackIdx = 0; trackIdx < tracks.size(); ++trackIdx)
   {
-    auto matches = matchesPerTrack[trackIdx];
+    auto &matches = matchesPerTrack[trackIdx];
     if (matches.empty())
     {
       continue;
