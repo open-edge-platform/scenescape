@@ -29,6 +29,7 @@ from tests.utils.profiles import FULL_STACK
 import tests.common_test_utils as common
 
 from tests.functional.common_retrack import RetrackTest
+import pytest
 
 log = get_logger(__name__)
 
@@ -159,8 +160,9 @@ def _phase2_drain_tracker(obj_data, client, cam_topic, regulated_msgs, lock):
     "PASS: tracker objects dropped to zero after receiving empty detections")
 
 
+@pytest.mark.test_name("NEX-T10544")
 def test_tracker_objects_drop_to_zero_with_empty_detections(
-    objData, record_xml_attribute, params):
+    objData, params):
   """! Verify that the tracker drops all tracked objects to zero when the
   camera sends an empty detection list after a period of active tracking.
 
@@ -174,11 +176,9 @@ def test_tracker_objects_drop_to_zero_with_empty_detections(
   MAX_WAIT seconds, confirming the tracker cleared all tracks.
 
   @param    objData                 Pytest fixture: object payload template.
-  @param    record_xml_attribute    Pytest fixture for XML result tagging.
   @param    params                  Dict of functional-test parameters.
   """
   TEST_NAME = "NEX-T10544"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
   client = None
