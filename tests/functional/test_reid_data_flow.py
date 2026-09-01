@@ -236,7 +236,8 @@ def trigger_track_pruning(pubsub, topic_str, camera_id):
   time.sleep(8)
 
 
-def test_reid_no_metadata(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T19883")
+def test_reid_no_metadata(params):
   """
   Test Reid data flow with NO metadata (baseline scenario).
 
@@ -244,11 +245,9 @@ def test_reid_no_metadata(params, record_xml_attribute):
   and no reid vectors are stored in the ReID backend.
 
   @param params  Test parameters from pytest fixture
-  @param record_xml_attribute  Pytest fixture for recording test metadata
   """
   pytest.skip("Test is unstable")
   TEST_NAME = "NEX-T19883-NO-METADATA"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
 
   exit_code = 1
@@ -302,7 +301,8 @@ def test_reid_no_metadata(params, record_xml_attribute):
   assert exit_code == 0, "No metadata test failed"
 
 
-def test_reid_only_metadata(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T19883")
+def test_reid_only_metadata(params):
   """
   Test Reid data flow with REID ONLY metadata (no semantic attributes).
 
@@ -310,11 +310,9 @@ def test_reid_only_metadata(params, record_xml_attribute):
   in the ReID backend without semantic metadata.
 
   @param params  Test parameters from pytest fixture
-  @param record_xml_attribute  Pytest fixture for recording test metadata
   """
   pytest.skip("Test is unstable")
   TEST_NAME = "NEX-T19883-REID-ONLY"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
 
   exit_code = 1
@@ -395,7 +393,8 @@ def test_reid_only_metadata(params, record_xml_attribute):
   assert exit_code == 0, "Reid-only test failed"
 
 
-def test_reid_semantic_only_metadata(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T19883")
+def test_reid_semantic_only_metadata(params):
   """
   Test Reid data flow with SEMANTIC ONLY metadata (no reid embeddings).
 
@@ -404,11 +403,9 @@ def test_reid_semantic_only_metadata(params, record_xml_attribute):
   Note: This test is independent and does not rely on previous test state.
 
   @param params  Test parameters from pytest fixture
-  @param record_xml_attribute  Pytest fixture for recording test metadata
   """
   pytest.skip("Test is unstable")
   TEST_NAME = "NEX-T19883-SEMANTIC-ONLY"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
 
   exit_code = 1
@@ -481,7 +478,8 @@ def test_reid_semantic_only_metadata(params, record_xml_attribute):
   assert exit_code == 0, "Semantic-only test failed"
 
 
-def test_reid_combined_metadata(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T19883")
+def test_reid_combined_metadata(params):
   """
   Test Reid data flow with REID + SEMANTIC metadata (complete metadata).
 
@@ -489,11 +487,9 @@ def test_reid_combined_metadata(params, record_xml_attribute):
   processed together and stored in the ReID backend with full metadata.
 
   @param params  Test parameters from pytest fixture
-  @param record_xml_attribute  Pytest fixture for recording test metadata
   """
   pytest.skip("Test is unstable")
   TEST_NAME = "NEX-T19883-COMBINED"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
 
   exit_code = 1
