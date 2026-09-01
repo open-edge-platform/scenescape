@@ -32,7 +32,7 @@ Derived from the epic scope, the MVP feature "Not in scope" list, and the ADR/de
 - Shared demo Docker Compose integration (Scenescape + ViPPET + DLSPS 2.0 + shared model volume + shared Model Downloader).
 - Backward-compatibility validation of the legacy static-JSON pipeline flow.
 - Integration documentation.
-- *(Stretch)* Sensor/Stream Manager client for camera discovery.
+- *(Stretch)* Sensor Manager client for camera discovery.
 
 **Already completed (2026.2 release) — not part of this MVP:**
 
@@ -56,7 +56,7 @@ Derived from the epic scope, the MVP feature "Not in scope" list, and the ADR/de
 - Client libraries own transport/auth/certs, typed API, schema validation, bounded retries +
   backoff, structured logging, OTEL spans, version negotiation, and shipped test doubles
   (per design §5.3, §5.4.1). Recommended location analyzed below.
-- Wire-level API shapes for ViPPET / DLSPS 2.0 / Stream Manager are owned by those teams; client
+- Wire-level API shapes for ViPPET / DLSPS 2.0 / Sensor Manager are owned by those teams; client
   libraries absorb the wire detail behind a stable typed Python API.
 
 ## Client-library location — analysis and recommendation
@@ -74,7 +74,7 @@ This section reconsiders the location against four aspects: the base-image blast
   `msgpack`, `setuptools`, `wheel`.
 
 **Aspect 1 — base-image stability / blast radius.** `scene_common` is a *stable base*. Client
-libraries to **external** services (ViPPET, DLSPS 2.0, Stream Manager) are, by contrast, among the
+libraries to **external** services (ViPPET, DLSPS 2.0, Sensor Manager) are, by contrast, among the
 most volatile code in this effort — their wire contracts are still owned and evolving on the OEP
 side. Putting volatile external-integration code (and its dependencies) into the base image means
 every change re-touches the layer all services build on, and a late-in-cycle client fix forces a
@@ -139,7 +139,7 @@ in **Manager** (the consumer), following the existing `*_client.py` convention �
 pieces (transport base, shared data models, test-double helpers) in `scene_common`. This keeps the
 stable base image lean, confines the ~50–90 MB OTEL/gRPC footprint to the one service that needs it,
 and aligns with the pattern already in the codebase. Revisit promotion to a standalone package
-(Option B) only if/when a second service (e.g. Auto Camera Calibration or Mapping consuming Stream
+(Option B) only if/when a second service (e.g. Auto Camera Calibration or Mapping consuming Sensor
 Manager) needs the same clients. This refines design §5.4.1 (which listed candidates A/B/C as open);
 the codebase evidence resolves it to C.
 
@@ -149,7 +149,7 @@ the codebase evidence resolves it to C.
    — subclassing `scene_common`'s `RESTClient` and composed via `client_factory` (Option C above);
    shared low-dep pieces stay in `scene_common`; promote to a standalone package later only if a
    second service needs them.
-2. **S5 scope:** pipeline lifecycle orchestration (incl. auto-start) stays a **standalone story**.
+2. **[ITEP-96066 Orchestration](https://jira.devtools.intel.com/browse/ITEP-96066) scope:** pipeline lifecycle orchestration (incl. auto-start) stays a **standalone story**.
 3. **Auto-start default:** `auto_start` defaults to **enabled** to preserve today's behavior
    (currently there is no start/stop — all pipelines start automatically).
 
@@ -157,20 +157,20 @@ the codebase evidence resolves it to C.
 
 | # | Summary | Type | Depends on |
 |---|---------|------|------------|
-| S1 | ViPPET client library (REST pull of pipeline list) | Story | — |
-| S2 | DLSPS 2.0 client library (pipeline CRUD + start/stop) | Story | — |
-| S3 | Scene-level pipeline-to-camera mapping (backend persistence) | Story | S1 |
-| S4 | Manager UI: load pipelines, map to cameras, lifecycle + monitor | Story | S1, S2, S3, S5 |
-| S5 | Pipeline lifecycle orchestration wiring (incl. auto-start, default on) | Story | S2, S3 |
-| S6 | Shared demo Docker Compose integration | Story | S1, S2, S4 |
-| S7 | Backward-compatibility validation | Story | S4, S5 |
-| S8 | Integration documentation | Story | S4, S5, S6 |
-| S9 | *(Stretch)* Stream/Sensor Manager client (camera discovery) | Story | — |
-| S10 | Update existing skills for the MLOps flow (placeholder) | Story | S1, S2, S3, S4, S5 |
+| [ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062) | ViPPET client library (REST pull of pipeline list) | Story | — |
+| [ITEP-96063 DLSPS client](https://jira.devtools.intel.com/browse/ITEP-96063) | DLSPS 2.0 client library (pipeline CRUD + start/stop) | Story | — |
+| [ITEP-96064 Mapping](https://jira.devtools.intel.com/browse/ITEP-96064) | Scene-level pipeline-to-camera mapping (backend persistence) | Story | [ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062) |
+| [ITEP-96065 UI](https://jira.devtools.intel.com/browse/ITEP-96065) | Manager UI: load pipelines, map to cameras, lifecycle + monitor | Story | [ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062), [ITEP-96063 DLSPS client](https://jira.devtools.intel.com/browse/ITEP-96063), [ITEP-96064 Mapping](https://jira.devtools.intel.com/browse/ITEP-96064), [ITEP-96066 Orchestration](https://jira.devtools.intel.com/browse/ITEP-96066) |
+| [ITEP-96066 Orchestration](https://jira.devtools.intel.com/browse/ITEP-96066) | Pipeline lifecycle orchestration wiring (incl. auto-start, default on) | Story | [ITEP-96063 DLSPS client](https://jira.devtools.intel.com/browse/ITEP-96063), [ITEP-96064 Mapping](https://jira.devtools.intel.com/browse/ITEP-96064) |
+| [ITEP-96067 Demo compose](https://jira.devtools.intel.com/browse/ITEP-96067) | Shared demo Docker Compose integration | Story | [ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062), [ITEP-96063 DLSPS client](https://jira.devtools.intel.com/browse/ITEP-96063), [ITEP-96065 UI](https://jira.devtools.intel.com/browse/ITEP-96065) |
+| [ITEP-96068 Back-compat](https://jira.devtools.intel.com/browse/ITEP-96068) | Backward-compatibility validation | Story | [ITEP-96065 UI](https://jira.devtools.intel.com/browse/ITEP-96065), [ITEP-96066 Orchestration](https://jira.devtools.intel.com/browse/ITEP-96066) |
+| [ITEP-96069 Docs](https://jira.devtools.intel.com/browse/ITEP-96069) | Integration documentation | Story | [ITEP-96065 UI](https://jira.devtools.intel.com/browse/ITEP-96065), [ITEP-96066 Orchestration](https://jira.devtools.intel.com/browse/ITEP-96066), [ITEP-96067 Demo compose](https://jira.devtools.intel.com/browse/ITEP-96067) |
+| [ITEP-96070 Stretch: Sensor Mgr](https://jira.devtools.intel.com/browse/ITEP-96070) | *(Stretch)* Sensor Manager client (camera discovery) | Story | — |
+| [ITEP-96071 Skills update](https://jira.devtools.intel.com/browse/ITEP-96071) | Update existing skills for the MLOps flow (placeholder) | Story | [ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062), [ITEP-96063 DLSPS client](https://jira.devtools.intel.com/browse/ITEP-96063), [ITEP-96064 Mapping](https://jira.devtools.intel.com/browse/ITEP-96064), [ITEP-96065 UI](https://jira.devtools.intel.com/browse/ITEP-96065), [ITEP-96066 Orchestration](https://jira.devtools.intel.com/browse/ITEP-96066) |
 
 ## Per-story implementation plan
 
-### S1 — ViPPET client library (REST pull of pipeline list)
+### [ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062) — ViPPET client library (REST pull of pipeline list)
 
 **Goal.** As Manager backend, fetch the list of ViPPET-authored pipeline definitions (and a
 selected definition body) via REST so a user can select one for a scene.
@@ -199,7 +199,7 @@ mismatch → single config error.
 **AC.** Fetches pipeline list + definition body; validates against a versioned schema;
 unit-tested against fakes with no live ViPPET; fetch failure surfaces as one deterministic error.
 
-### S2 — DLSPS 2.0 client library (pipeline CRUD + start/stop)
+### [ITEP-96063 DLSPS client](https://jira.devtools.intel.com/browse/ITEP-96063) — DLSPS 2.0 client library (pipeline CRUD + start/stop)
 
 **Goal.** As Manager backend (Pipeline Orchestrator role), drive DLSPS 2.0 runtime pipeline
 lifecycle via REST.
@@ -210,9 +210,9 @@ lifecycle via REST.
 **Steps.**
 
 1. Define typed data classes for a pipeline-instance descriptor: resolved pipeline definition +
-   source binding (RTSP/file; Stream Manager handle later) + per-instance parameters (design §5.5.3).
+   source binding (RTSP/file; Sensor Manager handle later) + per-instance parameters (design §5.5.3).
 2. Implement REST operations: create / read / update / delete + start / stop of pipeline instances.
-3. Same cross-cutting concerns as S1 (auth/certs, retries/backoff, deterministic failures, version negotiation).
+3. Same cross-cutting concerns as [ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062) (auth/certs, retries/backoff, deterministic failures, version negotiation).
 4. Add structured logging (via `scene_common` logging) and OTEL spans/metrics named `dlsps.*`.
 5. Ship a stateful fake that tracks created/started/stopped instances for downstream tests.
 
@@ -224,7 +224,7 @@ recreation; failures surface deterministically.
 **AC.** All CRUD + start/stop operations work against the DLSPS fake; unit-tested; no static JSON,
 no container recreation.
 
-### S3 — Scene-level pipeline-to-camera mapping (backend persistence)
+### [ITEP-96064 Mapping](https://jira.devtools.intel.com/browse/ITEP-96064) — Scene-level pipeline-to-camera mapping (backend persistence)
 
 **Goal.** Persist the binding of a ViPPET pipeline definition to one or more scene cameras
 (one-to-many), with the fetched definition **embedded by value** so the scene is self-contained.
@@ -254,10 +254,10 @@ per-camera params round-trip; legacy scene (no mapping) unaffected; migration is
 **AC.** Mapping persists scene-side; definition stored by value; legacy scenes unaffected;
 persistence approach documented in the story; unit-tested.
 
-### S4 — Manager UI: load pipelines, map to cameras, lifecycle control + monitor
+### [ITEP-96065 UI](https://jira.devtools.intel.com/browse/ITEP-96065) — Manager UI: load pipelines, map to cameras, lifecycle control + monitor
 
-**Goal.** Let a user load the ViPPET pipeline list (S1), assign a pipeline to each scene camera
-(S3), and start/stop/monitor them (S2 via S5). **No parameter editing in-UI** (out of MVP scope).
+**Goal.** Let a user load the ViPPET pipeline list ([ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062)), assign a pipeline to each scene camera
+([ITEP-96064 Mapping](https://jira.devtools.intel.com/browse/ITEP-96064)), and start/stop/monitor them ([ITEP-96063 DLSPS client](https://jira.devtools.intel.com/browse/ITEP-96063) via [ITEP-96066 Orchestration](https://jira.devtools.intel.com/browse/ITEP-96066)). **No parameter editing in-UI** (out of MVP scope).
 
 > **UI approach is part of this story.** Do not decide up front whether to add a new UI surface
 > or extend the existing camera-configuration UI. Evaluate both during the story and choose the
@@ -267,9 +267,9 @@ persistence approach documented in the story; unit-tested.
 **Steps.**
 
 1. Evaluate new-surface vs. extend-existing-camera-config; decide and justify within the story.
-2. Load ViPPET pipelines via the S1-backed backend endpoint.
-3. Assign a pipeline to each scene camera and persist via the S3 mapping API.
-4. Start/stop controls and a running-status/monitor view wired to the S5 orchestration endpoints.
+2. Load ViPPET pipelines via the [ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062)-backed backend endpoint.
+3. Assign a pipeline to each scene camera and persist via the [ITEP-96064 Mapping](https://jira.devtools.intel.com/browse/ITEP-96064) mapping API.
+4. Start/stop controls and a running-status/monitor view wired to the [ITEP-96066 Orchestration](https://jira.devtools.intel.com/browse/ITEP-96066) orchestration endpoints.
 5. Keep the legacy UI flow untouched and reachable; the change is purely additive.
 
 **Files.** Templates + static JS under `manager/src/manager/` (follow the JavaScript skill);
@@ -281,10 +281,10 @@ and sees running status; legacy UI flow still works.
 **AC.** User with a ≥2-camera scene loads the list, assigns per camera, starts/stops, and sees
 running status; UI approach decided within the story; legacy UI flow untouched.
 
-### S5 — Pipeline lifecycle orchestration wiring (incl. auto-start)
+### [ITEP-96066 Orchestration](https://jira.devtools.intel.com/browse/ITEP-96066) — Pipeline lifecycle orchestration wiring (incl. auto-start)
 
-**Goal.** Backend logic that turns a mapping (S3) into a DLSPS pipeline-instance descriptor
-(resolved definition + source binding + per-instance params) and invokes the S2 client for
+**Goal.** Backend logic that turns a mapping ([ITEP-96064 Mapping](https://jira.devtools.intel.com/browse/ITEP-96064)) into a DLSPS pipeline-instance descriptor
+(resolved definition + source binding + per-instance params) and invokes the [ITEP-96063 DLSPS client](https://jira.devtools.intel.com/browse/ITEP-96063) client for
 start/stop; reflects status back to the UI.
 
 **Auto-start.**
@@ -292,15 +292,15 @@ start/stop; reflects status back to the UI.
 - Each mapping carries an `auto_start` flag, **defaulting to enabled**, preserving today's
   behavior (no start/stop today — all pipelines start automatically).
 - When `auto_start` is enabled, orchestration starts the pipeline as soon as the mapping is
-  created/loaded. Manual start/stop from the UI (S4) can override.
+  created/loaded. Manual start/stop from the UI ([ITEP-96065 UI](https://jira.devtools.intel.com/browse/ITEP-96065)) can override.
 - When explicitly disabled, the pipeline stays stopped until started from the UI.
 
 **Steps.**
 
 1. Add an orchestration module in `manager/src/manager/` that builds the DLSPS instance descriptor
-   from a mapping and calls the S2 client.
-2. Implement start/stop entry points invoked by the UI (S4) and status reflection back to the UI.
-3. Add the `auto_start` field to the S3 mapping model (default `True`) + migration; on
+   from a mapping and calls the [ITEP-96063 DLSPS client](https://jira.devtools.intel.com/browse/ITEP-96063) client.
+2. Implement start/stop entry points invoked by the UI ([ITEP-96065 UI](https://jira.devtools.intel.com/browse/ITEP-96065)) and status reflection back to the UI.
+3. Add the `auto_start` field to the [ITEP-96064 Mapping](https://jira.devtools.intel.com/browse/ITEP-96064) mapping model (default `True`) + migration; on
    mapping create/load, auto-start when enabled.
 4. Surface lifecycle-call failures to the UI (design §5.5.3 failure mode).
 
@@ -318,12 +318,12 @@ start/stop; reflects status back to the UI.
 when disabled, a pipeline stays stopped until started from the UI; UI start/stop creates/starts/stops
 the DLSPS instance via REST; failures surface to the UI.
 
-### S6 — Shared demo Docker Compose integration
+### [ITEP-96067 Demo compose](https://jira.devtools.intel.com/browse/ITEP-96067) — Shared demo Docker Compose integration
 
 **Goal.** Single-device Compose stack: Scenescape + ViPPET + DLSPS 2.0 + shared model volume +
 shared Model Downloader; models resolved by DLSPS through the shared volume (no copies by Scenescape).
 
-> **Depends on S4.** The end-to-end demo drives the flow through the Manager UI (load → map →
+> **Depends on [ITEP-96065 UI](https://jira.devtools.intel.com/browse/ITEP-96065).** The end-to-end demo drives the flow through the Manager UI (load → map →
 > start/stop), so the UI story must be in place for the demo to exercise the full user flow.
 
 **Steps.**
@@ -343,7 +343,7 @@ synthetic multi-camera dataset without manual pipeline-file editing.
 **AC.** One `docker compose` brings up the full stack; demo runs end-to-end on the synthetic
 multi-camera dataset without manual pipeline-file editing.
 
-### S7 — Backward-compatibility validation
+### [ITEP-96068 Back-compat](https://jira.devtools.intel.com/browse/ITEP-96068) — Backward-compatibility validation
 
 **Goal.** Confirm the existing static-JSON pipeline-building flow still works and coexists with the
 new flow; add regression coverage.
@@ -360,7 +360,7 @@ new flow; add regression coverage.
 
 **AC.** Legacy scenes/pipelines run with no regressions; both flows coexist in one deployment.
 
-### S8 — Integration documentation
+### [ITEP-96069 Docs](https://jira.devtools.intel.com/browse/ITEP-96069) — Integration documentation
 
 **Goal.** Setup, configuration, and known-limitations guide for the Scenescape ↔ ViPPET ↔ DLSPS 2.0 flow.
 
@@ -377,34 +377,34 @@ new flow; add regression coverage.
 
 **AC.** Published and reviewed under `docs/user-guide/`.
 
-### S9 — *(Stretch)* Stream/Sensor Manager client (camera discovery)
+### [ITEP-96070 Stretch: Sensor Mgr](https://jira.devtools.intel.com/browse/ITEP-96070) — *(Stretch)* Sensor Manager client (camera discovery)
 
 **Goal.** Client library to load a sensor/camera list and pre-populate scene camera entries.
 
-**Location.** New client under `manager/src/manager/integration/stream_manager/`, subclassing
+**Location.** New client under `manager/src/manager/integration/sensor_manager/`, subclassing
 `scene_common`'s `RESTClient` and composed via `client_factory` (per the location analysis above).
 
 **Steps.**
 
-1. Typed client for the Stream Manager sensor-list / livestream-replay endpoints (design §5.5.4).
-2. Optional-dependency loading: when Stream Manager is absent, the client is not loaded and source
+1. Typed client for the Sensor Manager sensor-list / livestream-replay endpoints (design §5.5.4).
+2. Optional-dependency loading: when Sensor Manager is absent, the client is not loaded and source
    binding falls back to direct RTSP/file sources.
 3. Manager backend consumer to pre-populate scene camera entries from the sensor list.
-4. Add structured logging (via `scene_common` logging) and OTEL spans/metrics named `stream_manager.*`.
+4. Add structured logging (via `scene_common` logging) and OTEL spans/metrics named `sensor_manager.*`.
 5. Ship a fake for tests.
 
-**Files.** `manager/src/manager/integration/stream_manager/{...}`; consumer in `manager/src/`; tests.
+**Files.** `manager/src/manager/integration/sensor_manager/{...}`; consumer in `manager/src/`; tests.
 
-**Verification.** Camera discovery loads a sensor list and pre-populates cameras; absence of Stream
+**Verification.** Camera discovery loads a sensor list and pre-populates cameras; absence of Sensor
 Manager causes no regression.
 
 **AC.** Camera discovery loads a sensor list and pre-populates cameras; optional dependency, no
 regression when absent.
 
-### S10 — Update existing skills for the MLOps flow (placeholder)
+### [ITEP-96071 Skills update](https://jira.devtools.intel.com/browse/ITEP-96071) — Update existing skills for the MLOps flow (placeholder)
 
 **Goal.** Keep the repository's agent skills consistent with the new MLOps integration flow.
-Placeholder for now — concrete scope is refined once S1–S5 land.
+Placeholder for now — concrete scope is refined once [ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062)–[ITEP-96066 Orchestration](https://jira.devtools.intel.com/browse/ITEP-96066) land.
 
 **Steps (to refine).**
 
@@ -425,37 +425,46 @@ Placeholder for now — concrete scope is refined once S1–S5 land.
 
 ```mermaid
 graph LR
-  S1[S1 ViPPET client] --> S3[S3 Mapping]
-  S1 --> S6[S6 Demo compose]
-  S2[S2 DLSPS client] --> S5[S5 Orchestration]
-  S2 --> S6
-  S3 --> S5
-  S3 --> S4[S4 UI]
-  S5 --> S4
-  S1 --> S4
-  S2 --> S4
-  S4 --> S6
-  S4 --> S7[S7 Back-compat]
-  S5 --> S7
-  S4 --> S8[S8 Docs]
-  S5 --> S8
-  S6 --> S8
-  S9[S9 Stretch: Stream Mgr] -.-> S4
-  S5 -.-> S10[S10 Skills update]
-  S4 -.-> S10
+  ITEP96062["ITEP-96062 ViPPET client"] --> ITEP96064["ITEP-96064 Mapping"]
+  ITEP96062 --> ITEP96067["ITEP-96067 Demo compose"]
+  ITEP96063["ITEP-96063 DLSPS client"] --> ITEP96066["ITEP-96066 Orchestration"]
+  ITEP96063 --> ITEP96067
+  ITEP96064 --> ITEP96066
+  ITEP96064 --> ITEP96065["ITEP-96065 UI"]
+  ITEP96066 --> ITEP96065
+  ITEP96062 --> ITEP96065
+  ITEP96063 --> ITEP96065
+  ITEP96065 --> ITEP96067
+  ITEP96065 --> ITEP96068["ITEP-96068 Back-compat"]
+  ITEP96066 --> ITEP96068
+  ITEP96065 --> ITEP96069["ITEP-96069 Docs"]
+  ITEP96067 --> ITEP96069
+  ITEP96070["ITEP-96070 Stretch: Sensor Mgr"] -.-> ITEP96065
+  ITEP96066 -.-> ITEP96071["ITEP-96071 Skills update"]
+  ITEP96065 -.-> ITEP96071
+  click ITEP96062 "https://jira.devtools.intel.com/browse/ITEP-96062" _blank
+  click ITEP96063 "https://jira.devtools.intel.com/browse/ITEP-96063" _blank
+  click ITEP96064 "https://jira.devtools.intel.com/browse/ITEP-96064" _blank
+  click ITEP96065 "https://jira.devtools.intel.com/browse/ITEP-96065" _blank
+  click ITEP96066 "https://jira.devtools.intel.com/browse/ITEP-96066" _blank
+  click ITEP96067 "https://jira.devtools.intel.com/browse/ITEP-96067" _blank
+  click ITEP96068 "https://jira.devtools.intel.com/browse/ITEP-96068" _blank
+  click ITEP96069 "https://jira.devtools.intel.com/browse/ITEP-96069" _blank
+  click ITEP96070 "https://jira.devtools.intel.com/browse/ITEP-96070" _blank
+  click ITEP96071 "https://jira.devtools.intel.com/browse/ITEP-96071" _blank
 ```
 
-Suggested order: **S1 + S2 (parallel)** → **S3** → **S5** → **S4** → **S6** → **S7** → **S8**;
-**S9** anytime after S1 patterns are established (stretch); **S10** after S1–S5 land.
+Suggested order: **[ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062) + [ITEP-96063 DLSPS client](https://jira.devtools.intel.com/browse/ITEP-96063) (parallel)** → **[ITEP-96064 Mapping](https://jira.devtools.intel.com/browse/ITEP-96064)** → **[ITEP-96066 Orchestration](https://jira.devtools.intel.com/browse/ITEP-96066)** → **[ITEP-96065 UI](https://jira.devtools.intel.com/browse/ITEP-96065)** → **[ITEP-96067 Demo compose](https://jira.devtools.intel.com/browse/ITEP-96067)** → **[ITEP-96068 Back-compat](https://jira.devtools.intel.com/browse/ITEP-96068)** → **[ITEP-96069 Docs](https://jira.devtools.intel.com/browse/ITEP-96069)**;
+**[ITEP-96070 Stretch: Sensor Mgr](https://jira.devtools.intel.com/browse/ITEP-96070)** anytime after [ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062) patterns are established (stretch); **[ITEP-96071 Skills update](https://jira.devtools.intel.com/browse/ITEP-96071)** after [ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062)–[ITEP-96066 Orchestration](https://jira.devtools.intel.com/browse/ITEP-96066) land.
 
 ## Testing strategy
 
 Per design §8 and the testing skill:
 
-- **Client libraries (S1, S2, S9):** unit tests against in-package fakes; no live OEP components.
-- **Scenescape services (S3, S4, S5):** service-level unit/functional tests consuming the client-library fakes.
-- **Integration (S7):** functional suite under `tests/functional/mlops/`, one test per delta area; run against fakes/stubs.
-- **End-to-end (S6, S7):** extend `tests/functional/test_basic_acceptance.py` with a new-flow happy path.
+- **Client libraries ([ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062), [ITEP-96063 DLSPS client](https://jira.devtools.intel.com/browse/ITEP-96063), [ITEP-96070 Stretch: Sensor Mgr](https://jira.devtools.intel.com/browse/ITEP-96070)):** unit tests against in-package fakes; no live OEP components.
+- **Scenescape services ([ITEP-96064 Mapping](https://jira.devtools.intel.com/browse/ITEP-96064), [ITEP-96065 UI](https://jira.devtools.intel.com/browse/ITEP-96065), [ITEP-96066 Orchestration](https://jira.devtools.intel.com/browse/ITEP-96066)):** service-level unit/functional tests consuming the client-library fakes.
+- **Integration ([ITEP-96068 Back-compat](https://jira.devtools.intel.com/browse/ITEP-96068)):** functional suite under `tests/functional/mlops/`, one test per delta area; run against fakes/stubs.
+- **End-to-end ([ITEP-96067 Demo compose](https://jira.devtools.intel.com/browse/ITEP-96067), [ITEP-96068 Back-compat](https://jira.devtools.intel.com/browse/ITEP-96068)):** extend `tests/functional/test_basic_acceptance.py` with a new-flow happy path.
 - **Runtime gate:** rebuild affected images before running containerized tests (test-verification-gate skill).
 
 ## Cross-cutting requirements
@@ -467,6 +476,6 @@ Per design §8 and the testing skill:
 
 ## Open items to confirm during implementation
 
-- Exact ViPPET pipeline-definition format (parametrization syntax, version envelope) — owned by the ViPPET team; absorbed inside the S1 client library.
-- Exact DLSPS 2.0 runtime REST API shape — owned by the DLSPS team; absorbed inside the S2 client library.
-- Stream Manager sensor-list / livestream-replay API shape — owned by the Stream Manager team (S9, stretch).
+- Exact ViPPET pipeline-definition format (parametrization syntax, version envelope) — owned by the ViPPET team; absorbed inside the [ITEP-96062 ViPPET client](https://jira.devtools.intel.com/browse/ITEP-96062) client library.
+- Exact DLSPS 2.0 runtime REST API shape — owned by the DLSPS team; absorbed inside the [ITEP-96063 DLSPS client](https://jira.devtools.intel.com/browse/ITEP-96063) client library.
+- Sensor Manager sensor-list / livestream-replay API shape — owned by the Sensor Manager team ([ITEP-96070 Stretch: Sensor Mgr](https://jira.devtools.intel.com/browse/ITEP-96070), stretch).
