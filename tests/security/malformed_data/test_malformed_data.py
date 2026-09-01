@@ -38,7 +38,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-TEST_NAME = "NEX-T10423"
 SCENE_NAME = "Demo"
 
 # camera1 is pre-registered in tests/testdb.tar.bz2 and is used as the primary
@@ -249,7 +248,7 @@ def _print_evidence(evidence):
   header = (f"{'SENDER':<12} {'CASE':<28} {'EXPECT':>6} {'SEEN':>5}  "
             f"{'VERDICT':<9} {'RESULT':<6} PAYLOAD")
   lines = [
-    "===== MALFORMED DATA REJECTION EVIDENCE (" + TEST_NAME + ") =====",
+    "===== MALFORMED DATA REJECTION EVIDENCE =====",
     header,
     "-" * len(header),
   ]
@@ -347,7 +346,6 @@ def test_malformed_data(scenescape_env, params):
   result = 1 if failures else 0
   for failure in failures:
     print("FAILURE:", failure)
-  common.record_test_result(TEST_NAME, result)
 
   assert result == 0, "; ".join(failures)
 
