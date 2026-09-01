@@ -24,7 +24,6 @@ import trimesh
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
 from scene_common.mesh_util import mergeMesh, checkMeshConnectivity
-from scene_common.options import QUATERNION
 from scene_common import log
 from manager.serializers import CamSerializer
 
@@ -337,7 +336,6 @@ class MeshGenerator:
   def __init__(self):
     self.image_collector = CameraImageCollector()
     self.mapping_client = MappingServiceClient()
-    self._anchored_cameras_cache = {}  # Maps request_id -> {camera_id: is_anchored}
 
   def isValidVideo(self, file_obj) -> bool:
     """
@@ -426,8 +424,8 @@ class MeshGenerator:
     Determine if a camera has a calibrated pose (not default/uncalibrated).
     
     A camera is considered calibrated if:
+    - It has non-empty transforms stored
     - It has non-None translation and rotation from the serializer
-    - Both values are non-empty
     
     Args:
       camera: Cam object
@@ -437,6 +435,11 @@ class MeshGenerator:
       bool: True if camera is calibrated, False if uncalibrated
     """
     try:
+      # An empty transforms list still serializes to a zeroed identity pose, so it
+      # has to be rejected here or an uncalibrated camera looks calibrated.
+      if not camera.cam.transforms:
+        return False
+
       t = serializer.get_translation(camera)
       q = serializer.get_rotation(camera)
       return t is not None and q is not None
@@ -534,9 +537,6 @@ class MeshGenerator:
       if not rid:
         return {"success": False, "error": "mapping service did not return request_id"}
 
-      # Store anchored cameras info for use during finalization (write-back protection)
-      self._anchored_cameras_cache[rid] = anchored_cameras
-
       return {"success": True, "request_id": rid}
 
     except Exception as e:
@@ -587,13 +587,35 @@ class MeshGenerator:
     if connectivity_error is not None:
       return {"success": False, "error": connectivity_error}
 
-    # Retrieve anchored cameras info for write-back protection
-    anchored_cameras = self._anchored_cameras_cache.pop(request_id, {})
+    # Recompute anchored/calibrated state now, before any write-back mutates poses.
+    # This is done fresh here rather than reused from startMeshGeneration because
+    # that call happens in a separate HTTP request (and often a separate worker
+    # process), so any state cached on `self` would not survive to this call.
+    serializer = CamSerializer()
+    anchored_cameras = {
+      camera.sensor_id: self._is_camera_calibrated(camera, serializer)
+      for camera in cameras
+    }
 
     self._updateSceneCamerasWithMappingResult(mapping_result, cameras, anchored_cameras)
-    mesh_transform = self._saveMeshToScene(scene, merged_mesh)
-    if mesh_transform is not None:
-      self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
+
+    # The mapping service builds the GLB from raw world_points in MapAnything's
+    # world frame, but returns camera poses already rotated into the Scenescape
+    # frame. Mesh and cameras therefore start out in different frames.
+    # With anchored cameras we know their true scene pose, so align the mesh onto
+    # them (moving the mesh, not the trusted cameras). Without any anchor there is
+    # no reference, so fall back to the geometric floor-fit heuristic.
+    has_anchors = any(anchored_cameras.values())
+    if has_anchors:
+      mesh_to_scene, _ = self._computeAnchorMeshTransform(
+        mapping_result, cameras, anchored_cameras, serializer)
+      if mesh_to_scene is not None:
+        merged_mesh.apply_transform(mesh_to_scene)
+      self._saveMeshToScene(scene, merged_mesh, align=False)
+    else:
+      mesh_transform = self._saveMeshToScene(scene, merged_mesh, align=True)
+      if mesh_transform is not None:
+        self._transformCamerasWithMeshAlignment(cameras, mesh_transform, anchored_cameras)
     
     # Identify unanchored cameras for user warning
     unanchored_cameras = [cam_id for cam_id, is_anchored in anchored_cameras.items() if not is_anchored]
@@ -671,78 +693,126 @@ class MeshGenerator:
             # Camera was anchored - skip write-back to preserve the trusted calibration
             log.info(f"Camera {cam_id} was anchored, preserving calibrated pose (skipping write-back)")
             continue
-          
-          # Camera was uncalibrated - write back the MapAnything estimate
-          self._updateCameraParameters(camera, pose_data, intrinsics_matrix)
 
-          log.info(f"Updated camera {camera.sensor_id} with new pose and intrinsics from mesh generation")
+          # Uncalibrated camera: its estimated pose is only a guess, so leave the
+          # camera at its default pose and let the warning prompt a real calibration.
+          log.info(f"Camera {cam_id} is uncalibrated, leaving pose at default (intrinsics only)")
+          self._updateCameraIntrinsics(camera, intrinsics_matrix)
         except Exception as e:
           log.error(f"Failed to update camera {camera.sensor_id}: {e}")
 
     except Exception as e:
       log.error(f"Failed to update scene cameras: {e}")
 
-  def _updateCameraParameters(self, camera, pose_data, intrinsics_matrix):
-    """
-    Update a single camera with new pose and intrinsics.
+  def _updateCameraIntrinsics(self, camera, intrinsics_matrix):
+    """Update only the intrinsics of a camera, leaving its pose untouched."""
+    if intrinsics_matrix is None:
+      return
 
-    Args:
-      camera: Camera model instance
-      pose_data: Dictionary with 'rotation' (quaternion) and 'translation' from mapping service
-      intrinsics_matrix: 3x3 intrinsics matrix from mapping service
-    """
     try:
-      # Extract pose data
-      rotation_quat = pose_data['rotation']  # [x, y, z, w]
-      translation = pose_data['translation']  # [x, y, z]
-
-      # Extract intrinsics (3x3 matrix -> fx, fy, cx, cy)
       intrinsics_array = np.array(intrinsics_matrix)
-      fx = intrinsics_array[0, 0]
-      fy = intrinsics_array[1, 1]
-      cx = intrinsics_array[0, 2]
-      cy = intrinsics_array[1, 2]
-
-      # Update camera model fields
-      camera.cam.intrinsics_fx = fx
-      camera.cam.intrinsics_fy = fy
-      camera.cam.intrinsics_cx = cx
-      camera.cam.intrinsics_cy = cy
-
-      # Update camera transform using QUATERNION format
-      # Django QUATERNION format expects: [translation_x, translation_y, translation_z,
-      #                   rotation_x, rotation_y, rotation_z, rotation_w,
-      #                   scale_x, scale_y, scale_z]
-      camera.cam.transforms = [
-        translation[0], translation[1], translation[2],  # translation
-        rotation_quat[0], rotation_quat[1], rotation_quat[2], rotation_quat[3],  # quaternion [x, y, z, w]
-        1.0, 1.0, 1.0  # scale (default to 1.0)
-      ]
-      camera.cam.transform_type = QUATERNION  # Use quaternion transform type
-
-      # Save the camera
+      camera.cam.intrinsics_fx = intrinsics_array[0, 0]
+      camera.cam.intrinsics_fy = intrinsics_array[1, 1]
+      camera.cam.intrinsics_cx = intrinsics_array[0, 2]
+      camera.cam.intrinsics_cy = intrinsics_array[1, 2]
       camera.cam.save()
-
     except Exception as e:
-      log.error(f"Error updating camera {camera.sensor_id}: {e}")
-      raise
+      log.error(f"Error updating intrinsics for camera {camera.sensor_id}: {e}")
 
-  def _saveMeshToScene(self, scene, merged_mesh):
+  def _computeAnchorMeshTransform(self, mapping_result, cameras, anchored_cameras, serializer):
+    """
+    Compute the transform that brings the reconstructed mesh into the scene frame,
+    using the anchored cameras' known poses as the reference.
+
+    The mapping service exports the mesh in MapAnything's world frame but returns
+    camera poses already rotated by 180 degrees about X into the Scenescape frame.
+    Undoing that rotation puts the mesh in the same frame as the returned poses;
+    any remaining drift is then removed by matching each anchored camera's returned
+    pose to its true calibrated pose.
+
+    Returns:
+      tuple: (mesh_to_scene, correction) as a 4x4 matrix and a mesh_transform-style
+        dict, or (None, None) if no usable anchor was found.
+    """
+    # 180 degrees about X, matching the rotation the mapping service applies to poses.
+    frame_flip = np.diag([1.0, -1.0, -1.0, 1.0])
+
+    pose_by_id = {p["camera_id"]: p for p in mapping_result.get("camera_poses", [])
+                  if isinstance(p, dict) and p.get("camera_id") is not None}
+
+    scene_mats = []
+    returned_mats = []
+    for camera in cameras:
+      cam_id = camera.sensor_id
+      if not anchored_cameras.get(cam_id, False):
+        continue
+
+      pose_data = pose_by_id.get(cam_id)
+      if pose_data is None:
+        continue
+
+      try:
+        translation = serializer.get_translation(camera)
+        euler_rotation = serializer.get_rotation(camera)
+        if translation is None or euler_rotation is None:
+          continue
+
+        scene_mat = np.eye(4)
+        scene_mat[:3, :3] = Rotation.from_euler('XYZ', euler_rotation, degrees=True).as_matrix()
+        scene_mat[:3, 3] = translation
+
+        returned_mat = np.eye(4)
+        returned_mat[:3, :3] = Rotation.from_quat(pose_data['rotation']).as_matrix()
+        returned_mat[:3, 3] = pose_data['translation']
+
+        scene_mats.append(scene_mat)
+        returned_mats.append(returned_mat)
+      except Exception as e:
+        log.warning(f"Could not use anchored camera {cam_id} for mesh alignment: {e}")
+
+    if not scene_mats:
+      log.warning("No usable anchored camera pose for mesh alignment, applying frame flip only")
+      return frame_flip, None
+
+    corrections = [s @ np.linalg.inv(r) for s, r in zip(scene_mats, returned_mats)]
+
+    correction_mat = np.eye(4)
+    correction_mat[:3, :3] = Rotation.from_matrix(
+      np.array([c[:3, :3] for c in corrections])).mean().as_matrix()
+    correction_mat[:3, 3] = np.mean([c[:3, 3] for c in corrections], axis=0)
+
+    log.info(f"Aligning mesh onto {len(corrections)} anchored camera(s), "
+             f"residual translation={correction_mat[:3, 3]}")
+
+    correction = {
+      'rotation_matrix': correction_mat[:3, :3],
+      'translation': correction_mat[:3, 3],
+      'center_offset': np.zeros(3),
+    }
+    return correction_mat @ frame_flip, correction
+
+  def _saveMeshToScene(self, scene, merged_mesh, align=True):
     """
     Save the generated GLB mesh to the scene's map field.
 
     Args:
       scene: Scene object to update
       merged_mesh: Pre-loaded, merged trimesh object from _checkMeshConnectivity
+      align: If True, apply the floor-fit heuristic (alignMeshToXYPlane). If False,
+        save the mesh as returned by the mapping service, without any realignment.
 
     Returns:
-      dict: Transformation applied to mesh (rotation matrix, translation, center_offset)
+      dict: Transformation applied to mesh (rotation matrix, translation, center_offset),
+        or None if align is False (no camera transform is needed in that case).
     """
     try:
-
-      # Align the mesh to XY plane with largest bottom face flat and in first quadrant
-      log.info(f"Aligning mesh to XY plane in first quadrant")
-      aligned_mesh, mesh_transform = self.alignMeshToXYPlane(merged_mesh)
+      if align:
+        # Align the mesh to XY plane with largest bottom face flat and in first quadrant
+        log.info(f"Aligning mesh to XY plane in first quadrant")
+        aligned_mesh, mesh_transform = self.alignMeshToXYPlane(merged_mesh)
+      else:
+        log.info("Anchored camera(s) present, saving mesh as returned by mapping service")
+        aligned_mesh, mesh_transform = merged_mesh, None
 
       # Export the aligned mesh as GLB
       glb_filename = f"{scene.name}_generated_mesh.glb"
@@ -767,10 +837,13 @@ class MeshGenerator:
       log.error(f"Failed to save mesh to scene: {e}")
       raise Exception(f"Failed to save mesh file: {e}")
 
-  def _transformCamerasWithMeshAlignment(self, cameras, mesh_transform):
+  def _transformCamerasWithMeshAlignment(self, cameras, mesh_transform, anchored_cameras=None):
     """
     Apply the same transformation to cameras that was applied to the mesh.
     This maintains the relative pose between cameras and mesh.
+
+    Anchored cameras are skipped: their pose is already trusted scene-space
+    calibration, not raw mapping-service output, so it must not be re-aligned.
 
     Args:
       cameras: QuerySet of camera objects to transform
@@ -778,7 +851,11 @@ class MeshGenerator:
         - 'rotation_matrix': 3x3 rotation matrix applied to mesh
         - 'translation': Translation vector applied to mesh after rotation
         - 'center_offset': Centering offset applied to mesh
+      anchored_cameras: Dict mapping camera_id -> bool (True if camera was anchored)
     """
+    if anchored_cameras is None:
+      anchored_cameras = {}
+
     try:
       rotation_matrix = mesh_transform['rotation_matrix']
       translation = mesh_transform['translation']
@@ -788,6 +865,10 @@ class MeshGenerator:
 
       for camera in cameras:
         try:
+          if anchored_cameras.get(camera.sensor_id, False):
+            log.info(f"Camera {camera.sensor_id} was anchored, skipping mesh-alignment transform")
+            continue
+
         # Get current camera transform (in QUATERNION format)
         # Format: [tx, ty, tz, qx, qy, qz, qw, sx, sy, sz]
           cam_transforms = camera.cam.transforms

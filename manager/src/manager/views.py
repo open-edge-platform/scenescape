@@ -950,6 +950,9 @@ def generate_mesh_status(request, pk):
         scene.save(update_fields=["mesh_state"])
 
     status_data["finalized"] = True
+    # Include any warnings from finalization (e.g., unanchored cameras)
+    if finalize_result.get("unanchored_cameras"):
+      status_data["unanchored_cameras"] = finalize_result["unanchored_cameras"]
     return JsonResponse(status_data, status=200)
 
   except Exception as e:

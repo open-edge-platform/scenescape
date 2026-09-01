@@ -15,6 +15,7 @@ import sys
 from typing import Dict, Any, List, Optional, Tuple
 
 import numpy as np
+import torch
 from PIL import Image
 
 import traceback
@@ -192,7 +193,8 @@ class MapAnythingModel(ReconstructionModel):
         )
       except Exception as e:
         # If anchored inference fails, fall back to full auto-estimation
-        log.warning(f"Anchored inference failed ({e}), attempting fallback to full auto-estimation")
+        log.error(f"Anchored inference failed ({e}), falling back to full auto-estimation. "
+                  "Reconstruction will not be aligned to the calibrated cameras.")
         # Remove pose conditioning and retry
         for view in views:
           view.pop('camera_poses', None)
@@ -372,13 +374,13 @@ class MapAnythingModel(ReconstructionModel):
           # Convert from Scenescape frame to MapAnything frame
           converted_loc = self._convert_camera_location_to_mapanything_frame(cam_loc)
           if converted_loc:
-            # MapAnything expects camera_poses as a dict with 'rotation' and 'translation'
-            # and is_metric_scale as a bool indicating whether to use metric scale
-            view_dict['camera_poses'] = {
-              'rotation': converted_loc['rotation'],
-              'translation': converted_loc['translation']
-            }
-            view_dict['is_metric_scale'] = True  # We're providing metric scale from calibration
+            # MapAnything requires camera_poses as a (B, 4, 4) tensor of
+            # camera-to-world matrices, matching the batch dim used by 'img'.
+            pose_4x4 = np.eye(4, dtype=np.float32)
+            pose_4x4[:3, :3] = np.array(converted_loc['rotation'], dtype=np.float32)
+            pose_4x4[:3, 3] = np.array(converted_loc['translation'], dtype=np.float32)
+            view_dict['camera_poses'] = torch.from_numpy(pose_4x4)[None]
+            view_dict['is_metric_scale'] = torch.tensor([True])
             log.info(f"Added pose conditioning for view {i}")
         except Exception as e:
           log.warning(f"Failed to add pose conditioning for view {i}: {e}. Proceeding without it.")
