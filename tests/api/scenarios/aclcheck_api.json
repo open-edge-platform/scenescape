@@ -1,0 +1,101 @@
+[
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ACLCHECK/01: Unknown username is denied, not a server error",
+    "test_steps": [
+      {
+        "step_name": "Check ACL for nonexistent user",
+        "api": "aclcheck",
+        "method": "checkAcl",
+        "request": {
+          "body": {
+            "username": "nonexistent_user",
+            "topic": "any/topic",
+            "acc": 1
+          }
+        },
+        "expected_status": {
+          "status_code": 403
+        },
+        "expected_body": {
+          "result": "deny"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ACLCHECK/02: Missing acc parameter returns 400, not a server error",
+    "test_steps": [
+      {
+        "step_name": "Check ACL without acc",
+        "api": "aclcheck",
+        "method": "checkAcl",
+        "request": {
+          "body": {
+            "username": "admin",
+            "topic": "any/topic"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ACLCHECK/03: Non-numeric acc parameter returns 400, not a server error",
+    "test_steps": [
+      {
+        "step_name": "Check ACL with invalid acc",
+        "api": "aclcheck",
+        "method": "checkAcl",
+        "request": {
+          "body": {
+            "username": "admin",
+            "topic": "any/topic",
+            "acc": "notanumber"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ACLCHECK/04: Missing username/topic returns 400, not a server error",
+    "test_steps": [
+      {
+        "step_name": "Check ACL with no username or topic",
+        "api": "aclcheck",
+        "method": "checkAcl",
+        "request": {
+          "body": {
+            "acc": 1
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ACLCHECK/05: Non-object JSON body returns 400",
+    "test_steps": [
+      {
+        "step_name": "Check ACL with a boolean request body",
+        "api": "aclcheck",
+        "method": "checkAcl",
+        "request": {
+          "body": false
+        },
+        "expected_status": {
+          "status_code": 400
+        },
+        "expected_body": {
+          "detail": "Request body must be a JSON object."
+        }
+      }
+    ]
+  }
+]

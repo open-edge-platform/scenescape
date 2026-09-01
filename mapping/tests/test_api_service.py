@@ -6,17 +6,16 @@ Unit Tests for API Service
 Tests the Flask API endpoints and request validation.
 """
 
-import pytest
-import json
 import base64
 import io
-import sys
-from pathlib import Path
-from PIL import Image
+import json
 from unittest.mock import Mock, patch, MagicMock
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+from PIL import Image
+
+import pytest
+
+API_PREFIX = "/v1"
 
 
 class TestAPIService:
@@ -78,16 +77,65 @@ class TestAPIService:
     return img_base64
 
   def test_health_check(self, client):
-    """Test /health endpoint"""
-    response = client.get('/health')
+    """Test /v1/health endpoint."""
+    response = client.get(f'{API_PREFIX}/health')
 
     assert response.status_code == 200
     data = json.loads(response.data)
-    assert data['success'] is True
     assert data['status'] == 'healthy'
-    assert data['model_loaded'] is True
-    assert 'model' not in data
-    assert 'device' not in data
+    assert data['ready'] is True
+    assert data['component'] == 'mapping'
+    assert 'details' in data
+    assert data['details']['models']['loaded'] is True
+    assert 'model' in data
+    assert 'model_loaded' in data
+    assert 'device' in data
+    assert 'initialization' in data
+    assert data['initialization']['state'] == 'ready'
+    assert data['initialization']['progress'] == 100.0
+
+  def test_health_check_degraded_when_model_unloaded(self, client):
+    """Health endpoint reports degraded when model is not loaded."""
+    with patch('api_service_base.loaded_model', None):
+      response = client.get(f'{API_PREFIX}/health')
+
+    assert response.status_code == 202
+    data = json.loads(response.data)
+    assert data['status'] == 'degraded'
+    assert data['ready'] is False
+    assert data['component'] == 'mapping'
+    assert data['model_loaded'] is False
+    assert 'initialization' in data
+    assert 'state' in data['initialization']
+    assert 'progress' in data['initialization']
+
+  def test_health_check_unhealthy_when_initialization_failed(self, client):
+    """Health endpoint reports unhealthy after startup failure."""
+    with patch('api_service_base.loaded_model', None):
+      with patch('api_service_base.get_init_status', return_value={
+        'state': 'failed',
+        'stage': 'startup_error',
+        'progress': 100.0,
+        'message': 'startup failed',
+        'error': 'model init failed'
+      }):
+        response = client.get(f'{API_PREFIX}/health')
+
+    assert response.status_code == 503
+    data = json.loads(response.data)
+    assert data['status'] == 'unhealthy'
+    assert data['ready'] is False
+    assert data['initialization']['state'] == 'failed'
+
+  def test_list_models(self, client):
+    """Test /models endpoint"""
+    response = client.get(f'{API_PREFIX}/models')
+
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert 'model' in data
+    assert 'model_info' in data
+    assert 'camera_pose_format' in data
 
   def test_reconstruction_success(self, client):
     """Test successful reconstruction request"""
@@ -106,7 +154,7 @@ class TestAPIService:
     }
 
     response = client.post(
-      '/reconstruction',
+      f'{API_PREFIX}/reconstruction',
       data=data,
       content_type='multipart/form-data'
     )
@@ -122,7 +170,7 @@ class TestAPIService:
     max_retries = 50
     for _ in range(max_retries):
       time.sleep(0.1)
-      status_response = client.get(f'/reconstruction/status/{request_id}')
+      status_response = client.get(f'{API_PREFIX}/reconstruction/status/{request_id}')
       assert status_response.status_code == 200
       status_data = json.loads(status_response.data)
 
@@ -175,7 +223,7 @@ class TestAPIService:
 
         with patch('api_service_base.model_name', 'test_model'):
           response = client.post(
-            '/reconstruction',
+            f'{API_PREFIX}/reconstruction',
             data=data,
             content_type='multipart/form-data'
           )
@@ -191,7 +239,7 @@ class TestAPIService:
         max_retries = 50
         for _ in range(max_retries):
           time.sleep(0.1)
-          status_response = client.get(f'/reconstruction/status/{request_id}')
+          status_response = client.get(f'{API_PREFIX}/reconstruction/status/{request_id}')
           assert status_response.status_code == 200
           status_data = json.loads(status_response.data)
 
@@ -210,7 +258,7 @@ class TestAPIService:
     }
 
     response = client.post(
-      '/reconstruction',
+      f'{API_PREFIX}/reconstruction',
       data=json.dumps(request_data),
       content_type='application/json'
     )
@@ -227,7 +275,7 @@ class TestAPIService:
     }
 
     response = client.post(
-      '/reconstruction',
+      f'{API_PREFIX}/reconstruction',
       data=json.dumps(request_data),
       content_type='application/json'
     )
@@ -243,7 +291,7 @@ class TestAPIService:
     }
 
     response = client.post(
-      '/reconstruction',
+      f'{API_PREFIX}/reconstruction',
       data=json.dumps(request_data),
       content_type='application/json'
     )
@@ -259,7 +307,7 @@ class TestAPIService:
     }
 
     response = client.post(
-      '/reconstruction',
+      f'{API_PREFIX}/reconstruction',
       data=json.dumps(request_data),
       content_type='application/json'
     )
@@ -269,7 +317,7 @@ class TestAPIService:
   def test_reconstruction_not_json(self, client):
     """Test reconstruction with non-JSON request"""
     response = client.post(
-      '/reconstruction',
+      f'{API_PREFIX}/reconstruction',
       data="not json data",
       content_type='text/plain'
     )
@@ -284,7 +332,7 @@ class TestAPIService:
     }
 
     response = client.post(
-      '/reconstruction',
+      f'{API_PREFIX}/reconstruction',
       data=json.dumps(request_data),
       content_type='application/json'
     )
@@ -299,7 +347,7 @@ class TestAPIService:
     }
 
     response = client.post(
-      '/reconstruction',
+      f'{API_PREFIX}/reconstruction',
       data=json.dumps(request_data),
       content_type='application/json'
     )
@@ -319,7 +367,7 @@ class TestAPIService:
 
       with patch('api_service_base.model_name', 'test_model'):
         response = client.post(
-          '/reconstruction',
+          f'{API_PREFIX}/reconstruction',
           data=data,
           content_type='multipart/form-data'
         )
@@ -339,7 +387,7 @@ class TestAPIService:
     }
 
     response = client.post(
-      '/reconstruction',
+      f'{API_PREFIX}/reconstruction',
       data=data,
       content_type='multipart/form-data'
     )
@@ -357,7 +405,7 @@ class TestAPIService:
 
   def test_method_not_allowed(self, client):
     """Test 405 for wrong HTTP method"""
-    response = client.get('/reconstruction')
+    response = client.get(f'{API_PREFIX}/reconstruction')
 
     assert response.status_code == 405
     data = json.loads(response.data)

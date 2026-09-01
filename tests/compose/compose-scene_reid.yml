@@ -7,10 +7,10 @@ networks:
 secrets:
   root-cert:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
-  vdms-client-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
-  vdms-client-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
+  reid-client-cert:
+    file: ${SECRETSDIR}/certs/scenescape-reid.crt
+  reid-client-key:
+    file: ${SECRETSDIR}/certs/scenescape-reid.key
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
@@ -39,15 +39,18 @@ services:
     volumes:
       - ./:/workspace
       - ./${DBROOT}/media:/workspace/media
-      - ./controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json
+      - ./controller/config/tracker-config-persist-attr.json:/home/scenescape/Scenescape/tracker-config.json
       - ${REID_CONFIG_FILE:-./controller/config/reid-config.json}:/home/scenescape/Scenescape/reid-config.json
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
-      - source: vdms-client-key
-        target: certs/scenescape-vdms-c.key
-      - source: vdms-client-cert
-        target: certs/scenescape-vdms-c.crt
+      - source: reid-client-key
+        target: certs/scenescape-reid.key
+      - source: reid-client-cert
+        target: certs/scenescape-reid.crt
       - django
       - controller.auth
+    environment:
+      - REID_DESCRIPTOR_TTL_SECS=300
+      - REID_PURGE_INTERVAL_SECS=300
     restart: on-failure

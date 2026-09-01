@@ -37,18 +37,26 @@ def _validate_firefox(binary):
 def _find_firefox_binary():
   candidates = [
     os.environ.get("FIREFOX_BIN"),
+    "/usr/lib/firefox-esr/firefox-esr",
+    "/usr/lib/firefox/firefox",
     "/usr/bin/firefox",
     "/usr/bin/firefox-esr",
-    "/usr/lib/firefox-esr",
-    "/usr/lib/firefox/firefox",
-    which("firefox"),
     which("firefox-esr"),
+    which("firefox"),
   ]
 
   for candidate in candidates:
     if not candidate:
       continue
     p = Path(candidate)
+    # Debian/Ubuntu firefox-esr package: /usr/bin/firefox-esr -> firefox.sh;
+    # the real ELF lives beside the wrapper.
+    if p.is_dir():
+      for name in ("firefox-esr", "firefox"):
+        nested = p / name
+        if nested.is_file() and nested.stat().st_mode & 0o111 and _is_real_executable(nested):
+          return str(nested)
+      continue
     if p.is_file() and p.stat().st_mode & 0o111 and _is_real_executable(p):
       return str(p)
 
@@ -67,7 +75,10 @@ def _find_geckodriver():
   for candidate in candidates:
     if not candidate:
       continue
-    p = Path(candidate)
+    p = Path(candidate).resolve()
+    # Prefer a real binary over snap wrappers when both appear on PATH.
+    if "/snap/" in str(p):
+      continue
     if p.is_file() and p.stat().st_mode & 0o111:
       return str(p)
 
@@ -118,7 +129,7 @@ class Browser(Firefox):
       "broker.scenescape.intel.com",
       "web.scenescape.intel.com",
       "autocalibration.scenescape.intel.com",
-      "vdms.scenescape.intel.com",
+      "reid.scenescape.intel.com",
     ]
     options.set_preference("network.dns.localDomains", ",".join(_host_aliases))
     service = Service(_find_geckodriver())

@@ -92,7 +92,7 @@ pose+marsreid
 
 > **Note**: To enable pose-based bounding box adjustment in the Scene Controller, set the `--pose-adjustment` flag or `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable. See the [Scene Controller documentation](../microservices/controller/controller.md) for details.
 
-> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `pose+marsreid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--pose-adjustment` controller flag is also incompatible with Extended ReID (VDMS-based cross-camera re-identification).
+> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `pose+marsreid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--pose-adjustment` controller flag is also incompatible with Extended ReID (cross-camera re-identification via the configured vector backend).
 
 **Vehicle Analytics Workflows:**
 
@@ -215,7 +215,7 @@ You can upload custom models or input video files and use them in DL Streamer Vi
 
 You can upload custom models to the Models Volume using the Models page. The Models page is accessible in the top menu of the Scenescape UI. Alternatively, use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide to do it from the command line.
 
-1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](https://github.com/open-edge-platform/scenescape/blob/main/model_installer/src/README.md) on the Models Volume folder structure.
+1. Upload the model in OpenVINO IR format with desired precision(s).
 2. Update the model configuration file or upload a new one so that it includes the newly added model(s). See [Model Configuration File Format](./model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
 3. Reference the model in the camera pipeline configuration: use the short model name in the **Camera Chain** and the custom model configuration file name in the **Model Config** field.
 
@@ -233,7 +233,7 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
 - Cross-stream batching is not supported since in Scenescape Kubernetes deployment each camera pipeline is running in a separate Pod.
-- Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html).
+- Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html).
 - MP4 input files are not reliably supported. This is due to a GStreamer limitation: the combination of `multifilesrc` and `decodebin3` elements may fail because MP4 container metadata is unavailable when data is provided as discrete file fragments. As a workaround, convert MP4 files to a streaming-friendly format such as MPEG-TS (.ts).
 - Pose estimation pipelines using `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128`) are not compatible with `reidPolicy`. These cameras must use `detectionPolicy`. Additionally, the controller `--pose-adjustment` flag cannot be used together with Extended ReID.
 
@@ -255,7 +255,7 @@ Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice.
 The following is the GStreamer command that defines the video processing pipeline. It specifies how video frames are read, processed, and analyzed using various GStreamer elements and plugins. Each element in the pipeline performs a specific task, such as decoding, object detection, metadata conversion, and publishing, to enable video analytics in the Scenescape platform.
 
 ```
-"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
 ```
 
 #### Breakdown of gstreamer command
@@ -293,14 +293,14 @@ This section describes the metadata schema and the format that the payload needs
 "parameters": {
     "type": "object",
     "properties": {
-        "ntp_config": {
+        "ntp_server": {
             "element": {
                 "name": "timesync",
                 "property": "ntp-server"
             },
             "type": "string"
         },
-        "frame_ntp_config": {
+        "use_frame_ntp_timestamp": {
             "element": {
                 "name": "timesync",
                 "property": "use-frame-ntp-timestamp"
@@ -344,8 +344,8 @@ This section describes the metadata schema and the format that the payload needs
 
 ##### Breakdown of parameters
 
-- **ntp_config** (string): Specifies the NTP server to synchronize time with.
-- **frame_ntp_config** (boolean): Configuration for using the NTP timestamp embedded in RTSP frame metadata as the frame timestamp. This is an alternative to using the post-decode system clock timestamp. When the RTSP source is configured with `add-reference-timestamp-meta=true`, GStreamer attaches NTP reference timestamp metadata to each buffer.
+- **ntp_server** (string): Specifies the NTP server to synchronize time with.
+- **use_frame_ntp_timestamp** (boolean): Configuration for using the NTP timestamp embedded in RTSP frame metadata as the frame timestamp. This is an alternative to using the post-decode system clock timestamp. When the RTSP source is configured with `add-reference-timestamp-meta=true`, GStreamer attaches NTP reference timestamp metadata to each buffer.
   When `true`, the NTP timestamp extracted from the RTSP frame metadata
   (`GstReferenceTimestampMeta`, caps `timestamp/x-ntp`) is used as the frame timestamp instead of the post-decode
   system time. This can improve timing accuracy when camera and server clocks are synchronized to the same NTP server.
@@ -370,8 +370,8 @@ The payload section is the actual values for the specific pipeline being configu
         }
     },
     "parameters": {
-        "ntp_config": "ntpserv",
-        "frame_ntp_config": false,
+        "ntp_server": "ntpserv",
+        "use_frame_ntp_timestamp": false,
         "cameraid": "atag-qcam1",
         "metadatagenpolicy": "detectionPolicy",
         "detection_labels": "person"
@@ -395,7 +395,7 @@ You can upload custom models or input video files and use them in DL Streamer Vi
 
 You can upload custom models to the Models Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
 
-1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](https://github.com/open-edge-platform/scenescape/blob/main/model_installer/src/README.md) for the Models Volume folder structure.
+1. Upload the model in OpenVINO IR format with desired precision(s).
 2. Reference the model in the video pipeline inference element (e.g. `gvadetect`).
 
 #### Uploading custom video files to Docker volumes

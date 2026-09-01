@@ -328,6 +328,45 @@ TEST_F(TrackingWorkerTest, EmptyChunk_FlowsThroughTracker) {
     EXPECT_NE(published_timestamp.find('Z'), std::string::npos);
 }
 
+// Empty objects lists free-run: no detections is still publishable state.
+// Regression for suppressing empties after the first empty publish (UI marks linger).
+TEST_F(TrackingWorkerTest, EmptyChunks_PublishEveryTime) {
+    std::mutex mtx;
+    std::condition_variable cv;
+    int publish_count = 0;
+    std::vector<std::vector<Track>> published_track_lists;
+
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        std::lock_guard lock(mtx);
+        publish_count++;
+        published_track_lists.push_back(tracks);
+        cv.notify_one();
+    };
+
+    TrackingScope scope{"scene-1", "person"};
+    TrackingWorker worker(scope, "Test Scene", 2, callback, tracking_config_, cameras_);
+
+    for (int i = 0; i < 2; ++i) {
+        Chunk chunk;
+        chunk.scene_id = "scene-1";
+        chunk.category = "person";
+        chunk.chunk_time = std::chrono::steady_clock::now();
+        EXPECT_TRUE(worker.try_enqueue(std::move(chunk)));
+    }
+
+    {
+        std::unique_lock lock(mtx);
+        EXPECT_TRUE(cv.wait_for(lock, std::chrono::seconds(1), [&] { return publish_count >= 2; }));
+    }
+
+    EXPECT_EQ(publish_count, 2);
+    EXPECT_EQ(worker.processed_count(), 2);
+    ASSERT_EQ(published_track_lists.size(), 2u);
+    EXPECT_TRUE(published_track_lists[0].empty());
+    EXPECT_TRUE(published_track_lists[1].empty());
+}
+
 // Test queue_depth() returns correct queue size
 TEST_F(TrackingWorkerTest, QueueDepth_ReturnsCorrectSize) {
     // Use blocking callback to keep chunks in queue
@@ -905,7 +944,7 @@ TEST_F(TrackingWorkerTest, Tracking_MultiCamera_WinnerIsDeterministicRegardlessO
         << "Run B (high-conf last): 'female' should still win. Got: " << result_b;
 }
 
-TEST_F(TrackingWorkerTest, Tracking_MultiCamera_FusionDoesNotLeakIntoSingleCameraChunk) {
+TEST_F(TrackingWorkerTest, Tracking_MetadataMaximumPersistsAcrossChunks) {
     std::vector<std::vector<Track>> published_tracks;
     std::mutex mtx;
     std::condition_variable cv;
@@ -927,9 +966,9 @@ TEST_F(TrackingWorkerTest, Tracking_MultiCamera_FusionDoesNotLeakIntoSingleCamer
     fused_chunk.category = "person";
     fused_chunk.chunk_time = std::chrono::steady_clock::now();
     fused_chunk.camera_batches.push_back(
-        make_batch("cam-1", 0, 0, R"({"plate":{"label":"XYZ-789"}})"));
+        make_batch("cam-1", 0, 0, R"({"plate":{"label":"XYZ-789","confidence":0.8}})"));
     fused_chunk.camera_batches.push_back(
-        make_batch("cam-2", 0, 1, R"({"gender":{"label":"female"}})"));
+        make_batch("cam-2", 0, 1, R"({"gender":{"label":"female","confidence":0.9}})"));
     worker.try_enqueue(std::move(fused_chunk));
 
     Chunk single_camera_chunk;
@@ -937,7 +976,7 @@ TEST_F(TrackingWorkerTest, Tracking_MultiCamera_FusionDoesNotLeakIntoSingleCamer
     single_camera_chunk.category = "person";
     single_camera_chunk.chunk_time = std::chrono::steady_clock::now();
     single_camera_chunk.camera_batches.push_back(
-        make_batch("cam-2", 1, 1, R"({"gender":{"label":"male"}})"));
+        make_batch("cam-2", 1, 1, R"({"gender":{"label":"male","confidence":0.7}})"));
     worker.try_enqueue(std::move(single_camera_chunk));
 
     {
@@ -948,9 +987,11 @@ TEST_F(TrackingWorkerTest, Tracking_MultiCamera_FusionDoesNotLeakIntoSingleCamer
 
     ASSERT_FALSE(published_tracks.back().empty());
     const auto& metadata = published_tracks.back().front().metadata_json;
-    EXPECT_NE(metadata.find("male"), std::string::npos);
-    EXPECT_EQ(metadata.find("plate"), std::string::npos);
-    EXPECT_EQ(metadata.find("female"), std::string::npos);
+    EXPECT_NE(metadata.find("plate"), std::string::npos);
+    EXPECT_NE(metadata.find("XYZ-789"), std::string::npos);
+    EXPECT_NE(metadata.find("female"), std::string::npos);
+    EXPECT_NE(metadata.find("0.9"), std::string::npos);
+    EXPECT_EQ(metadata.find(R"("label":"male")"), std::string::npos);
 }
 
 } // namespace

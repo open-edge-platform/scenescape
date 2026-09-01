@@ -27,11 +27,17 @@ services:
         condition: service_started
     environment:
       VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      no_proxy: ${no_proxy},.scenescape.intel.com
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      NO_PROXY: ${NO_PROXY},.scenescape.intel.com
     command: --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
       --ntp ntpserv
-      --visibility_topic "$VISIBILITY_TOPIC"
+      --visibility_topic ${VISIBILITY:-regulated}
     volumes:
       - vol-media:/home/scenescape/Scenescape/media
       - ./controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json

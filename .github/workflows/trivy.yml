@@ -24,7 +24,7 @@ permissions:
   contents: read # needed for actions/checkout
 
 env:
-  TRIVY_VERSION: v0.70.0
+  TRIVY_VERSION: v0.73.0
 
 jobs:
   trivy-image-scan:
@@ -66,6 +66,7 @@ jobs:
         run: |
           echo "SCENESCAPE_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
           make build-all
+          make -C mapping build-all
           docker image ls | awk '{print $1}' | grep $(cat version.txt) | grep -v "\-test" > images.txt
       - name: "Run Trivy Image Scan"
         if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'

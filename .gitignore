@@ -39,6 +39,7 @@ media
 **/workspace/migrations
 pvd-mqtt/detect
 sample_data/xREF_*
+.test_logs
 test_data
 test_reports/
 !tests/interface/firefox-profile.tar
@@ -48,7 +49,6 @@ model_installer/models
 package.json
 package-lock.json
 node_modules
-coverity_tool.tgz
 *.auth
 *.crt
 *.csr

@@ -17,7 +17,7 @@ on:
         description: "Timeout for the job in minutes"
         required: false
         type: number
-        default: 80
+        default: 85
   pull_request:
     branches:
       - main
@@ -123,7 +123,7 @@ jobs:
     runs-on: [bat]
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '80') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '85') }}
     needs: [filter, check-pr-state]
     if: ${{ (needs.filter.outputs.code_changed == 'true' || needs.filter.outputs.bat_workflow_changed == 'true') && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
@@ -153,19 +153,28 @@ jobs:
           mkdir -p reports
           pytest tests -m basic_acceptance --junitxml=reports/bat_results.xml --log-level=ERROR
 
-      - name: "Run Metric Tests"
-        if: always() && steps.setup-test-env.outcome == 'success'
-        run: |
-          source tests/.venv/bin/activate
-          mkdir -p reports
-          pytest tests/system/metric --junitxml=reports/metric_results.xml --log-level=ERROR
-
       - name: "Run Unit Tests"
         if: always() && steps.setup-test-env.outcome == 'success'
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
           pytest tests/sscape_tests/ --junitxml=reports/unit_results.xml --log-level=ERROR
+
+      - name: Run Mapping Service tests
+        if: always() && steps.setup-test-env.outcome == 'success'
+        working-directory: mapping
+        run: |
+          make test-build
+          docker run --rm --entrypoint bash intel/scenescape-mapping-test -c 'cd /home/scenescape/Scenescape/tests && ./run_tests.sh'
+
+      - name: Run Cluster Analytics tests
+        if: always() && steps.setup-test-env.outcome == 'success'
+        run: |
+          source tests/.venv/bin/activate
+          cd cluster_analytics
+          make test-build
+          pip install -r tests/service/requirements.txt
+          pytest tests/service/ -v
 
       - name: Run Pipeline Runner tests
         if: always() && steps.setup-test-env.outcome == 'success'
@@ -197,7 +206,10 @@ jobs:
     runs-on: [bat]
     permissions:
       packages: write # For using GHCR as cache registry
+    env:
+      SECRETSDIR: ${{ github.workspace }}/.scenescape-secrets
     needs: [filter, check-pr-state]
+    timeout-minutes: 90
     if: ${{ (needs.filter.outputs.code_changed == 'true' || needs.filter.outputs.bat_workflow_changed == 'true') && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
       - name: Checkout

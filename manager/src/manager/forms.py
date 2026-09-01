@@ -12,6 +12,13 @@ from django.forms import ModelForm, ValidationError
 
 from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
 from manager.validators import validate_zip_file
+from manager.ppl_generator import (
+  PipelineGenerationValueError,
+  PipelineGenerationNotImplementedError,
+  load_model_config,
+)
+from manager.ppl_generator.model_chain import parse_model_chain
+from scene_common import log
 from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES
 from scene_common.cam_fields import (
     CAM_FORM_FIELDS, CAM_FORM_ONLY_FIELDS,
@@ -107,12 +114,11 @@ class SceneUpdateForm(ModelForm):
     model = Scene
     fields = ('__all__')
 
-  def checkDuplicatePolycamData(self, zip_file, field_name):
+  def updatePolycamHash(self, zip_file):
+    # Re-uploading a zip (even one identical to the current data) must always be allowed to save.
     file_hash = hashlib.sha256(zip_file.read()).hexdigest()
-    if self.instance.polycam_hash == file_hash:
-      self.add_error(field_name, "Uploading a duplicate zip file is not allowed. Please clear the field and upload again.")
-    else:
-      self.instance.polycam_hash = file_hash
+    zip_file.seek(0)
+    self.instance.polycam_hash = file_hash
     return
 
   def clean(self):
@@ -124,10 +130,10 @@ class SceneUpdateForm(ModelForm):
     if new_map_file:
       map_file_ext = os.path.splitext(new_map_file.name)[1].lower()
       if map_file_ext == ".zip":
-        self.checkDuplicatePolycamData(new_map_file, 'map')
+        self.updatePolycamHash(new_map_file)
         validate_zip_file(new_map_file)
     if new_polycam_file:
-      self.checkDuplicatePolycamData(new_polycam_file, 'polycam_data')
+      self.updatePolycamHash(new_polycam_file)
       validate_zip_file(new_polycam_file, map_file_ext == ".glb")
     else:
       self.instance.polycam_hash = ""
@@ -181,6 +187,26 @@ class CamCreateForm(forms.ModelForm):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.fields['scene'].required = False
+
+  def clean_camerachain(self):
+    """Reject camerachain values that reference models missing from model-config."""
+    camerachain = self.cleaned_data.get('camerachain', '').strip()
+    if not camerachain:
+      return camerachain
+
+    model_config_filename = getattr(self.instance, 'modelconfig', None) or 'model_config.json'
+    try:
+      model_config = load_model_config(model_config_filename)
+      parse_model_chain(camerachain, settings.MODEL_ROOT, model_config)
+    except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
+      raise ValidationError(str(e)) from e
+    except Exception as e:
+      # Malformed (but JSON-valid) model configs can raise unexpected errors;
+      # convert to a safe validation message instead of a 500 and log details.
+      log.error(f"Unexpected error validating camerachain: {e}")
+      raise ValidationError("Unable to validate camera chain against model config.") from e
+
+    return camerachain
 
 class ChildSceneForm(forms.ModelForm):
   class Meta:
