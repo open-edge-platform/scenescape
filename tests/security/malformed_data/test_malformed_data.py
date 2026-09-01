@@ -40,19 +40,17 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 SCENE_NAME = "Demo"
 
-# camera1 is pre-registered in tests/testdb.tar.bz2 and is used as the primary
-# positive control. The remaining registered cameras are seeded over REST.
+# camera1 is pre-registered in tests/testdb.tar.bz2.
 CONTROL_CAMERA = "camera1"
 CANARY_CAMERA = "sensor10"
 INVALID_SENDER = "sensor_bad"
 SEEDED_CAMERAS = (CANARY_CAMERA, INVALID_SENDER)
 
-# Never registered: exercises the unknown-sender drop path.
 UNKNOWN_CAMERA = "camera4"
 
-# How long to wait for an expected scene update before giving up.
+# wait time for an expected scene update.
 EMIT_TIMEOUT_S = 120
-# How long to drive a camera that must NOT produce scene updates.
+# drive time for a camera with no scene updates.
 DROP_WINDOW_S = 6
 PUBLISH_INTERVAL_S = 0.2
 DRAIN_TIME_S = 1.5
@@ -123,7 +121,7 @@ def _negative_object_id(camera_id):
 
 def _non_string_id(camera_id):
   payload = _good_payload(camera_id)
-  # The sender id must be a string; an integer violates the schema.
+  # The sender id must be a string, an integer violates the schema.
   payload["id"] = 12345
   return payload
 
@@ -184,7 +182,7 @@ class _SceneCounter:
 
 
 def _seed_camera(rest, scene_uid, camera_id):
-  """Register *camera_id* on the given scene; skip if it already exists."""
+  """Register *camera_id* on the given scene, skip if it already exists."""
   existing = rest.getCameras({"sensor_id": camera_id})
   if existing.get("results"):
     return
