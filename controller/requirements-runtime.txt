@@ -15,7 +15,7 @@ paho-mqtt==2.1.0
 qdrant-client==1.18.0
 scipy==1.17.1
 shapely==2.1.1
-setuptools==83.0.0
+setuptools==84.0.0
 trimesh==4.11.5
 vdms==0.0.22
 wheel==0.47.0
