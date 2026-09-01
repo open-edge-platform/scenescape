@@ -742,6 +742,7 @@ demo-room: build-core build-llm-service init-sample-data
 		exit 1; \
 	fi
 	docker compose -f docker-compose.yml -f $(BUSINESS_LOGIC_DOCKER_COMPOSE_FILE) -f $(LLM_DOCKER_COMPOSE_FILE) --profile controller up -d
+	@SUPASS="$$SUPASS" sample_data/deploy-demo.sh --post-deploy
 	@echo ""
 	@echo "To stop SceneScape with LLM, type:"
 	@echo "    docker compose -f docker-compose.yml -f $(BUSINESS_LOGIC_DOCKER_COMPOSE_FILE) -f $(LLM_DOCKER_COMPOSE_FILE) --profile controller down"
