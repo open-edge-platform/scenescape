@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # prefix for volume and container names, override with the environment variable COMPOSE_PROJECT_NAME
@@ -14,18 +14,16 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-web.crt
   web-key:
     file: ${SECRETSDIR}/certs/scenescape-web.key
-  vdms-client-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
-  vdms-client-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
-  vdms-server-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-s.crt
-  vdms-server-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-s.key
+  reid-client-cert:
+    file: ${SECRETSDIR}/certs/scenescape-reid.crt
+  reid-client-key:
+    file: ${SECRETSDIR}/certs/scenescape-reid.key
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
     environment: CONTROLLER_AUTH
+  controller-auth-file:
+    file: manager/secrets/controller.auth
   browser.auth:
     file: ${SECRETSDIR}/browser.auth
   calibration.auth:
@@ -39,11 +37,59 @@ secrets:
   mapping-key:
     file: ${SECRETSDIR}/certs/scenescape-mapping.key
 
+x-controller-base: &controller-base
+  image: intel/scenescape-controller:${VERSION:-latest}
+  init: true
+  user: "${UID:-1000}:${GID:-1000}"
+  networks:
+    scenescape:
+  depends_on:
+    web:
+      condition: service_healthy
+    broker:
+      condition: service_started
+    ntpserv:
+      condition: service_started
+  environment:
+    CONTROLLER_ENABLE_METRICS: ${CONTROLLER_ENABLE_METRICS}
+    CONTROLLER_METRICS_ENDPOINT: ${CONTROLLER_METRICS_ENDPOINT}
+    CONTROLLER_METRICS_EXPORT_INTERVAL_S: ${CONTROLLER_METRICS_EXPORT_INTERVAL_S}
+    CONTROLLER_ENABLE_TRACING: ${CONTROLLER_ENABLE_TRACING}
+    CONTROLLER_TRACING_ENDPOINT: ${CONTROLLER_TRACING_ENDPOINT}
+    CONTROLLER_TRACING_SAMPLE_RATIO: ${CONTROLLER_TRACING_SAMPLE_RATIO}
+    no_proxy: ${no_proxy},.scenescape.intel.com
+    NO_PROXY: ${NO_PROXY},.scenescape.intel.com
+  command: >
+    --restauth /run/secrets/controller.auth
+    --brokerauth /run/secrets/controller.auth
+    --broker broker.scenescape.intel.com
+    --ntp ntpserv
+  configs:
+    - source: tracker-config
+      target: /home/scenescape/Scenescape/tracker-config.json
+    - source: reid-config
+      target: /home/scenescape/Scenescape/reid-config.json
+  volumes:
+    - vol-media:/home/scenescape/Scenescape/media
+    - vol-sample-data:/home/scenescape/Scenescape/sample_data
+  secrets:
+    - source: root-cert
+      target: certs/scenescape-ca.pem
+    - django
+    - controller.auth
+    - source: reid-client-key
+      target: certs/scenescape-reid.key
+    - source: reid-client-cert
+      target: certs/scenescape-reid.crt
+  restart: always
+  pids_limit: 1000
+
 # Profiles:
 # - Default (no profile): Core services including autocalibration
-# - experimental: All services including mapping and cluster-analytics
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
+# - controller: Scene Controller (tracking) + Analytics service
+# - tracker: Tracker service + Analytics service (no Scene Controller)
 
 services:
   ntpserv:
@@ -54,9 +100,27 @@ services:
     #   - 123:123/udp
     restart: unless-stopped
     pids_limit: 1000
+    environment:
+      # Fallback to local system clock (stratum 10) when external NTP pools are unreachable.
+      # Chrony automatically prioritizes: external pools first, then local stratum if external fails.
+      - NTP_DIRECTIVES=local stratum 10
+    healthcheck:
+      # Verify stratum is 1-16 (rejects KoD at 0, undefined at >16).
+      test:
+        [
+          "CMD",
+          "sh",
+          "-c",
+          "chronyc tracking | grep -E 'Stratum[[:space:]]+:[[:space:]]+([1-9]|1[0-6])[[:space:]]*$' || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   broker:
     image: eclipse-mosquitto:2.0.22
+    # Exposed for demo clients (e.g. external cameras, node-red business logic)
     ports:
       - "1883:1883"
     configs:
@@ -82,12 +146,23 @@ services:
       - scenescape
     volumes:
       - vol-db:/var/lib/postgresql/data
+    # Exposed for demo tooling / direct DB inspection
     ports:
       - "5432:5432"
     restart: always
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost -p 5432",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
 
   web:
-    image: scenescape-manager:${VERSION:-latest}
+    image: intel/scenescape-manager:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -95,16 +170,14 @@ services:
           - web.scenescape.intel.com
     depends_on:
       pgserver:
-        condition: service_started
+        condition: service_healthy
       broker:
         condition: service_started
     ports:
       - "443:443"
     command: >
       webserver
-      --dbhost pgserver
       --dbtype postgres
-      --dbport 5432
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/browser.auth
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
@@ -116,26 +189,31 @@ services:
       retries: 10
       start_period: 10s
     environment:
-      - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
+      - EXAMPLEDB=/home/scenescape/Scenescape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
+      - DBHOST=pgserver
+      - DBPORT=5432
+      # Demo NLQ stack: manager talks to InfluxDB and the LLM query service.
+      # The influxdb2-admin-token secret is mounted via docker-compose-bussiness-logic.yml.
       - INFLUX_URL=http://influxdb2:8086
       - INFLUXDB_INIT_ADMIN_TOKEN_FILE=/run/secrets/influxdb2-admin-token
       - INFLUX_ORG=ITM
       - INFLUX_BUCKET=SS-IGK6
       - LLM_SERVICE_URL=http://llm-query-service:5000
       - LLM_SERVICE_TIMEOUT=180
-      - NO_PROXY=${NO_PROXY},llm-query-service,influxdb2,node-red,localhost,127.0.0.1,web,web.scenescape.intel.com
-      - no_proxy=${no_proxy},llm-query-service,influxdb2,node-red,localhost,127.0.0.1,web,web.scenescape.intel.com
-    cap_add:
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
+      - no_proxy=${no_proxy},.scenescape.intel.com,llm-query-service,influxdb2,node-red,localhost,127.0.0.1,web
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com,llm-query-service,influxdb2,node-red,localhost,127.0.0.1,web
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - MAPBOX_API_KEY=${MAPBOX_API_KEY}
+      # Max upload size for scene map files (blueprints, .glb meshes). Default
+      # 132MB. Raise if uploading large 3D scans or high-res floor plans;
+      # lower to reduce per-request memory pressure in constrained deployments.
+      - DATA_UPLOAD_MAX_MEMORY_SIZE_MB=${DATA_UPLOAD_MAX_MEMORY_SIZE_MB:-132}
+      - FILE_UPLOAD_MAX_MEMORY_SIZE_MB=${FILE_UPLOAD_MAX_MEMORY_SIZE_MB:-132}
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-sample-data:/home/scenescape/Scenescape/sample_data
       - vol-migrations:/workspace/migrations
     secrets:
       - source: root-cert
@@ -152,11 +230,19 @@ services:
     pids_limit: 1000
 
   scene:
-    image: scenescape-controller:${VERSION:-latest}
+    <<: *controller-base
+    profiles:
+      - controller
+
+  analytics:
+    image: intel/scenescape-analytics:${VERSION:-latest}
     init: true
     user: "${UID:-1000}:${GID:-1000}"
     networks:
       scenescape:
+    profiles:
+      - controller
+      - tracker
     depends_on:
       web:
         condition: service_healthy
@@ -164,68 +250,36 @@ services:
         condition: service_started
       ntpserv:
         condition: service_started
-      # vdms:
-      #   condition: service_started
     environment:
-      - CONTROLLER_ENABLE_METRICS
-      - CONTROLLER_METRICS_ENDPOINT
-      - CONTROLLER_METRICS_EXPORT_INTERVAL_S
-      - CONTROLLER_ENABLE_TRACING
-      - CONTROLLER_TRACING_ENDPOINT
-      - CONTROLLER_TRACING_SAMPLE_RATIO
+      no_proxy: ${no_proxy},.scenescape.intel.com
+      NO_PROXY: ${NO_PROXY},.scenescape.intel.com
+      VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
     command: >
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
-      --ntp ntpserv
-    # mount the trackerconfig file to the container
-    configs:
-      - source: tracker-config
-        target: /home/scenescape/SceneScape/tracker-config.json
+      --visibility_topic ${VISIBILITY:-regulated}
     volumes:
-      - vol-media:/home/scenescape/SceneScape/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-media:/home/scenescape/Scenescape/media
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
-      - source: vdms-client-key
-        target: certs/scenescape-vdms-c.key
-      - source: vdms-client-cert
-        target: certs/scenescape-vdms-c.crt
       - django
       - controller.auth
     restart: always
     pids_limit: 1000
 
-  # vdms:
-  #   image: intellabs/vdms:v2.12.0
-  #   init: true
-  #   networks:
-  #     scenescape:
-  #       aliases:
-  #         - vdms.scenescape.intel.com
-  #   environment:
-  #     - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
-  #     - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
-  #     - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
-  #   secrets:
-  #     - source: root-cert
-  #       target: certs/scenescape-ca.pem
-  #     - source: vdms-server-cert
-  #       target: certs/scenescape-vdms-s.crt
-  #     - source: vdms-server-key
-  #       target: certs/scenescape-vdms-s.key
-  #   restart: always
-  #   pids_limit: 1000
-
+  # Demo video ingestion: physical GENICAM (Balluff) cameras streamed via RTSP.
+  # No mediaserver / RTSP simulation is used; camera sources are set in demo-config-gpu.json.
   demo-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2025.2.0-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
     networks:
       scenescape:
     tty: true
     entrypoint: ["./run.sh"]
     ports:
       - "8081:8080"
+    # Demo uses GPU acceleration for YOLO11m INT8 inference
     devices:
       - "/dev/dri:/dev/dri"
     group_add:
@@ -249,10 +303,9 @@ services:
       start_period: 10s
     environment:
       - RUN_MODE=EVA
-      - DETECTION_DEVICE=CPU
-      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
+      - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
@@ -262,13 +315,13 @@ services:
       - https_proxy=${https_proxy}
       - HTTP_PROXY=${HTTP_PROXY}
       - http_proxy=${http_proxy}
-      - NO_PROXY=mediaserver,${NO_PROXY}
-      - no_proxy=mediaserver,${no_proxy}
+      - NO_PROXY=${NO_PROXY}
+      - no_proxy=${no_proxy}
     configs:
       - source: demo-config
         target: /home/pipeline-server/config.json
     volumes:
-      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-dlstreamer-pipeline-server-pipeline-root-demo:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
@@ -288,7 +341,7 @@ services:
       - vol-datasets:/data/datasets
 
   autocalibration:
-    image: scenescape-autocalibration:${VERSION:-latest}
+    image: intel/scenescape-autocalibration:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -310,14 +363,17 @@ services:
         condition: service_started
     environment:
       - EGL_PLATFORM=surfaceless
-      - NETVLAD_MODEL_DIR=/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad
       - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
       - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+      - no_proxy=${no_proxy},.scenescape.intel.com
     volumes:
-      - vol-media:/home/scenescape/SceneScape/media
-      - vol-datasets:/home/scenescape/SceneScape/datasets
-      - vol-netvlad_models:/usr/local/lib/python3.10/dist-packages/third_party/netvlad
+      - vol-media:/home/scenescape/Scenescape/media
+      - vol-datasets:/home/scenescape/Scenescape/datasets
+      - vol-netvlad_models:/usr/local/lib/python3.11/site-packages/third_party/netvlad
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -332,28 +388,79 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 30s
     restart: always
+    pids_limit: 1000
+
+  tracker:
+    image: intel/scenescape-tracker:${VERSION:-latest}
+    profiles:
+      - tracker
+    networks:
+      scenescape:
+        aliases:
+          - tracker.scenescape.intel.com
+    user: "10001:10001"
+    depends_on:
+      broker:
+        condition: service_started
+      web:
+        condition: service_healthy
+    environment:
+      - TRACKER_LOG_LEVEL=info
+      - TRACKER_MQTT_HOST=broker.scenescape.intel.com
+      - TRACKER_MQTT_PORT=1883
+      - TRACKER_MQTT_INSECURE=false
+      - TRACKER_MQTT_TLS_CA_CERT=/run/secrets/certs/scenescape-ca.pem
+      - TRACKER_MQTT_TLS_VERIFY_SERVER=true
+      - TRACKER_MANAGER_URL=https://web.scenescape.intel.com
+      - TRACKER_MANAGER_AUTH_PATH=/run/secrets/controller.auth
+      - TRACKER_MANAGER_CA_CERT_PATH=/run/secrets/certs/scenescape-ca.pem
+      - TRACKER_SCENES_SOURCE=api
+      # Override host proxy settings - Paho MQTT dont respect no_proxy var, so as a WA
+      # tracker code detects empty vars and unsets them (see proxy_utils.cpp clearEmptyProxyEnvVars)
+      - http_proxy=
+      - https_proxy=
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: controller-auth-file
+        target: /run/secrets/controller.auth
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Exit 0: graceful stop or non-retryable error (bad auth) — stay stopped
+    # Exit 1: retryable error (broker unavailable) — restart
+    # Exit 99: scene update received — restart to reload config
+    restart: on-failure
+    mem_limit: ${TRACKER_MEM_LIMIT:-512m}
+    # Scale: ~1 CPU per 100 tracked objects. Increase TRACKER_CPUS for larger deployments.
+    cpus: ${TRACKER_CPUS:-2.0}
     pids_limit: 1000
 
   mapping:
     profiles:
-      - experimental
       - mapping
-    image: scenescape-mapping:${VERSION:-latest}
+    image: intel/scenescape-mapping:${VERSION:-latest}
     init: true
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:
       scenescape:
         aliases:
           - mapping.scenescape.intel.com
-    ports:
-      - "8444:8444"
+    # ports:
+    #   - "8444:8444"
     volumes:
       - vol-mapping-model-weights:/workspace/model_weights
       - vol-mapping-torch-cache:/workspace/.cache/torch
       - vol-mapping-hf-cache:/workspace/.cache/huggingface
     environment:
+      - MAPPING_CPU_SEC_PER_FRAME=10
+      - GUNICORN_TIMEOUT=900
       - PYTHONDONTWRITEBYTECODE=1
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
@@ -369,18 +476,22 @@ services:
       - source: mapping-key
         target: certs/scenescape-mapping.key
     healthcheck:
-      test: ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8444/health"]
-      interval: 10s
-      timeout: 60s
+      test:
+        ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8444/v1/health"]
+      interval: 15s
+      timeout: 10s
       retries: 5
-      start_period: 10s
+      start_period: 600s # Allow time for model download and initialization
     restart: always
 
   cluster-analytics:
+    environment:
+      OPENBLAS_NUM_THREADS: "2"
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
     profiles:
-      - experimental
       - cluster-analytics
-    image: scenescape-cluster-analytics:${VERSION:-latest}
+    image: intel/scenescape-cluster-analytics:${VERSION:-latest}
     init: true
     networks:
       scenescape:
@@ -395,8 +506,6 @@ services:
     depends_on:
       broker:
         condition: service_started
-      scene:
-        condition: service_started
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -410,13 +519,23 @@ configs:
   mosquitto-secure:
     file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
   tracker-config:
-    # Use this configuration file to run tracking with time-chunking enabled
-    file: ./controller/config/tracker-config-time-chunking.json
-    #file: ./controller/config/tracker-config.json
-  demo-config:
+    # Use this configuration file to run tracking in immediate mode
+    # file: ./controller/config/tracker-config-immediate.json
+    file: ./controller/config/tracker-config.json
+  reid-config:
+    file: ./controller/config/reid-config.json
+  retail-config:
     # Use this configuration file to run decoding and inference on GPU
-    # file: ./dlstreamer-pipeline-server/demo-config-gpu.json
-    file: ./dlstreamer-pipeline-server/demo-config-gpu.json
+    # file: ./dlstreamer-pipeline-server/retail-config-gpu.json
+    file: ./dlstreamer-pipeline-server/retail-config.json
+    # Use this configuration file to run inference on NPU
+    # file: ./dlstreamer-pipeline-server/retail-config-npu.json
+  queuing-config:
+    # Use this configuration file to run decoding and inference on GPU
+    # file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
+    file: ./dlstreamer-pipeline-server/queuing-config.json
+    # Use this configuration file to run inference on NPU
+    # file: ./dlstreamer-pipeline-server/queuing-config-npu.json
 
 volumes:
   vol-db:
@@ -427,7 +546,12 @@ volumes:
   vol-models:
   vol-netvlad_models:
     driver: local
-  vol-dlstreamer-pipeline-server-pipeline-root-demo:
+  vol-dlstreamer-pipeline-server-pipeline-root-queuing:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  vol-dlstreamer-pipeline-server-pipeline-root-retail:
     driver: local
     driver_opts:
       type: tmpfs

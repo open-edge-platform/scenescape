@@ -8,112 +8,112 @@
       {
         "name": "qcam1",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://192.168.0.100/axis-media/media.amp latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=2 inference-interval=1 model-instance-id=queuing model=/home/pipeline-server/models/huggingface/OpenVINO_YOLO11m-int8-ov/yolo11m.xml device=GPU pre-process-backend=va-surface-sharing ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://192.168.0.100/axis-media/media.amp latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect scheduling-policy=latency batch-size=2 inference-interval=1 model-instance-id=queuing model=/home/pipeline-server/models/huggingface/OpenVINO_YOLO11m-int8-ov/yolo11m.xml device=GPU pre-process-backend=va-surface-sharing ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
           "properties": {
-            "ntp_config": {
+            "ntp_server": {
               "element": {
                 "name": "timesync",
-                "property": "kwarg",
-                "format": "json"
+                "property": "ntp-server"
               },
-              "type": "object",
-              "properties": {
-                "ntpServer": {
-                  "type": "string"
-                }
-              }
+              "type": "string"
             },
-            "camera_config": {
+            "cameraid": {
               "element": {
                 "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
+                "property": "cameraid"
               },
-              "type": "object",
-              "properties": {
-                "cameraid": {
-                  "type": "string"
-                },
-                "metadatagenpolicy": {
-                  "type": "string",
-                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
-                }
-              }
+              "type": "string"
+            },
+            "metadatagenpolicy": {
+              "element": {
+                "name": "datapublisher",
+                "property": "metadatagenpolicy"
+              },
+              "type": "string",
+              "description": "One of detectionPolicy (default), detection3DPolicy, reidPolicy, classificationPolicy, ocrPolicy"
+            },
+            "publish_image": {
+              "element": {
+                "name": "datapublisher",
+                "property": "publish-image"
+              },
+              "type": "boolean",
+              "description": "Publish annotated JPEG to scenescape/image/camera/<cameraid> each frame"
+            },
+            "detection_labels": {
+              "element": {
+                "name": "datapublisher",
+                "property": "detection-labels"
+              },
+              "type": "string",
+              "description": "Comma-separated allow-list of detection categories (e.g. \"person,car\"). Empty publishes all."
             }
           }
         },
         "payload": {
           "parameters": {
-            "ntp_config": {
-              "ntpServer": "ntpserv"
-            },
-            "camera_config": {
-              "cameraid": "atag-qcam1",
-              "metadatagenpolicy": "detectionPolicy"
-            }
+            "ntp_server": "ntpserv",
+            "cameraid": "atag-qcam1",
+            "metadatagenpolicy": "detectionPolicy"
           }
         }
       },
       {
         "name": "qcam2",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://192.168.0.101/axis-media/media.amp latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=2 inference-interval=1 model-instance-id=queuing model=/home/pipeline-server/models/huggingface/OpenVINO_YOLO11m-int8-ov/yolo11m.xml device=GPU pre-process-backend=va-surface-sharing ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://192.168.0.101/axis-media/media.amp latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect scheduling-policy=latency batch-size=2 inference-interval=1 model-instance-id=queuing model=/home/pipeline-server/models/huggingface/OpenVINO_YOLO11m-int8-ov/yolo11m.xml device=GPU pre-process-backend=va-surface-sharing ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
           "properties": {
-            "ntp_config": {
+            "ntp_server": {
               "element": {
                 "name": "timesync",
-                "property": "kwarg",
-                "format": "json"
+                "property": "ntp-server"
               },
-              "type": "object",
-              "properties": {
-                "ntpServer": {
-                  "type": "string"
-                }
-              }
+              "type": "string"
             },
-            "camera_config": {
+            "cameraid": {
               "element": {
                 "name": "datapublisher",
-                "property": "kwarg",
-                "format": "json"
+                "property": "cameraid"
               },
-              "type": "object",
-              "properties": {
-                "cameraid": {
-                  "type": "string"
-                },
-                "metadatagenpolicy": {
-                  "type": "string",
-                  "description": "Meta data generation policy, one of detectionPolicy(default),reidPolicy,classificationPolicy"
-                },
-                "publish_frame": {
-                  "type": "boolean",
-                  "description": "Publish frame to mqtt"
-                }
-              }
+              "type": "string"
+            },
+            "metadatagenpolicy": {
+              "element": {
+                "name": "datapublisher",
+                "property": "metadatagenpolicy"
+              },
+              "type": "string",
+              "description": "One of detectionPolicy (default), detection3DPolicy, reidPolicy, classificationPolicy, ocrPolicy"
+            },
+            "publish_image": {
+              "element": {
+                "name": "datapublisher",
+                "property": "publish-image"
+              },
+              "type": "boolean",
+              "description": "Publish annotated JPEG to scenescape/image/camera/<cameraid> each frame"
+            },
+            "detection_labels": {
+              "element": {
+                "name": "datapublisher",
+                "property": "detection-labels"
+              },
+              "type": "string",
+              "description": "Comma-separated allow-list of detection categories (e.g. \"person,car\"). Empty publishes all."
             }
           }
         },
         "payload": {
           "parameters": {
-            "ntp_config": {
-              "ntpServer": "ntpserv"
-            },
-            "camera_config": {
-              "cameraid": "atag-qcam2",
-              "metadatagenpolicy": "detectionPolicy"
-            }
+            "ntp_server": "ntpserv",
+            "cameraid": "atag-qcam2",
+            "metadatagenpolicy": "detectionPolicy"
           }
         }
       }

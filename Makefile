@@ -741,10 +741,10 @@ demo-room: build-core build-llm-service init-sample-data
 		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
 		exit 1; \
 	fi
-	docker compose -f docker-compose.yml -f $(BUSINESS_LOGIC_DOCKER_COMPOSE_FILE) -f $(LLM_DOCKER_COMPOSE_FILE) up -d
+	docker compose -f docker-compose.yml -f $(BUSINESS_LOGIC_DOCKER_COMPOSE_FILE) -f $(LLM_DOCKER_COMPOSE_FILE) --profile controller up -d
 	@echo ""
 	@echo "To stop SceneScape with LLM, type:"
-	@echo "    docker compose -f docker-compose.yml -f $(BUSINESS_LOGIC_DOCKER_COMPOSE_FILE) -f $(LLM_DOCKER_COMPOSE_FILE) down"
+	@echo "    docker compose -f docker-compose.yml -f $(BUSINESS_LOGIC_DOCKER_COMPOSE_FILE) -f $(LLM_DOCKER_COMPOSE_FILE) --profile controller down"
 
 .PHONY: demo-all
 demo-all: check-reid-backend $(DEMO_BUILD:build=build-all) init-sample-data
