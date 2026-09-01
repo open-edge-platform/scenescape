@@ -60,7 +60,7 @@ services:
     pids_limit: 1000
 
   retail-cams:
-    image: linuxserver/ffmpeg:version-8.1-cli
+    image: linuxserver/ffmpeg:version-9.0-cli
     command: |
       -nostdin
       -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts
