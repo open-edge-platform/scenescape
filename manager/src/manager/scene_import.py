@@ -148,19 +148,24 @@ class ImportScene:
 
     scene_id = resp.get("uid")
 
-    # Scene update
-    scene_data = {k: json_data.get(k) for k in [
+    # Scene update. Omit keys absent from the export: several of these model
+    # fields are non-nullable, so sending an explicit null for one missing key
+    # would reject the whole partial update (including camera_calibration).
+    scene_data = {k: json_data[k] for k in [
       "external_update_rate",
       "camera_calibration", "apriltag_size",
       "number_of_localizations", "global_feature",
       "minimum_number_of_matches", "inlier_threshold",
       "output_lla", "map_corners_lla",
       "mesh_translation", "mesh_rotation", "mesh_scale"
-    ]}
+    ] if json_data.get(k) is not None}
     if child:
       scene_data["parent"] = parent
 
     update_response = await asyncio.to_thread(self.rest.updateScene, scene_id, scene_data)
+    if update_response.errors:
+      import_summary["scene"] = update_response.errors
+      return import_summary
 
     # Child link handling
     if child and "link" in child:
