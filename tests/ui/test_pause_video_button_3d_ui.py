@@ -3,11 +3,13 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import os
 import time
-import cv2
+import threading
 import pytest
 import tests.ui.common_ui_test_utils as common
+from scene_common.mqtt import PubSub
 from tests.ui import UserInterfaceTest
 from tests.ui.browser import By
 from tests.utils.log import get_logger
@@ -23,16 +25,47 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 WAIT_SEC = 10
 PANEL_WAIT_SEC = 100
-FEED_ACTIVITY_WAIT_SEC = 2
-FEED_ACTIVITY_SSIM_THRESHOLD = 0.99
+FEED_ACTIVITY_WAIT_SEC = 3
 FEED_ACTIVITY_TIMEOUT_SEC = 30
 
 
-def capture_when_rendered(browser, wait_for_render=True):
-  """! Wait for a rendered 3D frame and capture the scene canvas."""
-  if wait_for_render:
-    common.wait_for_3d_scene_rendered(browser, timeout=30)
-  return common.capture_3d_canvas(browser)
+class CameraImageMonitor:
+  """! Tracks camera image messages received after the pause control changes."""
+
+  def __init__(self, params, camera_name):
+    self.image_condition = threading.Condition()
+    self.image_count = 0
+    self.last_image = None
+    self.pubsub = PubSub(
+      params['auth'], None, params['rootcert'], params['broker_url'],
+      port=int(params['broker_port']),
+    )
+    self.topic = PubSub.formatTopic(PubSub.IMAGE_CAMERA, camera_id=camera_name)
+
+  def on_image(self, _client, _userdata, message):
+    payload = message.payload.decode("utf-8")
+    image = json.loads(payload).get("image")
+    if image:
+      with self.image_condition:
+        self.last_image = image
+        self.image_count += 1
+        self.image_condition.notify_all()
+
+  def start(self):
+    self.pubsub.connect()
+    self.pubsub.addCallback(self.topic, self.on_image)
+    self.pubsub.loopStart()
+
+  def wait_for_new_image(self, image_count, timeout):
+    with self.image_condition:
+      return self.image_condition.wait_for(
+        lambda: self.image_count > image_count,
+        timeout=timeout,
+      )
+
+  def stop(self):
+    self.pubsub.loopStop()
+    self.pubsub.disconnect()
 
 
 class Scene3dUserInterfaceTest(UserInterfaceTest):
@@ -76,12 +109,8 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
     assert camera_panel_ids, "No camera control panels were found"
     return camera_panel_ids[0]
 
-  def assertLiveFeedIsActive(self, camera_panel_id):
-    """! Verify that camera texture has loaded and is rendering content.
-
-    This checks that the initial getimage request succeeded and the texture
-    is visible (not blank canvas).
-    """
+  def assertLiveFeedIsActive(self, camera_panel_id, image_monitor, image_count):
+    """! Verify that the camera publishes an image after projection is enabled."""
     # Verify camera is online
     assert common.wait_for_elements(
       self.browser,
@@ -91,30 +120,13 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       refreshPage=False,
     ), "Camera did not report online after enabling project frame"
 
-    # Wait for texture to load
-    log.info("Waiting for camera texture to load...")
-    time.sleep(5)
-
-    # Capture frame to verify content
-    log.info("Capturing frame to verify texture is loaded...")
-    frame = capture_when_rendered(self.browser, wait_for_render=True)
-
-    if frame is None:
-      assert False, "Failed to capture canvas frame"
-
-    log.info(f"Frame captured: {frame.shape}")
-
-    # Verify frame has actual content (not blank)
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    pixel_variance = gray.var()
-    log.info(f"Frame pixel variance: {pixel_variance:.2f}")
-
-    if pixel_variance < 10:
-      assert False, f"Camera texture is blank or uniform (variance={pixel_variance:.2f}). Texture failed to load."
-
-    log.info(f"✓ Camera texture loaded successfully with content (variance={pixel_variance:.2f})")
+    assert image_monitor.wait_for_new_image(image_count, FEED_ACTIVITY_TIMEOUT_SEC), (
+      "No camera image was published after enabling the project frame"
+    )
+    log.info("Camera image received after enabling the project frame.")
 
   def checkPauseVideoButton(self):
+    image_monitor = None
     try:
       assert self.login()
 
@@ -128,6 +140,8 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       project_frame_id = f"{camera_name}-project-frame"
       pause_button_id = f"{camera_name}-pause-video"
       tracked_objects_button_id = "tracked-objects-button"
+      image_monitor = CameraImageMonitor(self.params, camera_name)
+      image_monitor.start()
 
       log.info(f"Disable tracked objects before expanding camera panel: {tracked_objects_button_id}")
       tracked_objects_widget = self.browser.find_element(By.ID, tracked_objects_button_id)
@@ -144,6 +158,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       time.sleep(WAIT_SEC)
 
       log.info(f"Enable project frame before pausing video: {project_frame_id}")
+      image_count_before_project = image_monitor.image_count
       self.clickOnElement(project_frame_id, delay=WAIT_SEC)
       time.sleep(WAIT_SEC)
 
@@ -151,7 +166,11 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       assert project_frame.is_selected(), "Project frame toggle did not turn on"
 
       log.info("Verify that camera feed is active before pausing video.")
-      self.assertLiveFeedIsActive(camera_panel_id)
+      self.assertLiveFeedIsActive(
+        camera_panel_id,
+        image_monitor,
+        image_count_before_project,
+      )
 
       pause_video = self.browser.find_element(By.ID, pause_button_id)
       selected_before = pause_video.is_selected()
@@ -165,62 +184,32 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       log.info(f"Pause video control clicked (selected_after={selected_after})")
       assert selected_before != selected_after, "Pause video toggle state did not change"
 
-      log.info("Capture screenshot after pausing video and verify it stays stable.")
-      paused_view_1 = capture_when_rendered(self.browser)
-      time.sleep(WAIT_SEC)
-      paused_view_2 = capture_when_rendered(self.browser)
-      assert common.are_images_similar(paused_view_1, paused_view_2), "Paused camera view changed unexpectedly"
-      log.info("✓ Frames while paused are stable (identical)")
+      image_count_while_paused = image_monitor.image_count
+      time.sleep(FEED_ACTIVITY_WAIT_SEC)
+      assert image_monitor.image_count == image_count_while_paused, (
+        "Camera images continued to arrive while video was paused"
+      )
+      image_before_unpause = image_monitor.last_image
+      log.info("Camera image publishing stopped while video was paused.")
 
-      log.info("Now unpause and poll for frame changes to verify pause control works.")
+      log.info("Now unpause and verify that a new camera image arrives.")
+      image_count_before_unpause = image_monitor.image_count
       pause_video = self.browser.find_element(By.ID, pause_button_id)
       self.executeScript("arguments[0].click();", pause_video)
-      time.sleep(3)  # Brief wait for unpause to take effect
-
-      # Poll for frame changes after unpause (should trigger new getimage request)
-      log.info("Polling for frame changes after unpause (timeout=30s)...")
-
-      frame_before_unpause = paused_view_1
-      deadline = time.monotonic() + 30
-      poll_count = 0
-      frames_changed = False
-
-      while time.monotonic() < deadline:
-        time.sleep(0.5)
-        poll_count += 1
-
-        current_frame = capture_when_rendered(self.browser, wait_for_render=False)
-        if current_frame is None:
-          continue
-
-        # Check if frame is different from the one captured while paused
-        is_different = not common.are_images_similar(
-          frame_before_unpause,
-          current_frame,
-          comparison_threshold=0.99,
-        )
-
-        if poll_count <= 5 or (poll_count % 10 == 0):  # Log first few and every 10th
-          similarity = common.are_images_similar(
-            frame_before_unpause,
-            current_frame,
-            comparison_threshold=0.999,  # High threshold for logging
-          )
-          log.info(f"Poll {poll_count}: similarity to paused frame = {similarity}")
-
-        if is_different:
-          log.info(f"✓ Frame changed after unpause (poll {poll_count}) - pause button is working!")
-          frames_changed = True
-          break
-
-        frame_before_unpause = current_frame
-
-      if not frames_changed:
-        log.warning(f"Frames did not change after unpause (checked {poll_count} times over 30s)")
-        log.warning("Camera may be delivering static images, but pause button state changed correctly")
+      assert image_monitor.wait_for_new_image(
+        image_count_before_unpause,
+        FEED_ACTIVITY_TIMEOUT_SEC,
+      ), "No camera image was published after unpausing video"
+      log.info("Received a new camera image after unpausing video.")
+      assert image_monitor.last_image != image_before_unpause, (
+        "Camera image after unpause was identical to the image before pause"
+      )
+      log.info("Camera image changed after unpausing video.")
 
       self.exitCode = 0
     finally:
+      if image_monitor is not None:
+        image_monitor.stop()
       self.recordTestResult()
     return
 
