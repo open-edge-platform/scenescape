@@ -46,8 +46,10 @@ information from all but the last matched camera.
    are guarded by a covariance regression test rather than a noise adjustment.
 4. IMM: the multi-model estimator is validated by unit tests only; the sequential-correct behavior
    is changed only if a regression surfaces (see risks).
-5. Determinism: matches are sorted by camera index before being applied so repeated runs fuse
-   observations identically and the result is independent of the configured camera order.
+5. Determinism: `matchesPerTrack` is populated by iterating cameras in ascending index with at most
+   one entry per camera (the bipartite match is one-to-one), so each track's observations are
+   already ordered by camera. No explicit sort is required and the result is independent of the
+   configured camera order.
 
 ## Scope
 
@@ -70,12 +72,12 @@ defaults. `addMeasurement` is not exposed through the Python pybind surface.
      track per frame to preserve reliability/aging. Same for the suspended-track reactivation path.
    - `setMeasurement` / `addMeasurement` maintain the vector; `predict()` clears the map.
 3. Batched `MultipleObjectTracker::matchAndAssignMeasurements`:
-   - For each track, iterate all matches in `matchesPerTrack[trackIdx]`, sorted by camera index.
+   - For each track, iterate all matches in `matchesPerTrack[trackIdx]`; entries are already in
+     ascending camera order (see determinism decision), so no sort is needed.
    - Register each matched observation (its own geometry) via `addMeasurement`.
    - Compute fused attributes/classification (`fuseMetadata` + `mergeHistoricalMetadata`) and attach
      them to the **last** registered observation so its attributes win in `correct()`.
    - Preserve the existing `isTrackAssigned` + object-removal + unassigned-track logic.
-   - Sort `matchesPerTrack[trackIdx]` in place (no extra copy).
 4. Single-camera path (`matchAndAssignMeasurements` object-vector overload) unchanged.
 5. New-track cross-camera grouping in batched `track()` unchanged.
 
