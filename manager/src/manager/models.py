@@ -819,8 +819,8 @@ class Cam(Sensor):
       # This is an update, check if scene has changed
       try:
         original = Cam.objects.get(pk=self.pk)
-        original_scene = original.scene
-        if original.scene != self.scene:
+        if original.scene_id != self.scene_id:
+          original_scene = original.scene
           # Scene has changed, clear pose-related fields
           self.transforms = []
           self.scene_x = None
