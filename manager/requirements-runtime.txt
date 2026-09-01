@@ -8,7 +8,7 @@ Django==5.2.16
 django-axes==8.0.0
 django-debug-toolbar==6.0.0
 django-session-timeout==0.1.0
-djangorestframework==3.16.1
+djangorestframework==3.17.2
 jsonschema==4.25.1
 kubernetes==36.0.2
 networkx==3.6.1
