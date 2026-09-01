@@ -283,11 +283,6 @@ class CamSerializer(NonNullSerializer):
   scene = serializers.CharField(source="scene.pk", allow_null=True, required=False)
   transform_type = serializers.SerializerMethodField('get_transform_type')
 
-  def validate(self, attrs):
-    if 'name' not in attrs:
-      raise serializers.ValidationError({'name': ['This field is required.']})
-    return attrs
-
   def validate_name(self, value):
     if not self.instance:
       qs = Cam.objects.filter(name=value)
