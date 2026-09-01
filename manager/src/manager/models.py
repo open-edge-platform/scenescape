@@ -619,7 +619,6 @@ class Sensor(models.Model):
     super().__init__(*args, **kwargs)
     self._original_sensor_id = self.sensor_id
     self._original_name = self.name
-    self._original_scene = self.scene
 
   def calibrateString(self):
     return "calibrate-" + self.type
@@ -851,8 +850,17 @@ class Cam(Sensor):
       # Also invalidate the old scene cache if scene was reassigned
       SceneLoader.removeScene(original_scene.name)
 
+    # Clear cache again after transaction commits to prevent concurrent requests from
+    # repopulating with pre-commit DB state (handles ATOMIC_REQUESTS race condition)
+    def invalidate_cache_on_commit():
+      if self.scene:
+        SceneLoader.removeScene(self.scene.name)
+      if scene_changed and original_scene is not None:
+        SceneLoader.removeScene(original_scene.name)
+
     transaction.on_commit(partial(sendUpdateCommand,
                                   camera_data = self.cameraData('save')))
+    transaction.on_commit(invalidate_cache_on_commit)
     return
 
   def delete(self, *args, **kwargs):
@@ -861,8 +869,16 @@ class Cam(Sensor):
     super().delete(*args, **kwargs)
     if scene:
       SceneLoader.removeScene(scene.name)
+    
+    # Clear cache again after transaction commits to prevent concurrent requests from
+    # repopulating with pre-commit DB state (handles ATOMIC_REQUESTS race condition)
+    def invalidate_cache_on_commit():
+      if scene:
+        SceneLoader.removeScene(scene.name)
+
     transaction.on_commit(partial(sendUpdateCommand,
                                   camera_data = self.cameraData('delete')))
+    transaction.on_commit(invalidate_cache_on_commit)
     return
 
 
