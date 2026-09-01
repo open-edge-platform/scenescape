@@ -7,7 +7,7 @@ import threading
 
 import numpy as np
 
-from controller.reid_constants import (
+from scene_common.reid_constants import (
   RESERVED_ENTRY_KEYS,
   SCHEMA_NAME,
   SIMILARITY_METRIC,
@@ -15,12 +15,33 @@ from controller.reid_constants import (
   normalize_similarity_score,
 )
 from controller.reid_constraints import build_query_constraints
-from controller.reid_env import get_reid_confidence_threshold
+from controller.reid_env import (
+  get_reid_confidence_threshold,
+  get_reid_descriptor_ttl_secs,
+)
 from scene_common import log
+
+
+class ReidNoValidVectorsError(ValueError):
+  """Raised when addEntry has nothing valid to write (e.g. all vectors skipped).
+
+  Hierarchy write-health must not sticky-clear on this — it is a per-batch data
+  problem, not proof that the database write path is down.
+  """
+
+
+class ReidWriteSupersededError(RuntimeError):
+  """In-flight enrollment dropped after write-epoch/health changed; do not confirm."""
+
+
+class ReidPartialWriteError(RuntimeError):
+  """Some vectors landed before others failed; treat as confirmed + unhealthy."""
+
 
 class ReIDDatabase(ABC):
   def __init__(self, set_name=SCHEMA_NAME, similarity_metric=SIMILARITY_METRIC,
-               dimensions=None, confidence_threshold=None):
+               dimensions=None, confidence_threshold=None,
+               descriptor_ttl_secs=None):
     """Establish the backend-agnostic state shared by every ReID adapter.
 
     Subclasses must call this before using any inherited helper, since
@@ -33,6 +54,12 @@ class ReIDDatabase(ABC):
     self.confidence_threshold = (
       get_reid_confidence_threshold() if confidence_threshold is None
       else confidence_threshold)
+    self.descriptor_ttl_secs = (
+      get_reid_descriptor_ttl_secs() if descriptor_ttl_secs is None
+      else int(descriptor_ttl_secs))
+    if self.descriptor_ttl_secs < 0:
+      raise ValueError(
+        f"descriptor_ttl_secs must be >= 0, got {self.descriptor_ttl_secs}")
     self.lock = threading.Lock()
     self._schema_lock = threading.Lock()
     self._schema_ready = False
@@ -145,13 +172,30 @@ class ReIDDatabase(ABC):
       prepared.append(vec_array)
     return prepared
 
+  def _dedupePreparedVectors(self, prepared_vectors):
+    """Drop exact byte-identical prepared vectors while preserving order."""
+    seen = set()
+    unique = []
+    for vec in prepared_vectors:
+      key = vec.tobytes()
+      if key in seen:
+        continue
+      seen.add(key)
+      unique.append(vec)
+    return unique
+
+  def _prepareVectorsForAddEntry(self, reid_vectors):
+    """Prepare vectors and drop exact duplicates within this add batch."""
+    return self._dedupePreparedVectors(self._prepareReidVectors(reid_vectors))
+
   def _buildEntryProperties(self, uuid_value, rvid, object_type, persist=None, **metadata):
-    """Build shared entry properties with reserved-key protection."""
+    """Build shared entry properties with reserved-key protection and retention."""
     properties = {
       "uuid": f"{uuid_value}",
       "rvid": f"{rvid}",
       "type": f"{object_type}",
     }
+    self._applyRetentionProperties(properties)
 
     if persist:
       if not isinstance(persist, dict):
@@ -182,6 +226,32 @@ class ReIDDatabase(ABC):
         properties[key] = str(value)
 
     return properties
+
+  def _applyRetentionProperties(self, properties):
+    """
+    Attach store-native retention metadata when TTL is enabled.
+
+    Retention is a coarse memory-bounding hint: descriptors remain matchable
+    until physically purged. Adapters override this to write whatever the
+    backend needs for `purgeExpired()` (for example Qdrant `expires_at` or
+    VDMS `_expiration`).
+    """
+    return
+
+  def retentionEnabled(self):
+    """Return True when descriptors are written with a finite TTL."""
+    return int(self.descriptor_ttl_secs) > 0
+
+  def purgeExpired(self):
+    """
+    Physically remove descriptors whose retention window has elapsed.
+
+    Default is a no-op. Adapters that need client-driven cleanup override this.
+    Do not use this path to hide expired rows from search; reclaim only.
+
+    @return  int | None  Number of purged entries when known, else None
+    """
+    return 0
 
   def _decodeLatestPersist(self, records, uuid_value, missing_sentinels=()):
     """
@@ -427,6 +497,10 @@ class ReIDDatabase(ABC):
     @param   persist      Optional dict with required 'timestamp' plus attributes
     @param   metadata     Optional semantic attributes (age, gender, color, etc.)
     @return  None
+    @raises  ReidNoValidVectorsError when every input vector is skipped (callers
+             should not treat this as sticky write-unhealthy)
+    @raises  Exception when a database write is attempted and fails (callers /
+             Future callbacks treat this as write-unhealthy for hierarchy claims)
     """
     return
 

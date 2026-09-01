@@ -6,11 +6,11 @@ CAMCALIBIMAGE=intel/scenescape-autocalibration
 CONTROLLERIMAGE=intel/scenescape-controller
 CLUSTERANALYTICSIMAGE=intel/scenescape-cluster-analytics
 MAPPINGIMAGE=intel/scenescape-mapping
+ANALYTICSIMAGE=intel/scenescape-analytics
 
 # Image groupings for flexible builds
-CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE)
-EXPERIMENTAL_IMAGES=$(CLUSTERANALYTICSIMAGE) $(MAPPINGIMAGE)
-ALL_IMAGES=$(CORE_IMAGES) $(EXPERIMENTAL_IMAGES)
+CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE) $(ANALYTICSIMAGE)
+ALL_IMAGES=$(CORE_IMAGES) $(CLUSTERANALYTICSIMAGE) $(MAPPINGIMAGE)
 
 VERSION:=$(shell cat ../version.txt)
 NAMESPACE=scenescape
@@ -56,9 +56,8 @@ build: build-core
 
 build-core: docker-build-core load-core
 
-build-all: build-core build-experimental
+build-all: docker-build-all load-all
 
-build-experimental: docker-build-experimental load-experimental
 kind: generate-kind-yaml start-kind install-cert-manager
 
 # remove everything Kubernetes related from your machine
@@ -71,13 +70,13 @@ clean-all: clean-kind
 # mv /tmp/kind /tmp/kubectl /tmp/k9s /tmp/helm ~/.local/bin
 install-deps:
 	@if [ -z "$(shell which kind)" ] ; then \
-	    curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64 ; \
+	    curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.32.0/kind-linux-amd64 ; \
 	    chmod +x /tmp/kind ; \
 	    sudo mv /tmp/kind /usr/local/bin/kind ; \
 	    echo "kind installed" ; \
 	fi
 	@if [ -z "$(shell which kubectl)" ] ; then \
-	    curl -Lo /tmp/kubectl https://dl.k8s.io/release/v1.28.1/bin/linux/amd64/kubectl ; \
+	    curl -Lo /tmp/kubectl https://dl.k8s.io/release/v1.35.0/bin/linux/amd64/kubectl ; \
 	    chmod +x /tmp/kubectl ; \
 	    sudo install -o root -g root -m 0755 /tmp/kubectl /usr/local/bin/kubectl ; \
 	    echo "kubectl installed" ; \
@@ -121,6 +120,8 @@ start-kind:
 	done
 # kubectl -n ingress-nginx patch deployment ingress-nginx-controller --type=json -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-ssl-passthrough"}]'
 	kubectl wait -n ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=300s
+# Enable automatic restart for the kind container so when host is rebooted, the kind cluster will be available
+	docker update --restart=always $(docker ps -aq --filter "label=io.x-k8s.kind.cluster=kind")
 
 # remove the kind container
 clean-kind:
@@ -135,8 +136,8 @@ install-cert-manager:
 docker-build-core:
 	$(MAKE) -C .. CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
-docker-build-experimental:
-	$(MAKE) -C .. build-experimental CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
+docker-build-all:
+	$(MAKE) -C .. build-all CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
 load-image:
 	docker tag $(IMAGE):$(VERSION) $(REGISTRY)/$(IMAGE):$(VERSION)
@@ -146,13 +147,11 @@ load-core:
 	$(MAKE) load-image IMAGE=$(MANAGERIMAGE)
 	$(MAKE) load-image IMAGE=$(CAMCALIBIMAGE)
 	$(MAKE) load-image IMAGE=$(CONTROLLERIMAGE)
+	$(MAKE) load-image IMAGE=$(ANALYTICSIMAGE)
 
-load-experimental:
-	# optional images for cluster analytics and mapping components
+load-all: load-core
 	$(MAKE) load-image IMAGE=$(CLUSTERANALYTICSIMAGE)
 	$(MAKE) load-image IMAGE=$(MAPPINGIMAGE)
-
-load-all: load-core load-experimental
 
 SERVICES := $(patsubst scenescape-%,%,$(ALL_IMAGES))
 .PHONY: $(SERVICES)

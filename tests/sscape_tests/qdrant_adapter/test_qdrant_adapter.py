@@ -10,9 +10,9 @@ import numpy as np
 from unittest.mock import MagicMock, patch
 
 from controller.qdrant_adapter import QdrantDatabase
-from controller.reid import ReIDDatabase
-from controller.reid_constants import SCHEMA_NAME
-
+from controller.reid import ReIDDatabase, ReidNoValidVectorsError
+from scene_common.reid_constants import EXPIRES_AT_KEY, SCHEMA_NAME
+from scene_common.timestamp import get_epoch_time
 
 class TestQdrantDatabaseInterface:
   def test_qdrant_database_implements_reid_database(self):
@@ -55,13 +55,14 @@ class TestQdrantConstraintBuilding:
     assert "eyewear" not in constraints
 
   def test_build_qdrant_filter_from_constraints(self):
-    db = QdrantDatabase()
+    db = QdrantDatabase(descriptor_ttl_secs=0)
     query_filter = db._buildQdrantFilter({
       "type": ["==", "person"],
       "gender": ["==", "Female"],
     })
     assert query_filter is not None
     assert len(query_filter.must) == 2
+    assert {cond.key for cond in query_filter.must} == {"type", "gender"}
 
 
 class TestQdrantSchemaManagement:
@@ -112,10 +113,10 @@ class TestQdrantSchemaManagement:
     db._createCollection(SCHEMA_NAME, 256, "L2")
 
     db.client.create_collection.assert_called_once()
-    assert db.client.create_payload_index.call_count == 2
+    assert db.client.create_payload_index.call_count == 3
     indexed_fields = {
       call.kwargs["field_name"] for call in db.client.create_payload_index.call_args_list}
-    assert indexed_fields == {"uuid", "persist_timestamp"}
+    assert indexed_fields == {"uuid", "persist_timestamp", "expires_at"}
 
 
 class TestQdrantDataOperations:
@@ -132,6 +133,28 @@ class TestQdrantDataOperations:
     assert len(points) == 1
     assert points[0].payload["uuid"] == "uuid-1"
     assert points[0].payload["type"] == "person"
+
+  def test_add_entry_reraises_upsert_failure(self):
+    """Upsert errors must propagate so hierarchy write-health can clear."""
+    db = QdrantDatabase(dimensions=4)
+    db.client = MagicMock()
+    db.connected = True
+    db.client.upsert.side_effect = RuntimeError("qdrant unavailable")
+    vector = np.array([0.1, 0.2, 0.3, 0.4], dtype="float32")
+
+    with pytest.raises(RuntimeError, match="qdrant unavailable"):
+      db.addEntry("uuid-1", "track-1", "person", [vector])
+
+  def test_add_entry_raises_when_no_valid_vectors(self):
+    """Empty prepared batches must raise ReidNoValidVectorsError (non-sticky)."""
+    db = QdrantDatabase(dimensions=4)
+    db.client = MagicMock()
+    db.connected = True
+    wrong = np.array([0.1, 0.2], dtype="float32")
+
+    with pytest.raises(ReidNoValidVectorsError, match="No valid vectors"):
+      db.addEntry("uuid-1", "track-1", "person", [wrong])
+    db.client.upsert.assert_not_called()
 
   def test_get_persisted_attributes_uses_ordered_scroll(self):
     db = QdrantDatabase()
@@ -223,3 +246,64 @@ class TestQdrantSimilarityScoreValidation:
     db = QdrantDatabase(similarity_metric="L2")
     assert db._toSimilarityScore(2.5) == 2.5
     assert db._toSimilarityScore(-2.5) == 2.5
+
+
+class TestQdrantDescriptorRetention:
+  def test_add_entry_sets_expires_at(self):
+    db = QdrantDatabase(dimensions=4, descriptor_ttl_secs=60)
+    db.client = MagicMock()
+    db.connected = True
+    vector = np.array([0.1, 0.2, 0.3, 0.4], dtype="float32")
+
+    before = get_epoch_time()
+    db.addEntry("uuid-1", "track-1", "person", [vector])
+    after = get_epoch_time()
+
+    payload = db.client.upsert.call_args.kwargs["points"][0].payload
+    assert EXPIRES_AT_KEY in payload
+    assert before + 60 <= payload[EXPIRES_AT_KEY] <= after + 60
+
+  def test_find_matches_does_not_filter_by_expires_at(self):
+    db = QdrantDatabase(dimensions=4, descriptor_ttl_secs=60, similarity_metric="L2")
+    db.client = MagicMock()
+    db.connected = True
+    db.client.query_points.return_value = MagicMock(points=[])
+    vector = np.array([0.1, 0.2, 0.3, 0.4], dtype="float32")
+
+    db.findMatches("person", [vector], k_neighbors=1)
+
+    query_filter = db.client.query_points.call_args.kwargs["query_filter"]
+    keys = [cond.key for cond in query_filter.must]
+    assert EXPIRES_AT_KEY not in keys
+    assert "type" in keys
+
+  def test_purge_expired_deletes_by_expires_at(self):
+    db = QdrantDatabase(descriptor_ttl_secs=60)
+    db.client = MagicMock()
+    db.connected = True
+
+    db.purgeExpired()
+
+    db.client.delete.assert_called_once()
+    selector = db.client.delete.call_args.kwargs["points_selector"]
+    assert selector.filter.must[0].key == EXPIRES_AT_KEY
+
+  def test_purge_expired_noop_when_retention_disabled(self):
+    db = QdrantDatabase(descriptor_ttl_secs=0)
+    db.client = MagicMock()
+    db.connected = True
+
+    assert db.purgeExpired() == 0
+    db.client.delete.assert_not_called()
+
+  def test_expires_at_index_skipped_when_retention_disabled(self):
+    db = QdrantDatabase(descriptor_ttl_secs=0)
+    db.client = MagicMock()
+    db.connected = True
+    db.client.get_collection.return_value = MagicMock(payload_schema={})
+
+    db._createCollection(SCHEMA_NAME, 256, "L2")
+
+    indexed_fields = {
+      call.kwargs["field_name"] for call in db.client.create_payload_index.call_args_list}
+    assert indexed_fields == {"uuid", "persist_timestamp"}

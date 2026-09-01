@@ -7,8 +7,9 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.exceptions import UnexpectedResponse
 
-from controller.reid import ReIDDatabase
-from controller.reid_constants import (
+from controller.reid import ReIDDatabase, ReidNoValidVectorsError
+from scene_common.reid_constants import (
+  EXPIRES_AT_KEY,
   K_NEIGHBORS,
   SCHEMA_MARKER_COLLECTION,
   SCHEMA_NAME,
@@ -22,6 +23,7 @@ from controller.reid_env import (
   get_reid_use_tls,
 )
 from scene_common import log
+from scene_common.timestamp import get_epoch_time
 
 
 class QdrantDatabase(ReIDDatabase):
@@ -29,12 +31,14 @@ class QdrantDatabase(ReIDDatabase):
                similarity_metric=SIMILARITY_METRIC, dimensions=None,
                confidence_threshold=None,
                hostname=None, port=None,
-               api_key=None, use_tls=None, ca_cert=None):
+               api_key=None, use_tls=None, ca_cert=None,
+               descriptor_ttl_secs=None):
     super().__init__(
       set_name=set_name,
       similarity_metric=similarity_metric,
       dimensions=dimensions,
-      confidence_threshold=confidence_threshold)
+      confidence_threshold=confidence_threshold,
+      descriptor_ttl_secs=descriptor_ttl_secs)
     self.hostname = get_reid_hostname() if hostname is None else hostname
     resolved_port = get_reid_port() if port is None else port
     self.port = int(resolved_port)
@@ -132,10 +136,13 @@ class QdrantDatabase(ReIDDatabase):
         f"'{collection_name}': {e}")
       existing = set()
 
-    desired = (
+    desired = [
       ("uuid", models.PayloadSchemaType.KEYWORD),
       ("persist_timestamp", models.PayloadSchemaType.FLOAT),
-    )
+    ]
+    if self.retentionEnabled():
+      desired.append((EXPIRES_AT_KEY, models.PayloadSchemaType.FLOAT))
+    desired = tuple(desired)
     for field_name, field_schema in desired:
       if field_name in existing:
         continue
@@ -229,7 +236,7 @@ class QdrantDatabase(ReIDDatabase):
       uuid, rvid, object_type, persist=persist, **metadata)
     points = []
 
-    for vec_array in self._prepareReidVectors(reid_vectors):
+    for vec_array in self._prepareVectorsForAddEntry(reid_vectors):
       points.append(models.PointStruct(
         id=str(uuid_lib.uuid4()),
         vector=vec_array.tolist(),
@@ -237,16 +244,16 @@ class QdrantDatabase(ReIDDatabase):
       ))
 
     if not points:
-      log.warning(
+      raise ReidNoValidVectorsError(
         "addEntry: No valid vectors to add (all skipped due to dimension mismatch "
         "or uninitialized dimensions)")
-      return
 
     try:
       with self.lock:
         self.client.upsert(collection_name=set_name, points=points, wait=True)
     except Exception as e:
       log.error(f"addEntry: Failed to upsert {len(points)} vectors to Qdrant: {e}")
+      raise
     return
 
   def _scrollMatchingPoints(self, collection_name, query_filter, page_size=100):
@@ -348,6 +355,41 @@ class QdrantDatabase(ReIDDatabase):
     if not must_conditions:
       return None
     return models.Filter(must=must_conditions)
+
+  def _applyRetentionProperties(self, properties):
+    """Stamp absolute expires_at so purgeExpired can delete by payload filter."""
+    if not self.retentionEnabled():
+      return
+    properties[EXPIRES_AT_KEY] = (
+      float(get_epoch_time()) + int(self.descriptor_ttl_secs))
+    return
+
+  def purgeExpired(self):
+    """Delete points whose expires_at is strictly before now."""
+    if not self.retentionEnabled():
+      return 0
+    self._ensureClient()
+    try:
+      with self.lock:
+        self.client.delete(
+          collection_name=self.set_name,
+          points_selector=models.FilterSelector(
+            filter=models.Filter(
+              must=[
+                models.FieldCondition(
+                  key=EXPIRES_AT_KEY,
+                  range=models.Range(lt=float(get_epoch_time())),
+                )
+              ]
+            )
+          ),
+          wait=True,
+        )
+    except Exception as e:
+      log.warning(f"purgeExpired: Failed to delete expired Qdrant points: {e}")
+      return None
+    log.debug(f"purgeExpired: Qdrant delete-by-expires_at completed set={self.set_name}")
+    return None
 
   def findMatches(self, object_type, reid_vectors, set_name=None,
                   k_neighbors=K_NEIGHBORS, **constraints):

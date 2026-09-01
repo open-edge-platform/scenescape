@@ -5,11 +5,12 @@ import socket
 
 import vdms
 
-from controller.reid import ReIDDatabase
-from controller.reid_constants import (
+from controller.reid import ReIDDatabase, ReidNoValidVectorsError, ReidPartialWriteError
+from scene_common.reid_constants import (
   K_NEIGHBORS,
   SCHEMA_NAME,
   SIMILARITY_METRIC,
+  VDMS_EXPIRATION_KEY,
 )
 from controller.reid_env import (
   get_reid_ca_cert,
@@ -30,12 +31,14 @@ class VDMSDatabase(ReIDDatabase):
                similarity_metric=SIMILARITY_METRIC, dimensions=None,
                confidence_threshold=None,
                ca_cert=None, client_cert=None,
-               client_key=None, use_tls=None):
+               client_key=None, use_tls=None,
+               descriptor_ttl_secs=None):
     super().__init__(
       set_name=set_name,
       similarity_metric=similarity_metric,
       dimensions=dimensions,
-      confidence_threshold=confidence_threshold)
+      confidence_threshold=confidence_threshold,
+      descriptor_ttl_secs=descriptor_ttl_secs)
     resolved_ca_cert = get_reid_ca_cert() if ca_cert is None else ca_cert
     resolved_client_cert = (
       get_reid_client_cert() if client_cert is None else client_cert)
@@ -185,7 +188,7 @@ class VDMSDatabase(ReIDDatabase):
     # VDMS API expects: query([q1, q2, ...], [blob1, blob2, ...])
     descriptor_blobs = []
     add_query = []
-    for vec_array in self._prepareReidVectors(reid_vectors):
+    for vec_array in self._prepareVectorsForAddEntry(reid_vectors):
       descriptor_blobs.append(vec_array.tobytes())
       add_query.append({
         "AddDescriptor": {
@@ -195,20 +198,57 @@ class VDMSDatabase(ReIDDatabase):
       })
 
     if not add_query:
-      log.warning(
+      raise ReidNoValidVectorsError(
         "addEntry: No valid vectors to add (all skipped due to dimension mismatch "
         "or uninitialized dimensions)")
-      return
 
     response, _ = self.sendQuery(add_query, descriptor_blobs)
-    if response:
-      for item in response:
-        if item.get('status') != 0:
-          log.warning(
-            f"Failed to add the descriptor to the database. Received response {item}")
-    else:
-      log.error(f"addEntry: No response from VDMS when adding {len(add_query)} vectors")
+    if not response:
+      raise RuntimeError(
+        f"addEntry: No response from VDMS when adding {len(add_query)} vectors")
+    failures = [item for item in response if item.get('status') != 0]
+    if failures:
+      successes = len(response) - len(failures)
+      detail = (
+        f"addEntry: Failed to add {len(failures)}/{len(response)} descriptor(s) "
+        f"to VDMS. First failure: {failures[0]}")
+      if successes > 0:
+        raise ReidPartialWriteError(detail)
+      raise RuntimeError(detail)
     return
+
+  def _applyRetentionProperties(self, properties):
+    """
+    Stamp VDMS-native _expiration as a TTL duration in seconds.
+
+    VDMS computes expiry as (server insert time) + (_expiration duration).
+    Pass the TTL duration itself — never an absolute timestamp.
+    """
+    if not self.retentionEnabled():
+      return
+    properties[VDMS_EXPIRATION_KEY] = int(self.descriptor_ttl_secs)
+    return
+
+  def purgeExpired(self):
+    """
+    Ask VDMS to delete descriptors whose native expiration timestamp is past.
+
+    Invoked by the shared controller purge timer (REID_PURGE_INTERVAL_SECS).
+    Descriptors remain matchable until this reclaim runs.
+    """
+    if not self.retentionEnabled():
+      return 0
+    response, _ = self.sendQuery([{"DeleteExpired": {}}])
+    if not response:
+      log.warning("purgeExpired: No response from VDMS for DeleteExpired")
+      return None
+    if response[0].get('status') != 0:
+      log.warning(
+        f"purgeExpired: DeleteExpired failed. Response: {response[0]}")
+      return None
+    deleted = response[0].get('deleted', response[0].get('returned'))
+    log.debug(f"purgeExpired: VDMS DeleteExpired completed deleted={deleted}")
+    return deleted if deleted is not None else 0
 
   def getPersistedAttributes(self, uuid, set_name=None):
     """
@@ -269,7 +309,7 @@ class VDMSDatabase(ReIDDatabase):
         payloads.extend(item for item in value if isinstance(item, dict))
 
     for payload in payloads:
-      for key in ['dimensions', 'dimension']:
+      for key in ['dimensions', 'dimension', 'VD:dimensions', 'VD:dimension']:
         if key in payload:
           try:
             return int(payload[key])
@@ -290,7 +330,8 @@ class VDMSDatabase(ReIDDatabase):
         payloads.extend(item for item in value if isinstance(item, dict))
 
     for payload in payloads:
-      for key in ['metric', 'distance_metric', 'similarity_metric']:
+      for key in ['metric', 'distance_metric', 'similarity_metric',
+                  'VD:metric', 'VD:distance_metric', 'VD:similarity_metric']:
         if key in payload and payload[key] is not None:
           return str(payload[key])
     return None

@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
 
 FROM intel/scenescape-common-base AS scenescape-manager-builder
 
@@ -90,9 +90,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         sudo \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-
-# Upgrade pip to latest version
-RUN pip3 install --no-cache-dir --upgrade pip
 
 # Runtime dependencies
 COPY ./manager/requirements-runtime.txt /tmp

@@ -33,7 +33,7 @@ from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
 from django.urls import reverse
 from rest_framework.views import APIView
-from rest_framework.authentication import TokenAuthentication
+from rest_framework.authentication import SessionAuthentication
 
 from manager.api import IsAdminOrReadOnly
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
@@ -135,7 +135,6 @@ def list_resources(request, folder_name):
 def sceneDetail(request, scene_id):
   scene = get_object_or_404(Scene, pk=scene_id)
   child_rois, child_trips, child_sensors = getAllChildrenMetaData(scene_id)
-  # FIXME add rest api call to remote child using child scene api token
 
   return render(request, 'sscape/sceneDetail.html', {'scene': scene, 'child_rois': child_rois,
                                                      'child_tripwires': child_trips, 'child_sensors': child_sensors})
@@ -277,6 +276,10 @@ class CamCreateView(SuperUserCheck, CreateView):
   def form_valid(self, form):
     form.instance.type = 'camera'
     return super(CamCreateView, self).form_valid(form)
+
+  # Return 400 Bad Request when form validation fails
+  def form_invalid(self, form):
+    return self.render_to_response(self.get_context_data(form=form), status=400)
 
   def get_success_url(self):
     if self.object.scene is not None:
@@ -810,13 +813,23 @@ def getAllChildrenMetaData(scene_id):
         else:
           child_sensors.append(cs)
 
-    # FIXME add rest api call to remote child using child scene api token
+    elif c.child_type == "remote":
+      current_child_name = c.child_name
+      for region in (c.cached_rois or []):
+        region = dict(region)
+        region['from_child_scene'] = current_child_name
+        child_rois.append(applyChildTransform(region, c.cameraPose))
+      for tripwire in (c.cached_tripwires or []):
+        tripwire = dict(tripwire)
+        tripwire['from_child_scene'] = current_child_name
+        child_trips.append(applyChildTransform(tripwire, c.cameraPose))
 
   return json.dumps(child_rois), json.dumps(child_trips), json.dumps(child_sensors)
 
 class SaveGeospatialSnapshot(APIView):
   """Save geospatial snapshot as PNG and return filename for map field."""
-  authentication_classes = [TokenAuthentication]
+  # Called from an authenticated browser session, not an external API client
+  authentication_classes = [SessionAuthentication]
   permission_classes = [IsAdminOrReadOnly]
 
   def post(self, request):

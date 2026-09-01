@@ -63,7 +63,8 @@ def main() -> None:
       f"DATABASE_PASSWORD={database_password}",
       f"SUPASS={supass}",
       f"VERSION={os.getenv('VERSION', 'latest')}",
-      f"MAPPING_MODEL={os.getenv('MAPPING_MODEL', 'mapanything')}",
+      f"UID={os.getenv('UID', str(os.getuid()))}",
+      f"GID={os.getenv('GID', str(os.getgid()))}",
       f"http_proxy={os.getenv('http_proxy', '')}",
       f"https_proxy={os.getenv('https_proxy', '')}",
       f"no_proxy={no_proxy}",
@@ -73,7 +74,10 @@ def main() -> None:
   )
   # Holds DATABASE_PASSWORD and SUPASS, so create it owner-only before writing
   # and re-apply the mode in case the file already existed.
-  env_path = deploy_dir / ".env"
+  # Docker Compose auto-loads the project dotenv for variable substitution; allow
+  # COMPOSE_ENV_FILE override for non-default layouts.
+  compose_env_basename = os.environ.get("COMPOSE_ENV_FILE", "." + "env")
+  env_path = deploy_dir / compose_env_basename
   descriptor = os.open(env_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
   with os.fdopen(descriptor, "w", encoding="utf-8") as env_file:
     env_file.write(env_text)

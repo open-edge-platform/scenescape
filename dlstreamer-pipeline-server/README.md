@@ -117,7 +117,7 @@ To enable Scenescape pipelines to run on a specific GPU device of your choice (e
 
 By following these steps, only the selected GPU device will be available in the container. As a result, all DL Streamer Pipeline Server pipelines running in the container will use the GPU device of your choice.
 
-> **Note**: This setup cannot run two pipelines in the same container on different GPU devices. To work around that limitation, configure each pipeline as described in the [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html), but be aware that doing so disables cross-stream batching and may deliver lower throughput.
+> **Note**: This setup cannot run two pipelines in the same container on different GPU devices. To work around that limitation, configure each pipeline as described in the [DL Streamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html), but be aware that doing so disables cross-stream batching and may deliver lower throughput.
 
 ## Running on NPU
 
@@ -161,29 +161,36 @@ NPU performance metrics can be monitored using [NPU System Monitoring Tool](http
 
 Following are the step-by-step instructions for enabling person reidentification for the out-of-box **Queuing** scene.
 
-1. **Enable the ReID Database Container**\
-   Launch Scenescape with exactly one ReID backend override. This example selects VDMS:
+1. **Enable the ReID Database Container and pipeline configs**\
+   Launch Scenescape with exactly one ReID backend override plus the ReID pipeline override. This example selects VDMS:
 
    ```bash
    docker compose -f docker-compose.yml \
      -f sample_data/docker-compose.vdms-override.yml \
+     -f sample_data/docker-compose.reid-pipeline-override.yml \
      --profile controller up -d
    ```
 
    To use Qdrant instead, replace `docker-compose.vdms-override.yml` with
-   `docker-compose.qdrant-override.yml`. Do not combine the two overrides.
-   From the repository root, `make demo-reid` does the same and defaults to
-   VDMS; use `make demo-reid REID_BACKEND=qdrant` for Qdrant.
+   `docker-compose.qdrant-override.yml`. Do not combine the two backend
+   overrides. From the repository root, `make demo-reid` does the same
+   (both overrides included automatically) and defaults to VDMS; use
+   `make demo-reid REID_BACKEND=qdrant` for Qdrant.
 
-2. Use the predefined [queuing-config-reid.json](./queuing-config-reid.json) to enable vector embedding metadata from the DL Streamer service:
+2. The predefined [queuing-config-reid.json](./queuing-config-reid.json) and
+   [retail-config-reid.json](./retail-config-reid.json) configs enable vector
+   embedding metadata from the DL Streamer service and are applied
+   automatically by `docker-compose.reid-pipeline-override.yml` above. If you
+   are composing the services manually without that override file, set them
+   directly instead:
 
    ```yaml
    configs:
      queuing-config:
        file: ./dlstreamer-pipeline-server/queuing-config-reid.json
+     retail-config:
+       file: ./dlstreamer-pipeline-server/retail-config-reid.json
    ```
-
-   Repeat the same step but with [retail-config-reid.json](./retail-config-reid.json) to enable reid for the **Retail** scene.
 
    If this is the first time running Scenescape, run:
 
@@ -196,9 +203,11 @@ Following are the step-by-step instructions for enabling person reidentification
    ```sh
    docker compose -f docker-compose.yml \
      -f sample_data/docker-compose.vdms-override.yml \
+     -f sample_data/docker-compose.reid-pipeline-override.yml \
      --profile controller down
    docker compose -f docker-compose.yml \
      -f sample_data/docker-compose.vdms-override.yml \
+     -f sample_data/docker-compose.reid-pipeline-override.yml \
      --profile controller up queuing-video retail-video reid scene -d
    ```
 

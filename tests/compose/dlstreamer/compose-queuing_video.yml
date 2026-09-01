@@ -10,15 +10,13 @@ secrets:
 
 services:
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc1
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
     networks:
       scenescape-test:
     tty: true
     entrypoint: ["./run.sh"]
     ports:
       - "8081:8080"
-    devices:
-      - "/dev/dri:/dev/dri"
     group_add:
       - "109"
       - "110"
@@ -54,8 +52,8 @@ services:
       - https_proxy=${https_proxy}
       - HTTP_PROXY=${HTTP_PROXY}
       - http_proxy=${http_proxy}
-      - NO_PROXY=mediaserver,${NO_PROXY}
-      - no_proxy=mediaserver,${no_proxy}
+      - NO_PROXY=mediaserver,127.0.0.1,localhost,${NO_PROXY}
+      - no_proxy=mediaserver,127.0.0.1,localhost,${no_proxy}
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json

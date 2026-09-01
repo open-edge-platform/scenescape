@@ -43,12 +43,13 @@ _CERTMANAGER_URL = (
 _RELEASE_NAME = "scenescape"
 _NAMESPACE = "scenescape"
 
+# Core images required by the default k8s test Helm values (reid enabled;
+# mapping / clusterAnalytics remain disabled). Matches `make build-core`.
 _SCENESCAPE_IMAGES = [
-  "intel/scenescape-manager",
+  "intel/scenescape-analytics",
   "intel/scenescape-autocalibration",
   "intel/scenescape-controller",
-  "intel/scenescape-cluster-analytics",
-  "intel/scenescape-mapping-mapanything",
+  "intel/scenescape-manager",
 ]
 
 def _run(cmd, **kwargs):
@@ -384,6 +385,10 @@ class K8sManager:
       f'  password: "{self._supass}"\n'
       f'hooks:\n'
       f'  enabled: true\n'
+      # KinD/CI often cannot finish the ~550MB NetVLAD fetch before the
+      # deployment progress deadline; smoke tests do not need markerless.
+      f'autocalibration:\n'
+      f'  skipModelDownload: true\n'
       f'reid:\n'
       f'  enabled: true\n'
       f'  backend: "{os.getenv("REID_BACKEND", "vdms")}"\n'
