@@ -11,22 +11,9 @@ SPDX-License-Identifier: Apache-2.0
 ## Scope summary
 
 Phase 2 expands tracker evaluation to real-world motion diversity and larger multi-camera scale
-with end-to-end coverage. Seven epic items merged with validated technical debt into 8 stories.
-
-Technical-debt validation (from `old-task-list.txt` vs. current code):
-
-| Debt item | Verdict |
-|-----------|---------|
-| `process_inputs`/`process_tracker_outputs` use iterators, not file paths | Valid → S2 |
-| Remove `set_camera_fps`, fold into `set_cameras` | Valid → S3 |
-| Move `create_motchallenge_seqinfo` into trackeval evaluator | Valid → S3 |
-| `MotChallenge3DPoint._load_raw_file` column indices (conf/class/visibility) — CoPilot [#2](https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2805832131), [#3](https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2805832105) | Valid, real bug → S2 |
-| jsonschema pipeline-config validation (manual today) — CoPilot [suggestion](https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2812244426) | Valid → S3 |
-| `write_jsonl` output named `inputs.json` not `.jsonl` | Valid, minor → S3 |
-| Design doc template + PipelineEngine method-name sync | Valid, minor → S3 |
-| Configure FPS in evaluator vs. infer from timestamps | Mostly done (`set_base_fps` exists) → verify in S1 |
-| Iterator exhaustion in PipelineEngine — CoPilot [#1](https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2805832164) | Done (`list(...)` materialization) |
-| Pluggable similarity scoring | Duplicate of epic item 6 → S6 |
+with end-to-end coverage. It merges the seven epic items with validated technical debt from
+previous releases into 8 stories. Each story lists the specific technical debt it retires so it
+is self-contained.
 
 ## Priorities & dependencies
 
@@ -54,6 +41,10 @@ across datasets, harnesses and evaluators. Frame-based datasets convert frames�
 internally. Work exists on branch `tracker-eval-gt-use-timestamps`; this story finalizes, hardens
 and merges it.
 
+**Technical debt addressed:** remove FPS inference from tracker-output timestamps in evaluators —
+with absolute timestamps, either require `set_base_fps` or eliminate the frame-number conversion
+entirely; the current inference fallback (`num_frames / time_span`) must not silently apply.
+
 **Acceptance criteria:**
 - Canonical GT + tracker-output records carry absolute timestamps; no evaluator relies on frame indices as identity.
 - Frame-based datasets convert to absolute time via configured/derived FPS; conversion unit-tested.
@@ -65,9 +56,11 @@ Align intermediate artifacts on files (not in-memory iterators) and unify duplic
 harnesses/evaluators. Fold in correctness fixes: `MotChallenge3DPoint._load_raw_file` column
 indices, and improved resolution of multiple tracker frames into a single GT frame.
 
-**Reference — CoPilot review comments (PR #987):**
-- [#2 conf/`zero_marked` read from wrong column](https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2805832131)
-- [#3 class parsed from visibility column](https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2805832105)
+**Technical debt addressed:**
+- `process_inputs` / `process_tracker_outputs` pass iterators instead of file paths.
+- `MotChallenge3DPoint._load_raw_file` reads conf/class/visibility from wrong columns — CoPilot [#2](https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2805832131), [#3](https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2805832105).
+- Improve resolving multiple tracker frames into a single ground-truth frame.
+- Iterator exhaustion in PipelineEngine already resolved (`list(...)`, CoPilot [#1](https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2805832164)); keep covered by the file-based contract.
 
 **Acceptance criteria:**
 - `TrackerHarness.process_inputs` returns a path to a canonical tracker-output file; all harnesses updated.
@@ -81,7 +74,12 @@ Replace manual pipeline-config validation with jsonschema; remove `set_camera_fp
 `camera_fps` argument on `set_cameras`; move `create_motchallenge_seqinfo` into the trackeval
 evaluator; rename `write_jsonl` outputs to `*.jsonl`; align design doc to template and sync method names.
 
-**Reference — CoPilot review comment (PR #987):** [jsonschema config validation suggestion](https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2812244426)
+**Technical debt addressed:**
+- Remove `set_camera_fps`, fold into `set_cameras`.
+- Move `create_motchallenge_seqinfo` into the trackeval evaluator.
+- jsonschema pipeline-config validation replacing manual checks — CoPilot [suggestion](https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2812244426).
+- `write_jsonl` output named `inputs.json` → `.jsonl`.
+- Align design doc to template and sync PipelineEngine method names.
 
 **Acceptance criteria:**
 - Pipeline YAML validated against a JSON schema with actionable error messages; invalid configs rejected.
@@ -111,6 +109,9 @@ objects and vehicle dynamics. Includes a data-acquisition/access spike before in
 ### S6 — Pluggable similarity scoring `[P2]`
 Make the similarity/association score pluggable (currently Euclidean distance) and add at least one
 new scorer (e.g. 2D IoU projected to the scene), with user documentation.
+
+**Technical debt addressed:** the previously-recorded "pluggable similarity scoring" debt item is the
+same work as this epic feature (deduplicated here).
 
 **Acceptance criteria:**
 - A similarity-scorer interface selectable via pipeline config; Euclidean distance refactored behind it.
