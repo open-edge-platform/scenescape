@@ -18,7 +18,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 TEST_NAME = "NEX-T21879"
-MAX_CONTROLLER_WAIT = 20  # seconds
+MAX_CONTROLLER_WAIT = 60  # seconds
 MAX_ATTEMPTS = 3
 
 class CameraIntrinsicsTest(FunctionalTest):

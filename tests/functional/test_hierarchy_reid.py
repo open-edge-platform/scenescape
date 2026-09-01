@@ -57,23 +57,20 @@ def _collect_external_messages(h, client_holder, timeout=None):
   return ext_queue, timeout
 
 
-def _drain_queue(q):
-  items = []
-  while True:
-    try:
-      items.append(q.get_nowait())
-    except queue.Empty:
-      break
-  return items
-
-
-def _wait_for_queue(q, timeout):
+def _wait_for_queue(q, timeout, settle=1.0):
+  """Wait up to *timeout* for the first message, then keep collecting until the
+  stream goes quiet for *settle* seconds."""
   try:
     first = q.get(timeout=timeout)
   except queue.Empty:
     return []
-  rest = _drain_queue(q)
-  return [first] + rest
+  messages = [first]
+  while True:
+    try:
+      messages.append(q.get(timeout=settle))
+    except queue.Empty:
+      break
+  return messages
 
 
 def test_child_external_reid_stamped_with_provenance(

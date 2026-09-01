@@ -39,9 +39,7 @@ class FunctionalTest(Diagnostic):
     data = json.loads(message.payload.decode('utf-8'))
     if data is not None:
       log.debug(f"Tracking received topic={message.topic} payload={data}")
-      self._sceneReadyCondition.acquire()
-      self._sceneReadyCondition.notify()
-      self._sceneReadyCondition.release()
+      self._sceneReadyEvent.set()
     return
 
   def sceneControllerReady(self, waitTopic, publishTopic, timeout,
@@ -64,28 +62,24 @@ class FunctionalTest(Diagnostic):
       f"Waiting for ready connected={self.pubsub.isConnected()} "
       f"topic={waitTopic}"
     )
+    # Create the signal before subscribing
+    self._sceneReadyEvent = threading.Event()
     self.pubsub.addCallback(waitTopic, self._trackingReceived)
 
-    self._sceneReadyCondition = threading.Condition()
     max_count = timeout / interval
     count = 0
     ready = False
 
     # Make copy of detection since it will be modified
     detection_pub = detection.copy()
-    self._sceneReadyCondition.acquire()
     while not ready and count < max_count:
       log.debug(f"Try {count} of {max_count} publishTopic={publishTopic}")
       detection_pub['timestamp'] = get_iso_time(beginEpoch + count * interval)
       self.pubsub.publish(publishTopic, json.dumps(detection_pub))
-      if self._sceneReadyCondition.wait(interval):
-        ready = True
+      ready = self._sceneReadyEvent.wait(interval)
       count += 1
-    self._sceneReadyCondition.release()
 
     self.pubsub.removeCallback(waitTopic)
-
-    del self._sceneReadyCondition
 
     return count if ready else None
 

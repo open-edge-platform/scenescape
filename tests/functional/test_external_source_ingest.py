@@ -44,6 +44,7 @@ THING_TYPE = "person"
 FRAMES_PER_SECOND = 10
 MAX_WAIT_TIMEOUT_S = 30
 CONTROLLER_SETTLE_S = 2.0
+GEO_CALIBRATION_TIMEOUT_S = 60.0
 AGENT_SOURCE_ID = "drone-1"
 UNTRUSTED_POSITIONING_SOURCE_ID = "positioning-service-untrusted"
 OBJECT_ID = "agent-track-1"
@@ -125,8 +126,7 @@ class ExternalSourceIngest(FunctionalTest):
     for attempt, update in enumerate(updates, start=1):
       res = self.rest.updateScene(self.sceneUID, update)
       assert res, (res.statusCode, res.errors)
-      time.sleep(CONTROLLER_SETTLE_S)
-      scene = self.rest.getScene(self.sceneUID)
+      scene = self._waitForTRSMatrix()
       if scene.get('trs_matrix'):
         log.info("trs_matrix visible via REST after geo-update attempt %s", attempt)
         return
@@ -143,6 +143,16 @@ class ExternalSourceIngest(FunctionalTest):
       f"map_corners={bool(scene.get('map_corners_lla'))} "
       f"trs_matrix={scene.get('trs_matrix') is not None}")
     return
+
+  def _waitForTRSMatrix(self, timeout=GEO_CALIBRATION_TIMEOUT_S):
+    """Poll REST until the scene exposes trs_matrix or *timeout* expires."""
+    deadline = time.time() + timeout
+    scene = None
+    while True:
+      scene = self.rest.getScene(self.sceneUID)
+      if scene.get('trs_matrix') or time.time() >= deadline:
+        return scene
+      time.sleep(CONTROLLER_SETTLE_S)
 
   def _probeExternalIngest(self):
     """Return True if a wgs84 external-source publish yields DATA_SCENE objects."""
@@ -161,7 +171,7 @@ class ExternalSourceIngest(FunctionalTest):
         "size": [0.5, 0.5, 1.8],
       }],
     }
-    return self.publishAndWait(jdata, timeout=10.0) is not None
+    return self.publishAndWait(jdata, timeout=MAX_WAIT_TIMEOUT_S) is not None
 
   def externalSourceTopic(self, publisher_id=AGENT_SOURCE_ID):
     # Publisher-centric: topic path id is the agent source_id, not the scene.

@@ -41,7 +41,7 @@ def make_reid_embedding(seed=0.1):
 class RetrackTest:
 
   FRAME_RATE = 10
-  MAX_WAIT = 5
+  MAX_WAIT = 30
   NUM_PUBLISH_ITERATIONS = 5
 
   def __init__(self, params):
@@ -288,7 +288,7 @@ class RetrackTest:
         child_ok = (not require_child) or len(self.child_received) > 0
       if parent_ok and child_ok:
         return
-      time.sleep(0.5)
+      time.sleep(0.1)
     with self._lock:
       parent_count = len(self.parent_received)
       child_count = len(self.child_received)

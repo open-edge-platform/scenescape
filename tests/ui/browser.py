@@ -12,12 +12,17 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common import utils
 from pathlib import Path
 from shutil import which
 import subprocess
 
 MAX_RETRIES = 5
 RETRY_DELAY = 30
+# geckodriver startup retries: Selenium's own ~30s /status budget is not
+# configurable, so retrying is the only way to absorb a slow or unlucky start.
+DRIVER_START_ATTEMPTS = 3
+DRIVER_START_RETRY_DELAY = 5
 
 def _is_real_executable(binary):
   # geckodriver cannot launch shell-script wrappers (e.g. the snap launcher at
@@ -86,6 +91,45 @@ def _find_geckodriver():
     "geckodriver not found. Run 'make setup-tests' to install it."
   )
 
+class _LoopbackService(Service):
+  """geckodriver service pinned to the IPv4 loopback address."""
+
+  @property
+  def service_url(self):
+    return f"http://127.0.0.1:{self.port}"
+
+  def is_connectable(self):
+    return utils.is_url_connectable(self.port, host="127.0.0.1")
+
+def _start_driver(browser, options, driver_path, attempts=DRIVER_START_ATTEMPTS):
+  """Start geckodriver, retrying transient startup failures."""
+
+  log_dir = Path(os.environ.get("GECKODRIVER_LOG_DIR", "/tmp"))
+  log_dir.mkdir(parents=True, exist_ok=True)
+  last_error = None
+  for attempt in range(1, attempts + 1):
+    log_path = log_dir / f"geckodriver-{os.getpid()}-{attempt}.log"
+    service = _LoopbackService(driver_path, log_output=str(log_path))
+    try:
+      Firefox.__init__(browser, options=options, service=service)
+      return
+    except WebDriverException as exc:
+      last_error = exc
+      try:
+        service.stop()
+      except Exception:
+        pass
+      tail = ""
+      try:
+        tail = "".join(log_path.read_text(errors="replace").splitlines(True)[-20:])
+      except OSError:
+        pass
+      print(f"geckodriver start attempt {attempt}/{attempts} failed: {exc}\n"
+            f"--- geckodriver log tail ({log_path}) ---\n{tail}")
+      if attempt < attempts:
+        time.sleep(DRIVER_START_RETRY_DELAY)
+  raise last_error
+
 class Browser(Firefox):
   def __init__(self, headless=True, webgl=False):
     # Remove proxy settings safely
@@ -132,8 +176,7 @@ class Browser(Firefox):
       "reid.scenescape.intel.com",
     ]
     options.set_preference("network.dns.localDomains", ",".join(_host_aliases))
-    service = Service(_find_geckodriver())
-    super().__init__(options=options, service=service)
+    _start_driver(self, options, _find_geckodriver())
 
   def getPage(self, url, expected_title, retries=MAX_RETRIES, delay=RETRY_DELAY):
     '''
