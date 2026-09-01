@@ -98,7 +98,7 @@ material, and controller connection settings. The selected override sets
 1. **Stop the stack** using the same base and backend override files used to start it:
 
    ```bash
-   docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+   docker compose --project-directory . -f sample_data/compose/docker-compose-dl-streamer-example.yml \
      -f sample_data/compose/docker-compose.vdms-override.yml \
      --profile controller down
    ```
@@ -106,7 +106,7 @@ material, and controller connection settings. The selected override sets
 2. **Start with the other backend override**. For example, to select Qdrant:
 
    ```bash
-   docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+   docker compose --project-directory . -f sample_data/compose/docker-compose-dl-streamer-example.yml \
      -f sample_data/compose/docker-compose.qdrant-override.yml \
      --profile controller up
    ```
@@ -143,7 +143,7 @@ Values are validated at controller startup. A port outside 1–65535, a confiden
 2. Replace the Qdrant override with the VDMS override:
 
    ```bash
-   docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+   docker compose --project-directory . -f sample_data/compose/docker-compose-dl-streamer-example.yml \
      -f sample_data/compose/docker-compose.vdms-override.yml \
      --profile controller up
    ```
@@ -225,7 +225,7 @@ it; that is a separate hardening step.
    database service.
 
    ```bash
-   docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+   docker compose --project-directory . -f sample_data/compose/docker-compose-dl-streamer-example.yml \
      -f sample_data/compose/docker-compose.vdms-override.yml \
      --profile controller down
    ```
@@ -335,11 +335,11 @@ helm upgrade scenescape-release-1 --install kubernetes/scenescape-chart/ \
 To apply changes, use the same backend override you selected when starting the stack:
 
 ```bash
-docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+docker compose --project-directory . -f sample_data/compose/docker-compose-dl-streamer-example.yml \
   -f sample_data/compose/docker-compose.vdms-override.yml \
   --profile controller down
 make -C docker
-docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+docker compose --project-directory . -f sample_data/compose/docker-compose-dl-streamer-example.yml \
   -f sample_data/compose/docker-compose.vdms-override.yml \
   --profile controller up --build
 ```
@@ -352,10 +352,10 @@ docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
    - **Cause**: Database container is not running, not linked, or TLS/certs do not match the shared ReID defaults.
    - **Resolution**:
      ```bash
-     docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+     docker compose --project-directory . -f sample_data/compose/docker-compose-dl-streamer-example.yml \
        -f sample_data/compose/docker-compose.vdms-override.yml \
        --profile controller ps reid
-     docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+     docker compose --project-directory . -f sample_data/compose/docker-compose-dl-streamer-example.yml \
        -f sample_data/compose/docker-compose.vdms-override.yml \
        --profile controller logs reid
      ```
