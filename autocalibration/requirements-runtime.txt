@@ -22,7 +22,7 @@ pytz==2026.2
 PyYAML==6.0.3
 scikit-learn==1.9.0
 scipy==1.17.1
-setuptools==83.0.0
+setuptools==84.0.0
 torch==2.13.0
 torchvision==0.28.0+cpu
 tqdm==4.67.3
