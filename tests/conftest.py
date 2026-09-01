@@ -560,7 +560,7 @@ def cleanup_residual_test_resources():
       # Network may already be gone (race with another pytest session); avoid
       # re-inspecting network.name which raises NoSuchNetwork again.
       net_id = getattr(network, "id", None) or getattr(network, "_immutable_id", "?")
-      logger.warning("Failed to remove residual network %s: %s", net_id, exc)
+      logger.warning(f"Failed to remove residual network {net_id}: {exc}")
 
   for volume in volumes:
     try:

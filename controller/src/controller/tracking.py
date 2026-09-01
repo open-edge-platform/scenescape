@@ -219,7 +219,7 @@ class Tracking(Thread):
   def join(self):
     with self._state_lock:
       trackers = list(self.trackers.items())
-    log.debug("Joining tracker threads. Trackers count: ", len(trackers))
+    log.debug(f"Joining tracker threads. Trackers count: {len(trackers)}")
     for category, tracker in trackers:
       tracker.queue.put((None, None, None, STREAMING_MODE))
       log.debug(f"Waiting for tracker thread category {category} to complete")

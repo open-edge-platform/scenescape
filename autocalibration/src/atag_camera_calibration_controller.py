@@ -69,7 +69,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         return response_dict
       except Exception as exc:
         log.error(f"Apriltag scene processing failed: {exc}")
-        response_dict['status'] = f"Error: {exc}"
+        response_dict['status'] = "Error: Apriltag scene processing failed"
         return response_dict
 
     apriltags_from_db = []
