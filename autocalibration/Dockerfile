@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
+ARG RUNTIME_OS_IMAGE=python:3.14-slim-bookworm@sha256:9ab8d9c8514b44f90cf0029dd42fdd7e9e211e639c8b995304cc04568dee900f
 
 # =========================
 # STAGE 1: BUILD STAGE
@@ -67,8 +67,8 @@ WORKDIR /tmp/apriltag/apriltag-dev/build
 # treats K&R empty parameter lists as (void). Raise the policy floor and compile
 # as gnu11 so the vendored apriltags submodule still builds.
 RUN cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-      -DCMAKE_C_FLAGS="-std=gnu11 -Wno-error=incompatible-pointer-types" \
-      ../apriltags/ \
+    -DCMAKE_C_FLAGS="-std=gnu11 -Wno-error=incompatible-pointer-types" \
+    ../apriltags/ \
     && make -j$(nproc)
 
 WORKDIR /tmp/apriltag/apriltag-dev
@@ -83,8 +83,8 @@ RUN mkdir -p third_party/netvlad && \
     # Create setup.py without downloading the model
     echo "include third_party/netvlad/*" > MANIFEST.in && \
     echo -e "from setuptools import setup, find_packages\n\
-setup(name='third_party', version='1.0.0', packages=find_packages(),\n\
-package_data={'': []}, include_package_data=True)" > setup.py && \
+    setup(name='third_party', version='1.0.0', packages=find_packages(),\n\
+    package_data={'': []}, include_package_data=True)" > setup.py && \
     python3 setup.py bdist_wheel && \
     cp dist/*.whl /output/
 
@@ -125,16 +125,13 @@ RUN apt update && apt upgrade -y
 # Install runtime dependencies in one layer
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-     apt-get update && apt-get install -y --no-install-recommends \
+    apt-get update && apt-get install -y --no-install-recommends \
     libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-open3d python3-pip python-is-python3 wget curl && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
 # Add user with specific UID/GID (not system user).
-# Ubuntu 26.04 base images already have an "ubuntu" user/group at UID/GID 1000.
-RUN userdel -f -r ubuntu || true && \
-    groupdel ubuntu || true && \
-    groupadd -g $GROUP_ID $WSUSER && \
+RUN groupadd -g $GROUP_ID $WSUSER && \
     useradd -u $USER_ID -g $GROUP_ID -m -s /bin/bash $WSUSER && \
     usermod -a -G video,users $WSUSER && \
     chmod a+rX /home/$WSUSER
@@ -174,13 +171,13 @@ COPY --chown=$WSUSER:$WSUSER autocalibration/src/*.py $SCENESCAPE_HOME/
 COPY --chown=$WSUSER:$WSUSER autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
 
 RUN echo '#!/bin/bash\n\
-set -e\n\
-if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
+    set -e\n\
+    if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
     echo "Checking NetVLAD model..."\n\
     python3 /usr/local/bin/download_models.py\n\
-fi\n\
-touch /tmp/healthy\n\
-exec "$@"\n' > /usr/local/bin/startup.sh && \
+    fi\n\
+    touch /tmp/healthy\n\
+    exec "$@"\n' > /usr/local/bin/startup.sh && \
     chmod +x /usr/local/bin/startup.sh && \
     chown $WSUSER:$WSUSER /usr/local/bin/startup.sh
 

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
+ARG RUNTIME_OS_IMAGE=python:3.14-slim-bookworm@sha256:9ab8d9c8514b44f90cf0029dd42fdd7e9e211e639c8b995304cc04568dee900f
 
 FROM intel/scenescape-common-base AS scenescape-cluster-analytics-builder
 
@@ -30,11 +30,11 @@ RUN apt update && apt upgrade -y
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        libgl1 \
-        libglib2.0-0 \
-        python3 \
-        python3-pip \
-        python-is-python3 \
+    libgl1 \
+    libglib2.0-0 \
+    python3 \
+    python3-pip \
+    python-is-python3 \
     && rm -rf /var/lib/apt/lists/* \
     # Create non-root user
     && groupadd -g ${GROUP_ID} $WSUSER \
@@ -43,7 +43,7 @@ RUN : \
 
 COPY cluster_analytics/requirements-runtime.txt /tmp/
 RUN pip install --break-system-packages --ignore-installed --no-cache-dir \
-        -r /tmp/requirements-runtime.txt \
+    -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/*.txt
 
 # Copy compiled packages from builder (use system dist-packages directly)

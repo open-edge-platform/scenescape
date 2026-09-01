@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
+ARG RUNTIME_OS_IMAGE=python:3.14-slim-bookworm@sha256:9ab8d9c8514b44f90cf0029dd42fdd7e9e211e639c8b995304cc04568dee900f
 
 FROM intel/scenescape-common-base AS scenescape-manager-builder
 
@@ -16,40 +16,40 @@ SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        libboost-python-dev \
-        libegl1 \
-        libgl1 \
-        libglib2.0 \
-        python3-dev \
-        libassimp-dev \
-        wget \
-        libssl3 \
-        libssl-dev \
-        libpcre2-dev \
-        apache2-dev \
-        apache2 \
+    libboost-python-dev \
+    libegl1 \
+    libgl1 \
+    libglib2.0 \
+    python3-dev \
+    libassimp-dev \
+    wget \
+    libssl3 \
+    libssl-dev \
+    libpcre2-dev \
+    apache2-dev \
+    apache2 \
     && rm -rf /var/lib/apt/lists/*
 
 # mod_qos library is broken on debian 12, so we build it from source.
 # Use multiple download endpoints and dynamic extraction path to avoid pin-breakage.
 ARG MOD_QOS_VERSION=11.79
 RUN : \
-        ; MOD_QOS_ARCHIVE="/tmp/mod_qos-${MOD_QOS_VERSION}.tar.gz" \
-        ; for URL in \
-                "https://downloads.sourceforge.net/project/mod-qos/mod_qos-${MOD_QOS_VERSION}.tar.gz" \
-                "https://sourceforge.net/projects/mod-qos/files/mod_qos-${MOD_QOS_VERSION}.tar.gz/download" \
-                "https://sourceforge.net/projects/mod-qos/files/latest/download" \
-            ; do \
-                wget --tries=3 --waitretry=2 "$URL" -O "$MOD_QOS_ARCHIVE" && break || true; \
-            done \
-        ; test -s "$MOD_QOS_ARCHIVE" \
-        ; tar -xzf "$MOD_QOS_ARCHIVE" -C /tmp \
-        ; rm -f "$MOD_QOS_ARCHIVE" \
-        ; MOD_QOS_SRC_DIR="$(find /tmp -maxdepth 1 -type d -name 'mod_qos-*' | head -n1)" \
-        ; test -n "$MOD_QOS_SRC_DIR" \
-        ; cd "$MOD_QOS_SRC_DIR/apache2" \
-        ; apxs2 -i -a -c -lssl -lcrypto mod_qos.c \
-        ; rm -rf "$MOD_QOS_SRC_DIR"
+    ; MOD_QOS_ARCHIVE="/tmp/mod_qos-${MOD_QOS_VERSION}.tar.gz" \
+    ; for URL in \
+    "https://downloads.sourceforge.net/project/mod-qos/mod_qos-${MOD_QOS_VERSION}.tar.gz" \
+    "https://sourceforge.net/projects/mod-qos/files/mod_qos-${MOD_QOS_VERSION}.tar.gz/download" \
+    "https://sourceforge.net/projects/mod-qos/files/latest/download" \
+    ; do \
+    wget --tries=3 --waitretry=2 "$URL" -O "$MOD_QOS_ARCHIVE" && break || true; \
+    done \
+    ; test -s "$MOD_QOS_ARCHIVE" \
+    ; tar -xzf "$MOD_QOS_ARCHIVE" -C /tmp \
+    ; rm -f "$MOD_QOS_ARCHIVE" \
+    ; MOD_QOS_SRC_DIR="$(find /tmp -maxdepth 1 -type d -name 'mod_qos-*' | head -n1)" \
+    ; test -n "$MOD_QOS_SRC_DIR" \
+    ; cd "$MOD_QOS_SRC_DIR/apache2" \
+    ; apxs2 -i -a -c -lssl -lcrypto mod_qos.c \
+    ; rm -rf "$MOD_QOS_SRC_DIR"
 
 # ---------- Manager Runtime Stage ------------------
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-manager-runtime
@@ -76,22 +76,22 @@ ARG FORCE_VAAPI
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
-        apache2 \
-        bzip2 \
-        curl \
-        ca-certificates \
-        libegl1 \
-        libgl1 \
-        libapache2-mod-wsgi-py3 \
-        libglib2.0-0 \
-        libgomp1 \
-        mosquitto-clients \
-        netcat-openbsd \
-        python3 \
-        python3-open3d \
-        python3-pip \
-        python-is-python3 \
-        sudo \
+    apache2 \
+    bzip2 \
+    curl \
+    ca-certificates \
+    libegl1 \
+    libgl1 \
+    libapache2-mod-wsgi-py3 \
+    libglib2.0-0 \
+    libgomp1 \
+    mosquitto-clients \
+    netcat-openbsd \
+    python3 \
+    python3-open3d \
+    python3-pip \
+    python-is-python3 \
+    sudo \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -99,29 +99,29 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 COPY ./manager/requirements-runtime.txt /tmp
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install --break-system-packages --ignore-installed --no-cache-dir \
-        --extra-index-url https://download.pytorch.org/whl/cpu \
-        -r /tmp/requirements-runtime.txt
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    -r /tmp/requirements-runtime.txt
 
 COPY --from=scenescape-manager-builder /usr/lib/apache2/modules/mod_qos.so /usr/lib/apache2/modules/mod_qos.so
 RUN echo "LoadModule qos_module /usr/lib/apache2/modules/mod_qos.so" > /etc/apache2/mods-available/qos.load
 
 RUN : \
     ; a2dismod -f \
-          auth_basic \
-          authn_core \
-          authn_file \
-          authz_host \
-          authz_user \
-          autoindex \
-          status \
+    auth_basic \
+    authn_core \
+    authn_file \
+    authz_host \
+    authz_user \
+    autoindex \
+    status \
     ; a2enmod \
-        allowmethods \
-        headers \
-        proxy \
-        proxy_http \
-        proxy_wstunnel \
-        ssl \
-        qos \
+    allowmethods \
+    headers \
+    proxy \
+    proxy_http \
+    proxy_wstunnel \
+    ssl \
+    qos \
     ; a2ensite default-ssl \
     ;
 
@@ -145,9 +145,6 @@ RUN : \
     ; chmod og-w /etc/apache2/sites-available/*.conf /etc/apache2/apache2.conf
 
 RUN : \
-    # Ubuntu 26.04 images ship an "ubuntu" user/group at UID/GID 1000.
-    ; userdel -f -r ubuntu || true \
-    ; groupdel ubuntu || true \
     ; groupadd -g $GROUP_ID $WSUSER \
     ; useradd -r -u $USER_ID -g $GROUP_ID -m -s /bin/bash $WSUSER \
     ; usermod -a -G video,users $WSUSER \
@@ -184,8 +181,8 @@ RUN OPENCV_SHA=$(openssl dgst -sha256 -binary "$SCENESCAPE_HOME/manager/static/a
 COPY ./manager/config/user_access_config.json $SCENESCAPE_HOME
 
 COPY --chown=$WSUSER:$WSUSER ./manager/config/webserver-init \
-     ./manager/config/scenescape-init \
-     /usr/local/bin/
+    ./manager/config/scenescape-init \
+    /usr/local/bin/
 
 RUN chown -R $WSUSER:$WSUSER /home/scenescape/ \
     && chown -R $WSUSER:$WSUSER /etc/apache2/ \
@@ -217,22 +214,22 @@ RUN : \
     ; apt-get update \
     ; install -d -m 0755 /etc/apt/keyrings \
     ; apt-get install -y --no-install-recommends \
-        build-essential \
-        cmake \
-        wget \
-        libpci-dev \
-        libnss3-tools \
-        software-properties-common \
-        unzip \
-        xserver-xephyr \
-        xvfb \
+    build-essential \
+    cmake \
+    wget \
+    libpci-dev \
+    libnss3-tools \
+    software-properties-common \
+    unzip \
+    xserver-xephyr \
+    xvfb \
     ; wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg -O- | tee /etc/apt/keyrings/packages.mozilla.org.asc > /dev/null \
     ; echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" | tee -a /etc/apt/sources.list.d/mozilla.list > /dev/null \
     ; echo -e ' \n\
-Package: * \n\
-Pin: origin packages.mozilla.org \n\
-Pin-Priority: 1000 \n\
-' | tee /etc/apt/preferences.d/mozilla \
+    Package: * \n\
+    Pin: origin packages.mozilla.org \n\
+    Pin-Priority: 1000 \n\
+    ' | tee /etc/apt/preferences.d/mozilla \
     ; apt-get update && apt-get install -y --no-install-recommends firefox-esr \
     ; rm -rf /var/lib/apt/lists/*
 # Install Python test dependencies.
@@ -241,7 +238,7 @@ Pin-Priority: 1000 \n\
 COPY ./manager/test/requirements-test.txt /tmp
 RUN CFLAGS="-std=gnu11 -Wno-error=incompatible-pointer-types" \
     pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir \
-      -r /tmp/requirements-test.txt
+    -r /tmp/requirements-test.txt
 
 ADD ./manager/test/geckodriver.tar.gz /usr/local/bin/
 RUN chmod a+rwx /usr/local/bin/geckodriver

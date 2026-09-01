@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
+ARG RUNTIME_OS_IMAGE=python:3.14-slim-bookworm@sha256:9ab8d9c8514b44f90cf0029dd42fdd7e9e211e639c8b995304cc04568dee900f
 
 # =========================
 # STAGE 1: MODEL BUILDER STAGE
@@ -19,13 +19,13 @@ COPY mapping/0001-Run-it-on-CPU.patch /tmp/
 
 # Clone and prepare only the selected model
 RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
-        git clone https://github.com/facebookresearch/map-anything.git ./map-anything && \
-        cd ./map-anything && git checkout b84b28f; \
+    git clone https://github.com/facebookresearch/map-anything.git ./map-anything && \
+    cd ./map-anything && git checkout b84b28f; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
-        git clone https://github.com/facebookresearch/vggt.git ./vggt && \
-        cd ./vggt && git checkout 44b3afb && git apply /tmp/0001-Run-it-on-CPU.patch; \
+    git clone https://github.com/facebookresearch/vggt.git ./vggt && \
+    cd ./vggt && git checkout 44b3afb && git apply /tmp/0001-Run-it-on-CPU.patch; \
     else \
-        echo "Invalid MODEL_TYPE: $MODEL_TYPE. Must be 'mapanything' or 'vggt'" && exit 1; \
+    echo "Invalid MODEL_TYPE: $MODEL_TYPE. Must be 'mapanything' or 'vggt'" && exit 1; \
     fi
 
 # =========================
@@ -95,27 +95,27 @@ COPY --chown=$WSUSER:$WSUSER --from=mapping-builder \
 # Copy the selected model directory based on MODEL_TYPE
 COPY --from=mapping-builder /tmp/ /tmp/models/
 RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
-        mv /tmp/models/map-anything /workspace/map-anything && rm -rf /tmp/models/vggt; \
+    mv /tmp/models/map-anything /workspace/map-anything && rm -rf /tmp/models/vggt; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
-        mv /tmp/models/vggt /workspace/vggt && rm -rf /tmp/models/map-anything; \
+    mv /tmp/models/vggt /workspace/vggt && rm -rf /tmp/models/map-anything; \
     fi && \
     rm -rf /tmp/models
 
 # Install all Python dependencies in one layer
 RUN pip install --break-system-packages --ignore-installed --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
-        cd /workspace/map-anything && \
-        pip install --break-system-packages --ignore-installed --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_mapanything.txt && \
-        pip install --break-system-packages --ignore-installed --no-cache-dir --no-deps -e .; \
+    cd /workspace/map-anything && \
+    pip install --break-system-packages --ignore-installed --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_mapanything.txt && \
+    pip install --break-system-packages --ignore-installed --no-cache-dir --no-deps -e .; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
-        pip install --break-system-packages --ignore-installed --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r /workspace/vggt/requirements.txt -r /workspace/vggt/requirements_demo.txt && \
-        pip install --break-system-packages --ignore-installed --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_vggt.txt && \
-        cd /workspace/vggt && \
-        pip install --break-system-packages --ignore-installed --no-cache-dir -e .; \
+    pip install --break-system-packages --ignore-installed --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r /workspace/vggt/requirements.txt -r /workspace/vggt/requirements_demo.txt && \
+    pip install --break-system-packages --ignore-installed --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_vggt.txt && \
+    cd /workspace/vggt && \
+    pip install --break-system-packages --ignore-installed --no-cache-dir -e .; \
     fi && \
     rm -rf /usr/local/lib/python3.14/dist-packages/torch/test \
-           /usr/local/lib/python3.14/dist-packages/torch/share \
-           /usr/local/lib/python3.14/dist-packages/torchvision/test 2>/dev/null || true && \
+    /usr/local/lib/python3.14/dist-packages/torch/share \
+    /usr/local/lib/python3.14/dist-packages/torchvision/test 2>/dev/null || true && \
     chown -R $WSUSER:$WSUSER $SCENESCAPE_HOME /workspace
 
 # Create startup script

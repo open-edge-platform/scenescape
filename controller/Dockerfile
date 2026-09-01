@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
+ARG RUNTIME_OS_IMAGE=python:3.14-slim-bookworm@sha256:9ab8d9c8514b44f90cf0029dd42fdd7e9e211e639c8b995304cc04568dee900f
 
 # -------------- Controller Builder Stage --------------
 FROM intel/scenescape-common-base AS scenescape-controller-builder
@@ -13,8 +13,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        libopencv-dev \
-        python3-venv \
+    libopencv-dev \
+    python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 # Build robot vision package
@@ -65,24 +65,21 @@ RUN apt update && apt upgrade -y
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        gosu \
-        libgl1 \
-        libopencv-contrib410 \
-        libopencv-stitching410 \
-        libpython3.14 \
-        netbase \
-        python3 \
-        python3-open3d \
-        python3-pip \
-        python-is-python3 \
-        sudo \
+    gosu \
+    libgl1 \
+    libopencv-contrib410 \
+    libopencv-stitching410 \
+    libpython3.14 \
+    netbase \
+    python3 \
+    python3-open3d \
+    python3-pip \
+    python-is-python3 \
+    sudo \
     && rm -rf /usr/lib/x86_64-linux-gnu/libLLVM-15.so.1 \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN : \
-    # delete ubuntu user/group if exists (UID/GID 1000 on Ubuntu 26.04)
-    && userdel -f -r ubuntu || true \
-    && groupdel ubuntu || true \
     # create scenescape user
     && groupadd -g ${GROUP_ID} $WSUSER \
     && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER \

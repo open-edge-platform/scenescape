@@ -5,7 +5,7 @@
 # C++ tracking extension.  AnalyticsScene and AnalyticsService are designed
 # to be importable without robot_vision present.
 
-ARG RUNTIME_OS_IMAGE=ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
+ARG RUNTIME_OS_IMAGE=python:3.14-slim-bookworm@sha256:9ab8d9c8514b44f90cf0029dd42fdd7e9e211e639c8b995304cc04568dee900f
 
 # -------------- Analytics Builder Stage --------------
 FROM intel/scenescape-common-base AS scenescape-analytics-builder
@@ -47,21 +47,19 @@ USER root
 
 RUN apt update && apt upgrade -y \
     && apt-get install -y --no-install-recommends \
-        gosu \
-        libgl1 \
-        libgomp1 \
-        libpython3.14 \
-        netbase \
-        python3 \
-        python3-open3d \
-        python3-pip \
-        python-is-python3 \
-        sudo \
+    gosu \
+    libgl1 \
+    libgomp1 \
+    libpython3.14 \
+    netbase \
+    python3 \
+    python3-open3d \
+    python3-pip \
+    python-is-python3 \
+    sudo \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN : \
-    && userdel -f -r ubuntu || true \
-    && groupdel ubuntu || true \
     && groupadd -g ${GROUP_ID} $WSUSER \
     && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER \
     && usermod -a -G video,users $WSUSER \
