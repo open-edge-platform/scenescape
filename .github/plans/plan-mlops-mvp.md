@@ -15,8 +15,6 @@ workflows.
 
 ## References
 
-- JIRA epic (Scenescape part of MVP): [.github/plans/ITEP-94802.xml](ITEP-94802.xml)
-- MVP feature (broader than Scenescape): [.github/plans/mvp-feature.md](mvp-feature.md)
 - ADR: [docs/adr/0012-mlops-integration-reuse.md](../../docs/adr/0012-mlops-integration-reuse.md)
 - Design: [docs/design/mlops-integration-reuse.md](../../docs/design/mlops-integration-reuse.md)
 
