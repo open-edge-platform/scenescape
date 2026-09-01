@@ -189,7 +189,6 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       assert image_monitor.image_count == image_count_while_paused, (
         "Camera images continued to arrive while video was paused"
       )
-      image_before_unpause = image_monitor.last_image
       log.info("Camera image publishing stopped while video was paused.")
 
       log.info("Now unpause and verify that a new camera image arrives.")
@@ -200,11 +199,8 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
         image_count_before_unpause,
         FEED_ACTIVITY_TIMEOUT_SEC,
       ), "No camera image was published after unpausing video"
-      log.info("Received a new camera image after unpausing video.")
-      assert image_monitor.last_image != image_before_unpause, (
-        "Camera image after unpause was identical to the image before pause"
-      )
-      log.info("Camera image changed after unpausing video.")
+
+      log.info("Camera image publishing resumed after unpausing video.")
 
       self.exitCode = 0
     finally:

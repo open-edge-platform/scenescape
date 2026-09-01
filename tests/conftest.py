@@ -689,7 +689,7 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
         "docker", "run", "--rm",
         "-v", f"{project_name}_vol-sample-data:/source:ro",
         "-v", f"{project_name}_vol-media:/dest",
-        "alpine:3.23", "sh", "-c",
+        "alpine:3.24", "sh", "-c",
         "cp /source/HazardZoneSceneLarge.png /source/scene.png /dest/",
       ],
       cwd=repo_root,
