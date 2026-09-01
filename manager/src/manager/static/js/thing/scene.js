@@ -196,8 +196,41 @@ export default class Scene {
 
   load2DMap(sceneDetails, loadThings, sceneBoundingBox) {
     let loader = new THREE.TextureLoader();
+    if (sceneDetails.map) {
+      loader.load(sceneDetails.map, (tex) => {
+        let floorWidth = tex.image.width / this.pixelsPerMeter;
+        let floorHeight = tex.image.height / this.pixelsPerMeter;
+        var { cameraZ, center } = this.computePerspectiveCameraPose(
+          floorWidth,
+          floorHeight,
+        );
 
-    const initDefaultFloor = () => {
+        // Create the scene floor using a PlaneGeometry
+        // The size in meters is based on the scale as defined by the user and the image size
+        const floorGeometry = new THREE.PlaneGeometry(floorWidth, floorHeight);
+        const floorMaterial = new THREE.MeshLambertMaterial({
+          map: tex,
+          opacity: 0.8,
+          transparent: true,
+        });
+
+        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        floor.name = "floor";
+
+        // Set the origin to the bottom left corner of the scene
+        floor.position.set(center.x, center.y, 0);
+        sceneBoundingBox.setFromObject(floor);
+
+        // Set the perspective camera position.z based on the scene size and camera FOV
+        this.initializeScene(cameraZ, center, floorHeight, floorWidth);
+        loadThings();
+        this.addControlPanel();
+
+        floor["visible"] = this.axesHelper["visible"] =
+          this.initFloorPlaneVisible();
+        this.scene.add(floor);
+      });
+    } else {
       let floorWidth =
         DEFAULT_FLOOR_WIDTH /
         (this.pixelsPerMeter != null ? this.pixelsPerMeter : DEFAULT_PPM);
@@ -215,55 +248,6 @@ export default class Scene {
       this.addControlPanel();
 
       this.axesHelper["visible"] = this.initFloorPlaneVisible();
-    };
-
-    if (sceneDetails.map) {
-      loader.load(
-        sceneDetails.map,
-        (tex) => {
-          let floorWidth = tex.image.width / this.pixelsPerMeter;
-          let floorHeight = tex.image.height / this.pixelsPerMeter;
-          var { cameraZ, center } = this.computePerspectiveCameraPose(
-            floorWidth,
-            floorHeight,
-          );
-
-          // Create the scene floor using a PlaneGeometry
-          // The size in meters is based on the scale as defined by the user and the image size
-          const floorGeometry = new THREE.PlaneGeometry(
-            floorWidth,
-            floorHeight,
-          );
-          const floorMaterial = new THREE.MeshLambertMaterial({
-            map: tex,
-            opacity: 0.8,
-            transparent: true,
-          });
-
-          const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-          floor.name = "floor";
-
-          // Set the origin to the bottom left corner of the scene
-          floor.position.set(center.x, center.y, 0);
-          sceneBoundingBox.setFromObject(floor);
-
-          // Set the perspective camera position.z based on the scene size and camera FOV
-          this.initializeScene(cameraZ, center, floorHeight, floorWidth);
-          loadThings();
-          this.addControlPanel();
-
-          floor["visible"] = this.axesHelper["visible"] =
-            this.initFloorPlaneVisible();
-          this.scene.add(floor);
-        },
-        undefined,
-        (error) => {
-          console.error("Error loading 2D scene map:", error);
-          initDefaultFloor();
-        },
-      );
-    } else {
-      initDefaultFloor();
     }
   }
 
