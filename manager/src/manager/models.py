@@ -869,7 +869,7 @@ class Cam(Sensor):
     super().delete(*args, **kwargs)
     if scene:
       SceneLoader.removeScene(scene.name)
-    
+
     # Clear cache again after transaction commits to prevent concurrent requests from
     # repopulating with pre-commit DB state (handles ATOMIC_REQUESTS race condition)
     def invalidate_cache_on_commit():
