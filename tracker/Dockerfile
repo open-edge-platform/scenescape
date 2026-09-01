@@ -4,7 +4,7 @@
 ARG RUNTIME_OS_IMAGE=gcr.io/distroless/cc-debian13@sha256:4594d59540d1948417f6ca2829ddd9294493a7c68b7528f4dd459de7f203a750
 
 # --- Build stage ---
-FROM debian:13-slim@sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd AS builder
+FROM debian:13-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132 AS builder
 
 WORKDIR /scenescape
 
@@ -22,6 +22,7 @@ RUN apt-get update -qq \
         libgomp1 \
         pkg-config \
         > /dev/null \
+    && apt-get install -qq -y --only-upgrade libssl3t64 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Conan
@@ -96,13 +97,14 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
 CMD ["/scenescape/tracker", "--config", "/scenescape/config/tracker.json", "--schema", "/scenescape/schema/config.schema.json"]
 
 # --- Debug stage (for development with gdbserver) ---
-FROM debian:13-slim@sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd AS debug
+FROM debian:13-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132 AS debug
 
 # hadolint ignore=DL3008
 RUN apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
         gdbserver \
         > /dev/null \
+    && apt-get install -qq -y --only-upgrade libssl3t64 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /scenescape
