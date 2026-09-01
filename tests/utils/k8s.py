@@ -498,7 +498,7 @@ class K8sManager:
     Uses the "web.scenescape.intel.com" hostname (patched to the port-forward
     by the loopback_hosts fixture, active for every test using scenescape_env)
     because that is what the chart's web certificate is issued for.
-    
+
     Uploads retail_and_queuing to match the compose test suite patterns,
     providing a representative baseline with both retail and queuing scenes.
     """
