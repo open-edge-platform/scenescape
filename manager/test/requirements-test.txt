@@ -12,4 +12,4 @@ pytest-html==4.2.0
 pytest-metadata==3.1.1
 pyvirtualdisplay==3.0
 scikit-image==0.26.0
-selenium==4.43.0
+selenium==4.48.0
