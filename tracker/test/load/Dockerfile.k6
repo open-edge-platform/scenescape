@@ -4,7 +4,7 @@
 # Build k6 with the xk6-mqtt extension for MQTT load testing.
 # xk6 Docker tag 1.4.7 bundles xk6 Go module v1.4.7.
 # See: https://github.com/grafana/xk6/releases/tag/v1.4.7
-FROM grafana/xk6:1.4.7@sha256:16a4044c63bbef291bd51c9213fdcfaee7342d0fac2c9bb9ec64eca23ac35377 AS builder
+FROM grafana/xk6:1.4.12@sha256:905af13917e617ec946c694a3bc8eddfe8c26afa7a6b52470d02259d9dcbdb3a AS builder
 ARG http_proxy
 ARG https_proxy
 ARG no_proxy
