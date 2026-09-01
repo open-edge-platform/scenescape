@@ -306,14 +306,13 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
   // Sequential assignment phase to avoid race conditions
   for (size_t trackIdx = 0; trackIdx < tracks.size(); ++trackIdx)
   {
-    auto &matches = matchesPerTrack[trackIdx];
+    // matchesPerTrack is filled in ascending camera order with at most one entry per
+    // camera, so it is already sorted by camera and fusion is deterministic across runs.
+    const auto &matches = matchesPerTrack[trackIdx];
     if (matches.empty())
     {
       continue;
     }
-
-    // Deterministic camera order so repeated runs fuse observations identically.
-    std::sort(matches.begin(), matches.end());
 
     // Feed every matched observation to the track; the last one carries the fused
     // metadata so its attributes win in the sequential Kalman correction step.
