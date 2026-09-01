@@ -422,15 +422,15 @@ class MeshGenerator:
   def _is_camera_calibrated(self, camera, serializer):
     """
     Determine if a camera has a calibrated pose (not default/uncalibrated).
-    
+
     A camera is considered calibrated if:
     - It has non-empty transforms stored
     - It has non-None translation and rotation from the serializer
-    
+
     Args:
       camera: Cam object
       serializer: CamSerializer instance
-      
+
     Returns:
       bool: True if camera is calibrated, False if uncalibrated
     """
@@ -508,7 +508,7 @@ class MeshGenerator:
       for camera in cameras:
         cam_id = camera.sensor_id
         camera_order.append(cam_id)
-        
+
         # Check if this camera is calibrated
         is_calibrated = self._is_camera_calibrated(camera, serializer)
         anchored_cameras[cam_id] = is_calibrated
@@ -518,7 +518,7 @@ class MeshGenerator:
           t = serializer.get_translation(camera)
           q = serializer.get_rotation(camera)
           s = serializer.get_scale(camera) or [1.0, 1.0, 1.0]
-          
+
           camera_location_order.append({
             "translation": list(t),
             "rotation": list(q),
@@ -616,20 +616,20 @@ class MeshGenerator:
       mesh_transform = self._saveMeshToScene(scene, merged_mesh, align=True)
       if mesh_transform is not None:
         self._transformCamerasWithMeshAlignment(cameras, mesh_transform, anchored_cameras)
-    
+
     # Identify unanchored cameras for user warning
     unanchored_cameras = [cam_id for cam_id, is_anchored in anchored_cameras.items() if not is_anchored]
     result = {"success": True}
     if unanchored_cameras:
       result["unanchored_cameras"] = unanchored_cameras
       log.info(f"Mesh generation complete. Unanchored cameras (no prior calibration): {unanchored_cameras}")
-    
+
     return result
 
   def _updateSceneCamerasWithMappingResult(self, mapping_result, cameras, anchored_cameras=None):
     """
     Update scene cameras with poses and intrinsics returned by mapping service.
-    
+
     For cameras that were anchored (had a calibrated pose before generation),
     skip the pose/intrinsics write-back to preserve the trusted calibration.
     For uncalibrated cameras, apply the MapAnything estimates.
@@ -641,7 +641,7 @@ class MeshGenerator:
     """
     if anchored_cameras is None:
       anchored_cameras = {}
-    
+
     try:
       camera_poses_raw = mapping_result.get("camera_poses", [])
       intrinsics_raw = mapping_result.get("intrinsics", [])
@@ -688,7 +688,7 @@ class MeshGenerator:
 
           # Check if this camera was anchored (calibrated before generation)
           was_anchored = anchored_cameras.get(cam_id, False)
-          
+
           if was_anchored:
             # Camera was anchored - skip write-back to preserve the trusted calibration
             log.info(f"Camera {cam_id} was anchored, preserving calibrated pose (skipping write-back)")

@@ -57,7 +57,7 @@ class MapAnythingModel(ReconstructionModel):
     """
     Get 180° rotation matrix around X-axis (Scenescape <-> MapAnything frame conversion).
     This matrix is self-inverse.
-    
+
     Returns:
       4x4 rotation matrix as numpy array
     """
@@ -72,33 +72,33 @@ class MapAnythingModel(ReconstructionModel):
   def _convert_camera_location_to_mapanything_frame(self, camera_location: Dict[str, Any]) -> Dict[str, Any]:
     """
     Convert a camera location (pose) from Scenescape frame to MapAnything frame.
-    
+
     Scenescape and MapAnything use different coordinate frame conventions.
     Conversion requires a 180° rotation around X-axis (which is self-inverse).
-    
+
     Args:
       camera_location: Dict with 'translation' (list), 'rotation' (list), 'scale' (list)
         - rotation is expected as quaternion [x, y, z, w] or rotation matrix
         - translation is [x, y, z]
         - scale is [sx, sy, sz]
-    
+
     Returns:
       Dict with same structure but coordinates in MapAnything frame
     """
     if not camera_location:
       return None
-    
+
     try:
       translation = np.array(camera_location.get('translation', [0, 0, 0]), dtype=np.float32)
       scale = np.array(camera_location.get('scale', [1.0, 1.0, 1.0]), dtype=np.float32)
-      
+
       # Handle rotation - could be quaternion or matrix
       rotation = camera_location.get('rotation')
-      
+
       # Build 4x4 pose matrix
       pose_4x4 = np.eye(4, dtype=np.float32)
       pose_4x4[:3, 3] = translation
-      
+
       if isinstance(rotation, (list, np.ndarray)):
         rotation = np.array(rotation, dtype=np.float32)
         if len(rotation) == 4:
@@ -112,18 +112,18 @@ class MapAnythingModel(ReconstructionModel):
         else:
           log.warning(f"Unexpected rotation shape {rotation.shape}, using identity")
           pose_4x4[:3, :3] = np.eye(3)
-      
+
       # Apply 180° rotation around X-axis to convert frames
       rotation_x_180 = self._get_frame_rotation_180_x()
       converted_pose = rotation_x_180 @ pose_4x4
-      
+
       # Extract back to Scenescape format
       converted_location = {
         'translation': converted_pose[:3, 3].tolist(),
         'rotation': converted_pose[:3, :3].tolist(),  # Return as rotation matrix
         'scale': scale.tolist()
       }
-      
+
       return converted_location
     except Exception as e:
       log.error(f"Error converting camera location to MapAnything frame: {e}")
@@ -167,7 +167,7 @@ class MapAnythingModel(ReconstructionModel):
       for img_data in frames:
         camera_ids.append(img_data.get("camera_id"))
         camera_locations.append(img_data.get("camera_location"))
-        
+
         img_array = self.decode_base64_image(img_data["data"])
         # Apply CLAHE for improved contrast
         img_array = self._apply_clahe(img_array)
@@ -204,7 +204,7 @@ class MapAnythingModel(ReconstructionModel):
           memory_efficient_inference=True,
           amp_dtype="fp32"
         )
-      
+
       return self._process_outputs(
           outputs,
           original_sizes,
@@ -335,7 +335,7 @@ class MapAnythingModel(ReconstructionModel):
     """
     if camera_locations is None:
       camera_locations = [None] * len(pil_images)
-    
+
     # Calculate average aspect ratio (MapAnything uses this)
     aspect_ratios = [img.size[0] / img.size[1] for img in pil_images]
     average_aspect_ratio = sum(aspect_ratios) / len(aspect_ratios)
@@ -366,7 +366,7 @@ class MapAnythingModel(ReconstructionModel):
         instance=str(i),
         data_norm_type=[norm_type],
       )
-      
+
       # Add pose conditioning if camera_location is available
       if camera_locations and i < len(camera_locations) and camera_locations[i] is not None:
         cam_loc = camera_locations[i]
@@ -384,7 +384,7 @@ class MapAnythingModel(ReconstructionModel):
             log.info(f"Added pose conditioning for view {i}")
         except Exception as e:
           log.warning(f"Failed to add pose conditioning for view {i}: {e}. Proceeding without it.")
-      
+
       views.append(view_dict)
 
     return views
