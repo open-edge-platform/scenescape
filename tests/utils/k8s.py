@@ -124,7 +124,9 @@ class K8sScenescapeEnv:
     _kubectl_exec(self.kubeconfig, self.namespace, web_pod, f"python {manage} loaddata {BASELINE_PATH}")
     _kubectl_exec(
       self.kubeconfig, self.namespace, web_pod,
-      f"find -L /run/secrets -name '*.auth'"
+      # cd first: createuser reads user_access_config.json (is_superuser,
+      # ACLs) from the cwd, and only $SCENESCAPE_HOME has a copy of it.
+      f"cd $SCENESCAPE_HOME && find -L /run/secrets -name '*.auth'"
       f"  -exec python {manage} createuser --skip-existing {{}} \\;"
       f" && DJANGO_SUPERUSER_PASSWORD=$SUPASS"
       f"    python {manage} createsuperuser"
@@ -490,12 +492,15 @@ class K8sManager:
     logger.info("Web port: %d", self.web_port)
     return
 
-  def _upload_baseline_scenes(self, scene_archives=("demo", "retail_and_queuing")):
+  def _upload_baseline_scenes(self, scene_archives=("retail_and_queuing",)):
     """Upload the baseline scenes over REST and snapshot the resulting DB.
 
     Uses the "web.scenescape.intel.com" hostname (patched to the port-forward
     by the loopback_hosts fixture, active for every test using scenescape_env)
     because that is what the chart's web certificate is issued for.
+    
+    Uploads retail_and_queuing to match the compose test suite patterns,
+    providing a representative baseline with both retail and queuing scenes.
     """
     logger.info("Uploading baseline scenes: %s", scene_archives)
     resturl = f"https://web.scenescape.intel.com:{self.web_port}/api/v1"

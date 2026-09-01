@@ -44,6 +44,9 @@ REID_BACKEND?=vdms
 # Directory with one exported ZIP per demo scene, and the client that uploads them
 DEMO_SCENES_DIR?=../sample_data/demo_scenes
 DEMO_SCENES_URL?=https://localhost/api/v1
+# The demo certificate is issued for web.scenescape.intel.com, not for localhost.
+# Override with --rootcert <ca.pem> when uploading to a properly named host.
+DEMO_SCENES_TLS?=--insecure
 DEMO_SCENES_WAIT?=300
 UPLOAD_SCENES:=../tools/upload_scenes/upload-scenes
 
@@ -208,18 +211,19 @@ check-demo-k8s-mode:
 # Uploads sample_data/demo_scenes/*.zip through the REST API, same client the root Makefile uses.
 .PHONY: demo-scenes
 demo-scenes:
-	@python3 -c "import requests" 2>/dev/null || { \
-		echo "Missing dependencies, install them with:"; \
-		echo "    pip install -r ../tools/upload_scenes/requirements.txt"; \
-		exit 1; \
-	}
+	@VENV="../tools/upload_scenes/.venv"; \
+	if [ ! -d "$$VENV" ]; then \
+		python3 -m venv "$$VENV"; \
+		"$$VENV/bin/pip" install -q -r ../tools/upload_scenes/requirements.txt; \
+	fi
 	@echo "Waiting for kubeclient to be ready (so it doesn't miss camera-creation events)..."
 	kubectl rollout status deployment/$(RELEASE)-kubeclient-dep -n $(NAMESPACE) --timeout=300s
 	@echo "Uploading demo scenes from $(DEMO_SCENES_DIR) to $(DEMO_SCENES_URL)..."
 	@AUTH_FILE=$$(mktemp); \
+	VENV="../tools/upload_scenes/.venv"; \
 	trap 'rm -f $$AUTH_FILE' EXIT; \
 	kubectl get secret $(RELEASE)-controller.auth -n $(NAMESPACE) -o jsonpath='{.data.controller\.auth}' | base64 -d > $$AUTH_FILE; \
-	python3 $(UPLOAD_SCENES) --restauth $$AUTH_FILE --insecure --wait $(DEMO_SCENES_WAIT) \
+	"$$VENV/bin/python3" $(UPLOAD_SCENES) --restauth $$AUTH_FILE $(DEMO_SCENES_TLS) --wait $(DEMO_SCENES_WAIT) \
 		$(DEMO_SCENES_URL) $(DEMO_SCENES_DIR)
 
 # to test template rendering

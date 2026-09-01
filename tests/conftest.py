@@ -182,7 +182,9 @@ class ScenescapeEnv:
     self.docker.compose.execute(
       "web",
       ["sh", "-c",
-       "find -L /run/secrets -name '*.auth'"
+       # cd first: createuser reads user_access_config.json (is_superuser,
+       # ACLs) from the cwd, and only $SCENESCAPE_HOME has a copy of it.
+       "cd $SCENESCAPE_HOME && find -L /run/secrets -name '*.auth'"
        f"  -exec python {manage} createuser --skip-existing {{}} \\;"
        " && DJANGO_SUPERUSER_PASSWORD=$SUPASS"
        f"    python {manage} createsuperuser"
@@ -904,7 +906,7 @@ def _compose_manager(repo_root, secrets_dir, supass, tmp_path_factory, request):
 
 
 @pytest.fixture(scope="session")
-def _k8s_manager(repo_root, supass, tmp_path_factory, request):
+def _k8s_manager(repo_root, supass, tmp_path_factory, request, loopback_hosts):
   """Session-scoped KinD cluster + Helm deployment manager."""
   backend = request.config.getoption("--backend")
   if backend not in ("kubernetes", "all"):

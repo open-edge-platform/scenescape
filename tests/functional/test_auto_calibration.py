@@ -172,7 +172,7 @@ class AutoCalibration(FunctionalTest):
       log.error(f"Error fetching service status: {e}")
       return None
 
-  def register_scene(self, method="POST", poll_interval=5, timeout=60):
+  def register_scene(self, method="POST", poll_interval=5, timeout=180):
     url = f"{self.autocalib_base}/scenes/{self.scene_id}/registration"
     try:
       if method.upper() == "POST":

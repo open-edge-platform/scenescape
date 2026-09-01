@@ -716,13 +716,14 @@ check-reid-backend:
 
 .PHONY: demo-scenes
 demo-scenes:
-	@python3 -c "import requests" 2>/dev/null || { \
-		echo "Missing dependencies, install them with:"; \
-		echo "    pip install -r tools/upload_scenes/requirements.txt"; \
-		exit 1; \
-	}
+	@VENV="tools/upload_scenes/.venv"; \
+	if [ ! -d "$$VENV" ]; then \
+		python3 -m venv "$$VENV"; \
+		"$$VENV/bin/pip" install -q -r tools/upload_scenes/requirements.txt; \
+	fi
 	@echo "Uploading demo scenes from $(DEMO_SCENES_DIR) to $(DEMO_SCENES_URL)..."
-	python3 $(UPLOAD_SCENES) --restauth $(SECRETSDIR)/controller.auth \
+	@VENV="tools/upload_scenes/.venv"; \
+	"$$VENV/bin/python3" $(UPLOAD_SCENES) --restauth $(SECRETSDIR)/controller.auth \
 		$(DEMO_SCENES_TLS) --wait $(DEMO_SCENES_WAIT) \
 		$(DEMO_SCENES_URL) $(DEMO_SCENES_DIR)
 
