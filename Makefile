@@ -268,9 +268,9 @@ clean-volumes: remove-stopped-containers
 		if [ -f $(LLM_DOCKER_COMPOSE_FILE) ]; then \
 			docker compose -f docker-compose.yml -f $(LLM_DOCKER_COMPOSE_FILE) down -v 2>/dev/null; \
 		fi; \
-	fi
-	@if [ -f $(BUSINESS_LOGIC_DOCKER_COMPOSE_FILE) ]; then \
-		docker compose -f $(BUSINESS_LOGIC_DOCKER_COMPOSE_FILE) down -v 2>/dev/null; \
+		if [ -f $(BUSINESS_LOGIC_DOCKER_COMPOSE_FILE) ]; then \
+			docker compose -f docker-compose.yml -f $(BUSINESS_LOGIC_DOCKER_COMPOSE_FILE) down -v 2>/dev/null; \
+		fi; \
 	fi
 	@# Remove any remaining volumes with the project name prefix
 	@VOLS=$$(docker volume ls -q --filter "name=$(COMPOSE_PROJECT_NAME)_"); \
