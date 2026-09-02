@@ -25,7 +25,6 @@ from tests.functional import FunctionalTest
 from tests.utils.log import get_logger
 from tests.utils.profiles import FULL_STACK
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-import pytest
 
 log = get_logger(__name__)
 
@@ -344,7 +343,6 @@ class ExternalSourceAnalytics(FunctionalTest):
     return
 
 
-@pytest.mark.test_name("NEX-TXXXXX")
 def test_external_source_analytics(
     scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
   test = ExternalSourceAnalytics(

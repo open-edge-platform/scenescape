@@ -175,7 +175,6 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
       self.recordTestResult()
     return
 
-@pytest.mark.test_name("NEX-T10541")
 def test_reid_performance_degradation(scenescape_env, request, record_xml_attribute):
   """! Test that the system hasn't suffered a significant performance degradation.
   @param    request                  Dict of test parameters.

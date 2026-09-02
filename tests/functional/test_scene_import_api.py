@@ -275,7 +275,6 @@ class SceneImportAPITest(FunctionalTest):
     log.info("✅ Scene components validated.")
 
 # Parametrized test entry point
-@pytest.mark.test_name("NEX-T13967")
 @pytest.mark.parametrize(
   "zipFile, expected",
   [

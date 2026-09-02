@@ -8,7 +8,6 @@ from tests.utils.log import get_logger
 from http import HTTPStatus
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
-import pytest
 
 log = get_logger(__name__)
 
@@ -19,7 +18,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 TEST_NAME = "NEX-T21875"
 
-@pytest.mark.test_name("NEX-T21875")
 def test_upload_3d_glb_file_api(rest, result_recorder, repo_root, demo_scene):
   file_name = "box.glb"
   file_path = os.path.join(repo_root, "tests/ui/test_media", file_name)

@@ -13,7 +13,6 @@ from tests.functional import FunctionalTest
 from scene_common.timestamp import get_iso_time
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import SCENE_NO_DB
-import pytest
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
@@ -120,7 +119,6 @@ class SceneControllerImportJSON(FunctionalTest):
 
     return self.exitCode
 
-@pytest.mark.test_name("NEX-T15347")
 def test_scene_controller_import_json(scenescape_env, request, record_xml_attribute):
   test = SceneControllerImportJSON(TEST_NAME, request, record_xml_attribute)
   assert test.runTest() == 0

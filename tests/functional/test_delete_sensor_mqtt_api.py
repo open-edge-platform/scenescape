@@ -13,7 +13,6 @@ from tests.functional.common_scene_obj import SceneObjectMqtt
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
-import pytest
 
 log = get_logger(__name__)
 
@@ -113,7 +112,6 @@ class SensorDeleteMqtt(SceneObjectMqtt):
       log.info(result.is_published())
     return error_code == 0
 
-@pytest.mark.test_name("NEX-T21778")
 def test_sensor_delete_mqtt(scenescape_env, demo_scene, request, record_xml_attribute):
   test = SensorDeleteMqtt(TEST_NAME, request, record_xml_attribute)
   test.runSensorMqttDelete()

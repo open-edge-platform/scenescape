@@ -11,7 +11,6 @@ from scene_common.rest_client import RESTClient
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
-import pytest
 
 log = get_logger(__name__)
 
@@ -62,7 +61,6 @@ class SceneSummaryAPITest(FunctionalTest):
 
     return True
 
-@pytest.mark.test_name("NEX-T21883")
 def test_scene_summary_api(scenescape_env, demo_scene, request, record_xml_attribute):
   test = SceneSummaryAPITest(TEST_NAME, request, record_xml_attribute)
   assert test.runTest()

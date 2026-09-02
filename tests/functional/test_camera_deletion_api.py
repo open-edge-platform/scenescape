@@ -10,7 +10,6 @@ from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
-import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -136,7 +135,6 @@ class CameraDeletionTest(FunctionalTest):
 
     return
 
-@pytest.mark.test_name("NEX-T21878")
 def test_camera_deletion_main(scenescape_env, demo_scene, request, record_xml_attribute):
   test = CameraDeletionTest(TEST_NAME, request, record_xml_attribute)
   test.testCameraDeletion()

@@ -6,7 +6,6 @@
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
-import pytest
 
 log = get_logger(__name__)
 
@@ -17,7 +16,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 TEST_NAME = 'NEX-T15280'
 
-@pytest.mark.test_name("NEX-T15280")
 def test_manual_camera_calibration_api(rest, result_recorder):
   """Checks that camera calibration points can be modified through API.
 

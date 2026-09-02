@@ -25,7 +25,6 @@ from tests.functional.event_asserts import (
 )
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import ANALYTICS_MQTT
-import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=ANALYTICS_MQTT,
@@ -37,14 +36,15 @@ CONNECT_WAIT = 10
 GEOMETRY_SETTLE = 3
 
 
-@pytest.mark.test_name("NEX-T21483")
 def test_analytics_emits_roi_event_for_tracker_shaped_scene_data(
-    params):
+    record_xml_attribute, params):
   """! Analytics accepts Tracker DATA_SCENE envelopes and emits region events.
 
+  @param    record_xml_attribute    Pytest fixture recording the test name.
   @param    params                  Dict of test parameters.
   """
   TEST_NAME = "NEX-T21483"
+  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
 
