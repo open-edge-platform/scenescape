@@ -41,7 +41,7 @@ DEMO_K8S_MODE?=core
 # ReID vector database backend used when ReID is deployed: vdms (default) or qdrant
 REID_BACKEND?=vdms
 
-# Directory with one subdirectory per demo scene (each holding a Scene.zip),
+# Directory with one subdirectory per demo scene (each holding a <name>.zip),
 # and the client that uploads them
 DEMO_SCENES_DIR?=../sample_data/demo_scenes
 DEMO_SCENES_URL?=https://localhost/api/v1

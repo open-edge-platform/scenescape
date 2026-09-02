@@ -19,9 +19,8 @@ DEFAULT_WAIT_SECONDS = 300
 POLL_INTERVAL_SECONDS = 5
 REQUEST_TIMEOUT_SECONDS = 60
 RESOURCE_KEYS = ("cameras", "regions", "tripwires", "sensors")
-# Each scene lives in its own directory: <scene>/Scene.zip, plus optional
+# Each scene lives in its own directory: <scene>/<scene>.zip, plus optional
 # <scene>/assets.json and <scene>/calibration_markers.json sidecars.
-SCENE_ARCHIVE_NAME = "Scene.zip"
 
 log = logging.getLogger("upload-scenes")
 
@@ -207,15 +206,15 @@ def upload_scene(client, scene, zip_path):
 def upload_one(client, zip_path):
   """Imports a single scene archive plus its assets/markers.
 
-  Returns the scene's uid on success, None on failure or if it already
-  exists (in which case the existing uid is still returned).
+  Returns the scene's uid on success (including when it already exists), or
+  None on failure.
   """
   scene = read_scene_from_zip(zip_path)
   if scene is None:
     return None
 
   # A scene's assets/calibration_markers, if any, live as sidecar JSON files
-  # next to its Scene.zip: <scene_dir>/assets.json, <scene_dir>/calibration_markers.json
+  # next to its zip: <scene_dir>/assets.json, <scene_dir>/calibration_markers.json
   scene_dir = os.path.dirname(zip_path)
   assets_sidecar = os.path.join(scene_dir, "assets.json")
   calib_sidecar = os.path.join(scene_dir, "calibration_markers.json")

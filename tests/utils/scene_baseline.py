@@ -20,19 +20,19 @@ _UPLOAD_SCENES_DIR = _REPO_ROOT / "tools" / "upload_scenes"
 if str(_UPLOAD_SCENES_DIR) not in sys.path:
   sys.path.insert(0, str(_UPLOAD_SCENES_DIR))
 
-from uploader import SCENE_ARCHIVE_NAME, SceneScapeClient, parse_auth, upload_one, wait_for_database  # noqa: E402
+from uploader import SceneScapeClient, parse_auth, upload_one, wait_for_database  # noqa: E402
 
 _RESOURCES_DIR = Path(__file__).resolve().parents[1] / "resources" / "scenes"
 
 # Keys used by ServiceProfile/_PROFILE_SCENE_ARCHIVES to pick which archives a
 # stack needs. Values are tuples of archive paths, uploaded in order. Each
-# scene lives in its own directory: <scene>/Scene.zip, plus optional
+# scene lives in its own directory: <scene>/<scene>.zip, plus optional
 # <scene>/assets.json and <scene>/calibration_markers.json sidecars.
 SCENE_ARCHIVES = {
-  "demo": (_RESOURCES_DIR / "Demo" / SCENE_ARCHIVE_NAME,),
-  "calibration": (_RESOURCES_DIR / "Queuing" / SCENE_ARCHIVE_NAME,),
-  "retail_and_queuing": (_RESOURCES_DIR / "Retail" / SCENE_ARCHIVE_NAME,
-                         _RESOURCES_DIR / "Queuing" / SCENE_ARCHIVE_NAME),
+  "demo": (_RESOURCES_DIR / "Demo" / "Demo.zip",),
+  "calibration": (_RESOURCES_DIR / "Queuing" / "Queuing.zip",),
+  "retail_and_queuing": (_RESOURCES_DIR / "Retail" / "Retail.zip",
+                         _RESOURCES_DIR / "Queuing" / "Queuing.zip"),
 }
 
 # Snapshot excludes rows recreated separately by scenescape-init/createuser

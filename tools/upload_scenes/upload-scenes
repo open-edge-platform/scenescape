@@ -4,7 +4,7 @@
 """Uploads exported scenes to a Scenescape deployment over the REST API.
 
 The source directory holds one subdirectory per scene, each containing a
-Scene.zip in the format the "Export Scene" button of the web UI produces (a
+<scene>.zip in the format the "Export Scene" button of the web UI produces (a
 single JSON file describing the scene next to the map it refers to), plus
 optional assets.json / calibration_markers.json sidecars. Each archive is
 posted to the /import-scene endpoint.
@@ -23,8 +23,8 @@ import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from uploader import (  # noqa: E402
-  DEFAULT_WAIT_SECONDS, SCENE_ARCHIVE_NAME, SceneScapeClient, log, parse_auth,
-  upload_all, wait_for_database,
+  DEFAULT_WAIT_SECONDS, SceneScapeClient, log, parse_auth, upload_all,
+  wait_for_database,
 )
 
 
@@ -52,8 +52,8 @@ def main():
     return 1
 
   scene_archives = sorted(
-    os.path.join(entry.path, SCENE_ARCHIVE_NAME) for entry in os.scandir(args.directory)
-    if entry.is_dir() and os.path.isfile(os.path.join(entry.path, SCENE_ARCHIVE_NAME))
+    os.path.join(entry.path, entry.name + ".zip") for entry in os.scandir(args.directory)
+    if entry.is_dir() and os.path.isfile(os.path.join(entry.path, entry.name + ".zip"))
   )
   if not scene_archives:
     log.error(f"No scene archives found in {args.directory}")

@@ -152,11 +152,12 @@ class ImportScene:
     # fields are non-nullable, so sending an explicit null for one missing key
     # would reject the whole partial update (including camera_calibration).
     scene_data = {k: json_data[k] for k in [
-      "external_update_rate",
+      "use_tracker", "regulated_rate", "external_update_rate",
       "camera_calibration", "apriltag_size",
-      "number_of_localizations", "global_feature",
+      "number_of_localizations", "global_feature", "local_feature", "matcher",
       "minimum_number_of_matches", "inlier_threshold",
       "output_lla", "map_corners_lla",
+      "geospatial_provider", "map_zoom", "map_center_lat", "map_center_lng", "map_bearing",
       "mesh_translation", "mesh_rotation", "mesh_scale"
     ] if json_data.get(k) is not None}
     if child:

@@ -790,7 +790,7 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       f"{project_name}_vol-models",
       f"{project_name}_vol-db",
       f"{project_name}_vol-migrations",
-      f"{project_name}_vol-sample-data",
+      f"{project_name}_vol-videos",
       f"{project_name}_vol-media",
     ]:
       try:

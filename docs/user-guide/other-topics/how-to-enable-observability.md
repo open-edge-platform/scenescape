@@ -108,7 +108,7 @@ export CONTROLLER_ENABLE_TRACING=true
 export CONTROLLER_TRACING_ENDPOINT=otel-collector:4317
 export CONTROLLER_TRACING_SAMPLE_RATIO=1.0
 
-docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml up
+docker compose --project-directory . -f sample_data/compose/docker-compose-dl-streamer-example.yml up
 ```
 
 Make sure your OpenTelemetry Collector container is on the same network as
