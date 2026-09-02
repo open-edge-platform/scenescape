@@ -24,13 +24,10 @@ ifeq ($(DEPLOYMENT_TEST), 1)
     TEST_FLAGS=--wait --timeout $(INSTALL_TIMEOUT) --debug
 endif
 
-KINDREG=kind-registry
-KINDREGPORT=5001
 # Uncomment and set HOSTDIR if you want to access the persistent volumes on the host (root ownership)
 # HOSTDIR=$(WORKINGDIR)/kind-storage
 
 CERTPASS=$(shell openssl rand -base64 33)
-REGISTRY=localhost:$(KINDREGPORT)
 
 RELEASE=scenescape-release-1
 FORCE_VAAPI?=0
@@ -140,8 +137,8 @@ docker-build-all:
 	$(MAKE) -C .. build-all CERTPASS=$(CERTPASS) FORCE_VAAPI=$(FORCE_VAAPI)
 
 load-image:
-	docker tag $(IMAGE):$(VERSION) $(REGISTRY)/$(IMAGE):$(VERSION)
-	kind load docker-image $(REGISTRY)/$(IMAGE):$(VERSION)
+	docker tag $(IMAGE):$(VERSION) $(IMAGE):$(VERSION)
+	kind load docker-image $(IMAGE):$(VERSION)
 
 load-core:
 	$(MAKE) load-image IMAGE=$(MANAGERIMAGE)
@@ -235,8 +232,7 @@ install: check-demo-k8s-mode copy-files chart.yaml
 	elif [ "$(DEMO_K8S_MODE)" = "all" ]; then \
 		MODE_ARG="--set reid.enabled=true --set reid.backend=$(REID_BACKEND) --set mapping.enabled=true --set clusterAnalytics.enabled=true"; \
 	fi; \
-	REPOSITORY_ARG="--set repository=$(REGISTRY)"; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${SUPASS_ARG} $${PGPASS_ARG} $${MODE_ARG} $${VALUES_FILE} $(TEST_FLAGS);
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${SUPASS_ARG} $${PGPASS_ARG} $${MODE_ARG} $${VALUES_FILE} $(TEST_FLAGS);
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi

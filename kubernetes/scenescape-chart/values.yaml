@@ -90,6 +90,8 @@ autocalibration:
   # When true, skip the ~550MB NetVLAD download at container start.
   # Markerless calibration needs the model; deployment smoke tests do not.
   skipModelDownload: false
+  # Startup probe failure threshold. 60 * 30s = 30 min grace for first-boot NetVLAD download.
+  startupProbeFailureThreshold: 60
 
 kubeclient:
   enabled: true
@@ -237,7 +239,6 @@ migrations:
 # PVC
 pvc:
   storageClassName: ""
-  hookWeight: "0"
 
 # External access
 service:
@@ -276,13 +277,8 @@ certdomain: ""
 supass: ""
 dbroot: ""
 debug: false
-chartdebug: false
 
 # Proxy configuration
 httpProxy: ""
 httpsProxy: ""
 noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local,10.244.0.0/16,10.96.0.0/12"
-
-# disable pre-install and post-install hooks for cluster compatibility
-hooks:
-  enabled: true
