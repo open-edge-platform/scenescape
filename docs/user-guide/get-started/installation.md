@@ -83,8 +83,9 @@ make demo
 ```
 
 `make demo` uploads the sample scenes once the deployment is healthy by running
-`make demo-scenes`, which needs the `requests` Python package installed on the
-host: `pip install -r tools/upload_scenes/requirements.txt`.
+`make demo-scenes`, which creates a local Python virtual environment at
+`tools/upload_scenes/.venv` (installing the `requests` package there) the
+first time it runs. No system-wide package installation is required.
 
 The Docker Compose demo targets are tiered, each building on the previous one:
 
