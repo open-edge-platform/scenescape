@@ -38,7 +38,7 @@ services:
       --brokerauth /run/secrets/browser.auth
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
     healthcheck:
-      test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
+      test: "curl --insecure -H 'Host: localhost' -X GET https://127.0.0.1:443/api/v1/database-ready | grep 'true'"
       interval: 5s
       timeout: 60s
       retries: 10
@@ -49,6 +49,7 @@ services:
       - "DBPORT=5432"
       - "DBTYPE=postgres"
       - "DBROOT"
+      - "SCENESCAPE_ALLOWED_HOSTS"
       - "SUPASS"
       - "http_proxy=${http_proxy}"
       - "https_proxy=${https_proxy}"
