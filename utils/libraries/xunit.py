@@ -13,7 +13,6 @@ Function:
 
 import re
 import xml.etree.ElementTree as ET
-import xunitparser
 
 KEY_REGEX = re.compile(r"^NEX-[0-9]{5,6}$")
 
@@ -39,7 +38,7 @@ def parse_results(path):
         - results_fail: Test cases that failed.
         - results_skip: Test cases that were skipped.
 
-    This function reads the specified xUnit results file, uses xunitparser to parse the contents, and then processes each test case to categorize them based on their outcomes.
+    This function reads the specified xUnit results file, parses the contents, and then processes each test case to categorize them based on their outcomes.
     Each test case is identified by the method name associated with the test, which is expected to be in a specific format that includes the test identifier.
     """
     tree = ET.parse(path)
