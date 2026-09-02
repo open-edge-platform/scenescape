@@ -99,12 +99,6 @@ def main():
         default=None,
         action='store')
 
-    parser.add_argument('-x', '--create-new-executions',
-                        dest='create',
-                        help="Create new executions for the test cycle",
-                        default=False,
-                        action='store_true')
-
     parser.add_argument('--comment',
                         help="Comment to add to the test executions",
                         default=None,
