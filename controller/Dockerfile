@@ -76,9 +76,6 @@ RUN : \
     libatomic1 \
     libusb-1.0-0 \
     netbase \
-    python3 \
-    python3-pip \
-    python-is-python3 \
     sudo \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 

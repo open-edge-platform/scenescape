@@ -89,9 +89,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libgomp1 \
     mosquitto-clients \
     netcat-openbsd \
-    python3 \
-    python3-pip \
-    python-is-python3 \
     sudo \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

@@ -32,9 +32,6 @@ RUN : \
     && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
-    python3 \
-    python3-pip \
-    python-is-python3 \
     && rm -rf /var/lib/apt/lists/* \
     # Create non-root user
     && groupadd -g ${GROUP_ID} $WSUSER \

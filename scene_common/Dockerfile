@@ -29,10 +29,8 @@ RUN : \
     pkg-config \
     pybind11-dev \
     python3-dev \
-    python3-pip \
     # needed by fast_geometry
     python3-scipy \
-    python-is-python3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies

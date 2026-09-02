@@ -65,9 +65,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     libatomic1 \
     libusb-1.0-0 \
-    python3 \
-    python3-pip \
-    python-is-python3 \
     && rm -rf /var/lib/apt/lists/* \
     # Create user
     && groupadd -g $GROUP_ID $WSUSER \

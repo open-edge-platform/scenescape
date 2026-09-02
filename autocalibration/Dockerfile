@@ -124,7 +124,7 @@ RUN apt update && apt upgrade -y
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 libegl1 libglib2.0-0 libgomp1 libatomic1 libusb-1.0-0 python3 python3-pip python-is-python3 wget curl && \
+    libgl1 libegl1 libglib2.0-0 libgomp1 libatomic1 libusb-1.0-0 wget curl && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
