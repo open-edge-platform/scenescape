@@ -12,16 +12,19 @@ The `pose_adjustment` package in the Scenescape Controller microservice provides
 ## Flowchart: Pose Adjustment Pipeline
 
 ```mermaid
+---
+config: {"theme": "dark"}
+---
 flowchart TD
-	A[Receive keypoints from detector] --> B[Standardize joint names]
-	B --> C{Are keypoints normalized?}
-	C -- Yes --> D[Convert to pixel coordinates]
-	C -- No --> E[Retain original coordinates]
-	D --> F[Refine bounding box using pose]
-	E --> F[Refine bounding box using pose]
-	F --> G[Update strategy-specific statistics]
-	F --> H[Output improved bounding box]
-	G --> F
+  A[Receive keypoints from detector] --> B[Standardize joint names]
+  B --> C{Are keypoints normalized?}
+  C -- Yes --> D[Convert to pixel coordinates]
+  C -- No --> E[Retain original coordinates]
+  D --> F[Refine bounding box using pose]
+  E --> F[Refine bounding box using pose]
+  F --> G[Update strategy-specific statistics]
+  F --> H[Output improved bounding box]
+  G --> F
 ```
 
 ## Key Behaviors and Components
@@ -84,5 +87,5 @@ Resolved routes are flattened once during initialization, so recurring labels do
 
 ## See Also
 
-- [controller.md](../../../../docs/user-guide/microservices/controller/controller.md): Controller service overview
-- [data_formats.md](../../../../docs/user-guide/microservices/controller/data_formats.md): Data formats and keypoint message structure
+- [Overview](./controller.md): Scene Controller service overview.
+- [Scene Controller Data Formats](./data_formats.md): Data formats and keypoint message structure.
