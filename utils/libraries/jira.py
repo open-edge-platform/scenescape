@@ -17,6 +17,7 @@ urllib3.disable_warnings()
 
 KEY_RE = re.compile(r'([A-Z]+-\d+)')
 PAGE_SIZE = 100
+RESULT_BATCH_SIZE = 50
 
 
 class JiraException(Exception):
@@ -42,7 +43,7 @@ class JiraException(Exception):
 
 
 class Jira:
-    """Small Jira ATM client focused on test result upload."""
+    """Jira ATM client focused on test result upload."""
 
     team = os.getenv('JIRA_TEAM')
     project = os.getenv('JIRA_PROJECT')
@@ -211,7 +212,9 @@ class Jira:
 
     def get_tests_in_folder(self,
             folder: Union[str, Iterable[str]],
-            fields: str = '') -> List[Dict]:
+            fields: str = '',
+            status: Optional[Union[str, Iterable[str]]] = None,
+            automated: Optional[bool] = None) -> List[Dict]:
         folders = [folder] if isinstance(folder, str) else list(folder)
         paths = []
         for entry in folders:
@@ -221,6 +224,24 @@ class Jira:
             paths.append(path)
         if not paths:
             raise JiraException('No folder specified')
+
+        wanted_status = None
+        if status is not None:
+            values = [status] if isinstance(status, str) else list(status)
+            wanted_status = {value.strip().lower()
+                             for value in values if value and value.strip()} or None
+
+        # Filters are applied client side, so the fields they rely on must be fetched.
+        if fields:
+            requested = [field.strip()
+                         for field in fields.split(',') if field.strip()]
+            if wanted_status and 'status' not in requested:
+                requested.append('status')
+            if automated is not None:
+                for field in ('customFields', 'labels'):
+                    if field not in requested:
+                        requested.append(field)
+            fields = ','.join(requested)
 
         # Zephyr ATM matches folders exactly, so subfolders must be listed too.
         tests: List[Dict] = []
@@ -232,9 +253,48 @@ class Jira:
                 key = test.get('key')
                 if key is not None and key in seen:
                     continue
+                if wanted_status and (
+                        test.get('status') or '').strip().lower() not in wanted_status:
+                    continue
+                if automated is not None and self.is_automated(test) is not automated:
+                    continue
                 seen.add(key)
                 tests.append(test)
+        if wanted_status or automated is not None:
+            logger.info(f'Kept {len(tests)} tests after filtering '
+                        f'(status={sorted(wanted_status) if wanted_status else "any"}, '
+                        f'automated={automated if automated is not None else "any"})')
         return tests
+
+    def current_user_key(self) -> Optional[str]:
+        """Zephyr records the executor by Jira user key, so fall back to the token owner."""
+        if self.my_username:
+            return self.my_username
+        if not self.jira_api_base:
+            logger.warning('JIRA_USER and JIRA_API_BASE unset; results will have no executor')
+            return None
+        try:
+            myself = self.get(self.jira_api_base + 'myself')
+        except JiraException as exc:
+            logger.warning(f'Could not resolve the current Jira user: {exc}')
+            return None
+        self.my_username = myself.get('key') or myself.get('name')
+        logger.info(f'Resolved executing Jira user: {self.my_username}')
+        return self.my_username
+
+    TRUTHY = {'true', 'yes', 'y', '1', 'automated'}
+
+    @classmethod
+    def is_automated(cls, test: Dict) -> bool:
+        """Zephyr has no automation flag, so use the 'Automated' custom field or label."""
+        value = (test.get('customFields') or {}).get('Automated')
+        if isinstance(value, bool):
+            return value
+        if value is not None:
+            return str(value).strip().lower() in cls.TRUTHY
+        labels = {str(label).strip().lower()
+                  for label in test.get('labels') or []}
+        return 'automated' in labels
 
     def get_all_tests_as_lut(
             self,
@@ -258,26 +318,49 @@ class Jira:
                 lut_tests[short] = test
         return lut_tests
 
-    def get_cycle_from_folder(self, folder_name: str, cycle_name: str) -> str:
-        params = {
-            'query': f'projectKey = "{
-                self.project}" AND folder = "{folder_name}"',
-            'fields': 'key,name',
+    def create_test_cycle(self, folder_name: str, cycle_name: Optional[str] = None,
+                          version: str | None = None,
+                          test_keys: Optional[Iterable[str]] = None) -> str:
+        if not cycle_name:
+            from datetime import datetime
+            cycle_name = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        data = {
+            "name": cycle_name,
+            "projectKey": self.project,
+            "version": version,
+            "customFields": {
+                "Team": self.team,
+            },
+            'folder': folder_name
         }
+        # ATM 1.0 only accepts test cases through the test run 'items' array.
+        if test_keys:
+            data['items'] = [{'testCaseKey': key} for key in test_keys]
+        logger.info(f'Creating new test cycle "{cycle_name}" in folder "{folder_name}"')
+        try:
+            response = self.post(self.api_base + 'testrun', data)
+            logger.info(f'Created test cycle with key: {response.get("key")}')
+        except JiraException as exc:
+            logger.error(f'Failed to create test cycle "{cycle_name}" in folder "{folder_name}": {exc}')
+            raise
 
-        logger.info(f"Searching for cycle '{
-                    cycle_name}' in folder '{folder_name}'")
-        cycles = self.get(self.api_base + 'testrun/search', params)
-        logger.info(f"Cycles found in folder '{folder_name}': {
-                    [cycle['name'] for cycle in cycles]}")
-
-        for cycle in cycles:
-            if cycle['name'] == cycle_name:
-                logger.info(f"Found cycle: {cycle['key']}")
-                return cycle['key']
-
-        raise JiraException(
-            f'Cycle "{cycle_name}" not found in folder "{folder_name}"')
+        return response.get('key')
+        
+    def add_tests_to_cycle(self, folder_name: str, test_cases_folder_name, cycle_name: str,
+                           version: str | None = None,
+                           status: Optional[Union[str, Iterable[str]]] = None,
+                           automated: Optional[bool] = None) -> str:
+        tests = self.get_tests_in_folder(
+            test_cases_folder_name,
+            fields='key',
+            status=status,
+            automated=automated)
+        test_keys = [test['key'] for test in tests if test.get('key')]
+        logger.info(f'Adding {len(test_keys)} tests to cycle "{cycle_name}" in folder "{folder_name}"')
+        cycle_key = self.create_test_cycle(folder_name, cycle_name, version, test_keys=test_keys)
+        logger.info(f'Cycle {cycle_key} created with {len(test_keys)} tests')
+        return cycle_key
+    
 
     def update_test_cycle_results(
         self,
@@ -290,8 +373,9 @@ class Jira:
         testcases_unexecuted: List[str],
         cycle_key: Optional[str] = None,
     ) -> None:
-        cycle_key = cycle_key or self.get_cycle_from_folder(
-            folder_name, cycle_name)
+        if not cycle_key:
+            raise JiraException(
+                f'No cycle key provided for cycle "{cycle_name}" in folder "{folder_name}"')
 
         data = {test_key: 'Pass' for test_key in testcases_pass}
         data.update({test_key: 'Fail' for test_key in testcases_fail})
@@ -300,31 +384,30 @@ class Jira:
 
         logger.info(f'Updating {len(data)} test results in cycle {cycle_key}')
 
-        for index, (key, status) in enumerate(data.items(), start=1):
+        executed_by = self.current_user_key()
+        results = []
+        for key, status in data.items():
             result = {
+                'testCaseKey': key,
                 'status': status,
-                'executedBy': self.my_username,
-                'assignedTo': assignees.get(key, self.my_username),
-                'comment': comment,
             }
+            if executed_by:
+                result['executedBy'] = executed_by
+                result['userKey'] = executed_by
+            assigned_to = assignees.get(key, executed_by)
+            if assigned_to:
+                result['assignedTo'] = assigned_to
+            if comment:
+                result['comment'] = comment
+            results.append(result)
 
-            try:
-                self.put(
-                    self.api_base +
-                    f'testrun/{cycle_key}/testcase/{key}/testresult',
-                    result)
-            except JiraException as exc:
-                if (exc.response and exc.response.status_code == 400 and 'errorMessages' in exc.response.json() and any(
-                        'No test execution found on test run' in message for message in exc.response.json()['errorMessages'])):
-                    logger.debug(f'Test {key} not in cycle, adding it')
-                    self.post(
-                        self.api_base +
-                        f'testrun/{cycle_key}/testcase/{key}/testresult',
-                        result)
-                else:
-                    raise
+        # The bulk endpoint also creates executions for test cases that are not
+        # yet on the run; the per-test endpoints reject those with a 400.
+        url = self.api_base + f'testrun/{cycle_key}/testresults'
+        for start in range(0, len(results), RESULT_BATCH_SIZE):
+            batch = results[start:start + RESULT_BATCH_SIZE]
+            self.post(url, batch)
+            logger.info(
+                f'Progress: {start + len(batch)}/{len(results)} results uploaded')
 
-            if index % 10 == 0:
-                logger.info(f'Progress: {index}/{len(data)} results updated')
-
-        logger.info(f'Successfully updated all {len(data)} test results')
+        logger.info(f'Successfully updated all {len(results)} test results')
