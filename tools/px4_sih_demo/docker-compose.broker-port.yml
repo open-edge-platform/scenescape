@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Host-side PX4 demo overrides (apply from repo root):
+#   docker compose -f docker-compose.yml \
+#     -f tools/px4_sih_demo/docker-compose.broker-port.yml up -d broker scene
+#
+# - Publishes MQTT 1883 so the host MAVLink adapter can reach the broker.
+# - Enables --rewriteBadTime on the scene controller so host-stamped external
+#   messages are accepted when host clock differs from container NTP time.
+
+services:
+  broker:
+    ports:
+      - "1883:1883"
+
+  scene:
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --ntp ntpserv
+      --rewriteBadTime
+      --maxlag 10

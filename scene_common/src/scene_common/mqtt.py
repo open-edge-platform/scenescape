@@ -3,6 +3,7 @@
 
 import json
 import os
+import ssl
 import paho.mqtt.client as mqtt
 import re
 import struct
@@ -96,6 +97,8 @@ class PubSub(_PubSubTopicBase):
         certs = {}
 
     self.client = initializeMqttClient(transport=transport, userdata=userdata)
+    if insecure and certs is not None:
+      certs['cert_reqs'] = ssl.CERT_NONE
     if not self.checkTlsConnection(certs, transport, userdata):
       return
 
