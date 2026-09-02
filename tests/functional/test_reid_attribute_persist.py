@@ -255,7 +255,6 @@ def warmed_scene(params, mqtt_client):
   return scene_uid, camera_id
 
 
-@pytest.mark.test_name("NEX-T25995")
 def test_persist_stored_to_vdms_on_track_end(mqtt_client, warmed_scene,
                                              result_recorder):
   """Persisted gender is flushed to the ReID database when the track ends."""
@@ -283,7 +282,6 @@ def test_persist_stored_to_vdms_on_track_end(mqtt_client, warmed_scene,
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T25996")
 def test_bbox_below_minimum_area_gathers_no_features(mqtt_client, warmed_scene,
                                                      result_recorder):
   """Detections under minimum_bbox_area never contribute embeddings."""
@@ -307,7 +305,6 @@ def test_bbox_below_minimum_area_gathers_no_features(mqtt_client, warmed_scene,
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T25997")
 def test_gender_survives_intermittent_dropouts(mqtt_client, warmed_scene,
                                                result_recorder):
   """Gender stays populated when the analytics model stops reporting the attribute."""

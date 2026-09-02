@@ -14,7 +14,6 @@ import uuid
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
-import pytest
 log = get_logger(__name__)
 
 
@@ -243,7 +242,6 @@ class TestAPI(FunctionalTest):
       self.recordTestResult()
     return
 
-@pytest.mark.test_name("NEX-T10464")
 def test_api(scenescape_env, demo_scene, request, record_xml_attribute):
   test = TestAPI(TEST_NAME, request, record_xml_attribute)
   test.sceneName = 'test_scene_1'

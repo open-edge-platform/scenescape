@@ -342,8 +342,7 @@ def _verifyLLA(detected_object):
   if not np.allclose(detected_object['lat_long_alt'], EXPECTED_DETECTION_LLA, rtol=1e-6):
     raise ValueError(f"LLA verification failed! Expected LLA: {EXPECTED_DETECTION_LLA}, got: {detected_object['lat_long_alt']}")
 
-# @pytest.mark.skip(reason="Flaky in full suite: TRS matrix not computed. Test passed when run in isolation.")
-@pytest.mark.test_name("NEX-T10490")
+@pytest.mark.skip(reason="Flaky in full suite: TRS matrix not computed. Test passed when run in isolation.")
 def test_geospatial_ingest_publish(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
   test = GeospatialIngestPublish(TEST_NAME, request, record_xml_attribute, repo_root)
   test.verifyFunction()

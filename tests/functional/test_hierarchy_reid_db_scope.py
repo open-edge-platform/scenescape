@@ -184,7 +184,6 @@ def _assert_distinct_parent_ids(ids_final, context, hier):
     f"{context}; got {ids_final}. Recent parent objects={recent}")
 
 
-@pytest.mark.test_name("NEX-T27151")
 @pytest.mark.parametrize(
   "_env_matrix_setup",
   [_spec(profiles.REID_HIER_SHARED)],
@@ -192,7 +191,7 @@ def _assert_distinct_parent_ids(ids_final, context, hier):
   ids=["reid_hier_shared"],
 )
 def test_hierarchy_shared_db_cross_child_merge(
-    objData, hierarchy_env, _env_matrix_setup):
+    objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
   """! NEX-T27151: shared DB + retrack → same embedding on C1 then C2 converges
   to one parent ID via shared-DB rematch; shared DB has uuid_count(E)==1.
 
@@ -202,6 +201,7 @@ def test_hierarchy_shared_db_cross_child_merge(
   (ADR 0015 open question on live-gid sharing).
   """
   TEST_NAME = "NEX-T27151"
+  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   parent_client = None
@@ -272,7 +272,6 @@ def test_hierarchy_shared_db_cross_child_merge(
   assert exit_code == 0
 
 
-@pytest.mark.test_name("NEX-T27152")
 @pytest.mark.parametrize(
   "_env_matrix_setup",
   [_spec(profiles.REID_HIER_CHILDREN_ONLY)],
@@ -280,11 +279,12 @@ def test_hierarchy_shared_db_cross_child_merge(
   ids=["reid_hier_children_only"],
 )
 def test_hierarchy_children_share_db_parent_none(
-    objData, hierarchy_env, _env_matrix_setup):
+    objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
   """! NEX-T27152: children share DB (enroll once); parent has no ReID so
   C1↔C2 do not merge via ReID at parent.
   """
   TEST_NAME = "NEX-T27152"
+  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   parent_client = None
@@ -356,7 +356,6 @@ def test_hierarchy_children_share_db_parent_none(
   assert exit_code == 0
 
 
-@pytest.mark.test_name("NEX-T27153")
 @pytest.mark.parametrize(
   "_env_matrix_setup",
   [_spec(profiles.REID_HIER_PARENT_ONLY)],
@@ -364,7 +363,7 @@ def test_hierarchy_children_share_db_parent_none(
   ids=["reid_hier_parent_only"],
 )
 def test_hierarchy_parent_has_db_children_none(
-    objData, hierarchy_env, _env_matrix_setup):
+    objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
   """! NEX-T27153: children have no ReID; parent enrolls forwarded crops on
   query-no-match, then rematches C2 to the same UUID (sequential).
 
@@ -373,6 +372,7 @@ def test_hierarchy_parent_has_db_children_none(
   crop were already enrolled (not this profile), rematch would skip re-enroll.
   """
   TEST_NAME = "NEX-T27153"
+  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   parent_client = None
@@ -442,7 +442,6 @@ def test_hierarchy_parent_has_db_children_none(
   assert exit_code == 0
 
 
-@pytest.mark.test_name("NEX-T27154")
 @pytest.mark.parametrize(
   "_env_matrix_setup",
   [_spec(profiles.REID_HIER_PARTIAL)],
@@ -450,11 +449,12 @@ def test_hierarchy_parent_has_db_children_none(
   ids=["reid_hier_partial"],
 )
 def test_hierarchy_partial_db_no_cross_merge(
-    objData, hierarchy_env, _env_matrix_setup):
+    objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
   """! NEX-T27154: parent+child1 share reid-a; child2 has no DB → C2 does not
   merge into C1's parent UUID via ReID.
   """
   TEST_NAME = "NEX-T27154"
+  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   parent_client = None
@@ -519,7 +519,6 @@ def test_hierarchy_partial_db_no_cross_merge(
   assert exit_code == 0
 
 
-@pytest.mark.test_name("NEX-T27155")
 @pytest.mark.parametrize(
   "_env_matrix_setup",
   [_spec(profiles.REID_HIER_SPLIT)],
@@ -527,11 +526,12 @@ def test_hierarchy_partial_db_no_cross_merge(
   ids=["reid_hier_split"],
 )
 def test_hierarchy_split_dbs_no_cross_merge(
-    objData, hierarchy_env, _env_matrix_setup):
+    objData, record_xml_attribute, hierarchy_env, _env_matrix_setup):
   """! NEX-T27155 (negative): child1→reid-a, child2→reid-b; each DB enrolls
   once; parent IDs for C1 vs C2 differ.
   """
   TEST_NAME = "NEX-T27155"
+  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   parent_client = None

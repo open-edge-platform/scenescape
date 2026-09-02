@@ -264,9 +264,8 @@ def publish_data(obj_data, obj_location, client, obj_cat):
     time.sleep(1/FRAME_RATE)
   return
 
-@pytest.mark.test_name("NEX-T10439")
 @pytest.mark.parametrize("translation,rotation,child,parent,obj_cat", test_cases)
-def test_child_scenes(objData, obj_location, \
+def test_child_scenes(objData, obj_location, record_xml_attribute, \
                                              translation, \
                                              rotation, \
                                              child, \
@@ -279,6 +278,7 @@ def test_child_scenes(objData, obj_location, \
   cases provided above.
   @param    objData                 Pytest fixture defining object data such as ID, etc.
   @param    obj_location            Pytest fixture defining the objects location.
+  @param    record_xml_attribute    Pytest fixture recording the test name.
   @param    translation             The ranslation of the child scene.
   @param    rotation                The rotation of the child scene.
   @param    parent                  The name of the parent.
@@ -311,6 +311,7 @@ def test_child_scenes(objData, obj_location, \
   mse = None
 
   TEST_NAME = "NEX-T10439"
+  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   pose = CameraPose(transform, None)
   client = PubSub(params["auth"], None, params["rootcert"],
