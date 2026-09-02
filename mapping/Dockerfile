@@ -20,10 +20,10 @@ COPY mapping/mapanything-version-fix.patch /tmp/
 
 # Clone and prepare only the selected model
 RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
-        git clone https://github.com/facebookresearch/map-anything.git ./map-anything && \
+        git -c credential.helper= clone --depth 1 https://github.com/facebookresearch/map-anything.git ./map-anything && \
         cd ./map-anything && git checkout b84b28f && git apply /tmp/mapanything-version-fix.patch; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
-        git clone https://github.com/facebookresearch/vggt.git ./vggt && \
+            git -c credential.helper= clone --depth 1 https://github.com/facebookresearch/vggt.git ./vggt && \
         cd ./vggt && git checkout 44b3afb && git apply /tmp/0001-Run-it-on-CPU.patch; \
     else \
         echo "Invalid MODEL_TYPE: $MODEL_TYPE. Must be 'mapanything' or 'vggt'" && exit 1; \
