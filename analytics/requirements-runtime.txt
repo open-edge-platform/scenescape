@@ -10,7 +10,6 @@ numpy==2.3.5
 opentelemetry-api==1.38.0
 opentelemetry-exporter-otlp-proto-grpc==1.38.0
 opentelemetry-sdk==1.38.0
--r ../requirements-open3d-cpu.txt
 opencv-python-headless==4.13.0.92
 orjson==3.11.6
 paho-mqtt==2.1.0

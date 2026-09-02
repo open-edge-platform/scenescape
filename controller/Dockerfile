@@ -87,11 +87,12 @@ RUN : \
     && chmod a+rX "${WSHOME}"
 
 # install only required runtime dependencies
-COPY requirements-open3d-cpu.txt /tmp/deps/
-COPY controller/requirements-runtime.txt /tmp/deps/controller/
+COPY requirements-open3d-cpu.txt tools/install-open3d-cpu.sh /tmp/
+COPY controller/requirements-runtime.txt /tmp/
 RUN : \
-    && pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir -r /tmp/deps/controller/requirements-runtime.txt \
-    && rm -rf /tmp/deps
+    && pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
+    && /tmp/install-open3d-cpu.sh /tmp/requirements-open3d-cpu.txt pip3 \
+    && rm -f /tmp/requirements-runtime.txt /tmp/requirements-open3d-cpu.txt /tmp/install-open3d-cpu.sh
 
 # WORKAROUND: Force upgrade protobuf to a secure version, even though vdms pins an older version.
 # This may break vdms if it is not compatible with newer protobuf, but is required to fix CVE-2025-4565.

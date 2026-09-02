@@ -147,15 +147,16 @@ COPY --from=autocalibration-builder /usr/local/lib/python3.14/site-packages/scen
 COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.14/site-packages/dt_apriltags/
 
 # Install Python packages in one layer
-COPY requirements-open3d-cpu.txt /tmp/deps/
-COPY autocalibration/requirements-runtime.txt /tmp/deps/autocalibration/
+COPY requirements-open3d-cpu.txt tools/install-open3d-cpu.sh /tmp/
+COPY autocalibration/requirements-runtime.txt /tmp/
 COPY autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --break-system-packages --ignore-installed --no-cache-dir \
     --extra-index-url https://download.pytorch.org/whl/cpu \
-    -r /tmp/deps/autocalibration/requirements-runtime.txt && \
+    -r /tmp/requirements-runtime.txt && \
+    /tmp/install-open3d-cpu.sh /tmp/requirements-open3d-cpu.txt pip && \
     chmod +x /usr/local/bin/download_models.py && \
-    rm -rf /tmp/deps
+    rm -f /tmp/requirements-runtime.txt /tmp/requirements-open3d-cpu.txt /tmp/install-open3d-cpu.sh
 
 # Copy built wheels and install them
 COPY --from=autocalibration-builder /output/*.whl /tmp/

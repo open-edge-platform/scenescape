@@ -370,6 +370,7 @@ setup-pytest:
 	fi
 	@echo "Installing venv dependencies..."; \
 	$(CURDIR)/tests/.venv/bin/pip install --progress-bar on --upgrade pip; \
+	$(CURDIR)/tools/install-open3d-cpu.sh $(CURDIR)/requirements-open3d-cpu.txt $(CURDIR)/tests/.venv/bin/pip; \
 	cd $(CURDIR)/tests && $(CURDIR)/tests/.venv/bin/pip install --progress-bar on -r requirements.txt; \
 	cd $(CURDIR)/tests && $(CURDIR)/tests/.venv/bin/pip install --progress-bar on pycocotools tabulate; \
 	cd $(CURDIR)/tests && ( $(CURDIR)/tests/.venv/bin/pip install --no-deps -r requirements-no-deps.txt 2>&1 \

@@ -97,13 +97,14 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && rm -rf /var/lib/apt/lists/*
 
 # Runtime dependencies
-COPY requirements-open3d-cpu.txt /tmp/deps/
-COPY ./manager/requirements-runtime.txt /tmp/deps/manager/
+COPY requirements-open3d-cpu.txt tools/install-open3d-cpu.sh /tmp/
+COPY ./manager/requirements-runtime.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install --break-system-packages --ignore-installed --no-cache-dir \
     --extra-index-url https://download.pytorch.org/whl/cpu \
-    -r /tmp/deps/manager/requirements-runtime.txt \
-    && rm -rf /tmp/deps
+    -r /tmp/requirements-runtime.txt \
+    && /tmp/install-open3d-cpu.sh /tmp/requirements-open3d-cpu.txt pip3 \
+    && rm -f /tmp/requirements-runtime.txt /tmp/requirements-open3d-cpu.txt /tmp/install-open3d-cpu.sh
 
 COPY --from=scenescape-manager-builder /usr/lib/apache2/modules/mod_qos.so /usr/lib/apache2/modules/mod_qos.so
 RUN echo "LoadModule qos_module /usr/lib/apache2/modules/mod_qos.so" > /etc/apache2/mods-available/qos.load

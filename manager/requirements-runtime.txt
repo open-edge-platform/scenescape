@@ -14,7 +14,6 @@ kubernetes==36.0.2
 networkx==3.6.1
 numpy==2.3.5
 onvif-zeep==0.2.12
--r ../requirements-open3d-cpu.txt
 opencv-python-headless==4.13.0.92
 paho-mqtt==2.1.0
 pillow==12.3.0

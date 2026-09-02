@@ -66,10 +66,11 @@ RUN : \
     && eval WSHOME=~$WSUSER \
     && chmod a+rX "${WSHOME}"
 
-COPY requirements-open3d-cpu.txt /tmp/deps/
-COPY analytics/requirements-runtime.txt /tmp/deps/analytics/
-RUN pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir -r /tmp/deps/analytics/requirements-runtime.txt \
-    && rm -rf /tmp/deps
+COPY requirements-open3d-cpu.txt tools/install-open3d-cpu.sh /tmp/
+COPY analytics/requirements-runtime.txt /tmp/
+RUN pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
+    && /tmp/install-open3d-cpu.sh /tmp/requirements-open3d-cpu.txt pip3 \
+    && rm -f /tmp/requirements-runtime.txt /tmp/requirements-open3d-cpu.txt /tmp/install-open3d-cpu.sh
 
 # Copy installed packages from builder
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry
