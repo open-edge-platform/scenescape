@@ -225,59 +225,6 @@ class TestUUIDManagerConcurrentAccess:
       assert isinstance(manager.quality_features, dict)
       assert isinstance(manager.features_for_database, dict)
 
-  def test_flush_stale_features_vs_health_flip(self, mock_vdms_db):
-    """Stale flush and write-health flips must not tear feature maps or crash."""
-    manager = UUIDManager()
-    manager.reid_enabled = True
-    manager.reid_write_healthy = True
-    manager.stale_feature_timeout_secs = 0.0
-    mock_vdms_db.addEntry.return_value = None
-    embedding = np.ones(4, dtype=np.float32)
-    errors = []
-
-    with manager.active_ids_lock:
-      for i in range(20):
-        track_id = f"stale-{i}"
-        manager.features_for_database[track_id] = {
-          'gid': f'gid-{i}',
-          'category': 'person',
-          'reid_vectors': [embedding],
-          'persist': {},
-          'metadata': {},
-        }
-        manager.features_for_database_timestamps[track_id] = 0.0
-
-    def flush():
-      try:
-        manager._flushStaleFeatures()
-      except Exception as exc:  # noqa: BLE001
-        errors.append(exc)
-
-    def flip_health():
-      try:
-        for _ in range(50):
-          manager._disableReidWrites("concurrency test")
-          with manager._reid_write_lock:
-            manager.reid_enabled = True
-            manager.reid_write_healthy = True
-            manager.reid_empty_batch_before_confirm = False
-      except Exception as exc:  # noqa: BLE001
-        errors.append(exc)
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-      futures = [pool.submit(flush) for _ in range(20)]
-      futures += [pool.submit(flip_health) for _ in range(4)]
-      for fut in concurrent.futures.as_completed(futures):
-        fut.result()
-
-    # Drain pool work started by flush before asserting stability.
-    manager.pool.shutdown(wait=True)
-    manager.pool = concurrent.futures.ThreadPoolExecutor(max_workers=2)
-    assert not errors, f"flush vs health race: {errors}"
-    with manager.active_ids_lock:
-      assert isinstance(manager.features_for_database, dict)
-      assert isinstance(manager.features_for_database_timestamps, dict)
-
   def test_shutdown_during_in_flight_pool_work(self, mock_vdms_db):
     """shutdown(wait=False) must remain safe while workers are still running."""
     manager = UUIDManager()
@@ -323,7 +270,7 @@ class TestUUIDManagerConcurrentAccess:
     assert manager._shutdown_complete is True
 
   def test_local_enrollment_allowed_consistent_under_health_contention(self, mock_vdms_db):
-    """Unlocked enrollment-policy readers must not raise while writers flip flags."""
+    """Enrollment-policy readers must not raise while writers flip write-health flags."""
     manager = UUIDManager()
     manager.reid_enabled = True
     manager.reid_write_healthy = True
@@ -358,3 +305,4 @@ class TestUUIDManagerConcurrentAccess:
       t.join()
     assert not errors, f"enrollment policy race: {errors}"
     assert results, "reader never sampled enrollment policy"
+

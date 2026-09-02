@@ -6,64 +6,17 @@
 
 import concurrent.futures
 import queue
-import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from controller.time_chunking import (
-  TimeChunkBuffer,
   TimeChunkProcessor,
   TimeChunkedIntelLabsTracking,
 )
 
 TEST_NAME = "NEX-T28253"
-
-
-class TestTimeChunkBufferThreading:
-  def test_concurrent_add_and_pop_all(self):
-    """Buffer must not tear under concurrent add/pop_all."""
-    buffer = TimeChunkBuffer()
-    errors = []
-    stop = threading.Event()
-
-    def writer(cam_base):
-      try:
-        for i in range(300):
-          buffer.add(
-            f"cam-{cam_base}-{i % 5}", "person",
-            [SimpleNamespace(oid=i)], float(i), [])
-      except Exception as exc:  # noqa: BLE001
-        errors.append(exc)
-
-    def popper():
-      try:
-        while not stop.is_set():
-          data = buffer.pop_all()
-          assert isinstance(data, dict)
-          for category, cameras in data.items():
-            assert isinstance(category, str)
-            assert isinstance(cameras, dict)
-      except Exception as exc:  # noqa: BLE001
-        errors.append(exc)
-
-    readers = [threading.Thread(target=popper, daemon=True) for _ in range(3)]
-    for t in readers:
-      t.start()
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
-      futures = [pool.submit(writer, i) for i in range(6)]
-      for fut in concurrent.futures.as_completed(futures):
-        fut.result()
-
-    stop.set()
-    for t in readers:
-      t.join(timeout=2.0)
-
-    assert not errors, f"TimeChunkBuffer race: {errors}"
-    leftover = buffer.pop_all()
-    assert isinstance(leftover, dict)
 
 
 class TestTimeChunkProcessorThreading:

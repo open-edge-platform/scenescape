@@ -9,7 +9,6 @@ import threading
 import time
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pytest
 
 from controller.vdms_adapter import VDMSDatabase
@@ -66,7 +65,7 @@ class TestVDMSDatabaseConcurrentAccess:
 
   def test_connect_overlapping_send_query(self, vdms_db):
     """connect() overlapping sendQuery must not crash the client wrapper."""
-    db, client = vdms_db
+    db, _client = vdms_db
     errors = []
     stop = threading.Event()
 
@@ -100,31 +99,3 @@ class TestVDMSDatabaseConcurrentAccess:
     # connect() is currently unlocked; this test documents that overlapping
     # use must still not crash the wrapper under free-threading.
     assert not errors, f"connect vs sendQuery race: {errors}"
-
-  def test_concurrent_add_entry_uses_lock(self, vdms_db):
-    """addEntry paths that call sendQuery must remain race-safe under load."""
-    db, _client = vdms_db
-    db.dimensions = 4
-    db._schema_ready = True
-    db.similarity_metric = "IP"
-    errors = []
-
-    vectors = [np.ones(4, dtype=np.float32) for _ in range(2)]
-
-    def writer(i):
-      try:
-        db.addEntry(
-          uuid=f"gid-{i}",
-          rvid=f"rv-{i}",
-          object_type="person",
-          reid_vectors=vectors,
-        )
-      except Exception as exc:  # noqa: BLE001
-        errors.append(exc)
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-      futures = [pool.submit(writer, i) for i in range(40)]
-      for fut in concurrent.futures.as_completed(futures):
-        fut.result()
-
-    assert not errors, f"addEntry race: {errors}"

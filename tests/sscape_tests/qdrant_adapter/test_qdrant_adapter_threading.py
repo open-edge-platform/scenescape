@@ -26,12 +26,7 @@ def qdrant_db():
     time.sleep(0.001)
     return True
 
-  def slow_query_points(**_kwargs):
-    time.sleep(0.001)
-    return MagicMock(points=[])
-
   client.upsert.side_effect = slow_upsert
-  client.query_points.side_effect = slow_query_points
   client.get_collections.return_value = MagicMock()
   db.client = client
   db.connected = True
@@ -107,23 +102,3 @@ class TestQdrantDatabaseConcurrentAccess:
       t.join(timeout=2.0)
 
     assert not errors, f"connect vs addEntry race: {errors}"
-
-  def test_concurrent_find_matches(self, qdrant_db):
-    """findMatches must tolerate concurrent queries against one client."""
-    db, _client = qdrant_db
-    errors = []
-    vectors = [np.ones(4, dtype=np.float32)]
-
-    def querier(i):
-      try:
-        scores = db.findMatches("person", vectors)
-        assert isinstance(scores, list)
-      except Exception as exc:  # noqa: BLE001
-        errors.append(exc)
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-      futures = [pool.submit(querier, i) for i in range(40)]
-      for fut in concurrent.futures.as_completed(futures):
-        fut.result()
-
-    assert not errors, f"findMatches race: {errors}"

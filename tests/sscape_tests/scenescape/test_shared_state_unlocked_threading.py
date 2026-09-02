@@ -18,8 +18,8 @@ TEST_NAME = "NEX-T28257"
 
 
 class TestChainDataUnlockedFieldRaces:
-  def test_regions_and_active_sensors_under_contention(self):
-    """Document/regression: analytics mutates regions/sensors without _lock."""
+  def test_unlocked_fields_under_contention(self):
+    """Document/regression: analytics mutates regions/sensors/locations without _lock."""
     chain = ChainData(regions={}, publishedLocations=[Point(0, 0)], persist={})
     errors = []
 
@@ -27,9 +27,11 @@ class TestChainDataUnlockedFieldRaces:
       try:
         for i in range(300):
           key = f"{prefix}-{i % 10}"
-          # Mirror analytics/region.py unlocked mutation pattern.
           chain.regions[key] = {'entered': f't{i}'}
           chain.active_sensors.add(key)
+          chain.publishedLocations.insert(0, Point(float(ord(prefix[0])), float(i)))
+          if len(chain.publishedLocations) > 5:
+            del chain.publishedLocations[5:]
           if i % 7 == 0:
             chain.active_sensors.discard(key)
             chain.regions.pop(key, None)
@@ -41,6 +43,8 @@ class TestChainDataUnlockedFieldRaces:
         for _ in range(300):
           _ = list(chain.regions.items())
           _ = set(chain.active_sensors)
+          locs = list(chain.publishedLocations[:2])
+          assert isinstance(locs, list)
       except Exception as exc:  # noqa: BLE001
         errors.append(exc)
 
@@ -53,42 +57,9 @@ class TestChainDataUnlockedFieldRaces:
     for t in threads:
       t.join()
 
-    # Under free-threading this may fail if unlocked mutation is unsafe.
-    # Passing documents current CPython behavior; failures are real races.
     assert not errors, f"ChainData unlocked field race: {errors}"
     assert isinstance(chain.regions, dict)
     assert isinstance(chain.active_sensors, set)
-
-  def test_published_locations_insert_under_contention(self):
-    """Mirror analytics/engine.py unlocked publishedLocations.insert(0, ...)."""
-    chain = ChainData(regions={}, publishedLocations=[Point(0, 0)], persist={})
-    errors = []
-
-    def publisher(offset):
-      try:
-        for i in range(200):
-          chain.publishedLocations.insert(0, Point(float(offset), float(i)))
-          if len(chain.publishedLocations) > 5:
-            del chain.publishedLocations[5:]
-      except Exception as exc:  # noqa: BLE001
-        errors.append(exc)
-
-    def reader():
-      try:
-        for _ in range(200):
-          locs = list(chain.publishedLocations[:2])
-          assert isinstance(locs, list)
-      except Exception as exc:  # noqa: BLE001
-        errors.append(exc)
-
-    threads = [threading.Thread(target=publisher, args=(i,)) for i in range(3)] + [
-      threading.Thread(target=reader) for _ in range(3)]
-    for t in threads:
-      t.start()
-    for t in threads:
-      t.join()
-
-    assert not errors, f"publishedLocations race: {errors}"
     assert isinstance(chain.publishedLocations, list)
 
 
@@ -124,7 +95,6 @@ class TestCacheManagerCameraParametersConcurrency:
         for _ in range(400):
           with cache_mgr._lock:
             _ = dict(cache_mgr.camera_parameters)
-          # Unlocked read mirrors refreshScenesForCamParams pre-check path.
           _ = cache_mgr.camera_parameters.get('cam-0', {}).get('intrinsics')
       except Exception as exc:  # noqa: BLE001
         errors.append(exc)
