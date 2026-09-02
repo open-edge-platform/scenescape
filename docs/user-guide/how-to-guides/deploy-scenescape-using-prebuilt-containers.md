@@ -39,15 +39,16 @@ SUPASS=<password> DEMO_REBUILD_IMAGES=false make demo
 The database starts empty; nothing is preloaded at startup. `make demo` already
 uploads the sample scenes for you once the deployment is healthy, by calling
 `make demo-scenes`, which runs the standalone `tools/upload_scenes/upload-scenes`
-client against `sample_data/demo_scenes` (one exported scene archive, `.zip`,
-per scene, as produced by the "Export Scene" button of the web UI). Scenes that
+client against `sample_data/demo_scenes` (one subdirectory per scene, each
+holding a `Scene.zip` as produced by the "Export Scene" button of the web UI,
+plus optional `assets.json` / `calibration_markers.json` sidecars). Scenes that
 already exist are skipped, so re-running it is safe.
 
 Install the tool's dependencies once with
 `pip install -r tools/upload_scenes/requirements.txt`.
 
 To load your own scenes into an already-running deployment, point the tool at
-a different directory of exported archives:
+a different directory of per-scene subdirectories (each with its own `Scene.zip`):
 
 ```bash
 python3 tools/upload_scenes/upload-scenes \

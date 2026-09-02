@@ -41,7 +41,7 @@ SAMPLE_COMPOSE_DIR := sample_data/compose
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(SAMPLE_VIDEOS_DIR)/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/docker-compose-dl-streamer-example.yml
 DEMO_WAIT_SECONDS ?= "0"
-# Host directory with one exported ZIP per demo scene
+# Host directory with one subdirectory per demo scene (each holding a Scene.zip)
 DEMO_SCENES_DIR ?= sample_data/demo_scenes
 DEMO_SCENES_URL ?= https://localhost:$(if $(HTTPS_PORT),$(HTTPS_PORT),443)/api/v1
 # The demo certificate is issued for web.scenescape.intel.com, not for localhost.

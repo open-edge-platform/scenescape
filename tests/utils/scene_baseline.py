@@ -20,16 +20,19 @@ _UPLOAD_SCENES_DIR = _REPO_ROOT / "tools" / "upload_scenes"
 if str(_UPLOAD_SCENES_DIR) not in sys.path:
   sys.path.insert(0, str(_UPLOAD_SCENES_DIR))
 
-from uploader import SceneScapeClient, parse_auth, upload_one, wait_for_database  # noqa: E402
+from uploader import SCENE_ARCHIVE_NAME, SceneScapeClient, parse_auth, upload_one, wait_for_database  # noqa: E402
 
 _RESOURCES_DIR = Path(__file__).resolve().parents[1] / "resources" / "scenes"
 
 # Keys used by ServiceProfile/_PROFILE_SCENE_ARCHIVES to pick which archives a
-# stack needs. Values are tuples of archive paths, uploaded in order.
+# stack needs. Values are tuples of archive paths, uploaded in order. Each
+# scene lives in its own directory: <scene>/Scene.zip, plus optional
+# <scene>/assets.json and <scene>/calibration_markers.json sidecars.
 SCENE_ARCHIVES = {
-  "demo": (_RESOURCES_DIR / "Demo.zip",),
-  "calibration": (_RESOURCES_DIR / "Queuing.zip",),
-  "retail_and_queuing": (_RESOURCES_DIR / "Retail.zip", _RESOURCES_DIR / "Queuing.zip"),
+  "demo": (_RESOURCES_DIR / "Demo" / SCENE_ARCHIVE_NAME,),
+  "calibration": (_RESOURCES_DIR / "Queuing" / SCENE_ARCHIVE_NAME,),
+  "retail_and_queuing": (_RESOURCES_DIR / "Retail" / SCENE_ARCHIVE_NAME,
+                         _RESOURCES_DIR / "Queuing" / SCENE_ARCHIVE_NAME),
 }
 
 # Snapshot excludes rows recreated separately by scenescape-init/createuser
@@ -62,7 +65,7 @@ def upload_baseline_scenes(resturl, rootcert, auth_path, archive_keys):
       uid = upload_one(client, str(archive_path))
       if uid is None:
         raise RuntimeError(f"Failed to upload {archive_path} to {resturl}")
-      scene_uids[archive_path.stem] = uid
+      scene_uids[archive_path.parent.name] = uid
 
   return scene_uids
 

@@ -19,6 +19,9 @@ DEFAULT_WAIT_SECONDS = 300
 POLL_INTERVAL_SECONDS = 5
 REQUEST_TIMEOUT_SECONDS = 60
 RESOURCE_KEYS = ("cameras", "regions", "tripwires", "sensors")
+# Each scene lives in its own directory: <scene>/Scene.zip, plus optional
+# <scene>/assets.json and <scene>/calibration_markers.json sidecars.
+SCENE_ARCHIVE_NAME = "Scene.zip"
 
 log = logging.getLogger("upload-scenes")
 
@@ -126,10 +129,20 @@ def read_scene_from_zip(zip_path):
 
 def upload_assets(client, scene):
   """Creates the object library entries a scene relies on, unless they exist already."""
-  for asset in scene.get("assets", []):
+  assets = scene.get("assets", [])
+  if assets is None:
+    return True
+  if not isinstance(assets, (list, tuple)):
+    log.error("Scene '%s' has invalid 'assets' entry (expected list)", scene.get('name'))
+    return False
+
+  for asset in assets:
+    if not isinstance(asset, dict):
+      log.error("Ignoring malformed asset in scene '%s': not an object", scene.get('name'))
+      return False
     name = asset.get("name")
-    if not name:
-      log.error(f"Ignoring an asset without a name in scene '{scene['name']}'")
+    if not name or not isinstance(name, str):
+      log.error("Ignoring an asset without a valid name in scene '%s'", scene.get('name'))
       return False
     if client.asset_exists(name):
       continue
@@ -143,13 +156,26 @@ def upload_calibration_markers(client, scene):
   if not markers:
     return True
 
+  if not isinstance(markers, (list, tuple)):
+    log.error("Scene '%s' has invalid 'calibration_markers' entry (expected list)", scene.get('name'))
+    return False
+
   uid = client.scene_uid(scene["name"])
   if not uid:
-    log.error(f"Cannot add calibration markers, scene '{scene['name']}' was not found")
+    log.error("Cannot add calibration markers, scene '%s' was not found", scene.get('name'))
     return False
 
   for marker in markers:
+    if not isinstance(marker, dict):
+      log.error("Ignoring malformed marker in scene '%s': not an object", scene.get('name'))
+      return False
+    if "apriltag_id" not in marker:
+      log.error("Ignoring marker without 'apriltag_id' in scene '%s'", scene.get('name'))
+      return False
     apriltag_id = str(marker["apriltag_id"])
+    if "dims" not in marker:
+      log.error("Ignoring marker without 'dims' in scene '%s'", scene.get('name'))
+      return False
     marker_id = f"{uid}_{apriltag_id}"
     if client.calibration_marker_exists(marker_id):
       continue
@@ -188,6 +214,39 @@ def upload_one(client, zip_path):
   if scene is None:
     return None
 
+  # A scene's assets/calibration_markers, if any, live as sidecar JSON files
+  # next to its Scene.zip: <scene_dir>/assets.json, <scene_dir>/calibration_markers.json
+  scene_dir = os.path.dirname(zip_path)
+  assets_sidecar = os.path.join(scene_dir, "assets.json")
+  calib_sidecar = os.path.join(scene_dir, "calibration_markers.json")
+  # Load and merge sidecar assets
+  if os.path.exists(assets_sidecar):
+    try:
+      with open(assets_sidecar, encoding="utf-8") as f:
+        extra_assets = json.load(f)
+      if isinstance(extra_assets, list):
+        scene.setdefault("assets", [])
+        scene["assets"].extend(extra_assets)
+      else:
+        log.error("Sidecar %s must contain a JSON list", assets_sidecar)
+        return None
+    except Exception as e:
+      log.error("Failed to read assets sidecar %s: %s", assets_sidecar, e)
+      return None
+  if os.path.exists(calib_sidecar):
+    try:
+      with open(calib_sidecar, encoding="utf-8") as f:
+        extra_markers = json.load(f)
+      if isinstance(extra_markers, list):
+        scene.setdefault("calibration_markers", [])
+        scene["calibration_markers"].extend(extra_markers)
+      else:
+        log.error("Sidecar %s must contain a JSON list", calib_sidecar)
+        return None
+    except Exception as e:
+      log.error("Failed to read calibration markers sidecar %s: %s", calib_sidecar, e)
+      return None
+
   name = scene["name"]
   existing_uid = client.scene_uid(name)
   if existing_uid:
@@ -214,5 +273,10 @@ def upload_all(client, scene_archives):
         failed += 1
     except requests.RequestException as e:
       log.error(f"Failed to upload {zip_path}: {e}")
+      failed += 1
+    except Exception as e:
+      # Treat data/structure errors in an archive as a per-archive failure and
+      # continue with the rest of the batch.
+      log.error("Failed to process %s: %s", zip_path, e)
       failed += 1
   return failed
