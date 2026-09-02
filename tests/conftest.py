@@ -683,17 +683,6 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       cwd=repo_root,
       env={**os.environ, "COMPOSE_PROJECT_NAME": project_name},
     )
-    logger.info("Seeding test media volume with default scene maps...")
-    stream_subprocess(
-      [
-        "docker", "run", "--rm",
-        "-v", f"{project_name}_vol-sample-data:/source:ro",
-        "-v", f"{project_name}_vol-media:/dest",
-        "alpine:3.24", "sh", "-c",
-        "cp /source/HazardZoneSceneLarge.png /source/scene.png /dest/",
-      ],
-      cwd=repo_root,
-    )
 
     if any("compose-mapping.yml" in cf for cf in profile.compose_files):
       _ensure_mapping_cache_volumes()
@@ -707,6 +696,18 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
 
     if profile.wait_for:
       wait_for_services(docker, project_name, profile.wait_for)
+
+    logger.info("Seeding test media volume with default scene maps...")
+    stream_subprocess(
+      [
+        "docker", "run", "--rm",
+        "-v", f"{project_name}_vol-sample-data:/source:ro",
+        "-v", f"{project_name}_vol-media:/dest",
+        "alpine:3.24", "sh", "-c",
+        "cp /source/HazardZoneSceneLarge.png /source/scene.png /dest/",
+      ],
+      cwd=repo_root,
+    )
 
     yield ScenescapeEnv(
       docker=docker,
