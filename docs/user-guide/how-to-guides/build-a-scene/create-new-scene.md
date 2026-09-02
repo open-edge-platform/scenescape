@@ -66,7 +66,7 @@ A good rule of thumb is to mount the cameras above any object or person to be mo
 
 **Figure 3:** Camera mounting angle
 
-> **Note**: If possible, avoid mounting the cameras with a view of the horizon, or at least keep most of the area to be monitored well below the horizon by angling the camera down and mounting it higher.
+> **Note:** If possible, avoid mounting the cameras with a view of the horizon, or at least keep most of the area to be monitored well below the horizon by angling the camera down and mounting it higher.
 
 Once the cameras are mounted and connected, verify that the cameras are working using webcam software (such as Cheese on Linux), VLC, or a web browser per the manufacturer's instructions. If using USB cameras, be sure to quit any application using the camera prior to connecting to the camera with Scenescape.
 
@@ -97,7 +97,7 @@ For best results, size the image to about 1000 pixels wide. The scale to set whe
 
 There are other methods of determining pixels per meter, such as measuring the distance between two known points in pixel units on the image and in meters on the scene. Some math involving the Pythagorean theorem may be required.
 
-> **Note**: Creating accurate scale floor plans and calibrating cameras can be challenging. To assist with this process, Scenescape supports importing a scene that was scanned with a mobile device or uploading a glTF (.glb) 3D asset of the scene. For more information on scene scanning and using scene scans for automated camera calibration, see [Markerless Camera Calibration](../calibrate-cameras/autocalibrate-cameras-using-visual-features.md#1-generate-polycam-dataset).
+> **Note:** Creating accurate scale floor plans and calibrating cameras can be challenging. To assist with this process, Scenescape supports importing a scene that was scanned with a mobile device or uploading a glTF (.glb) 3D asset of the scene. For more information on scene scanning and using scene scans for automated camera calibration, see [Markerless Camera Calibration](../calibrate-cameras/autocalibrate-cameras-using-visual-features.md#1-generate-polycam-dataset).
 
 ##### Scene floor plan example
 
@@ -129,7 +129,7 @@ Click "Save New Scene" and then open the scene by clicking on it in the Scenes p
 
 Add each camera by clicking on "+ New Camera" below the scene map, then filling in the camera details as required.
 
-> **Note**: The camera ID _must_ match the `cameraid` set in the config file for DL Streamer Pipeline Server (e.g: dlstreamer-pipeline-server/config.json), or the scene controller will not be able to associate the camera with its instance in Scenescape.
+> **Note:** The camera ID _must_ match the `cameraid` set in the config file for DL Streamer Pipeline Server (e.g: dlstreamer-pipeline-server/config.json), or the scene controller will not be able to associate the camera with its instance in Scenescape.
 
 Using the above example, the form should look like this for the `video0` camera:
 
@@ -155,7 +155,7 @@ In the upper-right corner of the scene home page, click on the `Export <scene_na
 
 A ZIP file `<scene_name>.zip` will be downloaded.
 
-> **Note**: Zip file includes a JSON and resource file (either an image or gltf). If cameras were calibrated using the 2D UI, map points and camera points will be preserved during importing. Otherwise, the camera transform will default to Euler format.
+> **Note:** Zip file includes a JSON and resource file (either an image or gltf). If cameras were calibrated using the 2D UI, map points and camera points will be preserved during importing. Otherwise, the camera transform will default to Euler format.
 
 ### Importing the scene
 
@@ -169,7 +169,7 @@ Upload the appropriate zip file.
 
 Click import to begin the upload.
 
-> **Note**: If your ZIP includes a .gltf map file, the upload process may take longer depending on the file size.
+> **Note:** If your ZIP includes a .gltf map file, the upload process may take longer depending on the file size.
 
 ## Additional Resources
 

@@ -45,7 +45,7 @@ By default, only a limited number of models is downloaded during helm chart inst
   - Use `NPU` (e.g., `retail=NPU`) to run the inference on NPU (Neural Processing Unit).
   - **Default device**: If no device is specified, CPU is used as the default.
 
-> **Note**: On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other Scenescape services can fully benefit from available CPU cores. GPU inference typically provides better performance for complex models.
+> **Note:** On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other Scenescape services can fully benefit from available CPU cores. GPU inference typically provides better performance for complex models.
 
 **Example**: `retail=GPU+reid=GPU` runs person detection on GPU, then feeds the results to person re-identification also running on GPU.
 
@@ -68,7 +68,7 @@ Use the following short names to refer to each model in the chain:
 
 **Person Analytics Workflows:**
 
-```
+```text
 # Basic person detection with re-identification
 retail+reid
 
@@ -82,8 +82,7 @@ retail=GPU+agegender=GPU
 
 **Pose Estimation Workflows:**
 
-```
-
+```text
 # Pose estimation with re-identification
 pose+marsreid
 ```
@@ -92,11 +91,11 @@ pose+marsreid
 
 > **Note**: To enable pose-based bounding box adjustment in the Scene Controller, set the `--pose-adjustment` flag or `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable. See the [Scene Controller documentation](../microservices/controller/controller.md) for details.
 
-> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `pose+marsreid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--pose-adjustment` controller flag is also incompatible with Extended ReID (cross-camera re-identification via the configured vector backend).
+> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g., `pose+marsreid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--pose-adjustment` controller flag is also incompatible with Extended ReID (cross-camera re-identification via the configured vector backend).
 
 **Vehicle Analytics Workflows:**
 
-```
+```text
 # Vehicle detection with re-identification
 pvbcross16=GPU+reid=GPU
 
@@ -106,7 +105,7 @@ pvbcross16+vehattr
 
 **Multi-Class Detection:**
 
-```
+```text
 # Detect people, vehicles, and bikes
 pvbcross16=GPU
 
@@ -121,17 +120,22 @@ pvbcross16=GPU+reid=GPU
 
   **Supported formats:**
   - One label per line (newline-separated):
-    ```
+
+    ```text
     car
     pedestrian
     trolley
     ```
+
   - Space-separated labels:
-    ```
+
+    ```text
     car pedestrian trolley
     ```
+
   - Comma-separated labels:
-    ```
+
+    ```text
     car, pedestrian, trolley
     ```
 
@@ -140,11 +144,11 @@ pvbcross16=GPU+reid=GPU
 - **Model Config**: references a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. You can upload custom model configuration files or modify existing ones using the Models page. The Models page is accessible in the top menu of the Scenescape UI.
 - **Use Camera Pipeline**: when enabled, directly applies the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings on saving the camera configuration. When disabled (default), the system automatically generates the pipeline from other form fields.
 
-> **Note**: The `AUTO` setting for decode device does not assume the optimal setting in each possible case. There might be cases when the optimal configuration can be achieved by setting the decode device manually.
+> **Note:** The `AUTO` setting for decode device does not assume the optimal setting in each possible case. There might be cases when the optimal configuration can be achieved by setting the decode device manually.
 
-> **Note**: The Model Config field references configuration files that define AI model parameters and processing settings. The default configuration file `model_config.json` is auto-generated for the models downloaded by the Scenescape model installer. See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
+> **Note:** The Model Config field references configuration files that define AI model parameters and processing settings. The default configuration file `model_config.json` is auto-generated for the models downloaded by the Scenescape model installer. See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
 
-> **Note**: When the **Use Camera Pipeline** checkbox is enabled, the values of camera settings from other form fields ('Camera', 'Camera Chain', 'Decode Device', 'Undistort', 'Model Config') do not impact the effective Visual Analytics pipeline. Enable the checkbox only when you want to use a custom pipeline that should not be auto-generated and remember to update it manually when needed.
+> **Note:** When the **Use Camera Pipeline** checkbox is enabled, the values of camera settings from other form fields ('Camera', 'Camera Chain', 'Decode Device', 'Undistort', 'Model Config') do not impact the effective Visual Analytics pipeline. Enable the checkbox only when you want to use a custom pipeline that should not be auto-generated and remember to update it manually when needed.
 
 #### Camera Intrinsics and Distortion
 
@@ -248,7 +252,7 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 
 Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice. The file [docker-compose-dl-streamer-example.yml](/sample_data/docker-compose-dl-streamer-example.yml) shows how a DL Streamer Pipeline Server docker container is configured to stream video analytics data for consumption by Scenescape. It leverages DL Streamer pipelines definitions in [queuing-config.json](/dlstreamer-pipeline-server/queuing-config.json) and [retail-config.json](/dlstreamer-pipeline-server/retail-config.json).
 
-> **Note**: To run DL Streamer Pipeline Server pipelines on hardware accelerators (GPU or NPU), see the DL Streamer Pipeline Server service [user documentation](/dlstreamer-pipeline-server/README.md).
+> **Note:** To run DL Streamer Pipeline Server pipelines on hardware accelerators (GPU or NPU), see the DL Streamer Pipeline Server service [user documentation](/dlstreamer-pipeline-server/README.md).
 
 ### Video Pipeline Configuration
 
@@ -277,7 +281,7 @@ The following is the GStreamer command that defines the video processing pipelin
 
 `appsink` is the final element in the pipeline, which consumes the processed video and metadata. The `sync=true` parameter ensures the pipeline operates in sync with the video stream.
 
-Read the instructions here for details on how to further configure DL Streamer pipeline [DL Streamer Pipeline Server documentation](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide) to customize:
+Read the [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html) for details on how to further configure DL Streamer pipeline and learn how to customize:
 
 - Input sources (video files, USB, RTSP streams)
 - Processing parameters
