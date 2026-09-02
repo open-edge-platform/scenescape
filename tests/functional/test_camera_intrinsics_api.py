@@ -3,7 +3,6 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 import time
 from scene_common import log
 from scene_common.rest_client import RESTClient
@@ -112,10 +111,18 @@ class CameraIntrinsicsTest(FunctionalTest):
     }
 
     # Update camera with new intrinsics
+    camera = self.rest.getCamera(cameraUID)
+    assert camera, (camera.statusCode, camera.errors)
+
     updateData = {
+      'name': camera['name'],
       'intrinsics': newIntrinsics,
       'distortion': newDistortion
     }
+    if camera.get('sensor_id') is not None:
+      updateData['sensor_id'] = camera['sensor_id']
+    if camera.get('scene') is not None:
+      updateData['scene'] = camera['scene']
 
     log.info("Saving camera intrinsics changes...")
     updateResult = self.rest.updateCamera(cameraUID, updateData)
