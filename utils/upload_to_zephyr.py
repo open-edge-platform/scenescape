@@ -18,7 +18,6 @@ def upload_zephyr_results(
         folder_name,
         cycle_name,
         cycle_key,
-        create,
         comment):
 
     results_exec, results_pass, results_fail, results_skip = xunit.parse_results(path)
@@ -126,7 +125,6 @@ def main():
             args.folder,
             args.cycle,
             args.cycle_key,
-            args.create,
             args.comment)
     except jira.JiraException as e:
         print()
