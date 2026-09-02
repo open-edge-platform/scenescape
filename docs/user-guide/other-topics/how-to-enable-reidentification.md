@@ -8,8 +8,6 @@ This guide provides step-by-step instructions to enable or disable re-identifica
 
 This task is important for enabling persistent object tracking across different camera scenes or time intervals.
 
----
-
 ## Prerequisites for Re-identification
 
 Before you begin, ensure the following:
@@ -19,8 +17,6 @@ Before you begin, ensure the following:
 - You are familiar with scene and camera configuration in Scenescape.
 
 Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md) for exposing match-latency, camera-count, and tracked-object-count metrics for monitoring and hardware-sizing purposes.
-
----
 
 ## Steps to Enable Reidentification (ReID) for Out of Box Experience
 
@@ -77,8 +73,6 @@ This reidentification-specific configuration uses a vision pipeline that include
 ```
 
 **Expected Result**: Scenescape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
-
----
 
 ## Selecting the ReID Vector Database Backend
 
@@ -214,8 +208,6 @@ with a PersistentVolumeClaim if the embeddings must survive restarts.
 The pod still runs as root (`runAsUser: 0`) because both upstream images expect
 it; that is a separate hardening step.
 
----
-
 ## Steps to Disable Re-identification
 
 1. **Stop using the backend override**
@@ -235,10 +227,10 @@ it; that is a separate hardening step.
 2. **Remove ReID from the Camera Pipeline**
    Edit the retail-config setting in [Docker Compose](/sample_data/docker-compose-dl-streamer-example.yml) and revert to the config without re-id model:
 
-```yaml
-retail-config:
-  file: ./dlstreamer-pipeline-server/retail-config.json
-```
+   ```yaml
+   retail-config:
+     file: ./dlstreamer-pipeline-server/retail-config.json
+   ```
 
 3. **Restart the System**:
 
@@ -247,8 +239,6 @@ retail-config:
    ```
 
 **Expected Result**: Scenescape runs without ReID and no visual feature matching is performed.
-
----
 
 ## Evaluating Re-identification Performance
 
@@ -261,9 +251,7 @@ retail-config:
 - **Latency Metrics**:\
   For match-latency trends and correlating them against camera count and tracked-object count (e.g. for hardware sizing or monitoring degradation as a deployment scales), see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md).
 
-> **Note**: The default ReID model is tuned for the 'person' category and may not generalize well to other object types.
-
----
+> **Note:** The default ReID model is tuned for the 'person' category and may not generalize well to other object types.
 
 ## How Re-identification Works
 
@@ -282,8 +270,6 @@ children when you expect one identity space. **Parent-only ReID** with children
 forwarding embeddings (no local child ReID) is supported—parent enrolls on
 query-no-match; see
 [ReID across controllers](../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#reid-across-controllers-what-is-supported).
-
----
 
 ## Storage Bounding
 
@@ -317,9 +303,7 @@ helm upgrade scenescape-release-1 --install kubernetes/scenescape-chart/ \
   --set reid.descriptorTtlSecs=3600 --set reid.purgeIntervalSecs=300
 ```
 
-> **Note**: Retention is time-based only. Under heavy ingest, storage can still grow within the TTL window. This is not capacity-based eviction.
-
----
+> **Note:** Retention is time-based only. Under heavy ingest, storage can still grow within the TTL window. This is not capacity-based eviction.
 
 ## Configuration Options
 
@@ -344,13 +328,12 @@ docker compose -f docker-compose-dl-streamer-example.yml \
   --profile controller up --build
 ```
 
----
-
 ## Troubleshooting
 
 1. **Issue: ReID not working**
    - **Cause**: Database container is not running, not linked, or TLS/certs do not match the shared ReID defaults.
    - **Resolution**:
+
      ```bash
      docker compose -f docker-compose-dl-streamer-example.yml \
        -f docker-compose.vdms-override.yml \
@@ -359,6 +342,7 @@ docker compose -f docker-compose-dl-streamer-example.yml \
        -f docker-compose.vdms-override.yml \
        --profile controller logs reid
      ```
+
      Substitute the Qdrant override when it is selected. Confirm the `reid`
      service is healthy, the expected `REID_DATABASE` is set on `scene`, and
      the shared `scenescape-reid*` certificates exist.
@@ -374,5 +358,5 @@ docker compose -f docker-compose-dl-streamer-example.yml \
    - **Resolution**: Expected after switching `REID_DATABASE`. Re-accumulate features in the new backend, or restore the previous backend and its data volume.
 
 4. **Issue: No `reid_*` metrics showing up when checking latency/camera-count metrics**
-   - **Cause**: Most commonly, ReID isn't actually enabled yet (feature-extraction pipeline / `reid-config.json` not applied — see [Steps to Enable Reidentification](#steps-to-enable-reidentification-reid-for-out-of-box-experience) above), rather than a metrics-pipeline problem.
+   - **Cause**: Most commonly, ReID is not actually enabled yet (feature-extraction pipeline / `reid-config.json` not applied — see [Steps to Enable Reidentification](#steps-to-enable-reidentification-reid-for-out-of-box-experience) above), rather than a metrics-pipeline problem.
    - **Resolution**: Confirm ReID is enabled and objects are being detected/tracked first; then see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md#troubleshooting) for metrics-specific troubleshooting.
