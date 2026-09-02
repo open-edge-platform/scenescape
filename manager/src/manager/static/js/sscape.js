@@ -1694,9 +1694,6 @@ function startMappingServiceStatusMonitoring() {
 }
 
 $(document).ready(function () {
-  const loginButton = document.getElementById("login-submit");
-  const spinner = document.getElementById("login-spinner");
-  const loginText = document.getElementById("login-text");
   const exportScene = document.getElementById("export-scene");
   const importButton = document.getElementById("scene-import");
   const tokenElement = document.getElementById("auth-token");
@@ -1899,29 +1896,6 @@ $(document).ready(function () {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to fetch: ${url}`);
     return await response.blob();
-  }
-
-  function checkDatabaseReady() {
-    fetch(`${REST_URL}/database-ready`)
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.databaseReady) {
-          loginButton.disabled = false;
-          loginText.textContent = "Sign In";
-          spinner.classList.add("hide-spinner");
-        } else {
-          loginButton.disabled = true;
-          loginText.textContent = "Database Initializing...";
-          spinner.classList.remove("hide-spinner");
-          setTimeout(checkDatabaseReady, 5000);
-        }
-      })
-      .catch((error) =>
-        console.error("Error checking database readiness:", error),
-      );
-  }
-  if (loginButton) {
-    checkDatabaseReady();
   }
 
   if ($("#scale").val() !== "") {
