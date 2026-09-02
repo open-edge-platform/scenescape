@@ -16,7 +16,12 @@ if [[ $# -lt 1 ]]; then
   exit 2
 fi
 
-NET_NAME=$(docker network ls --format '{{.Name}}' | grep '_scenescape$' | head -1)
+__ss_project=$(awk '/^name:[[:space:]]*/{v=$2; gsub(/[[:space:]]/,"",v); print v; exit}' docker-compose.yml 2>/dev/null || true)
+NET_NAME=""
+if [[ -n "${__ss_project:-}" ]]; then
+  NET_NAME=$(docker network ls --format '{{.Name}}' | grep -E "^${__ss_project}_scenescape$" | head -1 || true)
+fi
+[[ -n "$NET_NAME" ]] || NET_NAME=$(docker network ls --format '{{.Name}}' | grep '_scenescape$' | head -1 || true)
 if [[ -z "$NET_NAME" ]]; then
   echo "FAIL: scenescape Docker network not found" >&2
   exit 1

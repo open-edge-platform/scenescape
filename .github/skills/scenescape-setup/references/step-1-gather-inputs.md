@@ -17,6 +17,7 @@ Ask the user for every new deployment:
 | `camera_ids` | Unique IDs (no `/`), same order as `streams`                                                         |
 | `scene_name` | Human-readable scene name chosen by the user                                                         |
 | `mapping`    | Scene map source: `reconstruction` (default), floor blueprint, `.glb`/`.ply` mesh, or geospatial     |
+| `detection_model` | What the cameras should detect — ask the user; defaults to person detection only if unspecified (see below) |
 
 Validate: `len(streams) == len(camera_ids)`, ≥1 camera, `camera_ids` are unique (no duplicates,
 no `/`), valid RTSP URLs. State explicitly in your response that this uniqueness check was
@@ -36,6 +37,26 @@ call it out for the user.
   [scene-map-alternatives.md](./scene-map-alternatives.md), which covers running only
   `--phase bootstrap`/`--phase calibrate`, computing pixels-per-meter for a blueprint, creating
   the scene via REST, and (for geospatial) setting `output_lla` + `map_corners_lla`.
+
+## `detection_model` choice
+
+Always ask the user **what the cameras should detect** before writing `deploy-inputs.json` —
+do not silently assume person detection. Frame it in terms of the objects they care about
+(e.g. people, vehicles, both) and confirm the model.
+
+- **Default (no answer / people)**: the shipped pipeline uses `person-detection-retail-0013`
+  (`omz` hub) with `detection_labels: "person"`. Only fall back to this when the user has no
+  other preference — state that you are defaulting to person detection so it is a conscious
+  choice, not a silent assumption.
+- **A different or custom model** (e.g. vehicle detection, a Geti-exported SSD model): the
+  automatic downloader still hardcodes `person-detection-retail-0013`/`omz` (making it a
+  `model_id`/`model_hub` deploy input is tracked in
+  `.github/plans/plan-modelDownloaderMigration.prompt.md`). Until that lands, a non-default
+  model is applied **manually after deploy** — copy the model into the `*_vol-models` volume and
+  edit `<deploy_dir>/dlstreamer-pipeline-server/pipeline-config.json` (`gvadetect model=`/
+  `model-proc=` and `detection_labels`), then `docker compose up -d --force-recreate video-analytics`.
+  See [pipeline-config.md](./pipeline-config.md). Capture the user's model choice now so this
+  swap is planned, not a surprise.
 
 ## Persist before automation
 
