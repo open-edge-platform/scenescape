@@ -42,7 +42,7 @@ def test_manual_camera_calibration(demo_scene, params, result_recorder):
     assert common.check_db_status(browser)
 
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
-    browser.find_element(By.ID, 'cam_calibrate_1').click()
+    common.camera_calibrate_link(browser).click()
     time.sleep(TEST_WAIT_TIME)
 
     viewport_dimensions = browser.execute_script("return [window.innerWidth, window.innerHeight];")
@@ -91,7 +91,7 @@ def test_manual_camera_calibration(demo_scene, params, result_recorder):
     log.info("Calibration Saved")
 
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
-    browser.find_element(By.ID, 'cam_calibrate_1').click()
+    common.camera_calibrate_link(browser).click()
     time.sleep(TEST_WAIT_TIME)
 
     log.info("Take_screenshot after saving manual calibration")
@@ -110,7 +110,7 @@ def test_manual_camera_calibration(demo_scene, params, result_recorder):
     log.info("Calibration Saved")
 
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
-    browser.find_element(By.ID, 'cam_calibrate_1').click()
+    common.camera_calibrate_link(browser).click()
     time.sleep(TEST_WAIT_TIME)
 
     log.info("Take_screenshot after reverting to the previous calibration settings")

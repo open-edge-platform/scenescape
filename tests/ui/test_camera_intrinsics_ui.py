@@ -24,9 +24,10 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
   @param    step                Step size to increment from the initial value.
   @return   BOOL                Boolean representing successfully entering the camera parameters.
   """
-  camera1_element_id = "//a[@href = '/cam/calibrate/1']"
-  assert common.wait_for_elements(browser, camera1_element_id)
-  assert common.click_when_clickable(browser, (By.XPATH, camera1_element_id)), (
+  camera1_element_id = (
+    f'a.snapshot-image[topic="{common.CAMERA_TOPIC_PREFIX}{common.TEST_CAMERA_ID}"]')
+  assert common.wait_for_elements(browser, camera1_element_id, findBy=By.CSS_SELECTOR)
+  assert common.click_when_clickable(browser, (By.CSS_SELECTOR, camera1_element_id)), (
     f"Timed out waiting for camera link {camera1_element_id!r} to become clickable."
   )
 

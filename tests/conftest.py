@@ -1082,8 +1082,20 @@ DEMO_SCENE_SCALE = 100.0
 DEMO_SCENE_CAMERAS = ("camera1", "camera2", "camera3")
 # 3D-2D point correspondence calibration of the seeded demo cameras.
 DEMO_CAMERA_TRANSFORM_TYPE = "3d-2d point correspondence"
+# Resolution and intrinsics of the seeded demo cameras.
+DEMO_CAMERA_RESOLUTION = {'width': 640, 'height': 480}
+DEMO_CAMERA_INTRINSICS = {'fov': 70}
+# Each seeded camera views the map from a different angle, so they must not
+# share one calibration.  Used for any camera name not listed here.
 DEMO_CAMERA_TRANSFORMS = [278.0, 61.0, 621.0, 132.0, 559.0, 460.0, 66.0, 289.0,
                           0.1, 5.38, 3.04, 5.35, 3.05, 2.42, 0.1, 2.45]
+DEMO_CAMERA_TRANSFORMS_BY_NAME = {
+  "camera1": DEMO_CAMERA_TRANSFORMS,
+  "camera2": [31.0, 228.0, 423.0, 266.0, 537.0, 385.0, 79.0, 343.0,
+              1.06, 5.34, 4.0, 5.38, 4.98, 4.39, 2.04, 4.38],
+  "camera3": [137.0, 328.0, 425.0, 162.0, 596.0, 208.0, 578.0, 443.0,
+              0.09, 5.38, 3.99, 5.37, 4.0, 3.38, 1.09, 2.46],
+}
 # Seconds to wait for a REST object to become readable.
 _SCENE_READY_TIMEOUT = 30
 # Seconds to wait for the manager to announce a change on CMD_DATABASE.
@@ -1307,7 +1319,10 @@ def scene_factory(params):
             'sensor_id': camera,
             'scene': scene['uid'],
             'transform_type': DEMO_CAMERA_TRANSFORM_TYPE,
-            'transforms': DEMO_CAMERA_TRANSFORMS,
+            'transforms': DEMO_CAMERA_TRANSFORMS_BY_NAME.get(
+              camera, DEMO_CAMERA_TRANSFORMS),
+            'resolution': DEMO_CAMERA_RESOLUTION,
+            'intrinsics': DEMO_CAMERA_INTRINSICS,
           }),
           f"creating camera '{camera}'")
         assert created, f"scene_factory failed creating camera '{camera}': " \
@@ -1369,7 +1384,8 @@ def demo_scene(request, scene_factory, params):
   request.config.option.scene_id = uid
 
   # Only patch the UI helpers when a UI test already imported them.
-  ui_utils = sys.modules.get("common_ui_test_utils")
+  ui_utils = (sys.modules.get("tests.ui.common_ui_test_utils")
+              or sys.modules.get("common_ui_test_utils"))
   previous_ui_id = getattr(ui_utils, "TEST_SCENE_ID", None) if ui_utils else None
   if ui_utils is not None:
     ui_utils.TEST_SCENE_ID = uid
