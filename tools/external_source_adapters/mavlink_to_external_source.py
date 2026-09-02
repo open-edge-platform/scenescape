@@ -37,6 +37,29 @@ from scene_common.timestamp import get_iso_time
 logger = logging.getLogger(__name__)
 
 IDENTITY_QUAT = [0.0, 0.0, 0.0, 1.0]
+# Scene-data schema (analytics → UI regulated topic) requires a numeric [L,W,H]
+# array; external_source allows omitting size, but null fails validation downstream.
+DEFAULT_VEHICLE_SIZE = [0.6, 0.6, 0.3]
+
+
+def _parse_size_env(name, default):
+  raw = _env(name, default="")
+  if not raw:
+    return list(default)
+  parts = [float(x.strip()) for x in raw.split(",")]
+  if len(parts) != 3:
+    raise SystemExit(f"{name} must be three comma-separated numbers (L,W,H metres)")
+  return parts
+
+
+def _wait_mqtt_connected(pubsub, timeout_s=15):
+  """Block until the MQTT client is connected or timeout."""
+  deadline = time.monotonic() + timeout_s
+  while time.monotonic() < deadline:
+    if pubsub.isConnected():
+      return True
+    time.sleep(0.1)
+  return False
 
 
 def _env(name, default=None, required=False):
@@ -85,7 +108,8 @@ class MavlinkState:
       self.alt_m = msg.alt / 1000.0
       return True
     if msg_type == "GPS_RAW_INT" and not self.have_position:
-      if msg.fix_int >= 2 and msg.lat != 0 and msg.lon != 0:
+      fix = getattr(msg, "fix_type", getattr(msg, "fix_int", 0))
+      if fix >= 2 and msg.lat != 0 and msg.lon != 0:
         self.lat = msg.lat / 1.0e7
         self.lon = msg.lon / 1.0e7
         self.alt_m = msg.alt / 1000.0
@@ -97,11 +121,14 @@ class MavlinkState:
     return False
 
 
-def build_payload(state, source_id, category, publish_self, include_pose=True):
+def build_payload(state, source_id, category, publish_self, include_pose=True,
+                  object_size=None):
   """Build an external_source dict from current MAVLink state.
 
   See data_formats.md for required fields; do not invent alternate shapes.
   """
+  if object_size is None:
+    object_size = DEFAULT_VEHICLE_SIZE
   objects = []
   if publish_self:
     # Vehicle reports itself at the source local origin.
@@ -110,6 +137,7 @@ def build_payload(state, source_id, category, publish_self, include_pose=True):
       "category": category,
       "translation": [0.0, 0.0, 0.0],
       "rotation": list(state.rotation),
+      "size": list(object_size),
     })
 
   payload = {
@@ -164,10 +192,12 @@ def main(argv=None):
   thing_type = _env("SCENESCAPE_THING_TYPE", "vehicle")
   source_id = _env("SCENESCAPE_SOURCE_ID", required=True)
   category = _env("SCENESCAPE_OBJECT_CATEGORY", thing_type)
+  object_size = _parse_size_env("SCENESCAPE_OBJECT_SIZE", DEFAULT_VEHICLE_SIZE)
   broker = _env("SCENESCAPE_BROKER", "localhost")
   broker_port = int(_env("SCENESCAPE_BROKER_PORT", "1883"))
   mqtt_auth = _env("SCENESCAPE_MQTT_AUTH", required=True)
   root_cert = _env("SCENESCAPE_ROOT_CERT", required=True)
+  mqtt_insecure = _env("SCENESCAPE_MQTT_INSECURE", "").lower() in ("1", "true", "yes")
 
   if args.publish_hz <= 0:
     raise SystemExit("--publish-hz must be > 0")
@@ -180,9 +210,15 @@ def main(argv=None):
   logger.info("MAVLink heartbeat from system %s component %s",
               mav.target_system, mav.target_component)
 
-  pubsub = PubSub(mqtt_auth, None, root_cert, broker, port=broker_port)
+  pubsub = PubSub(mqtt_auth, None, root_cert, broker, port=broker_port,
+                  insecure=mqtt_insecure)
   pubsub.connect()
   pubsub.loopStart()
+  if not _wait_mqtt_connected(pubsub, timeout_s=15):
+    raise SystemExit(
+      f"MQTT broker {broker}:{broker_port} did not connect — ensure port 1883 is "
+      "published (tools/px4_sih_demo/docker-compose.broker-port.yml) and the "
+      "broker is reachable")
   # Publisher-centric: topic path is source_id. Optional SCENESCAPE_SCENE_ID is
   # only for operator notes / manual CONTROLLER_EXTERNAL_SOURCE_BINDINGS.
   topic = PubSub.formatTopic(
@@ -219,12 +255,16 @@ def main(argv=None):
         include_pose = True
 
       payload = build_payload(
-        state, source_id, category, args.publish_self, include_pose=include_pose)
+        state, source_id, category, args.publish_self, include_pose=include_pose,
+        object_size=object_size)
       # Skip empty updates that neither refresh pose nor report objects.
       if "pose" not in payload and not payload["objects"]:
         continue
 
-      pubsub.publish(topic, json.dumps(payload))
+      rc = pubsub.publish(topic, json.dumps(payload))
+      if rc[0] != 0 and publish_count == 0:
+        logger.error("MQTT publish failed (rc=%s) — broker not connected", rc)
+        raise SystemExit(1)
       publish_count += 1
       if publish_count == 1 or publish_count % max(1, int(args.publish_hz * 5)) == 0:
         logger.info(
