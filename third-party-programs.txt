@@ -122762,8 +122762,9 @@ PERFORMANCE OF THIS SOFTWARE.
         Copyright (c) Charles-Francois Natali
     onvif_zeep==0.2.12
         Copyright (c) 2014 Quatanium Co., Ltd.
-    open3d-cpu==0.19.0
+    open3d-cpu==0.19.0+cf1516a
         Copyright (c) 2018-2023 www.open3d.org
+        Source: https://github.com/isl-org/Open3D/releases/download/main-devel/open3d_cpu-0.19.0+cf1516a-cp314-cp314-manylinux_2_35_x86_64.whl
     parso==0.8.7
         Copyright (c) <2013-2017> <David Halter and others, see AUTHORS.txt>
     pip==24.0

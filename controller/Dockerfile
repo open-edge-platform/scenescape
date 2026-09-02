@@ -62,6 +62,10 @@ USER root
 # Update and upgrade base OS packages
 RUN apt update && apt upgrade -y
 
+# Bookworm OpenCV 4.6 (.406) runtime libs are for robot_vision C++ extensions
+# (built against apt libopencv-dev in the builder stage). Python cv2 comes from
+# pip opencv-python-headless 4.13 in requirements-runtime.txt; the two stacks
+# are independent and intentionally version-skewed.
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \

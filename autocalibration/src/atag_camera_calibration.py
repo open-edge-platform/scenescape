@@ -212,8 +212,9 @@ class CameraCalibrationApriltag:
     """
     self.triangle_mesh, self.tensor_tmesh = extractTriangleMesh(self.map_info, DEFAULT_MESH_ROTATION)
 
-    # python:3.14-slim-bookworm apt Open3D often lacks EGL headless; for image maps detect
-    # apriltags on the source texture instead of rendering virtual camera tiles.
+    # Open3D cp314 pip wheel (open3d_cpu) often lacks EGL headless in slim images; for
+    # image maps detect apriltags on the source texture instead of rendering virtual
+    # camera tiles.
     if not self._offscreen_renderer_available():
       self._identify_apriltags_from_map_image()
       return
