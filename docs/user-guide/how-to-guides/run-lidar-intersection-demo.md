@@ -140,7 +140,7 @@ clones/builds anything (the several-minutes-first-run cost mentioned in
 1. Download the [V2X-Seq-SPD-Example](https://drive.google.com/file/d/1gjOmGEBMcipvDzu2zOrO9ex_OscUZMYY/view) `.zip` archive.
 
    > **Note:** \
-   > **Source:** Official sample dataset provided by Tsinghua University (AIR-THU). \
+   > **Source:** [Official sample dataset](https://github.com/AIR-THU/DAIR-V2X-Seq) provided by Tsinghua University (AIR-THU). The download archive above is a sample subset of the full dataset.\
    > **Manual Download Required:** Google Drive's virus scan prompt for large files makes scripted downloads (`wget`/`curl`) fail. **Download this file manually** via your browser and move it to your `Scenescape` directory.
 
 2. Extract it so the result is
