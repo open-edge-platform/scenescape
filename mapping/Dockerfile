@@ -77,7 +77,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy service files and requirements
 COPY mapping/src $SCENESCAPE_HOME/
-COPY requirements-open3d-cpu.txt tools/install-open3d-cpu.sh /tmp/
+COPY tools/install-open3d-cpu.sh /tmp/
 COPY mapping/requirements_api.txt $SCENESCAPE_HOME/
 COPY mapping/requirements_mapanything.txt $SCENESCAPE_HOME/
 COPY mapping/requirements_vggt.txt $SCENESCAPE_HOME/
@@ -102,8 +102,8 @@ RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
 
 # Install all Python dependencies in one layer
 RUN pip install --break-system-packages --ignore-installed --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
-    /tmp/install-open3d-cpu.sh /tmp/requirements-open3d-cpu.txt pip && \
-    rm -f /tmp/requirements-open3d-cpu.txt /tmp/install-open3d-cpu.sh && \
+    /tmp/install-open3d-cpu.sh "https://github.com/isl-org/Open3D/releases/download/main-devel/open3d_cpu-0.19.0%2Bcf1516a-cp314-cp314-manylinux_2_35_x86_64.whl" 508941daa9799d3447dd075f3ea8d06b84005a9bbb656f2e95d8cc60f53ffb16 pip && \
+    rm -f /tmp/install-open3d-cpu.sh && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
     cd /workspace/map-anything && \
     pip install --break-system-packages --ignore-installed --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_mapanything.txt && \

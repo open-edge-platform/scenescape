@@ -2,26 +2,16 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 #
-# Download and install the hash-pinned Open3D cp314 wheel from
-# requirements-open3d-cpu.txt. Used by Docker builds and test venv setup.
+# Download and install the hash-pinned Open3D cp314 wheel. Not on PyPI;
+# published on the Open3D main-devel GitHub release. Used by Docker builds
+# and test venv setup. pip --hash alone would require hashing all transitive
+# deps, so the hash is verified manually before install.
 
 set -euo pipefail
 
-REQ_FILE="${1:?requirements-open3d-cpu.txt path required}"
-PIP="${2:-pip3}"
-
-url=$(
-  grep -E '^https://' "$REQ_FILE" \
-    | sed 's/\\//g; s/[[:space:]]*$//; s/[[:space:]]\\$//'
-)
-hash=$(
-  grep -oE 'sha256:[a-f0-9]{64}' "$REQ_FILE" | head -1 | cut -d: -f2
-)
-
-if [[ -z "$url" || -z "$hash" ]]; then
-  echo "Could not parse wheel URL/hash from $REQ_FILE" >&2
-  exit 1
-fi
+url="${1:?Open3D wheel URL required}"
+hash="${2:?Open3D wheel sha256 required}"
+PIP="${3:-pip3}"
 
 wheel=/tmp/open3d_cpu-0.19.0+cf1516a-cp314-cp314-manylinux_2_35_x86_64.whl
 cleanup() { rm -f "$wheel"; }
