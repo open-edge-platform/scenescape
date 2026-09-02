@@ -4,7 +4,7 @@ This guide configures Visual Studio Code for optimal Scenescape development with
 
 ## Prerequisites
 
-- Ubuntu 26.04 LTS
+- Ubuntu 24.04 LTS or newer
 - Python 3.14
 - Git
 - Visual Studio Code

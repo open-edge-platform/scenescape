@@ -32,7 +32,7 @@ Firefox **must** be installed as a real binary (not snap), as snap Firefox is in
 
 **Manual setup**
 
-For Ubuntu 26.04+:
+For Ubuntu 24.04+:
 
 ```bash
 sudo add-apt-repository -y ppa:mozillateam/ppa

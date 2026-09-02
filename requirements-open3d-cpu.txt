@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Open3D CPU wheels for Python 3.14 (cp314). Not on PyPI yet; published on the
+# Open3D main-devel GitHub release. See https://www.open3d.org/docs/latest/dev_wheels.html
+#
+# GitHub release assets are not a pip --find-links index; install via direct wheel URL.
+https://github.com/isl-org/Open3D/releases/download/main-devel/open3d_cpu-0.19.0%2Bcf1516a-cp314-cp314-manylinux_2_35_x86_64.whl

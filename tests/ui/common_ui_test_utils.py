@@ -521,13 +521,14 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
   """
 
   browser.find_element(By.ID, 'cam_calibrate_1').click()
-  wait = WebDriverWait(browser, BROWSER_WAIT)
+  # WebGL viewport + imagesLoaded init can take well beyond the default short wait.
+  calib_wait = WebDriverWait(browser, 60)
   calibration_ready_script = """
     const calibration = window.camera_calibration;
     if (!calibration || !calibration.camCanvas || !calibration.viewport) {
       return {
         ready: false,
-        hasCalibration: false,
+        hasCalibration: !!(calibration && calibration.camCanvas && calibration.viewport),
         camPointCount: 0,
         mapPointCount: 0,
       };
@@ -560,13 +561,14 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
     };
   """
 
+  try:
+    calib_wait.until(
+      lambda drv: drv.execute_script(calibration_ready_script).get("hasCalibration"))
+    calib_wait.until(
+      lambda drv: drv.execute_script(calibration_ready_script).get("ready"))
+  except Exception:
+    pass
   calibration_state = browser.execute_script(calibration_ready_script)
-  if calibration_state.get("hasCalibration") and not calibration_state.get("ready"):
-    try:
-      wait.until(lambda drv: drv.execute_script(calibration_ready_script)["ready"])
-      calibration_state = browser.execute_script(calibration_ready_script)
-    except Exception:
-      calibration_state = browser.execute_script(calibration_ready_script)
 
   if not calibration_state.get("ready"):
     transforms_value = browser.execute_script(
@@ -599,6 +601,8 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
       const field = document.getElementById('id_transforms');
       if (field) {
         field.value = transforms;
+        field.dispatchEvent(new Event('input', {bubbles: true}));
+        field.dispatchEvent(new Event('change', {bubbles: true}));
       }
       """,
       updated_transforms,
@@ -609,9 +613,12 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
       f"{calibration_state}"
     )
     if save_calibration:
-      calibration_form = browser.find_element(By.ID, "calibration_form")
+      page_url_before_save = browser.current_url
       browser.find_element(By.NAME, "calibrate_save").click()
-      wait.until(EC.staleness_of(calibration_form))
+      # Save may show alert("Camera updated") before navigating away.
+      if not wait_for_save_complete(browser, 30, page_url_before_save):
+        print("Save Calibration did not complete (fallback mode)")
+        return False
       print("clicked 'Save Calibration' (fallback mode)")
     else:
       print("It has been chosen not to save the calibration changes.")
@@ -620,8 +627,10 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
   cam_points = browser.execute_script(
     "return Object.values(window.camera_calibration.camCanvas.getCalibrationPoints());"
   )
+  # Unscaled world coords — must match cameracalibrate.js save path
+  # (viewport.getCalibrationPoints() with scaled=false).
   map_points = browser.execute_script(
-    "return Object.values(window.camera_calibration.viewport.getCalibrationPoints(true));"
+    "return Object.values(window.camera_calibration.viewport.getCalibrationPoints());"
   )
   if not cam_points or not map_points:
     return False
@@ -646,9 +655,12 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
 
   print("Changed the Camera Perspective")
   if save_calibration:
-    calibration_form = browser.find_element(By.ID, "calibration_form")
+    page_url_before_save = browser.current_url
     browser.find_element(By.NAME, "calibrate_save").click()
-    wait.until(EC.staleness_of(calibration_form))
+    # Save shows alert("Camera updated") before navigating away.
+    if not wait_for_save_complete(browser, 30, page_url_before_save):
+      print("Save Calibration did not complete")
+      return False
     print("clicked 'Save Calibration'")
   else:
     print("It has been chosen not to save the calibration changes.")
@@ -806,13 +818,24 @@ def get_calibration_points(browser, calibration_type, initial_transforms=True):
     browser.execute_script("document.querySelectorAll('.display-none').forEach(e => {e.style.display = 'block';})")
     transforms_type = 'initial-id_transforms' if initial_transforms else 'id_transforms'
     init_id_transforms = browser.find_element(By.ID, transforms_type).get_attribute('value')
-    init_id_list = init_id_transforms.strip().split(",")
-    init_id_pairs = list(zip(map(float, init_id_list[::2]), map(float, init_id_list[1::2])))
+    init_id_list = [v for v in init_id_transforms.strip().split(",") if v.strip() != ""]
+    values = list(map(float, init_id_list))
+    # 3d-2d correspondence: 4 cam (x,y) + 4 map (x,y,z) => length % 5 == 0
+    if len(values) >= 10 and len(values) % 5 == 0:
+      split = (len(values) // 5) * 2
+      cam_vals = values[:split]
+      map_vals = values[split:]
+      cam_pairs = list(zip(cam_vals[::2], cam_vals[1::2]))
+      map_pairs = list(zip(map_vals[::3], map_vals[1::3]))
+    else:
+      pairs = list(zip(values[::2], values[1::2]))
+      cam_pairs = pairs[:4]
+      map_pairs = pairs[4:8]
     if calibration_type == 'camera':
-      calibration_values_init = init_id_pairs[:4]
+      calibration_values_init = cam_pairs[:4]
       print(f"Camera coordinate points: {calibration_values_init}")
     elif calibration_type == 'map':
-      calibration_values_init = init_id_pairs[4:8]
+      calibration_values_init = map_pairs[:4]
       print(f"Map coordinate points: {calibration_values_init}")
     else:
       raise ValueError("Invalid calibration type specified. Use 'camera' or 'map'.")
@@ -983,9 +1006,19 @@ def create_circle_sensor(browser, radius=250):
   @param    radius                     Radius of the circular area covered by the sensor.
   @return   True                       Returns True if the action is successful.
   """
-  browser.find_element(By.CSS_SELECTOR, "#id_area_1").click()
-  slider = browser.find_element(By.ID, "id_sensor_r")
+  area_circle = browser.find_element(By.CSS_SELECTOR, "#id_area_1")
+  area_circle.click()
+  # Ensure initArea runs even if Selenium click did not fire change (pane stays
+  # display:none and ActionChains then fails with MoveTargetOutOfBounds).
+  browser.execute_script(
+    "arguments[0].checked = true;"
+    "arguments[0].dispatchEvent(new Event('change', {bubbles: true}));",
+    area_circle,
+  )
+  slider = WebDriverWait(browser, 10).until(
+    EC.visibility_of_element_located((By.ID, "id_sensor_r")))
   browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", slider)
+  WebDriverWait(browser, 5).until(lambda b: slider.is_displayed())
   circle_action = browser.actionChains()
   circle_action.click_and_hold(slider).move_by_offset(radius, 0).release().perform()
   return save_sensor_calibration(browser)
@@ -1293,14 +1326,15 @@ def create_camera(browser, camera_name, camera_id, scene_name):
   print("Error while creating camera:",camera_name)
   return False
 
-def check_db_status(browser):
+def check_db_status(browser, scene_name=None):
   """! The purpose of this function is to make sure database is
   up before running the tests. This function will return true if
-  it's able to navigate to the 'Demo' scene page.
+  it's able to navigate to the named scene page (default Demo).
   @param    browser                    Object wrapping the Selenium driver.
+  @param    scene_name                 Optional scene name; defaults to Demo.
   @return   bool                       Boolean representing success.
   """
-  return navigate_to_scene(browser, TEST_SCENE_NAME)
+  return navigate_to_scene(browser, scene_name or TEST_SCENE_NAME)
 
 def navigate_to_scene(browser, scene_name):
   """! This function navigates to the 'Scenes' page, then waits for the Scene 'scene_name'
@@ -1707,21 +1741,33 @@ def mock_display(func=None, *, require_xvfb=False):
       if not require_xvfb:
         return f(*args, **kwargs)
 
+      # WSL/WSLg: Xvfb -displayfd often hangs or leaves Firefox on the host
+      # DISPLAY (:0). Force the classic display-number path and clear Wayland.
+      os.environ["PYVIRTUALDISPLAY_DISPLAYFD"] = "0"
+      os.environ.pop("WAYLAND_DISPLAY", None)
+      os.environ.pop("MOZ_HEADLESS", None)
+
       # Xvfb start can flake under load. Use a fresh Display per attempt so a
       # timed-out start cannot leave the object in a half-started state.
+      # Prefer pkill -x so the pattern cannot match this Python process argv.
       subprocess.run(
-        ["pkill", "-f", r"Xvfb -br -nolisten tcp -screen 0"],
+        ["pkill", "-x", "Xvfb"],
         check=False,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
       )
-      time.sleep(0.5)
+      time.sleep(1.0)
       display = None
       last_error = None
-      for _attempt in range(3):
+      old_display = os.environ.get("DISPLAY")
+      for _attempt in range(5):
         display = Display(visible=0, size=(1920, 1080))
         try:
           display.start()
+          # Ensure children (geckodriver/Firefox) see the virtual display.
+          os.environ["DISPLAY"] = f":{display.display}"
+          os.environ.pop("WAYLAND_DISPLAY", None)
+          os.environ.pop("MOZ_HEADLESS", None)
           last_error = None
           break
         except Exception as exc:
@@ -1731,7 +1777,11 @@ def mock_display(func=None, *, require_xvfb=False):
           except Exception:
             pass
           display = None
-          time.sleep(1.0)
+          if old_display is None:
+            os.environ.pop("DISPLAY", None)
+          else:
+            os.environ["DISPLAY"] = old_display
+          time.sleep(2.0)
       if last_error is not None or display is None:
         raise last_error if last_error is not None else RuntimeError("Xvfb failed to start")
       try:
@@ -1741,6 +1791,10 @@ def mock_display(func=None, *, require_xvfb=False):
           display.stop()
         except Exception:
           pass
+        if old_display is None:
+          os.environ.pop("DISPLAY", None)
+        else:
+          os.environ["DISPLAY"] = old_display
     return wrapper_mock_display
 
   if func is not None:

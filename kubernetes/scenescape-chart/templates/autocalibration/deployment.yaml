@@ -63,7 +63,7 @@ spec:
           - name: EGL_PLATFORM
             value: surfaceless
           - name: NETVLAD_MODEL_DIR
-            value: /usr/local/lib/python3.14/dist-packages/third_party/netvlad
+            value: /usr/local/lib/python3.14/site-packages/third_party/netvlad
           {{- if .Values.autocalibration.skipModelDownload }}
           - name: SKIP_MODEL_DOWNLOAD
             value: "1"

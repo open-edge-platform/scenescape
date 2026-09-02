@@ -50,7 +50,7 @@ LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platf
 ARG USER_ID=1001
 ARG GROUP_ID=1001
 ARG CERTDOMAIN=scenescape.intel.com
-# Ubuntu 26.04 ships Python 3.14; pip --break-system-packages installs to dist-packages.
+# python:3.14-slim-bookworm ships Python 3.14; pip installs to site-packages.
 ARG PY_LIB_DIR=python3.14
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
@@ -67,16 +67,15 @@ RUN : \
     && apt-get install -y --no-install-recommends \
     gosu \
     libgl1 \
-    libopencv-contrib410 \
-    libopencv-stitching410 \
-    libpython3.14 \
+    libopencv-contrib406 \
+    libopencv-stitching406 \
+    libatomic1 \
+    libusb-1.0-0 \
     netbase \
     python3 \
-    python3-open3d \
     python3-pip \
     python-is-python3 \
     sudo \
-    && rm -rf /usr/lib/x86_64-linux-gnu/libLLVM-15.so.1 \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN : \
@@ -88,10 +87,11 @@ RUN : \
     && chmod a+rX "${WSHOME}"
 
 # install only required runtime dependencies
-COPY controller/requirements-runtime.txt /tmp
+COPY requirements-open3d-cpu.txt /tmp/deps/
+COPY controller/requirements-runtime.txt /tmp/deps/controller/
 RUN : \
-    && pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
-    && rm -rf /tmp/requirements-runtime.txt
+    && pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir -r /tmp/deps/controller/requirements-runtime.txt \
+    && rm -rf /tmp/deps
 
 # WORKAROUND: Force upgrade protobuf to a secure version, even though vdms pins an older version.
 # This may break vdms if it is not compatible with newer protobuf, but is required to fix CVE-2025-4565.
@@ -99,10 +99,10 @@ RUN : \
 RUN pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir 'protobuf>=4.25.8'
 
 # copy installed scenescape packages from the previous stages
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/dist-packages/fast_geometry /usr/local/lib/${PY_LIB_DIR}/dist-packages/fast_geometry
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/dist-packages/scene_common /usr/local/lib/${PY_LIB_DIR}/dist-packages/scene_common
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/dist-packages/controller /usr/local/lib/${PY_LIB_DIR}/dist-packages/controller
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/dist-packages/robot_vision /usr/local/lib/${PY_LIB_DIR}/dist-packages/robot_vision
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/scene_common /usr/local/lib/${PY_LIB_DIR}/site-packages/scene_common
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/controller /usr/local/lib/${PY_LIB_DIR}/site-packages/controller
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/robot_vision /usr/local/lib/${PY_LIB_DIR}/site-packages/robot_vision
 
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json
 COPY --chown=$WSUSER:$WSUSER ./tracker/schema/scene-data.schema.json $SCENESCAPE_HOME/tracker/schema/scene-data.schema.json

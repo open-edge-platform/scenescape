@@ -101,33 +101,36 @@ class TestUUIDManagerConcurrentAccess:
     embedding = np.ones(8, dtype=np.float32)
     errors = []
 
-    def gather(i):
-      try:
-        obj = _make_object(f"rv-{i % 50}")
-        obj.reid = embedding.tobytes()
-        # Force queryable path without bbox via vetted provenance
-        obj.reid_provenance = {'vetted': True}
-        with patch.object(manager, '_extractReidEmbedding', return_value=embedding):
-          with patch.object(manager, 'isQueryableObservation', return_value=True):
-            with patch.object(manager, 'mayContributeEnrollmentEmbedding', return_value=True):
-              with patch.object(manager, 'isEnrollableObservation', return_value=False):
-                with patch.object(manager, '_ensureReIDDimensions', return_value=True):
-                  manager.gatherQualityVisualFeatures(obj)
-      except Exception as exc:  # noqa: BLE001
-        errors.append(exc)
+    # Patch once for the whole stress run — concurrent patch.object on the same
+    # manager races and can transiently delete methods under free-threading.
+    with patch.object(manager, '_extractReidEmbedding', return_value=embedding), \
+         patch.object(manager, 'isQueryableObservation', return_value=True), \
+         patch.object(manager, 'mayContributeEnrollmentEmbedding', return_value=True), \
+         patch.object(manager, 'isEnrollableObservation', return_value=False), \
+         patch.object(manager, '_ensureReIDDimensions', return_value=True):
 
-    def prune():
-      try:
-        tracked = [SimpleNamespace(id=f"rv-{i}") for i in range(0, 50, 2)]
-        manager.pruneInactiveTracks(tracked)
-      except Exception as exc:  # noqa: BLE001
-        errors.append(exc)
+      def gather(i):
+        try:
+          obj = _make_object(f"rv-{i % 50}")
+          obj.reid = embedding.tobytes()
+          # Force queryable path without bbox via vetted provenance
+          obj.reid_provenance = {'vetted': True}
+          manager.gatherQualityVisualFeatures(obj)
+        except Exception as exc:  # noqa: BLE001
+          errors.append(exc)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
-      futures = [pool.submit(gather, i) for i in range(400)]
-      futures += [pool.submit(prune) for _ in range(40)]
-      for fut in concurrent.futures.as_completed(futures):
-        fut.result()
+      def prune():
+        try:
+          tracked = [SimpleNamespace(id=f"rv-{i}") for i in range(0, 50, 2)]
+          manager.pruneInactiveTracks(tracked)
+        except Exception as exc:  # noqa: BLE001
+          errors.append(exc)
+
+      with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
+        futures = [pool.submit(gather, i) for i in range(400)]
+        futures += [pool.submit(prune) for _ in range(40)]
+        for fut in concurrent.futures.as_completed(futures):
+          fut.result()
 
     assert not errors, f"Feature map races: {errors}"
     # Surviving maps must remain plain dicts (not torn / non-iterable).

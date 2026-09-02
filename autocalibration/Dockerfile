@@ -63,7 +63,7 @@ RUN git submodule update --init && \
     mkdir build
 
 WORKDIR /tmp/apriltag/apriltag-dev/build
-# Ubuntu 26.04 ships CMake that rejects cmake_minimum_required < 3.5, and GCC 15
+# python:3.14-slim-bookworm ships CMake that rejects cmake_minimum_required < 3.5, and modern GCC
 # treats K&R empty parameter lists as (void). Raise the policy floor and compile
 # as gnu11 so the vendored apriltags submodule still builds.
 RUN cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
@@ -82,9 +82,7 @@ RUN mkdir -p third_party/netvlad && \
     touch third_party/__init__.py third_party/netvlad/__init__.py && \
     # Create setup.py without downloading the model
     echo "include third_party/netvlad/*" > MANIFEST.in && \
-    echo -e "from setuptools import setup, find_packages\n\
-    setup(name='third_party', version='1.0.0', packages=find_packages(),\n\
-    package_data={'': []}, include_package_data=True)" > setup.py && \
+    echo -e "from setuptools import setup, find_packages\nsetup(name='third_party', version='1.0.0', packages=find_packages(),\npackage_data={'': []}, include_package_data=True)" > setup.py && \
     python3 setup.py bdist_wheel && \
     cp dist/*.whl /output/
 
@@ -115,9 +113,9 @@ ENV CERTDOMAIN=${CERTDOMAIN}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
-ENV PYTHONPATH="/usr/local/lib/python3.14/dist-packages"
+ENV PYTHONPATH="/usr/local/lib/python3.14/site-packages"
 # Set model directory for on-demand loading
-ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.14/dist-packages/third_party/netvlad"
+ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.14/site-packages/third_party/netvlad"
 
 # Update and upgrade base OS packages
 RUN apt update && apt upgrade -y
@@ -126,7 +124,7 @@ RUN apt update && apt upgrade -y
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-open3d python3-pip python-is-python3 wget curl && \
+    libgl1 libegl1 libglib2.0-0 libgomp1 libatomic1 libusb-1.0-0 python3 python3-pip python-is-python3 wget curl && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
@@ -142,21 +140,22 @@ RUN mkdir -p $NETVLAD_MODEL_DIR /tmp && \
     chmod a=rwx,+t /tmp
 
 # Copy scene_common and fast_geometry from builder stage BEFORE installing other packages
-COPY --from=autocalibration-builder /usr/local/lib/python3.14/dist-packages/fast_geometry /usr/local/lib/python3.14/dist-packages/fast_geometry
-COPY --from=autocalibration-builder /usr/local/lib/python3.14/dist-packages/scene_common /usr/local/lib/python3.14/dist-packages/scene_common
+COPY --from=autocalibration-builder /usr/local/lib/python3.14/site-packages/fast_geometry /usr/local/lib/python3.14/site-packages/fast_geometry
+COPY --from=autocalibration-builder /usr/local/lib/python3.14/site-packages/scene_common /usr/local/lib/python3.14/site-packages/scene_common
 
 # Copy AprilTag shared library
-COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.14/dist-packages/dt_apriltags/
+COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.14/site-packages/dt_apriltags/
 
 # Install Python packages in one layer
-COPY autocalibration/requirements-runtime.txt /tmp/
+COPY requirements-open3d-cpu.txt /tmp/deps/
+COPY autocalibration/requirements-runtime.txt /tmp/deps/autocalibration/
 COPY autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --break-system-packages --ignore-installed --no-cache-dir \
     --extra-index-url https://download.pytorch.org/whl/cpu \
-    -r /tmp/requirements-runtime.txt && \
+    -r /tmp/deps/autocalibration/requirements-runtime.txt && \
     chmod +x /usr/local/bin/download_models.py && \
-    rm -rf /tmp/requirements-runtime.txt
+    rm -rf /tmp/deps
 
 # Copy built wheels and install them
 COPY --from=autocalibration-builder /output/*.whl /tmp/

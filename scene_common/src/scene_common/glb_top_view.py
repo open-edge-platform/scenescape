@@ -35,7 +35,7 @@ def materialToMaterialRecord(mat):
 def _renderTopViewCpuFallback(triangle_mesh, glb_size, res_x, res_y):
   """Top-down rasterization when Filament OffscreenRenderer / EGL is unavailable.
 
-  Ubuntu 26.04 apt Open3D builds often lack EGL headless support, which would
+  python:3.14-slim-bookworm apt Open3D builds often lack EGL headless support, which would
   otherwise make GLB scene create fail with HTTP 500.
   """
   floor_width = float(glb_size[0]) if glb_size[0] > 0 else 1.0
@@ -84,7 +84,7 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
   try:
     renderer = rendering.OffscreenRenderer(res_x, res_y)
   except Exception as exc:
-    # Ubuntu 26.04 apt Open3D often lacks EGL headless support (RuntimeError),
+    # python:3.14-slim-bookworm apt Open3D often lacks EGL headless support (RuntimeError),
     # but some builds surface other failures during renderer construction.
     log.warning(f"Open3D OffscreenRenderer unavailable ({exc}); using CPU top-down fallback")
     return _renderTopViewCpuFallback(triangle_mesh, glb_size, res_x, res_y)

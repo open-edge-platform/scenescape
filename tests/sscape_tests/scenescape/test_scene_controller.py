@@ -542,6 +542,8 @@ class TestSceneControllerPublishers:
 
   def test_track_has_reid_enrollment_for_pending_vectors_or_database_id(self):
     """Enrollment advertising covers pending writes, gathering, and rematched database ids."""
+    from controller.uuid_manager import UUIDManager
+
     scene_controller = SceneController.__new__(SceneController)
     uuid_manager = SimpleNamespace(
       features_for_database={},
@@ -550,9 +552,9 @@ class TestSceneControllerPublishers:
       quality_features={},
       active_query={},
       active_ids={},
-      active_ids_lock=MagicMock())
-    uuid_manager.active_ids_lock.__enter__ = MagicMock(return_value=None)
-    uuid_manager.active_ids_lock.__exit__ = MagicMock(return_value=False)
+      active_ids_lock=threading.Lock())
+    uuid_manager.hasPendingReidEnrollment = (
+      lambda rv_id, um=uuid_manager: UUIDManager.hasPendingReidEnrollment(um, rv_id))
     scene = self._scene_with_category_uuid_manager(uuid_manager)
     obj = SimpleNamespace(rv_id='track-1', category='person')
 
@@ -680,6 +682,7 @@ class TestHierarchyReidPublishPolicyResolvesCorrectUUIDManager:
     person_um.active_query = {}
     person_um.active_ids = {}
     person_um.active_ids_lock = threading.Lock()
+    person_um.hasPendingReidEnrollment.return_value = True
 
     scene = SimpleNamespace(
       tracker=SimpleNamespace(
@@ -690,6 +693,7 @@ class TestHierarchyReidPublishPolicyResolvesCorrectUUIDManager:
     aobj = SimpleNamespace(rv_id=42, category='person')
 
     assert scene_controller._trackHasReidEnrollment(scene, aobj) is True
+    person_um.hasPendingReidEnrollment.assert_called_once_with(42)
 
 
 class TestParseTrustedSources:

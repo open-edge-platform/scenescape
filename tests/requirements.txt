@@ -33,8 +33,7 @@ trimesh==4.11.5
 shapely==2.1.2
 mapbox-earcut==2.0.0
 fastjsonschema==2.21.2
-# Host unit tests: PyPI open3d when wheels exist. Container images use apt python3-open3d.
-open3d-cpu==0.19.0; python_version < "3.14"
+-r ../requirements-open3d-cpu.txt
 opentelemetry-api==1.38.0
 opentelemetry-sdk==1.38.0
 opentelemetry-exporter-otlp-proto-grpc==1.38.0

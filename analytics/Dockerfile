@@ -50,10 +50,10 @@ RUN apt update && apt upgrade -y \
     gosu \
     libgl1 \
     libgomp1 \
-    libpython3.14 \
+    libatomic1 \
+    libusb-1.0-0 \
     netbase \
     python3 \
-    python3-open3d \
     python3-pip \
     python-is-python3 \
     sudo \
@@ -66,14 +66,15 @@ RUN : \
     && eval WSHOME=~$WSUSER \
     && chmod a+rX "${WSHOME}"
 
-COPY analytics/requirements-runtime.txt /tmp
-RUN pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
-    && rm -rf /tmp/requirements-runtime.txt
+COPY requirements-open3d-cpu.txt /tmp/deps/
+COPY analytics/requirements-runtime.txt /tmp/deps/analytics/
+RUN pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir -r /tmp/deps/analytics/requirements-runtime.txt \
+    && rm -rf /tmp/deps
 
 # Copy installed packages from builder
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/${PY_LIB_DIR}/dist-packages/fast_geometry /usr/local/lib/${PY_LIB_DIR}/dist-packages/fast_geometry
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/${PY_LIB_DIR}/dist-packages/scene_common /usr/local/lib/${PY_LIB_DIR}/dist-packages/scene_common
-COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/${PY_LIB_DIR}/dist-packages/analytics /usr/local/lib/${PY_LIB_DIR}/dist-packages/analytics
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/scene_common /usr/local/lib/${PY_LIB_DIR}/site-packages/scene_common
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/analytics /usr/local/lib/${PY_LIB_DIR}/site-packages/analytics
 
 # Schema file consumed by the analytics service at startup
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json

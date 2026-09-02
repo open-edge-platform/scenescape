@@ -14,7 +14,7 @@ This page provides requirements to help you set up and run Scenescape efficientl
 
 ## Operating Systems
 
-- Ubuntu 26.04 LTS
+- Ubuntu 24.04 LTS or newer (Python 3.14)
 
 ## Required Software
 

@@ -46,14 +46,14 @@ RUN pip install --break-system-packages --ignore-installed --no-cache-dir \
     -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/*.txt
 
-# Copy compiled packages from builder (use system dist-packages directly)
+# Copy compiled packages from builder (use system site-packages directly)
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-cluster-analytics-builder \
-    /usr/local/lib/python3.14/dist-packages/scene_common \
-    /usr/local/lib/python3.14/dist-packages/scene_common
+    /usr/local/lib/python3.14/site-packages/scene_common \
+    /usr/local/lib/python3.14/site-packages/scene_common
 
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-cluster-analytics-builder \
-    /usr/local/lib/python3.14/dist-packages/fast_geometry \
-    /usr/local/lib/python3.14/dist-packages/fast_geometry
+    /usr/local/lib/python3.14/site-packages/fast_geometry \
+    /usr/local/lib/python3.14/site-packages/fast_geometry
 
 # Copy tools
 COPY --chown=$USER_ID:$GROUP_ID --from=scenescape-cluster-analytics-builder \

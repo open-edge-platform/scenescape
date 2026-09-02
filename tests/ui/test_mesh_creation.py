@@ -68,10 +68,11 @@ def create_mesh_from_video(browser, video_file):
     raise AssertionError("Timed out waiting for mesh generation success alert from video")
   return
 
-def test_mesh_creation(params, record_xml_attribute):
+def test_mesh_creation(params, record_xml_attribute, repo_root):
   """ Test case to verify mesh creation from cameras and video file.
   @param    params                  Test parameters.
   @param    record_xml_attribute     Function to record test attributes in XML report.
+  @param    repo_root               Absolute path to the Scenescape repository root.
   """
   TEST_NAME = "NEX-T10470"
   record_xml_attribute("name", TEST_NAME)
@@ -80,7 +81,7 @@ def test_mesh_creation(params, record_xml_attribute):
   try:
     print("Executing: " + TEST_NAME)
     browser = Browser()
-    video_file = "/workspace/sample_data/apriltag-cam1.mp4"
+    video_file = f"{repo_root}/sample_data/apriltag-cam1.mp4"
     assert common.check_page_login(browser, params)
     assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
     assert common.delete_camera(browser, "camera3")

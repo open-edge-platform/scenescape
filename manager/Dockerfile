@@ -84,11 +84,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libgl1 \
     libapache2-mod-wsgi-py3 \
     libglib2.0-0 \
+    libatomic1 \
+    libusb-1.0-0 \
     libgomp1 \
     mosquitto-clients \
     netcat-openbsd \
     python3 \
-    python3-open3d \
     python3-pip \
     python-is-python3 \
     sudo \
@@ -96,11 +97,13 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && rm -rf /var/lib/apt/lists/*
 
 # Runtime dependencies
-COPY ./manager/requirements-runtime.txt /tmp
+COPY requirements-open3d-cpu.txt /tmp/deps/
+COPY ./manager/requirements-runtime.txt /tmp/deps/manager/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install --break-system-packages --ignore-installed --no-cache-dir \
     --extra-index-url https://download.pytorch.org/whl/cpu \
-    -r /tmp/requirements-runtime.txt
+    -r /tmp/deps/manager/requirements-runtime.txt \
+    && rm -rf /tmp/deps
 
 COPY --from=scenescape-manager-builder /usr/lib/apache2/modules/mod_qos.so /usr/lib/apache2/modules/mod_qos.so
 RUN echo "LoadModule qos_module /usr/lib/apache2/modules/mod_qos.so" > /etc/apache2/mods-available/qos.load
@@ -158,8 +161,8 @@ RUN mkdir -p $SCENESCAPE_HOME/manager
 COPY ./manager/src/manager $SCENESCAPE_HOME/manager
 COPY ./manager/src/manage.py $SCENESCAPE_HOME/manage.py
 COPY ./version.txt $SCENESCAPE_HOME/manager/
-COPY --from=scenescape-manager-builder /usr/local/lib/python3.14/dist-packages/fast_geometry /usr/local/lib/python3.14/dist-packages/fast_geometry
-COPY --from=scenescape-manager-builder /usr/local/lib/python3.14/dist-packages/scene_common /usr/local/lib/python3.14/dist-packages/scene_common
+COPY --from=scenescape-manager-builder /usr/local/lib/python3.14/site-packages/fast_geometry /usr/local/lib/python3.14/site-packages/fast_geometry
+COPY --from=scenescape-manager-builder /usr/local/lib/python3.14/site-packages/scene_common /usr/local/lib/python3.14/site-packages/scene_common
 
 # Install Scenescape
 RUN : \
@@ -169,7 +172,7 @@ RUN : \
     ; chown "$WSUSER:$WSUSER" "$WSHOME/Scenescape/manager/settings_local.py" \
     ; pip3 install --break-system-packages --ignore-installed --no-cache-dir "$SCENESCAPE_HOME/manager/" \
     ;
-RUN cp -R /usr/local/lib/python3.*/dist-packages/django/contrib/admin/static/ $SCENESCAPE_HOME/
+RUN cp -R /usr/local/lib/python3.*/site-packages/django/contrib/admin/static/ $SCENESCAPE_HOME/
 
 RUN chmod -R u=rwX,go=rX $SCENESCAPE_HOME/manager/static/assets/
 RUN chmod -R u=rwX,go=rX $SCENESCAPE_HOME/manager/static/examples/

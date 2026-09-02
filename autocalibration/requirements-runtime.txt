@@ -12,7 +12,7 @@ kornia==0.8.3
 kubernetes==36.0.2
 matplotlib==3.11.0
 numpy==2.3.5
-# open3d-cpu[headless]==0.19.0  # provided by apt python3-open3d on Ubuntu 26.04
+-r ../requirements-open3d-cpu.txt
 opencv-python-headless==4.13.0.92
 paho-mqtt==2.1.0
 pillow==12.3.0

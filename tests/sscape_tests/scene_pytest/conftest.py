@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
+from threading import Lock
 from unittest.mock import patch, MagicMock
 
 from scene_common.scene_model import SceneModel as Scene
@@ -21,6 +22,7 @@ class _StubTracking(Tracking):
   def __init__(self, *args, reid_config_data=None, **kwargs):
     # Skip Tracking.__init__ to avoid spawning UUIDManager threads.
     # Only initialize the attributes that Scene/tests actually access.
+    self._state_lock = Lock()
     self.trackers = {}
     self.all_tracker_objects = self.curObjects = []
     self.already_tracked_objects = []

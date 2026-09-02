@@ -475,8 +475,11 @@ class TestUUIDManagerPreviousIdChainBehavior:
     obj.gid = gid
     obj.category = 'person'
     obj.metadata = {}
+    obj.when = 0.0
     obj.reid_state = ReidState.PENDING_COLLECTION
     obj.similarity = None
+    obj.chain_data = None
+    obj.reid_provenance = None
     obj.save_previous_object_id = Mock()
     self.manager.quality_features[rv_id] = []
     return obj
