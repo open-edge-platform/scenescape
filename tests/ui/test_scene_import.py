@@ -311,7 +311,7 @@ class SceneImportTest(UserInterfaceTest):
     ("Intersection-Demo.zip", '0', TEST_WAIT_TIME * 6) #Intersection demo
   ]
 )
-def test_scene_import(scenescape_env, request, record_xml_attribute, zipFile, expected, waitTime):
+def test_scene_import(demo_scene, request, record_xml_attribute, zipFile, expected, waitTime):
   test = SceneImportTest(TEST_NAME, request, record_xml_attribute, zipFile, expected, waitTime)
   test.checkForMalfunctions()
   assert test.exitCode == 0

@@ -146,7 +146,7 @@ def check_person_marks(browser, camera_id):
   return False
 
 @pytest.mark.basic_acceptance
-def test_out_of_box(params, record_xml_attribute):
+def test_out_of_box(demo_scene, params, record_xml_attribute):
   """! Checks that the person marks in the scene and the image stream for
   camera 1 are both changing in time.
   @param    params                  Dict of test parameters.

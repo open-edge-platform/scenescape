@@ -1104,23 +1104,28 @@ _DB_NOTIFY_TIMEOUT = 20
 _DELETE_SETTLE_TIMEOUT = 15
 
 
-def _rest_results(getter, filter_params):
-  """Return the "results" list of a REST list call, or [] when it fails.
-
-  The manager returns an empty list for unsupported filter keys, so a
-  failed lookup can never be mistaken for "everything matches".
-  """
+def _try_rest_results(getter, filter_params):
+  """Return "(lookup_succeeded, results)" for a REST list call."""
   try:
     response = getter(filter_params)
   except Exception as exc:
     logger.warning("scene_factory REST lookup %s failed: %s", filter_params, exc)
-    return []
+    return False, []
+  if getattr(response, 'errors', None):
+    logger.warning("scene_factory REST lookup %s returned errors: %s",
+                   filter_params, response.errors)
+    return False, []
   if not response:
-    return []
+    return True, []
   try:
-    return response.get('results', []) or []
+    return True, response.get('results', []) or []
   except AttributeError:
-    return []
+    return True, []
+
+
+def _rest_results(getter, filter_params):
+  """Return the "results" list of a REST list call, or [] when it fails."""
+  return _try_rest_results(getter, filter_params)[1]
 
 
 def _wait_for_scene(rest, uid, timeout=_SCENE_READY_TIMEOUT):
@@ -1166,10 +1171,16 @@ def _wait_for_cameras(rest, scene_uid, cameras, timeout=_SCENE_READY_TIMEOUT):
 
 
 def _wait_until_absent(getter, name, timeout=_DELETE_SETTLE_TIMEOUT):
-  """Block until no object called *name* is returned by *getter*."""
+  """Block until no object called *name* is returned by *getter*.
+
+  Only a lookup that actually succeeded can prove absence; a failed one is
+  retried until the deadline so a transient REST error is never mistaken
+  for a successful delete.
+  """
   deadline = time.monotonic() + timeout
   while True:
-    if not _rest_results(getter, {'name': name}):
+    found, results = _try_rest_results(getter, {'name': name})
+    if found and not results:
       return True
     if time.monotonic() >= deadline:
       return False
@@ -1241,6 +1252,8 @@ def _await_database(watcher, action, description):
     return action()
   watcher.clear()
   result = action()
+  if not result:
+    return result
   if not watcher.wait(_DB_NOTIFY_TIMEOUT):
     logger.warning("scene_factory saw no CMD_DATABASE notification after %s",
                    description)

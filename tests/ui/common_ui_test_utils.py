@@ -989,6 +989,34 @@ def create_sensor_from_sensors_page(browser, sensor_id, sensor_name, scene_name)
   print("Error while creating sensor:", sensor_name)
   return False
 
+def wait_for_save_complete(browser, timeout, save_page_url):
+  """! Waits for a camera save to finish after the Save button was clicked.
+
+  Saving dispatches the form submit only after an alert ("Camera updated")
+  has been dismissed and an async MQTT round trip completed, so the save is
+  only done once the browser has navigated away from *save_page_url*.
+
+  @param    browser         Object wrapping the Selenium driver.
+  @param    timeout         Seconds to wait for the alert and the navigation.
+  @param    save_page_url   URL of the page the Save button was clicked on.
+  @return   bool            True when the save completed within *timeout*.
+  """
+  deadline = time.time() + timeout
+  try:
+    WebDriverWait(browser, max(0, deadline - time.time())).until(
+      EC.alert_is_present())
+    browser.switch_to.alert.accept()
+  except TimeoutException:
+    # Some flows save without alerting; the navigation below is the real signal.
+    print("No save alert appeared; waiting for navigation instead.")
+  try:
+    WebDriverWait(browser, max(0, deadline - time.time())).until(
+      lambda driver: driver.current_url != save_page_url)
+  except TimeoutException:
+    print(f"Save did not navigate away from {save_page_url!r} within {timeout}s")
+    return False
+  return True
+
 def save_sensor_calibration(browser):
   """! Saves sensor calibration in the Manage Sensor tab.
   @param    browser                    Object wrapping the Selenium driver.
