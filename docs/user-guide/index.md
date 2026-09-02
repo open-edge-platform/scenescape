@@ -5,7 +5,7 @@
 
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/release-2026.2.0">
      GitHub
   </a>
   <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/README.md">
@@ -138,7 +138,7 @@ API Reference <./api-reference.md>
 Defining Object Properties <./other-topics/how-to-define-object-properties.md>
 Enabling Re-identification <./other-topics/how-to-enable-reidentification.md>
 Enabling Observability (Experimental) <./other-topics/how-to-enable-observability.md>
-Integrating Intel® Geti™ AI Models <./other-topics/how-to-integrate-geti-trained-model.md>
+Integrating Geti™ AI Models <./other-topics/how-to-integrate-geti-trained-model.md>
 Configuring DL Streamer Video Pipeline <./other-topics/how-to-configure-dlstreamer-video-pipeline.md>
 Model configuration file format <./other-topics/model-configuration-file-format.md>
 Running License Plate Recognition with 3D Object Detection <./other-topics/how-to-run-LPR-with-3D-object-detection.md>

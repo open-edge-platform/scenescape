@@ -128,12 +128,12 @@ curl -sk -X POST https://<manager-host>/api/v1/sensor \
 
 For the full field reference (all accepted fields, `area`/`singleton_type` enum values), see the
 canonical OpenAPI spec: [API Reference](../../api-reference.md) (source:
-`docs/user-guide/api-docs/api.yaml`, `Singleton` schema). The API reference doesn't capture these
+`docs/user-guide/api-docs/api.yaml`, `Singleton` schema). The API reference does not capture these
 validation rules, which only live in server-side logic:
 
 - `center`+`radius` are required when `area` is `circle`; `points` is required when `area` is
   `poly`.
-- If `sensor_id` isn't supplied on create, it defaults to `name` with spaces replaced by
+- If `sensor_id` is not supplied on create, it defaults to `name` with spaces replaced by
   underscores.
 - `color_ranges.sectors[].color` must be one of `green`, `yellow`, or `red`:
   ```json
