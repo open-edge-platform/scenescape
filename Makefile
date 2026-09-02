@@ -129,6 +129,7 @@ help:
 	@echo "  run_unit_tests              Run unit tests"
 	@echo "  run_stability_tests         Run stability tests"
 	@echo "  run_performance_tests       Run performance tests"
+	@echo "  run_performance_degradation_test  Run long-run performance degradation test"
 	@echo "  run_metric_tests            Run metric tests"
 	@echo "  setup-pytest                Create tests/.venv and install dependencies"
 	@echo ""
@@ -479,6 +480,16 @@ run_stability_tests: setup-tests
 		STABILITY_HOURS=$(HOURS) \
 		$(PYTEST) $(TESTS_DIR)/system/stability/ $(PYTEST_FLAGS) || (echo "Stability tests failed" && exit 1)
 	@echo "DONE ==> Running stability tests"
+
+.PHONY: run_performance_degradation_test
+run_performance_degradation_test: setup-tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	$(eval HOURS ?= 2)
+	@echo "Running performance degradation test..."
+	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
+		PERFORMANCE_HOURS=$(HOURS) \
+		$(PYTEST) $(TESTS_DIR)/system/performance/ $(PYTEST_FLAGS) || (echo "Performance degradation test failed" && exit 1)
+	@echo "DONE ==> Running performance degradation test"
 
 # --- Performance and metric tests ---
 
