@@ -12,6 +12,8 @@ kornia==0.8.3
 kubernetes==36.0.2
 matplotlib==3.11.0
 numpy==2.3.5
+# Not on PyPI; published on the Open3D main-devel GitHub release.
+open3d_cpu @ https://github.com/isl-org/Open3D/releases/download/main-devel/open3d_cpu-0.19.0%2Bcf1516a-cp314-cp314-manylinux_2_35_x86_64.whl
 opencv-python-headless==4.13.0.92
 paho-mqtt==2.1.0
 pillow==12.3.0
