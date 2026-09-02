@@ -3,6 +3,9 @@
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/release-2026.2.0/cluster_analytics">
      GitHub
   </a>
+  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/cluster_analytics/README.md">
+     Readme
+  </a>
 </div>
 hide_directive-->
 

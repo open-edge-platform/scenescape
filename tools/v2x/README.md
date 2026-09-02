@@ -43,7 +43,7 @@ All configuration is done via environment variables:
 | `MQTT_TLS_INSECURE` | Skip TLS certificate verification (insecure) | `true`                        |
 | `MQTT_CA_CERT`      | Path to CA certificate file for TLS          | _(empty)_                     |
 
-> **Note**: The bridge automatically subscribes to **all regions** using the wildcard topic `scenescape/data/region/+/#`
+> **Note:** The bridge automatically subscribes to **all regions** using the wildcard topic `scenescape/data/region/+/#`
 >
 > **Security**:
 >
@@ -58,7 +58,7 @@ All configuration is done via environment variables:
 | `V2X_API_URL`     | V2X Hub API endpoint          | `http://localhost:9000` |
 | `V2X_API_TIMEOUT` | API request timeout (seconds) | `5`                     |
 
-> **Note**: The default `V2X_API_URL` of `http://localhost:9000` will only work when running directly on the host or with `--network host`. When running in a Docker container on a bridge network, you must set this to the host machine's IP address since V2X Hub runs with `network_mode: host`.
+> **Note:** The default `V2X_API_URL` of `http://localhost:9000` will only work when running directly on the host or with `--network host`. When running in a Docker container on a bridge network, you must set this to the host machine's IP address since V2X Hub runs with `network_mode: host`.
 
 ### Logging Configuration
 
@@ -129,7 +129,7 @@ docker run --network <scenescape-network> \
   scenescape-v2x-bridge
 ```
 
-> **Note**: Replace `<scenescape-network>` with your Scenescape Docker network name (e.g. `metro-vision-ai-app-recipe_scenescape`) and `<host-ip>` with your host machine's IP address where V2X Hub is.
+> **Note:** Replace `<scenescape-network>` with your Scenescape Docker network name (e.g. `metro-vision-ai-app-recipe_scenescape`) and `<host-ip>` with your host machine's IP address where V2X Hub is.
 
 Or in docker-compose:
 
@@ -145,7 +145,7 @@ services:
       - V2X_API_URL=http://<host-ip>:9000
 ```
 
-> **Note**: Since V2X Hub runs with `network_mode: host`, you need to use the host machine's IP address (not `localhost`) for `V2X_API_URL`.
+> **Note:** Since V2X Hub runs with `network_mode: host`, you need to use the host machine's IP address (not `localhost`) for `V2X_API_URL`.
 
 ## How It Works
 
@@ -157,7 +157,7 @@ services:
 
 ## Data Flow
 
-```
+```text
 Scenescape Detection
     ↓ (MQTT)
 MQTT Broker
@@ -192,7 +192,7 @@ An example setup to run the bridge can be achieved following the steps:
 
    An example application used is Smart-Intersection. Follow the [installation instructions to get started](https://github.com/open-edge-platform/edge-ai-suites/blob/release-2026.2.0/metro-ai-suite/metro-vision-ai-app-recipe/smart-intersection/docs/user-guide/get-started.md).
 
-   > **Note**: Change the webUI port from `443:443` to `<port>:443` in docker-compose file to avoid clashing with V2XHUB.
+   > **Note:** Change the webUI port from `443:443` to `<port>:443` in docker-compose file to avoid clashing with V2XHUB.
 
 2. Install V2XHUB
 
@@ -200,7 +200,7 @@ An example setup to run the bridge can be achieved following the steps:
 
 3. Access V2XHUB UI and enable Pedestrian Plugin.
 
-   > **Note**: Change the IP address in the UI from localhost to your `<host-ip>`.
+   > **Note:** Change the IP address in the UI from localhost to your `<host-ip>`.
    > ![alt text](images/v2x-address.png)
 
 4. Update the Pedestrian plugin configuration.
@@ -221,6 +221,6 @@ An example setup to run the bridge can be achieved following the steps:
 
 ## Related Documentation
 
-- [Scenescape Documentation](https://github.com/open-edge-platform/scenescape)
+- [Scenescape Documentation](https://docs.openedgeplatform.intel.com/2026.2/scenescape/index.html)
 - [V2X Hub Documentation](https://github.com/usdot-fhwa-OPS/V2X-Hub)
 - [J2735 PSM Standard](https://www.sae.org/standards/j2735_202007-v2x-communications-message-set-dictionary)

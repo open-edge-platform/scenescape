@@ -1,31 +1,31 @@
-# How to Integrate Intel® Geti™ AI Models with Scenescape
+# How to Integrate Geti™ AI Models with Scenescape
 
-This guide provides step-by-step instructions to train and integrate a custom AI model using the Intel® Geti™ platform with Scenescape. By completing this guide, you will:
+This guide provides step-by-step instructions to train and integrate a custom AI model using the Geti™ platform with Scenescape. By completing this guide, you will:
 
-- Train and export a custom AI model from Intel® Geti™.
+- Train and export a custom AI model from Geti™.
 - Integrate the model into the Scenescape pipeline.
 - Validate inference results visually.
 
-This task is important for deploying and validating custom vision models in production scenarios using Scenescape. If you’re new to Intel® Geti™, review [Intel® Geti™](https://www.intel.com/content/www/us/en/developer/tools/tiber/edge-platform/model-builder.html)
+This task is important for deploying and validating custom vision models in production scenarios using Scenescape. If you are new to Geti™, review [Geti™](https://www.intel.com/content/www/us/en/developer/tools/tiber/edge-platform/model-builder.html)
 
 ## Prerequisites
 
 Before You Begin, ensure the following:
 
-- **Dependencies Installed**: Docker, Docker Compose, and required Geti/Scenescape files.
+- **Dependencies Installed**: Docker, Docker Compose, and required Geti™/Scenescape files.
 - **Permissions**: Sufficient system access to configure files and run Docker containers.
 
 This guide assumes familiarity with basic machine learning and Docker concepts. If needed, see:
 
-- [Intel® Geti™ Platform Guide](https://docs.geti.intel.com/)
+- [Geti™ Platform Guide](https://docs.geti.intel.com/)
 - [OpenVINO™ Toolkit Overview](https://docs.openvino.ai/2026/index.html)
 
-## Steps to Integrate Geti AI Models
+## Steps to Integrate Geti™ AI Models
 
-1. **Train and Export the Model in Intel® Geti™**:
-   - **Login to your Geti instance**
+1. **Train and Export the Model in Geti™**:
+   - **Login to your Geti™ instance**
      ![Home page](../_assets/geti/homepage.png)
-   - **Create a project in Geti for your use case. Example: Vehicle-detection**
+   - **Create a project in Geti™ for your use case. Example: Vehicle-detection**
      ![create project](../_assets/geti/create-project.png)
    - **Create labels**: Add a label for each type of object, by filling in the text box and clicking Create label. Example: vehicle, person
      ![create label](../_assets/geti/create-label.png)
@@ -37,9 +37,9 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
      ![start model training](../_assets/geti/model-training.png)
    - **Your pre-trained model is ready**
      ![trained model training](../_assets/geti/trained-model.png)
-   - **Optimize model**: Intel® Geti™ builds a baseline model and an OpenVINO™ optimized model. You can improve the model performance using OpenVINO™ optimization techniques.
+   - **Optimize model**: Geti™ builds a baseline model and an OpenVINO™ optimized model. You can improve the model performance using OpenVINO™ optimization techniques.
      ![optimized model](../_assets/geti/optimize-model.png)
-   - **Download the trained model**: Each trained model is exported from Intel® Geti™ as a zip archive that includes a simple demo to visualize the results of model inference. We will only utilize a few files from this archive.
+   - **Download the trained model**: Each trained model is exported from Geti™ as a zip archive that includes a simple demo to visualize the results of model inference. We will only utilize a few files from this archive.
      ![download models](../_assets/geti/download-model.png)
 
    **Expected Output**:
@@ -59,8 +59,8 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
      - `demo.py`
      - `requirements.txt`
 
-2. **Configuring DL Streamer Pipeline Server with new Geti Model**
-   Follow documentation [here](https://github.com/open-edge-platform/edge-ai-libraries/blob/release-2026.2.0/microservices/dlstreamer-pipeline-server/docs/user-guide/get-started.md) to use the newly trained Geti model with gvadetect and the [How to Configure DL Streamer Video Pipeline](how-to-configure-dlstreamer-video-pipeline.md) to add custom models and configure the entire pipeline for enabling ingestion by Scenescape.
+2. **Configuring DL Streamer Pipeline Server with new Geti™ Model**
+   Follow the [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/dlstreamer-pipeline-server/get-started.html) to use the newly trained Geti™ model with gvadetect and the [How to Configure DL Streamer Video Pipeline](how-to-configure-dlstreamer-video-pipeline.md) to add custom models and configure the entire pipeline for enabling ingestion by Scenescape.
 
 3. **Deploy Scenescape** (see [Docker Compose Profiles](../get-started/installation.md#docker-compose-profiles) for details on choosing profiles):
 
@@ -74,5 +74,5 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
 
 ## Supporting Resources
 
-- [Intel® Geti™ Platform](https://geti.intel.com/platform)
+- [Geti™ Platform](https://geti.intel.com/platform)
 - [OpenVINO™ Model Server Docs](https://docs.openvino.ai/2026/model-server/ovms_what_is_openvino_model_server.html)
