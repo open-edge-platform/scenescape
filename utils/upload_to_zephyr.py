@@ -34,15 +34,15 @@ def upload_zephyr_results(
         f"tests from Jira ({len(test_from_jira)} lookup aliases)")
     assignees: dict = {}
 
-    # if tests are not found in Jira, list them and raise an exception
+    # Unmapped tests are skipped rather than fatal, so the rest still upload.
     missing_tests = [tc_key for tc_key in results_exec + results_pass + results_fail + results_skip if tc_key not in test_from_jira]
-    # if missing_tests:
-    #     logging.error(f"Tests not found in Jira: {missing_tests}")
-    #     #write not found tests in file for debugging
-    #     with open('not_found.txt', 'w') as f:
-    #         for test in missing_tests:
-    #             f.write(f"{test}\n")
-    #     raise jira.JiraException(f"Tests not found in Jira: {missing_tests}")
+    if missing_tests:
+        logging.warning(
+            f"Skipping {len(missing_tests)} tests not found in Jira; "
+            f"see /tmp/not_found.txt")
+        with open('/tmp/not_found.txt', 'w') as f:
+            for test in missing_tests:
+                f.write(f"{test}\n")
 
     # if missing tests are found, we can still upload the results for the tests that were found
     list_of_testcases_pass = [
@@ -56,17 +56,6 @@ def upload_zephyr_results(
         f"Uploading results to Jira: {len(list_of_testcases_pass)} passed, "
         f"{len(list_of_testcases_fail)} failed, "
         f"{len(list_of_testcases_skip)} skipped")
-    # try:
-    #     list_of_testcases_pass = [
-    #         test_from_jira[tc_key]['key'] for tc_key in results_pass]
-    #     list_of_testcases_fail = [
-    #         test_from_jira[tc_key]['key'] for tc_key in results_fail]
-    #     list_of_testcases_skip = [
-    #         test_from_jira[tc_key]['key'] for tc_key in results_skip]
-    # except KeyError as e:
-    #     raise jira.JiraException(
-    #         f'Test case with key "{
-    #             e.args[0]}" not found in Jira')
 
     method = j.update_test_cycle_results
     method(
