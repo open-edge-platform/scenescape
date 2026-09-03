@@ -133,18 +133,62 @@ defaults. `addMeasurement` is not exposed through the Python pybind surface.
     Controller-TC, Tracker-Service); confirm no accuracy/jitter regression beyond run-to-run
     variance and reproduce the order-invariance result.
 
-## Risks
+## Risks and Issues
 
+- **Issue (open, blocking): sequential double-correct diverges the covariance.** The covariance
+  regression test (Phase 2) found that applying more than one observation per frame through
+  `TrackManager::correct()` (which loops `estimator.correct(m)` per observation with **no re-predict
+  between corrects**) drives the UKF/IMM combined covariance non-PSD and then divergent. Root cause:
+  `MultiModelKalmanEstimator::correct()` reuses the predicted-measurement sigma points / `Pyy`
+  cached from the single `predict()`; the second correction computes `P = P - K*Pyy*K^T` with a
+  stale `Pyy` on an already-shrunk `P`, yielding a non-PSD covariance that the next frame's
+  `predict()` amplifies. Evidence (measurement noise `1e-2`, 2 observations/frame): trace goes
+  `f1 -3.83 -> f5 -6.54 -> f7 +234 -> f8 +490380`, while the single-correct path stays healthy
+  (`3.10 -> 0.69`). Two **identical** observations diverge identically to two spread observations,
+  so the cause is the second correct on a stale prediction, not conflicting cameras; higher
+  measurement noise diverges faster (`mn=1.0` reaches NaN by frame 7). The point-estimate metrics
+  still improved in evaluation because with small `R` the Kalman gain is near 1 (state mean tracks
+  the measurement regardless of covariance), but the covariance feeds Mahalanobis-distance gating,
+  reliability/drift logic, and downstream consumers, so this must be fixed before productization.
+  This is the concrete manifestation of the IMM/covariance risks below; see the Opens section for
+  the decision on the fix.
 - IMM probability distortion: `MultiModelKalmanEstimator::correct()` consumes
   `predictedMeasurementMean` computed once in `predict()`; applying N observations at one timestamp
-  reuses that prediction and compounds model probabilities. Validated by unit tests; reworked only
-  if a regression is observed.
+  reuses that prediction and compounds model probabilities. The regression this risk warned about
+  has now surfaced (see the open issue above).
 - Covariance over-confidence: N sequential corrects at one timestamp shrink covariance more than a
-  single fused update. Statistically sound for independent per-camera observations; guarded by a
-  covariance regression test.
+  single fused update. Intended to be statistically sound for independent per-camera observations,
+  but the current implementation is numerically unstable (see the open issue above).
 - Attribute win order: fused metadata must be applied on the last observation because `correct()`
   overwrites attributes.
 - No single-camera regression: behavior must be identical when a track matches exactly one camera.
+
+## Opens
+
+- **Decision (current): keep the current implementation as-is and defer the covariance fix.** The
+  sequential double-correct divergence is acknowledged and documented (see Risks and Issues), but no
+  code change is made for now. Rationale: the point-estimate accuracy/jitter metrics improved in
+  evaluation, so the change is retained while the covariance fix is deferred pending further
+  instructions. The covariance regression test that surfaced the issue is therefore not committed
+  as-is (it would fail against the unchanged implementation). Revisit before final productization.
+- **Deferred decision: how to fix the sequential multi-observation Kalman update** so the covariance
+  stays PSD and bounded. Candidate approaches:
+  1. Re-predict with `dt=0` between corrects (recompute sigma points / `Pyy` from the current
+     posterior before each correction). Smallest change, localized to `TrackManager::correct()`;
+     needs numerical validation.
+  2. Stacked single UKF update: concatenate the N observations into one measurement vector with a
+     block-diagonal `R` and perform one correction. Statistically cleanest; more UKF plumbing.
+  3. Measurement-averaging into one correct: fuse all matched observations into a single measurement
+     (mean, optionally `R/N`) and do one numerically-safe correction. Simplest and order-invariant;
+     likely retains most of the accuracy gain but changes the validated behavior, so it requires
+     re-evaluation.
+  4. Joseph-form covariance update in the shared UKF to preserve PSD. Most invasive (touches the UKF
+     used everywhere).
+  Recommendation when revisited: option 1 as the minimal correct fix, or option 3 for the simplest
+  guaranteed-stable path. This reopens design decision 3 ("measurement noise unchanged / IMM
+  validate-only"); the regression that decision said would trigger IMM rework has now surfaced.
+- Whether the chosen fix requires re-running the full black-box evaluation gate (Phase 4) to
+  re-confirm the accuracy/jitter improvements and order-invariance.
 
 ## Future enhancements
 
@@ -243,6 +287,14 @@ unintended dependency on the configured camera order for the time-chunked contro
 
 ## Status
 
-- Phase 1 (core change) implemented.
-- Phase 2 (test hardening) in progress.
+- Phase 1 (core change) implemented and retained as-is (current decision: keep the implementation,
+  defer the covariance fix; see Opens).
+- Phase 2 (test hardening) partially done. Five hardening tests were drafted for
+  `MultiObservationFusionTests.cpp`: counters-increment-once-per-frame, suspended-track reactivation
+  applies all queued observations, IMM model-probability validity, and classification accumulation
+  all pass; the covariance regression test **fails against the unchanged implementation** because it
+  surfaced the open blocking issue. Per the current decision, the covariance regression test is not
+  committed as-is; the fix and that test are deferred.
+- Blocked/paused on the deferred Opens decision (sequential-update fix) before Phase 2 can be
+  finalized.
 - Phases 3–4 (documentation, verification/evaluation gate) pending.
