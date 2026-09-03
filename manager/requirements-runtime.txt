@@ -11,6 +11,8 @@ django-session-timeout==0.1.0
 djangorestframework==3.16.1
 jsonschema==4.25.1
 kubernetes==36.0.2
+# Built against the image Python (3.14); Debian libapache2-mod-wsgi-py3 is for 3.11.
+mod_wsgi==6.0.6
 networkx==3.6.1
 numpy==2.3.5
 onvif-zeep==0.2.12

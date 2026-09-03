@@ -48,6 +48,7 @@ USER root
 RUN apt update && apt upgrade -y \
     && apt-get install -y --no-install-recommends \
     gosu \
+    libegl1 \
     libgl1 \
     libgomp1 \
     libatomic1 \

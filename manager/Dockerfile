@@ -72,17 +72,20 @@ ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 ARG FORCE_VAAPI
 
-# Upgrade base OS packages and install runtime dependencies in one layer
+# Upgrade base OS packages and install runtime dependencies in one layer.
+# Do not install Debian libapache2-mod-wsgi-py3: it links libpython3.11 while
+# this image's pip packages (Django, etc.) live under Python 3.14 site-packages.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     apache2 \
+    apache2-dev \
     bzip2 \
     curl \
     ca-certificates \
+    gcc \
     libegl1 \
     libgl1 \
-    libapache2-mod-wsgi-py3 \
     libglib2.0-0 \
     libatomic1 \
     libusb-1.0-0 \
@@ -93,13 +96,20 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Runtime dependencies
+# Runtime dependencies (includes mod_wsgi built for Python 3.14).
+# apache2-dev/gcc are only needed to compile mod_wsgi; purge them afterwards.
 COPY ./manager/requirements-runtime.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
     pip3 install --break-system-packages --ignore-installed --no-cache-dir \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     -r /tmp/requirements-runtime.txt \
-    && rm -f /tmp/requirements-runtime.txt
+    && mod_wsgi-express module-config > /etc/apache2/mods-available/wsgi.load \
+    && rm -f /tmp/requirements-runtime.txt \
+    && apt-get purge -y --auto-remove apache2-dev gcc \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=scenescape-manager-builder /usr/lib/apache2/modules/mod_qos.so /usr/lib/apache2/modules/mod_qos.so
 RUN echo "LoadModule qos_module /usr/lib/apache2/modules/mod_qos.so" > /etc/apache2/mods-available/qos.load
@@ -121,6 +131,7 @@ RUN : \
     proxy_wstunnel \
     ssl \
     qos \
+    wsgi \
     ; a2ensite default-ssl \
     ;
 
