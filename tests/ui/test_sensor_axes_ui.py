@@ -73,11 +73,11 @@ def test_sensor_axes_main(params, record_xml_attribute):
     # Navigate to the 3D scene view
     assert common.navigate_directly_to_page(browser, f"/scene/detail/{common.TEST_SCENE_ID}/")
     assert common.wait_for_3d_scene_rendered(browser, timeout=60.0), "3D scene did not render in time"
-    
+
     # Verify the sensor's control panel exists in the DOM when the page loads
     # (new sensors default to visible=false, so their panel appears but the sensor is hidden)
     common.selenium_wait_for_elements(
-        browser, 
+        browser,
         (By.XPATH, "//div[@class='title' and normalize-space(text())='" + sensor_name + "']"),
         timeout=30
     )
@@ -91,7 +91,7 @@ def test_sensor_axes_main(params, record_xml_attribute):
     # Verify the page still renders without JS errors after the toggle
     canvas = browser.find_element(By.ID, "scene")
     assert canvas is not None, "Canvas element should exist after visibility toggle"
-    
+
     # Final proof: capture a screenshot (this would hang or crash if the renderer is broken)
     screenshot = common.capture_3d_canvas(browser)
     assert screenshot is not None and screenshot.size > 0, "Canvas screenshot should be valid"
