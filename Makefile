@@ -132,6 +132,10 @@ help:
 	@echo "  run_metric_tests            Run metric tests"
 	@echo "  setup-pytest                Create tests/.venv and install dependencies"
 	@echo ""
+	@echo "  check-zephyr-ids            Check every non-unit test declares a Zephyr test ID"
+	@echo "  check-zephyr-mapping        Also compare the test IDs against Jira Zephyr"
+	@echo "  update-zephyr-baseline      Rewrite tests/zephyr_baseline.json"
+	@echo ""
 	@echo "  lint-all                    Lint entire code base"
 	@echo "  lint-python                 Lint python files"
 	@echo "  lint-python-pylint          Lint python files using pylint"
@@ -413,6 +417,22 @@ setup-pytest:
 	@if ! command -v Xvfb > /dev/null 2>&1; then \
 		echo "WARNING: Xvfb is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
 	fi
+
+# --- Zephyr traceability ---
+
+ZEPHYR_CHECK := $(CURDIR)/tests/.venv/bin/python $(CURDIR)/utils/check_zephyr_mapping.py
+
+.PHONY: check-zephyr-ids
+check-zephyr-ids:
+	@$(ZEPHYR_CHECK) || (echo "Zephyr ID check failed" && exit 1)
+
+.PHONY: check-zephyr-mapping
+check-zephyr-mapping:
+	@$(ZEPHYR_CHECK) --jira || (echo "Zephyr mapping check failed" && exit 1)
+
+.PHONY: update-zephyr-baseline
+update-zephyr-baseline:
+	@$(ZEPHYR_CHECK) --update-baseline
 
 .PHONY: run_tests
 run_tests: setup-tests
