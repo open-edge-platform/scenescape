@@ -83,7 +83,7 @@ python utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --version="EAL-2026.3" --add-tests
 ```
 
-### Create nightly automation cycle (approved and automated only)
+### Create cycle with approved and automated tests only
 
 ```bash
 python utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
@@ -155,9 +155,6 @@ Reads a JUnit/xUnit XML report and writes each outcome into a test cycle.
 | `<failure>` or `<error>` | `Fail` |
 | `<skipped>` | `Not Executed` |
 | none | `Pass` |
-
-Each pytest test must therefore carry its Jira key in the JUnit name, through
-`@pytest.mark.test_name("NEX-TXXXXX")`.
 
 ### Upload by cycle key
 
