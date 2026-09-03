@@ -10,6 +10,39 @@ import Toast from "/static/js/toast.js";
 
 const MAX_OPACITY = 1;
 const MAX_SEGMENTS = 65;
+const AXES_MIN_SIZE = 0.2;
+const AXES_MAX_SIZE = 2.0;
+const AXES_SIZE_RATIO = 0.5;
+
+// Closed-form angle stays defined even when cxy=0 (axis-aligned shapes), unlike
+// an eigenvector formula; flips 180deg so it faces the shape's larger half.
+// Computed about `pivot` (the sensor's physical location), not the shape's centroid.
+function calculatePrincipalDirection(points, pivot) {
+  let cxx = 0,
+    cxy = 0,
+    cyy = 0;
+  points.forEach((p) => {
+    const dx = p.x - pivot.x;
+    const dy = p.y - pivot.y;
+    cxx += dx * dx;
+    cxy += dx * dy;
+    cyy += dy * dy;
+  });
+
+  let angle = 0.5 * Math.atan2(2 * cxy, cxx - cyy);
+
+  const dirX = Math.cos(angle);
+  const dirY = Math.sin(angle);
+  let sideSum = 0;
+  points.forEach((p) => {
+    sideSum += (p.x - pivot.x) * dirX + (p.y - pivot.y) * dirY;
+  });
+  if (sideSum < 0) {
+    angle += Math.PI;
+  }
+
+  return angle;
+}
 
 export default class SceneRegion extends THREE.Object3D {
   constructor(params) {
@@ -82,6 +115,58 @@ export default class SceneRegion extends THREE.Object3D {
       this.shape = new THREE.Mesh(cylinderGeometry, this.material);
     }
     this.type = "region";
+    this.updateAxesHelper();
+  }
+
+  // Perceptual sensors only (region.isSensor); cameras/regions/tripwires are unaffected.
+  updateAxesHelper() {
+    if (this.axesHelper) {
+      this.remove(this.axesHelper);
+      this.axesHelper.geometry.dispose();
+      this.axesHelper = null;
+    }
+    if (!this.region.isSensor || this.regionType === "scene") {
+      return;
+    }
+
+    // region.center (map_x/map_y) is the sensor's physical mounting point for
+    // every area type, distinct from a polygon's own geometric centroid.
+    const center = this.region.center ?? [this.region.x, this.region.y];
+    if (center[0] == null || center[1] == null) {
+      return;
+    }
+    const pivot = { x: center[0], y: center[1] };
+
+    let angle = 0; // Radially symmetric circle; PCA has no meaningful direction here.
+    let extent = this.region.radius;
+    if (this.regionType === "poly" && this.points.length > 0) {
+      if (this.points.length >= 3) {
+        angle = calculatePrincipalDirection(this.points, pivot);
+      }
+      let distSum = 0;
+      this.points.forEach((p) => {
+        distSum += Math.hypot(p.x - pivot.x, p.y - pivot.y);
+      });
+      extent = distSum / this.points.length;
+    } else if (this.regionType !== "circle") {
+      return;
+    }
+    if (!extent) {
+      return;
+    }
+
+    const size = Math.min(
+      AXES_MAX_SIZE,
+      Math.max(AXES_MIN_SIZE, extent * AXES_SIZE_RATIO),
+    );
+    this.axesHelper = new THREE.AxesHelper(size);
+    this.axesHelper.position.set(pivot.x, pivot.y, 0);
+    // Bisect the X/Y arms around the facing direction (wedge shape)
+    this.axesHelper.quaternion.setFromAxisAngle(
+      new THREE.Vector3(0, 0, 1),
+      angle - Math.PI / 4,
+    );
+    this.add(this.axesHelper);
   }
 
   setPoints() {
@@ -363,6 +448,7 @@ export default class SceneRegion extends THREE.Object3D {
       this.remove(this.shape);
       this.shape = null;
     }
+    this.updateAxesHelper();
   }
 
   updateShape(data) {
