@@ -58,7 +58,7 @@ Valid `--version` values are listed in `libraries/versions.py`
 ### Create empty cycle, auto-named
 
 ```bash
-python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
+python utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --folder="/Vision_AI/SceneScape/Daily" \
   --test-cases-folder="/Vision_AI/SceneScape/Functional Tests" \
   --version="EAL-2026.3"
@@ -67,7 +67,7 @@ python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
 ### Create empty cycle with an explicit name
 
 ```bash
-python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
+python utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --folder="/Vision_AI/SceneScape/Daily" \
   --test-cases-folder="/Vision_AI/SceneScape/Functional Tests" \
   --version="EAL-2026.3" \
@@ -77,7 +77,7 @@ python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
 ### Create cycle containing every test case in the folder
 
 ```bash
-python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
+python utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --folder="/Vision_AI/SceneScape/Daily" \
   --test-cases-folder="/Vision_AI/SceneScape/Functional Tests" \
   --version="EAL-2026.3" --add-tests
@@ -86,7 +86,7 @@ python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
 ### Create nightly automation cycle (approved and automated only)
 
 ```bash
-python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
+python utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --folder="/Vision_AI/SceneScape/Daily" \
   --test-cases-folder="/Vision_AI/SceneScape/Functional Tests" \
   --version="EAL-2026.3" --add-tests \
@@ -96,7 +96,7 @@ python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
 ### Manual test pass for QA
 
 ```bash
-python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
+python utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --folder="/Vision_AI/SceneScape/Daily" \
   --test-cases-folder="/Vision_AI/SceneScape/Functional Tests" \
   --version="EAL-2026.3" --add-tests \
@@ -107,7 +107,7 @@ python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
 ### Include draft cases
 
 ```bash
-python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
+python utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --folder="/Vision_AI/SceneScape/Daily" \
   --test-cases-folder="/Vision_AI/SceneScape/Functional Tests" \
   --version="EAL-2026.3" --add-tests \
@@ -119,7 +119,7 @@ python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
 Zephyr matches folders exactly, so every subfolder must be listed explicitly:
 
 ```bash
-python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
+python utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --folder="/Vision_AI/SceneScape/Daily" \
   --test-cases-folder="/Vision_AI/SceneScape/ADMIN,/Vision_AI/SceneScape/Functional Tests,/Vision_AI/SceneScape/Performance Tests,/Vision_AI/SceneScape/UI Tests" \
   --version="EAL-2026.3" --add-tests \
@@ -162,7 +162,7 @@ Each pytest test must therefore carry its Jira key in the JUnit name, through
 ### Upload by cycle key
 
 ```bash
-python3 utils/upload_to_zephyr.py -a $JIRA_TOKEN \
+python utils/upload_to_zephyr.py -a $JIRA_TOKEN \
   --cycle-key="NEX-Cxxxx" \
   -F "/Vision_AI/SceneScape/Functional Tests" \
   reports/functional_results.xml
@@ -171,7 +171,7 @@ python3 utils/upload_to_zephyr.py -a $JIRA_TOKEN \
 ### Upload against several lookup folders
 
 ```bash
-python3 utils/upload_to_zephyr.py -a $JIRA_TOKEN \
+python utils/upload_to_zephyr.py -a $JIRA_TOKEN \
   --cycle-key="NEX-Cxxxx" \
   -F "/Vision_AI/SceneScape/ADMIN,/Vision_AI/SceneScape/Functional Tests,/Vision_AI/SceneScape/Performance Tests,/Vision_AI/SceneScape/UI Tests" \
   reports/functional_results.xml
@@ -180,7 +180,7 @@ python3 utils/upload_to_zephyr.py -a $JIRA_TOKEN \
 ### Annotated upload with build provenance
 
 ```bash
-python3 utils/upload_to_zephyr.py -a $JIRA_TOKEN \
+python utils/upload_to_zephyr.py -a $JIRA_TOKEN \
   --cycle-key="NEX-Cxxxx" \
   -F "/Vision_AI/SceneScape/Functional Tests" \
   --comment="Build ${BUILD_NUMBER} - commit $(git rev-parse --short HEAD)" \
@@ -190,7 +190,7 @@ python3 utils/upload_to_zephyr.py -a $JIRA_TOKEN \
 ### Troubleshoot unmatched tests
 
 ```bash
-python3 utils/upload_to_zephyr.py --debug -a $JIRA_TOKEN \
+python utils/upload_to_zephyr.py --debug -a $JIRA_TOKEN \
   --cycle-key="NEX-Cxxxx" \
   -F "/Vision_AI/SceneScape/Functional Tests" \
   reports/functional_results.xml
@@ -204,7 +204,7 @@ Test names with no counterpart in Jira are skipped with a warning and written to
 ```bash
 
 # 1. Create the nightly cycle with approved automated tests
-python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
+python utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --folder="/Vision_AI/SceneScape/Daily" \
   --test-cases-folder="/Vision_AI/SceneScape/Functional Tests" \
   --version="EAL-2026.3" --add-tests \
@@ -214,7 +214,7 @@ python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
 pytest tests/functional --junitxml=reports/functional_results.xml --log-level=ERROR
 
 # 3. Publish results into the cycle key logged by step 1
-python3 utils/upload_to_zephyr.py -a $JIRA_TOKEN \
+python utils/upload_to_zephyr.py -a $JIRA_TOKEN \
   --cycle-key="NEX-Cxxxx" \
   -F "/Vision_AI/SceneScape/Functional Tests" \
   --comment="Nightly EAL-2026.3" \
