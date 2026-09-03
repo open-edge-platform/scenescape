@@ -51,6 +51,26 @@ information from all but the last matched camera.
    already ordered by camera. No explicit sort is required and the result is independent of the
    configured camera order.
 
+## Measurement noise and confidence usage (current implementation)
+
+Detection confidence (observation probability) is **not** used in the Kalman filter state update:
+
+- The measurement vector is purely geometric — `[x, y, z, length, width, height, yaw]`
+  (`TrackedObject::measurementVector()`). It carries no confidence/score component.
+- The measurement noise covariance `R` is a fixed scalar-times-identity matrix,
+  `cv::Mat::eye(mMP, mMP) * measurementNoise` with `measurementNoise = mDefaultMeasurementNoise`
+  (`1e-2`), set once in `MultiModelKalmanEstimator::initialize()` and identical for every detection
+  and every frame. `UnscentedKalmanFilterMod::correct(measurement)` takes only the measurement
+  vector — there is no per-observation `R`. A low-confidence detection is therefore trusted exactly
+  as much as a high-confidence one in the geometric correction.
+
+So detection confidence influences **association** and **class/metadata labeling**, but the geometric state
+**correction weights all matched observations equally**.
+
+Implication for this change: because `R` is constant, sequentially fusing `N` observations at one
+timestamp shrinks covariance based purely on observation **count**, not on each detection's
+confidence. This is why the covariance over-confidence risk is guarded by a regression test.
+
 ## Scope
 
 In scope: the batched multi-camera existing-track update path.
@@ -125,6 +145,18 @@ defaults. `addMeasurement` is not exposed through the Python pybind surface.
 - Attribute win order: fused metadata must be applied on the last observation because `correct()`
   overwrites attributes.
 - No single-camera regression: behavior must be identical when a track matches exactly one camera.
+
+## Future enhancements
+
+- **Confidence-weighted measurement noise.** With multi-observation fusion, all matched observations
+  are currently weighted equally (fixed `R`), so covariance shrinkage depends only on how many
+  cameras matched. A natural extension is to scale each observation's measurement noise covariance
+  `R` by its detection confidence in the new per-observation `correct()` path (higher confidence ->
+  smaller `R` -> larger Kalman gain), so more reliable detections influence the fused state more.
+  This requires plumbing a per-observation `R` (or confidence) into
+  `MultiModelKalmanEstimator::correct()` and `UnscentedKalmanFilterMod::correct()`, which today
+  accept only the measurement vector. Out of scope for this change (measurement noise is left
+  unchanged and guarded by the covariance regression test); tracked here as a follow-up.
 
 ## Relevant files
 
