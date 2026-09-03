@@ -32,13 +32,8 @@ Configuration is read from environment variables provided by `utils/.env`:
 | `JIRA_PROJECT` | Zephyr project key (`ITEP`) |
 | `ZEPHYR_API_BASE` | `https://jira.devtools.intel.com/rest/atm/1.0/` |
 | `JIRA_API_BASE` | `https://jira.devtools.intel.com/rest/api/2/` |
+| `JIRA_TOKEN` | `<jira personal access token>` |
 | `JIRA_USER` | Jira user key recorded as the executor of uploaded results |
-
-```bash
-cd utils
-source .env
-export JIRA_TOKEN="<jira personal access token>"
-```
 
 ## create_zephyr_cycle.py
 
@@ -60,7 +55,7 @@ Creates a Zephyr test cycle and optionally adds test cases to it.
 
 Valid `--version` values are listed in `libraries/versions.py`
 
-### Use case A: empty cycle, auto-named
+### Create empty cycle, auto-named
 
 ```bash
 python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
@@ -69,7 +64,7 @@ python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --version="EAL-2026.3"
 ```
 
-### Use case B: empty cycle with an explicit name
+### Create empty cycle with an explicit name
 
 ```bash
 python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
@@ -79,7 +74,7 @@ python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --cycle="Release candidate smoke"
 ```
 
-### Use case C: cycle containing every test case in the folder
+### Create cycle containing every test case in the folder
 
 ```bash
 python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
@@ -88,7 +83,7 @@ python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --version="EAL-2026.3" --add-tests
 ```
 
-### Use case D: nightly automation run (approved and automated only)
+### Create nightly automation cycle (approved and automated only)
 
 ```bash
 python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
@@ -98,7 +93,7 @@ python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --status="Approved" --automated=true
 ```
 
-### Use case E: manual test pass for QA
+### Manual test pass for QA
 
 ```bash
 python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
@@ -109,7 +104,7 @@ python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --cycle="Manual regression EAL-2026.3"
 ```
 
-### Use case F: include draft cases
+### Include draft cases
 
 ```bash
 python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
@@ -119,7 +114,7 @@ python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
   --status="Draft,Approved"
 ```
 
-### Use case G: pull test cases from several folders
+### Pull test cases from several folders
 
 Zephyr matches folders exactly, so every subfolder must be listed explicitly:
 
@@ -164,7 +159,7 @@ Reads a JUnit/xUnit XML report and writes each outcome into a test cycle.
 Each pytest test must therefore carry its Jira key in the JUnit name, through
 `@pytest.mark.test_name("NEX-TXXXXX")`.
 
-### Use case A: upload by cycle key (recommended for CI)
+### Upload by cycle key
 
 ```bash
 python3 utils/upload_to_zephyr.py -a $JIRA_TOKEN \
@@ -173,7 +168,7 @@ python3 utils/upload_to_zephyr.py -a $JIRA_TOKEN \
   reports/functional_results.xml
 ```
 
-### Use case B: upload against several lookup folders
+### Upload against several lookup folders
 
 ```bash
 python3 utils/upload_to_zephyr.py -a $JIRA_TOKEN \
@@ -182,7 +177,7 @@ python3 utils/upload_to_zephyr.py -a $JIRA_TOKEN \
   reports/functional_results.xml
 ```
 
-### Use case C: annotated upload with build provenance
+### Annotated upload with build provenance
 
 ```bash
 python3 utils/upload_to_zephyr.py -a $JIRA_TOKEN \
@@ -192,7 +187,7 @@ python3 utils/upload_to_zephyr.py -a $JIRA_TOKEN \
   reports/functional_results.xml
 ```
 
-### Use case E: troubleshoot unmatched tests
+### Troubleshoot unmatched tests
 
 ```bash
 python3 utils/upload_to_zephyr.py --debug -a $JIRA_TOKEN \
@@ -207,7 +202,6 @@ Test names with no counterpart in Jira are skipped with a warning and written to
 ## End-to-end pipeline
 
 ```bash
-source utils/.env
 
 # 1. Create the nightly cycle with approved automated tests
 python3 utils/create_zephyr_cycle.py --jira-token=$JIRA_TOKEN \
