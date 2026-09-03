@@ -1,0 +1,419 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+# Fuse all matched observations per track
+
+## Goal
+
+Update each track using **all** matched camera observations within a chunk, not only the
+last-matched one, applying a sequential per-track Kalman correction instead of a single-shot
+`correct()` that keeps only the last camera. This is the default tracker behavior; there is no
+configuration toggle. The change targets the batched multi-camera existing-track update path shared
+by the Scene Controller and the Tracker service.
+
+## Background (previous behavior)
+
+- Batched `MultipleObjectTracker::matchAndAssignMeasurements`
+  (`MultipleObjectTracker.cpp`) matched each camera to tracks in parallel, grouped all matches into
+  `matchesPerTrack[trackIdx]`, but kept geometry only from `matches.back()` (the last matched
+  camera), calling `mTrackManager.setMeasurement(id, fusedObject)` **once** per track.
+- `TrackManager::mMeasurementMap` held one measurement per id.
+- `TrackManager::correct()` applied each stored measurement once; counters
+  (`mNumberOfTrackedFrames` / `mNonMeasurementFrames`) incremented once per frame.
+- `MultiModelKalmanEstimator::correct()` overwrites `mCurrentState.attributes = measurement.attributes`
+  and combines classification, so the last-applied measurement's attributes win.
+
+This made the batched/time-chunked result depend on the configured camera order and discarded
+information from all but the last matched camera.
+
+## Consumers of the shared `rv` library (both rebuilt and validated)
+
+- Scene Controller (Python via pybind): `ilabs_tracking.py` `update_tracks_batched` ->
+  `tracker.track(per-camera)`.
+- Tracker service (C++): `tracking_worker.cpp` `match_and_convert` -> `tracker_.track(per-camera)`.
+
+## Design decisions
+
+1. Default-on, no configuration toggle. Evaluation shows a strict improvement on the batched paths
+   and no regression on the single-observation path, so the behavior ships as the default with no
+   opt-out.
+2. Classification: `combine()` continues to accumulate across all matched observations. A track
+   matched by multiple cameras accumulates classification evidence once per observation; this is
+   intentional and documented.
+3. Measurement noise: `mDefaultMeasurementNoise` is unchanged. Sequential per-observation updates
+   are guarded by a covariance regression test rather than a noise adjustment.
+4. IMM: the multi-model estimator is validated by unit tests only; the sequential-correct behavior
+   is changed only if a regression surfaces (see risks).
+5. Determinism: `matchesPerTrack` is populated by iterating cameras in ascending index with at most
+   one entry per camera (the bipartite match is one-to-one), so each track's observations are
+   already ordered by camera. No explicit sort is required and the result is independent of the
+   configured camera order.
+
+## Measurement noise and confidence usage (current implementation)
+
+Detection confidence (observation probability) is **not** used in the Kalman filter state update:
+
+- The measurement vector is purely geometric — `[x, y, z, length, width, height, yaw]`
+  (`TrackedObject::measurementVector()`). It carries no confidence/score component.
+- The measurement noise covariance `R` is a fixed scalar-times-identity matrix,
+  `cv::Mat::eye(mMP, mMP) * measurementNoise` with `measurementNoise = mDefaultMeasurementNoise`
+  (`1e-2`), set once in `MultiModelKalmanEstimator::initialize()` and identical for every detection
+  and every frame. `UnscentedKalmanFilterMod::correct(measurement)` takes only the measurement
+  vector — there is no per-observation `R`. A low-confidence detection is therefore trusted exactly
+  as much as a high-confidence one in the geometric correction.
+
+So detection confidence influences **association** and **class/metadata labeling**, but the geometric state
+**correction weights all matched observations equally**.
+
+Implication for this change: because `R` is constant, sequentially fusing `N` observations at one
+timestamp shrinks covariance based purely on observation **count**, not on each detection's
+confidence. This is why the covariance over-confidence risk is guarded by a regression test.
+
+## Scope
+
+In scope: the batched multi-camera existing-track update path.
+
+Out of scope: the single-camera `matchAndAssignMeasurements` overload (one detection per track), the
+new-track cross-camera grouping in batched `track()`, and any change to `TrackManagerConfig`
+defaults. `addMeasurement` is not exposed through the Python pybind surface.
+
+## Implementation
+
+### Phase 1 — Core change (shared `rv` library)
+
+1. `TrackManager.hpp`: `mMeasurementMap` is `unordered_map<Id, std::vector<TrackedObject>>`;
+   `addMeasurement(id, obj)` appends. `setMeasurement(id, obj)` clears and sets a single element so
+   the single-camera path and other callers (`TrackTracker.cpp`, pybind) are unaffected.
+2. `TrackManager.cpp`:
+   - `correct()`: for each id with measurements, apply each sequentially via `estimator.correct(m)`
+     (sequential Kalman update, same timestamp, no predict between). Counters increment **once** per
+     track per frame to preserve reliability/aging. Same for the suspended-track reactivation path.
+   - `setMeasurement` / `addMeasurement` maintain the vector; `predict()` clears the map.
+3. Batched `MultipleObjectTracker::matchAndAssignMeasurements`:
+   - For each track, iterate all matches in `matchesPerTrack[trackIdx]`; entries are already in
+     ascending camera order (see determinism decision), so no sort is needed.
+   - Register each matched observation (its own geometry) via `addMeasurement`.
+   - Compute fused attributes/classification (`fuseMetadata` + `mergeHistoricalMetadata`) and attach
+     them to the **last** registered observation so its attributes win in `correct()`.
+   - Preserve the existing `isTrackAssigned` + object-removal + unassigned-track logic.
+4. Single-camera path (`matchAndAssignMeasurements` object-vector overload) unchanged.
+5. New-track cross-camera grouping in batched `track()` unchanged.
+
+### Phase 2 — Test hardening
+
+6. C++ unit tests (`MultiObservationFusionTests.cpp`, `TrackingTests.cpp`,
+   `MetadataFusionTests.cpp`):
+   - A track matched by 2+ cameras converges toward the fused position (not just the last camera).
+   - The single-camera case is identical to the single-object path (no regression).
+   - Counters, reliability, and aging are unchanged under multi-observation input (once-per-frame).
+   - Suspended-track reactivation applies all queued observations.
+   - IMM multi-model (CV/CA/CTRV) fusion sanity check; a regression here is the trigger to revisit
+     the IMM update (see risks).
+   - Covariance regression: the multi-observation update does not collapse covariance to an
+     over-confident/unusable state.
+   - Metadata fusion selects the highest-confidence field across **all** matched cameras (not just
+     the last); classification accumulation across observations is asserted as intentional.
+
+### Phase 3 — Documentation
+
+7. Update the Scene Controller and Tracker service documentation
+   (`docs/user-guide/microservices/…`, service `README`/`Agents.md`, controller docs) to describe
+   the multi-observation fusion behavior, its default-on status, order-invariance, and the
+   classification-accumulation semantics. Follow the documentation-how skill for exact locations.
+
+### Phase 4 — Verification and evaluation gate
+
+8. `cd controller/src/robot_vision && make cpp-tests` (runs `ctest -V`) — all pass.
+9. Rebuild `intel/scenescape-controller` and the tracker image (freshness gate) before any runtime
+   evaluation.
+10. Re-run the black-box suite from `tools/tracker/evaluation` (`.venv`,
+    `python -m run_black_box_evaluation`) across all three configs (Controller-immediate,
+    Controller-TC, Tracker-Service); confirm no accuracy/jitter regression beyond run-to-run
+    variance and reproduce the order-invariance result.
+
+## Risks and Issues
+
+- **Issue (open, blocking): sequential double-correct diverges the covariance.** The covariance
+  regression test (Phase 2) found that applying more than one observation per frame through
+  `TrackManager::correct()` (which loops `estimator.correct(m)` per observation with **no re-predict
+  between corrects**) drives the UKF/IMM combined covariance non-PSD and then divergent. Root cause:
+  `MultiModelKalmanEstimator::correct()` reuses the predicted-measurement sigma points / `Pyy`
+  cached from the single `predict()`; the second correction computes `P = P - K*Pyy*K^T` with a
+  stale `Pyy` on an already-shrunk `P`, yielding a non-PSD covariance that the next frame's
+  `predict()` amplifies. Evidence (measurement noise `1e-2`, 2 observations/frame): trace goes
+  `f1 -3.83 -> f5 -6.54 -> f7 +234 -> f8 +490380`, while the single-correct path stays healthy
+  (`3.10 -> 0.69`). Two **identical** observations diverge identically to two spread observations,
+  so the cause is the second correct on a stale prediction, not conflicting cameras; higher
+  measurement noise diverges faster (`mn=1.0` reaches NaN by frame 7). The point-estimate metrics
+  still improved in evaluation because with small `R` the Kalman gain is near 1 (state mean tracks
+  the measurement regardless of covariance), but the covariance feeds Mahalanobis-distance gating,
+  reliability/drift logic, and downstream consumers, so this must be fixed before productization.
+  This is the concrete manifestation of the IMM/covariance risks below; see the Opens section for
+  the decision on the fix.
+- IMM probability distortion: `MultiModelKalmanEstimator::correct()` consumes
+  `predictedMeasurementMean` computed once in `predict()`; applying N observations at one timestamp
+  reuses that prediction and compounds model probabilities. The regression this risk warned about
+  has now surfaced (see the open issue above).
+- Covariance over-confidence: N sequential corrects at one timestamp shrink covariance more than a
+  single fused update. Intended to be statistically sound for independent per-camera observations,
+  but the current implementation is numerically unstable (see the open issue above).
+- Attribute win order: fused metadata must be applied on the last observation because `correct()`
+  overwrites attributes.
+- No single-camera regression: behavior must be identical when a track matches exactly one camera.
+
+## Opens
+
+- **Decision: how to fix the sequential multi-observation Kalman update** so the covariance
+  stays PSD and bounded. Candidate approaches:
+  1. Re-predict with `dt=0` between corrects (recompute sigma points / `Pyy` from the current
+     posterior before each correction). Smallest change, localized to `TrackManager::correct()`;
+     needs numerical validation.
+  2. Stacked single UKF update: concatenate the N observations into one measurement vector with a
+     block-diagonal `R` and perform one correction. Statistically cleanest; more UKF plumbing.
+  3. Measurement-averaging into one correct: fuse all matched observations into a single measurement
+     (mean, optionally `R/N`) and do one numerically-safe correction. Simplest and order-invariant;
+     likely retains most of the accuracy gain but changes the validated behavior, so it requires
+     re-evaluation.
+  4. Joseph-form covariance update in the shared UKF to preserve PSD. Most invasive (touches the UKF
+     used everywhere).
+  Recommendation when revisited: option 1 as the minimal correct fix, or option 3 for the simplest
+  guaranteed-stable path. This reopens design decision 3 ("measurement noise unchanged / IMM
+  validate-only"); the regression that decision said would trigger IMM rework has now surfaced.
+- Whether the chosen fix requires re-running the full black-box evaluation gate (Phase 4) to
+  re-confirm the accuracy/jitter improvements and order-invariance.
+
+## Future enhancements
+
+- **Observation-variance-aware measurement noise.** With multi-observation fusion, all matched
+  observations are currently weighted equally (fixed `R`), so covariance shrinkage depends only on
+  how many cameras matched. A principled extension is to give each observation its own
+  measurement-noise covariance `R` derived from its **localization variance** (how precisely that
+  sensor/detector localizes the object), so more precise observations influence the fused state
+  more. This requires plumbing a per-observation `R` into `MultiModelKalmanEstimator::correct()` and
+  `UnscentedKalmanFilterMod::correct()`, which today accept only the measurement vector.
+  - **Caveat (do not equate confidence with variance).** Detection confidence typically means
+    *probability the object exists*, not measurement variance — these are fundamentally different.
+    Reducing `R` directly from detection confidence would produce the wrong weighting. Make `R`
+    confidence-dependent **only if** localization error is demonstrably correlated with confidence;
+    otherwise use sensor-specific measurement variance.
+  - **Dependencies (not currently available; blockers for this enhancement):** (1) sensor/detector-
+    specific measurement-variance data to parameterize per-observation `R`; and/or (2) empirical
+    evidence that localization error correlates with detection confidence, before any confidence ->
+    `R` mapping is introduced.
+
+## Relevant files
+
+- `controller/src/robot_vision/src/rv/tracking/MultipleObjectTracker.cpp` (batched match)
+- `controller/src/robot_vision/include/rv/tracking/TrackManager.hpp` (map type, API)
+- `controller/src/robot_vision/src/rv/tracking/TrackManager.cpp` (`correct`, `setMeasurement`)
+- `controller/src/robot_vision/src/rv/tracking/MultiModelKalmanEstimator.cpp` (`correct`)
+- `controller/src/robot_vision/test/MultiObservationFusionTests.cpp`,
+  `controller/src/robot_vision/test/TrackingTests.cpp`,
+  `controller/src/robot_vision/test/MetadataFusionTests.cpp` (C++ unit tests)
+- `tools/tracker/evaluation/pipeline_configs/black_box_unity/*` (regression suite)
+- Scene Controller and Tracker service documentation
+
+## Validation evidence
+
+Unity dataset (`tests/system/metric/unity_dataset`), two cameras. Baseline images built from the
+branch merge-base `origin/main` (`074d2073`); updated images from this branch. OTEL metrics disabled
+to isolate tracking quality. All C++ unit tests (including the multi-observation fusion tests) pass.
+
+### Regression, baseline vs updated (normal camera order, N=3, reproduced across two runs)
+
+- **Controller-immediate (control, one camera per chunk): within noise.** Accuracy deltas
+  <= 0.13% relative (HOTA -0.0010, IDF1 -0.0005, MOTA -0.0010); jitter deltas flip sign between
+  runs, i.e. dominated by run-to-run variance. As expected, the change is a no-op here since each
+  camera is processed in its own chunk.
+- **Controller-TC (time-chunked): large improvement.**
+
+  | metric | baseline | updated | delta |
+  |---|---|---|---|
+  | HOTA | 0.6922 | 0.7563 | +0.064 |
+  | IDF1 | 0.7520 | 0.9869 | +0.235 |
+  | MOTA | 0.5103 | 0.9742 | +0.464 |
+  | DIST_T_mean | 0.5757 | 0.4454 | -0.130 |
+  | LOC_T_X_mae | 0.5075 | 0.3847 | -0.123 |
+  | LOC_T_Y_mae | 0.1938 | 0.1856 | -0.008 |
+  | rms_jerk_ratio | 2.74 | 1.85 | -0.89 |
+  | acceleration_variance_ratio | 10.07 | 3.97 | -6.11 |
+
+- **Tracker-Service: large improvement.**
+
+  | metric | baseline | updated | delta |
+  |---|---|---|---|
+  | HOTA | 0.6893 | 0.7479 | +0.059 |
+  | IDF1 | 0.9361 | 0.9819 | +0.046 |
+  | MOTA | 0.8745 | 0.9645 | +0.090 |
+  | DIST_T_mean | 0.5515 | 0.4486 | -0.103 |
+  | LOC_T_X_mae | 0.4101 | 0.3771 | -0.033 |
+  | LOC_T_Y_mae | 0.2807 | 0.1966 | -0.084 |
+  | rms_jerk_ratio | 1.62 | 0.86 | -0.76 |
+  | acceleration_variance_ratio | 4.22 | 1.00 | -3.22 |
+
+### Camera-order sensitivity, normal vs reversed camera list (N=2)
+
+`|d|` = absolute shift of a metric when the camera list is reversed; smaller = more order-invariant.
+
+- **Controller-TC: baseline is heavily order-dependent; updated is order-invariant.**
+
+  | metric | base normal -> rev | \|d\| base | updated normal -> rev | \|d\| updated |
+  |---|---|---|---|---|
+  | MOTA | 0.536 -> 0.911 | **0.375** | 0.974 -> 0.974 | **0.0004** |
+  | IDF1 | 0.765 -> 0.955 | **0.190** | 0.987 -> 0.987 | **0.0002** |
+  | LOC_T_X_mae | 0.506 -> 0.328 | 0.178 | 0.386 -> 0.380 | 0.007 |
+  | LOC_T_Y_mae | 0.192 -> 0.375 | 0.183 | 0.184 -> 0.190 | 0.006 |
+  | acceleration_variance_ratio | 12.13 -> 8.77 | 3.37 | 3.88 -> 3.64 | 0.24 |
+
+  Reversing the config's camera list swings baseline MOTA by 0.37 and localization error by ~0.18 m
+  because the old code keeps only the last matched camera. The updated behavior is essentially
+  unchanged.
+
+- **Tracker-Service: same direction on localization/jitter; updated dominates in either order.**
+  LOC_T_Y_mae \|d\| base 0.037 vs updated 0.014; DIST_T_mean \|d\| base 0.015 vs updated 0.005;
+  jitter ratios ~2x more stable. A couple of accuracy metrics (MOTA/IDF1) show slightly larger
+  updated shifts, but the updated worst order still beats the baseline best order (updated-reversed
+  MOTA 0.949 / IDF1 0.974 > baseline-best MOTA 0.877 / IDF1 0.937).
+
+- **Controller-immediate (control): both arms order-insensitive** (all accuracy shifts <= 0.0015),
+  confirming the effect is specific to the batched/time-chunked paths.
+
+### Conclusion
+
+The change substantially improves accuracy and smoothness on the batched paths (Controller-TC,
+Tracker-Service) with no real regression on the single-observation path, and it removes the
+unintended dependency on the configured camera order for the time-chunked controller.
+
+## Status
+
+- Phase 1 (core change) implemented and retained as-is (current decision: keep the implementation,
+  defer the covariance fix; see Opens).
+- Phase 2 (test hardening) partially done. Five hardening tests were drafted for
+  `MultiObservationFusionTests.cpp`: counters-increment-once-per-frame, suspended-track reactivation
+  applies all queued observations, IMM model-probability validity, and classification accumulation
+  all pass; the covariance regression test **fails against the unchanged implementation** because it
+  surfaced the open blocking issue. Per the current decision, the covariance regression test is not
+  committed as-is; the fix and that test are deferred.
+- Blocked/paused on the Opens decision (sequential-update fix) before Phase 2 can be
+  finalized.
+- Phases 3–4 (documentation, verification/evaluation gate) pending.
+
+## Review Feedback (ordered by importance)
+
+### 1. UKF covariance corruption when applying multiple corrections per prediction
+**Reference:** Risk and Issues: covariance divergence / stale measurement statistics
+
+The current UKF implementation reuses predicted measurement statistics (predicted measurement mean, measurement covariance, sigma-point projection results) for all observations processed after a single `predict()`. After the first correction, the state and covariance change, but the measurement statistics are not recomputed. Subsequent corrections therefore operate on stale prediction artifacts, producing mathematically inconsistent updates and potentially invalid (non-PSD) covariance matrices.
+
+**Impact:** Critical. Affects filter correctness, gating, data association, IMM behavior, and future predictions.
+
+---
+
+### 2. IMM mode likelihoods become inconsistent for multi-observation updates
+**Reference:** Risk and Issues: IMM probability handling
+
+IMM model probabilities are computed using prediction-time measurement statistics. If multiple observations are processed sequentially, likelihood computation no longer reflects the actual posterior state after earlier corrections. This can distort model probabilities and maneuver classification.
+
+**Impact:** High. Primarily affects IMM mode selection and mode probability stability rather than state estimation.
+
+---
+
+### 3. Excellent tracking metrics may hide a broken covariance estimate
+**Reference:** Validation results vs covariance regression findings
+
+Observed improvements in MOTA, IDF1, jitter, and order invariance do not guarantee filter correctness. The state estimate can remain good because low measurement noise drives a high Kalman gain, while covariance silently degrades.
+
+**Impact:** High. Risk of false confidence in evaluation results.
+
+---
+
+### 4. Measurement independence assumption is likely violated
+**Reference:** Open Questions: measurement covariance model
+
+All camera detections are transformed into a common world frame. As a result, measurement errors may contain shared components such as:
+
+- ego-localization error,
+- calibration error,
+- frame alignment error.
+
+The current fusion implicitly assumes observations from different cameras are statistically independent.
+
+**Impact:** Medium-High. Can lead to overconfident covariance when many cameras observe the same object.
+
+---
+
+### 5. Constant scalar measurement covariance (`R = I * const`) is a significant model simplification
+**Reference:** Open Questions: measurement noise modelling
+
+All cameras currently contribute equally and all measurement dimensions receive identical uncertainty, despite:
+
+- estimated depth quality differing from lateral localization,
+- yaw being derived rather than directly measured,
+- different cameras likely having different accuracy characteristics.
+
+**Impact:** Medium. Limits optimal weighting and can amplify overconfidence effects.
+
+---
+
+### 6. Covariance may shrink faster than actual estimation error
+**Reference:** Risk and Issues: covariance over-confidence
+
+Even if covariance divergence is fixed, repeated updates from correlated cameras can reduce covariance faster than true uncertainty decreases.
+
+**Impact:** Medium. Can affect gating thresholds, track confidence, and association robustness.
+
+---
+
+### 7. Sequential update order may still have second-order effects
+**Reference:** Validation: camera-order invariance
+
+Testing suggests practical order invariance, but this is an empirical result rather than a guaranteed property of the overall tracker. UKF nonlinearities, IMM probability updates, and metadata fusion may still introduce subtle order dependencies.
+
+**Impact:** Medium-Low.
+
+---
+
+### 8. Classification/attribute fusion is coupled to observation update order
+**Reference:** Design notes: fused attributes attached to final observation
+
+Metadata fusion currently relies on Kalman correction side-effects and the final processed observation. The state estimate and metadata fusion are therefore not fully separated concerns.
+
+**Impact:** Medium-Low. Architectural debt rather than immediate correctness issue.
+
+---
+
+### 9. Measurement confidence should not automatically drive covariance scaling
+**Reference:** Open Questions: confidence-dependent R
+
+Detection confidence measures confidence in object existence/classification, not necessarily localization accuracy. Directly mapping confidence to measurement variance risks incorrect sensor weighting.
+
+**Impact:** Low-Medium. Future enhancement risk, not a current defect.
+
+---
+
+### 10. Missing consistency validation beyond task-level metrics
+**Reference:** Open Questions / future validation
+
+Current evaluation focuses primarily on tracking quality metrics. Consistency tests such as:
+
+- NIS (Normalized Innovation Squared),
+- covariance PSD checks,
+- covariance-vs-error consistency,
+
+would provide stronger guarantees that filter uncertainty remains meaningful.
+
+**Impact:** Low, but highly recommended for future regression testing.
+
+---
+
+### Recommended Priority
+
+1. Fix stale UKF measurement statistics between corrections.
+2. Revisit IMM likelihood accumulation after multi-observation updates.
+3. Re-run covariance regression tests and verify PSD preservation.
+4. Add NIS/consistency monitoring.
+5. Investigate correlated camera errors.
+6. Improve measurement covariance modelling (`R`).
+7. Refactor metadata/classification fusion if needed.
