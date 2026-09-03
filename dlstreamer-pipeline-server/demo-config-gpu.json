@@ -8,7 +8,7 @@
       {
         "name": "qcam1",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://192.168.0.100/axis-media/media.amp latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect scheduling-policy=latency batch-size=2 inference-interval=1 model-instance-id=queuing model=/home/pipeline-server/models/huggingface/OpenVINO_YOLO11m-int8-ov/yolo11m.xml device=GPU pre-process-backend=va-surface-sharing ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://192.168.0.100/axis-media/media.amp latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model-instance-id=queuing model=/home/pipeline-server/models/huggingface/OpenVINO_YOLO11m-int8-ov/yolo11m.xml model-proc=/home/pipeline-server/models/object_detection/yolo11/yolo11m-int8.json device=GPU pre-process-backend=va-surface-sharing ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
@@ -57,14 +57,15 @@
           "parameters": {
             "ntp_server": "ntpserv",
             "cameraid": "atag-qcam1",
-            "metadatagenpolicy": "detectionPolicy"
+            "metadatagenpolicy": "detectionPolicy",
+            "detection-labels": "person"
           }
         }
       },
       {
         "name": "qcam2",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://192.168.0.101/axis-media/media.amp latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect scheduling-policy=latency batch-size=2 inference-interval=1 model-instance-id=queuing model=/home/pipeline-server/models/huggingface/OpenVINO_YOLO11m-int8-ov/yolo11m.xml device=GPU pre-process-backend=va-surface-sharing ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://192.168.0.101/axis-media/media.amp latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model-instance-id=queuing model=/home/pipeline-server/models/huggingface/OpenVINO_YOLO11m-int8-ov/yolo11m.xml model-proc=/home/pipeline-server/models/object_detection/yolo11/yolo11m-int8.json device=GPU pre-process-backend=va-surface-sharing ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
@@ -113,7 +114,8 @@
           "parameters": {
             "ntp_server": "ntpserv",
             "cameraid": "atag-qcam2",
-            "metadatagenpolicy": "detectionPolicy"
+            "metadatagenpolicy": "detectionPolicy",
+            "detection-labels": "person"
           }
         }
       }
