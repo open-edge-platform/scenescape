@@ -299,3 +299,121 @@ unintended dependency on the configured camera order for the time-chunked contro
 - Blocked/paused on the Opens decision (sequential-update fix) before Phase 2 can be
   finalized.
 - Phases 3–4 (documentation, verification/evaluation gate) pending.
+
+## Review Feedback (ordered by importance)
+
+### 1. UKF covariance corruption when applying multiple corrections per prediction
+**Reference:** Risk and Issues: covariance divergence / stale measurement statistics
+
+The current UKF implementation reuses predicted measurement statistics (predicted measurement mean, measurement covariance, sigma-point projection results) for all observations processed after a single `predict()`. After the first correction, the state and covariance change, but the measurement statistics are not recomputed. Subsequent corrections therefore operate on stale prediction artifacts, producing mathematically inconsistent updates and potentially invalid (non-PSD) covariance matrices.
+
+**Impact:** Critical. Affects filter correctness, gating, data association, IMM behavior, and future predictions.
+
+---
+
+### 2. IMM mode likelihoods become inconsistent for multi-observation updates
+**Reference:** Risk and Issues: IMM probability handling
+
+IMM model probabilities are computed using prediction-time measurement statistics. If multiple observations are processed sequentially, likelihood computation no longer reflects the actual posterior state after earlier corrections. This can distort model probabilities and maneuver classification.
+
+**Impact:** High. Primarily affects IMM mode selection and mode probability stability rather than state estimation.
+
+---
+
+### 3. Excellent tracking metrics may hide a broken covariance estimate
+**Reference:** Validation results vs covariance regression findings
+
+Observed improvements in MOTA, IDF1, jitter, and order invariance do not guarantee filter correctness. The state estimate can remain good because low measurement noise drives a high Kalman gain, while covariance silently degrades.
+
+**Impact:** High. Risk of false confidence in evaluation results.
+
+---
+
+### 4. Measurement independence assumption is likely violated
+**Reference:** Open Questions: measurement covariance model
+
+All camera detections are transformed into a common world frame. As a result, measurement errors may contain shared components such as:
+
+- ego-localization error,
+- calibration error,
+- frame alignment error.
+
+The current fusion implicitly assumes observations from different cameras are statistically independent.
+
+**Impact:** Medium-High. Can lead to overconfident covariance when many cameras observe the same object.
+
+---
+
+### 5. Constant scalar measurement covariance (`R = I * const`) is a significant model simplification
+**Reference:** Open Questions: measurement noise modelling
+
+All cameras currently contribute equally and all measurement dimensions receive identical uncertainty, despite:
+
+- estimated depth quality differing from lateral localization,
+- yaw being derived rather than directly measured,
+- different cameras likely having different accuracy characteristics.
+
+**Impact:** Medium. Limits optimal weighting and can amplify overconfidence effects.
+
+---
+
+### 6. Covariance may shrink faster than actual estimation error
+**Reference:** Risk and Issues: covariance over-confidence
+
+Even if covariance divergence is fixed, repeated updates from correlated cameras can reduce covariance faster than true uncertainty decreases.
+
+**Impact:** Medium. Can affect gating thresholds, track confidence, and association robustness.
+
+---
+
+### 7. Sequential update order may still have second-order effects
+**Reference:** Validation: camera-order invariance
+
+Testing suggests practical order invariance, but this is an empirical result rather than a guaranteed property of the overall tracker. UKF nonlinearities, IMM probability updates, and metadata fusion may still introduce subtle order dependencies.
+
+**Impact:** Medium-Low.
+
+---
+
+### 8. Classification/attribute fusion is coupled to observation update order
+**Reference:** Design notes: fused attributes attached to final observation
+
+Metadata fusion currently relies on Kalman correction side-effects and the final processed observation. The state estimate and metadata fusion are therefore not fully separated concerns.
+
+**Impact:** Medium-Low. Architectural debt rather than immediate correctness issue.
+
+---
+
+### 9. Measurement confidence should not automatically drive covariance scaling
+**Reference:** Open Questions: confidence-dependent R
+
+Detection confidence measures confidence in object existence/classification, not necessarily localization accuracy. Directly mapping confidence to measurement variance risks incorrect sensor weighting.
+
+**Impact:** Low-Medium. Future enhancement risk, not a current defect.
+
+---
+
+### 10. Missing consistency validation beyond task-level metrics
+**Reference:** Open Questions / future validation
+
+Current evaluation focuses primarily on tracking quality metrics. Consistency tests such as:
+
+- NIS (Normalized Innovation Squared),
+- covariance PSD checks,
+- covariance-vs-error consistency,
+
+would provide stronger guarantees that filter uncertainty remains meaningful.
+
+**Impact:** Low, but highly recommended for future regression testing.
+
+---
+
+### Recommended Priority
+
+1. Fix stale UKF measurement statistics between corrections.
+2. Revisit IMM likelihood accumulation after multi-observation updates.
+3. Re-run covariance regression tests and verify PSD preservation.
+4. Add NIS/consistency monitoring.
+5. Investigate correlated camera errors.
+6. Improve measurement covariance modelling (`R`).
+7. Refactor metadata/classification fusion if needed.
