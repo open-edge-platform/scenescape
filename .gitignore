@@ -48,6 +48,12 @@ test_reports/
 !tests/interface/firefox-profile.tar
 manager/test/geckodriver.tar.gz
 tests/perf_tests/input/*.json
+
+# Host-side vendored third-party sources for Docker builds (see autocalibration/Makefile,
+# mapping/Makefile vendor-deps targets)
+autocalibration/.vendor/
+mapping/.vendor/
+
 model_installer/models
 package.json
 package-lock.json
