@@ -2519,6 +2519,33 @@ components:
         use_tracker:
           $ref: "#/components/schemas/OutputLlaEnum"
           default: true
+        track_within_bounds:
+          $ref: "#/components/schemas/OutputLlaEnum"
+          default: false
+          title: Track only within map bounds
+          description: >
+            When enabled, only track objects whose location is inside the map
+            bounds (volume of interest). Disabled by default.
+        map_max_x:
+          type: number
+          format: double
+          nullable: true
+          title: Map max X (meters)
+          description: Maximum scene map extent along X in meters (origin at map corner).
+        map_max_y:
+          type: number
+          format: double
+          nullable: true
+          title: Map max Y (meters)
+          description: Maximum scene map extent along Y in meters (origin at map corner).
+        map_max_z:
+          type: number
+          format: double
+          nullable: true
+          title: Map max Z (meters)
+          description: >
+            Maximum scene map extent along Z in meters. For 2D maps use -1.0 to
+            indicate unbounded height.
         output_lla:
           title: Output geospatial coordinates
           oneOf:

@@ -95,6 +95,8 @@ Creating an accurate floor plan image may be as simple as using an existing blue
 
 For best results, size the image to about 1000 pixels wide. The scale to set when creating the scene is the pixel width of the image divided by the width of the scene in meters. For example, if the image is 960 pixels wide and that corresponds to 12 meters across the scene, the scale is `(960 pixels) / (12 meters) = 80 pixels per meter`.
 
+When a scene map and scale are saved, Scenescape also stores the map extents in meters as `map_max_x`, `map_max_y`, and `map_max_z`. For a 2D floor plan those values are derived as image width/height divided by pixels per meter, and `map_max_z` is set to `-1` to indicate unbounded height. For a 3D mesh, the extents come from the mesh axis-aligned bounding box after scene transforms. Optionally enable **Track only within map bounds** so the Scene Controller only tracks objects inside that volume of interest; the option is off by default so objects outside the map continue to be tracked.
+
 There are other methods of determining pixels per meter, such as measuring the distance between two known points in pixel units on the image and in meters on the scene. Some math involving the Pythagorean theorem may be required.
 
 > **Note:** Creating accurate scale floor plans and calibrating cameras can be challenging. To assist with this process, Scenescape supports importing a scene that was scanned with a mobile device or uploading a glTF (.glb) 3D asset of the scene. For more information on scene scanning and using scene scans for automated camera calibration, see [Markerless Camera Calibration](../calibrate-cameras/autocalibrate-cameras-using-visual-features.md#1-generate-polycam-dataset).

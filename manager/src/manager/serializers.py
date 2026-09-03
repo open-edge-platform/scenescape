@@ -843,7 +843,9 @@ class SceneSerializer(NonNullSerializer):
 
   class Meta:
     model = Scene
-    fields = ['uid', 'name', 'map_type', 'use_tracker', 'output_lla', 'trs_matrix', 'map_corners_lla', 'map', 'thumbnail', 'cameras', 'sensors', 'regions',
+    fields = ['uid', 'name', 'map_type', 'use_tracker', 'track_within_bounds',
+              'map_max_x', 'map_max_y', 'map_max_z',
+              'output_lla', 'trs_matrix', 'map_corners_lla', 'map', 'thumbnail', 'cameras', 'sensors', 'regions',
               'tripwires', 'parent', 'transform', 'mesh_translation', 'mesh_rotation',
               'mesh_scale', 'scale', 'children', 'regulated_rate', 'external_update_rate',
               'camera_calibration', 'apriltag_size', 'map_processed', 'polycam_data',

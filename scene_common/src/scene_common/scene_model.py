@@ -30,6 +30,10 @@ class SceneModel:
     self.output_lla = False
     self.map_corners_lla = None
     self.use_tracker = True
+    self.map_max_x = None
+    self.map_max_y = None
+    self.map_max_z = None
+    self.track_within_bounds = False
 
     self.mesh_translation = None
     self.mesh_rotation = None
@@ -63,7 +67,11 @@ class SceneModel:
       'name': self.name,
       'output_lla': self.output_lla,
       'map_corners_lla': self.map_corners_lla,
-      'use_tracker': self.use_tracker
+      'use_tracker': self.use_tracker,
+      'map_max_x': self.map_max_x,
+      'map_max_y': self.map_max_y,
+      'map_max_z': self.map_max_z,
+      'track_within_bounds': self.track_within_bounds,
     }
 
     # children

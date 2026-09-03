@@ -197,7 +197,7 @@ SPDX-License-Identifier: Apache-2.0
 
         <!-- All other scene fields - always visible -->
         {% for field in form %}
-          {% if field.name == 'use_tracker' %}
+          {% if field.name == 'use_tracker' or field.name == 'track_within_bounds' or field.name == 'map_max_x' or field.name == 'map_max_y' or field.name == 'map_max_z' %}
             <div class="form-group row" id="{{ field.name }}_wrapper">
               <label
                 class="col-sm-2 col-form-label"
@@ -208,6 +208,9 @@ SPDX-License-Identifier: Apache-2.0
               <div class="col-sm-10">
                 {{ field.errors }}
                 {{ field }}
+                {% if field.help_text %}
+                  <small class="form-text text-muted">{{ field.help_text }}</small>
+                {% endif %}
               </div>
             </div>
           {% endif %}

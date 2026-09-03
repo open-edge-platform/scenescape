@@ -501,3 +501,92 @@ def test_processCameraData_processes_each_detection_type(scene_obj, camera_obj, 
   assert [call[0] for call in finished] == ['person', 'vehicle']
   assert finished[0][1] == ['person']
   assert finished[1][1] == ['vehicle']
+
+
+def _mock_moving_object(oid, xyz):
+  obj = SimpleNamespace(oid=oid)
+  obj.sceneLoc = Point(xyz)
+  return obj
+
+
+@pytest.mark.parametrize("point,expected", [
+  ((5.0, 5.0, 0.0), True),
+  ((0.0, 0.0, 0.0), True),
+  ((10.0, 20.0, 0.0), True),
+  ((10.1, 5.0, 0.0), False),
+  ((5.0, -0.1, 0.0), False),
+  ((5.0, 5.0, 50.0), True),  # 2D unbounded Z
+])
+def test_isWithinMapBounds_2d(scene_obj, point, expected):
+  """2D maps use map_max_z=-1 so only X/Y are enforced."""
+  from scene_common.options import MAP_BOUNDS_Z_UNBOUNDED
+  scene_obj.map_max_x = 10.0
+  scene_obj.map_max_y = 20.0
+  scene_obj.map_max_z = MAP_BOUNDS_Z_UNBOUNDED
+  assert scene_obj.isWithinMapBounds(Point(point)) is expected
+
+
+@pytest.mark.parametrize("point,expected", [
+  ((1.0, 1.0, 1.0), True),
+  ((1.0, 1.0, 5.1), False),
+  ((1.0, 1.0, -0.1), False),
+])
+def test_isWithinMapBounds_3d(scene_obj, point, expected):
+  """3D meshes enforce a finite Z extent."""
+  scene_obj.map_max_x = 10.0
+  scene_obj.map_max_y = 20.0
+  scene_obj.map_max_z = 5.0
+  assert scene_obj.isWithinMapBounds(Point(point)) is expected
+
+
+def test_isWithinMapBounds_unconfigured(scene_obj):
+  """Missing max X/Y means bounds are not configured; treat as inside."""
+  scene_obj.map_max_x = None
+  scene_obj.map_max_y = None
+  scene_obj.map_max_z = None
+  assert scene_obj.isWithinMapBounds(Point((1000.0, 1000.0, 1000.0))) is True
+
+
+def test_filter_objects_within_bounds_disabled(scene_obj):
+  """Default track_within_bounds=False keeps all objects."""
+  from scene_common.options import MAP_BOUNDS_Z_UNBOUNDED
+  scene_obj.map_max_x = 10.0
+  scene_obj.map_max_y = 10.0
+  scene_obj.map_max_z = MAP_BOUNDS_Z_UNBOUNDED
+  scene_obj.track_within_bounds = False
+  objects = [
+    _mock_moving_object('in', (5.0, 5.0, 0.0)),
+    _mock_moving_object('out', (50.0, 5.0, 0.0)),
+  ]
+  assert scene_obj._filterObjectsWithinBounds(objects) == objects
+
+
+def test_filter_objects_within_bounds_enabled(scene_obj):
+  """When enabled, only objects inside the map VOI are kept."""
+  from scene_common.options import MAP_BOUNDS_Z_UNBOUNDED
+  scene_obj.map_max_x = 10.0
+  scene_obj.map_max_y = 10.0
+  scene_obj.map_max_z = MAP_BOUNDS_Z_UNBOUNDED
+  scene_obj.track_within_bounds = True
+  inside = _mock_moving_object('in', (5.0, 5.0, 0.0))
+  outside = _mock_moving_object('out', (50.0, 5.0, 0.0))
+  filtered = scene_obj._filterObjectsWithinBounds([inside, outside])
+  assert filtered == [inside]
+
+
+def test_hydrate_map_bounds(scene_obj):
+  """Scene hydrate picks up map bounds and VOI flag from REST payload."""
+  from scene_common.options import MAP_BOUNDS_Z_UNBOUNDED
+  scene_obj._hydrateFromSceneData({
+    'name': scene_obj.name,
+    'use_tracker': True,
+    'map_max_x': 12.0,
+    'map_max_y': 8.0,
+    'map_max_z': MAP_BOUNDS_Z_UNBOUNDED,
+    'track_within_bounds': True,
+    'cameras': [],
+  })
+  assert scene_obj.map_max_x == 12.0
+  assert scene_obj.map_max_y == 8.0
+  assert scene_obj.map_max_z == MAP_BOUNDS_Z_UNBOUNDED
+  assert scene_obj.track_within_bounds is True

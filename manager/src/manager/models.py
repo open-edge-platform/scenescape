@@ -118,6 +118,21 @@ class Scene(models.Model):
                                         validate_map_file])
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
                             validators=[MinValueValidator(5e-324)])
+  map_max_x = models.FloatField(
+    "Map max X (meters)", default=None, null=True, blank=True,
+    help_text="Maximum scene map extent along X in meters (origin at map corner).")
+  map_max_y = models.FloatField(
+    "Map max Y (meters)", default=None, null=True, blank=True,
+    help_text="Maximum scene map extent along Y in meters (origin at map corner).")
+  map_max_z = models.FloatField(
+    "Map max Z (meters)", default=None, null=True, blank=True,
+    help_text=(
+      "Maximum scene map extent along Z in meters. For 2D maps use "
+      f"{MAP_BOUNDS_Z_UNBOUNDED} to indicate unbounded height."))
+  track_within_bounds = models.BooleanField(
+    "Track only within map bounds", choices=BOOLEAN_CHOICES, default=False, blank=True,
+    help_text="When enabled, only track objects whose location is inside the map bounds "
+              "(volume of interest). Disabled by default.")
   use_tracker = models.BooleanField("Use tracker", choices=BOOLEAN_CHOICES, default=True, blank=True)
   rotation_x = models.FloatField("X Rotation (degrees)", default=0.0, null=True, blank=False)
   rotation_y = models.FloatField("Y Rotation (degrees)", default=0.0, null=True, blank=False)
@@ -276,11 +291,65 @@ class Scene(models.Model):
       self.thumbnail.save(self.name + '_2d.png', imgfile, save=False)
     return
 
+  def updateMapBounds(self):
+    """Compute map max extents in meters from the scene map and scale.
+
+    For 2D image maps, X/Y come from image size / pixels-per-meter and Z is
+    MAP_BOUNDS_Z_UNBOUNDED (unbounded height). For 3D meshes, X/Y/Z come from
+    the axis-aligned bounding box after mesh rotation/translation.
+    """
+    if not self.map or not self.scale:
+      return
+
+    try:
+      map_path = self.map.path
+    except ValueError:
+      return
+
+    if not os.path.exists(map_path):
+      return
+
+    ext = os.path.splitext(map_path)[1].lower()
+    if ext in ('.png', '.jpg', '.jpeg'):
+      with Image.open(map_path) as img:
+        width_px, height_px = img.size
+      self.map_max_x = width_px / self.scale
+      self.map_max_y = height_px / self.scale
+      self.map_max_z = MAP_BOUNDS_Z_UNBOUNDED
+      return
+
+    if ext == '.glb':
+      rotation = np.array([
+        self.rotation_x or 0.0,
+        self.rotation_y or 0.0,
+        self.rotation_z or 0.0,
+      ])
+      mesh, _ = extractMeshFromGLB(map_path, rotation=rotation)
+      mesh.translate((
+        self.translation_x or 0.0,
+        self.translation_y or 0.0,
+        self.translation_z or 0.0,
+      ))
+      width, height, depth = getMeshSize(mesh)
+      self.map_max_x = float(width)
+      self.map_max_y = float(height)
+      self.map_max_z = float(depth)
+    return
+
   def save(self, *args, **kwargs):
     updated_scene = self.id
     send_update_command = kwargs.pop("send_update_command", True)
     self.dataset_dir = f"{os.getcwd()}/datasets/{self.name}"
     self.output_dir = f"{os.getcwd()}/datasets/{self.name}/output_dir"
+    map_or_scale_changed = (
+      self.map != self._original_map or self.scale != self._original_scale
+      or self._original_rotation_x != self.rotation_x
+      or self._original_rotation_y != self.rotation_y
+      or self._original_rotation_z != self.rotation_z
+      or self._original_translation_x != self.translation_x
+      or self._original_translation_y != self.translation_y
+      or self._original_translation_z != self.translation_z
+    )
     try:
       glb_from_zip = None
       # use glb from zip uploaded in map and copy zip to polycam data
@@ -331,6 +400,15 @@ class Scene(models.Model):
             self.thumbnail = None
             self.resetRotation()
             self.resetTranslation()
+        map_or_scale_changed = True
+        super().save(*args, **kwargs)
+      if map_or_scale_changed:
+        if not self.map:
+          self.map_max_x = None
+          self.map_max_y = None
+          self.map_max_z = None
+        else:
+          self.updateMapBounds()
         super().save(*args, **kwargs)
     except FileNotFoundError as e:
       log.error(f"Failed to save scene , {str(e)}")
@@ -382,6 +460,10 @@ class Scene(models.Model):
     if not mScene:
       mScene = ScenescapeScene(self.name, self.map.path if self.map else None, self.scale)
       mScene.use_tracker = self.use_tracker
+      mScene.map_max_x = self.map_max_x
+      mScene.map_max_y = self.map_max_y
+      mScene.map_max_z = self.map_max_z
+      mScene.track_within_bounds = self.track_within_bounds
       mScene.output_lla = self.output_lla
       mScene.map_corners_lla = self.map_corners_lla
       mScene.mesh_translation = [self.translation_x, self.translation_y, self.translation_z]

@@ -42,6 +42,9 @@ BOOLEAN_CHOICES = (
     (False, 'No')
 )
 
+# Sentinel for map_max_z on 2D scene maps: Z extent is unbounded (height to infinity).
+MAP_BOUNDS_Z_UNBOUNDED = -1.0
+
 SHIFT_TYPE = (
     (TYPE_1, 'Type 1 (default)'),
     (TYPE_2, 'Type 2 (may work better for wide and short objects)'),

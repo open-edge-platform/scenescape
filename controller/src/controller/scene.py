@@ -10,6 +10,7 @@ from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
 from scene_common.geometry import Point
+from scene_common.options import MAP_BOUNDS_Z_UNBOUNDED
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time
 from scene_common.transform import CameraPose
@@ -95,6 +96,10 @@ class Scene(SceneModel):
 
     self._trs_xyz_to_lla = None
     self.use_tracker = True
+    self.map_max_x = None
+    self.map_max_y = None
+    self.map_max_z = None
+    self.track_within_bounds = False
 
     self.pose_adjustment = PoseAdjustment.from_env(
       max_entry_age_seconds=self._get_pose_cache_ttl(),
@@ -148,6 +153,10 @@ class Scene(SceneModel):
     if 'transform' in scene_data:
       self.cameraPose = CameraPose(scene_data['transform'], None)
     self.use_tracker = scene_data.get('use_tracker', True)
+    self.map_max_x = scene_data.get('map_max_x', None)
+    self.map_max_y = scene_data.get('map_max_y', None)
+    self.map_max_z = scene_data.get('map_max_z', None)
+    self.track_within_bounds = scene_data.get('track_within_bounds', False)
     self.output_lla = scene_data.get('output_lla', False)
     self.map_corners_lla = scene_data.get('map_corners_lla', None)
     self.retrack = scene_data.get('retrack', True)
@@ -343,6 +352,37 @@ class Scene(SceneModel):
     self._finishProcessing(detectionType, when, objects, child_objects)
     return True
 
+  def isWithinMapBounds(self, point):
+    """Return True if point is inside the scene map volume of interest.
+
+    Bounds are the axis-aligned box [0, map_max_x] x [0, map_max_y] x [0, map_max_z].
+    When map_max_z is MAP_BOUNDS_Z_UNBOUNDED (2D maps), Z is not checked.
+    Missing map_max_x/map_max_y means bounds are not configured; treat as inside.
+    """
+    if self.map_max_x is None or self.map_max_y is None:
+      return True
+    x = point.x
+    y = point.y
+    if x < 0 or x > self.map_max_x or y < 0 or y > self.map_max_y:
+      return False
+    if self.map_max_z is None or self.map_max_z == MAP_BOUNDS_Z_UNBOUNDED:
+      return True
+    z = point.z if hasattr(point, 'z') and point.z is not None else 0.0
+    return 0 <= z <= self.map_max_z
+
+  def _filterObjectsWithinBounds(self, objects):
+    """Drop detections outside map bounds when track_within_bounds is enabled."""
+    if not self.track_within_bounds:
+      return objects
+    filtered = []
+    for obj in objects:
+      if self.isWithinMapBounds(obj.sceneLoc):
+        filtered.append(obj)
+      else:
+        log.debug("Skipping object outside map bounds",
+                  getattr(obj, 'oid', None), obj.sceneLoc)
+    return filtered
+
   def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     # Compute camera visibility for both retracked objects (fed into this
     # scene's own tracker) and already-tracked/retrack=False objects (merged
@@ -350,6 +390,8 @@ class Scene(SceneModel):
     # looked up by computeCameraBounds() when visibility_topic is 'regulated',
     # which requires obj.visibility (and therefore obj_dict['visibility']) to
     # be set regardless of which path an object came from.
+    objects = self._filterObjectsWithinBounds(objects)
+    already_tracked_objects = self._filterObjectsWithinBounds(already_tracked_objects)
     self._updateVisible(objects + already_tracked_objects)
     self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
                               self.ref_camera_frame_rate,
