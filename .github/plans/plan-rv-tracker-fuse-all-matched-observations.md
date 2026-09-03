@@ -165,13 +165,7 @@ defaults. `addMeasurement` is not exposed through the Python pybind surface.
 
 ## Opens
 
-- **Decision (current): keep the current implementation as-is and defer the covariance fix.** The
-  sequential double-correct divergence is acknowledged and documented (see Risks and Issues), but no
-  code change is made for now. Rationale: the point-estimate accuracy/jitter metrics improved in
-  evaluation, so the change is retained while the covariance fix is deferred pending further
-  instructions. The covariance regression test that surfaced the issue is therefore not committed
-  as-is (it would fail against the unchanged implementation). Revisit before final productization.
-- **Deferred decision: how to fix the sequential multi-observation Kalman update** so the covariance
+- **Decision: how to fix the sequential multi-observation Kalman update** so the covariance
   stays PSD and bounded. Candidate approaches:
   1. Re-predict with `dt=0` between corrects (recompute sigma points / `Pyy` from the current
      posterior before each correction). Smallest change, localized to `TrackManager::correct()`;
@@ -302,6 +296,6 @@ unintended dependency on the configured camera order for the time-chunked contro
   all pass; the covariance regression test **fails against the unchanged implementation** because it
   surfaced the open blocking issue. Per the current decision, the covariance regression test is not
   committed as-is; the fix and that test are deferred.
-- Blocked/paused on the deferred Opens decision (sequential-update fix) before Phase 2 can be
+- Blocked/paused on the Opens decision (sequential-update fix) before Phase 2 can be
   finalized.
 - Phases 3–4 (documentation, verification/evaluation gate) pending.
