@@ -7,10 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 
 Command line tools for managing Scenescape test cycles and results in Jira Zephyr.
 
-| Script | Purpose |
-| --- | --- |
+| Script                   | Purpose                                                                   |
+| ------------------------ | ------------------------------------------------------------------------- |
 | `create_zephyr_cycle.py` | Create a test cycle (test run) and optionally populate it with test cases |
-| `upload_to_zephyr.py` | Publish pytest/xUnit results into an existing test cycle |
+| `upload_to_zephyr.py`    | Publish pytest/xUnit results into an existing test cycle                  |
 
 ## Contents
 
@@ -25,14 +25,14 @@ Command line tools for managing Scenescape test cycles and results in Jira Zephy
 
 Configuration is read from environment variables provided by `utils/.env`:
 
-| Variable | Purpose |
-| --- | --- |
-| `JIRA_TEAM` | Team custom field value (`Vision_AI`) |
-| `JIRA_PROJECT` | Zephyr project key (`ITEP`) |
-| `ZEPHYR_API_BASE` | `https://jira.devtools.intel.com/rest/atm/1.0/` |
-| `JIRA_API_BASE` | `https://jira.devtools.intel.com/rest/api/2/` |
-| `JIRA_TOKEN` | `<jira personal access token>` |
-| `JIRA_USER` | Jira user key recorded as the executor of uploaded results |
+| Variable          | Purpose                                                    |
+| ----------------- | ---------------------------------------------------------- |
+| `JIRA_TEAM`       | Team custom field value (`Vision_AI`)                      |
+| `JIRA_PROJECT`    | Zephyr project key (`ITEP`)                                |
+| `ZEPHYR_API_BASE` | `https://jira.devtools.intel.com/rest/atm/1.0/`            |
+| `JIRA_API_BASE`   | `https://jira.devtools.intel.com/rest/api/2/`              |
+| `JIRA_TOKEN`      | `<jira personal access token>`                             |
+| `JIRA_USER`       | Jira user key recorded as the executor of uploaded results |
 
 ## create_zephyr_cycle.py
 
@@ -40,17 +40,17 @@ Creates a Zephyr test cycle and optionally adds test cases to it.
 
 ### Options
 
-| Flag | Required | Meaning |
-| --- | --- | --- |
-| `--jira-token` | yes | Personal access token |
-| `--folder` | yes | Folder where the **cycle** is created |
-| `--test-cases-folder` | yes | Folder(s) to pull **test cases** from |
-| `--version` | yes | Fix version, validated against `libraries/versions.py` |
-| `--cycle` | no | Cycle name, defaults to `YYYY-MM-DD HH:MM:SS` |
-| `--add-tests` | no | Populate the cycle with test cases |
-| `--status` | no | Comma-separated statuses to include |
-| `--automated` | no | `true` = automated only, `false` = manual only |
-| `--debug` | no | Verbose logging |
+| Flag                  | Required | Meaning                                                |
+| --------------------- | -------- | ------------------------------------------------------ |
+| `--jira-token`        | yes      | Personal access token                                  |
+| `--folder`            | yes      | Folder where the **cycle** is created                  |
+| `--test-cases-folder` | yes      | Folder(s) to pull **test cases** from                  |
+| `--version`           | yes      | Fix version, validated against `libraries/versions.py` |
+| `--cycle`             | no       | Cycle name, defaults to `YYYY-MM-DD HH:MM:SS`          |
+| `--add-tests`         | no       | Populate the cycle with test cases                     |
+| `--status`            | no       | Comma-separated statuses to include                    |
+| `--automated`         | no       | `true` = automated only, `false` = manual only         |
+| `--debug`             | no       | Verbose logging                                        |
 
 Valid `--version` values are listed in `libraries/versions.py`
 
@@ -133,27 +133,27 @@ Reads a JUnit/xUnit XML report and writes each outcome into a test cycle.
 
 ### Options
 
-| Flag | Required | Meaning |
-| --- | --- | --- |
-| `path` (positional) | yes | Path to the JUnit/xUnit XML file |
-| `-a`, `--jira-token` | yes | Personal access token |
-| `-F`, `--folder` | no | Comma-separated folders used to build the test case lookup table |
-| `-C`, `--cycle` | no | Cycle name |
-| `--cycle-key` | no | Cycle key, for example `NEX-Cxxxx` |
-| `-x`, `--create-new-executions` | no | Create new executions |
-| `--comment` | no | Comment attached to every execution |
-| `--debug` | no | Verbose logging |
+| Flag                            | Required | Meaning                                                          |
+| ------------------------------- | -------- | ---------------------------------------------------------------- |
+| `path` (positional)             | yes      | Path to the JUnit/xUnit XML file                                 |
+| `-a`, `--jira-token`            | yes      | Personal access token                                            |
+| `-F`, `--folder`                | no       | Comma-separated folders used to build the test case lookup table |
+| `-C`, `--cycle`                 | no       | Cycle name                                                       |
+| `--cycle-key`                   | no       | Cycle key, for example `NEX-Cxxxx`                               |
+| `-x`, `--create-new-executions` | no       | Create new executions                                            |
+| `--comment`                     | no       | Comment attached to every execution                              |
+| `--debug`                       | no       | Verbose logging                                                  |
 
 ### Result mapping
 
 `libraries/xunit.py` reads the `name` attribute of each `<testcase>` element
 (falling back to `classname`) and extracts a key matching `NEX-\d{5,6}`:
 
-| XML child element | Zephyr status |
-| --- | --- |
-| `<failure>` or `<error>` | `Fail` |
-| `<skipped>` | `Not Executed` |
-| none | `Pass` |
+| XML child element        | Zephyr status  |
+| ------------------------ | -------------- |
+| `<failure>` or `<error>` | `Fail`         |
+| `<skipped>`              | `Not Executed` |
+| none                     | `Pass`         |
 
 ### Upload by cycle key
 
