@@ -184,7 +184,7 @@ python utils/upload_to_zephyr.py -a $JIRA_TOKEN \
   reports/functional_results.xml
 ```
 
-### Troubleshoot unmatched tests
+### Troubleshoot tests upload
 
 ```bash
 python utils/upload_to_zephyr.py --debug -a $JIRA_TOKEN \
