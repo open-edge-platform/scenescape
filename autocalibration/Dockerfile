@@ -33,7 +33,7 @@ COPY autocalibration/src/reloc/new-files /tmp/reloc-new-files
 COPY autocalibration/src/reloc/tests /tmp/reloc-tests
 
 # Clone and patch hloc from latest main
-RUN git -c credential.helper= clone --depth 1 https://github.com/cvg/Hierarchical-Localization.git /tmp/reloc && \
+RUN git clone https://github.com/cvg/Hierarchical-Localization.git /tmp/reloc && \
     cd /tmp/reloc && \
     git checkout c13273b && \
     # Apply patches in order (using -p0 as paths are relative to repo root)
@@ -55,7 +55,7 @@ RUN git -c credential.helper= clone --depth 1 https://github.com/cvg/Hierarchica
 
 # Build wheels in parallel (this changes when source or dependencies change)
 # Clone AprilTag
-RUN git -c credential.helper= clone --depth=1 https://github.com/duckietown/lib-dt-apriltags.git /tmp/apriltag/apriltag-dev
+RUN git clone --depth=1 https://github.com/duckietown/lib-dt-apriltags.git /tmp/apriltag/apriltag-dev
 
 # Build AprilTag
 WORKDIR /tmp/apriltag/apriltag-dev
