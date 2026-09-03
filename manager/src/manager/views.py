@@ -594,7 +594,7 @@ def sign_in(request):
       form.add_error(None, 'Username should not be more than {} characters'.format(maxLength))
 
     if form.is_valid():
-      user = authenticate(username=request.POST['username'], password=request.POST['password'], request=request)
+      user = form.get_user()
       if user is not None:
         Token.objects.get_or_create(user=user)
         login(request, user)

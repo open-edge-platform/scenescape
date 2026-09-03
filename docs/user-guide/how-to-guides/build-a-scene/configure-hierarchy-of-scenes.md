@@ -30,8 +30,6 @@ This task is essential for managing distributed scenes in Scenescape deployments
 - **Network Access**: Verify systems can resolve each other's IP/hostname.
 - **Permissions**: Ensure access to modify `docker-compose.yml` and certificates.
 
----
-
 ## Steps to Add a Local Child Scene
 
 1. **Launch the Scenescape UI and Log In**.
@@ -52,8 +50,6 @@ _Figure 1: Creating new local child scene link._
 ![Local Child Saved](../../_assets/ui/local_child_saved.png "local child scene saved")
 
 _Figure 2: Local Child scene on scene detail page._
-
----
 
 ## Steps to Add a Remote Child Scene
 
@@ -147,8 +143,6 @@ _Figure 6: Remote child scene on scene detail page._
 
 > **Note:** Scene names must be unique across parent and child systems.
 
----
-
 ## Retrack Objects in Parent Scene
 
 - Open the child link config in the UI.
@@ -160,8 +154,6 @@ _Figure 6: Remote child scene on scene detail page._
 
 _Figure 7: Toggle to re-track moving objects from child scene._
 
----
-
 ## Set Temporal Fidelity of Scene Updates
 
 - Navigate to the scene configuration.
@@ -172,8 +164,6 @@ _Figure 7: Toggle to re-track moving objects from child scene._
 ![Temporal Fidelity](../../_assets/ui/temporal-fidelity.png "temporal fidelity")
 
 _Figure 8: Set Regulate and External Update rate in scene config._
-
----
 
 ## Re-identification Support in Hierarchy
 
@@ -234,8 +224,6 @@ flags unset so the parent may sole-enroll on no-match.
 > Full matrix:
 > [ReID Across Controllers](./deploy-multi-controller-on-one-host.md#reid-across-controllers-what-is-supported).
 
----
-
 ## Understanding Transform Type and Values
 
 The child link's transform describes where the child scene's origin sits inside
@@ -255,8 +243,8 @@ A 4x4 [homogeneous transformation matrix](https://en.wikipedia.org/wiki/Transfor
 (row-major) mapping a point in the child scene's coordinate system to the
 parent scene's coordinate system:
 
-| | Column 1 | Column 2 | Column 3 | Column 4 |
-|---|---|---|---|---|
+|           | Column 1     | Column 2     | Column 3     | Column 4     |
+| --------- | ------------ | ------------ | ------------ | ------------ |
 | **Row 1** | Matrix (1,1) | Matrix (1,2) | Matrix (1,3) | Matrix (1,4) |
 | **Row 2** | Matrix (2,1) | Matrix (2,2) | Matrix (2,3) | Matrix (2,4) |
 | **Row 3** | Matrix (3,1) | Matrix (3,2) | Matrix (3,3) | Matrix (3,4) |
@@ -302,7 +290,7 @@ compute the equivalent matrix.
   convention as Euler above.
 - **Scale**: same meaning as in Euler.
 
-> **Tip**: If you don't know the exact offset/rotation between the two
+> **Tip:** If you do not know the exact offset/rotation between the two
 > scenes, start from the identity/default values (no translation, no
 > rotation, scale `1`), add the child scene, then adjust the values while
 > watching the child scene's analytics render in the parent scene map until
