@@ -120,6 +120,22 @@ class TestSignInViews(TestCase):
     self.assertTemplateUsed(response, 'sscape/sign_in.html')
     return
 
+  def test_sign_in_post_success(self):
+    response = self.client.post(reverse('sign_in'), data = {'username': ' test_user ', 'password': 'testpassword', 'request': self.request})
+    self.assertEqual(response.status_code, 302)
+    return
+
+  def test_sign_in_post_trims_whitespace(self):
+    response = self.client.post(reverse('sign_in'), data = {'username': ' test_user ', 'password': 'testpassword', 'request': self.request})
+    self.assertEqual(response.status_code, 302)
+    return
+
+  def test_sign_in_post_wrong_username(self):
+    response = self.client.post(reverse('sign_in'), data = {'username': 'wrong_user', 'password': 'testpassword', 'request': self.request})
+    self.assertEqual(response.status_code, 200)
+    self.assertTemplateUsed(response, 'sscape/sign_in.html')
+    return
+
 class TestSignOutViews(SetUpTestCases):
   def test_sign_out(self):
     response = self.client.post(reverse('sign_out'))
