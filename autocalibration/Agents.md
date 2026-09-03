@@ -178,6 +178,20 @@ pubsub.publish(f"calibration/result/{camera_id}", json.dumps(calibration_result)
 3. Inspect frames: Save detection images to volume for manual review
 4. Verify AprilTag detection: Check tag sizes, lighting, camera resolution
 
+### Exercising Perceptual-Sensor Localization
+
+`tools/perceptual_sensor_cli.py` is a standalone CLI for point-cloud test and
+verification workflows (reuses the `point_cloud_registration` engine and
+`autocalibration_client`). Commands:
+
+- `glb-to-cloud <mesh> <out.pcd|out.ply>` — sample a point cloud from a GLB/PLY mesh
+- `transform <in> <out> --matrix <file>` — apply a 4x4 transform to a cloud
+- `localize --sensor-id <id> --scene-id <uuid> --pointcloud <file>` — POST to the localization endpoint
+- `status --sensor-id <id> [--poll]` — GET/poll localization status
+
+Typical KPI/evidence flow: sample a scene cloud, transform it by a known matrix
+to emulate a sensor, POST it, then poll for the recovered transform.
+
 ## Integration Points
 
 ### Scene Controller
