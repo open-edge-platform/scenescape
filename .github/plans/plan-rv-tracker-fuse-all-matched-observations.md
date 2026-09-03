@@ -192,15 +192,22 @@ defaults. `addMeasurement` is not exposed through the Python pybind surface.
 
 ## Future enhancements
 
-- **Confidence-weighted measurement noise.** With multi-observation fusion, all matched observations
-  are currently weighted equally (fixed `R`), so covariance shrinkage depends only on how many
-  cameras matched. A natural extension is to scale each observation's measurement noise covariance
-  `R` by its detection confidence in the new per-observation `correct()` path (higher confidence ->
-  smaller `R` -> larger Kalman gain), so more reliable detections influence the fused state more.
-  This requires plumbing a per-observation `R` (or confidence) into
-  `MultiModelKalmanEstimator::correct()` and `UnscentedKalmanFilterMod::correct()`, which today
-  accept only the measurement vector. Out of scope for this change (measurement noise is left
-  unchanged and guarded by the covariance regression test); tracked here as a follow-up.
+- **Observation-variance-aware measurement noise.** With multi-observation fusion, all matched
+  observations are currently weighted equally (fixed `R`), so covariance shrinkage depends only on
+  how many cameras matched. A principled extension is to give each observation its own
+  measurement-noise covariance `R` derived from its **localization variance** (how precisely that
+  sensor/detector localizes the object), so more precise observations influence the fused state
+  more. This requires plumbing a per-observation `R` into `MultiModelKalmanEstimator::correct()` and
+  `UnscentedKalmanFilterMod::correct()`, which today accept only the measurement vector.
+  - **Caveat (do not equate confidence with variance).** Detection confidence typically means
+    *probability the object exists*, not measurement variance — these are fundamentally different.
+    Reducing `R` directly from detection confidence would produce the wrong weighting. Make `R`
+    confidence-dependent **only if** localization error is demonstrably correlated with confidence;
+    otherwise use sensor-specific measurement variance.
+  - **Dependencies (not currently available; blockers for this enhancement):** (1) sensor/detector-
+    specific measurement-variance data to parameterize per-observation `R`; and/or (2) empirical
+    evidence that localization error correlates with detection confidence, before any confidence ->
+    `R` mapping is introduced.
 
 ## Relevant files
 
