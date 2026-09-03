@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import open3d as o3d
@@ -32,6 +32,43 @@ def materialToMaterialRecord(mat):
     mat_record.ao_rough_metal_img = mat.texture_maps["ao_rough_metal"].to_legacy()
   return mat_record
 
+def _renderTopViewCpuFallback(triangle_mesh, glb_size, res_x, res_y):
+  """Top-down rasterization when Filament OffscreenRenderer / EGL is unavailable.
+
+  The Open3D cp314 pip wheel (open3d_cpu) often lacks EGL headless support in slim
+  images, which would otherwise make GLB scene create fail with HTTP 500.
+  """
+  floor_width = float(glb_size[0]) if glb_size[0] > 0 else 1.0
+  floor_height = float(glb_size[1]) if glb_size[1] > 0 else 1.0
+  aspect_ratio = res_x / res_y
+  if floor_width / floor_height > aspect_ratio:
+    right = floor_width
+    top = floor_width / aspect_ratio
+  else:
+    right = floor_height * aspect_ratio
+    top = floor_height
+
+  pixels_per_meter = res_y / top
+  img = np.full((res_y, res_x, 3), 240, dtype=np.uint8)
+
+  vertices = np.asarray(triangle_mesh.vertices) if hasattr(triangle_mesh, "vertices") else None
+  if vertices is None or vertices.size == 0:
+    # Tensor TriangleMesh (Open3D t.geometry) exposes positions differently.
+    if hasattr(triangle_mesh, "to_legacy"):
+      vertices = np.asarray(triangle_mesh.to_legacy().vertices)
+    elif hasattr(triangle_mesh, "vertex") and hasattr(triangle_mesh.vertex, "positions"):
+      vertices = triangle_mesh.vertex.positions.numpy()
+    else:
+      vertices = np.empty((0, 3))
+  if vertices.size == 0:
+    return img, pixels_per_meter
+
+  # Triangle mesh is already translated into the first quadrant for top-down view.
+  xs = np.clip((vertices[:, 0] / right * (res_x - 1)).astype(np.int32), 0, res_x - 1)
+  ys = np.clip(((1.0 - (vertices[:, 1] / top)) * (res_y - 1)).astype(np.int32), 0, res_y - 1)
+  img[ys, xs] = (40, 40, 40)
+  return img, pixels_per_meter
+
 def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
   """! Renders the top view of the mesh and returns the capture
     with specified resolution.
@@ -44,7 +81,13 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
   @return img                captured image as array.
   @return pixels_per_meter   determined pixels per meter.
   """
-  renderer = rendering.OffscreenRenderer(res_x, res_y)
+  try:
+    renderer = rendering.OffscreenRenderer(res_x, res_y)
+  except Exception as exc:
+    # Open3D cp314 pip wheel (open3d_cpu) often lacks EGL headless support (RuntimeError),
+    # but some builds surface other failures during renderer construction.
+    log.warning(f"Open3D OffscreenRenderer unavailable ({exc}); using CPU top-down fallback")
+    return _renderTopViewCpuFallback(triangle_mesh, glb_size, res_x, res_y)
 
   # Add tensor meshes with materials (convert Material -> MaterialRecord)
   mat_record = rendering.MaterialRecord()

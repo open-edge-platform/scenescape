@@ -194,6 +194,33 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
     f"{DLS}/compose-retail_video.yml",
     f"{DLS}/compose-queuing_video.yml",
     f"{COMPOSE}/compose-scene.yml",
+    # testdb includes Demo (camera1/2/3); web_default exampledb is Queuing/Retail only
+    # and breaks UI tests that navigate to Demo via check_db_status.
+    f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-cams.yml",
+    f"{COMPOSE}/compose-analytics.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "queuing-video": WaitConfig(),
+    "retail-video": WaitConfig(),
+    "scene": _SCENE,
+    "analytics": _ANALYTICS,
+  },
+)
+
+# Same video stack as FULL_STACK_WITH_VIDEO_AND_RETAIL but loads exampledb
+# (Retail + Queuing scenes). Used by out-of-box UI which navigates those scenes.
+FULL_STACK_WITH_VIDEO_AND_EXAMPLEDB = ServiceProfile(
+  name="full_stack_with_video_and_exampledb",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{DLS}/compose-retail_video.yml",
+    f"{DLS}/compose-queuing_video.yml",
+    f"{COMPOSE}/compose-scene.yml",
     f"{COMPOSE}/compose-web_default.yml",
     f"{COMPOSE}/compose-cams.yml",
     f"{COMPOSE}/compose-analytics.yml",
@@ -557,7 +584,7 @@ STABILITY = ServiceProfile(
     f"{COMPOSE}/compose-cams.yml",
     f"{COMPOSE}/compose-autocalibration.yml",
     f"{COMPOSE}/compose-mapping.yml",
-    f"{COMPOSE}/compose-controller_analytics.yml",
+    f"{COMPOSE}/compose-analytics.yml",
   ),
   wait_for={
     "broker": _BROKER,
@@ -568,7 +595,7 @@ STABILITY = ServiceProfile(
     "retail-video": WaitConfig(),
     "autocalibration": _AUTOCALIBRATION,
     "mapping": _MAPPING_STABILITY,
-    "controller-analytics": _SCENE,
+    "analytics": _ANALYTICS,
   },
 )
 
@@ -601,6 +628,7 @@ PROFILE_REGISTRY: dict = {
     FULL_STACK_WITH_MAPPING_AND_VIDEO,
     FULL_STACK_WITH_RETAIL_VIDEO,
     FULL_STACK_WITH_VIDEO_AND_RETAIL,
+    FULL_STACK_WITH_VIDEO_AND_EXAMPLEDB,
     REID,
     REID_CORE,
     REID_QDRANT,

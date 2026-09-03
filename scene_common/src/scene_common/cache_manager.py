@@ -22,6 +22,8 @@ from scene_common.timestamp import get_epoch_time
 REFRESH_TIME = 60
 
 class CacheManager:
+  _bootstrap_lock = threading.Lock()
+
   def __init__(self, data_source=None, rest_url=None, rest_auth=None,
                root_cert=None, tracker_config_data={}, reid_config_data={},
                pose_adjustment_config_data=None, scene_cls=None):
@@ -56,11 +58,19 @@ class CacheManager:
     return
 
   def _refreshLock(self):
-    """Lock and condition used for single-flight refresh, created on first use."""
-    if not hasattr(self, '_lock'):
-      self._lock = threading.RLock()
-    if not hasattr(self, '_refresh_done'):
-      self._refresh_done = threading.Condition(self._lock)
+    """Lock and condition used for single-flight refresh.
+
+    Created in ``__init__``; this helper also fills missing attributes for
+    partially constructed instances (tests / subclasses).
+    """
+    if not hasattr(self, '_lock') or self._lock is None:
+      with CacheManager._bootstrap_lock:
+        if not hasattr(self, '_lock') or self._lock is None:
+          self._lock = threading.RLock()
+    if not hasattr(self, '_refresh_done') or self._refresh_done is None:
+      with CacheManager._bootstrap_lock:
+        if not hasattr(self, '_refresh_done') or self._refresh_done is None:
+          self._refresh_done = threading.Condition(self._lock)
     if not hasattr(self, '_cache_epoch'):
       self._cache_epoch = 0
     if not hasattr(self, '_refresh_in_progress'):

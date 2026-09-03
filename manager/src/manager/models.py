@@ -56,19 +56,22 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
     else:
       if scene_id:
         client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
-        url = f"https://{autocalibration}/v1/scenes/{scene_id}/registration"
-        headers = {
-          "Content-Type": "application/json"
-        }
-        try:
-          response = requests.patch(url, headers=headers, verify=rootcert, timeout=10)
-          log.info("Status code: %s", response.status_code)
+        # AUTOCALIBRATION may be unset or the compose sentinel "none" when the
+        # service is not in this stack; skip HTTPS notify in that case.
+        if autocalibration and autocalibration.lower() != "none":
+          url = f"https://{autocalibration}/v1/scenes/{scene_id}/registration"
+          headers = {
+            "Content-Type": "application/json"
+          }
           try:
-            log.info("Response: %s", response.json())
-          except ValueError:
-            log.info("Non-JSON response: %s", response.text)
-        except requests.exceptions.RequestException as e:
-          log.warning("Failed to send update command to autocalibration service: %s", e)
+            response = requests.patch(url, headers=headers, verify=rootcert, timeout=10)
+            log.info("Status code: %s", response.status_code)
+            try:
+              log.info("Response: %s", response.json())
+            except ValueError:
+              log.info("Non-JSON response: %s", response.text)
+          except requests.exceptions.RequestException as e:
+            log.warning("Failed to send update command to autocalibration service: %s", e)
 
       if camera_data:
         client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)

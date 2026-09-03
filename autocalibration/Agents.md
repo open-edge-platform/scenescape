@@ -60,7 +60,7 @@ The **Auto Camera Calibration** service (formerly `camcalibration`) computes cam
 - **OpenCV**: Computer vision operations
 - **NumPy/SciPy**: Numerical computations
 - **AprilTag library**: Marker detection (for AprilTag mode)
-- **Open3D** (`open3d-cpu[headless]`): Mesh sampling and point cloud registration (ICP/GICP)
+- **Open3D** (`open3d-cpu`, cp314 x86_64 wheel from Open3D main-devel): Mesh sampling and point cloud registration (ICP/GICP). No cp314 headless wheel; CPU build with OffscreenRenderer/EGL fallbacks in code.
 
 ## Communication Patterns
 

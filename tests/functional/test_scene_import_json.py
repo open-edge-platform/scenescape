@@ -58,11 +58,12 @@ class SceneControllerImportJSON(FunctionalTest):
 
     Steps:
       * Get scene JSON file
-      * Subscribe to regulated scene MQTT topic and verify messages are present
+      * Subscribe to scene data MQTT topic and verify messages are present
 
     Notes:
       * This test requires to be run using scene_no_db.yml present in tests/compose folder
       * This compose file removes --restauth option from scene service and replaces it with --data_source pointing to JSON.
+      * Listens on DATA_SCENE (controller output); SCENE_NO_DB has no analytics service.
     """
 
     self.exitCode = 1
@@ -78,13 +79,15 @@ class SceneControllerImportJSON(FunctionalTest):
       assert self._mqtt_ready.wait(MQTT_CONNECT_TIMEOUT_S), (
         "MQTT client failed to connect")
 
-      log.info("Step 2. Check for regulated messages")
-      log.info("Adding callback to check for regulated messages.")
-      topic_regulated = PubSub.formatTopic(PubSub.DATA_REGULATED,
-                                           scene_id=self.sceneUID)
-      self.pubsub.addCallback(topic_regulated, self.regulatedReceived)
+      log.info("Step 2. Check for scene data messages")
+      log.info("Adding callback to check for scene data messages.")
+      # Controller publishes free-run detections on DATA_SCENE; analytics (not
+      # in SCENE_NO_DB) owns the rate-limited DATA_REGULATED topic.
+      topic_scene = PubSub.formatTopic(
+        PubSub.DATA_SCENE, scene_id=self.sceneUID, thing_type=PERSON)
+      self.pubsub.addCallback(topic_scene, self.regulatedReceived)
 
-      log.info("Sending detections for regulated messages to appear.")
+      log.info("Sending detections for scene data messages to appear.")
       objLocation = self.getLocations()
       jdata = self.objData()
       camera_id = jdata['id']
@@ -102,11 +105,11 @@ class SceneControllerImportJSON(FunctionalTest):
         self.pubsub.publish(cam_topic, json.dumps(jdata))
         time.sleep(1 / self.frameRate)
 
-      log.info("Verifying if regulated messages appeared")
+      log.info("Verifying if scene data messages appeared")
       assert self.sceneData is not None, (
-        f"No regulated message received within {REGULATED_WAIT_TIMEOUT_S}s")
+        f"No scene data message received within {REGULATED_WAIT_TIMEOUT_S}s")
 
-      log.info(f"Regulated message received. Contents:\n{self.sceneData}")
+      log.info(f"Scene data message received. Contents:\n{self.sceneData}")
       self.exitCode = 0
 
     except Exception as e:

@@ -27,7 +27,7 @@ Test what each function/class does in isolation:
 1. **Create and activate a Python virtual environment** (from repo root):
 
    ```bash
-   python3.12 -m venv .venv
+   python3.14 -m venv .venv
    source .venv/bin/activate
    ```
 
@@ -63,7 +63,7 @@ messages over MQTT, and assert on the ANALYTICS_CLUSTERS output.
 1. **Python virtual environment activated** (from repo root):
 
    ```bash
-   python3.12 -m venv .venv
+   python3.14 -m venv .venv
    source .venv/bin/activate
    ```
 

@@ -125,6 +125,11 @@ def test_reid_similarity_search(scenescape_env, request, record_xml_attribute):
   @return   exit_code               Indicates test success or failure.
   """
 
+  from tests.functional.reid_backend import wait_for_reid_backend_ready
+
+  assert wait_for_reid_backend_ready(), (
+    f"ReID backend {REID_DATABASE} not ready for similarity search")
+
   test = ReidSimilaritySearch(TEST_NAME, request, record_xml_attribute)
   try:
     test.reid_connect()

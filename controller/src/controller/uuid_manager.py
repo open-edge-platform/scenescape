@@ -104,7 +104,10 @@ class UUIDManager:
 
   def __init__(self, database=None, reid_config_data=None):
     self.active_ids = {}
-    self.active_ids_lock = threading.Lock()
+    # RLock: active_ids and ReID feature maps are shared across the tracker
+    # thread, ThreadPoolExecutor workers, and timers. Free-threaded Python
+    # requires all reads and writes under this lock (nested helpers re-enter).
+    self.active_ids_lock = threading.RLock()
     self.active_query = {}
     self.features_for_database = {}
     self.features_for_database_timestamps = {}  # Track when features were added
@@ -350,21 +353,22 @@ class UUIDManager:
 
   def _flushStaleFeatures(self):
     """Check for features older than the configured timeout (from reid-config.json) and flush them to VDMS"""
-    if not self.features_for_database_timestamps:
-      return
-
     current_time = get_epoch_time()
     stale_track_ids = []
 
-    for track_id, timestamp in list(self.features_for_database_timestamps.items()):
-      age = current_time - timestamp
-      if age > self.stale_feature_timeout_secs:
-        stale_track_ids.append(track_id)
+    with self.active_ids_lock:
+      if not self.features_for_database_timestamps:
+        return
+      for track_id, timestamp in list(self.features_for_database_timestamps.items()):
+        age = current_time - timestamp
+        if age > self.stale_feature_timeout_secs:
+          stale_track_ids.append(track_id)
 
-    if stale_track_ids:
       for track_id in stale_track_ids:
         self.features_for_database_timestamps.pop(track_id, None)
-        self._addNewFeaturesToDatabase(track_id)
+
+    for track_id in stale_track_ids:
+      self._addNewFeaturesToDatabase(track_id)
 
   def connectDatabase(self):
     self.pool.submit(self.reid_database.connect)
@@ -522,13 +526,15 @@ class UUIDManager:
           inactive_tracks.append((k, v))
       self.active_ids = new_active_ids
 
+      for track_id, data in inactive_tracks:
+        self.active_query.pop(track_id, None)
+        self.quality_features.pop(track_id, None)
+        self.quality_observation_counts.pop(track_id, None)
+        self.enrollment_features.pop(track_id, None)
+        self.local_enrollment_features.pop(track_id, None)
+        self.features_for_database_timestamps.pop(track_id, None)
+
     for track_id, data in inactive_tracks:
-      self.active_query.pop(track_id, None)
-      self.quality_features.pop(track_id, None)
-      self.quality_observation_counts.pop(track_id, None)
-      self.enrollment_features.pop(track_id, None)
-      self.local_enrollment_features.pop(track_id, None)
-      self.features_for_database_timestamps.pop(track_id, None)
       # Track never reached a match decision (e.g. reid disabled, insufficient
       # features); discard its start time rather than leaking it forever.
       self.match_latency_tracker.discardTrackStart(track_id)
@@ -551,7 +557,8 @@ class UUIDManager:
     """
     if slice_size is None:
       slice_size = self.feature_slice_size
-    features = self.features_for_database.pop(track_id, None)
+    with self.active_ids_lock:
+      features = self.features_for_database.pop(track_id, None)
     if not features or not features['reid_vectors']:
       return
     if not self._localEnrollmentAllowed():
@@ -656,9 +663,31 @@ class UUIDManager:
 
     @param  sscape_object  The current Scenescape object
     """
-    result = self.active_ids.get(sscape_object.rv_id, None)
+    with self.active_ids_lock:
+      result = self.active_ids.get(sscape_object.rv_id, None)
     # Track is new only if not yet in active_ids dictionary
     return result is None
+
+  def hasPendingReidEnrollment(self, rv_id):
+    """True when this track owns or is accumulating a local ReID write.
+
+    Safe to call from MQTT/hierarchy threads; all shared maps are read under
+    active_ids_lock.
+    """
+    with self.active_ids_lock:
+      entry = self.features_for_database.get(rv_id)
+      if entry and entry.get('reid_vectors'):
+        return True
+      if self.enrollment_features.get(rv_id):
+        return True
+      if self.local_enrollment_features.get(rv_id):
+        return True
+      if self.quality_features.get(rv_id):
+        return True
+      if rv_id in self.active_query:
+        return True
+      values = self.active_ids.get(rv_id)
+      return bool(values and values[0] is not None)
 
   def isEnrollableObservation(self, sscape_object, minimum_bbox_area=None):
     """
@@ -780,23 +809,24 @@ class UUIDManager:
         f"(no usable pixel bbox and no vetted provenance)")
       return
 
-    self.quality_observation_counts[sscape_object.rv_id] = (
-      self.quality_observation_counts.get(sscape_object.rv_id, 0) + 1)
-    quality = self.quality_features.setdefault(sscape_object.rv_id, [])
-    self._appendUniqueEnrollmentEmbedding(quality, reid_embedding)
-    if self.mayContributeEnrollmentEmbedding(sscape_object, minimum_bbox_area):
-      enrollment = self.enrollment_features.setdefault(sscape_object.rv_id, [])
-      if self._appendUniqueEnrollmentEmbedding(enrollment, reid_embedding):
-        if self.isEnrollableObservation(sscape_object, minimum_bbox_area):
-          local = self.local_enrollment_features.setdefault(sscape_object.rv_id, [])
-          self._appendUniqueEnrollmentEmbedding(local, reid_embedding)
-          log.debug(
-            f"gatherQualityVisualFeatures: Accepted local embedding for rv_id={sscape_object.rv_id} "
-            f"(area={sscape_object.boundingBoxPixels.area:.4f} px^2)")
-        else:
-          log.debug(
-            f"gatherQualityVisualFeatures: Accepted forwarded embedding for rv_id={sscape_object.rv_id} "
-            f"(enroll/enhance, provenance={getattr(sscape_object, 'reid_provenance', None)})")
+    with self.active_ids_lock:
+      self.quality_observation_counts[sscape_object.rv_id] = (
+        self.quality_observation_counts.get(sscape_object.rv_id, 0) + 1)
+      quality = self.quality_features.setdefault(sscape_object.rv_id, [])
+      self._appendUniqueEnrollmentEmbedding(quality, reid_embedding)
+      if self.mayContributeEnrollmentEmbedding(sscape_object, minimum_bbox_area):
+        enrollment = self.enrollment_features.setdefault(sscape_object.rv_id, [])
+        if self._appendUniqueEnrollmentEmbedding(enrollment, reid_embedding):
+          if self.isEnrollableObservation(sscape_object, minimum_bbox_area):
+            local = self.local_enrollment_features.setdefault(sscape_object.rv_id, [])
+            self._appendUniqueEnrollmentEmbedding(local, reid_embedding)
+            log.debug(
+              f"gatherQualityVisualFeatures: Accepted local embedding for rv_id={sscape_object.rv_id} "
+              f"(area={sscape_object.boundingBoxPixels.area:.4f} px^2)")
+          else:
+            log.debug(
+              f"gatherQualityVisualFeatures: Accepted forwarded embedding for rv_id={sscape_object.rv_id} "
+              f"(enroll/enhance, provenance={getattr(sscape_object, 'reid_provenance', None)})")
     return
 
   def _appendEnrollmentEmbedding(self, sscape_object, reid_embedding):
@@ -810,12 +840,13 @@ class UUIDManager:
     """
     if not self.mayContributeEnrollmentEmbedding(sscape_object):
       return
-    if self.isEnrollableObservation(sscape_object):
-      local = self.local_enrollment_features.setdefault(sscape_object.rv_id, [])
-      self._appendUniqueEnrollmentEmbedding(local, reid_embedding)
-    entry = self.features_for_database.get(sscape_object.rv_id)
-    if entry is not None:
-      self._appendUniqueEnrollmentEmbedding(entry['reid_vectors'], reid_embedding)
+    with self.active_ids_lock:
+      if self.isEnrollableObservation(sscape_object):
+        local = self.local_enrollment_features.setdefault(sscape_object.rv_id, [])
+        self._appendUniqueEnrollmentEmbedding(local, reid_embedding)
+      entry = self.features_for_database.get(sscape_object.rv_id)
+      if entry is not None:
+        self._appendUniqueEnrollmentEmbedding(entry['reid_vectors'], reid_embedding)
     return
 
   def pickBestID(self, sscape_object):
@@ -830,7 +861,8 @@ class UUIDManager:
     @param  sscape_object  The current Scenescape object
     """
     # LOOKUP ID IN DICT
-    result = self.active_ids.get(sscape_object.rv_id, None)
+    with self.active_ids_lock:
+      result = self.active_ids.get(sscape_object.rv_id, None)
     # DATABASE ID IS NOT NULL (query has been made and completed)
     if result and result[0] is not None:
       sscape_object.gid = result[0]
@@ -867,7 +899,8 @@ class UUIDManager:
     """
     if minimum_feature_count is None:
       minimum_feature_count = self.minimum_feature_count
-    count = self.quality_observation_counts.get(sscape_object.rv_id, 0)
+    with self.active_ids_lock:
+      count = self.quality_observation_counts.get(sscape_object.rv_id, 0)
     return count >= minimum_feature_count
 
   def querySimilarity(self, sscape_object):
@@ -916,7 +949,9 @@ class UUIDManager:
     @param   sscape_object  The sscape_object for which similarity scores are to be found
     @return  scores         The similarity scores for the given sscape_object
     """
-    reid_vectors = self.quality_features.get(sscape_object.rv_id)
+    with self.active_ids_lock:
+      stored = self.quality_features.get(sscape_object.rv_id)
+      reid_vectors = list(stored) if stored else None
 
     # Extract semantic metadata for TIER 1 filtering
     metadata_constraints = self._extractSemanticMetadata(sscape_object)
@@ -1233,10 +1268,8 @@ class UUIDManager:
       historical_persist = self.reid_database.getPersistedAttributes(database_id)
       log.debug(f"updateActiveDict: historical_persist for gid={database_id}: {historical_persist}")
       if historical_persist and sscape_object.chain_data:
-        for attr, value in historical_persist.items():
-          if sscape_object.chain_data.persist.get(attr) is None:
-            sscape_object.chain_data.persist[attr] = value
-        log.debug(f"updateActiveDict: merged persist={sscape_object.chain_data.persist}")
+        sscape_object.chain_data.mergePersistMissing(historical_persist)
+        log.debug(f"updateActiveDict: merged persist={sscape_object.chain_data.copyPersist()}")
 
       log.debug(
         f"updateActiveDict: Match found for {sscape_object.rv_id}: {database_id}, similarity={similarity}, state={ReidState.MATCHED.value}")
@@ -1288,9 +1321,8 @@ class UUIDManager:
     self._logLiveGidIntegrity("updateActiveDict", sscape_object.rv_id)
 
     persist_attrs = (
-      sscape_object.chain_data.persist.copy()
-      if sscape_object.chain_data and isinstance(sscape_object.chain_data.persist, dict)
-      else {}
+      sscape_object.chain_data.copyPersist()
+      if sscape_object.chain_data else {}
     )
 
     if not self.reid_write_healthy:
@@ -1355,7 +1387,8 @@ class UUIDManager:
     @param   database_id  An ID retrieved from the database
     @return  bool         Returns True if the ID is not found; otherwise, returns False
     """
-    database_ids = [v[0] for v in self.active_ids.values()]
+    with self.active_ids_lock:
+      database_ids = [v[0] for v in self.active_ids.values()]
     return database_id not in database_ids
 
   def _onQuerySimilarityComplete(self, future):
@@ -1403,21 +1436,26 @@ class UUIDManager:
       sscape_object.reid_state = ReidState.REID_DISABLED
 
     # Continue gathering features until we have enough or query is already submitted
-    if sscape_object.rv_id not in self.active_query and self.reid_enabled:
-      self.gatherQualityVisualFeatures(sscape_object)
-      sufficient_features = self.haveSufficientVisualFeatures(sscape_object)
-      feature_count = self.quality_observation_counts.get(sscape_object.rv_id, 0)
-      log.debug(
-        f"assignID: rv_id={sscape_object.rv_id}, sufficient_features={sufficient_features}, "
-        f"observation_count={feature_count}, unique_query_vectors="
-        f"{len(self.quality_features.get(sscape_object.rv_id, []))}")
+    if self.reid_enabled:
+      with self.active_ids_lock:
+        query_pending = sscape_object.rv_id in self.active_query
+      if not query_pending:
+        self.gatherQualityVisualFeatures(sscape_object)
+        sufficient_features = self.haveSufficientVisualFeatures(sscape_object)
+        with self.active_ids_lock:
+          feature_count = self.quality_observation_counts.get(sscape_object.rv_id, 0)
+          unique_query_vectors = len(self.quality_features.get(sscape_object.rv_id, []))
+        log.debug(
+          f"assignID: rv_id={sscape_object.rv_id}, sufficient_features={sufficient_features}, "
+          f"observation_count={feature_count}, unique_query_vectors={unique_query_vectors}")
 
-      # Submit query once we have enough features
-      if sufficient_features:
-        log.debug(f"assignID: Submitting similarity query for rv_id={sscape_object.rv_id}")
-        self.active_query[sscape_object.rv_id] = True
-        future = self.pool.submit(self.querySimilarity, sscape_object)
-        future.add_done_callback(self._onQuerySimilarityComplete)
+        # Submit query once we have enough features
+        if sufficient_features:
+          log.debug(f"assignID: Submitting similarity query for rv_id={sscape_object.rv_id}")
+          with self.active_ids_lock:
+            self.active_query[sscape_object.rv_id] = True
+          future = self.pool.submit(self.querySimilarity, sscape_object)
+          future.add_done_callback(self._onQuerySimilarityComplete)
     # Always pick best ID for the current frame
     self.pickBestID(sscape_object)
     return

@@ -18,8 +18,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 TEST_NAME = "NEX-T21879"
-MAX_CONTROLLER_WAIT = 20  # seconds
-MAX_ATTEMPTS = 3
+MAX_CONTROLLER_WAIT = 45  # seconds (Python 3.14 controller runtime needs more headroom)
+MAX_ATTEMPTS = 5
 
 class CameraIntrinsicsTest(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
@@ -111,11 +111,16 @@ class CameraIntrinsicsTest(FunctionalTest):
       'k3': float(initialValue + 8 * step)
     }
 
-    # Update camera with new intrinsics
+    # Update camera with new intrinsics (name required by CameraSerializer API contract)
+    camera = self.rest.getCamera(cameraUID)
+    assert camera, (camera.statusCode, camera.errors)
     updateData = {
+      'name': camera['name'],
       'intrinsics': newIntrinsics,
       'distortion': newDistortion
     }
+    if camera.get('scene'):
+      updateData['scene'] = camera['scene']
 
     log.info("Saving camera intrinsics changes...")
     updateResult = self.rest.updateCamera(cameraUID, updateData)

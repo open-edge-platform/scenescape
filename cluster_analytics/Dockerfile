@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+ARG RUNTIME_OS_IMAGE=python:3.14-slim-bookworm@sha256:9ab8d9c8514b44f90cf0029dd42fdd7e9e211e639c8b995304cc04568dee900f
 
 FROM intel/scenescape-common-base AS scenescape-cluster-analytics-builder
 
@@ -30,8 +30,8 @@ RUN apt update && apt upgrade -y
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        libgl1 \
-        libglib2.0-0 \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/* \
     # Create non-root user
     && groupadd -g ${GROUP_ID} $WSUSER \
@@ -39,18 +39,18 @@ RUN : \
     && usermod -a -G video,users $WSUSER
 
 COPY cluster_analytics/requirements-runtime.txt /tmp/
-RUN pip install --no-cache-dir \
-        -r /tmp/requirements-runtime.txt \
+RUN pip install --break-system-packages --ignore-installed --no-cache-dir \
+    -r /tmp/requirements-runtime.txt \
     && rm -rf /tmp/*.txt
 
 # Copy compiled packages from builder (use system site-packages directly)
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-cluster-analytics-builder \
-    /usr/local/lib/python3.11/site-packages/scene_common \
-    /usr/local/lib/python3.11/site-packages/scene_common
+    /usr/local/lib/python3.14/site-packages/scene_common \
+    /usr/local/lib/python3.14/site-packages/scene_common
 
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-cluster-analytics-builder \
-    /usr/local/lib/python3.11/site-packages/fast_geometry \
-    /usr/local/lib/python3.11/site-packages/fast_geometry
+    /usr/local/lib/python3.14/site-packages/fast_geometry \
+    /usr/local/lib/python3.14/site-packages/fast_geometry
 
 # Copy tools
 COPY --chown=$USER_ID:$GROUP_ID --from=scenescape-cluster-analytics-builder \
@@ -74,7 +74,7 @@ ARG GROUP_ID=1001
 
 COPY --chown=$USER_ID:$GROUP_ID cluster_analytics/tools/webui/requirements-webui.txt /tmp/
 
-RUN pip install --no-cache-dir -r /tmp/requirements-webui.txt \
+RUN pip install --break-system-packages --ignore-installed --no-cache-dir -r /tmp/requirements-webui.txt \
     && rm -rf /tmp/*.txt
 
 COPY --chown=$USER_ID:$GROUP_ID ./cluster_analytics/tools /app/tools

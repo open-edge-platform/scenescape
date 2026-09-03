@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+ARG RUNTIME_OS_IMAGE=python:3.14-slim-bookworm@sha256:9ab8d9c8514b44f90cf0029dd42fdd7e9e211e639c8b995304cc04568dee900f
 
 # -------------- Controller Builder Stage --------------
 FROM intel/scenescape-common-base AS scenescape-controller-builder
@@ -13,18 +13,19 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        libopencv-dev \
-        python3-venv \
+    libopencv-dev \
+    python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 # Build robot vision package
-# numpy is already pinned to 2.2.6 in scenescape-common-base (via scene_common/requirements.txt)
+# numpy is already pinned in scenescape-common-base (via scene_common/requirements.txt)
 # ensuring ABI compatibility for all C extensions compiled here and in the base image.
+# Install with --no-deps: --ignore-installed would otherwise rebuild apt scipy via meson.
 COPY ./controller/src/robot_vision /tmp/robot_vision
-RUN pip3 install --no-cache-dir scikit-build-core \
+RUN pip3 install --break-system-packages --ignore-installed --no-cache-dir scikit-build-core networkx \
     && export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
     && cd /tmp/robot_vision \
-    && pip3 install --no-cache-dir --no-build-isolation . \
+    && pip3 install --break-system-packages --ignore-installed --no-cache-dir --no-build-isolation --no-deps . \
     && rm -rf /tmp/robot_vision
 
 # Build main controller package
@@ -32,7 +33,7 @@ COPY ./controller/src/controller /tmp/controller/controller
 COPY ./controller/src/setup.py /tmp/controller/setup.py
 RUN cd /tmp/controller \
     && python3 setup.py bdist_wheel \
-    && pip3 install --no-cache-dir ./dist/*.whl -vvv \
+    && pip3 install --break-system-packages --ignore-installed --no-cache-dir ./dist/*.whl -vvv \
     && cd \
     && rm -rf /tmp/controller
 
@@ -49,9 +50,8 @@ LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platf
 ARG USER_ID=1001
 ARG GROUP_ID=1001
 ARG CERTDOMAIN=scenescape.intel.com
-# Base python image exports PYTHON_VERSION as a full semver (e.g. 3.11.14).
-# Use PY_LIB_DIR for site-packages paths copied from the builder stage.
-ARG PY_LIB_DIR=python3.11
+# python:3.14-slim-bookworm ships Python 3.14; pip installs to site-packages.
+ARG PY_LIB_DIR=python3.14
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 ENV DEBIAN_FRONTEND=noninteractive
@@ -62,23 +62,26 @@ USER root
 # Update and upgrade base OS packages
 RUN apt update && apt upgrade -y
 
+# Bookworm OpenCV 4.6 (.406) runtime libs are for robot_vision C++ extensions
+# (built against apt libopencv-dev in the builder stage). Python cv2 comes from
+# pip opencv-python-headless 4.13 in requirements-runtime.txt; the two stacks
+# are independent and intentionally version-skewed.
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        gosu \
-        libgl1 \
-        libopencv-contrib406 \
-        libopencv-stitching406 \
-        libpython3.11 \
-        netbase \
-        python3-pip \
-        sudo \
-    && rm -rf /usr/lib/x86_64-linux-gnu/libLLVM-15.so.1 \
+    gosu \
+    libegl1 \
+    libgl1 \
+    libopencv-contrib406 \
+    libopencv-stitching406 \
+    libatomic1 \
+    libusb-1.0-0 \
+    libgomp1 \
+    netbase \
+    sudo \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN : \
-    # delete ubuntu user if exists
-    && userdel -f -r ubuntu || true \
     # create scenescape user
     && groupadd -g ${GROUP_ID} $WSUSER \
     && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER \
@@ -87,15 +90,15 @@ RUN : \
     && chmod a+rX "${WSHOME}"
 
 # install only required runtime dependencies
-COPY controller/requirements-runtime.txt /tmp
+COPY controller/requirements-runtime.txt /tmp/
 RUN : \
-    && pip3 install --break-system-packages --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
-    && rm -rf /tmp/requirements-runtime.txt
+    && pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir -r /tmp/requirements-runtime.txt \
+    && rm -f /tmp/requirements-runtime.txt
 
 # WORKAROUND: Force upgrade protobuf to a secure version, even though vdms pins an older version.
 # This may break vdms if it is not compatible with newer protobuf, but is required to fix CVE-2025-4565.
 # Remove this when vdms supports a secure protobuf version.
-RUN pip3 install --break-system-packages --upgrade --no-cache-dir 'protobuf>=4.25.8'
+RUN pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir 'protobuf>=4.25.8'
 
 # copy installed scenescape packages from the previous stages
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry
@@ -124,7 +127,7 @@ WORKDIR /workspace
 
 # Install Python test dependencies as root
 USER root
-RUN pip3 install --break-system-packages --upgrade --no-cache-dir coverage==7.9.2 pytest==8.4.1 psutil plyfile==1.0.3
+RUN pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir coverage==7.9.2 pytest==8.4.1 psutil plyfile==1.0.3
 
 
 RUN : \

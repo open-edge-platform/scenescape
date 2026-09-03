@@ -7,6 +7,9 @@ x509_extensions = x509_ext
 [req_distinguished_name]
 commonName = ##CN##
 
+# Root CA extensions live in openssl-ca.cnf (used by tools/certificates Makefile).
+# Leaf service certs use [x509_ext] below.
+
 [x509_ext]
 subjectKeyIdentifier = hash
 basicConstraints=CA:FALSE

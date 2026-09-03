@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+ARG RUNTIME_OS_IMAGE=python:3.14-slim-bookworm@sha256:9ab8d9c8514b44f90cf0029dd42fdd7e9e211e639c8b995304cc04568dee900f
 
 # =========================
 # STAGE 1: BUILD STAGE
@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 # Install Python dependencies (these change more frequently)
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip3 install --upgrade \
+    pip3 install --break-system-packages --ignore-installed --upgrade \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     pybind11 dt-apriltags setuptools wheel
 
@@ -63,7 +63,13 @@ WORKDIR /tmp/apriltag/apriltag-dev
 RUN mkdir build
 
 WORKDIR /tmp/apriltag/apriltag-dev/build
-RUN cmake ../apriltags/ && make -j$(nproc)
+# python:3.14-slim-bookworm ships CMake that rejects cmake_minimum_required < 3.5, and modern GCC
+# treats K&R empty parameter lists as (void). Raise the policy floor and compile
+# as gnu11 so the vendored apriltags submodule still builds.
+RUN cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -DCMAKE_C_FLAGS="-std=gnu11 -Wno-error=incompatible-pointer-types" \
+    ../apriltags/ \
+    && make -j$(nproc)
 
 WORKDIR /tmp/apriltag/apriltag-dev
 RUN python3 setup.py bdist_wheel && \
@@ -76,9 +82,7 @@ RUN mkdir -p third_party/netvlad && \
     touch third_party/__init__.py third_party/netvlad/__init__.py && \
     # Create setup.py without downloading the model
     echo "include third_party/netvlad/*" > MANIFEST.in && \
-    echo -e "from setuptools import setup, find_packages\n\
-setup(name='third_party', version='1.0.0', packages=find_packages(),\n\
-package_data={'': []}, include_package_data=True)" > setup.py && \
+    echo -e "from setuptools import setup, find_packages\nsetup(name='third_party', version='1.0.0', packages=find_packages(),\npackage_data={'': []}, include_package_data=True)" > setup.py && \
     python3 setup.py bdist_wheel && \
     cp dist/*.whl /output/
 
@@ -109,9 +113,9 @@ ENV CERTDOMAIN=${CERTDOMAIN}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
-ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages"
+ENV PYTHONPATH="/usr/local/lib/python3.14/site-packages"
 # Set model directory for on-demand loading
-ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.11/site-packages/third_party/netvlad"
+ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.14/site-packages/third_party/netvlad"
 
 # Update and upgrade base OS packages
 RUN apt update && apt upgrade -y
@@ -119,12 +123,12 @@ RUN apt update && apt upgrade -y
 # Install runtime dependencies in one layer
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-     apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-pip wget curl && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 libegl1 libglib2.0-0 libgomp1 libatomic1 libusb-1.0-0 wget curl && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
-# Add user with specific UID/GID (not system user)
+# Add user with specific UID/GID (not system user).
 RUN groupadd -g $GROUP_ID $WSUSER && \
     useradd -u $USER_ID -g $GROUP_ID -m -s /bin/bash $WSUSER && \
     usermod -a -G video,users $WSUSER && \
@@ -136,26 +140,26 @@ RUN mkdir -p $NETVLAD_MODEL_DIR /tmp && \
     chmod a=rwx,+t /tmp
 
 # Copy scene_common and fast_geometry from builder stage BEFORE installing other packages
-COPY --from=autocalibration-builder /usr/local/lib/python3.11/site-packages/fast_geometry /usr/local/lib/python3.11/site-packages/fast_geometry
-COPY --from=autocalibration-builder /usr/local/lib/python3.11/site-packages/scene_common /usr/local/lib/python3.11/site-packages/scene_common
+COPY --from=autocalibration-builder /usr/local/lib/python3.14/site-packages/fast_geometry /usr/local/lib/python3.14/site-packages/fast_geometry
+COPY --from=autocalibration-builder /usr/local/lib/python3.14/site-packages/scene_common /usr/local/lib/python3.14/site-packages/scene_common
 
 # Copy AprilTag shared library
-COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.11/site-packages/dt_apriltags/
+COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.14/site-packages/dt_apriltags/
 
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/
 COPY autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir \
+    pip install --break-system-packages --ignore-installed --no-cache-dir \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     -r /tmp/requirements-runtime.txt && \
     chmod +x /usr/local/bin/download_models.py && \
-    rm -rf /tmp/requirements-runtime.txt
+    rm -f /tmp/requirements-runtime.txt
 
 # Copy built wheels and install them
 COPY --from=autocalibration-builder /output/*.whl /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --extra-index-url https://download.pytorch.org/whl/cpu /tmp/*.whl && \
+    pip install --break-system-packages --ignore-installed --extra-index-url https://download.pytorch.org/whl/cpu /tmp/*.whl && \
     rm -rf /tmp/*.whl
 
 # Copy application code (this changes frequently)
@@ -165,13 +169,13 @@ COPY --chown=$WSUSER:$WSUSER autocalibration/src/*.py $SCENESCAPE_HOME/
 COPY --chown=$WSUSER:$WSUSER autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
 
 RUN echo '#!/bin/bash\n\
-set -e\n\
-if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
+    set -e\n\
+    if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
     echo "Checking NetVLAD model..."\n\
     python3 /usr/local/bin/download_models.py\n\
-fi\n\
-touch /tmp/healthy\n\
-exec "$@"\n' > /usr/local/bin/startup.sh && \
+    fi\n\
+    touch /tmp/healthy\n\
+    exec "$@"\n' > /usr/local/bin/startup.sh && \
     chmod +x /usr/local/bin/startup.sh && \
     chown $WSUSER:$WSUSER /usr/local/bin/startup.sh
 
@@ -194,7 +198,7 @@ ENV SKIP_MODEL_DOWNLOAD=1
 USER root
 
 # Install Python test dependencies
-RUN pip3 install --upgrade --no-cache-dir coverage pytest
+RUN pip3 install --break-system-packages --ignore-installed --upgrade --no-cache-dir coverage pytest
 
 USER $WSUSER
 

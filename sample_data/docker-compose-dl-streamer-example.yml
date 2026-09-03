@@ -456,7 +456,7 @@ services:
         condition: service_started
     environment:
       - EGL_PLATFORM=surfaceless
-      - NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad
+      - NETVLAD_MODEL_DIR=/usr/local/lib/python3.14/site-packages/third_party/netvlad
       - HTTP_PROXY=${HTTP_PROXY}
       - http_proxy=${http_proxy}
       - HTTPS_PROXY=${HTTPS_PROXY}
@@ -466,7 +466,7 @@ services:
     volumes:
       - vol-media:/home/scenescape/Scenescape/media
       - vol-datasets:/home/scenescape/Scenescape/datasets
-      - vol-netvlad_models:/usr/local/lib/python3.11/site-packages/third_party/netvlad
+      - vol-netvlad_models:/usr/local/lib/python3.14/site-packages/third_party/netvlad
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

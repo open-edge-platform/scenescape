@@ -557,13 +557,17 @@ def cleanup_residual_test_resources():
     try:
       docker.network.remove(network)
     except Exception as exc:
-      logger.warning("Failed to remove residual network %s: %s", network.name, exc)
+      # Network may already be gone (race with another pytest session); avoid
+      # re-inspecting network.name which raises NoSuchNetwork again.
+      net_id = getattr(network, "id", None) or getattr(network, "_immutable_id", "?")
+      logger.warning(f"Failed to remove residual network {net_id}: {exc}")
 
   for volume in volumes:
     try:
       docker.volume.remove(volume)
     except Exception as exc:
-      logger.warning("Failed to remove residual volume %s: %s", volume.name, exc)
+      vol_id = getattr(volume, "name", None) or getattr(volume, "_immutable_id", "?")
+      logger.warning("Failed to remove residual volume %s: %s", vol_id, exc)
 
 
 def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory,

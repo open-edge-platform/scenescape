@@ -15,6 +15,7 @@ from unittest.mock import Mock, MagicMock, patch
 
 from controller.vdms_adapter import VDMSDatabase, SCHEMA_NAME, DIMENSIONS, K_NEIGHBORS, SCHEMA_MARKER_CLASS
 from controller.reid import ReIDDatabase, ReidNoValidVectorsError
+from scene_common.chain_data import ChainData
 from scene_common.reid_constants import VDMS_EXPIRATION_KEY
 
 class TestVDMSDatabaseInterface:
@@ -1830,8 +1831,7 @@ class TestUpdateActiveDictPersistMerge:
     obj.reid_state = MagicMock()
     obj.similarity = None
     obj.metadata = {}
-    obj.chain_data = MagicMock()
-    obj.chain_data.persist = {}
+    obj.chain_data = ChainData(regions={}, publishedLocations=[], persist={})
 
     database_id = 3
     similarity = 12.5
@@ -1865,8 +1865,8 @@ class TestUpdateActiveDictPersistMerge:
     obj.reid_state = MagicMock()
     obj.similarity = None
     obj.metadata = {}
-    obj.chain_data = MagicMock()
-    obj.chain_data.persist = {'gender': 'Female'}
+    obj.chain_data = ChainData(
+      regions={}, publishedLocations=[], persist={'gender': 'Female'})
 
     database_id = 3
     similarity = 12.5
@@ -1932,8 +1932,8 @@ class TestUpdateActiveDictPersistMerge:
     obj.reid_state = MagicMock()
     obj.similarity = None
     obj.metadata = {}
-    obj.chain_data = MagicMock()
-    obj.chain_data.persist = {'gender': 'Female'}
+    obj.chain_data = ChainData(
+      regions={}, publishedLocations=[], persist={'gender': 'Female'})
 
     database_id = 3
     similarity = 12.5
@@ -1971,8 +1971,7 @@ class TestUpdateActiveDictPersistMerge:
     obj.reid_state = MagicMock()
     obj.similarity = None
     obj.metadata = {}
-    obj.chain_data = MagicMock()
-    obj.chain_data.persist = {}  # empty — no attributes to persist
+    obj.chain_data = ChainData(regions={}, publishedLocations=[], persist={})
 
     database_id = 3
     similarity = 12.5
@@ -2045,9 +2044,8 @@ class TestUpdateActiveDictPersistMerge:
     obj.reid_state = MagicMock()
     obj.similarity = None
     obj.metadata = {}
-    obj.chain_data = MagicMock()
-    # Current session has no gender — detector hasn't classified yet this appearance
-    obj.chain_data.persist = {'gender': None}
+    obj.chain_data = ChainData(
+      regions={}, publishedLocations=[], persist={'gender': None})
 
     database_id = 3
     similarity = 12.5
@@ -2082,9 +2080,8 @@ class TestUpdateActiveDictPersistMerge:
     obj.reid_state = MagicMock()
     obj.similarity = None
     obj.metadata = {}
-    obj.chain_data = MagicMock()
-    # Current session already classified gender this appearance
-    obj.chain_data.persist = {'gender': 'Male'}
+    obj.chain_data = ChainData(
+      regions={}, publishedLocations=[], persist={'gender': 'Male'})
 
     database_id = 3
     similarity = 12.5

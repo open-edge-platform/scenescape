@@ -123,14 +123,19 @@ def test_3d_asset_crud_ui(params, repo_root, result_recorder):
       "mark_color field is still visible after selecting a 3D model file"
     log.info("Toggle with model file: 3D fields visible, mark_color hidden - PASS")
 
-    # Save and verify the model file link persists in the edit page
+    # Save and verify the model file link persists in the edit page.
+    # Django may rename the upload when the basename already exists in MEDIA_ROOT
+    # (e.g. a prior scene-map upload of box.glb), so match any .glb current-file link.
     browser.find_element(By.CSS_SELECTOR, "input[value='Update Object']").click()
     common.selenium_wait_for_elements(browser, (By.ID, f"obj-manage-{OBJECT_NAME}"))
     browser.find_element(By.ID, f"obj-manage-{OBJECT_NAME}").click()
     common.selenium_wait_for_elements(browser, (By.ID, "id_name"))
-    model_file_name = FILE_TO_UPLOAD.split("/")[-1]
-    browser.find_element(By.LINK_TEXT, model_file_name)
-    log.info(f"3D model '{model_file_name}' uploaded and verified in object detail - PASS")
+    model_links = browser.find_elements(By.CSS_SELECTOR, "#id_model_3d_wrapper a, a[href*='.glb']")
+    assert model_links, "Expected a persisted 3D model file link after upload"
+    model_link_text = model_links[0].text.strip()
+    assert model_link_text.endswith(".glb"), (
+      f"Expected .glb model link, got {model_link_text!r}")
+    log.info(f"3D model '{model_link_text}' uploaded and verified in object detail - PASS")
 
     # Cleanup
     assert common.delete_object_library(browser, OBJECT_NAME)

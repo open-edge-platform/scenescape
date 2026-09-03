@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from queue import Queue
-from threading import Thread
+from threading import Thread, Lock, RLock
 
 from controller.moving_object import (DEFAULT_EDGE_LENGTH,
                                       DEFAULT_TRACKING_RADIUS, ATagObject,
@@ -13,6 +13,7 @@ from scene_common.options import TYPE_1
 import uuid
 from controller.observability import metrics
 
+_object_classes_lock = RLock()
 object_classes = {
   # class
   'apriltag': {'class': ATagObject}
@@ -37,6 +38,8 @@ class Tracking(Thread):
     self.queue = Queue()
     self.reid_config_data = reid_config_data if reid_config_data else {}
     self.uuid_manager = UUIDManager(reid_config_data=self.reid_config_data)
+    # Protects trackers / curObjects handoff between tracker and MQTT threads.
+    self._state_lock = Lock()
     return
 
   def getUniqueIDCount(self, category):
@@ -50,7 +53,9 @@ class Tracking(Thread):
     """Update ReID behavior in-place for this tracker and all child trackers."""
     self.reid_config_data = reid_config_data if reid_config_data else {}
     self.uuid_manager.updateReidConfig(self.reid_config_data)
-    for tracker in self.trackers.values():
+    with self._state_lock:
+      trackers = list(self.trackers.values())
+    for tracker in trackers:
       tracker.updateReidConfig(self.reid_config_data)
     return
 
@@ -72,7 +77,8 @@ class Tracking(Thread):
           obj.oid = str(uuid.uuid4())
           obj.setGID(obj.oid)
         # No threading when tracker is not used. Thus creating a copy is not required.
-        self.trackers[category].all_tracker_objects = self.trackers[category].curObjects = new_objects
+        with self.trackers[category]._state_lock:
+          self.trackers[category].all_tracker_objects = self.trackers[category].curObjects = new_objects
       else:
         queue = self.trackers[category].queue
         if not queue.empty():
@@ -97,7 +103,9 @@ class Tracking(Thread):
   def _createTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, ref_camera_frame_rate):
     """Create a tracker object for each category"""
     for category in categories:
-      if category not in self.trackers:
+      with self._state_lock:
+        if category in self.trackers:
+          continue
         tracker = self.__class__(
           max_unreliable_time,
           non_measurement_time_dynamic,
@@ -107,29 +115,30 @@ class Tracking(Thread):
         )
         tracker.uuid_manager.scene_id = self.uuid_manager.scene_id
         self.trackers[category] = tracker
-        tracker.start()
+      tracker.start()
     return
 
   def updateObjectClasses(self, assets):
-    remaining_object_class_names = list(object_classes.keys())
-    for asset in assets:
-      category = asset['name']
+    with _object_classes_lock:
+      remaining_object_class_names = list(object_classes.keys())
+      for asset in assets:
+        category = asset['name']
 
-      if category not in object_classes:
-        # Create a new subclass for new category
-        category_class = MovingObject.createSubclass(category)
-        object_classes[category] = {'class': category_class}
-      else:
-        remaining_object_class_names.remove(category)
+        if category not in object_classes:
+          # Create a new subclass for new category
+          category_class = MovingObject.createSubclass(category)
+          object_classes[category] = {'class': category_class}
+        else:
+          remaining_object_class_names.remove(category)
 
-      object_classes[category] = {'class': object_classes[category]['class']}
-      for key in asset:
-        if key == 'name':
-          continue
-        object_classes[category][key] = asset[key]
+        object_classes[category] = {'class': object_classes[category]['class']}
+        for key in asset:
+          if key == 'name':
+            continue
+          object_classes[category][key] = asset[key]
 
-    for category in remaining_object_class_names:
-      del object_classes[category]
+      for category in remaining_object_class_names:
+        del object_classes[category]
     return
 
   def trackCategory(self, objects, when, tracks):
@@ -143,17 +152,17 @@ class Tracking(Thread):
     return
 
   def currentObjects(self, category=None):
-    categories = []
-    if category is None:
-      categories.extend(self.trackers.keys())
-    else:
-      categories.append(category)
+    with self._state_lock:
+      if category is None:
+        categories = list(self.trackers.keys())
+      else:
+        categories = [category]
+      trackers = [(cat, self.trackers[cat]) for cat in categories if cat in self.trackers]
 
     cur_objects = []
-    for cat in categories:
-      if cat in self.trackers:
-        tracker = self.trackers[cat]
-        cur_objects.extend(tracker.curObjects)
+    for cat, tracker in trackers:
+      with tracker._state_lock:
+        cur_objects.extend(list(tracker.curObjects))
     if category is None:
       cur_objects = self.groupObjects(cur_objects)
     return cur_objects
@@ -194,7 +203,9 @@ class Tracking(Thread):
           self.trackCategory(objects, when, already_tracked_objects)
         # curObjects are the results while all_tracker_objects
         # is used as a working collection inside the thread
-        self.curObjects = (self.all_tracker_objects).copy()
+        snapshot = (self.all_tracker_objects).copy()
+        with self._state_lock:
+          self.curObjects = snapshot
         self.queue.task_done()
 
     return
@@ -206,9 +217,10 @@ class Tracking(Thread):
     return
 
   def join(self):
-    log.debug("Joining tracker threads. Trackers count: ", len(self.trackers))
-    for category in self.trackers:
-      tracker = self.trackers[category]
+    with self._state_lock:
+      trackers = list(self.trackers.items())
+    log.debug(f"Joining tracker threads. Trackers count: {len(trackers)}")
+    for category, tracker in trackers:
       tracker.queue.put((None, None, None, STREAMING_MODE))
       log.debug(f"Waiting for tracker thread category {category} to complete")
       tracker.waitForComplete()
@@ -227,8 +239,12 @@ class Tracking(Thread):
     project_to_map = False
     rotation_from_velocity = False
 
-    if sensorType in object_classes:
-      oclass = object_classes[sensorType]
+    with _object_classes_lock:
+      oclass = object_classes.get(sensorType)
+      if oclass is not None:
+        oclass = dict(oclass)
+
+    if oclass is not None:
       mobj = oclass['class'](info, when, sensor)
       if 'model_3d' in oclass:
         mobj.asset_scale = oclass['scale']

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import math
@@ -10,6 +10,7 @@ import open3d as o3d
 import open3d.visualization.rendering as rendering
 from dt_apriltags import Detector
 
+from scene_common import log
 from scene_common.glb_top_view import materialToMaterialRecord
 from scene_common.mesh_util import extractTriangleMesh
 from scene_common.transform import CameraIntrinsics, CameraPose
@@ -109,6 +110,76 @@ class CameraCalibrationApriltag:
     img = renderer.render_to_image()
     return np.array(img)
 
+  def _offscreen_renderer_available(self):
+    """Return True when Filament OffscreenRenderer can be constructed."""
+    try:
+      rendering.OffscreenRenderer(8, 8)
+      return True
+    except Exception as exc:
+      log.warning(
+        f"Open3D OffscreenRenderer unavailable ({exc}); "
+        "falling back to map-image apriltag detection")
+      return False
+
+  def _identify_apriltags_from_map_image(self):
+    """Detect apriltags directly on a 2D map image when EGL rendering is unavailable.
+
+    Pixel centers are converted to scene meters using the map scale, matching
+    extractMeshFromImage() extents (x = u/scale, y = (h-v)/scale).
+
+    Some tags are missed at native resolution (e.g. tag 103 on Queuing
+    scene.png). Merge detections across mild upscales so CPU fallback matches
+    the virtual-camera tiling path's coverage.
+    """
+    if len(self.map_info) < 2:
+      raise RuntimeError(
+        "OffscreenRenderer unavailable and map is not an image; "
+        "cannot detect apriltags without EGL headless support")
+
+    map_path, scale = self.map_info[0], float(self.map_info[1])
+    source_image = cv2.imread(map_path)
+    if source_image is None:
+      raise FileNotFoundError(f"Could not read map image: {map_path}")
+
+    grayed = cv2.cvtColor(source_image, cv2.COLOR_BGR2GRAY)
+    height, width = grayed.shape[:2]
+    # Native + upscales: tag 103 on Queuing map needs ~1.25x before decode.
+    detect_scales = (1.0, 1.25, 1.5, 2.0)
+    apriltag_centers = {}
+    for resize_scale in detect_scales:
+      if resize_scale == 1.0:
+        scaled = grayed
+      else:
+        scaled = cv2.resize(
+          grayed, None, fx=resize_scale, fy=resize_scale,
+          interpolation=cv2.INTER_CUBIC)
+      sh, sw = scaled.shape[:2]
+      fx = fy = float(max(sh, sw))
+      tags = self.atag_detector.detect(
+        scaled,
+        estimate_tag_pose=False,
+        camera_params=(fx, fy, sw / 2.0, sh / 2.0),
+        tag_size=self.tag_size,
+      )
+      for tag in tags:
+        tag_id = str(tag.tag_id)
+        if tag_id in apriltag_centers:
+          continue
+        u = float(tag.center[0]) / resize_scale
+        v = float(tag.center[1]) / resize_scale
+        apriltag_centers[tag_id] = (u, v)
+
+    apriltag_3d_data = {}
+    for tag_id, (u, v) in apriltag_centers.items():
+      # Image v grows downward; mesh Y grows upward after extractMeshFromImage.
+      apriltag_3d_data[tag_id] = [u / scale, (height - 1 - v) / scale, 0.0]
+
+    self.result_data_3d = apriltag_3d_data
+    log.info(
+      f"Detected {len(apriltag_3d_data)} apriltags from map image "
+      f"(CPU fallback, no OffscreenRenderer)")
+    return
+
   def find_apriltags_in_frame(self, source_image, store=False, intrinsics=None):
     """! Detects the apriltags in the source image using the apriltag class detector.
     @param   source_image    Image in which apriltags are to be detected.
@@ -139,10 +210,18 @@ class CameraCalibrationApriltag:
 
     @return  None
     """
+    self.triangle_mesh, self.tensor_tmesh = extractTriangleMesh(self.map_info, DEFAULT_MESH_ROTATION)
+
+    # Open3D cp314 pip wheel (open3d_cpu) often lacks EGL headless in slim images; for
+    # image maps detect apriltags on the source texture instead of rendering virtual
+    # camera tiles.
+    if not self._offscreen_renderer_available():
+      self._identify_apriltags_from_map_image()
+      return
+
     apriltag_3d_data = {}
     new_intrinsic_matrix = CameraIntrinsics(intrinsics=DEFAULT_FOV,
                                             resolution=[TILE_SIZE, TILE_SIZE])
-    self.triangle_mesh, self.tensor_tmesh = extractTriangleMesh(self.map_info, DEFAULT_MESH_ROTATION)
     scene = o3d.t.geometry.RaycastingScene()
     scene.add_triangles(self.triangle_mesh)
     max_bounding_box = self.triangle_mesh.get_max_bound()

@@ -65,6 +65,8 @@ make -C ./tools/certificates CERTPASS="${CERTPASS}"
 
 where `CERTPASS` is set beforehand to a long random string generated with `openssl rand -base64 33`. This means that, in future, the same CA cannot be used to generate more certificates. The random string is not known to anyone, including the user performing the deployment.
 
+The root CA is minted with critical `basicConstraints: CA:TRUE` and critical `keyUsage: keyCertSign, cRLSign` (see `tools/certificates/openssl-ca.cnf`). Those extensions are required for TLS clients built on OpenSSL 3.2+ / Python 3.14, which reject CA certificates that omit Key Usage.
+
 If you need to know the `CERTPASS` in order to generate more certificates in future, you can remove the `manager/secrets/ca` and `manager/secrets/certs` directories and run the `make` command again, specifying your own custom `CERTPASS` variable. In a default deployment, this is not needed.
 
 ### Configuring the certificate generation tooling

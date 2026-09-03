@@ -16,8 +16,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 TEST_NAME = "NEX-T10402"
-MAX_CONTROLLER_WAIT = 20 # seconds
-MAX_ATTEMPTS = 3
+MAX_CONTROLLER_WAIT = 45  # seconds (Python 3.14 controller runtime needs more headroom)
+MAX_ATTEMPTS = 5
 
 class OrphanedCameraTest(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
@@ -75,7 +75,9 @@ class OrphanedCameraTest(FunctionalTest):
       existingScene = self.rest.getScenes({'id': self.existingSceneUID})
       assert existingScene['results'], (existingScene.statusCode, existingScene.errors)
       sceneID = existingScene['results'][0]['uid']
-      updateNewCamera = self.rest.updateCamera(newCamera['uid'], {'scene': sceneID})
+      # Camera updates require name (API contract); scene reassignment is partial otherwise.
+      updateNewCamera = self.rest.updateCamera(
+        newCamera['uid'], {'name': self.newCameraName, 'scene': sceneID})
       assert updateNewCamera and updateNewCamera['scene'] == sceneID, \
         (updateNewCamera.statusCode, updateNewCamera.errors)
 

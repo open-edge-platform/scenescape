@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 MINIMAL_MODEL_SIZE_MB = 500
 NETVLAD_MODEL_URL = "https://cvg-data.inf.ethz.ch/hloc/netvlad/Pitts30K_struct.mat"
 NETVLAD_MODEL_NAME = "VGG16-NetVLAD-Pitts30K.mat"
-MODEL_DIR = os.getenv("NETVLAD_MODEL_DIR", "/usr/local/lib/python3.10/dist-packages/third_party/netvlad")
+MODEL_DIR = os.getenv("NETVLAD_MODEL_DIR", "/usr/local/lib/python3.14/site-packages/third_party/netvlad")
 NETVLAD_MODEL_MIN_SIZE_MB = MINIMAL_MODEL_SIZE_MB
 
 EXPECTED_SHA256 = "a67d9d897d3b7942f206478e3a22a4c4c9653172ae2447041d35f6cb278fdc67"

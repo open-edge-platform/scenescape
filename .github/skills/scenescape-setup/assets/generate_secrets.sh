@@ -31,10 +31,26 @@ openssl ecparam -name secp384r1 -genkey \
     -out "$SECRETSDIR/ca/scenescape-ca.key"
 
 echo "Generating root CA certificate..."
+# Dedicated CA config avoids evaluating leaf SAN placeholders in openssl.cnf.
+cat > "$SECRETSDIR/certs/openssl-ca.cnf" <<EOF
+[req]
+distinguished_name = req_distinguished_name
+prompt = no
+x509_extensions = v3_ca
+[req_distinguished_name]
+commonName = ca.$CERTDOMAIN
+[v3_ca]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical, CA:TRUE
+keyUsage = critical, keyCertSign, cRLSign
+EOF
 openssl req -passin pass:"$CERTPASS" -x509 -new \
   -key "$SECRETSDIR/ca/scenescape-ca.key" -days 1825 \
   -out "$SECRETSDIR/certs/scenescape-ca.pem" \
-  -subj "/CN=ca.$CERTDOMAIN"
+  -subj "/CN=ca.$CERTDOMAIN" \
+  -config "$SECRETSDIR/certs/openssl-ca.cnf"
+rm -f "$SECRETSDIR/certs/openssl-ca.cnf"
 
 # ── Helper: issue a service certificate using openssl.cnf template ────────────
 # HOST is used for CN/SAN (e.g. reid → reid.scenescape.intel.com). Optional
