@@ -21,8 +21,7 @@ COPY mapping/0001-Run-it-on-CPU.patch /tmp/
 # .vendor/model, keyed off MODEL_TYPE, to avoid GitHub's unauthenticated-download rate limiting.
 COPY mapping/.vendor/model /tmp/vendor-model
 RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
-        cp -r /tmp/vendor-model ./map-anything && \
-        cd ./map-anything && git apply /tmp/mapanything-version-fix.patch; \
+        cp -r /tmp/vendor-model ./map-anything; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
         cp -r /tmp/vendor-model ./vggt && \
         cd ./vggt && git apply /tmp/0001-Run-it-on-CPU.patch; \
