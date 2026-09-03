@@ -5,8 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Zephyr Test Management Tools
 
-Command line tools for managing Scenescape test cycles and results in Jira/Zephyr
-(ATM 1.0 API).
+Command line tools for managing Scenescape test cycles and results in Jira Zephyr.
 
 | Script | Purpose |
 | --- | --- |
