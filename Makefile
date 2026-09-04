@@ -133,7 +133,6 @@ help:
 	@echo "  setup-pytest                Create tests/.venv and install dependencies"
 	@echo ""
 	@echo "  check-zephyr-ids            Check every non-unit test declares a Zephyr test ID"
-	@echo "  check-zephyr-mapping        Also compare the test IDs against Jira Zephyr"
 	@echo "  update-zephyr-baseline      Rewrite tests/zephyr_baseline.json"
 	@echo ""
 	@echo "  lint-all                    Lint entire code base"
@@ -425,10 +424,6 @@ ZEPHYR_CHECK := $(CURDIR)/tests/.venv/bin/python $(CURDIR)/utils/check_zephyr_ma
 .PHONY: check-zephyr-ids
 check-zephyr-ids:
 	@$(ZEPHYR_CHECK) || (echo "Zephyr ID check failed" && exit 1)
-
-.PHONY: check-zephyr-mapping
-check-zephyr-mapping:
-	@$(ZEPHYR_CHECK) --jira || (echo "Zephyr mapping check failed" && exit 1)
 
 .PHONY: update-zephyr-baseline
 update-zephyr-baseline:

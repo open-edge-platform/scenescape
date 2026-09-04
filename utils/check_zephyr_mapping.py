@@ -3,12 +3,13 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Enforce a one-to-one mapping between pytest tests and Jira Zephyr test cases.
+"""Check that every non-unit pytest test declares a unique Jira Zephyr test ID.
 
-Stage A (offline) collects every non-unit pytest test via ``pytest --collect-only``
-and requires each one to declare ``@pytest.mark.test_name("NEX-T#####")``.
-Stage B (``--jira``) fetches the Zephyr test cases and reports IDs that exist on
-only one side.
+Collects tests with ``pytest --collect-only`` and requires each one to declare
+``@pytest.mark.test_name("NEX-T#####")`` with a well-formed key that no other
+test already claims. Jira itself is unreachable from CI, so the keys are only
+validated for shape and uniqueness here; existence is checked at upload time by
+``utils/upload_to_zephyr.py``.
 
 Known violations are frozen in a baseline file that may only shrink, so new
 breakage fails while the existing backlog is burned down over time.
@@ -24,11 +25,9 @@ import sys
 import tempfile
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-UTILS_DIR = os.path.join(REPO_ROOT, "utils")
 
 DEFAULT_PYTEST = os.path.join(REPO_ROOT, "tests", ".venv", "bin", "pytest")
 DEFAULT_BASELINE = os.path.join(REPO_ROOT, "tests", "zephyr_baseline.json")
-DEFAULT_ENV_FILE = os.path.join(UTILS_DIR, ".env")
 COLLECT_PLUGIN_DIR = os.path.join(REPO_ROOT, "tests", "scripts")
 
 # Unit tests are out of scope; the remaining satellite suites are already
@@ -36,47 +35,21 @@ COLLECT_PLUGIN_DIR = os.path.join(REPO_ROOT, "tests", "scripts")
 TEST_ROOT = os.path.join(REPO_ROOT, "tests")
 EXCLUDED_DIRS = [os.path.join(TEST_ROOT, "sscape_tests")]
 
-DEFAULT_FOLDERS = [
-  "/Vision_AI/SceneScape/ADMIN",
-  "/Vision_AI/SceneScape/Functional Tests",
-  "/Vision_AI/SceneScape/Performance Tests",
-  "/Vision_AI/SceneScape/UI Tests",
-]
-
 ZEPHYR_ID_RE = re.compile(r"^NEX-T\d{5,6}$")
 
 MISSING_ID = "missing_id"
 INVALID_ID = "invalid_id"
 DUPLICATE_ID = "duplicate_id"
-UNKNOWN_ID = "unknown_id"
-ORPHAN_ZEPHYR = "orphan_zephyr"
 
-OFFLINE_CATEGORIES = [MISSING_ID, INVALID_ID, DUPLICATE_ID]
-JIRA_CATEGORIES = [UNKNOWN_ID, ORPHAN_ZEPHYR]
-ALL_CATEGORIES = OFFLINE_CATEGORIES + JIRA_CATEGORIES
+ALL_CATEGORIES = [MISSING_ID, INVALID_ID, DUPLICATE_ID]
 
 CATEGORY_HELP = {
   MISSING_ID: 'test declares no @pytest.mark.test_name("NEX-T#####")',
   INVALID_ID: "test_name marker value is not a valid NEX-T##### key",
   DUPLICATE_ID: "one Zephyr ID is claimed by more than one test",
-  UNKNOWN_ID: "test_name marker refers to a Zephyr case that does not exist",
-  ORPHAN_ZEPHYR: "automated Zephyr case has no test in the repository",
 }
 
 log = logging.getLogger("zephyr")
-
-
-def load_env_file(path):
-  """Populate os.environ from a KEY=VALUE file without overriding the real env."""
-  if not path or not os.path.exists(path):
-    return
-  with open(path, encoding="utf-8") as handle:
-    for line in handle:
-      line = line.strip()
-      if not line or line.startswith("#") or "=" not in line:
-        continue
-      key, value = line.split("=", 1)
-      os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
 def collect_tests(pytest_bin):
@@ -126,9 +99,9 @@ def logical_tests(records):
   return sorted(tests, key=lambda test: test["key"])
 
 
-def find_offline_violations(tests):
-  """Apply the rules that need no access to Jira."""
-  violations = {category: {} for category in OFFLINE_CATEGORIES}
+def find_violations(tests):
+  """Apply the marker rules and return the violations plus the claimed IDs."""
+  violations = {category: {} for category in ALL_CATEGORIES}
   claims = {}
 
   for test in tests:
@@ -152,31 +125,6 @@ def find_offline_violations(tests):
   return violations, claims
 
 
-def find_jira_violations(claims, token, folders):
-  """Compare the IDs claimed by the repo against the Zephyr test cases."""
-  sys.path.insert(0, UTILS_DIR)
-  import libraries.jira as jira  # noqa: E402  (env must be loaded before import)
-
-  client = jira.Jira(token)
-  cases = client.get_tests_in_folder(
-    folders, fields="name,key,status,customFields,labels")
-  log.info("Retrieved %d Zephyr test cases from %d folder(s)", len(cases), len(folders))
-
-  by_key = {case["key"]: case for case in cases if case.get("key")}
-  violations = {category: {} for category in JIRA_CATEGORIES}
-
-  for zephyr_id, keys in claims.items():
-    if zephyr_id not in by_key:
-      violations[UNKNOWN_ID][zephyr_id] = " claimed by " + ", ".join(sorted(keys))
-
-  for key, case in by_key.items():
-    if key not in claims and jira.Jira.is_automated(case):
-      name = (case.get("name") or "").strip()
-      violations[ORPHAN_ZEPHYR][key] = f" ({name})" if name else ""
-
-  return violations
-
-
 def load_baseline(path):
   if not os.path.exists(path):
     return {category: set() for category in ALL_CATEGORIES}
@@ -185,20 +133,18 @@ def load_baseline(path):
   return {category: set(data.get(category, [])) for category in ALL_CATEGORIES}
 
 
-def write_baseline(path, violations, categories, previous):
-  """Rewrite the baseline, keeping categories this run did not evaluate."""
-  data = {category: sorted(violations.get(category, {})) if category in categories
-          else sorted(previous.get(category, set()))
+def write_baseline(path, violations):
+  data = {category: sorted(violations.get(category, {}))
           for category in ALL_CATEGORIES}
   with open(path, "w", encoding="utf-8") as handle:
     json.dump(data, handle, indent=2)
     handle.write("\n")
 
 
-def report(violations, baseline, categories, allow_stale):
+def report(violations, baseline, allow_stale):
   """Print the diff against the baseline and return the number of failures."""
   failures = 0
-  for category in categories:
+  for category in ALL_CATEGORIES:
     current = violations.get(category, {})
     known = baseline.get(category, set())
     new = sorted(set(current) - known)
@@ -217,20 +163,13 @@ def report(violations, baseline, categories, allow_stale):
 def build_argparser():
   parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    description="Check that every non-unit pytest test maps 1:1 to a Jira Zephyr test case")
+    description="Check that every non-unit pytest test declares a unique Zephyr test ID")
   parser.add_argument("--pytest", default=DEFAULT_PYTEST,
                       help="pytest executable used for collection")
   parser.add_argument("--baseline", default=DEFAULT_BASELINE,
                       help="JSON file holding the accepted backlog of violations")
   parser.add_argument("--update-baseline", action="store_true",
                       help="rewrite the baseline from the current violations")
-  parser.add_argument("--jira", action="store_true",
-                      help="also compare against Jira; needs JIRA_TOKEN in the environment")
-  parser.add_argument("--folder", default=os.getenv("ZEPHYR_FOLDERS"),
-                      help="comma-separated Zephyr folders to look test cases up in; "
-                           "subfolders must be listed explicitly")
-  parser.add_argument("--env-file", default=DEFAULT_ENV_FILE,
-                      help="file with the JIRA_* settings, ignored when missing")
   parser.add_argument("--debug", action="store_true", help="verbose logging")
   return parser
 
@@ -239,46 +178,27 @@ def main():
   args = build_argparser().parse_args()
   logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO,
                       format="%(levelname)s %(message)s")
-  load_env_file(args.env_file)
 
-  print("==> Checking pytest to Jira Zephyr traceability...")
+  print("==> Checking Zephyr test IDs...")
   tests = logical_tests(collect_tests(args.pytest))
   print(f"Collected {len(tests)} tests (unit tests excluded)")
 
-  violations, claims = find_offline_violations(tests)
+  violations, _ = find_violations(tests)
   baseline = load_baseline(args.baseline)
-  evaluated = list(OFFLINE_CATEGORIES)
-
-  failures = report(violations, baseline, OFFLINE_CATEGORIES, args.update_baseline)
-  if failures and not args.update_baseline:
-    print(f"\nFAIL: {failures} Zephyr ID violation(s). Every test outside "
-          f"tests/sscape_tests must declare @pytest.mark.test_name(\"NEX-T#####\").")
-    return 1
-
-  if args.jira:
-    token = os.getenv("JIRA_TOKEN")
-    if not token:
-      print("\nJIRA_TOKEN is not set; skipping the Jira comparison")
-    else:
-      folders = [part.strip() for part in (args.folder or "").split(",") if part.strip()]
-      violations.update(find_jira_violations(claims, token, folders or DEFAULT_FOLDERS))
-      evaluated.extend(JIRA_CATEGORIES)
-      failures += report(violations, baseline, JIRA_CATEGORIES, args.update_baseline)
+  failures = report(violations, baseline, args.update_baseline)
 
   if args.update_baseline:
-    write_baseline(args.baseline, violations, evaluated, baseline)
-    skipped = [category for category in ALL_CATEGORIES if category not in evaluated]
-    if skipped:
-      print(f"\nKept the existing baseline for {', '.join(skipped)} "
-            f"(not evaluated; re-run with --jira to refresh)")
+    write_baseline(args.baseline, violations)
     print(f"\nWrote baseline to {args.baseline}")
     return 0
 
   if failures:
-    print(f"\nFAIL: {failures} Zephyr mapping violation(s)")
+    print(f"\nFAIL: {failures} Zephyr ID violation(s). Every test outside "
+          f"tests/sscape_tests must declare a unique "
+          f"@pytest.mark.test_name(\"NEX-T#####\").")
     return 1
 
-  print("\nDONE ==> Checking pytest to Jira Zephyr traceability")
+  print("\nDONE ==> Checking Zephyr test IDs")
   return 0
 
 
