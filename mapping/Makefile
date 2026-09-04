@@ -88,6 +88,7 @@ endif
 # otherwise still hold whichever variant was vendored last (mapanything) when the vggt
 # generate-sbom call runs, silently SBOM-scanning the wrong source tree.
 ifndef MAPPING_GENERATE_SBOM
+.NOTPARALLEL: build-vggt build-mapanything
 .PHONY: generate-sbom
 generate-sbom: build-vggt build-mapanything
 	$(MAKE) MODEL_TYPE=vggt vendor-deps
