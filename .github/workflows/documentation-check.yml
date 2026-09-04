@@ -4,11 +4,8 @@
 
 name: Documentation Check
 
-on: # yamllint disable-line rule:truthy
-  pull_request:
-    branches:
-      - main
-      - release-*
+on:
+  workflow_call: {}
   workflow_dispatch:
 
 permissions: {}
@@ -37,6 +34,6 @@ jobs:
       contents: read # needed for actions/checkout
     needs: filter
     if: ${{ needs.filter.outputs.scenescape_documentation_changed == 'true' }}
-    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    uses: ./.github/workflows/docs-reusable-workflow.yml
     with:
       docs_directory: .

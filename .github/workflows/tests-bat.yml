@@ -6,6 +6,7 @@ name: "[Tests] Basic Acceptance Tests"
 run-name: "[Tests] Basic Acceptance Tests"
 
 on:
+  workflow_call: {}
   workflow_dispatch:
     inputs:
       cleanup:
@@ -18,27 +19,12 @@ on:
         required: false
         type: number
         default: 85
-  pull_request:
-    branches:
-      - main
-      - release-*
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-  push:
-    branches:
-      - main
-      - release-*
 
-  # Trigger workflow when enqueued to a merge group
-  # (must be under 'on')
-  merge_group: {}
-
-# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+# Only run at most 1 workflow concurrently per PR or per branch to keep costs down.
+# Hardcoded prefix so this group is stable when called via workflow_call
+# (github.workflow evaluates to the caller's workflow name in reusable workflows).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: tests-bat-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:

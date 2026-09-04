@@ -8,16 +8,13 @@ run-name: "[Code Analysis] Docker Bench Security"
 on:
   workflow_call: {}
   workflow_dispatch: {}
-  push:
-    branches:
-      - main
-      - release-*
-  merge_group: {}
 
 permissions: {}
 
+# Hardcoded prefix so this group is stable when called via workflow_call
+# (github.workflow evaluates to the caller's workflow name in reusable workflows).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: docker-bench-security-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:

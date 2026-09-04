@@ -30,14 +30,12 @@ on:
         required: false
         default: false
         type: boolean
-  push:
-    branches:
-      - main
-      - release-*
 
-# Only run at most 1 workflow concurrently per pushed commit
+# Only run at most 1 workflow concurrently per pushed commit.
+# Hardcoded prefix so this group is stable when called via workflow_call
+# (github.workflow evaluates to the caller's workflow name in reusable workflows).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.sha || github.ref }}-${{ inputs.ref || 'default' }}
+  group: tests-all-${{ github.sha || github.ref }}-${{ inputs.ref || 'default' }}
   cancel-in-progress: true
 
 env:
