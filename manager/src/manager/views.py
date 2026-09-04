@@ -310,6 +310,17 @@ class CamUpdateView(SuperUserCheck, UpdateView):
   fields = ['sensor_id', 'name', 'scene']
   template_name = "cam/cam_update.html"
 
+  def form_valid(self, form):
+    """Reset camera pose when reassigned to a different scene."""
+    # Check if the scene has changed
+    if self.object.scene != form.cleaned_data.get('scene'):
+      # Clear pose-related fields when scene is reassigned
+      form.instance.transforms = []
+      form.instance.scene_x = None
+      form.instance.scene_y = None
+      form.instance.scene_z = None
+    return super().form_valid(form)
+
   def get_success_url(self):
     if self.object.scene is not None:
       scene_id = self.object.scene.id
