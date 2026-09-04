@@ -16,8 +16,12 @@ class ChildSceneController():
     self.parent_controller = parent_controller
     self.connected = False
     self.remote_config = dict(info)  # keep the full existing remote child row
-    self._last_tripwires_json = None
-    self._last_rois_json = None
+
+    self._catalog_cache = {
+      'tripwires': {'last_json': None, 'field': 'cached_tripwires', 'type_name': 'Tripwires'},
+      'rois': {'last_json': None, 'field': 'cached_rois', 'type_name': 'Rois'},
+      'sensors': {'last_json': None, 'field': 'cached_sensors', 'type_name': 'Sensors'},
+    }
 
     self.client = PubSub(cert=None, rootca=root_cert, broker=info.get('host_name', None),
                          auth=f"{info.get('mqtt_username', None)}:{info.get('mqtt_password', None)}",
@@ -54,12 +58,6 @@ class ChildSceneController():
 
     # Remove stale callbacks from any previous connection before re-adding
     self.client.removeCallback(self.child_event_topic)
-    self.client.removeCallback(self.child_scene_topic)
-    tripwires_topic = PubSub.formatTopic(PubSub.DATA_CHILD_TRIPWIRES,
-                                         scene_id=self.child_id)
-    self.client.removeCallback(tripwires_topic)
-    rois_topic = PubSub.formatTopic(PubSub.DATA_CHILD_ROIS, scene_id=self.child_id)
-    self.client.removeCallback(rois_topic)
 
     self.client.addCallback(self.child_event_topic, self.parent_controller.republishEvents)
     log.info("Subscribed to", self.child_event_topic)
@@ -68,95 +66,67 @@ class ChildSceneController():
                             self.parent_controller.handleMovingObjectMessage)
     log.info("Subscribed to", self.child_scene_topic)
 
-    self.client.addCallback(tripwires_topic, self.handleTripwiresCatalog, qos=1)
-    log.info("Subscribed to", tripwires_topic)
+    for catalog_type, (pubsub_enum, catalog_meta) in [
+      ('tripwires', (PubSub.DATA_CHILD_TRIPWIRES, self._catalog_cache['tripwires'])),
+      ('rois', (PubSub.DATA_CHILD_ROIS, self._catalog_cache['rois'])),
+      ('sensors', (PubSub.DATA_CHILD_SENSORS, self._catalog_cache['sensors'])),
+    ]:
+      topic = PubSub.formatTopic(pubsub_enum, scene_id=self.child_id)
+      self.client.removeCallback(topic)
+      self.client.addCallback(
+        topic,
+        lambda client, userdata, msg, ct=catalog_type: self.handleCatalog(client, userdata, msg, ct),
+        qos=1
+      )
+      log.info(f"Subscribed to {topic}")
 
-    self.client.addCallback(rois_topic, self.handleRoisCatalog, qos=1)
-    log.info("Subscribed to", rois_topic)
     return
 
-  def handleTripwiresCatalog(self, client, userdata, message):
+  def handleCatalog(self, client, userdata, message, catalog_type):
+    """Generic handler for all retained catalog types (tripwires, rois, sensors)."""
+    meta = self._catalog_cache[catalog_type]
+    type_name = meta['type_name']
+    field_name = meta['field']
+
     log.debug(
-      f"Tripwire callback: child={self.child_name} "
+      f"{type_name} callback: child={self.child_name} "
       f"link_uid={self.child_link_uid} topic={message.topic} "
       f"payload={message.payload}"
     )
 
     if not self.child_link_uid:
-      log.warning(f"Cannot persist tripwires for child {self.child_name}: no child_link_uid")
+      log.warning(f"Cannot persist {catalog_type} for child {self.child_name}: no child_link_uid")
       return
 
     try:
-      tripwires = orjson.loads(message.payload.decode('utf-8'))
+      catalog_data = orjson.loads(message.payload.decode('utf-8'))
     except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
-      log.error(f"Invalid tripwires payload from child {self.child_name}: {e}")
+      log.error(f"Invalid {catalog_type} payload from child {self.child_name}: {e}")
       return
 
-    if not isinstance(tripwires, list):
-      log.error(f"Unexpected tripwires payload type from child {self.child_name}")
+    if not isinstance(catalog_data, list):
+      log.error(f"Unexpected {catalog_type} payload type from child {self.child_name}")
       return
 
-    # Persist the tripwires to the database only if they have changed
-    normalized = orjson.dumps(tripwires, option=orjson.OPT_SORT_KEYS)
-    if normalized == self._last_tripwires_json:
-      log.debug(f"Tripwires unchanged for child {self.child_name}; skipping persist")
+    normalized = orjson.dumps(catalog_data, option=orjson.OPT_SORT_KEYS)
+    if normalized == meta['last_json']:
+      log.debug(f"{type_name} unchanged for child {self.child_name}; skipping persist")
       return
 
     try:
       result = self.parent_controller.cache_manager.data_source.updateChildScene(
         self.child_link_uid,
-        {'cached_tripwires': tripwires}
+        {field_name: catalog_data}
       )
       if result.status_code != 200 or result.errors:
         log.error(
-          f"Failed to persist tripwires for child {self.child_name}: "
+          f"Failed to persist {catalog_type} for child {self.child_name}: "
           f"status={result.status_code} errors={result.errors}"
         )
         return
-      self._last_tripwires_json = normalized
+      meta['last_json'] = normalized
     except Exception as e:
-      log.error(f"Failed to persist tripwires for child {self.child_name}: {e}")
-
-  def handleRoisCatalog(self, client, userdata, message):
-    log.debug(
-      f"ROI callback: child={self.child_name} "
-      f"link_uid={self.child_link_uid} topic={message.topic} "
-      f"payload={message.payload}"
-    )
-
-    if not self.child_link_uid:
-      log.warning(f"Cannot persist rois for child {self.child_name}: no child_link_uid")
-      return
-
-    try:
-      rois = orjson.loads(message.payload.decode('utf-8'))
-    except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
-      log.error(f"Invalid rois payload from child {self.child_name}: {e}")
-      return
-
-    if not isinstance(rois, list):
-      log.error(f"Unexpected rois payload type from child {self.child_name}")
-      return
-
-    normalized = orjson.dumps(rois, option=orjson.OPT_SORT_KEYS)
-    if normalized == self._last_rois_json:
-      log.debug(f"Rois unchanged for child {self.child_name}; skipping persist")
-      return
-
-    try:
-      result = self.parent_controller.cache_manager.data_source.updateChildScene(
-        self.child_link_uid,
-        {'cached_rois': rois}
-      )
-      if result.status_code != 200 or result.errors:
-        log.error(
-          f"Failed to persist rois for child {self.child_name}: "
-          f"status={result.status_code} errors={result.errors}"
-        )
-        return
-      self._last_rois_json = normalized
-    except Exception as e:
-      log.error(f"Failed to persist rois for child {self.child_name}: {e}")
+      log.error(f"Failed to persist {catalog_type} for child {self.child_name}: {e}")
 
   def publishStatus(self, client, userdata, message):
     msg = message.payload.decode('utf-8')

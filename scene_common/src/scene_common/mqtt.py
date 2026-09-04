@@ -38,6 +38,7 @@ class _Topic(Enum):
   ANALYTICS_CLUSTERS = auto()
   DATA_CHILD_TRIPWIRES = auto()
   DATA_CHILD_ROIS = auto()
+  DATA_CHILD_SENSORS = auto()
 
 # Really gross way to put above constants directly into PubSub class
 class _PubSubTopicBase:
@@ -67,6 +68,7 @@ class PubSub(_PubSubTopicBase):
     _Topic.ANALYTICS_CLUSTERS: Template(TOPIC_BASE + "/analytics/clusters/${scene_id}"),
     _Topic.DATA_CHILD_TRIPWIRES: Template(TOPIC_BASE + "/data/child/tripwires/${scene_id}"),
     _Topic.DATA_CHILD_ROIS: Template(TOPIC_BASE + "/data/child/rois/${scene_id}"),
+    _Topic.DATA_CHILD_SENSORS: Template(TOPIC_BASE + "/data/child/sensors/${scene_id}"),
   }
 
   def __init__(self, auth, cert, rootca, broker, port=None, keepalive=60,
