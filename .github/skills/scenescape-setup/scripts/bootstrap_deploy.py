@@ -213,7 +213,7 @@ def generate_video_file_override(deploy_dir: Path, payload: dict) -> None:
     container_path = f"/videos/{camera_id}{Path(video_path).suffix}"
     encode_args = rtsp_video_encode_args(Path(video_path))
     command = (
-      f"-nostdin -re -stream_loop -1 -i {container_path} "
+      f"-nostdin -re -fflags +genpts -avoid_negative_ts make_zero -start_at_zero -stream_loop -1 -i {container_path} "
       f"-map 0:v {encode_args} -f rtsp -rtsp_transport tcp "
       f"rtsp://mediaserver:8554/{camera_id}"
     )
