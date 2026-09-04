@@ -20,7 +20,7 @@ from scene_common.geometry import Point
 from tests.sscape_tests.scene_pytest.config import *
 
 name = "test"
-mapFile = "sample_data/HazardZoneSceneLarge.png"
+mapFile = "tests/resources/maps/HazardZoneSceneLarge.png"
 scale = 1000
 detections = frame['objects']
 
@@ -380,7 +380,7 @@ def test_deserialize_sets_core_fields(monkeypatch):
   data = {
     'uid': 'scene-1',
     'name': 'scene-name',
-    'map': 'sample_data/HazardZoneSceneLarge.png',
+    'map': 'tests/resources/maps/HazardZoneSceneLarge.png',
     'scale': 123,
     'children': [{'name': 'child-1'}],
     'use_tracker': True,

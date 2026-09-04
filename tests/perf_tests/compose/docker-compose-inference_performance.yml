@@ -68,7 +68,7 @@ services:
       -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam1
       -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam2
     volumes:
-      - vol-sample-data:/workspace/media
+      - vol-videos:/workspace/media
     networks:
       scenescape-test:
     depends_on:
@@ -128,7 +128,7 @@ services:
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
-      - vol-sample-data:/home/pipeline-server/videos
+      - vol-videos:/home/pipeline-server/videos
       - scenescape_vol-models:/home/pipeline-server/models
     secrets:
       - source: root-cert
@@ -145,7 +145,7 @@ configs:
 volumes:
   scenescape_vol-models:
     external: true
-  vol-sample-data:
+  vol-videos:
   vol-dlstreamer-pipeline-server-pipeline-root-retail:
     driver: local
     driver_opts:

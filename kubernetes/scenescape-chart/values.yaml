@@ -199,7 +199,7 @@ datasets:
 sampleData:
   source: https://raw.githubusercontent.com/open-edge-platform/scenescape
   sourceDir: sample_data
-  sourceVersion: main
+  sourceVersion: upload_scenes_with_api # TODO: change before merging
   downloadDataImage:
     repository: docker.io
     name: ubuntu
@@ -210,22 +210,13 @@ sampleData:
     name: linuxserver/ffmpeg
     tag: version-8.0-cli
     pullPolicy: IfNotPresent
+  # Paths are relative to sourceDir; files land flat in the sample data volume.
   files:
-    - apriltag-cam1.mp4
-    - apriltag-cam2.mp4
-    - apriltag-cam3.mp4
-    - qcam1.mp4
-    - qcam2.mp4
-    - Demo.png
-    - exampledb.tar.bz2
-    - HazardZoneScene.png
-    - LabMap.png
-    - LotMap.png
-    - docker-compose-dls-perf.yml
-    - docker-compose-dl-streamer-example.yml
-    - atag-calib-demo-map.png
-    - scene.png
-    - HazardZoneSceneLarge.png
+    - videos/apriltag-cam1.mp4
+    - videos/apriltag-cam2.mp4
+    - videos/apriltag-cam3.mp4
+    - videos/qcam1.mp4
+    - videos/qcam2.mp4
   storage: 500Mi
   storageClassName: ""
 

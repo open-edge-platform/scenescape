@@ -188,7 +188,7 @@ jobs:
           source .venv/bin/activate
           pip install --upgrade pip
           pip install -q -r requirements-ppl-test.txt
-          pytest . --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
+          pytest . --confcutdir=. --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
 
       - name: Upload Test Report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

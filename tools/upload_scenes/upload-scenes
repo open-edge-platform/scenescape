@@ -1,0 +1,87 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+"""Uploads exported scenes to a Scenescape deployment over the REST API.
+
+The source directory holds one subdirectory per scene, each containing a
+<scene>.zip in the format the "Export Scene" button of the web UI produces (a
+single JSON file describing the scene next to the map it refers to), plus
+optional assets.json / calibration_markers.json sidecars. Each archive is
+posted to the /import-scene endpoint.
+
+This is a standalone client. It needs no Scenescape package, only `requests`,
+and talks to the deployment over the network. The upload logic itself lives
+in uploader.py, shared with the test suite's baseline-scene setup.
+"""
+
+import logging
+import os
+import sys
+from argparse import ArgumentParser
+
+import requests
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from uploader import (  # noqa: E402
+  DEFAULT_WAIT_SECONDS, SceneScapeClient, log, parse_auth, upload_all,
+  wait_for_database,
+)
+
+
+def build_argparser():
+  parser = ArgumentParser(description="Upload exported scenes to a Scenescape deployment.")
+  parser.add_argument("url", help="base URL of the REST API, e.g. https://localhost/api/v1")
+  parser.add_argument("directory", help="directory holding one subdirectory per scene")
+  parser.add_argument("--restauth", required=True,
+                      help="path to an auth file, or a user:password string")
+  parser.add_argument("--rootcert", help="CA certificate used to verify the server")
+  parser.add_argument("--insecure", action="store_true",
+                      help="do not verify the server certificate")
+  parser.add_argument("--wait", type=int, default=DEFAULT_WAIT_SECONDS, metavar="SECONDS",
+                      help="how long to wait for the database to become ready (0 disables waiting)")
+  return parser
+
+
+def main():
+  args = build_argparser().parse_args()
+  logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
+                      datefmt="%Y-%m-%d %H:%M:%S")
+
+  if not os.path.isdir(args.directory):
+    log.error(f"Not a directory: {args.directory}")
+    return 1
+
+  scene_archives = sorted(
+    os.path.join(entry.path, entry.name + ".zip") for entry in os.scandir(args.directory)
+    if entry.is_dir() and os.path.isfile(os.path.join(entry.path, entry.name + ".zip"))
+  )
+  if not scene_archives:
+    log.error(f"No scene archives found in {args.directory}")
+    return 1
+
+  try:
+    user, password = parse_auth(args.restauth)
+  except (OSError, ValueError, KeyError) as e:
+    log.error(f"Cannot read credentials: {e}")
+    return 1
+
+  if args.insecure:
+    log.warning("Server certificate verification is disabled")
+    requests.packages.urllib3.disable_warnings()
+  client = SceneScapeClient(args.url, False if args.insecure else (args.rootcert or True))
+
+  if args.wait and not wait_for_database(client, args.wait):
+    log.error(f"{args.url} was not ready after {args.wait} seconds")
+    return 1
+
+  try:
+    client.authenticate(user, password)
+  except requests.RequestException as e:
+    log.error(f"Cannot authenticate against {args.url}: {e}")
+    return 1
+
+  return 1 if upload_all(client, scene_archives) else 0
+
+
+if __name__ == '__main__':
+  sys.exit(main())
