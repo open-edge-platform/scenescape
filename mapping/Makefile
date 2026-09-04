@@ -81,10 +81,18 @@ list-dependencies: build-vggt build-mapanything
 	$(MAKE) MODEL_TYPE=mapanything IMAGE=intel/scenescape-mapping VERSION=$(VERSION)-mapanything MAPPING_LIST_DEPS=1 list-dependencies
 endif
 
-# Override generate-sbom to produce SBOMs for both MODEL_TYPE modes.
+# Override generate-sbom to produce SBOMs for both MODEL_TYPE modes. Re-runs vendor-deps
+# for each variant immediately before its own generate-sbom call (rather than relying on the
+# build-vggt/build-mapanything prerequisites below): generate-sbom's buildx build reads
+# .vendor/model straight off disk, and since both prerequisites run first, .vendor/model would
+# otherwise still hold whichever variant was vendored last (mapanything) when the vggt
+# generate-sbom call runs, silently SBOM-scanning the wrong source tree.
 ifndef MAPPING_GENERATE_SBOM
+.NOTPARALLEL: build-vggt build-mapanything
 .PHONY: generate-sbom
 generate-sbom: build-vggt build-mapanything
+	$(MAKE) MODEL_TYPE=vggt vendor-deps
 	$(MAKE) ROOT_DIR=$(ROOT_DIR) MODEL_TYPE=vggt IMAGE=intel/scenescape-mapping VERSION=$(VERSION)-vggt MAPPING_GENERATE_SBOM=1 generate-sbom
+	$(MAKE) MODEL_TYPE=mapanything vendor-deps
 	$(MAKE) ROOT_DIR=$(ROOT_DIR) MODEL_TYPE=mapanything IMAGE=intel/scenescape-mapping VERSION=$(VERSION)-mapanything MAPPING_GENERATE_SBOM=1 generate-sbom
 endif
