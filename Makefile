@@ -93,6 +93,16 @@ build-core-lidar: init-secrets
 	$(MAKE) build-core-images
 	@$(MAKE) install-models
 
+# Used by demo-lidar, which needs build-all (tracker profile) instead of build-core.
+.PHONY: build-all-lidar
+build-all-lidar: init-secrets
+# EXIT trap reverts the patches on success, build failure, or Ctrl+C so the
+# working tree cannot stay patched.
+	@set -e; trap '$(MAKE) revert-lidar-patch' EXIT; \
+	$(MAKE) apply-lidar-patch; \
+	$(MAKE) build-all-images
+	@$(MAKE) install-models
+
 # ============================== Help ================================
 
 .PHONY: help
@@ -106,6 +116,7 @@ help:
 	@echo "  build-core-images           Build core microservice images (excluding mapping, cluster_analytics, and tracker) in parallel"
 	@echo "  build-all-images            Build all microservice images in parallel"
 	@echo "  build-core-lidar            Build secrets, core images with the LiDAR-intersection demo patches applied, and install models"
+	@echo "  build-all-lidar             Build secrets, all images with the LiDAR-intersection demo patches applied, and install models"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
@@ -771,9 +782,11 @@ demo-tracker: $(DEMO_BUILD:build=build-all) init-sample-data
 	$(call start_demo,--profile tracker)
 
 # Basic LiDAR-intersection (LIDAR/Camera) fusion demo only
+# Uses build-all-lidar (not apply-lidar-patch as a plain prerequisite) so the
+# patches are applied before the images are built, and reverted afterward.
 .PHONY: demo-lidar
-demo-lidar: $(DEMO_BUILD:build=build-core-lidar) init-sample-data
-	$(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile controller))
+demo-lidar: $(DEMO_BUILD:build=build-all-lidar) init-sample-data
+	$(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile tracker))
 
 .PHONY: demo-close
 demo-close:
