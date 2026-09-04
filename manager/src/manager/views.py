@@ -654,8 +654,8 @@ def cameraCalibrate(request, sensor_id):
             'generated_pipeline_url': generated_pipeline_url
           })
 
-      cam_inst.save()
-      return redirect(sceneDetail, scene_id=cam_inst.scene_id)
+      instance = form.save()
+      return redirect(sceneDetail, scene_id=instance.scene_id)
     else:
       log.warning('Form not valid!')
   else:
@@ -950,6 +950,9 @@ def generate_mesh_status(request, pk):
         scene.save(update_fields=["mesh_state"])
 
     status_data["finalized"] = True
+    # Include any warnings from finalization (e.g., unanchored cameras)
+    if finalize_result.get("unanchored_cameras"):
+      status_data["unanchored_cameras"] = finalize_result["unanchored_cameras"]
     return JsonResponse(status_data, status=200)
 
   except Exception as e:

@@ -3,7 +3,9 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import base64
 import os
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import open3d as o3d
@@ -15,6 +17,9 @@ import tempfile
 from scene_common.geometry import Region, Point
 from scene_common.mesh_util import createRegionMesh, createObjectMesh, mergeMesh, extractMeshFromPointCloud, extractMeshFromGLB
 from scene_common.mesh_util import checkMeshConnectivity
+
+from manager.mesh_generator import MeshGenerator
+from manager.models import Cam, Scene
 
 dir = os.path.dirname(os.path.abspath(__file__))
 TEST_DATA = os.path.join(dir, "test_data/scene.glb")
@@ -205,4 +210,148 @@ def test_check_mesh_connectivity_empty_mesh_returns_none():
   """A mesh with no faces cannot be analyzed and is not reported."""
   empty = trimesh.Trimesh(vertices=np.zeros((0, 3)), faces=np.zeros((0, 3), dtype=np.int64))
   assert checkMeshConnectivity(empty) is None
+
+
+# ITEP-94846: Unanchored camera merge scenarios
+_PATCH_EXTENTS = (4, 4, 0.1)
+_CLOSE_OFFSET = (0.02, 0.0, 0.0)
+_FAR_OFFSET = (100.0, 0.0, 0.0)
+
+
+def _build_merged_glb_base64(qcam_offset):
+  """Simulate the mapping service's merged GLB: the anchored cameras' shared
+  surface plus the free camera's own reconstructed patch, offset by
+  qcam_offset from the anchored surface."""
+  anchored_patch = trimesh.creation.box(extents=_PATCH_EXTENTS)
+  qcam_patch = trimesh.creation.box(extents=_PATCH_EXTENTS)
+  qcam_patch.apply_translation(qcam_offset)
+  merged = trimesh.util.concatenate([anchored_patch, qcam_patch])
+  glb_bytes = merged.export(file_type="glb")
+  return base64.b64encode(glb_bytes).decode("utf-8")
+
+
+@pytest.fixture
+def test_scene_with_cameras():
+  """Create a test scene with 3 cameras: 2 anchored, 1 unanchored."""
+  media_tempdir = tempfile.TemporaryDirectory()
+  with patch("django.test.utils.override_settings"):
+    scene = Scene.objects.create(name="test_scene", map="test_map")
+    scene.map = MagicMock()
+    scene.save = MagicMock()
+
+    camera1 = Cam.objects.create(
+      sensor_id="camera1", name="camera1", scene=scene, type="camera")
+    camera2 = Cam.objects.create(
+      sensor_id="camera2", name="camera2", scene=scene, type="camera")
+    qcam = Cam.objects.create(
+      sensor_id="atag-qcam1", name="atag-qcam1", scene=scene, type="camera")
+
+    camera1.transforms = [0.0] * 16
+    camera1.save()
+    camera2.transforms = [0.0] * 16
+    camera2.save()
+    qcam.transforms = []
+    qcam.save()
+
+    yield {"scene": scene, "camera1": camera1, "camera2": camera2, "qcam": qcam}
+
+    media_tempdir.cleanup()
+
+
+def _mock_serializer_for_test(mock_serializer_cls):
+  """Configure mocked CamSerializer with preset translation/rotation values."""
+  translations = {"camera1": [0.0, 0.0, 0.0], "camera2": [2.0, 0.0, 0.0]}
+  serializer = mock_serializer_cls.return_value
+  serializer.get_translation.side_effect = lambda cam: translations.get(cam.sensor_id)
+  serializer.get_rotation.side_effect = lambda cam: [0.0, 0.0, 0.0]
+  serializer.get_scale.side_effect = lambda cam: [1.0, 1.0, 1.0]
+  return serializer
+
+
+def _mapping_result(qcam_offset, qcam_translation):
+  """Construct a synthetic mapping service response with merged GLB + camera poses + intrinsics."""
+  return {
+    "success": True,
+    "state": "complete",
+    "result": {
+      "success": True,
+      "glb_data": _build_merged_glb_base64(qcam_offset),
+      "camera_poses": [
+        {"camera_id": "camera1", "translation": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]},
+        {"camera_id": "camera2", "translation": [2.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0]},
+        {"camera_id": "atag-qcam1", "translation": qcam_translation, "rotation": [0.0, 0.0, 0.0, 1.0]},
+      ],
+      "intrinsics": [
+        {"camera_id": "atag-qcam1", "K": [[500.0, 0.0, 320.0], [0.0, 500.0, 240.0], [0.0, 0.0, 1.0]]},
+      ],
+    },
+  }
+
+
+@pytest.mark.django_db
+@patch("manager.mesh_generator.CamSerializer")
+def test_mesh_generator_succeeds_with_warning_when_unanchored_camera_merges_close_to_anchors(
+    mock_serializer_cls, test_scene_with_cameras):
+  """Positive case: atag-qcam1's solved surface lands close enough to the
+  anchored cameras' surface to read as one connected mesh. Generation must
+  succeed, report atag-qcam1 as unanchored, and leave its pose untouched."""
+  scene = test_scene_with_cameras["scene"]
+  camera1 = test_scene_with_cameras["camera1"]
+  camera2 = test_scene_with_cameras["camera2"]
+  qcam = test_scene_with_cameras["qcam"]
+
+  _mock_serializer_for_test(mock_serializer_cls)
+  mesh_generator = MeshGenerator()
+  mesh_generator.mapping_client.getReconstructionStatus = MagicMock(
+    return_value=_mapping_result(_CLOSE_OFFSET, [2.02, 0.0, 0.0]))
+
+  result = mesh_generator.finalizeMeshFromStatus(scene, "req-close")
+
+  assert result["success"], result.get("error")
+  assert result.get("unanchored_cameras") == ["atag-qcam1"]
+
+  camera1.refresh_from_db()
+  camera2.refresh_from_db()
+  qcam.refresh_from_db()
+  # Anchored cameras' calibration must be preserved exactly (skipped write-back).
+  assert camera1.transforms == [0.0] * 16
+  assert camera2.transforms == [0.0] * 16
+  # Unanchored camera stays at its default pose; only intrinsics are updated.
+  assert qcam.transforms == []
+  assert qcam.intrinsics_fx == 500.0
+
+
+@pytest.mark.django_db
+@patch("manager.mesh_generator.CamSerializer")
+def test_mesh_generator_rejected_when_unanchored_camera_lands_far_from_anchors(
+    mock_serializer_cls, test_scene_with_cameras):
+  """Negative/control case: same setup, but atag-qcam1's solved surface is
+  far from the anchored surface (the "different room" failure). This must
+  still be rejected by the connectivity check, and no camera should be
+  mutated, proving the positive case above genuinely depends on proximity."""
+  scene = test_scene_with_cameras["scene"]
+  camera1 = test_scene_with_cameras["camera1"]
+  camera2 = test_scene_with_cameras["camera2"]
+  qcam = test_scene_with_cameras["qcam"]
+
+  _mock_serializer_for_test(mock_serializer_cls)
+  mesh_generator = MeshGenerator()
+  mesh_generator.mapping_client.getReconstructionStatus = MagicMock(
+    return_value=_mapping_result(_FAR_OFFSET, [100.0, 0.0, 0.0]))
+
+  result = mesh_generator.finalizeMeshFromStatus(scene, "req-far")
+
+  assert not result["success"]
+  assert "spatially separate" in result["error"]
+
+  camera1.refresh_from_db()
+  camera2.refresh_from_db()
+  qcam.refresh_from_db()
+  assert camera1.transforms == [0.0] * 16
+  assert camera2.transforms == [0.0] * 16
+  assert qcam.transforms == []
+  # Never reached the write-back, so intrinsics stay at Cam's own default
+  # (set on first save), not the mocked mapping-service K matrix (500.0).
+  assert qcam.intrinsics_fx == Cam.DEFAULT_INTRINSICS["fx"]
+
 

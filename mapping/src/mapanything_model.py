@@ -15,6 +15,7 @@ import sys
 from typing import Dict, Any, List, Optional, Tuple
 
 import numpy as np
+import torch
 from PIL import Image
 
 import traceback
@@ -52,6 +53,82 @@ class MapAnythingModel(ReconstructionModel):
     )
     self.model_checkpoint = "facebook/map-anything-apache"
 
+  def _get_frame_rotation_180_x(self) -> np.ndarray:
+    """
+    Get 180° rotation matrix around X-axis (Scenescape <-> MapAnything frame conversion).
+    This matrix is self-inverse.
+
+    Returns:
+      4x4 rotation matrix as numpy array
+    """
+    rotation_x_180 = np.array([
+      [1, 0, 0, 0],
+      [0, -1, 0, 0],
+      [0, 0, -1, 0],
+      [0, 0, 0, 1]
+    ], dtype=np.float32)
+    return rotation_x_180
+
+  def _convert_camera_location_to_mapanything_frame(self, camera_location: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convert a camera location (pose) from Scenescape frame to MapAnything frame.
+
+    Scenescape and MapAnything use different coordinate frame conventions.
+    Conversion requires a 180° rotation around X-axis (which is self-inverse).
+
+    Args:
+      camera_location: Dict with 'translation' (list), 'rotation' (list), 'scale' (list)
+        - rotation is expected as quaternion [x, y, z, w] or rotation matrix
+        - translation is [x, y, z]
+        - scale is [sx, sy, sz]
+
+    Returns:
+      Dict with same structure but coordinates in MapAnything frame
+    """
+    if not camera_location:
+      return None
+
+    try:
+      translation = np.array(camera_location.get('translation', [0, 0, 0]), dtype=np.float32)
+      scale = np.array(camera_location.get('scale', [1.0, 1.0, 1.0]), dtype=np.float32)
+
+      # Handle rotation - could be quaternion or matrix
+      rotation = camera_location.get('rotation')
+
+      # Build 4x4 pose matrix
+      pose_4x4 = np.eye(4, dtype=np.float32)
+      pose_4x4[:3, 3] = translation
+
+      if isinstance(rotation, (list, np.ndarray)):
+        rotation = np.array(rotation, dtype=np.float32)
+        if len(rotation) == 4:
+          # Quaternion [x, y, z, w] - convert to rotation matrix
+          from scipy.spatial.transform import Rotation
+          R = Rotation.from_quat(rotation).as_matrix()
+          pose_4x4[:3, :3] = R
+        elif rotation.shape == (3, 3):
+          # Already a rotation matrix
+          pose_4x4[:3, :3] = rotation
+        else:
+          log.warning(f"Unexpected rotation shape {rotation.shape}, using identity")
+          pose_4x4[:3, :3] = np.eye(3)
+
+      # Apply 180° rotation around X-axis to convert frames
+      rotation_x_180 = self._get_frame_rotation_180_x()
+      converted_pose = rotation_x_180 @ pose_4x4
+
+      # Extract back to Scenescape format
+      converted_location = {
+        'translation': converted_pose[:3, 3].tolist(),
+        'rotation': converted_pose[:3, :3].tolist(),  # Return as rotation matrix
+        'scale': scale.tolist()
+      }
+
+      return converted_location
+    except Exception as e:
+      log.error(f"Error converting camera location to MapAnything frame: {e}")
+      return None
+
   def load_model(self) -> None:
     """Load MapAnything model and weights."""
     try:
@@ -67,10 +144,11 @@ class MapAnythingModel(ReconstructionModel):
 
   def run_inference(self, frames: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Run MapAnything inference on a LIST of frames.
+    Run MapAnything inference on a LIST of frames, with optional pose conditioning.
 
     Args:
-      frames: [{"data": "<base64>"}, ...]  (base64-encoded images)
+      frames: [{"data": "<base64>", "camera_location": {...}, ...}, ...]
+        camera_location is optional and contains pose information for anchoring
 
     Returns:
       Dictionary containing predictions, camera poses, and intrinsics
@@ -84,9 +162,12 @@ class MapAnythingModel(ReconstructionModel):
       pil_images = []
       original_sizes = []
       camera_ids = []
+      camera_locations = []
 
       for img_data in frames:
         camera_ids.append(img_data.get("camera_id"))
+        camera_locations.append(img_data.get("camera_location"))
+
         img_array = self.decode_base64_image(img_data["data"])
         # Apply CLAHE for improved contrast
         img_array = self._apply_clahe(img_array)
@@ -94,7 +175,8 @@ class MapAnythingModel(ReconstructionModel):
         pil_images.append(pil_image)
         original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
 
-      views = self._preprocess_images(pil_images)
+      # Preprocess images with optional camera location conditioning
+      views = self._preprocess_images(pil_images, camera_locations)
       if not views:
         raise ValueError("No valid images processed")
 
@@ -102,11 +184,27 @@ class MapAnythingModel(ReconstructionModel):
       model_size = (model_height, model_width)
 
       log.info(f"Running MapAnything inference on device: {self.device}")
-      outputs = self.model.infer(
-        views,
-        memory_efficient_inference=True,
-        amp_dtype="fp32"
-      )
+      try:
+        # Try with pose conditioning if available
+        outputs = self.model.infer(
+          views,
+          memory_efficient_inference=True,
+          amp_dtype="fp32"
+        )
+      except Exception as e:
+        # If anchored inference fails, fall back to full auto-estimation
+        log.error(f"Anchored inference failed ({e}), falling back to full auto-estimation. "
+                  "Reconstruction will not be aligned to the calibrated cameras.")
+        # Remove pose conditioning and retry
+        for view in views:
+          view.pop('camera_poses', None)
+          view.pop('is_metric_scale', None)
+        outputs = self.model.infer(
+          views,
+          memory_efficient_inference=True,
+          amp_dtype="fp32"
+        )
+
       return self._process_outputs(
           outputs,
           original_sizes,
@@ -223,16 +321,21 @@ class MapAnythingModel(ReconstructionModel):
       scene = predictions_to_glb(predictions, as_mesh=True)
       return scene
 
-  def _preprocess_images(self, pil_images: List[Image.Image]) -> List[Dict[str, Any]]:
+  def _preprocess_images(self, pil_images: List[Image.Image], camera_locations: List[Optional[Dict]] = None) -> List[Dict[str, Any]]:
     """
-    Preprocess images using MapAnything's logic.
+    Preprocess images using MapAnything's logic, optionally with camera pose conditioning.
 
     Args:
       pil_images: List of PIL images
+      camera_locations: Optional list of camera location dicts (same length as pil_images)
+        Each dict can be None (uncalibrated) or contain 'translation', 'rotation', 'scale'
 
     Returns:
-      List of view dictionaries ready for inference
+      List of view dictionaries ready for inference, with optional pose conditioning
     """
+    if camera_locations is None:
+      camera_locations = [None] * len(pil_images)
+
     # Calculate average aspect ratio (MapAnything uses this)
     aspect_ratios = [img.size[0] / img.size[1] for img in pil_images]
     average_aspect_ratio = sum(aspect_ratios) / len(aspect_ratios)
@@ -256,13 +359,33 @@ class MapAnythingModel(ReconstructionModel):
       processed_img = crop_resize_if_necessary(pil_image, resolution=target_size)[0]
 
       # Normalize and create view dict
-      views.append(dict(
+      view_dict = dict(
         img=ImgNorm(processed_img)[None],
         true_shape=np.int32([processed_img.size[::-1]]),
         idx=i,
         instance=str(i),
         data_norm_type=[norm_type],
-      ))
+      )
+
+      # Add pose conditioning if camera_location is available
+      if camera_locations and i < len(camera_locations) and camera_locations[i] is not None:
+        cam_loc = camera_locations[i]
+        try:
+          # Convert from Scenescape frame to MapAnything frame
+          converted_loc = self._convert_camera_location_to_mapanything_frame(cam_loc)
+          if converted_loc:
+            # MapAnything requires camera_poses as a (B, 4, 4) tensor of
+            # camera-to-world matrices, matching the batch dim used by 'img'.
+            pose_4x4 = np.eye(4, dtype=np.float32)
+            pose_4x4[:3, :3] = np.array(converted_loc['rotation'], dtype=np.float32)
+            pose_4x4[:3, 3] = np.array(converted_loc['translation'], dtype=np.float32)
+            view_dict['camera_poses'] = torch.from_numpy(pose_4x4)[None]
+            view_dict['is_metric_scale'] = torch.tensor([True])
+            log.info(f"Added pose conditioning for view {i}")
+        except Exception as e:
+          log.warning(f"Failed to add pose conditioning for view {i}: {e}. Proceeding without it.")
+
+      views.append(view_dict)
 
     return views
 
