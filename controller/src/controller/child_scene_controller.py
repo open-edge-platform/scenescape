@@ -38,8 +38,7 @@ class ChildSceneController():
 
   def handleException(self, e):
     log.debug("Exception: ", e)
-    self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
-                                                             scene_id=self.child_id), e)
+    self.parent_controller.enqueueRemoteChildStatus(self.child_id, e)
     return
 
   def onChildConnect(self, client, userdata, flags, rc):
@@ -49,8 +48,7 @@ class ChildSceneController():
     log.info(f"Connected to remote child {self.child_name} with result code {rc}")
 
     self.connected = True
-    self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
-                                                             scene_id=self.child_id), "connected")
+    self.parent_controller.enqueueRemoteChildStatus(self.child_id, "connected")
 
     # Remove stale callbacks from any previous connection before re-adding
     self.client.removeCallback(self.child_event_topic)
@@ -61,18 +59,33 @@ class ChildSceneController():
     rois_topic = PubSub.formatTopic(PubSub.DATA_CHILD_ROIS, scene_id=self.child_id)
     self.client.removeCallback(rois_topic)
 
-    self.client.addCallback(self.child_event_topic, self.parent_controller.republishEvents)
+    self.client.addCallback(self.child_event_topic, self.enqueueRemoteEvent)
     log.info("Subscribed to", self.child_event_topic)
 
-    self.client.addCallback(self.child_scene_topic,
-                            self.parent_controller.handleMovingObjectMessage)
+    self.client.addCallback(
+      self.child_scene_topic,
+      self.parent_controller.handleMovingObjectMessage,
+    )
     log.info("Subscribed to", self.child_scene_topic)
 
-    self.client.addCallback(tripwires_topic, self.handleTripwiresCatalog, qos=1)
+    self.client.addCallback(tripwires_topic, self.enqueueTripwiresCatalog, qos=1)
     log.info("Subscribed to", tripwires_topic)
 
-    self.client.addCallback(rois_topic, self.handleRoisCatalog, qos=1)
+    self.client.addCallback(rois_topic, self.enqueueRoisCatalog, qos=1)
     log.info("Subscribed to", rois_topic)
+    return
+
+  def enqueueRemoteEvent(self, client, userdata, message):
+    self.parent_controller.enqueueRemoteCallback(
+      self.parent_controller.republishEvents, message)
+    return
+
+  def enqueueTripwiresCatalog(self, client, userdata, message):
+    self.parent_controller.enqueueRemoteCallback(self.handleTripwiresCatalog, message)
+    return
+
+  def enqueueRoisCatalog(self, client, userdata, message):
+    self.parent_controller.enqueueRemoteCallback(self.handleRoisCatalog, message)
     return
 
   def handleTripwiresCatalog(self, client, userdata, message):
@@ -171,8 +184,7 @@ class ChildSceneController():
     self.connected = False
     log.info(f"Disconnected remote child {self.child_name}")
 
-    self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
-                        scene_id=self.child_id), "disconnected")
+    self.parent_controller.enqueueRemoteChildStatus(self.child_id, "disconnected")
     return
 
   def loopStart(self):
