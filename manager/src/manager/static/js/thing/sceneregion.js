@@ -35,7 +35,8 @@ function calculatePrincipalDirection(points, pivot) {
   const directionY = Math.sin(angle);
   let projectionSum = 0;
   points.forEach((p) => {
-    projectionSum += (p.x - pivot.x) * directionX + (p.y - pivot.y) * directionY;
+    projectionSum +=
+      (p.x - pivot.x) * directionX + (p.y - pivot.y) * directionY;
   });
   if (projectionSum < 0) {
     angle += Math.PI;
@@ -242,11 +243,18 @@ export default class SceneRegion extends THREE.Object3D {
         .normalize();
 
       // Calculate perpendicular vectors (normals) pointing outward
-      const outwardNormal1 = new THREE.Vector2(-edgeVector1.y * sign, edgeVector1.x * sign);
-      const outwardNormal2 = new THREE.Vector2(-edgeVector2.y * sign, edgeVector2.x * sign);
+      const outwardNormal1 = new THREE.Vector2(
+        -edgeVector1.y * sign,
+        edgeVector1.x * sign,
+      );
+      const outwardNormal2 = new THREE.Vector2(
+        -edgeVector2.y * sign,
+        edgeVector2.x * sign,
+      );
 
       // Calculate the cross product to determine if the corner is convex or concave
-      const edgeCrossProduct = edgeVector1.x * edgeVector2.y - edgeVector1.y * edgeVector2.x;
+      const edgeCrossProduct =
+        edgeVector1.x * edgeVector2.y - edgeVector1.y * edgeVector2.x;
       const isConvex = edgeCrossProduct * sign < 0;
 
       // Calculate the offset direction
