@@ -55,24 +55,36 @@ def _make_projected_outputs(frames_per_cam, tracks_per_cam):
   return outputs
 
 
-def _make_gt_csv(tmp_path, frames, gt_tracks):
-  """Write a MOTChallenge 3-D CSV ground-truth file.
+def _make_gt_csv(tmp_path, frames, gt_tracks, interval_ms=100):
+  """Write a ground-truth JSONL file in canonical Tracker Output Format.
 
   Args:
     tmp_path: Directory for the file.
-    frames: Number of frames (1-indexed in CSV).
+    frames: Number of frames (1-indexed).
     gt_tracks: Dict mapping integer obj_id → callable(1-indexed frame) -> (x, y).
+    interval_ms: Milliseconds between frames (must match projected grid).
 
   Returns:
-    Path to the written CSV file.
+    Path to the written JSONL file.
   """
-  gt_file = tmp_path / "gt.csv"
-  rows = []
+  import json
+  gt_file = tmp_path / "ground_truth.jsonl"
+  lines = []
   for frame_1 in range(1, frames + 1):
+    objects = []
     for obj_id, pos_fn in gt_tracks.items():
       x, y = pos_fn(frame_1)
-      rows.append(f"{frame_1},{obj_id},{x},{y},0.0,1.0,1,1")
-  gt_file.write_text("\n".join(rows))
+      objects.append({
+        "id": obj_id,
+        "category": "person",
+        "translation": [x, y, 0.0],
+      })
+    # frame N (1-indexed) maps to projected index N-1.
+    lines.append(json.dumps({
+      "timestamp": _make_timestamp(frame_1 - 1, interval_ms),
+      "objects": objects,
+    }))
+  gt_file.write_text("\n".join(lines))
   return str(gt_file)
 
 
@@ -622,7 +634,7 @@ class TestSetBaseFps:
     ev.reset()
     assert ev._base_fps is None
 
-  def test_overrides_computed_fps(self):
+  def test_overrides_computed_fps(self, tmp_path):
     """When set, base_fps is used instead of auto-computed value."""
     ev = CameraAccuracyEvaluator()
     ev.set_base_fps(10.0)
@@ -645,8 +657,9 @@ class TestSetBaseFps:
         ],
       },
     ]
+    gt_file = _make_gt_csv(tmp_path, 1, {1: lambda f: (0.0, 0.0)})
 
-    ev._parse_projected_outputs(projected_outputs)
+    ev._parse_inputs(projected_outputs, gt_file)
 
     track = ev._projected_tracks[("Cam1", "1")]
     assert sorted(track.keys()) == [1]
