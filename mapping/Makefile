@@ -17,6 +17,40 @@ include ../common.mk
 # Override docker build args to include MODEL_TYPE
 EXTRA_BUILD_ARGS := --build-arg MODEL_TYPE=$(MODEL_TYPE)
 
+# Model source is cloned on the host (not inside the Docker build) to avoid GitHub's
+# unauthenticated-download rate limiting hitting container builds.
+MAPANYTHING_REPO := https://github.com/facebookresearch/map-anything.git
+MAPANYTHING_COMMIT := b84b28f
+VGGT_REPO := https://github.com/facebookresearch/vggt.git
+VGGT_COMMIT := 44b3afb
+
+.PHONY: vendor-deps
+vendor-deps:
+	@mkdir -p .vendor
+	@if [ "$(MODEL_TYPE)" = "mapanything" ]; then \
+		if [ ! -d .vendor/model/.git ] || [ "$$(git -C .vendor/model rev-parse --short HEAD 2>/dev/null)" != "$(MAPANYTHING_COMMIT)" ]; then \
+			rm -rf .vendor/model && \
+			echo "==> Cloning map-anything@$(MAPANYTHING_COMMIT) (host)..." && \
+			git clone -q $(MAPANYTHING_REPO) .vendor/model && \
+			git -C .vendor/model reset -q --hard $(MAPANYTHING_COMMIT); \
+		fi; \
+	elif [ "$(MODEL_TYPE)" = "vggt" ]; then \
+		if [ ! -d .vendor/model/.git ] || [ "$$(git -C .vendor/model rev-parse --short HEAD 2>/dev/null)" != "$(VGGT_COMMIT)" ]; then \
+			rm -rf .vendor/model && \
+			echo "==> Cloning vggt@$(VGGT_COMMIT) (host)..." && \
+			git clone -q $(VGGT_REPO) .vendor/model && \
+			git -C .vendor/model reset -q --hard $(VGGT_COMMIT); \
+		fi; \
+	else \
+		echo "Invalid MODEL_TYPE: $(MODEL_TYPE). Must be 'mapanything' or 'vggt'" && exit 1; \
+	fi
+
+build-image: vendor-deps
+
+.PHONY: clean-vendor
+clean-vendor:
+	rm -rf .vendor
+
 .PHONY: test-build
 test-build:
 	$(MAKE) IMAGE="$(TEST_IMAGE)" TARGET="$(TEST_TARGET)" MODEL_TYPE=$(MODEL_TYPE)
