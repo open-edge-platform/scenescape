@@ -10,6 +10,40 @@ import Toast from "/static/js/toast.js";
 
 const MAX_OPACITY = 1;
 const MAX_SEGMENTS = 65;
+const AXES_MIN_SIZE = 0.2;
+const AXES_MAX_SIZE = 2.0;
+const AXES_SIZE_RATIO = 0.5;
+
+// Closed-form angle stays defined even when covarianceXY=0 (axis-aligned shapes), unlike
+// an eigenvector formula; flips 180deg so it faces the shape's larger half.
+// Computed about `pivot` (the sensor's physical location), not the shape's centroid.
+function calculatePrincipalDirection(points, pivot) {
+  let covarianceXX = 0,
+    covarianceXY = 0,
+    covarianceYY = 0;
+  points.forEach((p) => {
+    const offsetX = p.x - pivot.x;
+    const offsetY = p.y - pivot.y;
+    covarianceXX += offsetX * offsetX;
+    covarianceXY += offsetX * offsetY;
+    covarianceYY += offsetY * offsetY;
+  });
+
+  let angle = 0.5 * Math.atan2(2 * covarianceXY, covarianceXX - covarianceYY);
+
+  const directionX = Math.cos(angle);
+  const directionY = Math.sin(angle);
+  let projectionSum = 0;
+  points.forEach((p) => {
+    projectionSum +=
+      (p.x - pivot.x) * directionX + (p.y - pivot.y) * directionY;
+  });
+  if (projectionSum < 0) {
+    angle += Math.PI;
+  }
+
+  return angle;
+}
 
 export default class SceneRegion extends THREE.Object3D {
   constructor(params) {
@@ -82,6 +116,58 @@ export default class SceneRegion extends THREE.Object3D {
       this.shape = new THREE.Mesh(cylinderGeometry, this.material);
     }
     this.type = "region";
+    this.updateAxesHelper();
+  }
+
+  // Perceptual sensors only (region.isSensor); cameras/regions/tripwires are unaffected.
+  updateAxesHelper() {
+    if (this.axesHelper) {
+      this.remove(this.axesHelper);
+      this.axesHelper.geometry.dispose();
+      this.axesHelper = null;
+    }
+    if (!this.region.isSensor || this.regionType === "scene") {
+      return;
+    }
+
+    // region.center (map_x/map_y) is the sensor's physical mounting point for
+    // every area type, distinct from a polygon's own geometric centroid.
+    const center = this.region.center ?? [this.region.x, this.region.y];
+    if (center[0] == null || center[1] == null) {
+      return;
+    }
+    const pivot = { x: center[0], y: center[1] };
+
+    let angle = 0; // Radially symmetric circle; PCA has no meaningful direction here.
+    let extent = this.region.radius;
+    if (this.regionType === "poly" && this.points.length > 0) {
+      if (this.points.length >= 3) {
+        angle = calculatePrincipalDirection(this.points, pivot);
+      }
+      let distSum = 0;
+      this.points.forEach((p) => {
+        distSum += Math.hypot(p.x - pivot.x, p.y - pivot.y);
+      });
+      extent = distSum / this.points.length;
+    } else if (this.regionType !== "circle") {
+      return;
+    }
+    if (!extent) {
+      return;
+    }
+
+    const size = Math.min(
+      AXES_MAX_SIZE,
+      Math.max(AXES_MIN_SIZE, extent * AXES_SIZE_RATIO),
+    );
+    this.axesHelper = new THREE.AxesHelper(size);
+    this.axesHelper.position.set(pivot.x, pivot.y, 0);
+    // Bisect the X/Y arms around the facing direction (wedge shape)
+    this.axesHelper.quaternion.setFromAxisAngle(
+      new THREE.Vector3(0, 0, 1),
+      angle - Math.PI / 4,
+    );
+    this.add(this.axesHelper);
   }
 
   setPoints() {
@@ -132,13 +218,13 @@ export default class SceneRegion extends THREE.Object3D {
     const pointCount = polygonPoints.length;
 
     // Determine if polygon is clockwise or counterclockwise
-    let area = 0;
+    let windingArea = 0;
     for (let i = 0; i < pointCount; i++) {
-      const j = (i + 1) % pointCount;
-      area += polygonPoints[i].x * polygonPoints[j].y;
-      area -= polygonPoints[j].x * polygonPoints[i].y;
+      const nextIndex = (i + 1) % pointCount;
+      windingArea += polygonPoints[i].x * polygonPoints[nextIndex].y;
+      windingArea -= polygonPoints[nextIndex].x * polygonPoints[i].y;
     }
-    const isClockwise = area < 0;
+    const isClockwise = windingArea < 0;
     // Reverse sign to inflate instead of deflate
     const sign = isClockwise ? 1 : -1;
 
@@ -149,48 +235,55 @@ export default class SceneRegion extends THREE.Object3D {
       const nextPoint = polygonPoints[(i + 1) % pointCount];
 
       // Calculate edge vectors
-      const v1 = new THREE.Vector2()
+      const edgeVector1 = new THREE.Vector2()
         .subVectors(currentPoint, prevPoint)
         .normalize();
-      const v2 = new THREE.Vector2()
+      const edgeVector2 = new THREE.Vector2()
         .subVectors(nextPoint, currentPoint)
         .normalize();
 
       // Calculate perpendicular vectors (normals) pointing outward
-      const normal1 = new THREE.Vector2(-v1.y * sign, v1.x * sign);
-      const normal2 = new THREE.Vector2(-v2.y * sign, v2.x * sign);
+      const outwardNormal1 = new THREE.Vector2(
+        -edgeVector1.y * sign,
+        edgeVector1.x * sign,
+      );
+      const outwardNormal2 = new THREE.Vector2(
+        -edgeVector2.y * sign,
+        edgeVector2.x * sign,
+      );
 
       // Calculate the cross product to determine if the corner is convex or concave
-      const crossProduct = v1.x * v2.y - v1.y * v2.x;
-      const isConvex = crossProduct * sign < 0;
+      const edgeCrossProduct =
+        edgeVector1.x * edgeVector2.y - edgeVector1.y * edgeVector2.x;
+      const isConvex = edgeCrossProduct * sign < 0;
 
       // Calculate the offset direction
       let offsetVector;
       if (isConvex) {
         // For convex corners, use the miter vector (average of normals)
         offsetVector = new THREE.Vector2()
-          .addVectors(normal1, normal2)
+          .addVectors(outwardNormal1, outwardNormal2)
           .normalize();
         // Calculate the miter length to maintain constant offset distance
         const miterLength =
-          this.buffer_size / Math.max(0.1, offsetVector.dot(normal1));
+          this.buffer_size / Math.max(0.1, offsetVector.dot(outwardNormal1));
         offsetVector.multiplyScalar(miterLength);
       } else {
         // For concave corners, use a beveled approach with separate offsets
         offsetVector = new THREE.Vector2()
           .addVectors(
-            normal1.clone().multiplyScalar(this.buffer_size),
-            normal2.clone().multiplyScalar(this.buffer_size),
+            outwardNormal1.clone().multiplyScalar(this.buffer_size),
+            outwardNormal2.clone().multiplyScalar(this.buffer_size),
           )
           .multiplyScalar(0.5);
       }
 
       // Calculate the new inflated point
-      const newPoint = new THREE.Vector2().addVectors(
+      const inflatedPoint = new THREE.Vector2().addVectors(
         currentPoint,
         offsetVector,
       );
-      inflatedPoints.push(newPoint);
+      inflatedPoints.push(inflatedPoint);
     }
 
     // 5. Create the Three.js shape and extrude it 🧊
@@ -256,8 +349,8 @@ export default class SceneRegion extends THREE.Object3D {
       this.controlsFolder
         .add({ volumetric: this.volumetric }, "volumetric")
         .onChange(
-          function (value) {
-            this.volumetric = value;
+          function (volumetricValue) {
+            this.volumetric = volumetricValue;
           }.bind(this),
         );
     }
@@ -266,8 +359,8 @@ export default class SceneRegion extends THREE.Object3D {
       this.controlsFolder
         .add({ buffer_size: this.buffer_size }, "buffer_size")
         .onChange(
-          function (value) {
-            this.buffer_size = value;
+          function (bufferSizeValue) {
+            this.buffer_size = bufferSizeValue;
           }.bind(this),
         );
       // Add save button
@@ -363,6 +456,7 @@ export default class SceneRegion extends THREE.Object3D {
       this.remove(this.shape);
       this.shape = null;
     }
+    this.updateAxesHelper();
   }
 
   updateShape(data) {
