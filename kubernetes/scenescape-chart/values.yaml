@@ -98,12 +98,12 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "2026.2.0-ubuntu24-rc1"
+    tag: "2026.2.0-ubuntu24-rc2"
     pullPolicy: IfNotPresent
 
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
-  tag: "2026.2.0-ubuntu24-rc1"
+  tag: "2026.2.0-ubuntu24-rc2"
   pullPolicy: IfNotPresent
   storageClassName: ""
   cameras:
@@ -117,7 +117,7 @@ retail:
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
-  tag: "2026.2.0-ubuntu24-rc1"
+  tag: "2026.2.0-ubuntu24-rc2"
   storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
@@ -148,6 +148,11 @@ reid:
   # Vector database backend for re-identification: vdms or qdrant.
   # The backends are alternatives; exactly one is deployed as the "reid" service.
   backend: vdms
+  # Descriptor lifetime in seconds; 0 disables retention (REID_DESCRIPTOR_TTL_SECS).
+  descriptorTtlSecs: 86400
+  # How often the controller asks the backend to purge expired descriptors
+  # (REID_PURGE_INTERVAL_SECS).
+  purgeIntervalSecs: 300
   vdms:
     image:
       repository: docker.io

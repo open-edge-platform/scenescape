@@ -4,138 +4,101 @@
 # SkillSpector baseline — findings listed here are suppressed on future scans.
 # Edit 'reason' fields and add glob 'rules' as needed. See docs/SUPPRESSION.md.
 version: 2
-scanner_version: 2.5.1
+scanner_version: 2.5.0
 rules: []
 fingerprints:
-- hash: sha256:9efe9e317fd2280f56acfc4f404c6c1a2bdf7d326764accc00e01a62c46594a2
+- hash: sha256:d3eadf8442b143dd2ef9266cc6c2c3c092387c5470c198a6fb1ece3aba447e13
   rule_id: AST4
   file: scripts/bootstrap_deploy.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:ea0918f77d5782f7e4b5ff8a38502556b1fd023d0eaece34ce6c97d74cdb9c76
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:b406382be095487468576feabceabbcffa61465ad462b24397202a5fc6afea40
   rule_id: AST4
   file: scripts/bootstrap_deploy.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:3699ddec28cee199d7528c07e781c93721df5e7b16eaf5cf0b12da9c1dad6a36
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:c7e55a4d740baa85bc380571bc70af09652d031d329fe9708058d726fef93b1a
   rule_id: AST4
   file: scripts/bootstrap_deploy.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:5485582be296ff5e190335f90adae7597616d74685a4f384b17947de094afb80
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:2f24a70c94917ff75b4394a85879fcf98364a6c278b70b04dad43b4396ead50d
   rule_id: AST4
   file: scripts/bootstrap_deploy.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:38c3f76b02c0c21d8471102ececb52627420fb7e52222c358ae8416b84793085
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:15a100bad4fd7ab1c9604ec90263c26a15c3ebf7ede9306f5eeb507243bd967d
   rule_id: AST4
   file: scripts/bootstrap_deploy.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:a3c096809f0f313b784c4f6bf81b0182803b59c7bd31e523c06cc280ad37e815
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:f6ff51070e39c2e8b46e8a16dab633bf5db0cc702593cfdb76510bc1d48d53bb
   rule_id: AST4
   file: scripts/bootstrap_deploy.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:65fd04d1885e2bb1bad74a0a786589afdce9240eb903fe4629880ee2ad93daad
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:27458df16cac13b7d2f9402670b5b136f343654dd7402d62b94090f428182b73
   rule_id: AST4
   file: scripts/bootstrap_deploy.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:f7f39621db3a308d0323685e6d2a82d561775594276d11da6438386d2fbd31c4
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:be3d9d8e416204cb994c4aa794718a2fca621a56c9ae16a053e34d4a049215f2
   rule_id: AST4
   file: scripts/bootstrap_deploy.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:efb67b32f053527ae0083ee634d5eff808cdfc7e49d58f60482e88c965e0fb29
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:6c707fbd0cc567982e08cc598f677920f9877226f4e1d457cb25d2a9ccd3060a
   rule_id: AST4
   file: scripts/capture_calibration_frames.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:c7b59400a1e36f7b6f724761fdf18a1a066d8e5d65e330a5b6c8f44f55c59056
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:1ec37672df5ced46f3fafe59ae5f31f5fa8d552d690f12293fc50e73e4f6abcb
   rule_id: AST4
   file: scripts/capture_calibration_frames.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:c8965174441e9cdb09a9b3169c35f4eff085dd2929afe68f7c7e68c762b40603
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:6d8cc9e018f437e2501c317bca82ca824c2ac860184f6ddffc8c37db2648cfed
   rule_id: AST4
   file: scripts/check_service_health.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:47d8123aaaa205c5669e97f6f643707ef032094976c06fc7e962015ba845e1df
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:7ec5286e454b19977d582d183ef556ca32bdcc91bbc30c7d0e5ad4a96507bc5f
   rule_id: AST4
   file: scripts/download_model.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:ced759a9ee126e074c7e96887c46c8759c40cc7ec1bcc7fe085cdbcd58431084
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:fdd98154ca48baefa61a80af5b71149dd8e9792bd3705f0f725b5230fdae180c
   rule_id: AST4
   file: scripts/download_model.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:4bc6a50cb452a55cc763f39148c0f6dda30aa55f83a9c89105f5f17af448ada2
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:26cdcd1ad4b1f6f82f039c388787fb7ae47254ba9f4cd6874d10d84a1da598e1
   rule_id: AST4
   file: scripts/download_model.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:297a1b7d4a612cf230b68c6f0395a55641a92ce4f2c45e78034fa0d1872c6948
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:1683c6545a93689576d1f8adda6e9911e28080e910157c0e1afe4ecd3169fa86
   rule_id: AST4
   file: scripts/download_model.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:6b432b2538d8777b140bd055269579267f89bf4727dac10431487ccaf0c85a57
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:43f8540d2a0ba8d61360ab4ad29751d520548b31acf073f660e3d8f69fe844cc
   rule_id: AST4
   file: scripts/download_model.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:ee12487d859a4132ecf5a9a178c0d96746250fa72a01bcb726ff34711d035b7a
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:656dd9acc6b3114a75d97363630c525bb51d70b384ef0493d22749668bd3c0c1
   rule_id: AST4
   file: scripts/download_model.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:717861f0399f2c7c6f49a09b4fb607197ab24268e10f02bd8ef9833c25f59b36
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:c72d3b4ff57c9b0fdd417acf77285ba9b348b284b50642a0da643f317ba3ece1
   rule_id: AST4
   file: scripts/download_model.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:5b696d1cd5006e047c56bb93f32a9f0669783fd34d8ffbea339a40cf2009a100
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:ba52a577546cfa7014ff3f978f91ba8d00b944212a5288f5d99abe1f1e0cd0ba
   rule_id: AST4
   file: scripts/download_model.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:0ec44086d8efb0495b0887db2638445ac0d10146581ef9fa733f530b7b218b45
-  rule_id: EA2
-  file: SKILL.md
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
-- hash: sha256:8012ec56460be72c9cdb1234cbf37e2a780b2bd6e1ccbbacc9321752184c37a3
-  rule_id: EA2
-  file: SKILL.md
-  reason: 'Reviewed: an explicit resume signal establishes persisted input availability only;
-    orchestrator launch still requires user authorization and --fresh requires separate
-    confirmation.'
-- hash: sha256:34f3be6051112bea1cd12ea14162685abc9bb5b6807e936a3b9b3aae1ddfe416
-  rule_id: PE3
-  file: scripts/write_deployment_env.py
-  reason: 'Reviewed: subprocess invocations use argument lists without a shell; deployment
-    secrets are required and written owner-only; destructive deployment actions require
-    confirmation.'
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'

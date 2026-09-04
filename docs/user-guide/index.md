@@ -3,11 +3,9 @@
 
 # Scenescape
 
-_Part of [Edge AI Libraries](https://docs.openedgeplatform.intel.com/dev/ai-libraries.html)_
-
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main">
      GitHub
   </a>
   <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/README.md">
@@ -91,7 +89,7 @@ PostgreSQL database server which stores static information used by the web UI an
 :::{toctree}
 :hidden:
 
-Scenescape Home Page <https://docs.openedgeplatform.intel.com/dev/scenescape/index.html>
+Go back to Libraries <https://docs.openedgeplatform.intel.com/dev/ai-libraries.html>
 
 :::
 
@@ -99,6 +97,7 @@ Scenescape Home Page <https://docs.openedgeplatform.intel.com/dev/scenescape/ind
 :hidden:
 :caption: Get Started
 
+Scenescape Overview <https://docs.openedgeplatform.intel.com/dev/scenescape/index.html>
 Installation <./get-started/installation.md>
 System Requirements <./get-started/system-requirements.md>
 
@@ -115,6 +114,7 @@ Integrate Cameras and Sensors <./how-to-guides/integrate-cameras-and-sensors.md>
 Publish External Source Adapter <./how-to-guides/publish-external-source-adapter.md>
 Calibrate Cameras <./how-to-guides/calibrate-cameras/index.md>
 Work with Spatial Analytics Data <./how-to-guides/work-with-spatial-analytics-data.md>
+Run the LiDAR-Intersection Fusion Demo <./how-to-guides/run-lidar-intersection-demo.md>
 
 :::
 
@@ -138,7 +138,7 @@ API Reference <./api-reference.md>
 Defining Object Properties <./other-topics/how-to-define-object-properties.md>
 Enabling Re-identification <./other-topics/how-to-enable-reidentification.md>
 Enabling Observability (Experimental) <./other-topics/how-to-enable-observability.md>
-Integrating Intel® Geti™ AI Models <./other-topics/how-to-integrate-geti-trained-model.md>
+Integrating Geti™ AI Models <./other-topics/how-to-integrate-geti-trained-model.md>
 Configuring DL Streamer Video Pipeline <./other-topics/how-to-configure-dlstreamer-video-pipeline.md>
 Model configuration file format <./other-topics/model-configuration-file-format.md>
 Running License Plate Recognition with 3D Object Detection <./other-topics/how-to-run-LPR-with-3D-object-detection.md>
