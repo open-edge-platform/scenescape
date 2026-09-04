@@ -70,13 +70,6 @@ class MF:
       cls.conf = model_conf
       Model = dynamic_load(matchers, model_conf["name"])
       cls.model = Model(model_conf).eval().to(cls.device)
-      if cls.device == "cpu":
-        try:
-          import intel_extension_for_pytorch as ipex
-
-          cls.model = ipex.optimize(cls.model)
-        except ImportError:
-          pass
     return cls.model
 
 

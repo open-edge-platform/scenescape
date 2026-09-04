@@ -3,8 +3,6 @@
 # This file is licensed under Apache 2.0 License.
 
 addict==2.4.0
-intel-openmp==2025.2.0
-intel_extension_for_pytorch==2.7.0
 kornia==0.8.1
 kubernetes==33.1.0
 numpy==1.26.4
