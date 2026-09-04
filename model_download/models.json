@@ -4,6 +4,24 @@
   "models": [
     {
       "model_downloader": {
+        "name": "yolo11s",
+        "hub": "ultralytics"
+      },
+      "scenescape": {
+        "name": "yolo11s",
+        "config": {
+          "type": "detect",
+          "params": {
+            "model": "ultralytics/public/yolo11s/FP16/yolo11s.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
         "name": "OpenVINO/yolox_s-fp16-ov",
         "hub": "huggingface"
       },
@@ -13,60 +31,6 @@
           "type": "detect",
           "params": {
             "model": "huggingface/OpenVINO_yolox_s-fp16-ov/yolox_s.xml"
-          },
-          "adapter-params": {
-            "metadatagenpolicy": "detectionPolicy"
-          }
-        }
-      }
-    },
-    {
-      "model_downloader": {
-        "name": "OpenVINO/yolox_s-int8-ov",
-        "hub": "huggingface"
-      },
-      "scenescape": {
-        "name": "yolox_s-int8",
-        "config": {
-          "type": "detect",
-          "params": {
-            "model": "huggingface/OpenVINO_yolox_s-int8-ov/yolox_s.xml"
-          },
-          "adapter-params": {
-            "metadatagenpolicy": "detectionPolicy"
-          }
-        }
-      }
-    },
-    {
-      "model_downloader": {
-        "name": "OpenVINO/yolox_tiny-fp16-ov",
-        "hub": "huggingface"
-      },
-      "scenescape": {
-        "name": "yolox_tiny-fp16",
-        "config": {
-          "type": "detect",
-          "params": {
-            "model": "huggingface/OpenVINO_yolox_tiny-fp16-ov/yolox_tiny.xml"
-          },
-          "adapter-params": {
-            "metadatagenpolicy": "detectionPolicy"
-          }
-        }
-      }
-    },
-    {
-      "model_downloader": {
-        "name": "OpenVINO/yolox_tiny-int8-ov",
-        "hub": "huggingface"
-      },
-      "scenescape": {
-        "name": "yolox_tiny-int8",
-        "config": {
-          "type": "detect",
-          "params": {
-            "model": "huggingface/OpenVINO_yolox_tiny-int8-ov/yolox_tiny.xml"
           },
           "adapter-params": {
             "metadatagenpolicy": "detectionPolicy"
