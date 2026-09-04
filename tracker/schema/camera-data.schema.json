@@ -43,7 +43,10 @@
   "$defs": {
     "detection": {
       "type": "object",
-      "required": ["bounding_box_px"],
+      "oneOf": [
+        { "required": ["bounding_box_px"] },
+        { "required": ["translation", "size"] }
+      ],
       "properties": {
         "id": {
           "type": "integer",
@@ -53,6 +56,27 @@
         "bounding_box_px": {
           "$ref": "#/$defs/bounding_box",
           "description": "Bounding box in pixel coordinates"
+        },
+        "translation": {
+          "type": "array",
+          "description": "Sensor-local 3-D position [x, y, z] meters (e.g. LiDAR), alternative to bounding_box_px. Transformed to world space via the sensor's extrinsics only (no ground-plane ray casting).",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "size": {
+          "type": "array",
+          "description": "Object size [length, width, height] meters, required alongside translation",
+          "items": { "type": "number", "minimum": 0 },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rotation": {
+          "type": "array",
+          "description": "Sensor-local orientation quaternion [x, y, z, w], optional alongside translation",
+          "items": { "type": "number" },
+          "minItems": 4,
+          "maxItems": 4
         },
         "metadata": {
           "type": "object",
@@ -64,6 +88,10 @@
           "description": "Optional detection confidence score in [0, 1]",
           "minimum": 0,
           "maximum": 1
+        },
+        "source": {
+          "type": "string",
+          "description": "Debug aid: which sensor produced this detection (e.g. \"lidar\"/\"camera\"), passed through to the track output"
         }
       },
       "additionalProperties": true

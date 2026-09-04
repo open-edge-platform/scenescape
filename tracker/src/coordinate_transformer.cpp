@@ -53,6 +53,38 @@ void addMetadataAttributes(std::string_view metadataJson,
     }
 }
 
+// Applies the attributes shared by both the pixel-space and 3-D detection paths.
+void applyCommonAttributes(const Detection& detection, rv::tracking::TrackedObject& obj) {
+    if (!detection.metadata_json.empty()) {
+        addMetadataAttributes(detection.metadata_json, obj.attributes);
+    }
+    if (detection.confidence.has_value()) {
+        char buf[32];
+        auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), *detection.confidence);
+        if (ec == std::errc{}) {
+            obj.attributes["confidence"] = std::string(buf, ptr);
+        }
+    }
+    if (detection.source.has_value()) {
+        obj.attributes["source"] = *detection.source;
+    }
+}
+
+// Converts a (not necessarily normalized) quaternion [x, y, z, w] to a 3x3 rotation matrix.
+cv::Matx33d quaternionToRotationMatrix(const std::array<double, 4>& q) {
+    double x = q[0], y = q[1], z = q[2], w = q[3];
+    const double norm = std::sqrt(x * x + y * y + z * z + w * w);
+    if (norm > 1e-12) {
+        x /= norm;
+        y /= norm;
+        z /= norm;
+        w /= norm;
+    }
+    return cv::Matx33d(1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y),
+                       2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x),
+                       2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y));
+}
+
 } // namespace
 
 CoordinateTransformer::CoordinateTransformer(const CameraIntrinsics& intrinsics,
@@ -77,6 +109,12 @@ CoordinateTransformer::CoordinateTransformer(const CameraIntrinsics& intrinsics,
                           0.0, 0.0, extrinsics.scale[2], 0.0, 0.0, 0.0, 0.0, 1.0);
 
     pose_matrix_ = rt_mat * scale_mat;
+
+    // Rotation-only part of pose_matrix_, used to re-orient sensor-local detection
+    // rotations (e.g. LiDAR yaw) into world space without translating them.
+    pose_rotation_ = cv::Matx33d(pose_matrix_(0, 0), pose_matrix_(0, 1), pose_matrix_(0, 2),
+                                 pose_matrix_(1, 0), pose_matrix_(1, 1), pose_matrix_(1, 2),
+                                 pose_matrix_(2, 0), pose_matrix_(2, 1), pose_matrix_(2, 2));
 
     camera_origin_ = cv::Point3d(extrinsics.translation[0], extrinsics.translation[1],
                                  extrinsics.translation[2]);
@@ -165,13 +203,63 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
     if (n == 0)
         return {};
 
-    // Phase 1: Collect 4 pixels per detection into contiguous array
-    // Layout per detection: [foot, bottom_left, bottom_right, top_left]
-    std::vector<cv::Point2f> pixels(n * kPixelsPerDetection);
+    // Partition: pixel-space detections (need ground-plane ray casting) vs
+    // already-localized 3-D detections (e.g. LiDAR), which only need the sensor's
+    // own pose transform. A batch is normally homogeneous (one sensor per message),
+    // but this also supports a mix within the same batch.
+    std::vector<size_t> pixel_indices;
+    pixel_indices.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        if (detections[i].bounding_box_px.has_value()) {
+            pixel_indices.push_back(i);
+        }
+    }
+
+    std::vector<rv::tracking::TrackedObject> result(n);
+    std::vector<uint8_t> detection_valid(n, 0);
+
+    if (!pixel_indices.empty()) {
+        transformPixelDetections(detections, pixel_indices, result, detection_valid);
+    }
 
     for (size_t i = 0; i < n; ++i) {
-        const auto& bbox = detections[i].bounding_box_px;
-        const size_t base = i * kPixelsPerDetection;
+        if (detection_valid[i] || detections[i].bounding_box_px.has_value()) {
+            continue;
+        }
+        if (!detections[i].translation.has_value() || !detections[i].size.has_value()) {
+            continue; // Neither a pixel bbox nor a complete 3-D pose - nothing to project
+        }
+        result[i] = transformPoseDetection(detections[i]);
+        detection_valid[i] = 1;
+    }
+
+    // Compact: remove invalid/unprocessed detections (preserves relative ordering)
+    size_t write = 0;
+    for (size_t read = 0; read < n; ++read) {
+        if (detection_valid[read]) {
+            if (write != read) {
+                result[write] = std::move(result[read]);
+            }
+            ++write;
+        }
+    }
+    result.resize(write);
+
+    return result;
+}
+
+void CoordinateTransformer::transformPixelDetections(
+    std::span<const Detection> detections, const std::vector<size_t>& indices,
+    std::vector<rv::tracking::TrackedObject>& result, std::vector<uint8_t>& detection_valid) const {
+    const auto m = indices.size();
+
+    // Phase 1: Collect 4 pixels per detection into contiguous array
+    // Layout per detection: [foot, bottom_left, bottom_right, top_left]
+    std::vector<cv::Point2f> pixels(m * kPixelsPerDetection);
+
+    for (size_t k = 0; k < m; ++k) {
+        const auto& bbox = *detections[indices[k]].bounding_box_px;
+        const size_t base = k * kPixelsPerDetection;
 
         // Foot: bottom-center of bbox, used as the object's ground contact point
         pixels[base + 0] = {bbox.x + bbox.width / 2.0f, bbox.y + bbox.height};
@@ -189,21 +277,17 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
     batchPixelToWorld(pixels, world, valid);
 
     // Phase 4: Assemble TrackedObjects from world-projected points
-    std::vector<rv::tracking::TrackedObject> result(n);
-    std::vector<uint8_t> detection_valid(n);
-
     const double cam_x = camera_origin_.x;
     const double cam_y = camera_origin_.y;
     const double cam_z = camera_origin_.z;
 
 #pragma omp parallel for schedule(static)
-    for (int i = 0; i < static_cast<int>(n); ++i) {
-        const size_t base = static_cast<size_t>(i) * kPixelsPerDetection;
+    for (int k = 0; k < static_cast<int>(m); ++k) {
+        const size_t base = static_cast<size_t>(k) * kPixelsPerDetection;
 
         // Check all 4 projections succeeded
         if (!valid[base] || !valid[base + 1] || !valid[base + 2] || !valid[base + 3]) {
-            detection_valid[i] = 0;
-            continue;
+            continue; // detection_valid[...] already zero-initialized
         }
 
         const auto& foot = world[base + 0];
@@ -244,41 +328,52 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             offset_y += (foot_dy / bearing_len) * half_size;
         }
 
-        auto& obj = result[i];
-        obj.id = detections[i].id.value_or(rv::tracking::InvalidObjectId);
+        const size_t orig_index = indices[k];
+        auto& obj = result[orig_index];
+        obj.id = detections[orig_index].id.value_or(rv::tracking::InvalidObjectId);
         obj.x = offset_x;
         obj.y = offset_y;
         obj.z = 0.0;
         obj.length = width_m; // [width, width, height] convention
         obj.width = width_m;
         obj.height = height_m;
-        if (!detections[i].metadata_json.empty()) {
-            addMetadataAttributes(detections[i].metadata_json, obj.attributes);
-        }
-        if (detections[i].confidence.has_value()) {
-            char buf[32];
-            auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), *detections[i].confidence);
-            if (ec == std::errc{}) {
-                obj.attributes["confidence"] = std::string(buf, ptr);
-            }
-        }
+        applyCommonAttributes(detections[orig_index], obj);
 
-        detection_valid[i] = 1;
+        detection_valid[orig_index] = 1;
+    }
+}
+
+rv::tracking::TrackedObject
+CoordinateTransformer::transformPoseDetection(const Detection& detection) const {
+    const auto& t = *detection.translation;
+
+    // world_pt = pose_matrix_ * [tx, ty, tz, 1] - direct affine transform (no ray casting),
+    // since the sensor already reports a real 3-D point, not a projection ray.
+    rv::tracking::TrackedObject obj;
+    obj.id = detection.id.value_or(rv::tracking::InvalidObjectId);
+    obj.x = pose_matrix_(0, 0) * t[0] + pose_matrix_(0, 1) * t[1] + pose_matrix_(0, 2) * t[2] +
+           pose_matrix_(0, 3);
+    obj.y = pose_matrix_(1, 0) * t[0] + pose_matrix_(1, 1) * t[1] + pose_matrix_(1, 2) * t[2] +
+           pose_matrix_(1, 3);
+    obj.z = pose_matrix_(2, 0) * t[0] + pose_matrix_(2, 1) * t[1] + pose_matrix_(2, 2) * t[2] +
+           pose_matrix_(2, 3);
+
+    const auto& size = *detection.size;
+    obj.length = size[0];
+    obj.width = size[1];
+    obj.height = size[2];
+
+    if (detection.rotation.has_value()) {
+        // Compose the sensor's own orientation with the detection's local rotation, then
+        // keep only the Z-axis (yaw) component - RobotVision tracks yaw only, matching
+        // the Controller's own quaternion -> yaw reduction for detector-provided rotations.
+        const cv::Matx33d local_r = quaternionToRotationMatrix(*detection.rotation);
+        const cv::Matx33d world_r = pose_rotation_ * local_r;
+        obj.yaw = std::atan2(world_r(1, 0), world_r(0, 0));
     }
 
-    // Compact: remove invalid detections (preserves ordering)
-    size_t write = 0;
-    for (size_t read = 0; read < n; ++read) {
-        if (detection_valid[read]) {
-            if (write != read) {
-                result[write] = std::move(result[read]);
-            }
-            ++write;
-        }
-    }
-    result.resize(write);
-
-    return result;
+    applyCommonAttributes(detection, obj);
+    return obj;
 }
 
 std::array<double, 4> CoordinateTransformer::yawToQuaternion(double yaw_radians) {

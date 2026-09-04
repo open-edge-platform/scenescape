@@ -48,7 +48,9 @@ REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE) -f $(REID_PIP
 LIDAR_OVERRIDE_FILE = sample_data/lidar_intersection/docker-compose.lidar-override.yml
 LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
 # One patch per component (0001 manager, 0002 scene_common, 0003 analytics),
-# applied only when building with make build-core-lidar.
+# applied only when building with make build-core-lidar/build-all-lidar.
+# The Tracker service's LiDAR/source-passthrough support is regular (unpatched)
+# source, since it's a permanent part of the tracker, not demo-only behavior.
 LIDAR_PATCH_FILES := sample_data/lidar_intersection/patches/0001-manager-default-assets-and-source-labels.patch \
                      sample_data/lidar_intersection/patches/0002-scene-common-source-passthrough.patch \
                      sample_data/lidar_intersection/patches/0003-analytics-source-passthrough.patch

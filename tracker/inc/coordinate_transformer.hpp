@@ -18,19 +18,23 @@
 namespace tracker {
 
 /**
- * @brief Batch-oriented transformer from pixel detections to world-space TrackedObjects.
+ * @brief Batch-oriented transformer from detections to world-space TrackedObjects.
  *
- * Converts 2D pixel bounding boxes into 3D world positions and sizes using
- * camera intrinsics/extrinsics. The foot point (bottom-center of each bbox)
- * determines the world position via ground-plane intersection; three additional
- * corner points (BL, BR, TL) determine the object's world-space dimensions.
+ * Handles two kinds of detections:
+ * - Pixel-space (bounding_box_px): converted via camera intrinsics/extrinsics and
+ *   ground-plane ray casting. The foot point (bottom-center of each bbox) determines
+ *   the world position; three additional corner points (BL, BR, TL) determine the
+ *   object's world-space dimensions.
+ * - Sensor-local 3-D pose (translation/size/[rotation], e.g. LiDAR): already a 3-D
+ *   point in the sensor's local frame, transformed to world space via the sensor's
+ *   pose (extrinsics) directly - no ground-plane ray casting.
  *
  * Designed for high-throughput (1000+ detections per batch):
- * - Single cv::undistortPoints call for all pixels in the batch
+ * - Single cv::undistortPoints call for all pixel-space detections in the batch
  * - Data-oriented layout: contiguous pixel arrays for cache efficiency
  * - OpenMP parallelization of pose-transform and ray-plane intersection
  *
- * Transformation pipeline per detection (4 pixels each):
+ * Transformation pipeline per pixel-space detection (4 pixels each):
  * 1. Collect pixels: foot (bottom-center), bottom-left, bottom-right, top-left
  * 2. Batch undistort all 4*N pixels via cv::undistortPoints()
  * 3. Pose-transform + ray-plane intersection (z=0) with OpenMP
@@ -52,19 +56,26 @@ public:
     CoordinateTransformer(const CameraIntrinsics& intrinsics, const CameraExtrinsics& extrinsics);
 
     /**
-     * @brief Batch-transform detections from pixel space to world-space TrackedObjects.
+     * @brief Batch-transform detections to world-space TrackedObjects.
      *
-     * For each detection, projects 4 bbox pixels (foot, BL, BR, TL) through the full
-     * undistort → pose → ray-plane pipeline in a single batched operation. Computes
-     * world position (from foot point) and world size (from corner distances).
+     * Pixel-space detections (bounding_box_px) project 4 bbox pixels (foot, BL, BR, TL)
+     * through the full undistort → pose → ray-plane pipeline in a single batched
+     * operation; world position comes from the foot point, world size from corner
+     * distances. Sensor-local 3-D detections (translation/size/[rotation], e.g. LiDAR)
+     * are transformed directly via the sensor's pose (extrinsics only, no ray casting);
+     * world size is the detection's size as-is, and yaw (if rotation is present) is the
+     * composed sensor-pose + detection rotation, projected to the Z axis.
      *
-     * Detections where any projection fails are silently skipped.
+     * Detections where any projection fails, or that have neither a valid pixel bbox
+     * nor a valid 3-D pose, are silently skipped.
      *
-     * @param detections Span of pixel-space detections (bounding boxes)
+     * @param detections Span of detections (pixel-space or sensor-local 3-D)
      * @return TrackedObjects with world-space position and size fields populated.
-     *         id, x, y, z, length, width, height are set. Velocity/yaw are zero.
+     *         id, x, y, z, length, width, height are set. Velocity is zero; yaw is set
+     *         only for 3-D detections that carry a rotation.
      *         attributes["metadata_json"] is set from Detection::metadata_json when non-empty.
      *         attributes["confidence"] is set from Detection::confidence when present.
+     *         attributes["source"] is set from Detection::source when present.
      */
     std::vector<rv::tracking::TrackedObject>
     transformDetections(std::span<const Detection> detections) const;
@@ -115,6 +126,24 @@ private:
                            std::vector<uint8_t>& valid) const;
 
     /**
+     * @brief Transform the pixel-space detections at `indices` into `result`/`detection_valid`.
+     *
+     * Detections not referenced by `indices` are left untouched (handled elsewhere).
+     */
+    void transformPixelDetections(std::span<const Detection> detections,
+                                  const std::vector<size_t>& indices,
+                                  std::vector<rv::tracking::TrackedObject>& result,
+                                  std::vector<uint8_t>& detection_valid) const;
+
+    /**
+     * @brief Transform a single sensor-local 3-D detection (translation/size/[rotation])
+     * into a world-space TrackedObject via the sensor's pose (extrinsics) only.
+     *
+     * @pre detection.translation and detection.size are set.
+     */
+    rv::tracking::TrackedObject transformPoseDetection(const Detection& detection) const;
+
+    /**
      * @brief Compute 3x3 rotation matrix from Euler angles (XYZ intrinsic, degrees).
      */
     static cv::Matx33d eulerToRotationMatrix(const std::array<double, 3>& euler_degrees);
@@ -132,6 +161,7 @@ private:
     cv::Matx33d intrinsics_matrix_;
     cv::Vec4d distortion_coeffs_;
     cv::Matx44d pose_matrix_;
+    cv::Matx33d pose_rotation_; ///< Upper-left 3x3 (rotation*scale) block of pose_matrix_
     cv::Point3d camera_origin_;
 
     static constexpr double kFallbackHorizonDistance = 100.0;

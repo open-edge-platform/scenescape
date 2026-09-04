@@ -294,6 +294,13 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
             }
         }
 
+        // Debug aid stored in attributes by transformDetections().
+        // NOTE: multi-camera last-write-wins — same limitation as confidence/metadata_json.
+        auto source_it = rv_track.attributes.find("source");
+        if (source_it != rv_track.attributes.end()) {
+            track.source = source_it->second;
+        }
+
         tracks.push_back(std::move(track));
     }
 

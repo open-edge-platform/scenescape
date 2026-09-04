@@ -118,6 +118,10 @@
           "minimum": 0,
           "maximum": 1
         },
+        "source": {
+          "type": "string",
+          "description": "Debug aid: which sensor produced this detection (e.g. \"lidar\"/\"camera\"), pass-through from the originating detection"
+        },
         "visibility": {
           "type": "array",
           "description": "Camera IDs whose field of view currently contains this track (pass-through from track producer)",

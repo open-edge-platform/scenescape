@@ -35,9 +35,12 @@ never affects the standard `make demo` deployment.
 > and forwarding a `source` field through scene_common and Analytics) are
 > kept as one patch per component under
 > `sample_data/lidar_intersection/patches/` and are applied to the source
-> tree automatically by `make build-core-lidar` only - a normal
-> `make build-core`/`make build-all` never touches these files. See
-> [Demo-only patches](#demo-only-patches) below for details.
+> tree automatically by `make build-core-lidar`/`make build-all-lidar` only -
+> a normal `make build-core`/`make build-all` never touches these files. See
+> [Demo-only patches](#demo-only-patches) below for details. The Tracker
+> service's support for LiDAR 3-D detections and the `source` field is
+> regular (unpatched) source, since it's a permanent tracker capability, not
+> demo-only behavior.
 
 ## What this demo adds
 
@@ -47,7 +50,7 @@ never affects the standard `make demo` deployment.
 | `sample_data/lidar_intersection/lidar_publisher.py`                | Runs the LiDAR (PointPillars) and camera (person-vehicle-bike) GStreamer pipelines and publishes detections over MQTT                                                                                                 |
 | `sample_data/lidar_intersection/convert_pcd_to_bin.py`             | Converts the manually-downloaded dataset's `.pcd` LiDAR frames to the `.bin` format `lidar_publisher.py`/DLStreamer expect - see [Prerequisites](#prerequisites)                                                      |
 | `sample_data/lidar_intersection/reencode_jpegs.py`                 | Re-encodes the dataset's `.jpg` camera frames at a lower JPEG quality (same resolution) so decode/detect/preview keep up with `CAM_FRAME_RATE`                                                                        |
-| `sample_data/lidar_intersection/patches/`                          | Demo-only patches, one per component (Manager, scene_common, Analytics), applied automatically when building with `make build-core-lidar`                                                                             |
+| `sample_data/lidar_intersection/patches/`                          | Demo-only patches, one per component (Manager, scene_common, Analytics), applied automatically when building with `make build-core-lidar`/`make build-all-lidar`                                                       |
 | `sample_data/lidar_intersection/`                                  | Scene config, map image, scene-import ZIP, and the PointPillars model installer, all scoped to this demo (the recorded LiDAR/camera frames themselves are NOT part of the repo - see [Prerequisites](#prerequisites)) |
 
 ## Architecture
@@ -430,13 +433,18 @@ add:
 - Pass-through of the `source` field through scene_common and Analytics so
   it reaches the regulated/UI-facing output end-to-end.
 
-`make build-core-lidar` (and therefore `make demo-lidar`) applies the
-patches automatically, builds the `manager`, `analytics`, and shared
-`scene_common` images with them applied, then automatically reverts them.
-Your working tree stays clean throughout - `git status` should never show
-`manager/`/`scene_common/`/`analytics/` files as modified because of this
-demo. To manually apply or remove the patches (e.g. to inspect a diff
-without building):
+The Tracker service's own support for LiDAR 3-D detections (translation/size/
+rotation, transformed via the sensor's extrinsics) and its `source`
+pass-through are **not** part of these patches - they're a permanent,
+unpatched capability of the tracker, used whenever the demo runs with
+`--profile tracker` (the default for `make demo-lidar`).
+
+`make build-core-lidar`/`make build-all-lidar` (and therefore `make
+demo-lidar`) apply the patches automatically, build the images with them
+applied, then automatically revert them. Your working tree stays clean
+throughout - `git status` should never show `manager/`/`scene_common/`/
+`analytics/` files as modified because of this demo. To manually apply or
+remove the patches (e.g. to inspect a diff without building):
 
 ```bash
 make apply-lidar-patch    # apply all three patches to the working tree

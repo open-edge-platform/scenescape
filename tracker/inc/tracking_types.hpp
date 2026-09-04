@@ -18,19 +18,31 @@
 namespace tracker {
 
 /**
- * @brief Single detection from camera frame.
+ * @brief Single detection from camera or 3-D sensor (e.g. LiDAR).
  *
- * Represents one detected object in pixel coordinates before tracking.
- * bounding_box_px uses cv::Rect2f to match OpenCV conventions and avoid
- * manual conversion in the tracking pipeline.
+ * Represents one detected object before tracking, in one of two forms:
+ * - Pixel-space: bounding_box_px is set; world position/size are derived via
+ *   camera intrinsics/extrinsics and ground-plane projection.
+ * - Sensor-local 3-D pose: translation (+size, +optional rotation) is set;
+ *   already a 3-D point/box in the sensor's local frame (e.g. LiDAR PointPillars
+ *   output), transformed to world space via the sensor's extrinsics only (no
+ *   ground-plane ray casting). Exactly one of the two forms is expected.
  */
 struct Detection {
     std::optional<int32_t> id; ///< Frame-local detection ID (optional)
-    cv::Rect2f bounding_box_px;
+    std::optional<cv::Rect2f> bounding_box_px;
+    std::optional<std::array<double, 3>>
+        translation; ///< Sensor-local 3-D position [x, y, z] meters (e.g. LiDAR)
+    std::optional<std::array<double, 3>>
+        size; ///< Object size [length, width, height] meters (required alongside translation)
+    std::optional<std::array<double, 4>>
+        rotation; ///< Sensor-local orientation quaternion [x, y, z, w] (optional alongside translation)
     std::string
         metadata_json; ///< Raw JSON string of the detection's metadata object (empty if absent)
     std::optional<double>
         confidence; ///< Detection confidence score in [0, 1] (absent if not provided)
+    std::optional<std::string>
+        source; ///< Debug aid: which sensor produced this detection (e.g. "lidar"/"camera")
 };
 
 /**
@@ -99,6 +111,9 @@ struct Track {
         metadata_json; ///< Raw JSON string of the detection's metadata object (empty if absent)
     std::optional<double>
         confidence; ///< Detection confidence score in [0, 1] (absent if not available)
+    std::optional<std::string>
+        source; ///< Debug aid: which sensor produced this detection, carried through from the
+                ///< track producer (e.g. "lidar"/"camera")
 };
 
 /**

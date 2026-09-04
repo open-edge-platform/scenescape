@@ -106,6 +106,12 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
             obj.AddMember("confidence", Value(*track.confidence), allocator);
         }
 
+        // Debug aid: which sensor produced this detection (e.g. "lidar"/"camera")
+        if (track.source.has_value()) {
+            obj.AddMember("source", Value().SetString(track.source->c_str(), allocator),
+                          allocator);
+        }
+
         objects_array.PushBack(obj, allocator);
     }
 

@@ -39,6 +39,23 @@ static const rapidjson::Pointer PTR_BBOX_Y("/bounding_box_px/y");
 static const rapidjson::Pointer PTR_BBOX_WIDTH("/bounding_box_px/width");
 static const rapidjson::Pointer PTR_BBOX_HEIGHT("/bounding_box_px/height");
 
+// Parses a fixed-size JSON array of numbers (e.g. translation, size, rotation).
+// Returns nullopt if the array is absent, the wrong length, or has non-numeric entries.
+template <size_t N>
+std::optional<std::array<double, N>> parseNumberArray(const rapidjson::Value& val) {
+    if (!val.IsArray() || val.Size() != N) {
+        return std::nullopt;
+    }
+    std::array<double, N> result{};
+    for (rapidjson::SizeType i = 0; i < N; ++i) {
+        if (!val[i].IsNumber()) {
+            return std::nullopt;
+        }
+        result[i] = val[i].GetDouble();
+    }
+    return result;
+}
+
 } // namespace
 
 MessageHandler::MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
@@ -417,22 +434,39 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
                 detection.id = det["id"].GetInt();
             }
 
-            // Required bounding_box_px - use JSON Pointers for nested field extraction
+            // Two mutually exclusive forms: pixel bounding box (2-D, needs camera
+            // projection) or an already-localized 3-D pose (e.g. LiDAR translation/size,
+            // transformed via the sensor's extrinsics only - no ground-plane ray casting).
             const auto* bbox_x = PTR_BBOX_X.Get(det);
             const auto* bbox_y = PTR_BBOX_Y.Get(det);
             const auto* bbox_width = PTR_BBOX_WIDTH.Get(det);
             const auto* bbox_height = PTR_BBOX_HEIGHT.Get(det);
 
-            if (!bbox_x || !bbox_y || !bbox_width || !bbox_height) {
-                LOG_WARN("Missing bounding_box_px fields in detection");
+            if (bbox_x && bbox_y && bbox_width && bbox_height) {
+                // Note: Type checking (IsNumber) omitted - schema validation ensures correct types
+                detection.bounding_box_px =
+                    cv::Rect2f(static_cast<float>(bbox_x->GetDouble()),
+                              static_cast<float>(bbox_y->GetDouble()),
+                              static_cast<float>(bbox_width->GetDouble()),
+                              static_cast<float>(bbox_height->GetDouble()));
+            } else if (det.HasMember("translation") && det.HasMember("size")) {
+                auto translation = parseNumberArray<3>(det["translation"]);
+                auto size = parseNumberArray<3>(det["size"]);
+                if (!translation || !size) {
+                    LOG_WARN("Invalid 'translation'/'size' field in detection");
+                    continue;
+                }
+                detection.translation = *translation;
+                detection.size = *size;
+                if (det.HasMember("rotation")) {
+                    if (auto rotation = parseNumberArray<4>(det["rotation"])) {
+                        detection.rotation = *rotation;
+                    }
+                }
+            } else {
+                LOG_WARN("Detection has neither 'bounding_box_px' nor 'translation'/'size'");
                 continue;
             }
-            // Note: Type checking (IsNumber) omitted - schema validation ensures correct types
-
-            detection.bounding_box_px = cv::Rect2f(static_cast<float>(bbox_x->GetDouble()),
-                                                   static_cast<float>(bbox_y->GetDouble()),
-                                                   static_cast<float>(bbox_width->GetDouble()),
-                                                   static_cast<float>(bbox_height->GetDouble()));
 
             // Optional metadata - serialize the entire metadata object as a raw JSON string
             if (det.HasMember("metadata") && det["metadata"].IsObject()) {
@@ -445,6 +479,11 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
             // Optional confidence score
             if (det.HasMember("confidence") && det["confidence"].IsNumber()) {
                 detection.confidence = det["confidence"].GetDouble();
+            }
+
+            // Debug aid: which sensor produced this detection (e.g. "lidar"/"camera")
+            if (det.HasMember("source") && det["source"].IsString()) {
+                detection.source = det["source"].GetString();
             }
 
             detections.push_back(detection);
