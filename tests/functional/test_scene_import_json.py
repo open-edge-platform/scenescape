@@ -7,6 +7,7 @@ import os
 import json
 import threading
 import time
+import pytest
 from tests.utils.log import get_logger
 from scene_common.mqtt import PubSub
 from tests.functional import FunctionalTest
@@ -20,16 +21,15 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-TEST_NAME = "NEX-T15347"
 FRAMES_PER_SECOND = 10
 PERSON = "person"
 MQTT_CONNECT_TIMEOUT_S = 30
 SCENE_WAIT_TIMEOUT_S = 30
 
-
 class SceneControllerImportJSON(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, request, result_recorder):
+    super().__init__(None, request, None)
+    self.result_recorder = result_recorder
     self.sceneUID = self.params['scene_id']
     self.frameRate = FRAMES_PER_SECOND
     self.sceneData = None
@@ -65,12 +65,8 @@ class SceneControllerImportJSON(FunctionalTest):
       * This compose file removes --restauth option from scene service and replaces it with --data_source pointing to JSON.
     """
 
-    self.exitCode = 1
-
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
     try:
-      log.info(f"Executing test {TEST_NAME}")
+      log.info(f"Executing test NEX-T15347")
       log.info("Step 1. Verify JSON file exists")
       assert os.path.exists(self.jsonPath), "JSON file does not exist"
       log.info("JSON file present")
@@ -108,18 +104,16 @@ class SceneControllerImportJSON(FunctionalTest):
         f"No scene message received within {SCENE_WAIT_TIMEOUT_S}s")
 
       log.info(f"Scene message received. Contents:\n{self.sceneData}")
-      self.exitCode = 0
+      self.result_recorder.success()
 
     except Exception as e:
       log.error(f"Test failed with exception: {e}")
-      self.exitCode = 1
+      self.result_recorder.failure()
 
     finally:
       self.pubsub.loopStop()
-      self.recordTestResult()
 
-    return self.exitCode
-
-def test_scene_controller_import_json(scenescape_env, request, record_xml_attribute):
-  test = SceneControllerImportJSON(TEST_NAME, request, record_xml_attribute)
-  assert test.runTest() == 0
+@pytest.mark.test_name("NEX-T15347")
+def test_scene_controller_import_json(scenescape_env, request, result_recorder):
+  test = SceneControllerImportJSON(request, result_recorder)
+  test.runTest()
