@@ -42,8 +42,7 @@ class ChildSceneController():
 
   def handleException(self, e):
     log.debug("Exception: ", e)
-    self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
-                                                             scene_id=self.child_id), e)
+    self.parent_controller.enqueueRemoteChildStatus(self.child_id, e)
     return
 
   def onChildConnect(self, client, userdata, flags, rc):
@@ -53,17 +52,18 @@ class ChildSceneController():
     log.info(f"Connected to remote child {self.child_name} with result code {rc}")
 
     self.connected = True
-    self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
-                                                             scene_id=self.child_id), "connected")
+    self.parent_controller.enqueueRemoteChildStatus(self.child_id, "connected")
 
     # Remove stale callbacks from any previous connection before re-adding
     self.client.removeCallback(self.child_event_topic)
 
-    self.client.addCallback(self.child_event_topic, self.parent_controller.republishEvents)
+    self.client.addCallback(self.child_event_topic, self.enqueueRemoteEvent)
     log.info("Subscribed to", self.child_event_topic)
 
-    self.client.addCallback(self.child_scene_topic,
-                            self.parent_controller.handleMovingObjectMessage)
+    self.client.addCallback(
+      self.child_scene_topic,
+      self.parent_controller.handleMovingObjectMessage,
+    )
     log.info("Subscribed to", self.child_scene_topic)
 
     for catalog_type, (pubsub_enum, catalog_meta) in [
@@ -75,11 +75,16 @@ class ChildSceneController():
       self.client.removeCallback(topic)
       self.client.addCallback(
         topic,
-        lambda client, userdata, msg, ct=catalog_type: self.handleCatalog(client, userdata, msg, ct),
+        lambda client, userdata, msg, ct=catalog_type: self.enqueueCatalog(client, userdata, msg, ct),
         qos=1
       )
       log.info(f"Subscribed to {topic}")
 
+    return
+
+  def enqueueRemoteEvent(self, client, userdata, message):
+    self.parent_controller.enqueueRemoteCallback(
+      self.parent_controller.republishEvents, message)
     return
 
   def handleCatalog(self, client, userdata, message, catalog_type):
@@ -128,6 +133,10 @@ class ChildSceneController():
     except Exception as e:
       log.error(f"Failed to persist {catalog_type} for child {self.child_name}: {e}")
 
+  def enqueueCatalog(self, client, userdata, message):
+    self.parent_controller.enqueueRemoteCallback(self.handleCatalog, message)
+    return
+
   def publishStatus(self, client, userdata, message):
     msg = message.payload.decode('utf-8')
     if msg == "isConnected":
@@ -141,8 +150,7 @@ class ChildSceneController():
     self.connected = False
     log.info(f"Disconnected remote child {self.child_name}")
 
-    self.parent_controller.pubsub.publish(PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
-                        scene_id=self.child_id), "disconnected")
+    self.parent_controller.enqueueRemoteChildStatus(self.child_id, "disconnected")
     return
 
   def loopStart(self):
