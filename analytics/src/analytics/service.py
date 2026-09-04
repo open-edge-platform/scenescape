@@ -300,8 +300,6 @@ class AnalyticsService:
 
     sensors = []
     for sensor in result.get('results', []):
-      if sensor.get('type') != 'generic':
-        continue
       center = sensor.get('center') or [None, None]
       color_ranges = sensor.get('color_ranges') or {}
       sensors.append({

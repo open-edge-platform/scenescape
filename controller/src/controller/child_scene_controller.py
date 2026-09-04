@@ -16,9 +16,6 @@ class ChildSceneController():
     self.parent_controller = parent_controller
     self.connected = False
     self.remote_config = dict(info)  # keep the full existing remote child row
-    self._last_tripwires_json = None
-    self._last_rois_json = None
-    self._last_sensors_json = None
 
     self._catalog_cache = {
       'tripwires': {'last_json': None, 'field': 'cached_tripwires', 'type_name': 'Tripwires'},
@@ -61,15 +58,6 @@ class ChildSceneController():
 
     # Remove stale callbacks from any previous connection before re-adding
     self.client.removeCallback(self.child_event_topic)
-    self.client.removeCallback(self.child_scene_topic)
-    tripwires_topic = PubSub.formatTopic(PubSub.DATA_CHILD_TRIPWIRES,
-                                         scene_id=self.child_id)
-    self.client.removeCallback(tripwires_topic)
-    rois_topic = PubSub.formatTopic(PubSub.DATA_CHILD_ROIS, scene_id=self.child_id)
-    self.client.removeCallback(rois_topic)
-    sensors_topic = PubSub.formatTopic(PubSub.DATA_CHILD_SENSORS,
-                                       scene_id=self.child_id)
-    self.client.removeCallback(sensors_topic)
 
     self.client.addCallback(self.child_event_topic, self.parent_controller.republishEvents)
     log.info("Subscribed to", self.child_event_topic)
