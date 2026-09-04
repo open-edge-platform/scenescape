@@ -15,6 +15,10 @@ Before you begin, ensure the following:
 - **Docker** is installed and configured.
 - You have access to modify the `docker-compose.yml` file in your deployment.
 - You are familiar with scene and camera configuration in Scenescape.
+- If you are composing services manually (not via `make demo-reid`), the
+  standalone video-source stack is also running: `docker compose -f
+  sample_data/demo_scenes/docker-compose.yml up -d`. `make demo-reid` starts
+  it automatically.
 
 Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md) for exposing match-latency, camera-count, and tracked-object-count metrics for monitoring and hardware-sizing purposes.
 

@@ -236,11 +236,13 @@ class KubeClient():
     @return  body              deployment body
     """
     # volume mounts and volumes for the container
+    # NOTE: k8s pipelines can only use rtsp:// camera sources — file:// sources
+    # backed by a sample-data PVC are no longer supported here; the sample
+    # videos are served externally by sample_data/demo_scenes/docker-compose.yml.
     volume_mounts = [
       client.V1VolumeMount(name="video-config", mount_path="/home/pipeline-server/config.json", sub_path="config.yaml"),
       client.V1VolumeMount(name="sscape-gstplugins", mount_path="/home/sscape/python", read_only=True),
       client.V1VolumeMount(name="models-storage", mount_path="/home/pipeline-server/models", sub_path="models"),
-      client.V1VolumeMount(name="sample-data", mount_path="/home/pipeline-server/videos", sub_path="sample_data"),
       client.V1VolumeMount(name="pipeline-root", mount_path="/var/cache/pipeline_root"),
       client.V1VolumeMount(name="root-cert", mount_path="/run/secrets/certs/scenescape-ca.pem", sub_path="tls.crt"),
     ]
@@ -249,7 +251,6 @@ class KubeClient():
       client.V1Volume(name="video-config", config_map=client.V1ConfigMapVolumeSource(name=pipelineConfigMapName)),
       client.V1Volume(name="sscape-gstplugins", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-sscape-gstplugins")),
       client.V1Volume(name="models-storage", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-models-pvc")),
-      client.V1Volume(name="sample-data", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-sample-data-pvc")),
       client.V1Volume(name="pipeline-root", empty_dir=client.V1EmptyDirVolumeSource()),
       client.V1Volume(name="root-cert", secret=client.V1SecretVolumeSource(secret_name=f"{self.release}-scenescape-ca.pem")),
       client.V1Volume(name="model-proc", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-model-proc")),

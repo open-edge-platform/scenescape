@@ -144,9 +144,6 @@ spec:
             name: media-storage
           - mountPath: /workspace/media
             name: media-storage
-          - mountPath: /home/scenescape/Scenescape/sample_data
-            name: sample-data-storage
-            subPath: sample_data
           - mountPath: /home/scenescape/Scenescape/models
             name: models-storage
           - mountPath: /workspace/migrations
@@ -176,9 +173,6 @@ spec:
       - name: media-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-media-pvc
-      - name: sample-data-storage
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-sample-data-pvc
       - name: models-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-models-pvc

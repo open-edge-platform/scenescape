@@ -101,42 +101,14 @@ kubeclient:
     tag: "2026.2.0-ubuntu24-rc2"
     pullPolicy: IfNotPresent
 
-retail:
-  repository: docker.io/intel/dlstreamer-pipeline-server
-  tag: "2026.2.0-ubuntu24-rc2"
-  pullPolicy: IfNotPresent
-  storageClassName: ""
-  cameras:
-    image: linuxserver/ffmpeg
-    tag: version-8.0-cli
-    pullPolicy: IfNotPresent
-    files:
-      - apriltag-cam1.ts
-      - apriltag-cam2.ts
-
-queuing:
-  repository: docker.io/intel/dlstreamer-pipeline-server
-  pullPolicy: IfNotPresent
-  tag: "2026.2.0-ubuntu24-rc2"
-  storageClassName: ""
-  cameras:
-    image: linuxserver/ffmpeg
-    tag: version-8.0-cli
-    pullPolicy: IfNotPresent
-    files:
-      - qcam1.ts
-      - qcam2.ts
-
-dlspsWaitImage:
-  repository: docker.io
-  name: curlimages/curl
-  tag: 8.17.0
-  pullPolicy: IfNotPresent
-
-mediaserver:
-  image: bluenviron/mediamtx
-  tag: "1.14.0"
-  pullPolicy: IfNotPresent
+# Endpoint of the standalone video-source stack (mediamtx + per-scene ffmpeg
+# loopers, sample_data/demo_scenes/docker-compose.yml) running outside the
+# cluster. Set exactly one of host (DNS name) or ip; the "mediaserver" Service
+# is not rendered if both are empty.
+videoSource:
+  host: ""
+  ip: ""
+  port: 8554
 
 video:
   # models storage size
@@ -193,30 +165,6 @@ media:
 
 # datasets
 datasets:
-  storage: 500Mi
-  storageClassName: ""
-
-sampleData:
-  source: https://raw.githubusercontent.com/open-edge-platform/scenescape
-  sourceDir: sample_data
-  sourceVersion: upload_scenes_with_api # TODO: change before merging
-  downloadDataImage:
-    repository: docker.io
-    name: ubuntu
-    tag: 22.04
-    pullPolicy: IfNotPresent
-  convertVideosImage:
-    repository: docker.io
-    name: linuxserver/ffmpeg
-    tag: version-8.0-cli
-    pullPolicy: IfNotPresent
-  # Paths are relative to sourceDir; files land flat in the sample data volume.
-  files:
-    - videos/apriltag-cam1.mp4
-    - videos/apriltag-cam2.mp4
-    - videos/apriltag-cam3.mp4
-    - videos/qcam1.mp4
-    - videos/qcam2.mp4
   storage: 500Mi
   storageClassName: ""
 

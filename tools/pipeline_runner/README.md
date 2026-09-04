@@ -11,7 +11,7 @@ The minimum required steps are:
 - Manager service Docker image is built. This can be done by running the command: `make manager` in the Scenescape repository root folder.
 - Secrets are generated. This can be done by running the command: `make init-secrets` in the Scenescape repository root folder.
 - Models are installed into a docker volume. This can be done by running the command: `make install-models` in the Scenescape repository root folder. Refer to the [model download documentation](../../model_download/README.md) for more details on model configuration.
-- Volume with sample video files is created with `make init-sample-data`.
+- Volume with sample video files is created with `make init-pipeline-runner-videos`.
 - Python dependencies are installed: `pip install -r tools/pipeline_runner/requirements.txt`.
 
 Building Scenescape will perform all the above steps and additionally build all images.
@@ -20,7 +20,7 @@ The commands below will perform all the above steps and additionally build all i
 
 ```
 make install-models PRECISIONS=FP32
-make init-sample-data
+make init-pipeline-runner-videos
 ```
 
 ## Basic usage

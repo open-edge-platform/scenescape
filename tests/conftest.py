@@ -526,6 +526,33 @@ def _ensure_mapping_cache_volumes():
     bare_docker.volume.create(vol)
 
 
+# Sample video source dirs for tests/compose/compose-cams.yml (retail-cams,
+# queuing-cams), which mounts a per-project "vol-videos" volume rather than
+# a bind mount like the standalone sample_data/demo_scenes/docker-compose.yml.
+_SAMPLE_VIDEO_DIRS = ("demo_scenes/Retail/video", "demo_scenes/Queuing/video")
+
+
+def _init_sample_data_volume(project_name, repo_root):
+  """Convert sample videos to .ts and stage them into `{project_name}_vol-videos`."""
+  stream_subprocess(
+    [str(Path(repo_root) / "sample_data" / "demo_scenes" / "convert_videos.sh")],
+    cwd=repo_root,
+  )
+  bare_docker = DockerClient()
+  volume = f"{project_name}_vol-videos"
+  if not bare_docker.volume.exists(volume):
+    bare_docker.volume.create(volume)
+  for reldir in _SAMPLE_VIDEO_DIRS:
+    src_dir = Path(repo_root) / "sample_data" / reldir
+    stream_subprocess([
+      "docker", "run", "--rm",
+      "-v", f"{src_dir}:/source:ro",
+      "-v", f"{volume}:/dest",
+      "alpine:3.23",
+      "sh", "-c", "cp -n /source/*.ts /dest/ 2>/dev/null || true",
+    ])
+
+
 # Compose project names created by _compose_lifecycle: "test-<4 hex chars>-<spec>".
 _TEST_PROJECT_RE = re.compile(r"^test-[0-9a-f]{4}-")
 
@@ -690,12 +717,8 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     logger.info("Profile: %s", profile.name)
     logger.info("=" * 60)
 
-    logger.info("Running init-sample-data (using pre-installed shared models)...")
-    stream_subprocess(
-      ["make", "init-sample-data"],
-      cwd=repo_root,
-      env={**os.environ, "COMPOSE_PROJECT_NAME": project_name},
-    )
+    logger.info("Converting and staging sample videos into the test vol-videos volume...")
+    _init_sample_data_volume(project_name, repo_root)
 
     if any("compose-mapping.yml" in cf for cf in profile.compose_files):
       _ensure_mapping_cache_volumes()

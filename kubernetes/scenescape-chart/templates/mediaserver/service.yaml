@@ -1,21 +1,44 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+# The video source (mediamtx + per-scene ffmpeg loopers) runs outside the
+# cluster as a standalone compose stack (sample_data/demo_scenes/docker-compose.yml).
+# This points the "mediaserver" hostname, hardcoded in the dlsps pipeline
+# configs, at that external endpoint. Set videoSource.host (DNS name) or
+# videoSource.ip (bare IP) in values.yaml; nothing is rendered if neither is set.
+{{- if .Values.videoSource.host }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: mediaserver
 spec:
-  selector:
-    app: {{ .Release.Name }}-mediaserver
+  type: ExternalName
+  externalName: {{ .Values.videoSource.host }}
+{{- else if .Values.videoSource.ip }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mediaserver
+spec:
   ports:
-  - port: 8554
+  - port: {{ .Values.videoSource.port }}
     protocol: TCP
     name: rtsp
-  - port: 8000
-    protocol: UDP
-    name: udp-rtp
-  - port: 8001
-    protocol: UDP
-    name: udp-rtcp
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: mediaserver
+  labels:
+    kubernetes.io/service-name: mediaserver
+addressType: IPv4
+ports:
+- name: rtsp
+  protocol: TCP
+  port: {{ .Values.videoSource.port }}
+endpoints:
+- addresses:
+  - {{ .Values.videoSource.ip }}
+{{- end }}

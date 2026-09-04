@@ -36,9 +36,12 @@ SECRETSDIR ?= $(CURDIR)/manager/secrets
 CERTDOMAIN ?= scenescape.intel.com
 
 # Demo variables
-SAMPLE_VIDEOS_DIR := sample_data/videos
 SAMPLE_COMPOSE_DIR := sample_data/compose
-DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(SAMPLE_VIDEOS_DIR)/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
+VIDEO_SOURCE_DIR := sample_data/demo_scenes
+VIDEO_SOURCE_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/docker-compose.yml
+DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(VIDEO_SOURCE_DIR)/Retail/video/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts) \
+	$(addprefix $(VIDEO_SOURCE_DIR)/Queuing/video/,qcam1.ts qcam2.ts) \
+	sample_data/videos/car-detection.ts
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/docker-compose-dl-streamer-example.yml
 DEMO_WAIT_SECONDS ?= "0"
 # Host directory with one subdirectory per demo scene (each holding a <name>.zip)
@@ -655,25 +658,25 @@ add-licensing:
 convert-dls-videos:
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 
-.PHONY: init-sample-data
-init-sample-data: convert-dls-videos
-	@echo "Initializing sample video volume..."
+# tools/pipeline_runner mounts a "vol-videos" named volume (unlike the
+# standalone video-source compose stack, which bind-mounts the files
+# directly); populate it from the two source directories it needs.
+.PHONY: init-pipeline-runner-videos
+init-pipeline-runner-videos: convert-dls-videos
 	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-videos 2>/dev/null || true
-	@echo "Setting up volume permissions..."
-	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 chown $(shell id -u):$(shell id -g) /dest
-	@echo "Copying files from $(CURDIR)/$(SAMPLE_VIDEOS_DIR) to volume..."
-	@if [ -d "$(CURDIR)/$(SAMPLE_VIDEOS_DIR)" ]; then \
-		docker run --rm \
-			-v $(CURDIR)/$(SAMPLE_VIDEOS_DIR):/source:ro \
-			-v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest \
-			--user $(shell id -u):$(shell id -g) \
-			alpine:3.23 \
-			sh -c "echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo '';"; \
-	else \
-		echo "WARNING: Source directory $(CURDIR)/$(SAMPLE_VIDEOS_DIR) does not exist!"; \
-		exit 1; \
-	fi
-	@echo "Sample data volume initialized."
+	@docker run --rm -v $(CURDIR)/$(VIDEO_SOURCE_DIR)/Queuing/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
+	@docker run --rm -v $(CURDIR)/sample_data/videos:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
+
+# Video-source stack (mediamtx + per-scene ffmpeg loopers) lives outside the
+# Scenescape stack; it joins the same "scenescape" Docker network so the
+# dlsps pipelines keep resolving rtsp://mediaserver:8554/<camera-id>.
+.PHONY: video-source-up
+video-source-up: convert-dls-videos
+	SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose -f $(VIDEO_SOURCE_COMPOSE_FILE) up -d
+
+.PHONY: video-source-down
+video-source-down:
+	-SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose -f $(VIDEO_SOURCE_COMPOSE_FILE) down
 
 # Helper target to start demo with compose
 define start_demo
@@ -700,6 +703,7 @@ define start_demo
 		echo "Starting Scenescape services in detached mode..."; \
 		docker compose $(1) up -d; \
 	fi
+	@$(MAKE) video-source-up
 	@$(MAKE) demo-scenes
 	@echo ""
 	@echo "To stop Scenescape, type:"
@@ -728,23 +732,23 @@ demo-scenes:
 		$(DEMO_SCENES_URL) $(DEMO_SCENES_DIR)
 
 .PHONY: demo
-demo: $(DEMO_BUILD:build=build-core) init-sample-data
+demo: $(DEMO_BUILD:build=build-core)
 	$(call start_demo,--profile controller)
 
 .PHONY: demo-reid
-demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core) init-sample-data
+demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core)
 	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-all
-demo-all: check-reid-backend $(DEMO_BUILD:build=build-all) init-sample-data
+demo-all: check-reid-backend $(DEMO_BUILD:build=build-all)
 	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile mapping))
 
 .PHONY: demo-cluster-analytics
-demo-cluster-analytics: $(DEMO_BUILD:build=build-all) init-sample-data
+demo-cluster-analytics: $(DEMO_BUILD:build=build-all)
 	$(call start_demo,--profile controller --profile cluster-analytics)
 
 .PHONY: demo-tracker
-demo-tracker: $(DEMO_BUILD:build=build-all) init-sample-data
+demo-tracker: $(DEMO_BUILD:build=build-all)
 	$(call start_demo,--profile tracker)
 
 .PHONY: demo-close
@@ -754,6 +758,7 @@ demo-close:
 		exit 1; \
 	fi
 	docker compose $(shell cat .scenescape-profile 2>/dev/null) down -v
+	@$(MAKE) video-source-down
 	@rm -f .scenescape-profile
 
 .PHONY: demo-k8s
@@ -764,9 +769,9 @@ demo-k8s: check-reid-backend
 docker-compose.yml:
 	cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@;
 
-$(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
+$(DLSTREAMER_SAMPLE_VIDEOS): $(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@echo "==> Converting sample videos for DLStreamer..."
-	@./dlstreamer-pipeline-server/convert_video_to_ts.sh
+	@$(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@echo "DONE ==> Converting sample videos for DLStreamer..."
 
 .PHONY: .env

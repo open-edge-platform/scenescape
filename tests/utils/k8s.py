@@ -367,11 +367,10 @@ class K8sManager:
   def _generate_values_file(self):
     """Generate a Helm values.yaml for the test deployment.
 
-    Hooks are always enabled so that sample-data and model-installer
-    run as pre-install hooks (before web/kubeclient start). Scenes and
-    cameras are no longer preloaded from an example DB; they are uploaded
-    over REST once web and kubeclient are ready (see
-    _upload_baseline_scenes()).
+    Hooks are always enabled so that model-installer runs as a pre-install
+    hook (before web/kubeclient start). Scenes and cameras are no longer
+    preloaded from an example DB; they are uploaded over REST once web and
+    kubeclient are ready (see _upload_baseline_scenes()).
     When models are pre-loaded on the PVC, model-installer skips
     downloads (checks if dirs already exist) so it completes quickly.
     """
@@ -408,7 +407,7 @@ class K8sManager:
     # Install without --wait: some services (NTP, dlstreamer) crash in KinD
     # due to missing capabilities (SYS_TIME) or hardware (GPU). We wait
     # selectively for only the services our tests actually require.
-    # Timeout covers pre-install hooks (model-installer, sample-data).
+    # Timeout covers pre-install hooks (model-installer).
     _run([
       "helm", "install", _RELEASE_NAME, _CHART_PATH,
       "--namespace", _NAMESPACE,
@@ -432,7 +431,6 @@ class K8sManager:
       f"deployment/{_RELEASE_NAME}-scene-dep",
       f"deployment/{_RELEASE_NAME}-autocalibration-dep",
       f"deployment/{_RELEASE_NAME}-reid-dep",
-      f"deployment/{_RELEASE_NAME}-mediaserver-dep",
       f"deployment/{_RELEASE_NAME}-broker",
       f"statefulset/{_RELEASE_NAME}-pgserver",
     ]
