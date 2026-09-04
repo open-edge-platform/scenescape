@@ -9,12 +9,14 @@ from tests.ui.browser import Browser
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
   require_password=True, auth="",
 )
 
+@pytest.mark.test_name("NEX-T10397")
 def test_del_sensor_scene_main(params, record_xml_attribute):
   """! Checks that sensor can still be deleted after the scene the sensor was attached to is deleted.
   @param    params                  Dict of test parameters.
@@ -22,7 +24,6 @@ def test_del_sensor_scene_main(params, record_xml_attribute):
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10397"
-  record_xml_attribute("name", TEST_NAME)
   exit_code = 1
   try:
     print("Executing: " + TEST_NAME)
