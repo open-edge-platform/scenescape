@@ -141,6 +141,28 @@ clean-kind:
 install-cert-manager:
 	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.18.2/cert-manager.yaml
 
+# generate yaml pointing the "mediaserver" Service at the external video-source stack
+VIDEOSOURCE_PORT?=8554
+generate-mediaserver-yaml:
+	mkdir -p setup
+	cp template/mediaserver.template setup/mediaserver.yaml
+	sed -e "s|{VIDEOSOURCE_IP}|$(VIDEOSOURCE_IP)|g" -e "s|{VIDEOSOURCE_PORT}|$(VIDEOSOURCE_PORT)|g" -i setup/mediaserver.yaml
+
+# Deploys the "mediaserver" Service+EndpointSlice alongside the scenescape-chart,
+# pointing it at the host running sample_data/demo_scenes/docker-compose.yml.
+.PHONY: mediaserver-up
+mediaserver-up:
+	@if [ -z "$(VIDEOSOURCE_IP)" ]; then \
+	    echo "Set VIDEOSOURCE_IP=<ip of the host running sample_data/demo_scenes/docker-compose.yml>"; \
+	    exit 1; \
+	fi
+	$(MAKE) generate-mediaserver-yaml
+	kubectl apply -n $(NAMESPACE) -f setup/mediaserver.yaml
+
+.PHONY: mediaserver-down
+mediaserver-down:
+	-kubectl delete -n $(NAMESPACE) -f setup/mediaserver.yaml
+
 # build scenescape docker images, download models for init-models
 # note, will make unneeded secrets in secrets/ as well
 docker-build-core:

@@ -101,14 +101,10 @@ kubeclient:
     tag: "2026.2.0-ubuntu24-rc2"
     pullPolicy: IfNotPresent
 
-# Endpoint of the standalone video-source stack (mediamtx + per-scene ffmpeg
-# loopers, sample_data/demo_scenes/docker-compose.yml) running outside the
-# cluster. Set exactly one of host (DNS name) or ip; the "mediaserver" Service
-# is not rendered if both are empty.
-videoSource:
-  host: ""
-  ip: ""
-  port: 8554
+# The "mediaserver" Service pointing at the standalone video-source stack
+# (sample_data/demo_scenes/docker-compose.yml) is NOT part of this chart;
+# apply it separately, see kubernetes/README.md and
+# `make -C kubernetes mediaserver-up VIDEOSOURCE_IP=<ip>`.
 
 video:
   # models storage size

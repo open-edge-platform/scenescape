@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Points the "mediaserver" hostname (hardcoded in the dlstreamer-pipeline-server
+# pipeline configs) at the standalone video-source stack
+# (../sample_data/demo_scenes/docker-compose.yml) running outside the cluster.
+# Deployed separately from the scenescape-chart, see kubernetes/README.md.
+# For a DNS name instead of a bare IP, replace this Service with an
+# ExternalName Service (spec: {type: ExternalName, externalName: <dns-name>})
+# and drop the EndpointSlice below.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mediaserver
+spec:
+  ports:
+  - port: {VIDEOSOURCE_PORT}
+    protocol: TCP
+    name: rtsp
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: mediaserver
+  labels:
+    kubernetes.io/service-name: mediaserver
+addressType: IPv4
+ports:
+- name: rtsp
+  protocol: TCP
+  port: {VIDEOSOURCE_PORT}
+endpoints:
+- addresses:
+  - {VIDEOSOURCE_IP}
