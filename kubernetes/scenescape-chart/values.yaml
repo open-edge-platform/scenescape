@@ -101,42 +101,10 @@ kubeclient:
     tag: "2026.2.0-ubuntu24-rc2"
     pullPolicy: IfNotPresent
 
-retail:
-  repository: docker.io/intel/dlstreamer-pipeline-server
-  tag: "2026.2.0-ubuntu24-rc2"
-  pullPolicy: IfNotPresent
-  storageClassName: ""
-  cameras:
-    image: linuxserver/ffmpeg
-    tag: version-8.0-cli
-    pullPolicy: IfNotPresent
-    files:
-      - apriltag-cam1.ts
-      - apriltag-cam2.ts
-
-queuing:
-  repository: docker.io/intel/dlstreamer-pipeline-server
-  pullPolicy: IfNotPresent
-  tag: "2026.2.0-ubuntu24-rc2"
-  storageClassName: ""
-  cameras:
-    image: linuxserver/ffmpeg
-    tag: version-8.0-cli
-    pullPolicy: IfNotPresent
-    files:
-      - qcam1.ts
-      - qcam2.ts
-
-dlspsWaitImage:
-  repository: docker.io
-  name: curlimages/curl
-  tag: 8.17.0
-  pullPolicy: IfNotPresent
-
-mediaserver:
-  image: bluenviron/mediamtx
-  tag: "1.14.0"
-  pullPolicy: IfNotPresent
+# The "mediaserver" Service pointing at the standalone video-source stack
+# (sample_data/demo_scenes/docker-compose.yml) is NOT part of this chart;
+# apply it separately, see kubernetes/README.md and
+# `make -C kubernetes mediaserver-up VIDEOSOURCE_IP=<ip>`.
 
 video:
   # models storage size
@@ -193,39 +161,6 @@ media:
 
 # datasets
 datasets:
-  storage: 500Mi
-  storageClassName: ""
-
-sampleData:
-  source: https://raw.githubusercontent.com/open-edge-platform/scenescape
-  sourceDir: sample_data
-  sourceVersion: main
-  downloadDataImage:
-    repository: docker.io
-    name: ubuntu
-    tag: 22.04
-    pullPolicy: IfNotPresent
-  convertVideosImage:
-    repository: docker.io
-    name: linuxserver/ffmpeg
-    tag: version-8.0-cli
-    pullPolicy: IfNotPresent
-  files:
-    - apriltag-cam1.mp4
-    - apriltag-cam2.mp4
-    - apriltag-cam3.mp4
-    - qcam1.mp4
-    - qcam2.mp4
-    - Demo.png
-    - exampledb.tar.bz2
-    - HazardZoneScene.png
-    - LabMap.png
-    - LotMap.png
-    - docker-compose-dls-perf.yml
-    - docker-compose-dl-streamer-example.yml
-    - atag-calib-demo-map.png
-    - scene.png
-    - HazardZoneSceneLarge.png
   storage: 500Mi
   storageClassName: ""
 

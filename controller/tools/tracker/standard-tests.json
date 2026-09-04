@@ -2,7 +2,7 @@
   {
     "config": {
       "name": "Demo",
-      "map": "sample_data/HazardZoneSceneLarge.png",
+      "map": "tests/resources/maps/HazardZoneSceneLarge.png",
       "scale": 100,
       "sensors": {
         "camera1": {
@@ -1136,15 +1136,15 @@
     },
     "frame": 818,
     "files": [
-      "sample_data/apriltag-cam1.mp4",
-      "sample_data/apriltag-cam2.mp4",
-      "sample_data/apriltag-cam3.mp4"
+      "sample_data/demo_scenes/Retail/video/apriltag-cam1.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam2.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam3.mp4"
     ]
   },
   {
     "config": {
       "name": "Demo",
-      "map": "sample_data/HazardZoneSceneLarge.png",
+      "map": "tests/resources/maps/HazardZoneSceneLarge.png",
       "scale": 100,
       "sensors": {
         "camera1": {
@@ -2226,15 +2226,15 @@
     },
     "frame": 832,
     "files": [
-      "sample_data/apriltag-cam1.mp4",
-      "sample_data/apriltag-cam2.mp4",
-      "sample_data/apriltag-cam3.mp4"
+      "sample_data/demo_scenes/Retail/video/apriltag-cam1.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam2.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam3.mp4"
     ]
   },
   {
     "config": {
       "name": "Demo",
-      "map": "sample_data/HazardZoneSceneLarge.png",
+      "map": "tests/resources/maps/HazardZoneSceneLarge.png",
       "scale": 100,
       "sensors": {
         "camera1": {
@@ -2492,15 +2492,15 @@
     },
     "frame": 32,
     "files": [
-      "sample_data/apriltag-cam1.mp4",
-      "sample_data/apriltag-cam2.mp4",
-      "sample_data/apriltag-cam3.mp4"
+      "sample_data/demo_scenes/Retail/video/apriltag-cam1.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam2.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam3.mp4"
     ]
   },
   {
     "config": {
       "name": "Demo",
-      "map": "sample_data/HazardZoneSceneLarge.png",
+      "map": "tests/resources/maps/HazardZoneSceneLarge.png",
       "scale": 100,
       "sensors": {
         "camera1": {
@@ -3513,9 +3513,9 @@
     },
     "frame": 72,
     "files": [
-      "sample_data/apriltag-cam1.mp4",
-      "sample_data/apriltag-cam2.mp4",
-      "sample_data/apriltag-cam3.mp4"
+      "sample_data/demo_scenes/Retail/video/apriltag-cam1.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam2.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam3.mp4"
     ]
   }
 ]

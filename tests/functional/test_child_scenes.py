@@ -320,7 +320,7 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
   client.onMessage = on_message
   client.connect()
 
-  map_image = f"{repo_root}/sample_data/HazardZoneSceneLarge.png"
+  map_image = f"{repo_root}/tests/resources/maps/HazardZoneSceneLarge.png"
   assert os.path.exists(map_image)
 
   try:

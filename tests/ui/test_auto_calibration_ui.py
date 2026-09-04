@@ -15,7 +15,6 @@ from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_AUTOCALIBRATION,
   require_password=True, auth="",
-  exampledb="sample_data/exampledb.tar.bz2",
 )
 
 def wait_for_calibration(browser, wait_time):

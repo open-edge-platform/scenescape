@@ -1,7 +1,7 @@
 {
   "model": "manager.scene",
   "pk": 1,
-  "map": "sample_data/HazardZoneSceneLarge.png",
+  "map": "tests/resources/maps/HazardZoneSceneLarge.png",
   "name": "Demo",
   "fields": {
     "map_alt1": "",

@@ -52,7 +52,7 @@ services:
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
-      - vol-sample-data:/home/pipeline-server/videos
+      - vol-videos:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:
       - source: root-cert
@@ -66,7 +66,7 @@ volumes:
   vol-models:
     external: true
     name: scenescape_vol-models
-  vol-sample-data:
+  vol-videos:
   vol-dlstreamer-pipeline-server-pipeline-root-queuing:
     driver: local
     driver_opts:

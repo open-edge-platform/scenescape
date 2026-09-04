@@ -110,7 +110,7 @@ class ExternalSourceIngest(FunctionalTest):
     is confirmed by a successful external-source publish on DATA_SCENE when
     REST does not expose ``trs_matrix``.
     """
-    map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
+    map_image = f"{self.repoRoot}/tests/resources/maps/HazardZoneSceneLarge.png"
     with open(map_image, "rb") as f:
       map_bytes = f.read()
 

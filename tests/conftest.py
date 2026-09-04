@@ -73,6 +73,7 @@ try:
   from utils import stream_subprocess
   from utils.containers import collect_logs, wait_for_services
   from utils.profiles import WaitConfig
+  from utils.scene_baseline import BASELINE_PATH, dumpdata_command, upload_baseline_scenes
   _ORCHESTRATION_AVAILABLE = True
 except ImportError:
   pass
@@ -156,16 +157,17 @@ class ScenescapeEnv:
   secrets_dir: str
   supass: str
   hierarchy_ports: dict = None
+  scene_uids: dict = None  # {scene name: uid}, populated for single-"web" profiles
 
   def restore_db(self):
-    """Reload the database from the original test archive.
+    """Reload the database from the baseline snapshot taken at stack startup.
 
-    Flushes all data (keeping the schema), reloads fixture data from
-    the EXAMPLEDB archive, recreates auth users, marks the database
-    as ready, and restarts the scene controller so it picks up the
-    fresh DB state.
+    Flushes all data (keeping the schema), reloads the snapshot captured
+    right after the baseline scenes were uploaded, recreates auth users,
+    marks the database as ready, and restarts the scene controller so it
+    picks up the fresh DB state.
     """
-    logger.info("Restoring database from EXAMPLEDB archive...")
+    logger.info("Restoring database from baseline snapshot...")
     manage = "$SCENESCAPE_HOME/manage.py"
     self.docker.compose.execute(
       "web",
@@ -174,16 +176,15 @@ class ScenescapeEnv:
     )
     self.docker.compose.execute(
       "web",
-      ["sh", "-c",
-       "tar xjf $EXAMPLEDB -C /tmp"
-       f" && python {manage} loaddata /tmp/data.json"
-       " && rm -f /tmp/data.json /tmp/meta.json"],
+      ["sh", "-c", f"python {manage} loaddata {BASELINE_PATH}"],
       tty=False,
     )
     self.docker.compose.execute(
       "web",
       ["sh", "-c",
-       "find -L /run/secrets -name '*.auth'"
+       # cd first: createuser reads user_access_config.json (is_superuser,
+       # ACLs) from the cwd, and only $SCENESCAPE_HOME has a copy of it.
+       "cd $SCENESCAPE_HOME && find -L /run/secrets -name '*.auth'"
        f"  -exec python {manage} createuser --skip-existing {{}} \\;"
        " && DJANGO_SUPERUSER_PASSWORD=$SUPASS"
        f"    python {manage} createsuperuser"
@@ -308,6 +309,7 @@ def params(request, scenescape_env):
     'resturl': request.config.getoption('--resturl'),
     'scene_name': request.config.getoption('--scene_name'),
     'expect_exceed_max': request.config.getoption('--expect_exceed_max'),
+    'scene_uids': getattr(scenescape_env, 'scene_uids', None) or {},
   }
 
 
@@ -469,6 +471,19 @@ def _inject_options(config, spec, secrets_dir, supass, env=None):
   opt.auth = f"{secrets_dir}/{spec.auth or 'controller.auth'}"
   opt.rootcert = f"{secrets_dir}/certs/scenescape-ca.pem"
 
+  # Baseline scene uid, in place of the old fixed EXAMPLEDB uuid. "Demo" is
+  # used by testdb-derived profiles, "Retail"/"Queuing" by exampledb- and
+  # calibrationdb-derived ones; pick whichever the stack actually uploaded.
+  scene_uids = getattr(env, "scene_uids", None) or {}
+  scene_uid = scene_uids.get("Demo") or scene_uids.get("Retail") or scene_uids.get("Queuing")
+  if scene_uid:
+    opt.scene_id = scene_uid
+    try:
+      from tests.ui import common_ui_test_utils
+      common_ui_test_utils.TEST_SCENE_ID = scene_uid
+    except ImportError:
+      pass
+
   # Parse extra_args (--key value pairs) into option attributes.
   if spec.extra_args:
     i = 0
@@ -509,6 +524,33 @@ def _ensure_mapping_cache_volumes():
       continue
     logger.info("Creating external mapping cache volume: %s", vol)
     bare_docker.volume.create(vol)
+
+
+# Sample video source dirs for tests/compose/compose-cams.yml (retail-cams,
+# queuing-cams), which mounts a per-project "vol-videos" volume rather than
+# a bind mount like the standalone sample_data/demo_scenes/docker-compose.yml.
+_SAMPLE_VIDEO_DIRS = ("demo_scenes/Retail/video", "demo_scenes/Queuing/video")
+
+
+def _init_sample_data_volume(project_name, repo_root):
+  """Convert sample videos to .ts and stage them into `{project_name}_vol-videos`."""
+  stream_subprocess(
+    [str(Path(repo_root) / "sample_data" / "demo_scenes" / "convert_videos.sh")],
+    cwd=repo_root,
+  )
+  bare_docker = DockerClient()
+  volume = f"{project_name}_vol-videos"
+  if not bare_docker.volume.exists(volume):
+    bare_docker.volume.create(volume)
+  for reldir in _SAMPLE_VIDEO_DIRS:
+    src_dir = Path(repo_root) / "sample_data" / reldir
+    stream_subprocess([
+      "docker", "run", "--rm",
+      "-v", f"{src_dir}:/source:ro",
+      "-v", f"{volume}:/dest",
+      "alpine:3.23",
+      "sh", "-c", "cp -n /source/*.ts /dest/ 2>/dev/null || true",
+    ])
 
 
 # Compose project names created by _compose_lifecycle: "test-<4 hex chars>-<spec>".
@@ -567,7 +609,7 @@ def cleanup_residual_test_resources():
 
 
 def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory,
-                       exampledb="", collect_container_logs_mode="failed",
+                       scene_archives=("demo",), collect_container_logs_mode="failed",
                        visibility_topic="regulated"):
   """Start a Docker Compose stack for a profile; yield ScenescapeEnv; tear down.
 
@@ -576,7 +618,6 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
   """
   spec = profile.name.replace("_", "-")
   project_name = f"test-{uuid.uuid4().hex[:4]}-{spec}"
-  exampledb = exampledb or "tests/testdb.tar.bz2"
   env_path = Path(repo_root) / ".env"
   env_text = env_path.read_text() if env_path.exists() else ""
   env_ver = re.search(r"^VERSION=(.+)$", env_text, re.MULTILINE)
@@ -628,7 +669,6 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     f"VERSION={image_version}\n"
     f"CONTROLLER_AUTH={controller_auth}\n"
     f"DBROOT={tmp_path / 'db'}\n"
-    f"EXAMPLEDB={exampledb}\n"
     f"DATABASE_PASSWORD={database_password}\n"
     f"UID={os.getuid()}\n"
     f"GID={os.getgid()}\n"
@@ -677,12 +717,8 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     logger.info("Profile: %s", profile.name)
     logger.info("=" * 60)
 
-    logger.info("Running init-sample-data (using pre-installed shared models)...")
-    stream_subprocess(
-      ["make", "init-sample-data"],
-      cwd=repo_root,
-      env={**os.environ, "COMPOSE_PROJECT_NAME": project_name},
-    )
+    logger.info("Converting and staging sample videos into the test vol-videos volume...")
+    _init_sample_data_volume(project_name, repo_root)
 
     if any("compose-mapping.yml" in cf for cf in profile.compose_files):
       _ensure_mapping_cache_volumes()
@@ -697,6 +733,38 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     if profile.wait_for:
       wait_for_services(docker, project_name, profile.wait_for)
 
+    scene_uids = {}
+    if "web" in profile.wait_for:
+      logger.info("Uploading baseline scenes: %s", scene_archives)
+      scene_uids = upload_baseline_scenes(
+        "https://web.scenescape.intel.com/api/v1",
+        os.path.join(secrets_dir, "certs", "scenescape-ca.pem"),
+        controller_auth_path,
+        scene_archives,
+      )
+      logger.info("Snapshotting baseline database...")
+      docker.compose.execute(
+        "web", ["sh", "-c", dumpdata_command("$SCENESCAPE_HOME/manage.py")], tty=False)
+    elif hierarchy_ports:
+      # Hierarchy stacks run one Manager per role (parent/child1/child2), each
+      # needing its own baseline "Demo" scene. There is no bare "web" key here
+      # so restore_db() never applies to these profiles; a one-time upload at
+      # startup is enough.
+      for key in profile.wait_for:
+        if not key.endswith("-web"):
+          continue
+        role = key[:-len("-web")]
+        port = hierarchy_ports.get(f"{role.upper()}_WEB_PORT")
+        if not port:
+          continue
+        logger.info("Uploading baseline scenes to %s: %s", key, scene_archives)
+        upload_baseline_scenes(
+          f"https://{key}.scenescape.intel.com:{port}/api/v1",
+          os.path.join(secrets_dir, "certs", "scenescape-ca.pem"),
+          controller_auth_path,
+          scene_archives,
+        )
+
     yield ScenescapeEnv(
       docker=docker,
       project_name=project_name,
@@ -705,6 +773,7 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       secrets_dir=secrets_dir,
       supass=supass,
       hierarchy_ports=hierarchy_ports,
+      scene_uids=scene_uids,
     )
 
   except Exception:
@@ -744,7 +813,7 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       f"{project_name}_vol-models",
       f"{project_name}_vol-db",
       f"{project_name}_vol-migrations",
-      f"{project_name}_vol-sample-data",
+      f"{project_name}_vol-videos",
       f"{project_name}_vol-media",
     ]:
       try:
@@ -759,8 +828,16 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
 # Compose Manager – ensures at most one stack runs at a time
 # ---------------------------------------------------------------------------
 
-_PROFILE_EXAMPLEDB = {
-  "full_stack_autocalibration": "tests/calibrationdb.tar.bz2",
+_PROFILE_SCENE_ARCHIVES = {
+  "full_stack_autocalibration": ("calibration",),
+  "full_stack_with_video_and_retail": ("retail_and_queuing",),
+  "reid_no_video": ("retail_and_queuing",),
+  "reid": ("retail_and_queuing",),
+  "reid_qdrant": ("retail_and_queuing",),
+  "reid_semantic": ("retail_and_queuing",),
+  "reid_semantic_qdrant": ("retail_and_queuing",),
+  "full_stack_autocalibration_no_apriltags": ("retail_and_queuing",),
+  "stability": ("retail_and_queuing",),
 }
 
 
@@ -804,10 +881,10 @@ class _ComposeManager:
 
     self._stop_current()
 
-    exampledb = _PROFILE_EXAMPLEDB.get(profile.name, "")
+    scene_archives = _PROFILE_SCENE_ARCHIVES.get(profile.name, ("demo",))
     gen = _compose_lifecycle(
       profile, self._repo_root, self._secrets_dir,
-      self._supass, self._tmp_path_factory, exampledb=exampledb,
+      self._supass, self._tmp_path_factory, scene_archives=scene_archives,
       visibility_topic=visibility_topic,
     )
     try:
@@ -852,7 +929,7 @@ def _compose_manager(repo_root, secrets_dir, supass, tmp_path_factory, request):
 
 
 @pytest.fixture(scope="session")
-def _k8s_manager(repo_root, supass, tmp_path_factory, request):
+def _k8s_manager(repo_root, supass, tmp_path_factory, request, loopback_hosts):
   """Session-scoped KinD cluster + Helm deployment manager."""
   backend = request.config.getoption("--backend")
   if backend not in ("kubernetes", "all"):
@@ -882,6 +959,17 @@ def _inject_k8s_options(config, spec, k8s_mgr):
   opt.broker_port = k8s_mgr.mqtt_port
   opt.weburl = f"https://web.scenescape.intel.com:{k8s_mgr.web_port}"
   opt.resturl = f"https://web.scenescape.intel.com:{k8s_mgr.web_port}/api/v1"
+
+  # Baseline scene uid, uploaded over REST once the cluster came up.
+  scene_uids = k8s_mgr._scene_uids or {}
+  scene_uid = scene_uids.get("Demo") or scene_uids.get("Retail") or scene_uids.get("Queuing")
+  if scene_uid:
+    opt.scene_id = scene_uid
+    try:
+      from tests.ui import common_ui_test_utils
+      common_ui_test_utils.TEST_SCENE_ID = scene_uid
+    except ImportError:
+      pass
 
   # Parse extra_args (--key value pairs) into option attributes.
   if spec.extra_args:
@@ -1247,10 +1335,11 @@ def result_recorder(request):
 
 @pytest.fixture(scope="function")
 def demo_scene(scenescape_env):
-  """Provide the Demo scene UID.
+  """Provide the baseline scene UID ("Demo", or "Retail" for exampledb-derived profiles).
 
   Database restoration is handled automatically by the scenescape_env
   fixture teardown, so every test gets a clean slate regardless of
   whether it uses this fixture.
   """
-  return DEMO_SCENE_UID
+  scene_uids = getattr(scenescape_env, "scene_uids", None) or {}
+  return scene_uids.get("Demo") or scene_uids.get("Retail") or DEMO_SCENE_UID

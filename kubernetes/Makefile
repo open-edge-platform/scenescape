@@ -41,6 +41,16 @@ DEMO_K8S_MODE?=core
 # ReID vector database backend used when ReID is deployed: vdms (default) or qdrant
 REID_BACKEND?=vdms
 
+# Directory with one subdirectory per demo scene (each holding a <name>.zip),
+# and the client that uploads them
+DEMO_SCENES_DIR?=../sample_data/demo_scenes
+DEMO_SCENES_URL?=https://localhost/api/v1
+# The demo certificate is issued for web.scenescape.intel.com, not for localhost.
+# Override with --rootcert <ca.pem> when uploading to a properly named host.
+DEMO_SCENES_TLS?=--insecure
+DEMO_SCENES_WAIT?=300
+UPLOAD_SCENES:=../tools/upload_scenes/upload-scenes
+
 # Proxy settings: if http_proxy, https_proxy, or no_proxy environment variables are set,
 # they will be automatically passed to the Helm chart during installation
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
@@ -131,6 +141,28 @@ clean-kind:
 install-cert-manager:
 	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.18.2/cert-manager.yaml
 
+# generate yaml pointing the "mediaserver" Service at the external video-source stack
+VIDEOSOURCE_PORT?=8554
+generate-mediaserver-yaml:
+	mkdir -p setup
+	cp template/mediaserver.template setup/mediaserver.yaml
+	sed -e "s|{VIDEOSOURCE_IP}|$(VIDEOSOURCE_IP)|g" -e "s|{VIDEOSOURCE_PORT}|$(VIDEOSOURCE_PORT)|g" -i setup/mediaserver.yaml
+
+# Deploys the "mediaserver" Service+EndpointSlice alongside the scenescape-chart,
+# pointing it at the host running sample_data/demo_scenes/docker-compose.yml.
+.PHONY: mediaserver-up
+mediaserver-up:
+	@if [ -z "$(VIDEOSOURCE_IP)" ]; then \
+	    echo "Set VIDEOSOURCE_IP=<ip of the host running sample_data/demo_scenes/docker-compose.yml>"; \
+	    exit 1; \
+	fi
+	$(MAKE) generate-mediaserver-yaml
+	kubectl apply -n $(NAMESPACE) -f setup/mediaserver.yaml
+
+.PHONY: mediaserver-down
+mediaserver-down:
+	-kubectl delete -n $(NAMESPACE) -f setup/mediaserver.yaml
+
 # build scenescape docker images, download models for init-models
 # note, will make unneeded secrets in secrets/ as well
 docker-build-core:
@@ -175,7 +207,6 @@ copy-files:
 	mkdir -p scenescape-chart/files/dlsps
 	mkdir -p scenescape-chart/files/broker
 	mkdir -p scenescape-chart/files/model-download
-	mkdir -p scenescape-chart/files/sample-data
 	mkdir -p scenescape-chart/files/scene-controller
 	cp -r ../dlstreamer-pipeline-server/user_scripts/gstplugins/* scenescape-chart/files/dlsps/
 	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/broker/mosquitto-secure.conf
@@ -185,8 +216,6 @@ copy-files:
 	cp ../model_download/src/generate_model_config.py scenescape-chart/files/model-download/generate_model_config.py
 	cp ../model_download/src/entrypoint-k8s.sh scenescape-chart/files/model-download/entrypoint-k8s.sh
 	cp ../model_download/models.json scenescape-chart/files/model-download/models.json
-	cp ../sample_data/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
-	cp ../sample_data/convert-videos-k8s.sh scenescape-chart/files/sample-data/convert-videos-k8s.sh
 
 
 check-demo-k8s-mode:
@@ -198,6 +227,24 @@ check-demo-k8s-mode:
 	  vdms|qdrant) ;; \
 	  *) echo "Invalid REID_BACKEND '$(REID_BACKEND)'. Use vdms or qdrant."; exit 1 ;; \
 	esac
+
+# Uploads sample_data/demo_scenes/*.zip through the REST API, same client the root Makefile uses.
+.PHONY: demo-scenes
+demo-scenes:
+	@VENV="../tools/upload_scenes/.venv"; \
+	if [ ! -d "$$VENV" ]; then \
+		python3 -m venv "$$VENV"; \
+		"$$VENV/bin/pip" install -q -r ../tools/upload_scenes/requirements.txt; \
+	fi
+	@echo "Waiting for kubeclient to be ready (so it doesn't miss camera-creation events)..."
+	kubectl rollout status deployment/$(RELEASE)-kubeclient-dep -n $(NAMESPACE) --timeout=300s
+	@echo "Uploading demo scenes from $(DEMO_SCENES_DIR) to $(DEMO_SCENES_URL)..."
+	@AUTH_FILE=$$(mktemp); \
+	VENV="../tools/upload_scenes/.venv"; \
+	trap 'rm -f $$AUTH_FILE' EXIT; \
+	kubectl get secret $(RELEASE)-controller.auth -n $(NAMESPACE) -o jsonpath='{.data.controller\.auth}' | base64 -d > $$AUTH_FILE; \
+	"$$VENV/bin/python3" $(UPLOAD_SCENES) --restauth $$AUTH_FILE $(DEMO_SCENES_TLS) --wait $(DEMO_SCENES_WAIT) \
+		$(DEMO_SCENES_URL) $(DEMO_SCENES_DIR)
 
 # to test template rendering
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
@@ -240,6 +287,7 @@ install: check-demo-k8s-mode copy-files chart.yaml
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi
+	$(MAKE) demo-scenes
 
 uninstall:
 	helm uninstall $(RELEASE) -n $(NAMESPACE) || true

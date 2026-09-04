@@ -83,6 +83,24 @@ helm install scenescape scenescape-chart -n <NAMESPACE> --create-namespace \
 helm uninstall scenescape -n <NAMESPACE>
 ```
 
+## Video Source (sample/demo camera feeds)
+
+The chart does not run a media server or sample-video containers itself — DL
+Streamer Pipeline Server pipelines expect an RTSP source reachable at
+`rtsp://mediaserver:8554/<camera-id>`. To feed the demo scenes with the sample
+videos, run the standalone stack in
+[sample_data/demo_scenes/docker-compose.yml](../sample_data/demo_scenes/docker-compose.yml)
+on a host reachable from the cluster, then point the cluster's `mediaserver`
+Service at it:
+
+```sh
+make -C kubernetes mediaserver-up VIDEOSOURCE_IP=<ip-of-that-host>
+```
+
+Remove it with `make -C kubernetes mediaserver-down`. For a DNS name instead of
+a bare IP, edit [template/mediaserver.template](template/mediaserver.template)
+to use an `ExternalName` Service instead.
+
 ## Environment Variables
 
 ### Proxy Configuration

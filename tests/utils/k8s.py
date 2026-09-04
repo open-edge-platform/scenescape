@@ -24,6 +24,8 @@ from python_on_whales import docker
 from pytest_kubernetes.providers.kind import KindManagerBase
 from pytest_kubernetes.options import ClusterOptions
 
+from tests.utils.scene_baseline import BASELINE_PATH, dumpdata_command, upload_baseline_scenes
+
 logger = logging.getLogger("test.k8s")
 
 _TESTS_DIR = Path(__file__).resolve().parent.parent
@@ -76,6 +78,32 @@ def _run(cmd, **kwargs):
   return result
 
 
+def _get_pod_name(kubeconfig, namespace, app_label):
+  """Get the first running pod name for a given app label."""
+  result = _run([
+    "kubectl", "get", "pods",
+    "-l", f"app={app_label}",
+    "-n", namespace,
+    "--kubeconfig", kubeconfig,
+    "--field-selector=status.phase=Running",
+    "-o", "jsonpath={.items[0].metadata.name}",
+  ])
+  pod_name = result.stdout.strip()
+  if not pod_name:
+    raise RuntimeError(f"No running pod found with app={app_label}")
+  return pod_name
+
+
+def _kubectl_exec(kubeconfig, namespace, pod, command):
+  """Execute a shell command inside a pod."""
+  _run([
+    "kubectl", "exec", pod,
+    "-n", namespace,
+    "--kubeconfig", kubeconfig,
+    "--", "sh", "-c", command,
+  ])
+
+
 @dataclass
 class K8sScenescapeEnv:
   """Environment info for a Kubernetes-backed test session."""
@@ -85,29 +113,27 @@ class K8sScenescapeEnv:
   repo_root: str
   secrets_dir: str
   supass: str
+  scene_uids: dict = None  # {scene name: uid}, populated by K8sManager.setup()
 
   def restore_db(self):
     """Restore the database to baseline state via kubectl exec."""
-    web_pod = self._get_pod_name(f"{self.release_name}-web")
+    web_pod = _get_pod_name(self.kubeconfig, self.namespace, f"{self.release_name}-web")
     manage = "$SCENESCAPE_HOME/manage.py"
 
-    self._kubectl_exec(web_pod, f"python {manage} flush --no-input")
-    self._kubectl_exec(
-      web_pod,
-      f"tar xjf $EXAMPLEDB -C /tmp"
-      f" && python {manage} loaddata /tmp/data.json"
-      f" && rm -f /tmp/data.json /tmp/meta.json",
-    )
-    self._kubectl_exec(
-      web_pod,
-      f"find -L /run/secrets -name '*.auth'"
+    _kubectl_exec(self.kubeconfig, self.namespace, web_pod, f"python {manage} flush --no-input")
+    _kubectl_exec(self.kubeconfig, self.namespace, web_pod, f"python {manage} loaddata {BASELINE_PATH}")
+    _kubectl_exec(
+      self.kubeconfig, self.namespace, web_pod,
+      # cd first: createuser reads user_access_config.json (is_superuser,
+      # ACLs) from the cwd, and only $SCENESCAPE_HOME has a copy of it.
+      f"cd $SCENESCAPE_HOME && find -L /run/secrets -name '*.auth'"
       f"  -exec python {manage} createuser --skip-existing {{}} \\;"
       f" && DJANGO_SUPERUSER_PASSWORD=$SUPASS"
       f"    python {manage} createsuperuser"
       f"    --no-input --username=admin"
       f"    --email=admin@domain.com 2>/dev/null || true",
     )
-    self._kubectl_exec(web_pod, f"python {manage} updatedbstatus --ready")
+    _kubectl_exec(self.kubeconfig, self.namespace, web_pod, f"python {manage} updatedbstatus --ready")
     logger.info("Database restored.")
 
     # Restart scene controller to refresh cache.
@@ -124,30 +150,6 @@ class K8sScenescapeEnv:
       "--timeout=120s",
     ])
     logger.info("Scene controller restarted and ready.")
-
-  def _get_pod_name(self, app_label):
-    """Get the first running pod name for a given app label."""
-    result = _run([
-      "kubectl", "get", "pods",
-      "-l", f"app={app_label}",
-      "-n", self.namespace,
-      "--kubeconfig", self.kubeconfig,
-      "--field-selector=status.phase=Running",
-      "-o", "jsonpath={.items[0].metadata.name}",
-    ])
-    pod_name = result.stdout.strip()
-    if not pod_name:
-      raise RuntimeError(f"No running pod found with app={app_label}")
-    return pod_name
-
-  def _kubectl_exec(self, pod, command):
-    """Execute a shell command inside a pod."""
-    _run([
-      "kubectl", "exec", pod,
-      "-n", self.namespace,
-      "--kubeconfig", self.kubeconfig,
-      "--", "sh", "-c", command,
-    ])
 
 def _image_exists(ref: str) -> bool:
   try:
@@ -170,6 +172,8 @@ class K8sManager:
     self._cluster = None
     self._port_forwards = []  # PortForwarding objects
     self._env = None
+    self._secrets_dir = None
+    self._scene_uids = {}
 
     # Populated during setup
     self.auth_file = None
@@ -246,21 +250,13 @@ class K8sManager:
     logger.info("Deploying Helm chart...")
     values_file = self._generate_values_file()
     self._helm_install(values_file)
+    # _helm_install() -> _wait_for_core_services() already extracted secrets,
+    # forwarded the web port, and uploaded the baseline scenes once web and
+    # kubeclient were confirmed ready.
 
-    # Extract secrets
-    logger.info("Extracting secrets from cluster...")
-    tmp_dir = self._tmp_path_factory.mktemp("k8s_secrets")
-    self.auth_file = str(self._extract_secret(
-      f"{_RELEASE_NAME}-controller.auth", "controller.auth", tmp_dir / "controller.auth",
-    ))
-    self.cert_file = str(self._extract_secret(
-      f"{_RELEASE_NAME}-scenescape-ca.pem", "ca.crt", tmp_dir / "scenescape-ca.pem",
-    ))
-
-    # Set up port-forwarding
-    logger.info("Setting up port-forwarding...")
+    # Set up remaining port-forwarding (MQTT; web was already forwarded).
+    logger.info("Setting up MQTT port-forwarding...")
     self.mqtt_port = self._port_forward("svc/broker", 1883, 1883)
-    self.web_port = self._port_forward("svc/web", 9443, 443)
     logger.info("MQTT port: %d, Web port: %d", self.mqtt_port, self.web_port)
 
     # Build the environment object
@@ -269,8 +265,9 @@ class K8sManager:
       namespace=_NAMESPACE,
       release_name=_RELEASE_NAME,
       repo_root=self._repo_root,
-      secrets_dir=str(tmp_dir),
+      secrets_dir=self._secrets_dir,
       supass=self._supass,
+      scene_uids=self._scene_uids,
     )
 
     logger.info("=" * 60)
@@ -370,10 +367,10 @@ class K8sManager:
   def _generate_values_file(self):
     """Generate a Helm values.yaml for the test deployment.
 
-    Hooks are always enabled so that sample-data and model-installer
-    run as pre-install hooks (before web/kubeclient start).  This
-    ensures the example DB is loaded and cameras are available when
-    kubeclient calls getCameras().
+    Hooks are always enabled so that model-installer runs as a pre-install
+    hook (before web/kubeclient start). Scenes and cameras are no longer
+    preloaded from an example DB; they are uploaded over REST once web and
+    kubeclient are ready (see _upload_baseline_scenes()).
     When models are pre-loaded on the PVC, model-installer skips
     downloads (checks if dirs already exist) so it completes quickly.
     """
@@ -410,7 +407,7 @@ class K8sManager:
     # Install without --wait: some services (NTP, dlstreamer) crash in KinD
     # due to missing capabilities (SYS_TIME) or hardware (GPU). We wait
     # selectively for only the services our tests actually require.
-    # Timeout covers pre-install hooks (model-installer, sample-data).
+    # Timeout covers pre-install hooks (model-installer).
     _run([
       "helm", "install", _RELEASE_NAME, _CHART_PATH,
       "--namespace", _NAMESPACE,
@@ -434,7 +431,6 @@ class K8sManager:
       f"deployment/{_RELEASE_NAME}-scene-dep",
       f"deployment/{_RELEASE_NAME}-autocalibration-dep",
       f"deployment/{_RELEASE_NAME}-reid-dep",
-      f"deployment/{_RELEASE_NAME}-mediaserver-dep",
       f"deployment/{_RELEASE_NAME}-broker",
       f"statefulset/{_RELEASE_NAME}-pgserver",
     ]
@@ -451,6 +447,10 @@ class K8sManager:
       except Exception:
         self._log_resource_failure(resource)
         raise
+      if resource == f"deployment/{_RELEASE_NAME}-web-dep":
+        # Web is reachable now; grab secrets and forward its port so scenes
+        # can be uploaded once kubeclient is also ready (see below).
+        self._extract_secrets_and_forward_web()
     logger.info("All core services are ready.")
 
     # Wait for kubeclient so it can create camera pipeline pods.
@@ -462,11 +462,56 @@ class K8sManager:
     ], as_dict=False, timeout=360)
     logger.info("kubeclient is ready.")
 
+    # Upload the baseline scenes now, while kubeclient is up and subscribed:
+    # it reacts to the camera-creation MQTT events these uploads trigger, the
+    # same way the pre-install EXAMPLEDB hook used to feed its startup scan.
+    self._upload_baseline_scenes()
+
     # Wait for camera pipeline pods (created dynamically by kubeclient).
     self._wait_for_camera_pods()
 
     # Wait for DL Streamer to load models and start producing inference.
     self._wait_for_inference_warmup()
+
+  def _extract_secrets_and_forward_web(self):
+    """Grab auth/CA secrets and forward the web port, once web-dep is ready."""
+    logger.info("Extracting secrets from cluster...")
+    tmp_dir = self._tmp_path_factory.mktemp("k8s_secrets")
+    self.auth_file = str(self._extract_secret(
+      f"{_RELEASE_NAME}-controller.auth", "controller.auth", tmp_dir / "controller.auth",
+    ))
+    self.cert_file = str(self._extract_secret(
+      f"{_RELEASE_NAME}-scenescape-ca.pem", "ca.crt", tmp_dir / "scenescape-ca.pem",
+    ))
+    self._secrets_dir = str(tmp_dir)
+
+    logger.info("Setting up web port-forwarding...")
+    self.web_port = self._port_forward("svc/web", 9443, 443)
+    logger.info("Web port: %d", self.web_port)
+    return
+
+  def _upload_baseline_scenes(self, scene_archives=("retail_and_queuing",)):
+    """Upload the baseline scenes over REST and snapshot the resulting DB.
+
+    Uses the "web.scenescape.intel.com" hostname (patched to the port-forward
+    by the loopback_hosts fixture, active for every test using scenescape_env)
+    because that is what the chart's web certificate is issued for.
+
+    Uploads retail_and_queuing to match the compose test suite patterns,
+    providing a representative baseline with both retail and queuing scenes.
+    """
+    logger.info("Uploading baseline scenes: %s", scene_archives)
+    resturl = f"https://web.scenescape.intel.com:{self.web_port}/api/v1"
+    self._scene_uids = upload_baseline_scenes(
+      resturl, self.cert_file, self.auth_file, scene_archives,
+    )
+    logger.info("Snapshotting baseline database...")
+    web_pod = _get_pod_name(self.kubeconfig, _NAMESPACE, f"{_RELEASE_NAME}-web")
+    _kubectl_exec(
+      self.kubeconfig, _NAMESPACE, web_pod,
+      dumpdata_command("$SCENESCAPE_HOME/manage.py"),
+    )
+    return
 
   def _log_resource_failure(self, resource: str):
     """Emit describe/logs for a failed rollout so CI failures are actionable."""

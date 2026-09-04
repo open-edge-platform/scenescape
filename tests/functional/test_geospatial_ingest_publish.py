@@ -175,7 +175,7 @@ class GeospatialIngestPublish(FunctionalTest):
     return scene
 
   def verifyTRSMatrix(self):
-    map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
+    map_image = f"{self.repoRoot}/tests/resources/maps/HazardZoneSceneLarge.png"
     with open(map_image, "rb") as f:
       map_data = f.read()
 
@@ -284,7 +284,7 @@ class GeospatialIngestPublish(FunctionalTest):
     return
 
   def verifyPublish(self):
-    map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
+    map_image = f"{self.repoRoot}/tests/resources/maps/HazardZoneSceneLarge.png"
     with open(map_image, "rb") as f:
       map_data = f.read()
     log.info("Verifying base output has no lat_long_alt")
