@@ -1050,7 +1050,7 @@ class TestHandleMovingObjectExternal:
       'objects': [],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller._scenesForExternalPublisher.assert_not_called()
     controller._handleExternalSourceObject.assert_not_called()
@@ -1075,7 +1075,7 @@ class TestHandleMovingObjectExternal:
       'objects': [{'id': 't1'}],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller._scenesForExternalPublisher.assert_called_once()
     controller._handleExternalSourceObject.assert_called_once()
@@ -1096,7 +1096,7 @@ class TestHandleMovingObjectExternal:
       'objects': [],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller._handleExternalSourceObject.assert_not_called()
     controller.publishDetections.assert_not_called()
@@ -1119,7 +1119,7 @@ class TestHandleMovingObjectExternal:
       'objects': [],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller.cache_manager.invalidate.assert_called_once()
     controller.publishDetections.assert_not_called()
@@ -1141,7 +1141,7 @@ class TestHandleMovingObjectExternal:
       'objects': [],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller._handleChildSceneObject.assert_called_once()
     controller._scenesForExternalPublisher.assert_not_called()
@@ -1164,7 +1164,7 @@ class TestHandleMovingObjectExternal:
       'objects': [],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller.cache_manager.sceneWithID.assert_called_once_with('root-1')
     controller._handleChildSceneObject.assert_not_called()
@@ -1196,7 +1196,7 @@ class TestHandleMovingObjectExternal:
       'objects': [],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller._handleChildSceneObject.assert_called_once()
     mock_adjust.assert_called_once()
@@ -1224,7 +1224,7 @@ class TestHandleMovingObjectExternal:
       'objects': [],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller.cache_manager.sceneWithID.assert_called_with('remote-child-1')
     controller._handleChildSceneObject.assert_called_once()
@@ -1240,6 +1240,7 @@ class TestSceneControllerShutdown:
     controller = SceneController.__new__(SceneController)
     controller.external_source_pose_cache = MagicMock()
     controller.identity_claim_registry = MagicMock()
+    controller._moving_object_stop = MagicMock()
 
     controller.shutdown()
     controller.shutdown()  # idempotent
