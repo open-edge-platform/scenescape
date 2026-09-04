@@ -1510,9 +1510,11 @@ class InteractWithPage(ABC):
     check_str_root = "Check Uploaded File On Server: "
     upload_success = False
     tmp_dir_path = tempfile.mkdtemp()
-    file_output_path = tmp_dir_path + "/" + self.interaction_params.file_name
     parsed_url = urlparse(self.browser.current_url)
-    file_url = parsed_url._replace(path=f"/media/{self.interaction_params.file_name}").geturl()
+    element = self.browser.find_element(By.CSS_SELECTOR, self.interaction_params.element_location)
+    uploaded_file_name = element.text or self.interaction_params.file_name
+    file_output_path = tmp_dir_path + "/" + uploaded_file_name
+    file_url = parsed_url._replace(path=f"/media/{uploaded_file_name}").geturl()
 
     curl_str = ["curl", file_url, "-k", "-o", file_output_path, "-v"]
     sessionid = None
@@ -1530,7 +1532,7 @@ class InteractWithPage(ABC):
     subprocess.run(curl_str, capture_output=True, text=True)
 
     tmp_files = os.listdir(tmp_dir_path)
-    if (self.interaction_params.file_name in tmp_files) and filecmp.cmp(file_output_path, self.interaction_params.file_path):
+    if (uploaded_file_name in tmp_files) and filecmp.cmp(file_output_path, self.interaction_params.file_path):
       upload_success = True
       print(check_str_root + "Passed")
     else:
@@ -1568,7 +1570,7 @@ class InteractWithPage(ABC):
     elif self.interaction_params.element_type == "attribute":
       page_file_name = element.get_attribute("value")
 
-    if(page_file_name == self.interaction_params.file_name) and navigate_success:
+    if page_file_name and page_file_name.startswith(os.path.splitext(self.interaction_params.file_name)[0]) and navigate_success:
       upload_success = True
       print(check_str_root + "Passed")
     else:

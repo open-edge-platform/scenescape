@@ -176,6 +176,6 @@ USER $WSUSER
 # Tests expect to run from /workspace where test files are mounted
 WORKDIR /workspace
 
-# Use exec form with bash to properly handle the command string
-ENTRYPOINT ["/bin/bash", "-c"]
+# ENTRYPOINT runs all arguments as a single, properly quoted command.
+ENTRYPOINT ["/bin/bash", "-c", "exec \"$@\"", "--"]
 CMD ["bash"]

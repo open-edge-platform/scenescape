@@ -31,6 +31,9 @@ services:
         condition: service_started
       vdms:
         condition: service_started
+    environment:
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com,.scenescape
+      - no_proxy=${no_proxy},.scenescape.intel.com,.scenescape
     command: >
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth

@@ -15,6 +15,7 @@ from plyfile import PlyData
 def validate_glb(value):
   with tempfile.NamedTemporaryFile(suffix=".glb") as glb_file:
     glb_file.write(value.read())
+    value.seek(0)
     mesh = o3d.io.read_triangle_model(glb_file.name)
     if len(mesh.meshes) == 0 or mesh.materials[0].shader is None:
       raise ValidationError("Only valid glTF binary (.glb) files are supported for 3D assets.")

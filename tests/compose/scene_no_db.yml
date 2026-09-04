@@ -23,6 +23,9 @@ services:
         condition: service_started
       ntpserv:
         condition: service_started
+    environment:
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com,.scenescape
+      - no_proxy=${no_proxy},.scenescape.intel.com,.scenescape
     command: >
       --data_source /workspace/sample_data/Retail.json
       --brokerauth /run/secrets/controller.auth

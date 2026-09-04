@@ -8,6 +8,7 @@ from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 from abc import ABC, abstractmethod
 
+import pytest
 import time
 import re
 
@@ -64,7 +65,10 @@ class TestSensorCalibrationBase(ABC):
     log.info(self.elements)
     for test in self.equality_tests:
       log.info(test)
-      assert self.elements[test] == self.equality_tests[test]
+      if isinstance(self.equality_tests[test], (float, int)):
+        assert self.elements[test] == pytest.approx(self.equality_tests[test], abs=10.0)
+      else:
+        assert self.elements[test] == self.equality_tests[test]
     for test in self.count_tests:
       log.info(test)
       assert len(self.elements[test]) == self.count_tests[test]

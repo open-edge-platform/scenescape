@@ -71,15 +71,6 @@ def cached_load(root, model_conf):
   if "optimize" in model_conf and "script" in model_conf["optimize"]:
     model = torch.jit.freeze(torch.jit.script(model))
     model = torch.jit.optimize_for_inference(model)
-  if cached_load.device == "cpu":
-    try:
-      import intel_extension_for_pytorch as ipex
-
-      ipex.enable_onednn_fusion(True)
-
-      model = ipex.optimize(model)
-    except ImportError:
-      pass
   cached_load.model_cache[name] = SN(model=model, conf=model_conf)
   return model
 
