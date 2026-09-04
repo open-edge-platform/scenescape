@@ -153,7 +153,6 @@ class CRUDPermissionsTest(FunctionalTest):
 @pytest.mark.test_name("NEX-T21775")
 def test_crud_operations_api(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
   test = CRUDPermissionsTest(TEST_NAME, request, record_xml_attribute, repo_root)
-  record_xml_attribute("name", TEST_NAME)
   ok = False
   try:
     ok = test.runTest()
