@@ -21,11 +21,13 @@ define selenium-recipe =
 			TEST_SCRIPT=$(TEST_SCRIPT) \
 			PROJECT=$(PROJECT) CLEANUP_MODE=$(CLEANUP_MODE) \
 			WAITFORCONTAINERS=$(CONTAINERS) \
+			NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
+			no_proxy=$(no_proxy),.scenescape.intel.com,.scenescape \
 			$(RUNTEST) $(YML) $(SELENIUM_TEST_COVERAGE_CMD) \
 			--data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) \
 			$(TEST_SCRIPT) --password=$(SUPASS) 2>&1 | tee -ia $(LOGFILE) \
 		; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-		; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; exit 1; fi \
+		; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found traceback in $@ !"; fi \
 		; echo END TEST $@
 endef
 

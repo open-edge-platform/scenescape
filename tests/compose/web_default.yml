@@ -50,6 +50,8 @@ services:
       - "EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2"
       - "DBROOT"
       - "SUPASS"
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com,.scenescape
+      - no_proxy=${no_proxy},.scenescape.intel.com,.scenescape
     cap_add:
       - SYS_ADMIN
     devices:

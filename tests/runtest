@@ -92,12 +92,12 @@ fi
 
 if [ "${RUN_TEST}" = 1 ] ; then
     if [[ "${IMAGE}" == *scenescape-controller-test* ]]; then
-        CMD="$@"
+        CMD=("$@")
     else
-        CMD="PYTHONPATH=/home/scenescape/SceneScape/ $@"
+        CMD=(env PYTHONPATH=/home/scenescape/SceneScape/ "$@")
     fi
 
-    tools/scenescape-start --image ${IMAGE} --network ${PROJECT}_${NETWORK} --project ${PROJECT} ${CMD}
+    tools/scenescape-start --image ${IMAGE} --network ${PROJECT}_${NETWORK} --project ${PROJECT} "${CMD[@]}"
     STATUS=$?
 else
     STATUS=3

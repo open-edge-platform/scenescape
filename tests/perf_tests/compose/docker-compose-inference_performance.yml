@@ -86,6 +86,8 @@ services:
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com,.scenescape
+      - no_proxy=${no_proxy},.scenescape.intel.com,.scenescape
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
