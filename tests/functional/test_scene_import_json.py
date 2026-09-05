@@ -7,6 +7,7 @@ import os
 import json
 import threading
 import time
+import pytest
 from tests.utils.log import get_logger
 from scene_common.mqtt import PubSub
 from tests.functional import FunctionalTest
@@ -21,16 +22,15 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-TEST_NAME = "NEX-T15347"
 FRAMES_PER_SECOND = 10
 PERSON = "person"
 MQTT_CONNECT_TIMEOUT_S = 30
-REGULATED_WAIT_TIMEOUT_S = 30
-
+SCENE_WAIT_TIMEOUT_S = 30
 
 class SceneControllerImportJSON(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, request, result_recorder):
+    super().__init__(None, request, None)
+    self.result_recorder = result_recorder
     self.sceneUID = self.params['scene_id']
     self.frameRate = FRAMES_PER_SECOND
     self.sceneData = None
@@ -49,7 +49,7 @@ class SceneControllerImportJSON(FunctionalTest):
       self._mqtt_ready.set()
     return
 
-  def regulatedReceived(self, pahoClient, userdata, message):
+  def sceneReceived(self, pahoClient, userdata, message):
     data = message.payload.decode("utf-8")
     self.sceneData = json.loads(data)
     return
@@ -59,19 +59,15 @@ class SceneControllerImportJSON(FunctionalTest):
 
     Steps:
       * Get scene JSON file
-      * Subscribe to regulated scene MQTT topic and verify messages are present
+      * Subscribe to scene MQTT topic and verify messages are present
 
     Notes:
       * This test requires to be run using scene_no_db.yml present in tests/compose folder
       * This compose file removes --restauth option from scene service and replaces it with --data_source pointing to JSON.
     """
 
-    self.exitCode = 1
-
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
     try:
-      log.info(f"Executing test {TEST_NAME}")
+      log.info(f"Executing test NEX-T15347")
       log.info("Step 1. Verify JSON file exists")
       assert os.path.exists(self.jsonPath), "JSON file does not exist"
       log.info("JSON file present")
@@ -79,18 +75,19 @@ class SceneControllerImportJSON(FunctionalTest):
       assert self._mqtt_ready.wait(MQTT_CONNECT_TIMEOUT_S), (
         "MQTT client failed to connect")
 
-      log.info("Step 2. Check for regulated messages")
-      log.info("Adding callback to check for regulated messages.")
-      topic_regulated = PubSub.formatTopic(PubSub.DATA_REGULATED,
-                                           scene_id=self.sceneUID)
-      self.pubsub.addCallback(topic_regulated, self.regulatedReceived)
+      log.info("Step 2. Check for scene messages")
+      log.info("Adding callback to check for scene messages.")
+      topic_scene = PubSub.formatTopic(PubSub.DATA_SCENE,
+                                       scene_id=self.sceneUID,
+                                       thing_type=PERSON)
+      self.pubsub.addCallback(topic_scene, self.sceneReceived)
 
-      log.info("Sending detections for regulated messages to appear.")
+      log.info("Sending detections for scene messages to appear.")
       objLocation = self.getLocations()
       jdata = self.objData()
       camera_id = jdata['id']
       cam_topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera_id)
-      deadline = time.time() + REGULATED_WAIT_TIMEOUT_S
+      deadline = time.time() + SCENE_WAIT_TIMEOUT_S
       loc_iter = iter(objLocation)
       while self.sceneData is None and time.time() < deadline:
         try:
@@ -103,24 +100,21 @@ class SceneControllerImportJSON(FunctionalTest):
         self.pubsub.publish(cam_topic, json.dumps(jdata))
         time.sleep(1 / self.frameRate)
 
-      log.info("Verifying if regulated messages appeared")
+      log.info("Verifying if scene messages appeared")
       assert self.sceneData is not None, (
-        f"No regulated message received within {REGULATED_WAIT_TIMEOUT_S}s")
+        f"No scene message received within {SCENE_WAIT_TIMEOUT_S}s")
 
-      log.info(f"Regulated message received. Contents:\n{self.sceneData}")
-      self.exitCode = 0
+      log.info(f"Scene message received. Contents:\n{self.sceneData}")
+      self.result_recorder.success()
 
     except Exception as e:
       log.error(f"Test failed with exception: {e}")
-      self.exitCode = 1
+      self.result_recorder.failure()
 
     finally:
       self.pubsub.loopStop()
-      self.recordTestResult()
-
-    return self.exitCode
 
 @pytest.mark.test_name("NEX-T15347")
-def test_scene_controller_import_json(scenescape_env, request, record_xml_attribute):
-  test = SceneControllerImportJSON(TEST_NAME, request, record_xml_attribute)
-  assert test.runTest() == 0
+def test_scene_controller_import_json(scenescape_env, request, result_recorder):
+  test = SceneControllerImportJSON(request, result_recorder)
+  test.runTest()
