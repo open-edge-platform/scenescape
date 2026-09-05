@@ -65,9 +65,6 @@ LIDAR_PUBLISH_RAW = os.environ.get("LIDAR_PUBLISH_RAW", "false").lower() not in 
 LIDAR_RAW_TOPIC   = os.environ.get("LIDAR_RAW_TOPIC", f"scenescape/data/camera/{LIDAR_SENSOR_ID}-raw")
 # Cap points sent to the 3D UI per getpointcloud request (MQTT payload size).
 LIDAR_VIZ_MAX_POINTS = max(1000, int(os.environ.get("LIDAR_VIZ_MAX_POINTS", "40000")))
-# Publish sensor-local XYZ with the same XY axis swap used for detections
-# (z kept for height so the cloud is 3-D).
-LIDAR_VIZ_AXIS_SWAP = os.environ.get("LIDAR_VIZ_AXIS_SWAP", "true").lower() not in ("0", "false", "no")
 
 # KITTI class index -> label name (person omitted, camera branch covers it).
 LIDAR_KITTI_LABELS: dict[int, str] = {1: "cyclist", 2: "vehicle"}
@@ -115,10 +112,24 @@ def make_gst_to_wall():
 
 
 # ── Coordinate transform (LiDAR only) ──────────────────────────────────────────
+# SceneScape sensor poses (CameraPose / 3D UI) use an OpenCV-like frame:
+#   X right, Y down, Z forward.
+# Velodyne/KITTI / PointPillars use:
+#   X forward, Y left, Z up.
+# Convert with: x_s=-y_v, y_s=-z_v, z_s=x_v.
+# Lidar scene pose is T_cam @ T_virtuallidar_to_camera @ T_sensor_to_velo so
+# these OpenCV-like points map to world the same way as camera rays.
+
+
+def velodyne_to_scenescape(x_v: float, y_v: float, z_v: float) -> "tuple[float, float, float]":
+  """Velodyne/KITTI XYZ -> SceneScape OpenCV-like sensor XYZ."""
+  return -y_v, -z_v, x_v
+
 
 def lidar_to_scene_offset(x_l: float, y_l: float, z_l: float) -> "tuple[float, float, float]":
-  """LiDAR (x,y,z) -> scene offset: (-y,-x) axis swap, z forced to 0."""
-  return -y_l, -x_l, 0.0
+  """Detection center in SceneScape sensor frame (Y forced to 0 for ground plane)."""
+  x_s, _y_s, z_s = velodyne_to_scenescape(x_l, y_l, z_l)
+  return x_s, 0.0, z_s
 
 
 def bbox3d_to_quaternion(yaw: float) -> "list[float]":
@@ -292,11 +303,12 @@ def _read_frame_as_jpeg_b64(path: str) -> "str | None":
     return None
 
 
-def _read_pointcloud_payload(path: str, max_points: int, axis_swap: bool) -> "dict | None":
+def _read_pointcloud_payload(path: str, max_points: int) -> "dict | None":
   """Load an N×4 float32 .bin frame and return a UI-ready point-cloud payload.
 
-  Optionally downsamples and remaps axes to match lidar_to_scene_offset XY
-  (z kept). Format is little-endian float32 xyz[+intensity].
+  Points are converted Velodyne -> SceneScape OpenCV-like sensor frame so the
+  3D UI can apply the same (x,-y,-z) OpenCV->OpenGL step used for cameras.
+  Format is little-endian float32 xyz[+intensity].
   """
   try:
     import struct
@@ -319,10 +331,8 @@ def _read_pointcloud_payload(path: str, max_points: int, axis_swap: bool) -> "di
   kept = 0
   for i in range(0, count, step):
     off = i * 16
-    x, y, z, intensity = struct.unpack_from("<ffff", raw, off)
-    if axis_swap:
-      # Match detection convention: (-y, -x, z)
-      x, y = -y, -x
+    x_v, y_v, z_v, intensity = struct.unpack_from("<ffff", raw, off)
+    x, y, z = velodyne_to_scenescape(x_v, y_v, z_v)
     out.extend(struct.pack("<ffff", x, y, z, intensity))
     kept += 1
     if kept >= max_points:
@@ -371,11 +381,10 @@ def setup_sensor_cmd_responder(
       data_path = pointcloud_preview["data_path"]
       start_index = pointcloud_preview["start_index"]
       max_points = int(pointcloud_preview.get("max_points", LIDAR_VIZ_MAX_POINTS))
-      axis_swap = bool(pointcloud_preview.get("axis_swap", LIDAR_VIZ_AXIS_SWAP))
       path = data_path % idx
-      payload = _read_pointcloud_payload(path, max_points, axis_swap)
+      payload = _read_pointcloud_payload(path, max_points)
       if payload is None:
-        payload = _read_pointcloud_payload(data_path % start_index, max_points, axis_swap)
+        payload = _read_pointcloud_payload(data_path % start_index, max_points)
       if payload is not None:
         msg_client.publish(pointcloud_topic, json.dumps(payload), qos=0)
 
@@ -706,7 +715,6 @@ def main() -> None:
       "stop_index": LIDAR_STOP_INDEX,
       "loop": LIDAR_LOOP,
       "max_points": LIDAR_VIZ_MAX_POINTS,
-      "axis_swap": LIDAR_VIZ_AXIS_SWAP,
     },
     is_lidar=True,
   )

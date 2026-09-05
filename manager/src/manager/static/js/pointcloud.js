@@ -22,11 +22,11 @@ export function decodePointCloudPayload(b64, count, stride = 4) {
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  const floats = new Float32Array(
-    bytes.buffer,
-    bytes.byteOffset,
-    Math.floor(bytes.byteLength / 4),
-  );
+  // Copy into an aligned buffer — Uint8Array from atob may share a larger
+  // ArrayBuffer whose byteOffset is not a multiple of 4.
+  const aligned = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(aligned).set(bytes);
+  const floats = new Float32Array(aligned);
   const positions = new Float32Array(count * 3);
   const intensities = stride >= 4 ? new Float32Array(count) : null;
   for (let i = 0; i < count; i++) {
@@ -51,6 +51,7 @@ export function intensityToColors(intensities, rangeState) {
   let max = -Infinity;
   for (let i = 0; i < intensities.length; i++) {
     const v = intensities[i];
+    if (!Number.isFinite(v)) continue;
     if (v < min) min = v;
     if (v > max) max = v;
   }
@@ -71,7 +72,8 @@ export function intensityToColors(intensities, rangeState) {
   }
   const range = Math.max(rangeState.max - rangeState.min, 1e-6);
   for (let i = 0; i < intensities.length; i++) {
-    const t = (intensities[i] - rangeState.min) / range;
+    const raw = Number.isFinite(intensities[i]) ? intensities[i] : rangeState.min;
+    const t = (raw - rangeState.min) / range;
     const c = heatColor(t);
     colors[i * 3] = c[0];
     colors[i * 3 + 1] = c[1];
@@ -100,8 +102,9 @@ function heatColor(t) {
 }
 
 /**
- * Manage a THREE.Points cloud placed in scene world coordinates using a
- * SceneScape (y-down) sensor pose — matching tracked-object placement.
+ * Manage a THREE.Points cloud placed in scene world coordinates using the
+ * sensor's THREE camera (y-up / OpenGL). Sensor-local points are SceneScape /
+ * OpenCV (y-down) and converted with (x, -y, -z) before matrixWorld.
  *
  * Geometry/material are reused across frames to avoid flicker from destroy/create.
  */
@@ -114,19 +117,20 @@ export class PointCloudVisualizer {
     this.opacity = DEFAULT_OPACITY;
     this.lastPayload = null;
     this.intensityRange = { min: null, max: null };
-    this.pose = {
-      position: new THREE.Vector3(),
-      rotation: new THREE.Euler(0, 0, 0, "XYZ"),
-    };
     this._scratchMatrix = new THREE.Matrix4();
-    this._scratchQuat = new THREE.Quaternion();
     this._scratchVec = new THREE.Vector3();
+    this._scaleOne = new THREE.Vector3(1, 1, 1);
     this._worldPos = null;
   }
 
-  setPoseFromYdown(position, rotationRadians) {
-    this.pose.position.copy(position);
-    this.pose.rotation.copy(rotationRadians);
+  /**
+   * Capture the sensor camera's current world transform for the next update.
+   * @param {THREE.Object3D} camera
+   */
+  setPoseFromCamera(camera) {
+    if (!camera) return;
+    camera.updateWorldMatrix(true, false);
+    this._scratchMatrix.copy(camera.matrixWorld);
     if (this.lastPayload && this.visible) {
       this.updateFromPayload(this.lastPayload);
     }
@@ -164,6 +168,7 @@ export class PointCloudVisualizer {
       this.pointsObject = null;
     }
     this._worldPos = null;
+    this._keptIntensity = null;
     this.intensityRange = { min: null, max: null };
   }
 
@@ -181,9 +186,6 @@ export class PointCloudVisualizer {
     );
 
     const matrix = this._scratchMatrix;
-    const quat = this._scratchQuat.setFromEuler(this.pose.rotation);
-    matrix.compose(this.pose.position, quat, new THREE.Vector3(1, 1, 1));
-
     const needed = count * 3;
     if (!this._worldPos || this._worldPos.length < needed) {
       // Grow with headroom so varying frame sizes do not reallocate every update.
@@ -191,34 +193,59 @@ export class PointCloudVisualizer {
         Math.ceil(Math.max(needed, 4096) * 1.25),
       );
     }
-    const worldPosView = this._worldPos.subarray(0, needed);
+    if (intensities && (!this._keptIntensity || this._keptIntensity.length < count)) {
+      this._keptIntensity = new Float32Array(
+        Math.ceil(Math.max(count, 1024) * 1.25),
+      );
+    }
     const v = this._scratchVec;
+    let written = 0;
     for (let i = 0; i < count; i++) {
-      v.set(localPos[i * 3], localPos[i * 3 + 1], localPos[i * 3 + 2]);
+      const lx = localPos[i * 3];
+      const ly = localPos[i * 3 + 1];
+      const lz = localPos[i * 3 + 2];
+      if (!Number.isFinite(lx) || !Number.isFinite(ly) || !Number.isFinite(lz)) {
+        continue;
+      }
+      // OpenCV / SceneScape sensor frame -> OpenGL local (THREE camera).
+      v.set(lx, -ly, -lz);
       v.applyMatrix4(matrix);
-      worldPosView[i * 3] = v.x;
-      worldPosView[i * 3 + 1] = v.y;
-      worldPosView[i * 3 + 2] = v.z;
+      if (!Number.isFinite(v.x) || !Number.isFinite(v.y) || !Number.isFinite(v.z)) {
+        continue;
+      }
+      const dst = written * 3;
+      this._worldPos[dst] = v.x;
+      this._worldPos[dst + 1] = v.y;
+      this._worldPos[dst + 2] = v.z;
+      if (intensities) {
+        this._keptIntensity[written] = intensities[i];
+      }
+      written++;
+    }
+    if (written === 0) {
+      return;
     }
 
+    const worldPosExact = this._worldPos.subarray(0, written * 3);
     const colors = intensities
-      ? intensityToColors(intensities, this.intensityRange)
+      ? intensityToColors(
+          this._keptIntensity.subarray(0, written),
+          this.intensityRange,
+        )
       : null;
 
     if (!this.pointsObject) {
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute(
         "position",
-        new THREE.BufferAttribute(new Float32Array(this._worldPos), 3),
+        new THREE.BufferAttribute(worldPosExact.slice(), 3),
       );
-      geometry.getAttribute("position").array.set(worldPosView);
-      geometry.getAttribute("position").needsUpdate = true;
       if (colors) {
-        const colorBuf = new Float32Array(this._worldPos.length);
-        colorBuf.set(colors);
-        geometry.setAttribute("color", new THREE.BufferAttribute(colorBuf, 3));
+        geometry.setAttribute(
+          "color",
+          new THREE.BufferAttribute(colors.slice(0, written * 3), 3),
+        );
       }
-      geometry.setDrawRange(0, count);
       const material = new THREE.PointsMaterial({
         size: this.pointSize,
         sizeAttenuation: true,
@@ -234,36 +261,42 @@ export class PointCloudVisualizer {
       this.scene.add(this.pointsObject);
     } else {
       const geometry = this.pointsObject.geometry;
-      const posAttr = geometry.getAttribute("position");
-      if (!posAttr || posAttr.array.length < needed) {
-        geometry.setAttribute(
-          "position",
-          new THREE.BufferAttribute(new Float32Array(this._worldPos), 3),
+      let posAttr = geometry.getAttribute("position");
+      if (!posAttr || posAttr.array.length < written * 3) {
+        posAttr = new THREE.BufferAttribute(
+          new Float32Array(
+            Math.ceil(Math.max(written * 3, 4096) * 1.25),
+          ),
+          3,
         );
+        geometry.setAttribute("position", posAttr);
       }
-      geometry.getAttribute("position").array.set(worldPosView);
-      geometry.getAttribute("position").needsUpdate = true;
+      posAttr.array.set(worldPosExact);
+      posAttr.needsUpdate = true;
+      posAttr.count = written;
       if (colors) {
         let colorAttr = geometry.getAttribute("color");
-        if (!colorAttr || colorAttr.array.length < colors.length) {
-          const colorBuf = new Float32Array(
-            Math.max(colors.length, this._worldPos.length),
+        if (!colorAttr || colorAttr.array.length < written * 3) {
+          colorAttr = new THREE.BufferAttribute(
+            new Float32Array(
+              Math.ceil(Math.max(written * 3, 4096) * 1.25),
+            ),
+            3,
           );
-          geometry.setAttribute(
-            "color",
-            new THREE.BufferAttribute(colorBuf, 3),
-          );
-          colorAttr = geometry.getAttribute("color");
+          geometry.setAttribute("color", colorAttr);
           this.pointsObject.material.vertexColors = true;
         }
-        colorAttr.array.set(colors);
+        colorAttr.array.set(colors.subarray(0, written * 3));
         colorAttr.needsUpdate = true;
+        colorAttr.count = written;
       }
-      geometry.setDrawRange(0, count);
       this.pointsObject.material.size = this.pointSize;
       this.pointsObject.material.opacity = this.opacity;
     }
 
+    const geometry = this.pointsObject.geometry;
+    geometry.setDrawRange(0, written);
+    geometry.computeBoundingSphere();
     this.pointsObject.visible = this.visible;
   }
 }
