@@ -107,9 +107,11 @@ def find_violations(tests):
   for test in tests:
     zephyr_id = test["zephyr_id"]
     if not zephyr_id:
+      legacy = test.get("local_test_name") or test.get("module_test_name")
       hint = ""
-      if test.get("module_test_name"):
-        hint = (f" (module declares TEST_NAME = \"{test['module_test_name']}\"; "
+      if legacy:
+        scope = "test body" if test.get("local_test_name") else "module"
+        hint = (f" ({scope} declares TEST_NAME = \"{legacy}\"; "
                 f"convert it to a marker)")
       violations[MISSING_ID][test["key"]] = hint
       continue
