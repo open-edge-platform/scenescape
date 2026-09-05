@@ -168,9 +168,15 @@ def _resolve_lidar_label(obj: dict) -> "str | None":
 
 
 def build_lidar_message(raw: dict, gst_to_wall, fps: float) -> dict:
-  """Wrap PointPillars 3-D detections in SceneScape camera-detection format."""
-  gst_ns = raw.get("lidar_frame", {}).get("exit_source_timestamp")
-  ts = _make_timestamp(gst_to_wall(int(gst_ns)) if gst_ns is not None else time.time())
+  """Wrap PointPillars 3-D detections in SceneScape camera-detection format.
+
+  Use wall-clock timestamps (same as the camera branch). On CPU, PointPillars
+  inference lags media time enough that GStreamer-based stamps are rejected by
+  the scene controller's max_lag check ("FELL BEHIND ... SKIPPING").
+  """
+  # gst_to_wall kept in signature for call-site symmetry with other builders.
+  del gst_to_wall
+  ts = _make_timestamp(time.time())
 
   objects: dict = {}
   for i, obj in enumerate(raw.get("objects", [])):
@@ -355,31 +361,39 @@ def setup_sensor_cmd_responder(
   image_preview: "dict | None" = None,
   pointcloud_preview: "dict | None" = None,
 ) -> None:
-  """Answer Manager UI cmd/camera requests (getimage / getpointcloud)."""
+  """Answer Manager UI cmd/camera requests (getimage / getcalibrationimage / getpointcloud)."""
   image_topic = f"scenescape/image/camera/{sensor_id}"
+  calibration_topic = f"scenescape/image/calibration/camera/{sensor_id}"
   pointcloud_topic = f"scenescape/pointcloud/camera/{sensor_id}"
+
+  def _jpeg_b64_for_preview() -> "str | None":
+    if image_preview is None:
+      return None
+    data_path = image_preview["data_path"]
+    start_index = image_preview["start_index"]
+    idx = frame_index_cell[0]
+    if idx is None:
+      idx = start_index
+    return _read_frame_as_jpeg_b64(data_path % idx) or _read_frame_as_jpeg_b64(
+      data_path % start_index
+    )
 
   def _on_message(msg_client, _userdata, message):
     cmd = message.payload.decode("utf-8", errors="replace").strip()
-    idx = frame_index_cell[0]
 
-    if cmd == "getimage" and image_preview is not None:
-      if idx is None:
-        return
-      data_path = image_preview["data_path"]
-      start_index = image_preview["start_index"]
-      b64 = _read_frame_as_jpeg_b64(data_path % idx) or _read_frame_as_jpeg_b64(
-        data_path % start_index
-      )
+    if cmd in ("getimage", "getcalibrationimage") and image_preview is not None:
+      b64 = _jpeg_b64_for_preview()
       if b64 is not None:
-        msg_client.publish(image_topic, json.dumps({"image": b64}), qos=0)
+        topic = calibration_topic if cmd == "getcalibrationimage" else image_topic
+        msg_client.publish(topic, json.dumps({"image": b64}), qos=0)
       return
 
     if cmd == "getpointcloud" and pointcloud_preview is not None:
-      if idx is None:
-        return
+      idx = frame_index_cell[0]
       data_path = pointcloud_preview["data_path"]
       start_index = pointcloud_preview["start_index"]
+      if idx is None:
+        idx = start_index
       max_points = int(pointcloud_preview.get("max_points", LIDAR_VIZ_MAX_POINTS))
       path = data_path % idx
       payload = _read_pointcloud_payload(path, max_points)
@@ -708,6 +722,8 @@ def main() -> None:
 
   _run_and_capture(
     "lidar-publisher", LIDAR_FIFO, LIDAR_TOPIC, LIDAR_PUBLISH_RAW, LIDAR_RAW_TOPIC, LIDAR_FRAME_RATE, build_lidar_message,
+    # No image_preview: LiDAR is not a video sensor. Scene-detail thumbnails
+    # and calibrate use getimage/getcalibrationimage only for the camera.
     pointcloud_preview={
       "sensor_id": LIDAR_SENSOR_ID,
       "data_path": LIDAR_DATA_PATH,
