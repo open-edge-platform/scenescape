@@ -25,6 +25,7 @@ import {
 } from "/static/js/constants.js";
 import { compareIntrinsics } from "/static/js/utils.js";
 import { startCameraCalibration } from "/static/js/calibration.js";
+import PointCloudVisualizer from "/static/js/pointcloud.js";
 
 const DEFAULT_DIAGONAL_FOV = 70;
 const DEFAULT_RESOLUTION = { w: 640, h: 480 };
@@ -40,6 +41,32 @@ const MAX_CALIB_POINTS = 4;
 const DEFAULT_CAMERA_NAME = "new-camera";
 const DEFAULT_CAMERA_UID = undefined;
 const MAX_CALIB_WAIT_TIME = 200000;
+const POINT_CLOUD_SENSOR_NAME_RE = /lidar|radar|velodyne|livox|point.?cloud/i;
+
+function isPointCloudSensor(name, uid) {
+  return (
+    POINT_CLOUD_SENSOR_NAME_RE.test(name || "") ||
+    POINT_CLOUD_SENSOR_NAME_RE.test(uid || "")
+  );
+}
+
+const CAMERA_ONLY_PANEL_CONTROLS = [
+  "project frame",
+  "pause video",
+  "opacity",
+  "fov",
+  "color",
+  "aspect ratio",
+  "auto calibrate",
+  "calibration points visibility",
+];
+
+const POINT_CLOUD_ONLY_PANEL_CONTROLS = [
+  "project point cloud",
+  "pause point cloud",
+  "point cloud opacity",
+  "point size",
+];
 
 //VFOV = 2 * atan(tan((DFOV/2)*h/sqrt(pow(w, 2)+pw(h,2))))
 function computeVerticalFOVFromDiagonal(dFOV, resolution) {
@@ -160,6 +187,10 @@ export default class SceneCamera extends THREE.Object3D {
     this.calibToast = null;
     this.flipCoordSystem = true;
     this.isStaff = params.isStaff;
+    this.projectPointCloud = false;
+    this.pausePointCloud = false;
+    this.pointCloudViz = null;
+    this.isPointCloudSensor = isPointCloudSensor(this.name, this.cameraUID);
     if (this.cameraPosition && this.cameraRotation) {
       this.addCamera();
     } else {
@@ -207,12 +238,18 @@ export default class SceneCamera extends THREE.Object3D {
     this.sceneMesh = params.sceneMesh;
     this.scene = params.scene;
     this.renderer = params.renderer;
+    this.pointCloudViz = new PointCloudVisualizer(this.scene);
+    this.setPoseSuffix = () => {
+      this.syncPointCloudPose();
+    };
+    this.syncPointCloudPose();
     this.cameraControls = new ThingControls(this);
     this.cameraControls.addToScene();
     this.addControlPanel(params.camerasFolder);
     this.addDragControls(params.sceneViewCamera, params.orbitControls, () => {
       this.calibPoints.clear();
       this.imagePoints = null;
+      this.syncPointCloudPose();
       this.executeOnControl("fov", (control) => {
         control[0].domElement.classList.add("disabled");
       });
@@ -223,9 +260,6 @@ export default class SceneCamera extends THREE.Object3D {
       "name",
       "scene camera",
       "show camera",
-      "project frame",
-      "pause video",
-      "opacity",
       "toggle rotate/translate",
       "pos X",
       "pos Y",
@@ -234,6 +268,16 @@ export default class SceneCamera extends THREE.Object3D {
       "rot Y",
       "rot Z",
     ];
+    if (this.isPointCloudSensor) {
+      fields.push(
+        "project point cloud",
+        "pause point cloud",
+        "point cloud opacity",
+        "point size",
+      );
+    } else {
+      fields.push("project frame", "pause video", "opacity");
+    }
     if (this.isStaff === null) {
       this.disableFields(fields);
     }
@@ -329,9 +373,12 @@ export default class SceneCamera extends THREE.Object3D {
     this.addStatusIndicator();
 
     this.projectFrame = false;
+    this.projectPointCloud = false;
     let panelSettings = {
       name: this.name === DEFAULT_CAMERA_NAME ? "" : this.name,
       opacity: 80,
+      "point cloud opacity": 85,
+      "point size": 0.12,
       fov: computeDiagonalFOV(
         this.cameraMatrix.data64F[CX],
         this.cameraMatrix.data64F[CY],
@@ -341,7 +388,9 @@ export default class SceneCamera extends THREE.Object3D {
       "calibration points visibility":
         this.calibPoints && this.calibPoints.visible,
       "project frame": this.projectFrame,
+      "project point cloud": this.projectPointCloud,
       "pause video": false,
+      "pause point cloud": false,
       fx: this.cameraMatrix.data64F[FX],
       fy: this.cameraMatrix.data64F[FY],
       cx: this.cameraMatrix.data64F[CX],
@@ -369,6 +418,12 @@ export default class SceneCamera extends THREE.Object3D {
       function (value) {
         this.prevName = this.name;
         this.name = value;
+        this.isPointCloudSensor = isPointCloudSensor(this.name, this.cameraUID);
+        if (this.isPointCloudSensor) {
+          this.stripCameraOnlyControls();
+        } else {
+          this.stripPointCloudOnlyControls();
+        }
         this.validateField("name", () => {
           return this.name === "" || this.name === DEFAULT_CAMERA_NAME;
         });
@@ -401,96 +456,162 @@ export default class SceneCamera extends THREE.Object3D {
     if (!(this.calibPoints && this.calibPoints.children.length > 0))
       control.hide();
 
-    control = this.controlsFolder.add(panelSettings, "project frame").onChange(
-      function (visibility) {
-        this.projectFrame = visibility;
-        if (this.projectFrame && this.mqttClient) {
-          this.mqttClient.publish(
-            this.appName + CMD_CAMERA + this.name,
-            "getimage",
-          );
-        }
-        if (this.cameraCapture != null) {
-          this.cameraCapture.visible = visibility;
-        }
-        visibility ? this.add(this.calibPoints) : this.remove(this.calibPoints);
-      }.bind(this),
-    );
-    control.$widget.firstChild.id = this.name.concat("-", "project-frame");
-
-    control = this.controlsFolder.add(panelSettings, "pause video").onChange(
-      function (visibility) {
-        this.pauseVideo = visibility;
-        if (!this.pauseVideo && this.projectFrame && this.mqttClient) {
-          this.mqttClient.publish(
-            this.appName + CMD_CAMERA + this.name,
-            "getimage",
-          );
-        }
-      }.bind(this),
-    );
-    control.$widget.firstChild.id = this.name.concat("-", "pause-video");
-
-    control = this.controlsFolder
-      .add(panelSettings, "opacity", 0, 100, 1)
-      .onChange(
-        function (weight) {
-          if (this.cameraCapture) this.cameraCapture.opacity = weight / 100.0;
+    if (!this.isPointCloudSensor) {
+      control = this.controlsFolder.add(panelSettings, "project frame").onChange(
+        function (visibility) {
+          this.projectFrame = visibility;
+          if (this.projectFrame && this.mqttClient) {
+            this.mqttClient.publish(
+              this.appName + CMD_CAMERA + this.name,
+              "getimage",
+            );
+          }
+          if (this.cameraCapture != null) {
+            this.cameraCapture.visible = visibility;
+          }
+          visibility ? this.add(this.calibPoints) : this.remove(this.calibPoints);
         }.bind(this),
       );
-    control.$input.id = this.name.concat("-", "opacity");
+      control.$widget.firstChild.id = this.name.concat("-", "project-frame");
 
-    control = this.controlsFolder.add(panelSettings, "fov", 1, 180, 1).onChange(
-      function (fov) {
-        this.fovEnabled = true;
-        let newIntrinsics = constructIntrinsicsMatrix(
-          { fov: fov },
-          this.resolution,
+      control = this.controlsFolder.add(panelSettings, "pause video").onChange(
+        function (visibility) {
+          this.pauseVideo = visibility;
+          if (!this.pauseVideo && this.projectFrame && this.mqttClient) {
+            this.mqttClient.publish(
+              this.appName + CMD_CAMERA + this.name,
+              "getimage",
+            );
+          }
+        }.bind(this),
+      );
+      control.$widget.firstChild.id = this.name.concat("-", "pause-video");
+
+      control = this.controlsFolder
+        .add(panelSettings, "opacity", 0, 100, 1)
+        .onChange(
+          function (weight) {
+            if (this.cameraCapture) this.cameraCapture.opacity = weight / 100.0;
+          }.bind(this),
         );
-        let fx = newIntrinsics[0][0];
-        let fy = newIntrinsics[1][1];
-        let cx = newIntrinsics[0][2];
-        let cy = newIntrinsics[1][2];
-        newIntrinsics = { fx: fx, fy: fy, cx: cx, cy: cy };
-        this.updateIntrinsics(newIntrinsics);
-        this.setCameraVerticalFOV();
-        this.performCameraCalib();
-      }.bind(this),
-    );
+      control.$input.id = this.name.concat("-", "opacity");
+    }
 
-    control.$input.id = this.name.concat("-", "fov");
-    this.executeOnControl("fov", (control) => {
-      control[0].domElement.classList.add("disabled");
-    });
+    if (this.isPointCloudSensor) {
+      control = this.controlsFolder
+        .add(panelSettings, "project point cloud")
+        .onChange(
+          function (visibility) {
+            this.projectPointCloud = visibility;
+            if (this.pointCloudViz) {
+              this.pointCloudViz.setVisible(visibility);
+            }
+            if (this.projectPointCloud && this.mqttClient) {
+              this.requestPointCloud();
+            }
+          }.bind(this),
+        );
+      control.$widget.firstChild.id = this.name.concat(
+        "-",
+        "project-point-cloud",
+      );
 
-    control = this.controlsFolder.addColor(panelSettings, "color").onChange(
-      function (value) {
-        this.projectionColor = value.toUpperCase();
-        this.generateProjectionFrame();
-      }.bind(this),
-    );
+      control = this.controlsFolder
+        .add(panelSettings, "pause point cloud")
+        .onChange(
+          function (paused) {
+            this.pausePointCloud = paused;
+            if (
+              !this.pausePointCloud &&
+              this.projectPointCloud &&
+              this.mqttClient
+            ) {
+              this.requestPointCloud();
+            }
+          }.bind(this),
+        );
+      control.$widget.firstChild.id = this.name.concat("-", "pause-point-cloud");
 
-    control = this.controlsFolder
-      .add(panelSettings, "aspect ratio")
-      .onFinishChange(
+      control = this.controlsFolder
+        .add(panelSettings, "point cloud opacity", 0, 100, 1)
+        .onChange(
+          function (weight) {
+            if (this.pointCloudViz) {
+              this.pointCloudViz.setOpacity(weight / 100.0);
+            }
+          }.bind(this),
+        );
+      control.$input.id = this.name.concat("-", "point-cloud-opacity");
+
+      control = this.controlsFolder
+        .add(panelSettings, "point size", 0.01, 1.0, 0.01)
+        .onChange(
+          function (size) {
+            if (this.pointCloudViz) {
+              this.pointCloudViz.setPointSize(size);
+            }
+          }.bind(this),
+        );
+      control.$input.id = this.name.concat("-", "point-size");
+    }
+
+    if (!this.isPointCloudSensor) {
+      control = this.controlsFolder.add(panelSettings, "fov", 1, 180, 1).onChange(
+        function (fov) {
+          this.fovEnabled = true;
+          let newIntrinsics = constructIntrinsicsMatrix(
+            { fov: fov },
+            this.resolution,
+          );
+          let fx = newIntrinsics[0][0];
+          let fy = newIntrinsics[1][1];
+          let cx = newIntrinsics[0][2];
+          let cy = newIntrinsics[1][2];
+          newIntrinsics = { fx: fx, fy: fy, cx: cx, cy: cy };
+          this.updateIntrinsics(newIntrinsics);
+          this.setCameraVerticalFOV();
+          this.performCameraCalib();
+        }.bind(this),
+      );
+
+      control.$input.id = this.name.concat("-", "fov");
+      this.executeOnControl("fov", (control) => {
+        control[0].domElement.classList.add("disabled");
+      });
+
+      control = this.controlsFolder.addColor(panelSettings, "color").onChange(
         function (value) {
-          this.aspectRatio = value;
+          this.projectionColor = value.toUpperCase();
           this.generateProjectionFrame();
         }.bind(this),
       );
 
+      control = this.controlsFolder
+        .add(panelSettings, "aspect ratio")
+        .onFinishChange(
+          function (value) {
+            this.aspectRatio = value;
+            this.generateProjectionFrame();
+          }.bind(this),
+        );
+    }
+
     control = this.addPoseControls(panelSettings);
-    control = this.addIntrinsicsControls(control, panelSettings);
-    control = this.addDistortionControls(control, panelSettings);
+    if (!this.isPointCloudSensor) {
+      control = this.addIntrinsicsControls(control, panelSettings);
+      control = this.addDistortionControls(control, panelSettings);
+    }
 
     if (this.isStaff) {
       control = this.controlsFolder.add(panelSettings, "save");
       control.$button.id = this.name.concat("-", "save-camera");
       control = this.controlsFolder.add(panelSettings, "delete");
       control.$button.id = this.name.concat("-", "delete-camera");
-      control = this.controlsFolder.add(panelSettings, "auto calibrate");
-      control.$button.id = this.name.concat("-", "auto-calibrate");
-      control.domElement.classList.add("disabled");
+      if (!this.isPointCloudSensor) {
+        control = this.controlsFolder.add(panelSettings, "auto calibrate");
+        control.$button.id = this.name.concat("-", "auto-calibrate");
+        control.domElement.classList.add("disabled");
+      }
     }
 
     if (this.isStoredInDB) control.domElement.classList.add("disabled");
@@ -507,7 +628,36 @@ export default class SceneCamera extends THREE.Object3D {
       }).bind(this),
     );
 
-    this.generateProjectionFrame();
+    if (!this.isPointCloudSensor) {
+      this.generateProjectionFrame();
+      this.stripPointCloudOnlyControls();
+    } else {
+      this.stripCameraOnlyControls();
+    }
+  }
+
+  stripCameraOnlyControls() {
+    for (const prop of CAMERA_ONLY_PANEL_CONTROLS) {
+      this.executeOnControl(prop, (control) => {
+        if (control[0]) control[0].destroy();
+      });
+    }
+    if (this.intrinsicsFolder) {
+      this.intrinsicsFolder.destroy();
+      this.intrinsicsFolder = null;
+    }
+    if (this.distortionFolder) {
+      this.distortionFolder.destroy();
+      this.distortionFolder = null;
+    }
+  }
+
+  stripPointCloudOnlyControls() {
+    for (const prop of POINT_CLOUD_ONLY_PANEL_CONTROLS) {
+      this.executeOnControl(prop, (control) => {
+        if (control[0]) control[0].destroy();
+      });
+    }
   }
 
   createSolidColorPng(color, aspectRatio) {
@@ -636,6 +786,9 @@ export default class SceneCamera extends THREE.Object3D {
 
     if (isConfirmed) {
       camerasFolder.unsetSelectedCamera(this);
+      if (this.pointCloudViz) {
+        this.pointCloudViz.clear();
+      }
       this.scene.remove(this);
       this.deleteFromSceneCameras(this.name);
 
@@ -696,6 +849,35 @@ export default class SceneCamera extends THREE.Object3D {
         }
       }
     });
+  }
+
+  requestPointCloud() {
+    if (!this.mqttClient || !this.appName) return;
+    this.mqttClient.publish(
+      this.appName + CMD_CAMERA + this.name,
+      "getpointcloud",
+    );
+  }
+
+  syncPointCloudPose() {
+    if (!this.pointCloudViz || !this.transformObject) return;
+    // SceneScape stores y-down poses; transformObject is flipped to y-up in THREE.
+    const copyObj = this.transformObject.clone();
+    if (this.flipCoordSystem) this.togglePoseYupYdown(copyObj);
+    this.pointCloudViz.setPoseFromYdown(copyObj.position, copyObj.rotation);
+  }
+
+  projectPointCloudCapture(payload) {
+    if (!this.pointCloudViz || !this.projectPointCloud || this.pausePointCloud) {
+      return;
+    }
+    this.syncPointCloudPose();
+    this.pointCloudViz.setVisible(true);
+    this.pointCloudViz.updateFromPayload(payload);
+    // Request next frame (same request/response pacing as camera projection)
+    if (this.mqttClient) {
+      this.requestPointCloud();
+    }
   }
 
   setVARunning(isRunning) {

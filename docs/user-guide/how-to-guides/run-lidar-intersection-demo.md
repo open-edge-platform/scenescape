@@ -24,7 +24,7 @@ separate, opt-in Scenescape demo that fuses a recorded LiDAR point-cloud
 stream with a recorded camera image sequence of the same real-world
 intersection. It is fully independent from the default apriltag/queuing demo:
 all of its data, scene configuration, and pipeline assets live under
-[sample_data/lidar_intersection/](https://github.com/open-edge-platform/scenescape/tree/release-2026.2.0/sample_data/lidar_intersection)
+[sample_data/lidar_intersection/](../../../sample_data/lidar_intersection)
 and it is started with its own dedicated `make demo-lidar` target, so it
 never affects the standard `make demo` deployment.
 
@@ -53,27 +53,24 @@ never affects the standard `make demo` deployment.
 ## Architecture
 
 ```mermaid
----
-config: {"theme": "dark"}
----
-flowchart TD
+flowchart LR
     subgraph init["One-shot init (run once per volume)"]
-        DataInit["lidar-data-init</br>.pcd -> .bin, copy .jpg"]
-        ModelInit["lidar-model-init</br>build PointPillars"]
-        SceneInit["lidar-scene-init</br>import scene via REST API"]
+        DataInit["lidar-data-init\n.pcd -> .bin, copy .jpg"]
+        ModelInit["lidar-model-init\nbuild PointPillars"]
+        SceneInit["lidar-scene-init\nimport scene via REST API"]
     end
     subgraph vols["Shared Docker volumes"]
-        SampleVol[("vol-sample-data</br>velodyne_bin/, images/")]
-        ModelVol[("vol-models</br>pointpillars_ov_config.json + IR")]
+        SampleVol[("vol-sample-data\nvelodyne_bin/, images/")]
+        ModelVol[("vol-models\npointpillars_ov_config.json + IR")]
     end
     DataInit --> SampleVol
     ModelInit --> ModelVol
 
     subgraph stream["lidar-stream (one gst-launch-1.0 process)"]
         direction LR
-        LidarBranch["multifilesrc(.bin) -> g3dlidarparse</br>-> g3dinference(PointPillars, GPU)</br>-> gvametaconvert -> gvametapublish"]
-        CamBranch["multifilesrc(.jpg) -> jpegdec -> videoconvert</br>-> gvafpsthrottle -> gvadetect(person-vehicle-bike, CPU)</br>-> gvametaconvert -> gvametapublish"]
-        Pub["lidar_publisher.py</br>(reads both FIFOs, builds MQTT messages)"]
+        LidarBranch["multifilesrc(.bin) -> g3dlidarparse\n-> g3dinference(PointPillars, GPU)\n-> gvametaconvert -> gvametapublish"]
+        CamBranch["multifilesrc(.jpg) -> jpegdec -> videoconvert\n-> gvafpsthrottle -> gvadetect(person-vehicle-bike, CPU)\n-> gvametaconvert -> gvametapublish"]
+        Pub["lidar_publisher.py\n(reads both FIFOs, builds MQTT messages)"]
         LidarBranch -->|FIFO| Pub
         CamBranch -->|FIFO| Pub
     end
@@ -81,10 +78,10 @@ flowchart TD
     SampleVol -.-> CamBranch
     ModelVol -.-> LidarBranch
 
-    Pub -->|"scenescape/data/camera/intersection-lidar1</br>(3-D bbox_3d)"| MQTT((MQTT broker))
-    Pub -->|"scenescape/data/camera/intersection-cam1</br>(2-D bounding_box_px)"| MQTT
+    Pub -->|"scenescape/data/camera/intersection-lidar1\n(3-D bbox_3d)"| MQTT((MQTT broker))
+    Pub -->|"scenescape/data/camera/intersection-cam1\n(2-D bounding_box_px)"| MQTT
     SceneInit -.->|imports scene/sensors once| Manager["Manager (web)"]
-    MQTT --> Controller["Scene Controller</br>(fuses LiDAR + camera per-sensor detections)"]
+    MQTT --> Controller["Scene Controller\n(fuses LiDAR + camera per-sensor detections)"]
     Controller -->|"scenescape/regulated/scene/{scene_uid}"| MQTT
     MQTT --> Manager
 ```
@@ -98,7 +95,7 @@ in the steps below watches it).
 ### PointPillars model initialization
 
 `lidar-model-init` runs
-[model_installer/install-pointpillars](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/sample_data/lidar_intersection/model_installer/install-pointpillars),
+[model_installer/install-pointpillars](../../../sample_data/lidar_intersection/model_installer/install-pointpillars),
 which turns a pinned upstream commit into everything `g3dinference` needs at
 runtime, all written into `vol-models`:
 
@@ -112,8 +109,8 @@ runtime, all written into `vol-models`:
 2. **Copy the pretrained IR model**: copies the four
    `pointpillars_ov_*.{xml,bin}` files from that checkout's `pretrained/`
    directory into `vol-models/public/pointpillars/FP16/`.
-3. **Build the OpenVINO™ extension**: compiles
-   `libov_pointpillars_extensions.so` (a custom OpenVINO™ op needed for
+3. **Build the OpenVINO extension**: compiles
+   `libov_pointpillars_extensions.so` (a custom OpenVINO op needed for
    PointPillars' voxelization/scatter layers) via the checkout's own
    `ov_extensions/build.sh`, using a Python with `openvino` installed
    (auto-detected) and `cmake`/`g++` (installed via `apt-get` if missing) -
@@ -134,14 +131,14 @@ clones/builds anything (the several-minutes-first-run cost mentioned in
 - Complete [Installation](../get-started/installation.md) Steps 1-2 (get the
   source and build the container images) at least once.
 - **Download the recorded LiDAR/camera dataset manually** - it is not
-  committed to this repo because it is too large (hundreds of MB of `.pcd`
+  committed to this repo because it's too large (hundreds of MB of `.pcd`
   point clouds and `.jpg` images):
 
 1. Download the [V2X-Seq-SPD-Example](https://drive.google.com/file/d/1gjOmGEBMcipvDzu2zOrO9ex_OscUZMYY/view) `.zip` archive.
 
-   > **Note:** \
-   > **Source:** [Official sample dataset](https://github.com/AIR-THU/DAIR-V2X-Seq) provided by Tsinghua University (AIR-THU). The download archive above is a sample subset of the full dataset.\
-   > **Manual Download Required:** Google Drive's virus scan prompt for large files makes scripted downloads (`wget`/`curl`) fail. **Download this file manually** via your browser and move it to your `Scenescape` directory.
+   > 📌 **Source**: Official sample dataset provided by Tsinghua University (AIR-THU).
+
+   > ⚠️ **Manual Download Required**: Google Drive's virus scan prompt for large files makes scripted downloads (`wget`/`curl`) fail. **Please download this file manually** via your browser and move it to your `Scenescape` directory.
 
 2. Extract it so the result is
    `sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side/`,
@@ -172,10 +169,9 @@ full dataset, license terms, and citation details.
   fine without a GPU). Install/verify drivers with the
   [DL Streamer prerequisites script](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/DLS_install_prerequisites.sh)
   (`./DLS_install_prerequisites.sh`) or see the
-  [DL Streamer system requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/system_requirements.html)
-  and [install guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/install/install_guide_ubuntu.html)
+  [DL Streamer system requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/system_requirements.html)
+  and [install guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html)
   for details (NPU is not used by this demo, but the same script covers it).
-
   > **Performance note:** running the LiDAR branch without a GPU
   > (`LIDAR_DEVICE=CPU`, see [Using GPU acceleration](#using-gpu-acceleration))
   > works on any target, but PointPillars 3-D inference on CPU is
@@ -199,7 +195,7 @@ This starts four extra containers, on top of the normal demo services:
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lidar-scene-init` | One-shot: seeds the "Lidar Intersection" scene, camera, and sensor via the Scene Import REST API (idempotent - skips if the scene already exists)                                                                                                                                                                                            |
 | `lidar-data-init`  | One-shot: converts the manually-downloaded raw dataset's `.pcd` LiDAR frames to `.bin` (via `convert_pcd_to_bin.py`) and re-encodes its `.jpg` camera frames at a lower JPEG quality (via `reencode_jpegs.py`) into the shared sample-data volume - only mounts the `image/`/`velodyne/` subdirectories, see [Prerequisites](#prerequisites) |
-| `lidar-model-init` | One-shot: builds and installs the PointPillars OpenVINO™ model + GStreamer inference extension into the shared models volume (first run only; can take several minutes)                                                                                                                                                                      |
+| `lidar-model-init` | One-shot: builds and installs the PointPillars OpenVINO model + GStreamer inference extension into the shared models volume (first run only; can take several minutes)                                                                                                                                                                       |
 | `lidar-stream`     | Long-running: runs both GStreamer pipelines and publishes fused-ready detections over MQTT                                                                                                                                                                                                                                                   |
 
 Check the one-shot containers completed successfully, and that `lidar-stream`
@@ -210,7 +206,7 @@ docker compose ps lidar-scene-init lidar-data-init lidar-model-init lidar-stream
 docker compose logs -f lidar-stream
 ```
 
-You should see log lines similar to:
+You should see log lines like:
 
 ```text
 [lidar-publisher] lidar_sensor=intersection-lidar1 cam_sensor=intersection-cam1 ...
@@ -243,7 +239,7 @@ lidar_intersection data ready
 
 `lidar-model-init` (`docker compose logs lidar-model-init`) builds/installs
 the PointPillars model. On the first run (several minutes: clones
-`openvino_contrib` and compiles the OpenVINO™ extension):
+`openvino_contrib` and compiles the OpenVINO extension):
 
 ```text
 [install-pointpillars] MODELS_PATH=/home/pipeline-server/models
@@ -281,11 +277,11 @@ and finishes in seconds:
 
 `lidar-scene-init` waits for the Manager (`web`) to become healthy, then
 imports
-`sample_data/lidar_intersection/LidarIntersection-scene-import.zip`
+[sample_data/lidar_intersection/LidarIntersection-scene-import.zip](../../../sample_data/lidar_intersection/LidarIntersection-scene-import.zip)
 via the Scene Import REST API (`POST /api/v1/import-scene/`) - no manual
 step, and no Manager source or DB-fixture changes are needed. It checks
 `GET /api/v1/scenes` first and skips the import if a scene named "Lidar
-Intersection" already exists, so it is safe to leave enabled across restarts;
+Intersection" already exists, so it's safe to leave enabled across restarts;
 after a full `make demo-close` (which wipes volumes) it re-imports cleanly
 on the next `make demo-lidar`.
 
@@ -331,6 +327,13 @@ Open the **Lidar Intersection** scene in the UI:
   are currently contributing to a given tracked object; a vehicle or cyclist
   seen by both sensors is fused into a single tracked mark rather than
   appearing twice.
+- **Point cloud projection** (3D UI): open the `intersection-lidar1` camera
+  panel and enable **project point cloud** (or use **project all sensors**
+  under Cameras). The live LiDAR frame is requested over MQTT
+  (`getpointcloud` → `scenescape/pointcloud/camera/{id}`) and rendered as a
+  colored `THREE.Points` cloud in scene coordinates, using the same sensor
+  pose as detections. Adjust **point size** and **point cloud opacity** as
+  needed; **pause point cloud** freezes the last frame.
 - **2D view**: switching to `intersection-cam1` shows the replayed camera
   frames with 2-D detection boxes overlaid. `intersection-lidar1` has no
   camera picture and always shows offline/no-preview in this view - that is
@@ -376,7 +379,7 @@ camera detector to also use the GPU.
 voxel-based 3-D CNN, noticeably heavier than the 2-D `person-vehicle-bike`
 detector the camera branch uses, and it runs in the same `gst-launch-1.0`
 process/host that also has to keep decoding and detecting camera frames.
-On CPU, PointPillars inference routinely cannot keep up with the default
+On CPU, PointPillars inference routinely can't keep up with the default
 `LIDAR_FRAME_RATE=10`. The
 [pace gate](#lidarcamera-stream-synchronization-recorded-playback-only)
 keeps `lag` bounded, so the symptom is not runaway lag but **both** branches'
@@ -399,15 +402,16 @@ variables (see the commented examples in
 | Variable                  | Default               | Description                                                                                    |
 | ------------------------- | --------------------- | ---------------------------------------------------------------------------------------------- |
 | `LIDAR_SENSOR_ID`         | `intersection-lidar1` | Sensor id used for the MQTT topic and payload                                                  |
-| `LIDAR_DEVICE`            | `GPU`                 | OpenVINO™ device for PointPillars inference (`CPU` fallback is much slower)                    |
+| `LIDAR_DEVICE`            | `GPU`                 | OpenVINO device for PointPillars inference (`CPU` fallback is much slower)                     |
 | `LIDAR_SCORE_THRESHOLD`   | `0.70`                | Minimum detection confidence to publish                                                        |
 | `LIDAR_FRAME_RATE`        | `10`                  | Target playback frame rate                                                                     |
 | `LIDAR_LOOP`              | `true`                | Loop the recorded frame sequence                                                               |
 | `CAM_SENSOR_ID`           | `intersection-cam1`   | Sensor id used for the MQTT topic and payload                                                  |
-| `CAM_DEVICE`              | `CPU`                 | OpenVINO™ device for the camera detector                                                       |
+| `CAM_DEVICE`              | `CPU`                 | OpenVINO device for the camera detector                                                        |
 | `CAM_SCORE_THRESHOLD`     | `0.8`                 | Minimum detection confidence to publish                                                        |
 | `CAM_DETECTION_LABELS`    | `vehicle,cyclist`     | Comma-separated category allow-list                                                            |
 | `LIDAR_CAM_LAG_TOLERANCE` | `2`                   | Max frames one branch may run ahead of the other before it is paced back (keeps `lag` bounded) |
+| `LIDAR_VIZ_MAX_POINTS`    | `40000`               | Max points returned per `getpointcloud` request for 3D UI visualization                        |
 
 `lidar-data-init` (the dataset conversion step) has its own variable, set as
 a `docker compose`/Makefile-level environment variable rather than inside
@@ -471,11 +475,11 @@ directly) to keep this behavior.
 `lidar_publisher.py` replays two independent pre-recorded file sequences (the
 `.bin` LiDAR frames and the `.jpg` camera frames) as two branches of one
 `gst-launch-1.0` process, each paced by its own `multifilesrc`/
-`gvafpsthrottle`. PointPillars can take several seconds to load and compile
-on first use, while the camera branch starts producing frames almost
-immediately. Without extra coordination, the camera branch would race ahead
-of the LiDAR branch by a growing number of file-index positions before LiDAR
-ever publishes its first detection.
+`gvafpsthrottle`. Because PointPillars can take several seconds to load and
+compile on first use while the camera branch starts producing frames almost
+immediately, the camera branch would otherwise race ahead of the LiDAR
+branch by a growing number of file-index positions before LiDAR ever
+publishes its first detection.
 
 To keep the two recorded sequences aligned, the script:
 
@@ -494,39 +498,24 @@ To keep the two recorded sequences aligned, the script:
   frame in `docker compose logs lidar-stream`, so you can see at a glance
   whether the two streams are keeping pace with each other.
 
-The gate uses **file index**, not independent per-branch rates, because the
-V2X-Seq-SPD recording captured both sensors at the same ~10 Hz. LiDAR file
-index `i` and camera file index `i` already correspond to the same recorded
-instant, which is why `LIDAR_FRAME_RATE` and `CAM_FRAME_RATE` both default to
-`10` (`CAM_FRAME_RATE` defaults to `LIDAR_FRAME_RATE`). Bounding the two
-branches' file-index lag is therefore equivalent to keeping them wall-clock
-aligned: throttling the faster branch to whatever rate the slower branch
-(usually LiDAR inference) can sustain reproduces the original recorded
-pairing, instead of pairing a live camera frame with a stale or skipped LiDAR
-frame from a different point in the clip.
-
-That 1:1 index-to-time correspondence holds only because this dataset's two
-sequences are pre-aligned. It is not a general substitute for real,
-independently-clocked sensors.
-
 **This is purely a recorded-playback artifact and does not apply to real
 sensors.** A real LiDAR unit and a real camera each publish their own
-hardware/NTP-timestamped detections continuously and independently. There is
-no shared file-index / `multifilesrc` counter to keep aligned, and no
-GPU-model-load-vs-camera-startup race to reconcile: a live LiDAR sensor is
-already producing detections well before (and after) any given camera comes
-online. The Scene Controller's per-sensor Hungarian association and fusion
-already handles sensors that start, stop, or report at different rates. The
-script-level startup-flush and pace-gate logic exists only to make a
-pre-recorded demo behave sensibly, not because live multi-sensor fusion needs
-it.
-
-With the pace gate, `lag` stays bounded to roughly
-`±LIDAR_CAM_LAG_TOLERANCE` once the demo is running. If you see it stuck at
+hardware/NTP-timestamped detections continuously and independently as they
+capture live data - there is no shared "file index"/`multifilesrc` counter to
+keep aligned, and no GPU-model-load-vs-camera-startup race to reconcile,
+since a live LiDAR sensor is already running and producing detections
+continuously well before (and after) any given camera comes online. The
+Scene Controller's per-sensor Hungarian association/fusion already handles
+sensors that start, stop, or report at different rates generically - this
+script-level startup-flush/pace-gate logic exists only to make a
+pre-recorded demo behave sensibly, not because live multi-sensor fusion
+needs it. With the pace gate, `lag` stays bounded to roughly
+`±LIDAR_CAM_LAG_TOLERANCE` once the demo is running; if you see it stuck at
 that bound while **both** branches' `fps=` values sit below
-`LIDAR_FRAME_RATE`, one branch cannot keep up and is holding the other back
-(see [Using GPU acceleration](#using-gpu-acceleration)). Raise the LiDAR to
-GPU or lower the target frame rate rather than letting the two drift apart.
+`LIDAR_FRAME_RATE`, that means one branch genuinely can't keep up and is
+holding the other back (see
+[Using GPU acceleration](#using-gpu-acceleration)) - raise the LiDAR to GPU
+or lower the target frame rate rather than letting the two drift apart.
 
 ## Troubleshooting
 
@@ -571,7 +560,7 @@ lidar-scene-init` if needed.
   `docker compose logs lidar-stream` for frame-read errors, and confirm
   `lidar-data-init` completed (the preview needs the same extracted `.jpg`
   frames as detection). `intersection-lidar1` has no camera picture and will
-  always show offline/no-preview - that is expected for a LiDAR sensor.
+  always show offline/no-preview - that's expected for a LiDAR sensor.
 - **`cam=... (lag=...)` grows past `±LIDAR_CAM_LAG_TOLERANCE` in `docker
 compose logs lidar-stream`:** the bidirectional pace gate normally holds
   `lag` within roughly `±LIDAR_CAM_LAG_TOLERANCE` (default 2). A brief
@@ -579,7 +568,7 @@ compose logs lidar-stream`:** the bidirectional pace gate normally holds
   `lag` that keeps growing means the gate is not engaging - check that neither branch has
   crashed (`[camera-publisher]`/`[lidar-publisher] FATAL`/`Done` lines). If
   `lag` instead sits pinned at the tolerance while **both** `fps=` values are
-  below `LIDAR_FRAME_RATE`, the streams are aligned but one branch cannot keep
+  below `LIDAR_FRAME_RATE`, the streams are aligned but one branch can't keep
   up - see
   [LiDAR/camera stream synchronization](#lidarcamera-stream-synchronization-recorded-playback-only)
   and [Using GPU acceleration](#using-gpu-acceleration) (usually the LiDAR
