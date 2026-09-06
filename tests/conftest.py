@@ -1103,17 +1103,28 @@ DEMO_SCENE_MAP = "sample_data/HazardZoneSceneLarge.png"
 DEMO_SCENE_SCALE = 100.0
 DEMO_SCENE_CAMERAS = ("camera1", "camera2", "camera3")
 DEMO_CAMERA_TRANSFORM_TYPE = "euler"
-# Resolution and intrinsics of the seeded demo cameras.
-DEMO_CAMERA_RESOLUTION = {'width': 640, 'height': 480}
+# Resolution of the seeded demo cameras.
+DEMO_CAMERA_RESOLUTION = [640, 480]
 DEMO_CAMERA_INTRINSICS = {'fov': 70}
-# translation (x, y, z), rotation (x, y, z in degrees), scale (x, y, z).
 # Each seeded camera views the map from a different angle, so they must not
 # share one calibration.  Used for any camera name not listed here.
-DEMO_CAMERA_TRANSFORMS = [0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
-DEMO_CAMERA_TRANSFORMS_BY_NAME = {
-  "camera1": DEMO_CAMERA_TRANSFORMS,
-  "camera2": [1.0, 0.0, 5.0, 0.0, 0.0, 90.0, 1.0, 1.0, 1.0],
-  "camera3": [0.0, 1.0, 5.0, 0.0, 0.0, 180.0, 1.0, 1.0, 1.0],
+DEMO_CAMERA_POSE = {
+  'translation': [0.0, 0.0, 5.0],
+  'rotation': [0.0, 0.0, 0.0],
+  'scale': [1.0, 1.0, 1.0],
+}
+DEMO_CAMERA_POSE_BY_NAME = {
+  "camera1": DEMO_CAMERA_POSE,
+  "camera2": {
+    'translation': [1.0, 0.0, 5.0],
+    'rotation': [0.0, 0.0, 90.0],
+    'scale': [1.0, 1.0, 1.0],
+  },
+  "camera3": {
+    'translation': [0.0, 1.0, 5.0],
+    'rotation': [0.0, 0.0, 180.0],
+    'scale': [1.0, 1.0, 1.0],
+  },
 }
 # Seconds to wait for a REST object to become readable.
 _SCENE_READY_TIMEOUT = 30
@@ -1351,10 +1362,9 @@ def scene_factory(params):
             'sensor_id': camera,
             'scene': scene['uid'],
             'transform_type': DEMO_CAMERA_TRANSFORM_TYPE,
-            'transforms': DEMO_CAMERA_TRANSFORMS_BY_NAME.get(
-              camera, DEMO_CAMERA_TRANSFORMS),
             'resolution': DEMO_CAMERA_RESOLUTION,
             'intrinsics': DEMO_CAMERA_INTRINSICS,
+            **DEMO_CAMERA_POSE_BY_NAME.get(camera, DEMO_CAMERA_POSE),
           }),
           f"creating camera '{camera}'")
         assert created, f"scene_factory failed creating camera '{camera}': " \
