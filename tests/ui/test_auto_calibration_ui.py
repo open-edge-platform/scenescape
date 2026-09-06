@@ -11,6 +11,7 @@ from tests.ui import UserInterfaceTest
 from tests.ui import common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_AUTOCALIBRATION,
@@ -251,6 +252,7 @@ def get_calibration_points_from_js(browser, canvas_type):
   print(f"Calibration points from {canvas_type}:", points)
   return points
 
+@pytest.mark.test_name("NEX-T15710")
 @common.mock_display
 def test_april_tag(scenescape_env, request, record_xml_attribute):
   """! Checks that a user can setup a scene with april tags.
@@ -259,7 +261,6 @@ def test_april_tag(scenescape_env, request, record_xml_attribute):
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T15710"
-  record_xml_attribute("name", TEST_NAME)
 
   test = AprilTagCalibrationTest(TEST_NAME, request, record_xml_attribute)
   test.execute_test()

@@ -64,6 +64,7 @@ class _FPSCollector:
     return round(self.average_fps)
 
 
+@pytest.mark.test_name("NEX-T10412")
 def test_inference_performance(scenescape_env, request):
   """NEX-T10412: verify DLStreamer inference FPS meets threshold."""
   auth = request.config.getoption("auth")

@@ -9,6 +9,7 @@ from tests.ui import UserInterfaceTest
 from tests.ui import common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS,
@@ -79,6 +80,7 @@ class RegistrationErrorHandlingTest(UserInterfaceTest):
     else:
       print("Autocalibration label or button state is incorrect after a synchronous registration error.")
 
+@pytest.mark.test_name("NEX-T27164")
 @common.mock_display
 def test_registration_error_status_handled(request, record_xml_attribute, scenescape_env):
   """! Checks that a synchronous registration-error response (no register_result socket
@@ -89,7 +91,6 @@ def test_registration_error_status_handled(request, record_xml_attribute, scenes
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T27164"
-  record_xml_attribute("name", TEST_NAME)
 
   test = RegistrationErrorHandlingTest(TEST_NAME, request, record_xml_attribute)
   test.execute_test()
