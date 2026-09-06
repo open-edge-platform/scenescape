@@ -235,15 +235,7 @@ void MultiModelKalmanEstimator::predictState(const double deltaT)
 void MultiModelKalmanEstimator::singleModelCorrect(const TrackedObject &measurement)
 {
   auto newMeasurement = measurement;
-  if (orientation::hasOrientation(measurement))
-  {
-    newMeasurement.yaw = mCurrentState.previousYaw - rv::deltaTheta(measurement.yaw, mCurrentState.previousYaw);
-  }
-  else
-  {
-    // Camera / non-orienting sensors: zero yaw innovation so predicted yaw holds.
-    newMeasurement.yaw = mCurrentState.yaw;
-  }
+  orientation::prepareYawMeasurement(mCurrentState, newMeasurement);
   auto correctedState = mKalmanFilters[0]->correct(newMeasurement.measurementVector());
 
   mCurrentState.errorCovariance = mKalmanFilters[0]->getErrorCov();
@@ -252,7 +244,7 @@ void MultiModelKalmanEstimator::singleModelCorrect(const TrackedObject &measurem
   mCurrentState.classification = rv::tracking::classification::combine(mCurrentState.classification , measurement.classification);
   const TrackedObject priorState = mCurrentState;
   mCurrentState.attributes = measurement.attributes;
-  orientation::mergeOrientationAttributes(priorState, measurement, mCurrentState);
+  orientation::mergeOrientationAttributes(priorState, newMeasurement, mCurrentState);
   mCurrentState.corrected = true;
 }
 
@@ -264,14 +256,7 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
   }
 
   auto newMeasurement = measurement;
-  if (orientation::hasOrientation(measurement))
-  {
-    newMeasurement.yaw = mCurrentState.previousYaw - rv::deltaTheta(measurement.yaw, mCurrentState.previousYaw);
-  }
-  else
-  {
-    newMeasurement.yaw = mCurrentState.yaw;
-  }
+  orientation::prepareYawMeasurement(mCurrentState, newMeasurement);
 
   std::vector<cv::Mat> states;
   std::vector<cv::Mat> covariances;
@@ -306,7 +291,7 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
   mCurrentState.classification = rv::tracking::classification::combine(mCurrentState.classification , measurement.classification);
   const TrackedObject priorState = mCurrentState;
   mCurrentState.attributes = measurement.attributes;
-  orientation::mergeOrientationAttributes(priorState, measurement, mCurrentState);
+  orientation::mergeOrientationAttributes(priorState, newMeasurement, mCurrentState);
 
   mCurrentState.corrected = true;
 }

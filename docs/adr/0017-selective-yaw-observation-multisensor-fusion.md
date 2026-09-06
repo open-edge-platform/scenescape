@@ -54,13 +54,21 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
 
 | Track condition | Published orientation |
 | --- | --- |
-| Linked detection has detector rotation and \|velocity heading − Kalman yaw\| ≤ ~90° | Kalman-filtered yaw → quaternion |
-| Linked detection has detector rotation and velocity heading disagrees by more than ~90° while speed ≥ 1 m/s | **Publish velocity heading** (guards PointPillars flips / bad association on curves) |
-| `orientation_observed` / `has_orientation`, linked detection **non-orienting**, and \|velocity heading − Kalman yaw\| ≤ ~0.6 rad (while moving) | Kalman-filtered yaw → quaternion |
-| `orientation_observed` / `has_orientation`, linked detection **non-orienting**, and velocity heading disagrees beyond ~0.6 rad while speed ≥ 1 m/s | **Publish velocity heading** (does not write back into Kalman) |
+| Track has `orientation_observed` / orienting link, and \|velocity heading − Kalman yaw\| ≤ ~0.6 rad (or speed &lt; 1 m/s) | Kalman-filtered yaw → quaternion |
+| Track has `orientation_observed` / orienting link, and velocity heading disagrees beyond ~0.6 rad while speed ≥ 1 m/s | **Publish velocity heading** (does not write back into Kalman) |
 | Otherwise | Velocity-inferred heading with existing speed hysteresis |
 
-**Locked rule for velocity heading:** it is a legitimate published orientation for camera-only periods (hysteresis filters flicker), but it is **derived from the same filter’s velocity**. Feeding it back into `correct()` would double-count. CTRV integrates attitude yaw with yaw-rate in the **process** model; when yaw-rate was never observed (brief LiDAR then a camera-driven curve), the publish disagreement rule above covers the visual lag.
+**Locked rule for velocity heading:** it is a legitimate published orientation for camera-only periods (hysteresis filters flicker), but it is **derived from the same filter’s velocity**. Feeding it back into `correct()` would double-count. CTRV integrates attitude yaw with yaw-rate in the **process** model; when yaw-rate was never observed (brief orienting sensor then a camera-driven curve), the publish disagreement rule above covers the visual lag.
+
+### Kinematic yaw gate (modality-agnostic)
+
+Detector yaw from **any** orienting modality can be π-ambiguous or temporarily frozen while XY motion is correct. At Kalman **correct**, when track speed ≥ 1 m/s:
+
+1. Choose `yaw` or `yaw+π` closest to velocity heading (front/back disambiguation).
+2. If the residual to velocity still exceeds ~0.6 rad, **drop the yaw observation for that frame** (same as a non-orienting sensor: zero yaw innovation). Position/size still update.
+3. Do **not** re-fold with box-symmetric `deltaTheta` against a stale `previousYaw` after step 1 — that would undo velocity-aligned π flips.
+
+This lives in RobotVision (`prepareYawMeasurement`), not in modality-specific publishers. Publishers should forward detector rotation as-is.
 
 ```mermaid
 flowchart LR
@@ -94,13 +102,15 @@ flowchart LR
 - Position/size fusion policy remains last-match; only yaw is preferential among orienting sensors.
 - Tracks that never see an orienting sensor still rely on velocity heading (and hysteresis thresholds).
 - Pitch/roll remain display/default constants until a future ADR if 6-DOF measurements appear.
-- Sticky `orientation_observed` does not currently expire; a long camera-only gap after LiDAR still prefers Kalman yaw unless velocity heading disagrees while moving (publish fallback).
+- Sticky `orientation_observed` does not currently expire; a long camera-only gap after an orienting sensor still prefers Kalman yaw unless velocity heading disagrees while moving (publish fallback).
+- Kinematic gate needs usable track velocity (≥ ~1 m/s); slow or stationary objects still accept detector yaw (including π ambiguity via `deltaTheta`).
 
 ## Implementation notes
 
-- C++: `OrientationAttributes.hpp`, selective correct in `MultiModelKalmanEstimator`, `applyOrientingYaw` in `MultipleObjectTracker`, conditional Mahalanobis yaw in `ObjectMatching`.
-- Python: `IntelLabsTracking.to_rv_object` / `from_tracked_object` in `controller/ilabs_tracking.py`.
+- C++: `OrientationAttributes.hpp` (`prepareYawMeasurement` kinematic gate), selective correct in `MultiModelKalmanEstimator`, `applyOrientingYaw` in `MultipleObjectTracker`, conditional Mahalanobis yaw in `ObjectMatching`.
+- Python: `IntelLabsTracking.to_rv_object` / `from_tracked_object` in `controller/ilabs_tracking.py` (unified ~0.6 rad publish disagreement for all linked sensors).
 - Tests: `OrientationFusionTests.cpp`, `tests/sscape_tests/scenescape/test_ilabs_tracking.py`.
+- Publishers (LiDAR demo, external sources, etc.) forward detector rotation without modality-specific yaw smoothing.
 
 ## References
 

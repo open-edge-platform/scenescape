@@ -238,7 +238,12 @@ def _resolve_lidar_label(obj: dict) -> "str | None":
   return None
 
 
-def build_lidar_message(raw: dict, gst_to_wall, fps: float, timestamp: "float | None" = None) -> dict:
+def build_lidar_message(
+  raw: dict,
+  gst_to_wall,
+  fps: float,
+  timestamp: "float | None" = None,
+) -> dict:
   """Wrap PointPillars 3-D detections in SceneScape camera-detection format.
 
   Prefer ``timestamp`` from the publish rendezvous so cam/lidar stay
@@ -246,6 +251,9 @@ def build_lidar_message(raw: dict, gst_to_wall, fps: float, timestamp: "float | 
   use raw GStreamer media time alone: on CPU, PointPillars lags enough that
   those stamps trip the scene controller's max_lag check
   ("FELL BEHIND ... SKIPPING").
+
+  Detector yaw is published as-is; π-ambiguity and kinematic consistency are
+  handled in Scene Controller tracking (modality-agnostic).
   """
   # gst_to_wall kept in signature for call-site symmetry with other builders.
   del gst_to_wall
@@ -263,13 +271,14 @@ def build_lidar_message(raw: dict, gst_to_wall, fps: float, timestamp: "float | 
       sx, sy, sz = lidar_to_scene_offset(
         bbox.get("x", 0.0), bbox.get("y", 0.0), bbox.get("z", 0.0)
       )
+      yaw = float(bbox["yaw"])
       objects.setdefault(label, []).append({
         "id":          i + 1,
         "category":    label,
         "confidence":  obj.get("confidence", 0.0),
         "translation": [sx, sy, sz],
         "size":        [bbox.get("l", 0.0), bbox.get("w", 0.0), bbox.get("h", 0.0)],
-        "rotation":    bbox3d_to_quaternion(float(bbox["yaw"])),
+        "rotation":    bbox3d_to_quaternion(yaw),
         # Lets the UI show which sensor produced this detection.
         "source":      "lidar",
       })

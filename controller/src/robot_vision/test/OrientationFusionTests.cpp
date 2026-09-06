@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 
+#include <rv/Utils.hpp>
 #include <rv/tracking/Classification.hpp>
 #include <rv/tracking/MultipleObjectTracker.hpp>
 #include <rv/tracking/OrientationAttributes.hpp>
@@ -116,4 +117,56 @@ TEST(OrientationFusionTest, OrientationAttributeHelpers)
   rv::tracking::orientation::mergeOrientationAttributes(prior, measurement, out);
   EXPECT_TRUE(rv::tracking::orientation::orientationObserved(out));
   EXPECT_FALSE(rv::tracking::orientation::hasOrientation(out));
+}
+
+TEST(OrientationFusionTest, PrepareYawRejectsInconsistentMotionHeading)
+{
+  rv::tracking::TrackedObject state;
+  state.yaw = 0.0;
+  state.previousYaw = 0.0;
+  state.vx = 5.0;
+  state.vy = 0.0;
+
+  auto measurement = makeDetection(1.0, 0.0, M_PI_2, true);
+  rv::tracking::orientation::prepareYawMeasurement(state, measurement);
+  EXPECT_FALSE(rv::tracking::orientation::hasOrientation(measurement));
+  EXPECT_NEAR(measurement.yaw, state.yaw, 1e-9);
+}
+
+TEST(OrientationFusionTest, PrepareYawFlipsTowardVelocity)
+{
+  rv::tracking::TrackedObject state;
+  state.yaw = 0.0;
+  state.previousYaw = 0.0;
+  state.vx = -5.0;
+  state.vy = 0.0;
+
+  auto measurement = makeDetection(-1.0, 0.0, 0.0, true);
+  rv::tracking::orientation::prepareYawMeasurement(state, measurement);
+  EXPECT_TRUE(rv::tracking::orientation::hasOrientation(measurement));
+  EXPECT_NEAR(std::fabs(rv::angleDifference(measurement.yaw, M_PI)), 0.0, 0.05);
+}
+
+TEST(OrientationFusionTest, MovingTrackIgnoresInconsistentDetectorYaw)
+{
+  auto tracker = makeTracker();
+  // Build velocity with consistent yaw, then feed orthogonal detector yaw.
+  tracker.track({makeDetection(0.0, 0.0, 0.0, true)}, atMs(10));
+  for (int i = 1; i <= 5; ++i)
+  {
+    tracker.track({makeDetection(0.8 * i, 0.0, 0.0, true)}, atMs(10 + 100 * i));
+  }
+  auto tracks = tracker.getReliableTracks();
+  ASSERT_EQ(tracks.size(), 1u);
+  ASSERT_GT(std::hypot(tracks[0].vx, tracks[0].vy), 1.0);
+  const double yawBefore = tracks[0].yaw;
+
+  for (int i = 6; i <= 12; ++i)
+  {
+    tracker.track({makeDetection(0.8 * i, 0.0, M_PI_2, true)}, atMs(10 + 100 * i));
+  }
+
+  tracks = tracker.getReliableTracks();
+  ASSERT_EQ(tracks.size(), 1u);
+  EXPECT_NEAR(tracks[0].yaw, yawBefore, 0.35);
 }
