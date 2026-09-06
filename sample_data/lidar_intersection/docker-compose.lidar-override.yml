@@ -14,6 +14,20 @@
 # step-by-step guide.
 
 services:
+  # Chrony-in-Docker often cannot step the container clock and serves NTP
+  # ~1s ahead of wall time. Lidar/cam publishers stamp with wall clock, so
+  # the controller's default --maxlag 1.0 drops every detection ("FELL
+  # BEHIND ... SKIPPING") and the UI shows no tracks. Match hierarchy
+  # compose: accept skew and rewrite stamps that still exceed the budget.
+  scene:
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --ntp ntpserv
+      --rewriteBadTime
+      --maxlag 3
+
   # Seeds the "Lidar Intersection" scene, camera, and sensor via
   # Scenescape's existing Scene Import REST API (POST /api/v1/import-scene/)
   # so no Manager source or DB-fixture changes are needed. Skips the import

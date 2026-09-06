@@ -111,6 +111,61 @@ def make_gst_to_wall():
   return _gst_to_wall
 
 
+# Hold MQTT publish until both streams have detections for the same
+# pace-gated frame index, then stamp them with one wall time. Without this,
+# PointPillars lag (~1-2s) makes cam/lidar land in different scene time-chunks
+# so the batched Hungarian association never sees them together.
+_PUBLISH_PAIR = ("camera-publisher", "lidar-publisher")
+_rendezvous_lock = threading.Lock()
+_rendezvous_cond = threading.Condition(_rendezvous_lock)
+_rendezvous_ready: "dict[int, dict[str, dict]]" = {}
+_RENDEZVOUS_TIMEOUT = float(os.environ.get("LIDAR_PUBLISH_SYNC_TIMEOUT", "5.0"))
+
+
+def rendezvous_stamp_message(name: str, frame_index: int, msg: dict) -> dict:
+  """Block until the sibling stream is ready for ``frame_index``, then share one timestamp.
+
+  Both sides must leave on the same shared stamp. The previous "first ready
+  pops and returns" path left the late waiter with an empty slot, so it fell
+  through to the full timeout every frame (~5s MQTT cadence).
+  """
+  with _rendezvous_cond:
+    slot = _rendezvous_ready.setdefault(frame_index, {})
+    slot[name] = msg
+    _rendezvous_cond.notify_all()
+    deadline = time.time() + _RENDEZVOUS_TIMEOUT
+    while True:
+      if "_shared_ts" in slot:
+        break
+      siblings = [n for n in _PUBLISH_PAIR if n != name]
+      sibling_ready = all(s in slot for s in siblings)
+      sibling_gone = any(_stream_finished.get(s, False) for s in siblings)
+      if sibling_ready or sibling_gone or name not in _PUBLISH_PAIR:
+        break
+      remaining = deadline - time.time()
+      if remaining <= 0:
+        break
+      _rendezvous_cond.wait(timeout=remaining)
+
+    # Stamp once per frame index so early/late leavers publish the same time.
+    if "_shared_ts" not in slot:
+      slot["_shared_ts"] = _make_timestamp(time.time())
+      for key in _PUBLISH_PAIR:
+        pending = slot.get(key)
+        if isinstance(pending, dict):
+          pending["timestamp"] = slot["_shared_ts"]
+      _rendezvous_cond.notify_all()
+
+    out = slot.pop(name, msg)
+    if isinstance(out, dict):
+      out["timestamp"] = slot.get("_shared_ts", out.get("timestamp")) or _make_timestamp(time.time())
+    if not any(k in _PUBLISH_PAIR for k in slot):
+      _rendezvous_ready.pop(frame_index, None)
+    for idx in [i for i in _rendezvous_ready if i < frame_index - 50]:
+      del _rendezvous_ready[idx]
+    return out
+
+
 # ── Coordinate transform (LiDAR only) ──────────────────────────────────────────
 # SceneScape sensor poses (CameraPose / 3D UI) use an OpenCV-like frame:
 #   X right, Y down, Z forward.
@@ -167,16 +222,18 @@ def _resolve_lidar_label(obj: dict) -> "str | None":
   return None
 
 
-def build_lidar_message(raw: dict, gst_to_wall, fps: float) -> dict:
+def build_lidar_message(raw: dict, gst_to_wall, fps: float, timestamp: "float | None" = None) -> dict:
   """Wrap PointPillars 3-D detections in SceneScape camera-detection format.
 
-  Use wall-clock timestamps (same as the camera branch). On CPU, PointPillars
-  inference lags media time enough that GStreamer-based stamps are rejected by
-  the scene controller's max_lag check ("FELL BEHIND ... SKIPPING").
+  Prefer ``timestamp`` from the publish rendezvous so cam/lidar stay
+  temporally aligned for scene time-chunking. Fall back to wall clock. Do not
+  use raw GStreamer media time alone: on CPU, PointPillars lags enough that
+  those stamps trip the scene controller's max_lag check
+  ("FELL BEHIND ... SKIPPING").
   """
   # gst_to_wall kept in signature for call-site symmetry with other builders.
   del gst_to_wall
-  ts = _make_timestamp(time.time())
+  ts = _make_timestamp(time.time() if timestamp is None else timestamp)
 
   objects: dict = {}
   for i, obj in enumerate(raw.get("objects", [])):
@@ -206,9 +263,9 @@ def build_lidar_message(raw: dict, gst_to_wall, fps: float) -> dict:
   return {"id": LIDAR_SENSOR_ID, "timestamp": ts, "rate": round(fps, 2), "objects": objects}
 
 
-def build_camera_message(raw: dict, gst_to_wall, fps: float) -> dict:
+def build_camera_message(raw: dict, gst_to_wall, fps: float, timestamp: "float | None" = None) -> dict:
   """Wrap gvametaconvert 2-D detections in SceneScape camera-detection format."""
-  ts = _make_timestamp(time.time())
+  ts = _make_timestamp(time.time() if timestamp is None else timestamp)
 
   objects: dict = {}
   for i, item in enumerate(raw.get("objects", [])):
@@ -448,7 +505,10 @@ _stream_finished: "dict[str, bool]" = {"lidar-publisher": False, "camera-publish
 _stream_counts_cond = threading.Condition()
 
 # Max frames one branch may run ahead of the other before it is paced back.
-LAG_TOLERANCE = max(1, int(os.environ.get("LIDAR_CAM_LAG_TOLERANCE", "2")))
+# Must stay at 1 while publish rendezvous keys on the in-flight frame index:
+# tolerance 2 lets the fast side enter rendezvous(N+1) while the slow side is
+# still blocked in rendezvous(N), so they never meet and both hit the 5s timeout.
+LAG_TOLERANCE = max(1, int(os.environ.get("LIDAR_CAM_LAG_TOLERANCE", "1")))
 
 
 def _sibling(name: str) -> str:
@@ -460,6 +520,9 @@ def _mark_stream_finished(name: str) -> None:
   with _stream_counts_cond:
     _stream_finished[name] = True
     _stream_counts_cond.notify_all()
+  # Also wake any rendezvous waiter blocked on this stream.
+  with _rendezvous_cond:
+    _rendezvous_cond.notify_all()
 
 
 def _record_frame(name: str, published: int) -> None:
@@ -567,7 +630,9 @@ def run_stream(
         fps = 0.9 * fps + 0.1 * (1.0 / max(now - last_ts, 0.001))
       last_ts = now
 
+      # Build first, then rendezvous so cam+lidar MQTT arrive together for fusion.
       msg = build_message(raw, gst_to_wall, fps)
+      msg = rendezvous_stamp_message(name, published, msg)
 
       if sum(len(v) for v in msg["objects"].values()) > 0:
         client = safe_publish(client, name, topic, json.dumps(msg), on_connect_setup=resubscribe)
