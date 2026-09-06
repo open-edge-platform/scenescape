@@ -105,7 +105,7 @@ def main():
 
     parser.add_argument(
         "path",
-        help="Path to markdown files to check",
+        help="Path to the JUnit/xUnit XML results file",
         type=str,
         action="store")
 
