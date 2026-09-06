@@ -10,7 +10,8 @@ import numpy as np
 import robot_vision as rv
 
 from controller.moving_object import (DEFAULT_EDGE_LENGTH,
-                                      DEFAULT_TRACKING_RADIUS)
+                                      DEFAULT_TRACKING_RADIUS,
+                                      SPEED_THRESHOLD_ON)
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC,
@@ -50,6 +51,28 @@ def _quaternion_to_yaw(rotation):
 def _yaw_to_quaternion(yaw):
   """Return an ``[x, y, z, w]`` quaternion for a Z-axis-only ``yaw`` in radians."""
   return [0.0, 0.0, math.sin(yaw / 2.0), math.cos(yaw / 2.0)]
+
+
+# When sticky Kalman yaw lags a smooth camera-driven turn (common under
+# intermittent LiDAR), prefer velocity heading for publish. Below this
+# absolute yaw error, keep the filtered orienting-sensor yaw.
+YAW_VELOCITY_DISAGREE_RAD = 0.6
+
+
+def _wrap_angle(angle):
+  """Wrap an angle in radians to ``(-pi, pi]``."""
+  return (angle + math.pi) % (2.0 * math.pi) - math.pi
+
+
+def _kalman_yaw_disagrees_with_velocity(tracked_object,
+                                       min_speed=SPEED_THRESHOLD_ON,
+                                       max_agree_rad=YAW_VELOCITY_DISAGREE_RAD):
+  """True when motion heading and Kalman yaw diverge while the object is moving."""
+  speed = math.hypot(tracked_object.vx, tracked_object.vy)
+  if speed < min_speed:
+    return False
+  velocity_heading = math.atan2(tracked_object.vy, tracked_object.vx)
+  return abs(_wrap_angle(velocity_heading - tracked_object.yaw)) > max_agree_rad
 
 
 class IntelLabsTracking(Tracking):
@@ -191,6 +214,10 @@ class IntelLabsTracking(Tracking):
     # detection is a camera without rotation. Velocity heading is a published
     # fallback only — never fed back as a Kalman yaw measurement. Apply after
     # setPrevious so rotation_from_velocity chain copy cannot overwrite it.
+    #
+    # Exception: during cam/lidar oscillation on a smooth curve, sticky yaw
+    # can freeze while XY follows the turn. If this frame is non-orienting and
+    # velocity heading disagrees with Kalman yaw, publish velocity heading.
     attrs = tracked_object.attributes or {}
     use_kalman_yaw = (
       attrs.get('orientation_observed') == 'true'
@@ -209,7 +236,19 @@ class IntelLabsTracking(Tracking):
       sscape_object.setGID(object_uuid)
 
     if use_kalman_yaw:
-      sscape_object.rotation = _yaw_to_quaternion(tracked_object.yaw)
+      # Camera-linked frames: fall back at ~0.6 rad. Orienting frames still
+      # prefer LiDAR unless the conflict is extreme (≈90°+), which usually
+      # means a PointPillars flip or bad association during a curve.
+      disagree_limit = (
+        math.pi / 2.0 if sscape_object.has_detection_rotation
+        else YAW_VELOCITY_DISAGREE_RAD
+      )
+      if _kalman_yaw_disagrees_with_velocity(tracked_object,
+                                             max_agree_rad=disagree_limit):
+        heading = math.atan2(tracked_object.vy, tracked_object.vx)
+        sscape_object.rotation = _yaw_to_quaternion(heading)
+      else:
+        sscape_object.rotation = _yaw_to_quaternion(tracked_object.yaw)
     else:
       sscape_object.inferRotationFromVelocity()
 

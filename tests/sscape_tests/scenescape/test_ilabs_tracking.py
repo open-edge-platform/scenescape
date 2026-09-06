@@ -91,14 +91,14 @@ def test_yaw_to_quaternion_produces_z_axis_only_quaternion(yaw):
   assert quaternion == pytest.approx([0.0, 0.0, math.sin(yaw / 2.0), math.cos(yaw / 2.0)])
 
 
-def _make_tracked_object(uuid_value, yaw=0.0, attributes=None):
+def _make_tracked_object(uuid_value, yaw=0.0, attributes=None, vx=0.1, vy=0.2):
   attrs = {'info': uuid_value}
   if attributes:
     attrs.update(attributes)
   return SimpleNamespace(
     attributes=attrs,
     x=1.0, y=2.0, z=0.0,
-    vx=0.1, vy=0.2,
+    vx=vx, vy=vy,
     yaw=yaw,
     id=42,
   )
@@ -146,6 +146,60 @@ def test_from_tracked_object_uses_kalman_yaw_when_orientation_observed_on_track(
 
   assert result.rotation == pytest.approx(_yaw_to_quaternion(yaw))
   assert not hasattr(result, 'velocity_inferred')
+
+
+def test_from_tracked_object_uses_velocity_when_kalman_yaw_lags_turn():
+  """Sticky LiDAR yaw with camera-only curve: publish velocity heading."""
+  kalman_yaw = 0.0
+  # ~1 rad heading while Kalman still points east — matches live turn case.
+  tracked_object = _make_tracked_object(
+    "uuid-turn", yaw=kalman_yaw, vx=4.0, vy=5.0,
+    attributes={'orientation_observed': 'true'})
+  sscape_object = _make_sscape_object("uuid-turn", has_detection_rotation=False,
+                                      rotation=[0.0, 0.0, 0.0, 1.0])
+
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+  tracker.all_tracker_objects = []
+  tracker.uuid_manager = SimpleNamespace(assignID=lambda obj: None)
+
+  result = tracker.from_tracked_object(tracked_object, [sscape_object])
+
+  expected_heading = math.atan2(5.0, 4.0)
+  assert result.rotation == pytest.approx(_yaw_to_quaternion(expected_heading))
+
+
+def test_from_tracked_object_keeps_kalman_yaw_on_orienting_frame_despite_velocity():
+  """Fresh LiDAR wins for moderate velocity disagreement (< 90°)."""
+  kalman_yaw = math.pi / 2.0
+  tracked_object = _make_tracked_object(
+    "uuid-lidar", yaw=kalman_yaw, vx=5.0, vy=0.1,
+    attributes={'orientation_observed': 'true', 'has_orientation': 'true'})
+  sscape_object = _make_sscape_object("uuid-lidar", has_detection_rotation=True)
+
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+  tracker.all_tracker_objects = []
+  tracker.uuid_manager = SimpleNamespace(assignID=lambda obj: None)
+
+  result = tracker.from_tracked_object(tracked_object, [sscape_object])
+
+  assert result.rotation == pytest.approx(_yaw_to_quaternion(kalman_yaw))
+
+
+def test_from_tracked_object_overrides_absurd_lidar_yaw_with_velocity():
+  """LiDAR yaw ~180° off motion while moving → publish velocity heading."""
+  kalman_yaw = 0.0
+  tracked_object = _make_tracked_object(
+    "uuid-flip", yaw=kalman_yaw, vx=-5.0, vy=0.0,
+    attributes={'orientation_observed': 'true', 'has_orientation': 'true'})
+  sscape_object = _make_sscape_object("uuid-flip", has_detection_rotation=True)
+
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+  tracker.all_tracker_objects = []
+  tracker.uuid_manager = SimpleNamespace(assignID=lambda obj: None)
+
+  result = tracker.from_tracked_object(tracked_object, [sscape_object])
+
+  assert result.rotation == pytest.approx(_yaw_to_quaternion(math.pi))
 
 
 def test_from_tracked_object_does_not_overwrite_rotation_for_velocity_inferred_rotation():

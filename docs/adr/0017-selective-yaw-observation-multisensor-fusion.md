@@ -54,10 +54,13 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
 
 | Track condition | Published orientation |
 | --- | --- |
-| `orientation_observed` / `has_orientation` (or linked detection has detector rotation) | Kalman-filtered yaw → quaternion; **skip** `inferRotationFromVelocity` |
+| Linked detection has detector rotation and \|velocity heading − Kalman yaw\| ≤ ~90° | Kalman-filtered yaw → quaternion |
+| Linked detection has detector rotation and velocity heading disagrees by more than ~90° while speed ≥ 1 m/s | **Publish velocity heading** (guards PointPillars flips / bad association on curves) |
+| `orientation_observed` / `has_orientation`, linked detection **non-orienting**, and \|velocity heading − Kalman yaw\| ≤ ~0.6 rad (while moving) | Kalman-filtered yaw → quaternion |
+| `orientation_observed` / `has_orientation`, linked detection **non-orienting**, and velocity heading disagrees beyond ~0.6 rad while speed ≥ 1 m/s | **Publish velocity heading** (does not write back into Kalman) |
 | Otherwise | Velocity-inferred heading with existing speed hysteresis |
 
-**Locked rule for velocity heading:** it is a legitimate published orientation for camera-only periods (hysteresis filters flicker), but it is **derived from the same filter’s velocity**. Feeding it back into `correct()` would double-count. CTRV already couples planar motion and yaw in the **process** model.
+**Locked rule for velocity heading:** it is a legitimate published orientation for camera-only periods (hysteresis filters flicker), but it is **derived from the same filter’s velocity**. Feeding it back into `correct()` would double-count. CTRV integrates attitude yaw with yaw-rate in the **process** model; when yaw-rate was never observed (brief LiDAR then a camera-driven curve), the publish disagreement rule above covers the visual lag.
 
 ```mermaid
 flowchart LR
@@ -91,7 +94,7 @@ flowchart LR
 - Position/size fusion policy remains last-match; only yaw is preferential among orienting sensors.
 - Tracks that never see an orienting sensor still rely on velocity heading (and hysteresis thresholds).
 - Pitch/roll remain display/default constants until a future ADR if 6-DOF measurements appear.
-- Sticky `orientation_observed` does not currently expire; a long camera-only gap after LiDAR still publishes Kalman-predicted yaw rather than falling back to velocity heading.
+- Sticky `orientation_observed` does not currently expire; a long camera-only gap after LiDAR still prefers Kalman yaw unless velocity heading disagrees while moving (publish fallback).
 
 ## Implementation notes
 

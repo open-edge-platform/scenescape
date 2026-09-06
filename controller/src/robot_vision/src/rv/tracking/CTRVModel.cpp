@@ -28,6 +28,10 @@ void CTRVModel::stateConversionFunction(const cv::Mat &x_k, const cv::Mat &u_k, 
   double velocityYaw = atan2(vy, vx);     // Velocity yaw
 
   double nextYaw = velocityYaw + w * deltaT; // Velocity yaw for the next time iteration
+  // Attitude yaw integrates turn rate (CTRV). Previously this state was frozen
+  // on predict, so camera-only curves left published orientation stuck after a
+  // sticky LiDAR observation while XY followed the path.
+  double nextAttitudeYaw = yaw + w * deltaT;
 
   double cosNextYaw = cos(nextYaw);
   double sinNextYaw = sin(nextYaw);
@@ -53,7 +57,7 @@ void CTRVModel::stateConversionFunction(const cv::Mat &x_k, const cv::Mat &u_k, 
   x_kplus1.at<double>(7, 0) = x_k.at<double>(7, 0);   // Length
   x_kplus1.at<double>(8, 0) = x_k.at<double>(8, 0);   // Width
   x_kplus1.at<double>(9, 0) = x_k.at<double>(9, 0);   // Height
-  x_kplus1.at<double>(10, 0) = x_k.at<double>(10, 0); // Yaw
+  x_kplus1.at<double>(10, 0) = nextAttitudeYaw;       // Yaw
   x_kplus1.at<double>(11, 0) = w;                     // Yaw Rate
 
   x_kplus1 += vk; // additive process noise
