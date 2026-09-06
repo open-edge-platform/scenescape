@@ -27,8 +27,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-pytestmark = pytest.mark.preserve_db
-
 _TEST_USER = "general_user"
 _TEST_PASS = "general_pass"
 
@@ -156,7 +154,8 @@ def test_authz_non_superuser_cannot_create_via_plural_endpoints(non_superuser_cl
 
 
 @pytest.mark.test_name("NEX-T23090")
-def test_authz_non_superuser_cannot_update_scene(rest, non_superuser_client, params, result_recorder):
+def test_authz_non_superuser_cannot_update_scene(rest, non_superuser_client, params,
+                                                demo_scene, result_recorder):
   """Verify that an authenticated non-superuser receives HTTP 403 when attempting
   to update a scene via PUT /scene/{uid}."""
 
@@ -179,7 +178,8 @@ def test_authz_non_superuser_cannot_update_scene(rest, non_superuser_client, par
 
 
 @pytest.mark.test_name("NEX-T23091")
-def test_authz_non_superuser_cannot_delete_scene(rest, non_superuser_client, params, result_recorder):
+def test_authz_non_superuser_cannot_delete_scene(rest, non_superuser_client, params,
+                                                demo_scene, result_recorder):
   """Verify that an authenticated non-superuser receives HTTP 403 when attempting
   to delete a scene via DELETE /scene/{uid}."""
 

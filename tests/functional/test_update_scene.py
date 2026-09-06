@@ -29,8 +29,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-pytestmark = pytest.mark.preserve_db
-
 DEMO_SCENE_NAME = "Demo"
 WAIT_TIMEOUT_S = 30
 MEASURE_WINDOW_S = 5   # seconds of continuous publishing per rate phase
@@ -107,7 +105,7 @@ class UpdateSceneTest(RetrackTest):
 
 
 @pytest.fixture
-def demo_scene(params):
+def demo_scene(params, demo_scene):
   """Provide (helper, rest, scene) for Demo scene tests and restore scene
   properties on teardown."""
   helper = UpdateSceneTest(params)
@@ -128,9 +126,13 @@ def demo_scene(params):
 
 
 @pytest.fixture
-def child_scene(params):
+def child_scene(params, demo_scene):
   """Provide (helper, rest) with a child scene set up via helper.setup_scenes,
-  and tear it down on fixture teardown."""
+  and tear it down on fixture teardown.
+
+  ``setup_scenes`` links the Demo scene as the child, so ``demo_scene`` must
+  have created it first.
+  """
   helper = UpdateSceneTest(params)
   rest = helper.make_rest_client()
   helper.setup_scenes(rest)

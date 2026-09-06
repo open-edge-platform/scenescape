@@ -15,7 +15,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def test_sensor_scene_main(params, record_xml_attribute):
+def test_sensor_scene_main(demo_scene, params, record_xml_attribute):
   """! Checks that user can create a sensor without attaching it to a scene.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.

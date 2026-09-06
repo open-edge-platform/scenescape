@@ -15,12 +15,14 @@ Compose stack runs at a time.  Tests are sorted by profile so the
 stack is only restarted when the required profile changes.
 """
 
+import contextlib
 import logging
 import os
 import re
 import socket
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from dataclasses import dataclass
@@ -72,7 +74,6 @@ try:
   import utils.log as _testlog
   from utils import stream_subprocess
   from utils.containers import collect_logs, wait_for_services
-  from utils.profiles import WaitConfig
   _ORCHESTRATION_AVAILABLE = True
 except ImportError:
   pass
@@ -156,111 +157,6 @@ class ScenescapeEnv:
   secrets_dir: str
   supass: str
   hierarchy_ports: dict = None
-
-  def restore_db(self):
-    """Reload the database from the original test archive.
-
-    Flushes all data (keeping the schema), reloads fixture data from
-    the EXAMPLEDB archive, recreates auth users, marks the database
-    as ready, and restarts the scene controller so it picks up the
-    fresh DB state.
-    """
-    logger.info("Restoring database from EXAMPLEDB archive...")
-    manage = "$SCENESCAPE_HOME/manage.py"
-    self.docker.compose.execute(
-      "web",
-      ["sh", "-c", f"python {manage} flush --no-input"],
-      tty=False,
-    )
-    self.docker.compose.execute(
-      "web",
-      ["sh", "-c",
-       "tar xjf $EXAMPLEDB -C /tmp"
-       f" && python {manage} loaddata /tmp/data.json"
-       " && rm -f /tmp/data.json /tmp/meta.json"],
-      tty=False,
-    )
-    self.docker.compose.execute(
-      "web",
-      ["sh", "-c",
-       "find -L /run/secrets -name '*.auth'"
-       f"  -exec python {manage} createuser --skip-existing {{}} \\;"
-       " && DJANGO_SUPERUSER_PASSWORD=$SUPASS"
-       f"    python {manage} createsuperuser"
-       "    --no-input --username=admin"
-       "    --email=admin@domain.com 2>/dev/null || true"],
-      tty=False,
-    )
-
-    self.docker.compose.execute(
-      "web",
-      ["sh", "-c", f"python {manage} updatedbstatus --ready"],
-      tty=False,
-    )
-    logger.info("Database restored.")
-
-    logger.info("Restarting scene controller to refresh cache...")
-    try:
-      from datetime import datetime, timezone
-      import time
-      restart_time = datetime.now(timezone.utc)
-      self.docker.compose.restart("scene")
-      time.sleep(0.5)
-      wait_for_services(
-        self.docker, self.project_name,
-        {"scene": WaitConfig(log_pattern="Subscribed to")},
-        since=restart_time,
-      )
-      logger.info("Scene controller restarted and ready.")
-    except Exception as exc:
-      logger.warning("Scene controller restart failed: %s", exc)
-
-    # Restart the autocalibration service if it is running
-    try:
-      from datetime import datetime, timezone
-      import time
-      containers = self.docker.compose.ps()
-      autocalib_running = any(
-        c.name and "autocalibration" in c.name and "init" not in c.name
-        for c in containers
-      )
-      if autocalib_running:
-        logger.info("Restarting autocalibration service (auth token refresh)...")
-        restart_time = datetime.now(timezone.utc)
-        self.docker.compose.restart("autocalibration")
-        time.sleep(0.5)
-        wait_for_services(
-          self.docker, self.project_name,
-          {"autocalibration": WaitConfig(timeout=120)},
-          since=restart_time,
-        )
-        logger.info("Autocalibration service restarted and ready.")
-    except Exception as exc:
-      logger.warning("Autocalibration restart failed: %s", exc)
-
-    # Restart the analytics service if it is running (its cached REST auth
-    # session is invalidated by the DB flush/reload above, same as autocalibration).
-    try:
-      from datetime import datetime, timezone
-      import time
-      containers = self.docker.compose.ps()
-      analytics_running = any(
-        c.name and "analytics" in c.name and "cluster" not in c.name
-        for c in containers
-      )
-      if analytics_running:
-        logger.info("Restarting analytics service (auth token refresh)...")
-        restart_time = datetime.now(timezone.utc)
-        self.docker.compose.restart("analytics")
-        time.sleep(0.5)
-        wait_for_services(
-          self.docker, self.project_name,
-          {"analytics": WaitConfig(log_pattern="Subscribed to")},
-          since=restart_time,
-        )
-        logger.info("Analytics service restarted and ready.")
-    except Exception as exc:
-      logger.warning("Analytics restart failed: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -966,56 +862,10 @@ def scenescape_env(request, _compose_manager, secrets_dir, supass,
       spec.profile, _spec_visibility_topic(spec), fresh=fresh)
     _inject_options(request.config, spec, secrets_dir, supass, env=env)
 
-  # If a previous test preserved the database (skipped its post-test restore)
-  # and it lived in a different module, restore now so this test starts from the
-  # baseline snapshot. Restores are scoped to the running stack: a profile change
-  # already restarts the stack with a fresh database, and within-module
-  # persistence chains (multiple tests in one file relying on carried-over state)
-  # are intentionally left untouched.
-  if "web" in spec.profile.wait_for and hasattr(env, "restore_db"):
-    preserved = getattr(request.session, "_scenescape_db_preserved", None)
-    if preserved is not None:
-      preserved_module, preserved_profile_key = preserved
-      current_profile_key = f"{spec.profile.name}:{_spec_visibility_topic(spec)}"
-      if preserved_profile_key != current_profile_key:
-        # Stack was restarted on the profile switch; database is already fresh.
-        request.session._scenescape_db_preserved = None
-      elif preserved_module != request.module.__name__:
-        logger.info(
-          "Restoring database before %s: previous module %s preserved it",
-          request.module.__name__, preserved_module,
-        )
-        try:
-          env.restore_db()
-        except Exception as exc:
-          logger.warning("Pre-test DB restore failed: %s", exc)
-        request.session._scenescape_db_preserved = None
-
   yield env
 
   # Collect container logs based on outcome and mode while the stack is still running.
   _collect_container_logs_if_configured(env, request)
-
-  # Restore database after every test so each test starts from an identical
-  # baseline. Only applies to profiles that include a web/database service.
-  # Tests marked with @pytest.mark.preserve_db skip this restore so a following
-  # test in the same module can verify data survives; the preserved state is
-  # recorded so the next test in a different module restores before running.
-  if "web" in spec.profile.wait_for:
-    if _is_final_test(request.node):
-      logger.info("Skipping post-test DB restore: last test of the session")
-      request.session._scenescape_db_preserved = None
-    elif request.node.get_closest_marker("preserve_db"):
-      request.session._scenescape_db_preserved = (
-        request.module.__name__,
-        f"{spec.profile.name}:{_spec_visibility_topic(spec)}",
-      )
-    else:
-      try:
-        env.restore_db()
-      except Exception as exc:
-        logger.warning("Post-test DB restore failed: %s", exc)
-      request.session._scenescape_db_preserved = None
 
 
 # ---------------------------------------------------------------------------
@@ -1215,8 +1065,6 @@ def pytest_configure(config):
 
 from tests.common_test_utils import record_test_result
 
-DEMO_SCENE_UID = "3bc091c7-e449-46a0-9540-29c499bca18c"
-
 
 @pytest.fixture(scope="function", autouse=True)
 def record_test_name(request, record_xml_attribute):
@@ -1245,12 +1093,347 @@ def result_recorder(request):
     record_test_result(test_name, r.exit_code)
 
 
-@pytest.fixture(scope="function")
-def demo_scene(scenescape_env):
-  """Provide the Demo scene UID.
+# ---------------------------------------------------------------------------
+# Scene lifecycle fixtures
+# ---------------------------------------------------------------------------
 
-  Database restoration is handled automatically by the scenescape_env
-  fixture teardown, so every test gets a clean slate regardless of
-  whether it uses this fixture.
+# Properties of the seeded "Demo" scene, reproduced by the demo_scene fixture
+# so tests get identical content on every deployment backend.
+DEMO_SCENE_MAP = "sample_data/HazardZoneSceneLarge.png"
+DEMO_SCENE_SCALE = 100.0
+DEMO_SCENE_CAMERAS = ("camera1", "camera2", "camera3")
+DEMO_CAMERA_TRANSFORM_TYPE = "euler"
+# Resolution of the seeded demo cameras.
+DEMO_CAMERA_RESOLUTION = [640, 480]
+DEMO_CAMERA_INTRINSICS = {'fov': 70}
+# Each seeded camera views the map from a different angle, so they must not
+# share one calibration.  Used for any camera name not listed here.
+DEMO_CAMERA_POSE = {
+  'translation': [0.0, 0.0, 5.0],
+  'rotation': [0.0, 0.0, 0.0],
+  'scale': [1.0, 1.0, 1.0],
+}
+DEMO_CAMERA_POSE_BY_NAME = {
+  "camera1": DEMO_CAMERA_POSE,
+  "camera2": {
+    'translation': [1.0, 0.0, 5.0],
+    'rotation': [0.0, 0.0, 90.0],
+    'scale': [1.0, 1.0, 1.0],
+  },
+  "camera3": {
+    'translation': [0.0, 1.0, 5.0],
+    'rotation': [0.0, 0.0, 180.0],
+    'scale': [1.0, 1.0, 1.0],
+  },
+}
+# Seconds to wait for a REST object to become readable.
+_SCENE_READY_TIMEOUT = 30
+# Seconds to wait for the manager to announce a change on CMD_DATABASE.
+_DB_NOTIFY_TIMEOUT = 20
+# Seconds to wait for a deleted name to disappear from the database.
+_DELETE_SETTLE_TIMEOUT = 15
+
+
+def _try_rest_results(getter, filter_params):
+  """Return "(lookup_succeeded, results)" for a REST list call."""
+  try:
+    response = getter(filter_params)
+  except Exception as exc:
+    logger.warning("scene_factory REST lookup %s failed: %s", filter_params, exc)
+    return False, []
+  if getattr(response, 'errors', None):
+    logger.warning("scene_factory REST lookup %s returned errors: %s",
+                   filter_params, response.errors)
+    return False, []
+  if not response:
+    return True, []
+  try:
+    return True, response.get('results', []) or []
+  except AttributeError:
+    return True, []
+
+
+def _rest_results(getter, filter_params):
+  """Return the "results" list of a REST list call, or [] when it fails."""
+  return _try_rest_results(getter, filter_params)[1]
+
+
+def _wait_for_scene(rest, uid, timeout=_SCENE_READY_TIMEOUT):
+  """Block until scene *uid* is readable over REST.
+
+  REST readability only proves the manager committed the scene; use
+  "_database_watcher" to confirm the controller was told about it.
   """
-  return DEMO_SCENE_UID
+  deadline = time.monotonic() + timeout
+  while True:
+    try:
+      if rest.getScene(uid):
+        return True
+    except Exception:
+      pass
+    if time.monotonic() >= deadline:
+      return False
+    time.sleep(0.5)
+
+
+def _wait_for_cameras(rest, scene_uid, cameras, timeout=_SCENE_READY_TIMEOUT):
+  """Block until every camera is attached to *scene_uid* and calibrated.
+
+  "CamSerializer" derives "transforms" from the camera's scene link and
+  "NonNullSerializer" drops the key entirely when it is None, so the
+  presence of a non-empty "transforms" is the reliable signal that the
+  calibration was accepted.  Tests that assert against calibrated cameras
+  depend on this having happened before they run.
+
+  @return   list    Names of cameras that never became ready.
+  """
+  deadline = time.monotonic() + timeout
+  pending = list(cameras)
+  while True:
+    for name in list(pending):
+      for cam in _rest_results(rest.getCameras, {'name': name}):
+        if cam.get('scene') == scene_uid and cam.get('transforms'):
+          pending.remove(name)
+          break
+    if not pending or time.monotonic() >= deadline:
+      return pending
+    time.sleep(0.5)
+
+
+def _wait_until_absent(getter, name, timeout=_DELETE_SETTLE_TIMEOUT):
+  """Block until no object called *name* is returned by *getter*.
+
+  Only a lookup that actually succeeded can prove absence; a failed one is
+  retried until the deadline so a transient REST error is never mistaken
+  for a successful delete.
+  """
+  deadline = time.monotonic() + timeout
+  while True:
+    found, results = _try_rest_results(getter, {'name': name})
+    if found and not results:
+      return True
+    if time.monotonic() >= deadline:
+      return False
+    time.sleep(0.5)
+
+
+@contextlib.contextmanager
+def _database_watcher(params):
+  """Yield an event set whenever the manager announces a database change.
+
+  The scene controller only reloads its scenes and cameras when the manager
+  announces a change on "CMD_DATABASE".  Waiting for that announcement is
+  the only signal a test has that the controller knows about a REST change.
+
+  Yields None when the broker cannot be reached or subscribed to.  Callers
+  then skip the notification waits instead of burning a timeout per REST
+  call; the REST readiness checks still guarantee the data is committed,
+  they just cannot confirm the controller caught up.
+  """
+  from scene_common.mqtt import PubSub
+
+  received = threading.Event()
+  subscribed = threading.Event()
+  topic = PubSub.formatTopic(PubSub.CMD_DATABASE)
+
+  def _on_database(mqttc, obj, msg):
+    received.set()
+
+  def _on_connected(mqttc, obj, flags, rc):
+    if rc == 0:
+      mqttc.addCallback(topic, _on_database)
+
+  def _on_subscribed(mqttc, obj, mid, granted_qos):
+    subscribed.set()
+
+  client = None
+  watcher = None
+  try:
+    client = PubSub(params['auth'], None, params['rootcert'],
+                    params['broker_url'], params['broker_port'])
+    client.onConnect = _on_connected
+    client.onSubscribe = _on_subscribed
+    client.connect()
+    client.loopStart()
+    if subscribed.wait(_DB_NOTIFY_TIMEOUT):
+      watcher = received
+    else:
+      logger.warning("scene_factory could not subscribe to CMD_DATABASE; "
+                     "scene creation cannot confirm controller readiness")
+  except Exception as exc:
+    logger.warning("scene_factory could not watch CMD_DATABASE: %s", exc)
+  try:
+    yield watcher
+  finally:
+    if client is not None:
+      try:
+        client.loopStop()
+      except Exception:
+        pass
+
+
+def _await_database(watcher, action, description):
+  """Run *action* and wait for the manager to announce it on CMD_DATABASE.
+
+  The event is cleared immediately before the call so a notification left
+  over from an earlier mutation can never satisfy this wait.
+  """
+  if watcher is None:
+    return action()
+  watcher.clear()
+  result = action()
+  if not result:
+    return result
+  if not watcher.wait(_DB_NOTIFY_TIMEOUT):
+    logger.warning("scene_factory saw no CMD_DATABASE notification after %s",
+                   description)
+  return result
+
+
+@pytest.fixture(scope="function")
+def scene_factory(params):
+  """Create scenes (and their cameras) that are removed when the test ends.
+  Usage:
+      scene = scene_factory("my-scene", cameras=["cam-a"])
+      scene_uid = scene["uid"]
+  """
+  from scene_common.rest_client import RESTClient
+
+  rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
+  assert rest.authenticate(params['user'], params['password']), \
+    "scene_factory could not authenticate against the REST API"
+
+  created_scenes = []
+  created_cameras = []
+
+  def _delete_by_name(getter, deleter, kind, name):
+    """Remove pre-existing objects called *name* so creation cannot clash."""
+    for obj in _rest_results(getter, {'name': name}):
+      try:
+        deleter(obj['uid'])
+      except Exception as exc:
+        logger.warning("scene_factory could not delete existing %s '%s' (%s): %s",
+                       kind, name, obj.get('uid'), exc)
+    assert _wait_until_absent(getter, name), \
+      f"scene_factory could not clear existing {kind} named '{name}'"
+
+  def _factory(name, cameras=(), map_image=None, replace=False, **fields):
+    """Create a scene and return the created scene object.
+
+    Every REST mutation is paired with a wait for the manager's
+    CMD_DATABASE announcement, so the scene controller has been told about
+    the scene and its cameras by the time this returns.
+
+    @param  name        Scene name.
+    @param  cameras     Camera names to attach to the scene.
+    @param  map_image   Repo-relative path of a map image to upload.
+    @param  replace     Delete pre-existing objects with the same names first.
+    @param  fields      Extra fields forwarded to the scene create call.
+    """
+    payload = {'name': name}
+    payload.update(fields)
+    if map_image:
+      path = os.path.join(_REPO_ROOT, map_image)
+      with open(path, "rb") as handle:
+        payload['map'] = (path, handle.read())
+
+    with _database_watcher(params) as watcher:
+      if replace:
+        # Cameras first: a camera still attached to the old scene keeps the
+        # name reserved and would make the re-create fail.
+        for camera in cameras:
+          _delete_by_name(rest.getCameras, rest.deleteCamera, "camera", camera)
+        _delete_by_name(rest.getScenes, rest.deleteScene, "scene", name)
+
+      scene = _await_database(watcher, lambda: rest.createScene(payload),
+                              f"creating scene '{name}'")
+      assert scene, f"scene_factory failed creating '{name}': " \
+        f"{scene.statusCode} {getattr(scene, 'errors', None)}"
+      created_scenes.append(scene['uid'])
+
+      assert _wait_for_scene(rest, scene['uid']), \
+        f"scene_factory: scene '{name}' ({scene['uid']}) never became readable"
+
+      for camera in cameras:
+        created = _await_database(
+          watcher,
+          lambda camera=camera: rest.createCamera({
+            'name': camera,
+            'sensor_id': camera,
+            'scene': scene['uid'],
+            'transform_type': DEMO_CAMERA_TRANSFORM_TYPE,
+            'resolution': DEMO_CAMERA_RESOLUTION,
+            'intrinsics': DEMO_CAMERA_INTRINSICS,
+            **DEMO_CAMERA_POSE_BY_NAME.get(camera, DEMO_CAMERA_POSE),
+          }),
+          f"creating camera '{camera}'")
+        assert created, f"scene_factory failed creating camera '{camera}': " \
+          f"{created.statusCode} {getattr(created, 'errors', None)}"
+        created_cameras.append(created['uid'])
+
+      unready = _wait_for_cameras(rest, scene['uid'], cameras)
+      assert not unready, \
+        f"scene_factory: cameras {unready} of scene '{name}' were never " \
+        "attached and calibrated"
+
+    return scene
+
+  yield _factory
+
+  # Cameras first: deleting a scene cascades, but explicit removal keeps
+  # camera names free even if the scene delete fails.
+  for uid in reversed(created_cameras):
+    try:
+      rest.deleteCamera(uid)
+    except Exception as exc:
+      logger.warning("scene_factory could not delete camera %s: %s", uid, exc)
+  for uid in reversed(created_scenes):
+    try:
+      rest.deleteScene(uid)
+    except Exception as exc:
+      logger.warning("scene_factory could not delete scene %s: %s", uid, exc)
+
+
+@pytest.fixture(scope="function")
+def demo_scene(request, scene_factory, params):
+  """Provide a freshly created Demo scene and return its UID.
+
+  The scene reproduces the seeded demo fixture (map, scale and the
+  "camera1"-"camera3" cameras) and is removed again during teardown.
+
+  Because "Scene.id" is "editable=False" the manager always assigns a
+  random UID, so the historical hardcoded demo UID cannot be recreated.
+  This fixture therefore publishes the real UID to every place tests read a
+  scene id from, and restores the previous values on teardown:
+
+  * "--scene_id" on the pytest config, which is what the "Diagnostic"
+    based functional and UI test classes resolve "params['scene_id']" from.
+  * "common_ui_test_utils.TEST_SCENE_ID", used by UI tests to build scene
+    URLs and element selectors.
+
+  A test only has to declare this fixture; no other wiring is needed.
+  """
+  scene = scene_factory(
+    params['scene_name'],
+    cameras=DEMO_SCENE_CAMERAS,
+    map_image=DEMO_SCENE_MAP,
+    replace=True,
+    scale=DEMO_SCENE_SCALE,
+  )
+  uid = scene['uid']
+
+  previous_option = getattr(request.config.option, "scene_id", None)
+  request.config.option.scene_id = uid
+
+  # Only patch the UI helpers when a UI test already imported them.
+  ui_utils = (sys.modules.get("tests.ui.common_ui_test_utils")
+              or sys.modules.get("common_ui_test_utils"))
+  previous_ui_id = getattr(ui_utils, "TEST_SCENE_ID", None) if ui_utils else None
+  if ui_utils is not None:
+    ui_utils.TEST_SCENE_ID = uid
+
+  yield uid
+
+  request.config.option.scene_id = previous_option
+  if ui_utils is not None:
+    ui_utils.TEST_SCENE_ID = previous_ui_id

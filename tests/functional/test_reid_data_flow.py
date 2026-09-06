@@ -236,7 +236,7 @@ def trigger_track_pruning(pubsub, topic_str, camera_id):
   time.sleep(8)
 
 
-def test_reid_no_metadata(params, record_xml_attribute):
+def test_reid_no_metadata(demo_scene, params, record_xml_attribute):
   """
   Test Reid data flow with NO metadata (baseline scenario).
 
@@ -302,7 +302,7 @@ def test_reid_no_metadata(params, record_xml_attribute):
   assert exit_code == 0, "No metadata test failed"
 
 
-def test_reid_only_metadata(params, record_xml_attribute):
+def test_reid_only_metadata(demo_scene, params, record_xml_attribute):
   """
   Test Reid data flow with REID ONLY metadata (no semantic attributes).
 
@@ -395,7 +395,7 @@ def test_reid_only_metadata(params, record_xml_attribute):
   assert exit_code == 0, "Reid-only test failed"
 
 
-def test_reid_semantic_only_metadata(params, record_xml_attribute):
+def test_reid_semantic_only_metadata(demo_scene, params, record_xml_attribute):
   """
   Test Reid data flow with SEMANTIC ONLY metadata (no reid embeddings).
 
@@ -481,7 +481,7 @@ def test_reid_semantic_only_metadata(params, record_xml_attribute):
   assert exit_code == 0, "Semantic-only test failed"
 
 
-def test_reid_combined_metadata(params, record_xml_attribute):
+def test_reid_combined_metadata(demo_scene, params, record_xml_attribute):
   """
   Test Reid data flow with REID + SEMANTIC metadata (complete metadata).
 

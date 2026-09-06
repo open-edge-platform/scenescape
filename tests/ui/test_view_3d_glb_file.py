@@ -76,7 +76,7 @@ def file_visibility_test(params, file_name, base_screenshot, DEBUG):
 
 @pytest.mark.fresh_stack
 @pytest.mark.test_name("NEX-T10427")
-def test_3D_file_upload_visibility(params, result_recorder):
+def test_3D_file_upload_visibility(params, demo_scene, result_recorder):
   """! This test checks that an uploaded .glb file uploaded as a 3D map is visible in Scenescape's 3D view.
   @param    params                  List of test parameters.
   @param    result_recorder         Pytest fixture recording the test result.

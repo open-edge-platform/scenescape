@@ -334,7 +334,7 @@ def run_test(test_name, test_desc, scene_config, params):
   assert exit_code == 0
   return exit_code
 
-def test_reid_unique_count(params, record_xml_attribute):
+def test_reid_unique_count(demo_scene, params, record_xml_attribute):
   """! Tests the unique count for each scene when RE-ID is enabled.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.

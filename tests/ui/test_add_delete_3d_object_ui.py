@@ -25,6 +25,7 @@ def test_add_delete_3d_object(params, record_xml_attribute, repo_root):
   OBJECT_NAME = '3D Object'
   FILE_TO_UPLOAD = f"{repo_root}/tests/ui/test_media/box.glb"
   exit_code = 1
+  browser = None
   try:
     print("Executing: " + TEST_NAME)
     print("Test that the user can create and delete 3D objects.")
@@ -41,7 +42,8 @@ def test_add_delete_3d_object(params, record_xml_attribute, repo_root):
     exit_code = 0
 
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
   return
