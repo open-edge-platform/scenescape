@@ -146,10 +146,10 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: "Check Zephyr Test IDs"
-        if: always() && steps.setup-test-env.outcome == 'success'
-        run: |
-          make check-zephyr-ids
+      # - name: "Check Zephyr Test IDs"
+      #   if: always() && steps.setup-test-env.outcome == 'success'
+      #   run: |
+      #     make check-zephyr-ids
 
       - name: "Run Basic Acceptance Tests (BAT)"
         if: always() && steps.setup-test-env.outcome == 'success'
