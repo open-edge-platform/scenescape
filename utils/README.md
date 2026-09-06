@@ -139,15 +139,14 @@ Reads a JUnit/xUnit XML report and writes each outcome into a test cycle.
 | `-a`, `--jira-token`            | yes      | Personal access token                                            |
 | `-F`, `--folder`                | no       | Comma-separated folders used to build the test case lookup table |
 | `-C`, `--cycle`                 | no       | Cycle name                                                       |
-| `--cycle-key`                   | no       | Cycle key, for example `NEX-Cxxxx`                               |
-| `-x`, `--create-new-executions` | no       | Create new executions                                            |
+| `--cycle-key`                   | no       | Cycle key, for example `NEX-T#####`                              |
 | `--comment`                     | no       | Comment attached to every execution                              |
 | `--debug`                       | no       | Verbose logging                                                  |
 
 ### Result mapping
 
 `libraries/xunit.py` reads the `name` attribute of each `<testcase>` element
-(falling back to `classname`) and extracts a key matching `NEX-\d{5,6}`:
+(falling back to `classname`) and extracts a key matching `NEX-T\d{5,6}`:
 
 | XML child element        | Zephyr status  |
 | ------------------------ | -------------- |
