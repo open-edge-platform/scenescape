@@ -10,6 +10,7 @@ from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+import pytest
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
@@ -109,6 +110,7 @@ def validate_object_crud(browser, file_path=None):
 
   return True
 
+@pytest.mark.test_name("NEX-T10429")
 def test_object_crud(params, record_xml_attribute, repo_root):
   """! Checks that CRUD operations can be performed on an object with and without a 3d model.
   @param    params                  Dict of test parameters.
@@ -117,7 +119,6 @@ def test_object_crud(params, record_xml_attribute, repo_root):
   """
   TEST_NAME = "NEX-T10429"
 
-  record_xml_attribute("name", TEST_NAME)
 
   exit_code = 1
   try:

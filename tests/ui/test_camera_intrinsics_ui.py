@@ -8,6 +8,7 @@ import tests.ui.common_ui_test_utils as common
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 log = get_logger(__name__)
 
@@ -67,6 +68,7 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
       value += step
   return True
 
+@pytest.mark.test_name("NEX-T10415")
 def test_camera_intrinsics_main(params, record_xml_attribute):
   """! Checks that the camera parameters in the web UI can be updated and
   that they persist after saving, for both Camera Save buttons.
@@ -75,7 +77,6 @@ def test_camera_intrinsics_main(params, record_xml_attribute):
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10415"
-  record_xml_attribute("name", TEST_NAME)
   exit_code = 1
 
   try:

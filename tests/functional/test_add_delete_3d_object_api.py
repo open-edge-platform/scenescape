@@ -7,6 +7,7 @@ from http import HTTPStatus
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 log = get_logger(__name__)
 
@@ -17,6 +18,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 TEST_NAME = "NEX-T10428-API"
 
+@pytest.mark.test_name("NEX-T10428")
 def test_add_delete_3d_object_api(rest, result_recorder, repo_root):
   object_name = "3D Object"
   file_path = f"{repo_root}/tests/ui/test_media/box.glb"

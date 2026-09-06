@@ -7,6 +7,7 @@ from tests.utils.log import get_logger
 from http import HTTPStatus
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 log = get_logger(__name__)
 
@@ -17,6 +18,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 TEST_NAME = "NEX-T10396-API"
 
+@pytest.mark.test_name("NEX-T10396")
 def test_sensor_scene_api(rest, result_recorder, demo_scene):
   sensor_id = "test_sensor"
   sensor_name = "Sensor_0"

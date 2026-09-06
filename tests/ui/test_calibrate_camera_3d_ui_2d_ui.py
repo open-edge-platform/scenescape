@@ -8,6 +8,7 @@ from tests.ui import UserInterfaceTest
 from tests.ui.browser import By
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
+import pytest
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
@@ -132,6 +133,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       self.recordTestResult()
     return
 
+@pytest.mark.test_name("NEX-T10562")
 @common.mock_display
 def test_calibrate_camera_3d_ui_2d_ui(scenescape_env, request, record_xml_attribute):
   """! Test to calibrate camera in 3D first and calibrate again camera in 2D using April Tag.
