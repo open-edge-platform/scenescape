@@ -144,11 +144,15 @@ class IntelLabsTracking(Tracking):
     rv_object.length = size[0]
     rv_object.width = size[1]
     rv_object.height = size[2]
-    rv_object.yaw = _quaternion_to_yaw(sscape_object.rotation)
-    rv_object.classification = self.rv_classification(sscape_object.confidence)
-    info = sscape_object.info.copy()
-    info['framecount'] = sscape_object.frameCount
+    # Only pass detector yaw when the sensor provided an orientation. Camera
+    # detections leave yaw unset so Kalman correct can neutralize that axis.
     attributes = {'info': sscape_object.uuid}
+    if sscape_object.has_detection_rotation:
+      rv_object.yaw = _quaternion_to_yaw(sscape_object.rotation)
+      attributes['has_orientation'] = 'true'
+    else:
+      rv_object.yaw = 0.0
+    rv_object.classification = self.rv_classification(sscape_object.confidence)
     attributes.update(self.metadata_to_attributes(sscape_object.metadata))
     rv_object.attributes = attributes
     return rv_object
@@ -182,13 +186,17 @@ class IntelLabsTracking(Tracking):
                                             tracked_object.z)
     sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, 0.0))
 
-    # Only overwrite rotation with the tracker's Kalman-filtered yaw when the
-    # object has a real detector-provided rotation measurement. For
-    # velocity-inferred rotation, self.velocity already comes from this same
-    # Kalman filter, so re-filtering it here would just be smoothing an
-    # already-smoothed signal with no new information gained.
-    if sscape_object.has_detection_rotation:
-      sscape_object.rotation = _yaw_to_quaternion(tracked_object.yaw)
+    # Prefer Kalman yaw whenever the track has received an orienting sensor
+    # update (sticky orientation_observed), even if this frame's linked
+    # detection is a camera without rotation. Velocity heading is a published
+    # fallback only — never fed back as a Kalman yaw measurement. Apply after
+    # setPrevious so rotation_from_velocity chain copy cannot overwrite it.
+    attrs = tracked_object.attributes or {}
+    use_kalman_yaw = (
+      attrs.get('orientation_observed') == 'true'
+      or attrs.get('has_orientation') == 'true'
+      or sscape_object.has_detection_rotation
+    )
 
     sscape_object.rv_id = tracked_object.id
     found = False
@@ -196,10 +204,14 @@ class IntelLabsTracking(Tracking):
       if hasattr(obj, 'rv_id') and sscape_object.rv_id == obj.rv_id:
         found = True
         sscape_object.setPrevious(obj)
-        sscape_object.inferRotationFromVelocity()
         break
     if not found:
       sscape_object.setGID(object_uuid)
+
+    if use_kalman_yaw:
+      sscape_object.rotation = _yaw_to_quaternion(tracked_object.yaw)
+    else:
+      sscape_object.inferRotationFromVelocity()
 
     self.uuid_manager.assignID(sscape_object)
 
