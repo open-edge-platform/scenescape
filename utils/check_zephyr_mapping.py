@@ -3,16 +3,15 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Check that every non-unit pytest test declares a unique Jira Zephyr test ID.
+"""Check that every non-unit test declares a unique, well-formed Jira Zephyr test ID.
 
 Collects tests with ``pytest --collect-only`` and requires each one to declare
-``@pytest.mark.test_name("NEX-T#####")`` with a well-formed key that no other
-test already claims. Jira itself is unreachable from CI, so the keys are only
-validated for shape and uniqueness here; existence is checked at upload time by
-``utils/upload_to_zephyr.py``.
+``@pytest.mark.test_name("NEX-T#####")``. Every violation fails the check.
 
-Known violations are frozen in a baseline file that may only shrink, so new
-breakage fails while the existing backlog is burned down over time.
+Fails on:
+  - missing_id: test declares no test_name marker
+  - invalid_id: marker value doesn't match the pattern ``NEX-T#####``
+  - duplicate_id: test declares a Zephyr test ID already used by another test
 """
 
 import argparse
@@ -27,11 +26,9 @@ import tempfile
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 DEFAULT_PYTEST = os.path.join(REPO_ROOT, "tests", ".venv", "bin", "pytest")
-DEFAULT_BASELINE = os.path.join(REPO_ROOT, "tests", "zephyr_baseline.json")
 COLLECT_PLUGIN_DIR = os.path.join(REPO_ROOT, "tests", "scripts")
 
-# Unit tests are out of scope; the remaining satellite suites are already
-# excluded by collect_ignore_glob in tests/conftest.py.
+# Unit tests are out of scope for this check
 TEST_ROOT = os.path.join(REPO_ROOT, "tests")
 EXCLUDED_DIRS = [os.path.join(TEST_ROOT, "sscape_tests")]
 
@@ -100,20 +97,14 @@ def logical_tests(records):
 
 
 def find_violations(tests):
-  """Apply the marker rules and return the violations plus the claimed IDs."""
+  """Apply the marker rules and return the violations by category."""
   violations = {category: {} for category in ALL_CATEGORIES}
   claims = {}
 
   for test in tests:
     zephyr_id = test["zephyr_id"]
     if not zephyr_id:
-      legacy = test.get("local_test_name") or test.get("module_test_name")
-      hint = ""
-      if legacy:
-        scope = "test body" if test.get("local_test_name") else "module"
-        hint = (f" ({scope} declares TEST_NAME = \"{legacy}\"; "
-                f"convert it to a marker)")
-      violations[MISSING_ID][test["key"]] = hint
+      violations[MISSING_ID][test["key"]] = ""
       continue
     if not ZEPHYR_ID_RE.match(zephyr_id):
       violations[INVALID_ID][test["key"]] = f" (declares \"{zephyr_id}\")"
@@ -124,41 +115,18 @@ def find_violations(tests):
     if len(keys) > 1:
       violations[DUPLICATE_ID][zephyr_id] = " claimed by " + ", ".join(sorted(keys))
 
-  return violations, claims
+  return violations
 
 
-def load_baseline(path):
-  if not os.path.exists(path):
-    return {category: set() for category in ALL_CATEGORIES}
-  with open(path, encoding="utf-8") as handle:
-    data = json.load(handle)
-  return {category: set(data.get(category, [])) for category in ALL_CATEGORIES}
-
-
-def write_baseline(path, violations):
-  data = {category: sorted(violations.get(category, {}))
-          for category in ALL_CATEGORIES}
-  with open(path, "w", encoding="utf-8") as handle:
-    json.dump(data, handle, indent=2)
-    handle.write("\n")
-
-
-def report(violations, baseline, allow_stale):
-  """Print the diff against the baseline and return the number of failures."""
+def report(violations):
+  """Print all violations and return the total failure count."""
   failures = 0
   for category in ALL_CATEGORIES:
     current = violations.get(category, {})
-    known = baseline.get(category, set())
-    new = sorted(set(current) - known)
-    stale = sorted(known - set(current)) if not allow_stale else []
-
-    print(f"\n{category.upper()}: {len(current)} total, {len(new)} new "
-          f"({CATEGORY_HELP[category]})")
-    for entry in new:
-      print(f"  NEW    {entry}{current[entry]}")
-    for entry in stale:
-      print(f"  STALE  {entry} — fixed; remove it from the baseline")
-    failures += len(new) + len(stale)
+    print(f"\n{category.upper()}: {len(current)} ({CATEGORY_HELP[category]})")
+    for entry in sorted(current):
+      print(f"  FAIL  {entry}{current[entry]}")
+    failures += len(current)
   return failures
 
 
@@ -168,10 +136,6 @@ def build_argparser():
     description="Check that every non-unit pytest test declares a unique Zephyr test ID")
   parser.add_argument("--pytest", default=DEFAULT_PYTEST,
                       help="pytest executable used for collection")
-  parser.add_argument("--baseline", default=DEFAULT_BASELINE,
-                      help="JSON file holding the accepted backlog of violations")
-  parser.add_argument("--update-baseline", action="store_true",
-                      help="rewrite the baseline from the current violations")
   parser.add_argument("--debug", action="store_true", help="verbose logging")
   return parser
 
@@ -185,19 +149,13 @@ def main():
   tests = logical_tests(collect_tests(args.pytest))
   print(f"Collected {len(tests)} tests (unit tests excluded)")
 
-  violations, _ = find_violations(tests)
-  baseline = load_baseline(args.baseline)
-  failures = report(violations, baseline, args.update_baseline)
-
-  if args.update_baseline:
-    write_baseline(args.baseline, violations)
-    print(f"\nWrote baseline to {args.baseline}")
-    return 0
+  violations = find_violations(tests)
+  failures = report(violations)
 
   if failures:
     print(f"\nFAIL: {failures} Zephyr ID violation(s). Every test outside "
-          f"tests/sscape_tests must declare a unique "
-          f"@pytest.mark.test_name(\"NEX-T#####\").")
+          "tests/sscape_tests must declare a unique "
+          "@pytest.mark.test_name(\"NEX-T#####\").")
     return 1
 
   print("\nDONE ==> Checking Zephyr test IDs")
