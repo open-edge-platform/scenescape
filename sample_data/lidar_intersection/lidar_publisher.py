@@ -188,16 +188,32 @@ def lidar_to_scene_offset(x_l: float, y_l: float, z_l: float) -> "tuple[float, f
 
 
 def bbox3d_to_quaternion(yaw: float) -> "list[float]":
-  """PointPillars yaw -> SceneScape quaternion (Z-yaw + 180deg X-flip so roof faces up)."""
-  half = (-yaw - math.pi) / 2.0
-  qz = math.sin(half)
-  qw = math.cos(half)
-  if qw < 0.0:
-    qz, qw = -qz, -qw
+  """PointPillars/Velodyne Z-yaw -> SceneScape sensor-frame quaternion ``[x, y, z, w]``.
 
-  # Clamp <1 (exclusiveMaximum in schema); yaw=0 gives sin(-pi/2)=-1 exactly.
+  PointPillars yaw is about Velodyne Z-up. The same axis remapping used for
+  points (``x_s=-y_v``, ``y_s=-z_v``, ``z_s=x_v``) conjugates that rotation into
+  a turn about SceneScape Y (down):
+
+    q = [0, -sin(yaw/2), 0, cos(yaw/2)]
+
+  Schema / scipy / Three.js / the controller all expect ``[x, y, z, w]``. The
+  previous packing ``[qw, -qz, 0, 0]`` was not valid xyzw, so
+  ``_quaternion_to_yaw`` (and the UI) saw the wrong heading.
+
+  Roof-up for meshes is left to the asset / scene pose: after tracking, the
+  controller republishes a pure world Z-yaw quaternion anyway. Composing an
+  extra Rx(pi) here would be discarded on that path and would also confuse
+  Z-yaw extraction when the sensor pose is nearly identity.
+  """
+  half = yaw / 2.0
+  s = math.sin(half)
+  c = math.cos(half)
+  # Clamp away from +/-1 for schema exclusiveMaximum/Minimum on some contracts.
   _C = 1.0 - 1e-7
-  return [max(-_C, min(_C, qw)), max(-_C, min(_C, -qz)), 0.0, 0.0]
+  qx, qy, qz, qw = 0.0, max(-_C, min(_C, -s)), 0.0, max(-_C, min(_C, c))
+  if qw < 0.0:
+    qx, qy, qz, qw = -qx, -qy, -qz, -qw
+  return [qx, qy, qz, qw]
 
 
 # ── Message builders ────────────────────────────────────────────────────────────
