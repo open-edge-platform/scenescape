@@ -40,12 +40,13 @@ Before you begin:
 
    ![camera-controls](../../_assets/ui/camera-controls.png "camera controls")
    **Camera Settings (all cameras)**:
-   - **project all frames**: Turn projections on or off for every camera at once.
+   - **project all sensors**: Turn projections on or off for every camera and LiDAR/radar sensor at once.
    - **all cameras opacity**: Set projection transparency for every camera at once (default 80%).
 
    **Camera Control Panel Options**:
    - **name**: Assign a custom name.
-   - **scene camera**: Set view to camera's perspective.
+   - **show sensor**: Toggle visibility of the camera or LiDAR frustum/mesh in the 3D scene.
+   - **scene camera**: Set view to this camera's perspective (cameras only; not shown for LiDAR/radar).
    - **toggle rotate/translate**: Switch between rotation and translation tools.
    - **project frame**: Display camera frame projected into the 3D scene.
    - **pause video**: Pause live camera feed.
@@ -81,8 +82,11 @@ Before you begin:
 | intrinsics          | Lens configuration                     | fx, fy, cx, cy, etc.                          |
 | distortion          | Lens distortion coefficients           | k1, k2, p1, p2, etc.                          |
 | opacity             | Transparency of projected image        | 0.0 (transparent) to 1.0 (solid); default 0.8 |
-| project all frames  | Toggle projections for all cameras     | On / Off                                      |
-| all cameras opacity | Set projection opacity for all cameras | 0–100 (percent); default 80                   |
+| project all sensors       | Toggle projections for all cameras and LiDAR/radar sensors | On / Off                      |
+| all cameras opacity       | Set projection opacity for all cameras       | 0–100 (percent); default 80                   |
+| project point cloud       | Show live sensor point cloud in the 3D scene | On / Off (requires a publisher that answers `getpointcloud`) |
+| point size                | Rendered size of each cloud point            | metres (default 0.12)                         |
+| point cloud opacity       | Transparency of the point cloud              | 0–100 (percent); default 85                   |
 
 ## Troubleshooting
 

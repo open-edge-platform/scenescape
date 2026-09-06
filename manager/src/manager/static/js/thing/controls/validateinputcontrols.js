@@ -47,7 +47,7 @@ let validateInputControls = {
   executeOnControl(controlName, lambda) {
     const controllers = this.controlsFolder.controllersRecursive();
     const control = controllers.filter((item) => item.property === controlName);
-    if (control) lambda(control);
+    if (control.length > 0) lambda(control);
   },
   disableFields(fields) {
     for (const field of fields) {

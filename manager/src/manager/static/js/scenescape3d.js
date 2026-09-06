@@ -182,37 +182,69 @@ function main() {
 
   const DEFAULT_CAMERA_OPACITY = 80;
   const cameraPanelSettings = {
-    "project all frames": false,
+    "project all sensors": false,
     "all cameras opacity": DEFAULT_CAMERA_OPACITY,
   };
 
-  camerasFolder
-    .add(cameraPanelSettings, "project all frames")
+  const projectAllSensorsControl = camerasFolder
+    .add(cameraPanelSettings, "project all sensors")
     .onChange(function (visibility) {
       const cm = sceneThingManagers.things.camera.obj;
       if (!cm) return;
       for (const key in cm.sceneCameras) {
-        if (key !== "undefined" && cm.sceneCameras[key]) {
-          cm.sceneCameras[key].executeOnControl("project frame", (control) => {
-            if (control[0]) control[0].setValue(visibility);
-          });
-        }
+        const cam = cm.sceneCameras[key];
+        if (key === "undefined" || !cam) continue;
+        const controlName = cam.isPointCloudSensor
+          ? "project point cloud"
+          : "project frame";
+        cam.executeOnControl(controlName, (control) => {
+          if (control[0]) control[0].setValue(visibility);
+        });
       }
-    }).$widget.id = "project-all-frames";
+    });
+  projectAllSensorsControl.$widget.id = "project-all-sensors";
 
-  camerasFolder
+  const allCamerasOpacityControl = camerasFolder
     .add(cameraPanelSettings, "all cameras opacity", 0, 100, 1)
     .onChange(function (weight) {
       const cm = sceneThingManagers.things.camera.obj;
       if (!cm) return;
       for (const key in cm.sceneCameras) {
         if (key !== "undefined" && cm.sceneCameras[key]) {
+          if (cm.sceneCameras[key].isPointCloudSensor) continue;
           cm.sceneCameras[key].executeOnControl("opacity", (control) => {
             if (control[0]) control[0].setValue(weight);
           });
         }
       }
-    }).$input.id = "all-cameras-opacity";
+    });
+  allCamerasOpacityControl.$input.id = "all-cameras-opacity";
+
+  function refreshGlobalCameraPanelControls() {
+    const cm = sceneThingManagers.things.camera.obj;
+    let hasCamera = false;
+    let hasSensor = false;
+    if (cm) {
+      for (const key in cm.sceneCameras) {
+        const cam = cm.sceneCameras[key];
+        if (key === "undefined" || !cam) continue;
+        hasSensor = true;
+        if (!cam.isPointCloudSensor) hasCamera = true;
+      }
+    }
+    if (hasSensor) {
+      projectAllSensorsControl.show();
+    } else {
+      projectAllSensorsControl.hide();
+    }
+    if (hasCamera) {
+      allCamerasOpacityControl.show();
+    } else {
+      allCamerasOpacityControl.hide();
+    }
+  }
+
+  refreshGlobalCameraPanelControls();
 
   // Ambient scene lighting
   const ambientColor = 0xa0a0a0; // Brighter ambient for more vibrant colors
@@ -252,6 +284,8 @@ function main() {
     }
 
     connectMQTT();
+
+    refreshGlobalCameraPanelControls();
 
     const checkboxes = panel.domElement.querySelectorAll(
       'input[type="checkbox"',
@@ -321,6 +355,7 @@ function main() {
     for (const checkbox of checkboxes) {
       checkbox.classList.add("lil-gui-toggle");
     }
+    refreshGlobalCameraPanelControls();
   }
 
   // MQTT Client
@@ -350,6 +385,10 @@ function main() {
         client.subscribe(appName + CONSTANTS.IMAGE_CAMERA + "+");
         console.log(
           "Subscribed to " + (appName + CONSTANTS.IMAGE_CAMERA + "+"),
+        );
+        client.subscribe(appName + CONSTANTS.POINTCLOUD_CAMERA + "+");
+        console.log(
+          "Subscribed to " + (appName + CONSTANTS.POINTCLOUD_CAMERA + "+"),
         );
         client.subscribe(appName + CONSTANTS.CMD_DATABASE);
         console.log("Subscribed to " + (appName + CONSTANTS.CMD_DATABASE));
@@ -547,6 +586,12 @@ function main() {
         ) {
           client.publish(appName + CONSTANTS.CMD_CAMERA + id, "getimage");
         }
+      }
+    } else if (topic.includes(CONSTANTS.POINTCLOUD_CAMERA)) {
+      const id = topic.split("camera/")[1];
+      cameraManager = sceneThingManagers["things"]["camera"]["obj"];
+      if (cameraManager && cameraManager.sceneCameras.hasOwnProperty(id)) {
+        cameraManager.sceneCameras[id].projectPointCloudCapture(msg);
       }
     } else if (topic.includes(CONSTANTS.DATA_CAMERA)) {
       const id = topic.split("/")[4];
