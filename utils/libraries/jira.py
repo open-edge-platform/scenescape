@@ -58,9 +58,7 @@ class Jira:
         self.api_base = os.getenv('ZEPHYR_API_BASE')
         self.jira_api_base = os.getenv('JIRA_API_BASE')
         logger.info(
-            f"Initialized Jira client for team '{
-                self.team}', project '{
-                self.project}'")
+            f"Initialized Jira client for team '{self.team}', project '{self.project}'")
 
     def get(self, url: str, params: Optional[Dict] = None) -> Any:
         logger.debug(f'GET {url}')
