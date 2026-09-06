@@ -7,6 +7,7 @@ import socket
 import threading
 import uuid
 import asyncio
+from collections.abc import Mapping
 from datetime import datetime, timezone
 
 from django.contrib.auth.models import User
@@ -52,7 +53,7 @@ def get_class_and_serializer(thing_type):
   elif thing_type in ("asset", "assets"):
     return Asset3D, Asset3DSerializer, 'pk'
   elif thing_type in ("child"):
-    return ChildScene, ChildSceneSerializer, 'child_id'
+    return ChildScene, ChildSceneSerializer, 'pk'
   elif thing_type in ("calibrationmarker", "calibrationmarkers"):
     return CalibrationMarker, CalibrationMarkerSerializer, 'marker_id'
   return None, None, None
@@ -65,6 +66,8 @@ class ListThings(generics.ListAPIView):
   def get_queryset(self):
     thing_class, _, _ = get_class_and_serializer(self.args[0])
     queryset = thing_class.objects.all()
+    if thing_class is Cam:
+      queryset = queryset.select_related('scene')
     query_params = self.request.query_params
     if query_params:
       keys = query_params.keys()
@@ -139,7 +142,7 @@ class ManageThing(APIView):
         return int(uid)
       return None
 
-    if uid_field in ['uuid'] or thing_type in ['region', 'tripwire', 'child', 'scene']:
+    if uid_field in ['uuid'] or thing_type in ['region', 'tripwire', 'scene']:
       try:
         return uuid.UUID(uid, version=4)
       except ValueError:
@@ -431,6 +434,13 @@ class CameraManager(APIView):
 
 class ACLCheck(APIView):
   def post(self, request):
+    if not isinstance(request.data, Mapping):
+      log.warning('Request body must be a JSON object')
+      return Response(
+        {'detail': 'Request body must be a JSON object.'},
+        status=status.HTTP_400_BAD_REQUEST
+      )
+
     username = request.data.get('username')
     currentTopic = request.data.get('topic')
 

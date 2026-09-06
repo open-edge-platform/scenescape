@@ -90,6 +90,10 @@ _WEB = WaitConfig()
 _SCENE = WaitConfig(log_pattern="Subscribed to")
 _AUTOCALIBRATION = WaitConfig(timeout=1200)
 _MAPPING = WaitConfig(timeout=600)
+# Mapping can take much longer to become ready during the long-run stability
+# test (model download/cache warm-up); scope the larger timeout to STABILITY
+# only so other mapping-based profiles keep failing fast.
+_MAPPING_STABILITY = WaitConfig(timeout=6000)
 _ANALYTICS = WaitConfig(log_pattern="Subscribed to")
 
 
@@ -204,6 +208,26 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
   },
 )
 
+REID_NO_VIDEO = ServiceProfile(
+  name="reid_no_video",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-vdms.yml",
+    f"{COMPOSE}/compose-scene_reid.yml",
+    f"{COMPOSE}/compose-web_default.yml",
+  ),
+  wait_for={
+    "broker": _BROKER,
+    "ntpserv": WaitConfig(),
+    "pgserver": _PGSERVER,
+    "vdms": WaitConfig(),
+    "web": _WEB,
+    "scene": _SCENE,
+  },
+)
+
 REID = ServiceProfile(
   name="reid",
   compose_files=(
@@ -242,6 +266,7 @@ REID_CORE = ServiceProfile(
     f"{COMPOSE}/compose-scene_reid.yml",
     # Use compose-web.yml (testdb / Demo) so hierarchy helpers can link Demo.
     f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-analytics.yml",
   ),
   wait_for={
     "broker": _BROKER,
@@ -250,6 +275,7 @@ REID_CORE = ServiceProfile(
     "vdms": WaitConfig(),
     "web": _WEB,
     "scene": _SCENE,
+    "analytics": _ANALYTICS,
   },
 )
 
@@ -517,6 +543,35 @@ FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS = ServiceProfile(
   },
 )
 
+# Full-stack profile used by the long-run stability test.
+STABILITY = ServiceProfile(
+  name="stability",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{DLS}/compose-retail_video.yml",
+    f"{DLS}/compose-queuing_video.yml",
+    f"{COMPOSE}/compose-scene.yml",
+    f"{COMPOSE}/compose-web_default.yml",
+    f"{COMPOSE}/compose-cams.yml",
+    f"{COMPOSE}/compose-autocalibration.yml",
+    f"{COMPOSE}/compose-mapping.yml",
+    f"{COMPOSE}/compose-controller_analytics.yml",
+  ),
+  wait_for={
+    "broker": _BROKER,
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "queuing-video": WaitConfig(),
+    "retail-video": WaitConfig(),
+    "autocalibration": _AUTOCALIBRATION,
+    "mapping": _MAPPING_STABILITY,
+    "controller-analytics": _SCENE,
+  },
+)
+
 # Analytics + Manager only (no Scene Controller / Tracker). Used to inject
 # Tracker-shaped DATA_SCENE over MQTT and assert Analytics events without
 # duplicating Controller tracking coverage in FULL_STACK.
@@ -584,6 +639,7 @@ PROFILE_REGISTRY: dict = {
     SCENE_NO_DB,
     MARKERLESS,
     INFERENCE_PERF,
+    STABILITY,
     ANALYTICS_MQTT,
     ATAG_DETECTION,
   ]

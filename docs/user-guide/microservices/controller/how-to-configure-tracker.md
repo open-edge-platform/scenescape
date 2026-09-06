@@ -249,8 +249,8 @@ The tracker may accumulate suspended tracks for some time for re-tracking purpos
 
 ## Persisting Object Attributes Across Detection Gaps
 
-Detection pipelines don't always re-report every attribute (e.g. shirt color, license plate,
-age/gender) on every frame. By default, an attribute that's missing from the current detection is
+Detection pipelines do not always re-report every attribute (e.g., shirt color, license plate,
+age/gender) on every frame. By default, an attribute that is missing from the current detection is
 cleared on the tracked object. The `persist_attributes` field carries specific attributes forward
 between updates instead of letting them flicker or disappear.
 
