@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -51,6 +51,7 @@ function isPointCloudSensor(name, uid) {
 }
 
 const CAMERA_ONLY_PANEL_CONTROLS = [
+  "scene camera",
   "project frame",
   "pause video",
   "opacity",
@@ -258,8 +259,7 @@ export default class SceneCamera extends THREE.Object3D {
 
     const fields = [
       "name",
-      "scene camera",
-      "show camera",
+      "show sensor",
       "toggle rotate/translate",
       "pos X",
       "pos Y",
@@ -276,7 +276,12 @@ export default class SceneCamera extends THREE.Object3D {
         "point size",
       );
     } else {
-      fields.push("project frame", "pause video", "opacity");
+      fields.push(
+        "scene camera",
+        "project frame",
+        "pause video",
+        "opacity",
+      );
     }
     if (this.isStaff === null) {
       this.disableFields(fields);
@@ -403,7 +408,7 @@ export default class SceneCamera extends THREE.Object3D {
       "auto calibrate": function () {
         this.autoCalibrate();
       }.bind(this),
-      "show camera": true,
+      "show sensor": true,
       color: "#ffffff",
       "aspect ratio": this.aspectRatio,
       save: function () {
@@ -431,15 +436,17 @@ export default class SceneCamera extends THREE.Object3D {
     );
     control.$widget.firstChild.id = this.name.concat("-", "name");
 
-    control = this.controlsFolder.add(panelSettings, "scene camera").onChange(
-      function (setAsDefault) {
-        const camera = setAsDefault ? this.sceneCamera : this.sceneViewCamera;
-        this.setViewCamera(camera);
-      }.bind(this),
-    );
-    control.$widget.firstChild.id = this.name.concat("-", "scene-camera");
+    if (!this.isPointCloudSensor) {
+      control = this.controlsFolder.add(panelSettings, "scene camera").onChange(
+        function (setAsDefault) {
+          const camera = setAsDefault ? this.sceneCamera : this.sceneViewCamera;
+          this.setViewCamera(camera);
+        }.bind(this),
+      );
+      control.$widget.firstChild.id = this.name.concat("-", "scene-camera");
+    }
 
-    control = this.controlsFolder.add(panelSettings, "show camera").onChange(
+    control = this.controlsFolder.add(panelSettings, "show sensor").onChange(
       function (value) {
         this.visible = value;
       }.bind(this),

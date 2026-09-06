@@ -45,7 +45,8 @@ Before you begin:
 
    **Camera Control Panel Options**:
    - **name**: Assign a custom name.
-   - **scene camera**: Set view to camera's perspective.
+   - **show sensor**: Toggle visibility of the camera or LiDAR frustum/mesh in the 3D scene.
+   - **scene camera**: Set view to this camera's perspective (cameras only; not shown for LiDAR/radar).
    - **toggle rotate/translate**: Switch between rotation and translation tools.
    - **project frame**: Display camera frame projected into the 3D scene.
    - **pause video**: Pause live camera feed.
