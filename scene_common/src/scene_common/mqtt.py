@@ -34,6 +34,7 @@ class _Topic(Enum):
   EVENT = auto()
   IMAGE_CALIBRATE = auto()
   IMAGE_CAMERA = auto()
+  POINTCLOUD_CAMERA = auto()
   SYS_CHILDSCENE_STATUS = auto()
   ANALYTICS_CLUSTERS = auto()
   DATA_CHILD_TRIPWIRES = auto()
@@ -63,6 +64,7 @@ class PubSub(_PubSubTopicBase):
     _Topic.EVENT: Template(TOPIC_BASE + "/event/${region_type}/${scene_id}/${region_id}/${event_type}"),
     _Topic.IMAGE_CALIBRATE: Template(TOPIC_BASE + "/image/calibration/camera/${camera_id}"),
     _Topic.IMAGE_CAMERA: Template(TOPIC_BASE + "/image/camera/${camera_id}"),
+    _Topic.POINTCLOUD_CAMERA: Template(TOPIC_BASE + "/pointcloud/camera/${camera_id}"),
     _Topic.SYS_CHILDSCENE_STATUS: Template(TOPIC_BASE + "/sys/child/status/${scene_id}"),
     _Topic.ANALYTICS_CLUSTERS: Template(TOPIC_BASE + "/analytics/clusters/${scene_id}"),
     _Topic.DATA_CHILD_TRIPWIRES: Template(TOPIC_BASE + "/data/child/tripwires/${scene_id}"),
