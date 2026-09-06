@@ -133,15 +133,15 @@ Reads a JUnit/xUnit XML report and writes each outcome into a test cycle.
 
 ### Options
 
-| Flag                            | Required | Meaning                                                          |
-| ------------------------------- | -------- | ---------------------------------------------------------------- |
-| `path` (positional)             | yes      | Path to the JUnit/xUnit XML file                                 |
-| `-a`, `--jira-token`            | yes      | Personal access token                                            |
-| `-F`, `--folder`                | no       | Comma-separated folders used to build the test case lookup table |
-| `-C`, `--cycle`                 | no       | Cycle name                                                       |
-| `--cycle-key`                   | no       | Cycle key, for example `NEX-T#####`                              |
-| `--comment`                     | no       | Comment attached to every execution                              |
-| `--debug`                       | no       | Verbose logging                                                  |
+| Flag                 | Required | Meaning                                                          |
+| -------------------- | -------- | ---------------------------------------------------------------- |
+| `path` (positional)  | yes      | Path to the JUnit/xUnit XML file                                 |
+| `-a`, `--jira-token` | yes      | Personal access token                                            |
+| `-F`, `--folder`     | no       | Comma-separated folders used to build the test case lookup table |
+| `-C`, `--cycle`      | no       | Cycle name                                                       |
+| `--cycle-key`        | no       | Cycle key, for example `NEX-T#####`                              |
+| `--comment`          | no       | Comment attached to every execution                              |
+| `--debug`            | no       | Verbose logging                                                  |
 
 ### Result mapping
 
