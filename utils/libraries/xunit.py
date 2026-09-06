@@ -14,7 +14,7 @@ Function:
 import re
 import xml.etree.ElementTree as ET
 
-KEY_REGEX = re.compile(r"^NEX-[0-9]{5,6}$")
+KEY_REGEX = re.compile(r"(NEX-T\d{5,6}|NEX-\d{5,6})")
 
 def _extract_key(text):
     if not text:
@@ -22,7 +22,8 @@ def _extract_key(text):
     m = KEY_REGEX.search(text)
     if m:
         return m.group(0)
-    return text.split()[0]
+    parts = text.split()
+    return parts[0] if parts else None
 
 def parse_results(path):
     """
