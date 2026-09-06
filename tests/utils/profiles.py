@@ -592,6 +592,28 @@ ANALYTICS_MQTT = ServiceProfile(
   },
 )
 
+ATAG_DETECTION = ServiceProfile(
+  name="atag_detection",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{DLS}/compose-queuing_video_atag.yml",
+    f"{COMPOSE}/compose-scene.yml",
+    f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-analytics.yml",
+    f"{COMPOSE}/compose-cams.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "broker": _BROKER,
+    "queuing-video": WaitConfig(),
+    "analytics": _ANALYTICS,
+  },
+)
+
 # Registry: maps profile name -> ServiceProfile for CLI lookup
 PROFILE_REGISTRY: dict = {
   p.name: p
@@ -619,5 +641,6 @@ PROFILE_REGISTRY: dict = {
     INFERENCE_PERF,
     STABILITY,
     ANALYTICS_MQTT,
+    ATAG_DETECTION,
   ]
 }
