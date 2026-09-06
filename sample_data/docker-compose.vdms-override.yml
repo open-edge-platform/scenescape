@@ -1,11 +1,44 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# Override file to add VDMS dependency to scene service
-# Usage: docker compose -f docker-compose-dl-streamer-example.yml -f docker-compose.vdms-override.yml --profile vdms up
+# Select VDMS as the ReID backend.
+# Usage:
+#   docker compose -f docker-compose-dl-streamer-example.yml \
+#     -f docker-compose.vdms-override.yml --profile controller up
+#
+# Use exactly one ReID backend override at a time.
+
+secrets:
+  reid-server-cert:
+    file: ${SECRETSDIR}/certs/scenescape-reid-s.crt
+  reid-server-key:
+    file: ${SECRETSDIR}/certs/scenescape-reid-s.key
 
 services:
+  reid:
+    image: intellabs/vdms:v2.12.0
+    init: true
+    networks:
+      scenescape:
+        aliases:
+          - reid.scenescape.intel.com
+    environment:
+      - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
+      - OVERRIDE_cert_file=/run/secrets/certs/scenescape-reid-s.crt
+      - OVERRIDE_key_file=/run/secrets/certs/scenescape-reid-s.key
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: reid-server-cert
+        target: certs/scenescape-reid-s.crt
+      - source: reid-server-key
+        target: certs/scenescape-reid-s.key
+    restart: always
+    pids_limit: 1000
+
   scene:
     depends_on:
-      vdms:
+      reid:
         condition: service_started
+    environment:
+      REID_DATABASE: VDMS

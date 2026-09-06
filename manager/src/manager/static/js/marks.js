@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -59,7 +59,7 @@ function plot(
   show_telemetry,
   show_trails,
 ) {
-  // SceneScape sends only updated marks, so we need to determine
+  // Scenescape sends only updated marks, so we need to determine
   // which old marks are not in the current update and remove them
 
   // Create a set based on the current keys (object IDs) of the global
@@ -179,7 +179,7 @@ function addNewMark(
       .addClass(o.type);
   }
 
-  // FIXME: Make object size in the display a configurable option, or receive from SceneScape
+  // FIXME: Make object size in the display a configurable option, or receive from Scenescape
   if (o.type == "person") {
     mark_radius = parseInt(scale * 0.3); // Person is about 0.3 meter radius
   } else if (o.type == "vehicle") {

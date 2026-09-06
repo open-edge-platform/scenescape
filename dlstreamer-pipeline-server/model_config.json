@@ -2,7 +2,7 @@
   "retail": {
     "type": "detect",
     "params": {
-      "model": "intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
+      "model": "omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml",
       "model_proc": "object_detection/person/person-detection-retail-0013.json"
     },
     "adapter-params": {
@@ -12,7 +12,7 @@
   "reid": {
     "type": "inference",
     "params": {
-      "model": "intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml"
+      "model": "omz/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml"
     },
     "adapter-params": {
       "metadatagenpolicy": "reidPolicy"

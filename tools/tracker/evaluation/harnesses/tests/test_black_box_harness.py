@@ -25,6 +25,8 @@ from harnesses.black_box_harness.black_box_harness import (
     _parse_ts,
 )
 
+REF_CAMERA_FPS = 30  # Reference camera frame rate used in tracker configuration
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -32,7 +34,7 @@ from harnesses.black_box_harness.black_box_harness import (
 
 @pytest.fixture
 def harness():
-  return BlackBoxHarness(container_image="scenescape-controller:test")
+  return BlackBoxHarness(container_image="intel/scenescape-controller:test")
 
 
 @pytest.fixture
@@ -53,7 +55,7 @@ def tracker_config_file(tmp_path):
       "non_measurement_time_dynamic_s": 1.0,
       "non_measurement_time_static_s": 3.0,
       "time_chunking_enabled": False,
-      "ref_camera_frame_rate": 30,
+      "ref_camera_frame_rate": REF_CAMERA_FPS,
   }
   p = tmp_path / "tracker-config.json"
   p.write_text(json.dumps(cfg))
@@ -397,7 +399,7 @@ class TestProcessInputsFlow:
 
     assert len(run_calls) == 2
     assert run_calls[0] == "eclipse-mosquitto:2.0.22"  # broker first
-    assert run_calls[1] == "scenescape-controller:test"  # tracker second
+    assert run_calls[1] == "intel/scenescape-controller:test"  # tracker second
 
   @patch("harnesses.black_box_harness.black_box_harness.docker")
   @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
@@ -726,13 +728,14 @@ class TestFramePacing:
         f"Expected exactly one ~100ms inter-frame sleep, got sleep calls: {slept}"
     )
 
-  def test_same_timestamp_frames_not_delayed(
+  def test_same_timestamp_frames_published_in_camera_order(
       self, harness, scene_config, tracker_config_file
   ):
-    """Frames sharing a timestamp (two cameras, same tick) are published without extra delay."""
+    """Same-timestamp frames are reordered to match the configured camera_order."""
+    # Input is deliberately reversed: Cam_x2_0 first, Cam_x1_0 second
     frames = [
-        {"id": "Cam_x1_0", "timestamp": "2014-09-08T04:00:00.000Z", "objects": {}},
         {"id": "Cam_x2_0", "timestamp": "2014-09-08T04:00:00.000Z", "objects": {}},
+        {"id": "Cam_x1_0", "timestamp": "2014-09-08T04:00:00.000Z", "objects": {}},
     ]
     harness.set_scene_config(scene_config)
     harness.set_custom_config({
@@ -741,16 +744,19 @@ class TestFramePacing:
         "container_type": "controller",
         "drain_timeout": 0.0,
         "startup_wait_s": 0.0,
+        "camera_order": ["Cam_x1_0", "Cam_x2_0"],
     })
 
-    slept = []
+    published = []
     mock_client_instance = MagicMock()
+    mock_client_instance.publish.side_effect = (
+        lambda topic, payload: published.append(json.loads(payload).get("id"))
+    )
 
     with patch("harnesses.black_box_harness.black_box_harness.docker") as mock_docker, \
          patch("harnesses.black_box_harness.black_box_harness.mqtt.Client",
                return_value=mock_client_instance), \
-         patch("harnesses.black_box_harness.black_box_harness.time.sleep",
-               side_effect=slept.append), \
+         patch("harnesses.black_box_harness.black_box_harness.time.sleep"), \
          patch("harnesses.black_box_harness.black_box_harness.time.monotonic",
                return_value=0.0):
       mock_docker.network.create = MagicMock()
@@ -758,13 +764,47 @@ class TestFramePacing:
       mock_docker.run = MagicMock(return_value=MagicMock())
       list(harness.process_inputs(iter(frames)))
 
-    # Exclude known infrastructure sleeps: startup_wait (set to 0.0) and the
-    # fixed 0.5 s subscription-establishment sleep inside _run_session.
-    # Any inter-frame sleep for same-timestamp frames would have sleep_for=0
-    # (not > 0) so nothing in the range (0.01, 0.4) should appear.
-    inter_frame_sleeps = [s for s in slept if 0.01 < s < 0.4]
-    assert inter_frame_sleeps == [], (
-        f"No inter-frame sleep expected for same-timestamp frames, got: {inter_frame_sleeps}"
+    assert published == ["Cam_x1_0", "Cam_x2_0"], (
+        f"Expected Cam_x1_0 before Cam_x2_0 per camera_order, got: {published}"
+    )
+
+  def test_camera_order_not_set_preserves_input_order(
+      self, harness, scene_config, tracker_config_file
+  ):
+    """Without camera_order, same-timestamp frames are published in input order."""
+    frames = [
+        {"id": "Cam_x2_0", "timestamp": "2014-09-08T04:00:00.000Z", "objects": {}},
+        {"id": "Cam_x1_0", "timestamp": "2014-09-08T04:00:00.000Z", "objects": {}},
+    ]
+    harness.set_scene_config(scene_config)
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "controller",
+        "drain_timeout": 0.0,
+        "startup_wait_s": 0.0,
+        # no camera_order set
+    })
+
+    published = []
+    mock_client_instance = MagicMock()
+    mock_client_instance.publish.side_effect = (
+        lambda topic, payload: published.append(json.loads(payload).get("id"))
+    )
+
+    with patch("harnesses.black_box_harness.black_box_harness.docker") as mock_docker, \
+         patch("harnesses.black_box_harness.black_box_harness.mqtt.Client",
+               return_value=mock_client_instance), \
+         patch("harnesses.black_box_harness.black_box_harness.time.sleep"), \
+         patch("harnesses.black_box_harness.black_box_harness.time.monotonic",
+               return_value=0.0):
+      mock_docker.network.create = MagicMock()
+      mock_docker.network.remove = MagicMock()
+      mock_docker.run = MagicMock(return_value=MagicMock())
+      list(harness.process_inputs(iter(frames)))
+
+    assert published == ["Cam_x2_0", "Cam_x1_0"], (
+        f"Expected input order preserved when no camera_order, got: {published}"
     )
 
 
@@ -881,6 +921,36 @@ class TestPersistOutputs:
     assert isinstance(written, list)
     assert len(written) == 1
     assert written[0]["objects"][0]["id"] == "abc"
+
+
+class TestPersistConfig:
+  """_persist_config copies the tracker configuration file into the output
+  config/ subfolder for both container types, preserving the basename."""
+
+  def test_copies_config_preserving_basename(self, harness, tracker_config_file, tmp_path):
+    out_dir = tmp_path / "run" / "harness"
+    harness.set_output_folder(out_dir)
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "controller",
+    })
+
+    harness._persist_config()
+
+    dest = out_dir / "config" / Path(tracker_config_file).name
+    assert dest.exists()
+    assert dest.read_text() == Path(tracker_config_file).read_text()
+
+  def test_noop_without_output_folder(self, harness, tracker_config_file):
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "tracker",
+    })
+    # Should not raise when no output folder is configured.
+    harness._persist_config()
+    assert harness._output_folder is None
 
 
 # ---------------------------------------------------------------------------

@@ -64,3 +64,21 @@ def singletonData():
 def emptyObjData(objData):
   objData = {}
   return objData
+
+@pytest.fixture
+def externalSourceData():
+  timestamp = "1970-01-01T00:00:00.000Z"
+  jdata = {
+    "timestamp": timestamp,
+    "source_id": "drone-1",
+    "pose": {
+      "reference_frame": "wgs84",
+      "lat_long_alt": [37.4, -122.1, 10.0],
+      "rotation": [0, 0, 0, 1],
+    },
+    "objects": [
+      {"id": "obj-1", "category": "vehicle", "translation": [1.0, 2.0, 0.0]},
+    ],
+  }
+  return jdata
+

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+import pytest
 
 from tests.utils.log import get_logger
 import time
@@ -19,27 +21,23 @@ log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
-  require_password=True, auth="",
-)
+  require_password=True, auth="")
 
 TEST_WAIT_TIME = 5
-TEST_NAME = "NEX-T10426"
 TEST_SSIM_THRESHOLD = 0.98 # 98% similarity
 
-@common.mock_display
-def test_manual_camera_calibration(params, record_xml_attribute):
+@pytest.mark.fresh_stack
+@pytest.mark.test_name("NEX-T10426")
+def test_manual_camera_calibration(params, result_recorder):
   """! Checks that the camera calibration can be set manually and saved.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @return   exit_code               Indicates test success or failure.
+  @param    result_recorder         Pytest fixture recording the test result.
   """
-  if record_xml_attribute is not None:
-    record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
+  browser = None
   try:
-    log.info("Executing: " + TEST_NAME)
+    log.info("Executing: NEX-T10426")
     log.info("Test that camera pose can be be set manually")
-    browser = Browser()
+    browser = Browser(webgl=True)
     assert common.check_page_login(browser, params)
     assert common.check_db_status(browser)
 
@@ -78,6 +76,7 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     initial_cam_x = cam_values_init[0][0]
     initial_map_x = map_values_init[0][0]
     log.info("Take_screenshot before manual calibration")
+    assert common.render_calibration_preview(browser, 'initial-id_transforms')
     camera_view_before = browser.find_element(By.ID, 'camera_img_canvas')
     map_view_before = browser.find_element(By.ID, 'map_canvas_3D')
     cam_pic_before = common.get_element_screenshot(camera_view_before)
@@ -96,6 +95,7 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     time.sleep(TEST_WAIT_TIME)
 
     log.info("Take_screenshot after saving manual calibration")
+    assert common.render_calibration_preview(browser, 'initial-id_transforms')
     camera_view_after = browser.find_element(By.ID, 'camera_img_canvas')
     map_view_after = browser.find_element(By.ID, 'map_canvas_3D')
     cam_pic_after = common.get_element_screenshot(camera_view_after)
@@ -114,6 +114,7 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     time.sleep(TEST_WAIT_TIME)
 
     log.info("Take_screenshot after reverting to the previous calibration settings")
+    assert common.render_calibration_preview(browser, 'initial-id_transforms')
     camera_view_after = browser.find_element(By.ID, 'camera_img_canvas')
     map_view_after = browser.find_element(By.ID, 'map_canvas_3D')
     cam_pic_after_revert = common.get_element_screenshot(camera_view_after)
@@ -136,9 +137,7 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     assert ssim_cam >= TEST_SSIM_THRESHOLD
     assert ssim_map >= TEST_SSIM_THRESHOLD
 
-    exit_code = 0
+    result_recorder.success()
   finally:
-    browser.close()
-    common.record_test_result(TEST_NAME, exit_code)
-  assert exit_code == 0
-  return exit_code
+    if browser is not None:
+      browser.close()

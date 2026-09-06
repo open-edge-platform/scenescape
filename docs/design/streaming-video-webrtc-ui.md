@@ -159,7 +159,7 @@ flowchart LR
 - For raw camera feed, as they are already available in MediaMTX server, at least a consistent naming convention will be needed, as web app only knows topic names of DL Streamer output streams.
 - With MQTT there were no requirements for video format, as each frame was encoded to JPEG image. With WebRTC, video codec must be supported by both MediaMTX server and web browsers. Videos can no longer contain b-frames.
 - Nginx will be added as a reverse proxy in front of MediaMTX server to handle TLS termination and provide a secure connection for Web app.
-  For browser to connect to MediaMTX server, a valid TLS certificate must be used. Instead of accepting insecure connection in browser, user guide should include instructions on how to import SceneScape CA certificate.
+  For browser to connect to MediaMTX server, a valid TLS certificate must be used. Instead of accepting insecure connection in browser, user guide should include instructions on how to import Scenescape CA certificate.
 - TURN server will be set up using Coturn to ensure WebRTC connections can be established in various network configurations.
 
 ## 6. Alternatives Considered
@@ -339,7 +339,7 @@ Aside from that, for quick start of transmission, more keyframes are needed. Our
 
 ### Performance
 
-There are no measurements on how this change would affect SceneScape performance. Benchmarks are needed to run against this change to estimate that.
+There are no measurements on how this change would affect Scenescape performance. Benchmarks are needed to run against this change to estimate that.
 Also, in production scenarios, UI is disabled, so MQTT-based streaming should not add any overhead which is not true for WebRTC.
 
 ## 11. References

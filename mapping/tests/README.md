@@ -1,15 +1,15 @@
 # Mapping Module Unit Tests
 
-This directory contains unit tests for the SceneScape mapping module. The tests are designed to run inside the mapping container where all dependencies and models are already initialized.
+This directory contains unit tests for the Scenescape mapping module. The tests are designed to run inside the mapping container where all dependencies and models are already initialized.
 
 ## Quick Start
 
 ```bash
 # 1. Enter the mapping container
-docker run -it --entrypoint bash scenescape-mapping-test
+docker run -it --entrypoint bash intel/scenescape-mapping-test
 
 # 2. Navigate to tests directory
-cd ~/SceneScape/tests
+cd ~/Scenescape/tests
 
 # 3. Run all tests
 pytest -v
@@ -18,7 +18,7 @@ pytest -v
 ./run_tests.sh
 ```
 
-**Note**: Test dependencies are pre-installed in the `scenescape-mapping-test` container.
+**Note**: Test dependencies are pre-installed in the `intel/scenescape-mapping-test` container.
 
 ## Overview
 
@@ -155,4 +155,4 @@ def test_model_initialization(self):
 
 ## Contact
 
-For questions or issues with the tests, please contact the SceneScape development team or open an issue in the repository.
+For questions or issues with the tests, please contact the Scenescape development team or open an issue in the repository.

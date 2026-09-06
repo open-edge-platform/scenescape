@@ -406,8 +406,20 @@ export class ConvergedCameraCalibration {
         document.getElementById("id_intrinsics_cx").disabled = false;
         document.getElementById("id_intrinsics_cy").disabled = false;
       }
+
       const camPoints = this.camCanvas.getCalibrationPoints();
       const scenePoints = this.viewport.getCalibrationPoints();
+      const camPointCount = Object.keys(camPoints).length;
+      const scenePointCount = Object.keys(scenePoints).length;
+      const noPointsTouched = camPointCount === 0 && scenePointCount === 0;
+
+      // Nothing calibration-related was touched (e.g. only editing name/id) —
+      // let the rest of the form flow through untouched.
+      if (noPointsTouched) {
+        $("#calibration_form")[0].submit();
+        return;
+      }
+
       if (this.isValidCalibration(camPoints, scenePoints)) {
         const camPointsStr = Object.values(camPoints)
           .map((point) => `${point[0]},${point[1]}`)
@@ -460,8 +472,8 @@ export class ConvergedCameraCalibration {
         alert(
           "Saving the calibration requires an equal number of calibration points in each " +
             "view (minimum 4).\n\n" +
-            `There are currently ${Object.keys(camPoints).length} points in the camera ` +
-            `view and ${Object.keys(scenePoints).length} points in the scene view.`,
+            `There are currently ${camPointCount} points in the camera ` +
+            `view and ${scenePointCount} points in the scene view.`,
         );
       }
     });

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 SHELL=/bin/bash
@@ -12,39 +12,50 @@ default: deploy-certificates
 
 #.PHONY targets won't be skipped if files with these names happen to exist
 .PHONY: default ca deploy-certificates deploy-csr
-.PHONY: broker-cert web-cert vdms-c-cert vdms-s-cert autocalibration-cert mapping-cert
-.PHONY: broker-csr web-csr vdms-c-csr vdms-s-csr autocalibration-csr mapping-csr
+.PHONY: broker-cert web-cert reid-cert reid-s-cert autocalibration-cert mapping-cert
+.PHONY: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr
 
 #.SECONDARY prevents make from deleting files created by intermediate targets
 .SECONDARY:
 
-deploy-certificates: ca broker-cert web-cert vdms-c-cert vdms-s-cert autocalibration-cert mapping-cert
+deploy-certificates: ca broker-cert web-cert reid-cert reid-s-cert autocalibration-cert mapping-cert
 
-deploy-csr: broker-csr web-csr vdms-c-csr vdms-s-csr autocalibration-csr mapping-csr
+deploy-csr: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr
+
+# EXTRA_HOSTS: optional additional DNS SANs (space-separated host labels, no
+# domain). Empty by default. Hierarchy tests pass values via the root
+# `certificates` target (BROKER_EXTRA_HOSTS / WEB_EXTRA_HOSTS / REID_S_EXTRA_HOSTS).
+EXTRA_HOSTS ?=
+BROKER_EXTRA_HOSTS ?=
+WEB_EXTRA_HOSTS ?=
+REID_S_EXTRA_HOSTS ?=
 
 broker-cert: HOST=broker
 broker-cert: KEY_USAGE=serverAuth
+broker-cert: EXTRA_HOSTS=$(BROKER_EXTRA_HOSTS)
 broker-cert: \
 	$(SECRETSDIR)/certs/scenescape-broker.key \
 	$(SECRETSDIR)/certs/scenescape-broker.crt \
 
 web-cert: HOST=web
 web-cert: KEY_USAGE=serverAuth
+web-cert: EXTRA_HOSTS=$(WEB_EXTRA_HOSTS)
 web-cert: \
 	$(SECRETSDIR)/certs/scenescape-web.key \
 	$(SECRETSDIR)/certs/scenescape-web.crt \
 
-vdms-c-cert: HOST=vdms-c
-vdms-c-cert: KEY_USAGE=clientAuth
-vdms-c-cert: \
-	$(SECRETSDIR)/certs/scenescape-vdms-c.key \
-	$(SECRETSDIR)/certs/scenescape-vdms-c.crt \
+reid-cert: HOST=reid
+reid-cert: KEY_USAGE=clientAuth
+reid-cert: \
+	$(SECRETSDIR)/certs/scenescape-reid.key \
+	$(SECRETSDIR)/certs/scenescape-reid.crt \
 
-vdms-s-cert: HOST=vdms
-vdms-s-cert: KEY_USAGE=serverAuth
-vdms-s-cert: \
-	$(SECRETSDIR)/certs/scenescape-vdms-s.key \
-	$(SECRETSDIR)/certs/scenescape-vdms-s.crt \
+reid-s-cert: HOST=reid
+reid-s-cert: KEY_USAGE=serverAuth
+reid-s-cert: EXTRA_HOSTS=$(REID_S_EXTRA_HOSTS)
+reid-s-cert: \
+	$(SECRETSDIR)/certs/scenescape-reid-s.key \
+	$(SECRETSDIR)/certs/scenescape-reid-s.crt \
 
 autocalibration-cert: HOST=autocalibration
 autocalibration-cert: KEY_USAGE=serverAuth
@@ -70,17 +81,17 @@ web-csr: \
 	$(SECRETSDIR)/certs/scenescape-web.key \
 	$(SECRETSDIR)/certs/scenescape-web.csr \
 
-vdms-c-csr: HOST=vdms-c
-vdms-c-csr: KEY_USAGE=clientAuth
-vdms-c-csr: \
-	$(SECRETSDIR)/certs/scenescape-vdms-c.key \
-	$(SECRETSDIR)/certs/scenescape-vdms-c.csr \
+reid-csr: HOST=reid
+reid-csr: KEY_USAGE=clientAuth
+reid-csr: \
+	$(SECRETSDIR)/certs/scenescape-reid.key \
+	$(SECRETSDIR)/certs/scenescape-reid.csr \
 
-vdms-s-csr: HOST=vdms
-vdms-s-csr: KEY_USAGE=serverAuth
-vdms-s-csr: \
-	$(SECRETSDIR)/certs/scenescape-vdms-s.key \
-	$(SECRETSDIR)/certs/scenescape-vdms-s.csr \
+reid-s-csr: HOST=reid
+reid-s-csr: KEY_USAGE=serverAuth
+reid-s-csr: \
+	$(SECRETSDIR)/certs/scenescape-reid-s.key \
+	$(SECRETSDIR)/certs/scenescape-reid-s.csr \
 
 autocalibration-csr: HOST=autocalibration
 autocalibration-csr: KEY_USAGE=serverAuth
@@ -119,6 +130,10 @@ $(SECRETSDIR)/certs/%.key:
 
 $(SECRETSDIR)/certs/%.csr: $(SECRETSDIR)/certs/%.key
 	@SUBJECT_ALT_NAMES="DNS.1=$(HOST)$(HOSTSUFFIX).$(CERTDOMAIN)" ; \
+	i=2 ; for h in $(EXTRA_HOSTS) ; do \
+	  SUBJECT_ALT_NAMES="$${SUBJECT_ALT_NAMES}\nDNS.$${i}=$${h}.$(CERTDOMAIN)" ; \
+	  i=$$((i+1)) ; \
+	done ; \
 	if [ -n "$(IP_SAN)" ] ; then SUBJECT_ALT_NAMES="$${SUBJECT_ALT_NAMES}\nIP.1=$(IP_SAN)"; fi ; \
 	echo Generating CSR for $(HOST)$(HOSTSUFFIX).$(CERTDOMAIN) ; \
 	mkdir -p $(SECRETSDIR)/certs ; \
@@ -131,6 +146,10 @@ $(SECRETSDIR)/certs/%.csr: $(SECRETSDIR)/certs/%.key
 
 $(SECRETSDIR)/certs/%.crt: $(SECRETSDIR)/certs/%.csr
 	@SUBJECT_ALT_NAMES="DNS.1=$(HOST)$(HOSTSUFFIX).$(CERTDOMAIN)" ; \
+	i=2 ; for h in $(EXTRA_HOSTS) ; do \
+	  SUBJECT_ALT_NAMES="$${SUBJECT_ALT_NAMES}\nDNS.$${i}=$${h}.$(CERTDOMAIN)" ; \
+	  i=$$((i+1)) ; \
+	done ; \
 	if [ -n "$(IP_SAN)" ] ; then SUBJECT_ALT_NAMES="$${SUBJECT_ALT_NAMES}\nIP.1=$(IP_SAN)" ; fi ; \
 	echo Generating certificate for $(HOST)$(HOSTSUFFIX).$(CERTDOMAIN) ; \
 	mkdir -p $(SECRETSDIR)/certs ; \

@@ -3,8 +3,7 @@
 
 """Jitter evaluator implementation for tracking smoothness metrics.
 
-Evaluates tracker output quality by measuring positional jitter —
-the degree of unwanted high-frequency variation in tracked object trajectories.
+Evaluates tracker output quality by measuring positional and rotational jitter.
 """
 
 from typing import Iterator, List, Dict, Any, Optional, Union
@@ -14,8 +13,10 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 
 from base.tracker_evaluator import TrackerEvaluator
+
+
 class JitterEvaluator(TrackerEvaluator):
-  """Evaluator for tracker smoothness metrics based on positional jitter.
+  """Evaluator for tracker smoothness metrics based on position and rotation.
 
   Jitter metrics quantify high-frequency noise in tracked object trajectories
   by analysing frame-to-frame position changes for each track.
@@ -27,6 +28,7 @@ class JitterEvaluator(TrackerEvaluator):
     - acceleration_variance_gt: Same as acceleration_variance but on ground-truth tracks.
     - rms_jerk_ratio:           rms_jerk / rms_jerk_gt — tracker jitter relative to GT.
     - acceleration_variance_ratio: acceleration_variance / acceleration_variance_gt.
+    - rms_angular_displacement: Root mean square frame-to-frame angular displacement.
 
   Comparing ``rms_jerk`` with ``rms_jerk_gt`` shows how much jitter the tracker
   adds on top of any jitter already present in the test data. The ratio metrics
@@ -55,6 +57,7 @@ class JitterEvaluator(TrackerEvaluator):
     'acceleration_variance_gt',
     'rms_jerk_ratio',
     'acceleration_variance_ratio',
+    'rms_angular_displacement',
   ]
 
   def __init__(self):
@@ -65,6 +68,8 @@ class JitterEvaluator(TrackerEvaluator):
 
     # Per-track position history: {track_uuid: [(timestamp, [x, y, z]), ...]}
     self._track_histories: Dict[str, List[tuple]] = {}
+    # Per-track rotation history: {track_uuid: [(timestamp, [x, y, z, w]), ...]}
+    self._rotation_histories: Dict[str, List[tuple]] = {}
     # Ground-truth per-track histories (populated when GT CSV is provided)
     self._gt_track_histories: Dict[str, List[tuple]] = {}
     # FPS derived from tracker output timestamps (used to convert GT frame → time)
@@ -82,7 +87,7 @@ class JitterEvaluator(TrackerEvaluator):
       metrics: List of metric names to compute. Supported values are listed
                 in ``SUPPORTED_METRICS``: 'rms_jerk', 'acceleration_variance',
                 'rms_jerk_gt', 'acceleration_variance_gt', 'rms_jerk_ratio',
-                'acceleration_variance_ratio'.
+                'acceleration_variance_ratio', 'rms_angular_displacement'.
 
     Returns:
       Self for method chaining.
@@ -177,6 +182,7 @@ class JitterEvaluator(TrackerEvaluator):
 
       # Build per-track histories
       track_histories: Dict[str, List[tuple]] = {}
+      rotation_histories: Dict[str, List[tuple]] = {}
       for frame in deduplicated:
         ts_str = frame.get("timestamp", "")
         try:
@@ -189,17 +195,43 @@ class JitterEvaluator(TrackerEvaluator):
         for obj in frame.get("objects", []):
           track_id = obj.get("id")
           position = obj.get("translation")
-          if track_id is None or position is None:
+          rotation = obj.get("rotation")
+          if track_id is None:
             continue
-          if track_id not in track_histories:
-            track_histories[track_id] = []
-          track_histories[track_id].append((ts, list(position)))
+          if position is not None:
+            if track_id not in track_histories:
+              track_histories[track_id] = []
+            track_histories[track_id].append((ts, list(position)))
+          if rotation is not None:
+            if track_id not in rotation_histories:
+              rotation_histories[track_id] = []
+            rotation_histories[track_id].append((ts, list(rotation)))
 
       # Sort each track's positions by timestamp
       for track_id in track_histories:
         track_histories[track_id].sort(key=lambda entry: entry[0])
+      for track_id in rotation_histories:
+        rotation_histories[track_id].sort(key=lambda entry: entry[0])
+
+      # When a fixed fps is configured, replace wall-clock timestamps with
+      # synthetic frame-index-based ones (epoch + frame_idx / fps). This
+      # mirrors _parse_gt_csv and ensures kinematic derivatives are
+      # independent of system processing speed.
+      if self._base_fps is not None:
+        epoch_dt = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        sorted_ts = sorted(
+          datetime.fromisoformat(f.get('timestamp', '').replace('Z', '+00:00'))
+          for f in deduplicated
+        )
+        ts_to_idx = {ts: i for i, ts in enumerate(sorted_ts)}
+        for track_id in track_histories:
+          track_histories[track_id] = [
+            (epoch_dt + timedelta(seconds=ts_to_idx[ts] / self._base_fps), pos)
+            for ts, pos in track_histories[track_id]
+          ]
 
       self._track_histories = track_histories
+      self._rotation_histories = rotation_histories
 
       # Derive FPS from tracker output timestamps
       all_timestamps = sorted(
@@ -280,6 +312,8 @@ class JitterEvaluator(TrackerEvaluator):
         tracker_val = self._compute_acceleration_variance(jitter_per_track)
         gt_val = self._compute_acceleration_variance(jitter_per_track_gt)
         results[metric] = tracker_val / gt_val if gt_val != 0.0 else 0.0
+      elif metric == 'rms_angular_displacement':
+        results[metric] = self._compute_rms_angular_displacement(self._rotation_histories)
 
     if self._output_folder is not None:
       self._save_results(results)
@@ -296,6 +330,7 @@ class JitterEvaluator(TrackerEvaluator):
     self._output_folder = None
     self._processed = False
     self._track_histories = {}
+    self._rotation_histories = {}
     self._gt_track_histories = {}
     self._camera_fps = 30.0
     self._base_fps = None
@@ -451,6 +486,51 @@ class JitterEvaluator(TrackerEvaluator):
       return 0.0
 
     return float(np.sqrt(np.mean(all_jerks ** 2)))
+
+  def _compute_rms_angular_displacement(self, histories: Dict[str, List[tuple]]) -> float:
+    """Compute RMS shortest angular displacement between consecutive rotations.
+
+    Rotations are expected as quaternions in ``[x, y, z, w]`` order. Invalid
+    and zero-length quaternions are skipped. The result is expressed in degrees.
+
+    Args:
+      histories: Per-track quaternion histories keyed by track ID.
+
+    Returns:
+      RMS frame-to-frame angular displacement in degrees, or 0.0 when no valid
+      consecutive quaternion pairs are available.
+    """
+    angular_displacements = []
+
+    for history in histories.values():
+      for (_, previous), (_, current) in zip(history[:-1], history[1:]):
+        try:
+          previous_quaternion = np.asarray(previous, dtype=float)
+          current_quaternion = np.asarray(current, dtype=float)
+        except (TypeError, ValueError):
+          continue
+        if previous_quaternion.shape != (4,) or current_quaternion.shape != (4,):
+          continue
+        if not np.all(np.isfinite(previous_quaternion)) or not np.all(np.isfinite(current_quaternion)):
+          continue
+
+        previous_norm = np.linalg.norm(previous_quaternion)
+        current_norm = np.linalg.norm(current_quaternion)
+        if previous_norm == 0.0 or current_norm == 0.0:
+          continue
+
+        previous_quaternion /= previous_norm
+        current_quaternion /= current_norm
+        quaternion_dot = np.clip(
+          abs(np.dot(previous_quaternion, current_quaternion)), 0.0, 1.0
+        )
+        angular_displacements.append(np.degrees(2.0 * np.arccos(quaternion_dot)))
+
+    if not angular_displacements:
+      return 0.0
+
+    angular_displacements_array = np.asarray(angular_displacements)
+    return float(np.sqrt(np.mean(angular_displacements_array ** 2)))
 
   def _compute_acceleration_variance(self, jitter_per_track: Dict[str, Any]) -> float:
     """Compute variance of acceleration magnitudes across all tracks.

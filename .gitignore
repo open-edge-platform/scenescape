@@ -39,16 +39,22 @@ media
 **/workspace/migrations
 pvd-mqtt/detect
 sample_data/xREF_*
+.test_logs
 test_data
 test_reports/
 !tests/interface/firefox-profile.tar
 manager/test/geckodriver.tar.gz
 tests/perf_tests/input/*.json
+
+# Host-side vendored third-party sources for Docker builds (see autocalibration/Makefile,
+# mapping/Makefile vendor-deps targets)
+autocalibration/.vendor/
+mapping/.vendor/
+
 model_installer/models
 package.json
 package-lock.json
 node_modules
-coverity_tool.tgz
 *.auth
 *.crt
 *.csr

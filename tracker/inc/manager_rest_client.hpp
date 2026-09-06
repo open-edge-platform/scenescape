@@ -40,7 +40,7 @@ public:
 /**
  * @brief HTTP client for Manager REST API.
  *
- * Handles authentication and scene fetching from the SceneScape Manager.
+ * Handles authentication and scene fetching from the Scenescape Manager.
  * Supports HTTPS with CA certificate verification.
  */
 class ManagerRestClient : public IManagerRestClient {

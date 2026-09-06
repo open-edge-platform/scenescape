@@ -16,7 +16,7 @@ class TrackingDataset(ABC):
   - Input data (videos or object detections) from multiple cameras
   - Ground-truth object locations for evaluation
 
-  Implementations must convert dataset-specific formats to SceneScape canonical formats.
+  Implementations must convert dataset-specific formats to Scenescape canonical formats.
   """
 
   @abstractmethod

@@ -1,0 +1,104 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# SkillSpector baseline — findings listed here are suppressed on future scans.
+# Edit 'reason' fields and add glob 'rules' as needed. See docs/SUPPRESSION.md.
+version: 2
+scanner_version: 2.5.0
+rules: []
+fingerprints:
+- hash: sha256:d3eadf8442b143dd2ef9266cc6c2c3c092387c5470c198a6fb1ece3aba447e13
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:b406382be095487468576feabceabbcffa61465ad462b24397202a5fc6afea40
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:c7e55a4d740baa85bc380571bc70af09652d031d329fe9708058d726fef93b1a
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:2f24a70c94917ff75b4394a85879fcf98364a6c278b70b04dad43b4396ead50d
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:15a100bad4fd7ab1c9604ec90263c26a15c3ebf7ede9306f5eeb507243bd967d
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:f6ff51070e39c2e8b46e8a16dab633bf5db0cc702593cfdb76510bc1d48d53bb
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:27458df16cac13b7d2f9402670b5b136f343654dd7402d62b94090f428182b73
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:be3d9d8e416204cb994c4aa794718a2fca621a56c9ae16a053e34d4a049215f2
+  rule_id: AST4
+  file: scripts/bootstrap_deploy.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:6c707fbd0cc567982e08cc598f677920f9877226f4e1d457cb25d2a9ccd3060a
+  rule_id: AST4
+  file: scripts/capture_calibration_frames.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:1ec37672df5ced46f3fafe59ae5f31f5fa8d552d690f12293fc50e73e4f6abcb
+  rule_id: AST4
+  file: scripts/capture_calibration_frames.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:6d8cc9e018f437e2501c317bca82ca824c2ac860184f6ddffc8c37db2648cfed
+  rule_id: AST4
+  file: scripts/check_service_health.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:7ec5286e454b19977d582d183ef556ca32bdcc91bbc30c7d0e5ad4a96507bc5f
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:fdd98154ca48baefa61a80af5b71149dd8e9792bd3705f0f725b5230fdae180c
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:26cdcd1ad4b1f6f82f039c388787fb7ae47254ba9f4cd6874d10d84a1da598e1
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:1683c6545a93689576d1f8adda6e9911e28080e910157c0e1afe4ecd3169fa86
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:43f8540d2a0ba8d61360ab4ad29751d520548b31acf073f660e3d8f69fe844cc
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:656dd9acc6b3114a75d97363630c525bb51d70b384ef0493d22749668bd3c0c1
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:c72d3b4ff57c9b0fdd417acf77285ba9b348b284b50642a0da643f317ba3ece1
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'
+- hash: sha256:ba52a577546cfa7014ff3f978f91ba8d00b944212a5288f5d99abe1f1e0cd0ba
+  rule_id: AST4
+  file: scripts/download_model.py
+  reason: 'Reviewed: subprocess calls use argv lists (no shell); required for git
+    sparse-checkout, docker, and orchestrated deploy helpers; no credential-path harvesting.'

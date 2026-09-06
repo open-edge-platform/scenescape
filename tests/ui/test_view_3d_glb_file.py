@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import tests.ui.common_ui_test_utils as common
 import os
 import cv2
+import pytest
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
 
@@ -73,33 +74,22 @@ def file_visibility_test(params, file_name, base_screenshot, DEBUG):
 
   return upload_success, object_visible_success
 
-def test_3D_file_upload_visibility(params, record_xml_attribute):
+@pytest.mark.fresh_stack
+@pytest.mark.test_name("NEX-T10427")
+def test_3D_file_upload_visibility(params, result_recorder):
   """! This test checks that an uploaded .glb file uploaded as a 3D map is visible in Scenescape's 3D view.
   @param    params                  List of test parameters.
-  @param    record_xml_attribute    Function for recording test name.
-  @return   exit_code               Boolean representing whether the test passed or failed.
+  @param    result_recorder         Pytest fixture recording the test result.
   """
-  TEST_NAME = "NEX-T10427"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
   DEBUG = False
-  success_1 = False
-  success_2 = False
 
-  try:
-    base_screenshot = get_baseline_screenshot(params)
-    if DEBUG:
-      cv2.imwrite("test_view_3d_glb_screenshot_base.png", base_screenshot)
+  base_screenshot = get_baseline_screenshot(params)
+  if DEBUG:
+    cv2.imwrite("test_view_3d_glb_screenshot_base.png", base_screenshot)
 
-    # glb test
-    success_1, success_2 = file_visibility_test(params, "box.glb", base_screenshot, DEBUG)
-    assert success_1
-    assert success_2
+  # glb test
+  success_1, success_2 = file_visibility_test(params, "box.glb", base_screenshot, DEBUG)
+  assert success_1
+  assert success_2
 
-  finally:
-    if (success_1 and success_2):
-      exit_code = 0
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
-  return
+  result_recorder.success()

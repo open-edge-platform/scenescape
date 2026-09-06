@@ -150,6 +150,13 @@ def test_auth_unauthenticated_request_is_rejected(params, result_recorder):
       # username and password are required fields for /auth
       assert response.status_code == HTTPStatus.BAD_REQUEST, \
         f"Expected 400 BAD REQUEST for POST {endpoint}, got {response.status_code}: {response.text}"
+    elif endpoint == "/save-geospatial-snapshot":
+      # This endpoint uses SessionAuthentication (not TokenAuthentication), which
+      # authenticates a cookie-less request as an anonymous user rather than
+      # failing authentication outright, so IsAdminOrReadOnly denies it as a
+      # permission failure (403), not an authentication failure (401).
+      if response.status_code != HTTPStatus.FORBIDDEN:
+        failures.append(f"POST {endpoint}: expected 403, got {response.status_code}")
     else:
       if response.status_code != HTTPStatus.UNAUTHORIZED:
         failures.append(f"POST {endpoint}: expected 401, got {response.status_code}")

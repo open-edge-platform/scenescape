@@ -3,7 +3,7 @@
 
 /*
 
-This is a k6 test script that simulates SceneScape detection messages over MQTT.
+This is a k6 test script that simulates Scenescape detection messages over MQTT.
 
 Grid-based placement across a 1280x720 pixel frame.  Objects are arranged on a
 grid sized to NUM_OBJECTS so that every pair is well-separated in world space

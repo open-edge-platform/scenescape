@@ -53,15 +53,23 @@ class TimeChunkBuffer:
         self._data[category] = {}
 
       # Store latest frame for this camera in this category
+      if camera_id in self._data[category]:
+        # Overwriting an un-dispatched frame for this camera+category.
+        metrics.inc_time_chunking_duplicated_cameras({"category": category})
       self._data[category][camera_id] = (objects, when, already_tracked)
 
   def pop_all(self):
     """Get all data organized by category->camera and clear buffer"""
     with self._lock:
+      if self._data:
+        unique_cameras = len({camera_id for camera_dict in self._data.values() for camera_id in camera_dict})
+        metrics.inc_time_chunking_non_empty_chunks()
+        metrics.add_time_chunking_unique_cameras(unique_cameras)
+      else:
+        metrics.inc_time_chunking_empty_chunks()
       result = self._data.copy()  # {category: {camera_id: (objects, when, already_tracked)}}
       self._data.clear()
       return result
-
 
 class TimeChunkProcessor(threading.Thread):
   """Timer thread that processes buffered messages at configurable intervals"""
@@ -154,22 +162,37 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     if not categories:
       categories = self.trackers.keys()
 
-    # Extract camera_id from objects - required for time chunking.
-    # Objects come from either a Camera (cameraID) or a child Scene (uid).
-    if len(objects) > 0:
-      source = getattr(objects[0], 'camera', None)
-      source_id = getattr(source, 'cameraID', None) or getattr(source, 'uid', None)
-      if source_id is None:
-        log.warning("No source ID found in objects, skipping time chunking processing")
-        return
-    else:
-      # Keep retirement moving when a camera/category has no detections.
-      source_id = self.EMPTY_FRAME_CAMERA_ID
+    # Extract source id for time-chunk buckets. Detections may arrive as:
+    # - camera frames in ``objects`` (Camera.cameraID)
+    # - hierarchy / external-source frames in ``objects`` when retrack=True
+    #   (Scene/SimpleNamespace.uid)
+    # - already-tracked frames in ``already_tracked_objects`` when retrack=False
+    #   (child scenes and all external sources — ADR 14 sets uid=source_id)
+    source_id = self._sourceIdForTimeChunking(objects, already_tracked_objects)
+    if source_id is None:
+      log.warning("No source ID found in objects, skipping time chunking processing")
+      return
 
     for category in categories:
       # Use time chunking
       self.time_chunk_processor.add_message(
           source_id, category, objects, when, already_tracked_objects)
+
+  @staticmethod
+  def _sourceIdForTimeChunking(objects, already_tracked_objects):
+    """Return cameraID/uid for the batch, or EMPTY_FRAME_CAMERA_ID if empty."""
+    any_non_empty = False
+    for candidate in (objects, already_tracked_objects):
+      if not candidate:
+        continue
+      any_non_empty = True
+      source = getattr(candidate[0], 'camera', None)
+      source_id = getattr(source, 'cameraID', None) or getattr(source, 'uid', None)
+      if source_id is not None:
+        return source_id
+    if any_non_empty:
+      return None
+    return TimeChunkedIntelLabsTracking.EMPTY_FRAME_CAMERA_ID
 
   def _createIlabsTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
     """Create IntelLabs tracker object for each category"""
@@ -183,6 +206,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     for category in categories:
       if category not in self.trackers:
         tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, self.time_chunking_rate_fps, self.suspended_track_timeout_secs, self.reid_config_data)
+        tracker.uuid_manager.scene_id = self.uuid_manager.scene_id
         self.trackers[category] = tracker
         tracker.start()
         log.info(f"Started IntelLabs tracker {tracker.__str__()} thread for category {category}")

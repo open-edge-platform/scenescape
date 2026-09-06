@@ -1,0 +1,87 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+services:
+  child1-pgserver:
+    image: postgres:17.6
+    environment:
+      POSTGRES_USER: scenescape
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: scenescape
+    networks:
+      - scenescape-test
+    volumes:
+      - child1-vol-db:/var/lib/postgresql/data
+
+  child1-web:
+    image: intel/scenescape-manager:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape-test:
+        aliases:
+          - child1-web.scenescape.intel.com
+    depends_on:
+      - child1-pgserver
+    ports:
+      - "${CHILD1_WEB_PORT}:443"
+    command: >
+      webserver
+      --broker child1-broker.scenescape.intel.com
+      --brokerauth /run/secrets/browser.auth
+      --brokerrootcert /run/secrets/certs/scenescape-ca.pem
+    healthcheck:
+      test: "curl --insecure -X GET https://child1-web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
+      interval: 5s
+      timeout: 60s
+      retries: 10
+      start_period: 120s
+    environment:
+      - "EXAMPLEDB=/home/scenescape/Scenescape/tests/testdb.tar.bz2"
+      - "DBHOST=child1-pgserver"
+      - "DBPORT=5432"
+      - "DBTYPE=postgres"
+      - "SUPASS"
+    volumes:
+      - ./tests/testdb.tar.bz2:/home/scenescape/Scenescape/tests/testdb.tar.bz2
+      - child1-vol-media:/workspace/media
+      - child1-vol-sample-data:/home/scenescape/Scenescape/sample_data
+      - child1-vol-migrations:/workspace/migrations
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: web-cert
+        target: certs/scenescape-web.crt
+      - source: web-key
+        target: certs/scenescape-web.key
+      - django
+      - controller.auth
+      - browser.auth
+      - calibration.auth
+    restart: on-failure
+
+  child1-broker:
+    image: eclipse-mosquitto
+    ports:
+      - "${CHILD1_BROKER_PORT}:1883"
+    configs:
+      - source: mosquitto-secure
+        target: /mosquitto/config/mosquitto.conf
+    volumes:
+      - type: bind
+        source: ${SECRETSDIR}
+        target: /mosquitto/secrets
+    networks:
+      scenescape-test:
+        aliases:
+          - child1-broker.scenescape.intel.com
+    user: "${UID:-1000}:${GID:-1000}"
+    restart: always
+
+volumes:
+  child1-vol-db:
+  child1-vol-media:
+  child1-vol-sample-data:
+  child1-vol-migrations:

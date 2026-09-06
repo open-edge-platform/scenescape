@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -51,7 +51,7 @@ class OrphanedCameraTest(FunctionalTest):
       * Get the entire list of cameras and verify that the new camera is has the new scene ID
     """
 
-    log.info("Make sure that the SceneScape is up and running")
+    log.info("Make sure that the Scenescape is up and running")
     assert self.sceneScapeReady(MAX_ATTEMPTS, MAX_CONTROLLER_WAIT)
 
     try:

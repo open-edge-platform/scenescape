@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 ---
@@ -45,7 +45,7 @@ mqttService:
     loadBalancerIP: 10.1.0.31
     annotations:
       external-dns.alpha.kubernetes.io/hostname: "scenescape-mqtt.example.org"
-# enable to start SceneScape in validation mode
+# enable to start Scenescape in validation mode
 tests:
   storageClassName: openebs-lvmpv-shared
   enabled: false

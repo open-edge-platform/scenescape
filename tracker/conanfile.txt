@@ -4,8 +4,8 @@
 [requires]
 quill/11.1.0
 cli11/2.6.2
-cpp-httplib/0.39.0
-rapidjson/cci.20250205
+cpp-httplib/0.46.0
+rapidjson/cci.20200410
 gtest/1.17.0
 stduuid/1.2.3
 opencv/4.13.0

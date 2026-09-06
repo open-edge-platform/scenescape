@@ -41,6 +41,12 @@ class CalculateCameraIntrinsics(APIView):
   def post(self, request):
     log.info(f"Received request to calculate intrinsics with {request.data}")
     try:
+      required_fields = ['mapPoints', 'camPoints', 'intrinsics', 'distortion', 'imageSize']
+      missing_fields = [field for field in required_fields if field not in request.data]
+      if missing_fields:
+        return Response({"error": f"Missing required fields: {', '.join(missing_fields)}"},
+                        status=status.HTTP_400_BAD_REQUEST)
+
       if len(request.data['mapPoints']) != len(request.data['camPoints']) \
           or len(request.data['mapPoints']) < 4:
         return Response({"error": "Invalid number of points provided for calculation."},
@@ -78,7 +84,7 @@ class CalculateCameraIntrinsics(APIView):
       euler, position = calculate_pose(rvecs[0], tvecs[0])
       return Response({"euler": euler, "position": position, "mtx": mtx, "dist": dist},
                       status=status.HTTP_200_OK)
-    except (cv2.error, TypeError, ValueError) as e:
+    except (cv2.error, TypeError, ValueError, KeyError) as e:
       log.error(f"Error calculating intrinsics: {e}")
       return Response({"error": "Invalid values provided for calculation"},
                       status=status.HTTP_400_BAD_REQUEST)

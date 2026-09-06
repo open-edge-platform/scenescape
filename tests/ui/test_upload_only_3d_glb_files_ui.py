@@ -27,6 +27,7 @@ def test_only_upload_glb_main(params, record_xml_attribute):
   element_id = "id_map"
   element_location = "#map_wrapper a"
   scene_name = common.TEST_SCENE_NAME
+  browser = None
 
   try:
     print("Executing: " + TEST_NAME)
@@ -45,7 +46,8 @@ def test_only_upload_glb_main(params, record_xml_attribute):
     exit_code = 0
 
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0

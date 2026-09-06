@@ -238,7 +238,7 @@ class KubeClient():
     # volume mounts and volumes for the container
     volume_mounts = [
       client.V1VolumeMount(name="video-config", mount_path="/home/pipeline-server/config.json", sub_path="config.yaml"),
-      client.V1VolumeMount(name="sscape-adapter", mount_path="/home/pipeline-server/user_scripts/gvapython/sscape"),
+      client.V1VolumeMount(name="sscape-gstplugins", mount_path="/home/sscape/python", read_only=True),
       client.V1VolumeMount(name="models-storage", mount_path="/home/pipeline-server/models", sub_path="models"),
       client.V1VolumeMount(name="sample-data", mount_path="/home/pipeline-server/videos", sub_path="sample_data"),
       client.V1VolumeMount(name="pipeline-root", mount_path="/var/cache/pipeline_root"),
@@ -247,7 +247,7 @@ class KubeClient():
 
     volumes = [
       client.V1Volume(name="video-config", config_map=client.V1ConfigMapVolumeSource(name=pipelineConfigMapName)),
-      client.V1Volume(name="sscape-adapter", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-sscape-adapter")),
+      client.V1Volume(name="sscape-gstplugins", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-sscape-gstplugins")),
       client.V1Volume(name="models-storage", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-models-pvc")),
       client.V1Volume(name="sample-data", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=f"{self.release}-sample-data-pvc")),
       client.V1Volume(name="pipeline-root", empty_dir=client.V1EmptyDirVolumeSource()),
@@ -266,6 +266,7 @@ class KubeClient():
       client.V1EnvVar(name="GENICAM", value="Balluff"),
 #      client.V1EnvVar(name="GST_DEBUG", value="1,gencamsrc:2"),
       client.V1EnvVar(name="GST_DEBUG", value="3"),
+      client.V1EnvVar(name="ADDITIONAL_GST_PLUGIN_PATH", value="/home/sscape"),
       client.V1EnvVar(name="ADD_UTCTIME_TO_METADATA", value="true"),
       client.V1EnvVar(name="APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC", value="false"),
       client.V1EnvVar(name="MQTT_HOST", value="broker." + self.ns + ".svc.cluster.local"),

@@ -28,13 +28,13 @@ These components communicate using canonical data formats defined by JSON schema
 **System requirements**:
 
 - Docker installed and running on the host machine
-- SceneScape scene controller container image available locally (e.g., `scenescape-controller:2026.0.0-dev`)
+- Scenescape scene controller container image available locally (e.g., `intel/scenescape-controller:2026.0.0-dev`)
 
 To verify Docker is available:
 
 ```bash
 docker --version
-docker images | grep scenescape-controller
+docker images | grep intel/scenescape-controller
 ```
 
 ### Installation
@@ -58,7 +58,7 @@ pipeline:
     path: /tmp/tracker-evaluation # Base output directory
 
 dataset:
-  class: datasets.metric_test_dataset.MetricTestDataset
+  class: datasets.unity_dataset.UnityDataset
   config:
     data_path: /path/to/dataset
     cameras: [Cam_x1_0, Cam_x2_0]
@@ -67,7 +67,7 @@ dataset:
 harness:
   class: harnesses.scene_controller_harness.SceneControllerHarness
   config:
-    container_image: scenescape-controller:latest
+    container_image: intel/scenescape-controller:latest
     tracker_config_path: /path/to/tracker-config.json
 
 evaluators:
@@ -100,7 +100,7 @@ pipeline:
     path: /tmp/camera-projection-evaluation
 
 dataset:
-  class: datasets.metric_test_dataset.MetricTestDataset
+  class: datasets.unity_dataset.UnityDataset
   config:
     data_path: /path/to/dataset
     cameras: [Cam_x1_0, Cam_x2_0]
@@ -109,7 +109,7 @@ dataset:
 harness:
   class: harnesses.camera_projection_harness.CameraProjectionHarness
   config:
-    container_image: scenescape-controller:latest
+    container_image: intel/scenescape-controller:latest
     # Optional: per-category projection settings.
     # shift_type 1 = bottom-centre (TYPE_1, default)
     # shift_type 2 = perspective-corrected point (TYPE_2)
@@ -159,7 +159,10 @@ against the same tracker outputs independently.
 ### Black-Box Evaluation Suite
 
 `run_black_box_evaluation.py` runs the complete black-box evaluation across all three
-production container types in a single timestamped session:
+production container types in a single timestamped session. Two config sets are
+available: the legacy Unity dataset (`pipeline_configs/black_box_unity/`, the default)
+and the WILDTRACK dataset (`pipeline_configs/black_box_wildtrack/`, selected with
+`--dataset wildtrack`). Both sets share the same three config filenames:
 
 | Config                                | Container               | Description                                                   |
 | ------------------------------------- | ----------------------- | ------------------------------------------------------------- |
@@ -169,8 +172,8 @@ production container types in a single timestamped session:
 
 **Prerequisites** (in addition to the general prerequisites above):
 
-- `scenescape-controller:2026.1.0-dev` Docker image available locally
-- `scenescape-tracker:2026.1.0-dev` Docker image available locally
+- `intel/scenescape-controller:2026.1.0-dev` Docker image available locally
+- `intel/scenescape-tracker:2026.1.0-dev` Docker image available locally
 - `eclipse-mosquitto:2.0.22` Docker image available locally
 
 Verify:
@@ -186,11 +189,12 @@ source .venv/bin/activate
 python -m run_black_box_evaluation
 ```
 
-By default results land under `/home/labrat/tracker-evaluation/black-box-evaluation/<YYYYMMDD_HHMMSS>/`.
-Use `--output` to override:
+By default results land under ` <repo>/tools/tracker/evaluation/output/black-box-evaluation/`.
+Use `--output` to override, and `--dataset` to choose the config set (default `unity`):
 
 ```bash
 python -m run_black_box_evaluation --output /custom/output/path
+python -m run_black_box_evaluation --dataset wildtrack
 ```
 
 **Output structure**:
@@ -269,12 +273,12 @@ evaluation/
 
 ### Available Evaluators
 
-| Evaluator                 | Metrics                                                                                                                         | Description                                                                                                                                                           |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TrackEvalEvaluator`      | HOTA, MOTA, IDF1, and more                                                                                                      | Industry-standard tracking accuracy metrics via the TrackEval library                                                                                                 |
-| `DiagnosticEvaluator`     | `LOC_T_X`, `LOC_T_Y`, `DIST_T` → summary scalars: `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `num_matches`                    | Per-frame location and distance error between matched tracker output tracks and ground-truth tracks; uses bipartite (Hungarian) assignment over overlapping frames    |
-| `JitterEvaluator`         | `rms_jerk`, `rms_jerk_gt`, `rms_jerk_ratio`, `acceleration_variance`, `acceleration_variance_gt`, `acceleration_variance_ratio` | Trajectory smoothness metrics based on numerical differentiation of 3D positions; GT and ratio variants allow comparing tracker-added jitter against test-data jitter |
-| `CameraAccuracyEvaluator` | `DIST_T` → `dist_mean_all`, `dist_mean_{cam}`, `dist_mean_{cam}_{obj}`; `VISIBILITY` → `visibility_{cam}_{obj}` (frames + %)    | Per-camera, per-object projection accuracy: mean distance error and visibility frame count. Designed to pair with `CameraProjectionHarness`.                          |
+| Evaluator                 | Metrics                                                                                                                                                     | Description                                                                                                                                                                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TrackEvalEvaluator`      | HOTA, MOTA, IDF1, and more                                                                                                                                  | Industry-standard tracking accuracy metrics via the TrackEval library                                                                                                                                                               |
+| `DiagnosticEvaluator`     | `LOC_T_X`, `LOC_T_Y`, `DIST_T` → summary scalars: `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `num_matches`                                                | Per-frame location and distance error between matched tracker output tracks and ground-truth tracks; uses bipartite (Hungarian) assignment over overlapping frames                                                                  |
+| `JitterEvaluator`         | `rms_jerk`, `rms_jerk_gt`, `rms_jerk_ratio`, `acceleration_variance`, `acceleration_variance_gt`, `acceleration_variance_ratio`, `rms_angular_displacement` | Trajectory smoothness metrics based on numerical differentiation of 3D positions and frame-to-frame quaternion angular displacement; GT and ratio variants allow comparing tracker-added positional jitter against test-data jitter |
+| `CameraAccuracyEvaluator` | `DIST_T` → `dist_mean_all`, `dist_mean_{cam}`, `dist_mean_{cam}_{obj}`; `VISIBILITY` → `visibility_{cam}_{obj}` (frames + %)                                | Per-camera, per-object projection accuracy: mean distance error and visibility frame count. Designed to pair with `CameraProjectionHarness`.                                                                                        |
 
 ## Canonical Data Formats
 
@@ -418,13 +422,13 @@ pytest harnesses/tests/test_scene_controller_harness.py::TestSceneControllerHarn
 Integration tests require:
 
 - Docker installed and running
-- SceneScape controller container image available (e.g., `scenescape-controller:latest`)
+- Scenescape controller container image available (e.g., `intel/scenescape-controller:latest`)
 
 Verify Docker setup:
 
 ```bash
 docker --version
-docker images | grep scenescape-controller
+docker images | grep intel/scenescape-controller
 ```
 
 ### Expected Test Results

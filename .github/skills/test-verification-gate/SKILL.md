@@ -1,6 +1,6 @@
 ---
 name: test-verification-gate
-description: Runtime test verification gate for SceneScape — image freshness checks, rebuild-before-test requirements, and retry policy.
+description: Runtime test verification gate for Scenescape — image freshness checks, rebuild-before-test requirements, and retry policy.
 ---
 
 <!--

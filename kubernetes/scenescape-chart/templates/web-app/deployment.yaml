@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 ---
@@ -69,9 +69,9 @@ spec:
           - name: WEBSERVER_URL
             value: https://web.scenescape.svc.cluster.local
           - name: MODEL_CONFIGS_FOLDER
-            value: /home/scenescape/SceneScape/models/models/model_configs
+            value: /home/scenescape/Scenescape/models/models/model_configs
           - name: EXAMPLEDB
-            value: /home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
+            value: /home/scenescape/Scenescape/sample_data/exampledb.tar.bz2
           - name: DBHOST
             value: pgserver
           - name: DBPORT
@@ -91,9 +91,25 @@ spec:
           readinessProbe:
             exec:
               command:
-              - cat
-              - /tmp/healthy
-            periodSeconds: 1
+              - sh
+              - -c
+              - >
+                curl --insecure -s https://localhost:443/api/v1/health |
+                python3 -c 'import json,sys; data=json.load(sys.stdin); raise SystemExit(0 if data.get("ready") is True else 1)'
+            periodSeconds: 10
+            timeoutSeconds: 60
+            failureThreshold: 5
+            initialDelaySeconds: 10
+          livenessProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - curl --insecure -fsS https://localhost:443/api/v1/health >/dev/null
+            periodSeconds: 10
+            timeoutSeconds: 60
+            failureThreshold: 5
+            initialDelaySeconds: 20
           resources: {}
           volumeMounts:
           - mountPath: /run/secrets/certs/scenescape-ca.pem
@@ -126,14 +142,14 @@ spec:
             name: calibration-auth
             subPath: calibration.auth
             readOnly: true
-          - mountPath: /home/scenescape/SceneScape/media
+          - mountPath: /home/scenescape/Scenescape/media
             name: media-storage
           - mountPath: /workspace/media
             name: media-storage
-          - mountPath: /home/scenescape/SceneScape/sample_data
+          - mountPath: /home/scenescape/Scenescape/sample_data
             name: sample-data-storage
             subPath: sample_data
-          - mountPath: /home/scenescape/SceneScape/models
+          - mountPath: /home/scenescape/Scenescape/models
             name: models-storage
           - mountPath: /workspace/migrations
             name: migrations-storage

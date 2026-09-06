@@ -22,6 +22,12 @@ opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> messages_counte
 opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> dropped_counter;
 opentelemetry::nostd::shared_ptr<metrics_api::ObservableInstrument> active_tracks_gauge;
 
+// Time-chunking performance counters
+opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> tc_duplicated_cameras_counter;
+opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> tc_unique_cameras_counter;
+opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> tc_non_empty_chunks_counter;
+opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> tc_empty_chunks_counter;
+
 // Per-stage latency histograms
 opentelemetry::nostd::unique_ptr<metrics_api::Histogram<double>> stage_parse_histogram;
 opentelemetry::nostd::unique_ptr<metrics_api::Histogram<double>> stage_buffer_histogram;
@@ -76,6 +82,19 @@ void Metrics::ensure_initialized() {
 
         dropped_counter =
             meter->CreateUInt64Counter(kMetricMqttDropped, "MQTT messages dropped", "{message}");
+
+        tc_duplicated_cameras_counter = meter->CreateUInt64Counter(
+            kMetricTimeChunkingDuplicatedCameras,
+            "Time-chunking buffered camera frames overwritten before dispatch", "{message}");
+        tc_unique_cameras_counter = meter->CreateUInt64Counter(
+            kMetricTimeChunkingUniqueCameras, "Time-chunking unique cameras dispatched per chunk",
+            "{camera}");
+        tc_non_empty_chunks_counter = meter->CreateUInt64Counter(
+            kMetricTimeChunkingNonEmptyChunks,
+            "Time-chunking dispatch intervals with buffered data", "{chunk}");
+        tc_empty_chunks_counter = meter->CreateUInt64Counter(
+            kMetricTimeChunkingEmptyChunks,
+            "Time-chunking dispatch intervals with no buffered data", "{chunk}");
 
         active_tracks_gauge = meter->CreateInt64ObservableGauge(
             kMetricTracksActive, "Currently active tracks", "{track}");
@@ -168,6 +187,45 @@ void Metrics::inc_dropped_n(size_t count, MetricAttributes attrs) {
     }
 }
 
+void Metrics::inc_time_chunking_duplicated_cameras(MetricAttributes attrs) {
+    ensure_initialized();
+    if (tc_duplicated_cameras_counter) {
+        tc_duplicated_cameras_counter->Add(
+            1, opentelemetry::common::KeyValueIterableView<MetricAttributes>(attrs),
+            opentelemetry::context::Context{});
+    }
+}
+
+void Metrics::inc_time_chunking_unique_cameras_n(size_t count, MetricAttributes attrs) {
+    if (count == 0) {
+        return;
+    }
+    ensure_initialized();
+    if (tc_unique_cameras_counter) {
+        tc_unique_cameras_counter->Add(
+            count, opentelemetry::common::KeyValueIterableView<MetricAttributes>(attrs),
+            opentelemetry::context::Context{});
+    }
+}
+
+void Metrics::inc_time_chunking_non_empty_chunks(MetricAttributes attrs) {
+    ensure_initialized();
+    if (tc_non_empty_chunks_counter) {
+        tc_non_empty_chunks_counter->Add(
+            1, opentelemetry::common::KeyValueIterableView<MetricAttributes>(attrs),
+            opentelemetry::context::Context{});
+    }
+}
+
+void Metrics::inc_time_chunking_empty_chunks(MetricAttributes attrs) {
+    ensure_initialized();
+    if (tc_empty_chunks_counter) {
+        tc_empty_chunks_counter->Add(
+            1, opentelemetry::common::KeyValueIterableView<MetricAttributes>(attrs),
+            opentelemetry::context::Context{});
+    }
+}
+
 void Metrics::set_active_tracks(const std::string& scene_id, const std::string& category,
                                 int64_t count) {
     ensure_initialized();
@@ -186,6 +244,10 @@ void Metrics::reset() {
     messages_counter = nullptr;
     dropped_counter = nullptr;
     active_tracks_gauge = nullptr;
+    tc_duplicated_cameras_counter = nullptr;
+    tc_unique_cameras_counter = nullptr;
+    tc_non_empty_chunks_counter = nullptr;
+    tc_empty_chunks_counter = nullptr;
     stage_parse_histogram = nullptr;
     stage_buffer_histogram = nullptr;
     stage_queue_histogram = nullptr;

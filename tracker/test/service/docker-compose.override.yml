@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Test environment compose override to provide volume mounts for test fixtures
+# This file is used by fixtures to bind-mount test data into containers
+services:
+  tracker:
+    volumes:
+      - ./fixtures:/test-fixtures:ro
+    secrets:
+      - source: controller_auth
+        target: /run/secrets/controller.auth
+      - source: ca_cert
+        target: /run/secrets/ca_cert
+      - source: client_cert
+        target: /run/secrets/client_cert
+      - source: client_key
+        target: /run/secrets/client_key
+        mode: 0400
+      - source: mock_auth
+        target: /run/secrets/mock-auth
+
+secrets:
+  controller_auth:
+    file: ./fixtures/test-auth.json

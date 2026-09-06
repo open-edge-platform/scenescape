@@ -369,11 +369,11 @@ class TestStateTransitions:
     assert chain[1]['similarity_score'] == 0.88
 
   def test_transition_pending_to_reid_disabled(self):
-    """Simulate state transition: PENDING_COLLECTION → REID_DISABLED (when VDMS disabled)."""
+    """Simulate state transition: PENDING_COLLECTION → REID_DISABLED (when ReID backend disabled)."""
     assert self.obj.reid_state == ReidState.PENDING_COLLECTION
     assert len(self.obj.previous_ids_chain) == 0
 
-    # Simulate case where reid system is disabled (e.g., VDMS not available)
+    # Simulate case where reid system is disabled (e.g., ReID backend not available)
     self.obj.reid_state = ReidState.REID_DISABLED
     self.obj.similarity = None
     # No save_previous_object_id() - no query happened

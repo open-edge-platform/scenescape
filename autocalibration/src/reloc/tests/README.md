@@ -10,7 +10,7 @@ cd autocalibration
 make test-build
 
 # 2. Enter the test container
-docker run --rm -it --entrypoint bash scenescape-autocalibration-test:latest
+docker run --rm -it --entrypoint bash intel/scenescape-autocalibration-test:latest
 
 # 3. Navigate to tests directory
 cd /opt/hloc-tests
@@ -35,7 +35,7 @@ tests/
 ├── test_matchers.py             # Custom matchers (LoFTR, QTA-LoFTR, dense matching)
 ├── test_database.py             # COLMAP database operations
 ├── test_workflows.py            # Reconstruction and pipeline workflows
-├── test_localize_scenescape.py  # SceneScape localization pipeline (pose_from_cluster, quaternion utils)
+├── test_localize_scenescape.py  # Scenescape localization pipeline (pose_from_cluster, quaternion utils)
 └── run_tests.sh                 # Test runner script
 ```
 
@@ -83,7 +83,7 @@ pytest --cov=../hloc --cov-report=html --cov-report=term
 
 ```bash
 # Enter the test container
-docker run --rm -it --entrypoint bash scenescape-autocalibration-test:latest
+docker run --rm -it --entrypoint bash intel/scenescape-autocalibration-test:latest
 
 # Navigate to tests directory
 cd /opt/hloc-tests
@@ -123,11 +123,11 @@ python3 test_extraction.py
 ### API Surface Tests (`test_api.py`)
 
 - ✅ Core module imports
-- ✅ Custom module imports (SceneScape additions)
+- ✅ Custom module imports (Scenescape additions)
 - ✅ Function signature verification
 - ✅ Class existence checks
 
-**Dependencies**: None (only imports)  
+**Dependencies**: None (only imports)
 **Run Time**: < 1 second
 
 ### Feature Extraction (`test_extraction.py`)
@@ -138,7 +138,7 @@ python3 test_extraction.py
 - ✅ Validates H5 output format
 - ✅ Verifies descriptor dimensions
 
-**Dependencies**: PIL, numpy, h5py, torch  
+**Dependencies**: PIL, numpy, h5py, torch
 **Run Time**: 5-10 seconds
 
 **Critical Test**: DoG extractor API verification catches pycolmap version mismatches at build time, preventing runtime errors like `ValueError: not enough values to unpack`.
@@ -149,7 +149,7 @@ python3 test_extraction.py
 - ✅ Validates match scores
 - ✅ Checks output format
 
-**Dependencies**: PIL, numpy, h5py, torch  
+**Dependencies**: PIL, numpy, h5py, torch
 **Run Time**: 10-15 seconds
 
 ### Custom Matchers (`test_matchers.py`)
@@ -158,7 +158,7 @@ python3 test_extraction.py
 - ✅ LoFTR instantiation and methods
 - ✅ QTA-LoFTR instantiation and methods
 
-**Dependencies**: torch  
+**Dependencies**: torch
 **Run Time**: < 1 second (skips weight loading)
 
 ### Database Operations (`test_database.py`)
@@ -167,19 +167,19 @@ python3 test_extraction.py
 - ✅ Camera/image/keypoint insertion
 - ✅ Query operations
 
-**Dependencies**: numpy, sqlite3  
+**Dependencies**: numpy, sqlite3
 **Run Time**: < 1 second
 
 ### Workflows (`test_workflows.py`)
 
 - ✅ Reconstruction API verification
 - ✅ Triangulation API verification
-- ✅ SceneScape pipeline checks
+- ✅ Scenescape pipeline checks
 
-**Dependencies**: None (API checks only)  
+**Dependencies**: None (API checks only)
 **Run Time**: < 1 second
 
-### SceneScape Localization (`test_localize_scenescape.py`)
+### Scenescape Localization (`test_localize_scenescape.py`)
 
 - ✅ Quaternion conversion utilities (qxyzw_to_qwxyz, qwxyz_to_qxyzw)
 - ✅ Quaternion inverse with translation (qxyzwtinv)
@@ -192,7 +192,7 @@ python3 test_extraction.py
 - ✅ Depth scale and filtering validation
 - ✅ Coordinate system consistency checks
 
-**Dependencies**: numpy, h5py, PIL, scipy, pycolmap, open3d  
+**Dependencies**: numpy, h5py, PIL, scipy, pycolmap, open3d
 **Run Time**: ~2-5 seconds (includes mock file I/O)
 
 **Important**: These tests verify the core localization logic that was affected by pycolmap 0.6.0 API changes, including:
@@ -250,7 +250,7 @@ python3 /tmp/reloc-build-test.py
 This ensures patches apply correctly. The full test suite can be run after build:
 
 ```bash
-docker run --rm -it --entrypoint bash scenescape-autocalibration-test:latest
+docker run --rm -it --entrypoint bash intel/scenescape-autocalibration-test:latest
 cd /opt/hloc-tests
 ./run_tests.sh
 ```
@@ -327,7 +327,7 @@ if __name__ == '__main__':
 **Solution**: Run inside Docker container where dependencies are installed
 
 ```bash
-docker run --rm -it --entrypoint bash scenescape-autocalibration-test:latest
+docker run --rm -it --entrypoint bash intel/scenescape-autocalibration-test:latest
 cd /opt/hloc-tests
 ./run_tests.sh
 ```

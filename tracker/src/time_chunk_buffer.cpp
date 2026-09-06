@@ -3,6 +3,8 @@
 
 #include "time_chunk_buffer.hpp"
 
+#include "metrics.hpp"
+
 #include <utility>
 
 namespace tracker {
@@ -10,7 +12,13 @@ namespace tracker {
 void TimeChunkBuffer::add(const TrackingScope& scope, const std::string& camera_id,
                           DetectionBatch&& batch) {
     std::lock_guard lock(mutex_);
-    buffer_[scope][camera_id] = std::move(batch);
+    auto& cameras = buffer_[scope];
+    if (cameras.find(camera_id) != cameras.end()) {
+        // Overwriting an un-dispatched frame for this camera within the scope.
+        Metrics::inc_time_chunking_duplicated_cameras(
+            {{kAttrScene, scope.scene_id}, {kAttrCategory, scope.category}});
+    }
+    cameras[camera_id] = std::move(batch);
 }
 
 BufferMap TimeChunkBuffer::pop_all() {

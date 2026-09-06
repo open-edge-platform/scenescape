@@ -1,0 +1,16 @@
+{
+  "name": "scenescape-ci-dependencies",
+  "version": "0.1.0",
+  "description": "SceneScape NPM dependencies used in CI",
+  "private": true,
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "prettier": "3.9.4",
+    "prettier-plugin-jinja-template": "2.2.0",
+    "eslint": "10.6.0",
+    "@eslint/js": "10.0.1"
+  }
+}

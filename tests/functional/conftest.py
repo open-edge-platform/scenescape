@@ -102,6 +102,29 @@ def _env_matrix_setup(request):
       request.node._scenescape_test_name = request.param.test_name
 
 
+@pytest.fixture
+def hierarchy_env(_env_matrix_setup, scenescape_env, request):
+  """Provide parent/child1/child2 params for reid_hier_* multi-controller profiles.
+
+  Optionally depends on ``_env_matrix_setup`` so per-test FuncTestSpec
+  parametrization (different REID_HIER_* profiles) is applied before the
+  compose stack starts.
+  """
+  from tests.functional.hierarchy_ports import hierarchy_params
+  ports = scenescape_env.hierarchy_ports
+  assert ports, (
+    "hierarchy_env requires a reid_hier_* ServiceProfile that allocates hierarchy_ports")
+  secrets = scenescape_env.secrets_dir
+  supass = scenescape_env.supass
+  return {
+    "ports": ports,
+    "parent": hierarchy_params(secrets, supass, ports, "parent"),
+    "child1": hierarchy_params(secrets, supass, ports, "child1"),
+    "child2": hierarchy_params(secrets, supass, ports, "child2"),
+    "env": scenescape_env,
+  }
+
+
 def pytest_generate_tests(metafunc):
   """Parametrize tests across profiles supplied via --env-profiles.
 

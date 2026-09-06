@@ -23,7 +23,7 @@ class TestFeatureExtraction:
   def test_confs_available(self):
     """Test that feature extractor configs are available"""
     from hloc.extract_features import confs
-    # SuperPoint not used in SceneScape, only check for sift
+    # SuperPoint not used in Scenescape, only check for sift
     assert 'sift' in confs
 
 
@@ -38,7 +38,7 @@ class TestMatchFeatures:
   def test_match_confs_available(self):
     """Test that feature matcher configs are available"""
     from hloc.match_features import confs
-    # SuperGlue not used in SceneScape, just verify confs exist
+    # SuperGlue not used in Scenescape, just verify confs exist
     assert confs is not None
     assert isinstance(confs, dict)
 

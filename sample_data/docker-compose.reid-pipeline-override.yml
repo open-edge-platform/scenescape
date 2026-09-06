@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Swap the DLStreamer Pipeline Server configs for the ReID-enabled variants.
+# Usage: combine with exactly one backend override, e.g.
+#   docker compose -f docker-compose.yml \
+#     -f sample_data/docker-compose.vdms-override.yml \
+#     -f sample_data/docker-compose.reid-pipeline-override.yml \
+#     --profile controller up
+
+configs:
+  retail-config:
+    file: ./dlstreamer-pipeline-server/retail-config-reid.json
+  queuing-config:
+    file: ./dlstreamer-pipeline-server/queuing-config-reid.json

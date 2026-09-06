@@ -25,7 +25,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: mapping
-          image: {{ .Values.repository }}/{{ .Values.mapping.image }}:{{ .Chart.AppVersion }}
+          image: {{ .Values.repository }}/{{ .Values.mapping.image }}-{{ .Values.mapping.model }}:{{ .Chart.AppVersion }}
           imagePullPolicy: {{ .Values.mapping.pullPolicy }}
           env:
           - name: PYTHONDONTWRITEBYTECODE
@@ -42,11 +42,23 @@ spec:
               command:
               - sh
               - -c
-              - curl -k -s https://localhost:8444/v1/health
+              - >
+                curl -k -s https://localhost:8444/v1/health |
+                python3 -c 'import json,sys; data=json.load(sys.stdin); raise SystemExit(0 if data.get("ready") is True else 1)'
             periodSeconds: 10
             timeoutSeconds: 60
             failureThreshold: 5
             initialDelaySeconds: 10
+          livenessProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - curl -k -fsS https://localhost:8444/v1/health >/dev/null
+            periodSeconds: 10
+            timeoutSeconds: 60
+            failureThreshold: 5
+            initialDelaySeconds: 20
           volumeMounts:
           - mountPath: /run/secrets/certs/scenescape-ca.pem
             subPath: scenescape-ca.pem

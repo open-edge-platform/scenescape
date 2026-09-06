@@ -77,7 +77,7 @@ class PipelineRunner:
     self.uid = os.getuid()
     self.gid = os.getgid()
     self.camera_id = self._get_camera_id()
-    self._ppl_generator_image = f"scenescape-manager:{_VERSION}"
+    self._ppl_generator_image = f"intel/scenescape-manager:{_VERSION}"
     self._running = False
     self._docker_client: DockerClient | None = None
 
@@ -107,13 +107,13 @@ class PipelineRunner:
     })
 
   def _convert_cam_settings_to_dlsps_config(self):
-    """Run cam_settings_to_dlsps_config.py inside the scenescape-manager container.
+    """Run cam_settings_to_dlsps_config.py inside the intel/scenescape-manager container.
 
     The repo root is mounted as /workspace so all paths resolve inside the container.
     """
     docker = DockerClient()
     envs = {
-      "PYTHONPATH": "/home/scenescape/SceneScape/",
+      "PYTHONPATH": "/home/scenescape/Scenescape/",
     }
     if self.dump_dls_metadata:
       envs["METADATA_OUTPUT_FILE"] = (
@@ -175,7 +175,7 @@ class PipelineRunner:
     """
     self._prepare_output()
 
-    # Convert camera settings to DLSPS config (runs inside scenescape-manager container)
+    # Convert camera settings to DLSPS config (runs inside intel/scenescape-manager container)
     self._convert_cam_settings_to_dlsps_config()
 
     # Inject docker compose variables into the process environment

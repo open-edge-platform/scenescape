@@ -7,6 +7,8 @@ import socket
 import threading
 import uuid
 import asyncio
+from collections.abc import Mapping
+from datetime import datetime, timezone
 
 from django.contrib.auth.models import User
 from django.db import IntegrityError, OperationalError, connection
@@ -51,19 +53,21 @@ def get_class_and_serializer(thing_type):
   elif thing_type in ("asset", "assets"):
     return Asset3D, Asset3DSerializer, 'pk'
   elif thing_type in ("child"):
-    return ChildScene, ChildSceneSerializer, 'child_id'
+    return ChildScene, ChildSceneSerializer, 'pk'
   elif thing_type in ("calibrationmarker", "calibrationmarkers"):
     return CalibrationMarker, CalibrationMarkerSerializer, 'marker_id'
   return None, None, None
 
 
-class ListThings(generics.ListCreateAPIView):
+class ListThings(generics.ListAPIView):
   authentication_classes = [authentication.TokenAuthentication]
   permission_classes = [permissions.IsAuthenticated]
 
   def get_queryset(self):
     thing_class, _, _ = get_class_and_serializer(self.args[0])
     queryset = thing_class.objects.all()
+    if thing_class is Cam:
+      queryset = queryset.select_related('scene')
     query_params = self.request.query_params
     if query_params:
       keys = query_params.keys()
@@ -138,7 +142,7 @@ class ManageThing(APIView):
         return int(uid)
       return None
 
-    if uid_field in ['uuid'] or thing_type in ['region', 'tripwire', 'child', 'scene']:
+    if uid_field in ['uuid'] or thing_type in ['region', 'tripwire', 'scene']:
       try:
         return uuid.UUID(uid, version=4)
       except ValueError:
@@ -260,7 +264,7 @@ class CustomAuthToken(ObtainAuthToken):
 class DatabaseReady(APIView):
   def checkDatabase(self):
     try:
-      connection.cursor()
+      connection.ensure_connection()
       return True
     except OperationalError:
       return False
@@ -273,6 +277,57 @@ class DatabaseReady(APIView):
     user_count = User.objects.count()
     database_ready = user_count > 0
     return Response({'databaseReady': database_ready}, status=status.HTTP_200_OK)
+
+
+class ServiceHealth(APIView):
+  def checkDatabase(self):
+    try:
+      connection.ensure_connection()
+      return True
+    except OperationalError:
+      return False
+
+  def get(self, request):
+    database_connected = self.checkDatabase()
+    try:
+      db_status = DatabaseStatus.objects.first() if database_connected else None
+      user_count = User.objects.count() if database_connected else 0
+    except OperationalError:
+      database_connected = False
+      db_status = None
+      user_count = 0
+
+    db_status_ready = bool(db_status and db_status.is_ready)
+    ready = bool(database_connected and db_status_ready and user_count > 0)
+
+    if ready:
+      health_status = "healthy"
+      http_status = status.HTTP_200_OK
+    elif database_connected:
+      health_status = "degraded"
+      http_status = status.HTTP_202_ACCEPTED
+    else:
+      health_status = "unhealthy"
+      http_status = status.HTTP_503_SERVICE_UNAVAILABLE
+
+    payload = {
+      "status": health_status,
+      "ready": ready,
+      "component": "manager",
+      "timestamp": datetime.now(timezone.utc).isoformat(),
+      "version": "1.0",
+      "details": {
+        "database": {
+          "connected": database_connected,
+          "schema_ready": db_status_ready,
+        },
+        "users": {
+          "count": user_count,
+        },
+      },
+    }
+
+    return Response(payload, status=http_status)
 
 
 class CameraManager(APIView):
@@ -379,6 +434,13 @@ class CameraManager(APIView):
 
 class ACLCheck(APIView):
   def post(self, request):
+    if not isinstance(request.data, Mapping):
+      log.warning('Request body must be a JSON object')
+      return Response(
+        {'detail': 'Request body must be a JSON object.'},
+        status=status.HTTP_400_BAD_REQUEST
+      )
+
     username = request.data.get('username')
     currentTopic = request.data.get('topic')
 
@@ -389,10 +451,22 @@ class ACLCheck(APIView):
         status=status.HTTP_400_BAD_REQUEST
       )
 
-    user = User.objects.get(username=username)
+    try:
+      user = User.objects.get(username=username)
+    except User.DoesNotExist:
+      log.warning("Access denied: unknown user '%s'.", username)
+      return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+      requestedAccess = int(request.data['acc'])
+    except (KeyError, TypeError, ValueError):
+      log.warning('Missing or invalid acc parameter')
+      return Response(
+        {'detail': 'Missing or invalid acc parameter.'},
+        status=status.HTTP_400_BAD_REQUEST
+      )
+
     user_acls = PubSubACL.objects.filter(user=user)
-    requestedAccess = request.data['acc']
-    requestedAccess = int(requestedAccess)
 
     # Admin users have full read/write access to the broker.
     if user.is_superuser:

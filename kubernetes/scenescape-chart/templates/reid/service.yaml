@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.reid.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reid
+spec:
+  selector:
+    app: {{ .Release.Name }}-reid
+  ports:
+  - name: "55555"
+    protocol: TCP
+    port: 55555
+    targetPort: 55555
+{{- end }}

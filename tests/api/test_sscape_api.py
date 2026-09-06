@@ -7,6 +7,7 @@ import json
 import glob
 import time
 import inspect
+import base64
 import pytest
 
 TESTS_API_DIR = os.path.dirname(__file__)
@@ -113,19 +114,44 @@ def substitute_variables(obj):
     return saved_vars.get(var_name, obj)
   return obj
 
+def resolve_within_tests_api(rel_path):
+  """Resolve rel_path against tests/api, following symlinks, and ensure the
+  result stays inside the tests/ tree. Paths are written relative to tests/api
+  but may reference sibling test dirs (e.g. '../ui/test_media/box.glb'), so the
+  containment boundary is the parent tests/ directory. Raises ValueError on
+  path traversal outside tests/.
+  """
+  tests_dir = os.path.realpath(os.path.join(TESTS_API_DIR, os.pardir))
+  resolved = os.path.realpath(os.path.join(TESTS_API_DIR, rel_path))
+  if os.path.commonpath([tests_dir, resolved]) != tests_dir:
+    raise ValueError(f"file path escapes tests/: {resolved}")
+  return resolved
+
 def resolve_file_paths(data):
   """Resolve file paths in request data relative to the tests/api directory.
 
-  Any string value containing 'test_media/' is resolved and opened as a
-  binary file handle for multipart upload. Only called for RESTClient APIs;
-  MappingClient opens its own file paths internally.
+  Two directives are supported:
+    - A string beginning with 'base64:' has the remainder treated as a file
+      path (relative to tests/api); the file is read and returned as a raw
+      base64-encoded string. Use this for JSON-body image fields.
+    - Any other string containing 'test_media/' is resolved and opened as a
+      binary file handle for multipart upload.
+  Only called for RESTClient APIs; MappingClient opens its own file paths
+  internally.
   """
   if isinstance(data, dict):
     return {k: resolve_file_paths(v) for k, v in data.items()}
   elif isinstance(data, list):
     return [resolve_file_paths(item) for item in data]
+  elif isinstance(data, str) and data.startswith("base64:"):
+    rel_path = data[len("base64:"):]
+    resolved = resolve_within_tests_api(rel_path)
+    if not os.path.isfile(resolved):
+      raise FileNotFoundError(f"base64 file not found: {resolved}")
+    with open(resolved, "rb") as fh:
+      return base64.b64encode(fh.read()).decode("ascii")
   elif isinstance(data, str) and "test_media/" in data:
-    resolved = os.path.normpath(os.path.join(TESTS_API_DIR, data))
+    resolved = resolve_within_tests_api(data)
     if os.path.isfile(resolved):
       return open(resolved, "rb")
     return resolved
@@ -141,7 +167,7 @@ def normalize_file_paths(data):
   elif isinstance(data, list):
     return [normalize_file_paths(item) for item in data]
   elif isinstance(data, str) and "test_media/" in data:
-    return os.path.normpath(os.path.join(TESTS_API_DIR, data))
+    return resolve_within_tests_api(data)
   return data
 
 def build_call_kwargs(request_data, api_name=None):

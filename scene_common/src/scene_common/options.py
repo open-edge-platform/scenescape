@@ -8,6 +8,9 @@ from scene_common.mqtt import _Topic
 APRILTAG = 'AprilTag'
 MARKERLESS = 'Markerless'
 MANUAL = 'Manual'
+# Strategy key for point-cloud based sensor registration. Used only for
+# AutoCalibration strategy dispatch; not a Manager scene calibration choice.
+POINTCLOUD = 'PointCloud'
 
 BOTTOM = 'bottom'
 TOP = 'top'

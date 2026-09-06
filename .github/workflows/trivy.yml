@@ -24,7 +24,7 @@ permissions:
   contents: read # needed for actions/checkout
 
 env:
-  TRIVY_VERSION: v0.70.0
+  TRIVY_VERSION: v0.73.0
 
 jobs:
   trivy-image-scan:
@@ -35,7 +35,7 @@ jobs:
     if: github.event_name != 'pull_request'
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Free up runner space
@@ -58,7 +58,7 @@ jobs:
           system-prune: "true"
       - name: Install Trivy
         id: setup_trivy
-        uses: aquasecurity/setup-trivy@151a37f29c09e4ff49f853d2b23682e688bb1fa1 # v0.2.5
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
           version: ${{ env.TRIVY_VERSION }}
       - name: "Build images"
@@ -66,6 +66,7 @@ jobs:
         run: |
           echo "SCENESCAPE_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
           make build-all
+          make -C mapping build-all
           docker image ls | awk '{print $1}' | grep $(cat version.txt) | grep -v "\-test" > images.txt
       - name: "Run Trivy Image Scan"
         if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
@@ -93,7 +94,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Run Trivy Critical Filesystem Scan

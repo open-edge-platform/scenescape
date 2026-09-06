@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
+from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -23,7 +26,9 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
   """
   camera1_element_id = "//a[@href = '/cam/calibrate/1']"
   assert common.wait_for_elements(browser, camera1_element_id)
-  browser.find_element(By.XPATH, camera1_element_id).click()
+  assert common.click_when_clickable(browser, (By.XPATH, camera1_element_id)), (
+    f"Timed out waiting for camera link {camera1_element_id!r} to become clickable."
+  )
 
   # Enter parameters
   assert common.wait_for_elements(browser, "id_intrinsics_fx", findBy=By.ID)
@@ -37,11 +42,15 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
       elem.send_keys('{:.1f}'.format(value))
     value += step
 
-  print('Saving changes...')
-  browser.find_element(By.ID, button_id).click()
+  log.info("Saving changes...")
+  assert common.click_when_clickable(browser, (By.ID, button_id)), (
+    f"Timed out waiting for button {button_id!r} to become clickable."
+  )
 
   assert common.wait_for_elements(browser, camera1_element_id)
-  browser.find_element(By.XPATH, camera1_element_id ).click()
+  assert common.click_when_clickable(browser, (By.XPATH, camera1_element_id)), (
+    f"Timed out waiting for camera link {camera1_element_id!r} to become clickable."
+  )
 
   # Validate parameters
   assert common.wait_for_elements(browser, "id_intrinsics_fx", findBy=By.ID)
@@ -70,7 +79,7 @@ def test_camera_intrinsics_main(params, record_xml_attribute):
   exit_code = 1
 
   try:
-    print("Executing: " + TEST_NAME)
+    log.info("Executing: " + TEST_NAME)
     browser = Browser()
     assert common.check_page_login(browser, params)
     buttons = {
@@ -78,7 +87,7 @@ def test_camera_intrinsics_main(params, record_xml_attribute):
       "bottom_save": 10
     }
     for button_id, initial_value in buttons.items():
-      print(f"Entering parameters, clicking {button_id} button, and validating parameters...")
+      log.info(f"Entering parameters, clicking {button_id} button, and validating parameters...")
       assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
       assert enter_and_validate_parameters(browser, button_id, initial_value, 5)
 

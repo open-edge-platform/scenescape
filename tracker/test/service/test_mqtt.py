@@ -13,7 +13,9 @@ Tests tracker's MQTT functionality including:
 """
 
 import json
+import threading
 import uuid
+import time
 from datetime import datetime, timezone
 
 import paho.mqtt.client as mqtt
@@ -33,27 +35,37 @@ from utils.docker import (
 from utils.schema import validate_camera_input, validate_scene_output
 
 
-# Topic constants (match config/tracker.json scene and camera)
-TOPIC_CAMERA_INPUT = "scenescape/data/camera/atag-qcam1"
+# Topic constant matching config/tracker.json.
 TOPIC_SCENE_OUTPUT = "scenescape/data/scene/302cf49a-97ec-402d-a324-c5077b280b7b/thing"
 
 
-def create_camera_detection_message(timestamp=None, object_id=1, bbox=None):
+def camera_input_topic(camera_id):
+  return f"scenescape/data/camera/{camera_id}"
+
+
+def create_camera_detection_message(camera_id="atag-qcam1", timestamp=None, object_id=1, bbox=None,
+                                    metadata=None, confidence=None):
   """Create a valid camera detection message matching camera-data.schema.json."""
   # Use current timestamp to avoid lag detection dropping the message
   if timestamp is None:
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
   if bbox is None:
     bbox = {"x": 100, "y": 50, "width": 80, "height": 200}
+  detection = {
+      "id": object_id,
+      "bounding_box_px": bbox
+  }
+  if metadata is not None:
+    detection["metadata"] = metadata
+  if confidence is not None:
+    detection["confidence"] = confidence
+
   return {
-      "id": "atag-qcam1",
+      "id": camera_id,
       "timestamp": timestamp,
       "objects": {
           "thing": [
-              {
-                  "id": object_id,
-                  "bounding_box_px": bbox
-              }
+              detection
           ]
       }
   }
@@ -74,12 +86,11 @@ def send_detection_sequence(client, count=5, interval_ms=67):
   Returns:
       List of timestamps sent
   """
-  import time
   timestamps = []
   for i in range(count):
     detection = create_camera_detection_message(object_id=1)
     validate_camera_input(detection)
-    result = client.publish(TOPIC_CAMERA_INPUT, json.dumps(detection), qos=1)
+    result = client.publish(camera_input_topic(detection["id"]), json.dumps(detection), qos=1)
     result.wait_for_publish()
     timestamps.append(detection["timestamp"])
     if i < count - 1:
@@ -321,6 +332,147 @@ def test_tracking_produces_reliable_tracks(tls_tracker_service):
 
     print(f"Track validated: id={track['id']}, position={track['translation']}")
     print("\nTracking test passed")
+
+  finally:
+    client.loop_stop()
+    client.disconnect()
+
+
+TEST_NAME = "NEX-T25896"
+
+
+def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene,
+                                         record_xml_attribute):
+  """Validate confidence, disjoint-field, and latest-camera fusion over MQTT."""
+  record_xml_attribute("name", TEST_NAME)
+  docker = tls_tracker_service_with_fusion_scene["docker"]
+  certs = tls_tracker_service_with_fusion_scene["certs"]
+  host, port = get_broker_host(docker, port=8883)
+
+  scene_id = "fusion-test-scene"
+  topic_camera_input_1 = camera_input_topic("fusion-cam-1")
+  topic_camera_input_2 = camera_input_topic("fusion-cam-2")
+  topic_scene_output = f"scenescape/data/scene/{scene_id}/thing"
+
+  assert is_tracker_ready(docker), "Tracker should be ready"
+
+  received_messages = []
+  subscribed = threading.Event()
+
+  def on_message(_client, _userdata, msg):
+    received_messages.append(json.loads(msg.payload.decode()))
+
+  def on_subscribe(_client, _userdata, _mid, _reason_codes, _properties):
+    subscribed.set()
+
+  client = mqtt.Client(
+      callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+      client_id=f"test-fusion-{uuid.uuid4().hex[:8]}"
+  )
+  client.tls_set(
+      ca_certs=str(certs.ca.cert_path),
+      certfile=str(certs.client.cert_path),
+      keyfile=str(certs.client.key_path),
+  )
+  client.on_message = on_message
+  client.on_subscribe = on_subscribe
+  client.connect(host, port, keepalive=60)
+  client.loop_start()
+
+  try:
+    client.subscribe(topic_scene_output, qos=1)
+    assert subscribed.wait(timeout=5), "MQTT scene-output subscription was not acknowledged"
+
+    # Send detections to real dual-camera scene
+    metadata_qcam1 = {
+        "plate": {"label": "XYZ-789", "model_name": "lpr"},
+        "gender": {"label": "female", "confidence": 0.9, "model_name": "m1"},
+        "age": {"label": "adult", "model_name": "m1"}
+    }
+    metadata_qcam2 = {
+        "gender": {"label": "male", "confidence": 0.7, "model_name": "m1"},
+        "age": {"label": "senior", "model_name": "m1"}
+    }
+
+    # The scheduler dispatches every 66 ms. Publish both cameras back-to-back
+    # and repeat faster than the dispatch period so each chunk sees both feeds.
+    for i in range(40):
+      timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+      det_qcam1 = create_camera_detection_message(
+          camera_id="fusion-cam-1",
+          timestamp=timestamp,
+          object_id=1,
+          metadata=metadata_qcam1,
+      )
+      det_qcam2 = create_camera_detection_message(
+          camera_id="fusion-cam-2",
+          timestamp=timestamp,
+          object_id=1,
+          metadata=metadata_qcam2,
+      )
+
+      validate_camera_input(det_qcam1)
+      validate_camera_input(det_qcam2)
+
+      res1 = client.publish(topic_camera_input_1, json.dumps(det_qcam1), qos=1)
+      res2 = client.publish(topic_camera_input_2, json.dumps(det_qcam2), qos=1)
+      res1.wait_for_publish()
+      res2.wait_for_publish()
+
+      if i < 39:
+        time.sleep(0.04)
+
+    def has_fused_metadata():
+      for msg in received_messages:
+        for obj in msg.get("objects", []):
+          metadata = obj.get("metadata", {})
+          if (metadata.get("plate", {}).get("label") == "XYZ-789" and
+              metadata.get("gender", {}).get("label") == "female" and
+                  metadata.get("age", {}).get("label") == "senior"):
+            return True
+      return False
+
+    try:
+      wait(
+          has_fused_metadata,
+          timeout_seconds=DEFAULT_TIMEOUT,
+          sleep_seconds=POLL_INTERVAL
+      )
+    except TimeoutExpired:
+      observed_metadata = [
+          obj.get("metadata", {})
+          for msg in received_messages
+          for obj in msg.get("objects", [])
+      ]
+      pytest.fail(
+          f"No fused metadata received; last observed metadata: {observed_metadata[-10:]}"
+      )
+
+    candidate_message = None
+    candidate_track = None
+    for msg in received_messages:
+      for obj in msg.get("objects", []):
+        metadata = obj.get("metadata", {})
+        if not isinstance(metadata, dict):
+          continue
+        if (metadata.get("plate", {}).get("label") == "XYZ-789" and
+            metadata.get("gender", {}).get("label") == "female" and
+                metadata.get("age", {}).get("label") == "senior"):
+          candidate_message = msg
+          candidate_track = obj
+          break
+      if candidate_track is not None:
+        break
+
+    assert candidate_track is not None, "Expected at least one track with metadata"
+    metadata = candidate_track["metadata"]
+    assert metadata["plate"]["label"] == "XYZ-789"
+    assert metadata["gender"]["label"] == "female"
+    assert metadata["age"]["label"] == "senior"
+
+    assert candidate_message is not None
+    validate_scene_output(candidate_message)
 
   finally:
     client.loop_stop()

@@ -48,6 +48,10 @@ class MapboxPlugin extends MapInterface {
 
     mapboxgl.accessToken = this.accessToken;
 
+    // Mapbox GL JS posts its own usage telemetry to events.mapbox.com; if the
+    // browser has an ad/privacy blocker, this shows up as a harmless
+    // net::ERR_BLOCKED_BY_CLIENT in devtools and has no effect on the map.
+
     // Use saved settings or defaults
     const center = [config.lng, config.lat];
     const zoom = config.zoom;

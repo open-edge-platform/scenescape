@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from scene_common import log
@@ -7,7 +7,7 @@ from scene_common.timestamp import get_datetime_from_string
 from scene_common.transform import CameraIntrinsics
 
 class CalibrationScene:
-  _MEDIA_PATH = "/home/scenescape/SceneScape/media/"
+  _MEDIA_PATH = "/home/scenescape/Scenescape/media/"
   #FIXME: should be defined in common location accessible to both models and autocalibration
   DEFAULTS = {
     'rotation_x': 0.0,

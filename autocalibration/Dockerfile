@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
 
 # =========================
 # STAGE 1: BUILD STAGE
 # =========================
-FROM scenescape-common-base AS autocalibration-builder
+FROM intel/scenescape-common-base AS autocalibration-builder
 ENV DEBIAN_FRONTEND=noninteractive
 ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
@@ -32,10 +32,10 @@ COPY autocalibration/src/reloc/patches /tmp/reloc-patches
 COPY autocalibration/src/reloc/new-files /tmp/reloc-new-files
 COPY autocalibration/src/reloc/tests /tmp/reloc-tests
 
-# Clone and patch hloc from latest main
-RUN git clone https://github.com/cvg/Hierarchical-Localization.git /tmp/reloc && \
-    cd /tmp/reloc && \
-    git checkout c13273b && \
+# hloc source is fetched on the host by `make vendor-deps` (see autocalibration/Makefile)
+# to avoid GitHub's unauthenticated-download rate limiting inside the container build.
+COPY autocalibration/.vendor/reloc /tmp/reloc
+RUN cd /tmp/reloc && \
     # Apply patches in order (using -p0 as paths are relative to repo root)
     patch -p0 < /tmp/reloc-patches/00-top-level-files.patch && \
     patch -p0 < /tmp/reloc-patches/01-core-modifications.patch && \
@@ -54,13 +54,13 @@ RUN git clone https://github.com/cvg/Hierarchical-Localization.git /tmp/reloc &&
     rm -rf /tmp/reloc/.git
 
 # Build wheels in parallel (this changes when source or dependencies change)
-# Clone AprilTag
-RUN git clone --depth=1 https://github.com/duckietown/lib-dt-apriltags.git /tmp/apriltag/apriltag-dev
+# AprilTag source (including its 'apriltags' submodule) is fetched on the host by
+# `make vendor-deps` to avoid GitHub's unauthenticated-download rate limiting.
+COPY autocalibration/.vendor/apriltag-dev /tmp/apriltag/apriltag-dev
 
 # Build AprilTag
 WORKDIR /tmp/apriltag/apriltag-dev
-RUN git submodule update --init && \
-    mkdir build
+RUN mkdir build
 
 WORKDIR /tmp/apriltag/apriltag-dev/build
 RUN cmake ../apriltags/ && make -j$(nproc)
@@ -95,11 +95,11 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 FROM ${RUNTIME_OS_IMAGE} AS autocalibration-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
+LABEL org.opencontainers.image.description="Scenescape's Autocalibration Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/microservices/auto-calibration/auto-calibration.md"
 
 # Define build arguments and environment variables first
 ARG USER_ID=1000
@@ -108,7 +108,7 @@ ARG CERTDOMAIN=scenescape.intel.com
 ENV CERTDOMAIN=${CERTDOMAIN}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
-ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
+ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages"
 # Set model directory for on-demand loading
 ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.11/site-packages/third_party/netvlad"
@@ -116,10 +116,10 @@ ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.11/site-packages/third_party/netvl
 # Update and upgrade base OS packages
 RUN apt update && apt upgrade -y
 
-# Install runtime dependencies first (these change less frequently)
+# Install runtime dependencies in one layer
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
+     apt-get update && apt-get install -y --no-install-recommends \
     libgl1 libegl1 libglib2.0-0 libgomp1 python3 python3-pip wget curl && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
@@ -141,10 +141,6 @@ COPY --from=autocalibration-builder /usr/local/lib/python3.11/site-packages/scen
 
 # Copy AprilTag shared library
 COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.11/site-packages/dt_apriltags/
-
-# Upgrade pip, wheel and setuptools to latest versions
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --upgrade setuptools wheel
 
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/
@@ -186,7 +182,7 @@ WORKDIR $SCENESCAPE_HOME
 HEALTHCHECK --interval=30s --timeout=5s --retries=10 \
     CMD pgrep -f python3 || exit 1
 
-ENTRYPOINT ["/usr/local/bin/startup.sh", "/home/scenescape/SceneScape/autocalibration"]
+ENTRYPOINT ["/usr/local/bin/startup.sh", "/home/scenescape/Scenescape/autocalibration"]
 
 # ---------- Cam Calibration Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)

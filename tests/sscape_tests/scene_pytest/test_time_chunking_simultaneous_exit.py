@@ -5,16 +5,8 @@
 
 import time
 
-import pytest
-
 from controller.scene import Scene
 from scene_common.timestamp import get_iso_time
-
-try:
-  import robot_vision as rv
-  _has_rv_tracking = hasattr(rv, 'tracking')
-except ImportError:
-  _has_rv_tracking = False
 
 
 def _build_person(person_id, x, y):
@@ -56,7 +48,6 @@ def _wait_for_count(scene, expected_count, timeout_secs):
   return False
 
 
-@pytest.mark.skipif(not _has_rv_tracking, reason="robot_vision.tracking not available")
 def test_time_chunking_three_objects_simultaneous_exit(camera_obj):
   frame_interval = 0.05
   scene = Scene(

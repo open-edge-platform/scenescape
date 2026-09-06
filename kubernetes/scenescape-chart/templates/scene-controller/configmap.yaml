@@ -11,7 +11,7 @@ metadata:
     "helm.sh/hook-weight": "0"
 data:
   tracker-config.json: |-
-{{ .Files.Get "files/model-installer/tracker-config.json" | indent 4 }}
+{{ .Files.Get "files/scene-controller/tracker-config.json" | indent 4 }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -22,4 +22,4 @@ metadata:
     "helm.sh/hook-weight": "0"
 data:
   reid-config.json: |-
-{{ .Files.Get "files/model-installer/reid-config.json" | indent 4 }}
+{{ .Files.Get "files/scene-controller/reid-config.json" | indent 4 }}

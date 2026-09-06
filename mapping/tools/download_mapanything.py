@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
-On-demand MapAnything model loader for SceneScape 3D mapping service.
+On-demand MapAnything model loader for Scenescape 3D mapping service.
 """
 
 import sys

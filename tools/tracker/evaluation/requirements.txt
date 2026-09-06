@@ -26,4 +26,4 @@ trackeval==1.0.1
 
 # Diagnostic evaluator dependencies
 scipy==1.17.1
-matplotlib==3.10.8
+matplotlib==3.11.0

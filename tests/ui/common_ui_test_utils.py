@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
 import cv2
 import json
 import time
+import base64
 import random
 import filecmp
 import tempfile
@@ -23,13 +24,14 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, replace
 from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
 from skimage.metrics import structural_similarity as ssim
 
 from tests.common_test_utils import record_test_result
 from tests.ui.browser import Browser, By, NoSuchElementException
 
 # FIXME - APP_PROPER_NAME is not the right way to validate correct page load
-APP_PROPER_NAME = 'Intel® SceneScape'
+APP_PROPER_NAME = 'Scenescape'
 # from manager.settings import APP_PROPER_NAME
 
 TEST_SCENE_NAME = "Demo"
@@ -46,6 +48,28 @@ DEFAULT_SENSOR_TRIANGLE_HEIGHT = 600
 DEFAULT_SENSOR_TRIANGLE_LENGTH = 800
 DEFAULT_SENSOR_TRIANGLE_UPPER_LEFT_POINT = (-400, -300)
 BROWSER_WAIT = 5
+
+def click_when_clickable(browser, locator, timeout_s=10):
+  """Click an element after ensuring it is interactable and not obscured."""
+  try:
+    element = WebDriverWait(browser, timeout_s).until(
+      EC.element_to_be_clickable(locator)
+    )
+  except TimeoutException:
+    return False
+
+  # Keep fixed overlays from intercepting clicks near viewport edges.
+  browser.execute_script(
+    "arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});",
+    element,
+  )
+
+  try:
+    element.click()
+  except ElementClickInterceptedException:
+    browser.execute_script("arguments[0].click();", element)
+
+  return True
 
 def check_page_login(browser, params):
   """! Logs into the Scenescape web UI.
@@ -372,7 +396,34 @@ def modify_tripwire(browser):
   @param    browser                    Object wrapping the Selenium driver.
   @return   bool                       Boolean representing success.
   """
+  def _clamp_drag_x(handle, requested_dx):
+    """Return an in-viewport horizontal drag delta for a tripwire handle."""
+    viewport = browser.execute_script("return [window.innerWidth, window.innerHeight];")
+    viewport_width = int(viewport[0])
+    handle_rect = handle.rect
+    handle_center_x = float(handle_rect["x"]) + (float(handle_rect["width"]) / 2)
+
+    # Keep a small margin from window edges to avoid MoveTargetOutOfBounds.
+    edge_margin = 10.0
+    max_left_dx = edge_margin - handle_center_x
+    max_right_dx = (viewport_width - edge_margin) - handle_center_x
+    safe_dx = max(min(float(requested_dx), max_right_dx), max_left_dx)
+
+    # If there is no room in the requested direction, take a small step opposite.
+    if abs(safe_dx) < 5:
+      if requested_dx >= 0 and max_left_dx <= -5:
+        safe_dx = max(-50.0, max_left_dx)
+      elif requested_dx < 0 and max_right_dx >= 5:
+        safe_dx = min(50.0, max_right_dx)
+
+    return int(round(safe_dx))
+
   try:
+    wait = WebDriverWait(browser, BROWSER_WAIT)
+    wait.until(EC.element_to_be_clickable((By.ID, "tripwires-tab"))).click()
+    wait.until(EC.visibility_of_all_elements_located((By.CLASS_NAME, "point_0")))
+    wait.until(EC.visibility_of_all_elements_located((By.CLASS_NAME, "point_1")))
+
     # creating a long horizontal tripwire
     points_0 = browser.find_elements(By.CLASS_NAME, "point_0")
     points_1 = browser.find_elements(By.CLASS_NAME, "point_1")
@@ -380,8 +431,13 @@ def modify_tripwire(browser):
     point_1 = points_1[-1]
 
     action = browser.actionChains()
-    action.drag_and_drop_by_offset(point_0, -100, 0).perform()
-    action.drag_and_drop_by_offset(point_1, 200, 0).perform()
+    drag_0_x = _clamp_drag_x(point_0, -100)
+    action.drag_and_drop_by_offset(point_0, drag_0_x, 0).perform()
+
+    # Re-fetch handle after first drag to avoid stale geometry/position.
+    point_1 = browser.find_elements(By.CLASS_NAME, "point_1")[-1]
+    drag_1_x = _clamp_drag_x(point_1, 200)
+    action.drag_and_drop_by_offset(point_1, drag_1_x, 0).perform()
     print("Moved the ends of tripwire")
 
     browser.find_element(By.ID,"save-trips").click()
@@ -450,8 +506,9 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
   """
   Changes the camera calibration by updating the camera and map view positions.
 
-  This function interacts with the browser to modify the camera calibration points and map view positions
-  using JavaScript execution. It optionally saves the calibration changes.
+  This function uses the calibration runtime when available. If runtime is not
+  available (for example when WebGL context creation fails), it falls back to
+  updating the transform form data directly before saving.
 
   Args:
     browser (selenium.webdriver): The Selenium WebDriver instance controlling the browser.
@@ -463,29 +520,233 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
     bool: True if calibration was changed successfully, False otherwise.
   """
 
-  browser.find_element(By.ID,'cam_calibrate_1').click()
-  camera_canvas = browser.find_elements(By.ID,"camera_img_canvas")
-  map_canvas = browser.find_elements(By.ID,"map_canvas_3D")
-  if camera_canvas and map_canvas == None:
+  browser.find_element(By.ID, 'cam_calibrate_1').click()
+  wait = WebDriverWait(browser, BROWSER_WAIT)
+  calibration_ready_script = """
+    const calibration = window.camera_calibration;
+    if (!calibration || !calibration.camCanvas || !calibration.viewport) {
+      return {
+        ready: false,
+        hasCalibration: false,
+        camPointCount: 0,
+        mapPointCount: 0,
+      };
+    }
+
+    let camPoints = calibration.camCanvas.getCalibrationPoints?.() || {};
+    let mapPoints = calibration.viewport.getCalibrationPoints?.(true) || {};
+
+    // Fallback for environments where init callbacks run but initial points are
+    // not populated before tests interact with the page.
+    if (
+      Object.keys(camPoints).length === 0 &&
+      Object.keys(mapPoints).length === 0 &&
+      typeof calibration.addInitialCalibrationPoints === "function"
+    ) {
+      const transformsValue = document.getElementById('initial-id_transforms')?.value || document.getElementById('id_transforms')?.value;
+      const transformType = document.getElementById('id_transform_type')?.value;
+      if (transformsValue && transformType) {
+        calibration.addInitialCalibrationPoints(transformsValue.split(','), transformType);
+        camPoints = calibration.camCanvas.getCalibrationPoints?.() || {};
+        mapPoints = calibration.viewport.getCalibrationPoints?.(true) || {};
+      }
+    }
+
+    return {
+      ready: Object.keys(camPoints).length >= 4 && Object.keys(mapPoints).length >= 4,
+      hasCalibration: true,
+      camPointCount: Object.keys(camPoints).length,
+      mapPointCount: Object.keys(mapPoints).length,
+    };
+  """
+
+  calibration_state = browser.execute_script(calibration_ready_script)
+  if calibration_state.get("hasCalibration") and not calibration_state.get("ready"):
+    try:
+      wait.until(lambda drv: drv.execute_script(calibration_ready_script)["ready"])
+      calibration_state = browser.execute_script(calibration_ready_script)
+    except Exception:
+      calibration_state = browser.execute_script(calibration_ready_script)
+
+  if not calibration_state.get("ready"):
+    transforms_value = browser.execute_script(
+      """
+      return (
+        document.getElementById('id_transforms')?.value ||
+        document.getElementById('initial-id_transforms')?.value ||
+        ''
+      );
+      """
+    )
+    transforms_list = [
+      float(v) for v in transforms_value.split(",") if v.strip() != ""
+    ]
+    if len(transforms_list) < 10:
+      print(f"Calibration did not initialize with points: {calibration_state}")
+      return False
+
+    if len(transforms_list) % 5 == 0:
+      split_point = (len(transforms_list) // 5) * 2
+    else:
+      split_point = len(transforms_list) // 2
+
+    transforms_list[0] = float(cam_view_x)
+    transforms_list[split_point] = float(map_view_x)
+    updated_transforms = ",".join(str(v) for v in transforms_list)
+    browser.execute_script(
+      """
+      const transforms = arguments[0];
+      const field = document.getElementById('id_transforms');
+      if (field) {
+        field.value = transforms;
+      }
+      """,
+      updated_transforms,
+    )
+
+    print(
+      "Calibration runtime unavailable, using form-transform fallback: "
+      f"{calibration_state}"
+    )
+    if save_calibration:
+      calibration_form = browser.find_element(By.ID, "calibration_form")
+      browser.find_element(By.NAME, "calibrate_save").click()
+      wait.until(EC.staleness_of(calibration_form))
+      print("clicked 'Save Calibration' (fallback mode)")
+    else:
+      print("It has been chosen not to save the calibration changes.")
+    return True
+
+  cam_points = browser.execute_script(
+    "return Object.values(window.camera_calibration.camCanvas.getCalibrationPoints());"
+  )
+  map_points = browser.execute_script(
+    "return Object.values(window.camera_calibration.viewport.getCalibrationPoints(true));"
+  )
+  if not cam_points or not map_points:
     return False
 
-  cam_result = browser.execute_script(
-    "return window.camera_calibration.camCanvas.calibrationPoints[0].x = arguments[0];",
-    cam_view_x
-  )
+  cam_points[0][0] = cam_view_x
+  map_points[0][0] = map_view_x
 
-  map_result = browser.execute_script(
-    "return window.camera_calibration.viewport.children[3].position.x = arguments[0];",
-    map_view_x
+  browser.execute_script(
+    """
+    const cameraPoints = arguments[0];
+    const mapPoints = arguments[1];
+    const calibration = window.camera_calibration;
+    calibration.camCanvas.clearCalibrationPoints();
+    calibration.viewport.clearCalibrationPoints();
+    cameraPoints.forEach(([x, y]) => calibration.camCanvas.addCalibrationPoint(x, y));
+    mapPoints.forEach(([x, y, z]) => calibration.viewport.addCalibrationPoint(x, y, z));
+    calibration.camCanvas.drawImage();
+    """,
+    cam_points,
+    map_points,
   )
 
   print("Changed the Camera Perspective")
   if save_calibration:
-    browser.find_element(By.NAME,"calibrate_save").click()
+    calibration_form = browser.find_element(By.ID, "calibration_form")
+    browser.find_element(By.NAME, "calibrate_save").click()
+    wait.until(EC.staleness_of(calibration_form))
     print("clicked 'Save Calibration'")
   else:
     print("It has been chosen not to save the calibration changes.")
   return True
+
+def render_calibration_preview(browser, transforms_type='initial-id_transforms'):
+  """Render deterministic calibration markers for screenshot comparison."""
+  try:
+    browser.execute_script(
+      """
+      const transformsId = arguments[0];
+      const raw = document.getElementById(transformsId)?.value || '';
+      const values = raw.split(',').map((v) => parseFloat(v)).filter((v) => Number.isFinite(v));
+      if (!values.length) {
+        return false;
+      }
+
+      const split = values.length % 5 === 0 ? (values.length / 5) * 2 : values.length / 2;
+      const camVals = values.slice(0, split);
+      const mapVals = values.slice(split);
+      const mapStride = values.length % 5 === 0 ? 3 : 2;
+
+      const camPoints = [];
+      for (let i = 0; i + 1 < camVals.length; i += 2) {
+        camPoints.push([camVals[i], camVals[i + 1]]);
+      }
+
+      const mapPoints = [];
+      for (let i = 0; i + 1 < mapVals.length; i += mapStride) {
+        mapPoints.push([mapVals[i], mapVals[i + 1]]);
+      }
+
+      function draw(canvasId, points, color, markerLabel) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+          return;
+        }
+
+        const signature = points.length ? Number(points[0][0]) : 0;
+        const hue = Math.abs(Math.round(signature * 37)) % 360;
+        canvas.style.outline = `3px solid hsl(${hue}, 90%, 45%)`;
+        canvas.style.outlineOffset = '-3px';
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          return;
+        }
+
+        const w = canvas.width || canvas.clientWidth;
+        const h = canvas.height || canvas.clientHeight;
+        if (!w || !h) {
+          return;
+        }
+
+        // Paint deterministic content so screenshot comparisons are stable
+        // when live video frames change over time.
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = `hsl(${hue}, 25%, 96%)`;
+        ctx.fillRect(0, 0, w, h);
+        ctx.restore();
+
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1;
+        ctx.font = '14px Arial';
+
+        points.forEach((point, idx) => {
+          const x = Number(point[0]);
+          const y = Number(point[1]);
+          if (!Number.isFinite(x) || !Number.isFinite(y)) {
+            return;
+          }
+
+          const px = Math.max(6, Math.min(w - 6, x));
+          const py = Math.max(6, Math.min(h - 6, y));
+          ctx.beginPath();
+          ctx.arc(px, py, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillText(`${markerLabel}${idx + 1}`, px + 6, py - 6);
+        });
+
+        ctx.restore();
+      }
+
+      draw('camera_img_canvas', camPoints, 'rgba(255, 80, 80, 0.9)', 'C');
+      draw('map_canvas_3D', mapPoints, 'rgba(80, 150, 255, 0.9)', 'M');
+      return true;
+      """,
+      transforms_type,
+    )
+    return True
+  except Exception as e:
+    print("Error in rendering calibration preview:", e)
+  return False
 
 def check_cam_calibration(browser, not_expected_cam=(0, 0), not_expected_map=(0, 0)):
   """! Checks whether the camera calibration has moved the points in the camera view and scene view
@@ -1222,6 +1483,77 @@ def are_images_similar(base_image: np.ndarray, image: np.ndarray, comparison_thr
     return True
   return False
 
+def wait_for_3d_scene_rendered(browser, canvas_id: str = "scene", timeout: float = 30.0,
+                               poll_interval: float = 0.5,
+                               min_content_ratio: float = 0.01) -> bool:
+  """! Poll the WebGL canvas until the 3D scene has actually painted content.
+
+  Requires the renderer to be created with preserveDrawingBuffer: true so the
+  drawing buffer reflects the last rendered frame.
+
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    canvas_id                  DOM id of the WebGL canvas element.
+  @param    timeout                    Maximum seconds to wait for the scene to render.
+  @param    poll_interval              Seconds between successive checks.
+  @param    min_content_ratio          Minimum fraction of non-background canvas pixels
+                                       that indicates the scene has painted.
+  @return   bool                       True if content was detected, False on timeout.
+  """
+  script = """
+    const canvasId = arguments[0];
+    const c = document.getElementById(canvasId);
+    if (!c) return -1;
+    const gl = c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl');
+    if (!gl) return -2;
+    const w = c.width, h = c.height;
+    if (!w || !h) return -3;
+    const px = new Uint8Array(w * h * 4);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    // Use a corner pixel as the background (clear) color reference.
+    const br = px[0], bg = px[1], bb = px[2];
+    let diff = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      if (Math.abs(px[i] - br) > 10 || Math.abs(px[i + 1] - bg) > 10 || Math.abs(px[i + 2] - bb) > 10) {
+        diff++;
+      }
+    }
+    return diff / (w * h);
+  """
+  deadline = time.monotonic() + timeout
+  while time.monotonic() < deadline:
+    try:
+      ratio = browser.execute_script(script, canvas_id)
+    except Exception:
+      ratio = None
+    if isinstance(ratio, (int, float)) and ratio >= min_content_ratio:
+      return True
+    time.sleep(poll_interval)
+  return False
+
+def capture_3d_canvas(browser, canvas_id: str = "scene") -> np.ndarray:
+  """! Capture the WebGL 3D canvas pixels directly via canvas.toDataURL().
+
+  Requires the three.js renderer to be created with preserveDrawingBuffer: true so
+  the drawing buffer reflects the last rendered frame.
+
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    canvas_id                  DOM id of the WebGL canvas element.
+  @return   np.ndarray                 Canvas image as a BGR numpy array (alpha dropped).
+  """
+  data_url = browser.execute_script(
+    "const c = document.getElementById(arguments[0]);"
+    "return c ? c.toDataURL('image/png') : null;",
+    canvas_id,
+  )
+  if not data_url or not data_url.startswith("data:image/png;base64,"):
+    raise RuntimeError(f"Could not capture canvas #{canvas_id} via toDataURL")
+  raw = base64.b64decode(data_url.split(",", 1)[1])
+  img = Image.open(BytesIO(raw), formats=["PNG"])
+  img_array = np.asarray(img)
+  # Drop alpha channel and convert RGB to BGR to match get_page_screenshot().
+  img_array = img_array[:, :, 0:3]
+  return img_array[:, :, ::-1]
+
 def crop_to_common_shape(img1: np.ndarray, img2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
   """
   Crop two images to their smallest common shape.
@@ -1336,11 +1668,10 @@ def mock_display(func):
   def wrapper_mock_display(*args, **kwargs):
     display = Display(visible=0, size=(1920, 1080))
     display.start()
-
-    return_val = func(*args, **kwargs)
-
-    display.stop()
-    return return_val
+    try:
+      return func(*args, **kwargs)
+    finally:
+      display.stop()
   return wrapper_mock_display
 
 def scenescape_login_headed(func):
@@ -1350,15 +1681,14 @@ def scenescape_login_headed(func):
   """
   @functools.wraps(func)
   def wrapper_scenescape_login(*args, **kwargs):
-    browser = Browser(headless=False)
-    params = args[0]
-    assert check_page_login(browser, params)
-    assert check_db_status(browser)
-
-    return_val = func(browser, *args[1:], **kwargs)
-
-    browser.close()
-    return return_val
+    browser = Browser(headless=False, webgl=True)
+    try:
+      params = args[0]
+      assert check_page_login(browser, params)
+      assert check_db_status(browser)
+      return func(browser, *args[1:], **kwargs)
+    finally:
+      browser.close()
   return wrapper_scenescape_login
 
 ######################################################################################
@@ -1538,21 +1868,37 @@ class InteractWithPage(ABC):
     return upload_success
 
   def check_screenshots_differ(self) -> bool:
-    """! Tests that screenshot 1 differs from screenshot 2 by a given MSE threshold.
-    @return   bool                     Boolean which is True if the screenshots differ more than the MSE threshold.
+    """! Tests that screenshot 1 differs from screenshot 2 by a given SSIM threshold.
+    @return   bool                     Boolean which is True if the screenshots differ enough to
+                                       produce SSIM below the configured threshold.
     """
     navigate_directly_to_page(self.browser, self.interaction_params.page_path)
     time.sleep(5)
-    screenshot = self.get_page_screenshot()
+
+    # For 3D scene checks, compare the rendered canvas directly instead of the
+    # full page so static UI chrome does not dominate SSIM.
+    if self.interaction_params.page_path.startswith("/scene/detail/"):
+      wait_for_3d_scene_rendered(self.browser)
+      screenshot = capture_3d_canvas(self.browser)
+    else:
+      screenshot = self.get_page_screenshot()
+
     self.interaction_params.add_screenshot(screenshot)
     if self.interaction_params.debug:
       fname = self.interaction_params.file_name.replace(".", "_")
       fname = fname.split("/")[-1]
       cv2.imwrite("screenshot_" + fname + ".png", screenshot)
 
-    return are_images_similar(self.interaction_params.screenshots[1],
-                          self.interaction_params.screenshots[2],
-                          self.interaction_params.screenshot_threshold)
+    similarity = get_images_similarity(
+      self.interaction_params.screenshots[1],
+      self.interaction_params.screenshots[2],
+    )
+    threshold = self.interaction_params.screenshot_threshold
+    screenshots_differ = similarity < threshold
+    print(
+      f"SSIM difference check: {similarity:.4f} < {threshold:.4f} => {screenshots_differ}"
+    )
+    return screenshots_differ
 
   def check_file_uploaded_name(self) -> bool:
     """! Check that uploaded filename is in the expected html page at the expected location.

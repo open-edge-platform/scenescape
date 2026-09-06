@@ -1,0 +1,130 @@
+{
+  "SPDX-FileCopyrightText": "(C) 2026 Intel Corporation",
+  "SPDX-License-Identifier": "Apache-2.0",
+  "models": [
+    {
+      "model_downloader": {
+        "name": "person-detection-retail-0013",
+        "hub": "omz"
+      },
+      "scenescape": {
+        "name": "retail",
+        "config": {
+          "type": "detect",
+          "params": {
+            "model": "omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+          }
+        },
+        "model_proc": {
+          "path": "object_detection/person/person-detection-retail-0013.json",
+          "content": {
+            "json_schema_version": "2.0.0",
+            "input_preproc": [],
+            "output_postproc": [
+              {
+                "labels": ["", "person"],
+                "converter": "tensor_to_bbox_ssd"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
+        "name": "person-vehicle-bike-detection-crossroad-1016",
+        "hub": "omz"
+      },
+      "scenescape": {
+        "name": "pvbcross16",
+        "config": {
+          "type": "detect",
+          "params": {
+            "model": "omz/person-vehicle-bike-detection-crossroad-1016/FP32/person-vehicle-bike-detection-crossroad-1016.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
+        "name": "person-reidentification-retail-0277",
+        "hub": "omz"
+      },
+      "scenescape": {
+        "name": "reid",
+        "config": {
+          "type": "inference",
+          "params": {
+            "model": "omz/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "reidPolicy"
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
+        "name": "age-gender-recognition-retail-0013",
+        "hub": "omz"
+      },
+      "scenescape": {
+        "name": "agegender",
+        "config": {
+          "type": "classify",
+          "params": {
+            "model": "omz/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "classificationPolicy"
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
+        "name": "person-attributes-recognition-crossroad-0238",
+        "hub": "omz"
+      },
+      "scenescape": {
+        "name": "personattr",
+        "config": {
+          "type": "classify",
+          "params": {
+            "model": "omz/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "classificationPolicy"
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
+        "name": "vehicle-attributes-recognition-barrier-0042",
+        "hub": "omz"
+      },
+      "scenescape": {
+        "name": "vehattr",
+        "config": {
+          "type": "classify",
+          "params": {
+            "model": "omz/vehicle-attributes-recognition-barrier-0042/FP32/vehicle-attributes-recognition-barrier-0042.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "classificationPolicy"
+          }
+        }
+      }
+    }
+  ],
+  "model_config": {
+    "output_file": "model_config.json"
+  }
+}

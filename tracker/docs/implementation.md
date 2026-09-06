@@ -259,6 +259,10 @@ struct DetectionBatch {
 
 Aggregated batches from multiple cameras within one time interval (66.7ms). Dispatched to `TrackingWorker` for tracking.
 
+When detections from multiple camera batches match one track, RobotVision merges metadata by top-level field. For a field reported by multiple cameras, the value with the highest available confidence is selected. If none of the values has confidence, the value from the latest camera batch is selected.
+
+RobotVision retains the selected metadata for the lifetime of the track. A value from a later chunk replaces the stored value only when it has strictly higher confidence. Missing fields, lower or equal confidence, and values without confidence do not replace stored metadata. If the stored value has no confidence, a new value with confidence replaces it.
+
 ```cpp
 struct Chunk {
     std::string scene_id;
@@ -282,6 +286,7 @@ struct Track {
     std::array<double, 3> velocity;     // Velocity [vx, vy, vz] m/s
     std::array<double, 3> size;         // Object size [length, width, height] meters
     std::array<double, 4> rotation;     // Orientation quaternion [x, y, z, w]
+    std::string metadata_json;          // Per-field fused detection metadata
 };
 ```
 

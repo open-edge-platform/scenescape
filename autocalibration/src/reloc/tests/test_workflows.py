@@ -45,8 +45,8 @@ def test_reconstruction_api():
 
 
 def test_scenescape_pipeline():
-  """Test SceneScape pipeline utilities."""
-  print_test_header("SceneScape Pipeline")
+  """Test Scenescape pipeline utilities."""
+  print_test_header("Scenescape Pipeline")
 
   try:
     from hloc.pipelines import utils as pipeline_utils
@@ -59,18 +59,18 @@ def test_scenescape_pipeline():
     else:
       print("  ⚠️  create_query_list not found (may be optional)")
 
-    # Try importing SceneScape pipeline
+    # Try importing Scenescape pipeline
     try:
       from hloc.pipelines.SceneScape import pipeline
-      print("  ✓ SceneScape pipeline module exists")
+      print("  ✓ Scenescape pipeline module exists")
 
       if hasattr(pipeline, 'main') or hasattr(pipeline, 'run'):
-        print("  ✓ SceneScape pipeline has main/run function")
+        print("  ✓ Scenescape pipeline has main/run function")
       else:
-        print("  ⚠️  SceneScape pipeline missing main/run (may be optional)")
+        print("  ⚠️  Scenescape pipeline missing main/run (may be optional)")
 
     except ImportError as e:
-      print(f"  ⚠️  SceneScape pipeline not found: {e}")
+      print(f"  ⚠️  Scenescape pipeline not found: {e}")
 
     print_test_result(True)
     return True

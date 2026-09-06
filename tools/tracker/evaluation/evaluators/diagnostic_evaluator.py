@@ -30,6 +30,11 @@ from base.tracker_evaluator import TrackerEvaluator
 # Pairs with fewer overlapping frames receive infinite cost and are excluded.
 MIN_OVERLAP_FRAMES = 10
 
+# Large finite sentinel substituted for infinite cost entries so that
+# ``linear_sum_assignment`` always has a feasible solution.  Matched pairs that
+# resolve to this sentinel are discarded after solving.
+_INFEASIBLE_SENTINEL = 1e9
+
 
 class DiagnosticEvaluator(TrackerEvaluator):
   """Per-frame location comparison and error analysis evaluator.
@@ -363,7 +368,14 @@ class DiagnosticEvaluator(TrackerEvaluator):
     if not np.any(np.isfinite(cost)):
       return []
 
-    row_ind, col_ind = linear_sum_assignment(cost)
+    # ``linear_sum_assignment`` raises "cost matrix is infeasible" when the
+    # finite entries do not admit a complete matching of size min(n, m).  This
+    # happens with large, sparse track populations where most output/GT pairs
+    # never share frames.  Solve on a matrix where infinities are replaced by a
+    # large finite sentinel, then discard any matched pair whose original cost
+    # was non-finite.
+    solve_cost = np.where(np.isfinite(cost), cost, _INFEASIBLE_SENTINEL)
+    row_ind, col_ind = linear_sum_assignment(solve_cost)
     matches = []
     for r, c in zip(row_ind, col_ind):
       if np.isfinite(cost[r, c]):

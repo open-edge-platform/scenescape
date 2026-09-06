@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# SceneScape — AI agents
+# Scenescape — AI agents
 
 **Do not add project policy here.**
 

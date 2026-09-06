@@ -1,19 +1,19 @@
-# Integrate Cameras and Sensors into Intel® SceneScape
+# Integrate Cameras and Sensors into Scenescape
 
-This guide provides step-by-step instructions to integrate cameras and other sensors into Intel® SceneScape. By completing this guide, you will:
+This guide provides step-by-step instructions to integrate cameras and other sensors into Scenescape. By completing this guide, you will:
 
-- Configure your camera and sensor data for ingestion into Intel® SceneScape.
+- Configure your camera and sensor data for ingestion into Scenescape.
 - Publish sensor messages to the correct MQTT topics.
 - Validate integration through timestamped, ID-labeled messages and visual scene updates.
 
-This task is critical for enabling real-time scene understanding and updates in Intel® SceneScape using data from physical devices.
+This task is critical for enabling real-time scene understanding and updates in Scenescape using data from physical devices.
 
 ## Prerequisites
 
 Before you begin, ensure the following:
 
 - **Dependencies Installed**: Install Python, OpenCV, an MQTT client, and configure MQTT access credentials.
-- **Access and Permissions**: You must have sensor IDs pre-provisioned in your scene in Intel® SceneScape.
+- **Access and Permissions**: You must have sensor IDs pre-provisioned in your scene in Scenescape.
 
 Familiarity with MQTT, JSON formatting, and camera calibration is recommended. If needed, refer to:
 
@@ -24,11 +24,11 @@ Familiarity with MQTT, JSON formatting, and camera calibration is recommended. I
 
 All sensors, from cameras to microphones to environmental sensors like temperature or air quality, digitize something happening in the scene at a given moment in time.
 
-A sensor system must acquire data, provide a timestamp, attach a sensor ID, and then publish this data to Intel® SceneScape in a recognized format. It must also know where to publish each message. This flow is shown in the top box of Figure 1.
+A sensor system must acquire data, provide a timestamp, attach a sensor ID, and then publish this data to Scenescape in a recognized format. It must also know where to publish each message. This flow is shown in the top box of Figure 1.
 
-![Intel® SceneScape Basic Data Flow](../_assets/scenescape-basic.png)
+![Scenescape Basic Data Flow](../_assets/scenescape-basic.png)
 
-**Figure 1:** Intel® SceneScape basic data flow
+**Figure 1:** Scenescape basic data flow
 
 There are a few things to note about the sensor data system:
 
@@ -37,13 +37,13 @@ There are a few things to note about the sensor data system:
 3. The sensor does not know its scene context at all. It just needs to know where to publish the data.
 4. The scene controller needs to know about the sensor before it can do anything with the data. For example, if a sensor ID does not already exist in the database that sensor data is ignored. Similarly, if the sensor is attached to a given scene, then only the state for that scene will be updated (a sensor, like any node in a scene graph, may only exist in one scene at a time).
 
-Intel® SceneScape scene controller then picks up this data, utilizes information already known about the sensor, updates the state of the scene using the data, and then publishes an update to the scene graph if appropriate.
+Scenescape scene controller then picks up this data, utilizes information already known about the sensor, updates the state of the scene using the data, and then publishes an update to the scene graph if appropriate.
 
 Figure 2 is a flow chart of how camera-based metadata is generated and published.
 
-![SceneScape Video Pipeline](../_assets/pipeline.png)
+![Scenescape Video Pipeline](../_assets/pipeline.png)
 
-**Figure 2:** Intel® SceneScape video pipeline
+**Figure 2:** Scenescape video pipeline
 
 Figure 2 above makes use of the following:
 
@@ -60,7 +60,7 @@ All sensor and camera messages share two properties: timestamp and ID.
 ```
 
 1. **Sensor ID**
-   The ID is the key used to associate the published data with the camera or sensor as provisioned in Intel® SceneScape. Before its data can be analyzed, each camera or sensor must be added to an existing scene with a unique ID.
+   The ID is the key used to associate the published data with the camera or sensor as provisioned in Scenescape. Before its data can be analyzed, each camera or sensor must be added to an existing scene with a unique ID.
 
    > **Notes:**
    >
@@ -68,11 +68,11 @@ All sensor and camera messages share two properties: timestamp and ID.
    > - If a scene with cameras or sensors is deleted, those sensors will be "orphaned." They can be added back to a scene by editing them from the camera or sensor lists.
 
 2. **Timestamps**
-   Timestamps are in ISO 8601 UTC format. Time synchronization is an entire discipline of its own, but since Intel® SceneScape scene controller must merge various sources of data the following two principles are paramount:
+   Timestamps are in ISO 8601 UTC format. Time synchronization is an entire discipline of its own, but since Scenescape scene controller must merge various sources of data the following two principles are paramount:
 
    > **Notes:**
    >
-   > - Systems feeding data into Intel® SceneScape must be time synchronized with the scene controller.
+   > - Systems feeding data into Scenescape must be time synchronized with the scene controller.
    > - Data should be timestamped as close to acquisition as possible.
 
 3. **Python Timestamp Example**
@@ -127,7 +127,7 @@ All sensor and camera messages share two properties: timestamp and ID.
    }
    ```
 
-   > **Note:** Bounding boxes are in normalized image space. For more information on how to transform pixel-based bounding boxes, see [how Intel® SceneScape converts Pixel-Based Bounding Boxes to Normalized Image Space](../additional-resources/convert-object-detections-to-normalized-image-space.md).
+   > **Note:** Bounding boxes are in normalized image space. For more information on how to transform pixel-based bounding boxes, see [how Scenescape converts Pixel-Based Bounding Boxes to Normalized Image Space](../additional-resources/convert-object-detections-to-normalized-image-space.md).
 
 2. **3D Detections from Cameras and Other Sensors**
    Sometimes sensors and AI models provide 3D detections instead of 2D detections. 3D detections may be directly measured by sensors (e.g. GPS), inferred from 2D data (e.g. monocular images), and/or inferred from 3D data (e.g. point clouds). In those cases a 3D bounding box (i.e. cuboid) can be provided like in the example below:
@@ -186,7 +186,7 @@ All sensor and camera messages share two properties: timestamp and ID.
    ```
 
    > **Note:** Translation and size currently need to be also provided in the bounding_box property.
-   > When providing 3d detection data, one of the key things to keep in mind is the Intel® SceneScape's coordinate system convention. 3D data in other conventions should be converted in order to ensure correct ingestion. Intel® SceneScape follows the same convention as OpenCV where the scene axes are oriented like below:
+   > When providing 3d detection data, one of the key things to keep in mind is the Scenescape's coordinate system convention. 3D data in other conventions should be converted in order to ensure correct ingestion. Scenescape follows the same convention as OpenCV where the scene axes are oriented like below:
 
    ```text
    # Right-handed, z-UP
@@ -233,7 +233,7 @@ For example, if a vision-based hat detector is used then a `"hat"` attribute cou
 }
 ```
 
-Metadata for camera-based detections can be validated against the [SceneScape metadata schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
+Metadata for camera-based detections can be validated against the [Scenescape metadata schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
 
 ## Camera Calibration Methods
 
@@ -245,7 +245,7 @@ Camera calibration can be performed using the following methods:
 
 ## Camera Calibration Support
 
-Intel® SceneScape user interface utilizes occasional frames, or snapshots, from cameras for the purposes of camera calibration and "live" preview. These frames are not stored and are requested directly by the user interface and not the scene controller.
+Scenescape user interface utilizes occasional frames, or snapshots, from cameras for the purposes of camera calibration and "live" preview. These frames are not stored and are requested directly by the user interface and not the scene controller.
 
 To support snapshots, the vision pipeline needs to listen to a command topic and then publish the image to the correct topic (see Figure 2 above). This could be supported in many ways, but here is a Python example of how to generate a base64 encoded JPEG from an OpenCV frame:
 
@@ -265,9 +265,9 @@ jpeg = base64.b64encode(jpeg).decode('utf-8')
 The command topic is `scenescape/cmd/camera/<sensorID>`. If the message "getimage" is published to this topic then the snapshot should be published to `scenescape/image/sensor/cam/<sensorID>`.
 
 **Snapshot sample code**
-For a complete example with MQTT connectivity, see [snapshot.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py). It can be run by providing the required arguments from within an Intel® SceneScape container or you can adapt it for your own code.
+For a complete example with MQTT connectivity, see [snapshot.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py). It can be run by providing the required arguments from within an Scenescape container or you can adapt it for your own code.
 
-Here is its help output from inside Intel® SceneScape container:
+Here is its help output from inside Scenescape container:
 
 ```text
 ~/scenescape$ tools/scenescape-start --shell
@@ -291,11 +291,11 @@ optional arguments:
 
 ## Singleton sensor data
 
-"Singleton" sensors publish a given value that varies in time. This could be a temperature reading, a light sensor, whatever. Currently, Intel® SceneScape tags a given object track with any singleton data received when the object is within the singleton measurement area.
+"Singleton" sensors publish a given value that varies in time. This could be a temperature reading, a light sensor, whatever. Currently, Scenescape tags a given object track with any singleton data received when the object is within the singleton measurement area.
 
 > **Note:** For a complete guide on using light sensors to control 3D scene lighting in real-time, see [Controlling Scene Lighting with Physical Light Sensors](../other-topics/light-sensor-integration.md).
 
-Suppose a temperature sensor is configured to apply to an entire scene. Intel® SceneScape tags each object track in the scene with the latest temperature value and any changes to that temperature value that occurred while that object is tracked. The same thing applies when the measurement area is configured as a smaller portion of the scene (currently a circle or polygon area), except that objects are only tagged with the value if they are within the measurement area.
+Suppose a temperature sensor is configured to apply to an entire scene. Scenescape tags each object track in the scene with the latest temperature value and any changes to that temperature value that occurred while that object is tracked. The same thing applies when the measurement area is configured as a smaller portion of the scene (currently a circle or polygon area), except that objects are only tagged with the value if they are within the measurement area.
 
 At minimum, a singleton should publish a "value" property to this topic:
 
@@ -317,7 +317,7 @@ The "id" should match the topic, which in this case would be:
 `scenescape/data/sensor/temperature1`
 
 **Singleton sample code**
-See [singleton.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/singleton.py) for a sample of publishing random values to a singleton topic. You can run this sample by providing the required arguments from within an Intel® SceneScape container or adapt it to run in your own code.
+See [singleton.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/singleton.py) for a sample of publishing random values to a singleton topic. You can run this sample by providing the required arguments from within an Scenescape container or adapt it to run in your own code.
 
 > **Note:** Ensure that the broker service is running.
 
@@ -328,7 +328,7 @@ Here is its help output from inside a container:
 ~/scenescape$ ./tools/singleton.py -h
 usage: singleton.py [-h] -b BROKER [--port PORT] -p PASSWORD -u USERNAME -i ID [--min MIN] [--max MAX] [-t TIME]
 
-Sample of publishing pseudo-random singleton data to Intel® SceneScape.
+Sample of publishing pseudo-random singleton data to Scenescape.
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -384,6 +384,6 @@ Using this data, a developer can easily write an application to trigger alerts o
 
 ## Supporting Resources
 
-- [SceneScape Auto Calibration Guide](../microservices/auto-calibration/auto-calibration.md)
-- [SceneScape Metadata Schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json)
+- [Scenescape Auto Calibration Guide](../microservices/auto-calibration/auto-calibration.md)
+- [Scenescape Metadata Schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json)
 - [MQTT Snapshot Script](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py)

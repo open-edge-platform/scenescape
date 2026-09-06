@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import math
+import json
 import uuid
 from datetime import datetime
 
@@ -19,13 +21,44 @@ from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time
 
 
+def _quaternion_to_yaw(rotation):
+  """Return Z-axis yaw in radians from an ``[x, y, z, w]`` quaternion.
+
+  Implemented manually instead of
+  ``scipy.spatial.transform.Rotation.from_quat(...).as_euler(...)`` for
+  performance: benchmarking showed this atan2-only path is ~2.2x faster
+  per call (~3.5us vs ~8.0us) since it avoids scipy's Cython overhead which
+  is amortized only with batch processing.
+  """
+  try:
+    quaternion = np.asarray(rotation, dtype=float)
+  except (TypeError, ValueError):
+    return 0.0
+  if quaternion.shape != (4,) or not np.all(np.isfinite(quaternion)):
+    return 0.0
+
+  norm = np.linalg.norm(quaternion)
+  if norm == 0.0:
+    return 0.0
+
+  x, y, z, w = quaternion / norm
+  sin_yaw_cos_pitch = 2.0 * (w * z + x * y)
+  cos_yaw_cos_pitch = 1.0 - 2.0 * (y * y + z * z)
+  return math.atan2(sin_yaw_cos_pitch, cos_yaw_cos_pitch)
+
+
+def _yaw_to_quaternion(yaw):
+  """Return an ``[x, y, z, w]`` quaternion for a Z-axis-only ``yaw`` in radians."""
+  return [0.0, 0.0, math.sin(yaw / 2.0), math.cos(yaw / 2.0)]
+
+
 class IntelLabsTracking(Tracking):
 
   def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, effective_object_update_rate, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, reid_config_data=None, name=None):
     """Initialize the tracker with tracker configuration parameters"""
     super().__init__(reid_config_data=reid_config_data)
     self.name = name if name is not None else "IntelLabsTracking"
-    #ref_camera_frame_rate is used to determine the frame-based param values
+    # ref_camera_frame_rate is used to determine the frame-based param values
     self.ref_camera_frame_rate = effective_object_update_rate
     tracker_config = rv.tracking.TrackManagerConfig()
 
@@ -34,7 +67,7 @@ class IntelLabsTracking(Tracking):
     tracker_config.init_state_covariance = 1
 
     tracker_config.motion_models = [rv.tracking.MotionModel.CV, rv.tracking.MotionModel.CA,
-                                   rv.tracking.MotionModel.CTRV]
+                                    rv.tracking.MotionModel.CTRV]
 
     if self.check_valid_time_parameters(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
       tracker_config.max_unreliable_time = max_unreliable_time
@@ -63,10 +96,40 @@ class IntelLabsTracking(Tracking):
         return True
     return False
 
-
   def rv_classification(self, confidence=None):
     confidence = 1.0 if confidence is None else confidence
     return np.array([confidence, 1.0 - confidence])
+
+  @staticmethod
+  def metadata_to_attributes(metadata):
+    """Encode metadata fields for RobotVision's per-field fusion."""
+    attributes = {}
+    for field, value in metadata.items():
+      try:
+        attributes[f'metadata.{field}'] = json.dumps(value, separators=(',', ':'))
+      except (TypeError, ValueError) as error:
+        log.warning(f"Unable to serialize metadata field '{field}': {error}")
+        continue
+
+      confidence = value.get('confidence') if isinstance(value, dict) else None
+      if isinstance(confidence, (int, float)) and not isinstance(confidence, bool):
+        attributes[f'metadata_confidence.{field}'] = str(value['confidence'])
+    return attributes
+
+  @staticmethod
+  def metadata_from_attributes(attributes):
+    """Decode metadata fields selected by RobotVision."""
+    metadata = {}
+    for key in sorted(attributes):
+      if not key.startswith('metadata.'):
+        continue
+      value = attributes[key]
+      field = key.removeprefix('metadata.')
+      try:
+        metadata[field] = json.loads(value)
+      except (TypeError, json.JSONDecodeError) as error:
+        log.warning(f"Unable to deserialize fused metadata field '{field}': {error}")
+    return metadata
 
   def to_rv_object(self, sscape_object):
     """Convert sscape detected object to robot vision tracking input object format"""
@@ -81,13 +144,13 @@ class IntelLabsTracking(Tracking):
     rv_object.length = size[0]
     rv_object.width = size[1]
     rv_object.height = size[2]
-    rv_object.yaw = sscape_object.rotation[1] if sscape_object.rotation else 0.
+    rv_object.yaw = _quaternion_to_yaw(sscape_object.rotation)
     rv_object.classification = self.rv_classification(sscape_object.confidence)
     info = sscape_object.info.copy()
     info['framecount'] = sscape_object.frameCount
-    rv_object.attributes = {
-      'info': sscape_object.uuid,
-    }
+    attributes = {'info': sscape_object.uuid}
+    attributes.update(self.metadata_to_attributes(sscape_object.metadata))
+    rv_object.attributes = attributes
     return rv_object
 
   def update_tracks(self, objects, timestamp):
@@ -96,25 +159,36 @@ class IntelLabsTracking(Tracking):
     if len(objects):
       tracking_radius = sum([x.tracking_radius for x in objects]) / len(objects)
 
-    self.tracker.track(rv_objects, timestamp, distance_type=rv.tracking.DistanceType.Euclidean, distance_threshold=tracking_radius)
+    self.tracker.track(rv_objects, timestamp, distance_type=rv.tracking.DistanceType.Euclidean,
+                       distance_threshold=tracking_radius)
     return
 
   def from_tracked_object(self, tracked_object, objects):
     """Get associated sscape object from reliable tracked object"""
-    uuid = tracked_object.attributes['info']
+    object_uuid = tracked_object.attributes['info']
     sscape_object = None
     for obj in objects:
-      if uuid == obj.uuid:
+      if object_uuid == obj.uuid:
         sscape_object = obj
         break
     if not sscape_object:
       for obj in self.all_tracker_objects:
-        if uuid == obj.uuid:
+        if object_uuid == obj.uuid:
           return obj
+
+    sscape_object.metadata = self.metadata_from_attributes(tracked_object.attributes)
 
     sscape_object.location[0].point = Point(tracked_object.x, tracked_object.y,
                                             tracked_object.z)
     sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, 0.0))
+
+    # Only overwrite rotation with the tracker's Kalman-filtered yaw when the
+    # object has a real detector-provided rotation measurement. For
+    # velocity-inferred rotation, self.velocity already comes from this same
+    # Kalman filter, so re-filtering it here would just be smoothing an
+    # already-smoothed signal with no new information gained.
+    if sscape_object.has_detection_rotation:
+      sscape_object.rotation = _yaw_to_quaternion(tracked_object.yaw)
 
     sscape_object.rv_id = tracked_object.id
     found = False
@@ -125,7 +199,7 @@ class IntelLabsTracking(Tracking):
         sscape_object.inferRotationFromVelocity()
         break
     if not found:
-      sscape_object.setGID(uuid)
+      sscape_object.setGID(object_uuid)
 
     self.uuid_manager.assignID(sscape_object)
 
@@ -175,7 +249,7 @@ class IntelLabsTracking(Tracking):
     tracked_objects = self.tracker.get_reliable_tracks()
     self.uuid_manager.pruneInactiveTracks(tracked_objects)
     tracks_from_detections = [self.from_tracked_object(tracked_object, objects)
-                     for tracked_object in tracked_objects]
+                              for tracked_object in tracked_objects]
 
     # Already tracked objects include moving objects from tracks consumed directly
     self.already_tracked_objects = self.mergeAlreadyTrackedObjects(already_tracked_objects)
@@ -193,7 +267,7 @@ class IntelLabsTracking(Tracking):
     all_objects = [obj for camera_objects in objects_per_camera for obj in camera_objects]
 
     tracks_from_detections = [self.from_tracked_object(tracked_object, all_objects)
-                     for tracked_object in tracked_objects]
+                              for tracked_object in tracked_objects]
 
     # Already tracked objects include moving objects from tracks consumed directly
     self.already_tracked_objects = self.mergeAlreadyTrackedObjects(already_tracked_objects)
@@ -222,5 +296,6 @@ class IntelLabsTracking(Tracking):
     if total_object_count > 0:
       tracking_radius = total_tracking_radius / total_object_count
 
-    self.tracker.track(rv_objects_per_camera, timestamp, distance_type=rv.tracking.DistanceType.Euclidean, distance_threshold=tracking_radius)
+    self.tracker.track(rv_objects_per_camera, timestamp,
+                       distance_type=rv.tracking.DistanceType.Euclidean, distance_threshold=tracking_radius)
     return

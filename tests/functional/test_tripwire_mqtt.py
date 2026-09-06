@@ -3,16 +3,15 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 import time
 import json
 
 import pytest
 
 from tests.functional.test_roi_mqtt import SceneObjectMqtt
-from tests.common_test_utils import check_event_contains_data
+from tests.functional.event_asserts import check_event_contains_data
 from scene_common.mqtt import PubSub
-from scene_common.timestamp import get_iso_time, get_epoch_time
+from scene_common.timestamp import get_iso_time
 from scene_common.rest_client import RESTClient
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK

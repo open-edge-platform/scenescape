@@ -4,10 +4,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import tempfile
 from manager import views
 from scene_common.geometry import Point
 from unittest.mock import Mock
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from manager.models import Scene, SingletonSensor, Cam
 from manager.views import SingletonSensorDeleteView, SingletonSensorCreateView, \
@@ -115,6 +116,22 @@ class TestSignInViews(TestCase):
   def test_sign_in_post_scene_detail(self):
     self.client.get(reverse('sceneDetail', args=[self.test_scene_id]))
     response = self.client.post(reverse('sign_in'), data = {'username': 'test_user', 'password': 'wrong'})
+    self.assertEqual(response.status_code, 200)
+    self.assertTemplateUsed(response, 'sscape/sign_in.html')
+    return
+
+  def test_sign_in_post_success(self):
+    response = self.client.post(reverse('sign_in'), data = {'username': ' test_user ', 'password': 'testpassword', 'request': self.request})
+    self.assertEqual(response.status_code, 302)
+    return
+
+  def test_sign_in_post_trims_whitespace(self):
+    response = self.client.post(reverse('sign_in'), data = {'username': ' test_user ', 'password': 'testpassword', 'request': self.request})
+    self.assertEqual(response.status_code, 302)
+    return
+
+  def test_sign_in_post_wrong_username(self):
+    response = self.client.post(reverse('sign_in'), data = {'username': 'wrong_user', 'password': 'testpassword', 'request': self.request})
     self.assertEqual(response.status_code, 200)
     self.assertTemplateUsed(response, 'sscape/sign_in.html')
     return
@@ -394,4 +411,32 @@ class TestSingletonSensorViews(TestCase):
       dummy.update({'icon': img})
       response = self.client.post('/singleton_sensor/calibrate/1', data = dummy)
     self.assertEqual(response.status_code, 200)
+    return
+
+class TestSaveGeospatialSnapshot(TestCase):
+  """Verifies save-geospatial-snapshot uses session auth, not token auth (ITEP-95127)."""
+  TEST_NAME = "NEX-T27251"
+
+  # 1x1 transparent PNG; content is irrelevant, only auth wiring is under test
+  DUMMY_IMAGE_DATA = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB"
+                       "CAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+
+  def setUp(self):
+    self.user = User.objects.create_superuser('test_user', 'test_user@intel.com', 'testpassword')
+    self.media_root = tempfile.mkdtemp()
+    return
+
+  def test_authenticated_session_can_save_snapshot(self):
+    self.client.post(reverse('sign_in'), data = {'username': 'test_user', 'password': 'testpassword'})
+    with override_settings(MEDIA_ROOT=self.media_root):
+      response = self.client.post(reverse('save_geospatial_snapshot'), data = {'image_data': self.DUMMY_IMAGE_DATA})
+    self.assertEqual(response.status_code, 200)
+    return
+
+  def test_unauthenticated_request_is_rejected(self):
+    # No login: DRF's SessionAuthentication authenticates the request as an
+    # AnonymousUser (rather than failing outright), so IsAdminOrReadOnly denies
+    # it as a permission failure (403), not as an authentication failure (401).
+    response = self.client.post(reverse('save_geospatial_snapshot'), data = {'image_data': self.DUMMY_IMAGE_DATA})
+    self.assertEqual(response.status_code, 403)
     return

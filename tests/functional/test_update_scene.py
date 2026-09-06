@@ -29,6 +29,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
+pytestmark = pytest.mark.preserve_db
+
 DEMO_SCENE_NAME = "Demo"
 WAIT_TIMEOUT_S = 30
 MEASURE_WINDOW_S = 5   # seconds of continuous publishing per rate phase

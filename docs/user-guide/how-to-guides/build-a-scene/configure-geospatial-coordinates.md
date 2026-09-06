@@ -1,9 +1,9 @@
 # Configure Geospatial Coordinates for a Scene
 
-With this guide, you will learn how to configure Intel® SceneScape to output geospatial coordinates of detected objects. It involves:
+With this guide, you will learn how to configure Scenescape to output geospatial coordinates of detected objects. It involves:
 
 - Setting up reference points of the scene, using local and geospatial coordinate systems.
-- Configuring Intel® SceneScape to properly calculate and publish geospatial coordinates (latitude, longitude, altitude).
+- Configuring Scenescape to properly calculate and publish geospatial coordinates (latitude, longitude, altitude).
 - Verifying if the coordinates of detected objects are published in MQTT messages.
 
 ## Assumptions
@@ -17,12 +17,12 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 
 ## Prerequisites
 
-- **Dependencies Installed**: Intel® SceneScape deployed, MQTT client installed, and MQTT access credentials configured.
+- **Dependencies Installed**: Scenescape deployed, MQTT client installed, and MQTT access credentials configured.
 - **Access and Permissions**: Appropriate access to edit the scene with the UI and receive MQTT messages on the scene regulated topic.
 
 ## Steps to Leverage Built-In Geospatial Map Creation
 
-1. Before launching an Intel® SceneScape instance, ensure the API keys are configured for the selected map provider ([Configure geospatial map service API keys](./configure-geospatial-map-service-api-keys.md)). If the instance is already running, stop the current Web UI container and start a new instance.
+1. Before launching an Scenescape instance, ensure the API keys are configured for the selected map provider ([Configure geospatial map service API keys](./configure-geospatial-map-service-api-keys.md)). If the instance is already running, stop the current Web UI container and start a new instance.
 1. Click the "New Scene" button at the top right corner of the web homepage.```
 1. Switch the "Map Type" to "Geospatial Map".
 1. Select the provider for which you have configured the API key.
@@ -37,7 +37,7 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 
 ## Alternative: Steps to Manually Configure Geospatial Coordinates of the Scene
 
-1. Launch the Intel® SceneScape UI and **Log In**.
+1. Launch the Scenescape UI and **Log In**.
 1. Create a scene as outlined in the [new scene guide](./create-new-scene.md):
 
 - A scene surface map should be rectangular with edges aligned to the X and Y axes (explicit alignment is required for scenes using 3D models, flat maps loaded from images use it by design). See the next sections for how to verify this condition in practice.
@@ -56,8 +56,8 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 ### Conventions
 
 - **Determining the Reference Points**: The reference points needed for the conversion are four map corners, which are determined relative to the map using the following convention:
-  - For scene maps loaded as an image, Intel® SceneScape internally determines the map corners as the corners of the image.
-  - For scene maps loaded as a 3D model, Intel® SceneScape internally determines the map corners by projecting the scene to the XY plane and calculating an axis-aligned bounding box of the scene projection.
+  - For scene maps loaded as an image, Scenescape internally determines the map corners as the corners of the image.
+  - For scene maps loaded as a 3D model, Scenescape internally determines the map corners by projecting the scene to the XY plane and calculating an axis-aligned bounding box of the scene projection.
 
 - **Specifying the Geospatial Coordinates of the Reference Points**: The geospatial coordinates of the reference points, which are the four map corners, should be specified using the following convention:
   - Input format should be a JSON array, for example:
@@ -75,7 +75,35 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 
 ## Verify Successful Geospatial Coordinate Configuration
 
-1. Open the MQTT client and connect to the Intel® SceneScape server on port 1883 with valid credentials.
+1. Open the MQTT client and connect to the Scenescape server on port 1883 with valid credentials.
 1. Open the scene topic at `scenescape/regulated/scene` in the MQTT client and monitor the notifications about detected objects.
 
 **Expected Result**: the `.object[].lat_long_alt` field in the messages contains correct geospatial coordinates of detected objects.
+
+## REST API Reference
+
+Geospatial output can also be configured without the UI by creating the scene first (see
+[Create and Configure a New Scene](./create-new-scene.md#rest-api-reference)) and then updating it
+with `PUT /api/v1/scene/<scene_uid>` (the manager applies this as a partial update, so omitted
+fields are left unchanged; the endpoint does not support `PATCH`):
+
+```bash
+curl -sk -X PUT https://<manager-host>/api/v1/scene/<scene_uid> \
+    -H "Authorization: Token $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "output_lla": true,
+        "map_corners_lla": [
+            [<lat1>, <lon1>, <alt1>],
+            [<lat2>, <lon2>, <alt2>],
+            [<lat3>, <lon3>, <alt3>],
+            [<lat4>, <lon4>, <alt4>]
+        ]
+    }'
+```
+
+- `map_corners_lla` is required whenever `output_lla` is `true` — the request is rejected
+  otherwise.
+- The four corners follow the same counterclockwise-from-lower-left convention described in
+  [Conventions](#conventions) above.
+- Full field reference: [API Reference](../../api-reference.md) (`Scene` schema).

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -27,9 +27,18 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 FRAME_RATE = 10
 MAX_DELAYS = 3
-CHILD_NAME = "Demo"
+CHILD_NAME = "child"
 ERROR = 0.2
 DEBUG_MSGS = 5
+
+CHILD_CAMERA_ID = "child-scenes-cam1"
+CHILD_SCENE_SCALE = 100.0
+# 3D-2D point correspondence calibration copied from the sample cameras.
+CAMERA_TRANSFORMS = [278.0, 61.0, 621.0, 132.0, 559.0, 460.0, 66.0, 289.0,
+                     0.1, 5.38, 3.04, 5.35, 3.05, 2.42, 0.1, 2.45]
+CAMERA_TRANSFORM_TYPE = "3d-2d point correspondence"
+# Seconds to let the scene controller pick up the new scene/camera/link.
+CONTROLLER_SYNC_DELAY = 5
 
 recent_data = []
 parent_translation = {}
@@ -206,6 +215,36 @@ def calculate_mse(parent_translation):
   mse = metrics.getMSE(expected, predicted)
   return mse
 
+def create_child_scene(rest_client, name, map_image, map_data):
+  """! Create the child scene together with its own dedicated camera.
+
+  The scene is created by the test instead of reusing a seeded fixture so the
+  test behaves identically on every deployment backend and so no live video
+  pipeline can publish detections into it.
+
+  @param    rest_client                The rest client.
+  @param    name                       Name of the child scene.
+  @param    map_image                  Path of the scene map image.
+  @param    map_data                   Binary content of the scene map image.
+  @return   child_scene                The created child scene.
+  """
+  child_scene = rest_client.createScene({
+    'name': name,
+    'map': (map_image, map_data),
+    'scale': CHILD_SCENE_SCALE,
+  })
+  assert child_scene, (child_scene.statusCode, child_scene.errors)
+
+  camera = rest_client.createCamera({
+    'name': CHILD_CAMERA_ID,
+    'sensor_id': CHILD_CAMERA_ID,
+    'scene': child_scene['uid'],
+    'transform_type': CAMERA_TRANSFORM_TYPE,
+    'transforms': CAMERA_TRANSFORMS,
+  })
+  assert camera, (camera.statusCode, camera.errors)
+  return child_scene
+
 def publish_data(obj_data, obj_location, client, obj_cat):
   """! Function to publish data to mqtt topic based on object category
   @param    obj_data                   Pytest fixture defining object data such as ID, etc.
@@ -233,8 +272,7 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
                                              parent, \
                                              obj_cat, \
                                              params, \
-                                             repo_root, \
-                                             demo_scene):
+                                             repo_root):
   """! This function creates and updates the child scene. It also verifies that
   the data received from the parent is correct after applying different transforms based on the test
   cases provided above.
@@ -295,17 +333,17 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
     parent_id = parent_scene['uid']
     log.info(f"Parent scene: {parent} {parent_scene}")
     assert parent_scene
-    scenes = rest_client.getScenes({'name': child})
-    assert scenes['results']
-    child_scene = scenes['results'][0]
+    child_scene = create_child_scene(rest_client, child, map_image, map_data)
     child_id = child_scene['uid']
     result = rest_client.updateScene(child_scene['uid'], {
       'parent': parent_scene['uid'],
       'transform': pose.asDict,
     })
     assert result
+    time.sleep(CONTROLLER_SYNC_DELAY)
 
     client.loopStart()
+    objData["id"] = CHILD_CAMERA_ID
     publish_data(objData, obj_location, client, obj_cat)
     mse = calculate_mse(parent_translation)
 
@@ -317,8 +355,8 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
     verify_linking_children(parent_scene, children, rest_client, pose)
     verify_circular_linking_fails(parent_scene, children, rest_client)
     res = rest_client.deleteScene(parent_scene['uid'])
-    res = rest_client.getScenes({'name': child})
-    assert res['results'][0]
+    res = rest_client.getScene(child_id)
+    assert res['uid'] == child_id
     exit_code = 0
 
   finally:

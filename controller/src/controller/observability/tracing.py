@@ -1,7 +1,7 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""OpenTelemetry tracing for SceneScape controller.
+"""OpenTelemetry tracing for Scenescape controller.
 
 WARNING: Experimental API, insecure OTLP only.
 

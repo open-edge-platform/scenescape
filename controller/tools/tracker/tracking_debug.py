@@ -78,7 +78,7 @@ class SceneDebug:
         gid = archived_obj['gid']
         location = Point(archived_obj['location'][0]['point'])
         if not location.is3D:
-          location = Point(location.x, location.y, DEFAULTZ)
+          location = Point([location.x, location.y, DEFAULTZ])
         print("Category", category)
         print("GID", gid)
         print("Expected Location", location)

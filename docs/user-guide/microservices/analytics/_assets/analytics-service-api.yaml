@@ -1,0 +1,232 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+asyncapi: "2.6.0"
+info:
+  title: Scenescape MQTT API - Analytics Service
+  version: "1.0.0"
+  description: |
+    The Analytics service consumes unregulated tracked-object messages from the Scene
+    Controller (or any upstream Tracker) and raw sensor readings, then computes region,
+    tripwire, and sensor-correlation analytics.
+
+    Flow Description:
+    - The Analytics service `subscribes` to unregulated tracking results from
+      `scenescape/data/scene/{scene_id}/{thing_type}`.
+    - It also `subscribes` to external sensor data from `scenescape/data/sensor/{sensor_id}`
+      to correlate readings with tracked objects.
+    - It `publishes` regulated (rate-controlled) track results to
+      `scenescape/regulated/scene/{scene_id}`.
+    - Based on scene and sensor inputs, it **detects events** and **publishes** event
+      notifications to `scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}`.
+
+channels:
+  scenescape/data/scene/{scene_id}/{thing_type}:
+    parameters:
+      scene_id:
+        description: Scene identifier
+        schema:
+          type: string
+      thing_type:
+        description: Type of object (e.g., person, car)
+        schema:
+          type: string
+    subscribe:
+      summary: Analytics service subscribes to unregulated track data from the Scene Controller
+      message:
+        payload:
+          type: object
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            id:
+              type: string
+            name:
+              type: string
+            rate:
+              type: number
+              minimum: 0
+            unique_detection_count:
+              type: integer
+              minimum: 0
+            objects:
+              type: array
+              description: >-
+                Array of tracked scene objects. Each object includes fields such as
+                `id`, `translation`, `velocity`, `visibility`, `metadata`, and more.
+              items:
+                type: object
+
+  scenescape/data/sensor/{sensor_id}:
+    parameters:
+      sensor_id:
+        description: Sensor identifier
+        schema:
+          type: string
+    subscribe:
+      summary: Analytics service subscribes to sensor data
+      message:
+        payload:
+          type: object
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            id:
+              type: string
+            value:
+              description: >-
+                Sensor reading — numeric scalar, string, boolean, or any JSON value.
+            subtype:
+              type: string
+            rate:
+              type: number
+              minimum: 0
+
+  scenescape/regulated/scene/{scene_id}:
+    parameters:
+      scene_id:
+        description: Scene identifier
+        schema:
+          type: string
+    publish:
+      summary: Analytics service publishes regulated track data
+      message:
+        payload:
+          type: object
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            id:
+              type: string
+            name:
+              type: string
+            scene_rate:
+              type: number
+              minimum: 0
+            rate:
+              type: object
+              additionalProperties:
+                type: number
+            objects:
+              type: array
+              description: >-
+                Array of tracked scene objects. Each object includes fields such as
+                `id`, `translation`, `velocity`, `visibility`, `regions`, `sensors`,
+                `metadata`, and more.
+              items:
+                type: object
+
+  scenescape/data/region/{scene_id}/{region_id}/{thing_type}:
+    parameters:
+      scene_id:
+        description: Scene identifier
+        schema:
+          type: string
+      region_id:
+        description: Region identifier
+        schema:
+          type: string
+      thing_type:
+        description: Type of object (e.g., person, car)
+        schema:
+          type: string
+    publish:
+      summary: Analytics service publishes the subset of tracked objects currently inside a region
+      message:
+        payload:
+          type: object
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            id:
+              type: string
+            name:
+              type: string
+            objects:
+              type: array
+              description: >-
+                Tracked objects of `thing_type` currently inside the region.
+              items:
+                type: object
+
+  scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}:
+    parameters:
+      region_type:
+        description: Region, sensor, or tripwire type
+        schema:
+          type: string
+      scene_id:
+        description: Scene identifier
+        schema:
+          type: string
+      region_id:
+        description: Region, sensor, or tripwire identifier
+        schema:
+          type: string
+      event_type:
+        description: Event type
+        schema:
+          type: string
+    publish:
+      summary: Analytics service publishes scene event messages
+      message:
+        payload:
+          type: object
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            scene_id:
+              type: string
+            scene_name:
+              type: string
+            region_id:
+              type: string
+              description: Present in region events
+            region_name:
+              type: string
+              description: Present in region events
+            tripwire_id:
+              type: string
+              description: Present in tripwire events
+            tripwire_name:
+              type: string
+              description: Present in tripwire events
+            counts:
+              type: object
+              additionalProperties:
+                type: integer
+            objects:
+              type: array
+              items:
+                type: object
+              description: >-
+                In region-scoped payloads, objects currently inside a region include a live
+                regions.<region_id>.dwell value in seconds alongside the entered timestamp.
+            entered:
+              type: array
+              items:
+                type: object
+              description: >-
+                Objects that entered the region during this cycle. In region events, each element is a bare
+                track object and may include regions.<region_id>.dwell for the current region. In tripwire events, this array is always empty. May be
+                empty in region events when no entry occurred.
+            exited:
+              type: array
+              items:
+                type: object
+              description: >-
+                Objects that exited the region during this cycle. In region events, each element has shape
+                {"object": <track>, "dwell": <seconds>}. In tripwire events, this
+                array is always empty. May be empty in region events when no exit
+                occurred.
+            metadata:
+              type: object
+              description: >-
+                Region or tripwire geometry. Region events include: title, uuid, points
+                (polygon vertices), area, fromSensor. Tripwire events include: title,
+                uuid, points (two endpoints).

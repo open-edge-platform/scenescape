@@ -10,6 +10,13 @@ This module provides a Flask-based web interface for real-time visualization
 of cluster analytics data including object detection and clustering results.
 """
 
+# Must be called before Flask/werkzeug are imported for proper async patching
+try:
+  import eventlet
+  eventlet.monkey_patch()
+except ImportError:
+  pass  # eventlet not available, will use threading mode
+
 import json
 import os
 import threading
@@ -33,13 +40,6 @@ class WebUI:
 
     @param clusterAnalyticsContext: Reference to the ClusterAnalyticsContext instance
     """
-    # Monkey patch eventlet early for proper async support
-    try:
-      import eventlet
-      eventlet.monkey_patch()
-    except ImportError:
-      pass  # eventlet not available, will use threading mode
-
     self.clusterContext = clusterAnalyticsContext
 
     # Get the directory where this file is located
@@ -433,15 +433,14 @@ class WebUI:
 
       return result
 
-    def enhanced_publish_clusters(sceneId, detectionData, allClusters):
+    def enhanced_publish_clusters(sceneId, detectionData):
       """Enhanced version that also updates WebUI data."""
       # Call original method
-      result = originalPublishClusters(sceneId, detectionData, allClusters)
+      result = originalPublishClusters(sceneId, detectionData)
 
       # Get the actual tracked clusters that were published
-      tracked_clusters = self.clusterContext.cluster_tracker.get_active_clusters(
-          scene_id=sceneId,
-          publishable_only=True
+      tracked_clusters = self.clusterContext.cluster_tracker.get_clusters(
+          scene_id=sceneId
       )
 
       # Convert to dictionaries (same format as MQTT publication)

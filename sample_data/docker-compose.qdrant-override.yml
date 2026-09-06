@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Select Qdrant as the ReID backend.
+# Usage:
+#   docker compose -f docker-compose-dl-streamer-example.yml \
+#     -f docker-compose.qdrant-override.yml --profile controller up
+#
+# Use exactly one ReID backend override at a time.
+# Shared REID_* defaults: hostname reid.scenescape.intel.com, port 55555, TLS on.
+
+services:
+  reid:
+    image: qdrant/qdrant:v1.13.2
+    init: true
+    networks:
+      scenescape:
+        aliases:
+          - reid.scenescape.intel.com
+    environment:
+      QDRANT__SERVICE__HTTP_PORT: "55555"
+      QDRANT__SERVICE__ENABLE_TLS: "true"
+      QDRANT__TLS__CERT: /qdrant/tls/cert.pem
+      QDRANT__TLS__KEY: /qdrant/tls/key.pem
+      QDRANT__TLS__CA_CERT: /qdrant/tls/cacert.pem
+    volumes:
+      - type: bind
+        source: ${SECRETSDIR}/certs/scenescape-reid-s.crt
+        target: /qdrant/tls/cert.pem
+        read_only: true
+      - type: bind
+        source: ${SECRETSDIR}/certs/scenescape-reid-s.key
+        target: /qdrant/tls/key.pem
+        read_only: true
+      - type: bind
+        source: ${SECRETSDIR}/certs/scenescape-ca.pem
+        target: /qdrant/tls/cacert.pem
+        read_only: true
+    restart: always
+    pids_limit: 1000
+
+  scene:
+    depends_on:
+      reid:
+        condition: service_started
+    environment:
+      REID_DATABASE: QDRANT
