@@ -12,6 +12,7 @@ import tests.common_test_utils as common
 from scene_common.mqtt import initializeMqttClient
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -39,10 +40,10 @@ def on_message(mqttc, obj, msg):
   objects_detected += 1
 
 
-def test_mqtt_insecure_auth(scenescape_env, record_xml_attribute):
+@pytest.mark.test_name("NEX-T21776")
+def test_mqtt_insecure_auth(scenescape_env):
 
   TEST_NAME = "NEX-T21776"
-  record_xml_attribute("name", TEST_NAME)
 
   print("Executing: " + TEST_NAME)
 

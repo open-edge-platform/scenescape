@@ -13,6 +13,7 @@ from tests.functional.common_scene_obj import SceneObjectMqtt
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
+import pytest
 
 log = get_logger(__name__)
 
@@ -335,6 +336,7 @@ class SensorMqttRoi(SceneObjectMqtt):
       end_idx += 1
     return start_idx, end_idx
 
+@pytest.mark.test_name("NEX-T10460")
 def test_sensor_roi_mqtt(scenescape_env, demo_scene, request, record_xml_attribute):
   test = SensorMqttRoi(TEST_NAME, request, SENSOR_DELAY, record_xml_attribute)
   test.runROIMqtt()
