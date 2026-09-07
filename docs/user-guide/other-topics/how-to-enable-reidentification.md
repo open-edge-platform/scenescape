@@ -32,12 +32,12 @@ Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-
 
    ```bash
    # VDMS
-   docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+   docker compose --project-directory . -f sample_data/compose/docker-compose-dl-streamer-example.yml \
      -f sample_data/compose/docker-compose.vdms-override.yml \
      --profile controller up
 
    # Or Qdrant
-   docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+   docker compose --project-directory . -f sample_data/compose/docker-compose-dl-streamer-example.yml \
      -f sample_data/compose/docker-compose.qdrant-override.yml \
      --profile controller up
    ```
@@ -239,21 +239,25 @@ it; that is a separate hardening step.
 3. **Restart the System**:
 
    ```bash
-   docker compose --profile controller up --build
+
    ```
+
+docker compose --project-directory . --profile controller up --build
+
+````
 
 **Expected Result**: Scenescape runs without ReID and no visual feature matching is performed.
 
 ## Evaluating Re-identification Performance
 
 - **Track Unique IDs**:\
-  Scenescape publishes `unique_detection_count` via MQTT under the scene category topic. Each object includes an `id` field (UUID) for tracking.
+Scenescape publishes `unique_detection_count` via MQTT under the scene category topic. Each object includes an `id` field (UUID) for tracking.
 
 - **UI Support**:\
-  UUID display in the 3D UI is planned for future releases.
+UUID display in the 3D UI is planned for future releases.
 
 - **Latency Metrics**:\
-  For match-latency trends and correlating them against camera count and tracked-object count (e.g. for hardware sizing or monitoring degradation as a deployment scales), see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md).
+For match-latency trends and correlating them against camera count and tracked-object count (e.g. for hardware sizing or monitoring degradation as a deployment scales), see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md).
 
 > **Note:** The default ReID model is tuned for the 'person' category and may not generalize well to other object types.
 
@@ -302,10 +306,10 @@ Both deployment models expose the same knobs:
 
 ```bash
 helm upgrade scenescape-release-1 --install kubernetes/scenescape-chart/ \
-  -n scenescape --create-namespace \
-  --set reid.enabled=true --set reid.backend=vdms \
-  --set reid.descriptorTtlSecs=3600 --set reid.purgeIntervalSecs=300
-```
+-n scenescape --create-namespace \
+--set reid.enabled=true --set reid.backend=vdms \
+--set reid.descriptorTtlSecs=3600 --set reid.purgeIntervalSecs=300
+````
 
 > **Note:** Retention is time-based only. Under heavy ingest, storage can still grow within the TTL window. This is not capacity-based eviction.
 
