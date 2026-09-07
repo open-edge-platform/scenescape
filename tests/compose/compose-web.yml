@@ -55,6 +55,7 @@ services:
       - "HTTP_PROXY=${HTTP_PROXY}"
       - "HTTPS_PROXY=${HTTPS_PROXY}"
       - "NO_PROXY=${NO_PROXY},.scenescape.intel.com"
+      - "EXPOSE_TEST_HOOKS=${EXPOSE_TEST_HOOKS:-false}"
     # web interface needs access to the media files
     volumes:
       - ./tests/testdb.tar.bz2:/home/scenescape/Scenescape/tests/testdb.tar.bz2

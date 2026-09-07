@@ -9,4 +9,5 @@ def selected_settings(request):
     'APP_PROPER_NAME': settings.APP_PROPER_NAME,
     'APP_BASE_NAME': settings.APP_BASE_NAME,
     'KUBERNETES_SERVICE_HOST': settings.KUBERNETES_SERVICE_HOST,
+    'EXPOSE_TEST_HOOKS': settings.EXPOSE_TEST_HOOKS,
   }
