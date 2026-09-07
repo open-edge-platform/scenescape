@@ -133,8 +133,10 @@ public:
   /**
    * @brief Queue an additional measurement for a KalmanEstimator.
    *
-   * Appends to the measurements already queued for the track; all queued measurements are applied
-   * sequentially during the next correct step.
+   * Appends to the measurements already queued for the track. All queued measurements are fused
+   * into a single measurement (see fuseObservations) and applied with one correction during the
+   * next correct step, so the Kalman covariance stays consistent regardless of how many
+   * observations matched the track.
    */
   void addMeasurement(const Id &id, const TrackedObject &measurement);
 
@@ -224,6 +226,16 @@ private:
 
   TrackManagerConfig mConfig;
 };
+
+/**
+ * @brief Fuse several observations of the same track taken at one timestamp into a single one.
+ *
+ * Geometric fields are averaged (yaw as a circular mean) and classification evidence is combined
+ * across all observations. A single fused measurement lets the Kalman filter apply one numerically
+ * stable correction per frame instead of chaining several corrections on stale prediction
+ * statistics. A single observation is returned unchanged.
+ */
+TrackedObject fuseObservations(const std::vector<TrackedObject> &observations);
 
 } // namespace tracking
 } // namespace rv

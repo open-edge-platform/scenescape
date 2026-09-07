@@ -3,10 +3,56 @@
 
 #include "rv/Utils.hpp"
 #include "rv/tracking/TrackManager.hpp"
+#include <cmath>
 #include <omp.h>
 
 namespace rv {
 namespace tracking {
+
+TrackedObject fuseObservations(const std::vector<TrackedObject> &observations)
+{
+  TrackedObject fused = observations.front();
+  if (observations.size() == 1)
+  {
+    return fused;
+  }
+
+  const double count = static_cast<double>(observations.size());
+  double x = 0.0, y = 0.0, z = 0.0, length = 0.0, width = 0.0, height = 0.0;
+  double yawSin = 0.0, yawCos = 0.0;
+  Classification combinedClassification = observations.front().classification;
+
+  for (size_t i = 0; i < observations.size(); ++i)
+  {
+    const auto &observation = observations[i];
+    x += observation.x;
+    y += observation.y;
+    z += observation.z;
+    length += observation.length;
+    width += observation.width;
+    height += observation.height;
+    yawSin += std::sin(observation.yaw);
+    yawCos += std::cos(observation.yaw);
+    // Accumulate classification evidence once per matched observation.
+    if (i > 0 && observation.classification.size() == combinedClassification.size())
+    {
+      combinedClassification = classification::combine(combinedClassification, observation.classification);
+    }
+  }
+
+  fused.x = x / count;
+  fused.y = y / count;
+  fused.z = z / count;
+  fused.length = length / count;
+  fused.width = width / count;
+  fused.height = height / count;
+  if (yawSin != 0.0 || yawCos != 0.0)
+  {
+    fused.yaw = std::atan2(yawSin, yawCos);
+  }
+  fused.classification = combinedClassification;
+  return fused;
+}
 
 Id TrackManager::createTrack(TrackedObject object, const std::chrono::system_clock::time_point &timestamp)
 {
@@ -144,10 +190,7 @@ void TrackManager::correct()
     if (mMeasurementMap.count(id))
     {
       auto const measurements = mMeasurementMap.find(id);
-      for (auto const &measurement : measurements->second)
-      {
-        estimator.correct(measurement);
-      }
+      estimator.correct(fuseObservations(measurements->second));
     }
   }
 
@@ -178,10 +221,7 @@ void TrackManager::correct()
   for (const auto &id : reactivationList)
   {
     reactivateTrack(id);
-    for (auto const &measurement : mMeasurementMap[id])
-    {
-      mKalmanEstimators[id].correct(measurement);
-    }
+    mKalmanEstimators[id].correct(fuseObservations(mMeasurementMap[id]));
   }
 
   std::vector<Id> deletionList;

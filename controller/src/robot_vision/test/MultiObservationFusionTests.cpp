@@ -221,16 +221,10 @@ TEST(MultiObservationFusionTest, SuspendedTrackReactivationAppliesAllQueuedObser
 
 // Sequential per-observation corrects must not drive the covariance to an over-confident or
 // non-finite state, and a track fused from more observations must not end up more uncertain than
-// the single-observation case.
-//
-// TODO: DISABLED — this currently fails. The naive sequential double-correct in
-// TrackManager::correct() reuses the predicted-measurement sigma points / Pyy cached from the
-// single predict(), so the second correction produces a non-PSD covariance that diverges over
-// frames (trace observed: f1 -3.83 -> f5 -6.54 -> f8 +490380, vs single-correct 3.10 -> 0.69).
-// The implementation is intentionally kept as-is for now; re-enable once the sequential-update fix
-// is chosen (see the "Opens" section of
-// .github/plans/plan-rv-tracker-fuse-all-matched-observations.md).
-TEST(MultiObservationFusionTest, DISABLED_MultiObservationDoesNotCollapseCovariance)
+// the single-observation case. Matched observations are fused into a single measurement
+// (fuseObservations) so the filter applies exactly one correction per frame, which keeps the
+// covariance consistent with the single-observation baseline.
+TEST(MultiObservationFusionTest, MultiObservationDoesNotCollapseCovariance)
 {
   rv::tracking::TrackManager multi(fusionConfig());
   rv::tracking::TrackManager single(fusionConfig());

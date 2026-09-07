@@ -314,18 +314,18 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
       continue;
     }
 
-    // Feed every matched observation to the track; the last one carries the fused
-    // metadata so its attributes win in the sequential Kalman correction step.
-    for (size_t matchIdx = 0; matchIdx < matches.size(); ++matchIdx)
+    // Fuse all matched observations into a single measurement so the Kalman filter applies one
+    // numerically stable correction; then layer the confidence-based metadata fusion on top.
+    std::vector<tracking::TrackedObject> observations;
+    observations.reserve(matches.size());
+    for (const auto &match : matches)
     {
-      auto observation = objectsPerCamera[matches[matchIdx].first][matches[matchIdx].second];
-      if (matchIdx + 1 == matches.size())
-      {
-        fuseMetadata(matches, objectsPerCamera, observation);
-        mergeHistoricalMetadata(tracks[trackIdx], observation);
-      }
-      mTrackManager.addMeasurement(tracks[trackIdx].id, observation);
+      observations.push_back(objectsPerCamera[match.first][match.second]);
     }
+    auto fusedObject = fuseObservations(observations);
+    fuseMetadata(matches, objectsPerCamera, fusedObject);
+    mergeHistoricalMetadata(tracks[trackIdx], fusedObject);
+    mTrackManager.setMeasurement(tracks[trackIdx].id, fusedObject);
 
     isTrackAssigned[trackIdx] = true;
   }
