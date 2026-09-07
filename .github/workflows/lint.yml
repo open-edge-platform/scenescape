@@ -28,11 +28,6 @@ jobs:
         uses: open-edge-platform/orch-ci/.github/actions/bootstrap@14aa8ce3d0a5455574fc7fce7d90b2d18636c68e # 0.1.40
         with:
           bootstrap_tools: "base"
-      - name: "Install npm dependencies for prettier"
-        run: |
-          cp .github/resources/package.json package.json
-          npm install
-          rm package.json
       - name: "Install GHA linter"
         run: |
           bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.7
