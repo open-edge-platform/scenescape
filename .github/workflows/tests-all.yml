@@ -30,6 +30,11 @@ on:
         required: false
         default: false
         type: boolean
+    secrets:
+      DOCKERHUB_TOKEN:
+        # Not required: weekly-tests.yml currently doesn't pass it either;
+        # DockerHub login already tolerates failure (continue-on-error).
+        required: false
 
 # Only run at most 1 workflow concurrently per pushed commit.
 # Hardcoded prefix so this group is stable when called via workflow_call

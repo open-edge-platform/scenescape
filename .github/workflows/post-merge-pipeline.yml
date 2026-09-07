@@ -25,14 +25,14 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    secrets: inherit
+    secrets:
+      GH_PAT: ${{ secrets.GH_PAT }}
 
   bandit:
     name: "Bandit"
     uses: ./.github/workflows/bandit.yml
     permissions:
       contents: read
-    secrets: inherit
 
   cache-update:
     name: "Cache Update"
@@ -42,14 +42,12 @@ jobs:
     permissions:
       contents: read
       packages: write
-    secrets: inherit
 
   clamav:
     name: "ClamAV"
     uses: ./.github/workflows/clamav.yml
     permissions:
       contents: read
-    secrets: inherit
 
   codeql:
     name: "CodeQL"
@@ -59,28 +57,26 @@ jobs:
       actions: read
       contents: read
       packages: read
-    secrets: inherit
 
   docker-bench-security:
     name: "Docker Bench Security"
     uses: ./.github/workflows/docker-bench-security.yml
     permissions:
       contents: read
-    secrets: inherit
+    secrets:
+      SUPASS: ${{ secrets.SUPASS }}
 
   gitleaks:
     name: "Gitleaks"
     uses: ./.github/workflows/gitleaks.yml
     permissions:
       contents: read
-    secrets: inherit
 
   license:
     name: "License"
     uses: ./.github/workflows/license.yml
     permissions:
       contents: read
-    secrets: inherit
 
   scorecard:
     name: "Scorecard"
@@ -89,7 +85,8 @@ jobs:
       contents: read
       security-events: write
       id-token: write
-    secrets: inherit
+    secrets:
+      SYS_EMF_GH_TOKEN: ${{ secrets.SYS_EMF_GH_TOKEN }}
 
   tests-all:
     name: "All Tests"
@@ -97,7 +94,8 @@ jobs:
     permissions:
       contents: read
       packages: write
-    secrets: inherit
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   tracker-service:
     name: "Tracker Service"
@@ -106,14 +104,12 @@ jobs:
     uses: ./.github/workflows/tracker-service.yml
     permissions:
       contents: read
-    secrets: inherit
 
   trivy:
     name: "Trivy"
     uses: ./.github/workflows/trivy.yml
     permissions:
       contents: read
-    secrets: inherit
 
   zizmor:
     name: "Zizmor"
@@ -121,11 +117,9 @@ jobs:
     permissions:
       contents: read
       security-events: write
-    secrets: inherit
 
   lint:
     name: "Lint"
     uses: ./.github/workflows/lint.yml
     permissions:
       contents: read
-    secrets: inherit

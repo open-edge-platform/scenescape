@@ -6,7 +6,10 @@ name: "[Tests] Basic Acceptance Tests"
 run-name: "[Tests] Basic Acceptance Tests"
 
 on:
-  workflow_call: {}
+  workflow_call:
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: false
   workflow_dispatch:
     inputs:
       cleanup:

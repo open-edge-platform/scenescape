@@ -6,7 +6,10 @@ name: "[Code Analysis] OSSF Scorecard"
 run-name: "[Code Analysis] OSSF Scorecard"
 
 on:
-  workflow_call: {}
+  workflow_call:
+    secrets:
+      SYS_EMF_GH_TOKEN:
+        required: true
   workflow_dispatch: {}
 
 # Only run at most 1 workflow concurrently per PR or per branch to keep costs down.

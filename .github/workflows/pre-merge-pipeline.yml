@@ -49,14 +49,12 @@ jobs:
     uses: ./.github/workflows/bandit.yml
     permissions:
       contents: read
-    secrets: inherit
 
   clamav:
     name: "ClamAV"
     uses: ./.github/workflows/clamav.yml
     permissions:
       contents: read
-    secrets: inherit
 
   codeql:
     name: "CodeQL"
@@ -66,21 +64,18 @@ jobs:
       actions: read
       contents: read
       packages: read
-    secrets: inherit
 
   gitleaks:
     name: "Gitleaks"
     uses: ./.github/workflows/gitleaks.yml
     permissions:
       contents: read
-    secrets: inherit
 
   license:
     name: "License"
     uses: ./.github/workflows/license.yml
     permissions:
       contents: read
-    secrets: inherit
 
   scorecard:
     name: "Scorecard"
@@ -89,7 +84,8 @@ jobs:
       contents: read
       security-events: write
       id-token: write
-    secrets: inherit
+    secrets:
+      SYS_EMF_GH_TOKEN: ${{ secrets.SYS_EMF_GH_TOKEN }}
 
   tests-bat:
     name: "BAT Tests"
@@ -103,21 +99,20 @@ jobs:
     permissions:
       contents: read
       packages: write
-    secrets: inherit
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   tracker-service:
     name: "Tracker Service Tests"
     uses: ./.github/workflows/tracker-service.yml
     permissions:
       contents: read
-    secrets: inherit
 
   trivy:
     name: "Trivy"
     uses: ./.github/workflows/trivy.yml
     permissions:
       contents: read
-    secrets: inherit
 
   zizmor:
     name: "Zizmor"
@@ -125,21 +120,18 @@ jobs:
     permissions:
       contents: read
       security-events: write
-    secrets: inherit
 
   documentation-check:
     name: "Documentation"
     uses: ./.github/workflows/documentation-check.yml
     permissions:
       contents: read
-    secrets: inherit
 
   lint:
     name: "Lint"
     uses: ./.github/workflows/lint.yml
     permissions:
       contents: read
-    secrets: inherit
 
   renovate-config-validator:
     name: "Renovate Config Validator"
@@ -148,4 +140,3 @@ jobs:
     uses: ./.github/workflows/renovate-config-validator.yml
     permissions:
       contents: read
-    secrets: inherit

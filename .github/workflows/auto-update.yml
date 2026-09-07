@@ -6,7 +6,10 @@ name: "[CI/CD] Update All Pull Requests"
 run-name: "[CI/CD] Update All Pull Requests"
 
 on:
-  workflow_call: {}
+  workflow_call:
+    secrets:
+      GH_PAT:
+        required: true
   workflow_dispatch: {}
 
 concurrency:
