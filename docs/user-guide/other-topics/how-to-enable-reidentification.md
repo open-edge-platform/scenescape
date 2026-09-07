@@ -28,12 +28,12 @@ Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-
 
    ```bash
    # VDMS
-   docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+   docker compose --project-directory . -f sample_data/compose/docker-compose-dl-streamer-example.yml \
      -f sample_data/compose/docker-compose.vdms-override.yml \
      --profile controller up
 
    # Or Qdrant
-   docker compose -f sample_data/compose/docker-compose-dl-streamer-example.yml \
+   docker compose --project-directory . -f sample_data/compose/docker-compose-dl-streamer-example.yml \
      -f sample_data/compose/docker-compose.qdrant-override.yml \
      --profile controller up
    ```
@@ -235,7 +235,7 @@ it; that is a separate hardening step.
 3. **Restart the System**:
 
    ```bash
-   docker compose --profile controller up --build
+  docker compose --project-directory . --profile controller up --build
    ```
 
 **Expected Result**: Scenescape runs without ReID and no visual feature matching is performed.
