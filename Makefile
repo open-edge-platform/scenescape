@@ -617,8 +617,19 @@ lint-dockerfiles:
 	@find . -name '*Dockerfile*' | xargs hadolint || (echo "Dockerfile linting failed" && exit 1)
 	@echo "DONE ==> Linting Dockerfiles"
 
+.PHONY: prettier-dependency
+prettier-dependency:
+	@if npx --no-install prettier --version >/dev/null 2>&1; then \
+		echo "==> prettier already available, skipping install"; \
+	else \
+		echo "==> Installing prettier dependencies from .github/resources/package.json..."; \
+		DEPS=$$(node -p "Object.entries(require('./.github/resources/package.json').devDependencies).map(([k,v]) => k+'@'+v).join(' ')"); \
+		npm install --no-save $$DEPS || (echo "Installing prettier dependencies failed" && exit 1); \
+		echo "DONE ==> Installing prettier dependencies"; \
+	fi
+
 .PHONY: prettier-check
-prettier-check:
+prettier-check: prettier-dependency
 	@echo "==> Checking style with prettier..."
 	@npx prettier --check . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore --config .github/resources/.prettierrc.json  || (echo "Prettier check failed - run 'make prettier-write' to fix" && exit 1)
 	@echo "DONE ==> Checking style with prettier"
@@ -638,7 +649,7 @@ format-python:
 	@echo "DONE ==> Formatting Python files"
 
 .PHONY: prettier-write
-prettier-write:
+prettier-write: prettier-dependency
 	@echo "==> Formatting code with prettier..."
 	@npx prettier --write . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore --config .github/resources/.prettierrc.json || (echo "Prettier formatting failed" && exit 1)
 	@echo "DONE ==> Formatting code with prettier"
