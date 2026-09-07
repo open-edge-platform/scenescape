@@ -4,6 +4,7 @@
  */
 
 body {
+  background-color: #f2f4f7;
   padding-top: 5rem;
   padding-bottom: 5rem;
 }
@@ -391,10 +392,77 @@ polygon {
   padding: 0.5rem 0.5rem;
 }
 
+.camera-card table.table-sm th,
+.singleton table.table-sm th {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.camera-card table.table-sm th,
+.camera-card table.table-sm td.sensor-id,
+.singleton table.table-sm th,
+.singleton table.table-sm td.sensor-id {
+  color: #212529;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
 .camera-card {
   float: none;
   margin: 0;
   width: auto;
+}
+
+.scenes-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.scenes-header h2 {
+  font-weight: 600;
+  margin: 0;
+}
+
+.scenes-header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.scenes-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.scenes-grid .card {
+  background: #fff;
+  border-radius: 0.5rem;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  float: none;
+  margin: 0;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+  width: auto;
+}
+
+.scenes-grid .card:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+.scenes-grid .card-body td:first-child {
+  color: #6c757d;
+}
+
+.scenes-grid .card-body td:last-child {
+  font-weight: 600;
+  text-align: right;
 }
 
 .camera-grid {
@@ -557,6 +625,10 @@ ul.errorlist {
 
 .navbar-none {
   display: none;
+}
+
+nav.navbar.bg-dark {
+  background-color: #1f2733 !important;
 }
 
 .nav-tabs {
