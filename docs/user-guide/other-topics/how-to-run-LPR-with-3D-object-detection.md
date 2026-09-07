@@ -55,6 +55,11 @@ And then build the image with:
 docker build -f Dockerfile.dls-deepscenario -t dls-ps-deepscenario
 ```
 
+> [!NOTE]
+> You can use a different version of the DL Streamer Pipeline Server Docker image as the base image. If you do, update the `FROM` line in the Dockerfile to use the desired tag. Available versions are listed on [Docker Hub](https://hub.docker.com/r/intel/dlstreamer-pipeline-server/tags).
+> 
+> Changing the base image version may also require updating the versions of the Python modules installed in the Dockerfile. If the selected versions are incompatible, the build will fail and the error messages will indicate which module versions need to be updated. After adjusting them, rebuild the image.
+
 ### 4. Configure Video Analytics Pipeline
 
 Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pipeline-server/` and copy the following content to the newly created file:
