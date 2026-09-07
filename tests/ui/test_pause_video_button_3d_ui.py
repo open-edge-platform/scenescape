@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-import os
 import time
 import threading
 import pytest
@@ -71,13 +70,8 @@ class CameraImageMonitor:
 class Scene3dUserInterfaceTest(UserInterfaceTest):
   BROWSER_WEBGL = True
 
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
-
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
-
-    return
+  def __init__(self, testName, request):
+    super().__init__(testName, request, None)
 
   def getCameraPanelIds(self):
     panels = self.browser.find_elements(By.CSS_SELECTOR, "[id$='-control-panel']")
@@ -125,7 +119,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
     )
     log.info("Camera image received after enabling the project frame.")
 
-  def checkPauseVideoButton(self):
+  def checkPauseVideoButton(self, result_recorder):
     image_monitor = None
     try:
       assert self.login()
@@ -201,38 +195,28 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       ), "No camera image was published after unpausing video"
 
       log.info("Camera image publishing resumed after unpausing video.")
-
-      self.exitCode = 0
+      result_recorder.success()
     finally:
       if image_monitor is not None:
         image_monitor.stop()
-      self.recordTestResult()
     return
 
 @pytest.mark.fresh_stack
 @common.mock_display
 @pytest.mark.test_name("NEX-T10482")
-def test_pause_video_button_3d_ui(scenescape_env, request, record_xml_attribute):
+def test_pause_video_button_3d_ui(scenescape_env, request, result_recorder):
   """! Test the toggle "pause video" works as expected.
   @param    request                 List of test parameters.
-  @param    record_xml_attribute    Function for recording test name.
-  @return   exit_code               Boolean representing whether the test passed or failed.
+  @param    result_recorder        Fixture for recording the test result.
+  @return   None.
   """
   log.info("Executing: NEX-T10482")
   log.info("Test the toggle 'pause video' works as expected.")
 
-  test = Scene3dUserInterfaceTest("NEX-T10482", request, record_xml_attribute)
+  test = Scene3dUserInterfaceTest("NEX-T10482", request)
   try:
-    test.checkPauseVideoButton()
+    test.checkPauseVideoButton(result_recorder)
   finally:
     browser = getattr(test, "browser", None)
     if browser is not None:
       browser.quit()
-
-  assert test.exitCode == 0
-
-def main():
-  return test_pause_video_button_3d_ui(None, None, None)
-
-if __name__ == '__main__':
-  os._exit(main() or 0)
