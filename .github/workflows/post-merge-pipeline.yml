@@ -63,8 +63,6 @@ jobs:
     uses: ./.github/workflows/docker-bench-security.yml
     permissions:
       contents: read
-    secrets:
-      SUPASS: ${{ secrets.SUPASS }}
 
   gitleaks:
     name: "Gitleaks"
