@@ -170,7 +170,7 @@ full dataset, license terms, and citation details.
   branch, and requires the host to have `/dev/dri` and the Intel GPU driver
   installed. The camera branch defaults to CPU (a lighter model that runs
   fine without a GPU). Install/verify drivers with the
-  [DL Streamer prerequisites script](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/DLS_install_prerequisites.sh)
+  [DL Streamer prerequisites script](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/scripts/DLS_install_prerequisites.sh)
   (`./DLS_install_prerequisites.sh`) or see the
   [DL Streamer system requirements](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/dlstreamer/system_requirements.html)
   and [install guide](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/dlstreamer/install/install_guide_ubuntu.html)

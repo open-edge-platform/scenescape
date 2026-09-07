@@ -219,7 +219,7 @@ Following are step-by-step instructions for enabling pose estimation for the out
 
 1. **Download the required models** using the DL Streamer helper script from the external DL Streamer repository:
 
-   Script: [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
+   Script: [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/v2026.2.0/samples/download_public_models.sh)
    Usage guide: [Download Public Models](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/dlstreamer/dev_guide/download_public_models.html)
 
    Download the YOLO pose model:
