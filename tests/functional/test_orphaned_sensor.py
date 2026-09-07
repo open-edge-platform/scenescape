@@ -10,6 +10,7 @@ from tests.functional import FunctionalTest
 from tests.functional.rest_test_cases import testCases
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -91,6 +92,7 @@ class OrphanedSensorTest(FunctionalTest):
 
     return
 
+@pytest.mark.test_name("NEX-T10398")
 def test_orphaned_sensors(scenescape_env, demo_scene, request, record_xml_attribute):
   test = OrphanedSensorTest(TEST_NAME, request, record_xml_attribute)
   test.verifyOrphanedSensors()

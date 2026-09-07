@@ -24,6 +24,7 @@ from tests.functional.common_child import (
 from scene_common import log
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -31,7 +32,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 
-def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T21477")
+def test_child_roi_event_propagated_to_parent(objData, params):
   """! Verify that ROI entry/exit events from a child scene are republished on
   the parent scene's MQTT EVENT topic.
 
@@ -40,11 +42,9 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
   parent_roi_events via the parent-scoped topic.
 
   @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
   @param    params                  Dict of test parameters.
   """
   TEST_NAME = "NEX-T21477"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
 
@@ -98,16 +98,15 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
   assert exit_code == 0
 
 
-def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T21478")
+def test_child_tripwire_event_propagated_to_parent(objData, params):
   """! Verify that tripwire crossing events from a child scene are republished
   on the parent scene's MQTT EVENT topic.
 
   @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
   @param    params                  Dict of test parameters.
   """
   TEST_NAME = "NEX-T21478"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
 
@@ -165,7 +164,8 @@ def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute
   assert exit_code == 0
 
 
-def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T21479")
+def test_child_sensor_event_propagated_to_parent(objData, params):
   """! Verify that environmental sensor events from a child scene are
   republished on the parent scene's MQTT EVENT topic.
 
@@ -175,11 +175,9 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
   EVENT topic.
 
   @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
   @param    params                  Dict of test parameters.
   """
   TEST_NAME = "NEX-T21479"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
 
@@ -242,19 +240,18 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
   assert exit_code == 0
 
 
+@pytest.mark.test_name("NEX-T21482")
 def test_child_attribute_sensor_event_propagated_to_parent(
-    objData, record_xml_attribute, params):
+    objData, params):
   """! Verify attribute singleton events from a child scene reach the parent.
 
   Distinct from the environmental sensor case and from
   test_sensors_send_mqtt_messages (which does not cover parent republish).
 
   @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
   @param    params                  Dict of test parameters.
   """
   TEST_NAME = "NEX-T21482"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
 
@@ -302,17 +299,16 @@ def test_child_attribute_sensor_event_propagated_to_parent(
   assert exit_code == 0
 
 
-def test_parent_event_attributes_match_child_event(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T21480")
+def test_parent_event_attributes_match_child_event(objData, params):
   """! Verify that region_id, region_name, count category keys and values, and
   the from_child_scene metadata attribution in the parent's republished event
   match those in the child's original event.
 
   @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
   @param    params                  Dict of test parameters.
   """
   TEST_NAME = "NEX-T21480"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
 
@@ -370,16 +366,15 @@ def test_parent_event_attributes_match_child_event(objData, record_xml_attribute
   assert exit_code == 0
 
 
-def test_child_event_propagation_is_timely(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T21481")
+def test_child_event_propagation_is_timely(objData, params):
   """! Verify that event propagation from child to parent occurs with minimal
   delay (within PROPAGATION_LIMIT seconds of the first child event).
 
   @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
   @param    params                  Dict of test parameters.
   """
   TEST_NAME = "NEX-T21481"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
 
@@ -422,16 +417,15 @@ def test_child_event_propagation_is_timely(objData, record_xml_attribute, params
   assert exit_code == 0
 
 
-def test_no_events_without_parent_link(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T21482")
+def test_no_events_without_parent_link(objData, params):
   """! Verify that child scene events are NOT republished on a parent topic
   when no parent-child link exists (unlinked child).
 
   @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
   @param    params                  Dict of test parameters.
   """
   TEST_NAME = "NEX-T21482"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
 
@@ -467,16 +461,15 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
   assert exit_code == 0
 
 
-def test_event_region_id_matches_child_definition(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T21483")
+def test_event_region_id_matches_child_definition(objData, params):
   """! Verify that the region_id in a parent scene ROI event matches the ROI
   uid originally defined in the child scene.
 
   @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
   @param    params                  Dict of test parameters.
   """
   TEST_NAME = "NEX-T21483"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
 
@@ -513,16 +506,15 @@ def test_event_region_id_matches_child_definition(objData, record_xml_attribute,
   assert exit_code == 0
 
 
-def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T10520")
+def test_events_stop_after_child_unlinked(objData, params):
   """! Verify that after unlinking a child from its parent, subsequent child
   events are no longer republished on the parent's MQTT EVENT topic.
 
   @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
   @param    params                  Dict of test parameters.
   """
   TEST_NAME = "NEX-T10520"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
 

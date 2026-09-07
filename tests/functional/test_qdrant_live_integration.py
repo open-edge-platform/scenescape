@@ -56,6 +56,7 @@ def qdrant_db():
     f"and plain localhost:{DEFAULT_PORT}; last={last_error})")
 
 
+@pytest.mark.test_name("NEX-TXXXXX")
 def test_live_schema_and_vector_operations(qdrant_db):
   set_name = f"reid_test_{uuid.uuid4().hex[:8]}"
   qdrant_db.set_name = set_name
@@ -82,6 +83,7 @@ def test_live_schema_and_vector_operations(qdrant_db):
   assert matches[0][0]["uuid"] == "uuid-1"
 
 
+@pytest.mark.test_name("NEX-TXXXXX")
 def test_live_persist_attributes(qdrant_db):
   set_name = f"reid_persist_{uuid.uuid4().hex[:8]}"
   qdrant_db.set_name = set_name

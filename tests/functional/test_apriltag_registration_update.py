@@ -221,9 +221,9 @@ class ApriltagRegistration(FunctionalTest):
       self._restore_scene()
 
 
+@pytest.mark.test_name("NEX-T10483")
 def test_apriltag_registration_update(request, record_xml_attribute, params):
   TEST_NAME = "NEX-T10483"
-  record_xml_attribute("name", TEST_NAME)
   test = ApriltagRegistration(
     "test_apriltag_registration_update",
     request,
@@ -233,9 +233,9 @@ def test_apriltag_registration_update(request, record_xml_attribute, params):
   common.record_test_result(TEST_NAME, test.exitCode)
 
 
+@pytest.mark.test_name("NEX-T22419")
 def test_apriltag_registration_delete(request, record_xml_attribute, params):
   TEST_NAME = "NEX-T22419"
-  record_xml_attribute("name", TEST_NAME)
   test = ApriltagRegistration(
     "test_apriltag_registration_delete",
     request,

@@ -11,6 +11,7 @@ from tests.ui import UserInterfaceTest
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 from tests.utils.log import get_logger
+import pytest
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
@@ -269,6 +270,7 @@ class WillOurShipGo(UserInterfaceTest):
     assert self.compareImages(ss_base, ss_remove_point)
     return ss_one_point
 
+@pytest.mark.test_name("NEX-T10473")
 @common.mock_display
 def test_3d_ui_calibration(scenescape_env, request, record_xml_attribute):
   """! Test the 3D UI calibration points.

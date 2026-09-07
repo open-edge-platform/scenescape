@@ -10,6 +10,7 @@ import tests.ui.common_ui_test_utils as common
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+import pytest
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
@@ -36,6 +37,7 @@ def reset_perspective(browser):
     return False
 
 
+@pytest.mark.test_name("NEX-T10410")
 def test_cam_perspective_main(params, record_xml_attribute):
   """! Checks that the camera calibration can be reset.
   @param    params                  Dict of test parameters.
@@ -43,7 +45,6 @@ def test_cam_perspective_main(params, record_xml_attribute):
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10410"
-  record_xml_attribute("name", TEST_NAME)
   exit_code = 1
   logged_in = False
   changed_perspective = False

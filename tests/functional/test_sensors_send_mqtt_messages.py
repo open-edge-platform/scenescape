@@ -22,6 +22,7 @@ from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.geometry import Point
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -660,6 +661,7 @@ class SensorMqttMessageFlowTest(FunctionalTest):
       self.recordTestResult()
     return
 
+@pytest.mark.test_name("NEX-T10456")
 def test_sensor_mqtt_message_flow(scenescape_env, demo_scene, request, record_xml_attribute):
   test = SensorMqttMessageFlowTest(TEST_NAME, request, record_xml_attribute)
   test.checkForMalfunctions()

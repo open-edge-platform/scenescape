@@ -8,6 +8,7 @@ import string
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 log = get_logger(__name__)
 
@@ -23,6 +24,7 @@ def _generate_string(length: int = 256) -> str:
   characters = string.ascii_letters + string.digits + string.punctuation
   return "".join(random.choice(characters) for _ in range(length))
 
+@pytest.mark.test_name("NEX-T10583")
 def test_api_strings(rest, result_recorder, scene_uid, params, demo_scene):
   random_string = _generate_string(256)
 

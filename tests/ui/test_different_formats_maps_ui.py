@@ -9,6 +9,7 @@ from tests.ui.browser import Browser, By, NoSuchElementException
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -39,6 +40,7 @@ def validate_image(browser, scene_name, image_name):
     print("Map not uploaded for " + image_name)
   return validated
 
+@pytest.mark.test_name("NEX-T10392")
 def test_different_formats_scene_main(params, record_xml_attribute):
   """! Checks the name of the uploaded map is correct in the scene management page.
   @param    params                  Dict of test parameters.
@@ -46,7 +48,6 @@ def test_different_formats_scene_main(params, record_xml_attribute):
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10392"
-  record_xml_attribute("name", TEST_NAME)
   print("Executing: " + TEST_NAME)
 
   exit_code = 1

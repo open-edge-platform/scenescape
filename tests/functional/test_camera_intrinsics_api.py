@@ -11,6 +11,7 @@ from scene_common.mqtt import PubSub
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -179,6 +180,7 @@ class CameraIntrinsicsTest(FunctionalTest):
 
     return
 
+@pytest.mark.test_name("NEX-T21879")
 def test_camera_intrinsics(scenescape_env, demo_scene, request, record_xml_attribute):
   test = CameraIntrinsicsTest(TEST_NAME, request, record_xml_attribute)
   test.testCameraIntrinsics()

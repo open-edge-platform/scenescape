@@ -45,7 +45,7 @@ class CameraBoundVisibilityNone(CameraBounds):
       raise AssertionError("Expected NO camera_bounds in any topic")
 
 
-@pytest.mark.parametrize("test_name", ["NEX-T19789"])
+@pytest.mark.test_name("NEX-T19789")
 def test_camera_bound_visibility(
         params, pytestconfig, record_xml_attribute, test_name):
   record_xml_attribute("name", test_name)
