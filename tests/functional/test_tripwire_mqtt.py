@@ -195,6 +195,7 @@ class WillOurShipGo(SceneObjectMqtt):
 @pytest.mark.basic_acceptance
 def test_sensor_region_events(scenescape_env, demo_scene, request, record_xml_attribute):
   test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
+  test.sceneUID = demo_scene
   test.checkForMalfunctions()
   assert test.exitCode == 0
   return

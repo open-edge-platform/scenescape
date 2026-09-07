@@ -15,7 +15,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def test_sensor_area_main(params, record_xml_attribute):
+def test_sensor_area_main(demo_scene, params, record_xml_attribute):
   """! Checks that a sensor covering the entire scene, a circular area, and a
   triangular area can each be calibrated.
   @param    params                  Dict of test parameters.

@@ -19,7 +19,7 @@ TEST_WAIT_TIME = 5
 TEST_NAME = "NEX-T10434"
 WORKSPACE = os.path.join(common.TEST_MEDIA_PATH, TEST_NAME)
 
-def test_live_button(params, record_xml_attribute=None):
+def test_live_button(params, demo_scene, record_xml_attribute=None):
   """! Test for functionality of the 'live-view' button for cameras.
   Takes screenshot of the camera1 element for baseline, then enables live-view
   and takes a second screenshot. Waits for some time (TEST_WAIT_TIME) and

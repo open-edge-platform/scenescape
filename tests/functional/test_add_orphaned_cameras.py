@@ -75,7 +75,8 @@ class OrphanedCameraTest(FunctionalTest):
       existingScene = self.rest.getScenes({'id': self.existingSceneUID})
       assert existingScene['results'], (existingScene.statusCode, existingScene.errors)
       sceneID = existingScene['results'][0]['uid']
-      updateNewCamera = self.rest.updateCamera(newCamera['uid'], {'scene': sceneID})
+      updateNewCamera = self.rest.updateCamera(
+        newCamera['uid'], {'name': self.newCameraName, 'scene': sceneID})
       assert updateNewCamera and updateNewCamera['scene'] == sceneID, \
         (updateNewCamera.statusCode, updateNewCamera.errors)
 
@@ -93,6 +94,8 @@ class OrphanedCameraTest(FunctionalTest):
 
 def test_orphaned_cameras(scenescape_env, demo_scene, request, record_xml_attribute):
   test = OrphanedCameraTest(TEST_NAME, request, record_xml_attribute)
+  test.params['scene_id'] = demo_scene
+  test.existingSceneUID = demo_scene
   test.verifyOrphanedCameras()
   assert test.exitCode == 0
   return

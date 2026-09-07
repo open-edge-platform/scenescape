@@ -14,14 +14,16 @@ log = get_logger(__name__)
 test_wait_time = 20  # seconds
 check_interval = 1   # seconds
 
-scenes = [
-    "3bc091c7-e449-46a0-9540-29c499bca18c",
-    "302cf49a-97ec-402d-a324-c5077b280b7b"
-]
+# The Demo scene is recreated per test by the demo_scene fixture and gets a
+# random UID, so its id has to be injected via run(scene_ids=...).  The entry
+# below is a scene from the seeded sample database that is never recreated.
+SEEDED_SCENE = "302cf49a-97ec-402d-a324-c5077b280b7b"
+scenes = [SEEDED_SCENE]
 
 
 class CameraBounds:
   def __init__(self):
+    self.scenes = list(scenes)
     self.regulated_topics = set()
     self.unregulated_topics = set()
     self.regulated_has_camera_bounds = False
@@ -50,7 +52,7 @@ class CameraBounds:
 
   def on_connect(self, mqttc, _data, _flags, _rc):
     log.info("Connected to MQTT broker")
-    for scene_id in scenes:
+    for scene_id in self.scenes:
       regulated_topic = PubSub.formatTopic(
           PubSub.DATA_REGULATED,
           scene_id=scene_id,
@@ -86,7 +88,9 @@ class CameraBounds:
       if topic in self.unregulated_topics:
         self.unregulated_has_camera_bounds = True
 
-  def run(self, params, visibility_topic, test_name):
+  def run(self, params, visibility_topic, test_name, scene_ids=None):
+    if scene_ids:
+      self.scenes = list(dict.fromkeys(list(scene_ids) + list(scenes)))
     self.visibility_topic = visibility_topic.lower()
     log.info(f"Test parameter visibility_topic: {self.visibility_topic}")
     log.info(f"Executing: {test_name}")
@@ -103,7 +107,7 @@ class CameraBounds:
       )
 
       client.onConnect = self.on_connect
-      for scene_id in scenes:
+      for scene_id in self.scenes:
         client.addCallback(
             PubSub.formatTopic(
                 PubSub.DATA_REGULATED,

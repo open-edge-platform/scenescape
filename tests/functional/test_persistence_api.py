@@ -19,14 +19,15 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 TEST_NAME = "NEX-T21511"
+# Dedicated names so the test never collides with the shared demo scene.
+SCENE_NAME = "persistence-api-scene"
 CAMERA_NAME = "camtest1"
 CAMERA_SENSOR_ID = "camtest1"
 
 
 @pytest.mark.test_name("NEX-T10393-API")
-@pytest.mark.preserve_db
 def test_persistence_on_page_navigate_api(params, rest, result_recorder):
-  sceneName = params["scene_name"]
+  sceneName = SCENE_NAME
 
   def _cleanup_test_artifacts():
     """Remove leftover scene/camera/sensors."""
@@ -130,7 +131,7 @@ def test_persistence_on_page_navigate_api(params, rest, result_recorder):
 
 @pytest.mark.test_name("NEX-T10393-RESTART-API")
 def test_persistence_on_restart_api(params, rest, result_recorder):
-  sceneName = params["scene_name"]
+  sceneName = SCENE_NAME
 
   def _cleanup_test_artifacts(scene_uid):
     """Cleanup helper to remove scene + related camera/sensors after the test."""

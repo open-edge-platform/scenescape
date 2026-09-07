@@ -36,7 +36,7 @@ def reset_perspective(browser):
     return False
 
 
-def test_cam_perspective_main(params, record_xml_attribute):
+def test_cam_perspective_main(demo_scene, params, record_xml_attribute):
   """! Checks that the camera calibration can be reset.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.
@@ -56,12 +56,12 @@ def test_cam_perspective_main(params, record_xml_attribute):
     logged_in = common.check_page_login(browser, params)
     assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
 
-    browser.find_element(By.ID, 'cam_calibrate_1').click()
+    common.camera_calibrate_link(browser).click()
     log.info("Resetting Perspective...")
     perspective_reset = reset_perspective(browser)
 
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
-    browser.find_element(By.ID, 'cam_calibrate_1').click()
+    common.camera_calibrate_link(browser).click()
     time.sleep(TEST_WAIT_TIME)
 
     log.info('Get temporary calibration coorinates after reset.')

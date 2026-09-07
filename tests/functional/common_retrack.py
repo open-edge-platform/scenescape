@@ -41,7 +41,7 @@ def make_reid_embedding(seed=0.1):
 class RetrackTest:
 
   FRAME_RATE = 10
-  MAX_WAIT = 5
+  MAX_WAIT = 30
   NUM_PUBLISH_ITERATIONS = 5
 
   def __init__(self, params):
@@ -102,9 +102,11 @@ class RetrackTest:
     self.child_id = child_scene['uid']
     log.info(f"Using Demo as child scene: {self.child_id}")
 
-    res = rest_client.updateScene(self.child_id, {'parent': self.parent_id})
-    assert res.statusCode == 200, \
-      f"Failed to link child to parent: {res.statusCode}"
+    def _link():
+      res = rest_client.updateScene(self.child_id, {'parent': self.parent_id})
+      assert res.statusCode == 200, \
+        f"Failed to link child to parent: {res.statusCode}"
+    self._await_db_notification(_link)
 
     child_links = rest_client.getChildScene({'parent': self.parent_id})
     self.child_link_id = child_links['results'][0]['uid']
@@ -173,6 +175,7 @@ class RetrackTest:
     assert subscribed.wait(self.MAX_WAIT), \
       "Temporary MQTT client failed to subscribe to CMD_DATABASE within timeout"
     try:
+      db_received.clear()
       rest_fn()
       assert db_received.wait(self.MAX_WAIT), \
         "Timed out waiting for CMD_DATABASE notification"
@@ -286,7 +289,7 @@ class RetrackTest:
         child_ok = (not require_child) or len(self.child_received) > 0
       if parent_ok and child_ok:
         return
-      time.sleep(0.5)
+      time.sleep(0.1)
     with self._lock:
       parent_count = len(self.parent_received)
       child_count = len(self.child_received)

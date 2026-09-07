@@ -270,7 +270,7 @@ class WillOurShipGo(UserInterfaceTest):
     return ss_one_point
 
 @common.mock_display
-def test_3d_ui_calibration(scenescape_env, request, record_xml_attribute):
+def test_3d_ui_calibration(scenescape_env, demo_scene, request, record_xml_attribute):
   """! Test the 3D UI calibration points.
   @param    request                 Pytest request object with test parameters
   @param    record_xml_attribute    Function for recording test name.

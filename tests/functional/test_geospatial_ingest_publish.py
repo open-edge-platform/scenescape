@@ -46,14 +46,14 @@ MAP_RESOLUTION = [900, 643]
 MAP_SCALE = 100.0
 
 class GeospatialIngestPublish(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute, repo_root):
+  def __init__(self, testName, request, recordXMLAttribute, repo_root, scene_uid=None):
     super().__init__(testName, request, recordXMLAttribute)
     self.repoRoot = repo_root
 
     self.exitCode = 1
     self.outputLLA = False
     self.outputReceived = False
-    self.sceneUID = self.params['scene_id']
+    self.sceneUID = scene_uid if scene_uid is not None else self.params['scene_id']
 
     self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
     assert self.rest.authenticate(self.params['user'], self.params['password'])
@@ -344,7 +344,7 @@ def _verifyLLA(detected_object):
 
 @pytest.mark.skip(reason="Flaky in full suite: TRS matrix not computed. Test passed when run in isolation.")
 def test_geospatial_ingest_publish(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
-  test = GeospatialIngestPublish(TEST_NAME, request, record_xml_attribute, repo_root)
+  test = GeospatialIngestPublish(TEST_NAME, request, record_xml_attribute, repo_root, scene_uid=demo_scene)
   test.verifyFunction()
   assert test.exitCode == 0
   return

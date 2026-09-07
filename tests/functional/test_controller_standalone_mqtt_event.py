@@ -31,8 +31,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-pytestmark = pytest.mark.preserve_db
-
 FRAME_RATE = 10
 CAMERA_ID = "camera1"
 

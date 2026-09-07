@@ -118,7 +118,7 @@ class ReidSimilaritySearch(BackendFunctionalTest):
       "There should be only 2 entities returned!"
     return
 
-def test_reid_similarity_search(scenescape_env, request, record_xml_attribute):
+def test_reid_similarity_search(demo_scene, scenescape_env, request, record_xml_attribute):
   """! Verify similarity search with RE-ID vectors on the configured backend.
   @param    request                 Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.
