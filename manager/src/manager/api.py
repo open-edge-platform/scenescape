@@ -433,6 +433,9 @@ class CameraManager(APIView):
 
 
 class ACLCheck(APIView):
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
   def post(self, request):
     if not isinstance(request.data, Mapping):
       log.warning('Request body must be a JSON object')
