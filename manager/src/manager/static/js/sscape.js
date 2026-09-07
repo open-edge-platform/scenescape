@@ -12,6 +12,7 @@ import {
   IMAGE_CAMERA,
   SYS_CHILDSCENE_STATUS,
   REST_URL,
+  SUCCESS,
 } from "/static/js/constants.js";
 import {
   metersToPixels,
@@ -43,6 +44,7 @@ var show_trails = false;
 var scene_y_max = 480; // Scene image height in pixels
 var savedElements = [];
 var is_coloring_enabled = false; // Default state of the coloring feature
+var assetMarkColors = {}; // Object Library mark_color per type, e.g. {person: "black"}
 
 function formatRate(value) {
   var number = Number(value);
@@ -214,6 +216,7 @@ async function checkBrokerConnections() {
           svgCanvas,
           show_telemetry,
           show_trails,
+          assetMarkColors,
         );
       } else if (topic.includes("event")) {
         var etype = topic.split("/")[2];
@@ -1963,6 +1966,21 @@ $(document).ready(function () {
 
     // SVG scene implementation
     if (svgCanvas) {
+      var assetTokenElement = document.getElementById("auth-token");
+      if (assetTokenElement) {
+        var assetRestClient = new RESTClient(
+          REST_URL,
+          `Token ${assetTokenElement.value}`,
+        );
+        assetRestClient.getAssets({}).then(function (response) {
+          if (response.statusCode === SUCCESS && response.content?.results) {
+            response.content.results.forEach(function (asset) {
+              assetMarkColors[asset.name] = asset.mark_color || "black";
+            });
+          }
+        });
+      }
+
       var $image = $("#map img");
       var image_w = $image.width();
       var $rois = $("#id_rois");

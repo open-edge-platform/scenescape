@@ -238,9 +238,44 @@ polygon {
   background: none;
 }
 
-.mark circle {
+.mark .mark-halo {
+  stroke: none;
+  fill-opacity: 0.65;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mark-pulse 1.8s ease-out infinite;
+}
+
+.mark .mark-core {
+  stroke-width: 2px;
+  opacity: 1;
+}
+
+.apriltag .mark-core {
   stroke-width: 4px;
   opacity: 0.9;
+}
+
+@keyframes mark-pulse {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.8);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark .mark-halo {
+    animation: none;
+    fill-opacity: 0.25;
+  }
 }
 
 .trail line {
@@ -252,14 +287,6 @@ polygon {
   alignment-baseline: middle;
   fill: white;
   font: bold 18px sans-serif;
-}
-
-.person circle {
-  fill: #009933;
-}
-
-.vehicle circle {
-  fill: #0099ff;
 }
 
 .apriltag circle {
