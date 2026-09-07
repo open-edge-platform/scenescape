@@ -288,6 +288,49 @@ polygon {
   float: left;
 }
 
+.scene-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
+  gap: 1rem;
+}
+
+.scene-detail > .scene-header,
+.scene-detail > #myTab,
+.scene-detail > #myTabContent {
+  grid-column: 1 / -1;
+}
+
+.scene-detail > form,
+.scene-detail > input[type="hidden"] {
+  display: none;
+}
+
+.scene-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.scene-header > .float-right {
+  float: none !important;
+  margin: 0 !important;
+}
+
+.scene-header h2 {
+  flex: 1 1 14rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.scene-header .text-muted {
+  white-space: nowrap;
+}
+
+.scene-workspace {
+  min-width: 0;
+}
+
 .card-image a {
   overflow: hidden;
   display: block;
@@ -312,17 +355,44 @@ polygon {
 }
 
 .snapshot-image img {
-  height: 184px;
-  width: 329px;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 
 .camera-card .card-header {
   padding: 0.5rem 0.5rem;
 }
 
-.camera-card .cam-offline,
 .camera-card {
-  width: 329px;
+  float: none;
+  margin: 0;
+  width: auto;
+}
+
+.camera-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+.camera-grid .card-body {
+  min-width: 0;
+}
+
+.camera-card .snapshot-image {
+  aspect-ratio: 16 / 9;
+  background: #e9ecef;
+}
+
+.camera-card .cam-offline {
+  align-items: center;
+  background-color: #6c757d;
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  padding: 0.75rem;
+  width: 100%;
 }
 
 .switch {
@@ -341,12 +411,19 @@ polygon {
 
 #map-controls {
   position: absolute;
-  bottom: 5px;
-  left: 20px;
-  opacity: 0.5;
+  right: 0.75rem;
+  top: 0.75rem;
 }
 
 .scene-map {
+  align-items: flex-start;
+  background: #f4f6f8;
+  border: 1px solid #ced4da;
+  border-radius: 0.25rem;
+  display: flex;
+  justify-content: center;
+  min-height: 28rem;
+  overflow: auto;
   position: relative;
   text-align: center;
 }
@@ -415,16 +492,22 @@ ul.errorlist {
 }
 
 #scene-controls {
-  text-align: center;
-  margin-bottom: 20px;
+  align-self: start;
+  background: #f8f9fa;
+  border: 1px solid #ced4da;
+  border-radius: 0.25rem;
+  margin: 0;
+  padding: 1rem;
 }
 
 #scene-controls > div {
-  margin: 0 auto;
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
 }
 
 #scene-controls .custom-control {
-  display: inline-block;
+  display: block;
 }
 
 .navbar-brand {
@@ -451,6 +534,41 @@ ul.errorlist {
 
 .nav-tabs {
   clear: left;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .scene-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .scene-detail > #scene-controls,
+  .scene-detail > .scene-workspace {
+    grid-column: 1;
+  }
+
+  #scene-controls > div {
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  }
+
+  .scene-map {
+    min-height: 20rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .scene-detail {
+    gap: 0.75rem;
+  }
+
+  .camera-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .scene-header .btn {
+    flex: 0 0 auto;
+  }
 }
 
 .absolute-hide {

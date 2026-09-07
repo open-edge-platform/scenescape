@@ -43,6 +43,12 @@ var show_trails = false;
 var scene_y_max = 480; // Scene image height in pixels
 var savedElements = [];
 var is_coloring_enabled = false; // Default state of the coloring feature
+
+function formatRate(value) {
+  var number = Number(value);
+  if (Number.isNaN(number)) return value;
+  return Math.round(number * 100) / 100;
+}
 var roi_color_sectors = {};
 var singleton_color_sectors = {};
 var scene_rotation_translation_config;
@@ -191,7 +197,8 @@ async function checkBrokerConnections() {
         if (show_telemetry) {
           // Show the FPS for each camera
           for (const [key, value] of Object.entries(msg.rate)) {
-            document.getElementById("rate-" + key).innerText = value + " FPS";
+            document.getElementById("rate-" + key).innerText =
+              formatRate(value) + " FPS";
           }
 
           // Show the scene controller update rate
@@ -278,7 +285,9 @@ async function checkBrokerConnections() {
         }
       } else if (topic.includes(DATA_CAMERA)) {
         var id = topic.slice(topic.lastIndexOf("/") + 1);
-        $("#rate-" + id).text(msg.rate + " FPS");
+        if (show_telemetry) {
+          $("#rate-" + id).text(formatRate(msg.rate) + " FPS");
+        }
         $("#updated-" + id).text(msg.timestamp);
       } else if (topic.includes("/child/status")) {
         var child = topic.slice(topic.lastIndexOf("/") + 1);
@@ -2238,8 +2247,11 @@ $(document).ready(function () {
   });
 
   $("input#show-telemetry").on("change", function () {
-    if ($(this).is(":checked")) show_telemetry = true;
-    else show_telemetry = false;
+    show_telemetry = $(this).is(":checked");
+    if (!show_telemetry) {
+      $(".rate").text("--");
+      $("#scene-rate").text("--");
+    }
   });
 
   $(".form-group")
