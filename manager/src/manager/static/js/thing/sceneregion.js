@@ -124,6 +124,11 @@ export default class SceneRegion extends THREE.Object3D {
     if (this.axesHelper) {
       this.remove(this.axesHelper);
       this.axesHelper.geometry.dispose();
+      if (Array.isArray(this.axesHelper.material)) {
+        this.axesHelper.material.forEach((mat) => mat.dispose());
+      } else {
+        this.axesHelper.material.dispose();
+      }
       this.axesHelper = null;
     }
     if (!this.region.isSensor || this.regionType === "scene") {
