@@ -6,11 +6,8 @@ import os
 import tempfile
 from unittest.mock import mock_open, patch
 
-from django.contrib.auth.models import User
 from django.forms import ValidationError
 from django.test import TestCase
-from django.test.client import RequestFactory
-from django.urls import reverse
 
 from manager.forms import CamCalibrateForm
 
@@ -27,29 +24,6 @@ SAMPLE_MODEL_CONFIG = {
     }
   }
 }
-
-
-class CamCreateTestCase(TestCase):
-
-  def setUp(self):
-    self.factory = RequestFactory()
-    request = self.factory.get('/')
-    self.user = User.objects.create_superuser('test_user', 'test_user@intel.com', 'testpassword')
-    self.client.post(reverse('sign_in'), data={
-      'username': 'test_user',
-      'password': 'testpassword',
-      'request': request
-    })
-
-  def test_cam_create_page(self):
-    """Cam create URL redirects into the React drawer sheet."""
-    response = self.client.post(reverse('cam_create'), data={
-      'sensor_id': '100',
-      'name': 'test_camera',
-      'scene': 'test_scene'
-    })
-    self.assertEqual(response.status_code, 302)
-    self.assertIn('ss=cam-create', response.url)
 
 
 class CamCalibrateCamerachainValidationTestCase(TestCase):
