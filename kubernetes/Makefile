@@ -56,7 +56,7 @@ UPLOAD_SCENES:=../tools/upload_scenes/upload-scenes
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
 # start kind, then install Scenescape with helm
-default: install-deps clean-kind kind load-core install
+default: install-deps clean-kind kind load-core video-source-up install
 
 # publish to ITEP by building, packaging, then pushing
 build-and-package: build-core package
@@ -139,7 +139,7 @@ start-kind:
 	fi
 
 # remove the kind container
-clean-kind:
+clean-kind: video-source-down
 	kind delete cluster
 	docker network rm kind || true
 
@@ -167,6 +167,29 @@ mediaserver-up:
 .PHONY: mediaserver-down
 mediaserver-down:
 	-kubectl delete -n $(NAMESPACE) -f setup/mediaserver.yaml
+
+# Video source (mediamtx + per-scene ffmpeg loopers) for the kind all-in-one
+# demo; not used by the "Scenescape Only" BYO-cluster flow (see
+# kubernetes/README.md to point at a remote video-source host instead).
+# Joins the kind cluster's own Docker network directly so its IP is reachable
+# from cluster pods; dlsps pods are created dynamically in-cluster by
+# kubeclient, so retail-video/queuing-video are not started here.
+VIDEO_SOURCE_COMPOSE_FILE := ../sample_data/demo_scenes/docker-compose.video-source.yml
+
+.PHONY: video-source-up
+video-source-up:
+	$(MAKE) -C .. convert-dls-videos
+	SECRETSDIR=$(WORKINGDIR)/manager/secrets SCENESCAPE_NETWORK=kind \
+		docker compose --project-directory .. -f $(VIDEO_SOURCE_COMPOSE_FILE) up -d mediaserver retail-cams queuing-cams
+	@CID=$$(docker compose --project-directory .. -f $(VIDEO_SOURCE_COMPOSE_FILE) ps -q mediaserver); \
+	IP=$$(docker inspect -f '{{.NetworkSettings.Networks.kind.IPAddress}}' $$CID); \
+	$(MAKE) mediaserver-up VIDEOSOURCE_IP=$$IP
+
+.PHONY: video-source-down
+video-source-down:
+	-$(MAKE) mediaserver-down
+	-SECRETSDIR=$(WORKINGDIR)/manager/secrets SCENESCAPE_NETWORK=kind \
+		docker compose --project-directory .. -f $(VIDEO_SOURCE_COMPOSE_FILE) down
 
 # build scenescape docker images, download models for init-models
 # note, will make unneeded secrets in secrets/ as well
@@ -249,6 +272,7 @@ demo-scenes:
 	trap 'rm -f $$AUTH_FILE' EXIT; \
 	kubectl get secret $(RELEASE)-controller.auth -n $(NAMESPACE) -o jsonpath='{.data.controller\.auth}' | base64 -d > $$AUTH_FILE; \
 	"$$VENV/bin/python3" $(UPLOAD_SCENES) --restauth $$AUTH_FILE $(DEMO_SCENES_TLS) --wait $(DEMO_SCENES_WAIT) \
+		--configure-video-sources \
 		$(DEMO_SCENES_URL) $(DEMO_SCENES_DIR)
 
 # to test template rendering

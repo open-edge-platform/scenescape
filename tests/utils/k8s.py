@@ -504,6 +504,7 @@ class K8sManager:
     resturl = f"https://web.scenescape.intel.com:{self.web_port}/api/v1"
     self._scene_uids = upload_baseline_scenes(
       resturl, self.cert_file, self.auth_file, scene_archives,
+      configure_video_sources=True,
     )
     logger.info("Snapshotting baseline database...")
     web_pod = _get_pod_name(self.kubeconfig, _NAMESPACE, f"{_RELEASE_NAME}-web")
