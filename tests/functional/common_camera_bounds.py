@@ -14,11 +14,6 @@ log = get_logger(__name__)
 test_wait_time = 20  # seconds
 check_interval = 1   # seconds
 
-scenes = [
-    "3bc091c7-e449-46a0-9540-29c499bca18c",
-    "302cf49a-97ec-402d-a324-c5077b280b7b"
-]
-
 
 class CameraBounds:
   def __init__(self):
@@ -28,6 +23,7 @@ class CameraBounds:
     self.unregulated_has_camera_bounds = False
     self.message_lock = threading.Lock()
     self.visibility_topic = None
+    self.scene_ids = []
 
   def has_valid_camera_bounds(self, json_data):
     """
@@ -50,7 +46,7 @@ class CameraBounds:
 
   def on_connect(self, mqttc, _data, _flags, _rc):
     log.info("Connected to MQTT broker")
-    for scene_id in scenes:
+    for scene_id in self.scene_ids:
       regulated_topic = PubSub.formatTopic(
           PubSub.DATA_REGULATED,
           scene_id=scene_id,
@@ -88,6 +84,7 @@ class CameraBounds:
 
   def run(self, params, visibility_topic, test_name):
     self.visibility_topic = visibility_topic.lower()
+    self.scene_ids = list(params.get("scene_uids", {}).values())
     log.info(f"Test parameter visibility_topic: {self.visibility_topic}")
     log.info(f"Executing: {test_name}")
 
@@ -103,7 +100,7 @@ class CameraBounds:
       )
 
       client.onConnect = self.on_connect
-      for scene_id in scenes:
+      for scene_id in self.scene_ids:
         client.addCallback(
             PubSub.formatTopic(
                 PubSub.DATA_REGULATED,
