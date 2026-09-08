@@ -37,15 +37,15 @@ Skills are loaded on-demand based on task context to optimize token usage:
 **Pre-Cached (Always Available)**:
 
 - `copilot-instructions.md` (this file, always loaded)
-- `python.md` (high frequency, pre-cached)
-- `documentation-how.md` (high frequency, pre-cached)
+- `.github/skills/python/SKILL.md` (high frequency, pre-cached)
+- `.github/skills/documentation-how/SKILL.md` (high frequency, pre-cached)
 
 **Loaded Automatically on Demand**:
 
-- `testing.md` - Loaded when task involves tests or `test` keyword detected
-- `javascript.md` - Loaded when `.js` files are being edited
-- `shell.md` - Loaded when `.sh` files are being edited
-- `makefile.md` - Loaded when Makefile or build system changes
+- `.github/skills/testing/SKILL.md` (and any `references/*.md` it points to) - Loaded when task involves tests or `test` keyword detected
+- `.github/skills/javascript/SKILL.md` - Loaded when `.js` files are being edited
+- `.github/skills/shell/SKILL.md` - Loaded when `.sh` files are being edited
+- `.github/skills/makefile/SKILL.md` - Loaded when Makefile or build system changes
 
 Skills are detected and loaded based on file type, task keywords, and context signals. Explicitly request a skill if the auto-detection doesn't load it.
 
@@ -91,7 +91,7 @@ For detailed security review guidance, follow:
 - **Auto Camera Calibration** (`autocalibration/`): Computes camera intrinsics/extrinsics from sensor feeds (docker-compose still references as `camcalibration`)
 - **DL Streamer Pipeline Server**: Video analytics pipeline integration (external service config in `dlstreamer-pipeline-server/`)
 - **Mapping & Cluster Analytics** (`mapping/`, `cluster_analytics/`): Built by `make build-all` (or individually via `make mapping` / `make cluster_analytics`); enable in Compose with `--profile mapping` and/or `--profile cluster-analytics`
-- **Model Installer** (`model_installer/`): Manages OpenVINO Zoo model installation
+- **Model Download** (`model_download/`): Manages OpenVINO Zoo model installation
 
 **Message Flow:**
 
@@ -159,7 +159,7 @@ Service-specific examples belong in each service guide (for controller, see
 
 - Each service: `setup.py` at root, source in `src/`, tests alongside
 - Shared library: `scene_common/` installed as package dependency (geometry, MQTT, REST client, schema validation)
-- Fast geometry: `fast_geometry/` C++ extension for spatial calculations
+- Fast geometry: `scene_common/src/fast_geometry/` C++ extension for spatial calculations
 
 **MQTT/PubSub Pattern** (`scene_common.mqtt.PubSub`):
 
@@ -171,8 +171,8 @@ pubsub.publish(topic, json_payload)
 
 **Data Validation**:
 
-- Schema validation via `scene_common.schema.SchemaValidation` (JSON schema files in `controller/config/schema/`)
-- Topics validate against schemas: `"singleton"`, `"detector"` (see `scene_controller.py` line 329-365)
+- Schema validation via `scene_common.schema.SchemaValidation` (JSON schema files in `controller/src/schema/metadata.schema.json`)
+- Topics validate against schemas: `"singleton"` (see `analytics/src/analytics/service.py`), `"detector"` (see `controller/src/controller/scene_controller.py`)
 - Detector messages: Camera ID in topic → validation against detector schema
 
 **REST/gRPC Communication**:
@@ -221,7 +221,7 @@ pubsub.publish(topic, json_payload)
 
 **Model Installation**:
 
-- `make install-models` → `model_installer/` service (OpenVINO Zoo models)
+- `make install-models` → `model_download/` service (OpenVINO Zoo models)
 - Models volume: `scenescape_vol-models` (persistent across rebuilds)
 
 **Secrets Management**:
@@ -240,7 +240,7 @@ pubsub.publish(topic, json_payload)
 ## File Organization Essentials
 
 - **`Makefile`**: Root orchestrator; includes image build rules, test targets, clean targets
-- **`docker-compose.yml`**: Service composition, networking, volume/secret management (generated from `docker-compose.template.yml` + env vars)
+- **`docker-compose.yml`**: Service composition, networking, volume/secret management (checked-in file, parameterized via `.env` and Makefile-passed env vars)
 - **`.env`**: Runtime environment (database password, metrics config, COMPOSE_PROJECT_NAME)
 - **`scene_common/src/scene_common/`**: Reusable modules (MQTT, REST, geometry, schema, logging)
 - **`manager/secrets/`**: TLS certificates, auth tokens (never committed; generated per build)
