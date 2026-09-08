@@ -525,9 +525,6 @@ Specifically:
 - **Gallery stats scoping.** Should `/collections/{name}/stats` support a `scene_id` /
   `camera_id` filter for the shared multi-hierarchy database, or is the whole-collection number
   sufficient for v1? (5.5)
-- **AuthN/authZ mechanism.** mTLS (reusing the existing VDMS client-cert pattern in
-  `reid_env.py`) vs. an API key (as already supported by the Qdrant adapter), or both. Needs
-  deciding before POI enrollment/deletion ship — see Section 7.
 - **Host/disk loss risk acceptance.** Is protection against container-lifecycle events (a
   persistent volume) sufficient for POI, or does the residual host/disk-loss risk need to be
   explicitly addressed? (5.9)
