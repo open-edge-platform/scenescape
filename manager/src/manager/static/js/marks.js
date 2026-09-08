@@ -9,6 +9,17 @@ var mark_radius = 9;
 var marks = {}; // Global object to store marks to improve performance
 var trails = {};
 
+// Pie-slice path for one quadrant of a circle of radius r, centered at 0,0
+function quadrantPath(r, startDeg, endDeg) {
+  var start = (startDeg * Math.PI) / 180;
+  var end = (endDeg * Math.PI) / 180;
+  var x1 = r * Math.cos(start);
+  var y1 = r * Math.sin(start);
+  var x2 = r * Math.cos(end);
+  var y2 = r * Math.sin(end);
+  return `M0,0 L${x1},${y1} A${r},${r} 0 0 1 ${x2},${y2} Z`;
+}
+
 function addOrUpdateTableRow(table, key, value) {
   var existingRow = table.querySelector(`tr[data-key="${key}"]`);
   if (existingRow) {
@@ -58,6 +69,7 @@ function plot(
   svgCanvas,
   show_telemetry,
   show_trails,
+  assetMarkColors,
 ) {
   // Scenescape sends only updated marks, so we need to determine
   // which old marks are not in the current update and remove them
@@ -124,7 +136,7 @@ function plot(
           o.translation[0],
           o.translation[1],
         );
-        line.attr("stroke", mark.select("circle").attr("stroke"));
+        line.attr("stroke", mark.node.getAttribute("data-color"));
       }
     }
     // Otherwise, add new mark
@@ -137,6 +149,7 @@ function plot(
         scale,
         show_telemetry,
         show_trails,
+        assetMarkColors,
       ));
     }
     updateTooltipContent(mark, o, show_telemetry);
@@ -164,6 +177,7 @@ function addNewMark(
   scale,
   show_telemetry,
   show_trails,
+  assetMarkColors,
 ) {
   mark = svgCanvas
     .group()
@@ -190,8 +204,28 @@ function addNewMark(
     mark_radius = parseInt(scale * 0.5); // Everything else is 0.5 meters
   }
 
-  // Create the circle
-  var circle = mark.circle(0, 0, mark_radius);
+  // Set a color based on the ID; kept on the group so trails can reuse it
+  var trackColor = "#" + o.id.substring(0, 6);
+  mark.node.setAttribute("data-color", trackColor);
+
+  // Person/vehicle cores use a 4-quadrant checkerboard (asset mark_color /
+  // UUID color) so marks stay readable on both light and dark map backgrounds.
+  if (o.type === "apriltag") {
+    mark
+      .circle(0, 0, mark_radius)
+      .addClass("mark-core")
+      .attr("stroke", trackColor);
+  } else {
+    var coreRadius = Math.max(7, Math.round(mark_radius * 0.4));
+    var baseColor = (assetMarkColors && assetMarkColors[o.type]) || "black";
+    var quadrantColors = [baseColor, trackColor, baseColor, trackColor];
+    for (var i = 0; i < 4; i++) {
+      mark
+        .path(quadrantPath(coreRadius, i * 90, (i + 1) * 90))
+        .addClass("mark-core")
+        .attr("fill", quadrantColors[i]);
+    }
+  }
 
   // add tooltip foreign object
   var text = mark.text(0, 0, "");
@@ -217,12 +251,9 @@ function addNewMark(
     foreignObject.classList.add("telemetry-hide");
   }
 
-  // Set a stroke color based on the ID
-  circle.attr("stroke", "#" + o.id.substring(0, 6));
-
-  // Add a title element to the circle which will act as a tooltip
+  // Add a title element to the group which will act as a tooltip
   var title = Snap.parse("<title>" + o.id + "</title>");
-  circle.append(title);
+  mark.append(title);
   // Create Tag ID text for AprilTags only
   if (o.type == "apriltag") {
     var text = mark.text(0, 0, String(o.tag_id));

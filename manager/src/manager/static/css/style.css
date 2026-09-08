@@ -1532,7 +1532,12 @@ polygon {
   background: none;
 }
 
-.mark circle {
+.mark .mark-core {
+  stroke-width: 2px;
+  opacity: 1;
+}
+
+.apriltag .mark-core {
   stroke-width: 4px;
   opacity: 0.9;
 }
@@ -1546,14 +1551,6 @@ polygon {
   alignment-baseline: middle;
   fill: white;
   font: bold 18px sans-serif;
-}
-
-.person circle {
-  fill: #009933;
-}
-
-.vehicle circle {
-  fill: #0099ff;
 }
 
 .apriltag circle {

@@ -12,6 +12,7 @@ import {
   IMAGE_CAMERA,
   SYS_CHILDSCENE_STATUS,
   REST_URL,
+  SUCCESS,
 } from "/static/js/constants.js";
 import {
   metersToPixels,
@@ -200,6 +201,7 @@ var scene_y_max = 480; // Scene image height in SVG user units
 var scene_map_width = 0; // Scene image width in SVG user units
 var savedElements = [];
 var is_coloring_enabled = false; // Default state of the coloring feature
+var assetMarkColors = {}; // Object Library mark_color per type, e.g. {person: "#888888"}
 var roi_color_sectors = {};
 var singleton_color_sectors = {};
 var scene_rotation_translation_config;
@@ -635,6 +637,7 @@ async function checkBrokerConnections() {
           svgCanvas,
           show_telemetry,
           show_trails,
+          assetMarkColors,
         );
       } else if (topic.includes("event")) {
         var etype = topic.split("/")[2];
@@ -2519,6 +2522,21 @@ $(document).ready(function () {
 
     // SVG scene implementation
     if (svgCanvas) {
+      var assetTokenElement = document.getElementById("auth-token");
+      if (assetTokenElement) {
+        var assetRestClient = new RESTClient(
+          REST_URL,
+          `Token ${assetTokenElement.value}`,
+        );
+        assetRestClient.getAssets({}).then(function (response) {
+          if (response.statusCode === SUCCESS && response.content?.results) {
+            response.content.results.forEach(function (asset) {
+              assetMarkColors[asset.name] = asset.mark_color || "black";
+            });
+          }
+        });
+      }
+
       var $image = $("#map img");
       var imgEl = $image[0];
       var image_w;
