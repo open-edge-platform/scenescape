@@ -107,6 +107,7 @@ class RetrackTest:
       f"Failed to link child to parent: {res.statusCode}"
 
     child_links = rest_client.getChildScene({'parent': self.parent_id})
+    self.child_link_id = child_links['results'][0]['uid']
     assert child_links.statusCode == 200 and child_links['count'] == 1, \
       "Child-parent link not found after linking"
 
@@ -118,7 +119,7 @@ class RetrackTest:
     """
     if self.child_id and self.parent_id:
       try:
-        res = rest_client.deleteChildSceneLink(self.child_id)
+        res = rest_client.deleteChildSceneLink(self.child_link_id)
         errors = getattr(res, 'errors', None)
         if res.statusCode in (200, 204):
           log.info(f"[TEARDOWN] Unlinked child uid={self.child_id}: {res.statusCode}")
@@ -186,10 +187,10 @@ class RetrackTest:
     @param    value           Boolean value for the retrack field.
     """
     def _update():
-      res = rest_client.updateChildScene(self.child_id, {'retrack': value})
+      res = rest_client.updateChildScene(self.child_link_id, {'retrack': value})
       assert res.statusCode == 200, \
         f"Failed to set retrack={value}: {res.statusCode}"
-      log.info(f"Set retrack={value} on child scene {self.child_id}")
+      log.info(f"Set retrack={value} on child scene {self.child_link_id}")
       verify = rest_client.getChildScene({'parent': self.parent_id})
       assert verify.statusCode == 200, \
         f"Failed to read back child scene link after setting retrack={value}"

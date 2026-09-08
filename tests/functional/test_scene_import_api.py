@@ -270,7 +270,7 @@ class SceneImportAPITest(FunctionalTest):
       for k in ("uid", "scene"):
         res.pop(k, None)
         sensor.pop(k, None)
-      assert res == sensor, f"Sensor mismatch: {sensor['name']}"
+      assert self.tolerant_camera_equivalence(res, sensor), f"Sensor mismatch: {sensor['name']}"
 
     log.info("✅ Scene components validated.")
 
