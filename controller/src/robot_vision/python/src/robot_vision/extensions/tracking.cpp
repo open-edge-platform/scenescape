@@ -371,13 +371,13 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
          "Returns a list of all active reliable tracks.");
 
      tracking.def("match",
-         [](const std::vector<rv::tracking::TrackedObject> &measurements,
-            const std::vector<rv::tracking::TrackedObject> &tracks,
+         [](const std::vector<rv::tracking::TrackedObject> &tracks,
+            const std::vector<rv::tracking::TrackedObject> &measurements,
             const rv::tracking::DistanceType &distanceType, double threshold, double max_radius_m) {
           std::vector<std::pair<size_t, size_t>> assignments;
           std::vector<size_t> unassignedTracks;
           std::vector<size_t> unassignedObjects;
-          rv::tracking::match(measurements, tracks, assignments, unassignedTracks, unassignedObjects, distanceType,
+          rv::tracking::match(tracks, measurements, assignments, unassignedTracks, unassignedObjects, distanceType,
                               threshold, max_radius_m);
 
           return std::tuple<std::vector<std::pair<size_t, size_t>>, std::vector<size_t>, std::vector<size_t>>(

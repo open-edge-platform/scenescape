@@ -166,11 +166,20 @@ class SceneController:
           self.tracker_config_data["persist_attributes"] = {}
 
       association = tracker_config.get("association", {})
-      self.tracker_config_data["association"] = normalize_association_config({
+      association_input = {
         "method": association.get("method", "position_mahalanobis"),
         "gate_probability": association.get("gate_probability", 0.99),
         "max_radius_m": association.get("max_radius_m", 10.0),
-      })
+      }
+      try:
+        self.tracker_config_data["association"] = normalize_association_config(
+          association_input)
+      except ValueError as err:
+        log.error("Invalid association config in tracker config file: %s", err)
+        # Keep valid numeric fields; drop the unknown method so defaults apply.
+        association_input.pop("method", None)
+        self.tracker_config_data["association"] = normalize_association_config(
+          association_input)
     return
 
   def extractReidConfigData(self, reid_config_file):

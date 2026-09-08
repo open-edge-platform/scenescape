@@ -431,6 +431,8 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                       return probability;
                   } catch (const std::invalid_argument&) {
                       throw std::runtime_error("Invalid " + s + ": " + v);
+                  } catch (const std::out_of_range&) {
+                      throw std::runtime_error("Value out of range for " + s + ": " + v);
                   }
               });
     apply_env(config.tracking.association.max_radius_m, tracker::env::ASSOCIATION_MAX_RADIUS_M,
