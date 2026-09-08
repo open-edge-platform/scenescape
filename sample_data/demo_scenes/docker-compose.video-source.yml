@@ -43,8 +43,10 @@ services:
       scenescape:
         aliases:
           - mediaserver
-    # ports:
-    #   - "8554:8554"
+    # Published so a Kubernetes cluster on another host can reach this stack
+    # at VIDEOSOURCE_IP:VIDEOSOURCE_PORT (see kubernetes/README.md).
+    ports:
+      - "${VIDEOSOURCE_PORT:-8554}:8554"
     restart: always
     pids_limit: 1000
 

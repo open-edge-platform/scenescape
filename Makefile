@@ -670,6 +670,15 @@ add-licensing:
 convert-dls-videos:
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 
+# tools/pipeline_runner mounts a "vol-videos" named volume (unlike the
+# standalone video-source compose stack, which bind-mounts the files
+# directly); populate it from the two source directories it needs.
+.PHONY: init-pipeline-runner-videos
+init-pipeline-runner-videos: convert-dls-videos
+	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-videos 2>/dev/null || true
+	@docker run --rm -v $(CURDIR)/$(VIDEO_SOURCE_DIR)/Queuing/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
+	@docker run --rm -v $(CURDIR)/sample_data/videos:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
+
 .PHONY: init-sample-data
 init-sample-data: convert-dls-videos
 	@echo "Initializing sample data volume..."
@@ -771,8 +780,8 @@ demo-close:
 		echo "Error: .scenescape-profile not found. Was the demo started with 'make demo'?"; \
 		exit 1; \
 	fi
-	docker compose $(shell cat .scenescape-profile 2>/dev/null) down -v
 	@$(MAKE) video-source-down
+	docker compose $(shell cat .scenescape-profile 2>/dev/null) down -v
 	@rm -f .scenescape-profile
 
 .PHONY: demo-k8s

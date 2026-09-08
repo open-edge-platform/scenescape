@@ -16,9 +16,6 @@ FFMPEG_DIR="/app/data"
 FFMPEG_IMAGE="intel/intel-optimized-ffmpeg:avx3"
 EXTENSION=${1:-mp4}
 
-DOCKER_RUN_CMD_PREFIX="docker run --rm -v ${SAMPLE_DATA_DIR}:${FFMPEG_DIR} \
-            --entrypoint /bin/sh ${FFMPEG_IMAGE}"
-
 for mfile in "$SAMPLE_DATA_DIR"/demo_scenes/*/video/*."${EXTENSION}" "$SAMPLE_DATA_DIR"/videos/*."${EXTENSION}"; do
   [ -f "$mfile" ] || continue
   # relative dir under sample_data/, so the ts file lands next to its source mp4
@@ -40,9 +37,20 @@ for mfile in "$SAMPLE_DATA_DIR"/demo_scenes/*/video/*."${EXTENSION}" "$SAMPLE_DA
     # -fflags +genpts         : regenerate clean presentation timestamps
     # -pix_fmt yuv420p        : standard H.264 pixel format (4:2:0 chroma)
     # -c:a copy               : audio stream-copied (no re-encode)
-    ffmpegcmd="/opt/build/bin/ffmpeg -i ${FFMPEG_DIR}/${reldir}/${basefile}.${EXTENSION} -c:v libx264 -preset medium -crf 33 -x264opts keyint=12:min-keyint=12:scenecut=0 -forced-idr 1 -fflags +genpts -pix_fmt yuv420p -c:a copy ${FFMPEG_DIR}/${reldir}/${basefile}.ts"
-    cmd="$DOCKER_RUN_CMD_PREFIX -c '$ffmpegcmd'"
-    eval "$cmd"
+    docker run --rm \
+      -v "${SAMPLE_DATA_DIR}:${FFMPEG_DIR}" \
+      --entrypoint /opt/build/bin/ffmpeg \
+      "$FFMPEG_IMAGE" \
+      -i "${FFMPEG_DIR}/${reldir}/${basefile}.${EXTENSION}" \
+      -c:v libx264 \
+      -preset medium \
+      -crf 33 \
+      -x264opts keyint=12:min-keyint=12:scenecut=0 \
+      -forced-idr 1 \
+      -fflags +genpts \
+      -pix_fmt yuv420p \
+      -c:a copy \
+      "${FFMPEG_DIR}/${reldir}/${basefile}.ts"
   fi
 done
 

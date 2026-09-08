@@ -237,6 +237,15 @@ class K8sManager:
     logger.info("Loading Scenescape images into KinD...")
     self._load_images()
 
+    # Start the external video source (mediamtx + ffmpeg loopers) and point
+    # the in-cluster "mediaserver" Service at it, so kubeclient-created
+    # camera pods have an RTSP source once scenes are uploaded below.
+    logger.info("Starting external video-source stack...")
+    subprocess.run(
+      ["make", "-C", str(_REPO_ROOT / "kubernetes"), "video-source-up"],
+      check=True,
+    )
+
     # Populate kubernetes/scenescape-chart/files/ from source tree.
     # This directory is gitignored and must be built before helm install.
     logger.info("Populating Helm chart files (make copy-files)...")
@@ -284,6 +293,11 @@ class K8sManager:
   def teardown(self):
     """Tear down port-forwarding and delete the KinD cluster."""
     logger.info("Tearing down Kubernetes test environment...")
+
+    subprocess.run(
+      ["make", "-C", str(_REPO_ROOT / "kubernetes"), "video-source-down"],
+      check=False,
+    )
 
     for pf in self._port_forwards:
       try:

@@ -93,7 +93,17 @@ videos, run the standalone stack in
 on a host reachable from the cluster, then point the cluster's `mediaserver`
 Service at it:
 
+For a `kind` cluster created by this repo's `make` targets, `make -C
+kubernetes video-source-up` does this automatically (joins the `kind` Docker
+network so no extra steps are needed). For any other cluster, create the
+network the stack expects and start only the media services (not the
+broker-dependent dlsps services, which this chart's `kubeclient` creates
+in-cluster):
+
 ```sh
+docker network create scenescape_scenescape
+docker compose --project-directory . -f sample_data/demo_scenes/docker-compose.video-source.yml \
+  up -d mediaserver retail-cams queuing-cams
 make -C kubernetes mediaserver-up VIDEOSOURCE_IP=<ip-of-that-host>
 ```
 
