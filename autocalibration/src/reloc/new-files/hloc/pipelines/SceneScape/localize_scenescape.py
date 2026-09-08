@@ -194,7 +194,7 @@ def pose_from_cluster(
         0,
     )
 
-  # pycolmap >=0.6.0: absolute_pose_estimation expects pycolmap.Camera object, not dict
+  # pycolmap 4.0.4 expects a pycolmap.Camera object, not a dictionary.
   camera = pycolmap.Camera(
       model=query_intrinsics['model'],
       width=query_intrinsics['width'],
@@ -202,23 +202,23 @@ def pose_from_cluster(
       params=query_intrinsics['params']
   )
 
-  # pycolmap 0.6.0: absolute_pose_estimation expects numpy arrays (N, 2) and (N, 3), not lists
+  # pycolmap 4.0.4 expects NumPy arrays with shapes (N, 2) and (N, 3).
   # Ensure arrays are contiguous and correct dtype
   points2D_array = np.ascontiguousarray(all_mkpq, dtype=np.float64)
   points3D_array = np.ascontiguousarray(all_mkp3d, dtype=np.float64)
 
-  # pycolmap >=0.6.0: max_error_px is passed via estimation_options
+  # pycolmap 4.0.4 passes max_error_px through estimation_options.
   estimation_options = pycolmap.AbsolutePoseEstimationOptions()
   estimation_options.ransac.max_error = 48.00
-
-  ret = pycolmap.absolute_pose_estimation(
+  # pycolmap 4.0.4 uses estimate_and_refine_absolute_pose.
+  ret = pycolmap.estimate_and_refine_absolute_pose(
       points2D_array, points3D_array, camera, estimation_options=estimation_options
   )
 
   if ret is None:
-    raise ValueError("absolute_pose_estimation returned None")
+    raise ValueError("estimate_and_refine_absolute_pose returned None")
 
-  # pycolmap >=0.6.0: Return format changed to include cam_from_world (Rigid3d)
+  # pycolmap 4.0.4 returns cam_from_world as a Rigid3d pose.
   # Extract qvec and tvec from Rigid3d object and create a picklable result dict
   result = {}
   result["cfg"] = query_intrinsics

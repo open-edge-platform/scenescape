@@ -138,6 +138,8 @@ Shared `REID_*` settings configure any vector backend. Only `REID_DATABASE` sele
 | `REID_USE_TLS`                                          | TLS on/off (`true`/`false`)          | `true`                                                              |
 | `REID_API_KEY`                                          | Optional API key                     | unset                                                               |
 | `REID_CONFIDENCE_THRESHOLD`                             | TIER 1 metadata confidence threshold | `0.8`                                                               |
+| `REID_DESCRIPTOR_TTL_SECS`                              | Coarse retention lifetime (`0` off)  | `86400`                                                             |
+| `REID_PURGE_INTERVAL_SECS`                              | Physical reclaim cadence             | `300`                                                               |
 | `REID_CA_CERT` / `REID_CLIENT_CERT` / `REID_CLIENT_KEY` | TLS / mTLS paths                     | `scenescape-ca.pem` / `scenescape-reid.crt` / `scenescape-reid.key` |
 
 - Values ≥ `REID_CONFIDENCE_THRESHOLD`: Included in AND constraints (strict metadata filtering)

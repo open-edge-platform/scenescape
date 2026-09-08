@@ -22,7 +22,15 @@ echo "Starting pipeline validation stack (video-analytics deferred until models 
 base_services=(broker ntpserv init-models)
 if [[ -f docker-compose.override.yml ]]; then
   echo "docker-compose.override.yml detected: starting local video-file media server..."
-  base_services+=(mediaserver video-file-cams)
+  base_services+=(mediaserver)
+  # One publisher service per camera (video-file-<camera_id>), plus legacy
+  # video-file-cams if an older override is still present.
+  mapfile -t file_cam_services < <(
+    docker compose config --services 2>/dev/null | grep -E '^video-file-' || true
+  )
+  if ((${#file_cam_services[@]})); then
+    base_services+=("${file_cam_services[@]}")
+  fi
 fi
 docker compose up -d "${base_services[@]}"
 

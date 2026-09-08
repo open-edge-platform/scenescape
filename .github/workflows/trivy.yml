@@ -6,19 +6,8 @@ name: "[Code Analysis] Trivy"
 run-name: "[Code Analysis] Trivy"
 
 on:
+  workflow_call: {}
   workflow_dispatch: {}
-  push:
-    branches:
-      - main
-      - release-*
-  pull_request:
-    branches:
-      - main
-      - release-*
-    types:
-      - opened
-      - synchronize
-      - reopened
 
 permissions:
   contents: read # needed for actions/checkout
@@ -66,6 +55,7 @@ jobs:
         run: |
           echo "SCENESCAPE_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
           make build-all
+          make -C mapping build-all
           docker image ls | awk '{print $1}' | grep $(cat version.txt) | grep -v "\-test" > images.txt
       - name: "Run Trivy Image Scan"
         if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'

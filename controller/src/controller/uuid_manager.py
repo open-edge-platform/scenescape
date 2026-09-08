@@ -24,6 +24,7 @@ from scene_common.reid_constants import (
   resolve_database_similarity_metric,
 )
 from controller.reid_registry import create_reid_database
+from controller.reid_env import get_reid_purge_interval_secs
 from controller.reid import (
   ReidNoValidVectorsError,
   ReidPartialWriteError,
@@ -48,6 +49,13 @@ DEFAULT_STALE_FEATURE_TIMEOUT_SECS = 5.0
 DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS = 1.0
 DEFAULT_SIMILARITY_METRIC = DEFAULT_CONFIG_SIMILARITY_METRIC
 SUPPORTED_SIMILARITY_METRICS = SUPPORTED_CONFIG_SIMILARITY_METRICS
+
+# One purge worker per process: category trackers each construct a UUIDManager,
+# but they share one ReID store and must not each schedule DeleteExpired /
+# filter-deletes against it.
+_PURGE_OWNER_LOCK = threading.Lock()
+_PURGE_OWNER = None
+
 
 class UUIDManager:
   def _normalizeSimilarityMetric(self, metric):
@@ -113,6 +121,9 @@ class UUIDManager:
     self.local_enrollment_features = {}
     self.unique_id_count = 0
     self.stale_feature_timer = None
+    self.purge_timer = None
+    self.purge_interval_secs = None
+    self._owns_purge_timer = False
     self.scene_id = None
     self._shutdown_complete = False
 
@@ -252,6 +263,7 @@ class UUIDManager:
     if self.stale_feature_timer is not None:
       self.stale_feature_timer.cancel()
       self.stale_feature_timer = None
+    self._releasePurgeOwnership()
     if hasattr(self, 'match_latency_tracker') and self.match_latency_tracker is not None:
       self.match_latency_tracker.shutdown()
     if hasattr(self, 'pool') and self.pool is not None:
@@ -277,6 +289,65 @@ class UUIDManager:
     self.stale_feature_timer.daemon = True
     self.stale_feature_timer.start()
 
+  def _tryAcquirePurgeOwnership(self):
+    """Return True if this manager became the process-wide purge owner."""
+    global _PURGE_OWNER
+    with _PURGE_OWNER_LOCK:
+      if _PURGE_OWNER is None:
+        _PURGE_OWNER = self
+        self._owns_purge_timer = True
+        return True
+      return False
+
+  def _releasePurgeOwnership(self):
+    """Cancel purge timer and release process-wide ownership if held."""
+    global _PURGE_OWNER
+    if self.purge_timer is not None:
+      self.purge_timer.cancel()
+      self.purge_timer = None
+    if not self._owns_purge_timer:
+      return
+    with _PURGE_OWNER_LOCK:
+      if _PURGE_OWNER is self:
+        _PURGE_OWNER = None
+      self._owns_purge_timer = False
+    return
+
+  def _startPurgeTimer(self):
+    """Periodically ask the active ReID backend to drop expired descriptors."""
+    if not getattr(self.reid_database, 'retentionEnabled', lambda: False)():
+      return
+    if self.purge_interval_secs is None:
+      self.purge_interval_secs = get_reid_purge_interval_secs()
+
+    def purge_and_reschedule():
+      if not self._owns_purge_timer:
+        return
+      try:
+        self.pool.submit(self._purgeExpiredDescriptors)
+      except Exception as e:
+        log.warning(f"_startPurgeTimer: Failed to submit purge task: {e}")
+      if not self._owns_purge_timer:
+        return
+      self.purge_timer = threading.Timer(
+        self.purge_interval_secs, purge_and_reschedule)
+      self.purge_timer.daemon = True
+      self.purge_timer.start()
+
+    self.purge_timer = threading.Timer(
+      self.purge_interval_secs, purge_and_reschedule)
+    self.purge_timer.daemon = True
+    self.purge_timer.start()
+
+  def _purgeExpiredDescriptors(self):
+    """Invoke backend purgeExpired(); failures are logged and swallowed."""
+    try:
+      deleted = self.reid_database.purgeExpired()
+      log.debug(f"_purgeExpiredDescriptors: purgeExpired returned {deleted}")
+    except Exception as e:
+      log.warning(f"_purgeExpiredDescriptors: purgeExpired failed: {e}")
+    return
+
   def _flushStaleFeatures(self):
     """Check for features older than the configured timeout (from reid-config.json) and flush them to VDMS"""
     if not self.features_for_database_timestamps:
@@ -297,6 +368,13 @@ class UUIDManager:
 
   def connectDatabase(self):
     self.pool.submit(self.reid_database.connect)
+    # Start the process-wide reclaim timer only after a manager intends to use
+    # the store. Category trackers call this from run(); the idle root manager
+    # does not.
+    if (getattr(self.reid_database, 'retentionEnabled', lambda: False)()
+        and self._tryAcquirePurgeOwnership()):
+      self._startPurgeTimer()
+    return
 
   def _ensureReIDDimensions(self, embedding):
     """
@@ -989,6 +1067,11 @@ class UUIDManager:
               f"Ignoring out-of-range IP similarity score {entity.get('_distance')} "
               f"for uuid={entity.get('uuid')}")
           continue
+        if entity.get('uuid') is None:
+          log.warning(
+            f"Ignoring candidate with missing uuid (distance={metric_value}); "
+            "cannot attribute this match to an identity")
+          continue
         filtered_entities.append({**entity, '_distance': metric_value})
 
       if not filtered_entities:
@@ -1275,6 +1358,17 @@ class UUIDManager:
     database_ids = [v[0] for v in self.active_ids.values()]
     return database_id not in database_ids
 
+  def _onQuerySimilarityComplete(self, future):
+    """Log unhandled exceptions from querySimilarity so a background failure
+    doesn't silently leave a track stuck in PENDING_COLLECTION forever."""
+    if future.cancelled():
+      return
+
+    try:
+      future.result()
+    except Exception as err:
+      log.error(f"querySimilarity failed with an unhandled exception: {err}", exc_info=True)
+
   def assignID(self, sscape_object):
     """
     Assigns a unique ID to the Scenescape object
@@ -1322,8 +1416,8 @@ class UUIDManager:
       if sufficient_features:
         log.debug(f"assignID: Submitting similarity query for rv_id={sscape_object.rv_id}")
         self.active_query[sscape_object.rv_id] = True
-        self.pool.submit(self.querySimilarity, sscape_object)
-
+        future = self.pool.submit(self.querySimilarity, sscape_object)
+        future.add_done_callback(self._onQuerySimilarityComplete)
     # Always pick best ID for the current frame
     self.pickBestID(sscape_object)
     return

@@ -38,10 +38,6 @@ RUN : \
     && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER \
     && usermod -a -G video,users $WSUSER
 
-# Upgrade pip, wheel and setuptools to latest versions
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --upgrade setuptools wheel
-
 COPY cluster_analytics/requirements-runtime.txt /tmp/
 RUN pip install --no-cache-dir \
         -r /tmp/requirements-runtime.txt \

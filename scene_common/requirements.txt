@@ -3,3 +3,6 @@
 # This file is licensed under Apache 2.0 License.
 
 numpy==2.2.6
+msgpack==1.2.1
+setuptools==83.0.0
+wheel==0.47.0

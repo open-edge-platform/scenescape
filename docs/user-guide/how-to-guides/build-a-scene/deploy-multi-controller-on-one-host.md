@@ -13,18 +13,18 @@ By completing this guide, you will:
   separate instances; in a hierarchy avoid split backends, allow parent-only
   ReID when children only passthrough embeddings.
 
----
-
 ## When You Need Multiple Controllers
 
 | Goal | Use |
-|------|-----|
+| ---- | --- |
 | Nested floor plans / ROIs under one tracker and one ReID process | **Local** child scenes on one controller (preferred) |
 | Separate Manager DBs / brokers per site while one parent aggregates | **Remote** children; share one ReID if children enroll, or parent-only ReID if children only forward embeddings |
 
 Prefer **local** children whenever a single controller can own the hierarchy.
 Use remote children only for operational isolation (separate stacks), not to
-invent mixed ReID topologies.
+invent mixed ReID topologies. Hierarchy still assumes **one parent per child**;
+do not point multiple parent Controllers at the same remote child. See
+[Configure a Hierarchy of Scenes](./configure-hierarchy-of-scenes.md).
 
 On one host, remote children still use the same remote-child link UI and MQTT
 `DATA_EXTERNAL` path as controllers on different machines. The only difference
@@ -32,6 +32,9 @@ is networking: publish unique host ports and give each service a stable DNS
 name on a shared Docker network.
 
 ```mermaid
+---
+config: {"theme": "dark"}
+---
 flowchart LR
   subgraph host [Single host]
     subgraph parentStack [Parent stack]
@@ -51,8 +54,6 @@ flowchart LR
   CScene --> VDMS
 ```
 
----
-
 ## Prerequisites
 
 - Docker Compose and Scenescape images built or pulled (`make build-core` or
@@ -61,8 +62,6 @@ flowchart LR
 - Familiarity with [remote child linking](./configure-hierarchy-of-scenes.md#steps-to-add-a-remote-child-scene)
   and, if using identity matching,
   [enabling ReID](../../other-topics/how-to-enable-reidentification.md).
-
----
 
 ## Recommended Layout: One Compose Project, Prefixed Services
 
@@ -178,8 +177,6 @@ From the **parent** UI (or REST API):
 
 Full UI steps: [Add a remote child scene](./configure-hierarchy-of-scenes.md#steps-to-add-a-remote-child-scene).
 
----
-
 ## ReID Across Controllers (What Is Supported)
 
 ReID runs **inside each Scene Controller** (`REID_DATABASE`, client certs, vector
@@ -200,7 +197,7 @@ scenes **are** parent/child and you care how identity moves across that link.
 ### Who enrolls vs who only queries
 
 | Observation | Enrolls into the ReID DB? | May query the ReID DB? |
-|-------------|---------------------------|-------------------------|
+| ----------- | ------------------------- | ---------------------- |
 | Detection from a **camera on this controller** (pixel bbox passes `minimum_bbox_area`) | **Yes** (this scene owns the crop) | Yes |
 | Detection **forwarded from a child** (`retrack=True`) with vetted provenance | **Yes** when this scene has ReID **and** upstream did **not** claim `will_enroll` / `enrolled`: sole enroll on query-no-match; **enhance** the matched UUID's cluster after rematch. When the child stamps those write-authority flags, the parent still **queries** but must **not** write | Yes, if this controller has ReID |
 | Forwarded child detection with `retrack=False` | No | No (reid stripped; child id kept) |
@@ -222,7 +219,7 @@ write-authority flags on hierarchy reid provenance.
 env vars.
 
 | Child publish state | Local `metadata.reid` on hierarchy | Parent write behavior |
-|---------------------|------------------------------------|------------------------|
+| ------------------- | ---------------------------------- | --------------------- |
 | Schema not ready, or no successful DB write yet | **Withheld** (inherited vetted reid still relays) | Cannot sole-enroll those early local frames |
 | Schema ready **and** at least one successful `addEntry` | Forwarded; `will_enroll` / `enrolled` stamped **per track** that owns or is accumulating a write | Query yes; **skip** sole-enroll / enhance for claimed crops; short tracks without a claim remain parent-enrollable |
 | ReID DB writes failing **before** any confirmed write | Forwarded **without** `will_enroll` (passthrough); child **stops** local enrollment | Parent may sole-enroll |
@@ -231,7 +228,7 @@ env vars.
 | No ReID write intent (typical parent-only child: TLS default on, **no** ReID client certs) | Forwarded without `will_enroll` | Parent may sole-enroll |
 
 Details and edge cases (empty vector batches, cancelled flushes, multi-hop
-relays): [ADR 0015](../../../adr/0015-hierarchy-reid-provenance.md).
+relays): [ADR 0015](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0015-hierarchy-reid-provenance.md).
 
 ### Retrack when using ReID in a hierarchy
 
@@ -239,7 +236,7 @@ Children assign each track its own object UUID before forwarding. What the
 parent does with that depends on **Retrack**:
 
 | Retrack | Parent behavior | Identity outcome with ReID |
-|---------|-----------------|----------------------------|
+| ------- | --------------- | -------------------------- |
 | **Off** | Keeps the child’s UUID; **strips** forwarded reid; does not run parent UUID/ReID on that object | **No fusion.** If the child also enrolled under that UUID and the parent later enrolls the same person from a **parent camera**, the shared DB can hold **separate UUIDs** for one person. |
 | **On** | Re-tracks; **queries** with provenance; sole-enrolls on no-match; enhances matched UUID clusters with further forwarded vectors | Parent rematches IDs already in the DB, or becomes sole enroller when children have no ReID. |
 
@@ -251,7 +248,7 @@ authoritative and do **not** expect parent-level ReID fusion.
 ### Hierarchy: supported ReID layouts
 
 | Configuration | When to use |
-|---------------|-------------|
+| ------------- | ----------- |
 | **No ReID anywhere** in the hierarchy | Tracking / ROIs only |
 | **Shared ReID on parent and every camera-owning child** | Children rematch locally **and** enroll; they stamp `will_enroll` after the first successful write so the parent queries the same DB **without** re-enrolling the same crop |
 | **ReID on parent only; children forward embeddings** (no child ReID) | Children passthrough detector embeddings + provenance (no `will_enroll`); parent queries and **enrolls on no-match** under parent UUIDs |
@@ -285,12 +282,12 @@ Mount matching ReID client certificates. The DB needs a network alias matching
 For hierarchy rematch with a shared backend, **enable Retrack** (see
 [above](#retrack-when-using-reid-in-a-hierarchy)). Durable continuity across
 children that enroll is primarily **sequential** rematch
-([ADR 0015](../../../adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity)).
+([ADR 0015](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0015-hierarchy-reid-provenance.md)).
 
 ### Hierarchy: unsupported ReID mixes
 
 | Avoid **inside one hierarchy** | Why |
-|--------------------------------|-----|
+| ------------------------------ | --- |
 | **Split ReID databases** on different children (or child vs parent) when you expect one identity space | Enrollments do not join; parent cannot rematch across DBs |
 | **Some children on DB A, others on DB B** (or only some children on a DB) while expecting unified people at the parent | Competing / partial identity spaces |
 | **Children with ReID, parent without**, when you expect the parent to rematch via the DB | Parent never queries |
@@ -309,8 +306,6 @@ hostname for that instance.
 
 See also [Embeddings in a Scene Hierarchy](../../microservices/controller/Extended-ReID.md#embeddings-in-a-scene-hierarchy).
 
----
-
 ## Alternative: Multiple Compose Projects
 
 You can run `COMPOSE_PROJECT_NAME=parent` and `COMPOSE_PROJECT_NAME=child1` as
@@ -324,8 +319,6 @@ separate projects if you:
 
 Prefixed services in one project are usually easier to operate on a single
 machine.
-
----
 
 ## Validation Checklist
 
@@ -344,14 +337,12 @@ machine.
       UUIDs from child vs parent-camera enrollments).
 - [ ] Clocks stay aligned (single NTP or equivalent).
 
----
-
 ## Related Documentation
 
 - [Configure a hierarchy of scenes](./configure-hierarchy-of-scenes.md) — local vs remote linking, retrack, rates
 - [How to enable re-identification](../../other-topics/how-to-enable-reidentification.md) — single-stack ReID enablement
 - [Extended ReID](../../microservices/controller/Extended-ReID.md) — provenance and enrollment policy
-- [ADR 0015: Hierarchy ReID provenance](../../../adr/0015-hierarchy-reid-provenance.md) — design rationale
+- [ADR 0015: Hierarchy ReID provenance](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0015-hierarchy-reid-provenance.md) — design rationale
 - Test compose reference: `tests/compose/hierarchy/`
 - Functional coverage: `tests/functional/test_hierarchy_reid_db_scope.py`
-- Agent fixture notes: [multi-controller hierarchy fixtures](../../../../.github/skills/testing/references/functional-tests.md#multi-controller-hierarchy-fixtures)
+- Agent fixture notes: [multi-controller hierarchy fixtures](https://github.com/open-edge-platform/scenescape/blob/main/.github/skills/testing/references/functional-tests.md)

@@ -32,10 +32,10 @@ COPY autocalibration/src/reloc/patches /tmp/reloc-patches
 COPY autocalibration/src/reloc/new-files /tmp/reloc-new-files
 COPY autocalibration/src/reloc/tests /tmp/reloc-tests
 
-# Clone and patch hloc from latest main
-RUN git clone https://github.com/cvg/Hierarchical-Localization.git /tmp/reloc && \
-    cd /tmp/reloc && \
-    git checkout c13273b && \
+# hloc source is fetched on the host by `make vendor-deps` (see autocalibration/Makefile)
+# to avoid GitHub's unauthenticated-download rate limiting inside the container build.
+COPY autocalibration/.vendor/reloc /tmp/reloc
+RUN cd /tmp/reloc && \
     # Apply patches in order (using -p0 as paths are relative to repo root)
     patch -p0 < /tmp/reloc-patches/00-top-level-files.patch && \
     patch -p0 < /tmp/reloc-patches/01-core-modifications.patch && \
@@ -54,13 +54,13 @@ RUN git clone https://github.com/cvg/Hierarchical-Localization.git /tmp/reloc &&
     rm -rf /tmp/reloc/.git
 
 # Build wheels in parallel (this changes when source or dependencies change)
-# Clone AprilTag
-RUN git clone --depth=1 https://github.com/duckietown/lib-dt-apriltags.git /tmp/apriltag/apriltag-dev
+# AprilTag source (including its 'apriltags' submodule) is fetched on the host by
+# `make vendor-deps` to avoid GitHub's unauthenticated-download rate limiting.
+COPY autocalibration/.vendor/apriltag-dev /tmp/apriltag/apriltag-dev
 
 # Build AprilTag
 WORKDIR /tmp/apriltag/apriltag-dev
-RUN git submodule update --init && \
-    mkdir build
+RUN mkdir build
 
 WORKDIR /tmp/apriltag/apriltag-dev/build
 RUN cmake ../apriltags/ && make -j$(nproc)
@@ -99,7 +99,7 @@ LABEL org.opencontainers.image.description="Scenescape's Autocalibration Service
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/microservices/auto-calibration/auto-calibration.md"
 
 # Define build arguments and environment variables first
 ARG USER_ID=1000
@@ -141,9 +141,6 @@ COPY --from=autocalibration-builder /usr/local/lib/python3.11/site-packages/scen
 
 # Copy AprilTag shared library
 COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.11/site-packages/dt_apriltags/
-
-# Upgrade pip to latest version
-RUN pip install --no-cache-dir --upgrade pip
 
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/

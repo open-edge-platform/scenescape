@@ -105,9 +105,9 @@ SECRET_KEY=$(python3 -c \
 echo -n "$SUPASS" > "$SECRETSDIR/supass"
 
 # Keep generated secrets owned by the deployment directory owner even when the
-# script is launched through an elevated shell. Restrict all material to that
-# owner; Docker Compose secrets remain readable by the invoking owner and are
-# mounted with container-side permissions by Docker.
+# script is launched through an elevated shell. Private material stays 0600;
+# public CA/certs are 0644 so containers that do not run as the host UID
+# (e.g. video-analytics as intelmicroserviceuser) can still load TLS trust.
 chown -R "$OWNER_UID:$OWNER_GID" "$SECRETSDIR"
 python3 - "$SECRETSDIR" <<'PY'
 import sys
@@ -115,8 +115,14 @@ from pathlib import Path
 
 root = Path(sys.argv[1])
 root.chmod(0o700)
+public_suffixes = {".pem", ".crt"}
 for path in root.rglob("*"):
-  path.chmod(0o700 if path.is_dir() else 0o600)
+  if path.is_dir():
+    path.chmod(0o700)
+  elif path.suffix in public_suffixes and path.name != "scenescape-ca.key":
+    path.chmod(0o644)
+  else:
+    path.chmod(0o600)
 PY
 
 echo ""

@@ -329,7 +329,8 @@
           "radius": 2.5,
           "center": [3.81, 4.59],
           "translation": [3.81, 4.59, 0.0],
-          "singleton_type": "environmental"
+          "singleton_type": "environmental",
+          "visible": false
         }
       }
     ]
@@ -379,7 +380,8 @@
               "radius": 2.5,
               "center": [3.81, 4.59],
               "translation": [3.81, 4.59, 0.0],
-              "singleton_type": "environmental"
+              "singleton_type": "environmental",
+              "visible": false
             },
             {
               "uid": "${SENSOR_UID_FULL}",
@@ -391,6 +393,7 @@
               "center": [3.81, 4.59],
               "translation": [3.81, 4.59, 0.0],
               "singleton_type": "attribute",
+              "visible": false,
               "color_ranges": {
                 "sectors": [
                   {
@@ -417,6 +420,7 @@
               "area": "scene",
               "translation": [null, null, 0.0],
               "singleton_type": "attribute",
+              "visible": false,
               "color_ranges": {
                 "sectors": [
                   {
@@ -448,6 +452,7 @@
               ],
               "translation": [null, null, 0.0],
               "singleton_type": "attribute",
+              "visible": false,
               "color_ranges": {
                 "sectors": [
                   {
@@ -487,6 +492,34 @@
         },
         "expected_status": {
           "status_code": 200
+        }
+      },
+      {
+        "step_name": "Update sensor visibility only",
+        "api": "sensor",
+        "method": "updateSensor",
+        "request": {
+          "uid": "${SENSOR_UID_MINIMAL}",
+          "body": {
+            "visible": true
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify sensor visibility was updated",
+        "api": "sensor",
+        "method": "getSensor",
+        "request": {
+          "uid": "${SENSOR_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "visible": true
         }
       }
     ]

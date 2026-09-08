@@ -32,6 +32,9 @@ The markerless calibration path uses a Hierarchical Localization (HLoc) workflow
 ## Flow Diagram: Registration and Localization
 
 ```mermaid
+---
+config: {"theme": "dark"}
+---
 flowchart TD
     A[Polycam zip uploaded] --> B[Preprocess dataset and transform to Scenescape layout]
     B --> C[Registration start]

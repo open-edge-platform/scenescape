@@ -20,6 +20,7 @@ from controller.uuid_manager import (
   DEFAULT_SIMILARITY_THRESHOLD_L2,
   DEFAULT_SIMILARITY_THRESHOLD_COSINE,
 )
+import controller.uuid_manager as uuid_manager_mod
 
 from controller.reid import ReidNoValidVectorsError, ReidPartialWriteError, ReidWriteSupersededError
 from controller.moving_object import MovingObject, ReidState, Chronoloc
@@ -42,10 +43,15 @@ def call_update_active_dict_locked(manager, sscape_object, database_id, similari
 def mock_vdms_db():
   """Patch the backend registry lookup so all tests use a fake backend."""
   mock_vdms_db = MagicMock()
+  # Default: retention off so connectDatabase does not start a purge timer.
+  mock_vdms_db.retentionEnabled.return_value = False
 
   with patch('controller.uuid_manager.create_reid_database',
              return_value=mock_vdms_db):
     yield mock_vdms_db
+  # Drop process-wide purge ownership left by tests that enable retention.
+  with uuid_manager_mod._PURGE_OWNER_LOCK:
+    uuid_manager_mod._PURGE_OWNER = None
 
 
 class TestUUIDManagerInitialization:
@@ -903,6 +909,53 @@ class TestDimensionInference:
     assert "track_2" not in manager.quality_features, "128-dim embedding should be rejected after 64 inferred"
 
 
+class TestDescriptorPurgeTimer:
+  """Process-wide reclaim timer that calls backend purgeExpired()."""
+
+  def test_purge_timer_not_started_on_init(self, mock_vdms_db):
+    mock_vdms_db.retentionEnabled.return_value = True
+    manager = UUIDManager()
+    assert manager.purge_timer is None
+    assert manager._owns_purge_timer is False
+    manager.shutdown()
+
+  def test_purge_timer_not_started_when_retention_disabled(self, mock_vdms_db):
+    manager = UUIDManager()
+    manager.connectDatabase()
+    assert manager.purge_timer is None
+    assert manager._owns_purge_timer is False
+    manager.shutdown()
+
+  def test_purge_timer_starts_on_connect_when_retention_enabled(self, mock_vdms_db):
+    mock_vdms_db.retentionEnabled.return_value = True
+    manager = UUIDManager()
+    manager.connectDatabase()
+    assert manager.purge_timer is not None
+    assert manager._owns_purge_timer is True
+    manager.shutdown()
+    assert manager.purge_timer is None
+    assert manager._owns_purge_timer is False
+
+  def test_only_one_manager_owns_purge_timer(self, mock_vdms_db):
+    mock_vdms_db.retentionEnabled.return_value = True
+    first = UUIDManager()
+    second = UUIDManager()
+    first.connectDatabase()
+    second.connectDatabase()
+    assert first._owns_purge_timer is True
+    assert first.purge_timer is not None
+    assert second._owns_purge_timer is False
+    assert second.purge_timer is None
+    first.shutdown()
+    second.shutdown()
+
+  def test_purge_expired_descriptors_invokes_backend(self, mock_vdms_db):
+    mock_vdms_db.retentionEnabled.return_value = True
+    mock_vdms_db.purgeExpired.return_value = 2
+    manager = UUIDManager()
+    manager._purgeExpiredDescriptors()
+    mock_vdms_db.purgeExpired.assert_called_once()
+    manager.shutdown()
 def _make_reid_object(rv_id, *, bbox_area=None, provenance=None, embedding=None):
   """Build a detection whose embedding is either locally observed or forwarded to us."""
   obj = MagicMock()

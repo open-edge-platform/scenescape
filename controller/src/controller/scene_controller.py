@@ -244,9 +244,6 @@ class SceneController:
     return
 
   def publishDetections(self, scene, objects, ts, otype, jdata, camera_id):
-    if not hasattr(scene, 'lastPubCount'):
-      scene.lastPubCount = {}
-
     if not hasattr(scene, 'last_published_detection'):
       scene.last_published_detection = defaultdict(lambda: None)
     metric_attributes = {
@@ -263,36 +260,31 @@ class SceneController:
     return last is None or now - last >= max_delay
 
   def publishSceneDetections(self, scene, objects, otype, jdata):
-    # Full rate output (30fps): exclude sensor data for performance
+    # Free-run unregulated output for analytics. Empty objects lists are
+    # intentional: no detections is state. Rate limiting belongs only on
+    # analytics' regulated topic.
     jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=False)
-    olen = len(jdata['objects'])
-    cid = scene.name + "/" + otype
-    if olen > 0 or cid not in scene.lastPubCount or scene.lastPubCount[cid] > 0:
-      if 'debug_hmo_start_time' in jdata:
-        jdata['debug_hmo_processing_time'] = get_epoch_time() - jdata['debug_hmo_start_time']
-      # Convert numpy types to native Python types for JSON serialization
-      jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
-      new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
-                                     thing_type=otype)
-      self.pubsub.publish(new_topic, jstr)
-      self.publishExternalDetections(scene, otype, objects, jdata)
-      scene.lastPubCount[cid] = olen
+    if 'debug_hmo_start_time' in jdata:
+      jdata['debug_hmo_processing_time'] = get_epoch_time() - jdata['debug_hmo_start_time']
+    # Convert numpy types to native Python types for JSON serialization
+    jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
+    new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
+                                   thing_type=otype)
+    self.pubsub.publish(new_topic, jstr)
+    self.publishExternalDetections(scene, otype, objects, jdata)
     return
 
   def publishExternalDetections(self, scene, otype, objects, jdata_base):
-    # Hierarchy output for parent scenes. Root scenes (no parent) have no
-    # hierarchy consumer for this path — skip rather than publishing onto
-    # scenescape/external/{scene_uid}/+ (publisher id = this scene).
-    if not getattr(scene, 'parent', None):
-      return
-
-    # External rate output (0.5fps)
+    # Hierarchy output onto scenescape/external/{scene_uid}/+. Parents that
+    # care (local or remote via ChildSceneController) subscribe; this
+    # instance drops its own no-parent echoes cheaply in
+    # handleMovingObjectMessage before schema/NTP work.
     now = get_epoch_time()
     if self.shouldPublish(scene.last_published_detection[otype], now, 1/scene.external_update_rate):
       scene.last_published_detection[otype] = get_epoch_time()
 
       # Rebuild detections list with sensor data included
-      reid_policy = self._hierarchyReidPublishPolicy(scene)
+      reid_policy = self._hierarchyReidPublishPolicy(scene, otype)
       will_enroll = reid_policy == 'will_enroll'
       jdata = jdata_base.copy()
       jdata['objects'] = buildDetectionsList(
@@ -325,7 +317,7 @@ class SceneController:
               and os.path.exists(get_reid_client_key()))
     return True
 
-  def _hierarchyReidPublishPolicy(self, scene):
+  def _hierarchyReidPublishPolicy(self, scene, category):
     """
     Decide how hierarchy output should treat ReID embeddings for this scene.
 
@@ -345,8 +337,8 @@ class SceneController:
         Local enrollment also stops in those handoff modes so the child does not
         keep writing under passthrough.
     """
-    tracker = getattr(scene, 'tracker', None)
-    uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
+    category_tracker = getattr(getattr(scene, 'tracker', None), 'trackers', {}).get(category)
+    uuid_manager = getattr(category_tracker, 'uuid_manager', None)
     if uuid_manager is None:
       return 'passthrough'
     if not self._sceneHasReidWriteIntent():
@@ -368,8 +360,8 @@ class SceneController:
 
   def _trackHasReidEnrollment(self, scene, aobj):
     """True when this track owns or is accumulating a local ReID write."""
-    tracker = getattr(scene, 'tracker', None)
-    uuid_manager = getattr(tracker, 'uuid_manager', None) if tracker is not None else None
+    category_tracker = getattr(getattr(scene, 'tracker', None), 'trackers', {}).get(aobj.category)
+    uuid_manager = getattr(category_tracker, 'uuid_manager', None)
     if uuid_manager is None:
       return False
     rv_id = getattr(aobj, 'rv_id', None)
@@ -394,6 +386,17 @@ class SceneController:
 
     topic = PubSub.parseTopic(message.topic)
     jdata = orjson.loads(message.payload.decode('utf-8'))
+
+    # Own hierarchy echo: this instance published to external/{own_uid}/+
+    # and the wildcard subscription delivered it back. A local scene with
+    # no parent has no hierarchy consumer on this broker — drop before
+    # schema validation, NTP sync, or child-object handling. Remote-child
+    # payloads arrive on the parent via ChildSceneController; there
+    # sceneWithID(child_uid) is None so this check does not fire.
+    if topic.get('_topic_id') == PubSub.DATA_EXTERNAL and 'source_id' not in jdata:
+      local = self.cache_manager.sceneWithID(topic['scene_id'])
+      if local is not None and not getattr(local, 'parent', None):
+        return
 
     metric_attributes = {
         "topic": message.topic,

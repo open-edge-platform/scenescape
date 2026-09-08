@@ -227,6 +227,7 @@ class SingletonSerializer(NonNullSerializer):
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
+    visibility_only = is_update and set(validated_data) == {'visible'}
 
     scene_uid = validated_data.pop('scene', None)
     if scene_uid is not None:
@@ -255,8 +256,8 @@ class SingletonSerializer(NonNullSerializer):
     if color_ranges:
       SingletonScalarThresholdSerializer.linkSingletonScalarThreshold(instance, color_ranges)
 
-    # notify that DB has been updated
-    instance.notifydbupdate()
+    if not visibility_only:
+      instance.notifydbupdate()
     return instance
 
   def create(self, validated_data):
@@ -268,7 +269,7 @@ class SingletonSerializer(NonNullSerializer):
   class Meta:
     model = SingletonSensor
     fields = ['id', 'uid', 'scene', 'sensor_id', 'name', 'area', 'points', 'radius',
-              'center', 'translation', 'singleton_type', 'color_ranges']
+              'center', 'translation', 'singleton_type', 'color_ranges', 'visible']
 
 class CamSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
@@ -316,7 +317,7 @@ class CamSerializer(NonNullSerializer):
     if not is_update:
       sensor_id = validated_data.get('sensor_id', None)
       if sensor_id is None:
-        sensor_id = self.initial_data.get('name')
+        sensor_id = validated_data.get('name')
         if sensor_id is not None:
           sensor_id = sensor_id.replace(" ", "_")
         validated_data['sensor_id'] = sensor_id
@@ -407,6 +408,9 @@ class CamSerializer(NonNullSerializer):
     return
 
   def create_camera_instance(self, instance):
+    if instance.scene is None:
+      return
+
     if instance.cam.transforms is None:
       return
 
@@ -487,7 +491,8 @@ class CamSerializer(NonNullSerializer):
     return camera.pose.scale if camera and hasattr(camera, 'pose') else None
 
   def validate(self, data):
-    if 'name' not in data:
+    is_relink_only = self.partial and set(self.initial_data.keys()) <= {'scene'}
+    if not is_relink_only and 'name' not in data:
       raise serializers.ValidationError({'name': ['This field is required.']})
     _validate_scene_exists(data)
     if data.get('use_camera_pipeline') and not data.get('camera_pipeline'):
@@ -513,6 +518,7 @@ class RegionSerializer(NonNullSerializer):
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
+    visibility_only = is_update and set(validated_data) == {'visible'}
 
     scene_uid = validated_data.pop('scene', None)
     if scene_uid is not None:
@@ -534,8 +540,8 @@ class RegionSerializer(NonNullSerializer):
     if color_ranges:
       RegionOccupancyThresholdSerializer.linkRegionOccupancyThreshold(instance, color_ranges)
 
-    # notify that DB has been updated
-    instance.notifydbupdate()
+    if not visibility_only:
+      instance.notifydbupdate()
     return instance
 
   def create(self, validated_data):
@@ -549,12 +555,13 @@ class RegionSerializer(NonNullSerializer):
 
   class Meta:
     model = Region
-    fields = ['uid', 'name', 'points', 'scene', 'buffer_size', 'height', 'volumetric', 'color_ranges']
+    fields = ['uid', 'name', 'points', 'scene', 'buffer_size', 'height', 'volumetric', 'color_ranges',
+              'visible']
 
 class TripwireSerializer(RegionSerializer):
   class Meta:
     model = Tripwire
-    fields = ['uid', 'name', 'points', 'height', 'scene']
+    fields = ['uid', 'name', 'points', 'height', 'scene', 'visible']
 
 class MapCornersLLAField(serializers.JSONField):
   """Accept a parsed list or a JSON string (multipart form posts)."""
@@ -1019,21 +1026,36 @@ class ChildSceneSerializer(NonNullSerializer):
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
     parent_scene = validated_data.get('parent')
-    child_type = validated_data.get('child_type')
+
+    cache_fields = {'cached_tripwires', 'cached_rois'}
+    if is_update and set(validated_data.keys()).issubset(cache_fields):
+      update_values = {k: validated_data[k] for k in validated_data.keys()}
+      ChildScene.objects.filter(pk=instance.pk).update(**update_values)
+      for key, value in update_values.items():
+        setattr(instance, key, value)
+      return instance
+
+    # For partial updates, inherit current type from instance
+    effective_child_type = validated_data.get('child_type')
+    if is_update and effective_child_type is None:
+      effective_child_type = instance.child_type
 
     if is_update:
-      if child_type == "remote":
+      if effective_child_type == "remote":
+        # Keep remote fields intact; just ensure local child FK is null
         validated_data['child'] = None
       else:
+        # Local child: clear remote-only fields
         validated_data['child_name'] = None
         validated_data['host_name'] = None
         validated_data['mqtt_username'] = None
         validated_data['mqtt_password'] = None
-        if instance.child:
+        validated_data['remote_child_id'] = None
+        if instance.child and parent_scene is not None:
           SceneSerializer.check_circular_dependency(parent_scene, instance.child)
       return super().update(instance, validated_data)
 
-    if child_type == "local" and validated_data.get('child'):
+    if effective_child_type == "local" and validated_data.get('child'):
       SceneSerializer.check_circular_dependency(parent_scene, validated_data['child'])
 
     return super().create(validated_data)
@@ -1049,6 +1071,7 @@ class ChildSceneSerializer(NonNullSerializer):
     fields = ['uid', 'child_type', 'transform', 'name', 'remote_child_id', \
           'child', 'parent', 'host_name', 'child_name', \
           'mqtt_username', 'mqtt_password', 'retrack', 'transform_type', \
+          'cached_rois', 'cached_tripwires', \
           'transform1', 'transform2', 'transform3', 'transform4', \
           'transform5', 'transform6', 'transform7', 'transform8', \
           'transform9', 'transform10', 'transform11', 'transform12', \

@@ -539,6 +539,62 @@ class TestUpdateSubscriptions:
     assert service.subscribed == set()
 
 
+class TestCatalogPublish:
+
+  def _tripwire_result(self, rows=None, errors=None):
+    result = MagicMock()
+    result.errors = errors
+    result.get.return_value = rows or []
+    return result
+
+  def test_publish_tripwires_is_retained(self):
+    service = _service()
+    service.cache_manager.data_source.getTripwires.return_value = self._tripwire_result([
+      {'name': 'tw', 'uid': 'u1', 'points': [[0, 0], [1, 1]]},
+    ])
+
+    service.publishTripwiresForScene(SimpleNamespace(uid='scene1'))
+
+    service.pubsub.publish.assert_called_once()
+    topic, payload = service.pubsub.publish.call_args.args
+    kwargs = service.pubsub.publish.call_args.kwargs
+    assert topic == PubSub.formatTopic(PubSub.DATA_CHILD_TRIPWIRES, scene_id='scene1')
+    assert kwargs['qos'] == 1
+    assert kwargs['retain'] is True
+    assert orjson.loads(payload) == [
+      {'title': 'tw', 'uuid': 'u1', 'points': [[0, 0], [1, 1]]},
+    ]
+
+  def test_publish_tripwires_skips_when_rest_fails(self):
+    service = _service()
+    service.cache_manager.data_source.getTripwires.return_value = self._tripwire_result(
+      errors=['boom'])
+
+    service.publishTripwiresForScene(SimpleNamespace(uid='scene1'))
+
+    service.pubsub.publish.assert_not_called()
+
+  def test_clears_retained_catalog_when_scene_removed(self):
+    service = _service()
+    service.scenes = [SimpleNamespace(uid='scene1', sensors={})]
+    service.subscribed = set()
+    service.cache_manager.allScenes.return_value = []
+
+    service.updateSubscriptions()
+
+    published = {
+      call.args[0]: orjson.loads(call.args[1])
+      for call in service.pubsub.publish.call_args_list
+    }
+    trip_topic = PubSub.formatTopic(PubSub.DATA_CHILD_TRIPWIRES, scene_id='scene1')
+    roi_topic = PubSub.formatTopic(PubSub.DATA_CHILD_ROIS, scene_id='scene1')
+    assert published[trip_topic] == []
+    assert published[roi_topic] == []
+    for call in service.pubsub.publish.call_args_list:
+      assert call.kwargs['retain'] is True
+      assert call.kwargs['qos'] == 1
+
+
 class TestUpdateRegulateCache:
 
   def test_pops_scenes_no_longer_present(self):

@@ -91,9 +91,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip to latest version
-RUN pip3 install --no-cache-dir --upgrade pip
-
 # Runtime dependencies
 COPY ./manager/requirements-runtime.txt /tmp
 RUN --mount=type=cache,target=/root/.cache/pip \

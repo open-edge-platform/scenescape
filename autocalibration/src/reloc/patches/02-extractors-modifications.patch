@@ -207,10 +207,9 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extra
 -            "keypoint_scores": [f.detection_scores for f in features],
 -            "descriptors": [f.descriptors.t() for f in features],
 -        }
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extractors/dog.py hloc/extractors/dog.py
---- /tmp/hloc-latest/hloc/extractors/dog.py	2026-01-16 16:13:56.813844948 -0700
-+++ hloc/extractors/dog.py	2026-01-16 16:16:08.549199485 -0700
-@@ -1,119 +1,114 @@
+--- /tmp/hloc-latest/hloc/extractors/dog.py
++++ hloc/extractors/dog.py
+@@ -1,119 +1,116 @@
 +# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 +# SPDX-License-Identifier: Apache-2.0
 +
@@ -222,13 +221,13 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extra
  import torch
 -from kornia.feature.laf import extract_patches_from_pyramid, laf_from_center_scale_ori
 +import pycolmap
- 
+
  from ..utils.base_model import BaseModel
- 
+
 +
  EPS = 1e-6
- 
- 
+
+
  def sift_to_rootsift(x):
 -    x = x / (np.linalg.norm(x, ord=1, axis=-1, keepdims=True) + EPS)
 -    x = np.sqrt(x.clip(min=EPS))
@@ -238,8 +237,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extra
 +  x = np.sqrt(x.clip(min=EPS))
 +  x = x / (np.linalg.norm(x, axis=-1, keepdims=True) + EPS)
 +  return x
- 
- 
+
+
  class DoG(BaseModel):
 -    default_conf = {
 -        "options": {
@@ -295,9 +294,11 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extra
 +        options['normalization'] = pycolmap.Normalization.L1_ROOT
 +      else:
 +        options['normalization'] = pycolmap.Normalization.L2
-+      self.sift = pycolmap.Sift(
-+          options=pycolmap.SiftExtractionOptions(options),
-+          device=getattr(pycolmap.Device, 'cuda' if use_gpu else 'cpu'))
++
++      sift_options = pycolmap.SiftExtractionOptions(options)
++      sift_device = getattr(pycolmap.Device, 'cuda' if use_gpu else 'cpu')
++      feature_options = pycolmap.FeatureExtractionOptions(sift=sift_options)
++      self.sift = pycolmap.Sift(options=feature_options, device=sift_device)
 +
 +    keypoints, scores, descriptors = self.sift.extract(image_np)
 +

@@ -457,5 +457,97 @@
         }
       }
     ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/17: Create camera without scene",
+    "test_steps": [
+      {
+        "step_name": "Create orphan camera without scene",
+        "api": "camera",
+        "method": "createCamera",
+        "request": {
+          "body": {
+            "name": "Camera_Without_Scene"
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "ORPHAN_CAMERA_UID": "uid"
+        }
+      },
+      {
+        "step_name": "Verify orphan camera was created",
+        "api": "camera",
+        "method": "getCamera",
+        "request": {
+          "uid": "${ORPHAN_CAMERA_UID}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Camera_Without_Scene"
+        }
+      },
+      {
+        "step_name": "Delete orphan camera",
+        "api": "camera",
+        "method": "deleteCamera",
+        "request": {
+          "uid": "${ORPHAN_CAMERA_UID}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/18: Create camera with integer name",
+    "test_steps": [
+      {
+        "step_name": "Create camera with numeric name",
+        "api": "camera",
+        "method": "createCamera",
+        "request": {
+          "body": {
+            "name": 0
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "NUMERIC_NAME_CAMERA_UID": "uid"
+        }
+      },
+      {
+        "step_name": "Verify numeric name was converted to string",
+        "api": "camera",
+        "method": "getCamera",
+        "request": {
+          "uid": "${NUMERIC_NAME_CAMERA_UID}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "0"
+        }
+      },
+      {
+        "step_name": "Delete camera with numeric name",
+        "api": "camera",
+        "method": "deleteCamera",
+        "request": {
+          "uid": "${NUMERIC_NAME_CAMERA_UID}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
   }
 ]

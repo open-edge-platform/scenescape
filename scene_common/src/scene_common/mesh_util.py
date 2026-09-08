@@ -116,7 +116,22 @@ def mergeMesh(scene):
   if isinstance(merged_mesh, trimesh.PointCloud):
     log.warning("Merged mesh is a PointCloud, returning original scene.")
     return scene
-  merged_mesh.fix_normals()
+
+  # Sanitize out-of-bounds face indices before any operation that builds a
+  # vertex-indexed structure (e.g. fix_normals' sparse adjacency matrix).
+  # Concatenating malformed submeshes can leave faces referencing vertices
+  # past the end of the merged vertex array.
+  valid_face_mask = np.all(merged_mesh.faces < len(merged_mesh.vertices), axis=1)
+  if not valid_face_mask.all():
+    n_dropped = (~valid_face_mask).sum()
+    log.warning(f"Dropping {n_dropped} out-of-bounds face(s) from merged mesh.")
+    merged_mesh.update_faces(valid_face_mask)
+
+  try:
+    merged_mesh.fix_normals()
+  except Exception as e:
+    log.warning(f"fix_normals failed on merged mesh, continuing without normal fix: {e}")
+
   merged_mesh.metadata['name'] = 'mesh_0'
   return merged_mesh
 

@@ -11,6 +11,53 @@ import numpy as np
 from .common_types import PipelineGenerationValueError
 from .pipeline_generator import PipelineGenerator
 
+def load_model_config(modelconfig_name=None):
+  """Load model-config JSON from MODEL_CONFIGS_FOLDER.
+
+  Restricts ``modelconfig_name`` to a basename and verifies the resolved path
+  stays within the configured model-configs directory (blocks traversal and
+  symlink escapes). OS errors are reported without filesystem path details.
+  """
+  configs_folder = Path(
+    os.environ.get('MODEL_CONFIGS_FOLDER', '/models/model_configs')).resolve()
+  # `or` handles empty/None names the same way create-time defaults do
+  filename = Path(modelconfig_name or 'model_config.json').name
+  if not filename or filename in ('.', '..'):
+    raise PipelineGenerationValueError("Model config filename cannot be empty.")
+
+  model_config_path = (configs_folder / filename).resolve()
+  try:
+    model_config_path.relative_to(configs_folder)
+  except ValueError as e:
+    raise PipelineGenerationValueError("Invalid model config path.") from e
+
+  if not model_config_path.is_file():
+    raise PipelineGenerationValueError(
+      f"Model config file '{filename}' does not exist.")
+
+  try:
+    with open(model_config_path, 'r') as f:
+      model_config = json.load(f)
+  except json.JSONDecodeError as e:
+    raise PipelineGenerationValueError(
+      "Model config file is not valid JSON.") from e
+  except OSError as e:
+    raise PipelineGenerationValueError(
+      "Unable to read model config file.") from e
+
+  # Enforce the expected {model_name: {params: ...}} shape so malformed
+  # (but JSON-valid) configs fail with a clear message instead of crashing later.
+  if not isinstance(model_config, dict):
+    raise PipelineGenerationValueError(
+      "Model config file must contain a JSON object mapping model names to their config.")
+  for model_name, entry in model_config.items():
+    if not isinstance(entry, dict):
+      raise PipelineGenerationValueError(
+        f"Model config entry for '{model_name}' must be a JSON object.")
+
+  return model_config
+
+
 # TODO: Move the method to pipeline_generator.py
 def create_pipeline_generator_from_dict(form_data_dict):
   """Create PipelineGenerator object from data dictionary and model config.
@@ -18,18 +65,7 @@ def create_pipeline_generator_from_dict(form_data_dict):
   is taken from the environment variable MODEL_CONFIGS_FOLDER, defaults to /models/model_configs.
   """
   # `or` operator is used on purpose because `modelconfig` key may exist with value set to None
-  model_config_path = Path(
-    os.environ.get(
-      'MODEL_CONFIGS_FOLDER',
-      '/models/model_configs')) / (form_data_dict.get(
-    'modelconfig') or 'model_config.json')
-  if not model_config_path.is_file():
-    raise PipelineGenerationValueError(
-      f"Model config file '{model_config_path}' does not exist.")
-
-  with open(model_config_path, 'r') as f:
-    model_config = json.load(f)
-
+  model_config = load_model_config(form_data_dict.get('modelconfig'))
   return PipelineGenerator(form_data_dict, model_config)
 
 
