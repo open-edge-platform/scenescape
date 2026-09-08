@@ -48,7 +48,10 @@ Defined in `tests/utils/spec.py`:
 | `auth`             | `AUTH_CONTROLLER` or `AUTH_BROWSER`                 |
 | `require_password` | Default `True`                                      |
 | `extra_args`       | Extra `--key value` pairs for params                |
-| `exampledb`        | Override baseline DB (e.g. `calibrationdb.tar.bz2`) |
+
+Baseline scenes are selected per-profile via `_PROFILE_SCENE_ARCHIVES` in
+`tests/conftest.py` (keys into `tests/utils/scene_baseline.SCENE_ARCHIVES`),
+not via a `FuncTestSpec` field.
 
 ## Integration-style tests
 

@@ -190,7 +190,7 @@ Each pipeline can have a separate `intrinsics.json` file. The DeepScenario scrip
 
 ### 6. Modify Docker Compose Configuration
 
-Edit the `sample_data/docker-compose-dl-streamer-example.yml` file to disable the `retail` and `queuing` video services and enable the `deepscenario` service:
+Edit the `sample_data/compose/docker-compose-dl-streamer-example.yml` file to disable the `retail` and `queuing` video services and enable the `deepscenario` service:
 
 **Remove the following sections:**
 
