@@ -172,6 +172,16 @@ class TestCameraViews(TestCase):
     self.assertIn('ss=cam-create', response.url)
     return
 
+  def test_cam_create_post_redirects_to_sheet(self):
+    response = self.client.post(reverse('cam_create'), data={
+      'sensor_id': '100',
+      'name': 'test_camera',
+      'scene': str(self.test_scene_id),
+    })
+    self.assertEqual(response.status_code, 302)
+    self.assertIn('ss=cam-create', response.url)
+    return
+
   def test_cam_create_with_scene_redirects_to_scene_sheet(self):
     response = self.client.get(
       reverse('cam_create'), data={'scene': str(self.test_scene_id)})

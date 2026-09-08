@@ -8,6 +8,7 @@ import os
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files import File
 from django.db import transaction
 
@@ -18,6 +19,7 @@ from scipy.spatial.transform import Rotation
 from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
   RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport
+from manager.validators import validate_camerachain
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
@@ -300,6 +302,19 @@ class CamSerializer(NonNullSerializer):
         else:
           raise serializers.ValidationError(f"orphaned camera with the name '{value}' already exists.")
     return value
+
+  def validate_camerachain(self, value):
+    """Reject camerachain values that reference models missing from model-config."""
+    modelconfig = None
+    if hasattr(self, 'initial_data') and 'modelconfig' in self.initial_data:
+      modelconfig = self.initial_data.get('modelconfig')
+    elif self.instance is not None:
+      modelconfig = self.instance.modelconfig
+    try:
+      return validate_camerachain(value, modelconfig or 'model_config.json')
+    except DjangoValidationError as e:
+      raise serializers.ValidationError(
+        e.messages if hasattr(e, 'messages') else [str(e)]) from e
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None

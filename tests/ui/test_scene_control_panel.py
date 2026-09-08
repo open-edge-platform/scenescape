@@ -217,7 +217,10 @@ def test_scene_control_panel(params, record_xml_attribute):
     interaction_page.unhide_control_panels()
 
     log.info("Navigate to scene details via scene name link.")
-    browser.find_element(By.ID, "scene-detail-link").click()
+    scene_link = browser.find_element(By.ID, "scene-detail-link")
+    scene_button = browser.find_element(By.ID, "scene-detail-button")
+    assert scene_link.get_attribute("href") == scene_button.get_attribute("href")
+    scene_link.click()
 
     log.info("AC(2) Check if URL has changed to scene details.")
     time.sleep(WAIT_SEC)

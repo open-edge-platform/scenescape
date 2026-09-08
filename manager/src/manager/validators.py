@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -7,10 +7,13 @@ import tempfile
 import uuid
 from zipfile import ZipFile
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 import open3d as o3d
 from PIL import Image
 from plyfile import PlyData
+
+from scene_common import log
 
 def validate_glb(value):
   with tempfile.NamedTemporaryFile(suffix=".glb") as glb_file:
@@ -171,3 +174,34 @@ def validate_map_corners_lla(value):
       raise ValidationError(f"Corner {i+1} longitude ({lon}) must be between -180 and 180 degrees.")
 
   return value
+
+def validate_camerachain(camerachain, modelconfig_filename=None):
+  """Reject camerachain values that reference models missing from model-config.
+
+  Shared by CamCalibrateForm and CamSerializer so form and REST paths agree.
+  """
+  from manager.ppl_generator import (
+    PipelineGenerationValueError,
+    PipelineGenerationNotImplementedError,
+    load_model_config,
+  )
+  from manager.ppl_generator.model_chain import parse_model_chain
+
+  camerachain = (camerachain or '').strip()
+  if not camerachain:
+    return camerachain
+
+  model_config_filename = modelconfig_filename or 'model_config.json'
+  try:
+    model_config = load_model_config(model_config_filename)
+    parse_model_chain(camerachain, settings.MODEL_ROOT, model_config)
+  except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
+    raise ValidationError(str(e)) from e
+  except Exception as e:
+    # Malformed (but JSON-valid) model configs can raise unexpected errors;
+    # convert to a safe validation message instead of a 500 and log details.
+    log.error(f"Unexpected error validating camerachain: {e}")
+    raise ValidationError(
+      "Unable to validate camera chain against model config.") from e
+
+  return camerachain
