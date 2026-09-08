@@ -238,7 +238,7 @@ class KubeClient():
     # volume mounts and volumes for the container
     # NOTE: k8s pipelines can only use rtsp:// camera sources — file:// sources
     # backed by a sample-data PVC are no longer supported here; the sample
-    # videos are served externally by sample_data/demo_scenes/docker-compose.yml.
+    # videos are served externally by sample_data/demo_scenes/docker-compose.video-source.yml.
     volume_mounts = [
       client.V1VolumeMount(name="video-config", mount_path="/home/pipeline-server/config.json", sub_path="config.yaml"),
       client.V1VolumeMount(name="sscape-gstplugins", mount_path="/home/sscape/python", read_only=True),

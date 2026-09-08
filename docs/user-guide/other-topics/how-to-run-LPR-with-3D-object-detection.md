@@ -185,7 +185,7 @@ Each pipeline can have a separate `intrinsics.json` file. The DeepScenario scrip
 
 ### 6. Modify Docker Compose Configuration
 
-Edit the `sample_data/compose/docker-compose-dl-streamer-example.yml` file to disable the `retail` and `queuing` video services and enable the `deepscenario` service:
+Edit the `sample_data/demo_scenes/docker-compose.video-source.yml` file to disable the `retail` and `queuing` video services and enable the `deepscenario` service:
 
 **Remove the following sections:**
 
@@ -207,11 +207,6 @@ deepscenario:
     - "8556:8554"
   devices:
     - "/dev/dri:/dev/dri"
-  depends_on:
-    broker:
-      condition: service_started
-    ntpserv:
-      condition: service_started
   environment:
     - RUN_MODE=EVA
     - DETECTION_DEVICE=CPU
@@ -237,6 +232,11 @@ deepscenario:
     - source: root-cert
       target: certs/scenescape-ca.pem
 ```
+
+`deepscenario` runs in the video-source stack alongside `retail-video`/`queuing-video`,
+not in `docker-compose.yml`, so it cannot use `depends_on` on `broker`/`ntpserv`
+(those services live in the main stack); it reaches them by hostname on the
+shared `scenescape` network once the main stack is up.
 
 Add `maxlag` option to the scene controller command:
 
@@ -272,8 +272,8 @@ scenescape/
 │               └── FP32/
 │                   ├── yolov8_license_plate_detector.xml
 │                   └── yolov8_license_plate_detector.bin
-└── sample_data/compose/
-    └── docker-compose-dl-streamer-example.yml
+└── sample_data/demo_scenes/
+    └── docker-compose.video-source.yml
 ```
 
 ### 8. Build and Run

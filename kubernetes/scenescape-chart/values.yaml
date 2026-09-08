@@ -102,7 +102,7 @@ kubeclient:
     pullPolicy: IfNotPresent
 
 # The "mediaserver" Service pointing at the standalone video-source stack
-# (sample_data/demo_scenes/docker-compose.yml) is NOT part of this chart;
+# (sample_data/demo_scenes/docker-compose.video-source.yml) is NOT part of this chart;
 # apply it separately, see kubernetes/README.md and
 # `make -C kubernetes mediaserver-up VIDEOSOURCE_IP=<ip>`.
 

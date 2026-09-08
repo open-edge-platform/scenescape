@@ -36,8 +36,13 @@ SECRETSDIR ?= $(CURDIR)/manager/secrets
 CERTDOMAIN ?= scenescape.intel.com
 
 # Demo variables
-DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
-DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
+SAMPLE_COMPOSE_DIR := sample_data/compose
+VIDEO_SOURCE_DIR := sample_data/demo_scenes
+VIDEO_SOURCE_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/docker-compose.video-source.yml
+DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(VIDEO_SOURCE_DIR)/Retail/video/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts) \
+	$(addprefix $(VIDEO_SOURCE_DIR)/Queuing/video/,qcam1.ts qcam2.ts) \
+	sample_data/videos/car-detection.ts
+DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/docker-compose-dl-streamer-example.yml
 DEMO_WAIT_SECONDS ?= "0"
 # Host directory with one subdirectory per demo scene (each holding a <name>.zip)
 DEMO_SCENES_DIR ?= sample_data/demo_scenes
@@ -51,8 +56,9 @@ UPLOAD_SCENES := tools/upload_scenes/upload-scenes
 # ReID vector backend used by the ReID demo targets: vdms (default) or qdrant
 REID_BACKEND ?= vdms
 REID_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/docker-compose.$(strip $(REID_BACKEND))-override.yml
+# retail-config/queuing-config now live in VIDEO_SOURCE_COMPOSE_FILE, not docker-compose.yml.
 REID_PIPELINE_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/docker-compose.reid-pipeline-override.yml
-REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE) -f $(REID_PIPELINE_OVERRIDE_FILE)
+REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE)
 DEMO_REBUILD_IMAGES ?= true
 # Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
 DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
@@ -685,6 +691,8 @@ init-sample-data: convert-dls-videos
 	@echo "Sample data volume initialized."
 
 # Helper target to start demo with compose
+# $(1): extra `docker compose` args for the main stack (e.g. profiles, ReID backend override)
+# $(2): extra `docker compose` args for the video-source stack (e.g. ReID pipeline override)
 define start_demo
 	@$(MAKE) docker-compose.yml
 	@$(MAKE) .env
@@ -709,6 +717,8 @@ define start_demo
 		echo "Starting Scenescape services in detached mode..."; \
 		docker compose $(1) up -d; \
 	fi
+	@$(MAKE) video-source-up VIDEO_SOURCE_ARGS="$(2)"
+	@$(MAKE) demo-scenes
 	@echo ""
 	@echo "To stop Scenescape, type:"
 	@echo "    docker compose $(1) down"
@@ -741,11 +751,11 @@ demo: $(DEMO_BUILD:build=build-core)
 
 .PHONY: demo-reid
 demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core)
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller))
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller),-f $(REID_PIPELINE_OVERRIDE_FILE))
 
 .PHONY: demo-all
 demo-all: check-reid-backend $(DEMO_BUILD:build=build-all)
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile mapping))
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile mapping),-f $(REID_PIPELINE_OVERRIDE_FILE))
 
 .PHONY: demo-cluster-analytics
 demo-cluster-analytics: $(DEMO_BUILD:build=build-all)
@@ -777,6 +787,18 @@ $(DLSTREAMER_SAMPLE_VIDEOS): $(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@echo "==> Converting sample videos for DLStreamer..."
 	@$(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@echo "DONE ==> Converting sample videos for DLStreamer..."
+
+# Video source (mediamtx + per-scene ffmpeg loopers + dlsps) lives outside the
+# core Scenescape stack; it joins the same "scenescape" Docker network so it
+# can reach the broker/ntpserv aliases and dlsps pipelines can be reached at
+# rtsp://mediaserver:8554/<camera-id>.
+.PHONY: video-source-up
+video-source-up: convert-dls-videos
+	SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose --project-directory . -f $(VIDEO_SOURCE_COMPOSE_FILE) $(VIDEO_SOURCE_ARGS) up -d
+
+.PHONY: video-source-down
+video-source-down:
+	-SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose --project-directory . -f $(VIDEO_SOURCE_COMPOSE_FILE) down
 
 .PHONY: .env
 .env:

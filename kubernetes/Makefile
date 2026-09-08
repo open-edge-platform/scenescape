@@ -149,11 +149,11 @@ generate-mediaserver-yaml:
 	sed -e "s|{VIDEOSOURCE_IP}|$(VIDEOSOURCE_IP)|g" -e "s|{VIDEOSOURCE_PORT}|$(VIDEOSOURCE_PORT)|g" -i setup/mediaserver.yaml
 
 # Deploys the "mediaserver" Service+EndpointSlice alongside the scenescape-chart,
-# pointing it at the host running sample_data/demo_scenes/docker-compose.yml.
+# pointing it at the host running sample_data/demo_scenes/docker-compose.video-source.yml.
 .PHONY: mediaserver-up
 mediaserver-up:
 	@if [ -z "$(VIDEOSOURCE_IP)" ]; then \
-	    echo "Set VIDEOSOURCE_IP=<ip of the host running sample_data/demo_scenes/docker-compose.yml>"; \
+	    echo "Set VIDEOSOURCE_IP=<ip of the host running sample_data/demo_scenes/docker-compose.video-source.yml>"; \
 	    exit 1; \
 	fi
 	$(MAKE) generate-mediaserver-yaml

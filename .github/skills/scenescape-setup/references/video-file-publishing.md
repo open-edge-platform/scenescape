@@ -26,7 +26,7 @@ host video file
 ```
 
 MediaMTX is the broker only. It matches SceneScape's standalone video-source compose stack
-(`sample_data/demo_scenes/docker-compose.yml` `mediaserver` + per-scene `*-cams`). This skill
+(`sample_data/demo_scenes/docker-compose.video-source.yml` `mediaserver` + per-scene `*-cams`). This skill
 does not own MediaMTX configuration beyond the default image and the `mediaserver` network alias.
 
 ## What bootstrap writes

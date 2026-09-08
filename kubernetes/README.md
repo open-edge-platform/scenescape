@@ -89,7 +89,7 @@ The chart does not run a media server or sample-video containers itself — DL
 Streamer Pipeline Server pipelines expect an RTSP source reachable at
 `rtsp://mediaserver:8554/<camera-id>`. To feed the demo scenes with the sample
 videos, run the standalone stack in
-[sample_data/demo_scenes/docker-compose.yml](../sample_data/demo_scenes/docker-compose.yml)
+[sample_data/demo_scenes/docker-compose.video-source.yml](../sample_data/demo_scenes/docker-compose.video-source.yml)
 on a host reachable from the cluster, then point the cluster's `mediaserver`
 Service at it:
 

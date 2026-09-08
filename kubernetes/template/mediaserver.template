@@ -3,7 +3,7 @@
 
 # Points the "mediaserver" hostname (hardcoded in the dlstreamer-pipeline-server
 # pipeline configs) at the standalone video-source stack
-# (../sample_data/demo_scenes/docker-compose.yml) running outside the cluster.
+# (../sample_data/demo_scenes/docker-compose.video-source.yml) running outside the cluster.
 # Deployed separately from the scenescape-chart, see kubernetes/README.md.
 # For a DNS name instead of a bare IP, replace this Service with an
 # ExternalName Service (spec: {type: ExternalName, externalName: <dns-name>})
