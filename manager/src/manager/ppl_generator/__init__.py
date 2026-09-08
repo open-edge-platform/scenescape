@@ -16,6 +16,9 @@ def __getattr__(name):
   elif name == "generate_pipeline_string_from_dict":
     from .config_generator import generate_pipeline_string_from_dict
     return generate_pipeline_string_from_dict
+  elif name == "load_model_config":
+    from .config_generator import load_model_config
+    return load_model_config
   else:
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
@@ -28,4 +31,5 @@ __all__ = [
   'PipelineConfigGenerator',
   'PipelineGenerator',
   'generate_pipeline_string_from_dict',
+  'load_model_config',
 ]

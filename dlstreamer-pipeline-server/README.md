@@ -117,7 +117,7 @@ To enable Scenescape pipelines to run on a specific GPU device of your choice (e
 
 By following these steps, only the selected GPU device will be available in the container. As a result, all DL Streamer Pipeline Server pipelines running in the container will use the GPU device of your choice.
 
-> **Note**: This setup cannot run two pipelines in the same container on different GPU devices. To work around that limitation, configure each pipeline as described in the [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html), but be aware that doing so disables cross-stream batching and may deliver lower throughput.
+> **Note**: This setup cannot run two pipelines in the same container on different GPU devices. To work around that limitation, configure each pipeline as described in the [DL Streamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html), but be aware that doing so disables cross-stream batching and may deliver lower throughput.
 
 ## Running on NPU
 

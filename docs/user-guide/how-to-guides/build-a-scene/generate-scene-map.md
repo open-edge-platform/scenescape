@@ -36,8 +36,8 @@ SUPASS=your_password make build-all
 
 This command will:
 
-- Build all core services (controller, manager, autocalibration, model_installer)
-- Build experimental services (mapping and cluster_analytics)
+- Build all core services
+- Build the mapping and cluster_analytics services
 - Generate security certificates and secrets
 - Install required AI models
 
@@ -55,19 +55,19 @@ SUPASS=your_password make demo-all
 
 For successive runs, you can use Docker Compose directly (see [Docker Compose Profiles](../../get-started/installation.md#docker-compose-profiles) for details on available profiles):
 
-### Launch all cores services and experimental services
+### Launch all core services with mapping and cluster analytics
 
 ```bash
-docker compose --profile experimental up -d
+docker compose --profile controller --profile mapping --profile cluster-analytics up -d
 ```
 
-### Launch all cores services and mapping service
+### Launch all core services and mapping service
 
 ```bash
-docker compose --profile mapping up -d
+docker compose --profile controller --profile mapping up -d
 ```
 
-> **Note**: The `--profile` flag allows you to selectively enable experimental services. Use `experimental` for both clustering and mapping, or `mapping` to start just the mapping service along with all core services.
+> **Note**: The `--profile` flag lets you selectively enable the mapping and cluster-analytics services. Combine `--profile mapping --profile cluster-analytics` to start both, or use `--profile mapping` to start just the mapping service along with all core services.
 
 ### Verify Services are Running
 
@@ -240,16 +240,16 @@ For optimal mesh generation results:
 To stop all Scenescape services:
 
 ```bash
-docker compose --profile controller --profile experimental down
+docker compose --profile controller --profile mapping --profile cluster-analytics down
 ```
 
 To stop services and remove volumes (this will delete all data):
 
 ```bash
-docker compose --profile controller --profile experimental down -v
+docker compose --profile controller --profile mapping --profile cluster-analytics down -v
 ```
 
-> **Note:** The `--profile` flags must match those used when starting the services. If you only started with `--profile controller`, omit `--profile experimental`. See [Docker Compose Profiles](../../get-started/installation.md#docker-compose-profiles) for details.
+> **Note:** The `--profile` flags must match those used when starting the services. If you only started with `--profile controller`, omit `--profile mapping`. See [Docker Compose Profiles](../../get-started/installation.md#docker-compose-profiles) for details.
 
 ---
 
@@ -269,7 +269,7 @@ If the mapping service remains unhealthy:
 If you do not see the "Generate Mesh" button:
 
 1. Verify mapping service is running: `docker compose ps | grep mapping`
-2. Ensure you're using the correct profile: `--profile mapping` or `--profile experimental`
+2. Ensure you're using the correct profile: `--profile mapping`
 3. Check that the mapping service shows as healthy
 4. Refresh the browser page after the service becomes healthy
 

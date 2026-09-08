@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Point cloud sampling, I/O, and transforms
+open3d-cpu[headless]==0.19.0
+
+# Numerical operations (transform matrices)
+numpy==2.2.6
+
+# Mesh loading for GLB scene meshes (used by scene_common.mesh_util)
+trimesh==4.11.5
+
+# HTTP requests to the perceptual-sensor calibration API
+requests==2.33.0
+
+# Shared Scenescape library (REST client, mesh utilities, logging).
+# Installed as an editable local package from the repository.
+-e ../../scene_common/src

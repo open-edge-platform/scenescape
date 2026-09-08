@@ -2,6 +2,15 @@
 
 A hierarchy of scenes can be created using a parent-child relationship, enabling scene analytics from multiple scenes — whether on the [same system](#steps-to-add-a-local-child-scene) or [different systems in same network](#steps-to-add-a-remote-child-scene) running Scenescape — to be visualized within a single parent scene. This hierarchy is not limited to a single level of relationship; it can be scaled upwards, allowing for multi-level parent-child configurations. By subscribing to the parent scene's events, you can observe the base analytics (such as regions of interest, tripwires, and sensors) of the parent scene, along with the transformed base analytics of all its child scenes, directly within the parent scene.
 
+> **Single parent per child:** Hierarchy is designed so each child scene has
+> **one** parent scene. A parent may have many children, and trees may be
+> multi-level (grandparent → parent → child), but the same child must not be
+> linked under more than one parent — neither as a local child in one Manager
+> database nor as a remote child from multiple parent Controllers. Multi-parent
+> fan-out (for example the same intersection under both a city scene and a
+> neighborhood scene) is unsupported: local links are one-to-one in the data
+> model, and remote ingest / ReID write authority assume a single parent.
+
 > **Same host, multiple Scene Controllers:** Local children share one controller.
 > To run several controllers on one machine and link them as remote children
 > (including sharing or splitting a ReID database), see
@@ -20,8 +29,6 @@ This task is essential for managing distributed scenes in Scenescape deployments
 - **Installed Dependencies**: Scenescape deployed on both systems.
 - **Network Access**: Verify systems can resolve each other's IP/hostname.
 - **Permissions**: Ensure access to modify `docker-compose.yml` and certificates.
-
----
 
 ## Steps to Add a Local Child Scene
 
@@ -43,8 +50,6 @@ _Figure 1: Creating new local child scene link._
 ![Local Child Saved](../../_assets/ui/local_child_saved.png "local child scene saved")
 
 _Figure 2: Local Child scene on scene detail page._
-
----
 
 ## Steps to Add a Remote Child Scene
 
@@ -77,7 +82,7 @@ _Figure 4: comment ntpserver for DL Streamer Pipeline Server in `docker-compose.
 
 _Figure 5: ntpserver config for DL Streamer Pipeline in `pipeline-config.json`._
 
-> **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` does not exist.
+> **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` does not exist.
 
 ### 2. Set Up Secure Communication
 
@@ -138,8 +143,6 @@ _Figure 6: Remote child scene on scene detail page._
 
 > **Note:** Scene names must be unique across parent and child systems.
 
----
-
 ## Retrack Objects in Parent Scene
 
 - Open the child link config in the UI.
@@ -151,8 +154,6 @@ _Figure 6: Remote child scene on scene detail page._
 
 _Figure 7: Toggle to re-track moving objects from child scene._
 
----
-
 ## Set Temporal Fidelity of Scene Updates
 
 - Navigate to the scene configuration.
@@ -163,8 +164,6 @@ _Figure 7: Toggle to re-track moving objects from child scene._
 ![Temporal Fidelity](../../_assets/ui/temporal-fidelity.png "temporal fidelity")
 
 _Figure 8: Set Regulate and External Update rate in scene config._
-
----
 
 ## Re-identification Support in Hierarchy
 
@@ -225,8 +224,6 @@ flags unset so the parent may sole-enroll on no-match.
 > Full matrix:
 > [ReID Across Controllers](./deploy-multi-controller-on-one-host.md#reid-across-controllers-what-is-supported).
 
----
-
 ## Understanding Transform Type and Values
 
 The child link's transform describes where the child scene's origin sits inside
@@ -246,8 +243,8 @@ A 4x4 [homogeneous transformation matrix](https://en.wikipedia.org/wiki/Transfor
 (row-major) mapping a point in the child scene's coordinate system to the
 parent scene's coordinate system:
 
-| | Column 1 | Column 2 | Column 3 | Column 4 |
-|---|---|---|---|---|
+|           | Column 1     | Column 2     | Column 3     | Column 4     |
+| --------- | ------------ | ------------ | ------------ | ------------ |
 | **Row 1** | Matrix (1,1) | Matrix (1,2) | Matrix (1,3) | Matrix (1,4) |
 | **Row 2** | Matrix (2,1) | Matrix (2,2) | Matrix (2,3) | Matrix (2,4) |
 | **Row 3** | Matrix (3,1) | Matrix (3,2) | Matrix (3,3) | Matrix (3,4) |
@@ -293,7 +290,7 @@ compute the equivalent matrix.
   convention as Euler above.
 - **Scale**: same meaning as in Euler.
 
-> **Tip**: If you don't know the exact offset/rotation between the two
+> **Tip:** If you do not know the exact offset/rotation between the two
 > scenes, start from the identity/default values (no translation, no
 > rotation, scale `1`), add the child scene, then adjust the values while
 > watching the child scene's analytics render in the parent scene map until

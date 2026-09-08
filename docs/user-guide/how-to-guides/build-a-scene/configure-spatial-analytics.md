@@ -1,10 +1,12 @@
 # Configure Spatial Analytics in Scenescape
 
-This guide provides step-by-step instructions to set up and use Regions of Interest (ROIs) and Tripwires in Scenescape. By completing this guide, you will:
+This guide provides step-by-step instructions to set up Regions of Interest (ROIs) and Tripwires in Scenescape through the web UI. By completing this guide, you will:
 
 - Understand the differences between Regions of Interest and Tripwires
 - Learn how to configure ROIs and Tripwires through the UI
 - Verify that events are properly triggered when objects interact with your defined analytics
+
+For MQTT topics, event schemas, REST discovery, and application code samples, see [Work with Spatial Analytics Data](../work-with-spatial-analytics-data.md).
 
 ---
 
@@ -39,353 +41,40 @@ Follow the steps in the [Installation Guide](../../get-started/installation.md) 
 2. Find your region in the Scene and double click on the polygon to edit its shape. Drag the vertices to refine their positions.
 3. Click `Save Regions and Tripwires` to persist your changes.
 
+#### Set 3D Visibility
+
+In the 3D scene view, expand `Regions Settings` or `Tripwires Settings`, then
+toggle `show` for the item. The visibility setting is saved immediately and is
+restored after refreshing the page. This setting is shared across users and
+devices that view the scene.
+
 #### Verify the Results
 
-1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) to observe all topics on the broker or use paho mqtt client to observe the topic right under the region name text box. For example: `/scenescape/event/region/${scene_uuid}/${region_uuid}/count`.
-2. When the center of the object enters or exits a Region of Interest, a message is received on the region event topic. For example:
+1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) to observe all topics on the broker, or use a Paho MQTT client to observe the topic shown under the region name text box. For example: `/scenescape/event/region/${scene_uuid}/${region_uuid}/count`.
+2. When the center of the object enters or exits a Region of Interest, a message is received on the region event topic.
 
-```
-{
-    "timestamp": "2025-07-11T06:27:53.880Z",
-    "scene_id": "302cf49a-97ec-402d-a324-c5077b280b7b",
-    "scene_name": "Queuing",
-    "region_id": "79c9e88c-6b26-482a-9a58-2f0c1b79bb05",
-    "region_name": "roi_79c9e88c-6b26-482a-9a58-2f0c1b79bb05",
-    "counts": {
-        "person": 1
-    },
-    "objects": [
-        {
-            "category": "person",
-            "confidence": 0.9964306950569153,
-            "id": "67c4eee3-7e5e-4bd7-ac5c-559cb41f2338",
-            "type": "person",
-            "translation": [
-                3.0463823772090572,
-                3.6136200341276368,
-                -2.416780078615621e-17
-            ],
-            "size": [
-                0.5,
-                0.5,
-                1.85
-            ],
-            "velocity": [
-                -0.7110168771449774,
-                0.18551042958887443,
-                0.0
-            ],
-            "rotation": [
-                0,
-                0,
-                0,
-                1
-            ],
-            "visibility": [ //Which cameras is this object visible from
-                "atag-qcam1",
-                "atag-qcam2"
-            ],
-            "regions": { //List of all the regions that the object is in
-                "79c9e88c-6b26-482a-9a58-2f0c1b79bb05": {
-                    "entered": "2025-07-11T06:27:53.880Z"
-                }
-            },
-            "similarity": null,
-            "first_seen": "2025-07-11T06:27:49.379Z" // when was the object first seen in the Scene
-        }
-    ],
-    "entered": [ //List of all objects that entered the region
-        {
-            "category": "person",
-            "confidence": 0.9964306950569153,
-            "id": "67c4eee3-7e5e-4bd7-ac5c-559cb41f2338",
-            "type": "person",
-            "translation": [
-                3.0463823772090572,
-                3.6136200341276368,
-                -2.416780078615621e-17
-            ],
-            "size": [
-                0.5,
-                0.5,
-                1.85
-            ],
-            "velocity": [
-                -0.7110168771449774,
-                0.18551042958887443,
-                0.0
-            ],
-            "rotation": [
-                0,
-                0,
-                0,
-                1
-            ],
-            "visibility": [
-                "atag-qcam1",
-                "atag-qcam2"
-            ],
-            "regions": {
-                "79c9e88c-6b26-482a-9a58-2f0c1b79bb05": {
-                    "entered": "2025-07-11T06:27:53.880Z"
-                }
-            },
-            "similarity": null,
-            "first_seen": "2025-07-11T06:27:49.379Z"
-        }
-    ],
-    "exited": [ //List of all objects that just exited this region
-        {
-            "object": {
-                "category": "person",
-                "confidence": 0.9963177442550659,
-                "id": "adf2932f-979e-4bd7-91b2-7909f355fbcb",
-                "type": "person",
-                "translation": [
-                    1.2290083442950077,
-                    5.053712379915115,
-                    -2.7154344421259052e-19
-                ],
-                "size": [
-                    0.5,
-                    0.5,
-                    1.85
-                ],
-                "velocity": [
-                    -0.1824836416851012,
-                    0.0915883684787472,
-                    0.0
-                ],
-                "rotation": [
-                    0,
-                    0,
-                    0,
-                    1
-                ],
-                "visibility": [
-                    "atag-qcam1",
-                    "atag-qcam2"
-                ],
-                "regions": {},
-                "similarity": null,
-                "first_seen": "2025-07-11T06:29:02.378Z"
-            },
-            "dwell": 2.799999952316284 //What is the amount of time spent by the object in the ROI (in seconds)
-        }
-    ],
-    "metadata": {
-        "points": [
-            [
-                0.6242038216560509,
-                4.617834394904459
-            ],
-            [
-                1.7452229299363058,
-                3.050955414012739
-            ],
-            [
-                3.859872611464968,
-                3.9426751592356686
-            ],
-            [
-                2.2229299363057327,
-                5.777070063694268
-            ]
-        ],
-        "title": "roi_79c9e88c-6b26-482a-9a58-2f0c1b79bb05",
-        "uuid": "79c9e88c-6b26-482a-9a58-2f0c1b79bb05",
-        "area": "poly",
-        "fromSensor": false
-    }
-}
-```
+Expected fields include `counts`, `objects`, `entered`, `exited` (with `dwell` on exit), and `metadata`. For full payload examples and field descriptions, see [Event Data Structures](../work-with-spatial-analytics-data.md#event-data-structures) in the developer guide.
 
 ![Configure and Verify Region of Interest](../../_assets/create-roi.gif "configure and verify region of interest")
 Figure 1: Region of Interest creation flow
 
 > **Need help working with spatial analytics data?** See the [Working with Spatial Analytics Data](../work-with-spatial-analytics-data.md) guide for details on consuming ROI and tripwire events via MQTT, including Python and JavaScript examples and data format specifications.
 
-> **Note:**
-> To access the broker port `1883` from outside the Docker network, you must expose the port by **uncommenting** the following lines in your `docker-compose.yaml` file:
->
-> ```yaml
-> broker:
->   image: eclipse-mosquitto
->   # ports:
->   #   - "1883:1883"
-> ```
-
 #### Enable Volumetric Intersection for Region of Interest
 
 By default, Regions of Interest trigger events when the center point of each object enters or leaves the bounds of the polygon. However, for detecting an event like a collision, computing a volumetric intersection is necessary.
 
 1. Follow the instructions in [How to Define Object Properties](../../other-topics/how-to-define-object-properties.md) to create an entry for the object category of interest.
-1. Click on the `Regions` tab tab below the scene map view.
+1. Click on the `Regions` tab below the scene map view.
 1. Find the specific region in the list and click on "volumetric" checkbox to enable intersection detection.
 1. **Optional**: you can add a uniform buffer around the region and vary the height of the region.
 1. Click `Save Regions and Tripwires` to persist your changes.
 
-#### Verify the Results
+#### Verify Volumetric Intersection
 
-1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) to observe all topics on the broker or use paho mqtt client to observe the topic right under the region name text box. For example: `/scenescape/event/region/${scene_uuid}/${region_uuid}/count`
+1. Subscribe to the same region event topic as above (for example `/scenescape/event/region/${scene_uuid}/${region_uuid}/count`).
 2. Navigate to the 3D UI view of the Scene.
-3. When an object first intersects or last intersects with the region of interest, observe a message is received on the event topic for that region. Here is an example:
-
-```
-{
-    "timestamp": "2025-07-11T06:27:53.880Z",
-    "scene_id": "302cf49a-97ec-402d-a324-c5077b280b7b",
-    "scene_name": "Queuing",
-    "region_id": "79c9e88c-6b26-482a-9a58-2f0c1b79bb05",
-    "region_name": "roi_79c9e88c-6b26-482a-9a58-2f0c1b79bb05",
-    "counts": {
-        "person": 1
-    },
-    "objects": [
-        {
-            "category": "person",
-            "confidence": 0.9964306950569153,
-            "id": "67c4eee3-7e5e-4bd7-ac5c-559cb41f2338",
-            "type": "person",
-            "translation": [
-                3.0463823772090572,
-                3.6136200341276368,
-                -2.416780078615621e-17
-            ],
-            "size": [
-                0.5,
-                0.5,
-                1.85
-            ],
-            "velocity": [
-                -0.7110168771449774,
-                0.18551042958887443,
-                0.0
-            ],
-            "rotation": [
-                0,
-                0,
-                0,
-                1
-            ],
-            "visibility": [ //Which cameras is this object visible from
-                "atag-qcam1",
-                "atag-qcam2"
-            ],
-            "regions": { //List of all the regions that the object is in
-                "79c9e88c-6b26-482a-9a58-2f0c1b79bb05": {
-                    "entered": "2025-07-11T06:27:53.880Z"
-                }
-            },
-            "similarity": null,
-            "first_seen": "2025-07-11T06:27:49.379Z" // when was the object first seen in the Scene
-        }
-    ],
-    "entered": [ //List of all objects that entered the region
-        {
-            "category": "person",
-            "confidence": 0.9964306950569153,
-            "id": "67c4eee3-7e5e-4bd7-ac5c-559cb41f2338",
-            "type": "person",
-            "translation": [
-                3.0463823772090572,
-                3.6136200341276368,
-                -2.416780078615621e-17
-            ],
-            "size": [
-                0.5,
-                0.5,
-                1.85
-            ],
-            "velocity": [
-                -0.7110168771449774,
-                0.18551042958887443,
-                0.0
-            ],
-            "rotation": [
-                0,
-                0,
-                0,
-                1
-            ],
-            "visibility": [
-                "atag-qcam1",
-                "atag-qcam2"
-            ],
-            "regions": {
-                "79c9e88c-6b26-482a-9a58-2f0c1b79bb05": {
-                    "entered": "2025-07-11T06:27:53.880Z"
-                }
-            },
-            "similarity": null,
-            "first_seen": "2025-07-11T06:27:49.379Z"
-        }
-    ],
-    "exited": [ //List of all objects that just exited this region
-        {
-            "object": {
-                "category": "person",
-                "confidence": 0.9963177442550659,
-                "id": "adf2932f-979e-4bd7-91b2-7909f355fbcb",
-                "type": "person",
-                "translation": [
-                    1.2290083442950077,
-                    5.053712379915115,
-                    -2.7154344421259052e-19
-                ],
-                "size": [
-                    0.5,
-                    0.5,
-                    1.85
-                ],
-                "velocity": [
-                    -0.1824836416851012,
-                    0.0915883684787472,
-                    0.0
-                ],
-                "rotation": [
-                    0,
-                    0,
-                    0,
-                    1
-                ],
-                "visibility": [
-                    "atag-qcam1",
-                    "atag-qcam2"
-                ],
-                "regions": {},
-                "similarity": null,
-                "first_seen": "2025-07-11T06:29:02.378Z"
-            },
-            "dwell": 2.799999952316284 //What is the amount of time spent by the object in the ROI (in seconds)
-        }
-    ],
-    "metadata": {
-        "points": [
-            [
-                0.6242038216560509,
-                4.617834394904459
-            ],
-            [
-                1.7452229299363058,
-                3.050955414012739
-            ],
-            [
-                3.859872611464968,
-                3.9426751592356686
-            ],
-            [
-                2.2229299363057327,
-                5.777070063694268
-            ]
-        ],
-        "title": "roi_79c9e88c-6b26-482a-9a58-2f0c1b79bb05",
-        "uuid": "79c9e88c-6b26-482a-9a58-2f0c1b79bb05",
-        "area": "poly",
-        "fromSensor": false
-    }
-}
-```
+3. When an object first intersects or last intersects with the region of interest, observe a message on the event topic for that region. The payload shape matches center-point ROI events; see [Event Data Structures](../work-with-spatial-analytics-data.md#event-data-structures).
 
 > **Note:**
 > To access the broker port `1883` from outside the Docker network, you must expose the port by **uncommenting** the following lines in your `docker-compose.yaml` file:
@@ -396,6 +85,8 @@ By default, Regions of Interest trigger events when the center point of each obj
 >   # ports:
 >   #   - "1883:1883"
 > ```
+>
+> For production MQTT auth, Kubernetes NodePort options, and direct-MQTT client setup, see [Direct MQTT Access](../work-with-spatial-analytics-data.md#direct-mqtt-access-alternative-to-websockets) in the developer guide.
 
 ### 3. Configure and Use a Tripwire
 
@@ -406,7 +97,7 @@ By default, Regions of Interest trigger events when the center point of each obj
 3. Click on the `Tripwires` tab below the scene map view.
 4. Click `New Tripwire` to create a tripwire.
 5. Click on the Scene and a green line with two moveable endpoints will appear.
-6. Click and drag each endpoint to get the right orientation and position for the tripwire (the flag line indicates the direction of positive flow)..
+6. Click and drag each endpoint to get the right orientation and position for the tripwire (the flag line indicates the direction of positive flow).
 7. **Optional**: Add a user-defined name for the tripwire in the textbox
 8. Click `Save Regions and Tripwires` to create the tripwire.
 
@@ -419,93 +110,13 @@ By default, Regions of Interest trigger events when the center point of each obj
 
 #### Verify the Results
 
-1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) or [Eclipse Paho](https://eclipse.dev/paho/) to observe data published to MQTT from various services. The tripwire event topic is shown under the name of the tripwire in the user interface. For example: `/scenescape/event/tripwire/${scene_uuid}/${tripwire_uuid}/objects`
-2. When an object walks through a tripwire, observe a message is received on that topic and it contains the following data:
+1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) or [Eclipse Paho](https://eclipse.dev/paho/) to observe data published to MQTT. The tripwire event topic is shown under the name of the tripwire in the user interface. For example: `/scenescape/event/tripwire/${scene_uuid}/${tripwire_uuid}/objects`
+2. When an object walks through a tripwire, a message is received on that topic.
 
-```
-{
-    "timestamp": "2025-07-11T06:46:21.205Z",
-    "scene_id": "97781c36-b53a-4749-87e6-8815da99bac7",
-    "scene_name": "Intersection-Demo",
-    "tripwire_id": "92652a52-a6d5-4920-b292-0e868208a0c8",
-    "tripwire_name": "northwest-tripwire",
-    "counts": {
-        "vehicle": 1
-    },
-    "objects": [
-        {
-            "category": "vehicle",
-            "confidence": 0.9130859375,
-            "id": "5559c880-2b13-4d43-b856-8be8d8eac43a",
-            "type": "vehicle",
-            "translation": [
-                87.89656932138013,
-                73.997183861969,
-                -1.4970315844207517e-16
-            ],
-            "size": [
-                2.5,
-                1.5,
-                1.5
-            ],
-            "velocity": [
-                -5.0083541472629864,
-                -5.053219441313509,
-                0.0
-            ],
-            "rotation": [
-                0.0,
-                -0.0,
-                -0.9230240359425683,
-                0.3847422891654783
-            ],
-            "visibility": [
-                "camera2"
-            ],
-            "regions": {
-                "e9f0981d-8535-4782-8e85-a04cb2605db5": {
-                    "entered": "2025-07-11T06:46:19.004Z"
-                }
-            },
-            "similarity": null,
-            "first_seen": "2025-07-11T06:46:18.783Z",
-            "camera_bounds": {},
-            "direction": 1 //in which direction was the tripwire triggered
-        }
-    ],
-    "entered": [],
-    "exited": [],
-    "metadata": {
-        "title": "northwest-tripwire",
-        "points": [
-            [
-                86.55407287208759,
-                105.45893940982072
-            ],
-            [
-                87.94171331893469,
-                73.54320913233751
-            ]
-        ],
-        "uuid": "92652a52-a6d5-4920-b292-0e868208a0c8"
-    }
-}
-```
-
-When an object crosses over to the side with the center line, the value of `direction` is `1` and when it crosses in the opposite direction it is `-1`.
+When an object crosses over to the side with the center line, the value of `direction` is `1` and when it crosses in the opposite direction it is `-1`. For a full tripwire payload example, see [Tripwire Event Structure](../work-with-spatial-analytics-data.md#tripwire-event-structure).
 
 ![Configure and Verify Tripwire](../../_assets/create-tripwire.gif)
 Figure 2: Tripwire creation flow
-
-> **Note:**
-> To access the broker port `1883` from outside the Docker network, you must expose the port by **uncommenting** the following lines in your `docker-compose.yaml` file:
->
-> ```yaml
-> broker:
->   image: eclipse-mosquitto
->   # ports:
->   #   - "1883:1883"
-> ```
 
 ---
 

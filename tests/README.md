@@ -240,8 +240,28 @@ directory.
 
 ### Docker backend (default)
 
-No extra configuration is needed. Open the **Testing** sidebar, click
-**Run All Tests** or select individual tests.
+Use the tests virtual environment so Test Explorer resolves project imports
+(`scene_common`, `tests.utils`, etc.) correctly.
+
+1. Ensure dependencies are installed:
+
+```bash
+make setup-tests
+```
+
+2. In `.vscode/settings.json` (repository root), set Python and pytest paths:
+
+```json
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/tests/.venv/bin/python3",
+  "python.testing.pytestPath": "${workspaceFolder}/tests/.venv/bin/pytest",
+  "python.testing.pytestArgs": ["tests"],
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false
+}
+```
+
+3. Click **Refresh Tests** in the Testing sidebar, then run as normal.
 
 ### Kubernetes backend
 
@@ -253,6 +273,8 @@ To run tests against the Kubernetes backend from the Test Explorer, add
 
    ```json
    {
+     "python.defaultInterpreterPath": "${workspaceFolder}/tests/.venv/bin/python3",
+     "python.testing.pytestPath": "${workspaceFolder}/tests/.venv/bin/pytest",
      "python.testing.pytestArgs": ["tests", "--backend=kubernetes"],
      "python.testing.pytestEnabled": true,
      "python.testing.unittestEnabled": false

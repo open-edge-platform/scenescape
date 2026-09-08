@@ -52,8 +52,9 @@ Implemented by `probe_video_codec()` / `rtsp_video_encode_args()` in `bootstrap_
 | `h264` / `avc` / `avc1` | `-c copy` | Same as sample `queuing-cams`; remux only, stable |
 | Anything else / probe failed | `-c:v libx264 -preset veryfast -an` | Force H.264 for the DL Streamer pipeline |
 
-Probe order: host `ffprobe` if present, else
-`docker run --entrypoint /usr/local/bin/ffprobe` with `FFMPEG_IMAGE`.
+Probe order: host `ffprobe` if present, else the pinned publisher image
+`linuxserver/ffmpeg:version-8.1-cli` (`FFMPEG_IMAGE`) with entrypoint
+`/usr/local/bin/ffprobe`.
 Container format (`.mp4`, `.ts`, …) does **not** decide the path — only the bitstream codec does.
 
 Per-camera publishers exist because a **single** ffmpeg process with multiple `libx264` outputs

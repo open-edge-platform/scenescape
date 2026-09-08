@@ -78,5 +78,24 @@
         }
       }
     ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ACLCHECK/05: Non-object JSON body returns 400",
+    "test_steps": [
+      {
+        "step_name": "Check ACL with a boolean request body",
+        "api": "aclcheck",
+        "method": "checkAcl",
+        "request": {
+          "body": false
+        },
+        "expected_status": {
+          "status_code": 400
+        },
+        "expected_body": {
+          "detail": "Request body must be a JSON object."
+        }
+      }
+    ]
   }
 ]
