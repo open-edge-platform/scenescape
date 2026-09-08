@@ -131,7 +131,12 @@ start-kind:
 # kubectl -n ingress-nginx patch deployment ingress-nginx-controller --type=json -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-ssl-passthrough"}]'
 	kubectl wait -n ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=300s
 # Enable automatic restart for the kind container so when host is rebooted, the kind cluster will be available
-	docker update --restart=always $(docker ps -aq --filter "label=io.x-k8s.kind.cluster=kind")
+	@CID=$$(docker ps -aq --filter "label=io.x-k8s.kind.cluster=kind"); \
+	if [ -n "$$CID" ]; then \
+	    docker update --restart=always $$CID; \
+	else \
+	    echo "WARNING: no kind container found, skipping --restart=always"; \
+	fi
 
 # remove the kind container
 clean-kind:
