@@ -9,7 +9,6 @@ WSUSER=${WSUSER:-scenescape}
 WORKSPACE=${WORKSPACE:-/workspace}
 SECRETSDIR=${SECRETSDIR:-${WORKSPACE}/secrets}
 MANAGERDIR=Scenescape
-SAMPLEDATADIR=/home/scenescape/Scenescape/sample_data
 
 RUNSECRETS=/run/secrets
 EGL_PLATFORM=${EGL_PLATFORM:-surfaceless}
@@ -277,11 +276,9 @@ export -n DBPASS SUPASS
 export DBTYPE ENGINE DBHOST DBPORT
 
 if [ -n "$DBTYPE" ]; then
-    # Determine "first run" using the marker (or another check)
-    CREATEDB=0
+    # First run: the persisted migrations dir needs an __init__.py to be a valid package.
     MIGRATIONS_MARKER="${DBROOT}/migrations/__init__.py"
     if [ ! -e "${MIGRATIONS_MARKER}" ]; then
-        CREATEDB=1
         mkdir -p "$(dirname "${MIGRATIONS_MARKER}")"
         touch "${MIGRATIONS_MARKER}"
     fi
@@ -291,13 +288,6 @@ if [ -n "$DBTYPE" ]; then
     echo "==> Applying pending migrations..."
     ./manage.py migrate --noinput
 
-    if [ "${CREATEDB}" -eq 1 ] && [ -n "${EXAMPLEDB:-}" ]; then
-        echo "==> Preloading example DB..."
-        mkdir -p "${DBROOT}/media"
-        tar -C "${DBROOT}/media" -xf "${EXAMPLEDB}"
-        ./manage.py loaddata "${DBROOT}/media/data.json"
-        rm -f "${DBROOT}/media/data.json" "${DBROOT}/media/meta.json"
-    fi
     ./manage.py updatedbstatus --not-ready
 
     if [ -z "${OVERWRITE_USER_AUTH}" ]; then
