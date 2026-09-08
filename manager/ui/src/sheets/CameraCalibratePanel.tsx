@@ -74,7 +74,10 @@ function parseNum(s: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-function resolutionParts(resolution: unknown): { width: string; height: string } {
+function resolutionParts(resolution: unknown): {
+  width: string;
+  height: string;
+} {
   if (Array.isArray(resolution) && resolution.length >= 2) {
     return { width: numStr(resolution[0]), height: numStr(resolution[1]) };
   }

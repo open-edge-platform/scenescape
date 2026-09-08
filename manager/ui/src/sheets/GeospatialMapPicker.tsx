@@ -51,8 +51,7 @@ function centerParts(center: unknown): { lat: string; lng: string } {
 function scaleFromView(lat: number, zoom: number): string {
   const earth = 40075016.686;
   const pixelsPerDegree = (256 * Math.pow(2, zoom)) / 360;
-  const metersPerDegreeLng =
-    (earth / 360) * Math.cos((lat * Math.PI) / 180);
+  const metersPerDegreeLng = (earth / 360) * Math.cos((lat * Math.PI) / 180);
   return (pixelsPerDegree / metersPerDegreeLng).toFixed(2);
 }
 
@@ -294,8 +293,7 @@ export function GeospatialMapPicker({
         });
         window.requestAnimationFrame(() => {
           const map = window.mapManager?.getCurrentMapInstance?.() as
-            | { resize?: () => void }
-            | undefined;
+            { resize?: () => void } | undefined;
           map?.resize?.();
         });
         if (!cancelled) {
@@ -359,8 +357,7 @@ export function GeospatialMapPicker({
       });
       window.requestAnimationFrame(() => {
         const map = window.mapManager?.getCurrentMapInstance?.() as
-          | { resize?: () => void }
-          | undefined;
+          { resize?: () => void } | undefined;
         map?.resize?.();
       });
       setReady(true);
@@ -564,7 +561,9 @@ export function GeospatialMapPicker({
         }}
         onCancel={() => setConfirmClose(false)}
       >
-        <p>Map position will not be saved to the scene. Leave without applying?</p>
+        <p>
+          Map position will not be saved to the scene. Leave without applying?
+        </p>
       </ConfirmDialog>
     </>,
     document.body,

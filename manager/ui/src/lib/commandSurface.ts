@@ -11,6 +11,8 @@
  */
 export type CommandSurfaceKind = "drawer" | "panel";
 
-export function chooseCommandSurface(complexity: "simple" | "complex"): CommandSurfaceKind {
+export function chooseCommandSurface(
+  complexity: "simple" | "complex",
+): CommandSurfaceKind {
   return complexity === "complex" ? "panel" : "drawer";
 }

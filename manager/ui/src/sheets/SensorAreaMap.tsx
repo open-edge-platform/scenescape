@@ -61,11 +61,7 @@ export function SensorAreaMap({
     let cancelled = false;
     const img = new Image();
     img.onload = () => {
-      if (
-        !cancelled &&
-        img.naturalWidth > 0 &&
-        img.naturalHeight > 0
-      ) {
+      if (!cancelled && img.naturalWidth > 0 && img.naturalHeight > 0) {
         setSize({ width: img.naturalWidth, height: img.naturalHeight });
       }
     };
@@ -203,9 +199,7 @@ export function SensorAreaMap({
   };
 
   if (!size) {
-    return (
-      <p className="ss-workspace-panel-hint">Loading scene map…</p>
-    );
+    return <p className="ss-workspace-panel-hint">Loading scene map…</p>;
   }
 
   const drawing = area === "circle" || area === "poly";

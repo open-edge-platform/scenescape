@@ -34,7 +34,11 @@ function str(v: unknown, fallback = "0"): string {
 
 function vec3(arr: unknown, fallback: Vec3): Vec3 {
   if (Array.isArray(arr) && arr.length >= 3) {
-    return [str(arr[0], fallback[0]), str(arr[1], fallback[1]), str(arr[2], fallback[2])];
+    return [
+      str(arr[0], fallback[0]),
+      str(arr[1], fallback[1]),
+      str(arr[2], fallback[2]),
+    ];
   }
   return fallback;
 }

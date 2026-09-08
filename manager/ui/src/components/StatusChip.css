@@ -20,10 +20,18 @@
 
 .ss-status-chip--ok {
   color: var(--ss-status-ok);
-  border-color: color-mix(in srgb, var(--ss-status-ok) 40%, var(--ss-card-border));
+  border-color: color-mix(
+    in srgb,
+    var(--ss-status-ok) 40%,
+    var(--ss-card-border)
+  );
 }
 
 .ss-status-chip--bad {
   color: var(--ss-status-bad);
-  border-color: color-mix(in srgb, var(--ss-status-bad) 40%, var(--ss-card-border));
+  border-color: color-mix(
+    in srgb,
+    var(--ss-status-bad) 40%,
+    var(--ss-card-border)
+  );
 }

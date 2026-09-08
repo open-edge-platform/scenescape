@@ -107,10 +107,20 @@ export function PointCorrespondencePane({
           {" · "}
           {pairs.length} pair{pairs.length === 1 ? "" : "s"}
         </span>
-        <Button type="button" variant="secondary" disabled={disabled} onClick={undo}>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={disabled}
+          onClick={undo}
+        >
           Undo
         </Button>
-        <Button type="button" variant="secondary" disabled={disabled} onClick={reset}>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={disabled}
+          onClick={reset}
+        >
           Reset points
         </Button>
       </div>
@@ -130,11 +140,20 @@ export function PointCorrespondencePane({
               normalized coordinates.
             </div>
           )}
-          <svg className="ss-point-corr-overlay" viewBox="0 0 1000 1000" preserveAspectRatio="none">
+          <svg
+            className="ss-point-corr-overlay"
+            viewBox="0 0 1000 1000"
+            preserveAspectRatio="none"
+          >
             {pairs.map((p, i) => (
               <g key={`c-${i}`}>
                 <circle cx={p.cam[0]} cy={p.cam[1]} r={8} fill="#0054ae" />
-                <text x={p.cam[0] + 10} y={p.cam[1] - 10} fill="#001e50" fontSize="28">
+                <text
+                  x={p.cam[0] + 10}
+                  y={p.cam[1] - 10}
+                  fill="#001e50"
+                  fontSize="28"
+                >
                   {i + 1}
                 </text>
               </g>
@@ -156,11 +175,20 @@ export function PointCorrespondencePane({
           ) : (
             <div className="ss-point-corr-empty">Map preview unavailable.</div>
           )}
-          <svg className="ss-point-corr-overlay" viewBox="0 0 1000 1000" preserveAspectRatio="none">
+          <svg
+            className="ss-point-corr-overlay"
+            viewBox="0 0 1000 1000"
+            preserveAspectRatio="none"
+          >
             {pairs.map((p, i) => (
               <g key={`m-${i}`}>
                 <circle cx={p.map[0]} cy={p.map[1]} r={8} fill="#008a00" />
-                <text x={p.map[0] + 10} y={p.map[1] - 10} fill="#001e50" fontSize="28">
+                <text
+                  x={p.map[0] + 10}
+                  y={p.map[1] - 10}
+                  fill="#001e50"
+                  fontSize="28"
+                >
                   {i + 1}
                 </text>
               </g>

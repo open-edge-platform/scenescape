@@ -23,11 +23,19 @@
 }
 
 .ss-toast--ok {
-  border-color: color-mix(in srgb, var(--ss-status-ok) 40%, var(--ss-card-border));
+  border-color: color-mix(
+    in srgb,
+    var(--ss-status-ok) 40%,
+    var(--ss-card-border)
+  );
 }
 
 .ss-toast--bad {
-  border-color: color-mix(in srgb, var(--ss-status-bad) 40%, var(--ss-card-border));
+  border-color: color-mix(
+    in srgb,
+    var(--ss-status-bad) 40%,
+    var(--ss-card-border)
+  );
 }
 
 .ss-toast-dismiss {

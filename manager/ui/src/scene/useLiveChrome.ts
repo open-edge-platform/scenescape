@@ -70,8 +70,9 @@ export function useCameraRates(): Record<string, string> {
     };
 
     const onRate = (ev: Event) => {
-      const detail = (ev as CustomEvent<{ sensorId?: string; text?: string; hz?: string }>)
-        .detail;
+      const detail = (
+        ev as CustomEvent<{ sensorId?: string; text?: string; hz?: string }>
+      ).detail;
       if (!detail?.sensorId) {
         return;
       }

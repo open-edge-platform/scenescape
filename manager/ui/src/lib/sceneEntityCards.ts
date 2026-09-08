@@ -33,8 +33,7 @@ function areaJsonFromRest(data: Record<string, unknown>): string | null {
   }
   const center = Array.isArray(data.center) ? data.center : null;
   const colorRanges = data.color_ranges as
-    | { sectors?: unknown; range_max?: unknown }
-    | undefined;
+    { sectors?: unknown; range_max?: unknown } | undefined;
   return JSON.stringify({
     area: data.area ?? "scene",
     radius: data.radius ?? null,
@@ -123,9 +122,7 @@ export function childCardFromRest(
     "Child",
   );
   const restUid =
-    childType === "local" && childSceneId
-      ? childSceneId
-      : remoteChildId || pk;
+    childType === "local" && childSceneId ? childSceneId : remoteChildId || pk;
   return {
     id: pk,
     name,

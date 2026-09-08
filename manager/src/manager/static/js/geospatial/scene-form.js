@@ -28,7 +28,10 @@ async function toggleMapFields() {
   // Widen Manage Scene card so the 1280×1280 bounds map is not clipped
   const formCard = document.getElementById("updateSceneForm");
   if (formCard) {
-    formCard.classList.toggle("ss-form-card--map-editor", type === "geospatial");
+    formCard.classList.toggle(
+      "ss-form-card--map-editor",
+      type === "geospatial",
+    );
   }
 
   // Geospatial settings accordion — open for Mapbox / Google map creation

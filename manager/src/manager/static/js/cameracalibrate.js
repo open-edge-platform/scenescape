@@ -44,9 +44,7 @@ import {
   window.alert = function (msg) {
     const text = String(msg);
     const parentToast =
-      window.parent && window.parent !== window
-        ? window.parent.ssToast
-        : null;
+      window.parent && window.parent !== window ? window.parent.ssToast : null;
     const toast =
       (window.ssToast && typeof window.ssToast.show === "function"
         ? window.ssToast
@@ -1039,9 +1037,7 @@ export class ConvergedCameraCalibration {
       icon.className = expanded ? "bi bi-fullscreen-exit" : "bi bi-fullscreen";
     }
     if (label) {
-      label.textContent = expanded
-        ? `Collapse ${title}`
-        : `Expand ${title}`;
+      label.textContent = expanded ? `Collapse ${title}` : `Expand ${title}`;
     }
   }
 

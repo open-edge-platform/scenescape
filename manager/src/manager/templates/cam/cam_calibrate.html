@@ -12,7 +12,11 @@ SPDX-License-Identifier: Apache-2.0
       <h2 class="form-title">Manage Camera: {{ caminst.name }}</h2>
     </div>
     <div class="page-header-actions">
-      <div id="mqtt_status" class="btn btn-sm btn-secondary" title="MQTT status">
+      <div
+        id="mqtt_status"
+        class="btn btn-sm btn-secondary"
+        title="MQTT status"
+      >
         <i class="bi bi-arrow-down-up"></i>
       </div>
       <a
@@ -120,11 +124,7 @@ SPDX-License-Identifier: Apache-2.0
           {% endif %}
 
           <div class="cameraCalContainer">
-            <div
-              class="cal-pane-backdrop"
-              id="cal-pane-backdrop"
-              hidden
-            ></div>
+            <div class="cal-pane-backdrop" id="cal-pane-backdrop" hidden></div>
             <section class="cal-pane" aria-label="Camera view">
               <header class="cal-pane-header">
                 <span class="cal-pane-title">Camera</span>

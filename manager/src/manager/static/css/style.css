@@ -24,8 +24,10 @@ html[data-theme="light"] {
   --ss-input-border-subtle: #e9e9e9;
   --ss-elevated: #ffffff;
   --ss-on-brand: #ffffff;
-  --ss-font-sans: "Open Sans", "Montserrat", system-ui, -apple-system, sans-serif;
-  --ss-font-heading: "Montserrat", "Open Sans", system-ui, -apple-system, sans-serif;
+  --ss-font-sans:
+    "Open Sans", "Montserrat", system-ui, -apple-system, sans-serif;
+  --ss-font-heading:
+    "Montserrat", "Open Sans", system-ui, -apple-system, sans-serif;
   --ss-radius: 0.625rem;
 }
 
@@ -276,7 +278,11 @@ html[data-theme="dark"] .navbar.bg-dark {
 }
 
 .table-striped tbody tr:nth-of-type(odd) {
-  background-color: color-mix(in srgb, var(--ss-surface) 55%, var(--ss-card-bg));
+  background-color: color-mix(
+    in srgb,
+    var(--ss-surface) 55%,
+    var(--ss-card-bg)
+  );
 }
 
 /* Bootstrap leftovers that keep light-theme ink on dark surfaces */
@@ -336,7 +342,6 @@ html[data-theme="dark"] select option {
 .border-light {
   border: 1px solid var(--ss-card-border) !important;
 }
-
 
 .navbar-dark .navbar-nav .nav-link,
 .navbar-dark .navbar-text {
@@ -659,7 +664,11 @@ html[data-theme="dark"] .ss-theme-toggle__btn[aria-pressed="true"] {
 }
 
 body.ss-embed .ss-form-back {
-  border-color: color-mix(in srgb, var(--ss-input-border) 70%, var(--ss-nav-bg));
+  border-color: color-mix(
+    in srgb,
+    var(--ss-input-border) 70%,
+    var(--ss-nav-bg)
+  );
 }
 
 /* Match form-card column so Delete/actions sit with the title, not viewport-right */
@@ -1635,7 +1644,9 @@ polygon {
   margin: 0;
   display: flex;
   flex-direction: column;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .scene-gallery .scene-card:hover {
@@ -2068,10 +2079,15 @@ ul.errorlist {
   position: relative;
   padding: 0.75rem 2.25rem;
   margin-right: 1rem;
-  border: 1px solid color-mix(in srgb, var(--ss-status-bad) 32%, var(--ss-elevated));
+  border: 1px solid
+    color-mix(in srgb, var(--ss-status-bad) 32%, var(--ss-elevated));
   border-radius: var(--ss-radius);
   color: #8a1838;
-  background-color: color-mix(in srgb, var(--ss-status-bad) 10%, var(--ss-elevated));
+  background-color: color-mix(
+    in srgb,
+    var(--ss-status-bad) 10%,
+    var(--ss-elevated)
+  );
   font-family: var(--ss-font-sans);
   font-size: 0.875rem;
 }
@@ -2613,7 +2629,8 @@ body:has(.sign-in-page) .content {
 .nav-tabs .nav-link:focus {
   color: var(--ss-ink);
   background-color: transparent;
-  border-color: var(--ss-card-border) var(--ss-card-border) var(--ss-card-border);
+  border-color: var(--ss-card-border) var(--ss-card-border)
+    var(--ss-card-border);
 }
 
 .nav-tabs .nav-link.disabled {
@@ -2710,15 +2727,27 @@ body:has(.sign-in-page) .content {
 }
 
 .alert-success {
-  background-color: color-mix(in srgb, var(--ss-status-ok) 12%, var(--ss-elevated));
+  background-color: color-mix(
+    in srgb,
+    var(--ss-status-ok) 12%,
+    var(--ss-elevated)
+  );
   border-color: color-mix(in srgb, var(--ss-status-ok) 35%, var(--ss-elevated));
   color: var(--ss-status-ok);
 }
 
 .alert-danger,
 .login-error.alert-danger {
-  background-color: color-mix(in srgb, var(--ss-status-bad) 10%, var(--ss-elevated));
-  border-color: color-mix(in srgb, var(--ss-status-bad) 32%, var(--ss-elevated));
+  background-color: color-mix(
+    in srgb,
+    var(--ss-status-bad) 10%,
+    var(--ss-elevated)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--ss-status-bad) 32%,
+    var(--ss-elevated)
+  );
   color: var(--ss-status-bad);
 }
 
@@ -2743,14 +2772,26 @@ body:has(.sign-in-page) .content {
 
 .toast .alert-success {
   color: var(--ss-status-ok);
-  background-color: color-mix(in srgb, var(--ss-status-ok) 14%, var(--ss-elevated));
+  background-color: color-mix(
+    in srgb,
+    var(--ss-status-ok) 14%,
+    var(--ss-elevated)
+  );
   border-color: color-mix(in srgb, var(--ss-status-ok) 35%, var(--ss-elevated));
 }
 
 .toast .alert-danger {
   color: var(--ss-status-bad);
-  background-color: color-mix(in srgb, var(--ss-status-bad) 12%, var(--ss-elevated));
-  border-color: color-mix(in srgb, var(--ss-status-bad) 32%, var(--ss-elevated));
+  background-color: color-mix(
+    in srgb,
+    var(--ss-status-bad) 12%,
+    var(--ss-elevated)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--ss-status-bad) 32%,
+    var(--ss-elevated)
+  );
 }
 
 .toast .alert-warning {

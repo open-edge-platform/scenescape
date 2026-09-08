@@ -167,7 +167,9 @@ export function AssetSheet({
             ? str(a.coefficient_of_restitution)
             : "0.5",
         );
-        const com = Array.isArray(a.center_of_mass) ? a.center_of_mass : [0, 0, 0];
+        const com = Array.isArray(a.center_of_mass)
+          ? a.center_of_mass
+          : [0, 0, 0];
         setCenterOfMass([str(com[0], "0"), str(com[1], "0"), str(com[2], "0")]);
         const geo = Array.isArray(a.geometric_center)
           ? a.geometric_center
@@ -427,21 +429,27 @@ export function AssetSheet({
             id="ss-asset-rx"
             label="Rotation X (°)"
             value={rotation[0]}
-            onChange={(ev) => setRotation([ev.target.value, rotation[1], rotation[2]])}
+            onChange={(ev) =>
+              setRotation([ev.target.value, rotation[1], rotation[2]])
+            }
             disabled={busy}
           />
           <TextField
             id="ss-asset-ry"
             label="Rotation Y (°)"
             value={rotation[1]}
-            onChange={(ev) => setRotation([rotation[0], ev.target.value, rotation[2]])}
+            onChange={(ev) =>
+              setRotation([rotation[0], ev.target.value, rotation[2]])
+            }
             disabled={busy}
           />
           <TextField
             id="ss-asset-rz"
             label="Rotation Z (°)"
             value={rotation[2]}
-            onChange={(ev) => setRotation([rotation[0], rotation[1], ev.target.value])}
+            onChange={(ev) =>
+              setRotation([rotation[0], rotation[1], ev.target.value])
+            }
             disabled={busy}
           />
           <TextField
@@ -533,7 +541,11 @@ export function AssetSheet({
             label="Center of mass X"
             value={centerOfMass[0]}
             onChange={(ev) =>
-              setCenterOfMass([ev.target.value, centerOfMass[1], centerOfMass[2]])
+              setCenterOfMass([
+                ev.target.value,
+                centerOfMass[1],
+                centerOfMass[2],
+              ])
             }
             disabled={busy}
           />
@@ -542,7 +554,11 @@ export function AssetSheet({
             label="Center of mass Y"
             value={centerOfMass[1]}
             onChange={(ev) =>
-              setCenterOfMass([centerOfMass[0], ev.target.value, centerOfMass[2]])
+              setCenterOfMass([
+                centerOfMass[0],
+                ev.target.value,
+                centerOfMass[2],
+              ])
             }
             disabled={busy}
           />
@@ -551,7 +567,11 @@ export function AssetSheet({
             label="Center of mass Z"
             value={centerOfMass[2]}
             onChange={(ev) =>
-              setCenterOfMass([centerOfMass[0], centerOfMass[1], ev.target.value])
+              setCenterOfMass([
+                centerOfMass[0],
+                centerOfMass[1],
+                ev.target.value,
+              ])
             }
             disabled={busy}
           />

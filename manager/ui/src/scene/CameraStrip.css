@@ -199,7 +199,10 @@
   scroll-snap-align: start;
 }
 
-.ss-workspace--stack .ss-legacy-panels-slot .tab-pane#cameras.active.show .card-body,
+.ss-workspace--stack
+  .ss-legacy-panels-slot
+  .tab-pane#cameras.active.show
+  .card-body,
 .ss-workspace--stack .ss-camera-strip .card-body {
   scroll-snap-type: x mandatory;
 }

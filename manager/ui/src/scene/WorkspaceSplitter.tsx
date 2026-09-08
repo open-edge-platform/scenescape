@@ -1,7 +1,11 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useCallback,
+  useRef,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import type { WorkspaceLayout } from "./useWorkspaceLayout";
 import "./WorkspaceSplitter.css";
 

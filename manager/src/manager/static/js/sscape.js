@@ -158,7 +158,7 @@ function cameraPreviewIsLive(sensorId) {
       ? CSS.escape(String(sensorId))
       : String(sensorId);
   var img =
-    document.querySelector("[data-ss-card-sensor=\"" + escaped + "\"]") ||
+    document.querySelector('[data-ss-card-sensor="' + escaped + '"]') ||
     document.getElementById("card-preview-" + sensorId);
   if (!img || img.classList.contains("display-none")) {
     return false;
@@ -254,10 +254,7 @@ function svgPointerToScene(e) {
     return [Math.round(pt.x), Math.round(pt.y)];
   }
   var offset = $("#svgout").offset();
-  return [
-    parseInt(e.pageX - offset.left),
-    parseInt(e.pageY - offset.top),
-  ];
+  return [parseInt(e.pageX - offset.left), parseInt(e.pageY - offset.top)];
 }
 
 function syncReactMapOverlay() {
@@ -271,8 +268,7 @@ function syncReactMapOverlay() {
     (scene_map_width && scene_y_max
       ? "0 0 " + scene_map_width + " " + scene_y_max
       : "");
-  var par =
-    reactSvg.getAttribute("preserveAspectRatio") || "xMidYMid meet";
+  var par = reactSvg.getAttribute("preserveAspectRatio") || "xMidYMid meet";
   if (vb) {
     snap.setAttribute("viewBox", vb);
   }
@@ -301,10 +297,7 @@ function fitSceneMapDisplay() {
     return;
   }
 
-  svg.setAttribute(
-    "viewBox",
-    "0 0 " + scene_map_width + " " + scene_y_max,
-  );
+  svg.setAttribute("viewBox", "0 0 " + scene_map_width + " " + scene_y_max);
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
   var maxW;
@@ -414,13 +407,7 @@ window.ssDrawSingletonSensors = function () {
     }
     var title =
       ($(this).attr("data-sensor-name") || "").trim() ||
-      $(".card-header", this)
-        .clone()
-        .children()
-        .remove()
-        .end()
-        .text()
-        .trim();
+      $(".card-header", this).clone().children().remove().end().text().trim();
     if (title) {
       sensor.title = title;
     }
@@ -490,267 +477,272 @@ async function checkBrokerConnections() {
   $("#connect")
     .off("click.ssMqttConnect")
     .on("click.ssMqttConnect", function () {
-    var brokerInput = document.getElementById("broker");
-    var brokerUrl =
-      brokerInput && "value" in brokerInput
-        ? brokerInput.value
-        : $("#broker").val();
-    console.log("Attempting to connect to " + brokerUrl);
-    if (window.ssMqttClient && typeof window.ssMqttClient.end === "function") {
-      try {
-        window.ssMqttClient.end(true);
-      } catch (e) {
-        /* ignore */
-      }
-    }
-    var client = mqtt.connect(brokerUrl);
-    window.ssMqttClient = client;
-    sessionStorage.setItem("connectToMqtt", true);
-
-    client.on("connect", function () {
-      console.log("Connected to " + brokerUrl);
-      if ($("#topic").val() !== undefined) {
-        client.subscribe($("#topic").val());
-        console.log("Subscribed to " + $("#topic").val());
-      }
-
-      client.subscribe(APP_NAME + "/event/" + "+/" + scene_id + "/+/+");
-      console.log(
-        "Subscribed to " + APP_NAME + "/event/" + "+/" + scene_id + "/+/+",
-      );
-
-      if (document.getElementById("scene_children")?.value !== "0") {
-        client.subscribe(APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
-        console.log("Subscribed to " + APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
-        var remote_childs = $("[id^='mqtt_status_remote']")
-          .map((_, el) => el.id.split("_").slice(3).join("_"))
-          .get();
-        remote_childs.forEach((e) => {
-          client.publish(
-            APP_NAME + SYS_CHILDSCENE_STATUS + "/" + e,
-            "isConnected",
-          );
-        });
-      }
-
-      $("#mqtt_status").addClass("connected");
-
-      // Camera strip may mount via React after connect — always wire live-view + subscribe.
-      if (isCalibratePage()) {
-        var calSensor = calibrateSensorId();
-        if (calSensor) {
-          client.subscribe(APP_NAME + IMAGE_CALIBRATE + calSensor);
+      var brokerInput = document.getElementById("broker");
+      var brokerUrl =
+        brokerInput && "value" in brokerInput
+          ? brokerInput.value
+          : $("#broker").val();
+      console.log("Attempting to connect to " + brokerUrl);
+      if (
+        window.ssMqttClient &&
+        typeof window.ssMqttClient.end === "function"
+      ) {
+        try {
+          window.ssMqttClient.end(true);
+        } catch (e) {
+          /* ignore */
         }
-        requestCalibrateFrames(client);
-      } else {
-        client.subscribe(APP_NAME + IMAGE_CAMERA + "+");
       }
-      window.ssRefreshCameraSnapshots();
-      // React camera cards may portal in after this connect callback.
-      window.setTimeout(function () {
-        window.ssRefreshCameraSnapshots();
-      }, 500);
-      window.setTimeout(function () {
-        window.ssRefreshCameraSnapshots();
-      }, 1500);
-      $("input#live-view")
-        .off("change.ssLiveView")
-        .on("change.ssLiveView", function () {
-          if ($(this).is(":checked")) {
-            window.ssRefreshCameraSnapshots();
-            $("#cameras-tab").click();
-            $(".camera-card").addClass("live-view");
-          } else {
-            $(".camera-card").removeClass("live-view");
-          }
-        });
-    });
+      var client = mqtt.connect(brokerUrl);
+      window.ssMqttClient = client;
+      sessionStorage.setItem("connectToMqtt", true);
 
-    client.on("close", function () {
-      $("[id^='mqtt_status']").removeClass("connected");
-      $(".rate").text("--");
-      $("#scene-rate").text("--");
-      if (
-        window.ssSceneTelemetry &&
-        typeof window.ssSceneTelemetry.clearRates === "function"
-      ) {
-        window.ssSceneTelemetry.clearRates();
-      }
-      if (
-        window.ssSceneTelemetry &&
-        typeof window.ssSceneTelemetry.setSceneRate === "function"
-      ) {
-        window.ssSceneTelemetry.setSceneRate("--");
-      }
-      window.dispatchEvent(new CustomEvent("ss-telemetry-clear"));
-    });
-
-    client.on("message", function (topic, data) {
-      var msg;
-      try {
-        msg = JSON.parse(data);
-      } catch (error) {
-        msg = String(data);
-      }
-      var img;
-
-      if (topic.includes(DATA_REGULATED)) {
-        if (show_telemetry) {
-          // Show the FPS for each camera that currently has a live preview.
-          // scene.rate is a sticky cache and still lists cameras that went offline.
-          if (msg.rate && typeof msg.rate === "object") {
-            for (const [key, value] of Object.entries(msg.rate)) {
-              var fps = Number(value);
-              var rateText =
-                (Number.isFinite(fps) ? fps.toFixed(2) : "--") + " FPS";
-              applyCameraRate(key, rateText);
-            }
-          }
-
-          // Show the scene controller update rate
-          var sceneRateEl = document.getElementById("scene-rate");
-          var sceneRate = Number(msg.scene_rate);
-          if (Number.isFinite(sceneRate)) {
-            var sceneRateText = sceneRate.toFixed(1);
-            if (sceneRateEl) {
-              sceneRateEl.innerText = sceneRateText;
-            }
-            if (
-              window.ssSceneTelemetry &&
-              typeof window.ssSceneTelemetry.setSceneRate === "function"
-            ) {
-              window.ssSceneTelemetry.setSceneRate(sceneRateText);
-            }
-            window.dispatchEvent(
-              new CustomEvent("ss-scene-rate", {
-                detail: { hz: sceneRateText },
-              }),
-            );
-          }
+      client.on("connect", function () {
+        console.log("Connected to " + brokerUrl);
+        if ($("#topic").val() !== undefined) {
+          client.subscribe($("#topic").val());
+          console.log("Subscribed to " + $("#topic").val());
         }
 
-        // Plot the marks
-        plot(
-          msg.objects,
-          scale,
-          scene_y_max,
-          svgCanvas,
-          show_telemetry,
-          show_trails,
-          assetMarkColors,
+        client.subscribe(APP_NAME + "/event/" + "+/" + scene_id + "/+/+");
+        console.log(
+          "Subscribed to " + APP_NAME + "/event/" + "+/" + scene_id + "/+/+",
         );
-      } else if (topic.includes("event")) {
-        var etype = topic.split("/")[2];
-        if (etype == "region") {
-          if (msg["metadata"]?.fromSensor == true) {
-            drawSensor(
-              msg["metadata"],
-              msg["metadata"]["title"],
-              "child_sensor",
-            );
-          } else {
-            drawRoi(msg["metadata"], msg["metadata"]["uuid"], "child_roi");
-          }
-          var counts = msg["counts"];
-          var occupancy = 0;
-          if (counts && typeof counts === "object") {
-            Object.keys(counts).forEach(function (category) {
-              var count = counts[category];
-              if (typeof count === "number") {
-                occupancy += count;
-              }
-            });
-            setROIColor(msg["metadata"]["uuid"], occupancy);
-          }
 
-          var value = msg["value"];
-          if (value) {
-            setSensorColor(
-              msg["metadata"]["title"],
-              value,
-              msg["metadata"]["area"],
-            );
-          }
-        } else if (etype == "tripwire") {
-          var trip = msg["metadata"];
-          trip.points[0] = metersToPixels(trip.points[0], scale, scene_y_max);
-          trip.points[1] = metersToPixels(trip.points[1], scale, scene_y_max);
-          newTripwire(trip, msg["metadata"]["uuid"], "child_tripwire");
-        }
-      } else if (topic.includes("singleton")) {
-        plotSingleton(msg);
-      } else if (topic.includes(IMAGE_CALIBRATE)) {
-        applyCalibrationImage(msg);
-      } else if (topic.includes(IMAGE_CAMERA)) {
-        if (isCalibratePage()) {
-          return;
-        }
-        // Use native JS since jQuery.load() pukes on data URI's
-        if ($(".snapshot-image").length) {
-          var id = topic.split("camera/")[1];
-          var previewImgs = document.querySelectorAll(
-            "[id='" +
-              id +
-              "'], [id='card-preview-" +
-              id +
-              "'], [data-ss-card-sensor='" +
-              id +
-              "'], [data-ss-card-name='" +
-              id +
-              "']",
+        if (document.getElementById("scene_children")?.value !== "0") {
+          client.subscribe(APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
+          console.log(
+            "Subscribed to " + APP_NAME + SYS_CHILDSCENE_STATUS + "/+",
           );
-          previewImgs.forEach(function (img) {
-            img.setAttribute("src", "data:image/jpeg;base64," + msg.image);
-            img.classList.remove("display-none");
-            var offline = img.parentElement
-              ? img.parentElement.querySelectorAll(".cam-offline")
-              : [];
-            offline.forEach(function (el) {
-              el.style.display = "none";
-              el.hidden = true;
-            });
+          var remote_childs = $("[id^='mqtt_status_remote']")
+            .map((_, el) => el.id.split("_").slice(3).join("_"))
+            .get();
+          remote_childs.forEach((e) => {
+            client.publish(
+              APP_NAME + SYS_CHILDSCENE_STATUS + "/" + e,
+              "isConnected",
+            );
           });
+        }
 
-          if ($("input#live-view").is(":checked")) {
-            client.publish(APP_NAME + CMD_CAMERA + id, "getimage");
+        $("#mqtt_status").addClass("connected");
+
+        // Camera strip may mount via React after connect — always wire live-view + subscribe.
+        if (isCalibratePage()) {
+          var calSensor = calibrateSensorId();
+          if (calSensor) {
+            client.subscribe(APP_NAME + IMAGE_CALIBRATE + calSensor);
+          }
+          requestCalibrateFrames(client);
+        } else {
+          client.subscribe(APP_NAME + IMAGE_CAMERA + "+");
+        }
+        window.ssRefreshCameraSnapshots();
+        // React camera cards may portal in after this connect callback.
+        window.setTimeout(function () {
+          window.ssRefreshCameraSnapshots();
+        }, 500);
+        window.setTimeout(function () {
+          window.ssRefreshCameraSnapshots();
+        }, 1500);
+        $("input#live-view")
+          .off("change.ssLiveView")
+          .on("change.ssLiveView", function () {
+            if ($(this).is(":checked")) {
+              window.ssRefreshCameraSnapshots();
+              $("#cameras-tab").click();
+              $(".camera-card").addClass("live-view");
+            } else {
+              $(".camera-card").removeClass("live-view");
+            }
+          });
+      });
+
+      client.on("close", function () {
+        $("[id^='mqtt_status']").removeClass("connected");
+        $(".rate").text("--");
+        $("#scene-rate").text("--");
+        if (
+          window.ssSceneTelemetry &&
+          typeof window.ssSceneTelemetry.clearRates === "function"
+        ) {
+          window.ssSceneTelemetry.clearRates();
+        }
+        if (
+          window.ssSceneTelemetry &&
+          typeof window.ssSceneTelemetry.setSceneRate === "function"
+        ) {
+          window.ssSceneTelemetry.setSceneRate("--");
+        }
+        window.dispatchEvent(new CustomEvent("ss-telemetry-clear"));
+      });
+
+      client.on("message", function (topic, data) {
+        var msg;
+        try {
+          msg = JSON.parse(data);
+        } catch (error) {
+          msg = String(data);
+        }
+        var img;
+
+        if (topic.includes(DATA_REGULATED)) {
+          if (show_telemetry) {
+            // Show the FPS for each camera that currently has a live preview.
+            // scene.rate is a sticky cache and still lists cameras that went offline.
+            if (msg.rate && typeof msg.rate === "object") {
+              for (const [key, value] of Object.entries(msg.rate)) {
+                var fps = Number(value);
+                var rateText =
+                  (Number.isFinite(fps) ? fps.toFixed(2) : "--") + " FPS";
+                applyCameraRate(key, rateText);
+              }
+            }
+
+            // Show the scene controller update rate
+            var sceneRateEl = document.getElementById("scene-rate");
+            var sceneRate = Number(msg.scene_rate);
+            if (Number.isFinite(sceneRate)) {
+              var sceneRateText = sceneRate.toFixed(1);
+              if (sceneRateEl) {
+                sceneRateEl.innerText = sceneRateText;
+              }
+              if (
+                window.ssSceneTelemetry &&
+                typeof window.ssSceneTelemetry.setSceneRate === "function"
+              ) {
+                window.ssSceneTelemetry.setSceneRate(sceneRateText);
+              }
+              window.dispatchEvent(
+                new CustomEvent("ss-scene-rate", {
+                  detail: { hz: sceneRateText },
+                }),
+              );
+            }
+          }
+
+          // Plot the marks
+          plot(
+            msg.objects,
+            scale,
+            scene_y_max,
+            svgCanvas,
+            show_telemetry,
+            show_trails,
+            assetMarkColors,
+          );
+        } else if (topic.includes("event")) {
+          var etype = topic.split("/")[2];
+          if (etype == "region") {
+            if (msg["metadata"]?.fromSensor == true) {
+              drawSensor(
+                msg["metadata"],
+                msg["metadata"]["title"],
+                "child_sensor",
+              );
+            } else {
+              drawRoi(msg["metadata"], msg["metadata"]["uuid"], "child_roi");
+            }
+            var counts = msg["counts"];
+            var occupancy = 0;
+            if (counts && typeof counts === "object") {
+              Object.keys(counts).forEach(function (category) {
+                var count = counts[category];
+                if (typeof count === "number") {
+                  occupancy += count;
+                }
+              });
+              setROIColor(msg["metadata"]["uuid"], occupancy);
+            }
+
+            var value = msg["value"];
+            if (value) {
+              setSensorColor(
+                msg["metadata"]["title"],
+                value,
+                msg["metadata"]["area"],
+              );
+            }
+          } else if (etype == "tripwire") {
+            var trip = msg["metadata"];
+            trip.points[0] = metersToPixels(trip.points[0], scale, scene_y_max);
+            trip.points[1] = metersToPixels(trip.points[1], scale, scene_y_max);
+            newTripwire(trip, msg["metadata"]["uuid"], "child_tripwire");
+          }
+        } else if (topic.includes("singleton")) {
+          plotSingleton(msg);
+        } else if (topic.includes(IMAGE_CALIBRATE)) {
+          applyCalibrationImage(msg);
+        } else if (topic.includes(IMAGE_CAMERA)) {
+          if (isCalibratePage()) {
+            return;
+          }
+          // Use native JS since jQuery.load() pukes on data URI's
+          if ($(".snapshot-image").length) {
+            var id = topic.split("camera/")[1];
+            var previewImgs = document.querySelectorAll(
+              "[id='" +
+                id +
+                "'], [id='card-preview-" +
+                id +
+                "'], [data-ss-card-sensor='" +
+                id +
+                "'], [data-ss-card-name='" +
+                id +
+                "']",
+            );
+            previewImgs.forEach(function (img) {
+              img.setAttribute("src", "data:image/jpeg;base64," + msg.image);
+              img.classList.remove("display-none");
+              var offline = img.parentElement
+                ? img.parentElement.querySelectorAll(".cam-offline")
+                : [];
+              offline.forEach(function (el) {
+                el.style.display = "none";
+                el.hidden = true;
+              });
+            });
+
+            if ($("input#live-view").is(":checked")) {
+              client.publish(APP_NAME + CMD_CAMERA + id, "getimage");
+            }
+          }
+        } else if (topic.includes(DATA_CAMERA)) {
+          var id = topic.slice(topic.lastIndexOf("/") + 1);
+          if (show_telemetry) {
+            var camFps = Number(msg.rate);
+            var camRateText =
+              (Number.isFinite(camFps) ? camFps.toFixed(2) : "--") + " FPS";
+            applyCameraRate(id, camRateText);
+          }
+          $("#updated-" + id).text(msg.timestamp);
+        } else if (topic.includes("/child/status")) {
+          var child = topic.slice(topic.lastIndexOf("/") + 1);
+          if (msg === "connected") {
+            console.log(child + msg);
+            $("#mqtt_status_remote_" + child).addClass("connected");
+          } else if (msg === "disconnected") {
+            $("#mqtt_status_remote_" + child).removeClass("connected");
           }
         }
-      } else if (topic.includes(DATA_CAMERA)) {
-        var id = topic.slice(topic.lastIndexOf("/") + 1);
-        if (show_telemetry) {
-          var camFps = Number(msg.rate);
-          var camRateText =
-            (Number.isFinite(camFps) ? camFps.toFixed(2) : "--") + " FPS";
-          applyCameraRate(id, camRateText);
-        }
-        $("#updated-" + id).text(msg.timestamp);
-      } else if (topic.includes("/child/status")) {
-        var child = topic.slice(topic.lastIndexOf("/") + 1);
-        if (msg === "connected") {
-          console.log(child + msg);
-          $("#mqtt_status_remote_" + child).addClass("connected");
-        } else if (msg === "disconnected") {
-          $("#mqtt_status_remote_" + child).removeClass("connected");
-        }
-      }
-    });
+      });
 
-    client.on("error", function (e) {
-      console.log("MQTT error: " + e);
-    });
+      client.on("error", function (e) {
+        console.log("MQTT error: " + e);
+      });
 
-    $("#disconnect")
-      .off("click.ssMqttDisconnect")
-      .on("click.ssMqttDisconnect", function () {
-      sessionStorage.setItem("connectToMqtt", false);
-      client.end();
-    });
+      $("#disconnect")
+        .off("click.ssMqttDisconnect")
+        .on("click.ssMqttDisconnect", function () {
+          sessionStorage.setItem("connectToMqtt", false);
+          client.end();
+        });
 
-    var topic = APP_NAME + CMD_CAMERA + $("#sensor_id").val();
-    $("#snapshot").on("click", function () {
-      client.publish(topic, "getcalibrationimage");
+      var topic = APP_NAME + CMD_CAMERA + $("#sensor_id").val();
+      $("#snapshot").on("click", function () {
+        client.publish(topic, "getcalibrationimage");
+      });
     });
-  });
 
   // Connect by default
   var connectToMqtt = sessionStorage.getItem("connectToMqtt");
@@ -1098,8 +1090,12 @@ function stringifyRois() {
   // Update hidden field
   $("#id_rois").val(JSON.stringify(rois));
   try {
-    window.dispatchEvent(new CustomEvent("ss-geometry-stringified", { detail: { kind: "rois" } }));
-  } catch (e) { /* ignore */ }
+    window.dispatchEvent(
+      new CustomEvent("ss-geometry-stringified", { detail: { kind: "rois" } }),
+    );
+  } catch (e) {
+    /* ignore */
+  }
 }
 
 window.stringifyRois = stringifyRois;
@@ -1445,12 +1441,7 @@ function newTripwire(e, index, type = "tripwire") {
         uuid: String(index),
         title: e.title || "",
         topic:
-          APP_NAME +
-          "/event/tripwire/" +
-          scene_id +
-          "/" +
-          index +
-          "/objects",
+          APP_NAME + "/event/tripwire/" + scene_id + "/" + index + "/objects",
       };
       if (
         window.ssRoiEditors &&
@@ -1809,8 +1800,7 @@ function drawRoi(e, index, type) {
       if (e.sectors && e.sectors.thresholds) {
         e.sectors.thresholds.forEach(function (sector) {
           if (sector.color === "green") greenMin = Number(sector.color_min);
-          if (sector.color === "yellow")
-            yellowMin = Number(sector.color_min);
+          if (sector.color === "yellow") yellowMin = Number(sector.color_min);
           if (sector.color === "red") redMin = Number(sector.color_min);
         });
         if (e.sectors.range_max !== undefined) {
@@ -1823,19 +1813,12 @@ function drawRoi(e, index, type) {
         title: e.title || "",
         volumetric: Boolean(e.volumetric),
         height: e.height !== undefined ? Number(e.height) : 1.0,
-        buffer_size:
-          e.buffer_size !== undefined ? Number(e.buffer_size) : 0.0,
+        buffer_size: e.buffer_size !== undefined ? Number(e.buffer_size) : 0.0,
         greenMin: greenMin,
         yellowMin: yellowMin,
         redMin: redMin,
         rangeMax: rangeMax,
-        topic:
-          APP_NAME +
-          "/event/region/" +
-          scene_id +
-          "/" +
-          index +
-          "/count",
+        topic: APP_NAME + "/event/region/" + scene_id + "/" + index + "/count",
       };
       if (
         window.ssRoiEditors &&
@@ -2710,10 +2693,7 @@ $(document).ready(function () {
           .on("click.ssRoiSave", "#save-rois, #save-trips", function (event) {
             var values;
             if (event.target.id === "save-trips") {
-              values = getRoiValues(
-                "form-control tripwire-title",
-                "tripwire",
-              );
+              values = getRoiValues("form-control tripwire-title", "tripwire");
             } else {
               values = getRoiValues("form-control roi-title", "roi");
             }
@@ -2883,9 +2863,7 @@ $(document).ready(function () {
         title: "Full screen map view",
         "aria-pressed": "false",
       });
-      $icon
-        .removeClass("bi-fullscreen-exit")
-        .addClass("bi-arrows-fullscreen");
+      $icon.removeClass("bi-fullscreen-exit").addClass("bi-arrows-fullscreen");
       $btn.find(".sr-only").text("Full screen map view");
       fullscreen = false;
     } else {
@@ -2896,9 +2874,7 @@ $(document).ready(function () {
         title: "Exit full screen map view",
         "aria-pressed": "true",
       });
-      $icon
-        .removeClass("bi-arrows-fullscreen")
-        .addClass("bi-fullscreen-exit");
+      $icon.removeClass("bi-arrows-fullscreen").addClass("bi-fullscreen-exit");
       $btn.find(".sr-only").text("Exit full screen map view");
       fullscreen = true;
     }
@@ -2921,35 +2897,35 @@ $(document).ready(function () {
   $(document)
     .off("change.ssTelemetry", "input#show-telemetry")
     .on("change.ssTelemetry", "input#show-telemetry", function () {
-    show_telemetry = $(this).is(":checked");
-    if (!show_telemetry) {
-      $("#scene-rate").text("--");
-      $(".rate").text("--").addClass("telemetry-hide");
-      if (
-        window.ssSceneTelemetry &&
-        typeof window.ssSceneTelemetry.clearRates === "function"
-      ) {
-        window.ssSceneTelemetry.clearRates();
+      show_telemetry = $(this).is(":checked");
+      if (!show_telemetry) {
+        $("#scene-rate").text("--");
+        $(".rate").text("--").addClass("telemetry-hide");
+        if (
+          window.ssSceneTelemetry &&
+          typeof window.ssSceneTelemetry.clearRates === "function"
+        ) {
+          window.ssSceneTelemetry.clearRates();
+        }
+        if (
+          window.ssSceneTelemetry &&
+          typeof window.ssSceneTelemetry.setSceneRate === "function"
+        ) {
+          window.ssSceneTelemetry.setSceneRate("--");
+        }
+        window.dispatchEvent(new CustomEvent("ss-telemetry-clear"));
+        document.querySelectorAll(".mark-tooltip").forEach(function (el) {
+          el.classList.add("telemetry-hide");
+        });
+      } else {
+        document.querySelectorAll(".mark-tooltip").forEach(function (el) {
+          el.classList.remove("telemetry-hide");
+        });
+        document.querySelectorAll(".rate").forEach(function (el) {
+          el.classList.add("telemetry-hide");
+        });
       }
-      if (
-        window.ssSceneTelemetry &&
-        typeof window.ssSceneTelemetry.setSceneRate === "function"
-      ) {
-        window.ssSceneTelemetry.setSceneRate("--");
-      }
-      window.dispatchEvent(new CustomEvent("ss-telemetry-clear"));
-      document.querySelectorAll(".mark-tooltip").forEach(function (el) {
-        el.classList.add("telemetry-hide");
-      });
-    } else {
-      document.querySelectorAll(".mark-tooltip").forEach(function (el) {
-        el.classList.remove("telemetry-hide");
-      });
-      document.querySelectorAll(".rate").forEach(function (el) {
-        el.classList.add("telemetry-hide");
-      });
-    }
-  });
+    });
 
   $(".form-group")
     .find("input[type=text], input[type=number], select")

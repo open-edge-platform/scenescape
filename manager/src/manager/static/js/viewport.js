@@ -332,7 +332,8 @@ class Viewport extends THREE.Scene {
     box.getCenter(center);
     const span = Math.max(size.x, size.y, size.z, 0.5);
     const dist =
-      (span / 2) /
+      span /
+      2 /
       Math.tan(THREE.MathUtils.degToRad(this.perspectiveCamera.fov / 2));
     this.perspectiveCamera.position.set(
       center.x,
@@ -449,7 +450,8 @@ class Viewport extends THREE.Scene {
   setProjectionVisibility(visibility) {
     if (this.projectedMaterial) {
       const show =
-        Boolean(visibility) && (this.initialOpacity == null || this.initialOpacity > 0);
+        Boolean(visibility) &&
+        (this.initialOpacity == null || this.initialOpacity > 0);
       this.projectedMaterial.visible = show;
       if (this.mesh) {
         this.mesh.visible = show;

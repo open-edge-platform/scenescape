@@ -64,7 +64,10 @@ export function readMapIntrinsicSize(): Size | null {
   if (svg) {
     const vb = svg.getAttribute("viewBox");
     if (vb) {
-      const parts = vb.trim().split(/[\s,]+/).map(Number);
+      const parts = vb
+        .trim()
+        .split(/[\s,]+/)
+        .map(Number);
       if (
         parts.length === 4 &&
         Number.isFinite(parts[2]) &&

@@ -25,16 +25,15 @@ make -C manager ui-build
 
 Outputs under `manager/src/manager/static/ui/`:
 
-| Entry | Files | Used by |
-| ----- | ----- | ------- |
-| shared CSS | `manager-ui.css` | All islands |
-| `scene-detail` | `scene-detail.js` | Scene detail |
-| `scenes-home` | `scenes-home.js` | Scenes gallery |
-| `list-sheets` | `list-sheets.js` | Cam / sensor / asset lists |
-| `admin-list` | `admin-list.js` | Camera / sensor list chrome |
-| `destructive-actions` | `destructive-actions.js` | In-page delete confirms |
-| `models-directory` | `models-directory.js` | K8s Models page (browse / upload) |
-
+| Entry                 | Files                    | Used by                           |
+| --------------------- | ------------------------ | --------------------------------- |
+| shared CSS            | `manager-ui.css`         | All islands                       |
+| `scene-detail`        | `scene-detail.js`        | Scene detail                      |
+| `scenes-home`         | `scenes-home.js`         | Scenes gallery                    |
+| `list-sheets`         | `list-sheets.js`         | Cam / sensor / asset lists        |
+| `admin-list`          | `admin-list.js`          | Camera / sensor list chrome       |
+| `destructive-actions` | `destructive-actions.js` | In-page delete confirms           |
+| `models-directory`    | `models-directory.js`    | K8s Models page (browse / upload) |
 
 Set `SKIP_UI=1` to skip the UI build when running `make -C manager build-image`
 offline without Node.

@@ -76,10 +76,12 @@ declare global {
       generateBounds: () => void;
       getCurrentMapInstance: () => unknown;
       getMapStrategy: () => {
-        getCenter?: () => { lat: () => number; lng: () => number } | {
-          lat: number;
-          lng: number;
-        };
+        getCenter?: () =>
+          | { lat: () => number; lng: () => number }
+          | {
+              lat: number;
+              lng: number;
+            };
         getZoom?: () => number;
         getBearing?: () => number;
         map?: {

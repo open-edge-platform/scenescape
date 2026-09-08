@@ -33,7 +33,11 @@
 
 .ss-table-action.is-danger {
   color: var(--ss-status-bad);
-  border-color: color-mix(in srgb, var(--ss-status-bad) 45%, var(--ss-input-border));
+  border-color: color-mix(
+    in srgb,
+    var(--ss-status-bad) 45%,
+    var(--ss-input-border)
+  );
 }
 
 .ss-table-action.is-danger:hover {

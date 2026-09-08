@@ -274,7 +274,8 @@
 }
 
 .ss-workspace-main {
-  transition: flex-basis var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease);
+  transition: flex-basis var(--ss-motion-base, 180ms)
+    var(--ss-motion-ease, ease);
 }
 
 body.ss-workspace-resizing .ss-workspace--stack .ss-scene-side,
@@ -525,7 +526,11 @@ body.ss-workspace-resizing .ss-workspace-main {
 }
 
 .ss-scene-detail--workspace .ss-scene-side .singleton > .card-header,
-.ss-scene-detail--workspace .ss-scene-side #childrenlist > .card > .card-header {
+.ss-scene-detail--workspace
+  .ss-scene-side
+  #childrenlist
+  > .card
+  > .card-header {
   display: flex;
   align-items: center;
   gap: 0.45rem;
@@ -664,7 +669,11 @@ body.ss-workspace-resizing .ss-workspace-main {
   gap: 0.3rem;
 }
 
-.ss-scene-detail--workspace .ss-scene-side .scene-detail-panel > .card-body > .ss-empty-state {
+.ss-scene-detail--workspace
+  .ss-scene-side
+  .scene-detail-panel
+  > .card-body
+  > .ss-empty-state {
   margin: 0.25rem 0;
   padding: 0.5rem 0.25rem;
 }

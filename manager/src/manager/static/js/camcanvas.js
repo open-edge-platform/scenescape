@@ -102,9 +102,7 @@ class CamCanvas {
     if (!paneW || !paneH || !this.image.width || !this.image.height) {
       return CAMERA_SCALE_FACTOR;
     }
-    return (
-      Math.min(paneW / this.image.width, paneH / this.image.height) * 0.96
-    );
+    return Math.min(paneW / this.image.width, paneH / this.image.height) * 0.96;
   }
 
   #updatePointSize() {

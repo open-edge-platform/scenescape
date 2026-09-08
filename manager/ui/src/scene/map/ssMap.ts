@@ -45,7 +45,9 @@ export function installSsMapFacade(): SsMapApi {
       api.syncFromLegacyStringify();
     },
     syncFromLegacyStringify: () => {
-      const roiEl = document.getElementById("id_rois") as HTMLInputElement | null;
+      const roiEl = document.getElementById(
+        "id_rois",
+      ) as HTMLInputElement | null;
       const tripEl = document.getElementById(
         "tripwires",
       ) as HTMLInputElement | null;

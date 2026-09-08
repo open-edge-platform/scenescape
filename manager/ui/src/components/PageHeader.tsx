@@ -32,12 +32,7 @@ function wayfindingCrumbs(crumbs: Crumb[], title: string): Crumb[] {
   return trimmed;
 }
 
-export function PageHeader({
-  title,
-  breadcrumbs = [],
-  back,
-  actions,
-}: Props) {
+export function PageHeader({ title, breadcrumbs = [], back, actions }: Props) {
   const crumbs = wayfindingCrumbs(breadcrumbs, title);
 
   return (

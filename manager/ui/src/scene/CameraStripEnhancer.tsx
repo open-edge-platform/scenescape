@@ -74,7 +74,9 @@ function applyCardState(card: HTMLElement): void {
     card.dataset.ssRate = rateText || "--";
   }
 
-  let badge = card.querySelector(".ss-camera-strip-badge") as HTMLElement | null;
+  let badge = card.querySelector(
+    ".ss-camera-strip-badge",
+  ) as HTMLElement | null;
   if (!badge) {
     badge = document.createElement("span");
     badge.className = "ss-camera-strip-badge";

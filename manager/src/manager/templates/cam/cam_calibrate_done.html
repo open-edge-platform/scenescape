@@ -8,12 +8,15 @@ SPDX-License-Identifier: Apache-2.0
     <meta charset="utf-8" />
     <title>Calibration saved</title>
   </head>
-  <body>
+  <body data-ss-reload="{{ reload|yesno:'true,false' }}">
     <p>Calibration saved.</p>
     <script>
       if (window.parent && window.parent !== window) {
         window.parent.postMessage(
-          { type: "ss-calibrate-done", reload: {{ reload|yesno:"true,false" }} },
+          {
+            type: "ss-calibrate-done",
+            reload: document.body.dataset.ssReload === "true",
+          },
           window.location.origin,
         );
       } else {

@@ -75,9 +75,7 @@ function LiveToggle({
  */
 export function TabToolbar({ activeTab, isSuperuser }: Props) {
   const [roiDirty, setRoiDirty] = useState(() => Boolean(window.ssRoiDirty));
-  const [tripDirty, setTripDirty] = useState(() =>
-    Boolean(window.ssTripDirty),
-  );
+  const [tripDirty, setTripDirty] = useState(() => Boolean(window.ssTripDirty));
 
   useEffect(() => {
     const onRoi = (ev: Event) => {
@@ -171,9 +169,7 @@ export function TabToolbar({ activeTab, isSuperuser }: Props) {
                 type="button"
                 className={`btn btn-sm btn-primary${roiDirty ? " ss-save-dirty" : " ss-save-clean"}`}
                 id="save-rois"
-                title={
-                  roiDirty ? "Save unsaved changes" : "No unsaved changes"
-                }
+                title={roiDirty ? "Save unsaved changes" : "No unsaved changes"}
                 disabled={!roiDirty}
                 aria-disabled={roiDirty ? "false" : "true"}
                 onClick={persistGeometry}

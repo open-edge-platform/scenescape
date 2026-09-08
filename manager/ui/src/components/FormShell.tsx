@@ -42,9 +42,7 @@ export function FormShell({
         {hint ? <p className="ss-form-shell-hint">{hint}</p> : null}
         {children}
       </div>
-      {actions ? (
-        <div className="ss-form-shell-actions">{actions}</div>
-      ) : null}
+      {actions ? <div className="ss-form-shell-actions">{actions}</div> : null}
     </form>
   );
 }

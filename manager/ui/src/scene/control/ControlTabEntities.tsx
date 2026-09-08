@@ -351,8 +351,7 @@ export function ControlTabEntities({
       onSensorsChange((prev) =>
         prev.filter(
           (s) =>
-            s.id !== pendingSensor.id &&
-            s.sensorId !== pendingSensor.sensorId,
+            s.id !== pendingSensor.id && s.sensorId !== pendingSensor.sensorId,
         ),
       );
       toast.show("Sensor deleted", "ok");

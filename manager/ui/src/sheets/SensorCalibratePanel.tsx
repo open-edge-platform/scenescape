@@ -98,7 +98,10 @@ function sectorsFromSensor(s: Record<string, unknown>): {
 } {
   const cr = s.color_ranges;
   if (cr && typeof cr === "object") {
-    const obj = cr as { sectors?: { color: string; color_min: number }[]; range_max?: number };
+    const obj = cr as {
+      sectors?: { color: string; color_min: number }[];
+      range_max?: number;
+    };
     const sectors = obj.sectors || [];
     const min = (color: string, fb: number) => {
       const hit = sectors.find((x) => x.color === color);
@@ -165,9 +168,10 @@ export function SensorCalibratePanel({
   const [scale, setScale] = useState(() =>
     mapScale && mapScale > 0 ? mapScale : readMapScale(),
   );
-  const [mapSize, setMapSize] = useState<{ width: number; height: number } | null>(
-    null,
-  );
+  const [mapSize, setMapSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);

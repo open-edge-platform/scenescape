@@ -3,10 +3,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import {
-  inferDeleteLabel,
-  postDjangoDelete,
-} from "../lib/djangoDelete";
+import { inferDeleteLabel, postDjangoDelete } from "../lib/djangoDelete";
 
 type PendingDelete = {
   url: string;

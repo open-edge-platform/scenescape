@@ -6,10 +6,7 @@ import { publishSceneTabCounts } from "../../lib/sceneTab";
 import { createPortal } from "react-dom";
 import { RegionEditorCard } from "./RegionEditorCard";
 import { TripwireEditorCard } from "./TripwireEditorCard";
-import {
-  persistSceneGeometry,
-  type PersistIdMap,
-} from "../../lib/roiPersist";
+import { persistSceneGeometry, type PersistIdMap } from "../../lib/roiPersist";
 import { useAppToast } from "../../components/ToastProvider";
 import { installSsMapFacade } from "../map/ssMap";
 import {
@@ -116,9 +113,9 @@ export function RoiTripwireEditors({
   const toastRef = useRef(toast);
   const roiBaseRef = useRef("");
   const tripBaseRef = useRef("");
-  const persistImplRef = useRef<(
-    options?: { preferHidden?: boolean } | string[],
-  ) => Promise<void> | void>(() => undefined);
+  const persistImplRef = useRef<
+    (options?: { preferHidden?: boolean } | string[]) => Promise<void> | void
+  >(() => undefined);
   toastRef.current = toast;
   roisRef.current = rois;
   tripsRef.current = tripwires;
@@ -198,9 +195,8 @@ export function RoiTripwireEditors({
   }, [authToken, sceneId]);
 
   useEffect(() => {
-    const persist = (
-      options?: { preferHidden?: boolean } | string[],
-    ) => persistImplRef.current(options);
+    const persist = (options?: { preferHidden?: boolean } | string[]) =>
+      persistImplRef.current(options);
     window.ssPersistGeometry = persist;
     return () => {
       if (window.ssPersistGeometry === persist) {

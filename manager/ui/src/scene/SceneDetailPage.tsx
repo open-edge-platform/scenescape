@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
-import {
-  SCENE_TAB_COUNTS_EVENT,
-  type SceneTabCounts,
-} from "../lib/sceneTab";
+import { SCENE_TAB_COUNTS_EVENT, type SceneTabCounts } from "../lib/sceneTab";
 import { PageHeader } from "../components/PageHeader";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/ToastProvider";
@@ -134,14 +131,14 @@ function SceneDetailInner({ bootstrap }: Props) {
       }
       setTabCounts((prev) => {
         const next = { ...prev };
-        (["cameras", "sensors", "regions", "tripwires", "children"] as const).forEach(
-          (key) => {
-            const n = detail[key];
-            if (typeof n === "number" && Number.isFinite(n) && n >= 0) {
-              next[key] = n;
-            }
-          },
-        );
+        (
+          ["cameras", "sensors", "regions", "tripwires", "children"] as const
+        ).forEach((key) => {
+          const n = detail[key];
+          if (typeof n === "number" && Number.isFinite(n) && n >= 0) {
+            next[key] = n;
+          }
+        });
         return next;
       });
     };

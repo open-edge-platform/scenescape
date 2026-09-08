@@ -158,9 +158,7 @@ export function CameraSheet({
         id="ss-cam-sheet-form"
         className="ss-drawer-form"
         error={error}
-        hint={
-          busy && mode === "edit" && !loaded ? "Loading camera…" : null
-        }
+        hint={busy && mode === "edit" && !loaded ? "Loading camera…" : null}
         busy={busy}
         onSubmit={submit}
       >

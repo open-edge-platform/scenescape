@@ -28,8 +28,7 @@ function syncSnapToReact(stage: HTMLElement): void {
     return;
   }
   const vb = reactSvg.getAttribute("viewBox");
-  const par =
-    reactSvg.getAttribute("preserveAspectRatio") || "xMidYMid meet";
+  const par = reactSvg.getAttribute("preserveAspectRatio") || "xMidYMid meet";
   if (vb) {
     snap.setAttribute("viewBox", vb);
   }
@@ -178,16 +177,16 @@ export const SceneMapPane = memo(function SceneMapPane({
       return;
     }
     const host = document.getElementById(LEGACY_MAP_IDS.host);
-    const stageEl = host?.querySelector(".scene-map-stage") as HTMLElement | null;
+    const stageEl = host?.querySelector(
+      ".scene-map-stage",
+    ) as HTMLElement | null;
     if (stageEl) {
       syncSnapToReact(stageEl);
     }
   }, [useReactMap, hostReady, naturalSize]);
 
   const host = hostReady ? document.getElementById(LEGACY_MAP_IDS.host) : null;
-  const stage =
-    host?.querySelector(".scene-map-stage") ??
-    null;
+  const stage = host?.querySelector(".scene-map-stage") ?? null;
 
   return (
     <div className="ss-scene-map-pane">

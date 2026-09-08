@@ -28,7 +28,10 @@ async function parseError(resp: Response): Promise<RestError> {
         ) as string[] | undefined;
         if (first?.[0]) {
           message = first[0];
-        } else if (Array.isArray(obj.non_field_errors) && obj.non_field_errors[0]) {
+        } else if (
+          Array.isArray(obj.non_field_errors) &&
+          obj.non_field_errors[0]
+        ) {
           message = String(obj.non_field_errors[0]);
         }
       }

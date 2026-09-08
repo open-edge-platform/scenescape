@@ -29,7 +29,9 @@ export function TripwireEditorCard({
       <div className="d-flex flex-column mb-3 count-item col ss-editor-card">
         <div className="input-group ss-editor-card-row">
           <div className="input-group-prepend">
-            <label className="input-group-text tripwire-number">{index + 1}</label>
+            <label className="input-group-text tripwire-number">
+              {index + 1}
+            </label>
           </div>
           <input
             type="text"
