@@ -164,6 +164,30 @@ datasets:
   storage: 500Mi
   storageClassName: ""
 
+sampleData:
+  source: https://raw.githubusercontent.com/open-edge-platform/scenescape
+  sourceDir: sample_data
+  sourceVersion: main
+  downloadDataImage:
+    repository: docker.io
+    name: ubuntu
+    tag: 22.04
+    pullPolicy: IfNotPresent
+  convertVideosImage:
+    repository: docker.io
+    name: linuxserver/ffmpeg
+    tag: version-8.0-cli
+    pullPolicy: IfNotPresent
+  # Paths are relative to sourceDir; files land flat in the sample data volume.
+  files:
+    - videos/apriltag-cam1.mp4
+    - videos/apriltag-cam2.mp4
+    - videos/apriltag-cam3.mp4
+    - videos/qcam1.mp4
+    - videos/qcam2.mp4
+  storage: 500Mi
+  storageClassName: ""
+
 # migrations
 migrations:
   storage: 100Mi
