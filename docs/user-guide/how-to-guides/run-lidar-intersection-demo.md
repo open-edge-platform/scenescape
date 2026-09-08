@@ -30,14 +30,10 @@ never affects the standard `make demo` deployment.
 
 > **Note:** The scene itself is seeded using Scenescape's existing
 > [scene import](./build-a-scene/create-new-scene.md#importing-the-scene)
-> feature - no Manager DB-fixture changes needed. All demo-only source
-> changes (default vehicle/cyclist objects, debug source labels in the UI,
-> and forwarding a `source` field through scene_common and Analytics) are
-> kept as one patch per component under
-> `sample_data/lidar_intersection/patches/` and are applied to the source
-> tree automatically by `make build-core-lidar` only - a normal
-> `make build-core`/`make build-all` never touches these files. See
-> [Demo-only patches](#demo-only-patches) below for details.
+> feature - no Manager DB-fixture changes needed. Default vehicle/cyclist
+> Asset3D objects, 2D/3D UI source labels (lidar vs camera), and `source`
+> field forwarding through scene_common and Analytics live in the main
+> source tree on this branch (not as demo-only patches).
 
 ## What this demo adds
 
@@ -47,7 +43,6 @@ never affects the standard `make demo` deployment.
 | `sample_data/lidar_intersection/lidar_publisher.py`                | Runs the LiDAR (PointPillars) and camera (person-vehicle-bike) GStreamer pipelines and publishes detections over MQTT                                                                                                 |
 | `sample_data/lidar_intersection/convert_pcd_to_bin.py`             | Converts the manually-downloaded dataset's `.pcd` LiDAR frames to the `.bin` format `lidar_publisher.py`/DLStreamer expect - see [Prerequisites](#prerequisites)                                                      |
 | `sample_data/lidar_intersection/reencode_jpegs.py`                 | Re-encodes the dataset's `.jpg` camera frames at a lower JPEG quality (same resolution) so decode/detect/preview keep up with `CAM_FRAME_RATE`                                                                        |
-| `sample_data/lidar_intersection/patches/`                          | Demo-only patches, one per component (Manager, scene_common, Analytics), applied automatically when building with `make build-core-lidar`                                                                             |
 | `sample_data/lidar_intersection/`                                  | Scene config, map image, scene-import ZIP, and the PointPillars model installer, all scoped to this demo (the recorded LiDAR/camera frames themselves are NOT part of the repo - see [Prerequisites](#prerequisites)) |
 
 ## Architecture
@@ -323,7 +318,7 @@ Open the **Lidar Intersection** scene in the UI:
 - **3D view** (default): tracked vehicles and cyclists appear as marks moving
   through the intersection. Marks are labeled/styled by detection source
   (lidar vs camera - see the debug UI changes in
-  [Demo-only patches](#demo-only-patches)), so you can tell which sensor(s)
+  [Source labels and default assets](#source-labels-and-default-assets)), so you can tell which sensor(s)
   are currently contributing to a given tracked object; a vehicle or cyclist
   seen by both sensors is fused into a single tracked mark rather than
   appearing twice.
@@ -422,34 +417,17 @@ the compose file itself:
 | `LIDAR_RAW_DATASET_DIR` | `./sample_data/lidar_intersection/V2X-Seq-SPD-Example` | Host path to the extracted raw dataset (must contain an `infrastructure-side/` directory) - see [Prerequisites](#prerequisites) |
 | `JPEG_QUALITY`          | `50`                                                   | JPEG re-encode quality (1-95) applied to camera frames by `reencode_jpegs.py` - lower is faster to decode/detect but blockier   |
 
-## Demo-only patches
+## Source labels and default assets
 
-Three small patches - one per component (Manager, scene_common, Analytics) -
-are kept out of the normal source tree and applied only for this demo. They
-add:
+The following live in the main source tree (not as detachable patches):
 
-- Default `vehicle`/`cyclist` objects, and debug UI styling that labels
+- Default `vehicle`/`cyclist` Asset3D objects, and UI styling that labels
   tracked marks by detection source (lidar vs camera - see
   [What to expect in the UI](#what-to-expect-in-the-ui)).
 - Pass-through of the `source` field through scene_common and Analytics so
   it reaches the regulated/UI-facing output end-to-end.
 
-`make build-core-lidar` (and therefore `make demo-lidar`) applies the
-patches automatically, builds the `manager`, `analytics`, and shared
-`scene_common` images with them applied, then automatically reverts them.
-Your working tree stays clean throughout - `git status` should never show
-`manager/`/`scene_common/`/`analytics/` files as modified because of this
-demo. To manually apply or remove the patches (e.g. to inspect a diff
-without building):
-
-```bash
-make apply-lidar-patch    # apply all three patches to the working tree
-make revert-lidar-patch   # revert them back to the unpatched source
-```
-
-> **Note:** a hard kill (`kill -9`) of a build can skip the automatic
-> revert. If `git status` shows patched `manager/`/`scene_common/`/
-> `analytics/` files afterward, run `make revert-lidar-patch` to clean up.
+`make build-core-lidar` is an alias of `make build-core`.
 
 ## Rotation/orientation handling
 

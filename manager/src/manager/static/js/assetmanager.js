@@ -13,6 +13,10 @@ import {
 } from "/static/js/draw.js";
 import { SetupMarkHover } from "/static/js/interactions.js";
 
+// Detection source ("lidar"/"camera") is untrusted MQTT data; only these
+// values are ever shown in the label.
+const KNOWN_SOURCES = ["lidar", "camera"];
+
 export default function AssetManager(
   scene,
   subscribeToTracking,
@@ -47,6 +51,15 @@ export default function AssetManager(
       });
     } else {
       updateLabelFields(markObject, { dwell: null });
+    }
+
+    // Debug aid: surface which sensor produced this detection (lidar vs
+    // camera) before fusion logic combines them into a single object. Only
+    // shown for pipelines that report obj.source, so other deployments'
+    // labels are unaffected. obj.source is untrusted (published over MQTT),
+    // so it's constrained to a known allow-list before being displayed.
+    if (KNOWN_SOURCES.includes(obj.source)) {
+      updateLabelFields(markObject, { source: obj.source });
     }
   }
 

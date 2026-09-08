@@ -49,11 +49,6 @@ DEMO_REBUILD_IMAGES ?= true
 DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
 LIDAR_OVERRIDE_FILE = sample_data/lidar_intersection/docker-compose.lidar-override.yml
 LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
-# One patch per component (0001 manager, 0002 scene_common, 0003 analytics),
-# applied only when building with make build-core-lidar.
-LIDAR_PATCH_FILES := sample_data/lidar_intersection/patches/0001-manager-default-assets-and-source-labels.patch \
-                     sample_data/lidar_intersection/patches/0002-scene-common-source-passthrough.patch \
-                     sample_data/lidar_intersection/patches/0003-analytics-source-passthrough.patch
 
 # Test variables
 TESTS_FOLDER := tests
@@ -84,13 +79,8 @@ build-core: init-secrets build-core-images install-models
 build-all: init-secrets build-all-images install-models
 
 .PHONY: build-core-lidar
-build-core-lidar: init-secrets
-# EXIT trap reverts the patches on success, build failure, or Ctrl+C so the
-# working tree cannot stay patched.
-	@set -e; trap '$(MAKE) revert-lidar-patch' EXIT; \
-	$(MAKE) apply-lidar-patch; \
-	$(MAKE) build-core-images
-	@$(MAKE) install-models
+# Source labels / default Asset3D objects are in-tree; same as build-core.
+build-core-lidar: build-core
 
 # ============================== Help ================================
 
@@ -104,7 +94,7 @@ help:
 	@echo "  build-all                   Build secrets, all images, and install models"
 	@echo "  build-core-images           Build core microservice images (excluding mapping, cluster_analytics, and tracker) in parallel"
 	@echo "  build-all-images            Build all microservice images in parallel"
-	@echo "  build-core-lidar            Build secrets, core images with the LiDAR-intersection demo patches applied, and install models"
+	@echo "  build-core-lidar            Alias of build-core (LiDAR demo source labels are in-tree)"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
@@ -228,33 +218,6 @@ build-core-images: $(BUILD_DIR)
 # ===================== Cleaning and Rebuilding =======================
 .PHONY: rebuild-core-images
 rebuild-core-images: clean-core-images build-core-images
-
-.PHONY: apply-lidar-patch
-apply-lidar-patch:
-	@for p in $(LIDAR_PATCH_FILES); do \
-		if git -C $(CURDIR) apply --check "$$p" 2>/dev/null; then \
-			echo "==> Applying LiDAR-demo patch ($$p)..."; \
-			git -C $(CURDIR) apply "$$p"; \
-		elif git -C $(CURDIR) apply --check -R "$$p" 2>/dev/null; then \
-			echo "==> LiDAR-demo patch already applied, skipping ($$p)"; \
-		else \
-			echo "ERROR: $$p does not apply cleanly and does not look"; \
-			echo "already applied either. Resolve manually (see 'git apply --check $$p')" ; \
-			echo "before running 'make build-core-lidar' or 'make demo-lidar'."; \
-			exit 1; \
-		fi; \
-	done
-
-.PHONY: revert-lidar-patch
-revert-lidar-patch:
-	@for p in $(LIDAR_PATCH_FILES); do \
-		if git -C $(CURDIR) apply --check -R "$$p" 2>/dev/null; then \
-			echo "==> Reverting LiDAR-demo patch ($$p)..."; \
-			git -C $(CURDIR) apply -R "$$p"; \
-		else \
-			echo "LiDAR-demo patch not currently applied, skipping ($$p)"; \
-		fi; \
-	done
 
 .PHONY: rebuild-core
 rebuild-core: clean-core build-core
