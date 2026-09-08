@@ -50,7 +50,14 @@ SPDX-License-Identifier: Apache-2.0
         </a>
       </div>
       <div class="card-body">
-        <h5 class="card-title">{{ scene.name }}</h5>
+        <h5 class="card-title">
+          <a
+            id="scene-detail-link"
+            href="{% url 'sceneDetail' scene.id %}"
+            title="Open {{ scene.name }} scene detail"
+            >{{ scene.name }}</a
+          >
+        </h5>
         <a
           type="button"
           class="btn btn-secondary btn-sm"

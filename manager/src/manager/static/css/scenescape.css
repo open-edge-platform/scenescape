@@ -118,6 +118,16 @@ h6 {
   color: #fff;
 }
 
+#scene-controls-3d .card-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+#scene-controls-3d .card-title a:hover,
+#scene-controls-3d .card-title a:focus {
+  text-decoration: underline;
+}
+
 #scene-controls-3d .btn,
 #toggle-scene-controls-3d.btn {
   font-family: inherit;
