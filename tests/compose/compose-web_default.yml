@@ -44,7 +44,6 @@ services:
       retries: 10
       start_period: 120s
     environment:
-      - "EXAMPLEDB=/home/scenescape/Scenescape/sample_data/exampledb.tar.bz2"
       - "DBHOST=pgserver"
       - "DBPORT=5432"
       - "DBTYPE=postgres"
@@ -59,7 +58,6 @@ services:
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/Scenescape/sample_data
       - vol-migrations:/workspace/migrations
     secrets:
       - source: root-cert
@@ -77,4 +75,3 @@ services:
 volumes:
   vol-media:
   vol-migrations:
-  vol-sample-data:
