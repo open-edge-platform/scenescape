@@ -710,6 +710,12 @@ class SingletonSensorListView(LoginRequiredMixin, ListView):
               if scene else None
             ),
           },
+          {
+            'text': (
+              sensor.get_singleton_type_display().replace('_', ' ').title()
+              if sensor.singleton_type else '—'
+            ),
+          },
         ],
         'actions': actions,
       })
@@ -717,7 +723,7 @@ class SingletonSensorListView(LoginRequiredMixin, ListView):
       'title': 'Sensors',
       'breadcrumbs': [{'label': 'Sensors'}],
       'primaryAction': primary,
-      'columns': ['Sensor Name', 'Sensor ID', 'Scene'],
+      'columns': ['Sensor Name', 'Sensor ID', 'Scene', 'Type'],
       'rows': rows,
       'emptyMessage': 'No sensors are available.',
       'isSuperuser': self.request.user.is_superuser,
@@ -800,16 +806,32 @@ class AssetListView(LoginRequiredMixin, ListView):
           'href': reverse('asset_delete', args=[asset.id]),
           'tone': 'danger',
         })
+      mark = (asset.mark_color or '').strip() or '#888888'
+      size_text = (
+        f"{asset.x_size:g} × {asset.y_size:g} × {asset.z_size:g}"
+      )
+      if asset.model_3d:
+        model_name = asset.model_3d.name.rsplit('/', 1)[-1]
+      else:
+        model_name = '—'
       rows.append({
         'id': str(asset.id),
-        'cells': [{'text': asset.name}],
+        'cells': [
+          {'text': asset.name},
+          {'text': size_text},
+          {'text': mark, 'swatch': mark},
+          {'text': model_name},
+          {'text': f"{asset.tracking_radius:g} m"},
+        ],
         'actions': actions,
       })
     context['admin_list_bootstrap'] = {
       'title': 'Object Library',
       'breadcrumbs': [{'label': 'Object Library'}],
       'primaryAction': primary,
-      'columns': ['Name'],
+      'columns': [
+        'Name', 'Size', 'Mark color', '3D model', 'Tracking radius',
+      ],
       'rows': rows,
       'emptyMessage': 'No objects are available.',
       'isSuperuser': self.request.user.is_superuser,

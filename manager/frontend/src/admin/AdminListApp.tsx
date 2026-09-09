@@ -14,6 +14,8 @@ export type AdminListAction = {
 export type AdminListCell = {
   text?: string;
   href?: string;
+  /** When set, show a color chip beside the text (e.g. mark color). */
+  swatch?: string;
 };
 
 export type AdminListRow = {
@@ -35,6 +37,25 @@ export type AdminListBootstrap = {
 type Props = {
   bootstrap: AdminListBootstrap;
 };
+
+function CellContent({ cell }: { cell: AdminListCell }) {
+  const label = cell.text || "—";
+  const body = cell.href ? <a href={cell.href}>{label}</a> : label;
+  if (!cell.swatch) {
+    return body;
+  }
+  return (
+    <span className="ss-admin-swatch-cell">
+      <span
+        className="ss-admin-swatch"
+        style={{ backgroundColor: cell.swatch }}
+        title={cell.swatch}
+        aria-hidden="true"
+      />
+      {body}
+    </span>
+  );
+}
 
 /** Full list page: header + data table (Django supplies bootstrap JSON only). */
 export function AdminListApp({ bootstrap }: Props) {
@@ -79,11 +100,7 @@ export function AdminListApp({ bootstrap }: Props) {
                 <tr key={row.id}>
                   {row.cells.map((cell, i) => (
                     <td key={`${row.id}-${i}`}>
-                      {cell.href ? (
-                        <a href={cell.href}>{cell.text || "—"}</a>
-                      ) : (
-                        cell.text || "—"
-                      )}
+                      <CellContent cell={cell} />
                     </td>
                   ))}
                   {showActions ? (

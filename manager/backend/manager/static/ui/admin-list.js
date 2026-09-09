@@ -1,8 +1,26 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { j as e, c, r as m } from "./chunks/tokens-C2Ju3rc_.js";
-import { P as h } from "./chunks/PageHeader-Dke5XNFH.js";
-function o({ bootstrap: s }) {
+import { j as e, c, r as h } from "./chunks/tokens-C2Ju3rc_.js";
+import { P as m } from "./chunks/PageHeader-Dke5XNFH.js";
+function o({ cell: s }) {
+  const r = s.text || "—",
+    a = s.href ? e.jsx("a", { href: s.href, children: r }) : r;
+  return s.swatch
+    ? e.jsxs("span", {
+        className: "ss-admin-swatch-cell",
+        children: [
+          e.jsx("span", {
+            className: "ss-admin-swatch",
+            style: { backgroundColor: s.swatch },
+            title: s.swatch,
+            "aria-hidden": "true",
+          }),
+          a,
+        ],
+      })
+    : a;
+}
+function x({ bootstrap: s }) {
   const r = !!s.isSuperuser && s.rows.some((n) => (n.actions || []).length > 0),
     a = s.primaryAction
       ? e.jsx("a", {
@@ -15,7 +33,7 @@ function o({ bootstrap: s }) {
   return e.jsxs("div", {
     className: "ss-admin-list hide-fullscreen",
     children: [
-      e.jsx(h, {
+      e.jsx(m, {
         title: s.title,
         breadcrumbs: s.breadcrumbs || [],
         actions: a,
@@ -48,14 +66,7 @@ function o({ bootstrap: s }) {
                             n.cells.map((t, d) =>
                               e.jsx(
                                 "td",
-                                {
-                                  children: t.href
-                                    ? e.jsx("a", {
-                                        href: t.href,
-                                        children: t.text || "—",
-                                      })
-                                    : t.text || "—",
-                                },
+                                { children: e.jsx(o, { cell: t }) },
                                 `${n.id}-${d}`,
                               ),
                             ),
@@ -93,7 +104,7 @@ function o({ bootstrap: s }) {
     ],
   });
 }
-function x() {
+function j() {
   const s = document.getElementById("ss-admin-list-bootstrap");
   if (!(s != null && s.textContent)) return null;
   try {
@@ -102,10 +113,10 @@ function x() {
     return (console.error("Failed to parse admin list bootstrap JSON"), null);
   }
 }
-const i = x(),
+const i = j(),
   l = document.getElementById("ss-admin-list-root");
 i &&
   l &&
   c
     .createRoot(l)
-    .render(e.jsx(m.StrictMode, { children: e.jsx(o, { bootstrap: i }) }));
+    .render(e.jsx(h.StrictMode, { children: e.jsx(x, { bootstrap: i }) }));

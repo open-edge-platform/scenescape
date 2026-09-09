@@ -257,6 +257,20 @@ html[data-theme="dark"] {
   color: var(--ss-text-muted);
   font-size: 0.875rem;
 }
+.ss-admin-swatch-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.ss-admin-swatch {
+  flex: 0 0 auto;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 0.2rem;
+  border: 1px solid color-mix(in srgb, var(--ss-ink) 18%, var(--ss-card-border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 25%, transparent);
+}
 .ss-toast {
   position: fixed;
   right: 1rem;
