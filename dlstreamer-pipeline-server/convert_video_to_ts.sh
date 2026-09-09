@@ -3,14 +3,14 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# script to convert mp4 files in sample-data directory
+# script to convert mp4 files in the sample video directory
 # to ts files so that gstreamer pipeline can keep running the files
 # in infinite loop without having to deallocate buffers
 
 docker pull intel/intel-optimized-ffmpeg:avx3
 
 DIRNAME=${PWD}
-SAMPLE_DATA_DIRECTORY=${DIRNAME}/sample_data
+SAMPLE_DATA_DIRECTORY=${DIRNAME}/sample_data/videos
 FFMPEG_DIR="/app/data"
 FFMPEG_IMAGE="intel/intel-optimized-ffmpeg:avx3"
 EXTENSION=${1:-mp4}
