@@ -183,7 +183,8 @@ class TrackingDataset(ABC):
     """Get ground-truth data in evaluator input format.
 
     Returns:
-      Path to ground-truth file in Ground Truth Format (MOTChallenge 3D CSV)
+      Path to ground-truth file in Ground Truth Format, which is the canonical
+      Tracker Output Format (JSONL with absolute ISO timestamps)
       (see tools/tracker/evaluation/README.md#canonical-data-formats).
 
     Raises:

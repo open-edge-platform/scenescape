@@ -23,7 +23,7 @@ import orjson
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from base.tracking_dataset import TrackingDataset
-from utils.format_converters import read_json, convert_json_to_csv, stream_jsonl
+from utils.format_converters import read_json, write_jsonl, stream_jsonl
 
 
 class WildtrackDataset(TrackingDataset):
@@ -211,10 +211,11 @@ class WildtrackDataset(TrackingDataset):
         frame_buffer[min_idx] = self._read_next_frame_within_range(file_handles[min_idx])
 
   def get_ground_truth(self) -> str:
-    """Get ground truth in evaluator input format (MOTChallenge 3D CSV).
+    """Get ground truth in evaluator input format.
 
     Returns:
-      Path to the CSV file with ground truth data.
+      Path to the JSONL file with ground truth in the canonical Tracker Output
+      Format (absolute ISO timestamps, flattened ``objects`` array).
     """
     gt_file = self._dataset_path / "gtLoc.json"
     if not gt_file.exists():
@@ -226,8 +227,7 @@ class WildtrackDataset(TrackingDataset):
         "Call set_output_folder() before get_ground_truth()."
       )
 
-    gt_data = []
-    filtered_frame_num = 0
+    gt_frames = []
 
     for entry in stream_jsonl(str(gt_file)):
       timestamp = entry.get("timestamp")
@@ -238,35 +238,23 @@ class WildtrackDataset(TrackingDataset):
       if self._time_start is not None and timestamp < self._time_start:
         continue
 
-      filtered_frame_num += 1
       objects = entry.get("objects", {})
-      gt_data.extend([
-        {
-          "frame": filtered_frame_num,
-          "object_id": obj["id"],
-          "x": obj["translation"][0],
-          "y": obj["translation"][1],
-          "z": obj["translation"][2],
-          "category": obj.get("category", category)
-        }
-        for category, category_objects in objects.items()
-        if self._object_categories is None or category in self._object_categories
-        for obj in category_objects
-      ])
+      gt_frames.append({
+        "timestamp": timestamp,
+        "objects": [
+          {
+            "id": obj["id"],
+            "category": obj.get("category", category),
+            "translation": obj["translation"],
+          }
+          for category, category_objects in objects.items()
+          if self._object_categories is None or category in self._object_categories
+          for obj in category_objects
+        ]
+      })
 
-    mapping = {
-      "frame": {"pointer": "/frame"},
-      "id": {"pointer": "/object_id"},
-      "x": {"pointer": "/x"},
-      "y": {"pointer": "/y"},
-      "z": {"pointer": "/z"},
-      "conf": {"value": 1.0},
-      "class": {"value": 1},
-      "visibility": {"value": 1}
-    }
-
-    output_file = self._output_folder / "ground_truth_motchallenge.csv"
-    convert_json_to_csv(gt_data, mapping, str(output_file), include_header=False)
+    output_file = self._output_folder / "ground_truth.jsonl"
+    write_jsonl(gt_frames, str(output_file))
     return str(output_file)
 
   def reset(self) -> 'WildtrackDataset':

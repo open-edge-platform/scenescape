@@ -285,7 +285,8 @@ def convert_canonical_to_motchallenge_csv(
   tracker_outputs: Union[List[Dict[str, Any]], Any],
   output_path: str,
   camera_fps: float,
-  uuid_to_id_map: Dict[str, int] = None
+  uuid_to_id_map: Dict[str, int] = None,
+  reference_timestamp: "datetime" = None
 ) -> Dict[str, int]:
   """Convert canonical tracker output format to MOTChallenge 3D CSV format.
 
@@ -305,6 +306,10 @@ def convert_canonical_to_motchallenge_csv(
     output_path: Path to write MOTChallenge CSV file
     camera_fps: Camera frame rate (frames per second) for timestamp-to-frame conversion
     uuid_to_id_map: Optional existing UUID-to-integer mapping (for consistency across calls)
+    reference_timestamp: Optional shared reference epoch for timestamp-to-frame
+      conversion. When None, the first tracker-output timestamp is used. Pass a
+      common reference so ground truth and tracker output map identical absolute
+      timestamps to identical frame indices.
 
   Returns:
     Dictionary mapping UUIDs to integer IDs (for reuse in ground truth conversion)
@@ -337,9 +342,11 @@ def convert_canonical_to_motchallenge_csv(
   next_id = max(uuid_to_id_map.values()) + 1 if uuid_to_id_map else 1
 
   # Parse first timestamp as reference (frame 1)
-  first_timestamp = datetime.fromisoformat(
-    tracker_outputs[0]["timestamp"].replace("Z", "+00:00")
-  )
+  first_timestamp = reference_timestamp
+  if first_timestamp is None:
+    first_timestamp = datetime.fromisoformat(
+      tracker_outputs[0]["timestamp"].replace("Z", "+00:00")
+    )
   frame_duration_seconds = 1.0 / camera_fps
 
   # Convert tracker outputs to CSV rows

@@ -68,21 +68,24 @@ def _make_tracker_outputs(
   return outputs
 
 
-def _make_gt_file(tmp_path, num_frames, tracks):
-  """Generate ground truth CSV file.
+def _make_gt_file(tmp_path, num_frames, tracks, interval_ms=100):
+  """Generate ground truth JSONL file in canonical Tracker Output Format.
 
   Args:
     tmp_path: Directory to write the file.
     num_frames: Number of frames.
     tracks: Dict mapping integer GT ID to a callable(frame_1indexed) -> (x, y)
             or to a dict {frame_1indexed: (x, y)} for sparse tracks.
+    interval_ms: Milliseconds between frames (must match tracker grid).
 
   Returns:
-    Path to GT CSV file.
+    Path to GT JSONL file.
   """
-  gt_file = tmp_path / "gt.txt"
+  import json
+  gt_file = tmp_path / "ground_truth.jsonl"
   lines = []
   for frame in range(1, num_frames + 1):
+    objects = []
     for gid, pos_source in tracks.items():
       if callable(pos_source):
         x, y = pos_source(frame)
@@ -90,8 +93,16 @@ def _make_gt_file(tmp_path, num_frames, tracks):
         if frame not in pos_source:
           continue
         x, y = pos_source[frame]
-      # frame,id,x,y,z,conf,class,visibility
-      lines.append(f"{frame},{gid},{x},{y},0.0,1.0,1,1")
+      objects.append({
+        "id": gid,
+        "category": "person",
+        "translation": [x, y, 0.0],
+      })
+    # frame N (1-indexed) maps to tracker index N-1.
+    lines.append(json.dumps({
+      "timestamp": _make_timestamp(frame - 1, interval_ms),
+      "objects": objects,
+    }))
   gt_file.write_text("\n".join(lines))
   return str(gt_file)
 

@@ -235,7 +235,7 @@ The session summary is printed to stdout at the end:
 
 ## Frame Rate Assumption
 
-The pipeline assumes that **tracker output uses the same frame rate as the input dataset**. The `camera_fps` value in the dataset configuration is used to convert tracker timestamps to frame numbers for comparison with ground-truth.
+The pipeline assumes that **tracker output uses the same frame rate as the input dataset**. The `camera_fps` value in the dataset configuration is used to quantize both tracker output and ground-truth absolute timestamps onto a shared frame grid for comparison.
 
 **Important**: If the tracker drops frames (e.g., due to missed detections or processing bottlenecks), the tracker output will have fewer frames than the input, but the frame rate used for time-to-frame conversion should still match the input dataset's frame rate. The pipeline will automatically handle frame count mismatches by matching frames based on timestamps.
 
@@ -302,36 +302,37 @@ The pipeline uses standardized data formats defined by JSON schemas to enable in
 
 **Purpose**: 3D tracking results from the tracker (evaluator input).
 
-### Ground Truth Format (MOTChallenge 3D CSV)
+### Ground Truth Format (Canonical JSONL)
 
 **Purpose**: Ground-truth tracks for evaluation (evaluator reference data).
 
-**Format**: MOTChallenge 3D CSV with 8 columns:
+**Format**: JSON Lines (`.jsonl`), one frame per line, using a translation-only
+subset of the Tracker Output Format (`tracker/schema/scene-data.schema.json`).
+Each frame carries an **absolute ISO 8601 timestamp** and a flat list of objects:
 
-| Column | Name       | Description                   | Type  |
-| ------ | ---------- | ----------------------------- | ----- |
-| 1      | frame      | Frame number (1-indexed)      | int   |
-| 2      | id         | Object/track ID               | int   |
-| 3      | x          | 3D position X coordinate      | float |
-| 4      | y          | 3D position Y coordinate      | float |
-| 5      | z          | 3D position Z coordinate      | float |
-| 6      | conf       | Confidence/detection score    | float |
-| 7      | class      | Object class (1 for person)   | int   |
-| 8      | visibility | Visibility flag (1 = visible) | int   |
+| Field                 | Description                            | Type            |
+| --------------------- | -------------------------------------- | --------------- |
+| `timestamp`           | Absolute ISO 8601 time (e.g. `...Z`)   | string          |
+| `objects[].id`        | Object/track ID                        | int or string   |
+| `objects[].category`  | Object category (e.g. `person`)        | string          |
+| `objects[].translation` | 3D position `[x, y, z]` in meters    | list of float   |
 
 **Example**:
 
-```csv
-1,1,5.2,3.1,0.0,1.0,1,1
-1,2,7.8,4.5,0.0,1.0,1,1
-2,1,5.3,3.2,0.0,1.0,1,1
+```json
+{"timestamp": "2014-09-08T04:00:00.033Z", "objects": [{"id": 1, "category": "person", "translation": [5.2, 3.1, 0.0]}, {"id": 2, "category": "person", "translation": [7.8, 4.5, 0.0]}]}
+{"timestamp": "2014-09-08T04:00:00.066Z", "objects": [{"id": 1, "category": "person", "translation": [5.3, 3.2, 0.0]}]}
 ```
 
 **Notes**:
 
-- Frame numbers are 1-indexed (not 0-indexed)
-- Default class value is 1 (person) per TrackEval convention
-- Visibility 1 indicates fully visible object
+- Ground truth uses **absolute timestamps**, not frame numbers. Datasets that
+  natively index by frame must convert to absolute time when emitting GT.
+- Track vs ground-truth matching is timestamp-based: both GT and tracker output
+  are quantized onto a shared frame grid using a common reference epoch and the
+  configured `camera_fps`, so dropped tracker frames stay aligned with GT.
+- The canonical GT format mirrors the tracker output format (translation only),
+  removing the previous MOTChallenge 3D CSV representation.
 
 ## References
 
