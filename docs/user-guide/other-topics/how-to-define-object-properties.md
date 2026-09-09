@@ -10,16 +10,16 @@ The Object Library allows you to configure various properties for object categor
 ### Add a New Object
 
 1. Click on "New Object".
-2. Input the object properties.
-3. Click on "Add New Object".
+2. Input the object properties in the Object Library sheet.
+3. Click **Save**.
 
 ![Create New Object](../_assets/ui/new-object.png)
 
 ### Update Existing Object
 
 1. Click on the wrench/spanner icon in the Update column in the row of the object to be edited.
-2. Edit the object properties.
-3. Click on "Update Object" to save any changes.
+2. Edit the object properties in the sheet.
+3. Click **Save**.
 
 ## Basic Object Properties
 
@@ -50,6 +50,10 @@ You can apply positive values to expand the bounding box or negative values to s
   - For most objects the default setting of "Type 1" will work well.
   - For wide and short objects, "Type 2" performs better.
 
+### Map mark appearance
+
+- **Mark color**: Color used for half of the 2D map track-mark checkerboard (alternating with a per-track UUID color) so person and vehicle marks stay readable on light and dark maps. AprilTag marks keep a simple circle core.
+
 ## Additional Settings
 
 - **Rotation from velocity**: When enabled, orientation of the object is inferred from the computed velocity.
@@ -59,10 +63,10 @@ You can apply positive values to expand the bounding box or negative values to s
 
 By default, the shape of the object is a cuboid. Instead, the user can provide a 3D asset file (.glb) for 3D visualization.
 
-1. Click on "New Object" or click on the wrench/spanner icon in the Update column in the row of the object to be edited..
+1. Click on "New Object" or click on the wrench/spanner icon in the Update column in the row of the object to be edited.
 2. Choose a .glb file with the file picker input.
 3. Edit any of the asset property fields.
-4. Click on "Add New Object" or "Update Object"
+4. Click **Save**
 
 ### Asset Properties
 

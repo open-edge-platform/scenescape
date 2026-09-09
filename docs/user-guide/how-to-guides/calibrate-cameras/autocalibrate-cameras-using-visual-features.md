@@ -65,7 +65,7 @@ _Figure 2: Upload the raw dataset ZIP from Polycam._
 _Figure 3: Click the Auto Calibrate button in the 3D UI._
 
 4. Enable **Project Frame** to verify pose visually.
-5. Adjust manually if needed, then click **Save Camera**.
+5. Adjust manually if needed, then click **save** on the camera control panel.
 
 ![Save Camera and enable project frame](../../_assets/ui/save_camera_camlibration.png)
 

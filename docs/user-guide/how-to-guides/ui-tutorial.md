@@ -26,11 +26,11 @@ On local desktop, open browser and connect to `https://localhost`. If running re
   ![Scenescape WebUI 3D Screenshot ](../_assets/ui/demo_queuing_3d_view.png)
   Figure 2: Scenescape 3D WebUI view
 
-Using the mouse, one can rotate the 3D model and zoom in and out.
+Using the mouse, one can rotate the 3D model and zoom in and out. From the 3D view, click the scene name (or the wrench control) to return to the 2D scene detail page.
 
 ## Navigate Scenescape Online Documentation
 
-Scenescape provides an html version of the documentation via the WebUI service.
+The **Documentation** menu link opens the published Scenescape docs on the Open Edge Platform documentation site (new browser tab).
 
 ### Time To Complete Documentation Walkthrough
 
@@ -38,7 +38,7 @@ Scenescape provides an html version of the documentation via the WebUI service.
 
 ### Prerequisites For Viewing Documentation
 
-Complete all steps in the [Installation](../get-started/installation.md) section.
+Complete all steps in the [Installation](../get-started/installation.md) section. Network access to `docs.openedgeplatform.intel.com` is required.
 
 ### Explore Documentation
 
@@ -46,7 +46,7 @@ On local desktop, open browser and connect to `https://localhost`. If running re
 
 > **Note:** These certificate warnings are expected due to the use of a self-signed certificate for initial deployment purposes. This certificate is generated at deploy time and is unique to the instance.
 
-- Click on the Documentation menu link at the top, explore the left side contents menu. For example, try selecting Learn More and using the links to
+- Click on the Documentation menu link at the top. Explore the left side contents menu. For example, try selecting Learn More and using the links to
   additional information:
   ![Scenescape WebUI Documentation Screenshot ](../_assets/online_docs.png)
   Figure 3: Scenescape online documentation
@@ -57,7 +57,7 @@ On local desktop, open browser and connect to `https://localhost`. If running re
 
 ## Summary
 
-In this tutorial, you learned how to navigate the Scenescape user interface from 2D to 3D view of the demo scenes via a browser and also view the documentation that comes with Scenescape.
+In this tutorial, you learned how to navigate the Scenescape user interface from 2D to 3D view of the demo scenes via a browser and also open the published documentation from the WebUI.
 
 ## Learn More
 

@@ -31,6 +31,7 @@ Before you begin:
 
    **Expected Results**:
    - Scene loads with camera icons, tracked objects, and a glTF/GLB background.
+   - Click the scene name or the wrench control to return to the 2D scene detail page. Camera wrench links open the 2D calibrate workspace for that camera.
 
 ### Step 2: Add or Modify a Camera
 

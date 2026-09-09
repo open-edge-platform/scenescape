@@ -8,6 +8,9 @@ SPDX-License-Identifier: Apache-2.0
 Vite + React + TypeScript package that builds Manager 2D islands into Django
 static assets.
 
+Status of shipped work vs remaining empty-space / 3D epics:
+[`.github/plans/manager-ui.md`](../../.github/plans/manager-ui.md).
+
 ## Setup
 
 ```bash
@@ -44,7 +47,8 @@ Each page mounts a root + `json_script` bootstrap and loads the matching
 `{% static 'ui/<entry>.js' %}` as `type="module"`.
 
 Scene detail also adopts `#ss-map-host` and `#scene-detail-panels`; ROI/tripwire
-editor cards are React-owned via `#roi-fields` / `#tripwire-fields`.
+editor cards are React-owned via `#roi-fields` / `#tripwire-fields`. Sheets open
+from `?ss=<action>&id=<optional>` (see `src/lib/sheetQuery.ts`).
 
 ## Lint
 

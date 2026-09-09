@@ -40,16 +40,16 @@ If you're new to these concepts, see:
 2. Click on a scene.
 3. Click on `Sensors` at the bottom of the scene.
 4. Click `New Sensor` to create a sensor.
-5. In the New Sensor form, fill out `Sensor ID`, `Name` and `Scene` fields.
+5. In the New Sensor sheet, fill out `Sensor ID`, `Name` and `Scene` fields.
 6. Update the `Type of Sensor` to environmental.
-7. Click `Add New Sensor` to save.
+7. Click **Save**.
 
 ### Modify the Sensor
 
 1. Click on `Sensors` at the bottom of the scene.
-2. You will see the created sensor. Then click on the `manage` button.
-3. In the Manage Sensor view, you can update attributes like Measurement area (Entire Scene, Circle or Custom region), Name, Sensor id, Scene, Singleton type, Color Range, etc. For more details on how to use the Color Range, refer to [Visualizing ROI and Sensor Areas](./visualize-regions.md).
-4. Cick on `Save Sensor `to persist the modified sensor.
+2. You will see the created sensor. Then click **Edit**.
+3. In the calibrate sensor workspace, you can update attributes like Measurement area (Entire Scene, Circle or Custom region), Name, Sensor id, Scene, Singleton type, Color Range, etc. For more details on how to use the Color Range, refer to [Visualizing ROI and Sensor Areas](./visualize-regions.md).
+4. Click **Save** to persist the modified sensor.
 
 In the 3D scene view, expand `Sensors Settings` and toggle `show` for the
 sensor. The visibility setting is saved immediately and restored after a page
@@ -83,9 +83,9 @@ Check the scene graph for objects within the sensor region:
 2. Click on a scene.
 3. Click on `Sensors` at the bottom of the scene.
 4. Click `New Sensor` to create a sensor.
-5. In the New Sensor form, fill out `Sensor ID`, `Name` and `Scene` fields.
+5. In the New Sensor sheet, fill out `Sensor ID`, `Name` and `Scene` fields.
 6. Update the `Type of Sensor` to attribute.
-7. Click `Add New Sensor` to save.
+7. Click **Save**.
 
 Refer to [Modify the Sensor](#modify-the-sensor) on how to modify the attribute sensor.
 

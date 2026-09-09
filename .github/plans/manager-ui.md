@@ -17,9 +17,10 @@ Do not reopen Snap / calibrate iframe work. Do not stretch the scene map
 | --- | --- |
 | 2D React rewrite (Phases 0–5) | **Done** |
 | Model directory UI parity | **Done** |
+| Theme toggle + track-mark contrast | **Done** |
 | Empty space — admin lists (Phase 1) | **Not started** |
 | Empty space — scene detail chrome (Phase 2) | **Partial** |
-| 3D scene viewport (React) | **Not started** (legacy Three.js) |
+| 3D scene viewport (React) | **Not started** (legacy Three.js; chrome polish shipped) |
 
 ## Done
 
@@ -30,8 +31,13 @@ calibrate panels, REST geometry persist, in-place entity cards (cameras /
 sensors / children create + delete without full-page flash), live tab
 counts via `ss-tab-counts`, map `meet` aspect (no stretch).
 
-Scene entity cards: camera/sensor **Edit** opens the calibrate sheet
-(`calibrateHref` / `?ss=calibrate-*`), not a separate metadata drawer.
+Scene entity cards: camera/sensor **Edit** (and the camera card image)
+opens the calibrate workspace (`calibrateHref` / `?ss=calibrate-*`), not
+a separate metadata drawer. Scene settings: pencil `#scene-edit` →
+`?ss=scene-manage` (`SceneManagePanel`, title **Edit Scene**).
+
+Calibrate / manage Save buttons are dirty-gated (`Save` / `Saved` /
+`Saving…`), not legacy “Save Camera” / “Save Sensor” labels.
 
 ### Model directory
 
@@ -51,6 +57,29 @@ Optional later: K8s-only BAT for browse + upload.
 Key paths: `manager/ui/src/models/`, `models-directory-main.tsx`,
 `model/model_list.html`, `model_directory_view.py`, `ModelListView` in
 `views.py`.
+
+### Theme, docs nav, track marks
+
+- Light / dark theme toggle in the navbar (`#ss-theme-toggle`,
+  `localStorage` key `ss-theme`, `html[data-theme]`). Tokens live in
+  `manager/ui/src/tokens/` and `:root` / `html[data-theme]` in
+  `style.css`.
+- Documentation nav opens published OEP docs
+  (`https://docs.openedgeplatform.intel.com/dev/scenescape/index.html`),
+  not a WebUI-hosted HTML tree.
+- Map track marks: person/vehicle cores are a 4-quadrant checkerboard
+  (Object Library `mark_color` alternating with the track UUID color) so
+  marks stay readable on light and dark maps. AprilTags stay circle
+  cores. Object Library sheet exposes **Mark color**.
+
+### 3D chrome (still legacy viewport)
+
+React 3D rewrite is not started, but 3D templates already deep-link into
+the 2D React surfaces:
+
+- Scene name `#scene-detail-link` and wrench `#scene-detail-button` →
+  `sceneDetail`.
+- Per-camera wrench → `/{scene.id}/?ss=calibrate-cam&id=…`.
 
 ## Remaining
 
@@ -123,7 +152,8 @@ Likely files: `style.css` (`.scene-map-stage`), `SceneDetailPage.css`,
 - Do not switch camera previews to `cover` as the default.
 - Do not add a second density control.
 - Do not change Models directory into a table.
-- No user-facing docs unless chrome labels change.
+- Update user-facing how-tos when chrome labels, open paths, or nav
+  targets change (see `docs/user-guide/how-to-guides/`).
 
 #### Verify (when implementing)
 
@@ -146,7 +176,8 @@ tokens, virtualized tables / search / sort / filter.
   ES modules under `static/js/thing/`, `viewport.js`, managers, etc.
 - Mount: `base_3d.html` loads the legacy module — no React root / no
   `manager/ui` 3D entry.
-- Scene detail only links out (`#3d-view` → `urls.scene3d`).
+- Scene detail links out (`#3d-view` → `urls.scene3d`). Chrome already
+  deep-links back (see Done).
 
 Replace or wrap with a React-owned shell that reuses MQTT / auth patterns
 from the 2D rewrite. Do **not** fold into 2D trickle PRs (empty-space or
@@ -168,14 +199,15 @@ legacy globals; UI BAT green for scene 3D view when that suite exists.
 ## Tokens
 
 Mirror `--ss-*` / `ss.*` in `manager/ui/src/tokens/` (same values as
-`:root` in `manager/src/manager/static/css/style.css`). Do not add a
-ViPPET/OEP design-system npm dependency until license and versioning are
-confirmed. When a shared package exists, remap names — do not restyle ad
-hoc.
+`:root` / `html[data-theme]` in `manager/src/manager/static/css/style.css`).
+Do not add a ViPPET/OEP design-system npm dependency until license and
+versioning are confirmed. When a shared package exists, remap names — do
+not restyle ad hoc.
 
 Primitives already landed: `Button`, `PageHeader`, `Tabs`, `Breadcrumb`,
-`Card`, `StatusChip`, `TableActions`, `TextField`, `FormCard`,
-`FormSection`, `Modal`, `Drawer`, `ConfirmDialog`, `Toast`.
+`Card`, `StatusChip`, `TableActions`, `TextField`, `SelectField`,
+`FormCard`, `FormSection`, `FormShell`, `Modal`, `Drawer`, `WorkspacePanel`,
+`PanelLayoutToggle`, `ConfirmDialog`, `Toast`, `LegacyConfirmHost`.
 
 ## Hard contracts (freeze)
 
@@ -212,6 +244,8 @@ scene map ids below.
 | `#roi-fields`, `#tripwire-fields` | Editor card mounts |
 | `#no-regions`, `#no-tripwires` | Empty states |
 | `#mqtt_status`, `#broker` | MQTT panel |
+| `#scene-edit` | Opens `?ss=scene-manage` |
+| `#3d-view` | Link to legacy 3D scene |
 
 ### ROI / tripwire editor cards
 
@@ -230,6 +264,21 @@ scene map ids below.
 | --- | --- |
 | `.snapshot-image[topic]`, `#rate-{sensorId}`, `.camera-card` | Camera strip |
 | `.singleton`, `.area-json`, `.sensor-id` | Sensor marks |
+
+### 3D template chrome
+
+| Id | Role |
+| --- | --- |
+| `#scene-detail-link` | Scene name → `sceneDetail` |
+| `#scene-detail-button` | Wrench → `sceneDetail` |
+| `#2d-button`, `#3d-button` | Orthographic / perspective toggles in 3D |
+
+### Navbar
+
+| Id | Role |
+| --- | --- |
+| `#nav-docs` | Published OEP documentation (new tab) |
+| `#ss-theme-toggle` | Light / dark theme |
 
 ### `window` APIs (scene detail)
 
@@ -263,6 +312,7 @@ Calibrate iframes are retired. React sheets own calibrate UX.
 | Sensor / camera calibrate iframes | React panels |
 | Form scrape stringify as save source | Typed `ssMap` geometry model |
 | jQuery `model_list.js` / HTML fragment load | React `models-directory.js` + JSON API |
+| WebUI-hosted Documentation tree | `#nav-docs` → OEP published docs |
 
 ### REST persist
 
@@ -270,8 +320,10 @@ Calibrate iframes are retired. React sheets own calibrate UX.
 - Tripwires: `GET/POST/PUT/DELETE /api/v1/tripwire(s)`
 - Sensors: `PUT /api/v1/sensor/{uid}` (area, points, color_ranges);
   `DELETE /api/v1/sensor/{uid}`
-- Cameras: `PUT /api/v1/camera/{uid}` (intrinsics, transforms, …)
+- Cameras: `PUT /api/v1/camera/{uid}` (intrinsics, transforms, …);
+  `camerachain` validated on form + REST (`validate_camerachain`)
 - Models (K8s): `GET/POST/DELETE /api/v1/model-directory/`
+- Assets: Object Library includes `mark_color`
 
 ## Build
 
@@ -282,3 +334,6 @@ make -C manager ui-build
 Islands under `manager/src/manager/static/ui/`: `scene-detail`,
 `scenes-home`, `list-sheets`, `admin-list`, `destructive-actions`,
 `models-directory` (+ shared `manager-ui.css`).
+
+Package and developer notes: `manager/ui/README.md`. Plan ownership for
+remaining empty-space / 3D work stays in this file.
