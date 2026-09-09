@@ -55,7 +55,7 @@ against the `detector` definition in
 | `distance`             | number             |    No    | Distance from the camera to the detection in metres                                                                                                            |
 | `keypoints`            | array of objects   |    No    | Pose keypoints when a pose estimation model is used; each entry: `{"name": "<keypoint>", "x": <0–1>, "y": <0–1>}` (coordinates normalized to frame dimensions) |
 | `keypoint_connections` | array of strings   |    No    | Flat list of keypoint-name pairs defining connections (e.g. `["nose","eye_l","nose","eye_r",...]`); length is always `2 × number_of_connections`               |
-| `metadata`             | object             |    No    | Semantic attribute bag (see [Semantic Metadata Fields](#semantic-metadata-fields))                                                                             |
+| `metadata`             | object             |    No    | Semantic attribute bag (see [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr))                                                                             |
 
 > **① Location constraint**: every detection must provide location in exactly one
 > of these forms (enforced by the schema's `oneOf`):
@@ -148,7 +148,7 @@ The Scene Controller subscribes to `scenescape/external/{publisher_id}/{thing_ty
 (MQTT template parameter name remains `scene_id` in `PubSub` APIs). The path id is
 always the **publisher** (configured child scene uid or agent `source_id`). Scenes
 attach via consumer-side **bindings**, not by addressing a scene inbox. See
-[ADR 16](../../../adr/0016-unified-external-source-ingestion.md).
+[ADR 16](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/docs/adr/0016-unified-external-source-ingestion.md).
 
 Two payload contracts share the topic, distinguished by `source_id`:
 
@@ -222,7 +222,7 @@ publishes over authenticated MQTT, see
 | `rotation`    | array[4] of number |    No    | Rotation of the object as a quaternion (`x`, `y`, `z`, `w`)                                                                                                                                                     |
 | `size`        | array[3] of number |    No    | Object dimensions (`x`, `y`, `z`). Omit for a point observation with no known extent                                                                                                                            |
 | `confidence`  | number > 0         |    No    | Source-reported confidence for this observation                                                                                                                                                                 |
-| `metadata`    | object             |    No    | Semantic attribute bag; same structure as camera input (see [Semantic Metadata Fields](#semantic-metadata-fields))                                                                                              |
+| `metadata`    | object             |    No    | Semantic attribute bag; same structure as camera input (see [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr))                                                                                              |
 
 Unlike camera detections, `size` is optional here: a source that cannot estimate an object's
 extent may report a point observation. Point objects (no `size`) remain eligible for
@@ -290,7 +290,7 @@ avoid this by choosing a genuinely persistent, unique identifier.
 **Security note:** identity is trusted based on the `source_id`/`id` values present in the
 message payload, not a cryptographically verified per-device credential — Scenescape's current
 MQTT authentication does not yet bind individual publishers to individual `source_id`s (see
-[ADR 16](../../../adr/0016-unified-external-source-ingestion.md#future-work)). A publisher that
+[ADR 16](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/docs/adr/0016-unified-external-source-ingestion.md#future-work)). A publisher that
 can reach the broker can claim any `source_id`/`id` it chooses, subject only to the collision
 check above.
 
@@ -444,7 +444,7 @@ tracked object contains the following fields:
 | `camera_bounds`        | object             | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height, projected}}`) where `projected=false` means detector-provided pixel bbox and `projected=true` means computed projection; may be empty (`{}`) when no camera currently observes the track     |
 
 > **Note on `metadata` in track objects**: Each attribute follows the structure
-> `{label, model_name, confidence?}` — identical to [Semantic Metadata Fields](#semantic-metadata-fields)
+> `{label, model_name, confidence?}` — identical to [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr)
 > in camera input. The `reid` attribute is a special case: in scene output
 > `reid.embedding_vector` is a **2D float array** (`[[...numbers...]]`), whereas in
 > camera input it is a base64-encoded string. `metadata` is absent when no semantic

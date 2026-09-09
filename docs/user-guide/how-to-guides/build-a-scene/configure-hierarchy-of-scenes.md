@@ -210,7 +210,7 @@ How a parent scene handles identity depends on the **Retrack** setting of each c
   `will_enroll` / `enrolled`. Durable rematch to enrolled IDs is reliable when
   tracks rematch **sequentially**; two live parent tracks will not both adopt
   the same database UUID
-  ([ADR 0015](../../../adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity)).
+  ([ADR 0015](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/docs/adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity)).
   Geometric tracker merge can still collapse detections that project to the same place.
 
 Embeddings a child forwards carry the id of the scene and camera that produced them, along with
