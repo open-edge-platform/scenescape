@@ -95,12 +95,13 @@ per-endpoint:
   - **Delete** (5.6) — POI gallery only. See that section for why general-gallery deletion is
     explicitly not part of this API, and how compliance/erasure requests against the general
     gallery are handled instead.
-  - **Query** (5.2, `findMatches`) — the one operation that reads from *both* galleries.
+  - **Query** (5.2, `findMatches`) — the one operation that reads from _both_ galleries.
     Read-only either way; querying the general gallery through this API never writes to it.
 
   Nothing in the Query API, Deletion API, or Gallery/collection management subsections should be
   read as applying to the general gallery unless explicitly called out — and after this
   subsection, nothing does.
+
 - **POI records are persisted, not just long-TTL.** A POI record isn't "the same as the general
   gallery but with a bigger number" — it's meant to survive indefinitely by design, distinct
   from the general gallery's inherently ephemeral, TTL-bound nature. See 5.9 for what
@@ -126,7 +127,7 @@ entirely from live tracking — a security operator manually uploads a reference
 person in a video clip, with no tracker context at all. Forcing that through `addEntry` means
 inventing a synthetic `rvid` and hoping nothing downstream assumes it's real. A dedicated
 `POST /poi` endpoint sidesteps that: it accepts one or more precomputed embeddings and enrollment
-metadata (`severity`, `notes`, `enrolled_by`), and only *internally* calls the same write path
+metadata (`severity`, `notes`, `enrolled_by`), and only _internally_ calls the same write path
 `addEntry` already uses. Per the design principles above, the caller does not supply a `poi_id` —
 the service generates one and returns it in the response; the caller addresses that POI in later
 calls (`PATCH`, delete) using the ID the service gave back.
@@ -140,13 +141,14 @@ service's dependency footprint (and GPU/NPU requirements) unchanged from today.
 tracking pipeline this is a non-issue: DL Streamer pipelines are already running continuously per
 camera. Enrollment is different — it's a one-off, infrequent event, not a continuous stream. Two
 options, with different operational cost:
-  - Bring up a DL Streamer pipeline container just to process the one enrollment frame, then tear
-    it down — reuses the exact same extraction path as live tracking, but pipeline
-    startup/teardown overhead for a single frame is a lot of machinery for one image.
-  - A lightweight synchronous embedding-extraction API (either exposed by DL Streamer directly, if
-    feasible, or a small dedicated helper service) that takes one image and returns one embedding
-    — much less overhead, but is a second extraction code path to keep in sync with the live
-    pipeline.
+
+- Bring up a DL Streamer pipeline container just to process the one enrollment frame, then tear
+  it down — reuses the exact same extraction path as live tracking, but pipeline
+  startup/teardown overhead for a single frame is a lot of machinery for one image.
+- A lightweight synchronous embedding-extraction API (either exposed by DL Streamer directly, if
+  feasible, or a small dedicated helper service) that takes one image and returns one embedding
+  — much less overhead, but is a second extraction code path to keep in sync with the live
+  pipeline.
 
 This needs an answer before `POST /poi` can be built, since it determines what the caller of that
 endpoint is expected to already have in hand. Tracked as an open question in Section 9.
@@ -178,7 +180,7 @@ general gallery's namespace. Two consequences worth deciding now:
   24h) exists specifically so it doesn't grow unbounded. A POI gallery almost certainly wants a
   much longer TTL, or none. Today's adapters apply one TTL per adapter instance at construction
   time (`_applyRetentionProperties`); the enrollment endpoint needs a way to write with a
-  *different* retention policy than the general-gallery writer uses, which is a real (if small)
+  _different_ retention policy than the general-gallery writer uses, which is a real (if small)
   adapter change, not just an API wrapper.
 - **Query behavior differs by design.** POI matching wants a small `k_neighbors` and a strict
   threshold against a small gallery; general tracking match/no-match logic is tuned differently.
@@ -255,8 +257,8 @@ as correlation:
   endpoint, message queue) — an integration/fan-out concern that shouldn't require touching
   correlation code every time a new delivery target is added.
 - **Alert deduplication belongs at the delivery layer, not the correlation layer.** The 5-minute
-  dedup window governs *how often to notify*, a different question from *whether a match
-  occurred*. Suppressing at correlation would throw away the record of every real match;
+  dedup window governs _how often to notify_, a different question from _whether a match
+  occurred_. Suppressing at correlation would throw away the record of every real match;
   suppressing at delivery keeps a full match history for investigation while still controlling
   notification noise.
 
@@ -292,13 +294,14 @@ expose the "Alert API" Epic #221 calls for.
 ### 5.5 Gallery/collection management API
 
 **What's actually missing today.** Neither `VDMSDatabase` nor `QdrantDatabase` currently exposes
-anything like a count or listing call — `findSchemaMetadata` tells you a collection *exists* and
+anything like a count or listing call — `findSchemaMetadata` tells you a collection _exists_ and
 its dimensions/metric, not how many entries are in it. This means the KPIs the SLP epics already
 name — `Gallery_Size_Active_Persons`, `POI_Gallery_Size` — have no data source today. This is new
 adapter work in both backends, not just an API wrapper: VDMS has no direct "count" primitive
 comparable to Qdrant's `client.count()` / collection info.
 
 **Proposed endpoints:**
+
 - `GET /collections` — list known collections/sets with dimensions, similarity metric, backend,
   and retention policy.
 - `GET /collections/{name}/stats` — size and composition of one collection.
@@ -415,7 +418,7 @@ into a video, clickable from the 2D track UI, and exposed via API. This spans th
 pieces with very different amounts of known scope.
 
 **What's actually being asked, stripped down.** Not the video itself — that's Stream Manager's
-job. What ReID needs to produce is the *list of sightings* that tells Stream Manager which
+job. What ReID needs to produce is the _list of sightings_ that tells Stream Manager which
 cameras and which time windows to pull footage from.
 
 **The gap, confirmed against the actual code.** The system today only keeps a "latest known
@@ -441,7 +444,7 @@ database:
 1. **Write path:** attach `camera_id` and timestamp (and likely bounding box) to every descriptor
    write, sourced from the two existing-but-unwired pieces above.
 2. **Query shape:** a new "give me every appearance for this gid, ordered by time" query —
-   different from today's `getPersistedAttributes`, which is deliberately *latest-only*.
+   different from today's `getPersistedAttributes`, which is deliberately _latest-only_.
 
 **Open questions to settle before sizing this for real:**
 
@@ -470,10 +473,10 @@ with Stream Manager's owner before a total estimate is quoted.
 
 ## 6. Alternatives Considered
 
-| Alternative | Considered for | Outcome |
-| --- | --- | --- |
+| Alternative                                                                                           | Considered for                    | Outcome                                                                                                                                                        |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Controller-embedded correlation (checking the POI set inside `UUIDManager`'s existing per-frame loop) | POI-to-tracking correlation (5.4) | **Rejected.** Cheapest and lowest-latency, but reintroduces ReID-specific logic into the controller at the exact point separation is trying to remove it from. |
-| Reusing `DATA_EXTERNAL` as-is for the correlation daemon's embedding feed | Correlation data source (5.4) | **Open, not yet decided.** Weighed against a second, dedicated publish path decoupled from `_hierarchyReidPublishPolicy`'s unrelated gating. |
+| Reusing `DATA_EXTERNAL` as-is for the correlation daemon's embedding feed                             | Correlation data source (5.4)     | **Open, not yet decided.** Weighed against a second, dedicated publish path decoupled from `_hierarchyReidPublishPolicy`'s unrelated gating.                   |
 
 ## 7. Rollout / Migration Plan
 
@@ -508,6 +511,7 @@ exercised through the shared `ReIDDatabase` contract so behavior stays identical
 **Monitoring.** `latency_metrics.py` already establishes the pattern every new metric here should
 follow: raw values to an OTel histogram/gauge, not just a REST response for humans to poll.
 Specifically:
+
 - `Gallery_Size_Active_Persons` / `POI_Gallery_Size` as OTel gauges tagged by collection/scene
   (5.5), feeding the performance-tools `GalleryExtractor` both SLP epics already name.
 - `POI_Match_Latency_ms` tracked independently from the general tracking pipeline's
