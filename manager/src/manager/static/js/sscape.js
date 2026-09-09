@@ -176,6 +176,7 @@ async function checkBrokerConnections() {
       $("[id^='mqtt_status']").removeClass("connected");
       $(".rate").text("--");
       $("#scene-rate").text("--");
+      $("#svgout").find("#count").text("");
     });
 
     client.on("message", function (topic, data) {
@@ -230,6 +231,7 @@ async function checkBrokerConnections() {
               }
             });
             setROIColor(msg["metadata"]["uuid"], occupancy);
+            updateROICount(msg["metadata"]["uuid"], counts);
           }
 
           var value = msg["value"];
@@ -421,7 +423,7 @@ function numberRois() {
   groups.forEach(function (e, n) {
     var id = e.attr("id");
     var title = $("#form-" + id + " input.roi-title").val();
-    var text = e.select("text");
+    var text = e.select("#name");
 
     var isNewlyCreated = title.trim() === "";
 
@@ -436,7 +438,7 @@ function numberRois() {
         const roi_group_points = e.select("polygon").attr("points");
         var center = polyCenter(roi_group_points);
 
-        text = e.text(center[0], center[1], title);
+        text = e.text(center[0], center[1], title).attr({ id: "name" });
       }
     }
 
@@ -736,12 +738,19 @@ function move(dx, dy) {
   var poly = group.polygon(points);
   poly.prependTo(poly.node.parentElement);
 
-  var text = group.select("text");
+  var text = group.select("#name");
+  var count = group.select("#count");
   var center = polyCenter(points);
   if (text) {
     text.attr({
       x: center[0],
       y: center[1],
+    });
+  }
+  if (count) {
+    count.attr({
+      x: center[0],
+      y: center[1] + 15,
     });
   }
 }
@@ -1205,6 +1214,12 @@ function drawRoi(e, index, type) {
       name_text.setAttribute("y", center[1]);
       hierarchy_text.setAttribute("x", center[0]);
       hierarchy_text.setAttribute("y", center[1] + 15);
+
+      var count_text = document.getElementById(i).querySelector("#count");
+      if (count_text) {
+        count_text.setAttribute("x", center[0]);
+        count_text.setAttribute("y", center[1] + 30);
+      }
     }
     name_text.textContent = e.title;
     hierarchy_text.textContent = e.from_child_scene;
@@ -1304,12 +1319,16 @@ function drawRoi(e, index, type) {
           }
         });
       });
+
+      var center = polyCenter(roi_points);
+      g.text(center[0], center[1] + 15, "").attr({ id: "count" });
     } else {
       var center = polyCenter(roi_points);
       var nameText = g.text(center[0], center[1], e.title).attr({ id: "name" });
       var hierarchyText = g
         .text(center[0], center[1] + 15, e.from_child_scene)
         .attr({ id: "hierarchy" });
+      var countText = g.text(center[0], center[1] + 30, "").attr({ id: "count" });
     }
     numberRois();
   }
@@ -1423,6 +1442,18 @@ function setROIColor(roi_id, occupancy) {
       roi_polygon.style.fill = "white";
     }
   }
+}
+
+// Own-scene ROIs use #roi_<uuid>, child-scene ROIs use #child_roi_<uuid>
+function updateROICount(roi_id, counts) {
+  const group =
+    document.getElementById("roi_" + roi_id) ||
+    document.getElementById("child_roi_" + roi_id);
+  const countText = group?.querySelector("#count");
+  if (!countText) return;
+  countText.textContent = Object.entries(counts)
+    .map(([type, n]) => `${type}: ${n}`)
+    .join(", ");
 }
 
 function setSensorColor(sensor_id, value, area) {

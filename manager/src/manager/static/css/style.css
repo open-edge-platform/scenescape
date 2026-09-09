@@ -558,6 +558,12 @@ ul.errorlist {
   display: block;
 }
 
+/* Occupancy counts stay visible regardless of the ROI-name toggle and hover */
+#svgout .roi > #count,
+#svgout .child_roi > #count {
+  display: block;
+}
+
 .roi-visualization {
   margin: auto;
 }
