@@ -74,7 +74,7 @@ sudo apt install -y \
    docker run hello-world
    ```
 
-**Limitations**
+**Limitations**:
 
 During the Docker build process, packages are installed from public repositories. Intel has no control over the public repositories. Specific versions of packages might be removed by the owners at any time, which may break the Docker image build. The Docker build targets the latest available versions of software packages from the public repositories while keeping the same major version.
 
