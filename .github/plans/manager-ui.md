@@ -8,6 +8,11 @@ SPDX-License-Identifier: Apache-2.0
 Status of the Manager React rewrite against the current tree. Tokens,
 primitives, hard contracts, and build notes stay at the bottom.
 
+Package layout (as of the backend/frontend split): Django lives under
+`manager/backend/`; React/Vite islands under `manager/frontend/`; built
+assets still land in `manager/backend/manager/static/ui/` and load via
+`{% static 'ui/…' %}`.
+
 Do not reopen Snap / calibrate iframe work. Do not stretch the scene map
 (`slice` / cover).
 
@@ -15,14 +20,23 @@ Do not reopen Snap / calibrate iframe work. Do not stretch the scene map
 
 | Area | State |
 | --- | --- |
+| Source layout (`backend/` + `frontend/`) | **Done** |
 | 2D React rewrite (Phases 0–5) | **Done** |
 | Model directory UI parity | **Done** |
 | Theme toggle + track-mark contrast | **Done** |
 | Empty space — admin lists (Phase 1) | **Not started** |
 | Empty space — scene detail chrome (Phase 2) | **Partial** |
+| Empty space — models/list cap consistency (Phase 3) | **Optional** |
 | 3D scene viewport (React) | **Not started** (legacy Three.js; chrome polish shipped) |
 
 ## Done
+
+### Source layout
+
+Django package at `manager/backend/manager/` (`manage.py` beside it).
+React package at `manager/frontend/`. Container runtime path remains
+`/home/scenescape/Scenescape/manager`. Build via `make -C manager ui-build`
+(or `SKIP_UI=1`).
 
 ### 2D rewrite
 
@@ -83,6 +97,9 @@ the 2D React surfaces:
 
 ## Remaining
 
+Work left is chrome density and the 3D epic. The 2D rewrite, model
+directory, theme/docs/track marks, and source layout are closed.
+
 ### 1. Empty space on lists and scene detail
 
 Two layout mistakes produce the same complaint (“large empty spaces”) on a
@@ -110,10 +127,10 @@ Still to do:
 Likely files: `manager/frontend/src/admin/AdminListApp.tsx`, `AdminListApp.css`,
 `PageHeader.tsx` / `.css`, `manager/backend/manager/views.py` list bootstraps.
 
-Current evidence of open work: `.ss-admin-list` / `.ss-admin-table-card`
-are `width: 100%` with no `max-width`; no `table-layout` on
-`.ss-admin-table`; `.ss-page-title` is `1.75rem`; `.ss-table-empty` uses
-large padding inside the full-width card.
+Current evidence of open work (still true): `.ss-admin-list` /
+`.ss-admin-table-card` are `width: 100%` with no `max-width`; no
+`table-layout` on `.ss-admin-table`; `.ss-page-title` is `1.75rem`;
+`.ss-table-empty` uses large padding inside the full-width card.
 
 #### Phase 2 — scene detail chrome — **partial**
 
@@ -135,9 +152,9 @@ Still open:
 - Re-check Below strip gutter / card alignment if anything still feels
   hollow after the stage fill fix.
 
-Likely files: `style.css` (`.scene-map-stage`), `SceneDetailPage.css`,
-`reactSceneMap.css`, `SceneMapPane.css`, `CameraStrip.css`,
-`ControlTabEntities.css`.
+Likely files: `manager/backend/manager/static/css/style.css`
+(`.scene-map-stage`), `SceneDetailPage.css`, `reactSceneMap.css`,
+`SceneMapPane.css`, `CameraStrip.css`, `ControlTabEntities.css`.
 
 #### Phase 3 — optional
 
@@ -170,7 +187,8 @@ tokens, virtualized tables / search / sort / filter.
 
 ### 2. 3D scene viewport (epic)
 
-**Not started.** Legacy Three.js surface remains:
+**Not started.** Largest remaining Manager UI epic. Legacy Three.js
+surface remains:
 
 - Entry: `manager/backend/manager/static/js/scenescape3d.js` (~700 LOC) plus
   ES modules under `static/js/thing/`, `viewport.js`, managers, etc.
@@ -195,6 +213,12 @@ Suggested slices:
 
 Gate: document any new 3D contract ids in this file before deleting
 legacy globals; UI BAT green for scene 3D view when that suite exists.
+
+### 3. Optional follow-ups (not blocking)
+
+- K8s-only BAT for model-directory browse + upload.
+- How-to updates only when chrome labels, open paths, or nav targets
+  change (see `docs/user-guide/how-to-guides/`).
 
 ## Tokens
 
