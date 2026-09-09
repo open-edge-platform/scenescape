@@ -4,8 +4,8 @@
 # Swap the DLStreamer Pipeline Server configs for the ReID-enabled variants.
 # Usage: combine with exactly one backend override, e.g.
 #   docker compose -f docker-compose.yml \
-#     -f sample_data/docker-compose.vdms-override.yml \
-#     -f sample_data/docker-compose.reid-pipeline-override.yml \
+#     -f sample_data/compose/docker-compose.vdms-override.yml \
+#     -f sample_data/compose/docker-compose.reid-pipeline-override.yml \
 #     --profile controller up
 
 configs:
