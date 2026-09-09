@@ -390,7 +390,7 @@ const map = new google.maps.Map(document.getElementById("map"), {
 ### Manager Static Files
 
 ```
-manager/src/static/js/
+manager/backend/manager/static/js/
 ├── geospatial/
 │   ├── mapbox-plugin.js
 │   ├── google-maps-plugin.js

@@ -91,12 +91,12 @@ Create `.vscode/settings.json` in the project root, or press `Ctrl+Shift+P` → 
   "python.terminal.activateEnvironment": true,
   "python.analysis.extraPaths": [
     "${workspaceFolder}",
-    "${workspaceFolder}/manager/src/manager",
+    "${workspaceFolder}/manager/backend/manager",
     "${workspaceFolder}/tests",
     "${workspaceFolder}/scene_common/src",
     "${workspaceFolder}/controller/src",
     "${workspaceFolder}/autocalibration/src",
-    "${workspaceFolder}/manager/src"
+    "${workspaceFolder}/manager/backend"
   ],
   "python.analysis.autoImportCompletions": true,
   "python.analysis.autoSearchPaths": true

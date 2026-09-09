@@ -8,7 +8,7 @@ Shared conftest for sscape_tests unit tests.
 
 Sets up Django with the SQLite-based settings_unittest module before
 any tests are collected.  Creates a ``manager`` package alias pointing
-at ``manager/src/django/`` so that ``from manager.settings import *``
+at ``manager/backend/manager/`` so that ``from manager.settings import *``
 works on the host (inside Docker this mapping is done by the Dockerfile
 COPY step).
 """
@@ -38,11 +38,11 @@ _repo_root = Path(__file__).resolve().parents[2]
 if str(_repo_root) not in sys.path:
   sys.path.insert(0, str(_repo_root))
 
-# The Django app source lives at manager/src/django/ but is imported as
+# The Django app source lives at manager/backend/manager/ but is imported as
 # ``manager`` (the Dockerfile copies it to $SCENESCAPE_HOME/manager/).
 # On the host we create a sys.modules alias so ``from manager.settings``
 # works without a container.
-_manager_django_src = _repo_root / "manager" / "src" / "manager"
+_manager_django_src = _repo_root / "manager" / "backend" / "manager"
 if "manager" not in sys.modules and _manager_django_src.is_dir():
   spec = importlib.util.spec_from_file_location(
     "manager",
@@ -65,9 +65,9 @@ if "manager" not in sys.modules and _manager_django_src.is_dir():
     sys.modules["manager.secrets"] = sec_mod
     sec_spec.loader.exec_module(sec_mod)
 
-  # templatetags live at manager/src/templatetags/ on the host but Django
+  # templatetags live at manager/backend/manager/templatetags/ on the host but Django
   # expects them at manager/templatetags/ (as a sub-package of the app).
-  _templatetags_dir = _repo_root / "manager" / "src" / "templatetags"
+  _templatetags_dir = _repo_root / "manager" / "backend" / "manager" / "templatetags"
   if _templatetags_dir.is_dir() and "manager.templatetags" not in sys.modules:
     import types
     tt_mod = types.ModuleType("manager.templatetags")

@@ -54,7 +54,7 @@ React island on K8s `model/list/`:
 
 Optional later: K8s-only BAT for browse + upload.
 
-Key paths: `manager/ui/src/models/`, `models-directory-main.tsx`,
+Key paths: `manager/frontend/src/models/`, `models-directory-main.tsx`,
 `model/model_list.html`, `model_directory_view.py`, `ModelListView` in
 `views.py`.
 
@@ -62,7 +62,7 @@ Key paths: `manager/ui/src/models/`, `models-directory-main.tsx`,
 
 - Light / dark theme toggle in the navbar (`#ss-theme-toggle`,
   `localStorage` key `ss-theme`, `html[data-theme]`). Tokens live in
-  `manager/ui/src/tokens/` and `:root` / `html[data-theme]` in
+  `manager/frontend/src/tokens/` and `:root` / `html[data-theme]` in
   `style.css`.
 - Documentation nav opens published OEP docs
   (`https://docs.openedgeplatform.intel.com/dev/scenescape/index.html`),
@@ -107,8 +107,8 @@ Still to do:
 - Compact empty state inside a content-sized card.
 - Spot-check Cameras, Sensors, Object Library at ~1920px and ~1280px.
 
-Likely files: `manager/ui/src/admin/AdminListApp.tsx`, `AdminListApp.css`,
-`PageHeader.tsx` / `.css`, `manager/src/manager/views.py` list bootstraps.
+Likely files: `manager/frontend/src/admin/AdminListApp.tsx`, `AdminListApp.css`,
+`PageHeader.tsx` / `.css`, `manager/backend/manager/views.py` list bootstraps.
 
 Current evidence of open work: `.ss-admin-list` / `.ss-admin-table-card`
 are `width: 100%` with no `max-width`; no `table-layout` on
@@ -172,10 +172,10 @@ tokens, virtualized tables / search / sort / filter.
 
 **Not started.** Legacy Three.js surface remains:
 
-- Entry: `manager/src/manager/static/js/scenescape3d.js` (~700 LOC) plus
+- Entry: `manager/backend/manager/static/js/scenescape3d.js` (~700 LOC) plus
   ES modules under `static/js/thing/`, `viewport.js`, managers, etc.
 - Mount: `base_3d.html` loads the legacy module — no React root / no
-  `manager/ui` 3D entry.
+  `manager/frontend` 3D entry.
 - Scene detail links out (`#3d-view` → `urls.scene3d`). Chrome already
   deep-links back (see Done).
 
@@ -198,8 +198,8 @@ legacy globals; UI BAT green for scene 3D view when that suite exists.
 
 ## Tokens
 
-Mirror `--ss-*` / `ss.*` in `manager/ui/src/tokens/` (same values as
-`:root` / `html[data-theme]` in `manager/src/manager/static/css/style.css`).
+Mirror `--ss-*` / `ss.*` in `manager/frontend/src/tokens/` (same values as
+`:root` / `html[data-theme]` in `manager/backend/manager/static/css/style.css`).
 Do not add a ViPPET/OEP design-system npm dependency until license and
 versioning are confirmed. When a shared package exists, remap names — do
 not restyle ad hoc.
@@ -334,9 +334,9 @@ Calibrate iframes are retired. React sheets own calibrate UX.
 make -C manager ui-build
 ```
 
-Islands under `manager/src/manager/static/ui/`: `scene-detail`,
+Islands under `manager/backend/manager/static/ui/`: `scene-detail`,
 `scenes-home`, `list-sheets`, `admin-list`, `destructive-actions`,
 `models-directory` (+ shared `manager-ui.css`).
 
-Package and developer notes: `manager/ui/README.md`. Plan ownership for
+Package and developer notes: `manager/frontend/README.md`. Plan ownership for
 remaining empty-space / 3D work stays in this file.

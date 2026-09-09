@@ -53,7 +53,7 @@ function spdxLicenseHeaders(): Plugin {
 export default defineConfig({
   plugins: [react(), spdxLicenseHeaders()],
   build: {
-    outDir: path.resolve(__dirname, "../src/manager/static/ui"),
+    outDir: path.resolve(__dirname, "../backend/manager/static/ui"),
     emptyOutDir: true,
     cssCodeSplit: false,
     rollupOptions: {

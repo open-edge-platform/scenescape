@@ -19,29 +19,30 @@ The **Manager** service is the Django-based web UI and REST API gateway for Scen
 
 ### Core Modules
 
-1. **Django Application** (`src/manager/`):
+1. **Django Application** (`backend/manager/`):
    - Scene management views and APIs
    - Camera configuration interfaces
    - User authentication and authorization
    - PostgreSQL ORM models
 
-2. **REST API** (`src/manager/api.py`, `src/manager/serializers.py`, `src/manager/urls.py`):
+2. **REST API** (`backend/manager/api.py`, `backend/manager/serializers.py`, `backend/manager/urls.py`):
    - RESTful endpoints for external integrations
    - Scene CRUD operations
    - Camera calibration triggers
    - Object query endpoints
 
-3. **Management Commands** (`src/manager/management/commands/`):
+3. **Management Commands** (`backend/manager/management/commands/`):
    - Database migrations
    - Admin utilities
    - Data import/export tools
 
-4. **Static Assets** (`src/manager/static/` and `src/static/`):
+4. **Static Assets** (`backend/manager/static/`):
    - Frontend JavaScript/CSS
    - UI components
    - Visualization tools
+   - Built React islands under `static/ui/`
 
-5. **Templates** (`src/manager/templates/`):
+5. **Templates** (`backend/manager/templates/`):
    - Django HTML templates
    - Web UI pages
 
@@ -148,7 +149,7 @@ docker compose exec manager python manage.py createsuperuser
 
 - `requirements-runtime.txt`: Python dependencies
 - `Dockerfile`: Container build instructions
-- `src/manager/settings.py`: Django settings
+- `backend/manager/settings.py`: Django settings
 - `secrets/`: TLS certificates, database credentials, Django secret
 
 ### Secrets Management
@@ -172,7 +173,7 @@ Secrets stored in `manager/secrets/`:
 ### Creating a New Django View
 
 ```python
-# In src/manager/views.py
+# In backend/manager/views.py
 from django.views.generic import ListView
 from .models import Scene
 
@@ -185,7 +186,7 @@ class SceneListView(ListView):
 ### Adding REST API Endpoint
 
 ```python
-# In src/manager/api.py
+# In backend/manager/api.py
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
@@ -200,7 +201,7 @@ def scene_status(request, scene_id):
 ### Database Model
 
 ```python
-# In src/manager/models.py
+# In backend/manager/models.py
 from django.db import models
 
 class Camera(models.Model):
@@ -219,24 +220,24 @@ class Camera(models.Model):
 
 ### Adding New Database Model
 
-1. Define model in `src/manager/models.py`
+1. Define model in `backend/manager/models.py`
 2. Create migration: `docker compose exec manager python manage.py makemigrations`
-3. Review migration file in `src/manager/migrations/`
+3. Review migration file in `backend/manager/migrations/`
 4. Commit migration file to version control
 5. Apply: `docker compose exec manager python manage.py migrate`
-6. Update admin interface if needed: `src/manager/admin.py`
+6. Update admin interface if needed: `backend/manager/admin.py`
 
 ### Modifying Web UI
 
-1. Edit template in `src/manager/templates/`
-2. Update static assets in `src/manager/static/` (JS/CSS)
+1. Edit template in `backend/manager/templates/`
+2. Update static assets in `backend/manager/static/` (JS/CSS)
 3. No rebuild needed—Django auto-reloads in development
 4. For production, rebuild image to bundle assets
 
 ### Adding Management Command
 
 ```python
-# Create src/manager/management/commands/export_scenes.py
+# Create backend/manager/management/commands/export_scenes.py
 from django.core.management.base import BaseCommand
 
 class Command(BaseCommand):
@@ -290,12 +291,12 @@ docker compose exec manager python manage.py showmigrations
 ### Frontend Assets
 
 - Static files served by Django (development) or Nginx (production)
-- React 2D islands live in `manager/ui/` (Vite + TypeScript); build into
-  `manager/src/manager/static/ui/` with `make -C manager ui-build`
+- React 2D islands live in `manager/frontend/` (Vite + TypeScript); build into
+  `manager/backend/manager/static/ui/` with `make -C manager ui-build`
   (or `SKIP_UI=1` to skip when building the manager image without Node)
 - Status, remaining work, and hard DOM contracts:
   [`.github/plans/manager-ui.md`](../.github/plans/manager-ui.md)
-- Package notes: [`manager/ui/README.md`](ui/README.md)
+- Package notes: [`manager/frontend/README.md`](frontend/README.md)
 - Legacy Three.js 3D viewport remains under `static/js/` until the 3D React
   epic lands
 
@@ -306,23 +307,27 @@ manager/
 ├── Dockerfile                          # Container build
 ├── Makefile                            # Build rules
 ├── requirements-runtime.txt            # Python deps
-├── src/
-│   ├── django/                        # Django app
-│   │   ├── scenescape/               # Main app
-│   │   │   ├── models.py             # Database models
-│   │   │   ├── views.py              # Web views
-│   │   │   ├── urls.py               # URL routing
-│   │   │   ├── admin.py              # Admin interface
-│   │   │   └── migrations/           # DB migrations
-│   │   └── api/                      # REST API
-│   ├── management/                    # Management commands
-│   ├── static/                        # Frontend assets
-│   └── templates/                     # HTML templates
-├── secrets/                           # Generated secrets (git-ignored)
-│   ├── certs/                        # TLS certificates
-│   └── django/                       # Django secret key
-├── config/                            # Django settings
-└── tools/                             # Utility scripts
+├── backend/
+│   ├── manage.py                       # Django entry point
+│   └── manager/                        # Django app package
+│       ├── models.py                   # Database models
+│       ├── views.py                    # Web views
+│       ├── urls.py                     # URL routing
+│       ├── admin.py                    # Admin interface
+│       ├── api.py / serializers.py     # REST API
+│       ├── migrations/                 # DB migrations
+│       ├── management/                 # Management commands
+│       ├── static/                     # Frontend assets (incl. ui/)
+│       └── templates/                  # HTML templates
+├── frontend/                           # React/Vite 2D islands
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── src/
+├── secrets/                            # Generated secrets (git-ignored)
+│   ├── certs/                          # TLS certificates
+│   └── django/                         # Django secret key
+├── config/                             # Apache / init configs
+└── tools/                              # Utility scripts
 ```
 
 ## Troubleshooting

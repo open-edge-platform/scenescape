@@ -8,7 +8,7 @@ TEST_TARGET = scenescape-manager-test
 USES_SCENE_COMMON = yes
 SHELL = /bin/bash
 CERTDOMAIN = scenescape.intel.com
-JSLIBDIR = src/manager/static
+JSLIBDIR = backend/manager/static
 CURL_FLAGS = --connect-timeout 5 --max-time 120 --retry 5 --retry-delay 0
 FORCE_VAAPI ?= 0
 THREEJS_VERSION = 168
@@ -23,19 +23,19 @@ default: build-image
 
 .PHONY: ui-install ui-build
 ui-install:
-	cd ui && npm ci
+	cd frontend && npm ci
 
 ui-build:
 ifndef SKIP_UI
-	cd ui && npm ci && npm run build
+	cd frontend && npm ci && npm run build
 	# Built islands are checked into the tree; format them so prettier-check / REUSE stay green.
 	@$(MAKE) -C .. prettier-dependency
-	@npx prettier --write src/manager/static/ui \
+	@npx prettier --write backend/manager/static/ui \
 		--ignore-path ../.gitignore \
 		--ignore-path ../.github/resources/.prettierignore \
 		--config ../.github/resources/.prettierrc.json
 	# Second pass: prettier can leave one minified chunk unstable after the bulk write.
-	@npx prettier --write src/manager/static/ui \
+	@npx prettier --write backend/manager/static/ui \
 		--ignore-path ../.gitignore \
 		--ignore-path ../.github/resources/.prettierignore \
 		--config ../.github/resources/.prettierrc.json
@@ -51,7 +51,7 @@ test-build: test/geckodriver.tar.gz
 
 # The 'remove-symlink' target removes a potentially dangling symlink to prevent build failures.
 remove-symlink:
-	rm -f ./src/manager/secrets.py
+	rm -f ./backend/manager/secrets.py
 
 define JSMEXAMPLES
 fonts/helvetiker_regular.typeface.json \

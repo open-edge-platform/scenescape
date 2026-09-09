@@ -37,7 +37,7 @@ Ensure runtime verification is completed and reported consistently.
   - `make rebuild-controller`
   - then run `pytest tests/functional/<test>.py`
 
-- Changed `manager/src/**`, testing with `pytest tests/functional/<test>.py`:
+- Changed `manager/backend/**`, testing with `pytest tests/functional/<test>.py`:
   - `make rebuild-manager`
   - then run `pytest tests/functional/<test>.py`
 

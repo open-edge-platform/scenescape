@@ -14,7 +14,7 @@ Status of shipped work vs remaining empty-space / 3D epics:
 ## Setup
 
 ```bash
-cd manager/ui
+cd manager/frontend
 npm ci
 ```
 
@@ -26,7 +26,7 @@ npm run build
 make -C manager ui-build
 ```
 
-Outputs under `manager/src/manager/static/ui/`:
+Outputs under `manager/backend/manager/static/ui/`:
 
 | Entry                 | Files                    | Used by                           |
 | --------------------- | ------------------------ | --------------------------------- |
