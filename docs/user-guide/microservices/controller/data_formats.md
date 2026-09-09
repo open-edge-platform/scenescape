@@ -55,7 +55,7 @@ against the `detector` definition in
 | `distance`             | number             |    No    | Distance from the camera to the detection in metres                                                                                                            |
 | `keypoints`            | array of objects   |    No    | Pose keypoints when a pose estimation model is used; each entry: `{"name": "<keypoint>", "x": <0–1>, "y": <0–1>}` (coordinates normalized to frame dimensions) |
 | `keypoint_connections` | array of strings   |    No    | Flat list of keypoint-name pairs defining connections (e.g. `["nose","eye_l","nose","eye_r",...]`); length is always `2 × number_of_connections`               |
-| `metadata`             | object             |    No    | Semantic attribute bag (see [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr))                                                                             |
+| `metadata`             | object             |    No    | Semantic attribute bag (see [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr))                                                 |
 
 > **① Location constraint**: every detection must provide location in exactly one
 > of these forms (enforced by the schema's `oneOf`):
@@ -222,7 +222,7 @@ publishes over authenticated MQTT, see
 | `rotation`    | array[4] of number |    No    | Rotation of the object as a quaternion (`x`, `y`, `z`, `w`)                                                                                                                                                     |
 | `size`        | array[3] of number |    No    | Object dimensions (`x`, `y`, `z`). Omit for a point observation with no known extent                                                                                                                            |
 | `confidence`  | number > 0         |    No    | Source-reported confidence for this observation                                                                                                                                                                 |
-| `metadata`    | object             |    No    | Semantic attribute bag; same structure as camera input (see [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr))                                                                                              |
+| `metadata`    | object             |    No    | Semantic attribute bag; same structure as camera input (see [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr))                                                                  |
 
 Unlike camera detections, `size` is optional here: a source that cannot estimate an object's
 extent may report a point observation. Point objects (no `size`) remain eligible for
