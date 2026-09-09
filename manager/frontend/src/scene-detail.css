@@ -49,8 +49,7 @@ body.ss-scene-workspace > .navbar.fixed-top .navbar-brand {
 }
 
 body.ss-scene-workspace > .navbar.fixed-top .nav-link {
-  padding-top: 0.35rem;
-  padding-bottom: 0.35rem;
+  font-size: 0.875rem;
 }
 
 body.ss-scene-workspace > .wrapper.container-fluid {

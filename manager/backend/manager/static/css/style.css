@@ -12,6 +12,9 @@ html[data-theme="light"] {
   --ss-brand-soft: #0099ec;
   --ss-nav-bg: #001e50;
   --ss-nav-fg: #ffffff;
+  /* Primary nav links on --ss-nav-bg (must stay high-contrast). */
+  --ss-nav-link: #c5d0e0;
+  --ss-nav-link-active: #7ec8ff;
   --ss-ink: #001e50;
   --ss-surface: #f4f5f5;
   --ss-card-bg: #ffffff;
@@ -39,6 +42,8 @@ html[data-theme="dark"] {
   /* Neutral charcoal — darker than --ss-surface, no leftover navy */
   --ss-nav-bg: #0c0d0f;
   --ss-nav-fg: #f2f4f7;
+  --ss-nav-link: #b0b8c4;
+  --ss-nav-link-active: #7ec8ff;
   --ss-ink: #f4f7fb;
   --ss-surface: #0f1419;
   --ss-card-bg: #1a222c;
@@ -345,12 +350,81 @@ html[data-theme="dark"] select option {
 
 .navbar-dark .navbar-nav .nav-link,
 .navbar-dark .navbar-text {
-  color: var(--ss-nav-fg);
+  color: var(--ss-nav-link);
 }
 
-.navbar-dark .navbar-nav .nav-link.active {
-  color: #fff;
+/*
+ * Primary nav: identical metrics for idle and active. Selection is color
+ * only — no weight, border, or padding change that would shift the label.
+ * Active uses --ss-nav-link-active (bright on navy/charcoal), not ink/brand
+ * blues that disappear on --ss-nav-bg in light mode.
+ */
+.navbar-dark .navbar-nav > .nav-item > .nav-link {
+  font-family: var(--ss-font-sans);
+  font-size: 0.9375rem;
   font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+  border: 0;
+  background-color: transparent;
+  box-shadow: none;
+  text-shadow: none;
+  transform: none;
+}
+
+.navbar-dark .navbar-nav > .nav-item > .nav-link:hover,
+.navbar-dark .navbar-nav > .nav-item > .nav-link:focus {
+  color: var(--ss-nav-fg);
+  background-color: transparent;
+}
+
+.navbar-dark .navbar-nav > .nav-item > .nav-link.active,
+.navbar-dark .navbar-nav > .nav-item > .nav-link.active:hover,
+.navbar-dark .navbar-nav > .nav-item > .nav-link.active:focus {
+  color: var(--ss-nav-link-active);
+  font-weight: 600;
+  border: 0;
+  background-color: transparent;
+  box-shadow: none;
+  text-shadow: none;
+  transform: none;
+}
+
+@media (min-width: 768px) {
+  .navbar.navbar-expand-md.fixed-top {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .navbar.navbar-expand-md .navbar-brand {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .navbar.navbar-expand-md .navbar-collapse {
+    display: flex;
+    flex-grow: 1;
+    flex-basis: auto;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .navbar.navbar-expand-md .navbar-collapse .ss-nav-trailing {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+  }
+
+  .navbar.navbar-expand-md .navbar-nav.mr-auto {
+    align-items: center;
+  }
+
+  .navbar.navbar-expand-md .navbar-nav.mr-auto > .nav-item > .nav-link {
+    /* Same padding idle and active (Bootstrap horizontal only). */
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
 }
 
 .navbar-nav .nav-item-group {
@@ -380,21 +454,8 @@ html[data-theme="dark"] select option {
 }
 
 @media (min-width: 768px) {
-  .navbar.navbar-expand-md.fixed-top {
-    flex-wrap: nowrap;
+  .navbar.navbar-expand-md .navbar-nav.navbar-right {
     align-items: center;
-  }
-
-  .navbar.navbar-expand-md .navbar-collapse {
-    display: flex;
-    flex-grow: 1;
-    flex-basis: auto;
-    min-width: 0;
-    align-items: center;
-  }
-
-  .navbar.navbar-expand-md .navbar-collapse .ss-nav-trailing {
-    margin-left: auto;
   }
 }
 

@@ -108,7 +108,7 @@ SPDX-License-Identifier: Apache-2.0
           <ul class="navbar-nav mr-auto">
             <li class="nav-item">
               <a
-                class="nav-link{% if request.resolver_match.url_name == 'index' or request.resolver_match.url_name == 'sceneDetail' %}active{% endif %}"
+                class="nav-link{% if request.resolver_match.url_name == 'index' or request.resolver_match.url_name == 'sceneDetail' %} active{% endif %}"
                 id="nav-scenes"
                 href="/"
                 >Scenes</a
@@ -116,7 +116,7 @@ SPDX-License-Identifier: Apache-2.0
             </li>
             <li class="nav-item">
               <a
-                class="nav-link{% if request.resolver_match.url_name == 'cam_list' or request.resolver_match.url_name == 'cam_create' or request.resolver_match.url_name == 'cam_update' or request.resolver_match.url_name == 'cam_calibrate' or request.resolver_match.url_name == 'cam_delete' %}active{% endif %}"
+                class="nav-link{% if request.resolver_match.url_name == 'cam_list' or request.resolver_match.url_name == 'cam_create' or request.resolver_match.url_name == 'cam_update' or request.resolver_match.url_name == 'cam_calibrate' or request.resolver_match.url_name == 'cam_delete' %} active{% endif %}"
                 id="nav-cameras"
                 href="{% url 'cam_list' %}"
                 >Cameras</a
@@ -124,7 +124,7 @@ SPDX-License-Identifier: Apache-2.0
             </li>
             <li class="nav-item">
               <a
-                class="nav-link{% if request.resolver_match.url_name == 'singleton_sensor_list' or request.resolver_match.url_name == 'singleton_sensor_create' or request.resolver_match.url_name == 'singleton_sensor_update' or request.resolver_match.url_name == 'singleton_sensor_delete' %}active{% endif %}"
+                class="nav-link{% if request.resolver_match.url_name == 'singleton_sensor_list' or request.resolver_match.url_name == 'singleton_sensor_create' or request.resolver_match.url_name == 'singleton_sensor_update' or request.resolver_match.url_name == 'singleton_sensor_delete' %} active{% endif %}"
                 id="nav-sensors"
                 href="{% url 'singleton_sensor_list' %}"
                 >Sensors</a
@@ -133,7 +133,7 @@ SPDX-License-Identifier: Apache-2.0
             {% if KUBERNETES_SERVICE_HOST %}
               <li class="nav-item">
                 <a
-                  class="nav-link{% if request.resolver_match.url_name == 'model_list' %}active{% endif %}"
+                  class="nav-link{% if request.resolver_match.url_name == 'model_list' %} active{% endif %}"
                   id="nav-models"
                   href="{% url 'model_list' %}"
                   >Models</a
@@ -142,7 +142,7 @@ SPDX-License-Identifier: Apache-2.0
             {% endif %}
             <li class="nav-item">
               <a
-                class="nav-link{% if request.resolver_match.url_name == 'asset_list' or request.resolver_match.url_name == 'asset_create' or request.resolver_match.url_name == 'asset_update' or request.resolver_match.url_name == 'asset_delete' %}active{% endif %}"
+                class="nav-link{% if request.resolver_match.url_name == 'asset_list' or request.resolver_match.url_name == 'asset_create' or request.resolver_match.url_name == 'asset_update' or request.resolver_match.url_name == 'asset_delete' %} active{% endif %}"
                 id="nav-object-library"
                 href="{% url 'asset_list' %}"
                 >Object Library</a

@@ -3032,8 +3032,7 @@ body.ss-scene-workspace > .navbar.fixed-top .navbar-brand {
   font-size: 1rem;
 }
 body.ss-scene-workspace > .navbar.fixed-top .nav-link {
-  padding-top: 0.35rem;
-  padding-bottom: 0.35rem;
+  font-size: 0.875rem;
 }
 body.ss-scene-workspace > .wrapper.container-fluid {
   flex: 1 1 auto;
@@ -3185,6 +3184,10 @@ body.ss-scene-workspace .ss-scene-detail--workspace {
 }
 .ss-scenes-home .ss-page-header {
   margin-bottom: 1.25rem;
+}
+.ss-scenes-home .ss-page-title {
+  font-size: var(--ss-type-workspace-title, 1.2rem);
+  letter-spacing: -0.01em;
 }
 .ss-scene-gallery {
   display: grid;

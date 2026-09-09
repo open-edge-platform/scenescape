@@ -18,6 +18,8 @@ html[data-theme="light"] {
   --ss-brand-soft: #0099ec;
   --ss-nav-bg: #001e50;
   --ss-nav-fg: #ffffff;
+  --ss-nav-link: #c5d0e0;
+  --ss-nav-link-active: #7ec8ff;
   --ss-ink: #001e50;
   --ss-surface: #f4f5f5;
   --ss-card-bg: #ffffff;
@@ -59,6 +61,8 @@ html[data-theme="dark"] {
   --ss-brand-soft: #0099ec;
   --ss-nav-bg: #0c0d0f;
   --ss-nav-fg: #f2f4f7;
+  --ss-nav-link: #b0b8c4;
+  --ss-nav-link-active: #7ec8ff;
   --ss-ink: #f4f7fb;
   --ss-surface: #0f1419;
   --ss-card-bg: #1a222c;
