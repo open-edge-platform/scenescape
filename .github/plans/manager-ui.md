@@ -313,6 +313,9 @@ Calibrate iframes are retired. React sheets own calibrate UX.
 | Form scrape stringify as save source | Typed `ssMap` geometry model |
 | jQuery `model_list.js` / HTML fragment load | React `models-directory.js` + JSON API |
 | WebUI-hosted Documentation tree | `#nav-docs` → OEP published docs |
+| `geospatial/scene-form.js`, `geospatial.css` | React `SceneManagePanel` / `GeospatialMapPicker` |
+| `childscene.js`, Django scene/asset/child form helpers in `sscape.js` | React sheets (`ChildSheet`, `AssetSheet`, `SceneManagePanel`) |
+| `form_back.html`, `singletonArea.html`, `logo.png` | React `PageHeader` back; sensor area sheet; `intel-logo.svg` |
 
 ### REST persist
 

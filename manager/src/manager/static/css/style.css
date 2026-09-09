@@ -716,43 +716,6 @@ body.ss-embed .ss-form-back {
   max-width: 64rem;
 }
 
-/*
- * Geospatial map bounds picker needs a fixed 1280×1280 interactive map
- * (snapshot stitch size). Widen past --wide and allow horizontal scroll
- * when the viewport is narrower than the map + chrome.
- */
-.page-header:has(+ .ss-form-card--map-editor) {
-  max-width: min(100%, calc(1280px + 16rem));
-}
-
-.ss-form-card--map-editor {
-  max-width: none;
-  width: min(100%, calc(100vw - 2rem));
-  overflow-x: auto;
-  overflow-y: visible;
-}
-
-/* Stack map label above the canvas so the full 1280px width is usable */
-.ss-form-card--map-editor #mapViewRow.form-group.row {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
-
-.ss-form-card--map-editor #mapViewRow > .col-form-label,
-.ss-form-card--map-editor #mapViewRow > [class*="col-"] {
-  width: auto;
-  max-width: none;
-  flex: none;
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.ss-form-card--map-editor #mapViewRow > .col-form-label {
-  padding-top: 0;
-}
-
 .ss-form-body {
   padding: 1.25rem 1.5rem 1.5rem;
 }
