@@ -5,16 +5,16 @@
 
 import json
 import zipfile
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 import requests
 
 import uploader
 from uploader import (
-  RESOURCE_KEYS, SceneScapeClient, parse_auth, read_scene_from_zip,
-  upload_all, upload_assets, upload_calibration_markers, upload_one,
-  upload_scene, wait_for_database,
+  RESOURCE_KEYS, SceneScapeClient, configure_camera_video_sources, parse_auth,
+  read_scene_from_zip, upload_all, upload_assets, upload_calibration_markers,
+  upload_one, upload_scene, wait_for_database,
 )
 
 
@@ -189,6 +189,45 @@ class TestImportScene:
     name, _, content_type = kwargs["files"]["zipFile"]
     assert name == "scene.zip"
     assert content_type == "application/zip"
+
+
+class TestConfigureCameraVideoSources:
+  def test_updates_matching_demo_cameras(self, fake_client):
+    fake_client.list_cameras.return_value = [
+      {"uid": "camera1", "name": "camera1", "scene": "retail-scene"},
+      {"uid": "atag-qcam1", "name": "atag-qcam1", "scene": "queuing-scene"},
+    ]
+
+    configure_camera_video_sources(fake_client)
+
+    assert fake_client.update_camera.call_args_list == [
+      call("camera1", {
+        "name": "camera1", "scene": "retail-scene",
+        "command": "rtsp://mediaserver:8554/retail-cam1",
+        "camerachain": "retail=CPU",
+      }),
+      call("atag-qcam1", {
+        "name": "atag-qcam1", "scene": "queuing-scene",
+        "command": "rtsp://mediaserver:8554/queuing-cam1",
+        "camerachain": "retail=CPU",
+      }),
+    ]
+
+  def test_skips_unknown_camera_ids(self, fake_client):
+    fake_client.list_cameras.return_value = [
+      {"uid": "camera1", "name": "camera1", "scene": "retail-scene"},
+    ]
+
+    configure_camera_video_sources(fake_client, {
+      "camera1": ("rtsp://mediaserver:8554/retail-cam1", "retail=CPU"),
+      "missing-camera": ("rtsp://mediaserver:8554/missing", "retail=CPU"),
+    })
+
+    fake_client.update_camera.assert_called_once_with("camera1", {
+      "name": "camera1", "scene": "retail-scene",
+      "command": "rtsp://mediaserver:8554/retail-cam1",
+      "camerachain": "retail=CPU",
+    })
 
 
 class TestWaitForDatabase:

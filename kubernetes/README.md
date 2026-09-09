@@ -102,6 +102,7 @@ in-cluster):
 
 ```sh
 docker network create scenescape_scenescape
+export VIDEOSOURCE_PORT=8554
 docker compose --project-directory . -f sample_data/demo_scenes/docker-compose.video-source.yml \
   up -d mediaserver retail-cams queuing-cams
 make -C kubernetes mediaserver-up VIDEOSOURCE_IP=<ip-of-that-host>

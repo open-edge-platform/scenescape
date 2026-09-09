@@ -14,7 +14,8 @@ metadata:
   name: mediaserver
 spec:
   ports:
-  - port: {VIDEOSOURCE_PORT}
+  - port: 8554
+    targetPort: {VIDEOSOURCE_PORT}
     protocol: TCP
     name: rtsp
 ---

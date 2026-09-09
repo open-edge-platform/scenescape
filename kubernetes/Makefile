@@ -162,6 +162,7 @@ mediaserver-up:
 	    exit 1; \
 	fi
 	$(MAKE) generate-mediaserver-yaml
+	kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
 	kubectl apply -n $(NAMESPACE) -f setup/mediaserver.yaml
 
 .PHONY: mediaserver-down

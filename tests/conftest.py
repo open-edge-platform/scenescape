@@ -535,7 +535,7 @@ _SAMPLE_VIDEO_DIRS = ("demo_scenes/Retail/video", "demo_scenes/Queuing/video")
 def _init_sample_data_volume(project_name, repo_root):
   """Convert sample videos to .ts and stage them into `{project_name}_vol-videos`."""
   stream_subprocess(
-    [str(Path(repo_root) / "sample_data" / "demo_scenes" / "convert_videos.sh")],
+    ["make", "convert-dls-videos"],
     cwd=repo_root,
   )
   bare_docker = DockerClient()
