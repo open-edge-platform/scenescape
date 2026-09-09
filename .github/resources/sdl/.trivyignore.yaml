@@ -2,23 +2,35 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+# Paths are relative to the trivy scan target (`trivy fs kubernetes ...`),
+# so they start at `scenescape-chart/...`, not `kubernetes/scenescape-chart/...`.
 misconfigurations:
   # Helm chart
   - id: AVD-KSV-0005
     paths:
-      - "kubernetes/scenescape-chart/templates/web-app/deployment.yaml"
+      - "scenescape-chart/templates/web-app/deployment.yaml"
     statement: Current implementation requires admin capabilities
   - id: AVD-KSV-0014
     paths:
-      - "kubernetes/scenescape-chart/templates/autocalibration/deployment.yaml"
-      - "kubernetes/scenescape-chart/templates/pgserver/statefulset.yaml"
-      - "kubernetes/scenescape-chart/templates/dl-streamer-pipeline-server/queuing-deployment.yaml"
-      - "kubernetes/scenescape-chart/templates/dl-streamer-pipeline-server/retail-deployment.yaml"
-      - "kubernetes/scenescape-chart/templates/vdms/deployment.yaml"
-      - "kubernetes/scenescape-chart/templates/web-app/deployment.yaml"
-      - "kubernetes/scenescape-chart/templates/kubeclient/deployment.yaml"
-    statement: Current implementation requires these containers to write to filesystem
+      - "scenescape-chart/templates/autocalibration/deployment.yaml"
+      - "scenescape-chart/templates/pgserver/statefulset.yaml"
+      - "scenescape-chart/templates/dl-streamer-pipeline-server/queuing-deployment.yaml"
+      - "scenescape-chart/templates/dl-streamer-pipeline-server/retail-deployment.yaml"
+      - "scenescape-chart/templates/vdms/deployment.yaml"
+      - "scenescape-chart/templates/web-app/deployment.yaml"
+      - "scenescape-chart/templates/kubeclient/deployment.yaml"
+      - "scenescape-chart/templates/sample-data/job.yaml"
+      - "scenescape-chart/templates/model-download/job.yaml"
+    statement: >-
+      Current implementation requires these containers to write to the root filesystem:
+      autocalibration downloads NetVLAD into a site-packages path;
+      pgserver (postgres) writes to /var/run/postgresql and /tmp;
+      dlsps queuing/retail cams (ffmpeg) write scratch files under the image;
+      vdms writes to its own working dir;
+      web-app and kubeclient (Django) write to /tmp for probes and framework state;
+      sample-data download-sample-data does `apt install -y wget` which requires a writable /var/lib/dpkg and /var/cache/apt;
+      model-download entrypoint does `rm -rf /opt/models && ln -s ...` before invoking the downloader.
   - id: AVD-KSV-0017
     paths:
-      - "kubernetes/scenescape-chart/templates/web-app/deployment.yaml"
+      - "scenescape-chart/templates/web-app/deployment.yaml"
     statement: Current implementation requires privileged container
