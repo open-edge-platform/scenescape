@@ -277,7 +277,7 @@ query-no-match; see
 
 ## Storage Bounding
 
-Architecture rationale: [ADR-0014](../../adr/0014-reid-descriptor-ttl-retention.md).
+Architecture rationale: [ADR-0014](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0014-reid-descriptor-ttl-retention.md).
 
 TTL retention is a coarse way to bound ReID store growth under memory pressure.
 It intentionally sacrifices long-horizon re-identification: old identities are
