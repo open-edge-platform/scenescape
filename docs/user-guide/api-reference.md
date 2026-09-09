@@ -1,6 +1,6 @@
 # API Reference
 
-**Version: 1.3.0**
+**Version: 1.3.0**:
 
 ```{eval-rst}
 .. swagger-plugin:: ./api-docs/api.yaml
@@ -8,7 +8,7 @@
 
 ## API Specification Viewing Instructions
 
-### 1. Pull Swagger UI image:
+### 1. Pull Swagger UI image
 
 ```
 docker pull swaggerapi/swagger-ui
@@ -24,7 +24,7 @@ General Syntax:
 docker run -p 80:8080 --user $(id -u):$(id -g) -e SWAGGER_JSON=/mnt/api.yaml -v <full path to parent directory of api.yaml>:/mnt swaggerapi/swagger-ui
 ```
 
-Re: https://github.com/swagger-api/swagger-ui/blob/master/docs/usage/configuration.md
+See the [Swagger UI Configuration Guide](https://github.com/swagger-api/swagger-ui/blob/main/docs/usage/configuration.md).
 
 Example:
 
@@ -46,4 +46,4 @@ It should look something like this example:
 
 ## Information on Swagger UI Installation
 
-See the [Swagger UI Installation Guide](https://github.com/swagger-api/swagger-ui/blob/master/docs/usage/installation.md).
+See the [Swagger UI Installation Guide](https://github.com/swagger-api/swagger-ui/blob/main/docs/usage/installation.md).
