@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
 import { j as m } from "./tokens-C2Ju3rc_.js";
 import "./ConfirmDialog-DanZpjzY.js";
 function e({

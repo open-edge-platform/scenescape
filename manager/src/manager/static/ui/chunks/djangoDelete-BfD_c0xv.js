@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
 function c() {
   const e = document.querySelector('input[name="csrfmiddlewaretoken"]');
   if (e != null && e.value) return e.value;

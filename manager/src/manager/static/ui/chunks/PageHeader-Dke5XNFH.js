@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
 import { j as e } from "./tokens-C2Ju3rc_.js";
 function h(l, n) {
   if (!l.length) return [];

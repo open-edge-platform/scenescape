@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
 import { r as c, j as n, c as qe } from "./chunks/tokens-C2Ju3rc_.js";
 import { P as Oe } from "./chunks/PageHeader-Dke5XNFH.js";
 import {

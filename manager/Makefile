@@ -28,6 +28,17 @@ ui-install:
 ui-build:
 ifndef SKIP_UI
 	cd ui && npm ci && npm run build
+	# Built islands are checked into the tree; format them so prettier-check / REUSE stay green.
+	@$(MAKE) -C .. prettier-dependency
+	@npx prettier --write src/manager/static/ui \
+		--ignore-path ../.gitignore \
+		--ignore-path ../.github/resources/.prettierignore \
+		--config ../.github/resources/.prettierrc.json
+	# Second pass: prettier can leave one minified chunk unstable after the bulk write.
+	@npx prettier --write src/manager/static/ui \
+		--ignore-path ../.gitignore \
+		--ignore-path ../.github/resources/.prettierignore \
+		--config ../.github/resources/.prettierrc.json
 else
 	@echo "SKIP_UI=1 — skipping manager UI build"
 endif
