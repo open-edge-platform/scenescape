@@ -119,18 +119,41 @@ export default class SceneRegion extends THREE.Object3D {
     this.updateAxesHelper();
   }
 
+  // disposeMaterial: false skips materials shared across instances (e.g. TEXT_MATERIAL).
+  disposeMesh(mesh, { disposeMaterial = true } = {}) {
+    if (!mesh) {
+      return;
+    }
+    this.remove(mesh);
+    if (mesh.geometry) {
+      mesh.geometry.dispose();
+    }
+    if (disposeMaterial && mesh.material) {
+      const materials = Array.isArray(mesh.material)
+        ? mesh.material
+        : [mesh.material];
+      materials.forEach((mat) => mat.dispose());
+    }
+  }
+
+  // Call before removing this region from the scene.
+  disposeResources() {
+    this.disposed = true;
+    this.disposeMesh(this.axesHelper);
+    this.axesHelper = null;
+    this.disposeMesh(this.shape);
+    this.shape = null;
+    this.disposeMesh(this.inflatedShape);
+    this.inflatedShape = null;
+    // TEXT_MATERIAL (draw.js) is shared across labels; only the geometry is per-instance.
+    this.disposeMesh(this.textMesh, { disposeMaterial: false });
+    this.textMesh = null;
+  }
+
   // Perceptual sensors only (region.isSensor); cameras/regions/tripwires are unaffected.
   updateAxesHelper() {
-    if (this.axesHelper) {
-      this.remove(this.axesHelper);
-      this.axesHelper.geometry.dispose();
-      if (Array.isArray(this.axesHelper.material)) {
-        this.axesHelper.material.forEach((mat) => mat.dispose());
-      } else {
-        this.axesHelper.material.dispose();
-      }
-      this.axesHelper = null;
-    }
+    this.disposeMesh(this.axesHelper);
+    this.axesHelper = null;
     if (!this.region.isSensor || this.regionType === "scene") {
       return;
     }
@@ -306,6 +329,16 @@ export default class SceneRegion extends THREE.Object3D {
     }
   }
 
+  // Guards against the font finishing to load after this region was already deleted.
+  attachTextMesh(textMesh) {
+    if (this.disposed) {
+      textMesh.geometry.dispose();
+      return;
+    }
+    this.textMesh = textMesh;
+    this.add(textMesh);
+  }
+
   addObject(params) {
     this.color = params.color;
     this.drawObj = params.drawObj;
@@ -338,9 +371,7 @@ export default class SceneRegion extends THREE.Object3D {
       };
       this.drawObj
         .createTextObject(this.name, this.textPos)
-        .then((textMesh) => {
-          this.add(textMesh);
-        });
+        .then((textMesh) => this.attachTextMesh(textMesh));
     }
     this.regionControls.addToScene();
     this.regionControls.addControlPanel(this.regionsFolder);
@@ -416,6 +447,7 @@ export default class SceneRegion extends THREE.Object3D {
                       `Region ${this.name} successfully deleted.`,
                       "success",
                     );
+                    this.disposeResources();
                     this.scene.remove(this);
                     this.controlsFolder.destroy();
                   })
@@ -458,7 +490,7 @@ export default class SceneRegion extends THREE.Object3D {
       geometry = this.createPoly();
       this.changeGeometry(geometry);
     } else {
-      this.remove(this.shape);
+      this.disposeMesh(this.shape);
       this.shape = null;
     }
     this.updateAxesHelper();
