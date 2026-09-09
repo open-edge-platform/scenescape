@@ -12,15 +12,14 @@ import {
   IMAGE_CAMERA,
   SYS_CHILDSCENE_STATUS,
   REST_URL,
+  SUCCESS,
 } from "/static/js/constants.js";
 import {
   metersToPixels,
   pixelsToMeters,
   checkMqttConnection,
-  updateElements,
 } from "/static/js/utils.js";
 import { plot } from "/static/js/marks.js";
-import { setupChildScene } from "/static/js/childscene.js";
 import {
   initializeCalibration,
   initializeCalibrationSettings,
@@ -31,6 +30,75 @@ import {
 
 var svgCanvas = Snap("#svgout");
 import RESTClient from "/static/js/restclient.js";
+
+// Prefer React toast/confirm hosts when present (ViPPET in-page flows).
+function ssToastApi() {
+  return (
+    (window.ssToast && typeof window.ssToast.show === "function"
+      ? window.ssToast
+      : null) ||
+    (window.parent &&
+    window.parent !== window &&
+    window.parent.ssToast &&
+    typeof window.parent.ssToast.show === "function"
+      ? window.parent.ssToast
+      : null)
+  );
+}
+
+function ssShowToast(msg, tone) {
+  const api = ssToastApi();
+  if (api) {
+    api.show(String(msg), tone || "info");
+    return;
+  }
+  window.__ssNativeAlert
+    ? window.__ssNativeAlert(String(msg))
+    : window.alert(String(msg));
+}
+
+function ssAskConfirm(message, options) {
+  const opts = options || {};
+  const req = {
+    title: opts.title || "Confirm",
+    message: String(message),
+    confirmLabel: opts.confirmLabel || "OK",
+    cancelLabel: opts.cancelLabel || "Cancel",
+    danger: opts.danger !== false,
+  };
+  const confirmFn =
+    (typeof window.ssConfirm === "function" && window.ssConfirm) ||
+    (window.parent &&
+      window.parent !== window &&
+      typeof window.parent.ssConfirm === "function" &&
+      window.parent.ssConfirm);
+  if (confirmFn) {
+    return confirmFn(req);
+  }
+  return Promise.resolve(
+    window.__ssNativeConfirm
+      ? window.__ssNativeConfirm(req.message)
+      : window.confirm(req.message),
+  );
+}
+
+(function bridgeAlertToToast() {
+  if (!window.__ssNativeAlert) {
+    window.__ssNativeAlert = window.alert.bind(window);
+  }
+  if (!window.__ssNativeConfirm) {
+    window.__ssNativeConfirm = window.confirm.bind(window);
+  }
+  window.alert = function (msg) {
+    const text = String(msg);
+    const bad =
+      /fail|error|invalid|not found|unable|cannot|must/i.test(text) &&
+      !/successfully/i.test(text);
+    const ok = /success|updated|generated successfully/i.test(text);
+    ssShowToast(text, bad ? "bad" : ok ? "ok" : "info");
+  };
+})();
+
 var points, maps, rois, tripwires, child_rois, child_tripwires, child_sensors;
 var dragging, drawing, adding, editing, fullscreen;
 var g;
@@ -40,12 +108,99 @@ var scene_id = $("#scene").val();
 var icon_size = 24;
 var show_telemetry = false;
 var show_trails = false;
-var scene_y_max = 480; // Scene image height in pixels
-var savedElements = [];
+var pendingCalibrateMsg = null;
+
+function isCalibratePage() {
+  return window.location.href.includes("/cam/calibrate/");
+}
+
+function calibrateSensorId() {
+  return $("#sensor_id").val() || "";
+}
+
+function requestCalibrateFrames(client) {
+  var sensorId = calibrateSensorId();
+  var mqttClient = client || window.ssMqttClient;
+  if (!mqttClient || !sensorId) {
+    return;
+  }
+  mqttClient.publish(APP_NAME + CMD_CAMERA + sensorId, "getcalibrationimage");
+}
+
+function applyCalibrationImage(msg) {
+  if (!msg || !msg.image) {
+    return false;
+  }
+  if (!window.camera_calibration || !window.camera_calibration.camCanvas) {
+    pendingCalibrateMsg = msg;
+    return false;
+  }
+  pendingCalibrateMsg = null;
+  updateCalibrationView(msg);
+  return true;
+}
+
+function flushPendingCalibrationImage(client) {
+  if (pendingCalibrateMsg) {
+    applyCalibrationImage(pendingCalibrateMsg);
+  }
+  requestCalibrateFrames(client);
+}
+
+function cameraPreviewIsLive(sensorId) {
+  if (!sensorId) {
+    return false;
+  }
+  var escaped =
+    typeof CSS !== "undefined" && CSS.escape
+      ? CSS.escape(String(sensorId))
+      : String(sensorId);
+  var img =
+    document.querySelector('[data-ss-card-sensor="' + escaped + '"]') ||
+    document.getElementById("card-preview-" + sensorId);
+  if (!img || img.classList.contains("display-none")) {
+    return false;
+  }
+  var src = img.currentSrc || img.getAttribute("src") || "";
+  if (!src || src.indexOf("offline.png") !== -1) {
+    return false;
+  }
+  return img.naturalWidth > 0 || src.indexOf("data:image") === 0;
+}
+
+function applyCameraRate(sensorId, rateText) {
+  if (!cameraPreviewIsLive(sensorId)) {
+    return false;
+  }
+  var rateEl = document.getElementById("rate-" + sensorId);
+  var rateFilmEl = document.getElementById("rate-film-" + sensorId);
+  if (rateEl) {
+    rateEl.innerText = rateText;
+    rateEl.classList.remove("telemetry-hide");
+  }
+  if (rateFilmEl) {
+    rateFilmEl.innerText = rateText;
+    rateFilmEl.classList.remove("telemetry-hide");
+  }
+  if (
+    window.ssSceneTelemetry &&
+    typeof window.ssSceneTelemetry.setCameraRate === "function"
+  ) {
+    window.ssSceneTelemetry.setCameraRate(sensorId, rateText);
+  }
+  window.dispatchEvent(
+    new CustomEvent("ss-camera-rate", {
+      detail: { sensorId: sensorId, text: rateText },
+    }),
+  );
+  return true;
+}
+var scene_y_max = 480; // Scene image height in SVG user units
+var scene_map_width = 0; // Scene image width in SVG user units
 var is_coloring_enabled = false; // Default state of the coloring feature
+var assetMarkColors = {}; // Object Library mark_color per type, e.g. {person: "#888888"}
 var roi_color_sectors = {};
 var singleton_color_sectors = {};
-var scene_rotation_translation_config;
 
 points = maps = rois = tripwires = [];
 dragging = drawing = adding = editing = fullscreen = false;
@@ -74,7 +229,210 @@ if (window.performance && window.performance.navigation.type == 2) {
   location.reload();
 }
 
-if (window.location.href.includes("/cam/calibrate/")) {
+function isSceneDetailMap() {
+  return (
+    !!document.querySelector(".scene-map-stage") &&
+    !$("#map").hasClass("singletonCal")
+  );
+}
+
+function svgPointerToScene(e) {
+  var svg = document.getElementById("svgout");
+  if (!svg) {
+    return [0, 0];
+  }
+  var ctm = svg.getScreenCTM();
+  if (ctm) {
+    var pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    pt = pt.matrixTransform(ctm.inverse());
+    return [Math.round(pt.x), Math.round(pt.y)];
+  }
+  var offset = $("#svgout").offset();
+  return [parseInt(e.pageX - offset.left), parseInt(e.pageY - offset.top)];
+}
+
+function syncReactMapOverlay() {
+  var reactSvg = document.querySelector("svg.ss-react-scene-map");
+  var snap = document.querySelector("svg.ss-snap-legacy, svg#svgout-snap");
+  if (!reactSvg || !snap) {
+    return;
+  }
+  var vb =
+    reactSvg.getAttribute("viewBox") ||
+    (scene_map_width && scene_y_max
+      ? "0 0 " + scene_map_width + " " + scene_y_max
+      : "");
+  var par = reactSvg.getAttribute("preserveAspectRatio") || "xMidYMid meet";
+  if (vb) {
+    snap.setAttribute("viewBox", vb);
+  }
+  snap.setAttribute("preserveAspectRatio", par);
+  snap.removeAttribute("width");
+  snap.removeAttribute("height");
+  snap.style.width = "100%";
+  snap.style.height = "100%";
+}
+
+function fitSceneMapDisplay() {
+  var stage = document.querySelector(".scene-map-stage");
+  if (!stage || !isSceneDetailMap()) {
+    return;
+  }
+
+  // React map fills the stage; marks live on the Snap overlay. Both must
+  // share the same viewBox so resize only changes display scale.
+  if (document.body.classList.contains("ss-use-react-map")) {
+    syncReactMapOverlay();
+    return;
+  }
+
+  var svg = document.getElementById("svgout");
+  if (!svg || !scene_map_width || !scene_y_max) {
+    return;
+  }
+
+  svg.setAttribute("viewBox", "0 0 " + scene_map_width + " " + scene_y_max);
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+  var maxW;
+  var maxH;
+  if (document.body.classList.contains("is-map-fullscreen")) {
+    maxW = Math.max(stage.clientWidth || window.innerWidth - 24, 100);
+    maxH = Math.max(window.innerHeight - 96, 200);
+  } else {
+    // Prefer the laid-out stage box so the map never overflows into tabs/controls.
+    maxW = Math.max(stage.clientWidth || window.innerWidth - 48, 100);
+    var stageH = stage.clientHeight;
+    if (stageH >= 80) {
+      maxH = stageH;
+    } else {
+      maxH = Math.round(window.innerHeight * 0.55);
+    }
+  }
+
+  var scaleFit = Math.min(maxW / scene_map_width, maxH / scene_y_max);
+  if (!Number.isFinite(scaleFit) || scaleFit <= 0) {
+    return;
+  }
+
+  var displayW = Math.round(scene_map_width * scaleFit);
+  var displayH = Math.round(scene_y_max * scaleFit);
+  svg.setAttribute("width", displayW);
+  svg.setAttribute("height", displayH);
+  $(svg).width(displayW).height(displayH);
+}
+
+window.fitSceneMapDisplay = fitSceneMapDisplay;
+
+/** Re-request camera strip snapshots (React cards may mount after MQTT connect). */
+window.ssRefreshCameraSnapshots = function () {
+  var client = window.ssMqttClient;
+  if (!client) {
+    return;
+  }
+  if (!$(".snapshot-image").length) {
+    return;
+  }
+  if (!window.location.href.includes("/cam/calibrate/")) {
+    try {
+      client.subscribe(APP_NAME + IMAGE_CAMERA + "+");
+    } catch (e) {
+      /* already subscribed */
+    }
+  }
+  $(".snapshot-image").each(function () {
+    var topics = {};
+    var primary =
+      this.getAttribute("data-topic") ||
+      this.getAttribute("topic") ||
+      $(this).attr("topic");
+    var byName = this.getAttribute("data-topic-name");
+    if (primary) {
+      topics[primary] = true;
+    }
+    if (byName) {
+      topics[byName] = true;
+    }
+    Object.keys(topics).forEach(function (topic) {
+      client.publish(topic, "getimage");
+    });
+  });
+};
+
+function sensorHasMapGeometry(sensor) {
+  if (!sensor || !sensor.area || sensor.area === "scene") {
+    return false;
+  }
+  if (sensor.area === "circle") {
+    return (
+      Number.isFinite(Number(sensor.x)) &&
+      Number.isFinite(Number(sensor.y)) &&
+      Number.isFinite(Number(sensor.radius))
+    );
+  }
+  if (sensor.area === "poly") {
+    return Array.isArray(sensor.points) && sensor.points.length >= 3;
+  }
+  return false;
+}
+
+/** Draw / refresh singleton sensors from React-rendered .singleton cards. */
+window.ssDrawSingletonSensors = function () {
+  if (typeof svgCanvas === "undefined" || !svgCanvas) {
+    return;
+  }
+  $(".singleton").each(function () {
+    var raw = $(".area-json", this).val();
+    if (!raw) {
+      return;
+    }
+    var sensor;
+    try {
+      sensor = $.parseJSON(raw);
+    } catch (e) {
+      return;
+    }
+    if (!sensorHasMapGeometry(sensor)) {
+      return;
+    }
+    var i = $(".sensor-id", this).text();
+    if (!i) {
+      return;
+    }
+    var title =
+      ($(this).attr("data-sensor-name") || "").trim() ||
+      $(".card-header", this).clone().children().remove().end().text().trim();
+    if (title) {
+      sensor.title = title;
+    }
+    drawSensor(sensor, i, "sensor");
+    if (sensor.sectors && sensor.sectors.thresholds.length > 0) {
+      singleton_color_sectors[i] = sensor.sectors;
+    }
+  });
+};
+
+window.ssRemoveSingletonSensor = function (sensorId) {
+  if (!sensorId) {
+    return;
+  }
+  var sel = "#sensor_" + sensorId;
+  if (svgCanvas && typeof svgCanvas.select === "function") {
+    var snapEl = svgCanvas.select(sel);
+    if (snapEl) {
+      snapEl.remove();
+      return;
+    }
+  }
+  var el = document.getElementById("sensor_" + sensorId);
+  if (el) {
+    el.remove();
+  }
+};
+
+if (isCalibratePage()) {
   // distortion available only for supporting video analytics microservice
   initializeCalibration(scene_id, socket);
 }
@@ -112,199 +470,275 @@ async function checkBrokerConnections() {
   $("#broker").val(updatedBroker);
   console.log(`Url ${urlSecure} is open`);
 
-  $("#connect").on("click", function () {
-    console.log("Attempting to connect to " + broker.value);
-    var client = mqtt.connect(broker.value);
-    sessionStorage.setItem("connectToMqtt", true);
-
-    client.on("connect", function () {
-      console.log("Connected to " + broker.value);
-      if ($("#topic").val() !== undefined) {
-        client.subscribe($("#topic").val());
-        console.log("Subscribed to " + $("#topic").val());
+  $("#connect")
+    .off("click.ssMqttConnect")
+    .on("click.ssMqttConnect", function () {
+      var brokerInput = document.getElementById("broker");
+      var brokerUrl =
+        brokerInput && "value" in brokerInput
+          ? brokerInput.value
+          : $("#broker").val();
+      console.log("Attempting to connect to " + brokerUrl);
+      if (
+        window.ssMqttClient &&
+        typeof window.ssMqttClient.end === "function"
+      ) {
+        try {
+          window.ssMqttClient.end(true);
+        } catch (e) {
+          /* ignore */
+        }
       }
+      var client = mqtt.connect(brokerUrl);
+      window.ssMqttClient = client;
+      sessionStorage.setItem("connectToMqtt", true);
 
-      client.subscribe(APP_NAME + "/event/" + "+/" + scene_id + "/+/+");
-      console.log(
-        "Subscribed to " + APP_NAME + "/event/" + "+/" + scene_id + "/+/+",
-      );
+      client.on("connect", function () {
+        console.log("Connected to " + brokerUrl);
+        if ($("#topic").val() !== undefined) {
+          client.subscribe($("#topic").val());
+          console.log("Subscribed to " + $("#topic").val());
+        }
 
-      if (document.getElementById("scene_children")?.value !== "0") {
-        client.subscribe(APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
-        console.log("Subscribed to " + APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
-        var remote_childs = $("[id^='mqtt_status_remote']")
-          .map((_, el) => el.id.split("_").slice(3).join("_"))
-          .get();
-        remote_childs.forEach((e) => {
-          client.publish(
-            APP_NAME + SYS_CHILDSCENE_STATUS + "/" + e,
-            "isConnected",
+        client.subscribe(APP_NAME + "/event/" + "+/" + scene_id + "/+/+");
+        console.log(
+          "Subscribed to " + APP_NAME + "/event/" + "+/" + scene_id + "/+/+",
+        );
+
+        if (document.getElementById("scene_children")?.value !== "0") {
+          client.subscribe(APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
+          console.log(
+            "Subscribed to " + APP_NAME + SYS_CHILDSCENE_STATUS + "/+",
           );
-        });
-      }
+          var remote_childs = $("[id^='mqtt_status_remote']")
+            .map((_, el) => el.id.split("_").slice(3).join("_"))
+            .get();
+          remote_childs.forEach((e) => {
+            client.publish(
+              APP_NAME + SYS_CHILDSCENE_STATUS + "/" + e,
+              "isConnected",
+            );
+          });
+        }
 
-      $("#mqtt_status").addClass("connected");
+        $("#mqtt_status").addClass("connected");
 
-      // Capture thumbnail snapshots
-      if ($(".snapshot-image").length) {
-        // Only subscribe to regular camera images if NOT on calibration page
-        if (!window.location.href.includes("/cam/calibrate/")) {
+        // Camera strip may mount via React after connect — always wire live-view + subscribe.
+        if (isCalibratePage()) {
+          var calSensor = calibrateSensorId();
+          if (calSensor) {
+            client.subscribe(APP_NAME + IMAGE_CALIBRATE + calSensor);
+          }
+          requestCalibrateFrames(client);
+        } else {
           client.subscribe(APP_NAME + IMAGE_CAMERA + "+");
         }
+        window.ssRefreshCameraSnapshots();
+        // React camera cards may portal in after this connect callback.
+        window.setTimeout(function () {
+          window.ssRefreshCameraSnapshots();
+        }, 500);
+        window.setTimeout(function () {
+          window.ssRefreshCameraSnapshots();
+        }, 1500);
+        $("input#live-view")
+          .off("change.ssLiveView")
+          .on("change.ssLiveView", function () {
+            if ($(this).is(":checked")) {
+              window.ssRefreshCameraSnapshots();
+              $("#cameras-tab").click();
+              $(".camera-card").addClass("live-view");
+            } else {
+              $(".camera-card").removeClass("live-view");
+            }
+          });
+      });
 
-        $(".snapshot-image").each(function () {
-          client.publish($(this).attr("topic"), "getimage");
-        });
-
-        $("input#live-view").on("change", function () {
-          if ($(this).is(":checked")) {
-            $(".snapshot-image").each(function () {
-              client.publish($(this).attr("topic"), "getimage");
-            });
-            $("#cameras-tab").click(); // Select the cameras tab
-            $(".camera-card").addClass("live-view");
-            // $(".hide-live").hide();
-          } else {
-            $(".camera-card").removeClass("live-view");
-            // $(".hide-live").show();
-          }
-        });
-      }
-    });
-
-    client.on("close", function () {
-      $("[id^='mqtt_status']").removeClass("connected");
-      $(".rate").text("--");
-      $("#scene-rate").text("--");
-    });
-
-    client.on("message", function (topic, data) {
-      var msg;
-      try {
-        msg = JSON.parse(data);
-      } catch (error) {
-        msg = String(data);
-      }
-      var img;
-
-      if (topic.includes(DATA_REGULATED)) {
-        if (show_telemetry) {
-          // Show the FPS for each camera
-          for (const [key, value] of Object.entries(msg.rate)) {
-            document.getElementById("rate-" + key).innerText = value + " FPS";
-          }
-
-          // Show the scene controller update rate
-          document.getElementById("scene-rate").innerText =
-            msg.scene_rate.toFixed(1);
+      client.on("close", function () {
+        $("[id^='mqtt_status']").removeClass("connected");
+        $(".rate").text("--");
+        $("#scene-rate").text("--");
+        if (
+          window.ssSceneTelemetry &&
+          typeof window.ssSceneTelemetry.clearRates === "function"
+        ) {
+          window.ssSceneTelemetry.clearRates();
         }
+        if (
+          window.ssSceneTelemetry &&
+          typeof window.ssSceneTelemetry.setSceneRate === "function"
+        ) {
+          window.ssSceneTelemetry.setSceneRate("--");
+        }
+        window.dispatchEvent(new CustomEvent("ss-telemetry-clear"));
+      });
 
-        // Plot the marks
-        plot(
-          msg.objects,
-          scale,
-          scene_y_max,
-          svgCanvas,
-          show_telemetry,
-          show_trails,
-        );
-      } else if (topic.includes("event")) {
-        var etype = topic.split("/")[2];
-        if (etype == "region") {
-          if (msg["metadata"]?.fromSensor == true) {
-            drawSensor(
-              msg["metadata"],
-              msg["metadata"]["title"],
-              "child_sensor",
-            );
-          } else {
-            drawRoi(msg["metadata"], msg["metadata"]["uuid"], "child_roi");
-          }
-          var counts = msg["counts"];
-          var occupancy = 0;
-          if (counts && typeof counts === "object") {
-            Object.keys(counts).forEach(function (category) {
-              var count = counts[category];
-              if (typeof count === "number") {
-                occupancy += count;
+      client.on("message", function (topic, data) {
+        var msg;
+        try {
+          msg = JSON.parse(data);
+        } catch (error) {
+          msg = String(data);
+        }
+        var img;
+
+        if (topic.includes(DATA_REGULATED)) {
+          if (show_telemetry) {
+            // Show the FPS for each camera that currently has a live preview.
+            // scene.rate is a sticky cache and still lists cameras that went offline.
+            if (msg.rate && typeof msg.rate === "object") {
+              for (const [key, value] of Object.entries(msg.rate)) {
+                var fps = Number(value);
+                var rateText =
+                  (Number.isFinite(fps) ? fps.toFixed(2) : "--") + " FPS";
+                applyCameraRate(key, rateText);
               }
-            });
-            setROIColor(msg["metadata"]["uuid"], occupancy);
+            }
+
+            // Show the scene controller update rate
+            var sceneRateEl = document.getElementById("scene-rate");
+            var sceneRate = Number(msg.scene_rate);
+            if (Number.isFinite(sceneRate)) {
+              var sceneRateText = sceneRate.toFixed(1);
+              if (sceneRateEl) {
+                sceneRateEl.innerText = sceneRateText;
+              }
+              if (
+                window.ssSceneTelemetry &&
+                typeof window.ssSceneTelemetry.setSceneRate === "function"
+              ) {
+                window.ssSceneTelemetry.setSceneRate(sceneRateText);
+              }
+              window.dispatchEvent(
+                new CustomEvent("ss-scene-rate", {
+                  detail: { hz: sceneRateText },
+                }),
+              );
+            }
           }
 
-          var value = msg["value"];
-          if (value) {
-            setSensorColor(
-              msg["metadata"]["title"],
-              value,
-              msg["metadata"]["area"],
+          // Plot the marks
+          plot(
+            msg.objects,
+            scale,
+            scene_y_max,
+            svgCanvas,
+            show_telemetry,
+            show_trails,
+            assetMarkColors,
+          );
+        } else if (topic.includes("event")) {
+          var etype = topic.split("/")[2];
+          if (etype == "region") {
+            if (msg["metadata"]?.fromSensor == true) {
+              drawSensor(
+                msg["metadata"],
+                msg["metadata"]["title"],
+                "child_sensor",
+              );
+            } else {
+              drawRoi(msg["metadata"], msg["metadata"]["uuid"], "child_roi");
+            }
+            var counts = msg["counts"];
+            var occupancy = 0;
+            if (counts && typeof counts === "object") {
+              Object.keys(counts).forEach(function (category) {
+                var count = counts[category];
+                if (typeof count === "number") {
+                  occupancy += count;
+                }
+              });
+              setROIColor(msg["metadata"]["uuid"], occupancy);
+            }
+
+            var value = msg["value"];
+            if (value) {
+              setSensorColor(
+                msg["metadata"]["title"],
+                value,
+                msg["metadata"]["area"],
+              );
+            }
+          } else if (etype == "tripwire") {
+            var trip = msg["metadata"];
+            trip.points[0] = metersToPixels(trip.points[0], scale, scene_y_max);
+            trip.points[1] = metersToPixels(trip.points[1], scale, scene_y_max);
+            newTripwire(trip, msg["metadata"]["uuid"], "child_tripwire");
+          }
+        } else if (topic.includes("singleton")) {
+          plotSingleton(msg);
+        } else if (topic.includes(IMAGE_CALIBRATE)) {
+          applyCalibrationImage(msg);
+        } else if (topic.includes(IMAGE_CAMERA)) {
+          if (isCalibratePage()) {
+            return;
+          }
+          // Use native JS since jQuery.load() pukes on data URI's
+          if ($(".snapshot-image").length) {
+            var id = topic.split("camera/")[1];
+            var previewImgs = document.querySelectorAll(
+              "[id='" +
+                id +
+                "'], [id='card-preview-" +
+                id +
+                "'], [data-ss-card-sensor='" +
+                id +
+                "'], [data-ss-card-name='" +
+                id +
+                "']",
             );
+            previewImgs.forEach(function (img) {
+              img.setAttribute("src", "data:image/jpeg;base64," + msg.image);
+              img.classList.remove("display-none");
+              var offline = img.parentElement
+                ? img.parentElement.querySelectorAll(".cam-offline")
+                : [];
+              offline.forEach(function (el) {
+                el.style.display = "none";
+                el.hidden = true;
+              });
+            });
+
+            if ($("input#live-view").is(":checked")) {
+              client.publish(APP_NAME + CMD_CAMERA + id, "getimage");
+            }
           }
-        } else if (etype == "tripwire") {
-          var trip = msg["metadata"];
-          trip.points[0] = metersToPixels(trip.points[0], scale, scene_y_max);
-          trip.points[1] = metersToPixels(trip.points[1], scale, scene_y_max);
-          newTripwire(trip, msg["metadata"]["uuid"], "child_tripwire");
-        }
-      } else if (topic.includes("singleton")) {
-        plotSingleton(msg);
-      } else if (topic.includes(IMAGE_CALIBRATE)) {
-        updateCalibrationView(msg);
-      } else if (topic.includes(IMAGE_CAMERA)) {
-        // Skip processing regular camera images on calibration page
-        if (window.location.href.includes("/cam/calibrate/")) {
-          return;
-        }
-        // Use native JS since jQuery.load() pukes on data URI's
-        if ($(".snapshot-image").length) {
-          var id = topic.split("camera/")[1];
-          img = document.getElementById(id);
-          if (img !== undefined && img !== null) {
-            img.setAttribute("src", "data:image/jpeg;base64," + msg.image);
+        } else if (topic.includes(DATA_CAMERA)) {
+          var id = topic.slice(topic.lastIndexOf("/") + 1);
+          if (show_telemetry) {
+            var camFps = Number(msg.rate);
+            var camRateText =
+              (Number.isFinite(camFps) ? camFps.toFixed(2) : "--") + " FPS";
+            applyCameraRate(id, camRateText);
           }
-
-          if ($("input#live-view").is(":checked")) {
-            client.publish(APP_NAME + CMD_CAMERA + id, "getimage");
+          $("#updated-" + id).text(msg.timestamp);
+        } else if (topic.includes("/child/status")) {
+          var child = topic.slice(topic.lastIndexOf("/") + 1);
+          if (msg === "connected") {
+            console.log(child + msg);
+            $("#mqtt_status_remote_" + child).addClass("connected");
+          } else if (msg === "disconnected") {
+            $("#mqtt_status_remote_" + child).removeClass("connected");
           }
-
-          // If ID contains special characters, selector $("#" + id) fails
-          $("[id='" + id + "']")
-            .stop()
-            .show()
-            .css("opacity", 1)
-            .animate({ opacity: 0.6 }, 5000, function () {})
-            .prevAll(".cam-offline")
-            .hide();
         }
-      } else if (topic.includes(DATA_CAMERA)) {
-        var id = topic.slice(topic.lastIndexOf("/") + 1);
-        $("#rate-" + id).text(msg.rate + " FPS");
-        $("#updated-" + id).text(msg.timestamp);
-      } else if (topic.includes("/child/status")) {
-        var child = topic.slice(topic.lastIndexOf("/") + 1);
-        if (msg === "connected") {
-          console.log(child + msg);
-          $("#mqtt_status_remote_" + child).addClass("connected");
-        } else if (msg === "disconnected") {
-          $("#mqtt_status_remote_" + child).removeClass("connected");
-        }
-      }
-    });
+      });
 
-    client.on("error", function (e) {
-      console.log("MQTT error: " + e);
-    });
+      client.on("error", function (e) {
+        console.log("MQTT error: " + e);
+      });
 
-    $("#disconnect").on("click", function () {
-      sessionStorage.setItem("connectToMqtt", false);
-      client.end();
-    });
+      $("#disconnect")
+        .off("click.ssMqttDisconnect")
+        .on("click.ssMqttDisconnect", function () {
+          sessionStorage.setItem("connectToMqtt", false);
+          client.end();
+        });
 
-    var topic = APP_NAME + CMD_CAMERA + $("#sensor_id").val();
-    $("#snapshot").on("click", function () {
-      client.publish(topic, "getcalibrationimage");
+      var topic = APP_NAME + CMD_CAMERA + $("#sensor_id").val();
+      $("#snapshot").on("click", function () {
+        client.publish(topic, "getcalibrationimage");
+      });
     });
-  });
 
   // Connect by default
   var connectToMqtt = sessionStorage.getItem("connectToMqtt");
@@ -363,7 +797,7 @@ function plotSingleton(m) {
   var $sensor = $("#sensor_" + m.id);
 
   $(".area", $sensor).css("fill", m.status);
-  $("text", $sensor).text(m.value.toString());
+  $("text.value", $sensor).text(m.value.toString());
 }
 
 function addPoly() {
@@ -416,6 +850,23 @@ function initArea(a) {
 }
 
 function numberRois() {
+  if (window.ssUseReactMap) {
+    $(".form-roi").each(function (n) {
+      $(this)
+        .find(".roi-number")
+        .text(String(n + 1));
+    });
+    if ($(".form-roi").length > 0) {
+      $("#no-regions").hide();
+    } else {
+      $("#no-regions").show();
+    }
+    numberTabs();
+    return;
+  }
+  if (!svgCanvas) {
+    return;
+  }
   var groups = svgCanvas.selectAll("g.roi");
 
   groups.forEach(function (e, n) {
@@ -454,7 +905,26 @@ function numberRois() {
   numberTabs();
 }
 
+window.numberRois = numberRois;
+
 function numberTripwires() {
+  if (window.ssUseReactMap) {
+    $(".form-tripwire").each(function (n) {
+      $(this)
+        .find(".tripwire-number")
+        .text(String(n + 1));
+    });
+    if ($(".form-tripwire").length > 0) {
+      $("#no-tripwires").hide();
+    } else {
+      $("#no-tripwires").show();
+    }
+    numberTabs();
+    return;
+  }
+  if (!svgCanvas) {
+    return;
+  }
   var groups = svgCanvas.selectAll("g.tripwire");
 
   groups.forEach(function (e, n) {
@@ -495,22 +965,60 @@ function numberTripwires() {
   numberTabs();
 }
 
+window.numberTripwires = numberTripwires;
+
+function liveMountCount(mountId, itemSelector) {
+  var mount = document.getElementById(mountId);
+  if (!mount || mount.childElementCount === 0) {
+    return undefined;
+  }
+  return mount.querySelectorAll(itemSelector).length;
+}
+
 // Show number of child cards in a tab
 function numberTabs() {
   $(".show-count").each(function () {
-    var numCards = $(".count-item", $(this).closest("a").attr("href")).length;
+    var href = $(this).closest("a").attr("href");
+    if (!href) {
+      return;
+    }
+    var numCards = $(".count-item", href).length;
     $(this).text("(" + numCards + ")");
   });
+  var counts = {};
+  var cameras = liveMountCount("ss-cameras-mount", ".count-item");
+  var sensors = liveMountCount("ss-sensors-mount", ".count-item");
+  var children = liveMountCount("ss-children-mount", ".ss-control-card");
+  if (cameras !== undefined) {
+    counts.cameras = cameras;
+  }
+  if (sensors !== undefined) {
+    counts.sensors = sensors;
+  }
+  if (children !== undefined) {
+    counts.children = children;
+  }
+  if (Object.keys(counts).length) {
+    window.dispatchEvent(new CustomEvent("ss-tab-counts", { detail: counts }));
+  }
 }
+
+window.numberTabs = numberTabs;
 
 // Turn the regions of interest into a string for saving to the database
 function stringifyRois() {
+  if (window.ssUseReactMap) {
+    if (window.ssMap && typeof window.ssMap.flushHidden === "function") {
+      window.ssMap.flushHidden();
+    }
+    return;
+  }
   rois = [];
   var groups = svgCanvas.selectAll(".roi");
 
   groups.forEach(function (g) {
     var i = g.attr("id");
-    var title = $("#form-" + i + " input").val();
+    var title = $("#form-" + i + " input.roi-title").val();
     var p = g.select("polygon");
     var region_uuid = i.split("_")[1];
     points = p.attr("points");
@@ -577,15 +1085,30 @@ function stringifyRois() {
 
   // Update hidden field
   $("#id_rois").val(JSON.stringify(rois));
+  try {
+    window.dispatchEvent(
+      new CustomEvent("ss-geometry-stringified", { detail: { kind: "rois" } }),
+    );
+  } catch (e) {
+    /* ignore */
+  }
 }
 
+window.stringifyRois = stringifyRois;
+
 function stringifyTripwires() {
+  if (window.ssUseReactMap) {
+    if (window.ssMap && typeof window.ssMap.flushHidden === "function") {
+      window.ssMap.flushHidden();
+    }
+    return;
+  }
   tripwires = [];
   var groups = svgCanvas.selectAll(".tripwire");
 
   groups.forEach(function (g) {
     var i = g.attr("id");
-    var title = $("#form-" + i + " input").val();
+    var title = $("#form-" + i + " input.tripwire-title").val();
     var l = g.select(".tripline");
     var trip_uuid = i.split("_")[1];
 
@@ -612,31 +1135,16 @@ function stringifyTripwires() {
 
   // Update hidden field
   $("#tripwires").val(JSON.stringify(tripwires));
-}
-
-function stringifySingletonColorRange() {
-  let color_ranges = [];
-
-  var input_min = document.querySelectorAll(
-    "#singleton_sectors > input[id$='_min']",
-  );
-
-  for (const input_ele of input_min) {
-    color_ranges.push({
-      color: input_ele.className.split("_")[0],
-      color_min: parseInt(input_ele.value),
-    });
+  try {
+    window.dispatchEvent(
+      new CustomEvent("ss-geometry-stringified", { detail: { kind: "trips" } }),
+    );
+  } catch (e) {
+    /* ignore */
   }
-
-  const range_max_value = document.getElementById("range_max").value;
-  const range_max = parseInt(range_max_value);
-
-  color_ranges.push({
-    range_max: range_max,
-  });
-
-  $("#id_sectors").val(JSON.stringify(color_ranges));
 }
+
+window.stringifyTripwires = stringifyTripwires;
 
 // Get the center coordinate of a polygon
 function polyCenter(pts) {
@@ -705,12 +1213,21 @@ function closePolygon() {
   drawing = false;
 
   if (!$("#map").hasClass("singletonCal")) {
-    $("#roi-template")
-      .clone(true)
-      .removeAttr("id")
-      .attr("id", "form-" + i)
-      .attr("for", i)
-      .appendTo("#roi-fields");
+    var roiFormPayload = {
+      svgId: i,
+      uuid: i.split("_")[1],
+      title: "",
+    };
+    if (
+      window.ssRoiEditors &&
+      typeof window.ssRoiEditors.addRoi === "function"
+    ) {
+      window.ssRoiEditors.addRoi(roiFormPayload);
+    } else {
+      window.dispatchEvent(
+        new CustomEvent("ss-roi-form-add", { detail: roiFormPayload }),
+      );
+    }
 
     numberRois();
   }
@@ -891,30 +1408,25 @@ function newTripwire(e, index, type = "tripwire") {
     updateArrow(g);
 
     if (type == "tripwire") {
-      $("#tripwire-template")
-        .clone(true)
-        .attr({
-          id: "form-" + i,
-          for: i,
-        })
-        .appendTo("#tripwire-fields")
-        .find("input.tripwire-title")
-        .val(e.title)
-        .attr({
-          id: "input-" + i,
-          "aria-labelledby": "label-" + i,
-        })
-        .closest(".input-group")
-        .find("label")
-        .attr({
-          id: "label-" + i,
-          for: "input-" + i,
-        })
-        .closest(".input-group")
-        .find(".topic")
-        .text(
+      var tripPayload = {
+        svgId: i,
+        uuid: String(index),
+        title: e.title || "",
+        topic:
           APP_NAME + "/event/tripwire/" + scene_id + "/" + index + "/objects",
+      };
+      if (
+        window.ssRoiEditors &&
+        typeof window.ssRoiEditors.addTripwire === "function" &&
+        (!window.ssRoiEditors.hasTripwire ||
+          !window.ssRoiEditors.hasTripwire(i))
+      ) {
+        window.ssRoiEditors.addTripwire(tripPayload);
+      } else {
+        window.dispatchEvent(
+          new CustomEvent("ss-tripwire-form-add", { detail: tripPayload }),
         );
+      }
     } else {
       var text = g.select("text");
       text.textContent = e.from_child_scene + " " + e.title;
@@ -932,6 +1444,8 @@ function getRoiValues(id, roi) {
   }
   return cur_rois;
 }
+
+window.getRoiValues = getRoiValues;
 
 function find_duplicates(curr_roi) {
   const nameCounts = new Map();
@@ -989,120 +1503,33 @@ function updateArrow(group) {
   }
 }
 
-function removeFormElementsForUI(id) {
-  id = id + "_wrapper";
-  if (document.getElementById(id)) {
-    savedElements.push(document.getElementById(id));
-    document.getElementById(id).remove();
-  }
-}
-
-function toggleAsset3D() {
-  var model3D = $("#id_model_3d").val();
-  var hasAsset = $("#model_3d_wrapper").find("a").length;
-
-  var assetForm =
-    document.getElementById("asset_create_form") ||
-    document.getElementById("asset_update_form");
-  var saveButton = document.getElementById("save_asset");
-  saveButton.remove();
-  savedElements.push(saveButton);
-  savedElements.forEach((element) => {
-    assetForm.append(element);
-  });
-  savedElements = [];
-
-  var asset_fields_with_no_model = ["mark_color"];
-  var asset_fields_with_model = [
-    "scale",
-    "rotation_x",
-    "rotation_y",
-    "rotation_z",
-    "translation_x",
-    "translation_y",
-    "translation_z",
-  ];
-
-  if (model3D || hasAsset) {
-    asset_fields_with_no_model.map(removeFormElementsForUI);
-    updateElements(
-      asset_fields_with_model.map((v) => "id_" + v),
-      "required",
-      true,
-    );
-  } else {
-    asset_fields_with_model.map(removeFormElementsForUI);
-    updateElements(
-      asset_fields_with_no_model.map((v) => "id_" + v),
-      "required",
-      true,
-    );
-  }
-}
-
-function addSavedCalibrationFields() {
-  var sceneUpdateForm = document.getElementById("scene_update_form");
-  var saveButton = document.getElementById("save_scene_updates");
-  saveButton.remove();
-  savedElements.push(saveButton);
-  savedElements.forEach((element) => {
-    sceneUpdateForm.append(element);
-  });
-  savedElements = [];
-}
-
-function setupCalibrationType() {
-  var calibrationType = $("#id_camera_calibration").val();
-  var listOfMarkerlessComponents = [
-    "polycam_data",
-    "matcher",
-    "number_of_localizations",
-    "global_feature",
-    "local_feature",
-    "minimum_number_of_matches",
-    "inlier_threshold",
-  ];
-  var listofApriltagComponents = ["apriltag_size"];
-
-  switch (calibrationType) {
-    case "AprilTag":
-      addSavedCalibrationFields();
-      listOfMarkerlessComponents.map(removeFormElementsForUI);
-      break;
-    case "Manual":
-      addSavedCalibrationFields();
-      listOfMarkerlessComponents.map(removeFormElementsForUI);
-      listofApriltagComponents.map(removeFormElementsForUI);
-      break;
-    case "Markerless":
-      addSavedCalibrationFields();
-      listofApriltagComponents.map(removeFormElementsForUI);
-      break;
-  }
-
-  return;
-}
-
-// Function to save roi and tripwires
-function saveRois(roi_values) {
+// Function to save roi and tripwires (React REST persist required)
+async function saveRois(roi_values) {
   var duplicates = find_duplicates(roi_values);
   if (duplicates.length > 0) {
     alert(duplicates.toString() + " already exists. Try a different name");
-  } else {
-    $("#roi-form").submit();
+    return;
+  }
+  if (typeof window.ssPersistGeometry !== "function") {
+    alert("Save is unavailable — React geometry persist is not mounted.");
+    return;
+  }
+  try {
+    await window.ssPersistGeometry(roi_values);
+  } catch (err) {
+    console.error(err);
+    alert("Failed to save regions: " + (err?.message || String(err)));
   }
 }
+
+window.saveRois = saveRois;
 
 if (svgCanvas) {
   svgCanvas.mouseup(function (e) {
     if (dragging || !adding) return;
     drawing = true;
 
-    var offset = $("#svgout").offset();
-    var thisPoint = [
-      parseInt(e.pageX - offset.left),
-      parseInt(e.pageY - offset.top),
-    ];
+    var thisPoint = svgPointerToScene(e);
 
     var circle;
 
@@ -1238,72 +1665,45 @@ function drawRoi(e, index, type) {
     }
 
     if (type == "roi") {
-      $("#roi-template")
-        .clone(true)
-        .attr({
-          id: "form-" + i,
-          for: i,
-        })
-        .appendTo("#roi-fields")
-        .find("input.roi-title")
-        .val(e.title)
-        .attr({
-          id: "input-" + i,
-          "aria-labelledby": "label-" + i,
-        })
-        .closest(".input-group")
-        .find("label")
-        .attr({
-          id: "label-" + i,
-          for: "input-" + i,
+      // React scene-detail island owns editor cards (hydrated from bootstrap).
+      var greenMin = 0;
+      var yellowMin = 2;
+      var redMin = 5;
+      var rangeMax = 10;
+      if (e.sectors && e.sectors.thresholds) {
+        e.sectors.thresholds.forEach(function (sector) {
+          if (sector.color === "green") greenMin = Number(sector.color_min);
+          if (sector.color === "yellow") yellowMin = Number(sector.color_min);
+          if (sector.color === "red") redMin = Number(sector.color_min);
         });
-
-      $("#form-" + i)
-        .find(".roi-topic > label")
-        .text("Topic:  ");
-      $("#form-" + i)
-        .find(".roi-topic > .topic-text")
-        .text(APP_NAME + "/event/region/" + scene_id + "/" + index + "/count");
-
-      // Set volumetric checkbox and related fields
-      if (e.volumetric !== undefined) {
-        $("#form-" + i)
-          .find(".roi-volumetric")
-          .prop("checked", e.volumetric);
+        if (e.sectors.range_max !== undefined) {
+          rangeMax = Number(e.sectors.range_max);
+        }
       }
-
-      // Set height field
-      if (e.height !== undefined) {
-        $("#form-" + i)
-          .find(".roi-height")
-          .val(e.height);
+      var roiPayload = {
+        svgId: i,
+        uuid: index,
+        title: e.title || "",
+        volumetric: Boolean(e.volumetric),
+        height: e.height !== undefined ? Number(e.height) : 1.0,
+        buffer_size: e.buffer_size !== undefined ? Number(e.buffer_size) : 0.0,
+        greenMin: greenMin,
+        yellowMin: yellowMin,
+        redMin: redMin,
+        rangeMax: rangeMax,
+        topic: APP_NAME + "/event/region/" + scene_id + "/" + index + "/count",
+      };
+      if (
+        window.ssRoiEditors &&
+        typeof window.ssRoiEditors.addRoi === "function" &&
+        (!window.ssRoiEditors.hasRoi || !window.ssRoiEditors.hasRoi(i))
+      ) {
+        window.ssRoiEditors.addRoi(roiPayload);
+      } else {
+        window.dispatchEvent(
+          new CustomEvent("ss-roi-form-add", { detail: roiPayload }),
+        );
       }
-
-      // Set buffer size field
-      if (e.buffer_size !== undefined) {
-        $("#form-" + i)
-          .find(".roi-buffer")
-          .val(e.buffer_size);
-      }
-      for (var sector in e.sectors.thresholds) {
-        var color = e.sectors.thresholds[sector].color;
-        var min = e.sectors.thresholds[sector].color_min;
-        $("#form-" + i)
-          .find("input." + color + "_min")
-          .val(min);
-      }
-      $("#form-" + i)
-        .find("input." + "range_max")
-        .val(e.sectors.range_max);
-
-      document.querySelectorAll(".topic-text").forEach((element) => {
-        element.addEventListener("click", () => {
-          const text = element.textContent;
-          if (navigator.clipboard !== undefined) {
-            navigator.clipboard.writeText(text);
-          }
-        });
-      });
     } else {
       var center = polyCenter(roi_points);
       var nameText = g.text(center[0], center[1], e.title).attr({ id: "name" });
@@ -1317,10 +1717,19 @@ function drawRoi(e, index, type) {
 
 function drawSensor(sensor, index, type) {
   var i = type + "_" + index;
+  var existing = document.getElementById(i);
 
-  if (type === "child_sensor" && document.getElementById(i)) {
-    var name_text = document.getElementById(i).querySelector("#name");
-    var hierarchy_text = document.getElementById(i).querySelector("#hierarchy");
+  if (type === "sensor" && existing) {
+    var nameEl = existing.querySelector("#name");
+    if (nameEl && sensor.title) {
+      nameEl.textContent = sensor.title;
+    }
+    return;
+  }
+
+  if (type === "child_sensor" && existing) {
+    var name_text = existing.querySelector("#name");
+    var hierarchy_text = existing.querySelector("#hierarchy");
     if (sensor.x && sensor.y) {
       var p = metersToPixels([sensor.x, sensor.y], scale, scene_y_max);
       sensor.x = p[0];
@@ -1340,13 +1749,13 @@ function drawSensor(sensor, index, type) {
       outer_circle.setAttribute("r", sensor.radius * scale);
     } else if (sensor.area === "poly") {
       let area_points = [];
-      sensor.points.forEach(function (m) {
+      (sensor.points || []).forEach(function (m) {
         var p = metersToPixels(m, scale, scene_y_max);
         area_points.push(p[0], p[1]);
       });
       var points_string = area_points.join(",");
       var polygon = document.querySelector("#" + i + " > .area");
-      if (polygon.getAttribute("points") != points_string) {
+      if (polygon && polygon.getAttribute("points") != points_string) {
         polygon.setAttribute("points", points_string);
       }
     }
@@ -1363,15 +1772,24 @@ function drawSensor(sensor, index, type) {
       var text = g.text(sensor.x, sensor.y, "").addClass("value");
     } else if (sensor.area === "poly") {
       var tempPoints = [];
-
-      sensor.points.forEach(function (p) {
+      (sensor.points || []).forEach(function (p) {
         p = metersToPixels(p, scale, scene_y_max);
         tempPoints.push(p[0], p[1]);
       });
 
-      var center = polyCenter(tempPoints);
-      var poly = g.polygon(tempPoints).addClass("area");
-      var text = g.text(center[0], center[1], "").addClass("value");
+      if (tempPoints.length >= 6) {
+        var center = polyCenter(tempPoints);
+        var poly = g.polygon(tempPoints).addClass("area");
+        var text = g.text(center[0], center[1], "").addClass("value");
+        if (
+          sensor.x == null ||
+          sensor.y == null ||
+          (Number(sensor.x) === 0 && Number(sensor.y) === 0)
+        ) {
+          sensor.x = center[0] / scale;
+          sensor.y = (scene_y_max - center[1]) / scale;
+        }
+      }
     }
 
     if ($(".sensor-icon", this).length) {
@@ -1420,7 +1838,7 @@ function setROIColor(roi_id, occupancy) {
       var color = getColorForValue(roi_id, occupancy, roi_color_sectors);
       roi_polygon.style.fill = color;
     } else {
-      roi_polygon.style.fill = "white";
+      roi_polygon.style.fill = "";
     }
   }
 }
@@ -1442,459 +1860,59 @@ function setSensorColor(sensor_id, value, area) {
   }
 }
 
-function setupSceneRotationTranslationFields(event = null) {
-  var map_file_name;
-  if (event) {
-    map_file_name = event.target.files[0].name;
-  } else {
-    var map_file_url = document.querySelector("#map_wrapper a");
-    if (map_file_url) {
-      map_file_name = map_file_url.getAttribute("href").split("/").pop();
-    } else {
-      map_file_name = "";
-    }
-  }
-  var uploaded_file_ext = map_file_name.split(".").pop();
-  if (uploaded_file_ext == "glb" || uploaded_file_ext == "zip") {
-    scene_rotation_translation_config = false;
-  } else {
-    scene_rotation_translation_config = true;
-  }
-
-  var rotation_translation_elements = [
-    "rotation_x_wrapper",
-    "rotation_y_wrapper",
-    "rotation_z_wrapper",
-    "translation_x_wrapper",
-    "translation_y_wrapper",
-    "translation_z_wrapper",
-  ];
-  updateElements(
-    rotation_translation_elements,
-    "hidden",
-    scene_rotation_translation_config,
-  );
-}
-
-function setupGenerateMesh() {
-  const generateMeshButton = document.getElementById("generate_mesh");
-  const saveButton = document.getElementById("save");
-  const mapInput = document.getElementById("id_map");
-
-  saveButton?.addEventListener("click", async (e) => {
-    const allowedExtensions = ["mp4", "mov", "avi", "webm", "mkv"];
-
-    const file = mapInput?.files?.[0];
-    if (!file) {
-      // No file selected; nothing to validate here.
-      return;
-    }
-    const extension = file.name.split(".").pop().toLowerCase();
-
-    const isVideoMime = file.type.startsWith("video/");
-    const isVideoExt = allowedExtensions.includes(extension);
-
-    if (isVideoMime && isVideoExt) {
-      e.preventDefault();
-      alert("Please click generate mesh when uploading video file.");
-      return;
-    }
-  });
-
-  if (!generateMeshButton) return;
-
-  // Start monitoring mapping service status
-  startMappingServiceStatusMonitoring();
-
-  generateMeshButton?.addEventListener("click", async (e) => {
-    e.preventDefault();
-
-    const sceneId = document.getElementById("sceneUID")?.value;
-    const form = document.getElementById("scene_update_form");
-
-    if (!sceneId) return alert("Scene ID not found");
-    if (!form) return alert("Form not found");
-
-    // Show loading state
-    const spinner = document.getElementById("mesh_spinner");
-
-    spinner?.classList.remove("d-none");
-    generateMeshButton.dataset.meshRunning = "1";
-    generateMeshButton.disabled = true;
-
-    try {
-      const startResult = await generateMeshFromCameras(sceneId, form);
-
-      const requestId = startResult.request_id;
-      if (!requestId) {
-        throw new Error("Backend did not return request_id");
-      }
-
-      await pollMeshStatus(sceneId, requestId);
-
-      alert("Mesh generated successfully! The scene map has been updated.");
-
-      $("#id_rotation_x").val(0);
-      $("#id_rotation_y").val(0);
-      $("#id_rotation_z").val(0);
-      $("#id_translation_x").val(0);
-      $("#id_translation_y").val(0);
-      $("#id_translation_z").val(0);
-      window.location.reload();
-    } catch (err) {
-      console.error(err);
-      alert("Mesh generation failed: " + (err?.message ?? String(err)));
-    } finally {
-      // Hide loading state
-      spinner?.classList.add("d-none");
-      generateMeshButton.dataset.meshRunning = "0";
-      generateMeshButton.disabled = false;
-    }
-  });
-}
-
-async function pollMeshStatus(sceneId, requestId) {
-  const timeout = 15 * 60 * 1000; // 15 minutes
-  const start = Date.now();
-
-  while (true) {
-    if (Date.now() - start > timeout) {
-      throw new Error("Timed out waiting for mesh generation.");
-    }
-
-    const resp = await fetch(
-      `/scene/generate-mesh-status/${sceneId}/?request_id=${encodeURIComponent(requestId)}`,
-    );
-
-    const data = await resp.json();
-
-    if (!resp.ok) {
-      throw new Error(data?.error || "Status check failed");
-    }
-
-    if (data.success === false) {
-      throw new Error(data?.error || "Mesh generation failed");
-    }
-
-    if (data.state === "complete") {
-      return data;
-    }
-
-    if (data.state === "failed") {
-      throw new Error(data.error || "Mesh generation failed");
-    }
-
-    // Wait before next poll
-    await new Promise((r) => setTimeout(r, 1500));
-  }
-}
-
-async function generateMeshFromCameras(sceneId, form) {
-  const url = `/scene/generate-mesh/${sceneId}/`;
-
-  const formData = new FormData(form);
-
-  // Make sure CSRF is sent (Django)
-  const csrfToken =
-    document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
-    getCookie("csrftoken");
-
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: {
-      "X-CSRFToken": csrfToken,
-      Accept: "application/json",
-    },
-    body: formData,
-  });
-
-  const data = await resp.json().catch(() => ({}));
-
-  if (!resp.ok || data.success === false) {
-    throw new Error(
-      data?.error || `Generate mesh failed (HTTP ${resp.status})`,
-    );
-  }
-
-  // expects { success: true, request_id: "..." }
-  if (!data.request_id) {
-    throw new Error("Generate mesh response missing request_id");
-  }
-
-  return data;
-}
-
-// Optional cookie helper if you don't already have one:
-function getCookie(name) {
-  const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
-  return match ? decodeURIComponent(match[2]) : null;
-}
-
-async function checkMappingServiceStatus() {
-  const generateMeshButton = document.getElementById("generate_mesh");
-  if (!generateMeshButton) return;
-
-  const tokenElement = document.getElementById("auth-token");
-  if (!tokenElement) {
-    console.warn(
-      "Authentication token not found for mapping service status check",
-    );
-    return;
-  }
-
-  const authToken = `Token ${tokenElement.value}`;
-
-  try {
-    const response = await fetch("/mapping-service/status/", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authToken,
-      },
-    });
-
-    if (response.ok) {
-      const status = await response.json();
-
-      if (status.available) {
-        // Service is available, show the button
-        generateMeshButton.style.display = "inline-block";
-        const running = generateMeshButton.dataset.meshRunning === "1";
-        if (!running) {
-          generateMeshButton.disabled = false;
-        }
-        generateMeshButton.title =
-          "Generate 3D mesh from camera images using mapping service";
-
-        console.log("Mapping service is available:", status);
-      } else {
-        // Service is not available, hide the button
-        generateMeshButton.style.display = "none";
-        console.warn("Mapping service is not available:", status.error);
-      }
-    } else {
-      // Error response, hide the button
-      generateMeshButton.style.display = "none";
-      console.error("Failed to check mapping service status:", response.status);
-    }
-  } catch (error) {
-    // Network error or other issue, hide the button
-    generateMeshButton.style.display = "none";
-    console.error("Error checking mapping service status:", error);
-  }
-}
-
-// Set up periodic status check
-function startMappingServiceStatusMonitoring() {
-  // Check immediately
-  checkMappingServiceStatus();
-
-  // Then check every 30 seconds
-  setInterval(checkMappingServiceStatus, 30000);
-}
-
 $(document).ready(function () {
   const loginButton = document.getElementById("login-submit");
   const spinner = document.getElementById("login-spinner");
   const loginText = document.getElementById("login-text");
-  const exportScene = document.getElementById("export-scene");
-  const importButton = document.getElementById("scene-import");
   const tokenElement = document.getElementById("auth-token");
 
-  if (importButton) {
-    importButton.onclick = async function (e) {
-      e.preventDefault();
+  $(document).on("click", "#export-scene", async function (e) {
+    e.preventDefault();
+    if (!tokenElement) {
+      return;
+    }
+    const authToken = `Token ${tokenElement.value}`;
+    const restclient = new RESTClient(REST_URL, authToken);
+    try {
+      const response = await restclient.getScene(scene_id);
+      if (response.statusCode !== 200)
+        throw new Error("Failed to fetch scenes");
 
-      const inputElement = e.target;
-      const authToken = `Token ${tokenElement.value}`;
-      const restclient = new RESTClient(REST_URL, authToken);
-      const importSpinner = document.getElementById("import-spinner");
-      const zipFileInput = document.getElementById("id_zipFile");
-      const errorList = document.getElementById("global-error-list");
-      const errorContainer = document.getElementById("top-error-list");
-      const warningList = document.getElementById("global-warning-list");
-      const warningContainer = document.getElementById("top-warning-list");
+      const scene = response.content;
+      const zip = new JSZip();
 
-      const showError = (messages) => {
-        errorList.innerHTML = "";
-        warningContainer.style.display = "none";
+      zip.file(scene.name + ".json", JSON.stringify(scene, null, 2));
+      const sceneName = scene.name.replace(/\s+/g, "_");
 
-        for (const key in messages) {
-          if (Array.isArray(messages[key])) {
-            messages[key].forEach((msg) => {
-              errorList.insertAdjacentHTML("beforeend", `<li>${msg}</li>`);
-            });
-          } else {
-            errorList.insertAdjacentHTML(
-              "beforeend",
-              `<li>${messages[key]}</li>`,
-            );
-          }
-          errorContainer.style.display = "block";
-        }
-      };
+      if (scene.map) {
+        try {
+          const mapBlob = await fetchFileAsBlob(scene.map);
+          const mapExt = scene.map.split(".").pop();
+          zip.file(`${sceneName}.${mapExt}`, mapBlob);
 
-      const showWarnings = async (warnings, restClient) => {
-        warningList.innerHTML = "";
-        for (const key in warnings) {
-          if (Array.isArray(warnings[key])) {
-            for (const msg of warnings[key]) {
-              let messageText = "";
-              let message = msg[0];
-
-              if (message && (message["name"] || message["sensor_id"])) {
-                messageText = message["name"]
-                  ? message["name"][0]
-                  : message["sensor_id"][0];
-              }
-              if (
-                messageText.includes("orphaned camera") ||
-                messageText.includes(
-                  "sensor with this Sensor ID already exists",
-                )
-              ) {
-                const isCamera = key === "cameras";
-                const userConfirmed = confirm(
-                  `Do you want to orphan "${msg[1].name}" to the imported scene?`,
-                );
-                if (userConfirmed) {
-                  try {
-                    let updateResponse;
-                    if (isCamera) {
-                      updateResponse = await restClient.updateCamera(
-                        msg[1].sensor_id,
-                        { scene: msg[1].scene },
-                      );
-                    } else {
-                      let sensorData = {
-                        scene: msg[1].scene,
-                        center: msg[1].center,
-                      };
-                      if (msg[1].area === "circle") {
-                        sensorData.radius = msg[1].radius;
-                        sensorData.area = msg[1].area;
-                      }
-                      if (msg[1].area === "poly" || msg[1].area === "scene") {
-                        sensorData.points = msg[1].points;
-                        sensorData.area = msg[1].area;
-                      }
-                      updateResponse = await restClient.updateSensor(
-                        msg[1].name,
-                        sensorData,
-                      );
-                    }
-                    console.log("Update successful:", updateResponse);
-                  } catch (err) {
-                    warningList.insertAdjacentHTML(
-                      "beforeend",
-                      `<li>Failed to orphan: ${messageText}</li>`,
-                    );
-                  }
-                } else {
-                  warningList.insertAdjacentHTML(
-                    "beforeend",
-                    `<li>${messageText}</li>`,
-                  );
-                  warningContainer.style.display = "block";
-                }
-              } else {
-                warningList.insertAdjacentHTML(
-                  "beforeend",
-                  `<li>${messageText}</li>`,
-                );
-                warningContainer.style.display = "block";
-              }
+          if (Array.isArray(scene.children)) {
+            for (const child of scene.children) {
+              const mapBlob = await fetchFileAsBlob(child.map);
+              const mapExt = child.map.split(".").pop();
+              zip.file(`${child.name}.${mapExt}`, mapBlob);
             }
           }
+        } catch (err) {
+          console.warn(`Skipping map for ${sceneName}:`, err);
         }
-      };
-
-      if (!zipFileInput.files.length) {
-        showError("ZipFile field cannot be empty");
-        return;
       }
 
-      try {
-        importSpinner.style.display = "block";
-
-        // Directly upload the ZIP to import-scene endpoint
-        const response = await fetch("/api/v1/import-scene/", {
-          method: "POST",
-          headers: { Authorization: authToken },
-          body: new FormData(inputElement.form),
-        });
-
-        importSpinner.style.display = "none";
-        const result = await response.json();
-        if (result.scene) {
-          showError(result.scene);
-          return;
-        }
-
-        if (
-          result.cameras ||
-          result.tripwires ||
-          result.regions ||
-          result.sensors
-        ) {
-          await showWarnings(result, restclient);
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        }
-
-        // Redirect or refresh after successful import
-        window.location.href = window.location.origin;
-      } catch (error) {
-        importSpinner.style.display = "none";
-        showError(error);
-      }
-    };
-  }
-
-  if (exportScene) {
-    exportScene.onclick = async function () {
-      const authToken = `Token ${tokenElement.value}`;
-      const restclient = new RESTClient(REST_URL, authToken);
-      try {
-        const response = await restclient.getScene(scene_id);
-        if (response.statusCode !== 200)
-          throw new Error("Failed to fetch scenes");
-
-        const scene = response.content;
-        const zip = new JSZip();
-
-        zip.file(scene.name + ".json", JSON.stringify(scene, null, 2));
-        const sceneName = scene.name.replace(/\s+/g, "_");
-
-        if (scene.map) {
-          try {
-            const mapBlob = await fetchFileAsBlob(scene.map);
-            const mapExt = scene.map.split(".").pop();
-            zip.file(`${sceneName}.${mapExt}`, mapBlob);
-
-            if (Array.isArray(scene.children)) {
-              for (const child of scene.children) {
-                const mapBlob = await fetchFileAsBlob(child.map);
-                const mapExt = child.map.split(".").pop();
-                zip.file(`${child.name}.${mapExt}`, mapBlob);
-              }
-            }
-          } catch (err) {
-            console.warn(`Skipping map for ${sceneName}:`, err);
-          }
-        }
-
-        // Download the zip
-        const zipBlob = await zip.generateAsync({ type: "blob" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(zipBlob);
-        link.download = scene.name + ".zip";
-        link.click();
-        URL.revokeObjectURL(link.href);
-      } catch (error) {
-        console.error("Error exporting scene:", error);
-      }
-    };
-  }
+      // Download the zip
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = scene.name + ".zip";
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.error("Error exporting scene:", error);
+    }
+  });
   async function fetchFileAsBlob(url) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to fetch: ${url}`);
@@ -1948,14 +1966,34 @@ $(document).ready(function () {
   // Operations to take after images are loaded
   $(".content").imagesLoaded(function () {
     // Camera calibration interface
-    if (window.location.href.includes("/cam/calibrate/")) {
+    if (isCalibratePage()) {
       initializeCalibrationSettings();
+      flushPendingCalibrationImage(window.ssMqttClient);
+      window.setTimeout(function () {
+        flushPendingCalibrationImage(window.ssMqttClient);
+      }, 400);
     }
 
     // SVG scene implementation
     if (svgCanvas) {
+      var assetTokenElement = document.getElementById("auth-token");
+      if (assetTokenElement) {
+        var assetRestClient = new RESTClient(
+          REST_URL,
+          `Token ${assetTokenElement.value}`,
+        );
+        assetRestClient.getAssets({}).then(function (response) {
+          if (response.statusCode === SUCCESS && response.content?.results) {
+            response.content.results.forEach(function (asset) {
+              assetMarkColors[asset.name] = asset.mark_color || "black";
+            });
+          }
+        });
+      }
+
       var $image = $("#map img");
-      var image_w = $image.width();
+      var imgEl = $image[0];
+      var image_w;
       var $rois = $("#id_rois");
       var $tripwires = $("#tripwires");
       var $child_rois = $("#id_child_rois");
@@ -1964,14 +2002,38 @@ $(document).ready(function () {
 
       var image_src = $image.attr("src");
 
-      // Save image height as global for use in plotting
-      scene_y_max = $image.height();
+      // Scene detail: keep SVG user units in native map pixels so metersToPixels
+      // (scene.scale) stays correct. Display size is handled by fitSceneMapDisplay().
+      if (
+        $image.closest(".scene-map-stage").length &&
+        !$("#map").hasClass("singletonCal") &&
+        imgEl &&
+        imgEl.naturalWidth > 0 &&
+        imgEl.naturalHeight > 0
+      ) {
+        image_w = imgEl.naturalWidth;
+        scene_y_max = imgEl.naturalHeight;
+      } else {
+        image_w = $image.width();
+        scene_y_max = $image.height();
+      }
+
+      scene_map_width = image_w;
       $image.remove();
 
       $("#svgout").width(image_w).height(scene_y_max);
+      if (isSceneDetailMap()) {
+        document
+          .getElementById("svgout")
+          .setAttribute("viewBox", "0 0 " + image_w + " " + scene_y_max);
+        document
+          .getElementById("svgout")
+          .setAttribute("preserveAspectRatio", "xMidYMid meet");
+      }
       var image = svgCanvas.image(image_src, 0, 0, image_w, scene_y_max);
 
       $("#svgout").show();
+      fitSceneMapDisplay();
 
       // Add circle for singleton sensors
       if ($("#map").hasClass("singletonCal")) {
@@ -2035,15 +2097,8 @@ $(document).ready(function () {
         initArea($("input:checked"));
       }
 
-      $(".singleton").each(function () {
-        var sensor = $.parseJSON($(".area-json", this).val());
-        var i = $(".sensor-id", this).text();
-        var g = svgCanvas.group();
-        drawSensor(sensor, i, "sensor");
-        if (sensor.sectors.thresholds.length > 0) {
-          singleton_color_sectors[i] = sensor.sectors;
-        }
-      });
+      /* React may finish mounting cards after this; allow a late pass. */
+      window.ssDrawSingletonSensors();
 
       // ROI Management //
       if ($rois.val()) {
@@ -2103,65 +2158,120 @@ $(document).ready(function () {
           numberTripwires();
         }
 
-        // Save ROI's
-        $("#save-rois, #save-trips").on("click", function (event) {
-          var tripwire_values = getRoiValues(
-            "form-control tripwire-title",
-            "tripwire",
-          );
-          var rois_values = getRoiValues("form-control roi-title", "roi");
-          rois_values = rois_values.concat(tripwire_values);
-          if (event.target.id == "save-trips") {
-            saveRois(rois_values);
-          } else if (event.target.id == "save-rois") {
-            saveRois(rois_values);
-          }
-        });
+        // Save ROI / tripwire — delegated so React toolbar remounts keep working
+        $(document)
+          .off("click.ssRoiSave", "#save-rois, #save-trips")
+          .on("click.ssRoiSave", "#save-rois, #save-trips", function (event) {
+            var values;
+            if (event.target.id === "save-trips") {
+              values = getRoiValues("form-control tripwire-title", "tripwire");
+            } else {
+              values = getRoiValues("form-control roi-title", "roi");
+            }
+            saveRois(values);
+          });
       }
 
-      $("#new-roi").on("click", function () {
-        addPoly();
-      });
+      $(document)
+        .off("click.ssNewRoi", "#new-roi, #empty-new-roi")
+        .on("click.ssNewRoi", "#new-roi, #empty-new-roi", function () {
+          if (window.ssUseReactMap) {
+            return;
+          }
+          addPoly();
+        });
 
-      $("#new-tripwire").on("click", function () {
-        addTripwire();
-      });
+      $(document)
+        .off("click.ssNewTrip", "#new-tripwire, #empty-new-tripwire")
+        .on(
+          "click.ssNewTrip",
+          "#new-tripwire, #empty-new-tripwire",
+          function () {
+            if (window.ssUseReactMap) {
+              return;
+            }
+            addTripwire();
+          },
+        );
 
-      $(".roi-remove").on("click", function () {
-        var $group = $(this).closest(".form-roi");
-        var r = confirm("Are you sure you wish to remove this ROI?");
+      $(document)
+        .off("click.ssRoiRemove", ".roi-remove")
+        .on("click.ssRoiRemove", ".roi-remove", async function (event) {
+          if (window.ssUseReactMap) {
+            return;
+          }
+          event.preventDefault();
+          var $group = $(this).closest(".form-roi");
+          var r = await ssAskConfirm(
+            "Are you sure you wish to remove this ROI?",
+            {
+              title: "Remove region?",
+              confirmLabel: "Remove",
+              danger: true,
+            },
+          );
 
-        if (r == true) {
-          $("#" + $group.attr("for")).remove();
-          $group.remove();
-          numberRois();
-          saveRois(getRoiValues("form-control roi-title", "roi"));
-        }
-      });
+          if (r == true) {
+            $("#" + $group.attr("for")).remove();
+            $group.remove();
+            numberRois();
+            saveRois(getRoiValues("form-control roi-title", "roi"));
+          }
+        });
 
-      $(".tripwire-remove").on("click", function () {
-        var $group = $(this).closest(".form-tripwire");
-        var r = confirm("Are you sure you wish to remove this tripwire?");
+      $(document)
+        .off("click.ssTripRemove", ".tripwire-remove")
+        .on("click.ssTripRemove", ".tripwire-remove", async function (event) {
+          if (window.ssUseReactMap) {
+            return;
+          }
+          event.preventDefault();
+          var $group = $(this).closest(".form-tripwire");
+          var r = await ssAskConfirm(
+            "Are you sure you wish to remove this tripwire?",
+            {
+              title: "Remove tripwire?",
+              confirmLabel: "Remove",
+              danger: true,
+            },
+          );
 
-        if (r == true) {
-          $("#" + $group.attr("for")).remove();
-          $group.remove();
-          numberTripwires();
-          saveRois(getRoiValues("form-control tripwire-title", "tripwire"));
-        }
-      });
+          if (r == true) {
+            $("#" + $group.attr("for")).remove();
+            $group.remove();
+            numberTripwires();
+            saveRois(getRoiValues("form-control tripwire-title", "tripwire"));
+          }
+        });
     }
 
     setColorForAllROIs();
   });
 
   // MQTT management (see https://github.com/mqttjs/MQTT.js)
-  if ($("#broker").length != 0) {
+  // #broker may appear after React adopts panels — also exposed as ssEnsureMqttScene.
+  window.ssEnsureMqttScene = function () {
+    if ($("#broker").length == 0) {
+      return;
+    }
+    if (window.__ssMqttSceneReady) {
+      if (
+        !window.ssMqttClient &&
+        sessionStorage.getItem("connectToMqtt") !== "false"
+      ) {
+        $("#connect").trigger("click");
+      } else if (window.ssMqttClient) {
+        window.ssRefreshCameraSnapshots();
+      }
+      return;
+    }
+    window.__ssMqttSceneReady = true;
+
     // Set broker value to the hostname of the current page
     // since broker runs on web server by default
     var host = window.location.hostname;
     var port = window.location.port;
-    var broker = $("#broker").val();
+    var broker = $("#broker").val() || "";
     var protocol = window.location.protocol;
 
     // If running HTTPS on a custom port, fix up the WSS connection string
@@ -2179,6 +2289,7 @@ $(document).ready(function () {
       broker = broker.replace("/mqtt", ":1884");
     }
 
+    $("#broker").val(broker);
     $("#broker-address").text(host);
     checkBrokerConnections()
       .then(() => {
@@ -2187,6 +2298,15 @@ $(document).ready(function () {
       .catch((error) => {
         console.log("An error occurred:", error);
       });
+  };
+  window.ssEnsureMqttScene();
+  if (isCalibratePage()) {
+    window.setTimeout(function () {
+      if (!window.camera_calibration || !window.camera_calibration.camCanvas) {
+        initializeCalibrationSettings();
+      }
+      flushPendingCalibrationImage(window.ssMqttClient);
+    }, 800);
   }
 
   $("input[name='area']").on("focus change", function () {
@@ -2203,32 +2323,40 @@ $(document).ready(function () {
     addPoly();
   });
 
-  $("#roi-form").submit(function (event) {
-    stringifyRois();
-    stringifyTripwires();
-  });
-
   $("#fullscreen").on("click", function () {
+    var $btn = $(this);
+    var $icon = $btn.find("i");
     if (fullscreen) {
-      $(".scene-map, .wrapper").addClass("container-fluid");
+      $("body").removeClass("is-map-fullscreen");
       $("#svgout").removeClass("fullscreen");
-      $("body").css({
-        "padding-top": "5rem",
-        "padding-bottom": "5rem",
-      });
       $(".hide-fullscreen").show();
-      $(this).val("^");
+      $btn.attr({
+        title: "Full screen map view",
+        "aria-pressed": "false",
+      });
+      $icon.removeClass("bi-fullscreen-exit").addClass("bi-arrows-fullscreen");
+      $btn.find(".sr-only").text("Full screen map view");
       fullscreen = false;
     } else {
-      $(".scene-map, .wrapper").removeClass("container-fluid");
-      $("body").css({
-        "padding-top": "0",
-        "padding-bottom": "0",
-      });
+      $("body").addClass("is-map-fullscreen");
       $("#svgout").addClass("fullscreen");
       $(".hide-fullscreen").hide();
-      $(this).val("v");
+      $btn.attr({
+        title: "Exit full screen map view",
+        "aria-pressed": "true",
+      });
+      $icon.removeClass("bi-arrows-fullscreen").addClass("bi-fullscreen-exit");
+      $btn.find(".sr-only").text("Exit full screen map view");
       fullscreen = true;
+    }
+    requestAnimationFrame(function () {
+      fitSceneMapDisplay();
+    });
+  });
+
+  $(window).on("resize", function () {
+    if (isSceneDetailMap()) {
+      fitSceneMapDisplay();
     }
   });
 
@@ -2237,10 +2365,38 @@ $(document).ready(function () {
     else show_trails = false;
   });
 
-  $("input#show-telemetry").on("change", function () {
-    if ($(this).is(":checked")) show_telemetry = true;
-    else show_telemetry = false;
-  });
+  $(document)
+    .off("change.ssTelemetry", "input#show-telemetry")
+    .on("change.ssTelemetry", "input#show-telemetry", function () {
+      show_telemetry = $(this).is(":checked");
+      if (!show_telemetry) {
+        $("#scene-rate").text("--");
+        $(".rate").text("--").addClass("telemetry-hide");
+        if (
+          window.ssSceneTelemetry &&
+          typeof window.ssSceneTelemetry.clearRates === "function"
+        ) {
+          window.ssSceneTelemetry.clearRates();
+        }
+        if (
+          window.ssSceneTelemetry &&
+          typeof window.ssSceneTelemetry.setSceneRate === "function"
+        ) {
+          window.ssSceneTelemetry.setSceneRate("--");
+        }
+        window.dispatchEvent(new CustomEvent("ss-telemetry-clear"));
+        document.querySelectorAll(".mark-tooltip").forEach(function (el) {
+          el.classList.add("telemetry-hide");
+        });
+      } else {
+        document.querySelectorAll(".mark-tooltip").forEach(function (el) {
+          el.classList.remove("telemetry-hide");
+        });
+        document.querySelectorAll(".rate").forEach(function (el) {
+          el.classList.add("telemetry-hide");
+        });
+      }
+    });
 
   $(".form-group")
     .find("input[type=text], input[type=number], select")
@@ -2250,77 +2406,5 @@ $(document).ready(function () {
     var label = $(this).find("label").first().attr("id");
 
     $("input", this).attr("aria-labelledby", label);
-  });
-
-  setupChildScene();
-
-  if (
-    document.getElementById("assetCreateForm") ||
-    document.getElementById("assetUpdateForm")
-  ) {
-    if (document.getElementById("assetCreateForm"))
-      $("#assetCreateForm").ready(toggleAsset3D);
-    if (document.getElementById("assetUpdateForm"))
-      $("#assetUpdateForm").ready(toggleAsset3D);
-    $("#id_model_3d").on("change", toggleAsset3D);
-  }
-
-  if (document.getElementById("updateSceneForm")) {
-    $("#updateSceneForm").ready(setupCalibrationType);
-    $("#id_camera_calibration").on("change", setupCalibrationType);
-
-    setupSceneRotationTranslationFields();
-    $("#id_map").on("change", (e) => {
-      setupSceneRotationTranslationFields(e);
-    });
-
-    // Setup Generate Mesh button
-    setupGenerateMesh();
-  }
-
-  if (document.getElementById("createSceneForm")) {
-    document.getElementById("id_scale").required = true;
-    $("#id_map").on("change", (e) => {
-      var uploaded_file_name = e.target.files[0].name;
-      var uploaded_file_ext = uploaded_file_name.split(".").pop();
-      if (uploaded_file_ext == "glb" || uploaded_file_ext == "zip") {
-        document.getElementById("scale_wrapper").hidden = true;
-        document.getElementById("id_scale").required = false;
-      } else {
-        document.getElementById("scale_wrapper").hidden = false;
-        document.getElementById("id_scale").required = true;
-      }
-    });
-  }
-
-  $("#calibrate form").submit(function (event) {
-    stringifySingletonColorRange();
-
-    /* Checks that polygon is closed before submitting. */
-    var poly_checked = $("#id_area_2").is(":checked");
-    var poly_val = $("#id_rois").val();
-    var poly_error_message =
-      "Polygon area is not properly configured. Make sure it has at least 3 vertices.";
-
-    if (poly_checked) {
-      if (adding) {
-        alert("Please close the polygon area prior to saving.");
-        return false;
-      }
-      try {
-        var poly_parsed = JSON.parse(poly_val);
-        if (poly_parsed[0].points.length > 2) {
-          return true; // Go ahead and submit the form
-        } else {
-          alert(poly_error_message);
-          $("#redraw").click();
-          return false;
-        }
-      } catch (error) {
-        alert(poly_error_message);
-        return false;
-      }
-    }
-    return true; // Normally submit the form
   });
 });

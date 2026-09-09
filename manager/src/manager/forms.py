@@ -8,18 +8,10 @@ import os
 from django import forms
 from django.conf import settings
 from django.db.models import Q
-from django.forms import ModelForm, ValidationError
+from django.forms import ModelForm
 
-from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
-from manager.validators import validate_zip_file
-from manager.ppl_generator import (
-  PipelineGenerationValueError,
-  PipelineGenerationNotImplementedError,
-  load_model_config,
-)
-from manager.ppl_generator.model_chain import parse_model_chain
-from scene_common import log
-from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES
+from manager.models import Scene, SceneImport, Cam, ChildScene
+from manager.validators import validate_zip_file, validate_camerachain
 from scene_common.cam_fields import (
     CAM_FORM_FIELDS, CAM_FORM_ONLY_FIELDS,
     CAM_KUBERNETES_FIELDS, CAM_ADVANCED_FIELDS
@@ -68,6 +60,10 @@ class CamCalibrateForm(forms.ModelForm):
     self.fields['intrinsics_cx'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
     self.fields['intrinsics_cy'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
     self.fields['transform_type'].widget = forms.HiddenInput()
+    self.fields['transforms'].widget = forms.HiddenInput()
+    if self.instance.pk and self.instance.transforms:
+      csv = ','.join(str(v) for v in self.instance.transforms)
+      self.initial['transforms'] = csv
     self.fields['sensor_id'].label = "Camera ID"
     if settings.KUBERNETES_SERVICE_HOST:
       self.fields['camera_pipeline'].widget = forms.Textarea(attrs={
@@ -82,27 +78,43 @@ class CamCalibrateForm(forms.ModelForm):
           'placeholder': 'car\npedestrian\ntrolley'
       })
 
+  def clean_transforms(self):
+    value = self.cleaned_data.get('transforms')
+    if value is None or value == '' or value == []:
+      return []
+    items = value
+    if isinstance(value, str):
+      raw = value.strip()
+      if not raw:
+        return []
+      if raw.startswith('['):
+        try:
+          parsed = json.loads(raw)
+        except json.JSONDecodeError:
+          parsed = []
+        items = parsed if isinstance(parsed, list) else []
+      else:
+        items = [piece.strip() for piece in raw.split(',') if piece.strip()]
+    if not isinstance(items, list):
+      return []
+    result = []
+    for item in items:
+      try:
+        result.append(float(item))
+      except (TypeError, ValueError):
+        continue
+    return result
+
+  def clean_camerachain(self):
+    """Reject camerachain values that reference models missing from model-config."""
+    return validate_camerachain(
+      self.cleaned_data.get('camerachain'),
+      getattr(self.instance, 'modelconfig', None) or 'model_config.json',
+    )
+
 class ROIForm(forms.Form):
   rois = forms.CharField()
   tripwires = forms.CharField()
-
-class SingletonCreateForm(forms.ModelForm):
-  class Meta:
-    model = SingletonSensor
-    fields = ['sensor_id', 'name', 'scene', 'singleton_type']
-    widgets = {
-      'child_type' : forms.RadioSelect(choices=SINGLETON_CHOICES)
-    }
-
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-    self.fields['scene'].required = False
-
-
-class SingletonDetailsForm(ModelForm):
-  class Meta:
-    model = SingletonSensor
-    fields = ('__all__')
 
 class SceneImportForm(ModelForm):
   class Meta:
@@ -141,72 +153,6 @@ class SceneUpdateForm(ModelForm):
     if cleaned_data['output_lla'] and (cleaned_data.get('map_corners_lla') is None or cleaned_data.get('map') is None):
       raise forms.ValidationError("If 'Output geospatial coordinates' is enabled then map corners LLA and map file are required.")
     return cleaned_data
-
-class SingletonForm(forms.Form):
-  area = forms.ChoiceField(choices=AREA_CHOICES,
-                           widget=forms.RadioSelect())
-  name = forms.CharField()
-  sensor_id = forms.CharField()
-  scene = forms.ModelChoiceField(queryset=Scene.objects.all())
-  sensor_x = forms.CharField()
-  sensor_y = forms.CharField()
-  sensor_r = forms.CharField(required=False)
-  rois = forms.CharField(required=False)
-  singleton_type = forms.ChoiceField(choices=SINGLETON_CHOICES)
-  sectors = forms.CharField(required=False)
-
-  def clean(self):
-    cleaned_data = super().clean()
-
-    rois = json.loads(cleaned_data["rois"])
-    area = cleaned_data["area"]
-    if area == "poly":
-      if len(rois) < 1:
-        raise ValidationError("Please draw a custom region (polygon) with at least 3 vertices")
-      if len(rois[0]["points"]) < 3:
-        raise ValidationError("The custom region (polygon) must have at least 3 vertices")
-      for point in rois[0]["points"]:
-        try:
-          for coord in point:
-            float(coord)
-        except ValueError:
-          raise ValidationError("The polygon vertex coordinates must be floating point numbers.")
-    return cleaned_data
-
-class CamCreateForm(forms.ModelForm):
-  class Meta:
-    model = Cam
-    fields = ['sensor_id', 'name', 'scene']
-    labels = {
-      'sensor_id': 'Camera ID',
-    }
-
-    if settings.KUBERNETES_SERVICE_HOST:
-      fields.extend(['command', 'camerachain'])
-
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-    self.fields['scene'].required = False
-
-  def clean_camerachain(self):
-    """Reject camerachain values that reference models missing from model-config."""
-    camerachain = self.cleaned_data.get('camerachain', '').strip()
-    if not camerachain:
-      return camerachain
-
-    model_config_filename = getattr(self.instance, 'modelconfig', None) or 'model_config.json'
-    try:
-      model_config = load_model_config(model_config_filename)
-      parse_model_chain(camerachain, settings.MODEL_ROOT, model_config)
-    except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
-      raise ValidationError(str(e)) from e
-    except Exception as e:
-      # Malformed (but JSON-valid) model configs can raise unexpected errors;
-      # convert to a safe validation message instead of a 500 and log details.
-      log.error(f"Unexpected error validating camerachain: {e}")
-      raise ValidationError("Unable to validate camera chain against model config.") from e
-
-    return camerachain
 
 class ChildSceneForm(forms.ModelForm):
   class Meta:

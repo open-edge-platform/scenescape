@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import time
@@ -14,6 +14,9 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
+# compose-web_default loads sample_data/exampledb (Retail / Queuing), not testdb Demo.
+SCENE_NAME = "Retail"
+
 def test_scene_details_main(params, record_xml_attribute):
   """! Checks that the scene detail page is accessible from the scene summary page.
   @param    params                  Dict of test parameters.
@@ -24,26 +27,34 @@ def test_scene_details_main(params, record_xml_attribute):
   record_xml_attribute("name", TEST_NAME)
 
   exit_code = 1
+  browser = None
   try:
     print("Executing: " + TEST_NAME)
     print("Test that the user can view scene details")
     browser = Browser()
     assert common.check_page_login(browser, params)
-    scene_name = "Demo"
-    browser.find_element(By.CSS_SELECTOR, ".navbar-nav > .nav-item:nth-child(1) > .nav-link").click()
-    assert scene_name in browser.page_source
+    browser.find_element(By.ID, "nav-scenes").click()
+    assert SCENE_NAME in browser.page_source
 
     print("Scene is accessible from the list of scenes")
-    browser.find_element(By.XPATH, "//*[text()='" + scene_name + "']/parent::*/div[2]/div/a[1]").click()
+    assert common.navigate_to_scene(browser, SCENE_NAME)
     time.sleep(3)
-    status_scene_name = browser.find_element(By.ID, "scene_name").is_displayed()
-    status_floorplan = browser.find_element(By.CSS_SELECTOR, "#svgout > image:nth-child(4)").is_displayed()
-    status_cameras = browser.find_element(By.CSS_SELECTOR, "#camera1").is_displayed()
-    assert status_scene_name is True or status_floorplan is True or status_cameras is True
+
+    def _displayed(by, value):
+      els = browser.find_elements(by, value)
+      return bool(els) and els[0].is_displayed()
+
+    status_scene_name = _displayed(By.ID, "scene_name")
+    status_floorplan = _displayed(By.CSS_SELECTOR, "#svgout > image:nth-child(4)")
+    status_cameras = _displayed(By.ID, "camera1") or _displayed(
+      By.ID, "card-preview-camera1"
+    )
+    assert status_scene_name or status_floorplan or status_cameras
     print("Details are displayed in the scene summary view")
     exit_code = 0
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
   return exit_code

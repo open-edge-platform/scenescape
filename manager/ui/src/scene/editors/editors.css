@@ -1,0 +1,87 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-editor-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.7rem 0.8rem;
+  margin: 0;
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+  background: var(--ss-card-bg);
+  box-shadow: none;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.ss-editor-card-row {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.ss-editor-card-row > .form-control {
+  min-width: 0;
+  flex: 1 1 8rem;
+}
+
+.ss-editor-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.85rem;
+  max-width: 100%;
+}
+
+.ss-editor-inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ss-text-muted);
+}
+
+.ss-editor-inline-field .form-control {
+  width: 4.5rem;
+  display: inline-block;
+}
+
+/* Legacy ROI/tripwire Save — gated until dirty */
+#save-rois.ss-save-clean,
+#save-trips.ss-save-clean,
+#save-rois:disabled,
+#save-trips:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#save-rois.ss-save-dirty,
+#save-trips.ss-save-dirty {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ss-brand) 35%, transparent);
+}
+
+.ss-editor-sectors {
+  margin-top: 0.15rem;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.ss-editor-empty {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--ss-text-muted);
+  font-size: 0.875rem;
+}
+
+.ss-editor-trip-hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: var(--ss-text-muted);
+  line-height: 1.35;
+}

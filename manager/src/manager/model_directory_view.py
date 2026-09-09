@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -6,8 +6,7 @@ import shutil
 import zipfile
 
 from django.conf import settings
-from django.http import HttpResponse
-from django.template.loader import render_to_string
+from django.http import HttpResponse, JsonResponse
 from rest_framework import authentication, status
 from rest_framework.views import APIView
 
@@ -29,7 +28,7 @@ class ModelDirectory(APIView):
       return None, "Invalid path"
     return norm_path, None
 
-  # Load the directory and return directory content in html format
+  # Load the directory and return directory content as json
   # return data, status_code
   def loadDirectory(self, path, folder_name):
 
@@ -91,13 +90,12 @@ class ModelDirectory(APIView):
     # Count depth level
     depth_level = len([part for part in os.path.join(path, folder_name).split(os.sep) if part])
 
-    # Render the directory content in html format
-    html = render_to_string('model/includes/model_directory.html', {
-        'path': path,
-        'directory_structure': dir_structure,
-        'depth': 16 + 32 * depth_level,
-    })
-    return html, status.HTTP_200_OK
+    return {
+      'path': path,
+      'folder_name': folder_name,
+      'depth': depth_level,
+      'tree': dir_structure,
+    }, status.HTTP_200_OK
 
   # Check if the directory exists
   # return data, status code
@@ -223,6 +221,8 @@ class ModelDirectory(APIView):
       return HttpResponse(data, status=status_code)
     elif action == "load":
       data, status_code = self.loadDirectory(path, folder_name)
+      if isinstance(data, dict):
+        return JsonResponse(data, status=status_code)
       return HttpResponse(data, status=status_code)
     else:
       return HttpResponse('Invalid action', status=status.HTTP_400_BAD_REQUEST)
@@ -247,8 +247,20 @@ class ModelDirectory(APIView):
     else:
       return HttpResponse('Invalid action', status=status.HTTP_400_BAD_REQUEST)
 
+  def _formValue(self, request, key):
+    value = request.POST.get(key)
+    if value is not None:
+      return value
+    value = request.GET.get(key)
+    if value is not None:
+      return value
+    try:
+      return request.data.get(key)
+    except Exception:
+      return None
+
   def delete(self, request):
-    path = request.POST.get('path')
-    delete_folder = request.POST.get('folder_name')
+    path = self._formValue(request, 'path')
+    delete_folder = self._formValue(request, 'folder_name')
     data, status_code = self.deleteDirectory(path, delete_folder)
     return HttpResponse(data, status=status_code)

@@ -1,0 +1,19 @@
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+import { j as m } from "./tokens-C2Ju3rc_.js";
+import "./ConfirmDialog-DanZpjzY.js";
+function e({
+  variant: t = "secondary",
+  className: s = "",
+  children: n,
+  type: o = "button",
+  ...r
+}) {
+  return m.jsx("button", {
+    type: o,
+    className: `ss-btn ss-btn--${t} ${s}`.trim(),
+    ...r,
+    children: n,
+  });
+}
+export { e as B };

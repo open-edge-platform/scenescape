@@ -290,8 +290,14 @@ docker compose exec manager python manage.py showmigrations
 ### Frontend Assets
 
 - Static files served by Django (development) or Nginx (production)
-- No separate frontend build process currently
-- Future: Could integrate React/Vue build pipeline
+- React 2D islands live in `manager/ui/` (Vite + TypeScript); build into
+  `manager/src/manager/static/ui/` with `make -C manager ui-build`
+  (or `SKIP_UI=1` to skip when building the manager image without Node)
+- Status, remaining work, and hard DOM contracts:
+  [`.github/plans/manager-ui.md`](../.github/plans/manager-ui.md)
+- Package notes: [`manager/ui/README.md`](ui/README.md)
+- Legacy Three.js 3D viewport remains under `static/js/` until the 3D React
+  epic lands
 
 ## File Structure
 

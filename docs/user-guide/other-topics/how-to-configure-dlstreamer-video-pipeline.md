@@ -194,7 +194,7 @@ After generating a pipeline preview, you can make manual adjustments:
 
 ### Saving and Applying Configuration
 
-1. **Save Camera Configuration**: click **"Save Camera"** to apply your pipeline configuration.
+1. **Save Camera Configuration**: click **Save** in the camera calibrate workspace header to apply your pipeline configuration.
    - The system automatically generates the camera pipeline if the field is empty.
    - Configuration is stored and deployed to the Kubernetes cluster.
    - The camera deployment is updated with the new pipeline.

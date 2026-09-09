@@ -1,0 +1,121 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-geo-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(0, 30, 80, 0.5);
+}
+
+.ss-geo-modal-dialog {
+  width: min(72rem, 100%);
+  height: min(44rem, calc(100vh - 2.5rem));
+  display: flex;
+  flex-direction: column;
+  background: var(--ss-card-bg);
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+  box-shadow: 0 16px 48px rgba(0, 30, 80, 0.28);
+  overflow: hidden;
+}
+
+.ss-geo-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--ss-card-border);
+}
+
+.ss-geo-modal-title {
+  margin: 0;
+  font-family: var(--ss-font-heading);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ss-ink);
+}
+
+.ss-geo-modal-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ss-geo-picker {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem 1rem;
+  box-sizing: border-box;
+}
+
+.ss-geo-picker-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem 0.85rem;
+  flex: 0 0 auto;
+}
+
+.ss-geo-picker-toolbar .ss-text-field,
+.ss-geo-picker-toolbar .ss-select-field {
+  flex: 1 1 14rem;
+  margin: 0;
+  max-width: 28rem;
+}
+
+.ss-geo-picker-hint {
+  margin: 0;
+  flex: 1 1 100%;
+  font-family: var(--ss-font-sans);
+  font-size: var(--ss-type-workspace-meta, 0.6875rem);
+  color: var(--ss-text-muted);
+}
+
+.ss-geo-picker-error {
+  margin: 0;
+  color: var(--ss-status-bad);
+  font-family: var(--ss-font-sans);
+  font-size: var(--ss-type-workspace-body, 0.8125rem);
+}
+
+.ss-geo-picker-map-wrap {
+  flex: 1 1 auto;
+  min-height: 18rem;
+  position: relative;
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+  overflow: hidden;
+  background: var(--ss-elevated, var(--ss-card-bg));
+}
+
+#ss-geo-map {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 18rem;
+  margin: 0 !important;
+}
+
+.ss-geo-picker-bridge {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
+  margin: -1px;
+}

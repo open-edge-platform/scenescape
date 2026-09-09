@@ -1,0 +1,227 @@
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
+import { useEffect, useState } from "react";
+import "./CameraStrip.css";
+
+const FIT_KEY = "ss-camera-strip-fit";
+
+export type CameraStripFit = "contain" | "cover";
+
+type Props = {
+  rates?: Record<string, string>;
+};
+
+function readFit(): CameraStripFit {
+  try {
+    const v = window.localStorage.getItem(FIT_KEY);
+    if (v === "cover" || v === "contain") {
+      return v;
+    }
+  } catch {
+    /* ignore */
+  }
+  return "contain";
+}
+
+function writeFit(fit: CameraStripFit): void {
+  try {
+    window.localStorage.setItem(FIT_KEY, fit);
+  } catch {
+    /* ignore */
+  }
+}
+
+function isLivePreview(img: HTMLImageElement | null): boolean {
+  if (!img || img.classList.contains("display-none")) {
+    return false;
+  }
+  const src = img.currentSrc || img.getAttribute("src") || "";
+  if (!src || src.includes("offline.png")) {
+    return false;
+  }
+  return img.naturalWidth > 0 || src.startsWith("data:image");
+}
+
+/**
+ * Update card live/offline chrome only when values change.
+ * Must not write DOM unconditionally — MutationObservers watch this subtree.
+ * Online = a live MQTT frame, never a stale scene.rate FPS string.
+ */
+function applyCardState(card: HTMLElement): void {
+  const img = card.querySelector(
+    "img[data-ss-card-sensor], img[id^='card-preview-']",
+  ) as HTMLImageElement | null;
+  const offline = card.querySelector(".cam-offline") as HTMLElement | null;
+  const rateEl = card.querySelector(".rate") as HTMLElement | null;
+  const online = isLivePreview(img);
+  if (!online && rateEl) {
+    if ((rateEl.textContent || "").trim() !== "--") {
+      rateEl.textContent = "--";
+    }
+    rateEl.classList.add("telemetry-hide");
+  }
+  const rateText = (rateEl?.textContent || "").trim();
+
+  const nextOnline = online ? "1" : "0";
+  if (card.dataset.ssOnline !== nextOnline) {
+    card.dataset.ssOnline = nextOnline;
+    card.classList.toggle("is-online", online);
+    card.classList.toggle("is-offline", !online);
+  }
+
+  if (card.dataset.ssRate !== (rateText || "--")) {
+    card.dataset.ssRate = rateText || "--";
+  }
+
+  let badge = card.querySelector(
+    ".ss-camera-strip-badge",
+  ) as HTMLElement | null;
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "ss-camera-strip-badge";
+    badge.setAttribute("aria-hidden", "true");
+    const header = card.querySelector(".card-header") || card;
+    header.appendChild(badge);
+  }
+  const label = online ? "Live" : "Offline";
+  if (badge.textContent !== label) {
+    badge.textContent = label;
+  }
+  badge.classList.toggle("is-online", online);
+  badge.classList.toggle("is-offline", !online);
+
+  if (offline && offline.hidden !== online) {
+    offline.hidden = online;
+  }
+}
+
+/**
+ * Reactive camera strip: fit mode + live/offline badges over legacy cards.
+ */
+export function CameraStripEnhancer({ rates = {} }: Props) {
+  const [fit, setFit] = useState<CameraStripFit>(() =>
+    typeof window !== "undefined" ? readFit() : "contain",
+  );
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.ssCameraFit = fit;
+    writeFit(fit);
+    const pane = document.getElementById("cameras");
+    if (pane) {
+      pane.dataset.ssCameraFit = fit;
+      pane.classList.add("ss-camera-strip");
+    }
+  }, [fit]);
+
+  useEffect(() => {
+    Object.entries(rates).forEach(([sensorId, text]) => {
+      const card = document
+        .querySelector(`[data-ss-card-sensor="${CSS.escape(sensorId)}"]`)
+        ?.closest(".camera-card") as HTMLElement | null;
+      const img = card?.querySelector(
+        "img[data-ss-card-sensor], img[id^='card-preview-']",
+      ) as HTMLImageElement | null;
+      const rateEl = document.getElementById(`rate-${sensorId}`);
+      if (!isLivePreview(img)) {
+        if (rateEl) {
+          if ((rateEl.textContent || "").trim() !== "--") {
+            rateEl.textContent = "--";
+          }
+          rateEl.classList.add("telemetry-hide");
+        }
+        if (card) {
+          applyCardState(card);
+        }
+        return;
+      }
+      if (rateEl && rateEl.textContent !== text) {
+        rateEl.textContent = text;
+        rateEl.classList.remove("telemetry-hide");
+      }
+      if (card) {
+        applyCardState(card);
+      }
+    });
+  }, [rates]);
+
+  useEffect(() => {
+    const pane = document.getElementById("cameras");
+    if (!pane) {
+      return;
+    }
+    pane.classList.add("ss-camera-strip");
+
+    let scheduled = 0;
+    let applying = false;
+    const refresh = () => {
+      if (applying) {
+        return;
+      }
+      applying = true;
+      try {
+        pane
+          .querySelectorAll<HTMLElement>(".camera-card")
+          .forEach(applyCardState);
+      } finally {
+        applying = false;
+      }
+    };
+    const scheduleRefresh = () => {
+      if (scheduled) {
+        return;
+      }
+      scheduled = window.requestAnimationFrame(() => {
+        scheduled = 0;
+        refresh();
+      });
+    };
+
+    refresh();
+
+    const mo = new MutationObserver(scheduleRefresh);
+    mo.observe(pane, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["class", "src"],
+    });
+    const poll = window.setInterval(refresh, 2000);
+
+    return () => {
+      mo.disconnect();
+      window.clearInterval(poll);
+      if (scheduled) {
+        window.cancelAnimationFrame(scheduled);
+      }
+    };
+  }, []);
+
+  return (
+    <div
+      className="ss-camera-strip-controls"
+      role="group"
+      aria-label="Camera thumbnail fit"
+    >
+      <button
+        type="button"
+        className={`ss-camera-strip-fit${fit === "contain" ? " is-active" : ""}`}
+        aria-pressed={fit === "contain"}
+        title="Fit entire frame (contain)"
+        onClick={() => setFit("contain")}
+      >
+        Contain
+      </button>
+      <button
+        type="button"
+        className={`ss-camera-strip-fit${fit === "cover" ? " is-active" : ""}`}
+        aria-pressed={fit === "cover"}
+        title="Fill card (cover)"
+        onClick={() => setFit("cover")}
+      >
+        Cover
+      </button>
+    </div>
+  );
+}

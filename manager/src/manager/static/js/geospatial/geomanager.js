@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -8,15 +8,23 @@ class GeoManager {
   constructor() {
     this.mapStrategy = null;
     this.currentProvider = "google";
+    this.containerId = "map";
   }
 
   async initialize(config = {}) {
-    await this.setMapProvider(this.currentProvider, config);
+    if (config.containerId) {
+      this.containerId = config.containerId;
+    }
+    const provider = config.provider || this.currentProvider;
+    await this.setMapProvider(provider, config);
   }
 
   async setMapProvider(provider, config = {}) {
+    const containerId = config.containerId || this.containerId || "map";
+    this.containerId = containerId;
+
     // Clear existing map and reset container visibility
-    const mapContainer = document.getElementById("map");
+    const mapContainer = document.getElementById(containerId);
     if (this.mapStrategy && mapContainer) {
       mapContainer.innerHTML = "";
       mapContainer.style.display = ""; // Reset visibility for new provider
@@ -46,10 +54,12 @@ class GeoManager {
       };
 
       const finalConfig = { ...defaultConfig, ...config };
+      delete finalConfig.containerId;
+      delete finalConfig.provider;
       console.log("Initializing map with config:", finalConfig);
 
       // Initialize the map with configuration
-      await this.mapStrategy.initialize("map", finalConfig);
+      await this.mapStrategy.initialize(containerId, finalConfig);
 
       // Ensure map container is visible on successful initialization
       if (mapContainer) {
@@ -65,16 +75,17 @@ class GeoManager {
   }
 
   moveToLocation() {
-    const input = document.getElementById("locationInput").value;
-    if (this.mapStrategy) {
-      this.mapStrategy.moveToLocation(input);
+    const input = document.getElementById("locationInput");
+    if (input && this.mapStrategy) {
+      this.mapStrategy.moveToLocation(input.value);
     }
   }
 
   generateBounds() {
-    if (this.mapStrategy) {
-      this.mapStrategy.generateBounds();
+    if (!this.mapStrategy) {
+      throw new Error("Map is not ready");
     }
+    this.mapStrategy.generateBounds();
   }
 
   getCurrentProvider() {
@@ -101,7 +112,7 @@ window.addEventListener("load", async () => {
   mapManager = new GeoManager();
   window.mapManager = mapManager; // Make it globally accessible
 
-  // Only initialize if geospatial fields are visible
+  // Only initialize if geospatial fields are visible (legacy Django form)
   const geospatialFields = document.getElementById("geospatialFields");
   if (geospatialFields && geospatialFields.style.display !== "none") {
     await mapManager.initialize();
@@ -110,7 +121,11 @@ window.addEventListener("load", async () => {
 
 // Switch map provider function
 async function switchMapProvider() {
-  const provider = document.getElementById("mapProvider").value;
+  const providerEl = document.getElementById("mapProvider");
+  if (!providerEl || !mapManager) {
+    return;
+  }
+  const provider = providerEl.value;
   try {
     // Save the provider selection to the hidden form field immediately
     const providerField = document.getElementById("id_geospatial_provider");
@@ -130,12 +145,14 @@ async function switchMapProvider() {
   }
 }
 
+window.switchMapProvider = switchMapProvider;
+
 // Allow Enter key to trigger location search
 document.addEventListener("DOMContentLoaded", () => {
   const locationInput = document.getElementById("locationInput");
   if (locationInput) {
     locationInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && mapManager) {
         mapManager.moveToLocation();
       }
     });

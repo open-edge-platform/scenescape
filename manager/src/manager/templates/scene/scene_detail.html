@@ -15,7 +15,7 @@ SPDX-License-Identifier: Apache-2.0
               {{ s.name }}
               <a
                 class="btn btn-secondary btn-sm"
-                href="{% url 'cam_calibrate' s.id %}"
+                href="/{{ scene.id }}/?ss=calibrate-cam&id={{ s.id }}"
                 title="Manage {{ s.name }}"
                 ><i class="bi bi-wrench"></i
               ></a>
@@ -46,11 +46,18 @@ SPDX-License-Identifier: Apache-2.0
     >
       <div id="scenescape-logo">
         <a class="navbar-brand" href="/" id="home">
-          <img src="/static/images/logo.png" alt="{{ APP_PROPER_NAME }} Logo" />
+          <span class="ss-wordmark">{{ APP_PROPER_NAME }}</span>
         </a>
       </div>
       <div class="card-body">
-        <h5 class="card-title">{{ scene.name }}</h5>
+        <h5 class="card-title">
+          <a
+            id="scene-detail-link"
+            href="{% url 'sceneDetail' scene.id %}"
+            title="Configure {{ scene.name }} Scene"
+            >{{ scene.name }}</a
+          >
+        </h5>
         <a
           type="button"
           class="btn btn-secondary btn-sm"
@@ -159,6 +166,16 @@ SPDX-License-Identifier: Apache-2.0
       aria-controls="scene-controls-3d"
     ></a>
     <canvas id="scene"></canvas>
+    <a
+      class="scene-3d-powered-by"
+      href="https://www.intel.com/"
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Powered by Intel"
+    >
+      <span class="powered-by-label">Powered by</span>
+      <img class="intel-logo" src="/static/images/intel-logo.svg" alt="Intel" />
+    </a>
   </div>
   <input type="hidden" id="broker" value="{{ scene.wssConnection }}" />
   <input

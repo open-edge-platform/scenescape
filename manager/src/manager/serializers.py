@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import OrderedDict
+import json
 import os
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files import File
 from django.db import transaction
 
@@ -17,6 +19,7 @@ from scipy.spatial.transform import Rotation
 from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
   RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport
+from manager.validators import validate_camerachain
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
@@ -181,6 +184,7 @@ class SingletonScalarThresholdSerializer(RegionOccupancyThresholdSerializer):
 
 class SingletonSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
+  id = serializers.IntegerField(source="pk", read_only=True)
   uid = serializers.CharField(source="sensor_id", read_only=True)
   scene = serializers.CharField(source='scene.pk', allow_null=True, required=False)
   center = CenterSerializerField(source='*', required=False)
@@ -266,11 +270,12 @@ class SingletonSerializer(NonNullSerializer):
 
   class Meta:
     model = SingletonSensor
-    fields = ['uid', 'scene', 'sensor_id', 'name', 'area', 'points', 'radius', 'center',
-              'translation', 'singleton_type', 'color_ranges', 'visible']
+    fields = ['id', 'uid', 'scene', 'sensor_id', 'name', 'area', 'points', 'radius',
+              'center', 'translation', 'singleton_type', 'color_ranges', 'visible']
 
 class CamSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
+  id = serializers.IntegerField(source="pk", read_only=True)
   sensor_id = serializers.CharField(write_only=True, required=False)
   uid = serializers.CharField(source="sensor_id", read_only=True)
   intrinsics = serializers.SerializerMethodField('get_intrinsics')
@@ -297,6 +302,19 @@ class CamSerializer(NonNullSerializer):
         else:
           raise serializers.ValidationError(f"orphaned camera with the name '{value}' already exists.")
     return value
+
+  def validate_camerachain(self, value):
+    """Reject camerachain values that reference models missing from model-config."""
+    modelconfig = None
+    if hasattr(self, 'initial_data') and 'modelconfig' in self.initial_data:
+      modelconfig = self.initial_data.get('modelconfig')
+    elif self.instance is not None:
+      modelconfig = self.instance.modelconfig
+    try:
+      return validate_camerachain(value, modelconfig or 'model_config.json')
+    except DjangoValidationError as e:
+      raise serializers.ValidationError(
+        e.messages if hasattr(e, 'messages') else [str(e)]) from e
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
@@ -500,7 +518,7 @@ class CamSerializer(NonNullSerializer):
 
   class Meta:
     model = Cam
-    fields = CAM_SERIALIZER_FIELDS
+    fields = ['id'] + CAM_SERIALIZER_FIELDS
 
 class RegionSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
@@ -560,6 +578,20 @@ class TripwireSerializer(RegionSerializer):
     model = Tripwire
     fields = ['uid', 'name', 'points', 'height', 'scene', 'visible']
 
+class MapCornersLLAField(serializers.JSONField):
+  """Accept a parsed list or a JSON string (multipart form posts)."""
+
+  def to_internal_value(self, data):
+    if isinstance(data, str):
+      raw = data.strip()
+      if not raw:
+        return None
+      try:
+        data = json.loads(raw)
+      except json.JSONDecodeError:
+        self.fail('invalid')
+    return super().to_internal_value(data)
+
 class TransformSerializerField(serializers.DictField):
   def to_representation(self, obj):
     return obj.asDict
@@ -582,6 +614,11 @@ class SceneSerializer(NonNullSerializer):
   children = serializers.SerializerMethodField('get_children')
   map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z", required=False, allow_null=True)
   trs_matrix = serializers.SerializerMethodField('get_trs_matrix')
+  map_corners_lla = MapCornersLLAField(required=False, allow_null=True)
+  # Model BooleanFields use Yes/No choices; without an explicit BooleanField
+  # DRF treats them as ChoiceField and rejects multipart "true"/"false".
+  output_lla = serializers.BooleanField(required=False, allow_null=True)
+  use_tracker = serializers.BooleanField(required=False)
 
   def validate(self, attrs):
     if not self.initial_data:

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from django.test import TestCase
@@ -6,6 +6,7 @@ from django.urls import reverse
 from manager.models import Scene
 from django.contrib.auth.models import User
 from django.test.client import RequestFactory
+
 
 class SceneDeleteTestCase(TestCase):
   def setUp(self):
@@ -18,5 +19,5 @@ class SceneDeleteTestCase(TestCase):
 
   def test_scene_delete_page(self):
     response = self.client.get(reverse('scene_delete', args=[self.test_scene_id]))
-    self.assertEqual(response.status_code, 200)
-    self.assertTemplateUsed(response, 'scene/scene_delete.html')
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(response.url, reverse('index'))

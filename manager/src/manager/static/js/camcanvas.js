@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -39,12 +39,18 @@ class CamCanvas {
     this.startY = 0;
     this.draggingPoint = null;
     this.calibrationUpdated = false;
+    this.pointEdited = false;
+    this.viewInitialized = false;
+    this.userAdjustedView = false;
+    this.lastImageWidth = 0;
+    this.lastImageHeight = 0;
 
     this.image.onload = () => {
       this.handleImageLoad();
     };
 
     this.initializeEventListeners();
+    this.#observePaneResize();
     this.updateImageSrc(initialImageSrc);
   }
 
@@ -68,6 +74,97 @@ class CamCanvas {
     this.canvas.addEventListener("contextmenu", (event) =>
       this.onRightClick(event),
     );
+  }
+
+  #observePaneResize() {
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+    this.resizeObserver = new ResizeObserver(() => {
+      if (!this.image.width) {
+        return;
+      }
+      this.#refitToPane();
+    });
+    this.resizeObserver.observe(this.canvas);
+    const pane = this.canvas.closest(".cal-pane-viewport");
+    if (pane && pane !== this.canvas) {
+      this.resizeObserver.observe(pane);
+    }
+  }
+
+  #paneSize() {
+    return [this.canvas.clientWidth || 0, this.canvas.clientHeight || 0];
+  }
+
+  #computeFitScale() {
+    const [paneW, paneH] = this.#paneSize();
+    if (!paneW || !paneH || !this.image.width || !this.image.height) {
+      return CAMERA_SCALE_FACTOR;
+    }
+    return Math.min(paneW / this.image.width, paneH / this.image.height) * 0.96;
+  }
+
+  #updatePointSize() {
+    const [paneW, paneH] = this.#paneSize();
+    const basis = Math.min(paneW || 1, paneH || 1);
+    this.calibrationPointSize = (basis * CALIBRATION_POINT_SCALE) / this.scale;
+  }
+
+  #centerImage() {
+    const [paneW, paneH] = this.#paneSize();
+    const displayW = this.image.width * this.camScaleFactor * this.scale;
+    const displayH = this.image.height * this.camScaleFactor * this.scale;
+    this.panX = (paneW - displayW) / 2;
+    this.panY = (paneH - displayH) / 2;
+  }
+
+  #refitToPane() {
+    const [paneW, paneH] = this.#paneSize();
+    if (!paneW || !paneH) {
+      return;
+    }
+    const oldFactor = this.camScaleFactor;
+    const oldW = this.canvas.width;
+    const oldH = this.canvas.height;
+    this.camScaleFactor = this.#computeFitScale();
+    this.#updatePointSize();
+
+    // Layout can settle after first paint (esp. calibrate embed iframe).
+    // Re-center until the user pans/zooms; otherwise preserve their view.
+    if (!this.userAdjustedView) {
+      this.#centerImage();
+    } else if (oldFactor > 0 && oldW > 0 && oldH > 0) {
+      const ratio = this.camScaleFactor / oldFactor;
+      this.panX = paneW / 2 - (oldW / 2 - this.panX) * ratio;
+      this.panY = paneH / 2 - (oldH / 2 - this.panY) * ratio;
+    } else {
+      this.#centerImage();
+    }
+    this.drawImage();
+  }
+
+  #scheduleCenterSettle() {
+    const recenter = () => {
+      if (this.userAdjustedView || !this.image.width) {
+        return;
+      }
+      const [paneW, paneH] = this.#paneSize();
+      if (!paneW || !paneH) {
+        return;
+      }
+      this.camScaleFactor = this.#computeFitScale();
+      this.#updatePointSize();
+      this.#centerImage();
+      this.drawImage();
+    };
+    requestAnimationFrame(() => {
+      requestAnimationFrame(recenter);
+    });
+    // Embed/iframe and font/layout shifts often finish after the first frames.
+    window.setTimeout(recenter, 50);
+    window.setTimeout(recenter, 200);
+    window.setTimeout(recenter, 600);
   }
 
   #getImageCoordinates(x, y) {
@@ -115,6 +212,7 @@ class CamCanvas {
     if (this.isPanning) {
       this.panX = event.clientX - this.startX;
       this.panY = event.clientY - this.startY;
+      this.userAdjustedView = true;
       this.drawImage();
     } else if (this.isDragging) {
       [this.draggingPoint.x, this.draggingPoint.y] = this.#getImageCoordinates(
@@ -122,6 +220,7 @@ class CamCanvas {
         event.clientY,
       );
       this.calibrationUpdated = true;
+      this.pointEdited = true;
       this.drawImage();
     }
   }
@@ -159,9 +258,9 @@ class CamCanvas {
     // Adjust pan values to keep the mouse position fixed
     this.panX = mouseX - (mouseX - this.panX) * scaleFactor;
     this.panY = mouseY - (mouseY - this.panY) * scaleFactor;
+    this.userAdjustedView = true;
 
-    this.calibrationPointSize =
-      (this.canvas.clientWidth * CALIBRATION_POINT_SCALE) / this.scale;
+    this.#updatePointSize();
     this.drawImage();
   }
 
@@ -191,21 +290,36 @@ class CamCanvas {
         const numB = parseInt(b.replace(/\D/g, ""));
         return numA - numB;
       });
+      this.calibrationUpdated = true;
+      this.pointEdited = true;
       this.drawImage();
     }
   }
 
   // Image drawing functions
 
-  drawImage(width = this.canvas.width, height = this.canvas.height) {
+  drawImage() {
+    const [width, height] = this.#paneSize();
+    if (!width || !height) {
+      return;
+    }
+
     this.canvas.width = width;
     this.canvas.height = height;
     this.ctx.fillStyle = CALIBRATION_BACKGROUND_COLOR;
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillRect(0, 0, width, height);
+
+    if (!this.image.width || !this.image.height) {
+      return;
+    }
+
+    const displayW = this.image.width * this.camScaleFactor;
+    const displayH = this.image.height * this.camScaleFactor;
+
     this.ctx.save();
     this.ctx.translate(this.panX, this.panY);
     this.ctx.scale(this.scale, this.scale);
-    this.ctx.drawImage(this.image, 0, 0, width, height);
+    this.ctx.drawImage(this.image, 0, 0, displayW, displayH);
     for (const point of this.calibrationPoints) {
       this.drawPoint(
         point.x * this.camScaleFactor,
@@ -218,14 +332,40 @@ class CamCanvas {
   }
 
   handleImageLoad() {
-    // Do resizing and find the new width and height
-    const aspectRatio = this.image.width / this.image.height;
-    this.camScaleFactor = this.canvas.clientWidth / this.image.width;
-    this.calibrationPointSize =
-      (this.canvas.clientWidth * CALIBRATION_POINT_SCALE) / this.scale;
-    let newWidth = this.canvas.clientWidth;
-    let newHeight = this.canvas.clientWidth / aspectRatio;
-    this.drawImage(newWidth, newHeight);
+    const [paneW, paneH] = this.#paneSize();
+    if (!paneW || !paneH) {
+      requestAnimationFrame(() => this.handleImageLoad());
+      return;
+    }
+
+    const resolutionChanged =
+      this.image.width !== this.lastImageWidth ||
+      this.image.height !== this.lastImageHeight;
+    const previousFactor = this.camScaleFactor;
+
+    this.camScaleFactor = this.#computeFitScale();
+    this.#updatePointSize();
+
+    if (!this.viewInitialized) {
+      // First frame: fit and center once, then re-center after layout settles.
+      this.#centerImage();
+      this.viewInitialized = true;
+      this.#scheduleCenterSettle();
+    } else if (!this.userAdjustedView) {
+      // Live frames and resolution changes before any user pan/zoom:
+      // keep the whole image fitted and centered.
+      this.#centerImage();
+    } else if (resolutionChanged && previousFactor > 0) {
+      // Keep the same view center when the stream resolution changes.
+      const ratio = this.camScaleFactor / previousFactor;
+      this.panX = paneW / 2 - (paneW / 2 - this.panX) * ratio;
+      this.panY = paneH / 2 - (paneH / 2 - this.panY) * ratio;
+    }
+    // User-adjusted view + same resolution: preserve pan/zoom and only redraw.
+
+    this.lastImageWidth = this.image.width;
+    this.lastImageHeight = this.image.height;
+    this.drawImage();
   }
 
   updateImageSrc(base64Image) {
@@ -234,9 +374,13 @@ class CamCanvas {
 
   resetCameraView() {
     this.scale = 1;
-    this.panX = 0;
-    this.panY = 0;
+    this.userAdjustedView = false;
+    this.camScaleFactor = this.#computeFitScale();
+    this.#updatePointSize();
+    this.#centerImage();
+    this.viewInitialized = true;
     this.drawImage();
+    this.#scheduleCenterSettle();
   }
 
   // Calibration Point functions
@@ -264,6 +408,7 @@ class CamCanvas {
       name: name,
     });
     this.calibrationUpdated = true;
+    this.pointEdited = true;
   }
 
   clearCalibrationPoints() {
@@ -272,6 +417,14 @@ class CamCanvas {
     for (let i = 0; i < MAX_CALIBRATION_POINTS; i++) {
       this.calibrationPointNames.push(`p${i}`);
     }
+    this.calibrationUpdated = true;
+    this.pointEdited = true;
+  }
+
+  consumePointEdit() {
+    const edited = this.pointEdited;
+    this.pointEdited = false;
+    return edited;
   }
 
   getCalibrationPoints() {

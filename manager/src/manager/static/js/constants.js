@@ -57,8 +57,4 @@ export const IMAGE_CALIBRATE = "/image/calibration/camera/";
 export const SYS_CHILDSCENE_STATUS = "/sys/child/status";
 export const EVENT = "/event";
 
-// Model directory
-export const MODEL_DIRECTORY_API = `${REST_URL}/model-directory/`;
-export const DIRECTORY_LEFT_INDENT = 32;
-
 // Error message constants

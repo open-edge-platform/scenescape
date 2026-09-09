@@ -22,13 +22,14 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth import user_logged_in, user_login_failed
 from django.contrib.sessions.models import Session
 from rest_framework.authtoken.models import Token
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from django.dispatch.dispatcher import receiver
 from django.http import FileResponse, HttpResponse, HttpResponseNotFound, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.generic import DetailView, ListView, TemplateView
+from django.views import View
+from django.views.generic import DetailView, ListView, RedirectView, TemplateView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
 from django.urls import reverse
@@ -39,13 +40,12 @@ from manager.api import IsAdminOrReadOnly
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
-  SingletonSensor, SingletonScalarThreshold, \
+  SingletonSensor, \
   Region, RegionPoint, Tripwire, TripwirePoint, \
-  SingletonAreaPoint, UserSession, FailedLogin, \
+  UserSession, FailedLogin, \
   RegionOccupancyThreshold, SceneImport
-from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDetailsForm, \
-  SceneUpdateForm, SceneImportForm, CamCreateForm, SingletonCreateForm, ChildSceneForm
-from manager.validators import add_form_error, validate_uuid
+from manager.forms import ROIForm, CamCalibrateForm
+from manager.validators import validate_uuid
 
 from scene_common.options import *
 from scene_common.scene_model import SceneModel
@@ -89,6 +89,22 @@ class SuperUserCheck(UserPassesTestMixin):
   def test_func(self):
     return self.request.user.is_superuser
 
+def _user_auth_token(user):
+  if hasattr(user, "auth_token") and user.auth_token:
+    return str(user.auth_token)
+  return ""
+
+def sheet_redirect(path, action, entity_id=None):
+  """Redirect into a host page that opens a React sheet via ?ss=&id=."""
+  sep = '&' if '?' in path else '?'
+  url = f"{path}{sep}ss={action}"
+  if entity_id is not None:
+    url += f"&id={entity_id}"
+  return redirect(url)
+
+def scene_path(scene_id):
+  return f"/{scene_id}/"
+
 def superuser_required(view_func=None, redirect_field_name=REDIRECT_FIELD_NAME,
                    login_url='sign_in'):
 
@@ -104,7 +120,34 @@ def superuser_required(view_func=None, redirect_field_name=REDIRECT_FIELD_NAME,
 @login_required(login_url="sign_in")
 def index(request):
   scenes = Scene.objects.order_by('name')
-  context = {'scenes': scenes}
+  scenes_payload = []
+  for scene in scenes:
+    scenes_payload.append({
+      'id': str(scene.id),
+      'name': scene.name,
+      'thumbnailUrl': scene.thumbnail.url if scene.thumbnail else None,
+      'mapUrl': scene.map.url if scene.map else None,
+      'detailUrl': reverse('sceneDetail', args=[scene.id]),
+      'detail3dUrl': reverse('scene_detail', args=[scene.id]),
+      'manageUrl': f"{reverse('index')}?ss=scene-manage&id={scene.id}",
+      'deleteUrl': (
+        reverse('scene_delete', args=[scene.id])
+        if request.user.is_superuser else None
+      ),
+      'counts': {
+        'sensors': scene.sensor_set.count(),
+        'regions': scene.regions.count(),
+        'tripwires': scene.tripwires.count(),
+      },
+    })
+  context = {
+    'scenes': scenes,
+    'scenes_home_bootstrap': {
+      'authToken': _user_auth_token(request.user),
+      'isSuperuser': request.user.is_superuser,
+      'scenes': scenes_payload,
+    },
+  }
   return render(request, 'sscape/index.html', context)
 
 def protected_media(request, path, media_root):
@@ -136,8 +179,139 @@ def sceneDetail(request, scene_id):
   scene = get_object_or_404(Scene, pk=scene_id)
   child_rois, child_trips, child_sensors = getAllChildrenMetaData(scene_id)
 
-  return render(request, 'sscape/sceneDetail.html', {'scene': scene, 'child_rois': child_rois,
-                                                     'child_tripwires': child_trips, 'child_sensors': child_sensors})
+  cameras = []
+  sensors = []
+  for sensor in scene.sensor_set.all().order_by("name"):
+    if sensor.type == "camera":
+      cameras.append({
+        "id": str(sensor.id),
+        "sensorId": sensor.sensor_id,
+        "name": sensor.name,
+        "calibrateHref": f"?ss=calibrate-cam&id={sensor.id}",
+        "cmdTopic": f"scenescape/cmd/camera/{sensor.sensor_id}",
+        "deleteUrl": (
+          reverse("cam_delete", args=[sensor.id])
+          if request.user.is_superuser else None
+        ),
+      })
+    elif sensor.type == "generic":
+      sensors.append({
+        "id": str(sensor.id),
+        "sensorId": sensor.sensor_id,
+        "name": sensor.name,
+        "iconUrl": sensor.icon.url if sensor.icon else None,
+        "areaJson": sensor.areaJSON(),
+        "calibrateHref": f"?ss=calibrate-sensor&id={sensor.id}",
+        "editHref": f"?ss=sensor-edit&id={sensor.sensor_id}",
+        "deleteUrl": (
+          reverse("singleton_sensor_delete", args=[sensor.id])
+          if request.user.is_superuser else None
+        ),
+      })
+
+  children = []
+  for link in scene.children.all():
+    child = link.child
+    child_name = child.name if child else (link.child_name or "Child")
+    if child is not None:
+      rest_uid = str(child.id)
+    elif link.remote_child_id:
+      rest_uid = str(link.remote_child_id)
+    else:
+      rest_uid = str(link.id)
+    children.append({
+      "id": str(link.id),
+      "name": child_name,
+      "childType": link.child_type,
+      "remoteChildId": (
+        str(link.remote_child_id) if link.remote_child_id else None
+      ),
+      "detailUrl": reverse("sceneDetail", args=[child.id]) if child else None,
+      "thumbnailUrl": (
+        child.thumbnail.url if child and child.thumbnail else None
+      ),
+      "mapUrl": child.map.url if child and child.map else None,
+      "restUid": rest_uid,
+      "editHref": f"?ss=child-edit&id={rest_uid}",
+      "deleteUrl": (
+        reverse("child_delete", args=[link.id])
+        if request.user.is_superuser else None
+      ),
+    })
+
+  auth_token = ""
+  if hasattr(request.user, "auth_token") and request.user.auth_token:
+    auth_token = str(request.user.auth_token)
+
+  try:
+    regions = json.loads(scene.roiJSON() or "[]")
+  except (TypeError, json.JSONDecodeError):
+    regions = []
+  try:
+    tripwires = json.loads(scene.tripwireJSON() or "[]")
+  except (TypeError, json.JSONDecodeError):
+    tripwires = []
+
+  map_url = scene.map.url if scene.map else None
+  thumb_url = scene.thumbnail.url if scene.thumbnail else None
+
+  scene_detail_bootstrap = {
+    "scene": {
+      "id": str(scene.id),
+      "name": scene.name,
+      "scale": scene.scale,
+      "mapUrl": map_url,
+      "thumbnailUrl": thumb_url,
+      "wssConnection": scene.wssConnection(),
+    },
+    "cameras": cameras,
+    "sensors": sensors,
+    "children": children,
+    "regions": regions if isinstance(regions, list) else [],
+    "tripwires": tripwires if isinstance(tripwires, list) else [],
+    "counts": {
+      "sensors": len(sensors),
+      "regions": len(regions) if isinstance(regions, list) else 0,
+      "tripwires": len(tripwires) if isinstance(tripwires, list) else 0,
+      "children": len(children),
+    },
+    "urls": {
+      "scenesHome": reverse("index"),
+      "camList": reverse("cam_list"),
+      "sensorList": reverse("singleton_sensor_list"),
+      "scene3d": reverse("scene_detail", args=[scene.id]),
+      "sceneEdit": reverse("scene_update", args=[scene.id]) if request.user.is_superuser else None,
+      "sceneDelete": reverse("scene_delete", args=[scene.id]) if request.user.is_superuser else None,
+      "camCreate": (
+        f"{reverse('cam_create')}?scene={scene.id}" if request.user.is_superuser else None
+      ),
+    },
+    "authToken": auth_token,
+    "isSuperuser": request.user.is_superuser,
+    "isKubernetes": bool(settings.KUBERNETES_SERVICE_HOST),
+    "appVersion": getattr(settings, "APP_VERSION_NUMBER", None),
+    "googleMapsApiKey": getattr(settings, "GOOGLE_MAPS_API_KEY", "") or "",
+    "mapboxApiKey": getattr(settings, "MAPBOX_API_KEY", "") or "",
+    "deleteImpact": {
+      "sensors": scene.sensor_set.count(),
+      "regions": scene.regions.count(),
+      "tripwires": scene.tripwires.count(),
+    },
+    "scenes": [
+      {"id": str(s.id), "name": s.name}
+      for s in Scene.objects.order_by("name")
+    ],
+  }
+
+  return render(request, 'sscape/sceneDetail.html', {
+    'scene': scene,
+    'child_rois': child_rois,
+    'child_tripwires': child_trips,
+    'child_sensors': child_sensors,
+    'scene_detail_bootstrap': scene_detail_bootstrap,
+    'google_maps_api_key': getattr(settings, "GOOGLE_MAPS_API_KEY", "") or "",
+    'mapbox_api_key': getattr(settings, "MAPBOX_API_KEY", "") or "",
+  })
 
 @superuser_required
 def saveROI(request, scene_id):
@@ -151,9 +325,7 @@ def saveROI(request, scene_id):
       return redirect('/' + str(scene.id))
     else:
       log.error("Form bad", request.POST)
-  else:
-    form = ROIForm(initial = {'rois': scene.roiJSON()})
-  return render(request, 'sscape/sceneDetail.html', {'form': form, 'scene': scene})
+  return redirect('/' + str(scene.id))
 
 def saveTripwireData(scene, form):
   jdata = json.loads(form.cleaned_data['tripwires'],
@@ -257,39 +429,31 @@ def saveRegionData(scene, form):
   return
 
 #Cam CRUD
-class CamCreateView(SuperUserCheck, CreateView):
-  model = Cam
-  form_class = CamCreateForm
-  template_name = "cam/cam_create.html"
+class CamCreateView(SuperUserCheck, View):
+  """React drawer only; URL redirects into ?ss=cam-create."""
 
-  def get_initial(self):
-    initial = super().get_initial()
-    scene_id = self.request.GET.get('scene')
+  def _sheet(self, request):
+    scene_id = request.GET.get('scene') or request.POST.get('scene')
     if scene_id:
-      try:
-        scene = Scene.objects.get(id=scene_id)
-        initial['scene'] = scene
-      except Scene.DoesNotExist:
-        pass
-    return initial
+      return sheet_redirect(scene_path(scene_id), 'cam-create')
+    return sheet_redirect(reverse('cam_list'), 'cam-create')
 
-  def form_valid(self, form):
-    form.instance.type = 'camera'
-    return super(CamCreateView, self).form_valid(form)
+  def get(self, request, *args, **kwargs):
+    return self._sheet(request)
 
-  # Return 400 Bad Request when form validation fails
-  def form_invalid(self, form):
-    return self.render_to_response(self.get_context_data(form=form), status=400)
-
-  def get_success_url(self):
-    if self.object.scene is not None:
-      scene_id = self.object.scene.id
-      return '/' + str(scene_id)
-    return reverse_lazy('cam_list')
+  def post(self, request, *args, **kwargs):
+    return self._sheet(request)
 
 class CamDeleteView(SuperUserCheck, DeleteView):
   model = Cam
-  template_name = "cam/cam_delete.html"
+  # Confirm UX is React; GET redirects away. POST still deletes.
+  template_name = "sscape/embed_done.html"
+
+  def get(self, request, *args, **kwargs):
+    self.object = self.get_object()
+    if self.object.scene_id:
+      return redirect(scene_path(self.object.scene_id))
+    return redirect(reverse('cam_list'))
 
   def get_success_url(self):
     if self.object.scene is not None:
@@ -297,51 +461,121 @@ class CamDeleteView(SuperUserCheck, DeleteView):
       return '/' + str(scene_id)
     return reverse_lazy('cam_list')
 
-class CamDetailView(SuperUserCheck, DetailView):
-  model = Cam
-  template_name = "cam/cam_detail.html"
+class CamDetailView(SuperUserCheck, View):
+  """Legacy detail URL → calibrate sheet on the camera list."""
+
+  def get(self, request, *args, **kwargs):
+    cam = get_object_or_404(Cam, pk=kwargs['pk'])
+    if cam.scene_id:
+      return sheet_redirect(reverse('cam_list'), 'calibrate-cam', cam.pk)
+    return redirect(reverse('cam_list'))
 
 class CamListView(LoginRequiredMixin, ListView):
   model = Cam
   template_name = "cam/cam_list.html"
 
-class CamUpdateView(SuperUserCheck, UpdateView):
-  model = Cam
-  fields = ['sensor_id', 'name', 'scene']
-  template_name = "cam/cam_update.html"
-
-  def get_success_url(self):
-    if self.object.scene is not None:
-      scene_id = self.object.scene.id
-      return '/' + str(scene_id)
-    return reverse_lazy('cam_list')
-
-#Scene CRUD
-class SceneCreateView(SuperUserCheck, CreateView):
-  model = Scene
-  fields = ['name', 'map_type', 'map', 'scale', 'output_lla', 'map_corners_lla',
-            'geospatial_provider', 'map_zoom', 'map_center_lat', 'map_center_lng', 'map_bearing']
-  template_name = "scene/scene_create.html"
-  success_url = reverse_lazy('index')
-
   def get_context_data(self, **kwargs):
     context = super().get_context_data(**kwargs)
-    context['google_maps_api_key'] = settings.GOOGLE_MAPS_API_KEY
-    context['mapbox_api_key'] = settings.MAPBOX_API_KEY
+    primary = None
+    if self.request.user.is_superuser:
+      primary = {
+        'label': '+ New Camera',
+        'href': f"{reverse('cam_list')}?ss=cam-create",
+        'id': 'new-camera',
+      }
+    rows = []
+    for cam in context['object_list']:
+      scene = cam.scene
+      actions = []
+      if self.request.user.is_superuser:
+        if scene:
+          actions.append({
+            'label': 'Manage',
+            'href': f"{reverse('cam_list')}?ss=calibrate-cam&id={cam.id}",
+          })
+        else:
+          actions.append({
+            'label': 'Edit',
+            'href': f"{reverse('cam_list')}?ss=cam-edit&id={cam.sensor_id}",
+          })
+        actions.append({
+          'label': 'Delete',
+          'href': reverse('cam_delete', args=[cam.id]),
+          'tone': 'danger',
+        })
+      rows.append({
+        'id': str(cam.id),
+        'cells': [
+          {'text': str(cam)},
+          {'text': cam.sensor_id},
+          {
+            'text': str(scene) if scene else '--',
+            'href': (
+              f"{reverse('sceneDetail', args=[scene.id])}?from=cam-list"
+              if scene else None
+            ),
+          },
+        ],
+        'actions': actions,
+      })
+    context['admin_list_bootstrap'] = {
+      'title': 'Cameras',
+      'breadcrumbs': [{'label': 'Cameras'}],
+      'primaryAction': primary,
+      'columns': ['Camera Name', 'Camera ID', 'Scene'],
+      'rows': rows,
+      'emptyMessage': 'No cameras are available.',
+      'isSuperuser': self.request.user.is_superuser,
+    }
+    context['list_sheets_bootstrap'] = {
+      'authToken': _user_auth_token(self.request.user),
+      'isSuperuser': self.request.user.is_superuser,
+      'kind': 'cam',
+      'defaultSceneId': None,
+      'isKubernetes': bool(settings.KUBERNETES_SERVICE_HOST),
+      'cameras': [
+        {
+          'id': str(cam.id),
+          'sensorId': cam.sensor_id,
+          'name': str(cam),
+          'sceneId': str(cam.scene_id) if cam.scene_id else None,
+        }
+        for cam in context['object_list']
+      ],
+      'scenes': [
+        {'id': str(s.id), 'name': s.name}
+        for s in Scene.objects.order_by('name')
+      ],
+    }
     return context
 
-  def form_valid(self, form):
-    # Check if a generated map filename was provided
-    generated_filename = self.request.POST.get('generated_map_filename')
-    if generated_filename:
-      # Set the map field to the generated file
-      form.instance.map = generated_filename
-    return super().form_valid(form)
+class CamUpdateView(SuperUserCheck, View):
+  """React sheet only; URL redirects into ?ss=cam-edit."""
+
+  def get(self, request, *args, **kwargs):
+    cam = get_object_or_404(Cam, pk=kwargs['pk'])
+    return sheet_redirect(reverse('cam_list'), 'cam-edit', cam.sensor_id)
+
+  def post(self, request, *args, **kwargs):
+    return self.get(request, *args, **kwargs)
+
+#Scene CRUD
+class SceneCreateView(SuperUserCheck, View):
+  """React sheet only; URL redirects into ?ss=scene-create."""
+
+  def get(self, request, *args, **kwargs):
+    return sheet_redirect(reverse('index'), 'scene-create')
+
+  def post(self, request, *args, **kwargs):
+    return sheet_redirect(reverse('index'), 'scene-create')
 
 class SceneDeleteView(SuperUserCheck, DeleteView):
   model = Scene
-  template_name = "scene/scene_delete.html"
+  template_name = "sscape/embed_done.html"
   success_url = reverse_lazy('index')
+
+  def get(self, request, *args, **kwargs):
+    return redirect(reverse('index'))
 
 class SceneDetailView(LoginRequiredMixin, DetailView):
   model = Scene
@@ -356,168 +590,298 @@ class SceneDetailView(LoginRequiredMixin, DetailView):
 
     return context
 
-class SceneListView(LoginRequiredMixin, ListView):
-  model = Scene
-  template_name = "scene/scene_list.html"
+class SceneListView(LoginRequiredMixin, RedirectView):
+  """Scenes home is React on index; keep URL for bookmarks."""
+  permanent = False
 
-class SceneUpdateView(SuperUserCheck, UpdateView):
-  model = Scene
-  form_class = SceneUpdateForm
-  template_name = "scene/scene_update.html"
-  success_url = reverse_lazy('index')
+  def get_redirect_url(self, *args, **kwargs):
+    return reverse('index')
 
-  def get_context_data(self, **kwargs):
-    context = super().get_context_data(**kwargs)
-    context['google_maps_api_key'] = settings.GOOGLE_MAPS_API_KEY
-    context['mapbox_api_key'] = settings.MAPBOX_API_KEY
-    return context
+class SceneUpdateView(SuperUserCheck, View):
+  """React manage panel only; no Django embed form."""
 
-  def form_valid(self, form):
-    # Check if a generated map filename was provided
-    generated_filename = self.request.POST.get('generated_map_filename')
-    if generated_filename:
-      # Set the map field to the generated file
-      form.instance.map = generated_filename
-    return super().form_valid(form)
+  def get(self, request, *args, **kwargs):
+    scene = get_object_or_404(Scene, pk=kwargs['pk'])
+    return sheet_redirect(scene_path(scene.pk), 'scene-manage')
 
-class SceneImportView(SuperUserCheck, CreateView):
-  model = SceneImport
-  form_class = SceneImportForm
-  template_name = "scene/scene_import.html"
-  success_url = reverse_lazy('index')
+  def post(self, request, *args, **kwargs):
+    return self.get(request, *args, **kwargs)
+
+class SceneImportView(SuperUserCheck, View):
+  """React modal only; URL redirects into ?ss=scene-import."""
+
+  def get(self, request, *args, **kwargs):
+    return sheet_redirect(reverse('index'), 'scene-import')
+
+  def post(self, request, *args, **kwargs):
+    return sheet_redirect(reverse('index'), 'scene-import')
 
 #Singleton Sensor CRUD
-class SingletonSensorCreateView(SuperUserCheck, CreateView):
-  model = SingletonSensor
-  form_class = SingletonCreateForm
-  template_name = "singleton_sensor/singleton_sensor_create.html"
-  success_url = reverse_lazy('singleton_sensor_list')
+class SingletonSensorCreateView(SuperUserCheck, View):
+  """React drawer only; URL redirects into ?ss=sensor-create."""
 
-  def get_initial(self):
-    initial = super().get_initial()
-    scene_id = self.request.GET.get('scene')
+  def _sheet(self, request):
+    scene_id = request.GET.get('scene') or request.POST.get('scene')
     if scene_id:
-      try:
-        scene = Scene.objects.get(id=scene_id)
-        initial['scene'] = scene
-      except Scene.DoesNotExist:
-        pass
-    return initial
+      return sheet_redirect(scene_path(scene_id), 'sensor-create')
+    return sheet_redirect(reverse('singleton_sensor_list'), 'sensor-create')
 
-  def form_valid(self, form):
-    form.instance.type = 'generic'
-    return super(SingletonSensorCreateView, self).form_valid(form)
+  def get(self, request, *args, **kwargs):
+    return self._sheet(request)
 
-  def get_success_url(self):
-    if self.object.scene is not None:
-      scene_id = self.object.scene.id
-      return '/' + str(scene_id)
-    return reverse_lazy('singleton_sensor_list')
+  def post(self, request, *args, **kwargs):
+    return self._sheet(request)
 
 class SingletonSensorDeleteView(SuperUserCheck, DeleteView):
   model = SingletonSensor
-  template_name = "singleton_sensor/singleton_sensor_delete.html"
+  template_name = "sscape/embed_done.html"
+
+  def get(self, request, *args, **kwargs):
+    self.object = self.get_object()
+    if self.object.scene_id:
+      return redirect(scene_path(self.object.scene_id))
+    return redirect(reverse('singleton_sensor_list'))
+
   def get_success_url(self):
     if self.object.scene is not None:
       scene_id = self.object.scene.id
       return '/' + str(scene_id)
     return reverse_lazy('singleton_sensor_list')
 
-class SingletonSensorDetailView(SuperUserCheck, DetailView):
-  model = SingletonSensor
-  template_name = "singleton_sensor/singleton_sensor_detail.html"
+class SingletonSensorDetailView(SuperUserCheck, View):
+  """Legacy detail URL → calibrate sheet on the sensor list."""
+
+  def get(self, request, *args, **kwargs):
+    sensor = get_object_or_404(SingletonSensor, pk=kwargs['pk'])
+    if sensor.scene_id:
+      return sheet_redirect(
+        reverse('singleton_sensor_list'), 'calibrate-sensor', sensor.pk
+      )
+    return redirect(reverse('singleton_sensor_list'))
 
 class SingletonSensorListView(LoginRequiredMixin, ListView):
   model = SingletonSensor
   template_name = "singleton_sensor/singleton_sensor_list.html"
 
-class SingletonSensorUpdateView(SuperUserCheck, UpdateView):
-  model = SingletonSensor
-  fields = ['sensor_id', 'name', 'scene']
-  template_name = "singleton_sensor/singleton_sensor_update.html"
+  def get_context_data(self, **kwargs):
+    context = super().get_context_data(**kwargs)
+    primary = None
+    if self.request.user.is_superuser:
+      primary = {
+        'label': '+ New Sensor',
+        'href': f"{reverse('singleton_sensor_list')}?ss=sensor-create",
+        'id': 'new-sensor',
+      }
+    rows = []
+    for sensor in context['object_list']:
+      scene = sensor.scene
+      actions = []
+      if self.request.user.is_superuser:
+        if scene:
+          actions.append({
+            'label': 'Manage',
+            'href': (
+              f"{reverse('singleton_sensor_list')}"
+              f"?ss=calibrate-sensor&id={sensor.id}"
+            ),
+          })
+        else:
+          actions.append({
+            'label': 'Edit',
+            'href': (
+              f"{reverse('singleton_sensor_list')}"
+              f"?ss=sensor-edit&id={sensor.sensor_id}"
+            ),
+          })
+        actions.append({
+          'label': 'Delete',
+          'href': reverse('singleton_sensor_delete', args=[sensor.id]),
+          'tone': 'danger',
+        })
+      rows.append({
+        'id': str(sensor.id),
+        'cells': [
+          {'text': str(sensor)},
+          {'text': sensor.sensor_id},
+          {
+            'text': str(scene) if scene else '--',
+            'href': (
+              f"{reverse('sceneDetail', args=[scene.id])}?from=sensor-list"
+              if scene else None
+            ),
+          },
+        ],
+        'actions': actions,
+      })
+    context['admin_list_bootstrap'] = {
+      'title': 'Sensors',
+      'breadcrumbs': [{'label': 'Sensors'}],
+      'primaryAction': primary,
+      'columns': ['Sensor Name', 'Sensor ID', 'Scene'],
+      'rows': rows,
+      'emptyMessage': 'No sensors are available.',
+      'isSuperuser': self.request.user.is_superuser,
+    }
+    context['list_sheets_bootstrap'] = {
+      'authToken': _user_auth_token(self.request.user),
+      'isSuperuser': self.request.user.is_superuser,
+      'kind': 'sensor',
+      'defaultSceneId': None,
+      'sensors': [
+        {
+          'id': str(sensor.id),
+          'sensorId': sensor.sensor_id,
+          'name': str(sensor),
+          'sceneId': str(sensor.scene_id) if sensor.scene_id else None,
+        }
+        for sensor in context['object_list']
+      ],
+      'scenes': [
+        {'id': str(s.id), 'name': s.name}
+        for s in Scene.objects.order_by('name')
+      ],
+    }
+    return context
 
-  def get_success_url(self):
-    if self.object.scene is not None:
-      scene_id = self.object.scene.id
-      return '/' + str(scene_id)
-    return reverse_lazy('singleton_sensor_list')
+class SingletonSensorUpdateView(SuperUserCheck, View):
+  """React sheet only; URL redirects into ?ss=sensor-edit."""
+
+  def get(self, request, *args, **kwargs):
+    sensor = get_object_or_404(SingletonSensor, pk=kwargs['pk'])
+    return sheet_redirect(
+      reverse('singleton_sensor_list'), 'sensor-edit', sensor.sensor_id
+    )
+
+  def post(self, request, *args, **kwargs):
+    return self.get(request, *args, **kwargs)
 
 # 3D Asset CRUD
-class AssetCreateView(SuperUserCheck, CreateView):
-  model = Asset3D
-  fields = ['name', 'x_size', 'y_size', 'z_size', 'mark_color', 'model_3d', 'scale', 'tracking_radius', 'shift_type',
-            'geometric_center', 'mass', 'center_of_mass', 'is_static', 'ttl',
-            'linear_damping', 'angular_damping', 'coefficient_of_restitution', 'friction_coefficients']
-  template_name = "asset/asset_create.html"
-  success_url = reverse_lazy('asset_list')
+class AssetCreateView(SuperUserCheck, View):
+  """React drawer only; URL redirects into ?ss=asset-create."""
 
-  def form_valid(self, form):
-    form.instance.type = 'generic'
-    return super(AssetCreateView, self).form_valid(form)
+  def get(self, request, *args, **kwargs):
+    return sheet_redirect(reverse('asset_list'), 'asset-create')
+
+  def post(self, request, *args, **kwargs):
+    return sheet_redirect(reverse('asset_list'), 'asset-create')
 
 class AssetDeleteView(SuperUserCheck, DeleteView):
   model = Asset3D
-  template_name = "asset/asset_delete.html"
+  template_name = "sscape/embed_done.html"
   success_url = reverse_lazy('asset_list')
+
+  def get(self, request, *args, **kwargs):
+    return redirect(reverse('asset_list'))
 
 class AssetListView(LoginRequiredMixin, ListView):
   model = Asset3D
   template_name = "asset/asset_list.html"
 
-class AssetUpdateView(SuperUserCheck, UpdateView):
-  model = Asset3D
-  fields = ['name', 'model_3d', 'scale', 'mark_color',
-    'x_size', 'y_size', 'z_size',  \
-    'x_buffer_size', 'y_buffer_size', 'z_buffer_size',  \
-    'rotation_x', 'rotation_y', 'rotation_z', \
-    'translation_x', 'translation_y', 'translation_z', \
-    'tracking_radius', 'shift_type', 'project_to_map', 'rotation_from_velocity', \
-    'geometric_center', 'mass', 'center_of_mass', 'is_static', 'ttl', \
-    'linear_damping', 'angular_damping', 'coefficient_of_restitution', 'friction_coefficients']
-  template_name = "asset/asset_update.html"
-  success_url = reverse_lazy('asset_list')
+  def get_context_data(self, **kwargs):
+    context = super().get_context_data(**kwargs)
+    primary = None
+    if self.request.user.is_superuser:
+      primary = {
+        'label': '+ New Object',
+        'href': f"{reverse('asset_list')}?ss=asset-create",
+        'id': 'new-asset',
+      }
+    rows = []
+    for asset in context['object_list']:
+      actions = []
+      if self.request.user.is_superuser:
+        actions.append({
+          'label': 'Update',
+          'href': f"{reverse('asset_list')}?ss=asset-edit&id={asset.id}",
+          'id': f'obj-manage-{asset.name}',
+        })
+        actions.append({
+          'label': 'Delete',
+          'href': reverse('asset_delete', args=[asset.id]),
+          'tone': 'danger',
+        })
+      rows.append({
+        'id': str(asset.id),
+        'cells': [{'text': asset.name}],
+        'actions': actions,
+      })
+    context['admin_list_bootstrap'] = {
+      'title': 'Object Library',
+      'breadcrumbs': [{'label': 'Object Library'}],
+      'primaryAction': primary,
+      'columns': ['Name'],
+      'rows': rows,
+      'emptyMessage': 'No objects are available.',
+      'isSuperuser': self.request.user.is_superuser,
+    }
+    context['list_sheets_bootstrap'] = {
+      'authToken': _user_auth_token(self.request.user),
+      'isSuperuser': self.request.user.is_superuser,
+      'kind': 'asset',
+      'defaultSceneId': None,
+      'scenes': [],
+    }
+    return context
+
+class AssetUpdateView(SuperUserCheck, View):
+  """React sheet only; URL redirects into ?ss=asset-edit."""
+
+  def get(self, request, *args, **kwargs):
+    asset = get_object_or_404(Asset3D, pk=kwargs['pk'])
+    return sheet_redirect(reverse('asset_list'), 'asset-edit', asset.pk)
+
+  def post(self, request, *args, **kwargs):
+    return self.get(request, *args, **kwargs)
 
 # Scene Child CRUD
-class ChildCreateView(SuperUserCheck, CreateView):
-  model = ChildScene
-  form_class = ChildSceneForm
-  template_name = "child/child_create.html"
+class ChildCreateView(SuperUserCheck, View):
+  """React drawer only; URL redirects into ?ss=child-create."""
 
-  def get_initial(self):
-    initial = super().get_initial()
-    initial['parent'] = self.parent()
-    return initial
+  def _sheet(self, request):
+    scene_id = request.GET.get('scene') or request.POST.get('scene')
+    if scene_id:
+      return sheet_redirect(scene_path(scene_id), 'child-create')
+    return sheet_redirect(reverse('index'), 'child-create')
 
-  def form_valid(self, form):
-    return super(ChildCreateView, self).form_valid(form)
+  def get(self, request, *args, **kwargs):
+    return self._sheet(request)
 
-  def get_success_url(self):
-    if self.object.parent is not None:
-      scene_id = self.object.parent.id
-      return '/' + str(scene_id)
-    return reverse_lazy('index')
-
-  def parent(self):
-    parent_id = self.request.GET.get('scene')
-    obj = get_object_or_404(Scene, pk=parent_id)
-
-    return obj
+  def post(self, request, *args, **kwargs):
+    return self._sheet(request)
 
 class ChildDeleteView(SuperUserCheck, DeleteView):
   model = ChildScene
-  template_name = "child/child_delete.html"
-  success_url = reverse_lazy('index')
+  template_name = "sscape/embed_done.html"
 
-class ChildUpdateView(SuperUserCheck, UpdateView):
-  model = ChildScene
-  form_class = ChildSceneForm
-  template_name = "child/child_update.html"
+  def get(self, request, *args, **kwargs):
+    self.object = self.get_object()
+    if self.object.parent_id:
+      return redirect(scene_path(self.object.parent_id))
+    return redirect(reverse('index'))
 
   def get_success_url(self):
-    if self.object.parent is not None:
-      scene_id = self.object.parent.id
-      return '/' + str(scene_id)
+    if self.object.parent_id:
+      return scene_path(self.object.parent_id)
     return reverse_lazy('index')
+
+class ChildUpdateView(SuperUserCheck, View):
+  """React sheet only; URL redirects into ?ss=child-edit."""
+
+  def get(self, request, *args, **kwargs):
+    child = get_object_or_404(ChildScene, pk=kwargs['pk'])
+    parent = child.parent
+    if parent is None:
+      return redirect(reverse('index'))
+    if child.child_id:
+      rest_uid = str(child.child_id)
+    elif child.remote_child_id:
+      rest_uid = str(child.remote_child_id)
+    else:
+      rest_uid = str(child.pk)
+    return sheet_redirect(scene_path(parent.id), 'child-edit', rest_uid)
+
+  def post(self, request, *args, **kwargs):
+    return self.get(request, *args, **kwargs)
 
 class ModelListView(LoginRequiredMixin, TemplateView):
   template_name = "model/model_list.html"
@@ -556,6 +920,9 @@ class ModelListView(LoginRequiredMixin, TemplateView):
         current_level[filename] = None
 
     context['directory_structure'] = dir_structure
+    context['models_directory_bootstrap'] = {
+      'isSuperuser': self.request.user.is_superuser,
+    }
 
     return context
 
@@ -610,7 +977,18 @@ def account_locked(request):
 
 @superuser_required
 def cameraCalibrate(request, sensor_id):
+  """Embed-only 3D CamCanvas + Viewport for the React calibrate panel."""
   cam_inst = get_object_or_404(Cam, pk=sensor_id)
+  embed = request.GET.get('embed') == '1' or request.POST.get('embed') == '1'
+
+  if not embed:
+    if cam_inst.scene_id:
+      return sheet_redirect(
+        reverse('cam_list'), 'calibrate-cam', cam_inst.pk
+      )
+    return redirect(reverse('cam_list'))
+  if not cam_inst.scene_id:
+    return redirect(reverse('cam_list'))
 
   if request.method == 'POST':
     form = CamCalibrateForm(request.POST, request.FILES, instance=cam_inst)
@@ -619,171 +997,65 @@ def cameraCalibrate(request, sensor_id):
 
       if settings.KUBERNETES_SERVICE_HOST:
         if cam_inst.use_camera_pipeline and not cam_inst.camera_pipeline:
-          form.add_error(None, f"ERROR! Camera Pipeline field cannot be empty if 'Use Camera Pipeline' is enabled.")
-
-          generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+          form.add_error(
+            None,
+            "ERROR! Camera Pipeline field cannot be empty if "
+            "'Use Camera Pipeline' is enabled.")
+          generated_pipeline_url = reverse(
+            'generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
           return render(request, 'cam/cam_calibrate.html', {
             'form': form,
             'caminst': cam_inst,
-            'generated_pipeline_url': generated_pipeline_url
+            'generated_pipeline_url': generated_pipeline_url,
+            'embed': embed,
           })
-
-        # validate the camera settings by generating the pipeline
         try:
-          generated_pipeline = generate_pipeline_string_from_dict(form.cleaned_data)
-          log.info(f"Camera settings validated. Successfully generated pipeline: {generated_pipeline[:100]}...")
-        except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
+          generated_pipeline = generate_pipeline_string_from_dict(
+            form.cleaned_data)
+          log.info(
+            "Camera settings validated. Successfully generated pipeline: "
+            f"{generated_pipeline[:100]}...")
+        except (PipelineGenerationValueError,
+                PipelineGenerationNotImplementedError) as e:
           log.error(f"Invalid camera settings for camera {cam_inst.name}: {e}")
           form.add_error(None, f"ERROR! Invalid camera settings: {str(e)}.")
-
-          generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+          generated_pipeline_url = reverse(
+            'generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
           return render(request, 'cam/cam_calibrate.html', {
             'form': form,
             'caminst': cam_inst,
-            'generated_pipeline_url': generated_pipeline_url
+            'generated_pipeline_url': generated_pipeline_url,
+            'embed': embed,
           })
-        # otherwise show generic error message and not reveal any internal details
         except Exception as e:
           log.error(f"Invalid camera settings for camera {cam_inst.name}: {e}")
-          form.add_error(None, f"ERROR! Invalid camera settings: internal error.")
-
-          generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+          form.add_error(None, "ERROR! Invalid camera settings: internal error.")
+          generated_pipeline_url = reverse(
+            'generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
           return render(request, 'cam/cam_calibrate.html', {
             'form': form,
             'caminst': cam_inst,
-            'generated_pipeline_url': generated_pipeline_url
+            'generated_pipeline_url': generated_pipeline_url,
+            'embed': embed,
           })
 
-      cam_inst.save()
-      return redirect(sceneDetail, scene_id=cam_inst.scene_id)
-    else:
-      log.warning('Form not valid!')
+      form.save()
+      return render(request, 'cam/cam_calibrate_done.html', {
+        'reload': True,
+      })
+    log.warning('Form not valid!')
   else:
     form = CamCalibrateForm(instance=cam_inst)
 
-  # Generate the URL for the endpoint
-  generated_pipeline_url = reverse('generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
+  generated_pipeline_url = reverse(
+    'generate_camera_pipeline', kwargs={'sensor_id': cam_inst.pk})
 
   return render(request, 'cam/cam_calibrate.html', {
     'form': form,
     'caminst': cam_inst,
-    'generated_pipeline_url': generated_pipeline_url
+    'generated_pipeline_url': generated_pipeline_url,
+    'embed': embed,
   })
-
-@superuser_required
-def genericCalibrate(request, sensor_id):
-  obj_inst = get_object_or_404(SingletonSensor, pk=sensor_id)
-  scene = SceneModel(obj_inst.scene.name, obj_inst.scene.map.path if
-                     obj_inst.scene.map else None, obj_inst.scene.scale)
-
-  if request.method == 'POST' and 'save_sensor_details' not in request.POST:
-    form = SingletonForm(request.POST, request.FILES)
-    detail_form  = SingletonDetailsForm(instance=obj_inst)
-
-    if form.is_valid():
-      log.info('Form received {}'.format(form.cleaned_data))
-
-      pts = form.cleaned_data['rois']
-      x = form.cleaned_data['sensor_x']
-      y = form.cleaned_data['sensor_y']
-      radius = form.cleaned_data['sensor_r']
-
-      obj_inst.area = form.cleaned_data['area']
-      obj_inst.scene = form.cleaned_data['scene']
-      obj_inst.sensor_id = form.cleaned_data['sensor_id']
-      obj_inst.name = form.cleaned_data['name']
-      obj_inst.singleton_type = form.cleaned_data['singleton_type']
-      if len(request.FILES) != 0:
-        log.info("Detected a file")
-        obj_inst.icon = request.FILES['icon']
-
-      if (x != '') and (y != ''):
-        # sensor_x/sensor_y are meters in form fields
-        obj_inst.map_x, obj_inst.map_y = float(x), float(y)
-
-      if (radius != ''):
-        obj_inst.radius = float(radius) / obj_inst.scene.scale
-
-      if (pts != ''):
-        jdata = json.loads(form.cleaned_data['rois'])
-        if isinstance(jdata, list) and len(jdata) > 0:
-          roi_pts = jdata[0]['points']
-          obj_inst.points.all().delete()
-          for point in roi_pts:
-            SingletonAreaPoint(singleton=obj_inst, x=float(point[0]), y=float(point[1])).save()
-
-
-      if 'sectors' in form.cleaned_data and form.cleaned_data['sectors'] != '':
-        jdata = json.loads(form.cleaned_data['sectors'])
-        range_max = jdata.pop()['range_max']
-        SingletonScalarThreshold.objects.update_or_create(singleton=obj_inst, defaults={
-          'sectors': jdata, 'range_max': range_max
-        })
-
-      try:
-        obj_inst.save()
-      except IntegrityError as e:
-        form = add_form_error(e, form)
-        return render(request, 'singleton_sensor/singleton_sensor_calibrate.html', {'form': form, 'objinst': obj_inst, 'detail_form': detail_form})
-
-      # notify that DB has been updated
-      obj_inst.notifydbupdate()
-      detail_form  = SingletonDetailsForm(instance=obj_inst)
-
-      #return render(request, 'singleton_sensor/singleton_sensor_calibrate.html', {'form': form, 'objinst': obj_inst, 'detail_form':detail_form})
-      return redirect(sceneDetail, scene_id=obj_inst.scene_id)
-    else:
-      log.warning('Form not valid!')
-
-  else:
-    if request.method == 'POST' and 'save_sensor_details' in request.POST:
-      obj_inst = get_object_or_404(SingletonSensor, pk=sensor_id)
-
-      if len(request.FILES) != 0:
-        obj_inst.icon = request.FILES['icon']
-
-      detail_form = SingletonDetailsForm(request.POST, instance=obj_inst)
-      detail_form.save()
-
-    if len(obj_inst.points.all()) > 0:
-      rdict = {'title': obj_inst.name, 'points':[] }
-      for point in obj_inst.points.all():
-        rdict['points'].append([point.x, point.y])
-      rois_val = json.dumps([rdict])
-    else:
-      rois_val = json.dumps([])
-
-    sensor_x = None
-    sensor_y = None
-    radius = None
-
-    if obj_inst.map_x is not None:
-      sensor_x = obj_inst.map_x
-    if obj_inst.map_y is not None:
-      sensor_y = obj_inst.map_y
-    if obj_inst.radius:
-      radius = obj_inst.radius * obj_inst.scene.scale
-
-    color_ranges = []
-    sectors, range_max = obj_inst.get_sectors()
-    color_ranges = sectors + [{"range_max": range_max}]
-
-    initial={'area':obj_inst.area,
-        'sensor_x': sensor_x,
-        'sensor_y': sensor_y,
-        'sensor_r': radius,
-        'rois': rois_val,
-        'sensor_id': obj_inst.sensor_id,
-        'name': obj_inst.name,
-        'scene': obj_inst.scene,
-        'icon': obj_inst.icon,
-        'singleton_type': obj_inst.singleton_type,
-        'sectors': color_ranges,
-      }
-    form = SingletonForm(initial=initial)
-    detail_form = SingletonDetailsForm(instance=obj_inst)
-
-  return render(request, 'singleton_sensor/singleton_sensor_calibrate.html', {'form': form, 'objinst': obj_inst, 'detail_form':detail_form})
 
 def getAllChildrenMetaData(scene_id):
   children = ChildScene.objects.filter(parent=scene_id)

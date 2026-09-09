@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -36,6 +36,215 @@ import {
   waitUntil,
 } from "/static/js/utils.js";
 
+(function bridgeAlertToParentToast() {
+  if (window.__ssNativeAlert) {
+    return;
+  }
+  window.__ssNativeAlert = window.alert.bind(window);
+  window.alert = function (msg) {
+    const text = String(msg);
+    const parentToast =
+      window.parent && window.parent !== window ? window.parent.ssToast : null;
+    const toast =
+      (window.ssToast && typeof window.ssToast.show === "function"
+        ? window.ssToast
+        : null) ||
+      (parentToast && typeof parentToast.show === "function"
+        ? parentToast
+        : null);
+    if (toast) {
+      const bad =
+        /fail|error|invalid|not found|unable|cannot|must|requires/i.test(
+          text,
+        ) && !/successfully|updated\. Ensure/i.test(text);
+      const ok = /success|updated|Camera updated/i.test(text);
+      toast.show(text, bad ? "bad" : ok ? "ok" : "info");
+      return;
+    }
+    window.__ssNativeAlert(text);
+  };
+})();
+
+/** Push live optics values to the React calibrate panel (embed only). */
+function notifyParentCalibrationFields() {
+  if (!window.parent || window.parent === window) {
+    return;
+  }
+  if (!document.body.classList.contains("ss-embed")) {
+    return;
+  }
+  const read = (name) => {
+    const el = document.querySelector(`[name="${name}"]`);
+    return el && "value" in el ? String(el.value) : "";
+  };
+  window.parent.postMessage(
+    {
+      type: "ss-calibrate-optics",
+      intrinsics: {
+        fx: read("intrinsics_fx"),
+        fy: read("intrinsics_fy"),
+        cx: read("intrinsics_cx"),
+        cy: read("intrinsics_cy"),
+      },
+      distortion: {
+        k1: read("distortion_k1"),
+        k2: read("distortion_k2"),
+        p1: read("distortion_p1"),
+        p2: read("distortion_p2"),
+        k3: read("distortion_k3"),
+      },
+    },
+    window.location.origin,
+  );
+}
+
+window.addEventListener("message", (ev) => {
+  if (ev.origin !== window.location.origin) {
+    return;
+  }
+  if (!ev.data || typeof ev.data !== "object") {
+    return;
+  }
+  if (ev.data.type === "ss-calibrate-save-points") {
+    const form = document.getElementById("calibration_form");
+    if (form) {
+      form.requestSubmit ? form.requestSubmit() : form.submit();
+    }
+    return;
+  }
+  if (ev.data.type === "ss-calibrate-request-pose") {
+    try {
+      const pose = window.ssCollectCalibrationPose
+        ? window.ssCollectCalibrationPose()
+        : null;
+      window.parent.postMessage(
+        {
+          type: "ss-calibrate-pose",
+          ok: Boolean(pose),
+          ...(pose || { error: "no pose collector" }),
+        },
+        window.location.origin,
+      );
+    } catch (err) {
+      window.parent.postMessage(
+        {
+          type: "ss-calibrate-pose",
+          ok: false,
+          error: err?.message || String(err),
+        },
+        window.location.origin,
+      );
+    }
+    return;
+  }
+  if (ev.data.type === "ss-calibrate-optics-set") {
+    applyParentOptics(ev.data);
+  }
+});
+
+function notifyParentPointsChanged() {
+  if (!window.parent || window.parent === window) {
+    return;
+  }
+  if (!document.body.classList.contains("ss-embed")) {
+    return;
+  }
+  window.parent.postMessage(
+    { type: "ss-calibrate-points-changed" },
+    window.location.origin,
+  );
+}
+
+function waitForCanvasLayout(canvas, timeoutMs = 3000) {
+  return new Promise((resolve) => {
+    const started = performance.now();
+    const tick = () => {
+      if (canvas && canvas.clientWidth > 2 && canvas.clientHeight > 2) {
+        resolve();
+        return;
+      }
+      if (performance.now() - started > timeoutMs) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
+function applyParentOptics(data) {
+  const inn = data.intrinsics || {};
+  const dist = data.distortion || {};
+  const fix = data.fixIntrinsics || {};
+
+  const setVal = (name, value) => {
+    if (value === undefined || value === null) {
+      return;
+    }
+    const el = document.getElementById(`id_${name}`);
+    if (el) {
+      el.value = value;
+    }
+  };
+
+  setVal("intrinsics_fx", inn.fx);
+  setVal("intrinsics_fy", inn.fy);
+  setVal("intrinsics_cx", inn.cx);
+  setVal("intrinsics_cy", inn.cy);
+  setVal("distortion_k1", dist.k1);
+  setVal("distortion_k2", dist.k2);
+  setVal("distortion_p1", dist.p1);
+  setVal("distortion_p2", dist.p2);
+  setVal("distortion_k3", dist.k3);
+
+  ["fx", "fy"].forEach((key) => {
+    const locked = Boolean(fix[key]);
+    const box = document.getElementById(`enabled_intrinsics_${key}`);
+    const input = document.getElementById(`id_intrinsics_${key}`);
+    if (box) {
+      box.checked = locked;
+    }
+    if (input) {
+      input.disabled = locked;
+    }
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (!document.body.classList.contains("ss-embed")) {
+    return;
+  }
+  const root = document.getElementById("calibration_form");
+  if (!root) {
+    return;
+  }
+
+  // Match CamCalibrateForm defaults: lock checkboxes constrain fx/fy.
+  ["fx", "fy"].forEach((key) => {
+    const box = document.getElementById(`enabled_intrinsics_${key}`);
+    const input = document.getElementById(`id_intrinsics_${key}`);
+    if (box && input) {
+      input.disabled = box.checked;
+      box.addEventListener("change", () => {
+        input.disabled = box.checked;
+        notifyParentCalibrationFields();
+      });
+    }
+  });
+
+  root.addEventListener("input", (ev) => {
+    const t = ev.target;
+    if (
+      t &&
+      t.name &&
+      (t.name.startsWith("intrinsics_") || t.name.startsWith("distortion_"))
+    ) {
+      notifyParentCalibrationFields();
+    }
+  });
+});
+
 export class ConvergedCameraCalibration {
   constructor() {
     this.camCanvas = null;
@@ -53,6 +262,8 @@ export class ConvergedCameraCalibration {
     });
 
     this.textureLoader = new THREE.TextureLoader();
+    this.expandedPane = null;
+    this.#initializePaneExpandControls();
   }
 
   /**
@@ -85,11 +296,23 @@ export class ConvergedCameraCalibration {
     this.camCanvas = new CamCanvas(canvasElement, imageSrc);
     // FIXME: Find a better way to do these event listeners which require interacting with both
     // the camCanvas and viewport
-    this.camCanvas.canvas.addEventListener("mouseup", (event) => {
-      this.calculateCalibrationIntrinsics();
+    this.camCanvas.canvas.addEventListener("mouseup", () => {
+      if (this.camCanvas.consumePointEdit()) {
+        this.calculateCalibrationIntrinsics();
+        notifyParentPointsChanged();
+      }
     });
-    this.camCanvas.canvas.addEventListener("dblclick", (event) => {
-      this.calculateCalibrationIntrinsics();
+    this.camCanvas.canvas.addEventListener("dblclick", () => {
+      if (this.camCanvas.consumePointEdit()) {
+        this.calculateCalibrationIntrinsics();
+        notifyParentPointsChanged();
+      }
+    });
+    this.camCanvas.canvas.addEventListener("contextmenu", () => {
+      if (this.camCanvas.consumePointEdit()) {
+        this.calculateCalibrationIntrinsics();
+        notifyParentPointsChanged();
+      }
     });
     this.camCanvas.canvas.addEventListener("mousemove", (event) => {
       if (this.camCanvas.isDragging) {
@@ -115,18 +338,15 @@ export class ConvergedCameraCalibration {
     );
     this.viewport = viewport;
 
-    viewport
+    this.viewportReady = viewport
       .loadMap()
+      .then(() => viewport.initializeScene())
+      .then(() => waitForCanvasLayout(viewport.renderer.domElement))
       .then(() => {
-        viewport.initializeScene();
-
+        viewport.fitFloorInView();
         function animate() {
           if (resizeRendererToDisplaySize(viewport.renderer)) {
-            const canvas = viewport.renderer.domElement;
-            viewport.perspectiveCamera.aspect =
-              canvas.clientWidth / canvas.clientHeight;
-            viewport.perspectiveCamera.updateProjectionMatrix();
-            viewport.updateCalibrationPointScale();
+            viewport.handleViewportResize();
           }
 
           viewport.orbitControls.update();
@@ -135,17 +355,27 @@ export class ConvergedCameraCalibration {
         }
 
         animate();
-      })
-      .then(() => {
         viewport.initializeEventListeners();
 
-        viewport.renderer.domElement.addEventListener("mouseup", (event) => {
-          this.calculateCalibrationIntrinsics();
+        viewport.renderer.domElement.addEventListener("mouseup", () => {
+          if (viewport.consumePointEdit()) {
+            this.calculateCalibrationIntrinsics();
+            notifyParentPointsChanged();
+          }
         });
-        viewport.renderer.domElement.addEventListener("dblclick", (event) => {
-          this.calculateCalibrationIntrinsics();
+        viewport.renderer.domElement.addEventListener("dblclick", () => {
+          if (viewport.consumePointEdit()) {
+            this.calculateCalibrationIntrinsics();
+            notifyParentPointsChanged();
+          }
         });
-        viewport.renderer.domElement.addEventListener("mousemove", (event) => {
+        viewport.renderer.domElement.addEventListener("contextmenu", () => {
+          if (viewport.consumePointEdit()) {
+            this.calculateCalibrationIntrinsics();
+            notifyParentPointsChanged();
+          }
+        });
+        viewport.renderer.domElement.addEventListener("mousemove", () => {
           if (viewport.isDragging) {
             this.projectionEnabled = false;
           }
@@ -304,6 +534,7 @@ export class ConvergedCameraCalibration {
                 this.value = response["dist"][K3];
             }
           });
+          notifyParentCalibrationFields();
         },
         error: function (error) {
           // If invalid values are passed, print the error text
@@ -313,35 +544,77 @@ export class ConvergedCameraCalibration {
     }
   }
 
+  #placeSceneCalibrationPoint(x, y, z) {
+    let px = x;
+    let py = y;
+    let pz = z;
+    const floorW = this.viewport.floorWidth || 0;
+    const floorH = this.viewport.floorHeight || 0;
+    const scale = this.viewport.sceneScale || 100;
+    // Stored map points are meters. Legacy / mistaken pixel values sit far
+    // outside the floor and must be converted.
+    if (
+      floorW > 0 &&
+      floorH > 0 &&
+      (Math.abs(px) > floorW * 1.5 || Math.abs(py) > floorH * 1.5)
+    ) {
+      px /= scale;
+      py /= scale;
+      pz /= scale;
+    }
+    this.viewport.addCalibrationPoint(px, py, pz);
+  }
+
   addInitialCalibrationPoints(points, transformType) {
-    if (transformType !== "3d-2d point correspondence") {
+    const kind = String(transformType || "").trim();
+    if (kind && kind !== "3d-2d point correspondence") {
       return;
     }
-    if (points.length % 5 === 0) {
-      const splitPoint = (points.length / 5) * 2;
+    const values = points
+      .map((value) => parseFloat(value))
+      .filter((value) => Number.isFinite(value));
+    if (values.length % 5 === 0) {
+      const splitPoint = (values.length / 5) * 2;
       for (let i = 0; i < splitPoint; i += 2) {
-        const x = parseFloat(points[i]);
-        const y = parseFloat(points[i + 1]);
-        this.camCanvas.addCalibrationPoint(x, y);
+        this.camCanvas.addCalibrationPoint(values[i], values[i + 1]);
       }
-      for (let i = splitPoint; i < points.length; i += 3) {
-        const x = parseFloat(points[i]);
-        const y = parseFloat(points[i + 1]);
-        const z = parseFloat(points[i + 2]);
-        this.viewport.addCalibrationPoint(x, y, z);
+      for (let i = splitPoint; i < values.length; i += 3) {
+        this.#placeSceneCalibrationPoint(
+          values[i],
+          values[i + 1],
+          values[i + 2],
+        );
       }
-    } else if (points.length % 2 === 0) {
-      const splitPoint = points.length / 2;
+    } else if (values.length % 2 === 0) {
+      const splitPoint = values.length / 2;
       for (let i = 0; i < splitPoint; i += 2) {
-        const x = parseFloat(points[i]);
-        const y = parseFloat(points[i + 1]);
-        this.camCanvas.addCalibrationPoint(x, y);
+        this.camCanvas.addCalibrationPoint(values[i], values[i + 1]);
       }
-      for (let i = splitPoint; i < points.length; i += 2) {
-        const x = parseFloat(points[i]);
-        const y = parseFloat(points[i + 1]);
-        this.viewport.addCalibrationPoint(x, y, 0);
+      for (let i = splitPoint; i < values.length; i += 2) {
+        this.#placeSceneCalibrationPoint(values[i], values[i + 1], 0);
       }
+    }
+    if (this.camCanvas) {
+      this.camCanvas.drawImage();
+    }
+    if (this.viewport) {
+      this.viewport.updateCalibrationPointScale();
+      this.viewport.fitFloorInView();
+    }
+    // Pose must re-solve once so the camera→map overlay appears without
+    // requiring the user to nudge a point after reload.
+    if (this.camCanvas && this.viewport) {
+      const camPoints = this.camCanvas.getCalibrationPoints();
+      const mapPoints = this.viewport.getCalibrationPoints();
+      if (this.isValidCalibration(camPoints, mapPoints)) {
+        this.camCanvas.calibrationUpdated = true;
+        this.viewport.calibrationUpdated = true;
+      } else {
+        this.camCanvas.calibrationUpdated = false;
+        this.viewport.calibrationUpdated = false;
+      }
+      this.camCanvas.pointEdited = false;
+      this.viewport.pointEdited = false;
     }
   }
 
@@ -359,12 +632,14 @@ export class ConvergedCameraCalibration {
         map_coord[2],
       );
     }
+    notifyParentPointsChanged();
   }
 
   clearCalibrationPoints() {
     this.camCanvas.clearCalibrationPoints();
     this.viewport.clearCalibrationPoints();
     this.projectionEnabled = false;
+    notifyParentPointsChanged();
   }
 
   setupResetPointsButton() {
@@ -382,21 +657,73 @@ export class ConvergedCameraCalibration {
   }
 
   setupOpacitySlider() {
-    const previousOpacity = localStorage.getItem("opacity");
-    if (previousOpacity !== null) {
-      $("#overlay_opacity").val(previousOpacity);
-      this.viewport.setProjectionOpacity(previousOpacity / 100);
-    } else {
-      $("#overlay_opacity").val(INITIAL_PROJECTION_OPACITY);
-      this.viewport.setProjectionOpacity(INITIAL_PROJECTION_OPACITY / 100);
+    const slider = document.getElementById("overlay_opacity");
+    if (!slider || !this.viewport) {
+      return;
     }
+    const stored = localStorage.getItem("opacity");
+    const initial =
+      stored !== null && Number.isFinite(Number(stored))
+        ? Number(stored)
+        : INITIAL_PROJECTION_OPACITY;
+    slider.value = String(initial);
+    this.viewport.setProjectionOpacity(initial / 100);
 
-    // Update perspective overlay transparency when slider is moved
-    $("#overlay_opacity").on("input", (event) => {
-      const opacityValue = $(event.currentTarget).val();
+    const apply = () => {
+      const opacityValue = Number(slider.value);
+      if (!Number.isFinite(opacityValue)) {
+        return;
+      }
       this.viewport.setProjectionOpacity(opacityValue / 100);
-      localStorage.setItem("opacity", opacityValue);
-    });
+      localStorage.setItem("opacity", String(opacityValue));
+    };
+    if (slider.dataset.ssOpacityBound === "1") {
+      return;
+    }
+    slider.dataset.ssOpacityBound = "1";
+    slider.addEventListener("input", apply);
+    slider.addEventListener("change", apply);
+  }
+
+  /**
+   * Collect current point-correspondence pose for React REST save (no form POST).
+   * @returns {{ transform_type: string, transforms: number[] } | null}
+   */
+  collectPose() {
+    if (!this.camCanvas || !this.viewport) {
+      return null;
+    }
+    const camPoints = this.camCanvas.getCalibrationPoints();
+    const scenePoints = this.viewport.getCalibrationPoints();
+    const camPointCount = Object.keys(camPoints).length;
+    const scenePointCount = Object.keys(scenePoints).length;
+    if (camPointCount === 0 && scenePointCount === 0) {
+      return { transform_type: null, transforms: null, empty: true };
+    }
+    if (!this.isValidCalibration(camPoints, scenePoints)) {
+      return {
+        transform_type: null,
+        transforms: null,
+        empty: false,
+        error:
+          "Saving the calibration requires an equal number of calibration points in each view (minimum 4).",
+        camPointCount,
+        scenePointCount,
+      };
+    }
+    const transforms = [
+      ...Object.values(camPoints).flatMap((point) => [point[0], point[1]]),
+      ...Object.values(scenePoints).flatMap((point) => [
+        point[0],
+        point[1],
+        point[2],
+      ]),
+    ];
+    return {
+      transform_type: "3d-2d point correspondence",
+      transforms,
+      empty: false,
+    };
   }
 
   setupSaveCameraButton() {
@@ -661,5 +988,96 @@ export class ConvergedCameraCalibration {
     } else {
       this.projectImage(image, cameraMatrix);
     }
+  }
+
+  #initializePaneExpandControls() {
+    const backdrop = document.getElementById("cal-pane-backdrop");
+    const buttons = document.querySelectorAll("[data-cal-expand]");
+    if (!backdrop || !buttons.length) {
+      return;
+    }
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        const pane = button.closest(".cal-pane");
+        if (!pane) {
+          return;
+        }
+        if (pane.classList.contains("is-expanded")) {
+          this.collapseCalibrationPane();
+        } else {
+          this.expandCalibrationPane(pane);
+        }
+      });
+    });
+
+    backdrop.addEventListener("click", () => {
+      this.collapseCalibrationPane();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && this.expandedPane) {
+        this.collapseCalibrationPane();
+      }
+    });
+  }
+
+  #setExpandButtonState(pane, expanded) {
+    const button = pane.querySelector("[data-cal-expand]");
+    if (!button) {
+      return;
+    }
+    const icon = button.querySelector("i");
+    const label = button.querySelector(".sr-only");
+    const title = pane.getAttribute("aria-label") || "view";
+    button.setAttribute("aria-expanded", expanded ? "true" : "false");
+    button.title = expanded ? `Collapse ${title}` : `Expand ${title}`;
+    if (icon) {
+      icon.className = expanded ? "bi bi-fullscreen-exit" : "bi bi-fullscreen";
+    }
+    if (label) {
+      label.textContent = expanded ? `Collapse ${title}` : `Expand ${title}`;
+    }
+  }
+
+  expandCalibrationPane(pane) {
+    if (this.expandedPane && this.expandedPane !== pane) {
+      this.collapseCalibrationPane();
+    }
+
+    const backdrop = document.getElementById("cal-pane-backdrop");
+    pane.classList.add("is-expanded");
+    this.expandedPane = pane;
+    this.#setExpandButtonState(pane, true);
+    if (backdrop) {
+      backdrop.hidden = false;
+    }
+    document.body.classList.add("cal-pane-expanded");
+
+    // Allow layout to settle before canvas resize observers run
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+  }
+
+  collapseCalibrationPane() {
+    if (!this.expandedPane) {
+      return;
+    }
+
+    const pane = this.expandedPane;
+    const backdrop = document.getElementById("cal-pane-backdrop");
+    pane.classList.remove("is-expanded");
+    this.#setExpandButtonState(pane, false);
+    this.expandedPane = null;
+    if (backdrop) {
+      backdrop.hidden = true;
+    }
+    document.body.classList.remove("cal-pane-expanded");
+
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
   }
 }

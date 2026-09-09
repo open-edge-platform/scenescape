@@ -109,9 +109,9 @@ docker compose --profile controller down
 docker compose --profile controller up
 ```
 
-7. Navigate to the camera page and click **Auto Calibrate**.
+7. Open the camera calibrate workspace (Cameras tab → **Edit**, or `?ss=calibrate-cam`) and click **Auto Calibrate**.
 8. Adjust opacity slider to verify alignment.
-9. Click **Save Camera** to finalize pose.
+9. Click **Save** to finalize pose.
 
 ![Auto Calibrate Camera](../../_assets/ui/auto-calibrate.png)
 

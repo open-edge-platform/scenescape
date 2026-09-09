@@ -21,7 +21,29 @@ include ../common.mk
 
 default: build-image
 
-build-image: jslibraries jsm-examples remove-symlink Dockerfile
+.PHONY: ui-install ui-build
+ui-install:
+	cd ui && npm ci
+
+ui-build:
+ifndef SKIP_UI
+	cd ui && npm ci && npm run build
+	# Built islands are checked into the tree; format them so prettier-check / REUSE stay green.
+	@$(MAKE) -C .. prettier-dependency
+	@npx prettier --write src/manager/static/ui \
+		--ignore-path ../.gitignore \
+		--ignore-path ../.github/resources/.prettierignore \
+		--config ../.github/resources/.prettierrc.json
+	# Second pass: prettier can leave one minified chunk unstable after the bulk write.
+	@npx prettier --write src/manager/static/ui \
+		--ignore-path ../.gitignore \
+		--ignore-path ../.github/resources/.prettierignore \
+		--config ../.github/resources/.prettierrc.json
+else
+	@echo "SKIP_UI=1 — skipping manager UI build"
+endif
+
+build-image: ui-build jslibraries jsm-examples remove-symlink Dockerfile
 
 .PHONY: test-build
 test-build: test/geckodriver.tar.gz

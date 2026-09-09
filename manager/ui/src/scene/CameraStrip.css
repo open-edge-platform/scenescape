@@ -1,0 +1,208 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-camera-strip .camera-card {
+  position: relative;
+  border: 1px solid var(--ss-card-border);
+  box-shadow: none;
+  background: var(--ss-card-bg);
+  animation: ss-camera-card-in var(--ss-motion-base, 180ms)
+    var(--ss-motion-ease, ease) both;
+}
+
+@keyframes ss-camera-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ss-camera-strip-controls {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  margin-left: 0.35rem;
+  border: 1px solid var(--ss-input-border);
+  border-radius: var(--ss-radius);
+  overflow: hidden;
+  background: var(--ss-card-bg);
+  animation: ss-camera-card-in var(--ss-motion-fast, 120ms) ease both;
+}
+
+.ss-camera-strip-fit {
+  appearance: none;
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  padding: 0.2rem 0.45rem;
+  border: 0;
+  border-right: 1px solid var(--ss-input-border);
+  background: transparent;
+  color: var(--ss-text-muted);
+  font-family: var(--ss-font-sans);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+}
+
+.ss-camera-strip-fit:last-child {
+  border-right: 0;
+}
+
+.ss-camera-strip-fit.is-active {
+  color: var(--ss-on-brand);
+  background: var(--ss-brand);
+}
+
+/* Side layout: full-width equal toggle under the tab chrome */
+.ss-workspace--row .ss-tabs-chrome .ss-camera-strip-controls {
+  display: flex;
+  width: auto;
+  max-width: 100%;
+  margin: 0 0.65rem 0.55rem;
+  box-sizing: border-box;
+  align-self: stretch;
+}
+
+.ss-workspace--row .ss-camera-strip-fit {
+  padding: 0.35rem 0.5rem;
+}
+
+.ss-camera-strip .camera-card .card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  float: none;
+}
+
+.ss-camera-strip .camera-card .card-header .rate {
+  float: none;
+  margin-left: auto;
+  order: 3;
+}
+
+.ss-camera-strip .camera-card .card-header .rate.telemetry-hide {
+  display: none;
+}
+
+.ss-camera-strip-badge {
+  order: 2;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.ss-camera-strip-badge.is-online {
+  color: var(--ss-status-ok);
+  border-color: color-mix(in srgb, var(--ss-status-ok) 45%, transparent);
+  background: color-mix(in srgb, var(--ss-status-ok) 10%, var(--ss-elevated));
+}
+
+.ss-camera-strip-badge.is-offline {
+  color: var(--ss-status-bad);
+  border-color: color-mix(in srgb, var(--ss-status-bad) 45%, transparent);
+  background: color-mix(in srgb, var(--ss-status-bad) 8%, var(--ss-elevated));
+}
+
+/* Shared image frame so object-fit has a box in both orientations */
+.ss-workspace--stack .ss-camera-strip .camera-card .card-image,
+.ss-workspace--row .ss-camera-strip .camera-card .card-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ss-surface) 70%, var(--ss-elevated));
+}
+
+.ss-workspace--row .ss-camera-strip .camera-card .card-image {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  min-height: 7rem;
+  flex: 0 0 auto;
+}
+
+.ss-workspace--row .ss-camera-strip .camera-card .card-image a.snapshot-image,
+.ss-workspace--row .ss-camera-strip .camera-card .card-image a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Aspect-aware fit modes (Below + Side) — fill the frame, vary object-fit only */
+.ss-scene-detail--workspace
+  .ss-camera-strip[data-ss-camera-fit="contain"]
+  .camera-card
+  .card-image
+  img,
+.ss-scene-detail--workspace
+  .ss-camera-strip[data-ss-camera-fit="contain"]
+  .camera-card
+  .snapshot-image
+  img {
+  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+}
+
+.ss-scene-detail--workspace
+  .ss-camera-strip[data-ss-camera-fit="cover"]
+  .camera-card
+  .card-image
+  img,
+.ss-scene-detail--workspace
+  .ss-camera-strip[data-ss-camera-fit="cover"]
+  .camera-card
+  .snapshot-image
+  img {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+}
+
+/* Below strip: preview fills remaining card height after header */
+.ss-workspace--stack .ss-camera-strip .camera-card .card-image {
+  flex: 1 1 0;
+  min-height: 0;
+  align-self: stretch;
+  width: 100%;
+}
+
+.ss-workspace--stack .ss-camera-strip .camera-card .card-image a.snapshot-image,
+.ss-workspace--stack .ss-camera-strip .camera-card .card-image a {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ss-workspace--stack .ss-camera-strip .camera-card {
+  scroll-snap-align: start;
+}
+
+.ss-workspace--stack
+  .ss-legacy-panels-slot
+  .tab-pane#cameras.active.show
+  .card-body,
+.ss-workspace--stack .ss-camera-strip .card-body {
+  scroll-snap-type: x mandatory;
+}

@@ -1,0 +1,73 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* Shared action/table chrome available to Django list pages via manager-ui.css */
+@import "../components/TableActions.css";
+@import "../components/Card.css";
+@import "../components/StatusChip.css";
+@import "../components/FormSection.css";
+
+/* Mirrored from manager style.css :root — see .github/plans/manager-ui.md */
+:root,
+html[data-theme="light"] {
+  color-scheme: light;
+  --ss-brand: #0054ae;
+  --ss-brand-hover: #004a9d;
+  --ss-brand-soft: #0099ec;
+  --ss-nav-bg: #001e50;
+  --ss-nav-fg: #ffffff;
+  --ss-ink: #001e50;
+  --ss-surface: #f4f5f5;
+  --ss-card-bg: #ffffff;
+  --ss-card-border: #e9e9e9;
+  --ss-text: #000000;
+  --ss-text-muted: #808080;
+  --ss-status-ok: #008a00;
+  --ss-status-bad: #da2e56;
+  --ss-input-border: #aeaeae;
+  --ss-elevated: #ffffff;
+  --ss-on-brand: #ffffff;
+  --ss-font-sans:
+    "Open Sans", "Montserrat", system-ui, -apple-system, sans-serif;
+  --ss-font-heading:
+    "Montserrat", "Open Sans", system-ui, -apple-system, sans-serif;
+  --ss-radius: 0.625rem;
+  --ss-form-card-max: 48rem;
+  --ss-form-card-max-wide: 64rem;
+  --ss-field-max: 28rem;
+
+  /* Workspace type ramp (denser than marketing/home) */
+  --ss-type-workspace-title: 1.2rem;
+  --ss-type-workspace-section: 0.875rem;
+  --ss-type-workspace-body: 0.8125rem;
+  --ss-type-workspace-meta: 0.6875rem;
+  --ss-type-workspace-micro: 0.625rem;
+
+  /* Intentional motion (panel / strip / map focus) */
+  --ss-motion-fast: 120ms;
+  --ss-motion-base: 180ms;
+  --ss-motion-slow: 240ms;
+  --ss-motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --ss-brand: #4da3ff;
+  --ss-brand-hover: #7abbff;
+  --ss-brand-soft: #0099ec;
+  --ss-nav-bg: #0c0d0f;
+  --ss-nav-fg: #f2f4f7;
+  --ss-ink: #f4f7fb;
+  --ss-surface: #0f1419;
+  --ss-card-bg: #1a222c;
+  --ss-card-border: #2c3642;
+  --ss-text: #f4f7fb;
+  --ss-text-muted: #c5cdd6;
+  --ss-status-ok: #3dd68c;
+  --ss-status-bad: #f0718a;
+  --ss-input-border: #4a5563;
+  --ss-elevated: #232d3a;
+  --ss-on-brand: #ffffff;
+}

@@ -92,6 +92,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       # atag-qcam1
       log.info("Manage atag-qcam1.")
       self.navigateDirectlyToPage(cam_url_1)
+      common.enter_calibrate_workspace(self.browser)
 
       log.info("Verify camera pose from 3D calibration (9 values: translation, rotation, scale).")
       has_points = self.verify_calibration_points_exist(min_values=9)
@@ -105,12 +106,14 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
 
       log.info("Verify calibration points after 2D auto-calibration of atag-qcam1.")
       self.navigateDirectlyToPage(cam_url_1) # Page goes back to scene after save
+      common.enter_calibrate_workspace(self.browser)
       has_points = self.verify_calibration_points_exist()
       assert has_points, "No calibration points found after 2D auto-calibration"
 
       # atag-qcam2
       log.info("Manage atag-qcam2.")
       self.navigateDirectlyToPage(cam_url_2)
+      common.enter_calibrate_workspace(self.browser)
 
       log.info("Verify camera pose from 3D calibration (9 values: translation, rotation, scale).")
       has_points = self.verify_calibration_points_exist(min_values=9)
@@ -124,6 +127,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
 
       log.info("Verify calibration points after 2D auto-calibration of atag-qcam2.")
       self.navigateDirectlyToPage(cam_url_2) # Page goes back to scene after save
+      common.enter_calibrate_workspace(self.browser)
       has_points = self.verify_calibration_points_exist()
       assert has_points, "No calibration points found after 2D auto-calibration"
 

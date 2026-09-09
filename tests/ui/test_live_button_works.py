@@ -18,6 +18,10 @@ SCENESCAPE_SPEC = FuncTestSpec(
 TEST_WAIT_TIME = 5
 TEST_NAME = "NEX-T10434"
 WORKSPACE = os.path.join(common.TEST_MEDIA_PATH, TEST_NAME)
+# compose-web_default loads sample_data/exampledb (Retail / Queuing), not testdb Demo.
+SCENE_NAME = "Retail"
+# Live View updates card snapshot imgs (data-ss-card-sensor / card-preview-*).
+CAMERA_PREVIEW_ID = "card-preview-camera1"
 
 def test_live_button(params, record_xml_attribute=None):
   """! Test for functionality of the 'live-view' button for cameras.
@@ -45,14 +49,15 @@ def test_live_button(params, record_xml_attribute=None):
       os.remove(os.path.join(WORKSPACE, files))
 
   exit_code = 1
+  browser = None
   try:
     print("Executing: " + TEST_NAME)
     print("Test that the 'Live View' button in a scene works.")
     browser = Browser()
     assert common.check_page_login(browser, params)
-    assert common.check_db_status(browser)
+    assert common.check_db_status(browser, SCENE_NAME)
 
-    camera1_box = browser.find_element(By.ID, 'camera1')
+    camera1_box = browser.find_element(By.ID, CAMERA_PREVIEW_ID)
     live_toggle = browser.find_element(By.ID, "live-view")
     if live_toggle.is_selected():
       raise Exception("Live View is initially on. Expected to be off")
@@ -91,7 +96,8 @@ def test_live_button(params, record_xml_attribute=None):
     os.remove( img3_path )
 
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
     tests_common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0

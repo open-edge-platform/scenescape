@@ -66,6 +66,21 @@ class MapInterface {
     return pixelsPerMeter;
   }
 
+  getCsrfToken() {
+    const input = document.querySelector("[name=csrfmiddlewaretoken]");
+    if (input && input.value) {
+      return input.value;
+    }
+    const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : "";
+  }
+
+  dispatchSnapshotResult(detail) {
+    window.dispatchEvent(
+      new CustomEvent("ss-geospatial-snapshot", { detail: detail || {} }),
+    );
+  }
+
   parseCoordinates(input) {
     const coordMatch = input.match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);
     if (coordMatch) {
