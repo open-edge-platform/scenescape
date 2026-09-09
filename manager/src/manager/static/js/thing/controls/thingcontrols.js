@@ -99,10 +99,15 @@ export default class ThingControls {
   updateGeometry(data) {
     this.object3D.points = [];
     this.object3D.createGeometry(data);
-    let textObject = this.object3D.scene.getObjectByName(
+    // The text mesh is a child of the region, not the scene; remove() is a
+    // no-op on a non-direct child, so look it up and dispose it via the region.
+    const textObject = this.object3D.getObjectByName(
       "textObject_" + this.object3D.name,
     );
-    this.object3D.scene.remove(textObject);
+    if (textObject) {
+      this.object3D.remove(textObject);
+      textObject.geometry.dispose();
+    }
     if (this.object3D.points.length > 0) {
       let x = this.object3D.points[0].x;
       let y = this.object3D.points[1].y;
