@@ -22,6 +22,7 @@
   ```
 
 - **Build autocalibration**:
+
   ```bash
   make autocalibration
   ```

@@ -49,7 +49,7 @@ If you're new to these concepts, see:
 1. Click on `Sensors` at the bottom of the scene.
 2. You will see the created sensor. Then click on the `manage` button.
 3. In the Manage Sensor view, you can update attributes like Measurement area (Entire Scene, Circle or Custom region), Name, Sensor id, Scene, Singleton type, Color Range, etc. For more details on how to use the Color Range, refer to [Visualizing ROI and Sensor Areas](./visualize-regions.md).
-4. Cick on `Save Sensor `to persist the modified sensor.
+4. Cick on `Save Sensor`to persist the modified sensor.
 
 In the 3D scene view, expand `Sensors Settings` and toggle `show` for the
 sensor. The visibility setting is saved immediately and restored after a page
@@ -136,6 +136,7 @@ validation rules, which only live in server-side logic:
 - If `sensor_id` is not supplied on create, it defaults to `name` with spaces replaced by
   underscores.
 - `color_ranges.sectors[].color` must be one of `green`, `yellow`, or `red`:
+
   ```json
   {
     "color_ranges": {

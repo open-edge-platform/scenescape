@@ -119,7 +119,7 @@ the `scene` service so the hostname resolves.
 The Scene Controller emits the following OpenTelemetry instruments under the
 `scene-controller` service name:
 
-**MQTT / tracking metrics**
+**MQTT / tracking metrics**:
 
 - `scenescape_controller_mqtt_messages` (counter) — MQTT messages received
   and processed.
@@ -240,7 +240,7 @@ The Tracker Service publishes OpenTelemetry data under the `tracker` meter
 scope with the following instruments (see
 [`tracker/inc/metrics.hpp`](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/tracker/inc/metrics.hpp)):
 
-**Core metrics**
+**Core metrics**:
 
 - `tracker.mqtt.latency` (histogram, ms) — end-to-end processing latency,
   attributed by `scene` and `category`.
@@ -261,7 +261,7 @@ pipeline:
 - `tracker.stage.track_duration`
 - `tracker.stage.publish_duration`
 
-**Time-chunking counters**
+**Time-chunking counters**:
 
 - `tracker.time_chunking.duplicated_cameras`
 - `tracker.time_chunking.unique_cameras`
