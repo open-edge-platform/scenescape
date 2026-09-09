@@ -16,6 +16,32 @@ assets still land in `manager/backend/manager/static/ui/` and load via
 Do not reopen Snap / calibrate iframe work. Do not stretch the scene map
 (`slice` / cover).
 
+## Layout shells (rule of thumb)
+
+Manager uses **two intentional page shells**. Do not force one width on
+both. Navbar / logout stay edge-to-edge in either shell; continuity comes
+from shared chrome (title scale, breadcrumbs, tokens, actions), not from
+matching content max-width.
+
+| Shell | Pages | Layout | Why |
+| --- | --- | --- | --- |
+| **Browse column** | Cameras, Sensors, Object Library, Models | Centered `--ss-form-card-max-wide` (64rem); same padding rhythm (`.ss-admin-list`, `.ss-models-dir`) | Tables / trees need a readable mid-page focus band |
+| **Workspace** | Scene detail (2D); future React 3D | Full-bleed shell (`max-width: 100%`); map + side panels use the width | Spatial canvas needs horizontal room |
+
+**Rule:** catalog / browse → browse column; spatial workspace → full shell.
+
+**Do not**
+
+- Clamp scene detail (or 3D) to 64rem.
+- Stretch browse tables full-bleed to “match” the map.
+- Half-measure (capped header + full-bleed map) — usually looks broken.
+
+**Optional later (not required):** left-align the browse column instead of
+centering if the center↔edge jump still feels sharp; still do not cap the
+workspace.
+
+Scenes Home stays a thumbnail gallery (neither shell’s width rule).
+
 ## Status
 
 | Area | State |
@@ -24,9 +50,10 @@ Do not reopen Snap / calibrate iframe work. Do not stretch the scene map
 | 2D React rewrite (Phases 0–5) | **Done** |
 | Model directory UI parity | **Done** |
 | Theme toggle + track-mark contrast | **Done** |
-| Empty space — admin lists (Phase 1) | **Not started** |
-| Empty space — scene detail chrome (Phase 2) | **Partial** |
-| Empty space — models/list cap consistency (Phase 3) | **Optional** |
+| Layout shells (browse vs workspace) | **Done** (codified; shipped) |
+| Empty space — admin lists (Phase 1) | **Done** (browse column) |
+| Empty space — scene detail chrome (Phase 2) | **Done** (workspace; `--ss-surface` stage) |
+| Empty space — models/list consistency (Phase 3) | **Done** (shared browse column) |
 | 3D scene viewport (React) | **Not started** (legacy Three.js; chrome polish shipped) |
 
 ## Done
@@ -64,7 +91,9 @@ React island on K8s `model/list/`:
   extract, overwrite confirm, delete confirm, drag-drop onto root/folder
 - API: `GET/POST/DELETE /api/v1/model-directory/` (JSON load only)
 - Legacy `model_list.js` and `model/includes/model_directory.html` removed
-- Cap already `max-width: 64rem` (`.ss-models-dir`)
+- Cap already `max-width: var(--ss-form-card-max-wide)` / 64rem centered
+  (`.ss-models-dir`); Cameras / Sensors / Object Library use the same
+  focus column (`.ss-admin-list`).
 
 Optional later: K8s-only BAT for browse + upload.
 
@@ -72,7 +101,7 @@ Key paths: `manager/frontend/src/models/`, `models-directory-main.tsx`,
 `model/model_list.html`, `model_directory_view.py`, `ModelListView` in
 `views.py`.
 
-### Theme, docs nav, track marks
+### Theme, docs, track marks, layout shells
 
 - Light / dark theme toggle in the navbar (`#ss-theme-toggle`,
   `localStorage` key `ss-theme`, `html[data-theme]`). Tokens live in
@@ -85,6 +114,12 @@ Key paths: `manager/frontend/src/models/`, `models-directory-main.tsx`,
   (Object Library `mark_color` alternating with the track UUID color) so
   marks stay readable on light and dark maps. AprilTags stay circle
   cores. Object Library sheet exposes **Mark color**.
+- **Browse column** (Cameras, Sensors, Object Library, Models): centered
+  64rem (`--ss-form-card-max-wide`), matching padding, quieter titles
+  (`--ss-type-workspace-title`), denser empty states; Actions hug chips.
+- **Workspace** (scene detail): full-bleed; `.scene-map-stage` fills with
+  `--ss-surface` (no transparent hole). Do not unify width with browse.
+- See [Layout shells](#layout-shells-rule-of-thumb).
 
 ### 3D chrome (still legacy viewport)
 
@@ -97,95 +132,11 @@ the 2D React surfaces:
 
 ## Remaining
 
-Work left is chrome density and the 3D epic. The 2D rewrite, model
-directory, theme/docs/track marks, and source layout are closed.
+Work left is the 3D epic. Empty-space / layout-shell work is closed (see
+[Layout shells](#layout-shells-rule-of-thumb) and Done). When porting 3D,
+keep it on the **workspace** shell — full-bleed, not the browse column.
 
-### 1. Empty space on lists and scene detail
-
-Two layout mistakes produce the same complaint (“large empty spaces”) on a
-wide monitor. Do not fold into the 3D epic.
-
-#### Phase 1 — admin lists — **not started**
-
-Cameras, Sensors, Object Library still full-bleed in `container-fluid`.
-Columns share leftover width equally (gaps *between* Name / ID / Scene).
-Title is landing-page scale (`1.75rem`). Empty states sit in a hollow
-full-width card. Scenes Home is a thumbnail gallery and should stay that
-way.
-
-Still to do:
-
-- Cap `.ss-admin-list` / `.ss-admin-table-card` at **56–64rem**,
-  left-aligned (same idea as `ss-form-card--wide` / models at `64rem`).
-- Content-sized columns (`table-layout: auto`); leftover space **after**
-  the last column. Actions column hugs chips.
-- Quieter title (`~1.2rem`). Title-echo breadcrumb strip already exists in
-  `PageHeader` (`wayfindingCrumbs`); Django still passes echo crumbs.
-- Compact empty state inside a content-sized card.
-- Spot-check Cameras, Sensors, Object Library at ~1920px and ~1280px.
-
-Likely files: `manager/frontend/src/admin/AdminListApp.tsx`, `AdminListApp.css`,
-`PageHeader.tsx` / `.css`, `manager/backend/manager/views.py` list bootstraps.
-
-Current evidence of open work (still true): `.ss-admin-list` /
-`.ss-admin-table-card` are `width: 100%` with no `max-width`; no
-`table-layout` on `.ss-admin-table`; `.ss-page-title` is `1.75rem`;
-`.ss-table-empty` uses large padding inside the full-width card.
-
-#### Phase 2 — scene detail chrome — **partial**
-
-Letterboxing is correct (`preserveAspectRatio="xMidYMid meet"` on the
-React map; Snap overlay syncs PAR). Auto / Below / Side and map focus
-remain. Compact empty tabs (`ss-empty-state`, workspace padding
-`0.5rem 0.25rem` — not `--ss-panel-size`). Camera strip: left-aligned
-cards, `object-fit: contain` default, letterbox fill
-`color-mix(… --ss-surface …)` on preview frames. Adjacent React map
-surfaces already use `--ss-surface` (`SceneMapPane.css`,
-`reactSceneMap.css`).
-
-Still open:
-
-- Named `.scene-map-stage` in `style.css` is still `background:
-  transparent` — unused stage fill can still read as a hole vs the page
-  surface. Align to `--ss-surface` without changing `meet` or viewBox
-  sync (`#svgout` + `#svgout-snap`).
-- Re-check Below strip gutter / card alignment if anything still feels
-  hollow after the stage fill fix.
-
-Likely files: `manager/backend/manager/static/css/style.css`
-(`.scene-map-stage`), `SceneDetailPage.css`, `reactSceneMap.css`,
-`SceneMapPane.css`, `CameraStrip.css`, `ControlTabEntities.css`.
-
-#### Phase 3 — optional
-
-- Models directory already at `64rem`. After Phase 1, confirm list cap and
-  models cap look consistent (both ~56–64rem); adjust only if needed.
-- Scenes Home unchanged.
-
-#### Non-goals
-
-- Do not turn Cameras / Sensors / Object Library into card galleries.
-- Do not stretch the map or grow one camera card to fill the Below strip.
-- Do not switch camera previews to `cover` as the default.
-- Do not add a second density control.
-- Do not change Models directory into a table.
-- Update user-facing how-tos when chrome labels, open paths, or nav
-  targets change (see `docs/user-guide/how-to-guides/`).
-
-#### Verify (when implementing)
-
-- `make -C manager ui-build`
-- Lists: table does not stretch across a wide viewport; columns are not
-  padded mid-row.
-- Scene detail: map letterboxes without a contrasting hole; marks stay on
-  the image after window and splitter resize. Show Trails / Visualize ROIs
-  unchanged.
-- Existing UI BAT if those suites run in the implementing PR.
-
-Out of scope here: calibrate workspace size, geospatial picker, theme
-tokens, virtualized tables / search / sort / filter.
-
-### 2. 3D scene viewport (epic)
+### 1. 3D scene viewport (epic)
 
 **Not started.** Largest remaining Manager UI epic. Legacy Three.js
 surface remains:
@@ -214,11 +165,13 @@ Suggested slices:
 Gate: document any new 3D contract ids in this file before deleting
 legacy globals; UI BAT green for scene 3D view when that suite exists.
 
-### 3. Optional follow-ups (not blocking)
+### 2. Optional follow-ups (not blocking)
 
 - K8s-only BAT for model-directory browse + upload.
 - How-to updates only when chrome labels, open paths, or nav targets
   change (see `docs/user-guide/how-to-guides/`).
+- Left-align browse column (still 64rem) if centered↔workspace jump still
+  feels sharp after living with it.
 
 ## Tokens
 

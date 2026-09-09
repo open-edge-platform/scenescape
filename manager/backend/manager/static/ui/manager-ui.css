@@ -205,10 +205,18 @@ html[data-theme="dark"] {
 }
 .ss-admin-list {
   width: 100%;
+  max-width: var(--ss-form-card-max-wide, 64rem);
+  margin: 0 auto;
   min-width: 0;
+  padding: 1rem 1.25rem 2rem;
+  box-sizing: border-box;
 }
 .ss-admin-list .ss-page-header {
   margin-bottom: 1rem;
+}
+.ss-admin-list .ss-page-title {
+  font-size: var(--ss-type-workspace-title, 1.2rem);
+  letter-spacing: -0.01em;
 }
 .ss-admin-table-card {
   width: 100%;
@@ -218,7 +226,10 @@ html[data-theme="dark"] {
   border-radius: var(--ss-radius);
   box-shadow: 0 1px 2px #001e500f;
 }
-.ss-admin-table {
+.ss-admin-table,
+.table.ss-admin-table {
+  table-layout: auto;
+  width: 100%;
   margin: 0;
 }
 .ss-admin-table thead th {
@@ -235,10 +246,16 @@ html[data-theme="dark"] {
 .ss-admin-table tbody tr:hover {
   background: color-mix(in srgb, var(--ss-brand) 4%, var(--ss-elevated));
 }
+.ss-admin-table th:last-child,
+.ss-admin-table td:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
 .ss-table-empty {
   margin: 0;
-  padding: 1.5rem 1.25rem;
+  padding: 0.75rem 1rem;
   color: var(--ss-text-muted);
+  font-size: 0.875rem;
 }
 .ss-toast {
   position: fixed;
@@ -3050,9 +3067,14 @@ body.ss-scene-workspace .ss-scene-detail--workspace {
   padding: 0.85rem 1rem;
 }
 .ss-models-dir {
-  max-width: 64rem;
+  max-width: var(--ss-form-card-max-wide, 64rem);
   margin: 0 auto;
   padding: 1rem 1.25rem 2rem;
+  box-sizing: border-box;
+}
+.ss-models-dir .ss-page-title {
+  font-size: var(--ss-type-workspace-title, 1.2rem);
+  letter-spacing: -0.01em;
 }
 .ss-models-dir-tree {
   margin-top: 1rem;

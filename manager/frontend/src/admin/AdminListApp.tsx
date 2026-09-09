@@ -65,7 +65,7 @@ export function AdminListApp({ bootstrap }: Props) {
             {bootstrap.emptyMessage || "Nothing to show."}
           </p>
         ) : (
-          <table className="table table-fluid ss-admin-table">
+          <table className="table ss-admin-table">
             <thead>
               <tr>
                 {bootstrap.columns.map((col) => (

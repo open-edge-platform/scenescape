@@ -29,7 +29,7 @@ function o({ bootstrap: s }) {
                 children: s.emptyMessage || "Nothing to show.",
               })
             : e.jsxs("table", {
-                className: "table table-fluid ss-admin-table",
+                className: "table ss-admin-table",
                 children: [
                   e.jsx("thead", {
                     children: e.jsxs("tr", {

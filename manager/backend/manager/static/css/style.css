@@ -1742,7 +1742,7 @@ polygon {
   width: auto;
   max-width: 100%;
   line-height: 0;
-  background: transparent;
+  background: var(--ss-surface);
 }
 
 .scene-map-stage #map:not(:has(img)) {

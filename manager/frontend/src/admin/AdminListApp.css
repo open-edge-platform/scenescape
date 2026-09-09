@@ -3,13 +3,27 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*
+ * Centered content column (same focus pattern as Models directory).
+ * Navbar stays edge-to-edge; list work sits in a readable mid-page band.
+ */
 .ss-admin-list {
   width: 100%;
+  max-width: var(--ss-form-card-max-wide, 64rem);
+  margin: 0 auto;
   min-width: 0;
+  padding: 1rem 1.25rem 2rem;
+  box-sizing: border-box;
 }
 
 .ss-admin-list .ss-page-header {
   margin-bottom: 1rem;
+}
+
+/* Match scene-detail / models workspace title density. */
+.ss-admin-list .ss-page-title {
+  font-size: var(--ss-type-workspace-title, 1.2rem);
+  letter-spacing: -0.01em;
 }
 
 .ss-admin-table-card {
@@ -21,7 +35,10 @@
   box-shadow: 0 1px 2px rgba(0, 30, 80, 0.06);
 }
 
-.ss-admin-table {
+.ss-admin-table,
+.table.ss-admin-table {
+  table-layout: auto;
+  width: 100%;
   margin: 0;
 }
 
@@ -41,8 +58,16 @@
   background: color-mix(in srgb, var(--ss-brand) 4%, var(--ss-elevated));
 }
 
+/* Hug action chips; avoid bloating the Actions column. */
+.ss-admin-table th:last-child,
+.ss-admin-table td:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
 .ss-table-empty {
   margin: 0;
-  padding: 1.5rem 1.25rem;
+  padding: 0.75rem 1rem;
   color: var(--ss-text-muted);
+  font-size: 0.875rem;
 }
