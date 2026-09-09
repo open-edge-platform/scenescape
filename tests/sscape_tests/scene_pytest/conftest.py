@@ -137,11 +137,11 @@ def scene_obj():
   Creates a FIXTURE Scene object.
   @return: FIXTURE Scene object.
   """
-  return Scene("test", "sample_data/HazardZoneSceneLarge.png")
+  return Scene("test", "tests/resources/maps/HazardZoneSceneLarge.png")
 
 @pytest.fixture(scope='module')
 def scene_obj_with_scale():
   """!
   Returns a scene object with scale value set.
   """
-  return Scene("test", "sample_data/HazardZoneSceneLarge.png", 1000)
+  return Scene("test", "tests/resources/maps/HazardZoneSceneLarge.png", 1000)
