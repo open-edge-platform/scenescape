@@ -13,7 +13,7 @@ This task is essential for developers who want to simplify calibration by using 
 Before You Begin, ensure the following:
 
 - **Device Requirements**: Use an iOS device with LiDAR (iPad Pro 2020+, iPhone 12 Pro+).
-- **Polycam Requirements**: Use LiDAR or ROOM mode in [Polycam](https://apps.apple.com/us/app/polycam-3d-scanner-lidar-360/id1532482376).
+- **Polycam Requirements**: Use LiDAR or ROOM mode in [Polycam](https://apps.apple.com/us/app/polycam-3d-scans-floor-plans/id1532482376).
 - **Developer Mode**: Enable Developer Mode in the app settings to expose raw data export.
 - **Scenescape Installation**: Installed and running on the host machine.
 
