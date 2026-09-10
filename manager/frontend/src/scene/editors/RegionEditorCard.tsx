@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
+import { OccupancyColorRange } from "../../components/OccupancyColorRange";
 import { copyTextToClipboard } from "./copyText";
 import type { RoiEntity } from "./types";
 
@@ -149,83 +150,26 @@ export function RegionEditorCard({
             ) : null}
 
             <div className="roi-visualization ss-editor-sectors">
-              <div className="ss-color-range">
-                <div className="ss-color-range__label">Occupancy thresholds</div>
-                <div className="ss-color-range__track" aria-hidden="true">
-                  <span className="ss-color-range__seg ss-color-range__seg--green" />
-                  <span className="ss-color-range__seg ss-color-range__seg--yellow" />
-                  <span className="ss-color-range__seg ss-color-range__seg--red" />
-                </div>
-                <div className="ss-color-range__inputs sector-config">
-                  <label className="ss-color-range__field">
-                    <span className="ss-color-range__swatch ss-color-range__swatch--green" />
-                    <span className="ss-color-range__caption">Green</span>
-                    <input
-                      type="number"
-                      className="form-control green_min"
-                      disabled={disabled}
-                      value={roi.greenMin}
-                      aria-label="Green threshold minimum"
-                      onChange={(e) =>
-                        onChange({
-                          ...roi,
-                          greenMin: Number(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </label>
-                  <label className="ss-color-range__field">
-                    <span className="ss-color-range__swatch ss-color-range__swatch--yellow" />
-                    <span className="ss-color-range__caption">Yellow</span>
-                    <input
-                      type="number"
-                      className="form-control yellow_min"
-                      disabled={disabled}
-                      value={roi.yellowMin}
-                      aria-label="Yellow threshold minimum"
-                      onChange={(e) =>
-                        onChange({
-                          ...roi,
-                          yellowMin: Number(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </label>
-                  <label className="ss-color-range__field">
-                    <span className="ss-color-range__swatch ss-color-range__swatch--red" />
-                    <span className="ss-color-range__caption">Red</span>
-                    <input
-                      type="number"
-                      className="form-control red_min"
-                      disabled={disabled}
-                      value={roi.redMin}
-                      aria-label="Red threshold minimum"
-                      onChange={(e) =>
-                        onChange({
-                          ...roi,
-                          redMin: Number(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </label>
-                  <label className="ss-color-range__field">
-                    <span className="ss-color-range__caption">Max</span>
-                    <input
-                      type="number"
-                      className="form-control range_max"
-                      disabled={disabled}
-                      value={roi.rangeMax}
-                      aria-label="Range maximum"
-                      onChange={(e) =>
-                        onChange({
-                          ...roi,
-                          rangeMax: Number(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </label>
-                </div>
-              </div>
+              <OccupancyColorRange
+                value={{
+                  greenMin: roi.greenMin,
+                  yellowMin: roi.yellowMin,
+                  redMin: roi.redMin,
+                  rangeMax: roi.rangeMax,
+                }}
+                disabled={disabled}
+                legacyInputClasses
+                idPrefix={`roi-occ-${roi.svgId}`}
+                onChange={(next) =>
+                  onChange({
+                    ...roi,
+                    greenMin: next.greenMin,
+                    yellowMin: next.yellowMin,
+                    redMin: next.redMin,
+                    rangeMax: next.rangeMax,
+                  })
+                }
+              />
             </div>
 
             <div

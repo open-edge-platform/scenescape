@@ -1,131 +1,131 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { r as n, j as e } from "./tokens-C2Ju3rc_.js";
+import { r as a, j as e } from "./tokens-C2Ju3rc_.js";
 import {
   a as ne,
   D as Be,
   b as ot,
   F as Q,
   S as de,
-  T as _,
+  T,
 } from "./rest-CiiNoWNe.js";
-import { B as Le } from "./Button-CDF7QSMd.js";
-import { u as Pe, r as lt, C as ct } from "./ConfirmDialog-DanZpjzY.js";
-function We(t = !0) {
-  const [a, s] = n.useState(!1),
-    l = n.useCallback(() => {
+import { B as Me } from "./Button-CDF7QSMd.js";
+import { u as Ee, r as lt, C as ct } from "./ConfirmDialog-DanZpjzY.js";
+function Ie(t = !0) {
+  const [n, s] = a.useState(!1),
+    l = a.useCallback(() => {
       t && s(!0);
     }, [t]),
-    u = n.useCallback(() => s(!1), []);
-  return { dirty: a, setDirty: s, markDirty: l, resetDirty: u };
+    c = a.useCallback(() => s(!1), []);
+  return { dirty: n, setDirty: s, markDirty: l, resetDirty: c };
 }
 function Et({
   open: t,
-  mode: a,
+  mode: n,
   sceneId: s,
   scenes: l = [],
-  sensorUid: u,
-  authToken: w,
+  sensorUid: c,
+  authToken: m,
   onClose: g,
   onSaved: f,
 }) {
-  const N = Pe(),
-    [C, x] = n.useState(""),
-    [O, m] = n.useState(""),
-    [M, v] = n.useState(s),
-    [h, y] = n.useState(!1),
-    [T, R] = n.useState(null),
-    [A, k] = n.useState(a === "create"),
-    { dirty: D, markDirty: z, resetDirty: Y } = We(A);
-  n.useEffect(() => {
+  const y = Ee(),
+    [N, b] = a.useState(""),
+    [D, p] = a.useState(""),
+    [L, x] = a.useState(s),
+    [w, v] = a.useState(!1),
+    [R, O] = a.useState(null),
+    [P, _] = a.useState(n === "create"),
+    { dirty: F, markDirty: $, resetDirty: z } = Ie(P);
+  a.useEffect(() => {
     if (!t) return;
-    if ((R(null), v(s), Y(), a === "create")) {
-      (x(""), m(""), k(!0));
+    if ((O(null), x(s), z(), n === "create")) {
+      (b(""), p(""), _(!0));
       return;
     }
-    if ((k(!1), !u)) return;
-    let j = !1;
+    if ((_(!1), !c)) return;
+    let k = !1;
     return (
-      y(!0),
+      v(!0),
       ne
-        .getCamera(w, u)
-        .then((E) => {
-          j ||
-            (x(String(E.sensor_id || E.uid || u)),
-            m(String(E.name || "")),
-            E.scene && v(String(E.scene)),
-            k(!0),
-            Y());
+        .getCamera(m, c)
+        .then((C) => {
+          k ||
+            (b(String(C.sensor_id || C.uid || c)),
+            p(String(C.name || "")),
+            C.scene && x(String(C.scene)),
+            _(!0),
+            z());
         })
-        .catch((E) => {
-          j || R(E.message || "Failed to load camera");
+        .catch((C) => {
+          k || O(C.message || "Failed to load camera");
         })
         .finally(() => {
-          j || y(!1);
+          k || v(!1);
         }),
       () => {
-        j = !0;
+        k = !0;
       }
     );
-  }, [t, a, u, w, s, Y]);
-  const F = async (j) => {
-    if ((j.preventDefault(), !M.trim())) {
-      R("Scene is required");
+  }, [t, n, c, m, s, z]);
+  const A = async (k) => {
+    if ((k.preventDefault(), !L.trim())) {
+      O("Scene is required");
       return;
     }
-    (y(!0), R(null));
+    (v(!0), O(null));
     try {
-      let E;
-      (a === "create"
-        ? ((E = await ne.createCamera(w, {
-            sensor_id: C.trim(),
-            name: O.trim(),
-            scene: M.trim(),
+      let C;
+      (n === "create"
+        ? ((C = await ne.createCamera(m, {
+            sensor_id: N.trim(),
+            name: D.trim(),
+            scene: L.trim(),
           })),
-          N.show("Camera created", "ok"))
-        : u &&
-          ((E = await ne.updateCamera(w, u, {
-            sensor_id: C.trim(),
-            name: O.trim(),
-            scene: M.trim(),
+          y.show("Camera created", "ok"))
+        : c &&
+          ((C = await ne.updateCamera(m, c, {
+            sensor_id: N.trim(),
+            name: D.trim(),
+            scene: L.trim(),
           })),
-          N.show("Camera updated", "ok")),
-        Y(),
-        f(E),
+          y.show("Camera updated", "ok")),
+        z(),
+        f(C),
         g());
-    } catch (E) {
-      R(E.message || "Save failed");
+    } catch (C) {
+      O(C.message || "Save failed");
     } finally {
-      y(!1);
+      v(!1);
     }
   };
   return e.jsx(Be, {
     open: t,
-    title: a === "create" ? "New camera" : "Edit camera",
+    title: n === "create" ? "New camera" : "Edit camera",
     onClose: g,
-    dirty: D,
-    actions: e.jsx(Le, {
+    dirty: F,
+    actions: e.jsx(Me, {
       variant: "primary",
-      disabled: h || !D,
+      disabled: w || !F,
       form: "ss-cam-sheet-form",
       type: "submit",
-      title: D ? "Save changes" : "No unsaved changes",
-      className: D ? "ss-btn--dirty" : void 0,
-      children: h
+      title: F ? "Save changes" : "No unsaved changes",
+      className: F ? "ss-btn--dirty" : void 0,
+      children: w
         ? "Saving…"
-        : a === "create"
+        : n === "create"
           ? "Add camera"
-          : D
+          : F
             ? "Save"
             : "Saved",
     }),
     children: e.jsxs(ot, {
       id: "ss-cam-sheet-form",
       className: "ss-drawer-form",
-      error: T,
-      hint: h && a === "edit" && !A ? "Loading camera…" : null,
-      busy: h,
-      onSubmit: F,
+      error: R,
+      hint: w && n === "edit" && !P ? "Loading camera…" : null,
+      busy: w,
+      onSubmit: A,
       children: [
         l.length > 0
           ? e.jsx(Q, {
@@ -135,16 +135,16 @@ function Et({
               children: e.jsxs(de, {
                 id: "ss-cam-scene",
                 label: "Scene",
-                value: M,
-                onChange: (j) => {
-                  (v(j.target.value), z());
+                value: L,
+                onChange: (k) => {
+                  (x(k.target.value), $());
                 },
                 required: !0,
-                disabled: h,
+                disabled: w,
                 children: [
                   e.jsx("option", { value: "", children: "Select scene…" }),
-                  l.map((j) =>
-                    e.jsx("option", { value: j.id, children: j.name }, j.id),
+                  l.map((k) =>
+                    e.jsx("option", { value: k.id, children: k.name }, k.id),
                   ),
                 ],
               }),
@@ -155,25 +155,25 @@ function Et({
           title: "Identity",
           description: "Must match the analytics pipeline camera id.",
           children: [
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-cam-sensor-id",
               label: "Camera ID",
-              value: C,
-              onChange: (j) => {
-                (x(j.target.value), z());
+              value: N,
+              onChange: (k) => {
+                (b(k.target.value), $());
               },
               required: !0,
-              disabled: h,
+              disabled: w,
             }),
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-cam-name",
               label: "Name",
-              value: O,
-              onChange: (j) => {
-                (m(j.target.value), z());
+              value: D,
+              onChange: (k) => {
+                (p(k.target.value), $());
               },
               required: !0,
-              disabled: h,
+              disabled: w,
             }),
             e.jsx("p", {
               className: "ss-drawer-hint",
@@ -192,109 +192,109 @@ const dt = [
 ];
 function Lt({
   open: t,
-  mode: a,
+  mode: n,
   sceneId: s,
   scenes: l = [],
-  sensorUid: u,
-  authToken: w,
+  sensorUid: c,
+  authToken: m,
   onClose: g,
   onSaved: f,
 }) {
-  const N = Pe(),
-    [C, x] = n.useState(""),
-    [O, m] = n.useState(""),
-    [M, v] = n.useState(s),
-    [h, y] = n.useState("environmental"),
-    [T, R] = n.useState(!1),
-    [A, k] = n.useState(null),
-    [D, z] = n.useState(a === "create"),
-    { dirty: Y, markDirty: F, resetDirty: j } = We(D);
-  n.useEffect(() => {
+  const y = Ee(),
+    [N, b] = a.useState(""),
+    [D, p] = a.useState(""),
+    [L, x] = a.useState(s),
+    [w, v] = a.useState("environmental"),
+    [R, O] = a.useState(!1),
+    [P, _] = a.useState(null),
+    [F, $] = a.useState(n === "create"),
+    { dirty: z, markDirty: A, resetDirty: k } = Ie(F);
+  a.useEffect(() => {
     if (!t) return;
-    if ((k(null), v(s), j(), a === "create")) {
-      (x(""), m(""), y("environmental"), z(!0));
+    if ((_(null), x(s), k(), n === "create")) {
+      (b(""), p(""), v("environmental"), $(!0));
       return;
     }
-    if ((z(!1), !u)) return;
+    if (($(!1), !c)) return;
     let o = !1;
     return (
-      R(!0),
+      O(!0),
       ne
-        .getSensor(w, u)
-        .then((d) => {
+        .getSensor(m, c)
+        .then((u) => {
           o ||
-            (x(String(d.sensor_id || d.uid || u)),
-            m(String(d.name || "")),
-            y(String(d.singleton_type || "environmental")),
-            d.scene && v(String(d.scene)),
-            z(!0),
-            j());
+            (b(String(u.sensor_id || u.uid || c)),
+            p(String(u.name || "")),
+            v(String(u.singleton_type || "environmental")),
+            u.scene && x(String(u.scene)),
+            $(!0),
+            k());
         })
-        .catch((d) => {
-          o || k(d.message || "Failed to load sensor");
+        .catch((u) => {
+          o || _(u.message || "Failed to load sensor");
         })
         .finally(() => {
-          o || R(!1);
+          o || O(!1);
         }),
       () => {
         o = !0;
       }
     );
-  }, [t, a, u, w, s, j]);
-  const E = async (o) => {
-    if ((o.preventDefault(), !M.trim())) {
-      k("Scene is required");
+  }, [t, n, c, m, s, k]);
+  const C = async (o) => {
+    if ((o.preventDefault(), !L.trim())) {
+      _("Scene is required");
       return;
     }
-    (R(!0), k(null));
-    const d = {
-      sensor_id: C.trim(),
-      name: O.trim(),
-      scene: M.trim(),
-      singleton_type: h,
+    (O(!0), _(null));
+    const u = {
+      sensor_id: N.trim(),
+      name: D.trim(),
+      scene: L.trim(),
+      singleton_type: w,
     };
     try {
-      let L;
-      (a === "create"
-        ? ((L = await ne.createSensor(w, d)), N.show("Sensor created", "ok"))
-        : u &&
-          ((L = await ne.updateSensor(w, u, d)),
-          N.show("Sensor updated", "ok")),
-        j(),
-        f(L),
+      let M;
+      (n === "create"
+        ? ((M = await ne.createSensor(m, u)), y.show("Sensor created", "ok"))
+        : c &&
+          ((M = await ne.updateSensor(m, c, u)),
+          y.show("Sensor updated", "ok")),
+        k(),
+        f(M),
         g());
-    } catch (L) {
-      k(L.message || "Save failed");
+    } catch (M) {
+      _(M.message || "Save failed");
     } finally {
-      R(!1);
+      O(!1);
     }
   };
   return e.jsx(Be, {
     open: t,
-    title: a === "create" ? "New sensor" : "Edit sensor",
+    title: n === "create" ? "New sensor" : "Edit sensor",
     onClose: g,
-    dirty: Y,
-    actions: e.jsx(Le, {
+    dirty: z,
+    actions: e.jsx(Me, {
       variant: "primary",
-      disabled: T || !Y,
+      disabled: R || !z,
       form: "ss-sensor-sheet-form",
       type: "submit",
-      title: Y ? "Save changes" : "No unsaved changes",
-      className: Y ? "ss-btn--dirty" : void 0,
-      children: T
+      title: z ? "Save changes" : "No unsaved changes",
+      className: z ? "ss-btn--dirty" : void 0,
+      children: R
         ? "Saving…"
-        : a === "create"
+        : n === "create"
           ? "Add sensor"
-          : Y
+          : z
             ? "Save"
             : "Saved",
     }),
     children: e.jsxs("form", {
       id: "ss-sensor-sheet-form",
       className: "ss-drawer-form",
-      onSubmit: E,
+      onSubmit: C,
       children: [
-        A ? e.jsx("p", { className: "ss-drawer-error", children: A }) : null,
+        P ? e.jsx("p", { className: "ss-drawer-error", children: P }) : null,
         l.length > 0
           ? e.jsx(Q, {
               id: "ss-sensor-placement",
@@ -303,12 +303,12 @@ function Lt({
               children: e.jsxs(de, {
                 id: "ss-sensor-scene",
                 label: "Scene",
-                value: M,
+                value: L,
                 onChange: (o) => {
-                  (v(o.target.value), F());
+                  (x(o.target.value), A());
                 },
                 required: !0,
-                disabled: T,
+                disabled: R,
                 children: [
                   e.jsx("option", { value: "", children: "Select scene…" }),
                   l.map((o) =>
@@ -323,34 +323,34 @@ function Lt({
           title: "Identity",
           description: "Must match the telemetry source id.",
           children: [
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-sensor-id",
               label: "Sensor ID",
-              value: C,
+              value: N,
               onChange: (o) => {
-                (x(o.target.value), F());
+                (b(o.target.value), A());
               },
               required: !0,
-              disabled: T,
+              disabled: R,
             }),
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-sensor-name",
               label: "Name",
-              value: O,
+              value: D,
               onChange: (o) => {
-                (m(o.target.value), F());
+                (p(o.target.value), A());
               },
               required: !0,
-              disabled: T,
+              disabled: R,
             }),
             e.jsx(de, {
               id: "ss-sensor-type",
               label: "Type",
-              value: h,
+              value: w,
               onChange: (o) => {
-                (y(o.target.value), F());
+                (v(o.target.value), A());
               },
-              disabled: T,
+              disabled: R,
               children: dt.map((o) =>
                 e.jsx("option", { value: o.value, children: o.label }, o.value),
               ),
@@ -361,67 +361,67 @@ function Lt({
     }),
   });
 }
-function qe({
+function We({
   open: t,
-  title: a,
+  title: n,
   children: s,
   actions: l,
-  layout: u = "form",
-  className: w,
+  layout: c = "form",
+  className: m,
   dirty: g = !1,
   leaveTitle: f = "Leave without saving?",
-  leaveBody: N = "You may have unsaved changes. Leave without saving?",
-  onClose: C,
+  leaveBody: y = "You may have unsaved changes. Leave without saving?",
+  onClose: N,
 }) {
-  const x = n.useId(),
-    [O, m] = n.useState(!1),
-    M = n.useRef(g);
-  M.current = g;
-  const v = n.useRef(C);
-  v.current = C;
-  const h = n.useCallback(() => {
-    if (M.current) {
-      m(!0);
+  const b = a.useId(),
+    [D, p] = a.useState(!1),
+    L = a.useRef(g);
+  L.current = g;
+  const x = a.useRef(N);
+  x.current = N;
+  const w = a.useCallback(() => {
+    if (L.current) {
+      p(!0);
       return;
     }
-    v.current();
+    x.current();
   }, []);
   if (
-    (n.useEffect(() => {
+    (a.useEffect(() => {
       if (!t) {
-        m(!1);
+        p(!1);
         return;
       }
-      const T = document.body.style.overflow;
+      const R = document.body.style.overflow;
       document.body.style.overflow = "hidden";
-      const R = (A) => {
-        A.key === "Escape" && h();
+      const O = (P) => {
+        P.key === "Escape" && w();
       };
       return (
-        window.addEventListener("keydown", R),
+        window.addEventListener("keydown", O),
         () => {
-          ((document.body.style.overflow = T),
-            window.removeEventListener("keydown", R));
+          ((document.body.style.overflow = R),
+            window.removeEventListener("keydown", O));
         }
       );
-    }, [t, h]),
+    }, [t, w]),
     !t)
   )
     return null;
-  const y =
-    u === "bleed"
+  const v =
+    c === "bleed"
       ? "ss-workspace-panel-body ss-workspace-panel-body--bleed"
-      : u === "split"
+      : c === "split"
         ? "ss-workspace-panel-body ss-workspace-panel-body--split"
         : "ss-workspace-panel-body";
   return lt.createPortal(
     e.jsxs(e.Fragment, {
       children: [
         e.jsxs("div", {
-          className: `ss-workspace-panel${w ? ` ${w}` : ""}`,
+          className: `ss-workspace-panel${m ? ` ${m}` : ""}`,
           role: "dialog",
           "aria-modal": "true",
-          "aria-labelledby": x,
+          "aria-labelledby": b,
           children: [
             e.jsxs("div", {
               className: "ss-workspace-panel-bar",
@@ -432,8 +432,8 @@ function qe({
                     e.jsxs("button", {
                       type: "button",
                       className: "ss-workspace-panel-back",
-                      "aria-label": `Back from ${a}`,
-                      onClick: h,
+                      "aria-label": `Back from ${n}`,
+                      onClick: w,
                       children: [
                         e.jsx("span", { "aria-hidden": "true", children: "←" }),
                         "Back",
@@ -441,8 +441,8 @@ function qe({
                     }),
                     e.jsx("h2", {
                       className: "ss-workspace-panel-title",
-                      id: x,
-                      children: a,
+                      id: b,
+                      children: n,
                     }),
                   ],
                 }),
@@ -457,27 +457,27 @@ function qe({
                     }),
               ],
             }),
-            e.jsx("div", { className: y, children: s }),
+            e.jsx("div", { className: v, children: s }),
           ],
         }),
         e.jsx(ct, {
-          open: O,
+          open: D,
           title: f,
           confirmLabel: "Leave",
           cancelLabel: "Stay",
           danger: !0,
           onConfirm: () => {
-            (m(!1), C());
+            (p(!1), N());
           },
-          onCancel: () => m(!1),
-          children: e.jsx("p", { children: N }),
+          onCancel: () => p(!1),
+          children: e.jsx("p", { children: y }),
         }),
       ],
     }),
     document.body,
   );
 }
-const Xe = "ss-workspace-panel-layout-mode",
+const qe = "ss-workspace-panel-layout-mode",
   ut = [
     {
       mode: "auto",
@@ -495,22 +495,22 @@ const Xe = "ss-workspace-panel-layout-mode",
       title: "Put the settings panel beside the main view",
     },
   ];
-function $e() {
+function Xe() {
   try {
-    const t = window.localStorage.getItem(Xe);
+    const t = window.localStorage.getItem(qe);
     if (t === "auto" || t === "stack" || t === "row") return t;
   } catch {}
   return "auto";
 }
-function Ee() {
+function Ce() {
   return window.innerWidth >= 1200 ? "row" : "stack";
 }
 function Ke(t) {
   try {
-    window.localStorage.setItem(Xe, t);
+    window.localStorage.setItem(qe, t);
   } catch {}
 }
-function Ue({ layoutMode: t, onChange: a }) {
+function Ue({ layoutMode: t, onChange: n }) {
   return e.jsxs("div", {
     className: "ss-cal-layout",
     role: "group",
@@ -533,7 +533,7 @@ function Ue({ layoutMode: t, onChange: a }) {
               className: `ss-cal-layout-btn${l ? " is-active" : ""}`,
               title: s.title,
               "aria-pressed": l,
-              onClick: () => a(s.mode),
+              onClick: () => n(s.mode),
               children: s.label,
             },
             s.mode,
@@ -545,47 +545,47 @@ function Ue({ layoutMode: t, onChange: a }) {
 }
 function Ge({
   layout: t,
-  panelSizePx: a,
+  panelSizePx: n,
   onResize: s,
   disabled: l,
-  containerSelector: u = ".ss-workspace-body, .ss-cal-workspace",
+  containerSelector: c = ".ss-workspace-body, .ss-cal-workspace",
 }) {
-  const w = n.useRef(!1),
-    g = n.useCallback(
+  const m = a.useRef(!1),
+    g = a.useCallback(
       (f) => {
         if (l) return;
         f.preventDefault();
-        const N = f.currentTarget,
-          C = N.closest(u);
-        if (!C) return;
-        (N.setPointerCapture(f.pointerId),
-          (w.current = !0),
+        const y = f.currentTarget,
+          N = y.closest(c);
+        if (!N) return;
+        (y.setPointerCapture(f.pointerId),
+          (m.current = !0),
           document.body.classList.add("ss-workspace-resizing"),
           (document.body.dataset.ssResize = t));
-        const x = (m) => {
-            if (!w.current) return;
-            const M = C.getBoundingClientRect();
-            s(t === "stack" ? M.bottom - m.clientY : M.right - m.clientX);
+        const b = (p) => {
+            if (!m.current) return;
+            const L = N.getBoundingClientRect();
+            s(t === "stack" ? L.bottom - p.clientY : L.right - p.clientX);
           },
-          O = (m) => {
-            ((w.current = !1),
+          D = (p) => {
+            ((m.current = !1),
               document.body.classList.remove("ss-workspace-resizing"),
               delete document.body.dataset.ssResize);
             try {
-              N.releasePointerCapture(m.pointerId);
+              y.releasePointerCapture(p.pointerId);
             } catch {}
-            (window.removeEventListener("pointermove", x),
-              window.removeEventListener("pointerup", O),
-              window.removeEventListener("pointercancel", O),
-              C.classList.contains("ss-workspace-body") &&
+            (window.removeEventListener("pointermove", b),
+              window.removeEventListener("pointerup", D),
+              window.removeEventListener("pointercancel", D),
+              N.classList.contains("ss-workspace-body") &&
                 typeof window.fitSceneMapDisplay == "function" &&
                 window.fitSceneMapDisplay());
           };
-        (window.addEventListener("pointermove", x),
-          window.addEventListener("pointerup", O),
-          window.addEventListener("pointercancel", O));
+        (window.addEventListener("pointermove", b),
+          window.addEventListener("pointerup", D),
+          window.addEventListener("pointercancel", D));
       },
-      [u, l, t, s],
+      [c, l, t, s],
     );
   return e.jsx("div", {
     className: `ss-workspace-splitter ss-workspace-splitter--${t}`,
@@ -593,50 +593,50 @@ function Ge({
     "aria-orientation": t === "stack" ? "horizontal" : "vertical",
     "aria-label": "Drag to resize the panel",
     title: "Drag to resize the panel",
-    "aria-valuenow": Math.round(a),
+    "aria-valuenow": Math.round(n),
     "aria-disabled": l || void 0,
     tabIndex: l ? -1 : 0,
     onPointerDown: g,
     onKeyDown: (f) => {
       if (l) return;
-      const N = f.shiftKey ? 32 : 16;
+      const y = f.shiftKey ? 32 : 16;
       (t === "stack" && f.key === "ArrowUp") ||
       (t === "row" && f.key === "ArrowLeft")
-        ? (f.preventDefault(), s(a + N))
+        ? (f.preventDefault(), s(n + y))
         : ((t === "stack" && f.key === "ArrowDown") ||
             (t === "row" && f.key === "ArrowRight")) &&
-          (f.preventDefault(), s(a - N));
+          (f.preventDefault(), s(n - y));
     },
   });
 }
 const mt = "ss-workspace-panel-size",
   Je = "ss-workspace-map-focus",
   He = "ss-cal-panel-size",
-  _e = 224,
+  De = 224,
   Oe = 320,
   Ve = 140,
   Ze = 520,
   Qe = 220,
   et = 560;
-function Re(t, a, s) {
-  return Math.min(s, Math.max(a, t));
+function Re(t, n, s) {
+  return Math.min(s, Math.max(n, t));
 }
 function ft(t) {
   try {
-    const a = window.localStorage.getItem(t);
-    if (a) {
-      const s = JSON.parse(a);
+    const n = window.localStorage.getItem(t);
+    if (n) {
+      const s = JSON.parse(n);
       return {
-        stack: Re(Number(s.stack) || _e, Ve, Ze),
+        stack: Re(Number(s.stack) || De, Ve, Ze),
         row: Re(Number(s.row) || Oe, Qe, et),
       };
     }
   } catch {}
-  return { stack: _e, row: Oe };
+  return { stack: De, row: Oe };
 }
-function pt(t, a) {
+function pt(t, n) {
   try {
-    window.localStorage.setItem(t, JSON.stringify(a));
+    window.localStorage.setItem(t, JSON.stringify(n));
   } catch {}
 }
 function ht() {
@@ -651,96 +651,96 @@ function ze(t) {
     window.localStorage.setItem(Je, t ? "1" : "0");
   } catch {}
 }
-function tt(t, a = {}) {
-  const s = a.storageKey ?? mt,
-    l = a.enableFocus !== !1,
-    [u, w] = n.useState(() =>
-      typeof window < "u" ? ft(s) : { stack: _e, row: Oe },
+function tt(t, n = {}) {
+  const s = n.storageKey ?? mt,
+    l = n.enableFocus !== !1,
+    [c, m] = a.useState(() =>
+      typeof window < "u" ? ft(s) : { stack: De, row: Oe },
     ),
-    [g, f] = n.useState(() => (typeof window < "u" && l ? ht() : !1)),
-    N = t === "stack" ? Ve : Qe,
-    C = t === "stack" ? Ze : et,
-    x = t === "stack" ? u.stack : u.row,
-    O = n.useCallback(
-      (v) => {
-        const h = Re(v, N, C);
-        w((y) => {
-          const T = t === "stack" ? { ...y, stack: h } : { ...y, row: h };
-          return (pt(s, T), T);
+    [g, f] = a.useState(() => (typeof window < "u" && l ? ht() : !1)),
+    y = t === "stack" ? Ve : Qe,
+    N = t === "stack" ? Ze : et,
+    b = t === "stack" ? c.stack : c.row,
+    D = a.useCallback(
+      (x) => {
+        const w = Re(x, y, N);
+        m((v) => {
+          const R = t === "stack" ? { ...v, stack: w } : { ...v, row: w };
+          return (pt(s, R), R);
         });
       },
-      [t, N, C, s],
+      [t, y, N, s],
     ),
-    m = n.useCallback((v) => {
-      (f(v), ze(v));
+    p = a.useCallback((x) => {
+      (f(x), ze(x));
     }, []),
-    M = n.useCallback(() => {
-      f((v) => {
-        const h = !v;
-        return (ze(h), h);
+    L = a.useCallback(() => {
+      f((x) => {
+        const w = !x;
+        return (ze(w), w);
       });
     }, []);
   return (
-    n.useEffect(() => {
+    a.useEffect(() => {
       if (!l) return;
-      const v = (h) => {
-        h.key === "Escape" && g && m(!1);
+      const x = (w) => {
+        w.key === "Escape" && g && p(!1);
       };
       return (
-        window.addEventListener("keydown", v),
-        () => window.removeEventListener("keydown", v)
+        window.addEventListener("keydown", x),
+        () => window.removeEventListener("keydown", x)
       );
-    }, [l, g, m]),
+    }, [l, g, p]),
     {
-      panelSizePx: x,
-      setPanelSizePx: O,
+      panelSizePx: b,
+      setPanelSizePx: D,
       mapFocus: g,
-      setMapFocus: m,
-      toggleMapFocus: M,
-      minPx: N,
-      maxPx: C,
+      setMapFocus: p,
+      toggleMapFocus: L,
+      minPx: y,
+      maxPx: N,
     }
   );
 }
-function G(t, a = "") {
-  return t == null || t === "" ? a : String(t);
+function G(t, n = "") {
+  return t == null || t === "" ? n : String(t);
 }
 function U(t) {
-  const a = t.trim();
-  if (!a) return;
-  const s = Number(a);
+  const n = t.trim();
+  if (!n) return;
+  const s = Number(n);
   return Number.isFinite(s) ? s : void 0;
 }
 function gt(t) {
   if (Array.isArray(t) && t.length >= 2)
     return { width: G(t[0]), height: G(t[1]) };
   if (t && typeof t == "object") {
-    const a = t;
-    return { width: G(a.width), height: G(a.height) };
+    const n = t;
+    return { width: G(n.width), height: G(n.height) };
   }
   return { width: "", height: "" };
 }
-function yt(t, a = 8e3) {
+function yt(t, n = 8e3) {
   return new Promise((s, l) => {
-    const u = t.contentWindow;
-    if (!u) {
+    const c = t.contentWindow;
+    if (!c) {
       l(new Error("Calibration viewport is not ready"));
       return;
     }
-    const w = window.setTimeout(() => {
+    const m = window.setTimeout(() => {
         (window.removeEventListener("message", g),
           l(new Error("Timed out waiting for calibration pose")));
-      }, a),
+      }, n),
       g = (f) => {
         f.origin === window.location.origin &&
           (!f.data ||
             f.data.type !== "ss-calibrate-pose" ||
-            (window.clearTimeout(w),
+            (window.clearTimeout(m),
             window.removeEventListener("message", g),
             s(f.data)));
       };
     (window.addEventListener("message", g),
-      u.postMessage(
+      c.postMessage(
         { type: "ss-calibrate-request-pose" },
         window.location.origin,
       ));
@@ -748,57 +748,57 @@ function yt(t, a = 8e3) {
 }
 function Pt({
   open: t,
-  cameraPk: a,
+  cameraPk: n,
   sensorId: s,
   cameraName: l = "",
-  sceneId: u,
-  authToken: w,
+  sceneId: c,
+  authToken: m,
   isKubernetes: g,
   onClose: f,
-  onSaved: N,
+  onSaved: y,
 }) {
-  const C = Pe(),
-    x = n.useRef(null),
-    O = n.useRef(!0),
-    [m, M] = n.useState(() => (typeof window < "u" ? $e() : "auto")),
-    [v, h] = n.useState(() => (typeof window < "u" ? Ee() : "stack")),
-    [y, T] = n.useState(""),
-    [R, A] = n.useState(s),
-    [k, D] = n.useState({ fx: "", fy: "", cx: "", cy: "" }),
-    [z, Y] = n.useState({ k1: "", k2: "", p1: "", p2: "", k3: "" }),
-    [F, j] = n.useState(!0),
-    [E, o] = n.useState(""),
-    [d, L] = n.useState(""),
-    [I, $] = n.useState("AUTO"),
-    [X, K] = n.useState(!1),
-    [re, ue] = n.useState("model_config.json"),
-    [me, he] = n.useState(!1),
-    [B, fe] = n.useState(!1),
-    [W, J] = n.useState(null),
-    [oe, H] = n.useState(!1),
-    [V, ge] = n.useState(!1),
-    [pe, we] = n.useState(!1);
-  O.current = F;
+  const N = Ee(),
+    b = a.useRef(null),
+    D = a.useRef(!0),
+    [p, L] = a.useState(() => (typeof window < "u" ? Xe() : "auto")),
+    [x, w] = a.useState(() => (typeof window < "u" ? Ce() : "stack")),
+    [v, R] = a.useState(""),
+    [O, P] = a.useState(s),
+    [_, F] = a.useState({ fx: "", fy: "", cx: "", cy: "" }),
+    [$, z] = a.useState({ k1: "", k2: "", p1: "", p2: "", k3: "" }),
+    [A, k] = a.useState(!0),
+    [C, o] = a.useState(""),
+    [u, M] = a.useState(""),
+    [Y, q] = a.useState("AUTO"),
+    [I, K] = a.useState(!1),
+    [re, ue] = a.useState("model_config.json"),
+    [me, he] = a.useState(!1),
+    [B, fe] = a.useState(!1),
+    [W, J] = a.useState(null),
+    [oe, H] = a.useState(!1),
+    [V, ge] = a.useState(!1),
+    [pe, we] = a.useState(!1);
+  D.current = A;
   const ie = g,
     le = g,
-    Z = n.useCallback(() => {
+    Z = a.useCallback(() => {
       V && H(!0);
     }, [V]),
-    Se = n.useCallback((r, i, p) => {
-      var P;
-      const b = (P = x.current) == null ? void 0 : P.contentWindow;
-      b &&
-        b.postMessage(
+    Se = a.useCallback((r, i, h) => {
+      var E;
+      const S = (E = b.current) == null ? void 0 : E.contentWindow;
+      S &&
+        S.postMessage(
           {
             type: "ss-calibrate-optics-set",
             intrinsics: r,
             distortion: i,
-            fixIntrinsics: { fx: p, fy: p },
+            fixIntrinsics: { fx: h, fy: h },
           },
           window.location.origin,
         );
     }, []);
-  (n.useEffect(() => {
+  (a.useEffect(() => {
     if (!t || !s) return;
     let r = !1;
     return (
@@ -806,31 +806,31 @@ function Pt({
       J(null),
       H(!1),
       ge(!1),
-      j(!0),
+      k(!0),
       we(!1),
-      l && T(l),
+      l && R(l),
       ne
-        .getCamera(w, s)
+        .getCamera(m, s)
         .then((i) => {
           if (r) return;
-          (T(String(i.name || l || "")), A(String(i.sensor_id || i.uid || s)));
-          const p =
+          (R(String(i.name || l || "")), P(String(i.sensor_id || i.uid || s)));
+          const h =
             i.intrinsics && typeof i.intrinsics == "object" ? i.intrinsics : {};
-          D({ fx: G(p.fx), fy: G(p.fy), cx: G(p.cx), cy: G(p.cy) });
-          const b =
+          F({ fx: G(h.fx), fy: G(h.fy), cx: G(h.cx), cy: G(h.cy) });
+          const S =
             i.distortion && typeof i.distortion == "object" ? i.distortion : {};
-          Y({
-            k1: G(b.k1),
-            k2: G(b.k2),
-            p1: G(b.p1),
-            p2: G(b.p2),
-            k3: G(b.k3),
+          z({
+            k1: G(S.k1),
+            k2: G(S.k2),
+            p1: G(S.p1),
+            p2: G(S.p2),
+            k3: G(S.k3),
           });
-          const P = gt(i.resolution);
-          (o(P.width),
-            L(P.height),
+          const E = gt(i.resolution);
+          (o(E.width),
+            M(E.height),
             ie &&
-              ($(String(i.cv_subsystem || "AUTO")),
+              (q(String(i.cv_subsystem || "AUTO")),
               K(!!i.undistort),
               ue(String(i.modelconfig || "model_config.json")),
               he(!!i.use_camera_pipeline)),
@@ -846,8 +846,8 @@ function Pt({
         r = !0;
       }
     );
-  }, [t, s, l, w, ie]),
-    n.useEffect(() => {
+  }, [t, s, l, m, ie]),
+    a.useEffect(() => {
       if (!t) return;
       const r = (i) => {
         if (
@@ -855,7 +855,7 @@ function Pt({
           !(!i.data || typeof i.data != "object")
         ) {
           if (i.data.type === "ss-calibrate-done") {
-            (C.show("Camera calibration saved", "ok"), N(), f());
+            (N.show("Camera calibration saved", "ok"), y(), f());
             return;
           }
           if (i.data.type === "ss-calibrate-points-changed") {
@@ -863,16 +863,16 @@ function Pt({
             return;
           }
           if (i.data.type === "ss-calibrate-optics") {
-            const p = i.data.intrinsics,
-              b = i.data.distortion,
-              P = O.current;
-            (p &&
-              D((S) =>
-                P
-                  ? { ...S, cx: p.cx ?? S.cx, cy: p.cy ?? S.cy }
-                  : { ...S, ...p },
+            const h = i.data.intrinsics,
+              S = i.data.distortion,
+              E = D.current;
+            (h &&
+              F((j) =>
+                E
+                  ? { ...j, cx: h.cx ?? j.cx, cy: h.cy ?? j.cy }
+                  : { ...j, ...h },
               ),
-              b && le && Y((S) => ({ ...S, ...b })));
+              S && le && z((j) => ({ ...j, ...S })));
           }
         }
       };
@@ -880,111 +880,111 @@ function Pt({
         window.addEventListener("message", r),
         () => window.removeEventListener("message", r)
       );
-    }, [t, f, N, C, le]),
-    n.useEffect(() => {
-      !t || !V || !pe || Se(k, z, F);
-    }, [t, V, pe, k, z, F, Se]),
-    n.useEffect(() => {
-      const r = () => h(Ee());
+    }, [t, f, y, N, le]),
+    a.useEffect(() => {
+      !t || !V || !pe || Se(_, $, A);
+    }, [t, V, pe, _, $, A, Se]),
+    a.useEffect(() => {
+      const r = () => w(Ce());
       return (
         r(),
         window.addEventListener("resize", r),
         () => window.removeEventListener("resize", r)
       );
     }, []));
-  const ye = n.useCallback((r) => {
-      (M(r), Ke(r));
+  const ye = a.useCallback((r) => {
+      (L(r), Ke(r));
     }, []),
-    ce = m === "auto" ? v : m,
+    ce = p === "auto" ? x : p,
     { panelSizePx: ve, setPanelSizePx: xe } = tt(ce, {
       storageKey: He,
       enableFocus: !1,
     });
-  n.useEffect(() => {
+  a.useEffect(() => {
     if (!t) return;
     const r = window.requestAnimationFrame(() => {
-      var i, p;
-      (p = (i = x.current) == null ? void 0 : i.contentWindow) == null ||
-        p.dispatchEvent(new Event("resize"));
+      var i, h;
+      (h = (i = b.current) == null ? void 0 : i.contentWindow) == null ||
+        h.dispatchEvent(new Event("resize"));
     });
     return () => window.cancelAnimationFrame(r);
   }, [t, ve, ce]);
   const je = (r, i) => {
-      F || (D((p) => ({ ...p, [r]: i })), Z());
+      A || (F((h) => ({ ...h, [r]: i })), Z());
     },
-    q = (r, i) => {
-      le && (Y((p) => ({ ...p, [r]: i })), Z());
+    X = (r, i) => {
+      le && (z((h) => ({ ...h, [r]: i })), Z());
     },
-    ke = (r, i) => {
-      const p = r === "width" ? i : E,
-        b = r === "height" ? i : d;
-      r === "width" ? o(i) : L(i);
-      const P = U(p),
-        S = U(b);
-      (D((ee) => ({
+    Ne = (r, i) => {
+      const h = r === "width" ? i : C,
+        S = r === "height" ? i : u;
+      r === "width" ? o(i) : M(i);
+      const E = U(h),
+        j = U(S);
+      (F((ee) => ({
         ...ee,
-        cx: P !== void 0 ? String(P / 2) : ee.cx,
-        cy: S !== void 0 ? String(S / 2) : ee.cy,
+        cx: E !== void 0 ? String(E / 2) : ee.cx,
+        cy: j !== void 0 ? String(j / 2) : ee.cy,
       })),
         Z());
     },
-    Me = async (r) => {
+    Le = async (r) => {
       (r == null || r.preventDefault(), fe(!0), J(null));
       const i = {
-          name: y.trim(),
-          sensor_id: R.trim() || s,
-          scene: u,
+          name: v.trim(),
+          sensor_id: O.trim() || s,
+          scene: c,
           intrinsics: {
-            fx: U(k.fx) ?? 0,
-            fy: U(k.fy) ?? 0,
-            cx: U(k.cx) ?? 0,
-            cy: U(k.cy) ?? 0,
+            fx: U(_.fx) ?? 0,
+            fy: U(_.fy) ?? 0,
+            cx: U(_.cx) ?? 0,
+            cy: U(_.cy) ?? 0,
           },
           distortion: {
-            k1: U(z.k1) ?? 0,
-            k2: U(z.k2) ?? 0,
-            p1: U(z.p1) ?? 0,
-            p2: U(z.p2) ?? 0,
-            k3: U(z.k3) ?? 0,
+            k1: U($.k1) ?? 0,
+            k2: U($.k2) ?? 0,
+            p1: U($.p1) ?? 0,
+            p2: U($.p2) ?? 0,
+            k3: U($.k3) ?? 0,
           },
         },
-        p = U(E),
-        b = U(d);
-      (p !== void 0 && b !== void 0 && (i.resolution = { width: p, height: b }),
+        h = U(C),
+        S = U(u);
+      (h !== void 0 && S !== void 0 && (i.resolution = { width: h, height: S }),
         ie &&
-          ((i.cv_subsystem = I),
-          (i.undistort = X),
+          ((i.cv_subsystem = Y),
+          (i.undistort = I),
           (i.modelconfig = re.trim() || null),
           (i.use_camera_pipeline = me)));
       try {
-        const P = x.current;
-        if (P != null && P.contentWindow) {
-          const S = await yt(P);
-          if (S.error && !S.empty) {
-            (J(S.error), fe(!1));
+        const E = b.current;
+        if (E != null && E.contentWindow) {
+          const j = await yt(E);
+          if (j.error && !j.empty) {
+            (J(j.error), fe(!1));
             return;
           }
-          !S.empty &&
-            S.transform_type &&
-            Array.isArray(S.transforms) &&
-            ((i.transform_type = S.transform_type),
-            (i.transforms = S.transforms));
+          !j.empty &&
+            j.transform_type &&
+            Array.isArray(j.transforms) &&
+            ((i.transform_type = j.transform_type),
+            (i.transforms = j.transforms));
         }
-        (await ne.updateCamera(w, s, i),
-          C.show("Camera saved", "ok"),
+        (await ne.updateCamera(m, s, i),
+          N.show("Camera saved", "ok"),
           H(!1),
-          N(),
+          y(),
           f());
-      } catch (P) {
-        J(P.message || "Save failed");
+      } catch (E) {
+        J(E.message || "Save failed");
       } finally {
         fe(!1);
       }
     },
-    c = e.jsxs("form", {
+    d = e.jsxs("form", {
       id: "ss-cam-calibrate-form",
       className: "ss-workspace-panel-form",
-      onSubmit: Me,
+      onSubmit: Le,
       children: [
         W
           ? e.jsx("p", { className: "ss-workspace-panel-error", children: W })
@@ -1000,29 +1000,29 @@ function Pt({
           title: "Identity",
           description: "Camera name and pipeline id.",
           children: [
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-cam-cal-name",
               label: "Name",
-              value: y,
+              value: v,
               onChange: (r) => {
-                (T(r.target.value), Z());
+                (R(r.target.value), Z());
               },
               required: !0,
               disabled: B,
             }),
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-cam-cal-sensor-id",
               label: "Camera ID",
-              value: R,
+              value: O,
               onChange: (r) => {
-                (A(r.target.value), Z());
+                (P(r.target.value), Z());
               },
               disabled: B,
             }),
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-cam-cal-scene",
               label: "Scene",
-              value: u,
+              value: c,
               readOnly: !0,
               disabled: !0,
             }),
@@ -1041,10 +1041,10 @@ function Pt({
                 e.jsx("input", {
                   type: "checkbox",
                   id: "ss-cam-cal-lock-focal",
-                  checked: F,
+                  checked: A,
                   disabled: B,
                   onChange: (r) => {
-                    (j(r.target.checked), Z());
+                    (k(r.target.checked), Z());
                   },
                 }),
                 e.jsx("label", {
@@ -1053,44 +1053,44 @@ function Pt({
                 }),
               ],
             }),
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-cam-cal-fx",
               label: "fx",
               inputMode: "decimal",
-              value: k.fx,
+              value: _.fx,
               onChange: (r) => je("fx", r.target.value),
-              disabled: B || F,
-              readOnly: F,
-              title: F
+              disabled: B || A,
+              readOnly: A,
+              title: A
                 ? "Unlock fx & fy to edit or estimate focal length"
                 : "Focal length x",
             }),
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-cam-cal-fy",
               label: "fy",
               inputMode: "decimal",
-              value: k.fy,
+              value: _.fy,
               onChange: (r) => je("fy", r.target.value),
-              disabled: B || F,
-              readOnly: F,
-              title: F
+              disabled: B || A,
+              readOnly: A,
+              title: A
                 ? "Unlock fx & fy to edit or estimate focal length"
                 : "Focal length y",
             }),
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-cam-cal-cx",
               label: "cx",
               inputMode: "decimal",
-              value: k.cx,
+              value: _.cx,
               readOnly: !0,
               disabled: !0,
               title: "Principal point x (derived from frame width)",
             }),
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-cam-cal-cy",
               label: "cy",
               inputMode: "decimal",
-              value: k.cy,
+              value: _.cy,
               readOnly: !0,
               disabled: !0,
               title: "Principal point y (derived from frame height)",
@@ -1106,13 +1106,13 @@ function Pt({
           className: "ss-form-section--columns",
           children: ["k1", "k2", "p1", "p2", "k3"].map((r) =>
             e.jsx(
-              _,
+              T,
               {
                 id: `ss-cam-cal-d-${r}`,
                 label: r,
                 inputMode: "decimal",
-                value: z[r],
-                onChange: (i) => q(r, i.target.value),
+                value: $[r],
+                onChange: (i) => X(r, i.target.value),
                 disabled: B || !le,
                 readOnly: !le,
               },
@@ -1127,20 +1127,20 @@ function Pt({
             "Frame size in pixels. Changing size updates cx/cy to the image center.",
           className: "ss-form-section--columns",
           children: [
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-cam-cal-width",
               label: "Width",
               inputMode: "numeric",
-              value: E,
-              onChange: (r) => ke("width", r.target.value),
+              value: C,
+              onChange: (r) => Ne("width", r.target.value),
               disabled: B,
             }),
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-cam-cal-height",
               label: "Height",
               inputMode: "numeric",
-              value: d,
-              onChange: (r) => ke("height", r.target.value),
+              value: u,
+              onChange: (r) => Ne("height", r.target.value),
               disabled: B,
             }),
           ],
@@ -1156,9 +1156,9 @@ function Pt({
                 e.jsxs(de, {
                   id: "ss-cam-cal-cv",
                   label: "Decode device",
-                  value: I,
+                  value: Y,
                   onChange: (r) => {
-                    ($(r.target.value), Z());
+                    (q(r.target.value), Z());
                   },
                   disabled: B,
                   children: [
@@ -1170,7 +1170,7 @@ function Pt({
                 e.jsxs(de, {
                   id: "ss-cam-cal-undistort",
                   label: "Undistort",
-                  value: X ? "true" : "false",
+                  value: I ? "true" : "false",
                   onChange: (r) => {
                     (K(r.target.value === "true"), Z());
                   },
@@ -1182,7 +1182,7 @@ function Pt({
                     e.jsx("option", { value: "true", children: "Yes" }),
                   ],
                 }),
-                e.jsx(_, {
+                e.jsx(T, {
                   id: "ss-cam-cal-modelconfig",
                   label: "Model config",
                   value: re,
@@ -1209,7 +1209,7 @@ function Pt({
           : null,
       ],
     });
-  return e.jsx(qe, {
+  return e.jsx(We, {
     open: t,
     title: "Calibrate camera",
     layout: "bleed",
@@ -1220,8 +1220,8 @@ function Pt({
     onClose: f,
     actions: e.jsxs(e.Fragment, {
       children: [
-        e.jsx(Ue, { layoutMode: m, onChange: ye }),
-        e.jsx(Le, {
+        e.jsx(Ue, { layoutMode: p, onChange: ye }),
+        e.jsx(Me, {
           variant: "primary",
           disabled: B || !V || !oe,
           form: "ss-cam-calibrate-form",
@@ -1235,7 +1235,7 @@ function Pt({
     children: e.jsxs("div", {
       className: `ss-cal-workspace ss-cal-workspace--${ce}`,
       "data-cal-layout": ce,
-      "data-cal-layout-mode": m,
+      "data-cal-layout-mode": p,
       style: { "--ss-panel-size": `${ve}px` },
       children: [
         e.jsxs("div", {
@@ -1256,13 +1256,13 @@ function Pt({
                 }),
               ],
             }),
-            a
+            n
               ? e.jsx("div", {
                   className: "ss-workspace-cal-preview-frame",
                   children: e.jsx("iframe", {
-                    ref: x,
+                    ref: b,
                     title: "Point calibrator",
-                    src: `/cam/calibrate/${a}?embed=1`,
+                    src: `/cam/calibrate/${n}?embed=1`,
                     onLoad: () => we(!0),
                   }),
                 })
@@ -1274,168 +1274,300 @@ function Pt({
           ],
         }),
         e.jsx(Ge, { layout: ce, panelSizePx: ve, onResize: xe }),
-        e.jsx("aside", { className: "ss-cal-workspace-aside", children: c }),
+        e.jsx("aside", { className: "ss-cal-workspace-aside", children: d }),
       ],
     }),
   });
 }
-function st(t, a, s, l) {
-  return [t / s, (l - a) / s];
+function wt(t) {
+  const n = Number(t);
+  return Number.isFinite(n) ? n : 0;
 }
-function Fe(t, a, s, l) {
-  return [t * s, l - a * s];
+function vt({
+  value: t,
+  disabled: n = !1,
+  showLabel: s = !0,
+  label: l = "Occupancy thresholds",
+  legacyInputClasses: c = !1,
+  idPrefix: m = "ss-occupancy",
+  onChange: g,
+}) {
+  const f = (y, N) => {
+    g({ ...t, [y]: wt(N) });
+  };
+  return e.jsxs("div", {
+    className: "ss-color-range",
+    children: [
+      s
+        ? e.jsx("div", { className: "ss-color-range__label", children: l })
+        : null,
+      e.jsxs("div", {
+        className: "ss-color-range__track",
+        "aria-hidden": "true",
+        children: [
+          e.jsx("span", {
+            className: "ss-color-range__seg ss-color-range__seg--green",
+          }),
+          e.jsx("span", {
+            className: "ss-color-range__seg ss-color-range__seg--yellow",
+          }),
+          e.jsx("span", {
+            className: "ss-color-range__seg ss-color-range__seg--red",
+          }),
+        ],
+      }),
+      e.jsxs("div", {
+        className: "ss-color-range__inputs sector-config",
+        children: [
+          e.jsxs("label", {
+            className: "ss-color-range__field",
+            htmlFor: `${m}-green`,
+            children: [
+              e.jsx("span", {
+                className:
+                  "ss-color-range__swatch ss-color-range__swatch--green",
+              }),
+              e.jsx("span", {
+                className: "ss-color-range__caption",
+                children: "Green",
+              }),
+              e.jsx("input", {
+                id: `${m}-green`,
+                type: "number",
+                className: `ss-color-range__input form-control${c ? " green_min" : ""}`,
+                disabled: n,
+                value: t.greenMin,
+                "aria-label": "Green threshold minimum",
+                onChange: (y) => f("greenMin", y.target.value),
+              }),
+            ],
+          }),
+          e.jsxs("label", {
+            className: "ss-color-range__field",
+            htmlFor: `${m}-yellow`,
+            children: [
+              e.jsx("span", {
+                className:
+                  "ss-color-range__swatch ss-color-range__swatch--yellow",
+              }),
+              e.jsx("span", {
+                className: "ss-color-range__caption",
+                children: "Yellow",
+              }),
+              e.jsx("input", {
+                id: `${m}-yellow`,
+                type: "number",
+                className: `ss-color-range__input form-control${c ? " yellow_min" : ""}`,
+                disabled: n,
+                value: t.yellowMin,
+                "aria-label": "Yellow threshold minimum",
+                onChange: (y) => f("yellowMin", y.target.value),
+              }),
+            ],
+          }),
+          e.jsxs("label", {
+            className: "ss-color-range__field",
+            htmlFor: `${m}-red`,
+            children: [
+              e.jsx("span", {
+                className: "ss-color-range__swatch ss-color-range__swatch--red",
+              }),
+              e.jsx("span", {
+                className: "ss-color-range__caption",
+                children: "Red",
+              }),
+              e.jsx("input", {
+                id: `${m}-red`,
+                type: "number",
+                className: `ss-color-range__input form-control${c ? " red_min" : ""}`,
+                disabled: n,
+                value: t.redMin,
+                "aria-label": "Red threshold minimum",
+                onChange: (y) => f("redMin", y.target.value),
+              }),
+            ],
+          }),
+          e.jsxs("label", {
+            className: "ss-color-range__field",
+            htmlFor: `${m}-max`,
+            children: [
+              e.jsx("span", {
+                className: "ss-color-range__caption",
+                children: "Max",
+              }),
+              e.jsx("input", {
+                id: `${m}-max`,
+                type: "number",
+                className: `ss-color-range__input form-control${c ? " range_max" : ""}`,
+                disabled: n,
+                value: t.rangeMax,
+                "aria-label": "Range maximum",
+                onChange: (y) => f("rangeMax", y.target.value),
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
 }
-function Ye() {
+function st(t, n, s, l) {
+  return [t / s, (l - n) / s];
+}
+function Ae(t, n, s, l) {
+  return [t * s, l - n * s];
+}
+function Te() {
   const t = document.getElementById("scale"),
-    a = Number(
+    n = Number(
       (t == null ? void 0 : t.value) ||
         (t == null ? void 0 : t.textContent) ||
         "100",
     );
-  return Number.isFinite(a) && a > 0 ? a : 100;
+  return Number.isFinite(n) && n > 0 ? n : 100;
 }
-function Mt(t = 1e3) {
-  const a = document.querySelector("#svgout image, #map img");
-  if (a && "height" in a && typeof a.height == "object") {
-    const s = Number(a.getAttribute("height"));
+function Ft(t = 1e3) {
+  const n = document.querySelector("#svgout image, #map img");
+  if (n && "height" in n && typeof n.height == "object") {
+    const s = Number(n.getAttribute("height"));
     if (Number.isFinite(s) && s > 0) return s;
   }
-  return a && "naturalHeight" in a && a.naturalHeight > 0 ? a.naturalHeight : t;
+  return n && "naturalHeight" in n && n.naturalHeight > 0 ? n.naturalHeight : t;
 }
-function Ce(t, a, s) {
+function _e(t, n, s) {
   const l = t.createSVGPoint();
-  ((l.x = a), (l.y = s));
-  const u = t.getScreenCTM();
-  if (!u) return null;
-  const w = l.matrixTransform(u.inverse());
-  return [w.x, w.y];
+  ((l.x = n), (l.y = s));
+  const c = t.getScreenCTM();
+  if (!c) return null;
+  const m = l.matrixTransform(c.inverse());
+  return [m.x, m.y];
 }
-function wt({
+function xt({
   mapUrl: t,
-  scale: a,
+  scale: n,
   area: s,
   centerX: l,
-  centerY: u,
-  radius: w,
+  centerY: c,
+  radius: m,
   points: g,
   onCenterChange: f,
-  onRadiusChange: N,
-  onPointsChange: C,
+  onRadiusChange: y,
+  onPointsChange: N,
 }) {
-  const [x, O] = n.useState(null),
-    [m, M] = n.useState([]);
-  (n.useEffect(() => {
+  const [b, D] = a.useState(null),
+    [p, L] = a.useState([]);
+  (a.useEffect(() => {
     let o = !1;
-    const d = new Image();
+    const u = new Image();
     return (
-      (d.onload = () => {
+      (u.onload = () => {
         !o &&
-          d.naturalWidth > 0 &&
-          d.naturalHeight > 0 &&
-          O({ width: d.naturalWidth, height: d.naturalHeight });
+          u.naturalWidth > 0 &&
+          u.naturalHeight > 0 &&
+          D({ width: u.naturalWidth, height: u.naturalHeight });
       }),
-      (d.src = t),
+      (u.src = t),
       () => {
         o = !0;
       }
     );
   }, [t]),
-    n.useEffect(() => {
-      M([]);
+    a.useEffect(() => {
+      L([]);
     }, [s]));
-  const v = (x == null ? void 0 : x.height) || 1,
-    h = a > 0 ? a : 100,
-    y = n.useMemo(() => Fe(l, u, h, v), [l, u, h, v]),
-    T = Math.max(4, w * h),
-    R = n.useMemo(() => g.map((o) => Fe(o[0], o[1], h, v)), [g, h, v]),
-    A = n.useMemo(() => m.map((o) => Fe(o[0], o[1], h, v)), [m, h, v]),
-    k = (o, d) => st(o, d, h, v),
-    D = (o) => {
+  const x = (b == null ? void 0 : b.height) || 1,
+    w = n > 0 ? n : 100,
+    v = a.useMemo(() => Ae(l, c, w, x), [l, c, w, x]),
+    R = Math.max(4, m * w),
+    O = a.useMemo(() => g.map((o) => Ae(o[0], o[1], w, x)), [g, w, x]),
+    P = a.useMemo(() => p.map((o) => Ae(o[0], o[1], w, x)), [p, w, x]),
+    _ = (o, u) => st(o, u, w, x),
+    F = (o) => {
       if (s === "scene") return;
-      const d = Ce(o.currentTarget, o.clientX, o.clientY);
-      if (!d) return;
-      const L = k(d[0], d[1]);
+      const u = _e(o.currentTarget, o.clientX, o.clientY);
+      if (!u) return;
+      const M = _(u[0], u[1]);
       if (s === "circle") {
-        f(L[0], L[1]);
+        f(M[0], M[1]);
         return;
       }
-      if (!(!m.length && g.length >= 3)) {
-        if (m.length >= 3) {
-          const I = A[0];
-          if (I && Math.hypot(d[0] - I[0], d[1] - I[1]) < 12) {
-            (C(m), M([]));
+      if (!(!p.length && g.length >= 3)) {
+        if (p.length >= 3) {
+          const Y = P[0];
+          if (Y && Math.hypot(u[0] - Y[0], u[1] - Y[1]) < 12) {
+            (N(p), L([]));
             return;
           }
         }
-        M((I) => [...I, L]);
+        L((Y) => [...Y, M]);
       }
+    },
+    $ = (o) => {
+      (o.stopPropagation(), o.preventDefault());
+      const u = o.target.ownerSVGElement;
+      if (!u) return;
+      const M = (q) => {
+          const I = _e(u, q.clientX, q.clientY);
+          if (!I) return;
+          const K = _(I[0], I[1]);
+          f(K[0], K[1]);
+        },
+        Y = () => {
+          (window.removeEventListener("mousemove", M),
+            window.removeEventListener("mouseup", Y));
+        };
+      (window.addEventListener("mousemove", M),
+        window.addEventListener("mouseup", Y));
     },
     z = (o) => {
       (o.stopPropagation(), o.preventDefault());
-      const d = o.target.ownerSVGElement;
-      if (!d) return;
-      const L = ($) => {
-          const X = Ce(d, $.clientX, $.clientY);
-          if (!X) return;
-          const K = k(X[0], X[1]);
-          f(K[0], K[1]);
+      const u = o.target.ownerSVGElement;
+      if (!u) return;
+      const M = (q) => {
+          const I = _e(u, q.clientX, q.clientY);
+          if (!I) return;
+          const K = Math.hypot(I[0] - v[0], I[1] - v[1]);
+          y(Math.max(0.1, K / w));
         },
-        I = () => {
-          (window.removeEventListener("mousemove", L),
-            window.removeEventListener("mouseup", I));
+        Y = () => {
+          (window.removeEventListener("mousemove", M),
+            window.removeEventListener("mouseup", Y));
         };
-      (window.addEventListener("mousemove", L),
-        window.addEventListener("mouseup", I));
+      (window.addEventListener("mousemove", M),
+        window.addEventListener("mouseup", Y));
     },
-    Y = (o) => {
-      (o.stopPropagation(), o.preventDefault());
-      const d = o.target.ownerSVGElement;
-      if (!d) return;
-      const L = ($) => {
-          const X = Ce(d, $.clientX, $.clientY);
-          if (!X) return;
-          const K = Math.hypot(X[0] - y[0], X[1] - y[1]);
-          N(Math.max(0.1, K / h));
-        },
-        I = () => {
-          (window.removeEventListener("mousemove", L),
-            window.removeEventListener("mouseup", I));
-        };
-      (window.addEventListener("mousemove", L),
-        window.addEventListener("mouseup", I));
-    },
-    F = (o, d) => {
-      (d.stopPropagation(), d.preventDefault());
-      const L = d.target.ownerSVGElement;
-      if (!L) return;
-      const I = m.length ? m : g,
-        $ = (K) => {
-          const re = Ce(L, K.clientX, K.clientY);
+    A = (o, u) => {
+      (u.stopPropagation(), u.preventDefault());
+      const M = u.target.ownerSVGElement;
+      if (!M) return;
+      const Y = p.length ? p : g,
+        q = (K) => {
+          const re = _e(M, K.clientX, K.clientY);
           if (!re) return;
-          const ue = I.map((me, he) => (he === o ? k(re[0], re[1]) : me));
-          m.length ? M(ue) : C(ue);
+          const ue = Y.map((me, he) => (he === o ? _(re[0], re[1]) : me));
+          p.length ? L(ue) : N(ue);
         },
-        X = () => {
-          (window.removeEventListener("mousemove", $),
-            window.removeEventListener("mouseup", X));
+        I = () => {
+          (window.removeEventListener("mousemove", q),
+            window.removeEventListener("mouseup", I));
         };
-      (window.addEventListener("mousemove", $),
-        window.addEventListener("mouseup", X));
+      (window.addEventListener("mousemove", q),
+        window.addEventListener("mouseup", I));
     };
-  if (!x)
+  if (!b)
     return e.jsx("p", {
       className: "ss-workspace-panel-hint",
       children: "Loading scene map…",
     });
-  const j = s === "circle" || s === "poly",
-    E = A.length ? A : R;
+  const k = s === "circle" || s === "poly",
+    C = P.length ? P : O;
   return e.jsxs("svg", {
-    className: `ss-sensor-area-map${j ? " is-drawing" : ""}`,
-    viewBox: `0 0 ${x.width} ${x.height}`,
+    className: `ss-sensor-area-map${k ? " is-drawing" : ""}`,
+    viewBox: `0 0 ${b.width} ${b.height}`,
     preserveAspectRatio: "xMidYMid meet",
     width: "100%",
     height: "100%",
-    onClick: D,
+    onClick: F,
     role: "img",
     "aria-label": "Sensor coverage map",
     children: [
@@ -1443,8 +1575,8 @@ function wt({
         href: t,
         x: 0,
         y: 0,
-        width: x.width,
-        height: x.height,
+        width: b.width,
+        height: b.height,
         preserveAspectRatio: "none",
       }),
       s === "circle"
@@ -1453,58 +1585,58 @@ function wt({
             children: [
               e.jsx("circle", {
                 className: "ss-sensor-area-coverage",
-                cx: y[0],
-                cy: y[1],
-                r: T,
-                onMouseDown: Y,
+                cx: v[0],
+                cy: v[1],
+                r: R,
+                onMouseDown: z,
                 onClick: (o) => o.stopPropagation(),
               }),
               e.jsx("circle", {
                 className: "ss-sensor-area-handle",
-                cx: y[0],
-                cy: y[1],
+                cx: v[0],
+                cy: v[1],
                 r: 7,
-                onMouseDown: z,
+                onMouseDown: $,
                 onClick: (o) => o.stopPropagation(),
               }),
             ],
           })
         : null,
-      s === "poly" && E.length > 0
+      s === "poly" && C.length > 0
         ? e.jsxs("g", {
             className: "ss-sensor-area-poly",
             children: [
-              E.length >= 2
-                ? m.length
+              C.length >= 2
+                ? p.length
                   ? e.jsx("polyline", {
                       className: "ss-sensor-area-draft",
-                      points: E.map((o) => o.join(",")).join(" "),
+                      points: C.map((o) => o.join(",")).join(" "),
                     })
                   : e.jsx("polygon", {
                       className: "ss-sensor-area-coverage",
-                      points: E.map((o) => o.join(",")).join(" "),
+                      points: C.map((o) => o.join(",")).join(" "),
                     })
                 : null,
-              E.map((o, d) =>
+              C.map((o, u) =>
                 e.jsx(
                   "circle",
                   {
                     className:
-                      d === 0 && m.length >= 3
+                      u === 0 && p.length >= 3
                         ? "ss-sensor-area-handle is-close"
                         : "ss-sensor-area-handle",
                     cx: o[0],
                     cy: o[1],
                     r: 6,
-                    onMouseDown: (L) => {
-                      (d === 0 && m.length >= 3) || F(d, L);
+                    onMouseDown: (M) => {
+                      (u === 0 && p.length >= 3) || A(u, M);
                     },
-                    onClick: (L) => {
-                      (L.stopPropagation(),
-                        d === 0 && m.length >= 3 && (C(m), M([])));
+                    onClick: (M) => {
+                      (M.stopPropagation(),
+                        u === 0 && p.length >= 3 && (N(p), L([])));
                     },
                   },
-                  d,
+                  u,
                 ),
               ),
             ],
@@ -1513,53 +1645,53 @@ function wt({
     ],
   });
 }
-const vt = [
+const bt = [
   { value: "environmental", label: "Environmental" },
   { value: "generic", label: "Generic" },
 ];
-function se(t, a = "") {
-  return t == null || t === "" ? a : String(t);
+function se(t, n = "") {
+  return t == null || t === "" ? n : String(t);
 }
 function ae(t) {
-  const a = t.trim();
-  if (!a) return;
-  const s = Number(a);
+  const n = t.trim();
+  if (!n) return;
+  const s = Number(n);
   return Number.isFinite(s) ? s : void 0;
 }
-function be(t, a) {
+function be(t, n) {
   const s = Number(t),
-    l = Number(a);
+    l = Number(n);
   return !Number.isFinite(s) || !Number.isFinite(l)
     ? !0
     : Math.abs(s) < 1e-9 && Math.abs(l) < 1e-9;
 }
-function Ie(t, a, s) {
+function Ye(t, n, s) {
   const l = t > 0 ? t : 100;
-  return a > 0 && s > 0 ? st(a / 2, s / 2, l, s) : [0, 0];
+  return n > 0 && s > 0 ? st(n / 2, s / 2, l, s) : [0, 0];
 }
-function xt(t) {
-  const a = t.color_ranges;
-  if (a && typeof a == "object") {
-    const s = a,
+function St(t) {
+  const n = t.color_ranges;
+  if (n && typeof n == "object") {
+    const s = n,
       l = s.sectors || [],
-      u = (w, g) => {
-        const f = l.find((N) => N.color === w);
+      c = (m, g) => {
+        const f = l.find((y) => y.color === m);
         return f != null ? String(f.color_min) : String(g);
       };
     return {
-      green: u("green", 0),
-      yellow: u("yellow", 2),
-      red: u("red", 5),
+      green: c("green", 0),
+      yellow: c("yellow", 2),
+      red: c("red", 5),
       max: s.range_max != null ? String(s.range_max) : "10",
     };
   }
   return { green: "0", yellow: "2", red: "5", max: "10" };
 }
-function bt(t) {
+function jt(t) {
   try {
-    const a = JSON.parse(t);
-    return Array.isArray(a)
-      ? a
+    const n = JSON.parse(t);
+    return Array.isArray(n)
+      ? n
           .filter(
             (s) =>
               Array.isArray(s) &&
@@ -1575,181 +1707,181 @@ function bt(t) {
 }
 function At({
   open: t,
-  sensorPk: a,
+  sensorPk: n,
   sensorId: s,
   sceneId: l,
-  authToken: u,
-  mapUrlHint: w = null,
+  authToken: c,
+  mapUrlHint: m = null,
   mapScale: g = null,
   onClose: f,
-  onSaved: N,
+  onSaved: y,
 }) {
-  const C = Pe(),
-    [x, O] = n.useState(""),
-    [m, M] = n.useState(s),
-    [v, h] = n.useState("environmental"),
-    [y, T] = n.useState("scene"),
-    [R, A] = n.useState("0"),
-    [k, D] = n.useState("0"),
-    [z, Y] = n.useState("1"),
-    [F, j] = n.useState("[]"),
-    [E, o] = n.useState("0"),
-    [d, L] = n.useState("2"),
-    [I, $] = n.useState("5"),
-    [X, K] = n.useState("10"),
-    [re, ue] = n.useState(w),
-    [me, he] = n.useState(() => (g && g > 0 ? g : Ye())),
-    [B, fe] = n.useState(null),
-    [W, J] = n.useState(!1),
-    [oe, H] = n.useState(null),
-    [V, ge] = n.useState(!1),
-    [pe, we] = n.useState(!1),
-    [ie, le] = n.useState(() => (typeof window < "u" ? $e() : "auto")),
-    [Z, Se] = n.useState(() => (typeof window < "u" ? Ee() : "stack")),
+  const N = Ee(),
+    [b, D] = a.useState(""),
+    [p, L] = a.useState(s),
+    [x, w] = a.useState("environmental"),
+    [v, R] = a.useState("scene"),
+    [O, P] = a.useState("0"),
+    [_, F] = a.useState("0"),
+    [$, z] = a.useState("1"),
+    [A, k] = a.useState("[]"),
+    [C, o] = a.useState("0"),
+    [u, M] = a.useState("2"),
+    [Y, q] = a.useState("5"),
+    [I, K] = a.useState("10"),
+    [re, ue] = a.useState(m),
+    [me, he] = a.useState(() => (g && g > 0 ? g : Te())),
+    [B, fe] = a.useState(null),
+    [W, J] = a.useState(!1),
+    [oe, H] = a.useState(null),
+    [V, ge] = a.useState(!1),
+    [pe, we] = a.useState(!1),
+    [ie, le] = a.useState(() => (typeof window < "u" ? Xe() : "auto")),
+    [Z, Se] = a.useState(() => (typeof window < "u" ? Ce() : "stack")),
     ye = ie === "auto" ? Z : ie,
     { panelSizePx: ce, setPanelSizePx: ve } = tt(ye, {
       storageKey: He,
       enableFocus: !1,
     }),
-    xe = m.trim() || s,
-    je = n.useCallback((c) => {
-      (le(c), Ke(c));
+    xe = p.trim() || s,
+    je = a.useCallback((d) => {
+      (le(d), Ke(d));
     }, []),
-    q = n.useCallback(() => {
+    X = a.useCallback(() => {
       pe && ge(!0);
     }, [pe]);
-  (n.useEffect(() => {
-    const c = () => Se(Ee());
+  (a.useEffect(() => {
+    const d = () => Se(Ce());
     return (
-      c(),
-      window.addEventListener("resize", c),
-      () => window.removeEventListener("resize", c)
+      d(),
+      window.addEventListener("resize", d),
+      () => window.removeEventListener("resize", d)
     );
   }, []),
-    n.useEffect(() => {
+    a.useEffect(() => {
       if (!t || !s) return;
-      let c = !1;
+      let d = !1;
       return (
         J(!0),
         H(null),
         ge(!1),
         we(!1),
-        Promise.all([ne.getSensor(u, s), ne.getScene(u, l).catch(() => null)])
+        Promise.all([ne.getSensor(c, s), ne.getScene(c, l).catch(() => null)])
           .then(([r, i]) => {
-            if (c) return;
-            (O(String(r.name || "")),
-              M(String(r.sensor_id || r.uid || s)),
-              h(String(r.singleton_type || "environmental")));
-            const p = String(r.area || "scene") || "scene";
-            T(p === "circle" || p === "poly" ? p : "scene");
-            const b = Array.isArray(r.center) ? r.center : null,
-              P = b ? b[0] : null,
-              S = b ? b[1] : null,
+            if (d) return;
+            (D(String(r.name || "")),
+              L(String(r.sensor_id || r.uid || s)),
+              w(String(r.singleton_type || "environmental")));
+            const h = String(r.area || "scene") || "scene";
+            R(h === "circle" || h === "poly" ? h : "scene");
+            const S = Array.isArray(r.center) ? r.center : null,
+              E = S ? S[0] : null,
+              j = S ? S[1] : null,
               ee = i && typeof i == "object" ? Number(i.scale) : NaN,
-              Te = Number.isFinite(ee) && ee > 0 ? ee : g && g > 0 ? g : Ye();
-            he(Te);
-            const Ae = i && typeof i == "object" ? i.map || i.map_url : null,
-              De = w || (typeof Ae == "string" && Ae ? Ae : null);
-            ue(De);
+              $e = Number.isFinite(ee) && ee > 0 ? ee : g && g > 0 ? g : Te();
+            he($e);
+            const Pe = i && typeof i == "object" ? i.map || i.map_url : null,
+              Fe = m || (typeof Pe == "string" && Pe ? Pe : null);
+            ue(Fe);
             const nt = (te, at) => {
-              if (be(P, S)) {
-                const [rt, it] = Ie(Te, te, at);
-                (A(se(Number(rt.toFixed(3)), "0")),
-                  D(se(Number(it.toFixed(3)), "0")));
-              } else (A(se(P, "0")), D(se(S, "0")));
+              if (be(E, j)) {
+                const [rt, it] = Ye($e, te, at);
+                (P(se(Number(rt.toFixed(3)), "0")),
+                  F(se(Number(it.toFixed(3)), "0")));
+              } else (P(se(E, "0")), F(se(j, "0")));
             };
-            if (De) {
+            if (Fe) {
               const te = new Image();
               ((te.onload = () => {
-                c ||
+                d ||
                   (te.naturalWidth > 0 && te.naturalHeight > 0
                     ? (fe({ width: te.naturalWidth, height: te.naturalHeight }),
                       nt(te.naturalWidth, te.naturalHeight))
-                    : be(P, S) || (A(se(P, "0")), D(se(S, "0"))));
+                    : be(E, j) || (P(se(E, "0")), F(se(j, "0"))));
               }),
                 (te.onerror = () => {
-                  !c && !be(P, S) && (A(se(P, "0")), D(se(S, "0")));
+                  !d && !be(E, j) && (P(se(E, "0")), F(se(j, "0")));
                 }),
-                (te.src = De));
-            } else be(P, S) ? (A("0"), D("0")) : (A(se(P, "0")), D(se(S, "0")));
-            (Y(r.radius != null ? se(r.radius, "1") : "1"),
-              j(
+                (te.src = Fe));
+            } else be(E, j) ? (P("0"), F("0")) : (P(se(E, "0")), F(se(j, "0")));
+            (z(r.radius != null ? se(r.radius, "1") : "1"),
+              k(
                 Array.isArray(r.points)
                   ? JSON.stringify(r.points, null, 2)
                   : "[]",
               ));
-            const Ne = xt(r);
-            (o(Ne.green), L(Ne.yellow), $(Ne.red), K(Ne.max), we(!0));
+            const ke = St(r);
+            (o(ke.green), M(ke.yellow), q(ke.red), K(ke.max), we(!0));
           })
           .catch((r) => {
-            c || H(r.message || "Failed to load sensor");
+            d || H(r.message || "Failed to load sensor");
           })
           .finally(() => {
-            c || J(!1);
+            d || J(!1);
           }),
         () => {
-          c = !0;
+          d = !0;
         }
       );
-    }, [t, s, l, u, w, g]));
-  const ke = async (c) => {
-      if ((c == null || c.preventDefault(), !xe)) {
+    }, [t, s, l, c, m, g]));
+  const Ne = async (d) => {
+      if ((d == null || d.preventDefault(), !xe)) {
         H("Sensor id is missing");
         return;
       }
       (J(!0), H(null));
       const r = {
-        name: x.trim(),
+        name: b.trim(),
         sensor_id: xe,
         scene: l,
-        singleton_type: v,
-        area: y,
+        singleton_type: x,
+        area: v,
         color_ranges: {
           sectors: [
-            { color: "green", color_min: ae(E) ?? 0 },
-            { color: "yellow", color_min: ae(d) ?? 2 },
-            { color: "red", color_min: ae(I) ?? 5 },
+            { color: "green", color_min: ae(C) ?? 0 },
+            { color: "yellow", color_min: ae(u) ?? 2 },
+            { color: "red", color_min: ae(Y) ?? 5 },
           ],
-          range_max: ae(X) ?? 10,
+          range_max: ae(I) ?? 10,
         },
       };
-      if (y === "circle") {
-        const i = ae(R),
-          p = ae(k),
-          b = ae(z);
-        if (i === void 0 || p === void 0 || b === void 0) {
+      if (v === "circle") {
+        const i = ae(O),
+          h = ae(_),
+          S = ae($);
+        if (i === void 0 || h === void 0 || S === void 0) {
           (H("Circle area requires center X/Y and radius"), J(!1));
           return;
         }
-        ((r.center = [i, p]), (r.radius = b));
+        ((r.center = [i, h]), (r.radius = S));
       }
-      if (y === "poly")
+      if (v === "poly")
         try {
-          const i = JSON.parse(F);
+          const i = JSON.parse(A);
           if (!Array.isArray(i))
             throw new SyntaxError("points must be an array");
           r.points = i;
-          const p = i.filter(
-            (b) =>
-              Array.isArray(b) &&
-              b.length >= 2 &&
-              Number.isFinite(Number(b[0])) &&
-              Number.isFinite(Number(b[1])),
+          const h = i.filter(
+            (S) =>
+              Array.isArray(S) &&
+              S.length >= 2 &&
+              Number.isFinite(Number(S[0])) &&
+              Number.isFinite(Number(S[1])),
           );
-          if (p.length) {
-            const b = p.reduce((S, ee) => S + Number(ee[0]), 0) / p.length,
-              P = p.reduce((S, ee) => S + Number(ee[1]), 0) / p.length;
-            r.center = [b, P];
+          if (h.length) {
+            const S = h.reduce((j, ee) => j + Number(ee[0]), 0) / h.length,
+              E = h.reduce((j, ee) => j + Number(ee[1]), 0) / h.length;
+            r.center = [S, E];
           }
         } catch {
           (H("Polygon points must be valid JSON [[x,y], …]"), J(!1));
           return;
         }
       try {
-        (await ne.updateSensor(u, xe, r),
-          C.show("Sensor saved", "ok"),
+        (await ne.updateSensor(c, xe, r),
+          N.show("Sensor saved", "ok"),
           ge(!1),
-          N(),
+          y(),
           f());
       } catch (i) {
         H(i.message || "Save failed");
@@ -1757,10 +1889,10 @@ function At({
         J(!1);
       }
     },
-    Me = e.jsxs("form", {
+    Le = e.jsxs("form", {
       id: "ss-sensor-calibrate-form",
       className: "ss-workspace-panel-form",
-      onSubmit: ke,
+      onSubmit: Ne,
       children: [
         oe
           ? e.jsx("p", { className: "ss-workspace-panel-error", children: oe })
@@ -1775,22 +1907,22 @@ function At({
           title: "Identity",
           description: "Sensor name and pipeline id.",
           children: [
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-sensor-cal-name",
               label: "Name",
-              value: x,
-              onChange: (c) => {
-                (O(c.target.value), q());
+              value: b,
+              onChange: (d) => {
+                (D(d.target.value), X());
               },
               required: !0,
               disabled: W,
             }),
-            e.jsx(_, {
+            e.jsx(T, {
               id: "ss-sensor-cal-id",
               label: "Sensor ID",
-              value: m,
-              onChange: (c) => {
-                (M(c.target.value), q());
+              value: p,
+              onChange: (d) => {
+                (L(d.target.value), X());
               },
               required: !0,
               disabled: W,
@@ -1798,13 +1930,13 @@ function At({
             e.jsx(de, {
               id: "ss-sensor-cal-type",
               label: "Type",
-              value: v,
-              onChange: (c) => {
-                (h(c.target.value), q());
+              value: x,
+              onChange: (d) => {
+                (w(d.target.value), X());
               },
               disabled: W,
-              children: vt.map((c) =>
-                e.jsx("option", { value: c.value, children: c.label }, c.value),
+              children: bt.map((d) =>
+                e.jsx("option", { value: d.value, children: d.label }, d.value),
               ),
             }),
           ],
@@ -1812,24 +1944,24 @@ function At({
         e.jsxs(Q, {
           title: "Area",
           description:
-            y === "circle"
+            v === "circle"
               ? "Click the map to place the center. Drag the rim to set radius."
-              : y === "poly"
+              : v === "poly"
                 ? "Click the map to add vertices. Click the first point to close."
                 : "Coverage on the scene map.",
           children: [
             e.jsxs(de, {
               id: "ss-sensor-cal-area",
               label: "Area type",
-              value: y,
-              onChange: (c) => {
-                const r = c.target.value;
-                if ((T(r), r === "circle" && be(R, k) && B)) {
-                  const [i, p] = Ie(me, B.width, B.height);
-                  (A(String(Number(i.toFixed(3)))),
-                    D(String(Number(p.toFixed(3)))));
+              value: v,
+              onChange: (d) => {
+                const r = d.target.value;
+                if ((R(r), r === "circle" && be(O, _) && B)) {
+                  const [i, h] = Ye(me, B.width, B.height);
+                  (P(String(Number(i.toFixed(3)))),
+                    F(String(Number(h.toFixed(3)))));
                 }
-                q();
+                X();
               },
               disabled: W,
               children: [
@@ -1838,40 +1970,40 @@ function At({
                 e.jsx("option", { value: "poly", children: "Polygon" }),
               ],
             }),
-            y === "circle"
+            v === "circle"
               ? e.jsxs(e.Fragment, {
                   children: [
-                    e.jsx(_, {
+                    e.jsx(T, {
                       id: "ss-sensor-cal-cx",
                       label: "Center X (m)",
-                      value: R,
-                      onChange: (c) => {
-                        (A(c.target.value), q());
+                      value: O,
+                      onChange: (d) => {
+                        (P(d.target.value), X());
                       },
                       disabled: W,
                     }),
-                    e.jsx(_, {
+                    e.jsx(T, {
                       id: "ss-sensor-cal-cy",
                       label: "Center Y (m)",
-                      value: k,
-                      onChange: (c) => {
-                        (D(c.target.value), q());
+                      value: _,
+                      onChange: (d) => {
+                        (F(d.target.value), X());
                       },
                       disabled: W,
                     }),
-                    e.jsx(_, {
+                    e.jsx(T, {
                       id: "ss-sensor-cal-r",
                       label: "Radius (m)",
-                      value: z,
-                      onChange: (c) => {
-                        (Y(c.target.value), q());
+                      value: $,
+                      onChange: (d) => {
+                        (z(d.target.value), X());
                       },
                       disabled: W,
                     }),
                   ],
                 })
               : null,
-            y === "poly"
+            v === "poly"
               ? e.jsxs("div", {
                   className: "ss-text-field",
                   children: [
@@ -1885,10 +2017,10 @@ function At({
                       children: e.jsx("textarea", {
                         id: "ss-sensor-cal-pts",
                         rows: 6,
-                        value: F,
+                        value: A,
                         disabled: W,
-                        onChange: (c) => {
-                          (j(c.target.value), q());
+                        onChange: (d) => {
+                          (k(d.target.value), X());
                         },
                       }),
                     }),
@@ -1897,53 +2029,32 @@ function At({
               : null,
           ],
         }),
-        e.jsxs(Q, {
-          title: "Occupancy colors",
-          description: "Threshold sectors for scalar visualization.",
-          className: "ss-form-section--columns",
-          children: [
-            e.jsx(_, {
-              id: "ss-sensor-cal-g",
-              label: "Green min",
-              value: E,
-              onChange: (c) => {
-                (o(c.target.value), q());
-              },
-              disabled: W,
-            }),
-            e.jsx(_, {
-              id: "ss-sensor-cal-y",
-              label: "Yellow min",
-              value: d,
-              onChange: (c) => {
-                (L(c.target.value), q());
-              },
-              disabled: W,
-            }),
-            e.jsx(_, {
-              id: "ss-sensor-cal-r2",
-              label: "Red min",
-              value: I,
-              onChange: (c) => {
-                ($(c.target.value), q());
-              },
-              disabled: W,
-            }),
-            e.jsx(_, {
-              id: "ss-sensor-cal-max",
-              label: "Range max",
-              value: X,
-              onChange: (c) => {
-                (K(c.target.value), q());
-              },
-              disabled: W,
-            }),
-          ],
+        e.jsx(Q, {
+          title: "Occupancy thresholds",
+          description: "Green, yellow, and red bands for scalar visualization.",
+          children: e.jsx(vt, {
+            showLabel: !1,
+            idPrefix: "ss-sensor-cal-occ",
+            disabled: W,
+            value: {
+              greenMin: Number(C) || 0,
+              yellowMin: Number(u) || 0,
+              redMin: Number(Y) || 0,
+              rangeMax: Number(I) || 0,
+            },
+            onChange: (d) => {
+              (o(String(d.greenMin)),
+                M(String(d.yellowMin)),
+                q(String(d.redMin)),
+                K(String(d.rangeMax)),
+                X());
+            },
+          }),
         }),
       ],
     });
-  return e.jsx(qe, {
-    open: t && !!(a || s),
+  return e.jsx(We, {
+    open: t && !!(n || s),
     title: "Calibrate sensor",
     layout: "bleed",
     dirty: V,
@@ -1954,7 +2065,7 @@ function At({
     actions: e.jsxs(e.Fragment, {
       children: [
         e.jsx(Ue, { layoutMode: ie, onChange: je }),
-        e.jsx(Le, {
+        e.jsx(Me, {
           variant: "primary",
           disabled: W || !pe || !V,
           form: "ss-sensor-calibrate-form",
@@ -1985,13 +2096,13 @@ function At({
                   className: "ss-workspace-panel-hint",
                   style: { marginBottom: 0 },
                   children: [
-                    y === "circle"
+                    v === "circle"
                       ? "Click the map to place the center. Drag the handle or rim."
                       : null,
-                    y === "poly"
+                    v === "poly"
                       ? "Click to add polygon vertices. Click the first point to close."
                       : null,
-                    y === "scene" ? "Entire scene coverage." : null,
+                    v === "scene" ? "Entire scene coverage." : null,
                   ],
                 }),
               ],
@@ -1999,24 +2110,24 @@ function At({
             e.jsx("div", {
               className: "ss-workspace-cal-preview-frame",
               children: re
-                ? e.jsx(wt, {
+                ? e.jsx(xt, {
                     mapUrl: re,
                     scale: me,
-                    area: y,
-                    centerX: ae(R) ?? 0,
-                    centerY: ae(k) ?? 0,
-                    radius: ae(z) ?? 1,
-                    points: bt(F),
-                    onCenterChange: (c, r) => {
-                      (A(String(Number(c.toFixed(3)))),
-                        D(String(Number(r.toFixed(3)))),
-                        q());
+                    area: v,
+                    centerX: ae(O) ?? 0,
+                    centerY: ae(_) ?? 0,
+                    radius: ae($) ?? 1,
+                    points: jt(A),
+                    onCenterChange: (d, r) => {
+                      (P(String(Number(d.toFixed(3)))),
+                        F(String(Number(r.toFixed(3)))),
+                        X());
                     },
-                    onRadiusChange: (c) => {
-                      (Y(String(Number(c.toFixed(3)))), q());
+                    onRadiusChange: (d) => {
+                      (z(String(Number(d.toFixed(3)))), X());
                     },
-                    onPointsChange: (c) => {
-                      (j(JSON.stringify(c, null, 2)), q());
+                    onPointsChange: (d) => {
+                      (k(JSON.stringify(d, null, 2)), X());
                     },
                   })
                 : e.jsx("p", {
@@ -2028,20 +2139,21 @@ function At({
           ],
         }),
         e.jsx(Ge, { layout: ye, panelSizePx: ce, onResize: ve }),
-        e.jsx("aside", { className: "ss-cal-workspace-aside", children: Me }),
+        e.jsx("aside", { className: "ss-cal-workspace-aside", children: Le }),
       ],
     }),
   });
 }
 export {
   Et as C,
+  vt as O,
   Lt as S,
   Ge as W,
   Pt as a,
   At as b,
-  Mt as c,
-  Fe as m,
+  Ft as c,
+  Ae as m,
   st as p,
-  Ye as r,
+  Te as r,
   tt as u,
 };

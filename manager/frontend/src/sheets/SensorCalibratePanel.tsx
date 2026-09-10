@@ -13,6 +13,7 @@ import { FormSection } from "../components/FormSection";
 import { TextField } from "../components/TextField";
 import { SelectField } from "../components/SelectField";
 import { Button } from "../components/Button";
+import { OccupancyColorRange } from "../components/OccupancyColorRange";
 import {
   PanelLayoutToggle,
   chooseAutoPanelLayout,
@@ -543,49 +544,26 @@ export function SensorCalibratePanel({
         ) : null}
       </FormSection>
       <FormSection
-        title="Occupancy colors"
-        description="Threshold sectors for scalar visualization."
-        className="ss-form-section--columns"
+        title="Occupancy thresholds"
+        description="Green, yellow, and red bands for scalar visualization."
       >
-        <TextField
-          id="ss-sensor-cal-g"
-          label="Green min"
-          value={greenMin}
-          onChange={(ev) => {
-            setGreenMin(ev.target.value);
+        <OccupancyColorRange
+          showLabel={false}
+          idPrefix="ss-sensor-cal-occ"
+          disabled={busy}
+          value={{
+            greenMin: Number(greenMin) || 0,
+            yellowMin: Number(yellowMin) || 0,
+            redMin: Number(redMin) || 0,
+            rangeMax: Number(rangeMax) || 0,
+          }}
+          onChange={(next) => {
+            setGreenMin(String(next.greenMin));
+            setYellowMin(String(next.yellowMin));
+            setRedMin(String(next.redMin));
+            setRangeMax(String(next.rangeMax));
             markDirty();
           }}
-          disabled={busy}
-        />
-        <TextField
-          id="ss-sensor-cal-y"
-          label="Yellow min"
-          value={yellowMin}
-          onChange={(ev) => {
-            setYellowMin(ev.target.value);
-            markDirty();
-          }}
-          disabled={busy}
-        />
-        <TextField
-          id="ss-sensor-cal-r2"
-          label="Red min"
-          value={redMin}
-          onChange={(ev) => {
-            setRedMin(ev.target.value);
-            markDirty();
-          }}
-          disabled={busy}
-        />
-        <TextField
-          id="ss-sensor-cal-max"
-          label="Range max"
-          value={rangeMax}
-          onChange={(ev) => {
-            setRangeMax(ev.target.value);
-            markDirty();
-          }}
-          disabled={busy}
         />
       </FormSection>
     </form>
