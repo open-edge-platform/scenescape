@@ -2,6 +2,7 @@
 SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
+{% load static %}
 <!doctype html>
 <html lang="en">
   <head>
@@ -10,18 +11,6 @@ SPDX-License-Identifier: Apache-2.0
   </head>
   <body data-ss-reload="{{ reload|yesno:'true,false' }}">
     <p>Calibration saved.</p>
-    <script>
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage(
-          {
-            type: "ss-calibrate-done",
-            reload: document.body.dataset.ssReload === "true",
-          },
-          window.location.origin,
-        );
-      } else {
-        window.location.href = "/";
-      }
-    </script>
+    <script src="{% static 'js/embed-done.js' %}"></script>
   </body>
 </html>

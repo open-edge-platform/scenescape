@@ -10,19 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <script>
-      (function () {
-        try {
-          var t = localStorage.getItem("ss-theme");
-          document.documentElement.setAttribute(
-            "data-theme",
-            t === "dark" || t === "light" ? t : "light",
-          );
-        } catch (e) {
-          document.documentElement.setAttribute("data-theme", "light");
-        }
-      })();
-    </script>
+    <script src="{% static 'js/theme-boot.js' %}"></script>
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, shrink-to-fit=no"
@@ -227,48 +215,7 @@ SPDX-License-Identifier: Apache-2.0
       ></script>
     {% endif %}
     {% if embed %}
-      <script>
-        (function () {
-          function bindEmbedBack() {
-            document
-              .querySelectorAll("[data-ss-embed-back]")
-              .forEach(function (btn) {
-                if (btn.getAttribute("data-ss-bound") === "1") {
-                  return;
-                }
-                btn.setAttribute("data-ss-bound", "1");
-                btn.addEventListener("click", function (ev) {
-                  ev.preventDefault();
-                  var href = btn.getAttribute("data-ss-back-href") || "/";
-                  if (window.parent && window.parent !== window) {
-                    window.parent.postMessage(
-                      { type: "ss-calibrate-cancel" },
-                      "*",
-                    );
-                    return;
-                  }
-                  window.location.assign(href);
-                });
-              });
-          }
-          document
-            .querySelectorAll("form[method='post'], form[method='POST']")
-            .forEach(function (form) {
-              if (!form.querySelector('input[name="embed"]')) {
-                var input = document.createElement("input");
-                input.type = "hidden";
-                input.name = "embed";
-                input.value = "1";
-                form.appendChild(input);
-              }
-            });
-          if (document.readyState === "loading") {
-            document.addEventListener("DOMContentLoaded", bindEmbedBack);
-          } else {
-            bindEmbedBack();
-          }
-        })();
-      </script>
+      <script src="{% static 'js/embed-bridge.js' %}"></script>
     {% endif %}
     {% block scripts %}
     {% endblock %}

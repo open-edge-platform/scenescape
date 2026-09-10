@@ -2,23 +2,15 @@
 SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
+{% load static %}
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <title>Saved</title>
   </head>
-  <body>
+  <body data-ss-reload="true">
     <p>Saved.</p>
-    <script>
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage(
-          { type: "ss-calibrate-done", reload: true },
-          window.location.origin,
-        );
-      } else {
-        window.location.href = "/";
-      }
-    </script>
+    <script src="{% static 'js/embed-done.js' %}"></script>
   </body>
 </html>
