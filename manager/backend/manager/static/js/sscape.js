@@ -496,6 +496,48 @@ function getColorForValue(roi_id, value, sectors) {
   return color_for_occupancy;
 }
 
+/** Accept nested Scene.roiJSON shape or flat model flush shape. */
+function normalizeOccupancySectors(entry) {
+  if (!entry) {
+    return null;
+  }
+  var raw = entry.sectors;
+  if (!raw) {
+    return null;
+  }
+  if (Array.isArray(raw.thresholds)) {
+    return {
+      thresholds: raw.thresholds,
+      range_max:
+        raw.range_max != null
+          ? Number(raw.range_max)
+          : entry.range_max != null
+            ? Number(entry.range_max)
+            : 10,
+    };
+  }
+  if (Array.isArray(raw)) {
+    return {
+      thresholds: raw,
+      range_max: entry.range_max != null ? Number(entry.range_max) : 10,
+    };
+  }
+  return null;
+}
+
+window.ssSyncRoiColorSectors = function (uuid, sectorsPayload) {
+  if (!uuid || !sectorsPayload) {
+    return;
+  }
+  var normalized = normalizeOccupancySectors({
+    sectors: sectorsPayload,
+    range_max: sectorsPayload.range_max,
+  });
+  if (normalized && normalized.thresholds.length > 0) {
+    roi_color_sectors[uuid] = normalized;
+  }
+};
+
 async function checkBrokerConnections() {
   const urlSecure = "wss://" + window.location.host + "/mqtt";
 
@@ -1829,13 +1871,70 @@ function drawSensor(sensor, index, type) {
   var existing = document.getElementById(i);
 
   if (type === "sensor" && existing) {
-    var nameEl = existing.querySelector("#name");
-    if (nameEl && sensor.title) {
-      nameEl.textContent = sensor.title;
+    // Always refresh geometry: an earlier pass may have run before
+    // scene_y_max was set from the map image (default 480), which shifts
+    // circles vertically by (trueHeight - 480) ≈ often ~radius in px.
+    if (sensor.area === "circle" && sensorHasMapGeometry(sensor)) {
+      var cp = metersToPixels(
+        [Number(sensor.x), Number(sensor.y)],
+        scale,
+        scene_y_max,
+      );
+      var areaEl = existing.querySelector("circle.area, .area");
+      if (areaEl) {
+        areaEl.setAttribute("cx", cp[0]);
+        areaEl.setAttribute("cy", cp[1]);
+        if (Number.isFinite(Number(sensor.radius))) {
+          areaEl.setAttribute("r", Number(sensor.radius) * scale);
+        }
+      }
+      var marker = existing.querySelector("circle.sensor");
+      if (marker) {
+        marker.setAttribute("cx", cp[0]);
+        marker.setAttribute("cy", cp[1]);
+      }
+      var valueEl = existing.querySelector("text.value");
+      if (valueEl) {
+        valueEl.setAttribute("x", cp[0]);
+        valueEl.setAttribute("y", cp[1]);
+      }
+      var nameElGeom = existing.querySelector("#name");
+      if (nameElGeom) {
+        applySensorNameAnchor(nameElGeom, cp[0], cp[1]);
+      }
+    } else if (sensor.area === "poly" && sensorHasMapGeometry(sensor)) {
+      var polyPts = [];
+      (sensor.points || []).forEach(function (m) {
+        var pp = metersToPixels(m, scale, scene_y_max);
+        polyPts.push(pp[0], pp[1]);
+      });
+      var polyEl = existing.querySelector("polygon.area, .area");
+      if (polyEl && polyPts.length >= 6) {
+        polyEl.setAttribute("points", polyPts.join(","));
+        var polyMid = polyCenter(polyPts);
+        var valuePoly = existing.querySelector("text.value");
+        if (valuePoly) {
+          valuePoly.setAttribute("x", polyMid[0]);
+          valuePoly.setAttribute("y", polyMid[1]);
+        }
+        var namePoly = existing.querySelector("#name");
+        if (namePoly) {
+          applySensorNameAnchor(namePoly, polyMid[0], polyMid[1]);
+        }
+      }
+    } else {
+      var nameEl = existing.querySelector("#name");
+      if (nameEl && sensor.title) {
+        nameEl.textContent = sensor.title;
+      }
+      var center = sensorGroupCenter(existing);
+      if (center) {
+        applySensorNameAnchor(nameEl, center.x, center.y);
+      }
     }
-    var center = sensorGroupCenter(existing);
-    if (center) {
-      applySensorNameAnchor(nameEl, center.x, center.y);
+    var nameTitle = existing.querySelector("#name");
+    if (nameTitle && sensor.title) {
+      nameTitle.textContent = sensor.title;
     }
     return;
   }
@@ -1939,12 +2038,18 @@ function drawSensor(sensor, index, type) {
   }
 }
 
+var roi_occupancy_values = {};
+
 function setColorForAllROIs() {
   const all_rois = getRoiValues("form-control roi-title", "roi");
   for (var roi of all_rois) {
     roi = roi.split("_")[1];
-    setROIColor(roi, 0);
+    setROIColor(roi, roi_occupancy_values[roi] ?? 0);
   }
+  // React map may not use legacy form cards — re-color every known sector key.
+  Object.keys(roi_color_sectors).forEach(function (uuid) {
+    setROIColor(uuid, roi_occupancy_values[uuid] ?? 0);
+  });
 }
 
 // Toggle ROI/tripwire name label visibility (independent of whether the toggle UI exists on this page)
@@ -1953,30 +2058,51 @@ function setRoiNameVisibility(enabled) {
 }
 
 function setROIColor(roi_id, occupancy) {
-  var roi_polygon = document.querySelector("#roi_" + roi_id + " polygon");
-  if (roi_polygon) {
+  if (occupancy !== undefined && occupancy !== null) {
+    roi_occupancy_values[roi_id] = occupancy;
+  }
+  var value =
+    roi_occupancy_values[roi_id] !== undefined
+      ? roi_occupancy_values[roi_id]
+      : 0;
+  // React + Snap both use id=roi_<uuid>; update every polygon so the
+  // visible React layer is not skipped when Snap's hidden copy comes first.
+  var polygons = document.querySelectorAll(
+    "#roi_" + CSS.escape(String(roi_id)) + " polygon",
+  );
+  polygons.forEach(function (roi_polygon) {
     if (is_coloring_enabled) {
-      var color = getColorForValue(roi_id, occupancy, roi_color_sectors);
+      var color = getColorForValue(roi_id, value, roi_color_sectors);
       roi_polygon.style.fill = color;
+      roi_polygon.style.fillOpacity = "0.4";
     } else {
       roi_polygon.style.fill = "";
+      roi_polygon.style.fillOpacity = "";
     }
-  }
+  });
 }
+
+window.ssReapplyRoiColors = function () {
+  Object.keys(roi_color_sectors).forEach(function (uuid) {
+    setROIColor(uuid, roi_occupancy_values[uuid] ?? 0);
+  });
+};
 
 function setSensorColor(sensor_id, value, area) {
   const sensor_area =
     area === "circle"
-      ? document.querySelector(`#sensor_${sensor_id} circle`)
+      ? document.querySelector(`#sensor_${sensor_id} circle.area, #sensor_${sensor_id} circle`)
       : area === "poly"
-        ? document.querySelector(`#sensor_${sensor_id} polygon`)
+        ? document.querySelector(`#sensor_${sensor_id} polygon.area, #sensor_${sensor_id} polygon`)
         : null;
   if (sensor_area) {
     if (is_coloring_enabled) {
       var color = getColorForValue(sensor_id, value, singleton_color_sectors);
       sensor_area.style.fill = color;
+      sensor_area.style.fillOpacity = "0.4";
     } else {
-      sensor_area.style.fill = "white";
+      sensor_area.style.fill = "";
+      sensor_area.style.fillOpacity = "";
     }
   }
 }
@@ -2239,8 +2365,9 @@ $(document).ready(function () {
         rois.forEach(function (e, index) {
           drawRoi(e, e.uuid, "roi");
 
-          if (e.sectors.thresholds.length > 0) {
-            roi_color_sectors[e.uuid] = e.sectors;
+          var sectors = normalizeOccupancySectors(e);
+          if (sectors && sectors.thresholds.length > 0) {
+            roi_color_sectors[e.uuid] = sectors;
           }
         });
 

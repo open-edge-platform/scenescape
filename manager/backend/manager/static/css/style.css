@@ -1540,9 +1540,12 @@ polygon {
 }
 
 .roi text,
-.child_roi text,
+.child_roi text {
+  fill: #0054ae;
+}
+
 .area-group text {
-  fill: red;
+  fill: #c65d00;
 }
 
 .tripwire text,
@@ -1603,8 +1606,8 @@ polygon {
 
 .sensor_r,
 .area-group .area {
-  fill: #ffffff;
-  opacity: 0.4;
+  fill: #c65d00;
+  fill-opacity: 0.4;
   /* Distinct from ROI brand blue (#0054ae) and tripwire magenta. */
   stroke: #c65d00;
   stroke-width: 3px;

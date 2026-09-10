@@ -16,7 +16,9 @@ type RoiDraft = {
   height?: number;
   buffer_size?: number;
   range_max?: number;
-  sectors?: { color: string; color_min: number }[];
+  sectors?:
+    | { color: string; color_min: number }[]
+    | { thresholds?: { color: string; color_min: number }[]; range_max?: number };
 };
 
 type TripDraft = {
@@ -72,6 +74,29 @@ function parseHiddenJson<T>(id: string): T[] {
   }
 }
 
+function occupancyFromDraft(roi: RoiDraft): {
+  sectors: { color: string; color_min: number }[];
+  range_max: number;
+} | null {
+  const raw = roi.sectors;
+  if (Array.isArray(raw)) {
+    if (typeof roi.range_max !== "number") {
+      return null;
+    }
+    return { sectors: raw, range_max: roi.range_max };
+  }
+  if (raw && Array.isArray(raw.thresholds)) {
+    const rangeMax =
+      typeof raw.range_max === "number"
+        ? raw.range_max
+        : typeof roi.range_max === "number"
+          ? roi.range_max
+          : 10;
+    return { sectors: raw.thresholds, range_max: rangeMax };
+  }
+  return null;
+}
+
 function regionPayload(
   sceneId: string,
   roi: RoiDraft,
@@ -85,10 +110,11 @@ function regionPayload(
     height: typeof roi.height === "number" ? roi.height : 1,
     buffer_size: typeof roi.buffer_size === "number" ? roi.buffer_size : 0,
   };
-  if (Array.isArray(roi.sectors) && typeof roi.range_max === "number") {
+  const occ = occupancyFromDraft(roi);
+  if (occ) {
     payload.color_ranges = {
-      sectors: roi.sectors,
-      range_max: roi.range_max,
+      sectors: occ.sectors,
+      range_max: occ.range_max,
     };
   }
   return payload;

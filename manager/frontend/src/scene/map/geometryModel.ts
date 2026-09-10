@@ -197,7 +197,9 @@ export function ingestStringifyRois(
     height?: number;
     buffer_size?: number;
     range_max?: number;
-    sectors?: { color: string; color_min: number }[];
+    sectors?:
+      | { color: string; color_min: number }[]
+      | { thresholds?: { color: string; color_min: number }[]; range_max?: number };
   }>,
 ): void {
   const keep = new Set<string>();
@@ -210,14 +212,25 @@ export function ingestStringifyRois(
     const points = (d.points || []).map(
       (p) => [Number(p[0]), Number(p[1])] as GeometryPoint,
     );
+    const nested =
+      d.sectors && !Array.isArray(d.sectors) ? d.sectors : null;
+    const flatSectors = Array.isArray(d.sectors)
+      ? d.sectors
+      : nested?.thresholds;
+    const rangeMax =
+      nested?.range_max != null
+        ? Number(nested.range_max)
+        : d.range_max != null
+          ? Number(d.range_max)
+          : undefined;
     upsertRoiMeta(uuid, {
       title: d.title,
       points,
       volumetric: d.volumetric,
       height: d.height,
       buffer_size: d.buffer_size,
-      range_max: d.range_max,
-      sectors: d.sectors,
+      range_max: rangeMax,
+      sectors: flatSectors,
     });
   }
   for (const id of Array.from(rois.keys())) {
@@ -258,6 +271,7 @@ export function ingestStringifyTrips(
 }
 
 export function flushGeometryToHidden(): void {
+  // Legacy sscape.js expects sectors: { thresholds, range_max } (see Scene.roiJSON).
   const roiPayload = getRoiList().map((r) => ({
     title: r.title,
     uuid: r.uuid,
@@ -265,8 +279,10 @@ export function flushGeometryToHidden(): void {
     volumetric: r.volumetric,
     height: r.height,
     buffer_size: r.buffer_size,
-    range_max: r.range_max,
-    sectors: r.sectors,
+    sectors: {
+      thresholds: r.sectors,
+      range_max: r.range_max,
+    },
   }));
   const tripPayload = getTripwireList().map((t) => ({
     title: t.title,

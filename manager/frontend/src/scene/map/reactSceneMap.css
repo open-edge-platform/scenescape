@@ -101,7 +101,7 @@ body.ss-use-react-map #ss-map-host #svgout.ss-react-scene-map {
  * geometry (React owns those); keep marks visible above the React layer.
  */
 body.ss-use-react-map #ss-map-host {
-  --ss-map-area-fill-opacity: 0.4;
+  --ss-map-area-fill-opacity: 0.25;
 }
 
 body.ss-use-react-map #ss-map-host .scene-map-stage {
@@ -138,9 +138,10 @@ body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group {
   pointer-events: none;
 }
 
-body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group #name {
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group #name,
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group text.value {
   display: block !important;
-  fill: #001e50;
+  fill: #c65d00;
   font-family: var(--ss-font-sans, sans-serif);
   font-size: 13px;
   font-weight: 600;
@@ -153,9 +154,16 @@ body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group #name {
   text-anchor: unset;
 }
 
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group text.value {
+  /* Value sits on the area; keep centered like legacy. */
+  text-anchor: middle;
+}
+
 body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group .area {
-  /* Same fill strength as finished ROI polys (.ss-react-roi-poly). */
-  opacity: var(--ss-map-area-fill-opacity, 0.4);
+  /* Same fill/stroke pattern as ROI: tinted fill + solid matching border. */
+  fill: #c65d00;
+  fill-opacity: var(--ss-map-area-fill-opacity, 0.4);
+  opacity: 1;
   stroke: #c65d00;
   transition: fill var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease);
 }

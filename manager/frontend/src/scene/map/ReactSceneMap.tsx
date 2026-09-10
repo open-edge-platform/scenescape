@@ -146,6 +146,11 @@ export const ReactSceneMap = memo(function ReactSceneMap({
     [],
   );
 
+  // React remounts wipe inline occupancy fills — re-apply after geometry paint.
+  useEffect(() => {
+    window.ssReapplyRoiColors?.();
+  }, [rois]);
+
   useEffect(() => {
     const startRoi = () => {
       setMode("add-roi");
@@ -442,5 +447,6 @@ declare global {
       startAddRoi: () => void;
       startAddTripwire: () => void;
     };
+    ssReapplyRoiColors?: () => void;
   }
 }

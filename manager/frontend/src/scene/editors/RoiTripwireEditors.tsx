@@ -61,17 +61,18 @@ function publishDirty(kind: "roi" | "trip", dirty: boolean): void {
 }
 
 function pushRoiToModel(roi: RoiEntity, points?: number[][]): void {
+  const sectors = [
+    { color: "green", color_min: roi.greenMin },
+    { color: "yellow", color_min: roi.yellowMin },
+    { color: "red", color_min: roi.redMin },
+  ];
   upsertRoiMeta(roi.uuid, {
     title: roi.title,
     volumetric: roi.volumetric,
     height: roi.height,
     buffer_size: roi.buffer_size,
     range_max: roi.rangeMax,
-    sectors: [
-      { color: "green", color_min: roi.greenMin },
-      { color: "yellow", color_min: roi.yellowMin },
-      { color: "red", color_min: roi.redMin },
-    ],
+    sectors,
     ...(points
       ? {
           points: points.map(
@@ -79,6 +80,10 @@ function pushRoiToModel(roi: RoiEntity, points?: number[][]): void {
           ),
         }
       : {}),
+  });
+  window.ssSyncRoiColorSectors?.(roi.uuid, {
+    thresholds: sectors,
+    range_max: roi.rangeMax,
   });
 }
 

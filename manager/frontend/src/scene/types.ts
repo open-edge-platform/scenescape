@@ -131,6 +131,14 @@ declare global {
       hasRoi?: (svgId: string) => boolean;
       hasTripwire?: (svgId: string) => boolean;
     };
+    ssSyncRoiColorSectors?: (
+      uuid: string,
+      sectors: {
+        thresholds: { color: string; color_min: number }[];
+        range_max: number;
+      },
+    ) => void;
+    ssReapplyRoiColors?: () => void;
   }
 }
 
