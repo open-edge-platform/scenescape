@@ -1605,7 +1605,8 @@ polygon {
 .area-group .area {
   fill: #ffffff;
   opacity: 0.4;
-  stroke: blue;
+  /* Distinct from ROI brand blue (#0054ae) and tripwire magenta. */
+  stroke: #c65d00;
   stroke-width: 3px;
   transition: fill 180ms ease;
 }

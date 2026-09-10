@@ -345,6 +345,31 @@ function fitSceneMapDisplay() {
 
 window.fitSceneMapDisplay = fitSceneMapDisplay;
 
+/** True when scene-detail Live View toggle is checked (missing → off). */
+function isLiveViewEnabled() {
+  return $("input#live-view").is(":checked");
+}
+
+/** True when a strip card already shows a snapshot frame. */
+function cameraStripHasPreview(anchor) {
+  var img =
+    anchor && anchor.tagName === "IMG"
+      ? anchor
+      : anchor && anchor.querySelector
+        ? anchor.querySelector(
+            "img[data-ss-card-sensor], img[id^='card-preview-']",
+          )
+        : null;
+  if (!img || img.classList.contains("display-none")) {
+    return false;
+  }
+  var src = img.currentSrc || img.getAttribute("src") || "";
+  if (!src || src.indexOf("offline.png") !== -1) {
+    return false;
+  }
+  return img.naturalWidth > 0 || src.indexOf("data:image") === 0;
+}
+
 /** Re-request camera strip snapshots (React cards may mount after MQTT connect). */
 window.ssRefreshCameraSnapshots = function () {
   var client = window.ssMqttClient;
@@ -354,7 +379,7 @@ window.ssRefreshCameraSnapshots = function () {
   if (!$(".snapshot-image").length) {
     return;
   }
-  if (!window.location.href.includes("/cam/calibrate/")) {
+  if (!isCalibratePage()) {
     try {
       client.subscribe(APP_NAME + IMAGE_CAMERA + "+");
     } catch (e) {
@@ -560,9 +585,10 @@ async function checkBrokerConnections() {
         window.setTimeout(function () {
           window.ssRefreshCameraSnapshots();
         }, 1500);
-        $("input#live-view")
-          .off("change.ssLiveView")
-          .on("change.ssLiveView", function () {
+        // Delegated: #live-view remounts with the cameras tab toolbar.
+        $(document)
+          .off("change.ssLiveView", "input#live-view")
+          .on("change.ssLiveView", "input#live-view", function () {
             if ($(this).is(":checked")) {
               window.ssRefreshCameraSnapshots();
               $("#cameras-tab").click();
@@ -695,6 +721,7 @@ async function checkBrokerConnections() {
           // Use native JS since jQuery.load() pukes on data URI's
           if ($(".snapshot-image").length) {
             var id = topic.split("camera/")[1];
+            var live = isLiveViewEnabled();
             var previewImgs = document.querySelectorAll(
               "[id='" +
                 id +
@@ -707,6 +734,14 @@ async function checkBrokerConnections() {
                 "']",
             );
             previewImgs.forEach(function (img) {
+              // Live View off: keep the first thumbnail; ignore later frames
+              // from connect/mount getimage retries.
+              if (!live && cameraStripHasPreview(img)) {
+                return;
+              }
+              if (!msg || !msg.image) {
+                return;
+              }
               img.setAttribute("src", "data:image/jpeg;base64," + msg.image);
               img.classList.remove("display-none");
               var offline = img.parentElement
@@ -718,7 +753,7 @@ async function checkBrokerConnections() {
               });
             });
 
-            if ($("input#live-view").is(":checked")) {
+            if (live) {
               client.publish(APP_NAME + CMD_CAMERA + id, "getimage");
             }
           }
@@ -2107,18 +2142,27 @@ $(document).ready(function () {
       scene_map_width = image_w;
       $image.remove();
 
-      $("#svgout").width(image_w).height(scene_y_max);
-      if (isSceneDetailMap()) {
-        document
-          .getElementById("svgout")
-          .setAttribute("viewBox", sceneMapViewBox(image_w, scene_y_max));
-        document
-          .getElementById("svgout")
-          .setAttribute("preserveAspectRatio", "xMidYMid meet");
+      // React map claims hard-contract #svgout; Snap canvas is #svgout-snap.
+      var useReactMap =
+        Boolean(window.ssUseReactMap) ||
+        document.body.classList.contains("ss-use-react-map");
+      var snapSvg =
+        document.getElementById("svgout-snap") ||
+        document.querySelector("svg.ss-snap-legacy") ||
+        (!useReactMap ? document.getElementById("svgout") : null);
+      if (snapSvg) {
+        $(snapSvg).width(image_w).height(scene_y_max);
+        if (isSceneDetailMap()) {
+          snapSvg.setAttribute(
+            "viewBox",
+            sceneMapViewBox(image_w, scene_y_max),
+          );
+          snapSvg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+        }
+        $(snapSvg).show();
       }
       var image = svgCanvas.image(image_src, 0, 0, image_w, scene_y_max);
 
-      $("#svgout").show();
       fitSceneMapDisplay();
 
       // Add circle for singleton sensors

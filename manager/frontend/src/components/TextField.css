@@ -24,6 +24,42 @@
   min-width: 0;
 }
 
+.ss-file-current {
+  margin: 0 0 0.45rem;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--ss-text-muted, #5c6570);
+  word-break: break-all;
+}
+
+.ss-file-current a {
+  color: var(--ss-brand, #0054ae);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ss-file-current a:hover {
+  text-decoration: underline;
+}
+
+.ss-file-clear {
+  margin-left: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ss-status-bad, #b42318);
+  font: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.ss-file-clear:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .ss-text-field-input,
 .ss-select-field {
   display: block;

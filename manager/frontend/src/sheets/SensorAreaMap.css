@@ -17,8 +17,9 @@
 }
 
 .ss-sensor-area-coverage {
-  fill: color-mix(in srgb, #0054ae 22%, transparent);
-  stroke: #0054ae;
+  fill: #c65d00;
+  fill-opacity: 0.4;
+  stroke: #c65d00;
   stroke-width: 2;
   cursor: nwse-resize;
 }

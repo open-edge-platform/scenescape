@@ -592,6 +592,34 @@ class MapCornersLLAField(serializers.JSONField):
         self.fail('invalid')
     return super().to_internal_value(data)
 
+
+class FloatListField(serializers.ListField):
+  """List of floats that also accepts a JSON string from multipart forms."""
+
+  def __init__(self, **kwargs):
+    kwargs.setdefault("child", serializers.FloatField())
+    super().__init__(**kwargs)
+
+  def to_internal_value(self, data):
+    # Multipart may deliver the JSON payload as a bare string or as a
+    # single-element list containing that string.
+    if isinstance(data, (list, tuple)) and len(data) == 1 and isinstance(
+      data[0], str
+    ):
+      data = data[0]
+    if isinstance(data, str):
+      raw = data.strip()
+      if not raw:
+        return []
+      try:
+        data = json.loads(raw)
+      except json.JSONDecodeError:
+        self.fail("not_a_list", input_type=type(data).__name__)
+    if not isinstance(data, (list, tuple)):
+      self.fail("not_a_list", input_type=type(data).__name__)
+    return super().to_internal_value(data)
+
+
 class TransformSerializerField(serializers.DictField):
   def to_representation(self, obj):
     return obj.asDict
@@ -962,6 +990,15 @@ class UserSerializer(NonNullSerializer):
 class Asset3DSerializer(NonNullSerializer):
   uid = serializers.CharField(source='pk', read_only=True)
   name = serializers.CharField(max_length=150)
+  # Model BooleanFields use Yes/No choices; without an explicit BooleanField
+  # DRF treats them as ChoiceField and rejects multipart "true"/"false".
+  project_to_map = serializers.BooleanField(required=False, allow_null=True)
+  rotation_from_velocity = serializers.BooleanField(required=False, allow_null=True)
+  is_static = serializers.BooleanField(required=False, allow_null=True)
+  # Multipart FormData sends JSON strings for these list fields.
+  geometric_center = FloatListField(required=False, allow_null=True)
+  center_of_mass = FloatListField(required=False, allow_null=True)
+  friction_coefficients = FloatListField(required=False, allow_null=True)
 
   def validate_name(self, value):
     qs = Asset3D.objects.filter(name=value)
@@ -971,12 +1008,30 @@ class Asset3DSerializer(NonNullSerializer):
       raise serializers.ValidationError(f"An object library with the name '{value}' already exists.")
     return value
 
+  def _wants_clear_model(self):
+    raw = self.initial_data
+    if raw is None:
+      return False
+    flag = raw.get("clear_model_3d")
+    if isinstance(flag, (list, tuple)):
+      flag = flag[0] if flag else ""
+    return str(flag).strip().lower() in ("1", "true", "yes")
+
   def create_update(self, validated_data, instance=None):
+    clear_model = self._wants_clear_model()
+    if clear_model:
+      # Prefer explicit clear over a concurrent empty upload field.
+      validated_data.pop("model_3d", None)
     is_update = instance is not None
     if not is_update:
       instance = super().create(validated_data)
     else:
       super().update(instance, validated_data)
+    if clear_model and instance is not None:
+      if instance.model_3d:
+        instance.model_3d.delete(save=False)
+      instance.model_3d = None
+      instance.save(update_fields=["model_3d"])
     return instance
 
   def create(self, validated_data):

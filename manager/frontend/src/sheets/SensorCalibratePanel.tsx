@@ -48,7 +48,7 @@ type Props = {
 
 const TYPES = [
   { value: "environmental", label: "Environmental" },
-  { value: "generic", label: "Generic" },
+  { value: "attribute", label: "Attribute" },
 ];
 
 type AreaMode = "scene" | "circle" | "poly";

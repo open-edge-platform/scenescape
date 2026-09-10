@@ -26,6 +26,11 @@ function str(v: unknown, fallback = ""): string {
   return String(v);
 }
 
+/** Django/DRF BooleanField+choices only matches str(True)/str(False). */
+function formChoiceBool(value: boolean): "True" | "False" {
+  return value ? "True" : "False";
+}
+
 export function AssetSheet({
   open,
   mode,
@@ -37,6 +42,8 @@ export function AssetSheet({
   const toast = useAppToast();
   const [name, setName] = useState("");
   const [modelFile, setModelFile] = useState<File | null>(null);
+  const [existingModelUrl, setExistingModelUrl] = useState<string | null>(null);
+  const [clearModel, setClearModel] = useState(false);
   const [markColor, setMarkColor] = useState("#00ff00");
   const [scale, setScale] = useState("1");
   const [xSize, setXSize] = useState("1");
@@ -83,8 +90,10 @@ export function AssetSheet({
     }
     setError(null);
     setModelFile(null);
+    setClearModel(false);
     if (mode === "create") {
       setName("");
+      setExistingModelUrl(null);
       setMarkColor("#00ff00");
       setScale("1");
       setXSize("1");
@@ -122,6 +131,12 @@ export function AssetSheet({
           return;
         }
         setName(str(a.name));
+        const modelUrl =
+          typeof a.model_3d === "string" && a.model_3d.trim()
+            ? a.model_3d.trim()
+            : null;
+        setExistingModelUrl(modelUrl);
+        setClearModel(false);
         setMarkColor(str(a.mark_color, "#00ff00"));
         setScale(a.scale != null ? str(a.scale) : "1");
         setXSize(a.x_size != null ? str(a.x_size) : "1");
@@ -208,10 +223,10 @@ export function AssetSheet({
     form.append("z_size", zSize.trim() || "1");
     form.append("tracking_radius", trackingRadius.trim() || "1");
     form.append("shift_type", shiftType);
-    form.append("project_to_map", projectToMap ? "true" : "false");
+    form.append("project_to_map", formChoiceBool(projectToMap));
     form.append(
       "rotation_from_velocity",
-      rotationFromVelocity ? "true" : "false",
+      formChoiceBool(rotationFromVelocity),
     );
     form.append("x_buffer_size", xBuffer.trim() || "0");
     form.append("y_buffer_size", yBuffer.trim() || "0");
@@ -223,7 +238,7 @@ export function AssetSheet({
     form.append("translation_y", translation[1].trim() || "0");
     form.append("translation_z", translation[2].trim() || "0");
     form.append("mass", mass.trim() || "1");
-    form.append("is_static", isStatic ? "true" : "false");
+    form.append("is_static", formChoiceBool(isStatic));
     form.append("ttl", ttl.trim() || "0");
     form.append("linear_damping", linearDamping.trim() || "0.05");
     form.append("angular_damping", angularDamping.trim() || "0.05");
@@ -242,6 +257,8 @@ export function AssetSheet({
     );
     if (modelFile) {
       form.append("model_3d", modelFile);
+    } else if (clearModel) {
+      form.append("clear_model_3d", "True");
     }
   };
 
@@ -253,11 +270,6 @@ export function AssetSheet({
     appendCommon(form);
     try {
       if (mode === "create") {
-        if (!modelFile) {
-          setError("A .glb model file is required");
-          setBusy(false);
-          return;
-        }
         await api.createAsset(authToken, form);
         toast.show("Asset created", "ok");
       } else if (assetUid) {
@@ -296,7 +308,10 @@ export function AssetSheet({
         onSubmit={submit}
       >
         {error ? <p className="ss-drawer-error">{error}</p> : null}
-        <FormSection title="Identity" description="Name and 3D model file.">
+        <FormSection
+          title="Identity"
+          description="Name and optional 3D model file."
+        >
           <TextField
             id="ss-asset-name"
             label="Name"
@@ -307,15 +322,68 @@ export function AssetSheet({
           />
           <div className="ss-text-field">
             <label className="ss-text-field-label" htmlFor="ss-asset-glb">
-              GLB model{mode === "create" ? "" : " (optional replace)"}
+              GLB model (optional)
             </label>
             <div className="ss-text-field-control">
+              {existingModelUrl && !modelFile && !clearModel ? (
+                <p className="ss-file-current">
+                  Current:{" "}
+                  <a
+                    href={existingModelUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {existingModelUrl.split("/").pop() || existingModelUrl}
+                  </a>{" "}
+                  <button
+                    type="button"
+                    className="ss-file-clear"
+                    disabled={busy}
+                    onClick={() => {
+                      setClearModel(true);
+                      setModelFile(null);
+                      const input = document.getElementById(
+                        "ss-asset-glb",
+                      ) as HTMLInputElement | null;
+                      if (input) {
+                        input.value = "";
+                      }
+                    }}
+                  >
+                    Clear
+                  </button>
+                </p>
+              ) : null}
+              {clearModel && !modelFile ? (
+                <p className="ss-file-current">
+                  Model will be removed on save.{" "}
+                  <button
+                    type="button"
+                    className="ss-file-clear"
+                    disabled={busy}
+                    onClick={() => setClearModel(false)}
+                  >
+                    Undo
+                  </button>
+                </p>
+              ) : null}
+              {modelFile ? (
+                <p className="ss-file-current">
+                  New file: {modelFile.name}
+                </p>
+              ) : null}
               <input
                 id="ss-asset-glb"
                 type="file"
                 accept=".glb,model/gltf-binary"
                 disabled={busy}
-                onChange={(ev) => setModelFile(ev.target.files?.[0] || null)}
+                onChange={(ev) => {
+                  const file = ev.target.files?.[0] || null;
+                  setModelFile(file);
+                  if (file) {
+                    setClearModel(false);
+                  }
+                }}
               />
             </div>
           </div>

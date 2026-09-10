@@ -8,6 +8,8 @@
   max-width: 100%;
   max-height: 100%;
   background: var(--ss-surface);
+  /* Match sensor .area fill opacity (style.css .area-group .area). */
+  --ss-map-area-fill-opacity: 0.4;
 }
 
 /* Beat legacy `#svgout { height: auto }` so meet letterboxes instead of stretch. */
@@ -26,9 +28,10 @@ body.ss-use-react-map #ss-map-host #svgout.ss-react-scene-map {
 }
 
 .ss-react-roi-poly {
-  fill: color-mix(in srgb, #0054ae 25%, transparent);
+  fill: #0054ae;
+  fill-opacity: var(--ss-map-area-fill-opacity, 0.4);
   stroke: #0054ae;
-  stroke-width: 2;
+  stroke-width: var(--ss-map-geom-stroke, 3);
   transition: fill var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease);
 }
 
@@ -50,7 +53,7 @@ body.ss-use-react-map #ss-map-host #svgout.ss-react-scene-map {
 
 .ss-react-trip-line {
   stroke: #da2e56;
-  stroke-width: 3;
+  stroke-width: var(--ss-map-geom-stroke, 3);
 }
 
 .ss-react-trip-arrow {
@@ -74,21 +77,33 @@ body.ss-use-react-map #ss-map-host #svgout.ss-react-scene-map {
   cursor: grab;
 }
 
+/* Draft uses the same stroke weight as finished ROI / tripwire. */
+.ss-react-draft-poly {
+  fill: color-mix(in srgb, #0054ae 55%, transparent);
+  stroke: #0054ae;
+  stroke-width: var(--ss-map-geom-stroke, 3);
+  stroke-dasharray: 6 4;
+}
+
 .ss-react-draft-line {
   fill: none;
-  stroke: #0099ec;
-  stroke-width: 2;
-  stroke-dasharray: 4 3;
+  stroke: #0054ae;
+  stroke-width: var(--ss-map-geom-stroke, 3);
+  stroke-dasharray: 6 4;
 }
 
 .ss-react-draft-pt {
-  fill: #0099ec;
+  fill: #0054ae;
 }
 
 /*
  * Snap stays mounted for live marks / trails. Hide its map image and
  * geometry (React owns those); keep marks visible above the React layer.
  */
+body.ss-use-react-map #ss-map-host {
+  --ss-map-area-fill-opacity: 0.4;
+}
+
 body.ss-use-react-map #ss-map-host .scene-map-stage {
   position: relative;
 }
@@ -139,6 +154,9 @@ body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group #name {
 }
 
 body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group .area {
+  /* Same fill strength as finished ROI polys (.ss-react-roi-poly). */
+  opacity: var(--ss-map-area-fill-opacity, 0.4);
+  stroke: #c65d00;
   transition: fill var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease);
 }
 

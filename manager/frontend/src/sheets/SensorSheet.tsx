@@ -26,7 +26,7 @@ type Props = {
 
 const TYPES = [
   { value: "environmental", label: "Environmental" },
-  { value: "generic", label: "Generic" },
+  { value: "attribute", label: "Attribute" },
 ];
 
 export function SensorSheet({

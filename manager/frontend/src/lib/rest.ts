@@ -22,17 +22,27 @@ async function parseError(resp: Response): Promise<RestError> {
       const obj = body as Record<string, unknown>;
       if (typeof obj.detail === "string") {
         message = obj.detail;
+      } else if (Array.isArray(obj.non_field_errors) && obj.non_field_errors[0]) {
+        message = String(obj.non_field_errors[0]);
       } else {
-        const first = Object.values(obj).find(
-          (v) => Array.isArray(v) && v.length && typeof v[0] === "string",
-        ) as string[] | undefined;
-        if (first?.[0]) {
-          message = first[0];
-        } else if (
-          Array.isArray(obj.non_field_errors) &&
-          obj.non_field_errors[0]
-        ) {
-          message = String(obj.non_field_errors[0]);
+        const parts: string[] = [];
+        for (const [key, val] of Object.entries(obj)) {
+          if (Array.isArray(val) && val.length && typeof val[0] === "string") {
+            parts.push(`${key}: ${val[0]}`);
+          } else if (val && typeof val === "object") {
+            // Nested DRF errors e.g. {geometric_center: {0: ["..."]}}
+            const nested = Object.values(val as Record<string, unknown>)
+              .flatMap((v) => (Array.isArray(v) ? v : [v]))
+              .find((v) => typeof v === "string");
+            if (typeof nested === "string") {
+              parts.push(`${key}: ${nested}`);
+            }
+          } else if (typeof val === "string") {
+            parts.push(`${key}: ${val}`);
+          }
+        }
+        if (parts.length) {
+          message = parts.join("; ");
         }
       }
     }

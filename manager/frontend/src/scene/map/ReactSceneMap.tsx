@@ -408,7 +408,13 @@ export const ReactSceneMap = memo(function ReactSceneMap({
       })}
       {draftPx.length > 0 ? (
         <g className="ss-react-draft">
-          {mode === "add-roi" && draftPx.length >= 2 ? (
+          {mode === "add-roi" && draftPx.length >= 3 ? (
+            <polygon
+              points={draftPx.map((p) => p.join(",")).join(" ")}
+              className="ss-react-draft-poly"
+            />
+          ) : null}
+          {mode === "add-roi" && draftPx.length === 2 ? (
             <polyline
               points={draftPx.map((p) => p.join(",")).join(" ")}
               className="ss-react-draft-line"
