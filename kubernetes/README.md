@@ -108,9 +108,16 @@ docker compose --project-directory . -f sample_data/demo_scenes/docker-compose.v
 make -C kubernetes mediaserver-up VIDEOSOURCE_IP=<ip-of-that-host>
 ```
 
-Remove it with `make -C kubernetes mediaserver-down`. For a DNS name instead of
-a bare IP, edit [template/mediaserver.template](template/mediaserver.template)
-to use an `ExternalName` Service instead.
+Remove the Kubernetes endpoint and stop the Docker media services with:
+
+```sh
+make -C kubernetes mediaserver-down
+docker compose --project-directory . -f sample_data/demo_scenes/docker-compose.video-source.yml down
+```
+
+For a DNS name instead of a bare IP, edit
+[template/mediaserver.template](template/mediaserver.template) to use an
+`ExternalName` Service instead.
 
 ## Environment Variables
 
