@@ -88,6 +88,8 @@ still resolve. Do not restate field tables in the how-to or skill.
 - **Build** (`docs/user-guide/get-started/installation.md` and root build guides): Django setup, migrations, static files
 - **API Spec** (`docs/user-guide/api-reference.md`): REST endpoint definitions
 - **Tests** (`manager/tests/README.md`): UI tests, functional tests, API tests
+- **Agent UI conventions** (`.github/skills/manager-ui/SKILL.md`): Layout shells and hard DOM contracts
+- **How-tos** (`docs/user-guide/how-to-guides/`): When Manager chrome labels, open paths, or nav targets change, update the affected how-to in the same change set
 
 ### Autocalibration Service
 

@@ -8,8 +8,9 @@ SPDX-License-Identifier: Apache-2.0
 Vite + React + TypeScript package that builds Manager 2D islands into Django
 static assets.
 
-Status of shipped work vs remaining empty-space / 3D epics:
-[`.github/plans/manager-ui.md`](../../.github/plans/manager-ui.md).
+Conventions, layout shells, and hard DOM contracts:
+[`.github/skills/manager-ui/SKILL.md`](../../.github/skills/manager-ui/SKILL.md).
+Remaining epics: [`.github/plans/manager-ui.md`](../../.github/plans/manager-ui.md).
 
 ## Setup
 

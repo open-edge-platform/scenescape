@@ -294,7 +294,9 @@ docker compose exec manager python manage.py showmigrations
 - React 2D islands live in `manager/frontend/` (Vite + TypeScript); build into
   `manager/backend/manager/static/ui/` with `make -C manager ui-build`
   (or `SKIP_UI=1` to skip when building the manager image without Node)
-- Status, remaining work, and hard DOM contracts:
+- UI conventions, layout shells, and hard DOM contracts:
+  [`.github/skills/manager-ui/SKILL.md`](../.github/skills/manager-ui/SKILL.md)
+- Remaining epics (3D viewport, how-to follow-ups):
   [`.github/plans/manager-ui.md`](../.github/plans/manager-ui.md)
 - Package notes: [`manager/frontend/README.md`](frontend/README.md)
 - Legacy Three.js 3D viewport remains under `static/js/` until the 3D React
