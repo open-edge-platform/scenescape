@@ -7,7 +7,6 @@ import socket
 import traceback
 import uuid
 import zipfile
-from functools import partial
 import requests
 
 import numpy as np
@@ -77,6 +76,14 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
         client.loopStart()
         msg.wait_for_publish()
         client.loopStop()
+  return
+
+def invalidate_scene_cache(current_scene, old_scene=None):
+  """Invalidate SceneLoader cache for given scenes."""
+  if current_scene:
+    SceneLoader.removeScene(current_scene.name)
+  if old_scene:
+    SceneLoader.removeScene(old_scene.name)
   return
 
 def sanitizeZipPath(instance, filename):
@@ -336,7 +343,7 @@ class Scene(models.Model):
       log.error(f"Failed to save scene , {str(e)}")
 
     if send_update_command:
-      transaction.on_commit(partial(sendUpdateCommand, scene_id=updated_scene))
+      transaction.on_commit(lambda: sendUpdateCommand(scene_id=updated_scene))
     return
 
   def notifyDbUpdate(self):
@@ -812,6 +819,24 @@ class Cam(Sensor):
     return camera_data
 
   def save(self, *args, **kwargs):
+    # Reset camera pose when reassigned to a different scene
+    original_scene = None
+    scene_changed = False
+    if self.pk is not None:
+      # This is an update, check if scene has changed
+      try:
+        original = Cam.objects.get(pk=self.pk)
+        original_scene = original.scene
+        if original.scene != self.scene:
+          # Scene has changed, clear pose-related fields
+          self.transforms = []
+          self.scene_x = None
+          self.scene_y = None
+          self.scene_z = None
+          scene_changed = True
+      except Cam.DoesNotExist:
+        pass
+
     if self.intrinsics_cx is None:
       self.intrinsics_cx = self.DEFAULT_INTRINSICS['cx']
     if self.intrinsics_cy is None:
@@ -824,14 +849,26 @@ class Cam(Sensor):
       self.cv_subsystem = 'AUTO'
 
     super().save(*args, **kwargs)
-    transaction.on_commit(partial(sendUpdateCommand,
-                                  camera_data = self.cameraData('save')))
+
+    # Invalidate cached scene so camera pose/calibration changes are reflected
+    invalidate_scene_cache(self.scene, original_scene if scene_changed else None)
+
+    # Clear cache again after transaction commits to prevent concurrent requests from
+    # repopulating with pre-commit DB state (handles ATOMIC_REQUESTS race condition)
+    transaction.on_commit(lambda: sendUpdateCommand(camera_data=self.cameraData('save')))
+    transaction.on_commit(lambda: invalidate_scene_cache(self.scene, original_scene if scene_changed else None))
     return
 
   def delete(self, *args, **kwargs):
+    # Invalidate cached scene so camera deletion is reflected
+    scene = self.scene
     super().delete(*args, **kwargs)
-    transaction.on_commit(partial(sendUpdateCommand,
-                                  camera_data = self.cameraData('delete')))
+    invalidate_scene_cache(scene)
+
+    # Clear cache again after transaction commits to prevent concurrent requests from
+    # repopulating with pre-commit DB state (handles ATOMIC_REQUESTS race condition)
+    transaction.on_commit(lambda: sendUpdateCommand(camera_data=self.cameraData('delete')))
+    transaction.on_commit(lambda: invalidate_scene_cache(scene))
     return
 
 
