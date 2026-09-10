@@ -1007,7 +1007,10 @@ function numberTabs() {
   var counts = {};
   var cameras = liveMountCount("ss-cameras-mount", ".count-item");
   var sensors = liveMountCount("ss-sensors-mount", ".count-item");
-  var children = liveMountCount("ss-children-mount", ".ss-control-card");
+  var children = liveMountCount(
+    "ss-children-mount",
+    ".ss-tab-row, .count-item, .ss-control-card",
+  );
   if (cameras !== undefined) {
     counts.cameras = cameras;
   }

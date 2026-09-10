@@ -25,7 +25,7 @@ import {
 import { A as W } from "./chunks/actionIcons-BIxtFbWH.js";
 import { a as O, u as rt } from "./chunks/rest-CiiNoWNe.js";
 import { C as ot, S as at } from "./chunks/SceneManagePanel-C7ukm3Qu.js";
-import { p as lt } from "./chunks/djangoDelete-BfD_c0xv.js";
+import { p as ct } from "./chunks/djangoDelete-BfD_c0xv.js";
 import "./chunks/Button-CDF7QSMd.js";
 const Fe = "ss-scene-tab:",
   fe = "ss-scene-tab",
@@ -34,7 +34,7 @@ function He(e) {
   typeof window > "u" ||
     window.dispatchEvent(new CustomEvent(he, { detail: e }));
 }
-const ct = {
+const lt = {
   "cam-create": "cameras",
   "cam-edit": "cameras",
   "calibrate-cam": "cameras",
@@ -45,7 +45,7 @@ const ct = {
   "child-edit": "children",
 };
 function ae(e) {
-  return (e && ct[e]) || null;
+  return (e && lt[e]) || null;
 }
 function dt(e, s = "cameras") {
   if (!e || typeof sessionStorage > "u") return s;
@@ -69,11 +69,11 @@ function ut(e, s) {
       sessionStorage.setItem(Fe + e, s);
     } catch {}
 }
-function le(e) {
+function ce(e) {
   typeof window > "u" ||
     window.dispatchEvent(new CustomEvent(fe, { detail: { tabId: e } }));
 }
-const ce = { host: "ss-map-host" };
+const le = { host: "ss-map-host" };
 function mt() {
   (window.dispatchEvent(new CustomEvent("ss-map-host-ready")),
     typeof window.fitSceneMapDisplay == "function" &&
@@ -255,10 +255,10 @@ function Et(e, s, t = 22) {
   if (o < 1) return null;
   const h = (-t * r) / o,
     f = (t * i) / o,
-    l = (e[0] + s[0]) / 2,
-    c = (e[1] + s[1]) / 2,
-    y = l + h,
-    S = c + f,
+    c = (e[0] + s[0]) / 2,
+    l = (e[1] + s[1]) / 2,
+    y = c + h,
+    S = l + f,
     w = h / t,
     x = f / t,
     T = -x,
@@ -268,7 +268,7 @@ function Et(e, s, t = 22) {
       `${y - w * 8 + T * 4},${S - x * 8 + D * 4}`,
       `${y - w * 8 - T * 4},${S - x * 8 - D * 4}`,
     ].join(" ");
-  return { arrow: { x1: l, y1: c, x2: y, y2: S }, head: v };
+  return { arrow: { x1: c, y1: l, x2: y, y2: S }, head: v };
 }
 function _t(e) {
   if (!e.length) return null;
@@ -284,7 +284,7 @@ function _t(e) {
 const Ct = a.memo(function ({ mapHref: s, mapWidth: t, mapHeight: i }) {
   const [r, o] = a.useState(() => X()),
     [h, f] = a.useState(() => Z()),
-    [l, c] = a.useState("idle"),
+    [c, l] = a.useState("idle"),
     [y, S] = a.useState([]),
     w = Ve(),
     x = i || Ke(i);
@@ -297,10 +297,10 @@ const Ct = a.memo(function ({ mapHref: s, mapWidth: t, mapHeight: i }) {
   ),
     a.useEffect(() => {
       const b = () => {
-          (c("add-roi"), S([]));
+          (l("add-roi"), S([]));
         },
         g = () => {
-          (c("add-trip"), S([]));
+          (l("add-trip"), S([]));
         };
       window.ssMapReact = { startAddRoi: b, startAddTripwire: g };
       const m = (_) => {
@@ -321,7 +321,7 @@ const Ct = a.memo(function ({ mapHref: s, mapWidth: t, mapHeight: i }) {
     }, []));
   const T = a.useCallback((b) => Qe(b[0], b[1], w, x), [w, x]),
     D = (b) => {
-      if (l === "idle") return;
+      if (c === "idle") return;
       const g = b.currentTarget,
         m = g.createSVGPoint();
       ((m.x = b.clientX), (m.y = b.clientY));
@@ -329,7 +329,7 @@ const Ct = a.memo(function ({ mapHref: s, mapWidth: t, mapHeight: i }) {
       if (!_) return;
       const E = m.matrixTransform(_.inverse()),
         A = ye(E.x, E.y, w, x);
-      if (l === "add-roi") {
+      if (c === "add-roi") {
         if (y.length >= 3) {
           const I = T(y[0]),
             d = E.x - I[0],
@@ -355,14 +355,14 @@ const Ct = a.memo(function ({ mapHref: s, mapWidth: t, mapHeight: i }) {
                 }),
               ),
               S([]),
-              c("idle"));
+              l("idle"));
             return;
           }
         }
         S((I) => [...I, A]);
         return;
       }
-      if (l === "add-trip") {
+      if (c === "add-trip") {
         const I = [...y, A];
         if (I.length >= 2) {
           const d = xe();
@@ -373,7 +373,7 @@ const Ct = a.memo(function ({ mapHref: s, mapWidth: t, mapHeight: i }) {
               }),
             ),
             S([]),
-            c("idle"));
+            l("idle"));
         } else S(I);
       }
     },
@@ -410,7 +410,7 @@ const Ct = a.memo(function ({ mapHref: s, mapWidth: t, mapHeight: i }) {
     M = a.useMemo(() => y.map(T), [y, T]);
   return n.jsxs("svg", {
     id: "svgout",
-    className: `ss-react-scene-map${l !== "idle" ? ` is-${l}` : ""}`,
+    className: `ss-react-scene-map${c !== "idle" ? ` is-${c}` : ""}`,
     viewBox: Nt(t, i),
     preserveAspectRatio: "xMidYMid meet",
     width: "100%",
@@ -523,7 +523,7 @@ const Ct = a.memo(function ({ mapHref: s, mapWidth: t, mapHeight: i }) {
         ? n.jsxs("g", {
             className: "ss-react-draft",
             children: [
-              l === "add-roi" && M.length >= 2
+              c === "add-roi" && M.length >= 2
                 ? n.jsx("polyline", {
                     points: M.map((b) => b.join(",")).join(" "),
                     className: "ss-react-draft-line",
@@ -565,11 +565,11 @@ const Mt = a.memo(function ({
   }) {
     const r = a.useRef(null),
       [o, h] = a.useState(!1),
-      [f, l] = a.useState(null),
-      c = !!window.ssUseReactMap && !!s;
+      [f, c] = a.useState(null),
+      l = !!window.ssUseReactMap && !!s;
     (a.useEffect(() => {
-      if (!c || !s) {
-        l(null);
+      if (!l || !s) {
+        c(null);
         return;
       }
       let w = !1;
@@ -579,19 +579,19 @@ const Mt = a.memo(function ({
           !w &&
             x.naturalWidth > 0 &&
             x.naturalHeight > 0 &&
-            l({ width: x.naturalWidth, height: x.naturalHeight });
+            c({ width: x.naturalWidth, height: x.naturalHeight });
         }),
         (x.src = s),
         () => {
           w = !0;
         }
       );
-    }, [c, s]),
+    }, [l, s]),
       a.useEffect(() => {
         const w = r.current,
-          x = document.getElementById(ce.host);
+          x = document.getElementById(le.host);
         if (!w || !x) return;
-        if ((w.appendChild(x), (x.hidden = !1), c)) {
+        if ((w.appendChild(x), (x.hidden = !1), l)) {
           document.body.classList.add("ss-use-react-map");
           const g = x.querySelector(
             "svg#svgout, svg.ss-snap-legacy, svg#svgout-snap",
@@ -611,7 +611,7 @@ const Mt = a.memo(function ({
               const g = Math.round(w.clientWidth),
                 m = Math.round(w.clientHeight);
               if (!(g === D && m === v && D >= 0))
-                if (((D = g), (v = m), !c)) je();
+                if (((D = g), (v = m), !l)) je();
                 else {
                   const _ = x.querySelector(".scene-map-stage");
                   (_ && Ne(_), je());
@@ -638,20 +638,20 @@ const Mt = a.memo(function ({
             m && x.parentElement === w && (m.appendChild(x), (x.hidden = !0));
           }
         );
-      }, [c]),
+      }, [l]),
       a.useEffect(() => {
-        if (!c || !o) return;
-        const w = document.getElementById(ce.host),
+        if (!l || !o) return;
+        const w = document.getElementById(le.host),
           x = w == null ? void 0 : w.querySelector(".scene-map-stage");
         x && Ne(x);
-      }, [c, o, f]));
-    const y = o ? document.getElementById(ce.host) : null,
+      }, [l, o, f]));
+    const y = o ? document.getElementById(le.host) : null,
       S = (y == null ? void 0 : y.querySelector(".scene-map-stage")) ?? null;
     return n.jsxs("div", {
       className: "ss-scene-map-pane",
       children: [
         n.jsx("div", { ref: r, className: "ss-scene-map-slot" }),
-        c && S && s && f
+        l && S && s && f
           ? J.createPortal(
               n.jsx("div", {
                 className: "ss-react-map-layer",
@@ -711,8 +711,8 @@ function de(e) {
     (f.className = "ss-camera-strip-badge"),
     f.setAttribute("aria-hidden", "true"),
     (e.querySelector(".card-header") || e).appendChild(f));
-  const l = r ? "Live" : "Offline";
-  (f.textContent !== l && (f.textContent = l),
+  const c = r ? "Live" : "Offline";
+  (f.textContent !== c && (f.textContent = c),
     f.classList.toggle("is-online", r),
     f.classList.toggle("is-offline", !r),
     t && t.hidden !== r && (t.hidden = r));
@@ -728,13 +728,13 @@ function Tt({ rates: e = {} }) {
     }, [s]),
     a.useEffect(() => {
       Object.entries(e).forEach(([i, r]) => {
-        var l;
+        var c;
         const o =
-            (l = document.querySelector(
+            (c = document.querySelector(
               `[data-ss-card-sensor="${CSS.escape(i)}"]`,
             )) == null
               ? void 0
-              : l.closest(".camera-card"),
+              : c.closest(".camera-card"),
           h =
             o == null
               ? void 0
@@ -778,17 +778,17 @@ function Tt({ rates: e = {} }) {
             }));
         };
       h();
-      const l = new MutationObserver(f);
-      l.observe(i, {
+      const c = new MutationObserver(f);
+      c.observe(i, {
         subtree: !0,
         childList: !0,
         attributes: !0,
         attributeFilter: ["class", "src"],
       });
-      const c = window.setInterval(h, 2e3);
+      const l = window.setInterval(h, 2e3);
       return () => {
-        (l.disconnect(),
-          window.clearInterval(c),
+        (c.disconnect(),
+          window.clearInterval(l),
           r && window.cancelAnimationFrame(r));
       };
     }, []),
@@ -1082,7 +1082,7 @@ function kt({ childrenLinks: e, isSuperuser: s }) {
           return n.jsxs(
             "div",
             {
-              className: "ss-tab-row",
+              className: "ss-tab-row count-item",
               children: [
                 i
                   ? t.detailUrl
@@ -1183,7 +1183,7 @@ function At({
   onSensorsChange: h,
 }) {
   const f = De(),
-    [l, c] = a.useState(null),
+    [c, l] = a.useState(null),
     [y, S] = a.useState(!1),
     [w, x] = a.useState(null);
   a.useEffect(() => {
@@ -1194,26 +1194,26 @@ function At({
   }, [r, e, s, t]);
   const T = a.useCallback(async () => {
       var m;
-      if (!(!l || !o || !h)) {
+      if (!(!c || !o || !h)) {
         (S(!0), x(null));
         try {
-          (await O.deleteSensor(o, l.sensorId),
+          (await O.deleteSensor(o, c.sensorId),
             (m = window.ssRemoveSingletonSensor) == null ||
-              m.call(window, l.sensorId),
+              m.call(window, c.sensorId),
             h((_) =>
-              _.filter((E) => E.id !== l.id && E.sensorId !== l.sensorId),
+              _.filter((E) => E.id !== c.id && E.sensorId !== c.sensorId),
             ),
             f.show("Sensor deleted", "ok"),
-            c(null));
+            l(null));
         } catch (_) {
           x(_.message || "Delete failed");
         } finally {
           S(!1);
         }
       }
-    }, [o, h, l, f]),
+    }, [o, h, c, f]),
     D = a.useCallback((m) => {
-      (x(null), c(m));
+      (x(null), l(m));
     }, []);
   if (!r) return null;
   const v = document.getElementById("ss-cameras-mount"),
@@ -1233,14 +1233,14 @@ function At({
         ? J.createPortal(n.jsx(kt, { childrenLinks: t, isSuperuser: i }), b)
         : null,
       n.jsxs(Pe, {
-        open: !!l,
+        open: !!c,
         title: "Delete sensor?",
         confirmLabel: "Delete",
         danger: !0,
         busy: y,
         onConfirm: T,
         onCancel: () => {
-          y || (c(null), x(null));
+          y || (l(null), x(null));
         },
         children: [
           n.jsxs("p", {
@@ -1248,7 +1248,7 @@ function At({
               "Are you sure you want to delete",
               " ",
               n.jsx("strong", {
-                children: (l == null ? void 0 : l.name) || "this sensor",
+                children: (c == null ? void 0 : c.name) || "this sensor",
               }),
               "?",
             ],
@@ -1427,11 +1427,11 @@ function Ht({ activeTab: e, isSuperuser: s }) {
     [r, o] = a.useState(() => !!window.ssTripDirty);
   return (
     a.useEffect(() => {
-      const h = (l) => {
-          i(!!l.detail);
+      const h = (c) => {
+          i(!!c.detail);
         },
-        f = (l) => {
-          o(!!l.detail);
+        f = (c) => {
+          o(!!c.detail);
         };
       return (
         window.addEventListener("ss-roi-dirty", h),
@@ -1621,8 +1621,8 @@ function Ot({
   isSuperuser: o = !1,
   sceneId: h = "",
   wssConnection: f = "",
-  authToken: l = "",
-  onSensorsChange: c,
+  authToken: c = "",
+  onSensorsChange: l,
 }) {
   const [y, S] = a.useState(() => dt(h)),
     [w, x] = a.useState(!1),
@@ -1747,8 +1747,8 @@ function Ot({
         childrenLinks: r,
         isSuperuser: o,
         panelsReady: w,
-        authToken: l,
-        onSensorsChange: c,
+        authToken: c,
+        onSensorsChange: l,
       }),
       n.jsx(Bt, { wssConnection: f, sceneId: h, panelsReady: w }),
       n.jsx(Ft, {}),
@@ -1758,11 +1758,11 @@ function Ot({
 function qt({ roi: e, index: s, isSuperuser: t, onChange: i, onRemove: r }) {
   const o = !t || e.readOnly,
     [h, f] = a.useState(!1),
-    l = `roi-details-${e.svgId}`;
+    c = `roi-details-${e.svgId}`;
   return n.jsx("div", {
     className: "form-roi",
     id: `form-${e.svgId}`,
-    ref: (c) => (c == null ? void 0 : c.setAttribute("for", e.svgId)),
+    ref: (l) => (l == null ? void 0 : l.setAttribute("for", e.svgId)),
     children: n.jsxs("div", {
       className: `ss-editor-row count-item col ss-editor-card${h ? " is-expanded" : ""}`,
       children: [
@@ -1786,13 +1786,13 @@ function qt({ roi: e, index: s, isSuperuser: t, onChange: i, onRemove: r }) {
                   maxLength: 100,
                   disabled: o,
                   value: e.title,
-                  onChange: (c) => i({ ...e, title: c.target.value }),
+                  onChange: (l) => i({ ...e, title: l.target.value }),
                   onBlur: () => {
-                    var c, y;
+                    var l, y;
                     if (window.ssUseReactMap) {
                       (y =
-                        (c = window.ssMap) == null ? void 0 : c.numberRois) ==
-                        null || y.call(c);
+                        (l = window.ssMap) == null ? void 0 : l.numberRois) ==
+                        null || y.call(l);
                       return;
                     }
                     typeof window.numberRois == "function" &&
@@ -1803,9 +1803,9 @@ function qt({ roi: e, index: s, isSuperuser: t, onChange: i, onRemove: r }) {
                   type: "button",
                   className: "ss-editor-row__toggle",
                   "aria-expanded": h,
-                  "aria-controls": l,
+                  "aria-controls": c,
                   title: h ? "Hide details" : "Show details",
-                  onClick: () => f((c) => !c),
+                  onClick: () => f((l) => !l),
                   children: n.jsx("i", {
                     className: `bi ${h ? "bi-chevron-up" : "bi-chevron-down"}`,
                     "aria-hidden": "true",
@@ -1820,8 +1820,8 @@ function qt({ roi: e, index: s, isSuperuser: t, onChange: i, onRemove: r }) {
                   type: "button",
                   title: "Remove this ROI",
                   "aria-label": "Remove this ROI",
-                  onClick: (c) => {
-                    (c.preventDefault(), c.stopPropagation(), r(e.svgId));
+                  onClick: (l) => {
+                    (l.preventDefault(), l.stopPropagation(), r(e.svgId));
                   },
                   children: n.jsx("i", {
                     className: "bi bi-trash",
@@ -1834,7 +1834,7 @@ function qt({ roi: e, index: s, isSuperuser: t, onChange: i, onRemove: r }) {
         h
           ? n.jsxs("div", {
               className: "ss-editor-row__details",
-              id: l,
+              id: c,
               children: [
                 t
                   ? n.jsx("div", {
@@ -1851,8 +1851,8 @@ function qt({ roi: e, index: s, isSuperuser: t, onChange: i, onRemove: r }) {
                                 type: "checkbox",
                                 id: `volumetric-${e.svgId}`,
                                 checked: e.volumetric,
-                                onChange: (c) =>
-                                  i({ ...e, volumetric: c.target.checked }),
+                                onChange: (l) =>
+                                  i({ ...e, volumetric: l.target.checked }),
                               }),
                               n.jsx("label", {
                                 className: "form-check-label",
@@ -1871,10 +1871,10 @@ function qt({ roi: e, index: s, isSuperuser: t, onChange: i, onRemove: r }) {
                                 value: e.height,
                                 min: 0.1,
                                 step: 0.1,
-                                onChange: (c) =>
+                                onChange: (l) =>
                                   i({
                                     ...e,
-                                    height: Number(c.target.value) || 1,
+                                    height: Number(l.target.value) || 1,
                                   }),
                               }),
                             ],
@@ -1889,10 +1889,10 @@ function qt({ roi: e, index: s, isSuperuser: t, onChange: i, onRemove: r }) {
                                 value: e.buffer_size,
                                 min: 0,
                                 step: 0.1,
-                                onChange: (c) =>
+                                onChange: (l) =>
                                   i({
                                     ...e,
-                                    buffer_size: Number(c.target.value) || 0,
+                                    buffer_size: Number(l.target.value) || 0,
                                   }),
                               }),
                             ],
@@ -1913,13 +1913,13 @@ function qt({ roi: e, index: s, isSuperuser: t, onChange: i, onRemove: r }) {
                     disabled: o,
                     legacyInputClasses: !0,
                     idPrefix: `roi-occ-${e.svgId}`,
-                    onChange: (c) =>
+                    onChange: (l) =>
                       i({
                         ...e,
-                        greenMin: c.greenMin,
-                        yellowMin: c.yellowMin,
-                        redMin: c.redMin,
-                        rangeMax: c.rangeMax,
+                        greenMin: l.greenMin,
+                        yellowMin: l.yellowMin,
+                        redMin: l.redMin,
+                        rangeMax: l.rangeMax,
                       }),
                   }),
                 }),
@@ -1955,11 +1955,11 @@ function zt({
 }) {
   const o = !!t && !e.readOnly,
     [h, f] = a.useState(!1),
-    l = `trip-details-${e.svgId}`;
+    c = `trip-details-${e.svgId}`;
   return n.jsx("div", {
     className: "form-tripwire",
     id: `form-${e.svgId}`,
-    ref: (c) => (c == null ? void 0 : c.setAttribute("for", e.svgId)),
+    ref: (l) => (l == null ? void 0 : l.setAttribute("for", e.svgId)),
     children: n.jsxs("div", {
       className: `ss-editor-row count-item col ss-editor-card${h ? " is-expanded" : ""}`,
       children: [
@@ -1985,16 +1985,16 @@ function zt({
                   readOnly: !o,
                   disabled: !o,
                   value: e.title,
-                  onChange: (c) => {
-                    o && i({ ...e, title: c.target.value });
+                  onChange: (l) => {
+                    o && i({ ...e, title: l.target.value });
                   },
                   onBlur: () => {
-                    var c, y, S;
+                    var l, y, S;
                     if (window.ssUseReactMap) {
                       (y =
-                        (c = window.ssMap) == null
+                        (l = window.ssMap) == null
                           ? void 0
-                          : c.numberTripwires) == null || y.call(c);
+                          : l.numberTripwires) == null || y.call(l);
                       return;
                     }
                     (S = window.numberTripwires) == null || S.call(window);
@@ -2004,9 +2004,9 @@ function zt({
                   type: "button",
                   className: "ss-editor-row__toggle",
                   "aria-expanded": h,
-                  "aria-controls": l,
+                  "aria-controls": c,
                   title: h ? "Hide details" : "Show details",
-                  onClick: () => f((c) => !c),
+                  onClick: () => f((l) => !l),
                   children: n.jsx("i", {
                     className: `bi ${h ? "bi-chevron-up" : "bi-chevron-down"}`,
                     "aria-hidden": "true",
@@ -2021,8 +2021,8 @@ function zt({
                   type: "button",
                   title: "Remove this Tripwire",
                   "aria-label": "Remove this Tripwire",
-                  onClick: (c) => {
-                    (c.preventDefault(), c.stopPropagation(), r(e.svgId));
+                  onClick: (l) => {
+                    (l.preventDefault(), l.stopPropagation(), r(e.svgId));
                   },
                   children: n.jsx("i", {
                     className: "bi bi-trash",
@@ -2035,7 +2035,7 @@ function zt({
         h
           ? n.jsx("div", {
               className: "ss-editor-row__details",
-              id: l,
+              id: c,
               children: n.jsx("div", {
                 className: "ss-editor-row__meta form-text text-muted topic",
                 id: `label-${e.svgId}`,
@@ -2147,19 +2147,19 @@ async function Jt(e, s, t) {
       O.getTripwires(e, s).then(Me),
     ]),
     f = new Set(o.map(se).filter((m) => !!m)),
-    l = new Set(),
-    c = {};
+    c = new Set(),
+    l = {};
   for (const m of i) {
     const _ = Gt(s, m);
     if (Ce(m.uuid) && f.has(m.uuid))
-      (await O.updateRegion(e, m.uuid, _), l.add(m.uuid), (c[m.uuid] = m.uuid));
+      (await O.updateRegion(e, m.uuid, _), c.add(m.uuid), (l[m.uuid] = m.uuid));
     else {
       const E = await O.createRegion(e, _),
         A = se(E);
-      A && (l.add(A), m.uuid && (c[m.uuid] = A));
+      A && (c.add(A), m.uuid && (l[m.uuid] = A));
     }
   }
-  for (const m of f) l.has(m) || (await O.deleteRegion(e, m));
+  for (const m of f) c.has(m) || (await O.deleteRegion(e, m));
   const y = new Set(h.map(se).filter((m) => !!m)),
     S = new Set(),
     w = {};
@@ -2177,9 +2177,9 @@ async function Jt(e, s, t) {
   }
   for (const m of y) S.has(m) || (await O.deleteTripwire(e, m));
   let x = !1;
-  for (const [m, _] of Object.entries(c)) wt(m, _) && (x = !0);
+  for (const [m, _] of Object.entries(l)) wt(m, _) && (x = !0);
   for (const [m, _] of Object.entries(w)) gt(m, _) && (x = !0);
-  return (x && bt(), { roiIds: c, tripIds: w });
+  return (x && bt(), { roiIds: l, tripIds: w });
 }
 function K(e) {
   const s = window[e];
@@ -2292,11 +2292,11 @@ function Kt({
 }) {
   const o = De(),
     [h, f] = a.useState(() => i.map((d) => Re(d, e)).filter((d) => !!d)),
-    [l, c] = a.useState(() => r.map((d) => Vt(d, e)).filter((d) => !!d)),
+    [c, l] = a.useState(() => r.map((d) => Vt(d, e)).filter((d) => !!d)),
     [y, S] = a.useState(!1),
     [w, x] = a.useState(!1),
     T = a.useRef(h),
-    D = a.useRef(l),
+    D = a.useRef(c),
     v = a.useRef(!1),
     M = a.useRef(o),
     b = a.useRef(""),
@@ -2304,7 +2304,7 @@ function Kt({
     m = a.useRef(() => {});
   ((M.current = o),
     (T.current = h),
-    (D.current = l),
+    (D.current = c),
     a.useEffect(() => {
       (Yt(),
         i.forEach((d) => {
@@ -2339,7 +2339,7 @@ function Kt({
         try {
           const C = await Jt(t, e, N);
           (f((B) => Ie(B, C.roiIds, "roi")),
-            c((B) => Ie(B, C.tripIds, "tripwire")),
+            l((B) => Ie(B, C.tripIds, "tripwire")),
             (b.current =
               (($ = document.getElementById("id_rois")) == null
                 ? void 0
@@ -2444,7 +2444,7 @@ function Kt({
             }));
         },
         N = (u) => {
-          (c((p) =>
+          (l((p) =>
             p.some((L) => L.svgId === u.svgId)
               ? p
               : [
@@ -2490,16 +2490,16 @@ function Kt({
       );
     }, [e]),
     a.useEffect(() => {
-      He({ regions: h.length, tripwires: l.length });
-    }, [h.length, l.length]),
+      He({ regions: h.length, tripwires: c.length });
+    }, [h.length, c.length]),
     a.useEffect(() => {
       const d = document.getElementById("no-regions");
       d && (d.style.display = h.length ? "none" : "");
     }, [h.length]),
     a.useEffect(() => {
       const d = document.getElementById("no-tripwires");
-      d && (d.style.display = l.length ? "none" : "");
-    }, [l.length]),
+      d && (d.style.display = c.length ? "none" : "");
+    }, [c.length]),
     a.useEffect(() => {
       const d = document.getElementById("no-regions");
       if (d && ((d.hidden = h.length > 0), h.length === 0)) {
@@ -2521,7 +2521,7 @@ function Kt({
     }, [h.length, s]),
     a.useEffect(() => {
       const d = document.getElementById("no-tripwires");
-      if (d && ((d.hidden = l.length > 0), l.length === 0)) {
+      if (d && ((d.hidden = c.length > 0), c.length === 0)) {
         d.innerHTML = "";
         const N = document.createElement("p");
         if (((N.textContent = "No tripwires defined."), d.appendChild(N), s)) {
@@ -2533,7 +2533,7 @@ function Kt({
             d.appendChild(j));
         }
       }
-    }, [l.length, s]));
+    }, [c.length, s]));
   const _ = async (d) => {
       var k;
       if (
@@ -2572,7 +2572,7 @@ function Kt({
         return;
       const j = d.replace(/^tripwire_/, "");
       (pt(j),
-        c((u) => u.filter((p) => p.svgId !== d)),
+        l((u) => u.filter((p) => p.svgId !== d)),
         (k = window.ssMap) == null || k.flushHidden());
       try {
         await m.current();
@@ -2611,7 +2611,7 @@ function Kt({
       I
         ? J.createPortal(
             n.jsx(n.Fragment, {
-              children: l.map((d, N) =>
+              children: c.map((d, N) =>
                 n.jsx(
                   zt,
                   {
@@ -2621,7 +2621,7 @@ function Kt({
                     onChange: (j) => {
                       (x(!0),
                         re(j.uuid, { title: j.title }),
-                        c((k) => k.map((u) => (u.svgId === j.svgId ? j : u))));
+                        l((k) => k.map((u) => (u.svgId === j.svgId ? j : u))));
                     },
                     onRemove: E,
                   },
@@ -2717,21 +2717,21 @@ function es(e, s, t) {
         ? void 0
         : y.name
       : void 0,
-    l = H(
+    c = H(
       e.name || e.child_name || f || (t == null ? void 0 : t.name),
       "Child",
     ),
-    c = r === "local" && o ? o : h || i;
+    l = r === "local" && o ? o : h || i;
   return {
     id: i,
-    name: l,
+    name: c,
     childType: r,
     remoteChildId: h,
     detailUrl: o ? `/${o}/` : ((t == null ? void 0 : t.detailUrl) ?? null),
     thumbnailUrl: (t == null ? void 0 : t.thumbnailUrl) ?? null,
     mapUrl: (t == null ? void 0 : t.mapUrl) ?? null,
-    restUid: c,
-    editHref: `?ss=child-edit&id=${c}`,
+    restUid: l,
+    editHref: `?ss=child-edit&id=${l}`,
     deleteUrl: /^\d+$/.test(i)
       ? `/child/delete/${i}/`
       : ((t == null ? void 0 : t.deleteUrl) ?? null),
@@ -2808,8 +2808,8 @@ function os({
   cameras: o,
   sensors: h = [],
   onCamerasChange: f,
-  onSensorsChange: l,
-  onChildrenChange: c,
+  onSensorsChange: c,
+  onChildrenChange: l,
   mapUrl: y = null,
   mapScale: S = null,
 }) {
@@ -2818,13 +2818,13 @@ function os({
     D = a.useCallback(
       (u, p = null) => {
         const L = ae(u);
-        (L && le(L), x(u, p));
+        (L && ce(L), x(u, p));
       },
       [x],
     ),
     v = a.useCallback(() => {
       const u = ae(w.action);
-      (T(), u && le(u));
+      (T(), u && ce(u));
     }, [T, w.action]);
   (a.useEffect(() => {
     const u = (p) => {
@@ -2856,7 +2856,7 @@ function os({
   }, [D, e]),
     a.useEffect(() => {
       const u = ae(w.action);
-      u && le(u);
+      u && ce(u);
     }, [w.action]));
   const M = a.useCallback(() => {
       window.location.reload();
@@ -2886,7 +2886,7 @@ function os({
         if (!u) return;
         const p = me(u, "scene"),
           L = w.action === "sensor-edit" && w.id ? String(w.id) : null;
-        l(($) => {
+        c(($) => {
           const R = $.find(
               (B) =>
                 B.sensorId === L ||
@@ -2906,14 +2906,14 @@ function os({
             : $;
         });
       },
-      [l, e, w.action, w.id],
+      [c, e, w.action, w.id],
     ),
     m = a.useCallback(
       (u) => {
         if (!u) return;
         const p = me(u, "parent"),
           L = w.action === "child-edit" && w.id ? String(w.id) : null;
-        c(($) => {
+        l(($) => {
           const R = $.find(
               (B) => B.id === String(u.uid || u.id || "") || B.restUid === L,
             ),
@@ -2928,7 +2928,7 @@ function os({
             : $;
         });
       },
-      [c, e, r, w.action, w.id],
+      [l, e, r, w.action, w.id],
     ),
     _ = a.useMemo(() => {
       const u = new Map();
@@ -3017,7 +3017,7 @@ function os({
 }
 const ze = "ss-workspace-layout-mode",
   as = 224,
-  ls = 256,
+  cs = 256,
   oe = 120;
 function $e() {
   return {
@@ -3025,7 +3025,7 @@ function $e() {
     h: Math.max(window.innerHeight || 0, 320),
   };
 }
-function cs() {
+function ls() {
   try {
     const e = window.localStorage.getItem(ze);
     if (e === "auto" || e === "stack" || e === "row") return e;
@@ -3082,7 +3082,7 @@ function ke(e, s, t) {
   if (!s) return i / r >= 1.35 ? "stack" : "row";
   const o = s.w / s.h,
     h = Le(s, i, r - as),
-    f = Le(s, i - ls, r);
+    f = Le(s, i - cs, r);
   return o >= 1.35
     ? h >= f * 0.92
       ? "stack"
@@ -3097,20 +3097,20 @@ function ke(e, s, t) {
 }
 function ms(e = {}) {
   const s = e.chromeHeightPx ?? 112,
-    [t, i] = a.useState(() => (typeof window < "u" ? cs() : "auto")),
+    [t, i] = a.useState(() => (typeof window < "u" ? ls() : "auto")),
     [r, o] = a.useState(() => ke($e(), null, s)),
-    h = a.useCallback((l) => {
-      (i(l), ds(l));
+    h = a.useCallback((c) => {
+      (i(c), ds(c));
     }, []);
   return (
     a.useEffect(() => {
-      let l = 0,
-        c = null;
+      let c = 0,
+        l = null;
       const y = () => {
-        (cancelAnimationFrame(l),
-          (l = requestAnimationFrame(() => {
+        (cancelAnimationFrame(c),
+          (c = requestAnimationFrame(() => {
             const v = ke($e(), us(), s);
-            c !== v && ((c = v), o((M) => (M === v ? M : v)));
+            l !== v && ((l = v), o((M) => (M === v ? M : v)));
           })));
       };
       (y(),
@@ -3126,7 +3126,7 @@ function ms(e = {}) {
       const T = window.setInterval(y, 500),
         D = window.setTimeout(() => window.clearInterval(T), 8e3);
       return () => {
-        (cancelAnimationFrame(l),
+        (cancelAnimationFrame(c),
           window.removeEventListener("resize", y),
           window.removeEventListener("ss-map-host-ready", y),
           S == null || S.removeEventListener("load", y),
@@ -3145,7 +3145,7 @@ function fs() {
       const t = () => {
         const h = document.getElementById("mqtt_status"),
           f = !!(h != null && h.classList.contains("connected"));
-        s((l) => (l === f ? l : f));
+        s((c) => (c === f ? c : f));
       };
       t();
       const i = document.getElementById("mqtt_status");
@@ -3156,7 +3156,7 @@ function fs() {
       const o = (h) => {
         const f = h.detail;
         typeof (f == null ? void 0 : f.connected) == "boolean"
-          ? s((l) => (l === f.connected ? l : !!f.connected))
+          ? s((c) => (c === f.connected ? c : !!f.connected))
           : t();
       };
       return (
@@ -3174,11 +3174,11 @@ function hs() {
   const [e, s] = a.useState({});
   return (
     a.useEffect(() => {
-      const t = (f, l) => {
-          s((c) => (c[f] === l ? c : { ...c, [f]: l }));
+      const t = (f, c) => {
+          s((l) => (l[f] === c ? l : { ...l, [f]: c }));
         },
-        i = (f, l) => {
-          t(f, l);
+        i = (f, c) => {
+          t(f, c);
         },
         r = () => s({});
       window.ssSceneTelemetry = {
@@ -3187,8 +3187,8 @@ function hs() {
         clearRates: r,
       };
       const o = (f) => {
-          const l = f.detail;
-          l != null && l.sensorId && t(l.sensorId, l.text || l.hz || "--");
+          const c = f.detail;
+          c != null && c.sensorId && t(c.sensorId, c.text || c.hz || "--");
         },
         h = () => r();
       return (
@@ -3241,8 +3241,8 @@ function gs({ bootstrap: e }) {
   const { scene: s, urls: t, isSuperuser: i } = e,
     { layout: r, mode: o, setMode: h, autoLayout: f } = ms(),
     {
-      panelSizePx: l,
-      setPanelSizePx: c,
+      panelSizePx: c,
+      setPanelSizePx: l,
       mapFocus: y,
       toggleMapFocus: S,
     } = nt(r),
@@ -3319,12 +3319,12 @@ function gs({ bootstrap: e }) {
           window.fitSceneMapDisplay();
       });
       return () => window.cancelAnimationFrame(C);
-    }, [y, l, r]));
+    }, [y, c, r]));
   const p = a.useCallback(async () => {
       if (t.sceneDelete) {
         (M(!0), g(null));
         try {
-          await lt(t.sceneDelete, t.scenesHome || "/");
+          await ct(t.sceneDelete, t.scenesHome || "/");
         } catch (C) {
           (M(!1), g(C instanceof Error ? C.message : "Delete failed"));
         }
@@ -3465,7 +3465,7 @@ function gs({ bootstrap: e }) {
     "data-workspace-layout": r,
     "data-workspace-mode": o,
     "data-map-focus": y ? "1" : "0",
-    style: { "--ss-panel-size": `${l}px` },
+    style: { "--ss-panel-size": `${c}px` },
     children: [
       n.jsx(We, { title: s.name, back: ps(t), actions: $ }),
       n.jsxs("div", {
@@ -3475,7 +3475,7 @@ function gs({ bootstrap: e }) {
             className: "ss-workspace-main",
             children: n.jsx(Mt, { mapUrl: s.mapUrl }),
           }),
-          n.jsx(it, { layout: r, panelSizePx: l, onResize: c, disabled: y }),
+          n.jsx(it, { layout: r, panelSizePx: c, onResize: l, disabled: y }),
           n.jsx(Ot, {
             tabs: L,
             cameraRates: _,

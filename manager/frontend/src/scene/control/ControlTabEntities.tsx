@@ -275,7 +275,7 @@ function ChildCards({
       {childrenLinks.map((child) => {
         const thumb = child.thumbnailUrl || child.mapUrl;
         return (
-          <div key={child.id} className="ss-tab-row">
+          <div key={child.id} className="ss-tab-row count-item">
             {thumb ? (
               child.detailUrl ? (
                 <a

@@ -137,6 +137,15 @@ class ManageThing(APIView):
     if uid_field in ['sensor_id', 'username', 'marker_id']:
       return uid
 
+    # Child links are addressed by ChildScene pk, local Scene UUID, or remote_child_id.
+    if thing_type in ("child",):
+      if isinstance(uid, str) and uid.isdigit():
+        return int(uid)
+      try:
+        return uuid.UUID(uid, version=4)
+      except (TypeError, ValueError):
+        raise ValidationError({"uid": "Invalid UUID format"})
+
     if uid_field == 'pk' and thing_type not in ['scene']:
       if uid.isdigit():
         return int(uid)
