@@ -2119,26 +2119,24 @@ a.ss-tab-row__title:focus-visible {
   min-width: 0;
   max-width: 100%;
 }
+.ss-tabs-toolbar .scene-detail-help {
+  margin: 0;
+}
 .ss-workspace--row .ss-tab-toolbar-inner {
   width: 100%;
 }
 .ss-workspace--row .ss-tabs-toolbar .scene-detail-live-toggle {
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: 100%;
+  flex: 0 0 auto;
+  margin: 0;
 }
 .ss-workspace--row .ss-tabs-toolbar .custom-control-label {
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 .ss-workspace--row .ss-tabs-toolbar .btn,
 .ss-workspace--row .ss-tabs-toolbar a.btn {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   max-width: 100%;
-  white-space: normal;
-}
-.ss-tabs-toolbar .scene-detail-help {
-  margin: 0;
+  white-space: nowrap;
 }
 .ss-tabs {
   display: flex;
