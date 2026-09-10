@@ -366,6 +366,9 @@ class Scene(SceneModel):
 
       for sname in self.cameras:
         camera = self.cameras[sname]
+        # Skip cameras with tracking disabled from visibility list
+        if not getattr(camera, 'tracking_enabled', True):
+          continue
         if hasattr(camera, 'pose') and hasattr(camera.pose, 'regionOfView') \
            and camera.pose.regionOfView.isPointWithin(obj.sceneLoc):
           vis.append(camera.cameraID)
