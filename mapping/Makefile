@@ -84,7 +84,9 @@ endif
 # Override generate-sbom to produce SBOMs for both MODEL_TYPE modes.
 ifndef MAPPING_GENERATE_SBOM
 .PHONY: generate-sbom
-generate-sbom: build-vggt build-mapanything
+generate-sbom:
+	$(MAKE) build-vggt
 	$(MAKE) ROOT_DIR=$(ROOT_DIR) MODEL_TYPE=vggt IMAGE=intel/scenescape-mapping VERSION=$(VERSION)-vggt MAPPING_GENERATE_SBOM=1 generate-sbom
+	$(MAKE) build-mapanything
 	$(MAKE) ROOT_DIR=$(ROOT_DIR) MODEL_TYPE=mapanything IMAGE=intel/scenescape-mapping VERSION=$(VERSION)-mapanything MAPPING_GENERATE_SBOM=1 generate-sbom
 endif
