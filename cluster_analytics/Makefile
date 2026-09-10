@@ -11,7 +11,7 @@ include ../common.mk
 
 .PHONY: build-demo
 build-demo:
-	$(MAKE) IMAGE="scenescape-cluster-analytics-demo" TARGET="scenescape-cluster-analytics-demo"
+	$(MAKE) IMAGE="intel/scenescape-cluster-analytics-demo" TARGET="scenescape-cluster-analytics-demo"
 
 .PHONY: test-build
 test-build:
