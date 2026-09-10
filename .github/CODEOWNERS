@@ -17,4 +17,4 @@ tests/                    @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltala
 
 # documentation content
 /docs/                    @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write
-/README.md                @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write
+**/README.md              @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write

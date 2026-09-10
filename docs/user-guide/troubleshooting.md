@@ -14,7 +14,7 @@ Leaves the system vulnerable to a DDoS attack where the malicious agent repeated
 
 **Workaround**: Restart Scenescape using `docker-compose down` followed by `docker-compose up -d` from the project directory.
 
-### 4. "WARNING: Service <service name> uses an undefined secret file" console messages on startup
+### 4. "WARNING: Service `<service name>` uses an undefined secret file" console messages on startup
 
 Several "undefined secret file" messages may be shown on startup, but the system should start normally.
 
