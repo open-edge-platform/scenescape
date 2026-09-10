@@ -151,7 +151,7 @@ VIDEOSOURCE_PORT?=8554
 generate-mediaserver-yaml:
 	mkdir -p setup
 	cp template/mediaserver.template setup/mediaserver.yaml
-	sed -e "s|{VIDEOSOURCE_IP}|$(VIDEOSOURCE_IP)|g" -e "s|{VIDEOSOURCE_PORT}|$(VIDEOSOURCE_PORT)|g" -i setup/mediaserver.yaml
+	sed -e "s|{VIDEOSOURCE_IP}|$(VIDEOSOURCE_IP)|g" -e "s|{VIDEOSOURCE_PORT}|$(VIDEOSOURCE_PORT)|g" setup/mediaserver.yaml > setup/mediaserver.yaml.tmp && mv setup/mediaserver.yaml.tmp setup/mediaserver.yaml
 
 # Deploys the "mediaserver" Service+EndpointSlice alongside the scenescape-chart,
 # pointing it at the host running sample_data/demo_scenes/docker-compose.video-source.yml.

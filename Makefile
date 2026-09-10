@@ -672,11 +672,12 @@ convert-dls-videos:
 
 # tools/pipeline_runner mounts a "vol-videos" named volume (unlike the
 # standalone video-source compose stack, which bind-mounts the files
-# directly); populate it from the two source directories it needs.
+# directly); populate it from the source directories required by the demos.
 .PHONY: init-pipeline-runner-videos
 init-pipeline-runner-videos: convert-dls-videos
 	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-videos 2>/dev/null || true
 	@docker run --rm -v $(CURDIR)/$(VIDEO_SOURCE_DIR)/Queuing/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
+	@docker run --rm -v $(CURDIR)/$(VIDEO_SOURCE_DIR)/Retail/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
 	@docker run --rm -v $(CURDIR)/sample_data/videos:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
 
 .PHONY: init-sample-data
