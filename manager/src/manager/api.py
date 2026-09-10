@@ -8,6 +8,7 @@ import threading
 import uuid
 import asyncio
 from collections.abc import Mapping
+import ipaddress
 from datetime import datetime, timezone
 
 from django.contrib.auth.models import User
@@ -36,6 +37,17 @@ class IsAdminOrReadOnly(permissions.BasePermission):
       return request.user.is_authenticated
     return request.user.is_superuser
 
+def is_loopback_request(request):
+  """Check if the request is coming from a loopback address (localhost)"""
+  remote_addr = request.META.get("REMOTE_ADDR")
+
+  if not remote_addr:
+    return False
+
+  try:
+    return ipaddress.ip_address(remote_addr).is_loopback
+  except ValueError:
+    return False
 
 def get_class_and_serializer(thing_type):
   if thing_type in ("scene", "scenes"):
@@ -270,6 +282,8 @@ class DatabaseReady(APIView):
       return False
 
   def get(self, request):
+    if not is_loopback_request(request):
+      return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
     db_status = DatabaseStatus.objects.first()
     if not self.checkDatabase() or not db_status or not db_status.is_ready:
       return Response({'databaseReady': False}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
@@ -288,6 +302,8 @@ class ServiceHealth(APIView):
       return False
 
   def get(self, request):
+    if not is_loopback_request(request):
+      return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
     database_connected = self.checkDatabase()
     try:
       db_status = DatabaseStatus.objects.first() if database_connected else None
