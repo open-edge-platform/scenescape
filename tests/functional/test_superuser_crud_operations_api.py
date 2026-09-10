@@ -117,6 +117,9 @@ class CRUDPermissionsTest(FunctionalTest):
       tripwire_uid = res["uid"]
 
       update_data = {
+        "name": "TestCamera1",
+        "sensor_id": "TestCamera1",
+        "scene": self.scene_uid,
         "intrinsics": {
           "fx": 850.0, "fy": 860.0, "cx": 330.0, "cy": 340.0
         },

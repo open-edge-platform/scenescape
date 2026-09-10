@@ -3,7 +3,6 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 from http import HTTPStatus
 from scene_common import log
 from scene_common.rest_client import RESTClient
@@ -59,6 +58,7 @@ class CameraDeletionTest(FunctionalTest):
       * Cleanup: delete temporary scene
     """
     log.info(f"Executing: {TEST_NAME}")
+    tempSceneUID = None
 
     try:
       # Make sure that the Scenescape is up and running
@@ -94,7 +94,13 @@ class CameraDeletionTest(FunctionalTest):
 
       # Step 5: Attach orphan camera to existing test scene
       log.info(f"Attaching orphan camera to scene: {self.existingSceneUID}")
-      updateResult = self.rest.updateCamera(cameraUID, {'scene': self.existingSceneUID})
+      updatePayload = {
+        'name': cameraCheck['name'],
+        'scene': self.existingSceneUID,
+      }
+      if cameraCheck.get('sensor_id') is not None:
+        updatePayload['sensor_id'] = cameraCheck['sensor_id']
+      updateResult = self.rest.updateCamera(cameraUID, updatePayload)
       assert updateResult, (updateResult.statusCode, updateResult.errors)
       assert updateResult['scene'] == self.existingSceneUID
 
@@ -127,7 +133,8 @@ class CameraDeletionTest(FunctionalTest):
     finally:
       # Cleanup: try to delete temporary scene if it still exists
       try:
-        self.rest.deleteScene(tempSceneUID)
+        if tempSceneUID:
+          self.rest.deleteScene(tempSceneUID)
       except:
         pass  # Scene might already be deleted
 
