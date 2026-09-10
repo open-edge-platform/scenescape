@@ -525,7 +525,7 @@ configs:
   reid-config:
     file: ./controller/config/reid-config.json
   demo-config:
-    file: ./dlstreamer-pipeline-server/demo-config-gpu.json
+    file: ./dlstreamer-pipeline-server/demo-config-gpu-reid.json
 
 volumes:
   vol-db:
