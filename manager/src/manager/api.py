@@ -346,8 +346,8 @@ class CameraManager(APIView):
       rootcert = "/run/secrets/certs/scenescape-ca.pem"
     cert = os.environ.get("BROKERCERT")
 
-    pubsub = PubSub(auth, cert, rootcert, broker)
     try:
+      pubsub = PubSub(auth, cert, rootcert, broker)
       pubsub.connect()
     except socket.gaierror as e:
       log.error("Unable to connect", e)
