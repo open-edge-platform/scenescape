@@ -42,5 +42,5 @@ CAM_FORM_FIELDS = [
 CAM_SERIALIZER_FIELDS = [
     'uid', 'name', 'sensor_id', 'intrinsics', 'transform_type', 'transforms',
     'distortion', 'translation', 'rotation', 'scale', 'resolution', 'scene',
-    'threshold', 'aspect',
+    'threshold', 'aspect', 'tracking_enabled',
 ] + CAM_ADVANCED_FIELDS + CAM_KUBERNETES_FIELDS

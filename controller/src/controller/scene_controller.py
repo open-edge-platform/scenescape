@@ -491,6 +491,12 @@ class SceneController:
           return
         scene = sender
 
+        # Check if tracking is enabled for this camera
+        camera = scene.cameras.get(camera_id)
+        if camera and not getattr(camera, 'tracking_enabled', True):
+          log.debug(f"Tracking disabled for camera {camera_id}, skipping detector message")
+          return
+
         # If no detection types in the message, add empty arrays for all tracked types
         # This must be done BEFORE processCameraData so the tracker processes them
         if not detection_types:
