@@ -25,6 +25,7 @@ def keysNotEmpty(info, keys):
 class Camera:
   def __init__(self, anID, info, resolution=None):
     self.cameraID = anID
+    self.tracking_enabled = info.get('tracking_enabled', True)
 
     if resolution is None and 'width' in info and 'height' in info:
       resolution = (info['width'], info['height'])
