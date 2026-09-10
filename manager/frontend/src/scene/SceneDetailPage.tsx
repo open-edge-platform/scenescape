@@ -275,6 +275,7 @@ function SceneDetailInner({ bootstrap }: Props) {
           id="scene-edit"
           href="?ss=scene-manage"
           title={`Edit ${scene.name}`}
+          aria-label={`Edit ${scene.name}`}
         >
           <i className="bi bi-pencil" aria-hidden="true" />
         </a>
@@ -282,9 +283,10 @@ function SceneDetailInner({ bootstrap }: Props) {
       {isSuperuser && urls.sceneDelete ? (
         <button
           type="button"
-          className="btn btn-secondary btn-sm"
+          className="btn btn-secondary btn-sm ss-icon-btn--danger"
           id="scene-delete"
           title={`Delete ${scene.name}`}
+          aria-label={`Delete ${scene.name}`}
           onClick={() => {
             setSceneDeleteError(null);
             setSceneDeleteOpen(true);

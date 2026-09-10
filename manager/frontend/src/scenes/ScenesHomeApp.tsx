@@ -5,12 +5,14 @@ import { useCallback, useEffect, useMemo } from "react";
 import { ToastProvider, useAppToast } from "../components/ToastProvider";
 import { LegacyConfirmHost } from "../components/LegacyConfirmHost";
 import { PageHeader } from "../components/PageHeader";
+import { ACTION_ICONS } from "../components/actionIcons";
 import { useSheetFromQuery } from "../hooks/useSheetFromQuery";
 import type { SheetAction } from "../lib/sheetQuery";
 import { SceneSheet } from "../sheets/SceneSheet";
 import { SceneImportDialog } from "../sheets/SceneImportDialog";
 import { SceneManagePanel } from "../sheets/SceneManagePanel";
 import { ChildSheet } from "../sheets/ChildSheet";
+import "../components/Button.css";
 import "./ScenesHomeApp.css";
 
 export type SceneHomeCard = {
@@ -124,12 +126,16 @@ function ScenesGallery({
             </table>
             <div className="scene-card-actions ss-scene-card-actions">
               <a
-                className="ss-btn ss-btn--secondary ss-btn--sm"
+                className="ss-icon-btn"
                 id={`scene-manage-${scene.name}`}
                 href={scene.detailUrl}
                 title={`Configure ${scene.name} Scene`}
+                aria-label={`Configure ${scene.name} Scene`}
               >
-                Configure
+                <i
+                  className={`bi ${ACTION_ICONS.configure}`}
+                  aria-hidden="true"
+                />
               </a>
               <a
                 className="ss-btn ss-btn--secondary ss-btn--sm"
@@ -142,21 +148,29 @@ function ScenesGallery({
               {isSuperuser ? (
                 <>
                   <a
-                    className="ss-btn ss-btn--secondary ss-btn--sm"
+                    className="ss-icon-btn"
                     id={`scene-edit-${scene.id}`}
                     href={scene.manageUrl}
                     title={`Edit ${scene.name} Scene Details`}
+                    aria-label={`Edit ${scene.name} Scene Details`}
                   >
-                    Edit
+                    <i
+                      className={`bi ${ACTION_ICONS.edit}`}
+                      aria-hidden="true"
+                    />
                   </a>
                   {scene.deleteUrl ? (
                     <a
-                      className="ss-btn ss-btn--danger ss-btn--sm"
+                      className="ss-icon-btn ss-icon-btn--danger"
                       id={`scene-delete-${scene.id}`}
                       href={scene.deleteUrl}
                       title={`Delete ${scene.name} Scene`}
+                      aria-label={`Delete ${scene.name} Scene`}
                     >
-                      Delete
+                      <i
+                        className={`bi ${ACTION_ICONS.delete}`}
+                        aria-hidden="true"
+                      />
                     </a>
                   ) : null}
                 </>

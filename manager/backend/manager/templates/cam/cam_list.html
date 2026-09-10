@@ -11,8 +11,8 @@ SPDX-License-Identifier: Apache-2.0
   <form class="d-none" aria-hidden="true">{% csrf_token %}</form>
 {% endblock %}
 {% block scripts %}
-  <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}" />
-  <script type="module" src="{% static 'ui/admin-list.js' %}"></script>
+  <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}?v=actions-1" />
+  <script type="module" src="{% static 'ui/admin-list.js' %}?v=actions-1"></script>
   {{ list_sheets_bootstrap|json_script:"ss-list-sheets-bootstrap" }}
   <script type="module" src="{% static 'ui/list-sheets.js' %}"></script>
 {% endblock %}

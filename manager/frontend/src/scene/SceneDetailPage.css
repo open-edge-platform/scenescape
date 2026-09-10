@@ -241,6 +241,8 @@
   min-height: 0;
   /* Grow into leftover space after the map’s flex share */
   flex: 1 1 0;
+  /* Fixed sensor / ROI / tripwire row width (default side-panel content). */
+  --ss-tab-entity-width: 48.5rem;
 }
 
 .ss-workspace--stack .ss-scene-side {
@@ -514,50 +516,23 @@ body.ss-workspace-resizing .ss-workspace-main {
   overflow-y: auto;
 }
 
-/* Entity cards (sensors, children, …) */
-.ss-scene-detail--workspace .ss-scene-side .singleton,
-.ss-scene-detail--workspace .ss-scene-side #childrenlist > .card {
-  width: 100%;
+/* Entity list rows (sensors, children) — fixed width like ROI */
+.ss-scene-detail--workspace .ss-scene-side .ss-tab-row.singleton,
+.ss-scene-detail--workspace .ss-scene-side #childrenlist .ss-tab-row,
+.ss-scene-detail--workspace .ss-scene-side #ss-children-mount .ss-tab-row,
+.ss-scene-detail--workspace .ss-scene-side #ss-sensors-mount .ss-tab-row {
+  width: var(--ss-tab-entity-width, 18.5rem);
+  max-width: 100%;
   margin: 0;
-  border-radius: var(--ss-radius);
-  background: var(--ss-card-bg);
-  border: 1px solid var(--ss-card-border);
   box-shadow: none;
 }
 
-.ss-scene-detail--workspace .ss-scene-side .singleton > .card-header,
-.ss-scene-detail--workspace
-  .ss-scene-side
-  #childrenlist
-  > .card
-  > .card-header {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 0.7rem;
-  font-family: var(--ss-font-heading);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--ss-ink);
-  background: color-mix(in srgb, var(--ss-surface) 55%, var(--ss-elevated));
-  border-bottom: 1px solid var(--ss-card-border);
-}
-
-.ss-scene-detail--workspace .ss-scene-side .singleton > .card-body,
-.ss-scene-detail--workspace .ss-scene-side #childrenlist > .card > .card-body {
-  padding: 0.55rem 0.7rem 0.7rem;
-}
-
-.ss-scene-detail--workspace .ss-scene-side .singleton .table,
-.ss-scene-detail--workspace .ss-scene-side #childrenlist .table,
 .ss-scene-detail--workspace .ss-scene-side #mqtt .table {
   width: 100%;
   margin: 0 0 0.55rem;
   table-layout: fixed;
 }
 
-.ss-scene-detail--workspace .ss-scene-side .singleton .table th,
-.ss-scene-detail--workspace .ss-scene-side .singleton .table td,
 .ss-scene-detail--workspace .ss-scene-side #mqtt .table th,
 .ss-scene-detail--workspace .ss-scene-side #mqtt .table td {
   padding: 0.2rem 0.15rem;
@@ -568,39 +543,29 @@ body.ss-workspace-resizing .ss-workspace-main {
   border-top: 0;
 }
 
-.ss-scene-detail--workspace .ss-scene-side .singleton .table th {
-  width: 3.25rem;
-  color: var(--ss-text-muted);
-  font-weight: 600;
-}
-
-.ss-scene-detail--workspace .ss-scene-side .singleton .text-right,
-.ss-scene-detail--workspace .ss-scene-side #childrenlist .text-right {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.3rem;
-}
-
 .ss-scene-detail--workspace .ss-scene-side .sensor-icon {
   float: none;
-  margin-left: auto;
+  margin: 0;
 }
 
-/* Region / tripwire editors */
+/* Region / tripwire + entity mounts: compact stacked rows */
 .ss-scene-detail--workspace .ss-scene-side #roi-fields,
 .ss-scene-detail--workspace .ss-scene-side #tripwire-fields,
-.ss-scene-detail--workspace .ss-scene-side #childrenlist {
+.ss-scene-detail--workspace .ss-scene-side #childrenlist,
+.ss-scene-detail--workspace .ss-scene-side #ss-children-mount,
+.ss-scene-detail--workspace .ss-scene-side #ss-sensors-mount {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  align-items: flex-start;
+  gap: 0.35rem;
   width: 100%;
   min-width: 0;
 }
 
 .ss-scene-detail--workspace .ss-scene-side .form-roi,
 .ss-scene-detail--workspace .ss-scene-side .form-tripwire {
-  width: 100%;
+  width: var(--ss-tab-entity-width, 18.5rem);
+  max-width: 100%;
   min-width: 0;
   margin: 0;
 }
@@ -609,11 +574,11 @@ body.ss-workspace-resizing .ss-workspace-main {
 .ss-scene-detail--workspace .ss-scene-side .ss-editor-card.col,
 .ss-scene-detail--workspace .ss-scene-side .form-roi .col,
 .ss-scene-detail--workspace .ss-scene-side .form-tripwire .col {
-  width: 100%;
+  width: var(--ss-tab-entity-width, 18.5rem);
   max-width: 100%;
   min-width: 0;
   margin: 0;
-  padding: 0.65rem 0.75rem;
+  padding: 0.4rem 0.55rem;
   flex: none;
 }
 
@@ -636,13 +601,6 @@ body.ss-workspace-resizing .ss-workspace-main {
   padding-left: 0;
   margin-top: 0.35rem;
   overflow-wrap: anywhere;
-}
-
-.ss-scene-detail--workspace .ss-scene-side #childrenlist .card-image img,
-.ss-scene-detail--workspace .ss-scene-side #childrenlist .blank-container {
-  width: 100%;
-  max-height: 8.5rem;
-  object-fit: cover;
 }
 
 .ss-scene-detail--workspace .ss-scene-side .row {

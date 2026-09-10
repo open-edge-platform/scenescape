@@ -183,14 +183,12 @@ function TreeView({
           {canWrite ? (
             <button
               type="button"
-              className="ss-btn ss-btn--ghost ss-btn--sm ss-model-action-danger"
+              className="ss-icon-btn ss-icon-btn--danger"
               title={isFile ? "Delete file" : "Delete folder"}
+              aria-label={isFile ? "Delete file" : "Delete folder"}
               onClick={() => onDelete(parentPath, name, isFile)}
             >
-              <i className="bi bi-x-lg" aria-hidden="true" />
-              <span className="sr-only">
-                {isFile ? "Delete file" : "Delete folder"}
-              </span>
+              <i className="bi bi-trash" aria-hidden="true" />
             </button>
           ) : null}
         </div>

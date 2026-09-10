@@ -42,3 +42,132 @@
   max-width: 100%;
   align-items: stretch;
 }
+
+/*
+ * Sensors / children: fixed width matching ROI / tripwire rows.
+ */
+.ss-tab-list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.ss-tab-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  width: var(--ss-tab-entity-width, 18.5rem);
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+  background: var(--ss-card-bg);
+  box-sizing: border-box;
+}
+
+.ss-tab-row__icon {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  object-fit: contain;
+  float: none;
+  margin: 0;
+}
+
+.ss-tab-row__icon--empty {
+  display: block;
+  border-radius: 0.2rem;
+  background: color-mix(in srgb, var(--ss-surface) 70%, var(--ss-elevated));
+}
+
+.ss-tab-row__thumb {
+  flex: 0 0 auto;
+  display: block;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  border: 1px solid var(--ss-card-border);
+  background: color-mix(in srgb, var(--ss-surface) 70%, var(--ss-elevated));
+  line-height: 0;
+}
+
+.ss-tab-row__thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ss-tab-row__thumb--empty {
+  border-style: dashed;
+}
+
+.ss-tab-row__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.ss-tab-row__title {
+  font-family: var(--ss-font-heading);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ss-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ss-tab-row__meta {
+  font-size: 0.6875rem;
+  line-height: 1.25;
+  color: var(--ss-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ss-tab-row__copy-id {
+  appearance: none;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.ss-tab-row__copy-id:hover,
+.ss-tab-row__copy-id:focus {
+  color: var(--ss-brand);
+  text-decoration: underline;
+  outline: none;
+}
+
+.ss-tab-row__copy-id:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ss-brand) 35%, transparent);
+  outline-offset: 1px;
+}
+
+.ss-tab-row__actions {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.ss-tab-row__actions.ss-entity-actions {
+  justify-content: flex-start;
+}

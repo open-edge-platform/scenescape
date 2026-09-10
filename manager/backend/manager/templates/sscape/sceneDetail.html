@@ -292,6 +292,10 @@ SPDX-License-Identifier: Apache-2.0
   </div>
 {% endblock %}
 {% block scripts %}
-  <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}" />
-  <script type="module" src="{% static 'ui/scene-detail.js' %}"></script>
+  {# Cache-bust: ES modules stick in the browser after hot deploys. Bump when shipping UI. #}
+  <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}?v=actions-1" />
+  <script
+    type="module"
+    src="{% static 'ui/scene-detail.js' %}?v=actions-1"
+  ></script>
 {% endblock %}

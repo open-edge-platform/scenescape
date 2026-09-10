@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { j as e, c, r as h } from "./chunks/tokens-C2Ju3rc_.js";
-import { P as m } from "./chunks/PageHeader-Dke5XNFH.js";
-function o({ cell: s }) {
+import { j as e, c as h, r as o } from "./chunks/tokens-C2Ju3rc_.js";
+import { P as x } from "./chunks/PageHeader-Dke5XNFH.js";
+import { i as u, A as j } from "./chunks/actionIcons-BIxtFbWH.js";
+function b({ cell: s }) {
   const r = s.text || "—",
     a = s.href ? e.jsx("a", { href: s.href, children: r }) : r;
   return s.swatch
@@ -20,8 +21,8 @@ function o({ cell: s }) {
       })
     : a;
 }
-function x({ bootstrap: s }) {
-  const r = !!s.isSuperuser && s.rows.some((n) => (n.actions || []).length > 0),
+function p({ bootstrap: s }) {
+  const r = !!s.isSuperuser && s.rows.some((t) => (t.actions || []).length > 0),
     a = s.primaryAction
       ? e.jsx("a", {
           className: "ss-btn ss-btn--primary",
@@ -33,7 +34,7 @@ function x({ bootstrap: s }) {
   return e.jsxs("div", {
     className: "ss-admin-list hide-fullscreen",
     children: [
-      e.jsx(m, {
+      e.jsx(x, {
         title: s.title,
         breadcrumbs: s.breadcrumbs || [],
         actions: a,
@@ -52,49 +53,58 @@ function x({ bootstrap: s }) {
                   e.jsx("thead", {
                     children: e.jsxs("tr", {
                       children: [
-                        s.columns.map((n) => e.jsx("th", { children: n }, n)),
+                        s.columns.map((t) => e.jsx("th", { children: t }, t)),
                         r ? e.jsx("th", { children: "Actions" }) : null,
                       ],
                     }),
                   }),
                   e.jsx("tbody", {
-                    children: s.rows.map((n) =>
+                    children: s.rows.map((t) =>
                       e.jsxs(
                         "tr",
                         {
                           children: [
-                            n.cells.map((t, d) =>
+                            t.cells.map((n, i) =>
                               e.jsx(
                                 "td",
-                                { children: e.jsx(o, { cell: t }) },
-                                `${n.id}-${d}`,
+                                { children: e.jsx(b, { cell: n }) },
+                                `${t.id}-${i}`,
                               ),
                             ),
                             r
                               ? e.jsx("td", {
                                   children: e.jsx("div", {
                                     className: "ss-table-actions",
-                                    children: (n.actions || []).map((t) =>
-                                      e.jsx(
+                                    children: (t.actions || []).map((n) => {
+                                      const i = u(n.label),
+                                        l = i ? j[i] : null,
+                                        m = n.tone === "danger";
+                                      return e.jsx(
                                         "a",
                                         {
-                                          className: `ss-table-action${t.tone === "danger" ? " is-danger" : ""}`,
-                                          href: t.href,
-                                          id: t.id,
-                                          title: t.label,
-                                          children: e.jsx("span", {
-                                            children: t.label,
-                                          }),
+                                          className: `ss-table-action${m ? " is-danger" : ""}${l ? " is-icon" : ""}`,
+                                          href: n.href,
+                                          id: n.id,
+                                          title: n.label,
+                                          "aria-label": n.label,
+                                          children: l
+                                            ? e.jsx("i", {
+                                                className: `bi ${l}`,
+                                                "aria-hidden": "true",
+                                              })
+                                            : e.jsx("span", {
+                                                children: n.label,
+                                              }),
                                         },
-                                        `${n.id}-${t.label}-${t.href}`,
-                                      ),
-                                    ),
+                                        `${t.id}-${n.label}-${n.href}`,
+                                      );
+                                    }),
                                   }),
                                 })
                               : null,
                           ],
                         },
-                        n.id,
+                        t.id,
                       ),
                     ),
                   }),
@@ -104,7 +114,7 @@ function x({ bootstrap: s }) {
     ],
   });
 }
-function j() {
+function f() {
   const s = document.getElementById("ss-admin-list-bootstrap");
   if (!(s != null && s.textContent)) return null;
   try {
@@ -113,10 +123,10 @@ function j() {
     return (console.error("Failed to parse admin list bootstrap JSON"), null);
   }
 }
-const i = j(),
-  l = document.getElementById("ss-admin-list-root");
-i &&
-  l &&
-  c
-    .createRoot(l)
-    .render(e.jsx(h.StrictMode, { children: e.jsx(x, { bootstrap: i }) }));
+const c = f(),
+  d = document.getElementById("ss-admin-list-root");
+c &&
+  d &&
+  h
+    .createRoot(d)
+    .render(e.jsx(o.StrictMode, { children: e.jsx(p, { bootstrap: c }) }));

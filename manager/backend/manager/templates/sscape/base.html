@@ -220,10 +220,10 @@ SPDX-License-Identifier: Apache-2.0
     <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     <script type="module" src="{% static 'js/sscape.js' %}"></script>
     {% if user.is_authenticated %}
-      <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}" />
+      <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}?v=actions-1" />
       <script
         type="module"
-        src="{% static 'ui/destructive-actions.js' %}"
+        src="{% static 'ui/destructive-actions.js' %}?v=actions-1"
       ></script>
     {% endif %}
     {% if embed %}

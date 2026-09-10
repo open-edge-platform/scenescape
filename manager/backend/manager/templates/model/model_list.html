@@ -16,5 +16,8 @@ SPDX-License-Identifier: Apache-2.0
 
 {% block scripts %}
   {{ models_directory_bootstrap|json_script:"ss-models-directory-bootstrap" }}
-  <script type="module" src="{% static 'ui/models-directory.js' %}"></script>
+  <script
+    type="module"
+    src="{% static 'ui/models-directory.js' %}?v=actions-1"
+  ></script>
 {% endblock %}

@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { PageHeader } from "../components/PageHeader";
+import {
+  ACTION_ICONS,
+  iconForActionLabel,
+} from "../components/actionIcons";
 import "./AdminListApp.css";
 
 export type AdminListAction = {
@@ -106,19 +110,29 @@ export function AdminListApp({ bootstrap }: Props) {
                   {showActions ? (
                     <td>
                       <div className="ss-table-actions">
-                        {(row.actions || []).map((action) => (
-                          <a
-                            key={`${row.id}-${action.label}-${action.href}`}
-                            className={`ss-table-action${
-                              action.tone === "danger" ? " is-danger" : ""
-                            }`}
-                            href={action.href}
-                            id={action.id}
-                            title={action.label}
-                          >
-                            <span>{action.label}</span>
-                          </a>
-                        ))}
+                        {(row.actions || []).map((action) => {
+                          const kind = iconForActionLabel(action.label);
+                          const icon = kind ? ACTION_ICONS[kind] : null;
+                          const danger = action.tone === "danger";
+                          return (
+                            <a
+                              key={`${row.id}-${action.label}-${action.href}`}
+                              className={`ss-table-action${
+                                danger ? " is-danger" : ""
+                              }${icon ? " is-icon" : ""}`}
+                              href={action.href}
+                              id={action.id}
+                              title={action.label}
+                              aria-label={action.label}
+                            >
+                              {icon ? (
+                                <i className={`bi ${icon}`} aria-hidden="true" />
+                              ) : (
+                                <span>{action.label}</span>
+                              )}
+                            </a>
+                          );
+                        })}
                       </div>
                     </td>
                   ) : null}

@@ -94,3 +94,70 @@
   border-radius: 50%;
   background: #ffcc33;
 }
+
+/*
+ * Icon-only action controls (scene chrome, entity rows, admin tables).
+ * Delete / edit / configure share one footprint; danger turns red on hover.
+ */
+.ss-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  padding: 0;
+  margin: 0;
+  border-radius: calc(var(--ss-radius) - 0.15rem);
+  border: 1px solid var(--ss-input-border);
+  background: var(--ss-card-bg);
+  color: var(--ss-ink);
+  font-size: 0.875rem;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.ss-icon-btn:hover,
+.ss-icon-btn:focus {
+  color: var(--ss-brand);
+  border-color: var(--ss-brand);
+  outline: none;
+}
+
+.ss-icon-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ss-brand) 35%, transparent);
+  outline-offset: 1px;
+}
+
+.ss-icon-btn--danger {
+  color: var(--ss-text-muted);
+  border-color: var(--ss-card-border);
+}
+
+.ss-icon-btn--danger:hover,
+.ss-icon-btn--danger:focus {
+  color: var(--ss-status-bad);
+  border-color: color-mix(
+    in srgb,
+    var(--ss-status-bad) 55%,
+    var(--ss-card-border)
+  );
+  background: color-mix(in srgb, var(--ss-status-bad) 10%, var(--ss-card-bg));
+}
+
+.ss-icon-btn--danger:focus-visible {
+  outline-color: color-mix(in srgb, var(--ss-status-bad) 45%, transparent);
+}
+
+/* Bootstrap toolbar delete (scene header) — red on hover */
+#scene-delete:hover,
+#scene-delete:focus {
+  color: var(--ss-status-bad);
+  border-color: color-mix(
+    in srgb,
+    var(--ss-status-bad) 55%,
+    var(--ss-input-border)
+  );
+  background: color-mix(in srgb, var(--ss-status-bad) 10%, var(--ss-card-bg));
+}

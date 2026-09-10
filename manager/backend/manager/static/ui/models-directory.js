@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 import { j as e, r, c as ue } from "./chunks/tokens-C2Ju3rc_.js";
-import { u as fe, C as I, T as me } from "./chunks/ConfirmDialog-DanZpjzY.js";
-import { P as pe } from "./chunks/PageHeader-Dke5XNFH.js";
+import { u as fe, C as I, T as pe } from "./chunks/ConfirmDialog-DanZpjzY.js";
+import { P as me } from "./chunks/PageHeader-Dke5XNFH.js";
 import { B } from "./chunks/Button-CDF7QSMd.js";
 import { g as _ } from "./chunks/djangoDelete-BfD_c0xv.js";
 function he({ children: s, className: n = "" }) {
@@ -44,7 +44,7 @@ async function xe(s = "", n = ".") {
   if (!o.ok) throw new Error(await W(o));
   return await o.json();
 }
-async function ye(s, n) {
+async function be(s, n) {
   const a = new URLSearchParams({ action: "check", path: s, folder_name: n }),
     o = await fetch(`${G}?${a}`, {
       credentials: "same-origin",
@@ -63,7 +63,7 @@ async function Z(s, n) {
     U("POST", "", a)
   );
 }
-async function be(s, n) {
+async function ye(s, n) {
   const a = new FormData();
   return (
     a.append("path", s),
@@ -122,11 +122,11 @@ function je(s) {
 }
 function ae(s) {
   return [...s].sort(([n, a], [o, c]) => {
-    const b = a !== null,
+    const y = a !== null,
       C = c !== null;
-    return b && !C
+    return y && !C
       ? -1
-      : !b && C
+      : !y && C
         ? 1
         : n.localeCompare(o, void 0, { sensitivity: "base" });
   });
@@ -137,7 +137,7 @@ function re({
   parentPath: a,
   depth: o,
   canWrite: c,
-  creatingAt: b,
+  creatingAt: y,
   newFolderName: C,
   dropPath: L,
   onToggleCreate: T,
@@ -154,7 +154,7 @@ function re({
     d = n === null,
     u = ee(a, s),
     h = u,
-    x = b === h,
+    x = y === h,
     R = !d && L === h;
   return e.jsxs("div", {
     className: "ss-model-node",
@@ -276,22 +276,16 @@ function re({
                     })
                   : null,
               c
-                ? e.jsxs("button", {
+                ? e.jsx("button", {
                     type: "button",
-                    className:
-                      "ss-btn ss-btn--ghost ss-btn--sm ss-model-action-danger",
+                    className: "ss-icon-btn ss-icon-btn--danger",
                     title: d ? "Delete file" : "Delete folder",
+                    "aria-label": d ? "Delete file" : "Delete folder",
                     onClick: () => E(a, s, d),
-                    children: [
-                      e.jsx("i", {
-                        className: "bi bi-x-lg",
-                        "aria-hidden": "true",
-                      }),
-                      e.jsx("span", {
-                        className: "sr-only",
-                        children: d ? "Delete file" : "Delete folder",
-                      }),
-                    ],
+                    children: e.jsx("i", {
+                      className: "bi bi-trash",
+                      "aria-hidden": "true",
+                    }),
                   })
                 : null,
             ],
@@ -326,7 +320,7 @@ function re({
                 parentPath: h,
                 depth: o + 1,
                 canWrite: c,
-                creatingAt: b,
+                creatingAt: y,
                 newFolderName: C,
                 dropPath: L,
                 onToggleCreate: T,
@@ -351,7 +345,7 @@ function ge({ isSuperuser: s }) {
     a = s,
     o = r.useRef(null),
     c = r.useRef(""),
-    b = r.useRef({ path: null, name: "" }),
+    y = r.useRef({ path: null, name: "" }),
     [C, L] = r.useState({}),
     [T, P] = r.useState(null),
     [j, v] = r.useState(!1),
@@ -362,7 +356,7 @@ function ge({ isSuperuser: s }) {
     [u, h] = r.useState(null),
     [x, R] = r.useState(null),
     [l, k] = r.useState(!1);
-  b.current = { path: N, name: F };
+  y.current = { path: N, name: F };
   const g = r.useCallback(async () => {
     (v(!0), P(null));
     try {
@@ -391,25 +385,25 @@ function ge({ isSuperuser: s }) {
       [n],
     ),
     A = r.useCallback(async () => {
-      const { path: t, name: i } = b.current;
+      const { path: t, name: i } = y.current;
       if (t === null) return;
-      ((b.current = { path: null, name: "" }), E(null), w(""));
+      ((y.current = { path: null, name: "" }), E(null), w(""));
       const f = i.trim();
       if (!f) return;
-      const y = je(f);
-      if (y) {
-        n.show(y, "bad");
+      const b = je(f);
+      if (b) {
+        n.show(b, "bad");
         return;
       }
       try {
-        const p = await Z(t, f);
-        (n.show(p || "Directory created successfully", "ok"), await g());
-      } catch (p) {
-        n.show(p instanceof Error ? p.message : "Create failed", "bad");
+        const m = await Z(t, f);
+        (n.show(m || "Directory created successfully", "ok"), await g());
+      } catch (m) {
+        n.show(m instanceof Error ? m.message : "Create failed", "bad");
       }
     }, [g, n]),
     H = r.useCallback(() => {
-      ((b.current = { path: null, name: "" }), E(null), w(""));
+      ((y.current = { path: null, name: "" }), E(null), w(""));
     }, []),
     M = r.useCallback((t) => {
       (E(t), w(""));
@@ -419,26 +413,26 @@ function ge({ isSuperuser: s }) {
         if (i.length) {
           v(!0);
           try {
-            const y = i.map((m) => (V(m) ? Q(m.name) : m.name)),
-              p = [];
-            for (const m of y) (await ye(t, m)) && p.push(m);
-            if (p.length && !f) {
-              (v(!1), R({ path: t, names: p, files: i }));
+            const b = i.map((p) => (V(p) ? Q(p.name) : p.name)),
+              m = [];
+            for (const p of b) (await be(t, p)) && m.push(p);
+            if (m.length && !f) {
+              (v(!1), R({ path: t, names: m, files: i }));
               return;
             }
-            if (p.length) for (const m of p) await J(t, m);
+            if (m.length) for (const p of m) await J(t, p);
             let z = "";
-            for (const m of i)
-              if (V(m)) {
-                const X = Q(m.name);
+            for (const p of i)
+              if (V(p)) {
+                const X = Q(p.name);
                 try {
                   await Z(t, X);
                 } catch {}
-                z = await we(ee(t, X), m);
-              } else z = await be(t, m);
+                z = await we(ee(t, X), p);
+              } else z = await ye(t, p);
             (n.show(z || "Upload complete", "ok"), await g());
-          } catch (y) {
-            n.show(y instanceof Error ? y.message : "Upload failed", "bad");
+          } catch (b) {
+            n.show(b instanceof Error ? b.message : "Upload failed", "bad");
           } finally {
             v(!1);
           }
@@ -489,7 +483,7 @@ function ge({ isSuperuser: s }) {
   return e.jsxs("div", {
     className: "ss-models-dir",
     children: [
-      e.jsx(pe, {
+      e.jsx(me, {
         title: "Model Directory",
         actions: e.jsxs(e.Fragment, {
           children: [
@@ -599,10 +593,10 @@ function ge({ isSuperuser: s }) {
                       onCommitCreate: () => void A(),
                       onCancelCreate: H,
                       onUpload: q,
-                      onDelete: (f, y, p) => h({ path: f, name: y, isFile: p }),
+                      onDelete: (f, b, m) => h({ path: f, name: b, isFile: m }),
                       onCopy: (f) => void oe(f),
                       onDropPath: D,
-                      onFilesDropped: (f, y) => void S(f, y, !1),
+                      onFilesDropped: (f, b) => void S(f, b, !1),
                     },
                     t,
                   ),
@@ -702,7 +696,7 @@ const Ce = ve(),
 Y &&
   ue.createRoot(Y).render(
     e.jsx(r.StrictMode, {
-      children: e.jsx(me, {
+      children: e.jsx(pe, {
         children: e.jsx(ge, { isSuperuser: !!Ce.isSuperuser }),
       }),
     }),

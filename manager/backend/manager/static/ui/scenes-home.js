@@ -1,51 +1,51 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { r as l, j as e, c as E } from "./chunks/tokens-C2Ju3rc_.js";
-import { u as N, C as D, T as I } from "./chunks/ConfirmDialog-DanZpjzY.js";
+import { r as l, j as e, c as D } from "./chunks/tokens-C2Ju3rc_.js";
+import { u as C, C as E, T as $ } from "./chunks/ConfirmDialog-DanZpjzY.js";
 import { L as T } from "./chunks/LegacyConfirmHost-VsPlnSjJ.js";
-import { P as $ } from "./chunks/PageHeader-Dke5XNFH.js";
+import { P as B } from "./chunks/PageHeader-Dke5XNFH.js";
+import { A as y } from "./chunks/actionIcons-BIxtFbWH.js";
 import {
-  a as y,
-  D as B,
+  a as N,
+  D as A,
   F as w,
-  T as C,
+  T as F,
   u as M,
 } from "./chunks/rest-CiiNoWNe.js";
 import { B as H } from "./chunks/Button-CDF7QSMd.js";
-import { S as L, C as A } from "./chunks/SceneManagePanel-C7ukm3Qu.js";
+import { S as L, C as O } from "./chunks/SceneManagePanel-C7ukm3Qu.js";
 function P({
-  open: s,
-  mode: t,
-  sceneUid: a,
-  authToken: n,
+  open: n,
+  mode: a,
+  sceneUid: t,
+  authToken: s,
   onClose: d,
   onSaved: x,
 }) {
-  const j = N(),
+  const j = C(),
     [f, r] = l.useState(""),
     [u, h] = l.useState("100"),
     [p, o] = l.useState(null),
-    [c, g] = l.useState(!1),
+    [i, g] = l.useState(!1),
     [v, b] = l.useState(null);
   l.useEffect(() => {
-    if (!s) return;
-    if ((b(null), o(null), t === "create")) {
+    if (!n) return;
+    if ((b(null), o(null), a === "create")) {
       (r(""), h("100"));
       return;
     }
-    if (!a) return;
+    if (!t) return;
     let m = !1;
     return (
       g(!0),
-      y
-        .getScene(n, a)
-        .then((i) => {
+      N.getScene(s, t)
+        .then((c) => {
           m ||
-            (r(String(i.name || "")),
-            h(i.scale != null ? String(i.scale) : "100"));
+            (r(String(c.name || "")),
+            h(c.scale != null ? String(c.scale) : "100"));
         })
-        .catch((i) => {
-          m || b(i.message || "Failed to load scene");
+        .catch((c) => {
+          m || b(c.message || "Failed to load scene");
         })
         .finally(() => {
           m || g(!1);
@@ -54,20 +54,20 @@ function P({
         m = !0;
       }
     );
-  }, [s, t, a, n]);
-  const k = async (m) => {
+  }, [n, a, t, s]);
+  const I = async (m) => {
     (m.preventDefault(), g(!0), b(null));
-    const i = new FormData();
-    (i.append("name", f.trim()),
-      u.trim() && i.append("scale", u.trim()),
-      p && i.append("map", p));
+    const c = new FormData();
+    (c.append("name", f.trim()),
+      u.trim() && c.append("scale", u.trim()),
+      p && c.append("map", p));
     try {
-      if (t === "create") {
-        const S = await y.createScene(n, i);
+      if (a === "create") {
+        const S = await N.createScene(s, c);
         (j.show("Scene created", "ok"), x(S == null ? void 0 : S.uid));
       } else
-        a &&
-          (await y.updateScene(n, a, i), j.show("Scene updated", "ok"), x(a));
+        t &&
+          (await N.updateScene(s, t, c), j.show("Scene updated", "ok"), x(t));
       d();
     } catch (S) {
       b(S.message || "Save failed");
@@ -75,35 +75,35 @@ function P({
       g(!1);
     }
   };
-  return e.jsx(B, {
-    open: s,
-    title: t === "create" ? "New scene" : "Edit scene",
+  return e.jsx(A, {
+    open: n,
+    title: a === "create" ? "New scene" : "Edit scene",
     onClose: d,
     wide: !0,
     actions: e.jsx(H, {
       variant: "primary",
-      disabled: c,
+      disabled: i,
       form: "ss-scene-sheet-form",
       type: "submit",
-      children: c ? "Saving…" : t === "create" ? "Create scene" : "Save",
+      children: i ? "Saving…" : a === "create" ? "Create scene" : "Save",
     }),
     children: e.jsxs("form", {
       id: "ss-scene-sheet-form",
       className: "ss-drawer-form",
-      onSubmit: k,
+      onSubmit: I,
       children: [
         v ? e.jsx("p", { className: "ss-drawer-error", children: v }) : null,
         e.jsx(w, {
           id: "ss-scene-identity",
           title: "Identity",
           description: "How this scene appears in the gallery.",
-          children: e.jsx(C, {
+          children: e.jsx(F, {
             id: "ss-scene-name",
             label: "Name",
             value: f,
             onChange: (m) => r(m.target.value),
             required: !0,
-            disabled: c,
+            disabled: i,
           }),
         }),
         e.jsxs(w, {
@@ -111,12 +111,12 @@ function P({
           title: "Map",
           description: "Floor plan and scale for the common create path.",
           children: [
-            e.jsx(C, {
+            e.jsx(F, {
               id: "ss-scene-scale",
               label: "Scale (px per meter)",
               value: u,
               onChange: (m) => h(m.target.value),
-              disabled: c,
+              disabled: i,
             }),
             e.jsxs("div", {
               className: "ss-text-field",
@@ -132,11 +132,11 @@ function P({
                     id: "ss-scene-map",
                     type: "file",
                     accept: "image/*,.pdf,.svg,.glb,.gltf",
-                    disabled: c,
+                    disabled: i,
                     onChange: (m) => {
-                      var i;
+                      var c;
                       return o(
-                        ((i = m.target.files) == null ? void 0 : i[0]) || null,
+                        ((c = m.target.files) == null ? void 0 : c[0]) || null,
                       );
                     },
                   }),
@@ -154,8 +154,8 @@ function P({
     }),
   });
 }
-function U({ open: s, authToken: t, onClose: a, onImported: n }) {
-  const d = N(),
+function U({ open: n, authToken: a, onClose: t, onImported: s }) {
+  const d = C(),
     [x, j] = l.useState(null),
     [f, r] = l.useState(!1),
     [u, h] = l.useState(null),
@@ -168,15 +168,15 @@ function U({ open: s, authToken: t, onClose: a, onImported: n }) {
       const o = new FormData();
       o.append("zipFile", x);
       try {
-        (await y.importScene(t, o), d.show("Scene imported", "ok"), n(), a());
-      } catch (c) {
-        h(c.message || "Import failed");
+        (await N.importScene(a, o), d.show("Scene imported", "ok"), s(), t());
+      } catch (i) {
+        h(i.message || "Import failed");
       } finally {
         r(!1);
       }
     };
-  return e.jsxs(D, {
-    open: s,
+  return e.jsxs(E, {
+    open: n,
     title: "Import scene",
     confirmLabel: f ? "Importing…" : "Import",
     cancelLabel: "Cancel",
@@ -184,7 +184,7 @@ function U({ open: s, authToken: t, onClose: a, onImported: n }) {
     busy: f,
     onConfirm: p,
     onCancel: () => {
-      f || a();
+      f || t();
     },
     children: [
       e.jsx("p", { children: "Upload a SceneScape scene export (.zip)." }),
@@ -193,46 +193,46 @@ function U({ open: s, authToken: t, onClose: a, onImported: n }) {
         accept: ".zip,application/zip",
         disabled: f,
         onChange: (o) => {
-          var c;
-          return j(((c = o.target.files) == null ? void 0 : c[0]) || null);
+          var i;
+          return j(((i = o.target.files) == null ? void 0 : i[0]) || null);
         },
       }),
       u ? e.jsx("p", { className: "ss-confirm-error", children: u }) : null,
     ],
   });
 }
-const z = new Set([
+const _ = new Set([
   "scene-create",
   "scene-import",
   "scene-manage",
   "child-create",
 ]);
-function O(s) {
-  return !!(s && z.has(s));
+function z(n) {
+  return !!(n && _.has(n));
 }
-function _({ scene: s }) {
-  const t = s.thumbnailUrl || s.mapUrl;
-  return t
-    ? e.jsx("img", { className: "cover", src: t, alt: s.name })
+function R({ scene: n }) {
+  const a = n.thumbnailUrl || n.mapUrl;
+  return a
+    ? e.jsx("img", { className: "cover", src: a, alt: n.name })
     : e.jsx("div", {
         className: "blank-container border",
         "aria-hidden": "true",
       });
 }
-function R({ scenes: s, isSuperuser: t, onCreate: a }) {
-  return s.length === 0
+function q({ scenes: n, isSuperuser: a, onCreate: t }) {
+  return n.length === 0
     ? e.jsxs("p", {
         className: "scene-gallery-empty ss-scene-gallery-empty",
         children: [
           "No scenes are available.",
-          t
+          a
             ? e.jsxs(e.Fragment, {
                 children: [
                   " ",
                   e.jsx("button", {
                     type: "button",
                     className: "ss-text-link",
-                    onClick: a,
+                    onClick: t,
                     children: "Click here",
                   }),
                   " ",
@@ -244,23 +244,23 @@ function R({ scenes: s, isSuperuser: t, onCreate: a }) {
       })
     : e.jsx("div", {
         className: "scene-gallery ss-scene-gallery",
-        children: s.map((n) =>
+        children: n.map((s) =>
           e.jsxs(
             "div",
             {
               className: "card scene-card ss-scene-card",
-              "data-scene-id": n.id,
+              "data-scene-id": s.id,
               ref: (d) => {
-                d && d.setAttribute("name", n.name);
+                d && d.setAttribute("name", s.name);
               },
               children: [
-                e.jsx("h5", { className: "card-header", children: n.name }),
+                e.jsx("h5", { className: "card-header", children: s.name }),
                 e.jsx("div", {
                   className: "card-image",
                   children: e.jsx("a", {
-                    id: `scene_id_${n.id}`,
-                    href: n.detailUrl,
-                    children: e.jsx(_, { scene: n }),
+                    id: `scene_id_${s.id}`,
+                    href: s.detailUrl,
+                    children: e.jsx(R, { scene: s }),
                   }),
                 }),
                 e.jsxs("div", {
@@ -275,7 +275,7 @@ function R({ scenes: s, isSuperuser: t, onCreate: a }) {
                               e.jsx("td", { children: "Cameras & Sensors" }),
                               e.jsx("td", {
                                 className: "sensor-count",
-                                children: n.counts.sensors,
+                                children: s.counts.sensors,
                               }),
                             ],
                           }),
@@ -284,7 +284,7 @@ function R({ scenes: s, isSuperuser: t, onCreate: a }) {
                               e.jsx("td", { children: "Regions" }),
                               e.jsx("td", {
                                 className: "region-count",
-                                children: n.counts.regions,
+                                children: s.counts.regions,
                               }),
                             ],
                           }),
@@ -293,7 +293,7 @@ function R({ scenes: s, isSuperuser: t, onCreate: a }) {
                               e.jsx("td", { children: "Tripwires" }),
                               e.jsx("td", {
                                 className: "tripwire-count",
-                                children: n.counts.tripwires,
+                                children: s.counts.tripwires,
                               }),
                             ],
                           }),
@@ -304,38 +304,49 @@ function R({ scenes: s, isSuperuser: t, onCreate: a }) {
                       className: "scene-card-actions ss-scene-card-actions",
                       children: [
                         e.jsx("a", {
-                          className: "ss-btn ss-btn--secondary ss-btn--sm",
-                          id: `scene-manage-${n.name}`,
-                          href: n.detailUrl,
-                          title: `Configure ${n.name} Scene`,
-                          children: "Configure",
+                          className: "ss-icon-btn",
+                          id: `scene-manage-${s.name}`,
+                          href: s.detailUrl,
+                          title: `Configure ${s.name} Scene`,
+                          "aria-label": `Configure ${s.name} Scene`,
+                          children: e.jsx("i", {
+                            className: `bi ${y.configure}`,
+                            "aria-hidden": "true",
+                          }),
                         }),
                         e.jsx("a", {
                           className: "ss-btn ss-btn--secondary ss-btn--sm",
-                          id: `scene-3d-${n.id}`,
-                          href: n.detail3dUrl,
-                          title: `View ${n.name} Scene in 3D`,
+                          id: `scene-3d-${s.id}`,
+                          href: s.detail3dUrl,
+                          title: `View ${s.name} Scene in 3D`,
                           children: "3D",
                         }),
-                        t
+                        a
                           ? e.jsxs(e.Fragment, {
                               children: [
                                 e.jsx("a", {
-                                  className:
-                                    "ss-btn ss-btn--secondary ss-btn--sm",
-                                  id: `scene-edit-${n.id}`,
-                                  href: n.manageUrl,
-                                  title: `Edit ${n.name} Scene Details`,
-                                  children: "Edit",
+                                  className: "ss-icon-btn",
+                                  id: `scene-edit-${s.id}`,
+                                  href: s.manageUrl,
+                                  title: `Edit ${s.name} Scene Details`,
+                                  "aria-label": `Edit ${s.name} Scene Details`,
+                                  children: e.jsx("i", {
+                                    className: `bi ${y.edit}`,
+                                    "aria-hidden": "true",
+                                  }),
                                 }),
-                                n.deleteUrl
+                                s.deleteUrl
                                   ? e.jsx("a", {
                                       className:
-                                        "ss-btn ss-btn--danger ss-btn--sm",
-                                      id: `scene-delete-${n.id}`,
-                                      href: n.deleteUrl,
-                                      title: `Delete ${n.name} Scene`,
-                                      children: "Delete",
+                                        "ss-icon-btn ss-icon-btn--danger",
+                                      id: `scene-delete-${s.id}`,
+                                      href: s.deleteUrl,
+                                      title: `Delete ${s.name} Scene`,
+                                      "aria-label": `Delete ${s.name} Scene`,
+                                      children: e.jsx("i", {
+                                        className: `bi ${y.delete}`,
+                                        "aria-hidden": "true",
+                                      }),
                                     })
                                   : null,
                               ],
@@ -347,14 +358,14 @@ function R({ scenes: s, isSuperuser: t, onCreate: a }) {
                 }),
               ],
             },
-            n.id,
+            s.id,
           ),
         ),
       });
 }
-function q({ bootstrap: s }) {
-  const { sheet: t, open: a, close: n } = M();
-  (N(),
+function G({ bootstrap: n }) {
+  const { sheet: a, open: t, close: s } = M();
+  (C(),
     l.useEffect(() => {
       const r = (u) => {
         const h = u.target,
@@ -366,40 +377,40 @@ function q({ bootstrap: s }) {
         } catch {
           return;
         }
-        const c = o.searchParams.get("ss");
-        if (!c || !O(c)) {
+        const i = o.searchParams.get("ss");
+        if (!i || !z(i)) {
           if (p.id === "new_scene") {
-            (u.preventDefault(), a("scene-create"));
+            (u.preventDefault(), t("scene-create"));
             return;
           }
           if (p.id === "import-scene") {
-            (u.preventDefault(), a("scene-import"));
+            (u.preventDefault(), t("scene-import"));
             return;
           }
           return;
         }
         (o.pathname === "/" || o.pathname === "") &&
-          (u.preventDefault(), a(c, o.searchParams.get("id")));
+          (u.preventDefault(), t(i, o.searchParams.get("id")));
       };
       return (
         document.addEventListener("click", r, !0),
         () => document.removeEventListener("click", r, !0)
       );
-    }, [a]));
+    }, [t]));
   const d = l.useCallback(() => {
       window.location.reload();
     }, []),
-    x = l.useCallback(() => a("scene-create"), [a]),
+    x = l.useCallback(() => t("scene-create"), [t]),
     j = l.useMemo(
-      () => (s.scenes || []).map((r) => ({ id: r.id, name: r.name })),
-      [s.scenes],
+      () => (n.scenes || []).map((r) => ({ id: r.id, name: r.name })),
+      [n.scenes],
     ),
-    f = t.action === "scene-manage" && t.id ? t.id : "";
+    f = a.action === "scene-manage" && a.id ? a.id : "";
   return e.jsxs(e.Fragment, {
     children: [
-      e.jsx($, {
+      e.jsx(B, {
         title: "Scenes",
-        actions: s.isSuperuser
+        actions: n.isSuperuser
           ? e.jsxs(e.Fragment, {
               children: [
                 e.jsx("a", {
@@ -418,20 +429,20 @@ function q({ bootstrap: s }) {
             })
           : null,
       }),
-      e.jsx(R, {
-        scenes: s.scenes || [],
-        isSuperuser: s.isSuperuser,
+      e.jsx(q, {
+        scenes: n.scenes || [],
+        isSuperuser: n.isSuperuser,
         onCreate: x,
       }),
-      s.isSuperuser
+      n.isSuperuser
         ? e.jsxs(e.Fragment, {
             children: [
               e.jsx(P, {
-                open: t.action === "scene-create",
+                open: a.action === "scene-create",
                 mode: "create",
                 sceneUid: null,
-                authToken: s.authToken,
-                onClose: n,
+                authToken: n.authToken,
+                onClose: s,
                 onSaved: (r) => {
                   if (r) {
                     window.location.href = `/${r}/`;
@@ -441,25 +452,25 @@ function q({ bootstrap: s }) {
                 },
               }),
               e.jsx(U, {
-                open: t.action === "scene-import",
-                authToken: s.authToken,
-                onClose: n,
+                open: a.action === "scene-import",
+                authToken: n.authToken,
+                onClose: s,
                 onImported: d,
               }),
               e.jsx(L, {
                 open: !!f,
                 sceneId: f,
-                authToken: s.authToken,
-                onClose: n,
+                authToken: n.authToken,
+                onClose: s,
                 onSaved: d,
               }),
-              e.jsx(A, {
-                open: t.action === "child-create",
+              e.jsx(O, {
+                open: a.action === "child-create",
                 mode: "create",
                 parentSceneId: "",
                 scenes: j,
-                authToken: s.authToken,
-                onClose: n,
+                authToken: n.authToken,
+                onClose: s,
                 onSaved: d,
               }),
             ],
@@ -468,41 +479,41 @@ function q({ bootstrap: s }) {
     ],
   });
 }
-function G({ bootstrap: s }) {
-  return e.jsx(I, {
+function J({ bootstrap: n }) {
+  return e.jsx($, {
     children: e.jsx(T, {
       children: e.jsx("div", {
         className: "ss-scenes-home",
-        children: e.jsx(q, { bootstrap: s }),
+        children: e.jsx(G, { bootstrap: n }),
       }),
     }),
   });
 }
-function J() {
-  const s = document.getElementById("ss-scenes-home-bootstrap");
-  if (!(s != null && s.textContent)) return null;
+function Q() {
+  const n = document.getElementById("ss-scenes-home-bootstrap");
+  if (!(n != null && n.textContent)) return null;
   try {
-    return JSON.parse(s.textContent);
+    return JSON.parse(n.textContent);
   } catch {
     return (console.error("Failed to parse scenes home bootstrap JSON"), null);
   }
 }
-const F = J(),
-  Q =
+const k = Q(),
+  V =
     document.getElementById("ss-scenes-home-app") ||
     (() => {
-      const s = document.createElement("div");
+      const n = document.createElement("div");
       return (
-        (s.id = "ss-scenes-home-app"),
+        (n.id = "ss-scenes-home-app"),
         (
           document.querySelector("main") ||
           document.querySelector(".container") ||
           document.body
-        ).appendChild(s),
-        s
+        ).appendChild(n),
+        n
       );
     })();
-F &&
-  E.createRoot(Q).render(
-    e.jsx(l.StrictMode, { children: e.jsx(G, { bootstrap: F }) }),
+k &&
+  D.createRoot(V).render(
+    e.jsx(l.StrictMode, { children: e.jsx(J, { bootstrap: k }) }),
   );

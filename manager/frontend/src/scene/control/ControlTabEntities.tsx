@@ -11,14 +11,17 @@ import {
 import { createPortal } from "react-dom";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAppToast } from "../../components/ToastProvider";
+import { ACTION_ICONS } from "../../components/actionIcons";
 import { api, type RestError } from "../../lib/rest";
 import { publishSceneTabCounts } from "../../lib/sceneTab";
+import { copyTextToClipboard } from "../editors/copyText";
 import type {
   SceneCameraBootstrap,
   SceneChildBootstrap,
   SceneSensorBootstrap,
 } from "../types";
 import "./ControlTabEntities.css";
+import "../../components/Button.css";
 
 declare global {
   interface Window {
@@ -102,19 +105,27 @@ function CameraCards({
             {isSuperuser ? (
               <div className="text-right ss-entity-actions">
                 <a
-                  className="ss-btn ss-btn--secondary ss-btn--sm"
+                  className="ss-icon-btn"
                   href={cam.calibrateHref}
-                  title={`Edit ${cam.name}`}
+                  title={`Configure ${cam.name}`}
+                  aria-label={`Configure ${cam.name}`}
                 >
-                  Edit
+                  <i
+                    className={`bi ${ACTION_ICONS.configure}`}
+                    aria-hidden="true"
+                  />
                 </a>
                 {cam.deleteUrl ? (
                   <a
-                    className="ss-btn ss-btn--danger ss-btn--sm"
+                    className="ss-icon-btn ss-icon-btn--danger"
                     href={cam.deleteUrl}
                     title={`Delete ${cam.name}`}
+                    aria-label={`Delete ${cam.name}`}
                   >
-                    Delete
+                    <i
+                      className={`bi ${ACTION_ICONS.delete}`}
+                      aria-hidden="true"
+                    />
                   </a>
                 ) : null}
               </div>
@@ -153,74 +164,89 @@ function SensorCards({
   }
 
   return (
-    <>
+    <div className="ss-tab-list">
       {sensors.map((sensor) => (
         <div
           key={sensor.id}
-          className="card singleton count-item ss-control-card"
+          className="ss-tab-row singleton count-item"
           data-sensor-name={sensor.name}
         >
-          <h5 className="card-header">
-            {sensor.iconUrl ? (
-              <img
-                className="sensor-icon"
-                width={24}
-                height={24}
-                src={sensor.iconUrl}
-                alt={`${sensor.name} Icon`}
-              />
-            ) : null}
-            {sensor.name}
-          </h5>
-          <div className="card-body">
-            <table className="table table-sm">
-              <tbody>
-                <tr>
-                  <th>ID</th>
-                  <td className="small sensor-id">{sensor.sensorId}</td>
-                </tr>
-              </tbody>
-            </table>
-            <input
-              type="hidden"
-              className="area-json"
-              value={sensor.areaJson}
-              readOnly
+          {sensor.iconUrl ? (
+            <img
+              className="sensor-icon ss-tab-row__icon"
+              width={20}
+              height={20}
+              src={sensor.iconUrl}
+              alt=""
             />
-            {isSuperuser ? (
-              <div className="text-right ss-entity-actions">
-                <a
-                  className="ss-btn ss-btn--secondary ss-btn--sm sensor_calibrate"
-                  href={sensor.calibrateHref}
-                  id={`sensor_calibrate_${sensor.id}`}
-                  title="Edit"
-                >
-                  Edit
-                </a>
-                {onDelete ? (
-                  <button
-                    type="button"
-                    className="ss-btn ss-btn--danger ss-btn--sm"
-                    title="Delete"
-                    onClick={() => onDelete(sensor)}
-                  >
-                    Delete
-                  </button>
-                ) : sensor.deleteUrl ? (
-                  <a
-                    className="ss-btn ss-btn--danger ss-btn--sm"
-                    href={sensor.deleteUrl}
-                    title="Delete"
-                  >
-                    Delete
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
+          ) : (
+            <span
+              className="ss-tab-row__icon ss-tab-row__icon--empty"
+              aria-hidden="true"
+            />
+          )}
+          <div className="ss-tab-row__main">
+            <span className="ss-tab-row__title">{sensor.name}</span>
+            <button
+              type="button"
+              className="ss-tab-row__meta sensor-id ss-tab-row__copy-id"
+              title="Click to copy ID"
+              onClick={() => void copyTextToClipboard(sensor.sensorId)}
+            >
+              {sensor.sensorId}
+            </button>
           </div>
+          <input
+            type="hidden"
+            className="area-json"
+            value={sensor.areaJson}
+            readOnly
+          />
+          {isSuperuser ? (
+            <div className="ss-tab-row__actions ss-entity-actions">
+              <a
+                className="ss-icon-btn sensor_calibrate"
+                href={sensor.calibrateHref}
+                id={`sensor_calibrate_${sensor.id}`}
+                title={`Configure ${sensor.name}`}
+                aria-label={`Configure ${sensor.name}`}
+              >
+                <i
+                  className={`bi ${ACTION_ICONS.configure}`}
+                  aria-hidden="true"
+                />
+              </a>
+              {onDelete ? (
+                <button
+                  type="button"
+                  className="ss-icon-btn ss-icon-btn--danger"
+                  title={`Delete ${sensor.name}`}
+                  aria-label={`Delete ${sensor.name}`}
+                  onClick={() => onDelete(sensor)}
+                >
+                  <i
+                    className={`bi ${ACTION_ICONS.delete}`}
+                    aria-hidden="true"
+                  />
+                </button>
+              ) : sensor.deleteUrl ? (
+                <a
+                  className="ss-icon-btn ss-icon-btn--danger"
+                  href={sensor.deleteUrl}
+                  title={`Delete ${sensor.name}`}
+                  aria-label={`Delete ${sensor.name}`}
+                >
+                  <i
+                    className={`bi ${ACTION_ICONS.delete}`}
+                    aria-hidden="true"
+                  />
+                </a>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ))}
-    </>
+    </div>
   );
 }
 
@@ -245,66 +271,90 @@ function ChildCards({
   }
 
   return (
-    <>
+    <div className="ss-tab-list">
       {childrenLinks.map((child) => {
         const thumb = child.thumbnailUrl || child.mapUrl;
         return (
-          <div key={child.id} className="card ss-control-card">
-            <h6 className="card-header">{child.name}</h6>
-            {thumb && child.detailUrl ? (
-              <div className="card-image">
-                <a href={child.detailUrl}>
-                  <img className="cover" src={thumb} alt={child.name} />
+          <div key={child.id} className="ss-tab-row">
+            {thumb ? (
+              child.detailUrl ? (
+                <a
+                  className="ss-tab-row__thumb"
+                  href={child.detailUrl}
+                  title={child.name}
+                >
+                  <img src={thumb} alt="" />
                 </a>
-              </div>
-            ) : null}
-            <div className="card-body">
-              <div className="text-right ss-entity-actions">
-                {child.childType === "remote" && child.remoteChildId ? (
-                  <span
-                    id={`mqtt_status_remote_${child.remoteChildId}`}
-                    className="child_mqtt_status btn-sm btn"
-                  >
-                    <i className="bi bi-arrow-down-up" />
-                  </span>
-                ) : null}
-                {child.detailUrl ? (
+              ) : (
+                <span className="ss-tab-row__thumb">
+                  <img src={thumb} alt="" />
+                </span>
+              )
+            ) : (
+              <span
+                className="ss-tab-row__thumb ss-tab-row__thumb--empty"
+                aria-hidden="true"
+              />
+            )}
+            <div className="ss-tab-row__main">
+              <span className="ss-tab-row__title">{child.name}</span>
+              {child.childType === "remote" ? (
+                <span className="ss-tab-row__meta">Remote</span>
+              ) : null}
+            </div>
+            <div className="ss-tab-row__actions ss-entity-actions">
+              {child.childType === "remote" && child.remoteChildId ? (
+                <span
+                  id={`mqtt_status_remote_${child.remoteChildId}`}
+                  className="child_mqtt_status btn-sm btn"
+                >
+                  <i className="bi bi-arrow-down-up" />
+                </span>
+              ) : null}
+              {child.detailUrl ? (
+                <a
+                  className="ss-btn ss-btn--secondary ss-btn--sm"
+                  href={child.detailUrl}
+                  title="View Scene"
+                >
+                  Open
+                </a>
+              ) : null}
+              {isSuperuser ? (
+                <>
                   <a
-                    className="ss-btn ss-btn--secondary ss-btn--sm"
-                    href={child.detailUrl}
-                    title="View Scene"
+                    className="ss-icon-btn"
+                    href={child.editHref}
+                    title={`Configure ${child.name}`}
+                    aria-label={`Configure ${child.name}`}
+                    id={`child-update-${child.name}`}
                   >
-                    Open
+                    <i
+                      className={`bi ${ACTION_ICONS.configure}`}
+                      aria-hidden="true"
+                    />
                   </a>
-                ) : null}
-                {isSuperuser ? (
-                  <>
+                  {child.deleteUrl ? (
                     <a
-                      className="ss-btn ss-btn--secondary ss-btn--sm"
-                      href={child.editHref}
-                      title={`Manage ${child.name}`}
-                      id={`child-update-${child.name}`}
+                      className="ss-icon-btn ss-icon-btn--danger"
+                      href={child.deleteUrl}
+                      title={`Delete ${child.name}`}
+                      aria-label={`Delete ${child.name}`}
+                      id={`child-delete-${child.name}`}
                     >
-                      Manage
+                      <i
+                        className={`bi ${ACTION_ICONS.delete}`}
+                        aria-hidden="true"
+                      />
                     </a>
-                    {child.deleteUrl ? (
-                      <a
-                        className="ss-btn ss-btn--danger ss-btn--sm"
-                        href={child.deleteUrl}
-                        title={`Delete ${child.name}`}
-                        id={`child-delete-${child.name}`}
-                      >
-                        Delete
-                      </a>
-                    ) : null}
-                  </>
-                ) : null}
-              </div>
+                  ) : null}
+                </>
+              ) : null}
             </div>
           </div>
         );
       })}
-    </>
+    </div>
   );
 }
 

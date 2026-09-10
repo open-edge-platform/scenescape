@@ -32,16 +32,28 @@
 }
 
 .ss-table-action.is-danger {
-  color: var(--ss-status-bad);
-  border-color: color-mix(
-    in srgb,
-    var(--ss-status-bad) 45%,
-    var(--ss-input-border)
-  );
+  color: var(--ss-text-muted);
+  border-color: var(--ss-card-border);
 }
 
 .ss-table-action.is-danger:hover {
-  color: var(--ss-on-brand);
-  background: var(--ss-status-bad);
-  border-color: var(--ss-status-bad);
+  color: var(--ss-status-bad);
+  background: color-mix(in srgb, var(--ss-status-bad) 10%, var(--ss-card-bg));
+  border-color: color-mix(
+    in srgb,
+    var(--ss-status-bad) 55%,
+    var(--ss-card-border)
+  );
+}
+
+.ss-table-action.is-icon {
+  width: 1.875rem;
+  height: 1.875rem;
+  padding: 0;
+  justify-content: center;
+}
+
+.ss-table-action .bi {
+  font-size: 0.875rem;
+  line-height: 1;
 }

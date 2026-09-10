@@ -9,7 +9,7 @@ const HELP: { id: string; title: string; items: string[] }[] = [
     title: "Camera Help",
     items: [
       "All cameras and sensors must be associated with a scene.",
-      "Use Manage to calibrate camera pose against the scene map.",
+      "Use Configure to calibrate camera pose against the scene map.",
       "Live View requests fresh snapshots over MQTT while enabled.",
     ],
   },
@@ -18,7 +18,7 @@ const HELP: { id: string; title: string; items: string[] }[] = [
     title: "Sensor Help",
     items: [
       "Generic sensors report scalar or area occupancy on the map.",
-      "Use Edit to place and size the sensor coverage area.",
+      "Use Configure to place and size the sensor coverage area.",
     ],
   },
   {
