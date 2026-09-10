@@ -21,13 +21,15 @@
   max-width: 100%;
 }
 
-#ss-cameras-mount {
+#ss-cameras-mount,
+#ss-children-mount {
   flex-direction: row;
   flex-wrap: wrap;
   align-content: flex-start;
 }
 
-.ss-workspace--stack #ss-cameras-mount {
+.ss-workspace--stack #ss-cameras-mount,
+.ss-workspace--stack #ss-children-mount {
   flex-wrap: nowrap;
   overflow-x: auto;
   align-items: stretch;
@@ -35,7 +37,8 @@
   min-height: 0;
 }
 
-.ss-workspace--row #ss-cameras-mount {
+.ss-workspace--row #ss-cameras-mount,
+.ss-workspace--row #ss-children-mount {
   flex-direction: column;
   flex-wrap: nowrap;
   overflow-x: hidden;
@@ -43,8 +46,23 @@
   align-items: stretch;
 }
 
+.ss-child-card-badge {
+  float: right;
+  margin-left: 0.35rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ss-text-muted);
+}
+
+.child-card .card-header .child_mqtt_status {
+  float: right;
+  margin-left: 0.35rem;
+}
+
 /*
- * Sensors / children: fixed width matching ROI / tripwire rows.
+ * Sensors: fixed width matching ROI / tripwire rows.
  */
 .ss-tab-list {
   display: flex;

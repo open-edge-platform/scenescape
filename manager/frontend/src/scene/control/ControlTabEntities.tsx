@@ -271,58 +271,42 @@ function ChildCards({
   }
 
   return (
-    <div className="ss-tab-list">
+    <>
       {childrenLinks.map((child) => {
         const thumb = child.thumbnailUrl || child.mapUrl;
+        const image = thumb ? (
+          <img src={thumb} alt={`${child.name} map`} />
+        ) : (
+          <div className="blank-container border" aria-hidden="true" />
+        );
         return (
-          <div key={child.id} className="ss-tab-row count-item">
-            {thumb ? (
-              child.detailUrl ? (
-                <a
-                  className="ss-tab-row__thumb"
-                  href={child.detailUrl}
-                  title={child.name}
-                >
-                  <img src={thumb} alt="" />
-                </a>
-              ) : (
-                <span className="ss-tab-row__thumb">
-                  <img src={thumb} alt="" />
-                </span>
-              )
-            ) : (
-              <span
-                className="ss-tab-row__thumb ss-tab-row__thumb--empty"
-                aria-hidden="true"
-              />
-            )}
-            <div className="ss-tab-row__main">
-              {child.detailUrl ? (
-                <a
-                  className="ss-tab-row__title"
-                  href={child.detailUrl}
-                  title={`Open ${child.name}`}
-                >
-                  {child.name}
-                </a>
-              ) : (
-                <span className="ss-tab-row__title">{child.name}</span>
-              )}
-              {child.childType === "remote" ? (
-                <span className="ss-tab-row__meta">Remote</span>
-              ) : null}
-            </div>
-            <div className="ss-tab-row__actions ss-entity-actions">
+          <div key={child.id} className="card count-item camera-card child-card">
+            <h6 className="card-header">
               {child.childType === "remote" && child.remoteChildId ? (
                 <span
                   id={`mqtt_status_remote_${child.remoteChildId}`}
                   className="child_mqtt_status btn-sm btn"
                 >
-                  <i className="bi bi-arrow-down-up" />
+                  <i className="bi bi-arrow-down-up" aria-hidden="true" />
                 </span>
               ) : null}
+              {child.childType === "remote" ? (
+                <span className="ss-child-card-badge">Remote</span>
+              ) : null}
+              {child.name}
+            </h6>
+            <div className="card-image">
+              {child.detailUrl ? (
+                <a href={child.detailUrl} title={`Open ${child.name}`}>
+                  {image}
+                </a>
+              ) : (
+                image
+              )}
+            </div>
+            <div className="card-body">
               {isSuperuser ? (
-                <>
+                <div className="text-right ss-entity-actions">
                   <a
                     className="ss-icon-btn"
                     href={child.editHref}
@@ -349,13 +333,13 @@ function ChildCards({
                       />
                     </a>
                   ) : null}
-                </>
+                </div>
               ) : null}
             </div>
           </div>
         );
       })}
-    </div>
+    </>
   );
 }
 

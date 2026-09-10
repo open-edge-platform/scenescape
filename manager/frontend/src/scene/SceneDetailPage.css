@@ -516,10 +516,8 @@ body.ss-workspace-resizing .ss-workspace-main {
   overflow-y: auto;
 }
 
-/* Entity list rows (sensors, children) — fixed width like ROI */
+/* Entity list rows (sensors) — fixed width like ROI */
 .ss-scene-detail--workspace .ss-scene-side .ss-tab-row.singleton,
-.ss-scene-detail--workspace .ss-scene-side #childrenlist .ss-tab-row,
-.ss-scene-detail--workspace .ss-scene-side #ss-children-mount .ss-tab-row,
 .ss-scene-detail--workspace .ss-scene-side #ss-sensors-mount .ss-tab-row {
   width: var(--ss-tab-entity-width, 26rem);
   max-width: 100%;
@@ -548,11 +546,9 @@ body.ss-workspace-resizing .ss-workspace-main {
   margin: 0;
 }
 
-/* Region / tripwire + entity mounts: compact stacked rows */
+/* Region / tripwire + sensors: compact stacked rows */
 .ss-scene-detail--workspace .ss-scene-side #roi-fields,
 .ss-scene-detail--workspace .ss-scene-side #tripwire-fields,
-.ss-scene-detail--workspace .ss-scene-side #childrenlist,
-.ss-scene-detail--workspace .ss-scene-side #ss-children-mount,
 .ss-scene-detail--workspace .ss-scene-side #ss-sensors-mount {
   display: flex;
   flex-direction: column;
@@ -560,6 +556,41 @@ body.ss-workspace-resizing .ss-workspace-main {
   gap: 0.35rem;
   width: 100%;
   min-width: 0;
+}
+
+/* Children share camera-card chrome; nest fills the panel like cameras mount */
+.ss-scene-detail--workspace .ss-scene-side #childrenlist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.ss-scene-detail--workspace .ss-scene-side #ss-children-mount {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ss-workspace--stack .ss-scene-side #ss-children-mount {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  align-items: stretch;
+  height: 100%;
+  min-height: 0;
+}
+
+.ss-workspace--row .ss-scene-side #ss-children-mount {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  overflow-x: hidden;
+  align-items: stretch;
 }
 
 .ss-scene-detail--workspace .ss-scene-side .form-roi,
