@@ -38,12 +38,12 @@ the ReID query/match lifecycle. States are defined by the `ReidState` enum
 (`controller/moving_object.py`) and are exposed on scene output as described
 in [Scene Controller Data Formats](./data_formats.md#common-output-track-fields).
 
-| State                | Value                | Meaning                                                            |
-| -------------------- | --------------------- | ------------------------------------------------------------------- |
-| `PENDING_COLLECTION`  | `pending_collection`  | Accumulating embeddings; no similarity query has been made yet.     |
-| `QUERY_NO_MATCH`      | `query_no_match`      | A query was made against the database but no match was found — the object is treated as new and keeps (or is assigned) its own UUID. |
-| `MATCHED`             | `matched`             | The object was successfully matched to a previously seen identity; its UUID and a similarity score are set from the match. |
-| `REID_DISABLED`       | `reid_disabled`       | ReID is disabled for this object/category, so no query will ever be made. |
+| State                | Value                | Meaning                                                                                                                              |
+| -------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `PENDING_COLLECTION` | `pending_collection` | Accumulating embeddings; no similarity query has been made yet.                                                                      |
+| `QUERY_NO_MATCH`     | `query_no_match`     | A query was made against the database but no match was found — the object is treated as new and keeps (or is assigned) its own UUID. |
+| `MATCHED`            | `matched`            | The object was successfully matched to a previously seen identity; its UUID and a similarity score are set from the match.           |
+| `REID_DISABLED`      | `reid_disabled`      | ReID is disabled for this object/category, so no query will ever be made.                                                            |
 
 **Lifecycle transitions**:
 
