@@ -93,122 +93,145 @@ export function RegionEditorCard({
         {expanded ? (
           <div className="ss-editor-row__details" id={detailsId}>
             {isSuperuser ? (
-              <div className="ss-editor-card-meta">
-                <div className="form-check form-check-inline">
-                  <input
-                    className="form-check-input roi-volumetric"
-                    type="checkbox"
-                    id={`volumetric-${roi.svgId}`}
-                    checked={roi.volumetric}
-                    onChange={(e) =>
-                      onChange({ ...roi, volumetric: e.target.checked })
-                    }
-                  />
-                  <label
-                    className="form-check-label"
-                    htmlFor={`volumetric-${roi.svgId}`}
-                  >
-                    Volumetric
+              <div className="ss-editor-geom">
+                <div className="ss-editor-geom__row ss-editor-card-meta">
+                  <div className="form-check form-check-inline ss-editor-geom__check">
+                    <input
+                      className="form-check-input roi-volumetric"
+                      type="checkbox"
+                      id={`volumetric-${roi.svgId}`}
+                      checked={roi.volumetric}
+                      onChange={(e) =>
+                        onChange({ ...roi, volumetric: e.target.checked })
+                      }
+                    />
+                    <label
+                      className="form-check-label"
+                      htmlFor={`volumetric-${roi.svgId}`}
+                    >
+                      Volumetric
+                    </label>
+                  </div>
+                  <label className="ss-editor-inline-field">
+                    <span>Height</span>
+                    <input
+                      type="number"
+                      className="form-control roi-height"
+                      value={roi.height}
+                      min={0.1}
+                      step={0.1}
+                      onChange={(e) =>
+                        onChange({
+                          ...roi,
+                          height: Number(e.target.value) || 1.0,
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="ss-editor-inline-field">
+                    <span>Buffer</span>
+                    <input
+                      type="number"
+                      className="form-control roi-buffer"
+                      value={roi.buffer_size}
+                      min={0}
+                      step={0.1}
+                      onChange={(e) =>
+                        onChange({
+                          ...roi,
+                          buffer_size: Number(e.target.value) || 0,
+                        })
+                      }
+                    />
                   </label>
                 </div>
-                <label className="ss-editor-inline-field">
-                  <span>Height</span>
-                  <input
-                    type="number"
-                    className="form-control roi-height"
-                    value={roi.height}
-                    min={0.1}
-                    step={0.1}
-                    onChange={(e) =>
-                      onChange({
-                        ...roi,
-                        height: Number(e.target.value) || 1.0,
-                      })
-                    }
-                  />
-                </label>
-                <label className="ss-editor-inline-field">
-                  <span>Buffer</span>
-                  <input
-                    type="number"
-                    className="form-control roi-buffer"
-                    value={roi.buffer_size}
-                    min={0}
-                    step={0.1}
-                    onChange={(e) =>
-                      onChange({
-                        ...roi,
-                        buffer_size: Number(e.target.value) || 0,
-                      })
-                    }
-                  />
-                </label>
               </div>
             ) : null}
 
             <div className="roi-visualization ss-editor-sectors">
-              <div className="sector-container">
-                <div className="color-range">Color Range:</div>
-                <div className="sector-config">
-                  <input
-                    type="number"
-                    className="green_min"
-                    disabled={disabled}
-                    value={roi.greenMin}
-                    onChange={(e) =>
-                      onChange({
-                        ...roi,
-                        greenMin: Number(e.target.value) || 0,
-                      })
-                    }
-                  />
-                  <div className="green-sec">--</div>
-                  <input
-                    type="number"
-                    className="yellow_min"
-                    disabled={disabled}
-                    value={roi.yellowMin}
-                    onChange={(e) =>
-                      onChange({
-                        ...roi,
-                        yellowMin: Number(e.target.value) || 0,
-                      })
-                    }
-                  />
-                  <div className="yellow-sec">--</div>
-                  <input
-                    type="number"
-                    className="red_min"
-                    disabled={disabled}
-                    value={roi.redMin}
-                    onChange={(e) =>
-                      onChange({
-                        ...roi,
-                        redMin: Number(e.target.value) || 0,
-                      })
-                    }
-                  />
-                  <div className="red-sec">--</div>
-                  <input
-                    type="number"
-                    className="range_max"
-                    disabled={disabled}
-                    value={roi.rangeMax}
-                    onChange={(e) =>
-                      onChange({
-                        ...roi,
-                        rangeMax: Number(e.target.value) || 0,
-                      })
-                    }
-                  />
+              <div className="ss-color-range">
+                <div className="ss-color-range__label">Occupancy thresholds</div>
+                <div className="ss-color-range__track" aria-hidden="true">
+                  <span className="ss-color-range__seg ss-color-range__seg--green" />
+                  <span className="ss-color-range__seg ss-color-range__seg--yellow" />
+                  <span className="ss-color-range__seg ss-color-range__seg--red" />
+                </div>
+                <div className="ss-color-range__inputs sector-config">
+                  <label className="ss-color-range__field">
+                    <span className="ss-color-range__swatch ss-color-range__swatch--green" />
+                    <span className="ss-color-range__caption">Green</span>
+                    <input
+                      type="number"
+                      className="form-control green_min"
+                      disabled={disabled}
+                      value={roi.greenMin}
+                      aria-label="Green threshold minimum"
+                      onChange={(e) =>
+                        onChange({
+                          ...roi,
+                          greenMin: Number(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="ss-color-range__field">
+                    <span className="ss-color-range__swatch ss-color-range__swatch--yellow" />
+                    <span className="ss-color-range__caption">Yellow</span>
+                    <input
+                      type="number"
+                      className="form-control yellow_min"
+                      disabled={disabled}
+                      value={roi.yellowMin}
+                      aria-label="Yellow threshold minimum"
+                      onChange={(e) =>
+                        onChange({
+                          ...roi,
+                          yellowMin: Number(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="ss-color-range__field">
+                    <span className="ss-color-range__swatch ss-color-range__swatch--red" />
+                    <span className="ss-color-range__caption">Red</span>
+                    <input
+                      type="number"
+                      className="form-control red_min"
+                      disabled={disabled}
+                      value={roi.redMin}
+                      aria-label="Red threshold minimum"
+                      onChange={(e) =>
+                        onChange({
+                          ...roi,
+                          redMin: Number(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="ss-color-range__field">
+                    <span className="ss-color-range__caption">Max</span>
+                    <input
+                      type="number"
+                      className="form-control range_max"
+                      disabled={disabled}
+                      value={roi.rangeMax}
+                      aria-label="Range maximum"
+                      onChange={(e) =>
+                        onChange({
+                          ...roi,
+                          rangeMax: Number(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </label>
                 </div>
               </div>
             </div>
 
-            <div className="col form-text text-muted roi-topic">
-              <label id={`label-${roi.svgId}`} htmlFor={`input-${roi.svgId}`}>
-                Topic:{" "}
-              </label>
+            <div
+              className="ss-editor-row__meta form-text text-muted roi-topic"
+              id={`label-${roi.svgId}`}
+            >
               <button
                 type="button"
                 className="ss-editor-copy-id topic-text"

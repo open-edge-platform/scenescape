@@ -9,7 +9,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  width: var(--ss-tab-entity-width, 18.5rem);
+  width: var(--ss-tab-entity-width, 26rem);
   max-width: 100%;
   padding: 0.4rem 0.55rem;
   margin: 0;
@@ -23,7 +23,7 @@
 
 .form-roi,
 .form-tripwire {
-  width: var(--ss-tab-entity-width, 18.5rem);
+  width: var(--ss-tab-entity-width, 26rem);
   max-width: 100%;
   min-width: 0;
 }
@@ -42,7 +42,7 @@
   flex-direction: row;
   align-items: center;
   gap: 0.35rem;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
   max-width: calc(100% - 2.5rem);
 }
@@ -66,10 +66,10 @@
 }
 
 .ss-editor-row__title {
-  flex: 1 1 8rem;
-  width: 9.5rem;
-  max-width: 11rem;
-  min-width: 5rem;
+  flex: 1 1 19rem;
+  width: 19rem;
+  max-width: 100%;
+  min-width: 10rem;
   height: 1.875rem;
   padding: 0.2rem 0.5rem;
   font-size: 0.8125rem;
@@ -196,6 +196,38 @@
   max-width: 100%;
 }
 
+.ss-editor-geom {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--ss-card-border);
+  border-radius: calc(var(--ss-radius) - 0.1rem);
+  background: color-mix(in srgb, var(--ss-surface) 55%, var(--ss-elevated));
+  box-sizing: border-box;
+}
+
+.ss-editor-geom__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.85rem;
+  margin: 0;
+}
+
+.ss-editor-geom__check {
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+}
+
+.ss-editor-geom__check .form-check-label {
+  font-size: 0.8125rem;
+  color: var(--ss-ink);
+}
+
 .ss-editor-inline-field {
   display: inline-flex;
   align-items: center;
@@ -227,7 +259,128 @@
 .ss-editor-sectors {
   margin-top: 0;
   max-width: 100%;
-  overflow-x: auto;
+}
+
+.ss-color-range {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.ss-color-range__label {
+  font-family: var(--ss-font-heading);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ss-text-muted);
+}
+
+.ss-color-range__track {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  height: 0.45rem;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--ss-card-border);
+  background: var(--ss-surface);
+}
+
+.ss-color-range__seg--green {
+  background: color-mix(in srgb, var(--ss-status-ok) 75%, #9fe870);
+}
+
+.ss-color-range__seg--yellow {
+  background: color-mix(in srgb, #edb200 80%, #ffe08a);
+}
+
+.ss-color-range__seg--red {
+  background: color-mix(in srgb, var(--ss-status-bad) 75%, #ff8fab);
+}
+
+.ss-color-range__inputs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.ss-color-range__field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.ss-color-range__swatch {
+  display: none;
+}
+
+.ss-color-range__caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ss-text-muted);
+  line-height: 1.2;
+}
+
+.ss-color-range__caption::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--ss-text-muted);
+  flex: 0 0 auto;
+}
+
+.ss-color-range__field:nth-child(1) .ss-color-range__caption::before {
+  background: var(--ss-status-ok);
+}
+
+.ss-color-range__field:nth-child(2) .ss-color-range__caption::before {
+  background: #edb200;
+}
+
+.ss-color-range__field:nth-child(3) .ss-color-range__caption::before {
+  background: var(--ss-status-bad);
+}
+
+.ss-color-range__field:nth-child(4) .ss-color-range__caption::before {
+  display: none;
+}
+
+.ss-editor-sectors .ss-color-range__field .form-control,
+.ss-editor-sectors .green_min,
+.ss-editor-sectors .yellow_min,
+.ss-editor-sectors .red_min,
+.ss-editor-sectors .range_max {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  height: 1.75rem;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.75rem;
+  text-align: center;
+  border-radius: calc(var(--ss-radius) - 0.15rem);
+  border: 1px solid var(--ss-input-border);
+  background: var(--ss-elevated);
+  color: var(--ss-ink);
+  box-sizing: border-box;
+}
+
+.ss-editor-sectors .ss-color-range__field .form-control:focus {
+  border-color: var(--ss-brand);
+  outline: 2px solid color-mix(in srgb, var(--ss-brand) 30%, transparent);
+  outline-offset: 0;
 }
 
 .ss-editor-empty {

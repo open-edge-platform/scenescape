@@ -60,7 +60,7 @@
   flex-direction: row;
   align-items: center;
   gap: 0.5rem;
-  width: var(--ss-tab-entity-width, 18.5rem);
+  width: var(--ss-tab-entity-width, 26rem);
   max-width: 100%;
   min-width: 0;
   margin: 0;
@@ -126,6 +126,23 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+a.ss-tab-row__title {
+  text-decoration: none;
+  cursor: pointer;
+}
+
+a.ss-tab-row__title:hover,
+a.ss-tab-row__title:focus {
+  color: var(--ss-brand);
+  text-decoration: underline;
+  outline: none;
+}
+
+a.ss-tab-row__title:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ss-brand) 35%, transparent);
+  outline-offset: 1px;
 }
 
 .ss-tab-row__meta {

@@ -241,8 +241,8 @@
   min-height: 0;
   /* Grow into leftover space after the map’s flex share */
   flex: 1 1 0;
-  /* Fixed sensor / ROI / tripwire row width (default side-panel content). */
-  --ss-tab-entity-width: 48.5rem;
+  /* Fixed sensor / ROI / tripwire row width (fits doubled name field). */
+  --ss-tab-entity-width: 48rem;
 }
 
 .ss-workspace--stack .ss-scene-side {
@@ -521,7 +521,7 @@ body.ss-workspace-resizing .ss-workspace-main {
 .ss-scene-detail--workspace .ss-scene-side #childrenlist .ss-tab-row,
 .ss-scene-detail--workspace .ss-scene-side #ss-children-mount .ss-tab-row,
 .ss-scene-detail--workspace .ss-scene-side #ss-sensors-mount .ss-tab-row {
-  width: var(--ss-tab-entity-width, 18.5rem);
+  width: var(--ss-tab-entity-width, 26rem);
   max-width: 100%;
   margin: 0;
   box-shadow: none;
@@ -564,7 +564,7 @@ body.ss-workspace-resizing .ss-workspace-main {
 
 .ss-scene-detail--workspace .ss-scene-side .form-roi,
 .ss-scene-detail--workspace .ss-scene-side .form-tripwire {
-  width: var(--ss-tab-entity-width, 18.5rem);
+  width: var(--ss-tab-entity-width, 26rem);
   max-width: 100%;
   min-width: 0;
   margin: 0;
@@ -574,7 +574,7 @@ body.ss-workspace-resizing .ss-workspace-main {
 .ss-scene-detail--workspace .ss-scene-side .ss-editor-card.col,
 .ss-scene-detail--workspace .ss-scene-side .form-roi .col,
 .ss-scene-detail--workspace .ss-scene-side .form-tripwire .col {
-  width: var(--ss-tab-entity-width, 18.5rem);
+  width: var(--ss-tab-entity-width, 26rem);
   max-width: 100%;
   min-width: 0;
   margin: 0;

@@ -297,7 +297,17 @@ function ChildCards({
               />
             )}
             <div className="ss-tab-row__main">
-              <span className="ss-tab-row__title">{child.name}</span>
+              {child.detailUrl ? (
+                <a
+                  className="ss-tab-row__title"
+                  href={child.detailUrl}
+                  title={`Open ${child.name}`}
+                >
+                  {child.name}
+                </a>
+              ) : (
+                <span className="ss-tab-row__title">{child.name}</span>
+              )}
               {child.childType === "remote" ? (
                 <span className="ss-tab-row__meta">Remote</span>
               ) : null}
@@ -310,15 +320,6 @@ function ChildCards({
                 >
                   <i className="bi bi-arrow-down-up" />
                 </span>
-              ) : null}
-              {child.detailUrl ? (
-                <a
-                  className="ss-btn ss-btn--secondary ss-btn--sm"
-                  href={child.detailUrl}
-                  title="View Scene"
-                >
-                  Open
-                </a>
               ) : null}
               {isSuperuser ? (
                 <>
