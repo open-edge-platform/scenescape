@@ -54,6 +54,7 @@ Scenes Home stays a thumbnail gallery (neither shell’s width rule).
 | Empty space — admin lists (Phase 1) | **Done** (browse column) |
 | Empty space — scene detail chrome (Phase 2) | **Done** (workspace; `--ss-surface` stage) |
 | Empty space — models/list consistency (Phase 3) | **Done** (shared browse column) |
+| Scene detail control polish (lists, children, map) | **Done** (see Done) |
 | 3D scene viewport (React) | **Not started** (legacy Three.js; chrome polish shipped) |
 
 ## Done
@@ -77,8 +78,34 @@ opens the calibrate workspace (`calibrateHref` / `?ss=calibrate-*`), not
 a separate metadata drawer. Scene settings: pencil `#scene-edit` →
 `?ss=scene-manage` (`SceneManagePanel`, title **Edit Scene**).
 
+**Children** use the same card chrome as cameras (`.camera-card.child-card`
+in `#ss-children-mount`): map thumbnail, header, configure/delete.
+Name / image navigate to the child scene when `detailUrl` is set. Edit
+opens `?ss=child-edit&id={restUid}` (`ChildSheet`). `restUid` is the
+local child Scene UUID, `remote_child_id`, or ChildScene pk — ManageThing
+`_parse_uid` accepts pk **or** UUID so `GET/POST /api/v1/child/{uid}`
+resolves. Live Children tab badge: React rows carry `.count-item`;
+`numberTabs()` counts `.ss-tab-row, .count-item, .ss-control-card` under
+`#ss-children-mount` (do not count only `.ss-control-card`).
+
 Calibrate / manage Save buttons are dirty-gated (`Save` / `Saved` /
 `Saving…`), not legacy “Save Camera” / “Save Sensor” labels.
+
+### Scene detail control polish
+
+Shipped after the empty-space / layout-shell close-out (still on the
+**workspace** shell):
+
+- Control lists: denser rows, shared Manager action icons, ROI editor
+  chrome (no separate “Geometry” label; topic meta matches tripwire).
+- Beside toolbar: content-sized wrapping (no cameras-only stretch).
+- Shared `OccupancyColorRange` for ROI + sensor calibrate.
+- Map: no permanent black SVG outline; viewBox padding so edge sensor
+  labels stay visible.
+- Cameras stay strip cards; sensors stay compact `.ss-tab-row`; children
+  match camera cards (see above).
+- Primary nav active tab visibility; admin list column enrichments
+  (Object Library, Sensors).
 
 ### Model directory
 
@@ -132,7 +159,8 @@ the 2D React surfaces:
 
 ## Remaining
 
-Work left is the 3D epic. Empty-space / layout-shell work is closed (see
+Work left is the 3D epic. Empty-space / layout-shell work and scene-detail
+control polish (lists, children cards, map labels) are closed (see
 [Layout shells](#layout-shells-rule-of-thumb) and Done). When porting 3D,
 keep it on the **workspace** shell — full-bleed, not the browse column.
 
@@ -235,12 +263,17 @@ scene map ids below.
 | `.green_min`, `.yellow_min`, `.red_min`, `.range_max` | Occupancy sectors |
 | SVG `g.roi` / `g.tripwire`, classes `adding-roi` / `adding-tripwire` | Geometry groups |
 
-### Cameras / sensors on scene
+### Cameras / sensors / children on scene
 
 | Pattern | Role |
 | --- | --- |
+| `#ss-cameras-mount` | React camera strip portal (`.camera-card.count-item`) |
 | `.snapshot-image[topic]`, `#rate-{sensorId}`, `.camera-card` | Camera strip |
+| `#ss-sensors-mount` | React sensor list portal (`.ss-tab-row.singleton.count-item`) |
 | `.singleton`, `.area-json`, `.sensor-id` | Sensor marks |
+| `#ss-children-mount` | React children portal (`.camera-card.child-card.count-item`) |
+| `#mqtt_status_remote_{remoteChildId}`, `.child_mqtt_status` | Remote child link status |
+| `?ss=child-edit&id={restUid}` | ChildSheet; REST uid = scene UUID / remote id / link pk |
 
 ### 3D template chrome
 
@@ -302,6 +335,9 @@ Calibrate iframes are retired. React sheets own calibrate UX.
   `DELETE /api/v1/sensor/{uid}`
 - Cameras: `PUT /api/v1/camera/{uid}` (intrinsics, transforms, …);
   `camerachain` validated on form + REST (`validate_camerachain`)
+- Children: `GET/POST /api/v1/child/{uid}` — uid is ChildScene pk,
+  local Scene UUID (`child_id`), or `remote_child_id` (see `_parse_uid` /
+  `_resolve_thing` in `api.py`)
 - Models (K8s): `GET/POST/DELETE /api/v1/model-directory/`
 - Assets: Object Library includes `mark_color`
 
@@ -316,4 +352,4 @@ Islands under `manager/backend/manager/static/ui/`: `scene-detail`,
 `models-directory` (+ shared `manager-ui.css`).
 
 Package and developer notes: `manager/frontend/README.md`. Plan ownership for
-remaining empty-space / 3D work stays in this file.
+remaining 3D work stays in this file.
