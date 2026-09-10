@@ -57,7 +57,7 @@ in [Scene Controller Data Formats](./data_formats.md#common-output-track-fields)
   lifetime — no query is attempted.
 - `MATCHED` and `QUERY_NO_MATCH` are not terminal: a track can be re-queried
   as new features accumulate, and its `reid_state` (and UUID/similarity score,
-  in the `MATCHED` case) is updated accordingly
+  in the `MATCHED` case) is updated accordingly.
 
 ### Similarity Metric and Score Semantics
 
