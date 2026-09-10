@@ -670,6 +670,30 @@ html[data-theme="dark"] {
   font-size: 0.8125rem;
   line-height: 1.4;
 }
+.ss-map-source-fieldset {
+  border: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.ss-map-source-fieldset legend {
+  margin-bottom: 0.35rem;
+  padding: 0;
+}
+.ss-map-source-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  cursor: pointer;
+  color: var(--ss-text);
+}
+.ss-map-source-option input {
+  margin-top: 0.2rem;
+}
 .ss-select-field {
   width: 100%;
   max-width: 28rem;
@@ -1774,6 +1798,7 @@ body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group .area {
   }
 }
 .ss-scene-map-pane {
+  position: relative;
   min-width: 0;
 }
 .ss-scene-map-slot {
@@ -1802,6 +1827,71 @@ body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group .area {
 .ss-scene-map-slot #map-controls {
   position: relative;
   z-index: 5;
+}
+.ss-map-setup-helper {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--ss-surface, #f4f5f7) 92%, transparent);
+}
+.ss-map-setup-helper-card {
+  pointer-events: auto;
+  max-width: 32rem;
+  width: 100%;
+  margin: 0;
+  padding: 1.25rem 1.35rem;
+  background: var(--ss-surface-raised, #fff);
+  border: 1px solid var(--ss-border, #d0d5dd);
+  border-radius: 0.35rem;
+  box-shadow: 0 1px 2px #1018280f;
+}
+.ss-map-setup-helper-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--ss-fg, #1a1f36);
+}
+.ss-map-setup-helper-body {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--ss-muted, #667085);
+}
+.ss-map-setup-helper-error {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--ss-danger, #b42318);
+}
+.ss-map-setup-helper-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.ss-map-setup-helper-secondary {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--ss-border, #e4e7ec);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+.ss-map-setup-helper-hint {
+  margin: 0;
+  flex: 1 1 12rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--ss-muted, #667085);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .ss-camera-strip .camera-card {
   position: relative;
