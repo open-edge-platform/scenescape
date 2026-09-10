@@ -9,9 +9,6 @@ from rest_framework.test import APIRequestFactory
 from manager import api
 
 
-TEST_NAME = "NEX-T00000"
-
-
 @pytest.mark.parametrize(
   ("remote_addr", "expected"),
   [
