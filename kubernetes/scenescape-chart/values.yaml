@@ -73,6 +73,9 @@ pgserver:
 web:
   image: intel/scenescape-manager
   pullPolicy: IfNotPresent
+  # Comma-separated host list passed to Django ALLOWED_HOSTS via
+  # SCENESCAPE_ALLOWED_HOSTS. If empty - defaults to ["*"].
+  allowedHosts: ""
 
 scene:
   image: intel/scenescape-controller
