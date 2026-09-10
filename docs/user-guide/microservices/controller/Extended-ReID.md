@@ -31,6 +31,34 @@ ReID Query Flow (VDMS or Qdrant):
 
 ## Key Concepts
 
+### ReID Object States
+
+Every tracked object carries a `reid_state` field reflecting where it is in
+the ReID query/match lifecycle. States are defined by the `ReidState` enum
+(`controller/moving_object.py`) and are exposed on scene output as described
+in [Scene Controller Data Formats](./data_formats.md#common-output-track-fields).
+
+| State                | Value                | Meaning                                                            |
+| -------------------- | --------------------- | ------------------------------------------------------------------- |
+| `PENDING_COLLECTION`  | `pending_collection`  | Accumulating embeddings; no similarity query has been made yet.     |
+| `QUERY_NO_MATCH`      | `query_no_match`      | A query was made against the database but no match was found — the object is treated as new and keeps (or is assigned) its own UUID. |
+| `MATCHED`             | `matched`             | The object was successfully matched to a previously seen identity; its UUID and a similarity score are set from the match. |
+| `REID_DISABLED`       | `reid_disabled`       | ReID is disabled for this object/category, so no query will ever be made. |
+
+**Lifecycle transitions**:
+
+- An object starts in `PENDING_COLLECTION` and stays there until it has
+  accumulated `feature_accumulation_threshold` quality features.
+- Once a query is issued, the object transitions to exactly one of
+  `QUERY_NO_MATCH` or `MATCHED`, based on whether a similarity match above
+  `similarity_threshold` was found.
+- `REID_DISABLED` is set instead of the above whenever ReID is turned off for
+  the object's category (or globally), and is terminal for that object's
+  lifetime — no query is attempted.
+- `MATCHED` and `QUERY_NO_MATCH` are not terminal: a track can be re-queried
+  as new features accumulate, and its `reid_state` (and UUID/similarity score,
+  in the `MATCHED` case) is updated accordingly
+
 ### Similarity Metric and Score Semantics
 
 The Re-ID metric is configured through `reid-config.json` (`similarity_metric`) and defaults to `COSINE`.
