@@ -9,6 +9,7 @@ import psutil
 
 from scene_common.mqtt import PubSub
 from tests.functional.backend_functional import BackendFunctionalTest
+import tests.common_test_utils as common
 from tests.utils.log import get_logger
 from tests.utils.profiles import REID
 from tests.utils.spec import FuncTestSpec
@@ -81,10 +82,10 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
 
     self.connected = False
     self.scenes_updates = {
-      "3bc091c7-e449-46a0-9540-29c499bca18c": {
+      common.get_scene_uid(self.params, "Retail"): {
         "updated": False
       },
-      "302cf49a-97ec-402d-a324-c5077b280b7b": {
+      common.get_scene_uid(self.params, "Queuing"): {
         "updated": False
       }
     }
