@@ -48,8 +48,8 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
     rootcert = "/run/secrets/certs/scenescape-ca.pem"
   cert = os.environ.get("BROKERCERT")
   if broker is not None:
-    client = PubSub(auth, cert, rootcert, broker)
     try:
+      client = PubSub(auth, cert, rootcert, broker)
       client.connect()
     except (socket.gaierror, ConnectionRefusedError) as e:
       log.error("Unable to connect: %s", e)

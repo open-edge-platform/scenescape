@@ -19,17 +19,17 @@ class ChildSceneController():
     self._last_tripwires_json = None
     self._last_rois_json = None
 
-    self.client = PubSub(cert=None, rootca=root_cert, broker=info.get('host_name', None),
-                         auth=f"{info.get('mqtt_username', None)}:{info.get('mqtt_password', None)}",
-                         keepalive=240)
-    self.client.onConnect = self.onChildConnect
-    self.client.onDisconnect = self.onChildDisconnect
-    self.child_scene_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL,
-                                                scene_id=self.child_id, thing_type="+")
-    self.child_event_topic = PubSub.formatTopic(PubSub.EVENT,
-                                                region_type="+", event_type="+",
-                                                scene_id=self.child_id, region_id="+")
     try:
+      self.client = PubSub(cert=None, rootca=root_cert, broker=info.get('host_name', None),
+                           auth=f"{info.get('mqtt_username', None)}:{info.get('mqtt_password', None)}",
+                           keepalive=240)
+      self.client.onConnect = self.onChildConnect
+      self.client.onDisconnect = self.onChildDisconnect
+      self.child_scene_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL,
+                                                  scene_id=self.child_id, thing_type="+")
+      self.child_event_topic = PubSub.formatTopic(PubSub.EVENT,
+                                                  region_type="+", event_type="+",
+                                                  scene_id=self.child_id, region_id="+")
       self.client.connect()
     except Exception as e:
       # FIXME - remove this error published , handle known exceptions.
