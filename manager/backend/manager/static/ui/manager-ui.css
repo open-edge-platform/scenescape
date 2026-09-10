@@ -1656,9 +1656,10 @@ body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group #name {
   font-weight: 600;
   paint-order: stroke fill;
   stroke: #fff;
-  stroke-width: 1px;
+  stroke-width: 3px;
   stroke-linejoin: round;
   stroke-linecap: round;
+  text-anchor: unset;
 }
 body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group .area {
   transition: fill var(--ss-motion-base, 0.18s) var(--ss-motion-ease, ease);

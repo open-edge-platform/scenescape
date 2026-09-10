@@ -1456,18 +1456,20 @@ body.cal-pane-expanded {
   white-space: nowrap;
 }
 
+/* Map draw modes only — no permanent black frame around the stage SVG. */
 svg {
-  outline: 2px solid black;
-  outline-offset: -2px;
+  outline: none;
 }
 
 svg.adding-roi {
   outline: 2px solid red;
+  outline-offset: -2px;
   cursor: crosshair;
 }
 
 svg.adding-tripwire {
   outline: 2px solid #00aa00;
+  outline-offset: -2px;
   cursor: crosshair;
 }
 
@@ -1553,6 +1555,11 @@ polygon {
 .area-group text {
   dominant-baseline: middle;
   text-anchor: middle;
+}
+
+/* Sensor names may flip below / start|end near edges (see sensorNameAnchor). */
+.area-group text#name {
+  text-anchor: unset;
 }
 
 /* Hide ROI/tripwire name labels unless "Visualize ROIs" is enabled */

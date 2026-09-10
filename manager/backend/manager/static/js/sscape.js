@@ -197,6 +197,25 @@ function applyCameraRate(sensorId, rateText) {
 }
 var scene_y_max = 480; // Scene image height in SVG user units
 var scene_map_width = 0; // Scene image width in SVG user units
+// Extra viewBox room so labels above/beside edge markers are not clipped.
+var MAP_LABEL_PAD_TOP = 32;
+var MAP_LABEL_PAD_SIDE = 72;
+var MAP_LABEL_PAD_BOTTOM = 12;
+
+function sceneMapViewBox(width, height) {
+  var w = Number(width) || 0;
+  var h = Number(height) || 0;
+  return (
+    -MAP_LABEL_PAD_SIDE +
+    " " +
+    -MAP_LABEL_PAD_TOP +
+    " " +
+    (w + MAP_LABEL_PAD_SIDE * 2) +
+    " " +
+    (h + MAP_LABEL_PAD_TOP + MAP_LABEL_PAD_BOTTOM)
+  );
+}
+
 var is_coloring_enabled = false; // Default state of the coloring feature
 var assetMarkColors = {}; // Object Library mark_color per type, e.g. {person: "#888888"}
 var roi_color_sectors = {};
@@ -293,7 +312,7 @@ function fitSceneMapDisplay() {
     return;
   }
 
-  svg.setAttribute("viewBox", "0 0 " + scene_map_width + " " + scene_y_max);
+  svg.setAttribute("viewBox", sceneMapViewBox(scene_map_width, scene_y_max));
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
   var maxW;
@@ -1715,6 +1734,58 @@ function drawRoi(e, index, type) {
   }
 }
 
+/**
+ * Label sits above the marker (red dot / icon). Side anchors keep long names
+ * inside the map near left/right edges; top/side room comes from padded viewBox.
+ */
+function sensorNameAnchor(x, y) {
+  var nameY = y - 14;
+  var nameX = x;
+  var anchor = "middle";
+  var sidePad = 48;
+  if (x < sidePad) {
+    anchor = "start";
+  } else if (scene_map_width && x > scene_map_width - sidePad) {
+    anchor = "end";
+  }
+  return { x: nameX, y: nameY, anchor: anchor };
+}
+
+function applySensorNameAnchor(nameEl, x, y) {
+  if (!nameEl) {
+    return;
+  }
+  var a = sensorNameAnchor(x, y);
+  nameEl.setAttribute("x", a.x);
+  nameEl.setAttribute("y", a.y);
+  nameEl.setAttribute("text-anchor", a.anchor);
+  // CSS sets text-anchor on .area-group text; inline style must win.
+  nameEl.style.textAnchor = a.anchor;
+}
+
+function sensorGroupCenter(groupEl) {
+  if (!groupEl) {
+    return null;
+  }
+  var icon = groupEl.querySelector("image");
+  if (icon) {
+    var ix = parseFloat(icon.getAttribute("x"));
+    var iy = parseFloat(icon.getAttribute("y"));
+    if (Number.isFinite(ix) && Number.isFinite(iy)) {
+      return { x: ix + icon_size / 2, y: iy + icon_size / 2 };
+    }
+  }
+  var circle = groupEl.querySelector("circle.sensor, circle.area");
+  if (circle) {
+    var cx = parseFloat(circle.getAttribute("cx"));
+    var cy = parseFloat(circle.getAttribute("cy"));
+    if (Number.isFinite(cx) && Number.isFinite(cy)) {
+      return { x: cx, y: cy };
+    }
+  }
+  return null;
+}
+
 function drawSensor(sensor, index, type) {
   var i = type + "_" + index;
   var existing = document.getElementById(i);
@@ -1723,6 +1794,10 @@ function drawSensor(sensor, index, type) {
     var nameEl = existing.querySelector("#name");
     if (nameEl && sensor.title) {
       nameEl.textContent = sensor.title;
+    }
+    var center = sensorGroupCenter(existing);
+    if (center) {
+      applySensorNameAnchor(nameEl, center.x, center.y);
     }
     return;
   }
@@ -1737,8 +1812,7 @@ function drawSensor(sensor, index, type) {
       var sensor_circle = document.querySelector("#" + i + " > .sensor");
       sensor_circle.setAttribute("cx", sensor?.x);
       sensor_circle.setAttribute("cy", sensor?.y);
-      name_text.setAttribute("x", sensor?.x);
-      name_text.setAttribute("y", sensor?.y - 7);
+      applySensorNameAnchor(name_text, sensor.x, sensor.y);
       hierarchy_text.setAttribute("x", sensor?.x);
       hierarchy_text.setAttribute("y", sensor?.y + 15);
     }
@@ -1793,6 +1867,12 @@ function drawSensor(sensor, index, type) {
     }
 
     if ($(".sensor-icon", this).length) {
+      // Circle branch already converted to pixels; poly/scene still in meters.
+      if (sensor.area === "poly" || sensor.area === "scene") {
+        var ip = metersToPixels([sensor.x, sensor.y], scale, scene_y_max);
+        sensor.x = ip[0];
+        sensor.y = ip[1];
+      }
       var image = g.image(
         $(".sensor-icon", this).attr("src"),
         sensor.x - icon_size / 2,
@@ -1809,9 +1889,12 @@ function drawSensor(sensor, index, type) {
       var circle = g.circle(sensor.x, sensor.y, 7).addClass("sensor");
     }
 
-    var nameText = g
-      .text(sensor.x, sensor.y - 7, sensor.title)
-      .attr({ id: "name" });
+    var namePos = sensorNameAnchor(sensor.x, sensor.y);
+    var nameText = g.text(namePos.x, namePos.y, sensor.title).attr({ id: "name" });
+    if (nameText && nameText.node) {
+      nameText.node.setAttribute("text-anchor", namePos.anchor);
+      nameText.node.style.textAnchor = namePos.anchor;
+    }
     var hierarchyText = g
       .text(sensor.x, sensor.y + 15, sensor.from_child_scene)
       .attr({ id: "hierarchy" });
@@ -2025,7 +2108,7 @@ $(document).ready(function () {
       if (isSceneDetailMap()) {
         document
           .getElementById("svgout")
-          .setAttribute("viewBox", "0 0 " + image_w + " " + scene_y_max);
+          .setAttribute("viewBox", sceneMapViewBox(image_w, scene_y_max));
         document
           .getElementById("svgout")
           .setAttribute("preserveAspectRatio", "xMidYMid meet");

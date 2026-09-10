@@ -30,6 +30,20 @@ type Props = {
   mapHeight: number;
 };
 
+/** Extra viewBox room so marker labels above/beside edge sensors aren't clipped. */
+const MAP_LABEL_PAD = {
+  top: 32,
+  right: 72,
+  bottom: 12,
+  left: 72,
+} as const;
+
+function paddedMapViewBox(width: number, height: number): string {
+  const w = width + MAP_LABEL_PAD.left + MAP_LABEL_PAD.right;
+  const h = height + MAP_LABEL_PAD.top + MAP_LABEL_PAD.bottom;
+  return `${-MAP_LABEL_PAD.left} ${-MAP_LABEL_PAD.top} ${w} ${h}`;
+}
+
 const MapBitmap = memo(function MapBitmap({
   href,
   width,
@@ -302,7 +316,7 @@ export const ReactSceneMap = memo(function ReactSceneMap({
     <svg
       id="svgout"
       className={`ss-react-scene-map${mode !== "idle" ? ` is-${mode}` : ""}`}
-      viewBox={`0 0 ${mapWidth} ${mapHeight}`}
+      viewBox={paddedMapViewBox(mapWidth, mapHeight)}
       preserveAspectRatio="xMidYMid meet"
       width="100%"
       height="100%"
