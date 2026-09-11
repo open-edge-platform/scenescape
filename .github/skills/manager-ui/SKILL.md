@@ -80,8 +80,9 @@ Do not re-merge workspace strip rules into Django CSS without an audit.
   `?ss=child-edit&id={restUid}` (`ChildSheet`). `restUid` is local Scene
   UUID, `remote_child_id`, or ChildScene pk — ManageThing `_parse_uid` /
   `_resolve_thing` accept pk **or** UUID.
-- Children tab badge: `.count-item` on cards; `numberTabs()` counts
-  `.ss-tab-row, .count-item, .ss-control-card` under `#ss-children-mount`.
+- Children tab badge: `.count-item` on cards; `publishSceneTabCounts`
+  (and `ss-tab-counts`) updates badges from React mount lengths under
+  `#ss-children-mount`.
 - Scene settings: `#scene-edit` → `?ss=scene-manage`.
 - Calibrate / manage Save is dirty-gated (`Save` / `Saved` / `Saving…`).
 

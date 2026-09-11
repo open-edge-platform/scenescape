@@ -957,7 +957,6 @@ function numberRois() {
     } else {
       $("#no-regions").show();
     }
-    numberTabs();
     return;
   }
   if (!svgCanvas) {
@@ -997,8 +996,6 @@ function numberRois() {
   } else {
     $("#no-regions").show();
   }
-
-  numberTabs();
 }
 
 window.numberRois = numberRois;
@@ -1015,7 +1012,6 @@ function numberTripwires() {
     } else {
       $("#no-tripwires").show();
     }
-    numberTabs();
     return;
   }
   if (!svgCanvas) {
@@ -1058,43 +1054,9 @@ function numberTripwires() {
   }
 
   stringifyTripwires();
-  numberTabs();
 }
 
 window.numberTripwires = numberTripwires;
-
-function liveMountCount(mountId, itemSelector) {
-  var mount = document.getElementById(mountId);
-  if (!mount || mount.childElementCount === 0) {
-    return undefined;
-  }
-  return mount.querySelectorAll(itemSelector).length;
-}
-
-// Publish live mount counts for React tab badges (ss-tab-counts).
-function numberTabs() {
-  var counts = {};
-  var cameras = liveMountCount("ss-cameras-mount", ".count-item");
-  var sensors = liveMountCount("ss-sensors-mount", ".count-item");
-  var children = liveMountCount(
-    "ss-children-mount",
-    ".ss-tab-row, .count-item, .ss-control-card",
-  );
-  if (cameras !== undefined) {
-    counts.cameras = cameras;
-  }
-  if (sensors !== undefined) {
-    counts.sensors = sensors;
-  }
-  if (children !== undefined) {
-    counts.children = children;
-  }
-  if (Object.keys(counts).length) {
-    window.dispatchEvent(new CustomEvent("ss-tab-counts", { detail: counts }));
-  }
-}
-
-window.numberTabs = numberTabs;
 
 // Turn the regions of interest into a string for saving to the database
 function stringifyRois() {
