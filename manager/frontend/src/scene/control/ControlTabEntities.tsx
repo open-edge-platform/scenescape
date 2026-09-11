@@ -371,7 +371,6 @@ export function ControlTabEntities({
       sensors: sensors.length,
       children: childrenLinks.length,
     });
-    window.numberTabs?.();
   }, [panelsReady, cameras, sensors, childrenLinks]);
 
   const confirmSensorDelete = useCallback(async () => {

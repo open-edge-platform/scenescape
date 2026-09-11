@@ -1071,16 +1071,8 @@ function liveMountCount(mountId, itemSelector) {
   return mount.querySelectorAll(itemSelector).length;
 }
 
-// Show number of child cards in a tab
+// Publish live mount counts for React tab badges (ss-tab-counts).
 function numberTabs() {
-  $(".show-count").each(function () {
-    var href = $(this).closest("a").attr("href");
-    if (!href) {
-      return;
-    }
-    var numCards = $(".count-item", href).length;
-    $(this).text("(" + numCards + ")");
-  });
   var counts = {};
   var cameras = liveMountCount("ss-cameras-mount", ".count-item");
   var sensors = liveMountCount("ss-sensors-mount", ".count-item");

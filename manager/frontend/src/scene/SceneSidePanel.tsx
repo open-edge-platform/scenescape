@@ -154,7 +154,7 @@ export function SceneSidePanel({
       <div className="ss-tabs">
         <div className="ss-tabs-chrome">
           <TabList
-            id="myTab"
+            id="ss-scene-tablist"
             tabs={tabs}
             activeId={activeId}
             onChange={selectTab}

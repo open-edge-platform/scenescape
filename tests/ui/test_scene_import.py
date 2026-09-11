@@ -16,7 +16,6 @@ import time
 import zipfile
 import json
 import pytest
-import re
 from numbers import Number
 
 from scene_common.mqtt import PubSub
@@ -90,18 +89,10 @@ class SceneImportTest(UserInterfaceTest):
     return
 
   def getThingTabCount(self, thing):
-    count = 0
-    if thing == 'children':
-      children_element = self.findElement(self.By.ID, "children-tab")
-      text = children_element.text
-      match = re.search(r'\((\d+)\)', text)
-      if match:
-        count = int(match.group(1))
-    else:
-      count_element = self.findElement(self.By.CSS_SELECTOR, f"#{thing}-tab .show-count")
-      count_text = count_element.text.strip("()")
-      count = int(count_text)
-    return count
+    count_element = self.findElement(
+      self.By.CSS_SELECTOR, f"#{thing}-tab .ss-tabs-count"
+    )
+    return int(count_element.text.strip())
 
   def importScene(self):
     importSceneButton = self.findElement(self.By.ID, "import-scene")

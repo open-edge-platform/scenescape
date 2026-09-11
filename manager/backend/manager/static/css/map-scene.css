@@ -700,58 +700,6 @@ ul.errorlist {
   overflow: hidden;
 }
 
-.scene-detail-panels > .nav-tabs {
-  clear: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0;
-  margin: 0;
-  padding: 0 0.5rem;
-  border-bottom: 1px solid var(--ss-card-border);
-  background: color-mix(in srgb, var(--ss-surface) 65%, var(--ss-elevated));
-}
-
-.scene-detail-panels > .nav-tabs .nav-item {
-  margin-bottom: 0;
-}
-
-.scene-detail-panels > .nav-tabs .nav-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin: 0;
-  padding: 0.7rem 0.85rem;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  color: var(--ss-text-muted);
-  font-family: var(--ss-font-sans);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.scene-detail-panels > .nav-tabs .nav-link:hover {
-  border-color: transparent;
-  color: var(--ss-ink);
-  background: transparent;
-}
-
-.scene-detail-panels > .nav-tabs .nav-link.active {
-  color: var(--ss-brand);
-  background: transparent;
-  border-color: transparent transparent var(--ss-brand);
-}
-
-.scene-detail-panels > .nav-tabs .nav-link .show-count,
-.scene-detail-panels > .nav-tabs .nav-link .scene-detail-tab-count {
-  font-weight: 500;
-  color: inherit;
-  opacity: 0.8;
-}
-
 .scene-detail-mqtt-pill {
   display: inline-flex;
   align-items: center;

@@ -64,7 +64,7 @@
   overflow: visible;
 }
 
-.ss-legacy-panels-slot #myTabContent {
+.ss-legacy-panels-slot #ss-scene-tab-panels {
   flex: none;
   min-height: 0;
   overflow: visible;
