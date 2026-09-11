@@ -1,3 +1,2159 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import{r as n,j as e}from"./tokens-C2Ju3rc_.js";import{a as ae,D as Be,b as ot,F as Q,S as de,T}from"./rest-DXX9fmms.js";import{B as Me}from"./Button-CDF7QSMd.js";import{u as Ee,r as lt,C as ct}from"./ConfirmDialog-DanZpjzY.js";function Ie(t=!0){const[a,s]=n.useState(!1),l=n.useCallback(()=>{t&&s(!0)},[t]),c=n.useCallback(()=>s(!1),[]);return{dirty:a,setDirty:s,markDirty:l,resetDirty:c}}function Et({open:t,mode:a,sceneId:s,scenes:l=[],sensorUid:c,authToken:m,onClose:g,onSaved:f}){const y=Ee(),[N,b]=n.useState(""),[D,p]=n.useState(""),[L,x]=n.useState(s),[w,v]=n.useState(!1),[R,O]=n.useState(null),[P,_]=n.useState(a==="create"),{dirty:F,markDirty:$,resetDirty:z}=Ie(P);n.useEffect(()=>{if(!t)return;if(O(null),x(s),z(),a==="create"){b(""),p(""),_(!0);return}if(_(!1),!c)return;let k=!1;return v(!0),ae.getCamera(m,c).then(C=>{k||(b(String(C.sensor_id||C.uid||c)),p(String(C.name||"")),C.scene&&x(String(C.scene)),_(!0),z())}).catch(C=>{k||O(C.message||"Failed to load camera")}).finally(()=>{k||v(!1)}),()=>{k=!0}},[t,a,c,m,s,z]);const A=async k=>{if(k.preventDefault(),!L.trim()){O("Scene is required");return}v(!0),O(null);try{let C;a==="create"?(C=await ae.createCamera(m,{sensor_id:N.trim(),name:D.trim(),scene:L.trim()}),y.show("Camera created","ok")):c&&(C=await ae.updateCamera(m,c,{sensor_id:N.trim(),name:D.trim(),scene:L.trim()}),y.show("Camera updated","ok")),z(),f(C),g()}catch(C){O(C.message||"Save failed")}finally{v(!1)}};return e.jsx(Be,{open:t,title:a==="create"?"New camera":"Edit camera",onClose:g,dirty:F,actions:e.jsx(Me,{variant:"primary",disabled:w||!F,form:"ss-cam-sheet-form",type:"submit",title:F?"Save changes":"No unsaved changes",className:F?"ss-btn--dirty":void 0,children:w?"Saving…":a==="create"?"Add camera":F?"Save":"Saved"}),children:e.jsxs(ot,{id:"ss-cam-sheet-form",className:"ss-drawer-form",error:R,hint:w&&a==="edit"&&!P?"Loading camera…":null,busy:w,onSubmit:A,children:[l.length>0?e.jsx(Q,{id:"ss-cam-placement",title:"Placement",description:"Scene that owns this camera.",children:e.jsxs(de,{id:"ss-cam-scene",label:"Scene",value:L,onChange:k=>{x(k.target.value),$()},required:!0,disabled:w,children:[e.jsx("option",{value:"",children:"Select scene…"}),l.map(k=>e.jsx("option",{value:k.id,children:k.name},k.id))]})}):null,e.jsxs(Q,{id:"ss-cam-identity",title:"Identity",description:"Must match the analytics pipeline camera id.",children:[e.jsx(T,{id:"ss-cam-sensor-id",label:"Camera ID",value:N,onChange:k=>{b(k.target.value),$()},required:!0,disabled:w}),e.jsx(T,{id:"ss-cam-name",label:"Name",value:D,onChange:k=>{p(k.target.value),$()},required:!0,disabled:w}),e.jsx("p",{className:"ss-drawer-hint",children:"Calibrate after creating so detections land correctly on the map."})]})]})})}const dt=[{value:"environmental",label:"Environmental"},{value:"attribute",label:"Attribute"}];function Lt({open:t,mode:a,sceneId:s,scenes:l=[],sensorUid:c,authToken:m,onClose:g,onSaved:f}){const y=Ee(),[N,b]=n.useState(""),[D,p]=n.useState(""),[L,x]=n.useState(s),[w,v]=n.useState("environmental"),[R,O]=n.useState(!1),[P,_]=n.useState(null),[F,$]=n.useState(a==="create"),{dirty:z,markDirty:A,resetDirty:k}=Ie(F);n.useEffect(()=>{if(!t)return;if(_(null),x(s),k(),a==="create"){b(""),p(""),v("environmental"),$(!0);return}if($(!1),!c)return;let o=!1;return O(!0),ae.getSensor(m,c).then(u=>{o||(b(String(u.sensor_id||u.uid||c)),p(String(u.name||"")),v(String(u.singleton_type||"environmental")),u.scene&&x(String(u.scene)),$(!0),k())}).catch(u=>{o||_(u.message||"Failed to load sensor")}).finally(()=>{o||O(!1)}),()=>{o=!0}},[t,a,c,m,s,k]);const C=async o=>{if(o.preventDefault(),!L.trim()){_("Scene is required");return}O(!0),_(null);const u={sensor_id:N.trim(),name:D.trim(),scene:L.trim(),singleton_type:w};try{let M;a==="create"?(M=await ae.createSensor(m,u),y.show("Sensor created","ok")):c&&(M=await ae.updateSensor(m,c,u),y.show("Sensor updated","ok")),k(),f(M),g()}catch(M){_(M.message||"Save failed")}finally{O(!1)}};return e.jsx(Be,{open:t,title:a==="create"?"New sensor":"Edit sensor",onClose:g,dirty:z,actions:e.jsx(Me,{variant:"primary",disabled:R||!z,form:"ss-sensor-sheet-form",type:"submit",title:z?"Save changes":"No unsaved changes",className:z?"ss-btn--dirty":void 0,children:R?"Saving…":a==="create"?"Add sensor":z?"Save":"Saved"}),children:e.jsxs("form",{id:"ss-sensor-sheet-form",className:"ss-drawer-form",onSubmit:C,children:[P?e.jsx("p",{className:"ss-drawer-error",children:P}):null,l.length>0?e.jsx(Q,{id:"ss-sensor-placement",title:"Placement",description:"Scene that owns this sensor.",children:e.jsxs(de,{id:"ss-sensor-scene",label:"Scene",value:L,onChange:o=>{x(o.target.value),A()},required:!0,disabled:R,children:[e.jsx("option",{value:"",children:"Select scene…"}),l.map(o=>e.jsx("option",{value:o.id,children:o.name},o.id))]})}):null,e.jsxs(Q,{id:"ss-sensor-identity",title:"Identity",description:"Must match the telemetry source id.",children:[e.jsx(T,{id:"ss-sensor-id",label:"Sensor ID",value:N,onChange:o=>{b(o.target.value),A()},required:!0,disabled:R}),e.jsx(T,{id:"ss-sensor-name",label:"Name",value:D,onChange:o=>{p(o.target.value),A()},required:!0,disabled:R}),e.jsx(de,{id:"ss-sensor-type",label:"Type",value:w,onChange:o=>{v(o.target.value),A()},disabled:R,children:dt.map(o=>e.jsx("option",{value:o.value,children:o.label},o.value))})]})]})})}function We({open:t,title:a,children:s,actions:l,layout:c="form",className:m,dirty:g=!1,leaveTitle:f="Leave without saving?",leaveBody:y="You may have unsaved changes. Leave without saving?",onClose:N}){const b=n.useId(),[D,p]=n.useState(!1),L=n.useRef(g);L.current=g;const x=n.useRef(N);x.current=N;const w=n.useCallback(()=>{if(L.current){p(!0);return}x.current()},[]);if(n.useEffect(()=>{if(!t){p(!1);return}const R=document.body.style.overflow;document.body.style.overflow="hidden";const O=P=>{P.key==="Escape"&&w()};return window.addEventListener("keydown",O),()=>{document.body.style.overflow=R,window.removeEventListener("keydown",O)}},[t,w]),!t)return null;const v=c==="bleed"?"ss-workspace-panel-body ss-workspace-panel-body--bleed":c==="split"?"ss-workspace-panel-body ss-workspace-panel-body--split":"ss-workspace-panel-body";return lt.createPortal(e.jsxs(e.Fragment,{children:[e.jsxs("div",{className:`ss-workspace-panel${m?` ${m}`:""}`,role:"dialog","aria-modal":"true","aria-labelledby":b,children:[e.jsxs("div",{className:"ss-workspace-panel-bar",children:[e.jsxs("div",{className:"ss-workspace-panel-bar-start",children:[e.jsxs("button",{type:"button",className:"ss-workspace-panel-back","aria-label":`Back from ${a}`,onClick:w,children:[e.jsx("span",{"aria-hidden":"true",children:"←"}),"Back"]}),e.jsx("h2",{className:"ss-workspace-panel-title",id:b,children:a})]}),l?e.jsx("div",{className:"ss-workspace-panel-actions",children:l}):e.jsx("div",{className:"ss-workspace-panel-actions","aria-hidden":"true"})]}),e.jsx("div",{className:v,children:s})]}),e.jsx(ct,{open:D,title:f,confirmLabel:"Leave",cancelLabel:"Stay",danger:!0,onConfirm:()=>{p(!1),N()},onCancel:()=>p(!1),children:e.jsx("p",{children:y})})]}),document.body)}const qe="ss-workspace-panel-layout-mode",ut=[{mode:"auto",label:"Auto",title:"Place the settings panel automatically from viewport width"},{mode:"stack",label:"Below",title:"Put the settings panel under the main view"},{mode:"row",label:"Beside",title:"Put the settings panel beside the main view"}];function Xe(){try{const t=window.localStorage.getItem(qe);if(t==="auto"||t==="stack"||t==="row")return t}catch{}return"auto"}function Ce(){return window.innerWidth>=1200?"row":"stack"}function Ke(t){try{window.localStorage.setItem(qe,t)}catch{}}function Ue({layoutMode:t,onChange:a}){return e.jsxs("div",{className:"ss-cal-layout",role:"group","aria-label":"Where to place the settings panel",children:[e.jsx("span",{className:"ss-cal-layout-caption",id:"ss-panel-layout-caption",children:"Panel layout"}),e.jsx("div",{className:"ss-cal-layout-toggle","aria-labelledby":"ss-panel-layout-caption",children:ut.map(s=>{const l=t===s.mode;return e.jsx("button",{type:"button",className:`ss-cal-layout-btn${l?" is-active":""}`,title:s.title,"aria-pressed":l,onClick:()=>a(s.mode),children:s.label},s.mode)})})]})}function Ge({layout:t,panelSizePx:a,onResize:s,disabled:l,containerSelector:c=".ss-workspace-body, .ss-cal-workspace"}){const m=n.useRef(!1),g=n.useCallback(f=>{if(l)return;f.preventDefault();const y=f.currentTarget,N=y.closest(c);if(!N)return;y.setPointerCapture(f.pointerId),m.current=!0,document.body.classList.add("ss-workspace-resizing"),document.body.dataset.ssResize=t;const b=p=>{if(!m.current)return;const L=N.getBoundingClientRect();s(t==="stack"?L.bottom-p.clientY:L.right-p.clientX)},D=p=>{m.current=!1,document.body.classList.remove("ss-workspace-resizing"),delete document.body.dataset.ssResize;try{y.releasePointerCapture(p.pointerId)}catch{}window.removeEventListener("pointermove",b),window.removeEventListener("pointerup",D),window.removeEventListener("pointercancel",D),N.classList.contains("ss-workspace-body")&&typeof window.fitSceneMapDisplay=="function"&&window.fitSceneMapDisplay()};window.addEventListener("pointermove",b),window.addEventListener("pointerup",D),window.addEventListener("pointercancel",D)},[c,l,t,s]);return e.jsx("div",{className:`ss-workspace-splitter ss-workspace-splitter--${t}`,role:"separator","aria-orientation":t==="stack"?"horizontal":"vertical","aria-label":"Drag to resize the panel",title:"Drag to resize the panel","aria-valuenow":Math.round(a),"aria-disabled":l||void 0,tabIndex:l?-1:0,onPointerDown:g,onKeyDown:f=>{if(l)return;const y=f.shiftKey?32:16;t==="stack"&&f.key==="ArrowUp"||t==="row"&&f.key==="ArrowLeft"?(f.preventDefault(),s(a+y)):(t==="stack"&&f.key==="ArrowDown"||t==="row"&&f.key==="ArrowRight")&&(f.preventDefault(),s(a-y))}})}const mt="ss-workspace-panel-size",Je="ss-workspace-map-focus",He="ss-cal-panel-size",De=224,Oe=320,Ve=140,Ze=520,Qe=220,et=560;function Re(t,a,s){return Math.min(s,Math.max(a,t))}function ft(t){try{const a=window.localStorage.getItem(t);if(a){const s=JSON.parse(a);return{stack:Re(Number(s.stack)||De,Ve,Ze),row:Re(Number(s.row)||Oe,Qe,et)}}}catch{}return{stack:De,row:Oe}}function pt(t,a){try{window.localStorage.setItem(t,JSON.stringify(a))}catch{}}function ht(){try{return window.localStorage.getItem(Je)==="1"}catch{return!1}}function ze(t){try{window.localStorage.setItem(Je,t?"1":"0")}catch{}}function tt(t,a={}){const s=a.storageKey??mt,l=a.enableFocus!==!1,[c,m]=n.useState(()=>typeof window<"u"?ft(s):{stack:De,row:Oe}),[g,f]=n.useState(()=>typeof window<"u"&&l?ht():!1),y=t==="stack"?Ve:Qe,N=t==="stack"?Ze:et,b=t==="stack"?c.stack:c.row,D=n.useCallback(x=>{const w=Re(x,y,N);m(v=>{const R=t==="stack"?{...v,stack:w}:{...v,row:w};return pt(s,R),R})},[t,y,N,s]),p=n.useCallback(x=>{f(x),ze(x)},[]),L=n.useCallback(()=>{f(x=>{const w=!x;return ze(w),w})},[]);return n.useEffect(()=>{if(!l)return;const x=w=>{w.key==="Escape"&&g&&p(!1)};return window.addEventListener("keydown",x),()=>window.removeEventListener("keydown",x)},[l,g,p]),{panelSizePx:b,setPanelSizePx:D,mapFocus:g,setMapFocus:p,toggleMapFocus:L,minPx:y,maxPx:N}}function G(t,a=""){return t==null||t===""?a:String(t)}function U(t){const a=t.trim();if(!a)return;const s=Number(a);return Number.isFinite(s)?s:void 0}function gt(t){if(Array.isArray(t)&&t.length>=2)return{width:G(t[0]),height:G(t[1])};if(t&&typeof t=="object"){const a=t;return{width:G(a.width),height:G(a.height)}}return{width:"",height:""}}function yt(t,a=8e3){return new Promise((s,l)=>{const c=t.contentWindow;if(!c){l(new Error("Calibration viewport is not ready"));return}const m=window.setTimeout(()=>{window.removeEventListener("message",g),l(new Error("Timed out waiting for calibration pose"))},a),g=f=>{f.origin===window.location.origin&&(!f.data||f.data.type!=="ss-calibrate-pose"||(window.clearTimeout(m),window.removeEventListener("message",g),s(f.data)))};window.addEventListener("message",g),c.postMessage({type:"ss-calibrate-request-pose"},window.location.origin)})}function Pt({open:t,cameraPk:a,sensorId:s,cameraName:l="",sceneId:c,authToken:m,isKubernetes:g,onClose:f,onSaved:y}){const N=Ee(),b=n.useRef(null),D=n.useRef(!0),[p,L]=n.useState(()=>typeof window<"u"?Xe():"auto"),[x,w]=n.useState(()=>typeof window<"u"?Ce():"stack"),[v,R]=n.useState(""),[O,P]=n.useState(s),[_,F]=n.useState({fx:"",fy:"",cx:"",cy:""}),[$,z]=n.useState({k1:"",k2:"",p1:"",p2:"",k3:""}),[A,k]=n.useState(!0),[C,o]=n.useState(""),[u,M]=n.useState(""),[Y,q]=n.useState("AUTO"),[I,K]=n.useState(!1),[re,ue]=n.useState("model_config.json"),[me,he]=n.useState(!1),[B,fe]=n.useState(!1),[W,J]=n.useState(null),[oe,H]=n.useState(!1),[V,ge]=n.useState(!1),[pe,we]=n.useState(!1);D.current=A;const ie=g,le=g,Z=n.useCallback(()=>{V&&H(!0)},[V]),Se=n.useCallback((r,i,h)=>{var E;const S=(E=b.current)==null?void 0:E.contentWindow;S&&S.postMessage({type:"ss-calibrate-optics-set",intrinsics:r,distortion:i,fixIntrinsics:{fx:h,fy:h}},window.location.origin)},[]);n.useEffect(()=>{if(!t||!s)return;let r=!1;return fe(!0),J(null),H(!1),ge(!1),k(!0),we(!1),l&&R(l),ae.getCamera(m,s).then(i=>{if(r)return;R(String(i.name||l||"")),P(String(i.sensor_id||i.uid||s));const h=i.intrinsics&&typeof i.intrinsics=="object"?i.intrinsics:{};F({fx:G(h.fx),fy:G(h.fy),cx:G(h.cx),cy:G(h.cy)});const S=i.distortion&&typeof i.distortion=="object"?i.distortion:{};z({k1:G(S.k1),k2:G(S.k2),p1:G(S.p1),p2:G(S.p2),k3:G(S.k3)});const E=gt(i.resolution);o(E.width),M(E.height),ie&&(q(String(i.cv_subsystem||"AUTO")),K(!!i.undistort),ue(String(i.modelconfig||"model_config.json")),he(!!i.use_camera_pipeline)),ge(!0)}).catch(i=>{r||J(i.message||"Failed to load camera")}).finally(()=>{r||fe(!1)}),()=>{r=!0}},[t,s,l,m,ie]),n.useEffect(()=>{if(!t)return;const r=i=>{if(i.origin===window.location.origin&&!(!i.data||typeof i.data!="object")){if(i.data.type==="ss-calibrate-done"){N.show("Camera calibration saved","ok"),y(),f();return}if(i.data.type==="ss-calibrate-points-changed"){H(!0);return}if(i.data.type==="ss-calibrate-optics"){const h=i.data.intrinsics,S=i.data.distortion,E=D.current;h&&F(j=>E?{...j,cx:h.cx??j.cx,cy:h.cy??j.cy}:{...j,...h}),S&&le&&z(j=>({...j,...S}))}}};return window.addEventListener("message",r),()=>window.removeEventListener("message",r)},[t,f,y,N,le]),n.useEffect(()=>{!t||!V||!pe||Se(_,$,A)},[t,V,pe,_,$,A,Se]),n.useEffect(()=>{const r=()=>w(Ce());return r(),window.addEventListener("resize",r),()=>window.removeEventListener("resize",r)},[]);const ye=n.useCallback(r=>{L(r),Ke(r)},[]),ce=p==="auto"?x:p,{panelSizePx:ve,setPanelSizePx:xe}=tt(ce,{storageKey:He,enableFocus:!1});n.useEffect(()=>{if(!t)return;const r=window.requestAnimationFrame(()=>{var i,h;(h=(i=b.current)==null?void 0:i.contentWindow)==null||h.dispatchEvent(new Event("resize"))});return()=>window.cancelAnimationFrame(r)},[t,ve,ce]);const je=(r,i)=>{A||(F(h=>({...h,[r]:i})),Z())},X=(r,i)=>{le&&(z(h=>({...h,[r]:i})),Z())},Ne=(r,i)=>{const h=r==="width"?i:C,S=r==="height"?i:u;r==="width"?o(i):M(i);const E=U(h),j=U(S);F(ee=>({...ee,cx:E!==void 0?String(E/2):ee.cx,cy:j!==void 0?String(j/2):ee.cy})),Z()},Le=async r=>{r==null||r.preventDefault(),fe(!0),J(null);const i={name:v.trim(),sensor_id:O.trim()||s,scene:c,intrinsics:{fx:U(_.fx)??0,fy:U(_.fy)??0,cx:U(_.cx)??0,cy:U(_.cy)??0},distortion:{k1:U($.k1)??0,k2:U($.k2)??0,p1:U($.p1)??0,p2:U($.p2)??0,k3:U($.k3)??0}},h=U(C),S=U(u);h!==void 0&&S!==void 0&&(i.resolution={width:h,height:S}),ie&&(i.cv_subsystem=Y,i.undistort=I,i.modelconfig=re.trim()||null,i.use_camera_pipeline=me);try{const E=b.current;if(E!=null&&E.contentWindow){const j=await yt(E);if(j.error&&!j.empty){J(j.error),fe(!1);return}!j.empty&&j.transform_type&&Array.isArray(j.transforms)&&(i.transform_type=j.transform_type,i.transforms=j.transforms)}await ae.updateCamera(m,s,i),N.show("Camera saved","ok"),H(!1),y(),f()}catch(E){J(E.message||"Save failed")}finally{fe(!1)}},d=e.jsxs("form",{id:"ss-cam-calibrate-form",className:"ss-workspace-panel-form",onSubmit:Le,children:[W?e.jsx("p",{className:"ss-workspace-panel-error",children:W}):null,B&&!V?e.jsx("p",{className:"ss-workspace-panel-hint",children:"Loading camera…"}):null,e.jsxs(Q,{id:"ss-cam-cal-identity",title:"Identity",description:"Camera name and pipeline id.",children:[e.jsx(T,{id:"ss-cam-cal-name",label:"Name",value:v,onChange:r=>{R(r.target.value),Z()},required:!0,disabled:B}),e.jsx(T,{id:"ss-cam-cal-sensor-id",label:"Camera ID",value:O,onChange:r=>{P(r.target.value),Z()},disabled:B}),e.jsx(T,{id:"ss-cam-cal-scene",label:"Scene",value:c,readOnly:!0,disabled:!0})]}),e.jsxs(Q,{id:"ss-cam-cal-intrinsics",title:"Intrinsics",description:"Lock fx and fy when focal length is known so calibration treats them as constraints. Unlock to estimate them (6+ point pairs). cx and cy follow resolution.",className:"ss-form-section--columns",children:[e.jsxs("div",{className:"ss-cal-focal-lock",children:[e.jsx("input",{type:"checkbox",id:"ss-cam-cal-lock-focal",checked:A,disabled:B,onChange:r=>{k(r.target.checked),Z()}}),e.jsx("label",{htmlFor:"ss-cam-cal-lock-focal",children:"Lock fx & fy (known intrinsics)"})]}),e.jsx(T,{id:"ss-cam-cal-fx",label:"fx",inputMode:"decimal",value:_.fx,onChange:r=>je("fx",r.target.value),disabled:B||A,readOnly:A,title:A?"Unlock fx & fy to edit or estimate focal length":"Focal length x"}),e.jsx(T,{id:"ss-cam-cal-fy",label:"fy",inputMode:"decimal",value:_.fy,onChange:r=>je("fy",r.target.value),disabled:B||A,readOnly:A,title:A?"Unlock fx & fy to edit or estimate focal length":"Focal length y"}),e.jsx(T,{id:"ss-cam-cal-cx",label:"cx",inputMode:"decimal",value:_.cx,readOnly:!0,disabled:!0,title:"Principal point x (derived from frame width)"}),e.jsx(T,{id:"ss-cam-cal-cy",label:"cy",inputMode:"decimal",value:_.cy,readOnly:!0,disabled:!0,title:"Principal point y (derived from frame height)"})]}),e.jsx(Q,{id:"ss-cam-cal-distortion",title:"Distortion",description:le?"Radial and tangential coefficients.":"Distortion is read-only on Docker deploys (matches Manager form).",className:"ss-form-section--columns",children:["k1","k2","p1","p2","k3"].map(r=>e.jsx(T,{id:`ss-cam-cal-d-${r}`,label:r,inputMode:"decimal",value:$[r],onChange:i=>X(r,i.target.value),disabled:B||!le,readOnly:!le},r))}),e.jsxs(Q,{id:"ss-cam-cal-resolution",title:"Resolution",description:"Frame size in pixels. Changing size updates cx/cy to the image center.",className:"ss-form-section--columns",children:[e.jsx(T,{id:"ss-cam-cal-width",label:"Width",inputMode:"numeric",value:C,onChange:r=>Ne("width",r.target.value),disabled:B}),e.jsx(T,{id:"ss-cam-cal-height",label:"Height",inputMode:"numeric",value:u,onChange:r=>Ne("height",r.target.value),disabled:B})]}),ie?e.jsxs(Q,{id:"ss-cam-cal-advanced",title:"Advanced",description:"Pipeline and decode options (Kubernetes only).",collapsible:!0,defaultOpen:!1,children:[e.jsxs(de,{id:"ss-cam-cal-cv",label:"Decode device",value:Y,onChange:r=>{q(r.target.value),Z()},disabled:B,children:[e.jsx("option",{value:"AUTO",children:"AUTO"}),e.jsx("option",{value:"GPU",children:"GPU"}),e.jsx("option",{value:"CPU",children:"CPU"})]}),e.jsxs(de,{id:"ss-cam-cal-undistort",label:"Undistort",value:I?"true":"false",onChange:r=>{K(r.target.value==="true"),Z()},disabled:!0,title:"Undistort is disabled until DLSPS supports cameraundistort",children:[e.jsx("option",{value:"false",children:"No"}),e.jsx("option",{value:"true",children:"Yes"})]}),e.jsx(T,{id:"ss-cam-cal-modelconfig",label:"Model config",value:re,onChange:r=>{ue(r.target.value),Z()},disabled:B}),e.jsxs(de,{id:"ss-cam-cal-pipeline",label:"Use camera pipeline",value:me?"true":"false",onChange:r=>{he(r.target.value==="true"),Z()},disabled:B,children:[e.jsx("option",{value:"false",children:"No"}),e.jsx("option",{value:"true",children:"Yes"})]})]}):null]});return e.jsx(We,{open:t,title:"Calibrate camera",layout:"bleed",dirty:oe,leaveTitle:"Leave calibration?",leaveBody:"You may have unsaved calibration changes. Leave without saving?",onClose:f,actions:e.jsxs(e.Fragment,{children:[e.jsx(Ue,{layoutMode:p,onChange:ye}),e.jsx(Me,{variant:"primary",disabled:B||!V||!oe,form:"ss-cam-calibrate-form",type:"submit",title:oe?"Save changes":"No unsaved changes",className:oe?"ss-btn--dirty":void 0,children:B?"Saving…":oe?"Save":"Saved"})]}),children:e.jsxs("div",{className:`ss-cal-workspace ss-cal-workspace--${ce}`,"data-cal-layout":ce,"data-cal-layout-mode":p,style:{"--ss-panel-size":`${ve}px`},children:[e.jsxs("div",{className:"ss-cal-workspace-main ss-workspace-cal-preview",children:[e.jsxs("div",{className:"ss-workspace-cal-preview-meta",children:[e.jsx("h3",{className:"ss-form-section-title",children:"Calibration workspace"}),e.jsx("p",{className:"ss-workspace-panel-hint",style:{marginBottom:0},children:"Live camera view and 3D scene map. Double-click to add points, drag to move them, scroll to zoom, and right-click to delete. Orbit the scene with click-drag."})]}),a?e.jsx("div",{className:"ss-workspace-cal-preview-frame",children:e.jsx("iframe",{ref:b,title:"Point calibrator",src:`/cam/calibrate/${a}?embed=1`,onLoad:()=>we(!0)})}):e.jsx("p",{className:"ss-workspace-panel-hint",children:"Camera primary key is missing; the 3D calibrator cannot load."})]}),e.jsx(Ge,{layout:ce,panelSizePx:ve,onResize:xe}),e.jsx("aside",{className:"ss-cal-workspace-aside",children:d})]})})}function wt(t){const a=Number(t);return Number.isFinite(a)?a:0}function vt({value:t,disabled:a=!1,showLabel:s=!0,label:l="Occupancy thresholds",legacyInputClasses:c=!1,idPrefix:m="ss-occupancy",onChange:g}){const f=(y,N)=>{g({...t,[y]:wt(N)})};return e.jsxs("div",{className:"ss-color-range",children:[s?e.jsx("div",{className:"ss-color-range__label",children:l}):null,e.jsxs("div",{className:"ss-color-range__track","aria-hidden":"true",children:[e.jsx("span",{className:"ss-color-range__seg ss-color-range__seg--green"}),e.jsx("span",{className:"ss-color-range__seg ss-color-range__seg--yellow"}),e.jsx("span",{className:"ss-color-range__seg ss-color-range__seg--red"})]}),e.jsxs("div",{className:"ss-color-range__inputs sector-config",children:[e.jsxs("label",{className:"ss-color-range__field",htmlFor:`${m}-green`,children:[e.jsx("span",{className:"ss-color-range__swatch ss-color-range__swatch--green"}),e.jsx("span",{className:"ss-color-range__caption",children:"Green"}),e.jsx("input",{id:`${m}-green`,type:"number",className:`ss-color-range__input form-control${c?" green_min":""}`,disabled:a,value:t.greenMin,"aria-label":"Green threshold minimum",onChange:y=>f("greenMin",y.target.value)})]}),e.jsxs("label",{className:"ss-color-range__field",htmlFor:`${m}-yellow`,children:[e.jsx("span",{className:"ss-color-range__swatch ss-color-range__swatch--yellow"}),e.jsx("span",{className:"ss-color-range__caption",children:"Yellow"}),e.jsx("input",{id:`${m}-yellow`,type:"number",className:`ss-color-range__input form-control${c?" yellow_min":""}`,disabled:a,value:t.yellowMin,"aria-label":"Yellow threshold minimum",onChange:y=>f("yellowMin",y.target.value)})]}),e.jsxs("label",{className:"ss-color-range__field",htmlFor:`${m}-red`,children:[e.jsx("span",{className:"ss-color-range__swatch ss-color-range__swatch--red"}),e.jsx("span",{className:"ss-color-range__caption",children:"Red"}),e.jsx("input",{id:`${m}-red`,type:"number",className:`ss-color-range__input form-control${c?" red_min":""}`,disabled:a,value:t.redMin,"aria-label":"Red threshold minimum",onChange:y=>f("redMin",y.target.value)})]}),e.jsxs("label",{className:"ss-color-range__field",htmlFor:`${m}-max`,children:[e.jsx("span",{className:"ss-color-range__caption",children:"Max"}),e.jsx("input",{id:`${m}-max`,type:"number",className:`ss-color-range__input form-control${c?" range_max":""}`,disabled:a,value:t.rangeMax,"aria-label":"Range maximum",onChange:y=>f("rangeMax",y.target.value)})]})]})]})}function st(t,a,s,l){return[t/s,(l-a)/s]}function Ae(t,a,s,l){return[t*s,l-a*s]}function Te(){const t=document.getElementById("scale"),a=Number((t==null?void 0:t.value)||(t==null?void 0:t.textContent)||"100");return Number.isFinite(a)&&a>0?a:100}function Ft(t=1e3){const a=document.querySelector("#svgout image, #map img");if(a&&"height"in a&&typeof a.height=="object"){const s=Number(a.getAttribute("height"));if(Number.isFinite(s)&&s>0)return s}return a&&"naturalHeight"in a&&a.naturalHeight>0?a.naturalHeight:t}function _e(t,a,s){const l=t.createSVGPoint();l.x=a,l.y=s;const c=t.getScreenCTM();if(!c)return null;const m=l.matrixTransform(c.inverse());return[m.x,m.y]}function xt({mapUrl:t,scale:a,area:s,centerX:l,centerY:c,radius:m,points:g,onCenterChange:f,onRadiusChange:y,onPointsChange:N}){const[b,D]=n.useState(null),[p,L]=n.useState([]);n.useEffect(()=>{let o=!1;const u=new Image;return u.onload=()=>{!o&&u.naturalWidth>0&&u.naturalHeight>0&&D({width:u.naturalWidth,height:u.naturalHeight})},u.src=t,()=>{o=!0}},[t]),n.useEffect(()=>{L([])},[s]);const x=(b==null?void 0:b.height)||1,w=a>0?a:100,v=n.useMemo(()=>Ae(l,c,w,x),[l,c,w,x]),R=Math.max(4,m*w),O=n.useMemo(()=>g.map(o=>Ae(o[0],o[1],w,x)),[g,w,x]),P=n.useMemo(()=>p.map(o=>Ae(o[0],o[1],w,x)),[p,w,x]),_=(o,u)=>st(o,u,w,x),F=o=>{if(s==="scene")return;const u=_e(o.currentTarget,o.clientX,o.clientY);if(!u)return;const M=_(u[0],u[1]);if(s==="circle"){f(M[0],M[1]);return}if(!(!p.length&&g.length>=3)){if(p.length>=3){const Y=P[0];if(Y&&Math.hypot(u[0]-Y[0],u[1]-Y[1])<12){N(p),L([]);return}}L(Y=>[...Y,M])}},$=o=>{o.stopPropagation(),o.preventDefault();const u=o.target.ownerSVGElement;if(!u)return;const M=q=>{const I=_e(u,q.clientX,q.clientY);if(!I)return;const K=_(I[0],I[1]);f(K[0],K[1])},Y=()=>{window.removeEventListener("mousemove",M),window.removeEventListener("mouseup",Y)};window.addEventListener("mousemove",M),window.addEventListener("mouseup",Y)},z=o=>{o.stopPropagation(),o.preventDefault();const u=o.target.ownerSVGElement;if(!u)return;const M=q=>{const I=_e(u,q.clientX,q.clientY);if(!I)return;const K=Math.hypot(I[0]-v[0],I[1]-v[1]);y(Math.max(.1,K/w))},Y=()=>{window.removeEventListener("mousemove",M),window.removeEventListener("mouseup",Y)};window.addEventListener("mousemove",M),window.addEventListener("mouseup",Y)},A=(o,u)=>{u.stopPropagation(),u.preventDefault();const M=u.target.ownerSVGElement;if(!M)return;const Y=p.length?p:g,q=K=>{const re=_e(M,K.clientX,K.clientY);if(!re)return;const ue=Y.map((me,he)=>he===o?_(re[0],re[1]):me);p.length?L(ue):N(ue)},I=()=>{window.removeEventListener("mousemove",q),window.removeEventListener("mouseup",I)};window.addEventListener("mousemove",q),window.addEventListener("mouseup",I)};if(!b)return e.jsx("p",{className:"ss-workspace-panel-hint",children:"Loading scene map…"});const k=s==="circle"||s==="poly",C=P.length?P:O;return e.jsxs("svg",{className:`ss-sensor-area-map${k?" is-drawing":""}`,viewBox:`0 0 ${b.width} ${b.height}`,preserveAspectRatio:"xMidYMid meet",width:"100%",height:"100%",onClick:F,role:"img","aria-label":"Sensor coverage map",children:[e.jsx("image",{href:t,x:0,y:0,width:b.width,height:b.height,preserveAspectRatio:"none"}),s==="circle"?e.jsxs("g",{className:"ss-sensor-area-circle",children:[e.jsx("circle",{className:"ss-sensor-area-coverage",cx:v[0],cy:v[1],r:R,onMouseDown:z,onClick:o=>o.stopPropagation()}),e.jsx("circle",{className:"ss-sensor-area-handle",cx:v[0],cy:v[1],r:7,onMouseDown:$,onClick:o=>o.stopPropagation()})]}):null,s==="poly"&&C.length>0?e.jsxs("g",{className:"ss-sensor-area-poly",children:[C.length>=2?p.length?e.jsx("polyline",{className:"ss-sensor-area-draft",points:C.map(o=>o.join(",")).join(" ")}):e.jsx("polygon",{className:"ss-sensor-area-coverage",points:C.map(o=>o.join(",")).join(" ")}):null,C.map((o,u)=>e.jsx("circle",{className:u===0&&p.length>=3?"ss-sensor-area-handle is-close":"ss-sensor-area-handle",cx:o[0],cy:o[1],r:6,onMouseDown:M=>{u===0&&p.length>=3||A(u,M)},onClick:M=>{M.stopPropagation(),u===0&&p.length>=3&&(N(p),L([]))}},u))]}):null]})}const bt=[{value:"environmental",label:"Environmental"},{value:"attribute",label:"Attribute"}];function se(t,a=""){return t==null||t===""?a:String(t)}function ne(t){const a=t.trim();if(!a)return;const s=Number(a);return Number.isFinite(s)?s:void 0}function be(t,a){const s=Number(t),l=Number(a);return!Number.isFinite(s)||!Number.isFinite(l)?!0:Math.abs(s)<1e-9&&Math.abs(l)<1e-9}function Ye(t,a,s){const l=t>0?t:100;return a>0&&s>0?st(a/2,s/2,l,s):[0,0]}function St(t){const a=t.color_ranges;if(a&&typeof a=="object"){const s=a,l=s.sectors||[],c=(m,g)=>{const f=l.find(y=>y.color===m);return f!=null?String(f.color_min):String(g)};return{green:c("green",0),yellow:c("yellow",2),red:c("red",5),max:s.range_max!=null?String(s.range_max):"10"}}return{green:"0",yellow:"2",red:"5",max:"10"}}function jt(t){try{const a=JSON.parse(t);return Array.isArray(a)?a.filter(s=>Array.isArray(s)&&s.length>=2&&Number.isFinite(Number(s[0]))&&Number.isFinite(Number(s[1]))).map(s=>[Number(s[0]),Number(s[1])]):[]}catch{return[]}}function At({open:t,sensorPk:a,sensorId:s,sceneId:l,authToken:c,mapUrlHint:m=null,mapScale:g=null,onClose:f,onSaved:y}){const N=Ee(),[b,D]=n.useState(""),[p,L]=n.useState(s),[x,w]=n.useState("environmental"),[v,R]=n.useState("scene"),[O,P]=n.useState("0"),[_,F]=n.useState("0"),[$,z]=n.useState("1"),[A,k]=n.useState("[]"),[C,o]=n.useState("0"),[u,M]=n.useState("2"),[Y,q]=n.useState("5"),[I,K]=n.useState("10"),[re,ue]=n.useState(m),[me,he]=n.useState(()=>g&&g>0?g:Te()),[B,fe]=n.useState(null),[W,J]=n.useState(!1),[oe,H]=n.useState(null),[V,ge]=n.useState(!1),[pe,we]=n.useState(!1),[ie,le]=n.useState(()=>typeof window<"u"?Xe():"auto"),[Z,Se]=n.useState(()=>typeof window<"u"?Ce():"stack"),ye=ie==="auto"?Z:ie,{panelSizePx:ce,setPanelSizePx:ve}=tt(ye,{storageKey:He,enableFocus:!1}),xe=p.trim()||s,je=n.useCallback(d=>{le(d),Ke(d)},[]),X=n.useCallback(()=>{pe&&ge(!0)},[pe]);n.useEffect(()=>{const d=()=>Se(Ce());return d(),window.addEventListener("resize",d),()=>window.removeEventListener("resize",d)},[]),n.useEffect(()=>{if(!t||!s)return;let d=!1;return J(!0),H(null),ge(!1),we(!1),Promise.all([ae.getSensor(c,s),ae.getScene(c,l).catch(()=>null)]).then(([r,i])=>{if(d)return;D(String(r.name||"")),L(String(r.sensor_id||r.uid||s)),w(String(r.singleton_type||"environmental"));const h=String(r.area||"scene")||"scene";R(h==="circle"||h==="poly"?h:"scene");const S=Array.isArray(r.center)?r.center:null,E=S?S[0]:null,j=S?S[1]:null,ee=i&&typeof i=="object"?Number(i.scale):NaN,$e=Number.isFinite(ee)&&ee>0?ee:g&&g>0?g:Te();he($e);const Pe=i&&typeof i=="object"?i.map||i.map_url:null,Fe=m||(typeof Pe=="string"&&Pe?Pe:null);ue(Fe);const at=(te,nt)=>{if(be(E,j)){const[rt,it]=Ye($e,te,nt);P(se(Number(rt.toFixed(3)),"0")),F(se(Number(it.toFixed(3)),"0"))}else P(se(E,"0")),F(se(j,"0"))};if(Fe){const te=new Image;te.onload=()=>{d||(te.naturalWidth>0&&te.naturalHeight>0?(fe({width:te.naturalWidth,height:te.naturalHeight}),at(te.naturalWidth,te.naturalHeight)):be(E,j)||(P(se(E,"0")),F(se(j,"0"))))},te.onerror=()=>{!d&&!be(E,j)&&(P(se(E,"0")),F(se(j,"0")))},te.src=Fe}else be(E,j)?(P("0"),F("0")):(P(se(E,"0")),F(se(j,"0")));z(r.radius!=null?se(r.radius,"1"):"1"),k(Array.isArray(r.points)?JSON.stringify(r.points,null,2):"[]");const ke=St(r);o(ke.green),M(ke.yellow),q(ke.red),K(ke.max),we(!0)}).catch(r=>{d||H(r.message||"Failed to load sensor")}).finally(()=>{d||J(!1)}),()=>{d=!0}},[t,s,l,c,m,g]);const Ne=async d=>{if(d==null||d.preventDefault(),!xe){H("Sensor id is missing");return}J(!0),H(null);const r={name:b.trim(),sensor_id:xe,scene:l,singleton_type:x,area:v,color_ranges:{sectors:[{color:"green",color_min:ne(C)??0},{color:"yellow",color_min:ne(u)??2},{color:"red",color_min:ne(Y)??5}],range_max:ne(I)??10}};if(v==="circle"){const i=ne(O),h=ne(_),S=ne($);if(i===void 0||h===void 0||S===void 0){H("Circle area requires center X/Y and radius"),J(!1);return}r.center=[i,h],r.radius=S}if(v==="poly")try{const i=JSON.parse(A);if(!Array.isArray(i))throw new SyntaxError("points must be an array");r.points=i;const h=i.filter(S=>Array.isArray(S)&&S.length>=2&&Number.isFinite(Number(S[0]))&&Number.isFinite(Number(S[1])));if(h.length){const S=h.reduce((j,ee)=>j+Number(ee[0]),0)/h.length,E=h.reduce((j,ee)=>j+Number(ee[1]),0)/h.length;r.center=[S,E]}}catch{H("Polygon points must be valid JSON [[x,y], …]"),J(!1);return}try{await ae.updateSensor(c,xe,r),N.show("Sensor saved","ok"),ge(!1),y(),f()}catch(i){H(i.message||"Save failed")}finally{J(!1)}},Le=e.jsxs("form",{id:"ss-sensor-calibrate-form",className:"ss-workspace-panel-form",onSubmit:Ne,children:[oe?e.jsx("p",{className:"ss-workspace-panel-error",children:oe}):null,W&&!pe?e.jsx("p",{className:"ss-workspace-panel-hint",children:"Loading sensor…"}):null,e.jsxs(Q,{title:"Identity",description:"Sensor name and pipeline id.",children:[e.jsx(T,{id:"ss-sensor-cal-name",label:"Name",value:b,onChange:d=>{D(d.target.value),X()},required:!0,disabled:W}),e.jsx(T,{id:"ss-sensor-cal-id",label:"Sensor ID",value:p,onChange:d=>{L(d.target.value),X()},required:!0,disabled:W}),e.jsx(de,{id:"ss-sensor-cal-type",label:"Type",value:x,onChange:d=>{w(d.target.value),X()},disabled:W,children:bt.map(d=>e.jsx("option",{value:d.value,children:d.label},d.value))})]}),e.jsxs(Q,{title:"Area",description:v==="circle"?"Click the map to place the center. Drag the rim to set radius.":v==="poly"?"Click the map to add vertices. Click the first point to close.":"Coverage on the scene map.",children:[e.jsxs(de,{id:"ss-sensor-cal-area",label:"Area type",value:v,onChange:d=>{const r=d.target.value;if(R(r),r==="circle"&&be(O,_)&&B){const[i,h]=Ye(me,B.width,B.height);P(String(Number(i.toFixed(3)))),F(String(Number(h.toFixed(3))))}X()},disabled:W,children:[e.jsx("option",{value:"scene",children:"Entire scene"}),e.jsx("option",{value:"circle",children:"Circle"}),e.jsx("option",{value:"poly",children:"Polygon"})]}),v==="circle"?e.jsxs(e.Fragment,{children:[e.jsx(T,{id:"ss-sensor-cal-cx",label:"Center X (m)",value:O,onChange:d=>{P(d.target.value),X()},disabled:W}),e.jsx(T,{id:"ss-sensor-cal-cy",label:"Center Y (m)",value:_,onChange:d=>{F(d.target.value),X()},disabled:W}),e.jsx(T,{id:"ss-sensor-cal-r",label:"Radius (m)",value:$,onChange:d=>{z(d.target.value),X()},disabled:W})]}):null,v==="poly"?e.jsxs("div",{className:"ss-text-field",children:[e.jsx("label",{className:"ss-text-field-label",htmlFor:"ss-sensor-cal-pts",children:"Points JSON [[x,y], …]"}),e.jsx("div",{className:"ss-text-field-control",children:e.jsx("textarea",{id:"ss-sensor-cal-pts",rows:6,value:A,disabled:W,onChange:d=>{k(d.target.value),X()}})})]}):null]}),e.jsx(Q,{title:"Occupancy thresholds",description:"Green, yellow, and red bands for scalar visualization.",children:e.jsx(vt,{showLabel:!1,idPrefix:"ss-sensor-cal-occ",disabled:W,value:{greenMin:Number(C)||0,yellowMin:Number(u)||0,redMin:Number(Y)||0,rangeMax:Number(I)||0},onChange:d=>{o(String(d.greenMin)),M(String(d.yellowMin)),q(String(d.redMin)),K(String(d.rangeMax)),X()}})})]});return e.jsx(We,{open:t&&!!(a||s),title:"Calibrate sensor",layout:"bleed",dirty:V,leaveTitle:"Leave calibration?",leaveBody:"You may have unsaved calibration changes. Leave without saving?",onClose:f,actions:e.jsxs(e.Fragment,{children:[e.jsx(Ue,{layoutMode:ie,onChange:je}),e.jsx(Me,{variant:"primary",disabled:W||!pe||!V,form:"ss-sensor-calibrate-form",type:"submit",title:V?"Save changes":"No unsaved changes",className:V?"ss-btn--dirty":void 0,children:W?"Saving…":V?"Save":"Saved"})]}),children:e.jsxs("div",{className:`ss-cal-workspace ss-cal-workspace--${ye}`,"data-cal-layout":ye,"data-cal-layout-mode":ie,style:{"--ss-panel-size":`${ce}px`},children:[e.jsxs("div",{className:"ss-cal-workspace-main ss-workspace-cal-preview",children:[e.jsxs("div",{className:"ss-workspace-cal-preview-meta",children:[e.jsx("h3",{className:"ss-form-section-title",children:"Area preview"}),e.jsxs("p",{className:"ss-workspace-panel-hint",style:{marginBottom:0},children:[v==="circle"?"Click the map to place the center. Drag the handle or rim.":null,v==="poly"?"Click to add polygon vertices. Click the first point to close.":null,v==="scene"?"Entire scene coverage.":null]})]}),e.jsx("div",{className:"ss-workspace-cal-preview-frame",children:re?e.jsx(xt,{mapUrl:re,scale:me,area:v,centerX:ne(O)??0,centerY:ne(_)??0,radius:ne($)??1,points:jt(A),onCenterChange:(d,r)=>{P(String(Number(d.toFixed(3)))),F(String(Number(r.toFixed(3)))),X()},onRadiusChange:d=>{z(String(Number(d.toFixed(3)))),X()},onPointsChange:d=>{k(JSON.stringify(d,null,2)),X()}}):e.jsx("p",{className:"ss-workspace-panel-hint",children:"Scene map preview unavailable. Edit area fields in the settings panel."})})]}),e.jsx(Ge,{layout:ye,panelSizePx:ce,onResize:ve}),e.jsx("aside",{className:"ss-cal-workspace-aside",children:Le})]})})}export{Et as C,vt as O,Lt as S,Ge as W,Pt as a,At as b,Ft as c,Ae as m,st as p,Te as r,tt as u};
+import { r as n, j as e } from "./tokens-C2Ju3rc_.js";
+import {
+  a as ae,
+  D as Be,
+  b as ot,
+  F as Q,
+  S as de,
+  T,
+} from "./rest-DXX9fmms.js";
+import { B as Me } from "./Button-CDF7QSMd.js";
+import { u as Ee, r as lt, C as ct } from "./ConfirmDialog-DanZpjzY.js";
+function Ie(t = !0) {
+  const [a, s] = n.useState(!1),
+    l = n.useCallback(() => {
+      t && s(!0);
+    }, [t]),
+    c = n.useCallback(() => s(!1), []);
+  return { dirty: a, setDirty: s, markDirty: l, resetDirty: c };
+}
+function Et({
+  open: t,
+  mode: a,
+  sceneId: s,
+  scenes: l = [],
+  sensorUid: c,
+  authToken: m,
+  onClose: g,
+  onSaved: f,
+}) {
+  const y = Ee(),
+    [N, b] = n.useState(""),
+    [D, p] = n.useState(""),
+    [L, x] = n.useState(s),
+    [w, v] = n.useState(!1),
+    [R, O] = n.useState(null),
+    [P, _] = n.useState(a === "create"),
+    { dirty: F, markDirty: $, resetDirty: z } = Ie(P);
+  n.useEffect(() => {
+    if (!t) return;
+    if ((O(null), x(s), z(), a === "create")) {
+      (b(""), p(""), _(!0));
+      return;
+    }
+    if ((_(!1), !c)) return;
+    let k = !1;
+    return (
+      v(!0),
+      ae
+        .getCamera(m, c)
+        .then((C) => {
+          k ||
+            (b(String(C.sensor_id || C.uid || c)),
+            p(String(C.name || "")),
+            C.scene && x(String(C.scene)),
+            _(!0),
+            z());
+        })
+        .catch((C) => {
+          k || O(C.message || "Failed to load camera");
+        })
+        .finally(() => {
+          k || v(!1);
+        }),
+      () => {
+        k = !0;
+      }
+    );
+  }, [t, a, c, m, s, z]);
+  const A = async (k) => {
+    if ((k.preventDefault(), !L.trim())) {
+      O("Scene is required");
+      return;
+    }
+    (v(!0), O(null));
+    try {
+      let C;
+      (a === "create"
+        ? ((C = await ae.createCamera(m, {
+            sensor_id: N.trim(),
+            name: D.trim(),
+            scene: L.trim(),
+          })),
+          y.show("Camera created", "ok"))
+        : c &&
+          ((C = await ae.updateCamera(m, c, {
+            sensor_id: N.trim(),
+            name: D.trim(),
+            scene: L.trim(),
+          })),
+          y.show("Camera updated", "ok")),
+        z(),
+        f(C),
+        g());
+    } catch (C) {
+      O(C.message || "Save failed");
+    } finally {
+      v(!1);
+    }
+  };
+  return e.jsx(Be, {
+    open: t,
+    title: a === "create" ? "New camera" : "Edit camera",
+    onClose: g,
+    dirty: F,
+    actions: e.jsx(Me, {
+      variant: "primary",
+      disabled: w || !F,
+      form: "ss-cam-sheet-form",
+      type: "submit",
+      title: F ? "Save changes" : "No unsaved changes",
+      className: F ? "ss-btn--dirty" : void 0,
+      children: w
+        ? "Saving…"
+        : a === "create"
+          ? "Add camera"
+          : F
+            ? "Save"
+            : "Saved",
+    }),
+    children: e.jsxs(ot, {
+      id: "ss-cam-sheet-form",
+      className: "ss-drawer-form",
+      error: R,
+      hint: w && a === "edit" && !P ? "Loading camera…" : null,
+      busy: w,
+      onSubmit: A,
+      children: [
+        l.length > 0
+          ? e.jsx(Q, {
+              id: "ss-cam-placement",
+              title: "Placement",
+              description: "Scene that owns this camera.",
+              children: e.jsxs(de, {
+                id: "ss-cam-scene",
+                label: "Scene",
+                value: L,
+                onChange: (k) => {
+                  (x(k.target.value), $());
+                },
+                required: !0,
+                disabled: w,
+                children: [
+                  e.jsx("option", { value: "", children: "Select scene…" }),
+                  l.map((k) =>
+                    e.jsx("option", { value: k.id, children: k.name }, k.id),
+                  ),
+                ],
+              }),
+            })
+          : null,
+        e.jsxs(Q, {
+          id: "ss-cam-identity",
+          title: "Identity",
+          description: "Must match the analytics pipeline camera id.",
+          children: [
+            e.jsx(T, {
+              id: "ss-cam-sensor-id",
+              label: "Camera ID",
+              value: N,
+              onChange: (k) => {
+                (b(k.target.value), $());
+              },
+              required: !0,
+              disabled: w,
+            }),
+            e.jsx(T, {
+              id: "ss-cam-name",
+              label: "Name",
+              value: D,
+              onChange: (k) => {
+                (p(k.target.value), $());
+              },
+              required: !0,
+              disabled: w,
+            }),
+            e.jsx("p", {
+              className: "ss-drawer-hint",
+              children:
+                "Calibrate after creating so detections land correctly on the map.",
+            }),
+          ],
+        }),
+      ],
+    }),
+  });
+}
+const dt = [
+  { value: "environmental", label: "Environmental" },
+  { value: "attribute", label: "Attribute" },
+];
+function Lt({
+  open: t,
+  mode: a,
+  sceneId: s,
+  scenes: l = [],
+  sensorUid: c,
+  authToken: m,
+  onClose: g,
+  onSaved: f,
+}) {
+  const y = Ee(),
+    [N, b] = n.useState(""),
+    [D, p] = n.useState(""),
+    [L, x] = n.useState(s),
+    [w, v] = n.useState("environmental"),
+    [R, O] = n.useState(!1),
+    [P, _] = n.useState(null),
+    [F, $] = n.useState(a === "create"),
+    { dirty: z, markDirty: A, resetDirty: k } = Ie(F);
+  n.useEffect(() => {
+    if (!t) return;
+    if ((_(null), x(s), k(), a === "create")) {
+      (b(""), p(""), v("environmental"), $(!0));
+      return;
+    }
+    if (($(!1), !c)) return;
+    let o = !1;
+    return (
+      O(!0),
+      ae
+        .getSensor(m, c)
+        .then((u) => {
+          o ||
+            (b(String(u.sensor_id || u.uid || c)),
+            p(String(u.name || "")),
+            v(String(u.singleton_type || "environmental")),
+            u.scene && x(String(u.scene)),
+            $(!0),
+            k());
+        })
+        .catch((u) => {
+          o || _(u.message || "Failed to load sensor");
+        })
+        .finally(() => {
+          o || O(!1);
+        }),
+      () => {
+        o = !0;
+      }
+    );
+  }, [t, a, c, m, s, k]);
+  const C = async (o) => {
+    if ((o.preventDefault(), !L.trim())) {
+      _("Scene is required");
+      return;
+    }
+    (O(!0), _(null));
+    const u = {
+      sensor_id: N.trim(),
+      name: D.trim(),
+      scene: L.trim(),
+      singleton_type: w,
+    };
+    try {
+      let M;
+      (a === "create"
+        ? ((M = await ae.createSensor(m, u)), y.show("Sensor created", "ok"))
+        : c &&
+          ((M = await ae.updateSensor(m, c, u)),
+          y.show("Sensor updated", "ok")),
+        k(),
+        f(M),
+        g());
+    } catch (M) {
+      _(M.message || "Save failed");
+    } finally {
+      O(!1);
+    }
+  };
+  return e.jsx(Be, {
+    open: t,
+    title: a === "create" ? "New sensor" : "Edit sensor",
+    onClose: g,
+    dirty: z,
+    actions: e.jsx(Me, {
+      variant: "primary",
+      disabled: R || !z,
+      form: "ss-sensor-sheet-form",
+      type: "submit",
+      title: z ? "Save changes" : "No unsaved changes",
+      className: z ? "ss-btn--dirty" : void 0,
+      children: R
+        ? "Saving…"
+        : a === "create"
+          ? "Add sensor"
+          : z
+            ? "Save"
+            : "Saved",
+    }),
+    children: e.jsxs("form", {
+      id: "ss-sensor-sheet-form",
+      className: "ss-drawer-form",
+      onSubmit: C,
+      children: [
+        P ? e.jsx("p", { className: "ss-drawer-error", children: P }) : null,
+        l.length > 0
+          ? e.jsx(Q, {
+              id: "ss-sensor-placement",
+              title: "Placement",
+              description: "Scene that owns this sensor.",
+              children: e.jsxs(de, {
+                id: "ss-sensor-scene",
+                label: "Scene",
+                value: L,
+                onChange: (o) => {
+                  (x(o.target.value), A());
+                },
+                required: !0,
+                disabled: R,
+                children: [
+                  e.jsx("option", { value: "", children: "Select scene…" }),
+                  l.map((o) =>
+                    e.jsx("option", { value: o.id, children: o.name }, o.id),
+                  ),
+                ],
+              }),
+            })
+          : null,
+        e.jsxs(Q, {
+          id: "ss-sensor-identity",
+          title: "Identity",
+          description: "Must match the telemetry source id.",
+          children: [
+            e.jsx(T, {
+              id: "ss-sensor-id",
+              label: "Sensor ID",
+              value: N,
+              onChange: (o) => {
+                (b(o.target.value), A());
+              },
+              required: !0,
+              disabled: R,
+            }),
+            e.jsx(T, {
+              id: "ss-sensor-name",
+              label: "Name",
+              value: D,
+              onChange: (o) => {
+                (p(o.target.value), A());
+              },
+              required: !0,
+              disabled: R,
+            }),
+            e.jsx(de, {
+              id: "ss-sensor-type",
+              label: "Type",
+              value: w,
+              onChange: (o) => {
+                (v(o.target.value), A());
+              },
+              disabled: R,
+              children: dt.map((o) =>
+                e.jsx("option", { value: o.value, children: o.label }, o.value),
+              ),
+            }),
+          ],
+        }),
+      ],
+    }),
+  });
+}
+function We({
+  open: t,
+  title: a,
+  children: s,
+  actions: l,
+  layout: c = "form",
+  className: m,
+  dirty: g = !1,
+  leaveTitle: f = "Leave without saving?",
+  leaveBody: y = "You may have unsaved changes. Leave without saving?",
+  onClose: N,
+}) {
+  const b = n.useId(),
+    [D, p] = n.useState(!1),
+    L = n.useRef(g);
+  L.current = g;
+  const x = n.useRef(N);
+  x.current = N;
+  const w = n.useCallback(() => {
+    if (L.current) {
+      p(!0);
+      return;
+    }
+    x.current();
+  }, []);
+  if (
+    (n.useEffect(() => {
+      if (!t) {
+        p(!1);
+        return;
+      }
+      const R = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      const O = (P) => {
+        P.key === "Escape" && w();
+      };
+      return (
+        window.addEventListener("keydown", O),
+        () => {
+          ((document.body.style.overflow = R),
+            window.removeEventListener("keydown", O));
+        }
+      );
+    }, [t, w]),
+    !t)
+  )
+    return null;
+  const v =
+    c === "bleed"
+      ? "ss-workspace-panel-body ss-workspace-panel-body--bleed"
+      : c === "split"
+        ? "ss-workspace-panel-body ss-workspace-panel-body--split"
+        : "ss-workspace-panel-body";
+  return lt.createPortal(
+    e.jsxs(e.Fragment, {
+      children: [
+        e.jsxs("div", {
+          className: `ss-workspace-panel${m ? ` ${m}` : ""}`,
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-labelledby": b,
+          children: [
+            e.jsxs("div", {
+              className: "ss-workspace-panel-bar",
+              children: [
+                e.jsxs("div", {
+                  className: "ss-workspace-panel-bar-start",
+                  children: [
+                    e.jsxs("button", {
+                      type: "button",
+                      className: "ss-workspace-panel-back",
+                      "aria-label": `Back from ${a}`,
+                      onClick: w,
+                      children: [
+                        e.jsx("span", { "aria-hidden": "true", children: "←" }),
+                        "Back",
+                      ],
+                    }),
+                    e.jsx("h2", {
+                      className: "ss-workspace-panel-title",
+                      id: b,
+                      children: a,
+                    }),
+                  ],
+                }),
+                l
+                  ? e.jsx("div", {
+                      className: "ss-workspace-panel-actions",
+                      children: l,
+                    })
+                  : e.jsx("div", {
+                      className: "ss-workspace-panel-actions",
+                      "aria-hidden": "true",
+                    }),
+              ],
+            }),
+            e.jsx("div", { className: v, children: s }),
+          ],
+        }),
+        e.jsx(ct, {
+          open: D,
+          title: f,
+          confirmLabel: "Leave",
+          cancelLabel: "Stay",
+          danger: !0,
+          onConfirm: () => {
+            (p(!1), N());
+          },
+          onCancel: () => p(!1),
+          children: e.jsx("p", { children: y }),
+        }),
+      ],
+    }),
+    document.body,
+  );
+}
+const qe = "ss-workspace-panel-layout-mode",
+  ut = [
+    {
+      mode: "auto",
+      label: "Auto",
+      title: "Place the settings panel automatically from viewport width",
+    },
+    {
+      mode: "stack",
+      label: "Below",
+      title: "Put the settings panel under the main view",
+    },
+    {
+      mode: "row",
+      label: "Beside",
+      title: "Put the settings panel beside the main view",
+    },
+  ];
+function Xe() {
+  try {
+    const t = window.localStorage.getItem(qe);
+    if (t === "auto" || t === "stack" || t === "row") return t;
+  } catch {}
+  return "auto";
+}
+function Ce() {
+  return window.innerWidth >= 1200 ? "row" : "stack";
+}
+function Ke(t) {
+  try {
+    window.localStorage.setItem(qe, t);
+  } catch {}
+}
+function Ue({ layoutMode: t, onChange: a }) {
+  return e.jsxs("div", {
+    className: "ss-cal-layout",
+    role: "group",
+    "aria-label": "Where to place the settings panel",
+    children: [
+      e.jsx("span", {
+        className: "ss-cal-layout-caption",
+        id: "ss-panel-layout-caption",
+        children: "Panel layout",
+      }),
+      e.jsx("div", {
+        className: "ss-cal-layout-toggle",
+        "aria-labelledby": "ss-panel-layout-caption",
+        children: ut.map((s) => {
+          const l = t === s.mode;
+          return e.jsx(
+            "button",
+            {
+              type: "button",
+              className: `ss-cal-layout-btn${l ? " is-active" : ""}`,
+              title: s.title,
+              "aria-pressed": l,
+              onClick: () => a(s.mode),
+              children: s.label,
+            },
+            s.mode,
+          );
+        }),
+      }),
+    ],
+  });
+}
+function Ge({
+  layout: t,
+  panelSizePx: a,
+  onResize: s,
+  disabled: l,
+  containerSelector: c = ".ss-workspace-body, .ss-cal-workspace",
+}) {
+  const m = n.useRef(!1),
+    g = n.useCallback(
+      (f) => {
+        if (l) return;
+        f.preventDefault();
+        const y = f.currentTarget,
+          N = y.closest(c);
+        if (!N) return;
+        (y.setPointerCapture(f.pointerId),
+          (m.current = !0),
+          document.body.classList.add("ss-workspace-resizing"),
+          (document.body.dataset.ssResize = t));
+        const b = (p) => {
+            if (!m.current) return;
+            const L = N.getBoundingClientRect();
+            s(t === "stack" ? L.bottom - p.clientY : L.right - p.clientX);
+          },
+          D = (p) => {
+            ((m.current = !1),
+              document.body.classList.remove("ss-workspace-resizing"),
+              delete document.body.dataset.ssResize);
+            try {
+              y.releasePointerCapture(p.pointerId);
+            } catch {}
+            (window.removeEventListener("pointermove", b),
+              window.removeEventListener("pointerup", D),
+              window.removeEventListener("pointercancel", D),
+              N.classList.contains("ss-workspace-body") &&
+                typeof window.fitSceneMapDisplay == "function" &&
+                window.fitSceneMapDisplay());
+          };
+        (window.addEventListener("pointermove", b),
+          window.addEventListener("pointerup", D),
+          window.addEventListener("pointercancel", D));
+      },
+      [c, l, t, s],
+    );
+  return e.jsx("div", {
+    className: `ss-workspace-splitter ss-workspace-splitter--${t}`,
+    role: "separator",
+    "aria-orientation": t === "stack" ? "horizontal" : "vertical",
+    "aria-label": "Drag to resize the panel",
+    title: "Drag to resize the panel",
+    "aria-valuenow": Math.round(a),
+    "aria-disabled": l || void 0,
+    tabIndex: l ? -1 : 0,
+    onPointerDown: g,
+    onKeyDown: (f) => {
+      if (l) return;
+      const y = f.shiftKey ? 32 : 16;
+      (t === "stack" && f.key === "ArrowUp") ||
+      (t === "row" && f.key === "ArrowLeft")
+        ? (f.preventDefault(), s(a + y))
+        : ((t === "stack" && f.key === "ArrowDown") ||
+            (t === "row" && f.key === "ArrowRight")) &&
+          (f.preventDefault(), s(a - y));
+    },
+  });
+}
+const mt = "ss-workspace-panel-size",
+  Je = "ss-workspace-map-focus",
+  He = "ss-cal-panel-size",
+  De = 224,
+  Oe = 320,
+  Ve = 140,
+  Ze = 520,
+  Qe = 220,
+  et = 560;
+function Re(t, a, s) {
+  return Math.min(s, Math.max(a, t));
+}
+function ft(t) {
+  try {
+    const a = window.localStorage.getItem(t);
+    if (a) {
+      const s = JSON.parse(a);
+      return {
+        stack: Re(Number(s.stack) || De, Ve, Ze),
+        row: Re(Number(s.row) || Oe, Qe, et),
+      };
+    }
+  } catch {}
+  return { stack: De, row: Oe };
+}
+function pt(t, a) {
+  try {
+    window.localStorage.setItem(t, JSON.stringify(a));
+  } catch {}
+}
+function ht() {
+  try {
+    return window.localStorage.getItem(Je) === "1";
+  } catch {
+    return !1;
+  }
+}
+function ze(t) {
+  try {
+    window.localStorage.setItem(Je, t ? "1" : "0");
+  } catch {}
+}
+function tt(t, a = {}) {
+  const s = a.storageKey ?? mt,
+    l = a.enableFocus !== !1,
+    [c, m] = n.useState(() =>
+      typeof window < "u" ? ft(s) : { stack: De, row: Oe },
+    ),
+    [g, f] = n.useState(() => (typeof window < "u" && l ? ht() : !1)),
+    y = t === "stack" ? Ve : Qe,
+    N = t === "stack" ? Ze : et,
+    b = t === "stack" ? c.stack : c.row,
+    D = n.useCallback(
+      (x) => {
+        const w = Re(x, y, N);
+        m((v) => {
+          const R = t === "stack" ? { ...v, stack: w } : { ...v, row: w };
+          return (pt(s, R), R);
+        });
+      },
+      [t, y, N, s],
+    ),
+    p = n.useCallback((x) => {
+      (f(x), ze(x));
+    }, []),
+    L = n.useCallback(() => {
+      f((x) => {
+        const w = !x;
+        return (ze(w), w);
+      });
+    }, []);
+  return (
+    n.useEffect(() => {
+      if (!l) return;
+      const x = (w) => {
+        w.key === "Escape" && g && p(!1);
+      };
+      return (
+        window.addEventListener("keydown", x),
+        () => window.removeEventListener("keydown", x)
+      );
+    }, [l, g, p]),
+    {
+      panelSizePx: b,
+      setPanelSizePx: D,
+      mapFocus: g,
+      setMapFocus: p,
+      toggleMapFocus: L,
+      minPx: y,
+      maxPx: N,
+    }
+  );
+}
+function G(t, a = "") {
+  return t == null || t === "" ? a : String(t);
+}
+function U(t) {
+  const a = t.trim();
+  if (!a) return;
+  const s = Number(a);
+  return Number.isFinite(s) ? s : void 0;
+}
+function gt(t) {
+  if (Array.isArray(t) && t.length >= 2)
+    return { width: G(t[0]), height: G(t[1]) };
+  if (t && typeof t == "object") {
+    const a = t;
+    return { width: G(a.width), height: G(a.height) };
+  }
+  return { width: "", height: "" };
+}
+function yt(t, a = 8e3) {
+  return new Promise((s, l) => {
+    const c = t.contentWindow;
+    if (!c) {
+      l(new Error("Calibration viewport is not ready"));
+      return;
+    }
+    const m = window.setTimeout(() => {
+        (window.removeEventListener("message", g),
+          l(new Error("Timed out waiting for calibration pose")));
+      }, a),
+      g = (f) => {
+        f.origin === window.location.origin &&
+          (!f.data ||
+            f.data.type !== "ss-calibrate-pose" ||
+            (window.clearTimeout(m),
+            window.removeEventListener("message", g),
+            s(f.data)));
+      };
+    (window.addEventListener("message", g),
+      c.postMessage(
+        { type: "ss-calibrate-request-pose" },
+        window.location.origin,
+      ));
+  });
+}
+function Pt({
+  open: t,
+  cameraPk: a,
+  sensorId: s,
+  cameraName: l = "",
+  sceneId: c,
+  authToken: m,
+  isKubernetes: g,
+  onClose: f,
+  onSaved: y,
+}) {
+  const N = Ee(),
+    b = n.useRef(null),
+    D = n.useRef(!0),
+    [p, L] = n.useState(() => (typeof window < "u" ? Xe() : "auto")),
+    [x, w] = n.useState(() => (typeof window < "u" ? Ce() : "stack")),
+    [v, R] = n.useState(""),
+    [O, P] = n.useState(s),
+    [_, F] = n.useState({ fx: "", fy: "", cx: "", cy: "" }),
+    [$, z] = n.useState({ k1: "", k2: "", p1: "", p2: "", k3: "" }),
+    [A, k] = n.useState(!0),
+    [C, o] = n.useState(""),
+    [u, M] = n.useState(""),
+    [Y, q] = n.useState("AUTO"),
+    [I, K] = n.useState(!1),
+    [re, ue] = n.useState("model_config.json"),
+    [me, he] = n.useState(!1),
+    [B, fe] = n.useState(!1),
+    [W, J] = n.useState(null),
+    [oe, H] = n.useState(!1),
+    [V, ge] = n.useState(!1),
+    [pe, we] = n.useState(!1);
+  D.current = A;
+  const ie = g,
+    le = g,
+    Z = n.useCallback(() => {
+      V && H(!0);
+    }, [V]),
+    Se = n.useCallback((r, i, h) => {
+      var E;
+      const S = (E = b.current) == null ? void 0 : E.contentWindow;
+      S &&
+        S.postMessage(
+          {
+            type: "ss-calibrate-optics-set",
+            intrinsics: r,
+            distortion: i,
+            fixIntrinsics: { fx: h, fy: h },
+          },
+          window.location.origin,
+        );
+    }, []);
+  (n.useEffect(() => {
+    if (!t || !s) return;
+    let r = !1;
+    return (
+      fe(!0),
+      J(null),
+      H(!1),
+      ge(!1),
+      k(!0),
+      we(!1),
+      l && R(l),
+      ae
+        .getCamera(m, s)
+        .then((i) => {
+          if (r) return;
+          (R(String(i.name || l || "")), P(String(i.sensor_id || i.uid || s)));
+          const h =
+            i.intrinsics && typeof i.intrinsics == "object" ? i.intrinsics : {};
+          F({ fx: G(h.fx), fy: G(h.fy), cx: G(h.cx), cy: G(h.cy) });
+          const S =
+            i.distortion && typeof i.distortion == "object" ? i.distortion : {};
+          z({
+            k1: G(S.k1),
+            k2: G(S.k2),
+            p1: G(S.p1),
+            p2: G(S.p2),
+            k3: G(S.k3),
+          });
+          const E = gt(i.resolution);
+          (o(E.width),
+            M(E.height),
+            ie &&
+              (q(String(i.cv_subsystem || "AUTO")),
+              K(!!i.undistort),
+              ue(String(i.modelconfig || "model_config.json")),
+              he(!!i.use_camera_pipeline)),
+            ge(!0));
+        })
+        .catch((i) => {
+          r || J(i.message || "Failed to load camera");
+        })
+        .finally(() => {
+          r || fe(!1);
+        }),
+      () => {
+        r = !0;
+      }
+    );
+  }, [t, s, l, m, ie]),
+    n.useEffect(() => {
+      if (!t) return;
+      const r = (i) => {
+        if (
+          i.origin === window.location.origin &&
+          !(!i.data || typeof i.data != "object")
+        ) {
+          if (i.data.type === "ss-calibrate-done") {
+            (N.show("Camera calibration saved", "ok"), y(), f());
+            return;
+          }
+          if (i.data.type === "ss-calibrate-points-changed") {
+            H(!0);
+            return;
+          }
+          if (i.data.type === "ss-calibrate-optics") {
+            const h = i.data.intrinsics,
+              S = i.data.distortion,
+              E = D.current;
+            (h &&
+              F((j) =>
+                E
+                  ? { ...j, cx: h.cx ?? j.cx, cy: h.cy ?? j.cy }
+                  : { ...j, ...h },
+              ),
+              S && le && z((j) => ({ ...j, ...S })));
+          }
+        }
+      };
+      return (
+        window.addEventListener("message", r),
+        () => window.removeEventListener("message", r)
+      );
+    }, [t, f, y, N, le]),
+    n.useEffect(() => {
+      !t || !V || !pe || Se(_, $, A);
+    }, [t, V, pe, _, $, A, Se]),
+    n.useEffect(() => {
+      const r = () => w(Ce());
+      return (
+        r(),
+        window.addEventListener("resize", r),
+        () => window.removeEventListener("resize", r)
+      );
+    }, []));
+  const ye = n.useCallback((r) => {
+      (L(r), Ke(r));
+    }, []),
+    ce = p === "auto" ? x : p,
+    { panelSizePx: ve, setPanelSizePx: xe } = tt(ce, {
+      storageKey: He,
+      enableFocus: !1,
+    });
+  n.useEffect(() => {
+    if (!t) return;
+    const r = window.requestAnimationFrame(() => {
+      var i, h;
+      (h = (i = b.current) == null ? void 0 : i.contentWindow) == null ||
+        h.dispatchEvent(new Event("resize"));
+    });
+    return () => window.cancelAnimationFrame(r);
+  }, [t, ve, ce]);
+  const je = (r, i) => {
+      A || (F((h) => ({ ...h, [r]: i })), Z());
+    },
+    X = (r, i) => {
+      le && (z((h) => ({ ...h, [r]: i })), Z());
+    },
+    Ne = (r, i) => {
+      const h = r === "width" ? i : C,
+        S = r === "height" ? i : u;
+      r === "width" ? o(i) : M(i);
+      const E = U(h),
+        j = U(S);
+      (F((ee) => ({
+        ...ee,
+        cx: E !== void 0 ? String(E / 2) : ee.cx,
+        cy: j !== void 0 ? String(j / 2) : ee.cy,
+      })),
+        Z());
+    },
+    Le = async (r) => {
+      (r == null || r.preventDefault(), fe(!0), J(null));
+      const i = {
+          name: v.trim(),
+          sensor_id: O.trim() || s,
+          scene: c,
+          intrinsics: {
+            fx: U(_.fx) ?? 0,
+            fy: U(_.fy) ?? 0,
+            cx: U(_.cx) ?? 0,
+            cy: U(_.cy) ?? 0,
+          },
+          distortion: {
+            k1: U($.k1) ?? 0,
+            k2: U($.k2) ?? 0,
+            p1: U($.p1) ?? 0,
+            p2: U($.p2) ?? 0,
+            k3: U($.k3) ?? 0,
+          },
+        },
+        h = U(C),
+        S = U(u);
+      (h !== void 0 && S !== void 0 && (i.resolution = { width: h, height: S }),
+        ie &&
+          ((i.cv_subsystem = Y),
+          (i.undistort = I),
+          (i.modelconfig = re.trim() || null),
+          (i.use_camera_pipeline = me)));
+      try {
+        const E = b.current;
+        if (E != null && E.contentWindow) {
+          const j = await yt(E);
+          if (j.error && !j.empty) {
+            (J(j.error), fe(!1));
+            return;
+          }
+          !j.empty &&
+            j.transform_type &&
+            Array.isArray(j.transforms) &&
+            ((i.transform_type = j.transform_type),
+            (i.transforms = j.transforms));
+        }
+        (await ae.updateCamera(m, s, i),
+          N.show("Camera saved", "ok"),
+          H(!1),
+          y(),
+          f());
+      } catch (E) {
+        J(E.message || "Save failed");
+      } finally {
+        fe(!1);
+      }
+    },
+    d = e.jsxs("form", {
+      id: "ss-cam-calibrate-form",
+      className: "ss-workspace-panel-form",
+      onSubmit: Le,
+      children: [
+        W
+          ? e.jsx("p", { className: "ss-workspace-panel-error", children: W })
+          : null,
+        B && !V
+          ? e.jsx("p", {
+              className: "ss-workspace-panel-hint",
+              children: "Loading camera…",
+            })
+          : null,
+        e.jsxs(Q, {
+          id: "ss-cam-cal-identity",
+          title: "Identity",
+          description: "Camera name and pipeline id.",
+          children: [
+            e.jsx(T, {
+              id: "ss-cam-cal-name",
+              label: "Name",
+              value: v,
+              onChange: (r) => {
+                (R(r.target.value), Z());
+              },
+              required: !0,
+              disabled: B,
+            }),
+            e.jsx(T, {
+              id: "ss-cam-cal-sensor-id",
+              label: "Camera ID",
+              value: O,
+              onChange: (r) => {
+                (P(r.target.value), Z());
+              },
+              disabled: B,
+            }),
+            e.jsx(T, {
+              id: "ss-cam-cal-scene",
+              label: "Scene",
+              value: c,
+              readOnly: !0,
+              disabled: !0,
+            }),
+          ],
+        }),
+        e.jsxs(Q, {
+          id: "ss-cam-cal-intrinsics",
+          title: "Intrinsics",
+          description:
+            "Lock fx and fy when focal length is known so calibration treats them as constraints. Unlock to estimate them (6+ point pairs). cx and cy follow resolution.",
+          className: "ss-form-section--columns",
+          children: [
+            e.jsxs("div", {
+              className: "ss-cal-focal-lock",
+              children: [
+                e.jsx("input", {
+                  type: "checkbox",
+                  id: "ss-cam-cal-lock-focal",
+                  checked: A,
+                  disabled: B,
+                  onChange: (r) => {
+                    (k(r.target.checked), Z());
+                  },
+                }),
+                e.jsx("label", {
+                  htmlFor: "ss-cam-cal-lock-focal",
+                  children: "Lock fx & fy (known intrinsics)",
+                }),
+              ],
+            }),
+            e.jsx(T, {
+              id: "ss-cam-cal-fx",
+              label: "fx",
+              inputMode: "decimal",
+              value: _.fx,
+              onChange: (r) => je("fx", r.target.value),
+              disabled: B || A,
+              readOnly: A,
+              title: A
+                ? "Unlock fx & fy to edit or estimate focal length"
+                : "Focal length x",
+            }),
+            e.jsx(T, {
+              id: "ss-cam-cal-fy",
+              label: "fy",
+              inputMode: "decimal",
+              value: _.fy,
+              onChange: (r) => je("fy", r.target.value),
+              disabled: B || A,
+              readOnly: A,
+              title: A
+                ? "Unlock fx & fy to edit or estimate focal length"
+                : "Focal length y",
+            }),
+            e.jsx(T, {
+              id: "ss-cam-cal-cx",
+              label: "cx",
+              inputMode: "decimal",
+              value: _.cx,
+              readOnly: !0,
+              disabled: !0,
+              title: "Principal point x (derived from frame width)",
+            }),
+            e.jsx(T, {
+              id: "ss-cam-cal-cy",
+              label: "cy",
+              inputMode: "decimal",
+              value: _.cy,
+              readOnly: !0,
+              disabled: !0,
+              title: "Principal point y (derived from frame height)",
+            }),
+          ],
+        }),
+        e.jsx(Q, {
+          id: "ss-cam-cal-distortion",
+          title: "Distortion",
+          description: le
+            ? "Radial and tangential coefficients."
+            : "Distortion is read-only on Docker deploys (matches Manager form).",
+          className: "ss-form-section--columns",
+          children: ["k1", "k2", "p1", "p2", "k3"].map((r) =>
+            e.jsx(
+              T,
+              {
+                id: `ss-cam-cal-d-${r}`,
+                label: r,
+                inputMode: "decimal",
+                value: $[r],
+                onChange: (i) => X(r, i.target.value),
+                disabled: B || !le,
+                readOnly: !le,
+              },
+              r,
+            ),
+          ),
+        }),
+        e.jsxs(Q, {
+          id: "ss-cam-cal-resolution",
+          title: "Resolution",
+          description:
+            "Frame size in pixels. Changing size updates cx/cy to the image center.",
+          className: "ss-form-section--columns",
+          children: [
+            e.jsx(T, {
+              id: "ss-cam-cal-width",
+              label: "Width",
+              inputMode: "numeric",
+              value: C,
+              onChange: (r) => Ne("width", r.target.value),
+              disabled: B,
+            }),
+            e.jsx(T, {
+              id: "ss-cam-cal-height",
+              label: "Height",
+              inputMode: "numeric",
+              value: u,
+              onChange: (r) => Ne("height", r.target.value),
+              disabled: B,
+            }),
+          ],
+        }),
+        ie
+          ? e.jsxs(Q, {
+              id: "ss-cam-cal-advanced",
+              title: "Advanced",
+              description: "Pipeline and decode options (Kubernetes only).",
+              collapsible: !0,
+              defaultOpen: !1,
+              children: [
+                e.jsxs(de, {
+                  id: "ss-cam-cal-cv",
+                  label: "Decode device",
+                  value: Y,
+                  onChange: (r) => {
+                    (q(r.target.value), Z());
+                  },
+                  disabled: B,
+                  children: [
+                    e.jsx("option", { value: "AUTO", children: "AUTO" }),
+                    e.jsx("option", { value: "GPU", children: "GPU" }),
+                    e.jsx("option", { value: "CPU", children: "CPU" }),
+                  ],
+                }),
+                e.jsxs(de, {
+                  id: "ss-cam-cal-undistort",
+                  label: "Undistort",
+                  value: I ? "true" : "false",
+                  onChange: (r) => {
+                    (K(r.target.value === "true"), Z());
+                  },
+                  disabled: !0,
+                  title:
+                    "Undistort is disabled until DLSPS supports cameraundistort",
+                  children: [
+                    e.jsx("option", { value: "false", children: "No" }),
+                    e.jsx("option", { value: "true", children: "Yes" }),
+                  ],
+                }),
+                e.jsx(T, {
+                  id: "ss-cam-cal-modelconfig",
+                  label: "Model config",
+                  value: re,
+                  onChange: (r) => {
+                    (ue(r.target.value), Z());
+                  },
+                  disabled: B,
+                }),
+                e.jsxs(de, {
+                  id: "ss-cam-cal-pipeline",
+                  label: "Use camera pipeline",
+                  value: me ? "true" : "false",
+                  onChange: (r) => {
+                    (he(r.target.value === "true"), Z());
+                  },
+                  disabled: B,
+                  children: [
+                    e.jsx("option", { value: "false", children: "No" }),
+                    e.jsx("option", { value: "true", children: "Yes" }),
+                  ],
+                }),
+              ],
+            })
+          : null,
+      ],
+    });
+  return e.jsx(We, {
+    open: t,
+    title: "Calibrate camera",
+    layout: "bleed",
+    dirty: oe,
+    leaveTitle: "Leave calibration?",
+    leaveBody:
+      "You may have unsaved calibration changes. Leave without saving?",
+    onClose: f,
+    actions: e.jsxs(e.Fragment, {
+      children: [
+        e.jsx(Ue, { layoutMode: p, onChange: ye }),
+        e.jsx(Me, {
+          variant: "primary",
+          disabled: B || !V || !oe,
+          form: "ss-cam-calibrate-form",
+          type: "submit",
+          title: oe ? "Save changes" : "No unsaved changes",
+          className: oe ? "ss-btn--dirty" : void 0,
+          children: B ? "Saving…" : oe ? "Save" : "Saved",
+        }),
+      ],
+    }),
+    children: e.jsxs("div", {
+      className: `ss-cal-workspace ss-cal-workspace--${ce}`,
+      "data-cal-layout": ce,
+      "data-cal-layout-mode": p,
+      style: { "--ss-panel-size": `${ve}px` },
+      children: [
+        e.jsxs("div", {
+          className: "ss-cal-workspace-main ss-workspace-cal-preview",
+          children: [
+            e.jsxs("div", {
+              className: "ss-workspace-cal-preview-meta",
+              children: [
+                e.jsx("h3", {
+                  className: "ss-form-section-title",
+                  children: "Calibration workspace",
+                }),
+                e.jsx("p", {
+                  className: "ss-workspace-panel-hint",
+                  style: { marginBottom: 0 },
+                  children:
+                    "Live camera view and 3D scene map. Double-click to add points, drag to move them, scroll to zoom, and right-click to delete. Orbit the scene with click-drag.",
+                }),
+              ],
+            }),
+            a
+              ? e.jsx("div", {
+                  className: "ss-workspace-cal-preview-frame",
+                  children: e.jsx("iframe", {
+                    ref: b,
+                    title: "Point calibrator",
+                    src: `/cam/calibrate/${a}?embed=1`,
+                    onLoad: () => we(!0),
+                  }),
+                })
+              : e.jsx("p", {
+                  className: "ss-workspace-panel-hint",
+                  children:
+                    "Camera primary key is missing; the 3D calibrator cannot load.",
+                }),
+          ],
+        }),
+        e.jsx(Ge, { layout: ce, panelSizePx: ve, onResize: xe }),
+        e.jsx("aside", { className: "ss-cal-workspace-aside", children: d }),
+      ],
+    }),
+  });
+}
+function wt(t) {
+  const a = Number(t);
+  return Number.isFinite(a) ? a : 0;
+}
+function vt({
+  value: t,
+  disabled: a = !1,
+  showLabel: s = !0,
+  label: l = "Occupancy thresholds",
+  legacyInputClasses: c = !1,
+  idPrefix: m = "ss-occupancy",
+  onChange: g,
+}) {
+  const f = (y, N) => {
+    g({ ...t, [y]: wt(N) });
+  };
+  return e.jsxs("div", {
+    className: "ss-color-range",
+    children: [
+      s
+        ? e.jsx("div", { className: "ss-color-range__label", children: l })
+        : null,
+      e.jsxs("div", {
+        className: "ss-color-range__track",
+        "aria-hidden": "true",
+        children: [
+          e.jsx("span", {
+            className: "ss-color-range__seg ss-color-range__seg--green",
+          }),
+          e.jsx("span", {
+            className: "ss-color-range__seg ss-color-range__seg--yellow",
+          }),
+          e.jsx("span", {
+            className: "ss-color-range__seg ss-color-range__seg--red",
+          }),
+        ],
+      }),
+      e.jsxs("div", {
+        className: "ss-color-range__inputs sector-config",
+        children: [
+          e.jsxs("label", {
+            className: "ss-color-range__field",
+            htmlFor: `${m}-green`,
+            children: [
+              e.jsx("span", {
+                className:
+                  "ss-color-range__swatch ss-color-range__swatch--green",
+              }),
+              e.jsx("span", {
+                className: "ss-color-range__caption",
+                children: "Green",
+              }),
+              e.jsx("input", {
+                id: `${m}-green`,
+                type: "number",
+                className: `ss-color-range__input form-control${c ? " green_min" : ""}`,
+                disabled: a,
+                value: t.greenMin,
+                "aria-label": "Green threshold minimum",
+                onChange: (y) => f("greenMin", y.target.value),
+              }),
+            ],
+          }),
+          e.jsxs("label", {
+            className: "ss-color-range__field",
+            htmlFor: `${m}-yellow`,
+            children: [
+              e.jsx("span", {
+                className:
+                  "ss-color-range__swatch ss-color-range__swatch--yellow",
+              }),
+              e.jsx("span", {
+                className: "ss-color-range__caption",
+                children: "Yellow",
+              }),
+              e.jsx("input", {
+                id: `${m}-yellow`,
+                type: "number",
+                className: `ss-color-range__input form-control${c ? " yellow_min" : ""}`,
+                disabled: a,
+                value: t.yellowMin,
+                "aria-label": "Yellow threshold minimum",
+                onChange: (y) => f("yellowMin", y.target.value),
+              }),
+            ],
+          }),
+          e.jsxs("label", {
+            className: "ss-color-range__field",
+            htmlFor: `${m}-red`,
+            children: [
+              e.jsx("span", {
+                className: "ss-color-range__swatch ss-color-range__swatch--red",
+              }),
+              e.jsx("span", {
+                className: "ss-color-range__caption",
+                children: "Red",
+              }),
+              e.jsx("input", {
+                id: `${m}-red`,
+                type: "number",
+                className: `ss-color-range__input form-control${c ? " red_min" : ""}`,
+                disabled: a,
+                value: t.redMin,
+                "aria-label": "Red threshold minimum",
+                onChange: (y) => f("redMin", y.target.value),
+              }),
+            ],
+          }),
+          e.jsxs("label", {
+            className: "ss-color-range__field",
+            htmlFor: `${m}-max`,
+            children: [
+              e.jsx("span", {
+                className: "ss-color-range__caption",
+                children: "Max",
+              }),
+              e.jsx("input", {
+                id: `${m}-max`,
+                type: "number",
+                className: `ss-color-range__input form-control${c ? " range_max" : ""}`,
+                disabled: a,
+                value: t.rangeMax,
+                "aria-label": "Range maximum",
+                onChange: (y) => f("rangeMax", y.target.value),
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+}
+function st(t, a, s, l) {
+  return [t / s, (l - a) / s];
+}
+function Ae(t, a, s, l) {
+  return [t * s, l - a * s];
+}
+function Te() {
+  const t = document.getElementById("scale"),
+    a = Number(
+      (t == null ? void 0 : t.value) ||
+        (t == null ? void 0 : t.textContent) ||
+        "100",
+    );
+  return Number.isFinite(a) && a > 0 ? a : 100;
+}
+function Ft(t = 1e3) {
+  const a = document.querySelector("#svgout image, #map img");
+  if (a && "height" in a && typeof a.height == "object") {
+    const s = Number(a.getAttribute("height"));
+    if (Number.isFinite(s) && s > 0) return s;
+  }
+  return a && "naturalHeight" in a && a.naturalHeight > 0 ? a.naturalHeight : t;
+}
+function _e(t, a, s) {
+  const l = t.createSVGPoint();
+  ((l.x = a), (l.y = s));
+  const c = t.getScreenCTM();
+  if (!c) return null;
+  const m = l.matrixTransform(c.inverse());
+  return [m.x, m.y];
+}
+function xt({
+  mapUrl: t,
+  scale: a,
+  area: s,
+  centerX: l,
+  centerY: c,
+  radius: m,
+  points: g,
+  onCenterChange: f,
+  onRadiusChange: y,
+  onPointsChange: N,
+}) {
+  const [b, D] = n.useState(null),
+    [p, L] = n.useState([]);
+  (n.useEffect(() => {
+    let o = !1;
+    const u = new Image();
+    return (
+      (u.onload = () => {
+        !o &&
+          u.naturalWidth > 0 &&
+          u.naturalHeight > 0 &&
+          D({ width: u.naturalWidth, height: u.naturalHeight });
+      }),
+      (u.src = t),
+      () => {
+        o = !0;
+      }
+    );
+  }, [t]),
+    n.useEffect(() => {
+      L([]);
+    }, [s]));
+  const x = (b == null ? void 0 : b.height) || 1,
+    w = a > 0 ? a : 100,
+    v = n.useMemo(() => Ae(l, c, w, x), [l, c, w, x]),
+    R = Math.max(4, m * w),
+    O = n.useMemo(() => g.map((o) => Ae(o[0], o[1], w, x)), [g, w, x]),
+    P = n.useMemo(() => p.map((o) => Ae(o[0], o[1], w, x)), [p, w, x]),
+    _ = (o, u) => st(o, u, w, x),
+    F = (o) => {
+      if (s === "scene") return;
+      const u = _e(o.currentTarget, o.clientX, o.clientY);
+      if (!u) return;
+      const M = _(u[0], u[1]);
+      if (s === "circle") {
+        f(M[0], M[1]);
+        return;
+      }
+      if (!(!p.length && g.length >= 3)) {
+        if (p.length >= 3) {
+          const Y = P[0];
+          if (Y && Math.hypot(u[0] - Y[0], u[1] - Y[1]) < 12) {
+            (N(p), L([]));
+            return;
+          }
+        }
+        L((Y) => [...Y, M]);
+      }
+    },
+    $ = (o) => {
+      (o.stopPropagation(), o.preventDefault());
+      const u = o.target.ownerSVGElement;
+      if (!u) return;
+      const M = (q) => {
+          const I = _e(u, q.clientX, q.clientY);
+          if (!I) return;
+          const K = _(I[0], I[1]);
+          f(K[0], K[1]);
+        },
+        Y = () => {
+          (window.removeEventListener("mousemove", M),
+            window.removeEventListener("mouseup", Y));
+        };
+      (window.addEventListener("mousemove", M),
+        window.addEventListener("mouseup", Y));
+    },
+    z = (o) => {
+      (o.stopPropagation(), o.preventDefault());
+      const u = o.target.ownerSVGElement;
+      if (!u) return;
+      const M = (q) => {
+          const I = _e(u, q.clientX, q.clientY);
+          if (!I) return;
+          const K = Math.hypot(I[0] - v[0], I[1] - v[1]);
+          y(Math.max(0.1, K / w));
+        },
+        Y = () => {
+          (window.removeEventListener("mousemove", M),
+            window.removeEventListener("mouseup", Y));
+        };
+      (window.addEventListener("mousemove", M),
+        window.addEventListener("mouseup", Y));
+    },
+    A = (o, u) => {
+      (u.stopPropagation(), u.preventDefault());
+      const M = u.target.ownerSVGElement;
+      if (!M) return;
+      const Y = p.length ? p : g,
+        q = (K) => {
+          const re = _e(M, K.clientX, K.clientY);
+          if (!re) return;
+          const ue = Y.map((me, he) => (he === o ? _(re[0], re[1]) : me));
+          p.length ? L(ue) : N(ue);
+        },
+        I = () => {
+          (window.removeEventListener("mousemove", q),
+            window.removeEventListener("mouseup", I));
+        };
+      (window.addEventListener("mousemove", q),
+        window.addEventListener("mouseup", I));
+    };
+  if (!b)
+    return e.jsx("p", {
+      className: "ss-workspace-panel-hint",
+      children: "Loading scene map…",
+    });
+  const k = s === "circle" || s === "poly",
+    C = P.length ? P : O;
+  return e.jsxs("svg", {
+    className: `ss-sensor-area-map${k ? " is-drawing" : ""}`,
+    viewBox: `0 0 ${b.width} ${b.height}`,
+    preserveAspectRatio: "xMidYMid meet",
+    width: "100%",
+    height: "100%",
+    onClick: F,
+    role: "img",
+    "aria-label": "Sensor coverage map",
+    children: [
+      e.jsx("image", {
+        href: t,
+        x: 0,
+        y: 0,
+        width: b.width,
+        height: b.height,
+        preserveAspectRatio: "none",
+      }),
+      s === "circle"
+        ? e.jsxs("g", {
+            className: "ss-sensor-area-circle",
+            children: [
+              e.jsx("circle", {
+                className: "ss-sensor-area-coverage",
+                cx: v[0],
+                cy: v[1],
+                r: R,
+                onMouseDown: z,
+                onClick: (o) => o.stopPropagation(),
+              }),
+              e.jsx("circle", {
+                className: "ss-sensor-area-handle",
+                cx: v[0],
+                cy: v[1],
+                r: 7,
+                onMouseDown: $,
+                onClick: (o) => o.stopPropagation(),
+              }),
+            ],
+          })
+        : null,
+      s === "poly" && C.length > 0
+        ? e.jsxs("g", {
+            className: "ss-sensor-area-poly",
+            children: [
+              C.length >= 2
+                ? p.length
+                  ? e.jsx("polyline", {
+                      className: "ss-sensor-area-draft",
+                      points: C.map((o) => o.join(",")).join(" "),
+                    })
+                  : e.jsx("polygon", {
+                      className: "ss-sensor-area-coverage",
+                      points: C.map((o) => o.join(",")).join(" "),
+                    })
+                : null,
+              C.map((o, u) =>
+                e.jsx(
+                  "circle",
+                  {
+                    className:
+                      u === 0 && p.length >= 3
+                        ? "ss-sensor-area-handle is-close"
+                        : "ss-sensor-area-handle",
+                    cx: o[0],
+                    cy: o[1],
+                    r: 6,
+                    onMouseDown: (M) => {
+                      (u === 0 && p.length >= 3) || A(u, M);
+                    },
+                    onClick: (M) => {
+                      (M.stopPropagation(),
+                        u === 0 && p.length >= 3 && (N(p), L([])));
+                    },
+                  },
+                  u,
+                ),
+              ),
+            ],
+          })
+        : null,
+    ],
+  });
+}
+const bt = [
+  { value: "environmental", label: "Environmental" },
+  { value: "attribute", label: "Attribute" },
+];
+function se(t, a = "") {
+  return t == null || t === "" ? a : String(t);
+}
+function ne(t) {
+  const a = t.trim();
+  if (!a) return;
+  const s = Number(a);
+  return Number.isFinite(s) ? s : void 0;
+}
+function be(t, a) {
+  const s = Number(t),
+    l = Number(a);
+  return !Number.isFinite(s) || !Number.isFinite(l)
+    ? !0
+    : Math.abs(s) < 1e-9 && Math.abs(l) < 1e-9;
+}
+function Ye(t, a, s) {
+  const l = t > 0 ? t : 100;
+  return a > 0 && s > 0 ? st(a / 2, s / 2, l, s) : [0, 0];
+}
+function St(t) {
+  const a = t.color_ranges;
+  if (a && typeof a == "object") {
+    const s = a,
+      l = s.sectors || [],
+      c = (m, g) => {
+        const f = l.find((y) => y.color === m);
+        return f != null ? String(f.color_min) : String(g);
+      };
+    return {
+      green: c("green", 0),
+      yellow: c("yellow", 2),
+      red: c("red", 5),
+      max: s.range_max != null ? String(s.range_max) : "10",
+    };
+  }
+  return { green: "0", yellow: "2", red: "5", max: "10" };
+}
+function jt(t) {
+  try {
+    const a = JSON.parse(t);
+    return Array.isArray(a)
+      ? a
+          .filter(
+            (s) =>
+              Array.isArray(s) &&
+              s.length >= 2 &&
+              Number.isFinite(Number(s[0])) &&
+              Number.isFinite(Number(s[1])),
+          )
+          .map((s) => [Number(s[0]), Number(s[1])])
+      : [];
+  } catch {
+    return [];
+  }
+}
+function At({
+  open: t,
+  sensorPk: a,
+  sensorId: s,
+  sceneId: l,
+  authToken: c,
+  mapUrlHint: m = null,
+  mapScale: g = null,
+  onClose: f,
+  onSaved: y,
+}) {
+  const N = Ee(),
+    [b, D] = n.useState(""),
+    [p, L] = n.useState(s),
+    [x, w] = n.useState("environmental"),
+    [v, R] = n.useState("scene"),
+    [O, P] = n.useState("0"),
+    [_, F] = n.useState("0"),
+    [$, z] = n.useState("1"),
+    [A, k] = n.useState("[]"),
+    [C, o] = n.useState("0"),
+    [u, M] = n.useState("2"),
+    [Y, q] = n.useState("5"),
+    [I, K] = n.useState("10"),
+    [re, ue] = n.useState(m),
+    [me, he] = n.useState(() => (g && g > 0 ? g : Te())),
+    [B, fe] = n.useState(null),
+    [W, J] = n.useState(!1),
+    [oe, H] = n.useState(null),
+    [V, ge] = n.useState(!1),
+    [pe, we] = n.useState(!1),
+    [ie, le] = n.useState(() => (typeof window < "u" ? Xe() : "auto")),
+    [Z, Se] = n.useState(() => (typeof window < "u" ? Ce() : "stack")),
+    ye = ie === "auto" ? Z : ie,
+    { panelSizePx: ce, setPanelSizePx: ve } = tt(ye, {
+      storageKey: He,
+      enableFocus: !1,
+    }),
+    xe = p.trim() || s,
+    je = n.useCallback((d) => {
+      (le(d), Ke(d));
+    }, []),
+    X = n.useCallback(() => {
+      pe && ge(!0);
+    }, [pe]);
+  (n.useEffect(() => {
+    const d = () => Se(Ce());
+    return (
+      d(),
+      window.addEventListener("resize", d),
+      () => window.removeEventListener("resize", d)
+    );
+  }, []),
+    n.useEffect(() => {
+      if (!t || !s) return;
+      let d = !1;
+      return (
+        J(!0),
+        H(null),
+        ge(!1),
+        we(!1),
+        Promise.all([ae.getSensor(c, s), ae.getScene(c, l).catch(() => null)])
+          .then(([r, i]) => {
+            if (d) return;
+            (D(String(r.name || "")),
+              L(String(r.sensor_id || r.uid || s)),
+              w(String(r.singleton_type || "environmental")));
+            const h = String(r.area || "scene") || "scene";
+            R(h === "circle" || h === "poly" ? h : "scene");
+            const S = Array.isArray(r.center) ? r.center : null,
+              E = S ? S[0] : null,
+              j = S ? S[1] : null,
+              ee = i && typeof i == "object" ? Number(i.scale) : NaN,
+              $e = Number.isFinite(ee) && ee > 0 ? ee : g && g > 0 ? g : Te();
+            he($e);
+            const Pe = i && typeof i == "object" ? i.map || i.map_url : null,
+              Fe = m || (typeof Pe == "string" && Pe ? Pe : null);
+            ue(Fe);
+            const at = (te, nt) => {
+              if (be(E, j)) {
+                const [rt, it] = Ye($e, te, nt);
+                (P(se(Number(rt.toFixed(3)), "0")),
+                  F(se(Number(it.toFixed(3)), "0")));
+              } else (P(se(E, "0")), F(se(j, "0")));
+            };
+            if (Fe) {
+              const te = new Image();
+              ((te.onload = () => {
+                d ||
+                  (te.naturalWidth > 0 && te.naturalHeight > 0
+                    ? (fe({ width: te.naturalWidth, height: te.naturalHeight }),
+                      at(te.naturalWidth, te.naturalHeight))
+                    : be(E, j) || (P(se(E, "0")), F(se(j, "0"))));
+              }),
+                (te.onerror = () => {
+                  !d && !be(E, j) && (P(se(E, "0")), F(se(j, "0")));
+                }),
+                (te.src = Fe));
+            } else be(E, j) ? (P("0"), F("0")) : (P(se(E, "0")), F(se(j, "0")));
+            (z(r.radius != null ? se(r.radius, "1") : "1"),
+              k(
+                Array.isArray(r.points)
+                  ? JSON.stringify(r.points, null, 2)
+                  : "[]",
+              ));
+            const ke = St(r);
+            (o(ke.green), M(ke.yellow), q(ke.red), K(ke.max), we(!0));
+          })
+          .catch((r) => {
+            d || H(r.message || "Failed to load sensor");
+          })
+          .finally(() => {
+            d || J(!1);
+          }),
+        () => {
+          d = !0;
+        }
+      );
+    }, [t, s, l, c, m, g]));
+  const Ne = async (d) => {
+      if ((d == null || d.preventDefault(), !xe)) {
+        H("Sensor id is missing");
+        return;
+      }
+      (J(!0), H(null));
+      const r = {
+        name: b.trim(),
+        sensor_id: xe,
+        scene: l,
+        singleton_type: x,
+        area: v,
+        color_ranges: {
+          sectors: [
+            { color: "green", color_min: ne(C) ?? 0 },
+            { color: "yellow", color_min: ne(u) ?? 2 },
+            { color: "red", color_min: ne(Y) ?? 5 },
+          ],
+          range_max: ne(I) ?? 10,
+        },
+      };
+      if (v === "circle") {
+        const i = ne(O),
+          h = ne(_),
+          S = ne($);
+        if (i === void 0 || h === void 0 || S === void 0) {
+          (H("Circle area requires center X/Y and radius"), J(!1));
+          return;
+        }
+        ((r.center = [i, h]), (r.radius = S));
+      }
+      if (v === "poly")
+        try {
+          const i = JSON.parse(A);
+          if (!Array.isArray(i))
+            throw new SyntaxError("points must be an array");
+          r.points = i;
+          const h = i.filter(
+            (S) =>
+              Array.isArray(S) &&
+              S.length >= 2 &&
+              Number.isFinite(Number(S[0])) &&
+              Number.isFinite(Number(S[1])),
+          );
+          if (h.length) {
+            const S = h.reduce((j, ee) => j + Number(ee[0]), 0) / h.length,
+              E = h.reduce((j, ee) => j + Number(ee[1]), 0) / h.length;
+            r.center = [S, E];
+          }
+        } catch {
+          (H("Polygon points must be valid JSON [[x,y], …]"), J(!1));
+          return;
+        }
+      try {
+        (await ae.updateSensor(c, xe, r),
+          N.show("Sensor saved", "ok"),
+          ge(!1),
+          y(),
+          f());
+      } catch (i) {
+        H(i.message || "Save failed");
+      } finally {
+        J(!1);
+      }
+    },
+    Le = e.jsxs("form", {
+      id: "ss-sensor-calibrate-form",
+      className: "ss-workspace-panel-form",
+      onSubmit: Ne,
+      children: [
+        oe
+          ? e.jsx("p", { className: "ss-workspace-panel-error", children: oe })
+          : null,
+        W && !pe
+          ? e.jsx("p", {
+              className: "ss-workspace-panel-hint",
+              children: "Loading sensor…",
+            })
+          : null,
+        e.jsxs(Q, {
+          title: "Identity",
+          description: "Sensor name and pipeline id.",
+          children: [
+            e.jsx(T, {
+              id: "ss-sensor-cal-name",
+              label: "Name",
+              value: b,
+              onChange: (d) => {
+                (D(d.target.value), X());
+              },
+              required: !0,
+              disabled: W,
+            }),
+            e.jsx(T, {
+              id: "ss-sensor-cal-id",
+              label: "Sensor ID",
+              value: p,
+              onChange: (d) => {
+                (L(d.target.value), X());
+              },
+              required: !0,
+              disabled: W,
+            }),
+            e.jsx(de, {
+              id: "ss-sensor-cal-type",
+              label: "Type",
+              value: x,
+              onChange: (d) => {
+                (w(d.target.value), X());
+              },
+              disabled: W,
+              children: bt.map((d) =>
+                e.jsx("option", { value: d.value, children: d.label }, d.value),
+              ),
+            }),
+          ],
+        }),
+        e.jsxs(Q, {
+          title: "Area",
+          description:
+            v === "circle"
+              ? "Click the map to place the center. Drag the rim to set radius."
+              : v === "poly"
+                ? "Click the map to add vertices. Click the first point to close."
+                : "Coverage on the scene map.",
+          children: [
+            e.jsxs(de, {
+              id: "ss-sensor-cal-area",
+              label: "Area type",
+              value: v,
+              onChange: (d) => {
+                const r = d.target.value;
+                if ((R(r), r === "circle" && be(O, _) && B)) {
+                  const [i, h] = Ye(me, B.width, B.height);
+                  (P(String(Number(i.toFixed(3)))),
+                    F(String(Number(h.toFixed(3)))));
+                }
+                X();
+              },
+              disabled: W,
+              children: [
+                e.jsx("option", { value: "scene", children: "Entire scene" }),
+                e.jsx("option", { value: "circle", children: "Circle" }),
+                e.jsx("option", { value: "poly", children: "Polygon" }),
+              ],
+            }),
+            v === "circle"
+              ? e.jsxs(e.Fragment, {
+                  children: [
+                    e.jsx(T, {
+                      id: "ss-sensor-cal-cx",
+                      label: "Center X (m)",
+                      value: O,
+                      onChange: (d) => {
+                        (P(d.target.value), X());
+                      },
+                      disabled: W,
+                    }),
+                    e.jsx(T, {
+                      id: "ss-sensor-cal-cy",
+                      label: "Center Y (m)",
+                      value: _,
+                      onChange: (d) => {
+                        (F(d.target.value), X());
+                      },
+                      disabled: W,
+                    }),
+                    e.jsx(T, {
+                      id: "ss-sensor-cal-r",
+                      label: "Radius (m)",
+                      value: $,
+                      onChange: (d) => {
+                        (z(d.target.value), X());
+                      },
+                      disabled: W,
+                    }),
+                  ],
+                })
+              : null,
+            v === "poly"
+              ? e.jsxs("div", {
+                  className: "ss-text-field",
+                  children: [
+                    e.jsx("label", {
+                      className: "ss-text-field-label",
+                      htmlFor: "ss-sensor-cal-pts",
+                      children: "Points JSON [[x,y], …]",
+                    }),
+                    e.jsx("div", {
+                      className: "ss-text-field-control",
+                      children: e.jsx("textarea", {
+                        id: "ss-sensor-cal-pts",
+                        rows: 6,
+                        value: A,
+                        disabled: W,
+                        onChange: (d) => {
+                          (k(d.target.value), X());
+                        },
+                      }),
+                    }),
+                  ],
+                })
+              : null,
+          ],
+        }),
+        e.jsx(Q, {
+          title: "Occupancy thresholds",
+          description: "Green, yellow, and red bands for scalar visualization.",
+          children: e.jsx(vt, {
+            showLabel: !1,
+            idPrefix: "ss-sensor-cal-occ",
+            disabled: W,
+            value: {
+              greenMin: Number(C) || 0,
+              yellowMin: Number(u) || 0,
+              redMin: Number(Y) || 0,
+              rangeMax: Number(I) || 0,
+            },
+            onChange: (d) => {
+              (o(String(d.greenMin)),
+                M(String(d.yellowMin)),
+                q(String(d.redMin)),
+                K(String(d.rangeMax)),
+                X());
+            },
+          }),
+        }),
+      ],
+    });
+  return e.jsx(We, {
+    open: t && !!(a || s),
+    title: "Calibrate sensor",
+    layout: "bleed",
+    dirty: V,
+    leaveTitle: "Leave calibration?",
+    leaveBody:
+      "You may have unsaved calibration changes. Leave without saving?",
+    onClose: f,
+    actions: e.jsxs(e.Fragment, {
+      children: [
+        e.jsx(Ue, { layoutMode: ie, onChange: je }),
+        e.jsx(Me, {
+          variant: "primary",
+          disabled: W || !pe || !V,
+          form: "ss-sensor-calibrate-form",
+          type: "submit",
+          title: V ? "Save changes" : "No unsaved changes",
+          className: V ? "ss-btn--dirty" : void 0,
+          children: W ? "Saving…" : V ? "Save" : "Saved",
+        }),
+      ],
+    }),
+    children: e.jsxs("div", {
+      className: `ss-cal-workspace ss-cal-workspace--${ye}`,
+      "data-cal-layout": ye,
+      "data-cal-layout-mode": ie,
+      style: { "--ss-panel-size": `${ce}px` },
+      children: [
+        e.jsxs("div", {
+          className: "ss-cal-workspace-main ss-workspace-cal-preview",
+          children: [
+            e.jsxs("div", {
+              className: "ss-workspace-cal-preview-meta",
+              children: [
+                e.jsx("h3", {
+                  className: "ss-form-section-title",
+                  children: "Area preview",
+                }),
+                e.jsxs("p", {
+                  className: "ss-workspace-panel-hint",
+                  style: { marginBottom: 0 },
+                  children: [
+                    v === "circle"
+                      ? "Click the map to place the center. Drag the handle or rim."
+                      : null,
+                    v === "poly"
+                      ? "Click to add polygon vertices. Click the first point to close."
+                      : null,
+                    v === "scene" ? "Entire scene coverage." : null,
+                  ],
+                }),
+              ],
+            }),
+            e.jsx("div", {
+              className: "ss-workspace-cal-preview-frame",
+              children: re
+                ? e.jsx(xt, {
+                    mapUrl: re,
+                    scale: me,
+                    area: v,
+                    centerX: ne(O) ?? 0,
+                    centerY: ne(_) ?? 0,
+                    radius: ne($) ?? 1,
+                    points: jt(A),
+                    onCenterChange: (d, r) => {
+                      (P(String(Number(d.toFixed(3)))),
+                        F(String(Number(r.toFixed(3)))),
+                        X());
+                    },
+                    onRadiusChange: (d) => {
+                      (z(String(Number(d.toFixed(3)))), X());
+                    },
+                    onPointsChange: (d) => {
+                      (k(JSON.stringify(d, null, 2)), X());
+                    },
+                  })
+                : e.jsx("p", {
+                    className: "ss-workspace-panel-hint",
+                    children:
+                      "Scene map preview unavailable. Edit area fields in the settings panel.",
+                  }),
+            }),
+          ],
+        }),
+        e.jsx(Ge, { layout: ye, panelSizePx: ce, onResize: ve }),
+        e.jsx("aside", { className: "ss-cal-workspace-aside", children: Le }),
+      ],
+    }),
+  });
+}
+export {
+  Et as C,
+  vt as O,
+  Lt as S,
+  Ge as W,
+  Pt as a,
+  At as b,
+  Ft as c,
+  Ae as m,
+  st as p,
+  Te as r,
+  tt as u,
+};

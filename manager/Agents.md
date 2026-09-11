@@ -296,6 +296,7 @@ docker compose exec manager python manage.py showmigrations
   (or `SKIP_UI=1` to skip when building the manager image without Node)
 - UI conventions, layout shells, and hard DOM contracts:
   [`.github/skills/manager-ui/SKILL.md`](../.github/skills/manager-ui/SKILL.md)
+  (includes `static/css/` domain split + token sync)
 - Remaining epics (3D viewport, how-to follow-ups):
   [`.github/plans/manager-ui.md`](../.github/plans/manager-ui.md)
 - Package notes: [`manager/frontend/README.md`](frontend/README.md)

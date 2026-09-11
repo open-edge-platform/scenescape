@@ -39,8 +39,16 @@ Outputs under `manager/backend/manager/static/ui/`:
 | `destructive-actions` | `destructive-actions.js` | In-page delete confirms           |
 | `models-directory`    | `models-directory.js`    | K8s Models page (browse / upload) |
 
+`ui-build` also copies `src/tokens/ss-tokens.css` →
+`backend/manager/static/css/tokens.css` (even with `SKIP_UI=1`). Edit
+tokens only in `ss-tokens.css`.
+
+Django global CSS (non-React) is a barrel at `static/css/style.css` that
+`@import`s domain files (`tokens`, `bootstrap-theme`, `chrome`, `map-scene`,
+`auth`, `legacy`). See the manager-ui skill.
+
 Set `SKIP_UI=1` to skip the UI build when running `make -C manager build-image`
-offline without Node.
+offline without Node (token sync still runs).
 
 Built JS/CSS under `static/ui/` get SPDX license headers from the Vite
 `writeBundle` plugin (esbuild minify strips Rollup banners). `make -C manager

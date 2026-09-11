@@ -26,6 +26,8 @@ ui-install:
 	cd frontend && npm ci
 
 ui-build:
+	# Sync canonical --ss-* tokens into Django static (pages must not need Node).
+	cp -f frontend/src/tokens/ss-tokens.css backend/manager/static/css/tokens.css
 ifndef SKIP_UI
 	cd frontend && npm ci && npm run build
 	# Built islands are checked into the tree; format them so prettier-check / REUSE stay green.
@@ -40,7 +42,7 @@ ifndef SKIP_UI
 		--ignore-path ../.github/resources/.prettierignore \
 		--config ../.github/resources/.prettierrc.json
 else
-	@echo "SKIP_UI=1 — skipping manager UI build"
+	@echo "SKIP_UI=1 — skipping manager UI build (tokens still synced)"
 endif
 
 build-image: ui-build jslibraries jsm-examples remove-symlink Dockerfile

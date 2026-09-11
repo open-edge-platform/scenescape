@@ -1,0 +1,481 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* Bootstrap + theme toggle / nav chrome */
+
+/* Bootstrap tables inherit Manager theme tokens */
+.table {
+  color: var(--ss-text);
+  background-color: var(--ss-card-bg);
+}
+
+.table th,
+.table td {
+  border-color: var(--ss-card-border);
+  color: inherit;
+}
+
+.table thead th {
+  border-bottom-color: var(--ss-card-border);
+  color: var(--ss-text);
+  background-color: var(--ss-elevated);
+}
+
+.table-bordered,
+.table-bordered th,
+.table-bordered td {
+  border-color: var(--ss-card-border);
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: color-mix(
+    in srgb,
+    var(--ss-surface) 55%,
+    var(--ss-card-bg)
+  );
+}
+
+/* Bootstrap leftovers that keep light-theme ink on dark surfaces */
+html[data-theme="dark"] .text-muted,
+html[data-theme="dark"] .form-text,
+html[data-theme="dark"] .text-secondary,
+html[data-theme="dark"] .close {
+  color: var(--ss-text-muted) !important;
+}
+
+html[data-theme="dark"] .text-dark {
+  color: var(--ss-ink) !important;
+}
+
+html[data-theme="dark"] .dropdown-menu {
+  color: var(--ss-text);
+  background-color: var(--ss-card-bg);
+  border-color: var(--ss-card-border);
+}
+
+html[data-theme="dark"] .dropdown-item {
+  color: var(--ss-text);
+}
+
+html[data-theme="dark"] .dropdown-item:hover,
+html[data-theme="dark"] .dropdown-item:focus {
+  color: var(--ss-ink);
+  background-color: var(--ss-elevated);
+}
+
+html[data-theme="dark"] .custom-select,
+html[data-theme="dark"] select.form-control,
+html[data-theme="dark"] select.ss-select-field {
+  color: var(--ss-text);
+  background-color: var(--ss-card-bg);
+}
+
+html[data-theme="dark"] .custom-select option,
+html[data-theme="dark"] select option {
+  color: var(--ss-text);
+  background-color: var(--ss-card-bg);
+}
+
+/* Bootstrap utility classes that force light surfaces */
+.bg-white {
+  background-color: var(--ss-card-bg) !important;
+}
+
+.bg-light {
+  background-color: var(--ss-surface) !important;
+}
+
+.border {
+  border: 1px solid var(--ss-card-border) !important;
+}
+
+.border-light {
+  border: 1px solid var(--ss-card-border) !important;
+}
+
+.navbar-dark .navbar-nav .nav-link,
+.navbar-dark .navbar-text {
+  color: var(--ss-nav-link);
+}
+
+/*
+ * Primary nav: identical metrics for idle and active. Selection is color
+ * only — no weight, border, or padding change that would shift the label.
+ * Active uses --ss-nav-link-active (bright on navy/charcoal), not ink/brand
+ * blues that disappear on --ss-nav-bg in light mode.
+ */
+.navbar-dark .navbar-nav > .nav-item > .nav-link {
+  font-family: var(--ss-font-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+  border: 0;
+  background-color: transparent;
+  box-shadow: none;
+  text-shadow: none;
+  transform: none;
+}
+
+.navbar-dark .navbar-nav > .nav-item > .nav-link:hover,
+.navbar-dark .navbar-nav > .nav-item > .nav-link:focus {
+  color: var(--ss-nav-fg);
+  background-color: transparent;
+}
+
+.navbar-dark .navbar-nav > .nav-item > .nav-link.active,
+.navbar-dark .navbar-nav > .nav-item > .nav-link.active:hover,
+.navbar-dark .navbar-nav > .nav-item > .nav-link.active:focus {
+  color: var(--ss-nav-link-active);
+  font-weight: 600;
+  border: 0;
+  background-color: transparent;
+  box-shadow: none;
+  text-shadow: none;
+  transform: none;
+}
+
+@media (min-width: 768px) {
+  .navbar.navbar-expand-md.fixed-top {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .navbar.navbar-expand-md .navbar-brand {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .navbar.navbar-expand-md .navbar-collapse {
+    display: flex;
+    flex-grow: 1;
+    flex-basis: auto;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .navbar.navbar-expand-md .navbar-collapse .ss-nav-trailing {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+  }
+
+  .navbar.navbar-expand-md .navbar-nav.mr-auto {
+    align-items: center;
+  }
+
+  .navbar.navbar-expand-md .navbar-nav.mr-auto > .nav-item > .nav-link {
+    /* Same padding idle and active (Bootstrap horizontal only). */
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+}
+
+.navbar-nav .nav-item-group {
+  display: flex;
+  align-items: center;
+  padding: 0 0.35rem 0 0.75rem;
+}
+
+.navbar-nav .nav-group-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+
+@media (max-width: 767.98px) {
+  .navbar-nav .nav-item-group {
+    padding: 0.5rem 1rem 0.15rem;
+  }
+}
+
+.navbar-nav.navbar-right {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+@media (min-width: 768px) {
+  .navbar.navbar-expand-md .navbar-nav.navbar-right {
+    align-items: center;
+  }
+}
+
+.btn-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.navbar-info {
+  font-size: 0.75rem;
+  line-height: 1.25;
+  padding: 0;
+  float: none;
+  display: inline-block;
+  margin-bottom: 0;
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+.navbar-info strong {
+  color: var(--ss-nav-fg);
+  font-weight: 600;
+}
+
+/* Light / Dark A/B theme toggle */
+.ss-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.ss-theme-toggle__btn {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.7);
+  background: transparent;
+  cursor: pointer;
+}
+
+.ss-theme-toggle__btn:hover,
+.ss-theme-toggle__btn:focus {
+  color: #fff;
+  outline: none;
+}
+
+.ss-theme-toggle__btn[aria-pressed="true"] {
+  color: var(--ss-ink);
+  background: var(--ss-card-bg);
+}
+
+html[data-theme="dark"] .ss-theme-toggle__btn[aria-pressed="true"] {
+  color: #1a2f4a;
+  background: #f2f4f7;
+}
+
+.ss-nav-trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-left: auto;
+  padding-left: 0;
+  flex-shrink: 0;
+}
+
+.ss-theme-toggle-host {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+
+@media (max-width: 767.98px) {
+  .ss-nav-trailing {
+    width: 100%;
+    margin: 0.5rem 1rem;
+    justify-content: space-between;
+  }
+}
+
+.navbar-btn {
+  vertical-align: middle;
+  margin-left: 0;
+}
+
+.btn-primary {
+  background-color: var(--ss-brand);
+  border-color: var(--ss-brand);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--ss-brand-hover);
+  border-color: var(--ss-brand-hover);
+}
+
+.btn-primary:not(:disabled):not(.disabled):active,
+.btn-primary:not(:disabled):not(.disabled).active,
+.show > .btn-primary.dropdown-toggle {
+  background-color: var(--ss-brand-hover);
+  border-color: var(--ss-brand-hover);
+}
+
+.btn-outline-primary {
+  color: var(--ss-brand);
+  border-color: var(--ss-brand);
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus {
+  background-color: var(--ss-brand);
+  border-color: var(--ss-brand);
+  color: #fff;
+}
+
+/* Secondary — quiet OEP outline (not Bootstrap gray fill) */
+.btn-secondary,
+.btn-outline-secondary {
+  color: var(--ss-ink);
+  background-color: transparent;
+  border: 1px solid var(--ss-input-border);
+  font-weight: 500;
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus,
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus {
+  color: var(--ss-brand);
+  background-color: color-mix(in srgb, var(--ss-brand) 8%, var(--ss-elevated));
+  border-color: var(--ss-brand);
+}
+
+.btn-secondary:not(:disabled):not(.disabled):active,
+.btn-secondary:not(:disabled):not(.disabled).active,
+.show > .btn-secondary.dropdown-toggle,
+.btn-outline-secondary:not(:disabled):not(.disabled):active,
+.btn-outline-secondary:not(:disabled):not(.disabled).active,
+.show > .btn-outline-secondary.dropdown-toggle {
+  color: #fff;
+  background-color: var(--ss-brand);
+  border-color: var(--ss-brand);
+}
+
+.btn-secondary:disabled,
+.btn-secondary.disabled,
+.btn-outline-secondary:disabled,
+.btn-outline-secondary.disabled {
+  color: var(--ss-text-muted);
+  background-color: transparent;
+  border-color: var(--ss-card-border);
+  opacity: 0.65;
+}
+
+/* Light chrome — map to elevated surfaces instead of Bootstrap #f8f9fa */
+.btn-light {
+  color: var(--ss-ink);
+  background-color: var(--ss-elevated);
+  border-color: var(--ss-card-border);
+}
+
+.btn-light:hover,
+.btn-light:focus {
+  color: var(--ss-brand);
+  background-color: color-mix(in srgb, var(--ss-brand) 8%, var(--ss-elevated));
+  border-color: var(--ss-brand);
+}
+
+.btn-light:not(:disabled):not(.disabled):active,
+.btn-light:not(:disabled):not(.disabled).active,
+.show > .btn-light.dropdown-toggle {
+  color: var(--ss-on-brand);
+  background-color: var(--ss-brand);
+  border-color: var(--ss-brand);
+}
+
+.btn-light:disabled,
+.btn-light.disabled {
+  color: var(--ss-text-muted);
+  background-color: var(--ss-elevated);
+  border-color: var(--ss-card-border);
+  opacity: 0.65;
+}
+
+.btn-outline-light {
+  color: var(--ss-nav-fg);
+  border-color: color-mix(in srgb, var(--ss-nav-fg) 55%, transparent);
+}
+
+.btn-outline-light:hover,
+.btn-outline-light:focus {
+  color: var(--ss-nav-bg);
+  background-color: var(--ss-nav-fg);
+  border-color: var(--ss-nav-fg);
+}
+
+.badge-light {
+  color: var(--ss-ink);
+  background-color: var(--ss-elevated);
+}
+
+.badge-secondary {
+  color: var(--ss-on-brand);
+  background-color: var(--ss-text-muted);
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.page-header-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.85rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ss-form-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+  padding: 0.28rem 0.65rem;
+  border: 1px solid var(--ss-input-border);
+  border-radius: var(--ss-radius);
+  background: var(--ss-card-bg);
+  color: var(--ss-ink);
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ss-form-back:hover {
+  color: var(--ss-brand);
+  border-color: var(--ss-brand);
+  text-decoration: none;
+}
+
+.ss-form-back:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ss-brand) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.ss-form-back-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+body.ss-embed .ss-form-back {
+  border-color: color-mix(
+    in srgb,
+    var(--ss-input-border) 70%,
+    var(--ss-nav-bg)
+  );
+}
+

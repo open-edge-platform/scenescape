@@ -41,10 +41,34 @@ thumbnail gallery (neither shell’s width rule).
 
 ## Tokens
 
-Mirror `--ss-*` / `ss.*` in `manager/frontend/src/tokens/` with
-`:root` / `html[data-theme]` in
-`manager/backend/manager/static/css/style.css`. Do not add a ViPPET/OEP
-design-system npm dependency until license/versioning are confirmed.
+Canonical `--ss-*` light/dark vars live in
+`manager/frontend/src/tokens/ss-tokens.css`. `make -C manager ui-build`
+copies that file to `manager/backend/manager/static/css/tokens.css` (Django
+pages load it via the `style.css` barrel and must not depend on Node).
+React islands import the same file through `tokens/tokens.css`. Edit
+`ss-tokens.css` only; do not hand-edit the static copy. Do not add a
+ViPPET/OEP design-system npm dependency until license/versioning are
+confirmed.
+
+## Global CSS (`static/css/`)
+
+Django/Bootstrap chrome is split under `manager/backend/manager/static/css/`.
+[`base.html`](../../manager/backend/manager/templates/sscape/base.html) still
+loads a single `{% static 'css/style.css' %}` barrel:
+
+| File | Role |
+| --- | --- |
+| `style.css` | `@import` barrel only |
+| `tokens.css` | Synced `--ss-*` tokens |
+| `bootstrap-theme.css` | Bootstrap + theme toggle / nav |
+| `chrome.css` | Forms, page headers, modals, toasts |
+| `map-scene.css` | Map SVG, scene panels, list camera cards, marks |
+| `auth.css` | Sign-in shell |
+| `legacy.css` | Embed / calibrate host + base `body` |
+| `scenescape.css` | 3D viewport only (`base_3d.html`) |
+
+React island CSS stays in `manager/frontend` → bundled `static/ui/manager-ui.css`.
+Do not re-merge workspace strip rules into Django CSS without an audit.
 
 ## Entity chrome (scene detail)
 
