@@ -23,59 +23,6 @@
   }
 }
 
-.ss-camera-strip-controls {
-  display: inline-flex;
-  align-items: stretch;
-  gap: 0;
-  margin-left: 0.35rem;
-  border: 1px solid var(--ss-input-border);
-  border-radius: var(--ss-radius);
-  overflow: hidden;
-  background: var(--ss-card-bg);
-  animation: ss-camera-card-in var(--ss-motion-fast, 120ms) ease both;
-}
-
-.ss-camera-strip-fit {
-  appearance: none;
-  flex: 1 1 0;
-  min-width: 0;
-  margin: 0;
-  padding: 0.2rem 0.45rem;
-  border: 0;
-  border-right: 1px solid var(--ss-input-border);
-  background: transparent;
-  color: var(--ss-text-muted);
-  font-family: var(--ss-font-sans);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  line-height: 1.2;
-  text-align: center;
-  cursor: pointer;
-}
-
-.ss-camera-strip-fit:last-child {
-  border-right: 0;
-}
-
-.ss-camera-strip-fit.is-active {
-  color: var(--ss-on-brand);
-  background: var(--ss-brand);
-}
-
-/* Side layout: full-width equal toggle under the tab chrome */
-.ss-workspace--row .ss-tabs-chrome .ss-camera-strip-controls {
-  display: flex;
-  width: auto;
-  max-width: 100%;
-  margin: 0 0.65rem 0.55rem;
-  box-sizing: border-box;
-  align-self: stretch;
-}
-
-.ss-workspace--row .ss-camera-strip-fit {
-  padding: 0.35rem 0.5rem;
-}
-
 .ss-camera-strip .camera-card .card-header {
   display: flex;
   align-items: center;
@@ -145,35 +92,10 @@
   overflow: hidden;
 }
 
-/* Aspect-aware fit modes (Below + Side) — fill the frame, vary object-fit only */
-.ss-scene-detail--workspace
-  .ss-camera-strip[data-ss-camera-fit="contain"]
-  .camera-card
-  .card-image
-  img,
-.ss-scene-detail--workspace
-  .ss-camera-strip[data-ss-camera-fit="contain"]
-  .camera-card
-  .snapshot-image
-  img {
+/* Camera previews always contain the full frame */
+.ss-scene-detail--workspace .ss-camera-strip .camera-card .card-image img,
+.ss-scene-detail--workspace .ss-camera-strip .camera-card .snapshot-image img {
   object-fit: contain;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-}
-
-.ss-scene-detail--workspace
-  .ss-camera-strip[data-ss-camera-fit="cover"]
-  .camera-card
-  .card-image
-  img,
-.ss-scene-detail--workspace
-  .ss-camera-strip[data-ss-camera-fit="cover"]
-  .camera-card
-  .snapshot-image
-  img {
-  object-fit: cover;
   width: 100%;
   height: 100%;
   max-width: none;

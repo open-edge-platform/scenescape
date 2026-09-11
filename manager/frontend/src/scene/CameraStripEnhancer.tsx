@@ -1,36 +1,12 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import "./CameraStrip.css";
-
-const FIT_KEY = "ss-camera-strip-fit";
-
-export type CameraStripFit = "contain" | "cover";
 
 type Props = {
   rates?: Record<string, string>;
 };
-
-function readFit(): CameraStripFit {
-  try {
-    const v = window.localStorage.getItem(FIT_KEY);
-    if (v === "cover" || v === "contain") {
-      return v;
-    }
-  } catch {
-    /* ignore */
-  }
-  return "contain";
-}
-
-function writeFit(fit: CameraStripFit): void {
-  try {
-    window.localStorage.setItem(FIT_KEY, fit);
-  } catch {
-    /* ignore */
-  }
-}
 
 function isLivePreview(img: HTMLImageElement | null): boolean {
   if (!img || img.classList.contains("display-none")) {
@@ -97,23 +73,16 @@ function applyCardState(card: HTMLElement): void {
 }
 
 /**
- * Reactive camera strip: fit mode + live/offline badges over legacy cards.
+ * Reactive camera strip: live/offline badges over legacy cards.
+ * Preview thumbnails always use object-fit: contain.
  */
 export function CameraStripEnhancer({ rates = {} }: Props) {
-  const [fit, setFit] = useState<CameraStripFit>(() =>
-    typeof window !== "undefined" ? readFit() : "contain",
-  );
-
   useEffect(() => {
-    const root = document.documentElement;
-    root.dataset.ssCameraFit = fit;
-    writeFit(fit);
     const pane = document.getElementById("cameras");
     if (pane) {
-      pane.dataset.ssCameraFit = fit;
       pane.classList.add("ss-camera-strip");
     }
-  }, [fit]);
+  }, []);
 
   useEffect(() => {
     Object.entries(rates).forEach(([sensorId, text]) => {
@@ -198,30 +167,5 @@ export function CameraStripEnhancer({ rates = {} }: Props) {
     };
   }, []);
 
-  return (
-    <div
-      className="ss-camera-strip-controls"
-      role="group"
-      aria-label="Camera thumbnail fit"
-    >
-      <button
-        type="button"
-        className={`ss-camera-strip-fit${fit === "contain" ? " is-active" : ""}`}
-        aria-pressed={fit === "contain"}
-        title="Fit entire frame (contain)"
-        onClick={() => setFit("contain")}
-      >
-        Contain
-      </button>
-      <button
-        type="button"
-        className={`ss-camera-strip-fit${fit === "cover" ? " is-active" : ""}`}
-        aria-pressed={fit === "cover"}
-        title="Fill card (cover)"
-        onClick={() => setFit("cover")}
-      >
-        Cover
-      </button>
-    </div>
-  );
+  return null;
 }

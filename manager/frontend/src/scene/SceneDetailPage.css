@@ -756,7 +756,7 @@ body.ss-workspace-resizing .ss-workspace-main {
 .ss-workspace--stack .camera-card .card-image {
   flex: 1 1 0;
   min-height: 0;
-  /* Definite flex frame so Contain/Cover object-fit can take effect */
+  /* Definite flex frame so contain object-fit can take effect */
   height: auto;
   max-height: none;
   display: flex;
@@ -784,7 +784,7 @@ body.ss-workspace-resizing .ss-workspace-main {
   max-height: none;
   min-height: 0;
   padding: 0;
-  /* Fit mode comes from [data-ss-camera-fit] in CameraStrip.css */
+  /* Preview thumbnails always use object-fit: contain */
   object-fit: contain;
   object-position: center;
 }
