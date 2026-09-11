@@ -73,7 +73,7 @@ def publish_frame(client, camera_id, objects):
 
 
 @pytest.mark.test_name("NEX-T29219")
-def test_roi_counts_ui(params, result_recorder):
+def test_roi_counts_2d_ui(params, result_recorder):
   """! Test that an ROI's live count renders and updates in 2D scene view.
 
   Verifies:
@@ -87,7 +87,7 @@ def test_roi_counts_ui(params, result_recorder):
   @param    params                  Dict of test parameters.
   @param    result_recorder         Pytest fixture recording the test result.
   """
-  log.info("Executing: test_roi_counts_ui")
+  log.info("Executing: test_roi_counts_2d_ui")
 
   browser = None
   client = None
