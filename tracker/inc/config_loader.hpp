@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "association_config.hpp"
 #include "scenes_config.hpp"
 
 #include <filesystem>
@@ -141,6 +142,8 @@ struct TrackingConfig {
         kDefaultNonMeasurementTimeDynamicS; ///< Time before dynamic track dropped
     double non_measurement_time_static_s =
         kDefaultNonMeasurementTimeStaticS; ///< Time before static track dropped
+
+    AssociationConfig association; ///< Data association method and gating (ADR-0017)
 };
 
 /**
@@ -181,6 +184,9 @@ constexpr char TRACKING_MAX_UNRELIABLE_TIME_S[] = "/tracking/max_unreliable_time
 constexpr char TRACKING_NON_MEASUREMENT_TIME_DYNAMIC_S[] =
     "/tracking/non_measurement_time_dynamic_s";
 constexpr char TRACKING_NON_MEASUREMENT_TIME_STATIC_S[] = "/tracking/non_measurement_time_static_s";
+constexpr char TRACKING_ASSOCIATION_METHOD[] = "/tracking/association/method";
+constexpr char TRACKING_ASSOCIATION_GATE_PROBABILITY[] = "/tracking/association/gate_probability";
+constexpr char TRACKING_ASSOCIATION_MAX_RADIUS_M[] = "/tracking/association/max_radius_m";
 
 // NTP
 constexpr char INFRASTRUCTURE_NTP[] = "/infrastructure/ntp";

@@ -18,17 +18,14 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <string_view>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace tracker {
 
 namespace {
 
-// Maximum Euclidean distance (meters) for matching a detection to an existing
-// track.  Pairs farther apart than this are never associated by the Hungarian
-// matcher.  The controller used a per-category value defaulting to 2.0 m
-// (DEFAULT_TRACKING_RADIUS); we keep the same default here so the tracker
-// service produces identical results.
-constexpr double kTrackingDistanceThreshold = 2.0;
 constexpr std::string_view kMetadataPrefix = "metadata.";
 
 std::string metadataJson(const std::unordered_map<std::string, std::string>& attributes) {
@@ -100,7 +97,8 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
                                ClockFn clock_fn)
     : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
       publish_callback_(std::move(publish_callback)),
-      tracker_(build_tracker_config(tracking_config)), clock_fn_(std::move(clock_fn)) {
+      tracker_(build_tracker_config(tracking_config)), association_config_(tracking_config.association),
+      clock_fn_(std::move(clock_fn)) {
     // Adapt frame-rate-dependent timing parameters
     tracker_.updateTrackerParams(tracking_config.time_chunking_rate_fps);
 
@@ -307,8 +305,8 @@ std::vector<Track> TrackingWorker::match_and_convert(
     // deduplicates objects seen by multiple cameras, and runs Kalman filter update.
     // When no detections are present, track() still advances the Kalman filter and
     // increments non-measurement counters so tracks can age and expire.
-    tracker_.track(std::move(objects_per_camera), timestamp, rv::tracking::DistanceType::Euclidean,
-                   kTrackingDistanceThreshold);
+    tracker_.track(std::move(objects_per_camera), timestamp, association_config_.distanceType(),
+                   association_config_.costThreshold(), 0.5, association_config_.max_radius_m);
 
     // Get reliable tracks and map RobotVision int IDs to UUID strings
     auto rv_tracks = tracker_.getReliableTracks();

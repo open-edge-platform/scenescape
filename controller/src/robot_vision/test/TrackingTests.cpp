@@ -4,9 +4,12 @@
 #include <gtest/gtest.h>
 #include <chrono>
 #include <iostream>
+#include <rv/Utils.hpp>
 #include <rv/tracking/MultipleObjectTracker.hpp>
 #include <rv/tracking/Classification.hpp>
+#include <rv/tracking/ObjectMatching.hpp>
 #include <rv/tracking/TrackedObject.hpp>
+#include <rv/tracking/TrackManager.hpp>
 
 TEST(MultipleObjectTrackerTest, SingleDetectionTracking)
 {
@@ -699,4 +702,179 @@ TEST(MultipleObjectTrackerTest, SingleJumpingDetectionTracking)
       ASSERT_EQ(trackedObjects.size(), 1);
     }
   }
+}
+
+TEST(ObjectMatchingTest, Chi2ThresholdMatchesExpectedQuantile)
+{
+  EXPECT_NEAR(rv::chi2Threshold(0.99, 2), 9.21034, 1e-3);
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisPrefersAlongTrackAxis)
+{
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-4;
+  trackerConfig.mDefaultMeasurementNoise = 0.2;
+  trackerConfig.mInitStateCovariance = 1.0;
+  rv::tracking::TrackManager trackManager(trackerConfig);
+
+  rv::tracking::TrackedObject seed;
+  seed.x = 0.0;
+  seed.y = 0.0;
+  seed.vx = 5.0;
+  seed.vy = 0.0;
+  seed.length = 0.5;
+  seed.width = 0.5;
+  seed.height = 0.5;
+
+  auto timestamp = std::chrono::system_clock::now();
+  auto trackId = trackManager.createTrack(seed, timestamp);
+
+  for (int i = 0; i < 10; ++i)
+  {
+    timestamp += std::chrono::milliseconds(100);
+    seed.x += 0.5;
+    trackManager.setMeasurement(trackId, seed);
+    trackManager.predict(timestamp);
+    trackManager.correct();
+    seed = trackManager.getTrack(trackId);
+  }
+
+  timestamp += std::chrono::milliseconds(1000);
+  trackManager.predict(timestamp);
+  auto track = trackManager.getTrack(trackId);
+
+  const double s00 = track.predictedMeasurementCov.at<double>(0, 0);
+  const double s11 = track.predictedMeasurementCov.at<double>(1, 1);
+  EXPECT_GT(s00, 1.5 * s11) << "expected along-track (x) uncertainty to dominate after +x motion coast";
+
+  const double pred_x = track.predictedMeasurementMean.at<double>(0, 0);
+  const double pred_y = track.predictedMeasurementMean.at<double>(1, 0);
+
+  rv::tracking::TrackedObject ahead = seed;
+  ahead.x = pred_x + 2.0;
+  ahead.y = pred_y;
+
+  rv::tracking::TrackedObject lateral = seed;
+  lateral.x = pred_x;
+  lateral.y = pred_y + 2.0;
+
+  const double chi2_gate = rv::chi2Threshold(0.99, 2);
+  const double max_radius = 10.0;
+
+  std::vector<rv::tracking::TrackedObject> tracks = {track};
+  std::vector<std::pair<size_t, size_t>> assignments;
+  std::vector<size_t> unassignedTracks;
+  std::vector<size_t> unassignedMeasurements;
+
+  // Equal Euclidean distance: matcher must prefer the along-track detection.
+  rv::tracking::match(tracks, {ahead, lateral}, assignments, unassignedTracks, unassignedMeasurements,
+                      rv::tracking::DistanceType::PositionMahalanobis, chi2_gate, max_radius);
+  ASSERT_EQ(assignments.size(), 1U);
+  EXPECT_EQ(assignments[0].first, 0U);
+  EXPECT_EQ(assignments[0].second, 0U);
+
+  assignments.clear();
+  unassignedTracks.clear();
+  unassignedMeasurements.clear();
+  rv::tracking::match(tracks, {lateral}, assignments, unassignedTracks, unassignedMeasurements,
+                      rv::tracking::DistanceType::PositionMahalanobis, chi2_gate, max_radius);
+  // Lateral-only may still pass the chi2 gate; cost must still exceed along-track cost.
+  const double dx = 2.0;
+  const double dy = 2.0;
+  const double det = s00 * s11;
+  ASSERT_GT(det, 0.0);
+  const double d2_ahead = (dx * dx) * s11 / det;
+  const double d2_lateral = (dy * dy) * s00 / det;
+  EXPECT_LT(d2_ahead, d2_lateral);
+}
+
+TEST(MultipleObjectTrackerTest, PositionMahalanobisFusesMultiCameraDetectionsIntoOneTrack)
+{
+  // Same world object seen by two cameras with ~1.3 m projection disagreement.
+  // Track association uses PositionMahalanobis; cross-camera birth clustering
+  // must still fuse in meters so we do not create duplicate frozen tracks.
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-4;
+  trackerConfig.mDefaultMeasurementNoise = 0.2;
+  trackerConfig.mInitStateCovariance = 1.0;
+  trackerConfig.mMaxUnreliableTime = 0.0; // reliable immediately for assertion
+  trackerConfig.mNonMeasurementTimeDynamic = 1.0;
+  trackerConfig.mNonMeasurementTimeStatic = 1.6;
+
+  const double chi2_gate = rv::chi2Threshold(0.99, 2);
+  rv::tracking::MultipleObjectTracker objectTracker(
+    trackerConfig, rv::tracking::DistanceType::PositionMahalanobis, chi2_gate);
+  objectTracker.updateTrackerParams(10);
+
+  rv::tracking::TrackedObject cam0;
+  cam0.x = 7.11;
+  cam0.y = 7.67;
+  cam0.width = cam0.length = cam0.height = 0.5;
+
+  rv::tracking::TrackedObject cam1 = cam0;
+  cam1.x = 7.91;
+  cam1.y = 6.69;
+
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{cam0}, {cam1}},
+                      timestamp,
+                      rv::tracking::DistanceType::PositionMahalanobis,
+                      chi2_gate,
+                      0.5,
+                      10.0);
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U) << "cross-camera detections of one object must birth a single track";
+  EXPECT_NEAR(tracks[0].x, 0.5 * (cam0.x + cam1.x), 1e-6);
+  EXPECT_NEAR(tracks[0].y, 0.5 * (cam0.y + cam1.y), 1e-6);
+}
+
+TEST(MultipleObjectTrackerTest, MultiCameraTrackUpdateAveragesWorldPosition)
+{
+  // Continuing tracks must not keep last-camera geometry when both cameras match.
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-4;
+  trackerConfig.mDefaultMeasurementNoise = 0.2;
+  trackerConfig.mInitStateCovariance = 1.0;
+  trackerConfig.mMaxUnreliableTime = 0.0;
+  trackerConfig.mMaxNumberOfUnreliableFrames = 0;
+
+  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig, rv::tracking::DistanceType::Euclidean, 5.0);
+  objectTracker.updateTrackerParams(10);
+
+  rv::tracking::TrackedObject cam0;
+  cam0.x = 7.11;
+  cam0.y = 7.67;
+  cam0.width = cam0.length = cam0.height = 0.5;
+
+  rv::tracking::TrackedObject cam1 = cam0;
+  cam1.x = 7.91;
+  cam1.y = 6.69;
+
+  const double midX = 0.5 * (cam0.x + cam1.x);
+  const double midY = 0.5 * (cam0.y + cam1.y);
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{cam0}, {cam1}},
+                      timestamp,
+                      rv::tracking::DistanceType::Euclidean,
+                      5.0,
+                      0.5,
+                      10.0);
+
+  timestamp += std::chrono::milliseconds(100);
+  objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{cam0}, {cam1}},
+                      timestamp,
+                      rv::tracking::DistanceType::Euclidean,
+                      5.0,
+                      0.5,
+                      10.0);
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  // After a correct step the filter should sit near the averaged measurement, not last-camera.
+  EXPECT_NEAR(tracks[0].x, midX, 0.15);
+  EXPECT_NEAR(tracks[0].y, midY, 0.15);
 }

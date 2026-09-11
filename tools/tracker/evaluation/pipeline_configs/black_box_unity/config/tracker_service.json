@@ -46,7 +46,12 @@
     "max_workers": 50,
     "max_unreliable_time_s": 1.0,
     "non_measurement_time_dynamic_s": 0.8,
-    "non_measurement_time_static_s": 1.6
+    "non_measurement_time_static_s": 1.6,
+    "association": {
+      "method": "euclidean",
+      "gate_probability": 0.99,
+      "max_radius_m": 2.0
+    }
   },
   "scenes": {
     "source": "api"

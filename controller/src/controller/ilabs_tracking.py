@@ -20,6 +20,107 @@ from scene_common import log
 from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time
 
+VALID_ASSOCIATION_METHODS = frozenset({"euclidean", "position_mahalanobis"})
+DEFAULT_ASSOCIATION_GATE_PROBABILITY = 0.99
+# Euclidean association distance (m). Also the hard ceiling when Mahalanobis is
+# enabled without an explicit larger max_radius_m — operators should raise it
+# (ADR-0017 suggests ~10 m) so the chi-squared gate can widen with uncertainty.
+DEFAULT_ASSOCIATION_MAX_RADIUS_M = DEFAULT_TRACKING_RADIUS
+RECOMMENDED_MAHALANOBIS_MAX_RADIUS_M = 10.0
+
+DEFAULT_ASSOCIATION_CONFIG = {
+  "method": "position_mahalanobis",
+  "gate_probability": DEFAULT_ASSOCIATION_GATE_PROBABILITY,
+  "max_radius_m": RECOMMENDED_MAHALANOBIS_MAX_RADIUS_M,
+}
+
+
+def _default_max_radius_for_method(method):
+  """Fallback max_radius_m when the configured value is missing or invalid."""
+  if method == "position_mahalanobis":
+    return RECOMMENDED_MAHALANOBIS_MAX_RADIUS_M
+  return DEFAULT_ASSOCIATION_MAX_RADIUS_M
+
+
+def normalize_association_config(association_config=None):
+  """Return a validated association config dict with defaults filled in.
+
+  Raises:
+    ValueError: If ``method`` is present and not a supported association method.
+  """
+  config = DEFAULT_ASSOCIATION_CONFIG.copy()
+  if association_config:
+    config.update(association_config)
+
+  method = config.get("method", "position_mahalanobis")
+  if method not in VALID_ASSOCIATION_METHODS:
+    raise ValueError(
+      "Invalid association method {!r} (expected {})".format(
+        method, ", ".join(sorted(VALID_ASSOCIATION_METHODS)))
+    )
+  config["method"] = method
+  default_max_radius_m = _default_max_radius_for_method(method)
+
+  try:
+    gate_probability = float(config.get("gate_probability", DEFAULT_ASSOCIATION_GATE_PROBABILITY))
+  except (TypeError, ValueError):
+    log.error("Invalid association gate_probability %r; using %s",
+              config.get("gate_probability"), DEFAULT_ASSOCIATION_GATE_PROBABILITY)
+    gate_probability = DEFAULT_ASSOCIATION_GATE_PROBABILITY
+  if not 0.0 < gate_probability <= 1.0:
+    log.error(
+      "Association gate_probability %s out of range (0, 1]; using %s",
+      gate_probability,
+      DEFAULT_ASSOCIATION_GATE_PROBABILITY,
+    )
+    gate_probability = DEFAULT_ASSOCIATION_GATE_PROBABILITY
+  config["gate_probability"] = gate_probability
+
+  try:
+    max_radius_m = float(config.get("max_radius_m", default_max_radius_m))
+  except (TypeError, ValueError):
+    log.error("Invalid association max_radius_m %r; using %s",
+              config.get("max_radius_m"), default_max_radius_m)
+    max_radius_m = default_max_radius_m
+  if max_radius_m < 0.0:
+    log.error("Association max_radius_m %s must be >= 0; using %s",
+              max_radius_m, default_max_radius_m)
+    max_radius_m = default_max_radius_m
+  config["max_radius_m"] = max_radius_m
+
+  if (method == "position_mahalanobis"
+      and max_radius_m <= DEFAULT_ASSOCIATION_MAX_RADIUS_M + 1e-6):
+    log.warning(
+      "association.method is position_mahalanobis with max_radius_m=%s; "
+      "ADR-0017 recommends raising max_radius_m (e.g. %s) so the chi-squared "
+      "gate can widen with predicted uncertainty",
+      max_radius_m,
+      RECOMMENDED_MAHALANOBIS_MAX_RADIUS_M,
+    )
+
+  return config
+
+
+def association_match_params(association_config=None):
+  """Map association config to robot_vision match() parameters."""
+  config = normalize_association_config(association_config)
+  method = config["method"]
+  gate_probability = config["gate_probability"]
+  max_radius_m = config["max_radius_m"]
+
+  if method == "position_mahalanobis":
+    return (
+      rv.tracking.DistanceType.PositionMahalanobis,
+      rv.tracking.chi2_threshold(gate_probability),
+      max_radius_m,
+    )
+
+  return (
+    rv.tracking.DistanceType.Euclidean,
+    max_radius_m,
+    max_radius_m,
+  )
+
 
 def _quaternion_to_yaw(rotation):
   """Return Z-axis yaw in radians from an ``[x, y, z, w]`` quaternion.
@@ -54,10 +155,11 @@ def _yaw_to_quaternion(yaw):
 
 class IntelLabsTracking(Tracking):
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, effective_object_update_rate, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, reid_config_data=None, name=None):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, effective_object_update_rate, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, reid_config_data=None, name=None, association_config=None):
     """Initialize the tracker with tracker configuration parameters"""
     super().__init__(reid_config_data=reid_config_data)
     self.name = name if name is not None else "IntelLabsTracking"
+    self.association_config = normalize_association_config(association_config)
     # ref_camera_frame_rate is used to determine the frame-based param values
     self.ref_camera_frame_rate = effective_object_update_rate
     tracker_config = rv.tracking.TrackManagerConfig()
@@ -85,7 +187,17 @@ class IntelLabsTracking(Tracking):
     self.tracker = rv.tracking.MultipleObjectTracker(tracker_config)
     log.info(f"Multiple Object Tracker {self.__str__()} initialized")
     log.info("Tracker config: {}".format(tracker_config))
+    log.info("Association config: {}".format(self.association_config))
     self.tracker.update_tracker_params(self.ref_camera_frame_rate)
+    return
+
+  def applyAssociationConfig(self, association_config):
+    """Update association settings used by subsequent track()/match calls."""
+    self.association_config = normalize_association_config(association_config)
+    log.info("Association config updated: {}".format(self.association_config))
+    for tracker in getattr(self, 'trackers', {}).values():
+      if hasattr(tracker, 'applyAssociationConfig'):
+        tracker.applyAssociationConfig(self.association_config)
     return
 
   def check_valid_time_parameters(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
@@ -153,14 +265,31 @@ class IntelLabsTracking(Tracking):
     rv_object.attributes = attributes
     return rv_object
 
+  def _warn_deprecated_tracking_radius(self, objects):
+    if self.association_config.get("method", "position_mahalanobis") == "euclidean":
+      return
+    for obj in objects:
+      radius = getattr(obj, 'tracking_radius', DEFAULT_TRACKING_RADIUS)
+      if abs(radius - DEFAULT_TRACKING_RADIUS) > 1e-6:
+        log.warning(
+          "Object tracking_radius is ignored when association.method is %s (object radius=%s)",
+          self.association_config.get("method"),
+          radius,
+        )
+        return
+
   def update_tracks(self, objects, timestamp):
     rv_objects = [self.to_rv_object(sscape_object) for sscape_object in objects]
-    tracking_radius = DEFAULT_TRACKING_RADIUS
-    if len(objects):
-      tracking_radius = sum([x.tracking_radius for x in objects]) / len(objects)
+    self._warn_deprecated_tracking_radius(objects)
 
-    self.tracker.track(rv_objects, timestamp, distance_type=rv.tracking.DistanceType.Euclidean,
-                       distance_threshold=tracking_radius)
+    distance_type, distance_threshold, max_radius_m = association_match_params(self.association_config)
+    self.tracker.track(
+      rv_objects,
+      timestamp,
+      distance_type=distance_type,
+      distance_threshold=distance_threshold,
+      max_radius_m=max_radius_m,
+    )
     return
 
   def from_tracked_object(self, tracked_object, objects):
@@ -277,25 +406,21 @@ class IntelLabsTracking(Tracking):
   def update_tracks_batched(self, objects_per_camera, timestamp):
     """Update tracks using batched per-camera object data"""
     rv_objects_per_camera = []
-    tracking_radius = DEFAULT_TRACKING_RADIUS
-
-    # Calculate average tracking radius across all objects from all cameras
-    total_tracking_radius = 0
-    total_object_count = 0
+    flat_objects = []
 
     for camera_objects in objects_per_camera:
       rv_camera_objects = [self.to_rv_object(sscape_object) for sscape_object in camera_objects]
       rv_objects_per_camera.append(rv_camera_objects)
+      flat_objects.extend(camera_objects)
 
-      # Accumulate tracking radius sum and object count
-      if len(camera_objects):
-        total_tracking_radius += sum([x.tracking_radius for x in camera_objects])
-        total_object_count += len(camera_objects)
+    self._warn_deprecated_tracking_radius(flat_objects)
 
-    # Calculate overall average tracking radius
-    if total_object_count > 0:
-      tracking_radius = total_tracking_radius / total_object_count
-
-    self.tracker.track(rv_objects_per_camera, timestamp,
-                       distance_type=rv.tracking.DistanceType.Euclidean, distance_threshold=tracking_radius)
+    distance_type, distance_threshold, max_radius_m = association_match_params(self.association_config)
+    self.tracker.track(
+      rv_objects_per_camera,
+      timestamp,
+      distance_type=distance_type,
+      distance_threshold=distance_threshold,
+      max_radius_m=max_radius_m,
+    )
     return

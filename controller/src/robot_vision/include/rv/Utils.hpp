@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <stdint.h>
 #include <algorithm>
+#include <stdexcept>
 
 namespace rv {
 // clamp function available in c++17
@@ -57,6 +58,21 @@ double inline deltaTheta(double theta1, double theta2)
   {
     return angleB;
   }
+}
+
+/**
+ * @brief Chi-squared gate threshold for innovation gating (2 DOF position).
+ *
+ * For k=2: Q(p) = -2 * ln(1 - p).  E.g. p=0.99 -> ~9.21.
+ */
+inline double chi2Threshold(double gate_probability, int degrees_of_freedom = 2)
+{
+  gate_probability = clamp(gate_probability, 1e-9, 1.0 - 1e-9);
+  if (degrees_of_freedom == 2)
+  {
+    return -2.0 * std::log(1.0 - gate_probability);
+  }
+  throw std::invalid_argument("chi2Threshold: only 2 degrees of freedom supported");
 }
 
 } // namespace rv

@@ -98,12 +98,15 @@ class Tracking(Thread):
     """Create a tracker object for each category"""
     for category in categories:
       if category not in self.trackers:
+        kwargs = {'reid_config_data': self.reid_config_data}
+        if hasattr(self, 'association_config'):
+          kwargs['association_config'] = self.association_config
         tracker = self.__class__(
           max_unreliable_time,
           non_measurement_time_dynamic,
           non_measurement_time_static,
           ref_camera_frame_rate,
-          reid_config_data=self.reid_config_data,
+          **kwargs,
         )
         tracker.uuid_manager.scene_id = self.uuid_manager.scene_id
         self.trackers[category] = tracker
