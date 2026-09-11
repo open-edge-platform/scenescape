@@ -35,16 +35,22 @@ function getRequiredEnv(varName, friendlyName = varName) {
   return __ENV[varName];
 }
 
-// test configuration
-const objectCount = getRequiredEnv("OBJECT_COUNT");
-const fps = getRequiredEnv("CAMERA_FPS");
+// test configuration (k6 --env values are always strings; coerce numerics)
+const objectCount = Number(getRequiredEnv("OBJECT_COUNT"));
+const fps = Number(getRequiredEnv("CAMERA_FPS"));
 const host = getRequiredEnv("MQTT_HOST");
 const port = getRequiredEnv("MQTT_PORT");
-const cameraCount = getRequiredEnv("CAMERA_COUNT");
+const cameraCount = Number(getRequiredEnv("CAMERA_COUNT"));
 const testDuration = getRequiredEnv("DEFAULT_TEST_DURATION");
 // camera id
 const cameraIdPrefix = getRequiredEnv("CAMERA_ID_PREFIX");
 const cameraId = `${cameraIdPrefix}${__VU}`;
+
+if (![objectCount, fps, cameraCount].every((n) => Number.isFinite(n) && n > 0)) {
+  fail(
+    "OBJECT_COUNT, CAMERA_FPS, and CAMERA_COUNT must be positive numbers",
+  );
+}
 
 // SSL/TLS configuration - only required for secure connections
 const isSecure =

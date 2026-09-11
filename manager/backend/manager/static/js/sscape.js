@@ -19,7 +19,7 @@ import {
   pixelsToMeters,
   checkMqttConnection,
 } from "/static/js/utils.js";
-import { plot } from "/static/js/marks.js";
+import { plot, clearAllTrails } from "/static/js/marks.js";
 import {
   initializeCalibration,
   initializeCalibrationSettings,
@@ -108,7 +108,28 @@ var scene_id = $("#scene").val();
 var icon_size = 24;
 var show_telemetry = false;
 var show_trails = false;
+var pendingPlotObjects = null;
+var plotRafId = null;
 var pendingCalibrateMsg = null;
+
+function schedulePlot(objects) {
+  pendingPlotObjects = objects;
+  if (plotRafId != null) return;
+  plotRafId = requestAnimationFrame(function () {
+    plotRafId = null;
+    var objs = pendingPlotObjects;
+    pendingPlotObjects = null;
+    plot(
+      objs,
+      scale,
+      scene_y_max,
+      svgCanvas,
+      show_telemetry,
+      show_trails,
+      assetMarkColors,
+    );
+  });
+}
 
 function isCalibratePage() {
   return window.location.href.includes("/cam/calibrate/");
@@ -704,16 +725,8 @@ async function checkBrokerConnections() {
             }
           }
 
-          // Plot the marks
-          plot(
-            msg.objects,
-            scale,
-            scene_y_max,
-            svgCanvas,
-            show_telemetry,
-            show_trails,
-            assetMarkColors,
-          );
+          // Plot the marks (coalesce to one paint per animation frame)
+          schedulePlot(msg.objects || []);
         } else if (topic.includes("event")) {
           var etype = topic.split("/")[2];
           if (etype == "region") {
@@ -2572,8 +2585,12 @@ $(document).ready(function () {
   });
 
   $("input#show-trails").on("change", function () {
-    if ($(this).is(":checked")) show_trails = true;
-    else show_trails = false;
+    if ($(this).is(":checked")) {
+      show_trails = true;
+    } else {
+      show_trails = false;
+      clearAllTrails();
+    }
   });
 
   $(document)
