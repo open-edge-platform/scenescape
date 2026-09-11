@@ -674,6 +674,7 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     f"GID={os.getgid()}\n"
     f"VISIBILITY={visibility_topic}\n"
     f"VISIBILITY_TOPIC={visibility_topic}\n"
+    f"EXPOSE_TEST_HOOKS=true\n"
   )
   # Only set DLSTREAMER_VERSION when detected; omitting lets compose defaults apply.
   if dlstreamer_version:

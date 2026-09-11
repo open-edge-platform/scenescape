@@ -73,6 +73,9 @@ pgserver:
 web:
   image: intel/scenescape-manager
   pullPolicy: IfNotPresent
+  # Comma-separated host list passed to Django ALLOWED_HOSTS via
+  # SCENESCAPE_ALLOWED_HOSTS. If empty - defaults to ["*"].
+  allowedHosts: ""
 
 scene:
   image: intel/scenescape-controller
@@ -98,7 +101,7 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "2026.2.0-ubuntu24-rc2"
+    tag: "2026.2.0-ubuntu24-rc3"
     pullPolicy: IfNotPresent
 
 # The "mediaserver" Service pointing at the standalone video-source stack
