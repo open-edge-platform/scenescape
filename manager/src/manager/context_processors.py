@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from django.conf import settings
@@ -9,4 +9,5 @@ def selected_settings(request):
     'APP_PROPER_NAME': settings.APP_PROPER_NAME,
     'APP_BASE_NAME': settings.APP_BASE_NAME,
     'KUBERNETES_SERVICE_HOST': settings.KUBERNETES_SERVICE_HOST,
+    'EXPOSE_TEST_HOOKS': settings.EXPOSE_TEST_HOOKS,
   }
