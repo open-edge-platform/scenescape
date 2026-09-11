@@ -143,6 +143,8 @@ export function SceneManagePanel({
   const [meshTranslation, setMeshTranslation] = useState<Vec3>(["0", "0", "0"]);
   const [meshRotation, setMeshRotation] = useState<Vec3>(["0", "0", "0"]);
   const [meshScale, setMeshScale] = useState<Vec3>(["1", "1", "1"]);
+  /** True only when the user edits mesh pose fields this session. */
+  const [meshDirty, setMeshDirty] = useState(false);
 
   const [cameraCalibration, setCameraCalibration] = useState("Manual");
   const [apriltagSize, setApriltagSize] = useState("0.162");
@@ -226,6 +228,7 @@ export function SceneManagePanel({
     let cancelled = false;
     setError(null);
     setDirty(false);
+    setMeshDirty(false);
     setMapFile(null);
     setPolycamFile(null);
     setLoading(true);
@@ -277,6 +280,7 @@ export function SceneManagePanel({
             z: s.scale_z,
           }),
         );
+        setMeshDirty(false);
         setCameraCalibration(str(s.camera_calibration, "Manual"));
         setApriltagSize(
           s.apriltag_size != null ? str(s.apriltag_size) : "0.162",
@@ -331,6 +335,37 @@ export function SceneManagePanel({
       setter(next);
       markDirty();
     };
+
+  const setMeshVec =
+    (setter: (v: Vec3) => void, current: Vec3, index: 0 | 1 | 2) =>
+    (ev: ChangeEvent<HTMLInputElement>) => {
+      setVec(setter, current, index)(ev);
+      setMeshDirty(true);
+    };
+
+  const applyMeshFromScene = (s: Record<string, unknown>) => {
+    setMeshTranslation(
+      vec3From(s.mesh_translation, [0, 0, 0], {
+        x: s.translation_x,
+        y: s.translation_y,
+        z: s.translation_z,
+      }),
+    );
+    setMeshRotation(
+      vec3From(s.mesh_rotation, [0, 0, 0], {
+        x: s.rotation_x,
+        y: s.rotation_y,
+        z: s.rotation_z,
+      }),
+    );
+    setMeshScale(
+      vec3From(s.mesh_scale, [1, 1, 1], {
+        x: s.scale_x,
+        y: s.scale_y,
+        z: s.scale_z,
+      }),
+    );
+  };
 
   const buildJsonBody = (): Record<string, unknown> => {
     const body: Record<string, unknown> = {
@@ -452,19 +487,30 @@ export function SceneManagePanel({
         JSON.parse(matcher);
       }
       if (mapFile || polycamFile) {
-        await api.updateScene(authToken, sceneId, buildFormData());
-        // mesh_* lists only work over JSON; apply pose after multipart upload
-        await api.updateSceneJson(authToken, sceneId, {
-          name: name.trim(),
-          mesh_translation: parseVec3(meshTranslation),
-          mesh_rotation: parseVec3(meshRotation),
-          mesh_scale: parseVec3(meshScale),
-        });
+        // Multipart upload auto-aligns .glb/.ply and builds the 2D thumbnail.
+        // Do not follow with stale mesh_* from the form — that overwrote the
+        // aligned pose with zeros and regenerated a broken top-down view.
+        const saved = (await api.updateScene(
+          authToken,
+          sceneId,
+          buildFormData(),
+        )) as Record<string, unknown>;
+        if (meshDirty) {
+          await api.updateSceneJson(authToken, sceneId, {
+            name: name.trim(),
+            mesh_translation: parseVec3(meshTranslation),
+            mesh_rotation: parseVec3(meshRotation),
+            mesh_scale: parseVec3(meshScale),
+          });
+        } else {
+          applyMeshFromScene(saved);
+        }
       } else {
         await api.updateSceneJson(authToken, sceneId, buildJsonBody());
       }
       toast.show("Scene saved", "ok");
       setDirty(false);
+      setMeshDirty(false);
       onSaved();
       onClose();
     } catch (err) {
@@ -842,63 +888,63 @@ export function SceneManagePanel({
               id="ss-scene-manage-tx"
               label="Translation X (m)"
               value={meshTranslation[0]}
-              onChange={setVec(setMeshTranslation, meshTranslation, 0)}
+              onChange={setMeshVec(setMeshTranslation, meshTranslation, 0)}
               disabled={busy}
             />
             <TextField
               id="ss-scene-manage-ty"
               label="Translation Y (m)"
               value={meshTranslation[1]}
-              onChange={setVec(setMeshTranslation, meshTranslation, 1)}
+              onChange={setMeshVec(setMeshTranslation, meshTranslation, 1)}
               disabled={busy}
             />
             <TextField
               id="ss-scene-manage-tz"
               label="Translation Z (m)"
               value={meshTranslation[2]}
-              onChange={setVec(setMeshTranslation, meshTranslation, 2)}
+              onChange={setMeshVec(setMeshTranslation, meshTranslation, 2)}
               disabled={busy}
             />
             <TextField
               id="ss-scene-manage-rx"
               label="Rotation X (°)"
               value={meshRotation[0]}
-              onChange={setVec(setMeshRotation, meshRotation, 0)}
+              onChange={setMeshVec(setMeshRotation, meshRotation, 0)}
               disabled={busy}
             />
             <TextField
               id="ss-scene-manage-ry"
               label="Rotation Y (°)"
               value={meshRotation[1]}
-              onChange={setVec(setMeshRotation, meshRotation, 1)}
+              onChange={setMeshVec(setMeshRotation, meshRotation, 1)}
               disabled={busy}
             />
             <TextField
               id="ss-scene-manage-rz"
               label="Rotation Z (°)"
               value={meshRotation[2]}
-              onChange={setVec(setMeshRotation, meshRotation, 2)}
+              onChange={setMeshVec(setMeshRotation, meshRotation, 2)}
               disabled={busy}
             />
             <TextField
               id="ss-scene-manage-sx"
               label="Scale X"
               value={meshScale[0]}
-              onChange={setVec(setMeshScale, meshScale, 0)}
+              onChange={setMeshVec(setMeshScale, meshScale, 0)}
               disabled={busy}
             />
             <TextField
               id="ss-scene-manage-sy"
               label="Scale Y"
               value={meshScale[1]}
-              onChange={setVec(setMeshScale, meshScale, 1)}
+              onChange={setMeshVec(setMeshScale, meshScale, 1)}
               disabled={busy}
             />
             <TextField
               id="ss-scene-manage-sz"
               label="Scale Z"
               value={meshScale[2]}
-              onChange={setVec(setMeshScale, meshScale, 2)}
+              onChange={setMeshVec(setMeshScale, meshScale, 2)}
               disabled={busy}
             />
           </FormSection>

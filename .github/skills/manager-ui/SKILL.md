@@ -101,6 +101,7 @@ rename `#ss-admin-list-root`, table action hrefs, or map ids below.
 | `#ss-map-host` | Map parking / adopt root |
 | `#map` | Map image container |
 | `#svgout` | Visible map SVG (React when `ssUseReactMap`; Snap keeps `#svgout-snap`) |
+| 2D map bitmap | Prefer `thumbnailUrl` over `mapUrl` (`sceneMapBitmapUrl`) — `.glb` maps are not displayable as images |
 | `#scale` | Scene scale |
 | `#scene` | Scene id / metadata |
 | `#fullscreen`, `#show-trails`, `#show-telemetry`, `#coloring-switch` | Map chrome |

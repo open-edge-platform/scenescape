@@ -19,6 +19,7 @@ import { WorkspaceSplitter } from "./WorkspaceSplitter";
 import { useMqttConnected, useCameraRates } from "./useLiveChrome";
 import type { SceneDetailBootstrap } from "./types";
 import type { TabItem } from "../components/Tabs";
+import { sceneMapBitmapUrl } from "../lib/sceneMapBitmap";
 import "./SceneDetailPage.css";
 
 type Props = {
@@ -94,13 +95,16 @@ function SceneDetailInner({ bootstrap }: Props) {
     children: bootstrap.counts.children,
   });
 
+  const mapBitmapUrl = sceneMapBitmapUrl(scene);
+
   /*
-   * Prefer React SVG map when a map URL is available (Phase 4 dual-run).
+   * Prefer React SVG map when a 2D map bitmap is available (Phase 4 dual-run).
+   * Use the ortho thumbnail for .glb maps — mapUrl alone is not displayable.
    * Set during render (not an effect) so it's already true before
    * SceneMapPane's own mount effect reads it — child effects run before
    * parent effects, so an effect here would race the first render.
    */
-  window.ssUseReactMap = Boolean(scene.mapUrl);
+  window.ssUseReactMap = Boolean(mapBitmapUrl);
 
   useEffect(() => {
     const setSceneRateCb = (hz: string) => setSceneRate(hz || "--");
@@ -319,7 +323,7 @@ function SceneDetailInner({ bootstrap }: Props) {
       />
       <div className="ss-workspace-body">
         <div className="ss-workspace-main">
-          <SceneMapPane mapUrl={scene.mapUrl} />
+          <SceneMapPane mapUrl={mapBitmapUrl} />
         </div>
         <WorkspaceSplitter
           layout={layout}
@@ -358,7 +362,7 @@ function SceneDetailInner({ bootstrap }: Props) {
         onCamerasChange={setCameras}
         onSensorsChange={setSensors}
         onChildrenChange={setChildrenLinks}
-        mapUrl={scene.mapUrl}
+        mapUrl={mapBitmapUrl}
         mapScale={scene.scale}
       />
       <ConfirmDialog

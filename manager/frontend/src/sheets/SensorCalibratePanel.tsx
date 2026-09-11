@@ -23,6 +23,7 @@ import {
   type PanelLayoutMode,
 } from "../components/PanelLayoutToggle";
 import { api, type RestError } from "../lib/rest";
+import { sceneMapBitmapUrl } from "../lib/sceneMapBitmap";
 import { useAppToast } from "../components/ToastProvider";
 import { WorkspaceSplitter } from "../scene/WorkspaceSplitter";
 import {
@@ -249,13 +250,11 @@ export function SensorCalibratePanel({
               : readMapScale();
         setScale(resolvedScale);
 
-        const map =
+        const mapFromScene =
           scene && typeof scene === "object"
-            ? (scene as { map?: unknown; map_url?: unknown }).map ||
-              (scene as { map_url?: unknown }).map_url
+            ? sceneMapBitmapUrl(scene as Record<string, unknown>)
             : null;
-        const fromApi = typeof map === "string" && map ? map : null;
-        const resolvedMap = mapUrlHint || fromApi;
+        const resolvedMap = mapUrlHint || mapFromScene;
         setMapUrl(resolvedMap);
 
         const applyCenter = (width: number, height: number) => {
