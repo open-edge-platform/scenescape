@@ -20,6 +20,8 @@ type Props = {
   titleEnd?: ReactNode;
   /** When false, omit the default title heading (use titleEnd to render it). */
   showTitle?: boolean;
+  /** Centered chrome between the title cluster and right-side actions. */
+  center?: ReactNode;
   actions?: ReactNode;
 };
 
@@ -42,14 +44,21 @@ export function PageHeader({
   back,
   titleEnd,
   showTitle = true,
+  center,
   actions,
 }: Props) {
   const crumbs = wayfindingCrumbs(breadcrumbs, title);
+  const hasCenter = center != null;
 
   return (
-    <div className="ss-page-header hide-fullscreen">
+    <div
+      className={`ss-page-header${hasCenter ? "" : " hide-fullscreen"}`}
+    >
       {crumbs.length > 0 ? (
-        <nav aria-label="Breadcrumb" className="ss-breadcrumb">
+        <nav
+          aria-label="Breadcrumb"
+          className="ss-breadcrumb hide-fullscreen"
+        >
           <ol>
             {crumbs.map((c, i) => (
               <li key={`${c.label}-${i}`}>
@@ -63,8 +72,10 @@ export function PageHeader({
           </ol>
         </nav>
       ) : null}
-      <div className="ss-page-header-row">
-        <div className="ss-page-header-main">
+      <div
+        className={`ss-page-header-row${hasCenter ? " ss-page-header-row--split" : ""}`}
+      >
+        <div className="ss-page-header-main hide-fullscreen">
           {back ? (
             <a className="ss-form-back" href={back.href}>
               <span className="ss-form-back-icon" aria-hidden="true">
@@ -82,8 +93,13 @@ export function PageHeader({
             <div className="ss-page-header-title-end">{titleEnd}</div>
           ) : null}
         </div>
+        {hasCenter ? (
+          <div className="ss-page-header-center">{center}</div>
+        ) : null}
         {actions ? (
-          <div className="ss-page-header-actions">{actions}</div>
+          <div className="ss-page-header-actions hide-fullscreen">
+            {actions}
+          </div>
         ) : null}
       </div>
     </div>

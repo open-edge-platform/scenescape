@@ -104,7 +104,8 @@ rename `#ss-admin-list-root`, table action hrefs, or map ids below.
 | 2D map bitmap | Prefer `thumbnailUrl` over `mapUrl` (`sceneMapBitmapUrl`) — `.glb` maps are not displayable as images |
 | `#scale` | Scene scale |
 | `#scene` | Scene id / metadata |
-| `#fullscreen`, `#show-trails`, `#show-telemetry`, `#coloring-switch` | Map chrome |
+| `#fullscreen`, `#show-trails`, `#show-telemetry`, `#coloring-switch` | Map chrome (`#map-controls` centered on map column via `#ss-map-toggles-slot`) |
+| `#ss-scene-chrome` / `.ss-scene-header-actions` | Scene chrome: back + title + export/3d/edit/delete + rate |
 | `#id_rois`, `#tripwires` | Hidden geometry JSON |
 | `#id_child_rois`, `#child_tripwires`, `#child_sensors` | Child overlay JSON |
 

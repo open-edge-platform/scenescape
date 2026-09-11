@@ -1,9 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { SCENE_TAB_COUNTS_EVENT, type SceneTabCounts } from "../lib/sceneTab";
-import { PageHeader } from "../components/PageHeader";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/ToastProvider";
 import { LegacyConfirmHost } from "../components/LegacyConfirmHost";
@@ -214,12 +213,21 @@ function SceneDetailInner({ bootstrap }: Props) {
     },
   ];
 
+  const back = sceneDetailBack(urls);
+  const layoutInSideColumn = layout === "row" && !mapFocus;
+
   const sceneActions = (
     <div
       className="ss-scene-header-actions"
       role="group"
       aria-label="Scene"
     >
+      <a className="ss-scene-header-back" href={back.href}>
+        <span className="ss-form-back-icon" aria-hidden="true">
+          ←
+        </span>
+        {back.label}
+      </a>
       <h2 className="ss-page-title" id="scene_name">
         {scene.name}
       </h2>
@@ -318,6 +326,45 @@ function SceneDetailInner({ bootstrap }: Props) {
     </div>
   );
 
+  const mapTogglesSlotRef = useRef<HTMLDivElement>(null);
+
+  // Park Django #map-controls centered over the map column chrome.
+  useEffect(() => {
+    const slot = mapTogglesSlotRef.current;
+    if (!slot) {
+      return;
+    }
+
+    const place = () => {
+      const controls = document.getElementById("map-controls");
+      if (!controls || controls.parentElement === slot) {
+        return;
+      }
+      slot.appendChild(controls);
+    };
+
+    place();
+    window.addEventListener("ss-map-host-ready", place);
+    const host = document.getElementById("ss-map-host");
+    let observer: MutationObserver | null = null;
+    if (host) {
+      observer = new MutationObserver(place);
+      observer.observe(host, { childList: true });
+    }
+    const timer = window.setTimeout(place, 0);
+
+    return () => {
+      window.removeEventListener("ss-map-host-ready", place);
+      observer?.disconnect();
+      window.clearTimeout(timer);
+      const controls = document.getElementById("map-controls");
+      const mapHost = document.getElementById("ss-map-host");
+      if (controls && mapHost && controls.parentElement === slot) {
+        mapHost.insertBefore(controls, mapHost.firstChild);
+      }
+    };
+  }, []);
+
   const deleteImpact = bootstrap.deleteImpact;
 
   return (
@@ -332,13 +379,33 @@ function SceneDetailInner({ bootstrap }: Props) {
         } as CSSProperties
       }
     >
-      <PageHeader
-        title={scene.name}
-        back={sceneDetailBack(urls)}
-        showTitle={false}
-        titleEnd={sceneActions}
-        actions={layoutActions}
-      />
+      <div className="ss-scene-chrome" id="ss-scene-chrome">
+        <div className="ss-scene-chrome-map">
+          <div className="ss-scene-chrome-start hide-fullscreen">
+            {sceneActions}
+          </div>
+          <div
+            ref={mapTogglesSlotRef}
+            id="ss-map-toggles-slot"
+            className="ss-scene-map-toggles-slot"
+          />
+          {!layoutInSideColumn ? (
+            <div className="ss-scene-chrome-end hide-fullscreen">
+              {layoutActions}
+            </div>
+          ) : (
+            <div className="ss-scene-chrome-end-spacer" aria-hidden="true" />
+          )}
+        </div>
+        {layoutInSideColumn ? (
+          <>
+            <div className="ss-scene-chrome-gap" aria-hidden="true" />
+            <div className="ss-scene-chrome-side hide-fullscreen">
+              {layoutActions}
+            </div>
+          </>
+        ) : null}
+      </div>
       <div className="ss-workspace-body">
         <div className="ss-workspace-main">
           <SceneMapPane mapUrl={mapBitmapUrl} />

@@ -10,7 +10,7 @@
 .ss-scene-detail--workspace {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.1rem;
   /* Prefer full-shell height when body.ss-scene-workspace is set (scene-detail.css). */
   height: 100%;
   max-height: none;
@@ -24,79 +24,207 @@
   margin-bottom: 0;
 }
 
-.ss-scene-detail--workspace .ss-page-header-main {
-  gap: 0.5rem 0.65rem;
+.ss-scene-chrome {
+  --ss-chrome-bar-height: 2.25rem;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--ss-chrome-bar-height);
+  margin-bottom: 0;
+}
+
+.ss-scene-chrome-map {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 1.5 1 0;
+  min-width: 0;
+  min-height: var(--ss-chrome-bar-height);
+}
+
+.ss-workspace--stack .ss-scene-chrome-map {
   flex: 1 1 auto;
+}
+
+.ss-scene-chrome-start {
+  position: relative;
+  z-index: 2;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: calc(50% - 0.5rem);
+}
+
+.ss-scene-chrome-end {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.ss-scene-chrome-end-spacer {
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 0;
+}
+
+.ss-scene-chrome-gap {
+  flex: 0 0 0.75rem;
+  width: 0.75rem;
+  margin: 0 -0.15rem;
+}
+
+.ss-scene-chrome-side {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  width: var(--ss-panel-size, 20rem);
+  max-width: min(var(--ss-panel-size, 20rem), 48vw);
   min-width: 0;
 }
 
-.ss-scene-detail--workspace .ss-form-back {
-  padding: 0.22rem 0.55rem;
-  font-size: var(--ss-type-workspace-body, 0.8125rem);
-  flex: 0 0 auto;
+.ss-workspace--map-focus .ss-scene-chrome-gap,
+.ss-workspace--map-focus .ss-scene-chrome-side {
+  display: none;
 }
 
-.ss-scene-detail--workspace .ss-page-header-row {
+.ss-workspace--map-focus .ss-scene-chrome-map {
+  flex: 1 1 auto;
+}
+
+.ss-scene-map-toggles-slot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  width: 100%;
+  justify-content: center;
+  max-width: min(100%, 28rem);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
-.ss-scene-detail--workspace .ss-page-title {
-  font-size: var(--ss-type-workspace-title, 1.2rem);
-  letter-spacing: -0.01em;
+.ss-scene-map-toggles-slot > * {
+  pointer-events: auto;
 }
 
-.ss-scene-detail--workspace .ss-page-header-title-end {
-  flex: 0 1 auto;
+.ss-scene-map-toggles-slot:empty {
+  display: none;
 }
 
-.ss-scene-detail--workspace .ss-page-header-actions {
-  margin-left: auto;
+body.is-map-fullscreen .ss-scene-chrome-map {
+  justify-content: center;
+}
+
+body.is-map-fullscreen .ss-scene-chrome-start,
+body.is-map-fullscreen .ss-scene-chrome-end,
+body.is-map-fullscreen .ss-scene-chrome-side,
+body.is-map-fullscreen .ss-scene-chrome-gap {
+  display: none !important;
+}
+
+.ss-scene-detail--workspace .ss-scene-chrome #map-controls,
+.ss-scene-map-toggles-slot #map-controls {
   flex: 0 0 auto;
-  gap: 0.35rem;
+  position: relative;
+  z-index: 5;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
 }
 
-/* Scene identity + commands — solid cluster beside back */
-.ss-scene-header-actions {
+/* Shared chrome bar height: scene cluster + map toggles (must match exactly) */
+.ss-scene-header-actions,
+#ss-map-toggles-slot .map-view-toggles,
+.ss-scene-map-toggles-slot .map-view-toggles {
   display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.3rem;
+  box-sizing: border-box;
+  height: var(--ss-chrome-bar-height);
+  min-height: var(--ss-chrome-bar-height);
+  max-height: var(--ss-chrome-bar-height);
   max-width: 100%;
-  padding: 0.2rem 0.25rem 0.2rem 0.55rem;
+  margin: 0;
+  padding: 0 0.45rem;
   border: 1px solid var(--ss-input-border);
   border-radius: var(--ss-radius);
   background: var(--ss-elevated);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--ss-ink) 8%, transparent);
+  overflow: hidden;
+}
+
+/* Scene identity + commands — includes back */
+.ss-scene-header-actions {
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  padding-left: 0.3rem;
+  padding-right: 0.3rem;
+}
+
+.ss-scene-header-back {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0 0.45rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: calc(var(--ss-radius) - 0.15rem);
+  background: transparent;
+  color: var(--ss-text-muted);
+  font-family: var(--ss-font-sans);
+  font-size: var(--ss-type-workspace-body, 0.8125rem);
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ss-scene-header-back:hover,
+.ss-scene-header-back:focus-visible {
+  color: var(--ss-brand);
+  background: color-mix(in srgb, var(--ss-brand) 8%, transparent);
+  outline: none;
 }
 
 .ss-scene-header-actions .ss-page-title {
   flex: 0 1 auto;
   min-width: 0;
-  max-width: min(100%, 18rem);
-  margin: 0 0.2rem 0 0;
-  padding-right: 0.45rem;
+  max-width: min(100%, 14rem);
+  margin: 0;
+  padding: 0 0.45rem 0 0.35rem;
   border-right: 1px solid var(--ss-input-border-subtle);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--ss-type-workspace-title, 1.2rem);
+  font-size: 1rem;
+  font-weight: 650;
   letter-spacing: -0.01em;
-  line-height: 1.25;
+  line-height: 1.75rem;
 }
 
 .ss-scene-header-actions .btn {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
   margin: 0;
-  min-width: 2rem;
-  padding: 0.28rem 0.55rem;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.45rem;
   border-color: transparent;
   background: color-mix(in srgb, var(--ss-brand) 8%, var(--ss-elevated));
   color: var(--ss-ink);
+  font-size: 0.8125rem;
   font-weight: 600;
+  line-height: 1;
   box-shadow: none;
 }
 
@@ -116,6 +244,30 @@
 .ss-scene-header-actions #scene-delete:focus {
   color: var(--ss-status-bad);
   background: color-mix(in srgb, var(--ss-status-bad) 10%, var(--ss-elevated));
+}
+
+#ss-map-toggles-slot .map-view-toggles,
+.ss-scene-map-toggles-slot .map-view-toggles {
+  flex-wrap: nowrap;
+  gap: 0.35rem 0.85rem;
+  padding: 0 0.7rem;
+  justify-content: center;
+}
+
+#ss-map-toggles-slot #map-controls .map-view-toggle.custom-control,
+.ss-scene-map-toggles-slot #map-controls .map-view-toggle.custom-control {
+  min-height: 0;
+  height: 1.75rem;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin: 0;
+}
+
+#ss-map-toggles-slot #map-controls .map-view-toggle .custom-control-label,
+.ss-scene-map-toggles-slot #map-controls .map-view-toggle .custom-control-label {
+  padding-top: 0;
+  font-size: 0.8125rem;
+  line-height: 1.75rem;
 }
 
 /* Panel orientation — quieter segmented chrome, separated from commands */
@@ -199,9 +351,11 @@
 
 .ss-scene-detail--workspace .ss-scene-rate,
 .ss-scene-detail--workspace .scene-rate {
+  display: inline-flex;
+  align-items: center;
   margin: 0;
-  margin-left: 0.15rem;
-  padding: 0.15rem 0.45rem;
+  margin-left: 0.1rem;
+  padding: 0 0.4rem;
   border: 0;
   border-left: 1px solid var(--ss-input-border-subtle);
   border-radius: 0;
@@ -209,6 +363,7 @@
   font-family: var(--ss-font-sans);
   font-size: 0.8125rem;
   font-weight: 400;
+  line-height: 1.75rem;
   color: var(--ss-text-muted);
   white-space: nowrap;
 }
@@ -316,8 +471,15 @@
   flex: 0 0 auto;
   position: relative;
   z-index: 5;
-  margin: 0.3rem auto 0;
+  margin: 0 auto 0.3rem;
   width: 100%;
+}
+
+/* When toggles live in the header, don't leave a gap above the map stage */
+.ss-scene-detail--workspace
+  .ss-scene-map-slot
+  #ss-map-host.scene-map:not(:has(> #map-controls)) {
+  gap: 0;
 }
 
 .ss-scene-detail--workspace .ss-scene-map-slot .map-view-toggles {

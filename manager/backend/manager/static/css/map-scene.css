@@ -465,7 +465,7 @@ body.is-map-fullscreen #map-controls {
   gap: 0.5rem 0.75rem;
   width: auto;
   max-width: 100%;
-  margin: 0.45rem auto 0;
+  margin: 0 auto 0.45rem;
   padding: 0;
   opacity: 1;
   background: transparent;
@@ -488,6 +488,17 @@ body.is-map-fullscreen #map-controls {
   border: 1px solid var(--ss-card-border);
   border-radius: var(--ss-radius);
   box-shadow: 0 1px 2px rgba(0, 30, 80, 0.06);
+}
+
+/* When adopted into scene chrome, match scene-actions bar height exactly. */
+#ss-map-toggles-slot .map-view-toggles {
+  flex-wrap: nowrap;
+  box-sizing: border-box;
+  height: var(--ss-chrome-bar-height, 2.25rem);
+  min-height: var(--ss-chrome-bar-height, 2.25rem);
+  max-height: var(--ss-chrome-bar-height, 2.25rem);
+  padding: 0 0.7rem;
+  overflow: hidden;
 }
 
 /* Match Bootstrap custom-switch geometry (inline-flex breaks the knob). */

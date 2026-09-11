@@ -48,7 +48,7 @@ type Props = {
 /**
  * Adopts the Django-rendered map host into the React layout.
  * When ssUseReactMap is set, overlays ReactSceneMap on the map stage only
- * (so #map-controls toggles stay visible below the stage).
+ * (#map-controls are adopted into the scene header row).
  */
 export const SceneMapPane = memo(function SceneMapPane({
   mapUrl = null,

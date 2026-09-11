@@ -30,7 +30,7 @@
   max-height: 100%;
 }
 
-/* Map toggles (Show Trails / Show Telemetry / Visualize ROIs) under the stage */
+/* Map toggles adopt into the scene header (#ss-map-toggles-slot) */
 .ss-scene-map-slot #map-controls {
   position: relative;
   z-index: 5;

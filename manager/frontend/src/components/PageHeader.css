@@ -66,6 +66,30 @@
   gap: 0.75rem;
 }
 
+/* Three-zone row: title | center | actions (center stays visually mid-map) */
+.ss-page-header-row--split {
+  flex-wrap: nowrap;
+  gap: 0.65rem;
+}
+
+.ss-page-header-row--split .ss-page-header-main {
+  flex: 1 1 0;
+}
+
+.ss-page-header-row--split .ss-page-header-center {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.ss-page-header-row--split .ss-page-header-actions {
+  flex: 1 1 0;
+  justify-content: flex-end;
+  margin-left: 0;
+}
+
 .ss-page-header-main {
   display: flex;
   flex-wrap: wrap;
