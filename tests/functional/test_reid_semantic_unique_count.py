@@ -6,6 +6,7 @@
 # Import the shared test infrastructure from test_reid_unique_count
 from tests.functional.test_reid_unique_count import run_test, get_scene_count_bounds
 from tests.functional.reid_backend import get_reid_profile_module
+import tests.common_test_utils as common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.log import get_logger
 
@@ -29,7 +30,7 @@ def test_reid_semantic_unique_count(params, record_xml_attribute):
 
   minimum, maximum = get_scene_count_bounds()
   scene_config = {
-    "302cf49a-97ec-402d-a324-c5077b280b7b": {
+    common.get_scene_uid(params, "Queuing"): {
       "error": False,
       "current": 0,
       "minimum": minimum,
