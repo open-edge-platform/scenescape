@@ -92,6 +92,14 @@ class ServiceMqttTest:
     with self._lock:
       self._messages.clear()
 
+  def get_messages(self):
+    """! Return a snapshot copy of all collected messages.
+
+    @return   list of dicts with 'topic', 'payload' and 'data' keys.
+    """
+    with self._lock:
+      return list(self._messages)
+
   def wait_for_payload(self, expected_payload, timeout=None):
     """! Block until a message with the given raw string payload arrives.
 
