@@ -290,6 +290,7 @@ def sceneDetail(request, scene_id):
     "isSuperuser": request.user.is_superuser,
     "isKubernetes": bool(settings.KUBERNETES_SERVICE_HOST),
     "appVersion": getattr(settings, "APP_VERSION_NUMBER", None),
+    "appGitCommit": getattr(settings, "APP_GIT_COMMIT", None),
     "googleMapsApiKey": getattr(settings, "GOOGLE_MAPS_API_KEY", "") or "",
     "mapboxApiKey": getattr(settings, "MAPBOX_API_KEY", "") or "",
     "deleteImpact": {

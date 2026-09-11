@@ -30,7 +30,7 @@ Using the mouse, one can rotate the 3D model and zoom in and out. From the 3D vi
 
 ## Navigate Scenescape Online Documentation
 
-The **Documentation** menu link opens the published Scenescape docs on the Open Edge Platform documentation site (new browser tab).
+The **Help → Documentation** menu item opens the published Scenescape docs on the Open Edge Platform documentation site (new browser tab). **Help → Support** opens the [GitHub Issues](https://github.com/open-edge-platform/scenescape/issues) page. **Help → About** shows product version and build commit.
 
 ### Time To Complete Documentation Walkthrough
 
@@ -46,7 +46,7 @@ On local desktop, open browser and connect to `https://localhost`. If running re
 
 > **Note:** These certificate warnings are expected due to the use of a self-signed certificate for initial deployment purposes. This certificate is generated at deploy time and is unique to the instance.
 
-- Click on the Documentation menu link at the top. Explore the left side contents menu. For example, try selecting Learn More and using the links to
+- Open **Help → Documentation**. Explore the left side contents menu. For example, try selecting Learn More and using the links to
   additional information:
   ![Scenescape WebUI Documentation Screenshot ](../_assets/online_docs.png)
   Figure 3: Scenescape online documentation

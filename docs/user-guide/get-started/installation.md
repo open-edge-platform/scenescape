@@ -182,7 +182,7 @@ Scenescape was downloaded, built and deployed onto a fresh Ubuntu system. Using 
 
 ![Scenescape WebUI Homepage](../_assets/ui/homepage.png "scenescape web ui homepage")
 
-> **Note:** The "Documentation" menu option opens the published Scenescape docs on the Open Edge Platform documentation site.
+> **Note:** Use **Help → Documentation** to open the published Scenescape docs on the Open Edge Platform documentation site.
 
 ## Next Steps
 

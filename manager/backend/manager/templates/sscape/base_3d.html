@@ -101,30 +101,74 @@ SPDX-License-Identifier: Apache-2.0
                 >Object Library <span class="sr-only"></span
               ></a>
             </li>
-            {% if user.is_staff %}
-              <li class="nav-item">
-                <a class="nav-link" href="/admin" target="admin"
-                  >Admin <span class="sr-only"></span
-                ></a>
-              </li>
-            {% endif %}
+            <li class="nav-item dropdown ss-nav-hover">
+              <a
+                class="nav-link dropdown-toggle"
+                href="#"
+                id="nav-help"
+                role="button"
+                data-toggle="dropdown"
+                aria-haspopup="true"
+                aria-expanded="false"
+                >Help</a
+              >
+              <div class="dropdown-menu" aria-labelledby="nav-help">
+                <a
+                  class="dropdown-item"
+                  id="nav-docs"
+                  href="https://docs.openedgeplatform.intel.com/dev/scenescape/index.html"
+                  target="docs"
+                  rel="noopener noreferrer"
+                  >Documentation</a
+                >
+                <a
+                  class="dropdown-item"
+                  id="nav-support"
+                  href="https://github.com/open-edge-platform/scenescape/issues"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >Support</a
+                >
+                <a
+                  class="dropdown-item"
+                  href="#"
+                  id="nav-about"
+                  data-toggle="modal"
+                  data-target="#ss-about-modal"
+                  >About</a
+                >
+              </div>
+            </li>
           </ul>
 
           <ul class="navbar-nav navbar-right">
-            <li class="nav-item">
-              <div class="btn-nav">
-                <div class="navbar-text navbar-info">
-                  <span id="navbar-username"
-                    >User: <strong>{{ request.user.username }}</strong></span
-                  ><br /><span id="navbar-version"
-                    >Version {{ APP_VERSION_NUMBER }}</span
+            <li class="nav-item dropdown ss-nav-hover">
+              <a
+                class="nav-link dropdown-toggle"
+                href="#"
+                id="navbar-username"
+                role="button"
+                data-toggle="dropdown"
+                aria-haspopup="true"
+                aria-expanded="false"
+                >{{ request.user.username }}</a
+              >
+              <div
+                class="dropdown-menu dropdown-menu-right"
+                aria-labelledby="navbar-username"
+              >
+                {% if user.is_staff %}
+                  <a
+                    class="dropdown-item"
+                    id="nav-admin"
+                    href="/admin"
+                    target="admin"
+                    >Admin</a
                   >
-                </div>
-                <a
-                  class="btn btn-sm btn-outline-light navbar-btn"
-                  id="nav-sign-out"
-                  href="/sign_out"
-                  >Log Out</a
+                  <div class="dropdown-divider"></div>
+                {% endif %}
+                <a class="dropdown-item" id="nav-sign-out" href="/sign_out"
+                  >Log out</a
                 >
               </div>
             </li>
@@ -147,6 +191,7 @@ SPDX-License-Identifier: Apache-2.0
         />
       </a>
     </nav>
+    {% include "sscape/includes/about_modal.html" %}
     {% block content %}
     {% endblock %}
     <input
@@ -161,6 +206,20 @@ SPDX-License-Identifier: Apache-2.0
     <script src="{% static 'assets/jquery-3.6.0.min.js' %}"></script>
     <script src="{% static 'assets/mqtt.min.js' %}"></script>
     <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script>
+      (function () {
+        var about = document.getElementById("nav-about");
+        var modal = document.getElementById("ss-about-modal");
+        if (!about || !modal || typeof window.jQuery === "undefined") {
+          return;
+        }
+        window.jQuery(about).on("click", function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          window.jQuery(modal).modal("show");
+        });
+      })();
+    </script>
     <script src="{% static 'assets/opencv.js' %}"></script>
     <script src="{% static 'assets/socket.io.min.js' %}"></script>
     <script type="module" src="{% static 'js/scenescape3d.js' %}"></script>

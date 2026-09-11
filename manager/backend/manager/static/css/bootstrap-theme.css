@@ -279,6 +279,113 @@ html[data-theme="dark"] .ss-theme-toggle__btn[aria-pressed="true"] {
   flex-shrink: 0;
 }
 
+/* Hover (and keyboard focus-within) expand for Help / account menus */
+@media (min-width: 768px) {
+  .navbar-nav .ss-nav-hover:hover > .dropdown-menu,
+  .navbar-nav .ss-nav-hover:focus-within > .dropdown-menu {
+    display: block;
+    margin-top: 0;
+  }
+}
+
+.navbar-dark .dropdown-menu {
+  background-color: var(--ss-nav-bg);
+  border: 1px solid color-mix(in srgb, var(--ss-nav-fg) 18%, transparent);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.25);
+}
+
+.navbar-dark .dropdown-item {
+  color: var(--ss-nav-link);
+}
+
+.navbar-dark .dropdown-item:hover,
+.navbar-dark .dropdown-item:focus {
+  color: var(--ss-nav-fg);
+  background-color: color-mix(in srgb, var(--ss-nav-fg) 12%, transparent);
+}
+
+.navbar-dark .dropdown-divider {
+  border-top-color: color-mix(in srgb, var(--ss-nav-fg) 18%, transparent);
+}
+
+.ss-about-modal .modal-content {
+  background-color: var(--ss-card-bg);
+  color: var(--ss-ink);
+  border: 1px solid var(--ss-card-border);
+  border-radius: var(--ss-radius);
+}
+
+.ss-about-modal .modal-header {
+  border-bottom-color: var(--ss-card-border);
+}
+
+.ss-about-modal .modal-footer {
+  border-top-color: var(--ss-card-border);
+}
+
+.ss-about-modal .close {
+  color: var(--ss-ink);
+  text-shadow: none;
+  opacity: 0.65;
+}
+
+.ss-about-modal .close:hover {
+  opacity: 1;
+}
+
+.ss-about-product {
+  margin: 0 0 0.35rem;
+  font-family: var(--ss-font-heading);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--ss-ink);
+}
+
+.ss-about-blurb {
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--ss-text-muted);
+}
+
+.ss-about-meta {
+  margin: 0 0 1rem;
+}
+
+.ss-about-meta > div {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 0.35rem 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.ss-about-meta dt {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ss-text-muted);
+}
+
+.ss-about-meta dd {
+  margin: 0;
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+
+.ss-about-commit {
+  font-size: 0.8rem;
+  color: var(--ss-ink);
+}
+
+.ss-about-legal {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--ss-text-muted);
+}
+
 .ss-theme-toggle-host {
   display: inline-flex;
   align-items: center;

@@ -19,6 +19,10 @@ EXPECTED_OPENCV_SHA256 = 19b46167b59efbef9cc3836264b0b657110833e4b1df84282004b8b
 
 include ../common.mk
 
+# Bake the build commit into the Manager image for the About modal.
+GIT_COMMIT ?= $(shell git -C $(CURDIR)/.. rev-parse HEAD 2>/dev/null || echo unknown)
+EXTRA_BUILD_ARGS += --build-arg GIT_COMMIT=$(GIT_COMMIT)
+
 default: build-image
 
 .PHONY: ui-install ui-build
@@ -38,7 +42,7 @@ build-image: ui-build jslibraries jsm-examples remove-symlink Dockerfile
 
 .PHONY: test-build
 test-build: test/geckodriver.tar.gz
-	$(MAKE) IMAGE="$(TEST_IMAGE)" TARGET="$(TEST_TARGET)" EXTRA_BUILD_ARGS="--build-arg TEST_USER=$(shell id -u)"
+	$(MAKE) IMAGE="$(TEST_IMAGE)" TARGET="$(TEST_TARGET)" EXTRA_BUILD_ARGS="--build-arg TEST_USER=$(shell id -u) --build-arg GIT_COMMIT=$(GIT_COMMIT)"
 
 # The 'remove-symlink' target removes a potentially dangling symlink to prevent build failures.
 remove-symlink:

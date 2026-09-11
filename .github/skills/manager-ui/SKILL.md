@@ -139,7 +139,10 @@ SVG `g.roi` / `g.tripwire`, `adding-roi` / `adding-tripwire`.
 
 ### Navbar
 
-`#nav-docs` (OEP published docs), `#ss-theme-toggle`.
+`#nav-help` (Help menu), `#nav-docs` (OEP published docs), `#nav-support`
+(GitHub Issues), `#nav-about` / `#ss-about-modal` (About), `#nav-admin`
+(staff; under account menu), `#navbar-username` (account menu),
+`#ss-theme-toggle`.
 
 ### `window` APIs
 

@@ -182,6 +182,24 @@ except IOError:
   print(APP_PROPER_NAME + " version.txt file not found.")
   APP_VERSION_NUMBER = "Unknown"
 
+def _read_git_commit():
+  for key in ('SCENESCAPE_GIT_COMMIT', 'GIT_COMMIT'):
+    value = os.environ.get(key, '').strip()
+    if value:
+      return value
+  commit_path = os.path.join(BASE_DIR, APP_NAME, 'git-commit.txt')
+  try:
+    with open(commit_path) as f:
+      value = f.readline().rstrip()
+      if value:
+        return value
+  except IOError:
+    pass
+  return 'unknown'
+
+# Full SHA of the commit used to build this Manager image (or runtime override).
+APP_GIT_COMMIT = _read_git_commit()
+
 # Set up support for proxy headers
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

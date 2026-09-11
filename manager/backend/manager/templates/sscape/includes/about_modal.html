@@ -1,0 +1,71 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+<div
+  class="modal fade ss-about-modal"
+  id="ss-about-modal"
+  tabindex="-1"
+  role="dialog"
+  aria-labelledby="ss-about-title"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title h5" id="ss-about-title">About</h2>
+        <button
+          type="button"
+          class="close"
+          data-dismiss="modal"
+          aria-label="Close"
+        >
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="ss-about-product">{{ APP_PROPER_NAME }}</p>
+        <p class="ss-about-blurb">
+          Spatial awareness for multi-camera scenes — track people and objects
+          across a shared map.
+        </p>
+        <dl class="ss-about-meta">
+          <div>
+            <dt>Version</dt>
+            <dd id="ss-about-version">{{ APP_VERSION_NUMBER }}</dd>
+          </div>
+          <div>
+            <dt>Build</dt>
+            <dd>
+              <code id="ss-about-commit" class="ss-about-commit"
+                >{{ APP_GIT_COMMIT }}</code
+              >
+            </dd>
+          </div>
+          <div>
+            <dt>Copyright</dt>
+            <dd>© 2026 Intel Corporation</dd>
+          </div>
+          <div>
+            <dt>License</dt>
+            <dd>Apache License, Version 2.0</dd>
+          </div>
+        </dl>
+        <p class="ss-about-legal">
+          Intel, the Intel logo, and Intel SceneScape are trademarks of Intel
+          Corporation or its subsidiaries.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn btn-primary"
+          data-dismiss="modal"
+          id="ss-about-close"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
