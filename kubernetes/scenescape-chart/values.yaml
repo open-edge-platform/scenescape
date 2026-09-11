@@ -73,6 +73,9 @@ pgserver:
 web:
   image: intel/scenescape-manager
   pullPolicy: IfNotPresent
+  # Comma-separated host list passed to Django ALLOWED_HOSTS via
+  # SCENESCAPE_ALLOWED_HOSTS. If empty - defaults to ["*"].
+  allowedHosts: ""
 
 scene:
   image: intel/scenescape-controller
@@ -98,12 +101,12 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "2026.2.0-ubuntu24-rc2"
+    tag: "2026.2.0-ubuntu24-rc3"
     pullPolicy: IfNotPresent
 
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
-  tag: "2026.2.0-ubuntu24-rc2"
+  tag: "2026.2.0-ubuntu24-rc3"
   pullPolicy: IfNotPresent
   storageClassName: ""
   cameras:
@@ -117,7 +120,7 @@ retail:
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
-  tag: "2026.2.0-ubuntu24-rc2"
+  tag: "2026.2.0-ubuntu24-rc3"
   storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg

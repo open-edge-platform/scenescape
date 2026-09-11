@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -105,8 +105,10 @@ export default class ThingControls {
       "textObject_" + this.object3D.name,
     );
     if (textObject) {
+      // TEXT_MATERIAL (draw.js) is shared across labels; only the geometry is per-instance.
       this.object3D.remove(textObject);
       textObject.geometry.dispose();
+      this.object3D.textMesh = null;
     }
     if (this.object3D.points.length > 0) {
       let x = this.object3D.points[0].x;
@@ -120,9 +122,10 @@ export default class ThingControls {
         y: y,
         z: this.object3D.height,
       };
-      this.drawObj
+      this.object3D.drawObj
         .createTextObject(this.object3D.name, this.object3D.textPos)
         .then((textMesh) => {
+          this.object3D.textMesh = textMesh;
           this.object3D.add(textMesh);
         });
     }
