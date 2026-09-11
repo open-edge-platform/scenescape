@@ -238,7 +238,7 @@ services:
     restart: always
 
   video-analytics:
-    image: intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+    image: intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24
     networks:
       scenescape:
     depends_on:
