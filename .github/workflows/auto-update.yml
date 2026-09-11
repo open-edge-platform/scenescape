@@ -47,7 +47,7 @@ jobs:
             --base "$BASE_BRANCH" \
             --state open \
             --json number,author,autoMergeRequest \
-            --jq '.[] | select(.author.login != "dependabot" and .autoMergeRequest != null) | .number'); then
+            --jq '.[] | select(.author.login != "dependabot[bot]" and .autoMergeRequest != null) | .number');
             echo "ERROR: gh pr list failed — check API access and token permissions."
             exit 1
           fi
