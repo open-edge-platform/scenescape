@@ -601,11 +601,9 @@ manager-ui:
 lint-javascript:
 	@echo "==> Linting JavaScript files..."
 	@find . -name '*.js'  | xargs npx eslint -c .github/resources/eslint.config.js --no-warn-ignored || (echo "Javascript linting failed" && exit 1)
-	@if [ -d manager/frontend/node_modules ]; then \
-	  (cd manager/frontend && npm run lint) || (echo "Manager UI linting failed" && exit 1); \
-	elif [ -f manager/frontend/package.json ]; then \
-	  echo "Skipping manager/frontend eslint (run make manager-ui or npm ci in manager/frontend first)"; \
-	fi
+	@echo "==> Linting Manager UI (manager/frontend)..."
+	@$(MAKE) -C manager ui-install
+	@(cd manager/frontend && npm run lint) || (echo "Manager UI linting failed" && exit 1)
 	@echo "DONE ==> Linting JavaScript files"
 
 .PHONY: lint-cpp
