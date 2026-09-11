@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -188,4 +188,7 @@ SPDX-License-Identifier: Apache-2.0
     id="camera_calib_strategy"
     value="{{ scene.camera_calibration }}"
   />
+  {% if EXPOSE_TEST_HOOKS %}
+    <input type="hidden" id="test-hooks-enabled" value="1" />
+  {% endif %}
 {% endblock %}

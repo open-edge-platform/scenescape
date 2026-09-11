@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -398,6 +398,8 @@ export default class SceneRegion extends THREE.Object3D {
       .then((textMesh) => {
         this.removeCountLabel();
         textMesh.name = "countTextObject";
+        // TextGeometry does not retain the source string.
+        textMesh.userData.text = text;
         this.add(textMesh);
       });
   }
