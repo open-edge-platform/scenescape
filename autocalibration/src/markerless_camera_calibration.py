@@ -13,7 +13,7 @@ import numpy as np
 from addict import Dict
 from hloc import (extract_features, match_dense, match_features,
                   pairs_from_retrieval)
-from hloc.pipelines.Scenescape import localize_scenescape
+from hloc.pipelines.SceneScape import localize_scenescape
 from scipy.spatial.transform import Rotation
 
 from scene_common import log

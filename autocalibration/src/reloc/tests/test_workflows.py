@@ -61,7 +61,7 @@ def test_scenescape_pipeline():
 
     # Try importing Scenescape pipeline
     try:
-      from hloc.pipelines.Scenescape import pipeline
+      from hloc.pipelines.SceneScape import pipeline
       print("  ✓ Scenescape pipeline module exists")
 
       if hasattr(pipeline, 'main') or hasattr(pipeline, 'run'):
