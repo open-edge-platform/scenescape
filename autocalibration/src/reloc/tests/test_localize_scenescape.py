@@ -18,7 +18,7 @@ class TestQuaternionConversions:
 
   def test_qxyzw_to_qwxyz(self):
     """Test conversion from xyzw to wxyz quaternion format"""
-    from hloc.pipelines.SceneScape.localize_scenescape import qxyzw_to_qwxyz
+    from hloc.pipelines.Scenescape.localize_scenescape import qxyzw_to_qwxyz
     qxyzw = np.array([0.1, 0.2, 0.3, 0.924])
     qwxyz = qxyzw_to_qwxyz(qxyzw)
     assert qwxyz[0] == 0.924
@@ -28,7 +28,7 @@ class TestQuaternionConversions:
 
   def test_qwxyz_to_qxyzw(self):
     """Test conversion from wxyz to xyzw quaternion format"""
-    from hloc.pipelines.SceneScape.localize_scenescape import qwxyz_to_qxyzw
+    from hloc.pipelines.Scenescape.localize_scenescape import qwxyz_to_qxyzw
     qwxyz = np.array([0.924, 0.1, 0.2, 0.3])
     qxyzw = qwxyz_to_qxyzw(qwxyz)
     assert qxyzw[0] == 0.1
@@ -38,7 +38,7 @@ class TestQuaternionConversions:
 
   def test_quaternion_conversion_roundtrip(self):
     """Test that conversions are inverses"""
-    from hloc.pipelines.SceneScape.localize_scenescape import (
+    from hloc.pipelines.Scenescape.localize_scenescape import (
       qxyzw_to_qwxyz,
       qwxyz_to_qxyzw
     )
@@ -49,7 +49,7 @@ class TestQuaternionConversions:
 
   def test_quaternion_conversion_batch(self):
     """Test batch conversion of quaternions"""
-    from hloc.pipelines.SceneScape.localize_scenescape import qxyzw_to_qwxyz
+    from hloc.pipelines.Scenescape.localize_scenescape import qxyzw_to_qwxyz
     # Multiple quaternions
     qxyzw_batch = np.array([
       [0.1, 0.2, 0.3, 0.924],
@@ -71,7 +71,7 @@ class TestQuaternionInverse:
 
   def test_qxyzwtinv_basic(self):
     """Test basic quaternion inverse with translation"""
-    from hloc.pipelines.SceneScape.localize_scenescape import qxyzwtinv
+    from hloc.pipelines.Scenescape.localize_scenescape import qxyzwtinv
     # Identity quaternion with translation
     qxyzw = np.array([0, 0, 0, 1])
     tvec = np.array([1, 2, 3])
@@ -82,7 +82,7 @@ class TestQuaternionInverse:
 
   def test_qxyzwtinv_with_rotation(self):
     """Test quaternion inverse with rotation"""
-    from hloc.pipelines.SceneScape.localize_scenescape import qxyzwtinv
+    from hloc.pipelines.Scenescape.localize_scenescape import qxyzwtinv
     from scipy.spatial.transform import Rotation as R
     # 90 degree rotation around z-axis
     qxyzw = np.array([0, 0, 0.707, 0.707])
@@ -97,7 +97,7 @@ class TestQuaternionInverse:
 
   def test_qxyzwtinv_composition(self):
     """Test that forward and inverse compose to identity"""
-    from hloc.pipelines.SceneScape.localize_scenescape import qxyzwtinv
+    from hloc.pipelines.Scenescape.localize_scenescape import qxyzwtinv
     from scipy.spatial.transform import Rotation as R
     qxyzw = np.array([0.1, 0.2, 0.3, 0.924])
     tvec = np.array([1, 2, 3])
@@ -152,7 +152,7 @@ class TestPoseFromCluster:
 
   def test_pose_from_cluster_signature(self):
     """Test that pose_from_cluster has the expected signature"""
-    from hloc.pipelines.SceneScape.localize_scenescape import pose_from_cluster
+    from hloc.pipelines.Scenescape.localize_scenescape import pose_from_cluster
     import inspect
     sig = inspect.signature(pose_from_cluster)
     expected_params = [
@@ -165,7 +165,7 @@ class TestPoseFromCluster:
 
   def test_pose_from_cluster_parameters_types(self):
     """Test parameter types and defaults"""
-    from hloc.pipelines.SceneScape.localize_scenescape import pose_from_cluster
+    from hloc.pipelines.Scenescape.localize_scenescape import pose_from_cluster
     import inspect
     sig = inspect.signature(pose_from_cluster)
     # Check defaults
@@ -177,7 +177,7 @@ class TestPoseFromCluster:
   def test_pose_from_cluster_empty_arrays(self, tmp_path):
     """Test pose_from_cluster handles empty match arrays correctly"""
     import h5py
-    from hloc.pipelines.SceneScape.localize_scenescape import pose_from_cluster
+    from hloc.pipelines.Scenescape.localize_scenescape import pose_from_cluster
 
     # Create mock dataset directory
     dataset_dir = tmp_path / "dataset"
@@ -240,7 +240,7 @@ class TestPoseFromCluster:
   def test_pose_from_cluster_too_few_matches(self, tmp_path):
     """Test pose_from_cluster returns failure when matches <= 4"""
     import h5py
-    from hloc.pipelines.SceneScape.localize_scenescape import pose_from_cluster
+    from hloc.pipelines.Scenescape.localize_scenescape import pose_from_cluster
 
     # Create mock dataset directory
     dataset_dir = tmp_path / "dataset"
@@ -299,7 +299,7 @@ class TestPoseFromCluster:
   def test_pose_from_cluster_with_valid_depth_data(self, tmp_path):
     """Test pose_from_cluster with valid 3D depth data"""
     import h5py
-    from hloc.pipelines.SceneScape.localize_scenescape import pose_from_cluster
+    from hloc.pipelines.Scenescape.localize_scenescape import pose_from_cluster
 
     # Create mock dataset directory
     dataset_dir = tmp_path / "dataset"
@@ -376,7 +376,7 @@ class TestPoseFromCluster:
     vertex and face data, which is complex to generate programmatically.
     """
     import h5py
-    from hloc.pipelines.SceneScape.localize_scenescape import pose_from_cluster
+    from hloc.pipelines.Scenescape.localize_scenescape import pose_from_cluster
 
     # Create mock dataset directory
     dataset_dir = tmp_path / "dataset"
@@ -437,7 +437,7 @@ class TestMainFunction:
 
   def test_main_function_signature(self):
     """Test that main function has expected signature"""
-    from hloc.pipelines.SceneScape.localize_scenescape import main
+    from hloc.pipelines.Scenescape.localize_scenescape import main
     import inspect
     sig = inspect.signature(main)
     expected_params = [
@@ -525,7 +525,7 @@ class TestIntegrationSceneScape:
 
   def test_quaternion_workflow(self):
     """Test typical quaternion conversion workflow"""
-    from hloc.pipelines.SceneScape.localize_scenescape import (
+    from hloc.pipelines.Scenescape.localize_scenescape import (
       qxyzw_to_qwxyz,
       qwxyz_to_qxyzw,
       qxyzwtinv
