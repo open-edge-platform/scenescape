@@ -214,49 +214,15 @@ function SceneDetailInner({ bootstrap }: Props) {
     },
   ];
 
-  const actions = (
-    <>
-      <div className="scene-rate ss-scene-rate">
-        Rate: <span id="scene-rate">{sceneRate}</span> Hz
-      </div>
-      <div
-        className="ss-layout-toggle"
-        role="group"
-        aria-label="Control panel layout"
-      >
-        {LAYOUT_OPTIONS.map((opt) => {
-          const active = mode === opt.mode;
-          const hint = opt.mode === "auto" ? ` (now ${autoLayout})` : "";
-          return (
-            <button
-              key={opt.mode}
-              type="button"
-              className={`ss-layout-toggle-btn${active ? " is-active" : ""}`}
-              title={`${opt.title}${hint}`}
-              aria-pressed={active}
-              onClick={() => setMode(opt.mode)}
-            >
-              <i className={`bi ${opt.icon}`} aria-hidden="true" />
-              <span className="ss-layout-toggle-label">{opt.label}</span>
-            </button>
-          );
-        })}
-      </div>
-      <button
-        type="button"
-        className={`ss-layout-toggle-btn ss-map-focus-btn${mapFocus ? " is-active" : ""}`}
-        title={mapFocus ? "Show control panel (Esc)" : "Map only focus"}
-        aria-pressed={mapFocus}
-        onClick={toggleMapFocus}
-      >
-        <i
-          className={`bi ${mapFocus ? "bi-layout-sidebar" : "bi-arrows-fullscreen"}`}
-          aria-hidden="true"
-        />
-        <span className="ss-layout-toggle-label">
-          {mapFocus ? "Panel" : "Map"}
-        </span>
-      </button>
+  const sceneActions = (
+    <div
+      className="ss-scene-header-actions"
+      role="group"
+      aria-label="Scene"
+    >
+      <h2 className="ss-page-title" id="scene_name">
+        {scene.name}
+      </h2>
       <a
         className="btn btn-secondary btn-sm"
         id="export-scene"
@@ -299,7 +265,57 @@ function SceneDetailInner({ bootstrap }: Props) {
           <i className="bi bi-trash" aria-hidden="true" />
         </button>
       ) : null}
-    </>
+      <div className="scene-rate ss-scene-rate">
+        Rate: <span id="scene-rate">{sceneRate}</span> Hz
+      </div>
+    </div>
+  );
+
+  const layoutActions = (
+    <div
+      className="ss-scene-layout-controls"
+      role="group"
+      aria-label="Panel orientation"
+    >
+      <div
+        className="ss-layout-toggle"
+        role="group"
+        aria-label="Control panel layout"
+      >
+        {LAYOUT_OPTIONS.map((opt) => {
+          const active = mode === opt.mode;
+          const hint = opt.mode === "auto" ? ` (now ${autoLayout})` : "";
+          return (
+            <button
+              key={opt.mode}
+              type="button"
+              className={`ss-layout-toggle-btn${active ? " is-active" : ""}`}
+              title={`${opt.title}${hint}`}
+              aria-pressed={active}
+              onClick={() => setMode(opt.mode)}
+            >
+              <i className={`bi ${opt.icon}`} aria-hidden="true" />
+              <span className="ss-layout-toggle-label">{opt.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <button
+        type="button"
+        className={`ss-layout-toggle-btn ss-map-focus-btn${mapFocus ? " is-active" : ""}`}
+        title={mapFocus ? "Show control panel (Esc)" : "Map only focus"}
+        aria-pressed={mapFocus}
+        onClick={toggleMapFocus}
+      >
+        <i
+          className={`bi ${mapFocus ? "bi-layout-sidebar" : "bi-arrows-fullscreen"}`}
+          aria-hidden="true"
+        />
+        <span className="ss-layout-toggle-label">
+          {mapFocus ? "Panel" : "Map"}
+        </span>
+      </button>
+    </div>
   );
 
   const deleteImpact = bootstrap.deleteImpact;
@@ -319,7 +335,9 @@ function SceneDetailInner({ bootstrap }: Props) {
       <PageHeader
         title={scene.name}
         back={sceneDetailBack(urls)}
-        actions={actions}
+        showTitle={false}
+        titleEnd={sceneActions}
+        actions={layoutActions}
       />
       <div className="ss-workspace-body">
         <div className="ss-workspace-main">

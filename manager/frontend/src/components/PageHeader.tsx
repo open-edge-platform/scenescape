@@ -16,6 +16,10 @@ type Props = {
   title: string;
   breadcrumbs?: Crumb[];
   back?: BackLink;
+  /** Content immediately after the title (same main cluster as back + title). */
+  titleEnd?: ReactNode;
+  /** When false, omit the default title heading (use titleEnd to render it). */
+  showTitle?: boolean;
   actions?: ReactNode;
 };
 
@@ -32,7 +36,14 @@ function wayfindingCrumbs(crumbs: Crumb[], title: string): Crumb[] {
   return trimmed;
 }
 
-export function PageHeader({ title, breadcrumbs = [], back, actions }: Props) {
+export function PageHeader({
+  title,
+  breadcrumbs = [],
+  back,
+  titleEnd,
+  showTitle = true,
+  actions,
+}: Props) {
   const crumbs = wayfindingCrumbs(breadcrumbs, title);
 
   return (
@@ -62,9 +73,14 @@ export function PageHeader({ title, breadcrumbs = [], back, actions }: Props) {
               {back.label || "Back"}
             </a>
           ) : null}
-          <h2 className="ss-page-title" id="scene_name">
-            {title}
-          </h2>
+          {showTitle ? (
+            <h2 className="ss-page-title" id="scene_name">
+              {title}
+            </h2>
+          ) : null}
+          {titleEnd ? (
+            <div className="ss-page-header-title-end">{titleEnd}</div>
+          ) : null}
         </div>
         {actions ? (
           <div className="ss-page-header-actions">{actions}</div>

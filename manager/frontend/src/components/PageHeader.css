@@ -85,6 +85,13 @@
   color: var(--ss-ink);
 }
 
+.ss-page-header-title-end {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
 .ss-page-header-actions {
   display: flex;
   flex-wrap: wrap;

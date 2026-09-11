@@ -26,11 +26,14 @@
 
 .ss-scene-detail--workspace .ss-page-header-main {
   gap: 0.5rem 0.65rem;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .ss-scene-detail--workspace .ss-form-back {
   padding: 0.22rem 0.55rem;
   font-size: var(--ss-type-workspace-body, 0.8125rem);
+  flex: 0 0 auto;
 }
 
 .ss-scene-detail--workspace .ss-page-header-row {
@@ -47,19 +50,93 @@
   letter-spacing: -0.01em;
 }
 
+.ss-scene-detail--workspace .ss-page-header-title-end {
+  flex: 0 1 auto;
+}
+
 .ss-scene-detail--workspace .ss-page-header-actions {
   margin-left: auto;
+  flex: 0 0 auto;
+  gap: 0.35rem;
+}
+
+/* Scene identity + commands — solid cluster beside back */
+.ss-scene-header-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  max-width: 100%;
+  padding: 0.2rem 0.25rem 0.2rem 0.55rem;
+  border: 1px solid var(--ss-input-border);
+  border-radius: var(--ss-radius);
+  background: var(--ss-elevated);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ss-ink) 8%, transparent);
+}
+
+.ss-scene-header-actions .ss-page-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(100%, 18rem);
+  margin: 0 0.2rem 0 0;
+  padding-right: 0.45rem;
+  border-right: 1px solid var(--ss-input-border-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--ss-type-workspace-title, 1.2rem);
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.ss-scene-header-actions .btn {
+  margin: 0;
+  min-width: 2rem;
+  padding: 0.28rem 0.55rem;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ss-brand) 8%, var(--ss-elevated));
+  color: var(--ss-ink);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.ss-scene-header-actions .btn:hover,
+.ss-scene-header-actions .btn:focus-visible {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ss-brand) 16%, var(--ss-elevated));
+  color: var(--ss-brand);
+}
+
+.ss-scene-header-actions #scene-delete {
+  background: transparent;
+  color: var(--ss-text-muted);
+}
+
+.ss-scene-header-actions #scene-delete:hover,
+.ss-scene-header-actions #scene-delete:focus {
+  color: var(--ss-status-bad);
+  background: color-mix(in srgb, var(--ss-status-bad) 10%, var(--ss-elevated));
+}
+
+/* Panel orientation — quieter segmented chrome, separated from commands */
+.ss-scene-layout-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .ss-layout-toggle {
   display: inline-flex;
   align-items: center;
   gap: 0;
-  margin-right: 0.25rem;
-  border: 1px solid var(--ss-input-border);
+  margin: 0;
+  border: 1px solid var(--ss-input-border-subtle);
   border-radius: var(--ss-radius);
   overflow: hidden;
-  background: var(--ss-card-bg);
+  background: var(--ss-surface);
 }
 
 .ss-layout-toggle-btn {
@@ -70,7 +147,7 @@
   margin: 0;
   padding: 0.25rem 0.45rem;
   border: 0;
-  border-right: 1px solid var(--ss-input-border);
+  border-right: 1px solid var(--ss-input-border-subtle);
   background: transparent;
   color: var(--ss-text-muted);
   font-family: var(--ss-font-sans);
@@ -101,6 +178,19 @@
   line-height: 1;
 }
 
+.ss-scene-layout-controls .ss-map-focus-btn {
+  border: 1px solid var(--ss-input-border-subtle);
+  border-radius: var(--ss-radius);
+  background: var(--ss-surface);
+  color: var(--ss-text-muted);
+}
+
+.ss-scene-layout-controls .ss-map-focus-btn.is-active {
+  color: var(--ss-on-brand);
+  background: var(--ss-brand);
+  border-color: var(--ss-brand);
+}
+
 @media (max-width: 720px) {
   .ss-layout-toggle-label {
     display: none;
@@ -109,9 +199,12 @@
 
 .ss-scene-detail--workspace .ss-scene-rate,
 .ss-scene-detail--workspace .scene-rate {
-  margin-right: 0.35rem;
-  padding: 0;
+  margin: 0;
+  margin-left: 0.15rem;
+  padding: 0.15rem 0.45rem;
   border: 0;
+  border-left: 1px solid var(--ss-input-border-subtle);
+  border-radius: 0;
   background: transparent;
   font-family: var(--ss-font-sans);
   font-size: 0.8125rem;
