@@ -385,11 +385,10 @@ function main() {
         }
 
         console.log(
-          "Subscribed to " + (appName + CONSTANTS.EVENT + "/+/" + sceneID + "/+/+"),
+          "Subscribed to " +
+            (appName + CONSTANTS.EVENT + "/+/" + sceneID + "/+/+"),
         );
-        client.subscribe(
-          appName + CONSTANTS.EVENT + "/+/" + sceneID + "/+/+",
-        );
+        client.subscribe(appName + CONSTANTS.EVENT + "/+/" + sceneID + "/+/+");
         cameraManager = sceneThingManagers["things"]["camera"]["obj"];
         for (const key in cameraManager.sceneCameras) {
           if (key !== "undefined") {

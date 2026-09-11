@@ -1328,7 +1328,9 @@ function drawRoi(e, index, type) {
       var hierarchyText = g
         .text(center[0], center[1] + 15, e.from_child_scene)
         .attr({ id: "hierarchy" });
-      var countText = g.text(center[0], center[1] + 30, "").attr({ id: "count" });
+      var countText = g
+        .text(center[0], center[1] + 30, "")
+        .attr({ id: "count" });
     }
     numberRois();
   }
