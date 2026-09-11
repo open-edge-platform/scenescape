@@ -22,6 +22,19 @@ RESOURCE_KEYS = ("cameras", "regions", "tripwires", "sensors")
 # Each scene lives in its own directory: <scene>/<scene>.zip, plus optional
 # <scene>/assets.json and <scene>/calibration_markers.json sidecars.
 
+# Camera uid -> (command, camerachain) for the demo cameras whose feed is served
+# by sample_data/demo_scenes/docker-compose.video-source.yml. Needed only for
+# Kubernetes: kubeclient builds each camera's DL Streamer pipeline from these
+# two DB fields, and scene archives don't carry them. Compose's dlsps
+# containers use static pipeline JSON and ignore these fields, so setting
+# them there is a harmless no-op.
+DEMO_CAMERA_VIDEO_SOURCES = {
+  "camera1": ("rtsp://mediaserver:8554/retail-cam1", "retail=CPU"),
+  "camera2": ("rtsp://mediaserver:8554/retail-cam2", "retail=CPU"),
+  "atag-qcam1": ("rtsp://mediaserver:8554/queuing-cam1", "retail=CPU"),
+  "atag-qcam2": ("rtsp://mediaserver:8554/queuing-cam2", "retail=CPU"),
+}
+
 log = logging.getLogger("upload-scenes")
 
 
@@ -77,6 +90,14 @@ class SceneScapeClient:
     with open(zip_path, "rb") as archive:
       files = {"zipFile": (os.path.basename(zip_path), archive, "application/zip")}
       return self._request("POST", "/import-scene/", files=files)
+
+  def list_cameras(self):
+    """Returns the cameras currently in the database."""
+    return self._request("GET", "/cameras").get("results", [])
+
+  def update_camera(self, uid, data):
+    """Updates camera `uid`; `name`/`scene` are required by the server even for a partial update."""
+    return self._request("POST", f"/camera/{uid}", json=data)
 
 
 def parse_auth(auth):
@@ -279,3 +300,18 @@ def upload_all(client, scene_archives):
       log.error("Failed to process %s: %s", zip_path, e)
       failed += 1
   return failed
+
+
+def configure_camera_video_sources(client, sources=None):
+  """Sets command/camerachain on the demo cameras present in *sources*."""
+  sources = DEMO_CAMERA_VIDEO_SOURCES if sources is None else sources
+  cameras = {cam["uid"]: cam for cam in client.list_cameras()}
+  for uid, (command, camerachain) in sources.items():
+    cam = cameras.get(uid)
+    if cam is None:
+      continue
+    client.update_camera(uid, {
+      "name": cam["name"], "scene": cam["scene"],
+      "command": command, "camerachain": camerachain,
+    })
+  return

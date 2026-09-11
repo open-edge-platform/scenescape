@@ -56,7 +56,7 @@ UPLOAD_SCENES:=../tools/upload_scenes/upload-scenes
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
 # start kind, then install Scenescape with helm
-default: install-deps clean-kind kind load-core install
+default: install-deps clean-kind kind load-core video-source-up install
 
 # publish to ITEP by building, packaging, then pushing
 build-and-package: build-core package
@@ -131,15 +131,66 @@ start-kind:
 # kubectl -n ingress-nginx patch deployment ingress-nginx-controller --type=json -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-ssl-passthrough"}]'
 	kubectl wait -n ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=300s
 # Enable automatic restart for the kind container so when host is rebooted, the kind cluster will be available
-	docker update --restart=always $(docker ps -aq --filter "label=io.x-k8s.kind.cluster=kind")
+	@CID=$$(docker ps -aq --filter "label=io.x-k8s.kind.cluster=kind"); \
+	if [ -n "$$CID" ]; then \
+	    docker update --restart=always $$CID; \
+	else \
+	    echo "WARNING: no kind container found, skipping --restart=always"; \
+	fi
 
 # remove the kind container
-clean-kind:
+clean-kind: video-source-down
 	kind delete cluster
 	docker network rm kind || true
 
 install-cert-manager:
 	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.18.2/cert-manager.yaml
+
+# generate yaml pointing the "mediaserver" Service at the external video-source stack
+VIDEOSOURCE_PORT?=8554
+generate-mediaserver-yaml:
+	mkdir -p setup
+	cp template/mediaserver.template setup/mediaserver.yaml
+	sed -e "s|{VIDEOSOURCE_IP}|$(VIDEOSOURCE_IP)|g" -e "s|{VIDEOSOURCE_PORT}|$(VIDEOSOURCE_PORT)|g" setup/mediaserver.yaml > setup/mediaserver.yaml.tmp && mv setup/mediaserver.yaml.tmp setup/mediaserver.yaml
+
+# Deploys the "mediaserver" Service+EndpointSlice alongside the scenescape-chart,
+# pointing it at the host running sample_data/demo_scenes/docker-compose.video-source.yml.
+.PHONY: mediaserver-up
+mediaserver-up:
+	@if [ -z "$(VIDEOSOURCE_IP)" ]; then \
+	    echo "Set VIDEOSOURCE_IP=<ip of the host running sample_data/demo_scenes/docker-compose.video-source.yml>"; \
+	    exit 1; \
+	fi
+	$(MAKE) generate-mediaserver-yaml
+	kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
+	kubectl apply -n $(NAMESPACE) -f setup/mediaserver.yaml
+
+.PHONY: mediaserver-down
+mediaserver-down:
+	-kubectl delete -n $(NAMESPACE) -f setup/mediaserver.yaml
+
+# Video source (mediamtx + per-scene ffmpeg loopers) for the kind all-in-one
+# demo; not used by the "Scenescape Only" BYO-cluster flow (see
+# kubernetes/README.md to point at a remote video-source host instead).
+# Joins the kind cluster's own Docker network directly so its IP is reachable
+# from cluster pods; dlsps pods are created dynamically in-cluster by
+# kubeclient, so retail-video/queuing-video are not started here.
+VIDEO_SOURCE_COMPOSE_FILE := ../sample_data/demo_scenes/docker-compose.video-source.yml
+
+.PHONY: video-source-up
+video-source-up:
+	$(MAKE) -C .. convert-dls-videos
+	SECRETSDIR=$(WORKINGDIR)/manager/secrets SCENESCAPE_NETWORK=kind \
+		docker compose --project-directory .. -f $(VIDEO_SOURCE_COMPOSE_FILE) up -d mediaserver retail-cams queuing-cams
+	@CID=$$(docker compose --project-directory .. -f $(VIDEO_SOURCE_COMPOSE_FILE) ps -q mediaserver); \
+	IP=$$(docker inspect -f '{{.NetworkSettings.Networks.kind.IPAddress}}' $$CID); \
+	$(MAKE) mediaserver-up VIDEOSOURCE_IP=$$IP
+
+.PHONY: video-source-down
+video-source-down:
+	-$(MAKE) mediaserver-down
+	-SECRETSDIR=$(WORKINGDIR)/manager/secrets SCENESCAPE_NETWORK=kind \
+		docker compose --project-directory .. -f $(VIDEO_SOURCE_COMPOSE_FILE) down
 
 # build scenescape docker images, download models for init-models
 # note, will make unneeded secrets in secrets/ as well
@@ -185,7 +236,6 @@ copy-files:
 	mkdir -p scenescape-chart/files/dlsps
 	mkdir -p scenescape-chart/files/broker
 	mkdir -p scenescape-chart/files/model-download
-	mkdir -p scenescape-chart/files/sample-data
 	mkdir -p scenescape-chart/files/scene-controller
 	cp -r ../dlstreamer-pipeline-server/user_scripts/gstplugins/* scenescape-chart/files/dlsps/
 	cp ../dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf scenescape-chart/files/broker/mosquitto-secure.conf
@@ -195,8 +245,6 @@ copy-files:
 	cp ../model_download/src/generate_model_config.py scenescape-chart/files/model-download/generate_model_config.py
 	cp ../model_download/src/entrypoint-k8s.sh scenescape-chart/files/model-download/entrypoint-k8s.sh
 	cp ../model_download/models.json scenescape-chart/files/model-download/models.json
-	cp ../sample_data/scripts/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
-	cp ../sample_data/scripts/convert-videos-k8s.sh scenescape-chart/files/sample-data/convert-videos-k8s.sh
 
 
 check-demo-k8s-mode:
@@ -225,6 +273,7 @@ demo-scenes:
 	trap 'rm -f $$AUTH_FILE' EXIT; \
 	kubectl get secret $(RELEASE)-controller.auth -n $(NAMESPACE) -o jsonpath='{.data.controller\.auth}' | base64 -d > $$AUTH_FILE; \
 	"$$VENV/bin/python3" $(UPLOAD_SCENES) --restauth $$AUTH_FILE $(DEMO_SCENES_TLS) --wait $(DEMO_SCENES_WAIT) \
+		--configure-video-sources \
 		$(DEMO_SCENES_URL) $(DEMO_SCENES_DIR)
 
 # to test template rendering

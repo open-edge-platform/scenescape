@@ -12,8 +12,6 @@ video:
   storageClassName: openebs-lvmpv-shared
 videos:
   storageClassName: openebs-lvmpv-shared
-sampleData:
-  storageClassName: openebs-lvmpv-shared
 controller:
   storageClassName: openebs-lvmpv-shared
 userAccessConfig:

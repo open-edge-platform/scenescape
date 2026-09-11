@@ -237,6 +237,15 @@ class K8sManager:
     logger.info("Loading Scenescape images into KinD...")
     self._load_images()
 
+    # Start the external video source (mediamtx + ffmpeg loopers) and point
+    # the in-cluster "mediaserver" Service at it, so kubeclient-created
+    # camera pods have an RTSP source once scenes are uploaded below.
+    logger.info("Starting external video-source stack...")
+    subprocess.run(
+      ["make", "-C", str(_REPO_ROOT / "kubernetes"), "video-source-up"],
+      check=True,
+    )
+
     # Populate kubernetes/scenescape-chart/files/ from source tree.
     # This directory is gitignored and must be built before helm install.
     logger.info("Populating Helm chart files (make copy-files)...")
@@ -284,6 +293,11 @@ class K8sManager:
   def teardown(self):
     """Tear down port-forwarding and delete the KinD cluster."""
     logger.info("Tearing down Kubernetes test environment...")
+
+    subprocess.run(
+      ["make", "-C", str(_REPO_ROOT / "kubernetes"), "video-source-down"],
+      check=False,
+    )
 
     for pf in self._port_forwards:
       try:
@@ -367,11 +381,10 @@ class K8sManager:
   def _generate_values_file(self):
     """Generate a Helm values.yaml for the test deployment.
 
-    Hooks are always enabled so that sample-data and model-installer
-    run as pre-install hooks (before web/kubeclient start). Scenes and
-    cameras are no longer preloaded from an example DB; they are uploaded
-    over REST once web and kubeclient are ready (see
-    _upload_baseline_scenes()).
+    Hooks are always enabled so that model-installer runs as a pre-install
+    hook (before web/kubeclient start). Scenes and cameras are no longer
+    preloaded from an example DB; they are uploaded over REST once web and
+    kubeclient are ready (see _upload_baseline_scenes()).
     When models are pre-loaded on the PVC, model-installer skips
     downloads (checks if dirs already exist) so it completes quickly.
     """
@@ -408,7 +421,7 @@ class K8sManager:
     # Install without --wait: some services (NTP, dlstreamer) crash in KinD
     # due to missing capabilities (SYS_TIME) or hardware (GPU). We wait
     # selectively for only the services our tests actually require.
-    # Timeout covers pre-install hooks (model-installer, sample-data).
+    # Timeout covers pre-install hooks (model-installer).
     _run([
       "helm", "install", _RELEASE_NAME, _CHART_PATH,
       "--namespace", _NAMESPACE,
@@ -432,7 +445,6 @@ class K8sManager:
       f"deployment/{_RELEASE_NAME}-scene-dep",
       f"deployment/{_RELEASE_NAME}-autocalibration-dep",
       f"deployment/{_RELEASE_NAME}-reid-dep",
-      f"deployment/{_RELEASE_NAME}-mediaserver-dep",
       f"deployment/{_RELEASE_NAME}-broker",
       f"statefulset/{_RELEASE_NAME}-pgserver",
     ]
@@ -506,6 +518,7 @@ class K8sManager:
     resturl = f"https://web.scenescape.intel.com:{self.web_port}/api/v1"
     self._scene_uids = upload_baseline_scenes(
       resturl, self.cert_file, self.auth_file, scene_archives,
+      configure_video_sources=True,
     )
     logger.info("Snapshotting baseline database...")
     web_pod = _get_pod_name(self.kubeconfig, _NAMESPACE, f"{_RELEASE_NAME}-web")

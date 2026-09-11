@@ -104,43 +104,6 @@ kubeclient:
     tag: "2026.2.0-ubuntu24-rc3"
     pullPolicy: IfNotPresent
 
-retail:
-  repository: docker.io/intel/dlstreamer-pipeline-server
-  tag: "2026.2.0-ubuntu24-rc3"
-  pullPolicy: IfNotPresent
-  storageClassName: ""
-  cameras:
-    image: linuxserver/ffmpeg
-    tag: version-8.0-cli
-    pullPolicy: IfNotPresent
-    files:
-      - apriltag-cam1.ts
-      - apriltag-cam2.ts
-
-queuing:
-  repository: docker.io/intel/dlstreamer-pipeline-server
-  pullPolicy: IfNotPresent
-  tag: "2026.2.0-ubuntu24-rc3"
-  storageClassName: ""
-  cameras:
-    image: linuxserver/ffmpeg
-    tag: version-8.0-cli
-    pullPolicy: IfNotPresent
-    files:
-      - qcam1.ts
-      - qcam2.ts
-
-dlspsWaitImage:
-  repository: docker.io
-  name: curlimages/curl
-  tag: 8.17.0
-  pullPolicy: IfNotPresent
-
-mediaserver:
-  image: bluenviron/mediamtx
-  tag: "1.14.0"
-  pullPolicy: IfNotPresent
-
 video:
   # models storage size
   storage: 50Gi
@@ -196,30 +159,6 @@ media:
 
 # datasets
 datasets:
-  storage: 500Mi
-  storageClassName: ""
-
-sampleData:
-  source: https://raw.githubusercontent.com/open-edge-platform/scenescape
-  sourceDir: sample_data
-  sourceVersion: main
-  downloadDataImage:
-    repository: docker.io
-    name: ubuntu
-    tag: 22.04
-    pullPolicy: IfNotPresent
-  convertVideosImage:
-    repository: docker.io
-    name: linuxserver/ffmpeg
-    tag: version-8.0-cli
-    pullPolicy: IfNotPresent
-  # Paths are relative to sourceDir; files land flat in the sample data volume.
-  files:
-    - videos/apriltag-cam1.mp4
-    - videos/apriltag-cam2.mp4
-    - videos/apriltag-cam3.mp4
-    - videos/qcam1.mp4
-    - videos/qcam2.mp4
   storage: 500Mi
   storageClassName: ""
 

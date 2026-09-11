@@ -139,3 +139,17 @@ class TestWithRealMetadata:
     reidPolicy(pobj, det, 1280, 720)
     assert pobj['category'] == 'person'
     assert 'metadata' in pobj
+
+  def test_classification_policy_preserves_age_gender_metadata(self, detections_metadata):
+    item = detections_metadata['objects'][0]
+    pobj = {}
+    classificationPolicy(pobj, item, 1280, 720)
+    assert pobj['metadata']['age'] == {
+      'label': '50',
+      'model_name': 'age_gender',
+    }
+    assert pobj['metadata']['gender'] == {
+      'label': 'Male',
+      'model_name': 'age_gender',
+      'confidence': 0.9126203060150146,
+    }

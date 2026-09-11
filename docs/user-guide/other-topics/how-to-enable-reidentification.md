@@ -15,6 +15,10 @@ Before you begin, ensure the following:
 - **Docker** is installed and configured.
 - You have access to modify the `docker-compose.yml` file in your deployment.
 - You are familiar with scene and camera configuration in Scenescape.
+- If you are composing services manually (not via `make demo-reid`), the
+  standalone video-source stack is also running: `docker compose
+--project-directory . -f sample_data/demo_scenes/docker-compose.video-source.yml
+up -d`. `make demo-reid` starts it automatically.
 
 Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md) for exposing match-latency, camera-count, and tracked-object-count metrics for monitoring and hardware-sizing purposes.
 
@@ -58,8 +62,8 @@ Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-
 
 2. **Enable Visual Feature Extraction in Video Pipeline (manual `docker compose` usage)**
    The step above is only needed if you are composing services yourself
-   instead of using `make demo-reid`. Edit the retail-config setting in
-   [Docker Compose](/sample_data/compose/docker-compose-dl-streamer-example.yml) as follows:
+   instead of using `make demo-reid`. Edit the retail-config setting in the
+   [video-source stack](/sample_data/demo_scenes/docker-compose.video-source.yml) as follows:
 
 ```yaml
 retail-config:
@@ -69,7 +73,7 @@ retail-config:
 This reidentification-specific configuration uses a vision pipeline that includes anonymous visual feature extraction (also called "visual embeddings") using a person reidentification model:
 
 ```
-"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/apriltag-cam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/omz/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
+"pipeline": "rtspsrc location=rtsp://mediaserver:8554/retail-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/omz/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
 ```
 
 **Expected Result**: Scenescape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
@@ -225,7 +229,8 @@ it; that is a separate hardening step.
    Substitute `docker-compose.qdrant-override.yml` when Qdrant is active.
 
 2. **Remove ReID from the Camera Pipeline**
-   Edit the retail-config setting in [Docker Compose](/sample_data/compose/docker-compose-dl-streamer-example.yml) and revert to the config without re-id model:
+   Edit the retail-config setting in the
+   [video-source stack](/sample_data/demo_scenes/docker-compose.video-source.yml) and revert to the config without re-id model:
 
    ```yaml
    retail-config:

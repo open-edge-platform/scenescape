@@ -46,14 +46,13 @@ def test_scenescape_installation(_k8s_manager):
 def test_scenescape_pods_not_restarting(_k8s_manager):
   """Verify core Scenescape pods don't restart within a 2-minute window.
 
-  NTP (chrony) and dlstreamer (retail/queuing cams) are excluded because
-  they crash in KinD due to missing capabilities (SYS_TIME) and GPU hardware.
-  These services are not required for functional test execution.
+  NTP (chrony) is excluded because it crashes in KinD due to missing
+  capabilities (SYS_TIME). It is not required for functional test execution.
   """
   kubeconfig = _k8s_manager.kubeconfig
 
   # Pods whose restarts we ignore (known KinD-incompatible services)
-  _EXCLUDED_SUFFIXES = ("-ntpserv", "-retail-cams", "-queuing-cams", "-kubeclient")
+  _EXCLUDED_SUFFIXES = ("-ntpserv", "-kubeclient")
 
   def _get_restart_counts():
     result = subprocess.run(
