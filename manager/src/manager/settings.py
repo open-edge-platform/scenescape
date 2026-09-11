@@ -196,6 +196,17 @@ LOGIN_URL = 'sign_in'
 KUBERNETES_SERVICE_HOST = 'KUBERNETES_SERVICE_HOST' in os.environ
 
 # Get the version number
+def get_docs_version(version):
+  """Return the documentation URL segment for an application version."""
+  if not version or version == 'Unknown' or 'dev' in version.lower():
+    return 'dev'
+
+  version_parts = version.split('.')
+  if len(version_parts) >= 2 and all(part.isdigit() for part in version_parts[:2]):
+    return '.'.join(version_parts[:2])
+
+  return 'dev'
+
 try:
   with open(BASE_DIR + '/' + APP_NAME + '/version.txt') as f:
     APP_VERSION_NUMBER = f.readline().rstrip()
@@ -203,6 +214,8 @@ try:
 except IOError:
   print(APP_PROPER_NAME + " version.txt file not found.")
   APP_VERSION_NUMBER = "Unknown"
+
+DOCS_VERSION = get_docs_version(APP_VERSION_NUMBER)
 
 # Set up support for proxy headers
 USE_X_FORWARDED_HOST = True
