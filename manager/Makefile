@@ -30,17 +30,6 @@ ui-build:
 	cp -f frontend/src/tokens/ss-tokens.css backend/manager/static/css/tokens.css
 ifndef SKIP_UI
 	cd frontend && npm ci && npm run build
-	# Built islands are checked into the tree; format them so prettier-check / REUSE stay green.
-	@$(MAKE) -C .. prettier-dependency
-	@npx prettier --write backend/manager/static/ui \
-		--ignore-path ../.gitignore \
-		--ignore-path ../.github/resources/.prettierignore \
-		--config ../.github/resources/.prettierrc.json
-	# Second pass: prettier can leave one minified chunk unstable after the bulk write.
-	@npx prettier --write backend/manager/static/ui \
-		--ignore-path ../.gitignore \
-		--ignore-path ../.github/resources/.prettierignore \
-		--config ../.github/resources/.prettierrc.json
 else
 	@echo "SKIP_UI=1 — skipping manager UI build (tokens still synced)"
 endif

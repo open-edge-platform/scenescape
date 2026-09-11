@@ -51,8 +51,8 @@ Set `SKIP_UI=1` to skip the UI build when running `make -C manager build-image`
 offline without Node (token sync still runs).
 
 Built JS/CSS under `static/ui/` get SPDX license headers from the Vite
-`writeBundle` plugin (esbuild minify strips Rollup banners). `make -C manager
-ui-build` then runs Prettier on those outputs so `prettier-check` stays green.
+`writeBundle` plugin (esbuild minify strips Rollup banners). These are local
+build outputs and are not tracked in Git.
 
 ## Django load path
 

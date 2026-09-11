@@ -25,6 +25,7 @@ db-backup-*
 manager/backend/manager/static/assets
 manager/backend/manager/static/bootstrap*
 manager/backend/manager/static/examples
+manager/backend/manager/static/ui/
 manager/secrets
 manager/backend/manager/secrets.py
 manager/backend/static/assets
