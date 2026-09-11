@@ -834,7 +834,10 @@ class SceneSerializer(NonNullSerializer):
       Scene.objects.filter(pk=instance.pk).update(trs_matrix=trs_matrix)
       instance.trs_matrix = trs_matrix
 
-    if map_path:
+    # Map align/thumbnail for *new* scenes only. On update, validated_data is
+    # applied below and Scene.save() handles .glb/.ply (auto-align + thumbnail).
+    # Running that here on update uses the *old* map path and 500s.
+    if map_path and not is_update:
       map_path = '/media/' + map_path.name
       ext = os.path.splitext(map_path)[1].lower()
 
