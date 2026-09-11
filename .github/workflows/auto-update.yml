@@ -33,7 +33,36 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: "Update pull requests"
-        uses: open-edge-platform/orch-ci/.github/actions/pr_updater@af6d3ab68ed04ec1b3111392ec0844e8e1ac83a5
-        with:
-          github_token: ${{ secrets.GH_PAT }}
+      - name: "Update pull requests targeting ${{ github.ref_name }}"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          BASE_BRANCH: ${{ github.ref_name }}
+        run: |
+          echo "Searching for open PRs targeting '${BASE_BRANCH}' with auto-merge enabled"
+
+          # Scope strictly to PRs whose base is the branch that triggered this run,
+          # so a push to one branch never force-updates PRs targeting another branch.
+          if ! prs_output=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --base "$BASE_BRANCH" \
+            --state open \
+            --json number,author,autoMergeRequest \
+            --jq '.[] | select(.author.login != "dependabot[bot]" and .autoMergeRequest != null) | .number');
+            echo "ERROR: gh pr list failed — check API access and token permissions."
+            exit 1
+          fi
+
+          mapfile -t prs <<< "$prs_output"
+          if [[ ${#prs[@]} -eq 1 && -z "${prs[0]}" ]]; then
+            prs=()
+          fi
+
+          if [[ ${#prs[@]} -eq 0 ]]; then
+            echo "No open PRs with auto-merge enabled targeting '${BASE_BRANCH}' — nothing to do."
+            exit 0
+          fi
+
+          for pr in "${prs[@]}"; do
+            echo "Updating PR #${pr}"
+            gh pr update-branch "$pr" --repo "$GITHUB_REPOSITORY" || echo "Failed to update PR #${pr}"
+          done
