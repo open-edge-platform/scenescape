@@ -8,7 +8,6 @@ import pytest
 from manager.settings import get_docs_version
 
 
-TEST_NAME = 'NEX-T00000'
 TEMPLATE_PATH = (
   Path(__file__).resolve().parents[2] / 'manager' / 'src' / 'manager' /
   'templates' / 'sscape' / 'base.html'
