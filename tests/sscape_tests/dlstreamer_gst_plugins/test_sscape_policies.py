@@ -153,3 +153,31 @@ class TestWithRealMetadata:
       'model_name': 'age_gender',
       'confidence': 0.9126203060150146,
     }
+
+  def test_reid_policy_preserves_classification_metadata(self, detections_metadata):
+    item = detections_metadata['objects'][0]
+    pobj = {}
+    reidPolicy(pobj, item, 1280, 720)
+    assert pobj['metadata']['age'] == {
+      'label': '50',
+      'model_name': 'age_gender',
+    }
+    assert pobj['metadata']['gender'] == {
+      'label': 'Male',
+      'model_name': 'age_gender',
+      'confidence': 0.9126203060150146,
+    }
+
+  def test_reid_policy_preserves_reid_metadata(self, detections_metadata):
+    import base64
+
+    item = detections_metadata['objects'][0]
+    pobj = {}
+    reidPolicy(pobj, item, 1280, 720)
+    assert 'reid' in pobj['metadata']
+    reid_meta = pobj['metadata']['reid']
+    assert 'embedding_vector' in reid_meta and isinstance(reid_meta['embedding_vector'], str)
+    assert reid_meta.get('model_name') == 'torch-jit-export'
+    # embedding should be valid base64 and decode to a multiple of 4 bytes (float32 array)
+    vec_bytes = base64.b64decode(reid_meta['embedding_vector'])
+    assert len(vec_bytes) % 4 == 0

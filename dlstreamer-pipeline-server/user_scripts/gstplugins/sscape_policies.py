@@ -146,7 +146,6 @@ def classificationPolicy(pobj, item, fw, fh):
 
   categories = {}
   for tensor in item.get('tensors', [{}]):
-    name = tensor.get('name', '') or tensor.get('tensor_name', '')
     if _isClassificationTensor(tensor):
       metadata_dict = {
         'label': tensor.get('label', ''),
@@ -154,6 +153,7 @@ def classificationPolicy(pobj, item, fw, fh):
       }
       if 'confidence' in tensor:
         metadata_dict['confidence'] = tensor.get('confidence')
+      name = tensor.get('name', '') or tensor.get('tensor_name', '')
       categories[name] = metadata_dict
 
   # Move all semantic metadata under metadata key
