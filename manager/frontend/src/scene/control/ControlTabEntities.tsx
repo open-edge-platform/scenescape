@@ -8,7 +8,6 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { createPortal } from "react-dom";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAppToast } from "../../components/ToastProvider";
 import { ACTION_ICONS } from "../../components/actionIcons";
@@ -31,17 +30,7 @@ declare global {
   }
 }
 
-type Props = {
-  cameras: SceneCameraBootstrap[];
-  sensors: SceneSensorBootstrap[];
-  childrenLinks: SceneChildBootstrap[];
-  isSuperuser: boolean;
-  panelsReady: boolean;
-  authToken?: string;
-  onSensorsChange?: Dispatch<SetStateAction<SceneSensorBootstrap[]>>;
-};
-
-function CameraCards({
+export function CamerasPanelContent({
   cameras,
   isSuperuser,
 }: {
@@ -51,7 +40,6 @@ function CameraCards({
   useEffect(() => {
     const refresh = () => window.ssRefreshCameraSnapshots?.();
     refresh();
-    // MQTT may connect before React portals mount; retry briefly.
     const t1 = window.setTimeout(refresh, 400);
     const t2 = window.setTimeout(refresh, 1200);
     return () => {
@@ -137,120 +125,177 @@ function CameraCards({
   );
 }
 
-function SensorCards({
+export function SensorsPanelContent({
   sensors,
   isSuperuser,
-  onDelete,
+  authToken = "",
+  onSensorsChange,
 }: {
   sensors: SceneSensorBootstrap[];
   isSuperuser: boolean;
-  onDelete?: (sensor: SceneSensorBootstrap) => void;
+  authToken?: string;
+  onSensorsChange?: Dispatch<SetStateAction<SceneSensorBootstrap[]>>;
 }) {
+  const toast = useAppToast();
+  const [pendingSensor, setPendingSensor] =
+    useState<SceneSensorBootstrap | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const canDelete = Boolean(authToken && onSensorsChange);
+
   useEffect(() => {
     window.ssDrawSingletonSensors?.();
   }, [sensors]);
 
-  if (sensors.length === 0) {
-    return (
-      <div className="ss-empty-state">
-        <p>No sensors in this scene yet.</p>
-        {isSuperuser ? (
-          <a className="btn btn-primary btn-sm" href="?ss=sensor-create">
-            + New Sensor
-          </a>
-        ) : null}
-      </div>
-    );
-  }
+  const confirmSensorDelete = useCallback(async () => {
+    if (!pendingSensor || !authToken || !onSensorsChange) {
+      return;
+    }
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await api.deleteSensor(authToken, pendingSensor.sensorId);
+      window.ssRemoveSingletonSensor?.(pendingSensor.sensorId);
+      onSensorsChange((prev) =>
+        prev.filter(
+          (s) =>
+            s.id !== pendingSensor.id && s.sensorId !== pendingSensor.sensorId,
+        ),
+      );
+      toast.show("Sensor deleted", "ok");
+      setPendingSensor(null);
+    } catch (err) {
+      setDeleteError((err as RestError).message || "Delete failed");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [authToken, onSensorsChange, pendingSensor, toast]);
 
   return (
-    <div className="ss-tab-list">
-      {sensors.map((sensor) => (
-        <div
-          key={sensor.id}
-          className="ss-tab-row singleton count-item"
-          data-sensor-name={sensor.name}
-        >
-          {sensor.iconUrl ? (
-            <img
-              className="sensor-icon ss-tab-row__icon"
-              width={20}
-              height={20}
-              src={sensor.iconUrl}
-              alt=""
-            />
-          ) : (
-            <span
-              className="ss-tab-row__icon ss-tab-row__icon--empty"
-              aria-hidden="true"
-            />
-          )}
-          <div className="ss-tab-row__main">
-            <span className="ss-tab-row__title">{sensor.name}</span>
-            <button
-              type="button"
-              className="ss-tab-row__meta sensor-id ss-tab-row__copy-id"
-              title="Click to copy ID"
-              onClick={() => void copyTextToClipboard(sensor.sensorId)}
-            >
-              {sensor.sensorId}
-            </button>
-          </div>
-          <input
-            type="hidden"
-            className="area-json"
-            value={sensor.areaJson}
-            readOnly
-          />
+    <>
+      {sensors.length === 0 ? (
+        <div className="ss-empty-state">
+          <p>No sensors in this scene yet.</p>
           {isSuperuser ? (
-            <div className="ss-tab-row__actions ss-entity-actions">
-              <a
-                className="ss-icon-btn sensor_calibrate"
-                href={sensor.calibrateHref}
-                id={`sensor_calibrate_${sensor.id}`}
-                title={`Configure ${sensor.name}`}
-                aria-label={`Configure ${sensor.name}`}
-              >
-                <i
-                  className={`bi ${ACTION_ICONS.configure}`}
-                  aria-hidden="true"
-                />
-              </a>
-              {onDelete ? (
-                <button
-                  type="button"
-                  className="ss-icon-btn ss-icon-btn--danger"
-                  title={`Delete ${sensor.name}`}
-                  aria-label={`Delete ${sensor.name}`}
-                  onClick={() => onDelete(sensor)}
-                >
-                  <i
-                    className={`bi ${ACTION_ICONS.delete}`}
-                    aria-hidden="true"
-                  />
-                </button>
-              ) : sensor.deleteUrl ? (
-                <a
-                  className="ss-icon-btn ss-icon-btn--danger"
-                  href={sensor.deleteUrl}
-                  title={`Delete ${sensor.name}`}
-                  aria-label={`Delete ${sensor.name}`}
-                >
-                  <i
-                    className={`bi ${ACTION_ICONS.delete}`}
-                    aria-hidden="true"
-                  />
-                </a>
-              ) : null}
-            </div>
+            <a className="btn btn-primary btn-sm" href="?ss=sensor-create">
+              + New Sensor
+            </a>
           ) : null}
         </div>
-      ))}
-    </div>
+      ) : (
+        <div className="ss-tab-list">
+          {sensors.map((sensor) => (
+            <div
+              key={sensor.id}
+              className="ss-tab-row singleton count-item"
+              data-sensor-name={sensor.name}
+            >
+              {sensor.iconUrl ? (
+                <img
+                  className="sensor-icon ss-tab-row__icon"
+                  width={20}
+                  height={20}
+                  src={sensor.iconUrl}
+                  alt=""
+                />
+              ) : (
+                <span
+                  className="ss-tab-row__icon ss-tab-row__icon--empty"
+                  aria-hidden="true"
+                />
+              )}
+              <div className="ss-tab-row__main">
+                <span className="ss-tab-row__title">{sensor.name}</span>
+                <button
+                  type="button"
+                  className="ss-tab-row__meta sensor-id ss-tab-row__copy-id"
+                  title="Click to copy ID"
+                  onClick={() => void copyTextToClipboard(sensor.sensorId)}
+                >
+                  {sensor.sensorId}
+                </button>
+              </div>
+              <input
+                type="hidden"
+                className="area-json"
+                value={sensor.areaJson}
+                readOnly
+              />
+              {isSuperuser ? (
+                <div className="ss-tab-row__actions ss-entity-actions">
+                  <a
+                    className="ss-icon-btn sensor_calibrate"
+                    href={sensor.calibrateHref}
+                    id={`sensor_calibrate_${sensor.id}`}
+                    title={`Configure ${sensor.name}`}
+                    aria-label={`Configure ${sensor.name}`}
+                  >
+                    <i
+                      className={`bi ${ACTION_ICONS.configure}`}
+                      aria-hidden="true"
+                    />
+                  </a>
+                  {canDelete ? (
+                    <button
+                      type="button"
+                      className="ss-icon-btn ss-icon-btn--danger"
+                      title={`Delete ${sensor.name}`}
+                      aria-label={`Delete ${sensor.name}`}
+                      onClick={() => {
+                        setDeleteError(null);
+                        setPendingSensor(sensor);
+                      }}
+                    >
+                      <i
+                        className={`bi ${ACTION_ICONS.delete}`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  ) : sensor.deleteUrl ? (
+                    <a
+                      className="ss-icon-btn ss-icon-btn--danger"
+                      href={sensor.deleteUrl}
+                      title={`Delete ${sensor.name}`}
+                      aria-label={`Delete ${sensor.name}`}
+                    >
+                      <i
+                        className={`bi ${ACTION_ICONS.delete}`}
+                        aria-hidden="true"
+                      />
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+      <ConfirmDialog
+        open={Boolean(pendingSensor)}
+        title="Delete sensor?"
+        confirmLabel="Delete"
+        danger
+        busy={deleteBusy}
+        onConfirm={confirmSensorDelete}
+        onCancel={() => {
+          if (!deleteBusy) {
+            setPendingSensor(null);
+            setDeleteError(null);
+          }
+        }}
+      >
+        <p>
+          Are you sure you want to delete{" "}
+          <strong>{pendingSensor?.name || "this sensor"}</strong>?
+        </p>
+        <p>This action cannot be undone.</p>
+        {deleteError ? <p className="ss-confirm-error">{deleteError}</p> : null}
+      </ConfirmDialog>
+    </>
   );
 }
 
-function ChildCards({
+export function ChildrenPanelContent({
   childrenLinks,
   isSuperuser,
 }: {
@@ -343,122 +388,17 @@ function ChildCards({
   );
 }
 
-/**
- * React-owned cameras / sensors / children cards, portaled into tab mounts.
- * Preserves MQTT/map DOM contracts (snapshot topics, .singleton/.area-json, ids).
- */
-export function ControlTabEntities({
-  cameras,
-  sensors,
-  childrenLinks,
-  isSuperuser,
-  panelsReady,
-  authToken = "",
-  onSensorsChange,
-}: Props) {
-  const toast = useAppToast();
-  const [pendingSensor, setPendingSensor] =
-    useState<SceneSensorBootstrap | null>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
+/** Publish camera / sensor / children badge counts when entity lists change. */
+export function usePublishEntityTabCounts(
+  cameras: SceneCameraBootstrap[],
+  sensors: SceneSensorBootstrap[],
+  childrenLinks: SceneChildBootstrap[],
+): void {
   useEffect(() => {
-    if (!panelsReady) {
-      return;
-    }
     publishSceneTabCounts({
       cameras: cameras.length,
       sensors: sensors.length,
       children: childrenLinks.length,
     });
-  }, [panelsReady, cameras, sensors, childrenLinks]);
-
-  const confirmSensorDelete = useCallback(async () => {
-    if (!pendingSensor || !authToken || !onSensorsChange) {
-      return;
-    }
-    setDeleteBusy(true);
-    setDeleteError(null);
-    try {
-      await api.deleteSensor(authToken, pendingSensor.sensorId);
-      window.ssRemoveSingletonSensor?.(pendingSensor.sensorId);
-      onSensorsChange((prev) =>
-        prev.filter(
-          (s) =>
-            s.id !== pendingSensor.id && s.sensorId !== pendingSensor.sensorId,
-        ),
-      );
-      toast.show("Sensor deleted", "ok");
-      setPendingSensor(null);
-    } catch (err) {
-      setDeleteError((err as RestError).message || "Delete failed");
-    } finally {
-      setDeleteBusy(false);
-    }
-  }, [authToken, onSensorsChange, pendingSensor, toast]);
-
-  const requestSensorDelete = useCallback((sensor: SceneSensorBootstrap) => {
-    setDeleteError(null);
-    setPendingSensor(sensor);
-  }, []);
-
-  if (!panelsReady) {
-    return null;
-  }
-
-  const camMount = document.getElementById("ss-cameras-mount");
-  const sensorMount = document.getElementById("ss-sensors-mount");
-  const childMount = document.getElementById("ss-children-mount");
-  const canDeleteSensor = Boolean(authToken && onSensorsChange);
-
-  return (
-    <>
-      {camMount
-        ? createPortal(
-            <CameraCards cameras={cameras} isSuperuser={isSuperuser} />,
-            camMount,
-          )
-        : null}
-      {sensorMount
-        ? createPortal(
-            <SensorCards
-              sensors={sensors}
-              isSuperuser={isSuperuser}
-              onDelete={canDeleteSensor ? requestSensorDelete : undefined}
-            />,
-            sensorMount,
-          )
-        : null}
-      {childMount
-        ? createPortal(
-            <ChildCards
-              childrenLinks={childrenLinks}
-              isSuperuser={isSuperuser}
-            />,
-            childMount,
-          )
-        : null}
-      <ConfirmDialog
-        open={Boolean(pendingSensor)}
-        title="Delete sensor?"
-        confirmLabel="Delete"
-        danger
-        busy={deleteBusy}
-        onConfirm={confirmSensorDelete}
-        onCancel={() => {
-          if (!deleteBusy) {
-            setPendingSensor(null);
-            setDeleteError(null);
-          }
-        }}
-      >
-        <p>
-          Are you sure you want to delete{" "}
-          <strong>{pendingSensor?.name || "this sensor"}</strong>?
-        </p>
-        <p>This action cannot be undone.</p>
-        {deleteError ? <p className="ss-confirm-error">{deleteError}</p> : null}
-      </ConfirmDialog>
-    </>
-  );
+  }, [cameras, sensors, childrenLinks]);
 }

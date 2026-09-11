@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { publishSceneTabCounts } from "../../lib/sceneTab";
 import { createPortal } from "react-dom";
 import { RegionEditorCard } from "./RegionEditorCard";
@@ -462,8 +462,17 @@ export function RoiTripwireEditors({
     }
   };
 
-  const roiHost = document.getElementById("roi-fields");
-  const tripHost = document.getElementById("tripwire-fields");
+  const [roiHost, setRoiHost] = useState<HTMLElement | null>(null);
+  const [tripHost, setTripHost] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    const sync = () => {
+      setRoiHost(document.getElementById("roi-fields"));
+      setTripHost(document.getElementById("tripwire-fields"));
+    };
+    sync();
+    const frame = window.requestAnimationFrame(sync);
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   return (
     <>

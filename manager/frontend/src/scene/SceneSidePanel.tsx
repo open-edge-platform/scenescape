@@ -4,9 +4,9 @@
 import {
   useCallback,
   useEffect,
-  useRef,
   useState,
   type Dispatch,
+  type ReactNode,
   type SetStateAction,
 } from "react";
 import { TabList, type TabItem } from "../components/Tabs";
@@ -17,7 +17,12 @@ import {
   type SceneControlTabId,
 } from "../lib/sceneTab";
 import { CameraStripEnhancer } from "./CameraStripEnhancer";
-import { ControlTabEntities } from "./control/ControlTabEntities";
+import {
+  CamerasPanelContent,
+  ChildrenPanelContent,
+  SensorsPanelContent,
+  usePublishEntityTabCounts,
+} from "./control/ControlTabEntities";
 import { MqttSettingsPanel } from "./MqttSettingsPanel";
 import { SceneHelpModals } from "./SceneHelpModals";
 import { TabToolbar } from "./TabToolbar";
@@ -51,8 +56,35 @@ type Props = {
   onSensorsChange?: Dispatch<SetStateAction<SceneSensorBootstrap[]>>;
 };
 
+function SceneControlPanel({
+  paneId,
+  tabId,
+  activeId,
+  children,
+}: {
+  paneId: string;
+  tabId: string;
+  activeId: string;
+  children: ReactNode;
+}) {
+  const selected = tabId === activeId;
+  return (
+    <div
+      role="tabpanel"
+      id={paneId}
+      aria-labelledby={`ss-tab-${tabId}`}
+      hidden={!selected}
+      className={`ss-tabs-panel scene-detail-panel-wrap${selected ? " is-active" : ""}`}
+    >
+      <div className="card scene-detail-panel">
+        <div className="card-body">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 /**
- * Scene control tabs with React-owned toolbar (stable ids for sscape.js).
+ * Scene control tabs with React-owned panels (stable ids for sscape.js).
  */
 export function SceneSidePanel({
   tabs,
@@ -69,40 +101,8 @@ export function SceneSidePanel({
   const [activeId, setActiveId] = useState<SceneControlTabId>(() =>
     readStoredSceneTab(sceneId),
   );
-  const [panelsReady, setPanelsReady] = useState(false);
-  const slotRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const slot = slotRef.current;
-    const panels = document.getElementById("scene-detail-panels");
-    if (!slot || !panels) {
-      return;
-    }
-    slot.appendChild(panels);
-    panels.hidden = false;
-    panels.classList.add("ss-legacy-panels-adopted");
-    setPanelsReady(true);
-    return () => {
-      setPanelsReady(false);
-      const parking = document.getElementById("ss-legacy-panels-parking");
-      if (parking && panels.parentElement === slot) {
-        parking.appendChild(panels);
-        panels.hidden = true;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    Object.entries(PANE_BY_TAB).forEach(([tabId, paneId]) => {
-      const pane = document.getElementById(paneId);
-      if (!pane) {
-        return;
-      }
-      const selected = tabId === activeId;
-      pane.classList.toggle("show", selected);
-      pane.classList.toggle("active", selected);
-    });
-  }, [activeId]);
+  usePublishEntityTabCounts(cameras, sensors, childrenLinks);
 
   useEffect(() => {
     writeStoredSceneTab(sceneId, activeId);
@@ -158,24 +158,83 @@ export function SceneSidePanel({
             <CameraStripEnhancer rates={cameraRates} />
           ) : null}
         </div>
-        <div className="ss-tabs-panels">
-          <div ref={slotRef} className="ss-legacy-panels-slot" />
+        <div className="ss-tabs-panels" id="ss-scene-tab-panels">
+          <SceneControlPanel
+            paneId="cameras"
+            tabId="cameras"
+            activeId={activeId}
+          >
+            <div id="ss-cameras-mount">
+              <CamerasPanelContent
+                cameras={cameras}
+                isSuperuser={isSuperuser}
+              />
+            </div>
+          </SceneControlPanel>
+
+          <SceneControlPanel
+            paneId="sensors"
+            tabId="sensors"
+            activeId={activeId}
+          >
+            <div id="ss-sensors-mount">
+              <SensorsPanelContent
+                sensors={sensors}
+                isSuperuser={isSuperuser}
+                authToken={authToken}
+                onSensorsChange={onSensorsChange}
+              />
+            </div>
+          </SceneControlPanel>
+
+          <SceneControlPanel
+            paneId="regions"
+            tabId="regions"
+            activeId={activeId}
+          >
+            <div id="roi-fields" className="top-buffer" />
+            <div id="no-regions" className="ss-empty-state" hidden />
+          </SceneControlPanel>
+
+          <SceneControlPanel
+            paneId="trips"
+            tabId="tripwires"
+            activeId={activeId}
+          >
+            <div id="tripwire-fields" className="top-buffer" />
+            <div id="no-tripwires" className="ss-empty-state" hidden />
+          </SceneControlPanel>
+
+          <SceneControlPanel
+            paneId="children"
+            tabId="children"
+            activeId={activeId}
+          >
+            <div id="childrenlist">
+              <input
+                type="hidden"
+                name="children"
+                id="scene_children"
+                value={String(childrenLinks.length)}
+                readOnly
+              />
+              <div id="ss-children-mount">
+                <ChildrenPanelContent
+                  childrenLinks={childrenLinks}
+                  isSuperuser={isSuperuser}
+                />
+              </div>
+            </div>
+          </SceneControlPanel>
+
+          <SceneControlPanel paneId="mqtt" tabId="mqtt" activeId={activeId}>
+            <MqttSettingsPanel
+              wssConnection={wssConnection}
+              sceneId={sceneId}
+            />
+          </SceneControlPanel>
         </div>
       </div>
-      <ControlTabEntities
-        cameras={cameras}
-        sensors={sensors}
-        childrenLinks={childrenLinks}
-        isSuperuser={isSuperuser}
-        panelsReady={panelsReady}
-        authToken={authToken}
-        onSensorsChange={onSensorsChange}
-      />
-      <MqttSettingsPanel
-        wssConnection={wssConnection}
-        sceneId={sceneId}
-        panelsReady={panelsReady}
-      />
       <SceneHelpModals />
     </aside>
   );

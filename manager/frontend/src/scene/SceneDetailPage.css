@@ -420,10 +420,8 @@ body.ss-workspace-resizing .ss-workspace-main {
   padding: 0.2rem 0.4rem;
 }
 
-.ss-workspace--stack .ss-legacy-panels-slot,
-.ss-workspace--stack .ss-legacy-panels-slot #scene-detail-panels,
-.ss-workspace--stack .ss-legacy-panels-slot #ss-scene-tab-panels,
-.ss-workspace--stack .ss-legacy-panels-slot .tab-pane.active.show,
+.ss-workspace--stack .ss-tabs-panels,
+.ss-workspace--stack .ss-tabs-panel.is-active,
 .ss-workspace--stack .scene-detail-panel {
   display: flex;
   flex-direction: column;
@@ -460,10 +458,8 @@ body.ss-workspace-resizing .ss-workspace-main {
 
 .ss-scene-detail--workspace .ss-scene-side .ss-tabs,
 .ss-scene-detail--workspace .ss-scene-side .ss-tabs-panels,
-.ss-scene-detail--workspace .ss-scene-side .ss-legacy-panels-slot,
-.ss-scene-detail--workspace .ss-scene-side #scene-detail-panels,
-.ss-scene-detail--workspace .ss-scene-side #ss-scene-tab-panels,
-.ss-scene-detail--workspace .ss-scene-side .tab-pane,
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-panels,
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-panel,
 .ss-scene-detail--workspace .ss-scene-side .scene-detail-panel {
   max-width: 100%;
   min-width: 0;

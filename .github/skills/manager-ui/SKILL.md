@@ -85,6 +85,8 @@ Do not re-merge workspace strip rules into Django CSS without an audit.
   `#ss-children-mount`.
 - Scene settings: `#scene-edit` → `?ss=scene-manage`.
 - Calibrate / manage Save is dirty-gated (`Save` / `Saved` / `Saving…`).
+- Control tab panels are React-owned in `SceneSidePanel` (no Django panel
+  parking). Pane ids (`#cameras`, `#trips`, …) and mounts stay hard contracts.
 
 ## Hard contracts (freeze)
 

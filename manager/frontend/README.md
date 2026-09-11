@@ -59,9 +59,10 @@ ui-build` then runs Prettier on those outputs so `prettier-check` stays green.
 Each page mounts a root + `json_script` bootstrap and loads the matching
 `{% static 'ui/<entry>.js' %}` as `type="module"`.
 
-Scene detail also adopts `#ss-map-host` and `#scene-detail-panels`; ROI/tripwire
-editor cards are React-owned via `#roi-fields` / `#tripwire-fields`. Sheets open
-from `?ss=<action>&id=<optional>` (see `src/lib/sheetQuery.ts`).
+Scene detail also adopts `#ss-map-host`; control tab panels are React-owned
+inside `SceneSidePanel` (hard-contract pane ids `#cameras`, `#trips`, …).
+ROI/tripwire editor cards portal into `#roi-fields` / `#tripwire-fields`.
+Sheets open from `?ss=<action>&id=<optional>` (see `src/lib/sheetQuery.ts`).
 
 ## Lint
 
