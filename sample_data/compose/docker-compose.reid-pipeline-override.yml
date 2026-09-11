@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# Swap the DLStreamer Pipeline Server configs for the ReID-enabled variants.
-# retail-config/queuing-config are declared in the video-source stack, so this
-# overrides that file, not docker-compose.yml. `make demo-reid`/`demo-all` wire
-# this in automatically; combine manually with:
+# Replace the default DLStreamer Pipeline Server configs with the ReID-enabled
+# versions. These configs are defined by the video-source stack, so this file
+# overrides that stack instead of the main docker-compose.yml. `make demo-reid`
+# and `make demo-all` include this automatically. To run it manually:
 #   docker compose -f docker-compose.yml -f sample_data/compose/docker-compose.vdms-override.yml --profile controller up -d
 #   docker compose --project-directory . -f sample_data/demo_scenes/docker-compose.video-source.yml \
 #     -f sample_data/compose/docker-compose.reid-pipeline-override.yml up -d

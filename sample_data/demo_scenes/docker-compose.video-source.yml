@@ -1,10 +1,9 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# Video source stack for the Scenescape demo scenes: mediamtx + per-scene
+# Example video source stack for the Scenescape demo scenes: mediamtx + per-scene
 # ffmpeg loopers publish the sample videos over RTSP, and DL Streamer
-# Pipeline Server (dlsps) consumes them and publishes detections over MQTT.
-# None of this is Scenescape itself, so it is kept out of docker-compose.yml.
+# Pipeline Server consumes them and publishes detections over MQTT.
 # Run alongside the main Scenescape stack (same COMPOSE_PROJECT_NAME so the
 # "scenescape" Docker network and vol-models volume are shared), e.g.:
 #   make video-source-up

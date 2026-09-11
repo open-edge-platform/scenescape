@@ -104,11 +104,6 @@ kubeclient:
     tag: "2026.2.0-ubuntu24-rc3"
     pullPolicy: IfNotPresent
 
-# The "mediaserver" Service pointing at the standalone video-source stack
-# (sample_data/demo_scenes/docker-compose.video-source.yml) is NOT part of this chart;
-# apply it separately, see kubernetes/README.md and
-# `make -C kubernetes mediaserver-up VIDEOSOURCE_IP=<ip>`.
-
 video:
   # models storage size
   storage: 50Gi

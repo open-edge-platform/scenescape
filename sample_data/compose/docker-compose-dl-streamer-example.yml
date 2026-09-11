@@ -257,11 +257,6 @@ services:
     restart: always
     pids_limit: 1000
 
-  # mediaserver, retail-cams/queuing-cams (ffmpeg) and retail-video/queuing-video
-  # (dlsps) live in the standalone video-source stack
-  # (sample_data/demo_scenes/docker-compose.video-source.yml); run it alongside
-  # this stack so it can reach broker/ntpserv on the shared network.
-
   # Init container to fix volume permissions for autocalibration
   autocalibration-init:
     image: alpine:3.23

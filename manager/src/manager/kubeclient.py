@@ -236,9 +236,6 @@ class KubeClient():
     @return  body              deployment body
     """
     # volume mounts and volumes for the container
-    # NOTE: k8s pipelines can only use rtsp:// camera sources — file:// sources
-    # backed by a sample-data PVC are no longer supported here; the sample
-    # videos are served externally by sample_data/demo_scenes/docker-compose.video-source.yml.
     volume_mounts = [
       client.V1VolumeMount(name="video-config", mount_path="/home/pipeline-server/config.json", sub_path="config.yaml"),
       client.V1VolumeMount(name="sscape-gstplugins", mount_path="/home/sscape/python", read_only=True),
@@ -424,13 +421,6 @@ class KubeClient():
     @return  string         returns the pipeline json as a string
     """
     log.info(f"Generating pipeline configuration for camera: {msg['name']}")
-    # Pods here mount no video volume, so file:// sources fail at pipeline
-    # runtime instead of validation; reject them before that happens.
-    command = msg.get('command') or ''
-    if command.startswith('file://'):
-      raise PipelineGenerationValueError(
-        f"file:// camera sources are not supported in Kubernetes deployments ({command}). "
-        "Serve the video over RTSP instead, e.g. rtsp://mediaserver:8554/<camera-id>.")
     ppl_config_generator = PipelineConfigGenerator(msg)
     config = ppl_config_generator.get_config_as_json()
     if config is None:
