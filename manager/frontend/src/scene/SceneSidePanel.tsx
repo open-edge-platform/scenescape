@@ -9,8 +9,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import type { TabItem } from "../components/Tabs";
-import { useRovingTabList } from "../hooks/useRovingTabList";
+import { TabList, type TabItem } from "../components/Tabs";
 import {
   readStoredSceneTab,
   SCENE_TAB_EVENT,
@@ -150,51 +149,18 @@ export function SceneSidePanel({
     }
   }, []);
 
-  const onSelectIndex = useCallback(
-    (index: number) => {
-      const tab = tabs[index];
-      if (tab) {
-        selectTab(tab.id);
-      }
-    },
-    [selectTab, tabs],
-  );
-  const { setTabRef, onTabKeyDown } = useRovingTabList({
-    count: tabs.length,
-    onSelectIndex,
-  });
-
   return (
     <aside className="ss-scene-side hide-fullscreen">
       <div className="ss-tabs">
         <div className="ss-tabs-chrome">
-          <div className="ss-tabs-list" role="tablist" id="myTab">
-            {tabs.map((tab, index) => {
-              const selected = tab.id === activeId;
-              const legacyId = LEGACY_TAB_LINK[tab.id] || `ss-tab-${tab.id}`;
-              return (
-                <button
-                  key={tab.id}
-                  ref={(node) => setTabRef(index, node)}
-                  type="button"
-                  role="tab"
-                  id={legacyId}
-                  aria-selected={selected}
-                  aria-controls={PANE_BY_TAB[tab.id] || tab.id}
-                  tabIndex={selected ? 0 : -1}
-                  className={`ss-tabs-tab${selected ? " is-active" : ""}`}
-                  onClick={() => selectTab(tab.id)}
-                  onKeyDown={(event) => onTabKeyDown(event, index)}
-                >
-                  <span className="ss-tabs-label">{tab.label}</span>
-                  {tab.count !== undefined && tab.count !== null ? (
-                    <span className="ss-tabs-count">{tab.count}</span>
-                  ) : null}
-                  {tab.extra}
-                </button>
-              );
-            })}
-          </div>
+          <TabList
+            id="myTab"
+            tabs={tabs}
+            activeId={activeId}
+            onChange={selectTab}
+            tabDomId={(tab) => LEGACY_TAB_LINK[tab.id] || `ss-tab-${tab.id}`}
+            tabPanelId={(tab) => PANE_BY_TAB[tab.id] || tab.id}
+          />
           <div className="ss-tabs-toolbar" data-active-tab={activeId}>
             <TabToolbar activeTab={activeId} isSuperuser={isSuperuser} />
           </div>

@@ -1,7 +1,12 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useRef, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type KeyboardEvent,
+} from "react";
 
 /**
  * Next index for WAI-ARIA tablist keys (horizontal), or null if unhandled.
@@ -29,16 +34,48 @@ export function nextTabIndex(
   }
 }
 
+/** Index of activeId in tabs, or -1 when missing. */
+export function findTabIndex(
+  tabs: ReadonlyArray<{ id: string }>,
+  activeId: string,
+): number {
+  return tabs.findIndex((tab) => tab.id === activeId);
+}
+
+/**
+ * Index that should receive tabIndex={0}.
+ * Falls back to 0 so the tablist stays reachable when activeId is unknown.
+ */
+export function focusableTabIndex(
+  tabs: ReadonlyArray<{ id: string }>,
+  activeId: string,
+): number {
+  if (tabs.length === 0) {
+    return -1;
+  }
+  const selected = findTabIndex(tabs, activeId);
+  return selected >= 0 ? selected : 0;
+}
+
 type Options = {
   count: number;
+  /** Tab that should own focus / tabIndex 0 (may be a fallback). */
+  focusIndex: number;
   onSelectIndex: (index: number) => void;
 };
 
 /**
  * Roving tabindex + arrow/Home/End activation for a horizontal tablist.
+ * When focusIndex changes while focus is inside the list (e.g. external
+ * activateSceneTab), moves focus to the focused tab.
  */
-export function useRovingTabList({ count, onSelectIndex }: Options) {
+export function useRovingTabList({
+  count,
+  focusIndex,
+  onSelectIndex,
+}: Options) {
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const setTabRef = useCallback(
     (index: number, node: HTMLButtonElement | null) => {
@@ -46,6 +83,24 @@ export function useRovingTabList({ count, onSelectIndex }: Options) {
     },
     [],
   );
+
+  useEffect(() => {
+    if (focusIndex < 0) {
+      return;
+    }
+    const list = listRef.current;
+    if (!list) {
+      return;
+    }
+    const active = document.activeElement;
+    if (!(active instanceof Node) || !list.contains(active)) {
+      return;
+    }
+    const target = tabRefs.current[focusIndex];
+    if (target && active !== target) {
+      target.focus();
+    }
+  }, [focusIndex]);
 
   const activateIndex = useCallback(
     (index: number) => {
@@ -67,5 +122,5 @@ export function useRovingTabList({ count, onSelectIndex }: Options) {
     [activateIndex, count],
   );
 
-  return { setTabRef, onTabKeyDown };
+  return { listRef, setTabRef, onTabKeyDown };
 }
