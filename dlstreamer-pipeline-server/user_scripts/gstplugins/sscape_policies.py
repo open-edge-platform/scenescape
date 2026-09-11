@@ -20,6 +20,11 @@ def _isReidTensor(tensor):
     return False
   return bool(tensor.get('data')) and 'label' not in tensor and 'label_id' not in tensor
 
+def _isClassificationTensor(tensor):
+  """Check if a tensor holds semantic classification metadata."""
+  name = tensor.get('name', '') or tensor.get('tensor_name', '')
+  return bool(name and name != 'detection' and 'label' in tensor and not _isReidTensor(tensor))
+
 def _extractKeypointsFromGvametaconvert(item):
   """Extract keypoints from gvametaconvert format (yolo11-pose and similar)."""
   raw_keypoints = item.get('keypoints')
@@ -141,14 +146,14 @@ def classificationPolicy(pobj, item, fw, fh):
 
   categories = {}
   for tensor in item.get('tensors', [{}]):
-    name = tensor.get('name','')
-    if name and name != 'detection' and _isReidTensor(tensor):
+    if _isClassificationTensor(tensor):
       metadata_dict = {
         'label': tensor.get('label', ''),
         'model_name': tensor.get('model_name', tensor.get('semantic_tag', ''))
       }
       if 'confidence' in tensor:
         metadata_dict['confidence'] = tensor.get('confidence')
+      name = tensor.get('name', '') or tensor.get('tensor_name', '')
       categories[name] = metadata_dict
 
   # Move all semantic metadata under metadata key
