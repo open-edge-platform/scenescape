@@ -360,3 +360,9 @@ docker compose -f docker-compose-dl-streamer-example.yml \
 4. **Issue: No `reid_*` metrics showing up when checking latency/camera-count metrics**
    - **Cause**: Most commonly, ReID is not actually enabled yet (feature-extraction pipeline / `reid-config.json` not applied — see [Steps to Enable Reidentification](#steps-to-enable-reidentification-reid-for-out-of-box-experience) above), rather than a metrics-pipeline problem.
    - **Resolution**: Confirm ReID is enabled and objects are being detected/tracked first; then see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md#troubleshooting) for metrics-specific troubleshooting.
+
+5. **Issue: Inconsistent/jumping IDs when running `make demo-reid`**
+   - **Cause**: `make demo-reid` uses one shared ReID vector database across all reid-enabled scenes (retail and queuing). If the same person
+     appears in both, a re-entry can match their embedding from the other scene instead of the current one, causing the assigned ID to vary.
+   - **Resolution**: Run one reid-enabled scene at a time, use separate controller/ReID backend instances per scene, or use sample footage
+     without overlapping people across scenes. See [Selecting the ReID Vector Database Backend](#selecting-the-reid-vector-database-backend).
