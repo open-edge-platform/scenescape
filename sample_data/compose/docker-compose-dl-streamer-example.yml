@@ -180,13 +180,14 @@ services:
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
       --autocalibration autocalibration.scenescape.intel.com:8443
     healthcheck:
-      test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
+      test: "curl --insecure -H 'Host: localhost' -X GET https://127.0.0.1:443/api/v1/database-ready | grep 'true'"
       interval: 10s
       timeout: 120s
       retries: 10
       start_period: 10s
     environment:
       - SUPASS=${SUPASS}
+      - SCENESCAPE_ALLOWED_HOSTS=${SCENESCAPE_ALLOWED_HOSTS}
       - DBHOST=pgserver
       - DBPORT=5432
       - no_proxy=${no_proxy},.scenescape.intel.com
@@ -292,7 +293,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc3
     networks:
       scenescape:
     tty: true
@@ -356,7 +357,7 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc3
     networks:
       scenescape:
     tty: true
