@@ -109,12 +109,6 @@ export function TabToolbar({ activeTab, isSuperuser }: Props) {
             label="Live View"
             title="Toggle Live View"
           />
-          <LiveToggle
-            id="show-telemetry"
-            labelId="show-telemetry-label"
-            label="Show Telemetry"
-            title="Toggle Show Telemetry"
-          />
           {isSuperuser ? (
             <a
               className="btn btn-primary btn-sm"

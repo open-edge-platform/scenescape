@@ -228,8 +228,8 @@
 }
 
 .ss-scene-detail--workspace .ss-scene-map-slot .map-view-toggles {
-  gap: 0.1rem 0.85rem;
-  padding: 0.3rem 0.65rem;
+  gap: 0.35rem 1rem;
+  padding: 0.35rem 0.75rem;
 }
 
 .ss-scene-detail--workspace .ss-scene-side {

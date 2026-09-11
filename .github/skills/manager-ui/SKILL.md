@@ -103,14 +103,14 @@ rename `#ss-admin-list-root`, table action hrefs, or map ids below.
 | `#svgout` | Visible map SVG (React when `ssUseReactMap`; Snap keeps `#svgout-snap`) |
 | `#scale` | Scene scale |
 | `#scene` | Scene id / metadata |
-| `#fullscreen`, `#show-trails`, `#coloring-switch` | Map chrome |
+| `#fullscreen`, `#show-trails`, `#show-telemetry`, `#coloring-switch` | Map chrome |
 | `#id_rois`, `#tripwires` | Hidden geometry JSON |
 | `#id_child_rois`, `#child_tripwires`, `#child_sensors` | Child overlay JSON |
 
 ### Toolbar / tabs
 
 `#new-roi`, `#save-rois`, `#empty-new-roi`, `#new-tripwire`, `#save-trips`,
-`#empty-new-tripwire`, `#live-view`, `#show-telemetry`,
+`#empty-new-tripwire`, `#live-view`,
 `#ss-tab-regions`, `#ss-tab-tripwires`, `#ss-tab-cameras`, `#ss-tab-sensors`,
 `#ss-tab-children`, `#ss-tab-mqtt`, `#regions`, `#trips`, `#roi-fields`,
 `#tripwire-fields`, `#no-regions`, `#no-tripwires`, `#mqtt_status`, `#broker`,

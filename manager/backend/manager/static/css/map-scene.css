@@ -480,7 +480,7 @@ body.is-map-fullscreen #map-controls {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 0.1rem 1.25rem;
+  gap: 0.35rem 1.25rem;
   min-width: 0;
   max-width: 100%;
   padding: 0.45rem 0.85rem;
@@ -490,26 +490,34 @@ body.is-map-fullscreen #map-controls {
   box-shadow: 0 1px 2px rgba(0, 30, 80, 0.06);
 }
 
-#map-controls .switch {
-  padding: 0.1rem 0;
+/* Match Bootstrap custom-switch geometry (inline-flex breaks the knob). */
+#map-controls .map-view-toggle.custom-control {
+  position: relative;
+  display: inline-block;
+  min-height: 1.5rem;
+  padding: 0.1rem 0 0.1rem 2.35rem;
   margin: 0;
 }
 
-#map-controls .custom-control {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.4rem;
-  padding-left: 2.15rem;
-  margin: 0;
+#map-controls .map-view-toggle .custom-control-input {
+  position: absolute;
+  left: 0;
+  z-index: 2;
+  width: 2rem;
+  height: 1.25rem;
+  cursor: pointer;
 }
 
-#map-controls .custom-control-label {
-  padding-top: 0.05rem;
+#map-controls .map-view-toggle .custom-control-label {
+  padding-top: 0.1rem;
+  margin: 0;
   font-family: var(--ss-font-sans);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 500;
+  line-height: 1.25rem;
   color: var(--ss-ink);
   white-space: nowrap;
+  cursor: pointer;
 }
 
 @media print {

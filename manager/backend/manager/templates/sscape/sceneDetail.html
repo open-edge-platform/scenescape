@@ -50,7 +50,7 @@ SPDX-License-Identifier: Apache-2.0
       </div>
       <div id="map-controls" class="hide-print">
         <div class="map-view-toggles">
-          <div class="custom-control custom-switch switch">
+          <div class="custom-control custom-switch map-view-toggle">
             <input
               type="checkbox"
               class="custom-control-input"
@@ -62,10 +62,25 @@ SPDX-License-Identifier: Apache-2.0
               for="show-trails"
               title="Toggle Show Trails"
               id="show-trails-label"
-              >Show&nbsp;Trails</label
+              >Show Trails</label
             >
           </div>
-          <div class="custom-control custom-switch switch">
+          <div class="custom-control custom-switch map-view-toggle">
+            <input
+              type="checkbox"
+              class="custom-control-input"
+              id="show-telemetry"
+              aria-labelledby="show-telemetry-label"
+            />
+            <label
+              class="custom-control-label"
+              for="show-telemetry"
+              title="Toggle Show Telemetry"
+              id="show-telemetry-label"
+              >Show Telemetry</label
+            >
+          </div>
+          <div class="custom-control custom-switch map-view-toggle">
             <input
               type="checkbox"
               class="custom-control-input"
