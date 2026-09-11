@@ -239,9 +239,9 @@ function ScenesHomeInner({ bootstrap }: Props) {
     <>
       <PageHeader
         title="Scenes"
-        actions={
+        titleEnd={
           bootstrap.isSuperuser ? (
-            <>
+            <div className="ss-scenes-home-actions" role="group" aria-label="Scene actions">
               <a
                 id="import-scene"
                 className="ss-btn ss-btn--secondary"
@@ -256,7 +256,7 @@ function ScenesHomeInner({ bootstrap }: Props) {
               >
                 + New Scene
               </a>
-            </>
+            </div>
           ) : null
         }
       />
