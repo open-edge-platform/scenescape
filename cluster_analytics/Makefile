@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 IMAGE := intel/scenescape-cluster-analytics
@@ -11,7 +11,7 @@ include ../common.mk
 
 .PHONY: build-demo
 build-demo:
-	$(MAKE) IMAGE="scenescape-cluster-analytics-demo" TARGET="scenescape-cluster-analytics-demo"
+	$(MAKE) IMAGE="intel/scenescape-cluster-analytics-demo" TARGET="scenescape-cluster-analytics-demo"
 
 .PHONY: test-build
 test-build:
