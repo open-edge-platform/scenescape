@@ -1,101 +1,48 @@
-# Security malformed data tests
+<!--
+SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
 
-These tests check if system rejects malformed data correctly.
+# Security malformed data test
+
+Verifies that the scene controller rejects malformed sensor (camera) data.
 
 ## Description
 
-### Feeding malformed data to Scene controller.
+The test publishes detector messages onto the MQTT camera input topic and
+checks what the controller forwards to the scene output topic. Each case runs
+in isolation: one camera publishes for a short window while the test counts the
+scene updates produced.
 
-This sends invalid sensor (camera) data thru MQTT, the tester must visually verify on the scene page whether the scene and camera feed get updated.
+The controller must forward a message only when it both passes schema
+validation and originates from a registered camera. Specifically:
 
-The test will cycle thru 13 tests. It will publish 500 frames for each of the steps.
+- **Positive control** — a registered camera (`camera1`) sending valid data
+  produces scene updates.
+- **Schema-invalid messages** — produce no scene updates:
+  - missing timestamp
+  - confidence of zero or negative
+  - negative bounding-box width
+  - negative bounding-box height
+  - negative detection id
+  - non-string sender id
+  - detection missing its category
+  - detection missing bounding box / geometry
+  - rotation quaternion component out of range
+- **Unknown sender** — a valid payload from an unregistered camera (`camera4`)
+  produces no scene updates.
+- **Canary** — a freshly registered camera (`sensor10`) sending valid data
+  produces scene updates, confirming the database and registration path are
+  healthy (guards against false passes).
 
-Step 1: Invalid timestamp
-Step 2: Invalid sensor ID.
-Step 3: Invalid confidence (0 and negative)
-Step 4: Invalid (negative) bounding box width
-Step 5: Invalid (negative) bounding box height
-Step 6: Invalid (negative) Center of Mass width
-Step 7: Invalid (negative) Center of Mass height
-Step 8: Invalid (negative and non-sequential) inference id
-Step 9: Invalid (negative) framerate.
-Back to step 0.
+Known cameras other than `camera1` are registered at runtime over the REST API,
+so no custom database fixture is required.
 
 ## How to run
 
-Run the test_malformed_json.sh shell script. It will load the required containers and analyze the log for pass/fail criteria.
-
 ```
-jrmencha@nuc:~/github/applications.ai.scene-intelligence.scenescape$ tests/security/malformed_data/test_malformed_json.sh
-1517d5cc5a268485789347b393dba96709142884e21aa4ad464856b04c88523d
-Creating applicationsaisceneintelligencescenescape_ntp_1 ...
-Creating applicationsaisceneintelligencescenescape_pgserver_1 ...
-Creating applicationsaisceneintelligencescenescape_broker_1 ...
-Creating applicationsaisceneintelligencescenescape_ntp_1
-Creating applicationsaisceneintelligencescenescape_broker_1
-Creating applicationsaisceneintelligencescenescape_pgserver_1 ... done
-Creating applicationsaisceneintelligencescenescape_web_1 ...
-Creating applicationsaisceneintelligencescenescape_broker_1 ... done
-Creating applicationsaisceneintelligencescenescape_scene_1 ...
-Creating applicationsaisceneintelligencescenescape_scene_1 ... done
-TIMEZONE IS
-Getting MAC the hard way
-Connecting to broker broker.scenescape.intel.com
-Models:
-   apriltag {'name': 'apriltag', 'device': 'CPU', 'depends': None}
-   retail {'name': 'retail', 'device': 'CPU', 'depends': None}
-   reid {'name': 'reid', 'device': 'CPU', 'depends': 'retail'}
-Ordered: ['apriltag', 'reid', 'retail']
-Range camera1 0 178.5
-Range camera2 0 178.5
-Starting model apriltag on CPU
-Starting model retail on CPU
-Starting model reid on CPU
-1 : Setting timestamp to -1 for id camera1
-4 scenescape/data/sensor/person/sensor1 {"timestamp": "-1", "id": "sensor1", "objects": [{"id": 1, "category": "person", "confidence": 0.8713905215263367, "bounding_box": {"x": 2, "y": 6, "width": 119, "height": 256}}], "rate": 1.1}
-
-2 : Setting bad sensor id  invalid!
-9 scenescape/data/sensor/person/invalid! {"timestamp": "2021-10-11T23:10:00.981Z", "id": "invalid!", "objects": [{"id": 1, "category": "person", "confidence": 0.9897421598434448, "bounding_box": {"x": 434, "y": 204, "width": 204, "height": 282}}], "rate": 1.2}
-
-3 : Setting bad inference data (confidence) for id camera1
-14 scenescape/data/sensor/person/sensor3 {"timestamp": "2021-10-11T23:10:01.072Z", "id": "sensor3", "objects": [{"id": 1, "category": "person", "confidence": 0.0, "bounding_box": {"x": 259, "y": -1, "width": 101, "height": 240}}, {"id": 2, "category": "person", "confidence": -0.88, "bounding_box": {"x": 387, "y": 3, "width": 108, "height": 205}}], "rate": 1.2}
-
-4 : Setting bad inference data (bbox width) for id camera2
-19 scenescape/data/sensor/person/sensor4 {"timestamp": "2021-10-11T23:10:01.183Z", "id": "sensor4", "objects": [{"id": 1, "category": "person", "confidence": 0.998502254486084, "bounding_box": {"x": 259, "y": -1, "width": -101, "height": 240}}, {"id": 2, "category": "person", "confidence": 0.8835878372192383, "bounding_box": {"x": 387, "y": 3, "width": -108, "height": 205}}], "rate": 1.2}
-
-5 : Setting bad inference data (bbox height) for id camera1
-24 scenescape/data/sensor/person/sensor5 {"timestamp": "2021-10-11T23:10:01.275Z", "id": "sensor5", "objects": [{"id": 1, "category": "person", "confidence": 0.998502254486084, "bounding_box": {"x": 259, "y": -1, "width": 101, "height": -240}}, {"id": 2, "category": "person", "confidence": 0.8835878372192383, "bounding_box": {"x": 387, "y": 3, "width": 108, "height": -205}}], "rate": 1.3}
-
-6 : Setting bad inference data (COM width) for id camera2
-29 scenescape/data/sensor/person/sensor6 {"timestamp": "2021-10-11T23:10:01.379Z", "id": "sensor6", "objects": [{"id": 1, "category": "person", "confidence": 0.998502254486084, "bounding_box": {"x": 259, "y": -1, "width": 101, "height": 240}}, {"id": 2, "category": "person", "confidence": 0.8835878372192383, "bounding_box": {"x": 387, "y": 3, "width": 108, "height": 205}}], "rate": 1.3}
-
-7 : Setting bad inference data (COM height) for id camera1
-34 scenescape/data/sensor/person/sensor7 {"timestamp": "2021-10-11T23:10:01.459Z", "id": "sensor7", "objects": [{"id": 1, "category": "person", "confidence": 0.998502254486084, "bounding_box": {"x": 259, "y": -1, "width": 101, "height": 240}}, {"id": 2, "category": "person", "confidence": 0.8835878372192383, "bounding_box": {"x": 387, "y": 3, "width": 108, "height": 205}}], "rate": 1.3}
-
-8 : Setting bad inference id for id camera2
-39 scenescape/data/sensor/person/sensor8 {"timestamp": "2021-10-11T23:10:01.576Z", "id": "sensor8", "objects": [{"id": -100, "category": "person"}, {"id": 200000000, "category": "person", "confidence": 0.8835878372192383, "bounding_box": {"x": 387, "y": 3, "width": 108, "height": 205}}], "rate": 1.3}
-
-9: Sending bad frame rate for id camera1
-44 scenescape/data/sensor/person/sensor9 {"timestamp": "2021-10-11T23:10:01.662Z", "id": "sensor9", "objects": [{"id": 1, "category": "person", "confidence": 0.9929850697517395, "bounding_box": {"x": 261, "y": -1, "width": 106, "height": 224}}], "rate": -1000}
-
-49 scenescape/data/sensor/person/camera2 {"timestamp": "2021-10-11T23:10:01.754Z", "id": "camera2", "objects": [{"id": 1, "category": "person", "confidence": 0.9956735968589783, "bounding_box": {"x": 26, "y": 156, "width": 206, "height": 311}}], "rate": 1.4}
-
- docker logs 970aa047d976 > test_output.log
-Stopping applicationsaisceneintelligencescenescape_scene_1      ... done
-Stopping applicationsaisceneintelligencescenescape_web_1    ... done
-Stopping applicationsaisceneintelligencescenescape_broker_1 ... done
-Stopping applicationsaisceneintelligencescenescape_pgserver_1   ... done
-Stopping applicationsaisceneintelligencescenescape_ntp_1    ... done
-Removing applicationsaisceneintelligencescenescape_scene_1      ... done
-Removing applicationsaisceneintelligencescenescape_web_1    ... done
-Removing applicationsaisceneintelligencescenescape_broker_1 ... done
-Removing applicationsaisceneintelligencescenescape_pgserver_1   ... done
-Removing applicationsaisceneintelligencescenescape_ntp_1    ... done
-Network scenescape_test is external, skipping
-scenescape_test
-8 frames failed validation. Expected 8 to fail
-1 frames from unknown ID. Expected 1
-Validate JSON files: Test Passed
-
-
+pytest tests/security/malformed_data/test_malformed_data.py
 ```
+
+The test brings up the full stack via the shared pytest fixtures and reports a
+single pass/fail result for test id `NEX-T10423`.
