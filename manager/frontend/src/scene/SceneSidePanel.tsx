@@ -38,15 +38,6 @@ const PANE_BY_TAB: Record<string, string> = {
   mqtt: "mqtt",
 };
 
-const LEGACY_TAB_LINK: Record<string, string> = {
-  cameras: "cameras-tab",
-  sensors: "sensors-tab",
-  regions: "regions-tab",
-  tripwires: "tripwires-tab",
-  children: "children-tab",
-  mqtt: "settings-tab",
-};
-
 type Props = {
   tabs: TabItem[];
   cameraRates?: Record<string, string>;
@@ -158,7 +149,6 @@ export function SceneSidePanel({
             tabs={tabs}
             activeId={activeId}
             onChange={selectTab}
-            tabDomId={(tab) => LEGACY_TAB_LINK[tab.id] || `ss-tab-${tab.id}`}
             tabPanelId={(tab) => PANE_BY_TAB[tab.id] || tab.id}
           />
           <div className="ss-tabs-toolbar" data-active-tab={activeId}>

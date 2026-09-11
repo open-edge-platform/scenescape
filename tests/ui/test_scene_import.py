@@ -90,7 +90,7 @@ class SceneImportTest(UserInterfaceTest):
 
   def getThingTabCount(self, thing):
     count_element = self.findElement(
-      self.By.CSS_SELECTOR, f"#{thing}-tab .ss-tabs-count"
+      self.By.CSS_SELECTOR, f"#ss-tab-{thing} .ss-tabs-count"
     )
     return int(count_element.text.strip())
 

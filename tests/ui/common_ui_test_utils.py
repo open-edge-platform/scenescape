@@ -278,7 +278,7 @@ def add_child_scene(browser, parent, child):
 
   parent = "scene-manage-{}".format(parent)
   browser.find_element(By.ID, parent).click()
-  browser.find_element(By.ID, "children-tab").click()
+  browser.find_element(By.ID, "ss-tab-children").click()
   browser.find_element(By.ID, "new-child").click()
   select = Select(browser.find_element(By.ID, "id_child"))
   select.select_by_visible_text(child)
@@ -300,7 +300,7 @@ def update_child_scene(browser, parent, child, transform):
 
   parent = "scene-manage-{}".format(parent)
   browser.find_element(By.ID, parent).click()
-  browser.find_element(By.ID, "children-tab").click()
+  browser.find_element(By.ID, "ss-tab-children").click()
   update_element = "child-update-{}".format(child)
   browser.find_element(By.ID, update_element).click()
   select = Select(browser.find_element(By.ID, "id_transform_type"))
@@ -336,7 +336,7 @@ def delete_child_scene(browser, parent, child):
 
   parent = "scene-manage-{}".format(parent)
   browser.find_element(By.ID, parent).click()
-  browser.find_element(By.ID, "children-tab").click()
+  browser.find_element(By.ID, "ss-tab-children").click()
   delete_element = "child-delete-{}".format(child)
   browser.find_element(By.ID, delete_element).click()
   confirm_delete_element = "confirm-delete"
@@ -460,7 +460,7 @@ def create_tripwire(browser, tw_name):
   """
   tripwire_points = None
   try:
-    browser.find_element(By.ID, "tripwires-tab").click()
+    browser.find_element(By.ID, "ss-tab-tripwires").click()
     print("Clicked on the 'Tripwires' tab")
     wait = WebDriverWait(browser, BROWSER_WAIT)
     wait.until(EC.element_to_be_clickable((By.ID, "new-tripwire"))).click()
@@ -524,7 +524,7 @@ def modify_tripwire(browser):
 
   try:
     wait = WebDriverWait(browser, BROWSER_WAIT)
-    wait.until(EC.element_to_be_clickable((By.ID, "tripwires-tab"))).click()
+    wait.until(EC.element_to_be_clickable((By.ID, "ss-tab-tripwires"))).click()
     wait.until(EC.visibility_of_all_elements_located((By.CLASS_NAME, "point_0")))
     wait.until(EC.visibility_of_all_elements_located((By.CLASS_NAME, "point_1")))
 
@@ -553,7 +553,7 @@ def modify_tripwire(browser):
   return True
 
 def delete_tripwire(browser, tw_uuid):
-  browser.find_element(By.ID, "tripwires-tab").click()
+  browser.find_element(By.ID, "ss-tab-tripwires").click()
   print("Click on the 'Tripwires' tab")
   browser.find_element(By.ID, f"form-tripwire_{tw_uuid}").find_element(By.CLASS_NAME, "tripwire-remove").click()
   browser.switch_to.alert.accept()
@@ -567,7 +567,7 @@ def verify_tripwire_persistence(browser, tw_name):
   @return   bool                       Boolean representing success.
   """
   try:
-    browser.find_element(By.ID, "tripwires-tab").click()
+    browser.find_element(By.ID, "ss-tab-tripwires").click()
     print("Verifying persistence of tripwire after saving...")
     tripwire_titles = browser.find_elements(By.CSS_SELECTOR,".card-body .tripwire-title")
     if not tripwire_titles:
@@ -1061,7 +1061,7 @@ def create_sensor_from_scene(browser, sensor_id, sensor_name, scene_name):
   """
   assert navigate_to_scene(browser, scene_name)
   wait = WebDriverWait(browser, BROWSER_WAIT)
-  wait.until(EC.element_to_be_clickable((By.ID, "sensors-tab"))).click()
+  wait.until(EC.element_to_be_clickable((By.ID, "ss-tab-sensors"))).click()
   wait.until(EC.element_to_be_clickable((By.ID, "new-sensor"))).click()
   create_sensor(browser, sensor_id, sensor_name, scene_name)
   assert navigate_to_scene(browser, scene_name)
@@ -1176,7 +1176,7 @@ def verify_sensor_under_scene(browser, sensor_names):
   @return   bool                       Boolean representing a success.
   """
   try:
-    browser.find_element(By.ID, "sensors-tab").click()
+    browser.find_element(By.ID, "ss-tab-sensors").click()
     time.sleep(1)
     for sensor_name in sensor_names:
       browser.find_element(By.XPATH, "//*/h5[contains(text(), '"+ sensor_name +"')]")
@@ -1261,7 +1261,7 @@ def create_roi(browser, polygon_name, x, y, side_length = 250):
     print("Viewport size set to:", browser.execute_script("return [window.innerWidth, window.innerHeight];"))
 
   wait = WebDriverWait(browser, BROWSER_WAIT)
-  wait.until(EC.element_to_be_clickable((By.ID, "regions-tab"))).click()
+  wait.until(EC.element_to_be_clickable((By.ID, "ss-tab-regions"))).click()
   wait.until(EC.element_to_be_clickable((By.ID, "new-roi"))).click()
 
   svg = wait.until(EC.presence_of_element_located((By.ID, "svgout")))
@@ -1333,7 +1333,7 @@ def verify_roi(browser, rois_list):
   @return   bool                       True if all ROI is present, False if otherwise.
   """
   print("Navigating to ROI tab ...")
-  browser.find_element(By.ID, "regions-tab").click()
+  browser.find_element(By.ID, "ss-tab-regions").click()
   # roi_titles are roi_names which are in the roi_list
   roi_titles = browser.find_elements(By.CSS_SELECTOR, ".card-body .roi-title")
 
@@ -1360,7 +1360,7 @@ def delete_roi(browser, roi):
   @return   bool                       True if ROI is deleted from UI, False if otherwise.
   """
   print("Navigating to ROI tab ...")
-  browser.find_element(By.ID, "regions-tab").click()
+  browser.find_element(By.ID, "ss-tab-regions").click()
   print("Deleting ...")
   roi_titles = browser.find_elements(By.CSS_SELECTOR, ".card-body .roi-title")
   roi_name = roi_titles[-1]
@@ -1528,7 +1528,7 @@ def open_sensor_tab(browser):
   @param    browser                    Object wrapping the Selenium driver.
   @return   True                       Returns True if the action is successful.
   """
-  browser.find_element(By.ID, "sensors-tab").click()
+  browser.find_element(By.ID, "ss-tab-sensors").click()
   return True
 
 def open_scene_manage_sensors_tab(browser):
@@ -1537,7 +1537,7 @@ def open_scene_manage_sensors_tab(browser):
   @return   True                       Returns True if the action is successful.
   """
   wait = WebDriverWait(browser, BROWSER_WAIT)
-  wait.until(EC.element_to_be_clickable((By.ID, "sensors-tab"))).click()
+  wait.until(EC.element_to_be_clickable((By.ID, "ss-tab-sensors"))).click()
   wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))).click()
   return True
 

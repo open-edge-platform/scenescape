@@ -1,16 +1,16 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { r as l, j as n, c as Ge } from "./chunks/tokens-C2Ju3rc_.js";
-import { P as We } from "./chunks/PageHeader-Dke5XNFH.js";
+import { r as l, j as n, c as We } from "./chunks/tokens-C2Ju3rc_.js";
+import { P as Ge } from "./chunks/PageHeader-Dke5XNFH.js";
 import {
   r as J,
   u as De,
   C as Pe,
   T as Je,
 } from "./chunks/ConfirmDialog-DanZpjzY.js";
-import { L as Ye } from "./chunks/LegacyConfirmHost-VsPlnSjJ.js";
+import { L as Ve } from "./chunks/LegacyConfirmHost-VsPlnSjJ.js";
 import {
-  r as Ve,
+  r as Ye,
   c as Ke,
   m as Qe,
   p as ye,
@@ -22,7 +22,7 @@ import {
   u as nt,
   W as rt,
 } from "./chunks/SensorCalibratePanel-DUJoj046.js";
-import { A as W } from "./chunks/actionIcons-BIxtFbWH.js";
+import { A as G } from "./chunks/actionIcons-BIxtFbWH.js";
 import { a as O, u as it } from "./chunks/rest-DXX9fmms.js";
 import { C as ot, S as at } from "./chunks/SceneManagePanel-BM8p1vX0.js";
 import { p as ct } from "./chunks/djangoDelete-BfD_c0xv.js";
@@ -297,7 +297,7 @@ const Ct = l.memo(function ({ mapHref: s, mapWidth: t, mapHeight: r }) {
     [m, f] = l.useState(() => Z()),
     [a, c] = l.useState("idle"),
     [w, x] = l.useState([]),
-    h = Ve(),
+    h = Ye(),
     v = r || Ke(r);
   (l.useEffect(
     () =>
@@ -401,18 +401,18 @@ const Ct = l.memo(function ({ mapHref: s, mapWidth: t, mapHeight: r }) {
           ((S.x = d.clientX), (S.y = d.clientY));
           const N = E.getScreenCTM();
           if (!N) return;
-          const k = S.matrixTransform(N.inverse()),
-            u = ye(k.x, k.y, h, v);
+          const L = S.matrixTransform(N.inverse()),
+            u = ye(L.x, L.y, h, v);
           if (b === "roi") {
             const g = X().find(($) => $.uuid === y);
             if (!g) return;
-            const L = g.points.map(($, R) => (R === p ? u : $));
-            yt(y, L);
+            const k = g.points.map(($, R) => (R === p ? u : $));
+            yt(y, k);
           } else {
             const g = Z().find(($) => $.uuid === y);
             if (!g) return;
-            const L = g.points.map(($, R) => (R === p ? u : $));
-            vt(y, L);
+            const k = g.points.map(($, R) => (R === p ? u : $));
+            vt(y, k);
           }
         },
         T = () => {
@@ -742,10 +742,10 @@ function $t({ count: e, focusIndex: s, onSelectIndex: t }) {
     );
   return { listRef: i, setTabRef: o, onTabKeyDown: f };
 }
-function Lt(e) {
+function kt(e) {
   return `ss-tab-${e.id}`;
 }
-function kt(e) {
+function Lt(e) {
   return `ss-tab-panel-${e.id}`;
 }
 function At({
@@ -753,8 +753,8 @@ function At({
   activeId: s,
   onChange: t,
   id: r,
-  tabDomId: i = Lt,
-  tabPanelId: o = kt,
+  tabDomId: i = kt,
+  tabPanelId: o = Lt,
 }) {
   const m = Tt(e, s),
     f = l.useCallback(
@@ -1059,7 +1059,7 @@ function Ft({ cameras: e, isSuperuser: s }) {
                               title: `Configure ${t.name}`,
                               "aria-label": `Configure ${t.name}`,
                               children: n.jsx("i", {
-                                className: `bi ${W.configure}`,
+                                className: `bi ${G.configure}`,
                                 "aria-hidden": "true",
                               }),
                             }),
@@ -1070,7 +1070,7 @@ function Ft({ cameras: e, isSuperuser: s }) {
                                   title: `Delete ${t.name}`,
                                   "aria-label": `Delete ${t.name}`,
                                   children: n.jsx("i", {
-                                    className: `bi ${W.delete}`,
+                                    className: `bi ${G.delete}`,
                                     "aria-hidden": "true",
                                   }),
                                 })
@@ -1162,7 +1162,7 @@ function Ht({ sensors: e, isSuperuser: s, onDelete: t }) {
                             title: `Configure ${r.name}`,
                             "aria-label": `Configure ${r.name}`,
                             children: n.jsx("i", {
-                              className: `bi ${W.configure}`,
+                              className: `bi ${G.configure}`,
                               "aria-hidden": "true",
                             }),
                           }),
@@ -1174,7 +1174,7 @@ function Ht({ sensors: e, isSuperuser: s, onDelete: t }) {
                                 "aria-label": `Delete ${r.name}`,
                                 onClick: () => t(r),
                                 children: n.jsx("i", {
-                                  className: `bi ${W.delete}`,
+                                  className: `bi ${G.delete}`,
                                   "aria-hidden": "true",
                                 }),
                               })
@@ -1185,7 +1185,7 @@ function Ht({ sensors: e, isSuperuser: s, onDelete: t }) {
                                   title: `Delete ${r.name}`,
                                   "aria-label": `Delete ${r.name}`,
                                   children: n.jsx("i", {
-                                    className: `bi ${W.delete}`,
+                                    className: `bi ${G.delete}`,
                                     "aria-hidden": "true",
                                   }),
                                 })
@@ -1275,7 +1275,7 @@ function Ut({ childrenLinks: e, isSuperuser: s }) {
                             "aria-label": `Configure ${t.name}`,
                             id: `child-update-${t.name}`,
                             children: n.jsx("i", {
-                              className: `bi ${W.configure}`,
+                              className: `bi ${G.configure}`,
                               "aria-hidden": "true",
                             }),
                           }),
@@ -1287,7 +1287,7 @@ function Ut({ childrenLinks: e, isSuperuser: s }) {
                                 "aria-label": `Delete ${t.name}`,
                                 id: `child-delete-${t.name}`,
                                 children: n.jsx("i", {
-                                  className: `bi ${W.delete}`,
+                                  className: `bi ${G.delete}`,
                                   "aria-hidden": "true",
                                 }),
                               })
@@ -1443,7 +1443,7 @@ function zt({ id: e, title: s, children: t, footer: r, onClose: i }) {
     }),
   });
 }
-const Gt = [
+const Wt = [
   {
     id: "cameraHelpModal",
     title: "Camera Help",
@@ -1491,9 +1491,9 @@ const Gt = [
     ],
   },
 ];
-function Wt() {
+function Gt() {
   return n.jsx(n.Fragment, {
-    children: Gt.map((e) =>
+    children: Wt.map((e) =>
       n.jsx(
         zt,
         {
@@ -1514,7 +1514,7 @@ function Se(e) {
     e.stopPropagation(),
     (s = window.ssPersistGeometry) == null || s.call(window));
 }
-function V({ id: e, modalId: s, title: t }) {
+function Y({ id: e, modalId: s, title: t }) {
   return n.jsx("button", {
     type: "button",
     className: "scene-detail-help",
@@ -1578,7 +1578,7 @@ function Jt({ activeTab: e, isSuperuser: s }) {
         e === "cameras"
           ? n.jsxs(n.Fragment, {
               children: [
-                n.jsx(V, {
+                n.jsx(Y, {
                   id: "camera-help",
                   modalId: "cameraHelpModal",
                   title: "How cameras work in this scene",
@@ -1610,7 +1610,7 @@ function Jt({ activeTab: e, isSuperuser: s }) {
         e === "sensors"
           ? n.jsxs(n.Fragment, {
               children: [
-                n.jsx(V, {
+                n.jsx(Y, {
                   id: "sensor-help",
                   modalId: "sensorHelpModal",
                   title: "How sensors work in this scene",
@@ -1630,7 +1630,7 @@ function Jt({ activeTab: e, isSuperuser: s }) {
         e === "regions"
           ? n.jsxs(n.Fragment, {
               children: [
-                n.jsx(V, {
+                n.jsx(Y, {
                   id: "roi-help",
                   modalId: "roiHelpModal",
                   title: "How regions of interest work",
@@ -1666,7 +1666,7 @@ function Jt({ activeTab: e, isSuperuser: s }) {
         e === "tripwires"
           ? n.jsxs(n.Fragment, {
               children: [
-                n.jsx(V, {
+                n.jsx(Y, {
                   id: "tripwire-help",
                   modalId: "tripwireHelpModal",
                   title: "How tripwires work",
@@ -1702,7 +1702,7 @@ function Jt({ activeTab: e, isSuperuser: s }) {
         e === "children"
           ? n.jsxs(n.Fragment, {
               children: [
-                n.jsx(V, {
+                n.jsx(Y, {
                   id: "children-help",
                   modalId: "childrenHelpModal",
                   title: "How child scenes work",
@@ -1724,21 +1724,13 @@ function Jt({ activeTab: e, isSuperuser: s }) {
   );
 }
 const _e = {
-    cameras: "cameras",
-    sensors: "sensors",
-    regions: "regions",
-    tripwires: "trips",
-    children: "children",
-    mqtt: "mqtt",
-  },
-  Yt = {
-    cameras: "cameras-tab",
-    sensors: "sensors-tab",
-    regions: "regions-tab",
-    tripwires: "tripwires-tab",
-    children: "children-tab",
-    mqtt: "settings-tab",
-  };
+  cameras: "cameras",
+  sensors: "sensors",
+  regions: "regions",
+  tripwires: "trips",
+  children: "children",
+  mqtt: "mqtt",
+};
 function Vt({
   tabs: e,
   cameraRates: s = {},
@@ -1821,7 +1813,6 @@ function Vt({
                 tabs: e,
                 activeId: w,
                 onChange: D,
-                tabDomId: (j) => Yt[j.id] || `ss-tab-${j.id}`,
                 tabPanelId: (j) => _e[j.id] || j.id,
               }),
               n.jsx("div", {
@@ -1851,11 +1842,11 @@ function Vt({
         onSensorsChange: c,
       }),
       n.jsx(qt, { wssConnection: f, sceneId: m, panelsReady: h }),
-      n.jsx(Wt, {}),
+      n.jsx(Gt, {}),
     ],
   });
 }
-function Kt({ roi: e, index: s, isSuperuser: t, onChange: r, onRemove: i }) {
+function Yt({ roi: e, index: s, isSuperuser: t, onChange: r, onRemove: i }) {
   const o = !t || e.readOnly,
     [m, f] = l.useState(!1),
     a = `roi-details-${e.svgId}`;
@@ -2046,7 +2037,7 @@ function Kt({ roi: e, index: s, isSuperuser: t, onChange: r, onRemove: i }) {
     }),
   });
 }
-function Qt({
+function Kt({
   tripwire: e,
   index: s,
   isSuperuser: t,
@@ -2185,7 +2176,7 @@ function ne(e) {
     return [];
   }
 }
-function Xt(e) {
+function Qt(e) {
   const s = e.sectors;
   if (Array.isArray(s))
     return typeof e.range_max != "number"
@@ -2202,7 +2193,7 @@ function Xt(e) {
   }
   return null;
 }
-function Zt(e, s) {
+function Xt(e, s) {
   const r = {
       name: (s.title || "").trim() || `roi_${s.uuid || "new"}`,
       scene: e,
@@ -2211,13 +2202,13 @@ function Zt(e, s) {
       height: typeof s.height == "number" ? s.height : 1,
       buffer_size: typeof s.buffer_size == "number" ? s.buffer_size : 0,
     },
-    i = Xt(s);
+    i = Qt(s);
   return (
     i && (r.color_ranges = { sectors: i.sectors, range_max: i.range_max }),
     r
   );
 }
-function es(e, s) {
+function Zt(e, s) {
   return {
     name: (s.title || "").trim() || `tripwire_${s.uuid || "new"}`,
     scene: e,
@@ -2225,7 +2216,7 @@ function es(e, s) {
     ...(typeof s.height == "number" ? { height: s.height } : {}),
   };
 }
-async function ts(e, s, t) {
+async function es(e, s, t) {
   var I, D, j, M, b, y;
   let r, i;
   if (t != null && t.preferHidden)
@@ -2266,7 +2257,7 @@ async function ts(e, s, t) {
     a = new Set(),
     c = {};
   for (const p of r) {
-    const _ = Zt(s, p);
+    const _ = Xt(s, p);
     if (Ce(p.uuid) && f.has(p.uuid))
       (await O.updateRegion(e, p.uuid, _), a.add(p.uuid), (c[p.uuid] = p.uuid));
     else {
@@ -2280,7 +2271,7 @@ async function ts(e, s, t) {
     x = new Set(),
     h = {};
   for (const p of i) {
-    const _ = es(s, p);
+    const _ = Zt(s, p);
     if (Ce(p.uuid) && w.has(p.uuid))
       (await O.updateTripwire(e, p.uuid, _),
         x.add(p.uuid),
@@ -2301,7 +2292,7 @@ function K(e) {
   const s = window[e];
   typeof s == "function" && s();
 }
-function ss() {
+function ts() {
   const e = {
     fit: () => K("fitSceneMapDisplay"),
     numberRois: () => K("numberRois"),
@@ -2351,7 +2342,7 @@ function Re(e, s) {
     topic: `scenescape/event/region/${s}/${t}/count`,
   };
 }
-function ns(e, s) {
+function ss(e, s) {
   const t = String(e.uuid || "").trim();
   return t
     ? {
@@ -2403,7 +2394,7 @@ function Te(e, s) {
     (r = window.ssSyncRoiColorSectors) == null ||
       r.call(window, e.uuid, { thresholds: t, range_max: e.rangeMax }));
 }
-function rs({
+function ns({
   sceneId: e,
   isSuperuser: s,
   authToken: t,
@@ -2412,7 +2403,7 @@ function rs({
 }) {
   const o = De(),
     [m, f] = l.useState(() => r.map((d) => Re(d, e)).filter((d) => !!d)),
-    [a, c] = l.useState(() => i.map((d) => ns(d, e)).filter((d) => !!d)),
+    [a, c] = l.useState(() => i.map((d) => ss(d, e)).filter((d) => !!d)),
     [w, x] = l.useState(!1),
     [h, v] = l.useState(!1),
     I = l.useRef(m),
@@ -2426,7 +2417,7 @@ function rs({
     (I.current = m),
     (D.current = a),
     l.useEffect(() => {
-      (ss(),
+      (ts(),
         r.forEach((d) => {
           if (!String(d.uuid || "").trim()) return;
           const N = Re(d, e);
@@ -2443,21 +2434,21 @@ function rs({
     }, [r, i, e]),
     l.useEffect(() => {
       p.current = async (d) => {
-        var N, k, u, g, L, $, R;
+        var N, L, u, g, k, $, R;
         if (j.current) return;
         j.current = !0;
         const S = d && !Array.isArray(d) ? d : void 0;
         S != null && S.preferHidden
-          ? (k =
+          ? (L =
               (N = window.ssMap) == null
                 ? void 0
-                : N.syncFromLegacyStringify) == null || k.call(N)
+                : N.syncFromLegacyStringify) == null || L.call(N)
           : window.ssUseReactMap
-            ? (L = window.ssMap) == null || L.flushHidden()
+            ? (k = window.ssMap) == null || k.flushHidden()
             : ((u = window.ssMap) == null || u.stringifyRois(),
               (g = window.ssMap) == null || g.stringifyTripwires());
         try {
-          const C = await ts(t, e, S);
+          const C = await es(t, e, S);
           (f((B) => Ie(B, C.roiIds, "roi")),
             c((B) => Ie(B, C.tripIds, "tripwire")),
             (b.current =
@@ -2510,20 +2501,20 @@ function rs({
             (y.current = (S == null ? void 0 : S.value) ?? ""),
             (g = window.ssMap) == null || g.syncFromLegacyStringify());
         }, 1200),
-        k = (g) => {
+        L = (g) => {
           var $;
-          const L = ($ = g.detail) == null ? void 0 : $.kind;
-          if (L === "trips") {
+          const k = ($ = g.detail) == null ? void 0 : $.kind;
+          if (k === "trips") {
             v(!0);
             return;
           }
-          if (L === "rois") {
+          if (k === "rois") {
             x(!0);
             return;
           }
           (x(!0), v(!0));
         };
-      window.addEventListener("ss-geometry-stringified", k);
+      window.addEventListener("ss-geometry-stringified", L);
       const u = window.setInterval(() => {
         (d && d.value !== b.current && x(!0),
           S && S.value !== y.current && v(!0));
@@ -2531,13 +2522,13 @@ function rs({
       return () => {
         (window.clearTimeout(N),
           window.clearInterval(u),
-          window.removeEventListener("ss-geometry-stringified", k));
+          window.removeEventListener("ss-geometry-stringified", L));
       };
     }, []),
     l.useEffect(() => {
       const d = (u) => {
           (f((g) =>
-            g.some((L) => L.svgId === u.svgId)
+            g.some((k) => k.svgId === u.svgId)
               ? g
               : [
                   ...g,
@@ -2565,7 +2556,7 @@ function rs({
         },
         S = (u) => {
           (c((g) =>
-            g.some((L) => L.svgId === u.svgId)
+            g.some((k) => k.svgId === u.svgId)
               ? g
               : [
                   ...g,
@@ -2595,16 +2586,16 @@ function rs({
           const g = u.detail;
           g != null && g.svgId && d(g);
         },
-        k = (u) => {
+        L = (u) => {
           const g = u.detail;
           g != null && g.svgId && S(g);
         };
       return (
         window.addEventListener("ss-roi-form-add", N),
-        window.addEventListener("ss-tripwire-form-add", k),
+        window.addEventListener("ss-tripwire-form-add", L),
         () => {
           (window.removeEventListener("ss-roi-form-add", N),
-            window.removeEventListener("ss-tripwire-form-add", k),
+            window.removeEventListener("ss-tripwire-form-add", L),
             delete window.ssRoiEditors);
         }
       );
@@ -2655,7 +2646,7 @@ function rs({
       }
     }, [a.length, s]));
   const _ = async (d) => {
-      var k;
+      var L;
       if (
         !(window.ssConfirm
           ? await window.ssConfirm({
@@ -2670,7 +2661,7 @@ function rs({
       const N = d.replace(/^roi_/, "");
       (ht(N),
         f((u) => u.filter((g) => g.svgId !== d)),
-        (k = window.ssMap) == null || k.flushHidden());
+        (L = window.ssMap) == null || L.flushHidden());
       try {
         await p.current();
       } catch {
@@ -2678,7 +2669,7 @@ function rs({
       }
     },
     E = async (d) => {
-      var k;
+      var L;
       if (
         !(window.ssConfirm
           ? await window.ssConfirm({
@@ -2693,7 +2684,7 @@ function rs({
       const N = d.replace(/^tripwire_/, "");
       (pt(N),
         c((u) => u.filter((g) => g.svgId !== d)),
-        (k = window.ssMap) == null || k.flushHidden());
+        (L = window.ssMap) == null || L.flushHidden());
       try {
         await p.current();
       } catch {
@@ -2709,7 +2700,7 @@ function rs({
             n.jsx(n.Fragment, {
               children: m.map((d, S) =>
                 n.jsx(
-                  Kt,
+                  Yt,
                   {
                     roi: d,
                     index: S,
@@ -2717,7 +2708,7 @@ function rs({
                     onChange: (N) => {
                       (x(!0),
                         Te(N),
-                        f((k) => k.map((u) => (u.svgId === N.svgId ? N : u))));
+                        f((L) => L.map((u) => (u.svgId === N.svgId ? N : u))));
                     },
                     onRemove: _,
                   },
@@ -2733,7 +2724,7 @@ function rs({
             n.jsx(n.Fragment, {
               children: a.map((d, S) =>
                 n.jsx(
-                  Qt,
+                  Kt,
                   {
                     tripwire: d,
                     index: S,
@@ -2741,7 +2732,7 @@ function rs({
                     onChange: (N) => {
                       (v(!0),
                         ie(N.uuid, { title: N.title }),
-                        c((k) => k.map((u) => (u.svgId === N.svgId ? N : u))));
+                        c((L) => L.map((u) => (u.svgId === N.svgId ? N : u))));
                     },
                     onRemove: E,
                   },
@@ -2763,7 +2754,7 @@ function qe(e) {
   const s = String(e);
   return /^\d+$/.test(s) ? s : null;
 }
-function is(e) {
+function rs(e) {
   if (
     e.area == null &&
     e.center == null &&
@@ -2788,7 +2779,7 @@ function is(e) {
 function me(e, s) {
   return H(e[s]);
 }
-function os(e) {
+function is(e) {
   const s = qe(e.id),
     t = H(e.sensor_id || e.uid),
     r = H(e.name, t);
@@ -2803,7 +2794,7 @@ function os(e) {
     deleteUrl: s ? `/cam/delete/${s}/` : null,
   };
 }
-function as(e, s) {
+function os(e, s) {
   const t = qe(e.id),
     r = H(e.sensor_id || e.uid),
     i = H(e.name, r);
@@ -2814,7 +2805,7 @@ function as(e, s) {
     sensorId: r || o,
     name: i || r || o,
     iconUrl: (s == null ? void 0 : s.iconUrl) ?? null,
-    areaJson: is(e) || (s == null ? void 0 : s.areaJson) || "{}",
+    areaJson: rs(e) || (s == null ? void 0 : s.areaJson) || "{}",
     calibrateHref: `?ss=calibrate-sensor&id=${o}`,
     editHref: `?ss=sensor-edit&id=${r || o}`,
     deleteUrl: t
@@ -2822,7 +2813,7 @@ function as(e, s) {
       : ((s == null ? void 0 : s.deleteUrl) ?? null),
   };
 }
-function cs(e, s, t) {
+function as(e, s, t) {
   var w;
   const r = H(e.uid || e.id);
   if (!r) return null;
@@ -2857,7 +2848,7 @@ function cs(e, s, t) {
       : ((t == null ? void 0 : t.deleteUrl) ?? null),
   };
 }
-function ls(e, s, t) {
+function cs(e, s, t) {
   const r = e.findIndex(
     (o) =>
       o.id === s.id || o.sensorId === s.sensorId || !!(t && o.sensorId === t),
@@ -2869,7 +2860,7 @@ function ls(e, s, t) {
     i
   );
 }
-function ds(e, s, t) {
+function ls(e, s, t) {
   const r = e.findIndex(
     (o) =>
       o.id === s.id || o.sensorId === s.sensorId || !!(t && o.sensorId === t),
@@ -2887,7 +2878,7 @@ function ds(e, s, t) {
     i
   );
 }
-function us(e, s, t) {
+function ds(e, s, t) {
   const r = e.findIndex(
     (o) => o.id === s.id || o.restUid === s.restUid || !!(t && o.restUid === t),
   );
@@ -2905,7 +2896,7 @@ function us(e, s, t) {
     i
   );
 }
-const ms = new Set([
+const us = new Set([
   "cam-create",
   "cam-edit",
   "sensor-create",
@@ -2916,10 +2907,10 @@ const ms = new Set([
   "calibrate-sensor",
   "scene-manage",
 ]);
-function fs(e) {
-  return !!(e && ms.has(e));
+function ms(e) {
+  return !!(e && us.has(e));
 }
-function hs({
+function fs({
   sceneId: e,
   authToken: s,
   isSuperuser: t,
@@ -2933,12 +2924,12 @@ function hs({
   mapUrl: w = null,
   mapScale: x = null,
 }) {
-  var k;
+  var L;
   const { sheet: h, open: v, close: I } = it(),
     D = l.useCallback(
       (u, g = null) => {
-        const L = ae(u);
-        (L && ce(L), v(u, g));
+        const k = ae(u);
+        (k && ce(k), v(u, g));
       },
       [v],
     ),
@@ -2948,9 +2939,9 @@ function hs({
     }, [I, h.action]);
   (l.useEffect(() => {
     const u = (g) => {
-      const L = g.target;
-      if (!L) return;
-      const $ = L.closest("a[href]");
+      const k = g.target;
+      if (!k) return;
+      const $ = k.closest("a[href]");
       if (!($ != null && $.href)) return;
       let R;
       try {
@@ -2961,7 +2952,7 @@ function hs({
       if (R.origin !== window.location.origin) return;
       const C = R.searchParams.get("ss");
       !C ||
-        !fs(C) ||
+        !ms(C) ||
         ((R.pathname === window.location.pathname ||
           R.pathname === `/${e}/` ||
           R.pathname === `/${e}`) &&
@@ -2984,19 +2975,19 @@ function hs({
     b = l.useCallback(
       (u) => {
         if (!u) return;
-        const g = os(u);
+        const g = is(u);
         if (!g) return;
-        const L = me(u, "scene"),
+        const k = me(u, "scene"),
           $ = h.action === "cam-edit" && h.id ? String(h.id) : null;
         f((R) =>
-          L && L !== e
+          k && k !== e
             ? R.filter(
                 (C) =>
                   C.id !== g.id &&
                   C.sensorId !== g.sensorId &&
                   C.sensorId !== $,
               )
-            : ls(R, g, $),
+            : cs(R, g, $),
         );
       },
       [f, e, h.action, h.id],
@@ -3005,24 +2996,24 @@ function hs({
       (u) => {
         if (!u) return;
         const g = me(u, "scene"),
-          L = h.action === "sensor-edit" && h.id ? String(h.id) : null;
+          k = h.action === "sensor-edit" && h.id ? String(h.id) : null;
         a(($) => {
           const R = $.find(
               (B) =>
-                B.sensorId === L ||
+                B.sensorId === k ||
                 B.sensorId === String(u.uid || "") ||
                 B.id === String(u.id || ""),
             ),
-            C = as(u, R);
+            C = os(u, R);
           return C
             ? g && g !== e
               ? $.filter(
                   (B) =>
                     B.id !== C.id &&
                     B.sensorId !== C.sensorId &&
-                    B.sensorId !== L,
+                    B.sensorId !== k,
                 )
-              : ds($, C, L)
+              : ls($, C, k)
             : $;
         });
       },
@@ -3032,19 +3023,19 @@ function hs({
       (u) => {
         if (!u) return;
         const g = me(u, "parent"),
-          L = h.action === "child-edit" && h.id ? String(h.id) : null;
+          k = h.action === "child-edit" && h.id ? String(h.id) : null;
         c(($) => {
           const R = $.find(
-              (B) => B.id === String(u.uid || u.id || "") || B.restUid === L,
+              (B) => B.id === String(u.uid || u.id || "") || B.restUid === k,
             ),
-            C = cs(u, i, R);
+            C = as(u, i, R);
           return C
             ? g && g !== e
               ? $.filter(
                   (B) =>
-                    B.id !== C.id && B.restUid !== C.restUid && B.restUid !== L,
+                    B.id !== C.id && B.restUid !== C.restUid && B.restUid !== k,
                 )
-              : us($, C, L)
+              : ds($, C, k)
             : $;
         });
       },
@@ -3068,7 +3059,7 @@ function hs({
     S = T === "calibrate-sensor" && h.id ? A.get(String(h.id)) : null,
     N =
       T === "cam-edit" && h.id
-        ? ((k = E.get(String(h.id))) == null ? void 0 : k.sensorId) ||
+        ? ((L = E.get(String(h.id))) == null ? void 0 : L.sensorId) ||
           String(h.id)
         : null;
   return n.jsxs(n.Fragment, {
@@ -3136,8 +3127,8 @@ function hs({
   });
 }
 const ze = "ss-workspace-layout-mode",
-  ps = 224,
-  ws = 256,
+  hs = 224,
+  ps = 256,
   oe = 120;
 function $e() {
   return {
@@ -3145,19 +3136,19 @@ function $e() {
     h: Math.max(window.innerHeight || 0, 320),
   };
 }
-function gs() {
+function ws() {
   try {
     const e = window.localStorage.getItem(ze);
     if (e === "auto" || e === "stack" || e === "row") return e;
   } catch {}
   return "auto";
 }
-function bs(e) {
+function gs(e) {
   try {
     window.localStorage.setItem(ze, e);
   } catch {}
 }
-function ys() {
+function bs() {
   const e = window;
   if (
     typeof e.scene_map_width == "number" &&
@@ -3189,20 +3180,20 @@ function ys() {
     ? { w: t.naturalWidth, h: t.naturalHeight }
     : null;
 }
-function Le(e, s, t) {
+function ke(e, s, t) {
   const r = Math.max(s, oe),
     i = Math.max(t, oe),
     o = Math.min(r / e.w, i / e.h);
   return !Number.isFinite(o) || o <= 0 ? 0 : e.w * o * (e.h * o);
 }
-function ke(e, s, t) {
+function Le(e, s, t) {
   const r = Math.max(e.w - 32, oe),
     i = Math.max(e.h - t, oe);
   if (r < 720 || i / r > 1.25) return "stack";
   if (!s) return r / i >= 1.35 ? "stack" : "row";
   const o = s.w / s.h,
-    m = Le(s, r, i - ps),
-    f = Le(s, r - ws, i);
+    m = ke(s, r, i - hs),
+    f = ke(s, r - ps, i);
   return o >= 1.35
     ? m >= f * 0.92
       ? "stack"
@@ -3215,12 +3206,12 @@ function ke(e, s, t) {
         ? "row"
         : "stack";
 }
-function vs(e = {}) {
+function ys(e = {}) {
   const s = e.chromeHeightPx ?? 112,
-    [t, r] = l.useState(() => (typeof window < "u" ? gs() : "auto")),
-    [i, o] = l.useState(() => ke($e(), null, s)),
+    [t, r] = l.useState(() => (typeof window < "u" ? ws() : "auto")),
+    [i, o] = l.useState(() => Le($e(), null, s)),
     m = l.useCallback((a) => {
-      (r(a), bs(a));
+      (r(a), gs(a));
     }, []);
   return (
     l.useEffect(() => {
@@ -3229,7 +3220,7 @@ function vs(e = {}) {
       const w = () => {
         (cancelAnimationFrame(a),
           (a = requestAnimationFrame(() => {
-            const j = ke($e(), ys(), s);
+            const j = Le($e(), bs(), s);
             c !== j && ((c = j), o((M) => (M === j ? M : j)));
           })));
       };
@@ -3258,7 +3249,7 @@ function vs(e = {}) {
     { layout: t === "auto" ? i : t, mode: t, setMode: m, autoLayout: i }
   );
 }
-function xs() {
+function vs() {
   const [e, s] = l.useState(!1);
   return (
     l.useEffect(() => {
@@ -3290,7 +3281,7 @@ function xs() {
     e
   );
 }
-function js() {
+function xs() {
   const [e, s] = l.useState({});
   return (
     l.useEffect(() => {
@@ -3326,7 +3317,7 @@ function js() {
 function Q(e) {
   return String(e);
 }
-function Ns(e) {
+function js(e) {
   const s =
     typeof window < "u"
       ? new URLSearchParams(window.location.search).get("from")
@@ -3337,7 +3328,7 @@ function Ns(e) {
       ? { href: e.sensorList, label: "Sensors" }
       : { href: e.scenesHome, label: "Scenes" };
 }
-const Ss = [
+const Ns = [
   {
     mode: "auto",
     label: "Auto",
@@ -3357,9 +3348,9 @@ const Ss = [
     icon: "bi-layout-sidebar-reverse",
   },
 ];
-function Es({ bootstrap: e }) {
+function Ss({ bootstrap: e }) {
   const { scene: s, urls: t, isSuperuser: r } = e,
-    { layout: i, mode: o, setMode: m, autoLayout: f } = vs(),
+    { layout: i, mode: o, setMode: m, autoLayout: f } = ys(),
     {
       panelSizePx: a,
       setPanelSizePx: c,
@@ -3370,12 +3361,12 @@ function Es({ bootstrap: e }) {
     [I, D] = l.useState(!1),
     [j, M] = l.useState(!1),
     [b, y] = l.useState(null),
-    p = xs(),
-    _ = js(),
+    p = vs(),
+    _ = xs(),
     [E, A] = l.useState(e.cameras),
     [T, d] = l.useState(e.sensors || []),
     [S, N] = l.useState(e.children || []),
-    [k, u] = l.useState({
+    [L, u] = l.useState({
       cameras: e.cameras.length,
       sensors: e.counts.sensors,
       regions: e.counts.regions,
@@ -3384,14 +3375,14 @@ function Es({ bootstrap: e }) {
     });
   ((window.ssUseReactMap = !!s.mapUrl),
     l.useEffect(() => {
-      const C = (Y) => v(Y || "--");
+      const C = (V) => v(V || "--");
       window.ssSceneTelemetry = {
         ...(window.ssSceneTelemetry || {}),
         setSceneRate: C,
       };
-      const B = (Y) => {
-          const G = Y.detail;
-          (G == null ? void 0 : G.hz) !== void 0 && C(G.hz);
+      const B = (V) => {
+          const W = V.detail;
+          (W == null ? void 0 : W.hz) !== void 0 && C(W.hz);
         },
         z = () => v("--");
       return (
@@ -3408,8 +3399,8 @@ function Es({ bootstrap: e }) {
         const z = B.detail;
         !z ||
           typeof z != "object" ||
-          u((Y) => {
-            const G = { ...Y };
+          u((V) => {
+            const W = { ...V };
             return (
               [
                 "cameras",
@@ -3422,9 +3413,9 @@ function Es({ bootstrap: e }) {
                 typeof ee == "number" &&
                   Number.isFinite(ee) &&
                   ee >= 0 &&
-                  (G[be] = ee);
+                  (W[be] = ee);
               }),
-              G
+              W
             );
           });
       };
@@ -3450,12 +3441,12 @@ function Es({ bootstrap: e }) {
         }
       }
     }, [t.sceneDelete, t.scenesHome]),
-    L = [
-      { id: "cameras", label: "Cameras", count: Q(k.cameras) },
-      { id: "sensors", label: "Sensors", count: Q(k.sensors) },
-      { id: "regions", label: "Regions", count: Q(k.regions) },
-      { id: "tripwires", label: "Tripwires", count: Q(k.tripwires) },
-      { id: "children", label: "Children", count: Q(k.children) },
+    k = [
+      { id: "cameras", label: "Cameras", count: Q(L.cameras) },
+      { id: "sensors", label: "Sensors", count: Q(L.sensors) },
+      { id: "regions", label: "Regions", count: Q(L.regions) },
+      { id: "tripwires", label: "Tripwires", count: Q(L.tripwires) },
+      { id: "children", label: "Children", count: Q(L.children) },
       {
         id: "mqtt",
         label: "MQTT",
@@ -3488,7 +3479,7 @@ function Es({ bootstrap: e }) {
           className: "ss-layout-toggle",
           role: "group",
           "aria-label": "Control panel layout",
-          children: Ss.map((C) => {
+          children: Ns.map((C) => {
             const B = o === C.mode,
               z = C.mode === "auto" ? ` (now ${f})` : "";
             return n.jsxs(
@@ -3587,7 +3578,7 @@ function Es({ bootstrap: e }) {
     "data-map-focus": w ? "1" : "0",
     style: { "--ss-panel-size": `${a}px` },
     children: [
-      n.jsx(We, { title: s.name, back: Ns(t), actions: $ }),
+      n.jsx(Ge, { title: s.name, back: js(t), actions: $ }),
       n.jsxs("div", {
         className: "ss-workspace-body",
         children: [
@@ -3597,7 +3588,7 @@ function Es({ bootstrap: e }) {
           }),
           n.jsx(rt, { layout: i, panelSizePx: a, onResize: c, disabled: w }),
           n.jsx(Vt, {
-            tabs: L,
+            tabs: k,
             cameraRates: _,
             cameras: E,
             sensors: T,
@@ -3610,14 +3601,14 @@ function Es({ bootstrap: e }) {
           }),
         ],
       }),
-      n.jsx(rs, {
+      n.jsx(ns, {
         sceneId: s.id,
         isSuperuser: r,
         authToken: e.authToken,
         initialRegions: e.regions || [],
         initialTripwires: e.tripwires || [],
       }),
-      n.jsx(hs, {
+      n.jsx(fs, {
         sceneId: s.id,
         authToken: e.authToken,
         isSuperuser: r,
@@ -3689,15 +3680,15 @@ function Es({ bootstrap: e }) {
     ],
   });
 }
-function _s({ bootstrap: e }) {
+function Es({ bootstrap: e }) {
   return n.jsx(Je, {
-    children: n.jsx(Ye, { children: n.jsx(Es, { bootstrap: e }) }),
+    children: n.jsx(Ve, { children: n.jsx(Ss, { bootstrap: e }) }),
   });
 }
-function Cs({ bootstrap: e }) {
-  return n.jsx(_s, { bootstrap: e });
+function _s({ bootstrap: e }) {
+  return n.jsx(Es, { bootstrap: e });
 }
-function Ms() {
+function Cs() {
   const e = document.getElementById("ss-scene-detail-bootstrap");
   if (!(e != null && e.textContent)) return null;
   try {
@@ -3706,12 +3697,12 @@ function Ms() {
     return (console.error("Failed to parse scene detail bootstrap JSON"), null);
   }
 }
-const Ae = Ms(),
+const Ae = Cs(),
   Be = document.getElementById("ss-scene-detail-root");
 Ae &&
   Be &&
   (document.documentElement.classList.add("ss-scene-workspace"),
   document.body.classList.add("ss-scene-workspace"),
-  Ge.createRoot(Be).render(
-    n.jsx(l.StrictMode, { children: n.jsx(Cs, { bootstrap: Ae }) }),
+  We.createRoot(Be).render(
+    n.jsx(l.StrictMode, { children: n.jsx(_s, { bootstrap: Ae }) }),
   ));

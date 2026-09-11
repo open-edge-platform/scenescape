@@ -109,10 +109,10 @@ rename `#ss-admin-list-root`, table action hrefs, or map ids below.
 
 `#new-roi`, `#save-rois`, `#empty-new-roi`, `#new-tripwire`, `#save-trips`,
 `#empty-new-tripwire`, `#live-view`, `#show-telemetry`,
-`#regions-tab`, `#tripwires-tab`, `#cameras-tab`, `#sensors-tab`,
-`#children-tab`, `#regions`, `#trips`, `#roi-fields`, `#tripwire-fields`,
-`#no-regions`, `#no-tripwires`, `#mqtt_status`, `#broker`, `#scene-edit`,
-`#3d-view`.
+`#ss-tab-regions`, `#ss-tab-tripwires`, `#ss-tab-cameras`, `#ss-tab-sensors`,
+`#ss-tab-children`, `#ss-tab-mqtt`, `#regions`, `#trips`, `#roi-fields`,
+`#tripwire-fields`, `#no-regions`, `#no-tripwires`, `#mqtt_status`, `#broker`,
+`#scene-edit`, `#3d-view`.
 
 ### ROI / tripwire cards
 

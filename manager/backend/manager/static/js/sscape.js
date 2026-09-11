@@ -633,7 +633,7 @@ async function checkBrokerConnections() {
           .on("change.ssLiveView", "input#live-view", function () {
             if ($(this).is(":checked")) {
               window.ssRefreshCameraSnapshots();
-              $("#cameras-tab").click();
+              $("#ss-tab-cameras").click();
               $(".camera-card").addClass("live-view");
             } else {
               $(".camera-card").removeClass("live-view");
