@@ -28,7 +28,7 @@ MODEL_HUB = "omz"
 MODEL_XML = f"{MODEL_HUB}/{MODEL_NAME}/FP32/{MODEL_NAME}.xml"
 
 # Pin the same image/tag used by model_download/Makefile's MODEL_DOWNLOADER_IMAGE.
-DOWNLOADER_IMAGE = "intel/model-download:2026.2.0-ww32"
+DOWNLOADER_IMAGE = "intel/model-download:2026.2.0"
 CONTAINER_PORT = 8000
 API_READY_TIMEOUT_S = 120
 JOB_POLL_INTERVAL_S = 5.0
