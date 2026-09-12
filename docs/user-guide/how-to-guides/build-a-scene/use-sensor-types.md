@@ -49,7 +49,7 @@ If you're new to these concepts, see:
 1. Click on `Sensors` at the bottom of the scene.
 2. You will see the created sensor. Then click on the `manage` button.
 3. In the Manage Sensor view, you can update attributes like Measurement area (Entire Scene, Circle or Custom region), Name, Sensor id, Scene, Singleton type, Color Range, etc. For more details on how to use the Color Range, refer to [Visualizing ROI and Sensor Areas](./visualize-regions.md).
-4. Cick on `Save Sensor `to persist the modified sensor.
+4. Cick on `Save Sensor`to persist the modified sensor.
 
 In the 3D scene view, expand `Sensors Settings` and toggle `show` for the
 sensor. The visibility setting is saved immediately and restored after a page
@@ -128,14 +128,15 @@ curl -sk -X POST https://<manager-host>/api/v1/sensor \
 
 For the full field reference (all accepted fields, `area`/`singleton_type` enum values), see the
 canonical OpenAPI spec: [API Reference](../../api-reference.md) (source:
-`docs/user-guide/api-docs/api.yaml`, `Singleton` schema). The API reference doesn't capture these
+`docs/user-guide/api-docs/api.yaml`, `Singleton` schema). The API reference does not capture these
 validation rules, which only live in server-side logic:
 
 - `center`+`radius` are required when `area` is `circle`; `points` is required when `area` is
   `poly`.
-- If `sensor_id` isn't supplied on create, it defaults to `name` with spaces replaced by
+- If `sensor_id` is not supplied on create, it defaults to `name` with spaces replaced by
   underscores.
 - `color_ranges.sectors[].color` must be one of `green`, `yellow`, or `red`:
+
   ```json
   {
     "color_ranges": {

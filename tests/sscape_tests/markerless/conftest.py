@@ -14,7 +14,7 @@ from auto_camera_calibration_model import CalibrationScene
 from markerless_camera_calibration import CameraCalibrationMonocularPoseEstimate
 from scene_common.options import MARKERLESS
 
-SCENE_MAP = "sample_data/atag-calib-demo-map.png"
+SCENE_MAP = "tests/resources/maps/atag-calib-demo-map.png"
 SCENE_ID = "f1b9b1b0-1b1b-1b1b-1b1b-1b1b1b1b1b1b"
 DATASET_DIR = os.path.abspath(os.path.join(__file__ ,"../test_markerless/test_dataset"))
 OUTPUT_DIR = os.path.abspath(os.path.join(__file__ ,"../test_markerless/output_dir"))
