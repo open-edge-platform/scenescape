@@ -3,6 +3,9 @@
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/mapping/docs">
      GitHub
   </a>
+  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/mapping/README.md">
+     Readme
+  </a>
 </div>
 hide_directive-->
 
@@ -31,15 +34,16 @@ Each container is built with one of two state-of-the-art models:
 The following diagram shows the dataflow between the Scenescape Web UI, database, MQTT
 broker, and the Mapping Service.
 
-> **Note:** The diagram is currently best viewed in light color mode.
-
 ```mermaid
+---
+config: {"theme": "dark"}
+---
 sequenceDiagram
-    Scenescape Web UI ->>+Database: "Query camera info"
-    Scenescape Web UI ->>+MQTT Broker: "Get latest frame for each camera"
-    Scenescape Web UI ->>+Mapping Service: "REST API call to /reconstruction endpoint with camera frames"
-    Mapping Service ->>+Scenescape Web UI: "Output: GLB & Camera Poses"
-    Scenescape Web UI ->>+Database: "Update scene map & camera poses"
+    Scenescape Web UI ->>+Database: Query camera info
+    Scenescape Web UI ->>+MQTT Broker: Get latest frame for each camera
+    Scenescape Web UI ->>+Mapping Service: REST API call to /reconstruction endpoint with camera frames
+    Mapping Service ->>+Scenescape Web UI: Output: GLB & Camera Poses
+    Scenescape Web UI ->>+Database: Update scene map & camera poses
 ```
 
 ## API Endpoints
@@ -74,7 +78,7 @@ Perform 3D reconstruction from images and/or video.
 
 #### Request Format
 
-**Multipart Form Data (Required)**
+**Multipart Form Data (Required)**:
 
 The API accepts `Content-Type: multipart/form-data` to upload image and/or video files:
 

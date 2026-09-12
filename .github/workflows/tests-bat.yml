@@ -6,6 +6,10 @@ name: "[Tests] Basic Acceptance Tests"
 run-name: "[Tests] Basic Acceptance Tests"
 
 on:
+  workflow_call:
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: false
   workflow_dispatch:
     inputs:
       cleanup:
@@ -17,28 +21,13 @@ on:
         description: "Timeout for the job in minutes"
         required: false
         type: number
-        default: 80
-  pull_request:
-    branches:
-      - main
-      - release-*
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-  push:
-    branches:
-      - main
-      - release-*
+        default: 85
 
-  # Trigger workflow when enqueued to a merge group
-  # (must be under 'on')
-  merge_group: {}
-
-# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+# Only run at most 1 workflow concurrently per PR or per branch to keep costs down.
+# Hardcoded prefix so this group is stable when called via workflow_call
+# (github.workflow evaluates to the caller's workflow name in reusable workflows).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: tests-bat-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -123,7 +112,7 @@ jobs:
     runs-on: [bat]
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '80') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '85') }}
     needs: [filter, check-pr-state]
     if: ${{ (needs.filter.outputs.code_changed == 'true' || needs.filter.outputs.bat_workflow_changed == 'true') && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
@@ -160,6 +149,22 @@ jobs:
           mkdir -p reports
           pytest tests/sscape_tests/ --junitxml=reports/unit_results.xml --log-level=ERROR
 
+      - name: Run Mapping Service tests
+        if: always() && steps.setup-test-env.outcome == 'success'
+        working-directory: mapping
+        run: |
+          make test-build
+          docker run --rm --entrypoint bash intel/scenescape-mapping-test -c 'cd /home/scenescape/Scenescape/tests && ./run_tests.sh'
+
+      - name: Run Cluster Analytics tests
+        if: always() && steps.setup-test-env.outcome == 'success'
+        run: |
+          source tests/.venv/bin/activate
+          cd cluster_analytics
+          make test-build
+          pip install -r tests/service/requirements.txt
+          pytest tests/service/ -v
+
       - name: Run Pipeline Runner tests
         if: always() && steps.setup-test-env.outcome == 'success'
         env:
@@ -172,7 +177,7 @@ jobs:
           source .venv/bin/activate
           pip install --upgrade pip
           pip install -q -r requirements-ppl-test.txt
-          pytest . --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
+          pytest . --confcutdir=. --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
 
       - name: Upload Test Report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
