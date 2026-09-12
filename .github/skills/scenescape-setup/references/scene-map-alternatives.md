@@ -11,14 +11,17 @@ estimates each camera's pose automatically. Use this reference when the user alr
 floor blueprint image, a 3D `.glb`/`.ply` mesh, or wants to build the scene from a geospatial
 (GPS-based) map instead of auto-reconstruction.
 
-## Caveat: manual calibration is required
+## Caveat: manual calibration vs automated camera.json
 
 Auto-reconstruction estimates camera pose (position + orientation) as a side effect of building
 the mesh from captured frames. A pre-made blueprint/GLB/geospatial map has no such frames to
-estimate pose from, so cameras must be calibrated **manually** through the SceneScape web UI (2D
-or 3D calibration UI) after the scene is created. This skill cannot automate that step — it
-requires interactively adding/dragging correspondence points in a browser. Confirm the user
-accepts this tradeoff before proceeding.
+estimate pose from.
+
+* **Without pre-calibrated cameras**: Cameras must be calibrated **manually** through the SceneScape
+  web UI (2D or 3D calibration UI) after the scene is created.
+* **With pre-calibrated `camera.json`**: If the user provides a `camera.json` containing camera
+  translation, rotation (quaternion), and intrinsics (`fx`, `fy`, `cx`, `cy`), camera registration can be
+  **fully automated** via REST API, bypassing manual UI calibration.
 
 Exception: uploading a `.zip` Polycam scan (a mobile 3D scan) instead of a blueprint/GLB enables
 `Markerless` auto-calibration — mention this option if the user has a mobile 3D scan rather than a
@@ -103,6 +106,48 @@ curl -sk -X POST https://localhost/api/v1/scene \
   in the OpenAPI schema.)
 - The response includes `"uid"` — the new `scene_uid`. Save it; camera registration and the
   geospatial steps below need it.
+
+### Automated camera registration with `camera.json`
+
+When a pre-calibrated `camera.json` file is provided, use
+`scripts/register_cameras.py` to batch-register the cameras via REST instead of requiring manual
+UI calibration. It auto-detects the per-camera identifier key (`sensor_id`/`uid`/`name`/`id`),
+auto-detects euler vs quaternion rotation (the manager API converts quaternion → euler
+server-side), and auto-deletes orphaned (scene=None) cameras that collide with a name being
+registered (a retry after any prior failed attempt would otherwise 400 with "orphaned camera with
+the name ... already exists").
+
+```bash
+python3 "$SKILL_DIR/scripts/register_cameras.py" \
+  --deploy-dir <deploy_dir> \
+  --scene-uid <scene_uid> \
+  --camera-json <path_to_camera.json> \
+  --camera-ids <id> [<id> ...]
+```
+
+`--camera-ids` (the deployed camera_ids) is optional but recommended: with it, the script
+validates every camera.json identifier resolves to a known camera_id and refuses to guess. If an
+identifier doesn't match (case-insensitively) — e.g. the JSON names a camera `FrontView_L2` but
+the deployed `camera_id` is `rearview_l` — it exits with the exact `--camera-map` flags needed:
+
+```bash
+python3 "$SKILL_DIR/scripts/register_cameras.py" \
+  --deploy-dir <deploy_dir> \
+  --scene-uid <scene_uid> \
+  --camera-json <path_to_camera.json> \
+  --camera-map 'FrontView_L2=rearview_l' 'FrontView_R2=rearview_r' ...
+```
+
+Never guess this mapping yourself from filenames alone — confirm it with the user first, the same
+way an ambiguous `camera_id`/stream change requires confirmation in Step 1.
+
+Once registered, verify tracking:
+
+```bash
+bash "$SKILL_DIR/scripts/verify_tracking.sh" <deploy_dir> <scene_uid> 120
+```
+
+### Manual Web UI camera registration (when `camera.json` is not provided)
 
 Register a placeholder camera per `camera_id` using
 [scene-and-cameras.md](./scene-and-cameras.md#camera-registration) with this `scene_uid`, then tell

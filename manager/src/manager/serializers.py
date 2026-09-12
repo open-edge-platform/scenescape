@@ -332,6 +332,10 @@ class CamSerializer(NonNullSerializer):
     return self.create_update(validated_data, instance)
 
   def map_resolution_fields(self, validated_data):
+    # DRF auto-populates validated_data['cam'] because `resolution` declares
+    # source='cam'; it must be discarded here or Cam.objects.create() blows up
+    # with "unexpected keyword arguments: 'cam'".
+    validated_data.pop('cam', None)
     resolution = self.initial_data.get('resolution', None)
     if not resolution:
       return
