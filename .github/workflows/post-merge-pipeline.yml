@@ -19,14 +19,8 @@ permissions:
   contents: read
 
 jobs:
-  auto-update:
-    name: "Auto-update PRs"
-    uses: ./.github/workflows/auto-update.yml
-    permissions:
-      contents: read
-      pull-requests: write
-    secrets:
-      GH_PAT: ${{ secrets.GH_PAT }}
+  # PR auto-update now runs as its own top-level workflow (auto-update.yml),
+  # triggered directly by push, so it isn't invoked from this pipeline.
 
   bandit:
     name: "Bandit"

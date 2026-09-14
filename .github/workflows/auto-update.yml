@@ -2,67 +2,127 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[CI/CD] Update All Pull Requests"
-run-name: "[CI/CD] Update All Pull Requests"
+name: "[CI/CD] Auto-Update Pull Requests"
+run-name: "[CI/CD] Auto-Update PRs based on ${{ github.ref_name }}"
 
-on:
-  workflow_call:
-    secrets:
-      GH_PAT:
-        required: true
+on: # yamllint disable-line rule:truthy
+  push:
+  pull_request:
+    types:
+      - auto_merge_enabled
   workflow_dispatch: {}
 
 concurrency:
-  # Hardcoded prefix so this group is stable when called via workflow_call
-  # (github.workflow evaluates to the caller's workflow name in reusable workflows).
-  group: auto-update-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions: {}
 
 jobs:
   update-pull-requests:
+    name: "Update pull requests targeting this branch"
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
-    runs-on: ubuntu-latest
+
+    env:
+      # PRs are updated if auto-merge is enabled, or if they carry this label
+      # (e.g. drafts, which can't have auto-merge enabled).
+      UPDATE_LABEL: "auto-update"
 
     steps:
-      - name: "Checkout repository"
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-
-      - name: "Update pull requests targeting ${{ github.ref_name }}"
+      - name: "Find and update pull requests"
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
           BASE_BRANCH: ${{ github.ref_name }}
         run: |
-          echo "Searching for open PRs targeting '${BASE_BRANCH}' with auto-merge enabled"
+          echo "Searching for open PRs targeting '${BASE_BRANCH}' with auto-merge enabled or labeled '${UPDATE_LABEL}'"
 
           # Scope strictly to PRs whose base is the branch that triggered this run,
           # so a push to one branch never force-updates PRs targeting another branch.
-          if ! prs_output=$(gh pr list \
+          if ! pr_list_output=$(gh pr list \
             --repo "$GITHUB_REPOSITORY" \
             --base "$BASE_BRANCH" \
             --state open \
-            --json number,author,autoMergeRequest \
-            --jq '.[] | select(.author.login != "dependabot[bot]" and .autoMergeRequest != null) | .number');
+            --json number,author,autoMergeRequest,labels,isDraft,headRefName,title \
+            --jq --arg label "$UPDATE_LABEL" \
+              '.[] | select(.author.login != "dependabot[bot]") |
+                select(.autoMergeRequest != null or (.labels | any(.name == $label))) |
+                @json'); then
             echo "ERROR: gh pr list failed — check API access and token permissions."
             exit 1
           fi
 
-          mapfile -t prs <<< "$prs_output"
+          mapfile -t prs <<< "$pr_list_output"
+          # When output is empty, mapfile produces one empty element — normalize it.
           if [[ ${#prs[@]} -eq 1 && -z "${prs[0]}" ]]; then
             prs=()
           fi
 
           if [[ ${#prs[@]} -eq 0 ]]; then
-            echo "No open PRs with auto-merge enabled targeting '${BASE_BRANCH}' — nothing to do."
+            echo "No open PRs with auto-merge enabled or labeled '${UPDATE_LABEL}' targeting '${BASE_BRANCH}' — nothing to do."
             exit 0
           fi
 
-          for pr in "${prs[@]}"; do
-            echo "Updating PR #${pr}"
-            gh pr update-branch "$pr" --repo "$GITHUB_REPOSITORY" || echo "Failed to update PR #${pr}"
+          echo "Found ${#prs[@]} candidate PR(s)."
+
+          failed=0
+          for pr_json in "${prs[@]}"; do
+            pr_number=$(echo "$pr_json" | jq -r '.number')
+            is_draft=$(echo  "$pr_json" | jq -r '.isDraft')
+            head_ref=$(echo  "$pr_json" | jq -r '.headRefName')
+            title=$(echo     "$pr_json" | jq -r '.title')
+
+            echo "→ PR #${pr_number}: '${title}' (head: ${head_ref}, draft: ${is_draft})"
+
+            if gh pr update-branch "$pr_number" --repo "$GITHUB_REPOSITORY"; then
+              echo "  ✓ PR #${pr_number} updated successfully."
+            else
+              echo "  ✗ PR #${pr_number} could not be updated (may already be up to date or have a merge conflict)."
+              failed=$((failed + 1))
+            fi
           done
+
+          echo "Done. Failed: ${failed}."
+          if [[ $failed -gt 0 ]]; then
+            echo "Warning: ${failed} PR(s) could not be updated — review the logs above."
+          fi
+
+  remove-label-on-automerge:
+    name: "Remove auto-update label when auto-merge is enabled"
+    if: github.event_name == 'pull_request' && github.event.action == 'auto_merge_enabled'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    env:
+      UPDATE_LABEL: "auto-update"
+
+    steps:
+      - name: "Remove '${{ env.UPDATE_LABEL }}' label from PR"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Query labels first and fail explicitly if the GitHub CLI request fails.
+          if ! pr_labels=$(gh pr view "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json labels \
+            --jq '.labels[].name'); then
+            echo "Failed to read labels for PR #${PR_NUMBER}."
+            exit 1
+          fi
+
+          # Treat a missing label as a normal no-op, but do not mask query failures.
+          if ! printf '%s\n' "$pr_labels" | grep -Fxq -- "$UPDATE_LABEL"; then
+            echo "PR #${PR_NUMBER} does not have the '${UPDATE_LABEL}' label — nothing to do."
+            exit 0
+          fi
+
+          echo "Removing '${UPDATE_LABEL}' label from PR #${PR_NUMBER} (auto-merge enabled)."
+          gh pr edit "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --remove-label "$UPDATE_LABEL"
+          echo "Label removed."
