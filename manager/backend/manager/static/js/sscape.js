@@ -238,7 +238,10 @@ function sceneMapViewBox(width, height) {
 }
 
 var is_coloring_enabled = false; // Default state of the coloring feature
-var assetMarkColors = {}; // Object Library mark_color per type, e.g. {person: "#888888"}
+var sceneBootstrap = document.getElementById("ss-scene-detail-bootstrap");
+var assetMarkColors = sceneBootstrap
+  ? JSON.parse(sceneBootstrap.textContent).assetMarkColors || {}
+  : {};
 var roi_color_sectors = {};
 var singleton_color_sectors = {};
 

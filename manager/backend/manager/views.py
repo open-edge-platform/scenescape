@@ -269,6 +269,10 @@ def sceneDetail(request, scene_id):
     "children": children,
     "regions": regions if isinstance(regions, list) else [],
     "tripwires": tripwires if isinstance(tripwires, list) else [],
+    "assetMarkColors": {
+      asset.name: asset.mark_color
+      for asset in Asset3D.objects.all()
+    },
     "counts": {
       "sensors": len(sensors),
       "regions": len(regions) if isinstance(regions, list) else 0,

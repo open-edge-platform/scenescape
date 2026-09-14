@@ -49,6 +49,7 @@ export type SceneDetailBootstrap = {
   children: SceneChildBootstrap[];
   regions: import("./editors/types").RoiLoadJson[];
   tripwires: import("./editors/types").TripwireLoadJson[];
+  assetMarkColors: Record<string, string>;
   counts: {
     sensors: number;
     regions: number;
