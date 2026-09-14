@@ -30,6 +30,7 @@ jobs:
       matrix:
         images:
           [
+            scenescape-analytics,
             scenescape-autocalibration,
             scenescape-controller,
             scenescape-manager,
@@ -66,6 +67,9 @@ jobs:
           elif [[ "${{ matrix.images }}" == "scenescape-manager" ]]; then
             echo "Building ${{ matrix.images }}"
             make -C manager
+          elif [[ "${{ matrix.images }}" == "scenescape-analytics" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C analytics
           elif [[ "${{ matrix.images }}" == "scenescape-tracker" ]]; then
             echo "Building ${{ matrix.images }}"
             make -C tracker

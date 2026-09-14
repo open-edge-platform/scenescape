@@ -174,7 +174,7 @@ and the WILDTRACK dataset (`pipeline_configs/black_box_wildtrack/`, selected wit
 
 - `intel/scenescape-controller:2026.1.0-dev` Docker image available locally
 - `intel/scenescape-tracker:2026.1.0-dev` Docker image available locally
-- `eclipse-mosquitto:2.0.22` Docker image available locally
+- `eclipse-mosquitto:2.1-alpine` Docker image available locally
 
 Verify:
 

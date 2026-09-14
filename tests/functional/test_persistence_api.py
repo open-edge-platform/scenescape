@@ -68,7 +68,7 @@ def test_persistence_on_page_navigate_api(params, rest, result_recorder):
   _cleanup_test_artifacts()
 
   # Create scene
-  map_file = os.path.join("sample_data", "HazardZoneScene.png")
+  map_file = os.path.join("tests", "resources", "maps", "HazardZoneScene.png")
   with open(map_file, "rb") as f:
     res = rest.createScene(
       {
