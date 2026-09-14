@@ -1,3 +1,5 @@
+# Scene Controller Service
+
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/controller">
@@ -8,8 +10,6 @@
   </a>
 </div>
 hide_directive-->
-
-# Scene Controller Service
 
 Scene Controller Microservice fuses multimodal sensor data to enable spatial analytics at the
 edge for multiple use cases.

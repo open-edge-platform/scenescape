@@ -1,3 +1,5 @@
+# Cluster Analytics Service
+
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/cluster_analytics">
@@ -8,8 +10,6 @@
   </a>
 </div>
 hide_directive-->
-
-# Cluster Analytics Service
 
 The Cluster Analytics service provides advanced object clustering and movement analysis capabilities for Scenescape using DBSCAN (Density-Based Spatial Clustering of Applications with Noise) algorithm combined with geometric shape detection and velocity pattern classification.
 
@@ -170,7 +170,7 @@ for category, objects in objects_by_category.items():
                        min_samples=dbscan_params['min_samples'])
 ```
 
-### **Cluster Tracking System**
+### Cluster Tracking System
 
 The service uses a lightweight greedy nearest-centroid matcher that assigns persistent UUIDs to clusters across frames. There is no state machine or confidence scoring — clusters are matched and published from the first frame.
 
@@ -190,11 +190,11 @@ For each frame, per category:
 3. Unmatched detections receive a new UUID
 4. Clusters not updated within `expiry_seconds` are discarded
 
-## **WebUI Features and Real-time Visualization**
+## WebUI Features and Real-time Visualization
 
 The integrated WebUI provides a comprehensive interface for cluster analysis monitoring and configuration:
 
-### **Interactive Visualization**
+### Interactive Visualization
 
 - **Real-time Canvas**: Live updating visualization of objects and clusters
 - **Pan and Zoom**: Navigate through scene data with mouse controls
@@ -203,7 +203,7 @@ The integrated WebUI provides a comprehensive interface for cluster analysis mon
 - **Movement Vectors**: Optional display of cluster movement with adjustable scaling
 - **Auto-fit**: Automatic view adjustment to focus on current scene data
 
-### **Dynamic Parameter Configuration**
+### Dynamic Parameter Configuration
 
 - **Per-Category Controls**: Independent parameter adjustment for each object category
 - **Real-time Updates**: Changes apply immediately with automatic re-clustering
@@ -211,21 +211,21 @@ The integrated WebUI provides a comprehensive interface for cluster analysis mon
 - **Reset to Defaults**: Quick restoration of default parameters per category
 - **Visual Feedback**: Immediate visualization of parameter change effects
 
-### **Scene Management**
+### Scene Management
 
 - **Multi-Scene Support**: Switch between available scenes dynamically
 - **Auto-Discovery**: Scenes are automatically discovered from MQTT traffic
 - **Current Data Focus**: Always displays current state without historic accumulation
 - **Object Count Display**: Real-time object and cluster statistics
 
-### **Advanced Controls**
+### Advanced Controls
 
 - **Refresh Rate**: Configurable from real-time to custom intervals
 - **Movement Vector Scaling**: Adjustable visualization scale for velocity vectors
 - **Connection Status**: Live MQTT connection monitoring
 - **Parameter Validation**: Intelligent validation based on actual scene data
 
-### **Insufficient Points Handling**
+### Insufficient Points Handling
 
 - **Individual Object Coloring**: Objects are colored by category when clusters cannot be formed
 - **Clear Messaging**: Visual indication when clustering is not possible
@@ -257,7 +257,9 @@ The integrated WebUI provides a comprehensive interface for cluster analysis mon
 
 ## Output Data Structure
 
-The Cluster Analytics service publishes optimized cluster metadata in batch format. **Note**: Scene identification is extracted from topic structure, not payload content.
+The Cluster Analytics service publishes optimized cluster metadata in batch format.
+
+> **Note:** Scene identification is extracted from topic structure, not payload content.
 
 ### Cluster Batch Format
 
@@ -520,7 +522,7 @@ client.subscribe("scenescape/analytics/clusters/+")
 client.loop_forever()
 ```
 
-## **Cluster Tracking Algorithm**
+## Cluster Tracking Algorithm
 
 ### Overview
 

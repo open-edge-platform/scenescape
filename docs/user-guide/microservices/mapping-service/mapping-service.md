@@ -1,3 +1,5 @@
+# Mapping Service
+
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/mapping/">
@@ -8,8 +10,6 @@
   </a>
 </div>
 hide_directive-->
-
-# Mapping Service
 
 The Mapping Service generates 3D scene reconstructions — meshes, point clouds, and camera parameters (poses and intrinsics) — from a set of captured images or video frames. It exposes a REST API so other microservices can request reconstructions on demand.
 
