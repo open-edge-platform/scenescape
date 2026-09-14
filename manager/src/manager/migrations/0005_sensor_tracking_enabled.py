@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
   dependencies = [
-    ('manager', '0003_add_cached_geometries_to_childscene'),
+    ('manager', '0004_add_cached_sensors_to_childscene'),
   ]
 
   operations = [
