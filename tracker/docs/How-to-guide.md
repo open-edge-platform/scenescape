@@ -59,7 +59,8 @@ make demo-tracker
 What `demo-tracker` does:
 
 - Runs `make build-all` to build all images
-- Runs `make init-sample-data` to prepare volumes and sample files
+- Runs `make video-source-up` to convert sample videos and start the
+  standalone mediamtx/ffmpeg video-source stack
 - Invokes the compose helper with: `--profile tracker`
 
 ### Stop Tracker + Analytics demo:

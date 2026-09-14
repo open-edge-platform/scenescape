@@ -36,9 +36,12 @@ SECRETSDIR ?= $(CURDIR)/manager/secrets
 CERTDOMAIN ?= scenescape.intel.com
 
 # Demo variables
-SAMPLE_VIDEOS_DIR := sample_data/videos
 SAMPLE_COMPOSE_DIR := sample_data/compose
-DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(SAMPLE_VIDEOS_DIR)/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
+VIDEO_SOURCE_DIR := sample_data/demo_scenes
+VIDEO_SOURCE_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/docker-compose.video-source.yml
+DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(VIDEO_SOURCE_DIR)/Retail/video/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts) \
+	$(addprefix $(VIDEO_SOURCE_DIR)/Queuing/video/,qcam1.ts qcam2.ts) \
+	sample_data/videos/car-detection.ts
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/docker-compose-dl-streamer-example.yml
 DEMO_WAIT_SECONDS ?= "0"
 # Host directory with one subdirectory per demo scene (each holding a <name>.zip)
@@ -53,8 +56,9 @@ UPLOAD_SCENES := tools/upload_scenes/upload-scenes
 # ReID vector backend used by the ReID demo targets: vdms (default) or qdrant
 REID_BACKEND ?= vdms
 REID_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/docker-compose.$(strip $(REID_BACKEND))-override.yml
+# retail-config/queuing-config now live in VIDEO_SOURCE_COMPOSE_FILE, not docker-compose.yml.
 REID_PIPELINE_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/docker-compose.reid-pipeline-override.yml
-REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE) -f $(REID_PIPELINE_OVERRIDE_FILE)
+REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE)
 DEMO_REBUILD_IMAGES ?= true
 # Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
 DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
@@ -666,27 +670,39 @@ add-licensing:
 convert-dls-videos:
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 
+# tools/pipeline_runner mounts a "vol-videos" named volume (unlike the
+# standalone video-source compose stack, which bind-mounts the files
+# directly); populate it from the source directories required by the demos.
+.PHONY: init-pipeline-runner-videos
+init-pipeline-runner-videos: convert-dls-videos
+	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-videos 2>/dev/null || true
+	@docker run --rm -v $(CURDIR)/$(VIDEO_SOURCE_DIR)/Queuing/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
+	@docker run --rm -v $(CURDIR)/$(VIDEO_SOURCE_DIR)/Retail/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
+	@docker run --rm -v $(CURDIR)/sample_data/videos:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
+
 .PHONY: init-sample-data
 init-sample-data: convert-dls-videos
-	@echo "Initializing sample video volume..."
-	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-videos 2>/dev/null || true
+	@echo "Initializing sample data volume..."
+	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-sample-data 2>/dev/null || true
 	@echo "Setting up volume permissions..."
-	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 chown $(shell id -u):$(shell id -g) /dest
-	@echo "Copying files from $(CURDIR)/$(SAMPLE_VIDEOS_DIR) to volume..."
-	@if [ -d "$(CURDIR)/$(SAMPLE_VIDEOS_DIR)" ]; then \
+	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:3.23 chown $(shell id -u):$(shell id -g) /dest
+	@echo "Copying files from $(CURDIR)/sample_data to volume..."
+	@if [ -d "$(CURDIR)/sample_data" ]; then \
 		docker run --rm \
-			-v $(CURDIR)/$(SAMPLE_VIDEOS_DIR):/source:ro \
-			-v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest \
+			-v $(CURDIR)/sample_data:/source:ro \
+			-v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
 			--user $(shell id -u):$(shell id -g) \
 			alpine:3.23 \
 			sh -c "echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo '';"; \
 	else \
-		echo "WARNING: Source directory $(CURDIR)/$(SAMPLE_VIDEOS_DIR) does not exist!"; \
+		echo "WARNING: Source directory $(CURDIR)/sample_data does not exist!"; \
 		exit 1; \
 	fi
 	@echo "Sample data volume initialized."
 
 # Helper target to start demo with compose
+# $(1): extra `docker compose` args for the main stack (e.g. profiles, ReID backend override)
+# $(2): extra `docker compose` args for the video-source stack (e.g. ReID pipeline override)
 define start_demo
 	@$(MAKE) docker-compose.yml
 	@$(MAKE) .env
@@ -711,6 +727,7 @@ define start_demo
 		echo "Starting Scenescape services in detached mode..."; \
 		docker compose $(1) up -d; \
 	fi
+	@$(MAKE) video-source-up VIDEO_SOURCE_ARGS="$(2)"
 	@$(MAKE) demo-scenes
 	@echo ""
 	@echo "To stop Scenescape, type:"
@@ -739,23 +756,23 @@ demo-scenes:
 		$(DEMO_SCENES_URL) $(DEMO_SCENES_DIR)
 
 .PHONY: demo
-demo: $(DEMO_BUILD:build=build-core) init-sample-data
+demo: $(DEMO_BUILD:build=build-core)
 	$(call start_demo,--profile controller)
 
 .PHONY: demo-reid
-demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core) init-sample-data
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller))
+demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core)
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller),-f $(REID_PIPELINE_OVERRIDE_FILE))
 
 .PHONY: demo-all
-demo-all: check-reid-backend $(DEMO_BUILD:build=build-all) init-sample-data
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile mapping))
+demo-all: check-reid-backend $(DEMO_BUILD:build=build-all)
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile mapping),-f $(REID_PIPELINE_OVERRIDE_FILE))
 
 .PHONY: demo-cluster-analytics
-demo-cluster-analytics: $(DEMO_BUILD:build=build-all) init-sample-data
+demo-cluster-analytics: $(DEMO_BUILD:build=build-all)
 	$(call start_demo,--profile controller --profile cluster-analytics)
 
 .PHONY: demo-tracker
-demo-tracker: $(DEMO_BUILD:build=build-all) init-sample-data
+demo-tracker: $(DEMO_BUILD:build=build-all)
 	$(call start_demo,--profile tracker)
 
 .PHONY: demo-close
@@ -764,6 +781,7 @@ demo-close:
 		echo "Error: .scenescape-profile not found. Was the demo started with 'make demo'?"; \
 		exit 1; \
 	fi
+	@$(MAKE) video-source-down
 	docker compose $(shell cat .scenescape-profile 2>/dev/null) down -v
 	@rm -f .scenescape-profile
 
@@ -775,10 +793,21 @@ demo-k8s: check-reid-backend
 docker-compose.yml:
 	cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@;
 
-$(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
+$(DLSTREAMER_SAMPLE_VIDEOS): $(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@echo "==> Converting sample videos for DLStreamer..."
-	@./dlstreamer-pipeline-server/convert_video_to_ts.sh
+	@$(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@echo "DONE ==> Converting sample videos for DLStreamer..."
+
+# Demo video sources are not a part of the core Scenescape stack; it joins the same "scenescape" Docker network so it
+# can reach the broker/ntpserv aliases and dlsps pipelines can be reached at
+# rtsp://mediaserver:8554/<camera-id>.
+.PHONY: video-source-up
+video-source-up: convert-dls-videos
+	SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose --project-directory . -f $(VIDEO_SOURCE_COMPOSE_FILE) $(VIDEO_SOURCE_ARGS) up -d
+
+.PHONY: video-source-down
+video-source-down:
+	-SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose --project-directory . -f $(VIDEO_SOURCE_COMPOSE_FILE) down
 
 .PHONY: .env
 .env:

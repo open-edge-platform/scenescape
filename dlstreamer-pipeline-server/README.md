@@ -42,6 +42,11 @@ Below are step-by-step instructions for enabling out-of-the-box scenes in Scenes
 
 Running the pipelines on GPU is highly recommended when available on the system. This approach efficiently utilizes available CPU cores for other Scenescape services and provides optimal performance for the visual analytics service. Only Intel GPU devices are supported.
 
+> **Note:** `retail-video`/`queuing-video` and their `retail-config`/`queuing-config`
+> settings referenced below live in
+> [sample_data/demo_scenes/docker-compose.video-source.yml](/sample_data/demo_scenes/docker-compose.video-source.yml),
+> not the root `docker-compose.yml`.
+
 To facilitate GPU acceleration, sample configuration files are provided for the out-of-box **Queuing** and **Retail** scenes with the following pipeline optimizations:
 
 - Video decode offloaded to GPU
@@ -123,6 +128,11 @@ By following these steps, only the selected GPU device will be available in the 
 
 Running inference on NPU is recommended when an Intel® NPU is available on the system. This offloads the inference workload to the NPU, freeing up CPU and GPU resources for other Scenescape services.
 
+> **Note:** `retail-video`/`queuing-video` and their `retail-config`/`queuing-config`
+> settings referenced below live in
+> [sample_data/demo_scenes/docker-compose.video-source.yml](/sample_data/demo_scenes/docker-compose.video-source.yml),
+> not the root `docker-compose.yml`.
+
 To facilitate NPU acceleration, sample configuration files are provided for the out-of-box **Queuing** and **Retail** scenes with the following pipeline optimizations:
 
 - Inference offloaded to NPU
@@ -162,13 +172,15 @@ NPU performance metrics can be monitored using [NPU System Monitoring Tool](http
 Following are the step-by-step instructions for enabling person reidentification for the out-of-box **Queuing** scene.
 
 1. **Enable the ReID Database Container and pipeline configs**\
-   Launch Scenescape with exactly one ReID backend override plus the ReID pipeline override. This example selects VDMS:
+   Launch Scenescape with exactly one ReID backend override, and launch the
+   video-source stack with the ReID pipeline override. This example selects VDMS:
 
    ```bash
    docker compose -f docker-compose.yml \
      -f sample_data/compose/docker-compose.vdms-override.yml \
-     -f sample_data/compose/docker-compose.reid-pipeline-override.yml \
      --profile controller up -d
+   docker compose --project-directory . -f sample_data/demo_scenes/docker-compose.video-source.yml \
+     -f sample_data/compose/docker-compose.reid-pipeline-override.yml up -d
    ```
 
    To use Qdrant instead, replace `docker-compose.vdms-override.yml` with
@@ -182,7 +194,7 @@ Following are the step-by-step instructions for enabling person reidentification
    embedding metadata from the DL Streamer service and are applied
    automatically by `docker-compose.reid-pipeline-override.yml` above. If you
    are composing the services manually without that override file, set them
-   directly instead:
+   directly in the video-source stack instead:
 
    ```yaml
    configs:
@@ -203,12 +215,13 @@ Following are the step-by-step instructions for enabling person reidentification
    ```sh
    docker compose -f docker-compose.yml \
      -f sample_data/compose/docker-compose.vdms-override.yml \
-     -f sample_data/compose/docker-compose.reid-pipeline-override.yml \
      --profile controller down
+   docker compose --project-directory . -f sample_data/demo_scenes/docker-compose.video-source.yml down
    docker compose -f docker-compose.yml \
      -f sample_data/compose/docker-compose.vdms-override.yml \
-     -f sample_data/compose/docker-compose.reid-pipeline-override.yml \
-     --profile controller up queuing-video retail-video reid scene -d
+     --profile controller up reid scene -d
+   docker compose --project-directory . -f sample_data/demo_scenes/docker-compose.video-source.yml \
+     -f sample_data/compose/docker-compose.reid-pipeline-override.yml up -d
    ```
 
    Ensure the OMZ model `person-reidentification-retail-0277` is available in `omz/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/omz`.

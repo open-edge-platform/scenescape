@@ -23,8 +23,8 @@ import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from uploader import (  # noqa: E402
-  DEFAULT_WAIT_SECONDS, SceneScapeClient, log, parse_auth, upload_all,
-  wait_for_database,
+  DEFAULT_WAIT_SECONDS, SceneScapeClient, configure_camera_video_sources, log,
+  parse_auth, upload_all, wait_for_database,
 )
 
 
@@ -39,6 +39,9 @@ def build_argparser():
                       help="do not verify the server certificate")
   parser.add_argument("--wait", type=int, default=DEFAULT_WAIT_SECONDS, metavar="SECONDS",
                       help="how long to wait for the database to become ready (0 disables waiting)")
+  parser.add_argument("--configure-video-sources", action="store_true",
+                      help="After upload, point known demo cameras at the video-source "
+                           "stack's RTSP feeds (needed for Kubernetes; no-op for Compose)")
   return parser
 
 
@@ -80,7 +83,11 @@ def main():
     log.error(f"Cannot authenticate against {args.url}: {e}")
     return 1
 
-  return 1 if upload_all(client, scene_archives) else 0
+  if upload_all(client, scene_archives):
+    return 1
+  if args.configure_video_sources:
+    configure_camera_video_sources(client)
+  return 0
 
 
 if __name__ == '__main__':
