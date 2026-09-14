@@ -47,9 +47,8 @@ jobs:
             --base "$BASE_BRANCH" \
             --state open \
             --json number,author,autoMergeRequest,labels,isDraft,headRefName,title \
-            --jq --arg label "$UPDATE_LABEL" \
-              '.[] | select(.author.login != "dependabot[bot]") |
-                select(.autoMergeRequest != null or (.labels | any(.name == $label))) |
+            --jq '.[] | select(.author.login != "dependabot[bot]") |
+                select(.autoMergeRequest != null or (.labels | any(.name == env.UPDATE_LABEL))) |
                 @json'); then
             echo "ERROR: gh pr list failed — check API access and token permissions."
             exit 1
