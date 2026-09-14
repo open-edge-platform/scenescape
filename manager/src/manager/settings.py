@@ -34,8 +34,9 @@ def get_allowed_hosts():
   Environment variables should contain comma-separated host values:
   - SCENESCAPE_ALLOWED_HOSTS=example.com,10.0.0.1
   """
-  if 'SCENESCAPE_ALLOWED_HOSTS' in os.environ:
-    hosts = [h.strip() for h in os.getenv('SCENESCAPE_ALLOWED_HOSTS').split(',') if h.strip()]
+  raw_hosts = os.getenv('SCENESCAPE_ALLOWED_HOSTS', '').strip()
+  if raw_hosts:
+    hosts = [h.strip() for h in raw_hosts.split(',') if h.strip()]
     hosts.extend(['web.scenescape.svc.cluster.local', 'web.scenescape.intel.com'])  # Always allow these hosts
     if hosts:
       return hosts
