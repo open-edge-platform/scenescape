@@ -18,7 +18,6 @@ class FuncTestSpec:
   require_password: bool = True
   test_name: str = ""
   extra_args: list = None
-  exampledb: str = ""
 
   def __post_init__(self):
     if self.extra_args is None:
