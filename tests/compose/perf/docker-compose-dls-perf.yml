@@ -58,7 +58,7 @@ services:
       start_period: 10s
 
   broker:
-    image: eclipse-mosquitto:2.0.22
+    image: eclipse-mosquitto:2.1-alpine
     # ports:
     #  - "1883:1883"
     configs:
