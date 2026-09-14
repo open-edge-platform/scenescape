@@ -108,7 +108,7 @@ services:
       start_period: 5s
 
   web:
-    image: intel/scenescape-manager:latest
+    image: intel/scenescape-manager:${VERSION:-2026.2.0}
     init: true
     networks:
       scenescape:
@@ -167,7 +167,7 @@ services:
     restart: always
 
   scene:
-    image: intel/scenescape-controller:latest
+    image: intel/scenescape-controller:${VERSION:-2026.2.0}
     init: true
     # Match host UID so the controller can read 0600 secrets generated on the host.
     user: "${UID:-1000}:${GID:-1000}"
@@ -209,7 +209,7 @@ services:
   # Publishes regulated scene output + region/tripwire/sensor events. Consumes
   # unregulated per-category tracks from `scene` on scenescape/data/scene/...
   analytics:
-    image: intel/scenescape-analytics:${VERSION:-latest}
+    image: intel/scenescape-analytics:${VERSION:-2026.2.0}
     init: true
     user: "${UID:-1000}:${GID:-1000}"
     networks:
@@ -238,7 +238,7 @@ services:
     restart: always
 
   video-analytics:
-    image: intel/dlstreamer-pipeline-server:2026.2.0-20260728-weekly-ubuntu24
+    image: intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
     networks:
       scenescape:
     depends_on:
@@ -275,7 +275,7 @@ services:
     restart: unless-stopped
 
   init-models:
-    image: alpine:latest
+    image: alpine:3.23
     user: root
     volumes:
       - vol-models:/models
@@ -296,7 +296,7 @@ services:
     restart: "no"
 
   mapping:
-    image: intel/scenescape-mapping:${VERSION:-latest}
+    image: intel/scenescape-mapping:${VERSION:-2026.2.0}
     profiles:
       - mapping
     init: true
@@ -374,7 +374,7 @@ txt = open('secrets/django/secrets.py').read()
 print(re.search(r\"DATABASE_PASSWORD='([^']+)'\", txt).group(1))
 ")
 SUPASS=$(cat secrets/supass)
-VERSION=latest
+VERSION=2026.2.0
 UID=$(id -u)
 GID=$(id -g)
 ```

@@ -83,7 +83,7 @@ def test_child_external_reid_stamped_with_provenance(
   """! Positive: large local crops forward reid on DATA_EXTERNAL with provenance
   naming the vetting child scene and source camera.
   """
-  TEST_NAME = "NEX-T21920"
+  TEST_NAME = "NEX-T28654"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
@@ -152,7 +152,7 @@ def test_child_external_reid_withheld_when_crop_too_small(
   """! Negative: crops at or below the minimum pixel area are not forwarded on
   hierarchy DATA_EXTERNAL even when the detector supplies an embedding.
   """
-  TEST_NAME = "NEX-T21921"
+  TEST_NAME = "NEX-T28655"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
@@ -202,7 +202,7 @@ def test_camera_claimed_provenance_cannot_bypass_bbox_gate(
   """! Negative: a detector cannot claim upstream vetting to skip the local
   pixel-area gate. Spoofed provenance on a small crop must still withhold reid.
   """
-  TEST_NAME = "NEX-T21922"
+  TEST_NAME = "NEX-T28656"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
@@ -256,7 +256,7 @@ def test_retrack_false_parent_regulated_strips_reid(
   """! Positive: with retrack=False the parent accepts child IDs and strips
   forwarded reid, so parent DATA_REGULATED objects carry no metadata.reid.
   """
-  TEST_NAME = "NEX-T21923"
+  TEST_NAME = "NEX-T28657"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
@@ -313,7 +313,7 @@ def test_retrack_true_parent_regulated_preserves_reid(
   """! Positive: with retrack=True the parent re-tracks child detections and
   keeps forwarded reid on regulated output so UUID manager can query with it.
   """
-  TEST_NAME = "NEX-T21924"
+  TEST_NAME = "NEX-T28658"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1

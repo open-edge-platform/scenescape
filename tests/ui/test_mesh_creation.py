@@ -80,7 +80,7 @@ def test_mesh_creation(params, record_xml_attribute):
   try:
     print("Executing: " + TEST_NAME)
     browser = Browser()
-    video_file = "/workspace/sample_data/apriltag-cam1.mp4"
+    video_file = "/workspace/sample_data/videos/apriltag-cam1.mp4"
     assert common.check_page_login(browser, params)
     assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
     assert common.delete_camera(browser, "camera3")

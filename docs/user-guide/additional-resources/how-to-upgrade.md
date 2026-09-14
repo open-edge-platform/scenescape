@@ -70,7 +70,9 @@ If upgrading from a version that used host filesystem model storage (`model_inst
 
 1. **pg_backup Container Already Running Error**:
    - Stop all active containers:
+
      ```bash
      docker stop $(docker ps -q)
      ```
+
    - Re-run the above steps for upgrade.

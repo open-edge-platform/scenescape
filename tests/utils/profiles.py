@@ -266,6 +266,7 @@ REID_CORE = ServiceProfile(
     f"{COMPOSE}/compose-scene_reid.yml",
     # Use compose-web.yml (testdb / Demo) so hierarchy helpers can link Demo.
     f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-analytics.yml",
   ),
   wait_for={
     "broker": _BROKER,
@@ -274,6 +275,7 @@ REID_CORE = ServiceProfile(
     "vdms": WaitConfig(),
     "web": _WEB,
     "scene": _SCENE,
+    "analytics": _ANALYTICS,
   },
 )
 

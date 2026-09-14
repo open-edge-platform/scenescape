@@ -110,7 +110,7 @@ class ExternalSourceAnalytics(FunctionalTest):
     fall back to map re-upload. Readiness is confirmed by a successful
     external-source publish that appears on DATA_SCENE, not solely by REST.
     """
-    map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
+    map_image = f"{self.repoRoot}/tests/resources/maps/HazardZoneSceneLarge.png"
     with open(map_image, "rb") as f:
       map_bytes = f.read()
 

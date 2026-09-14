@@ -244,9 +244,6 @@ class SceneController:
     return
 
   def publishDetections(self, scene, objects, ts, otype, jdata, camera_id):
-    if not hasattr(scene, 'lastPubCount'):
-      scene.lastPubCount = {}
-
     if not hasattr(scene, 'last_published_detection'):
       scene.last_published_detection = defaultdict(lambda: None)
     metric_attributes = {
@@ -263,19 +260,17 @@ class SceneController:
     return last is None or now - last >= max_delay
 
   def publishSceneDetections(self, scene, objects, otype, jdata):
-    # Full rate output (30fps): exclude sensor data for performance
+    # Free-run unregulated output for analytics. Empty objects lists are
+    # intentional: no detections is state. Rate limiting belongs only on
+    # analytics' regulated topic.
     jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=False)
-    olen = len(jdata['objects'])
-    cid = scene.name + "/" + otype
-    if olen > 0 or cid not in scene.lastPubCount or scene.lastPubCount[cid] > 0:
-      if 'debug_hmo_start_time' in jdata:
-        jdata['debug_hmo_processing_time'] = get_epoch_time() - jdata['debug_hmo_start_time']
-      # Convert numpy types to native Python types for JSON serialization
-      jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
-      new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
-                                     thing_type=otype)
-      self.pubsub.publish(new_topic, jstr)
-      scene.lastPubCount[cid] = olen
+    if 'debug_hmo_start_time' in jdata:
+      jdata['debug_hmo_processing_time'] = get_epoch_time() - jdata['debug_hmo_start_time']
+    # Convert numpy types to native Python types for JSON serialization
+    jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
+    new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
+                                   thing_type=otype)
+    self.pubsub.publish(new_topic, jstr)
     self.publishExternalDetections(scene, otype, objects, jdata)
     return
 

@@ -7,6 +7,7 @@ import json
 import time
 from tests.functional.backend_functional import BackendFunctionalTest
 from scene_common.mqtt import PubSub
+import tests.common_test_utils as common
 from tests.utils.log import get_logger
 
 try:
@@ -40,10 +41,10 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
 
     self.connected = False
     self.scenes_updates = {
-      "3bc091c7-e449-46a0-9540-29c499bca18c": {
+      common.get_scene_uid(self.params, "Retail"): {
         "updated": False
       },
-      "302cf49a-97ec-402d-a324-c5077b280b7b": {
+      common.get_scene_uid(self.params, "Queuing"): {
         "updated": False
       }
     }

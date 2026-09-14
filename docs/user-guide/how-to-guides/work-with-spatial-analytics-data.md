@@ -1,6 +1,8 @@
 # Work with Spatial Analytics Data: ROIs and Tripwires
 
-This guide provides comprehensive information for developers who want to build applications that consume Scenescape's spatial analytics event data. You will learn how to subscribe to MQTT events from Regions of Interest (ROIs) and Tripwires to create intelligent applications that respond to object interactions within defined areas, regardless of the sensor modality used for detection.
+This guide is the programmatic integration reference for Scenescape spatial analytics: REST discovery, MQTT topics, event schemas, and application code samples. For UI steps to create and edit ROIs and Tripwires, see [Configure Spatial Analytics](./build-a-scene/configure-spatial-analytics.md).
+
+You will learn how to subscribe to MQTT events from Regions of Interest (ROIs) and Tripwires to create intelligent applications that respond to object interactions within defined areas, regardless of the sensor modality used for detection.
 
 ## Table of Contents
 
@@ -44,8 +46,6 @@ The sensor-agnostic architecture ensures spatial analytics continue working reli
 - **Retail Analytics**: Track customer movement patterns, analyze dwell time in product areas
 - **Industrial Safety**: Monitor safety zones, detect personnel in dangerous areas
 - **Smart City Applications**: Optimize traffic flow, manage public spaces
-
-This guide focuses on consuming spatial analytics event data. ROIs and Tripwires are created through the Scenescape UI or REST API—see the [How to Configure Spatial Analytics](./build-a-scene/configure-spatial-analytics.md) guide for setup instructions.
 
 ## Understanding ROIs and Tripwires
 
@@ -902,21 +902,10 @@ export MQTT_PASS="dedicated-mqtt-password"
 
 ## Conclusion
 
-Scenescape's spatial analytics provide a powerful abstraction that separates monitoring logic from individual sensor perspectives. By defining regions and tripwires at the scene level using world coordinates, your applications gain a critical advantage: **sensor independence**.
+Scene-level ROIs and tripwires keep your application logic independent of individual sensors: the same MQTT events and REST discovery APIs continue to work as you add cameras or change modalities.
 
-This architecture means your spatial analytics logic — the regions you define, the business rules you implement, and the applications you build — remain completely unchanged even as your sensor infrastructure evolves. Whether you add new cameras, upgrade to different sensor technologies, or reconfigure your monitoring setup, your ROIs and tripwires continue working seamlessly.
+**Next steps:**
 
-**Key Benefits:**
-
-- **Future-proof applications**: Analytics logic survives sensor changes and infrastructure upgrades
-- **Unified monitoring**: Single API and event stream regardless of underlying sensor types or count
-- **Simplified maintenance**: Manage spatial analytics once at the scene level, not per-sensor
-
-**Getting Started:**
-
-1. Run the tutorial examples (`discover.py`, `listen.py`, `index.html`)
-2. Define regions and tripwires that match your monitoring needs
-3. Build applications using the REST API and MQTT event streams
-4. Scale and adapt your sensor infrastructure independently of your analytics logic
-
-This sensor-agnostic approach ensures your investment in spatial analytics applications provides long-term value, adapting to new technologies while maintaining consistent monitoring capabilities.
+1. [Configure Spatial Analytics](./build-a-scene/configure-spatial-analytics.md) in the UI (or create regions/tripwires via REST)
+2. Run the tutorial examples (`discover.py`, `listen.py`, `index.html`)
+3. Build on the REST API and MQTT event streams described above

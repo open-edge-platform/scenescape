@@ -92,7 +92,8 @@ def copy_skill_assets(skill_dir: Path, deploy_dir: Path) -> None:
     for src in (skill_dir / "scripts").glob(pattern):
       shutil.copy2(src, scripts_dst / src.name)
 
-  subprocess.run(["chmod", "+x", *map(str, scripts_dst.glob("*.sh"))], check=False)
+  for script in scripts_dst.glob("*.sh"):
+    script.chmod(script.stat().st_mode | 0o111)
 
 
 def copy_secrets_scripts(skill_dir: Path, deploy_dir: Path) -> None:
@@ -100,7 +101,8 @@ def copy_secrets_scripts(skill_dir: Path, deploy_dir: Path) -> None:
   secrets_dir.mkdir(parents=True, exist_ok=True)
   for name in ("generate_secrets.sh", "openssl.cnf"):
     shutil.copy2(skill_dir / "assets" / name, secrets_dir / name)
-  subprocess.run(["chmod", "+x", str(secrets_dir / "generate_secrets.sh")], check=False)
+  generate_secrets = secrets_dir / "generate_secrets.sh"
+  generate_secrets.chmod(generate_secrets.stat().st_mode | 0o111)
 
 
 def copy_controller_configs(skill_dir: Path, deploy_dir: Path) -> None:
