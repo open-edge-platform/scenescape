@@ -186,6 +186,8 @@ curl -X POST "https://localhost:8444/v1/reconstruction" \
 
 ## Swagger Plugin
 
+<!--hide_directive>
 ```{eval-rst}
 .. swagger-plugin:: ./_assets/mapping-api.yaml
 ```
+hide_directive-->
