@@ -650,8 +650,6 @@ Specifically:
   the general gallery's deliberate ephemerality? (5.11)
 - **Trajectory data granularity.** Is camera + timestamp sufficient per sighting, or does Stream
   Manager need frame number / bounding box for precise seek and stitch accuracy? (5.11)
-- **Stream Manager and UI scope for trajectory export.** Both remain entirely unscoped pending a
-  joint discovery session with their respective owners. (5.11)
 - **Trust boundary for `reid-service`'s MQTT subscription to the Tracker Service.** Since the
   general/tracking gallery has no write endpoint (5.1) — `reid-service` gets that data by
   subscribing to the Tracker Service's MQTT stream directly — what secures that subscription
