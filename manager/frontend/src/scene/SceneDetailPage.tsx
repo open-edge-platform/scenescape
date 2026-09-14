@@ -273,9 +273,6 @@ function SceneDetailInner({ bootstrap }: Props) {
           <i className="bi bi-trash" aria-hidden="true" />
         </button>
       ) : null}
-      <div className="scene-rate ss-scene-rate">
-        Rate: <span id="scene-rate">{sceneRate}</span> Hz
-      </div>
     </div>
   );
 
@@ -409,6 +406,9 @@ function SceneDetailInner({ bootstrap }: Props) {
       <div className="ss-workspace-body">
         <div className="ss-workspace-main">
           <SceneMapPane mapUrl={mapBitmapUrl} />
+          <div className="scene-rate ss-scene-rate telemetry-hide">
+            Rate: &nbsp;<span id="scene-rate">{sceneRate}</span>&nbsp; Hz
+          </div>
         </div>
         <WorkspaceSplitter
           layout={layout}

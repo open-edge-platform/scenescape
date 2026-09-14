@@ -178,7 +178,7 @@ body.is-map-fullscreen .ss-scene-chrome-gap {
   border: 0;
   border-radius: calc(var(--ss-radius) - 0.15rem);
   background: transparent;
-  color: var(--ss-text-muted);
+  color: var(--ss-text);
   font-family: var(--ss-font-sans);
   font-size: var(--ss-type-workspace-body, 0.8125rem);
   font-weight: 600;
@@ -351,21 +351,28 @@ body.is-map-fullscreen .ss-scene-chrome-gap {
 
 .ss-scene-detail--workspace .ss-scene-rate,
 .ss-scene-detail--workspace .scene-rate {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 4;
   display: inline-flex;
   align-items: center;
   margin: 0;
-  margin-left: 0.1rem;
-  padding: 0 0.4rem;
-  border: 0;
-  border-left: 1px solid var(--ss-input-border-subtle);
-  border-radius: 0;
-  background: transparent;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--ss-input-border);
+  border-radius: var(--ss-radius);
+  background: var(--ss-elevated);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ss-ink) 8%, transparent);
   font-family: var(--ss-font-sans);
   font-size: 0.8125rem;
   font-weight: 400;
   line-height: 1.75rem;
   color: var(--ss-text-muted);
   white-space: nowrap;
+}
+
+.ss-scene-detail--workspace .ss-scene-rate.telemetry-hide {
+  display: none;
 }
 
 .ss-scene-detail--workspace .scene-detail-mqtt-pill {
@@ -383,7 +390,6 @@ body.is-map-fullscreen .ss-scene-chrome-gap {
 .ss-scene-detail--workspace .ss-scene-rate #scene-rate {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  color: var(--ss-ink);
 }
 
 .ss-workspace-body {
@@ -407,6 +413,7 @@ body.is-map-fullscreen .ss-scene-chrome-gap {
 }
 
 .ss-scene-detail--workspace .ss-workspace-main {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1.5 1 0;

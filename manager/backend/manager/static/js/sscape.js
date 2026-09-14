@@ -1997,7 +1997,9 @@ function drawSensor(sensor, index, type) {
     }
 
     var namePos = sensorNameAnchor(sensor.x, sensor.y);
-    var nameText = g.text(namePos.x, namePos.y, sensor.title).attr({ id: "name" });
+    var nameText = g
+      .text(namePos.x, namePos.y, sensor.title)
+      .attr({ id: "name" });
     if (nameText && nameText.node) {
       nameText.node.setAttribute("text-anchor", namePos.anchor);
       nameText.node.style.textAnchor = namePos.anchor;
@@ -2061,9 +2063,13 @@ window.ssReapplyRoiColors = function () {
 function setSensorColor(sensor_id, value, area) {
   const sensor_area =
     area === "circle"
-      ? document.querySelector(`#sensor_${sensor_id} circle.area, #sensor_${sensor_id} circle`)
+      ? document.querySelector(
+          `#sensor_${sensor_id} circle.area, #sensor_${sensor_id} circle`,
+        )
       : area === "poly"
-        ? document.querySelector(`#sensor_${sensor_id} polygon.area, #sensor_${sensor_id} polygon`)
+        ? document.querySelector(
+            `#sensor_${sensor_id} polygon.area, #sensor_${sensor_id} polygon`,
+          )
         : null;
   if (sensor_area) {
     if (is_coloring_enabled) {
@@ -2600,6 +2606,7 @@ $(document).ready(function () {
     .off("change.ssTelemetry", "input#show-telemetry")
     .on("change.ssTelemetry", "input#show-telemetry", function () {
       show_telemetry = $(this).is(":checked");
+      $(".ss-scene-rate").toggleClass("telemetry-hide", !show_telemetry);
       if (!show_telemetry) {
         $("#scene-rate").text("--");
         $(".rate").text("--").addClass("telemetry-hide");
