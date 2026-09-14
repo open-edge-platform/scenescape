@@ -1,4 +1,4 @@
-# API Reference
+# Auto Camera Calibration Service API Reference
 
 **Version: v1.0.0**
 
@@ -47,7 +47,7 @@ The API uses structured request and response schemas, including:
 
 For full schema details and example payloads, see the OpenAPI YAML file below.
 
----
+## Swagger Plugin
 
 ```{eval-rst}
 .. swagger-plugin:: ./_assets/autocalibration-api.yaml
