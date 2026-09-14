@@ -54,17 +54,17 @@ It's worth being precise about what's already networked and what isn't:
 - **The `ReIDDatabase` abstraction, adapter logic, schema/retention lifecycle, and TIER 1
   constraint-building are not.** All of that runs as a Python library inside each controller
   process. There is no standalone `reid-service` — no separate deployable that owns this layer,
-  and no network boundary between the controller's tracking logic and the code that decides *how*
+  and no network boundary between the controller's tracking logic and the code that decides _how_
   to query or write the backing store.
 
 Every call into this layer happens in-process, from exactly three call sites, all in
 `uuid_manager.py`:
 
-| Method | Call site | Trigger |
-| --- | --- | --- |
-| `findMatches` | `sendSimilarityQuery()` → `self.reid_database.findMatches(...)` | A track has gathered enough quality visual features (`assignID()` → `pool.submit(self.querySimilarity, ...)`) |
-| `addEntry` | `_writeReidEntry()` → `self.reid_database.addEntry(...)` | A track goes inactive and its accumulated features flush (`_addNewFeaturesToDatabase()`) |
-| `purgeExpired` | `_purgeExpiredDescriptors()` → `self.reid_database.purgeExpired()` | A per-process timer, owned by exactly one `UUIDManager` via a module-level `_PURGE_OWNER` lock |
+| Method         | Call site                                                          | Trigger                                                                                                       |
+| -------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `findMatches`  | `sendSimilarityQuery()` → `self.reid_database.findMatches(...)`    | A track has gathered enough quality visual features (`assignID()` → `pool.submit(self.querySimilarity, ...)`) |
+| `addEntry`     | `_writeReidEntry()` → `self.reid_database.addEntry(...)`           | A track goes inactive and its accumulated features flush (`_addNewFeaturesToDatabase()`)                      |
+| `purgeExpired` | `_purgeExpiredDescriptors()` → `self.reid_database.purgeExpired()` | A per-process timer, owned by exactly one `UUIDManager` via a module-level `_PURGE_OWNER` lock                |
 
 This table describes today's code as-is; how each of these three call sites maps onto the target
 architecture is addressed in Section 3.
@@ -73,12 +73,12 @@ Two details about that table matter regardless of the transport decision:
 
 - **The `_PURGE_OWNER` lock is a process-local workaround for a problem extraction solves
   structurally.** Multiple `UUIDManager`s in one process share one backing store, so the code
-  elects a single purge owner *within that process* to avoid duplicate `DeleteExpired`/filter-delete
-  calls. It does nothing about duplicate purge scheduling *across* processes — every controller
+  elects a single purge owner _within that process_ to avoid duplicate `DeleteExpired`/filter-delete
+  calls. It does nothing about duplicate purge scheduling _across_ processes — every controller
   process (one per scene, including every child scene in a hierarchy) still runs its own elected
   owner against the same shared store today.
 - **Query latency is on a tight, already-enforced budget.** `sendSimilarityQuery(sscape_object,
-  max_query_time=DEFAULT_MAX_QUERY_TIME)` (`DEFAULT_MAX_QUERY_TIME = 4` seconds) tracks rolling
+max_query_time=DEFAULT_MAX_QUERY_TIME)` (`DEFAULT_MAX_QUERY_TIME = 4` seconds) tracks rolling
   average query time and disables ReID entirely if it drifts past that budget. Today that budget
   covers one in-process Python call plus one TCP round-trip to VDMS/Qdrant. What replaces it
   depends on the target transport (see Section 3).
@@ -89,7 +89,7 @@ Two details about that table matter regardless of the transport decision:
   `moving_object.py`'s `decodeReIDEmbeddingVector` / `serializeReIDPayload` — decoding the
   embedding a detector sends over MQTT into a numpy array (and back) is about the wire format with
   detectors, not about ReID storage.
-- **Orchestration logic that decides *when* to query/write, currently living in `UUIDManager`:**
+- **Orchestration logic that decides _when_ to query/write, currently living in `UUIDManager`:**
   gathering quality visual features (`gatherQualityVisualFeatures`,
   `haveSufficientVisualFeatures`), TIER 1 metadata extraction (`_extractSemanticMetadata`),
   hierarchy write-health/epoch tracking (`reid_write_healthy`, `reid_write_confirmed`,
@@ -129,17 +129,17 @@ Extract `reid.py`, `vdms_adapter.py`, `qdrant_adapter.py`, `reid_registry.py`, `
 `reid_constraints.py` into a standalone `reid-service`. The transport model below follows ADR 13's
 explicit interface guidance.
 
-**ADR 13's stated split:** *"gRPC for synchronous, latency-sensitive, query/response paths
+**ADR 13's stated split:** _"gRPC for synchronous, latency-sensitive, query/response paths
 (positioning lookups, projection, Re-ID match/store). MQTT for asynchronous, fan-out streaming
-(observations, scene tracks, regulated output, events)."*
+(observations, scene tracks, regulated output, events)."_
 
 **How that maps onto today's three call sites:**
 
 - **Live matching/writing during tracking is not a cross-service call at all.** Per ADR 13's
   target architecture, the Tracker Service (already extracted, ADR 7) streams track updates over
   MQTT — that's the "track stream ingest" half. `reid-service` performs matching and storage
-  against its own vector store *as part of consuming that stream, internally, in its own
-  process*. There is no separate "controller" entity publishing a match request and waiting for
+  against its own vector store _as part of consuming that stream, internally, in its own
+  process_. There is no separate "controller" entity publishing a match request and waiting for
   an answer — the orchestration logic in Section 1.1 (feature-gathering, TIER 1 extraction,
   write-health/epoch tracking) moves into `reid-service` alongside the storage layer, because
   that's the service that now owns UUID assignment and lifecycle end to end. This is a materially
@@ -161,7 +161,7 @@ explicit interface guidance.
   one message bus and avoids running two transport stacks, at the cost of the client needing to
   handle correlation and timeouts itself. See Open Questions.
   What does need rework regardless of which transport is picked is [`reid-api-expansion.md`](./reid-api-expansion.md)'s
-  Section 5.1, which described a controller-restricted *write* endpoint assuming a "controller"
+  Section 5.1, which described a controller-restricted _write_ endpoint assuming a "controller"
   calls it — there is no such caller under this model; the write path for the live loop is
   `reid-service` consuming the Tracker's MQTT stream, not an endpoint anyone calls.
 - **`purgeExpired` is unaffected by this alignment.** It was already decided, independent of the
@@ -173,7 +173,7 @@ explicit interface guidance.
 
 **Consequence for the query-latency circuit breaker.** `DEFAULT_MAX_QUERY_TIME`'s
 rolling-average measurement (Section 1) was built around one blocking call plus one TCP round
-trip. Under this model, the live matching loop is *internal to `reid-service`* — there's no
+trip. Under this model, the live matching loop is _internal to `reid-service`_ — there's no
 cross-service call in that loop for a circuit breaker to wrap in the first place. Whatever
 analogous safeguard is needed (e.g., `reid-service` deciding to skip a match attempt if its own
 backend query is running slow) is `reid-service`'s own internal concern, not a controller-side
@@ -226,12 +226,11 @@ than asserted here.
 
 ## 5. Alternatives Considered
 
-| Alternative | Why it doesn't fit as well as the proposed design |
-| --- | --- |
-| Leave the layer in-process, add POI/gallery/etc. capability as new controller-internal methods, and only expose a thin HTTP facade in front of the controller for external callers | Doesn't solve the cross-hierarchy duplicate-lifecycle problem (Section 2, #1), and ties every new ReID capability to a controller release instead of a `reid-service` release. |
-| Extract only the VDMS/Qdrant adapters, keep `ReIDDatabase`'s validation/constraint-building logic in the controller | Splits one coherent contract across a network boundary for no benefit — `reid_constraints.py`'s TIER 1 logic and `reid.py`'s vector validation are meaningless without the adapter they feed, and duplicating them controller-side defeats the point of a shared service. |
-| Controller holds a client object and calls `reid-service` directly via synchronous RPC | Ties the controller to the service's availability through a client reference it holds directly. |
-
+| Alternative                                                                                                                                                                        | Why it doesn't fit as well as the proposed design                                                                                                                                                                                                                         |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Leave the layer in-process, add POI/gallery/etc. capability as new controller-internal methods, and only expose a thin HTTP facade in front of the controller for external callers | Doesn't solve the cross-hierarchy duplicate-lifecycle problem (Section 2, #1), and ties every new ReID capability to a controller release instead of a `reid-service` release.                                                                                            |
+| Extract only the VDMS/Qdrant adapters, keep `ReIDDatabase`'s validation/constraint-building logic in the controller                                                                | Splits one coherent contract across a network boundary for no benefit — `reid_constraints.py`'s TIER 1 logic and `reid.py`'s vector validation are meaningless without the adapter they feed, and duplicating them controller-side defeats the point of a shared service. |
+| Controller holds a client object and calls `reid-service` directly via synchronous RPC                                                                                             | Ties the controller to the service's availability through a client reference it holds directly.                                                                                                                                                                           |
 
 ## 6. Open Questions
 

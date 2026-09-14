@@ -11,10 +11,10 @@
 This document specifies the API and capability surface of `reid-service` as a standalone
 component. It builds directly on the **ReID Service Extraction proposal**
 ([`reid-service-extraction.md`](./reid-service-extraction.md)) — the design that pulls ReID out of the controller into
-its own service — and picks up where that proposal leaves off: it establishes *that* ReID becomes
+its own service — and picks up where that proposal leaves off: it establishes _that_ ReID becomes
 a separate service (and, per its alignment with **ADR 13**, how it gets its data — the Tracker
 Service's MQTT track-stream, consumed directly, with matching/writing handled internally); this
-document defines *what that service's externally-callable API looks like*, end to end. That
+document defines _what that service's externally-callable API looks like_, end to end. That
 includes two things that are easy to conflate but need to be kept distinct:
 
 - **Baseline surface (Section 5.1):** the endpoints needed just to expose today's in-process
@@ -50,7 +50,7 @@ all.
 - Establish authentication/authorization before any write-capable, network-reachable endpoint
   ships — POI enrollment (5.4) and Deletion (5.7) are the write-capable endpoints this applies
   to. The general/tracking gallery's write path (5.1) isn't an endpoint in this API at all, but
-  the trust boundary on *its* input — `reid-service`'s MQTT subscription to the Tracker Service's
+  the trust boundary on _its_ input — `reid-service`'s MQTT subscription to the Tracker Service's
   stream — deserves the same scrutiny; see Section 9.
 - **Define the trajectory-export API's contract** (request/response shape and the write-path
   change it depends on), so a future CCB submission starts from an honest breakdown of what's
@@ -90,7 +90,7 @@ none of the endpoints in this document exist in any network-reachable form. `rei
 controller. This document is the first place an externally-callable transport (HTTP/gRPC) gets
 defined for the parts of it meant for callers other than `reid-service` itself — both for the
 existing contract (5.1) and for the new POI-driven capability (5.2 onward). The general/tracking
-gallery's write path is explicitly *not* part of that externally-callable transport — see 5.1.
+gallery's write path is explicitly _not_ part of that externally-callable transport — see 5.1.
 
 ### 4.1 What `reid-service` already provides
 
@@ -121,7 +121,7 @@ section by section below.
 
 ### 5.1 Baseline service API surface
 
-Before any POI-specific capability can exist, `reid-service` needs *some* network-reachable
+Before any POI-specific capability can exist, `reid-service` needs _some_ network-reachable
 version of the contract it already has in-process — for callers other than `reid-service` itself.
 This is the part of the design that Section 5.2 onward assumes already exists; it's specified
 explicitly here rather than left implicit, since — unlike the POI work — there is no existing
@@ -142,7 +142,7 @@ around the corresponding `ReIDDatabase` method, with no behavior change from tod
 semantics:
 
 - **Read: mirrors `findMatches`.** Covered in full in 5.3 (Query API), since exposing this to
-  callers *beyond* the live tracking loop — investigator tooling, VLM recall, POI matching — is
+  callers _beyond_ the live tracking loop — investigator tooling, VLM recall, POI matching — is
   itself one of this document's goals, not just a transport detail. Whether this rides on gRPC/REST
   or MQTT request/reply is an open question inherited from the extraction proposal — not settled
   here (see Section 9).
@@ -504,7 +504,7 @@ The ability to export a moving object's full trajectory by `gid` — every camer
 order, until it exits the scene — with frames stitchable into a video, clickable from the 2D track
 UI, and exposed via API. Originally raised informally; specified here as an actual API contract
 rather than left as an open discussion, per review feedback that phasing (Section 7) should decide
-*when* this ships, not whether its shape gets defined now. This spans three separable pieces with
+_when_ this ships, not whether its shape gets defined now. This spans three separable pieces with
 very different amounts of known scope; only the first is `reid-service`'s to own.
 
 **What's actually being asked, stripped down.** Not the video itself — that's Stream Manager's
@@ -573,7 +573,7 @@ before a total estimate is quoted.
 ## 6. Alternatives Considered
 
 | Alternative                                                                                           | Considered for                    | Outcome                                                                                                                                                        |
-| ----------------------------------------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Controller-embedded correlation (checking the POI set inside `UUIDManager`'s existing per-frame loop) | POI-to-tracking correlation (5.5) | **Rejected.** Cheapest and lowest-latency, but reintroduces ReID-specific logic into the controller at the exact point separation is trying to remove it from. |
 | Reusing `DATA_EXTERNAL` as-is for the correlation daemon's embedding feed                             | Correlation data source (5.5)     | **Open, not yet decided.** Weighed against a second, dedicated publish path decoupled from `_hierarchyReidPublishPolicy`'s unrelated gating.                   |
 
