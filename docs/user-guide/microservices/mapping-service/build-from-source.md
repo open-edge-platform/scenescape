@@ -67,7 +67,7 @@ Each build produces a container image with a single model. The API and runtime a
   make mapping
   ```
 
-### How It Works
+#### How It Works
 
 - The `MODEL_TYPE` variable controls which model is included (`mapanything` or `vggt`).
 - The Dockerfile clones both model repos, but only installs and configures the selected one.

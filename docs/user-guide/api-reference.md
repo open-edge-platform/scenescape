@@ -1,11 +1,5 @@
 # API Reference
 
-**Version: 1.3.0**:
-
-```{eval-rst}
-.. swagger-plugin:: ./api-docs/api.yaml
-```
-
 ## API Specification Viewing Instructions
 
 ### 1. Pull Swagger UI image
@@ -47,3 +41,11 @@ It should look something like this example:
 ## Information on Swagger UI Installation
 
 See the [Swagger UI Installation Guide](https://github.com/swagger-api/swagger-ui/blob/main/docs/usage/installation.md).
+
+## Swagger Plugin
+
+**Version: 1.3.0**:
+
+```{eval-rst}
+.. swagger-plugin:: ./api-docs/api.yaml
+```

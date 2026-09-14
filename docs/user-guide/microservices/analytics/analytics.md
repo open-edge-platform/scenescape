@@ -1,3 +1,5 @@
+# Analytics Service
+
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/analytics">
@@ -8,8 +10,6 @@
   </a>
 </div>
 hide_directive-->
-
-# Analytics Service
 
 The Analytics Microservice computes region, tripwire, and sensor analytics for objects
 tracked in a Scenescape scene, and publishes the resulting detections and events for
