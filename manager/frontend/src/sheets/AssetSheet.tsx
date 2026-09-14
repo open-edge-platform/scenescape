@@ -387,13 +387,37 @@ export function AssetSheet({
               />
             </div>
           </div>
-          <TextField
-            id="ss-asset-color"
-            label="Mark color"
-            value={markColor}
-            onChange={(ev) => setMarkColor(ev.target.value)}
-            disabled={busy}
-          />
+          <div className="ss-text-field">
+            <label className="ss-text-field-label" htmlFor="ss-asset-color">
+              Mark color
+            </label>
+            <div className="ss-text-field-control ss-color-field-control">
+              <input
+                id="ss-asset-color"
+                className="ss-color-field-input"
+                type="color"
+                value={markColor}
+                onChange={(ev) => setMarkColor(ev.target.value)}
+                disabled={busy}
+              />
+              <label
+                className="ss-color-field-trigger"
+                htmlFor="ss-asset-color"
+                title="Choose mark color"
+              >
+                <i className="bi bi-eyedropper" aria-hidden="true" />
+                <span
+                  className="ss-color-field-swatch"
+                  style={{ backgroundColor: markColor }}
+                  aria-hidden="true"
+                />
+                <span className="sr-only">Choose mark color</span>
+              </label>
+              <output className="ss-color-field-hex" htmlFor="ss-asset-color">
+                {markColor.toUpperCase()}
+              </output>
+            </div>
+          </div>
         </FormSection>
         <FormSection title="Size" description="Object extents and scale.">
           <TextField
