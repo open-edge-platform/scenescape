@@ -218,7 +218,7 @@ harness.set_scene_config(dataset.get_scene_config())
 harness.set_custom_config({
     "tracker_config_path": "/path/to/tracker-config.json",
     "container_type": "controller",  # required: "controller" or "tracker"
-    "broker_image": "eclipse-mosquitto:2.0.22",
+    "broker_image": "eclipse-mosquitto:2.1-alpine",
     # Optional overrides:
     # "drain_timeout": 5.0,            # Seconds to wait after last frame
     # "scene_id": "my-scene-uid",      # Override UID from scene config
@@ -235,7 +235,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 | Key                   | Required | Default | Description                                                          |
 | --------------------- | -------- | ------- | -------------------------------------------------------------------- |
 | `tracker_config_path` | Yes      | —       | Path to tracker config JSON, mounted into the tracker container      |
-| `broker_image`        | Yes      | —       | Docker image for the MQTT broker (e.g. `"eclipse-mosquitto:2.0.22"`) |
+| `broker_image`        | Yes      | —       | Docker image for the MQTT broker (e.g. `"eclipse-mosquitto:2.1-alpine"`) |
 | `container_type`      | Yes      | —       | `"controller"` or `"tracker"`                                        |
 
 | `drain_timeout` | No | `5.0` | Seconds to wait for remaining tracker outputs after the last frame |
