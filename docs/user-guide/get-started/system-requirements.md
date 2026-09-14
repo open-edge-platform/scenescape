@@ -35,6 +35,7 @@ Software dependencies and installation commands for Ubuntu:
 - openssl
 - unzip
 - rsync
+- python3, python3-venv, python3-pip
   :::
 
 :::{grid-item}
@@ -47,7 +48,10 @@ sudo apt install -y \
   make \
   openssl \
   unzip \
-  rsync
+  rsync \
+  python3 \
+  python3-venv \
+  python3-pip
 ```
 
 :::
