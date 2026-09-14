@@ -1530,9 +1530,18 @@ function setupGenerateMesh() {
         throw new Error("Backend did not return request_id");
       }
 
-      await pollMeshStatus(sceneId, requestId);
+      const statusResult = await pollMeshStatus(sceneId, requestId);
 
-      alert("Mesh generated successfully! The scene map has been updated.");
+      if (statusResult?.unanchored_cameras?.length) {
+        alert(
+          "Mesh generated successfully! The scene map has been updated.\n\n" +
+            "Warning: the following cameras had no prior calibration and were " +
+            "placed automatically, review their position before relying on them: " +
+            statusResult.unanchored_cameras.join(", "),
+        );
+      } else {
+        alert("Mesh generated successfully! The scene map has been updated.");
+      }
 
       $("#id_rotation_x").val(0);
       $("#id_rotation_y").val(0);
