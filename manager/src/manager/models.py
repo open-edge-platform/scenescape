@@ -820,6 +820,11 @@ class Cam(Sensor):
     return camera_data
 
   def save(self, *args, **kwargs):
+    # Normalize positional save() args so update_fields is only ever read/modified via kwargs
+    for name, value in zip(("force_insert", "force_update", "using", "update_fields"), args):
+      kwargs.setdefault(name, value)
+    args = ()
+
     # Reset camera pose when reassigned to a different scene
     original_scene = None
     scene_changed = False
@@ -827,8 +832,8 @@ class Cam(Sensor):
       # This is an update, check if scene has changed
       try:
         original = Cam.objects.get(pk=self.pk)
-        original_scene = original.scene
-        if original.scene != self.scene:
+        if original.scene_id != self.scene_id:
+          original_scene = original.scene
           # Scene has changed, clear pose-related fields
           self.transforms = []
           self.scene_x = None
@@ -848,6 +853,13 @@ class Cam(Sensor):
       self.intrinsics_fy = self.DEFAULT_INTRINSICS['fy']
     if self.cv_subsystem is None:
       self.cv_subsystem = 'AUTO'
+
+    # Only force the pose reset into update_fields if the scene change itself will be persisted
+    update_fields = kwargs.get("update_fields")
+    if scene_changed and update_fields is not None:
+      update_fields = set(update_fields)
+      if "scene" in update_fields or "scene_id" in update_fields:
+        kwargs["update_fields"] = update_fields | {"transforms", "scene_x", "scene_y", "scene_z"}
 
     super().save(*args, **kwargs)
 
