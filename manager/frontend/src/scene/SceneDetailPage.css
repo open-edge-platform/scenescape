@@ -187,6 +187,15 @@ body.is-map-fullscreen .ss-scene-chrome-gap {
   white-space: nowrap;
 }
 
+.ss-scene-header-back .bi-arrow-left {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  line-height: 1;
+}
+
 .ss-scene-header-back:hover,
 .ss-scene-header-back:focus-visible {
   color: var(--ss-brand);

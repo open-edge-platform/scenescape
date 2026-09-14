@@ -223,9 +223,7 @@ function SceneDetailInner({ bootstrap }: Props) {
       aria-label="Scene"
     >
       <a className="ss-scene-header-back" href={back.href}>
-        <span className="ss-form-back-icon" aria-hidden="true">
-          ←
-        </span>
+        <i className="bi bi-arrow-left" aria-hidden="true" />
         {back.label}
       </a>
       <h2 className="ss-page-title" id="scene_name">
