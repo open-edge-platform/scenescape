@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import pytest
+
 from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
@@ -15,17 +17,14 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def test_sensor_scene_main(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T10396")
+def test_sensor_scene_main(params, result_recorder):
   """! Checks that user can create a sensor without attaching it to a scene.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the test result.
   @return   exit_code               Indicates test success or failure.
   """
-  TEST_NAME = "NEX-T10396"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
   try:
-    print("Executing: " + TEST_NAME)
     print("Test that a new sensor can be created without assigning it to a scene")
     browser = Browser()
     assert common.check_page_login(browser, params)
@@ -51,12 +50,9 @@ def test_sensor_scene_main(params, record_xml_attribute):
     )
     print(f"Sensor '{sensor_name}' created successfully and appears in the list")
 
-    exit_code = 0
-  except Exception as e:
-    print(f"Test failed: {e}")
+    result_recorder.success()
   finally:
-    browser.close()
-    common.record_test_result(TEST_NAME, exit_code)
+    if browser is not None:
+      browser.close()
 
-  assert exit_code == 0
   return
