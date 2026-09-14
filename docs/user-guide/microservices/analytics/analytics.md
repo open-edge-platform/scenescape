@@ -49,8 +49,8 @@ For details on the MQTT message formats accepted and produced by the Analytics s
 :::{toctree}
 :hidden:
 
-API Reference <api-reference.md>
-data_formats.md
+Data Formats <./data_formats.md>
+API Reference <./api-reference.md>
 
 :::
 hide_directive-->

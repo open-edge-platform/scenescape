@@ -96,8 +96,8 @@ _Figure 2: Auto Calibration Sequence diagram_
 :hidden:
 
 get-started
-api-reference
-markerless-camera-calibration
+Markerless Camera Calibration <./markerless-camera-calibration.md>
+API Reference <./api-reference.md>
 
 :::
 hide_directive-->
