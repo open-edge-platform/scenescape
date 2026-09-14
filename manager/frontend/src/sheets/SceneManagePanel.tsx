@@ -211,8 +211,17 @@ export function SceneManagePanel({
     setError(null);
     try {
       const requestId = await startMeshGeneration(sceneId);
-      await pollMeshStatus(sceneId, requestId);
-      toast.show("Mesh generated — map updated", "ok");
+      const statusResult = await pollMeshStatus(sceneId, requestId);
+      const unanchored = statusResult.unanchored_cameras?.filter(Boolean) ?? [];
+      if (unanchored.length) {
+        toast.show(
+          `Mesh generated — map updated. Warning: these cameras had no prior calibration and were placed automatically — review before relying on them: ${unanchored.join(", ")}`,
+          "info",
+          { timeoutMs: 12000 },
+        );
+      } else {
+        toast.show("Mesh generated — map updated", "ok");
+      }
       onSaved();
     } catch (err) {
       setError((err as Error).message || "Mesh generation failed");

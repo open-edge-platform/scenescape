@@ -736,7 +736,8 @@ check-reid-backend:
 .PHONY: demo-scenes
 demo-scenes:
 	@VENV="tools/upload_scenes/.venv"; \
-	if [ ! -d "$$VENV" ]; then \
+	if [ ! -x "$$VENV/bin/pip" ]; then \
+		rm -rf "$$VENV"; \
 		python3 -m venv "$$VENV"; \
 		"$$VENV/bin/pip" install -q -r tools/upload_scenes/requirements.txt; \
 	fi

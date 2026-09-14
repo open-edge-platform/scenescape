@@ -136,6 +136,7 @@ validation rules, which only live in server-side logic:
 - If `sensor_id` is not supplied on create, it defaults to `name` with spaces replaced by
   underscores.
 - `color_ranges.sectors[].color` must be one of `green`, `yellow`, or `red`:
+
   ```json
   {
     "color_ranges": {

@@ -8,6 +8,7 @@ export type ToastMessage = {
   id: string;
   text: string;
   tone?: "info" | "ok" | "bad";
+  timeoutMs?: number;
 };
 
 type Props = {
@@ -21,7 +22,8 @@ export function Toast({ message, onDismiss, timeoutMs = 4000 }: Props) {
     if (!message) {
       return;
     }
-    const t = window.setTimeout(onDismiss, timeoutMs);
+    const ms = message.timeoutMs ?? timeoutMs;
+    const t = window.setTimeout(onDismiss, ms);
     return () => window.clearTimeout(t);
   }, [message, onDismiss, timeoutMs]);
 

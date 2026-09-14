@@ -13,7 +13,11 @@ import {
 import { Toast, type ToastMessage } from "./Toast";
 
 type ToastApi = {
-  show: (text: string, tone?: ToastMessage["tone"]) => void;
+  show: (
+    text: string,
+    tone?: ToastMessage["tone"],
+    opts?: { timeoutMs?: number },
+  ) => void;
   dismiss: () => void;
 };
 
@@ -22,9 +26,21 @@ const ToastCtx = createContext<ToastApi | null>(null);
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const dismiss = useCallback(() => setMessage(null), []);
-  const show = useCallback((text: string, tone?: ToastMessage["tone"]) => {
-    setMessage({ id: String(Date.now()), text, tone });
-  }, []);
+  const show = useCallback(
+    (
+      text: string,
+      tone?: ToastMessage["tone"],
+      opts?: { timeoutMs?: number },
+    ) => {
+      setMessage({
+        id: String(Date.now()),
+        text,
+        tone,
+        timeoutMs: opts?.timeoutMs,
+      });
+    },
+    [],
+  );
   const api = useMemo(() => ({ show, dismiss }), [show, dismiss]);
 
   useEffect(() => {

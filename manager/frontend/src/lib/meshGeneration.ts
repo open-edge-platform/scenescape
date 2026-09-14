@@ -36,11 +36,15 @@ export async function startMeshGeneration(sceneId: string): Promise<string> {
   return data.request_id;
 }
 
+export type MeshStatusResult = {
+  unanchored_cameras?: string[];
+};
+
 export async function pollMeshStatus(
   sceneId: string,
   requestId: string,
   opts?: { timeoutMs?: number; intervalMs?: number },
-): Promise<void> {
+): Promise<MeshStatusResult> {
   const timeout = opts?.timeoutMs ?? 15 * 60 * 1000;
   const interval = opts?.intervalMs ?? 1500;
   const start = Date.now();
@@ -56,6 +60,7 @@ export async function pollMeshStatus(
       success?: boolean;
       state?: string;
       error?: string;
+      unanchored_cameras?: string[];
     };
     if (!resp.ok) {
       throw new Error(data.error || "Status check failed");
@@ -64,7 +69,9 @@ export async function pollMeshStatus(
       throw new Error(data.error || "Mesh generation failed");
     }
     if (data.state === "complete") {
-      return;
+      return {
+        unanchored_cameras: data.unanchored_cameras,
+      };
     }
     if (data.state === "failed") {
       throw new Error(data.error || "Mesh generation failed");
