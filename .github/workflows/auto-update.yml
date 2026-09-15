@@ -10,10 +10,6 @@ on: # yamllint disable-line rule:truthy
     secrets:
       GH_PAT:
         required: true
-  pull_request:
-    types:
-      - auto_merge_enabled
-  workflow_dispatch: {}
 
 concurrency:
   # Hardcoded prefix so this group is stable when called via workflow_call
@@ -32,18 +28,13 @@ jobs:
       contents: read
       pull-requests: write
 
-    env:
-      # PRs are updated if auto-merge is enabled, or if they carry this label
-      # (e.g. drafts, which can't have auto-merge enabled).
-      UPDATE_LABEL: "auto-update"
-
     steps:
       - name: "Find and update pull requests"
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
           BASE_BRANCH: ${{ github.ref_name }}
         run: |
-          echo "Searching for open PRs targeting '${BASE_BRANCH}' with auto-merge enabled or labeled '${UPDATE_LABEL}'"
+          echo "Searching for open PRs targeting '${BASE_BRANCH}' with auto-merge enabled"
 
           # Scope strictly to PRs whose base is the branch that triggered this run,
           # so a push to one branch never force-updates PRs targeting another branch.
@@ -51,9 +42,9 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --base "$BASE_BRANCH" \
             --state open \
-            --json number,author,autoMergeRequest,labels,isDraft,headRefName,title \
+            --json number,author,autoMergeRequest,isDraft,headRefName,title \
             --jq '.[] | select(.author.login != "dependabot[bot]") |
-                select(.autoMergeRequest != null or (.labels | any(.name == env.UPDATE_LABEL))) |
+                select(.autoMergeRequest != null) |
                 @json'); then
             echo "ERROR: gh pr list failed — check API access and token permissions."
             exit 1
@@ -66,7 +57,7 @@ jobs:
           fi
 
           if [[ ${#prs[@]} -eq 0 ]]; then
-            echo "No open PRs with auto-merge enabled or labeled '${UPDATE_LABEL}' targeting '${BASE_BRANCH}' — nothing to do."
+            echo "No open PRs with auto-merge enabled targeting '${BASE_BRANCH}' — nothing to do."
             exit 0
           fi
 
@@ -93,40 +84,3 @@ jobs:
           if [[ $failed -gt 0 ]]; then
             echo "Warning: ${failed} PR(s) could not be updated — review the logs above."
           fi
-
-  remove-label-on-automerge:
-    name: "Remove auto-update label when auto-merge is enabled"
-    if: github.event_name == 'pull_request' && github.event.action == 'auto_merge_enabled'
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-
-    env:
-      UPDATE_LABEL: "auto-update"
-
-    steps:
-      - name: "Remove '${{ env.UPDATE_LABEL }}' label from PR"
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          # Query labels first and fail explicitly if the GitHub CLI request fails.
-          if ! pr_labels=$(gh pr view "$PR_NUMBER" \
-            --repo "$GITHUB_REPOSITORY" \
-            --json labels \
-            --jq '.labels[].name'); then
-            echo "Failed to read labels for PR #${PR_NUMBER}."
-            exit 1
-          fi
-
-          # Treat a missing label as a normal no-op, but do not mask query failures.
-          if ! printf '%s\n' "$pr_labels" | grep -Fxq -- "$UPDATE_LABEL"; then
-            echo "PR #${PR_NUMBER} does not have the '${UPDATE_LABEL}' label — nothing to do."
-            exit 0
-          fi
-
-          echo "Removing '${UPDATE_LABEL}' label from PR #${PR_NUMBER} (auto-merge enabled)."
-          gh pr edit "$PR_NUMBER" \
-            --repo "$GITHUB_REPOSITORY" \
-            --remove-label "$UPDATE_LABEL"
-          echo "Label removed."
