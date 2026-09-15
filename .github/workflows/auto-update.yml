@@ -34,15 +34,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
           BASE_BRANCH: ${{ github.ref_name }}
         run: |
-          echo "Searching for open PRs targeting '${BASE_BRANCH}' with auto-merge enabled"
+          echo "Searching for open, ready-for-review PRs targeting '${BASE_BRANCH}' with auto-merge enabled"
 
           # Scope strictly to PRs whose base is the branch that triggered this run,
           # so a push to one branch never force-updates PRs targeting another branch.
+          # Drafts can't have auto-merge enabled, so exclude them up front.
           if ! pr_list_output=$(gh pr list \
             --repo "$GITHUB_REPOSITORY" \
             --base "$BASE_BRANCH" \
             --state open \
-            --json number,author,autoMergeRequest,isDraft,headRefName,title \
+            --draft=false \
+            --json number,author,autoMergeRequest,headRefName,title \
             --jq '.[] | select(.author.login != "dependabot[bot]") |
                 select(.autoMergeRequest != null) |
                 @json'); then
@@ -66,11 +68,10 @@ jobs:
           failed=0
           for pr_json in "${prs[@]}"; do
             pr_number=$(echo "$pr_json" | jq -r '.number')
-            is_draft=$(echo  "$pr_json" | jq -r '.isDraft')
             head_ref=$(echo  "$pr_json" | jq -r '.headRefName')
             title=$(echo     "$pr_json" | jq -r '.title')
 
-            echo "→ PR #${pr_number}: '${title}' (head: ${head_ref}, draft: ${is_draft})"
+            echo "→ PR #${pr_number}: '${title}' (head: ${head_ref})"
 
             if gh pr update-branch "$pr_number" --repo "$GITHUB_REPOSITORY"; then
               echo "  ✓ PR #${pr_number} updated successfully."
