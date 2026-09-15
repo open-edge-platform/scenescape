@@ -46,19 +46,22 @@ def download_vggt_model() -> bool:
     log.info('Downloading VGGT weights from HuggingFace...')
     weights = torch.hub.load_state_dict_from_url(MODEL_WEIGHTS_URL, map_location='cpu')
 
-    # Save weights locally for faster future access
-    weights_path = get_model_weights_dir() / 'vggt_model.pt'
-    torch.save(weights, weights_path)
-
-    log.info('VGGT model downloaded and cached successfully!')
+    log.info('VGGT model downloaded successfully!')
+    return weights
 
   try:
-    # Retries cover the network download only; marker creation below is a local
-    # filesystem write and isn't worth re-downloading the model to retry.
-    retry_with_exponential_backoff(_download_attempt)
+    # Retries cover the network download only; saving weights and marker creation
+    # below are local filesystem writes and aren't worth re-downloading to retry.
+    weights = retry_with_exponential_backoff(_download_attempt)
   except Exception as e:
     log.error(f'Failed to download VGGT model after retries: {e}')
     return False
+
+  weights_path = get_model_weights_dir() / 'vggt_model.pt'
+
+  import torch
+  torch.save(weights, weights_path)
+  log.info('VGGT model cached successfully!')
 
   return create_success_marker(MODEL_NAME, 'VGGT model downloaded successfully')
 
