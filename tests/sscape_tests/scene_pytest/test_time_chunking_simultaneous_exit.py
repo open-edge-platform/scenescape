@@ -52,7 +52,7 @@ def test_time_chunking_three_objects_simultaneous_exit(camera_obj):
   frame_interval = 0.05
   scene = Scene(
     "time_chunking_exit_test",
-    "sample_data/HazardZoneSceneLarge.png",
+    "tests/resources/maps/HazardZoneSceneLarge.png",
     max_unreliable_time=0.2,
     non_measurement_time_dynamic=0.2,
     non_measurement_time_static=0.2,

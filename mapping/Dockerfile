@@ -17,16 +17,18 @@ WORKDIR /tmp
 # Copy the patch files
 COPY mapping/0001-Run-it-on-CPU.patch /tmp/
 
-# Clone and prepare only the selected model
+# Model source is fetched on the host by `make vendor-deps` (see mapping/Makefile) into
+# .vendor/model, keyed off MODEL_TYPE, to avoid GitHub's unauthenticated-download rate limiting.
+COPY mapping/.vendor/model /tmp/vendor-model
 RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
-        git clone https://github.com/facebookresearch/map-anything.git ./map-anything && \
-        cd ./map-anything && git checkout b84b28f; \
+        cp -r /tmp/vendor-model ./map-anything; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
-        git clone https://github.com/facebookresearch/vggt.git ./vggt && \
-        cd ./vggt && git checkout 44b3afb && git apply /tmp/0001-Run-it-on-CPU.patch; \
+        cp -r /tmp/vendor-model ./vggt && \
+        cd ./vggt && git apply /tmp/0001-Run-it-on-CPU.patch; \
     else \
         echo "Invalid MODEL_TYPE: $MODEL_TYPE. Must be 'mapanything' or 'vggt'" && exit 1; \
-    fi
+    fi && \
+    rm -rf /tmp/vendor-model
 
 # =========================
 # STAGE 2: RUNTIME STAGE

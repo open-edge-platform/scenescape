@@ -59,9 +59,9 @@
 
 ## Version 2026.1.0
 
-**June 17, 2026**
+**Release Date:** June 17, 2026
 
-**New**
+**New:**
 
 - Tracking & Analytics
   - Added Tracker Evaluation Pipeline enhancements:
@@ -76,7 +76,7 @@
 
 - Re-ID feature now works with embedding vectors of arbitrary size, provides cosine distance as a similarity metric and publishes track state for determining re-id accuracy.
 
-**Improved**
+**Improved:**
 
 - Testing & Quality
   - Major API test rework and reporting improvements
@@ -92,7 +92,7 @@
   - Improved navigation, references, and formatting
   - Standardized message format documentation
 
-**Fixed**
+**Fixed:**
 
 - Metadata passthrough issues in controller
 - Database migration flow issues
@@ -109,9 +109,9 @@
 
 ## Version 2026.0.0
 
-**April 6, 2026**
+**Release Date:** April 6, 2026
 
-**Major Features and Enhancements**
+**Major Features and Enhancements:**
 
 - Standalone tracking microservice that can vertically scale to track 1000 objects.
 - Time-Chunked Tracking: Advanced time-chunking algorithms for improved tracking performance and accuracy
@@ -120,7 +120,7 @@
 - Controller outputs augmented to work with a physics engine
 - Controller Analytics Mode: New analytics-only mode for the controller with schema validation (retired; use the Analytics microservice)
 
-**Improved**
+**Improved:**
 
 - Debian Migration: Complete migration from Ubuntu to Debian base images across all services for reduced size and improved security
 - Non-Root Users: All services now run as non-root users with custom scenescape user implementation
@@ -129,7 +129,7 @@
 - Test Automation: Comprehensive API test automation for all major endpoints (cameras, sensors, assets, regions, tripwires, users)
 - Performance Testing: Tracker evaluation pipeline with MVP implementation
 
-**Performance and Optimization**
+**Performance and Optimization:**
 
 - Memory Leak Fixes: Resolved memory usage issues that caused steady increases over time
 - Thread Safety: Improved thread safety in Tracker Service MQTT client during shutdown
@@ -137,12 +137,12 @@
 - Build Optimization: Improved build paths, dependency management, and Docker caching
 - Image Size Optimization: Significant reduction in container image sizes through dependency optimization
 
-**Video Analytics Updates**
+**Video Analytics Updates:**
 
 - Pipeline Optimization: Improved pipeline generation and GPU utilization
 - Model Management: Enhanced model downloading and management with updated model sets
 
-**Developer Experience**
+**Developer Experience:**
 
 - Copilot Integration: Added copilot instructions for enhanced developer experience
 - Deployment Scripts: Enhanced deployment scripts with port installation choices

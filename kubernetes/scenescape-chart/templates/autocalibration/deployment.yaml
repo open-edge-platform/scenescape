@@ -89,6 +89,7 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: {{ .Values.autocalibration.startupFailureThreshold }}
+            initialDelaySeconds: 30
           readinessProbe:
             exec:
               command:
