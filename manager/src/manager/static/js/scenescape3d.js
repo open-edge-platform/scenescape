@@ -329,6 +329,14 @@ function main() {
     }
   }
 
+  // Stale counts silently misinform once events stop arriving; clear them on disconnect.
+  function clearRegionCountLabels() {
+    const regionThings = sceneThingManagers.things.region.obj.sceneThings;
+    for (const uid in regionThings) {
+      regionThings[uid].removeCountLabel();
+    }
+  }
+
   // MQTT Client
   async function connectMQTT() {
     // MQTT management (see https://github.com/mqttjs/MQTT.js)
@@ -376,15 +384,11 @@ function main() {
           }
         }
 
-        if (sceneThing.isParent) {
-          console.log(
-            "Subscribed to " +
-              (appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+"),
-          );
-          client.subscribe(
-            appName + CONSTANTS.EVENT + "/+" + "/" + sceneName + "/+/+",
-          );
-        }
+        console.log(
+          "Subscribed to " +
+            (appName + CONSTANTS.EVENT + "/+/" + sceneID + "/+/+"),
+        );
+        client.subscribe(appName + CONSTANTS.EVENT + "/+/" + sceneID + "/+/+");
         cameraManager = sceneThingManagers["things"]["camera"]["obj"];
         for (const key in cameraManager.sceneCameras) {
           if (key !== "undefined") {
@@ -402,6 +406,7 @@ function main() {
 
     client.on("error", (e) => {
       console.log("MQTT error: " + e);
+      clearRegionCountLabels();
     });
 
     assetManager = AssetManager(
@@ -584,8 +589,12 @@ function main() {
 
       const analyticsParams = sceneThingManagers.things[analyticsName];
       const currentThings = analyticsParams.obj.sceneThings;
+      const thingKey =
+        msg["metadata"]["uuid"] in currentThings
+          ? msg["metadata"]["uuid"]
+          : childData["name"];
 
-      if (childData["name"] in currentThings) {
+      if (thingKey in currentThings) {
         const analyticsClass = analyticsParams.obj.thingObjects();
 
         const tempChildData = new analyticsClass[analyticsName](childData);
@@ -595,13 +604,17 @@ function main() {
 
         if (
           JSON.stringify(tempChildData.points) !==
-          JSON.stringify(currentThings[childData["name"]].points)
+          JSON.stringify(currentThings[thingKey].points)
         ) {
-          currentThings[childData["name"]].updateShape(childData);
+          currentThings[thingKey].updateShape(childData);
         }
       } else {
         analyticsParams.obj.add(childData);
         analyticsParams.obj.update(0, analyticsParams);
+      }
+
+      if (analyticsName === "region" && msg["counts"]) {
+        currentThings[thingKey]?.updateCounts(msg["counts"]);
       }
     }
   }
