@@ -163,4 +163,34 @@ std::string ManagerRestClient::fetchScenes() {
     return result->body;
 }
 
+std::string ManagerRestClient::fetchAssets() {
+    if (token_.empty()) {
+        throw std::runtime_error("Manager API not authenticated — call authenticate() first");
+    }
+
+    auto [scheme_host_port, path_prefix] = parse_url(url_);
+    auto client =
+        create_http_client(scheme_host_port, ca_cert_path_, connect_timeout_, read_timeout_);
+
+    std::string assets_path = path_prefix + "/api/v1/assets";
+    httplib::Headers headers = {{"Authorization", "Token " + token_}};
+
+    LOG_DEBUG("Fetching assets from Manager API: {}{}", scheme_host_port, assets_path);
+
+    auto result = client.Get(assets_path, headers);
+
+    if (!result) {
+        throw std::runtime_error("Manager API connection failed: " +
+                                 httplib::to_string(result.error()));
+    }
+
+    if (result->status != 200) {
+        throw std::runtime_error("Manager API assets request failed (HTTP " +
+                                 std::to_string(result->status) + "): " + result->body);
+    }
+
+    LOG_INFO("Fetched assets from Manager API ({} bytes)", result->body.size());
+    return result->body;
+}
+
 } // namespace tracker

@@ -75,6 +75,10 @@ Optional:
                            (default 2).
   metrics_otlp_port (int): OTLP/gRPC port the collector listens on
                            (default 4317).
+  object_classes  (list):  Optional asset definitions forwarded to the mock
+                           Manager ``/api/v1/assets`` endpoint so Controller
+                           applies per-category ``shift_type`` (TYPE_1/TYPE_2).
+                           Each entry: ``{name, shift_type, x_size, y_size, ...}``.
 """
 
 import json
@@ -360,6 +364,7 @@ class BlackBoxHarness(TrackerHarness):
     self._drain_timeout: float              = DEFAULT_DRAIN_TIMEOUT
     self._startup_wait_s: float             = DEFAULT_STARTUP_WAIT
     self._camera_order: Optional[List[str]] = None
+    self._object_classes: List[Dict[str, Any]] = []
     self._broker_image: str                 = ""
     self._broker_port: int                  = 0
     self._output_folder: Optional[Path]     = None
@@ -428,6 +433,11 @@ class BlackBoxHarness(TrackerHarness):
     self._startup_wait_s = float(config.get("startup_wait_s", DEFAULT_STARTUP_WAIT))
     if "camera_order" in config:
       self._camera_order = list(config["camera_order"])
+    if "object_classes" in config:
+      classes = config["object_classes"]
+      if not isinstance(classes, list):
+        raise ValueError("object_classes must be a list")
+      self._object_classes = list(classes)
     if "broker_image" not in config:
       raise ValueError("Custom config must contain 'broker_image'")
     self._broker_image   = str(config["broker_image"])
@@ -543,6 +553,7 @@ class BlackBoxHarness(TrackerHarness):
     self._drain_timeout       = DEFAULT_DRAIN_TIMEOUT
     self._startup_wait_s      = DEFAULT_STARTUP_WAIT
     self._camera_order        = None
+    self._object_classes      = []
     self._output_folder       = None
     self._enable_metrics      = False
     self._metrics_collector_image = ""
@@ -580,9 +591,12 @@ class BlackBoxHarness(TrackerHarness):
         (thread, port) — the port is passed to containers via ``add_hosts``.
     """
     port = _free_port()
+    scene_config = dict(self._scene_config)
+    if self._object_classes:
+      scene_config["object_classes"] = list(self._object_classes)
     t = threading.Thread(
         target=_run_mock_manager,
-        args=(port, self._scene_config),
+        args=(port, scene_config),
         daemon=True,
     )
     t.start()

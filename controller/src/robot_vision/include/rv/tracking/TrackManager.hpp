@@ -37,7 +37,7 @@ struct TrackManagerConfig
   std::string toString() const
   {
     std::string motionModelsText = " motion_models:";
-    for (auto const &motionModel: mMotionModels)
+    for (auto const &motionModel : mMotionModels)
     {
       motionModelsText += " ";
 

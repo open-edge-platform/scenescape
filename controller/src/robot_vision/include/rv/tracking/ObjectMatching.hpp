@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -24,7 +25,8 @@ enum class DistanceType
   MultiClassEuclidean,
   Euclidean,
   Mahalanobis,
-  MCEMahalanobis
+  MCEMahalanobis,
+  PositionMahalanobis
 };
 
 void match(const std::vector<TrackedObject> &tracks,
@@ -32,7 +34,8 @@ void match(const std::vector<TrackedObject> &tracks,
             std::vector<std::pair<size_t, size_t>> &assignments,
             std::vector<size_t> &unassignedTracks,
             std::vector<size_t> &unassignedMeasurements,
-            const DistanceType &distanceType, double threshold);
+            const DistanceType &distanceType, double threshold,
+            double max_radius_m = std::numeric_limits<double>::infinity());
 
 } // namespace tracking
 } // namespace rv
