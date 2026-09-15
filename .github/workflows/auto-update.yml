@@ -48,7 +48,7 @@ jobs:
             --jq '.[] | select(.author.login != "dependabot[bot]") |
                 select(.autoMergeRequest != null) |
                 @json'); then
-            echo "ERROR: gh pr list failed — check API access and token permissions."
+            echo "::error title=gh pr list failed::Check API access and token permissions."
             exit 1
           fi
 
@@ -76,12 +76,12 @@ jobs:
             if gh pr update-branch "$pr_number" --repo "$GITHUB_REPOSITORY"; then
               echo "  ✓ PR #${pr_number} updated successfully."
             else
-              echo "  ✗ PR #${pr_number} could not be updated (may already be up to date or have a merge conflict)."
+              echo "::warning title=PR update failed::PR #${pr_number} ('${title}') could not be updated — it may already be up to date or have a merge conflict."
               failed=$((failed + 1))
             fi
           done
 
           echo "Done. Failed: ${failed}."
           if [[ $failed -gt 0 ]]; then
-            echo "Warning: ${failed} PR(s) could not be updated — review the logs above."
+            echo "::warning title=Auto-update PRs::${failed} PR(s) could not be updated — review the annotations above."
           fi
