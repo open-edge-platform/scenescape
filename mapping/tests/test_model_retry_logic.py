@@ -106,10 +106,10 @@ class TestRetryLogic:
 
   def test_fails_after_max_attempts(self, mocker):
     """Test exception is raised after exhausting all retry attempts"""
-    mock_func = MagicMock(side_effect=ValueError("Persistent failure"))
+    mock_func = MagicMock(side_effect=ConnectionError("Persistent failure"))
     mock_sleep = mocker.patch('model_utils.time.sleep')
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(ConnectionError) as exc_info:
       retry_with_exponential_backoff(
           mock_func,
           max_attempts=TEST_DEFAULT_MAX_ATTEMPTS,
@@ -196,6 +196,40 @@ class TestRetryLogic:
     # Should only attempt once
     assert mock_func.call_count == TEST_SINGLE_ATTEMPT
     # No sleep when max_attempts=1
+    mock_sleep.assert_not_called()
+
+  def test_rejects_max_attempts_below_one(self, mocker):
+    """Test max_attempts < 1 raises ValueError before any attempt is made"""
+    mock_func = MagicMock(return_value="success")
+
+    with pytest.raises(ValueError, match="max_attempts"):
+      retry_with_exponential_backoff(mock_func, max_attempts=0)
+
+    mock_func.assert_not_called()
+
+  def test_rejects_negative_initial_wait_seconds(self, mocker):
+    """Test negative initial_wait_seconds raises ValueError before any attempt is made"""
+    mock_func = MagicMock(return_value="success")
+
+    with pytest.raises(ValueError, match="initial_wait_seconds"):
+      retry_with_exponential_backoff(mock_func, initial_wait_seconds=-1)
+
+    mock_func.assert_not_called()
+
+  def test_non_retryable_exception_propagates_immediately(self, mocker):
+    """Test a non-retryable exception (e.g. TypeError) is not retried"""
+    mock_func = MagicMock(side_effect=TypeError("Not a transient failure"))
+    mock_sleep = mocker.patch('model_utils.time.sleep')
+
+    with pytest.raises(TypeError, match="Not a transient failure"):
+      retry_with_exponential_backoff(
+          mock_func,
+          max_attempts=TEST_DEFAULT_MAX_ATTEMPTS,
+          initial_wait_seconds=TEST_DEFAULT_INITIAL_WAIT
+      )
+
+    # Should fail fast on the first attempt, no retries or sleeps
+    assert mock_func.call_count == 1
     mock_sleep.assert_not_called()
 
 
