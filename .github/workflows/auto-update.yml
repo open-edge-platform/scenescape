@@ -22,7 +22,6 @@ permissions: {}
 jobs:
   update-pull-requests:
     name: "Update pull requests targeting this branch"
-    if: github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
