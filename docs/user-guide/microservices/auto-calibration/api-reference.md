@@ -47,7 +47,7 @@ The API uses structured request and response schemas, including:
 
 For full schema details and example payloads, see the OpenAPI YAML file below.
 
-## Swagger Plugin
+## Open API
 
 ```{eval-rst}
 .. swagger-plugin:: ./_assets/autocalibration-api.yaml
