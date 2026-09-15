@@ -11,51 +11,56 @@ import sys
 
 from scene_common import log
 
-from model_utils import get_model_weights_dir, ensure_cache_directories, check_model_exists, create_success_marker
+from model_utils import (
+    get_model_weights_dir,
+    ensure_cache_directories,
+    check_model_exists,
+    create_success_marker,
+    retry_with_exponential_backoff,
+)
 
 MODEL_NAME = "vggt"
+MODEL_WEIGHTS_URL = 'https://huggingface.co/facebook/VGGT-1B/resolve/main/model.pt'
 
 def download_vggt_model() -> bool:
   """
-  Download VGGT model using the installed package.
+  Download VGGT model using the installed package with automatic retries.
 
   Returns:
     True if download successful, False otherwise
   """
-  try:
+  def _download_attempt():
     log.info("Downloading VGGT model...")
 
-    # Add VGGT to Python path
+    # Add VGGT to Python path (guard against duplicates across retry attempts)
     vggt_path = "/workspace/vggt"
-    sys.path.insert(0, str(vggt_path))
+    if vggt_path not in sys.path:
+      sys.path.insert(0, vggt_path)
 
     import torch
     from vggt.models.vggt import VGGT
 
     # Initialize model (this may trigger some setup)
-    model = VGGT()
+    VGGT()
 
-    # Download model weights
-    _URL = 'https://huggingface.co/facebook/VGGT-1B/resolve/main/model.pt'
     log.info('Downloading VGGT weights from HuggingFace...')
-
-    weights = torch.hub.load_state_dict_from_url(_URL, map_location='cpu')
+    weights = torch.hub.load_state_dict_from_url(MODEL_WEIGHTS_URL, map_location='cpu')
 
     # Save weights locally for faster future access
     weights_path = get_model_weights_dir() / 'vggt_model.pt'
     torch.save(weights, weights_path)
 
-    # Create success marker
-    success_message = 'VGGT model downloaded successfully'
-    if not create_success_marker(MODEL_NAME, success_message):
-      return False
-
     log.info('VGGT model downloaded and cached successfully!')
-    return True
 
+  try:
+    # Retries cover the network download only; marker creation below is a local
+    # filesystem write and isn't worth re-downloading the model to retry.
+    retry_with_exponential_backoff(_download_attempt)
   except Exception as e:
-    log.error(f'Failed to download VGGT model: {e}')
+    log.error(f'Failed to download VGGT model after retries: {e}')
     return False
+
+  return create_success_marker(MODEL_NAME, 'VGGT model downloaded successfully')
 
 def ensure_vggt_model() -> bool:
   """
