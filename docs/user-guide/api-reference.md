@@ -40,7 +40,7 @@ It should look something like this example:
 
 ![Example Scenescape REST API as seen in Browser](./_assets/Scenescape_REST_API_swagger_example_view.png "Example")
 
-## Swagger Plugin
+## Open API
 
 **Version: 1.3.0**:
 

@@ -184,7 +184,7 @@ curl -X POST "https://localhost:8444/v1/reconstruction" \
   --insecure | jq -r '.glb_data' | base64 -d > output.glb
 ```
 
-## Swagger Plugin
+## Open API
 
 <!--hide_directive>
 ```{eval-rst}
