@@ -62,14 +62,26 @@ def mock_tracker_outputs():
 
 @pytest.fixture
 def mock_ground_truth_file(tmp_path):
-  """Create mock ground truth CSV file in MOTChallenge 3D format."""
-  gt_file = tmp_path / "gt.txt"
-  # Format: frame,id,x,y,z,conf,class,visibility (no header)
-  gt_content = """1,1,1.0,2.0,0.0,1.0,1,1
-1,2,3.0,4.0,0.0,1.0,1,1
-2,1,1.1,2.1,0.0,1.0,1,1
-2,2,3.1,4.1,0.0,1.0,1,1"""
-  gt_file.write_text(gt_content)
+  """Create mock ground truth JSONL file in canonical Tracker Output Format."""
+  import json
+  gt_file = tmp_path / "ground_truth.jsonl"
+  gt_frames = [
+    {
+      "timestamp": "2024-01-01T00:00:00.000Z",
+      "objects": [
+        {"id": 1, "category": "person", "translation": [1.0, 2.0, 0.0]},
+        {"id": 2, "category": "person", "translation": [3.0, 4.0, 0.0]},
+      ],
+    },
+    {
+      "timestamp": "2024-01-01T00:00:00.033Z",
+      "objects": [
+        {"id": 1, "category": "person", "translation": [1.1, 2.1, 0.0]},
+        {"id": 2, "category": "person", "translation": [3.1, 4.1, 0.0]},
+      ],
+    },
+  ]
+  gt_file.write_text("\n".join(json.dumps(frame) for frame in gt_frames))
   return str(gt_file)
 
 

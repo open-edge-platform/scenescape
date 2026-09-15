@@ -315,8 +315,11 @@ class TrackEvalEvaluator(TrackerEvaluator):
       sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
       from format_converters import (
         convert_canonical_to_motchallenge_csv,
-        create_motchallenge_seqinfo
+        create_motchallenge_seqinfo,
+        stream_jsonl
       )
+      sys.path.insert(0, str(Path(__file__).parent.parent))
+      from utils.timeline import parse_timestamp, reference_timestamp
 
       # Create temporary directory for TrackEval input/output
       self._temp_dir = tempfile.TemporaryDirectory()
@@ -366,45 +369,59 @@ class TrackEvalEvaluator(TrackerEvaluator):
       tracker_data_folder = tracker_folder / "data"
       tracker_data_folder.mkdir(parents=True, exist_ok=True)
 
-      # Convert tracker outputs to MOTChallenge CSV format
-      self._tracker_csv_path = tracker_data_folder / f"{self._seq_name}.txt"
-      self._uuid_to_id_map = convert_canonical_to_motchallenge_csv(
-        tracker_output_list,
-        str(self._tracker_csv_path),
-        self._camera_fps
-      )
-
-      if self._output_folder:
-        mirrored_tracker_csv = self._output_folder / self._tracker_csv_path.name
-        shutil.copy(self._tracker_csv_path, mirrored_tracker_csv)
-
-      # Handle ground truth - it should be a file path string
-      # but comes as iterator due to base class signature
+      # Resolve ground-truth file path (JSONL in canonical Tracker Output Format).
       if isinstance(ground_truth, str):
         gt_file_path = ground_truth
       else:
-        # If it's an iterator, try to get the first element (file path)
         gt_data = list(ground_truth)
         if gt_data and isinstance(gt_data[0], str):
           gt_file_path = gt_data[0]
         else:
           raise RuntimeError(
             "Ground truth must be a file path string. "
-            "Ensure dataset.get_ground_truth() returns a CSV file path."
+            "Ensure dataset.get_ground_truth() returns a JSONL file path."
           )
 
-      # Copy ground truth to expected location
+      # Load ground truth frames from JSONL.
+      gt_frames = list(stream_jsonl(gt_file_path))
+
+      # Compute a shared reference timestamp so ground-truth and tracker
+      # frames are quantized onto the same time grid. This keeps matching
+      # timestamp-based even though TrackEval requires integer frame indices.
+      shared_reference = reference_timestamp(tracker_output_list, gt_frames)
+
+      # Convert tracker outputs to MOTChallenge CSV format
+      self._tracker_csv_path = tracker_data_folder / f"{self._seq_name}.txt"
+      self._uuid_to_id_map = convert_canonical_to_motchallenge_csv(
+        tracker_output_list,
+        str(self._tracker_csv_path),
+        self._camera_fps,
+        reference_timestamp=shared_reference
+      )
+
+      if self._output_folder:
+        mirrored_tracker_csv = self._output_folder / self._tracker_csv_path.name
+        shutil.copy(self._tracker_csv_path, mirrored_tracker_csv)
+
+      # Convert ground truth to MOTChallenge CSV using the shared reference.
       self._ground_truth_csv_path = gt_folder / "gt.txt"
-      shutil.copy(gt_file_path, self._ground_truth_csv_path)
+      convert_canonical_to_motchallenge_csv(
+        gt_frames,
+        str(self._ground_truth_csv_path),
+        self._camera_fps,
+        reference_timestamp=shared_reference
+      )
 
       # Determine actual number of frames from both tracker and ground truth
       # Read max frame from ground truth CSV
       import pandas as pd
       gt_df = pd.read_csv(self._ground_truth_csv_path, header=None, names=['frame', 'id', 'x', 'y', 'z', 'conf', 'class', 'vis'])
       max_gt_frame = int(gt_df['frame'].max()) if not gt_df.empty else self._num_frames
+      tracker_df = pd.read_csv(self._tracker_csv_path, header=None, names=['frame', 'id', 'x', 'y', 'z', 'conf', 'class', 'vis'])
+      max_tracker_frame = int(tracker_df['frame'].max()) if not tracker_df.empty else self._num_frames
 
-      # Use maximum of tracker frames and ground truth frames
-      self._num_frames = max(self._num_frames, max_gt_frame)
+      # Use maximum frame index across tracker and ground truth
+      self._num_frames = max(self._num_frames, max_gt_frame, max_tracker_frame)
 
       # Create seqinfo.ini
       create_motchallenge_seqinfo(

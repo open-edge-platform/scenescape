@@ -318,8 +318,8 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
       tracker_outputs: Iterator of Tracker Output Format dicts from
                        ``CameraProjectionHarness``.  Object IDs must be
                        encoded as ``"{camera_id}:{object_id}"``.
-      ground_truth: Path to a MOTChallenge 3-D CSV ground-truth file, either
-                    as a plain ``str`` (as returned by
+      ground_truth: Path to a ground-truth JSONL file in canonical Tracker
+                    Output Format, either as a plain ``str`` (as returned by
                     ``UnityDataset.get_ground_truth()``) or as a
                     length-1 ``Iterator[str]`` (for pipeline-engine
                     compatibility with other evaluators).
@@ -331,8 +331,7 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
       RuntimeError: If parsing fails.
     """
     try:
-      self._parse_projected_outputs(tracker_outputs)
-      self._parse_ground_truth(ground_truth)
+      self._parse_inputs(tracker_outputs, ground_truth)
       self._processed = True
       return self
     except Exception as exc:
@@ -589,16 +588,27 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
   # Private helpers
   # ------------------------------------------------------------------
 
-  def _parse_projected_outputs(self, tracker_outputs: Iterator[Dict[str, Any]]) -> None:
-    """Fill ``self._projected_tracks`` from harness output frames.
+  def _parse_inputs(self, tracker_outputs, ground_truth) -> None:
+    """Parse projected outputs and ground truth onto a shared time grid.
 
-    Frame numbers are computed from timestamps using the same centred-rounding
-    approach as DiagnosticEvaluator so that frame indices line up with the GT
-    CSV produced by UnityDataset.
+    Projected outputs and ground truth both carry absolute ISO timestamps.
+    They are quantized onto a common frame grid using a shared reference epoch
+    so that track-vs-ground-truth matching is timestamp-based.
 
     Args:
       tracker_outputs: Iterator returned by CameraProjectionHarness.
+      ground_truth: str path or length-1 iterator containing the JSONL path.
     """
+    sys.path.insert(0, str(Path(__file__).parent.parent / "utils"))
+    from format_converters import stream_jsonl
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from utils.timeline import (
+      compute_fps,
+      parse_timestamp,
+      reference_timestamp,
+      timestamp_to_frame,
+    )
+
     frames_list = (
       tracker_outputs
       if isinstance(tracker_outputs, list)
@@ -607,29 +617,28 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     if not frames_list:
       raise RuntimeError("No tracker outputs provided")
 
-    # Derive FPS from timestamps
-    timestamps = [
-      datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00"))
-      for d in frames_list
-    ]
-
-    # Use unique timestamps to compute FPS (each camera may emit its own stream)
-    unique_ts = sorted(set(timestamps))
-    if self._base_fps is not None:
-      fps = self._base_fps
-    elif len(unique_ts) > 1:
-      span = (unique_ts[-1] - unique_ts[0]).total_seconds()
-      fps = (len(unique_ts) - 1) / span if span > 0 else 30.0
+    if isinstance(ground_truth, str):
+      gt_path = ground_truth
     else:
-      fps = 30.0
+      gt_data = list(ground_truth)
+      if gt_data and isinstance(gt_data[0], str):
+        gt_path = gt_data[0]
+      else:
+        raise RuntimeError(
+          "Ground truth must be a file path string. "
+          "Ensure dataset.get_ground_truth() returns a JSONL path."
+        )
+    gt_frames = list(stream_jsonl(gt_path))
 
-    first_ts = unique_ts[0]
-    frame_duration = 1.0 / fps
+    # Shared reference epoch and frame rate for both inputs.
+    reference = reference_timestamp(frames_list, gt_frames)
+    unique_ts = sorted({parse_timestamp(d["timestamp"]) for d in frames_list})
+    fps = compute_fps(unique_ts, base_fps=self._base_fps)
 
     for frame_data in frames_list:
-      ts = datetime.fromisoformat(frame_data["timestamp"].replace("Z", "+00:00"))
-      time_delta = (ts - first_ts).total_seconds()
-      frame_num = int(round(time_delta / frame_duration)) + 1
+      frame_num = timestamp_to_frame(
+        parse_timestamp(frame_data["timestamp"]), reference, fps
+      )
 
       # Extract camera world position if present — fallback when no scene
       # config was supplied via set_scene_config() (first seen per camera wins)
@@ -657,38 +666,18 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
         if obj_id not in self._obj_categories:
           self._obj_categories[obj_id] = obj.get("category", "unknown")
 
-  def _parse_ground_truth(self, ground_truth) -> None:
-    """Fill ``self._gt_tracks`` from MOTChallenge 3-D CSV.
-
-    Args:
-      ground_truth: str path or length-1 iterator containing the path.
-    """
-    if isinstance(ground_truth, str):
-      gt_path = ground_truth
-    else:
-      gt_data = list(ground_truth)
-      if gt_data and isinstance(gt_data[0], str):
-        gt_path = gt_data[0]
-      else:
-        raise RuntimeError(
-          "Ground truth must be a file path string. "
-          "Ensure dataset.get_ground_truth() returns a CSV path."
+    for frame_data in gt_frames:
+      frame = timestamp_to_frame(
+        parse_timestamp(frame_data["timestamp"]), reference, fps
+      )
+      for obj in frame_data.get("objects", []):
+        obj_id = str(int(obj["id"]))
+        translation = obj["translation"]
+        if obj_id not in self._gt_tracks:
+          self._gt_tracks[obj_id] = {}
+        self._gt_tracks[obj_id][frame] = (
+          float(translation[0]), float(translation[1])
         )
-
-    sys.path.insert(0, str(Path(__file__).parent.parent / "utils"))
-    from format_converters import read_csv_to_dataframe
-
-    df = read_csv_to_dataframe(
-      gt_path,
-      column_names=["frame", "id", "x", "y", "z", "conf", "class", "visibility"],
-    )
-
-    for _, row in df.iterrows():
-      obj_id = str(int(row["id"]))
-      frame = int(row["frame"])
-      if obj_id not in self._gt_tracks:
-        self._gt_tracks[obj_id] = {}
-      self._gt_tracks[obj_id][frame] = (float(row["x"]), float(row["y"]))
 
     if self._gt_tracks:
       self._total_gt_frames = max(

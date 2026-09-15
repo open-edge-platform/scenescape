@@ -331,3 +331,25 @@ class TestConvertCanonicalToMOTChallenge:
                      names=["frame", "id", "x", "y", "z", "conf", "class", "visibility"])
     assert len(df) == 2
     assert list(df["frame"]) == [1, 2]
+
+  def test_reference_timestamp_shifts_frame_numbers(self, tmp_path):
+    """A shared reference earlier than the first frame offsets frame numbers so
+    identical absolute timestamps map to identical frame indices."""
+    from datetime import datetime, timezone
+    outputs = [
+      {"timestamp": "2026-01-01T00:00:00.100Z",
+       "objects": [{"id": "uuid-1", "translation": [1.0, 0.0, 0.0]}]},
+      {"timestamp": "2026-01-01T00:00:00.133Z",
+       "objects": [{"id": "uuid-1", "translation": [2.0, 0.0, 0.0]}]},
+    ]
+    reference = datetime(2026, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc)
+    csv = tmp_path / "track.csv"
+    convert_canonical_to_motchallenge_csv(
+      outputs, str(csv), 30.0, reference_timestamp=reference
+    )
+
+    import pandas as pd
+    df = pd.read_csv(str(csv), header=None,
+                     names=["frame", "id", "x", "y", "z", "conf", "class", "visibility"])
+    # 0.100 s at 30 fps → round(3.0)+1 = 4; 0.133 s → round(3.99)+1 = 5
+    assert list(df["frame"]) == [4, 5]
