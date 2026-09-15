@@ -27,7 +27,7 @@ This service processes real-time object detection data from Scenescape scenes, a
 The cluster analytics service is included in the extended Scenescape demo docker-compose stack:
 
 ```bash
-SUPASS=admin123 make
+make
 SUPASS=admin123 make demo-all
 ```
 
