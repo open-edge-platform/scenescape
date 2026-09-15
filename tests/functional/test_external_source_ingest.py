@@ -30,6 +30,7 @@ from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
+import pytest
 
 log = get_logger(__name__)
 
@@ -388,6 +389,7 @@ class ExternalSourceIngest(FunctionalTest):
     return
 
 
+@pytest.mark.test_name("NEX-TXXXXX")
 def test_external_source_ingest(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
   test = ExternalSourceIngest(TEST_NAME, request, record_xml_attribute, repo_root)
   test.verifyFunction()

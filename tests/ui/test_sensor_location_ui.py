@@ -9,6 +9,7 @@ from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -71,6 +72,7 @@ def verify_sensor_location(browser, sensor_name):
     retVal = False
   return retVal
 
+@pytest.mark.test_name("NEX-T10400")
 def test_sensor_location_main(params, record_xml_attribute):
   """! Checks that a sensor can be created and it location changed.
   @param    params                  Dict of test parameters.
@@ -78,7 +80,6 @@ def test_sensor_location_main(params, record_xml_attribute):
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10400"
-  record_xml_attribute("name", TEST_NAME)
   exit_code = 1
   browser = None
   sensor_id = "test_sensor"

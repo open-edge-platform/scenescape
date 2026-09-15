@@ -9,6 +9,7 @@ from selenium.webdriver.support.ui import Select
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+import pytest
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
@@ -16,6 +17,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
+@pytest.mark.test_name("NEX-T10403")
 def test_camera_deletion_main(params, record_xml_attribute):
   """! Checks that a camera which is not attached to a scene can be deleted.
   @param    params                  Dict of test parameters.
@@ -23,7 +25,6 @@ def test_camera_deletion_main(params, record_xml_attribute):
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10403"
-  record_xml_attribute("name", TEST_NAME)
   exit_code = 1
 
   try:

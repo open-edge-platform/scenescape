@@ -14,6 +14,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 import tests.common_test_utils as common
 from scene_common.timestamp import get_iso_time
+import pytest
 
 log = get_logger(__name__)
 
@@ -191,11 +192,11 @@ class RemoveLinkedScene(FunctionalTest):
     self.exitCode = 0
 
 
+@pytest.mark.test_name("NEX-T10520")
 def test_remove_linked_scene(request, record_xml_attribute, params, objData, demo_scene):
   """! Test to verify the unlinking of a child scene from parent scene and validating the data flow.
   """
   TEST_NAME = "NEX-T10520"
-  record_xml_attribute("name", TEST_NAME)
   test = RemoveLinkedScene(
     "test_remove_linked_scene",
     request,

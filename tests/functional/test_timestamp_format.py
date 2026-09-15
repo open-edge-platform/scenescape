@@ -8,6 +8,7 @@ from tests.common_test_utils import record_test_result
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 log = get_logger(__name__)
 
@@ -85,6 +86,7 @@ def validate_timestamp_format(rows):
   )
 
 
+@pytest.mark.test_name("NEX-T10547")
 def test_timestamp_format(scenescape_env):
   """ Verifies that all timestamps are utilizing ISO 8601 UTC format.
 

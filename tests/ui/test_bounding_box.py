@@ -124,6 +124,7 @@ def on_message(mqttc, data, msg):
   mqttc.publish(PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=used_camera), "getimage")
   return
 
+@pytest.mark.test_name("NEX-T10419")
 @pytest.mark.basic_acceptance
 def test_bounding_box(params, record_xml_attribute):
   """! Checks that red object detection bounding boxes appear in the camera 1 image stream.
@@ -136,7 +137,6 @@ def test_bounding_box(params, record_xml_attribute):
   global counter_bad_bbox
 
   TEST_NAME = "NEX-T10419"
-  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
 
   client = PubSub(params['auth'], None, params['rootcert'], params['broker_url'],
