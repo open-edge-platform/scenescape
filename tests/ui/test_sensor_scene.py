@@ -24,6 +24,7 @@ def test_sensor_scene_main(params, result_recorder):
   @param    result_recorder         Pytest fixture recording the test result.
   @return   exit_code               Indicates test success or failure.
   """
+  browser = None
   try:
     print("Test that a new sensor can be created without assigning it to a scene")
     browser = Browser()

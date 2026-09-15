@@ -15,7 +15,7 @@ from pipeline_runner import PipelineRunner
 
 
 @pytest.mark.test_name("NEX-T29223")
-def test_collect_raises_without_stopping_condition(tmp_path, sample_data, result_recorder):
+def test_collect_raises_without_stopping_condition(tmp_path, result_recorder):
   """collect() must raise ValueError when called with neither timeout nor min_detections.
 
   Negative test: calling collect() without any stopping condition is a

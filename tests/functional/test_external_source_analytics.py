@@ -78,8 +78,8 @@ LEFT = -1
 
 
 class ExternalSourceAnalytics(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute, repo_root):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request, repo_root):
+    super().__init__(testName, request, None)
     self.repoRoot = repo_root
     self.exitCode = 1
     self.sceneUID = self.params['scene_id']
@@ -330,8 +330,6 @@ class ExternalSourceAnalytics(FunctionalTest):
     return
 
   def verifyFunction(self):
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
     try:
       self.prepareGeoScene()
       self.setupRoi()

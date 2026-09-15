@@ -63,8 +63,8 @@ IDENTITY_ROTATION = [0, 0, 0, 1]
 
 
 class ExternalSourceIngest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute, repo_root):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request, repo_root):
+    super().__init__(testName, request, None)
     self.repoRoot = repo_root
 
     self.exitCode = 1
@@ -373,9 +373,6 @@ class ExternalSourceIngest(FunctionalTest):
       f"Non-colliding id missing from scene output after {MAX_WAIT_TIMEOUT_S}s: {ids}")
 
   def verifyFunction(self):
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
-
     self.prepareScene()
     self.verifyWgs84PoseIngestAndLocationAccuracy()
     self.verifyPoseReuseFromCache()

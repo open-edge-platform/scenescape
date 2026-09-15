@@ -252,12 +252,16 @@ def test_reid_no_metadata(scenescape_env, params, result_recorder):
   """
   log.info("Executing: NEX-T29240")
 
-  rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
-
+  pubsub = None
   try:
+    rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
+
     log.info("=" * 80)
     log.info("SCENARIO 1: Testing with NO metadata")
     log.info("=" * 80)
+
+    reid_count_before = query_reid_count("person")
+    log.info(f"ReID backend vectors before no-metadata test: {reid_count_before}")
 
     # Create detection without metadata
     detections_no_metadata = [
@@ -278,17 +282,19 @@ def test_reid_no_metadata(scenescape_env, params, result_recorder):
     log.info(f"Published message to topic: {topic_str}")
     time.sleep(1)
 
-    # Verify NO reid data stored
-    reid_count = query_reid_count("person")
-    assert reid_count == 0, f"Expected 0 reid vectors, found {reid_count}"
-    log.info("✓ ReID backend verification passed: No reid vectors stored")
+    # Verify NO NEW reid data stored
+    reid_count_after = query_reid_count("person")
+    assert reid_count_after == reid_count_before, \
+           f"Expected no new reid vectors (before={reid_count_before}, after={reid_count_after})"
+    log.info("✓ ReID backend verification passed: No new reid vectors stored")
 
     log.info("✓ Test passed: No metadata flow validated")
     result_recorder.success()
 
   finally:
-    pubsub.loopStop()
-    pubsub.disconnect()
+    if pubsub is not None:
+      pubsub.loopStop()
+      pubsub.disconnect()
 
 
 @pytest.mark.test_name("NEX-T29239")
@@ -303,9 +309,10 @@ def test_reid_only_metadata(scenescape_env, params, result_recorder):
   """
   log.info("Executing: NEX-T29239")
 
-  rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
-
+  pubsub = None
   try:
+    rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
+
     log.info("=" * 80)
     log.info("SCENARIO 2: Testing with REID ONLY metadata")
     log.info("=" * 80)
@@ -356,8 +363,9 @@ def test_reid_only_metadata(scenescape_env, params, result_recorder):
     result_recorder.success()
 
   finally:
-    pubsub.loopStop()
-    pubsub.disconnect()
+    if pubsub is not None:
+      pubsub.loopStop()
+      pubsub.disconnect()
 
 
 @pytest.mark.test_name("NEX-T29238")
@@ -372,9 +380,10 @@ def test_reid_semantic_only_metadata(scenescape_env, params, result_recorder):
   """
   log.info("Executing: NEX-T29238")
 
-  rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
-
+  pubsub = None
   try:
+    rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
+
     log.info("=" * 80)
     log.info("SCENARIO 3: Testing with SEMANTIC ONLY metadata")
     log.info("=" * 80)
@@ -426,8 +435,9 @@ def test_reid_semantic_only_metadata(scenescape_env, params, result_recorder):
     result_recorder.success()
 
   finally:
-    pubsub.loopStop()
-    pubsub.disconnect()
+    if pubsub is not None:
+      pubsub.loopStop()
+      pubsub.disconnect()
 
 
 @pytest.mark.test_name("NEX-T19883")
@@ -445,9 +455,10 @@ def test_reid_combined_metadata(scenescape_env, params, result_recorder):
   """
   log.info("Executing: NEX-T19883")
 
-  rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
-
+  pubsub = None
   try:
+    rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
+
     log.info("=" * 80)
     log.info("SCENARIO 4: Testing with REID + SEMANTIC metadata")
     log.info("=" * 80)
@@ -506,5 +517,6 @@ def test_reid_combined_metadata(scenescape_env, params, result_recorder):
     result_recorder.success()
 
   finally:
-    pubsub.loopStop()
-    pubsub.disconnect()
+    if pubsub is not None:
+      pubsub.loopStop()
+      pubsub.disconnect()
