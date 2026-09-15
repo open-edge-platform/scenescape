@@ -2,36 +2,85 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[CI/CD] Update All Pull Requests"
-run-name: "[CI/CD] Update All Pull Requests"
+name: "[CI/CD] Auto-Update Pull Requests"
+run-name: "[CI/CD] Auto-Update PRs based on ${{ github.ref_name }}"
 
 on: # yamllint disable-line rule:truthy
-  push:
-    branches:
-      - main
-      - release-*
-  workflow_dispatch: {}
+  workflow_call:
+    secrets:
+      GH_PAT:
+        required: true
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Hardcoded prefix so this group is stable when called via workflow_call
+  # (github.workflow evaluates to the caller's workflow name in reusable workflows).
+  group: auto-update-${{ github.ref }}
   cancel-in-progress: true
 
 permissions: {}
 
 jobs:
   update-pull-requests:
+    name: "Update pull requests targeting this branch"
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
-    runs-on: ubuntu-latest
 
     steps:
-      - name: "Checkout repository"
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
+      - name: "Find and update pull requests"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          BASE_BRANCH: ${{ github.ref_name }}
+        run: |
+          echo "Searching for open, ready-for-review PRs targeting '${BASE_BRANCH}' with auto-merge enabled"
 
-      - name: "Update pull requests"
-        uses: open-edge-platform/orch-ci/.github/actions/pr_updater@af6d3ab68ed04ec1b3111392ec0844e8e1ac83a5
-        with:
-          github_token: ${{ secrets.GH_PAT }}
+          # Scope strictly to PRs whose base is the branch that triggered this run,
+          # so a push to one branch never force-updates PRs targeting another branch.
+          # Drafts can't have auto-merge enabled, so exclude them up front.
+          if ! pr_list_output=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --base "$BASE_BRANCH" \
+            --state open \
+            --draft=false \
+            --json number,author,autoMergeRequest,headRefName,title \
+            --jq '.[] | select(.author.login != "dependabot[bot]") |
+                select(.autoMergeRequest != null) |
+                @json'); then
+            echo "::error title=gh pr list failed::Check API access and token permissions."
+            exit 1
+          fi
+
+          mapfile -t prs <<< "$pr_list_output"
+          # When output is empty, mapfile produces one empty element — normalize it.
+          if [[ ${#prs[@]} -eq 1 && -z "${prs[0]}" ]]; then
+            prs=()
+          fi
+
+          if [[ ${#prs[@]} -eq 0 ]]; then
+            echo "No open PRs with auto-merge enabled targeting '${BASE_BRANCH}' — nothing to do."
+            exit 0
+          fi
+
+          echo "Found ${#prs[@]} candidate PR(s)."
+
+          failed=0
+          for pr_json in "${prs[@]}"; do
+            pr_number=$(echo "$pr_json" | jq -r '.number')
+            head_ref=$(echo  "$pr_json" | jq -r '.headRefName')
+            title=$(echo     "$pr_json" | jq -r '.title')
+
+            echo "→ PR #${pr_number}: '${title}' (head: ${head_ref})"
+
+            if gh pr update-branch "$pr_number" --repo "$GITHUB_REPOSITORY"; then
+              echo "  ✓ PR #${pr_number} updated successfully."
+            else
+              echo "::warning title=PR update failed::PR #${pr_number} ('${title}') could not be updated — it may already be up to date or have a merge conflict."
+              failed=$((failed + 1))
+            fi
+          done
+
+          echo "Done. Failed: ${failed}."
+          if [[ $failed -gt 0 ]]; then
+            echo "::warning title=Auto-update PRs::${failed} PR(s) could not be updated — review the annotations above."
+          fi

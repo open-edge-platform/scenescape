@@ -310,6 +310,17 @@ class CamUpdateView(SuperUserCheck, UpdateView):
   fields = ['sensor_id', 'name', 'scene']
   template_name = "cam/cam_update.html"
 
+  def form_valid(self, form):
+    """Reset camera pose when reassigned to a different scene."""
+    # Check if the scene has changed
+    if self.object.scene != form.cleaned_data.get('scene'):
+      # Clear pose-related fields when scene is reassigned
+      form.instance.transforms = []
+      form.instance.scene_x = None
+      form.instance.scene_y = None
+      form.instance.scene_z = None
+    return super().form_valid(form)
+
   def get_success_url(self):
     if self.object.scene is not None:
       scene_id = self.object.scene.id
@@ -588,8 +599,9 @@ def sign_in(request):
         Token.objects.get_or_create(user=user)
         login(request, user)
 
+        allowed = set(settings.ALLOWED_HOSTS)
         if value_next:
-          if url_has_allowed_host_and_scheme(url=value_next, allowed_hosts={request.get_host()}):
+          if url_has_allowed_host_and_scheme(url=value_next, allowed_hosts=allowed):
             return redirect(value_next)
           else:
             return redirect('index')
@@ -654,8 +666,8 @@ def cameraCalibrate(request, sensor_id):
             'generated_pipeline_url': generated_pipeline_url
           })
 
-      cam_inst.save()
-      return redirect(sceneDetail, scene_id=cam_inst.scene_id)
+      instance = form.save()
+      return redirect(sceneDetail, scene_id=instance.scene_id)
     else:
       log.warning('Form not valid!')
   else:
@@ -823,6 +835,13 @@ def getAllChildrenMetaData(scene_id):
         tripwire = dict(tripwire)
         tripwire['from_child_scene'] = current_child_name
         child_trips.append(applyChildTransform(tripwire, c.cameraPose))
+      for sensor in (c.cached_sensors or []):
+        sensor = dict(sensor)
+        sensor['from_child_scene'] = current_child_name
+        if sensor.get('area') in [CIRCLE, POLY]:
+          child_sensors.append(applyChildTransform(sensor, c.cameraPose))
+        else:
+          child_sensors.append(sensor)
 
   return json.dumps(child_rois), json.dumps(child_trips), json.dumps(child_sensors)
 
@@ -950,6 +969,9 @@ def generate_mesh_status(request, pk):
         scene.save(update_fields=["mesh_state"])
 
     status_data["finalized"] = True
+    # Include any warnings from finalization (e.g., unanchored cameras)
+    if finalize_result.get("unanchored_cameras"):
+      status_data["unanchored_cameras"] = finalize_result["unanchored_cameras"]
     return JsonResponse(status_data, status=200)
 
   except Exception as e:

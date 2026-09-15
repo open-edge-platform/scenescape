@@ -6,7 +6,7 @@ This guide provides step-by-step instructions to integrate and use environmental
 - Learn how to configure and publish sensor data to Scenescape.
 - Verify that sensor data is properly associated with tracked scene objects.
 
-This task is important for enhancing your scene graph with real-world sensor data, enabling deeper insights from environmental context and object-specific attributes. If you're new to Scene Graphs or Scenescape, see [Integrating Cameras and Sensors](../integrate-cameras-and-sensors.md).
+This task is important for enhancing your scene graph with real-world sensor data, enabling deeper insights from environmental context and object-specific attributes. If you are new to Scene Graphs or Scenescape, see [Integrating Cameras and Sensors](../integrate-cameras-and-sensors.md).
 
 ---
 
@@ -16,7 +16,7 @@ Before you begin, ensure the following:
 
 - **Access and Permissions**: When using Scenescape secure broker for publishing sensor data, refer to [user access controls](https://github.com/open-edge-platform/scenescape/blob/main/manager/config/user_access_config.json) and [access levels](https://github.com/open-edge-platform/scenescape/blob/main/scene_common/src/scene_common/options.py).
 
-If you're new to these concepts, see:
+If you are new to these concepts, see:
 
 - [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
 - [MQTT Intro](https://mqtt.org/getting-started/)
@@ -49,7 +49,7 @@ If you're new to these concepts, see:
 1. Click on `Sensors` at the bottom of the scene.
 2. You will see the created sensor. Then click on the `manage` button.
 3. In the Manage Sensor view, you can update attributes like Measurement area (Entire Scene, Circle or Custom region), Name, Sensor id, Scene, Singleton type, Color Range, etc. For more details on how to use the Color Range, refer to [Visualizing ROI and Sensor Areas](./visualize-regions.md).
-4. Cick on `Save Sensor `to persist the modified sensor.
+4. Cick on `Save Sensor`to persist the modified sensor.
 
 In the 3D scene view, expand `Sensors Settings` and toggle `show` for the
 sensor. The visibility setting is saved immediately and restored after a page
@@ -128,14 +128,15 @@ curl -sk -X POST https://<manager-host>/api/v1/sensor \
 
 For the full field reference (all accepted fields, `area`/`singleton_type` enum values), see the
 canonical OpenAPI spec: [API Reference](../../api-reference.md) (source:
-`docs/user-guide/api-docs/api.yaml`, `Singleton` schema). The API reference doesn't capture these
+`docs/user-guide/api-docs/api.yaml`, `Singleton` schema). The API reference does not capture these
 validation rules, which only live in server-side logic:
 
 - `center`+`radius` are required when `area` is `circle`; `points` is required when `area` is
   `poly`.
-- If `sensor_id` isn't supplied on create, it defaults to `name` with spaces replaced by
+- If `sensor_id` is not supplied on create, it defaults to `name` with spaces replaced by
   underscores.
 - `color_ranges.sectors[].color` must be one of `green`, `yellow`, or `red`:
+
   ```json
   {
     "color_ranges": {
