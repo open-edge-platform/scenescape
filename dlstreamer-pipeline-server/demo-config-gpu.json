@@ -118,6 +118,63 @@
             "detection_labels": "person"
           }
         }
+      },
+      {
+        "name": "qcam3",
+        "source": "gstreamer",
+        "pipeline": "v4l2src device=/dev/video0 name=source ! decodebin3 ! vapostproc ! video/x-raw(memory:VAMemory) ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/ultralytics/public/yolo11s/FP16/yolo11s.xml device=GPU pre-process-backend=va-surface-sharing ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "ntp_server": {
+              "element": {
+                "name": "timesync",
+                "property": "ntp-server"
+              },
+              "type": "string"
+            },
+            "cameraid": {
+              "element": {
+                "name": "datapublisher",
+                "property": "cameraid"
+              },
+              "type": "string"
+            },
+            "metadatagenpolicy": {
+              "element": {
+                "name": "datapublisher",
+                "property": "metadatagenpolicy"
+              },
+              "type": "string",
+              "description": "One of detectionPolicy (default), detection3DPolicy, reidPolicy, classificationPolicy, ocrPolicy"
+            },
+            "publish_image": {
+              "element": {
+                "name": "datapublisher",
+                "property": "publish-image"
+              },
+              "type": "boolean",
+              "description": "Publish annotated JPEG to scenescape/image/camera/<cameraid> each frame"
+            },
+            "detection_labels": {
+              "element": {
+                "name": "datapublisher",
+                "property": "detection-labels"
+              },
+              "type": "string",
+              "description": "Comma-separated allow-list of detection categories (e.g. \"person,car\"). Empty publishes all."
+            }
+          }
+        },
+        "payload": {
+          "parameters": {
+            "ntp_server": "ntpserv",
+            "cameraid": "atag-qcam3",
+            "metadatagenpolicy": "detectionPolicy",
+            "detection_labels": "person"
+          }
+        }
       }
     ]
   }

@@ -279,10 +279,12 @@ services:
     entrypoint: ["./run.sh"]
     ports:
       - "8081:8080"
-    # Demo uses GPU acceleration for YOLO11m INT8 inference
+    # Demo uses GPU acceleration
     devices:
       - "/dev/dri:/dev/dri"
+      - "/dev/video0:/dev/video0"
     group_add:
+      - "44"
       - "109"
       - "110"
       - "992"
