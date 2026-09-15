@@ -45,7 +45,7 @@ TEST_CUSTOM_WAIT = 1
 TEST_SINGLE_ATTEMPT = 1
 
 
-
+@pytest.mark.test_name("NEX-T29291")
 class TestRetryLogic:
   """Test cases for retry_with_exponential_backoff function"""
 
