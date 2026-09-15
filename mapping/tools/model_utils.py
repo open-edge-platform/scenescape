@@ -22,6 +22,11 @@ MODEL_DIR = os.getenv("MODEL_DIR", "/workspace/model_weights")
 DEFAULT_MAX_RETRY_ATTEMPTS = 3
 DEFAULT_RETRY_INITIAL_WAIT_SECONDS = 2
 
+# Exceptions treated as transient and worth retrying. KeyError is included because
+# torch.hub's rate-limit handler raises KeyError('Authorization') instead of the
+# underlying HTTP 403 when no GitHub token is configured (see repo memory notes).
+RETRYABLE_EXCEPTIONS = (OSError, KeyError, RuntimeError)
+
 def get_model_weights_dir() -> Path:
   """Get the model weights directory."""
   model_dir = Path(MODEL_DIR)
@@ -97,11 +102,14 @@ def retry_with_exponential_backoff(
     Result of the function if successful
 
   Raises:
-    ValueError: If max_attempts is less than 1
-    Exception: Re-raises the last exception if all attempts fail
+    ValueError: If max_attempts is less than 1 or initial_wait_seconds is negative
+    Exception: Re-raises the last exception if all retry attempts fail, or
+      immediately re-raises any non-retryable exception without retrying
   """
   if max_attempts < 1:
     raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
+  if initial_wait_seconds < 0:
+    raise ValueError(f"initial_wait_seconds must be >= 0, got {initial_wait_seconds}")
 
   last_exception = None
   wait_seconds = initial_wait_seconds
@@ -110,7 +118,7 @@ def retry_with_exponential_backoff(
     try:
       log.info(f"Attempt {attempt}/{max_attempts}...")
       return func()
-    except Exception as e:
+    except RETRYABLE_EXCEPTIONS as e:
       last_exception = e
       if attempt < max_attempts:
         log.warning(f"Attempt {attempt} failed: {e}. Retrying in {wait_seconds}s...")
