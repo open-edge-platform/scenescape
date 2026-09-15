@@ -31,7 +31,7 @@ def test_camera_status_main(params, record_xml_attribute):
     print("Test that cameras identify as offline until data is received")
     browser = Browser()
     assert common.check_page_login(browser, params)
-    assert common.check_db_status(browser)
+    assert common.check_db_status(browser, scene_name="Retail")
 
     print("Waiting for the cameras to send the data...")
     assert mqtt_wait_for_detections(params['broker_url'], params['broker_port'], params['rootcert'],

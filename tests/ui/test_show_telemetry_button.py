@@ -32,7 +32,7 @@ NO_FPS_STATUS = "--"
 class WillOurShipGo(UserInterfaceTest):
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
-    self.sceneName = self.params['scene']
+    self.sceneName = "Retail"
     self.sceneUID = self.params['scene_id']
 
     self.pubsub = PubSub(self.params['auth'], None, self.params['rootcert'],
