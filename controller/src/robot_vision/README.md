@@ -19,7 +19,7 @@ sudo apt install pybind11-dev libopencv-dev libeigen3-dev libpcl-dev libtbb-dev 
 # Installation
 
 ```bash
-pip install build
+python3 -m pip install build
 python3 -m build --wheel
 pip3 install dist/robot_vision-X.X.X-cpXX-cpXXm-linux_x86_64.whl
 ```
