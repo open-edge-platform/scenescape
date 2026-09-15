@@ -46,12 +46,12 @@ class CameraBoundVisibilityUnregulated(CameraBounds):
 
 
 @pytest.mark.parametrize("test_name", ["NEX-T19788"])
-def test_camera_bound_visibility(demo_scene,
+def test_camera_bound_visibility(
         params, pytestconfig, record_xml_attribute, test_name):
   record_xml_attribute("name", test_name)
 
   visibility_topic = pytestconfig.getoption("visibility_topic")
   test = CameraBoundVisibilityUnregulated()
-  exit_code = test.run(params, visibility_topic, test_name, scene_ids=[demo_scene])
+  exit_code = test.run(params, visibility_topic, test_name)
 
   assert exit_code == 0

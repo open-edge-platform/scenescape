@@ -14,11 +14,9 @@ log = get_logger(__name__)
 test_wait_time = 20  # seconds
 check_interval = 1   # seconds
 
-# The Demo scene is recreated per test by the demo_scene fixture and gets a
-# random UID, so its id has to be injected via run(scene_ids=...).  The entry
-# below is a scene from the seeded sample database that is never recreated.
-SEEDED_SCENE = "302cf49a-97ec-402d-a324-c5077b280b7b"
-scenes = [SEEDED_SCENE]
+RETAIL_SCENE = "3bc091c7-e449-46a0-9540-29c499bca18c"
+QUEUING_SCENE = "302cf49a-97ec-402d-a324-c5077b280b7b"
+scenes = [RETAIL_SCENE, QUEUING_SCENE]
 
 
 class CameraBounds:

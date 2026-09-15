@@ -1296,6 +1296,10 @@ def scene_factory(params):
 
   created_scenes = []
   created_cameras = []
+  borrowed_cameras = []
+
+  _BORROWED_FIELDS = ('scene', 'transform_type', 'transforms', 'resolution',
+                      'intrinsics')
 
   def _delete_by_name(getter, deleter, kind, name):
     """Remove pre-existing objects called *name* so creation cannot clash."""
@@ -1308,6 +1312,35 @@ def scene_factory(params):
     assert _wait_until_absent(getter, name), \
       f"scene_factory could not clear existing {kind} named '{name}'"
 
+  def _camera_payload(camera, scene_uid):
+    return {
+      'scene': scene_uid,
+      'transform_type': DEMO_CAMERA_TRANSFORM_TYPE,
+      'resolution': DEMO_CAMERA_RESOLUTION,
+      'intrinsics': DEMO_CAMERA_INTRINSICS,
+      'transforms': DEMO_CAMERA_TRANSFORMS_BY_NAME.get(
+        camera, DEMO_CAMERA_TRANSFORMS),
+    }
+
+  def _borrow_camera(watcher, camera, scene_uid):
+    """Re-point an existing camera at *scene_uid*, remembering its old owner."""
+
+    existing = _rest_results(rest.getCameras, {'name': camera})
+    if not existing:
+      return False
+
+    for obj in existing:
+      uid = obj['uid']
+      previous = {field: obj.get(field) for field in _BORROWED_FIELDS}
+      updated = _await_database(
+        watcher,
+        lambda uid=uid: rest.updateCamera(uid, _camera_payload(camera, scene_uid)),
+        f"borrowing camera '{camera}'")
+      assert updated, f"scene_factory failed borrowing camera '{camera}': " \
+        f"{updated.statusCode} {getattr(updated, 'errors', None)}"
+      borrowed_cameras.append((uid, camera, previous))
+    return True
+
   def _factory(name, cameras=(), map_image=None, replace=False, **fields):
     """Create a scene and return the created scene object.
 
@@ -1318,7 +1351,8 @@ def scene_factory(params):
     @param  name        Scene name.
     @param  cameras     Camera names to attach to the scene.
     @param  map_image   Repo-relative path of a map image to upload.
-    @param  replace     Delete pre-existing objects with the same names first.
+    @param  replace     Delete a pre-existing scene with the same name first.
+                        Cameras are never deleted, only borrowed.
     @param  fields      Extra fields forwarded to the scene create call.
     """
     payload = {'name': name}
@@ -1330,10 +1364,6 @@ def scene_factory(params):
 
     with _database_watcher(params) as watcher:
       if replace:
-        # Cameras first: a camera still attached to the old scene keeps the
-        # name reserved and would make the re-create fail.
-        for camera in cameras:
-          _delete_by_name(rest.getCameras, rest.deleteCamera, "camera", camera)
         _delete_by_name(rest.getScenes, rest.deleteScene, "scene", name)
 
       scene = _await_database(watcher, lambda: rest.createScene(payload),
@@ -1346,18 +1376,13 @@ def scene_factory(params):
         f"scene_factory: scene '{name}' ({scene['uid']}) never became readable"
 
       for camera in cameras:
+        if _borrow_camera(watcher, camera, scene['uid']):
+          continue
         created = _await_database(
           watcher,
-          lambda camera=camera: rest.createCamera({
-            'name': camera,
-            'sensor_id': camera,
-            'scene': scene['uid'],
-            'transform_type': DEMO_CAMERA_TRANSFORM_TYPE,
-            'resolution': DEMO_CAMERA_RESOLUTION,
-            'intrinsics': DEMO_CAMERA_INTRINSICS,
-            'transforms': DEMO_CAMERA_TRANSFORMS_BY_NAME.get(
-              camera, DEMO_CAMERA_TRANSFORMS),
-          }),
+          lambda camera=camera: rest.createCamera(dict(
+            _camera_payload(camera, scene['uid']),
+            name=camera, sensor_id=camera)),
           f"creating camera '{camera}'")
         assert created, f"scene_factory failed creating camera '{camera}': " \
           f"{created.statusCode} {getattr(created, 'errors', None)}"
@@ -1372,6 +1397,14 @@ def scene_factory(params):
 
   yield _factory
 
+  for uid, camera, previous in reversed(borrowed_cameras):
+    restore = {field: value for field, value in previous.items()
+               if value is not None or field == 'scene'}
+    try:
+      rest.updateCamera(uid, restore)
+    except Exception as exc:
+      logger.warning("scene_factory could not restore camera '%s' (%s): %s",
+                     camera, uid, exc)
   # Cameras first: deleting a scene cascades, but explicit removal keeps
   # camera names free even if the scene delete fails.
   for uid in reversed(created_cameras):
