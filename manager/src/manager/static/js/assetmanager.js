@@ -23,6 +23,7 @@ export default function AssetManager(
   let restclient = new RESTClient(REST_URL, authToken);
   let activeCamera = camera;
   let objectCache = {};
+  let assetProperties = {};
   let marks = {};
 
   const labelRenderer = createLabelRenderer(domElement);
@@ -142,20 +143,42 @@ export default function AssetManager(
         thisMark.quaternion.copy(qt);
       }
 
+      const asset = assetProperties[obj.category];
       let scale = new THREE.Vector3(1, 1, 1);
       let translate;
-      if (obj.asset_scale) {
-        scale.fromArray(Array(3).fill(obj.asset_scale));
+      if (asset && asset.model_3d) {
+        scale.setScalar(Number(asset.scale) || 1);
         translate = 0;
-      } else if (obj.size) {
-        scale.fromArray(obj.size);
+      } else if (asset) {
+        const dimension = (value) => {
+          const parsed = Number(value);
+          return Number.isFinite(parsed) ? parsed : 1;
+        };
+        scale.fromArray([
+          dimension(asset.x_size),
+          dimension(asset.y_size),
+          dimension(asset.z_size),
+        ]);
         translate = scale.z / 2;
+      } else {
+        translate = 0;
       }
       thisMark.translateZ(translate);
-      thisMark.scale.copy(scale);
       const model = thisMark.getObjectByName("model");
       const indicator = thisMark.getObjectByName("indicator");
       const labelObj = thisMark.getObjectByName("css2dLabel");
+      if (model) model.scale.copy(scale);
+      if (indicator && asset) {
+        const indicatorDimension = (value) => {
+          const parsed = Number(value);
+          return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+        };
+        indicator.scale.set(
+          indicatorDimension(asset.x_size),
+          indicatorDimension(asset.y_size),
+          1,
+        );
+      }
 
       if (model && indicator) {
         model.updateWorldMatrix(true, true);
@@ -164,7 +187,7 @@ export default function AssetManager(
           .clone()
           .applyMatrix4(thisMark.matrixWorld.clone().invert());
         const top = localBox.max.z;
-        indicator.position.z = top + 0.5;
+        indicator.position.z = top + 0.15;
 
         // Position label just above the indicator
         if (labelObj) {
@@ -213,6 +236,9 @@ export default function AssetManager(
         }
 
         let assets = response.content.results;
+        assetProperties = Object.fromEntries(
+          assets.map((asset) => [asset.name, asset]),
+        );
 
         // Determine how many assets have URLs
         let assetsToLoad = assets.filter((a) => a.model_3d).length;

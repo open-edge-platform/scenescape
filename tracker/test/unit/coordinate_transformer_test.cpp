@@ -402,6 +402,42 @@ TEST(TransformDetectionsTest, UsesFootNotCenter) {
         << "Different foot positions should produce different world Y";
 }
 
+TEST(TransformDetectionsTest, Type2PlanarUsesBboxCenterNotFoot) {
+    CameraIntrinsics intrinsics;
+    intrinsics.fx = intrinsics.fy = 500.0;
+    intrinsics.cx = 320.0;
+    intrinsics.cy = 240.0;
+
+    CameraExtrinsics extrinsics;
+    extrinsics.translation = {0.0, 0.0, 3.0};
+    extrinsics.rotation = {-90.0, 0.0, 0.0};
+    extrinsics.scale = {1.0, 1.0, 1.0};
+
+    CoordinateTransformer transformer(intrinsics, extrinsics);
+
+    ObjectClass planar;
+    planar.shift_type = ObjectClass::kShiftType2;
+    planar.x_size = 0.4;
+    planar.y_size = 0.4;
+    planar.z_size = 0.0;
+
+    std::vector<Detection> detections = {make_detection(270.0f, 140.0f, 100.0f, 200.0f)};
+    auto type1 = transformer.transformDetections(detections);
+    auto type2 = transformer.transformDetections(detections, planar);
+    ASSERT_EQ(type1.size(), 1u);
+    ASSERT_EQ(type2.size(), 1u);
+
+    EXPECT_NE(type1[0].y, type2[0].y)
+        << "TYPE_2 planar should not keep the TYPE_1 foot point under a nadir camera";
+
+    // Same bbox center, different height: TYPE_2 planar must land on the same point
+    std::vector<Detection> shorter = {make_detection(270.0f, 190.0f, 100.0f, 100.0f)};
+    auto type2_short = transformer.transformDetections(shorter, planar);
+    ASSERT_EQ(type2_short.size(), 1u);
+    EXPECT_NEAR(type2[0].x, type2_short[0].x, kWorldTolerance);
+    EXPECT_NEAR(type2[0].y, type2_short[0].y, kWorldTolerance);
+}
+
 TEST(TransformDetectionsTest, SizeInMetersNotPixels) {
     auto transformer = make_transformer(kCameraAtaqQcam1);
 

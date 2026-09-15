@@ -62,7 +62,7 @@ class TestBuildClassMap:
   def test_single_entry_full_fields(self):
     classes = [{"name": "person", "shift_type": 2, "x_size": 0.5, "y_size": 0.3}]
     result = _build_class_map(classes)
-    assert result == {"person": {"shift_type": 2, "x_size": 0.5, "y_size": 0.3}}
+    assert result == {"person": {"shift_type": 2, "x_size": 0.5, "y_size": 0.3, "z_size": 0.0}}
 
   def test_name_is_case_folded_to_lowercase(self):
     classes = [{"name": "PERSON"}]
@@ -76,6 +76,7 @@ class TestBuildClassMap:
     assert result["thing"]["shift_type"] == DEFAULT_SHIFT_TYPE
     assert result["thing"]["x_size"] == DEFAULT_X_SIZE
     assert result["thing"]["y_size"] == DEFAULT_Y_SIZE
+    assert result["thing"]["z_size"] == _rp.DEFAULT_Z_SIZE
 
   def test_entry_without_name_is_skipped(self):
     classes = [{"shift_type": 1, "x_size": 0.5, "y_size": 0.5}]

@@ -8,6 +8,7 @@
 #include <iostream>
 #include <memory>
 #include <thread>
+#include <unordered_map>
 
 #include "cli.hpp"
 #include "config_loader.hpp"
@@ -94,11 +95,13 @@ int main(int argc, char* argv[]) {
 
     // Load scenes using appropriate loader based on config
     std::vector<tracker::Scene> scenes;
+    std::unordered_map<std::string, tracker::ObjectClass> object_classes;
     try {
         auto scene_loader = tracker::create_scene_loader(
             config.scenes, cli_config.config_path.parent_path(), config.infrastructure.manager,
             cli_config.schema_path.parent_path());
         scenes = scene_loader->load();
+        object_classes = scene_loader->objectClasses();
     } catch (const std::exception& e) {
         LOG_ERROR("Failed to load scenes: {}", e.what());
         return 1;
@@ -150,7 +153,8 @@ int main(int argc, char* argv[]) {
 
     // Initialize time chunk scheduler with workers
     auto scheduler = std::make_unique<tracker::TimeChunkScheduler>(
-        chunk_buffer, scene_registry, config.tracking, publish_callback, clock_fn);
+        chunk_buffer, scene_registry, config.tracking, publish_callback, clock_fn,
+        std::move(object_classes));
 
     // Initialize message handler with buffer integration
     auto message_handler = std::make_unique<tracker::MessageHandler>(

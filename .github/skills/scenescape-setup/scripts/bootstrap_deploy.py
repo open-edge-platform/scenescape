@@ -31,6 +31,9 @@ def fetch_dlstreamer_assets(deploy_dir: Path) -> None:
   gstplugins = dl_dir / "user_scripts" / "gstplugins"
   required_plugins = (
     "sscape_post_decode_timestamp_capture.py",
+    "sscape_timestamp_fields.py",
+    "sscape_rtp_ntp.py",
+    "sscape_rtcp_ntp.py",
     "sscape_post_inference_data_publish.py",
     "sscape_policies.py",
     "sscape_3d_detector.py",

@@ -2718,7 +2718,7 @@ components:
       type: integer
       description: |-
         * `1` - Type 1 (default)
-        * `2` - Type 2 (may work better for wide and short objects)
+        * `2` - Type 2 (size and camera angle)
     Singleton:
       type: object
       properties:

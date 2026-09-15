@@ -12,6 +12,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -66,6 +67,22 @@ struct Camera {
 };
 
 /**
+ * @brief Per-category Object Library settings used when projecting detections.
+ *
+ * TYPE_1 (default): bbox bottom-centre plus a full in-plane size offset.
+ * TYPE_2: complementary weight from size and camera elevation; converges on
+ * bbox centre at nadir (or when z_size is ~0) with no stacked offset.
+ */
+struct ObjectClass {
+    static constexpr int kShiftType1 = 1;
+    static constexpr int kShiftType2 = 2;
+    int shift_type = kShiftType1;
+    double x_size = 0.0;
+    double y_size = 0.0;
+    double z_size = 0.0;
+};
+
+/**
  * @brief Scene configuration with assigned cameras.
  */
 struct Scene {
@@ -90,6 +107,16 @@ public:
      * @throws std::runtime_error if loading fails
      */
     virtual std::vector<Scene> load() = 0;
+
+    /**
+     * @brief Object Library entries keyed by detector category name.
+     *
+     * Empty unless the loader fetched assets (API source). Missing categories
+     * use TYPE_1 defaults.
+     */
+    [[nodiscard]] virtual std::unordered_map<std::string, ObjectClass> objectClasses() const {
+        return {};
+    }
 };
 
 /**
@@ -173,6 +200,9 @@ std::pair<std::string, std::string> read_auth_file(const std::string& path);
 /// Invalid scenes are logged with a warning and skipped.
 rapidjson::Document validate_scenes(const rapidjson::Document& scenes_doc,
                                     const std::filesystem::path& schema_path);
+
+/// Parse Manager GET /api/v1/assets JSON into a category → ObjectClass map.
+std::unordered_map<std::string, ObjectClass> parse_object_classes(const std::string& json);
 
 } // namespace detail
 

@@ -32,6 +32,7 @@ class TestProperties:
   def test_defaults(self, element):
     assert element.do_get_property(make_prop("ntp-server")) is None
     assert element.do_get_property(make_prop("use-frame-ntp-timestamp")) is False
+    assert element.do_get_property(make_prop("timestamp-source")) == "timestamp_post_decode"
     assert element.do_get_property(make_prop("fps-alpha")) == 0.75
     assert element.do_get_property(make_prop("fps-calc-interval")) == 1.0
 
@@ -47,6 +48,14 @@ class TestProperties:
   def test_set_and_get_use_frame_ntp_timestamp(self, element):
     element.do_set_property(make_prop("use-frame-ntp-timestamp"), True)
     assert element.do_get_property(make_prop("use-frame-ntp-timestamp")) is True
+    assert element.do_get_property(make_prop("timestamp-source")) == "timestamp_rtcp"
+
+  def test_timestamp_source_aliases_use_frame_ntp(self, element):
+    element.do_set_property(make_prop("timestamp-source"), "timestamp_rtcp")
+    assert element.do_get_property(make_prop("use-frame-ntp-timestamp")) is True
+    element.do_set_property(make_prop("timestamp-source"), "late")
+    assert element.do_get_property(make_prop("timestamp-source")) == "timestamp_post_decode"
+    assert element.do_get_property(make_prop("use-frame-ntp-timestamp")) is False
 
   def test_set_and_get_fps_alpha_coerces_to_float(self, element):
     element.do_set_property(make_prop("fps-alpha"), "0.5")
@@ -262,9 +271,12 @@ class TestAttachMetadataAndTransform:
     assert len(RecordingVideoFrame.instances) == 1
     import json
     payload = json.loads(RecordingVideoFrame.instances[0].messages[0])
-    assert set(payload.keys()) == {"postdecode_timestamp", "timestamp_for_next_block", "fps"}
     assert payload["timestamp_for_next_block"] == pytest.approx(1000.0)
-    assert payload["postdecode_timestamp"].endswith("Z")
+    assert payload["timestamp_post_decode"].endswith("Z")
+    assert payload["timestamp"] == payload["timestamp_post_decode"]
+    assert payload["timestamp_src"] == "timestamp_post_decode"
+    assert payload["timestamp_rtcp"] is None
+    assert payload["postdecode_timestamp"] == payload["timestamp_post_decode"]
 
   def test_do_transform_ip_never_raises_and_still_returns_ok(self, element, monkeypatch):
     monkeypatch.setattr(element, "_attach_metadata", MagicMock(side_effect=RuntimeError("boom")))
@@ -277,7 +289,7 @@ class TestAttachMetadataAndTransform:
   def test_use_frame_ntp_timestamp_overrides_system_clock(self, element, monkeypatch):
     import ntplib
     monkeypatch.setattr(tsmod.time, "time", lambda: 1000.0)
-    element._use_frame_ntp = True
+    element.do_set_property(make_prop("use-frame-ntp-timestamp"), True)
     buffer = MagicMock()
     ntp_seconds = ntplib.system_to_ntp_time(1700000000)
     buffer.get_reference_timestamp_meta.return_value = SimpleNamespace(
@@ -289,5 +301,22 @@ class TestAttachMetadataAndTransform:
     import json
     payload = json.loads(RecordingVideoFrame.instances[0].messages[0])
     from datetime import datetime
-    dt = datetime.strptime(payload["postdecode_timestamp"], "%Y-%m-%dT%H:%M:%S.%fZ")
-    assert dt.year == 2023  # 1700000000 (unix) corresponds to Nov 2023
+    selected = datetime.strptime(payload["timestamp"], "%Y-%m-%dT%H:%M:%S.%fZ")
+    post = datetime.strptime(payload["timestamp_post_decode"], "%Y-%m-%dT%H:%M:%S.%fZ")
+    assert selected.year == 2023  # 1700000000 (unix) corresponds to Nov 2023
+    assert post.year == 1970  # host clock at unix 1000
+    assert payload["timestamp_src"] == "timestamp_rtcp"
+    assert payload["timestamp_rtcp"] == payload["timestamp"]
+    assert payload["postdecode_timestamp"] == payload["timestamp_post_decode"]
+
+  def test_rtcp_missing_falls_back_and_tags_post_decode(self, element, monkeypatch):
+    monkeypatch.setattr(tsmod.time, "time", lambda: 1000.0)
+    element.do_set_property(make_prop("timestamp-source"), "timestamp_rtcp")
+    buffer = MagicMock()
+    buffer.get_reference_timestamp_meta.return_value = None
+    element.do_transform_ip(buffer)
+    import json
+    payload = json.loads(RecordingVideoFrame.instances[0].messages[0])
+    assert payload["timestamp_src"] == "timestamp_post_decode"
+    assert payload["timestamp"] == payload["timestamp_post_decode"]
+    assert payload["timestamp_rtcp"] is None

@@ -56,11 +56,13 @@ public:
      * @param publish_callback Callback to publish tracking results
      * @param tracking_config Configuration for RobotVision tracker
      * @param cameras Map of camera_id to CameraConfig for coordinate transform
+     * @param clock_fn Clock used for tracker timestamps
+     * @param object_class Object Library settings for this worker's category
      */
     TrackingWorker(TrackingScope scope, std::string scene_name, int queue_capacity,
                    PublishCallback publish_callback, const TrackingConfig& tracking_config,
                    const std::unordered_map<std::string, Camera>& cameras,
-                   ClockFn clock_fn = makeSystemClock());
+                   ClockFn clock_fn = makeSystemClock(), ObjectClass object_class = {});
 
     /// Destructor joins worker thread
     ~TrackingWorker();
@@ -168,6 +170,7 @@ private:
 
     // Camera coordinate transformers (camera_id -> transformer with intrinsics + extrinsics)
     std::unordered_map<std::string, CoordinateTransformer> transformers_;
+    ObjectClass object_class_;
 
     // RobotVision int ID -> UUID v4 string mapping (single-thread access, no mutex)
     std::unordered_map<int32_t, std::string> id_map_;
