@@ -58,7 +58,7 @@ Required:
   tracker_config_path (str): path to tracker-config.json mounted into the
                              tracker container at the expected location.
   container_type  (str):   ``'controller'`` or ``'tracker'``.
-  broker_image    (str):   mosquitto Docker image (e.g. "eclipse-mosquitto:2.0.22").
+  broker_image    (str):   mosquitto Docker image (e.g. "eclipse-mosquitto:2.1-alpine").
 Optional:
   scene_id        (str):   scene uid used to build the output topic;
                            defaults to config['uid'] from set_scene_config().
