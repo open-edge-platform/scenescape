@@ -55,7 +55,7 @@ For details on the analytics input and output message formats, see [Analytics Me
 
 ### **Deep Learning Streamer Pipeline Server**
 
-Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python-based, interoperable containerized microservice for easy development and deployment of video analytics pipelines. For more information, refer to [Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.2.0/microservices/dlstreamer-pipeline-server/docs/user-guide).
+Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python-based, interoperable containerized microservice for easy development and deployment of video analytics pipelines. For more information, refer to [Deep Learning Streamer Pipeline Server](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/dlstreamer-pipeline-server/index.html).
 
 ### **Auto Camera Calibration**
 
