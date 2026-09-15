@@ -143,6 +143,19 @@ _COLLECTOR_CONFIG       = _CONTAINER_WORKSPACE + "/collector.yaml"
 _COLLECTOR_OUTPUT_DIR   = "/output"
 _COLLECTOR_OUTPUT_FILE  = "metrics.json"
 
+# Docker auto-injects host proxy settings (e.g. from ~/.docker/config.json) into every
+# container unless already set. The Paho MQTT library and the OTLP gRPC exporter both try
+# to route Docker-network-internal connections through that proxy, which fails to reach
+# ephemeral per-run container names. Explicitly blanking these vars overrides Docker's
+# injection; the tracker/controller then clear the (now-empty) vars before use, matching
+# the workaround already applied in tracker/Makefile and the production compose files.
+_PROXY_OVERRIDE_ENVS: Dict[str, str] = {
+    "http_proxy": "",
+    "https_proxy": "",
+    "HTTP_PROXY": "",
+    "HTTPS_PROXY": "",
+}
+
 def _build_tracker_service_config(
     broker_name: str,
     manager_name: str,
@@ -719,13 +732,13 @@ class BlackBoxHarness(TrackerHarness):
     manager_url = f"http://{manager_name}:{manager_port}/api/v1"
     rest_auth   = f"{_MOCK_MANAGER_USER}:{_MOCK_MANAGER_PASSWORD}"
 
-    envs: Dict[str, str] = {}
+    envs: Dict[str, str] = dict(_PROXY_OVERRIDE_ENVS)
     if collector_name:
-      envs = {
+      envs.update({
           "CONTROLLER_ENABLE_METRICS": "true",
           "CONTROLLER_METRICS_ENDPOINT": f"{collector_name}:{self._metrics_otlp_port}",
           "CONTROLLER_METRICS_EXPORT_INTERVAL_S": str(self._metrics_export_interval_s),
-      }
+      })
 
     return docker.run(
         self._container_image,
@@ -795,6 +808,7 @@ class BlackBoxHarness(TrackerHarness):
         name=tracker_name,
         networks=[net_name],
         add_hosts=[(manager_name, host_gateway)],
+        envs=dict(_PROXY_OVERRIDE_ENVS),
         volumes=[
             (str(svc_config_file), _TRACKER_SVC_CONFIG, "ro"),
             (str(auth_file),       _TRACKER_SVC_AUTH,   "ro"),
