@@ -17,6 +17,8 @@ import os
 import time
 from http import HTTPStatus
 
+import pytest
+
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
@@ -76,8 +78,8 @@ LEFT = -1
 
 
 class ExternalSourceAnalytics(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute, repo_root):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request, repo_root):
+    super().__init__(testName, request, None)
     self.repoRoot = repo_root
     self.exitCode = 1
     self.sceneUID = self.params['scene_id']
@@ -328,8 +330,6 @@ class ExternalSourceAnalytics(FunctionalTest):
     return
 
   def verifyFunction(self):
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
     try:
       self.prepareGeoScene()
       self.setupRoi()
@@ -339,16 +339,16 @@ class ExternalSourceAnalytics(FunctionalTest):
       self.exitCode = 0
     finally:
       self.cleanup()
-      self.recordTestResult()
     return
 
 
+@pytest.mark.test_name("NEX-T29228")
 def test_external_source_analytics(
-    scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
+    scenescape_env, demo_scene, request, repo_root, result_recorder):
   test = ExternalSourceAnalytics(
-    TEST_NAME, request, record_xml_attribute, repo_root)
+    TEST_NAME, request, repo_root)
   test.verifyFunction()
-  assert test.exitCode == 0
+  result_recorder.success()
   return
 
 
