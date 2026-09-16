@@ -62,7 +62,7 @@ services:
     volumes:
       - ./:/workspace
       - vol-media:/home/scenescape/Scenescape/media
-      - vol-sample-data:/workspace/media
+      - vol-videos:/workspace/media
       - vol-datasets:/home/scenescape/Scenescape/datasets
       - vol-netvlad_models:/usr/local/lib/python3.11/site-packages/third_party/netvlad
     secrets:

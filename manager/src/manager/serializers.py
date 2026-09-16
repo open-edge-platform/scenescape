@@ -488,7 +488,8 @@ class CamSerializer(NonNullSerializer):
     return camera.pose.scale if camera and hasattr(camera, 'pose') else None
 
   def validate(self, data):
-    if 'name' not in data:
+    is_relink_only = self.partial and set(self.initial_data.keys()) <= {'scene'}
+    if not is_relink_only and 'name' not in data:
       raise serializers.ValidationError({'name': ['This field is required.']})
     _validate_scene_exists(data)
     if data.get('use_camera_pipeline') and not data.get('camera_pipeline'):
@@ -1004,7 +1005,7 @@ class ChildSceneSerializer(NonNullSerializer):
     is_update = instance is not None
     parent_scene = validated_data.get('parent')
 
-    cache_fields = {'cached_tripwires', 'cached_rois'}
+    cache_fields = {'cached_tripwires', 'cached_rois', 'cached_sensors'}
     if is_update and set(validated_data.keys()).issubset(cache_fields):
       update_values = {k: validated_data[k] for k in validated_data.keys()}
       ChildScene.objects.filter(pk=instance.pk).update(**update_values)
@@ -1048,7 +1049,7 @@ class ChildSceneSerializer(NonNullSerializer):
     fields = ['uid', 'child_type', 'transform', 'name', 'remote_child_id', \
           'child', 'parent', 'host_name', 'child_name', \
           'mqtt_username', 'mqtt_password', 'retrack', 'transform_type', \
-          'cached_rois', 'cached_tripwires', \
+          'cached_rois', 'cached_tripwires', 'cached_sensors', \
           'transform1', 'transform2', 'transform3', 'transform4', \
           'transform5', 'transform6', 'transform7', 'transform8', \
           'transform9', 'transform10', 'transform11', 'transform12', \

@@ -5,15 +5,8 @@
 name: "[CI] Tracker Service"
 run-name: "[CI] Tracker Service"
 
-on: # yamllint disable-line rule:truthy
-  pull_request:
-    branches:
-      - main
-      - release-*
-      - tracker-service-*
-  push:
-    branches:
-      - main
+on:
+  workflow_call: {}
   workflow_dispatch: {}
 
 concurrency:
@@ -45,7 +38,7 @@ jobs:
           filters: |
             tracker:
               - 'tracker/**'
-              - '.github/workflows/tracker-service.yaml'
+              - '.github/workflows/tracker-service.yml'
 
   lint-cpp-code:
     name: "Lint C++ code"

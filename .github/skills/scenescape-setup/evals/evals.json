@@ -4,7 +4,7 @@
     {
       "id": 1,
       "prompt_file": "example-prompts/01-multi-camera-deployment.md",
-      "prompt": "Deploy SceneScape in ~/deployments/retail-demo with scene name 'Retail Demo'. I don't have live RTSP cameras \u2014 use these two recorded videos as the camera feeds instead: cam1 -> https://github.com/open-edge-platform/scenescape/blob/main/sample_data/qcam1.mp4, cam2 -> https://github.com/open-edge-platform/scenescape/blob/main/sample_data/qcam2.mp4",
+      "prompt": "Deploy SceneScape in ~/deployments/retail-demo with scene name 'Retail Demo'. I don't have live RTSP cameras \u2014 use these two recorded videos as the camera feeds instead: cam1 -> https://github.com/open-edge-platform/scenescape/blob/main/sample_data/videos/qcam1.mp4, cam2 -> https://github.com/open-edge-platform/scenescape/blob/main/sample_data/videos/qcam2.mp4",
       "expected_output": "Without asking clarifying questions, the agent produces a complete, correctly-ordered deployment procedure (bootstrap, calibrate, scene phases) that: converts the GitHub blob links to raw download URLs, feeds the videos in as local video-file camera inputs rather than RTSP, validates the camera IDs, launches the orchestrator asynchronously, and describes the DEPLOY COMPLETE / cross-camera tracking / deployment-metrics success criteria the run must satisfy. Note: the harness instructs the agent not to perform real network calls, downloads, or start real services for this eval, so the expectations below check the correctness and completeness of the produced plan/commands rather than requiring the agent to have actually executed them.",
       "should_trigger": true,
       "files": [],

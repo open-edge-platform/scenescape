@@ -70,7 +70,7 @@ Check `datasets/README.md` for more details
     - `tracker` (`intel/scenescape-tracker`): Connects to mock Manager via `scenes.source: api` in config.json; camera extrinsics (translation, XYZ Euler degrees, scale) are served by the mock Manager. Auth file written as `{"user": "harness", "password": "harness"}` (required by `api_scene_loader.cpp`). Time-chunking always active via `time_chunking_rate_fps`.
   - `set_custom_config()` accepts:
     - `tracker_config_path` (**required**): path to the tracker config JSON mounted into the container.
-    - `broker_image` (**required**): Docker image for the MQTT broker (e.g. `"eclipse-mosquitto:2.0.22"`).
+    - `broker_image` (**required**): Docker image for the MQTT broker (e.g. `"eclipse-mosquitto:2.1-alpine"`).
     - `container_type` (**required**): `'controller'` or `'tracker'`.
     - `drain_timeout` (default `5.0`): seconds to wait for final tracker outputs after the last frame.
     - `startup_wait_s` (default `2.0`): seconds to wait after container starts before publishing frames.
