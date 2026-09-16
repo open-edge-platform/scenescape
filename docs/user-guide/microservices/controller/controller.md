@@ -1,3 +1,5 @@
+# Scene Controller Service
+
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/release-2026.2.0/controller">
@@ -8,8 +10,6 @@
   </a>
 </div>
 hide_directive-->
-
-# Scene Controller Service
 
 Scene Controller Microservice fuses multimodal sensor data to enable spatial analytics at the
 edge for multiple use cases.
@@ -133,7 +133,7 @@ _Figure 2: Scene Controller Sequence diagram_
 
 - [Get Started Guide](./get-started.md)
 - [How to Configure the Tracker](./how-to-configure-tracker.md)
-- [Extended Re-ID](./Extended-ReID.md)
+- [2-Tier Hybrid Search Implementation](./Extended-ReID.md)
 - [Data Formats](./data_formats.md)
 - [Publish Observations from an External Source Adapter](../../how-to-guides/publish-external-source-adapter.md)
 - [API Reference](./api-reference.md)
@@ -144,12 +144,12 @@ _Figure 2: Scene Controller Sequence diagram_
 :::{toctree}
 :hidden:
 
-get-started.md
-how-to-configure-tracker.md
+Get Started <./get-started.md>
+Configure the Tracker <./how-to-configure-tracker.md>
 Extended-ReID.md
-API Reference <api-reference.md>
-data_formats.md
-pose_adjustment.md
+Pose Adjustment <./pose_adjustment.md>
+Data Formats <./data_formats.md>
+API Reference <./api-reference.md>
 
 :::
 hide_directive-->

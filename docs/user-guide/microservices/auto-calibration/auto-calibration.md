@@ -1,3 +1,5 @@
+# Auto Camera Calibration Service
+
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/release-2026.2.0/autocalibration">
@@ -8,8 +10,6 @@
   </a>
 </div>
 hide_directive-->
-
-# Auto Camera Calibration Service
 
 Auto camera calibration service computes camera parameters automatically instead of
 complicated manual calibration methods.
@@ -96,8 +96,8 @@ _Figure 2: Auto Calibration Sequence diagram_
 :hidden:
 
 get-started
-api-reference
-markerless-camera-calibration
+Markerless Camera Calibration <./markerless-camera-calibration.md>
+API Reference <./api-reference.md>
 
 :::
 hide_directive-->
