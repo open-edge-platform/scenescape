@@ -302,12 +302,14 @@ class MovingObject:
     #     otherObj.sceneLoc, self.sceneLoc)
     self.location = [self.location[0]] + otherObj.location[:LOCATION_LIMIT - 1]
 
-    persistent_attributes = self.chain_data.persist if self.chain_data else {}
-    for attr, new_value in persistent_attributes.items():
-      old_value = otherObj.chain_data.persist.get(attr, None)
+    persistent_attributes = dict(otherObj.chain_data.persist) if otherObj.chain_data else {}
+    self_persist = self.chain_data.persist if self.chain_data else {}
+    for attr, new_value in self_persist.items():
+      old_value = persistent_attributes.get(attr, None)
       if isinstance(new_value, dict) and isinstance(old_value, dict):
         new_value.update({k: v for k, v in old_value.items() if v is not None})
-      persistent_attributes[attr] = new_value if new_value is not None else old_value
+      if new_value is not None:
+        persistent_attributes[attr] = new_value
 
     self.chain_data = otherObj.chain_data
     self.chain_data.persist = persistent_attributes

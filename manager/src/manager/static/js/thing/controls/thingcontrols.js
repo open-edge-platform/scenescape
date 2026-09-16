@@ -14,7 +14,7 @@ export default class ThingControls {
     this.panelSettings = {
       name: this.object3D.name,
       color: this.object3D.color,
-      show: false,
+      show: this.object3D.visible,
       height: this.object3D.height,
     };
 
@@ -48,8 +48,28 @@ export default class ThingControls {
     }
 
     control = this.controlsFolder.add(this.panelSettings, "show").onChange(
-      function (value) {
+      async function (value) {
+        const previousValue = this.object3D.visible;
         this.object3D.visible = value;
+
+        if (!this.object3D.persistVisibility) {
+          return;
+        }
+
+        control.disable();
+        try {
+          await this.object3D.persistVisibility(value);
+        } catch (error) {
+          this.object3D.visible = previousValue;
+          this.panelSettings.show = previousValue;
+          control.updateDisplay();
+          this.object3D.toast?.showToast(
+            `Failed to save visibility for ${this.object3D.name}.`,
+            "danger",
+          );
+        } finally {
+          control.enable();
+        }
       }.bind(this),
     );
 

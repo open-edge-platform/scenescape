@@ -172,8 +172,8 @@ docker compose exec scene bash
 - `CONTROLLER_ENABLE_METRICS`: Enable OpenTelemetry metrics (true/false)
 - `CONTROLLER_ENABLE_TRACING`: Enable OpenTelemetry tracing (true/false)
 - `REID_DATABASE`: ReID vector backend (`VDMS` default, or `QDRANT`) — the only backend selector
-- Shared connection/tuning (same for every backend): `REID_HOSTNAME` (`reid.scenescape.intel.com`), `REID_PORT` (`55555`), `REID_USE_TLS` (`true`), `REID_API_KEY`, `REID_CONFIDENCE_THRESHOLD`, `REID_CA_CERT`, `REID_CLIENT_CERT`, `REID_CLIENT_KEY` (see `controller.reid_env`)
-- `reid_env` parses strictly: out-of-range ports/thresholds and unrecognized booleans raise `ValueError` naming the variable and value. Read new typed settings through `_env_int` / `_env_float` / `_env_bool` rather than calling `int()` / `os.getenv` at the call site, so bad config fails at startup instead of degrading behaviour later.
+- Shared connection/tuning (same for every backend): `REID_HOSTNAME` (`reid.scenescape.intel.com`), `REID_PORT` (`55555`), `REID_USE_TLS` (`true`), `REID_API_KEY`, `REID_CONFIDENCE_THRESHOLD`, `REID_CA_CERT`, `REID_CLIENT_CERT`, `REID_CLIENT_KEY`, `REID_DESCRIPTOR_TTL_SECS` (`86400`), `REID_PURGE_INTERVAL_SECS` (`300`) (see `controller.reid_env`)
+- `reid_env` parses strictly: out-of-range ports/thresholds/TTL/purge intervals and unrecognized booleans raise `ValueError` naming the variable and value. Read new typed settings through `_env_int` / `_env_float` / `_env_bool` rather than calling `int()` / `os.getenv` at the call site, so bad config fails at startup instead of degrading behaviour later.
 - Certificates: `make init-secrets` / `tools/certificates` generates shared `scenescape-reid` (client) and `scenescape-reid-s` (server) material — not per-backend cert names
 
 User-facing switch steps: `docs/user-guide/other-topics/how-to-enable-reidentification.md` (VDMS → Qdrant).
@@ -232,11 +232,18 @@ _BACKENDS = {
 
 6. **Reuse shared connection defaults** from `controller.reid_env` (`reid.scenescape.intel.com:55555`, TLS on, `scenescape-reid*` cert paths). Do not add per-backend hostname/port/TLS defaults — only `REID_DATABASE` differs by backend.
 
+7. **Honor shared descriptor retention** from `REID_DESCRIPTOR_TTL_SECS` / `descriptor_ttl_secs`:
+   - Retention is a coarse memory bound: descriptors stay matchable until physically purged
+   - Override `_applyRetentionProperties()` to attach store-native expiry metadata (Qdrant `expires_at`, VDMS `_expiration`)
+   - Override `purgeExpired()` for client-driven reclaim. Do not invent a backend-only TTL env var
+   - Do not filter expired rows out of `findMatches` / `getPersistedAttributes`; reclaim happens on the shared purge interval
+
 ### Behavioral expectations
 
-- **`findMatches`**: Return a list (one entry per valid query vector) of entity dicts with at least `uuid`, `rvid`, and `_distance` (canonical float scores for the active metric). Preserve empty inner lists for failed/empty searches so majority voting keeps a stable denominator. Convert store-native scores in the adapter before `_entitiesFromNormalizedScores` — Qdrant's `_toSimilarityScore` is the reference example.
-- **`getPersistedAttributes`**: Return the latest persist payload for a UUID (by `persist_timestamp`), or `{}` if none. Prefer `_decodeLatestPersist` on normalized dict records.
-- **`addEntry` / persist**: Use `_buildEntryProperties`. Persist dicts must include `timestamp`. Reserved keys (`uuid`, `rvid`, `type`, `persist`, `persist_timestamp`) cannot be overwritten by metadata.
+- **`findMatches`**: Return a list (one entry per valid query vector) of entity dicts with at least `uuid`, `rvid`, and `_distance` (canonical float scores for the active metric). Preserve empty inner lists for failed/empty searches so majority voting keeps a stable denominator. Convert store-native scores in the adapter before `_entitiesFromNormalizedScores` — Qdrant's `_toSimilarityScore` is the reference example. Expired-but-not-yet-purged descriptors remain eligible for matching.
+- **`getPersistedAttributes`**: Return the latest persist payload for a UUID (by `persist_timestamp`), or `{}` if none. Prefer `_decodeLatestPersist` on normalized dict records. Expired-but-not-yet-purged entries remain visible.
+- **`addEntry` / persist**: Use `_buildEntryProperties`. Persist dicts must include `timestamp`. Reserved keys (`uuid`, `rvid`, `type`, `persist`, `persist_timestamp`, `expires_at`, `_expiration`) cannot be overwritten by metadata.
+- **`purgeExpired`**: Safe to call periodically from the process-wide purge owner in `UUIDManager` (started on `connectDatabase`). Return a deleted count when known, else `0`/`None`. No-op when TTL is disabled (`descriptor_ttl_secs == 0`).
 - **Metrics**: Controller config uses `L2` / `COSINE`; adapters map to store-native distance (e.g. Qdrant DOT for IP/COSINE path). Keep score validation consistent with `uuid_manager` thresholds via `reid_constants.normalize_similarity_score`.
 - **Schema markers / versioning**: Implement the create/marker hooks so the shared `ensureSchemaInner` create-first + marker/metadata verification pattern keeps multi-instance controllers from silently diverging on dimensions/metric. Marker write failures must raise.
 

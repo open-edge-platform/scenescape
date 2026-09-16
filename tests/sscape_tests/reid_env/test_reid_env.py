@@ -11,6 +11,7 @@ from controller import reid_env
 _REID_ENV_NAMES = (
   "REID_DATABASE", "REID_HOSTNAME", "REID_PORT", "REID_USE_TLS", "REID_API_KEY",
   "REID_CONFIDENCE_THRESHOLD", "REID_CA_CERT", "REID_CLIENT_CERT", "REID_CLIENT_KEY",
+  "REID_DESCRIPTOR_TTL_SECS", "REID_PURGE_INTERVAL_SECS",
 )
 
 _RETIRED_ENV_NAMES = (
@@ -48,6 +49,12 @@ class TestReidEnvDefaults:
   def test_api_key_defaults_to_none(self):
     assert reid_env.get_reid_api_key() is None
 
+  def test_descriptor_ttl_default(self):
+    assert reid_env.get_reid_descriptor_ttl_secs() == 86400
+
+  def test_purge_interval_default(self):
+    assert reid_env.get_reid_purge_interval_secs() == 300
+
 
 class TestReidEnvCanonicalNames:
   def test_reid_hostname_override(self, monkeypatch):
@@ -64,6 +71,14 @@ class TestReidEnvCanonicalNames:
   def test_reid_confidence_threshold(self, monkeypatch):
     monkeypatch.setenv("REID_CONFIDENCE_THRESHOLD", "0.91")
     assert reid_env.get_reid_confidence_threshold() == 0.91
+
+  def test_reid_descriptor_ttl_override(self, monkeypatch):
+    monkeypatch.setenv("REID_DESCRIPTOR_TTL_SECS", "60")
+    assert reid_env.get_reid_descriptor_ttl_secs() == 60
+
+  def test_reid_purge_interval_override(self, monkeypatch):
+    monkeypatch.setenv("REID_PURGE_INTERVAL_SECS", "15")
+    assert reid_env.get_reid_purge_interval_secs() == 15
 
   def test_reid_use_tls_accepts_false_values(self, monkeypatch):
     monkeypatch.setenv("REID_USE_TLS", "false")
@@ -114,6 +129,25 @@ class TestStrictParsing:
   def test_confidence_threshold_boundaries_are_accepted(self, monkeypatch, value):
     monkeypatch.setenv("REID_CONFIDENCE_THRESHOLD", value)
     assert reid_env.get_reid_confidence_threshold() == float(value)
+
+  @pytest.mark.parametrize("value", ["-1", "ttl", "60.5", "315360001"])
+  def test_invalid_descriptor_ttl_is_rejected(self, monkeypatch, value):
+    monkeypatch.setenv("REID_DESCRIPTOR_TTL_SECS", value)
+    with pytest.raises(ValueError) as excinfo:
+      reid_env.get_reid_descriptor_ttl_secs()
+    assert "REID_DESCRIPTOR_TTL_SECS" in str(excinfo.value)
+
+  @pytest.mark.parametrize("value", ["0", "1", "86400"])
+  def test_descriptor_ttl_boundaries_are_accepted(self, monkeypatch, value):
+    monkeypatch.setenv("REID_DESCRIPTOR_TTL_SECS", value)
+    assert reid_env.get_reid_descriptor_ttl_secs() == int(value)
+
+  @pytest.mark.parametrize("value", ["0", "-1", "86401", "fast"])
+  def test_invalid_purge_interval_is_rejected(self, monkeypatch, value):
+    monkeypatch.setenv("REID_PURGE_INTERVAL_SECS", value)
+    with pytest.raises(ValueError) as excinfo:
+      reid_env.get_reid_purge_interval_secs()
+    assert "REID_PURGE_INTERVAL_SECS" in str(excinfo.value)
 
   @pytest.mark.parametrize("value", ["disabled", "enabled", "tru", "2", "none"])
   def test_unrecognized_tls_value_does_not_silently_disable_tls(

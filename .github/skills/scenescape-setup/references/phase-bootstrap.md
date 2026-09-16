@@ -37,8 +37,9 @@ bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
 
 Resume: `--deploy-dir` + `--skill-dir` only (loads `deploy-inputs.json`).
 
-This phase can take several minutes (Docker pulls, model downloads, RTSP warmup) — launch it in
-an async terminal and poll for completion rather than blocking.
+This phase can take several minutes (Docker pulls, model downloads, RTSP warmup) — launch it
+asynchronously with `watch_orchestrator.sh` (see [deploy-and-complete.md](./deploy-and-complete.md)) rather than
+blocking or asking the user to poll.
 
 ## Reference Lookup
 
@@ -48,3 +49,4 @@ an async terminal and poll for completion rather than blocking.
 | [mosquitto-config.md](./mosquitto-config.md)         | Broker TLS listener layout (step 6)               |
 | [command-templates.md](./command-templates.md)       | RTSP gate check / MQTT pub-sub commands (step 7)  |
 | [runtime-verification.md](./runtime-verification.md) | RTSP/service-health failure diagnosis (steps 7–8) |
+| [video-file-publishing.md](./video-file-publishing.md) | File-backed MediaMTX publishers (step 7)        |

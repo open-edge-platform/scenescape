@@ -426,9 +426,9 @@ When modifying the service, verify:
 - [ ] MQTT messages validate against schema
 - [ ] Service recovers from MQTT broker restart
 
-## Research & Experimental Features
+## Advanced Features
 
-As an experimental service, cluster analytics includes:
+Advanced capabilities of the cluster analytics service include:
 
 - **Hierarchical Clustering**: Multi-level cluster hierarchy (clusters of clusters)
 - **Temporal Pattern Mining**: Identify recurring cluster patterns over time

@@ -18,6 +18,9 @@ user's camera IDs.
 - Do not re-run bootstrap or bring up unrelated services from this phase; it only captures
   calibration frames and checks mapping health.
 - Restrict file writes to `<deploy_dir>/calibration-frames` and `<deploy_dir>/.deploy-state.json`.
+- The orchestrator still re-asserts public CA/cert modes (`ensure_secret_perms.py`) and may
+  recreate `video-analytics` if MQTT TLS cannot read `ROOT_CA` — that is required for Step 9
+  and is not a full bootstrap.
 
 ## Run
 
@@ -30,8 +33,9 @@ bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
 
 Omit streams/camera IDs — loaded from `deploy-inputs.json`.
 
-Mapping health checks (step 10) can take up to a few minutes to become ready; launch in an async
-terminal and poll rather than blocking if run standalone.
+Mapping health checks (step 10) can take up to a few minutes to become ready; launch
+asynchronously with `watch_orchestrator.sh` (see [deploy-and-complete.md](./deploy-and-complete.md)) rather than
+blocking or asking the user to poll.
 
 ## Reference Lookup
 

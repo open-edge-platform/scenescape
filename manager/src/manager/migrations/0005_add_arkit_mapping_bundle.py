@@ -10,7 +10,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
   dependencies = [
-      ('manager', '0002_add_mapping_bundle'),
+      ('manager', '0004_add_mapping_bundle'),
   ]
 
   operations = [

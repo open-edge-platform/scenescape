@@ -44,6 +44,14 @@ REID_BACKEND ?= vdms
 REID_OVERRIDE_FILE = sample_data/docker-compose.$(strip $(REID_BACKEND))-override.yml
 REID_PIPELINE_OVERRIDE_FILE = sample_data/docker-compose.reid-pipeline-override.yml
 REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE) -f $(REID_PIPELINE_OVERRIDE_FILE)
+# LiDAR-intersection (LiDAR/Camera) fusion demo variables
+LIDAR_OVERRIDE_FILE = sample_data/lidar_intersection/docker-compose.lidar-override.yml
+LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
+# One patch per component (0001 manager, 0002 scene_common, 0003 analytics),
+# applied only when building with make build-core-lidar.
+LIDAR_PATCH_FILES := sample_data/lidar_intersection/patches/0001-manager-default-assets-and-source-labels.patch \
+                     sample_data/lidar_intersection/patches/0002-scene-common-source-passthrough.patch \
+                     sample_data/lidar_intersection/patches/0003-analytics-source-passthrough.patch
 DEMO_REBUILD_IMAGES ?= true
 # Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
 DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
@@ -76,8 +84,14 @@ build-core: init-secrets build-core-images install-models
 .PHONY: build-all
 build-all: init-secrets build-all-images install-models
 
-.PHONY: build-experimental
-build-experimental: build-experimental-images
+.PHONY: build-core-lidar
+build-core-lidar: init-secrets
+# EXIT trap reverts the patches on success, build failure, or Ctrl+C so the
+# working tree cannot stay patched.
+	@set -e; trap '$(MAKE) revert-lidar-patch' EXIT; \
+	$(MAKE) apply-lidar-patch; \
+	$(MAKE) build-core-images
+	@$(MAKE) install-models
 
 # ============================== Help ================================
 
@@ -89,20 +103,20 @@ help:
 	@echo "Available targets:"
 	@echo "  build-core        (default) Build secrets, core images (excluding mapping, cluster_analytics, and tracker), and install models"
 	@echo "  build-all                   Build secrets, all images, and install models"
-	@echo "  build-experimental          Build experimental images only (mapping and tracker)"
 	@echo "  build-core-images           Build core microservice images (excluding mapping, cluster_analytics, and tracker) in parallel"
 	@echo "  build-all-images            Build all microservice images in parallel"
-	@echo "  build-experimental-images   Build experimental microservice images (mapping and tracker) in parallel"
+	@echo "  build-core-lidar            Build secrets, core images with the LiDAR-intersection demo patches applied, and install models"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
 	@echo "  demo                        (default) Start the Scenescape demo with core services (tracking, no ReID)"
 	@echo "  demo-reid                   Start the core demo plus the ReID vector database"
-	@echo "  demo-all                    Start demo-reid plus cluster analytics and experimental services"
+	@echo "  demo-all                    Start demo-reid plus cluster analytics and mapping services"
 	@echo "  demo-cluster-analytics      Start the Scenescape demo with cluster analytics service using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Scenescape)"
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
+	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
 	@echo ""
@@ -164,6 +178,8 @@ help:
 	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
 	@echo "  - ReID demo targets (demo-reid, demo-all, demo-k8s with DEMO_K8S_MODE=reid|all)"
 	@echo "    default to REID_BACKEND=vdms. Set REID_BACKEND=qdrant to use Qdrant instead."
+	@echo "  - Use 'make demo-lidar' to run the basic LiDAR-intersection (LIDAR/Camera) fusion demo."
+	@echo "    See docs/user-guide/how-to-guides/run-lidar-intersection-demo.md for prerequisites and setup steps."
 	@echo ""
 
 # ========================= Build Images =============================
@@ -210,13 +226,33 @@ build-core-images: $(BUILD_DIR)
 	$(MAKE) -j$(JOBS) $(CORE_IMAGE_FOLDERS)
 	@echo "DONE ==> Parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
 
-# Parallel wrapper for experimental images (mapping and tracker)
-.PHONY: build-experimental-images
-build-experimental-images: $(BUILD_DIR)
-	@echo "==> Running parallel builds of experimental folders: mapping tracker"
-	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
-	$(MAKE) -j$(JOBS) mapping tracker
-	@echo "DONE ==> Parallel builds of experimental folders: mapping tracker"
+# No-op if already applied; fails loudly on any other conflict.
+.PHONY: apply-lidar-patch
+apply-lidar-patch:
+	@for p in $(LIDAR_PATCH_FILES); do \
+		if git -C $(CURDIR) apply --check "$$p" 2>/dev/null; then \
+			echo "==> Applying LiDAR-demo patch ($$p)..."; \
+			git -C $(CURDIR) apply "$$p"; \
+		elif git -C $(CURDIR) apply --check -R "$$p" 2>/dev/null; then \
+			echo "==> LiDAR-demo patch already applied, skipping ($$p)"; \
+		else \
+			echo "ERROR: $$p does not apply cleanly and does not look"; \
+			echo "already applied either. Resolve manually (see 'git apply --check $$p')" ; \
+			echo "before running 'make build-core-lidar' or 'make demo-lidar'."; \
+			exit 1; \
+		fi; \
+	done
+
+.PHONY: revert-lidar-patch
+revert-lidar-patch:
+	@for p in $(LIDAR_PATCH_FILES); do \
+		if git -C $(CURDIR) apply --check -R "$$p" 2>/dev/null; then \
+			echo "==> Reverting LiDAR-demo patch ($$p)..."; \
+			git -C $(CURDIR) apply -R "$$p"; \
+		else \
+			echo "LiDAR-demo patch not currently applied, skipping ($$p)"; \
+		fi; \
+	done
 
 # ===================== Cleaning and Rebuilding =======================
 .PHONY: rebuild-core-images
@@ -724,7 +760,7 @@ demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core) init-sample-data
 
 .PHONY: demo-all
 demo-all: check-reid-backend $(DEMO_BUILD:build=build-all) init-sample-data
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile experimental))
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile mapping))
 
 .PHONY: demo-cluster-analytics
 demo-cluster-analytics: $(DEMO_BUILD:build=build-all) init-sample-data
@@ -733,6 +769,11 @@ demo-cluster-analytics: $(DEMO_BUILD:build=build-all) init-sample-data
 .PHONY: demo-tracker
 demo-tracker: $(DEMO_BUILD:build=build-all) init-sample-data
 	$(call start_demo,--profile tracker)
+
+# Basic LiDAR-intersection (LIDAR/Camera) fusion demo only
+.PHONY: demo-lidar
+demo-lidar: $(DEMO_BUILD:build=build-core-lidar) init-sample-data
+	$(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-close
 demo-close:

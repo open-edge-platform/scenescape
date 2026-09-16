@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Replace the skill's hardcoded `download_detection_models.sh` / `check_detection_models.sh` pair
 (which fetches `person-detection-retail-0013` directly from `storage.openvinotoolkit.org`) with the
-[Model Download Microservice](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/model-download)
+[Model Download Microservice](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.2.0/microservices/model-download)
 ephemeral container path. The migration makes the detection model configurable, removes the hard
 dependency on the Open Model Zoo bucket, and aligns SceneScape's model acquisition with the
 shared Open Edge Platform model-download ecosystem.
@@ -82,7 +82,7 @@ support is prioritized.
    - Still pending: `SKILL.md` Step 1 inputs table has no model fields yet (depends on Phase 1).
    - Still pending: add or reference the `model-download-user` skill from the Model Download
      Microservice repo for users who want to manage models independently of the deployment flow:
-     `https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/model-download/.github/skills/model-download-user`
+     `https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.2.0/microservices/model-download/.github/skills/model-download-user`
 
 6. Phase 6 — Verification plan **[not started]**
    - Static validation: `bash -n` and `python3 -m py_compile` were run against the three touched

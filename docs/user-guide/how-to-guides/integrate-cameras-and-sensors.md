@@ -233,7 +233,7 @@ For example, if a vision-based hat detector is used then a `"hat"` attribute cou
 }
 ```
 
-Metadata for camera-based detections can be validated against the [Scenescape metadata schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
+Metadata for camera-based detections can be validated against the [Scenescape metadata schema](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/controller/src/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
 
 ## Camera Calibration Methods
 
@@ -265,7 +265,7 @@ jpeg = base64.b64encode(jpeg).decode('utf-8')
 The command topic is `scenescape/cmd/camera/<sensorID>`. If the message "getimage" is published to this topic then the snapshot should be published to `scenescape/image/sensor/cam/<sensorID>`.
 
 **Snapshot sample code**
-For a complete example with MQTT connectivity, see [snapshot.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py). It can be run by providing the required arguments from within an Scenescape container or you can adapt it for your own code.
+For a complete example with MQTT connectivity, see [snapshot.py](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/tools/snapshot.py). It can be run by providing the required arguments from within an Scenescape container or you can adapt it for your own code.
 
 Here is its help output from inside Scenescape container:
 
@@ -317,7 +317,7 @@ The "id" should match the topic, which in this case would be:
 `scenescape/data/sensor/temperature1`
 
 **Singleton sample code**
-See [singleton.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/singleton.py) for a sample of publishing random values to a singleton topic. You can run this sample by providing the required arguments from within an Scenescape container or adapt it to run in your own code.
+See [singleton.py](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/tools/singleton.py) for a sample of publishing random values to a singleton topic. You can run this sample by providing the required arguments from within an Scenescape container or adapt it to run in your own code.
 
 > **Note:** Ensure that the broker service is running.
 
@@ -385,5 +385,5 @@ Using this data, a developer can easily write an application to trigger alerts o
 ## Supporting Resources
 
 - [Scenescape Auto Calibration Guide](../microservices/auto-calibration/auto-calibration.md)
-- [Scenescape Metadata Schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json)
-- [MQTT Snapshot Script](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py)
+- [Scenescape Metadata Schema](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/controller/src/schema/metadata.schema.json)
+- [MQTT Snapshot Script](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/tools/snapshot.py)

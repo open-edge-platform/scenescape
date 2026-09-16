@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
@@ -35,6 +35,18 @@ class RestSceneDataSource(SceneDataSource):
     self.rest = RESTClient(rest_url, rootcert=root_cert, auth=rest_auth)
     return
 
+  def getTripwires(self, filter):
+    return self.rest.getTripwires(filter)
+
+  def getRegions(self, filter):
+    return self.rest.getRegions(filter)
+
+  def getTripwire(self, uid):
+    return self.rest.getTripwire(uid)
+
+  def getRegion(self, uid):
+    return self.rest.getRegion(uid)
+
   def getScenes(self):
     return self.rest.getScenes(None)
 
@@ -43,6 +55,9 @@ class RestSceneDataSource(SceneDataSource):
 
   def getChildScenes(self, scene_uid):
     return self.rest.getChildScene({'parent': scene_uid})
+
+  def updateChildScene(self, uid, data):
+    return self.rest.updateChildScene(uid, data)
 
   def getAssets(self):
     return self.rest.getAssets({})

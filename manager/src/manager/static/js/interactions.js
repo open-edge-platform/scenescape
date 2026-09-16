@@ -12,16 +12,23 @@ import {
 import SceneCamera from "/static/js/thing/scenecamera.js";
 
 function isMeshToProjectOn(intersect) {
-  if (SCENE_MESH_NAMES.some((name) =>
-    intersect.object.name.toLowerCase().includes(name),
-  )) return true;
+  if (
+    SCENE_MESH_NAMES.some((name) =>
+      intersect.object.name.toLowerCase().includes(name),
+    )
+  ) {
+    return true;
+  }
 
   // GLBs may use arbitrary internal mesh names beneath the scene root.
-  let object = intersect.object.parent;
-  while (object) {
-    if (object.name === "3d_scene") return true;
-    object = object.parent;
+  let parent = intersect.object.parent;
+  while (parent) {
+    if (parent.name === "3d_scene") {
+      return true;
+    }
+    parent = parent.parent;
   }
+
   return false;
 }
 

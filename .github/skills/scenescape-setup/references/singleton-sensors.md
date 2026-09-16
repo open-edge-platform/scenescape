@@ -66,7 +66,7 @@ curl -sk -X POST https://localhost/api/v1/sensor \
 ```
 
 For the full field reference (`color_ranges` thresholds, `sensor_id` derivation, list/delete), see
-[Use Environmental and Attribute Sensor Types#rest-api-reference](https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/how-to-guides/build-a-scene/use-sensor-types.md#rest-api-reference)
+[Use Environmental and Attribute Sensor Types#rest-api-reference](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/docs/user-guide/how-to-guides/build-a-scene/use-sensor-types.md#rest-api-reference)
 (or the local path `docs/user-guide/how-to-guides/build-a-scene/use-sensor-types.md` if this repo
 is checked out).
 

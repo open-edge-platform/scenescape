@@ -1,9 +1,9 @@
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/controller">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/release-2026.2.0/controller">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/controller/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/controller/README.md">
      Readme
   </a>
 </div>
@@ -50,11 +50,11 @@ backend path (VDMS `IP` / Qdrant DOT); similarity scores are expected in
 `[-1, 1]`. Set the metric to `L2` for distance-style matching, where lower
 values are better.
 
-`--schema_file`: Specifies the path to the JSON file that contains the metadata schema. By default, it uses [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json). This schema outlines the structure and format of the messages processed by the service.
+`--schema_file`: Specifies the path to the JSON file that contains the metadata schema. By default, it uses [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/controller/src/schema/metadata.schema.json). This schema outlines the structure and format of the messages processed by the service.
 
 `--visibility_topic`: Specifies the topic for publishing visibility information, which includes the visibility of objects in cameras. Options are `unregulated`, `regulated`, or `none`. Default is `regulated`.
 
-`--pose-adjustment`: Enables pose-based bounding box adjustment before world projection. When enabled, the controller uses pose keypoints (e.g. from a `yolo11n-pose` model) to refine the bounding box used for projecting detections into world coordinates. This is disabled by default. Cannot be used together with Extended ReID (cross-camera re-identification via the configured vector backend); see [Extended Re-ID](./Extended-ReID.md) for details. Can also be enabled via the `CONTROLLER_ENABLE_POSE_ADJUSTMENT` environment variable set to `true`. Requires the DL Streamer video pipeline to use a pose estimation model that provides keypoint data. See the [DL Streamer Pipeline Server documentation](https://github.com/open-edge-platform/scenescape/blob/main/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for pipeline setup.
+`--pose-adjustment`: Enables pose-based bounding box adjustment before world projection. When enabled, the controller uses pose keypoints (e.g. from a `yolo11n-pose` model) to refine the bounding box used for projecting detections into world coordinates. This is disabled by default. Cannot be used together with Extended ReID (cross-camera re-identification via the configured vector backend); see [Extended Re-ID](./Extended-ReID.md) for details. Can also be enabled via the `CONTROLLER_ENABLE_POSE_ADJUSTMENT` environment variable set to `true`. Requires the DL Streamer video pipeline to use a pose estimation model that provides keypoint data. See the [DL Streamer Pipeline Server documentation](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for pipeline setup.
 
 `--pose_adjustment_config_file`: JSON file that defines pose-adjustment label routing. The default file is `pose-adjustment-route.json` next to the controller executable. Use this file to map each registered pose-adjustment strategy label to the incoming labels that should dispatch to it.
 

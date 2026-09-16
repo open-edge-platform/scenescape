@@ -33,8 +33,8 @@ Notes:
 
 - The `tracker` Compose profile starts both the `tracker` and `analytics`
   services. The Scene Controller (`scene`) is not started.
-- If you also need experimental services (mapping, cluster-analytics), add
-  `--profile experimental`.
+- If you also need the mapping or cluster-analytics services, add
+  `--profile mapping` and/or `--profile cluster-analytics`.
 
 ### Stop
 
@@ -58,7 +58,7 @@ make demo-tracker
 
 What `demo-tracker` does:
 
-- Runs `make build-all` to build all images (core + experimental)
+- Runs `make build-all` to build all images
 - Runs `make init-sample-data` to prepare volumes and sample files
 - Invokes the compose helper with: `--profile tracker`
 

@@ -23,7 +23,7 @@ which detection-result attributes to carry forward on a tracked object between u
 an intermittently-reported value (e.g. a license-plate reader that only reads the plate every few
 frames) flickering in the UI. Default (key absent): `{}` — no attributes are persisted.
 
-See [How to Configure the Tracker#persisting-object-attributes-across-detection-gaps](https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/microservices/controller/how-to-configure-tracker.md#persisting-object-attributes-across-detection-gaps)
+See [How to Configure the Tracker#persisting-object-attributes-across-detection-gaps](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/docs/user-guide/microservices/controller/how-to-configure-tracker.md#persisting-object-attributes-across-detection-gaps)
 (or the local path `docs/user-guide/microservices/controller/how-to-configure-tracker.md`) for the
 full field reference and JSON format.
 

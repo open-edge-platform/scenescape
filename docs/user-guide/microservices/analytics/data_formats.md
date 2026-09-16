@@ -34,7 +34,7 @@ object before republishing.
 The Analytics service subscribes to the MQTT topic `scenescape/data/sensor/{sensor_id}` and
 receives scalar sensor readings from physical or virtual sensors. Messages are validated against
 the `singleton` definition in
-[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
+[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/controller/src/schema/metadata.schema.json).
 
 Sensor data is used to tag tracked objects that are within the sensor's configured measurement
 area. A wide variety of sensor types are supported — environmental sensors (temperature,

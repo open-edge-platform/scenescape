@@ -16,7 +16,7 @@ STATE_FILE = ".deploy-state.json"
 
 # Local video files are looped through an internal RTSP re-streamer (mediamtx) so the
 # rest of the pipeline can treat them exactly like a live camera. See bootstrap_deploy.py
-# generate_video_file_override() and references/video-file-input.md.
+# generate_video_file_override() and references/video-file-publishing.md.
 MEDIASERVER_HOST = "mediaserver"
 MEDIASERVER_PORT = 8554
 VIDEO_FILE_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".ts", ".webm", ".mpg", ".mpeg", ".m4v"}

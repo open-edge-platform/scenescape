@@ -7,11 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Service Overview
 
-The **Mapping** service provides spatial mapping and localization capabilities for Scenescape using visual SLAM and neural mapping techniques. This experimental microservice enables 3D scene reconstruction, object localization, and map-based queries.
+The **Mapping** service provides spatial mapping and localization capabilities for Scenescape using visual SLAM and neural mapping techniques. This microservice enables 3D scene reconstruction, object localization, and map-based queries.
 
 **Primary Purpose**: Generate 3D maps from camera feeds and provide spatial localization services for objects and cameras within reconstructed environments.
-
-**Status**: Experimental—enabled via `make build-experimental` or `make build-all`
 
 ## Architecture & Components
 
@@ -102,18 +100,17 @@ Object Query → Visual Grounding → 3D Coordinates → Scene Controller
 ### Building the Service
 
 ```bash
-# From root directory (experimental build)
+# From root directory
 make mapping                            # Build image
 make rebuild-mapping                    # Clean + rebuild
-make build-experimental                 # Build mapping + cluster_analytics
-make build-all                          # All services including experimental
+make build-all                          # All services
 ```
 
 ### Running Locally
 
 ```bash
-# Start with docker-compose (use experimental compose file or override)
-docker compose up -d mapping
+# Start with docker-compose (use the mapping profile)
+docker compose --profile mapping up -d mapping
 
 # View logs
 docker compose logs mapping -f
@@ -361,9 +358,9 @@ When modifying the service, verify:
 - [ ] Memory usage stays within limits
 - [ ] Service recovers from model errors gracefully
 
-## Research & Experimental Features
+## Advanced Features
 
-As an experimental service, mapping includes:
+Advanced capabilities of the mapping service include:
 
 - **Neural Radiance Fields (NeRF)**: Potential future integration
 - **Semantic Mapping**: Object-level understanding in maps

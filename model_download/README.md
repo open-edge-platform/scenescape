@@ -120,7 +120,7 @@ MODEL_DOWNLOADER_CMD ?= --plugins omz,huggingface
 
 - if the model needs DL Streamer post-processing metadata, add `scenescape.model_proc` to the model entry so the generator creates the model-proc file in the models volume.
 
-> [!NOTE] list of available plugins and their configuration can be found in the `model_downloader` [documentation](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/microservices/model-download/README.md).
+> [!NOTE] list of available plugins and their configuration can be found in the `model_downloader` [documentation](https://github.com/open-edge-platform/edge-ai-libraries/blob/release-2026.2.0/microservices/model-download/README.md).
 
 ## Unit Tests
 

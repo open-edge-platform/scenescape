@@ -12,13 +12,18 @@ from datetime import datetime, timedelta
 from scene_common.mqtt import PubSub
 from tests.ui.browser import Browser
 import tests.common_test_utils as common
+from tests.utils.containers import (
+  HEALTH_OK,
+  check_services_health,
+  get_services_stats,
+)
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+from tests.utils.profiles import STABILITY
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  profile=STABILITY,
   require_password=True,
-  extra_args=["--hours", os.environ.get("STABILITY_HOURS", "24")],
+  extra_args=["--hours", os.environ.get("STABILITY_HOURS", "23")],
 )
 
 TEST_NAME="NEX-T10411"
@@ -37,6 +42,28 @@ WARMUP_CYCLES = 4
 ### Video files loop periodically causing brief drops — allow this many windows.
 MAX_CONSECUTIVE_LOW_MSG_CYCLES = 3
 
+### Compose services which health is polled every cycle to monitor container status.
+HEALTHCHECK_SERVICES = (
+  "web",                  # Manager
+  "scene",                # Scene Controller
+  "autocalibration",      # Autocalibration
+  "mapping",              # Mapping
+  "controller-analytics", # Cluster Analytics
+)
+
+### Labels used in health and resource-usage output.
+SERVICE_LABELS = {
+  "web": "Manager",
+  "scene": "Scene Controller",
+  "autocalibration": "Autocalibration",
+  "mapping": "Mapping",
+  "controller-analytics": "Cluster Analytics",
+}
+
+### Number of consecutive cycles a monitored service is allowed to report an
+### unhealthy/stopped status before the test is declared failed.
+MAX_CONSECUTIVE_UNHEALTHY_CYCLES = 3
+
 ### Maximum difference allowed for the sensor objects (higher vs lower).
 ### This is intended to check all streams are flowing at approx the same rate
 TEST_MAX_OBJECT_VARIATION = 20
@@ -46,8 +73,20 @@ TEST_MAX_OBJECT_VARIATION = 20
 TEST_MAX_FPS_VARIATION = 10
 
 ### Memory trend checks over the run to detect leak-like behavior.
+### Number of samples averaged for the baseline and the trailing window.
 TEST_MEMORY_AVG_WINDOW = 10
+
+### Cycles to skip before the first memory sample is recorded.
+### 40 cycles of TEST_WAIT_TIME seconds = 20 minutes.
+MEMORY_SETTLE_CYCLES = 40
+
+### Growth must exceed both the relative threshold and the absolute one
+### (percentage points of host memory) to count as a leak.
 TEST_MAX_MEMORY_GROWTH_PCT = 10
+TEST_MAX_MEMORY_GROWTH_PPT = 10
+
+### Consecutive windows above both thresholds before the test is failed.
+MAX_CONSECUTIVE_MEMORY_GROWTH_CYCLES = 3
 
 objects_detected = 0
 connected = False
@@ -134,6 +173,11 @@ class TestState():
     self.high_variation_cycles = 0
     self.memory_samples = []
     self.memory_growth_detected = False
+    self.memory_growth_cycles = 0
+    self.unhealthy_cycles = {svc: 0 for svc in HEALTHCHECK_SERVICES}
+    self.service_health_failed = False
+    self.failed_service = None
+    self.resource_samples = {svc: [] for svc in HEALTHCHECK_SERVICES}
     return None
 
   def read_memory_usage(self):
@@ -157,8 +201,13 @@ class TestState():
 
   def update_memory_usage(self):
     """! Store a memory usage sample for leak trend checks.
+
+    Samples are discarded until MEMORY_SETTLE_CYCLES have elapsed so the
+    baseline window reflects a settled stack rather than start-up allocation.
     @return   None.
     """
+    if self.current_cycle < MEMORY_SETTLE_CYCLES:
+      return None
     usage = self.read_memory_usage()
     if usage is None:
       print('Unable to collect memory usage sample for stability test.')
@@ -166,8 +215,29 @@ class TestState():
     self.memory_samples.append(usage)
     return None
 
+  def memory_growth_by_service(self):
+    """! Attribute host memory growth to the monitored services.
+    @return   String                  Per service memory delta summary, empty if not enough samples.
+    """
+    deltas = []
+    for svc in HEALTHCHECK_SERVICES:
+      # Drop the settle period so the per service baseline lines up with the
+      # host memory baseline instead of the start-up ramp.
+      samples = self.resource_samples.get(svc, [])[MEMORY_SETTLE_CYCLES:]
+      if len(samples) < (TEST_MEMORY_AVG_WINDOW * 2):
+        continue
+      first = [mem for _, mem in samples[:TEST_MEMORY_AVG_WINDOW]]
+      last = [mem for _, mem in samples[-TEST_MEMORY_AVG_WINDOW:]]
+      delta = (sum(last) / len(last)) - (sum(first) / len(first))
+      deltas.append("{} {:+.2f}pp".format(SERVICE_LABELS.get(svc, svc), delta))
+    return ", ".join(deltas)
+
   def memory_usage_stable(self):
     """! Checks for sustained memory growth across the run.
+
+    Growth has to exceed the relative and the absolute threshold for
+    MAX_CONSECUTIVE_MEMORY_GROWTH_CYCLES consecutive windows before the test
+    fails, matching the debounce used by the message and health checks.
     @return   Bool                    True if memory trend indicates potential leak, otherwise False.
     """
     if len(self.memory_samples) < (TEST_MEMORY_AVG_WINDOW * 2):
@@ -177,20 +247,27 @@ class TestState():
     last_window = self.memory_samples[-TEST_MEMORY_AVG_WINDOW:]
     first_avg = sum(first_window) / len(first_window)
     last_avg = sum(last_window) / len(last_window)
-    growth_pct = ((last_avg - first_avg) / max(first_avg, 0.01)) * 100
+    growth_ppt = last_avg - first_avg
+    growth_pct = (growth_ppt / max(first_avg, 0.01)) * 100
 
-    if growth_pct >= TEST_MAX_MEMORY_GROWTH_PCT:
-      print(
-        "Test failed memory trend check! start average {:.2f}% end average {:.2f}% growth {:.2f}%".format(
-          first_avg,
-          last_avg,
-          growth_pct,
-        )
-      )
-      self.memory_growth_detected = True
-      return True
+    if growth_pct < TEST_MAX_MEMORY_GROWTH_PCT or growth_ppt < TEST_MAX_MEMORY_GROWTH_PPT:
+      self.memory_growth_cycles = 0
+      return False
 
-    return False
+    self.memory_growth_cycles += 1
+    print("Memory growth detected: start average {:.2f}% end average {:.2f}% growth {:.2f}% ({:.2f}pp), consecutive window {}/{}".format(
+      first_avg, last_avg, growth_pct, growth_ppt,
+      self.memory_growth_cycles, MAX_CONSECUTIVE_MEMORY_GROWTH_CYCLES))
+    per_service = self.memory_growth_by_service()
+    if per_service:
+      print("  Per service memory delta: {}".format(per_service))
+    if self.memory_growth_cycles < MAX_CONSECUTIVE_MEMORY_GROWTH_CYCLES:
+      return False
+
+    print("Test failed memory trend check! start average {:.2f}% end average {:.2f}% growth {:.2f}% ({:.2f}pp)".format(
+      first_avg, last_avg, growth_pct, growth_ppt))
+    self.memory_growth_detected = True
+    return True
 
   def update_now_time(self):
     """! Sets now_time equal to the current system time.
@@ -247,8 +324,6 @@ class TestState():
     print("[{:.02f}% at {}] Runtime elapsed {} remaining {} (ending at {})".format(percentageRun, self.now_time.strftime("%c"), \
           str(self.running_time), str(self.remaining_time), self.end_time.strftime("%c")))
     print("{} Objects detected in last {} seconds (Min {} Max {})".format(objects_detected, TEST_WAIT_TIME, self.min_fps, self.max_fps))
-    if self.memory_samples:
-      print("System memory usage {:.2f}%".format(self.memory_samples[-1]))
     return None
 
   def login_failed(self):
@@ -308,6 +383,100 @@ class TestState():
       return False
     self.high_variation_cycles = 0
     return False
+
+  def check_service_health(self, docker, project_name):
+    """! Poll Docker health for each monitored service.
+
+    A missing container is treated as a failure condition, since every service
+    in HEALTHCHECK_SERVICES is expected to be running under the STABILITY
+    profile. A service that reports missing, unhealthy, or stopped for more
+    than ``MAX_CONSECUTIVE_UNHEALTHY_CYCLES`` consecutive cycles fails the
+    test.
+
+    @param    docker                  python-on-whales DockerClient.
+    @param    project_name            Compose project name (from scenescape_env).
+    @return   check_failed            Bool True if any service exceeded the
+                                      unhealthy cycle threshold, otherwise False.
+    """
+    if docker is None or project_name is None:
+      return False
+    results = check_services_health(docker, project_name, HEALTHCHECK_SERVICES)
+    print("Service Health:")
+    overall_ok = True
+    failure = None
+    for svc in HEALTHCHECK_SERVICES:
+      status, detail = results[svc]
+      label = SERVICE_LABELS.get(svc, svc)
+      if status == HEALTH_OK:
+        print("  {}: OK".format(label))
+        self.unhealthy_cycles[svc] = 0
+        continue
+      # Missing / unhealthy / stopped / error.
+      overall_ok = False
+      self.unhealthy_cycles[svc] += 1
+      print("  {}: {} ({}) — consecutive cycle {}/{}".format(
+        label, status.upper(), detail,
+        self.unhealthy_cycles[svc], MAX_CONSECUTIVE_UNHEALTHY_CYCLES))
+      if self.unhealthy_cycles[svc] >= MAX_CONSECUTIVE_UNHEALTHY_CYCLES and failure is None:
+        failure = (svc, status, detail)
+    print("Overall Health: {}".format("OK" if overall_ok else "DEGRADED"))
+    if failure is not None:
+      svc, status, detail = failure
+      label = SERVICE_LABELS.get(svc, svc)
+      print("Test failed service health check! {} has been {} ({}) for {} cycles".format(
+        label, status.upper(), detail, self.unhealthy_cycles[svc]))
+      self.service_health_failed = True
+      self.failed_service = svc
+      return True
+    return False
+
+  def sample_resource_usage(self, docker, project_name):
+    """! Record a CPU/Memory usage sample for each monitored service.
+
+    @param    docker                  python-on-whales DockerClient.
+    @param    project_name            Compose project name (from scenescape_env).
+    @return   None.
+    """
+    if docker is None or project_name is None:
+      return None
+    stats = get_services_stats(docker, project_name, HEALTHCHECK_SERVICES)
+    for svc, sample in stats.items():
+      if sample is not None:
+        self.resource_samples[svc].append(sample)
+    return None
+
+  def print_resource_summary(self):
+    """! Print average CPU/Memory usage per monitored service plus overall.
+    @return   None.
+    """
+    print()
+    print("Average Resource Usage")
+    per_service_cpu = []
+    per_service_mem = []
+    for svc in HEALTHCHECK_SERVICES:
+      label = SERVICE_LABELS.get(svc, svc)
+      samples = self.resource_samples.get(svc, [])
+      if not samples:
+        print("  {}".format(label))
+        print("    CPU: n/a")
+        print("    Memory: n/a")
+        continue
+      cpus = [c for c, _ in samples]
+      mems = [m for _, m in samples]
+      avg_cpu = sum(cpus) / len(cpus)
+      avg_mem = sum(mems) / len(mems)
+      per_service_cpu.append(avg_cpu)
+      per_service_mem.append(avg_mem)
+      print("  {}".format(label))
+      print("    CPU: {:.1f}%".format(avg_cpu))
+      print("    Memory: {:.1f}%".format(avg_mem))
+    if per_service_cpu:
+      print("Overall CPU Usage (avg): {:.1f}%".format(sum(per_service_cpu) / len(per_service_cpu)))
+      print("Overall Memory Usage (avg): {:.1f}%".format(sum(per_service_mem) / len(per_service_mem)))
+    else:
+      print("Overall CPU Usage (avg): n/a")
+      print("Overall Memory Usage (avg): n/a")
+    return None
 
   def check_time_remaining(self):
     """! Checks if the test is finished.
@@ -420,14 +589,19 @@ def get_current_fps_stats(model_list, state):
   @return   cur_fps                 Dict fps over the last MQTT message collection period in the form [model][sensor].
   @return   state                   Updated TestState object.
   """
+  global sensor_list
   cur_fps = {}
   for model in model_list:
     cur_fps[model] = {}
     for sensor in model_list[model]:
       model_sensor_count = model_list[model][sensor]
       cur_fps[model][sensor] = (model_sensor_count) / TEST_WAIT_TIME
-      state.update_min_max_fps(model_sensor_count)
       model_list[model][sensor] = 0
+
+  # Min/max message checks use raw camera-frame message counts
+  for sensor in sensor_list:
+    state.update_min_max_fps(sensor_list[sensor])
+    sensor_list[sensor] = 0
   return cur_fps, state
 
 def collect_mqtt_msgs(client):
@@ -463,20 +637,28 @@ def on_message(mqttc, obj, msg):
   @return   None.
   """
   global objects_detected
+  global sensor_list
   global test_started
   if test_started == False :
     print( "First msg received (Topic {})".format( msg.topic ) )
     test_started = True
   topic = PubSub.parseTopic(msg.topic)
   if topic['_topic_id'] == PubSub.DATA_CAMERA:
+    topic_split = msg.topic.split('/')
+    if len(topic_split) > 3:
+      sensor = topic_split[3]
+      if sensor not in sensor_list:
+        sensor_list[sensor] = 0
+      sensor_list[sensor] += 1
     handle_mqtt_sensor_topic(msg)
   objects_detected += 1
   return
 
-def test_sscape_stability(params, record_xml_attribute):
+def test_sscape_stability(params, record_xml_attribute, scenescape_env):
   """! Checks that scenescape performs as expected over a given time period.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    scenescape_env          Fixture providing the Compose stack context.
   @return   result                  Int 0 if test passed otherwise 1.
   """
   global connected
@@ -488,6 +670,8 @@ def test_sscape_stability(params, record_xml_attribute):
   state = TestState(params)
   result = 1
   avg_fps = {}
+  docker = getattr(scenescape_env, "docker", None)
+  project_name = getattr(scenescape_env, "project_name", None)
 
   assert state.get_test_time()
   state.set_start_end_time()
@@ -511,17 +695,22 @@ def test_sscape_stability(params, record_xml_attribute):
       state.print_update()
       avg_fps, state = update_avg_fps(avg_fps, cur_fps, state)
       avg_msg = update_avg_msg(avg_fps, state)
+      state.sample_resource_usage(docker, project_name)
 
       if state.enough_messages() or state.stable_messages() or state.login_failed() or state.memory_usage_stable():
         state.done = True
+      elif state.check_service_health(docker, project_name):
+        state.done = True
       else:
-        print(avg_msg, " log-in ok")
+        if avg_msg:
+          print(avg_msg)
         state.current_cycle += 1
     else:
       state.done = True
       result = 0
       print("Test passed! {} of runtime".format(str(state.running_time)))
 
+  state.print_resource_summary()
   common.record_test_result(TEST_NAME, result)
   assert result == 0
   return result

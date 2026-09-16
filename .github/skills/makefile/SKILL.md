@@ -146,7 +146,7 @@ help:
 Common phony targets in Scenescape:
 
 ```makefile
-.PHONY: build build-core build-all build-experimental
+.PHONY: build build-core build-all
 .PHONY: rebuild rebuild-core
 .PHONY: clean clean-secrets clean-build
 .PHONY: test unit-tests functional-tests
@@ -405,8 +405,8 @@ build-all:
 	@echo "$(BLUE)Building core services...$(RESET)"
 	$(MAKE) build-core
 	@echo "$(GREEN)✓ Core services built$(RESET)"
-	@echo "$(BLUE)Building experimental services...$(RESET)"
-	$(MAKE) build-experimental
+	@echo "$(BLUE)Building mapping, cluster_analytics, and tracker...$(RESET)"
+	$(MAKE) mapping cluster_analytics tracker
 	@echo "$(GREEN)✓ All services built$(RESET)"
 ```
 
@@ -674,8 +674,8 @@ build-controller:
 build-core: ## Build core services (controller, manager, autocalibration)
 	$(MAKE) $(CORE_IMAGE_FOLDERS)
 
-build-all: ## Build all services including experimental
-	$(MAKE) $(IMAGE_FOLDERS) $(EXPERIMENTAL_FOLDERS)
+build-all: ## Build all services
+	$(MAKE) $(IMAGE_FOLDERS)
 ```
 
 ## Testing

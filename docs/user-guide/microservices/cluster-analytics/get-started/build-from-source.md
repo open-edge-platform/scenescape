@@ -10,7 +10,7 @@
   Clone the repository.
 
   ```bash
-  git clone https://github.com/open-edge-platform/scenescape.git -b main
+  git clone https://github.com/open-edge-platform/scenescape.git -b release-2026.2.0
   ```
 
 > **Note:** Adjust the repo link appropriately in case of forked repo.
@@ -22,6 +22,7 @@
   ```
 
 - **Build cluster_analytics**:
+
   ```bash
   make cluster_analytics
   ```

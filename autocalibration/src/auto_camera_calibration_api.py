@@ -699,6 +699,9 @@ class CameraCalibrationApi:
         log.warning(f"Failed to parse JSON for sensor {sensorId}: {e}")
         raise ValidationError("Invalid JSON in request body")
 
+      if not isinstance(data, dict):
+        raise ValidationError("Request body must be a JSON object")
+
       if not data:
         raise ValidationError("Request body cannot be empty")
 

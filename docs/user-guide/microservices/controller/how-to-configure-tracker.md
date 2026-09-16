@@ -12,7 +12,7 @@ during Scenescape deployment.
 
 ### Enabling Time-Based Parameters
 
-A `tracker-config.json` file is pre-stored in the [`config` directory](https://github.com/open-edge-platform/scenescape/tree/main/controller/config) in the repository.
+A `tracker-config.json` file is pre-stored in the [`config` directory](https://github.com/open-edge-platform/scenescape/tree/release-2026.2.0/controller/config) in the repository.
 The only change required is to mount this file to the Docker container in the `scene` service.
 The `scene` service in the `docker-compose.yml` file should look as follows. Note the `configs`
 section.
@@ -249,8 +249,8 @@ The tracker may accumulate suspended tracks for some time for re-tracking purpos
 
 ## Persisting Object Attributes Across Detection Gaps
 
-Detection pipelines don't always re-report every attribute (e.g. shirt color, license plate,
-age/gender) on every frame. By default, an attribute that's missing from the current detection is
+Detection pipelines do not always re-report every attribute (e.g., shirt color, license plate,
+age/gender) on every frame. By default, an attribute that is missing from the current detection is
 cleared on the tracked object. The `persist_attributes` field carries specific attributes forward
 between updates instead of letting them flicker or disappear.
 

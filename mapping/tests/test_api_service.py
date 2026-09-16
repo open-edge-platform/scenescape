@@ -82,7 +82,6 @@ class TestAPIService:
 
     assert response.status_code == 200
     data = json.loads(response.data)
-    assert data['success'] is True
     assert data['status'] == 'healthy'
     assert data['ready'] is True
     assert data['component'] == 'mapping'

@@ -18,16 +18,19 @@ WORKDIR /tmp
 COPY mapping/0001-Run-it-on-CPU.patch /tmp/
 COPY mapping/mapanything-version-fix.patch /tmp/
 
-# Clone and prepare only the selected model
+# Model source is fetched on the host by `make vendor-deps` (see mapping/Makefile) into
+# .vendor/model, keyed off MODEL_TYPE, to avoid GitHub's unauthenticated-download rate limiting.
+COPY mapping/.vendor/model /tmp/vendor-model
 RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
-        git clone https://github.com/facebookresearch/map-anything.git ./map-anything && \
-        cd ./map-anything && git checkout b84b28f && git apply /tmp/mapanything-version-fix.patch; \
+        cp -r /tmp/vendor-model ./map-anything && \
+        cd ./map-anything && git apply /tmp/mapanything-version-fix.patch; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
-        git clone https://github.com/facebookresearch/vggt.git ./vggt && \
-        cd ./vggt && git checkout 44b3afb && git apply /tmp/0001-Run-it-on-CPU.patch; \
+        cp -r /tmp/vendor-model ./vggt && \
+        cd ./vggt && git apply /tmp/0001-Run-it-on-CPU.patch; \
     else \
         echo "Invalid MODEL_TYPE: $MODEL_TYPE. Must be 'mapanything' or 'vggt'" && exit 1; \
-    fi
+    fi && \
+    rm -rf /tmp/vendor-model
 
 # =========================
 # STAGE 2: RUNTIME STAGE
@@ -39,7 +42,7 @@ LABEL org.opencontainers.image.description="Scenescape's 3D Mapping Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/mapping/docs/user-guide/overview.md"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/docs/user-guide/microservices/mapping-service/mapping-service.md"
 
 ARG USER_ID=1001
 ARG GROUP_ID=1001

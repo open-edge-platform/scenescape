@@ -204,6 +204,7 @@
               [2.0, 2.0],
               [0.0, 2.0]
             ],
+            "visible": true,
             "color_ranges": {
               "sectors": [
                 {
@@ -238,7 +239,8 @@
           "status_code": 200
         },
         "validate": {
-          "name": "Region_Full_Updated"
+          "name": "Region_Full_Updated",
+          "visible": true
         }
       }
     ]
@@ -255,6 +257,22 @@
           "body": {
             "scene": "${SCENE_UID}",
             "name": ""
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      },
+      {
+        "step_name": "Attempt to update region with invalid visibility",
+        "api": "region",
+        "method": "updateRegion",
+        "request": {
+          "uid": "${REGION_UID_MINIMAL}",
+          "body": {
+            "visible": {
+              "invalid": true
+            }
           }
         },
         "expected_status": {
@@ -309,6 +327,7 @@
           "buffer_size": 0.0,
           "height": 1.0,
           "volumetric": false,
+          "visible": false,
           "color_ranges": {
             "sectors": [
               {

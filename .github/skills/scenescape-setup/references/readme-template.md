@@ -98,12 +98,12 @@ packages) and the full backend/marker reference.
 ## References
 
 - SceneScape repository: https://github.com/open-edge-platform/scenescape
-- User guide: https://github.com/open-edge-platform/scenescape/tree/main/docs/user-guide
-- Tests guide: https://github.com/open-edge-platform/scenescape/blob/main/tests/README.md
+- User guide: https://github.com/open-edge-platform/scenescape/tree/release-2026.2.0/docs/user-guide
+- Tests guide: https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/tests/README.md
 
 ## Security note (demo configuration)
 
-Single-host demo deployment. `secrets/certs/scenescape-mapping.key` is readable by
-non-owner container UIDs so the `mapping` and `video-analytics` services can start.
-Restrict that key and replace the self-signed certificates with CA-signed ones
-before exposing this host beyond a trusted network.
+Single-host demo deployment. Public trust material (`.pem` / `.crt`) is mode `0644` so
+containers that do not run as the host UID (notably `video-analytics`) can load the CA;
+private keys and `.auth` files stay `0600`. Replace the self-signed certificates with
+CA-signed ones before exposing this host beyond a trusted network.

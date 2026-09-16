@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Overview
 
-This document describes the implementation of 2-tier hybrid search for Re-ID (Re-Identification) in the Scene Controller, as specified in [ADR-0010](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0010-reid-metadata-storage-architecture.md).
+This document describes the implementation of 2-tier hybrid search for Re-ID (Re-Identification) in the Scene Controller, as specified in [ADR-0010](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/docs/adr/0010-reid-metadata-storage-architecture.md).
 
 **Architecture**: TIER 1 (metadata filtering) + TIER 2 (vector similarity)
 
@@ -138,6 +138,8 @@ Shared `REID_*` settings configure any vector backend. Only `REID_DATABASE` sele
 | `REID_USE_TLS`                                          | TLS on/off (`true`/`false`)          | `true`                                                              |
 | `REID_API_KEY`                                          | Optional API key                     | unset                                                               |
 | `REID_CONFIDENCE_THRESHOLD`                             | TIER 1 metadata confidence threshold | `0.8`                                                               |
+| `REID_DESCRIPTOR_TTL_SECS`                              | Coarse retention lifetime (`0` off)  | `86400`                                                             |
+| `REID_PURGE_INTERVAL_SECS`                              | Physical reclaim cadence             | `300`                                                               |
 | `REID_CA_CERT` / `REID_CLIENT_CERT` / `REID_CLIENT_KEY` | TLS / mTLS paths                     | `scenescape-ca.pem` / `scenescape-reid.crt` / `scenescape-reid.key` |
 
 - Values ≥ `REID_CONFIDENCE_THRESHOLD`: Included in AND constraints (strict metadata filtering)
@@ -175,7 +177,7 @@ The Scene Controller now supports a dedicated `reid-config.json` configuration f
 
 Place `reid-config.json` in the controller config directory:
 
-```
+```text
 controller/config/reid-config.json
 ```
 
@@ -253,7 +255,7 @@ Each embedding still has to be attributable to exactly one enrollment:
 - **Live-gid collision limits concurrent Rematch.** A parent will not assign the same database
   UUID to two concurrent live tracks. Cross-child identity continuity via ReID is therefore
   verified for **sequential** rematch today; concurrent two-child merge via ReID alone is a
-  [product follow-up](../../../adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity).
+  [product follow-up](https://github.com/open-edge-platform/scenescape/blob/release-2026.2.0/docs/adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity).
 - **Provenance is not accepted from detectors.** Origin claims arriving on a camera topic are
   discarded, so a detector cannot bypass the bounding-box quality gate.
 

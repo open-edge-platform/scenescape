@@ -233,6 +233,7 @@ function main() {
     for (const thing of things) {
       sceneThingManagers["things"][thing]["drawObj"] = drawObj;
       sceneThingManagers["things"][thing]["scene"] = scene;
+      sceneThingManagers["things"][thing]["toast"] = toast;
       let thingManager = new sceneThingManagers["things"][thing]["manager"](
         sceneID,
       );

@@ -24,6 +24,12 @@ let sceneThingAPI = {
   sensor: "getSensors",
 };
 
+let sceneThingUpdateAPI = {
+  tripwire: "updateTripwire",
+  region: "updateRegion",
+  sensor: "updateSensor",
+};
+
 export default class ThingManager {
   constructor(sceneID, thingType) {
     this.sceneID = sceneID;
@@ -43,6 +49,7 @@ export default class ThingManager {
       for (const thing of this.thingsFromDB.content.results) {
         thing["isStoredInDB"] = true;
         let thingObj = this.add(thing);
+        thingObj.toast = params.toast;
         params["currentThings"] = this.sceneThings;
         thingObj.addObject(params);
       }
@@ -58,6 +65,17 @@ export default class ThingManager {
     let thingObj = new sceneThingObjects[this.thingType](thing);
     thingObj.restclient = this.restclient;
     thingObj.sceneID = this.sceneID;
+    const updateApiMethod = sceneThingUpdateAPI[this.thingType];
+    if (thing.isStoredInDB && updateApiMethod) {
+      thingObj.persistVisibility = async (visible) => {
+        const result = await this.restclient[updateApiMethod](thing.uid, {
+          visible: visible,
+        });
+        if (result.statusCode !== SUCCESS) {
+          throw new Error(result.errors || "Unable to save visibility");
+        }
+      };
+    }
     if (!(thing.uid in this.sceneThings)) {
       this.sceneThings[thing.uid] = thingObj;
     } else {

@@ -577,6 +577,8 @@ class ChildScene(models.Model):
   mqtt_username = models.CharField("MQTT Username", max_length=200, null=True, blank=True)
   mqtt_password = models.CharField("MQTT Password", max_length=200, null=True, blank=True)
   retrack = models.BooleanField("Retrack objects", choices=BOOLEAN_CHOICES, default=True, blank=True)
+  cached_rois = models.JSONField("Cached remote rois", default=list, blank=True)
+  cached_tripwires = models.JSONField("Cached remote tripwires", default=list, blank=True)
 
   @property
   def cameraPose(self):
@@ -860,6 +862,7 @@ class SingletonSensor(Sensor):
   map_y = models.FloatField(default=None, null=True, blank=True)
   area = models.CharField(max_length=16, choices=AREA_CHOICES, default='scene')
   radius = models.FloatField(default=None, null=True, blank=True)
+  visible = models.BooleanField(default=False)
   singleton_type = models.CharField("Type of Sensor", max_length=20, choices=SINGLETON_CHOICES,
                                     default='environmental')
 
@@ -965,6 +968,7 @@ class Region(BoundingBox):
   # Currently, there is no ROI support for objects under the ground plane.
   height = models.FloatField(default=1.0, null=False, blank=False, validators=[MinValueValidator(0.001)])
   volumetric = models.BooleanField(choices=BOOLEAN_CHOICES, default=False, null=True)
+  visible = models.BooleanField(default=False)
 
   def get_sectors(self):
     if not hasattr(self, 'roi_occupancy_threshold'):
@@ -978,6 +982,7 @@ class Tripwire(BoundingBox):
   uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
   scene = models.ForeignKey(Scene, on_delete=models.CASCADE, related_name="tripwires")
   height = models.FloatField(default=1.0, null=False, blank=False)
+  visible = models.BooleanField(default=False)
 
 class TripwirePoint(BoundingBoxPoints):
   tripwire = models.ForeignKey(Tripwire, on_delete=models.CASCADE, related_name="points")
