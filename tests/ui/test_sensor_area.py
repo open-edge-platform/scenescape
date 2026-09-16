@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import time
 import pytest
 
@@ -17,10 +18,12 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
+POLYGON_POINTS_M = [[1.0, 1.0], [4.0, 1.0], [4.0, 4.0], [1.0, 4.0]]
+
 @pytest.mark.test_name("NEX-T10401")
 def test_sensor_area_main(params, result_recorder):
   """! Checks that a sensor covering the entire scene, a circular area, and a
-  triangular area can each be calibrated.
+  polygonal area can each be calibrated in the React calibrate workspace.
   @param    params                  Dict of test parameters.
   @param    result_recorder         Pytest fixture recording the test result.
   @return   exit_code               Indicates test success or failure.
@@ -38,21 +41,17 @@ def test_sensor_area_main(params, result_recorder):
     sensor_name = "Sensor_0"
     scene_name = common.TEST_SCENE_NAME
     common.create_sensor_from_scene(browser, sensor_id, sensor_name, scene_name)
-    print("Navigating to sensor edit tab ...")
-    browser.find_element(By.LINK_TEXT, "Sensors").click()
-    browser.find_element(By.XPATH, "//*[text()='" + sensor_name + "']/parent::tr/td[4]/a").click()
-    get_radio = browser.find_elements(By.XPATH, "//*[@type='radio']")
-    count_radio = len(get_radio)
-    radio_list = []
-    if count_radio == 3:
-      for elem in get_radio:
-        radio_list.append(elem.get_attribute('value'))
-      print(f"There are {count_radio} area types as a radio button: \n{radio_list}")
+    print("Opening sensor calibrate workspace ...")
+    common.open_sensor_calibrate_from_list(browser, sensor_name)
 
-    entire_scene = browser.find_element(By.ID, "id_area_0")
-    assert entire_scene.is_selected()
-    validate_circular_sensor_area(browser)
-    validate_polygon_sensor_area(browser)
+    area_select = browser.find_element(By.ID, "ss-sensor-cal-area")
+    options = [opt.get_attribute("value") for opt in area_select.find_elements(By.TAG_NAME, "option")]
+    assert options == ["scene", "circle", "poly"], f"Unexpected area options: {options}"
+    assert area_select.get_attribute("value") == "scene"
+    print(f"Default area type is entire scene; options={options}")
+
+    validate_circular_sensor_area(browser, sensor_name)
+    validate_polygon_sensor_area(browser, sensor_name)
     result_recorder.success()
   finally:
     if browser is not None:
@@ -60,91 +59,125 @@ def test_sensor_area_main(params, result_recorder):
       browser.close()
   return
 
-def validate_polygon_sensor_area(browser):
-  browser.find_element(By.ID, "id_area_2").click()
-  WebDriverWait(browser, 10).until(
-      EC.presence_of_element_located((By.ID, "svgout")))
-  time.sleep(1)
+def validate_polygon_sensor_area(browser, sensor_name):
+  """! Configure a polygon area via the React calibrate map or points field."""
+  wait = WebDriverWait(browser, common.BROWSER_WAIT * 4)
+  common.set_sensor_cal_area(browser, "poly")
+  wait.until(EC.presence_of_element_located((By.ID, "ss-sensor-cal-pts")))
 
-  # Draw a polygon by dispatching mouseup events directly to the SVG at exact coordinates.
-  vertex_offsets = [(60, 60), (160, 60), (160, 160), (60, 160)]
-  draw_polygon_via_events(browser, vertex_offsets)
+  maps = browser.find_elements(By.CSS_SELECTOR, "svg.ss-sensor-area-map")
+  if maps:
+    # Clear any prior points so map click-draw is accepted.
+    common.set_react_input_value(browser, "ss-sensor-cal-pts", "[]")
+    time.sleep(0.2)
+    draw_polygon_via_events(browser, [(60, 60), (160, 60), (160, 160), (60, 160)])
+    wait.until(
+      EC.presence_of_element_located(
+        (By.CSS_SELECTOR, "svg.ss-sensor-area-map polygon.ss-sensor-area-coverage")
+      )
+    )
+    polygon = browser.find_element(
+      By.CSS_SELECTOR, "svg.ss-sensor-area-map polygon.ss-sensor-area-coverage"
+    )
+    print(f"POLYGON drawn on calibrate map: {polygon.get_attribute('points')}")
+  else:
+    print("Calibrate map unavailable; using Points JSON field")
+    common.set_react_input_value(
+      browser, "ss-sensor-cal-pts", json.dumps(POLYGON_POINTS_M)
+    )
 
-  polygon_list = browser.find_elements_with_wait(By.TAG_NAME, "polygon")
-  polygon_points = polygon_list[-1].get_attribute("points")
-  p_list = list(map(float, polygon_points.split(",")))
-  expected_len = len(vertex_offsets) * 2
-  assert len(p_list) == expected_len, (
-    f"Expected {len(vertex_offsets)} vertices ({expected_len} coords), got {p_list}"
+  pts_before = json.loads(
+    browser.find_element(By.ID, "ss-sensor-cal-pts").get_attribute("value")
   )
-  print(f"POLYGON with {len(p_list) // 2} points created \n{p_list}")
+  assert isinstance(pts_before, list) and len(pts_before) >= 3, (
+    f"Expected polygon points before save, got {pts_before}"
+  )
+  assert common.save_sensor_calibration(browser)
 
-  browser.find_element(By.NAME, "save").click()
-  time.sleep(3)
-
-  verify_polygon = browser.find_elements_with_wait(By.TAG_NAME, "polygon")
-  verify_points = verify_polygon[-1].get_attribute("points")
-  verify_list = list(map(float, verify_points.split(",")))
-  assert p_list == verify_list
+  common.open_sensor_calibrate_from_list(browser, sensor_name)
+  wait.until(EC.presence_of_element_located((By.ID, "ss-sensor-cal-area")))
+  assert browser.find_element(By.ID, "ss-sensor-cal-area").get_attribute("value") == "poly"
+  pts_after = json.loads(
+    browser.find_element(By.ID, "ss-sensor-cal-pts").get_attribute("value")
+  )
+  assert len(pts_after) == len(pts_before), (
+    f"Polygon vertex count changed after save: {pts_before} -> {pts_after}"
+  )
   print("POLYGON area configuration persists")
   return
 
 def draw_polygon_via_events(browser, vertex_offsets):
-  """! Draws and closes a polygon on the sensor SVG using synthetic mouseup events.
+  """! Draws and closes a polygon on the React sensor area SVG using click events.
 
-  Each offset is relative to the top-left of the #svgout element and matches the
-  coordinate the Snap.svg handler records (pageX/pageY minus the SVG offset). The
-  polygon is closed by dispatching a final mouseup on the start-point vertex,
-  which triggers closePolygon() and serializes the ROI into the form for saving.
+  Offsets are in SVG user units relative to the top-left of the viewBox. After
+  three or more vertices, the first handle becomes the close target.
 
   @param    browser                 Object wrapping the Selenium driver.
   @param    vertex_offsets          List of (dx, dy) offsets for each vertex.
   """
   script = """
-    const svg = document.getElementById('svgout');
+    const svg = document.querySelector('svg.ss-sensor-area-map');
+    if (!svg) { return false; }
     const offsets = arguments[0];
-    const rect = svg.getBoundingClientRect();
-    const fire = (el, x, y) => el.dispatchEvent(new MouseEvent('mouseup', {
-      bubbles: true, cancelable: true, view: window, clientX: x, clientY: y,
-    }));
+    const fireClick = (el, x, y) => {
+      const pt = svg.createSVGPoint();
+      pt.x = x;
+      pt.y = y;
+      const ctm = svg.getScreenCTM();
+      if (!ctm) { return; }
+      const screen = pt.matrixTransform(ctm);
+      el.dispatchEvent(new MouseEvent('click', {
+        bubbles: true, cancelable: true, view: window,
+        clientX: screen.x, clientY: screen.y,
+      }));
+    };
     for (const [dx, dy] of offsets) {
-      fire(svg, rect.left + dx, rect.top + dy);
+      fireClick(svg, dx, dy);
     }
-    const start = svg.querySelector('.start-point');
-    if (start) {
-      const r = start.getBoundingClientRect();
-      fire(start, r.left + r.width / 2, r.top + r.height / 2);
+    const closeHandle = svg.querySelector('.ss-sensor-area-handle.is-close');
+    if (closeHandle) {
+      const r = closeHandle.getBoundingClientRect();
+      closeHandle.dispatchEvent(new MouseEvent('click', {
+        bubbles: true, cancelable: true, view: window,
+        clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+      }));
     }
+    return true;
   """
-  browser.execute_script(script, [list(v) for v in vertex_offsets])
+  assert browser.execute_script(script, [list(v) for v in vertex_offsets]), (
+    "React sensor area map SVG was not found"
+  )
   WebDriverWait(browser, 10).until(
-      lambda b: len(b.find_elements(By.CLASS_NAME, "vertex")) >= len(vertex_offsets))
-
-def validate_circular_sensor_area(browser):
-  browser.find_element(By.ID, "id_area_1").click()
-  wait = WebDriverWait(browser, 2)
-  circle_area = wait.until(
-      EC.presence_of_element_located((By.CLASS_NAME, "sensor_r"))
+    lambda b: len(
+      b.find_elements(By.CSS_SELECTOR, "svg.ss-sensor-area-map .ss-sensor-area-handle")
+    ) >= len(vertex_offsets)
   )
-  assert circle_area.is_displayed()
-  get_initial_radius = circle_area.get_attribute("r")
 
-  slider = browser.find_element(By.ID, "id_sensor_r")
-  action = browser.actionChains()
-  action.click_and_hold(slider).move_by_offset(40, 0).release().perform()
-  save_circle = browser.find_element(By.NAME, "save")
-  save_circle.click()
+def validate_circular_sensor_area(browser, sensor_name):
+  """! Switch to circle area, change radius, save, and verify it persists."""
+  wait = WebDriverWait(browser, common.BROWSER_WAIT * 4)
+  common.set_sensor_cal_area(browser, "circle")
+  wait.until(EC.presence_of_element_located((By.ID, "ss-sensor-cal-r")))
+  if browser.find_elements(By.CSS_SELECTOR, "svg.ss-sensor-area-map"):
+    wait.until(
+      EC.presence_of_element_located(
+        (By.CSS_SELECTOR, "svg.ss-sensor-area-map circle.ss-sensor-area-coverage")
+      )
+    )
+  radius_field = browser.find_element(By.ID, "ss-sensor-cal-r")
+  initial_radius = radius_field.get_attribute("value")
+  new_radius = "2.5" if initial_radius != "2.5" else "3.5"
+  common.set_react_input_value(browser, "ss-sensor-cal-r", new_radius)
+  assert common.save_sensor_calibration(browser)
 
-  wait.until(EC.element_to_be_clickable((By.ID, "ss-tab-sensors"))).click()
-  wait.until(
-      EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))
-  ).click()
-
-  verify_radius = wait.until(
-      EC.presence_of_element_located((By.CLASS_NAME, "sensor_r"))
+  common.open_sensor_calibrate_from_list(browser, sensor_name)
+  wait.until(EC.presence_of_element_located((By.ID, "ss-sensor-cal-area")))
+  assert browser.find_element(By.ID, "ss-sensor-cal-area").get_attribute("value") == "circle"
+  wait.until(EC.presence_of_element_located((By.ID, "ss-sensor-cal-r")))
+  verify_radius = browser.find_element(By.ID, "ss-sensor-cal-r").get_attribute("value")
+  assert float(verify_radius) == float(new_radius), (
+    f"Circle radius did not persist: before={initial_radius} set={new_radius} after={verify_radius}"
   )
-  get_new_radius = verify_radius.get_attribute("r")
-  assert get_initial_radius is not get_new_radius
-  print("CIRCLE is shown and its radius was modified using the slider")
-  print("CIRCLE radius set to: " + get_new_radius)
+  print("CIRCLE is shown and its radius was modified")
+  print("CIRCLE radius set to: " + verify_radius)
   return

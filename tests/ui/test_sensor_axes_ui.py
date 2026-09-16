@@ -116,9 +116,8 @@ def test_sensor_axes_main(params, record_xml_attribute):
 
     # Create a circular perceptual sensor (defaults to visible=false).
     common.create_sensor_from_scene(browser, sensor_id, sensor_name, scene_name)
-    browser.find_element(By.LINK_TEXT, "Sensors").click()
-    browser.find_element(By.XPATH, "//*[text()='" + sensor_name + "']/parent::tr/td[4]/a").click()
-    assert common.create_circle_sensor(browser, radius=250), "Failed to create circle sensor"
+    common.open_sensor_calibrate_from_list(browser, sensor_name)
+    assert common.create_circle_sensor(browser, radius=2.5), "Failed to create circle sensor"
 
     # Navigate to the 3D scene view
     assert common.navigate_directly_to_page(browser, f"/scene/detail/{common.TEST_SCENE_ID}/")

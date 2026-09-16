@@ -133,6 +133,12 @@ SVG `g.roi` / `g.tripwire`, `adding-roi` / `adding-tripwire`.
 | `#ss-sensors-mount`, `.singleton`, `.area-json`, `.sensor-id` | Sensors |
 | `#ss-children-mount`, `.child-card`, `#mqtt_status_remote_{id}` | Children |
 | `?ss=child-edit&id={restUid}` | ChildSheet |
+| `a[id^='sensor_calibrate_']` | Scene-tab Manage → calibrate |
+| `?ss=calibrate-sensor&id={pk}` / admin `a.ss-table-action[title='Manage']` | List → calibrate |
+| `#ss-sensor-calibrate-form`, `#ss-sensor-cal-area` (`scene`/`circle`/`poly`) | Calibrate area |
+| `#ss-sensor-cal-cx`, `#ss-sensor-cal-cy`, `#ss-sensor-cal-r`, `#ss-sensor-cal-pts` | Circle / poly fields |
+| `svg.ss-sensor-area-map`, `.ss-sensor-area-coverage`, `.ss-sensor-area-handle` | Area preview map |
+| `button[form='ss-sensor-calibrate-form']` (`.ss-btn--dirty` when unsaved) | Calibrate Save |
 
 ### 3D chrome (legacy viewport)
 

@@ -1081,8 +1081,9 @@ def create_sensor_from_sensors_page(browser, sensor_id, sensor_name, scene_name)
   @param    scene_name                 Name of the scene being checked.
   @return   bool                       Boolean representing success.
   """
-  browser.find_element(By.LINK_TEXT, "Sensors").click()
-  browser.find_element(By.LINK_TEXT, '+ New Sensor').click()
+  wait = WebDriverWait(browser, BROWSER_WAIT * 4)
+  wait.until(EC.element_to_be_clickable((By.ID, "nav-sensors"))).click()
+  wait.until(EC.element_to_be_clickable((By.ID, "new-sensor"))).click()
   create_sensor(browser, sensor_id, sensor_name, scene_name)
 
   # Page is redirected to respective scene page verify the presence of the sensor in that page
@@ -1092,44 +1093,134 @@ def create_sensor_from_sensors_page(browser, sensor_id, sensor_name, scene_name)
   print("Error while creating sensor:", sensor_name)
   return False
 
+def wait_sensor_calibrate_ready(browser, timeout=None):
+  """! Wait until the React sensor calibrate workspace form is ready.
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    timeout                    Optional wait seconds (defaults to BROWSER_WAIT*4).
+  @return   None
+  """
+  wait = WebDriverWait(browser, timeout if timeout is not None else BROWSER_WAIT * 4)
+  wait.until(EC.presence_of_element_located((By.ID, "ss-sensor-cal-area")))
+  wait.until(EC.presence_of_element_located((By.ID, "ss-sensor-calibrate-form")))
+  return
+
+def open_sensor_calibrate_from_list(browser, sensor_name):
+  """! Open sensor calibrate from the Sensors admin list Manage action.
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    sensor_name                Display name of the sensor row.
+  @return   None
+  """
+  wait = WebDriverWait(browser, BROWSER_WAIT * 4)
+  wait.until(EC.element_to_be_clickable((By.ID, "nav-sensors"))).click()
+  wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#ss-admin-list-root table")))
+  row = wait.until(
+    EC.presence_of_element_located(
+      (By.XPATH, f"//td[normalize-space()='{sensor_name}']/ancestor::tr[1]")
+    )
+  )
+  row.find_element(By.CSS_SELECTOR, "a.ss-table-action[title='Manage']").click()
+  wait_sensor_calibrate_ready(browser)
+  return
+
+def set_sensor_cal_area(browser, area):
+  """! Set React sensor calibrate area type (scene|circle|poly).
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    area                       Area mode value for #ss-sensor-cal-area.
+  @return   None
+  """
+  wait_sensor_calibrate_ready(browser)
+  Select(browser.find_element(By.ID, "ss-sensor-cal-area")).select_by_value(area)
+  return
+
+def set_react_input_value(browser, element_id, value):
+  """! Set a React-controlled input/textarea value and dispatch input/change.
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    element_id                 Element id to update.
+  @param    value                      String value to assign.
+  @return   None
+  """
+  el = browser.find_element(By.ID, element_id)
+  tag = (el.tag_name or "").lower()
+  proto = "HTMLTextAreaElement" if tag == "textarea" else "HTMLInputElement"
+  browser.execute_script(
+    """
+    const el = arguments[0];
+    const val = String(arguments[1]);
+    const proto = window[arguments[2]].prototype;
+    const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+    if (desc && desc.set) {
+      desc.set.call(el, val);
+    } else {
+      el.value = val;
+    }
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    """,
+    el,
+    value,
+    proto,
+  )
+  return
+
 def save_sensor_calibration(browser):
-  """! Saves sensor calibration in the Manage Sensor tab.
+  """! Saves sensor calibration in the React calibrate workspace.
   @param    browser                    Object wrapping the Selenium driver.
   @return   True                       Returns True if the action is successful.
   """
   try:
-    browser.find_element(By.NAME, "save").click()
+    wait = WebDriverWait(browser, BROWSER_WAIT * 4)
+    btn = wait.until(
+      EC.element_to_be_clickable(
+        (By.CSS_SELECTOR, "button[form='ss-sensor-calibrate-form']")
+      )
+    )
+    btn.click()
+    wait.until(EC.invisibility_of_element_located((By.ID, "ss-sensor-calibrate-form")))
     return True
-  except:
+  except Exception:
     return False
 
-def create_circle_sensor(browser, radius=250):
+def create_circle_sensor(browser, radius=2.5):
   """! Creates a sensor that covers a circular area.
   @param    browser                    Object wrapping the Selenium driver.
-  @param    radius                     Radius of the circular area covered by the sensor.
+  @param    radius                     Circle radius in meters. Values >= 50 are
+                                       treated as legacy slider-pixel offsets (/100).
   @return   True                       Returns True if the action is successful.
   """
-  browser.find_element(By.CSS_SELECTOR, "#id_area_1").click()
-  slider = browser.find_element(By.ID, "id_sensor_r")
-  circle_action = browser.actionChains()
-  circle_action.click_and_hold(slider).move_by_offset(radius, 0).release().perform()
+  radius_m = radius / 100.0 if radius >= 50 else radius
+  set_sensor_cal_area(browser, "circle")
+  wait = WebDriverWait(browser, BROWSER_WAIT * 4)
+  wait.until(EC.presence_of_element_located((By.ID, "ss-sensor-cal-r")))
+  set_react_input_value(browser, "ss-sensor-cal-r", f"{radius_m:g}")
   return save_sensor_calibration(browser)
 
-def create_triangle_sensor(browser, triangle_height=DEFAULT_SENSOR_TRIANGLE_HEIGHT, triangle_length=DEFAULT_SENSOR_TRIANGLE_LENGTH, upper_left_point=DEFAULT_SENSOR_TRIANGLE_UPPER_LEFT_POINT):
+def create_triangle_sensor(
+  browser,
+  triangle_height=DEFAULT_SENSOR_TRIANGLE_HEIGHT,
+  triangle_length=DEFAULT_SENSOR_TRIANGLE_LENGTH,
+  upper_left_point=DEFAULT_SENSOR_TRIANGLE_UPPER_LEFT_POINT,
+  points=None,
+):
   """! Creates a sensor that covers a triangular area.
   @param    browser                    Object wrapping the Selenium driver.
-  @param    triangle_height            Height of the triangular area.
-  @param    triangle_length            Length of the triangular area.
-  @param    upper_left_point           Location of the triangular areas upper left point relative to the center of element svgout.
+  @param    triangle_height            Legacy pixel height (ignored when points set).
+  @param    triangle_length            Legacy pixel length (ignored when points set).
+  @param    upper_left_point           Legacy pixel origin (ignored when points set).
+  @param    points                     Optional meter points [[x,y], ...]. When omitted,
+                                       uses a stable default triangle in meters.
+                                       Legacy pixel kwargs are retained for call-site
+                                       compatibility but are not mapped 1:1 onto the
+                                       React calibrate map.
   @return   True                       Returns True if the action is successful.
   """
-  browser.find_element(By.CSS_SELECTOR, "#id_area_2").click()
-  svg = browser.find_element(By.ID, "svgout")
-  action_chain = browser.actionChains()
-  action_chain.move_to_element_with_offset(svg, upper_left_point[0], upper_left_point[1]).click().perform()
-  action_chain.move_by_offset(0, triangle_height).click().perform()
-  action_chain.move_by_offset(triangle_length, 0).click().perform()
-  action_chain.move_by_offset(-triangle_length, -triangle_height).click().perform()
+  _ = (triangle_height, triangle_length, upper_left_point)
+  if points is None:
+    # Stable meter triangle used by React calibrate (replaces Snap.svg click-draw).
+    points = [[2.0, 2.0], [2.0, 6.0], [6.0, 6.0]]
+  set_sensor_cal_area(browser, "poly")
+  wait = WebDriverWait(browser, BROWSER_WAIT * 4)
+  wait.until(EC.presence_of_element_located((By.ID, "ss-sensor-cal-pts")))
+  set_react_input_value(browser, "ss-sensor-cal-pts", json.dumps(points))
   return save_sensor_calibration(browser)
 
 def delete_sensor(browser, sensor_name):
@@ -1138,11 +1229,17 @@ def delete_sensor(browser, sensor_name):
   @param    sensor_name                Name of the sensor to be added.
   @return   bool                       Boolean representing a success.
   """
-  browser.find_element(By.LINK_TEXT, "Sensors").click()
-  browser.find_element(
-    By.XPATH,
-    "//td[text()='" + sensor_name + "']/parent::tr"
-    "//a[contains(@href,'singleton_sensor/delete/')]",
+  wait = WebDriverWait(browser, BROWSER_WAIT * 4)
+  wait.until(EC.element_to_be_clickable((By.ID, "nav-sensors"))).click()
+  wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#ss-admin-list-root table")))
+  row = wait.until(
+    EC.presence_of_element_located(
+      (By.XPATH, f"//td[normalize-space()='{sensor_name}']/ancestor::tr[1]")
+    )
+  )
+  row.find_element(
+    By.CSS_SELECTOR,
+    "a.ss-table-action[href*='singleton_sensor/delete/']",
   ).click()
   confirm_ss_dialog(browser, "Delete")
 
@@ -1161,12 +1258,12 @@ def verify_sensor_list(browser, sensor_names):
   @return   bool                       Boolean representing a success.
   """
   try:
-    browser.find_element(By.CSS_SELECTOR, ".navbar-nav > .nav-item:nth-child(3) > .nav-link").click()
+    browser.find_element(By.ID, "nav-sensors").click()
     time.sleep(1)
     for sensor_name in sensor_names:
-      browser.find_element(By.XPATH, "//td[text()='" + sensor_name + "']")
+      browser.find_element(By.XPATH, f"//td[normalize-space()='{sensor_name}']")
     return True
-  except:
+  except Exception:
     return False
 
 def verify_sensor_under_scene(browser, sensor_names):
@@ -1214,8 +1311,21 @@ def create_roi_by_ratio(browser, polygon_name, x_ratio, y_ratio, sensor=False):
     create_sensor_from_scene(browser, polygon_id, polygon_name, TEST_SCENE_NAME)
     open_sensor_tab(browser)
     open_scene_manage_sensors_tab(browser)
-    browser.find_element(By.CSS_SELECTOR, "#id_area_2").click()
-    form_id = '"roi-form-calibrate"'
+    dx = cx * x_ratio
+    dy = cy * y_ratio
+    points = [
+      [cx - dx, cy + dy],
+      [cx - dx, cy - dy],
+      [cx + dx, cy - dy],
+      [cx + dx, cy + dy],
+    ]
+    set_sensor_cal_area(browser, "poly")
+    wait = WebDriverWait(browser, BROWSER_WAIT * 4)
+    wait.until(EC.presence_of_element_located((By.ID, "ss-sensor-cal-pts")))
+    set_react_input_value(browser, "ss-sensor-cal-pts", json.dumps(points))
+    assert save_sensor_calibration(browser)
+    time.sleep(2)
+    return points
 
   dx = cx * x_ratio
   dy = cy * y_ratio
@@ -1536,9 +1646,12 @@ def open_scene_manage_sensors_tab(browser):
   @param    browser                    Object wrapping the Selenium driver.
   @return   True                       Returns True if the action is successful.
   """
-  wait = WebDriverWait(browser, BROWSER_WAIT)
+  wait = WebDriverWait(browser, BROWSER_WAIT * 4)
   wait.until(EC.element_to_be_clickable((By.ID, "ss-tab-sensors"))).click()
-  wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))).click()
+  wait.until(
+    EC.element_to_be_clickable((By.CSS_SELECTOR, "a[id^='sensor_calibrate_']"))
+  ).click()
+  wait_sensor_calibrate_ready(browser)
   return True
 
 def calculate_ssim(img1, img2):
