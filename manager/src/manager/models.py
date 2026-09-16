@@ -32,7 +32,7 @@ from scene_common.options import *
 from scene_common.scene_model import SceneModel as ScenescapeScene
 from scene_common.scenescape import SceneLoader
 from scene_common.timestamp import get_epoch_time
-from manager.validators import validate_map_file, validate_glb, validate_map_corners_lla, validate_mapping_bundle_zip
+from manager.validators import validate_map_file, validate_glb, validate_map_corners_lla, validate_mapping_bundle_zip, validate_arkit_mapping_bundle_zip
 from manager.fields import ListField
 
 from scene_common import log
@@ -128,6 +128,16 @@ class Scene(models.Model):
                             blank=True, editable=False)
   mapping_bundle_contributor = models.CharField("Mapping bundle last contributor", max_length=200,
                             default="", blank=True, editable=False)
+  # iOS ARKit resume artifacts (ARWorldMap zip), independent of RTAB-Map mapping_bundle.
+  # Alignment with Linux handhelds is through the shared scene `map` GLB.
+  arkit_mapping_bundle = models.FileField(
+    "Shared ARKit mapping session artifacts (ARWorldMap + metadata) as a .zip bundle",
+    default=None, null=True, blank=True,
+    validators=[FileExtensionValidator(["zip"]), validate_arkit_mapping_bundle_zip])
+  arkit_mapping_bundle_updated = models.DateTimeField(
+    "ARKit mapping bundle last updated", default=None, null=True, blank=True, editable=False)
+  arkit_mapping_bundle_contributor = models.CharField(
+    "ARKit mapping bundle last contributor", max_length=200, default="", blank=True, editable=False)
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
                             validators=[MinValueValidator(5e-324)])
   use_tracker = models.BooleanField("Use tracker", choices=BOOLEAN_CHOICES, default=True, blank=True)

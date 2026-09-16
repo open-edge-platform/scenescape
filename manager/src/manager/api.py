@@ -24,7 +24,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from manager.models import Scene, Cam, SingletonSensor, Region, Tripwire, Asset3D, ChildScene, CalibrationMarker, DatabaseStatus, PubSubACL
 from manager.serializers import *
 from manager.scene_import import ImportScene
-from manager.validators import validate_mapping_bundle_zip
+from manager.validators import validate_mapping_bundle_zip, validate_arkit_mapping_bundle_zip
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.mqtt import PubSub
 from scene_common.options import *
@@ -184,6 +184,92 @@ class SceneMappingBundleView(APIView):
     scene.mapping_bundle_updated = None
     scene.mapping_bundle_contributor = ""
     scene.save(update_fields=['mapping_bundle', 'mapping_bundle_updated', 'mapping_bundle_contributor'])
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SceneArkitMappingBundleView(APIView):
+  """!Upload/download the ARKit mapping-session bundle for a scene.
+
+  Independent of ``mapping_bundle`` (RTAB-Map). iOS devices resume from
+  ``ARWorldMap``; Linux handhelds resume from ``rtabmap.db``. Both share the
+  scene ``map`` GLB for visual/analytics alignment.
+  """
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [permissions.IsAuthenticated]
+
+  def _get_scene(self, scene_id):
+    try:
+      return Scene.objects.get(pk=scene_id)
+    except (Scene.DoesNotExist, ValueError, DjangoValidationError):
+      return None
+
+  def get(self, request, scene_id):
+    """!Download the scene's ARKit mapping bundle, or 404 if none exists."""
+    scene = self._get_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    if not scene.arkit_mapping_bundle:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    filename = os.path.basename(scene.arkit_mapping_bundle.name) or "arkit_mapping_bundle.zip"
+    response = FileResponse(scene.arkit_mapping_bundle.open('rb'), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+  def put(self, request, scene_id):
+    """!Replace the scene's ARKit mapping bundle. Multipart field: `arkit_mapping_bundle`.
+
+    Optional `contributor` form field records who last contributed (e.g. the
+    iOS camera_id). Does not modify the RTAB-Map ``mapping_bundle``.
+    """
+    scene = self._get_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+
+    upload = request.FILES.get('arkit_mapping_bundle')
+    if upload is None:
+      return Response({"error": "arkit_mapping_bundle file is required"},
+                      status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+      validate_arkit_mapping_bundle_zip(upload)
+    except DjangoValidationError as exc:
+      return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    scene.arkit_mapping_bundle = upload
+    scene.arkit_mapping_bundle_updated = get_iso_time()
+    scene.arkit_mapping_bundle_contributor = str(request.data.get('contributor') or '')[:200]
+    scene.save(update_fields=[
+      'arkit_mapping_bundle',
+      'arkit_mapping_bundle_updated',
+      'arkit_mapping_bundle_contributor',
+    ])
+
+    log.info(
+      "ARKit mapping bundle uploaded for scene",
+      scene.pk,
+      "by",
+      scene.arkit_mapping_bundle_contributor or "unknown",
+    )
+    return Response({
+      "uid": scene.pk,
+      "arkit_mapping_bundle_updated": scene.arkit_mapping_bundle_updated,
+      "arkit_mapping_bundle_contributor": scene.arkit_mapping_bundle_contributor,
+    }, status=status.HTTP_200_OK)
+
+  def delete(self, request, scene_id):
+    """!Clear the scene's ARKit mapping bundle only."""
+    scene = self._get_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    scene.arkit_mapping_bundle.delete(save=False)
+    scene.arkit_mapping_bundle = None
+    scene.arkit_mapping_bundle_updated = None
+    scene.arkit_mapping_bundle_contributor = ""
+    scene.save(update_fields=[
+      'arkit_mapping_bundle',
+      'arkit_mapping_bundle_updated',
+      'arkit_mapping_bundle_contributor',
+    ])
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ManageThing(APIView):
