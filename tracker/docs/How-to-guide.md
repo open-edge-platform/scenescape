@@ -63,13 +63,13 @@ What `demo-tracker` does:
   standalone mediamtx/ffmpeg video-source stack
 - Invokes the compose helper with: `--profile tracker`
 
-### Stop Tracker + Analytics demo:
+### Stop Tracker + Analytics demo
 
 ```bash
 docker compose --profile tracker down
 ```
 
-### Restart Tracker + Analytics demo:
+### Restart Tracker + Analytics demo
 
 ```bash
 docker compose --profile tracker up -d

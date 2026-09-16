@@ -40,6 +40,10 @@ def pytest_configure(config):
   """Register custom device-requirement marks."""
   config.addinivalue_line(
     "markers",
+    "test_name(name): sets the XML test name attribute",
+  )
+  config.addinivalue_line(
+    "markers",
     "requires_gpu: test requires at least one GPU (set GPU_DEVICE_COUNT >= 1)",
   )
   config.addinivalue_line(
@@ -144,3 +148,22 @@ def sample_data():
   )
   yield None
 
+
+@pytest.fixture(scope="function")
+def result_recorder(request):
+  """Provides .success(); records exit code with test name on teardown."""
+  marker = request.node.get_closest_marker("test_name")
+  test_name = (marker.args[0] if marker and marker.args
+    else getattr(request.node.module, "TEST_NAME", request.node.name))
+
+  class Result:
+    exit_code = 1
+    def success(self):
+      self.exit_code = 0
+
+  r = Result()
+  try:
+    yield r
+  finally:
+    print(f"\n{test_name}:", "FAIL" if r.exit_code else "PASS")
+    print("-----------------------------\n")

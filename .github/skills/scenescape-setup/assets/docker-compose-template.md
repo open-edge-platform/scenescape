@@ -68,7 +68,7 @@ services:
       start_period: 10s
 
   broker:
-    image: eclipse-mosquitto:2.0.22
+    image: eclipse-mosquitto:2.1-alpine
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
