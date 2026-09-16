@@ -16,10 +16,20 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-TEST_NAME = "NEX-T10401-API"
+# TODO: Placeholder Zephyr ID; the UI test test_sensor_area.py already owns
+# NEX-T10401. Create a distinct Zephyr test case for this REST API variant
+# and replace NEX-T99902 with the real ID once created.
+TEST_NAME = "NEX-T99902"
 
-@pytest.mark.test_name("NEX-T10401")
+@pytest.mark.test_name("NEX-T29293")
 def test_sensor_area_api(rest, scene_uid, result_recorder, demo_scene):
+  """! Polygon and circle sensor areas can be created, updated and deleted via REST.
+
+  @param    rest             RESTClient fixture.
+  @param    scene_uid        Pytest fixture providing the target scene UID.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  @param    demo_scene       Pytest fixture providing the baseline demo scene.
+  """
   sensor_name_poly = "Sensor_Poly"
   sensor_name_circle = "Sensor_Circle"
 

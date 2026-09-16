@@ -16,10 +16,14 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-TEST_NAME = "NEX-T10396-API"
-
-@pytest.mark.test_name("NEX-T10396")
+@pytest.mark.test_name("NEX-T29292")
 def test_sensor_scene_api(rest, result_recorder, demo_scene):
+  """! Sensor with area='scene' can be created via REST without an explicit scene link.
+
+  @param    rest             RESTClient fixture.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  @param    demo_scene       Pytest fixture providing the baseline demo scene.
+  """
   sensor_id = "test_sensor"
   sensor_name = "Sensor_0"
 

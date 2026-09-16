@@ -86,6 +86,7 @@ def wait_for_axes_helper_state(browser, sensor_name, predicate, timeout=15.0, po
 
 
 @pytest.mark.fresh_stack
+@pytest.mark.test_name("NEX-T29213")
 @common.mock_display
 def test_sensor_axes_main(params, record_xml_attribute):
   """! Checks that a circular perceptual sensor's scene-graph node owns a

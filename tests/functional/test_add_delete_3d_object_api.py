@@ -16,10 +16,14 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-TEST_NAME = "NEX-T10428-API"
-
-@pytest.mark.test_name("NEX-T10428")
+@pytest.mark.test_name("NEX-T29294")
 def test_add_delete_3d_object_api(rest, result_recorder, repo_root):
+  """! A 3D object asset can be uploaded and deleted via the REST API.
+
+  @param    rest             RESTClient fixture.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  @param    repo_root        Pytest fixture providing the repository root path.
+  """
   object_name = "3D Object"
   file_path = f"{repo_root}/tests/ui/test_media/box.glb"
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from tests.functional.common_scene_obj import SceneObjectMqtt
@@ -12,8 +12,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
-
-TEST_NAME = "NEX-T10430"
 
 def runROIMqttDelete(self):
   self.exitCode = 1
@@ -29,9 +27,15 @@ def runROIMqttDelete(self):
     self.runSceneObjMqttFinally()
   return
 
-@pytest.mark.test_name("NEX-T10430")
+@pytest.mark.test_name("NEX-T29295")
 def test_roi_delete(scenescape_env, request, record_xml_attribute):
-  test = SceneObjectMqtt(TEST_NAME, request, record_xml_attribute)
+  """! An ROI's region-entry/exit MQTT events stop after the ROI is deleted.
+
+  @param    scenescape_env        Pytest fixture providing the running stack.
+  @param    request                Pytest request fixture.
+  @param    record_xml_attribute  Pytest fixture recording the test name.
+  """
+  test = SceneObjectMqtt("NEX-T29295", request, record_xml_attribute)
   runROIMqttDelete(test)
   assert test.exitCode == 0
   return
