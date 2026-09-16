@@ -293,9 +293,10 @@ def test_bbox_below_minimum_area_gathers_no_features(mqtt_client, warmed_scene,
 
   with SceneOutputCollector(mqtt_client, scene_uid) as collector:
     publish_frames(mqtt_client, camera_id, [det], num_frames=FEATURE_THRESHOLD * 2)
-    assert collector.wait_for(lambda o: o.get("id") is not None, timeout=20), \
-      "small-bbox detections never produced scene output"
-    tracked_objs = collector.objects()
+    obj = collector.wait_for(lambda o: gender_label(o) == "Male", timeout=20)
+    assert obj is not None, "small-bbox detections never produced scene output"
+    gid = obj["id"]
+    tracked_objs = [o for o in collector.objects() if o.get("id") == gid]
     publish_empty(mqtt_client, camera_id, num_frames=10)
 
   states = {o.get("reid_state") for o in tracked_objs}

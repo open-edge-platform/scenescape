@@ -13,11 +13,14 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def test_camera_status_main(params, record_xml_attribute):
+def test_camera_status_main(params, record_xml_attribute, demo_scene):
   """! Checks that the camera streams on the WebUI are updated, reporting success
   if camera 1 and 2 streams are updated, and camera 3 is offline.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    demo_scene              Fixture providing a "Demo" scene with
+                                    camera1/camera2/camera3, where camera3 has
+                                    no video producer and stays offline.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10416"
@@ -31,7 +34,7 @@ def test_camera_status_main(params, record_xml_attribute):
     print("Test that cameras identify as offline until data is received")
     browser = Browser()
     assert common.check_page_login(browser, params)
-    assert common.check_db_status(browser, scene_name="Retail")
+    assert common.check_db_status(browser)
 
     print("Waiting for the cameras to send the data...")
     assert mqtt_wait_for_detections(params['broker_url'], params['broker_port'], params['rootcert'],

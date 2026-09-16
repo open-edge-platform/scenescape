@@ -227,6 +227,7 @@ class SceneImportTest(UserInterfaceTest):
         # A prior test may have removed it.
         self.importScene()
         time.sleep(self.waitTime)
+        assert self.navigateDirectlyToPage("/")
 
       self.importScene()
       time.sleep(self.waitTime)

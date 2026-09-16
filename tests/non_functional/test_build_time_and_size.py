@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import shlex
 import subprocess
+import threading
 import time
 from python_on_whales import docker
 import pytest
@@ -40,7 +41,8 @@ def build_image_check(image : ImageBuildRequirements) -> None:
 
   env_extra = {"EXTRA_BUILD_ARGS": " ".join(EXTRA_BUILD_ARGS)}
 
-  status, duration = run_command(build_cmd, env_extra)
+  timeout_seconds = image.time_limit_seconds * 2 + 300
+  status, duration = run_command(build_cmd, env_extra, timeout_seconds=timeout_seconds)
 
   assert status == 0, f"{TEST_NAME}: Building {image.name} failed with exit code {status}"
   assert duration <= image.time_limit_seconds, (
@@ -53,7 +55,7 @@ def build_image_check(image : ImageBuildRequirements) -> None:
     f"{TEST_NAME}: Built {image.name} image size is {(built_image.size / 10**6):.2f}MB (limit is {image.size_limit_megabytes}MB)"
   )
 
-def run_command(command, env_extra=None) -> tuple[int, float]:
+def run_command(command, env_extra=None, timeout_seconds=None) -> tuple[int, float]:
   logger.info(f"Running command: {command} inside {BUILD_WORKING_DIR}")
   start_time = time.time()
 
@@ -64,13 +66,28 @@ def run_command(command, env_extra=None) -> tuple[int, float]:
       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
   )
 
-  for line in process.stdout:
-    logger.debug(line.rstrip())
+  def _drain():
+    for line in process.stdout:
+      logger.debug(line.rstrip())
 
-  process.wait()
+  reader = threading.Thread(target=_drain, daemon=True)
+  reader.start()
+
+  try:
+    process.wait(timeout=timeout_seconds)
+  except subprocess.TimeoutExpired:
+    process.kill()
+    process.wait()
+    duration = time.time() - start_time
+    raise AssertionError(
+      f"{TEST_NAME}: Command '{command}' did not finish within {timeout_seconds}s "
+      f"(killed after {duration:.2f}s); likely hung (e.g. stalled network pull)")
+  finally:
+    reader.join(timeout=5)
 
   duration = time.time() - start_time
   return process.returncode, duration
+
 
 @pytest.mark.parametrize("image", IMAGES_REQUIREMENTS, ids=lambda img: img.name)
 def test_build_time_and_size(record_xml_attribute, image):
