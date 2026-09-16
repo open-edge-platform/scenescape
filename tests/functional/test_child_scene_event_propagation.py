@@ -7,10 +7,12 @@
 receives and republishes events (ROIs, tripwires, sensors) originating from
 a linked child scene via Analytics event republish to the parent."""
 
+import json
 import threading
 import time
 
-import tests.common_test_utils as common
+import pytest
+
 from tests.functional.event_asserts import (
   assert_event_objects_have_visibility,
   check_event_contains_data,
@@ -22,6 +24,8 @@ from tests.functional.common_child import (
   PROPAGATION_LIMIT,
 )
 from scene_common import log
+from scene_common.mqtt import PubSub
+from scene_common.timestamp import get_iso_time
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
@@ -31,23 +35,19 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 
-def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T21477")
+def test_child_roi_event_propagated_to_parent(objData, params, result_recorder):
   """! Verify that ROI entry/exit events from a child scene are republished on
   the parent scene's MQTT EVENT topic.
 
-  The Analytics service republishes on the parent MQTT topic but preserves the
-  original child scene_id in the payload. Proof of propagation is routing to
-  parent_roi_events via the parent-scoped topic.
+  Analytics republishes ROI region-entry/exit EVENT messages
+  generated in a linked child scene onto the parent scene's MQTT EVENT topic,
+  preserving the original child scene_id and event schema.
 
-  @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @param    params                  Dict of test parameters.
+  @param    objData          Pytest fixture with detection data.
+  @param    params           Dict of test parameters.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
   """
-  TEST_NAME = "NEX-T21477"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
-  exit_code = 1
-
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
   client = None
@@ -85,7 +85,7 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
         assert "translation" in obj, "Event object missing 'translation'"
 
     log.info(f"PASS: {len(parent_events)} ROI events correctly propagated to parent scene")
-    exit_code = 0
+    result_recorder.success()
   finally:
     stop_event.set()
     if send_thread:
@@ -93,24 +93,22 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
     if client:
       client.loopStop()
     helper.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
+  return
 
 
-def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T21478")
+def test_child_tripwire_event_propagated_to_parent(objData, params, result_recorder):
   """! Verify that tripwire crossing events from a child scene are republished
   on the parent scene's MQTT EVENT topic.
 
-  @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @param    params                  Dict of test parameters.
-  """
-  TEST_NAME = "NEX-T21478"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
-  exit_code = 1
+  Analytics republishes tripwire-crossing EVENT messages
+  generated in a linked child scene onto the parent scene's MQTT EVENT topic,
+  preserving the original child scene_id and event schema.
 
+  @param    objData          Pytest fixture with detection data.
+  @param    params           Dict of test parameters.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
   client = None
@@ -152,7 +150,7 @@ def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute
         assert "translation" in obj, "Event object missing 'translation'"
 
     log.info(f"PASS: {len(parent_events)} tripwire events correctly propagated to parent scene")
-    exit_code = 0
+    result_recorder.success()
   finally:
     stop_event.set()
     if send_thread:
@@ -160,12 +158,11 @@ def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute
     if client:
       client.loopStop()
     helper.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
+  return
 
 
-def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T21479")
+def test_child_sensor_event_propagated_to_parent(objData, params, result_recorder):
   """! Verify that environmental sensor events from a child scene are
   republished on the parent scene's MQTT EVENT topic.
 
@@ -174,15 +171,14 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
   region-type EVENT.  That event must be republished on the parent scene's
   EVENT topic.
 
-  @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @param    params                  Dict of test parameters.
-  """
-  TEST_NAME = "NEX-T21479"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
-  exit_code = 1
+  Analytics republishes region-type EVENT messages triggered by
+  an environmental singleton sensor in a linked child scene onto the parent
+  scene's MQTT EVENT topic, with region_id matching the child sensor uid.
 
+  @param    objData          Pytest fixture with detection data.
+  @param    params           Dict of test parameters.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
   client = None
@@ -229,7 +225,7 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
         f"Event region_id {event.get('region_id')} must equal sensor uid {helper.sensor_uid}")
 
     log.info(f"PASS: {len(parent_events)} sensor events correctly propagated to parent scene")
-    exit_code = 0
+    result_recorder.success()
   finally:
     stop_event.set()
     if send_thread:
@@ -237,27 +233,25 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
     if client:
       client.loopStop()
     helper.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
+  return
 
 
-def test_child_attribute_sensor_event_propagated_to_parent(
-    objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T29236")
+def test_child_attribute_sensor_event_propagated_to_parent(objData, params, result_recorder):
   """! Verify attribute singleton events from a child scene reach the parent.
 
   Distinct from the environmental sensor case and from
   test_sensors_send_mqtt_messages (which does not cover parent republish).
 
-  @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @param    params                  Dict of test parameters.
-  """
-  TEST_NAME = "NEX-T21482"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
-  exit_code = 1
+  Analytics republishes region-type EVENT messages triggered by
+  an attribute singleton sensor (e.g. badge reader) in a linked child scene
+  onto the parent scene's MQTT EVENT topic, with region_id matching the
+  child attribute-sensor uid.
 
+  @param    objData          Pytest fixture with detection data.
+  @param    params           Dict of test parameters.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
   client = None
@@ -289,7 +283,7 @@ def test_child_attribute_sensor_event_propagated_to_parent(
 
     log.info(f"PASS: {len(helper.parent_attribute_sensor_events)} attribute "
              "sensor events propagated to parent")
-    exit_code = 0
+    result_recorder.success()
   finally:
     stop_event.set()
     if send_thread:
@@ -297,25 +291,24 @@ def test_child_attribute_sensor_event_propagated_to_parent(
     if client:
       client.loopStop()
     helper.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
+  return
 
 
-def test_parent_event_attributes_match_child_event(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T21480")
+def test_parent_event_attributes_match_child_event(objData, params, result_recorder):
   """! Verify that region_id, region_name, count category keys and values, and
   the from_child_scene metadata attribution in the parent's republished event
   match those in the child's original event.
 
-  @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @param    params                  Dict of test parameters.
-  """
-  TEST_NAME = "NEX-T21480"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
-  exit_code = 1
+  When Analytics republishes a child scene's ROI EVENT on the
+  parent scene's EVENT topic, the region_id, region_name, object counts, and
+  a from_child_scene metadata attribution must all match the child's
+  original event.
 
+  @param    objData          Pytest fixture with detection data.
+  @param    params           Dict of test parameters.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
   client = None
@@ -357,7 +350,7 @@ def test_parent_event_attributes_match_child_event(objData, record_xml_attribute
       "Parent event metadata missing 'from_child_scene' attribution")
 
     log.info("PASS: Parent event attributes match child event attributes")
-    exit_code = 0
+    result_recorder.success()
   finally:
     stop_event.set()
     if send_thread:
@@ -365,24 +358,22 @@ def test_parent_event_attributes_match_child_event(objData, record_xml_attribute
     if client:
       client.loopStop()
     helper.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
+  return
 
 
-def test_child_event_propagation_is_timely(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T21481")
+def test_child_event_propagation_is_timely(objData, params, result_recorder):
   """! Verify that event propagation from child to parent occurs with minimal
   delay (within PROPAGATION_LIMIT seconds of the first child event).
 
-  @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @param    params                  Dict of test parameters.
-  """
-  TEST_NAME = "NEX-T21481"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
-  exit_code = 1
+  The delay between a ROI event first appearing on the child
+  scene's EVENT topic and its republished counterpart appearing on the
+  parent scene's EVENT topic must not exceed PROPAGATION_LIMIT seconds.
 
+  @param    objData          Pytest fixture with detection data.
+  @param    params           Dict of test parameters.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
   client = None
@@ -409,7 +400,7 @@ def test_child_event_propagation_is_timely(objData, record_xml_attribute, params
       f"Event propagation delay {propagation_delay:.2f}s exceeds "
       f"limit {PROPAGATION_LIMIT}s")
 
-    exit_code = 0
+    result_recorder.success()
   finally:
     stop_event.set()
     if send_thread:
@@ -417,24 +408,22 @@ def test_child_event_propagation_is_timely(objData, record_xml_attribute, params
     if client:
       client.loopStop()
     helper.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
+  return
 
 
-def test_no_events_without_parent_link(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T21482")
+def test_no_events_without_parent_link(objData, params, result_recorder):
   """! Verify that child scene events are NOT republished on a parent topic
   when no parent-child link exists (unlinked child).
 
-  @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @param    params                  Dict of test parameters.
-  """
-  TEST_NAME = "NEX-T21482"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
-  exit_code = 1
+  If a child scene is never linked to a parent scene, ROI and
+  tripwire events generated in that scene must not appear on any parent
+  scene's MQTT EVENT topic.
 
+  @param    objData          Pytest fixture with detection data.
+  @param    params           Dict of test parameters.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
   client = None
@@ -454,7 +443,7 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
       "Tripwire events must NOT appear on parent topic when no parent link exists")
 
     log.info("PASS: No events appeared on unlinked parent topic without parent link")
-    exit_code = 0
+    result_recorder.success()
   finally:
     stop_event.set()
     if send_thread:
@@ -462,24 +451,22 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
     if client:
       client.loopStop()
     helper.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
+  return
 
 
-def test_event_region_id_matches_child_definition(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T21483")
+def test_event_region_id_matches_child_definition(objData, params, result_recorder):
   """! Verify that the region_id in a parent scene ROI event matches the ROI
   uid originally defined in the child scene.
 
-  @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @param    params                  Dict of test parameters.
-  """
-  TEST_NAME = "NEX-T21483"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
-  exit_code = 1
+  The region_id field of a ROI event republished on the parent
+  scene's EVENT topic must equal the uid of the ROI as originally created
+  in the linked child scene.
 
+  @param    objData          Pytest fixture with detection data.
+  @param    params           Dict of test parameters.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
   client = None
@@ -500,7 +487,7 @@ def test_event_region_id_matches_child_definition(objData, record_xml_attribute,
         f"does not match child ROI uid {helper.roi_uid}")
 
     log.info("PASS: Parent event region_id correctly references child ROI uid")
-    exit_code = 0
+    result_recorder.success()
   finally:
     stop_event.set()
     if send_thread:
@@ -508,24 +495,23 @@ def test_event_region_id_matches_child_definition(objData, record_xml_attribute,
     if client:
       client.loopStop()
     helper.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
+  return
 
 
-def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T29237")
+def test_events_stop_after_child_unlinked(objData, params, result_recorder):
   """! Verify that after unlinking a child from its parent, subsequent child
   events are no longer republished on the parent's MQTT EVENT topic.
 
-  @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @param    params                  Dict of test parameters.
-  """
-  TEST_NAME = "NEX-T10520"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
-  exit_code = 1
+  Once a child scene is unlinked from its parent (via
+  deleteChildSceneLink), ROI/tripwire EVENT messages generated afterwards in
+  the child scene must no longer be republished on the parent scene's EVENT
+  topic, even though they continued to propagate before the unlink.
 
+  @param    objData          Pytest fixture with detection data.
+  @param    params           Dict of test parameters.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
   client = None
@@ -569,7 +555,7 @@ def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params)
       "Tripwire events must NOT propagate to parent after child is unlinked")
 
     log.info("PASS: Events stopped propagating after child was unlinked")
-    exit_code = 0
+    result_recorder.success()
   finally:
     stop_event.set()
     if send_thread:
@@ -577,6 +563,118 @@ def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params)
     if client:
       client.loopStop()
     helper.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
+  return
 
-  assert exit_code == 0
+
+@pytest.mark.test_name("NEX-T10520")
+def test_regulated_data_stops_after_child_unlinked(objData, params, result_recorder):
+  """! Verify that after unlinking a child from its parent, raw DATA_REGULATED
+  object data from the child scene is no longer forwarded to the parent
+  scene's DATA_REGULATED topic (while the child continues to receive its own
+  data).
+
+  Complements test_events_stop_after_child_unlinked, which covers the
+  Analytics EVENT topic (ROI/tripwire); this test covers the lower-level
+  raw regulated-data forwarding path, using the same unlink mechanism
+  (ChildSceneTest.unlink_child / deleteChildSceneLink).
+
+  @param    objData          Pytest fixture with detection data.
+  @param    params           Dict of test parameters.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  """
+  FRAME_RATE = 10
+  MAX_WAIT = 10
+  NUM_PUBLISH_ITERATIONS = 3
+
+  helper = ChildSceneTest(params)
+  rest_client = helper.make_rest_client()
+  client = None
+  connected = False
+  parent_received = []
+  child_received = []
+
+  def on_connect(mqttc, obj, flags, rc):
+    nonlocal connected
+    log.info("Connected!")
+    connected = True
+    mqttc.subscribe(PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=helper.parent_id))
+    mqttc.subscribe(PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=helper.child_id))
+
+  def on_message(mqttc, obj, msg):
+    topic = PubSub.parseTopic(msg.topic)
+    data = json.loads(msg.payload.decode("utf-8"))
+    if topic['scene_id'] == helper.parent_id:
+      parent_received.append(data)
+      log.info(f"Parent received data: {len(data.get('objects', []))} objects")
+    elif topic['scene_id'] == helper.child_id:
+      child_received.append(data)
+      log.info(f"Child received data: {len(data.get('objects', []))} objects")
+
+  def publish_data(obj_data, obj_category="person"):
+    cam_id = obj_data["id"]
+    topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=cam_id)
+    for iteration in range(NUM_PUBLISH_ITERATIONS):
+      for i in range(5):
+        obj_data["timestamp"] = get_iso_time()
+        obj_data["objects"][obj_category][0]["bounding_box"]["y"] = 100 + (i * 20)
+        obj_data["objects"][obj_category][0]["category"] = obj_category
+        client.publish(topic, json.dumps(obj_data))
+        log.info(
+          f"Published object via camera {cam_id}: y={100 + (i * 20)} (iter {iteration})")
+        time.sleep(1.0 / FRAME_RATE)
+
+  def wait_for_messages(timeout=MAX_WAIT):
+    start = time.time()
+    while time.time() - start < timeout:
+      if parent_received or child_received:
+        return
+      time.sleep(0.5)
+    assert parent_received or child_received, (
+      f"Timed out after {timeout} seconds waiting for MQTT messages "
+      "on parent/child scenes")
+
+  try:
+    helper.setup_scenes(rest_client)
+
+    client = PubSub(params["auth"], None, params["rootcert"],
+                    params["broker_url"], int(params["broker_port"]))
+    client.onConnect = on_connect
+    client.onMessage = on_message
+    client.connect()
+    client.loopStart()
+
+    start = time.time()
+    while not connected and time.time() - start < MAX_WAIT:
+      time.sleep(0.5)
+    assert connected, "MQTT client failed to connect within timeout"
+
+    log.info("Step 1: Publishing data to child scene while linked to parent")
+    publish_data(objData, obj_category="person")
+    wait_for_messages()
+
+    assert len(child_received) > 0, "Child scene should have received regulated data"
+    assert len(parent_received) > 0, "Parent scene should have received regulated data"
+    log.info(f"Child received {len(child_received)} messages")
+    log.info(f"Parent received {len(parent_received)} messages")
+    log.info("PASS: Parent scene received data from linked child scene")
+
+    log.info("Step 2: Unlinking child scene from parent scene")
+    helper.unlink_child(rest_client)
+
+    log.info("Step 3: Publishing data to child scene after unlinking")
+    parent_received.clear()
+    child_received.clear()
+    publish_data(objData, obj_category="person")
+    wait_for_messages(timeout=5)
+
+    assert len(child_received) > 0, "Child scene should still receive its own data"
+    assert len(parent_received) == 0, (
+      "Parent scene should not receive data from unlinked child scene")
+    log.info("PASS: Parent scene did not receive data after child was unlinked")
+
+    result_recorder.success()
+  finally:
+    if client:
+      client.loopStop()
+    helper.teardown_scenes(rest_client)
+  return
