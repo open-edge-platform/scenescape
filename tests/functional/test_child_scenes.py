@@ -273,7 +273,8 @@ def test_child_scenes(objData, obj_location, \
                                              parent, \
                                              obj_cat, \
                                              params, \
-                                             repo_root):
+                                             repo_root, \
+                                             result_recorder):
   """! This function creates and updates the child scene. It also verifies that
   the data received from the parent is correct after applying different transforms based on the test
   cases provided above.
@@ -285,6 +286,7 @@ def test_child_scenes(objData, obj_location, \
   @param    child                   The name of the child.
   @param    obj_cat                 The object category.
   @param    params                  Dict of test parameters.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   global parent_translation,\
@@ -362,4 +364,5 @@ def test_child_scenes(objData, obj_location, \
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return

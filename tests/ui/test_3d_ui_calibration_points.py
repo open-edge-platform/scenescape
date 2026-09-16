@@ -25,8 +25,8 @@ TEST_NAME = "NEX-T10473"
 WAIT_SEC = 3
 
 class WillOurShipGo(UserInterfaceTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
 
   def setUpCalibrationTest(self):
     """! Sets up the scene for testing the 3D UI calibration by navigating to the page,
@@ -147,9 +147,6 @@ class WillOurShipGo(UserInterfaceTest):
       image1[yMin: yMax, xMin: xMax, :], image2[yMin: yMax, xMin: xMax, :])
 
   def checkForMalfunctions(self):
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
-
     try:
       assert self.login()
       assert self.checkDbStatus()
@@ -272,15 +269,16 @@ class WillOurShipGo(UserInterfaceTest):
 
 @pytest.mark.test_name("NEX-T10473")
 @common.mock_display
-def test_3d_ui_calibration(scenescape_env, request, record_xml_attribute):
+def test_3d_ui_calibration(scenescape_env, request, result_recorder):
   """! Test the 3D UI calibration points.
   @param    request                 Pytest request object with test parameters
-  @param    record_xml_attribute    Function for recording test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Boolean representing whether the test passed or failed.
   """
-  test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
+  test = WillOurShipGo(TEST_NAME, request)
   test.checkForMalfunctions()
   assert test.exitCode == 0
+  result_recorder.success()
   return test.exitCode
 
 def main():

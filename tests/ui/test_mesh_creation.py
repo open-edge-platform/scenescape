@@ -70,10 +70,10 @@ def create_mesh_from_video(browser, video_file):
   return
 
 @pytest.mark.test_name("NEX-T10470")
-def test_mesh_creation(params, record_xml_attribute):
+def test_mesh_creation(params, result_recorder):
   """ Test case to verify mesh creation from cameras and video file.
   @param    params                  Test parameters.
-  @param    record_xml_attribute     Function to record test attributes in XML report.
+  @param    result_recorder          Pytest fixture recording the Zephyr test result.
   """
   TEST_NAME = "NEX-T10470"
   exit_code = 1
@@ -108,4 +108,5 @@ def test_mesh_creation(params, record_xml_attribute):
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return

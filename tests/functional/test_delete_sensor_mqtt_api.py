@@ -29,8 +29,8 @@ SENSOR_DELAY = 0.5
 SENSOR_PROC_DELAY = 0.001
 
 class SensorDeleteMqtt(SceneObjectMqtt):
-  def __init__(self, testName, request, record_xml_attribute):
-    super().__init__(testName, request, record_xml_attribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
     self.sensorValue = 100
     self.sensor_deleted = False
     self.sensor_message_received_after_delete = False
@@ -114,7 +114,8 @@ class SensorDeleteMqtt(SceneObjectMqtt):
     return error_code == 0
 
 @pytest.mark.test_name("NEX-T21778")
-def test_sensor_delete_mqtt(scenescape_env, demo_scene, request, record_xml_attribute):
-  test = SensorDeleteMqtt(TEST_NAME, request, record_xml_attribute)
+def test_sensor_delete_mqtt(scenescape_env, demo_scene, request, result_recorder):
+  test = SensorDeleteMqtt(TEST_NAME, request)
   test.runSensorMqttDelete()
   assert test.exitCode == 0
+  result_recorder.success()

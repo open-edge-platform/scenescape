@@ -22,8 +22,8 @@ MAX_CONTROLLER_WAIT = 20  # seconds
 MAX_ATTEMPTS = 3
 
 class CameraDeletionTest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
 
     self.existingSceneUID = self.params['scene_id']
     self.newSceneName = "Automated_Scene_Camera_Deletion"
@@ -137,7 +137,8 @@ class CameraDeletionTest(FunctionalTest):
     return
 
 @pytest.mark.test_name("NEX-T21878")
-def test_camera_deletion_main(scenescape_env, demo_scene, request, record_xml_attribute):
-  test = CameraDeletionTest(TEST_NAME, request, record_xml_attribute)
+def test_camera_deletion_main(scenescape_env, demo_scene, request, result_recorder):
+  test = CameraDeletionTest(TEST_NAME, request)
   test.testCameraDeletion()
   assert test.exitCode == 0
+  result_recorder.success()

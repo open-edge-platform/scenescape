@@ -69,11 +69,11 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
   return True
 
 @pytest.mark.test_name("NEX-T10415")
-def test_camera_intrinsics_main(params, record_xml_attribute):
+def test_camera_intrinsics_main(params, result_recorder):
   """! Checks that the camera parameters in the web UI can be updated and
   that they persist after saving, for both Camera Save buttons.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10415"
@@ -99,4 +99,5 @@ def test_camera_intrinsics_main(params, record_xml_attribute):
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return

@@ -41,10 +41,10 @@ def validate_image(browser, scene_name, image_name):
   return validated
 
 @pytest.mark.test_name("NEX-T10392")
-def test_different_formats_scene_main(params, record_xml_attribute):
+def test_different_formats_scene_main(params, result_recorder):
   """! Checks the name of the uploaded map is correct in the scene management page.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10392"
@@ -91,6 +91,7 @@ def test_different_formats_scene_main(params, record_xml_attribute):
       exit_code = 0
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
+  result_recorder.success()
   return exit_code
 
 if __name__ == '__main__':

@@ -30,12 +30,9 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
   # This test renders the 3D viewport, so the browser must run with WebGL.
   BROWSER_WEBGL = True
 
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
     self.sceneName = self.params['scene']
-
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
 
     return
 
@@ -125,16 +122,16 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
 @pytest.mark.test_name("NEX-T10475")
 @pytest.mark.fresh_stack
 @common.mock_display
-def test_switch_3d_camera_scene_camera(scenescape_env, request, record_xml_attribute):
+def test_switch_3d_camera_scene_camera(scenescape_env, request, result_recorder):
   """! Test toggle scene camera under 3D camera control.
   @param    request                 List of test parameters.
-  @param    record_xml_attribute    Function for recording test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Boolean representing whether the test passed or failed.
   """
   log.info("Executing: " + TEST_NAME)
   log.info("Test to switch between 3d scene camera view")
 
-  test = Scene3dUserInterfaceTest(TEST_NAME, request, record_xml_attribute)
+  test = Scene3dUserInterfaceTest(TEST_NAME, request)
   try:
     test.checkSceneCameraToggle()
   finally:
@@ -143,6 +140,7 @@ def test_switch_3d_camera_scene_camera(scenescape_env, request, record_xml_attri
       browser.quit()
 
   assert test.exitCode == 0
+  result_recorder.success()
 
 def main():
   return test_switch_3d_camera_scene_camera(None, None)

@@ -28,16 +28,17 @@ def runROIMqttDelete(self):
   return
 
 @pytest.mark.test_name("NEX-T29295")
-def test_roi_delete(scenescape_env, request, record_xml_attribute):
+def test_roi_delete(scenescape_env, request, result_recorder):
   """! An ROI's region-entry/exit MQTT events stop after the ROI is deleted.
 
   @param    scenescape_env        Pytest fixture providing the running stack.
   @param    request                Pytest request fixture.
-  @param    record_xml_attribute  Pytest fixture recording the test name.
+  @param    result_recorder       Pytest fixture recording the test result.
   """
-  test = SceneObjectMqtt("NEX-T29295", request, record_xml_attribute)
+  test = SceneObjectMqtt("NEX-T29295", request)
   runROIMqttDelete(test)
   assert test.exitCode == 0
+  result_recorder.success()
   return
 
 def main():

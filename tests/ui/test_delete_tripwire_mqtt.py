@@ -82,13 +82,15 @@ def getTripwireUid(rest, tw_name):
 
 @pytest.mark.test_name("NEX-T10431")
 @pytest.mark.fresh_stack
-def test_create_and_delete_tripwire_mqtt(params):
+def test_create_and_delete_tripwire_mqtt(params, result_recorder):
   """! This function creates Trip wire horizontally and the data is published
   such that the object (category ["custom_person"]) moves vertically across the
   tripwrire triggerring event data. The tripwire is deleted and the object data
   is published to the mqtt server and awaiting for the response. The MQTT server
   should not give any response else the test fails.
 
+  @param    params            Dict of functional-test parameters.
+  @param    result_recorder   Pytest fixture recording the Zephyr test result.
   @returns exit_code 0 on success, non-zero on failure
   """
   TEST_NAME = "NEX-T10431"
@@ -161,4 +163,5 @@ def test_create_and_delete_tripwire_mqtt(params):
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return

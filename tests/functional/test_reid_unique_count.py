@@ -336,10 +336,10 @@ def run_test(test_name, test_desc, scene_config, params):
   return exit_code
 
 @pytest.mark.test_name("NEX-T10539")
-def test_reid_unique_count(params):
+def test_reid_unique_count(params, result_recorder):
   """! Tests the unique count for each scene when RE-ID is enabled.
   @param    params                  Dict of test parameters.
-  @return   exit_code               Indicates test success or failure.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   """
   TEST_NAME = "NEX-T10539"
   log.info("Executing: " + TEST_NAME)
@@ -356,3 +356,4 @@ def test_reid_unique_count(params):
   }
 
   run_test(TEST_NAME, "Test the unique count for each scene when RE-ID is enabled.", scene_config, params)
+  result_recorder.success()

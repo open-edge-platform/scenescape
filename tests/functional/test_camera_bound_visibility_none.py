@@ -47,11 +47,10 @@ class CameraBoundVisibilityNone(CameraBounds):
 
 @pytest.mark.test_name("NEX-T19789")
 def test_camera_bound_visibility(
-        params, pytestconfig, record_xml_attribute, test_name):
-  record_xml_attribute("name", test_name)
-
+        params, pytestconfig, result_recorder, test_name):
   visibility_topic = pytestconfig.getoption("visibility_topic")
   test = CameraBoundVisibilityNone()
   exit_code = test.run(params, visibility_topic, test_name)
 
   assert exit_code == 0
+  result_recorder.success()

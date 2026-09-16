@@ -71,7 +71,7 @@ def _prepare_reid_backend():
 
 @pytest.mark.test_name("NEX-T28653")
 def test_hierarchy_child_enrolls_local_crop(
-    objData, params):
+    objData, params, result_recorder):
   """! Positive: child scene owning the camera enrolls the vetted local crop
   into the shared ReID database (at least one near-exact UUID for the embedding).
   """
@@ -161,11 +161,12 @@ def test_hierarchy_child_enrolls_local_crop(
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return
 
 @pytest.mark.test_name("NEX-T28651")
 def test_hierarchy_retrack_true_parent_does_not_double_enroll(
-    objData, params):
+    objData, params, result_recorder):
   """! Positive: with retrack=True the parent queries using the forwarded
   embedding but must not enroll a second UUID for the same child crop.
   """
@@ -270,11 +271,12 @@ def test_hierarchy_retrack_true_parent_does_not_double_enroll(
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return
 
 @pytest.mark.test_name("NEX-T28652")
 def test_hierarchy_retrack_false_parent_still_single_enrollment(
-    objData, params):
+    objData, params, result_recorder):
   """! Boundary: with retrack=False the parent strips reid entirely; only the
   child camera owner enrolls, so the unique UUID count for the crop remains 1.
   """
@@ -327,4 +329,5 @@ def test_hierarchy_retrack_false_parent_still_single_enrollment(
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return

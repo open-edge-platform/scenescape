@@ -23,8 +23,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 TEST_NAME = "NEX-T21775"
 
 class CRUDPermissionsTest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute, repo_root):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request, repo_root):
+    super().__init__(testName, request)
     self.repoRoot = repo_root
     self.scene_uid = None
     self.camera_uid = None
@@ -151,12 +151,13 @@ class CRUDPermissionsTest(FunctionalTest):
       self.tearDown()
 
 @pytest.mark.test_name("NEX-T21775")
-def test_crud_operations_api(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
-  test = CRUDPermissionsTest(TEST_NAME, request, record_xml_attribute, repo_root)
+def test_crud_operations_api(scenescape_env, demo_scene, request, result_recorder, repo_root):
+  test = CRUDPermissionsTest(TEST_NAME, request, None, repo_root)
   ok = False
   try:
     ok = test.runTest()
     test.exitCode = 0 if ok else 1
     assert ok
+    result_recorder.success()
   finally:
     test.recordTestResult()

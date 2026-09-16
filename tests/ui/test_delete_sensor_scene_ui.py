@@ -17,10 +17,10 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 @pytest.mark.test_name("NEX-T10397")
-def test_del_sensor_scene_main(params, record_xml_attribute):
+def test_del_sensor_scene_main(params, result_recorder):
   """! Checks that sensor can still be deleted after the scene the sensor was attached to is deleted.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10397"
@@ -52,4 +52,5 @@ def test_del_sensor_scene_main(params, record_xml_attribute):
     browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
+  result_recorder.success()
   return

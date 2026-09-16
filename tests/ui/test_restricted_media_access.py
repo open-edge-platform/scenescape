@@ -42,9 +42,6 @@ class WillOurShipGo(UserInterfaceTest):
       return False
 
   def checkForMalfunctions(self):
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
-
     try:
       print("Checking media access when unauthenticated")
       assert not self.navigateAndCheck(expect_unauthorized=True)
@@ -67,10 +64,11 @@ class WillOurShipGo(UserInterfaceTest):
     return
 
 @pytest.mark.test_name("NEX-T10494")
-def test_restricted_media_access(scenescape_env, request, record_xml_attribute):
-  test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
+def test_restricted_media_access(scenescape_env, request, result_recorder):
+  test = WillOurShipGo(TEST_NAME, request)
   test.checkForMalfunctions()
   assert test.exitCode == 0
+  result_recorder.success()
   return
 
 def main():

@@ -27,10 +27,10 @@ def capture_when_rendered(browser):
 @pytest.mark.test_name("NEX-T10474")
 @pytest.mark.fresh_stack
 @common.mock_display
-def test_scene_control_panel(params, record_xml_attribute):
+def test_scene_control_panel(params, result_recorder):
   """! Test the Scene Control Panel in the 3D UI.
   @param    params                  List of test parameters.
-  @param    record_xml_attribute    Function for recording test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Boolean representing whether the test passed or failed.
   """
   TEST_NAME = "NEX-T10474"
@@ -230,3 +230,4 @@ def test_scene_control_panel(params, record_xml_attribute):
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()

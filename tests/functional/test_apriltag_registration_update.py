@@ -34,8 +34,8 @@ class ApriltagRegistration(FunctionalTest):
   """Verify that re-registration creates/updates calibration markers and
   sets map_processed after an apriltag update"""
 
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
     self.scene_id = self.params['scene_id']
     self.original_apriltag_size = None
     self.autocalib_base = f"{self.params['weburl']}/api/v1/autocalibration"
@@ -222,24 +222,28 @@ class ApriltagRegistration(FunctionalTest):
 
 
 @pytest.mark.test_name("NEX-T10483")
-def test_apriltag_registration_update(request, record_xml_attribute, params):
+def test_apriltag_registration_update(request, result_recorder, params):
   TEST_NAME = "NEX-T10483"
   test = ApriltagRegistration(
     "test_apriltag_registration_update",
     request,
-    record_xml_attribute,
+    None,
   )
   test.runApriltagRegistrationUpdate()
   common.record_test_result(TEST_NAME, test.exitCode)
+  assert test.exitCode == 0
+  result_recorder.success()
 
 
 @pytest.mark.test_name("NEX-T22419")
-def test_apriltag_registration_delete(request, record_xml_attribute, params):
+def test_apriltag_registration_delete(request, result_recorder, params):
   TEST_NAME = "NEX-T22419"
   test = ApriltagRegistration(
     "test_apriltag_registration_delete",
     request,
-    record_xml_attribute,
+    None,
   )
   test.runApriltagRegistrationDelete()
   common.record_test_result(TEST_NAME, test.exitCode)
+  assert test.exitCode == 0
+  result_recorder.success()

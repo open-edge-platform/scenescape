@@ -35,9 +35,10 @@ def runROIMqttCreate(self):
 
 @pytest.mark.test_name("NEX-T10404")
 @pytest.mark.basic_acceptance
-def test_roi_create(scenescape_env, demo_scene, request, record_xml_attribute):
+def test_roi_create(scenescape_env, demo_scene, request, result_recorder):
   test_name = getattr(request.node, '_scenescape_test_name', TEST_NAME)
-  test = SceneObjectMqtt(test_name, request, record_xml_attribute)
+  test = SceneObjectMqtt(test_name, request)
   runROIMqttCreate(test)
   assert test.exitCode == 0
+  result_recorder.success()
   return

@@ -21,19 +21,16 @@ TEST_NAME = "NEX-T10434"
 WORKSPACE = os.path.join(common.TEST_MEDIA_PATH, TEST_NAME)
 
 @pytest.mark.test_name("NEX-T10434")
-def test_live_button(params, record_xml_attribute=None):
+def test_live_button(params, result_recorder):
   """! Test for functionality of the 'live-view' button for cameras.
   Takes screenshot of the camera1 element for baseline, then enables live-view
   and takes a second screenshot. Waits for some time (TEST_WAIT_TIME) and
   takes a final screenshot. Compares all three to ensure the
   image contents in the element are changing.
   @param    params                Dict of test parameters.
-  @param    record_xml_attribute  Pytest fixture recording the test name.
+  @param    result_recorder       Pytest fixture recording the Zephyr test result.
   @return   exit_code             0 for successful test, 1 otherwise.
   """
-  if record_xml_attribute is not None:
-    record_xml_attribute("name", TEST_NAME)
-
   image_array = []
   files_path = glob.iglob(os.path.join(WORKSPACE, "*.png"))
   img1_path = os.path.join(WORKSPACE, "img_1.png")
@@ -97,3 +94,4 @@ def test_live_button(params, record_xml_attribute=None):
     tests_common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()

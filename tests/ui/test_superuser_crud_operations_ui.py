@@ -63,11 +63,11 @@ def create_user(browser, user_name, pwd):
   return True
 
 @pytest.mark.test_name("NEX-T10418")
-def test_crud_operations(params, record_xml_attribute):
+def test_crud_operations(params, result_recorder):
   """! Checks that while an admin can perform CRUD functions
   on scenes, cameras, and sensors via the web UI a regular user cannot.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10418"
@@ -172,4 +172,5 @@ def test_crud_operations(params, record_xml_attribute):
     browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
+  result_recorder.success()
   return exit_code

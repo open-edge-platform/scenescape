@@ -147,11 +147,11 @@ def check_person_marks(browser, camera_id):
 
 @pytest.mark.test_name("NEX-T10417")
 @pytest.mark.basic_acceptance
-def test_out_of_box(params, record_xml_attribute):
+def test_out_of_box(params, result_recorder):
   """! Checks that the person marks in the scene and the image stream for
   camera 1 are both changing in time.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10417"
@@ -225,4 +225,5 @@ def test_out_of_box(params, record_xml_attribute):
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return

@@ -80,7 +80,7 @@ def _wait_for_queue(q, timeout):
 
 @pytest.mark.test_name("NEX-T28654")
 def test_child_external_reid_stamped_with_provenance(
-    objData, params):
+    objData, params, result_recorder):
   """! Positive: large local crops forward reid on DATA_EXTERNAL with provenance
   naming the vetting child scene and source camera.
   """
@@ -143,12 +143,13 @@ def test_child_external_reid_stamped_with_provenance(
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return
 
 
 @pytest.mark.test_name("NEX-T28655")
 def test_child_external_reid_withheld_when_crop_too_small(
-    objData, params):
+    objData, params, result_recorder):
   """! Negative: crops at or below the minimum pixel area are not forwarded on
   hierarchy DATA_EXTERNAL even when the detector supplies an embedding.
   """
@@ -192,12 +193,13 @@ def test_child_external_reid_withheld_when_crop_too_small(
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return
 
 
 @pytest.mark.test_name("NEX-T28656")
 def test_camera_claimed_provenance_cannot_bypass_bbox_gate(
-    objData, params):
+    objData, params, result_recorder):
   """! Negative: a detector cannot claim upstream vetting to skip the local
   pixel-area gate. Spoofed provenance on a small crop must still withhold reid.
   """
@@ -245,12 +247,13 @@ def test_camera_claimed_provenance_cannot_bypass_bbox_gate(
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return
 
 
 @pytest.mark.test_name("NEX-T28657")
 def test_retrack_false_parent_regulated_strips_reid(
-    objData, params):
+    objData, params, result_recorder):
   """! Positive: with retrack=False the parent accepts child IDs and strips
   forwarded reid, so parent DATA_REGULATED objects carry no metadata.reid.
   """
@@ -301,12 +304,13 @@ def test_retrack_false_parent_regulated_strips_reid(
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return
 
 
 @pytest.mark.test_name("NEX-T28658")
 def test_retrack_true_parent_regulated_preserves_reid(
-    objData, params):
+    objData, params, result_recorder):
   """! Positive: with retrack=True the parent re-tracks child detections and
   keeps forwarded reid on regulated output so UUID manager can query with it.
   """
@@ -360,4 +364,5 @@ def test_retrack_true_parent_regulated_preserves_reid(
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return

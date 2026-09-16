@@ -64,8 +64,8 @@ def quat_rotate_vector(q, v):
   return (rx, ry, rz)
 
 class RotationFromVelocityTest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
 
     # REST setup
     self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
@@ -292,7 +292,8 @@ class RotationFromVelocityTest(FunctionalTest):
 
 # Pytest entrypoint
 @pytest.mark.test_name("NEX-T10543")
-def test_rotation_from_velocity(scenescape_env, demo_scene, request, record_xml_attribute):
-  test = RotationFromVelocityTest(TEST_NAME, request, record_xml_attribute)
+def test_rotation_from_velocity(scenescape_env, demo_scene, request, result_recorder):
+  test = RotationFromVelocityTest(TEST_NAME, request)
   test.run()
   assert test.exitCode == 0
+  result_recorder.success()

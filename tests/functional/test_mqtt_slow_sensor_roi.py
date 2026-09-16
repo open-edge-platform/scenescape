@@ -19,7 +19,8 @@ TEST_NAME = "NEX-T10461"
 SENSOR_DELAY = 60
 
 @pytest.mark.test_name("NEX-T10461")
-def test_slow_sensor_roi_mqtt(scenescape_env, demo_scene, request, record_xml_attribute):
-  test = SensorMqttRoi(TEST_NAME, request, SENSOR_DELAY, record_xml_attribute)
+def test_slow_sensor_roi_mqtt(scenescape_env, demo_scene, request, result_recorder):
+  test = SensorMqttRoi(TEST_NAME, request, SENSOR_DELAY, None)
   test.runROIMqtt()
   assert test.exitCode == 0
+  result_recorder.success()

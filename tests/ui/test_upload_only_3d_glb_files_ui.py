@@ -16,10 +16,10 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 @pytest.mark.test_name("NEX-T10433")
-def test_only_upload_glb_main(params, record_xml_attribute):
+def test_only_upload_glb_main(params, result_recorder):
   """! Checks that a user can not upload a files that are not .glb as a 3D scene map.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10433"
@@ -52,4 +52,5 @@ def test_only_upload_glb_main(params, record_xml_attribute):
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return

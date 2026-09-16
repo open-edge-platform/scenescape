@@ -111,10 +111,10 @@ def validate_object_crud(browser, file_path=None):
   return True
 
 @pytest.mark.test_name("NEX-T10429")
-def test_object_crud(params, record_xml_attribute, repo_root):
+def test_object_crud(params, result_recorder, repo_root):
   """! Checks that CRUD operations can be performed on an object with and without a 3d model.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10429"
@@ -140,4 +140,5 @@ def test_object_crud(params, record_xml_attribute, repo_root):
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return

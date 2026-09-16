@@ -33,8 +33,8 @@ FRAME_RATE = 10
 MAX_DELAYS = 100
 
 class SensorMqttRoi(SceneObjectMqtt):
-  def __init__(self, testName, request, sensor_delay, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request, sensor_delay):
+    super().__init__(testName, request)
     self.sensorHistory = []
     self.sensorDelay = sensor_delay
     self.foundValid = 0
@@ -337,7 +337,8 @@ class SensorMqttRoi(SceneObjectMqtt):
     return start_idx, end_idx
 
 @pytest.mark.test_name("NEX-T10460")
-def test_sensor_roi_mqtt(scenescape_env, demo_scene, request, record_xml_attribute):
-  test = SensorMqttRoi(TEST_NAME, request, SENSOR_DELAY, record_xml_attribute)
+def test_sensor_roi_mqtt(scenescape_env, demo_scene, request, result_recorder):
+  test = SensorMqttRoi(TEST_NAME, request, SENSOR_DELAY, None)
   test.runROIMqtt()
   assert test.exitCode == 0
+  result_recorder.success()

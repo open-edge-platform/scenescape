@@ -18,11 +18,11 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 @pytest.mark.test_name("NEX-T19882")
-def test_reid_semantic_unique_count(params):
+def test_reid_semantic_unique_count(params, result_recorder):
   """! Tests the unique count for each scene when RE-ID with
   semantic classification (age-gender) is enabled.
   @param    params                  Dict of test parameters.
-  @return   exit_code               Indicates test success or failure.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   """
   TEST_NAME = "NEX-T19882"
   log.info("Executing: " + TEST_NAME)
@@ -39,3 +39,4 @@ def test_reid_semantic_unique_count(params):
   }
 
   run_test(TEST_NAME, "Test the unique count for each scene when RE-ID with semantic classification is enabled.", scene_config, params)
+  result_recorder.success()

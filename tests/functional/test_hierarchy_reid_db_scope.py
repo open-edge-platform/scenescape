@@ -192,7 +192,7 @@ def _assert_distinct_parent_ids(ids_final, context, hier):
   ids=["reid_hier_shared"],
 )
 def test_hierarchy_shared_db_cross_child_merge(
-    objData, hierarchy_env, _env_matrix_setup):
+    objData, hierarchy_env, _env_matrix_setup, result_recorder):
   """! NEX-T27151: shared DB + retrack → same embedding on C1 then C2 converges
   to one parent ID via shared-DB rematch; shared DB has uuid_count(E)==1.
 
@@ -270,6 +270,7 @@ def test_hierarchy_shared_db_cross_child_merge(
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
 
 
 @pytest.mark.test_name("NEX-T27152")
@@ -280,7 +281,7 @@ def test_hierarchy_shared_db_cross_child_merge(
   ids=["reid_hier_children_only"],
 )
 def test_hierarchy_children_share_db_parent_none(
-    objData, hierarchy_env, _env_matrix_setup):
+    objData, hierarchy_env, _env_matrix_setup, result_recorder):
   """! NEX-T27152: children share DB (enroll once); parent has no ReID so
   C1↔C2 do not merge via ReID at parent.
   """
@@ -354,6 +355,7 @@ def test_hierarchy_children_share_db_parent_none(
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
 
 
 @pytest.mark.test_name("NEX-T27153")
@@ -364,7 +366,7 @@ def test_hierarchy_children_share_db_parent_none(
   ids=["reid_hier_parent_only"],
 )
 def test_hierarchy_parent_has_db_children_none(
-    objData, hierarchy_env, _env_matrix_setup):
+    objData, hierarchy_env, _env_matrix_setup, result_recorder):
   """! NEX-T27153: children have no ReID; parent enrolls forwarded crops on
   query-no-match, then rematches C2 to the same UUID (sequential).
 
@@ -440,6 +442,7 @@ def test_hierarchy_parent_has_db_children_none(
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
 
 
 @pytest.mark.test_name("NEX-T27154")
@@ -450,7 +453,7 @@ def test_hierarchy_parent_has_db_children_none(
   ids=["reid_hier_partial"],
 )
 def test_hierarchy_partial_db_no_cross_merge(
-    objData, hierarchy_env, _env_matrix_setup):
+    objData, hierarchy_env, _env_matrix_setup, result_recorder):
   """! NEX-T27154: parent+child1 share reid-a; child2 has no DB → C2 does not
   merge into C1's parent UUID via ReID.
   """
@@ -517,6 +520,7 @@ def test_hierarchy_partial_db_no_cross_merge(
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
 
 
 @pytest.mark.test_name("NEX-T27155")
@@ -527,7 +531,7 @@ def test_hierarchy_partial_db_no_cross_merge(
   ids=["reid_hier_split"],
 )
 def test_hierarchy_split_dbs_no_cross_merge(
-    objData, hierarchy_env, _env_matrix_setup):
+    objData, hierarchy_env, _env_matrix_setup, result_recorder):
   """! NEX-T27155 (negative): child1→reid-a, child2→reid-b; each DB enrolls
   once; parent IDs for C1 vs C2 differ.
   """
@@ -599,3 +603,4 @@ def test_hierarchy_split_dbs_no_cross_merge(
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()

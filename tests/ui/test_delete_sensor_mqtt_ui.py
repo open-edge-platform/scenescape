@@ -84,10 +84,12 @@ def getSensorUid(rest, sensor_name):
   return res["results"][0]['uid']
 
 @pytest.mark.test_name("NEX-T10432")
-def test_sensor_delete_mqtt(params):
+def test_sensor_delete_mqtt(params, result_recorder):
   '''! This function creates a sensor from the UI and then deletes
   the sensor. After the sensor deletion, the MQTT server should not
   give any response, else the test fails.
+  @param    params            Dict of functional-test parameters.
+  @param    result_recorder   Pytest fixture recording the Zephyr test result.
   @returns exit_code 0 on success 1 on failure
   '''
   TEST_NAME = 'NEX-T10432'
@@ -158,4 +160,5 @@ def test_sensor_delete_mqtt(params):
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return

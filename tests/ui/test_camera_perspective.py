@@ -38,10 +38,10 @@ def reset_perspective(browser):
 
 
 @pytest.mark.test_name("NEX-T10410")
-def test_cam_perspective_main(params, record_xml_attribute):
+def test_cam_perspective_main(params, result_recorder):
   """! Checks that the camera calibration can be reset.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10410"
@@ -85,3 +85,4 @@ def test_cam_perspective_main(params, record_xml_attribute):
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()

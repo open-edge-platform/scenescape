@@ -17,8 +17,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 class RegistrationErrorHandlingTest(UserInterfaceTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
     self.sceneName = self.params['scene']
     self.exitCode = 1
     return
@@ -82,22 +82,23 @@ class RegistrationErrorHandlingTest(UserInterfaceTest):
 
 @pytest.mark.test_name("NEX-T27164")
 @common.mock_display
-def test_registration_error_status_handled(request, record_xml_attribute, scenescape_env):
+def test_registration_error_status_handled(request, result_recorder, scenescape_env):
   """! Checks that a synchronous registration-error response (no register_result socket
   event) still updates the Auto Calibrate button/tooltip instead of leaving it stuck on
   "Initializing auto camera calibration".
   @param    request                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T27164"
 
-  test = RegistrationErrorHandlingTest(TEST_NAME, request, record_xml_attribute)
+  test = RegistrationErrorHandlingTest(TEST_NAME, request)
   test.execute_test()
 
   common.record_test_result(TEST_NAME, test.exitCode)
 
   assert test.exitCode == 0
+  result_recorder.success()
   return test.exitCode
 
 def main():

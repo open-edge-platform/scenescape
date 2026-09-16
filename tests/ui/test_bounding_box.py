@@ -126,10 +126,10 @@ def on_message(mqttc, data, msg):
 
 @pytest.mark.test_name("NEX-T10419")
 @pytest.mark.basic_acceptance
-def test_bounding_box(params, record_xml_attribute):
+def test_bounding_box(params, result_recorder):
   """! Checks that red object detection bounding boxes appear in the camera 1 image stream.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   global counter_bbox
@@ -168,4 +168,5 @@ def test_bounding_box(params, record_xml_attribute):
 
   common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
+  result_recorder.success()
   return

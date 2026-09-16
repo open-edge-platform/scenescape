@@ -162,7 +162,7 @@ def _phase2_drain_tracker(obj_data, client, cam_topic, regulated_msgs, lock):
 
 @pytest.mark.test_name("NEX-T10544")
 def test_tracker_objects_drop_to_zero_with_empty_detections(
-    objData, params):
+    objData, params, result_recorder):
   """! Verify that the tracker drops all tracked objects to zero when the
   camera sends an empty detection list after a period of active tracking.
 
@@ -177,6 +177,7 @@ def test_tracker_objects_drop_to_zero_with_empty_detections(
 
   @param    objData                 Pytest fixture: object payload template.
   @param    params                  Dict of functional-test parameters.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   """
   TEST_NAME = "NEX-T10544"
   log.info(f"Executing: {TEST_NAME}")
@@ -211,3 +212,4 @@ def test_tracker_objects_drop_to_zero_with_empty_detections(
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()

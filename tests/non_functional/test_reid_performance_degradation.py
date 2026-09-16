@@ -70,10 +70,10 @@ def resolve_duration():
 
 
 class REIDPerformanceDegradation(BackendFunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute,
+  def __init__(self, testName, request,
                docker=None, project_name=None,
                duration=SMOKE_DURATION_S, mode="smoke"):
-    super().__init__(testName, request, recordXMLAttribute)
+    super().__init__(testName, request)
     self.reid_connect(use_tls=False)
 
     self.docker = docker
@@ -456,7 +456,7 @@ def test_reid_performance_degradation(scenescape_env, request, record_xml_attrib
   log.info(f"Starting RE-ID performance degradation test ({mode} variant).")
 
   test = REIDPerformanceDegradation(
-    TEST_NAME, request, record_xml_attribute,
+    TEST_NAME, request,
     docker=scenescape_env.docker,
     project_name=scenescape_env.project_name,
     duration=duration,

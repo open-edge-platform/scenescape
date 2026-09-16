@@ -24,8 +24,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 TEST_NAME = "NEX-T21883"
 
 class SceneSummaryAPITest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
     self.rest = RESTClient(self.params["resturl"], rootcert=self.params["rootcert"])
     assert self.rest.authenticate(self.params["user"], self.params["password"])
 
@@ -63,6 +63,7 @@ class SceneSummaryAPITest(FunctionalTest):
     return True
 
 @pytest.mark.test_name("NEX-T21883")
-def test_scene_summary_api(scenescape_env, demo_scene, request, record_xml_attribute):
-  test = SceneSummaryAPITest(TEST_NAME, request, record_xml_attribute)
+def test_scene_summary_api(scenescape_env, demo_scene, request, result_recorder):
+  test = SceneSummaryAPITest(TEST_NAME, request)
   assert test.runTest()
+  result_recorder.success()

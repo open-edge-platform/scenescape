@@ -87,13 +87,16 @@ def validate_timestamp_format(rows):
 
 
 @pytest.mark.test_name("NEX-T10547")
-def test_timestamp_format(scenescape_env):
+def test_timestamp_format(scenescape_env, result_recorder):
   """ Verifies that all timestamps are utilizing ISO 8601 UTC format.
 
   Steps:
     * Get pgserver container name
     * Run PSQL commands
     * Verify ISO 8601 format
+
+  @param    scenescape_env    Pytest fixture defining the deployed test stack.
+  @param    result_recorder   Pytest fixture recording the Zephyr test result.
   """
   test_name = "NEX-T10547"
   exit_code = 1
@@ -136,3 +139,6 @@ def test_timestamp_format(scenescape_env):
     exit_code = 0
   finally:
     record_test_result(test_name, exit_code)
+
+  assert exit_code == 0
+  result_recorder.success()
