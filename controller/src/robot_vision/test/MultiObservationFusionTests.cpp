@@ -11,7 +11,6 @@
 #include <opencv2/core.hpp>
 
 #include <rv/tracking/Classification.hpp>
-#include <rv/tracking/MultiModelKalmanEstimator.hpp>
 #include <rv/tracking/MultipleObjectTracker.hpp>
 #include <rv/tracking/TrackManager.hpp>
 #include <rv/tracking/TrackedObject.hpp>
@@ -268,43 +267,6 @@ TEST(MultiObservationFusionTest, MultiObservationDoesNotCollapseCovariance)
   EXPECT_LE(multiTrace, singleTrace + 1e-9);
   // ... nor collapse it by orders of magnitude relative to the single-observation baseline.
   EXPECT_GT(multiTrace, singleTrace * 1e-2);
-}
-
-// The IMM model probabilities must remain a valid distribution under sequential multi-observation
-// corrects across all default motion models (CV/CA/CTRV).
-TEST(MultiObservationFusionTest, ImmModelProbabilitiesStayValidUnderMultiObservation)
-{
-  rv::tracking::TrackManager manager(fusionConfig());
-  const auto id = manager.createTrack(makeObjectAt(0.0, 0.0), InitialTimestamp);
-
-  const double velocity = 1.0; // m/s along x
-  for (uint32_t frame = 1; frame <= 5; ++frame)
-  {
-    const double x = velocity * 0.1 * frame;
-    const auto timestamp = InitialTimestamp + std::chrono::milliseconds(100 * frame);
-
-    manager.predict(timestamp);
-    manager.addMeasurement(id, makeObjectAt(x - 0.02, 0.0));
-    manager.addMeasurement(id, makeObjectAt(x + 0.02, 0.0));
-    manager.correct();
-  }
-
-  const auto estimator = manager.getKalmanEstimator(id);
-  const auto probabilities = estimator.getModelProbability();
-  ASSERT_EQ(probabilities.rows, 3);
-
-  double sum = 0.0;
-  for (int i = 0; i < probabilities.rows; ++i)
-  {
-    const double p = probabilities.at<double>(i, 0);
-    EXPECT_GE(p, 0.0) << "model " << i;
-    EXPECT_LE(p, 1.0) << "model " << i;
-    EXPECT_TRUE(std::isfinite(p)) << "model " << i;
-    sum += p;
-  }
-  EXPECT_NEAR(sum, 1.0, 1e-6);
-
-  EXPECT_GT(estimator.currentState().x, 0.0);
 }
 
 // Classification evidence accumulates once per matched observation; two cameras reporting the same

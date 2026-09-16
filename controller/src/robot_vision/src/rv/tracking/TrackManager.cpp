@@ -46,10 +46,7 @@ TrackedObject fuseObservations(const std::vector<TrackedObject> &observations)
   fused.length = length / count;
   fused.width = width / count;
   fused.height = height / count;
-  if (yawSin != 0.0 || yawCos != 0.0)
-  {
-    fused.yaw = std::atan2(yawSin, yawCos);
-  }
+  fused.yaw = std::atan2(yawSin, yawCos);
   fused.classification = combinedClassification;
   return fused;
 }
