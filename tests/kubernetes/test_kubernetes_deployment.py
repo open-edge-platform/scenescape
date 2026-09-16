@@ -26,7 +26,8 @@ except ImportError:
 
 
 @pytest.mark.kubernetes_only
-def test_scenescape_installation(_k8s_manager):
+@pytest.mark.test_name("NEX-T29214")
+def test_scenescape_installation(_k8s_manager, result_recorder):
   """Verify Helm release is in 'deployed' status."""
   logger.info("Checking Helm release status for 'scenescape'")
   result = subprocess.run(
@@ -40,10 +41,12 @@ def test_scenescape_installation(_k8s_manager):
   release_status = status["info"]["status"]
   logger.info("Helm release status: %s", release_status)
   assert release_status == "deployed"
+  result_recorder.success()
 
 
 @pytest.mark.kubernetes_only
-def test_scenescape_pods_not_restarting(_k8s_manager):
+@pytest.mark.test_name("NEX-T29215")
+def test_scenescape_pods_not_restarting(_k8s_manager, result_recorder):
   """Verify core Scenescape pods don't restart within a 2-minute window.
 
   NTP (chrony) and dlstreamer (retail/queuing cams) are excluded because
@@ -92,22 +95,27 @@ def test_scenescape_pods_not_restarting(_k8s_manager):
   assert not new_restarts, (
     "Core containers restarted during 2-minute observation:\n" + "\n".join(new_restarts)
   )
+  result_recorder.success()
 
 
 @pytest.mark.kubernetes_only
-def test_scenescape_web_app_accessible(_k8s_manager):
+@pytest.mark.test_name("NEX-T29216")
+def test_scenescape_web_app_accessible(_k8s_manager, result_recorder):
   """Verify the web application responds with HTTP 200."""
   url = f"https://localhost:{_k8s_manager.web_port}"
   logger.info("Checking web app accessibility at %s", url)
   response = requests.get(url, verify=False)
   logger.info("Web app response: HTTP %d", response.status_code)
   assert response.status_code == 200
+  result_recorder.success()
 
 
 @pytest.mark.kubernetes_only
-def test_scenescape_mqtt_accessible(_k8s_manager):
+@pytest.mark.test_name("NEX-T29217")
+def test_scenescape_mqtt_accessible(_k8s_manager, result_recorder):
   """Verify the MQTT broker is reachable on the port-forwarded port."""
   logger.info("Checking MQTT broker accessibility on localhost:%d", _k8s_manager.mqtt_port)
   with socket.create_connection(("localhost", _k8s_manager.mqtt_port), timeout=5) as sock:
     assert sock is not None, "Failed to connect to MQTT broker"
   logger.info("MQTT broker is reachable")
+  result_recorder.success()
