@@ -18,15 +18,15 @@ TEMPLATE_PATH = (
   'version, expected', [
     ('2026.3.0-dev', 'dev'),
     ('2026.2.0', '2026.2'),
+    ('2026.2.0-rc1', 'dev'),
+    ('2026.2.0-rc2', 'dev'),
+    ('', 'dev'),
+    ('Unknown', 'dev'),
+    ('invalid-version', 'dev'),
   ],
 )
 def test_docs_version(version, expected):
   assert get_docs_version(version) == expected
-
-
-@pytest.mark.parametrize('version', ['', 'Unknown', 'invalid-version'])
-def test_invalid_docs_version_uses_dev(version):
-  assert get_docs_version(version) == 'dev'
 
 
 def test_documentation_link_uses_dynamic_version():

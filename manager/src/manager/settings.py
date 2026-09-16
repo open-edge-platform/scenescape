@@ -198,7 +198,11 @@ KUBERNETES_SERVICE_HOST = 'KUBERNETES_SERVICE_HOST' in os.environ
 # Get the version number
 def get_docs_version(version):
   """Return the documentation URL segment for an application version."""
-  if not version or version == 'Unknown' or 'dev' in version.lower():
+  if not version or version == 'Unknown':
+    return 'dev'
+
+  # Release candidates aren't published docs yet, so link to dev docs.
+  if 'dev' in version.lower() or 'rc' in version.lower():
     return 'dev'
 
   version_parts = version.split('.')
