@@ -811,7 +811,7 @@ _PROFILE_SCENE_ARCHIVES = {
   "full_stack_with_video_and_retail": ("retail_and_queuing",),
   "reid_no_video": ("retail_and_queuing",),
   "reid": ("retail_and_queuing",),
-  "reid_queuing_only" : ("queuing_only"),
+  "reid_queuing_only" : ("queuing_only",),
   "reid_qdrant": ("retail_and_queuing",),
   "reid_semantic": ("retail_and_queuing",),
   "reid_semantic_qdrant": ("retail_and_queuing",),

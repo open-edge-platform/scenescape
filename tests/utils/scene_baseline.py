@@ -33,7 +33,7 @@ SCENE_ARCHIVES = {
   "calibration": (_RESOURCES_DIR / "Queuing" / "Queuing.zip",),
   "retail_and_queuing": (_RESOURCES_DIR / "Retail" / "Retail.zip",
                          _RESOURCES_DIR / "Queuing" / "Queuing.zip"),
-  "queuing_only":  (_RESOURCES_DIR / "Queuing" / "Queuing.zip"),
+  "queuing_only":  (_RESOURCES_DIR / "Queuing" / "Queuing.zip",),
 }
 
 # Snapshot excludes rows recreated separately by scenescape-init/createuser

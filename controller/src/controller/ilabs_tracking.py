@@ -21,6 +21,11 @@ from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time
 
 
+PENDING_HANDOFF_GRACE_SECS = 2.0
+PENDING_HANDOFF_MAX_DISTANCE_M = 1.5
+DEFAULT_SUSPENDED_REID_OBJECT_GRACE_SECS = 60.0
+
+
 def _quaternion_to_yaw(rotation):
   """Return Z-axis yaw in radians from an ``[x, y, z, w]`` quaternion.
 
@@ -83,6 +88,17 @@ class IntelLabsTracking(Tracking):
     tracker_config.suspended_track_timeout_secs = suspended_track_timeout_secs
 
     self.tracker = rv.tracking.MultipleObjectTracker(tracker_config)
+    # Recently disappeared unresolved tracks. These are candidates for a
+    # bounded handoff when Robot Vision creates a replacement tracker ID.
+    self.pending_reid_handoffs = {}
+    self.last_reliable_objects = {}
+    self.suspended_reid_objects = {}
+    self.suspended_reid_object_grace_secs = float(
+      (reid_config_data or {}).get(
+        'inactive_track_grace_secs',
+        DEFAULT_SUSPENDED_REID_OBJECT_GRACE_SECS,
+      )
+    )
     log.info(f"Multiple Object Tracker {self.__str__()} initialized")
     log.info("Tracker config: {}".format(tracker_config))
     self.tracker.update_tracker_params(self.ref_camera_frame_rate)
@@ -201,9 +217,157 @@ class IntelLabsTracking(Tracking):
     if not found:
       sscape_object.setGID(object_uuid)
 
+      suspended = self._takeSuspendedReidObject(sscape_object.rv_id)
+      if suspended is not None:
+        # UUIDManager already retained this rv_id and its feature buffers.
+        # Restore the MovingObject chain as well so the provisional UUID that
+        # was previously published is recorded when the eventual match changes
+        # the gid.
+        self._continueReidObjectChain(
+          sscape_object, suspended, object_uuid)
+        log.info(
+          f"Restored suspended ReID object chain for "
+          f"rv_id={sscape_object.rv_id}")
+      else:
+        handoff = self._takePendingReidHandoff(sscape_object)
+        if handoff is not None:
+          old_track_id, old_object = handoff
+          if self.uuid_manager.transferPendingTrack(
+              old_track_id, sscape_object.rv_id):
+            self.pending_reid_handoffs.pop(old_track_id, None)
+            self.suspended_reid_objects.pop(old_track_id, None)
+            # Carry the provisional gid, history and chain data forward. When
+            # ReID later matches, updateActiveDict records this provisional gid
+            # in previous_ids_chain before switching to the established gid.
+            self._continueReidObjectChain(
+              sscape_object, old_object, object_uuid)
+            log.info(
+              f"ReID tracker-fragment handoff rv_id={old_track_id} "
+              f"-> {sscape_object.rv_id}")
+
     self.uuid_manager.assignID(sscape_object)
 
     return sscape_object
+
+  @staticmethod
+  def _continueReidObjectChain(new_object, old_object, new_provisional_gid):
+    """Carry object history forward without extending the old provisional gid.
+
+    The old provisional UUID must be linked through previous_ids_chain, but it
+    must not remain the current gid across a long suspension. Otherwise the
+    test (and consumers) correctly interpret it as another lasting identity.
+    """
+    old_provisional_gid = old_object.gid
+    new_object.setPrevious(old_object)
+    new_object.gid = new_provisional_gid
+
+    if (old_provisional_gid is not None
+        and old_provisional_gid != new_provisional_gid):
+      new_object.save_previous_object_id(
+        old_provisional_gid,
+        similarity_score=None,
+        timestamp=new_object.when,
+      )
+
+  @staticmethod
+  def _sourceId(sscape_object):
+    source = getattr(sscape_object, 'camera', None)
+    return (
+      getattr(source, 'cameraID', None)
+      or getattr(source, 'uid', None)
+    )
+
+  @staticmethod
+  def _distanceBetween(first, second):
+    first_point = first.sceneLoc
+    second_point = second.sceneLoc
+    return math.sqrt(
+      (first_point.x - second_point.x) ** 2
+      + (first_point.y - second_point.y) ** 2
+      + (first_point.z - second_point.z) ** 2
+    )
+
+  def _expirePendingReidHandoffs(self, now):
+    for track_id, candidate in list(self.pending_reid_handoffs.items()):
+      if now - candidate['disappeared_at'] > PENDING_HANDOFF_GRACE_SECS:
+        self.pending_reid_handoffs.pop(track_id, None)
+
+  def _expireSuspendedReidObjects(self, now):
+    for track_id, candidate in list(self.suspended_reid_objects.items()):
+      if (now - candidate['disappeared_at']
+          > self.suspended_reid_object_grace_secs):
+        self.suspended_reid_objects.pop(track_id, None)
+
+  def _takeSuspendedReidObject(self, track_id):
+    now = get_epoch_time()
+    self._expireSuspendedReidObjects(now)
+    candidate = self.suspended_reid_objects.pop(track_id, None)
+    if candidate is None:
+      return None
+    self.pending_reid_handoffs.pop(track_id, None)
+    return candidate['object']
+
+  def _cacheDisappearedPendingTracks(self, current_track_ids, now):
+    """Cache unresolved tracks that disappeared since the previous update."""
+    self._expirePendingReidHandoffs(now)
+    self._expireSuspendedReidObjects(now)
+    for track_id, old_object in self.last_reliable_objects.items():
+      if track_id in current_track_ids:
+        continue
+      if not self.uuid_manager.hasPendingTrack(track_id):
+        continue
+      self.pending_reid_handoffs.setdefault(track_id, {
+        'object': old_object,
+        'disappeared_at': now,
+      })
+      self.suspended_reid_objects.setdefault(track_id, {
+        'object': old_object,
+        'disappeared_at': now,
+      })
+
+  def _takePendingReidHandoff(self, new_object):
+    """Return one unambiguous same-camera, nearby pending-track candidate."""
+    now = get_epoch_time()
+    self._expirePendingReidHandoffs(now)
+    source_id = self._sourceId(new_object)
+    candidates = []
+
+    for track_id, candidate in self.pending_reid_handoffs.items():
+      old_object = candidate['object']
+      if self._sourceId(old_object) != source_id:
+        continue
+      distance = self._distanceBetween(old_object, new_object)
+      if distance <= PENDING_HANDOFF_MAX_DISTANCE_M:
+        candidates.append((distance, track_id, old_object))
+
+    # Reject ambiguous association rather than transferring one person's ReID
+    # evidence into another person's tracker ID.
+    if len(candidates) != 1:
+      if len(candidates) > 1:
+        log.warning(
+          f"Ambiguous ReID tracker-fragment handoff for "
+          f"rv_id={new_object.rv_id}: candidates="
+          f"{[(track_id, round(distance, 3)) for distance, track_id, _ in candidates]}")
+      return None
+
+    _, track_id, old_object = candidates[0]
+    return track_id, old_object
+
+  def _convertReliableTracks(self, tracked_objects, objects):
+    """Cache disappearances, convert tracks, then prune unclaimed ReID state."""
+    now = get_epoch_time()
+    current_track_ids = {tracked_object.id for tracked_object in tracked_objects}
+    self._cacheDisappearedPendingTracks(current_track_ids, now)
+
+    converted = [
+      self.from_tracked_object(tracked_object, objects)
+      for tracked_object in tracked_objects
+    ]
+    self.last_reliable_objects = {
+      obj.rv_id: obj for obj in converted if hasattr(obj, 'rv_id')
+    }
+    self.uuid_manager.pruneInactiveTracks(tracked_objects)
+    return converted
 
   def mergeAlreadyTrackedObjects(self, tracks):
     """Merge already tracked objects with current objects"""
@@ -247,9 +411,8 @@ class IntelLabsTracking(Tracking):
     when = datetime.fromtimestamp(when)
     self.update_tracks(objects, when)
     tracked_objects = self.tracker.get_reliable_tracks()
-    self.uuid_manager.pruneInactiveTracks(tracked_objects)
-    tracks_from_detections = [self.from_tracked_object(tracked_object, objects)
-                              for tracked_object in tracked_objects]
+    tracks_from_detections = self._convertReliableTracks(
+      tracked_objects, objects)
 
     # Already tracked objects include moving objects from tracks consumed directly
     self.already_tracked_objects = self.mergeAlreadyTrackedObjects(already_tracked_objects)
@@ -261,13 +424,12 @@ class IntelLabsTracking(Tracking):
     when = datetime.fromtimestamp(when)
     self.update_tracks_batched(objects_per_camera, when)
     tracked_objects = self.tracker.get_reliable_tracks()
-    self.uuid_manager.pruneInactiveTracks(tracked_objects)
 
     # Flatten all objects for from_tracked_object lookup
     all_objects = [obj for camera_objects in objects_per_camera for obj in camera_objects]
 
-    tracks_from_detections = [self.from_tracked_object(tracked_object, all_objects)
-                              for tracked_object in tracked_objects]
+    tracks_from_detections = self._convertReliableTracks(
+      tracked_objects, all_objects)
 
     # Already tracked objects include moving objects from tracks consumed directly
     self.already_tracked_objects = self.mergeAlreadyTrackedObjects(already_tracked_objects)
