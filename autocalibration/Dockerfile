@@ -163,17 +163,9 @@ COPY --chown=$WSUSER:$WSUSER autocalibration/src/autocalibration $SCENESCAPE_HOM
 RUN chmod +x $SCENESCAPE_HOME/autocalibration
 COPY --chown=$WSUSER:$WSUSER autocalibration/src/*.py $SCENESCAPE_HOME/
 COPY --chown=$WSUSER:$WSUSER autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
+COPY --chown=$WSUSER:$WSUSER autocalibration/entrypoint.sh /usr/local/bin/startup.sh
 
-RUN echo '#!/bin/bash\n\
-set -e\n\
-if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
-    echo "Checking NetVLAD model..."\n\
-    python3 /usr/local/bin/download_models.py\n\
-fi\n\
-touch /tmp/healthy\n\
-exec "$@"\n' > /usr/local/bin/startup.sh && \
-    chmod +x /usr/local/bin/startup.sh && \
-    chown $WSUSER:$WSUSER /usr/local/bin/startup.sh
+RUN chmod +x /usr/local/bin/startup.sh
 
 # Switch to non-root user
 USER $WSUSER

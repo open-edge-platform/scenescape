@@ -84,10 +84,10 @@ spec:
               command:
               - sh
               - -c
-              - curl -k -fsS https://localhost:8443/v1/status >/dev/null
+              - test -f /tmp/healthy && curl -k -fsS https://localhost:8443/v1/status >/dev/null
             periodSeconds: 10
             timeoutSeconds: 5
-            failureThreshold: 30
+            failureThreshold: 90
             initialDelaySeconds: 30
           readinessProbe:
             exec:
@@ -95,7 +95,7 @@ spec:
               - sh
               - -c
               - >
-                curl -k -s https://localhost:8443/v1/status |
+                test -f /tmp/healthy && curl -k -s https://localhost:8443/v1/status |
                 python3 -c 'import json,sys; data=json.load(sys.stdin); raise SystemExit(0 if data.get("status") == "running" else 1)'
             periodSeconds: 30
             timeoutSeconds: 5
