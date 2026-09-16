@@ -107,8 +107,8 @@ spec:
               command:
               - sh
               - -c
-              - >
-                curl --insecure -fsS -H 'Host: localhost'
+              - > 
+                curl --insecure -fsS -H 'Host: localhost' 
                 https://127.0.0.1:443/api/v1/health >/dev/null
             periodSeconds: 10
             timeoutSeconds: 60
