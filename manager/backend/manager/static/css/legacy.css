@@ -1,0 +1,207 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* Embed / calibrate host + base body */
+
+body {
+  padding-top: 5rem;
+  padding-bottom: 5rem;
+  background-color: var(--ss-surface);
+  color: var(--ss-text);
+  font-family: var(--ss-font-sans);
+}
+
+html:has(body.ss-embed),
+body.ss-embed {
+  height: 100%;
+  max-height: 100%;
+}
+
+body.ss-embed {
+  padding: 0;
+  overflow: hidden;
+}
+
+body.ss-embed .navbar,
+body.ss-embed .breadcrumb {
+  display: none !important;
+}
+
+body.ss-embed .wrapper,
+body.ss-embed .content,
+body.ss-embed #calibration_form,
+body.ss-embed #calibrate,
+body.ss-embed .cal-workspace-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  max-width: none;
+}
+
+body.ss-embed .content {
+  overflow: hidden;
+}
+
+body.ss-embed #calibrate > .card > .card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0.4rem;
+  overflow: hidden;
+}
+
+body.ss-embed .cameraCalContainer {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  gap: 0.45rem;
+}
+
+body.ss-embed .cal-pane {
+  min-height: 0;
+}
+
+body.ss-embed .cal-pane-viewport {
+  height: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+body.ss-embed #calibrate > .card {
+  border: 0;
+  box-shadow: none;
+}
+
+/* React hosts settings — embed is point-picking + calibration tools only */
+body.ss-embed .page-header,
+body.ss-embed .breadcrumb,
+body.ss-embed #calibrate-info,
+body.ss-embed #top_save,
+body.ss-embed #bottom_save,
+body.ss-embed .ss-form-actions,
+body.ss-embed details.ss-form-section--collapsible,
+body.ss-embed section[aria-labelledby="ss-cam-sec-identity-title"] {
+  display: none !important;
+}
+
+/* Keep intrinsic/distortion inputs in DOM for JS; hide from the embed UI */
+body.ss-embed section[aria-labelledby="ss-cam-sec-optics-title"] {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+body.ss-embed #calibrate > .card > .card-header {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+/* Sensor calibrate: map + settings respond to React panel layout messages */
+.ss-sensor-cal-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+}
+
+.ss-sensor-cal-workspace--row {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.ss-sensor-cal-workspace--stack {
+  flex-direction: column;
+}
+
+.ss-sensor-cal-main {
+  flex: 1.4 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ss-sensor-cal-aside {
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: auto;
+  box-sizing: border-box;
+}
+
+.ss-sensor-cal-workspace--row .ss-sensor-cal-aside {
+  width: min(28rem, 38vw);
+  border-left: 1px solid var(--ss-card-border);
+  padding: 0.75rem 1rem 1rem;
+}
+
+.ss-sensor-cal-workspace--stack .ss-sensor-cal-aside {
+  width: 100%;
+  border-top: 1px solid var(--ss-card-border);
+  padding: 0.75rem 0 0;
+  margin-top: 0.75rem;
+}
+
+body.ss-embed .ss-sensor-cal-workspace {
+  height: calc(100vh - 3rem);
+  max-height: calc(100vh - 3rem);
+}
+
+body.ss-embed .ss-sensor-cal-main {
+  overflow: auto;
+}
+
+body.ss-embed .ss-sensor-cal-workspace--row .ss-sensor-cal-aside {
+  max-height: 100%;
+}
+
+body.ss-embed .ss-sensor-cal-workspace--stack .ss-sensor-cal-aside {
+  max-height: min(42vh, 28rem);
+}
+
+body.ss-embed #roi-form-calibrate > .card > .card-header {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .ss-sensor-cal-workspace--row {
+    flex-direction: column;
+  }
+
+  .ss-sensor-cal-workspace--row .ss-sensor-cal-aside {
+    width: 100%;
+    border-left: 0;
+    border-top: 1px solid var(--ss-card-border);
+  }
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--ss-font-heading);
+}
+
+.navbar.bg-dark {
+  background-color: var(--ss-nav-bg) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--ss-nav-fg) 14%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, #000 35%, transparent);
+}
+
+html[data-theme="dark"] .navbar.bg-dark {
+  border-bottom-color: color-mix(in srgb, #fff 10%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, #000 55%, transparent);
+}
+

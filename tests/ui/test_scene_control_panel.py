@@ -92,7 +92,8 @@ def test_scene_control_panel(params, record_xml_attribute):
     plane_view = browser.find_element(By.ID, "plane-view-label")
     card_title = browser.find_element(By.CLASS_NAME, "card-title")
     action = browser.actionChains()
-    action.click(plane_view).click(card_title).click(card_title).perform()
+    # Move off the toggle after clicking; do not click the scene-name link.
+    action.click(plane_view).move_to_element(card_title).perform()
 
     log.info("Hide 3D panels.")
     time.sleep(WAIT_SEC)
@@ -215,8 +216,11 @@ def test_scene_control_panel(params, record_xml_attribute):
     time.sleep(WAIT_SEC)
     interaction_page.unhide_control_panels()
 
-    log.info("Navigate to scene details.")
-    browser.find_element(By.ID, "scene-detail-button").click()
+    log.info("Navigate to scene details via scene name link.")
+    scene_link = browser.find_element(By.ID, "scene-detail-link")
+    scene_button = browser.find_element(By.ID, "scene-detail-button")
+    assert scene_link.get_attribute("href") == scene_button.get_attribute("href")
+    scene_link.click()
 
     log.info("AC(2) Check if URL has changed to scene details.")
     time.sleep(WAIT_SEC)

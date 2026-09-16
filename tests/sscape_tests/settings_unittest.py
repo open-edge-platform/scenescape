@@ -16,7 +16,7 @@ DATABASES = {
 
 # Configure templates for unit tests
 _repo_root = Path(__file__).resolve().parents[2]
-_templates_dir = _repo_root / "manager" / "src" / "templates"
+_templates_dir = _repo_root / "manager" / "backend" / "manager" / "templates"
 
 if _templates_dir.is_dir():
   TEMPLATES = [

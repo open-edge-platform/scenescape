@@ -34,7 +34,7 @@ def upload_3D_scene_asset(browser, file_name, file_path):
   @param    file_path               Path for the 3D file to be uploaded.
   @return   BOOL                    Boolean representing whether the 3D file is uploaded successully.
   '''
-  scene_update_params = common.InteractionParams(file_name, file_path, f"/scene/update/{common.TEST_SCENE_ID}/", "", "#id_map", element_location="")
+  scene_update_params = common.InteractionParams(file_name, file_path, f"/?ss=scene-edit&id={common.TEST_SCENE_ID}", "", "#ss-scene-map", element_location="")
   upload_checks = common.CheckInteraction()
   scene_update_page = common.InteractWithSceneUpdate(browser, scene_update_params)
   return scene_update_page.upload_scene_3D_map(upload_checks)

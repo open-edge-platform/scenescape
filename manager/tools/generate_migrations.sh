@@ -16,7 +16,7 @@ RUN_SECRETS="/run/secrets/django/secrets.py"
 MANAGER_DIR="/home/scenescape/Scenescape/manager"
 
 # Where we want to copy migrations to on the host
-HOST_MIGRATIONS_DIR="${PROJECT_ROOT}/manager/src/manager/migrations"
+HOST_MIGRATIONS_DIR="${PROJECT_ROOT}/manager/backend/manager/migrations"
 
 IMAGE="intel/scenescape-manager:latest"
 
@@ -67,8 +67,8 @@ generate_migrations() {
   -e DBHOST=pgserver \
   -e DBPORT=5432 \
   -v "${SECRETS_DIR}/django:/run/secrets/django:ro" \
-  -v "${PROJECT_ROOT}/manager/src/manager/migrations:/home/scenescape/Scenescape/manager/migrations:rw" \
-  -v "${PROJECT_ROOT}/manager/src/manager:/home/scenescape/Scenescape/manager:rw" \
+  -v "${PROJECT_ROOT}/manager/backend/manager/migrations:/home/scenescape/Scenescape/manager/migrations:rw" \
+  -v "${PROJECT_ROOT}/manager/backend/manager:/home/scenescape/Scenescape/manager:rw" \
   --entrypoint /bin/bash \
   "${IMAGE}" \
   -lc '
@@ -119,7 +119,7 @@ show_migrations() {
 generate_migrations
 
 echo ""
-echo "==> Migration files generated in manager/src/manager/migrations/"
+echo "==> Migration files generated in manager/backend/manager/migrations/"
 echo ""
 echo "Next steps:"
 echo "1. Review the generated migration files"

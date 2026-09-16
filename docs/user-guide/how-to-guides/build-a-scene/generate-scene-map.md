@@ -111,7 +111,7 @@ Using the above example, the form should look like this for the `video0` camera:
 
 ![Creating a new camera](../../_assets/ui/new-camera.png)
 
-3. Click **Save Camera**
+3. Click **Save**
 4. Repeat for all cameras in your scene
 
 ### Verify Video Frames
@@ -130,8 +130,8 @@ After adding cameras, verify that video frames are being received:
 
 Once cameras are configured and streaming:
 
-1. On the scene details page, navigate to the scene settings page by clicking the "Edit" icon.
-2. Click **Generate Mesh** button at the bottom of the page
+1. On the scene details page, open scene settings by clicking the pencil **Edit** control in the scene header (opens the **Edit Scene** panel).
+2. Click **Generate Mesh** near the bottom of the panel
 
 > **Note**: The "Generate Mesh" button is only available when the mapping service is healthy. If you do not see this button:
 >

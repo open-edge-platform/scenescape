@@ -8,7 +8,7 @@ TEST_TARGET = scenescape-manager-test
 USES_SCENE_COMMON = yes
 SHELL = /bin/bash
 CERTDOMAIN = scenescape.intel.com
-JSLIBDIR = src/manager/static
+JSLIBDIR = backend/manager/static
 CURL_FLAGS = --connect-timeout 5 --max-time 120 --retry 5 --retry-delay 0
 FORCE_VAAPI ?= 0
 THREEJS_VERSION = 168
@@ -19,17 +19,34 @@ EXPECTED_OPENCV_SHA256 = 19b46167b59efbef9cc3836264b0b657110833e4b1df84282004b8b
 
 include ../common.mk
 
+# Bake the build commit into the Manager image for the About modal.
+GIT_COMMIT ?= $(shell git -C $(CURDIR)/.. rev-parse HEAD 2>/dev/null || echo unknown)
+EXTRA_BUILD_ARGS += --build-arg GIT_COMMIT=$(GIT_COMMIT)
+
 default: build-image
 
-build-image: jslibraries jsm-examples remove-symlink Dockerfile
+.PHONY: ui-install ui-build
+ui-install:
+	cd frontend && npm ci
+
+ui-build:
+	# Sync canonical --ss-* tokens into Django static (pages must not need Node).
+	cp -f frontend/src/tokens/ss-tokens.css backend/manager/static/css/tokens.css
+ifndef SKIP_UI
+	cd frontend && npm ci && npm run build
+else
+	@echo "SKIP_UI=1 — skipping manager UI build (tokens still synced)"
+endif
+
+build-image: ui-build jslibraries jsm-examples remove-symlink Dockerfile
 
 .PHONY: test-build
 test-build: test/geckodriver.tar.gz
-	$(MAKE) IMAGE="$(TEST_IMAGE)" TARGET="$(TEST_TARGET)" EXTRA_BUILD_ARGS="--build-arg TEST_USER=$(shell id -u)"
+	$(MAKE) IMAGE="$(TEST_IMAGE)" TARGET="$(TEST_TARGET)" EXTRA_BUILD_ARGS="--build-arg TEST_USER=$(shell id -u) --build-arg GIT_COMMIT=$(GIT_COMMIT)"
 
 # The 'remove-symlink' target removes a potentially dangling symlink to prevent build failures.
 remove-symlink:
-	rm -f ./src/manager/secrets.py
+	rm -f ./backend/manager/secrets.py
 
 .PHONY: clean-assets
 clean-assets:

@@ -1,0 +1,15 @@
+<!--
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+{% extends 'sscape/base.html' %}
+{% load static %}
+{% block content %}
+  {# Scenes gallery + chrome owned by React (scenes-home.js) #}
+  <div id="ss-scenes-home-app"></div>
+{% endblock %}
+{% block scripts %}
+  {{ scenes_home_bootstrap|json_script:"ss-scenes-home-bootstrap" }}
+  <script type="module" src="{% static 'ui/scenes-home.js' %}?v=actions-2"></script>
+{% endblock %}

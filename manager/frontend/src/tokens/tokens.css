@@ -1,0 +1,14 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* Shared action/table chrome available to Django list pages via manager-ui.css */
+@import "../components/Button.css";
+@import "../components/TableActions.css";
+@import "../components/Card.css";
+@import "../components/StatusChip.css";
+@import "../components/FormSection.css";
+
+/* Canonical --ss-* vars (synced to static/css/tokens.css on ui-build) */
+@import "./ss-tokens.css";
