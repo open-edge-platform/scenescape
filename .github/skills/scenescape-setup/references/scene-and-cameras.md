@@ -69,7 +69,19 @@ curl -sk -X POST https://localhost/api/v1/camera \
 - `rotation` is a quaternion in `[x, y, z, w]` order.
 - `intrinsics` must be a JSON object with keys `fx`, `fy`, `cx`, `cy` (not a list).
 - `transform_type` must be `"quaternion"` when providing translation/rotation/scale.
-- If a POST fails with 400 "sensor_id already exists", delete the old camera first:
-  `curl -sk -X DELETE https://localhost/api/v1/camera/<uid> -H "Authorization: Token $TOKEN"`
+- If a POST fails with 400 `"sensor_id already exists"`, delete the existing camera first.
+  The camera API's path UID **is** the `sensor_id` (and the serializer's read-only `uid`
+  field aliases it) — there is no list-all or `?sensor_id=` filter. Use the same string you
+  chose at creation (e.g. `camera1` / `uav-1`):
+
+  ```bash
+  curl -sk -X DELETE "https://localhost/api/v1/camera/<camera_id>" \
+    -H "Authorization: Token $TOKEN"
+  ```
+
+  To confirm which cameras a scene already has, `GET /api/v1/scene/<scene_uid>` embeds a
+  `cameras` array; each entry's `uid` equals its `sensor_id`. Do not call
+  `GET /api/v1/camera` without a UID (returns `"UID is required"`) or with a query filter
+  (returns `"Unknown query parameter"`).
 - The manager URL from the host is `https://localhost` (TLS required, self-signed cert).
   `web.scenescape.intel.com` is only a Docker network alias for container-to-container calls.
