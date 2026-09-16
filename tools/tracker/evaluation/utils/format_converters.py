@@ -10,6 +10,7 @@ This module provides utilities for converting between JSON and CSV formats using
 """
 
 from typing import Any, Dict, Iterable, List, Union
+from datetime import datetime
 import json
 import orjson
 from jsonpointer import JsonPointer, JsonPointerException
@@ -203,38 +204,6 @@ def convert_json_to_csv(
   return df
 
 
-def read_csv_to_dataframe(
-  csv_path: str,
-  has_header: bool = False,
-  column_names: List[str] = None
-) -> pd.DataFrame:
-  """Read CSV file into DataFrame using Dask.
-
-  Args:
-    csv_path: Path to CSV file
-    has_header: Whether CSV has header row
-    column_names: List of column names (required if no header)
-
-  Returns:
-    DataFrame with CSV data
-
-  Example:
-    >>> df = read_csv_to_dataframe(
-    ...   "track.csv",
-    ...   has_header=False,
-    ...   column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
-    ... )
-  """
-  if has_header:
-    ddf = dd.read_csv(csv_path)
-  else:
-    if column_names is None:
-      raise ValueError("column_names required when has_header=False")
-    ddf = dd.read_csv(csv_path, header=None, names=column_names)
-
-  return ddf.compute()
-
-
 def read_json(file_path: str) -> Any:
   """Read JSON file using orjson."""
   with open(file_path, 'rb') as f:
@@ -286,7 +255,7 @@ def convert_canonical_to_motchallenge_csv(
   output_path: str,
   camera_fps: float,
   uuid_to_id_map: Dict[str, int] = None,
-  reference_timestamp: "datetime" = None
+  reference_timestamp: datetime = None
 ) -> Dict[str, int]:
   """Convert canonical tracker output format to MOTChallenge 3D CSV format.
 
@@ -325,8 +294,6 @@ def convert_canonical_to_motchallenge_csv(
     ... ]
     >>> mapping = convert_canonical_to_motchallenge_csv(outputs, "track.csv", 30.0)
   """
-  from datetime import datetime
-
   # Convert to list if needed
   if not isinstance(tracker_outputs, list):
     tracker_outputs = list(tracker_outputs)
@@ -342,11 +309,9 @@ def convert_canonical_to_motchallenge_csv(
   next_id = max(uuid_to_id_map.values()) + 1 if uuid_to_id_map else 1
 
   # Parse first timestamp as reference (frame 1)
-  first_timestamp = reference_timestamp
-  if first_timestamp is None:
-    first_timestamp = datetime.fromisoformat(
-      tracker_outputs[0]["timestamp"].replace("Z", "+00:00")
-    )
+  first_timestamp = reference_timestamp or datetime.fromisoformat(
+    tracker_outputs[0]["timestamp"].replace("Z", "+00:00")
+  )
   frame_duration_seconds = 1.0 / camera_fps
 
   # Convert tracker outputs to CSV rows

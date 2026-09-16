@@ -10,7 +10,6 @@ that minimizes mean Euclidean distance over overlapping frames.
 
 from typing import Iterator, List, Dict, Any, Optional
 from pathlib import Path
-from datetime import datetime
 import sys
 import math
 
@@ -264,12 +263,12 @@ class DiagnosticEvaluator(TrackerEvaluator):
     """
     sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
     from format_converters import stream_jsonl
-    sys.path.insert(0, str(Path(__file__).parent.parent))
     from utils.timeline import (
       compute_fps,
       deduplicate_frames_by_timestamp,
       parse_timestamp,
       reference_timestamp,
+      resolve_ground_truth_path,
       timestamp_to_frame,
     )
 
@@ -278,23 +277,12 @@ class DiagnosticEvaluator(TrackerEvaluator):
       raise RuntimeError("No tracker outputs provided")
     tracker_output_list = deduplicate_frames_by_timestamp(tracker_output_list)
 
-    if isinstance(ground_truth, str):
-      gt_file_path = ground_truth
-    else:
-      gt_data = list(ground_truth)
-      if gt_data and isinstance(gt_data[0], str):
-        gt_file_path = gt_data[0]
-      else:
-        raise RuntimeError(
-          "Ground truth must be a file path string. "
-          "Ensure dataset.get_ground_truth() returns a JSONL file path."
-        )
-    gt_frames = list(stream_jsonl(gt_file_path))
+    gt_frames = list(stream_jsonl(resolve_ground_truth_path(ground_truth)))
 
     # Shared reference epoch and frame rate for both inputs.
     reference = reference_timestamp(tracker_output_list, gt_frames)
     tracker_ts = [parse_timestamp(d["timestamp"]) for d in tracker_output_list]
-    camera_fps = compute_fps(tracker_ts, base_fps=self._base_fps)
+    camera_fps = self._base_fps or compute_fps(tracker_ts)
 
     next_id = 1
     for scene_data in tracker_output_list:

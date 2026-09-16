@@ -18,7 +18,7 @@ from utils.timeline import (
   compute_fps,
   timestamp_to_frame,
   reference_timestamp,
-  build_frame_indexed_tracks,
+  resolve_ground_truth_path,
   normalize_histories_to_fps,
 )
 
@@ -50,9 +50,6 @@ class TestDeduplicate:
 
 
 class TestComputeFps:
-  def test_prefers_base_fps(self):
-    assert compute_fps([], base_fps=25.0) == 25.0
-
   def test_derives_from_timestamps(self):
     timestamps = [parse_timestamp(_ts(i)) for i in range(11)]  # 10 gaps * 100ms = 1s
     assert compute_fps(timestamps) == pytest.approx(10.0)
@@ -85,32 +82,16 @@ class TestReferenceTimestamp:
     assert reference_timestamp([], []) is None
 
 
-class TestBuildFrameIndexedTracks:
-  def test_builds_shared_reference_indices(self):
-    ref = parse_timestamp(_ts(0))
-    frames = [
-      {"timestamp": _ts(0), "objects": [{"id": "x", "translation": [1.0, 2.0, 0.0]}]},
-      {"timestamp": _ts(1), "objects": [{"id": "x", "translation": [1.5, 2.5, 0.0]}]},
-    ]
-    tracks = build_frame_indexed_tracks(
-      frames, ref, 10.0,
-      id_fn=lambda o: o["id"],
-      pos_fn=lambda o: (o["translation"][0], o["translation"][1]),
-    )
-    assert tracks == {"x": {1: (1.0, 2.0), 2: (1.5, 2.5)}}
+class TestResolveGroundTruthPath:
+  def test_accepts_plain_string(self):
+    assert resolve_ground_truth_path("/tmp/gt.jsonl") == "/tmp/gt.jsonl"
 
-  def test_id_fn_none_skips_object(self):
-    ref = parse_timestamp(_ts(0))
-    frames = [{"timestamp": _ts(0), "objects": [
-      {"id": "keep", "translation": [1.0, 2.0, 0.0]},
-      {"id": "skip", "translation": [3.0, 4.0, 0.0]},
-    ]}]
-    tracks = build_frame_indexed_tracks(
-      frames, ref, 10.0,
-      id_fn=lambda o: None if o["id"] == "skip" else o["id"],
-      pos_fn=lambda o: (o["translation"][0], o["translation"][1]),
-    )
-    assert list(tracks.keys()) == ["keep"]
+  def test_unwraps_single_element_iterator(self):
+    assert resolve_ground_truth_path(iter(["/tmp/gt.jsonl"])) == "/tmp/gt.jsonl"
+
+  def test_rejects_non_path_input(self):
+    with pytest.raises(RuntimeError, match="file path string"):
+      resolve_ground_truth_path(iter([{"timestamp": _ts(0)}]))
 
 
 class TestNormalizeHistoriesToFps:

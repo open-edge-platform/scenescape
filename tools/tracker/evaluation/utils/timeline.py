@@ -11,13 +11,30 @@ matching timestamp-based while remaining compatible with TrackEval, which
 requires integer frame indices.
 """
 
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 from datetime import datetime, timedelta, timezone
 
 
 def parse_timestamp(timestamp: str) -> datetime:
   """Parse an ISO 8601 timestamp (accepting a trailing ``Z``) into a datetime."""
   return datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+
+
+def resolve_ground_truth_path(ground_truth) -> str:
+  """Return the ground-truth file path from a str or length-1 iterator.
+
+  The iterator form exists only for compatibility with the base evaluator
+  signature; pipelines always pass a plain path string.
+  """
+  if isinstance(ground_truth, str):
+    return ground_truth
+  items = list(ground_truth)
+  if items and isinstance(items[0], str):
+    return items[0]
+  raise RuntimeError(
+    "Ground truth must be a file path string. "
+    "Ensure dataset.get_ground_truth() returns a JSONL file path."
+  )
 
 
 def deduplicate_frames_by_timestamp(
@@ -35,17 +52,11 @@ def deduplicate_frames_by_timestamp(
   return result
 
 
-def compute_fps(
-  timestamps: List[datetime],
-  base_fps: Optional[float] = None
-) -> float:
-  """Return frame rate, preferring ``base_fps`` and otherwise deriving it.
+def compute_fps(timestamps: List[datetime]) -> float:
+  """Estimate frame rate from the span between the first and last timestamps.
 
-  When ``base_fps`` is None it is estimated from the span between the first and
-  last timestamps; falls back to 30.0 for degenerate inputs.
+  Falls back to 30.0 for degenerate inputs.
   """
-  if base_fps is not None:
-    return base_fps
   if len(timestamps) > 1:
     span = (timestamps[-1] - timestamps[0]).total_seconds()
     return (len(timestamps) - 1) / span if span > 0 else 30.0
@@ -72,31 +83,6 @@ def reference_timestamp(*frame_lists: List[Dict[str, Any]]) -> Optional[datetime
     if frames:
       firsts.append(parse_timestamp(frames[0]["timestamp"]))
   return min(firsts) if firsts else None
-
-
-def build_frame_indexed_tracks(
-  frames: Iterable[Dict[str, Any]],
-  reference: datetime,
-  fps: float,
-  id_fn: Callable[[Dict[str, Any]], Any],
-  pos_fn: Callable[[Dict[str, Any]], Any],
-) -> Dict[Any, Dict[int, Any]]:
-  """Build ``{track_key: {frame_index: position}}`` from canonical frames.
-
-  ``id_fn`` extracts the track key from an object (returning None skips it) and
-  ``pos_fn`` extracts the stored position value.
-  """
-  tracks: Dict[Any, Dict[int, Any]] = {}
-  for frame in frames:
-    frame_index = timestamp_to_frame(
-      parse_timestamp(frame["timestamp"]), reference, fps
-    )
-    for obj in frame.get("objects", []):
-      key = id_fn(obj)
-      if key is None:
-        continue
-      tracks.setdefault(key, {})[frame_index] = pos_fn(obj)
-  return tracks
 
 
 def normalize_histories_to_fps(

@@ -8,12 +8,18 @@ Evaluates tracker output quality by measuring positional and rotational jitter.
 
 from typing import Iterator, List, Dict, Any, Optional, Union
 from pathlib import Path
-from datetime import datetime, timedelta, timezone
 import sys
 
 import numpy as np
 
 from base.tracker_evaluator import TrackerEvaluator
+from utils.timeline import (
+  compute_fps,
+  deduplicate_frames_by_timestamp,
+  normalize_histories_to_fps,
+  parse_timestamp,
+  resolve_ground_truth_path,
+)
 
 
 class JitterEvaluator(TrackerEvaluator):
@@ -172,14 +178,7 @@ class JitterEvaluator(TrackerEvaluator):
         raise RuntimeError("No tracker outputs provided")
 
       # Deduplicate by timestamp
-      seen_timestamps: set = set()
-      deduplicated = []
-      for frame in outputs:
-        ts = frame.get("timestamp")
-        if ts in seen_timestamps:
-          continue
-        seen_timestamps.add(ts)
-        deduplicated.append(frame)
+      deduplicated = deduplicate_frames_by_timestamp(outputs)
 
       # Build per-track histories
       track_histories: Dict[str, List[tuple]] = {}
@@ -187,7 +186,7 @@ class JitterEvaluator(TrackerEvaluator):
       for frame in deduplicated:
         ts_str = frame.get("timestamp", "")
         try:
-          ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+          ts = parse_timestamp(ts_str)
         except (ValueError, AttributeError) as exc:
           raise RuntimeError(
             f"Cannot parse timestamp '{ts_str}': {exc}"
@@ -216,34 +215,22 @@ class JitterEvaluator(TrackerEvaluator):
 
       # Derive FPS from tracker output timestamps
       all_timestamps = sorted(
-        datetime.fromisoformat(f.get('timestamp', '').replace('Z', '+00:00'))
-        for f in deduplicated
+        parse_timestamp(f.get('timestamp', '')) for f in deduplicated
       )
-      if self._base_fps is not None:
-        self._camera_fps = self._base_fps
-      elif len(all_timestamps) > 1:
-        span = (all_timestamps[-1] - all_timestamps[0]).total_seconds()
-        self._camera_fps = (len(all_timestamps) - 1) / span if span > 0 else 30.0
-      else:
-        self._camera_fps = 30.0
+      self._camera_fps = self._base_fps or compute_fps(all_timestamps)
 
       # Parse ground-truth JSONL if provided
       gt_track_histories: Dict[str, List[tuple]] = {}
       if ground_truth is not None:
-        gt_path = ground_truth if isinstance(ground_truth, str) else None
-        if gt_path is None:
-          gt_items = list(ground_truth)
-          gt_path = gt_items[0] if gt_items and isinstance(gt_items[0], str) else None
-        if gt_path is not None:
-          gt_track_histories = self._parse_gt_jsonl(gt_path)
+        gt_track_histories = self._parse_gt_jsonl(
+          resolve_ground_truth_path(ground_truth)
+        )
 
       # When a fixed fps is configured, replace wall-clock timestamps with
       # synthetic frame-index-based ones (epoch + frame_idx / fps) so kinematic
       # derivatives are independent of system processing speed. Apply the same
       # normalization to tracker and ground-truth histories.
       if self._base_fps is not None:
-        sys.path.insert(0, str(Path(__file__).parent.parent))
-        from utils.timeline import normalize_histories_to_fps
         track_histories = normalize_histories_to_fps(track_histories, self._base_fps)
         rotation_histories = normalize_histories_to_fps(rotation_histories, self._base_fps)
         gt_track_histories = normalize_histories_to_fps(gt_track_histories, self._base_fps)
@@ -430,8 +417,6 @@ class JitterEvaluator(TrackerEvaluator):
     """
     sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
     from format_converters import stream_jsonl
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from utils.timeline import parse_timestamp
 
     try:
       gt_frames = list(stream_jsonl(gt_path))

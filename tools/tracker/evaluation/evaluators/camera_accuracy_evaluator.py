@@ -65,7 +65,6 @@ Outputs written to the configured folder
 
 import math
 import sys
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
@@ -601,11 +600,11 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     """
     sys.path.insert(0, str(Path(__file__).parent.parent / "utils"))
     from format_converters import stream_jsonl
-    sys.path.insert(0, str(Path(__file__).parent.parent))
     from utils.timeline import (
       compute_fps,
       parse_timestamp,
       reference_timestamp,
+      resolve_ground_truth_path,
       timestamp_to_frame,
     )
 
@@ -617,23 +616,12 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     if not frames_list:
       raise RuntimeError("No tracker outputs provided")
 
-    if isinstance(ground_truth, str):
-      gt_path = ground_truth
-    else:
-      gt_data = list(ground_truth)
-      if gt_data and isinstance(gt_data[0], str):
-        gt_path = gt_data[0]
-      else:
-        raise RuntimeError(
-          "Ground truth must be a file path string. "
-          "Ensure dataset.get_ground_truth() returns a JSONL path."
-        )
-    gt_frames = list(stream_jsonl(gt_path))
+    gt_frames = list(stream_jsonl(resolve_ground_truth_path(ground_truth)))
 
     # Shared reference epoch and frame rate for both inputs.
     reference = reference_timestamp(frames_list, gt_frames)
     unique_ts = sorted({parse_timestamp(d["timestamp"]) for d in frames_list})
-    fps = compute_fps(unique_ts, base_fps=self._base_fps)
+    fps = self._base_fps or compute_fps(unique_ts)
 
     for frame_data in frames_list:
       frame_num = timestamp_to_frame(

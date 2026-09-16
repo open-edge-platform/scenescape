@@ -14,7 +14,6 @@ from utils.format_converters import (
   convert_canonical_to_motchallenge_csv,
   convert_json_to_json,
   convert_json_to_csv,
-  read_csv_to_dataframe,
   read_json,
   write_json,
   write_jsonl,
@@ -149,36 +148,6 @@ class TestJSONToCSV:
       df = convert_json_to_csv(input_data, mapping, str(output_path))
 
       assert df["missing"].isna()[0]
-
-
-class TestCSVReading:
-  """Tests for CSV reading with Dask."""
-
-  def test_read_without_header(self):
-    """Test reading CSV without header."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-      csv_path = Path(tmpdir) / "test.csv"
-      csv_path.write_text("1,10,1.5\n2,10,2.5\n")
-
-      df = read_csv_to_dataframe(
-        str(csv_path),
-        has_header=False,
-        column_names=["frame", "id", "x"]
-      )
-
-      assert len(df) == 2
-      assert list(df.columns) == ["frame", "id", "x"]
-
-  def test_read_with_header(self):
-    """Test reading CSV with header."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-      csv_path = Path(tmpdir) / "test.csv"
-      csv_path.write_text("frame,id,x\n1,10,1.5\n2,10,2.5\n")
-
-      df = read_csv_to_dataframe(str(csv_path), has_header=True)
-
-      assert len(df) == 2
-      assert list(df.columns) == ["frame", "id", "x"]
 
 
 class TestJSONIO:
