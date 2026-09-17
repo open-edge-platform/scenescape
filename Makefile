@@ -124,6 +124,8 @@ help:
 	@echo "  restore                     Restore backup volumes (BACKUP_DIR=<path>)"
 	@echo "  database-check              Check an adjacent-version schema migration"
 	@echo "  database-migrate            Apply an adjacent-version schema migration"
+	@echo "  certificate-check           Check deployment certificate lifetime"
+	@echo "  certificate-renew           Renew TLS certificates without rotating credentials"
 	@echo ""
 	@echo "  rebuild-core                Clean and build core images and create secrets and volumes"
 	@echo "  rebuild-core-images         Clean and build core images"
@@ -906,6 +908,17 @@ database-check database-migrate:
 		--source-version $(SOURCE_VERSION) --target-version $(TARGET_VERSION) \
 		--project-name $(COMPOSE_PROJECT_NAME) \
 		--operation-dir $(or $(UPGRADE_STATE_DIR),$(CURDIR)/upgrade-state)
+
+.PHONY: certificate-check certificate-renew
+certificate-check certificate-renew:
+	@tools/upgrade/scenescape-upgrade $@ \
+		--project-name $(COMPOSE_PROJECT_NAME) \
+		--minimum-valid-days $(or $(MINIMUM_VALID_DAYS),30) \
+		--output-dir $(or $(UPGRADE_STATE_DIR),$(CURDIR)/upgrade-state) \
+		--certdomain $(CERTDOMAIN) \
+		--broker-extra-hosts "$(BROKER_EXTRA_HOSTS)" \
+		--web-extra-hosts "$(WEB_EXTRA_HOSTS)" \
+		--reid-s-extra-hosts "$(REID_S_EXTRA_HOSTS)"
 
 .PHONY: clean-backup
 clean-backup:

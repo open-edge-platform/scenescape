@@ -84,7 +84,7 @@ material, and controller connection settings. The selected override sets
 ### Prerequisites
 
 - ReID is already enabled (feature extraction pipeline and `reid-config.json` as in the steps above).
-- Secrets include shared ReID certificates (`scenescape-reid*` / `scenescape-reid-s*`). Regenerate with `make clean-secrets && make init-secrets` if those files are missing.
+- Secrets include shared ReID certificates (`scenescape-reid*` / `scenescape-reid-s*`). Use `make certificate-renew` if those files are missing or expired; it preserves application credentials.
 - You can pass an override file when starting services.
 
 ### Steps

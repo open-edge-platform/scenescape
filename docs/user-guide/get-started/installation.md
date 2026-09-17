@@ -61,6 +61,26 @@ Optionally, the number of jobs can be adjusted by setting the `JOBS` variable, e
 make JOBS=1
 ```
 
+### Renew deployment certificates
+
+Check certificates before they expire:
+
+```bash
+make certificate-check MINIMUM_VALID_DAYS=30
+```
+
+Renewing certificates rotates the complete TLS trust set because the generated
+certificate authority key is protected by a one-time passphrase. It preserves
+the database, Django secret, and service authentication tokens, stores the old
+TLS material under `upgrade-state/`, and recreates services to load the new set:
+
+```bash
+make certificate-renew
+```
+
+Do not use `make clean-secrets` for certificate renewal. That target also
+removes application credentials.
+
 ### (Optional): Build dependency list of Scenescape container images
 
 ```bash

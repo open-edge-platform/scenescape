@@ -12,6 +12,8 @@ import sys
 from backup import create_backup
 from backup import restore_backup
 from backup import verify_backup
+from certificates import certificate_status
+from certificates import renew_certificates
 from migration import apply_migrations
 from migration import migration_plan
 from migration import read_applied_migrations
@@ -64,6 +66,19 @@ def create_parser():
     database.add_argument("--compatibility", type=Path,
                           default=TOOL_DIR / "compatibility.json")
     database.add_argument("--operation-dir", type=Path, default=Path("upgrade-state"))
+  for name in ("certificate-check", "certificate-renew"):
+    certificate = subparsers.add_parser(name, help=f"{name} deployment TLS certificates")
+    certificate.add_argument("--deployment-root", type=Path, default=REPOSITORY_ROOT)
+    certificate.add_argument("--compose-file", action="append", type=Path, default=[])
+    certificate.add_argument("--profile", action="append", default=[])
+    certificate.add_argument("--project-name")
+    certificate.add_argument("--secrets-dir", type=Path)
+    certificate.add_argument("--minimum-valid-days", type=int, default=30)
+    certificate.add_argument("--output-dir", type=Path, default=Path("upgrade-state"))
+    certificate.add_argument("--certdomain", default="scenescape.intel.com")
+    certificate.add_argument("--broker-extra-hosts", default="")
+    certificate.add_argument("--web-extra-hosts", default="")
+    certificate.add_argument("--reid-s-extra-hosts", default="")
   return parser
 
 
@@ -165,6 +180,33 @@ def run_database(args, apply=False):
   return STATUS_EXIT_CODES[status]
 
 
+def run_certificate(args, renew=False):
+  """Inspect or renew the deployment TLS trust set."""
+  secrets_dir = args.secrets_dir or args.deployment_root / "manager" / "secrets"
+  report = certificate_status(secrets_dir, args.minimum_valid_days)
+  backup_dir = None
+  if renew:
+    compose_files, compose_config = compose_inputs(args)
+    backup_dir = renew_certificates(
+      args.deployment_root, secrets_dir, compose_files, args.profile,
+      args.project_name or compose_config.get("name"), args.output_dir,
+      args.certdomain, {
+        "broker": args.broker_extra_hosts,
+        "web": args.web_extra_hosts,
+        "reid_s": args.reid_s_extra_hosts,
+      })
+    report = certificate_status(secrets_dir, args.minimum_valid_days)
+  output = {
+    "schema_version": 1,
+    "operation": "certificate_renew" if renew else "certificate_check",
+    **report,
+  }
+  if backup_dir:
+    output["previous_certificates"] = str(backup_dir)
+  sys.stdout.write(json.dumps(output, indent=2, sort_keys=True) + "\n")
+  return STATUS_EXIT_CODES[report["status"]]
+
+
 def main():
   """Run the selected upgrade operation."""
   args = create_parser().parse_args()
@@ -181,6 +223,10 @@ def main():
       return run_database(args)
     if args.command == "database-migrate":
       return run_database(args, apply=True)
+    if args.command == "certificate-check":
+      return run_certificate(args)
+    if args.command == "certificate-renew":
+      return run_certificate(args, renew=True)
   except (OSError, ValueError, json.JSONDecodeError) as error:
     report = {
       "schema_version": 1,
