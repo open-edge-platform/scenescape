@@ -7,6 +7,8 @@ import time
 
 import psutil
 
+import pytest
+
 from scene_common.mqtt import PubSub
 from tests.functional.backend_functional import BackendFunctionalTest
 import tests.common_test_utils as common
@@ -432,10 +434,10 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
       self.exitCode = 0
     finally:
       self.client.loopStop()
-      self.recordTestResult()
     return
 
-def test_reid_performance_degradation(scenescape_env, request, record_xml_attribute):
+@pytest.mark.test_name(TEST_NAME)
+def test_reid_performance_degradation(scenescape_env, request, record_xml_attribute, result_recorder):
   """! Test that the system hasn't suffered a significant performance degradation.
 
   Runs the short "smoke" variant by default; set REID_PERF_MODE=full for the
@@ -446,8 +448,9 @@ def test_reid_performance_degradation(scenescape_env, request, record_xml_attrib
 
   @param    scenescape_env           Compose environment (Docker client).
   @param    request                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @return   exit_code               Indicates test success or failure.
+  @param    record_xml_attribute     Pytest fixture recording the test name.
+  @param    result_recorder          Pytest fixture recording test pass/fail.
+  @return   exit_code                Indicates test success or failure.
   """
   duration, mode = resolve_duration()
   log.info(f"Starting RE-ID performance degradation test ({mode} variant).")
@@ -461,3 +464,4 @@ def test_reid_performance_degradation(scenescape_env, request, record_xml_attrib
   )
   test.verifyThings()
   assert test.exitCode == 0
+  result_recorder.success()
