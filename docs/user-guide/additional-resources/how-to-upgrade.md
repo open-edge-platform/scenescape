@@ -1,78 +1,125 @@
 # How to Upgrade Scenescape
 
-This guide provides step-by-step instructions to upgrade your Scenescape deployment to a new version. By completing this guide, you will:
+Scenescape supports only release-to-next-release transitions listed in
+`tools/upgrade/compatibility.json`. Upgrade through each adjacent release when
+more than one transition is required. Unknown transitions and downgrades are
+refused.
 
-- Migrate configuration and data directories.
-- Deploy the latest version of Scenescape.
-- Validate and troubleshoot common upgrade issues.
-
-This task is essential for maintaining access to the latest features and fixes in Scenescape while preserving existing data and services.
+The automated workflow supports Docker Compose deployments. Kubernetes users
+must use the read-only readiness report and operator guidance in the
+[Kubernetes README](../../../kubernetes/README.md#upgrade-readiness-and-guardrails).
 
 ## Prerequisites
 
-Before You Begin, ensure the following:
+- Keep the source deployment available until post-upgrade verification passes.
+- Use the same Compose files, profiles, project name, and secrets directory as
+  the running deployment.
+- Provide enough space for a PostgreSQL logical dump and archives of every
+  persistent Docker volume.
+- Resolve uncommitted deployment changes before upgrading, or explicitly accept
+  them with `ALLOW_DIRTY=true` after review.
+- Schedule downtime. Backup creation stops and restarts the deployment without
+  deleting volumes.
 
-- You have an existing Scenescape v1.4.0 installation with volumes `scenescape_vol-db`, `scenescape_vol-media`, `scenescape_vol-migrations`, and `scenescape_vol-models` or directory `model_installer/models/`.
+## Plan the upgrade
 
-## How to Upgrade Scenescape from v1.4.0
+Run preflight from the target release checkout:
 
-1. **Checkout latest sources**:
+```bash
+make upgrade-plan \
+   SOURCE_VERSION=<installed-version> \
+   TARGET_VERSION=<target-version> \
+   COMPOSE_PROJECT_NAME=<project-name>
+```
 
-   ```bash
-   git checkout main
-   ```
+Review the JSON report. It includes resolved services, Compose inputs, profiles,
+volumes, Git state, and transition metadata. An `unsupported` status means no
+authorized adjacent path exists. An `action_required` status identifies warnings
+that require review.
 
-2. **Back up old database**:
+For custom Compose files or profiles, invoke the CLI directly and repeat each
+argument:
 
-   ```bash
-   make backupdb
-   ```
+```bash
+tools/upgrade/scenescape-upgrade release-plan \
+   --source-version <installed-version> \
+   --target-version <target-version> \
+   --project-name <project-name> \
+   --compose-file compose.yml \
+   --compose-file compose.override.yml \
+   --profile controller
+```
 
-3. **Build the New Release**:
+## Back up before cutover
 
-   ```bash
-   make rebuild-all
-   ```
+Create and verify a PostgreSQL dump, persistent-volume archives, deployment
+configuration, and secrets:
 
-4. **Run the upgrade-database script**:
+```bash
+make upgrade-apply \
+   SOURCE_VERSION=<installed-version> \
+   TARGET_VERSION=<target-version> \
+   COMPOSE_PROJECT_NAME=<project-name> \
+   BACKUP_DIR=<protected-backup-parent> \
+   UPGRADE_STATE_DIR=<protected-operation-directory>
+```
 
-   ```bash
-   bash manager/tools/upgrade-database
-   ```
+The command stops at `awaiting_database_cutover` after checksum verification.
+Store the backup and operation directory securely; both contain sensitive
+deployment material. Do not continue if verification fails.
 
-5. **Bring up services to verify upgrade**:
+## Confirm cutover and resume
 
-   ```bash
-   SUPASS=<password> make demo
-   ```
+After reviewing the verified backup, prepare target images, recreate services,
+apply committed Django migrations, and check Compose service health:
 
-6. **Log in to the Web UI** and verify that data and configurations are intact.
+```bash
+make upgrade-resume \
+   UPGRADE_STATE_DIR=<protected-operation-directory> \
+   IMAGE_ACTION=pull
+```
 
-## Model Management During Upgrade
+Use `IMAGE_ACTION=build` for a source-built deployment or `IMAGE_ACTION=none`
+when target images were prepared separately. The operation state and append-only
+event log allow a failed operation to resume from the same command.
 
-Starting from 1.4.0 version, Scenescape stores models in Docker volumes instead of the host filesystem. This provides several benefits:
+## Verify
 
-- **Automatic Preservation**: Models are automatically preserved during upgrades as Docker volumes persist across container recreations.
-- **No Manual Copy Required**: You no longer need to manually copy `model_installer/models/` during upgrades.
-- **Reduced Disk Usage**: Models are not duplicated between host filesystem and containers.
+Re-run migration and Compose health verification at any time:
 
-### Managing Models
+```bash
+make upgrade-verify UPGRADE_STATE_DIR=<protected-operation-directory>
+```
 
-- **To reinstall models**: `make install-models`
-- **To clean models**: `make clean-models` (this will remove the Docker volume)
-- **To check existing models in volume**: `docker volume ls | grep vol-models`
+Also verify deployment-specific behavior: log in to the manager, inspect scene
+and camera configuration, confirm media access, publish detector data through
+MQTT, and exercise enabled mapping, analytics, and ReID services.
 
-### Legacy Installations
+## Roll back data
 
-If upgrading from a version that used host filesystem model storage (`model_installer/models/`), the models will be automatically reinstalled to the new Docker volume during the first deployment.
+Rollback is destructive: it overwrites target Docker volumes with the verified
+pre-upgrade archives.
 
-## Troubleshooting
+```bash
+make upgrade-rollback UPGRADE_STATE_DIR=<protected-operation-directory>
+```
 
-1. **pg_backup Container Already Running Error**:
-   - Stop all active containers:
+After restoration, start the source release using the Compose configuration
+saved in the backup. The command does not automatically switch Git revisions or
+image tags.
 
-     ```bash
-     docker stop $(docker ps -q)
-     ```
+Never use `rebuild-core`, `rebuild-all`, `clean-volumes`, `demo-close`, or
+`docker compose down -v` during an upgrade. Those commands can remove data.
 
-   - Re-run the above steps for upgrade.
+## Certificate-only maintenance
+
+Certificate renewal is independent of release upgrades:
+
+```bash
+make certificate-check MINIMUM_VALID_DAYS=30
+make certificate-renew COMPOSE_PROJECT_NAME=<project-name>
+```
+
+Renewal preserves Django, database, MQTT, and service authentication secrets.
+It rotates the complete generated TLS trust set and recreates Compose services.
+Distribute the new CA certificate to browsers, adapters, and external clients.

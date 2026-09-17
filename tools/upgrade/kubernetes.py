@@ -38,6 +38,7 @@ def helm_release(release, namespace, runner=subprocess.run):
   }
 
 
+
 def named_resources(items):
   """Summarize resource identity and status without secret data."""
   resources = []

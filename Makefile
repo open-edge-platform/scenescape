@@ -152,6 +152,7 @@ help:
 	@echo "  run_functional_tests        Run functional tests"
 	@echo "  run_ui_tests                Run UI tests"
 	@echo "  run_unit_tests              Run unit tests"
+	@echo "  run_upgrade_tests           Run focused upgrade tooling tests"
 	@echo "  run_stability_tests         Run stability tests"
 	@echo "  run_performance_tests       Run performance tests"
 	@echo "  run_performance_degradation_test  Run long-run performance degradation test"
@@ -487,6 +488,12 @@ run_unit_tests: init-secrets setup-pytest
 	@echo "Running unit tests..."
 	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
 	@echo "DONE ==> Running unit tests"
+
+.PHONY: run_upgrade_tests
+run_upgrade_tests: init-secrets setup-pytest
+	@echo "Running upgrade tooling tests..."
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/upgrade/ $(PYTEST_FLAGS) || (echo "Upgrade tooling tests failed" && exit 1)
+	@echo "DONE ==> Running upgrade tooling tests"
 
 .PHONY: run_basic_acceptance_tests
 run_basic_acceptance_tests: setup-tests

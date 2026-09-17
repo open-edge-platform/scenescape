@@ -83,6 +83,7 @@ def begin_upgrade(plan, operation_dir, secrets_dir, output_dir,
   })
 
 
+
 def compose_health(compose, runner=subprocess.run):
   """Require every selected Compose service to be running and not unhealthy."""
   result = runner(compose + ["ps", "--format", "json"], check=True,
