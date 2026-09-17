@@ -311,6 +311,7 @@ class SceneController:
       reid_policy = self._hierarchyReidPublishPolicy(scene, otype)
       will_enroll = reid_policy == 'will_enroll'
       jdata = jdata_base.copy()
+
       # Hierarchy output must not carry agent publisher fields. If source_id
       # leaks onto external/{scene_uid}/+, the wildcard subscription re-ingests
       # it and rejects the message (source_id != scene uid).
@@ -704,12 +705,14 @@ class SceneController:
       return True
 
     source_track = jdata.get('track')
+
     tracked_id_counts = {}
     if source_track is not False:
       for obj in jdata.get('objects', []):
         source_obj_id = obj.get('id')
         if source_obj_id is not None:
           tracked_id_counts[source_obj_id] = tracked_id_counts.get(source_obj_id, 0) + 1
+
 
     routed_objects = []
     for index, obj in enumerate(jdata.get('objects', [])):
