@@ -1314,6 +1314,7 @@ def scene_factory(params):
 
   def _camera_payload(camera, scene_uid):
     return {
+      'name': camera,
       'scene': scene_uid,
       'transform_type': DEMO_CAMERA_TRANSFORM_TYPE,
       'resolution': DEMO_CAMERA_RESOLUTION,
