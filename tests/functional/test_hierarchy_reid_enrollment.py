@@ -20,7 +20,6 @@ import pytest
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 from scene_common import log
-import tests.common_test_utils as common
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 
 from tests.functional.common_retrack import (
@@ -75,7 +74,6 @@ def test_hierarchy_child_enrolls_local_crop(
   """! Positive: child scene owning the camera enrolls the vetted local crop
   into the shared ReID database (at least one near-exact UUID for the embedding).
   """
-  log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client = None
   rest_client = None
@@ -158,7 +156,6 @@ def test_hierarchy_child_enrolls_local_crop(
       client.loopStop()
     if rest_client is not None:
       h.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
   result_recorder.success()
@@ -170,7 +167,6 @@ def test_hierarchy_retrack_true_parent_does_not_double_enroll(
   """! Positive: with retrack=True the parent queries using the forwarded
   embedding but must not enroll a second UUID for the same child crop.
   """
-  log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client = None
   ext_client = None
@@ -268,7 +264,6 @@ def test_hierarchy_retrack_true_parent_does_not_double_enroll(
       ext_client.loopStop()
     if rest_client is not None:
       h.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
   result_recorder.success()
@@ -280,7 +275,6 @@ def test_hierarchy_retrack_false_parent_still_single_enrollment(
   """! Boundary: with retrack=False the parent strips reid entirely; only the
   child camera owner enrolls, so the unique UUID count for the crop remains 1.
   """
-  log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client = None
   rest_client = None
@@ -326,7 +320,6 @@ def test_hierarchy_retrack_false_parent_still_single_enrollment(
       client.loopStop()
     if rest_client is not None:
       h.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
   result_recorder.success()

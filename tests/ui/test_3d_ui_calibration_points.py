@@ -282,7 +282,7 @@ def test_3d_ui_calibration(scenescape_env, request, result_recorder):
   return test.exitCode
 
 def main():
-  return test_3d_ui_calibration(None, None)
+  return test_3d_ui_calibration(None, None, None)
 
 
 if __name__ == '__main__':

@@ -310,7 +310,7 @@ class SceneImportTest(UserInterfaceTest):
   ]
 )
 def test_scene_import(scenescape_env, request, result_recorder, zipFile, expected, waitTime):
-  test = SceneImportTest(TEST_NAME, request, None, zipFile, expected, waitTime)
+  test = SceneImportTest(TEST_NAME, request, zipFile, expected, waitTime)
   test.checkForMalfunctions()
   assert test.exitCode == 0
   result_recorder.success()

@@ -338,7 +338,7 @@ class SensorMqttRoi(SceneObjectMqtt):
 
 @pytest.mark.test_name("NEX-T10460")
 def test_sensor_roi_mqtt(scenescape_env, demo_scene, request, result_recorder):
-  test = SensorMqttRoi(TEST_NAME, request, SENSOR_DELAY, None)
+  test = SensorMqttRoi(TEST_NAME, request, SENSOR_DELAY)
   test.runROIMqtt()
   assert test.exitCode == 0
   result_recorder.success()
