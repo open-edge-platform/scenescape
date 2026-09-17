@@ -9,6 +9,9 @@ import json
 from pathlib import Path
 import sys
 
+from backup import create_backup
+from backup import restore_backup
+from backup import verify_backup
 from preflight import build_report
 from preflight import find_transition
 from preflight import load_compatibility
@@ -34,6 +37,19 @@ def create_parser():
   preflight.add_argument("--compatibility", type=Path,
                          default=TOOL_DIR / "compatibility.json")
   preflight.add_argument("--output", type=Path)
+  backup = subparsers.add_parser("backup", help="create a verified deployment backup")
+  backup.add_argument("--deployment-root", type=Path, default=REPOSITORY_ROOT)
+  backup.add_argument("--compose-file", action="append", type=Path, default=[])
+  backup.add_argument("--profile", action="append", default=[])
+  backup.add_argument("--project-name")
+  backup.add_argument("--secrets-dir", type=Path)
+  backup.add_argument("--output-dir", type=Path, default=Path.cwd())
+  backup.add_argument("--leave-stopped", action="store_true")
+  verify = subparsers.add_parser("backup-verify", help="verify backup checksums")
+  verify.add_argument("backup_dir", type=Path)
+  restore = subparsers.add_parser("restore", help="restore deployment volumes")
+  restore.add_argument("backup_dir", type=Path)
+  restore.add_argument("--overwrite", action="store_true")
   return parser
 
 
@@ -61,12 +77,60 @@ def run_preflight(args):
   return STATUS_EXIT_CODES[report["status"]]
 
 
+def compose_inputs(args):
+  """Resolve common Compose command inputs."""
+  compose_files = args.compose_file or [args.deployment_root / "docker-compose.yml"]
+  compose_config = resolve_compose(compose_files, args.profile, args.project_name)
+  return compose_files, compose_config
+
+
+def run_backup(args):
+  """Create and verify a complete deployment backup."""
+  compose_files, compose_config = compose_inputs(args)
+  secrets_dir = args.secrets_dir or args.deployment_root / "manager" / "secrets"
+  backup_dir, _manifest = create_backup(
+    compose_config, args.deployment_root, compose_files, args.profile,
+    secrets_dir, args.output_dir, leave_stopped=args.leave_stopped)
+  verify_backup(backup_dir)
+  sys.stdout.write(json.dumps({
+    "schema_version": 1, "operation": "backup", "status": "ready",
+    "backup_dir": str(backup_dir),
+  }, indent=2, sort_keys=True) + "\n")
+  return STATUS_EXIT_CODES["ready"]
+
+
+def run_backup_verify(args):
+  """Verify a backup bundle."""
+  manifest = verify_backup(args.backup_dir)
+  sys.stdout.write(json.dumps({
+    "schema_version": 1, "operation": "backup_verify", "status": "ready",
+    "operation_id": manifest["operation_id"],
+  }, indent=2, sort_keys=True) + "\n")
+  return STATUS_EXIT_CODES["ready"]
+
+
+def run_restore(args):
+  """Restore all volume artifacts from a verified backup."""
+  restored = restore_backup(args.backup_dir, overwrite=args.overwrite)
+  sys.stdout.write(json.dumps({
+    "schema_version": 1, "operation": "restore", "status": "ready",
+    "restored_volumes": restored,
+  }, indent=2, sort_keys=True) + "\n")
+  return STATUS_EXIT_CODES["ready"]
+
+
 def main():
   """Run the selected upgrade operation."""
   args = create_parser().parse_args()
   try:
     if args.command == "preflight":
       return run_preflight(args)
+    if args.command == "backup":
+      return run_backup(args)
+    if args.command == "backup-verify":
+      return run_backup_verify(args)
+    if args.command == "restore":
+      return run_restore(args)
   except (OSError, ValueError, json.JSONDecodeError) as error:
     report = {
       "schema_version": 1,
