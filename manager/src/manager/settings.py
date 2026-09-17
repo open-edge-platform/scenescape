@@ -42,7 +42,7 @@ def get_allowed_hosts():
       return hosts
 
   # Fallback for backwards compatibility
-  return ['*']
+  return ['127.0.0.1','localhost']
 
 ALLOWED_HOSTS = get_allowed_hosts()
 DEFAULT_CHARSET = "utf-8"
