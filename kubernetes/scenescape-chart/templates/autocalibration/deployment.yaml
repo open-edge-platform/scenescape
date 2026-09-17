@@ -79,6 +79,16 @@ spec:
             capabilities:
               drop:
               - ALL
+          startupProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - curl -k -fsS https://localhost:8443/v1/status >/dev/null
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+            initialDelaySeconds: 30
           readinessProbe:
             exec:
               command:

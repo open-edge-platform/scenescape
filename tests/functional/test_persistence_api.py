@@ -18,12 +18,11 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-TEST_NAME = "NEX-T21511"
 CAMERA_NAME = "camtest1"
 CAMERA_SENSOR_ID = "camtest1"
 
 
-@pytest.mark.test_name("NEX-T10393-API")
+@pytest.mark.test_name("NEX-T29232")
 @pytest.mark.preserve_db
 def test_persistence_on_page_navigate_api(params, rest, result_recorder):
   sceneName = params["scene_name"]
@@ -128,7 +127,7 @@ def test_persistence_on_page_navigate_api(params, rest, result_recorder):
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T10393-RESTART-API")
+@pytest.mark.test_name("NEX-T29233")
 def test_persistence_on_restart_api(params, rest, result_recorder):
   sceneName = params["scene_name"]
 
