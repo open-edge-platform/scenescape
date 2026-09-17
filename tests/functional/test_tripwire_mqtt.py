@@ -193,7 +193,7 @@ class WillOurShipGo(SceneObjectMqtt):
 @pytest.mark.test_name("NEX-T10406")
 @pytest.mark.basic_acceptance
 def test_sensor_region_events(scenescape_env, demo_scene, request, result_recorder):
-  test = WillOurShipGo(TEST_NAME, request, None)
+  test = WillOurShipGo(TEST_NAME, request)
   test.checkForMalfunctions()
   assert test.exitCode == 0
   result_recorder.success()
