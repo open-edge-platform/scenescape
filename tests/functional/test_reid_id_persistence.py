@@ -8,6 +8,8 @@ import math
 import threading
 import time
 
+import pytest
+
 import tests.common_test_utils as common
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
@@ -35,7 +37,6 @@ HANDOFF_FRAME_TOLERANCE = 3
 HANDOFF_DISTANCE_M = 1.5
 # A track must be seen at least this many frames to count as an established
 # identity rather than a short-lived provisional one.
-# TODO: COULD BE TOO STRICT???
 ESTABLISHED_TRACK_FRAMES = 60
 # ReID is allowed to publish a person under a provisional ID for this long while
 # the similarity query resolves. Observed settle time is 22-34 frames.
@@ -381,7 +382,8 @@ def collect_frames(collector):
 
   return collector.snapshot()
 
-def test_reid_id_persistence(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T29218")
+def test_reid_id_persistence(params, result_recorder):
   """! Verify that tracked persons keep a single identity across the run.
 
   The unique-count tests only observe the aggregate counter, which stays valid
@@ -391,17 +393,13 @@ def test_reid_id_persistence(params, record_xml_attribute):
   with more than one lasting identity or spends too long under a provisional
   one.
 
-  @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    params            Dict of test parameters.
+  @param    result_recorder   Fixture recording the pass/fail result.
   """
-  TEST_NAME = "NEX-XXXXXX"
-  record_xml_attribute("name", TEST_NAME)
-  log.info("Executing: " + TEST_NAME)
   log.info(
     f"Test that {EXPECTED_PERSONS} tracked persons each keep a single identity "
     "when RE-ID is enabled.")
 
-  exit_code = 1
   client = None
   try:
     rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
@@ -470,12 +468,10 @@ def test_reid_id_persistence(params, record_xml_attribute):
       f"Expected {EXPECTED_PERSONS} distinct persons, resolved {len(clusters)}; "
       "identities are being created or merged incorrectly.")
 
-    exit_code = 0
+    result_recorder.success()
 
   finally:
     if client is not None:
       client.loopStop()
-    common.record_test_result(TEST_NAME, exit_code)
 
-  assert exit_code == 0
   return
