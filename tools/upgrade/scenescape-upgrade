@@ -17,6 +17,12 @@ from certificates import renew_certificates
 from migration import apply_migrations
 from migration import migration_plan
 from migration import read_applied_migrations
+from orchestrator import begin_upgrade
+from orchestrator import plan_upgrade
+from orchestrator import read_operation_state
+from orchestrator import resume_upgrade
+from orchestrator import rollback_upgrade
+from orchestrator import verify_upgrade
 from preflight import build_report
 from preflight import find_transition
 from preflight import load_compatibility
@@ -79,6 +85,34 @@ def create_parser():
     certificate.add_argument("--broker-extra-hosts", default="")
     certificate.add_argument("--web-extra-hosts", default="")
     certificate.add_argument("--reid-s-extra-hosts", default="")
+  for name in ("release-plan", "release-apply"):
+    release = subparsers.add_parser(name, help=f"{name} an adjacent release upgrade")
+    release.add_argument("--source-version", required=True)
+    release.add_argument("--target-version")
+    release.add_argument("--deployment-root", type=Path, default=REPOSITORY_ROOT)
+    release.add_argument("--compose-file", action="append", type=Path, default=[])
+    release.add_argument("--profile", action="append", default=[])
+    release.add_argument("--project-name")
+    release.add_argument("--compatibility", type=Path,
+                         default=TOOL_DIR / "compatibility.json")
+    release.add_argument("--operation-dir", type=Path, default=Path("upgrade-state"))
+    release.add_argument("--output-dir", type=Path, default=Path.cwd())
+    release.add_argument("--secrets-dir", type=Path)
+    release.add_argument("--allow-dirty", action="store_true")
+  resume = subparsers.add_parser("release-resume", help="resume after backup confirmation")
+  resume.add_argument("--operation-dir", type=Path, default=Path("upgrade-state"))
+  resume.add_argument("--compatibility", type=Path,
+                      default=TOOL_DIR / "compatibility.json")
+  resume.add_argument("--confirm-database-cutover", action="store_true")
+  resume.add_argument("--image-action", choices=("pull", "build", "none"), default="pull")
+  verify_release = subparsers.add_parser("release-verify", help="reverify an upgrade")
+  verify_release.add_argument("--operation-dir", type=Path, default=Path("upgrade-state"))
+  verify_release.add_argument("--compatibility", type=Path,
+                              default=TOOL_DIR / "compatibility.json")
+  rollback = subparsers.add_parser("release-rollback", help="restore the verified backup")
+  rollback.add_argument("--operation-dir", type=Path, default=Path("upgrade-state"))
+  rollback.add_argument("--confirm-destructive-restore", action="store_true")
+  rollback.add_argument("--overwrite", action="store_true")
   return parser
 
 
@@ -207,6 +241,42 @@ def run_certificate(args, renew=False):
   return STATUS_EXIT_CODES[report["status"]]
 
 
+def run_release_plan(args, apply=False):
+  """Plan an adjacent release and optionally create its verified backup."""
+  target_version = args.target_version or current_version(args.deployment_root)
+  compose_files, compose_config = compose_inputs(args)
+  report = plan_upgrade(
+    args.source_version, target_version, args.compatibility, compose_config,
+    args.deployment_root, compose_files, args.profile,
+    args.project_name or compose_config.get("name"))
+  if not apply:
+    sys.stdout.write(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    return STATUS_EXIT_CODES[report["status"]]
+  if report["deployment"]["git"]["dirty"] and not args.allow_dirty:
+    raise ValueError("dirty deployment checkout requires --allow-dirty")
+  secrets_dir = args.secrets_dir or args.deployment_root / "manager" / "secrets"
+  state = begin_upgrade(report, args.operation_dir, secrets_dir, args.output_dir)
+  sys.stdout.write(json.dumps(state, indent=2, sort_keys=True) + "\n")
+  return STATUS_EXIT_CODES[state["status"]]
+
+
+def run_release_state(args, operation):
+  """Resume, verify, or roll back a saved release operation."""
+  if operation == "resume":
+    if not args.confirm_database_cutover:
+      raise ValueError("resume requires --confirm-database-cutover")
+    state = resume_upgrade(args.operation_dir, args.compatibility, args.image_action)
+  elif operation == "verify":
+    state = verify_upgrade(args.operation_dir, args.compatibility)
+  else:
+    if not args.confirm_destructive_restore or not args.overwrite:
+      raise ValueError(
+        "rollback requires --confirm-destructive-restore and --overwrite")
+    state = rollback_upgrade(args.operation_dir, overwrite=True)
+  sys.stdout.write(json.dumps(state, indent=2, sort_keys=True) + "\n")
+  return STATUS_EXIT_CODES[state["status"]]
+
+
 def main():
   """Run the selected upgrade operation."""
   args = create_parser().parse_args()
@@ -227,6 +297,16 @@ def main():
       return run_certificate(args)
     if args.command == "certificate-renew":
       return run_certificate(args, renew=True)
+    if args.command == "release-plan":
+      return run_release_plan(args)
+    if args.command == "release-apply":
+      return run_release_plan(args, apply=True)
+    if args.command == "release-resume":
+      return run_release_state(args, "resume")
+    if args.command == "release-verify":
+      return run_release_state(args, "verify")
+    if args.command == "release-rollback":
+      return run_release_state(args, "rollback")
   except (OSError, ValueError, json.JSONDecodeError) as error:
     report = {
       "schema_version": 1,

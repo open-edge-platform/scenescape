@@ -126,6 +126,11 @@ help:
 	@echo "  database-migrate            Apply an adjacent-version schema migration"
 	@echo "  certificate-check           Check deployment certificate lifetime"
 	@echo "  certificate-renew           Renew TLS certificates without rotating credentials"
+	@echo "  upgrade-plan                Plan an adjacent release upgrade"
+	@echo "  upgrade-apply               Create and verify the required upgrade backup"
+	@echo "  upgrade-resume              Confirm cutover and resume the upgrade"
+	@echo "  upgrade-verify              Reverify an applied release upgrade"
+	@echo "  upgrade-rollback            Restore the verified pre-upgrade backup"
 	@echo ""
 	@echo "  rebuild-core                Clean and build core images and create secrets and volumes"
 	@echo "  rebuild-core-images         Clean and build core images"
@@ -919,6 +924,25 @@ certificate-check certificate-renew:
 		--broker-extra-hosts "$(BROKER_EXTRA_HOSTS)" \
 		--web-extra-hosts "$(WEB_EXTRA_HOSTS)" \
 		--reid-s-extra-hosts "$(REID_S_EXTRA_HOSTS)"
+
+.PHONY: upgrade-plan upgrade-apply
+upgrade-plan upgrade-apply:
+	@test -n "$(SOURCE_VERSION)" || (echo "SOURCE_VERSION is required"; exit 2)
+	@tools/upgrade/scenescape-upgrade release-$(patsubst upgrade-%,%,$@) \
+		--source-version $(SOURCE_VERSION) \
+		$(if $(TARGET_VERSION),--target-version $(TARGET_VERSION),) \
+		--project-name $(COMPOSE_PROJECT_NAME) \
+		--operation-dir $(or $(UPGRADE_STATE_DIR),$(CURDIR)/upgrade-state) \
+		--output-dir $(or $(BACKUP_DIR),$(CURDIR)) \
+		$(if $(filter true 1 yes,$(ALLOW_DIRTY)),--allow-dirty,)
+
+.PHONY: upgrade-resume upgrade-verify upgrade-rollback
+upgrade-resume upgrade-verify upgrade-rollback:
+	@tools/upgrade/scenescape-upgrade release-$(patsubst upgrade-%,%,$@) \
+		--operation-dir $(or $(UPGRADE_STATE_DIR),$(CURDIR)/upgrade-state) \
+		$(if $(filter upgrade-resume,$@),--confirm-database-cutover \
+		--image-action $(or $(IMAGE_ACTION),pull),) \
+		$(if $(filter upgrade-rollback,$@),--confirm-destructive-restore --overwrite,)
 
 .PHONY: clean-backup
 clean-backup:
