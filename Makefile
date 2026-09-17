@@ -131,6 +131,7 @@ help:
 	@echo "  upgrade-resume              Confirm cutover and resume the upgrade"
 	@echo "  upgrade-verify              Reverify an applied release upgrade"
 	@echo "  upgrade-rollback            Restore the verified pre-upgrade backup"
+	@echo "  kubernetes-upgrade-report   Inspect Kubernetes upgrade readiness (read-only)"
 	@echo ""
 	@echo "  rebuild-core                Clean and build core images and create secrets and volumes"
 	@echo "  rebuild-core-images         Clean and build core images"
@@ -943,6 +944,12 @@ upgrade-resume upgrade-verify upgrade-rollback:
 		$(if $(filter upgrade-resume,$@),--confirm-database-cutover \
 		--image-action $(or $(IMAGE_ACTION),pull),) \
 		$(if $(filter upgrade-rollback,$@),--confirm-destructive-restore --overwrite,)
+
+.PHONY: kubernetes-upgrade-report
+kubernetes-upgrade-report:
+	@tools/upgrade/scenescape-upgrade kubernetes-report \
+		--release $(or $(RELEASE),scenescape) \
+		--namespace $(or $(NAMESPACE),scenescape)
 
 .PHONY: clean-backup
 clean-backup:
