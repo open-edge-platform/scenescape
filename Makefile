@@ -122,6 +122,8 @@ help:
 	@echo "  backup                      Back up all persistent deployment data and secrets"
 	@echo "  backup-verify               Verify backup artifact checksums (BACKUP_DIR=<path>)"
 	@echo "  restore                     Restore backup volumes (BACKUP_DIR=<path>)"
+	@echo "  database-check              Check an adjacent-version schema migration"
+	@echo "  database-migrate            Apply an adjacent-version schema migration"
 	@echo ""
 	@echo "  rebuild-core                Clean and build core images and create secrets and volumes"
 	@echo "  rebuild-core-images         Clean and build core images"
@@ -895,6 +897,15 @@ restore:
 	@test -n "$(BACKUP_DIR)" || (echo "BACKUP_DIR is required"; exit 2)
 	@tools/upgrade/scenescape-upgrade restore $(BACKUP_DIR) \
 		$(if $(filter true 1 yes,$(OVERWRITE)),--overwrite,)
+
+.PHONY: database-check database-migrate
+database-check database-migrate:
+	@test -n "$(SOURCE_VERSION)" || (echo "SOURCE_VERSION is required"; exit 2)
+	@test -n "$(TARGET_VERSION)" || (echo "TARGET_VERSION is required"; exit 2)
+	@tools/upgrade/scenescape-upgrade $@ \
+		--source-version $(SOURCE_VERSION) --target-version $(TARGET_VERSION) \
+		--project-name $(COMPOSE_PROJECT_NAME) \
+		--operation-dir $(or $(UPGRADE_STATE_DIR),$(CURDIR)/upgrade-state)
 
 .PHONY: clean-backup
 clean-backup:
