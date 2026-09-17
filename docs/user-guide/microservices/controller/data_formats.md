@@ -183,6 +183,7 @@ publishes over authenticated MQTT, see
 | `source_id` | string                |   Yes    | Publisher id; must match the topic `{publisher_id}` segment; combined with the bound scene uid to key the pose cache                                                                                                                                |
 | `objects`   | array                 |   Yes    | Observed objects, in the source's local coordinate frame (see [External Detection Object Fields](#external-detection-object-fields-objects)); may be empty for a pose-only update                                                                   |
 | `pose`      | object                |    No    | Pose of the source's local origin, used to transform `objects` into the bound scene (see [External Source Pose Fields](#external-source-pose-fields-pose)); may be omitted to reuse the most recently cached, non-expired pose for this `source_id` |
+| `track`     | boolean               |    No    | When present, applies to **all** `objects[*]` in the message. `false` bypasses Scenescape tracking and preserves source object ids; `true` (or lack of this attrtibute) routes all objects through the normal tracking path                         |
 
 ### External Source Pose Fields (`pose`)
 
@@ -214,20 +215,26 @@ publishes over authenticated MQTT, see
 
 ### External Detection Object Fields (`objects[*]`)
 
-| Field         | Type               | Required | Description                                                                                                                                                                                                     |
-| ------------- | ------------------ | :------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `category`    | string             |   Yes    | Category or class of the observed object (e.g. `"person"`, `"vehicle"`)                                                                                                                                         |
-| `translation` | array[3] of number |   Yes    | Position of the object relative to the source's local origin (`x`, `y`, `z`)                                                                                                                                    |
-| `id`          | string             |   Yes    | Identifier the source uses to correlate this observation across messages; not a Scenescape global ID, and the controller does not map or look it up — it is passed through as the observation's local reference |
-| `rotation`    | array[4] of number |    No    | Rotation of the object as a quaternion (`x`, `y`, `z`, `w`)                                                                                                                                                     |
-| `size`        | array[3] of number |    No    | Object dimensions (`x`, `y`, `z`). Omit for a point observation with no known extent                                                                                                                            |
-| `confidence`  | number > 0         |    No    | Source-reported confidence for this observation                                                                                                                                                                 |
-| `metadata`    | object             |    No    | Semantic attribute bag; same structure as camera input (see [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr))                                                                  |
+| Field         | Type               |  Required   | Description                                                                                                                                    |
+| ------------- | ------------------ | :---------: | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `category`    | string             |     Yes     | Category or class of the observed object (e.g. `"person"`, `"vehicle"`)                                                                        |
+| `translation` | array[3] of number |     Yes     | Position of the object relative to the source's local origin (`x`, `y`, `z`)                                                                   |
+| `id`          | string             | Conditional | Required when the top-level source `track` value is `false`; optional when the top-level source `track` value is `true` or omitted             |
+| `rotation`    | array[4] of number |     No      | Rotation of the object as a quaternion (`x`, `y`, `z`, `w`)                                                                                    |
+| `size`        | array[3] of number |     No      | Object dimensions (`x`, `y`, `z`). Omit for a point observation with no known extent                                                           |
+| `confidence`  | number > 0         |     No      | Source-reported confidence for this observation                                                                                                |
+| `metadata`    | object             |     No      | Semantic attribute bag; same structure as camera input (see [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr)) |
 
 Unlike camera detections, `size` is optional here: a source that cannot estimate an object's
 extent may report a point observation. Point objects (no `size`) remain eligible for
 position-based ROI, tripwire, and sensor-tagging analytics, but are excluded from
 volume/occupancy/collision analytics.
+
+The top-level source `track` field determines the tracking mode for every object in the message.
+When that value is `false`, the object bypasses the kinematic tracker/ReID path and the
+published object `id` remains the source-provided `id`. When the value is `true` or
+omitted, the object follows the normal Scenescape tracking path and the controller assigns the
+published object `id`, so the source message may omit `objects[*].id`.
 
 ### Pose Caching and Message Ordering
 
@@ -248,26 +255,31 @@ without ingesting objects. Rejection reasons (logged, not published) include:
 | `unsupported_reference_frame`    | `reference_frame` is not `wgs84` or `scene`                                                 |
 | `invalid_pose`                   | `pose` failed schema validation or transform construction                                   |
 
-### Trusted Identity by Default, with Collision Detection
+### Untracked External Objects Preserve Source Identity
 
-Every external-source object's `id` (see
-[External Detection Object Fields](#external-detection-object-fields-objects)) is trusted
-directly as its global track identity (`gid`) by default. There is no allowlist or environment
-variable to configure, and no per-source registration step: any `source_id` may publish and have
-its objects' `id`s trusted immediately. This is deliberate — requiring an operator to
-pre-configure which sources are safe to trust does not scale as the number of external
-sources/integrations grows.
+When an external source message sets `track` to `false`, the controller trusts each object's
+source-provided `id` directly as the published object identity. The object bypasses Scenescape's
+kinematic multi-object tracker/ReID association and is merged through the same already-tracked
+path used for child scenes with `retrack=false`.
 
-Trusting `id` directly means the object bypasses Scenescape's kinematic multi-object tracker/ReID
-association entirely for that object: the source-supplied `id` becomes `gid` and stays `gid` for
-as long as the source keeps reporting that same `id` in subsequent messages, exactly matching how
-a UWB/RTLS tag's own permanent hardware identifier is meant to be used. If the source stops
-reporting an `id`, that track ages out and is dropped after the same staleness window used for
-any other track that stops receiving updates — there is no special cleanup required.
+Because two different sources could otherwise silently merge distinct objects by publishing the
+same `id`, the controller performs collision detection for these untracked objects: within a given
+`(scene, category)`, only one source may hold a live claim on a given `id` at a time. A colliding
+object is dropped and logged; non-colliding objects from the same message are still ingested.
 
-**Collision detection.** Trusting every source's `id` unconditionally would let two different
-sources that happen to report the same `id` value silently merge two distinct physical objects
-under one identity. To prevent that without requiring configuration, each `id` is claimed
+### Tracked External Objects Use Controller-Assigned IDs
+
+When an external source message sets `track` to `true` or omits it, each object is processed
+as a normal Scenescape detection. The controller runs it through the kinematic tracker/ReID path
+and assigns the published track `id`. On this path, source-provided `objects[*].id` is optional
+and treated only as source metadata for the incoming observation, not as the final published
+track identity.
+
+### Source-Identity Trust for Untracked Objects, with Collision Detection
+
+**Collision detection.** Trusting source ids on `track=false` messages could let two different
+sources that report the same `id` silently merge two distinct physical objects under one
+identity. To prevent that without requiring configuration, each untracked `id` is claimed
 exclusively per `(scene, category)`: only one `source_id` may hold a live claim on a given `id`
 at a time. If a second source publishes the same `id` while another source's claim on it is still
 live, the newly arriving, colliding object is dropped — logged as a rejection, not merged or
@@ -299,10 +311,10 @@ check above.
 `source_id` is not provisioned or registered anywhere in Scenescape ahead of time — unlike a
 camera or sensor `id`, which must match a scene/sensor already configured in the database, an
 external source simply announces itself by choosing a `source_id` string and publishing with it.
-Because every external source's `objects[*].id` is trusted as global identity by default (see
-above), choosing a persistent, unique `source_id` and per-object `id` matters more here than for
-most other Scenescape identifiers: the deployer/integrator is responsible for choosing values
-that are:
+For messages using `track=false`, choosing a persistent, unique `source_id` and per-object `id`
+matters because those object ids become published identities. For tracked messages, a stable
+source-provided object `id` can still improve observation correlation even though Scenescape
+assigns the published identity. The deployer/integrator should choose values that are:
 
 - **Persistent** — stable across process restarts and reboots, so a track's identity (and any
   cached pose) is recognized as the same source/object next time it publishes, rather than
@@ -325,13 +337,10 @@ Recommended choices, in order of preference:
    process restart.
 
 **Do not** use a randomly generated value (for example a fresh UUID minted at process startup)
-as `source_id` or as an object's `id`: it defeats pose-cache reuse across restarts and, since
-every object's `id` is trusted directly as identity, means each restart creates a brand-new
-identity for what should be the same physical object. Worse, for a source whose local `id`
-scheme resets or recycles (for example, small integer track-slot numbers reissued after a
-reboot), a reused `id` is silently treated as a continuation of the previous object's identity
-once the earlier claim has gone stale — see the collision-detection limitation above. Prefer a
-hardware-rooted or MAC-based identifier specifically to avoid this.
+as `source_id`: it defeats pose-cache reuse across restarts. For `track=false`, do not use a
+random or resettable object `id`, because each restart creates a new published identity or may
+reuse a stale identity for a different physical object. Prefer hardware-rooted or MAC-based
+identifiers specifically to avoid this.
 
 **If a robot or drone reports itself as a tracked object** (for example, to visualize the
 platform itself in the scene alongside objects it observes), use the same persistent identifier

@@ -337,7 +337,7 @@ class TestSceneControllerPublishers:
     assert scene_controller.publishExternalDetections.call_count == 2
 
   def test_publish_external_detections_publishes_with_sensor_enriched_objects(self):
-    """External publish emits when shouldPublish allows."""
+    """Hierarchy publish strips the dynamic external-source envelope."""
     scene_controller = self._build_controller('unregulated')
     scene = SimpleNamespace(
       uid='scene-1',
@@ -346,7 +346,13 @@ class TestSceneControllerPublishers:
       last_published_detection=defaultdict(lambda: None),
       reid_config_data={'minimum_bbox_area': 5000},
     )
-    jdata_base = {'timestamp': '2026-01-01T00:00:01Z', 'objects': ['unchanged']}
+    jdata_base = {
+      'timestamp': '2026-01-01T00:00:01Z',
+      'source_id': 'robot-01',
+      'pose': {'reference_frame': 'scene', 'translation': [1, 2, 3]},
+      'track': False,
+      'objects': ['unchanged'],
+    }
 
     scene_controller.shouldPublish = MagicMock(return_value=True)
     with patch('controller.scene_controller.get_epoch_time', side_effect=[100.0, 101.0]), \
@@ -356,6 +362,12 @@ class TestSceneControllerPublishers:
     assert scene_controller.pubsub.publish.call_count == 1
     assert scene.last_published_detection['person'] == 101.0
     assert jdata_base['objects'] == ['unchanged']
+    assert jdata_base['source_id'] == 'robot-01'
+    published_payload = orjson.loads(scene_controller.pubsub.publish.call_args.args[1])
+    assert published_payload['objects'] == [{'id': 'o1'}]
+    assert 'source_id' not in published_payload
+    assert 'pose' not in published_payload
+    assert 'track' not in published_payload
     # Confirm reid provenance stamping is actually wired through to buildDetectionsList
     _, call_kwargs = mock_build.call_args
     assert call_kwargs['attach_reid_provenance'] is True
@@ -721,9 +733,7 @@ class TestSceneControllerHandleExternalSourceObject:
     return controller
 
   def test_ingests_objects_when_pose_resolves(self):
-    """Resolves a pose and delegates ingestion to scene.processSceneData. Every
-    external-source object's id is trusted as global identity by default (no
-    source allowlist required), so retrack is always disabled."""
+    """Omitted track uses tracking and source ids as internal hints."""
     scene_controller = self._build_controller()
     fake_camera_pose = MagicMock()
     scene_controller.external_source_pose_cache.resolve.return_value = (fake_camera_pose, None)
@@ -740,10 +750,17 @@ class TestSceneControllerHandleExternalSourceObject:
       scene, 'drone-1', None, 42.0, trusted_scene_pose=False)
     scene.processSceneData.assert_called_once()
     args, kwargs = scene.processSceneData.call_args
-    assert args[0] is jdata
-    assert args[0]['objects'] == jdata['objects']
+    assert args[0] is not jdata
+    assert args[0]['objects'] == [
+      {
+        'id': 'tracked:drone-1:vehicle:agent-track-1',
+        'category': 'vehicle',
+        'translation': [1.0, 2.0, 0.0],
+      },
+    ]
+    assert jdata['objects'][0]['id'] == 'agent-track-1'
     assert args[1].name == 'drone-1'
-    assert args[1].retrack is False
+    assert args[1].retrack is True
     assert args[2] is fake_camera_pose
     assert args[3] == 'vehicle'
     assert kwargs == {'when': 42.0}
@@ -772,9 +789,8 @@ class TestSceneControllerHandleExternalSourceObject:
     assert result is True
     scene.processSceneData.assert_not_called()
 
-  def test_no_source_allowlist_required_for_identity_trust(self):
-    """Any source_id, with no prior configuration, has its object ids trusted as
-    global identity: retrack is False regardless of source_id."""
+  def test_omitted_track_uses_tracking_without_identity_claim(self):
+    """Tracking is the default and does not claim source ids as global ids."""
     scene_controller = self._build_controller()
     scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
     scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
@@ -785,8 +801,11 @@ class TestSceneControllerHandleExternalSourceObject:
     scene_controller._handleExternalSourceObject(scene, jdata, 'person', 42.0)
 
     args, _ = scene.processSceneData.call_args
-    assert args[1].retrack is False
+    assert args[1].retrack is True
+    assert args[0]['objects'][0]['id'] == (
+      'tracked:never-before-seen-source:person:tag-1')
     assert len(args[0]['objects']) == 1
+    assert len(scene_controller.identity_claim_registry._claims) == 0
 
   def test_colliding_id_from_different_source_is_dropped(self):
     """If a different source_id is already using the same id in the same scene and
@@ -796,12 +815,12 @@ class TestSceneControllerHandleExternalSourceObject:
     scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
     scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
 
-    first_jdata = {'source_id': 'source-a', 'objects': [
+    first_jdata = {'source_id': 'source-a', 'track': False, 'objects': [
       {'id': 'tag-1', 'category': 'person', 'translation': [0.0, 0.0, 0.0]},
     ]}
     scene_controller._handleExternalSourceObject(scene, first_jdata, 'person', 10.0)
 
-    second_jdata = {'source_id': 'source-b', 'objects': [
+    second_jdata = {'source_id': 'source-b', 'track': False, 'objects': [
       {'id': 'tag-1', 'category': 'person', 'translation': [1.0, 1.0, 0.0]},
       {'id': 'tag-2', 'category': 'person', 'translation': [2.0, 2.0, 0.0]},
     ]}
@@ -817,10 +836,10 @@ class TestSceneControllerHandleExternalSourceObject:
     scene_controller = self._build_controller()
     scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
     scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
-    jdata_1 = {'source_id': 'uwb-hub-1', 'objects': [
+    jdata_1 = {'source_id': 'uwb-hub-1', 'track': False, 'objects': [
       {'id': 'tag-aa:bb:cc', 'category': 'person', 'translation': [1.0, 2.0, 0.0]},
     ]}
-    jdata_2 = {'source_id': 'uwb-hub-1', 'objects': [
+    jdata_2 = {'source_id': 'uwb-hub-1', 'track': False, 'objects': [
       {'id': 'tag-aa:bb:cc', 'category': 'person', 'translation': [1.1, 2.1, 0.0]},
     ]}
 
@@ -1024,6 +1043,7 @@ class TestHandleMovingObjectExternal:
     controller.rewrite_all_time = False
     controller.rewrite_bad_time = False
     controller.cache_manager = MagicMock()
+    controller.cache_manager.sceneWithID.return_value = None
     controller.external_source_bindings = {}
     controller._handleExternalSourceObject = MagicMock(return_value=True)
     controller._scenesForExternalPublisher = MagicMock(return_value=[MagicMock()])
@@ -1081,6 +1101,45 @@ class TestHandleMovingObjectExternal:
     controller._handleExternalSourceObject.assert_called_once()
     controller.publishDetections.assert_called_once()
     controller.cache_manager.invalidate.assert_not_called()
+
+  @patch('controller.scene_controller.metrics')
+  @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
+  @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
+  def test_local_child_message_with_source_id_uses_hierarchy_path(
+    self, _mock_epoch, _mock_adjust, _mock_metrics
+  ):
+    controller = self._build_controller()
+    child_sender = MagicMock()
+    child_sender.uid = 'child-1'
+    scene = MagicMock()
+    scene.uid = 'scene-a'
+    scene.name = 'Scene A'
+    scene.tracker.getUniqueIDCount.return_value = 1
+    scene.tracker.currentObjects.return_value = ['obj']
+    controller.cache_manager.sceneWithID.return_value = child_sender
+    controller._handleChildSceneObject = MagicMock(return_value=(True, scene))
+    controller._scenesForExternalPublisher.reset_mock()
+    controller._handleExternalSourceObject.reset_mock()
+    message = self._external_message('child-1', {
+      'timestamp': '2026-01-01T00:00:00Z',
+      'source_id': 'robot-01',
+      'objects': [{'id': 't1'}],
+    })
+
+    controller.handleMovingObjectMessage(None, None, message)
+
+    controller._handleChildSceneObject.assert_called_once()
+    args = controller._handleChildSceneObject.call_args.args
+
+    assert args[0] == 'child-1'
+    assert args[1]['source_id'] == 'robot-01'
+    assert args[1]['objects'] == [{'id': 't1'}]
+    assert args[1]['debug_hmo_start_time'] == 100.0
+    assert args[2:] == ('person', 100.0)
+
+    controller._scenesForExternalPublisher.assert_not_called()
+    controller._handleExternalSourceObject.assert_not_called()
+    controller.publishDetections.assert_called_once()
 
   @patch('controller.scene_controller.metrics')
   @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
@@ -1358,4 +1417,3 @@ class TestSceneControllerRemoteChildParent:
     assert success is False
     assert scene is remote_sender
     assert remote_sender.parent is None
-
