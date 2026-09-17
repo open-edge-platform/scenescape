@@ -29,15 +29,16 @@ def get_allowed_hosts():
 
   Priority (highest to lowest):
   1. SCENESCAPE_ALLOWED_HOSTS env var (comma-separated list)
-  2. Fallback to ['*'] for backwards compatibility
+  2. Fallback to ['127.0.0.1','localhost'] for backwards compatibility
 
-  Environment variables should contain comma-separated host values:
+  Environment variable should contain comma-separated host values:
   - SCENESCAPE_ALLOWED_HOSTS=example.com,10.0.0.1
   """
   raw_hosts = os.getenv('SCENESCAPE_ALLOWED_HOSTS', '').strip()
   if raw_hosts:
     hosts = [h.strip() for h in raw_hosts.split(',') if h.strip()]
-    hosts.extend(['web.scenescape.svc.cluster.local', 'web.scenescape.intel.com'])  # Always allow these hosts
+    hosts.extend(['127.0.0.1','localhost',
+                  'web.scenescape.svc.cluster.local', 'web.scenescape.intel.com'])  # Always allow these hosts
     if hosts:
       return hosts
 
