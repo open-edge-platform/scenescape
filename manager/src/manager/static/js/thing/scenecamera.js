@@ -176,10 +176,23 @@ export default class SceneCamera extends THREE.Object3D {
 
   // A camera registered without its true resolution keeps the 640x480 default,
   // which renders the frustum far narrower than the projected image.
+  // MQTT snapshots are often thumbnails of the same optical frame; FOV must
+  // stay on fx/fy and the calibrated principal point, not the JPEG pixel size.
   intrinsicsResolution() {
     const cx = this.cameraMatrix.data64F[CX];
     const cy = this.cameraMatrix.data64F[CY];
     return cx > 0 && cy > 0 ? { w: cx * 2, h: cy * 2 } : this.resolution;
+  }
+
+  applyOpticalProjection() {
+    if (!this.sceneCamera) return;
+    const resolution = this.intrinsicsResolution();
+    this.sceneCamera.aspect = resolution.w / resolution.h;
+    this.sceneCamera.fov = computeVerticalFOVFromFy(
+      this.cameraMatrix.data64F[FY],
+      resolution,
+    );
+    this.refreshFrustum();
   }
 
   refreshFrustum() {
@@ -604,11 +617,7 @@ export default class SceneCamera extends THREE.Object3D {
 
   setCameraVerticalFOV() {
     if (this.resolution) {
-      this.sceneCamera.fov = computeVerticalFOVFromFy(
-        this.cameraMatrix.data64F[FY],
-        this.intrinsicsResolution(),
-      );
-      this.refreshFrustum();
+      this.applyOpticalProjection();
       if (this.cameraCapture) {
         this.cameraCapture.camera = this.sceneCamera;
         this.cameraCapture.project(this.mesh);
@@ -993,13 +1002,7 @@ export default class SceneCamera extends THREE.Object3D {
       loader.load(
         image,
         (texture) => {
-          this.resolution = { w: texture.image.width, h: texture.image.height };
-          this.sceneCamera.aspect = texture.image.width / texture.image.height;
-          this.sceneCamera.fov = computeVerticalFOVFromFy(
-            this.cameraMatrix.data64F[FY],
-            this.resolution,
-          );
-          this.refreshFrustum();
+          this.applyOpticalProjection();
           if (this.cameraCapture === null) {
             [this.cameraCapture, this.mesh] =
               this.drawObj.createProjectionMaterial(
@@ -1031,13 +1034,7 @@ export default class SceneCamera extends THREE.Object3D {
     const img = new Image();
     img.src = image;
     img.onload = (() => {
-      this.resolution = { w: img.width, h: img.height };
-      this.sceneCamera.aspect = this.resolution.w / this.resolution.h;
-      let intrinsics = { ...this.intrinsics };
-      intrinsics.cx = this.resolution.w / 2;
-      intrinsics.cy = this.resolution.h / 2;
-      this.updateIntrinsics(intrinsics);
-      this.sceneCamera.updateProjectionMatrix();
+      this.applyOpticalProjection();
     }).bind(this);
   }
 
