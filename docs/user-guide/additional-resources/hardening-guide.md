@@ -45,8 +45,8 @@ The following table summarizes the network ports exposed by Scenescape’s servi
 
 ### Restricting Allowed Hosts
 
-By default, Scenescape's Django web server is configured with `ALLOWED_HOSTS = ['localhost', '127.0.0.1']`, which 
-accepts HTTP requests from local network only. To allow accessing the application from a remote host, the `ALLOWED_HOSTS` setting 
+By default, Scenescape's Django web server is configured with `ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'web.scenescape.svc.cluster.local', 'web.scenescape.intel.com']`, which
+accepts HTTP requests from local network only. To allow accessing the application from a remote host, the `ALLOWED_HOSTS` setting
 must be updated to include the hostname or IP address under which Scenescape is accessible.
 
 Scenescape supports one variable for configuring host validation:
