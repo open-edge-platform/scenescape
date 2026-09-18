@@ -257,169 +257,6 @@ services:
     restart: always
     pids_limit: 1000
 
-  mediaserver:
-    image: bluenviron/mediamtx:1.18.1
-    networks:
-      scenescape:
-        aliases:
-          - mediaserver
-    #  ports:
-    #    - "8554:8554"
-    restart: always
-    pids_limit: 1000
-
-  queuing-cams:
-    image: linuxserver/ffmpeg:version-8.1-cli
-    command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -re -stream_loop -1 -i /workspace/media/qcam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam2
-    volumes:
-      - vol-videos:/workspace/media
-    networks:
-      scenescape:
-    depends_on:
-      - mediaserver
-    restart: always
-    pids_limit: 1000
-
-  retail-cams:
-    image: linuxserver/ffmpeg:version-8.1-cli
-    command: -nostdin -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts -re -stream_loop -1 -i /workspace/media/apriltag-cam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam2
-    volumes:
-      - vol-videos:/workspace/media
-    networks:
-      scenescape:
-    depends_on:
-      - mediaserver
-    restart: always
-    pids_limit: 1000
-
-  retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc3
-    networks:
-      scenescape:
-    tty: true
-    entrypoint: ["./run.sh"]
-    # ports:
-    #   - "8080:8080"
-    # Uncomment these lines to use GPU acceleration
-    # devices:
-    #   - "/dev/dri:/dev/dri"
-    # Uncomment these lines to use NPU acceleration
-    # devices:
-    #   - "/dev/accel:/dev/accel"
-    group_add:
-      - "109"
-      - "110"
-      - "992"
-    device_cgroup_rules:
-      - "c 189:* rmw"
-      - "c 209:* rmw"
-      - "a 189:* rwm"
-    depends_on:
-      broker:
-        condition: service_started
-      ntpserv:
-        condition: service_started
-      retail-cams:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    environment:
-      - RUN_MODE=EVA
-      - GENICAM=Balluff
-      - GST_DEBUG=1,gencamsrc:2
-      - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
-      - ADD_UTCTIME_TO_METADATA=true
-      - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
-      - MQTT_HOST=broker.scenescape.intel.com
-      - MQTT_PORT=1883
-      - REST_SERVER_PORT=8080
-      - HTTPS_PROXY=${HTTPS_PROXY}
-      - https_proxy=${https_proxy}
-      - HTTP_PROXY=${HTTP_PROXY}
-      - http_proxy=${http_proxy}
-      - NO_PROXY=mediaserver,${NO_PROXY}
-      - no_proxy=mediaserver,${no_proxy}
-    configs:
-      - source: retail-config
-        target: /home/pipeline-server/config.json
-    volumes:
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
-      - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
-      - vol-models:/home/pipeline-server/models
-    secrets:
-      - source: root-cert
-        target: certs/scenescape-ca.pem
-    restart: always
-    pids_limit: 1000
-
-  queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc3
-    networks:
-      scenescape:
-    tty: true
-    entrypoint: ["./run.sh"]
-    # ports:
-    #   - "8081:8080"
-    # Uncomment these lines to use GPU acceleration
-    # devices:
-    #   - "/dev/dri:/dev/dri"
-    # Uncomment these lines to use NPU acceleration
-    # devices:
-    #   - "/dev/accel:/dev/accel"
-    group_add:
-      - "109"
-      - "110"
-      - "992"
-    device_cgroup_rules:
-      - "c 189:* rmw"
-      - "c 209:* rmw"
-      - "a 189:* rwm"
-    depends_on:
-      broker:
-        condition: service_started
-      ntpserv:
-        condition: service_started
-      queuing-cams:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    environment:
-      - RUN_MODE=EVA
-      - GENICAM=Balluff
-      - GST_DEBUG=1,gencamsrc:2
-      - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
-      - ADD_UTCTIME_TO_METADATA=true
-      - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
-      - MQTT_HOST=broker.scenescape.intel.com
-      - MQTT_PORT=1883
-      - REST_SERVER_PORT=8080
-      - HTTPS_PROXY=${HTTPS_PROXY}
-      - https_proxy=${https_proxy}
-      - HTTP_PROXY=${HTTP_PROXY}
-      - http_proxy=${http_proxy}
-      - NO_PROXY=mediaserver,${NO_PROXY}
-      - no_proxy=mediaserver,${no_proxy}
-    configs:
-      - source: queuing-config
-        target: /home/pipeline-server/config.json
-    volumes:
-      - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
-      - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
-      - vol-models:/home/pipeline-server/models
-    secrets:
-      - source: root-cert
-        target: certs/scenescape-ca.pem
-    restart: always
-    pids_limit: 1000
-
   # Init container to fix volume permissions for autocalibration
   autocalibration-init:
     image: alpine:3.23
@@ -613,38 +450,15 @@ configs:
     file: ./controller/config/tracker-config.json
   reid-config:
     file: ./controller/config/reid-config.json
-  retail-config:
-    # Use this configuration file to run decoding and inference on GPU
-    # file: ./dlstreamer-pipeline-server/retail-config-gpu.json
-    file: ./dlstreamer-pipeline-server/retail-config.json
-    # Use this configuration file to run inference on NPU
-    # file: ./dlstreamer-pipeline-server/retail-config-npu.json
-  queuing-config:
-    # Use this configuration file to run decoding and inference on GPU
-    # file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
-    file: ./dlstreamer-pipeline-server/queuing-config.json
-    # Use this configuration file to run inference on NPU
-    # file: ./dlstreamer-pipeline-server/queuing-config-npu.json
 
 volumes:
   vol-db:
   vol-media:
   vol-migrations:
   vol-datasets:
-  vol-videos:
   vol-models:
   vol-netvlad_models:
     driver: local
-  vol-dlstreamer-pipeline-server-pipeline-root-queuing:
-    driver: local
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-  vol-dlstreamer-pipeline-server-pipeline-root-retail:
-    driver: local
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
   vol-mapping-model-weights:
     driver: local
   vol-mapping-torch-cache:

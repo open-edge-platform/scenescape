@@ -19,8 +19,11 @@ DEFAULT_WAIT_SECONDS = 300
 POLL_INTERVAL_SECONDS = 5
 REQUEST_TIMEOUT_SECONDS = 60
 RESOURCE_KEYS = ("cameras", "regions", "tripwires", "sensors")
-# Each scene lives in its own directory: <scene>/<scene>.zip, plus optional
-# <scene>/assets.json and <scene>/calibration_markers.json sidecars.
+# Each scene lives in its own directory: <scene>/<scene>.zip. The archived
+# JSON carries the scene's assets and calibration_markers directly, plus each
+# camera's "command"/"camerachain" fields; on Kubernetes, kubeclient builds
+# each camera's DL Streamer pipeline from those two DB fields, while Compose's
+# dlsps containers use static pipeline JSON and simply ignore them.
 
 log = logging.getLogger("upload-scenes")
 
@@ -212,39 +215,6 @@ def upload_one(client, zip_path):
   scene = read_scene_from_zip(zip_path)
   if scene is None:
     return None
-
-  # A scene's assets/calibration_markers, if any, live as sidecar JSON files
-  # next to its zip: <scene_dir>/assets.json, <scene_dir>/calibration_markers.json
-  scene_dir = os.path.dirname(zip_path)
-  assets_sidecar = os.path.join(scene_dir, "assets.json")
-  calib_sidecar = os.path.join(scene_dir, "calibration_markers.json")
-  # Load and merge sidecar assets
-  if os.path.exists(assets_sidecar):
-    try:
-      with open(assets_sidecar, encoding="utf-8") as f:
-        extra_assets = json.load(f)
-      if isinstance(extra_assets, list):
-        scene.setdefault("assets", [])
-        scene["assets"].extend(extra_assets)
-      else:
-        log.error("Sidecar %s must contain a JSON list", assets_sidecar)
-        return None
-    except Exception as e:
-      log.error("Failed to read assets sidecar %s: %s", assets_sidecar, e)
-      return None
-  if os.path.exists(calib_sidecar):
-    try:
-      with open(calib_sidecar, encoding="utf-8") as f:
-        extra_markers = json.load(f)
-      if isinstance(extra_markers, list):
-        scene.setdefault("calibration_markers", [])
-        scene["calibration_markers"].extend(extra_markers)
-      else:
-        log.error("Sidecar %s must contain a JSON list", calib_sidecar)
-        return None
-    except Exception as e:
-      log.error("Failed to read calibration markers sidecar %s: %s", calib_sidecar, e)
-      return None
 
   name = scene["name"]
   existing_uid = client.scene_uid(name)

@@ -46,6 +46,8 @@ class ImportScene:
           "transform_type": EULER,
           "translation": cam.get("translation"),
           "rotation": cam.get("rotation"),
+          # map_transform_fields requires scale to write transforms; default if archive omits it.
+          "scale": cam.get("scale") or [1.0, 1.0, 1.0],
         })
       cam_items.append(cam_data)
     return cam_items
@@ -87,10 +89,14 @@ class ImportScene:
       "tripwires": None,
       "regions": None,
       "sensors": None,
+      "assets": None,
+      "calibration_markers": None,
       "cameras_created": None,
       "tripwires_created": None,
       "regions_created": None,
       "sensors_created": None,
+      "assets_created": None,
+      "calibration_markers_created": None,
     }
 
     json_files = [
@@ -201,6 +207,34 @@ class ImportScene:
       json_data.get("sensors", []), scene_id, self.rest.createSensor)
     import_summary["sensors"] = sensor_errors
     import_summary["sensors_created"] = sensors_created
+
+    # Assets are global (no scene FK); skip ones that already exist by name,
+    # and don't route them through bulk_create since it injects "scene".
+    existing_assets = {a["name"] for a in self.rest.getAssets({}).get("results", [])}
+    asset_errors = []
+    assets_created = []
+    for asset in json_data.get("assets", []) or []:
+      if asset.get("name") in existing_assets:
+        continue
+      try:
+        resp = await asyncio.to_thread(self.rest.createAsset, asset)
+        if getattr(resp, "errors", None):
+          asset_errors.append((resp.errors, asset))
+        else:
+          assets_created.append(dict(resp))
+      except Exception as e:
+        asset_errors.append((e, asset))
+    import_summary["assets"] = asset_errors or None
+    import_summary["assets_created"] = assets_created or None
+
+    # Calibration markers are scoped to this scene via a synthetic marker_id.
+    markers = json_data.get("calibration_markers", []) or []
+    for marker in markers:
+      marker["marker_id"] = f"{scene_id}_{marker.get('apriltag_id')}"
+    markers_created, marker_errors = await self.bulk_create(
+      markers, scene_id, self.rest.createCalibrationMarker)
+    import_summary["calibration_markers"] = marker_errors
+    import_summary["calibration_markers_created"] = markers_created
 
     # children recursion
     for child_data in json_data.get("children", []):

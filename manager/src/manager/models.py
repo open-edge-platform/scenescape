@@ -832,7 +832,10 @@ class Cam(Sensor):
       # This is an update, check if scene has changed
       try:
         original = Cam.objects.get(pk=self.pk)
-        if original.scene_id != self.scene_id:
+        # str() both sides: scene_id may be a uuid.UUID (from DB) on one side
+        # and a plain str (from a REST payload) on the other; comparing those
+        # directly is always unequal and would wipe pose on every save.
+        if str(original.scene_id) != str(self.scene_id):
           original_scene = original.scene
           # Scene has changed, clear pose-related fields
           self.transforms = []

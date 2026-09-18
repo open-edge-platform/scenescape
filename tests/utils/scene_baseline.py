@@ -20,14 +20,15 @@ _UPLOAD_SCENES_DIR = _REPO_ROOT / "tools" / "upload_scenes"
 if str(_UPLOAD_SCENES_DIR) not in sys.path:
   sys.path.insert(0, str(_UPLOAD_SCENES_DIR))
 
-from uploader import SceneScapeClient, parse_auth, upload_one, wait_for_database  # noqa: E402
+from uploader import (  # noqa: E402
+  SceneScapeClient, parse_auth, upload_one, wait_for_database,
+)
 
 _RESOURCES_DIR = Path(__file__).resolve().parents[1] / "resources" / "scenes"
 
 # Keys used by ServiceProfile/_PROFILE_SCENE_ARCHIVES to pick which archives a
 # stack needs. Values are tuples of archive paths, uploaded in order. Each
-# scene lives in its own directory: <scene>/<scene>.zip, plus optional
-# <scene>/assets.json and <scene>/calibration_markers.json sidecars.
+# scene lives in its own directory as a single <scene>/<scene>.zip archive.
 SCENE_ARCHIVES = {
   "demo": (_RESOURCES_DIR / "Demo" / "Demo.zip",),
   "calibration": (_RESOURCES_DIR / "Queuing" / "Queuing.zip",),
@@ -45,10 +46,10 @@ _READY_TIMEOUT_SECONDS = 120
 def upload_baseline_scenes(resturl, rootcert, auth_path, archive_keys):
   """Imports the archives for *archive_keys* and returns {scene_name: uid}.
 
-  @param    resturl       REST API base URL of the target deployment
-  @param    rootcert      CA certificate path used to verify the server
-  @param    auth_path     controller.auth file used to authenticate
-  @param    archive_keys  keys into SCENE_ARCHIVES to upload
+  @param    resturl                 REST API base URL of the target deployment
+  @param    rootcert                CA certificate path used to verify the server
+  @param    auth_path               controller.auth file used to authenticate
+  @param    archive_keys            keys into SCENE_ARCHIVES to upload
   @return                 dict mapping scene name -> uid
   """
   client = SceneScapeClient(resturl, verify=rootcert)

@@ -278,7 +278,7 @@ class CamSerializer(NonNullSerializer):
   translation = serializers.SerializerMethodField('get_translation')
   rotation = serializers.SerializerMethodField('get_rotation')
   scale = serializers.SerializerMethodField('get_scale')
-  resolution = ResolutionSerializerField(source='cam', required=False)
+  resolution = serializers.SerializerMethodField('get_resolution')
   transforms = serializers.SerializerMethodField('get_transform')
   scene = serializers.CharField(source="scene.pk", allow_null=True, required=False)
   transform_type = serializers.SerializerMethodField('get_transform_type')
@@ -335,8 +335,19 @@ class CamSerializer(NonNullSerializer):
     resolution = self.initial_data.get('resolution', None)
     if not resolution:
       return
-    extended_data = {'width': resolution['width'], 'height': resolution['height']}
-    validated_data.update(extended_data)
+    # Exports emit [width, height]; the UI form posts {"width": .., "height": ..}.
+    if isinstance(resolution, (list, tuple)):
+      if len(resolution) != 2:
+        raise serializers.ValidationError({"resolution": "must be [width, height]"})
+      width, height = resolution
+    elif isinstance(resolution, dict):
+      width, height = resolution.get('width'), resolution.get('height')
+    else:
+      raise serializers.ValidationError(
+        {"resolution": "must be [width, height] or {width, height}"})
+    if width is None or height is None:
+      raise serializers.ValidationError({"resolution": "must provide both width and height"})
+    validated_data.update({'width': width, 'height': height})
     return
 
   def map_intrinsics_fields(self, validated_data):
@@ -368,8 +379,11 @@ class CamSerializer(NonNullSerializer):
       raise serializers.ValidationError({"distortion": "invalid distortion: \""
                                          + str(distortion) + "\""})
 
-    extended_data = {'distortion_' + key: None for key in CameraIntrinsics.DISTORTION_KEYS}
-    for key, val in zip(CameraIntrinsics.DISTORTION_KEYS, array):
+    # Cam only stores k1,k2,p1,p2,k3; CameraIntrinsics.DISTORTION_KEYS has more
+    # (k4-k6, s1-s4, taux, tauy) that aren't model fields and would crash create().
+    model_keys = CameraIntrinsics.DISTORTION_KEYS[:5]
+    extended_data = {'distortion_' + key: None for key in model_keys}
+    for key, val in zip(model_keys, array):
       extended_data['distortion_' + key] = val
     validated_data.update(extended_data)
 
@@ -450,6 +464,12 @@ class CamSerializer(NonNullSerializer):
     if not distortion:
       distortion = None
     return distortion
+
+  def get_resolution(self, obj):
+    cam = obj.cam
+    if cam.width is None or cam.height is None:
+      return None
+    return [cam.width, cam.height]
 
   def get_translation(self, obj):
     if not obj.scene:
@@ -582,6 +602,15 @@ class SceneSerializer(NonNullSerializer):
   children = serializers.SerializerMethodField('get_children')
   map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z", required=False, allow_null=True)
   trs_matrix = serializers.SerializerMethodField('get_trs_matrix')
+  calibration_markers = serializers.SerializerMethodField('get_calibration_markers')
+  assets = serializers.SerializerMethodField('get_assets')
+
+  def get_calibration_markers(self, obj):
+    return CalibrationMarkerSerializer(
+      CalibrationMarker.objects.filter(scene=obj), many=True).data
+
+  def get_assets(self, obj):
+    return Asset3DSerializer(Asset3D.objects.all(), many=True).data
 
   def validate(self, attrs):
     if not self.initial_data:
@@ -849,7 +878,7 @@ class SceneSerializer(NonNullSerializer):
               'camera_calibration', 'apriltag_size', 'map_processed', 'polycam_data',
               'number_of_localizations', 'global_feature', 'local_feature', 'matcher',
               'minimum_number_of_matches', 'inlier_threshold', 'geospatial_provider', 'map_zoom',
-              'map_center_lat', 'map_center_lng', 'map_bearing']
+              'map_center_lat', 'map_center_lng', 'map_bearing', 'calibration_markers', 'assets']
 
 class PubSubACLSerializer(NonNullSerializer):
   class Meta:

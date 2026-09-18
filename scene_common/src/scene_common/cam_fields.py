@@ -6,6 +6,8 @@ CAM_COMMON_FIELDS = (
     "name",
     "scale",
     "intrinsics",
+    "distortion",
+    "resolution",
     "command",
     "cv_subsystem",
     "camerachain",

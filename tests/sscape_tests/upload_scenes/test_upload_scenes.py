@@ -12,9 +12,9 @@ import requests
 
 import uploader
 from uploader import (
-  RESOURCE_KEYS, SceneScapeClient, parse_auth, read_scene_from_zip,
-  upload_all, upload_assets, upload_calibration_markers, upload_one,
-  upload_scene, wait_for_database,
+  RESOURCE_KEYS, SceneScapeClient, parse_auth,
+  read_scene_from_zip, upload_all, upload_assets, upload_calibration_markers,
+  upload_one, upload_scene, wait_for_database,
 )
 
 

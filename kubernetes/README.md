@@ -83,6 +83,48 @@ helm install scenescape scenescape-chart -n <NAMESPACE> --create-namespace \
 helm uninstall scenescape -n <NAMESPACE>
 ```
 
+## Video Source (sample/demo camera feeds)
+
+The chart does not run a media server or sample-video containers itself — DL
+Streamer Pipeline Server pipelines expect an RTSP source reachable at
+`rtsp://mediaserver:8554/<camera-id>`. Each demo scene owns a self-contained
+compose file with its own mediamtx, ffmpeg loopers and DL Streamer config:
+[sample_data/demo_scenes/Retail/retail-video-compose.yaml](../sample_data/demo_scenes/Retail/retail-video-compose.yaml)
+and
+[sample_data/demo_scenes/Queuing/queuing-video-compose.yaml](../sample_data/demo_scenes/Queuing/queuing-video-compose.yaml).
+Both declare a same-named `mediaserver` service, so combining them with two
+`-f` flags merges them into one shared instance; used alone, a scene gets its
+own private mediaserver. Run the standalone stack(s) on a host reachable from
+the cluster, then point the cluster's `mediaserver` Service at it:
+
+For a `kind` cluster created by this repo's `make` targets, `make -C
+kubernetes video-source-up` does this automatically (joins the `kind` Docker
+network so no extra steps are needed). For any other cluster, create the
+network the stack expects and start only the media services (not the
+broker-dependent dlsps services, which this chart's `kubeclient` creates
+in-cluster):
+
+```sh
+docker network create scenescape_scenescape
+export VIDEOSOURCE_PORT=8554
+docker compose --project-directory . -f sample_data/demo_scenes/Retail/retail-video-compose.yaml \
+  -f sample_data/demo_scenes/Queuing/queuing-video-compose.yaml \
+  up -d mediaserver retail-cams queuing-cams
+make -C kubernetes mediaserver-up VIDEOSOURCE_IP=<ip-of-that-host>
+```
+
+Remove the Kubernetes endpoint and stop the Docker media services with:
+
+```sh
+make -C kubernetes mediaserver-down
+docker compose --project-directory . -f sample_data/demo_scenes/Retail/retail-video-compose.yaml \
+  -f sample_data/demo_scenes/Queuing/queuing-video-compose.yaml down
+```
+
+For a DNS name instead of a bare IP, edit
+[template/mediaserver.template](template/mediaserver.template) to use an
+`ExternalName` Service instead.
+
 ## Environment Variables
 
 ### Proxy Configuration
