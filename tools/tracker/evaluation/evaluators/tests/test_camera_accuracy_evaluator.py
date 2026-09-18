@@ -359,7 +359,7 @@ class TestParseEdgeCases:
     assert "dist_mean_cam1_0" in results
 
   def test_ground_truth_as_iterator_path(self, tmp_path, tmp_output):
-    """_parse_ground_truth accepts iter([path_string]) form."""
+    """_parse_inputs accepts iter([path_string]) form."""
     n_frames = 10
     outputs = _make_projected_outputs(n_frames, {"cam1": {"0": lambda i: (5.0, 10.0)}})
     gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
