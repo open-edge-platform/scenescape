@@ -310,16 +310,16 @@ The pipeline uses standardized data formats defined by JSON schemas to enable in
 subset of the Tracker Output Format (`tracker/schema/scene-data.schema.json`).
 Each frame carries an **absolute ISO 8601 timestamp** and a flat list of objects:
 
-| Field                 | Description                            | Type            |
-| --------------------- | -------------------------------------- | --------------- |
-| `timestamp`           | Absolute ISO 8601 time (e.g. `...Z`)   | string          |
-| `objects[].id`        | Object/track ID                        | int or string   |
-| `objects[].category`  | Object category (e.g. `person`)        | string          |
-| `objects[].translation` | 3D position `[x, y, z]` in meters    | list of float   |
+| Field                   | Description                          | Type          |
+| ----------------------- | ------------------------------------ | ------------- |
+| `timestamp`             | Absolute ISO 8601 time (e.g. `...Z`) | string        |
+| `objects[].id`          | Object/track ID                      | int or string |
+| `objects[].category`    | Object category (e.g. `person`)      | string        |
+| `objects[].translation` | 3D position `[x, y, z]` in meters    | list of float |
 
 **Example**:
 
-```json
+```
 {"timestamp": "2014-09-08T04:00:00.033Z", "objects": [{"id": 1, "category": "person", "translation": [5.2, 3.1, 0.0]}, {"id": 2, "category": "person", "translation": [7.8, 4.5, 0.0]}]}
 {"timestamp": "2014-09-08T04:00:00.066Z", "objects": [{"id": 1, "category": "person", "translation": [5.3, 3.2, 0.0]}]}
 ```
