@@ -75,16 +75,19 @@ fields and examples; do not invent alternate shapes.
      Details:
      [External Source Pose Fields](../microservices/controller/data_formats.md#external-source-pose-fields-pose).
 
-4. **Map each native observation** to an `objects[*]` entry with a required
-   string `id`, `category`, and `translation` in the **source's local frame**
-   (relative to the source origin described by `pose`). Optional `size`,
-   `rotation`, `confidence`, and `metadata` follow the same contract. See
+4. **Map each native observation** to an `objects[*]` entry with `category`
+   and `translation` in the **source's local frame** (relative to the source
+   origin described by `pose`). Include `id` whenever the top-level source
+   `track` value is `false`; when the top-level source `track` value is `true`
+   or omitted, `id` is optional. Optional `size`, `rotation`, `confidence`,
+   and `metadata` follow the same contract. See
    [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects).
 
-5. **Keep object `id` values persistent and unique** within your source. They
-   are trusted as global track identity by default, with cross-source collision
-   detection. Do not mint a fresh UUID on every process restart. See
-   [Trusted Identity by Default, with Collision Detection](../microservices/controller/data_formats.md#trusted-identity-by-default-with-collision-detection).
+5. **Choose whether the source message should be tracked by Scenescape**. The
+   top-level source `track` value applies to all objects in that message.
+   `track=false` preserves the source `id`, so keep those ids persistent and
+   unique within your source. See
+   [Source-Identity Trust for Untracked Objects, with Collision Detection](../microservices/controller/data_formats.md#source-identity-trust-for-untracked-objects-with-collision-detection).
 
 6. **Resolve coordinate conventions in the converter**, not in the controller:
    - Quaternions are `(x, y, z, w)`.
