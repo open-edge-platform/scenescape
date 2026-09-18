@@ -115,6 +115,8 @@ used for image preparation, recreation, migration, and verification.
 ### Release upgrade
 
 1. Read `tools/upgrade/compatibility.json` and confirm the exact adjacent transition exists.
+  Supported multi-release upgrades must run each listed hop independently; never skip directly
+  from an older source to the final target.
 2. Run `release-plan` with source/target versions and the common Compose arguments.
 3. Present `blockers`, `warnings`, both source and target service/volume inventories, both Git
    states, image action, expected downtime, and backup destination. Highlight added, removed,
@@ -135,6 +137,11 @@ used for image preparation, recreation, migration, and verification.
 
 For an interrupted operation, inspect `<operation-dir>/upgrade-state.json`, report its phase, and
 resume only through the matching CLI command. Do not rerun earlier phases manually.
+
+Honor the manifest's transition strategy. The release workflow performs PostgreSQL logical
+transfer for `1.4.0` to `2025.2`, legacy runtime schema migrations through `2026.0.0`, the validated
+fake-initial bridge into `2026.1.0`, and committed migrations thereafter. Do not substitute the
+standalone database command for a transition that changes PostgreSQL engines.
 
 ### Release rollback
 

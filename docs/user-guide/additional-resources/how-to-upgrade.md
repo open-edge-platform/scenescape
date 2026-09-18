@@ -5,6 +5,22 @@ Scenescape supports only release-to-next-release transitions listed in
 more than one transition is required. Unknown transitions and downgrades are
 refused.
 
+The supported Docker Compose chain is:
+
+```text
+1.4.0 -> 2025.2 -> 2026.0.0 -> 2026.1.0 -> 2026.2.0
+```
+
+Run and verify each hop independently, with a source checkout and target checkout for that hop.
+Do not skip releases. The workflow handles these historical boundaries:
+
+- `1.4.0 -> 2025.2`: logical PostgreSQL 15 dump and restore into PostgreSQL 17.6, followed by the
+  target release's legacy schema/data migration.
+- `2025.2 -> 2026.0.0`: target legacy schema/data migration on PostgreSQL 17.6.
+- `2026.0.0 -> 2026.1.0`: validated adoption of the committed `0001_initial` migration without
+  recreating existing tables.
+- `2026.1.0 -> 2026.2.0`: normal committed Django migrations.
+
 The automated workflow supports Docker Compose deployments. Kubernetes users
 must use the read-only readiness report and operator guidance in the
 [Kubernetes README](../../../kubernetes/README.md#upgrade-readiness-and-guardrails).
@@ -87,6 +103,9 @@ make upgrade-apply \
 The command stops at `awaiting_database_cutover` after checksum verification.
 Store the backup and operation directory securely; both contain sensitive
 deployment material. Do not continue if verification fails.
+
+For `1.4.0 -> 2025.2`, continue only through `upgrade-resume`; standalone
+`database-migrate` does not perform the required PostgreSQL engine transfer.
 
 ## Confirm cutover and resume
 

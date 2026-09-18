@@ -59,6 +59,21 @@
         "Does not create a backup, migrate a database, pull images, recreate services, or bypass the manifest",
         "Explains that supported adjacent hops must be performed individually when present"
       ]
+    },
+    {
+      "id": 5,
+      "prompt": "Upgrade my Docker Compose SceneScape deployment from 1.4.0 all the way to 2026.2.0 without losing scenes, media, or database data.",
+      "expected_output": "The agent plans four independently verified adjacent upgrades, uses separate source and target checkouts for each hop, and explains the PostgreSQL and Django migration strategy at each boundary.",
+      "should_trigger": true,
+      "files": [],
+      "expectations": [
+        "Uses the exact chain 1.4.0 to 2025.2 to 2026.0.0 to 2026.1.0 to 2026.2.0",
+        "Requires each hop to complete backup, cutover, and verification before starting the next hop",
+        "Uses the full release workflow for the PostgreSQL 15 to 17.6 transition",
+        "Does not use standalone database-migrate for the PostgreSQL engine transition",
+        "Describes legacy runtime migrations, the validated fake-initial bridge, and committed migrations at their respective boundaries",
+        "Preserves rollback state and source Compose inputs separately for every hop"
+      ]
     }
   ]
 }

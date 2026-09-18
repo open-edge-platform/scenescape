@@ -226,6 +226,17 @@ def run_database(args, apply=False):
       }],
     }, indent=2, sort_keys=True) + "\n")
     return STATUS_EXIT_CODES["unsupported"]
+  if transition["postgres"]["engine_upgrade"]:
+    sys.stdout.write(json.dumps({
+      "schema_version": 1,
+      "operation": "database_migrate" if apply else "database_check",
+      "status": "unsupported",
+      "blockers": [{
+        "code": "release_workflow_required",
+        "message": "PostgreSQL engine upgrades require release-plan and release-apply",
+      }],
+    }, indent=2, sort_keys=True) + "\n")
+    return STATUS_EXIT_CODES["unsupported"]
   compose_files, compose_config = compose_inputs(args)
   project_name = args.project_name or compose_config.get("name")
   if apply:

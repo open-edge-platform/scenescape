@@ -11,6 +11,7 @@ import subprocess
 try:
   from .backup import compose_base, create_backup, restore_backup, verify_backup
   from .migration import apply_migrations
+  from .migration import prepare_migrations, upgrade_postgres_engine
   from .preflight import build_report, classify_volumes, compose_inventory_changes
   from .preflight import find_transition
   from .preflight import git_inventory, load_compatibility, resolve_compose_paths
@@ -18,6 +19,7 @@ try:
 except ImportError:
   from backup import compose_base, create_backup, restore_backup, verify_backup
   from migration import apply_migrations
+  from migration import prepare_migrations, upgrade_postgres_engine
   from preflight import build_report, classify_volumes, compose_inventory_changes
   from preflight import find_transition
   from preflight import git_inventory, load_compatibility, resolve_compose_paths
@@ -163,7 +165,9 @@ def compose_health(compose, runner=subprocess.run):
 
 
 def resume_upgrade(operation_dir, manifest_path, image_action="pull",
-                   runner=subprocess.run, migrator=apply_migrations):
+                   runner=subprocess.run, migrator=apply_migrations,
+                   migration_preparer=prepare_migrations,
+                   postgres_upgrader=upgrade_postgres_engine):
   """Prepare target images, recreate services, migrate, and verify health."""
   state = read_operation_state(operation_dir)
   if state["phase"] not in ("awaiting_database_cutover", "failed"):
@@ -173,12 +177,24 @@ def resume_upgrade(operation_dir, manifest_path, image_action="pull",
   if transition is None:
     raise ValueError("saved transition is no longer authorized")
   deployment = state["target_deployment"]
+  source_deployment = state["source_deployment"]
   compose = compose_base(
     deployment["compose_files"], deployment["profiles"],
     deployment["project_name"], deployment["root"])
   try:
     if image_action != "none":
       runner(compose + [image_action], check=True)
+    source_compose = compose_base(
+      source_deployment["compose_files"], source_deployment["profiles"],
+      source_deployment["project_name"], source_deployment["root"])
+    runner(source_compose + ["down", "--remove-orphans"], check=True)
+    postgres_upgrader(
+      source_deployment, deployment, transition, state["backup_dir"], runner=runner)
+    if not transition["postgres"]["engine_upgrade"]:
+      runner(compose + ["up", "-d", "pgserver"], check=True)
+    migration_preparer(
+      deployment["compose_files"], deployment["profiles"],
+      deployment["project_name"], transition, deployment["root"], runner=runner)
     runner(compose + ["up", "-d", "--force-recreate", "--remove-orphans"],
            check=True)
     migrator(

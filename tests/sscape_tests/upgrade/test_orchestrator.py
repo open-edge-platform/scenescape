@@ -79,7 +79,8 @@ def test_resume_runs_only_safe_target_commands(tmp_path):
     "phase": "awaiting_database_cutover", "backup_dir": "/backup",
     "rollback_available": True,
     "source_deployment": {
-      "project_name": "custom", "compose_files": ["2026.1/compose.yml"],
+      "root": "2026.1", "project_name": "custom",
+      "compose_files": ["2026.1/compose.yml"],
       "profiles": ["controller"],
     },
     "target_deployment": {
@@ -105,13 +106,14 @@ def test_resume_runs_only_safe_target_commands(tmp_path):
                  migrator=migrator)
 
   assert commands[0][-1] == "pull"
-  assert commands[1][-4:] == ["up", "-d", "--force-recreate", "--remove-orphans"]
-  assert commands[2][-3:] == ["ps", "--format", "json"]
-  assert all("2026.2/compose.yml" in command for command in commands)
-  assert all("2026.1/compose.yml" not in command for command in commands)
-  assert all(command[command.index("--project-directory") + 1] == "2026.2"
-             for command in commands)
-  assert all("down" not in command and "-v" not in command for command in commands)
+  assert commands[1][-2:] == ["down", "--remove-orphans"]
+  assert commands[2][-3:] == ["up", "-d", "pgserver"]
+  assert commands[3][-4:] == ["up", "-d", "--force-recreate", "--remove-orphans"]
+  assert commands[4][-3:] == ["ps", "--format", "json"]
+  assert "2026.1/compose.yml" in commands[1]
+  assert all("2026.2/compose.yml" in command
+             for command in (commands[0], *commands[2:]))
+  assert all("-v" not in command for command in commands)
 
 
 def test_begin_requires_verified_backup_before_cutover(tmp_path):

@@ -49,6 +49,15 @@ def load_compatibility(path):
     raise ValueError("unsupported compatibility manifest schema")
   if not isinstance(manifest.get("transitions"), list):
     raise ValueError("compatibility manifest transitions must be a list")
+  strategies = {"committed", "fake_initial", "legacy_runtime"}
+  for transition in manifest["transitions"]:
+    if not all(transition.get(key) for key in ("source", "target", "postgres")):
+      raise ValueError("compatibility transition is missing required metadata")
+    if transition.get("django_strategy", "committed") not in strategies:
+      raise ValueError("compatibility transition has an unsupported Django strategy")
+    postgres = transition["postgres"]
+    if not all(key in postgres for key in ("source", "target", "engine_upgrade")):
+      raise ValueError("compatibility transition has incomplete PostgreSQL metadata")
   return manifest
 
 

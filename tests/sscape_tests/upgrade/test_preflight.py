@@ -21,15 +21,20 @@ from tools.upgrade.preflight import resolve_compose_paths
 
 def test_load_and_find_explicit_transition(tmp_path):
   manifest_path = tmp_path / "compatibility.json"
+  transition = {
+    "source": "1.0", "target": "1.1", "django_strategy": "committed",
+    "django_migrations": [],
+    "postgres": {"source": "15", "target": "15", "engine_upgrade": False},
+    "rollback": "restore_backup",
+  }
   manifest_path.write_text(json.dumps({
     "schema_version": 1,
-    "transitions": [{"source": "1.0", "target": "1.1"}],
+    "transitions": [transition],
   }), encoding="utf-8")
 
   manifest = load_compatibility(manifest_path)
 
-  assert find_transition(manifest, "1.0", "1.1") == {
-    "source": "1.0", "target": "1.1"}
+  assert find_transition(manifest, "1.0", "1.1") == transition
   assert find_transition(manifest, "1.0", "2.0") is None
 
 
@@ -39,6 +44,20 @@ def test_rejects_unknown_manifest_schema(tmp_path):
     '{"schema_version": 2, "transitions": []}', encoding="utf-8")
 
   with pytest.raises(ValueError, match="unsupported compatibility"):
+    load_compatibility(manifest_path)
+
+
+def test_rejects_unknown_migration_strategy(tmp_path):
+  manifest_path = tmp_path / "compatibility.json"
+  manifest_path.write_text(json.dumps({
+    "schema_version": 1,
+    "transitions": [{
+      "source": "1.0", "target": "1.1", "django_strategy": "improvise",
+      "postgres": {"source": "15", "target": "15", "engine_upgrade": False},
+    }],
+  }), encoding="utf-8")
+
+  with pytest.raises(ValueError, match="unsupported Django strategy"):
     load_compatibility(manifest_path)
 
 
