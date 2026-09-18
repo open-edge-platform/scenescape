@@ -90,6 +90,47 @@
       },
       "required": ["x", "y", "width", "height"]
     },
+    "camera_intrinsics": {
+      "title": "Camera Intrinsics",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fx": {
+          "type": "number"
+        },
+        "fy": {
+          "type": "number"
+        },
+        "cx": {
+          "type": "number"
+        },
+        "cy": {
+          "type": "number"
+        }
+      },
+      "required": ["fx", "fy", "cx", "cy"]
+    },
+    "camera_distortion": {
+      "title": "Camera Distortion",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "k1": { "type": "number" },
+        "k2": { "type": "number" },
+        "p1": { "type": "number" },
+        "p2": { "type": "number" },
+        "k3": { "type": "number" },
+        "k4": { "type": "number" },
+        "k5": { "type": "number" },
+        "k6": { "type": "number" },
+        "s1": { "type": "number" },
+        "s2": { "type": "number" },
+        "s3": { "type": "number" },
+        "s4": { "type": "number" },
+        "taux": { "type": "number" },
+        "tauy": { "type": "number" }
+      }
+    },
     "semantic_metadata_attribute": {
       "type": "object",
       "title": "Semantic Metadata Attribute",
@@ -339,9 +380,17 @@
         "metadata": {
           "$ref": "#/definitions/semantic_metadata",
           "description": "Semantic metadata describing what an object is (age, gender, clothing, embedding vectors, etc)."
+        },
+        "bounding_box_px": {
+          "$ref": "#/definitions/bounding_box_px",
+          "description": "Pixel-space bounding box from a camera-like external source. When this field is used, the object may omit translation and is localized from pixels using the message pose and intrinsics."
         }
       },
-      "required": ["category", "translation"]
+      "required": ["category"],
+      "anyOf": [
+        { "required": ["translation"] },
+        { "required": ["bounding_box_px"] }
+      ]
     },
     "external_pose": {
       "type": "object",
@@ -430,6 +479,14 @@
           "$ref": "#/definitions/external_pose",
           "description": "Pose of the source's local origin, for transforming 'objects' into the target scene. May be omitted to reuse the most recently cached, non-expired pose for this source_id."
         },
+        "intrinsics": {
+          "$ref": "#/definitions/camera_intrinsics",
+          "description": "Camera intrinsics for external objects localized from bounding_box_px."
+        },
+        "distortion": {
+          "$ref": "#/definitions/camera_distortion",
+          "description": "Optional camera distortion coefficients paired with intrinsics for external pixel detections."
+        },
         "objects": {
           "title": "Observed Objects",
           "type": "array",
@@ -446,6 +503,20 @@
       },
       "required": ["timestamp", "source_id", "objects"],
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "objects": {
+                "contains": {
+                  "required": ["bounding_box_px"]
+                }
+              }
+            }
+          },
+          "then": {
+            "required": ["pose", "intrinsics"]
+          }
+        },
         {
           "if": {
             "required": ["track"],

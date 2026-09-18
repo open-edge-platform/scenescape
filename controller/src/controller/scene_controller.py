@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import ntplib
 
 from scene_common.cache_manager import CacheManager
+from scene_common.transform import CameraIntrinsics, CameraPose
 from controller.child_scene_controller import ChildSceneController
 from scene_common.detections_builder import buildDetectionsList
 from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
@@ -610,6 +611,13 @@ class SceneController:
     'source_id' in the payload."""
     source_id = jdata['source_id']
     trusted = source_id in self.trusted_positioning_sources
+    pixel_objects = []
+    translation_objects = []
+    for obj in jdata.get('objects', []):
+      if isinstance(obj.get('bounding_box_px'), dict):
+        pixel_objects.append(obj)
+      else:
+        translation_objects.append(obj)
     camera_pose, reason = self.external_source_pose_cache.resolve(
       scene, source_id, jdata.get('pose'), msg_when, trusted_scene_pose=trusted)
     if camera_pose is None:
@@ -617,55 +625,119 @@ class SceneController:
                 f"scene={scene.uid}: {reason}")
       return True
 
-    source_track = jdata.get('track')
-    routed_objects = []
-    tracked_id_counts = {}
-    if source_track is not False:
-      for obj in jdata.get('objects', []):
-        source_obj_id = obj.get('id')
-        if source_obj_id is not None:
-          tracked_id_counts[source_obj_id] = tracked_id_counts.get(source_obj_id, 0) + 1
-
-    for index, obj in enumerate(jdata.get('objects', [])):
-      routed_obj = dict(obj)
-      routed_obj.pop('track', None)
-      if source_track is False:
-        obj_id = routed_obj.get('id')
-        if obj_id is None:
-          log.warning(
-            f"Rejecting external-source object without id: source={source_id} "
-            f"scene={scene.uid} category={detection_type} track=false")
-          continue
-        ok, collision_reason = self.identity_claim_registry.claim(
-          scene.uid, detection_type, source_id, obj_id, msg_when)
-        if not ok:
-          log.warning(
-            f"Rejecting external-source object: id={obj_id} from source={source_id} "
-            f"scene={scene.uid} category={detection_type}: {collision_reason}")
-          continue
+    synthetic_intrinsics = None
+    synthetic_distortion = None
+    if pixel_objects:
+      intrinsics = jdata.get('intrinsics')
+      if intrinsics is None:
+        log.warning(f"External source pixel detections missing intrinsics: source={source_id} "
+                    f"scene={scene.uid}")
+        pixel_objects = []
       else:
-        source_obj_id = routed_obj.get('id')
-        if source_obj_id is not None:
-          if tracked_id_counts.get(source_obj_id, 0) == 1:
-            routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{source_obj_id}"
-          else:
+        try:
+          synthetic_intrinsics = CameraIntrinsics(
+            intrinsics,
+            jdata.get('distortion'),
+          )
+          synthetic_distortion = synthetic_intrinsics.distortion
+        except (TypeError, ValueError) as e:
+          log.warning(f"Rejecting external-source pixel detections for source={source_id} "
+                      f"scene={scene.uid}: invalid intrinsics ({e})")
+          pixel_objects = []
+          synthetic_intrinsics = None
+          synthetic_distortion = None
+
+    def _route_objects(input_objects, force_track):
+      tracked_id_counts = {}
+      source_track = jdata.get('track')
+      effective_source_track = True if force_track else source_track
+      if effective_source_track is not False:
+        for obj in input_objects:
+          source_obj_id = obj.get('id')
+          if source_obj_id is not None:
+            tracked_id_counts[source_obj_id] = tracked_id_counts.get(source_obj_id, 0) + 1
+
+      routed_objects = []
+      for index, obj in enumerate(input_objects):
+        routed_obj = dict(obj)
+        routed_obj.pop('track', None)
+        if isinstance(routed_obj.get('bounding_box_px'), dict):
+          routed_obj.pop('translation', None)
+        if effective_source_track is False:
+          obj_id = routed_obj.get('id')
+          if obj_id is None:
             log.warning(
-              f"Duplicate tracked external object id={source_obj_id} from source={source_id} "
-              f"scene={scene.uid} category={detection_type}; ignoring id hint for this message")
-            routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{index}"
+              f"Rejecting external-source object without id: source={source_id} "
+              f"scene={scene.uid} category={detection_type} track=false")
+            continue
+          ok, collision_reason = self.identity_claim_registry.claim(
+            scene.uid, detection_type, source_id, obj_id, msg_when)
+          if not ok:
+            log.warning(
+              f"Rejecting external-source object: id={obj_id} from source={source_id} "
+              f"scene={scene.uid} category={detection_type}: {collision_reason}")
+            continue
         else:
-          routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{index}"
-      routed_objects.append(routed_obj)
+          source_obj_id = routed_obj.get('id')
+          if source_obj_id is not None:
+            if tracked_id_counts.get(source_obj_id, 0) == 1:
+              routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{source_obj_id}"
+            else:
+              log.warning(
+                f"Duplicate tracked external object id={source_obj_id} from source={source_id} "
+                f"scene={scene.uid} category={detection_type}; ignoring id hint for this message")
+              routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{index}"
+          else:
+            routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{index}"
+        routed_objects.append(routed_obj)
+      return routed_objects, effective_source_track
 
-    if not routed_objects:
-      return True
+    routed_translation_objects, translation_track = _route_objects(translation_objects, False)
+    routed_pixel_objects, _ = _route_objects(pixel_objects, True)
 
-    routed_jdata = dict(jdata)
-    routed_jdata['objects'] = routed_objects
-    routed_jdata.pop('track', None)
-    routed_source = SimpleNamespace(name=source_id, uid=source_id, retrack=(source_track is not False))
-    scene.processSceneData(routed_jdata, routed_source, camera_pose,
-                           detection_type, when=msg_when)
+    pixel_moving_objects = []
+    if routed_pixel_objects and synthetic_intrinsics is not None:
+      scene._convertPixelBoundingBoxesToMeters(
+        routed_pixel_objects,
+        synthetic_intrinsics.intrinsics,
+        synthetic_distortion,
+      )
+      pixel_camera = SimpleNamespace(
+        cameraID=source_id,
+        pose=CameraPose(camera_pose.pose_mat, synthetic_intrinsics),
+      )
+      pixel_moving_objects = scene._createMovingObjectsForDetection(
+        detection_type, routed_pixel_objects, msg_when, pixel_camera)
+
+    already_tracked_objects = []
+    if routed_translation_objects:
+      routed_jdata = dict(jdata)
+      routed_jdata['objects'] = routed_translation_objects
+      routed_jdata.pop('track', None)
+      routed_source = SimpleNamespace(
+        name=source_id,
+        uid=source_id,
+        retrack=(translation_track is not False),
+      )
+      if not pixel_moving_objects:
+        scene.processSceneData(routed_jdata, routed_source, camera_pose,
+                               detection_type, when=msg_when)
+        return True
+
+      prepared = scene._createMovingObjectsForSceneData(
+        routed_jdata, routed_source, camera_pose, detection_type, when=msg_when)
+      if prepared is None:
+        return True
+      translation_moving_objects, already_tracked_objects = prepared
+      pixel_moving_objects.extend(translation_moving_objects)
+
+    if pixel_moving_objects:
+      scene._finishProcessing(
+        detection_type,
+        msg_when,
+        pixel_moving_objects,
+        already_tracked_objects,
+      )
     return True
 
   @staticmethod

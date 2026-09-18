@@ -297,6 +297,17 @@ class Scene(SceneModel):
 
   def processSceneData(self, jdata, child, cameraPose,
                        detectionType, when=None):
+    prepared = self._createMovingObjectsForSceneData(
+      jdata, child, cameraPose, detectionType, when)
+    if prepared is None:
+      return True
+    objects, child_objects = prepared
+    self._finishProcessing(detectionType, when, objects, child_objects)
+    return True
+
+  def _createMovingObjectsForSceneData(self, jdata, child, cameraPose,
+                                       detectionType, when=None):
+    """Create moving objects from already-localized scene/source observations."""
 
     new = jdata['objects']
 
@@ -306,7 +317,7 @@ class Scene(SceneModel):
       if 'lat_long_alt' in info:
         if 'translation' in info:
           log.warning("Input data must have only one of 'lat_long_alt' and 'translation'")
-          return True
+          return None
         info['translation'] = convertLLAToECEF(info.pop('lat_long_alt'))
       translation = Point(info['translation'])
       translation = np.hstack([translation.asNumpyCartesian, [1]])
@@ -340,8 +351,7 @@ class Scene(SceneModel):
       else:
         child_objects.append(mobj)
 
-    self._finishProcessing(detectionType, when, objects, child_objects)
-    return True
+    return objects, child_objects
 
   def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     # Compute camera visibility for both retracked objects (fed into this
