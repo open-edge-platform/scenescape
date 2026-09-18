@@ -77,7 +77,7 @@ class JitterEvaluator(TrackerEvaluator):
     self._track_histories: Dict[str, List[tuple]] = {}
     # Per-track rotation history: {track_uuid: [(timestamp, [x, y, z, w]), ...]}
     self._rotation_histories: Dict[str, List[tuple]] = {}
-    # Ground-truth per-track histories (populated when GT CSV is provided)
+    # Ground-truth per-track histories (populated when GT JSONL is provided)
     self._gt_track_histories: Dict[str, List[tuple]] = {}
     # FPS derived from tracker output timestamps (used to convert GT frame → time)
     self._camera_fps: float = 30.0
@@ -156,8 +156,8 @@ class JitterEvaluator(TrackerEvaluator):
     Args:
       tracker_outputs: Iterator of tracker output dicts in canonical
         Tracker Output Format (see tools/tracker/evaluation/README.md).
-      ground_truth: Path to a MOTChallenge 3D CSV file
-        (frame,id,x,y,z,conf,class,visibility), or an iterator whose first
+      ground_truth: Path to a canonical JSONL ground-truth file (absolute ISO
+        timestamps, flattened ``objects`` array), or an iterator whose first
         element is such a path string, or None to skip GT metrics.
         NOTE: The base class signature requires Iterator, but in practice
         this is a file path string returned by dataset.get_ground_truth().

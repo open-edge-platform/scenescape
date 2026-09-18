@@ -186,7 +186,7 @@ For GT metrics, ground-truth frame numbers are converted to relative timestamps 
 
 - Builds per-track position histories from canonical tracker output format.
 - Builds independent per-track quaternion rotation histories; rotation-only objects are supported.
-- Parses MOTChallenge 3D CSV ground-truth file for GT metric computation.
+- Parses canonical JSONL ground-truth file for GT metric computation.
 - Supports variable frame rates — time deltas are computed from actual timestamps.
 - Deduplicates frames with identical timestamps (mirrors `TrackEvalEvaluator` behaviour).
 - Sorts each track's positions by timestamp before metric computation.
@@ -345,7 +345,7 @@ metrics = (evaluator
 ```
 
 **Ground-truth format**:
-Evaluators receive ground-truth in **MOTChallenge 3D CSV format**: See [Canonical Data Formats](../README.md#canonical-data-formats)
+Evaluators receive ground-truth in **canonical JSONL format** (absolute ISO timestamps): See [Canonical Data Formats](../README.md#canonical-data-formats)
 
 - Provided by dataset's `get_ground_truth()` method
 

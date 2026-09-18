@@ -24,9 +24,9 @@ This evaluator splits on ``":"`` to recover ``camera_id`` and ``object_id``.
 
 Ground-truth format
 -------------------
-Ground truth is expected as a file path (str) to a MOTChallenge 3-D CSV file
-with 8 columns:
-  frame, id, x, y, z, conf, class, visibility
+Ground truth is expected as a file path (str) to a canonical JSONL file, one
+frame per line with an absolute ISO timestamp and a flattened ``objects`` array
+(``id``, ``category``, ``translation``).
 
 This is the same format produced by ``UnityDataset.get_ground_truth()``.
 
