@@ -199,7 +199,7 @@ This starts four extra containers, on top of the normal demo services:
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lidar-scene-init` | One-shot: seeds the "Lidar Intersection" scene, camera, and sensor via the Scene Import REST API (idempotent - skips if the scene already exists)                                                                                                                                                                                            |
 | `lidar-data-init`  | One-shot: converts the manually-downloaded raw dataset's `.pcd` LiDAR frames to `.bin` (via `convert_pcd_to_bin.py`) and re-encodes its `.jpg` camera frames at a lower JPEG quality (via `reencode_jpegs.py`) into the shared sample-data volume - only mounts the `image/`/`velodyne/` subdirectories, see [Prerequisites](#prerequisites) |
-| `lidar-model-init` | One-shot: builds and installs the PointPillars OpenVINO™ model + GStreamer inference extension into the shared models volume (first run only; can take several minutes)                                                                                                                                                                      |
+| `lidar-model-init` | One-shot: builds and installs the PointPillars OpenVINO™ model + GStreamer inference extension into the shared models volume (first run only; can take several minutes)                                                                                                                                                                     |
 | `lidar-stream`     | Long-running: runs both GStreamer pipelines and publishes fused-ready detections over MQTT                                                                                                                                                                                                                                                   |
 
 Check the one-shot containers completed successfully, and that `lidar-stream`
@@ -399,12 +399,12 @@ variables (see the commented examples in
 | Variable                  | Default               | Description                                                                                    |
 | ------------------------- | --------------------- | ---------------------------------------------------------------------------------------------- |
 | `LIDAR_SENSOR_ID`         | `intersection-lidar1` | Sensor id used for the MQTT topic and payload                                                  |
-| `LIDAR_DEVICE`            | `GPU`                 | OpenVINO™ device for PointPillars inference (`CPU` fallback is much slower)                    |
+| `LIDAR_DEVICE`            | `GPU`                 | OpenVINO™ device for PointPillars inference (`CPU` fallback is much slower)                   |
 | `LIDAR_SCORE_THRESHOLD`   | `0.70`                | Minimum detection confidence to publish                                                        |
 | `LIDAR_FRAME_RATE`        | `10`                  | Target playback frame rate                                                                     |
 | `LIDAR_LOOP`              | `true`                | Loop the recorded frame sequence                                                               |
 | `CAM_SENSOR_ID`           | `intersection-cam1`   | Sensor id used for the MQTT topic and payload                                                  |
-| `CAM_DEVICE`              | `CPU`                 | OpenVINO™ device for the camera detector                                                       |
+| `CAM_DEVICE`              | `CPU`                 | OpenVINO™ device for the camera detector                                                      |
 | `CAM_SCORE_THRESHOLD`     | `0.8`                 | Minimum detection confidence to publish                                                        |
 | `CAM_DETECTION_LABELS`    | `vehicle,cyclist`     | Comma-separated category allow-list                                                            |
 | `LIDAR_CAM_LAG_TOLERANCE` | `2`                   | Max frames one branch may run ahead of the other before it is paced back (keeps `lag` bounded) |
