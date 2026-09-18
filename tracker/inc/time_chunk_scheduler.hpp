@@ -4,6 +4,7 @@
 #pragma once
 
 #include "config_loader.hpp"
+#include "object_class.hpp"
 #include "scene_registry.hpp"
 #include "time_chunk_buffer.hpp"
 #include "tracking_worker.hpp"
@@ -40,10 +41,12 @@ public:
      * @param registry Reference to SceneRegistry for scene name lookup
      * @param config Tracking configuration
      * @param publish_callback Callback for workers to publish results
+     * @param clock_fn Wall-clock source for track timestamps
+     * @param object_classes Per-category projection settings from Manager assets
      */
     TimeChunkScheduler(TimeChunkBuffer& buffer, const SceneRegistry& registry,
                        const TrackingConfig& config, PublishCallback publish_callback,
-                       ClockFn clock_fn = makeSystemClock());
+                       ClockFn clock_fn = makeSystemClock(), ObjectClassMap object_classes = {});
 
     /// Destructor stops scheduler and all workers
     ~TimeChunkScheduler();
@@ -126,6 +129,7 @@ private:
     TrackingConfig config_;
     PublishCallback publish_callback_;
     ClockFn clock_fn_;
+    ObjectClassMap object_classes_;
 
     std::chrono::milliseconds interval_;
     std::thread scheduler_thread_;
