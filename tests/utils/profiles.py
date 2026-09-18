@@ -592,6 +592,30 @@ ANALYTICS_MQTT = ServiceProfile(
   },
 )
 
+REID_QUEUING_ONLY = ServiceProfile(
+  name="reid_queuing_only",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-vdms.yml",
+    f"{DLS}/compose-queuing_video_reid.yml",
+    f"{COMPOSE}/compose-scene_reid.yml",
+    f"{COMPOSE}/compose-web_default.yml",
+    f"{COMPOSE}/compose-cams.yml",
+    f"{COMPOSE}/compose-analytics.yml",
+  ),
+  wait_for={
+    "broker": _BROKER,
+    "ntpserv": WaitConfig(),
+    "pgserver": _PGSERVER,
+    "vdms": WaitConfig(),
+    "web": _WEB,
+    "queuing-video": WaitConfig(),
+    "scene": _SCENE,
+  },
+)
+
 # Registry: maps profile name -> ServiceProfile for CLI lookup
 PROFILE_REGISTRY: dict = {
   p.name: p
@@ -602,6 +626,7 @@ PROFILE_REGISTRY: dict = {
     FULL_STACK_WITH_RETAIL_VIDEO,
     FULL_STACK_WITH_VIDEO_AND_RETAIL,
     REID,
+    REID_QUEUING_ONLY,
     REID_CORE,
     REID_QDRANT,
     REID_CORE_QDRANT,
