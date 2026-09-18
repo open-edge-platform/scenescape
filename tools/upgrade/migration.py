@@ -20,7 +20,7 @@ def migration_command(compose_files, profiles, project_name, operation,
                       deployment_root=None):
   """Build a manager command that uses committed Django migrations only."""
   return compose_base(compose_files, profiles, project_name, deployment_root) + [
-    "exec", "-T", "web", "./manage.py", *operation]
+    "exec", "-T", "web", "/home/scenescape/Scenescape/manage.py", *operation]
 
 
 def read_applied_migrations(compose_files, profiles, project_name,

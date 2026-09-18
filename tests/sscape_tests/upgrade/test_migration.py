@@ -10,6 +10,7 @@ import subprocess
 import pytest
 
 from tools.upgrade.migration import migration_plan
+from tools.upgrade.migration import migration_command
 from tools.upgrade.migration import prepare_migrations
 from tools.upgrade.migration import upgrade_postgres_engine
 from tools.upgrade.migration import write_state
@@ -24,6 +25,14 @@ TRANSITION = {
   "django_migrations": ["0002_fields", "0003_cache"],
 }
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_committed_migration_uses_absolute_manager_path():
+  command = migration_command(
+    ["target.yml"], [], "factory", ["migrate", "--noinput"], "/target")
+
+  assert command[-3:] == [
+    "/home/scenescape/Scenescape/manage.py", "migrate", "--noinput"]
 
 
 def test_plan_reports_only_missing_committed_migrations():
