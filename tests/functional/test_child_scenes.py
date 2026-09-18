@@ -360,6 +360,10 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
     exit_code = 0
 
   finally:
+    try:
+      client.loopStop()
+    except Exception:
+      pass
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0

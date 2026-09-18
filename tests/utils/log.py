@@ -43,13 +43,19 @@ class _Tee:
     self._mirror = mirror
 
   def write(self, data):
-    self._mirror.write(data)
+    try:
+      self._mirror.write(data)
+    except (ValueError, OSError):
+      pass
     n = self._primary.write(data)
     self._primary.flush()
     return n
 
   def flush(self):
-    self._mirror.flush()
+    try:
+      self._mirror.flush()
+    except (ValueError, OSError):
+      pass
     self._primary.flush()
 
   def isatty(self):
