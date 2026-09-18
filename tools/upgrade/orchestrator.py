@@ -11,11 +11,17 @@ import subprocess
 try:
   from .backup import compose_base, create_backup, restore_backup, verify_backup
   from .migration import apply_migrations
-  from .preflight import build_report, find_transition, load_compatibility
+  from .preflight import build_report, classify_volumes, compose_inventory_changes
+  from .preflight import find_transition
+  from .preflight import git_inventory, load_compatibility, resolve_compose_paths
+  from .preflight import service_inventory
 except ImportError:
   from backup import compose_base, create_backup, restore_backup, verify_backup
   from migration import apply_migrations
-  from preflight import build_report, find_transition, load_compatibility
+  from preflight import build_report, classify_volumes, compose_inventory_changes
+  from preflight import find_transition
+  from preflight import git_inventory, load_compatibility, resolve_compose_paths
+  from preflight import service_inventory
 
 
 STATE_NAME = "upgrade-state.json"
@@ -45,12 +51,62 @@ def read_operation_state(operation_dir):
   return state
 
 
-def plan_upgrade(source, target, manifest_path, compose_config, deployment_root,
-                 compose_files, profiles, project_name, runner=subprocess.run):
+def plan_upgrade(source, target, manifest_path, source_compose_config,
+                 target_compose_config, source_deployment_root,
+                 target_deployment_root, source_compose_files,
+                 target_compose_files, source_profiles, target_profiles,
+                 project_name, runner=subprocess.run):
   """Build the canonical read-only plan for one adjacent transition."""
+  source_compose_files = resolve_compose_paths(
+    source_compose_files, source_deployment_root)
+  target_compose_files = resolve_compose_paths(
+    target_compose_files, target_deployment_root)
   transition = find_transition(load_compatibility(manifest_path), source, target)
-  return build_report(source, target, transition, compose_config, deployment_root,
-                      compose_files, profiles, project_name, runner=runner)
+  report = build_report(
+    source, target, transition, target_compose_config, target_deployment_root,
+    target_compose_files, target_profiles, project_name, runner=runner)
+  target_deployment = report.pop("deployment")
+  source_deployment = {
+    "type": "compose",
+    "root": str(Path(source_deployment_root).resolve()),
+    "project_name": project_name or source_compose_config.get("name"),
+    "compose_files": [str(path) for path in source_compose_files],
+    "profiles": source_profiles,
+    "git": git_inventory(source_deployment_root, runner=runner),
+    "services": service_inventory(source_compose_config),
+    "volumes": classify_volumes(source_compose_config),
+  }
+  source_unclassified = [
+    volume["name"] for volume in source_deployment["volumes"]
+    if volume["classification"] == "unclassified"
+  ]
+  if source_unclassified:
+    report["warnings"].append({
+      "code": "unclassified_source_volumes",
+      "message": "Some source volumes require an explicit backup policy",
+      "volumes": source_unclassified,
+    })
+    if report["status"] == "ready":
+      report["status"] = "action_required"
+  report["source_deployment"] = source_deployment
+  report["target_deployment"] = target_deployment
+  report["compose_changes"] = compose_inventory_changes(
+    source_compose_config, target_compose_config)
+  if any(report["compose_changes"].values()):
+    report["warnings"].append({
+      "code": "compose_definition_changed",
+      "message": "Source and target Compose service or volume definitions differ",
+    })
+    if report["status"] == "ready":
+      report["status"] = "action_required"
+  if (report["compose_changes"]["volumes_removed"] or
+      report["compose_changes"]["volumes_renamed"]):
+    report["blockers"].append({
+      "code": "persistent_volume_migration_required",
+      "message": "Persistent volume removal or rename requires an explicit migration",
+    })
+    report["status"] = "unsupported"
+  return report
 
 
 def begin_upgrade(plan, operation_dir, secrets_dir, output_dir,
@@ -58,24 +114,26 @@ def begin_upgrade(plan, operation_dir, secrets_dir, output_dir,
   """Create and verify the mandatory backup, then pause before cutover."""
   if plan["status"] == "unsupported":
     raise ValueError("cannot apply an unsupported transition")
-  deployment = plan["deployment"]
+  source_deployment = plan["source_deployment"]
   volumes = {}
-  for item in deployment["volumes"]:
+  for item in source_deployment["volumes"]:
     definition = {"name": item["name"]}
     if item["classification"] == "disposable_cache":
       definition["driver_opts"] = {"type": "tmpfs"}
     volumes[item["logical_name"]] = definition
   backup_dir, _manifest = backup(
-    {"name": deployment["project_name"],
+    {"name": source_deployment["project_name"],
      "volumes": volumes},
-    deployment["root"], [Path(path) for path in deployment["compose_files"]],
-    deployment["profiles"], secrets_dir, output_dir)
+    source_deployment["root"],
+    [Path(path) for path in source_deployment["compose_files"]],
+    source_deployment["profiles"], secrets_dir, output_dir)
   verifier(backup_dir)
   return write_operation_state(operation_dir, {
     "schema_version": 1,
     "source_version": plan["source_version"],
     "target_version": plan["target_version"],
-    "deployment": deployment,
+    "source_deployment": source_deployment,
+    "target_deployment": plan["target_deployment"],
     "backup_dir": str(backup_dir),
     "phase": "awaiting_database_cutover",
     "status": "action_required",
@@ -114,15 +172,19 @@ def resume_upgrade(operation_dir, manifest_path, image_action="pull",
                                state["source_version"], state["target_version"])
   if transition is None:
     raise ValueError("saved transition is no longer authorized")
-  deployment = state["deployment"]
-  compose = compose_base(deployment["compose_files"], deployment["profiles"],
-                         deployment["project_name"])
+  deployment = state["target_deployment"]
+  compose = compose_base(
+    deployment["compose_files"], deployment["profiles"],
+    deployment["project_name"], deployment["root"])
   try:
     if image_action != "none":
       runner(compose + [image_action], check=True)
-    runner(compose + ["up", "-d", "--force-recreate"], check=True)
-    migrator(deployment["compose_files"], deployment["profiles"],
-             deployment["project_name"], transition, operation_dir, runner=runner)
+    runner(compose + ["up", "-d", "--force-recreate", "--remove-orphans"],
+           check=True)
+    migrator(
+      deployment["compose_files"], deployment["profiles"],
+      deployment["project_name"], transition, operation_dir, deployment["root"],
+      runner=runner)
     compose_health(compose, runner=runner)
   except (OSError, ValueError, subprocess.CalledProcessError):
     write_operation_state(operation_dir, {**state, "phase": "failed", "status": "failed"})
@@ -140,11 +202,14 @@ def verify_upgrade(operation_dir, manifest_path, runner=subprocess.run,
                                state["source_version"], state["target_version"])
   if transition is None:
     raise ValueError("saved transition is no longer authorized")
-  deployment = state["deployment"]
-  migrator(deployment["compose_files"], deployment["profiles"],
-           deployment["project_name"], transition, operation_dir, runner=runner)
-  compose_health(compose_base(deployment["compose_files"], deployment["profiles"],
-                              deployment["project_name"]), runner=runner)
+  deployment = state["target_deployment"]
+  migrator(
+    deployment["compose_files"], deployment["profiles"],
+    deployment["project_name"], transition, operation_dir, deployment["root"],
+    runner=runner)
+  compose_health(compose_base(
+    deployment["compose_files"], deployment["profiles"],
+    deployment["project_name"], deployment["root"]), runner=runner)
   return write_operation_state(operation_dir, {
     **state, "phase": "verified", "status": "ready",
   })

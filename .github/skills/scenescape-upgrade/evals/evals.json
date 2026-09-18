@@ -3,13 +3,15 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Upgrade my Docker Compose SceneScape deployment in /opt/scenescape from 2026.1.0 to 2026.2.0. The project is factory and uses compose.yml plus compose.reid.yml with the controller profile. Preserve all data.",
-      "expected_output": "The agent runs an exact adjacent-transition plan, preserves all Compose identity arguments, creates and verifies a backup only after confirmation, pauses again before database cutover, resumes through the stateful CLI, and verifies the result without invoking destructive clean targets.",
+      "prompt": "Upgrade my Docker Compose SceneScape deployment from /opt/scenescape-2026.1 to /opt/scenescape-2026.2. The project is factory and each checkout has compose.yml plus compose.reid.yml with the controller profile. Preserve all data even though the Compose definitions changed.",
+      "expected_output": "The agent runs an exact adjacent-transition plan, uses source Compose inputs for backup and target Compose inputs for cutover, reviews service and volume changes, creates and verifies a backup only after confirmation, pauses again before database cutover, resumes through the stateful CLI, and verifies the result without invoking destructive clean targets.",
       "should_trigger": true,
       "files": [],
       "expectations": [
         "Uses tools/upgrade/scenescape-upgrade and checks compatibility.json for the exact 2026.1.0 to 2026.2.0 transition",
-        "Preserves deployment root /opt/scenescape, project factory, both Compose files in order, and the controller profile",
+        "Preserves source root /opt/scenescape-2026.1 and target root /opt/scenescape-2026.2, project factory, both releases' Compose files in order, and the controller profile",
+        "Uses source Compose inputs for backup and target Compose inputs for pull or build, recreation, migrations, and health verification",
+        "Reports source-to-target service and persistent-volume changes and stops if a removed or renamed volume lacks an explicit migration",
         "Runs or proposes release-plan before any mutation and interprets JSON action_required as a workflow status rather than an unexplained command failure",
         "Requires separate confirmations for verified backup creation and database cutover",
         "Uses release-apply, release-resume, and release-verify with a persistent operation directory",

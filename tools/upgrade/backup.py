@@ -31,9 +31,9 @@ def sha256(path):
   return digest.hexdigest()
 
 
-def compose_base(compose_files, profiles, project_name=None):
+def compose_base(compose_files, profiles, project_name=None, project_directory=None):
   """Return Compose arguments without a terminal operation."""
-  command = compose_command(compose_files, profiles)[:-3]
+  command = compose_command(compose_files, profiles, project_directory)[:-3]
   if project_name:
     command[2:2] = ["--project-name", project_name]
   return command
@@ -110,7 +110,8 @@ def create_backup(compose_config, deployment_root, compose_files, profiles,
   output_dir = Path(output_parent).resolve() / f"scenescape-backup-{operation_id}"
   output_dir.mkdir(parents=True, mode=0o700)
   output_dir.chmod(0o700)
-  compose = compose_base(compose_files, profiles, compose_config.get("name"))
+  compose = compose_base(
+    compose_files, profiles, compose_config.get("name"), deployment_root)
   logical_dump = output_dir / "scenescape.psql"
   with logical_dump.open("wb") as dump_handle:
     run_command(compose + ["exec", "-T", "pgserver", "pg_dump", "-U",

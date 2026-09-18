@@ -29,6 +29,7 @@ from preflight import build_report
 from preflight import find_transition
 from preflight import load_compatibility
 from preflight import resolve_compose
+from preflight import resolve_compose_paths
 from preflight import STATUS_EXIT_CODES
 
 
@@ -104,6 +105,10 @@ def create_parser():
     release.add_argument("--deployment-root", type=Path, default=REPOSITORY_ROOT)
     release.add_argument("--compose-file", action="append", type=Path, default=[])
     release.add_argument("--profile", action="append", default=[])
+    release.add_argument("--source-deployment-root", type=Path)
+    release.add_argument("--source-compose-file", action="append", type=Path,
+                         default=[])
+    release.add_argument("--source-profile", action="append", default=[])
     release.add_argument("--project-name")
     release.add_argument("--compatibility", type=Path,
                          default=TOOL_DIR / "compatibility.json")
@@ -162,8 +167,10 @@ def run_preflight(args):
 def compose_inputs(args):
   """Resolve common Compose command inputs."""
   require_compose(getattr(args, "deployment_type", "compose"))
-  compose_files = args.compose_file or [args.deployment_root / "docker-compose.yml"]
-  compose_config = resolve_compose(compose_files, args.profile, args.project_name)
+  compose_files = args.compose_file or [Path("docker-compose.yml")]
+  compose_files = resolve_compose_paths(compose_files, args.deployment_root)
+  compose_config = resolve_compose(
+    compose_files, args.profile, args.project_name, args.deployment_root)
   return compose_files, compose_config
 
 
@@ -267,17 +274,32 @@ def run_certificate(args, renew=False):
 def run_release_plan(args, apply=False):
   """Plan an adjacent release and optionally create its verified backup."""
   target_version = args.target_version or current_version(args.deployment_root)
-  compose_files, compose_config = compose_inputs(args)
+  target_compose_files, target_compose_config = compose_inputs(args)
+  source_root = args.source_deployment_root or args.deployment_root
+  if args.source_compose_file:
+    source_compose_files = args.source_compose_file
+  elif args.source_deployment_root:
+    source_compose_files = [Path("docker-compose.yml")]
+  else:
+    source_compose_files = target_compose_files
+  source_compose_files = resolve_compose_paths(source_compose_files, source_root)
+  source_profiles = args.source_profile or args.profile
+  source_compose_config = resolve_compose(
+    source_compose_files, source_profiles, args.project_name, source_root)
   report = plan_upgrade(
-    args.source_version, target_version, args.compatibility, compose_config,
-    args.deployment_root, compose_files, args.profile,
-    args.project_name or compose_config.get("name"))
+    args.source_version, target_version, args.compatibility,
+    source_compose_config, target_compose_config, source_root,
+    args.deployment_root, source_compose_files, target_compose_files,
+    source_profiles, args.profile,
+    args.project_name or source_compose_config.get("name"))
   if not apply:
     sys.stdout.write(json.dumps(report, indent=2, sort_keys=True) + "\n")
     return STATUS_EXIT_CODES[report["status"]]
-  if report["deployment"]["git"]["dirty"] and not args.allow_dirty:
+  dirty = (report["source_deployment"]["git"]["dirty"] or
+           report["target_deployment"]["git"]["dirty"])
+  if dirty and not args.allow_dirty:
     raise ValueError("dirty deployment checkout requires --allow-dirty")
-  secrets_dir = args.secrets_dir or args.deployment_root / "manager" / "secrets"
+  secrets_dir = args.secrets_dir or source_root / "manager" / "secrets"
   state = begin_upgrade(report, args.operation_dir, secrets_dir, args.output_dir)
   sys.stdout.write(json.dumps(state, indent=2, sort_keys=True) + "\n")
   return STATUS_EXIT_CODES[state["status"]]

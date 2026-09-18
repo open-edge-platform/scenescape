@@ -71,14 +71,18 @@ selected route:
 1. Operation: release plan/apply/resume/verify/rollback, certificate check/renewal, standalone
    backup/verification/restore, database check/migration, or Kubernetes readiness.
 2. Deployment type: Docker Compose or Kubernetes/Helm.
-3. Deployment root containing the target SceneScape checkout.
+3. Separate deployment roots for the running source release and target release. Run the tooling
+   from the target checkout.
 4. For release/database work: installed source version and desired target version.
-5. For Compose: project name, all Compose files in precedence order, enabled profiles, and custom
-   secrets directory. Use defaults only when the user confirms the standard deployment layout.
-6. For stateful operations: protected backup parent and operation-state directory.
-7. For certificate work: minimum validity threshold, certificate domain, and existing extra broker,
+5. For Compose: project name, source and target Compose files in precedence order, source and
+   target profiles, and custom secrets directory. Use shared defaults only when the user confirms
+   the definitions are identical across both releases.
+6. For separate checkouts: confirm the target `.env` preserves the deployment settings and points
+   `SECRETSDIR` at the existing source secrets directory. Never regenerate secrets as preparation.
+7. For stateful operations: protected backup parent and operation-state directory.
+8. For certificate work: minimum validity threshold, certificate domain, and existing extra broker,
    web, and ReID server SAN host labels.
-8. For Kubernetes: Helm release and namespace.
+9. For Kubernetes: Helm release and namespace.
 
 Do not ask for secret values. If a terminal prompts for one, instruct the user to enter it directly
 in the terminal.
@@ -92,14 +96,19 @@ profiles, deployment roots, or secrets directories are involved.
 cd <deployment-root>
 tools/upgrade/scenescape-upgrade <command> \
   --deployment-root <deployment-root> \
+  --source-deployment-root <source-deployment-root> \
+  --source-compose-file <source-base-compose-file> \
+  --source-profile <source-profile> \
   --project-name <project-name> \
-  --compose-file <base-compose-file> \
+  --compose-file <target-base-compose-file> \
   --compose-file <override-compose-file> \
   --profile <profile>
 ```
 
-Omit only arguments that genuinely do not apply. Repeat `--compose-file` and `--profile` in the
-user's effective order; never collapse them into a guessed default command.
+Omit only arguments that genuinely do not apply. Repeat source and target Compose files and
+profiles in their effective order; never collapse them into a guessed default command. Source
+inputs identify the running release for backup and rollback. Target inputs identify the release
+used for image preparation, recreation, migration, and verification.
 
 ## Route the operation
 
@@ -107,16 +116,20 @@ user's effective order; never collapse them into a guessed default command.
 
 1. Read `tools/upgrade/compatibility.json` and confirm the exact adjacent transition exists.
 2. Run `release-plan` with source/target versions and the common Compose arguments.
-3. Present `blockers`, `warnings`, detected volumes, Git state, image action, expected downtime,
-   and backup destination. A dirty checkout requires the user to resolve it or explicitly approve
-   `--allow-dirty` after reviewing the changed paths.
+3. Present `blockers`, `warnings`, both source and target service/volume inventories, both Git
+   states, image action, expected downtime, and backup destination. Highlight added, removed,
+   renamed, or newly unclassified volumes. Stop when a persistent volume is removed or physically
+   renamed unless the canonical tooling implements its explicit data migration. A dirty checkout
+   requires the user to resolve it or explicitly approve `--allow-dirty` after reviewing the
+   changed paths.
 4. Ask whether to create the verified pre-upgrade backup.
 5. After confirmation, run `release-apply` with `--operation-dir`, `--output-dir`, and
    `--secrets-dir` when custom. It must stop at `awaiting_database_cutover`.
 6. Report the backup path and verification result. Ask separately for database cutover confirmation.
 7. After confirmation, run `release-resume --confirm-database-cutover` with the saved operation
    directory and the correct `--image-action` (`pull`, `build`, or `none`).
-8. Run `release-verify`, summarize migration and Compose health, then ask the user to validate
+8. Confirm that backup used the source Compose definition and cutover used the target definition.
+   Run `release-verify`, summarize migration and Compose health, then ask the user to validate
    manager login/API, scene and camera counts, media, MQTT, controller readiness, and enabled
    optional services.
 

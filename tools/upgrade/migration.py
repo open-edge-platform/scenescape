@@ -14,21 +14,22 @@ except ImportError:
   from backup import compose_base
 
 
-def migration_command(compose_files, profiles, project_name, operation):
+def migration_command(compose_files, profiles, project_name, operation,
+                      deployment_root=None):
   """Build a manager command that uses committed Django migrations only."""
-  return compose_base(compose_files, profiles, project_name) + [
+  return compose_base(compose_files, profiles, project_name, deployment_root) + [
     "exec", "-T", "web", "./manage.py", *operation]
 
 
 def read_applied_migrations(compose_files, profiles, project_name,
-                            runner=subprocess.run):
+                            deployment_root=None, runner=subprocess.run):
   """Read applied manager migrations without changing the database."""
   command = migration_command(compose_files, profiles, project_name, [
     "shell", "-c",
     "import json; from django.db.migrations.recorder import MigrationRecorder; "
     "print(json.dumps(sorted(n for a,n in MigrationRecorder.Migration.objects."
     "filter(app='manager').values_list('app','name'))))",
-  ])
+  ], deployment_root)
   result = runner(command, check=True, capture_output=True, text=True)
   return json.loads(result.stdout.strip().splitlines()[-1])
 
@@ -63,18 +64,18 @@ def write_state(operation_dir, source, target, phase, plan):
 
 
 def apply_migrations(compose_files, profiles, project_name, transition,
-                     operation_dir, runner=subprocess.run):
+                     operation_dir, deployment_root=None, runner=subprocess.run):
   """Apply and verify committed Django migrations for one transition."""
   applied = read_applied_migrations(
-    compose_files, profiles, project_name, runner=runner)
+    compose_files, profiles, project_name, deployment_root, runner=runner)
   plan = migration_plan(transition, applied)
   write_state(operation_dir, transition["source"], transition["target"],
               "planned", plan)
   if plan["pending"]:
     runner(migration_command(compose_files, profiles, project_name,
-                             ["migrate", "--noinput"]), check=True)
+                             ["migrate", "--noinput"], deployment_root), check=True)
   applied = read_applied_migrations(
-    compose_files, profiles, project_name, runner=runner)
+    compose_files, profiles, project_name, deployment_root, runner=runner)
   verified = migration_plan(transition, applied)
   if verified["pending"]:
     write_state(operation_dir, transition["source"], transition["target"],

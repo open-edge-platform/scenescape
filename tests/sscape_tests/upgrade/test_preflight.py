@@ -12,9 +12,11 @@ import pytest
 from tools.upgrade.preflight import build_report
 from tools.upgrade.preflight import classify_volumes
 from tools.upgrade.preflight import compose_command
+from tools.upgrade.preflight import compose_inventory_changes
 from tools.upgrade.preflight import find_transition
 from tools.upgrade.preflight import load_compatibility
 from tools.upgrade.preflight import redact
+from tools.upgrade.preflight import resolve_compose_paths
 
 
 def test_load_and_find_explicit_transition(tmp_path):
@@ -44,6 +46,41 @@ def test_compose_command_preserves_files_and_profiles():
   assert compose_command([Path("base.yml"), Path("reid.yml")], ["controller"]) == [
     "docker", "compose", "-f", "base.yml", "-f", "reid.yml",
     "--profile", "controller", "config", "--format", "json"]
+
+
+def test_compose_command_uses_release_project_directory():
+  assert compose_command(
+    [Path("release/compose.yml")], [], Path("release")) == [
+      "docker", "compose", "--project-directory", "release",
+      "-f", "release/compose.yml", "config", "--format", "json"]
+
+
+def test_relative_compose_paths_resolve_from_release_root(tmp_path):
+  assert resolve_compose_paths(
+    [Path("compose.yml"), tmp_path / "absolute.yml"], tmp_path) == [
+      tmp_path / "compose.yml", tmp_path / "absolute.yml"]
+
+
+def test_reports_service_and_persistent_volume_changes():
+  changes = compose_inventory_changes(
+    {"services": {"web": {}, "vdms": {}},
+     "volumes": {"vol-db": {"name": "factory_db"},
+                 "vol-reid": {"name": "factory_vdms"}}},
+    {"services": {"web": {}, "qdrant": {}},
+     "volumes": {"vol-db": {"name": "factory_db"},
+                 "vol-reid": {"name": "factory_qdrant"},
+                 "vol-media": {"name": "factory_media"}}})
+
+  assert changes == {
+    "services_added": ["qdrant"],
+    "services_removed": ["vdms"],
+    "volumes_added": ["vol-media"],
+    "volumes_removed": [],
+    "volumes_renamed": [{
+      "logical_name": "vol-reid", "source": "factory_vdms",
+      "target": "factory_qdrant",
+    }],
+  }
 
 
 def test_classifies_data_and_tmpfs_volumes():

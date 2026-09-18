@@ -127,7 +127,7 @@ help:
 	@echo "  certificate-check           Check deployment certificate lifetime"
 	@echo "  certificate-renew           Renew TLS certificates without rotating credentials"
 	@echo "  upgrade-plan                Plan an adjacent release upgrade"
-	@echo "  upgrade-apply               Create and verify the required upgrade backup"
+	@echo "  upgrade-apply               Back up the source release before target cutover"
 	@echo "  upgrade-resume              Confirm cutover and resume the upgrade"
 	@echo "  upgrade-verify              Reverify an applied release upgrade"
 	@echo "  upgrade-rollback            Restore the verified pre-upgrade backup"
@@ -939,6 +939,7 @@ upgrade-plan upgrade-apply:
 	@tools/upgrade/scenescape-upgrade release-$(patsubst upgrade-%,%,$@) \
 		--source-version $(SOURCE_VERSION) \
 		$(if $(TARGET_VERSION),--target-version $(TARGET_VERSION),) \
+		$(if $(SOURCE_DEPLOYMENT_ROOT),--source-deployment-root $(SOURCE_DEPLOYMENT_ROOT),) \
 		--project-name $(COMPOSE_PROJECT_NAME) \
 		--operation-dir $(or $(UPGRADE_STATE_DIR),$(CURDIR)/upgrade-state) \
 		--output-dir $(or $(BACKUP_DIR),$(CURDIR)) \

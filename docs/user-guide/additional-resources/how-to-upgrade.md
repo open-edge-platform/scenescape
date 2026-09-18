@@ -11,9 +11,14 @@ must use the read-only readiness report and operator guidance in the
 
 ## Prerequisites
 
-- Keep the source deployment available until post-upgrade verification passes.
+- Keep separate source- and target-release checkouts available until post-upgrade verification
+  passes. The source checkout must match the running deployment; run upgrade commands from the
+  target checkout.
+- Prepare the target checkout's `.env` with the existing deployment settings. Its `SECRETSDIR`
+  must reference the running deployment's secrets directory; do not generate replacement secrets.
 - Use the same Compose files, profiles, project name, and secrets directory as
-  the running deployment.
+  the running deployment for source backup. Use the target release's Compose files for image
+  preparation, service recreation, migration, and verification.
 - Provide enough space for a PostgreSQL logical dump and archives of every
   persistent Docker volume.
 - Resolve uncommitted deployment changes before upgrading, or explicitly accept
@@ -29,6 +34,7 @@ Run preflight from the target release checkout:
 make upgrade-plan \
    SOURCE_VERSION=<installed-version> \
    TARGET_VERSION=<target-version> \
+  SOURCE_DEPLOYMENT_ROOT=<source-release-checkout> \
    COMPOSE_PROJECT_NAME=<project-name>
 ```
 
@@ -44,11 +50,24 @@ argument:
 tools/upgrade/scenescape-upgrade release-plan \
    --source-version <installed-version> \
    --target-version <target-version> \
+  --source-deployment-root <source-release-checkout> \
+  --source-compose-file <source-release-checkout>/compose.yml \
+  --source-compose-file <source-release-checkout>/compose.override.yml \
+  --source-profile controller \
+  --deployment-root <target-release-checkout> \
    --project-name <project-name> \
-   --compose-file compose.yml \
-   --compose-file compose.override.yml \
+  --compose-file <target-release-checkout>/compose.yml \
+  --compose-file <target-release-checkout>/compose.override.yml \
    --profile controller
 ```
+
+When `--source-compose-file` or `--source-profile` is omitted, it defaults to the target Compose
+inputs. Use that shorthand only when the definitions are identical across both releases. The plan
+reports source and target service, volume, Git, Compose-file, and profile inventories separately.
+Review added, removed, renamed, or newly unclassified volumes before creating the backup.
+The workflow refuses persistent-volume removals or physical-name changes until an explicit data
+migration is implemented for that transition. This prevents a changed Compose file from silently
+starting a service with empty storage.
 
 ## Back up before cutover
 
@@ -59,6 +78,7 @@ configuration, and secrets:
 make upgrade-apply \
    SOURCE_VERSION=<installed-version> \
    TARGET_VERSION=<target-version> \
+  SOURCE_DEPLOYMENT_ROOT=<source-release-checkout> \
    COMPOSE_PROJECT_NAME=<project-name> \
    BACKUP_DIR=<protected-backup-parent> \
    UPGRADE_STATE_DIR=<protected-operation-directory>

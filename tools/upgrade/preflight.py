@@ -21,6 +21,15 @@ DATA_VOLUME_HINTS = (
   "dataset", "db", "media", "migration", "model", "netvlad", "reid", "video")
 
 
+def resolve_compose_paths(compose_files, deployment_root):
+  """Resolve relative Compose paths from their release checkout."""
+  root = Path(deployment_root).resolve()
+  return [
+    path.resolve() if path.is_absolute() else (root / path).resolve()
+    for path in (Path(item) for item in compose_files)
+  ]
+
+
 def redact(value):
   """Recursively redact values stored under sensitive keys."""
   if isinstance(value, dict):
@@ -52,9 +61,11 @@ def find_transition(manifest, source_version, target_version):
   return None
 
 
-def compose_command(compose_files, profiles):
+def compose_command(compose_files, profiles, project_directory=None):
   """Build the read-only Compose resolution command."""
   command = ["docker", "compose"]
+  if project_directory:
+    command.extend(["--project-directory", str(project_directory)])
   for compose_file in compose_files:
     command.extend(["-f", str(compose_file)])
   for profile in profiles:
@@ -63,7 +74,8 @@ def compose_command(compose_files, profiles):
   return command
 
 
-def resolve_compose(compose_files, profiles, project_name=None, runner=subprocess.run):
+def resolve_compose(compose_files, profiles, project_name=None,
+                    project_directory=None, runner=subprocess.run):
   """Resolve Compose configuration without changing deployment state."""
   environment = None
   if project_name:
@@ -71,7 +83,8 @@ def resolve_compose(compose_files, profiles, project_name=None, runner=subproces
     environment = os.environ.copy()
     environment["COMPOSE_PROJECT_NAME"] = project_name
   result = runner(
-    compose_command(compose_files, profiles), check=True, capture_output=True,
+    compose_command(compose_files, profiles, project_directory), check=True,
+    capture_output=True,
     env=environment, text=True)
   return json.loads(result.stdout)
 
@@ -98,6 +111,33 @@ def service_inventory(compose_config):
     {"name": name, "image": service.get("image")}
     for name, service in sorted(compose_config.get("services", {}).items())
   ]
+
+
+def compose_inventory_changes(source_config, target_config):
+  """Summarize service and persistent-volume changes between releases."""
+  source_services = set(source_config.get("services", {}))
+  target_services = set(target_config.get("services", {}))
+  source_volumes = {
+    item["logical_name"]: item["name"] for item in classify_volumes(source_config)
+    if item["classification"] != "disposable_cache"
+  }
+  target_volumes = {
+    item["logical_name"]: item["name"] for item in classify_volumes(target_config)
+    if item["classification"] != "disposable_cache"
+  }
+  shared_volumes = source_volumes.keys() & target_volumes.keys()
+  return {
+    "services_added": sorted(target_services - source_services),
+    "services_removed": sorted(source_services - target_services),
+    "volumes_added": sorted(target_volumes.keys() - source_volumes.keys()),
+    "volumes_removed": sorted(source_volumes.keys() - target_volumes.keys()),
+    "volumes_renamed": [
+      {"logical_name": name, "source": source_volumes[name],
+       "target": target_volumes[name]}
+      for name in sorted(shared_volumes)
+      if source_volumes[name] != target_volumes[name]
+    ],
+  }
 
 
 def git_inventory(deployment_root, runner=subprocess.run):
