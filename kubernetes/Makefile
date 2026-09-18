@@ -277,7 +277,6 @@ demo-scenes:
 	trap 'rm -f $$AUTH_FILE' EXIT; \
 	kubectl get secret $(RELEASE)-controller.auth -n $(NAMESPACE) -o jsonpath='{.data.controller\.auth}' | base64 -d > $$AUTH_FILE; \
 	"$$VENV/bin/python3" $(UPLOAD_SCENES) --restauth $$AUTH_FILE $(DEMO_SCENES_TLS) --wait $(DEMO_SCENES_WAIT) \
-		--configure-video-sources \
 		$(DEMO_SCENES_URL) $(DEMO_SCENES_DIR)
 
 # to test template rendering

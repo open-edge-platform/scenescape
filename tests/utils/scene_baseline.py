@@ -21,7 +21,7 @@ if str(_UPLOAD_SCENES_DIR) not in sys.path:
   sys.path.insert(0, str(_UPLOAD_SCENES_DIR))
 
 from uploader import (  # noqa: E402
-  SceneScapeClient, configure_camera_video_sources, parse_auth, upload_one, wait_for_database,
+  SceneScapeClient, parse_auth, upload_one, wait_for_database,
 )
 
 _RESOURCES_DIR = Path(__file__).resolve().parents[1] / "resources" / "scenes"
@@ -44,16 +44,13 @@ _DUMPDATA_EXCLUDES = ("manager.PubSubACL", "manager.SceneImport")
 _READY_TIMEOUT_SECONDS = 120
 
 
-def upload_baseline_scenes(resturl, rootcert, auth_path, archive_keys, configure_video_sources=False):
+def upload_baseline_scenes(resturl, rootcert, auth_path, archive_keys):
   """Imports the archives for *archive_keys* and returns {scene_name: uid}.
 
   @param    resturl                 REST API base URL of the target deployment
   @param    rootcert                CA certificate path used to verify the server
   @param    auth_path               controller.auth file used to authenticate
   @param    archive_keys            keys into SCENE_ARCHIVES to upload
-  @param    configure_video_sources also point known demo cameras at the video-source
-                                    stack's RTSP feeds; needed for the kubernetes backend
-                                    (see uploader.configure_camera_video_sources)
   @return                 dict mapping scene name -> uid
   """
   client = SceneScapeClient(resturl, verify=rootcert)
@@ -71,9 +68,6 @@ def upload_baseline_scenes(resturl, rootcert, auth_path, archive_keys, configure
       if uid is None:
         raise RuntimeError(f"Failed to upload {archive_path} to {resturl}")
       scene_uids[archive_path.parent.name] = uid
-
-  if configure_video_sources:
-    configure_camera_video_sources(client)
 
   return scene_uids
 
