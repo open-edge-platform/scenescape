@@ -4,16 +4,19 @@
 - **Date**: 2026-09-14
 - **Status**: `Proposed`
 
-This document is a design proposal, the same kind of document as
-[`reid-api-expansion.md`](./reid-api-expansion.md) — not an
-ADR in its own right. **ADR 13: Controller Breakdown into Functionality-Aligned Microservices**
-(`Accepted`, 2026-06-11) is the accepted architectural decision that governs the broader
-controller breakdown, and this proposal aligns with its interface guidance for Re-ID's live
-tracking loop: **MQTT for the asynchronous, fan-out track-stream ingest** that feeds
-`reid-service`'s internal matching/storage. For `reid-service`'s external, synchronous
-query/store surface (investigator tooling, VLM-recall, POI enrollment), ADR 13's stated guidance
-is **gRPC**, and that's this document's leaning — but MQTT is also mentioned as an option below
-rather than settled on exclusively; see Section 3 and Open Questions.
+This document is a design proposal — not an ADR — for extracting ReID into a standalone
+`reid-service` (service boundary, live ingest, purge/metrics ownership). It is the base that
+[`reid-api-expansion.md`](./reid-api-expansion.md) builds on: that document extends this one with
+the external API and capability surface once the service exists.
+
+**ADR 13: Controller Breakdown into Functionality-Aligned Microservices** (`Accepted`,
+2026-06-11) is the accepted architectural decision that governs the broader controller breakdown,
+and this proposal aligns with its interface guidance for Re-ID's live tracking loop: **MQTT for
+the asynchronous, fan-out track-stream ingest** that feeds `reid-service`'s internal
+matching/storage. For `reid-service`'s external, synchronous query/store surface (investigator
+tooling, VLM-recall, POI enrollment), ADR 13's stated guidance is **gRPC**, and that's this
+document's leaning — but MQTT is also mentioned as an option below rather than settled on
+exclusively; see Section 3 and Open Questions.
 
 ADR 13 groups Re-ID together with broader scene-state persistence into a single combined service.
 This document intentionally does not get into that broader scope or how Re-ID fits inside it —
