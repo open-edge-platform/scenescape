@@ -114,3 +114,26 @@ python3 <skill-dir>/scripts/adapt_pipeline_config.py \
   (`person-detection-retail-0013`/`omz`) is still hardcoded; making it configurable via a
   `model_id`/`model_hub` deploy input is tracked in
   `.github/plans/plan-modelDownloaderMigration.prompt.md`.
+
+## Unsupported: swapping the detection model before configurable support lands
+
+Not supported by this skill's bootstrap path — use only when the user explicitly needs a
+different detector before the `model_id`/`model_hub` deploy input exists. Prefer waiting for
+that work when possible.
+
+Two non-obvious constraints:
+
+1. **DL Streamer `gvadetect` can run YOLOv8** when the model-proc JSON sets
+   `"converter": "yolo_v8"`. Upstream examples live outside SceneScape, e.g.
+   `open-edge-platform/dlstreamer` → `samples/gstreamer/model_proc/public/yolo-v8.json`.
+2. **`video-analytics` cannot gain new bind-mount destinations.** Creating a mount for a path
+   that does not already exist in the container fails with a read-only-rootfs/`mkdirat` error.
+   Drop custom weights/proc JSON into a host directory that is **already** mounted (this skill
+   mounts `./dlstreamer-pipeline-server/model-proc-files` →
+   `/home/pipeline-server/model-proc-files`). Point `gvadetect`'s `model=` / `model-proc=` at
+   those existing paths in `pipeline-config.json`, then recreate `video-analytics`. Do **not**
+   add a new volume target under `/home/pipeline-server/models/...` for a one-off custom tree.
+
+After editing the generated pipeline config, regenerate carefully (a later
+`adapt_pipeline_config.py` run will overwrite custom model paths) or re-apply the swap after
+bootstrap.

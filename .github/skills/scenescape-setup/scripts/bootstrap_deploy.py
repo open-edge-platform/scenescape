@@ -137,8 +137,8 @@ def generate_docker_compose(skill_dir: Path, deploy_dir: Path) -> None:
   (deploy_dir / "docker-compose.yml").write_text(compose_text, encoding="utf-8")
 
 
-def probe_video_codec(video_path: Path) -> str | None:
-  """Return the primary video codec name (e.g. h264), or None if probing fails."""
+def _run_ffprobe(video_path: Path, show_entries: str) -> str | None:
+  """Run ffprobe for a single stream field; prefer host binary, else FFMPEG_IMAGE."""
   path = Path(video_path).resolve()
   if not path.is_file():
     return None
@@ -146,11 +146,9 @@ def probe_video_codec(video_path: Path) -> str | None:
   ffprobe_args = [
     "-v", "error",
     "-select_streams", "v:0",
-    "-show_entries", "stream=codec_name",
+    "-show_entries", show_entries,
     "-of", "csv=p=0",
   ]
-
-  # Prefer host ffprobe when present; otherwise use the same image the publisher runs.
   commands = [
     ["ffprobe", *ffprobe_args, str(path)],
     [
@@ -168,9 +166,47 @@ def probe_video_codec(video_path: Path) -> str | None:
       )
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
       continue
-    codec = (result.stdout or "").strip().splitlines()
-    if result.returncode == 0 and codec and codec[0]:
-      return codec[0].strip().lower()
+    lines = (result.stdout or "").strip().splitlines()
+    if result.returncode == 0 and lines and lines[0].strip():
+      return lines[0].strip()
+  return None
+
+
+def _parse_frame_rate(rate: str) -> float | None:
+  """Parse ffprobe avg_frame_rate / r_frame_rate (e.g. '25/1', '30000/1001')."""
+  value = rate.strip()
+  if not value or value in ("0/0", "N/A"):
+    return None
+  try:
+    if "/" in value:
+      num_s, den_s = value.split("/", 1)
+      den = float(den_s)
+      if den == 0:
+        return None
+      fps = float(num_s) / den
+    else:
+      fps = float(value)
+  except ValueError:
+    return None
+  return fps if fps > 0 else None
+
+
+def probe_video_codec(video_path: Path) -> str | None:
+  """Return the primary video codec name (e.g. h264), or None if probing fails."""
+  codec = _run_ffprobe(video_path, "stream=codec_name")
+  return codec.lower() if codec else None
+
+
+def probe_video_fps(video_path: Path) -> float | None:
+  """Return average video FPS, or None if probing fails."""
+  for entries in ("stream=avg_frame_rate", "stream=r_frame_rate"):
+    raw = _run_ffprobe(video_path, entries)
+    if raw is None:
+      continue
+    # csv may return "25/1" or "25/1," depending on stream tags; take first field.
+    fps = _parse_frame_rate(raw.split(",", 1)[0])
+    if fps is not None:
+      return fps
   return None
 
 
@@ -185,6 +221,41 @@ def rtsp_video_encode_args(video_path: Path) -> str:
   if codec in ("h264", "avc", "avc1"):
     return "-c copy"
   return "-c:v libx264 -preset veryfast -an"
+
+
+def apply_file_source_tracker_defaults(deploy_dir: Path, payload: dict) -> None:
+  """Align time_chunking_rate_fps with the highest probed file FPS.
+
+  File-backed inputs often run well below the shipped default of 10 Hz (e.g. 2 FPS
+  recordings). Leaving the default makes the tracker extrapolate between sparse
+  detections. Still overridable later via tuning-tracker.md.
+  """
+  if payload.get("source_type") != "file":
+    return
+
+  rates: list[float] = []
+  for video_path in payload.get("video_paths") or []:
+    fps = probe_video_fps(Path(video_path))
+    if fps is not None:
+      rates.append(fps)
+
+  if not rates:
+    print(
+      "WARN: could not probe video FPS; leaving time_chunking_rate_fps at default",
+      file=sys.stderr,
+    )
+    return
+
+  chunk_fps = max(1, int(round(max(rates))))
+  cfg_path = deploy_dir / "controller" / "tracker-config.json"
+  cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+  previous = cfg.get("time_chunking_rate_fps")
+  cfg["time_chunking_rate_fps"] = chunk_fps
+  cfg_path.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+  print(
+    f"Set time_chunking_rate_fps={chunk_fps} "
+    f"(was {previous}; probed max file FPS={max(rates):.4g})"
+  )
 
 
 def generate_video_file_override(deploy_dir: Path, payload: dict) -> None:
@@ -332,6 +403,7 @@ def main() -> None:
   payload = load_payload_for_bootstrap(deploy_dir, args.inputs_file, args.from_deploy_inputs)
   if payload is not None:
     generate_video_file_override(deploy_dir, payload)
+    apply_file_source_tracker_defaults(deploy_dir, payload)
 
   adapt_script = Path(__file__).resolve().parent / "adapt_pipeline_config.py"
   adapt_cmd = [
