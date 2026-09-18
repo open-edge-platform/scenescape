@@ -543,7 +543,7 @@ class UUIDManager:
     self.match_latency_tracker.discardTrackStart(old_track_id)
     self.match_latency_tracker.markTrackStart(new_track_id)
 
-    log.info(
+    log.debug(
       f"Transferred pending ReID state from rv_id={old_track_id} "
       f"to rv_id={new_track_id}, observations="
       f"{self.quality_observation_counts.get(new_track_id, 0)}")
@@ -885,7 +885,7 @@ class UUIDManager:
     reid_embedding = self._extractReidEmbedding(sscape_object)
 
     if reid_embedding is None:
-      log.info(
+      log.debug(
         f"ReID observation rejected: rv_id={sscape_object.rv_id}, "
         "reason=no_embedding"
       )
@@ -895,7 +895,7 @@ class UUIDManager:
       return
 
     if not self._ensureReIDDimensions(reid_embedding):
-      log.info(
+      log.debug(
         f"ReID observation rejected: rv_id={sscape_object.rv_id}, "
         "reason=invalid_dimensions"
       )
@@ -905,7 +905,7 @@ class UUIDManager:
       bbox = getattr(sscape_object, "boundingBoxPixels", None)
       area = bbox.area if bbox is not None else None
 
-      log.info(
+      log.debug(
         f"ReID observation rejected: rv_id={sscape_object.rv_id}, "
         f"reason=quality_gate, bbox_area={area}, "
         f"minimum_bbox_area={minimum_bbox_area or self.minimum_bbox_area}, "
@@ -1015,8 +1015,6 @@ class UUIDManager:
     start_time = get_epoch_time()
     similarity_scores = self.sendSimilarityQuery(sscape_object)
     database_id, similarity, query_vector_scores = self.parseQueryResults(similarity_scores)
-    print(f"rvid {sscape_object.rv_id} similarity score {similarity}")
-    print(f"similarity threshold {self.similarity_threshold}")
     with self.active_ids_lock:
       # Make sure object is still in active_ids before updating since there is a chance
       # that the similiarity search does not complete until after the object leaves
@@ -1373,7 +1371,7 @@ class UUIDManager:
             sscape_object.chain_data.persist[attr] = value
         log.debug(f"updateActiveDict: merged persist={sscape_object.chain_data.persist}")
 
-      print(
+      log.debug(
         f"updateActiveDict: Match found for {sscape_object.rv_id}: {database_id}, similarity={similarity}, state={ReidState.MATCHED.value}")
       self.active_ids[sscape_object.rv_id] = [database_id, similarity]
 
@@ -1388,7 +1386,7 @@ class UUIDManager:
     # MATCH FOUND - NO / NEW OBJECT
     else:
       if database_id_collision:
-        print(
+        log.warning(
           f"updateActiveDict: Database ID collision for track {sscape_object.rv_id}: "
           f"{database_id} is already assigned to another active track; treating as no-match")
       # Query made but no match -> state is now QUERY_NO_MATCH (distinguishes from PENDING_COLLECTION)
@@ -1520,7 +1518,7 @@ class UUIDManager:
         if inactive_since is not None
         else 0.0
       )
-      log.info(
+      log.debug(
         f"Reactivated unresolved ReID track: "
         f"rv_id={sscape_object.rv_id}, "
         f"inactive_duration={inactive_duration:.2f}"
@@ -1568,10 +1566,6 @@ class UUIDManager:
         self.active_query[sscape_object.rv_id] = True
         future = self.pool.submit(self.querySimilarity, sscape_object)
         future.add_done_callback(self._onQuerySimilarityComplete)
-      else:
-        print("Insufficent features!!")
-    else:
-      print("{} not in active query".format(sscape_object.rv_id))
     # Always pick best ID for the current frame
     self.pickBestID(sscape_object)
     return
