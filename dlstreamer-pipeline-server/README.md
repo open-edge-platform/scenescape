@@ -43,8 +43,9 @@ Below are step-by-step instructions for enabling out-of-the-box scenes in Scenes
 Running the pipelines on GPU is highly recommended when available on the system. This approach efficiently utilizes available CPU cores for other Scenescape services and provides optimal performance for the visual analytics service. Only Intel GPU devices are supported.
 
 > **Note:** `retail-video`/`queuing-video` and their `retail-config`/`queuing-config`
-> settings referenced below live in
-> [sample_data/demo_scenes/docker-compose.video-source.yml](/sample_data/demo_scenes/docker-compose.video-source.yml),
+> settings referenced below live in each scene's own compose file,
+> [sample_data/demo_scenes/Retail/retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) and
+> [sample_data/demo_scenes/Queuing/queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml),
 > not the root `docker-compose.yml`.
 
 To facilitate GPU acceleration, sample configuration files are provided for the out-of-box **Queuing** and **Retail** scenes with the following pipeline optimizations:
@@ -129,8 +130,9 @@ By following these steps, only the selected GPU device will be available in the 
 Running inference on NPU is recommended when an Intel® NPU is available on the system. This offloads the inference workload to the NPU, freeing up CPU and GPU resources for other Scenescape services.
 
 > **Note:** `retail-video`/`queuing-video` and their `retail-config`/`queuing-config`
-> settings referenced below live in
-> [sample_data/demo_scenes/docker-compose.video-source.yml](/sample_data/demo_scenes/docker-compose.video-source.yml),
+> settings referenced below live in each scene's own compose file,
+> [sample_data/demo_scenes/Retail/retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) and
+> [sample_data/demo_scenes/Queuing/queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml),
 > not the root `docker-compose.yml`.
 
 To facilitate NPU acceleration, sample configuration files are provided for the out-of-box **Queuing** and **Retail** scenes with the following pipeline optimizations:
@@ -179,7 +181,8 @@ Following are the step-by-step instructions for enabling person reidentification
    docker compose -f docker-compose.yml \
      -f sample_data/compose/docker-compose.vdms-override.yml \
      --profile controller up -d
-   docker compose --project-directory . -f sample_data/demo_scenes/docker-compose.video-source.yml \
+   docker compose --project-directory . -f sample_data/demo_scenes/Retail/retail-video-compose.yaml \
+     -f sample_data/demo_scenes/Queuing/queuing-video-compose.yaml \
      -f sample_data/compose/docker-compose.reid-pipeline-override.yml up -d
    ```
 
@@ -216,11 +219,13 @@ Following are the step-by-step instructions for enabling person reidentification
    docker compose -f docker-compose.yml \
      -f sample_data/compose/docker-compose.vdms-override.yml \
      --profile controller down
-   docker compose --project-directory . -f sample_data/demo_scenes/docker-compose.video-source.yml down
+   docker compose --project-directory . -f sample_data/demo_scenes/Retail/retail-video-compose.yaml \
+     -f sample_data/demo_scenes/Queuing/queuing-video-compose.yaml down
    docker compose -f docker-compose.yml \
      -f sample_data/compose/docker-compose.vdms-override.yml \
      --profile controller up reid scene -d
-   docker compose --project-directory . -f sample_data/demo_scenes/docker-compose.video-source.yml \
+   docker compose --project-directory . -f sample_data/demo_scenes/Retail/retail-video-compose.yaml \
+     -f sample_data/demo_scenes/Queuing/queuing-video-compose.yaml \
      -f sample_data/compose/docker-compose.reid-pipeline-override.yml up -d
    ```
 

@@ -528,7 +528,7 @@ def _ensure_mapping_cache_volumes():
 
 # Sample video source dirs for tests/compose/compose-cams.yml (retail-cams,
 # queuing-cams), which mounts a per-project "vol-videos" volume rather than
-# a bind mount like the standalone sample_data/demo_scenes/docker-compose.video-source.yml.
+# a bind mount like the standalone per-scene sample_data/demo_scenes/<Scene>/<scene>-video-compose.yaml files.
 _SAMPLE_VIDEO_DIRS = ("demo_scenes/Retail/video", "demo_scenes/Queuing/video")
 
 

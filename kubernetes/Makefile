@@ -154,11 +154,12 @@ generate-mediaserver-yaml:
 	sed -e "s|{VIDEOSOURCE_IP}|$(VIDEOSOURCE_IP)|g" -e "s|{VIDEOSOURCE_PORT}|$(VIDEOSOURCE_PORT)|g" setup/mediaserver.yaml > setup/mediaserver.yaml.tmp && mv setup/mediaserver.yaml.tmp setup/mediaserver.yaml
 
 # Deploys the "mediaserver" Service+EndpointSlice alongside the scenescape-chart,
-# pointing it at the host running sample_data/demo_scenes/docker-compose.video-source.yml.
+# pointing it at the host running the per-scene video-source compose file(s)
+# (sample_data/demo_scenes/<Scene>/<scene>-video-compose.yaml).
 .PHONY: mediaserver-up
 mediaserver-up:
 	@if [ -z "$(VIDEOSOURCE_IP)" ]; then \
-	    echo "Set VIDEOSOURCE_IP=<ip of the host running sample_data/demo_scenes/docker-compose.video-source.yml>"; \
+	    echo "Set VIDEOSOURCE_IP=<ip of the host running sample_data/demo_scenes/<Scene>/<scene>-video-compose.yaml>"; \
 	    exit 1; \
 	fi
 	$(MAKE) generate-mediaserver-yaml
@@ -175,14 +176,16 @@ mediaserver-down:
 # Joins the kind cluster's own Docker network directly so its IP is reachable
 # from cluster pods; dlsps pods are created dynamically in-cluster by
 # kubeclient, so retail-video/queuing-video are not started here.
-VIDEO_SOURCE_COMPOSE_FILE := ../sample_data/demo_scenes/docker-compose.video-source.yml
+# Each scene owns its own private mediamtx (same "mediaserver" service name in
+# both files); Compose merges them into one shared instance across -f flags.
+VIDEO_SOURCE_COMPOSE_FILES := -f ../sample_data/demo_scenes/Retail/retail-video-compose.yaml -f ../sample_data/demo_scenes/Queuing/queuing-video-compose.yaml
 
 .PHONY: video-source-up
 video-source-up:
 	$(MAKE) -C .. convert-dls-videos
 	SECRETSDIR=$(WORKINGDIR)/manager/secrets SCENESCAPE_NETWORK=kind \
-		docker compose --project-directory .. -f $(VIDEO_SOURCE_COMPOSE_FILE) up -d mediaserver retail-cams queuing-cams
-	@CID=$$(docker compose --project-directory .. -f $(VIDEO_SOURCE_COMPOSE_FILE) ps -q mediaserver); \
+		docker compose --project-directory .. $(VIDEO_SOURCE_COMPOSE_FILES) up -d mediaserver retail-cams queuing-cams
+	@CID=$$(docker compose --project-directory .. $(VIDEO_SOURCE_COMPOSE_FILES) ps -q mediaserver); \
 	IP=$$(docker inspect -f '{{.NetworkSettings.Networks.kind.IPAddress}}' $$CID); \
 	$(MAKE) mediaserver-up VIDEOSOURCE_IP=$$IP
 
@@ -190,7 +193,7 @@ video-source-up:
 video-source-down:
 	-$(MAKE) mediaserver-down
 	-SECRETSDIR=$(WORKINGDIR)/manager/secrets SCENESCAPE_NETWORK=kind \
-		docker compose --project-directory .. -f $(VIDEO_SOURCE_COMPOSE_FILE) down
+		docker compose --project-directory .. $(VIDEO_SOURCE_COMPOSE_FILES) down
 
 # build scenescape docker images, download models for init-models
 # note, will make unneeded secrets in secrets/ as well

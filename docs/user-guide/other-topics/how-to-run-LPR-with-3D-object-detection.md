@@ -190,7 +190,9 @@ Each pipeline can have a separate `intrinsics.json` file. The DeepScenario scrip
 
 ### 6. Modify Docker Compose Configuration
 
-Edit the `sample_data/demo_scenes/docker-compose.video-source.yml` file to disable the `retail` and `queuing` video services and enable the `deepscenario` service:
+Edit the `sample_data/demo_scenes/Retail/retail-video-compose.yaml` file (or
+`Queuing/queuing-video-compose.yaml`) to disable its video service and enable
+the `deepscenario` service:
 
 **Remove the following sections:**
 
@@ -278,7 +280,8 @@ scenescape/
 │                   ├── yolov8_license_plate_detector.xml
 │                   └── yolov8_license_plate_detector.bin
 └── sample_data/demo_scenes/
-    └── docker-compose.video-source.yml
+    ├── Retail/retail-video-compose.yaml
+    └── Queuing/queuing-video-compose.yaml
 ```
 
 ### 8. Build and Run

@@ -17,7 +17,8 @@ Before you begin, ensure the following:
 - You are familiar with scene and camera configuration in Scenescape.
 - If you are composing services manually (not via `make demo-reid`), the
   standalone video-source stack is also running: `docker compose
---project-directory . -f sample_data/demo_scenes/docker-compose.video-source.yml
+--project-directory . -f sample_data/demo_scenes/Retail/retail-video-compose.yaml
+-f sample_data/demo_scenes/Queuing/queuing-video-compose.yaml
 up -d`. `make demo-reid` starts it automatically.
 
 Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md) for exposing match-latency, camera-count, and tracked-object-count metrics for monitoring and hardware-sizing purposes.
@@ -63,7 +64,7 @@ Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-
 2. **Enable Visual Feature Extraction in Video Pipeline (manual `docker compose` usage)**
    The step above is only needed if you are composing services yourself
    instead of using `make demo-reid`. Edit the retail-config setting in the
-   [video-source stack](/sample_data/demo_scenes/docker-compose.video-source.yml) as follows:
+   [Retail video-source stack](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) as follows:
 
 ```yaml
 retail-config:
@@ -230,7 +231,7 @@ it; that is a separate hardening step.
 
 2. **Remove ReID from the Camera Pipeline**
    Edit the retail-config setting in the
-   [video-source stack](/sample_data/demo_scenes/docker-compose.video-source.yml) and revert to the config without re-id model:
+   [Retail video-source stack](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) and revert to the config without re-id model:
 
    ```yaml
    retail-config:

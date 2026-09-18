@@ -38,7 +38,12 @@ CERTDOMAIN ?= scenescape.intel.com
 # Demo variables
 SAMPLE_COMPOSE_DIR := sample_data/compose
 VIDEO_SOURCE_DIR := sample_data/demo_scenes
-VIDEO_SOURCE_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/docker-compose.video-source.yml
+# Each demo scene owns its own private mediamtx (same "mediaserver" service
+# name in both files); Compose merges them into one shared instance when both
+# -f flags are combined, matching pre-split behavior.
+RETAIL_VIDEO_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/Retail/retail-video-compose.yaml
+QUEUING_VIDEO_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/Queuing/queuing-video-compose.yaml
+VIDEO_SOURCE_COMPOSE_FILES := -f $(RETAIL_VIDEO_COMPOSE_FILE) -f $(QUEUING_VIDEO_COMPOSE_FILE)
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(VIDEO_SOURCE_DIR)/Retail/video/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts) \
 	$(addprefix $(VIDEO_SOURCE_DIR)/Queuing/video/,qcam1.ts qcam2.ts) \
 	sample_data/videos/car-detection.ts
@@ -815,11 +820,11 @@ $(DLSTREAMER_SAMPLE_VIDEOS): $(VIDEO_SOURCE_DIR)/convert_videos.sh
 # rtsp://mediaserver:8554/<camera-id>.
 .PHONY: video-source-up
 video-source-up: convert-dls-videos
-	SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose --project-directory . -f $(VIDEO_SOURCE_COMPOSE_FILE) $(VIDEO_SOURCE_ARGS) up -d
+	SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose --project-directory . $(VIDEO_SOURCE_COMPOSE_FILES) $(VIDEO_SOURCE_ARGS) up -d
 
 .PHONY: video-source-down
 video-source-down:
-	-SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose --project-directory . -f $(VIDEO_SOURCE_COMPOSE_FILE) down
+	-SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose --project-directory . $(VIDEO_SOURCE_COMPOSE_FILES) down
 
 .PHONY: .env
 .env:

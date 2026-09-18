@@ -57,7 +57,7 @@ ntpserv:
 
 broker:
   image: eclipse-mosquitto
-  tag: "2.0.22"
+  tag: "2.1-alpine"
   pullPolicy: IfNotPresent
   uid: 1000
   gid: 1000

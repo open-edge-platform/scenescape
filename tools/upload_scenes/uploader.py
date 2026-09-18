@@ -23,7 +23,8 @@ RESOURCE_KEYS = ("cameras", "regions", "tripwires", "sensors")
 # <scene>/assets.json and <scene>/calibration_markers.json sidecars.
 
 # Camera uid -> (command, camerachain) for the demo cameras whose feed is served
-# by sample_data/demo_scenes/docker-compose.video-source.yml. Needed only for
+# by the per-scene sample_data/demo_scenes/<Scene>/<scene>-video-compose.yaml
+# files. Needed only for
 # Kubernetes: kubeclient builds each camera's DL Streamer pipeline from these
 # two DB fields, and scene archives don't carry them. Compose's dlsps
 # containers use static pipeline JSON and ignore these fields, so setting
