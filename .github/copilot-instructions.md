@@ -29,6 +29,7 @@ Consult these based on the code you're working with:
 - **Makefile** (`.github/skills/makefile/SKILL.md`): Build system conventions
 - **Testing** (`.github/skills/testing/SKILL.md`): Test creation frameworks
 - **External-source adapters** (`.github/skills/external-source-adapter/SKILL.md`): Converter scripts for the Scene Controller `external_source` MQTT contract (read the skill before writing publishers)
+- **SceneScape upgrades** (`.github/skills/scenescape-upgrade/SKILL.md`): Release upgrades, backup/restore, database migrations, certificate renewal, rollback, and Kubernetes readiness guardrails
 
 ### Skills Caching Strategy
 

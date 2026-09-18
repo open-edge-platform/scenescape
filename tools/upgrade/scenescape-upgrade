@@ -1,0 +1,388 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+"""Command-line entry point for SceneScape upgrade operations."""
+
+import argparse
+import json
+from pathlib import Path
+import sys
+
+from backup import create_backup
+from backup import restore_backup
+from backup import verify_backup
+from certificates import certificate_status
+from certificates import renew_certificates
+from kubernetes import kubernetes_report
+from kubernetes import require_compose
+from migration import apply_migrations
+from migration import migration_plan
+from migration import read_applied_migrations
+from orchestrator import begin_upgrade
+from orchestrator import plan_upgrade
+from orchestrator import read_operation_state
+from orchestrator import resume_upgrade
+from orchestrator import rollback_upgrade
+from orchestrator import verify_upgrade
+from preflight import build_report
+from preflight import find_transition
+from preflight import load_compatibility
+from preflight import resolve_compose
+from preflight import resolve_compose_paths
+from preflight import STATUS_EXIT_CODES
+
+
+TOOL_DIR = Path(__file__).resolve().parent
+REPOSITORY_ROOT = TOOL_DIR.parents[1]
+
+
+def create_parser():
+  """Create the upgrade command-line parser."""
+  parser = argparse.ArgumentParser(description="Plan and execute SceneScape upgrades")
+  subparsers = parser.add_subparsers(dest="command", required=True)
+  preflight = subparsers.add_parser("preflight", help="run read-only upgrade discovery")
+  preflight.add_argument("--source-version", required=True)
+  preflight.add_argument("--target-version")
+  preflight.add_argument("--deployment-root", type=Path, default=REPOSITORY_ROOT)
+  preflight.add_argument("--compose-file", action="append", type=Path, default=[])
+  preflight.add_argument("--profile", action="append", default=[])
+  preflight.add_argument("--project-name")
+  preflight.add_argument("--compatibility", type=Path,
+                         default=TOOL_DIR / "compatibility.json")
+  preflight.add_argument("--output", type=Path)
+  preflight.add_argument("--deployment-type", choices=("compose", "kubernetes"),
+                         default="compose")
+  backup = subparsers.add_parser("backup", help="create a verified deployment backup")
+  backup.add_argument("--deployment-root", type=Path, default=REPOSITORY_ROOT)
+  backup.add_argument("--compose-file", action="append", type=Path, default=[])
+  backup.add_argument("--profile", action="append", default=[])
+  backup.add_argument("--project-name")
+  backup.add_argument("--secrets-dir", type=Path)
+  backup.add_argument("--output-dir", type=Path, default=Path.cwd())
+  backup.add_argument("--leave-stopped", action="store_true")
+  backup.add_argument("--deployment-type", choices=("compose", "kubernetes"),
+                      default="compose")
+  verify = subparsers.add_parser("backup-verify", help="verify backup checksums")
+  verify.add_argument("backup_dir", type=Path)
+  restore = subparsers.add_parser("restore", help="restore deployment volumes")
+  restore.add_argument("backup_dir", type=Path)
+  restore.add_argument("--overwrite", action="store_true")
+  restore.add_argument("--deployment-type", choices=("compose", "kubernetes"),
+                       default="compose")
+  for name in ("database-check", "database-migrate"):
+    database = subparsers.add_parser(name, help=f"{name} authorized database schema")
+    database.add_argument("--source-version", required=True)
+    database.add_argument("--target-version", required=True)
+    database.add_argument("--deployment-root", type=Path, default=REPOSITORY_ROOT)
+    database.add_argument("--compose-file", action="append", type=Path, default=[])
+    database.add_argument("--profile", action="append", default=[])
+    database.add_argument("--project-name")
+    database.add_argument("--compatibility", type=Path,
+                          default=TOOL_DIR / "compatibility.json")
+    database.add_argument("--operation-dir", type=Path, default=Path("upgrade-state"))
+    database.add_argument("--deployment-type", choices=("compose", "kubernetes"),
+                default="compose")
+  for name in ("certificate-check", "certificate-renew"):
+    certificate = subparsers.add_parser(name, help=f"{name} deployment TLS certificates")
+    certificate.add_argument("--deployment-root", type=Path, default=REPOSITORY_ROOT)
+    certificate.add_argument("--compose-file", action="append", type=Path, default=[])
+    certificate.add_argument("--profile", action="append", default=[])
+    certificate.add_argument("--project-name")
+    certificate.add_argument("--secrets-dir", type=Path)
+    certificate.add_argument("--minimum-valid-days", type=int, default=30)
+    certificate.add_argument("--output-dir", type=Path, default=Path("upgrade-state"))
+    certificate.add_argument("--certdomain", default="scenescape.intel.com")
+    certificate.add_argument("--broker-extra-hosts", default="")
+    certificate.add_argument("--web-extra-hosts", default="")
+    certificate.add_argument("--reid-s-extra-hosts", default="")
+    certificate.add_argument("--deployment-type", choices=("compose", "kubernetes"),
+                 default="compose")
+  for name in ("release-plan", "release-apply"):
+    release = subparsers.add_parser(name, help=f"{name} an adjacent release upgrade")
+    release.add_argument("--source-version", required=True)
+    release.add_argument("--target-version")
+    release.add_argument("--deployment-root", type=Path, default=REPOSITORY_ROOT)
+    release.add_argument("--compose-file", action="append", type=Path, default=[])
+    release.add_argument("--profile", action="append", default=[])
+    release.add_argument("--source-deployment-root", type=Path)
+    release.add_argument("--source-compose-file", action="append", type=Path,
+                         default=[])
+    release.add_argument("--source-profile", action="append", default=[])
+    release.add_argument("--project-name")
+    release.add_argument("--compatibility", type=Path,
+                         default=TOOL_DIR / "compatibility.json")
+    release.add_argument("--operation-dir", type=Path, default=Path("upgrade-state"))
+    release.add_argument("--output-dir", type=Path, default=Path.cwd())
+    release.add_argument("--secrets-dir", type=Path)
+    release.add_argument("--allow-dirty", action="store_true")
+    release.add_argument("--deployment-type", choices=("compose", "kubernetes"),
+               default="compose")
+  resume = subparsers.add_parser("release-resume", help="resume after backup confirmation")
+  resume.add_argument("--operation-dir", type=Path, default=Path("upgrade-state"))
+  resume.add_argument("--compatibility", type=Path,
+                      default=TOOL_DIR / "compatibility.json")
+  resume.add_argument("--confirm-database-cutover", action="store_true")
+  resume.add_argument("--image-action", choices=("pull", "build", "none"), default="pull")
+  verify_release = subparsers.add_parser("release-verify", help="reverify an upgrade")
+  verify_release.add_argument("--operation-dir", type=Path, default=Path("upgrade-state"))
+  verify_release.add_argument("--compatibility", type=Path,
+                              default=TOOL_DIR / "compatibility.json")
+  rollback = subparsers.add_parser("release-rollback", help="restore the verified backup")
+  rollback.add_argument("--operation-dir", type=Path, default=Path("upgrade-state"))
+  rollback.add_argument("--confirm-destructive-restore", action="store_true")
+  rollback.add_argument("--overwrite", action="store_true")
+  kubernetes = subparsers.add_parser(
+    "kubernetes-report", help="inspect Kubernetes upgrade readiness without mutation")
+  kubernetes.add_argument("--release", default="scenescape")
+  kubernetes.add_argument("--namespace", default="scenescape")
+  return parser
+
+
+def current_version(deployment_root):
+  """Read the target checkout version."""
+  return (deployment_root / "version.txt").read_text(encoding="utf-8").strip()
+
+
+def run_preflight(args):
+  """Execute preflight and return its stable status exit code."""
+  require_compose(args.deployment_type)
+  target_version = args.target_version or current_version(args.deployment_root)
+  compose_files = args.compose_file or [args.deployment_root / "docker-compose.yml"]
+  manifest = load_compatibility(args.compatibility)
+  transition = find_transition(manifest, args.source_version, target_version)
+  compose_config = resolve_compose(compose_files, args.profile, args.project_name)
+  report = build_report(
+    args.source_version, target_version, transition, compose_config,
+    args.deployment_root, compose_files, args.profile, args.project_name)
+  output = json.dumps(report, indent=2, sort_keys=True) + "\n"
+  if args.output:
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(output, encoding="utf-8")
+  else:
+    sys.stdout.write(output)
+  return STATUS_EXIT_CODES[report["status"]]
+
+
+def compose_inputs(args):
+  """Resolve common Compose command inputs."""
+  require_compose(getattr(args, "deployment_type", "compose"))
+  compose_files = args.compose_file or [Path("docker-compose.yml")]
+  compose_files = resolve_compose_paths(compose_files, args.deployment_root)
+  compose_config = resolve_compose(
+    compose_files, args.profile, args.project_name, args.deployment_root)
+  return compose_files, compose_config
+
+
+def run_backup(args):
+  """Create and verify a complete deployment backup."""
+  compose_files, compose_config = compose_inputs(args)
+  secrets_dir = args.secrets_dir or args.deployment_root / "manager" / "secrets"
+  backup_dir, _manifest = create_backup(
+    compose_config, args.deployment_root, compose_files, args.profile,
+    secrets_dir, args.output_dir, leave_stopped=args.leave_stopped)
+  verify_backup(backup_dir)
+  sys.stdout.write(json.dumps({
+    "schema_version": 1, "operation": "backup", "status": "ready",
+    "backup_dir": str(backup_dir),
+  }, indent=2, sort_keys=True) + "\n")
+  return STATUS_EXIT_CODES["ready"]
+
+
+def run_backup_verify(args):
+  """Verify a backup bundle."""
+  manifest = verify_backup(args.backup_dir)
+  sys.stdout.write(json.dumps({
+    "schema_version": 1, "operation": "backup_verify", "status": "ready",
+    "operation_id": manifest["operation_id"],
+  }, indent=2, sort_keys=True) + "\n")
+  return STATUS_EXIT_CODES["ready"]
+
+
+def run_restore(args):
+  """Restore all volume artifacts from a verified backup."""
+  require_compose(args.deployment_type)
+  restored = restore_backup(args.backup_dir, overwrite=args.overwrite)
+  sys.stdout.write(json.dumps({
+    "schema_version": 1, "operation": "restore", "status": "ready",
+    "restored_volumes": restored,
+  }, indent=2, sort_keys=True) + "\n")
+  return STATUS_EXIT_CODES["ready"]
+
+
+def run_database(args, apply=False):
+  """Check or apply an explicitly authorized database schema transition."""
+  require_compose(args.deployment_type)
+  manifest = load_compatibility(args.compatibility)
+  transition = find_transition(manifest, args.source_version, args.target_version)
+  if transition is None:
+    sys.stdout.write(json.dumps({
+      "schema_version": 1,
+      "operation": "database_migrate" if apply else "database_check",
+      "status": "unsupported",
+      "blockers": [{
+        "code": "unsupported_transition",
+        "message": "No authorized database transition",
+      }],
+    }, indent=2, sort_keys=True) + "\n")
+    return STATUS_EXIT_CODES["unsupported"]
+  if transition["postgres"]["engine_upgrade"]:
+    sys.stdout.write(json.dumps({
+      "schema_version": 1,
+      "operation": "database_migrate" if apply else "database_check",
+      "status": "unsupported",
+      "blockers": [{
+        "code": "release_workflow_required",
+        "message": "PostgreSQL engine upgrades require release-plan and release-apply",
+      }],
+    }, indent=2, sort_keys=True) + "\n")
+    return STATUS_EXIT_CODES["unsupported"]
+  compose_files, compose_config = compose_inputs(args)
+  project_name = args.project_name or compose_config.get("name")
+  if apply:
+    state = apply_migrations(compose_files, args.profile, project_name, transition,
+                             args.operation_dir)
+    plan = state["migration_plan"]
+  else:
+    applied = read_applied_migrations(compose_files, args.profile, project_name)
+    plan = migration_plan(transition, applied)
+  status = "action_required" if plan["pending"] else "ready"
+  sys.stdout.write(json.dumps({
+    "schema_version": 1, "operation": "database_migrate" if apply else "database_check",
+    "status": status, "migration_plan": plan,
+  }, indent=2, sort_keys=True) + "\n")
+  return STATUS_EXIT_CODES[status]
+
+
+def run_certificate(args, renew=False):
+  """Inspect or renew the deployment TLS trust set."""
+  require_compose(args.deployment_type)
+  secrets_dir = args.secrets_dir or args.deployment_root / "manager" / "secrets"
+  report = certificate_status(secrets_dir, args.minimum_valid_days)
+  backup_dir = None
+  if renew:
+    compose_files, compose_config = compose_inputs(args)
+    backup_dir = renew_certificates(
+      args.deployment_root, secrets_dir, compose_files, args.profile,
+      args.project_name or compose_config.get("name"), args.output_dir,
+      args.certdomain, {
+        "broker": args.broker_extra_hosts,
+        "web": args.web_extra_hosts,
+        "reid_s": args.reid_s_extra_hosts,
+      })
+    report = certificate_status(secrets_dir, args.minimum_valid_days)
+  output = {
+    "schema_version": 1,
+    "operation": "certificate_renew" if renew else "certificate_check",
+    **report,
+  }
+  if backup_dir:
+    output["previous_certificates"] = str(backup_dir)
+  sys.stdout.write(json.dumps(output, indent=2, sort_keys=True) + "\n")
+  return STATUS_EXIT_CODES[report["status"]]
+
+
+def run_release_plan(args, apply=False):
+  """Plan an adjacent release and optionally create its verified backup."""
+  target_version = args.target_version or current_version(args.deployment_root)
+  target_compose_files, target_compose_config = compose_inputs(args)
+  source_root = args.source_deployment_root or args.deployment_root
+  if args.source_compose_file:
+    source_compose_files = args.source_compose_file
+  elif args.source_deployment_root:
+    source_compose_files = [Path("docker-compose.yml")]
+  else:
+    source_compose_files = target_compose_files
+  source_compose_files = resolve_compose_paths(source_compose_files, source_root)
+  source_profiles = args.source_profile or args.profile
+  source_compose_config = resolve_compose(
+    source_compose_files, source_profiles, args.project_name, source_root)
+  report = plan_upgrade(
+    args.source_version, target_version, args.compatibility,
+    source_compose_config, target_compose_config, source_root,
+    args.deployment_root, source_compose_files, target_compose_files,
+    source_profiles, args.profile,
+    args.project_name or source_compose_config.get("name"))
+  if not apply:
+    sys.stdout.write(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    return STATUS_EXIT_CODES[report["status"]]
+  dirty = (report["source_deployment"]["git"]["dirty"] or
+           report["target_deployment"]["git"]["dirty"])
+  if dirty and not args.allow_dirty:
+    raise ValueError("dirty deployment checkout requires --allow-dirty")
+  secrets_dir = args.secrets_dir or source_root / "manager" / "secrets"
+  state = begin_upgrade(report, args.operation_dir, secrets_dir, args.output_dir)
+  sys.stdout.write(json.dumps(state, indent=2, sort_keys=True) + "\n")
+  return STATUS_EXIT_CODES[state["status"]]
+
+
+def run_release_state(args, operation):
+  """Resume, verify, or roll back a saved release operation."""
+  if operation == "resume":
+    if not args.confirm_database_cutover:
+      raise ValueError("resume requires --confirm-database-cutover")
+    state = resume_upgrade(args.operation_dir, args.compatibility, args.image_action)
+  elif operation == "verify":
+    state = verify_upgrade(args.operation_dir, args.compatibility)
+  else:
+    if not args.confirm_destructive_restore or not args.overwrite:
+      raise ValueError(
+        "rollback requires --confirm-destructive-restore and --overwrite")
+    state = rollback_upgrade(args.operation_dir, overwrite=True)
+  sys.stdout.write(json.dumps(state, indent=2, sort_keys=True) + "\n")
+  return STATUS_EXIT_CODES[state["status"]]
+
+
+def run_kubernetes_report(args):
+  """Run read-only Kubernetes upgrade discovery."""
+  report = kubernetes_report(args.release, args.namespace)
+  sys.stdout.write(json.dumps(report, indent=2, sort_keys=True) + "\n")
+  return STATUS_EXIT_CODES[report["status"]]
+
+
+def main():
+  """Run the selected upgrade operation."""
+  args = create_parser().parse_args()
+  try:
+    if args.command == "preflight":
+      return run_preflight(args)
+    if args.command == "backup":
+      return run_backup(args)
+    if args.command == "backup-verify":
+      return run_backup_verify(args)
+    if args.command == "restore":
+      return run_restore(args)
+    if args.command == "database-check":
+      return run_database(args)
+    if args.command == "database-migrate":
+      return run_database(args, apply=True)
+    if args.command == "certificate-check":
+      return run_certificate(args)
+    if args.command == "certificate-renew":
+      return run_certificate(args, renew=True)
+    if args.command == "release-plan":
+      return run_release_plan(args)
+    if args.command == "release-apply":
+      return run_release_plan(args, apply=True)
+    if args.command == "release-resume":
+      return run_release_state(args, "resume")
+    if args.command == "release-verify":
+      return run_release_state(args, "verify")
+    if args.command == "release-rollback":
+      return run_release_state(args, "rollback")
+    if args.command == "kubernetes-report":
+      return run_kubernetes_report(args)
+  except (OSError, ValueError, json.JSONDecodeError) as error:
+    report = {
+      "schema_version": 1,
+      "operation": f"upgrade_{args.command}",
+      "status": "failed",
+      "error": {"code": "preflight_failed", "message": str(error)},
+    }
+    sys.stdout.write(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    return STATUS_EXIT_CODES["failed"]
+  return STATUS_EXIT_CODES["failed"]
+
+
+if __name__ == "__main__":
+  sys.exit(main())

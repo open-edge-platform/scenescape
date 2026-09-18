@@ -112,7 +112,7 @@ $(CASECRETSDIR)/ca/scenescape-ca.key:
 	@mkdir -p $(CASECRETSDIR)/ca
 	@if [ -n "$(CERTPASS)" ] ; then PASSFLAGS="-passout pass:$(CERTPASS)" ; fi ; \
 	openssl ecparam -name secp384r1 -genkey | openssl ec -aes256 $${PASSFLAGS} -out $@
-	@chmod 0644 $@
+	@chmod 0600 $@
 
 $(CASECRETSDIR)/certs/scenescape-ca.pem: $(CASECRETSDIR)/ca/scenescape-ca.key
 	@echo Generating root CA certificate
@@ -126,7 +126,7 @@ $(SECRETSDIR)/certs/%.key:
 	@echo Generating $*.key
 	@mkdir -p $(SECRETSDIR)/certs
 	@openssl ecparam -name secp384r1 -genkey -noout -out $@
-	@chmod 0644 $@
+	@chmod 0600 $@
 
 $(SECRETSDIR)/certs/%.csr: $(SECRETSDIR)/certs/%.key
 	@SUBJECT_ALT_NAMES="DNS.1=$(HOST)$(HOSTSUFFIX).$(CERTDOMAIN)" ; \

@@ -119,6 +119,19 @@ help:
 	@echo "  check-db-upgrade            Check if the database needs to be upgraded"
 	@echo "  upgrade-database            Backup and upgrade database to a newer PostgreSQL version"
 	@echo "                              (automatically transfers data to Docker volumes)"
+	@echo "  backup                      Back up all persistent deployment data and secrets"
+	@echo "  backup-verify               Verify backup artifact checksums (BACKUP_DIR=<path>)"
+	@echo "  restore                     Restore backup volumes (BACKUP_DIR=<path>)"
+	@echo "  database-check              Check an adjacent-version schema migration"
+	@echo "  database-migrate            Apply an adjacent-version schema migration"
+	@echo "  certificate-check           Check deployment certificate lifetime"
+	@echo "  certificate-renew           Renew TLS certificates without rotating credentials"
+	@echo "  upgrade-plan                Plan an adjacent release upgrade"
+	@echo "  upgrade-apply               Back up the source release before target cutover"
+	@echo "  upgrade-resume              Confirm cutover and resume the upgrade"
+	@echo "  upgrade-verify              Reverify an applied release upgrade"
+	@echo "  upgrade-rollback            Restore the verified pre-upgrade backup"
+	@echo "  kubernetes-upgrade-report   Inspect Kubernetes upgrade readiness (read-only)"
 	@echo ""
 	@echo "  rebuild-core                Clean and build core images and create secrets and volumes"
 	@echo "  rebuild-core-images         Clean and build core images"
@@ -139,6 +152,7 @@ help:
 	@echo "  run_functional_tests        Run functional tests"
 	@echo "  run_ui_tests                Run UI tests"
 	@echo "  run_unit_tests              Run unit tests"
+	@echo "  run_upgrade_tests           Run focused upgrade tooling tests"
 	@echo "  run_stability_tests         Run stability tests"
 	@echo "  run_performance_tests       Run performance tests"
 	@echo "  run_performance_degradation_test  Run long-run performance degradation test"
@@ -474,6 +488,12 @@ run_unit_tests: init-secrets setup-pytest
 	@echo "Running unit tests..."
 	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
 	@echo "DONE ==> Running unit tests"
+
+.PHONY: run_upgrade_tests
+run_upgrade_tests: init-secrets setup-pytest
+	@echo "Running upgrade tooling tests..."
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/upgrade/ $(PYTEST_FLAGS) || (echo "Upgrade tooling tests failed" && exit 1)
+	@echo "DONE ==> Running upgrade tooling tests"
 
 .PHONY: run_basic_acceptance_tests
 run_basic_acceptance_tests: setup-tests
@@ -874,30 +894,70 @@ upgrade-database:
 	echo "  - Database: scenescape_vol-db"; \
 	echo "  - Migrations: scenescape_vol-migrations"
 
-.PHONY: backupdb
-backupdb:
-	@echo "==> Starting backup of database and migrations volumes..."
-	@backup_dir=$(CURDIR)/scenescape_vol-backup; \
-	mkdir -p "$$backup_dir"; \
-	echo "Creating tar backup of database volume 'scenescape_vol-db'..."; \
-	docker run --rm \
-		-v scenescape_vol-db:/volume \
-		-v $$backup_dir:/backup \
-		alpine sh -c "tar czf /backup/db-backup.tar.gz -C /volume ."; \
-	echo "Database volume backup created at: $$backup_dir/db-backup.tar.gz"; \
-	echo "Creating tar backup of migrations volume 'scenescape_vol-migrations'..."; \
-	docker run --rm \
-		-v scenescape_vol-migrations:/volume \
-		-v $$backup_dir:/backup \
-		alpine sh -c "tar czf /backup/migrations-backup.tar.gz -C /volume ."; \
-	echo "Migrations volume backup created at: $$backup_dir/migrations-backup.tar.gz"; \
-	echo "Creating tar backup of media volume 'scenescape_vol-media'..."; \
-	docker run --rm \
-		-v scenescape_vol-media:/volume \
-		-v $$backup_dir:/backup \
-		alpine sh -c "tar czf /backup/media-backup.tar.gz -C /volume ."; \
-	echo "Media volume backup created at: $$backup_dir/media-backup.tar.gz"; \
-	echo "==> Backup completed successfully."
+.PHONY: backup backupdb backup-verify restore
+backup:
+	@tools/upgrade/scenescape-upgrade backup \
+		--project-name $(COMPOSE_PROJECT_NAME) \
+		--secrets-dir $(SECRETSDIR) \
+		--output-dir $(or $(BACKUP_DIR),$(CURDIR))
+
+# Compatibility alias; use `make backup` for new automation.
+backupdb: backup
+
+backup-verify:
+	@test -n "$(BACKUP_DIR)" || (echo "BACKUP_DIR is required"; exit 2)
+	@tools/upgrade/scenescape-upgrade backup-verify $(BACKUP_DIR)
+
+restore:
+	@test -n "$(BACKUP_DIR)" || (echo "BACKUP_DIR is required"; exit 2)
+	@tools/upgrade/scenescape-upgrade restore $(BACKUP_DIR) \
+		$(if $(filter true 1 yes,$(OVERWRITE)),--overwrite,)
+
+.PHONY: database-check database-migrate
+database-check database-migrate:
+	@test -n "$(SOURCE_VERSION)" || (echo "SOURCE_VERSION is required"; exit 2)
+	@test -n "$(TARGET_VERSION)" || (echo "TARGET_VERSION is required"; exit 2)
+	@tools/upgrade/scenescape-upgrade $@ \
+		--source-version $(SOURCE_VERSION) --target-version $(TARGET_VERSION) \
+		--project-name $(COMPOSE_PROJECT_NAME) \
+		--operation-dir $(or $(UPGRADE_STATE_DIR),$(CURDIR)/upgrade-state)
+
+.PHONY: certificate-check certificate-renew
+certificate-check certificate-renew:
+	@tools/upgrade/scenescape-upgrade $@ \
+		--project-name $(COMPOSE_PROJECT_NAME) \
+		--minimum-valid-days $(or $(MINIMUM_VALID_DAYS),30) \
+		--output-dir $(or $(UPGRADE_STATE_DIR),$(CURDIR)/upgrade-state) \
+		--certdomain $(CERTDOMAIN) \
+		--broker-extra-hosts "$(BROKER_EXTRA_HOSTS)" \
+		--web-extra-hosts "$(WEB_EXTRA_HOSTS)" \
+		--reid-s-extra-hosts "$(REID_S_EXTRA_HOSTS)"
+
+.PHONY: upgrade-plan upgrade-apply
+upgrade-plan upgrade-apply:
+	@test -n "$(SOURCE_VERSION)" || (echo "SOURCE_VERSION is required"; exit 2)
+	@tools/upgrade/scenescape-upgrade release-$(patsubst upgrade-%,%,$@) \
+		--source-version $(SOURCE_VERSION) \
+		$(if $(TARGET_VERSION),--target-version $(TARGET_VERSION),) \
+		$(if $(SOURCE_DEPLOYMENT_ROOT),--source-deployment-root $(SOURCE_DEPLOYMENT_ROOT),) \
+		--project-name $(COMPOSE_PROJECT_NAME) \
+		--operation-dir $(or $(UPGRADE_STATE_DIR),$(CURDIR)/upgrade-state) \
+		--output-dir $(or $(BACKUP_DIR),$(CURDIR)) \
+		$(if $(filter true 1 yes,$(ALLOW_DIRTY)),--allow-dirty,)
+
+.PHONY: upgrade-resume upgrade-verify upgrade-rollback
+upgrade-resume upgrade-verify upgrade-rollback:
+	@tools/upgrade/scenescape-upgrade release-$(patsubst upgrade-%,%,$@) \
+		--operation-dir $(or $(UPGRADE_STATE_DIR),$(CURDIR)/upgrade-state) \
+		$(if $(filter upgrade-resume,$@),--confirm-database-cutover \
+		--image-action $(or $(IMAGE_ACTION),pull),) \
+		$(if $(filter upgrade-rollback,$@),--confirm-destructive-restore --overwrite,)
+
+.PHONY: kubernetes-upgrade-report
+kubernetes-upgrade-report:
+	@tools/upgrade/scenescape-upgrade kubernetes-report \
+		--release $(or $(RELEASE),scenescape) \
+		--namespace $(or $(NAMESPACE),scenescape)
 
 .PHONY: clean-backup
 clean-backup:
