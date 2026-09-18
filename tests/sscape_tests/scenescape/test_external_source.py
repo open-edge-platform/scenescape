@@ -22,6 +22,7 @@ from controller.external_source import (
 )
 from controller.scene_controller import SceneController
 from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints
+from scene_common.transform import CameraPose
 
 
 def _makeScene(uid="scene-1", trs_xyz_to_lla=None):
@@ -465,10 +466,13 @@ class TestExternalSourceTrackRouting:
     controller = SceneController.__new__(SceneController)
     controller.external_source_pose_cache = MagicMock()
     controller.external_source_pose_cache.resolve.return_value = (
-      SimpleNamespace(pose_mat=np.eye(4)), None)
+      CameraPose({'translation': [0.0, 0.0, 0.0],
+                  'rotation': [0.0, 0.0, 0.0, 1.0],
+                  'scale': [1.0, 1.0, 1.0]}, None), None)
     controller.identity_claim_registry = MagicMock()
     controller.identity_claim_registry.claim.return_value = (True, None)
     controller.trusted_positioning_sources = frozenset()
+    controller.external_source_bindings = {}
     return controller
 
   @staticmethod
@@ -592,3 +596,119 @@ class TestExternalSourceTrackRouting:
       'tracked:drone-1:person:0',
       'tracked:drone-1:person:1',
     ]
+
+  def test_pixel_detection_forces_tracking_through_camera_path(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    pixel_pose = CameraPose({'translation': [1.0, 2.0, 3.0],
+                             'rotation': [0.0, 0.0, 0.0, 1.0],
+                             'scale': [1.0, 1.0, 1.0]}, None)
+    controller.external_source_pose_cache.resolve.return_value = (pixel_pose, None)
+    jdata = {
+      'source_id': 'drone-1',
+      'track': False,
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [1.0, 2.0, 3.0],
+        'rotation': IDENTITY_ROTATION,
+      },
+      'intrinsics': {'fx': 905.0, 'fy': 905.0, 'cx': 640.0, 'cy': 360.0},
+      'objects': [
+        {
+          'id': 'obj-1',
+          'category': 'person',
+          'bounding_box_px': {'x': 221, 'y': 157, 'width': 108, 'height': 259},
+        },
+      ],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    scene.processSceneData.assert_not_called()
+    detection_type, routed_objects, when, pixel_camera = \
+      scene._createMovingObjectsForDetection.call_args[0]
+    assert detection_type == 'person'
+    assert routed_objects[0]['id'] == 'tracked:drone-1:person:obj-1'
+    assert routed_objects[0]['bounding_box_px']['x'] == 221
+    assert routed_objects[0]['bounding_box_px']['y'] == 157
+    assert 'translation' not in routed_objects[0]
+    assert when == 10.0
+    assert pixel_camera.pose.intrinsics is not None
+    scene._finishProcessing.assert_called_once()
+    controller.identity_claim_registry.claim.assert_not_called()
+
+  def test_pixel_detection_missing_intrinsics_is_discarded(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    jdata = {
+      'source_id': 'drone-1',
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [1.0, 2.0, 3.0],
+        'rotation': IDENTITY_ROTATION,
+      },
+      'objects': [
+        {
+          'category': 'person',
+          'bounding_box_px': {'x': 221, 'y': 157, 'width': 108, 'height': 259},
+        },
+      ],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    scene.processSceneData.assert_not_called()
+
+  def test_mixed_translation_and_pixel_objects_use_their_native_paths(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    pixel_moving_object = object()
+    translation_moving_object = object()
+    scene._createMovingObjectsForDetection.return_value = [pixel_moving_object]
+    scene._createMovingObjectsForSceneData.return_value = (
+      [],
+      [translation_moving_object],
+    )
+    pixel_pose = CameraPose({'translation': [1.0, 2.0, 3.0],
+                             'rotation': [0.0, 0.0, 0.0, 1.0],
+                             'scale': [1.0, 1.0, 1.0]}, None)
+    controller.external_source_pose_cache.resolve.return_value = (pixel_pose, None)
+    jdata = {
+      'source_id': 'drone-1',
+      'track': False,
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [1.0, 2.0, 3.0],
+        'rotation': IDENTITY_ROTATION,
+      },
+      'intrinsics': {'fx': 905.0, 'fy': 905.0, 'cx': 640.0, 'cy': 360.0},
+      'objects': [
+        {'id': 'obj-translation', 'category': 'person', 'translation': [0, 0, 0]},
+        {
+          'id': 'obj-pixel',
+          'category': 'person',
+          'bounding_box_px': {'x': 221, 'y': 157, 'width': 108, 'height': 259},
+        },
+      ],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    scene.processSceneData.assert_not_called()
+    routed_jdata, source_ns, camera_pose = \
+      scene._createMovingObjectsForSceneData.call_args[0][:3]
+    assert [obj['id'] for obj in routed_jdata['objects']] == ['obj-translation']
+    assert source_ns.retrack is False
+    assert camera_pose.intrinsics is None
+
+    pixel_objects = scene._createMovingObjectsForDetection.call_args[0][1]
+    pixel_camera = scene._createMovingObjectsForDetection.call_args[0][3]
+    assert pixel_objects[0]['id'] == 'tracked:drone-1:person:obj-pixel'
+    assert 'translation' not in pixel_objects[0]
+    assert pixel_camera.pose.intrinsics is not None
+    scene._finishProcessing.assert_called_once_with(
+      'person',
+      10.0,
+      [pixel_moving_object],
+      [translation_moving_object],
+    )
