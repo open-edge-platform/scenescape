@@ -71,7 +71,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
   BROWSER_WEBGL = True
 
   def __init__(self, testName, request):
-    super().__init__(testName, request, None)
+    super().__init__(testName, request)
 
   def getCameraPanelIds(self):
     panels = self.browser.find_elements(By.CSS_SELECTOR, "[id$='-control-panel']")

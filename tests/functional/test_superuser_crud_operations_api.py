@@ -10,6 +10,7 @@ from scene_common.rest_client import RESTClient
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
+import pytest
 
 log = get_logger(__name__)
 
@@ -22,8 +23,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 TEST_NAME = "NEX-T21775"
 
 class CRUDPermissionsTest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute, repo_root):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request, repo_root):
+    super().__init__(testName, request)
     self.repoRoot = repo_root
     self.scene_uid = None
     self.camera_uid = None
@@ -149,13 +150,14 @@ class CRUDPermissionsTest(FunctionalTest):
     finally:
       self.tearDown()
 
-def test_crud_operations_api(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
-  test = CRUDPermissionsTest(TEST_NAME, request, record_xml_attribute, repo_root)
-  record_xml_attribute("name", TEST_NAME)
+@pytest.mark.test_name("NEX-T21775")
+def test_crud_operations_api(scenescape_env, demo_scene, request, result_recorder, repo_root):
+  test = CRUDPermissionsTest(TEST_NAME, request, None, repo_root)
   ok = False
   try:
     ok = test.runTest()
     test.exitCode = 0 if ok else 1
     assert ok
+    result_recorder.success()
   finally:
     test.recordTestResult()

@@ -21,7 +21,6 @@ import pytest
 from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
 from scene_common import log
-import tests.common_test_utils as common
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
@@ -78,14 +77,12 @@ def _wait_for_queue(q, timeout):
   return [first] + rest
 
 
+@pytest.mark.test_name("NEX-T28654")
 def test_child_external_reid_stamped_with_provenance(
-    objData, record_xml_attribute, params):
+    objData, params, result_recorder):
   """! Positive: large local crops forward reid on DATA_EXTERNAL with provenance
   naming the vetting child scene and source camera.
   """
-  TEST_NAME = "NEX-T28654"
-  record_xml_attribute("name", TEST_NAME)
-  log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client_holder = [None]
   rest_client = None
@@ -141,20 +138,18 @@ def test_child_external_reid_stamped_with_provenance(
       client_holder[0].loopStop()
     if rest_client is not None:
       h.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return
 
 
+@pytest.mark.test_name("NEX-T28655")
 def test_child_external_reid_withheld_when_crop_too_small(
-    objData, record_xml_attribute, params):
+    objData, params, result_recorder):
   """! Negative: crops at or below the minimum pixel area are not forwarded on
   hierarchy DATA_EXTERNAL even when the detector supplies an embedding.
   """
-  TEST_NAME = "NEX-T28655"
-  record_xml_attribute("name", TEST_NAME)
-  log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client_holder = [None]
   rest_client = None
@@ -191,20 +186,18 @@ def test_child_external_reid_withheld_when_crop_too_small(
       client_holder[0].loopStop()
     if rest_client is not None:
       h.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return
 
 
+@pytest.mark.test_name("NEX-T28656")
 def test_camera_claimed_provenance_cannot_bypass_bbox_gate(
-    objData, record_xml_attribute, params):
+    objData, params, result_recorder):
   """! Negative: a detector cannot claim upstream vetting to skip the local
   pixel-area gate. Spoofed provenance on a small crop must still withhold reid.
   """
-  TEST_NAME = "NEX-T28656"
-  record_xml_attribute("name", TEST_NAME)
-  log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client_holder = [None]
   rest_client = None
@@ -245,20 +238,18 @@ def test_camera_claimed_provenance_cannot_bypass_bbox_gate(
       client_holder[0].loopStop()
     if rest_client is not None:
       h.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return
 
 
+@pytest.mark.test_name("NEX-T28657")
 def test_retrack_false_parent_regulated_strips_reid(
-    objData, record_xml_attribute, params):
+    objData, params, result_recorder):
   """! Positive: with retrack=False the parent accepts child IDs and strips
   forwarded reid, so parent DATA_REGULATED objects carry no metadata.reid.
   """
-  TEST_NAME = "NEX-T28657"
-  record_xml_attribute("name", TEST_NAME)
-  log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client = None
   rest_client = None
@@ -302,20 +293,18 @@ def test_retrack_false_parent_regulated_strips_reid(
       client.loopStop()
     if rest_client is not None:
       h.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return
 
 
+@pytest.mark.test_name("NEX-T28658")
 def test_retrack_true_parent_regulated_preserves_reid(
-    objData, record_xml_attribute, params):
+    objData, params, result_recorder):
   """! Positive: with retrack=True the parent re-tracks child detections and
   keeps forwarded reid on regulated output so UUID manager can query with it.
   """
-  TEST_NAME = "NEX-T28658"
-  record_xml_attribute("name", TEST_NAME)
-  log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client = None
   rest_client = None
@@ -362,7 +351,7 @@ def test_retrack_true_parent_regulated_preserves_reid(
       client.loopStop()
     if rest_client is not None:
       h.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return

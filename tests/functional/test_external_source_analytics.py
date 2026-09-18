@@ -79,7 +79,7 @@ LEFT = -1
 
 class ExternalSourceAnalytics(FunctionalTest):
   def __init__(self, testName, request, repo_root):
-    super().__init__(testName, request, None)
+    super().__init__(testName, request)
     self.repoRoot = repo_root
     self.exitCode = 1
     self.sceneUID = self.params['scene_id']

@@ -11,6 +11,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -61,15 +62,15 @@ def create_user(browser, user_name, pwd):
   browser.switch_to.window(original_window)
   return True
 
-def test_crud_operations(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T10418")
+def test_crud_operations(params, result_recorder):
   """! Checks that while an admin can perform CRUD functions
   on scenes, cameras, and sensors via the web UI a regular user cannot.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10418"
-  record_xml_attribute("name", TEST_NAME)
   exit_code = 1
   try:
     print("Executing: " + TEST_NAME)
@@ -171,4 +172,5 @@ def test_crud_operations(params, record_xml_attribute):
     browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
+  result_recorder.success()
   return exit_code

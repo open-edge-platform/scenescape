@@ -10,6 +10,7 @@ from tests.common_test_utils import record_test_result
 from tests.utils.log import get_logger
 from tests.utils.profiles import FULL_STACK, FULL_STACK_WITH_VIDEO_AND_RETAIL
 from tests.utils.spec import AUTH_CONTROLLER, FuncTestSpec
+import pytest
 
 log = get_logger(__name__)
 
@@ -24,9 +25,8 @@ SCENESCAPE_ENV_MATRIX = {
 
 TEST_NAME = "NEX-T21884"
 
-def test_scene_details_api(request, params, record_xml_attribute):
-  test_name = getattr(request.node, '_scenescape_test_name', TEST_NAME)
-  record_xml_attribute("name", test_name)
+@pytest.mark.test_name("NEX-T21884")
+def test_scene_details_api(request, params, result_recorder):
   exit_code = 1
 
   rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
@@ -62,5 +62,6 @@ def test_scene_details_api(request, params, record_xml_attribute):
     log.info(f"{len(cameras)} camera(s) found in scene.")
 
     exit_code = 0
+    result_recorder.success()
   finally:
-    record_test_result(test_name, exit_code)
+    record_test_result(TEST_NAME, exit_code)

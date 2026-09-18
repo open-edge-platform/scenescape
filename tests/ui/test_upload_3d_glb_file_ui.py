@@ -7,20 +7,21 @@ import tests.ui.common_ui_test_utils as common
 from tests.ui.browser import Browser
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
   require_password=True, auth="",
 )
 
-def test_upload_glb_main(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T10425")
+def test_upload_glb_main(params, result_recorder):
   """! Checks that a user can upload a .glb file as a 3D scene map.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10425"
-  record_xml_attribute("name", TEST_NAME)
   exit_code = 1
   browser = Browser()
   assert common.check_page_login(browser, params)
@@ -38,4 +39,5 @@ def test_upload_glb_main(params, record_xml_attribute):
 
   common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
+  result_recorder.success()
   return

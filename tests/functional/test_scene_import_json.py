@@ -14,6 +14,7 @@ from tests.functional import FunctionalTest
 from scene_common.timestamp import get_iso_time
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import SCENE_NO_DB
+import pytest
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
@@ -28,7 +29,7 @@ SCENE_WAIT_TIMEOUT_S = 30
 
 class SceneControllerImportJSON(FunctionalTest):
   def __init__(self, request, result_recorder):
-    super().__init__(None, request, None)
+    super().__init__(None, request)
     self.result_recorder = result_recorder
     self.sceneUID = self.params['scene_id']
     self.frameRate = FRAMES_PER_SECOND

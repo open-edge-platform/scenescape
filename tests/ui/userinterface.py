@@ -22,8 +22,8 @@ class UserInterfaceTest(Diagnostic):
   # camera-calibration page). Disabled by default for CI stability.
   BROWSER_WEBGL = False
 
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
     self.browser = Browser(webgl=self.BROWSER_WEBGL)
     return
 

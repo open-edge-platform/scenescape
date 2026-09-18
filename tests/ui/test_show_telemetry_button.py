@@ -18,6 +18,7 @@ import time
 from scene_common.mqtt import PubSub
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
@@ -30,8 +31,8 @@ TEST_NAME = "NEX-T10435"
 NO_FPS_STATUS = "--"
 
 class WillOurShipGo(UserInterfaceTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
     self.sceneName = self.params['scene']
     self.sceneUID = self.params['scene_id']
 
@@ -43,9 +44,6 @@ class WillOurShipGo(UserInterfaceTest):
     return
 
   def checkForMalfunctions(self):
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
-
     try:
       waitTopic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id="+")
       assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Video Analytics not ready"
@@ -80,10 +78,12 @@ class WillOurShipGo(UserInterfaceTest):
       self.recordTestResult()
     return
 
-def test_telemetry_button(scenescape_env, request, record_xml_attribute):
-  test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
+@pytest.mark.test_name("NEX-T10435")
+def test_telemetry_button(scenescape_env, request, result_recorder):
+  test = WillOurShipGo(TEST_NAME, request)
   test.checkForMalfunctions()
   assert test.exitCode == 0
+  result_recorder.success()
   return
 
 def main():

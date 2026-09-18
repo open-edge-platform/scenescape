@@ -11,6 +11,7 @@ from tests.ui import UserInterfaceTest
 from tests.ui import common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_AUTOCALIBRATION,
@@ -87,8 +88,8 @@ class AprilTagCalibrationTest(UserInterfaceTest):
   # The camera calibration page constructs a THREE.WebGLRenderer
   BROWSER_WEBGL = True
 
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
     self.sceneName = self.params['scene']
     return
 
@@ -250,20 +251,21 @@ def get_calibration_points_from_js(browser, canvas_type):
   print(f"Calibration points from {canvas_type}:", points)
   return points
 
+@pytest.mark.test_name("NEX-T15710")
 @common.mock_display
-def test_april_tag(scenescape_env, request, record_xml_attribute):
+def test_april_tag(scenescape_env, request, result_recorder):
   """! Checks that a user can setup a scene with april tags.
   @param    request                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T15710"
-  record_xml_attribute("name", TEST_NAME)
 
-  test = AprilTagCalibrationTest(TEST_NAME, request, record_xml_attribute)
+  test = AprilTagCalibrationTest(TEST_NAME, request)
   test.execute_test()
 
   assert test.exitCode == 0
+  result_recorder.success()
   return test.exitCode
 
 def main():

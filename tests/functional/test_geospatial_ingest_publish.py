@@ -46,8 +46,8 @@ MAP_RESOLUTION = [900, 643]
 MAP_SCALE = 100.0
 
 class GeospatialIngestPublish(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute, repo_root):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request, repo_root):
+    super().__init__(testName, request)
     self.repoRoot = repo_root
 
     self.exitCode = 1
@@ -302,9 +302,6 @@ class GeospatialIngestPublish(FunctionalTest):
     return
 
   def verifyFunction(self):
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
-
     try:
       self.check_geospatial_constants()
       self.prepareScene()
@@ -343,10 +340,12 @@ def _verifyLLA(detected_object):
     raise ValueError(f"LLA verification failed! Expected LLA: {EXPECTED_DETECTION_LLA}, got: {detected_object['lat_long_alt']}")
 
 @pytest.mark.skip(reason="Flaky in full suite: TRS matrix not computed. Test passed when run in isolation.")
-def test_geospatial_ingest_publish(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
-  test = GeospatialIngestPublish(TEST_NAME, request, record_xml_attribute, repo_root)
+@pytest.mark.test_name("NEX-T10490")
+def test_geospatial_ingest_publish(scenescape_env, demo_scene, request, result_recorder, repo_root):
+  test = GeospatialIngestPublish(TEST_NAME, request, None, repo_root)
   test.verifyFunction()
   assert test.exitCode == 0
+  result_recorder.success()
   return
 
 def main():

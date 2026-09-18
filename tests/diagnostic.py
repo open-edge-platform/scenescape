@@ -10,10 +10,9 @@ import json
 import tests.common_test_utils as common
 
 class Diagnostic:
-  def __init__(self, testName, request, recordXMLAttribute):
+  def __init__(self, testName, request):
     self.exitCode = 1
     self.testName = testName
-    self.recordXMLAttribute = recordXMLAttribute
 
     parser = self.buildArgparser()
     if request is not None:

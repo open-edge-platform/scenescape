@@ -124,11 +124,12 @@ def on_message(mqttc, data, msg):
   mqttc.publish(PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=used_camera), "getimage")
   return
 
+@pytest.mark.test_name("NEX-T10419")
 @pytest.mark.basic_acceptance
-def test_bounding_box(params, record_xml_attribute):
+def test_bounding_box(params, result_recorder):
   """! Checks that red object detection bounding boxes appear in the camera 1 image stream.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   global counter_bbox
@@ -136,7 +137,6 @@ def test_bounding_box(params, record_xml_attribute):
   global counter_bad_bbox
 
   TEST_NAME = "NEX-T10419"
-  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
 
   client = PubSub(params['auth'], None, params['rootcert'], params['broker_url'],
@@ -168,4 +168,5 @@ def test_bounding_box(params, record_xml_attribute):
 
   common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
+  result_recorder.success()
   return
