@@ -14,7 +14,6 @@ import numpy as np
 
 from base.tracker_evaluator import TrackerEvaluator
 from utils.timeline import (
-  compute_fps,
   deduplicate_frames_by_timestamp,
   normalize_histories_to_fps,
   parse_timestamp,
@@ -79,7 +78,8 @@ class JitterEvaluator(TrackerEvaluator):
     self._rotation_histories: Dict[str, List[tuple]] = {}
     # Ground-truth per-track histories (populated when GT JSONL is provided)
     self._gt_track_histories: Dict[str, List[tuple]] = {}
-    # FPS derived from tracker output timestamps (used to convert GT frame → time)
+    # Configured frame rate (set via set_base_fps); only used for grid
+    # normalisation, never inferred from tracker-output timestamps.
     self._camera_fps: float = 30.0
     self._base_fps: Optional[float] = None
 
@@ -130,7 +130,8 @@ class JitterEvaluator(TrackerEvaluator):
     """Set base frame rate for timestamp-to-frame-number conversion.
 
     Args:
-      fps: Frames per second (> 0), or None to auto-compute from timestamps.
+      fps: Frames per second (> 0), or None. Optional for jitter, which is
+        computed from timestamps; the rate is only used for grid normalisation.
 
     Returns:
       Self for method chaining.
@@ -213,11 +214,10 @@ class JitterEvaluator(TrackerEvaluator):
       for track_id in rotation_histories:
         rotation_histories[track_id].sort(key=lambda entry: entry[0])
 
-      # Derive FPS from tracker output timestamps
-      all_timestamps = sorted(
-        parse_timestamp(f.get('timestamp', '')) for f in deduplicated
-      )
-      self._camera_fps = self._base_fps or compute_fps(all_timestamps)
+      # Jitter is computed directly from timestamps; the configured frame rate
+      # is only used to normalise onto a fixed grid below. It is never inferred.
+      if self._base_fps is not None:
+        self._camera_fps = self._base_fps
 
       # Parse ground-truth JSONL if provided
       gt_track_histories: Dict[str, List[tuple]] = {}

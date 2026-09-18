@@ -261,7 +261,7 @@ Implementation of the component class must implement the following abstract meth
 
 - **set_base_fps**(fps: Optional[float]) -> TrackerEvaluator
   - Set base frame rate for timestamp-to-frame-number conversion
-  - When set, evaluators use this FPS instead of computing it from tracker output timestamps; passing None reverts to automatic computation
+  - The frame rate is required by evaluators that quantize timestamps onto a frame grid; it is never inferred from tracker-output timestamps. Passing None leaves it unset, and such evaluators raise a clear error when processed without it
   - Args: frames per second (must be > 0), or None to reset
   - Returns: self for method chaining
   - Raises: ValueError if fps is not None and <= 0

@@ -239,7 +239,7 @@ The pipeline assumes that **tracker output uses the same frame rate as the input
 
 **Important**: If the tracker drops frames (e.g., due to missed detections or processing bottlenecks), the tracker output will have fewer frames than the input, but the frame rate used for time-to-frame conversion should still match the input dataset's frame rate. The pipeline will automatically handle frame count mismatches by matching frames based on timestamps.
 
-If you need to override the frame rate for a specific evaluator run, use `set_base_fps(fps)` on the evaluator before `process_tracker_outputs()` or `process_projected_outputs()` is called. The pipeline engine automatically calls this method when `camera_fps` is configured in the dataset section.
+The frame rate is **required** and is never inferred from tracker-output timestamps. Evaluators that quantize timestamps onto a frame grid (TrackEval, diagnostic, camera-accuracy) raise a clear error if it was not configured. Set it with `set_base_fps(fps)` on the evaluator before `process_tracker_outputs()` or `process_projected_outputs()` is called; the pipeline engine calls this automatically when `camera_fps` is configured in the dataset section.
 
 ## Directory Structure
 

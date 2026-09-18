@@ -275,7 +275,8 @@ class TrackEvalEvaluator(TrackerEvaluator):
     """Set base frame rate for timestamp-to-frame-number conversion.
 
     Args:
-      fps: Frames per second (> 0), or None to auto-compute from timestamps.
+      fps: Frames per second (> 0). Required before processing; it is never
+        inferred from timestamps. None leaves it unset and processing raises.
 
     Returns:
       Self for method chaining.
@@ -319,10 +320,10 @@ class TrackEvalEvaluator(TrackerEvaluator):
         stream_jsonl
       )
       from utils.timeline import (
-        compute_fps,
         deduplicate_frames_by_timestamp,
         parse_timestamp,
         reference_timestamp,
+        require_fps,
         resolve_ground_truth_path,
         timestamp_to_frame,
       )
@@ -344,7 +345,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
         parse_timestamp(data["timestamp"]) for data in tracker_output_list
       ]
       self._num_frames = len(timestamps)
-      self._camera_fps = self._base_fps or compute_fps(timestamps)
+      self._camera_fps = require_fps(self._base_fps)
 
       # Setup directory structure for TrackEval
       # GT structure: GT_FOLDER/seq/gt/gt.txt + seqinfo.ini

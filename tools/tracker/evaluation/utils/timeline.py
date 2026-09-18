@@ -52,15 +52,19 @@ def deduplicate_frames_by_timestamp(
   return result
 
 
-def compute_fps(timestamps: List[datetime]) -> float:
-  """Estimate frame rate from the span between the first and last timestamps.
+def require_fps(base_fps: Optional[float]) -> float:
+  """Return the explicitly configured frame rate, or raise if it is missing.
 
-  Falls back to 30.0 for degenerate inputs.
+  Frame rate must come from configuration (dataset ``camera_fps`` forwarded via
+  ``set_base_fps``). Inferring it from tracker-output timestamp spans is
+  intentionally unsupported so evaluation never silently guesses the rate.
   """
-  if len(timestamps) > 1:
-    span = (timestamps[-1] - timestamps[0]).total_seconds()
-    return (len(timestamps) - 1) / span if span > 0 else 30.0
-  return 30.0
+  if base_fps is None:
+    raise RuntimeError(
+      "Frame rate is required but was not configured. Set 'camera_fps' in the "
+      "dataset pipeline config; it is forwarded to evaluators via set_base_fps()."
+    )
+  return base_fps
 
 
 def timestamp_to_frame(

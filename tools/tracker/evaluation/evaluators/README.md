@@ -180,7 +180,7 @@ $$v_i = \frac{p_{i+1} - p_i}{\Delta t_i}, \quad a_i = \frac{v_{i+1} - v_i}{\Delt
 
 Minimum track length: 3 points for acceleration, 4 points for jerk. Shorter tracks are skipped; if no eligible tracks exist, the metric returns 0.0.
 
-For GT metrics, ground-truth frame numbers are converted to relative timestamps using the FPS derived from the tracker output.
+For GT metrics, ground-truth kinematics are computed directly from the absolute timestamps in the canonical JSONL ground truth; no frame-rate inference is involved.
 
 **Key Features**:
 

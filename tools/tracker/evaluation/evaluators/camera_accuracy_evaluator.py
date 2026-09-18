@@ -157,7 +157,8 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     """Set base frame rate for timestamp-to-frame-number conversion.
 
     Args:
-      fps: Frames per second (> 0), or None to auto-compute from timestamps.
+      fps: Frames per second (> 0). Required before processing; it is never
+        inferred from timestamps. None leaves it unset and processing raises.
 
     Returns:
       Self for method chaining.
@@ -601,9 +602,9 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     sys.path.insert(0, str(Path(__file__).parent.parent / "utils"))
     from format_converters import stream_jsonl
     from utils.timeline import (
-      compute_fps,
       parse_timestamp,
       reference_timestamp,
+      require_fps,
       resolve_ground_truth_path,
       timestamp_to_frame,
     )
@@ -620,8 +621,7 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
 
     # Shared reference epoch and frame rate for both inputs.
     reference = reference_timestamp(frames_list, gt_frames)
-    unique_ts = sorted({parse_timestamp(d["timestamp"]) for d in frames_list})
-    fps = self._base_fps or compute_fps(unique_ts)
+    fps = require_fps(self._base_fps)
 
     for frame_data in frames_list:
       frame_num = timestamp_to_frame(

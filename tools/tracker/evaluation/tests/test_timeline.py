@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.timeline import (
   parse_timestamp,
   deduplicate_frames_by_timestamp,
-  compute_fps,
+  require_fps,
   timestamp_to_frame,
   reference_timestamp,
   resolve_ground_truth_path,
@@ -49,13 +49,13 @@ class TestDeduplicate:
     assert result[1]["timestamp"] == _ts(1)
 
 
-class TestComputeFps:
-  def test_derives_from_timestamps(self):
-    timestamps = [parse_timestamp(_ts(i)) for i in range(11)]  # 10 gaps * 100ms = 1s
-    assert compute_fps(timestamps) == pytest.approx(10.0)
+class TestRequireFps:
+  def test_returns_configured_value(self):
+    assert require_fps(10.0) == 10.0
 
-  def test_single_timestamp_defaults(self):
-    assert compute_fps([parse_timestamp(_ts(0))]) == 30.0
+  def test_raises_when_missing(self):
+    with pytest.raises(RuntimeError, match="Frame rate is required"):
+      require_fps(None)
 
 
 class TestTimestampToFrame:

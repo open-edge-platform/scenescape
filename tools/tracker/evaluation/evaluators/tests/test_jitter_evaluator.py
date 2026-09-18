@@ -233,15 +233,9 @@ class TestProcessTrackerOutputs:
     evaluator.process_tracker_outputs(iter(mock_tracker_outputs), ground_truth=None)
     assert evaluator._processed is True
 
-  def test_fps_derived_from_multi_frame_outputs(self, evaluator, mock_tracker_outputs):
-    """FPS is computed from tracker output timestamps when more than one frame exists."""
-    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
-    # mock_tracker_outputs spans ~0.067s over 3 frames → ~29.9 FPS
-    assert evaluator._camera_fps > 0
-    assert evaluator._camera_fps != DEFAULT_CAMERA_FPS  # not the default fallback
-
-  def test_fps_defaults_to_30_for_single_frame(self, evaluator):
-    """Single-frame output cannot derive FPS — falls back to 30.0."""
+  def test_fps_not_inferred_without_base_fps(self, evaluator):
+    """Frame rate is never inferred from timestamps; it stays at the default
+    until set_base_fps() is called."""
     outputs = [{"timestamp": "2024-01-01T00:00:00.000Z", "objects": [
       {"id": "track-A", "translation": [0.0, 0.0, 0.0]}]}]
     evaluator.process_tracker_outputs(outputs, ground_truth=None)

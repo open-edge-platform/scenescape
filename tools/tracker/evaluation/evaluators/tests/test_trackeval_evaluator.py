@@ -21,8 +21,8 @@ from evaluators.trackeval_evaluator import TrackEvalEvaluator
 
 @pytest.fixture
 def evaluator():
-  """Create TrackEvalEvaluator instance."""
-  return TrackEvalEvaluator()
+  """Create TrackEvalEvaluator instance (mock data ~30 fps grid)."""
+  return TrackEvalEvaluator().set_base_fps(30.0)
 
 
 @pytest.fixture
@@ -304,7 +304,7 @@ class TestSetBaseFps:
     assert evaluator._base_fps == 25.0
 
   def test_none_resets(self, evaluator):
-    """None resets to auto-compute."""
+    """None clears the configured frame rate."""
     evaluator.set_base_fps(30.0)
     evaluator.set_base_fps(None)
     assert evaluator._base_fps is None
@@ -328,9 +328,19 @@ class TestSetBaseFps:
   def test_overrides_computed_fps(
     self, evaluator, mock_tracker_outputs, mock_ground_truth_file, temp_result_folder
   ):
-    """When set, base_fps overrides computed FPS."""
+    """The configured base_fps is used for frame alignment."""
     evaluator.set_base_fps(15.0)
     evaluator.configure_metrics(['HOTA'])
     evaluator.set_output_folder(temp_result_folder)
     evaluator.process_tracker_outputs(mock_tracker_outputs, mock_ground_truth_file)
     assert evaluator._camera_fps == 15.0
+
+  def test_process_without_fps_raises(
+    self, mock_tracker_outputs, mock_ground_truth_file, temp_result_folder
+  ):
+    """Processing without a configured frame rate raises a clear error."""
+    ev = TrackEvalEvaluator()
+    ev.configure_metrics(['HOTA'])
+    ev.set_output_folder(temp_result_folder)
+    with pytest.raises(RuntimeError, match="Frame rate is required"):
+      ev.process_tracker_outputs(mock_tracker_outputs, mock_ground_truth_file)

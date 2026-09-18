@@ -127,7 +127,7 @@ class TestProcessTrackerOutputs:
       ev.evaluate_metrics()
 
   def test_raises_without_metrics(self, tmp_path):
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     gt_file = _make_gt_csv(tmp_path, 5, {0: lambda f: (1.0, 2.0)})
     outputs = _make_projected_outputs(5, {"cam1": {"0": lambda i: (1.0, 2.0)}})
     ev.process_tracker_outputs(iter(outputs), gt_file)
@@ -146,7 +146,7 @@ class TestDistanceMetric:
     )
     gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: pos(f - 1)})
 
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["DIST_T"])
     ev.set_output_folder(tmp_output)
     ev.process_tracker_outputs(iter(outputs), gt_file)
@@ -163,7 +163,7 @@ class TestDistanceMetric:
     )
     gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
 
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["DIST_T"])
     ev.set_output_folder(tmp_output)
     ev.process_tracker_outputs(iter(outputs), gt_file)
@@ -182,7 +182,7 @@ class TestDistanceMetric:
     outputs = _make_projected_outputs(n_frames, tracks)
     gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 11.0)})
 
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["DIST_T"])
     ev.set_output_folder(tmp_output)
     ev.process_tracker_outputs(iter(outputs), gt_file)
@@ -199,7 +199,7 @@ class TestDistanceMetric:
     )
     gt_file = _make_gt_csv(tmp_path, n_frames, {1: lambda f: (1.0, 2.0)})
 
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["DIST_T"])
     ev.set_output_folder(tmp_output)
     ev.process_tracker_outputs(iter(outputs), gt_file)
@@ -221,7 +221,7 @@ class TestVisibilityMetric:
     )
     gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
 
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["VISIBILITY"])
     ev.set_output_folder(tmp_output)
     ev.process_tracker_outputs(iter(outputs), gt_file)
@@ -243,7 +243,7 @@ class TestVisibilityMetric:
 
     gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
 
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["VISIBILITY"])
     ev.set_output_folder(tmp_output)
     ev.process_tracker_outputs(iter(outputs), gt_file)
@@ -260,7 +260,7 @@ class TestCsvOutputs:
     )
     gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
 
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["DIST_T", "VISIBILITY"])
     ev.set_output_folder(tmp_output)
     ev.process_tracker_outputs(iter(outputs), gt_file)
@@ -280,7 +280,7 @@ class TestReset:
     )
     gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
 
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["DIST_T"])
     ev.set_output_folder(tmp_path / "out")
     ev.process_tracker_outputs(iter(outputs), gt_file)
@@ -321,12 +321,12 @@ class TestProcessTrackerOutputsException:
 
 
 class TestParseEdgeCases:
-  def test_single_frame_fps_fallback(self, tmp_path, tmp_output):
-    """Single-frame input → fps defaults to 30 (single-timestamp branch)."""
+  def test_single_frame_with_explicit_fps(self, tmp_path, tmp_output):
+    """Single-frame input is aligned using the configured frame rate."""
     outputs = _make_projected_outputs(1, {"cam1": {"0": lambda i: (5.0, 10.0)}})
     gt_file = _make_gt_csv(tmp_path, 1, {0: lambda f: (5.0, 10.0)})
 
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["DIST_T"])
     ev.set_output_folder(tmp_output)
     ev.process_tracker_outputs(iter(outputs), gt_file)
@@ -349,7 +349,7 @@ class TestParseEdgeCases:
     ]
     gt_file = _make_gt_csv(tmp_path, 1, {0: lambda f: (5.0, 10.0)})
 
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["DIST_T"])
     ev.set_output_folder(tmp_output)
     ev.process_tracker_outputs(iter(outputs), gt_file)
@@ -364,7 +364,7 @@ class TestParseEdgeCases:
     outputs = _make_projected_outputs(n_frames, {"cam1": {"0": lambda i: (5.0, 10.0)}})
     gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
 
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["DIST_T"])
     ev.set_output_folder(tmp_output)
     ev.process_tracker_outputs(iter(outputs), iter([gt_file]))
@@ -384,7 +384,7 @@ class TestParseEdgeCases:
     )
     gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
 
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["DIST_T"])
     ev.set_output_folder(tmp_output)
     ev.process_tracker_outputs(iter(outputs), gt_file)
@@ -407,7 +407,7 @@ class TestFormatSummary:
     )
     gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
 
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["DIST_T"])
     ev.set_output_folder(tmp_output)
     ev.process_tracker_outputs(iter(outputs), gt_file)
@@ -426,7 +426,7 @@ class TestFormatSummary:
     )
     gt_file = _make_gt_csv(tmp_path, n_frames, {1: lambda f: (3.0, 7.0)})
 
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["DIST_T", "VISIBILITY"])
     ev.set_output_folder(tmp_output)
     ev.process_tracker_outputs(iter(outputs), gt_file)
@@ -469,7 +469,7 @@ class TestSetSceneConfig:
   def test_scene_config_takes_priority_over_harness_output(self, tmp_path, tmp_output):
     """Config-derived positions are not overwritten by camera_position in frames."""
     config = {"sensors": {"CamA": self._SENSOR}}
-    ev = CameraAccuracyEvaluator()
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
     ev.configure_metrics(["DIST_T"])
     ev.set_output_folder(tmp_output)
     ev.set_scene_config(config)
@@ -609,7 +609,7 @@ class TestSetBaseFps:
     assert ev.set_base_fps(30.0) is ev
 
   def test_none_resets(self):
-    """None resets to auto-compute."""
+    """None clears the configured frame rate."""
     ev = CameraAccuracyEvaluator()
     ev.set_base_fps(30.0)
     ev.set_base_fps(None)
@@ -635,12 +635,11 @@ class TestSetBaseFps:
     assert ev._base_fps is None
 
   def test_overrides_computed_fps(self, tmp_path):
-    """When set, base_fps is used instead of auto-computed value."""
+    """When set, base_fps is used for frame alignment."""
     ev = CameraAccuracyEvaluator()
     ev.set_base_fps(10.0)
 
-    # Use two frames 33ms apart: auto-computed FPS would map to frames 1 and 2,
-    # but base_fps=10 (100ms/frame) maps both timestamps to frame 1.
+    # Two frames 33ms apart: base_fps=10 (100ms/frame) maps both to frame 1.
     projected_outputs = [
       {
         "timestamp": "2024-01-01T00:00:00.000Z",
@@ -663,3 +662,12 @@ class TestSetBaseFps:
 
     track = ev._projected_tracks[("Cam1", "1")]
     assert sorted(track.keys()) == [1]
+
+  def test_process_without_fps_raises(self, tmp_path):
+    """Processing without a configured frame rate raises a clear error."""
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    gt_file = _make_gt_csv(tmp_path, 5, {0: lambda f: (5.0, 10.0)})
+    outputs = _make_projected_outputs(5, {"cam1": {"0": lambda i: (5.0, 10.0)}})
+    with pytest.raises(RuntimeError, match="Frame rate is required"):
+      ev.process_tracker_outputs(iter(outputs), gt_file)

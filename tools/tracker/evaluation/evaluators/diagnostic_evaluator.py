@@ -108,7 +108,8 @@ class DiagnosticEvaluator(TrackerEvaluator):
     """Set base frame rate for timestamp-to-frame-number conversion.
 
     Args:
-      fps: Frames per second (> 0), or None to auto-compute from timestamps.
+      fps: Frames per second (> 0). Required before processing; it is never
+        inferred from timestamps. None leaves it unset and processing raises.
 
     Returns:
       Self for method chaining.
@@ -264,10 +265,10 @@ class DiagnosticEvaluator(TrackerEvaluator):
     sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
     from format_converters import stream_jsonl
     from utils.timeline import (
-      compute_fps,
       deduplicate_frames_by_timestamp,
       parse_timestamp,
       reference_timestamp,
+      require_fps,
       resolve_ground_truth_path,
       timestamp_to_frame,
     )
@@ -281,8 +282,7 @@ class DiagnosticEvaluator(TrackerEvaluator):
 
     # Shared reference epoch and frame rate for both inputs.
     reference = reference_timestamp(tracker_output_list, gt_frames)
-    tracker_ts = [parse_timestamp(d["timestamp"]) for d in tracker_output_list]
-    camera_fps = self._base_fps or compute_fps(tracker_ts)
+    camera_fps = require_fps(self._base_fps)
 
     next_id = 1
     for scene_data in tracker_output_list:
