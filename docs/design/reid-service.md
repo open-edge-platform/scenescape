@@ -1,0 +1,975 @@
+# Design Document: ReID Service — Extraction, API & Capabilities
+
+- **Author(s)**: Derrick Addo
+- **Date**: 2026-09-14
+- **Status**: `Proposed`
+- **Related ADRs**: [ADR 13 — Controller Breakdown into Functionality-Aligned Microservices](../adr/0013-controller-breakdown-microservices.md),
+  [ADR 7 — Tracker Service](../adr/0007-tracker-service.md),
+  [ADR-10 — ReID Metadata Storage Architecture](../adr/0010-reid-metadata-storage-architecture.md),
+  [ADR-11 — Inner-Product ReID State and ID Lineage](../adr/0011-inner-product-reid-state-and-id-lineage.md)
+
+---
+
+## 1. Overview
+
+This document is a design proposal — not an ADR — covering `reid-service` end to end: extracting
+today's in-process ReID layer into a standalone service (Section 5), and the externally callable
+API and capability surface that service exposes once it exists (Section 6). The two halves were
+originally drafted as separate proposals (`reid-service-extraction.md` and
+`reid-api-expansion.md`) and are merged here; Section 5 is the base, Section 6 extends it.
+
+**ADR 13: Controller Breakdown into Functionality-Aligned Microservices** (`Accepted`,
+2026-06-11) is the accepted architectural decision that governs the broader controller breakdown,
+and this proposal aligns with its interface guidance for Re-ID's live tracking loop: **MQTT for
+the asynchronous, fan-out track-stream ingest** that feeds `reid-service`'s internal
+matching/storage. For `reid-service`'s external, synchronous query/store surface (investigator
+tooling, VLM-recall, POI enrollment), ADR 13's stated guidance is **gRPC**, and that's this
+document's leaning — but MQTT is also mentioned as an option below rather than settled on
+exclusively; see Section 5.1 and Open Questions.
+
+ADR 13 groups Re-ID together with broader scene-state persistence into a single combined service.
+This document intentionally does not get into that broader scope or how Re-ID fits inside it —
+it scopes strictly to the Re-ID extraction described below, referred to throughout as
+`reid-service`, and leaves how that maps onto ADR 13's fuller service boundaries for a separate
+discussion.
+
+ADR 13's Phase 1 ("Scene State Persistence + shared Re-ID integration") cites **ADR-10
+(ReID Metadata Storage Architecture)** and **ADR-11 (Inner-Product ReID State and ID
+Lineage)** as covering related territory. Those ADRs are complementary to this document, not
+substitutes for it:
+
+- **ADR-10** (`Proposed`) decides the 2-tier hybrid search contract — schema-less metadata
+  properties plus vector similarity (TIER 1 constraint filtering, then TIER 2 match). That is
+  the storage/query semantics `reid-service` inherits; this document does not reopen it.
+- **ADR-11** (`Accepted`) decides configurable similarity metric (`COSINE`/`L2`, with
+  `COSINE`→VDMS `IP`), explicit `reid_state` on tracks, and `previous_ids_chain` lineage in
+  scene output. That is match/output-contract behavior; this document does not reopen it.
+
+What this document adds — and what ADR-10 / ADR-11 do not cover — is the **deployable boundary**:
+extracting the in-process library into `reid-service`, owning live ingest off the Tracker MQTT
+stream, centralizing purge/metrics, and defining the external API/capability surface (including
+POI). The TIER 1 constraint helpers, adapters, and match semantics move with the extraction;
+they are not redesigned here.
+
+The API half (Section 6) covers two things that are easy to conflate but need to be kept
+distinct:
+
+- **Baseline surface (Section 6.1):** the endpoints needed just to expose today's in-process
+  `ReIDDatabase` contract (`reid.py`) over a network transport at all, for callers other than
+  `reid-service` itself — there is currently no HTTP/gRPC front door onto any of it.
+- **New capability (Sections 6.2–6.11):** the POI enrollment/matching/alerting flow and related
+  gallery-management, deletion, TTL, schema-negotiation, and trajectory-export capabilities the
+  SLP epics ([Epic #221](https://github.com/intel-retail/loss-prevention/issues/221) — POI
+  Re-ID & Alerting, [Epic #120](https://github.com/intel-retail/storewide-loss-prevention/issues/120)
+  — Storewide Suspicious Activity) call for but explicitly leave as future/out-of-scope work.
+
+Priority and exact shape within the "new capability" bucket are open; that part is meant to give
+the team something concrete to react to, not a committed backlog. The baseline surface is not
+optional in the same way — some version of it has to exist for `reid-service` to be a service at
+all.
+
+**Ingest vs API.** The live tracking gallery is written by `reid-service` consuming the Tracker
+Service's MQTT stream (Section 5). The API in Section 6 exposes no write endpoint for that path;
+see Non-Goals and Section 6.1.
+
+## 2. Goals
+
+**Extraction (Section 5):**
+
+- Extract the ReID storage layer out of the controller into a standalone `reid-service`, so its
+  lifecycle is centrally owned rather than duplicated per controller process.
+- Give callers other than a controller process a way to reach ReID capability at all.
+- Give new ReID capability a home that isn't "inside the controller."
+- Centralize purge/retention scheduling and separate ReID's metrics identity from the
+  controller's.
+
+**API & capability (Section 6):**
+
+- **Define the baseline transport, not just the extensions.** Since `reid-service` doesn't exist
+  yet as a standalone deployable, specify the endpoints needed to expose the existing
+  `ReIDDatabase` contract (query, schema metadata) over the network — the foundation everything
+  else in Section 6 sits on top of.
+- Expose `reid-service`'s existing internal query capability (`findMatches`) as a first-class,
+  externally callable API.
+- Add a POI enrollment surface (insert, update, delete) that is clearly and permanently scoped to
+  a POI gallery, separate from the general tracking gallery.
+- Define how a POI match gets correlated with an in-progress tracked identity (`gid`) and turned
+  into a delivered alert, without reintroducing ReID-specific logic into the controller.
+- Add gallery/collection visibility (size, composition) sufficient to feed the
+  `Gallery_Size_Active_Persons` / `POI_Gallery_Size` KPIs the SLP epics already name.
+- Make POI records durably persisted, distinct from the general gallery's deliberately ephemeral,
+  TTL-bound nature.
+- Establish authentication/authorization before any write-capable, network-reachable endpoint
+  ships — POI enrollment (6.4) and Deletion (6.7). Trust for Tracker-stream ingest is a separate
+  question on its own track; see Section 11.
+- **Define the trajectory-export API's contract** (request/response shape and the write-path
+  change it depends on), so a future CCB submission starts from an honest breakdown of what's
+  known vs. unknown rather than a guessed estimate. Phasing (Section 9) determines when this
+  ships, not whether it's specified here.
+
+## 3. Non-Goals
+
+- **How `reid-service` as scoped here maps onto ADR 13's broader combined service.** An explicit
+  non-goal of this pass; tracked as an open question rather than answered (Section 11).
+- **Writing to or deleting from the general/tracking gallery via the API in Section 6.** There is
+  no such path — `reid-service` consumes the Tracker Service's MQTT stream directly for the live
+  tracking loop, and the API exposes no write endpoint for it at all. Enforced by absence of
+  endpoints, not by locking down a restricted writer (Section 6.1).
+- **Image-to-embedding extraction/inference.** `reid-service`'s job stays storage and search;
+  running the ReID model to turn an image into an embedding happens outside it, same as today.
+- **Stream Manager's internal video/clip API.** Referenced only where it bounds the trajectory
+  discussion (6.11); its design is owned by the Stream Manager team.
+- **UI implementation** of the 2D-track click-through or any other frontend work — separate
+  codebase, out of scope here.
+- **Wire-level schema (OpenAPI/proto) for any endpoint below**, including the baseline surface
+  and trajectory export. This document specifies shape and behavior; exact request/response
+  schemas are an implementation-time detail.
+- **A final decision on authN/authZ mechanism, or on the DATA_EXTERNAL-reuse-vs-dedicated-topic
+  question for correlation.** Both are deliberately left as open questions (Section 11), not
+  resolved here.
+- **Rollout mechanism for the extraction itself.** Not addressed here; needs its own plan once
+  the open questions in Section 11 are settled.
+
+## 4. Background / Context
+
+### 4.1 Today: ReID is a library, not a service
+
+Today, "ReID" is not a service — it's a library (`controller.reid`, `controller.reid_registry`,
+`controller.reid_env`, `controller.reid_constraints`, `controller.vdms_adapter` /
+`controller.qdrant_adapter`) that every controller process imports and instantiates in-process.
+Concretely, in `uuid_manager.py`:
+
+```python
+self.reid_database = create_reid_database(database, dimensions=None)
+```
+
+`UUIDManager.__init__` runs this once per instance — and there is one `UUIDManager` per tracked
+**category** (person, vehicle, etc.) within a single controller process, per `Tracking.__init__`
+in `tracking.py`. So a single controller process for a single scene can hold several independent
+`ReIDDatabase` adapter objects, each opening its own connection to the backing VDMS or Qdrant
+container (`vdms_adapter.VDMSDatabase.connect()` / `qdrant_adapter.QdrantDatabase.connect()`, both
+over TCP to a configured `REID_HOSTNAME`/`REID_PORT`).
+
+It's worth being precise about what's already networked and what isn't:
+
+- **VDMS/Qdrant themselves are already separate, network-reachable containers.** The adapters
+  talk to them over TCP today — this isn't an in-process database.
+- **The `ReIDDatabase` abstraction, adapter logic, schema/retention lifecycle, and TIER 1
+  constraint-building are not.** All of that runs as a Python library inside each controller
+  process. There is no standalone `reid-service` — no separate deployable that owns this layer,
+  and no network boundary between the controller's tracking logic and the code that decides _how_
+  to query or write the backing store.
+
+Every call into this layer happens in-process, from exactly three call sites, all in
+`uuid_manager.py`:
+
+| Method         | Call site                                                          | Trigger                                                                                                       |
+| -------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `findMatches`  | `sendSimilarityQuery()` → `self.reid_database.findMatches(...)`    | A track has gathered enough quality visual features (`assignID()` → `pool.submit(self.querySimilarity, ...)`) |
+| `addEntry`     | `_writeReidEntry()` → `self.reid_database.addEntry(...)`           | A track goes inactive and its accumulated features flush (`_addNewFeaturesToDatabase()`)                      |
+| `purgeExpired` | `_purgeExpiredDescriptors()` → `self.reid_database.purgeExpired()` | A per-process timer, owned by exactly one `UUIDManager` via a module-level `_PURGE_OWNER` lock                |
+
+This table describes today's code as-is; how each of these three call sites maps onto the target
+architecture is addressed in Section 5.1.
+
+Two details about that table matter regardless of the transport decision:
+
+- **The `_PURGE_OWNER` lock is a process-local workaround for a problem extraction solves
+  structurally.** Multiple `UUIDManager`s in one process share one backing store, so the code
+  elects a single purge owner _within that process_ to avoid duplicate `DeleteExpired`/filter-delete
+  calls. It does nothing about duplicate purge scheduling _across_ processes — every controller
+  process (one per scene, including every child scene in a hierarchy) still runs its own elected
+  owner against the same shared store today.
+- **Query latency is on a tight, already-enforced budget.** `sendSimilarityQuery(sscape_object,
+max_query_time=DEFAULT_MAX_QUERY_TIME)` (`DEFAULT_MAX_QUERY_TIME = 4` seconds) tracks rolling
+  average query time and disables ReID entirely if it drifts past that budget. Today that budget
+  covers one in-process Python call plus one TCP round-trip to VDMS/Qdrant. What replaces it
+  depends on the target transport (see Section 5.1).
+
+### 4.2 What's coupled to what
+
+- **Stays inherently tied to whatever ingests detector output, regardless of extraction:**
+  `moving_object.py`'s `decodeReIDEmbeddingVector` / `serializeReIDPayload` — decoding the
+  embedding a detector sends over MQTT into a numpy array (and back) is about the wire format with
+  detectors, not about ReID storage.
+- **Orchestration logic that decides _when_ to query/write, currently living in `UUIDManager`:**
+  gathering quality visual features (`gatherQualityVisualFeatures`,
+  `haveSufficientVisualFeatures`), TIER 1 metadata extraction (`_extractSemanticMetadata`),
+  hierarchy write-health/epoch tracking (`reid_write_healthy`, `reid_write_confirmed`,
+  `reid_write_epoch`, `ReidWriteSupersededError`), and the query-latency circuit breaker above.
+  None of this is ReID-storage logic — it's orchestration that happens to call into the storage
+  layer today. **Where this orchestration lives after extraction is the central question
+  Section 5 addresses.**
+- **The layer this document proposes extracting:** `reid.py` (the `ReIDDatabase` ABC and its
+  shared helpers — validation, TIER 1 constraint building, schema lifecycle), `vdms_adapter.py`,
+  `qdrant_adapter.py`, `reid_registry.py` (backend selection), `reid_env.py` (connection/tuning
+  config), `reid_constraints.py`. This is exactly the surface Section 6 assumes already exists as
+  a service.
+
+### 4.3 Problems this creates
+
+Three concrete problems exist today because this layer is a library, not a service:
+
+1. **No shared lifecycle across a hierarchy.** Parent/child scene controllers each run their own
+   copy of this layer against the same backing store (per the multi-hierarchy embedding-forwarding
+   design in `scene_controller.py`'s `publishExternalDetections` /
+   `_hierarchyReidPublishPolicy`). Schema creation races, retention/purge scheduling, and TIER 1
+   constraint logic are all independently duplicated per process instead of centrally owned.
+2. **No way for anything other than a controller process to reach this layer.** Investigator
+   tooling, VLM-recall (Epic #120), and POI enrollment/matching (Epic #221) all need to call
+   `findMatches` and (for POI) `addEntry`-equivalent writes from outside a controller's Python
+   process. Today that's impossible without importing `controller.reid` directly, which means
+   running controller-internal code outside the controller.
+3. **No place to add capability without touching the controller.** Every capability in Section 6
+   (POI gallery, deletion, gallery stats, TTL control, schema negotiation, trajectory export) is
+   additive to `ReIDDatabase`'s existing methods, not additive to `UUIDManager`'s orchestration.
+   There's currently nowhere to add it that isn't "inside the controller."
+
+### 4.4 What the existing `ReIDDatabase` contract already provides
+
+`reid.py`'s `ReIDDatabase` is already a clean, backend-agnostic abstract contract —
+`connect()`, `addEntry()`, `getPersistedAttributes()`, `findMatches()`, `findSchemaMetadata()`,
+`ensureSchema()`, `purgeExpired()`, `retentionEnabled()` — implemented identically by both
+`VDMSDatabase` and `QdrantDatabase`. Section 6.1 defines how this contract gets exposed as an API
+for the first time; everything after that is additive to it. `addEntry` was designed around the
+tracking pipeline: every call carries an `rvid` (motion-tracker ID) and happens as a side effect
+of a track being observed. Nothing in the current contract has any notion of "POI," a second
+gallery, deletion, or per-appearance history — all of that is new surface area, described section
+by section below.
+
+### 4.5 Motivating epics
+
+- [Epic #221](https://github.com/intel-retail/loss-prevention/issues/221) — SLP: Person of
+  Interest Re-Identification & Alerting. Defines the POI enrollment/matching/alerting use case
+  and explicitly leaves POI gallery management (retention, removal criteria) and alert-routing
+  business logic out of scope.
+- [Epic #120](https://github.com/intel-retail/storewide-loss-prevention/issues/120) — SLP:
+  Storewide Suspicious Activity Detection & Multi-Camera Tracking with VLM Recall. Motivates the
+  Query API as a first-class endpoint (investigator/VLM-recall tooling) and names
+  `Gallery_Size_Active_Persons` / `ReID_Match_Latency_ms` as KPIs with no current data source.
+
+---
+
+## 5. Proposed Design — Part A: Service extraction
+
+### 5.1 Service boundary and transport model
+
+Extract `reid.py`, `vdms_adapter.py`, `qdrant_adapter.py`, `reid_registry.py`, `reid_env.py`, and
+`reid_constraints.py` into a standalone `reid-service`. The transport model below follows ADR 13's
+explicit interface guidance.
+
+**ADR 13's stated split:** _"gRPC for synchronous, latency-sensitive, query/response paths
+(positioning lookups, projection, Re-ID match/store). MQTT for asynchronous, fan-out streaming
+(observations, scene tracks, regulated output, events)."_
+
+**How that maps onto today's three call sites:**
+
+- **Live matching/writing during tracking is not a cross-service call at all.** Per ADR 13's
+  target architecture, the Tracker Service (already extracted, ADR 7) streams track updates over
+  MQTT — that's the "track stream ingest" half. `reid-service` performs matching and storage
+  against its own vector store _as part of consuming that stream, internally, in its own
+  process_. There is no separate "controller" entity publishing a match request and waiting for
+  an answer — the orchestration logic in Section 4.2 (feature-gathering, TIER 1 extraction,
+  write-health/epoch tracking) moves into `reid-service` alongside the storage layer, because
+  that's the service that now owns UUID assignment and lifecycle end to end. This is a materially
+  different shape than "the controller publishes to MQTT and reid-service responds" — it's "the
+  upstream Tracker Service publishes a stream, and reid-service's own internal logic decides what
+  to do with it," with no cross-service round trip for the live loop at all.
+- **`findMatches` and `addEntry`, as external, synchronous-feeling operations, are ADR 13's
+  "Re-ID match/store."** Investigator tooling, VLM-recall, and POI enrollment/matching
+  (Section 4.3, problems 2–3) need a way to reach `reid-service`'s surface for this. ADR 13's
+  stated guidance points at gRPC/REST for this kind of query/response workload, and that's this
+  document's leaning — it's a strong, direct match for Section 6's scope, whose Query API, POI
+  enrollment, deletion, and gallery management sections are written as an HTTP/gRPC surface.
+  **MQTT is also a viable option for this surface and isn't ruled out here** — a request/reply
+  pattern over MQTT (correlation ID + reply-to topic) would keep every external interface
+  consistent with one transport instead of splitting gRPC for queries and MQTT for streaming. The
+  trade-off isn't resolved here: gRPC gives a simpler client contract (a call that returns a
+  value) and matches ADR 13's stated guidance directly; MQTT keeps the whole system on one
+  message bus and avoids running two transport stacks, at the cost of the client needing to
+  handle correlation and timeouts itself. See Open Questions. Section 6.1 reflects this model:
+  there is no write endpoint for the live loop, because no caller exists for one.
+- **`purgeExpired` is unaffected by this alignment.** It was already decided, independent of the
+  MQTT-vs-gRPC question, that `reid-service` owns purge scheduling entirely:
+  `_purgeExpiredDescriptors()` and the per-`UUIDManager` `purge_timer` are removed from the
+  controller outright, `reid-service` runs its own internal timer and calls `purgeExpired()` on
+  itself, the `_PURGE_OWNER` election lock is deleted entirely, and `REID_PURGE_INTERVAL_SECS`
+  moves into `reid-service`'s own config. Nothing about ADR 13 changes this.
+
+**Consequence for the query-latency circuit breaker.** `DEFAULT_MAX_QUERY_TIME`'s
+rolling-average measurement (Section 4.1) was built around one blocking call plus one TCP round
+trip. Under this model, the live matching loop is _internal to `reid-service`_ — there's no
+cross-service call in that loop for a circuit breaker to wrap in the first place. Whatever
+analogous safeguard is needed (e.g., `reid-service` deciding to skip a match attempt if its own
+backend query is running slow) is `reid-service`'s own internal concern, not a controller-side
+mechanism. This needs its own design, not a straightforward port of `sendSimilarityQuery`'s logic
+— tracked as an open question.
+
+### 5.2 What doesn't change
+
+The wire format between detectors and the Tracker Service, TIER 1 constraint semantics, and the
+VDMS/Qdrant backend contract itself (`ReIDDatabase`'s abstract methods) are unaffected by this
+alignment — none of them depended on the transport question.
+
+### 5.3 ReID metrics separation
+
+`metrics.py` exports everything today under one OTel resource identity:
+`CONTROLLER_SERVICE_NAME = "scene-controller"`. That includes seven ReID-specific instruments —
+`scenescape_controller_reid_rolling_avg_match_latency`, `..._rolling_min/max_match_latency`,
+`..._match_latency`, `..._current_camera_count`, `..._tracked_object_count`,
+`..._total_tracked_object_count` — all populated from `latency_metrics.py`'s
+`MatchLatencyTracker`, fed by `UUIDManager.markTrackStart()`/`recordMatchLatency()`.
+
+**`reid-service` owns and sets the match-latency metrics, under its own OTel resource identity.**
+Because live matching is internal to `reid-service` (Section 5.1), it can time its own
+start-to-decision window entirely within its own process — there is no cross-service timestamp
+handoff to design here. `reid-service` knows when it first received a given track's stream data
+and when it reached a decision, both as purely internal facts.
+
+`scenescape_controller_reid_rolling_avg_match_latency`, `..._rolling_min/max_match_latency`, and
+`..._match_latency` — and their underlying code — move out of the controller's `metrics.py`
+entirely and into `reid-service`'s own metrics module, exported under its own `SERVICE_NAME`
+(e.g. `"reid-service"`; exact value not decided here). `reid-service` also needs a new instrument
+for its own backend query/write duration against VDMS/Qdrant, distinct from the end-to-end
+match-latency figure, for the same reason as before: without it, there's no way to tell "the
+backend is slow" from "something upstream of the backend call is slow."
+
+**Camera/tracked-object-count metrics are a genuinely open question, not a settled exception.**
+`record_reid_current_camera_count`, `record_reid_tracked_object_count`, and
+`record_reid_total_tracked_object_count` are derived from `CameraRegistry`/`TrackedObjectRegistry`
+— today, controller-side state. ADR 13's phased plan retires the legacy Controller entirely by
+its final phase. Which service owns camera/tracked-object registries in the target architecture
+isn't addressed by this document. These metrics' ownership is deferred to Open Questions rather
+than asserted here.
+
+### 5.4 Tracker stream contract (live ingest + trajectory fields)
+
+This section owns what the Tracker Service's MQTT track-stream must carry into `reid-service`.
+Section 6.11 defines the external read surface that depends on this contract (notably
+`GET /trajectories/{gid}`); it does not redefine the ingest path.
+
+**Baseline for live matching/writing.** `reid-service` performs matching and storage by consuming
+the Tracker stream directly (Section 5.1). Whether that stream already carries embeddings/features
+today — or needs them added — remains an open question (Section 11). Until that is verified,
+`reid-service` cannot do internal matching off the MQTT stream alone.
+
+**Additional fields for trajectory persistence.** Trajectory export needs an ordered diary of
+sightings, not only the latest known state. Today that diary is not what reaches the ReID store,
+and the two things a trajectory needs (location and time) are not even in the part of the object
+that reaches the ReID database:
+
+- `moving_object.py` has two genuinely separate things: `self.location` (a list of `Chronoloc`
+  entries — point + timestamp + bounding box) and `self.metadata` (a separate dict for arbitrary
+  semantic/sensor attributes).
+- `UUIDManager`'s write to the ReID database only ever pulls from `self.metadata`, via
+  `_extractSemanticMetadata()`. `self.location` is never touched by that path. So today's ReID
+  gallery stores the embedding vector plus generic semantic metadata — camera, timestamp, and
+  bounding box never make it in.
+- One encouraging detail: the camera ID isn't even missing from the codebase —
+  `_extractCameraId()` already exists and already extracts it, but today it's wired only to a
+  metrics counter (`CameraRegistry.recordEmbeddingObserved`), not to the ReID write. So this
+  isn't "invent new tracking data" — it's "connect two things that already exist
+  (`_extractCameraId()` and `self.location`'s timestamp/bbox) to a write that already happens."
+
+**Required ingest change:** the Tracker stream payload that `reid-service` consumes must include
+`camera_id`, `timestamp`, and (pending the granularity decision in Section 6.11) `bounding_box`,
+alongside the existing embedding and semantic metadata — sourced from `_extractCameraId()` and
+`self.location`'s `Chronoloc` entries respectively. `reid-service` persists those fields on each
+descriptor write. This is a change to what the Tracker Service's stream carries and what
+`reid-service` persists from it, not a new endpoint — there is still no external write endpoint
+for this path; it is entirely stream-driven. Retention and granularity trade-offs for how far
+back trajectory queries can reach are covered in Section 6.11, not here.
+
+---
+
+## 6. Proposed Design — Part B: External API & capability surface
+
+Everything in this section assumes the service defined in Section 5 exists: ReID extracted into
+`reid-service`, live ingest via the Tracker Service's MQTT stream with matching/writing handled
+internally, and purge scheduling owned by the service. There is no existing `reid-service`
+deployment today, and none of the endpoints below exist in any network-reachable form. `reid.py`'s
+`ReIDDatabase` contract is real and stable, but it has only ever been called **in-process** by the
+controller. This section is the first place an externally callable transport (HTTP/gRPC, or MQTT
+request/reply per the open question in Section 5.1) gets defined for the parts of it meant for
+callers other than `reid-service` itself — both for the existing contract (6.1) and for the new
+POI-driven capability (6.2 onward). The general/tracking gallery's write path is explicitly _not_
+part of that externally callable transport — see 6.1.
+
+### 6.1 Baseline service API surface
+
+Before any POI-specific capability can exist, `reid-service` needs _some_ network-reachable
+version of the contract it already has in-process — for callers other than `reid-service` itself.
+This is the part of the design that Section 6.2 onward assumes already exists; it's specified
+explicitly rather than left implicit, since — unlike the POI work — there is no existing
+deployment to point to as "already covers this."
+
+**The general/tracking gallery's write path is not part of this baseline surface — it has no
+endpoint at all.** Per Section 5.1, `reid-service` doesn't get written to over an API for the live
+tracking loop; it consumes the Tracker Service's MQTT track-stream directly and performs matching
+and writing internally, as part of its own stream processing. There is no controller (or anything
+else) calling a write endpoint for this path, so there's nothing here to lock down to a specific
+caller — the access question that mattered under the earlier client/RPC design doesn't apply. The
+Non-Goal in Section 3 still holds (this API does not let arbitrary callers write to the general
+gallery); it's just enforced by there being no such endpoint, rather than by restricting one.
+
+**Proposed baseline endpoints** — the externally callable surface, each a thin transport wrapper
+around the corresponding `ReIDDatabase` method, with no behavior change from today's in-process
+semantics:
+
+- **Read: mirrors `findMatches`.** Covered in full in 6.3 (Query API), since exposing this to
+  callers _beyond_ the live tracking loop — investigator tooling, VLM recall, POI matching — is
+  itself one of this document's goals, not just a transport detail. Whether this rides on
+  gRPC/REST or MQTT request/reply is the open question raised in Section 5.1 — not settled here.
+- **Read: mirrors `findSchemaMetadata`.** Lets a caller confirm a collection's existence,
+  dimensions, and similarity metric before querying — needed once external callers exist, since
+  they can't assume the schema the way the internal stream-consumption path can.
+- **Admin (optional, internal use): mirrors `purgeExpired`.** `reid-service` schedules its own
+  purges internally per Section 5.1 — this endpoint isn't required for that to work. It exists
+  only as an optional operational hook (manual trigger during incident response,
+  liveness/maintenance tooling), not a load-bearing part of the design.
+- **Health/readiness.** Standard for any deployable service — not present in the in-process
+  contract at all, since "is `reid.py` reachable" was never a meaningful question before now.
+
+**Why this matters for everything downstream.** Sections 6.2–6.11 describe new capability in
+terms of "the API" as though a baseline already exists. It doesn't yet. Building this baseline is
+what turns `reid-service` from "a module the controller imports" into an actual service other
+things can call — the POI/gallery/trajectory work is what that service does once it exists, not
+what makes it exist in the first place. Note that this baseline is entirely about the externally
+callable surface; the live tracking loop's own data path (Tracker Service → MQTT →
+`reid-service`) isn't part of "the API" in the sense this section uses that term at all.
+
+### 6.2 Design principles (cross-cutting)
+
+Decisions carried across every subsection below, settled in discussion rather than sketched
+per-endpoint:
+
+- **Writes are POI-gallery-only — the general gallery has no writer in this API at all.** Per
+  6.1, the general/tracking gallery is written to by `reid-service` consuming the Tracker
+  Service's MQTT stream directly, not by any endpoint in this API. All insert, update, and delete
+  operations this API exposes — everything in 6.4 (POI enrollment) and 6.7 (deletion) — apply
+  **only to the POI gallery**. To be unambiguous about what that means per operation:
+  - **Insert** (6.4, `POST /poi`) — POI gallery only. There is no "insert a general tracking
+    descriptor" endpoint in this API at all; that path is `reid-service`'s own internal stream
+    consumption, not something this API exposes.
+  - **Update** (6.4, `PATCH /poi/{poi_id}` and appending reference embeddings) — POI gallery
+    only. The general gallery has no update concept in this API at all.
+  - **Delete** (6.7) — POI gallery only. See that section for why general-gallery deletion is
+    explicitly not part of this API, and how compliance/erasure requests against the general
+    gallery are handled instead.
+  - **Query** (6.3, `findMatches`) — the one operation that reads from _both_ galleries.
+    Read-only either way; querying the general gallery through this API never writes to it.
+
+  Nothing in the Query API, Deletion API, or Gallery/collection management subsections should be
+  read as applying to the general gallery unless explicitly called out — and after this
+  subsection, nothing does.
+
+- **POI records are persisted, not just long-TTL.** A POI record isn't "the same as the general
+  gallery but with a bigger number" — it's meant to survive indefinitely by design, distinct
+  from the general gallery's inherently ephemeral, TTL-bound nature. See 6.10 for what
+  "persisted" actually needs to mean beyond disabling TTL.
+- **`poi_id` is always server-generated.** Enrollment does not accept a client-supplied ID — the
+  service mints the identifier and returns it in the response.
+
+### 6.3 Query API as a first-class endpoint
+
+`findMatches` exists internally today but is only ever called from inside the tracking
+pipeline. Exposing it directly over the service API (building on the baseline transport in 6.1)
+would let investigator tools, a
+[VLM-recall service (Epic #120)](https://github.com/intel-retail/storewide-loss-prevention/issues/120),
+or a [POI-matching UI (Epic #221)](https://github.com/intel-retail/loss-prevention/issues/221)
+query the gallery without routing through the controller at all. Straightforward extension of
+existing internals — no new adapter logic needed, just an HTTP/gRPC front door onto `findMatches`
+with the same TIER 1 constraints (`reid_constraints.py`) exposed as query parameters.
+
+### 6.4 Explicit POI enrollment endpoint (insert & update — POI gallery only)
+
+**Why it needs its own endpoint, not just `addEntry`.** POI enrollment
+([Epic #221](https://github.com/intel-retail/loss-prevention/issues/221)) is a different flow
+entirely from live tracking — a security operator manually uploads a reference image or marks a
+person in a video clip, with no tracker context at all. Forcing that through `addEntry` means
+inventing a synthetic `rvid` and hoping nothing downstream assumes it's real. A dedicated
+`POST /poi` endpoint sidesteps that: it accepts one or more precomputed embeddings and enrollment
+metadata (`severity`, `notes`, `enrolled_by`), and only _internally_ calls the same write path
+`addEntry` already uses. Per the design principles above, the caller does not supply a `poi_id` —
+the service generates one and returns it in the response; the caller addresses that POI in later
+calls (`PATCH`, delete) using the ID the service gave back.
+
+**Important scoping note:** the service should accept precomputed embedding vectors, not raw
+images. Image → embedding extraction (running the ReID model) stays outside `reid-service`, same
+as it does today — the service's job is storage and search, not inference. This keeps the
+service's dependency footprint (and GPU/NPU requirements) unchanged from today.
+
+**Open question — who actually runs that extraction for enrollment images?** For the live
+tracking pipeline this is a non-issue: DL Streamer pipelines are already running continuously per
+camera. Enrollment is different — it's a one-off, infrequent event, not a continuous stream. Two
+options, with different operational cost:
+
+- Bring up a DL Streamer pipeline container just to process the one enrollment frame, then tear
+  it down — reuses the exact same extraction path as live tracking, but pipeline
+  startup/teardown overhead for a single frame is a lot of machinery for one image.
+- A lightweight synchronous embedding-extraction API (either exposed by DL Streamer directly, if
+  feasible, or a small dedicated helper service) that takes one image and returns one embedding
+  — much less overhead, but is a second extraction code path to keep in sync with the live
+  pipeline.
+
+This needs an answer before `POST /poi` can be built, since it determines what the caller of that
+endpoint is expected to already have in hand. Tracked as an open question in Section 11.
+
+**Reference images and updates.**
+[Epic #221](https://github.com/intel-retail/loss-prevention/issues/221) expects 1–5 reference
+images per POI. `addEntry` already accepts a list of `reid_vectors` in one call, so
+batch-enrolling multiple reference embeddings for one POI needs no new adapter capability — the
+enrollment endpoint just needs to accept a list. What's missing is the **update** story:
+
+- Adding a new reference image to an already-enrolled POI later (e.g., a better-quality capture)
+  should be additive, not a full re-enrollment.
+- Updating metadata only — severity, notes, active/inactive status — shouldn't require
+  re-embedding or re-writing vectors at all.
+
+Proposed split: `POST /poi/{poi_id}/embeddings` (append a reference embedding) vs.
+`PATCH /poi/{poi_id}` (metadata-only update). This also gives a clean point to implement the
+"removal criteria" workflow Epic #221 explicitly punts on today (soft-disable via `PATCH` status
+vs. hard delete via 6.7).
+
+**Isolation from the general tracking gallery.**
+[Epic #221](https://github.com/intel-retail/loss-prevention/issues/221) calls out a "two-tier
+gallery" — a small, manually-curated POI gallery (tens to low thousands) searched with tight
+confidence thresholds, separate from the large, continuously-growing general tracking gallery.
+That argues for POI enrollments landing in their own `set_name`/collection rather than sharing the
+general gallery's namespace. Two consequences worth deciding now:
+
+- **Retention differs by design.** The general gallery's TTL (`descriptor_ttl_secs`, default
+  24h) exists specifically so it doesn't grow unbounded. A POI gallery almost certainly wants a
+  much longer TTL, or none. Today's adapters apply one TTL per adapter instance at construction
+  time (`_applyRetentionProperties`); the enrollment endpoint needs a way to write with a
+  _different_ retention policy than the general-gallery writer uses, which is a real (if small)
+  adapter change, not just an API wrapper.
+- **Query behavior differs by design.** POI matching wants a small `k_neighbors` and a strict
+  threshold against a small gallery; general tracking match/no-match logic is tuned differently.
+  The Query API (6.3) should be able to target "the POI set" vs. "the general set" explicitly
+  rather than inferring it from `object_type` alone.
+
+**Validation.** Reuse what already exists rather than re-inventing it: `prepareReidDict` /
+`prepareReidVector` in `reid.py` already validate shape, finiteness, and (optionally)
+normalization of an embedding before it's written. The enrollment endpoint should run enrollment
+images through the same validation path and reject bad embeddings with the same class of error
+the pipeline already uses (`ReidNoValidVectorsError`), rather than defining new validation rules.
+
+### 6.5 POI-to-tracking correlation and alert delivery
+
+**Decision — correlation runs outside the controller, as a standalone daemon.** A separate
+process consumes `reid-service` purely as an API client — the same way any other future tool
+would (per the investigator/VLM-recall use case in 6.3) — and does the correlation itself,
+entirely decoupled from the controller.
+
+This was weighed against embedding the check directly in `UUIDManager`'s existing per-frame loop
+(cheapest to build, lowest latency, since the live embedding is already sitting right there when
+`gid` gets assigned via `querySimilarity()` → `findMatches()`). That's rejected specifically
+because it would pull new POI-aware logic back into the controller at the exact moment we're
+separating ReID out of it — keeping ReID concerns (including POI, which is a ReID concept) out of
+the controller is the actual point of this whole body of work, so the daemon approach is the one
+consistent with it even though it costs a bit of latency and a small amount of new plumbing.
+
+**What the daemon correlates against.** The daemon doesn't have a live per-frame embedding the
+way the controller does. This turns out not to be a blocker, because the mechanism to feed it
+already exists in the codebase:
+
+`moving_object.py` already carries an `embedding_vector` field (base64-encoded) and a
+`reid_provenance` field, and `scene_controller.py`'s `publishExternalDetections` already attaches
+both (`attach_reid_provenance=True`) and puts them on the MQTT bus at `PubSub.DATA_EXTERNAL` —
+this is the existing multi-hierarchy embedding-forwarding mechanism (parent/child scene sharing).
+The daemon subscribing to that topic already receives live embeddings today, with no new
+`reid-service` capability needed. Two things worth deciding before treating this as the final
+wiring, though:
+
+- **It's rate-limited and gated by logic built for a different purpose.**
+  `publishExternalDetections` only fires per `scene.external_update_rate` (not every frame), and
+  whether an object's embedding gets attached at all is decided by `_hierarchyReidPublishPolicy`
+  (`will_enroll` / `withhold` / `passthrough`) — logic that answers "should this scene claim
+  write ownership of this embedding," not "should the POI daemon see this object." Subscribing to
+  `DATA_EXTERNAL` as-is means POI correlation silently inherits both constraints for reasons
+  unrelated to POI matching.
+- **It's currently scoped narrowly on purpose — worth not widening it by accident.** Only
+  `DATA_EXTERNAL` carries embeddings; the general `DATA_SCENE` topic every other consumer
+  subscribes to does not. That's a real, already-working privacy boundary limiting who sees
+  embedding data today.
+
+The reuse-vs-dedicated-topic choice is tracked as an open question in Section 11. Once
+`{gid: poi_id}` is discovered, that tag should stick for the life of the `gid` (mirroring the
+existing sticky-once-true pattern used for `_category_has_embeddings`) rather than re-checking
+every subsequent frame for a track that's already tagged.
+
+**Correlation publishes an event; it does not deliver an alert.** `scene_controller.py` already
+has an MQTT event bus for exactly this kind of fact-of-occurrence broadcasting — tracking events
+go out on `PubSub.EVENT` topics, and `child_scene_controller.py`'s `republishEvents` already
+forwards a child scene's events up to the parent. The daemon should publish a `poi_match` event
+onto that bus, using the payload shape already sketched in
+[Epic #221](https://github.com/intel-retail/loss-prevention/issues/221)'s POI Match Alert schema
+(`poi_id`, `camera_id`, confidence, bbox, timestamp) — getting the existing hierarchy propagation
+for free when the match happens in a child scene. This is the one place the daemon needs write
+access back into the existing MQTT bus rather than being a pure `reid-service` consumer.
+
+Actual alert **delivery** should still be a separate downstream consumer, not the same code path
+as correlation:
+
+- Epic #221's alert delivery target (3 seconds from match) is generous relative to how quickly
+  the daemon needs to move on to the next correlation check. Blocking the daemon on network I/O
+  to a security terminal for every match risks it falling behind on new matches for no benefit.
+- Epic #221 wants alerts deliverable to more than one kind of destination (local terminal, REST
+  endpoint, message queue) — an integration/fan-out concern that shouldn't require touching
+  correlation code every time a new delivery target is added.
+- **Alert deduplication belongs at the delivery layer, not the correlation layer.** The 5-minute
+  dedup window governs _how often to notify_, a different question from _whether a match
+  occurred_. Suppressing at correlation would throw away the record of every real match;
+  suppressing at delivery keeps a full match history for investigation while still controlling
+  notification noise.
+
+**Delivery method options.** Epic #221 scopes delivery to "a local security terminal or API
+endpoint," explicitly leaving third-party notification-system integration out of scope. Within
+that boundary, there are three plausible transports, not mutually exclusive:
+
+- **MQTT (reuse the existing bus).** Cheapest option — the `poi_match` event is already on
+  `PubSub.EVENT`; a local security terminal or on-prem dashboard could subscribe directly, the
+  same way `child_scene_controller.py` already subscribes to tracking/event topics.
+- **REST callback (webhook push).** The alert consumer POSTs to a configured URL per Epic #221's
+  "API endpoint" delivery target. Better fit for an external security system that isn't already
+  an MQTT subscriber; needs retry/backoff handling MQTT's pub/sub model gets for free.
+- **Message queue.** Epic #221's acceptance criteria explicitly names this as an option alongside
+  REST. Best fit for enterprise integrations wanting durable, replayable delivery.
+
+Recommend supporting MQTT plus a configurable REST webhook as the initial pair, with
+message-queue delivery as an additive option once a concrete integration needs it.
+
+**Latency metric separation.** Epic #221's own performance-tools section already names
+`POI_Match_Latency_ms` as a distinct KPI from the general tracking pipeline's
+`ReID_Match_Latency_ms` — meant to be tracked separately, not folded into one number. The daemon
+becomes the natural owner of `POI_Match_Latency_ms`: it should tag its own query latency
+independently (e.g. `gallery=poi`) rather than relying on `reid-service` to know which downstream
+KPI a given query's latency feeds into — `reid-service` itself should only report generic
+per-query latency, staying agnostic to POI as a concept.
+
+**Where this lives.** The dedup window, retry logic, and multi-transport fan-out above are enough
+independent logic that alert delivery is worth treating as owned by the same daemon that performs
+correlation, rather than a second standalone component. That daemon is also the natural place to
+expose the "Alert API" Epic #221 calls for.
+
+### 6.6 Gallery/collection management API
+
+**What's actually missing today.** Neither `VDMSDatabase` nor `QdrantDatabase` currently exposes
+anything like a count or listing call — `findSchemaMetadata` tells you a collection _exists_ and
+its dimensions/metric, not how many entries are in it. This means the KPIs the SLP epics already
+name — `Gallery_Size_Active_Persons`, `POI_Gallery_Size` — have no data source today. This is new
+adapter work in both backends, not just an API wrapper: VDMS has no direct "count" primitive
+comparable to Qdrant's `client.count()` / collection info.
+
+**Proposed endpoints:**
+
+- `GET /collections` — list known collections/sets with dimensions, similarity metric, backend,
+  and retention policy.
+- `GET /collections/{name}/stats` — size and composition of one collection.
+
+**The "size" question needs a real answer, not just a number.** A raw vector count is the wrong
+metric for `Gallery_Size_Active_Persons`. Both galleries can have multiple descriptors per
+person — POI enrollment intentionally stores 1–5 reference images per POI, and the general
+gallery accumulates additional embeddings per UUID over time. "Active persons" means **distinct
+UUID count**, not row count. The stats endpoint should report both explicitly (`vector_count` and
+`distinct_object_count`).
+
+**Scoping stats to the multi-hierarchy world.** Per the multi-hierarchy sharing design (all
+scenes in a hierarchy share one ReID database), "gallery size" for a shared database isn't
+necessarily one number a partner cares about. Worth deciding whether `/collections/{name}/stats`
+supports a `scene_id` or `camera_id` filter, or whether that breakdown is explicitly out of scope
+for v1.
+
+**Admin operations.** Today, collection creation is entirely implicit — `ensureSchema` lazily
+creates the schema on the first write. That's fine for the general gallery, which keeps its
+existing internally-managed lifecycle unchanged. The ambiguity is on the POI side: once more than
+one POI-type collection can exist, implicit creation gets ambiguous. Proposed: an explicit
+`POST /collections` (name, dimensions, metric, retention policy) scoped to POI-type collections,
+leaving the general gallery's lazy self-managed creation exactly as it is today.
+
+**Feeding existing observability, not just a new REST surface.** `latency_metrics.py` already
+establishes the pattern this should follow: raw values go to an OTel histogram/gauge for
+dashboards, not just a REST response for humans to poll. Gallery size should be exported the same
+way (`Gallery_Size_Active_Persons` as an OTel gauge tagged by collection/scene) so the
+performance-tools `GalleryExtractor` mentioned in both SLP epics has something to actually read
+during gallery-scaling benchmarks.
+
+### 6.7 Deletion API (POI gallery only)
+
+Doesn't exist in any form today — `ReIDDatabase` has no `deleteEntry`. Scoped to the POI gallery
+only, per 6.2. Needed for:
+
+- POI removal (Epic #221 explicitly leaves "removal criteria" out of scope today, but an API
+  will be needed once that's decided).
+- Demo and test data cleanup for POI entries created during testing.
+
+**General-gallery deletion is explicitly out of scope for this API.** An earlier draft of this
+section considered "right-to-erasure / compliance requests against the general gallery" as a use
+case, which directly conflicts with the POI-only write-scope principle. Resolving that: this
+deletion API does not touch the general gallery. If a compliance/erasure need against the general
+gallery ever becomes real, it should be handled separately — for example, by relying on the
+general gallery's existing short TTL (24h default) to age the data out on its own, or by a
+distinct, explicitly-scoped mechanism decided later.
+
+Proposed shape: delete-by-`poi_id` and delete-by-filter (e.g. by `severity` or enrollment date),
+reusing the same constraint structure `reid_constraints.py` already builds for queries.
+
+### 6.8 Runtime TTL / eviction control
+
+`descriptor_ttl_secs` and the purge interval are static env vars fixed at process start today.
+Two gaps once 6.4 and 6.6 exist:
+
+- **Per-collection TTL.** POI records are meant to be persisted, not merely long-TTL (6.2) — this
+  needs to be settable per collection, not just per process.
+- **Pressure-based eviction.** Current bounding is purely time-based, so storage can still grow
+  within the TTL window under heavy ingest. Proposed: an eviction mode that deletes oldest-first
+  once a collection crosses a configured size/storage cap, independent of age — paired with, not
+  replacing, the existing TTL.
+
+### 6.9 Explicit schema/version negotiation endpoint
+
+Today, embedding dimensions are inferred lazily from the first vector written
+(`_ensureReIDDimensions` → `ensureSchema`). That's reasonable when the only caller is the
+controller, which always writes before it needs to query. Once other tools can call the service
+directly (the investigator/VLM-recall use case in 6.3 doesn't necessarily write before it
+queries), an explicit "declare dimensions/metric for this collection" call becomes more useful
+than relying on implicit inference from whichever caller happens to write first.
+
+### 6.10 POI database persistence
+
+"Persisted" got compressed into a one-line design principle in 6.2 — it's a bigger topic than
+that line covers, and it matters more for POI than it does for the general gallery. If the
+general gallery loses data, it's not really a loss — the gallery is continuously repopulated by
+live tracking. POI is the opposite: there's no automatic recovery. A security operator has to
+notice a POI silently isn't being watched for anymore, then manually re-enroll.
+
+**The immediate, concrete answer: a persistent volume.** Attach a Docker volume (or, in
+Kubernetes, a `PersistentVolumeClaim`) to wherever the POI collection's backend data lives, so a
+container restart, image update, or pod recreation doesn't wipe it. Nothing in `vdms_adapter.py`
+or `qdrant_adapter.py` needs to change for this — it's a Compose/Helm deployment decision. This is
+the concrete, buildable requirement: **the POI collection's storage must be backed by a
+persistent volume**, verified independently of whatever collection/retention API design (6.6,
+6.8) gets layered on top of it. This alone covers the most common failure mode and is enough to
+treat "persisted" as solved for an initial version.
+
+**What a volume doesn't cover — open follow-on questions, not blockers.** None of these need to
+be answered before the volume requirement above ships:
+
+- **Host or disk loss.** A volume protects against the container dying, not the underlying disk
+  dying. Whether that residual risk is acceptable is a scoping call worth making deliberately.
+- **Write acknowledgment semantics.** A volume says nothing about whether `POST /poi` waits for
+  the backend to actually flush before returning success. For the general gallery, a dropped
+  write is tolerated as routine (`ReidPartialWriteError` already exists because partial writes
+  are normal there). POI enrollment returning "success" for a write that didn't durably land is a
+  real problem with no next frame to self-correct it.
+- **Backup / export.** A volume protects against container churn, not against someone deleting
+  the volume or needing to restore a point-in-time copy. Nothing in `ReIDDatabase` exports data
+  today — 6.6's gallery-management API only sketched stats, not a dump.
+- **Migration continuity.** Ties back to the VDMS→Qdrant migration motivating the original
+  separation work (Section 5). A volume holds a backend's own on-disk format — it doesn't cross a
+  VDMS-to-Qdrant swap by itself. The general gallery doesn't need a migration path; the POI
+  gallery does, or every POI has to be re-enrolled by hand. The same export/import capability as
+  the backup question above would serve both needs.
+
+### 6.11 Trajectory export API
+
+The ability to export a moving object's full trajectory by `gid` — every camera it was seen on, in
+order, until it exits the scene — with frames stitchable into a video, clickable from the 2D track
+UI, and exposed via API. Originally raised informally; specified here as an actual API contract
+rather than left as an open discussion, per review feedback that phasing (Section 9) should decide
+_when_ this ships, not whether its shape gets defined now. This spans three separable pieces with
+very different amounts of known scope; only the `reid-service` piece is owned by this document.
+
+**What's actually being asked, stripped down.** Not the video itself — that's Stream Manager's
+job. What ReID needs to produce is the _list of sightings_ that tells Stream Manager which
+cameras and which time windows to pull footage from.
+
+**Ingest prerequisite.** Persisting a sighting diary — `camera_id`, `timestamp`, and (pending
+granularity below) `bounding_box` on each general-gallery write — is specified in Section 5.4
+(Tracker stream contract), including the gap analysis against today's code. This section does not
+redefine that write path; there is no write endpoint for it (6.1).
+
+**Defined API contract.**
+
+- **New read endpoint:** `GET /trajectories/{gid}` — returns the ordered list of sightings for a
+  `gid`: one entry per descriptor write, each with `camera_id`, `timestamp`, and bounding box,
+  ordered chronologically. This is a different query shape from today's `getPersistedAttributes`,
+  which is deliberately _latest-only_; it's a new method on the `ReIDDatabase` contract, not a
+  reinterpretation of an existing one.
+
+**Open questions to settle before sizing this for real:**
+
+- **Retention.** "Entire session until it exits" is fine within the general gallery's existing
+  24h TTL if "session" means "currently in-store or just left." If it needs to answer for a
+  session from days ago, that's a direct conflict with the general gallery being deliberately
+  ephemeral (same tension flagged for POI in 6.10).
+- **Granularity.** Camera + timestamp is enough for a time window per camera. If precise frame
+  number or bounding box is needed per sighting, that's more data per write — and feeds back into
+  the stream-field requirements in Section 5.4.
+
+**The other two-thirds of this ask remain unscoped from here, deliberately:**
+
+- **Stream Manager** — turning a list of (camera, time window) into actual stitched, playable
+  video. Nothing in any code reviewed so far touches video, RTSP, clips, or frame storage — this
+  is very plausibly the majority of the real cost, and can't be responsibly sized without someone
+  who owns that service in the room.
+- **UI** — the click-through from a 2D track to a session page. Small in isolation, sequenced
+  after both APIs above have a settled contract.
+
+**Recommendation for what actually goes to CCB.** Don't submit one lump number. The `reid-service`
+piece (stream fields per Section 5.4 plus `GET /trajectories/{gid}` here) is genuinely scopeable
+(roughly 1–2 sprints for one engineer) and is now specified rather than left as an open
+discussion. Stream Manager is not yet scopeable at all. Propose the CCB submission itself request
+a short joint discovery session with Stream Manager's owner before a total estimate is quoted.
+
+---
+
+## 7. Alternatives Considered
+
+**Extraction (Section 5):**
+
+| Alternative                                                                                                                                                                        | Why it doesn't fit as well as the proposed design                                                                                                                                                                                                                         |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Leave the layer in-process, add POI/gallery/etc. capability as new controller-internal methods, and only expose a thin HTTP facade in front of the controller for external callers | Doesn't solve the cross-hierarchy duplicate-lifecycle problem (Section 4.3, #1), and ties every new ReID capability to a controller release instead of a `reid-service` release.                                                                                          |
+| Extract only the VDMS/Qdrant adapters, keep `ReIDDatabase`'s validation/constraint-building logic in the controller                                                                | Splits one coherent contract across a network boundary for no benefit — `reid_constraints.py`'s TIER 1 logic and `reid.py`'s vector validation are meaningless without the adapter they feed, and duplicating them controller-side defeats the point of a shared service. |
+| Controller holds a client object and calls `reid-service` directly via synchronous RPC                                                                                             | Ties the controller to the service's availability through a client reference it holds directly.                                                                                                                                                                           |
+
+**API & capability (Section 6):**
+
+| Alternative                                                                                           | Considered for                    | Outcome                                                                                                                                                        |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Controller-embedded correlation (checking the POI set inside `UUIDManager`'s existing per-frame loop) | POI-to-tracking correlation (6.5) | **Rejected.** Cheapest and lowest-latency, but reintroduces ReID-specific logic into the controller at the exact point separation is trying to remove it from. |
+| Reusing `DATA_EXTERNAL` as-is for the correlation daemon's embedding feed                             | Correlation data source (6.5)     | **Open, not yet decided.** Weighed against a second, dedicated publish path decoupled from `_hierarchyReidPublishPolicy`'s unrelated gating.                   |
+
+## 8. Consequences
+
+- **The query-latency circuit breaker has no obvious new home yet.** `DEFAULT_MAX_QUERY_TIME`
+  doesn't port cleanly to "`reid-service` protecting itself from its own slow backend calls" —
+  that's a different failure mode (self-protection) than the original (protecting a caller from a
+  slow callee). Needs its own design, not assumed to be solved by this document.
+
+## 9. Rollout / Migration Plan
+
+The extraction in Section 5 needs its own rollout plan, which is not addressed here (Section 11).
+For the API work in Section 6: unlike a phased architectural migration, those subsections don't
+have a hard dependency order — each is closer to an independent epic than a sequential phase.
+That said, a few real sequencing dependencies exist and are worth respecting:
+
+- **The baseline service API (6.1) has to exist before anything else in Section 6 can ship** —
+  it's the transport every other subsection assumes.
+- **Authentication/authorization (Section 11) should be decided before any write-capable endpoint
+  ships** — POI enrollment (6.4) and Deletion (6.7) are the write-capable endpoints this API
+  exposes, and retrofitting auth after they're built is worse than deciding it first. The
+  general/tracking gallery's write path isn't an endpoint this applies to, but its own trust
+  boundary — `reid-service`'s MQTT subscription to the Tracker Service — needs the equivalent
+  scrutiny on its own track (Section 11).
+- **TTL/eviction control (6.8) depends on POI enrollment (6.4) and Gallery/collection management
+  (6.6) existing first** — there's nothing to set a per-collection policy on until POI
+  collections exist and are visible.
+- **The trajectory export API (6.11) depends on the Tracker stream contract in Section 5.4 being
+  stable**, and on a joint discovery session with Stream Manager before any total estimate is
+  quoted — it should not be scheduled ahead of either. Its API contract is defined now (6.11);
+  this dependency governs timing, not definition.
+
+Recommend treating each remaining subsection as its own small, independently schedulable story,
+prioritized against whichever SLP epic
+([Epic #221](https://github.com/intel-retail/loss-prevention/issues/221) or
+[Epic #120](https://github.com/intel-retail/storewide-loss-prevention/issues/120)) is closer to
+needing it.
+
+## 10. Testing & Monitoring
+
+**Testing.** New adapter capability (per-collection TTL overrides, count/list support in both
+backends per 6.6, the new trajectory query shape per 6.11 and the stream-field persistence it
+depends on per Section 5.4) should be tested the same way the existing
+`VDMSDatabase`/`QdrantDatabase` adapters already are — unit tests per backend, exercised through
+the shared `ReIDDatabase` contract so behavior stays identical across backends. The baseline API
+(6.1) should additionally get contract/integration tests at the transport layer, since it's the
+first place any of this is network-reachable at all.
+
+**Monitoring.** `latency_metrics.py` already establishes the pattern every new metric here should
+follow: raw values to an OTel histogram/gauge, not just a REST response for humans to poll.
+Specifically:
+
+- `Gallery_Size_Active_Persons` / `POI_Gallery_Size` as OTel gauges tagged by collection/scene
+  (6.6), feeding the performance-tools `GalleryExtractor` both SLP epics already name.
+- `POI_Match_Latency_ms` tracked independently from the general tracking pipeline's
+  `ReID_Match_Latency_ms` (6.5), owned by the correlation daemon rather than `reid-service`
+  itself.
+
+## 11. Open Questions
+
+**Extraction (Section 5):**
+
+- **Transport for `reid-service`'s external query/store surface: gRPC or MQTT.** Section 5.1
+  leans gRPC/REST, following ADR 13's stated guidance and matching Section 6's HTTP/gRPC scope,
+  but doesn't settle it — an MQTT request/reply pattern (correlation ID + reply-to topic) is a
+  live alternative that would keep every `reid-service` interface on one transport instead of
+  splitting gRPC for queries and MQTT for streaming. Not decided here.
+- **How `reid-service` as scoped here maps onto ADR 13's broader service boundaries.** This
+  document deliberately does not address how Re-ID relates to the rest of what ADR 13 groups
+  together with it — that's an explicit non-goal of this pass, tracked here as a question for a
+  separate discussion rather than answered.
+- **What replaces the query-latency circuit breaker for `reid-service`'s own self-protection?**
+  Flagged in Section 5.1 and Section 8 — not solved here.
+- **Ownership of camera/tracked-object-count metrics under ADR 13's target architecture.**
+  Section 5.3 raises this without an answer — these are controller-derived today, and the
+  controller is slated for retirement by ADR 13's Phase 7.
+- **Does the Tracker Service's track-update stream already carry embeddings/features today, or
+  does that need to be added for `reid-service` to do internal matching directly off the MQTT
+  stream?** Not verified in this pass — this document only reviewed the pre-Tracker-extraction
+  controller code (`ilabs_tracking.py`, `tracking.py`), not the Tracker Service's current output
+  contract. Section 5.4 also requires `camera_id`, `timestamp`, and (pending the granularity
+  question below) `bounding_box` on that same stream for trajectory persistence.
+- **Trust boundary for `reid-service`'s MQTT subscription to the Tracker Service.** Since the
+  general/tracking gallery has no write endpoint (6.1) — `reid-service` gets that data by
+  subscribing to the Tracker Service's MQTT stream directly — what secures that subscription
+  (broker-level ACLs, topic-level auth, network policy, or a combination)? This is a different
+  question from the endpoint authN/authZ decision below, since there's no endpoint here to
+  authenticate a caller against.
+- **Rollout mechanism.** Not addressed here; needs its own plan once the questions above are
+  settled.
+
+**API & capability (Section 6):**
+
+- **Enrollment embedding extraction.** Who runs image → embedding extraction for a one-off POI
+  enrollment — a spun-up/torn-down DL Streamer pipeline, or a lightweight synchronous extraction
+  API? (6.4)
+- **Correlation data feed.** Reuse the existing `DATA_EXTERNAL` MQTT topic as-is for the
+  correlation daemon (inheriting its rate limit and unrelated hierarchy write-ownership gating),
+  or add a second, dedicated publish path? (6.5)
+- **Gallery stats scoping.** Should `/collections/{name}/stats` support a `scene_id` /
+  `camera_id` filter for the shared multi-hierarchy database, or is the whole-collection number
+  sufficient for v1? (6.6)
+- **Host/disk loss risk acceptance.** Is protection against container-lifecycle events (a
+  persistent volume) sufficient for POI, or does the residual host/disk-loss risk need to be
+  explicitly addressed? (6.10)
+- **Write acknowledgment semantics for POI enrollment.** Does `POST /poi` need confirmed-write
+  semantics stricter than the general gallery's tolerant partial-write behavior? (6.10)
+- **Backup/export mechanism.** Is an explicit POI export/backup capability needed beyond the
+  persistent volume, and does it double as the VDMS→Qdrant migration mechanism? (6.10)
+- **General-gallery compliance/erasure mechanism.** If a right-to-erasure need against the
+  general gallery becomes real, is the existing 24h TTL sufficient, or does it need its own
+  distinct, explicitly-scoped mechanism outside this API? (6.7)
+- **Trajectory retention window.** Does "entire session" mean "currently in-store or just left"
+  (fits the existing 24h TTL) or does it need to reach further back — directly conflicting with
+  the general gallery's deliberate ephemerality? (6.11)
+- **Trajectory data granularity.** Is camera + timestamp sufficient per sighting, or does Stream
+  Manager need frame number / bounding box for precise seek and stitch accuracy? (6.11)
+- **authN/authZ mechanism** for the write-capable endpoints (6.4, 6.7) — deliberately left open
+  (Section 3), but must be decided before either ships (Section 9).
+
+## 12. References
+
+- **ADR 13 — Controller Breakdown into Functionality-Aligned Microservices** (`Accepted`,
+  2026-06-11) — source of the gRPC/MQTT interface guidance this document aligns with.
+- **ADR 7 — Tracker Service** (`Accepted`) — the already-completed extraction whose MQTT track
+  stream `reid-service` consumes.
+- **ADR-10 (ReID Metadata Storage Architecture)** (`Proposed`) — 2-tier hybrid search and
+  schema-less metadata; the storage/query semantics `reid-service` inherits (see Overview).
+- **ADR-11 (Inner-Product ReID State and ID Lineage)** (`Accepted`) — similarity-metric
+  configuration, `reid_state`, and `previous_ids_chain`; the match/output contract
+  `reid-service` inherits (see Overview).
+- [Epic #221 — SLP: Person of Interest Re-Identification & Alerting](https://github.com/intel-retail/loss-prevention/issues/221)
+- [Epic #120 — SLP: Storewide Suspicious Activity Detection & Multi-Camera Tracking with VLM Recall](https://github.com/intel-retail/storewide-loss-prevention/issues/120)
