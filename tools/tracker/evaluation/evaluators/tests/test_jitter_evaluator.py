@@ -24,19 +24,41 @@ def evaluator():
 
 @pytest.fixture
 def mock_gt_csv(tmp_path):
-  """Ground-truth CSV with two tracks, 4 frames each (MOTChallenge 3D format)."""
-  gt_file = tmp_path / "gt.txt"
-  # frame,id,x,y,z,conf,class,visibility — constant velocity so low jitter
-  gt_file.write_text(
-    "1,1,0.0,0.0,0.0,1.0,1,1\n"
-    "1,2,5.0,5.0,0.0,1.0,1,1\n"
-    "2,1,1.0,0.0,0.0,1.0,1,1\n"
-    "2,2,5.1,5.0,0.0,1.0,1,1\n"
-    "3,1,2.0,0.0,0.0,1.0,1,1\n"
-    "3,2,5.2,5.0,0.0,1.0,1,1\n"
-    "4,1,3.0,0.0,0.0,1.0,1,1\n"
-    "4,2,5.3,5.0,0.0,1.0,1,1\n"
-  )
+  """Ground-truth JSONL with two tracks, 4 frames each (canonical format)."""
+  import json
+  gt_file = tmp_path / "ground_truth.jsonl"
+  # Constant velocity so low jitter; absolute timestamps at ~30 fps.
+  gt_frames = [
+    {
+      "timestamp": "2024-01-01T00:00:00.000Z",
+      "objects": [
+        {"id": 1, "category": "person", "translation": [0.0, 0.0, 0.0]},
+        {"id": 2, "category": "person", "translation": [5.0, 5.0, 0.0]},
+      ],
+    },
+    {
+      "timestamp": "2024-01-01T00:00:00.100Z",
+      "objects": [
+        {"id": 1, "category": "person", "translation": [1.0, 0.0, 0.0]},
+        {"id": 2, "category": "person", "translation": [5.1, 5.0, 0.0]},
+      ],
+    },
+    {
+      "timestamp": "2024-01-01T00:00:00.200Z",
+      "objects": [
+        {"id": 1, "category": "person", "translation": [2.0, 0.0, 0.0]},
+        {"id": 2, "category": "person", "translation": [5.2, 5.0, 0.0]},
+      ],
+    },
+    {
+      "timestamp": "2024-01-01T00:00:00.300Z",
+      "objects": [
+        {"id": 1, "category": "person", "translation": [3.0, 0.0, 0.0]},
+        {"id": 2, "category": "person", "translation": [5.3, 5.0, 0.0]},
+      ],
+    },
+  ]
+  gt_file.write_text("\n".join(json.dumps(frame) for frame in gt_frames))
   return str(gt_file)
 
 
@@ -211,15 +233,9 @@ class TestProcessTrackerOutputs:
     evaluator.process_tracker_outputs(iter(mock_tracker_outputs), ground_truth=None)
     assert evaluator._processed is True
 
-  def test_fps_derived_from_multi_frame_outputs(self, evaluator, mock_tracker_outputs):
-    """FPS is computed from tracker output timestamps when more than one frame exists."""
-    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
-    # mock_tracker_outputs spans ~0.067s over 3 frames → ~29.9 FPS
-    assert evaluator._camera_fps > 0
-    assert evaluator._camera_fps != DEFAULT_CAMERA_FPS  # not the default fallback
-
-  def test_fps_defaults_to_30_for_single_frame(self, evaluator):
-    """Single-frame output cannot derive FPS — falls back to 30.0."""
+  def test_fps_not_inferred_without_base_fps(self, evaluator):
+    """Frame rate is never inferred from timestamps; it stays at the default
+    until set_base_fps() is called."""
     outputs = [{"timestamp": "2024-01-01T00:00:00.000Z", "objects": [
       {"id": "track-A", "translation": [0.0, 0.0, 0.0]}]}]
     evaluator.process_tracker_outputs(outputs, ground_truth=None)
@@ -570,25 +586,22 @@ class TestGTMetrics:
 
   def test_gt_csv_not_found_raises(self, evaluator, mock_tracker_outputs):
     evaluator.configure_metrics(['rms_jerk_gt'])
-    with pytest.raises(RuntimeError, match="Cannot read ground-truth CSV"):
+    with pytest.raises(RuntimeError, match="Cannot read ground-truth JSONL"):
       evaluator.process_tracker_outputs(
-        mock_tracker_outputs, ground_truth="/nonexistent/gt.txt"
+        mock_tracker_outputs, ground_truth="/nonexistent/ground_truth.jsonl"
       )
 
   def test_gt_csv_single_row(self, evaluator, mock_tracker_outputs, tmp_path):
-    """CSV with a single detection row (numpy loads as 1-D array — must be reshaped)."""
-    gt_file = tmp_path / "gt_single.txt"
-    gt_file.write_text("1,1,0.0,0.0,0.0,1.0,1,1\n")
+    """JSONL with a single frame and single object."""
+    import json
+    gt_file = tmp_path / "gt_single.jsonl"
+    gt_file.write_text(json.dumps({
+      "timestamp": "2024-01-01T00:00:00.000Z",
+      "objects": [{"id": 1, "category": "person", "translation": [0.0, 0.0, 0.0]}],
+    }))
     evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=str(gt_file))
     assert '1' in evaluator._gt_track_histories
     assert len(evaluator._gt_track_histories['1']) == 1
-
-  def test_gt_csv_too_few_columns_raises(self, evaluator, mock_tracker_outputs, tmp_path):
-    """CSV with fewer than 5 columns raises a descriptive RuntimeError."""
-    gt_file = tmp_path / "gt_bad.txt"
-    gt_file.write_text("1,1,0.0,0.0\n")  # only 4 columns
-    with pytest.raises(RuntimeError, match="fewer than 5 columns"):
-      evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=str(gt_file))
 
   def test_reset_clears_gt_histories(self, evaluator, mock_tracker_outputs, mock_gt_csv):
     evaluator.configure_metrics(['rms_jerk_gt'])

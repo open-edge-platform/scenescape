@@ -10,7 +10,6 @@ that minimizes mean Euclidean distance over overlapping frames.
 
 from typing import Iterator, List, Dict, Any, Optional
 from pathlib import Path
-from datetime import datetime
 import sys
 import math
 
@@ -109,7 +108,8 @@ class DiagnosticEvaluator(TrackerEvaluator):
     """Set base frame rate for timestamp-to-frame-number conversion.
 
     Args:
-      fps: Frames per second (> 0), or None to auto-compute from timestamps.
+      fps: Frames per second (> 0). Required before processing; it is never
+        inferred from timestamps. None leaves it unset and processing raises.
 
     Returns:
       Self for method chaining.
@@ -135,8 +135,8 @@ class DiagnosticEvaluator(TrackerEvaluator):
     Args:
       tracker_outputs: Iterator of tracker output dictionaries in canonical
         Tracker Output Format.
-      ground_truth: File path string to ground-truth CSV in MOTChallenge 3D
-        format (passed as iterator due to base class signature).
+      ground_truth: File path string to ground-truth JSONL in canonical
+        Tracker Output Format (passed as iterator due to base class signature).
 
     Returns:
       Self for method chaining.
@@ -145,8 +145,7 @@ class DiagnosticEvaluator(TrackerEvaluator):
       RuntimeError: If processing fails.
     """
     try:
-      self._parse_tracker_outputs(tracker_outputs)
-      self._parse_ground_truth(ground_truth)
+      self._parse_inputs(tracker_outputs, ground_truth)
       self._processed = True
       return self
     except Exception as e:
@@ -256,87 +255,61 @@ class DiagnosticEvaluator(TrackerEvaluator):
 
   # --- Private helpers ---
 
-  def _parse_tracker_outputs(self, tracker_outputs):
-    """Parse canonical tracker outputs into per-track frame dictionaries."""
+  def _parse_inputs(self, tracker_outputs, ground_truth):
+    """Parse tracker outputs and ground truth onto a shared time grid.
+
+    Both tracker output and ground truth carry absolute ISO timestamps. They
+    are quantized onto a common frame grid using a shared reference epoch so
+    that track-vs-ground-truth matching is timestamp-based.
+    """
+    sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
+    from format_converters import stream_jsonl
+    from utils.timeline import (
+      deduplicate_frames_by_timestamp,
+      parse_timestamp,
+      reference_timestamp,
+      require_fps,
+      resolve_ground_truth_path,
+      timestamp_to_frame,
+    )
+
     tracker_output_list = list(tracker_outputs)
     if not tracker_output_list:
       raise RuntimeError("No tracker outputs provided")
+    tracker_output_list = deduplicate_frames_by_timestamp(tracker_output_list)
 
-    # Deduplicate timestamps
-    seen_timestamps = set()
-    filtered = []
-    for data in tracker_output_list:
-      ts = data.get("timestamp")
-      if ts not in seen_timestamps:
-        seen_timestamps.add(ts)
-        filtered.append(data)
-    tracker_output_list = filtered
+    gt_frames = list(stream_jsonl(resolve_ground_truth_path(ground_truth)))
 
-    # Calculate FPS from timestamps
-    timestamps = [
-      datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00"))
-      for d in tracker_output_list
-    ]
-    num_frames = len(timestamps)
-    if self._base_fps is not None:
-      camera_fps = self._base_fps
-    elif num_frames > 1:
-      time_span = (timestamps[-1] - timestamps[0]).total_seconds()
-      camera_fps = (num_frames - 1) / time_span if time_span > 0 else 30.0
-    else:
-      camera_fps = 30.0
+    # Shared reference epoch and frame rate for both inputs.
+    reference = reference_timestamp(tracker_output_list, gt_frames)
+    camera_fps = require_fps(self._base_fps)
 
-    first_ts = timestamps[0]
-    frame_duration = 1.0 / camera_fps
     next_id = 1
-
     for scene_data in tracker_output_list:
-      ts = datetime.fromisoformat(
-        scene_data["timestamp"].replace("Z", "+00:00")
+      frame = timestamp_to_frame(
+        parse_timestamp(scene_data["timestamp"]), reference, camera_fps
       )
-      time_delta = (ts - first_ts).total_seconds()
-      frame = int(round(time_delta / frame_duration)) + 1
-
       for obj in scene_data.get("objects", []):
         uuid = obj["id"]
         if uuid not in self._uuid_to_id_map:
           self._uuid_to_id_map[uuid] = next_id
           next_id += 1
         tid = self._uuid_to_id_map[uuid]
-
         translation = obj["translation"]
-        if tid not in self._output_tracks:
-          self._output_tracks[tid] = {}
-        self._output_tracks[tid][frame] = (translation[0], translation[1])
-
-  def _parse_ground_truth(self, ground_truth):
-    """Parse ground-truth CSV into per-track frame dictionaries."""
-    if isinstance(ground_truth, str):
-      gt_file_path = ground_truth
-    else:
-      gt_data = list(ground_truth)
-      if gt_data and isinstance(gt_data[0], str):
-        gt_file_path = gt_data[0]
-      else:
-        raise RuntimeError(
-          "Ground truth must be a file path string. "
-          "Ensure dataset.get_ground_truth() returns a CSV file path."
+        self._output_tracks.setdefault(tid, {})[frame] = (
+          translation[0], translation[1]
         )
 
-    sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
-    from format_converters import read_csv_to_dataframe
-
-    gt_df = read_csv_to_dataframe(
-      gt_file_path,
-      column_names=['frame', 'id', 'x', 'y', 'z', 'conf', 'class', 'visibility']
-    )
-
-    for _, row in gt_df.iterrows():
-      gid = int(row['id'])
-      frame = int(row['frame'])
-      if gid not in self._gt_tracks:
-        self._gt_tracks[gid] = {}
-      self._gt_tracks[gid][frame] = (float(row['x']), float(row['y']))
+    for frame_data in gt_frames:
+      frame = timestamp_to_frame(
+        parse_timestamp(frame_data["timestamp"]), reference, camera_fps
+      )
+      for obj in frame_data.get("objects", []):
+        gid = int(obj["id"])
+        translation = obj["translation"]
+        self._gt_tracks.setdefault(gid, {})[frame] = (
+          translation[0], translation[1]
+        )
 
   def _match_tracks(self):
     """Bipartite assignment minimizing mean Euclidean distance.

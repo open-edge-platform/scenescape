@@ -68,21 +68,24 @@ def _make_tracker_outputs(
   return outputs
 
 
-def _make_gt_file(tmp_path, num_frames, tracks):
-  """Generate ground truth CSV file.
+def _make_gt_file(tmp_path, num_frames, tracks, interval_ms=100):
+  """Generate ground truth JSONL file in canonical Tracker Output Format.
 
   Args:
     tmp_path: Directory to write the file.
     num_frames: Number of frames.
     tracks: Dict mapping integer GT ID to a callable(frame_1indexed) -> (x, y)
             or to a dict {frame_1indexed: (x, y)} for sparse tracks.
+    interval_ms: Milliseconds between frames (must match tracker grid).
 
   Returns:
-    Path to GT CSV file.
+    Path to GT JSONL file.
   """
-  gt_file = tmp_path / "gt.txt"
+  import json
+  gt_file = tmp_path / "ground_truth.jsonl"
   lines = []
   for frame in range(1, num_frames + 1):
+    objects = []
     for gid, pos_source in tracks.items():
       if callable(pos_source):
         x, y = pos_source(frame)
@@ -90,8 +93,16 @@ def _make_gt_file(tmp_path, num_frames, tracks):
         if frame not in pos_source:
           continue
         x, y = pos_source[frame]
-      # frame,id,x,y,z,conf,class,visibility
-      lines.append(f"{frame},{gid},{x},{y},0.0,1.0,1,1")
+      objects.append({
+        "id": gid,
+        "category": "person",
+        "translation": [x, y, 0.0],
+      })
+    # frame N (1-indexed) maps to tracker index N-1.
+    lines.append(json.dumps({
+      "timestamp": _make_timestamp(frame - 1, interval_ms),
+      "objects": objects,
+    }))
   gt_file.write_text("\n".join(lines))
   return str(gt_file)
 
@@ -100,8 +111,8 @@ def _make_gt_file(tmp_path, num_frames, tracks):
 
 @pytest.fixture
 def evaluator():
-  """Create DiagnosticEvaluator instance."""
-  return DiagnosticEvaluator()
+  """Create DiagnosticEvaluator instance (100ms test grid -> 10 fps)."""
+  return DiagnosticEvaluator().set_base_fps(10.0)
 
 
 @pytest.fixture
@@ -509,7 +520,7 @@ class TestSetBaseFps:
     assert evaluator.set_base_fps(30.0) is evaluator
 
   def test_none_resets(self, evaluator):
-    """None resets to auto-compute."""
+    """None clears the configured frame rate."""
     evaluator.set_base_fps(30.0)
     evaluator.set_base_fps(None)
     assert evaluator._base_fps is None
@@ -531,14 +542,14 @@ class TestSetBaseFps:
     assert evaluator._base_fps is None
 
   def test_overrides_computed_fps(self, evaluator, perfect_data, temp_output_folder):
-    """When set, base_fps is used instead of auto-computed value."""
+    """When set, base_fps is used for frame alignment."""
     tracker_outputs, gt_file = perfect_data
     evaluator.set_base_fps(10.0)
     evaluator.configure_metrics(['DIST_T'])
     evaluator.set_output_folder(temp_output_folder)
     evaluator.process_tracker_outputs(tracker_outputs, gt_file)
 
-    # Verify frames were assigned using 10fps, not auto-computed value.
+    # Verify frames were assigned using 10fps.
     # With 100ms interval at 10fps (frame_duration=100ms), frames should be
     # 1, 2, 3, ... (one per interval). Check any track has sequential frames.
     for track in evaluator._output_tracks.values():
@@ -546,3 +557,12 @@ class TestSetBaseFps:
       if len(frames) > 1:
         assert frames == list(range(1, len(frames) + 1))
         break
+
+  def test_process_without_fps_raises(self, perfect_data, temp_output_folder):
+    """Processing without a configured frame rate raises a clear error."""
+    tracker_outputs, gt_file = perfect_data
+    ev = DiagnosticEvaluator()
+    ev.configure_metrics(['DIST_T'])
+    ev.set_output_folder(temp_output_folder)
+    with pytest.raises(RuntimeError, match="Frame rate is required"):
+      ev.process_tracker_outputs(iter(tracker_outputs), gt_file)
