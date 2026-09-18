@@ -8,35 +8,35 @@
 
 ## 1. Overview
 
-This document specifies the API and capability surface of `reid-service` as a standalone
-component. It builds directly on the **ReID Service Extraction proposal**
-([`reid-service-extraction.md`](./reid-service-extraction.md)) — the design that pulls ReID out of the controller into
-its own service — and picks up where that proposal leaves off: it establishes _that_ ReID becomes
-a separate service (and, per its alignment with **ADR 13**, how it gets its data — the Tracker
-Service's MQTT track-stream, consumed directly, with matching/writing handled internally); this
-document defines _what that service's externally-callable API looks like_, end to end. That
-includes two things that are easy to conflate but need to be kept distinct:
+This document specifies the API and capability surface of `reid-service`. It depends on the
+**ReID Service Extraction proposal**
+([`reid-service-extraction.md`](./reid-service-extraction.md)), which establishes that ReID is a
+standalone service and how the live tracking loop feeds it (Tracker MQTT stream → internal
+match/write). This document defines the **externally callable** surface only:
 
-- **Baseline surface (Section 5.1):** the endpoints needed just to expose today's in-process
-  `ReIDDatabase` contract (`reid.py`) over a network transport at all, for callers other than
-  `reid-service` itself — there is currently no HTTP/gRPC front door onto any of it.
-- **New capability (Sections 5.2–5.11):** the POI enrollment/matching/alerting flow and related
+- **Baseline surface (Section 5.1):** network exposure of today's in-process `ReIDDatabase`
+  contract for callers other than `reid-service` itself.
+- **New capability (Sections 5.2–5.11):** POI enrollment/matching/alerting and related
   gallery-management, deletion, TTL, schema-negotiation, and trajectory-export capabilities the
   SLP epics ([Epic #221](https://github.com/intel-retail/loss-prevention/issues/221) — POI
   Re-ID & Alerting, [Epic #120](https://github.com/intel-retail/storewide-loss-prevention/issues/120)
-  — Storewide Suspicious Activity) call for but explicitly leave as future/out-of-scope work.
+  — Storewide Suspicious Activity) call for but leave as future/out-of-scope work.
 
 Priority and exact shape within the "new capability" bucket are open; that part is meant to give
 the team something concrete to react to, not a committed backlog. The baseline surface is not
 optional in the same way — some version of it has to exist for `reid-service` to be a service at
 all.
 
+**Ingest vs API.** The live tracking gallery is written by `reid-service` consuming the Tracker
+stream (extraction doc). This API exposes no write endpoint for that path; see Non-Goals and
+Section 5.1.
+
 ## 2. Goals
 
 - **Define the baseline transport, not just the extensions.** Since `reid-service` doesn't exist
   yet as a standalone deployable, specify the endpoints needed to expose the existing
-  `ReIDDatabase` contract (query, write, schema metadata) over the network — the foundation
-  everything else in this document sits on top of.
+  `ReIDDatabase` contract (query, schema metadata) over the network — the foundation everything
+  else in this document sits on top of.
 - Expose `reid-service`'s existing internal query capability (`findMatches`) as a first-class,
   externally callable API.
 - Add a POI enrollment surface (insert, update, delete) that is clearly and permanently scoped to
@@ -48,20 +48,18 @@ all.
 - Make POI records durably persisted, distinct from the general gallery's deliberately ephemeral,
   TTL-bound nature.
 - Establish authentication/authorization before any write-capable, network-reachable endpoint
-  ships — POI enrollment (5.4) and Deletion (5.7) are the write-capable endpoints this applies
-  to. The general/tracking gallery's write path (5.1) isn't an endpoint in this API at all, but
-  the trust boundary on _its_ input — `reid-service`'s MQTT subscription to the Tracker Service's
-  stream — deserves the same scrutiny; see Section 9.
-- **Define the trajectory-export API's contract** (request/response shape and the write-path
-  change it depends on), so a future CCB submission starts from an honest breakdown of what's
-  known vs. unknown rather than a guessed estimate. Phasing (Section 7) determines when this
-  ships, not whether it's specified here.
+  ships — POI enrollment (5.4) and Deletion (5.7). Trust for Tracker-stream ingest is owned by
+  the extraction proposal; see Section 9.
+- **Define the trajectory-export API's contract** (request/response shape), so a future CCB
+  submission starts from an honest breakdown of what's known vs. unknown rather than a guessed
+  estimate. The ingest-side write-path change it depends on is owned by the extraction proposal
+  (§3.3). Phasing (Section 7) determines when this ships, not whether it's specified here.
 
 ## 3. Non-Goals
 
-- **Writing to or deleting from the general/tracking gallery via this API.** There is no such
-  path — see 5.1: `reid-service` consumes the Tracker Service's MQTT stream directly for the live
-  tracking loop, and this API exposes no write endpoint for it at all.
+- **Writing to or deleting from the general/tracking gallery via this API.** No such endpoints —
+  live-loop writes are stream-driven inside `reid-service` (extraction proposal). Enforced by
+  absence of endpoints, not by locking down a restricted writer (Section 5.1).
 - **Image-to-embedding extraction/inference.** `reid-service`'s job stays storage and search;
   running the ReID model to turn an image into an embedding happens outside it, same as today.
 - **Stream Manager's internal video/clip API.** Referenced only where it bounds the trajectory
@@ -74,23 +72,21 @@ all.
 - **A final decision on authN/authZ mechanism, or on the DATA_EXTERNAL-reuse-vs-dedicated-topic
   question for correlation.** Both are deliberately left as open questions (Section 9), not
   resolved here.
+- **Tracker stream contract / live ingest field requirements.** Owned by
+  [`reid-service-extraction.md`](./reid-service-extraction.md) §3.3; this document only consumes
+  that contract for the trajectory read API.
 
 ## 4. Background / Context
 
 ### 4.0 Relationship to the ReID Service Extraction proposal
 
-The **ReID Service Extraction proposal** ([`reid-service-extraction.md`](./reid-service-extraction.md)) decided that
-ReID logic — currently living inside the controller — becomes its own standalone service,
-`reid-service`, and, aligning with **ADR 13 (Controller Breakdown into Functionality-Aligned
-Microservices, `Accepted`)**, that `reid-service` gets its live tracking data by consuming the
-Tracker Service's MQTT stream directly rather than being called by a controller. That decision is
-a prerequisite for everything below: there is no existing `reid-service` deployment today, and
-none of the endpoints in this document exist in any network-reachable form. `reid.py`'s
-`ReIDDatabase` contract is real and stable, but it has only ever been called **in-process** by the
-controller. This document is the first place an externally-callable transport (HTTP/gRPC) gets
-defined for the parts of it meant for callers other than `reid-service` itself — both for the
-existing contract (5.1) and for the new POI-driven capability (5.2 onward). The general/tracking
-gallery's write path is explicitly _not_ part of that externally-callable transport — see 5.1.
+Prerequisite:
+[`reid-service-extraction.md`](./reid-service-extraction.md). That proposal extracts ReID into
+`reid-service` and defines live ingest (Tracker MQTT → internal match/write), purge ownership,
+and the Tracker stream contract (§3.3 there). This document assumes that service exists and
+defines only the externally callable HTTP/gRPC (or MQTT request/reply) surface — baseline (5.1)
+and POI-driven capability (5.2 onward). The general/tracking gallery has no write endpoint here;
+see 5.1 and Non-Goals.
 
 ### 4.1 What `reid-service` already provides
 
@@ -121,73 +117,45 @@ section by section below.
 
 ### 5.1 Baseline service API surface
 
-Before any POI-specific capability can exist, `reid-service` needs _some_ network-reachable
-version of the contract it already has in-process — for callers other than `reid-service` itself.
-This is the part of the design that Section 5.2 onward assumes already exists; it's specified
-explicitly here rather than left implicit, since — unlike the POI work — there is no existing
-deployment to point to as "already covers this."
+Before any POI-specific capability can exist, `reid-service` needs a network-reachable version of
+the contract it already has in-process — for callers other than `reid-service` itself. Section
+5.2 onward assumes this baseline; it is specified explicitly because there is no existing
+deployment that already covers it.
 
-**The general/tracking gallery's write path is not part of this baseline surface — it has no
-endpoint at all.** Per the ReID Service Extraction proposal's current design (aligned with
-ADR 13), `reid-service` doesn't get written to over an API for the live tracking loop; it consumes
-the Tracker Service's MQTT track-stream directly and performs matching and writing internally, as
-part of its own stream processing. There is no controller (or anything else) calling a write
-endpoint for this path, so there's nothing here to lock down to a specific caller — the access
-question that mattered under the earlier client/RPC design doesn't apply. Non-Goal in Section 3
-still holds (this API does not let arbitrary callers write to the general gallery); it's just
-enforced by there being no such endpoint, rather than by restricting one.
+**No general-gallery write endpoint.** Per Non-Goals and the extraction proposal, live-loop
+writes are stream-driven inside `reid-service`. This baseline is read/admin/health only for the
+tracking gallery; POI writes appear later (5.4, 5.7).
 
-**Proposed baseline endpoints** — the externally-callable surface, each a thin transport wrapper
-around the corresponding `ReIDDatabase` method, with no behavior change from today's in-process
-semantics:
+**Proposed baseline endpoints** — thin transport wrappers around existing `ReIDDatabase`
+methods, with no behavior change from today's in-process semantics:
 
-- **Read: mirrors `findMatches`.** Covered in full in 5.3 (Query API), since exposing this to
-  callers _beyond_ the live tracking loop — investigator tooling, VLM recall, POI matching — is
-  itself one of this document's goals, not just a transport detail. Whether this rides on gRPC/REST
-  or MQTT request/reply is an open question inherited from the extraction proposal — not settled
-  here (see Section 9).
+- **Read: mirrors `findMatches`.** Covered in full in 5.3 (Query API). Transport (gRPC/REST vs
+  MQTT request/reply) is inherited from the extraction proposal — see Section 9.
 - **Read: mirrors `findSchemaMetadata`.** Lets a caller confirm a collection's existence,
-  dimensions, and similarity metric before querying — needed once external callers exist, since
-  they can't assume the schema the way the internal stream-consumption path can.
-- **Admin (optional, internal use): mirrors `purgeExpired`.** `reid-service` schedules its own
-  purges internally per the extraction proposal — this endpoint isn't required for that to work.
-  It exists only as an optional operational hook (manual trigger during incident response,
-  liveness/maintenance tooling), not a load-bearing part of the design.
-- **Health/readiness.** Standard for any deployable service — not present in the in-process
-  contract at all, since "is `reid.py` reachable" was never a meaningful question before now.
+  dimensions, and similarity metric before querying.
+- **Admin (optional, internal use): mirrors `purgeExpired`.** Optional operational hook only;
+  `reid-service` already schedules purges internally per the extraction proposal.
+- **Health/readiness.** Standard for any deployable service.
 
-**Why this matters for everything downstream.** Sections 5.2–5.11 describe new capability in
-terms of "the API" as though a baseline already exists. It doesn't yet. Building this baseline is
-what turns `reid-service` from "a module the controller imports" into an actual service other
-things can call — the POI/gallery/trajectory work is what that service does once it exists, not
-what makes it exist in the first place. Note that this baseline is entirely about the
-externally-callable surface; the live tracking loop's own data path (Tracker Service → MQTT →
-`reid-service`) isn't part of "the API" in the sense this document uses that term at all.
+Building this baseline is what turns `reid-service` into something other components can call;
+Sections 5.2–5.11 are what that service does once it exists.
 
 ### 5.2 Design principles (cross-cutting)
 
 Decisions carried across every subsection below, settled in discussion rather than sketched
 per-endpoint:
 
-- **Writes are POI-gallery-only — the general gallery has no writer in this API at all.** Per
-  5.1, the general/tracking gallery is written to by `reid-service` consuming the Tracker
-  Service's MQTT stream directly, not by any endpoint in this API. All insert, update, and delete
-  operations this API exposes — everything in 5.4 (POI enrollment) and 5.7 (deletion) — apply
-  **only to the POI gallery**. To be unambiguous about what that means per operation:
-  - **Insert** (5.4, `POST /poi`) — POI gallery only. There is no "insert a general tracking
-    descriptor" endpoint in this API at all; that path is `reid-service`'s own internal stream
-    consumption, not something this API exposes.
+- **Writes are POI-gallery-only.** All insert, update, and delete operations this API exposes
+  (5.4, 5.7) apply **only to the POI gallery**. The general/tracking gallery has no writer in
+  this API (Non-Goals / 5.1). Per operation:
+  - **Insert** (5.4, `POST /poi`) — POI gallery only.
   - **Update** (5.4, `PATCH /poi/{poi_id}` and appending reference embeddings) — POI gallery
-    only. The general gallery has no update concept in this API at all.
-  - **Delete** (5.7) — POI gallery only. See that section for why general-gallery deletion is
-    explicitly not part of this API, and how compliance/erasure requests against the general
-    gallery are handled instead.
-  - **Query** (5.3, `findMatches`) — the one operation that reads from _both_ galleries.
-    Read-only either way; querying the general gallery through this API never writes to it.
+    only.
+  - **Delete** (5.7) — POI gallery only. See that section for general-gallery erasure handling.
+  - **Query** (5.3, `findMatches`) — reads from _both_ galleries; never writes.
 
-  Nothing in the Query API, Deletion API, or Gallery/collection management subsections should be
-  read as applying to the general gallery unless explicitly called out — and after this
-  subsection, nothing does.
+  Nothing in Query, Deletion, or Gallery/collection management applies to the general gallery
+  unless explicitly called out — and after this subsection, nothing does.
 
 - **POI records are persisted, not just long-TTL.** A POI record isn't "the same as the general
   gallery but with a bigger number" — it's meant to survive indefinitely by design, distinct
@@ -505,39 +473,19 @@ order, until it exits the scene — with frames stitchable into a video, clickab
 UI, and exposed via API. Originally raised informally; specified here as an actual API contract
 rather than left as an open discussion, per review feedback that phasing (Section 7) should decide
 _when_ this ships, not whether its shape gets defined now. This spans three separable pieces with
-very different amounts of known scope; only the first is `reid-service`'s to own.
+very different amounts of known scope; only the external read API is owned here.
 
 **What's actually being asked, stripped down.** Not the video itself — that's Stream Manager's
 job. What ReID needs to produce is the _list of sightings_ that tells Stream Manager which
 cameras and which time windows to pull footage from.
 
-**The gap, confirmed against the actual code.** The system today only keeps a "latest known
-state" per object, not a running diary of every sighting — and critically, the two things a
-trajectory needs (location and time) are not even in the part of the object that reaches the ReID
-database:
-
-- `moving_object.py` has two genuinely separate things: `self.location` (a list of `Chronoloc`
-  entries — point + timestamp + bounding box) and `self.metadata` (a separate dict for arbitrary
-  semantic/sensor attributes).
-- `UUIDManager`'s write to the ReID database only ever pulls from `self.metadata`, via
-  `_extractSemanticMetadata()`. `self.location` is never touched by that path. So today's ReID
-  gallery stores the embedding vector plus generic semantic metadata — camera, timestamp, and
-  bounding box never make it in.
-- One encouraging detail: the camera ID isn't even missing from the codebase —
-  `_extractCameraId()` already exists and already extracts it, but today it's wired only to a
-  metrics counter (`CameraRegistry.recordEmbeddingObserved`), not to the ReID write. So this
-  isn't "invent new tracking data" — it's "connect two things that already exist
-  (`_extractCameraId()` and `self.location`'s timestamp/bbox) to a write that already happens."
+**Ingest prerequisite (owned by extraction).** Persisting a sighting diary — `camera_id`,
+`timestamp`, and (pending granularity below) `bounding_box` on each general-gallery write — is
+specified in [`reid-service-extraction.md`](./reid-service-extraction.md) §3.3 (Tracker stream
+contract). This section does not redefine that write path.
 
 **Defined API contract.**
 
-- **Write-path change:** the general/tracking gallery's write path — `reid-service` consuming the
-  Tracker Service's MQTT stream directly, per 5.1 — additionally needs `camera_id`, `timestamp`,
-  and (pending the granularity decision below) `bounding_box` in the incoming stream payload,
-  alongside the existing embedding and semantic metadata, sourced from `_extractCameraId()` and
-  `self.location`'s `Chronoloc` entries respectively. This is a change to what the Tracker
-  Service's stream carries and what `reid-service` persists from it, not a new endpoint — there
-  is no write endpoint for this path at all (5.1).
 - **New read endpoint:** `GET /trajectories/{gid}` — returns the ordered list of sightings for a
   `gid`: one entry per descriptor write, each with `camera_id`, `timestamp`, and bounding box,
   ordered chronologically. This is a different query shape from today's `getPersistedAttributes`,
@@ -551,7 +499,8 @@ database:
   session from days ago, that's a direct conflict with the general gallery being deliberately
   ephemeral (same tension flagged for POI in 5.10).
 - **Granularity.** Camera + timestamp is enough for a time window per camera. If precise frame
-  number or bounding box is needed per sighting, that's more data per write.
+  number or bounding box is needed per sighting, that's more data per write — and feeds back into
+  the extraction proposal's stream-field requirements (§3.3).
 
 **The other two-thirds of this ask remain unscoped from here, deliberately:**
 
@@ -563,10 +512,10 @@ database:
   after both APIs above have a settled contract.
 
 **Recommendation for what actually goes to CCB.** Don't submit one lump number. The `reid-service`
-piece above is genuinely scopeable (roughly 1–2 sprints for one engineer) and is now specified
-above rather than left as an open discussion. Stream Manager is not yet scopeable at all. Propose
-the CCB submission itself request a short joint discovery session with Stream Manager's owner
-before a total estimate is quoted.
+piece (stream fields per extraction §3.3 + `GET /trajectories/{gid}` here) is genuinely
+scopeable (roughly 1–2 sprints for one engineer). Stream Manager is not yet scopeable at all.
+Propose the CCB submission itself request a short joint discovery session with Stream Manager's
+owner before a total estimate is quoted.
 
 ---
 
@@ -586,18 +535,16 @@ dependencies exist and are worth respecting:
 - **The baseline service API (5.1) has to exist before anything else in this document can ship**
   — it's the transport every other section assumes.
 - **Authentication/authorization (Section 9) should be decided before any write-capable endpoint
-  ships** — POI enrollment (5.4) and Deletion (5.7) are the write-capable endpoints this API
-  exposes, and retrofitting auth after they're built is worse than deciding it first. The
-  general/tracking gallery's write path (5.1) isn't an endpoint this applies to, but its own trust
-  boundary — `reid-service`'s MQTT subscription to the Tracker Service — needs the equivalent
-  scrutiny on its own track (Section 9).
+  ships** — POI enrollment (5.4) and Deletion (5.7). Tracker-stream ingest trust is tracked
+  separately in Section 9 (and owned with the extraction proposal).
+
 - **TTL/eviction control (5.8) depends on POI enrollment (5.4) and Gallery/collection management
   (5.6) existing first** — there's nothing to set a per-collection policy on until POI
   collections exist and are visible.
-- **The trajectory export API (5.11) depends on the design in
-  [`reid-service-extraction.md`](./reid-service-extraction.md) being stable**, and on a joint discovery session with
-  Stream Manager before any total estimate is quoted — it should not be scheduled ahead of either.
-  Its API contract is defined now (5.11); this dependency governs timing, not definition.
+- **The trajectory export API (5.11) depends on extraction §3.3 (Tracker stream fields) being
+  stable**, and on a joint discovery session with Stream Manager before any total estimate is
+  quoted — it should not be scheduled ahead of either. The read endpoint is defined in 5.11; the
+  ingest change is defined in the extraction proposal.
 
 Recommend treating each remaining subsection as its own small, independently schedulable story,
 prioritized against whichever SLP epic
@@ -608,7 +555,7 @@ needing it.
 ## 8. Testing & Monitoring
 
 **Testing.** New adapter capability (per-collection TTL overrides, count/list support in both
-backends per 5.6, the new trajectory write/query shape per 5.11) should be tested the same way
+backends per 5.6, the new trajectory query shape per 5.11 (and stream-field persistence per extraction §3.3) should be tested the same way
 the existing `VDMSDatabase`/`QdrantDatabase` adapters already are — unit tests per backend,
 exercised through the shared `ReIDDatabase` contract so behavior stays identical across backends.
 The baseline API (5.1) should additionally get contract/integration tests at the transport layer,
@@ -650,12 +597,10 @@ Specifically:
   the general gallery's deliberate ephemerality? (5.11)
 - **Trajectory data granularity.** Is camera + timestamp sufficient per sighting, or does Stream
   Manager need frame number / bounding box for precise seek and stitch accuracy? (5.11)
-- **Trust boundary for `reid-service`'s MQTT subscription to the Tracker Service.** Since the
-  general/tracking gallery has no write endpoint (5.1) — `reid-service` gets that data by
-  subscribing to the Tracker Service's MQTT stream directly — what secures that subscription
-  (broker-level ACLs, topic-level auth, network policy, or a combination)? This is a different
-  question from the endpoint authN/authZ decision above, since there's no endpoint here to
-  authenticate a caller against.
+- **Trust boundary for Tracker-stream ingest.** Owned with the extraction proposal; what
+  secures `reid-service`'s MQTT subscription (broker ACLs, topic auth, network policy)? See also
+  Non-Goals.
+
 - **Transport for the Query API (5.3): gRPC/REST or MQTT request/reply.** Inherited from the
   extraction proposal — gRPC/REST is the current leaning (and what this document assumes
   throughout), but MQTT hasn't been ruled out. Not decided here; see
@@ -663,8 +608,10 @@ Specifically:
 
 ## 10. References
 
-- **ReID Service Extraction proposal** ([`reid-service-extraction.md`](./reid-service-extraction.md)) — the design this
-  document builds on; also the source of the ADR 13 alignment referenced throughout.
+- **ReID Service Extraction proposal** ([`reid-service-extraction.md`](./reid-service-extraction.md)) — prerequisite
+  for this document: service boundary, live ingest, purge ownership, Tracker stream contract
+  (§3.3), and ADR 13 alignment. Source of truth for how data enters `reid-service`.
+
 - **ADR 13 — Controller Breakdown into Functionality-Aligned Microservices** (`Accepted`) — the
   accepted architectural decision that the extraction proposal aligns with.
 - [Epic #221 — SLP: Person of Interest Re-Identification & Alerting](https://github.com/intel-retail/loss-prevention/issues/221)

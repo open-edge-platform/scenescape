@@ -152,18 +152,16 @@ explicit interface guidance.
   points at gRPC/REST for this kind of query/response workload, and that's this document's
   leaning — it's a strong, direct match for [`reid-api-expansion.md`](./reid-api-expansion.md)'s existing scope, whose Query
   API, POI enrollment, deletion, and gallery management sections were already written as an
-  HTTP/gRPC surface, so that doc needs comparatively little rework from this alignment (see
-  Consequences). **MQTT is also a viable option for this surface and isn't ruled out here** — a
+  HTTP/gRPC surface. **MQTT is also a viable option for this surface and isn't ruled out here** — a
   request/reply pattern over MQTT (correlation ID + reply-to topic) would keep every external
   interface consistent with one transport instead of splitting gRPC for queries and MQTT for
   streaming. The trade-off isn't resolved here: gRPC gives a simpler client contract (a call that
   returns a value) and matches ADR 13's stated guidance directly; MQTT keeps the whole system on
   one message bus and avoids running two transport stacks, at the cost of the client needing to
   handle correlation and timeouts itself. See Open Questions.
-  What does need rework regardless of which transport is picked is [`reid-api-expansion.md`](./reid-api-expansion.md)'s
-  Section 5.1, which described a controller-restricted _write_ endpoint assuming a "controller"
-  calls it — there is no such caller under this model; the write path for the live loop is
-  `reid-service` consuming the Tracker's MQTT stream, not an endpoint anyone calls.
+  [`reid-api-expansion.md`](./reid-api-expansion.md)'s Section 5.1 already reflects this model
+  (no write endpoint for the live loop). Keep that section in sync if the ingest contract here
+  changes.
 - **`purgeExpired` is unaffected by this alignment.** It was already decided, independent of the
   MQTT-vs-gRPC question, that `reid-service` owns purge scheduling entirely:
   `_purgeExpiredDescriptors()` and the per-`UUIDManager` `purge_timer` are removed from the
@@ -217,6 +215,36 @@ its final phase. Which service owns camera/tracked-object registries in the targ
 isn't addressed by this document. These metrics' ownership is deferred to Open Questions rather
 than asserted here.
 
+### 3.3 Tracker stream contract (live ingest + trajectory fields)
+
+This document owns what the Tracker Service's MQTT track-stream must carry into `reid-service`.
+[`reid-api-expansion.md`](./reid-api-expansion.md) defines the external read surface that depends
+on this contract (notably `GET /trajectories/{gid}`); it does not redefine the ingest path.
+
+**Baseline for live matching/writing.** `reid-service` performs matching and storage by consuming
+the Tracker stream directly (Section 3). Whether that stream already carries embeddings/features
+today — or needs them added — remains an open question (Section 6). Until that is verified,
+`reid-service` cannot do internal matching off the MQTT stream alone.
+
+**Additional fields for trajectory persistence.** Trajectory export needs an ordered diary of
+sightings, not only the latest known state. Today that diary is not what reaches the ReID store:
+
+- `moving_object.py` keeps `self.location` (a list of `Chronoloc` entries — point + timestamp +
+  bounding box) separately from `self.metadata` (arbitrary semantic/sensor attributes).
+- `UUIDManager`'s write path only pulls from `self.metadata` via `_extractSemanticMetadata()`.
+  `self.location` is never touched by that path, so camera, timestamp, and bounding box never
+  land in the gallery.
+- Camera ID is already extracted elsewhere (`_extractCameraId()` → metrics via
+  `CameraRegistry.recordEmbeddingObserved`) but is not wired into the ReID write.
+
+**Required ingest change:** the Tracker stream payload that `reid-service` consumes must include
+`camera_id`, `timestamp`, and (pending the granularity decision in the API doc) `bounding_box`,
+alongside the existing embedding and semantic metadata — sourced from `_extractCameraId()` and
+`self.location`'s `Chronoloc` entries respectively. `reid-service` persists those fields on each
+descriptor write. There is still no external write endpoint for this path; it is entirely
+stream-driven. Retention and granularity trade-offs for how far back trajectory queries can reach
+are specified in the API doc's trajectory section, not here.
+
 ## 4. Consequences
 
 - **The query-latency circuit breaker has no obvious new home yet.** `DEFAULT_MAX_QUERY_TIME`
@@ -252,7 +280,8 @@ than asserted here.
   does that need to be added for `reid-service` to do internal matching directly off the MQTT
   stream?** Not verified in this pass — this document only reviewed the pre-Tracker-extraction
   controller code (`ilabs_tracking.py`, `tracking.py`), not the Tracker Service's current
-  output contract.
+  output contract. Section 3.3 also requires `camera_id`, `timestamp`, and (pending API
+  granularity) `bounding_box` on that same stream for trajectory persistence.
 - **Rollout mechanism.** Not addressed here; needs its own plan once the questions above are
   settled.
 
@@ -263,7 +292,8 @@ than asserted here.
 - **ADR-10 (ReID Metadata Storage Architecture)** and **ADR-11 (Inner-Product ReID State and ID
   Lineage)** — cited by ADR 13 as already covering related territory; not available for this
   alignment pass, needed before this document is finalized.
-- [`reid-api-expansion.md`](./reid-api-expansion.md) — the API & capability design that depends on this document. Its Query
-  API, POI enrollment, deletion, and gallery-management sections are largely consistent with
-  ADR 13's gRPC/REST guidance already; its Section 5.1 (baseline write surface) needs a rewrite
-  per Section 4 above.
+- [`reid-api-expansion.md`](./reid-api-expansion.md) — the API & capability design that depends on this document. Its
+  baseline surface (no live-loop write endpoint), Query API, POI enrollment, deletion, and
+  gallery-management sections are already aligned with the ingest model and ADR 13's gRPC/REST
+  leaning here; keep them in sync if Section 3 / 3.3 changes. Trajectory's external read endpoint
+  lives there; the Tracker stream fields it needs are owned by Section 3.3 above.
