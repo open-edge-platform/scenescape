@@ -297,10 +297,12 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
 
   def _handle_camera_message(self, _client, _userdata, message):
     payload = message.payload.decode("utf-8", errors="replace")
+    self._log.info(f"Received camera command: '{payload}' for cam={self._cameraid}")
     if payload == "getimage":
       self._publish_image = True
       return
     if payload == "getcalibrationimage":
+      self._log.info(f"Setting calibration image flag for cam={self._cameraid}")
       self._is_publish_calibration_image = True
       return
     try:
