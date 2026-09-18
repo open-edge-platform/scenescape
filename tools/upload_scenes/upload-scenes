@@ -5,9 +5,9 @@
 
 The source directory holds one subdirectory per scene, each containing a
 <scene>.zip in the format the "Export Scene" button of the web UI produces (a
-single JSON file describing the scene next to the map it refers to), plus
-optional assets.json / calibration_markers.json sidecars. Each archive is
-posted to the /import-scene endpoint.
+single JSON file describing the scene, its assets and calibration markers,
+next to the map it refers to). Each archive is posted to the /import-scene
+endpoint.
 
 This is a standalone client. It needs no Scenescape package, only `requests`,
 and talks to the deployment over the network. The upload logic itself lives

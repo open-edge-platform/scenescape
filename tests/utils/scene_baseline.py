@@ -28,8 +28,7 @@ _RESOURCES_DIR = Path(__file__).resolve().parents[1] / "resources" / "scenes"
 
 # Keys used by ServiceProfile/_PROFILE_SCENE_ARCHIVES to pick which archives a
 # stack needs. Values are tuples of archive paths, uploaded in order. Each
-# scene lives in its own directory: <scene>/<scene>.zip, plus optional
-# <scene>/assets.json and <scene>/calibration_markers.json sidecars.
+# scene lives in its own directory as a single <scene>/<scene>.zip archive.
 SCENE_ARCHIVES = {
   "demo": (_RESOURCES_DIR / "Demo" / "Demo.zip",),
   "calibration": (_RESOURCES_DIR / "Queuing" / "Queuing.zip",),
