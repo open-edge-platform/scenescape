@@ -46,7 +46,7 @@ QUEUING_VIDEO_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/Queuing/queuing-video-compose.
 VIDEO_SOURCE_COMPOSE_FILES := -f $(RETAIL_VIDEO_COMPOSE_FILE) -f $(QUEUING_VIDEO_COMPOSE_FILE)
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(VIDEO_SOURCE_DIR)/Retail/video/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts) \
 	$(addprefix $(VIDEO_SOURCE_DIR)/Queuing/video/,qcam1.ts qcam2.ts) \
-	sample_data/videos/car-detection.ts
+	tools/pipeline_runner/video/car-detection.ts
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/docker-compose-dl-streamer-example.yml
 DEMO_WAIT_SECONDS ?= "0"
 # Host directory with one subdirectory per demo scene (each holding a <name>.zip)
@@ -694,7 +694,7 @@ init-pipeline-runner-videos: convert-dls-videos
 	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-videos 2>/dev/null || true
 	@docker run --rm -v $(CURDIR)/$(VIDEO_SOURCE_DIR)/Queuing/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
 	@docker run --rm -v $(CURDIR)/$(VIDEO_SOURCE_DIR)/Retail/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
-	@docker run --rm -v $(CURDIR)/sample_data/videos:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
+	@docker run --rm -v $(CURDIR)/tools/pipeline_runner/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
 
 .PHONY: init-sample-data
 init-sample-data: convert-dls-videos

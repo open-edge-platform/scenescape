@@ -4,24 +4,23 @@ set -euo pipefail
 # SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# Converts sample mp4 videos (per-scene under demo_scenes/*/video, plus the
-# shared sample_data/videos) to ts so the gstreamer pipeline can loop them
+# Converts sample mp4 videos (per-scene under demo_scenes/*/video, plus
+# tools/pipeline_runner/video) to ts so the gstreamer pipeline can loop them
 # infinitely without deallocating buffers.
 
 docker pull intel/intel-optimized-ffmpeg:avx3
 
 DIRNAME=${PWD}
-SAMPLE_DATA_DIR=${DIRNAME}/sample_data
 FFMPEG_DIR="/app/data"
 FFMPEG_IMAGE="intel/intel-optimized-ffmpeg:avx3"
 EXTENSION=${1:-mp4}
 
-for mfile in "$SAMPLE_DATA_DIR"/demo_scenes/*/video/*."${EXTENSION}" "$SAMPLE_DATA_DIR"/videos/*."${EXTENSION}"; do
+for mfile in "$DIRNAME"/sample_data/demo_scenes/*/video/*."${EXTENSION}" "$DIRNAME"/tools/pipeline_runner/video/*."${EXTENSION}"; do
   [ -f "$mfile" ] || continue
-  # relative dir under sample_data/, so the ts file lands next to its source mp4
-  reldir=$(dirname "${mfile#"$SAMPLE_DATA_DIR"/}")
+  # relative dir under the repo root, so the ts file lands next to its source mp4
+  reldir=$(dirname "${mfile#"$DIRNAME"/}")
   basefile=$(basename -s ".$EXTENSION" "$mfile")
-  tsfile="${SAMPLE_DATA_DIR}/${reldir}/${basefile}.ts"
+  tsfile="${DIRNAME}/${reldir}/${basefile}.ts"
   echo "$tsfile"
   if [ -f "$tsfile" ]; then
     echo "skipping $basefile as $tsfile is available already"
@@ -38,7 +37,7 @@ for mfile in "$SAMPLE_DATA_DIR"/demo_scenes/*/video/*."${EXTENSION}" "$SAMPLE_DA
     # -pix_fmt yuv420p        : standard H.264 pixel format (4:2:0 chroma)
     # -c:a copy               : audio stream-copied (no re-encode)
     docker run --rm \
-      -v "${SAMPLE_DATA_DIR}:${FFMPEG_DIR}" \
+      -v "${DIRNAME}:${FFMPEG_DIR}" \
       --entrypoint /opt/build/bin/ffmpeg \
       "$FFMPEG_IMAGE" \
       -i "${FFMPEG_DIR}/${reldir}/${basefile}.${EXTENSION}" \
