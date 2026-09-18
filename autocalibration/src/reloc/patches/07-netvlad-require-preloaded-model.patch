@@ -1,0 +1,29 @@
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' hloc/extractors/netvlad.py hloc/extractors/netvlad.py
+--- hloc/extractors/netvlad.py
++++ hloc/extractors/netvlad.py
+@@ -2,7 +2,6 @@
+ # SPDX-License-Identifier: Apache-2.0
+
+ from pathlib import Path
+-import subprocess
+ import logging
+ import numpy as np
+ import torch
+@@ -63,14 +62,11 @@
+   def _init(self, conf):
+     assert conf['model_name'] in self.dir_models.keys()
+
+-    # Download the checkpoint.
+     checkpoint = conf['checkpoint_dir'] / str(conf['model_name'] + '.mat')
+     if not checkpoint.exists():
+-      checkpoint.parent.mkdir(exist_ok=True)
+-      link = self.dir_models[conf['model_name']]
+-      cmd = ['wget', link, '-O', str(checkpoint)]
+-      logger.info(f'Downloading the NetVLAD model with `{cmd}`.')
+-      subprocess.run(cmd, check=True)
++      raise FileNotFoundError(
++          f'NetVLAD model is required at {checkpoint}; '
++          'run the model download init container first')
+
+     # Create the network.
+     # Remove classification head.

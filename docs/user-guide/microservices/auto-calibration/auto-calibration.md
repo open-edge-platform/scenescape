@@ -31,6 +31,19 @@ The auto calibration services supports two types of camera calibration methods:
 
 For implementation-level details of markerless calibration using NetVLAD, quadtree attention, and HLoc, see [Markerless Camera Calibration Internals](./markerless-camera-calibration.md).
 
+### NetVLAD model preparation
+
+The autocalibration application image does not download models when it starts. For Docker
+Compose deployments, the `autocalibration-model-init` one-shot service downloads and verifies
+the NetVLAD model into the shared `vol-netvlad_models` volume before the application starts.
+For Kubernetes deployments, the chart uses a dedicated NetVLAD PVC and a download init
+container. The model is retained across pod restarts, so it is downloaded only when the PVC
+does not already contain it.
+
+The `autocalibration.skipModelDownload` Kubernetes value disables the download init container
+for smoke tests that do not exercise markerless calibration. Markerless calibration requires
+the verified model to be present at `/usr/local/lib/python3.11/site-packages/third_party/netvlad`.
+
 In addition to camera calibration, the service supports **sensor-agnostic perceptual sensor localization**.
 A point cloud produced by any perceptual sensor (LiDAR, depth camera, stereo, photogrammetry) is
 localized against the scene's 3D model to compute the sensor-to-scene transform. The client sends a

@@ -137,6 +137,7 @@ start-kind:
 	else \
 	    echo "WARNING: no kind container found, skipping --restart=always"; \
 	fi
+
 # remove the kind container
 clean-kind:
 	kind delete cluster
