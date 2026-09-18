@@ -20,7 +20,7 @@ harness:
     container_type: tracker
     container_image: intel/scenescape-tracker:latest
     tracker_config_path: pipeline_configs/black_box_unity/config/tracker_service.json
-    # startup_wait_s: 5.0
+    startup_wait_s: 5.0
     # drain_timeout: 5.0
     # Optional observability: capture OTLP metrics via an OTEL Collector sidecar
     enable_metrics: true
