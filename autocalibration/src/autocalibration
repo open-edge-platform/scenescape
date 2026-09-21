@@ -10,7 +10,7 @@ from auto_camera_calibration_context import CameraCalibrationContext
 from auto_camera_calibration_api import CameraCalibrationApi
 
 # Configure logging
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.ERROR, force=True)
 log = logging.getLogger("autocalibration")
 
 def build_argparser():

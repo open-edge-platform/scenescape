@@ -49,10 +49,11 @@
   ```bash
   docker run --rm \
     --user 1000:1000 \
+    --entrypoint python3 \
     -e NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad \
     -v scenescape_vol-netvlad_models:/usr/local/lib/python3.11/site-packages/third_party/netvlad \
     intel/scenescape-autocalibration \
-    python3 /usr/local/bin/download_models.py
+    /usr/local/bin/download_models.py
   ```
 
   The downloader verifies the model checksum and exits nonzero if preparation fails.
