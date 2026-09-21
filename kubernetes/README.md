@@ -101,7 +101,7 @@ For a `kind` cluster created by this repo's `make` targets, `make -C
 kubernetes video-source-up` does this automatically (joins the `kind` Docker
 network so no extra steps are needed). For any other cluster, create the
 network the stack expects and start only the media services (not the
-broker-dependent dlsps services, which this chart's `kubeclient` creates
+video-analytics DLSPS services, which this chart's `kubeclient` creates
 in-cluster):
 
 ```sh
