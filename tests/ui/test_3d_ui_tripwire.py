@@ -36,121 +36,6 @@ class Scene3dTripwireUserInterfaceTest(UserInterfaceTest):
     assert tripwire_points, "Failed to create tripwire"
     return
 
-  def get_tripwire_folder_title(self):
-    """! Waits for the tripwire's lil-gui folder to appear in the 3D control panel.
-    @return   WebElement                 The folder title element.
-    """
-    title_xpath = f"//div[@class='title' and normalize-space(text())='{TRIPWIRE_NAME}']"
-    assert common.wait_for_elements(
-      self.browser, title_xpath, findBy=By.XPATH, maxWait=PANEL_WAIT_SEC, refreshPage=False,
-    ), f"Tripwire control panel for '{TRIPWIRE_NAME}' did not load"
-    return self.browser.find_element(By.XPATH, title_xpath)
-
-  def expand_tripwire_folder(self, title_element):
-    """! Expands the tripwire's lil-gui folder if it is currently collapsed.
-    @param    title_element              The folder title element.
-    """
-    children_xpath = (
-      f"//div[@class='title' and normalize-space(text())='{TRIPWIRE_NAME}']"
-      "/following-sibling::div[@class='children'][1]"
-    )
-    children = self.browser.find_element(By.XPATH, children_xpath)
-    if "closed" in (children.get_attribute("class") or ""):
-      self.executeScript("arguments[0].click();", title_element)
-      deadline = time.monotonic() + PANEL_WAIT_SEC
-      while time.monotonic() < deadline:
-        refreshed_children = self.browser.find_elements(By.XPATH, children_xpath)
-        if refreshed_children and "closed" not in (refreshed_children[0].get_attribute("class") or ""):
-          return
-        time.sleep(0.25)
-      raise AssertionError(f"Tripwire folder for '{TRIPWIRE_NAME}' did not expand in time")
-    return
-
-  def get_control_input(self, control_name, input_selector):
-    """! Locates an input belonging to a named control row inside the tripwire's folder.
-    @param    control_name               lil-gui control label (e.g. "color", "height", "show").
-    @param    input_selector             XPath predicate for the input (e.g. "@type='checkbox'").
-    @return   WebElement                 The located input element.
-    """
-    xpath = (
-      f"//div[@class='title' and normalize-space(text())='{TRIPWIRE_NAME}']"
-      "/following-sibling::div[@class='children'][1]"
-      f"//div[@class='name' and normalize-space(text())='{control_name}']"
-      f"/following-sibling::*[1]//input[{input_selector}]"
-    )
-    return self.browser.find_element(By.XPATH, xpath)
-
-  def get_show_checkbox(self):
-    return self.get_control_input("show", "@type='checkbox'")
-
-  def get_color_input(self):
-    return self.get_control_input("color", "@type='color'")
-
-  def get_height_input(self):
-    return self.get_control_input("height", "@type='number'")
-
-  def set_input_value(self, input_element, value):
-    """! Sets a lil-gui input's value via script and fires the "input" event
-    that lil-gui controllers listen on to commit the change immediately.
-    @param    input_element              The <input> element to update.
-    @param    value                      New value to assign.
-    """
-    self.executeScript(
-      "arguments[0].value = arguments[1];"
-      "arguments[0].dispatchEvent(new Event('input', {bubbles: true}));",
-      input_element, value,
-    )
-    return
-
-  def wait_for_tripwire_state(self, predicate, timeout_seconds=30):
-    """! Poll the rendered tripwire until the expected scene-state predicate passes."""
-    deadline = time.monotonic() + timeout_seconds
-    last_state = None
-    while time.monotonic() < deadline:
-      last_state = self.get_tripwire_state()
-      if predicate(last_state):
-        return last_state
-      time.sleep(0.25)
-    assert last_state is not None, "Tripwire state was never available"
-    assert predicate(last_state), "Tripwire scene state never reached the expected condition"
-    return last_state
-
-  def get_tripwire_state(self):
-    """! Reads the live tripwire scene-graph node via the test-only
-    window.__testScene hook.
-    @return   dict                       hooks_available/found/visible/height/
-                                         color/has_label/label_visible, per availability.
-    """
-    script = """
-      const testScene = window.__testScene;
-      if (!testScene) return {hooksAvailable: false};
-      const node = testScene.getObjectByName(arguments[0]);
-      if (!node) return {hooksAvailable: true, found: false};
-      const label = node.getObjectByName("textObject_" + arguments[0]);
-      return {
-        hooksAvailable: true,
-        found: true,
-        visible: node.visible,
-        height: node.height,
-        color: node.material ? node.material.color.getHexString() : null,
-        hasLabel: !!label,
-        labelVisible: label ? (label.visible && node.visible) : null,
-      };
-    """
-    return self.executeScript(script, TRIPWIRE_NAME)
-
-  def wait_for_label(self, timeout_seconds=30):
-    """! Poll until the asynchronously created text label is present in the scene."""
-    deadline = time.monotonic() + timeout_seconds
-    while time.monotonic() < deadline:
-      state = self.get_tripwire_state()
-      if state.get("hasLabel"):
-        return state
-      time.sleep(0.25)
-    state = self.get_tripwire_state()
-    assert state.get("hasLabel"), "Tripwire label was not created in the scene graph in time"
-    return state
-
   def check_tripwire_controls(self, result_recorder):
     assert self.login()
 
@@ -160,17 +45,18 @@ class Scene3dTripwireUserInterfaceTest(UserInterfaceTest):
     log.info("2. Navigate to the Scene detail (3D) page.")
     common.navigate_directly_to_page(self.browser, f"/scene/detail/{common.TEST_SCENE_ID}/")
 
-    title_element = self.get_tripwire_folder_title()
-    self.expand_tripwire_folder(title_element)
+    title_element = common.get_3d_control_folder_title(self.browser, TRIPWIRE_NAME, PANEL_WAIT_SEC)
+    common.expand_3d_control_folder(self.browser, TRIPWIRE_NAME, title_element, PANEL_WAIT_SEC)
 
-    initial_state = self.get_tripwire_state()
+    initial_state = common.get_3d_scene_object_state(self.browser, TRIPWIRE_NAME)
     assert initial_state["hooksAvailable"], "Test hooks (window.__testScene) are not exposed"
     assert initial_state["found"], f"Tripwire '{TRIPWIRE_NAME}' was not found in the scene graph"
 
     log.info("3. Change tripwire color via the control panel.")
-    color_input = self.get_color_input()
-    self.set_input_value(color_input, NEW_COLOR_HEX)
-    state_after_color = self.wait_for_tripwire_state(
+    color_input = common.get_3d_control_input(self.browser, TRIPWIRE_NAME, "color", "@type='color'")
+    common.set_3d_control_input_value(self.browser, color_input, NEW_COLOR_HEX)
+    state_after_color = common.wait_for_3d_scene_object_state(
+      self.browser, TRIPWIRE_NAME,
       lambda state: state.get("color") == NEW_COLOR_HEX.lstrip("#")
     )
     assert state_after_color["color"] == NEW_COLOR_HEX.lstrip("#"), (
@@ -178,11 +64,12 @@ class Scene3dTripwireUserInterfaceTest(UserInterfaceTest):
     )
     log.info("Tripwire color updated correctly.")
 
-    show_checkbox = self.get_show_checkbox()
+    show_checkbox = common.get_3d_control_input(self.browser, TRIPWIRE_NAME, "show", "@type='checkbox'")
     was_checked = show_checkbox.is_selected()
     log.info(f"4. Toggle 'show' (currently {was_checked}) and verify the tripwire and its label follow.")
     show_checkbox.click()
-    state_after_toggle = self.wait_for_tripwire_state(
+    state_after_toggle = common.wait_for_3d_scene_object_state(
+      self.browser, TRIPWIRE_NAME,
       lambda state: (
         state.get("visible") is not was_checked
         and state.get("hasLabel")
@@ -196,9 +83,10 @@ class Scene3dTripwireUserInterfaceTest(UserInterfaceTest):
     )
 
     log.info("5. Toggle 'show' back and verify the tripwire and its label return to the original state.")
-    show_checkbox = self.get_show_checkbox()
+    show_checkbox = common.wait_for_3d_control_enabled(self.browser, TRIPWIRE_NAME)
     show_checkbox.click()
-    state_restored = self.wait_for_tripwire_state(
+    state_restored = common.wait_for_3d_scene_object_state(
+      self.browser, TRIPWIRE_NAME,
       lambda state: (
         state.get("visible") is was_checked
         and state.get("labelVisible") is was_checked
@@ -206,12 +94,15 @@ class Scene3dTripwireUserInterfaceTest(UserInterfaceTest):
     )
     assert state_restored["visible"] is was_checked, "Tripwire visibility did not revert after re-toggling 'show'"
     assert state_restored["labelVisible"] is was_checked, "Tripwire label visibility did not revert after re-toggling 'show'"
+    common.wait_for_3d_control_enabled(self.browser, TRIPWIRE_NAME)
     log.info("Tripwire and label visibility tracked the 'show' toggle correctly.")
 
     log.info("6. Change tripwire height via the control panel.")
-    height_input = self.get_height_input()
-    self.set_input_value(height_input, NEW_HEIGHT)
-    state_after_height = self.wait_for_tripwire_state(lambda state: state.get("height") == NEW_HEIGHT)
+    height_input = common.get_3d_control_input(self.browser, TRIPWIRE_NAME, "height", "@type='number'")
+    common.set_3d_control_input_value(self.browser, height_input, NEW_HEIGHT)
+    state_after_height = common.wait_for_3d_scene_object_state(
+      self.browser, TRIPWIRE_NAME, lambda state: state.get("height") == NEW_HEIGHT,
+    )
     assert state_after_height["height"] == NEW_HEIGHT, (
       f"Tripwire height did not update: expected {NEW_HEIGHT}, got {state_after_height['height']}"
     )
