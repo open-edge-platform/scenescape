@@ -129,7 +129,7 @@ By following these steps, only the selected GPU device will be available in the 
 
 Running inference on NPU is recommended when an Intel® NPU is available on the system. This offloads the inference workload to the NPU, freeing up CPU and GPU resources for other Scenescape services.
 
-> **Note:** `retail-video`/`queuing-video` and their `retail-config`/`queuing-config`
+> **Note:** `retail-video`/`queuing-video` services and their `retail-config`/`queuing-config`
 > settings referenced below live in each scene's own compose file,
 > [sample_data/demo_scenes/Retail/retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) and
 > [sample_data/demo_scenes/Queuing/queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml),
