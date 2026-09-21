@@ -24,12 +24,13 @@ NEW_HEIGHT = 5
 class Scene3dTripwireUserInterfaceTest(UserInterfaceTest):
   BROWSER_WEBGL = True
 
-  def __init__(self, testName, request):
+  def __init__(self, testName, request, scene_name):
     super().__init__(testName, request, None)
+    self.scene_name = scene_name
 
   def create_tripwire(self):
     """! Creates a tripwire on the 2D scene page so it appears in the 3D control panel."""
-    assert common.navigate_to_scene(self.browser, common.TEST_SCENE_NAME)
+    assert common.navigate_to_scene(self.browser, self.scene_name)
     tripwire_points = common.create_tripwire(self.browser, TRIPWIRE_NAME)
     assert tripwire_points, "Failed to create tripwire"
     return
@@ -123,7 +124,12 @@ def test_3d_ui_tripwire(scenescape_env, request, result_recorder):
   log.info("Executing: NEX-T10471")
   log.info("Test the 3D UI tripwire color, show, and height controls.")
 
-  test = Scene3dTripwireUserInterfaceTest("NEX-T10471", request)
+  scene_uids = getattr(scenescape_env, "scene_uids", None) or {}
+  scene_name = next(
+    (name for name in ("Demo", "Retail", "Queuing") if name in scene_uids),
+    common.TEST_SCENE_NAME,
+  )
+  test = Scene3dTripwireUserInterfaceTest("NEX-T10471", request, scene_name)
   try:
     test.check_tripwire_controls(result_recorder)
   finally:

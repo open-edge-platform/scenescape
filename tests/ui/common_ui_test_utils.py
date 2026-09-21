@@ -1370,10 +1370,6 @@ def expand_3d_control_folder(browser, object_name, title_element, max_wait=100):
     f"//div[@class='title' and normalize-space(text())='{object_name}']"
     "/ancestor::div[contains(concat(' ', normalize-space(@class), ' '), ' lil-gui ')][1]"
   )
-  children_xpath = (
-    f"//div[@class='title' and normalize-space(text())='{object_name}']"
-    "/following-sibling::div[@class='children'][1]"
-  )
   folder = browser.find_element(By.XPATH, folder_xpath)
   if "closed" not in (folder.get_attribute("class") or ""):
     return
