@@ -42,7 +42,7 @@ Below are step-by-step instructions for enabling out-of-the-box scenes in Scenes
 
 Running the pipelines on GPU is highly recommended when available on the system. This approach efficiently utilizes available CPU cores for other Scenescape services and provides optimal performance for the visual analytics service. Only Intel GPU devices are supported.
 
-> **Note:** `retail-video`/`queuing-video` and their `retail-config`/`queuing-config`
+> **Note:** `retail-video`/`queuing-video` services and their `retail-config`/`queuing-config`
 > settings referenced below live in each scene's own compose file,
 > [sample_data/demo_scenes/Retail/retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) and
 > [sample_data/demo_scenes/Queuing/queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml),
