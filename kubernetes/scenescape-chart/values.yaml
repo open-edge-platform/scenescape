@@ -104,7 +104,7 @@ kubeclient:
     tag: "2026.3.0-20260915-weekly-ubuntu24"
     pullPolicy: IfNotPresent
 
-video:
+models:
   # models storage size
   storage: 50Gi
   storageClassName: ""

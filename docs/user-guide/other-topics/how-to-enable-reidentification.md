@@ -68,7 +68,7 @@ Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-
 
 ```yaml
 retail-config:
-  file: ./dlstreamer-pipeline-server/retail-config-reid.json
+  file: ./sample_data/demo_scenes/Retail/retail-config-reid.json
 ```
 
 This reidentification-specific configuration uses a vision pipeline that includes anonymous visual feature extraction (also called "visual embeddings") using a person reidentification model:
@@ -235,7 +235,7 @@ it; that is a separate hardening step.
 
    ```yaml
    retail-config:
-     file: ./dlstreamer-pipeline-server/retail-config.json
+     file: ./sample_data/demo_scenes/Retail/retail-config.json
    ```
 
 3. **Restart the System**:

@@ -361,7 +361,7 @@ configs:
   reid-config:
     file: ./controller/config/reid-config.json
   perf-config:
-    file: ./dlstreamer-pipeline-server/perf-config.json
+    file: ./tests/compose/perf/perf-config.json
 
 volumes:
   vol-db:

@@ -29,10 +29,10 @@ secrets:
 configs:
   retail-config:
     # Use this configuration file to run decoding and inference on GPU
-    # file: ./dlstreamer-pipeline-server/retail-config-gpu.json
-    file: ./dlstreamer-pipeline-server/retail-config.json
+    # file: ./sample_data/demo_scenes/Retail/retail-config-gpu.json
+    file: ./sample_data/demo_scenes/Retail/retail-config.json
     # Use this configuration file to run inference on NPU
-    # file: ./dlstreamer-pipeline-server/retail-config-npu.json
+    # file: ./sample_data/demo_scenes/Retail/retail-config-npu.json
 
 services:
   mediaserver:

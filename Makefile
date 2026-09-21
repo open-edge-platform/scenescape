@@ -696,26 +696,6 @@ init-pipeline-runner-videos: convert-dls-videos
 	@docker run --rm -v $(CURDIR)/$(VIDEO_SOURCE_DIR)/Retail/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
 	@docker run --rm -v $(CURDIR)/tools/pipeline_runner/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
 
-.PHONY: init-sample-data
-init-sample-data: convert-dls-videos
-	@echo "Initializing sample data volume..."
-	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-sample-data 2>/dev/null || true
-	@echo "Setting up volume permissions..."
-	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:3.23 chown $(shell id -u):$(shell id -g) /dest
-	@echo "Copying files from $(CURDIR)/sample_data to volume..."
-	@if [ -d "$(CURDIR)/sample_data" ]; then \
-		docker run --rm \
-			-v $(CURDIR)/sample_data:/source:ro \
-			-v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
-			--user $(shell id -u):$(shell id -g) \
-			alpine:3.23 \
-			sh -c "echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo '';"; \
-	else \
-		echo "WARNING: Source directory $(CURDIR)/sample_data does not exist!"; \
-		exit 1; \
-	fi
-	@echo "Sample data volume initialized."
-
 # Helper target to start demo with compose
 # $(1): extra `docker compose` args for the main stack (e.g. profiles, ReID backend override)
 # $(2): extra `docker compose` args for the video-source stack (e.g. ReID pipeline override)
