@@ -6,7 +6,9 @@
 - **Related ADRs**: [ADR 13 — Controller Breakdown into Functionality-Aligned Microservices](../adr/0013-controller-breakdown-microservices.md),
   [ADR 7 — Tracker Service](../adr/0007-tracker-service.md),
   [ADR-10 — ReID Metadata Storage Architecture](../adr/0010-reid-metadata-storage-architecture.md),
-  [ADR-11 — Inner-Product ReID State and ID Lineage](../adr/0011-inner-product-reid-state-and-id-lineage.md)
+  [ADR-11 — Inner-Product ReID State and ID Lineage](../adr/0011-inner-product-reid-state-and-id-lineage.md),
+  [ADR 14 — Unified TTL Retention for ReID Descriptor Store Growth](../adr/0014-reid-descriptor-ttl-retention.md),
+  [ADR 15 — Hierarchy ReID Provenance and Enrollment Scope](../adr/0015-hierarchy-reid-provenance.md)
 
 ---
 
@@ -14,9 +16,7 @@
 
 This document is a design proposal — not an ADR — covering `reid-service` end to end: extracting
 today's in-process ReID layer into a standalone service (Section 5), and the externally callable
-API and capability surface that service exposes once it exists (Section 6). The two halves were
-originally drafted as separate proposals (`reid-service-extraction.md` and
-`reid-api-expansion.md`) and are merged here; Section 5 is the base, Section 6 extends it.
+API and capability surface that service exposes once it exists (Section 6).
 
 **ADR 13: Controller Breakdown into Functionality-Aligned Microservices** (`Accepted`,
 2026-06-11) is the accepted architectural decision that governs the broader controller breakdown,
@@ -35,8 +35,9 @@ discussion.
 
 ADR 13's Phase 1 ("Scene State Persistence + shared Re-ID integration") cites **ADR-10
 (ReID Metadata Storage Architecture)** and **ADR-11 (Inner-Product ReID State and ID
-Lineage)** as covering related territory. Those ADRs are complementary to this document, not
-substitutes for it:
+Lineage)** as covering related territory. Two later ReID ADRs also bound this work: **ADR 14
+(Unified TTL Retention)** and **ADR 15 (Hierarchy ReID Provenance and Enrollment Scope)**.
+All four are complementary to this document, not substitutes for it:
 
 - **ADR-10** (`Proposed`) decides the 2-tier hybrid search contract — schema-less metadata
   properties plus vector similarity (TIER 1 constraint filtering, then TIER 2 match). That is
@@ -44,12 +45,28 @@ substitutes for it:
 - **ADR-11** (`Accepted`) decides configurable similarity metric (`COSINE`/`L2`, with
   `COSINE`→VDMS `IP`), explicit `reid_state` on tracks, and `previous_ids_chain` lineage in
   scene output. That is match/output-contract behavior; this document does not reopen it.
+- **ADR 14** (`Proposed`) decides the backend-neutral TTL retention contract —
+  `descriptor_ttl_secs` / `REID_DESCRIPTOR_TTL_SECS`, `retentionEnabled()`,
+  `_applyRetentionProperties()`, `purgeExpired()`, and the controller-side purge timer
+  (`REID_PURGE_INTERVAL_SECS`, process-local `_PURGE_OWNER`). Retention is reclaim-only, not an
+  identity-validity rule. This document relocates that reclaim schedule into `reid-service`
+  (Section 5.1) and later proposes per-collection / pressure-based extensions (Section 6.8)
+  without reopening ADR 14's reclaim-only semantics for the general gallery.
+- **ADR 15** (`Proposed`) decides hierarchy ReID enroll/query scope — separate
+  `quality_features` vs `enrollment_features`, explicit `metadata.reid.provenance` on hierarchy
+  output (`quality_vetted`, `will_enroll` / `enrolled`), and publish policy
+  (`passthrough` / `withhold` / `will_enroll` via `_hierarchyReidPublishPolicy`), plus
+  write-health / write-epoch guards. That policy is why a shared DB does not double-enroll the
+  same crop across hierarchy levels. Orchestration that enforces it moves into `reid-service`
+  with the extraction (Section 5.1); the POI correlation feed question in Section 6.5 is whether
+  to reuse ADR 15's `DATA_EXTERNAL` contract or add a dedicated path.
 
-What this document adds — and what ADR-10 / ADR-11 do not cover — is the **deployable boundary**:
-extracting the in-process library into `reid-service`, owning live ingest off the Tracker MQTT
-stream, centralizing purge/metrics, and defining the external API/capability surface (including
-POI). The TIER 1 constraint helpers, adapters, and match semantics move with the extraction;
-they are not redesigned here.
+What this document adds — and what ADR-10 / 11 / 14 / 15 do not cover — is the **deployable
+boundary**: extracting the in-process library into `reid-service`, owning live ingest off the
+Tracker MQTT stream, centralizing purge/metrics ownership (solving ADR 14's cross-process
+purge duplication), and defining the external API/capability surface (including POI). The
+TIER 1 helpers, adapters, retention contract, match semantics, and hierarchy enroll/query
+rules move with the extraction; they are not redesigned here.
 
 The API half (Section 6) covers two things that are easy to conflate but need to be kept
 distinct:
@@ -211,10 +228,11 @@ max_query_time=DEFAULT_MAX_QUERY_TIME)` (`DEFAULT_MAX_QUERY_TIME = 4` seconds) t
 Three concrete problems exist today because this layer is a library, not a service:
 
 1. **No shared lifecycle across a hierarchy.** Parent/child scene controllers each run their own
-   copy of this layer against the same backing store (per the multi-hierarchy embedding-forwarding
-   design in `scene_controller.py`'s `publishExternalDetections` /
-   `_hierarchyReidPublishPolicy`). Schema creation races, retention/purge scheduling, and TIER 1
-   constraint logic are all independently duplicated per process instead of centrally owned.
+   copy of this layer against the same backing store (per ADR 15's hierarchy provenance /
+   enrollment-scope design, implemented in `scene_controller.py`'s `publishExternalDetections` /
+   `_hierarchyReidPublishPolicy`). Schema creation races, retention/purge scheduling (ADR 14's
+   process-local `_PURGE_OWNER` is the within-process half of this), and TIER 1 constraint logic
+   are all independently duplicated per process instead of centrally owned.
 2. **No way for anything other than a controller process to reach this layer.** Investigator
    tooling, VLM-recall (Epic #120), and POI enrollment/matching (Epic #221) all need to call
    `findMatches` and (for POI) `addEntry`-equivalent writes from outside a controller's Python
@@ -271,7 +289,10 @@ explicit interface guidance.
   process_. There is no separate "controller" entity publishing a match request and waiting for
   an answer — the orchestration logic in Section 4.2 (feature-gathering, TIER 1 extraction,
   write-health/epoch tracking) moves into `reid-service` alongside the storage layer, because
-  that's the service that now owns UUID assignment and lifecycle end to end. This is a materially
+  that's the service that now owns UUID assignment and lifecycle end to end. That move includes
+  ADR 15's enroll/query split (`quality_features` vs `enrollment_features`), provenance-gated
+  write authority (`will_enroll` / `enrolled`), and write-health / write-epoch guards — those
+  rules are not reinvented here; they relocate with the orchestration. This is a materially
   different shape than "the controller publishes to MQTT and reid-service responds" — it's "the
   upstream Tracker Service publishes a stream, and reid-service's own internal logic decides what
   to do with it," with no cross-service round trip for the live loop at all.
@@ -289,12 +310,16 @@ explicit interface guidance.
   message bus and avoids running two transport stacks, at the cost of the client needing to
   handle correlation and timeouts itself. See Open Questions. Section 6.1 reflects this model:
   there is no write endpoint for the live loop, because no caller exists for one.
-- **`purgeExpired` is unaffected by this alignment.** It was already decided, independent of the
-  MQTT-vs-gRPC question, that `reid-service` owns purge scheduling entirely:
+- **`purgeExpired` is unaffected by this alignment.** ADR 14 already defined the retention
+  contract and the controller-side reclaim timer. Independent of the MQTT-vs-gRPC question, this
+  document relocates that schedule so `reid-service` owns it entirely:
   `_purgeExpiredDescriptors()` and the per-`UUIDManager` `purge_timer` are removed from the
   controller outright, `reid-service` runs its own internal timer and calls `purgeExpired()` on
   itself, the `_PURGE_OWNER` election lock is deleted entirely, and `REID_PURGE_INTERVAL_SECS`
-  moves into `reid-service`'s own config. Nothing about ADR 13 changes this.
+  (and `REID_DESCRIPTOR_TTL_SECS`) move into `reid-service`'s own config. That also closes the
+  cross-process duplicate-reclaim gap ADR 14's Consequences already flagged. Adapter-level
+  expiration representation (VDMS `_expiration` vs Qdrant `expires_at`) and reclaim-only
+  semantics stay as ADR 14 decided them.
 
 **Consequence for the query-latency circuit breaker.** `DEFAULT_MAX_QUERY_TIME`'s
 rolling-average measurement (Section 4.1) was built around one blocking call plus one TCP round
@@ -307,7 +332,9 @@ mechanism. This needs its own design, not a straightforward port of `sendSimilar
 
 ### 5.2 What doesn't change
 
-The wire format between detectors and the Tracker Service, TIER 1 constraint semantics, and the
+The wire format between detectors and the Tracker Service, TIER 1 constraint semantics (ADR-10),
+similarity-metric / `reid_state` / lineage contracts (ADR-11), general-gallery reclaim-only TTL
+semantics (ADR 14), hierarchy provenance and enroll/query scope rules (ADR 15), and the
 VDMS/Qdrant backend contract itself (`ReIDDatabase`'s abstract methods) are unaffected by this
 alignment — none of them depended on the transport question.
 
@@ -572,32 +599,32 @@ consistent with it even though it costs a bit of latency and a small amount of n
 
 **What the daemon correlates against.** The daemon doesn't have a live per-frame embedding the
 way the controller does. This turns out not to be a blocker, because the mechanism to feed it
-already exists in the codebase:
+already exists in the codebase — and is governed by **ADR 15**:
 
 `moving_object.py` already carries an `embedding_vector` field (base64-encoded) and a
 `reid_provenance` field, and `scene_controller.py`'s `publishExternalDetections` already attaches
 both (`attach_reid_provenance=True`) and puts them on the MQTT bus at `PubSub.DATA_EXTERNAL` —
-this is the existing multi-hierarchy embedding-forwarding mechanism (parent/child scene sharing).
-The daemon subscribing to that topic already receives live embeddings today, with no new
-`reid-service` capability needed. Two things worth deciding before treating this as the final
-wiring, though:
+ADR 15's hierarchy embedding-forwarding contract (parent/child scene sharing). The daemon
+subscribing to that topic already receives live embeddings today, with no new `reid-service`
+capability needed. Two things worth deciding before treating this as the final wiring, though:
 
-- **It's rate-limited and gated by logic built for a different purpose.**
+- **It's rate-limited and gated by logic built for a different purpose (ADR 15).**
   `publishExternalDetections` only fires per `scene.external_update_rate` (not every frame), and
   whether an object's embedding gets attached at all is decided by `_hierarchyReidPublishPolicy`
   (`will_enroll` / `withhold` / `passthrough`) — logic that answers "should this scene claim
   write ownership of this embedding," not "should the POI daemon see this object." Subscribing to
-  `DATA_EXTERNAL` as-is means POI correlation silently inherits both constraints for reasons
-  unrelated to POI matching.
+  `DATA_EXTERNAL` as-is means POI correlation silently inherits ADR 15's publish constraints for
+  reasons unrelated to POI matching.
 - **It's currently scoped narrowly on purpose — worth not widening it by accident.** Only
   `DATA_EXTERNAL` carries embeddings; the general `DATA_SCENE` topic every other consumer
   subscribes to does not. That's a real, already-working privacy boundary limiting who sees
-  embedding data today.
+  embedding data today (ADR 15 attaches provenance only to hierarchy output for the same reason).
 
-The reuse-vs-dedicated-topic choice is tracked as an open question in Section 11. Once
-`{gid: poi_id}` is discovered, that tag should stick for the life of the `gid` (mirroring the
-existing sticky-once-true pattern used for `_category_has_embeddings`) rather than re-checking
-every subsequent frame for a track that's already tagged.
+The reuse-vs-dedicated-topic choice is therefore whether ADR 15's hierarchy contract is a fit
+feed for POI correlation, or whether a dedicated path is needed — tracked as an open question in
+Section 11. Once `{gid: poi_id}` is discovered, that tag should stick for the life of the `gid`
+(mirroring the existing sticky-once-true pattern used for `_category_has_embeddings`) rather
+than re-checking every subsequent frame for a track that's already tagged.
 
 **Correlation publishes an event; it does not deliver an alert.** `scene_controller.py` already
 has an MQTT event bus for exactly this kind of fact-of-occurrence broadcasting — tracking events
@@ -717,15 +744,24 @@ reusing the same constraint structure `reid_constraints.py` already builds for q
 
 ### 6.8 Runtime TTL / eviction control
 
-`descriptor_ttl_secs` and the purge interval are static env vars fixed at process start today.
+**ADR 14** already established the general-gallery retention contract this section builds on:
+`descriptor_ttl_secs` / `REID_DESCRIPTOR_TTL_SECS` (default 24h; `0` disables),
+`REID_PURGE_INTERVAL_SECS`, reclaim-only purge (descriptors stay searchable until physically
+removed), and adapter-private expiration representation. Those knobs are static env vars fixed
+at process start today; Section 5.1 moves the reclaim schedule into `reid-service` without
+changing that contract for the general gallery.
+
 Two gaps once 6.4 and 6.6 exist:
 
 - **Per-collection TTL.** POI records are meant to be persisted, not merely long-TTL (6.2) — this
-  needs to be settable per collection, not just per process.
-- **Pressure-based eviction.** Current bounding is purely time-based, so storage can still grow
-  within the TTL window under heavy ingest. Proposed: an eviction mode that deletes oldest-first
-  once a collection crosses a configured size/storage cap, independent of age — paired with, not
-  replacing, the existing TTL.
+  needs to be settable per collection, not just per process. That is an additive extension of
+  ADR 14's single-TTL-per-adapter model, not a replacement of reclaim-only semantics for the
+  general gallery.
+- **Pressure-based eviction.** ADR 14 already noted TTL is not a hard memory limit — storage can
+  still grow within the window under heavy ingest. Proposed: an eviction mode that deletes
+  oldest-first once a collection crosses a configured size/storage cap, independent of age —
+  paired with, not replacing, ADR 14's TTL. (ADR 14 listed capacity-based eviction as an
+  alternative deferred beyond that ADR's scope; this section is where that follow-on lands.)
 
 ### 6.9 Explicit schema/version negotiation endpoint
 
@@ -840,7 +876,7 @@ a short joint discovery session with Stream Manager's owner before a total estim
 | Alternative                                                                                           | Considered for                    | Outcome                                                                                                                                                        |
 | ----------------------------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Controller-embedded correlation (checking the POI set inside `UUIDManager`'s existing per-frame loop) | POI-to-tracking correlation (6.5) | **Rejected.** Cheapest and lowest-latency, but reintroduces ReID-specific logic into the controller at the exact point separation is trying to remove it from. |
-| Reusing `DATA_EXTERNAL` as-is for the correlation daemon's embedding feed                             | Correlation data source (6.5)     | **Open, not yet decided.** Weighed against a second, dedicated publish path decoupled from `_hierarchyReidPublishPolicy`'s unrelated gating.                   |
+| Reusing ADR 15's `DATA_EXTERNAL` hierarchy contract as-is for the correlation daemon's embedding feed | Correlation data source (6.5)     | **Open, not yet decided.** Weighed against a second, dedicated publish path decoupled from ADR 15's `_hierarchyReidPublishPolicy` write-ownership gating.      |
 
 ## 8. Consequences
 
@@ -936,9 +972,9 @@ Specifically:
 - **Enrollment embedding extraction.** Who runs image → embedding extraction for a one-off POI
   enrollment — a spun-up/torn-down DL Streamer pipeline, or a lightweight synchronous extraction
   API? (6.4)
-- **Correlation data feed.** Reuse the existing `DATA_EXTERNAL` MQTT topic as-is for the
-  correlation daemon (inheriting its rate limit and unrelated hierarchy write-ownership gating),
-  or add a second, dedicated publish path? (6.5)
+- **Correlation data feed.** Reuse ADR 15's `DATA_EXTERNAL` hierarchy contract as-is for the
+  correlation daemon (inheriting its rate limit and `will_enroll` / withhold / passthrough
+  write-ownership gating), or add a second, dedicated publish path? (6.5)
 - **Gallery stats scoping.** Should `/collections/{name}/stats` support a `scene_id` /
   `camera_id` filter for the shared multi-hierarchy database, or is the whole-collection number
   sufficient for v1? (6.6)
@@ -971,5 +1007,11 @@ Specifically:
 - **ADR-11 (Inner-Product ReID State and ID Lineage)** (`Accepted`) — similarity-metric
   configuration, `reid_state`, and `previous_ids_chain`; the match/output contract
   `reid-service` inherits (see Overview).
+- **ADR 14 (Unified TTL Retention for ReID Descriptor Store Growth)** (`Proposed`) —
+  backend-neutral TTL / `purgeExpired` contract relocated into `reid-service` (Section 5.1) and
+  extended for per-collection / pressure-based control (Section 6.8).
+- **ADR 15 (Hierarchy ReID Provenance and Enrollment Scope)** (`Proposed`) — hierarchy
+  enroll/query split, provenance wire contract, and publish policy; orchestration moves with
+  extraction (Section 5.1), and bounds the POI correlation feed choice (Section 6.5).
 - [Epic #221 — SLP: Person of Interest Re-Identification & Alerting](https://github.com/intel-retail/loss-prevention/issues/221)
 - [Epic #120 — SLP: Storewide Suspicious Activity Detection & Multi-Camera Tracking with VLM Recall](https://github.com/intel-retail/storewide-loss-prevention/issues/120)
