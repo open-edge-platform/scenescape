@@ -203,19 +203,24 @@ Every call into this layer happens in-process, from exactly three call sites, al
 This table describes today's code as-is; how each of these three call sites maps onto the target
 architecture is addressed in Section 5.1.
 
-Two details about that table matter regardless of the transport decision:
+Two details about that table are settled by extraction, not by the still-open external-transport
+choice:
 
 - **The `_PURGE_OWNER` lock is a process-local workaround for a problem extraction solves
   structurally.** Multiple `UUIDManager`s in one process share one backing store, so the code
   elects a single purge owner _within that process_ to avoid duplicate `DeleteExpired`/filter-delete
   calls. It does nothing about duplicate purge scheduling _across_ processes — every controller
   process (one per scene, including every child scene in a hierarchy) still runs its own elected
-  owner against the same shared store today.
+  owner against the same shared store today. Section 5.1 moves the reclaim timer into
+  `reid-service` and deletes this lock.
 - **Query latency is on a tight, already-enforced budget.** `sendSimilarityQuery(sscape_object,
 max_query_time=DEFAULT_MAX_QUERY_TIME)` (`DEFAULT_MAX_QUERY_TIME = 4` seconds) tracks rolling
   average query time and disables ReID entirely if it drifts past that budget. Today that budget
-  covers one in-process Python call plus one TCP round-trip to VDMS/Qdrant. What replaces it
-  depends on the target transport (see Section 5.1).
+  covers one in-process Python call plus one TCP round-trip to VDMS/Qdrant. That Controller-side
+  circuit breaker **retires with the Controller** (Section 5.1 / Section 8): live matching becomes
+  internal to `reid-service`, so there is no cross-service call for it to wrap, and the
+  replacement does not depend on gRPC vs MQTT. What remains open is the shape of
+  `reid-service`'s own degradation signaling (Section 11).
 
 ### 4.2 What's coupled to what
 
@@ -229,8 +234,9 @@ max_query_time=DEFAULT_MAX_QUERY_TIME)` (`DEFAULT_MAX_QUERY_TIME = 4` seconds) t
   hierarchy write-health/epoch tracking (`reid_write_healthy`, `reid_write_confirmed`,
   `reid_write_epoch`, `ReidWriteSupersededError`), and the query-latency circuit breaker above.
   None of this is ReID-storage logic — it's orchestration that happens to call into the storage
-  layer today. **Where this orchestration lives after extraction is the central question
-  Section 5 addresses.**
+  layer today. **Section 5.1 settles where it lives:** it moves into `reid-service` with the
+  storage layer, because that service owns UUID assignment and lifecycle for the live loop. The
+  query-latency circuit breaker in that list retires rather than being ported (Section 5.1).
 - **The layer this document proposes extracting:** `reid.py` (the `ReIDDatabase` ABC and its
   shared helpers — validation, TIER 1 constraint building, schema lifecycle), `vdms_adapter.py`,
   `qdrant_adapter.py`, `reid_registry.py` (backend selection), `reid_env.py` (connection/tuning
