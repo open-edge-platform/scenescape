@@ -30,6 +30,7 @@
   -e DBROOT \
   -v scenescape_vol-media:/workspace/media \
   -v scenescape_vol-datasets:/workspace/datasets \
+  -v scenescape_vol-netvlad_models:/usr/local/lib/python3.11/site-packages/third_party/netvlad \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/calibration.auth:/run/secrets/calibration.auth:ro \
