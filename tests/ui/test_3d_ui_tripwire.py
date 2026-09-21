@@ -1,11 +1,9 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import time
 import pytest
 import tests.ui.common_ui_test_utils as common
 from tests.ui import UserInterfaceTest
-from tests.ui.browser import By
 from tests.utils.log import get_logger
 from tests.utils.profiles import FULL_STACK
 from tests.utils.spec import FuncTestSpec

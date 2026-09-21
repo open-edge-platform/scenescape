@@ -1366,19 +1366,23 @@ def get_3d_control_folder_title(browser, object_name, max_wait=100):
 
 def expand_3d_control_folder(browser, object_name, title_element, max_wait=100):
   """! Expand a named lil-gui 3D control folder when it is collapsed."""
+  folder_xpath = (
+    f"//div[@class='title' and normalize-space(text())='{object_name}']"
+    "/ancestor::div[contains(concat(' ', normalize-space(@class), ' '), ' lil-gui ')][1]"
+  )
   children_xpath = (
     f"//div[@class='title' and normalize-space(text())='{object_name}']"
     "/following-sibling::div[@class='children'][1]"
   )
-  children = browser.find_element(By.XPATH, children_xpath)
-  if "closed" not in (children.get_attribute("class") or ""):
+  folder = browser.find_element(By.XPATH, folder_xpath)
+  if "closed" not in (folder.get_attribute("class") or ""):
     return
 
   browser.execute_script("arguments[0].click();", title_element)
   deadline = time.monotonic() + max_wait
   while time.monotonic() < deadline:
-    refreshed_children = browser.find_elements(By.XPATH, children_xpath)
-    if refreshed_children and "closed" not in (refreshed_children[0].get_attribute("class") or ""):
+    refreshed_folders = browser.find_elements(By.XPATH, folder_xpath)
+    if refreshed_folders and "closed" not in (refreshed_folders[0].get_attribute("class") or ""):
       return
     time.sleep(0.25)
   raise AssertionError(f"3D control folder for '{object_name}' did not expand in time")
