@@ -1,6 +1,6 @@
 # Design Document: ReID Service — Extraction, API & Capabilities
 
-- **Author(s)**: Derrick Addo
+- **Author(s)**: Derrick Addo, Sarat Poluri
 - **Date**: 2026-09-14
 - **Status**: `Proposed`
 - **Related ADRs**: [ADR 13 — Controller Breakdown into Functionality-Aligned Microservices](../adr/0013-controller-breakdown-microservices.md),
@@ -330,14 +330,15 @@ explicit interface guidance.
   expiration representation (VDMS `_expiration` vs Qdrant `expires_at`) and reclaim-only
   semantics stay as ADR 14 decided them.
 
-**Consequence for the query-latency circuit breaker.** `DEFAULT_MAX_QUERY_TIME`'s
+**Consequence for query-performance degradation signaling.** `DEFAULT_MAX_QUERY_TIME`'s
 rolling-average measurement (Section 4.1) was built around one blocking call plus one TCP round
 trip. Under this model, the live matching loop is _internal to `reid-service`_ — there's no
-cross-service call in that loop for a circuit breaker to wrap in the first place. The
-Controller-side mechanism therefore **retires with the Controller** (Section 8); it is not
-ported. Any analogous safeguard (e.g., `reid-service` skipping a match if its own backend query
-is slow) is `reid-service`'s internal self-protection — a follow-on design item, not a reason to
-keep ReID in the Controller (Section 11).
+cross-service call in that loop for a Controller-side circuit breaker to wrap. That Controller
+mechanism therefore **retires with the Controller** (Section 8); it is not ported. What remains
+is a `reid-service` concern: detect when query performance has degraded and either signal
+consumers to stop relying on matches, or — when the cause is gallery growth / data volume —
+surface a purge or compaction recommendation. Exact policy is still open (Section 11); it does
+not block extraction.
 
 ### 5.2 What doesn't change
 
@@ -386,10 +387,26 @@ This section owns what the Tracker Service's MQTT track-stream must carry into `
 Section 6.11 defines the external read surface that depends on this contract (notably
 `GET /trajectories/{gid}`); it does not redefine the ingest path.
 
-**Baseline for live matching/writing.** `reid-service` performs matching and storage by consuming
-the Tracker stream directly (Section 5.1). Whether that stream already carries embeddings/features
-today — or needs them added — remains an open question (Section 11). Until that is verified,
-`reid-service` cannot do internal matching off the MQTT stream alone.
+**Baseline for live matching/writing — Tracker stream audit (current code).** `reid-service`
+performs matching and storage by consuming the Tracker stream directly (Section 5.1). Against
+today's Tracker Service (`tracker/`):
+
+- **Embeddings can pass through, but are not a first-class track field.** Camera detections may
+  carry `metadata` (schema allows detector-defined keys such as `reid`); Tracker stores that as
+  `Detection::metadata_json`, preserves it through transform/MOT
+  (`TrackingWorker::convert_tracks`), and re-emits it on
+  `scenescape/data/scene/{scene_id}/{category}` via `TrackPublisher::serialize`. Unit tests cover
+  `metadata.reid.embedding_vector` passthrough. There is no dedicated embedding field on `Track`,
+  no requirement that detectors populate `metadata.reid`, and multi-camera metadata fusion is
+  confidence / last-write-wins — so embedding presence for live matching is **best-effort
+  passthrough**, not a guaranteed contract.
+- **Gaps for the trajectory ingest fields in this section:** published `Track` objects do **not**
+  carry `camera_id`, per-object sighting `timestamp`, or pixel `bounding_box`. Message-level
+  `timestamp` exists on the scene envelope; world-space `translation` / `size` exist on the
+  object. `scene-data.schema.json` optionally allows `visibility` (camera IDs) and
+  `camera_bounds`, but `TrackPublisher` does not emit them today. Closing those gaps is Tracker
+  (or upstream) work before `reid-service` can persist a sighting diary off the stream alone —
+  logged as an open question in Section 11.
 
 **Additional fields for trajectory persistence.** Trajectory export needs an ordered diary of
 sightings, not only the latest known state. Today that diary is not what reaches the ReID store,
@@ -894,10 +911,13 @@ a short joint discovery session with Stream Manager's owner before a total estim
 - **The Controller-side query-latency circuit breaker retires with the Controller.**
   `DEFAULT_MAX_QUERY_TIME` protected a caller (UUIDManager in-process) from a slow callee. Under
   this design there is no such cross-boundary call in the live loop — matching is internal to
-  `reid-service` — so the old mechanism is not ported. `reid-service` still needs its own
-  self-protection if backend queries run slow (skip match / degrade gracefully); that is a
-  different failure mode and remains a follow-on design item (Section 11), not a reason to keep
-  ReID logic in the Controller.
+  `reid-service` — so the old mechanism is not ported. Replacement intent (Section 11): detect
+  degraded query performance so consumers can stop using matches, and when the cause is data
+  volume, recommend purge or compaction. Policy details remain a follow-on; they do not justify
+  keeping ReID in the Controller.
+- **Tracker scene-track output is not yet sufficient for trajectory persistence.** Embeddings may
+  ride in passthrough `metadata.reid`, but `camera_id`, per-sighting timestamp, and bbox are
+  missing from published tracks today (Section 5.4 / Section 11).
 
 ## 9. Rollout / Migration Plan
 
@@ -964,16 +984,29 @@ Specifically:
   but doesn't settle it — an MQTT request/reply pattern (correlation ID + reply-to topic) is a
   live alternative that would keep every `reid-service` interface on one transport instead of
   splitting gRPC for queries and MQTT for streaming. Not decided here.
-- **`reid-service` self-protection under slow backend queries.** The Controller-side
-  `DEFAULT_MAX_QUERY_TIME` circuit breaker is retired with the live-loop extraction
-  (Section 8). What policy `reid-service` uses instead (skip match, degrade, alert) is still to
-  be designed — it does not block extraction.
-- **Does the Tracker Service's track-update stream already carry embeddings/features today, or
-  does that need to be added for `reid-service` to do internal matching directly off the MQTT
-  stream?** Not verified in this pass — this document only reviewed the pre-Tracker-extraction
-  controller code (`ilabs_tracking.py`, `tracking.py`), not the Tracker Service's current output
-  contract. Section 5.4 also requires `camera_id`, `timestamp`, and (pending the granularity
-  question below) `bounding_box` on that same stream for trajectory persistence.
+- **Query-performance degradation signaling (replaces the retired Controller circuit breaker).**
+  Intent: detect when `reid-service` query performance has degraded so consuming services can
+  stop using match results; and when the likely cause is gallery / data volume, surface a
+  suggestion to purge or compact (building on ADR 14 reclaim). Exact signals, thresholds,
+  consumer-facing contract (e.g. health/ready vs explicit degrade event), and purge/compaction
+  recommendation shape are still to be designed — they do not block extraction.
+- **Tracker stream gaps for live matching and trajectory (verified against current Tracker code).**
+  Reviewed `tracker/` (`Detection` / `Track`, `message_handler`, `TrackingWorker`,
+  `TrackPublisher`, `camera-data.schema.json`, `scene-data.schema.json`):
+  - **Embeddings:** optional passthrough only — if a detector puts `metadata.reid` (including
+    `embedding_vector`) on the camera message, Tracker can preserve and republish it on the
+    scene track topic. Not a required field; multi-camera metadata fusion may overwrite by
+    confidence / last-write-wins. **Gap:** no first-class, guaranteed embedding-on-track
+    contract for `reid-service` live matching.
+  - **`camera_id`:** known on input batches (`DetectionBatch.camera_id`) but **not** written onto
+    published `Track` objects. Schema allows optional `visibility` / `camera_bounds`; publisher
+    does not emit them. **Gap** for trajectory persistence (Section 5.4).
+  - **Per-sighting timestamp:** only the scene-envelope `timestamp` is published, not a
+    per-object sighting time. **Gap** for an ordered diary of sightings.
+  - **Bounding box:** input has `bounding_box_px`; output has world `translation` / `size` only.
+    **Gap** if trajectory granularity needs pixel bbox (Section 6.11).
+    Closing these gaps is Tracker (or detector) contract work before `reid-service` can rely on
+    the MQTT stream alone for matching + trajectory writes.
 - **Trust boundary for `reid-service`'s MQTT subscription to the Tracker Service.** Since the
   general/tracking gallery has no write endpoint (6.1) — `reid-service` gets that data by
   subscribing to the Tracker Service's MQTT stream directly — what secures that subscription
