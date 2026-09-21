@@ -146,7 +146,8 @@ see Non-Goals and Section 6.1.
 - **Image-to-embedding extraction/inference.** `reid-service`'s job stays storage and search;
   running the ReID model to turn an image into an embedding happens outside it, same as today.
 - **Stream Manager's internal video/clip API.** Referenced only where it bounds the trajectory
-  discussion (6.11); its design is owned by the Stream Manager team.
+  discussion (6.11); owned by the Stream Manager team. Draft:
+  [docs/design/stream-manager](https://github.com/open-edge-platform/scenescape/tree/tdorau/stream-manager-api-draft/docs/design/stream-manager).
 - **UI implementation** of the 2D-track click-through or any other frontend work — separate
   codebase, out of scope here.
 - **Wire-level schema (OpenAPI/proto) for any endpoint below**, including the baseline surface
@@ -401,12 +402,12 @@ today's Tracker Service (`tracker/`):
   confidence / last-write-wins — so embedding presence for live matching is **best-effort
   passthrough**, not a guaranteed contract.
 - **Gaps for the trajectory ingest fields in this section:** published `Track` objects do **not**
-  carry `camera_id`, per-object sighting `timestamp`, or pixel `bounding_box`. Message-level
-  `timestamp` exists on the scene envelope; world-space `translation` / `size` exist on the
-  object. `scene-data.schema.json` optionally allows `visibility` (camera IDs) and
-  `camera_bounds`, but `TrackPublisher` does not emit them today. Closing those gaps is Tracker
-  (or upstream) work before `reid-service` can persist a sighting diary off the stream alone —
-  logged as an open question in Section 11.
+  carry `camera_id` or a per-object sighting `timestamp`. Message-level `timestamp` exists on the
+  scene envelope; world-space `translation` / `size` exist on the object. `scene-data.schema.json`
+  optionally allows `visibility` (camera IDs) and `camera_bounds`, but `TrackPublisher` does not
+  emit them today. Closing those gaps is Tracker (or upstream) work before `reid-service` can
+  persist a sighting diary off the stream alone — logged as an open question in Section 11.
+  Pixel bounding box is **not** required for the Stream Manager integration path (Section 6.11).
 
 **Additional fields for trajectory persistence.** Trajectory export needs an ordered diary of
 sightings, not only the latest known state. Today that diary is not what reaches the ReID store,
@@ -418,22 +419,22 @@ that reaches the ReID database:
   semantic/sensor attributes).
 - `UUIDManager`'s write to the ReID database only ever pulls from `self.metadata`, via
   `_extractSemanticMetadata()`. `self.location` is never touched by that path. So today's ReID
-  gallery stores the embedding vector plus generic semantic metadata — camera, timestamp, and
-  bounding box never make it in.
+  gallery stores the embedding vector plus generic semantic metadata — camera and timestamp never
+  make it in.
 - One encouraging detail: the camera ID isn't even missing from the codebase —
   `_extractCameraId()` already exists and already extracts it, but today it's wired only to a
   metrics counter (`CameraRegistry.recordEmbeddingObserved`), not to the ReID write. So this
   isn't "invent new tracking data" — it's "connect two things that already exist
-  (`_extractCameraId()` and `self.location`'s timestamp/bbox) to a write that already happens."
+  (`_extractCameraId()` and `self.location`'s timestamp) to a write that already happens."
 
 **Required ingest change:** the Tracker stream payload that `reid-service` consumes must include
-`camera_id`, `timestamp`, and (pending the granularity decision in Section 6.11) `bounding_box`,
-alongside the existing embedding and semantic metadata — sourced from `_extractCameraId()` and
-`self.location`'s `Chronoloc` entries respectively. `reid-service` persists those fields on each
-descriptor write. This is a change to what the Tracker Service's stream carries and what
-`reid-service` persists from it, not a new endpoint — there is still no external write endpoint
-for this path; it is entirely stream-driven. Retention and granularity trade-offs for how far
-back trajectory queries can reach are covered in Section 6.11, not here.
+`camera_id` and per-sighting `timestamp`, alongside the existing embedding and semantic metadata
+— sourced from `_extractCameraId()` and `self.location`'s `Chronoloc` entries respectively.
+`reid-service` persists those fields on each descriptor write. Bounding box is not required for
+Stream Manager retrieval (Section 6.11). This is a change to what the Tracker Service's stream
+carries and what `reid-service` persists from it, not a new endpoint — there is still no external
+write endpoint for this path; it is entirely stream-driven. Retention trade-offs for how far back
+trajectory queries can reach are covered in Section 6.11, not here.
 
 ---
 
@@ -509,8 +510,7 @@ per-endpoint:
   - **Update** (6.4, `PATCH /poi/{poi_id}` and appending reference embeddings) — POI gallery
     only. The general gallery has no update concept in this API at all.
   - **Delete** (6.7) — POI gallery only. See that section for why general-gallery deletion is
-    explicitly not part of this API, and how compliance/erasure requests against the general
-    gallery are handled instead.
+    explicitly not part of this API; general-gallery aging uses the existing 24h TTL for now.
   - **Query** (6.3, `findMatches`) — the one operation that reads from _both_ galleries.
     Read-only either way; querying the general gallery through this API never writes to it.
 
@@ -762,10 +762,11 @@ only, per 6.2. Needed for:
 **General-gallery deletion is explicitly out of scope for this API.** An earlier draft of this
 section considered "right-to-erasure / compliance requests against the general gallery" as a use
 case, which directly conflicts with the POI-only write-scope principle. Resolving that: this
-deletion API does not touch the general gallery. If a compliance/erasure need against the general
-gallery ever becomes real, it should be handled separately — for example, by relying on the
-general gallery's existing short TTL (24h default) to age the data out on its own, or by a
-distinct, explicitly-scoped mechanism decided later.
+deletion API does not touch the general gallery. **Settled for now:** rely on the general
+gallery's existing short TTL (24h default via ADR 14 / `REID_DESCRIPTOR_TTL_SECS`) to age
+descriptors out. Additional purge / compaction mechanisms (including any explicit
+compliance-erasure path beyond TTL) may be added to `reid-service` later; they are not part of
+this API surface and do not block extraction or the POI deletion endpoint.
 
 Proposed shape: delete-by-`poi_id` and delete-by-filter (e.g. by `severity` or enrollment date),
 reusing the same constraint structure `reid_constraints.py` already builds for queries.
@@ -808,20 +809,22 @@ general gallery loses data, it's not really a loss — the gallery is continuous
 live tracking. POI is the opposite: there's no automatic recovery. A security operator has to
 notice a POI silently isn't being watched for anymore, then manually re-enroll.
 
-**The immediate, concrete answer: a persistent volume.** Attach a Docker volume (or, in
+**Settled shipping bar: persistent volume, not production disk HA.** This work ships a step
+above reference level, not production-grade durability. Attach a Docker volume (or, in
 Kubernetes, a `PersistentVolumeClaim`) to wherever the POI collection's backend data lives, so a
 container restart, image update, or pod recreation doesn't wipe it. Nothing in `vdms_adapter.py`
-or `qdrant_adapter.py` needs to change for this — it's a Compose/Helm deployment decision. This is
-the concrete, buildable requirement: **the POI collection's storage must be backed by a
-persistent volume**, verified independently of whatever collection/retention API design (6.6,
-6.8) gets layered on top of it. This alone covers the most common failure mode and is enough to
-treat "persisted" as solved for an initial version.
+or `qdrant_adapter.py` needs to change for this — it's a Compose/Helm deployment decision. The
+concrete requirement: **the POI collection's storage must be backed by a persistent volume**,
+verified independently of whatever collection/retention API design (6.6, 6.8) gets layered on
+top of it.
 
-**What a volume doesn't cover — open follow-on questions, not blockers.** None of these need to
-be answered before the volume requirement above ships:
+**Host / disk loss is explicitly out of scope.** A volume protects against container-lifecycle
+events, not underlying host or disk failure. That residual risk is accepted for this bar; no
+replication, RAID, or multi-AZ durability work is in scope here.
 
-- **Host or disk loss.** A volume protects against the container dying, not the underlying disk
-  dying. Whether that residual risk is acceptable is a scoping call worth making deliberately.
+**What a volume still doesn't cover — open follow-on questions, not blockers.** None of these
+need to be answered before the volume requirement above ships:
+
 - **Write acknowledgment semantics.** A volume says nothing about whether `POST /poi` waits for
   the backend to actually flush before returning success. For the general gallery, a dropped
   write is tolerated as routine (`ReidPartialWriteError` already exists because partial writes
@@ -846,46 +849,56 @@ _when_ this ships, not whether its shape gets defined now. This spans three sepa
 very different amounts of known scope; only the `reid-service` piece is owned by this document.
 
 **What's actually being asked, stripped down.** Not the video itself — that's Stream Manager's
-job. What ReID needs to produce is the _list of sightings_ that tells Stream Manager which
-cameras and which time windows to pull footage from.
+job. What ReID needs to produce is the _list of sightings_ that tells a caller which cameras and
+which time windows to pull footage from.
 
-**Ingest prerequisite.** Persisting a sighting diary — `camera_id`, `timestamp`, and (pending
-granularity below) `bounding_box` on each general-gallery write — is specified in Section 5.4
-(Tracker stream contract), including the gap analysis against today's code. This section does not
-redefine that write path; there is no write endpoint for it (6.1).
+**Ingest prerequisite.** Persisting a sighting diary — `camera_id` and per-sighting `timestamp` on
+each general-gallery write — is specified in Section 5.4 (Tracker stream contract), including the
+gap analysis against today's code. This section does not redefine that write path; there is no
+write endpoint for it (6.1).
 
 **Defined API contract.**
 
 - **New read endpoint:** `GET /trajectories/{gid}` — returns the ordered list of sightings for a
-  `gid`: one entry per descriptor write, each with `camera_id`, `timestamp`, and bounding box,
-  ordered chronologically. This is a different query shape from today's `getPersistedAttributes`,
-  which is deliberately _latest-only_; it's a new method on the `ReIDDatabase` contract, not a
+  `gid`: one entry per descriptor write, each with `camera_id` and `timestamp`, ordered
+  chronologically. This is a different query shape from today's `getPersistedAttributes`, which
+  is deliberately _latest-only_; it's a new method on the `ReIDDatabase` contract, not a
   reinterpretation of an existing one.
 
-**Open questions to settle before sizing this for real:**
+**Settled — sighting granularity vs Stream Manager.** Against the Stream Manager draft
+([docs/design/stream-manager](https://github.com/open-edge-platform/scenescape/tree/tdorau/stream-manager-api-draft/docs/design/stream-manager)):
 
-- **Retention.** "Entire session until it exits" is fine within the general gallery's existing
-  24h TTL if "session" means "currently in-store or just left." If it needs to answer for a
-  session from days ago, that's a direct conflict with the general gallery being deliberately
-  ephemeral (same tension flagged for POI in 6.10).
-- **Granularity.** Camera + timestamp is enough for a time window per camera. If precise frame
-  number or bounding box is needed per sighting, that's more data per write — and feeds back into
-  the stream-field requirements in Section 5.4.
+| Concern | Owner | Contract |
+| --- | --- | --- |
+| Ordered sighting diary (`camera_id`, `timestamp`) | `reid-service` | `GET /trajectories/{gid}` |
+| Attach / buffer camera streams; event-triggered multi-stream recording; list records | Stream Manager | `/v1/streams`, `/v1/records/start\|stop`, `GET /v1/records` |
+| Retrieve a frame or clip | Stream Manager | `GET /v1/records/{id}/frame?stream-id&timestamp` (nearest frame); `GET /v1/records/{id}/clip?stream-id&timestamp-start&…` |
+| Map `camera_id` ↔ SM `stream_id` / Sensor Manager `sensor_id`; decide when to record vs query existing records; present / stitch multi-camera clips | Business logic / UI | Outside both service APIs |
 
-**The other two-thirds of this ask remain unscoped from here, deliberately:**
+Stream Manager seeks and clips by **RFC 3339 timestamps** on NTP-synced streams. Its retrieval
+APIs take `stream-id` + time (or time range); they do **not** accept frame numbers or bounding
+boxes. Therefore **camera + timestamp is the required ReID sighting contract** for Stream Manager
+integration. Pixel bbox and frame number are not required for that path (optional later for UI
+overlays only — not a Stream Manager dependency, and not required on the Tracker ingest fields in
+Section 5.4).
 
-- **Stream Manager** — turning a list of (camera, time window) into actual stitched, playable
-  video. Nothing in any code reviewed so far touches video, RTSP, clips, or frame storage — this
-  is very plausibly the majority of the real cost, and can't be responsibly sized without someone
-  who owns that service in the room.
-- **UI** — the click-through from a 2D track to a session page. Small in isolation, sequenced
-  after both APIs above have a settled contract.
+SM returns **per-stream** frames/clips, not a single already-stitched multi-camera video.
+Cross-camera presentation remains UI / business-logic work.
 
-**Recommendation for what actually goes to CCB.** Don't submit one lump number. The `reid-service`
-piece (stream fields per Section 5.4 plus `GET /trajectories/{gid}` here) is genuinely scopeable
-(roughly 1–2 sprints for one engineer) and is now specified rather than left as an open
-discussion. Stream Manager is not yet scopeable at all. Propose the CCB submission itself request
-a short joint discovery session with Stream Manager's owner before a total estimate is quoted.
+**Settled — retention.** Trajectory sightings live in the general gallery, so they age out with
+the same ADR 14 TTL (`descriptor_ttl_secs` / `REID_DESCRIPTOR_TTL_SECS`, default 24h).
+`GET /trajectories/{gid}` can only return what is still stored: after purge, older sessions are
+gone — there is no separate longer-lived trajectory archive in this design. "Entire session until
+it exits" therefore means a session that still fits inside that window (currently in-store or
+recently left). Extending beyond 24h would require changing general-gallery retention (or a
+dedicated store), which is out of scope here.
+
+**Recommendation for what actually goes to CCB.** Don't submit one lump number. The
+`reid-service` piece (stream fields per Section 5.4 plus `GET /trajectories/{gid}` here) is
+genuinely scopeable (roughly 1–2 sprints for one engineer) and is now specified rather than left
+as an open discussion. Stream Manager's retrieval surface is drafted; remaining cost is
+integration (id mapping, record lifecycle vs query, multi-clip UI) — schedule that as a separate
+story after a short joint check with Stream Manager's owner, not as an unbounded discovery.
 
 ---
 
@@ -916,8 +929,12 @@ a short joint discovery session with Stream Manager's owner before a total estim
   volume, recommend purge or compaction. Policy details remain a follow-on; they do not justify
   keeping ReID in the Controller.
 - **Tracker scene-track output is not yet sufficient for trajectory persistence.** Embeddings may
-  ride in passthrough `metadata.reid`, but `camera_id`, per-sighting timestamp, and bbox are
-  missing from published tracks today (Section 5.4 / Section 11).
+  ride in passthrough `metadata.reid`, but `camera_id` and per-sighting timestamp are missing from
+  published tracks today (Section 5.4 / Section 11). Bounding box is not required for Stream
+  Manager retrieval (Section 6.11).
+- **POI durability stops at a persistent volume.** Host/disk-loss residual risk is accepted for
+  this shipping bar (Section 6.10); general-gallery aging stays on the existing 24h TTL until
+  later purge/compaction work (Section 6.7).
 
 ## 9. Rollout / Migration Plan
 
@@ -945,9 +962,10 @@ That said, a few real sequencing dependencies exist and are worth respecting:
   (6.6) existing first** — there's nothing to set a per-collection policy on until POI
   collections exist and are visible.
 - **The trajectory export API (6.11) depends on the Tracker stream contract in Section 5.4 being
-  stable**, and on a joint discovery session with Stream Manager before any total estimate is
-  quoted — it should not be scheduled ahead of either. Its API contract is defined now (6.11);
-  this dependency governs timing, not definition.
+  stable** (`camera_id` + per-sighting `timestamp` on published tracks). Stream Manager's
+  timestamp-based frame/clip APIs are already drafted; schedule integration (id mapping, record
+  lifecycle, multi-clip UI) after that contract is stable — not ahead of Tracker field work. Its
+  API contract is defined now (6.11); this dependency governs timing, not definition.
 
 Recommend treating each remaining subsection as its own small, independently schedulable story,
 prioritized against whichever SLP epic
@@ -1004,9 +1022,11 @@ Specifically:
   - **Per-sighting timestamp:** only the scene-envelope `timestamp` is published, not a
     per-object sighting time. **Gap** for an ordered diary of sightings.
   - **Bounding box:** input has `bounding_box_px`; output has world `translation` / `size` only.
-    **Gap** if trajectory granularity needs pixel bbox (Section 6.11).
-    Closing these gaps is Tracker (or detector) contract work before `reid-service` can rely on
-    the MQTT stream alone for matching + trajectory writes.
+    **Not required** for Stream Manager retrieval (Section 6.11); optional later for UI overlays
+    only.
+    Closing the `camera_id` and per-sighting-timestamp gaps is Tracker (or detector) contract
+    work before `reid-service` can rely on the MQTT stream alone for matching + trajectory
+    writes.
 - **Trust boundary for `reid-service`'s MQTT subscription to the Tracker Service.** Since the
   general/tracking gallery has no write endpoint (6.1) — `reid-service` gets that data by
   subscribing to the Tracker Service's MQTT stream directly — what secures that subscription
@@ -1025,23 +1045,24 @@ Specifically:
 - **Gallery stats scoping.** Should `/collections/{name}/stats` support a `scene_id` /
   `camera_id` filter for the shared multi-hierarchy database, or is the whole-collection number
   sufficient for v1? (6.6)
-- **Host/disk loss risk acceptance.** Is protection against container-lifecycle events (a
-  persistent volume) sufficient for POI, or does the residual host/disk-loss risk need to be
-  explicitly addressed? (6.10)
 - **Write acknowledgment semantics for POI enrollment.** Does `POST /poi` need confirmed-write
   semantics stricter than the general gallery's tolerant partial-write behavior? (6.10)
 - **Backup/export mechanism.** Is an explicit POI export/backup capability needed beyond the
   persistent volume, and does it double as the VDMS→Qdrant migration mechanism? (6.10)
-- **General-gallery compliance/erasure mechanism.** If a right-to-erasure need against the
-  general gallery becomes real, is the existing 24h TTL sufficient, or does it need its own
-  distinct, explicitly-scoped mechanism outside this API? (6.7)
-- **Trajectory retention window.** Does "entire session" mean "currently in-store or just left"
-  (fits the existing 24h TTL) or does it need to reach further back — directly conflicting with
-  the general gallery's deliberate ephemerality? (6.11)
-- **Trajectory data granularity.** Is camera + timestamp sufficient per sighting, or does Stream
-  Manager need frame number / bounding box for precise seek and stitch accuracy? (6.11)
 - **authN/authZ mechanism** for the write-capable endpoints (6.4, 6.7) — deliberately left open
   (Section 3), but must be decided before either ships (Section 9).
+
+**Settled (kept here for traceability):**
+
+- **Host/disk loss (6.10).** Persistent volume only; residual host/disk-loss risk accepted.
+  Shipping bar is a step above reference, not production disk HA.
+- **General-gallery compliance/erasure (6.7).** Existing 24h TTL is the mechanism for now;
+  additional purge/compaction (or an explicit erasure path) may be added to `reid-service` later.
+- **Trajectory sighting granularity (6.11).** Camera + timestamp is sufficient. Stream Manager
+  retrieves by `stream-id` + RFC 3339 time (nearest frame / clip range); frame number and bbox
+  are not part of that contract. Multi-camera stitch/presentation stays in business logic / UI.
+- **Trajectory retention (6.11).** Same as general-gallery TTL (24h default). The API cannot
+  return sightings already purged; no separate longer-lived trajectory archive.
 
 ## 12. References
 
@@ -1064,3 +1085,6 @@ Specifically:
   extraction (Section 5.1), and bounds the POI correlation feed choice (Section 6.5).
 - [Epic #221 — SLP: Person of Interest Re-Identification & Alerting](https://github.com/intel-retail/loss-prevention/issues/221)
 - [Epic #120 — SLP: Storewide Suspicious Activity Detection & Multi-Camera Tracking with VLM Recall](https://github.com/intel-retail/storewide-loss-prevention/issues/120)
+- [Stream Manager design draft](https://github.com/open-edge-platform/scenescape/tree/tdorau/stream-manager-api-draft/docs/design/stream-manager)
+  (`tdorau/stream-manager-api-draft`) — event-based buffering, timestamp-aligned recording, and
+  frame/clip retrieval that bounds Section 6.11.
