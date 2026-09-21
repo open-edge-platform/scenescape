@@ -19,19 +19,26 @@ today's in-process ReID layer into a standalone service (Section 5), and the ext
 API and capability surface that service exposes once it exists (Section 6).
 
 **ADR 13: Controller Breakdown into Functionality-Aligned Microservices** (`Accepted`,
-2026-06-11) is the accepted architectural decision that governs the broader controller breakdown,
-and this proposal aligns with its interface guidance for Re-ID's live tracking loop: **MQTT for
-the asynchronous, fan-out track-stream ingest** that feeds `reid-service`'s internal
-matching/storage. For `reid-service`'s external, synchronous query/store surface (investigator
-tooling, VLM-recall, POI enrollment), ADR 13's stated guidance is **gRPC**, and that's this
-document's leaning — but MQTT is also mentioned as an option below rather than settled on
-exclusively; see Section 5.1 and Open Questions.
+2026-06-11) is the governing decision for this work. Its end state is **full microservice
+separation**: each Controller responsibility moves into a functionality-aligned service, and the
+legacy Controller is **retired** once those homes exist and parity/reliability gates pass
+(ADR 13 Phase 7 — "monolith retirement"). Tracker (ADR 7) is already out; this document takes
+the next Re-ID step — give today's in-process ReID library a durable home outside the Controller
+so that responsibility can leave the monolith rather than remain embedded until retirement day.
 
-ADR 13 groups Re-ID together with broader scene-state persistence into a single combined service.
-This document intentionally does not get into that broader scope or how Re-ID fits inside it —
-it scopes strictly to the Re-ID extraction described below, referred to throughout as
-`reid-service`, and leaves how that maps onto ADR 13's fuller service boundaries for a separate
-discussion.
+Within that direction, this proposal aligns with ADR 13's interface guidance for Re-ID's live
+tracking loop: **MQTT for the asynchronous, fan-out track-stream ingest** that feeds
+`reid-service`'s internal matching/storage. For `reid-service`'s external, synchronous
+query/store surface (investigator tooling, VLM-recall, POI enrollment), ADR 13's stated guidance
+is **gRPC**, and that's this document's leaning — but MQTT is also mentioned as an option below
+rather than settled on exclusively; see Section 5.1 and Open Questions.
+
+ADR 13's target diagram groups Re-ID with broader scene-state persistence in one combined
+service block. That does not block this extraction: **ReID's home is `reid-service`**, the same
+way MOT's home is the Tracker Service (ADR 7) even though later phases still rearrange neighbors.
+Whether operators later co-deploy or merge `reid-service` with a Persistence service is a
+deployment/packaging choice that can follow; it is not a prerequisite for Controllers to stop
+owning ReID. This document scopes to that extraction (referred to throughout as `reid-service`).
 
 ADR 13's Phase 1 ("Scene State Persistence + shared Re-ID integration") cites **ADR-10
 (ReID Metadata Storage Architecture)** and **ADR-11 (Inner-Product ReID State and ID
@@ -62,11 +69,12 @@ All four are complementary to this document, not substitutes for it:
   to reuse ADR 15's `DATA_EXTERNAL` contract or add a dedicated path.
 
 What this document adds — and what ADR-10 / 11 / 14 / 15 do not cover — is the **deployable
-boundary**: extracting the in-process library into `reid-service`, owning live ingest off the
-Tracker MQTT stream, centralizing purge/metrics ownership (solving ADR 14's cross-process
-purge duplication), and defining the external API/capability surface (including POI). The
-TIER 1 helpers, adapters, retention contract, match semantics, and hierarchy enroll/query
-rules move with the extraction; they are not redesigned here.
+boundary** on the path to Controller retirement: extracting the in-process library into
+`reid-service`, owning live ingest off the Tracker MQTT stream, centralizing purge/metrics
+ownership (solving ADR 14's cross-process purge duplication), and defining the external
+API/capability surface (including POI). The TIER 1 helpers, adapters, retention contract, match
+semantics, and hierarchy enroll/query rules move with the extraction; they are not redesigned
+here.
 
 The API half (Section 6) covers two things that are easy to conflate but need to be kept
 distinct:
@@ -94,7 +102,8 @@ see Non-Goals and Section 6.1.
 **Extraction (Section 5):**
 
 - Extract the ReID storage layer out of the controller into a standalone `reid-service`, so its
-  lifecycle is centrally owned rather than duplicated per controller process.
+  lifecycle is centrally owned rather than duplicated per controller process — one step toward
+  ADR 13's Controller retirement once every former Controller feature has a service home.
 - Give callers other than a controller process a way to reach ReID capability at all.
 - Give new ReID capability a home that isn't "inside the controller."
 - Centralize purge/retention scheduling and separate ReID's metrics identity from the
@@ -126,8 +135,10 @@ see Non-Goals and Section 6.1.
 
 ## 3. Non-Goals
 
-- **How `reid-service` as scoped here maps onto ADR 13's broader combined service.** An explicit
-  non-goal of this pass; tracked as an open question rather than answered (Section 11).
+- **Settling final co-deployment with Scene State Persistence.** ADR 13 draws Persistence + Re-ID
+  in one block; this document still extracts ReID into `reid-service` as its home. Later
+  co-location or merge with Persistence is out of scope here and does not reopen whether ReID
+  leaves the Controller.
 - **Writing to or deleting from the general/tracking gallery via the API in Section 6.** There is
   no such path — `reid-service` consumes the Tracker Service's MQTT stream directly for the live
   tracking loop, and the API exposes no write endpoint for it at all. Enforced by absence of
@@ -144,8 +155,6 @@ see Non-Goals and Section 6.1.
 - **A final decision on authN/authZ mechanism, or on the DATA_EXTERNAL-reuse-vs-dedicated-topic
   question for correlation.** Both are deliberately left as open questions (Section 11), not
   resolved here.
-- **Rollout mechanism for the extraction itself.** Not addressed here; needs its own plan once
-  the open questions in Section 11 are settled.
 
 ## 4. Background / Context
 
@@ -324,11 +333,11 @@ explicit interface guidance.
 **Consequence for the query-latency circuit breaker.** `DEFAULT_MAX_QUERY_TIME`'s
 rolling-average measurement (Section 4.1) was built around one blocking call plus one TCP round
 trip. Under this model, the live matching loop is _internal to `reid-service`_ — there's no
-cross-service call in that loop for a circuit breaker to wrap in the first place. Whatever
-analogous safeguard is needed (e.g., `reid-service` deciding to skip a match attempt if its own
-backend query is running slow) is `reid-service`'s own internal concern, not a controller-side
-mechanism. This needs its own design, not a straightforward port of `sendSimilarityQuery`'s logic
-— tracked as an open question.
+cross-service call in that loop for a circuit breaker to wrap in the first place. The
+Controller-side mechanism therefore **retires with the Controller** (Section 8); it is not
+ported. Any analogous safeguard (e.g., `reid-service` skipping a match if its own backend query
+is slow) is `reid-service`'s internal self-protection — a follow-on design item, not a reason to
+keep ReID in the Controller (Section 11).
 
 ### 5.2 What doesn't change
 
@@ -361,13 +370,15 @@ for its own backend query/write duration against VDMS/Qdrant, distinct from the 
 match-latency figure, for the same reason as before: without it, there's no way to tell "the
 backend is slow" from "something upstream of the backend call is slow."
 
-**Camera/tracked-object-count metrics are a genuinely open question, not a settled exception.**
-`record_reid_current_camera_count`, `record_reid_tracked_object_count`, and
-`record_reid_total_tracked_object_count` are derived from `CameraRegistry`/`TrackedObjectRegistry`
-— today, controller-side state. ADR 13's phased plan retires the legacy Controller entirely by
-its final phase. Which service owns camera/tracked-object registries in the target architecture
-isn't addressed by this document. These metrics' ownership is deferred to Open Questions rather
-than asserted here.
+**Camera/tracked-object-count metrics leave the Controller before Phase 7 retirement; they are
+not kept as a Controller exception.** `record_reid_current_camera_count`,
+`record_reid_tracked_object_count`, and `record_reid_total_tracked_object_count` are derived from
+`CameraRegistry`/`TrackedObjectRegistry` — today, controller-side state. Match-latency instruments
+move with `reid-service` (above) because live matching lives there. Registry-derived counts follow
+whichever service owns those registries after disaggregation (not assumed to be `reid-service`
+unless those registries land there). Exact SERVICE_NAME / owner is an implementation detail of
+the phase that extracts those registries; what this document settles is that they must not remain
+Controller-only through retirement.
 
 ### 5.4 Tracker stream contract (live ingest + trajectory fields)
 
@@ -880,14 +891,24 @@ a short joint discovery session with Stream Manager's owner before a total estim
 
 ## 8. Consequences
 
-- **The query-latency circuit breaker has no obvious new home yet.** `DEFAULT_MAX_QUERY_TIME`
-  doesn't port cleanly to "`reid-service` protecting itself from its own slow backend calls" —
-  that's a different failure mode (self-protection) than the original (protecting a caller from a
-  slow callee). Needs its own design, not assumed to be solved by this document.
+- **The Controller-side query-latency circuit breaker retires with the Controller.**
+  `DEFAULT_MAX_QUERY_TIME` protected a caller (UUIDManager in-process) from a slow callee. Under
+  this design there is no such cross-boundary call in the live loop — matching is internal to
+  `reid-service` — so the old mechanism is not ported. `reid-service` still needs its own
+  self-protection if backend queries run slow (skip match / degrade gracefully); that is a
+  different failure mode and remains a follow-on design item (Section 11), not a reason to keep
+  ReID logic in the Controller.
 
 ## 9. Rollout / Migration Plan
 
-The extraction in Section 5 needs its own rollout plan, which is not addressed here (Section 11).
+**Extraction follows ADR 13's phased pattern.** Ship `reid-service` behind feature flags, dual-run
+with the legacy Controller ReID path until parity/reliability gates pass, then remove the
+in-Controller library path so Controllers no longer own ReID — the same shape as Tracker
+extraction (Phase 0) and ADR 13's general "legacy Controller role shrinks until Phase 7
+retirement" plan. ReID-specific cutover checklist (env migration for
+`REID_DESCRIPTOR_TTL_SECS` / purge interval, hierarchy write-health handoff, metrics cutover) is
+implementation detail for that phase, not an open architectural question.
+
 For the API work in Section 6: unlike a phased architectural migration, those subsections don't
 have a hard dependency order — each is closer to an independent epic than a sequential phase.
 That said, a few real sequencing dependencies exist and are worth respecting:
@@ -943,15 +964,10 @@ Specifically:
   but doesn't settle it — an MQTT request/reply pattern (correlation ID + reply-to topic) is a
   live alternative that would keep every `reid-service` interface on one transport instead of
   splitting gRPC for queries and MQTT for streaming. Not decided here.
-- **How `reid-service` as scoped here maps onto ADR 13's broader service boundaries.** This
-  document deliberately does not address how Re-ID relates to the rest of what ADR 13 groups
-  together with it — that's an explicit non-goal of this pass, tracked here as a question for a
-  separate discussion rather than answered.
-- **What replaces the query-latency circuit breaker for `reid-service`'s own self-protection?**
-  Flagged in Section 5.1 and Section 8 — not solved here.
-- **Ownership of camera/tracked-object-count metrics under ADR 13's target architecture.**
-  Section 5.3 raises this without an answer — these are controller-derived today, and the
-  controller is slated for retirement by ADR 13's Phase 7.
+- **`reid-service` self-protection under slow backend queries.** The Controller-side
+  `DEFAULT_MAX_QUERY_TIME` circuit breaker is retired with the live-loop extraction
+  (Section 8). What policy `reid-service` uses instead (skip match, degrade, alert) is still to
+  be designed — it does not block extraction.
 - **Does the Tracker Service's track-update stream already carry embeddings/features today, or
   does that need to be added for `reid-service` to do internal matching directly off the MQTT
   stream?** Not verified in this pass — this document only reviewed the pre-Tracker-extraction
@@ -964,8 +980,6 @@ Specifically:
   (broker-level ACLs, topic-level auth, network policy, or a combination)? This is a different
   question from the endpoint authN/authZ decision below, since there's no endpoint here to
   authenticate a caller against.
-- **Rollout mechanism.** Not addressed here; needs its own plan once the questions above are
-  settled.
 
 **API & capability (Section 6):**
 
@@ -999,7 +1013,9 @@ Specifically:
 ## 12. References
 
 - **ADR 13 — Controller Breakdown into Functionality-Aligned Microservices** (`Accepted`,
-  2026-06-11) — source of the gRPC/MQTT interface guidance this document aligns with.
+  2026-06-11) — full microservice separation and eventual Controller retirement (Phase 7); source
+  of the gRPC/MQTT interface guidance this document aligns with. This design is one extraction
+  step toward that retirement.
 - **ADR 7 — Tracker Service** (`Accepted`) — the already-completed extraction whose MQTT track
   stream `reid-service` consumes.
 - **ADR-10 (ReID Metadata Storage Architecture)** (`Proposed`) — 2-tier hybrid search and
