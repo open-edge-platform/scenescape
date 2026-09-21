@@ -586,6 +586,10 @@ Proposed split: `POST /poi/{poi_id}/embeddings` (append a reference embedding) v
 "removal criteria" workflow Epic #221 explicitly punts on today (soft-disable via `PATCH` status
 vs. hard delete via 6.7).
 
+**Write acknowledgment.** Enrollment and embedding-append writes are all-or-nothing at the API
+layer (Section 6.10): success only when every vector in that call is accepted; no half-enrolled
+`poi_id`.
+
 **Isolation from the general tracking gallery.**
 [Epic #221](https://github.com/intel-retail/loss-prevention/issues/221) calls out a "two-tier
 gallery" — a small, manually-curated POI gallery (tens to low thousands) searched with tight
@@ -822,22 +826,23 @@ top of it.
 events, not underlying host or disk failure. That residual risk is accepted for this bar; no
 replication, RAID, or multi-AZ durability work is in scope here.
 
-**What a volume still doesn't cover — open follow-on questions, not blockers.** None of these
-need to be answered before the volume requirement above ships:
+**Settled — POI write acknowledgment (API contract, not disk fsync).** A volume does not define
+when `POST /poi` may return success. For the general gallery, dropped or partial writes are
+tolerated (`ReidPartialWriteError` exists because the live loop self-corrects on later frames).
+POI has no such recovery path. **`POST /poi` (and POI embedding appends) are all-or-nothing:**
+success only if every vector in that enrollment write is accepted by the backend; otherwise the
+call fails and no usable `poi_id` is returned for a half-written enrollment. This is stricter
+than general-gallery partial-write tolerance at the **API** layer. It does not require
+production-grade fsync/quorum semantics. Today's adapters already provide enough signal: Qdrant
+`upsert(..., wait=True)`; VDMS reports per-descriptor status — wire POI to treat anything short
+of full success as failure.
 
-- **Write acknowledgment semantics.** A volume says nothing about whether `POST /poi` waits for
-  the backend to actually flush before returning success. For the general gallery, a dropped
-  write is tolerated as routine (`ReidPartialWriteError` already exists because partial writes
-  are normal there). POI enrollment returning "success" for a write that didn't durably land is a
-  real problem with no next frame to self-correct it.
-- **Backup / export.** A volume protects against container churn, not against someone deleting
-  the volume or needing to restore a point-in-time copy. Nothing in `ReIDDatabase` exports data
-  today — 6.6's gallery-management API only sketched stats, not a dump.
-- **Migration continuity.** Ties back to the VDMS→Qdrant migration motivating the original
-  separation work (Section 5). A volume holds a backend's own on-disk format — it doesn't cross a
-  VDMS-to-Qdrant swap by itself. The general gallery doesn't need a migration path; the POI
-  gallery does, or every POI has to be re-enrolled by hand. The same export/import capability as
-  the backup question above would serve both needs.
+**Settled — no backup/export or live migration API in this bar.** A volume does not protect
+against volume deletion or provide a portable dump. Nothing in `ReIDDatabase` exports data today,
+and this design does not add a dump/import endpoint. **POI recovery after volume loss, or after a
+VDMS→Qdrant (or other) backend swap, is manual re-enrollment.** A future read-only export (that
+could also serve offline migration) may be scheduled as a separate epic; it is not required for
+extraction, PV-backed POI, or `POST /poi`.
 
 ### 6.11 Trajectory export API
 
@@ -934,7 +939,8 @@ story after a short joint check with Stream Manager's owner, not as an unbounded
   Manager retrieval (Section 6.11).
 - **POI durability stops at a persistent volume.** Host/disk-loss residual risk is accepted for
   this shipping bar (Section 6.10); general-gallery aging stays on the existing 24h TTL until
-  later purge/compaction work (Section 6.7).
+  later purge/compaction work (Section 6.7). POI enrollment is all-or-nothing at the API layer;
+  there is no backup/export or automated backend-migration path — recovery is re-enrollment.
 
 ## 9. Rollout / Migration Plan
 
@@ -1045,10 +1051,6 @@ Specifically:
 - **Gallery stats scoping.** Should `/collections/{name}/stats` support a `scene_id` /
   `camera_id` filter for the shared multi-hierarchy database, or is the whole-collection number
   sufficient for v1? (6.6)
-- **Write acknowledgment semantics for POI enrollment.** Does `POST /poi` need confirmed-write
-  semantics stricter than the general gallery's tolerant partial-write behavior? (6.10)
-- **Backup/export mechanism.** Is an explicit POI export/backup capability needed beyond the
-  persistent volume, and does it double as the VDMS→Qdrant migration mechanism? (6.10)
 - **authN/authZ mechanism** for the write-capable endpoints (6.4, 6.7) — deliberately left open
   (Section 3), but must be decided before either ships (Section 9).
 
@@ -1056,6 +1058,11 @@ Specifically:
 
 - **Host/disk loss (6.10).** Persistent volume only; residual host/disk-loss risk accepted.
   Shipping bar is a step above reference, not production disk HA.
+- **POI write acknowledgment (6.10 / 6.4).** All-or-nothing enrollment at the API layer: success
+  only if every vector in the write is accepted; stricter than general-gallery partial-write
+  tolerance. Not fsync/quorum durability.
+- **Backup/export / backend migration (6.10).** No export or live-migration API in this bar;
+  volume loss or VDMS→Qdrant swap → manual POI re-enrollment. Optional future dump epic.
 - **General-gallery compliance/erasure (6.7).** Existing 24h TTL is the mechanism for now;
   additional purge/compaction (or an explicit erasure path) may be added to `reid-service` later.
 - **Trajectory sighting granularity (6.11).** Camera + timestamp is sufficient. Stream Manager
