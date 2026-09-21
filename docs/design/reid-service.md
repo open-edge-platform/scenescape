@@ -873,12 +873,12 @@ write endpoint for it (6.1).
 **Settled — sighting granularity vs Stream Manager.** Against the Stream Manager draft
 ([docs/design/stream-manager](https://github.com/open-edge-platform/scenescape/tree/tdorau/stream-manager-api-draft/docs/design/stream-manager)):
 
-| Concern | Owner | Contract |
-| --- | --- | --- |
-| Ordered sighting diary (`camera_id`, `timestamp`) | `reid-service` | `GET /trajectories/{gid}` |
-| Attach / buffer camera streams; event-triggered multi-stream recording; list records | Stream Manager | `/v1/streams`, `/v1/records/start\|stop`, `GET /v1/records` |
-| Retrieve a frame or clip | Stream Manager | `GET /v1/records/{id}/frame?stream-id&timestamp` (nearest frame); `GET /v1/records/{id}/clip?stream-id&timestamp-start&…` |
-| Map `camera_id` ↔ SM `stream_id` / Sensor Manager `sensor_id`; decide when to record vs query existing records; present / stitch multi-camera clips | Business logic / UI | Outside both service APIs |
+| Concern                                                                                                                                              | Owner               | Contract                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Ordered sighting diary (`camera_id`, `timestamp`)                                                                                                    | `reid-service`      | `GET /trajectories/{gid}`                                                                                                 |
+| Attach / buffer camera streams; event-triggered multi-stream recording; list records                                                                 | Stream Manager      | `/v1/streams`, `/v1/records/start\|stop`, `GET /v1/records`                                                               |
+| Retrieve a frame or clip                                                                                                                             | Stream Manager      | `GET /v1/records/{id}/frame?stream-id&timestamp` (nearest frame); `GET /v1/records/{id}/clip?stream-id&timestamp-start&…` |
+| Map `camera_id` ↔ SM `stream_id` / Sensor Manager `sensor_id`; decide when to record vs query existing records; present / stitch multi-camera clips | Business logic / UI | Outside both service APIs                                                                                                 |
 
 Stream Manager seeks and clips by **RFC 3339 timestamps** on NTP-synced streams. Its retrieval
 APIs take `stream-id` + time (or time range); they do **not** accept frame numbers or bounding
