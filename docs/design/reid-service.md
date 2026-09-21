@@ -104,6 +104,10 @@ see Non-Goals and Section 6.1.
 - Extract the ReID storage layer out of the controller into a standalone `reid-service`, so its
   lifecycle is centrally owned rather than duplicated per controller process — one step toward
   ADR 13's Controller retirement once every former Controller feature has a service home.
+- **One external surface and capability set, independent of backend.** Callers of `reid-service`
+  get the same operations and the same semantics whether the store is VDMS, Qdrant, or a later
+  adapter. Backend differences stay inside the service (adapters implement the shared
+  `ReIDDatabase` contract); they do not fork the external API, success rules, or feature set.
 - Give callers other than a controller process a way to reach ReID capability at all.
 - Give new ReID capability a home that isn't "inside the controller."
 - Centralize purge/retention scheduling and separate ReID's metrics identity from the
@@ -499,6 +503,11 @@ callable surface; the live tracking loop's own data path (Tracker Service → MQ
 Decisions carried across every subsection below, settled in discussion rather than sketched
 per-endpoint:
 
+- **Backend-independent external contract.** The API in this section is one surface: the same
+  endpoints, request/response shapes, and success/failure rules for every backend. Where an
+  adapter lacks a primitive the contract needs (for example a count), the service implements that
+  capability on top of the adapter so callers do not branch on VDMS vs Qdrant. Which backend is
+  deployed is an operator concern, not part of the caller contract.
 - **Writes are POI-gallery-only — the general gallery has no writer in this API at all.** Per
   6.1, the general/tracking gallery is written to by `reid-service` consuming the Tracker
   Service's MQTT stream directly, not by any endpoint in this API. All insert, update, and delete
@@ -833,9 +842,10 @@ POI has no such recovery path. **`POST /poi` (and POI embedding appends) are all
 success only if every vector in that enrollment write is accepted by the backend; otherwise the
 call fails and no usable `poi_id` is returned for a half-written enrollment. This is stricter
 than general-gallery partial-write tolerance at the **API** layer. It does not require
-production-grade fsync/quorum semantics. Today's adapters already provide enough signal: Qdrant
-`upsert(..., wait=True)`; VDMS reports per-descriptor status — wire POI to treat anything short
-of full success as failure.
+production-grade fsync/quorum semantics. How each adapter confirms the write stays internal
+(Qdrant `upsert(..., wait=True)`; VDMS per-descriptor status). Callers see one outcome either
+way: full success or failure — consistent with the backend-independent contract in Section 2 and
+6.2.
 
 **Settled — no backup/export or live migration API in this bar.** A volume does not protect
 against volume deletion or provide a portable dump. Nothing in `ReIDDatabase` exports data today,
