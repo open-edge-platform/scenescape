@@ -23,7 +23,9 @@ kind: PersistentVolumeClaim
 metadata:
   name: {{ .Release.Name }}-netvlad-pvc
 spec:
-  storageClassName: {{ .Values.autocalibration.modelStorageClassName }}
+  {{- if .Values.autocalibration.modelStorageClassName }}
+  storageClassName: {{ .Values.autocalibration.modelStorageClassName | quote }}
+  {{- end }}
   accessModes:
     - ReadWriteOnce
   resources:

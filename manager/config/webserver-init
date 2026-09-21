@@ -68,18 +68,17 @@ if [ -n "${KUBERNETES_SERVICE_HOST}" ] ; then
     sed -i '/<\/VirtualHost>/i \
     SSLProxyEngine on \
     SSLProxyCACertificateFile /run/secrets/certs/scenescape-ca.pem \
-    SSLProxyCheckPeerName off \
     ProxyPass /api/v1/mapping/ https://mapping.scenescape.intel.com:8444/v1/ \
     ProxyPassReverse /api/v1/mapping/ https://mapping.scenescape.intel.com:8444/v1/ \
     ProxyPass /mqtt wss://broker.scenescape.intel.com:1884/ \
     ProxyPassReverse /mqtt wss://broker.scenescape.intel.com:1884/ \
     ProxyPass /api/v1/autocalibration/ https://autocalibration.scenescape.intel.com:8443/v1/ \
     ProxyPassReverse /api/v1/autocalibration/ https://autocalibration.scenescape.intel.com:8443/v1/ \
-    \n    <Location /api/v1/autocalibration/socket.io/> \
+    <Location /api/v1/autocalibration/socket.io/> \
     ProxyPass wss://autocalibration.scenescape.intel.com:8443/v1/socket.io/ \
     ProxyPassReverse wss://autocalibration.scenescape.intel.com:8443/v1/socket.io/ \
-    \n    </Location> \
-    \n        WSGIPassAuthorization On' /etc/apache2/sites-available/000-default.conf
+    </Location> \
+        WSGIPassAuthorization On' /etc/apache2/sites-available/000-default.conf
 fi
 
 # Change broker ProxyPass in default-ssl.conf to be dynamic
