@@ -14,87 +14,30 @@
 
 ## 1. Overview
 
-This design document — not an ADR — covers `reid-service` end to end: extracting today's
-in-process ReID layer into a standalone service (Section 5), and the externally callable API and
-capability surface that service exposes once it exists (Section 6).
+Extract today's in-process ReID library into a standalone `reid-service` (Section 5), and define
+the external API and capabilities that service exposes (Section 6). This is the next Controller-
+retirement step after Tracker (ADR 7 / ADR 13): ReID gets a durable home outside the Controller
+so that responsibility can leave the monolith.
 
-**ADR 13: Controller Breakdown into Functionality-Aligned Microservices** (`Accepted`,
-2026-06-11) is the governing decision for this work. Its end state is **full microservice
-separation**: each Controller responsibility moves into a functionality-aligned service, and the
-legacy Controller is **retired** once those homes exist and parity/reliability gates pass
-(ADR 13 Phase 7 — "monolith retirement"). Tracker (ADR 7) is already out; this document takes
-the next Re-ID step — give today's in-process ReID library a durable home outside the Controller
-so that responsibility can leave the monolith rather than remain embedded until retirement day.
+**Live loop:** `reid-service` consumes the Tracker MQTT track stream and matches/stores
+internally — no cross-service round trip for live tracking. **External surface:** Section 6 is an
+HTTP/gRPC API (query, POI, gallery, trajectory). MQTT request/reply for that external surface
+remains open (Section 5.1 / Section 11); it does not reopen the live-loop model.
 
-Within that direction, this design follows ADR 13's interface guidance for Re-ID's live tracking
-loop: **MQTT for the asynchronous, fan-out track-stream ingest** that feeds `reid-service`'s
-internal matching/storage. For `reid-service`'s external, synchronous query/store surface
-(investigator tooling, VLM-recall, POI enrollment), ADR 13 points at **gRPC**, and Section 6 is
-written as an HTTP/gRPC surface accordingly. MQTT request/reply remains an open alternative for
-that external surface only (Section 5.1 / Section 11); it does not reopen the live-loop model.
+**Home:** ReID's home is `reid-service`, even if ADR 13's diagram later co-locates it with scene-
+state persistence. Packaging/co-deployment can follow; Controllers stop owning ReID when this
+extraction lands.
 
-ADR 13's target diagram groups Re-ID with broader scene-state persistence in one combined
-service block. That does not block this extraction: **ReID's home is `reid-service`**, the same
-way MOT's home is the Tracker Service (ADR 7) even though later phases still rearrange neighbors.
-Whether operators later co-deploy or merge `reid-service` with a Persistence service is a
-deployment/packaging choice that can follow; it is not a prerequisite for Controllers to stop
-owning ReID. This document scopes to that extraction (referred to throughout as `reid-service`).
+**Inherits (does not reopen):** ADR-10 storage/query semantics, ADR-11 match/output contract,
+ADR 14 reclaim-only TTL (schedule moves into `reid-service`; Section 6.8 adds per-collection /
+pressure controls), ADR 15 hierarchy enroll/query and provenance (orchestration moves with
+extraction; Section 6.5 still chooses the POI correlation feed).
 
-ADR 13's Phase 1 ("Scene State Persistence + shared Re-ID integration") cites **ADR-10
-(ReID Metadata Storage Architecture)** and **ADR-11 (Inner-Product ReID State and ID
-Lineage)** as covering related territory. Two later ReID ADRs also bound this work: **ADR 14
-(Unified TTL Retention)** and **ADR 15 (Hierarchy ReID Provenance and Enrollment Scope)**.
-All four are complementary to this document, not substitutes for it:
-
-- **ADR-10** (`Proposed`) decides the 2-tier hybrid search contract — schema-less metadata
-  properties plus vector similarity (TIER 1 constraint filtering, then TIER 2 match). That is
-  the storage/query semantics `reid-service` inherits; this document does not reopen it.
-- **ADR-11** (`Accepted`) decides configurable similarity metric (`COSINE`/`L2`, with
-  `COSINE`→VDMS `IP`), explicit `reid_state` on tracks, and `previous_ids_chain` lineage in
-  scene output. That is match/output-contract behavior; this document does not reopen it.
-- **ADR 14** (`Proposed`) decides the backend-neutral TTL retention contract —
-  `descriptor_ttl_secs` / `REID_DESCRIPTOR_TTL_SECS`, `retentionEnabled()`,
-  `_applyRetentionProperties()`, `purgeExpired()`, and the controller-side purge timer
-  (`REID_PURGE_INTERVAL_SECS`, process-local `_PURGE_OWNER`). Retention is reclaim-only, not an
-  identity-validity rule. This document relocates that reclaim schedule into `reid-service`
-  (Section 5.1) and adds per-collection / pressure-based extensions (Section 6.8)
-  without reopening ADR 14's reclaim-only semantics for the general gallery.
-- **ADR 15** (`Proposed`) decides hierarchy ReID enroll/query scope — separate
-  `quality_features` vs `enrollment_features`, explicit `metadata.reid.provenance` on hierarchy
-  output (`quality_vetted`, `will_enroll` / `enrolled`), and publish policy
-  (`passthrough` / `withhold` / `will_enroll` via `_hierarchyReidPublishPolicy`), plus
-  write-health / write-epoch guards. That policy is why a shared DB does not double-enroll the
-  same crop across hierarchy levels. Orchestration that enforces it moves into `reid-service`
-  with the extraction (Section 5.1); the POI correlation feed question in Section 6.5 is whether
-  to reuse ADR 15's `DATA_EXTERNAL` contract or add a dedicated path.
-
-What this document adds — and what ADR-10 / 11 / 14 / 15 do not cover — is the **deployable
-boundary** on the path to Controller retirement: extracting the in-process library into
-`reid-service`, owning live ingest off the Tracker MQTT stream, centralizing purge/metrics
-ownership (solving ADR 14's cross-process purge duplication), and defining the external
-API/capability surface (including POI). The TIER 1 helpers, adapters, retention contract, match
-semantics, and hierarchy enroll/query rules move with the extraction; they are not redesigned
-here.
-
-The API half (Section 6) covers two things that are easy to conflate but need to be kept
-distinct:
-
-- **Baseline surface (Section 6.1):** the endpoints needed just to expose today's in-process
-  `ReIDDatabase` contract (`reid.py`) over a network transport at all, for callers other than
-  `reid-service` itself — there is currently no HTTP/gRPC front door onto any of it.
-- **New capability (Sections 6.2–6.11):** the POI enrollment/matching/alerting flow and related
-  gallery-management, deletion, TTL, schema-negotiation, and trajectory-export capabilities the
-  SLP epics ([Epic #221](https://github.com/intel-retail/loss-prevention/issues/221) — POI
-  Re-ID & Alerting, [Epic #120](https://github.com/intel-retail/storewide-loss-prevention/issues/120)
-  — Storewide Suspicious Activity) call for but explicitly leave as future/out-of-scope work.
-
-Priority and scheduling within the "new capability" bucket follow Section 9. The contracts in
-Sections 6.2–6.11 are specified here so implementation and CCB sizing start from a fixed design,
-not an open sketch. The baseline surface is required for `reid-service` to be a service at all.
-
-**Ingest vs API.** The live tracking gallery is written by `reid-service` consuming the Tracker
-Service's MQTT stream (Section 5). The API in Section 6 exposes no write endpoint for that path;
-see Non-Goals and Section 6.1.
+**Adds:** the deployable boundary, Tracker-stream ingest ownership, centralized purge/metrics,
+and the external API — baseline `ReIDDatabase` over the network (6.1) plus POI / gallery / TTL /
+trajectory capability for the SLP epics (6.2–6.11). Scheduling is Section 9; the contracts are
+specified here. Live tracking gallery writes are stream-driven only — no general-gallery write
+endpoint in Section 6.
 
 ## 2. Goals
 
@@ -597,9 +540,10 @@ Proposed split: `POST /poi/{poi_id}/embeddings` (append a reference embedding) v
 "removal criteria" workflow Epic #221 explicitly punts on today (soft-disable via `PATCH` status
 vs. hard delete via 6.7).
 
-**Write acknowledgment.** Enrollment and embedding-append writes are all-or-nothing at the API
-layer (Section 6.10): success only when every vector in that call is accepted; no half-enrolled
-`poi_id`.
+**Write contract.** `POST /poi` and embedding-append calls are all-or-nothing: success only when
+every vector in that request is accepted; otherwise the call fails and no half-enrolled `poi_id`
+is returned. That is an API success rule (stricter than general-gallery partial-write tolerance),
+not a durability guarantee. Persistence bar is the volume in Section 6.10.
 
 **Isolation from the general tracking gallery.**
 [Epic #221](https://github.com/intel-retail/loss-prevention/issues/221) calls out a "two-tier
@@ -837,17 +781,14 @@ top of it.
 events, not underlying host or disk failure. That residual risk is accepted for this bar; no
 replication, RAID, or multi-AZ durability work is in scope here.
 
-**Settled — POI write acknowledgment (API contract, not disk fsync).** A volume does not define
-when `POST /poi` may return success. For the general gallery, dropped or partial writes are
-tolerated (`ReidPartialWriteError` exists because the live loop self-corrects on later frames).
-POI has no such recovery path. **`POST /poi` (and POI embedding appends) are all-or-nothing:**
-success only if every vector in that enrollment write is accepted by the backend; otherwise the
-call fails and no usable `poi_id` is returned for a half-written enrollment. This is stricter
-than general-gallery partial-write tolerance at the **API** layer. It does not require
-production-grade fsync/quorum semantics. How each adapter confirms the write stays internal
-(Qdrant `upsert(..., wait=True)`; VDMS per-descriptor status). Callers see one outcome either
-way: full success or failure — consistent with the backend-independent contract in Section 2 and
-6.2.
+**Settled — POI write contract (success rule, not durability).** Persistence across restarts is
+the volume above. Separately, **`POST /poi` and embedding appends are all-or-nothing:** the call
+succeeds only if every vector in that request is accepted; otherwise it fails and no half-
+enrolled `poi_id` is returned. General gallery may tolerate partial writes (`ReidPartialWriteError`)
+because the live loop self-corrects; POI does not. Adapter confirmation stays internal (Qdrant
+`wait=True`, VDMS per-descriptor status); callers see one backend-independent outcome: full
+success or failure. This is not fsync, quorum, or production durability — only the API contract
+for when enrollment may claim success.
 
 **Settled — no backup/export or live migration API in this bar.** A volume does not protect
 against volume deletion or provide a portable dump. Nothing in `ReIDDatabase` exports data today,
@@ -949,10 +890,10 @@ story after a short joint check with Stream Manager's owner, not as an unbounded
   ride in passthrough `metadata.reid`, but `camera_id` and per-sighting timestamp are missing from
   published tracks today (Section 5.4 / Section 11). Bounding box is not required for Stream
   Manager retrieval (Section 6.11).
-- **POI durability stops at a persistent volume.** Host/disk-loss residual risk is accepted for
-  this shipping bar (Section 6.10); general-gallery aging stays on the existing 24h TTL until
-  later purge/compaction work (Section 6.7). POI enrollment is all-or-nothing at the API layer;
-  there is no backup/export or automated backend-migration path — recovery is re-enrollment.
+- **POI persistence is a volume; POI enrollment success is an all-or-nothing API contract.**
+  Host/disk-loss residual risk is accepted (Section 6.10). General-gallery aging stays on the
+  existing 24h TTL until later purge/compaction (Section 6.7). No backup/export or automated
+  backend-migration path — recovery is re-enrollment.
 
 ## 9. Rollout / Migration Plan
 
@@ -1070,9 +1011,8 @@ Specifically:
 
 - **Host/disk loss (6.10).** Persistent volume only; residual host/disk-loss risk accepted.
   Shipping bar is a step above reference, not production disk HA.
-- **POI write acknowledgment (6.10 / 6.4).** All-or-nothing enrollment at the API layer: success
-  only if every vector in the write is accepted; stricter than general-gallery partial-write
-  tolerance. Not fsync/quorum durability.
+- **POI write contract (6.10 / 6.4).** All-or-nothing enrollment success rule: every vector
+  accepted or the call fails. API contract only — not durability.
 - **Backup/export / backend migration (6.10).** No export or live-migration API in this bar;
   volume loss or VDMS→Qdrant swap → manual POI re-enrollment. Optional future dump epic.
 - **General-gallery compliance/erasure (6.7).** Existing 24h TTL is the mechanism for now;
