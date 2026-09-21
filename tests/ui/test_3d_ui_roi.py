@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
@@ -24,7 +26,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 WAIT_SEC = 5
 PANEL_WAIT_SEC = 100
 ROI_NAME = "3D_UI_ROI"
-NEW_COLOR_HEX = "#00ff00"
+NEW_COLOR_HEX = "#ff0000"
 NEW_OPACITY = 0.25
 NEW_HEIGHT = 5
 
@@ -35,7 +37,7 @@ class Scene3dRoiUserInterfaceTest(UserInterfaceTest):
   def __init__(self, testName, request):
     super().__init__(testName, request, None)
 
-  def createRoi(self):
+  def create_roi(self):
     """! Creates an ROI on the 2D scene page so it appears in the 3D control panel."""
     assert common.navigate_to_scene(self.browser, common.TEST_SCENE_NAME)
 
@@ -70,7 +72,7 @@ class Scene3dRoiUserInterfaceTest(UserInterfaceTest):
     assert roi_points, "Failed to create ROI"
     return
 
-  def getRoiFolderTitle(self):
+  def get_roi_folder_title(self):
     """! Waits for the ROI's lil-gui folder to appear in the 3D control panel.
     @return   WebElement                 The folder title element.
     """
@@ -80,7 +82,7 @@ class Scene3dRoiUserInterfaceTest(UserInterfaceTest):
     ), f"ROI control panel for '{ROI_NAME}' did not load"
     return self.browser.find_element(By.XPATH, title_xpath)
 
-  def expandRoiFolder(self, title_element):
+  def expand_roi_folder(self, title_element):
     """! Expands the ROI's lil-gui folder if it is currently collapsed.
     @param    title_element              The folder title element.
     """
@@ -94,7 +96,7 @@ class Scene3dRoiUserInterfaceTest(UserInterfaceTest):
       time.sleep(WAIT_SEC)
     return
 
-  def getControlInput(self, control_name, input_selector):
+  def get_control_input(self, control_name, input_selector):
     """! Locates an input belonging to a named control row inside the ROI folder.
     @param    control_name               lil-gui control label.
     @param    input_selector              CSS selector for the input.
@@ -108,19 +110,19 @@ class Scene3dRoiUserInterfaceTest(UserInterfaceTest):
     )
     return self.browser.find_element(By.XPATH, xpath)
 
-  def getShowCheckbox(self):
-    return self.getControlInput("show", "@type='checkbox'")
+  def get_show_checkbox(self):
+    return self.get_control_input("show", "@type='checkbox'")
 
-  def getColorInput(self):
-    return self.getControlInput("color", "@type='color'")
+  def get_color_input(self):
+    return self.get_control_input("color", "@type='color'")
 
-  def getOpacityInput(self):
-    return self.getControlInput("opacity", "@type='number'")
+  def get_opacity_input(self):
+    return self.get_control_input("opacity", "@type='number'")
 
-  def getHeightInput(self):
-    return self.getControlInput("height", "@type='number'")
+  def get_height_input(self):
+    return self.get_control_input("height", "@type='number'")
 
-  def setInputValue(self, input_element, value):
+  def set_input_value(self, input_element, value):
     """! Sets a lil-gui input and fires its input event to commit the change.
     @param    input_element              The input element to update.
     @param    value                      New value to assign.
@@ -133,7 +135,7 @@ class Scene3dRoiUserInterfaceTest(UserInterfaceTest):
     time.sleep(WAIT_SEC)
     return
 
-  def getRoiState(self):
+  def get_roi_state(self):
     """! Reads the live ROI scene-graph node through the test-only hook.
     @return   dict                       Current ROI visibility, color, opacity,
                                          height, and label state.
@@ -157,62 +159,76 @@ class Scene3dRoiUserInterfaceTest(UserInterfaceTest):
     """
     return self.executeScript(script, ROI_NAME)
 
-  def checkRoiControls(self, result_recorder):
+  def wait_for_label(self, timeout_seconds=30):
+    """! Poll until the asynchronously created text label is present in the scene."""
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+      state = self.get_roi_state()
+      if state.get("hasLabel"):
+        return state
+      time.sleep(0.25)
+    state = self.get_roi_state()
+    assert state.get("hasLabel"), "ROI label was not created in the scene graph in time"
+    return state
+
+  def check_roi_controls(self, result_recorder):
     assert self.login()
 
     log.info("1. Create an ROI via the 2D scene page so it renders in the 3D control panel.")
-    self.createRoi()
+    self.create_roi()
 
     log.info("2. Navigate to the Scene detail (3D) page.")
     common.navigate_directly_to_page(self.browser, f"/scene/detail/{common.TEST_SCENE_ID}/")
 
-    title_element = self.getRoiFolderTitle()
-    self.expandRoiFolder(title_element)
+    title_element = self.get_roi_folder_title()
+    self.expand_roi_folder(title_element)
 
-    initial_state = self.getRoiState()
+    initial_state = self.get_roi_state()
     assert initial_state["hooksAvailable"], "Test hooks (window.__testScene) are not exposed"
     assert initial_state["found"], f"ROI '{ROI_NAME}' was not found in the scene graph"
 
-    log.info("3. Verify 3D ROI color changes with the color control.")
-    self.setInputValue(self.getColorInput(), NEW_COLOR_HEX)
-    state_after_color = self.getRoiState()
+    log.info("3. Change ROI color via the control panel.")
+    self.set_input_value(self.get_color_input(), NEW_COLOR_HEX)
+    state_after_color = self.get_roi_state()
     assert state_after_color["color"] == NEW_COLOR_HEX.lstrip("#"), (
       f"ROI color did not update: expected {NEW_COLOR_HEX}, got {state_after_color['color']}"
     )
     log.info("ROI color updated correctly.")
 
-    log.info("4. Verify that the 'show' toggle controls both the ROI and its child label.")
-    show_checkbox = self.getShowCheckbox()
+    log.info("4. Toggle 'show' and verify ROI and label visibility.")
+    show_checkbox = self.get_show_checkbox()
     was_checked = show_checkbox.is_selected()
     log.info(f"Toggle 'show' (currently {was_checked}) and verify ROI and label visibility.")
     show_checkbox.click()
     time.sleep(WAIT_SEC)
-    state_after_toggle = self.getRoiState()
+    state_after_toggle = self.wait_for_label()
+    state_after_toggle = self.get_roi_state()
     assert state_after_toggle["visible"] is not was_checked, "ROI visibility did not flip after toggling 'show'"
     assert state_after_toggle["hasLabel"], "ROI label was not found in the scene graph"
     assert state_after_toggle["labelVisible"] is not was_checked, (
       "ROI label visibility did not follow the 'show' toggle"
     )
 
-    show_checkbox = self.getShowCheckbox()
+    show_checkbox = self.get_show_checkbox()
     show_checkbox.click()
     time.sleep(WAIT_SEC)
-    state_restored = self.getRoiState()
+    state_restored = self.wait_for_label()
+    state_restored = self.get_roi_state()
     assert state_restored["visible"] is was_checked, "ROI visibility did not revert after re-toggling 'show'"
     assert state_restored["labelVisible"] is was_checked, "ROI label visibility did not revert after re-toggling 'show'"
     log.info("ROI and label visibility tracked the 'show' toggle correctly.")
 
     log.info("5. Change ROI opacity via the control panel.")
-    self.setInputValue(self.getOpacityInput(), NEW_OPACITY)
-    state_after_opacity = self.getRoiState()
+    self.set_input_value(self.get_opacity_input(), NEW_OPACITY)
+    state_after_opacity = self.get_roi_state()
     assert abs(state_after_opacity["opacity"] - NEW_OPACITY) < 0.01, (
       f"ROI opacity did not update: expected {NEW_OPACITY}, got {state_after_opacity['opacity']}"
     )
     log.info("ROI opacity updated correctly.")
 
     log.info("6. Change ROI height via the control panel.")
-    self.setInputValue(self.getHeightInput(), NEW_HEIGHT)
-    state_after_height = self.getRoiState()
+    self.set_input_value(self.get_height_input(), NEW_HEIGHT)
+    state_after_height = self.get_roi_state()
     assert state_after_height["height"] == NEW_HEIGHT, (
       f"ROI height did not update: expected {NEW_HEIGHT}, got {state_after_height['height']}"
     )
@@ -236,7 +252,7 @@ def test_3d_ui_roi(scenescape_env, request, result_recorder):
 
   test = Scene3dRoiUserInterfaceTest("NEX-T10472", request)
   try:
-    test.checkRoiControls(result_recorder)
+    test.check_roi_controls(result_recorder)
   finally:
     browser = getattr(test, "browser", None)
     if browser is not None:
