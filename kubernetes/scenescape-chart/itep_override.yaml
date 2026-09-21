@@ -8,7 +8,7 @@ imagePullSecrets:
 prehook: "%PreHookCredential%"
 media:
   storageClassName: openebs-lvmpv-shared
-video:
+models:
   storageClassName: openebs-lvmpv-shared
 videos:
   storageClassName: openebs-lvmpv-shared

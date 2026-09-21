@@ -60,8 +60,8 @@ export default class RESTClient {
     return this._crud("GET", "scenes");
   }
 
-  async getScene(uid) {
-    return this._crud("GET", `scene/${uid}`);
+  async getScene(uid, data) {
+    return this._crud("GET", `scene/${uid}`, data);
   }
 
   async updateScene(uid, data, config) {

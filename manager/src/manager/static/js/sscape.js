@@ -1864,7 +1864,7 @@ $(document).ready(function () {
       const authToken = `Token ${tokenElement.value}`;
       const restclient = new RESTClient(REST_URL, authToken);
       try {
-        const response = await restclient.getScene(scene_id);
+        const response = await restclient.getScene(scene_id, { export: true });
         if (response.statusCode !== 200)
           throw new Error("Failed to fetch scenes");
 

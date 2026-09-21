@@ -605,11 +605,21 @@ class SceneSerializer(NonNullSerializer):
   calibration_markers = serializers.SerializerMethodField('get_calibration_markers')
   assets = serializers.SerializerMethodField('get_assets')
 
+  def _is_export_request(self):
+    # Full asset/marker embedding is only needed for the export-scene download;
+    # skip the extra query and payload on every other scene read.
+    request = self.context.get('request')
+    return bool(request) and bool(request.query_params.get('export'))
+
   def get_calibration_markers(self, obj):
+    if not self._is_export_request():
+      return []
     return CalibrationMarkerSerializer(
       CalibrationMarker.objects.filter(scene=obj), many=True).data
 
   def get_assets(self, obj):
+    if not self._is_export_request():
+      return []
     return Asset3DSerializer(Asset3D.objects.all(), many=True).data
 
   def validate(self, attrs):

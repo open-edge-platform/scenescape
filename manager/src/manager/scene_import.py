@@ -216,6 +216,9 @@ class ImportScene:
     for asset in json_data.get("assets", []) or []:
       if asset.get("name") in existing_assets:
         continue
+      # model_3d is exported as a URL; the archive doesn't bundle the actual
+      # file, so re-posting that URL would be rejected by the FileField.
+      asset.pop("model_3d", None)
       try:
         resp = await asyncio.to_thread(self.rest.createAsset, asset)
         if getattr(resp, "errors", None):
@@ -240,7 +243,7 @@ class ImportScene:
     for child_data in json_data.get("children", []):
       child_summary = await self.loadScene(child=child_data, parent=scene_id)
       if any(child_summary[key] for key in (
-          "scene", "cameras", "tripwires", "regions", "sensors")):
+          "scene", "cameras", "tripwires", "regions", "sensors", "assets", "calibration_markers")):
         return child_summary
 
     return import_summary
