@@ -14,9 +14,9 @@
 
 ## 1. Overview
 
-This document is a design proposal — not an ADR — covering `reid-service` end to end: extracting
-today's in-process ReID layer into a standalone service (Section 5), and the externally callable
-API and capability surface that service exposes once it exists (Section 6).
+This design document — not an ADR — covers `reid-service` end to end: extracting today's
+in-process ReID layer into a standalone service (Section 5), and the externally callable API and
+capability surface that service exposes once it exists (Section 6).
 
 **ADR 13: Controller Breakdown into Functionality-Aligned Microservices** (`Accepted`,
 2026-06-11) is the governing decision for this work. Its end state is **full microservice
@@ -26,12 +26,12 @@ legacy Controller is **retired** once those homes exist and parity/reliability g
 the next Re-ID step — give today's in-process ReID library a durable home outside the Controller
 so that responsibility can leave the monolith rather than remain embedded until retirement day.
 
-Within that direction, this proposal aligns with ADR 13's interface guidance for Re-ID's live
-tracking loop: **MQTT for the asynchronous, fan-out track-stream ingest** that feeds
-`reid-service`'s internal matching/storage. For `reid-service`'s external, synchronous
-query/store surface (investigator tooling, VLM-recall, POI enrollment), ADR 13's stated guidance
-is **gRPC**, and that's this document's leaning — but MQTT is also mentioned as an option below
-rather than settled on exclusively; see Section 5.1 and Open Questions.
+Within that direction, this design follows ADR 13's interface guidance for Re-ID's live tracking
+loop: **MQTT for the asynchronous, fan-out track-stream ingest** that feeds `reid-service`'s
+internal matching/storage. For `reid-service`'s external, synchronous query/store surface
+(investigator tooling, VLM-recall, POI enrollment), ADR 13 points at **gRPC**, and Section 6 is
+written as an HTTP/gRPC surface accordingly. MQTT request/reply remains an open alternative for
+that external surface only (Section 5.1 / Section 11); it does not reopen the live-loop model.
 
 ADR 13's target diagram groups Re-ID with broader scene-state persistence in one combined
 service block. That does not block this extraction: **ReID's home is `reid-service`**, the same
@@ -57,7 +57,7 @@ All four are complementary to this document, not substitutes for it:
   `_applyRetentionProperties()`, `purgeExpired()`, and the controller-side purge timer
   (`REID_PURGE_INTERVAL_SECS`, process-local `_PURGE_OWNER`). Retention is reclaim-only, not an
   identity-validity rule. This document relocates that reclaim schedule into `reid-service`
-  (Section 5.1) and later proposes per-collection / pressure-based extensions (Section 6.8)
+  (Section 5.1) and adds per-collection / pressure-based extensions (Section 6.8)
   without reopening ADR 14's reclaim-only semantics for the general gallery.
 - **ADR 15** (`Proposed`) decides hierarchy ReID enroll/query scope — separate
   `quality_features` vs `enrollment_features`, explicit `metadata.reid.provenance` on hierarchy
@@ -88,10 +88,9 @@ distinct:
   Re-ID & Alerting, [Epic #120](https://github.com/intel-retail/storewide-loss-prevention/issues/120)
   — Storewide Suspicious Activity) call for but explicitly leave as future/out-of-scope work.
 
-Priority and exact shape within the "new capability" bucket are open; that part is meant to give
-the team something concrete to react to, not a committed backlog. The baseline surface is not
-optional in the same way — some version of it has to exist for `reid-service` to be a service at
-all.
+Priority and scheduling within the "new capability" bucket follow Section 9. The contracts in
+Sections 6.2–6.11 are specified here so implementation and CCB sizing start from a fixed design,
+not an open sketch. The baseline surface is required for `reid-service` to be a service at all.
 
 **Ingest vs API.** The live tracking gallery is written by `reid-service` consuming the Tracker
 Service's MQTT stream (Section 5). The API in Section 6 exposes no write endpoint for that path;
@@ -237,7 +236,7 @@ max_query_time=DEFAULT_MAX_QUERY_TIME)` (`DEFAULT_MAX_QUERY_TIME = 4` seconds) t
   layer today. **Section 5.1 settles where it lives:** it moves into `reid-service` with the
   storage layer, because that service owns UUID assignment and lifecycle for the live loop. The
   query-latency circuit breaker in that list retires rather than being ported (Section 5.1).
-- **The layer this document proposes extracting:** `reid.py` (the `ReIDDatabase` ABC and its
+- **The layer this document extracts:** `reid.py` (the `ReIDDatabase` ABC and its
   shared helpers — validation, TIER 1 constraint building, schema lifecycle), `vdms_adapter.py`,
   `qdrant_adapter.py`, `reid_registry.py` (backend selection), `reid_env.py` (connection/tuning
   config), `reid_constraints.py`. This is exactly the surface Section 6 assumes already exists as
@@ -319,17 +318,14 @@ explicit interface guidance.
 - **`findMatches` and `addEntry`, as external, synchronous-feeling operations, are ADR 13's
   "Re-ID match/store."** Investigator tooling, VLM-recall, and POI enrollment/matching
   (Section 4.3, problems 2–3) need a way to reach `reid-service`'s surface for this. ADR 13's
-  stated guidance points at gRPC/REST for this kind of query/response workload, and that's this
-  document's leaning — it's a strong, direct match for Section 6's scope, whose Query API, POI
-  enrollment, deletion, and gallery management sections are written as an HTTP/gRPC surface.
-  **MQTT is also a viable option for this surface and isn't ruled out here** — a request/reply
-  pattern over MQTT (correlation ID + reply-to topic) would keep every external interface
-  consistent with one transport instead of splitting gRPC for queries and MQTT for streaming. The
-  trade-off isn't resolved here: gRPC gives a simpler client contract (a call that returns a
-  value) and matches ADR 13's stated guidance directly; MQTT keeps the whole system on one
-  message bus and avoids running two transport stacks, at the cost of the client needing to
-  handle correlation and timeouts itself. See Open Questions. Section 6.1 reflects this model:
-  there is no write endpoint for the live loop, because no caller exists for one.
+  guidance points at gRPC/REST for this kind of query/response workload, and Section 6 is written
+  as an HTTP/gRPC surface on that basis. **MQTT request/reply remains an open alternative for this
+  external surface only** (correlation ID + reply-to topic) — it would keep every external
+  interface on one transport instead of splitting gRPC for queries and MQTT for streaming. Trade-
+  off: gRPC gives a simpler client contract and matches ADR 13 directly; MQTT keeps one message
+  bus at the cost of client-side correlation and timeouts. See Open Questions. Section 6.1
+  reflects this model: there is no write endpoint for the live loop, because no caller exists for
+  one.
 - **`purgeExpired` is unaffected by this alignment.** ADR 14 already defined the retention
   contract and the controller-side reclaim timer. Independent of the MQTT-vs-gRPC question, this
   document relocates that schedule so `reid-service` owns it entirely:
