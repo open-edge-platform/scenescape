@@ -31,7 +31,7 @@ The auto calibration services supports two types of camera calibration methods:
 
 For implementation-level details of markerless calibration using NetVLAD, quadtree attention, and HLoc, see [Markerless Camera Calibration Internals](./markerless-camera-calibration.md).
 
-### NetVLAD model preparation
+## NetVLAD model preparation
 
 The autocalibration application image does not download models when it starts. For Docker
 Compose deployments, the `autocalibration-model-init` one-shot service downloads and verifies

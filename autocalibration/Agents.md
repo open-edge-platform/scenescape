@@ -117,7 +117,7 @@ docker compose exec autocalibration bash
 - `CALIBRATION_MODE`: `apriltag` or `markerless`
 - `LOG_LEVEL`: `DEBUG`, `INFO`, `WARNING`, `ERROR`
 - `NETVLAD_MODEL_DIR`: model directory used by the download init service and HLoc. The
-   verified model must be present before the application starts.
+  verified model must be present before the application starts.
 
 ### NetVLAD model lifecycle
 
