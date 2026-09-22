@@ -32,10 +32,10 @@ export default class ThingControls {
             this.object3D.shape !== null
           ) {
             this.object3D.shape.scale.z = value / this.object3D.scaleFactor;
-            let textMesh = this.object3D.scene.getObjectByName(
-              "textObject_" + this.object3D.name,
+            let label = this.object3D.getObjectByName(
+              "thingLabel_" + this.object3D.name,
             );
-            textMesh.position.z = value;
+            if (label) label.position.z = value;
           }
           this.height = this.object3D.height = value;
         }.bind(this),
@@ -99,10 +99,13 @@ export default class ThingControls {
   updateGeometry(data) {
     this.object3D.points = [];
     this.object3D.createGeometry(data);
-    let textObject = this.object3D.scene.getObjectByName(
-      "textObject_" + this.object3D.name,
+    let label = this.object3D.getObjectByName(
+      "thingLabel_" + this.object3D.name,
     );
-    this.object3D.scene.remove(textObject);
+    if (label) {
+      this.object3D.drawObj.disposeThingLabel(label);
+      if (label.parent) label.parent.remove(label);
+    }
     if (this.object3D.points.length > 0) {
       let x = this.object3D.points[0].x;
       let y = this.object3D.points[1].y;
@@ -115,11 +118,13 @@ export default class ThingControls {
         y: y,
         z: this.object3D.height,
       };
-      this.drawObj
-        .createTextObject(this.object3D.name, this.object3D.textPos)
-        .then((textMesh) => {
-          this.object3D.add(textMesh);
-        });
+      this.object3D.add(
+        this.object3D.drawObj.createThingLabel(
+          this.object3D.name,
+          this.object3D.textPos,
+          this.object3D.uid,
+        ),
+      );
     }
   }
 }

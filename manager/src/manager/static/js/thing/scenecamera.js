@@ -225,11 +225,9 @@ export default class SceneCamera extends THREE.Object3D {
   addObject(params) {
     this.drawObj = params.drawObj;
     if (this.sceneCamera) {
-      this.drawObj
-        .createTextObject(this.name, this.textPos)
-        .then((textMesh) => {
-          this.sceneCamera.add(textMesh);
-        });
+      this.sceneCamera.add(
+        this.drawObj.createThingLabel(this.name, this.textPos, this.uid),
+      );
     }
     this.sceneMesh = params.sceneMesh;
     this.scene = params.scene;
@@ -275,11 +273,9 @@ export default class SceneCamera extends THREE.Object3D {
     this.remove(this.sceneCameraHelper);
     this.addCamera();
     if (this.sceneCamera) {
-      this.drawObj
-        .createTextObject(this.name, this.textPos)
-        .then((textMesh) => {
-          this.sceneCamera.add(textMesh);
-        });
+      this.sceneCamera.add(
+        this.drawObj.createThingLabel(this.name, this.textPos, this.uid),
+      );
     }
     this.resetTransformObject();
     return;
@@ -869,7 +865,7 @@ export default class SceneCamera extends THREE.Object3D {
     }
 
     let textObject = this.sceneCamera.getObjectByName(
-      "textObject_" + this.previousName,
+      "thingLabel_" + this.previousName,
     );
     if (this.isStoredInDB) await this.updateExistingCamera(cameraData);
     else {
@@ -900,12 +896,11 @@ export default class SceneCamera extends THREE.Object3D {
       }
 
       if (this.sceneCamera) {
+        this.drawObj.disposeThingLabel(textObject);
         this.sceneCamera.remove(textObject);
-        this.drawObj
-          .createTextObject(this.name, this.textPos)
-          .then((textMesh) => {
-            this.sceneCamera.add(textMesh);
-          });
+        this.sceneCamera.add(
+          this.drawObj.createThingLabel(this.name, this.textPos, this.uid),
+        );
       }
     }
     this.controlsFolder.title(newCamName);
@@ -923,12 +918,11 @@ export default class SceneCamera extends THREE.Object3D {
       this.isStoredInDB = true;
       this.cameraUID = createResponse.content.uid;
       if (this.sceneCamera) {
+        this.drawObj.disposeThingLabel(textObject);
         this.sceneCamera.remove(textObject);
-        this.drawObj
-          .createTextObject(this.name, this.textPos)
-          .then((textMesh) => {
-            this.sceneCamera.add(textMesh);
-          });
+        this.sceneCamera.add(
+          this.drawObj.createThingLabel(this.name, this.textPos, this.uid),
+        );
       }
       this.previousName = this.name;
       for (const camObj of this.currentCameras[DEFAULT_CAMERA_UID]) {

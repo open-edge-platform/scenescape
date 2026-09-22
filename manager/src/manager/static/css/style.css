@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+ * SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -28,6 +28,21 @@ body {
 
 .right-buffer {
   margin-right: 4px !important;
+}
+
+.scene-qr-image {
+  display: inline-block;
+  overflow: visible;
+}
+
+.scene-qr-image svg {
+  display: block;
+  outline: none;
+}
+
+#scene-qr-modal .modal-dialog {
+  width: max-content;
+  max-width: calc(100vw - 2rem);
 }
 
 .left-buffer {

@@ -94,6 +94,49 @@ function createLabelElement(objectId, category) {
   return div;
 }
 
+// Derive a stable color from an arbitrary string key (name/uid).
+function colorFromKey(key) {
+  const str = String(key);
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const hue = ((hash % 360) + 360) % 360;
+  return `hsl(${hue}, 70%, 55%)`;
+}
+
+// Billboarded HTML label for static scene things (cameras, regions, tripwires).
+function createThingLabel(name, position, colorKey = name) {
+  const div = document.createElement("div");
+  div.className = "thing-label";
+  div.style.setProperty("--thing-label-accent", colorFromKey(colorKey));
+
+  const swatch = document.createElement("span");
+  swatch.className = "thing-label-swatch";
+
+  const text = document.createElement("span");
+  text.className = "thing-label-text";
+  text.textContent = name;
+
+  div.appendChild(swatch);
+  div.appendChild(text);
+
+  const labelObj = new CSS2DObject(div);
+  labelObj.name = "thingLabel_" + name;
+  if (position) {
+    labelObj.position.set(position.x, position.y, position.z);
+  }
+  return labelObj;
+}
+
+// Remove a thing label's DOM node before it is detached from the scene graph.
+function disposeThingLabel(labelObj) {
+  if (labelObj && labelObj.element && labelObj.element.parentNode) {
+    labelObj.element.parentNode.removeChild(labelObj.element);
+  }
+}
+
 function colorFromId(id) {
   const hex = String(id)
     .replace(/[^0-9a-f]/gi, "")
@@ -214,6 +257,25 @@ class Draw {
   }
 
   /**
+   * Creates a billboarded HTML label for a static scene thing.
+   * @param {string} name - The label text.
+   * @param {{x:number,y:number,z:number}} position - The label position.
+   * @param {string} colorKey - Stable key used to derive the accent color.
+   * @returns {CSS2DObject} The label object.
+   */
+  createThingLabel(name, position, colorKey = name) {
+    return createThingLabel(name, position, colorKey);
+  }
+
+  /**
+   * Removes a thing label's DOM node before detaching it from the scene.
+   * @param {CSS2DObject} labelObj - The label object to dispose.
+   */
+  disposeThingLabel(labelObj) {
+    disposeThingLabel(labelObj);
+  }
+
+  /**
    * Creates a calibration point with the given name, position, and color.
    * @param {string} name - The name of the calibration point.
    * @param {THREE.Vector3} position - The position of the calibration point.
@@ -284,4 +346,6 @@ export {
   createMarkObject,
   createLabelElement,
   updateLabelFields,
+  createThingLabel,
+  disposeThingLabel,
 };

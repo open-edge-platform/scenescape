@@ -84,9 +84,7 @@ export default class SceneTripwire extends THREE.Object3D {
       y: this.points[0].y,
       z: this.height,
     };
-    this.drawObj.createTextObject(this.name, this.textPos).then((textMesh) => {
-      this.add(textMesh);
-    });
+    this.add(this.drawObj.createThingLabel(this.name, this.textPos, this.uid));
     this.tripwireControls.addToScene();
     this.tripwireControls.addControlPanel(this.tripwireFolder);
     this.controlsFolder = this.tripwireControls.controlsFolder;
