@@ -369,9 +369,7 @@ export default class SceneRegion extends THREE.Object3D {
         y: y,
         z: this.height,
       };
-      this.drawObj
-        .createTextObject(this.name, this.textPos)
-        .then((textMesh) => this.attachTextMesh(textMesh));
+      this.add(this.drawObj.createThingLabel(this.name, this.textPos, this.uid));
     }
     this.regionControls.addToScene();
     this.regionControls.addControlPanel(this.regionsFolder);

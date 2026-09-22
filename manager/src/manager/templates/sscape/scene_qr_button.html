@@ -1,0 +1,17 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+{% load scene_qr %}
+<button
+  type="button"
+  class="btn btn-secondary btn-sm scene-qr-button"
+  title="View QR Code"
+  data-qr="{% scene_pairing_uri scene user request %}"
+  data-qr-target="scene-qr-svg-{{ scene.id }}"
+>
+  <i class="bi bi-qr-code"></i>
+</button>
+<div class="d-none" id="scene-qr-svg-{{ scene.id }}">
+  {% scene_qr_svg scene user request %}
+</div>

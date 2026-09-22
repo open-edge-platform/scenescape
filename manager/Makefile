@@ -12,6 +12,7 @@ JSLIBDIR = src/manager/static
 CURL_FLAGS = --connect-timeout 5 --max-time 120 --retry 5 --retry-delay 0
 FORCE_VAAPI ?= 0
 THREEJS_VERSION = 168
+BOOTSTRAP_ICONS_VERSION = 1.11.3
 SECRETSDIR ?= ./secrets
 
 # Actual calculated OpenCV.js SHA256 sum as of 26.02.2026
@@ -34,7 +35,7 @@ remove-symlink:
 .PHONY: clean-assets
 clean-assets:
 	rm -rf $(JSLIBDIR)/assets $(JSLIBDIR)/bootstrap $(JSLIBDIR)/examples \
-	  $(JSLIBDIR)/bootstrap-4.6.1-dist.zip $(JSLIBDIR)/bootstrap-icons-1.3.0.zip
+	  $(JSLIBDIR)/bootstrap-4.6.1-dist.zip $(JSLIBDIR)/bootstrap-icons-$(BOOTSTRAP_ICONS_VERSION).zip
 
 define JSMEXAMPLES
 fonts/helvetiker_regular.typeface.json \
@@ -185,17 +186,19 @@ $(JSLIBDIR)/bootstrap-4.6.1-dist.zip:
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
 	  && $(verify-web-asset)
 
-$(JSLIBDIR)/bootstrap-icons-1.3.0.zip:
-	URL=https://github.com/twbs/icons/releases/download/v1.3.0 && PKG=$$(basename $@) \
+$(JSLIBDIR)/bootstrap-icons-$(BOOTSTRAP_ICONS_VERSION).zip:
+	URL=https://github.com/twbs/icons/releases/download/v$(BOOTSTRAP_ICONS_VERSION) && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
 	  && $(verify-web-asset)
 
-$(JSLIBDIR)/bootstrap/css/bootstrap-icons.css: $(JSLIBDIR)/bootstrap/css
-	URL=https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font && PKG=$$(basename $@) \
-	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
-	  && $(verify-web-asset)
+$(JSLIBDIR)/bootstrap/css/bootstrap-icons.css: \
+	$(JSLIBDIR)/bootstrap-icons-$(BOOTSTRAP_ICONS_VERSION).zip \
+	$(JSLIBDIR)/bootstrap/css
+	unzip -o -d $(dir $@) -j $< \
+	  bootstrap-icons-$(BOOTSTRAP_ICONS_VERSION)/font/bootstrap-icons.css \
+	  < /dev/null
+	touch $@
 
 $(JSLIBDIR)/bootstrap/js/bootstrap.js: $(JSLIBDIR)/bootstrap-4.6.1-dist.zip
 	BOOTSTRAPDIR=$$(dirname $(dir $@)) \
@@ -206,11 +209,13 @@ $(JSLIBDIR)/bootstrap/js/bootstrap.js: $(JSLIBDIR)/bootstrap-4.6.1-dist.zip
 		&& rmdir $${BOOTSTRAPDIR}/$${DISTROOT}/* $${BOOTSTRAPDIR}/$${DISTROOT}
 	touch $@
 
-$(JSLIBDIR)/bootstrap/css/fonts/bootstrap-icons.woff: $(JSLIBDIR)/bootstrap-icons-1.3.0.zip
+$(JSLIBDIR)/bootstrap/css/fonts/bootstrap-icons.woff: \
+	$(JSLIBDIR)/bootstrap-icons-$(BOOTSTRAP_ICONS_VERSION).zip
 	FONTDIR=$(dir $@) \
 	 ; mkdir -p $${FONTDIR} \
 	   && unzip -u -d $${FONTDIR} -j $< \
-			bootstrap-icons-1.3.0/fonts/\*
+			bootstrap-icons-$(BOOTSTRAP_ICONS_VERSION)/font/fonts/\* \
+			< /dev/null
 	touch $@
 
 $(JSLIBDIR)/bootstrap/css: $(JSLIBDIR)/bootstrap/css/fonts/bootstrap-icons.woff
