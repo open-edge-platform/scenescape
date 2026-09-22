@@ -8,7 +8,7 @@
       {
         "name": "ptzcam1",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://192.168.0.92:554 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://${RTSP_CAM1_USER}:${RTSP_CAM1_PASS}@192.168.0.92:554 latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect scheduling-policy=latency batch-size=2 inference-interval=1 model-instance-id=retail model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model_proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json device=GPU pre-process-backend=va-surface-sharing ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
@@ -19,13 +19,6 @@
                 "property": "ntp-server"
               },
               "type": "string"
-            },
-            "use_frame_ntp_timestamp": {
-              "element": {
-                "name": "timesync",
-                "property": "use-frame-ntp-timestamp"
-              },
-              "type": "boolean"
             },
             "cameraid": {
               "element": {
@@ -63,7 +56,6 @@
         "payload": {
           "parameters": {
             "ntp_server": "ntpserv",
-            "use_frame_ntp_timestamp": false,
             "cameraid": "atag-ptzcam1",
             "metadatagenpolicy": "detectionPolicy",
             "detection_labels": "person"
@@ -73,7 +65,7 @@
       {
         "name": "ptzcam2",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://192.168.0.93:554 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://${RTSP_CAM2_USER}:${RTSP_CAM2_PASS}@192.168.0.93:554 latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect scheduling-policy=latency batch-size=2 inference-interval=1 model-instance-id=retail model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model_proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json device=GPU pre-process-backend=va-surface-sharing ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
@@ -84,13 +76,6 @@
                 "property": "ntp-server"
               },
               "type": "string"
-            },
-            "use_frame_ntp_timestamp": {
-              "element": {
-                "name": "timesync",
-                "property": "use-frame-ntp-timestamp"
-              },
-              "type": "boolean"
             },
             "cameraid": {
               "element": {
@@ -128,7 +113,6 @@
         "payload": {
           "parameters": {
             "ntp_server": "ntpserv",
-            "use_frame_ntp_timestamp": false,
             "cameraid": "atag-ptzcam2",
             "metadatagenpolicy": "detectionPolicy",
             "detection_labels": "person"
