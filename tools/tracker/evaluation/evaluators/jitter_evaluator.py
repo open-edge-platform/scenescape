@@ -15,7 +15,6 @@ import numpy as np
 from base.tracker_evaluator import TrackerEvaluator
 from utils.timeline import (
   deduplicate_frames_by_timestamp,
-  normalize_histories_to_fps,
   parse_timestamp,
   resolve_ground_truth_path,
 )
@@ -78,9 +77,6 @@ class JitterEvaluator(TrackerEvaluator):
     self._rotation_histories: Dict[str, List[tuple]] = {}
     # Ground-truth per-track histories (populated when GT JSONL is provided)
     self._gt_track_histories: Dict[str, List[tuple]] = {}
-    # Configured frame rate (set via set_base_fps); only used for grid
-    # normalisation, never inferred from tracker-output timestamps.
-    self._camera_fps: float = 30.0
     self._base_fps: Optional[float] = None
 
   # ------------------------------------------------------------------
@@ -127,11 +123,14 @@ class JitterEvaluator(TrackerEvaluator):
     return self
 
   def set_base_fps(self, fps=None) -> 'JitterEvaluator':
-    """Set base frame rate for timestamp-to-frame-number conversion.
+    """Accept a base frame rate for interface compatibility.
+
+    Jitter is computed directly from the preserved wall-clock timestamps, so
+    the frame rate is not used; the setter exists only so the pipeline engine
+    can call it uniformly on every evaluator.
 
     Args:
-      fps: Frames per second (> 0), or None. Optional for jitter, which is
-        computed from timestamps; the rate is only used for grid normalisation.
+      fps: Frames per second (> 0), or None.
 
     Returns:
       Self for method chaining.
@@ -214,26 +213,12 @@ class JitterEvaluator(TrackerEvaluator):
       for track_id in rotation_histories:
         rotation_histories[track_id].sort(key=lambda entry: entry[0])
 
-      # Jitter is computed directly from timestamps; the configured frame rate
-      # is only used to normalise onto a fixed grid below. It is never inferred.
-      if self._base_fps is not None:
-        self._camera_fps = self._base_fps
-
       # Parse ground-truth JSONL if provided
       gt_track_histories: Dict[str, List[tuple]] = {}
       if ground_truth is not None:
         gt_track_histories = self._parse_gt_jsonl(
           resolve_ground_truth_path(ground_truth)
         )
-
-      # When a fixed fps is configured, replace wall-clock timestamps with
-      # synthetic frame-index-based ones (epoch + frame_idx / fps) so kinematic
-      # derivatives are independent of system processing speed. Apply the same
-      # normalization to tracker and ground-truth histories.
-      if self._base_fps is not None:
-        track_histories = normalize_histories_to_fps(track_histories, self._base_fps)
-        rotation_histories = normalize_histories_to_fps(rotation_histories, self._base_fps)
-        gt_track_histories = normalize_histories_to_fps(gt_track_histories, self._base_fps)
 
       self._track_histories = track_histories
       self._rotation_histories = rotation_histories
@@ -315,7 +300,6 @@ class JitterEvaluator(TrackerEvaluator):
     self._track_histories = {}
     self._rotation_histories = {}
     self._gt_track_histories = {}
-    self._camera_fps = 30.0
     self._base_fps = None
     return self
 

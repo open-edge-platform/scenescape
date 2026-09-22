@@ -12,7 +12,7 @@ requires integer frame indices.
 """
 
 from typing import Any, Dict, Iterable, List, Optional
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 
 def parse_timestamp(timestamp: str) -> datetime:
@@ -87,25 +87,3 @@ def reference_timestamp(*frame_lists: List[Dict[str, Any]]) -> Optional[datetime
     if frames:
       firsts.append(parse_timestamp(frames[0]["timestamp"]))
   return min(firsts) if firsts else None
-
-
-def normalize_histories_to_fps(
-  histories: Dict[Any, List[tuple]],
-  fps: float
-) -> Dict[Any, List[tuple]]:
-  """Remap per-track ``(timestamp, value)`` histories onto an fps-fixed grid.
-
-  Replaces wall-clock timestamps with ``epoch + index / fps`` based on the
-  globally sorted unique timestamps, so kinematic derivatives are independent of
-  processing speed while preserving relative frame ordering.
-  """
-  epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
-  all_ts = sorted({ts for entries in histories.values() for ts, _ in entries})
-  ts_to_idx = {ts: i for i, ts in enumerate(all_ts)}
-  return {
-    key: [
-      (epoch + timedelta(seconds=ts_to_idx[ts] / fps), value)
-      for ts, value in entries
-    ]
-    for key, entries in histories.items()
-  }
