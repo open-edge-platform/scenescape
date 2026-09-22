@@ -496,7 +496,6 @@ class TestReset:
     assert evaluator._processed is False
     assert evaluator._output_tracks == {}
     assert evaluator._gt_tracks == {}
-    assert evaluator._uuid_to_id_map == {}
 
 
 class TestMethodChaining:

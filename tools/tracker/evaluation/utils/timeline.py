@@ -87,3 +87,28 @@ def reference_timestamp(*frame_lists: List[Dict[str, Any]]) -> Optional[datetime
     if frames:
       firsts.append(parse_timestamp(frames[0]["timestamp"]))
   return min(firsts) if firsts else None
+
+
+def ingest_frames(frames, target_tracks, reference, fps) -> None:
+  """Quantize frames onto the shared grid and store per-track (x, y) positions.
+
+  Each frame's absolute timestamp is mapped to an integer frame index; every
+  object's XY translation is stored as
+  ``target_tracks[str(obj["id"])][frame_index] = (x, y)``. Track ids are keyed
+  as strings so numeric and UUID ids are handled uniformly.
+
+  Args:
+    frames: Iterable of frame dicts with ``timestamp`` and ``objects``.
+    target_tracks: Dict mutated in place: {track_id: {frame_index: (x, y)}}.
+    reference: Shared reference epoch (from ``reference_timestamp``).
+    fps: Frame rate (from ``require_fps``).
+  """
+  for frame_data in frames:
+    frame = timestamp_to_frame(
+      parse_timestamp(frame_data["timestamp"]), reference, fps
+    )
+    for obj in frame_data.get("objects", []):
+      translation = obj["translation"]
+      target_tracks.setdefault(str(obj["id"]), {})[frame] = (
+        translation[0], translation[1]
+      )
