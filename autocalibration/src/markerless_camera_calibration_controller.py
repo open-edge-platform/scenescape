@@ -9,8 +9,6 @@ from datetime import datetime
 from pathlib import Path
 
 from auto_camera_calibration_controller import CameraCalibrationController
-from markerless_camera_calibration import \
-    CameraCalibrationMonocularPoseEstimate
 from polycam_to_images import transform_dataset
 from pytz import timezone
 
@@ -97,6 +95,8 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
 
     if sceneobj.id not in self.cam_calib_objs or map_update:
       try:
+        from markerless_camera_calibration import \
+            CameraCalibrationMonocularPoseEstimate
         self.cam_calib_objs[sceneobj.id] = \
             CameraCalibrationMonocularPoseEstimate(sceneobj,
                                                    preprocess['dataset_dir'],
@@ -165,10 +165,16 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
 
   def reset_scene(self, scene):
     self.cam_calib_objs.pop(scene.id, None)
-    if (hasattr(scene, 'output_dir') and os.path.exists(scene.output_dir)
-            and os.path.isdir(scene.output_dir)):
+    if hasattr(scene, 'output_dir') and self._is_within_datasets_root(scene.output_dir) \
+            and os.path.isdir(scene.output_dir):
       shutil.rmtree(scene.output_dir)
     return
+
+  def _is_within_datasets_root(self, path):
+    """! Reject paths escaping datasets/, regardless of how they were derived (e.g. a legacy/tampered name)."""
+    datasets_root = (Path(os.getcwd()) / "datasets").resolve()
+    resolved = Path(path).resolve()
+    return resolved == datasets_root or datasets_root in resolved.parents
 
   def preprocess_polycam_dataset(self, scene_obj):
     """! Preprocess the polycam zip file uploaded via UI, extracts data
@@ -183,6 +189,8 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     if not scene_obj.polycam_data:
       raise FileNotFoundError("Polycam zip file not found")
     base_dataset_path = Path(os.getcwd()) / "datasets" / scene_obj.name
+    if not self._is_within_datasets_root(base_dataset_path):
+      raise ValueError(f"Invalid scene name: {scene_obj.name!r}")
     with zipfile.ZipFile(scene_obj.polycam_data) as zf:
       zf.extractall(base_dataset_path)
       extracted_files = zf.namelist()
