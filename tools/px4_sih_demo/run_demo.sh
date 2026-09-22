@@ -188,23 +188,35 @@ cmd_stop_fly() {
 
 cmd_watch_roi() {
   require_config
+  resolve_broker_host
   local scene_uid roi_uid
   scene_uid="$(read_config_field scene_uid)"
   roi_uid="$(read_config_field roi_uid)"
   local ca="${REPO_ROOT}/manager/secrets/certs/scenescape-ca.pem"
-  local auth
-  auth="$(cat "${REPO_ROOT}/manager/secrets/controller.auth")"
+  local auth_file="${REPO_ROOT}/manager/secrets/controller.auth"
+  local broker="${SCENESCAPE_BROKER}"
+  local port="${SCENESCAPE_BROKER_PORT:-1883}"
+  # controller.auth is JSON {"user": ..., "password": ...} (same as PubSub/RESTClient).
   local user pass
-  user="${auth%%:*}"
-  pass="${auth#*:}"
+  user="$(python_demo -c "import json; print(json.load(open('${auth_file}'))['user'])")"
+  pass="$(python_demo -c "import json; print(json.load(open('${auth_file}'))['password'])")"
+  local -a tls_args=(--cafile /ca.pem)
+  local tls_verify=enabled
+  case "${SCENESCAPE_MQTT_INSECURE:-}" in
+    1|true|yes|TRUE|YES)
+      tls_args+=(--insecure)
+      tls_verify=disabled
+      ;;
+  esac
   # Analytics publishes region enter/exit on event_type "objects" (payload includes
   # counts/entered/exited). Older docs referred to a separate "/count" suffix.
   echo "Subscribing to ROI events for scene ${scene_uid} region ${roi_uid} …"
+  echo "  MQTT broker: ${broker}:${port} (TLS verify ${tls_verify})"
   docker run --rm --network host \
     -v "${ca}:/ca.pem:ro" \
     eclipse-mosquitto:2.0.22 \
-    mosquitto_sub -h localhost -p 1883 \
-    --cafile /ca.pem --insecure \
+    mosquitto_sub -h "${broker}" -p "${port}" \
+    "${tls_args[@]}" \
     -u "${user}" -P "${pass}" \
     -t "scenescape/event/region/${scene_uid}/${roi_uid}/+" -v
 }
@@ -249,6 +261,10 @@ Environment:
   SUPASS                  Scenescape admin password
   PX4_DEMO_LOCATION       Geocode query (default: Shoreline Amphitheatre, MV)
   SCENESCAPE_MQTT_AUTH    Defaults to manager/secrets/controller.auth
+  SCENESCAPE_BROKER       MQTT host (default: broker.scenescape.intel.com)
+  SCENESCAPE_MQTT_INSECURE
+                          Set to 1 to skip broker TLS hostname verification
+                          (watch-roi / adapter fallback only)
 EOF
 }
 

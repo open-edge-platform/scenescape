@@ -49,6 +49,9 @@ def _parse_size_env(name, default):
   parts = [float(x.strip()) for x in raw.split(",")]
   if len(parts) != 3:
     raise SystemExit(f"{name} must be three comma-separated numbers (L,W,H metres)")
+  if not all(math.isfinite(v) and v > 0 for v in parts):
+    raise SystemExit(
+      f"{name} values must be finite and > 0 (got {parts!r})")
   return parts
 
 

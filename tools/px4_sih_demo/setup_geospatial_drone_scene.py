@@ -28,6 +28,8 @@ from urllib.request import Request, urlopen
 from scene_common.rest_client import RESTClient
 
 EARTH_CIRCUMFERENCE_M = 40075016.686
+# Mapbox GL / Static Images API use 512 px tiles (not the classic 256 raster size).
+WEB_MERCATOR_TILE_SIZE = 512
 MAP_WIDTH_PX = 1280
 MAP_HEIGHT_PX = 1280
 DEFAULT_ZOOM = 19.0
@@ -59,14 +61,14 @@ def geocode_mapbox(token, query):
 
 
 def calculate_scale(lat, zoom):
-  """Match manager/static/js/geospatial/map-interface.js calculateScale()."""
-  pixels_per_degree = (256 * (2 ** zoom)) / 360.0
+  """Pixels per metre at ``lat``/``zoom`` (Mapbox 512-tile Web Mercator)."""
+  pixels_per_degree = (WEB_MERCATOR_TILE_SIZE * (2 ** zoom)) / 360.0
   meters_per_degree_lng = (EARTH_CIRCUMFERENCE_M / 360.0) * math.cos(math.radians(lat))
   return pixels_per_degree / meters_per_degree_lng
 
 
 def _lat_lng_to_pixel(lat, lng, zoom):
-  world_size = 512 * (2 ** zoom)
+  world_size = WEB_MERCATOR_TILE_SIZE * (2 ** zoom)
   x = (lng + 180.0) / 360.0 * world_size
   lat_rad = math.radians(lat)
   y = (1.0 - math.log(math.tan(lat_rad) + 1.0 / math.cos(lat_rad)) / math.pi) / 2.0 * world_size
@@ -74,7 +76,7 @@ def _lat_lng_to_pixel(lat, lng, zoom):
 
 
 def _pixel_to_lat_lng(x, y, zoom):
-  world_size = 512 * (2 ** zoom)
+  world_size = WEB_MERCATOR_TILE_SIZE * (2 ** zoom)
   lng = x / world_size * 360.0 - 180.0
   lat_rad = math.atan(math.sinh(math.pi * (1.0 - 2.0 * y / world_size)))
   return math.degrees(lat_rad), lng

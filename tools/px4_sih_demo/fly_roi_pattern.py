@@ -34,6 +34,15 @@ def load_config(path):
     return json.load(fh)
 
 
+def mission_relative_alt_m(cfg):
+  """Altitude above home for MAV_FRAME_GLOBAL_RELATIVE_ALT_INT mission items.
+
+  ``px4_takeoff_alt_m`` is stored as MSL (home + climb). Relative frames need
+  the climb above ``px4_home_alt_m``.
+  """
+  return cfg["px4_takeoff_alt_m"] - cfg["px4_home_alt_m"]
+
+
 def offset_lla(lat, lon, north_m, east_m):
   """Approximate lat/lon offset in metres (flat earth, fine for demo scale)."""
   dlat = north_m / 111_320.0
@@ -68,13 +77,14 @@ def set_mode(mav, *mode_names):
       if hb and mav.flightmode == mode_name:
         return mode_name
       time.sleep(0.2)
-    return mode_name
+    # Timed out without confirmation — try the next fallback name.
   raise RuntimeError(
-    f"No requested mode available (tried {mode_names!r}); have {sorted(mapping)}")
+    f"Failed to reach any of {mode_names!r} (current={mav.flightmode!r}); "
+    f"available={sorted(mapping)}")
 
 
 def takeoff_to_alt(mav, lat, lon, alt_m, position_tol_m):
-  del position_tol_m
+  """Arm and take off to ``alt_m`` metres above home (relative altitude)."""
   set_mode(mav, "TAKEOFF", "POSCTL", "ALTCTL")
   arm_vehicle(mav)
   cmd_takeoff(mav, lat, lon, alt_m)
@@ -82,7 +92,7 @@ def takeoff_to_alt(mav, lat, lon, alt_m, position_tol_m):
   deadline = time.time() + 90
   while time.time() < deadline:
     pos = read_global_position(mav, timeout_s=1)
-    if pos and pos[2] >= alt_m - 5:
+    if pos and pos[3] >= alt_m - position_tol_m:
       return
     time.sleep(0.5)
   print("Warning: takeoff altitude not confirmed; continuing")
@@ -110,10 +120,11 @@ def cmd_takeoff(mav, lat, lon, alt_m):
 
 
 def read_global_position(mav, timeout_s=2):
+  """Return (lat, lon, alt_msl_m, relative_alt_m) or None."""
   msg = mav.recv_match(type="GLOBAL_POSITION_INT", blocking=True, timeout=timeout_s)
   if msg is None:
     return None
-  return msg.lat / 1e7, msg.lon / 1e7, msg.alt / 1000.0
+  return (msg.lat / 1e7, msg.lon / 1e7, msg.alt / 1000.0, msg.relative_alt / 1000.0)
 
 
 def roi_ping_points(cfg, axis, outside_margin_m, inside_margin_m):
@@ -181,9 +192,8 @@ def position_spread_m(positions):
 
 
 def fly_roi_ping(mav, cfg, axis, leg_period_s, outside_margin_m, inside_margin_m,
-                 position_tol_m, stuck_timeout_s, cruise_speed_mps, accept_radius_m):
+                 stuck_timeout_s, cruise_speed_mps, accept_radius_m):
   """Upload a looping mission that crosses one ROI edge repeatedly."""
-  del position_tol_m
   half = cfg["roi_half_size_m"]
   outside, inside = roi_ping_points(cfg, axis, outside_margin_m, inside_margin_m)
 
@@ -266,7 +276,7 @@ def mission_item_int(seq, command, lat, lon, alt_m, param1=0, param2=2, param3=0
 def build_ping_mission(cfg, axis, outside_margin_m, inside_margin_m, cruise_speed_mps,
                        accept_radius_m):
   """Repeating mission: takeoff → outside ROI → inside → loop."""
-  alt_m = cfg["px4_takeoff_alt_m"]
+  alt_m = mission_relative_alt_m(cfg)
   lat0, lon0 = cfg["px4_home_lat"], cfg["px4_home_lon"]
   outside, inside = roi_ping_points(cfg, axis, outside_margin_m, inside_margin_m)
 
@@ -292,7 +302,8 @@ def build_ping_mission(cfg, axis, outside_margin_m, inside_margin_m, cruise_spee
       "current": 0,
       "autocontinue": 1,
       "param1": 2,  # jump back to "outside" waypoint (seq 2)
-      "param2": 0,  # repeat indefinitely (PX4)
+      # MAV_CMD_DO_JUMP param2: 0 = no repeats; -1 = repeat indefinitely.
+      "param2": -1,
       "param3": 0, "param4": 0,
       "x": 0, "y": 0, "z": 0,
     },
@@ -304,10 +315,14 @@ def build_ping_mission(cfg, axis, outside_margin_m, inside_margin_m, cruise_spee
 
 
 def build_square_mission(cfg):
-  """Legacy one-shot square mission through map centre."""
+  """Legacy one-shot square mission through map centre.
+
+  Starts with NAV_TAKEOFF (same as the ping mission) so a grounded multicopter
+  can arm and climb before the first waypoint.
+  """
   home_lat = cfg["px4_home_lat"]
   home_lon = cfg["px4_home_lon"]
-  alt_m = cfg["px4_takeoff_alt_m"]
+  alt_m = mission_relative_alt_m(cfg)
   leg_m = cfg.get("flight_leg_m", cfg.get("roi_half_size_m", 45.0) * 1.2)
 
   center = (home_lat, home_lon)
@@ -317,19 +332,13 @@ def build_square_mission(cfg):
   west = offset_lla(center[0], center[1], 0, -leg_m)
 
   path = [center, north, east, south, west, center]
-  wps = []
-  for seq, (lat, lon) in enumerate(path):
-    wps.append({
-      "seq": seq,
-      "frame": mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT,
-      "command": mavlink.MAV_CMD_NAV_WAYPOINT,
-      "current": 0,
-      "autocontinue": 1,
-      "param1": 0, "param2": 0, "param3": 0, "param4": 0,
-      "x": int(lat * 1e7),
-      "y": int(lon * 1e7),
-      "z": alt_m,
-    })
+  wps = [
+    mission_item_int(0, mavlink.MAV_CMD_NAV_TAKEOFF, home_lat, home_lon, alt_m),
+  ]
+  for seq, (lat, lon) in enumerate(path, start=1):
+    wps.append(mission_item_int(
+      seq, mavlink.MAV_CMD_NAV_WAYPOINT, lat, lon, alt_m,
+      param1=0, param2=0))
   return wps
 
 
@@ -413,7 +422,7 @@ def parse_args(argv=None):
     help="Restart mission if barely moving this many seconds (default: 8)")
   parser.add_argument(
     "--position-tol", type=float, default=4.0,
-    help="Arrival tolerance in metres (default: 4)")
+    help="Takeoff altitude confirmation tolerance in metres (default: 4)")
   parser.add_argument("--takeoff-only", action="store_true",
                       help="Arm and takeoff vertically; hover at home (no ROI crossing)")
   parser.add_argument(
@@ -435,15 +444,16 @@ def main(argv=None):
     return 0
 
   if args.takeoff_only:
-    takeoff_to_alt(mav, cfg["px4_home_lat"], cfg["px4_home_lon"], cfg["px4_takeoff_alt_m"],
-                   args.position_tol)
+    # NAV_TAKEOFF altitude is relative to home (same as relative mission frame).
+    takeoff_to_alt(mav, cfg["px4_home_lat"], cfg["px4_home_lon"],
+                   mission_relative_alt_m(cfg), args.position_tol)
     print("Hover over home (inside ROI — no enter/exit events).")
     return 0
 
   if args.pattern == "ping":
     fly_roi_ping(
       mav, cfg, args.axis, args.leg_period,
-      args.outside_margin, args.inside_margin, args.position_tol,
+      args.outside_margin, args.inside_margin,
       args.stuck_timeout, args.cruise_speed, args.accept_radius)
     return 0
 
