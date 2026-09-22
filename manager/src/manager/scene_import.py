@@ -89,13 +89,11 @@ class ImportScene:
       "tripwires": None,
       "regions": None,
       "sensors": None,
-      "assets": None,
       "calibration_markers": None,
       "cameras_created": None,
       "tripwires_created": None,
       "regions_created": None,
       "sensors_created": None,
-      "assets_created": None,
       "calibration_markers_created": None,
     }
 
@@ -208,28 +206,6 @@ class ImportScene:
     import_summary["sensors"] = sensor_errors
     import_summary["sensors_created"] = sensors_created
 
-    # Assets are global (no scene FK); skip ones that already exist by name,
-    # and don't route them through bulk_create since it injects "scene".
-    existing_assets = {a["name"] for a in self.rest.getAssets({}).get("results", [])}
-    asset_errors = []
-    assets_created = []
-    for asset in json_data.get("assets", []) or []:
-      if asset.get("name") in existing_assets:
-        continue
-      # model_3d is exported as a URL; the archive doesn't bundle the actual
-      # file, so re-posting that URL would be rejected by the FileField.
-      asset.pop("model_3d", None)
-      try:
-        resp = await asyncio.to_thread(self.rest.createAsset, asset)
-        if getattr(resp, "errors", None):
-          asset_errors.append((resp.errors, asset))
-        else:
-          assets_created.append(dict(resp))
-      except Exception as e:
-        asset_errors.append((e, asset))
-    import_summary["assets"] = asset_errors or None
-    import_summary["assets_created"] = assets_created or None
-
     # Calibration markers are scoped to this scene via a synthetic marker_id.
     markers = json_data.get("calibration_markers", []) or []
     for marker in markers:
@@ -243,7 +219,7 @@ class ImportScene:
     for child_data in json_data.get("children", []):
       child_summary = await self.loadScene(child=child_data, parent=scene_id)
       if any(child_summary[key] for key in (
-          "scene", "cameras", "tripwires", "regions", "sensors", "assets", "calibration_markers")):
+          "scene", "cameras", "tripwires", "regions", "sensors", "calibration_markers")):
         return child_summary
 
     return import_summary

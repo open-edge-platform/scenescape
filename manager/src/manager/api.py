@@ -153,7 +153,7 @@ class ManageThing(APIView):
   def get(self, request, thing_type, uid=None):
     thing_class, thing_serializer, uid_field = get_class_and_serializer(thing_type)
 
-    self.validateUnknownParams(request, allowed_query_params={'export'})
+    self.validateUnknownParams(request)
 
     if uid is None:
       return Response(
@@ -171,7 +171,7 @@ class ManageThing(APIView):
     except thing_class.DoesNotExist:
       return Response(status=status.HTTP_404_NOT_FOUND)
 
-    serializer = thing_serializer(thing, context={'request': request})
+    serializer = thing_serializer(thing)
     return Response(serializer.data)
 
   def post(self, request, thing_type, uid=None):

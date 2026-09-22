@@ -13,8 +13,8 @@ import requests
 import uploader
 from uploader import (
   RESOURCE_KEYS, SceneScapeClient, parse_auth,
-  read_scene_from_zip, upload_all, upload_assets, upload_calibration_markers,
-  upload_one, upload_scene, wait_for_database,
+  read_object_library, read_scene_from_zip, upload_all, upload_calibration_markers,
+  upload_object_library, upload_one, upload_scene, wait_for_database,
 )
 
 
@@ -215,20 +215,39 @@ class TestWaitForDatabase:
     uploader.time.sleep.assert_not_called()
 
 
-class TestUploadAssets:
+class TestReadObjectLibrary:
+  def test_missing_file_returns_empty_list(self, tmp_path):
+    assert read_object_library(str(tmp_path / "missing.json")) == []
+
+  def test_valid_library(self, tmp_path):
+    path = tmp_path / "object-library.json"
+    path.write_text(json.dumps([{"name": "person"}]))
+    assert read_object_library(str(path)) == [{"name": "person"}]
+
+  def test_not_a_list_returns_none(self, tmp_path):
+    path = tmp_path / "object-library.json"
+    path.write_text(json.dumps({"name": "person"}))
+    assert read_object_library(str(path)) is None
+
+  def test_malformed_json_returns_none(self, tmp_path):
+    path = tmp_path / "object-library.json"
+    path.write_text("not json")
+    assert read_object_library(str(path)) is None
+
+
+class TestUploadObjectLibrary:
   def test_creates_missing_assets_only(self, fake_client):
     fake_client.asset_exists.side_effect = [False, True]
-    scene = {"name": "Demo", "assets": [{"name": "a"}, {"name": "b"}]}
-    assert upload_assets(fake_client, scene) is True
+    library = [{"name": "a"}, {"name": "b"}]
+    assert upload_object_library(fake_client, library) is True
     fake_client.create_asset.assert_called_once_with({"name": "a"})
 
-  def test_no_assets(self, fake_client):
-    assert upload_assets(fake_client, {"name": "Demo"}) is True
+  def test_empty_library(self, fake_client):
+    assert upload_object_library(fake_client, []) is True
     fake_client.create_asset.assert_not_called()
 
   def test_asset_without_name_fails(self, fake_client):
-    scene = {"name": "Demo", "assets": [{}]}
-    assert upload_assets(fake_client, scene) is False
+    assert upload_object_library(fake_client, [{}]) is False
     fake_client.create_asset.assert_not_called()
 
 
@@ -298,12 +317,6 @@ class TestUploadOne:
     bad.write_bytes(b"not a zip")
     assert upload_one(fake_client, str(bad)) is None
     fake_client.scene_uid.assert_not_called()
-
-  def test_asset_failure_returns_none(self, fake_client, scene_zip):
-    zip_path = scene_zip({"name": "Demo", "assets": [{}]})
-    fake_client.scene_uid.return_value = None
-    assert upload_one(fake_client, str(zip_path)) is None
-    fake_client.import_scene.assert_not_called()
 
   def test_marker_failure_returns_none(self, fake_client, scene_zip):
     zip_path = scene_zip({

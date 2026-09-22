@@ -2714,11 +2714,6 @@ components:
           items:
             $ref: "#/components/schemas/CalibrationMarker"
           readOnly: true
-        assets:
-          type: array
-          items:
-            $ref: "#/components/schemas/Asset3D"
-          readOnly: true
       required:
         - name
     ShiftTypeEnum:

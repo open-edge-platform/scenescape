@@ -21,10 +21,12 @@ if str(_UPLOAD_SCENES_DIR) not in sys.path:
   sys.path.insert(0, str(_UPLOAD_SCENES_DIR))
 
 from uploader import (  # noqa: E402
-  SceneScapeClient, parse_auth, upload_one, wait_for_database,
+  SceneScapeClient, parse_auth, read_object_library, upload_object_library, upload_one,
+  wait_for_database,
 )
 
 _RESOURCES_DIR = Path(__file__).resolve().parents[1] / "resources" / "scenes"
+_OBJECT_LIBRARY_PATH = _RESOURCES_DIR / "object-library.json"
 
 # Keys used by ServiceProfile/_PROFILE_SCENE_ARCHIVES to pick which archives a
 # stack needs. Values are tuples of archive paths, uploaded in order. Each
@@ -59,6 +61,12 @@ def upload_baseline_scenes(resturl, rootcert, auth_path, archive_keys):
     raise RuntimeError(f"{resturl} was not ready after {_READY_TIMEOUT_SECONDS} seconds")
   user, password = parse_auth(str(auth_path))
   client.authenticate(user, password)
+
+  library = read_object_library(str(_OBJECT_LIBRARY_PATH))
+  if library is None:
+    raise RuntimeError(f"Failed to read {_OBJECT_LIBRARY_PATH}")
+  if library and not upload_object_library(client, library):
+    raise RuntimeError(f"Failed to upload object library from {_OBJECT_LIBRARY_PATH}")
 
   scene_uids = {}
   for archive_key in archive_keys:

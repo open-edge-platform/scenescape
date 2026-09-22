@@ -603,24 +603,10 @@ class SceneSerializer(NonNullSerializer):
   map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z", required=False, allow_null=True)
   trs_matrix = serializers.SerializerMethodField('get_trs_matrix')
   calibration_markers = serializers.SerializerMethodField('get_calibration_markers')
-  assets = serializers.SerializerMethodField('get_assets')
-
-  def _is_export_request(self):
-    # Full asset/marker embedding is only needed for the export-scene download;
-    # skip the extra query and payload on every other scene read.
-    request = self.context.get('request')
-    return bool(request) and bool(request.query_params.get('export'))
 
   def get_calibration_markers(self, obj):
-    if not self._is_export_request():
-      return []
     return CalibrationMarkerSerializer(
       CalibrationMarker.objects.filter(scene=obj), many=True).data
-
-  def get_assets(self, obj):
-    if not self._is_export_request():
-      return []
-    return Asset3DSerializer(Asset3D.objects.all(), many=True).data
 
   def validate(self, attrs):
     if not self.initial_data:
@@ -888,7 +874,7 @@ class SceneSerializer(NonNullSerializer):
               'camera_calibration', 'apriltag_size', 'map_processed', 'polycam_data',
               'number_of_localizations', 'global_feature', 'local_feature', 'matcher',
               'minimum_number_of_matches', 'inlier_threshold', 'geospatial_provider', 'map_zoom',
-              'map_center_lat', 'map_center_lng', 'map_bearing', 'calibration_markers', 'assets']
+              'map_center_lat', 'map_center_lng', 'map_bearing', 'calibration_markers']
 
 class PubSubACLSerializer(NonNullSerializer):
   class Meta:

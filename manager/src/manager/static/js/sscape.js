@@ -272,7 +272,7 @@ async function checkBrokerConnections() {
             .stop()
             .show()
             .css("opacity", 1)
-            .animate({ opacity: 0.6 }, 5000, function () {})
+            .animate({ opacity: 0.6 }, 5000, function () { })
             .prevAll(".cam-offline")
             .hide();
         }
@@ -1535,9 +1535,9 @@ function setupGenerateMesh() {
       if (statusResult?.unanchored_cameras?.length) {
         alert(
           "Mesh generated successfully! The scene map has been updated.\n\n" +
-            "Warning: the following cameras had no prior calibration and were " +
-            "placed automatically, review their position before relying on them: " +
-            statusResult.unanchored_cameras.join(", "),
+          "Warning: the following cameras had no prior calibration and were " +
+          "placed automatically, review their position before relying on them: " +
+          statusResult.unanchored_cameras.join(", "),
         );
       } else {
         alert("Mesh generated successfully! The scene map has been updated.");
@@ -1864,7 +1864,7 @@ $(document).ready(function () {
       const authToken = `Token ${tokenElement.value}`;
       const restclient = new RESTClient(REST_URL, authToken);
       try {
-        const response = await restclient.getScene(scene_id, { export: true });
+        const response = await restclient.getScene(scene_id);
         if (response.statusCode !== 200)
           throw new Error("Failed to fetch scenes");
 
