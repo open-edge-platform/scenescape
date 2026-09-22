@@ -40,6 +40,7 @@ ensure_venv() {
 python_demo() {
   ensure_venv
   PYTHONPATH="${REPO_ROOT}/scene_common/src:${PYTHONPATH:-}" \
+    PYTHONUNBUFFERED=1 \
     "${VENV}/bin/python3" "$@"
 }
 
@@ -90,7 +91,15 @@ ensure_mqtt_from_host() {
 cmd_setup() {
   : "${MAPBOX_API_KEY:?Set MAPBOX_API_KEY}"
   : "${SUPASS:?Set SUPASS (Scenescape admin password)}"
-  python_demo "${SCRIPT_DIR}/setup_geospatial_drone_scene.py" "$@"
+  # Host setups rarely have web.scenescape.intel.com in /etc/hosts; default to
+  # localhost with TLS verify disabled unless the caller already set a URL.
+  local setup_args=()
+  if [[ -z "${SCENESCAPE_REST_URL:-}" ]] \
+      && ! getent hosts web.scenescape.intel.com 2>/dev/null \
+        | grep -qE '127\.0\.0\.1|::1'; then
+    setup_args+=(--rest-url https://localhost/api/v1 --insecure)
+  fi
+  python_demo "${SCRIPT_DIR}/setup_geospatial_drone_scene.py" "${setup_args[@]}" "$@"
 }
 
 cmd_start_px4() {
@@ -188,14 +197,16 @@ cmd_watch_roi() {
   local user pass
   user="${auth%%:*}"
   pass="${auth#*:}"
-  echo "Subscribing to ROI count events for scene ${scene_uid} region ${roi_uid} …"
+  # Analytics publishes region enter/exit on event_type "objects" (payload includes
+  # counts/entered/exited). Older docs referred to a separate "/count" suffix.
+  echo "Subscribing to ROI events for scene ${scene_uid} region ${roi_uid} …"
   docker run --rm --network host \
     -v "${ca}:/ca.pem:ro" \
     eclipse-mosquitto:2.0.22 \
     mosquitto_sub -h localhost -p 1883 \
     --cafile /ca.pem --insecure \
     -u "${user}" -P "${pass}" \
-    -t "scenescape/event/region/${scene_uid}/${roi_uid}/count" -v
+    -t "scenescape/event/region/${scene_uid}/${roi_uid}/+" -v
 }
 
 cmd_stop() {
