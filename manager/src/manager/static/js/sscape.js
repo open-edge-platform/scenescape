@@ -272,7 +272,7 @@ async function checkBrokerConnections() {
             .stop()
             .show()
             .css("opacity", 1)
-            .animate({ opacity: 0.6 }, 5000, function () { })
+            .animate({ opacity: 0.6 }, 5000, function () {})
             .prevAll(".cam-offline")
             .hide();
         }
@@ -1535,9 +1535,9 @@ function setupGenerateMesh() {
       if (statusResult?.unanchored_cameras?.length) {
         alert(
           "Mesh generated successfully! The scene map has been updated.\n\n" +
-          "Warning: the following cameras had no prior calibration and were " +
-          "placed automatically, review their position before relying on them: " +
-          statusResult.unanchored_cameras.join(", "),
+            "Warning: the following cameras had no prior calibration and were " +
+            "placed automatically, review their position before relying on them: " +
+            statusResult.unanchored_cameras.join(", "),
         );
       } else {
         alert("Mesh generated successfully! The scene map has been updated.");
