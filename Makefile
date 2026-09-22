@@ -821,6 +821,7 @@ video-source-down:
 	@echo "CONTROLLER_ENABLE_TRACING=$(CONTROLLER_ENABLE_TRACING)" >> $@
 	@echo "CONTROLLER_TRACING_ENDPOINT=$(CONTROLLER_TRACING_ENDPOINT)" >> $@
 	@echo "CONTROLLER_TRACING_SAMPLE_RATIO=$(CONTROLLER_TRACING_SAMPLE_RATIO)" >> $@
+	@echo "SCENESCAPE_ALLOWED_HOSTS=*" >> $@
 # ======================= Secrets Management =========================
 
 .PHONY: init-secrets
