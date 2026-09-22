@@ -1841,7 +1841,6 @@ $(document).ready(function () {
         }
 
         if (
-          result.assets ||
           result.cameras ||
           result.calibration_markers ||
           result.tripwires ||
