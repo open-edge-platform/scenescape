@@ -66,6 +66,7 @@
             "use_frame_ntp_timestamp": false,
             "cameraid": "atag-ptzcam1",
             "metadatagenpolicy": "detectionPolicy",
+            "publish_image": true,
             "detection_labels": "person"
           }
         }
@@ -131,6 +132,7 @@
             "use_frame_ntp_timestamp": false,
             "cameraid": "atag-ptzcam2",
             "metadatagenpolicy": "detectionPolicy",
+            "publish_image": true,
             "detection_labels": "person"
           }
         }
