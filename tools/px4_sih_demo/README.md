@@ -20,11 +20,11 @@ PX4 SIH (Docker)          MAVLink adapter              Scene Controller
 
 ## Prerequisites
 
-| Requirement | Notes |
-|-------------|-------|
-| SceneScape | `make demo` with `MAPBOX_API_KEY` and `SUPASS` |
-| Docker | For `px4io/px4-sitl-sih` (no PX4 toolchain needed) |
-| Python 3.10+ | `pip install -r tools/external_source_adapters/requirements.txt` |
+| Requirement  | Notes                                                                                                                               |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| SceneScape   | `make demo` with `MAPBOX_API_KEY` and `SUPASS`                                                                                      |
+| Docker       | For `px4io/px4-sitl-sih` (no PX4 toolchain needed)                                                                                  |
+| Python 3.10+ | `pip install -r tools/external_source_adapters/requirements.txt`                                                                    |
 | Mapbox token | `MAPBOX_API_KEY` — [configure keys](../../docs/user-guide/how-to-guides/build-a-scene/configure-geospatial-map-service-api-keys.md) |
 
 ## Quick start
@@ -108,20 +108,20 @@ You should see ROI **enter/exit count** events when the drone crosses the region
 
 ## How SIH maps to the MAVLink adapter
 
-| SIH / PX4 | MAVLink message | SceneScape field |
-|-----------|-----------------|------------------|
-| Simulated GPS (from `PX4_HOME_*` + dynamics) | `GLOBAL_POSITION_INT` | `pose.lat_long_alt` (wgs84) |
-| Attitude estimator | `ATTITUDE` | `pose.rotation`, `objects[].rotation` |
-| Vehicle identity | — | `source_id` = `SCENESCAPE_SOURCE_ID` (persistent) |
+| SIH / PX4                                    | MAVLink message       | SceneScape field                                  |
+| -------------------------------------------- | --------------------- | ------------------------------------------------- |
+| Simulated GPS (from `PX4_HOME_*` + dynamics) | `GLOBAL_POSITION_INT` | `pose.lat_long_alt` (wgs84)                       |
+| Attitude estimator                           | `ATTITUDE`            | `pose.rotation`, `objects[].rotation`             |
+| Vehicle identity                             | —                     | `source_id` = `SCENESCAPE_SOURCE_ID` (persistent) |
 
 The adapter does **not** read uORB directly; PX4's MAVLink module translates internal state to MAVLink automatically in SITL/SIH mode.
 
 Default MAVLink ports (single instance):
 
-| Port | Direction | Consumer |
-|------|-----------|----------|
+| Port      | Direction           | Consumer                                                    |
+| --------- | ------------------- | ----------------------------------------------------------- |
 | 14550/udp | PX4 → GCS / adapter | `udpin:0.0.0.0:14550` (PX4 container uses `--network host`) |
-| 14540/udp | PX4 ↔ offboard | `fly_roi_pattern.py` mission upload |
+| 14540/udp | PX4 ↔ offboard     | `fly_roi_pattern.py` mission upload                         |
 
 ## Manual PX4 build (optional)
 
@@ -144,15 +144,15 @@ Then point `MAVLINK_CONNECTION=udp:127.0.0.1:14550` at the adapter.
 
 ## Troubleshooting
 
-| Symptom | Check |
-|---------|-------|
-| Adapter logs "Published" but nothing in UI | Open scene **PX4 SIH Drone Demo** (not Queuing/Retail). Ensure MQTT shows **connected** in the scene UI (Connect button). Run `./run_demo.sh adapter` — it applies host compose overrides and restarts the adapter with a valid object `size` (required for the analytics → UI path). |
-| `setup` fails with REST authentication | Hostname `web.scenescape.intel.com` must resolve (or let `run_demo.sh setup` fall back to `https://localhost/api/v1 --insecure`). Confirm `SUPASS` matches the password used for `make demo`. |
-| `watch-roi` prints nothing | Subscribe topic is `…/event/region/<scene>/<roi>/+` (analytics publishes `objects`, which includes `counts` / `entered` / `exited`). |
-| Controller `FELL BEHIND` / `SKIPPING` | Host clock differs from container NTP. The demo compose override enables `--rewriteBadTime --maxlag 10` on the scene controller; re-run `./run_demo.sh adapter` to apply it. |
-| Controller `NotImplementedError` (non-tracker mode) | Scene must have `use_tracker: true`. Re-run `./run_demo.sh setup` or set it in the scene UI / REST API. |
-| No object on map | Scene has `output_lla: true` and valid `map_corners_lla`; adapter logs show LLA publishes |
-| Pose rejected | Drone LLA must fall inside the scene's four corners |
-| PX4 won't arm | `docker logs px4-sih-demo`; wait for GPS fix in SIH (~5 s) |
-| Drone stuck / no ROI events | Adapter does **not** fly the drone — run `./run_demo.sh fly` in another terminal. If PX4 entered RTL, `fly` auto-restarts the mission; or `./run_demo.sh stop && ./run_demo.sh start` then re-run adapter + fly. |
-| Mapbox errors on setup | Token scopes + `MAPBOX_API_KEY` passed to manager container |
+| Symptom                                             | Check                                                                                                                                                                                                                                                                                 |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Adapter logs "Published" but nothing in UI          | Open scene **PX4 SIH Drone Demo** (not Queuing/Retail). Ensure MQTT shows **connected** in the scene UI (Connect button). Run `./run_demo.sh adapter` — it applies host compose overrides and restarts the adapter with a valid object `size` (required for the analytics → UI path). |
+| `setup` fails with REST authentication              | Hostname `web.scenescape.intel.com` must resolve (or let `run_demo.sh setup` fall back to `https://localhost/api/v1 --insecure`). Confirm `SUPASS` matches the password used for `make demo`.                                                                                         |
+| `watch-roi` prints nothing                          | Subscribe topic is `…/event/region/<scene>/<roi>/+` (analytics publishes `objects`, which includes `counts` / `entered` / `exited`).                                                                                                                                                  |
+| Controller `FELL BEHIND` / `SKIPPING`               | Host clock differs from container NTP. The demo compose override enables `--rewriteBadTime --maxlag 10` on the scene controller; re-run `./run_demo.sh adapter` to apply it.                                                                                                          |
+| Controller `NotImplementedError` (non-tracker mode) | Scene must have `use_tracker: true`. Re-run `./run_demo.sh setup` or set it in the scene UI / REST API.                                                                                                                                                                               |
+| No object on map                                    | Scene has `output_lla: true` and valid `map_corners_lla`; adapter logs show LLA publishes                                                                                                                                                                                             |
+| Pose rejected                                       | Drone LLA must fall inside the scene's four corners                                                                                                                                                                                                                                   |
+| PX4 won't arm                                       | `docker logs px4-sih-demo`; wait for GPS fix in SIH (~5 s)                                                                                                                                                                                                                            |
+| Drone stuck / no ROI events                         | Adapter does **not** fly the drone — run `./run_demo.sh fly` in another terminal. If PX4 entered RTL, `fly` auto-restarts the mission; or `./run_demo.sh stop && ./run_demo.sh start` then re-run adapter + fly.                                                                      |
+| Mapbox errors on setup                              | Token scopes + `MAPBOX_API_KEY` passed to manager container                                                                                                                                                                                                                           |

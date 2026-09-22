@@ -40,22 +40,22 @@ venv and installs these automatically.
 
 ### Configuration (environment)
 
-| Variable                     | Required | Description                                                                |
-| ---------------------------- | :------: | -------------------------------------------------------------------------- |
-| `SCENESCAPE_SOURCE_ID`       |   Yes    | Persistent publisher id (topic path + payload `source_id`)                 |
+| Variable                     | Required | Description                                                                               |
+| ---------------------------- | :------: | ----------------------------------------------------------------------------------------- |
+| `SCENESCAPE_SOURCE_ID`       |   Yes    | Persistent publisher id (topic path + payload `source_id`)                                |
 | `SCENESCAPE_MQTT_AUTH`       |   Yes    | `user:password` or path to PubSub JSON auth file (e.g. `manager/secrets/controller.auth`) |
-| `SCENESCAPE_ROOT_CERT`       |   Yes    | Path to Scenescape CA certificate                                          |
-| `SCENESCAPE_SCENE_ID`        |    No    | Optional scene hint for ops / manual `CONTROLLER_EXTERNAL_SOURCE_BINDINGS` |
-| `SCENESCAPE_THING_TYPE`      |    No    | MQTT `{thing_type}` segment (default `vehicle`)                            |
-| `SCENESCAPE_OBJECT_CATEGORY` |    No    | Object `category` when publishing self (default = thing type)              |
-| `SCENESCAPE_BROKER`          |    No    | Broker host (default `localhost`)                                          |
-| `SCENESCAPE_BROKER_PORT`     |    No    | Broker port (default `1883`)                                               |
-| `MAVLINK_CONNECTION`         |    No    | pymavlink connection string (default `udp:0.0.0.0:14550`)                  |
-| `MAVLINK_BAUD`               |    No    | Serial baud when using a device path (default `57600`)                     |
-| `PUBLISH_HZ`                 |    No    | Publish rate (default `5`)                                                 |
-| `PUBLISH_SELF`               |    No    | `true`/`false` — include vehicle object at origin (default `true`)         |
-| `POSE_EVERY_N`               |    No    | Include pose every N publishes for cache reuse (default `1`)               |
-| `LOG_LEVEL`                  |    No    | Logging level (default `INFO`)                                             |
+| `SCENESCAPE_ROOT_CERT`       |   Yes    | Path to Scenescape CA certificate                                                         |
+| `SCENESCAPE_SCENE_ID`        |    No    | Optional scene hint for ops / manual `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`                |
+| `SCENESCAPE_THING_TYPE`      |    No    | MQTT `{thing_type}` segment (default `vehicle`)                                           |
+| `SCENESCAPE_OBJECT_CATEGORY` |    No    | Object `category` when publishing self (default = thing type)                             |
+| `SCENESCAPE_BROKER`          |    No    | Broker host (default `localhost`)                                                         |
+| `SCENESCAPE_BROKER_PORT`     |    No    | Broker port (default `1883`)                                                              |
+| `MAVLINK_CONNECTION`         |    No    | pymavlink connection string (default `udp:0.0.0.0:14550`)                                 |
+| `MAVLINK_BAUD`               |    No    | Serial baud when using a device path (default `57600`)                                    |
+| `PUBLISH_HZ`                 |    No    | Publish rate (default `5`)                                                                |
+| `PUBLISH_SELF`               |    No    | `true`/`false` — include vehicle object at origin (default `true`)                        |
+| `POSE_EVERY_N`               |    No    | Include pose every N publishes for cache reuse (default `1`)                              |
+| `LOG_LEVEL`                  |    No    | Logging level (default `INFO`)                                                            |
 
 ### Usage
 
