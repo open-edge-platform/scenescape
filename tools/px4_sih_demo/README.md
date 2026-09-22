@@ -123,7 +123,7 @@ Default MAVLink ports (single instance):
 | Port      | Direction           | Consumer                                                    |
 | --------- | ------------------- | ----------------------------------------------------------- |
 | 14550/udp | PX4 → GCS / adapter | `udpin:0.0.0.0:14550` (PX4 container uses `--network host`) |
-| 14540/udp | PX4 ↔ offboard     | `fly_roi_pattern.py` mission upload                         |
+| 14540/udp | PX4 ↔ offboard      | `fly_roi_pattern.py` mission upload                         |
 
 ## Manual PX4 build (optional)
 
