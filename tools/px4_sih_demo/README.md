@@ -27,6 +27,8 @@ PX4 SIH (Docker)          MAVLink adapter              Scene Controller
 | Python 3.10+ | `pip install -r tools/external_source_adapters/requirements.txt`                                                                    |
 | Mapbox token | `MAPBOX_API_KEY` — [configure keys](../../docs/user-guide/how-to-guides/build-a-scene/configure-geospatial-map-service-api-keys.md) |
 
+Host-side setup/adapter/watch-roi talk to **localhost** and skip TLS hostname verification. That is intentional for this demo tooling (certs are issued for Docker DNS names). MQTT is published on **loopback only**.
+
 ## Quick start
 
 ### 1. Start SceneScape
@@ -147,7 +149,7 @@ Then point `MAVLINK_CONNECTION=udp:127.0.0.1:14550` at the adapter.
 | Symptom                                             | Check                                                                                                                                                                                                                                                                                 |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Adapter logs "Published" but nothing in UI          | Open scene **PX4 SIH Drone Demo** (not Queuing/Retail). Ensure MQTT shows **connected** in the scene UI (Connect button). Run `./run_demo.sh adapter` — it applies host compose overrides and restarts the adapter with a valid object `size` (required for the analytics → UI path). |
-| `setup` fails with REST authentication              | Hostname `web.scenescape.intel.com` must resolve (or let `run_demo.sh setup` fall back to `https://localhost/api/v1 --insecure`). Confirm `SUPASS` matches the password used for `make demo`.                                                                                         |
+| `setup` fails with REST authentication              | Confirm `SUPASS` matches the password used for `make demo`. Host setup uses `https://localhost/api/v1 --insecure` by default.                                                                                                                                                         |
 | `watch-roi` prints nothing                          | Subscribe topic is `…/event/region/<scene>/<roi>/+` (analytics publishes `objects`, which includes `counts` / `entered` / `exited`).                                                                                                                                                  |
 | Controller `FELL BEHIND` / `SKIPPING`               | Host clock differs from container NTP. The demo compose override enables `--rewriteBadTime --maxlag 10` on the scene controller; re-run `./run_demo.sh adapter` to apply it.                                                                                                          |
 | Controller `NotImplementedError` (non-tracker mode) | Scene must have `use_tracker: true`. Re-run `./run_demo.sh setup` or set it in the scene UI / REST API.                                                                                                                                                                               |

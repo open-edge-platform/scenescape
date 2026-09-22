@@ -5,14 +5,15 @@
 #   docker compose -f docker-compose.yml \
 #     -f tools/px4_sih_demo/docker-compose.broker-port.yml up -d broker scene
 #
-# - Publishes MQTT 1883 so the host MAVLink adapter can reach the broker.
+# - Publishes MQTT 1883 on loopback only so the host MAVLink adapter can reach
+#   the broker without exposing the anonymous Mosquitto listener on the LAN.
 # - Enables --rewriteBadTime on the scene controller so host-stamped external
 #   messages are accepted when host clock differs from container NTP time.
 
 services:
   broker:
     ports:
-      - "1883:1883"
+      - "127.0.0.1:1883:1883"
 
   scene:
     command: >

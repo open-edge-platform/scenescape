@@ -10,6 +10,11 @@
 #   - pip install -r tools/external_source_adapters/requirements.txt
 #   - Docker (for px4io/px4-sitl-sih)
 #
+# Host-side REST/MQTT use https://127.0.0.1 / localhost with TLS verify disabled.
+# That is intentional for this demo tooling: SceneScape certs are issued for
+# *.scenescape.intel.com (Docker DNS), not localhost. The MQTT port publish is
+# bound to loopback only (see docker-compose.broker-port.yml).
+#
 # Usage:
 #   export MAPBOX_API_KEY=pk....
 #   export SUPASS=...
@@ -50,14 +55,25 @@ require_config() {
   [[ -f "${CONFIG}" ]] || die "Missing ${CONFIG}. Run: $0 setup"
 }
 
+require_udp_port() {
+  local name="$1" value="$2"
+  [[ "${value}" =~ ^[0-9]+$ ]] || die "${name} must be a UDP port number (got '${value}')"
+  (( value >= 1 && value <= 65535 )) || die "${name} out of range: ${value}"
+}
+
 read_config_field() {
-  python_demo -c "import json; print(json.load(open('${CONFIG}'))['$1'])"
+  local field="$1"
+  CONFIG_PATH="${CONFIG}" FIELD="${field}" python_demo - <<'PY'
+import json, os
+print(json.load(open(os.environ["CONFIG_PATH"]))[os.environ["FIELD"]])
+PY
 }
 
 resolve_broker_host() {
-  # TLS cert is issued for broker.scenescape.intel.com — never use the container IP
-  # from the host (hostname verification fails silently and publishes are dropped).
-  export SCENESCAPE_BROKER="${SCENESCAPE_BROKER:-broker.scenescape.intel.com}"
+  # Demo tooling on the host: talk to loopback and skip cert hostname checks.
+  # Broker publish is 127.0.0.1-only (docker-compose.broker-port.yml).
+  export SCENESCAPE_BROKER="${SCENESCAPE_BROKER:-127.0.0.1}"
+  export SCENESCAPE_MQTT_INSECURE="${SCENESCAPE_MQTT_INSECURE:-1}"
 }
 
 PX4_DEMO_COMPOSE=( -f docker-compose.yml -f tools/px4_sih_demo/docker-compose.broker-port.yml )
@@ -81,22 +97,15 @@ ensure_mqtt_from_host() {
   if ! timeout 2 bash -c 'echo > /dev/tcp/127.0.0.1/1883' 2>/dev/null; then
     die "MQTT broker still unreachable on localhost:1883 after compose update"
   fi
-  if ! getent hosts broker.scenescape.intel.com 2>/dev/null | grep -qE '127\.0\.0\.1|::1'; then
-    echo "Note: broker.scenescape.intel.com is not in /etc/hosts; using 127.0.0.1 with TLS verify disabled."
-    export SCENESCAPE_BROKER="127.0.0.1"
-    export SCENESCAPE_MQTT_INSECURE=1
-  fi
 }
 
 cmd_setup() {
   : "${MAPBOX_API_KEY:?Set MAPBOX_API_KEY}"
   : "${SUPASS:?Set SUPASS (Scenescape admin password)}"
-  # Host setups rarely have web.scenescape.intel.com in /etc/hosts; default to
-  # localhost with TLS verify disabled unless the caller already set a URL.
+  # Host demo: SceneScape certs don't cover localhost — use --insecure unless the
+  # caller already set SCENESCAPE_REST_URL (e.g. in-cluster verified hostname).
   local setup_args=()
-  if [[ -z "${SCENESCAPE_REST_URL:-}" ]] \
-      && ! getent hosts web.scenescape.intel.com 2>/dev/null \
-        | grep -qE '127\.0\.0\.1|::1'; then
+  if [[ -z "${SCENESCAPE_REST_URL:-}" ]]; then
     setup_args+=(--rest-url https://localhost/api/v1 --insecure)
   fi
   python_demo "${SCRIPT_DIR}/setup_geospatial_drone_scene.py" "${setup_args[@]}" "$@"
@@ -104,6 +113,8 @@ cmd_setup() {
 
 cmd_start_px4() {
   require_config
+  require_udp_port PX4_HOST_MAVLINK_PORT "${PX4_HOST_MAVLINK_PORT}"
+  require_udp_port PX4_HOST_OFFBOARD_PORT "${PX4_HOST_OFFBOARD_PORT}"
   local home_lat home_lon home_alt
   home_lat="$(read_config_field px4_home_lat)"
   home_lon="$(read_config_field px4_home_lon)"
@@ -120,26 +131,32 @@ cmd_start_px4() {
     -e "PX4_SIM_MODEL=sihsim_quadx" \
     "${PX4_IMAGE}"
   echo "Waiting for MAVLink heartbeat on UDP ${PX4_HOST_MAVLINK_PORT} …"
-  python_demo - <<PY
+  PX4_HOST_MAVLINK_PORT="${PX4_HOST_MAVLINK_PORT}" \
+  PX4_CONTAINER="${PX4_CONTAINER}" \
+  python_demo - <<'PY'
+import os
 import time
+
 from pymavlink import mavutil
-port = ${PX4_HOST_MAVLINK_PORT}
+
+port = int(os.environ["PX4_HOST_MAVLINK_PORT"])
+container = os.environ["PX4_CONTAINER"]
 for _ in range(60):
-    try:
-        m = mavutil.mavlink_connection(f"udpin:0.0.0.0:{port}")
-        if m.wait_heartbeat(timeout=2):
-            msg = m.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=5)
-            if msg:
-                print('PX4 SIH ready; GPS', msg.lat/1e7, msg.lon/1e7)
-            else:
-                print('PX4 SIH ready (awaiting GPS fix).')
-            raise SystemExit(0)
-    except SystemExit:
-        raise
-    except Exception:
-        pass
-    time.sleep(2)
-raise SystemExit("PX4 SIH did not respond — check: docker logs ${PX4_CONTAINER}")
+  try:
+    m = mavutil.mavlink_connection(f"udpin:0.0.0.0:{port}")
+    if m.wait_heartbeat(timeout=2):
+      msg = m.recv_match(type="GLOBAL_POSITION_INT", blocking=True, timeout=5)
+      if msg:
+        print("PX4 SIH ready; GPS", msg.lat / 1e7, msg.lon / 1e7)
+      else:
+        print("PX4 SIH ready (awaiting GPS fix).")
+      raise SystemExit(0)
+  except SystemExit:
+    raise
+  except Exception:
+    pass
+  time.sleep(2)
+raise SystemExit(f"PX4 SIH did not respond — check: docker logs {container}")
 PY
 }
 
@@ -161,7 +178,7 @@ cmd_start_adapter() {
 
   echo "Starting MAVLink → SceneScape adapter (source_id=${SCENESCAPE_SOURCE_ID}) …"
   echo "  Note: adapter publishes telemetry only — run '$0 fly' to move the drone."
-  echo "  MQTT broker: ${SCENESCAPE_BROKER}:${SCENESCAPE_BROKER_PORT}"
+  echo "  MQTT broker: ${SCENESCAPE_BROKER}:${SCENESCAPE_BROKER_PORT} (TLS verify off; loopback)"
   echo "  MQTT auth:   ${SCENESCAPE_MQTT_AUTH}"
   echo "  MAVLink:     ${MAVLINK_CONNECTION}"
   python_demo "${REPO_ROOT}/tools/external_source_adapters/mavlink_to_external_source.py"
@@ -169,6 +186,7 @@ cmd_start_adapter() {
 
 cmd_fly() {
   require_config
+  require_udp_port PX4_HOST_OFFBOARD_PORT "${PX4_HOST_OFFBOARD_PORT}"
   pkill -f "fly_roi_pattern.py" 2>/dev/null || true
   sleep 0.5
   python_demo "${SCRIPT_DIR}/fly_roi_pattern.py" \
@@ -179,6 +197,7 @@ cmd_fly() {
 
 cmd_stop_fly() {
   require_config
+  require_udp_port PX4_HOST_OFFBOARD_PORT "${PX4_HOST_OFFBOARD_PORT}"
   pkill -f "fly_roi_pattern.py" 2>/dev/null || true
   python_demo "${SCRIPT_DIR}/fly_roi_pattern.py" \
     --config "${CONFIG}" \
@@ -198,25 +217,25 @@ cmd_watch_roi() {
   local port="${SCENESCAPE_BROKER_PORT:-1883}"
   # controller.auth is JSON {"user": ..., "password": ...} (same as PubSub/RESTClient).
   local user pass
-  user="$(python_demo -c "import json; print(json.load(open('${auth_file}'))['user'])")"
-  pass="$(python_demo -c "import json; print(json.load(open('${auth_file}'))['password'])")"
-  local -a tls_args=(--cafile /ca.pem)
-  local tls_verify=enabled
-  case "${SCENESCAPE_MQTT_INSECURE:-}" in
-    1|true|yes|TRUE|YES)
-      tls_args+=(--insecure)
-      tls_verify=disabled
-      ;;
-  esac
+  user="$(AUTH_FILE="${auth_file}" python_demo - <<'PY'
+import json, os
+print(json.load(open(os.environ["AUTH_FILE"]))["user"])
+PY
+)"
+  pass="$(AUTH_FILE="${auth_file}" python_demo - <<'PY'
+import json, os
+print(json.load(open(os.environ["AUTH_FILE"]))["password"])
+PY
+)"
   # Analytics publishes region enter/exit on event_type "objects" (payload includes
   # counts/entered/exited). Older docs referred to a separate "/count" suffix.
   echo "Subscribing to ROI events for scene ${scene_uid} region ${roi_uid} …"
-  echo "  MQTT broker: ${broker}:${port} (TLS verify ${tls_verify})"
+  echo "  MQTT broker: ${broker}:${port} (TLS verify off; loopback)"
   docker run --rm --network host \
     -v "${ca}:/ca.pem:ro" \
     eclipse-mosquitto:2.0.22 \
     mosquitto_sub -h "${broker}" -p "${port}" \
-    "${tls_args[@]}" \
+    --cafile /ca.pem --insecure \
     -u "${user}" -P "${pass}" \
     -t "scenescape/event/region/${scene_uid}/${roi_uid}/+" -v
 }
@@ -261,10 +280,8 @@ Environment:
   SUPASS                  Scenescape admin password
   PX4_DEMO_LOCATION       Geocode query (default: Shoreline Amphitheatre, MV)
   SCENESCAPE_MQTT_AUTH    Defaults to manager/secrets/controller.auth
-  SCENESCAPE_BROKER       MQTT host (default: broker.scenescape.intel.com)
-  SCENESCAPE_MQTT_INSECURE
-                          Set to 1 to skip broker TLS hostname verification
-                          (watch-roi / adapter fallback only)
+  SCENESCAPE_BROKER       Defaults to 127.0.0.1 (host demo)
+  SCENESCAPE_REST_URL     Override REST endpoint (skips localhost --insecure default)
 EOF
 }
 
