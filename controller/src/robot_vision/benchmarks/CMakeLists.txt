@@ -7,7 +7,7 @@
 find_package(benchmark QUIET)
 
 if(NOT benchmark_FOUND)
-    message(STATUS "Google Benchmark not found on system; fetching v1.9.4 via FetchContent")
+    message(STATUS "Google Benchmark not found on system; fetching v1.9.5 via FetchContent")
     include(FetchContent)
     set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
     set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
@@ -15,7 +15,7 @@ if(NOT benchmark_FOUND)
     FetchContent_Declare(
         googlebenchmark
         GIT_REPOSITORY https://github.com/google/benchmark.git
-        GIT_TAG v1.9.4
+        GIT_TAG v1.9.5
     )
     FetchContent_MakeAvailable(googlebenchmark)
 endif()
