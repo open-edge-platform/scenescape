@@ -313,8 +313,8 @@ services:
       - https_proxy=${https_proxy}
       - HTTP_PROXY=${HTTP_PROXY}
       - http_proxy=${http_proxy}
-      - NO_PROXY=192.168.0.92,192.168.0.93,${NO_PROXY}
-      - no_proxy=192.168.0.92,192.168.0.93,${no_proxy}
+      - NO_PROXY=192.168.0.92,192.168.0.93,192.168.0.91,${NO_PROXY}
+      - no_proxy=192.168.0.92,192.168.0.93,192.168.0.91,${no_proxy}
     configs:
       - source: ptz-config
         target: /home/pipeline-server/config.json

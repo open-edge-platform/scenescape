@@ -6,6 +6,7 @@ make build-all
 # If a username/password contains ':', '@', or '/', percent-encode it first.
 RTSP_CAM1_USER=<cam1-user> RTSP_CAM1_PASS=<cam1-pass> \
 RTSP_CAM2_USER=<cam2-user> RTSP_CAM2_PASS=<cam2-pass> \
+RTSP_CAM3_USER=<cam3-user> RTSP_CAM3_PASS=<cam3-pass> \
   ./dlstreamer-pipeline-server/render-ptz-config.sh
 
 make docker-compose.yml DLSTREAMER_DOCKER_COMPOSE_FILE=./sample_data/compose/docker-compose-ptz-demo.yml
