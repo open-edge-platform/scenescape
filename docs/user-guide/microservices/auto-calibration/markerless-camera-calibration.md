@@ -10,11 +10,12 @@ The markerless calibration path uses a Hierarchical Localization (HLoc) workflow
 
 ## How NetVLAD is used
 
-- NetVLAD is downloaded and SHA256-verified before the autocalibration application starts:
-  Docker Compose uses `autocalibration-model-init`, while Kubernetes uses the chart's
-  download init container and a persistent NetVLAD PVC.
+- NetVLAD is downloaded and SHA256-verified in the background, without blocking the
+  autocalibration application from starting: Docker Compose uses `autocalibration-model-init`,
+  while Kubernetes uses the chart's background download sidecar and a persistent NetVLAD PVC.
 - The application does not download the model during a calibration request. If the verified
-  model is absent, initialization fails and reports the expected model path.
+  model is not yet present, markerless calibration fails with a clear error reporting the
+  expected model path, while AprilTag calibration is unaffected.
 - During scene registration, the service extracts global descriptors for dataset images and stores them in an HDF5 file (for example, `global-feats-netvlad.h5`).
 - During camera localization, the service extracts a NetVLAD descriptor for the query frame and uses `pairs_from_retrieval` to retrieve top-$K$ candidates (`number_of_localizations`, default `50`) from the registered descriptor database.
 - The retrieved image pairs define the shortlist for local feature matching and pose estimation.

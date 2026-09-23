@@ -33,16 +33,19 @@ For implementation-level details of markerless calibration using NetVLAD, quadtr
 
 ## NetVLAD model preparation
 
-The autocalibration application image does not download models when it starts. For Docker
-Compose deployments, the `autocalibration-model-init` one-shot service downloads and verifies
-the NetVLAD model into the shared `vol-netvlad_models` volume before the application starts.
-For Kubernetes deployments, the chart uses a dedicated NetVLAD PVC and a download init
-container. The model is retained across pod restarts, so it is downloaded only when the PVC
-does not already contain it.
+The autocalibration application image does not download models when it starts, and it does not
+wait for the model to be available: AprilTag calibration works as soon as the service is up.
+For Docker Compose deployments, the `autocalibration-model-init` one-shot service downloads and
+verifies the NetVLAD model into the shared `vol-netvlad_models` volume in parallel with the
+application starting. For Kubernetes deployments, the chart uses a dedicated NetVLAD PVC and a
+background download sidecar that retries until it succeeds. The model is retained across pod
+restarts, so it is downloaded only when the PVC does not already contain it. Markerless
+calibration becomes available as soon as the verified model appears at
+`/usr/local/lib/python3.11/site-packages/third_party/netvlad`; requests made before that point
+fail with a clear error instead of blocking.
 
-The `autocalibration.skipModelDownload` Kubernetes value disables the download init container
-for smoke tests that do not exercise markerless calibration. Markerless calibration requires
-the verified model to be present at `/usr/local/lib/python3.11/site-packages/third_party/netvlad`.
+The `autocalibration.skipModelDownload` Kubernetes value disables the background download
+sidecar for smoke tests that do not exercise markerless calibration.
 
 In addition to camera calibration, the service supports **sensor-agnostic perceptual sensor localization**.
 A point cloud produced by any perceptual sensor (LiDAR, depth camera, stereo, photogrammetry) is

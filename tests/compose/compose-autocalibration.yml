@@ -55,8 +55,6 @@ services:
           - autocalibration.scenescape.intel.com
     user: "1000:1000"
     depends_on:
-      autocalibration-model-init:
-        condition: service_completed_successfully
       autocalibration-init:
         condition: service_completed_successfully
       web:

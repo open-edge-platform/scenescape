@@ -47,12 +47,25 @@ spec:
           - mountPath: /data/netvlad_models
             name: netvlad-models
         {{- if not .Values.autocalibration.skipModelDownload }}
-        - name: download-netvlad-initcontainer
+        # Native sidecar (restartPolicy: Always): starts alongside the app instead of
+        # blocking it, so AprilTag calibration works immediately; markerless calibration
+        # becomes available once this loop finishes downloading the NetVLAD model.
+        - name: download-netvlad-sidecar
+          restartPolicy: Always
           image: {{ .Values.repository }}/{{ .Values.autocalibration.image }}:{{ .Chart.AppVersion }}
           imagePullPolicy: {{ .Values.autocalibration.pullPolicy }}
           command:
-          - python3
-          - /usr/local/bin/download_models.py
+          - sh
+          - -c
+          - |
+            while true; do
+              if python3 /usr/local/bin/download_models.py; then
+                sleep 3600
+              else
+                echo "NetVLAD model download failed, retrying in 60s" >&2
+                sleep 60
+              fi
+            done
           env:
           - name: NETVLAD_MODEL_DIR
             value: /usr/local/lib/python3.11/site-packages/third_party/netvlad

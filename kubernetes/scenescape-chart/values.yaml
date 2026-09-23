@@ -93,8 +93,10 @@ autocalibration:
   pullPolicy: IfNotPresent
   modelStorage: 1Gi
   modelStorageClassName: ""
-  # When true, skip the NetVLAD download init container.
-  # Markerless calibration needs the model; deployment smoke tests do not.
+  # When true, skip the background NetVLAD download sidecar.
+  # The app starts without waiting for it; AprilTag calibration works
+  # immediately, and markerless calibration works once the model lands
+  # on the netvlad PVC. Deployment smoke tests do not need markerless.
   skipModelDownload: false
 
 kubeclient:
