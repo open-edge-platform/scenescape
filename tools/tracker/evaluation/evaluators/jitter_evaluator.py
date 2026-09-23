@@ -8,7 +8,6 @@ Evaluates tracker output quality by measuring positional and rotational jitter.
 
 from typing import Iterator, List, Dict, Any, Optional, Union
 from pathlib import Path
-import sys
 
 import numpy as np
 
@@ -399,8 +398,7 @@ class JitterEvaluator(TrackerEvaluator):
     Raises:
       RuntimeError: If the file cannot be read or is malformed.
     """
-    sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
-    from format_converters import stream_jsonl
+    from utils.format_converters import stream_jsonl
 
     try:
       gt_frames = list(stream_jsonl(gt_path))

@@ -313,8 +313,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
     """
     try:
       # Import conversion utilities
-      sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
-      from format_converters import (
+      from utils.format_converters import (
         convert_canonical_to_motchallenge_csv,
         create_motchallenge_seqinfo,
         stream_jsonl

@@ -599,8 +599,7 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
       tracker_outputs: Iterator returned by CameraProjectionHarness.
       ground_truth: str path or length-1 iterator containing the JSONL path.
     """
-    sys.path.insert(0, str(Path(__file__).parent.parent / "utils"))
-    from format_converters import stream_jsonl
+    from utils.format_converters import stream_jsonl
     from utils.timeline import (
       ingest_frames,
       parse_timestamp,
