@@ -14,7 +14,8 @@ import uploader
 from uploader import (
   RESOURCE_KEYS, SceneScapeClient, parse_auth,
   read_object_library, read_scene_from_zip, upload_all, upload_calibration_markers,
-  upload_object_library, upload_one, upload_scene, wait_for_database,
+  upload_scene, is_application_ready,
+  upload_object_library, upload_one, upload_scene
 )
 
 
@@ -104,28 +105,6 @@ class TestSceneScapeClientAuthenticate:
     client.session.headers.__setitem__.assert_called_once_with("Authorization", "Token abc123")
 
 
-class TestIsDatabaseReady:
-  def test_true_when_ready(self):
-    client = SceneScapeClient("http://host", True)
-    client.session = MagicMock()
-    client.session.get.return_value.ok = True
-    client.session.get.return_value.json.return_value = {"databaseReady": True}
-    assert client.is_database_ready() is True
-
-  def test_false_when_not_ok(self):
-    client = SceneScapeClient("http://host", True)
-    client.session = MagicMock()
-    client.session.get.return_value.ok = False
-    assert client.is_database_ready() is False
-
-  def test_false_when_flag_missing(self):
-    client = SceneScapeClient("http://host", True)
-    client.session = MagicMock()
-    client.session.get.return_value.ok = True
-    client.session.get.return_value.json.return_value = {}
-    assert client.is_database_ready() is False
-
-
 class TestSceneUidAndAssetExists:
   def test_scene_uid_hit(self):
     client = SceneScapeClient("http://host", True)
@@ -191,27 +170,29 @@ class TestImportScene:
     assert content_type == "application/zip"
 
 
-class TestWaitForDatabase:
+class TestIsApplicationReady:
   def test_ready_immediately(self, fake_client, monkeypatch):
-    fake_client.is_database_ready.return_value = True
+    fake_client.authenticate.return_value = None
     monkeypatch.setattr(uploader.time, "sleep", MagicMock())
-    assert wait_for_database(fake_client, 10) is True
-    fake_client.is_database_ready.assert_called_once()
+    assert is_application_ready(fake_client, 10, "user", "pw") is True
+    fake_client.authenticate.assert_called_once_with("user", "pw")
     uploader.time.sleep.assert_not_called()
 
   def test_retries_after_request_exception(self, fake_client, monkeypatch):
-    fake_client.is_database_ready.side_effect = [requests.ConnectionError("down"), True]
-    monkeypatch.setattr(uploader.time, "monotonic", MagicMock(return_value=0))
+    fake_client.authenticate.side_effect = [requests.ConnectionError("down"), None]
+    monotonic = MagicMock(side_effect=[0, 0])
+    monkeypatch.setattr(uploader.time, "monotonic", monotonic)
     monkeypatch.setattr(uploader.time, "sleep", MagicMock())
-    assert wait_for_database(fake_client, 10) is True
-    assert fake_client.is_database_ready.call_count == 2
+    assert is_application_ready(fake_client, 10, "user", "pw") is True
+    assert fake_client.authenticate.call_count == 2
     uploader.time.sleep.assert_called_once_with(uploader.POLL_INTERVAL_SECONDS)
+    assert monotonic.call_count == 2
 
   def test_timeout_returns_false(self, fake_client, monkeypatch):
-    fake_client.is_database_ready.return_value = False
+    fake_client.authenticate.side_effect = requests.ConnectionError("down")
     monkeypatch.setattr(uploader.time, "monotonic", MagicMock(side_effect=[0, 10]))
     monkeypatch.setattr(uploader.time, "sleep", MagicMock())
-    assert wait_for_database(fake_client, 10) is False
+    assert is_application_ready(fake_client, 10, "user", "pw") is False
     uploader.time.sleep.assert_not_called()
 
 

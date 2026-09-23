@@ -50,10 +50,6 @@ class SceneScapeClient:
     self.session.headers["Authorization"] = f"Token {reply['token']}"
     return
 
-  def is_database_ready(self):
-    reply = self.session.get(f"{self.url}/database-ready", timeout=REQUEST_TIMEOUT_SECONDS)
-    return reply.ok and reply.json().get("databaseReady", False)
-
   def scene_uid(self, name):
     """Returns the uid of the scene called `name`, or None when it does not exist."""
     results = self._request("GET", "/scenes", params={"name": name}).get("results", [])
@@ -97,13 +93,13 @@ def parse_auth(auth):
   return user, password
 
 
-def wait_for_database(client, timeout):
-  """Polls the deployment until it reports its database ready, or the timeout expires."""
+def is_application_ready(client, timeout, user, password):
+  """Polls until the deployment accepts auth, or the timeout expires."""
   deadline = time.monotonic() + timeout
   while True:
     try:
-      if client.is_database_ready():
-        return True
+      client.authenticate(user, password)
+      return True
     except requests.RequestException as e:
       log.debug(f"Deployment not reachable yet: {e}")
     if time.monotonic() >= deadline:

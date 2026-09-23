@@ -28,7 +28,7 @@ import requests
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from uploader import (  # noqa: E402
   DEFAULT_WAIT_SECONDS, SceneScapeClient, log, parse_auth, read_object_library, upload_all,
-  upload_object_library, wait_for_database,
+  upload_object_library, is_application_ready
 )
 
 
@@ -74,7 +74,7 @@ def main():
     requests.packages.urllib3.disable_warnings()
   client = SceneScapeClient(args.url, False if args.insecure else (args.rootcert or True))
 
-  if args.wait and not wait_for_database(client, args.wait):
+  if args.wait and not is_application_ready(client, args.wait, user, password):
     log.error(f"{args.url} was not ready after {args.wait} seconds")
     return 1
 
@@ -94,9 +94,7 @@ def main():
     log.error(f"Failed to upload object library from {library_path}")
     return 1
 
-  if upload_all(client, scene_archives):
-    return 1
-  return 0
+  return 1 if upload_all(client, scene_archives) else 0
 
 
 if __name__ == '__main__':
