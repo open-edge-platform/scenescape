@@ -59,10 +59,9 @@ class DiagnosticEvaluator(TrackerEvaluator):
     self._output_folder: Path = None
     self._processed: bool = False
 
-    # Per-track data: {int_id: {frame_num: (x, y)}}
-    self._output_tracks: Dict[int, Dict[int, tuple]] = {}
-    self._gt_tracks: Dict[int, Dict[int, tuple]] = {}
-    self._uuid_to_id_map: Dict[str, int] = {}
+    # Per-track data: {track_id: {frame_num: (x, y)}}
+    self._output_tracks: Dict[str, Dict[int, tuple]] = {}
+    self._gt_tracks: Dict[str, Dict[int, tuple]] = {}
     self._base_fps: Optional[float] = None
 
   def configure_metrics(self, metrics: List[str]) -> 'DiagnosticEvaluator':
@@ -129,7 +128,7 @@ class DiagnosticEvaluator(TrackerEvaluator):
   ) -> 'DiagnosticEvaluator':
     """Process tracker outputs and ground-truth for evaluation.
 
-    Parses both inputs into per-track dictionaries keyed by integer track ID,
+    Parses both inputs into per-track dictionaries keyed by string track ID,
     mapping frame numbers to (x, y) positions.
 
     Args:
@@ -249,7 +248,6 @@ class DiagnosticEvaluator(TrackerEvaluator):
     self._processed = False
     self._output_tracks = {}
     self._gt_tracks = {}
-    self._uuid_to_id_map = {}
     self._base_fps = None
     return self
 
@@ -262,15 +260,13 @@ class DiagnosticEvaluator(TrackerEvaluator):
     are quantized onto a common frame grid using a shared reference epoch so
     that track-vs-ground-truth matching is timestamp-based.
     """
-    sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
-    from format_converters import stream_jsonl
+    from utils.format_converters import stream_jsonl
     from utils.timeline import (
       deduplicate_frames_by_timestamp,
-      parse_timestamp,
+      ingest_frames,
       reference_timestamp,
       require_fps,
       resolve_ground_truth_path,
-      timestamp_to_frame,
     )
 
     tracker_output_list = list(tracker_outputs)
@@ -284,32 +280,8 @@ class DiagnosticEvaluator(TrackerEvaluator):
     reference = reference_timestamp(tracker_output_list, gt_frames)
     camera_fps = require_fps(self._base_fps)
 
-    next_id = 1
-    for scene_data in tracker_output_list:
-      frame = timestamp_to_frame(
-        parse_timestamp(scene_data["timestamp"]), reference, camera_fps
-      )
-      for obj in scene_data.get("objects", []):
-        uuid = obj["id"]
-        if uuid not in self._uuid_to_id_map:
-          self._uuid_to_id_map[uuid] = next_id
-          next_id += 1
-        tid = self._uuid_to_id_map[uuid]
-        translation = obj["translation"]
-        self._output_tracks.setdefault(tid, {})[frame] = (
-          translation[0], translation[1]
-        )
-
-    for frame_data in gt_frames:
-      frame = timestamp_to_frame(
-        parse_timestamp(frame_data["timestamp"]), reference, camera_fps
-      )
-      for obj in frame_data.get("objects", []):
-        gid = int(obj["id"])
-        translation = obj["translation"]
-        self._gt_tracks.setdefault(gid, {})[frame] = (
-          translation[0], translation[1]
-        )
+    ingest_frames(tracker_output_list, self._output_tracks, reference, camera_fps)
+    ingest_frames(gt_frames, self._gt_tracks, reference, camera_fps)
 
   def _match_tracks(self):
     """Bipartite assignment minimizing mean Euclidean distance.

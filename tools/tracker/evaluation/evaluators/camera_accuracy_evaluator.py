@@ -599,9 +599,9 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
       tracker_outputs: Iterator returned by CameraProjectionHarness.
       ground_truth: str path or length-1 iterator containing the JSONL path.
     """
-    sys.path.insert(0, str(Path(__file__).parent.parent / "utils"))
-    from format_converters import stream_jsonl
+    from utils.format_converters import stream_jsonl
     from utils.timeline import (
+      ingest_frames,
       parse_timestamp,
       reference_timestamp,
       require_fps,
@@ -654,18 +654,7 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
         if obj_id not in self._obj_categories:
           self._obj_categories[obj_id] = obj.get("category", "unknown")
 
-    for frame_data in gt_frames:
-      frame = timestamp_to_frame(
-        parse_timestamp(frame_data["timestamp"]), reference, fps
-      )
-      for obj in frame_data.get("objects", []):
-        obj_id = str(int(obj["id"]))
-        translation = obj["translation"]
-        if obj_id not in self._gt_tracks:
-          self._gt_tracks[obj_id] = {}
-        self._gt_tracks[obj_id][frame] = (
-          float(translation[0]), float(translation[1])
-        )
+    ingest_frames(gt_frames, self._gt_tracks, reference, fps)
 
     if self._gt_tracks:
       self._total_gt_frames = max(

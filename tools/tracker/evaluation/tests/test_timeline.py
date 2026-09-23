@@ -19,7 +19,6 @@ from utils.timeline import (
   timestamp_to_frame,
   reference_timestamp,
   resolve_ground_truth_path,
-  normalize_histories_to_fps,
 )
 
 
@@ -92,14 +91,3 @@ class TestResolveGroundTruthPath:
   def test_rejects_non_path_input(self):
     with pytest.raises(RuntimeError, match="file path string"):
       resolve_ground_truth_path(iter([{"timestamp": _ts(0)}]))
-
-
-class TestNormalizeHistoriesToFps:
-  def test_maps_to_epoch_grid(self):
-    histories = {
-      "a": [(parse_timestamp(_ts(0)), [0.0]), (parse_timestamp(_ts(5)), [1.0])],
-    }
-    result = normalize_histories_to_fps(histories, 10.0)
-    times = [t for t, _ in result["a"]]
-    # Two unique timestamps -> indices 0 and 1 on a 10 fps grid (0.0s and 0.1s)
-    assert (times[1] - times[0]).total_seconds() == pytest.approx(0.1)

@@ -12,7 +12,7 @@ requires integer frame indices.
 """
 
 from typing import Any, Dict, Iterable, List, Optional
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 
 def parse_timestamp(timestamp: str) -> datetime:
@@ -89,23 +89,26 @@ def reference_timestamp(*frame_lists: List[Dict[str, Any]]) -> Optional[datetime
   return min(firsts) if firsts else None
 
 
-def normalize_histories_to_fps(
-  histories: Dict[Any, List[tuple]],
-  fps: float
-) -> Dict[Any, List[tuple]]:
-  """Remap per-track ``(timestamp, value)`` histories onto an fps-fixed grid.
+def ingest_frames(frames, target_tracks, reference, fps) -> None:
+  """Quantize frames onto the shared grid and store per-track (x, y) positions.
 
-  Replaces wall-clock timestamps with ``epoch + index / fps`` based on the
-  globally sorted unique timestamps, so kinematic derivatives are independent of
-  processing speed while preserving relative frame ordering.
+  Each frame's absolute timestamp is mapped to an integer frame index; every
+  object's XY translation is stored as
+  ``target_tracks[str(obj["id"])][frame_index] = (x, y)``. Track ids are keyed
+  as strings so numeric and UUID ids are handled uniformly.
+
+  Args:
+    frames: Iterable of frame dicts with ``timestamp`` and ``objects``.
+    target_tracks: Dict mutated in place: {track_id: {frame_index: (x, y)}}.
+    reference: Shared reference epoch (from ``reference_timestamp``).
+    fps: Frame rate (from ``require_fps``).
   """
-  epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
-  all_ts = sorted({ts for entries in histories.values() for ts, _ in entries})
-  ts_to_idx = {ts: i for i, ts in enumerate(all_ts)}
-  return {
-    key: [
-      (epoch + timedelta(seconds=ts_to_idx[ts] / fps), value)
-      for ts, value in entries
-    ]
-    for key, entries in histories.items()
-  }
+  for frame_data in frames:
+    frame = timestamp_to_frame(
+      parse_timestamp(frame_data["timestamp"]), reference, fps
+    )
+    for obj in frame_data.get("objects", []):
+      translation = obj["translation"]
+      target_tracks.setdefault(str(obj["id"]), {})[frame] = (
+        translation[0], translation[1]
+      )
