@@ -18,10 +18,10 @@ This calibration method is ideal for fixed camera setups requiring precise posit
 Before You Begin, ensure the following:
 
 - **Camera Setup**: Cameras placed with a clear view of the scene.
-- **Scene Created**: Add cameras in Scenescape and set the detection model to `-m apriltag`.
+- **Scene Created**: Add cameras in Scenescape. The video pipeline's detection model (e.g. person detection) does not need to change for AprilTag calibration — the Auto Camera Calibration microservice detects AprilTags itself, independent of the DL Streamer Pipeline Server's detection model.
 - **Scenescape Installation**: Installed and running.
 
-> **Note**: To switch from the default person detection model, replace `retail` with `apriltag` in `docker-compose.yml`.
+> **Note**: Enable the `publish_image` pipeline parameter for each camera in its DL Streamer Pipeline Server config (see [Configure the DL Streamer Video Pipeline](../../other-topics/how-to-configure-dlstreamer-video-pipeline.md)) so a live frame is available for the camera page and **Auto Calibrate** to use.
 
 ---
 
