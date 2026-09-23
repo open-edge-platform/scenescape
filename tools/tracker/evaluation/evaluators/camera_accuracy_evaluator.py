@@ -656,10 +656,13 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
 
     ingest_frames(gt_frames, self._gt_tracks, reference, fps)
 
-    if self._gt_tracks:
-      self._total_gt_frames = max(
-        max(frames.keys()) for frames in self._gt_tracks.values()
-      )
+    # Visibility % denominator is the full GT timeline (every GT timestamp,
+    # including object-free frames); deriving it from _gt_tracks would drop
+    # trailing empty frames and inflate the percentages.
+    self._total_gt_frames = len({
+      timestamp_to_frame(parse_timestamp(f["timestamp"]), reference, fps)
+      for f in gt_frames
+    })
 
   def _write_outputs(
     self,

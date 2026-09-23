@@ -251,6 +251,35 @@ class TestVisibilityMetric:
 
     assert results["visibility_cam1_0"] == 10.0
 
+  def test_visibility_pct_includes_trailing_empty_gt_frames(self, tmp_path, tmp_output):
+    """Trailing GT frames with no objects still count toward the denominator."""
+    import json
+    # GT has 5 frames; the object appears only in frames 1-3 (frames 4-5 empty).
+    gt_file = tmp_path / "ground_truth.jsonl"
+    lines = []
+    for frame_0 in range(5):
+      objects = []
+      if frame_0 < 3:
+        objects.append({"id": 0, "category": "person", "translation": [5.0, 10.0, 0.0]})
+      lines.append(json.dumps({
+        "timestamp": _make_timestamp(frame_0),
+        "objects": objects,
+      }))
+    gt_file.write_text("\n".join(lines))
+
+    # Camera sees the object in all 3 occupied frames.
+    outputs = _make_projected_outputs(3, {"cam1": {"0": lambda i: (5.0, 10.0)}})
+
+    ev = CameraAccuracyEvaluator().set_base_fps(10.0)
+    ev.configure_metrics(["VISIBILITY"])
+    ev.set_output_folder(tmp_output)
+    ev.process_tracker_outputs(iter(outputs), str(gt_file))
+    results = ev.evaluate_metrics()
+
+    assert ev._total_gt_frames == 5
+    # 3 detected frames out of 5 total GT frames = 60%, not 100%.
+    assert results["visibility_pct_cam1_0"] == 60.0
+
 
 class TestCsvOutputs:
   def test_csv_files_created(self, tmp_path, tmp_output):
