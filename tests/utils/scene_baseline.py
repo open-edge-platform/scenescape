@@ -20,7 +20,7 @@ _UPLOAD_SCENES_DIR = _REPO_ROOT / "tools" / "upload_scenes"
 if str(_UPLOAD_SCENES_DIR) not in sys.path:
   sys.path.insert(0, str(_UPLOAD_SCENES_DIR))
 
-from uploader import SceneScapeClient, parse_auth, upload_one, wait_for_database  # noqa: E402
+from uploader import SceneScapeClient, parse_auth, upload_one, is_application_ready  # noqa: E402
 
 _RESOURCES_DIR = Path(__file__).resolve().parents[1] / "resources" / "scenes"
 
@@ -53,12 +53,11 @@ def upload_baseline_scenes(resturl, rootcert, auth_path, archive_keys):
   @return                 dict mapping scene name -> uid
   """
   client = SceneScapeClient(resturl, verify=rootcert)
+  user, password = parse_auth(str(auth_path))
   # The port-forward/rollout being ready doesn't mean the server is already
   # accepting connections; retry rather than fail on the first attempt.
-  if not wait_for_database(client, _READY_TIMEOUT_SECONDS):
+  if not is_application_ready(client, _READY_TIMEOUT_SECONDS, user, password):
     raise RuntimeError(f"{resturl} was not ready after {_READY_TIMEOUT_SECONDS} seconds")
-  user, password = parse_auth(str(auth_path))
-  client.authenticate(user, password)
 
   scene_uids = {}
   for archive_key in archive_keys:
