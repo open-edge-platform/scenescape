@@ -18,6 +18,7 @@ if [ ! -f "$COMPARE_PY" ]; then
     mkdir -p "$BUILD_DIR"
 
     # Clone the repository with sparse checkout to get only the tools directory
+    rm -rf -- "$TOOLS_DIR"
     git clone --filter=blob:none --sparse -b v1.9.5 https://github.com/google/benchmark.git "$TOOLS_DIR"
     git -C "$TOOLS_DIR" sparse-checkout set tools
 fi
