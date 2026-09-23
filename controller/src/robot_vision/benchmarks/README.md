@@ -36,7 +36,7 @@ Build and run the same CLI in two worktrees (or commits). Compare JSON with `com
 
 ## Scripts
 
-- `build_benchmark.sh` — Release build with `-DBUILD_BENCHMARKS=ON`
+- `build_benchmark.sh` — Release build with `-DBUILD_BENCHMARKS=ON` and Python bindings disabled (pybind11 is not required)
 - `run_benchmark.sh` — Runs harness; `--json` writes `out/rv_benchmark_<git>_<tag>.json`
 - `compare_benchmarks.sh` — Google Benchmark `compare.py`
 
