@@ -74,7 +74,8 @@ web:
   image: intel/scenescape-manager
   pullPolicy: IfNotPresent
   # Comma-separated host list passed to Django ALLOWED_HOSTS via
-  # SCENESCAPE_ALLOWED_HOSTS. If empty - defaults to ["*"].
+  # SCENESCAPE_ALLOWED_HOSTS. If empty - defaults to:
+  # ['127.0.0.1', 'localhost', 'web.scenescape.svc.cluster.local', 'web.scenescape.intel.com']
   allowedHosts: ""
 
 scene:
