@@ -4,72 +4,16 @@
 "use strict";
 
 import * as THREE from "/static/assets/three.module.js";
+import {
+  decodePointCloudPayload,
+  MAX_POINT_CLOUD_POINTS,
+} from "/static/js/pointcloud_decode.mjs";
+
+export { decodePointCloudPayload, MAX_POINT_CLOUD_POINTS };
 
 const DEFAULT_POINT_SIZE = 0.12;
 const DEFAULT_OPACITY = 0.85;
 const INTENSITY_RANGE_SMOOTHING = 0.15;
-/** Hard cap on points accepted from an untrusted MQTT payload. */
-export const MAX_POINT_CLOUD_POINTS = 100000;
-
-/**
- * Decode a base64 xyz[+intensity] float32 payload into Float32Arrays.
- * Validates stride and clamps count to the decoded buffer and MAX_POINT_CLOUD_POINTS.
- * @param {string} b64
- * @param {number} count
- * @param {number} stride - floats per point (3 or 4)
- * @returns {{positions: Float32Array, intensities: Float32Array|null}|null}
- */
-export function decodePointCloudPayload(b64, count, stride = 4) {
-  if (stride !== 3 && stride !== 4) {
-    return null;
-  }
-  if (typeof b64 !== "string" || !b64) {
-    return null;
-  }
-  const requested = Number(count);
-  if (!Number.isFinite(requested) || requested <= 0) {
-    return null;
-  }
-
-  let binary;
-  try {
-    binary = atob(b64);
-  } catch {
-    return null;
-  }
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  // Copy into an aligned buffer — Uint8Array from atob may share a larger
-  // ArrayBuffer whose byteOffset is not a multiple of 4.
-  const aligned = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(aligned).set(bytes);
-  const floats = new Float32Array(aligned);
-  const fromBytes = Math.floor(floats.length / stride);
-  const safeCount = Math.min(
-    Math.floor(requested),
-    fromBytes,
-    MAX_POINT_CLOUD_POINTS,
-  );
-  if (safeCount <= 0) {
-    return null;
-  }
-
-  const positions = new Float32Array(safeCount * 3);
-  const intensities = stride >= 4 ? new Float32Array(safeCount) : null;
-  for (let i = 0; i < safeCount; i++) {
-    const src = i * stride;
-    const dst = i * 3;
-    positions[dst] = floats[src];
-    positions[dst + 1] = floats[src + 1];
-    positions[dst + 2] = floats[src + 2];
-    if (intensities) {
-      intensities[i] = floats[src + 3];
-    }
-  }
-  return { positions, intensities };
-}
 
 /**
  * Map intensity values to RGB colors using a stable (smoothed) value range.

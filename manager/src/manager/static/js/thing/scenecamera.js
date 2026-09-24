@@ -257,6 +257,21 @@ export default class SceneCamera extends THREE.Object3D {
       this.fovEnabled = false;
     });
 
+    this.applyNonStaffFieldLocks();
+
+    this.sceneViewCamera = params.sceneViewCamera;
+    this.setViewCamera = params.setViewCamera;
+    this.currentCameras = params.currentThings;
+  }
+
+  /**
+   * Disable editable fields for anonymous / non-staff viewers.
+   * Re-run after control-panel rebuild so locks match the live controllers.
+   */
+  applyNonStaffFieldLocks() {
+    if (this.isStaff !== null) {
+      return;
+    }
     const fields = [
       "name",
       "show sensor",
@@ -278,13 +293,7 @@ export default class SceneCamera extends THREE.Object3D {
     } else {
       fields.push("scene camera", "project frame", "pause video", "opacity");
     }
-    if (this.isStaff === null) {
-      this.disableFields(fields);
-    }
-
-    this.sceneViewCamera = params.sceneViewCamera;
-    this.setViewCamera = params.setViewCamera;
-    this.currentCameras = params.currentThings;
+    this.disableFields(fields);
   }
 
   reloadCamera() {
@@ -669,6 +678,10 @@ export default class SceneCamera extends THREE.Object3D {
     this.distortionFolder = null;
     this.poseFolder = null;
     this.addControlPanel(this.camerasFolder);
+    // Pose/drag sync uses controllersDict built at addDragControls time;
+    // refresh it against the new folder so setPose does not touch destroyed GUIs.
+    this.refreshControllersDict();
+    this.applyNonStaffFieldLocks();
   }
 
   stripCameraOnlyControls() {

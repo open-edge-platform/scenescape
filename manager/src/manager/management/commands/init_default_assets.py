@@ -10,7 +10,8 @@ from manager.models import Asset3D
 class Command(BaseCommand):
   help = (
     "Ensure default Asset3D objects (vehicle, cyclist) exist in the objects "
-    "library. Defaults live in manager.default_assets (shared with migration 0005)."
+    "library. Defaults live in manager.default_assets; migration 0005 uses a "
+    "frozen snapshot for one-shot migrate seeding."
   )
 
   def handle(self, *args, **options):

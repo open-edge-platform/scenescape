@@ -3,29 +3,47 @@
 
 from django.db import migrations
 
+# Frozen snapshot of manager.default_assets.DEFAULT_ASSETS at migration authoring
+# time. Do not import the live module here — historical migrations must not
+# depend on app code that can move or change. Ongoing / idempotent seeding uses
+# ``init_default_assets`` + manager.default_assets (single live source of truth).
+_FROZEN_DEFAULT_ASSETS = [
+  {
+    "name": "vehicle",
+    "x_size": 4.04,
+    "y_size": 1.66,
+    "z_size": 1.55,
+    "tracking_radius": 10.0,
+    "mark_color": "#0099ff",
+    "shift_type": 1,
+    "rotation_from_velocity": True,
+  },
+  {
+    "name": "cyclist",
+    "x_size": 1.85,
+    "y_size": 0.65,
+    "z_size": 1.84,
+    "tracking_radius": 2.0,
+    "mark_color": "#f39c12",
+    "shift_type": 1,
+    "rotation_from_velocity": True,
+  },
+]
+
 
 def add_default_asset3d_objects(apps, schema_editor):
-  """Seed default Asset3D rows using the shared DEFAULT_ASSETS definition.
-
-  See manager.default_assets for sizes/colors and lifecycle notes. The
-  init_default_assets management command uses the same source and re-ensures
-  these rows on every manager start.
-  """
-  # Import at runtime so the migration tracks current seed values from the
-  # single source of truth (get_or_create only applies defaults on create).
-  from manager.default_assets import DEFAULT_ASSETS
-
+  """Seed default Asset3D rows from the frozen snapshot above."""
   Asset3D = apps.get_model("manager", "Asset3D")
-  for asset in DEFAULT_ASSETS:
+  for asset in _FROZEN_DEFAULT_ASSETS:
     defaults = {k: v for k, v in asset.items() if k != "name"}
     Asset3D.objects.get_or_create(name=asset["name"], defaults=defaults)
 
 
 def remove_default_asset3d_objects(apps, schema_editor):
-  from manager.default_assets import DEFAULT_ASSETS
-
   Asset3D = apps.get_model("manager", "Asset3D")
-  Asset3D.objects.filter(name__in=[a["name"] for a in DEFAULT_ASSETS]).delete()
+  Asset3D.objects.filter(
+    name__in=[a["name"] for a in _FROZEN_DEFAULT_ASSETS]
+  ).delete()
 
 
 class Migration(migrations.Migration):

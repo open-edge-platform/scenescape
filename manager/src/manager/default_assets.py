@@ -3,17 +3,19 @@
 
 """Canonical default Asset3D library entries (vehicle, cyclist).
 
-Single source of truth for sizes/colors used by:
-  - management command ``init_default_assets`` (always-run on manager init)
-  - data migration ``0005_default_asset3d_objects`` (one-shot on migrate)
+Live source of truth for sizes/colors used by the management command
+``init_default_assets`` (always-run on manager init).
+
+Migration ``0005_default_asset3d_objects`` holds a **frozen** copy of these
+values for one-shot migrate seeding (migrations must not import live app
+modules). When changing defaults here, update that frozen snapshot only if
+you also need historical migrate-from-scratch to pick up the new values;
+existing DBs are re-ensured by ``init_default_assets`` on start (get_or_create
+does not overwrite existing rows).
 
 Sizes are derived from observed LiDAR detections:
   vehicle  - avg of three detections: x=4.04 m, y=1.66 m, z=1.55 m
   cyclist  - single detection:        x=1.85 m, y=0.65 m, z=1.84 m
-
-Lifecycle: migrate seeds on first apply; ``init_default_assets`` re-ensures
-idempotently on every manager start so defaults exist even if the migration
-was applied before this seed existed or rows were deleted.
 """
 
 DEFAULT_ASSETS = [
