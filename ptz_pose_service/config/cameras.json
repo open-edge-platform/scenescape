@@ -1,3 +1,18 @@
 {
-  "cameras": []
+  "cameras": [
+    {
+      "onvif_host": "192.168.0.91",
+      "onvif_port": 2020,
+      "scene_camera_uid": "atag-ptzcam3",
+      "profile_token": null,
+      "home_pan": null,
+      "home_tilt": null,
+      "pan_degrees": null,
+      "tilt_degrees": null,
+      "pan_scale": 1.0,
+      "tilt_scale": 1.0,
+      "invert_pan": false,
+      "invert_tilt": false
+    }
+  ]
 }

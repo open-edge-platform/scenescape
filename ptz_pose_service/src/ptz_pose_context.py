@@ -38,6 +38,7 @@ class TrackedCamera:
   """Runtime state for one ONVIF PTZ camera bound to a Scenescape camera."""
 
   scene_camera_uid: str
+  camera_name: str
   onvif_host: str
   onvif_port: int
   controller: PTZController
@@ -204,7 +205,13 @@ class PTZPoseContext:
                     if tilt_fov is not None else self.default_tilt_scale)
     return float(pan_scale), float(tilt_scale)
 
-  def _fetchHomeRotation(self, scene_camera_uid):
+  def _fetchCameraInfo(self, scene_camera_uid):
+    """Fetch a camera's calibrated rotation and name from Scenescape.
+
+    The name is required because the REST API's partial-update validation
+    rejects any update that isn't scene-only relink unless 'name' is
+    included, so every pose update must resend it alongside 'rotation'.
+    """
     result = self.rest.getCamera(scene_camera_uid)
     if result.errors:
       raise RuntimeError(f"Failed to fetch camera {scene_camera_uid}: {result.errors}")
@@ -212,7 +219,10 @@ class PTZPoseContext:
     if not rotation or len(rotation) != 3:
       raise RuntimeError(
           f"Camera {scene_camera_uid} has no valid 'rotation' set; calibrate it first")
-    return [float(v) for v in rotation]
+    name = result.get('name')
+    if not name:
+      raise RuntimeError(f"Camera {scene_camera_uid} has no 'name' set")
+    return [float(v) for v in rotation], name
 
   def setup(self):
     """Load the camera map, resolve ONVIF profiles, fetch each camera's
@@ -235,7 +245,7 @@ class PTZPoseContext:
         controller = PTZController(
             host, port, profile_token, self.onvif_username, self.onvif_password)
 
-        home_rotation = self._fetchHomeRotation(scene_uid)
+        home_rotation, camera_name = self._fetchCameraInfo(scene_uid)
 
         home_pan = entry.get('home_pan')
         home_tilt = entry.get('home_tilt')
@@ -251,6 +261,7 @@ class PTZPoseContext:
 
         camera = TrackedCamera(
             scene_camera_uid=scene_uid,
+            camera_name=camera_name,
             onvif_host=host,
             onvif_port=port,
             controller=controller,
@@ -281,7 +292,8 @@ class PTZPoseContext:
     if rotation_delta_magnitude(new_rotation, camera.last_applied_rotation) < self.min_delta_deg:
       return
 
-    result = self.rest.updateCamera(camera.scene_camera_uid, {'rotation': new_rotation})
+    result = self.rest.updateCamera(
+        camera.scene_camera_uid, {'name': camera.camera_name, 'rotation': new_rotation})
     if result.errors:
       log.error(f"Failed to update pose for {camera.label}: {result.errors}")
       return

@@ -346,8 +346,8 @@ services:
     environment:
       - ONVIF_USERNAME=${ONVIF_USERNAME}
       - ONVIF_PASSWORD=${ONVIF_PASSWORD}
-      - no_proxy=${no_proxy},.scenescape.intel.com
-      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+      - no_proxy=192.168.0.92,192.168.0.93,192.168.0.91,${no_proxy},.scenescape.intel.com
+      - NO_PROXY=192.168.0.92,192.168.0.93,192.168.0.91,${NO_PROXY},.scenescape.intel.com
     command: >
       --resturl https://web.scenescape.intel.com:443/api/v1
       --restauth /run/secrets/calibration.auth
