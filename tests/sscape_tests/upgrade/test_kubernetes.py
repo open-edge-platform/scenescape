@@ -22,12 +22,34 @@ def test_report_identifies_ephemeral_storage_and_never_mutates():
                   "status": "deployed", "chart": "scenescape-2026.2.0",
                   "app_version": "2026.2.0"}]
     elif command[2] == "deployment":
-      payload = {"items": [{"metadata": {"name": "scenescape-reid"},
-                            "spec": {"template": {"spec": {"volumes": [
-                              {"name": "reid-data", "emptyDir": {}}]}}}}]}
+      payload = {"items": [
+        {"metadata": {
+          "name": "scenescape-reid",
+          "annotations": {"meta.helm.sh/release-name": "scenescape"}},
+         "spec": {"template": {"spec": {"volumes": [
+           {"name": "reid-data", "emptyDir": {}}]}}}},
+        {"metadata": {
+          "name": "other-release",
+          "annotations": {"meta.helm.sh/release-name": "other"}},
+         "spec": {"template": {"spec": {"volumes": [
+           {"name": "ignored", "emptyDir": {}}]}}}},
+      ]}
     elif command[2] == "certificate":
-      payload = {"items": [{"metadata": {"name": "web"}, "status": {
-        "conditions": [{"type": "Ready", "status": "True"}]}}]}
+      payload = {"items": [{"metadata": {
+        "name": "web",
+        "annotations": {"meta.helm.sh/release-name": "scenescape"}},
+        "status": {"conditions": [{"type": "Ready", "status": "True"}]}}]}
+    elif command[2] == "pvc":
+      payload = {"items": [{"metadata": {
+        "name": "scenescape-media-pvc",
+        "annotations": {"meta.helm.sh/release-name": "scenescape"},
+        "labels": {"meta.helm.sh/release-name": "scenescape"}},
+        "status": {"phase": "Bound"}}]}
+    elif command[2] == "statefulset":
+      payload = {"items": [{"metadata": {
+        "name": "scenescape-pgserver",
+        "annotations": {"meta.helm.sh/release-name": "scenescape"}},
+        "status": {"phase": None}}]}
     else:
       payload = {"items": []}
     return CompletedProcess(command, 0, stdout=json.dumps(payload))
@@ -36,9 +58,14 @@ def test_report_identifies_ephemeral_storage_and_never_mutates():
 
   assert report["status"] == "action_required"
   assert report["warnings"][0]["code"] == "ephemeral_storage"
+  assert report["warnings"][0]["volumes"] == [
+    {"workload": "scenescape-reid", "volume": "reid-data"}]
+  assert report["persistent_volume_claims"][0]["name"] == "scenescape-media-pvc"
+  assert report["statefulsets"][0]["name"] == "scenescape-pgserver"
   assert report["unsupported_operations"] == ["backup", "restore", "apply", "rollback"]
   assert all(command[0:2] in (["helm", "list"], ["kubectl", "get"])
              for command in commands)
+  assert all("-l" not in command for command in commands if command[0] == "kubectl")
 
 
 def test_report_warns_when_certificate_is_not_ready():
@@ -46,8 +73,10 @@ def test_report_warns_when_certificate_is_not_ready():
     if command[:2] == ["helm", "list"]:
       payload = [{"name": "scenescape", "namespace": "scenescape"}]
     elif command[2] == "certificate":
-      payload = {"items": [{"metadata": {"name": "web"}, "status": {
-        "conditions": [{"type": "Ready", "status": "False"}]}}]}
+      payload = {"items": [{"metadata": {
+        "name": "web",
+        "annotations": {"meta.helm.sh/release-name": "scenescape"}},
+        "status": {"conditions": [{"type": "Ready", "status": "False"}]}}]}
     else:
       payload = {"items": []}
     return CompletedProcess(command, 0, stdout=json.dumps(payload))

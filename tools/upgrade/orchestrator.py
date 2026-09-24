@@ -144,19 +144,28 @@ def begin_upgrade(plan, operation_dir, secrets_dir, output_dir,
 
 
 
-def compose_health(compose, runner=subprocess.run):
+def compose_health(compose, expected_services=None, runner=subprocess.run):
   """Require every selected Compose service to be running and not unhealthy."""
-  result = runner(compose + ["ps", "--format", "json"], check=True,
+  result = runner(compose + ["ps", "--all", "--format", "json"], check=True,
                   capture_output=True, text=True)
   raw = result.stdout.strip()
   if not raw:
-    raise ValueError("Compose reported no running services")
+    raise ValueError("Compose reported no services")
   try:
     services = json.loads(raw)
     if isinstance(services, dict):
       services = [services]
   except json.JSONDecodeError:
     services = [json.loads(line) for line in raw.splitlines()]
+  reported = {
+    item.get("Service") or item.get("Name") for item in services
+    if item.get("Service") or item.get("Name")
+  }
+  if expected_services:
+    missing = sorted(set(expected_services) - reported)
+    if missing:
+      raise ValueError(
+        f"Compose services are missing from status: {', '.join(missing)}")
   failures = [item.get("Service", item.get("Name", "unknown")) for item in services
               if item.get("State") != "running" or item.get("Health") == "unhealthy"]
   if failures:
@@ -181,6 +190,7 @@ def resume_upgrade(operation_dir, manifest_path, image_action="pull",
   compose = compose_base(
     deployment["compose_files"], deployment["profiles"],
     deployment["project_name"], deployment["root"])
+  expected_services = [item["name"] for item in deployment.get("services", [])]
   try:
     if image_action != "none":
       runner(compose + [image_action], check=True)
@@ -201,7 +211,7 @@ def resume_upgrade(operation_dir, manifest_path, image_action="pull",
       deployment["compose_files"], deployment["profiles"],
       deployment["project_name"], transition, operation_dir, deployment["root"],
       runner=runner)
-    compose_health(compose, runner=runner)
+    compose_health(compose, expected_services=expected_services, runner=runner)
   except (OSError, ValueError, subprocess.CalledProcessError):
     write_operation_state(operation_dir, {**state, "phase": "failed", "status": "failed"})
     raise
@@ -212,8 +222,12 @@ def resume_upgrade(operation_dir, manifest_path, image_action="pull",
 
 def verify_upgrade(operation_dir, manifest_path, runner=subprocess.run,
                    migrator=apply_migrations):
-  """Reverify migration state and Compose service health."""
+  """Reverify migration state and Compose service health after cutover."""
   state = read_operation_state(operation_dir)
+  if state["phase"] != "verified":
+    raise ValueError(
+      "release-verify requires a post-cutover verified phase; "
+      "use release-resume for pending cutover operations")
   transition = find_transition(load_compatibility(manifest_path),
                                state["source_version"], state["target_version"])
   if transition is None:
@@ -223,9 +237,11 @@ def verify_upgrade(operation_dir, manifest_path, runner=subprocess.run,
     deployment["compose_files"], deployment["profiles"],
     deployment["project_name"], transition, operation_dir, deployment["root"],
     runner=runner)
+  expected_services = [item["name"] for item in deployment.get("services", [])]
   compose_health(compose_base(
     deployment["compose_files"], deployment["profiles"],
-    deployment["project_name"], deployment["root"]), runner=runner)
+    deployment["project_name"], deployment["root"]),
+    expected_services=expected_services, runner=runner)
   return write_operation_state(operation_dir, {
     **state, "phase": "verified", "status": "ready",
   })
@@ -236,7 +252,13 @@ def rollback_upgrade(operation_dir, overwrite=False, restorer=restore_backup):
   state = read_operation_state(operation_dir)
   if not state.get("rollback_available"):
     raise ValueError("this operation has no verified rollback backup")
-  restored = restorer(state["backup_dir"], overwrite=overwrite)
+  source = state.get("source_deployment", {})
+  restored = restorer(
+    state["backup_dir"], overwrite=overwrite,
+    compose_files=source.get("compose_files"),
+    profiles=source.get("profiles"),
+    project_name=source.get("project_name"),
+    deployment_root=source.get("root"))
   return write_operation_state(operation_dir, {
     **state, "phase": "data_restored", "status": "action_required",
     "restored_volumes": restored,

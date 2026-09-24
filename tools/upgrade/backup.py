@@ -74,10 +74,10 @@ def restore_volume(volume_name, archive, overwrite=False, runner=subprocess.run)
     raise ValueError(f"refusing to overwrite non-empty volume {volume_name}")
   archive = Path(archive).resolve()
   command = "rm -rf /volume/* /volume/.[!.]* /volume/..?*; " if overwrite else ""
-  command += f"tar xzpf /backup/{archive.name} -C /volume"
+  command += "tar xzpf /backup/archive.tar.gz -C /volume"
   run_command([
     "docker", "run", "--rm", "-v", f"{volume_name}:/volume",
-    "-v", f"{archive.parent}:/backup:ro", ARCHIVE_IMAGE,
+    "-v", f"{archive}:/backup/archive.tar.gz:ro", ARCHIVE_IMAGE,
     "sh", "-c", command,
   ], runner=runner)
 
@@ -149,6 +149,7 @@ def create_backup(compose_config, deployment_root, compose_files, profiles,
     "operation": "scenescape_backup",
     "operation_id": operation_id,
     "created_at": datetime.now(timezone.utc).isoformat(),
+    "deployment_root": str(Path(deployment_root).resolve()),
     "project_name": compose_config.get("name"),
     "compose_files": [str(Path(path).resolve()) for path in compose_files],
     "profiles": profiles,
@@ -165,7 +166,16 @@ def verify_backup(backup_dir):
   manifest = json.loads((backup_dir / MANIFEST_NAME).read_text(encoding="utf-8"))
   if manifest.get("schema_version") != 1:
     raise ValueError("unsupported backup manifest schema")
-  for artifact in manifest.get("artifacts", []):
+  artifacts = manifest.get("artifacts")
+  if not isinstance(artifacts, list) or not artifacts:
+    raise ValueError("backup manifest has no artifacts")
+  for artifact in artifacts:
+    if not isinstance(artifact, dict):
+      raise ValueError("backup artifact is structurally invalid")
+    if not all(key in artifact for key in ("path", "type", "sha256")):
+      raise ValueError("backup artifact is missing required fields")
+    if artifact["type"] == "docker_volume" and "volume_name" not in artifact:
+      raise ValueError("docker volume artifact is missing volume_name")
     path = backup_dir / artifact["path"]
     if not path.is_file():
       raise ValueError(f"backup artifact is missing: {artifact['path']}")
@@ -174,10 +184,33 @@ def verify_backup(backup_dir):
   return manifest
 
 
-def restore_backup(backup_dir, overwrite=False, runner=subprocess.run):
-  """Verify and restore all Docker volume artifacts in a backup."""
+def stop_compose_for_restore(manifest, runner=subprocess.run, compose_files=None,
+                             profiles=None, project_name=None, deployment_root=None):
+  """Stop the Compose project before mutating its volumes."""
+  compose_files = compose_files or manifest.get("compose_files")
+  if not compose_files:
+    raise ValueError("backup manifest is missing compose files required to stop services")
+  profiles = profiles if profiles is not None else manifest.get("profiles", [])
+  project_name = project_name or manifest.get("project_name")
+  deployment_root = deployment_root or manifest.get("deployment_root")
+  compose = compose_base(compose_files, profiles, project_name, deployment_root)
+  run_command(compose + ["down", "--remove-orphans"], runner=runner)
+  return compose
+
+
+def restore_backup(backup_dir, overwrite=False, runner=subprocess.run,
+                   compose_files=None, profiles=None, project_name=None,
+                   deployment_root=None):
+  """Verify and restore all Docker volume artifacts in a backup.
+
+  Stops the Compose project first and leaves it stopped so callers can restart
+  the intended source or target release after restore.
+  """
   backup_dir = Path(backup_dir).resolve()
   manifest = verify_backup(backup_dir)
+  stop_compose_for_restore(
+    manifest, runner=runner, compose_files=compose_files, profiles=profiles,
+    project_name=project_name, deployment_root=deployment_root)
   restored = []
   for artifact in manifest["artifacts"]:
     if artifact["type"] != "docker_volume":

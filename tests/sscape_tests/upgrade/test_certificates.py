@@ -9,6 +9,7 @@ from subprocess import CompletedProcess
 import pytest
 
 from tools.upgrade.certificates import CERTIFICATE_FILES
+from tools.upgrade.certificates import PRIVATE_KEY_FILES
 from tools.upgrade.certificates import certificate_status
 from tools.upgrade.certificates import replace_trust_set
 
@@ -18,6 +19,10 @@ def test_certificate_status_reports_expiring_and_missing_files(tmp_path):
   certs_dir.mkdir()
   for filename in CERTIFICATE_FILES[:-1]:
     (certs_dir / filename).write_text("certificate", encoding="utf-8")
+  for filename in PRIVATE_KEY_FILES:
+    (certs_dir / filename).write_text("key", encoding="utf-8")
+  (tmp_path / "ca").mkdir()
+  (tmp_path / "ca" / "scenescape-ca.key").write_text("ca", encoding="utf-8")
 
   def fake_run(command, **_kwargs):
     return CompletedProcess(command, 1 if command[-1].endswith("web.crt") else 0)
@@ -28,6 +33,25 @@ def test_certificate_status_reports_expiring_and_missing_files(tmp_path):
   assert report["status"] == "action_required"
   assert statuses["scenescape-web.crt"] == "renewal_required"
   assert statuses["scenescape-mapping.crt"] == "missing"
+
+
+def test_certificate_status_requires_private_keys(tmp_path):
+  certs_dir = tmp_path / "certs"
+  certs_dir.mkdir()
+  for filename in CERTIFICATE_FILES:
+    (certs_dir / filename).write_text("certificate", encoding="utf-8")
+  (tmp_path / "ca").mkdir()
+  (tmp_path / "ca" / "scenescape-ca.key").write_text("ca", encoding="utf-8")
+
+  def fake_run(command, **_kwargs):
+    return CompletedProcess(command, 0)
+
+  report = certificate_status(tmp_path, runner=fake_run)
+
+  statuses = {item["name"]: item["status"] for item in report["certificates"]}
+  assert report["status"] == "action_required"
+  assert statuses["scenescape-web.key"] == "missing"
+  assert statuses["ca/scenescape-ca.key"] == "valid"
 
 
 def test_replace_trust_set_preserves_non_tls_secrets(tmp_path):

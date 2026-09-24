@@ -13,6 +13,7 @@ from tools.upgrade.orchestrator import plan_upgrade
 from tools.upgrade.orchestrator import read_operation_state
 from tools.upgrade.orchestrator import resume_upgrade
 from tools.upgrade.orchestrator import rollback_upgrade
+from tools.upgrade.orchestrator import verify_upgrade
 from tools.upgrade.orchestrator import write_operation_state
 
 
@@ -72,6 +73,23 @@ def test_compose_health_rejects_unhealthy_service():
     compose_health(["docker", "compose"], runner=lambda *_args, **_kwargs: Result())
 
 
+def test_compose_health_includes_stopped_and_expected_services():
+  commands = []
+
+  class Result:
+    stdout = json.dumps([{"Service": "web", "State": "running", "Health": "healthy"}])
+
+  def runner(command, **_kwargs):
+    commands.append(command)
+    return Result()
+
+  with pytest.raises(ValueError, match="pgserver"):
+    compose_health(["docker", "compose"], expected_services=["web", "pgserver"],
+                   runner=runner)
+
+  assert "--all" in commands[0]
+
+
 def test_resume_runs_only_safe_target_commands(tmp_path):
   state = {
     "schema_version": 1, "source_version": "2026.1.0",
@@ -87,6 +105,7 @@ def test_resume_runs_only_safe_target_commands(tmp_path):
       "root": "2026.2", "project_name": "custom",
       "compose_files": ["2026.2/compose.yml"],
       "profiles": ["controller"],
+      "services": [{"name": "web", "image": "web:target"}],
     },
   }
   write_operation_state(tmp_path, state)
@@ -109,11 +128,28 @@ def test_resume_runs_only_safe_target_commands(tmp_path):
   assert commands[1][-2:] == ["down", "--remove-orphans"]
   assert commands[2][-3:] == ["up", "-d", "pgserver"]
   assert commands[3][-4:] == ["up", "-d", "--force-recreate", "--remove-orphans"]
-  assert commands[4][-3:] == ["ps", "--format", "json"]
+  assert commands[4][-4:] == ["ps", "--all", "--format", "json"]
   assert "2026.1/compose.yml" in commands[1]
   assert all("2026.2/compose.yml" in command
              for command in (commands[0], *commands[2:]))
   assert all("-v" not in command for command in commands)
+
+
+def test_verify_rejects_pre_cutover_phase(tmp_path):
+  write_operation_state(tmp_path, {
+    "schema_version": 1, "source_version": "2026.1.0",
+    "target_version": "2026.2.0", "phase": "awaiting_database_cutover",
+    "status": "action_required",
+    "target_deployment": {
+      "root": "2026.2", "project_name": "custom",
+      "compose_files": ["2026.2/compose.yml"], "profiles": [],
+      "services": [],
+    },
+  })
+
+  with pytest.raises(ValueError, match="release-resume"):
+    verify_upgrade(tmp_path, "tools/upgrade/compatibility.json",
+                   migrator=lambda *_a, **_k: None)
 
 
 def test_begin_requires_verified_backup_before_cutover(tmp_path):
@@ -149,14 +185,20 @@ def test_rollback_uses_verified_backup_path(tmp_path):
   write_operation_state(tmp_path, {
     "schema_version": 1, "phase": "failed", "status": "failed",
     "backup_dir": "/verified/backup", "rollback_available": True,
+    "source_deployment": {
+      "root": "/source", "project_name": "custom",
+      "compose_files": ["/source/compose.yml"], "profiles": [],
+    },
   })
   calls = []
 
-  def restorer(path, overwrite=False):
-    calls.append((path, overwrite))
+  def restorer(path, overwrite=False, **kwargs):
+    calls.append((path, overwrite, kwargs))
     return ["custom_vol-db"]
 
   state = rollback_upgrade(tmp_path, overwrite=True, restorer=restorer)
 
-  assert calls == [("/verified/backup", True)]
+  assert calls[0][0] == "/verified/backup"
+  assert calls[0][1] is True
+  assert calls[0][2]["deployment_root"] == "/source"
   assert state["phase"] == "data_restored"

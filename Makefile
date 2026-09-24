@@ -927,6 +927,7 @@ database-check database-migrate:
 certificate-check certificate-renew:
 	@tools/upgrade/scenescape-upgrade $@ \
 		--project-name $(COMPOSE_PROJECT_NAME) \
+		--secrets-dir $(SECRETSDIR) \
 		--minimum-valid-days $(or $(MINIMUM_VALID_DAYS),30) \
 		--output-dir $(or $(UPGRADE_STATE_DIR),$(CURDIR)/upgrade-state) \
 		--certdomain $(CERTDOMAIN) \
@@ -942,6 +943,7 @@ upgrade-plan upgrade-apply:
 		$(if $(TARGET_VERSION),--target-version $(TARGET_VERSION),) \
 		$(if $(SOURCE_DEPLOYMENT_ROOT),--source-deployment-root $(SOURCE_DEPLOYMENT_ROOT),) \
 		--project-name $(COMPOSE_PROJECT_NAME) \
+		--secrets-dir $(SECRETSDIR) \
 		--operation-dir $(or $(UPGRADE_STATE_DIR),$(CURDIR)/upgrade-state) \
 		--output-dir $(or $(BACKUP_DIR),$(CURDIR)) \
 		$(if $(filter true 1 yes,$(ALLOW_DIRTY)),--allow-dirty,)

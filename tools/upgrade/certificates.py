@@ -27,6 +27,15 @@ CERTIFICATE_FILES = (
   "scenescape-mapping.crt",
 )
 
+PRIVATE_KEY_FILES = (
+  "scenescape-broker.key",
+  "scenescape-web.key",
+  "scenescape-reid.key",
+  "scenescape-reid-s.key",
+  "scenescape-autocalibration.key",
+  "scenescape-mapping.key",
+)
+
 
 def certificate_status(secrets_dir, minimum_valid_days=30, runner=subprocess.run):
   """Report whether every required certificate remains valid for the threshold."""
@@ -46,6 +55,17 @@ def certificate_status(secrets_dir, minimum_valid_days=30, runner=subprocess.run
       "name": filename,
       "status": "valid" if result.returncode == 0 else "renewal_required",
     })
+  for filename in PRIVATE_KEY_FILES:
+    path = certs_dir / filename
+    certificates.append({
+      "name": filename,
+      "status": "valid" if path.is_file() else "missing",
+    })
+  ca_key = Path(secrets_dir) / "ca" / "scenescape-ca.key"
+  certificates.append({
+    "name": "ca/scenescape-ca.key",
+    "status": "valid" if ca_key.is_file() else "missing",
+  })
   status = "ready" if all(item["status"] == "valid" for item in certificates) \
     else "action_required"
   return {"status": status, "minimum_valid_days": minimum_valid_days,
@@ -75,6 +95,8 @@ def validate_trust_set(secrets_dir, runner=subprocess.run):
   ca_file = certs_dir / "scenescape-ca.pem"
   missing = [name for name in CERTIFICATE_FILES
              if not (certs_dir / name).is_file()]
+  missing.extend(name for name in PRIVATE_KEY_FILES
+                 if not (certs_dir / name).is_file())
   if not (Path(secrets_dir) / "ca" / "scenescape-ca.key").is_file():
     missing.append("ca/scenescape-ca.key")
   if missing:

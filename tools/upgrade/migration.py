@@ -184,8 +184,13 @@ def apply_migrations(compose_files, profiles, project_name, transition,
     verify_no_model_changes(
       compose_files, profiles, project_name, deployment_root, runner=runner)
   elif plan["strategy"] == "committed" and plan["pending"]:
-    runner(migration_command(compose_files, profiles, project_name,
-                             ["migrate", "--noinput"], deployment_root), check=True)
+    if not plan["expected"]:
+      raise ValueError("committed strategy requires authorized target migrations")
+    target_migration = plan["expected"][-1]
+    runner(migration_command(
+      compose_files, profiles, project_name,
+      ["migrate", "manager", target_migration, "--noinput"], deployment_root),
+           check=True)
   elif plan["strategy"] not in ("committed", "fake_initial"):
     raise ValueError(f"unsupported Django migration strategy: {plan['strategy']}")
   applied = read_applied_migrations(
