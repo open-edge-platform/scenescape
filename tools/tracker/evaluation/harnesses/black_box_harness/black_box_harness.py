@@ -129,6 +129,12 @@ _MOCK_MANAGER_USER         = "harness"
 _MOCK_MANAGER_PASSWORD     = "harness"
 _MOCK_MANAGER_PORT         = 8888  # internal Docker-network port
 
+# Disable proxying inside harness containers.
+_NO_PROXY_ENVS: Dict[str, str] = {
+    "http_proxy": "", "https_proxy": "", "no_proxy": "*",
+    "HTTP_PROXY": "", "HTTPS_PROXY": "", "NO_PROXY": "*",
+}
+
 # Container type constants
 CONTAINER_TYPE_CONTROLLER = "controller"
 CONTAINER_TYPE_TRACKER    = "tracker"
@@ -719,13 +725,13 @@ class BlackBoxHarness(TrackerHarness):
     manager_url = f"http://{manager_name}:{manager_port}/api/v1"
     rest_auth   = f"{_MOCK_MANAGER_USER}:{_MOCK_MANAGER_PASSWORD}"
 
-    envs: Dict[str, str] = {}
+    envs: Dict[str, str] = dict(_NO_PROXY_ENVS)
     if collector_name:
-      envs = {
+      envs.update({
           "CONTROLLER_ENABLE_METRICS": "true",
           "CONTROLLER_METRICS_ENDPOINT": f"{collector_name}:{self._metrics_otlp_port}",
           "CONTROLLER_METRICS_EXPORT_INTERVAL_S": str(self._metrics_export_interval_s),
-      }
+      })
 
     return docker.run(
         self._container_image,
@@ -795,6 +801,7 @@ class BlackBoxHarness(TrackerHarness):
         name=tracker_name,
         networks=[net_name],
         add_hosts=[(manager_name, host_gateway)],
+        envs=dict(_NO_PROXY_ENVS),
         volumes=[
             (str(svc_config_file), _TRACKER_SVC_CONFIG, "ro"),
             (str(auth_file),       _TRACKER_SVC_AUTH,   "ro"),
