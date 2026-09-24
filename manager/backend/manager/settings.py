@@ -28,20 +28,22 @@ def get_allowed_hosts():
   Determine allowed hosts for Django's HOST header validation.
 
   Priority (highest to lowest):
-  1. SCENESCAPE_ALLOWED_HOSTS env var (comma-separated list)
-  2. Fallback to ['*'] for backwards compatibility
+  1. SCENESCAPE_ALLOWED_HOSTS env var (comma-separated list) extended with default hosts
+  2. Fallback to default hosts if env var is not set or empty
 
-  Environment variables should contain comma-separated host values:
+  Default hosts include local hosts required for application to start correctly.
+
+  Environment variable should contain comma-separated host values:
   - SCENESCAPE_ALLOWED_HOSTS=example.com,10.0.0.1
   """
-  if 'SCENESCAPE_ALLOWED_HOSTS' in os.environ:
-    hosts = [h.strip() for h in os.getenv('SCENESCAPE_ALLOWED_HOSTS').split(',') if h.strip()]
-    hosts.extend(['web.scenescape.svc.cluster.local', 'web.scenescape.intel.com'])  # Always allow these hosts
-    if hosts:
-      return hosts
+  default_hosts = ['127.0.0.1', 'localhost', 'web.scenescape.svc.cluster.local', 'web.scenescape.intel.com']
+  raw_hosts = os.getenv('SCENESCAPE_ALLOWED_HOSTS', '').strip()
+  if raw_hosts:
+    hosts = [h.strip() for h in raw_hosts.split(',') if h.strip()]
+    default_hosts.extend(hosts)
 
   # Fallback for backwards compatibility
-  return ['*']
+  return default_hosts
 
 ALLOWED_HOSTS = get_allowed_hosts()
 DEFAULT_CHARSET = "utf-8"
@@ -199,6 +201,21 @@ LOGIN_URL = 'sign_in'
 KUBERNETES_SERVICE_HOST = 'KUBERNETES_SERVICE_HOST' in os.environ
 
 # Get the version number
+def get_docs_version(version):
+  """Return the documentation URL segment for an application version."""
+  if not version or version == 'Unknown':
+    return 'dev'
+
+  # Release candidates aren't published docs yet, so link to dev docs.
+  if 'dev' in version.lower() or 'rc' in version.lower():
+    return 'dev'
+
+  version_parts = version.split('.')
+  if len(version_parts) >= 2 and all(part.isdigit() for part in version_parts[:2]):
+    return '.'.join(version_parts[:2])
+
+  return 'dev'
+
 try:
   with open(BASE_DIR + '/' + APP_NAME + '/version.txt') as f:
     APP_VERSION_NUMBER = f.readline().rstrip()
@@ -224,6 +241,7 @@ def _read_git_commit():
 
 # Full SHA of the commit used to build this Manager image (or runtime override).
 APP_GIT_COMMIT = _read_git_commit()
+DOCS_VERSION = get_docs_version(APP_VERSION_NUMBER)
 
 # Set up support for proxy headers
 USE_X_FORWARDED_HOST = True
