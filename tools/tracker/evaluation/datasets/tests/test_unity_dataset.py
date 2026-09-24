@@ -15,7 +15,7 @@ import jsonschema
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from datasets.unity_dataset import UnityDataset
-from utils.format_converters import read_csv_to_dataframe, stream_jsonl
+from utils.format_converters import stream_jsonl
 
 # Path to test dataset
 DATASET_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / \
@@ -68,6 +68,11 @@ def _count_objects(entries):
     for category_objects in objects.values():
       total += len(category_objects)
   return total
+
+
+def _gt_objects(gt_frames):
+  """Flatten canonical GT JSONL frames into a list of objects."""
+  return [obj for frame in gt_frames for obj in frame["objects"]]
 
 
 @pytest.fixture
@@ -396,67 +401,53 @@ class TestGetGroundTruth:
     gt_path = dataset.get_ground_truth()
     assert isinstance(gt_path, str)
     assert Path(gt_path).exists()
-    assert gt_path.endswith('.csv')
-    expected_path = dataset._output_folder / "ground_truth_motchallenge.csv"
+    assert gt_path.endswith('.jsonl')
+    expected_path = dataset._output_folder / "ground_truth.jsonl"
     assert Path(gt_path) == expected_path
 
-  def test_get_ground_truth_csv_format(self, dataset):
-    """Test ground truth CSV has correct format."""
+  def test_get_ground_truth_jsonl_format(self, dataset):
+    """Test ground truth JSONL has canonical tracker-output structure."""
     gt_path = dataset.get_ground_truth()
 
-    # Read CSV
-    df = read_csv_to_dataframe(
-      gt_path,
-      has_header=False,
-      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
-    )
+    frames = list(stream_jsonl(gt_path))
+    assert len(frames) > 0
+    for frame in frames:
+      assert "timestamp" in frame
+      assert isinstance(frame["objects"], list)
+    objects = _gt_objects(frames)
+    assert len(objects) > 0
+    for obj in objects:
+      assert "id" in obj
+      assert "category" in obj
+      assert len(obj["translation"]) == 3
 
-    # Check structure
-    assert len(df) > 0
-    assert list(df.columns) == ["frame", "id", "x", "y", "z", "conf", "class", "vis"]
-
-  def test_get_ground_truth_motchallenge_values(self, dataset):
-    """Test ground truth has valid MOTChallenge values."""
+  def test_get_ground_truth_absolute_timestamps(self, dataset):
+    """Ground truth carries the source absolute ISO timestamps."""
     gt_path = dataset.get_ground_truth()
 
-    df = read_csv_to_dataframe(
-      gt_path,
-      has_header=False,
-      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
-    )
+    frames = list(stream_jsonl(gt_path))
+    timestamps = [frame["timestamp"] for frame in frames]
 
-    # Frames should be 1-indexed
-    assert df["frame"].min() >= 1
-
-    # Object IDs should be non-negative
-    assert df["id"].min() >= 0
-
-    # Confidence should be 1.0 (default)
-    assert df["conf"].unique()[0] == 1.0
-
-    # Class should be 1 (default)
-    assert df["class"].unique()[0] == 1
-
-    # Visibility should be 1 (default)
-    assert df["vis"].unique()[0] == 1
+    # Timestamps come straight from the source dataset (absolute, ISO 8601).
+    assert timestamps[0] == "2014-09-08T04:00:00.033Z"
+    # Strictly increasing (chronological order preserved).
+    assert timestamps == sorted(timestamps)
 
   def test_get_ground_truth_coordinates(self, dataset):
     """Test ground truth coordinates are reasonable."""
     gt_path = dataset.get_ground_truth()
 
-    df = read_csv_to_dataframe(
-      gt_path,
-      has_header=False,
-      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
-    )
+    objects = _gt_objects(list(stream_jsonl(gt_path)))
+    xs = [obj["translation"][0] for obj in objects]
+    ys = [obj["translation"][1] for obj in objects]
+    zs = [obj["translation"][2] for obj in objects]
 
-    # Coordinates should be in reasonable range for Retail scene
-    # Based on config.json: map is roughly 0-10 meters in x/y
-    assert df["x"].min() >= -1.0
-    assert df["x"].max() <= 12.0
-    assert df["y"].min() >= -1.0
-    assert df["y"].max() <= 16.0
-    assert df["z"].min() == 0.0  # Ground plane
+    # Coordinates should be in reasonable range for the scene.
+    assert min(xs) >= -1.0
+    assert max(xs) <= 12.0
+    assert min(ys) >= -1.0
+    assert max(ys) <= 16.0
+    assert min(zs) == 0.0  # Ground plane
 
   def test_get_ground_truth_respects_time_range(self, dataset):
     """Ground truth should only include frames inside configured time range."""
@@ -465,18 +456,13 @@ class TestGetGroundTruth:
     dataset.set_time_range(start, end)
 
     gt_path = dataset.get_ground_truth()
-    df = read_csv_to_dataframe(
-      gt_path,
-      has_header=False,
-      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
-    )
+    frames = list(stream_jsonl(gt_path))
 
     expected_entries = _collect_expected_gt_entries(start=start, end=end)
-    expected_frames = list(range(1, len(expected_entries) + 1))
+    expected_timestamps = [entry["timestamp"] for entry in expected_entries]
 
-    unique_frames = sorted(df["frame"].unique().tolist())
-    assert unique_frames == expected_frames
-    assert len(df) == _count_objects(expected_entries)
+    assert [frame["timestamp"] for frame in frames] == expected_timestamps
+    assert len(_gt_objects(frames)) == _count_objects(expected_entries)
 
   def test_get_ground_truth_respects_camera_fps_sampling(self, dataset):
     """Ground truth should be downsampled to match configured camera FPS."""
@@ -484,18 +470,13 @@ class TestGetGroundTruth:
     dataset.set_camera_fps(10).set_time_range(None, end)
 
     gt_path = dataset.get_ground_truth()
-    df = read_csv_to_dataframe(
-      gt_path,
-      has_header=False,
-      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
-    )
+    frames = list(stream_jsonl(gt_path))
 
     expected_entries = _collect_expected_gt_entries(end=end, camera_fps=10)
-    expected_frames = list(range(1, len(expected_entries) + 1))
+    expected_timestamps = [entry["timestamp"] for entry in expected_entries]
 
-    unique_frames = sorted(df["frame"].unique().tolist())
-    assert unique_frames == expected_frames
-    assert len(df) == _count_objects(expected_entries)
+    assert [frame["timestamp"] for frame in frames] == expected_timestamps
+    assert len(_gt_objects(frames)) == _count_objects(expected_entries)
 
 
 class TestIntegration:
@@ -518,7 +499,7 @@ class TestIntegration:
 
     # Get ground truth
     gt_path = dataset.get_ground_truth()
-    expected_path = dataset._output_folder / "ground_truth_motchallenge.csv"
+    expected_path = dataset._output_folder / "ground_truth.jsonl"
     assert Path(gt_path) == expected_path
     assert Path(gt_path).exists()
 
@@ -665,20 +646,14 @@ class TestObjectCategories:
   def test_ground_truth_filtered_by_category(self, dataset):
     """Ground truth contains fewer objects when filtered by category."""
     gt_all = dataset.get_ground_truth()
-    df_all = read_csv_to_dataframe(
-      gt_all, has_header=False,
-      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
-    )
+    objects_all = _gt_objects(list(stream_jsonl(gt_all)))
 
     dataset.set_object_categories(["person"])
     gt_filtered = dataset.get_ground_truth()
-    df_filtered = read_csv_to_dataframe(
-      gt_filtered, has_header=False,
-      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
-    )
+    objects_filtered = _gt_objects(list(stream_jsonl(gt_filtered)))
 
-    assert len(df_filtered) < len(df_all)
-    assert len(df_filtered) > 0
+    assert len(objects_filtered) < len(objects_all)
+    assert len(objects_filtered) > 0
 
   def test_ground_truth_category_ids_match(self, dataset):
     """Filtered GT only contains object IDs from the requested categories."""
@@ -686,12 +661,9 @@ class TestObjectCategories:
     # "Person" has ID 0, "FW190D" has ID 2
     dataset.set_object_categories(["FW190D"])
     gt_path = dataset.get_ground_truth()
-    df = read_csv_to_dataframe(
-      gt_path, has_header=False,
-      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
-    )
+    objects = _gt_objects(list(stream_jsonl(gt_path)))
 
-    assert set(df["id"].unique()) == {2}
+    assert {obj["id"] for obj in objects} == {2}
 
   def test_reset_clears_categories(self, dataset):
     """Reset removes the category filter."""
