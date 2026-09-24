@@ -24,7 +24,7 @@ import requests
 from requests.adapters import HTTPAdapter
 
 # Keys tried in order to find a camera's identifier inside one entry of the camera.json.
-IDENTIFIER_KEYS = ("sensor_id", "uid", "name", "id")
+IDENTIFIER_KEYS = ("sensor_id", "camera_id", "uid", "name", "id")
 
 Matrix3 = tuple  # 3x3, row-major, as a tuple of 3 tuples of 3 floats
 
