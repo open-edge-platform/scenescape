@@ -121,9 +121,7 @@
   scroll-snap-align: start;
 }
 
-.ss-workspace--stack
-  #cameras.is-active
-  .card-body,
+.ss-workspace--stack #cameras.is-active .card-body,
 .ss-workspace--stack .ss-camera-strip .card-body {
   scroll-snap-type: x mandatory;
 }

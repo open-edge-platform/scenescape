@@ -273,7 +273,10 @@ body.is-map-fullscreen .ss-scene-chrome-gap {
 }
 
 #ss-map-toggles-slot #map-controls .map-view-toggle .custom-control-label,
-.ss-scene-map-toggles-slot #map-controls .map-view-toggle .custom-control-label {
+.ss-scene-map-toggles-slot
+  #map-controls
+  .map-view-toggle
+  .custom-control-label {
   padding-top: 0;
   font-size: 0.8125rem;
   line-height: 1.75rem;

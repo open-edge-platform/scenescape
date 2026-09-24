@@ -293,7 +293,8 @@ export function GeospatialMapPicker({
         });
         window.requestAnimationFrame(() => {
           const map = window.mapManager?.getCurrentMapInstance?.() as
-            { resize?: () => void } | undefined;
+            | { resize?: () => void }
+            | undefined;
           map?.resize?.();
         });
         if (!cancelled) {
@@ -357,7 +358,8 @@ export function GeospatialMapPicker({
       });
       window.requestAnimationFrame(() => {
         const map = window.mapManager?.getCurrentMapInstance?.() as
-          { resize?: () => void } | undefined;
+          | { resize?: () => void }
+          | undefined;
         map?.resize?.();
       });
       setReady(true);

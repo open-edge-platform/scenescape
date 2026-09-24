@@ -46,10 +46,10 @@ const testDuration = getRequiredEnv("DEFAULT_TEST_DURATION");
 const cameraIdPrefix = getRequiredEnv("CAMERA_ID_PREFIX");
 const cameraId = `${cameraIdPrefix}${__VU}`;
 
-if (![objectCount, fps, cameraCount].every((n) => Number.isFinite(n) && n > 0)) {
-  fail(
-    "OBJECT_COUNT, CAMERA_FPS, and CAMERA_COUNT must be positive numbers",
-  );
+if (
+  ![objectCount, fps, cameraCount].every((n) => Number.isFinite(n) && n > 0)
+) {
+  fail("OBJECT_COUNT, CAMERA_FPS, and CAMERA_COUNT must be positive numbers");
 }
 
 // SSL/TLS configuration - only required for secure connections

@@ -18,7 +18,10 @@ type RoiDraft = {
   range_max?: number;
   sectors?:
     | { color: string; color_min: number }[]
-    | { thresholds?: { color: string; color_min: number }[]; range_max?: number };
+    | {
+        thresholds?: { color: string; color_min: number }[];
+        range_max?: number;
+      };
 };
 
 type TripDraft = {

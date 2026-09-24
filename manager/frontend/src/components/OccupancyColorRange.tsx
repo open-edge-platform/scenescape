@@ -48,9 +48,7 @@ export function OccupancyColorRange({
 
   return (
     <div className="ss-color-range">
-      {showLabel ? (
-        <div className="ss-color-range__label">{label}</div>
-      ) : null}
+      {showLabel ? <div className="ss-color-range__label">{label}</div> : null}
       <div className="ss-color-range__track" aria-hidden="true">
         <span className="ss-color-range__seg ss-color-range__seg--green" />
         <span className="ss-color-range__seg ss-color-range__seg--yellow" />

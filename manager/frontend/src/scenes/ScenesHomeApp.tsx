@@ -241,7 +241,11 @@ function ScenesHomeInner({ bootstrap }: Props) {
         title="Scenes"
         titleEnd={
           bootstrap.isSuperuser ? (
-            <div className="ss-scenes-home-actions" role="group" aria-label="Scene actions">
+            <div
+              className="ss-scenes-home-actions"
+              role="group"
+              aria-label="Scene actions"
+            >
               <a
                 id="import-scene"
                 className="ss-btn ss-btn--secondary"

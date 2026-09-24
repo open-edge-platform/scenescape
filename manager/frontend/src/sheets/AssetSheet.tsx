@@ -224,10 +224,7 @@ export function AssetSheet({
     form.append("tracking_radius", trackingRadius.trim() || "1");
     form.append("shift_type", shiftType);
     form.append("project_to_map", formChoiceBool(projectToMap));
-    form.append(
-      "rotation_from_velocity",
-      formChoiceBool(rotationFromVelocity),
-    );
+    form.append("rotation_from_velocity", formChoiceBool(rotationFromVelocity));
     form.append("x_buffer_size", xBuffer.trim() || "0");
     form.append("y_buffer_size", yBuffer.trim() || "0");
     form.append("z_buffer_size", zBuffer.trim() || "0");
@@ -368,9 +365,7 @@ export function AssetSheet({
                 </p>
               ) : null}
               {modelFile ? (
-                <p className="ss-file-current">
-                  New file: {modelFile.name}
-                </p>
+                <p className="ss-file-current">New file: {modelFile.name}</p>
               ) : null}
               <input
                 id="ss-asset-glb"

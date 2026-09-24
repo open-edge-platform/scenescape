@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { PageHeader } from "../components/PageHeader";
-import {
-  ACTION_ICONS,
-  iconForActionLabel,
-} from "../components/actionIcons";
+import { ACTION_ICONS, iconForActionLabel } from "../components/actionIcons";
 import "./AdminListApp.css";
 
 export type AdminListAction = {
@@ -126,7 +123,10 @@ export function AdminListApp({ bootstrap }: Props) {
                               aria-label={action.label}
                             >
                               {icon ? (
-                                <i className={`bi ${icon}`} aria-hidden="true" />
+                                <i
+                                  className={`bi ${icon}`}
+                                  aria-hidden="true"
+                                />
                               ) : (
                                 <span>{action.label}</span>
                               )}

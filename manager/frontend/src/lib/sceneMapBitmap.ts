@@ -12,10 +12,6 @@ export function sceneMapBitmapUrl(scene: {
   map?: string | null;
 }): string | null {
   return (
-    scene.thumbnailUrl ||
-    scene.thumbnail ||
-    scene.mapUrl ||
-    scene.map ||
-    null
+    scene.thumbnailUrl || scene.thumbnail || scene.mapUrl || scene.map || null
   );
 }

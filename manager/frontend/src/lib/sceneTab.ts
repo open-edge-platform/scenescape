@@ -3,7 +3,12 @@
 
 /** Scene detail control-tab ids shared by sheets and the side panel. */
 export type SceneControlTabId =
-  "cameras" | "sensors" | "regions" | "tripwires" | "children" | "mqtt";
+  | "cameras"
+  | "sensors"
+  | "regions"
+  | "tripwires"
+  | "children"
+  | "mqtt";
 
 const STORAGE_PREFIX = "ss-scene-tab:";
 export const SCENE_TAB_EVENT = "ss-scene-tab";

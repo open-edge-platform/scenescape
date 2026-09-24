@@ -199,7 +199,10 @@ export function ingestStringifyRois(
     range_max?: number;
     sectors?:
       | { color: string; color_min: number }[]
-      | { thresholds?: { color: string; color_min: number }[]; range_max?: number };
+      | {
+          thresholds?: { color: string; color_min: number }[];
+          range_max?: number;
+        };
   }>,
 ): void {
   const keep = new Set<string>();
@@ -212,8 +215,7 @@ export function ingestStringifyRois(
     const points = (d.points || []).map(
       (p) => [Number(p[0]), Number(p[1])] as GeometryPoint,
     );
-    const nested =
-      d.sectors && !Array.isArray(d.sectors) ? d.sectors : null;
+    const nested = d.sectors && !Array.isArray(d.sectors) ? d.sectors : null;
     const flatSectors = Array.isArray(d.sectors)
       ? d.sectors
       : nested?.thresholds;

@@ -325,7 +325,10 @@ export function ChildrenPanelContent({
           <div className="blank-container border" aria-hidden="true" />
         );
         return (
-          <div key={child.id} className="card count-item camera-card child-card">
+          <div
+            key={child.id}
+            className="card count-item camera-card child-card"
+          >
             <h6 className="card-header">
               {child.childType === "remote" && child.remoteChildId ? (
                 <span

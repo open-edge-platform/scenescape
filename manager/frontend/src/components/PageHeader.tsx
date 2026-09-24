@@ -51,14 +51,9 @@ export function PageHeader({
   const hasCenter = center != null;
 
   return (
-    <div
-      className={`ss-page-header${hasCenter ? "" : " hide-fullscreen"}`}
-    >
+    <div className={`ss-page-header${hasCenter ? "" : " hide-fullscreen"}`}>
       {crumbs.length > 0 ? (
-        <nav
-          aria-label="Breadcrumb"
-          className="ss-breadcrumb hide-fullscreen"
-        >
+        <nav aria-label="Breadcrumb" className="ss-breadcrumb hide-fullscreen">
           <ol>
             {crumbs.map((c, i) => (
               <li key={`${c.label}-${i}`}>

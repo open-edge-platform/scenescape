@@ -56,7 +56,11 @@ export function MqttSettingsPanel({ wssConnection, sceneId }: Props) {
             />
           </div>
           <div className="ss-mqtt-actions">
-            <button type="button" className="ss-btn ss-btn--primary" id="connect">
+            <button
+              type="button"
+              className="ss-btn ss-btn--primary"
+              id="connect"
+            >
               Connect
             </button>
             <button

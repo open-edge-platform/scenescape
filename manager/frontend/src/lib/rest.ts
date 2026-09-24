@@ -22,7 +22,10 @@ async function parseError(resp: Response): Promise<RestError> {
       const obj = body as Record<string, unknown>;
       if (typeof obj.detail === "string") {
         message = obj.detail;
-      } else if (Array.isArray(obj.non_field_errors) && obj.non_field_errors[0]) {
+      } else if (
+        Array.isArray(obj.non_field_errors) &&
+        obj.non_field_errors[0]
+      ) {
         message = String(obj.non_field_errors[0]);
       } else {
         const parts: string[] = [];

@@ -1,12 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  type KeyboardEvent,
-} from "react";
+import { useCallback, useEffect, useRef, type KeyboardEvent } from "react";
 
 /**
  * Next index for WAI-ARIA tablist keys (horizontal), or null if unhandled.

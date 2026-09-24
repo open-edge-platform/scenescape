@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, type ReactNode } from "react";
-import {
-  focusableTabIndex,
-  useRovingTabList,
-} from "../hooks/useRovingTabList";
+import { focusableTabIndex, useRovingTabList } from "../hooks/useRovingTabList";
 import "./Tabs.css";
 
 export type TabItem = {

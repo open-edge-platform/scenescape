@@ -1,7 +1,13 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { SCENE_TAB_COUNTS_EVENT, type SceneTabCounts } from "../lib/sceneTab";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/ToastProvider";
@@ -217,11 +223,7 @@ function SceneDetailInner({ bootstrap }: Props) {
   const layoutInSideColumn = layout === "row" && !mapFocus;
 
   const sceneActions = (
-    <div
-      className="ss-scene-header-actions"
-      role="group"
-      aria-label="Scene"
-    >
+    <div className="ss-scene-header-actions" role="group" aria-label="Scene">
       <a className="ss-scene-header-back" href={back.href}>
         <i className="bi bi-arrow-left" aria-hidden="true" />
         {back.label}
