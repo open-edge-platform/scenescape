@@ -41,6 +41,10 @@ class _CAOnlyAdapter(HTTPAdapter):
 
 def manager_session(base_url: str, ca_cert: Path, supass_path: Path) -> requests.Session:
   """Authenticated requests.Session verifying TLS against the deployment's own CA bundle."""
+  if not base_url.lower().startswith("https://"):
+    # _CAOnlyAdapter is only mounted on "https://"; an http:// base_url would silently fall
+    # back to requests' default unencrypted, unverified transport for the admin password.
+    raise ValueError(f"base_url must use https://, got: {base_url!r}")
   if not ca_cert.is_file():
     raise FileNotFoundError(f"CA cert not found: {ca_cert}")
 

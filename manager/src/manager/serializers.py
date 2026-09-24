@@ -665,13 +665,13 @@ class SceneSerializer(NonNullSerializer):
     return SingletonSerializer(queryset, many=True).data
 
   def get_rotation(self, obj):
-    return [obj.rotation_x, obj.rotation_y, obj.rotation_z] if obj.rotation_x else [0, 0, 0]
+    return [obj.rotation_x, obj.rotation_y, obj.rotation_z] if obj.rotation_x is not None else [0, 0, 0]
 
   def get_translation(self, obj):
-    return [obj.translation_x, obj.translation_y, obj.translation_z] if obj.translation_x else [0, 0, 0]
+    return [obj.translation_x, obj.translation_y, obj.translation_z] if obj.translation_x is not None else [0, 0, 0]
 
   def get_scale(self, obj):
-    return [obj.scale_x, obj.scale_y, obj.scale_z] if obj.scale_x else [1, 1, 1]
+    return [obj.scale_x, obj.scale_y, obj.scale_z] if obj.scale_x is not None else [1, 1, 1]
 
   def get_children(self, obj):
     children = []
