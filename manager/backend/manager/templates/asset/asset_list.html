@@ -1,0 +1,21 @@
+<!--
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+{% extends 'sscape/base.html' %}
+{% load static %}
+{% block content %}
+  <div id="ss-admin-list-root"></div>
+  {{ admin_list_bootstrap|json_script:"ss-admin-list-bootstrap" }}
+  <form class="d-none" aria-hidden="true">{% csrf_token %}</form>
+{% endblock %}
+{% block scripts %}
+  <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}?v=actions-1" />
+  <script
+    type="module"
+    src="{% static 'ui/admin-list.js' %}?v=actions-1"
+  ></script>
+  {{ list_sheets_bootstrap|json_script:"ss-list-sheets-bootstrap" }}
+  <script type="module" src="{% static 'ui/list-sheets.js' %}"></script>
+{% endblock %}

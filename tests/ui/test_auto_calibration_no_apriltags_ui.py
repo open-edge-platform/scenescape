@@ -40,6 +40,7 @@ class NoAprilTagCalibrationTest(UserInterfaceTest):
     assert self.login()
     print("Navigating to camera1 page.")
     self.navigateDirectlyToPage(cam_url)
+    common.enter_calibrate_workspace(self.browser)
 
     print(f"Checking auto calibration button label. Timeout: {timeout}")
     try:

@@ -15,61 +15,62 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-SENSOR_HANDLE_SELECTOR = ".is-handle, [class*='handle']"
+SENSOR_HANDLE_SELECTOR = "svg.ss-sensor-area-map .ss-sensor-area-handle"
+
 
 def change_sensor_location(browser, sensor_name):
-  """! Changes a sensor location randomly.
+  """! Changes a circular sensor center by dragging the React map handle.
   @param    browser       Object wrapping the Selenium driver.
   @param    sensor_name   Name of the sensor.
-  @return   BOOL          Boolean representing action success.
+  @return   tuple|False   (cx, cy) after drag on success, else False.
   """
-  retVal = False
-  browser.find_element(By.CSS_SELECTOR, ".navbar-nav > .nav-item:nth-child(3) > .nav-link").click()
-  browser.find_element(By.XPATH, "//*[text()='" + sensor_name + "']/parent::tr/td[4]/a").click()
-  map_canvas = browser.find_elements(By.ID, "svgout")
-  if map_canvas is None:
-    return retVal
-  browser.execute_script("window.scrollTo(0,100);")
-  sensor_draggable = WebDriverWait(browser, 20).until(
-    EC.presence_of_all_elements_located((By.CSS_SELECTOR, SENSOR_HANDLE_SELECTOR))
-  )
-  assert len(sensor_draggable) > 0, "Sensor location element not found"
-  sensor = sensor_draggable[-1]
+  wait = WebDriverWait(browser, common.BROWSER_WAIT * 4)
+  common.open_sensor_calibrate_from_list(browser, sensor_name)
+  common.set_sensor_cal_area(browser, "circle")
+  wait.until(EC.presence_of_element_located((By.ID, "ss-sensor-cal-cx")))
+  wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, SENSOR_HANDLE_SELECTOR)))
 
+  before_x = browser.find_element(By.ID, "ss-sensor-cal-cx").get_attribute("value")
+  before_y = browser.find_element(By.ID, "ss-sensor-cal-cy").get_attribute("value")
+  handle = browser.find_elements(By.CSS_SELECTOR, SENSOR_HANDLE_SELECTOR)[-1]
   action = browser.actionChains()
-  action.drag_and_drop_by_offset(sensor, 10, random.randint(50, 80)).perform()
+  action.drag_and_drop_by_offset(handle, 10, random.randint(50, 80)).perform()
   time.sleep(1)
-  print("Changed the Sensor Location")
-  browser.find_element(By.NAME, "save").click()
-  print("Clicked 'Save Calibration'")
-  retVal = True
 
-  return retVal
+  after_x = browser.find_element(By.ID, "ss-sensor-cal-cx").get_attribute("value")
+  after_y = browser.find_element(By.ID, "ss-sensor-cal-cy").get_attribute("value")
+  if (after_x, after_y) == (before_x, before_y):
+    print(f"Center did not change after drag: {(before_x, before_y)}")
+    return False
+  print(f"Changed the Sensor Location to x={after_x} y={after_y}")
+  if not common.save_sensor_calibration(browser):
+    return False
+  print("Clicked Save on React calibrate workspace")
+  return (after_x, after_y)
 
-def verify_sensor_location(browser, sensor_name):
+
+def verify_sensor_location(browser, sensor_name, expected_center):
   """! Verifies that the sensor location has changed.
-  @param    browser       Object wrapping the Selenium driver.
-  @param    sensor_name   Name of the sensor.
-  @return   BOOL          Boolean representing action success.
+  @param    browser           Object wrapping the Selenium driver.
+  @param    sensor_name       Name of the sensor.
+  @param    expected_center   (cx, cy) strings expected after save.
+  @return   BOOL              Boolean representing action success.
   """
-  old_x_value = '138'
-  old_y_value = '188'
-  retVal = False
-  browser.find_element(By.CSS_SELECTOR, ".navbar-nav > .nav-item:nth-child(3) > .nav-link").click()
-  browser.find_element(By.XPATH, "//*[text()='" + sensor_name + "']/parent::tr/td[4]/a").click()
-  browser.execute_script("window.scrollTo(0,100);")
-  sensor_coord = WebDriverWait(browser, 20).until(
-    EC.presence_of_element_located((By.CSS_SELECTOR, SENSOR_HANDLE_SELECTOR))
-  )
-  x_value = sensor_coord.get_attribute('x')
-  y_value = sensor_coord.get_attribute('y')
-  if x_value != old_x_value and y_value != old_y_value:
+  common.open_sensor_calibrate_from_list(browser, sensor_name)
+  wait = WebDriverWait(browser, common.BROWSER_WAIT * 4)
+  wait.until(EC.presence_of_element_located((By.ID, "ss-sensor-cal-cx")))
+  x_value = browser.find_element(By.ID, "ss-sensor-cal-cx").get_attribute("value")
+  y_value = browser.find_element(By.ID, "ss-sensor-cal-cy").get_attribute("value")
+  ok = (x_value, y_value) == expected_center
+  if ok:
     print(f"Location persists: x= '{x_value}' y= '{y_value}'")
-    retVal = True
   else:
-    print("Location does not persist!")
-    retVal = False
-  return retVal
+    print(
+      f"Location does not persist! got=({x_value}, {y_value}) "
+      f"expected={expected_center}"
+    )
+  return ok
+
 
 def test_sensor_location_main(params, record_xml_attribute):
   """! Checks that a sensor can be created and it location changed.
@@ -92,8 +93,9 @@ def test_sensor_location_main(params, record_xml_attribute):
     assert common.check_db_status(browser)
 
     common.create_sensor_from_scene(browser, sensor_id, sensor_name, scene_name)
-    assert change_sensor_location(browser, sensor_name)
-    assert verify_sensor_location(browser, sensor_name)
+    new_center = change_sensor_location(browser, sensor_name)
+    assert new_center
+    assert verify_sensor_location(browser, sensor_name, new_center)
     exit_code = 0
   finally:
     if browser is not None:

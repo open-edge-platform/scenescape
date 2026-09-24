@@ -34,7 +34,7 @@ To customize thresholds:
 
 1. Navigate to the ROI settings.
 2. Enter desired min-max values for each color category.
-3. Click **Save Regions and Tripwires**.
+3. Click **Save**.
 
 **Expected Output**: The values update in the Scenescape UI and apply to visualizations.
 
@@ -65,9 +65,9 @@ When you create a sensor area, default scalar thresholds are applied:
 
 To customize thresholds:
 
-1. Open the sensor calibrate page.
-2. Adjust the input values for each color.
-3. Click **Save Sensor**.
+1. Open the sensor calibrate workspace (Sensors tab → **Edit**, or `?ss=calibrate-sensor`).
+2. Adjust the input values for each color under occupancy colors.
+3. Click **Save** in the workspace header.
 
 **Expected Output**: Updated values are saved for the sensor and reflected in the visualization.
 
@@ -119,7 +119,7 @@ To enable visualization:
 
 2. **Apply Changes**:
 
-   Click **Save Regions and Tripwires** or **Save Sensor** depending on the context.
+   Click **Save** in the regions toolbar or the sensor calibrate workspace header.
 
 ## Supporting Resources
 

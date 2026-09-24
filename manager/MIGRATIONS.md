@@ -22,9 +22,9 @@ Scenescape uses Django's migration system to manage database schema changes. Mig
 
 ### For Local Development
 
-When you modify Django models in `src/manager/models.py`, follow these steps:
+When you modify Django models in `backend/manager/models.py`, follow these steps:
 
-1. **Make your model changes** in `src/manager/models.py`
+1. **Make your model changes** in `backend/manager/models.py`
 
 2. **Generate migration file** using the generate_migrations.sh script:
 
@@ -32,10 +32,10 @@ When you modify Django models in `src/manager/models.py`, follow these steps:
    bash manager/tools/generate_migrations.sh
    ```
 
-3. **Review the generated migration** in `src/manager/migrations/`:
+3. **Review the generated migration** in `backend/manager/migrations/`:
 
    ```bash
-   ls -la manager/src/manager/migrations/
+   ls -la manager/backend/manager/migrations/
    ```
 
 4. ** Re-build manager**
@@ -58,7 +58,7 @@ When you modify Django models in `src/manager/models.py`, follow these steps:
 
 7. **Commit the migration file** to version control:
    ```bash
-   git add manager/src/manager/migrations/XXXX_*.py
+   git add manager/backend/manager/migrations/XXXX_*.py
    git commit -m "Add migration for [describe changes]"
    ```
 
@@ -76,10 +76,10 @@ Migration generation should be automated as part of the release build:
    make manager
 
    # Review migrations
-   manager/src/manager/migrations
+   manager/backend/manager/migrations
 
    # Commit and push the generated migrations
-   git add manager/src/manager/migrations/
+   git add manager/backend/manager/migrations/
    git commit -m "Generate migrations for release"
    git push
    ```

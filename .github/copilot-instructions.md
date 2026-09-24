@@ -25,6 +25,8 @@ Consult these based on the code you're working with:
 - **Python** (`.github/skills/python/SKILL.md`): Coding standards, imports, patterns
   - **CRITICAL**: 2 spaces for indentation (checked by `make indent-check`)
 - **JavaScript** (`.github/skills/javascript/SKILL.md`): Frontend conventions
+- **Manager UI** (`.github/skills/manager-ui/SKILL.md`): Layout shells, tokens,
+  hard DOM/`window` contracts for Manager React islands
 - **Shell** (`.github/skills/shell/SKILL.md`): Bash scripting guidelines
 - **Makefile** (`.github/skills/makefile/SKILL.md`): Build system conventions
 - **Testing** (`.github/skills/testing/SKILL.md`): Test creation frameworks
@@ -44,6 +46,7 @@ Skills are loaded on-demand based on task context to optimize token usage:
 
 - `testing.md` - Loaded when task involves tests or `test` keyword detected
 - `javascript.md` - Loaded when `.js` files are being edited
+- `manager-ui.md` - Loaded when editing `manager/frontend` or Manager UI chrome
 - `shell.md` - Loaded when `.sh` files are being edited
 - `makefile.md` - Loaded when Makefile or build system changes
 

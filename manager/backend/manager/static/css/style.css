@@ -1,0 +1,14 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* Manager global styles — domain files under static/css/.
+ * React island CSS lives in manager/frontend → static/ui/manager-ui.css.
+ */
+@import url("tokens.css");
+@import url("bootstrap-theme.css");
+@import url("chrome.css");
+@import url("map-scene.css");
+@import url("auth.css");
+@import url("legacy.css");

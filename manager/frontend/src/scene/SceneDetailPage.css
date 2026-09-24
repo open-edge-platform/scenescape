@@ -1,0 +1,1139 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Adaptive workspace: stack (map above tabs) or row (map beside tabs).
+ * Mode is chosen in React from viewport + map intrinsic aspect.
+ */
+.ss-scene-detail--workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  /* Prefer full-shell height when body.ss-scene-workspace is set (scene-detail.css). */
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.ss-scene-detail--workspace .ss-page-header {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.ss-scene-chrome {
+  --ss-chrome-bar-height: 2.25rem;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--ss-chrome-bar-height);
+  margin-bottom: 0;
+}
+
+.ss-scene-chrome-map {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 1.5 1 0;
+  min-width: 0;
+  min-height: var(--ss-chrome-bar-height);
+}
+
+.ss-workspace--stack .ss-scene-chrome-map {
+  flex: 1 1 auto;
+}
+
+.ss-scene-chrome-start {
+  position: relative;
+  z-index: 2;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: calc(50% - 0.5rem);
+}
+
+.ss-scene-chrome-end {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.ss-scene-chrome-end-spacer {
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 0;
+}
+
+.ss-scene-chrome-gap {
+  flex: 0 0 0.75rem;
+  width: 0.75rem;
+  margin: 0 -0.15rem;
+}
+
+.ss-scene-chrome-side {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  width: var(--ss-panel-size, 20rem);
+  max-width: min(var(--ss-panel-size, 20rem), 48vw);
+  min-width: 0;
+}
+
+.ss-workspace--map-focus .ss-scene-chrome-gap,
+.ss-workspace--map-focus .ss-scene-chrome-side {
+  display: none;
+}
+
+.ss-workspace--map-focus .ss-scene-chrome-map {
+  flex: 1 1 auto;
+}
+
+.ss-scene-map-toggles-slot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: min(100%, 28rem);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.ss-scene-map-toggles-slot > * {
+  pointer-events: auto;
+}
+
+.ss-scene-map-toggles-slot:empty {
+  display: none;
+}
+
+body.is-map-fullscreen .ss-scene-chrome-map {
+  justify-content: center;
+}
+
+body.is-map-fullscreen .ss-scene-chrome-start,
+body.is-map-fullscreen .ss-scene-chrome-end,
+body.is-map-fullscreen .ss-scene-chrome-side,
+body.is-map-fullscreen .ss-scene-chrome-gap {
+  display: none !important;
+}
+
+.ss-scene-detail--workspace .ss-scene-chrome #map-controls,
+.ss-scene-map-toggles-slot #map-controls {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 5;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+}
+
+/* Shared chrome bar height: scene cluster + map toggles (must match exactly) */
+.ss-scene-header-actions,
+#ss-map-toggles-slot .map-view-toggles,
+.ss-scene-map-toggles-slot .map-view-toggles {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--ss-chrome-bar-height);
+  min-height: var(--ss-chrome-bar-height);
+  max-height: var(--ss-chrome-bar-height);
+  max-width: 100%;
+  margin: 0;
+  padding: 0 0.45rem;
+  border: 1px solid var(--ss-input-border);
+  border-radius: var(--ss-radius);
+  background: var(--ss-elevated);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ss-ink) 8%, transparent);
+  overflow: hidden;
+}
+
+/* Scene identity + commands — includes back */
+.ss-scene-header-actions {
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  padding-left: 0.3rem;
+  padding-right: 0.3rem;
+}
+
+.ss-scene-header-back {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0 0.45rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: calc(var(--ss-radius) - 0.15rem);
+  background: transparent;
+  color: var(--ss-text);
+  font-family: var(--ss-font-sans);
+  font-size: var(--ss-type-workspace-body, 0.8125rem);
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ss-scene-header-back .bi-arrow-left {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  line-height: 1;
+}
+
+.ss-scene-header-back:hover,
+.ss-scene-header-back:focus-visible {
+  color: var(--ss-brand);
+  background: color-mix(in srgb, var(--ss-brand) 8%, transparent);
+  outline: none;
+}
+
+.ss-scene-header-actions .ss-page-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(100%, 14rem);
+  margin: 0;
+  padding: 0 0.45rem 0 0.35rem;
+  border-right: 1px solid var(--ss-input-border-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.75rem;
+}
+
+.ss-scene-header-actions .btn {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.45rem;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ss-brand) 8%, var(--ss-elevated));
+  color: var(--ss-ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.ss-scene-header-actions .btn:hover,
+.ss-scene-header-actions .btn:focus-visible {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ss-brand) 16%, var(--ss-elevated));
+  color: var(--ss-brand);
+}
+
+.ss-scene-header-actions #scene-delete {
+  background: transparent;
+  color: var(--ss-text-muted);
+}
+
+.ss-scene-header-actions #scene-delete:hover,
+.ss-scene-header-actions #scene-delete:focus {
+  color: var(--ss-status-bad);
+  background: color-mix(in srgb, var(--ss-status-bad) 10%, var(--ss-elevated));
+}
+
+#ss-map-toggles-slot .map-view-toggles,
+.ss-scene-map-toggles-slot .map-view-toggles {
+  flex-wrap: nowrap;
+  gap: 0.35rem 0.85rem;
+  padding: 0 0.7rem;
+  justify-content: center;
+}
+
+#ss-map-toggles-slot #map-controls .map-view-toggle.custom-control,
+.ss-scene-map-toggles-slot #map-controls .map-view-toggle.custom-control {
+  min-height: 0;
+  height: 1.75rem;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin: 0;
+}
+
+#ss-map-toggles-slot #map-controls .map-view-toggle .custom-control-label,
+.ss-scene-map-toggles-slot
+  #map-controls
+  .map-view-toggle
+  .custom-control-label {
+  padding-top: 0;
+  font-size: 0.8125rem;
+  line-height: 1.75rem;
+}
+
+/* Panel orientation — quieter segmented chrome, separated from commands */
+.ss-scene-layout-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ss-layout-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  border: 1px solid var(--ss-input-border-subtle);
+  border-radius: var(--ss-radius);
+  overflow: hidden;
+  background: var(--ss-surface);
+}
+
+.ss-layout-toggle-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0.25rem 0.45rem;
+  border: 0;
+  border-right: 1px solid var(--ss-input-border-subtle);
+  background: transparent;
+  color: var(--ss-text-muted);
+  font-family: var(--ss-font-sans);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.ss-layout-toggle-btn:last-child {
+  border-right: 0;
+}
+
+.ss-layout-toggle-btn:hover,
+.ss-layout-toggle-btn:focus-visible {
+  color: var(--ss-brand);
+  background: color-mix(in srgb, var(--ss-brand) 8%, var(--ss-elevated));
+  outline: none;
+}
+
+.ss-layout-toggle-btn.is-active {
+  color: var(--ss-on-brand);
+  background: var(--ss-brand);
+}
+
+.ss-layout-toggle-btn .bi {
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.ss-scene-layout-controls .ss-map-focus-btn {
+  border: 1px solid var(--ss-input-border-subtle);
+  border-radius: var(--ss-radius);
+  background: var(--ss-surface);
+  color: var(--ss-text-muted);
+}
+
+.ss-scene-layout-controls .ss-map-focus-btn.is-active {
+  color: var(--ss-on-brand);
+  background: var(--ss-brand);
+  border-color: var(--ss-brand);
+}
+
+@media (max-width: 720px) {
+  .ss-layout-toggle-label {
+    display: none;
+  }
+}
+
+.ss-scene-detail--workspace .ss-scene-rate,
+.ss-scene-detail--workspace .scene-rate {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--ss-input-border);
+  border-radius: var(--ss-radius);
+  background: var(--ss-elevated);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ss-ink) 8%, transparent);
+  font-family: var(--ss-font-sans);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.75rem;
+  color: var(--ss-text-muted);
+  white-space: nowrap;
+}
+
+.ss-scene-detail--workspace .ss-scene-rate.telemetry-hide {
+  display: none;
+}
+
+.ss-scene-detail--workspace .scene-detail-mqtt-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ss-scene-detail--workspace .ss-mqtt-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ss-scene-detail--workspace .ss-scene-rate #scene-rate {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.ss-workspace-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* stack: map on top, tabs peek below */
+.ss-workspace--stack .ss-workspace-body {
+  flex-direction: column;
+}
+
+/* row: map on the left/main, tabs peek on the side */
+.ss-workspace--row .ss-workspace-body {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.ss-scene-detail--workspace .ss-workspace-main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1.5 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ss-workspace--stack .ss-workspace-main {
+  flex: 2.4 1 0;
+}
+
+.ss-scene-detail--workspace .ss-scene-map-pane,
+.ss-scene-detail--workspace .ss-scene-map-slot {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ss-scene-detail--workspace .ss-scene-map-slot #ss-map-host.scene-map {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.ss-scene-detail--workspace .ss-scene-map-slot .scene-map-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.ss-scene-detail--workspace .ss-scene-map-slot .scene-map-stage #map img {
+  max-height: 100%;
+  max-width: 100%;
+}
+
+.ss-scene-detail--workspace
+  .ss-scene-map-slot
+  .scene-map-stage
+  #svgout:not(.display-none) {
+  max-height: 100%;
+  max-width: 100%;
+}
+
+.ss-scene-detail--workspace .ss-scene-map-slot #map-controls {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 5;
+  margin: 0 auto 0.3rem;
+  width: 100%;
+}
+
+/* When toggles live in the header, don't leave a gap above the map stage */
+.ss-scene-detail--workspace
+  .ss-scene-map-slot
+  #ss-map-host.scene-map:not(:has(> #map-controls)) {
+  gap: 0;
+}
+
+.ss-scene-detail--workspace .ss-scene-map-slot .map-view-toggles {
+  gap: 0.35rem 1rem;
+  padding: 0.35rem 0.75rem;
+}
+
+.ss-scene-detail--workspace .ss-scene-side {
+  margin: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  /* Grow into leftover space after the map’s flex share */
+  flex: 1 1 0;
+  /* Fixed sensor / ROI / tripwire row width (fits doubled name field). */
+  --ss-tab-entity-width: 48rem;
+}
+
+.ss-workspace--stack .ss-scene-side {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+  height: var(--ss-panel-size, 14rem);
+  max-height: var(--ss-panel-size, 14rem);
+  overflow: hidden;
+  transition:
+    height var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease),
+    max-height var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease),
+    opacity var(--ss-motion-fast, 120ms) ease;
+}
+
+.ss-workspace--row .ss-scene-side {
+  flex: 0 0 auto;
+  min-width: 0;
+  width: var(--ss-panel-size, 20rem);
+  max-width: min(var(--ss-panel-size, 20rem), 48vw);
+  height: auto;
+  max-height: none;
+  align-self: stretch;
+  overflow: hidden;
+  transition:
+    width var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease),
+    max-width var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease),
+    opacity var(--ss-motion-fast, 120ms) ease;
+}
+
+.ss-workspace-main {
+  transition: flex-basis var(--ss-motion-base, 180ms)
+    var(--ss-motion-ease, ease);
+}
+
+body.ss-workspace-resizing .ss-workspace--stack .ss-scene-side,
+body.ss-workspace-resizing .ss-workspace--row .ss-scene-side,
+body.ss-workspace-resizing .ss-workspace-main {
+  transition: none;
+}
+
+.ss-map-focus-btn {
+  margin-right: 0.35rem;
+  border: 1px solid var(--ss-input-border);
+  border-radius: var(--ss-radius);
+  background: var(--ss-card-bg);
+}
+
+/* Prefer the header Map focus control — hide the legacy on-map expand button */
+.ss-scene-detail--workspace .scene-map-fullscreen-btn,
+.ss-scene-detail--workspace #fullscreen.scene-map-fullscreen-btn {
+  display: none !important;
+}
+
+.ss-workspace--map-focus .ss-workspace-splitter,
+.ss-workspace--map-focus .ss-scene-side {
+  display: none;
+}
+
+.ss-workspace--map-focus .ss-workspace-main {
+  flex: 1 1 auto;
+}
+
+@media (max-width: 719px) {
+  .ss-map-focus-btn {
+    display: none;
+  }
+}
+
+/* Panel headers emptied into the tab toolbar — hide leftover chrome */
+.ss-scene-detail--workspace .scene-detail-panel-header {
+  display: none;
+}
+
+/* Empty-state New CTAs duplicate the toolbar action */
+.ss-scene-detail--workspace .ss-empty-state > a.btn-primary,
+.ss-scene-detail--workspace .ss-empty-state > button.btn-primary {
+  display: none;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-list {
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  overflow: visible;
+  padding: 0.15rem 0.35rem;
+  gap: 0;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-tab {
+  padding: 0.45rem 0.65rem;
+  font-size: 0.75rem;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-chrome {
+  flex: 0 0 auto;
+}
+
+/* Vertical (side) layout: controls on their own row under the tabs */
+.ss-workspace--row .ss-tabs-chrome {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.ss-workspace--row .ss-tabs-list {
+  width: 100%;
+  margin-left: 0;
+  border-bottom: 1px solid var(--ss-card-border);
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.ss-workspace--row .ss-tabs-toolbar {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  margin-left: 0;
+  justify-content: flex-start;
+  gap: 0.4rem 0.55rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--ss-card-bg);
+  border-bottom: 1px solid var(--ss-card-border);
+  box-sizing: border-box;
+  min-width: 0;
+  flex-wrap: wrap;
+  overflow: hidden;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-toolbar {
+  flex: 0 0 auto;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-panels {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  margin-top: 0;
+  padding: 0.4rem 0.5rem 0.5rem;
+}
+
+/* Below layout: slight gap under tabs before cards; thumbs still fill height */
+.ss-workspace--stack .ss-scene-side .ss-tabs-panels {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  padding: 0.35rem 0.35rem 0.25rem;
+}
+
+.ss-workspace--stack .ss-scene-side .ss-tabs-tab {
+  padding: 0.35rem 0.55rem;
+}
+
+.ss-workspace--stack .ss-tabs-toolbar {
+  padding: 0.2rem 0.4rem;
+}
+
+.ss-workspace--stack .ss-tabs-panels,
+.ss-workspace--stack .ss-tabs-panel.is-active,
+.ss-workspace--stack .scene-detail-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.ss-scene-detail--workspace .scene-detail-panel > .card-body {
+  padding: 0.45rem 0.55rem 0.55rem;
+}
+
+.ss-workspace--stack .scene-detail-panel > .card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  padding: 0 0.15rem 0;
+}
+
+/*
+ * Control tab entity list — intentional workspace chrome.
+ * Cards fill the panel; cameras are the compact media strip exception.
+ */
+.ss-scene-detail--workspace .ss-scene-side {
+  overflow: hidden;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs,
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-panels,
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-panels,
+.ss-scene-detail--workspace .ss-scene-side .ss-tabs-panel,
+.ss-scene-detail--workspace .ss-scene-side .scene-detail-panel {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .scene-detail-panel.card {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .scene-detail-panel > .card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.55rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.45rem 0.55rem 0.65rem;
+}
+
+.ss-workspace--stack .ss-scene-side .scene-detail-panel > .card-body {
+  padding: 0.15rem 0.35rem 0.35rem;
+}
+
+/* Camera strip: Below = horizontal scroller; Side = vertical stack */
+.ss-scene-detail--workspace
+  .ss-scene-side
+  .scene-detail-panel
+  > .card-body:has(.camera-card) {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.25rem;
+}
+
+.ss-workspace--row
+  .ss-scene-side
+  .scene-detail-panel
+  > .card-body:has(.camera-card) {
+  flex-direction: column;
+  align-items: stretch;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Entity list rows (sensors) — fixed width like ROI */
+.ss-scene-detail--workspace .ss-scene-side .ss-tab-row.singleton,
+.ss-scene-detail--workspace .ss-scene-side #ss-sensors-mount .ss-tab-row {
+  width: var(--ss-tab-entity-width, 26rem);
+  max-width: 100%;
+  margin: 0;
+  box-shadow: none;
+}
+
+.ss-scene-detail--workspace .ss-scene-side #mqtt .table {
+  width: 100%;
+  margin: 0 0 0.55rem;
+  table-layout: fixed;
+}
+
+.ss-scene-detail--workspace .ss-scene-side #mqtt .table th,
+.ss-scene-detail--workspace .ss-scene-side #mqtt .table td {
+  padding: 0.2rem 0.15rem;
+  font-size: 0.75rem;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  border-top: 0;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .sensor-icon {
+  float: none;
+  margin: 0;
+}
+
+/* Region / tripwire + sensors: compact stacked rows */
+.ss-scene-detail--workspace .ss-scene-side #roi-fields,
+.ss-scene-detail--workspace .ss-scene-side #tripwire-fields,
+.ss-scene-detail--workspace .ss-scene-side #ss-sensors-mount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Children share camera-card chrome; nest fills the panel like cameras mount */
+.ss-scene-detail--workspace .ss-scene-side #childrenlist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.ss-scene-detail--workspace .ss-scene-side #ss-children-mount {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ss-workspace--stack .ss-scene-side #ss-children-mount {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  align-items: stretch;
+  height: 100%;
+  min-height: 0;
+}
+
+.ss-workspace--row .ss-scene-side #ss-children-mount {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  overflow-x: hidden;
+  align-items: stretch;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .form-roi,
+.ss-scene-detail--workspace .ss-scene-side .form-tripwire {
+  width: var(--ss-tab-entity-width, 26rem);
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .ss-editor-card,
+.ss-scene-detail--workspace .ss-scene-side .ss-editor-card.col,
+.ss-scene-detail--workspace .ss-scene-side .form-roi .col,
+.ss-scene-detail--workspace .ss-scene-side .form-tripwire .col {
+  width: var(--ss-tab-entity-width, 26rem);
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0.4rem 0.55rem;
+  flex: none;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .input-group {
+  flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .input-group > .form-control {
+  min-width: 0;
+  flex: 1 1 7rem;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .input-group > .form-text,
+.ss-scene-detail--workspace .ss-scene-side .input-group > .col.form-text {
+  flex: 1 1 100%;
+  width: 100%;
+  max-width: 100%;
+  padding-left: 0;
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .row {
+  margin-left: 0;
+  margin-right: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.ss-scene-detail--workspace .ss-scene-side [class*="col-"] {
+  min-width: 0;
+  max-width: 100%;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .scene-detail-panel-header {
+  padding: 0.55rem 0.65rem;
+  gap: 0.45rem;
+}
+
+.ss-scene-detail--workspace .ss-scene-side .scene-detail-panel-actions {
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.ss-scene-detail--workspace
+  .ss-scene-side
+  .scene-detail-panel
+  > .card-body
+  > .ss-empty-state {
+  margin: 0.25rem 0;
+  padding: 0.5rem 0.25rem;
+}
+
+.ss-scene-detail--workspace .camera-card {
+  flex: 0 0 auto;
+  margin: 0;
+  overflow: hidden;
+}
+
+.ss-workspace--stack .camera-card {
+  display: flex;
+  flex-direction: column;
+  /* Height fills the Below strip; width follows via aspect-ratio so vertical
+   * resize scales the card in both directions (same idea as Side + width). */
+  height: 100%;
+  max-height: 100%;
+  width: auto;
+  aspect-ratio: 16 / 11;
+  flex: 0 0 auto;
+}
+
+.ss-scene-detail--workspace .camera-card .cam-offline {
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 5rem;
+}
+
+.ss-workspace--row .camera-card {
+  /* Side panel: width tracks panel; 16:9 preview keeps proportional height. */
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  align-self: stretch;
+}
+
+.ss-scene-detail--workspace .camera-card .card-header {
+  padding: 0.3rem 0.4rem;
+  font-size: 0.75rem;
+}
+
+.ss-workspace--stack .camera-card .card-header {
+  flex: 0 0 auto;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ss-workspace--stack .camera-card .card-header .rate {
+  font-size: 0.625rem;
+}
+
+/* Fill available strip height without cropping the frame */
+.ss-scene-detail--workspace .camera-card .card-image {
+  margin: 0;
+  padding: 0;
+  line-height: 0;
+  background: transparent;
+}
+
+.ss-scene-detail--workspace .camera-card .card-image a.snapshot-image,
+.ss-scene-detail--workspace .camera-card .card-image a {
+  margin: 0;
+  padding: 0;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+}
+
+.ss-scene-detail--workspace .camera-card .card-image img,
+.ss-scene-detail--workspace .camera-card .snapshot-image img,
+.ss-scene-detail--workspace .camera-card .blank-container {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  aspect-ratio: auto;
+  object-fit: contain;
+  object-position: center;
+  margin: 0;
+  background: transparent;
+}
+
+/* Keep previews hidden until MQTT sets a frame — more-specific display:block
+ * above must not override Bootstrap/.display-none or empty imgs look broken. */
+.ss-scene-detail--workspace .camera-card .card-image img.display-none,
+.ss-scene-detail--workspace .camera-card .snapshot-image img.display-none {
+  display: none !important;
+}
+
+.ss-workspace--stack .camera-card .card-image {
+  flex: 1 1 0;
+  min-height: 0;
+  /* Definite flex frame so contain object-fit can take effect */
+  height: auto;
+  max-height: none;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ss-surface) 70%, var(--ss-elevated));
+}
+
+.ss-workspace--stack .camera-card .card-image a.snapshot-image,
+.ss-workspace--stack .camera-card .card-image a {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ss-workspace--stack .camera-card .card-image img,
+.ss-workspace--stack .camera-card .snapshot-image img,
+.ss-workspace--stack .camera-card .blank-container,
+.ss-workspace--stack .camera-card .cam-offline {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  min-height: 0;
+  padding: 0;
+  /* Preview thumbnails always use object-fit: contain */
+  object-fit: contain;
+  object-position: center;
+}
+
+.ss-workspace--stack .camera-card .cam-offline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+.ss-scene-detail--workspace .camera-card .card-body {
+  padding: 0.35rem 0.4rem 0.4rem;
+}
+
+.ss-workspace--stack .camera-card .card-body {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.3rem 0.15rem;
+}
+
+.ss-workspace--stack .camera-card .card-body .btn-sm {
+  padding: 0.1rem 0.35rem;
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
+
+.ss-scene-detail--workspace .camera-card .card-body .table {
+  margin-bottom: 0.25rem;
+}
+
+.ss-scene-detail--workspace .camera-card .card-body .table td,
+.ss-scene-detail--workspace .camera-card .card-body .table th {
+  padding: 0.15rem 0.25rem;
+  font-size: 0.7rem;
+}
+
+@media (max-width: 719px) {
+  .ss-scene-detail--workspace {
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .ss-workspace-body,
+  .ss-workspace--row .ss-workspace-body,
+  .ss-workspace--stack .ss-workspace-body {
+    flex-direction: column;
+    overflow: visible;
+    height: auto;
+  }
+
+  .ss-scene-detail--workspace .ss-workspace-main,
+  .ss-scene-detail--workspace .ss-scene-side,
+  .ss-workspace--stack .ss-scene-side,
+  .ss-workspace--row .ss-scene-side {
+    flex: none;
+    height: auto;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .ss-scene-detail--workspace .ss-scene-map-pane,
+  .ss-scene-detail--workspace .ss-scene-map-slot,
+  .ss-scene-detail--workspace .ss-scene-map-slot #ss-map-host.scene-map,
+  .ss-scene-detail--workspace .ss-scene-map-slot .scene-map-stage {
+    overflow: visible;
+    flex: none;
+    height: auto;
+  }
+
+  .ss-scene-detail--workspace .ss-scene-side .ss-tabs-panels {
+    overflow: visible;
+  }
+}

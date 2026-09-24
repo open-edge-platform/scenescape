@@ -94,12 +94,12 @@ def test_crud_operations(params, record_xml_attribute):
     admin_delete_camera1_btn = browser.find_elements(By.XPATH, delete_camera1_btn)
 
     # Sensors Regions Tripwire Creation btns
-    browser.find_element(By.ID, "sensors-tab").click()
+    browser.find_element(By.ID, "ss-tab-sensors").click()
     admin_new_sensor_btn = wait.until(EC.element_to_be_clickable((By.LINK_TEXT, '+ New Sensor')))
     admin_new_sensor_btn = browser.find_elements(By.LINK_TEXT, '+ New Sensor')
-    browser.find_element(By.ID, "regions-tab").click()
+    browser.find_element(By.ID, "ss-tab-regions").click()
     admin_new_region_btn = browser.find_elements(By.ID, 'new-roi')
-    browser.find_element(By.ID, "tripwires-tab").click()
+    browser.find_element(By.ID, "ss-tab-tripwires").click()
     admin_new_tripwire_btn = browser.find_elements(By.ID, 'new-tripwire')
 
     admin_privileged_link = browser.find_elements(By.XPATH, "//a[@href = '/admin']")
@@ -138,11 +138,11 @@ def test_crud_operations(params, record_xml_attribute):
     delete_camera1_btn = browser.find_elements(By.XPATH, delete_camera1_btn)
 
     # Sensors Regions Tripwire Creation btns
-    browser.find_element(By.ID, "sensors-tab").click()
+    browser.find_element(By.ID, "ss-tab-sensors").click()
     new_sensor_btn = browser.find_elements(By.LINK_TEXT, '+ New Sensor')
-    browser.find_element(By.ID, "regions-tab").click()
+    browser.find_element(By.ID, "ss-tab-regions").click()
     new_region_btn = browser.find_elements(By.LINK_TEXT, '+ New Region')
-    browser.find_element(By.ID, "tripwires-tab").click()
+    browser.find_element(By.ID, "ss-tab-tripwires").click()
     new_tripwire_btn = browser.find_elements(By.LINK_TEXT, '+ New Tripwire')
 
     admin_unprivileged_link = browser.find_elements(By.XPATH, "//a[@href = '/admin']")

@@ -1,0 +1,23 @@
+<!--
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+{% extends 'sscape/base.html' %}
+{% load static %}
+{% block content %}
+  {% if directory_structure is not none %}
+    {% csrf_token %}
+    <div id="ss-models-directory-root"></div>
+  {% else %}
+    <div>No models directory found</div>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+  {{ models_directory_bootstrap|json_script:"ss-models-directory-bootstrap" }}
+  <script
+    type="module"
+    src="{% static 'ui/models-directory.js' %}?v=actions-1"
+  ></script>
+{% endblock %}

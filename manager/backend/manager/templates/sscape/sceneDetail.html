@@ -1,0 +1,140 @@
+<!--
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+{% extends 'sscape/base.html' %}
+{% load static %}
+{% block content %}
+  {{ scene_detail_bootstrap|json_script:"ss-scene-detail-bootstrap" }}
+  {{ google_maps_api_key|json_script:"google-maps-api-key" }}
+  {{ mapbox_api_key|json_script:"mapbox-api-key" }}
+  <div id="ss-scene-detail-root" class="ss-scene-detail-root"></div>
+
+  <div id="ss-legacy-map-parking" class="ss-legacy-parking" hidden>
+    <div id="ss-map-host" class="scene-map">
+      <div id="map-controls" class="hide-print">
+        <div class="map-view-toggles">
+          <div class="custom-control custom-switch map-view-toggle">
+            <input
+              type="checkbox"
+              class="custom-control-input"
+              id="show-trails"
+              aria-labelledby="show-trails-label"
+            />
+            <label
+              class="custom-control-label"
+              for="show-trails"
+              title="Toggle Show Trails"
+              id="show-trails-label"
+              >Show Trails</label
+            >
+          </div>
+          <div class="custom-control custom-switch map-view-toggle">
+            <input
+              type="checkbox"
+              class="custom-control-input"
+              id="show-telemetry"
+              aria-labelledby="show-telemetry-label"
+            />
+            <label
+              class="custom-control-label"
+              for="show-telemetry"
+              title="Toggle Show Telemetry"
+              id="show-telemetry-label"
+              >Show Telemetry</label
+            >
+          </div>
+          <div class="custom-control custom-switch map-view-toggle">
+            <input
+              type="checkbox"
+              class="custom-control-input"
+              id="coloring-switch"
+              aria-labelledby="coloring-switch-label"
+            />
+            <label
+              class="custom-control-label"
+              for="coloring-switch"
+              title="Toggle Coloring"
+              id="coloring-switch-label"
+              >Visualize ROIs</label
+            >
+          </div>
+        </div>
+      </div>
+      <div class="scene-map-stage">
+        <div id="map">
+          {% if scene.thumbnail %}
+            <img src="{{ scene.thumbnail.url }}" alt="{{ scene.name }}" />
+          {% elif scene.map %}
+            <img src="{{ scene.map.url }}" alt="{{ scene.name }}" />
+          {% endif %}
+          <input
+            type="hidden"
+            name="scale"
+            id="scale"
+            value="{{ scene.scale }}"
+          />
+          <input type="hidden" name="scene" id="scene" value="{{ scene.id }}" />
+        </div>
+        <svg
+          id="svgout"
+          class="display-none {% if not scene.thumbnail or not scene.map %}blank-map-svgout{% endif %}"
+        >
+          <title>{{ scene.name }} View</title>
+          <desc>
+            Graphical view of the scene map and objects moving within the scene.
+          </desc>
+        </svg>
+        <button
+          type="button"
+          class="btn btn-sm btn-secondary scene-map-fullscreen-btn hide-print"
+          id="fullscreen"
+          title="Full screen map view"
+          aria-pressed="false"
+        >
+          <i class="bi bi-arrows-fullscreen" aria-hidden="true"></i>
+          <span class="sr-only">Full screen map view</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <input
+    type="hidden"
+    name="child_rois"
+    id="id_child_rois"
+    value="{{ child_rois }}"
+  />
+  <input
+    type="hidden"
+    name="child_tripwires"
+    id="child_tripwires"
+    value="{{ child_tripwires }}"
+  />
+  <input
+    type="hidden"
+    name="child_sensors"
+    id="child_sensors"
+    value="{{ child_sensors }}"
+  />
+
+  {% if user.is_superuser %}
+    {% csrf_token %}
+  {% endif %}
+  <input type="hidden" name="rois" id="id_rois" value="{{ scene.roiJSON }}" />
+  <input
+    type="hidden"
+    name="tripwires"
+    id="tripwires"
+    value="{{ scene.tripwireJSON }}"
+  />
+{% endblock %}
+{% block scripts %}
+  {# Cache-bust: ES modules stick in the browser after hot deploys. Bump when shipping UI. #}
+  <link rel="stylesheet" href="{% static 'ui/manager-ui.css' %}?v=actions-17" />
+  <script
+    type="module"
+    src="{% static 'ui/scene-detail.js' %}?v=actions-15"
+  ></script>
+{% endblock %}

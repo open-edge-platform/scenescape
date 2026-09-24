@@ -9,7 +9,7 @@ from manager.settings import get_docs_version
 
 
 TEMPLATE_PATH = (
-  Path(__file__).resolve().parents[2] / 'manager' / 'src' / 'manager' /
+  Path(__file__).resolve().parents[2] / 'manager' / 'backend' / 'manager' /
   'templates' / 'sscape' / 'base.html'
 )
 

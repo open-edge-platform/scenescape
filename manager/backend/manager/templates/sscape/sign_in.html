@@ -1,0 +1,101 @@
+<!--
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+{% extends "sscape/base.html" %}
+{% load static %}
+
+{% block content %}
+  <div class="sign-in-page">
+    <div class="sign-in-shell">
+      <div class="sign-in-card">
+        <div class="sign-in-brand">
+          <span class="ss-wordmark ss-wordmark-lg">{{ APP_PROPER_NAME }}</span>
+          <p class="sign-in-version">Version {{ APP_VERSION_NUMBER }}</p>
+        </div>
+
+        <div class="sign-in-card-body">
+          {% if messages %}
+            <div class="sign-in-messages" role="status">
+              {% for message in messages %}
+                <p>{{ message }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger login-error" role="alert">
+              {{ form.non_field_errors }}
+            </div>
+          {% endif %}
+
+          <form
+            enctype="multipart/form-data"
+            method="POST"
+            class="sign-in-form-fields"
+          >
+            {% csrf_token %}
+            <div class="form-group">
+              <label class="sign-in-label" for="username" id="label-username"
+                >User Name</label
+              >
+              <input
+                type="text"
+                class="form-control"
+                id="username"
+                name="username"
+                aria-labelledby="label-username"
+                value=""
+                autocomplete="username"
+              />
+              {{ form.username.errors }}
+            </div>
+
+            <div class="form-group">
+              <label class="sign-in-label" for="password" id="label-password"
+                >Password</label
+              >
+              <input
+                type="password"
+                class="form-control"
+                id="password"
+                name="password"
+                aria-labelledby="label-password"
+                value=""
+                autocomplete="current-password"
+              />
+              {{ form.password.errors }}
+            </div>
+
+            <button
+              type="submit"
+              class="btn btn-primary btn-block sign-in-submit"
+            >
+              Sign In
+            </button>
+          </form>
+
+          <p class="sign-in-help">
+            Contact the system administrator for sign in help.
+          </p>
+
+          <a
+            class="sign-in-powered-by"
+            href="https://www.intel.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Powered by Intel"
+          >
+            <span class="powered-by-label">Powered by</span>
+            <img
+              class="intel-logo"
+              src="{% static 'images/intel-logo.svg' %}"
+              alt="Intel"
+            />
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

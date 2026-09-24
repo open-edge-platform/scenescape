@@ -22,8 +22,8 @@ Before You Begin, ensure the following:
 
 1. Log in to Scenescape.
 2. You will be presented with a Scenes page. Click on a scene.
-3. Once a scene clicked, click on a camera to calibrate.
-4. You will see 2 view ports, a camera view port and map view port. Both view ports will have at least four matched point sets.
+3. Open the **Cameras** tab. Click the camera card image or **Edit** on that camera to open the calibrate workspace (same surface as `?ss=calibrate-cam`).
+4. You will see two viewports in the workspace: a camera viewport and a map viewport. Both viewports will have at least four matched point sets.
    > **Notes:**
    >
    > - Both views support panning by clicking and dragging the mouse and zooming by scrolling the mouse wheel.
@@ -31,8 +31,8 @@ Before You Begin, ensure the following:
    > - To remove a point, right click on the point.
    > - To move a point, click and drag the point to the desired location.
 5. Adjust the points to refine the camera's alignment with the scene.
-6. Click **Save Camera** to persist the calibration.
-7. Use **Reset Points** to clear all points (if needed).
+6. Click **Save** in the workspace header to persist the calibration (the control shows **Saved** when there are no unsaved changes).
+7. Use **Reset points** to clear all points (if needed).
    > **Notes:**
    >
    > - To add new points after clicking reset, refer to the instructions in step 4 above.

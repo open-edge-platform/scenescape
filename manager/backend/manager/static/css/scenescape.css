@@ -1,0 +1,484 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background-color: #222;
+}
+
+body {
+  padding-top: 0;
+  padding-bottom: 5rem;
+  /* Keep 3D UI on the original stack; do not inherit 2D OEP fonts/colors */
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  color: #fff;
+  background-color: #222;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: inherit;
+}
+
+#scene {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.scene-3d-powered-by {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.375rem;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.scene-3d-powered-by:hover,
+.scene-3d-powered-by:focus {
+  text-decoration: none;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.scene-3d-powered-by .powered-by-label {
+  font-family: "Open Sans", "Montserrat", system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.78);
+  white-space: nowrap;
+}
+
+.scene-3d-powered-by .intel-logo {
+  display: block;
+  height: 1.1rem;
+  width: auto;
+}
+
+#scene-controls-3d {
+  position: absolute;
+  top: 0.25rem;
+  left: 0.25rem;
+  z-index: 10;
+  width: 220px;
+  margin: 0;
+  float: none;
+  overflow: hidden;
+  background-color: rgba(0, 0, 0, 0.82);
+  color: #fff;
+  opacity: 1;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.375rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* Keep Bootstrap collapse working: id+display:flex was overriding hide */
+#scene-controls-3d.collapse:not(.show) {
+  display: none;
+}
+
+#scene-controls-3d.collapse.show {
+  display: flex;
+  flex-direction: column;
+}
+
+#scene-controls-3d .card-body {
+  padding: 0.65rem 0.75rem 0.75rem;
+  background: transparent;
+  color: #fff;
+}
+
+#scene-controls-3d .card-title {
+  margin: 0 0 0.5rem;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+#scene-controls-3d .card-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+#scene-controls-3d .card-title a:hover,
+#scene-controls-3d .card-title a:focus {
+  text-decoration: underline;
+}
+
+#scene-controls-3d .card-title a:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+#scene-controls-3d .btn,
+#toggle-scene-controls-3d.btn {
+  font-family: inherit;
+  border-radius: 0.25rem;
+  border-width: 1px;
+  box-shadow: none;
+}
+
+#scene-controls-3d .btn-secondary,
+#toggle-scene-controls-3d.btn-secondary {
+  color: #f0f0f0;
+  background-color: #2a2a2a;
+  border-color: #4a4a4a;
+}
+
+#scene-controls-3d .btn-secondary:hover,
+#scene-controls-3d .btn-secondary:focus,
+#toggle-scene-controls-3d.btn-secondary:hover,
+#toggle-scene-controls-3d.btn-secondary:focus {
+  color: #fff;
+  background-color: #3a3a3a;
+  border-color: #6a6a6a;
+}
+
+#scene-controls-3d .btn-primary {
+  color: #111;
+  background-color: #e8e8e8;
+  border-color: #e8e8e8;
+}
+
+#scene-controls-3d .btn-primary:hover,
+#scene-controls-3d .btn-primary:focus {
+  color: #000;
+  background-color: #fff;
+  border-color: #fff;
+}
+
+#scene-controls-3d .custom-control-label,
+#scene-controls-3d .switch label {
+  color: #e6e6e6;
+  font-weight: 500;
+}
+
+#scene-controls-3d .progress {
+  margin-top: 0.65rem;
+  background-color: #2a2a2a;
+  height: 0.4rem;
+}
+
+#scene-controls-3d .progress-bar {
+  background-color: #16a085;
+}
+
+#toggle-scene-controls-3d {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  z-index: 11;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: x-small;
+  line-height: 1;
+  padding: 0;
+  color: #f0f0f0;
+  background-color: rgba(0, 0, 0, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.25rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+#toggle-scene-controls-3d::before {
+  content: "▲";
+}
+
+#toggle-scene-controls-3d.collapsed::before {
+  content: "▼";
+}
+
+#live-control {
+  position: absolute;
+  right: -0.8rem;
+  top: -0.2rem;
+}
+
+#plane-control {
+  margin-left: 15px;
+  margin-top: 0.5rem;
+}
+
+#scenescape-logo {
+  /* Clear the collapse control that sits at the panel's top-left */
+  margin: 0.45rem 0.75rem 0 2.1rem;
+}
+
+#scenescape-logo .navbar-brand {
+  margin-top: 0;
+}
+
+#scenescape-logo .ss-wordmark {
+  font-size: 1.15rem;
+  color: #fff;
+}
+
+#cameras {
+  position: absolute;
+  right: 1rem;
+  top: 0;
+  width: 400px;
+}
+
+#cameras img {
+  width: 400px;
+}
+
+#cameras .camera-name {
+  color: #fff;
+  font-weight: bold;
+  padding: 5px;
+  background-color: #000;
+  opacity: 0.8;
+  margin-top: 1rem;
+  position: relative;
+}
+
+#cameras .camera-name .btn-sm {
+  position: absolute;
+  right: 0.3rem;
+  top: 0.3rem;
+  font-size: x-small;
+}
+
+.progress {
+  display: none;
+  margin-top: 0.25rem;
+}
+
+.progress-bar {
+  width: 0%;
+  color: white;
+  text-align: center;
+}
+
+.width0 {
+  width: 0%;
+}
+
+.width5 {
+  width: 5%;
+}
+
+.width10 {
+  width: 10%;
+}
+
+.width15 {
+  width: 15%;
+}
+
+.width20 {
+  width: 20%;
+}
+
+.width25 {
+  width: 25%;
+}
+
+.width30 {
+  width: 30%;
+}
+
+.width35 {
+  width: 35%;
+}
+
+.width40 {
+  width: 40%;
+}
+
+.width45 {
+  width: 45%;
+}
+
+.width50 {
+  width: 50%;
+}
+
+.width55 {
+  width: 55%;
+}
+
+.width60 {
+  width: 60%;
+}
+
+.width65 {
+  width: 65%;
+}
+
+.width70 {
+  width: 70%;
+}
+
+.width75 {
+  width: 75%;
+}
+
+.width80 {
+  width: 80%;
+}
+
+.width85 {
+  width: 85%;
+}
+
+.width90 {
+  width: 90%;
+}
+
+.width95 {
+  width: 95%;
+}
+
+.width100 {
+  width: 100%;
+}
+
+.display-none {
+  display: none;
+}
+
+.display-flex {
+  display: flex;
+}
+
+.float-right {
+  float: right;
+}
+
+/* Toggle Button */
+.lil-gui-toggle {
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  border: 0;
+  outline: 0;
+  cursor: pointer;
+  margin: 2px;
+}
+
+/* To create surface of toggle button */
+.lil-gui-toggle:after {
+  content: "";
+  width: 32px;
+  height: 12px;
+  display: inline-block;
+  background: rgba(196, 195, 195, 0.55);
+  border-radius: 16px;
+  clear: both;
+}
+
+/* Contents before checkbox to create toggle handle */
+.lil-gui-toggle:before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  display: block;
+  position: absolute;
+  left: 0;
+  top: -3px;
+  border-radius: 50%;
+  background: rgb(255, 255, 255);
+  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* Shift the handle to left on check event */
+.lil-gui-toggle:checked:before {
+  left: 18px;
+  box-shadow: -1px 1px 3px rgba(0, 0, 0, 0.6);
+}
+/* Background color when toggle button will be active */
+.lil-gui-toggle:checked:after {
+  background: #16a085;
+}
+
+.lil-gui-toggle-image:checked:before {
+  background-image: url("images/rotate.svg");
+}
+
+.lil-gui-toggle-image:before {
+  background-image: url("images/translate.svg");
+}
+
+.offline {
+  height: 8px;
+  width: 8px;
+  background-color: #ff0000;
+  border-radius: 50%;
+  display: inline-block;
+  float: right;
+  margin-top: 6px;
+}
+
+.online {
+  height: 8px;
+  width: 8px;
+  background-color: #00ff00;
+  border-radius: 50%;
+  display: inline-block;
+  float: right;
+  margin-top: 6px;
+}
+
+/* Asset Labels */
+.asset-label {
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 5px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.asset-label.visible {
+  opacity: 1;
+}
+
+.asset-label-id {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.asset-label-row {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 11px;
+}
+
+.asset-label-row span {
+  color: #fff;
+  font-weight: 500;
+}

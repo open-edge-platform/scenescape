@@ -1,0 +1,176 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.ss-react-scene-map {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  background: var(--ss-surface);
+  /* Match sensor .area fill opacity (style.css .area-group .area). */
+  --ss-map-area-fill-opacity: 0.4;
+}
+
+/* Beat legacy `#svgout { height: auto }` so meet letterboxes instead of stretch. */
+body.ss-use-react-map #ss-map-host #svgout.ss-react-scene-map {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.ss-react-scene-map.is-add-roi,
+.ss-react-scene-map.is-add-trip,
+.ss-react-map-layer:has(.ss-react-scene-map.is-add-roi),
+.ss-react-map-layer:has(.ss-react-scene-map.is-add-trip) {
+  cursor: crosshair;
+}
+
+.ss-react-roi-poly {
+  fill: #0054ae;
+  fill-opacity: var(--ss-map-area-fill-opacity, 0.4);
+  stroke: #0054ae;
+  stroke-width: var(--ss-map-geom-stroke, 3);
+  transition: fill var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease);
+}
+
+.ss-react-roi-title,
+.ss-react-trip-title {
+  font-family: var(--ss-font-sans, sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke fill;
+  stroke: var(--ss-card-bg, #fff);
+  stroke-width: 3px;
+}
+
+.ss-react-roi-title {
+  fill: #0054ae;
+}
+
+.ss-react-trip-line {
+  stroke: #da2e56;
+  stroke-width: var(--ss-map-geom-stroke, 3);
+}
+
+.ss-react-trip-arrow {
+  stroke: #00aa00;
+  stroke-width: 2.5;
+}
+
+.ss-react-trip-arrowhead {
+  fill: #00aa00;
+  stroke: none;
+}
+
+.ss-react-trip-title {
+  fill: #00aa00;
+}
+
+.ss-react-vertex {
+  fill: var(--ss-on-brand);
+  stroke: #001e50;
+  stroke-width: 2;
+  cursor: grab;
+}
+
+/* Draft uses the same stroke weight as finished ROI / tripwire. */
+.ss-react-draft-poly {
+  fill: color-mix(in srgb, #0054ae 55%, transparent);
+  stroke: #0054ae;
+  stroke-width: var(--ss-map-geom-stroke, 3);
+  stroke-dasharray: 6 4;
+}
+
+.ss-react-draft-line {
+  fill: none;
+  stroke: #0054ae;
+  stroke-width: var(--ss-map-geom-stroke, 3);
+  stroke-dasharray: 6 4;
+}
+
+.ss-react-draft-pt {
+  fill: #0054ae;
+}
+
+/*
+ * Snap stays mounted for live marks / trails. Hide its map image and
+ * geometry (React owns those); keep marks visible above the React layer.
+ */
+body.ss-use-react-map #ss-map-host {
+  --ss-map-area-fill-opacity: 0.25;
+}
+
+body.ss-use-react-map #ss-map-host .scene-map-stage {
+  position: relative;
+}
+
+body.ss-use-react-map #ss-map-host .ss-snap-legacy {
+  display: block !important;
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  transform: none;
+  z-index: 3;
+  pointer-events: none;
+  background: transparent !important;
+  max-width: none;
+  max-height: none;
+}
+
+body.ss-use-react-map #ss-map-host .ss-snap-legacy image {
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .roi,
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .tripwire {
+  display: none !important;
+}
+
+/* Sensors stay on the Snap overlay — React map does not draw them. */
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group {
+  display: block !important;
+  pointer-events: none;
+}
+
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group #name,
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group text.value {
+  display: block !important;
+  fill: #c65d00;
+  font-family: var(--ss-font-sans, sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  paint-order: stroke fill;
+  stroke: #fff;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  /* Prefer attribute / inline style from sensorNameAnchor(). */
+  text-anchor: unset;
+}
+
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group text.value {
+  /* Value sits on the area; keep centered like legacy. */
+  text-anchor: middle;
+}
+
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group .area {
+  /* Same fill/stroke pattern as ROI: tinted fill + solid matching border. */
+  fill: #c65d00;
+  fill-opacity: var(--ss-map-area-fill-opacity, 0.4);
+  opacity: 1;
+  stroke: #c65d00;
+  transition: fill var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ss-react-roi-poly,
+  body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group .area {
+    transition: none;
+  }
+}
