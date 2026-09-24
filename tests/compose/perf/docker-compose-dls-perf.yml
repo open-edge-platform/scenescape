@@ -304,6 +304,22 @@ services:
       - vol-datasets:/data/datasets
     restart: "no"
 
+  autocalibration-model-init:
+    image: intel/scenescape-autocalibration:${VERSION:-latest}
+    entrypoint: ["python3", "/usr/local/bin/download_models.py"]
+    user: "${UID:-1000}:${GID:-1000}"
+    depends_on:
+      autocalibration-init:
+        condition: service_completed_successfully
+    environment:
+      - NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - NO_PROXY=${NO_PROXY}
+    volumes:
+      - vol-netvlad_models:/usr/local/lib/python3.11/site-packages/third_party/netvlad
+    restart: "no"
+
   autocalibration:
     image: intel/scenescape-autocalibration:${VERSION:-latest}
     init: true

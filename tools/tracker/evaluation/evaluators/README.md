@@ -180,13 +180,13 @@ $$v_i = \frac{p_{i+1} - p_i}{\Delta t_i}, \quad a_i = \frac{v_{i+1} - v_i}{\Delt
 
 Minimum track length: 3 points for acceleration, 4 points for jerk. Shorter tracks are skipped; if no eligible tracks exist, the metric returns 0.0.
 
-For GT metrics, ground-truth frame numbers are converted to relative timestamps using the FPS derived from the tracker output.
+For GT metrics, ground-truth kinematics are computed directly from the absolute timestamps in the canonical JSONL ground truth; no frame-rate inference is involved.
 
 **Key Features**:
 
 - Builds per-track position histories from canonical tracker output format.
 - Builds independent per-track quaternion rotation histories; rotation-only objects are supported.
-- Parses MOTChallenge 3D CSV ground-truth file for GT metric computation.
+- Parses canonical JSONL ground-truth file for GT metric computation.
 - Supports variable frame rates — time deltas are computed from actual timestamps.
 - Deduplicates frames with identical timestamps (mirrors `TrackEvalEvaluator` behaviour).
 - Sorts each track's positions by timestamp before metric computation.
@@ -345,7 +345,7 @@ metrics = (evaluator
 ```
 
 **Ground-truth format**:
-Evaluators receive ground-truth in **MOTChallenge 3D CSV format**: See [Canonical Data Formats](../README.md#canonical-data-formats)
+Evaluators receive ground-truth in **canonical JSONL format** (absolute ISO timestamps): See [Canonical Data Formats](../README.md#canonical-data-formats)
 
 - Provided by dataset's `get_ground_truth()` method
 
