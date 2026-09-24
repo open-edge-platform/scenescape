@@ -29,9 +29,7 @@ export function readMapScale(): number {
 
 export function readSceneYMax(fallback = 1000): number {
   const img = document.querySelector("#svgout image, #map img") as
-    | SVGImageElement
-    | HTMLImageElement
-    | null;
+    SVGImageElement | HTMLImageElement | null;
   if (img && "height" in img && typeof img.height === "object") {
     const h = Number((img as SVGImageElement).getAttribute("height"));
     if (Number.isFinite(h) && h > 0) {
