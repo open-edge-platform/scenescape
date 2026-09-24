@@ -10,6 +10,7 @@ metadata:
   name: {{ .Release.Name }}-cluster-analytics
   labels:
     app: {{ .Release.Name }}-cluster-analytics
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
   replicas: 1
   selector:

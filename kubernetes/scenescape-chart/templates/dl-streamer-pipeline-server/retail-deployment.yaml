@@ -8,6 +8,7 @@ metadata:
   name: {{ .Release.Name }}-retail-cams
   labels:
     app: {{ .Release.Name }}-retail-cams
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
   replicas: 1
   selector:

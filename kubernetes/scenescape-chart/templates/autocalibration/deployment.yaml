@@ -8,6 +8,7 @@ metadata:
   name: {{ .Release.Name }}-autocalibration-dep
   labels:
     app: {{ .Release.Name }}-autocalibration
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
   replicas: 1
   selector:

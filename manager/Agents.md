@@ -157,8 +157,8 @@ docker compose exec manager python manage.py createsuperuser
 # Initialize secrets (run once)
 make init-secrets
 
-# Regenerate secrets
-make clean-secrets && make init-secrets
+# Renew only TLS material while preserving application credentials
+make certificate-renew
 ```
 
 Secrets stored in `manager/secrets/`:

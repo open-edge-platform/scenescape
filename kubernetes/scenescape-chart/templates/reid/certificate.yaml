@@ -7,6 +7,8 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ .Release.Name }}-reid-cert-s
+  labels:
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
   secretName: {{ .Release.Name }}-reid-s-tls
   issuerRef:
@@ -25,6 +27,8 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ .Release.Name }}-reid-c-cert
+  labels:
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
   secretName: {{ .Release.Name }}-reid-c-tls
   issuerRef:

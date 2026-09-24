@@ -8,6 +8,7 @@ metadata:
   name: {{ .Release.Name }}-queuing-cams
   labels:
     app: {{ .Release.Name }}-queuing-cams
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
   replicas: 1
   selector:

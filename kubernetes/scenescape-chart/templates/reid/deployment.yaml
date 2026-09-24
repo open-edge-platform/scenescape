@@ -11,6 +11,7 @@ metadata:
   name: {{ .Release.Name }}-reid-dep
   labels:
     app: {{ .Release.Name }}-reid
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
   replicas: 1
   selector:

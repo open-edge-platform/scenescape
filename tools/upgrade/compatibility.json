@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "transitions": [
+    {
+      "source": "1.4.0",
+      "target": "2025.2",
+      "postgres": {
+        "source": "15",
+        "target": "17.6",
+        "engine_upgrade": true
+      },
+      "django_strategy": "legacy_runtime",
+      "django_migrations": [],
+      "rollback": "restore_backup"
+    },
+    {
+      "source": "2025.2",
+      "target": "2026.0.0",
+      "postgres": {
+        "source": "17.6",
+        "target": "17.6",
+        "engine_upgrade": false
+      },
+      "django_strategy": "legacy_runtime",
+      "django_migrations": [],
+      "rollback": "restore_backup"
+    },
+    {
+      "source": "2026.0.0",
+      "target": "2026.1.0",
+      "postgres": {
+        "source": "17.6",
+        "target": "17.6",
+        "engine_upgrade": false
+      },
+      "django_strategy": "fake_initial",
+      "django_migrations": ["0001_initial"],
+      "rollback": "restore_backup"
+    },
+    {
+      "source": "2026.1.0",
+      "target": "2026.2.0",
+      "postgres": {
+        "source": "17.6",
+        "target": "17.6",
+        "engine_upgrade": false
+      },
+      "django_strategy": "committed",
+      "django_migrations": [
+        "0002_region_visible_singletonsensor_visible_and_more",
+        "0003_add_cached_geometries_to_childscene"
+      ],
+      "rollback": "restore_backup"
+    }
+  ]
+}
