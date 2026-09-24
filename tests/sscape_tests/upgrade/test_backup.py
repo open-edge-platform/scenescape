@@ -86,6 +86,19 @@ def test_verify_backup_rejects_structurally_invalid_artifact(tmp_path):
     verify_backup(tmp_path)
 
 
+def test_verify_backup_rejects_path_traversal(tmp_path):
+  outside = tmp_path.parent / "outside.tar.gz"
+  outside.write_bytes(b"data")
+  write_backup(tmp_path, artifacts=[{
+    "path": f"../{outside.name}",
+    "type": "deployment_file",
+    "sha256": sha256(outside),
+  }])
+
+  with pytest.raises(ValueError, match="escapes backup directory"):
+    verify_backup(tmp_path)
+
+
 def test_restore_volume_mounts_archive_at_fixed_path(tmp_path, monkeypatch):
   archive = tmp_path / "evil; rm -rf root.tar.gz"
   archive.write_bytes(b"data")
@@ -105,8 +118,7 @@ def test_restore_volume_mounts_archive_at_fixed_path(tmp_path, monkeypatch):
   assert "evil" not in shell_command
 
 
-
-def test_restore_stops_compose_before_volumes(tmp_path, monkeypatch):
+def test_restore_stops_all_project_containers(tmp_path, monkeypatch):
   artifact = write_backup(tmp_path)
   calls = []
 
@@ -115,13 +127,28 @@ def test_restore_stops_compose_before_volumes(tmp_path, monkeypatch):
 
   def runner(command, **_kwargs):
     calls.append(("run", command))
+    if command[:2] == ["docker", "ps"]:
+      return type("Result", (), {"returncode": 0, "stdout": "abc\ndef\n"})()
     return type("Result", (), {"returncode": 0, "stdout": ""})()
 
   monkeypatch.setattr("tools.upgrade.backup.restore_volume", fake_restore)
 
-  restored = restore_backup(tmp_path, overwrite=True, runner=runner)
+  restored = restore_backup(
+    tmp_path, overwrite=True, runner=runner,
+    compose_stacks=[
+      {"compose_files": [str(tmp_path / "target.yml")], "profiles": [],
+       "project_name": "custom", "root": str(tmp_path)},
+      {"compose_files": [str(tmp_path / "compose.yml")], "profiles": [],
+       "project_name": "custom", "root": str(tmp_path)},
+    ],
+    project_name="custom")
 
   assert restored == ["custom_vol-db"]
-  assert calls[0][0] == "run"
-  assert calls[0][1][-2:] == ["down", "--remove-orphans"]
-  assert calls[1][:3] == ("restore", "custom_vol-db", artifact)
+  run_commands = [command for kind, *rest in calls if kind == "run"
+                  for command in rest[:1]]
+  downs = [command for command in run_commands
+           if command[-2:] == ["down", "--remove-orphans"]]
+  assert len(downs) == 2
+  assert any(command[:2] == ["docker", "ps"] for command in run_commands)
+  assert ["docker", "stop", "--time", "30", "abc", "def"] in run_commands
+  assert calls[-1][:3] == ("restore", "custom_vol-db", artifact)

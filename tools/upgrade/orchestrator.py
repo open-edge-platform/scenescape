@@ -144,8 +144,10 @@ def begin_upgrade(plan, operation_dir, secrets_dir, output_dir,
 
 
 
-def compose_health(compose, expected_services=None, runner=subprocess.run):
-  """Require every selected Compose service to be running and not unhealthy."""
+def compose_health(compose, expected_services, runner=subprocess.run):
+  """Require every expected Compose service to be running and not unhealthy."""
+  if not expected_services:
+    raise ValueError("expected Compose services are required for health verification")
   result = runner(compose + ["ps", "--all", "--format", "json"], check=True,
                   capture_output=True, text=True)
   raw = result.stdout.strip()
@@ -157,20 +159,32 @@ def compose_health(compose, expected_services=None, runner=subprocess.run):
       services = [services]
   except json.JSONDecodeError:
     services = [json.loads(line) for line in raw.splitlines()]
-  reported = {
-    item.get("Service") or item.get("Name") for item in services
-    if item.get("Service") or item.get("Name")
-  }
-  if expected_services:
-    missing = sorted(set(expected_services) - reported)
-    if missing:
-      raise ValueError(
-        f"Compose services are missing from status: {', '.join(missing)}")
-  failures = [item.get("Service", item.get("Name", "unknown")) for item in services
-              if item.get("State") != "running" or item.get("Health") == "unhealthy"]
+  by_service = {}
+  for item in services:
+    name = item.get("Service")
+    if name:
+      by_service[name] = item
+  missing = sorted(set(expected_services) - set(by_service))
+  if missing:
+    raise ValueError(
+      f"Compose services are missing from status: {', '.join(missing)}")
+  failures = [
+    name for name in expected_services
+    if by_service[name].get("State") != "running"
+    or by_service[name].get("Health") == "unhealthy"
+  ]
   if failures:
     raise ValueError(f"Compose services are not healthy: {', '.join(failures)}")
   return services
+
+
+def expected_service_names(deployment):
+  """Return the required service names for a saved deployment inventory."""
+  names = [item["name"] for item in deployment.get("services", []) if item.get("name")]
+  if not names:
+    raise ValueError(
+      "deployment inventory is missing services required for health verification")
+  return names
 
 
 def resume_upgrade(operation_dir, manifest_path, image_action="pull",
@@ -190,7 +204,7 @@ def resume_upgrade(operation_dir, manifest_path, image_action="pull",
   compose = compose_base(
     deployment["compose_files"], deployment["profiles"],
     deployment["project_name"], deployment["root"])
-  expected_services = [item["name"] for item in deployment.get("services", [])]
+  expected_services = expected_service_names(deployment)
   try:
     if image_action != "none":
       runner(compose + [image_action], check=True)
@@ -237,14 +251,24 @@ def verify_upgrade(operation_dir, manifest_path, runner=subprocess.run,
     deployment["compose_files"], deployment["profiles"],
     deployment["project_name"], transition, operation_dir, deployment["root"],
     runner=runner)
-  expected_services = [item["name"] for item in deployment.get("services", [])]
   compose_health(compose_base(
     deployment["compose_files"], deployment["profiles"],
     deployment["project_name"], deployment["root"]),
-    expected_services=expected_services, runner=runner)
+    expected_services=expected_service_names(deployment), runner=runner)
   return write_operation_state(operation_dir, {
     **state, "phase": "verified", "status": "ready",
   })
+
+
+def _deployment_stack(deployment):
+  if not deployment or not deployment.get("compose_files"):
+    return None
+  return {
+    "compose_files": deployment["compose_files"],
+    "profiles": deployment.get("profiles") or [],
+    "project_name": deployment.get("project_name"),
+    "root": deployment.get("root"),
+  }
 
 
 def rollback_upgrade(operation_dir, overwrite=False, restorer=restore_backup):
@@ -253,12 +277,13 @@ def rollback_upgrade(operation_dir, overwrite=False, restorer=restore_backup):
   if not state.get("rollback_available"):
     raise ValueError("this operation has no verified rollback backup")
   source = state.get("source_deployment", {})
+  target = state.get("target_deployment", {})
+  stacks = [stack for stack in (_deployment_stack(target), _deployment_stack(source))
+            if stack]
+  project_name = (target.get("project_name") or source.get("project_name"))
   restored = restorer(
     state["backup_dir"], overwrite=overwrite,
-    compose_files=source.get("compose_files"),
-    profiles=source.get("profiles"),
-    project_name=source.get("project_name"),
-    deployment_root=source.get("root"))
+    compose_stacks=stacks, project_name=project_name)
   return write_operation_state(operation_dir, {
     **state, "phase": "data_restored", "status": "action_required",
     "restored_volumes": restored,

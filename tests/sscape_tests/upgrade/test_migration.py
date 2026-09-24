@@ -172,3 +172,25 @@ def test_cli_requires_release_workflow_for_postgres_engine_upgrade():
   assert result.returncode == 3
   assert report["status"] == "unsupported"
   assert report["blockers"][0]["code"] == "release_workflow_required"
+
+
+def test_cli_maps_called_process_error_to_failed_json(monkeypatch, capsys):
+  import sys
+  import types
+
+  path = REPOSITORY_ROOT / "tools" / "upgrade" / "scenescape-upgrade"
+  sys.path.insert(0, str(path.parent))
+  cli = types.ModuleType("scenescape_upgrade_cli")
+  cli.__file__ = str(path)
+  exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), cli.__dict__)
+
+  def boom(*_args, **_kwargs):
+    raise subprocess.CalledProcessError(1, ["helm", "list"])
+
+  monkeypatch.setattr(cli, "kubernetes_report", boom)
+  monkeypatch.setattr(sys, "argv", ["scenescape-upgrade", "kubernetes-report"])
+
+  assert cli.main() == 1
+  report = json.loads(capsys.readouterr().out)
+  assert report["status"] == "failed"
+  assert report["error"]["code"] == "preflight_failed"

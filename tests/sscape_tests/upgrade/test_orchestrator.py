@@ -70,7 +70,14 @@ def test_compose_health_rejects_unhealthy_service():
                           "Health": "unhealthy"}])
 
   with pytest.raises(ValueError, match="web"):
-    compose_health(["docker", "compose"], runner=lambda *_args, **_kwargs: Result())
+    compose_health(["docker", "compose"], expected_services=["web"],
+                   runner=lambda *_args, **_kwargs: Result())
+
+
+def test_compose_health_requires_expected_services():
+  with pytest.raises(ValueError, match="required for health verification"):
+    compose_health(["docker", "compose"], expected_services=[],
+                   runner=lambda *_a, **_k: None)
 
 
 def test_compose_health_includes_stopped_and_expected_services():
@@ -88,6 +95,20 @@ def test_compose_health_includes_stopped_and_expected_services():
                    runner=runner)
 
   assert "--all" in commands[0]
+
+
+def test_compose_health_ignores_non_expected_exited_containers():
+  class Result:
+    stdout = json.dumps([
+      {"Service": "web", "State": "running", "Health": "healthy"},
+      {"Service": "legacy", "State": "exited"},
+    ])
+
+  services = compose_health(
+    ["docker", "compose"], expected_services=["web"],
+    runner=lambda *_a, **_k: Result())
+
+  assert len(services) == 2
 
 
 def test_resume_runs_only_safe_target_commands(tmp_path):
@@ -143,7 +164,7 @@ def test_verify_rejects_pre_cutover_phase(tmp_path):
     "target_deployment": {
       "root": "2026.2", "project_name": "custom",
       "compose_files": ["2026.2/compose.yml"], "profiles": [],
-      "services": [],
+      "services": [{"name": "web"}],
     },
   })
 
@@ -181,13 +202,17 @@ def test_begin_requires_verified_backup_before_cutover(tmp_path):
   assert not (tmp_path / "state" / "upgrade-state.json").exists()
 
 
-def test_rollback_uses_verified_backup_path(tmp_path):
+def test_rollback_stops_source_and_target_stacks(tmp_path):
   write_operation_state(tmp_path, {
     "schema_version": 1, "phase": "failed", "status": "failed",
     "backup_dir": "/verified/backup", "rollback_available": True,
     "source_deployment": {
       "root": "/source", "project_name": "custom",
       "compose_files": ["/source/compose.yml"], "profiles": [],
+    },
+    "target_deployment": {
+      "root": "/target", "project_name": "custom",
+      "compose_files": ["/target/compose.yml"], "profiles": ["controller"],
     },
   })
   calls = []
@@ -200,5 +225,7 @@ def test_rollback_uses_verified_backup_path(tmp_path):
 
   assert calls[0][0] == "/verified/backup"
   assert calls[0][1] is True
-  assert calls[0][2]["deployment_root"] == "/source"
+  stacks = calls[0][2]["compose_stacks"]
+  assert calls[0][2]["project_name"] == "custom"
+  assert [stack["root"] for stack in stacks] == ["/target", "/source"]
   assert state["phase"] == "data_restored"

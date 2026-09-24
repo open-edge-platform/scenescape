@@ -37,6 +37,14 @@ PRIVATE_KEY_FILES = (
 )
 
 
+def private_key_status(path):
+  """Return whether a private key file is present and non-empty."""
+  path = Path(path)
+  if not path.is_file() or path.stat().st_size == 0:
+    return "missing"
+  return "valid"
+
+
 def certificate_status(secrets_dir, minimum_valid_days=30, runner=subprocess.run):
   """Report whether every required certificate remains valid for the threshold."""
   if minimum_valid_days < 0:
@@ -56,15 +64,13 @@ def certificate_status(secrets_dir, minimum_valid_days=30, runner=subprocess.run
       "status": "valid" if result.returncode == 0 else "renewal_required",
     })
   for filename in PRIVATE_KEY_FILES:
-    path = certs_dir / filename
     certificates.append({
       "name": filename,
-      "status": "valid" if path.is_file() else "missing",
+      "status": private_key_status(certs_dir / filename),
     })
-  ca_key = Path(secrets_dir) / "ca" / "scenescape-ca.key"
   certificates.append({
     "name": "ca/scenescape-ca.key",
-    "status": "valid" if ca_key.is_file() else "missing",
+    "status": private_key_status(Path(secrets_dir) / "ca" / "scenescape-ca.key"),
   })
   status = "ready" if all(item["status"] == "valid" for item in certificates) \
     else "action_required"
@@ -96,8 +102,8 @@ def validate_trust_set(secrets_dir, runner=subprocess.run):
   missing = [name for name in CERTIFICATE_FILES
              if not (certs_dir / name).is_file()]
   missing.extend(name for name in PRIVATE_KEY_FILES
-                 if not (certs_dir / name).is_file())
-  if not (Path(secrets_dir) / "ca" / "scenescape-ca.key").is_file():
+                 if private_key_status(certs_dir / name) != "valid")
+  if private_key_status(Path(secrets_dir) / "ca" / "scenescape-ca.key") != "valid":
     missing.append("ca/scenescape-ca.key")
   if missing:
     raise ValueError(f"generated certificate set is incomplete: {', '.join(missing)}")

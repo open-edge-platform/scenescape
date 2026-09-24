@@ -54,6 +54,27 @@ def test_certificate_status_requires_private_keys(tmp_path):
   assert statuses["ca/scenescape-ca.key"] == "valid"
 
 
+def test_certificate_status_rejects_empty_private_keys(tmp_path):
+  certs_dir = tmp_path / "certs"
+  certs_dir.mkdir()
+  for filename in CERTIFICATE_FILES:
+    (certs_dir / filename).write_text("certificate", encoding="utf-8")
+  for filename in PRIVATE_KEY_FILES:
+    (certs_dir / filename).write_bytes(b"")
+  (tmp_path / "ca").mkdir()
+  (tmp_path / "ca" / "scenescape-ca.key").write_bytes(b"")
+
+  def fake_run(command, **_kwargs):
+    return CompletedProcess(command, 0)
+
+  report = certificate_status(tmp_path, runner=fake_run)
+
+  statuses = {item["name"]: item["status"] for item in report["certificates"]}
+  assert report["status"] == "action_required"
+  assert statuses["scenescape-web.key"] == "missing"
+  assert statuses["ca/scenescape-ca.key"] == "missing"
+
+
 def test_replace_trust_set_preserves_non_tls_secrets(tmp_path):
   secrets_dir = tmp_path / "secrets"
   staged_dir = tmp_path / "staged"

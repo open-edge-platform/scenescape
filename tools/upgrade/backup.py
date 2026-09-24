@@ -160,6 +160,21 @@ def create_backup(compose_config, deployment_root, compose_files, profiles,
   return output_dir, manifest
 
 
+def artifact_path(backup_dir, relative):
+  """Resolve an artifact path and reject traversal outside the backup directory."""
+  backup_dir = Path(backup_dir).resolve()
+  relative = Path(relative)
+  if relative.is_absolute() or ".." in relative.parts:
+    raise ValueError(f"backup artifact path escapes backup directory: {relative}")
+  path = (backup_dir / relative).resolve()
+  try:
+    path.relative_to(backup_dir)
+  except ValueError as exc:
+    raise ValueError(
+      f"backup artifact path escapes backup directory: {relative}") from exc
+  return path
+
+
 def verify_backup(backup_dir):
   """Validate a backup manifest and every declared artifact checksum."""
   backup_dir = Path(backup_dir).resolve()
@@ -176,7 +191,7 @@ def verify_backup(backup_dir):
       raise ValueError("backup artifact is missing required fields")
     if artifact["type"] == "docker_volume" and "volume_name" not in artifact:
       raise ValueError("docker volume artifact is missing volume_name")
-    path = backup_dir / artifact["path"]
+    path = artifact_path(backup_dir, artifact["path"])
     if not path.is_file():
       raise ValueError(f"backup artifact is missing: {artifact['path']}")
     if sha256(path) != artifact["sha256"]:
@@ -184,38 +199,87 @@ def verify_backup(backup_dir):
   return manifest
 
 
-def stop_compose_for_restore(manifest, runner=subprocess.run, compose_files=None,
-                             profiles=None, project_name=None, deployment_root=None):
-  """Stop the Compose project before mutating its volumes."""
-  compose_files = compose_files or manifest.get("compose_files")
+def stop_project_containers(project_name, runner=subprocess.run):
+  """Stop every container belonging to a Compose project name."""
+  if not project_name:
+    raise ValueError("project name is required to stop Compose services before restore")
+  result = runner(
+    ["docker", "ps", "-aq",
+     "--filter", f"label=com.docker.compose.project={project_name}"],
+    check=True, capture_output=True, text=True)
+  container_ids = result.stdout.split()
+  if container_ids:
+    run_command(["docker", "stop", "--time", "30", *container_ids], runner=runner)
+  return container_ids
+
+
+def _stack_from_args(compose_files, profiles, project_name, deployment_root):
   if not compose_files:
-    raise ValueError("backup manifest is missing compose files required to stop services")
-  profiles = profiles if profiles is not None else manifest.get("profiles", [])
-  project_name = project_name or manifest.get("project_name")
-  deployment_root = deployment_root or manifest.get("deployment_root")
-  compose = compose_base(compose_files, profiles, project_name, deployment_root)
-  run_command(compose + ["down", "--remove-orphans"], runner=runner)
-  return compose
+    return None
+  return {
+    "compose_files": compose_files,
+    "profiles": profiles or [],
+    "project_name": project_name,
+    "root": deployment_root,
+  }
+
+
+def stop_compose_for_restore(manifest, runner=subprocess.run, compose_files=None,
+                             profiles=None, project_name=None, deployment_root=None,
+                             compose_stacks=None):
+  """Stop every Compose definition that may own the volumes being restored.
+
+  Runs `compose down` for each known source/target stack, then stops any
+  remaining containers labeled with the Compose project name so target-only
+  services cannot keep volumes open during restore.
+  """
+  stacks = [dict(stack) for stack in (compose_stacks or [])]
+  legacy = _stack_from_args(compose_files, profiles, project_name, deployment_root)
+  if legacy:
+    stacks.append(legacy)
+  if not stacks and manifest.get("compose_files"):
+    stacks.append({
+      "compose_files": manifest.get("compose_files"),
+      "profiles": manifest.get("profiles") or [],
+      "project_name": manifest.get("project_name"),
+      "root": manifest.get("deployment_root"),
+    })
+  project = project_name or manifest.get("project_name")
+  for stack in stacks:
+    project = project or stack.get("project_name")
+    stack_files = stack.get("compose_files")
+    if not stack_files:
+      continue
+    compose = compose_base(
+      stack_files, stack.get("profiles") or [],
+      stack.get("project_name") or project, stack.get("root"))
+    run_command(compose + ["down", "--remove-orphans"], runner=runner)
+  if not project:
+    raise ValueError("project name is required to stop Compose services before restore")
+  stop_project_containers(project, runner=runner)
+  return project
 
 
 def restore_backup(backup_dir, overwrite=False, runner=subprocess.run,
                    compose_files=None, profiles=None, project_name=None,
-                   deployment_root=None):
+                   deployment_root=None, compose_stacks=None):
   """Verify and restore all Docker volume artifacts in a backup.
 
-  Stops the Compose project first and leaves it stopped so callers can restart
-  the intended source or target release after restore.
+  Stops every Compose stack that may be using the volumes first and leaves the
+  project stopped so callers can restart the intended release after restore.
   """
   backup_dir = Path(backup_dir).resolve()
   manifest = verify_backup(backup_dir)
   stop_compose_for_restore(
     manifest, runner=runner, compose_files=compose_files, profiles=profiles,
-    project_name=project_name, deployment_root=deployment_root)
+    project_name=project_name, deployment_root=deployment_root,
+    compose_stacks=compose_stacks)
   restored = []
   for artifact in manifest["artifacts"]:
     if artifact["type"] != "docker_volume":
       continue
-    restore_volume(artifact["volume_name"], backup_dir / artifact["path"],
+    restore_volume(artifact["volume_name"],
+                   artifact_path(backup_dir, artifact["path"]),
                    overwrite=overwrite, runner=runner)
     restored.append(artifact["volume_name"])
   return restored
