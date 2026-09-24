@@ -75,18 +75,18 @@ Before you begin:
 
 ## Configuration Options
 
-| Parameter           | Purpose                                | Expected Values                               |
-| ------------------- | -------------------------------------- | --------------------------------------------- |
-| camera_name         | Custom label for the camera            | String                                        |
-| extrinsics          | Camera position and orientation        | Matrix or 3D transform values                 |
-| intrinsics          | Lens configuration                     | fx, fy, cx, cy, etc.                          |
-| distortion          | Lens distortion coefficients           | k1, k2, p1, p2, etc.                          |
-| opacity             | Transparency of projected image        | 0.0 (transparent) to 1.0 (solid); default 0.8 |
-| project all sensors       | Toggle projections for all cameras and LiDAR/radar sensors | On / Off                      |
-| all cameras opacity       | Set projection opacity for all cameras       | 0–100 (percent); default 80                   |
-| project point cloud       | Show live sensor point cloud in the 3D scene | On / Off (requires a publisher that answers `getpointcloud`) |
-| point size                | Rendered size of each cloud point            | metres (default 0.12)                         |
-| point cloud opacity       | Transparency of the point cloud              | 0–100 (percent); default 85                   |
+| Parameter           | Purpose                                                    | Expected Values                                              |
+| ------------------- | ---------------------------------------------------------- | ------------------------------------------------------------ |
+| camera_name         | Custom label for the camera                                | String                                                       |
+| extrinsics          | Camera position and orientation                            | Matrix or 3D transform values                                |
+| intrinsics          | Lens configuration                                         | fx, fy, cx, cy, etc.                                         |
+| distortion          | Lens distortion coefficients                               | k1, k2, p1, p2, etc.                                         |
+| opacity             | Transparency of projected image                            | 0.0 (transparent) to 1.0 (solid); default 0.8                |
+| project all sensors | Toggle projections for all cameras and LiDAR/radar sensors | On / Off                                                     |
+| all cameras opacity | Set projection opacity for all cameras                     | 0–100 (percent); default 80                                  |
+| project point cloud | Show live sensor point cloud in the 3D scene               | On / Off (requires a publisher that answers `getpointcloud`) |
+| point size          | Rendered size of each cloud point                          | metres (default 0.12)                                        |
+| point cloud opacity | Transparency of the point cloud                            | 0–100 (percent); default 85                                  |
 
 ## Troubleshooting
 

@@ -276,12 +276,7 @@ export default class SceneCamera extends THREE.Object3D {
         "point size",
       );
     } else {
-      fields.push(
-        "scene camera",
-        "project frame",
-        "pause video",
-        "opacity",
-      );
+      fields.push("scene camera", "project frame", "pause video", "opacity");
     }
     if (this.isStaff === null) {
       this.disableFields(fields);
@@ -464,21 +459,25 @@ export default class SceneCamera extends THREE.Object3D {
       control.hide();
 
     if (!this.isPointCloudSensor) {
-      control = this.controlsFolder.add(panelSettings, "project frame").onChange(
-        function (visibility) {
-          this.projectFrame = visibility;
-          if (this.projectFrame && this.mqttClient) {
-            this.mqttClient.publish(
-              this.appName + CMD_CAMERA + this.name,
-              "getimage",
-            );
-          }
-          if (this.cameraCapture != null) {
-            this.cameraCapture.visible = visibility;
-          }
-          visibility ? this.add(this.calibPoints) : this.remove(this.calibPoints);
-        }.bind(this),
-      );
+      control = this.controlsFolder
+        .add(panelSettings, "project frame")
+        .onChange(
+          function (visibility) {
+            this.projectFrame = visibility;
+            if (this.projectFrame && this.mqttClient) {
+              this.mqttClient.publish(
+                this.appName + CMD_CAMERA + this.name,
+                "getimage",
+              );
+            }
+            if (this.cameraCapture != null) {
+              this.cameraCapture.visible = visibility;
+            }
+            visibility
+              ? this.add(this.calibPoints)
+              : this.remove(this.calibPoints);
+          }.bind(this),
+        );
       control.$widget.firstChild.id = this.name.concat("-", "project-frame");
 
       control = this.controlsFolder.add(panelSettings, "pause video").onChange(
@@ -537,7 +536,10 @@ export default class SceneCamera extends THREE.Object3D {
             }
           }.bind(this),
         );
-      control.$widget.firstChild.id = this.name.concat("-", "pause-point-cloud");
+      control.$widget.firstChild.id = this.name.concat(
+        "-",
+        "pause-point-cloud",
+      );
 
       control = this.controlsFolder
         .add(panelSettings, "point cloud opacity", 0, 100, 1)
@@ -563,23 +565,25 @@ export default class SceneCamera extends THREE.Object3D {
     }
 
     if (!this.isPointCloudSensor) {
-      control = this.controlsFolder.add(panelSettings, "fov", 1, 180, 1).onChange(
-        function (fov) {
-          this.fovEnabled = true;
-          let newIntrinsics = constructIntrinsicsMatrix(
-            { fov: fov },
-            this.resolution,
-          );
-          let fx = newIntrinsics[0][0];
-          let fy = newIntrinsics[1][1];
-          let cx = newIntrinsics[0][2];
-          let cy = newIntrinsics[1][2];
-          newIntrinsics = { fx: fx, fy: fy, cx: cx, cy: cy };
-          this.updateIntrinsics(newIntrinsics);
-          this.setCameraVerticalFOV();
-          this.performCameraCalib();
-        }.bind(this),
-      );
+      control = this.controlsFolder
+        .add(panelSettings, "fov", 1, 180, 1)
+        .onChange(
+          function (fov) {
+            this.fovEnabled = true;
+            let newIntrinsics = constructIntrinsicsMatrix(
+              { fov: fov },
+              this.resolution,
+            );
+            let fx = newIntrinsics[0][0];
+            let fy = newIntrinsics[1][1];
+            let cx = newIntrinsics[0][2];
+            let cy = newIntrinsics[1][2];
+            newIntrinsics = { fx: fx, fy: fy, cx: cx, cy: cy };
+            this.updateIntrinsics(newIntrinsics);
+            this.setCameraVerticalFOV();
+            this.performCameraCalib();
+          }.bind(this),
+        );
 
       control.$input.id = this.name.concat("-", "fov");
       this.executeOnControl("fov", (control) => {
@@ -874,7 +878,11 @@ export default class SceneCamera extends THREE.Object3D {
   }
 
   projectPointCloudCapture(payload) {
-    if (!this.pointCloudViz || !this.projectPointCloud || this.pausePointCloud) {
+    if (
+      !this.pointCloudViz ||
+      !this.projectPointCloud ||
+      this.pausePointCloud
+    ) {
       return;
     }
     this.syncPointCloudPose();

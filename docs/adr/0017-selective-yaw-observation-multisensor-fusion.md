@@ -52,11 +52,11 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
 
 ### Publish path
 
-| Track condition | Published orientation |
-| --- | --- |
-| Track has `orientation_observed` / orienting link, and \|velocity heading − Kalman yaw\| ≤ ~0.6 rad (or speed &lt; 1 m/s) | Kalman-filtered yaw → quaternion |
-| Track has `orientation_observed` / orienting link, and velocity heading disagrees beyond ~0.6 rad while speed ≥ 1 m/s | **Publish velocity heading** (does not write back into Kalman) |
-| Otherwise | Velocity-inferred heading with existing speed hysteresis |
+| Track condition                                                                                                           | Published orientation                                          |
+| ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Track has `orientation_observed` / orienting link, and \|velocity heading − Kalman yaw\| ≤ ~0.6 rad (or speed &lt; 1 m/s) | Kalman-filtered yaw → quaternion                               |
+| Track has `orientation_observed` / orienting link, and velocity heading disagrees beyond ~0.6 rad while speed ≥ 1 m/s     | **Publish velocity heading** (does not write back into Kalman) |
+| Otherwise                                                                                                                 | Velocity-inferred heading with existing speed hysteresis       |
 
 **Locked rule for velocity heading:** it is a legitimate published orientation for camera-only periods (hysteresis filters flicker), but it is **derived from the same filter’s velocity**. Feeding it back into `correct()` would double-count. CTRV integrates attitude yaw with yaw-rate in the **process** model; when yaw-rate was never observed (brief orienting sensor then a camera-driven curve), the publish disagreement rule above covers the visual lag.
 

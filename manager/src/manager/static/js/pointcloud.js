@@ -72,7 +72,9 @@ export function intensityToColors(intensities, rangeState) {
   }
   const range = Math.max(rangeState.max - rangeState.min, 1e-6);
   for (let i = 0; i < intensities.length; i++) {
-    const raw = Number.isFinite(intensities[i]) ? intensities[i] : rangeState.min;
+    const raw = Number.isFinite(intensities[i])
+      ? intensities[i]
+      : rangeState.min;
     const t = (raw - rangeState.min) / range;
     const c = heatColor(t);
     colors[i * 3] = c[0];
@@ -193,7 +195,10 @@ export class PointCloudVisualizer {
         Math.ceil(Math.max(needed, 4096) * 1.25),
       );
     }
-    if (intensities && (!this._keptIntensity || this._keptIntensity.length < count)) {
+    if (
+      intensities &&
+      (!this._keptIntensity || this._keptIntensity.length < count)
+    ) {
       this._keptIntensity = new Float32Array(
         Math.ceil(Math.max(count, 1024) * 1.25),
       );
@@ -204,13 +209,21 @@ export class PointCloudVisualizer {
       const lx = localPos[i * 3];
       const ly = localPos[i * 3 + 1];
       const lz = localPos[i * 3 + 2];
-      if (!Number.isFinite(lx) || !Number.isFinite(ly) || !Number.isFinite(lz)) {
+      if (
+        !Number.isFinite(lx) ||
+        !Number.isFinite(ly) ||
+        !Number.isFinite(lz)
+      ) {
         continue;
       }
       // OpenCV / SceneScape sensor frame -> OpenGL local (THREE camera).
       v.set(lx, -ly, -lz);
       v.applyMatrix4(matrix);
-      if (!Number.isFinite(v.x) || !Number.isFinite(v.y) || !Number.isFinite(v.z)) {
+      if (
+        !Number.isFinite(v.x) ||
+        !Number.isFinite(v.y) ||
+        !Number.isFinite(v.z)
+      ) {
         continue;
       }
       const dst = written * 3;
@@ -264,9 +277,7 @@ export class PointCloudVisualizer {
       let posAttr = geometry.getAttribute("position");
       if (!posAttr || posAttr.array.length < written * 3) {
         posAttr = new THREE.BufferAttribute(
-          new Float32Array(
-            Math.ceil(Math.max(written * 3, 4096) * 1.25),
-          ),
+          new Float32Array(Math.ceil(Math.max(written * 3, 4096) * 1.25)),
           3,
         );
         geometry.setAttribute("position", posAttr);
@@ -278,9 +289,7 @@ export class PointCloudVisualizer {
         let colorAttr = geometry.getAttribute("color");
         if (!colorAttr || colorAttr.array.length < written * 3) {
           colorAttr = new THREE.BufferAttribute(
-            new Float32Array(
-              Math.ceil(Math.max(written * 3, 4096) * 1.25),
-            ),
+            new Float32Array(Math.ceil(Math.max(written * 3, 4096) * 1.25)),
             3,
           );
           geometry.setAttribute("color", colorAttr);
