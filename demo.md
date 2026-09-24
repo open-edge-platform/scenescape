@@ -12,3 +12,8 @@ RTSP_CAM3_USER=<cam3-user> RTSP_CAM3_PASS=<cam3-pass> \
 make docker-compose.yml DLSTREAMER_DOCKER_COMPOSE_FILE=./sample_data/compose/docker-compose-ptz-demo.yml
 make .env
 SUPASS=<your-password> docker compose --profile controller --profile mapping up -d
+
+# Optional: keep camera pose in sync with live PTZ pan/tilt (see ptz_pose_service/README.md).
+# Populate ptz_pose_service/config/cameras.json with the scene's camera UIDs first.
+ONVIF_USERNAME=<onvif-user> ONVIF_PASSWORD=<onvif-pass> \
+SUPASS=<your-password> docker compose --profile controller --profile mapping --profile ptz-pose up -d

@@ -95,6 +95,7 @@ x-controller-base: &controller-base
 # - cluster-analytics: Core services + cluster-analytics only
 # - controller: Scene Controller (tracking) + Analytics service
 # - tracker: Tracker service + Analytics service (no Scene Controller)
+# - ptz-pose: Core services + PTZ Pose Service (syncs camera rotation with live pan/tilt)
 
 services:
   ntpserv:
@@ -325,6 +326,38 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+    restart: always
+    pids_limit: 1000
+
+  # Keeps each PTZ camera's Scenescape pose (rotation) in sync with its live
+  # ONVIF pan/tilt position. Populate ./ptz_pose_service/config/cameras.json
+  # with the camera UIDs from your scene before starting this profile; see
+  # ptz_pose_service/README.md.
+  ptz-pose:
+    image: intel/scenescape-ptz-pose-service:${VERSION:-latest}
+    init: true
+    profiles:
+      - ptz-pose
+    networks:
+      scenescape:
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      - ONVIF_USERNAME=${ONVIF_USERNAME}
+      - ONVIF_PASSWORD=${ONVIF_PASSWORD}
+      - no_proxy=${no_proxy},.scenescape.intel.com
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+    command: >
+      --resturl https://web.scenescape.intel.com:443/api/v1
+      --restauth /run/secrets/calibration.auth
+      --rootcert /run/secrets/certs/scenescape-ca.pem
+    volumes:
+      - ./ptz_pose_service/config/cameras.json:/app/config/cameras.json:ro
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - calibration.auth
     restart: always
     pids_limit: 1000
 

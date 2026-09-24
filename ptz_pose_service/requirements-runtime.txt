@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# This file is licensed under Apache 2.0 License.
+
+# Keep package list in alphabetical order
+defusedxml==0.7.1
+onvif-zeep==0.2.12
+requests==2.33.0

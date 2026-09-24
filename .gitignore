@@ -50,9 +50,10 @@ manager/test/geckodriver.tar.gz
 tests/perf_tests/input/*.json
 
 # Host-side vendored third-party sources for Docker builds (see autocalibration/Makefile,
-# mapping/Makefile vendor-deps targets)
+# mapping/Makefile, ptz_pose_service/Makefile vendor-deps targets)
 autocalibration/.vendor/
 mapping/.vendor/
+ptz_pose_service/.vendor/
 
 model_installer/models
 package.json
