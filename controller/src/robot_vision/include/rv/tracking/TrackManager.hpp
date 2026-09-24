@@ -125,9 +125,20 @@ public:
   /**
    * @brief Assign a measurement to an KalmanEstimator.
    *
-   * The measurement won't be applied inmediately, it will be applied during the next correct measurement step
+   * The measurement won't be applied inmediately, it will be applied during the next correct measurement step.
+   * Replaces any measurements previously queued for the track.
    */
   void setMeasurement(const Id &id, const TrackedObject &measurement);
+
+  /**
+   * @brief Queue an additional measurement for a KalmanEstimator.
+   *
+   * Appends to the measurements already queued for the track. All queued measurements are fused
+   * into a single measurement (see fuseObservations) and applied with one correction during the
+   * next correct step, so the Kalman covariance stays consistent regardless of how many
+   * observations matched the track.
+   */
+  void addMeasurement(const Id &id, const TrackedObject &measurement);
 
   /**
    * @brief Triggers the correct measurements step
@@ -204,7 +215,7 @@ public:
 private:
   std::unordered_map<Id, MultiModelKalmanEstimator> mKalmanEstimators;
   std::unordered_map<Id, MultiModelKalmanEstimator> mSuspendedKalmanEstimators;
-  std::unordered_map<Id, TrackedObject> mMeasurementMap;
+  std::unordered_map<Id, std::vector<TrackedObject>> mMeasurementMap;
   std::unordered_map<Id, uint32_t> mNonMeasurementFrames;
   std::unordered_map<Id, uint32_t> mNumberOfTrackedFrames;
   std::unordered_map<Id, std::chrono::steady_clock::time_point> mSuspensionTimes;
@@ -215,6 +226,16 @@ private:
 
   TrackManagerConfig mConfig;
 };
+
+/**
+ * @brief Fuse several observations of the same track taken at one timestamp into a single one.
+ *
+ * Geometric fields are averaged (yaw as a circular mean) and classification evidence is combined
+ * across all observations. A single fused measurement lets the Kalman filter apply one numerically
+ * stable correction per frame instead of chaining several corrections on stale prediction
+ * statistics. A single observation is returned unchanged.
+ */
+TrackedObject fuseObservations(const std::vector<TrackedObject> &observations);
 
 } // namespace tracking
 } // namespace rv
