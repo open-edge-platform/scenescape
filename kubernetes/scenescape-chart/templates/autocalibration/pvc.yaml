@@ -16,3 +16,18 @@ spec:
   resources:
     requests:
       storage: {{ .Values.datasets.storage }}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-netvlad-pvc
+spec:
+  {{- if .Values.autocalibration.modelStorageClassName }}
+  storageClassName: {{ .Values.autocalibration.modelStorageClassName | quote }}
+  {{- end }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.autocalibration.modelStorage }}
