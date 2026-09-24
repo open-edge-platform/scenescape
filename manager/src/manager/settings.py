@@ -19,7 +19,33 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DJANGO_DEBUG', 'False').lower() in ['true', '1', 't']
 
-ALLOWED_HOSTS = ['*']
+# Exposes test-only scene-graph hooks (e.g. window.__testScene) to the 3D UI.
+# Must never be true outside the test/CI harness's own compose stack.
+EXPOSE_TEST_HOOKS = os.getenv('EXPOSE_TEST_HOOKS', 'False').lower() in ['true', '1', 't']
+
+def get_allowed_hosts():
+  """
+  Determine allowed hosts for Django's HOST header validation.
+
+  Priority (highest to lowest):
+  1. SCENESCAPE_ALLOWED_HOSTS env var (comma-separated list) extended with default hosts
+  2. Fallback to default hosts if env var is not set or empty
+
+  Default hosts include local hosts required for application to start correctly.
+
+  Environment variable should contain comma-separated host values:
+  - SCENESCAPE_ALLOWED_HOSTS=example.com,10.0.0.1
+  """
+  default_hosts = ['127.0.0.1', 'localhost', 'web.scenescape.svc.cluster.local', 'web.scenescape.intel.com']
+  raw_hosts = os.getenv('SCENESCAPE_ALLOWED_HOSTS', '').strip()
+  if raw_hosts:
+    hosts = [h.strip() for h in raw_hosts.split(',') if h.strip()]
+    default_hosts.extend(hosts)
+
+  # Fallback for backwards compatibility
+  return default_hosts
+
+ALLOWED_HOSTS = get_allowed_hosts()
 DEFAULT_CHARSET = "utf-8"
 
 # Application definition
@@ -83,16 +109,17 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_AGE = LOGOUT_EXPIRES
 SESSION_SAVE_EVERY_REQUEST = True
-SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
 SESSION_EXPIRE_SECONDS = LOGOUT_EXPIRES
 SESSION_EXPIRE_AFTER_LAST_ACTIVITY = True # Reset expire timer after user activity
 
 AXES_ENABLED = True
-AXES_FAILURE_LIMIT = 10
-AXES_COOLOFF_TIME = timedelta(seconds=30)
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_URL = '/account_locked'
-AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_LOCKOUT_PARAMETERS = [["username"]]
 
 # Database
 # https://docs.djangoproject.com/en/2.0/ref/settings/#databases
@@ -171,6 +198,21 @@ LOGIN_URL = 'sign_in'
 KUBERNETES_SERVICE_HOST = 'KUBERNETES_SERVICE_HOST' in os.environ
 
 # Get the version number
+def get_docs_version(version):
+  """Return the documentation URL segment for an application version."""
+  if not version or version == 'Unknown':
+    return 'dev'
+
+  # Release candidates aren't published docs yet, so link to dev docs.
+  if 'dev' in version.lower() or 'rc' in version.lower():
+    return 'dev'
+
+  version_parts = version.split('.')
+  if len(version_parts) >= 2 and all(part.isdigit() for part in version_parts[:2]):
+    return '.'.join(version_parts[:2])
+
+  return 'dev'
+
 try:
   with open(BASE_DIR + '/' + APP_NAME + '/version.txt') as f:
     APP_VERSION_NUMBER = f.readline().rstrip()
@@ -178,6 +220,8 @@ try:
 except IOError:
   print(APP_PROPER_NAME + " version.txt file not found.")
   APP_VERSION_NUMBER = "Unknown"
+
+DOCS_VERSION = get_docs_version(APP_VERSION_NUMBER)
 
 # Set up support for proxy headers
 USE_X_FORWARDED_HOST = True

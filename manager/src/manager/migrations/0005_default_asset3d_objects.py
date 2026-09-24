@@ -48,7 +48,7 @@ def remove_default_asset3d_objects(apps, schema_editor):
 class Migration(migrations.Migration):
 
   dependencies = [
-    ("manager", "0003_add_cached_geometries_to_childscene"),
+    ("manager", "0004_add_cached_sensors_to_childscene"),
   ]
 
   operations = [

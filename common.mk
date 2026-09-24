@@ -66,8 +66,8 @@ rebuild:
 	$(MAKE) REBUILDFLAGS="--no-cache"
 
 # Scrapes upstream URLs (git clone, wget/curl, pip index, apt repo/key) referenced directly in the
-# Dockerfile. Factored out as its own target so overridden list-dependencies recipes (e.g. tracker)
-# can depend on it instead of duplicating the parsing rules.
+# Dockerfile, plus (for images with a host-side `make vendor-deps` target, e.g. autocalibration,
+# mapping) any URL found in that image's Makefile.
 .PHONY: upstream-deps
 upstream-deps: $(BUILD_DIR)
 	@if [[ -f "$(CURDIR)/Dockerfile" ]]; then \
@@ -92,6 +92,10 @@ upstream-deps: $(BUILD_DIR)
 	    grep -E '(wget|curl).*\.(gpg|asc)' "$(CURDIR)/Dockerfile" \
 	      | grep -oE 'https?://[^ |]+' \
 	      | awk '{print "apt-key: " $$1}'; \
+	    if grep -qE '^\.PHONY:[[:space:]]*vendor-deps' "$(CURDIR)/Makefile" 2>/dev/null; then \
+	      grep -oE 'https?://[^ ]+' "$(CURDIR)/Makefile" \
+	        | awk '{print "vendor-deps-git-clone: " $$1}'; \
+	    fi; \
 	  } | sort -u > "$(BUILD_DIR)/$(IMAGE)-upstream-deps.txt"; \
 	  if [[ -s "$(BUILD_DIR)/$(IMAGE)-upstream-deps.txt" ]]; then \
 	    echo "Upstream dependencies listed in $(BUILD_DIR)/$(IMAGE)-upstream-deps.txt"; \

@@ -27,7 +27,6 @@ log = get_logger(__name__)
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_AUTOCALIBRATION,
   auth=AUTH_BROWSER,
-  exampledb="tests/calibrationdb.tar.bz2",
 )
 
 MAX_WAIT = 5
@@ -96,7 +95,7 @@ class AutoCalibration(FunctionalTest):
                intrinsics=None, repo_root=""):
     super().__init__(testName, request, recordXMLAttribute)
     self.scene_name = "Queuing"
-    self.scene_id = '302cf49a-97ec-402d-a324-c5077b280b7b'
+    self.scene_id = self.params['scene_id']
     self.camera_id = "atag-qcam1"
     self.frame = f"{repo_root}/tests/ui/test_media/atag-qcam1-frame.png"
     self.exitCode = 1
@@ -173,7 +172,7 @@ class AutoCalibration(FunctionalTest):
       log.error(f"Error fetching service status: {e}")
       return None
 
-  def register_scene(self, method="POST", poll_interval=5, timeout=60):
+  def register_scene(self, method="POST", poll_interval=5, timeout=180):
     url = f"{self.autocalib_base}/scenes/{self.scene_id}/registration"
     try:
       if method.upper() == "POST":
@@ -283,19 +282,20 @@ class AutoCalibration(FunctionalTest):
 @pytest.mark.parametrize(
   "test_name, n_tags, random_select, expect_status, expected_result, intrinsics",
   [
-    ("NEX-T17850:", 0, False, "success", EXPECTED_RESULT_1,
-     [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
-    ("NEX-T10487:", 2, False, "success", EXPECTED_RESULT_2,
-     [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
-    ("NEX-T17851:", 0, True, "success", EXPECTED_RESULT_3, None),
-    ("NEX-T10486:", 3, False, "pending", EXPECTED_RESULT_4,
-     [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
-    ("NEX-T17852:", 6, True, "pending", None,
-     [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
+    pytest.param("NEX-T17850:", 0, False, "success", EXPECTED_RESULT_1,
+     [[905, 0, 640], [0, 905, 360], [0, 0, 1]], marks=pytest.mark.test_name("NEX-T17850")),
+    pytest.param("NEX-T10487:", 2, False, "success", EXPECTED_RESULT_2,
+     [[905, 0, 640], [0, 905, 360], [0, 0, 1]], marks=pytest.mark.test_name("NEX-T10487")),
+    pytest.param("NEX-T17851:", 0, True, "success", EXPECTED_RESULT_3, None,
+     marks=pytest.mark.test_name("NEX-T17851")),
+    pytest.param("NEX-T10486:", 3, False, "pending", EXPECTED_RESULT_4,
+     [[905, 0, 640], [0, 905, 360], [0, 0, 1]], marks=pytest.mark.test_name("NEX-T10486")),
+    pytest.param("NEX-T17852:", 6, True, "pending", None,
+     [[905, 0, 640], [0, 905, 360], [0, 0, 1]], marks=pytest.mark.test_name("NEX-T17852")),
   ]
 )
 @pytest.mark.basic_acceptance
-def test_auto_calibration(scenescape_env, request, record_xml_attribute,
+def test_auto_calibration(scenescape_env, request, record_xml_attribute, result_recorder,
               test_name, n_tags, random_select,
               expect_status, expected_result, intrinsics, repo_root):
   test = AutoCalibration(test_name, request, record_xml_attribute,
@@ -303,3 +303,4 @@ def test_auto_calibration(scenescape_env, request, record_xml_attribute,
              expected_result, intrinsics=intrinsics, repo_root=repo_root)
   test.runAutoCalibration()
   assert test.exitCode == 0
+  result_recorder.success()

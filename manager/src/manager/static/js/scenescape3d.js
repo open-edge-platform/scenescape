@@ -76,6 +76,12 @@ function main() {
   const axesHelper = new THREE.AxesHelper(10);
   scene.add(axesHelper);
 
+  // Test-only scene-graph accessor for deterministic UI test assertions;
+  // only rendered by the server when EXPOSE_TEST_HOOKS is set (test/CI stacks).
+  if (document.getElementById("test-hooks-enabled")) {
+    window.__testScene = scene;
+  }
+
   // Camera variable to handle the current view
   let sceneViewCamera = perspectiveCamera;
   scene.add(sceneViewCamera);

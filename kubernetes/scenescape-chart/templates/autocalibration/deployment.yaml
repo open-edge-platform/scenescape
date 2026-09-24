@@ -35,7 +35,7 @@ spec:
         - name: fix-permissions-initcontainer
           image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
           imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
-          command: ["/bin/sh", "-c", "chown -R 1000:1000 /data/media /data/datasets"]
+          command: ["/bin/sh", "-c", "chown -R 1000:1000 /data/media /data/datasets /data/netvlad_models"]
           securityContext:
             runAsUser: 0
             runAsGroup: 0
@@ -44,6 +44,44 @@ spec:
             name: media-storage
           - mountPath: /data/datasets
             name: datasets-storage
+          - mountPath: /data/netvlad_models
+            name: netvlad-models
+        {{- if not .Values.autocalibration.skipModelDownload }}
+        # Native sidecar (restartPolicy: Always): starts alongside the app instead of
+        # blocking it, so AprilTag calibration works immediately; markerless calibration
+        # becomes available once this loop finishes downloading the NetVLAD model.
+        - name: download-netvlad-sidecar
+          restartPolicy: Always
+          image: {{ .Values.repository }}/{{ .Values.autocalibration.image }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.autocalibration.pullPolicy }}
+          command:
+          - sh
+          - -c
+          - |
+            while true; do
+              if python3 /usr/local/bin/download_models.py; then
+                sleep 3600
+              else
+                echo "NetVLAD model download failed, retrying in 60s" >&2
+                sleep 60
+              fi
+            done
+          env:
+          - name: NETVLAD_MODEL_DIR
+            value: /usr/local/lib/python3.11/site-packages/third_party/netvlad
+          {{ include "proxy_envs" . | indent 10 }}
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+          volumeMounts:
+          - mountPath: /usr/local/lib/python3.11/site-packages/third_party/netvlad
+            name: netvlad-models
+        {{- end }}
       containers:
         - args:
           - --restauth
@@ -64,10 +102,6 @@ spec:
             value: surfaceless
           - name: NETVLAD_MODEL_DIR
             value: /usr/local/lib/python3.11/site-packages/third_party/netvlad
-          {{- if .Values.autocalibration.skipModelDownload }}
-          - name: SKIP_MODEL_DOWNLOAD
-            value: "1"
-          {{- end }}
           {{ include "proxy_envs" . | indent 10 }}
           ports:
             - containerPort: 8443
@@ -79,6 +113,16 @@ spec:
             capabilities:
               drop:
               - ALL
+          startupProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - curl -k -fsS https://localhost:8443/v1/status >/dev/null
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+            initialDelaySeconds: 30
           readinessProbe:
             exec:
               command:
@@ -127,6 +171,8 @@ spec:
             name: media-storage
           - mountPath: /home/scenescape/Scenescape/datasets
             name: datasets-storage
+          - mountPath: /usr/local/lib/python3.11/site-packages/third_party/netvlad
+            name: netvlad-models
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -146,4 +192,7 @@ spec:
       - name: datasets-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-datasets-pvc
+      - name: netvlad-models
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-netvlad-pvc
 status: {}
