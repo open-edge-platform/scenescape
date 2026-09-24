@@ -34,9 +34,7 @@
         "engine_upgrade": false
       },
       "django_strategy": "fake_initial",
-      "django_migrations": [
-        "0001_initial"
-      ],
+      "django_migrations": ["0001_initial"],
       "rollback": "restore_backup"
     },
     {
