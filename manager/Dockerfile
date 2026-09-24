@@ -108,7 +108,6 @@ RUN : \
           auth_basic \
           authn_core \
           authn_file \
-          authz_host \
           authz_user \
           autoindex \
           status \

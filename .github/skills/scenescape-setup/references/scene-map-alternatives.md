@@ -215,7 +215,7 @@ After manual camera calibration is complete (see above), subscribe to the regula
 ```bash
 docker container run --rm --network <project>_scenescape \
   -v <deploy_dir>/secrets/certs/scenescape-ca.pem:/ca.pem:ro \
-  eclipse-mosquitto:2.0.22 \
+  eclipse-mosquitto:2.1-alpine \
   mosquitto_sub -h broker.scenescape.intel.com -p 1883 \
   --cafile /ca.pem --insecure \
   -t 'scenescape/regulated/scene/<scene_uid>' -C 1 -W 120

@@ -131,7 +131,12 @@ start-kind:
 # kubectl -n ingress-nginx patch deployment ingress-nginx-controller --type=json -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-ssl-passthrough"}]'
 	kubectl wait -n ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=300s
 # Enable automatic restart for the kind container so when host is rebooted, the kind cluster will be available
-	docker update --restart=always $(docker ps -aq --filter "label=io.x-k8s.kind.cluster=kind")
+	@CID=$$(docker ps -aq --filter "label=io.x-k8s.kind.cluster=kind"); \
+	if [ -n "$$CID" ]; then \
+	    docker update --restart=always $$CID; \
+	else \
+	    echo "WARNING: no kind container found, skipping --restart=always"; \
+	fi
 
 # remove the kind container
 clean-kind:
@@ -213,7 +218,8 @@ check-demo-k8s-mode:
 .PHONY: demo-scenes
 demo-scenes:
 	@VENV="../tools/upload_scenes/.venv"; \
-	if [ ! -d "$$VENV" ]; then \
+	if [ ! -x "$$VENV/bin/pip" ]; then \
+		rm -rf "$$VENV"; \
 		python3 -m venv "$$VENV"; \
 		"$$VENV/bin/pip" install -q -r ../tools/upload_scenes/requirements.txt; \
 	fi
@@ -257,6 +263,10 @@ install: check-demo-k8s-mode copy-files chart.yaml
 	if [ -n "$${PGPASS}" ]; then \
 		PGPASS_ARG="--set pgserver.password=$${PGPASS}"; \
 	fi; \
+	ALLOWED_HOSTS_ARG=""; \
+	if [ -n "$${SCENESCAPE_ALLOWED_HOSTS}" ]; then \
+		ALLOWED_HOSTS_ARG="--set web.allowedHosts=$${SCENESCAPE_ALLOWED_HOSTS}"; \
+	fi; \
 	MODE_ARG="--set reid.enabled=false"; \
 	if [ "$(DEMO_K8S_MODE)" = "reid" ]; then \
 		MODE_ARG="--set reid.enabled=true --set reid.backend=$(REID_BACKEND)"; \
@@ -264,7 +274,7 @@ install: check-demo-k8s-mode copy-files chart.yaml
 		MODE_ARG="--set reid.enabled=true --set reid.backend=$(REID_BACKEND) --set mapping.enabled=true --set clusterAnalytics.enabled=true"; \
 	fi; \
 	REPOSITORY_ARG="--set repository=$(REGISTRY)"; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${SUPASS_ARG} $${PGPASS_ARG} $${MODE_ARG} $${VALUES_FILE} $(TEST_FLAGS);
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${SUPASS_ARG} $${PGPASS_ARG} $${ALLOWED_HOSTS_ARG} $${MODE_ARG} $${VALUES_FILE} $(TEST_FLAGS);
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi

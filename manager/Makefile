@@ -31,6 +31,11 @@ test-build: test/geckodriver.tar.gz
 remove-symlink:
 	rm -f ./src/manager/secrets.py
 
+.PHONY: clean-assets
+clean-assets:
+	rm -rf $(JSLIBDIR)/assets $(JSLIBDIR)/bootstrap $(JSLIBDIR)/examples \
+	  $(JSLIBDIR)/bootstrap-4.6.1-dist.zip $(JSLIBDIR)/bootstrap-icons-1.3.0.zip
+
 define JSMEXAMPLES
 fonts/helvetiker_regular.typeface.json \
 jsm/controls/OrbitControls.js \
@@ -64,11 +69,26 @@ JSMEXAMPLES := $(value JSMEXAMPLES)
 define axios-asset-recipe =
 	URL=https://cdn.jsdelivr.net/npm/axios/dist && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
+	  && $(verify-web-asset)
+endef
+
+# Catches HTML error pages, plain-text 404s, and JSON error bodies CDNs return with a 200 status.
+ERROR_BODY_PATTERN = <html\|<!doctype\|^404\|^not found$$\|"error"\|cannot get /\|access denied
+
+define verify-web-asset =
+	if [ ! -s $@ ]; then \
+	  echo "ERROR: $@ is empty or does not exist" && rm -f $@ && exit 1; \
+	fi && \
+	if head -c 200 $@ | tr '[:upper:]' '[:lower:]' | grep -q '$(ERROR_BODY_PATTERN)'; then \
+	  echo "ERROR: $@ looks like an error page, not the expected content" && rm -f $@ && exit 1; \
+	fi
 endef
 
 jsm-examples: $(JSMEXAMPLES)
 
+# Verification is inlined here (not $(verify-web-asset)) because $@ is the example's
+# relative path, not its output path under $(JSLIBDIR)/examples.
 $(JSMEXAMPLES):
 	$(eval RELPATH=$@)
 	if [ ! -f $(JSLIBDIR)/examples/$@ ] ; then \
@@ -76,7 +96,9 @@ $(JSMEXAMPLES):
 	  && echo "$${URL}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $(JSLIBDIR)/examples/$@ \
 	  $${URL} \
-	  && sed -i -e "s,'three','/static/assets/three.module.js'," $(JSLIBDIR)/examples/$@; \
+	  && sed -i -e "s,'three','/static/assets/three.module.js'," $(JSLIBDIR)/examples/$@ \
+	  && if [ ! -s $(JSLIBDIR)/examples/$@ ]; then echo "ERROR: $(JSLIBDIR)/examples/$@ is empty" && rm -f $(JSLIBDIR)/examples/$@ && exit 1; fi \
+	  && if head -c 200 $(JSLIBDIR)/examples/$@ | tr '[:upper:]' '[:lower:]' | grep -q '$(ERROR_BODY_PATTERN)'; then echo "ERROR: $(JSLIBDIR)/examples/$@ looks like an error page" && rm -f $(JSLIBDIR)/examples/$@ && exit 1; fi; \
 	fi
 
 
@@ -103,38 +125,45 @@ jslibraries: \
 $(JSLIBDIR)/assets/socket.io.min.js:
 	URL=https://cdn.socket.io/4.5.4 && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
+	  && $(verify-web-asset)
 
 $(JSLIBDIR)/assets/jquery-3.6.0.min.js:
 	URL=https://code.jquery.com && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
+	  && $(verify-web-asset)
 
 $(JSLIBDIR)/assets/snap.svg-min.js:
 	URL=https://raw.githubusercontent.com/adobe-webplatform/Snap.svg/master/dist && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
+	  && $(verify-web-asset)
 
 $(JSLIBDIR)/assets/tether.min.js:
 	URL=https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.7/js && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
+	  && $(verify-web-asset)
 
 $(JSLIBDIR)/assets/imagesloaded.pkgd.min.js:
 	URL=https://cdnjs.cloudflare.com/ajax/libs/jquery.imagesloaded/4.1.4 \
 	  && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
+	  && $(verify-web-asset)
 
 $(JSLIBDIR)/assets/mqtt.min.js:
 	URL=https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.5 && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
+	  && $(verify-web-asset)
 
 $(JSLIBDIR)/assets/jszip.min.js:
 	URL=https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1 && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
+	  && $(verify-web-asset)
 
 $(JSLIBDIR)/assets/axios.min.js:
 	$(call axios-asset-recipe)
@@ -145,24 +174,28 @@ $(JSLIBDIR)/assets/axios.min.js.map:
 $(JSLIBDIR)/assets/glfx.min.js:
 	URL=https://cdn.jsdelivr.net/npm/glfx@0.0.4 && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
+	  && $(verify-web-asset)
 
 $(JSLIBDIR)/bootstrap-4.6.1-dist.zip:
 	VERSION=$$(echo $@ | sed -E -e 's/.*bootstrap-([0-9]+[.][0-9]+[.][0-9]+)-.*/\1/') \
 	  URL=https://github.com/twbs/bootstrap/releases/download/v$${VERSION} \
 	  PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
+	  && $(verify-web-asset)
 
 $(JSLIBDIR)/bootstrap-icons-1.3.0.zip:
 	URL=https://github.com/twbs/icons/releases/download/v1.3.0 && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
+	  && $(verify-web-asset)
 
 $(JSLIBDIR)/bootstrap/css/bootstrap-icons.css: $(JSLIBDIR)/bootstrap/css
 	URL=https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
+	  && $(verify-web-asset)
 
 $(JSLIBDIR)/bootstrap/js/bootstrap.js: $(JSLIBDIR)/bootstrap-4.6.1-dist.zip
 	BOOTSTRAPDIR=$$(dirname $(dir $@)) \
@@ -185,13 +218,15 @@ $(JSLIBDIR)/bootstrap/css: $(JSLIBDIR)/bootstrap/css/fonts/bootstrap-icons.woff
 $(JSLIBDIR)/assets/three.module.js:
 	URL=https://cdn.jsdelivr.net/npm/three@0.$(THREEJS_VERSION).0/build && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
+	  && $(verify-web-asset)
 
 $(JSLIBDIR)/assets/ProjectedMaterial.module.js:
 	URL=https://unpkg.com/three-projected-material/build && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
 	  && curl $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
-	  &&  sed "s,'three','/static/assets/three.module.js'," $@ > temp.js && mv temp.js $@
+	  &&  sed "s,'three','/static/assets/three.module.js'," $@ > temp.js && mv temp.js $@ \
+	  && $(verify-web-asset)
 
 # Using CDN as the official https://docs.opencv.org/4.10.0/opencv.js return 403 and seem to require a headless browser to download
 $(JSLIBDIR)/assets/opencv.js:
@@ -205,7 +240,8 @@ $(JSLIBDIR)/assets/opencv.js:
 $(JSLIBDIR)/assets/doxygen-awesome.css:
 	URL=https://raw.githubusercontent.com/jothepro/doxygen-awesome-css/main && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
+	  && $(verify-web-asset)
 
 django-secrets: $(SECRETSDIR)/django/secrets.py
 
