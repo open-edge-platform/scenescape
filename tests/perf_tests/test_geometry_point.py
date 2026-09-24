@@ -127,8 +127,10 @@ def PointsCartesianAttributes2D(start_range, stop_range, step):
   return True
 
 @pytest.mark.basic_acceptance
-def test_geometry_point():
+@pytest.mark.test_name("NEX-T29222")
+def test_geometry_point(result_recorder):
   assert PointsPolarAttributes2D(-50, 50, 2)
   assert PointsPolarAttributes3D(-50, 50, 2)
   assert PointsCartesianAttributes2D(-50, 50, 2)
   assert PointsCartesianAttributes3D(-50, 50, 2)
+  result_recorder.success()
