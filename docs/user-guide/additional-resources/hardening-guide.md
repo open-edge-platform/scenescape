@@ -45,7 +45,9 @@ The following table summarizes the network ports exposed by Scenescape’s servi
 
 ### Restricting Allowed Hosts
 
-By default, Scenescape's Django web server is configured with `ALLOWED_HOSTS = ['*']`, which accepts HTTP requests with any Host header. This is convenient for development and testing but presents risk in production deployments.
+By default, Scenescape's Django web server is configured with `ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'web.scenescape.svc.cluster.local', 'web.scenescape.intel.com']`, which
+accepts HTTP requests from local network only. To allow accessing the application from a remote host, the `ALLOWED_HOSTS` setting
+must be updated to include the hostname or IP address under which Scenescape is accessible.
 
 Scenescape supports one variable for configuring host validation:
 
@@ -54,7 +56,7 @@ Scenescape supports one variable for configuring host validation:
 Set `SCENESCAPE_ALLOWED_HOSTS` to a comma-separated list of allowed hostnames/IPs.
 
 ```bash
-export SCENESCAPE_ALLOWED_HOSTS="<host-ip>,localhost,127.0.0.1"
+export SCENESCAPE_ALLOWED_HOSTS="<host-ip>"
 ```
 
 For Docker Compose deployments, set it in repository-root `.env` and ensure the `web` service passes it through:
@@ -68,11 +70,8 @@ For Kubernetes Helm deployments, set:
 
 ```yaml
 web:
-  allowedHosts: "<host-ip>,localhost,127.0.0.1"
+  allowedHosts: "<host-ip>"
 ```
-
-> [!NOTE] `localhost,127.0.0.1` are required if you want to use the built-in health check endpoints, which are called from inside the container.
-> If you don't include them, then health checks should be disabled or modified to use an allowed host.
 
 #### Health check compatibility
 
