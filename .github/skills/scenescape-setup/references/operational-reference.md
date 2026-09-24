@@ -32,7 +32,10 @@ bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
 
 Launch the orchestrator asynchronously. It runs bootstrap (steps 6-8), calibrate (9-10), then
 scene (11-13). `--fresh` clears `.deploy-state.json` and `deploy-inputs.json`, so it requires
-new Step 1 inputs and reruns all three phases.
+new Step 1 inputs and reruns all three phases. If the deployment uses a non-default `mapping`
+(`glb`/`blueprint`/`geospatial`), also re-pass `--mapping`/`--glb-file`/`--camera-json` on the
+`--fresh` launch -- deploy-inputs.json is gone by the time it's rewritten, so these are not
+carried over automatically and default back to `mapping=reconstruction` if omitted.
 
 Step 9 creates one calibration JPEG per camera ID in `calibration-frames/`. Step 13 verifies that
 tracked objects are associated with more than one camera ID for a multi-camera deployment.
@@ -41,7 +44,10 @@ tracked objects are associated with more than one camera ID for a multi-camera d
 | --- | --- |
 | `--phase all\|bootstrap\|calibrate\|scene` | Limit steps; defaults to `all` |
 | `--resume` | Continue from `.deploy-state.json`; default |
-| `--fresh` | Clear checkpoint and inputs; requires new Step 1 inputs |
+| `--fresh` | Clear checkpoint and inputs; requires new Step 1 inputs (including `--mapping`/`--glb-file`/`--camera-json` if not `reconstruction`) |
+| `--mapping reconstruction\|blueprint\|glb\|geospatial` | Scene map source for a fresh write; only used when deploy-inputs.json doesn't already exist |
+| `--glb-file <path>` | Pre-made mesh for `--mapping glb`; only used alongside the above |
+| `--camera-json <path>` | Pre-calibrated cameras for `--mapping glb`; only used alongside the above |
 
 ## Generated deployment layout
 

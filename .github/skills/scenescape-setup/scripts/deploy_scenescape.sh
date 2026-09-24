@@ -11,6 +11,7 @@
 #     --streams <url> [<url> ...] \
 #     --camera-ids <id> [<id> ...] \
 #     --scene-name <name> \
+#     [--mapping reconstruction|blueprint|glb|geospatial] [--glb-file <path>] [--camera-json <path>] \
 #     [--phase all|bootstrap|calibrate|scene] \
 #     [--resume|--fresh]
 
@@ -23,6 +24,12 @@ PHASE="all"
 RESUME_MODE="auto"
 declare -a STREAMS=()
 declare -a CAMERA_IDS=()
+# CLI overrides for a fresh (deploy-inputs.json-less) write; empty CLI_MAPPING means
+# "use deploy_inputs.py write's own default" so --fresh without these flags still works
+# for a plain reconstruction deploy.
+CLI_MAPPING=""
+CLI_GLB_FILE=""
+CLI_CAMERA_JSON=""
 
 STATE_FILE=""
 LOG_FILE=""
@@ -492,6 +499,9 @@ while [[ $# -gt 0 ]]; do
       shift
       while [[ $# -gt 0 && "$1" != --* ]]; do CAMERA_IDS+=("$1"); shift; done
       ;;
+    --mapping) CLI_MAPPING="$2"; shift 2 ;;
+    --glb-file) CLI_GLB_FILE=$(realpath "$2"); shift 2 ;;
+    --camera-json) CLI_CAMERA_JSON=$(realpath "$2"); shift 2 ;;
     --phase) PHASE="$2"; shift 2 ;;
     --resume) RESUME_MODE="auto"; shift ;;
     --fresh) RESUME_MODE="fresh"; shift ;;
@@ -562,11 +572,16 @@ if [[ ! -f "$DEPLOY_DIR/deploy-inputs.json" ]]; then
   # was written directly by Step 1 (possibly via `deploy_inputs.py write --video-dir`
   # / `--video-files`, which this script's --streams/--camera-ids CLI flags cannot
   # reconstruct) and must not be clobbered with a plain RTSP-only rewrite.
+  declare -a mapping_args=()
+  [[ -n "$CLI_MAPPING" ]] && mapping_args+=(--mapping "$CLI_MAPPING")
+  [[ -n "$CLI_GLB_FILE" ]] && mapping_args+=(--glb-file "$CLI_GLB_FILE")
+  [[ -n "$CLI_CAMERA_JSON" ]] && mapping_args+=(--camera-json "$CLI_CAMERA_JSON")
   python3 "$SKILL_DIR/scripts/deploy_inputs.py" write \
     --deploy-dir "$DEPLOY_DIR" \
     --scene-name "$SCENE_NAME" \
     --camera-ids "${CAMERA_IDS[@]}" \
     --streams "${STREAMS[@]}" \
+    "${mapping_args[@]}" \
     --skill-dir "$SKILL_DIR" >/dev/null
 fi
 
