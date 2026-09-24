@@ -58,7 +58,6 @@
             "ntp_server": "ntpserv",
             "cameraid": "atag-ptzcam1",
             "metadatagenpolicy": "detectionPolicy",
-            "publish_image": true,
             "detection_labels": "person"
           }
         }
@@ -116,7 +115,6 @@
             "ntp_server": "ntpserv",
             "cameraid": "atag-ptzcam2",
             "metadatagenpolicy": "detectionPolicy",
-            "publish_image": true,
             "detection_labels": "person"
           }
         }
@@ -174,7 +172,6 @@
             "ntp_server": "ntpserv",
             "cameraid": "atag-ptzcam3",
             "metadatagenpolicy": "detectionPolicy",
-            "publish_image": true,
             "detection_labels": "person"
           }
         }
