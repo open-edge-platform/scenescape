@@ -93,7 +93,7 @@ bash <skill-dir>/scripts/deploy_scenescape.sh \
 - Codec/publish behavior: [video-file-publishing.md](./video-file-publishing.md).
 - Playback loops indefinitely (`-stream_loop -1`), matching how a live camera never "ends" —
   there is no finite-playback/one-shot mode.
-- During bootstrap, `bootstrap_deploy.py` ffprobe's each file and sets
+- During bootstrap, `bootstrap_deploy.py` ffprobes each file and sets
   `controller/tracker-config.json`'s `time_chunking_rate_fps` to the **highest** probed FPS
   (rounded, minimum 1). That avoids the default `10` Hz tracker rate racing ahead of low-FPS
   recordings. Override later via [tuning-tracker.md](./tuning-tracker.md) if needed.

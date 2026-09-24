@@ -205,15 +205,16 @@ def main() -> int:
   for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
     print(f"Starting model-download service ({DOWNLOADER_IMAGE}) "
           f"(attempt {attempt}/{DOWNLOAD_ATTEMPTS})...")
-    start_downloader(container_name, models_volume, args.host_port)
     try:
+      start_downloader(container_name, models_volume, args.host_port)
       wait_for_api(api_url)
       print(f"Requesting {MODEL_NAME} ({MODEL_HUB}) download...")
       job_ids = request_download(api_url)
       wait_for_jobs(api_url, job_ids, args.wait_timeout)
       last_error = None
       break
-    except (TimeoutError, RuntimeError, error.URLError, ConnectionResetError, OSError) as exc:
+    except (TimeoutError, RuntimeError, error.URLError, ConnectionResetError,
+            OSError, subprocess.CalledProcessError) as exc:
       last_error = exc
       print(
         f"WARN: model download attempt {attempt}/{DOWNLOAD_ATTEMPTS} failed: {exc}",
