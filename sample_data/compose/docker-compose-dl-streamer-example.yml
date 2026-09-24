@@ -465,6 +465,8 @@ services:
     depends_on:
       autocalibration-init:
         condition: service_completed_successfully
+      autocalibration-model-init:
+        condition: service_started
       web:
         condition: service_healthy
       broker:
