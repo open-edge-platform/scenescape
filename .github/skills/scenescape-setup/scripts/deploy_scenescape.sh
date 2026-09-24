@@ -11,6 +11,7 @@
 #     --streams <url> [<url> ...] \
 #     --camera-ids <id> [<id> ...] \
 #     --scene-name <name> \
+#     [--mapping reconstruction|blueprint|glb|geospatial] [--glb-file <path>] [--camera-json <path>] \
 #     [--phase all|bootstrap|calibrate|scene] \
 #     [--resume|--fresh]
 
@@ -23,6 +24,12 @@ PHASE="all"
 RESUME_MODE="auto"
 declare -a STREAMS=()
 declare -a CAMERA_IDS=()
+# CLI overrides for a fresh (deploy-inputs.json-less) write; empty CLI_MAPPING means
+# "use deploy_inputs.py write's own default" so --fresh without these flags still works
+# for a plain reconstruction deploy.
+CLI_MAPPING=""
+CLI_GLB_FILE=""
+CLI_CAMERA_JSON=""
 
 STATE_FILE=""
 LOG_FILE=""
@@ -138,6 +145,7 @@ PY
 
 state_write() {
   DEPLOY_DIR="$DEPLOY_DIR" SKILL_DIR="$SKILL_DIR" SCENE_NAME="$SCENE_NAME" \
+  MAPPING="${MAPPING:-reconstruction}" GLB_FILE="${GLB_FILE:-}" CAMERA_JSON="${CAMERA_JSON:-}" \
   STREAMS_JSON=$(printf '%s\n' "${STREAMS[@]}" | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))') \
   CAMERA_IDS_JSON=$(printf '%s\n' "${CAMERA_IDS[@]}" | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))') \
   python3 - "$STATE_FILE" "$1" "${2:-}" <<'PY'
@@ -163,12 +171,30 @@ data.update({
   "scene_name": os.environ["SCENE_NAME"],
   "streams": json.loads(os.environ["STREAMS_JSON"]),
   "camera_ids": json.loads(os.environ["CAMERA_IDS_JSON"]),
+  "mapping": os.environ["MAPPING"],
+  "glb_file": os.environ["GLB_FILE"] or None,
+  "camera_json": os.environ["CAMERA_JSON"] or None,
 })
 if extra_key:
   data[extra_key] = extra_val
 
 path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 PY
+}
+
+# Populates MAPPING/GLB_FILE/CAMERA_JSON globals from deploy-inputs.json (defaults:
+# reconstruction/empty). Must run after deploy-inputs.json exists.
+read_mapping_inputs() {
+  MAPPING="reconstruction"
+  GLB_FILE=""
+  CAMERA_JSON=""
+  if [[ -f "$DEPLOY_DIR/deploy-inputs.json" ]]; then
+    local loaded
+    loaded=$(cat "$DEPLOY_DIR/deploy-inputs.json")
+    MAPPING=$(LOADED_JSON="$loaded" python3 -c 'import json,os; print(json.loads(os.environ["LOADED_JSON"]).get("mapping") or "reconstruction")')
+    GLB_FILE=$(LOADED_JSON="$loaded" python3 -c 'import json,os; print(json.loads(os.environ["LOADED_JSON"]).get("glb_file") or "")')
+    CAMERA_JSON=$(LOADED_JSON="$loaded" python3 -c 'import json,os; print(json.loads(os.environ["LOADED_JSON"]).get("camera_json") or "")')
+  fi
 }
 
 phase_start_step() {
@@ -330,6 +356,13 @@ step_mapping_health() {
 }
 
 step_reconstruct() {
+  read_mapping_inputs
+
+  if [[ "$MAPPING" != "reconstruction" ]]; then
+    step_reconstruct_from_map
+    return
+  fi
+
   log "STEP 11-12: reconstruction and scene finalization"
   local frames_dir
   frames_dir=$(state_read frames_dir)
@@ -355,6 +388,52 @@ step_reconstruct() {
 
   STATE_EXTRA="$scene_uid" state_write 12 "scene_uid"
   log "STEP 12: PASS (scene_uid=$scene_uid)"
+}
+
+# mapping=glb/blueprint/geospatial: skip mapping-service auto-reconstruction and create the
+# scene directly from the pre-made map file (see references/scene-map-alternatives.md).
+step_reconstruct_from_map() {
+  log "STEP 11-12: scene creation from pre-made map (mapping=$MAPPING)"
+  cd "$DEPLOY_DIR"
+
+  if [[ "$MAPPING" == "glb" && -n "$GLB_FILE" ]]; then
+    local scene_uid
+    scene_uid=$(
+      python3 scripts/create_scene_from_map.py \
+        --deploy-dir "$DEPLOY_DIR" \
+        --scene-name "$SCENE_NAME" \
+        --map-file "$GLB_FILE" 2>>"$LOG_FILE" \
+        | tee -a "$LOG_FILE" \
+        | awk '/^Done\. Scene UID:/ {print $NF}'
+    )
+    if [[ -z "$scene_uid" ]]; then
+      log "STEP 12: FAIL (no scene UID)"
+      exit 1
+    fi
+
+    if [[ -n "$CAMERA_JSON" ]]; then
+      python3 scripts/register_cameras.py \
+        --deploy-dir "$DEPLOY_DIR" \
+        --scene-uid "$scene_uid" \
+        --camera-json "$CAMERA_JSON" \
+        --camera-ids "${CAMERA_IDS[@]}" >>"$LOG_FILE" 2>&1 || {
+        log "STEP 12: FAIL (camera registration from camera_json)"
+        exit 1
+      }
+      STATE_EXTRA="$scene_uid" state_write 12 "scene_uid"
+      log "STEP 12: PASS (scene_uid=$scene_uid, cameras auto-registered from camera_json)"
+    else
+      STATE_EXTRA="$scene_uid" state_write 12 "scene_uid"
+      log "STEP 12: PASS (scene_uid=$scene_uid); no camera_json provided — cameras need MANUAL"
+      log "Web UI calibration; see references/scene-map-alternatives.md. Tracking verification (step 13) will be skipped until then."
+      exit 0
+    fi
+    return
+  fi
+
+  log "STEP 12: SKIP (mapping=$MAPPING has no automated scene-creation path)"
+  log "Follow references/scene-map-alternatives.md to create the scene and calibrate cameras, then re-run with --phase scene to verify tracking."
+  exit 0
 }
 
 wait_scene_ready() {
@@ -420,6 +499,9 @@ while [[ $# -gt 0 ]]; do
       shift
       while [[ $# -gt 0 && "$1" != --* ]]; do CAMERA_IDS+=("$1"); shift; done
       ;;
+    --mapping) CLI_MAPPING="$2"; shift 2 ;;
+    --glb-file) CLI_GLB_FILE=$(realpath "$2"); shift 2 ;;
+    --camera-json) CLI_CAMERA_JSON=$(realpath "$2"); shift 2 ;;
     --phase) PHASE="$2"; shift 2 ;;
     --resume) RESUME_MODE="auto"; shift ;;
     --fresh) RESUME_MODE="fresh"; shift ;;
@@ -467,12 +549,19 @@ fi
 }
 [[ ${#STREAMS[@]} -eq ${#CAMERA_IDS[@]} ]] || { echo "streams and camera-ids length mismatch" >&2; exit 2; }
 
+# Needed here (not just before the run_step loop) so the resume "check" below compares
+# mapping/glb_file/camera_json too, not just scene_name/camera_ids/streams.
+read_mapping_inputs
+
 if [[ "$RESUME_MODE" == "auto" && -f "$DEPLOY_DIR/deploy-inputs.json" && -f "$STATE_FILE" ]]; then
   python3 "$SKILL_DIR/scripts/deploy_inputs.py" check \
     --deploy-dir "$DEPLOY_DIR" \
     --scene-name "$SCENE_NAME" \
     --camera-ids "${CAMERA_IDS[@]}" \
-    --streams "${STREAMS[@]}" 2>/dev/null || {
+    --streams "${STREAMS[@]}" \
+    --mapping "$MAPPING" \
+    --glb-file "$GLB_FILE" \
+    --camera-json "$CAMERA_JSON" 2>/dev/null || {
     echo "ERROR: inputs differ from deploy-inputs.json; use --fresh to redeploy with new cameras" >&2
     exit 2
   }
@@ -483,13 +572,20 @@ if [[ ! -f "$DEPLOY_DIR/deploy-inputs.json" ]]; then
   # was written directly by Step 1 (possibly via `deploy_inputs.py write --video-dir`
   # / `--video-files`, which this script's --streams/--camera-ids CLI flags cannot
   # reconstruct) and must not be clobbered with a plain RTSP-only rewrite.
+  declare -a mapping_args=()
+  [[ -n "$CLI_MAPPING" ]] && mapping_args+=(--mapping "$CLI_MAPPING")
+  [[ -n "$CLI_GLB_FILE" ]] && mapping_args+=(--glb-file "$CLI_GLB_FILE")
+  [[ -n "$CLI_CAMERA_JSON" ]] && mapping_args+=(--camera-json "$CLI_CAMERA_JSON")
   python3 "$SKILL_DIR/scripts/deploy_inputs.py" write \
     --deploy-dir "$DEPLOY_DIR" \
     --scene-name "$SCENE_NAME" \
     --camera-ids "${CAMERA_IDS[@]}" \
     --streams "${STREAMS[@]}" \
+    "${mapping_args[@]}" \
     --skill-dir "$SKILL_DIR" >/dev/null
 fi
+
+read_mapping_inputs
 
 LAST_STEP=0
 if [[ "$RESUME_MODE" == "auto" && -f "$STATE_FILE" ]]; then

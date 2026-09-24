@@ -25,13 +25,23 @@ fi
 failed=0
 for url in "$@"; do
   echo "RTSP check: $url"
-  if docker container run --rm --network "$NET_NAME" \
-    linuxserver/ffmpeg:version-8.1-cli \
-    -nostdin -v error -rtsp_transport tcp \
-    -i "$url" \
-    -t 5 -f null -; then
-    echo "PASS: $url"
-  else
+  success=0
+  for attempt in 1 2 3; do
+    if docker container run --rm --network "$NET_NAME" \
+      linuxserver/ffmpeg:version-8.1-cli \
+      -nostdin -v error -rtsp_transport tcp \
+      -analyzeduration 10M -probesize 10M \
+      -i "$url" \
+      -t 3 -f null -; then
+      echo "PASS: $url"
+      success=1
+      break
+    else
+      echo "  attempt $attempt/3 failed, retrying..."
+      sleep 2
+    fi
+  done
+  if [[ "$success" -ne 1 ]]; then
     echo "FAIL: $url"
     failed=1
   fi

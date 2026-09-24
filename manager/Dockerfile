@@ -82,6 +82,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         ca-certificates \
         libegl1 \
         libgl1 \
+        libosmesa6 \
+        xvfb \
         libapache2-mod-wsgi-py3 \
         libglib2.0-0 \
         libgomp1 \

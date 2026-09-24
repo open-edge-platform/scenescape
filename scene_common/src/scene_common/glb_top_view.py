@@ -3,6 +3,7 @@
 
 import open3d as o3d
 import numpy as np
+from PIL import Image
 import open3d.visualization.rendering as rendering
 from scene_common.mesh_util import extractMeshFromGLB, VECTOR_PROPERTIES, SCALAR_PROPERTIES
 
@@ -14,6 +15,27 @@ SUNLIGHT_COLOR = [1.0, 1.0, 1.0]
 
 VERTICAL_FOV = 40
 THUMBNAIL_RESOLUTION = {'x': 1024, 'y': 768}
+# Software (llvmpipe) EGL rendering segfaults on oversized textures (e.g. 32768px atlases).
+MAX_TEXTURE_DIM = 2048
+
+def _safe_legacy_image(value, max_dim=MAX_TEXTURE_DIM):
+  """Convert an Open3D tensor image to legacy, downsampling if any dimension exceeds max_dim."""
+  if value is None:
+    return None
+  try:
+    legacy_img = value.to_legacy()
+    arr = np.asarray(legacy_img)
+    if arr.ndim >= 2:
+      h, w = arr.shape[0], arr.shape[1]
+      if h > max_dim or w > max_dim:
+        pil_img = Image.fromarray(arr)
+        pil_img.thumbnail((max_dim, max_dim))
+        arr = np.asarray(pil_img)
+        legacy_img = o3d.geometry.Image(arr)
+    return legacy_img
+  except Exception as e:
+    log.warning(f"Failed to process texture image: {e}")
+    return None
 
 def materialToMaterialRecord(mat):
   mat_record = o3d.visualization.rendering.MaterialRecord()
@@ -25,11 +47,11 @@ def materialToMaterialRecord(mat):
 
   # Convert texture maps
   if "albedo" in mat.texture_maps:
-    mat_record.albedo_img = mat.texture_maps["albedo"].to_legacy()
+    mat_record.albedo_img = _safe_legacy_image(mat.texture_maps["albedo"])
   if "normal" in mat.texture_maps:
-    mat_record.normal_img = mat.texture_maps["normal"].to_legacy()
+    mat_record.normal_img = _safe_legacy_image(mat.texture_maps["normal"])
   if "ao_rough_metal" in mat.texture_maps:
-    mat_record.ao_rough_metal_img = mat.texture_maps["ao_rough_metal"].to_legacy()
+    mat_record.ao_rough_metal_img = _safe_legacy_image(mat.texture_maps["ao_rough_metal"])
   return mat_record
 
 def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
@@ -62,11 +84,11 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
     if hasattr(tmesh.material, 'texture_maps'):
       for key, value in tmesh.material.texture_maps.items():
         if key == "albedo":
-          mat_record.albedo_img = value.to_legacy()
+          mat_record.albedo_img = _safe_legacy_image(value)
         elif key == "normal":
-          mat_record.normal_img = value.to_legacy()
+          mat_record.normal_img = _safe_legacy_image(value)
         elif key == "ao_rough_metal":
-          mat_record.ao_rough_metal_img = value.to_legacy()
+          mat_record.ao_rough_metal_img = _safe_legacy_image(value)
 
     if mat_record is None or not hasattr(mat_record, 'shader'):
       raise ValueError("mat_record is empty or not properly initialized.")

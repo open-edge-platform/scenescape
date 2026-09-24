@@ -64,8 +64,13 @@ rtspsrc location={rtsp_url} add-reference-timestamp-meta=true latency=200
   model-proc=/home/pipeline-server/model-proc-files/person-detection-retail-0013.json
 ! gvametaconvert add-tensor-data=true name=metaconvert
 ! sscape_post_inference_data_publish name=datapublisher
-! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true
+! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=false
 ```
+
+`sync=false` on the dummy `appsink` (its `file-path=/dev/null` leg has no real consumer) keeps it
+from throttling the pipeline to the pipeline clock; metadata is still published through
+`datapublisher` on every frame.
+
 
 ### Payload defaults
 

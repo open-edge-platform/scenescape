@@ -31,7 +31,8 @@ existing `deploy-inputs.json`, and targeted phase resumes such as `bootstrap`, `
 
 Required runtime inputs for a fresh deployment: `deploy_dir`, `streams` (or video files),
 `camera_ids`, `scene_name`, `mapping` (scene map source: `reconstruction` default, blueprint,
-`.glb`/`.ply` mesh, or geospatial). Optional state fields: `--phase`, `--fresh`, and the resume
+`.glb`/`.ply` mesh, or geospatial). When providing a `.glb` mesh with pre-calibrated cameras,
+optional parameters include `--glb-file` and `--camera-json`. Optional state fields: `--phase`, `--fresh`, and the resume
 flag implied by the Fast Path.
 
 ## Returns / Output

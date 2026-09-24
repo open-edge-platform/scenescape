@@ -17,6 +17,8 @@ Ask the user for every new deployment:
 | `camera_ids` | Unique IDs (no `/`), same order as `streams`                                                         |
 | `scene_name` | Human-readable scene name chosen by the user                                                         |
 | `mapping`    | Scene map source: `reconstruction` (default), floor blueprint, `.glb`/`.ply` mesh, or geospatial     |
+| `glb_file`   | Required if `mapping` is pre-made GLB mesh; not needed for default auto-reconstruction               |
+| `camera_json`| Required for automated setup with pre-made GLB mesh; omit to use manual Web UI camera calibration     |
 
 Validate: `len(streams) == len(camera_ids)`, ≥1 camera, `camera_ids` are unique (no duplicates,
 no `/`), valid RTSP URLs. State explicitly in your response that this uniqueness check was
@@ -31,11 +33,14 @@ call it out for the user.
   at step 11–12 for extra reconstruction coverage (camera auto-calibration is unaffected) — see
   [reconstruction.md](./reconstruction.md#supplementing-with-a-walk-through-video).
 - **Blueprint image, GLB/PLY mesh, or geospatial map**: this skips automatic camera-pose
-  estimation, so the user must calibrate cameras **manually** via the web UI afterward — confirm
-  they accept that tradeoff, then follow
-  [scene-map-alternatives.md](./scene-map-alternatives.md), which covers running only
+  estimation, so the user must calibrate cameras **manually** via the web UI afterward — unless
+  a pre-calibrated `camera_json` file is supplied along with `glb_file`. When both `glb_file` and
+  `camera_json` are recorded in `deploy-inputs.json`, the orchestrator's step 11–12 automates
+  scene creation and camera registration itself — just deploy normally. Otherwise (blueprint,
+  geospatial, or a `.glb` mesh without `camera_json`), confirm manual calibration is accepted,
+  then follow [scene-map-alternatives.md](./scene-map-alternatives.md), which covers running only
   `--phase bootstrap`/`--phase calibrate`, computing pixels-per-meter for a blueprint, creating
-  the scene via REST, and (for geospatial) setting `output_lla` + `map_corners_lla`.
+  the scene via REST, and registering cameras (manually via Web UI).
 
 ## Persist before automation
 
@@ -48,6 +53,9 @@ python3 <skill-dir>/scripts/deploy_inputs.py write \
   --scene-name <scene_name> \
   --camera-ids <id> [<id> ...] \
   --streams <rtsp_url> [<rtsp_url> ...] \
+  --mapping <reconstruction|blueprint|glb|geospatial> \
+  [--glb-file <path_to_glb>] \
+  [--camera-json <path_to_camera_json>] \
   --skill-dir <skill-dir>
 ```
 

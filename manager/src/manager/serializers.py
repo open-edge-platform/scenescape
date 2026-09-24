@@ -17,6 +17,7 @@ from scipy.spatial.transform import Rotation
 from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
   RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport
+from scene_common import log
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
@@ -109,8 +110,15 @@ class ResolutionSerializerField(serializers.DictField):
 
   def to_internal_value(self, data):
     if isinstance(data, (list, tuple)):
+      if len(data) != 2:
+        raise serializers.ValidationError("resolution must have exactly 2 values: [width, height]")
       return {'width': data[0], 'height': data[1]}
-    return None
+    if isinstance(data, dict):
+      if not all(key in data and data[key] is not None for key in ('width', 'height')):
+        raise serializers.ValidationError("resolution must include width and height")
+      return {'width': data['width'], 'height': data['height']}
+    raise serializers.ValidationError(
+      "resolution must be [width, height] or {'width': ..., 'height': ...}")
 
 class RegionOccupancyThresholdSerializer(serializers.ModelSerializer):
   sectors = serializers.JSONField()
@@ -332,11 +340,15 @@ class CamSerializer(NonNullSerializer):
     return self.create_update(validated_data, instance)
 
   def map_resolution_fields(self, validated_data):
-    resolution = self.initial_data.get('resolution', None)
+    # DRF auto-populates validated_data['cam'] because `resolution` declares
+    # source='cam'; it's already the {width, height} dict normalized by
+    # ResolutionSerializerField.to_internal_value(), so use it directly instead of
+    # re-indexing initial_data['resolution'], which may be the documented
+    # [width, height] list form and isn't dict-indexable.
+    resolution = validated_data.pop('cam', None)
     if not resolution:
       return
-    extended_data = {'width': resolution['width'], 'height': resolution['height']}
-    validated_data.update(extended_data)
+    validated_data.update({'width': resolution['width'], 'height': resolution['height']})
     return
 
   def map_intrinsics_fields(self, validated_data):
@@ -653,13 +665,13 @@ class SceneSerializer(NonNullSerializer):
     return SingletonSerializer(queryset, many=True).data
 
   def get_rotation(self, obj):
-    return [obj.rotation_x, obj.rotation_y, obj.rotation_z] if obj.rotation_x else [0, 0, 0]
+    return [obj.rotation_x, obj.rotation_y, obj.rotation_z] if obj.rotation_x is not None else [0, 0, 0]
 
   def get_translation(self, obj):
-    return [obj.translation_x, obj.translation_y, obj.translation_z] if obj.translation_x else [0, 0, 0]
+    return [obj.translation_x, obj.translation_y, obj.translation_z] if obj.translation_x is not None else [0, 0, 0]
 
   def get_scale(self, obj):
-    return [obj.scale_x, obj.scale_y, obj.scale_z] if obj.scale_x else [1, 1, 1]
+    return [obj.scale_x, obj.scale_y, obj.scale_z] if obj.scale_x is not None else [1, 1, 1]
 
   def get_children(self, obj):
     children = []
@@ -783,11 +795,31 @@ class SceneSerializer(NonNullSerializer):
           raise serializers.ValidationError(f"Error processing .ply file")
 
       if ext == ".glb":
-        # Only auto-align if a new GLB file was uploaded
-        if instance._original_map != instance.map:
+        # Scene.objects.bulk_create() above never calls Scene.save(), so the
+        # is_new_scene handling there never runs for REST-created scenes; a new
+        # instance's _original_map already equals instance.map (both set from
+        # validated_data in Scene.__init__), so that equality check alone would
+        # skip alignment here too unless creation is treated as always-align.
+        if not is_update or instance._original_map != instance.map:
           instance.autoAlignSceneMap()
-        instance.saveThumbnail()
-        Scene.objects.filter(pk=instance.pk).update(thumbnail=instance.thumbnail)
+        try:
+          instance.saveThumbnail()
+        except Exception as e:
+          log.warning(f"Failed to generate thumbnail for {instance.name}: {e}")
+          instance.thumbnail = None
+        # autoAlignSceneMap() only mutates the in-memory instance; rotation/translation/
+        # scale (saveThumbnail() computes scale from the mesh) must be persisted
+        # explicitly alongside the thumbnail.
+        Scene.objects.filter(pk=instance.pk).update(
+          thumbnail=instance.thumbnail,
+          scale=instance.scale,
+          rotation_x=instance.rotation_x,
+          rotation_y=instance.rotation_y,
+          rotation_z=instance.rotation_z,
+          translation_x=instance.translation_x,
+          translation_y=instance.translation_y,
+          translation_z=instance.translation_z,
+        )
 
     if parent_uid:
       self.link_parent(parent_uid, instance)
