@@ -17,6 +17,7 @@ from scipy.spatial.transform import Rotation
 from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
   RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport
+from scene_common import log
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
@@ -801,11 +802,17 @@ class SceneSerializer(NonNullSerializer):
         # skip alignment here too unless creation is treated as always-align.
         if not is_update or instance._original_map != instance.map:
           instance.autoAlignSceneMap()
-        instance.saveThumbnail()
-        # autoAlignSceneMap() only mutates the in-memory instance; rotation/
-        # translation must be persisted explicitly alongside the thumbnail.
+        try:
+          instance.saveThumbnail()
+        except Exception as e:
+          log.warning(f"Failed to generate thumbnail for {instance.name}: {e}")
+          instance.thumbnail = None
+        # autoAlignSceneMap() only mutates the in-memory instance; rotation/translation/
+        # scale (saveThumbnail() computes scale from the mesh) must be persisted
+        # explicitly alongside the thumbnail.
         Scene.objects.filter(pk=instance.pk).update(
           thumbnail=instance.thumbnail,
+          scale=instance.scale,
           rotation_x=instance.rotation_x,
           rotation_y=instance.rotation_y,
           rotation_z=instance.rotation_z,

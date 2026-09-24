@@ -20,11 +20,13 @@ from requests.adapters import HTTPAdapter
 
 
 class _CAOnlyAdapter(HTTPAdapter):
-  """Verify the server certificate's chain against our own CA bundle, but skip hostname
-  matching: this script reaches the manager via https://<base-url-host> (e.g. the docker-published
-  'localhost'), while the deployment cert's only SAN is web.scenescape.intel.com. The CA is
-  deployment-local and pinned from disk, so chain trust still defeats a MITM without requiring
-  a hostname match."""
+  """Verify the server certificate's chain against our own CA bundle. This script reaches the
+  manager via https://<base-url-host> (e.g. the docker-published 'localhost'), while the
+  deployment cert's only SAN is web.scenescape.intel.com, so the hostname actually dialed can't
+  be used for the match; assert against the cert's real SAN instead of disabling verification
+  (which would accept any CA-signed certificate for any host)."""
+
+  EXPECTED_HOSTNAME = "web.scenescape.intel.com"
 
   def __init__(self, ca_cert: str, *args, **kwargs):
     self._ca_cert = ca_cert
@@ -32,11 +34,8 @@ class _CAOnlyAdapter(HTTPAdapter):
 
   def init_poolmanager(self, *args, **kwargs):
     context = ssl.create_default_context(cafile=self._ca_cert)
-    context.check_hostname = False
     kwargs["ssl_context"] = context
-    # urllib3 also does its own post-handshake hostname match independent of
-    # ssl_context.check_hostname; disable that too or it re-raises the same mismatch.
-    kwargs["assert_hostname"] = False
+    kwargs["assert_hostname"] = self.EXPECTED_HOSTNAME
     return super().init_poolmanager(*args, **kwargs)
 
 
@@ -87,7 +86,10 @@ def create_scene(
         "camera_calibration": camera_calibration,
       },
       files={"map": (map_file.name, f)},
-      timeout=120,
+      # GLB upload triggers synchronous Open3D mesh alignment + thumbnail rendering
+      # (Scene.autoAlignSceneMap()/saveThumbnail()), which can take a couple of minutes on
+      # a headless/software-rendered EGL setup.
+      timeout=300,
     )
   resp.raise_for_status()
   return resp.json()["uid"]

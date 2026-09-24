@@ -147,6 +147,13 @@ def inputs_payload(
       "source_type": "rtsp",
     }
 
+  if mapping not in ("reconstruction", "blueprint", "glb", "geospatial"):
+    raise ValueError(f"unsupported mapping source: {mapping!r}")
+  if mapping == "glb" and not glb_file:
+    raise ValueError("glb_file is required when mapping is 'glb'")
+  if camera_json and mapping != "glb":
+    raise ValueError("camera_json requires mapping='glb'")
+
   payload["mapping"] = mapping
   if glb_file:
     payload["glb_file"] = str(Path(glb_file).expanduser().resolve())

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import ssl
 import sys
 from pathlib import Path
@@ -25,13 +26,17 @@ from requests.adapters import HTTPAdapter
 # Keys tried in order to find a camera's identifier inside one entry of the camera.json.
 IDENTIFIER_KEYS = ("sensor_id", "uid", "name", "id")
 
+Matrix3 = tuple  # 3x3, row-major, as a tuple of 3 tuples of 3 floats
+
 
 class _CAOnlyAdapter(HTTPAdapter):
-  """Verify the server certificate's chain against our own CA bundle, but skip hostname
-  matching: this script reaches the manager via https://<base-url-host> (e.g. the docker-published
-  'localhost'), while the deployment cert's only SAN is web.scenescape.intel.com. The CA is
-  deployment-local and pinned from disk, so chain trust still defeats a MITM without requiring
-  a hostname match."""
+  """Verify the server certificate's chain against our own CA bundle. This script reaches the
+  manager via https://<base-url-host> (e.g. the docker-published 'localhost'), while the
+  deployment cert's only SAN is web.scenescape.intel.com, so the hostname actually dialed can't
+  be used for the match; assert against the cert's real SAN instead of disabling verification
+  (which would accept any CA-signed certificate for any host)."""
+
+  EXPECTED_HOSTNAME = "web.scenescape.intel.com"
 
   def __init__(self, ca_cert: str, *args, **kwargs):
     self._ca_cert = ca_cert
@@ -39,11 +44,8 @@ class _CAOnlyAdapter(HTTPAdapter):
 
   def init_poolmanager(self, *args, **kwargs):
     context = ssl.create_default_context(cafile=self._ca_cert)
-    context.check_hostname = False
     kwargs["ssl_context"] = context
-    # urllib3 also does its own post-handshake hostname match independent of
-    # ssl_context.check_hostname; disable that too or it re-raises the same mismatch.
-    kwargs["assert_hostname"] = False
+    kwargs["assert_hostname"] = self.EXPECTED_HOSTNAME
     return super().init_poolmanager(*args, **kwargs)
 
 
@@ -124,6 +126,119 @@ def resolution_payload(cam: dict[str, Any]) -> dict[str, int] | None:
   raise ValueError(f"unrecognized resolution format: {resolution!r}")
 
 
+def matmul3(a: Matrix3, b: Matrix3) -> Matrix3:
+  return tuple(
+    tuple(sum(a[i][k] * b[k][j] for k in range(3)) for j in range(3))
+    for i in range(3)
+  )
+
+
+def matvec3(mat: Matrix3, vec: list[float]) -> list[float]:
+  return [sum(mat[i][k] * vec[k] for k in range(3)) for i in range(3)]
+
+
+def euler_xyz_to_matrix(rx: float, ry: float, rz: float) -> Matrix3:
+  """Extrinsic-XYZ euler (degrees) -> 3x3 rotation matrix, matching the
+  Rotation.from_euler('XYZ', [rx, ry, rz], degrees=True).as_matrix() convention used by
+  scene_common.transform.CameraPose (verified numerically against scipy)."""
+  rx, ry, rz = math.radians(rx), math.radians(ry), math.radians(rz)
+  cx, sx = math.cos(rx), math.sin(rx)
+  cy, sy = math.cos(ry), math.sin(ry)
+  cz, sz = math.cos(rz), math.sin(rz)
+  rot_x = ((1, 0, 0), (0, cx, -sx), (0, sx, cx))
+  rot_y = ((cy, 0, sy), (0, 1, 0), (-sy, 0, cy))
+  rot_z = ((cz, -sz, 0), (sz, cz, 0), (0, 0, 1))
+  return matmul3(matmul3(rot_x, rot_y), rot_z)
+
+
+def quat_to_matrix(quat: list[float]) -> Matrix3:
+  """[x, y, z, w] quaternion -> 3x3 rotation matrix (matches scipy Rotation.from_quat())."""
+  x, y, z, w = quat
+  norm = math.sqrt(x * x + y * y + z * z + w * w)
+  x, y, z, w = x / norm, y / norm, z / norm, w / norm
+  return (
+    (1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)),
+    (2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)),
+    (2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)),
+  )
+
+
+def matrix_to_quat(mat: Matrix3) -> list[float]:
+  """3x3 rotation matrix -> [x, y, z, w] quaternion (Shepperd's method)."""
+  trace = mat[0][0] + mat[1][1] + mat[2][2]
+  if trace > 0:
+    s = math.sqrt(trace + 1.0) * 2
+    w = 0.25 * s
+    x = (mat[2][1] - mat[1][2]) / s
+    y = (mat[0][2] - mat[2][0]) / s
+    z = (mat[1][0] - mat[0][1]) / s
+  elif mat[0][0] > mat[1][1] and mat[0][0] > mat[2][2]:
+    s = math.sqrt(1.0 + mat[0][0] - mat[1][1] - mat[2][2]) * 2
+    w = (mat[2][1] - mat[1][2]) / s
+    x = 0.25 * s
+    y = (mat[0][1] + mat[1][0]) / s
+    z = (mat[0][2] + mat[2][0]) / s
+  elif mat[1][1] > mat[2][2]:
+    s = math.sqrt(1.0 + mat[1][1] - mat[0][0] - mat[2][2]) * 2
+    w = (mat[0][2] - mat[2][0]) / s
+    x = (mat[0][1] + mat[1][0]) / s
+    y = 0.25 * s
+    z = (mat[1][2] + mat[2][1]) / s
+  else:
+    s = math.sqrt(1.0 + mat[2][2] - mat[0][0] - mat[1][1]) * 2
+    w = (mat[1][0] - mat[0][1]) / s
+    x = (mat[0][2] + mat[2][0]) / s
+    y = (mat[1][2] + mat[2][1]) / s
+    z = 0.25 * s
+  return [x, y, z, w]
+
+
+def get_scene_mesh_transform(
+  session: requests.Session, base_url: str, scene_uid: str,
+) -> tuple[list[float], list[float], list[float]]:
+  """(mesh_translation, mesh_rotation_degrees, mesh_scale) the manager applied to the uploaded
+  map (see Scene.autoAlignSceneMap()); [0,0,0]/[0,0,0]/[1,1,1] (identity) if unset."""
+  resp = session.get(f"{base_url}/api/v1/scene/{scene_uid}", timeout=30)
+  resp.raise_for_status()
+  scene = resp.json()
+  return (
+    scene.get("mesh_translation") or [0.0, 0.0, 0.0],
+    scene.get("mesh_rotation") or [0.0, 0.0, 0.0],
+    scene.get("mesh_scale") or [1.0, 1.0, 1.0],
+  )
+
+
+def align_camera_pose(
+  mesh_translation: list[float], mesh_rotation: list[float], mesh_scale: list[float],
+  translation: list[float], rotation: list[float], transform_type: str,
+) -> tuple[list[float], list[float]]:
+  """Re-express a camera pose calibrated against the raw (pre-alignment) GLB in the scene's
+  world frame. The manager rotates/translates every uploaded GLB on creation
+  (Scene.autoAlignSceneMap()), so a camera.json calibrated against the original mesh file would
+  otherwise be misaligned with the scene the manager actually stores. Mirrors
+  scene_common.transform.convertToTransformMatrix()/getPoseMatrix() (identity mesh transform is
+  a no-op, so this is always safe to apply). Returns (world_translation, world_quaternion).
+
+  Note: autoAlignSceneMap() never sets a non-uniform mesh_scale, so the rotation composition
+  below intentionally ignores mesh_scale (a non-uniform scale isn't a valid rotation input;
+  scaling only the translation, as done here, matches scipy's implementation for identity/
+  uniform scale -- verified numerically -- and only diverges for a manually-set non-uniform
+  scale, which this script's target scenes never produce)."""
+  rot_scene = euler_xyz_to_matrix(*mesh_rotation)
+  # Scene's pose matrix scales the mesh-local point before rotating/translating, matching
+  # CameraPose._poseToPoseMat()/getPoseMatrix() -- applies to translation only, see note above.
+  rot_scene_scaled = tuple(
+    tuple(rot_scene[i][j] * mesh_scale[j] for j in range(3)) for i in range(3)
+  )
+  rot_cam = quat_to_matrix(rotation) if transform_type == "quaternion" else euler_xyz_to_matrix(*rotation)
+
+  world_rotation = matmul3(rot_scene, rot_cam)
+  world_translation = [
+    a + b for a, b in zip(matvec3(rot_scene_scaled, translation), mesh_translation)
+  ]
+  return world_translation, matrix_to_quat(world_rotation)
+
+
 def manager_session(base_url: str, ca_cert: Path, supass_path: Path) -> requests.Session:
   """Authenticated requests.Session verifying TLS against the deployment's own CA bundle
   (never disables verification: that would let a MITM on the auth request capture the
@@ -171,6 +286,7 @@ def register_cameras(
 ) -> int:
   failures = 0
   unresolved: list[str] = []
+  mesh_translation, mesh_rotation, mesh_scale = get_scene_mesh_transform(session, base_url, scene_uid)
 
   for cam in cameras:
     identifier = camera_identifier(cam)
@@ -180,13 +296,16 @@ def register_cameras(
       continue
 
     transform_type, rotation = transform_fields(cam)
+    world_translation, world_rotation = align_camera_pose(
+      mesh_translation, mesh_rotation, mesh_scale, cam["translation"], rotation, transform_type,
+    )
     payload: dict[str, Any] = {
       "name": camera_id,
       "sensor_id": camera_id,
       "scene": scene_uid,
-      "transform_type": transform_type,
-      "translation": cam["translation"],
-      "rotation": rotation,
+      "transform_type": "quaternion",
+      "translation": world_translation,
+      "rotation": world_rotation,
       "scale": cam.get("scale", [1.0, 1.0, 1.0]),
       "intrinsics": cam["intrinsics"],
     }
