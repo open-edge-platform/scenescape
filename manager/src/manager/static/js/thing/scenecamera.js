@@ -368,6 +368,7 @@ export default class SceneCamera extends THREE.Object3D {
   }
 
   addControlPanel(camerasFolder) {
+    this.camerasFolder = camerasFolder;
     this.controlsFolder = camerasFolder.addFolder(this.name);
     this.controlsFolder.$title.setAttribute("id", this.name + "-control-panel");
     this.addStatusIndicator();
@@ -418,11 +419,11 @@ export default class SceneCamera extends THREE.Object3D {
       function (value) {
         this.prevName = this.name;
         this.name = value;
+        const wasPointCloud = this.isPointCloudSensor;
         this.isPointCloudSensor = isPointCloudSensor(this.name, this.cameraUID);
-        if (this.isPointCloudSensor) {
-          this.stripCameraOnlyControls();
-        } else {
-          this.stripPointCloudOnlyControls();
+        if (wasPointCloud !== this.isPointCloudSensor) {
+          // Defer rebuild so we do not destroy the name controller mid-onChange.
+          queueMicrotask(() => this.rebuildControlPanelForSensorType());
         }
         this.validateField("name", () => {
           return this.name === "" || this.name === DEFAULT_CAMERA_NAME;
@@ -645,6 +646,29 @@ export default class SceneCamera extends THREE.Object3D {
     } else {
       this.stripCameraOnlyControls();
     }
+  }
+
+  rebuildControlPanelForSensorType() {
+    if (!this.camerasFolder) return;
+    if (this.interval) clearInterval(this.interval);
+    this.projectFrame = false;
+    this.projectPointCloud = false;
+    this.pauseVideo = false;
+    this.pausePointCloud = false;
+    if (this.pointCloudViz) {
+      this.pointCloudViz.setVisible(false);
+    }
+    if (this.cameraCapture) {
+      this.cameraCapture.visible = false;
+    }
+    if (this.controlsFolder) {
+      this.controlsFolder.destroy();
+      this.controlsFolder = null;
+    }
+    this.intrinsicsFolder = null;
+    this.distortionFolder = null;
+    this.poseFolder = null;
+    this.addControlPanel(this.camerasFolder);
   }
 
   stripCameraOnlyControls() {

@@ -5,44 +5,27 @@ from django.db import migrations
 
 
 def add_default_asset3d_objects(apps, schema_editor):
-  """Populate the Asset3D objects library with default vehicle and cyclist entries.
+  """Seed default Asset3D rows using the shared DEFAULT_ASSETS definition.
 
-  Sizes are derived from observed LiDAR detections:
-    vehicle  - avg of three detections: x=4.04 m, y=1.66 m, z=1.55 m
-    cyclist  - single detection:        x=1.85 m, y=0.65 m, z=1.84 m
+  See manager.default_assets for sizes/colors and lifecycle notes. The
+  init_default_assets management command uses the same source and re-ensures
+  these rows on every manager start.
   """
+  # Import at runtime so the migration tracks current seed values from the
+  # single source of truth (get_or_create only applies defaults on create).
+  from manager.default_assets import DEFAULT_ASSETS
+
   Asset3D = apps.get_model("manager", "Asset3D")
-
-  Asset3D.objects.get_or_create(
-    name="vehicle",
-    defaults={
-      "x_size": 4.04,
-      "y_size": 1.66,
-      "z_size": 1.55,
-      "tracking_radius": 10.0,
-      "mark_color": "#0099ff",
-      "shift_type": 1,
-      "rotation_from_velocity": True,
-    },
-  )
-
-  Asset3D.objects.get_or_create(
-    name="cyclist",
-    defaults={
-      "x_size": 1.85,
-      "y_size": 0.65,
-      "z_size": 1.84,
-      "tracking_radius": 2.0,
-      "mark_color": "#f39c12",
-      "shift_type": 1,
-      "rotation_from_velocity": True,
-    },
-  )
+  for asset in DEFAULT_ASSETS:
+    defaults = {k: v for k, v in asset.items() if k != "name"}
+    Asset3D.objects.get_or_create(name=asset["name"], defaults=defaults)
 
 
 def remove_default_asset3d_objects(apps, schema_editor):
+  from manager.default_assets import DEFAULT_ASSETS
+
   Asset3D = apps.get_model("manager", "Asset3D")
-  Asset3D.objects.filter(name__in=["vehicle", "cyclist"]).delete()
+  Asset3D.objects.filter(name__in=[a["name"] for a in DEFAULT_ASSETS]).delete()
 
 
 class Migration(migrations.Migration):

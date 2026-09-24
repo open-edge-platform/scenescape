@@ -288,6 +288,8 @@ if [ -n "$DBTYPE" ]; then
     echo "==> Applying pending migrations..."
     ./manage.py migrate --noinput
 
+    # Idempotent re-ensure of defaults from manager.default_assets (same source
+    # as migration 0005). Safe if migrate already seeded; covers deleted rows.
     echo "==> Initializing default Asset3D objects..."
     ./manage.py init_default_assets
     ./manage.py updatedbstatus --not-ready

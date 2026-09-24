@@ -8,16 +8,35 @@ import * as THREE from "/static/assets/three.module.js";
 const DEFAULT_POINT_SIZE = 0.12;
 const DEFAULT_OPACITY = 0.85;
 const INTENSITY_RANGE_SMOOTHING = 0.15;
+/** Hard cap on points accepted from an untrusted MQTT payload. */
+export const MAX_POINT_CLOUD_POINTS = 100000;
 
 /**
  * Decode a base64 xyz[+intensity] float32 payload into Float32Arrays.
+ * Validates stride and clamps count to the decoded buffer and MAX_POINT_CLOUD_POINTS.
  * @param {string} b64
  * @param {number} count
  * @param {number} stride - floats per point (3 or 4)
- * @returns {{positions: Float32Array, intensities: Float32Array|null}}
+ * @returns {{positions: Float32Array, intensities: Float32Array|null}|null}
  */
 export function decodePointCloudPayload(b64, count, stride = 4) {
-  const binary = atob(b64);
+  if (stride !== 3 && stride !== 4) {
+    return null;
+  }
+  if (typeof b64 !== "string" || !b64) {
+    return null;
+  }
+  const requested = Number(count);
+  if (!Number.isFinite(requested) || requested <= 0) {
+    return null;
+  }
+
+  let binary;
+  try {
+    binary = atob(b64);
+  } catch {
+    return null;
+  }
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
@@ -27,9 +46,19 @@ export function decodePointCloudPayload(b64, count, stride = 4) {
   const aligned = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(aligned).set(bytes);
   const floats = new Float32Array(aligned);
-  const positions = new Float32Array(count * 3);
-  const intensities = stride >= 4 ? new Float32Array(count) : null;
-  for (let i = 0; i < count; i++) {
+  const fromBytes = Math.floor(floats.length / stride);
+  const safeCount = Math.min(
+    Math.floor(requested),
+    fromBytes,
+    MAX_POINT_CLOUD_POINTS,
+  );
+  if (safeCount <= 0) {
+    return null;
+  }
+
+  const positions = new Float32Array(safeCount * 3);
+  const intensities = stride >= 4 ? new Float32Array(safeCount) : null;
+  for (let i = 0; i < safeCount; i++) {
     const src = i * stride;
     const dst = i * 3;
     positions[dst] = floats[src];
@@ -109,6 +138,7 @@ function heatColor(t) {
  * OpenCV (y-down) and converted with (x, -y, -z) before matrixWorld.
  *
  * Geometry/material are reused across frames to avoid flicker from destroy/create.
+ * Decoded sensor-local arrays are cached so pose-only updates skip base64 decode.
  */
 export class PointCloudVisualizer {
   constructor(scene) {
@@ -118,6 +148,8 @@ export class PointCloudVisualizer {
     this.pointSize = DEFAULT_POINT_SIZE;
     this.opacity = DEFAULT_OPACITY;
     this.lastPayload = null;
+    this._localPos = null;
+    this._localIntensity = null;
     this.intensityRange = { min: null, max: null };
     this._scratchMatrix = new THREE.Matrix4();
     this._scratchVec = new THREE.Vector3();
@@ -133,8 +165,8 @@ export class PointCloudVisualizer {
     if (!camera) return;
     camera.updateWorldMatrix(true, false);
     this._scratchMatrix.copy(camera.matrixWorld);
-    if (this.lastPayload && this.visible) {
-      this.updateFromPayload(this.lastPayload);
+    if (this._localPos && this.visible) {
+      this._applyLocalToWorld();
     }
   }
 
@@ -171,6 +203,8 @@ export class PointCloudVisualizer {
     }
     this._worldPos = null;
     this._keptIntensity = null;
+    this._localPos = null;
+    this._localIntensity = null;
     this.intensityRange = { min: null, max: null };
   }
 
@@ -178,15 +212,35 @@ export class PointCloudVisualizer {
     if (!payload || !payload.points || !payload.count) {
       return;
     }
-    this.lastPayload = payload;
     const stride = payload.stride || 4;
-    const count = payload.count;
-    const { positions: localPos, intensities } = decodePointCloudPayload(
+    if (stride !== 3 && stride !== 4) {
+      return;
+    }
+    const decoded = decodePointCloudPayload(
       payload.points,
-      count,
+      payload.count,
       stride,
     );
+    if (!decoded) {
+      return;
+    }
+    this.lastPayload = payload;
+    this._localPos = decoded.positions;
+    this._localIntensity = decoded.intensities;
+    this._applyLocalToWorld();
+  }
 
+  /**
+   * Transform cached sensor-local points into world coordinates and update
+   * the THREE.Points geometry. Does not re-decode base64.
+   */
+  _applyLocalToWorld() {
+    const localPos = this._localPos;
+    if (!localPos || localPos.length < 3) {
+      return;
+    }
+    const intensities = this._localIntensity;
+    const count = localPos.length / 3;
     const matrix = this._scratchMatrix;
     const needed = count * 3;
     if (!this._worldPos || this._worldPos.length < needed) {

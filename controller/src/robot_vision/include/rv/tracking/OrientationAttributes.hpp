@@ -82,12 +82,15 @@ inline void mergeOrientationAttributes(const TrackedObject &priorState,
   }
 }
 
+// Portable π — avoid M_PI (non-standard; may be undefined without platform macros).
+constexpr double kPi = 3.14159265358979323846;
+
 /**
  * @brief Pick ``yaw`` or ``yaw + π`` closest to ``reference`` (front/back box ambiguity).
  */
 inline double chooseYawTowardReference(double yaw, double reference)
 {
-  const double flipped = yaw + M_PI;
+  const double flipped = yaw + kPi;
   if (std::fabs(rv::angleDifference(flipped, reference))
       < std::fabs(rv::angleDifference(yaw, reference)))
   {

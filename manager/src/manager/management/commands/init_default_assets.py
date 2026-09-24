@@ -3,35 +3,15 @@
 
 from django.core.management.base import BaseCommand
 
+from manager.default_assets import DEFAULT_ASSETS
 from manager.models import Asset3D
 
 
-DEFAULT_ASSETS = [
-  {
-    "name": "vehicle",
-    "x_size": 4.04,
-    "y_size": 1.66,
-    "z_size": 1.55,
-    "tracking_radius": 10.0,
-    "mark_color": "#0099ff",
-    "shift_type": 1,
-    "rotation_from_velocity": True,
-  },
-  {
-    "name": "cyclist",
-    "x_size": 1.85,
-    "y_size": 0.65,
-    "z_size": 1.84,
-    "tracking_radius": 2.0,
-    "mark_color": "#f39c12",
-    "shift_type": 1,
-    "rotation_from_velocity": True,
-  },
-]
-
-
 class Command(BaseCommand):
-  help = "Ensure default Asset3D objects (vehicle, cyclist) exist in the objects library."
+  help = (
+    "Ensure default Asset3D objects (vehicle, cyclist) exist in the objects "
+    "library. Defaults live in manager.default_assets (shared with migration 0005)."
+  )
 
   def handle(self, *args, **options):
     for asset in DEFAULT_ASSETS:
