@@ -5,12 +5,14 @@
 
 import argparse
 import logging
+import os
 
 from auto_camera_calibration_context import CameraCalibrationContext
 from auto_camera_calibration_api import CameraCalibrationApi
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+log_level = os.getenv("LOG_LEVEL", "ERROR").upper()
+logging.basicConfig(level=getattr(logging, log_level, logging.ERROR), force=True)
 log = logging.getLogger("autocalibration")
 
 def build_argparser():
