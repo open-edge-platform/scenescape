@@ -8,6 +8,8 @@ imagePullSecrets:
 prehook: "%PreHookCredential%"
 media:
   storageClassName: openebs-lvmpv-shared
+autocalibration:
+  modelStorageClassName: openebs-lvmpv-shared
 video:
   storageClassName: openebs-lvmpv-shared
 videos:
